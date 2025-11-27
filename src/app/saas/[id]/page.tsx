@@ -1,11 +1,12 @@
+// src/app/saas/[id]/page.tsx
 export const runtime = "edge";
 
-import dynamic from "next/dynamic";
+import SaasDetailClient from "./SaasDetailClient";
 
-const SaasDetailClient = dynamic(() => import("./SaasDetailClient"), {
-  ssr: false,
-});
+type PageProps = {
+  params: { id: string };
+};
 
-export default function SaasDetailPage() {
-  return <SaasDetailClient />;
+export default function SaasDetailPage({ params }: PageProps) {
+  return <SaasDetailClient saasId={params.id} />;
 }
