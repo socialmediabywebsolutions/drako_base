@@ -10,6 +10,8 @@ import { TextInput, TextArea } from "@/components/ui/input";
 import EmptyState from "@/components/ui/empty-state";
 import { setOrchestratorContext } from "@/lib/orchestrator-context";
 
+export const runtime = "edge";
+
 type Saas = {
   id: string;
   name: string;
@@ -209,11 +211,21 @@ export default function SaasDetailPage() {
     }
   }, [saasId]);
 
-  useEffect(() => { void loadSaas(); }, [loadSaas]);
-  useEffect(() => { void loadProvisions(); }, [loadProvisions]);
-  useEffect(() => { void loadSaasAgents(); }, [loadSaasAgents]);
-  useEffect(() => { void loadAlerts(); }, [loadAlerts]);
-  useEffect(() => { void loadMetrics(); }, [loadMetrics]);
+  useEffect(() => {
+    void loadSaas();
+  }, [loadSaas]);
+  useEffect(() => {
+    void loadProvisions();
+  }, [loadProvisions]);
+  useEffect(() => {
+    void loadSaasAgents();
+  }, [loadSaasAgents]);
+  useEffect(() => {
+    void loadAlerts();
+  }, [loadAlerts]);
+  useEffect(() => {
+    void loadMetrics();
+  }, [loadMetrics]);
   useEffect(() => {
     if (!saas) return;
     setOrchestratorContext({
@@ -234,7 +246,9 @@ export default function SaasDetailPage() {
     return (
       <div className="space-y-6">
         <EmptyState title="Selecciona un SaaS" subtitle="Necesitas abrir un SaaS específico para ver su ficha." />
-        <Link href="/saas" className="inline-flex text-[var(--brand)] text-sm font-semibold hover:underline">Abrir listado de SaaS</Link>
+        <Link href="/saas" className="inline-flex text-[var(--brand)] text-sm font-semibold hover:underline">
+          Abrir listado de SaaS
+        </Link>
       </div>
     );
   }
@@ -312,15 +326,25 @@ export default function SaasDetailPage() {
           <div className="flex flex-wrap gap-2 mb-4" aria-label="Formulario de provisión">
             <Select aria-label="Paso de provisión" value={step} onChange={(e) => setStep(e.target.value)}>
               {provisioningSteps.map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
               ))}
             </Select>
             <Select aria-label="Estado del paso" value={status} onChange={(e) => setStatus(e.target.value)}>
               {provisioningStatus.map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
               ))}
             </Select>
-            <TextInput aria-label="Detalles de provisión" className="flex-1" placeholder="Detalles o enlaces" value={details} onChange={(e) => setDetails(e.target.value)} />
+            <TextInput
+              aria-label="Detalles de provisión"
+              className="flex-1"
+              placeholder="Detalles o enlaces"
+              value={details}
+              onChange={(e) => setDetails(e.target.value)}
+            />
             <Button
               onClick={async () => {
                 if (!saasId) return;
@@ -332,7 +356,9 @@ export default function SaasDetailPage() {
                 setDetails("");
                 void loadProvisions();
               }}
-            >Añadir paso</Button>
+            >
+              Añadir paso
+            </Button>
           </div>
           {loadingProv ? (
             <div className="text-sm text-[var(--muted)]">Cargando timeline...</div>
@@ -344,25 +370,39 @@ export default function SaasDetailPage() {
                 <li key={p.id} className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold">{provisioningSteps.find((s) => s.value === p.step)?.label ?? p.step}</p>
-                    <p className="text-xs text-[var(--muted)]">{provisioningStatus.find((s) => s.value === p.status)?.label ?? p.status} • {p.details ?? "Sin detalles"}</p>
+                    <p className="text-xs text-[var(--muted)]">
+                      {provisioningStatus.find((s) => s.value === p.status)?.label ?? p.status} • {p.details ?? "Sin detalles"}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={async () => {
-                        await fetch("/api/provisioning", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: p.id, status: "completed" }) });
+                        await fetch("/api/provisioning", {
+                          method: "PATCH",
+                          headers: { "content-type": "application/json" },
+                          body: JSON.stringify({ id: p.id, status: "completed" }),
+                        });
                         void loadProvisions();
                       }}
-                    >Marcar listo</Button>
+                    >
+                      Marcar listo
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={async () => {
-                        await fetch("/api/provisioning", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: p.id, status: "failed" }) });
+                        await fetch("/api/provisioning", {
+                          method: "PATCH",
+                          headers: { "content-type": "application/json" },
+                          body: JSON.stringify({ id: p.id, status: "failed" }),
+                        });
                         void loadProvisions();
                       }}
-                    >Reportar fallo</Button>
+                    >
+                      Reportar fallo
+                    </Button>
                     <span className="text-[var(--muted)]">{new Date(p.created_at).toLocaleString()}</span>
                   </div>
                 </li>
@@ -378,8 +418,19 @@ export default function SaasDetailPage() {
               <option value="warning">aviso</option>
               <option value="error">crítica</option>
             </Select>
-            <TextInput aria-label="Origen de la alerta" value={aSource} onChange={(e) => setASource(e.target.value)} placeholder="Origen (p. ej. Ingeniería)" />
-            <TextArea aria-label="Mensaje de alerta" className="sm:col-span-2" value={aMessage} onChange={(e) => setAMessage(e.target.value)} placeholder="Describe la alerta" />
+            <TextInput
+              aria-label="Origen de la alerta"
+              value={aSource}
+              onChange={(e) => setASource(e.target.value)}
+              placeholder="Origen (p. ej. Ingeniería)"
+            />
+            <TextArea
+              aria-label="Mensaje de alerta"
+              className="sm:col-span-2"
+              value={aMessage}
+              onChange={(e) => setAMessage(e.target.value)}
+              placeholder="Describe la alerta"
+            />
             <div className="sm:col-span-2 flex justify-end">
               <Button
                 onClick={async () => {
@@ -392,7 +443,9 @@ export default function SaasDetailPage() {
                   setAMessage("");
                   void loadAlerts();
                 }}
-              >Registrar alerta</Button>
+              >
+                Registrar alerta
+              </Button>
             </div>
           </div>
           {alertsLoading ? (
@@ -405,9 +458,13 @@ export default function SaasDetailPage() {
                 <li key={alert.id} className="card p-3 flex items-center justify-between">
                   <div className="min-w-0">
                     <p className="font-medium">{alert.message}</p>
-                    <p className="text-xs text-[var(--muted)]">{alert.source} • {new Date(alert.created_at).toLocaleString()}</p>
+                    <p className="text-xs text-[var(--muted)]">
+                      {alert.source} • {new Date(alert.created_at).toLocaleString()}
+                    </p>
                   </div>
-                  <Badge variant={severityMap[alert.severity]?.badge ?? "info"}>{severityMap[alert.severity]?.label ?? alert.severity}</Badge>
+                  <Badge variant={severityMap[alert.severity]?.badge ?? "info"}>
+                    {severityMap[alert.severity]?.label ?? alert.severity}
+                  </Badge>
                 </li>
               ))}
             </ul>
@@ -418,10 +475,34 @@ export default function SaasDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card tone="glass" title="Métricas específicas" subtitle="Registra consumos de IA ligados a este SaaS">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-            <TextInput aria-label="Scope de la métrica" value={mScope} onChange={(e) => setMScope(e.target.value)} placeholder="Scope" />
-            <TextInput aria-label="Tokens" type="number" value={mTokens} onChange={(e) => setMTokens(Number(e.target.value))} placeholder="Tokens" />
-            <TextInput aria-label="Coste en céntimos" type="number" value={mCost} onChange={(e) => setMCost(Number(e.target.value))} placeholder="Coste (cent)" />
-            <TextInput aria-label="ROI" type="number" step="0.01" value={mRoi} onChange={(e) => setMRoi(Number(e.target.value))} placeholder="ROI" />
+            <TextInput
+              aria-label="Scope de la métrica"
+              value={mScope}
+              onChange={(e) => setMScope(e.target.value)}
+              placeholder="Scope"
+            />
+            <TextInput
+              aria-label="Tokens"
+              type="number"
+              value={mTokens}
+              onChange={(e) => setMTokens(Number(e.target.value))}
+              placeholder="Tokens"
+            />
+            <TextInput
+              aria-label="Coste en céntimos"
+              type="number"
+              value={mCost}
+              onChange={(e) => setMCost(Number(e.target.value))}
+              placeholder="Coste (cent)"
+            />
+            <TextInput
+              aria-label="ROI"
+              type="number"
+              step="0.01"
+              value={mRoi}
+              onChange={(e) => setMRoi(Number(e.target.value))}
+              placeholder="ROI"
+            />
             <div className="md:col-span-4 flex justify-end">
               <Button
                 onClick={async () => {
@@ -436,7 +517,9 @@ export default function SaasDetailPage() {
                   setMRoi(0);
                   void loadMetrics();
                 }}
-              >Guardar métrica</Button>
+              >
+                Guardar métrica
+              </Button>
             </div>
           </div>
           {metricsLoading ? (
@@ -473,12 +556,20 @@ export default function SaasDetailPage() {
 
         <Card tone="glass" title="Agentes asignados" subtitle="Equipo base automático por departamento">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
-            <Select aria-label="Filtrar agentes por departamento" value={filterDept} onChange={(e) => setFilterDept(e.target.value)}>
+            <Select
+              aria-label="Filtrar agentes por departamento"
+              value={filterDept}
+              onChange={(e) => setFilterDept(e.target.value)}
+            >
               <option value="">Todos los departamentos</option>
               {Array.from(new Set(saasAgents.map((agent) => agent.dept_id))).map((deptId) => {
                 const item = saasAgents.find((agent) => agent.dept_id === deptId);
                 if (!item) return null;
-                return <option key={deptId} value={deptId}>{item.dept_nombre}</option>;
+                return (
+                  <option key={deptId} value={deptId}>
+                    {item.dept_nombre}
+                  </option>
+                );
               })}
             </Select>
           </div>
@@ -500,21 +591,36 @@ export default function SaasDetailPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-base font-semibold">{dept.dept_nombre}</h3>
-                      <p className="text-xs text-[var(--muted)]">{dept.dept_descripcion ?? "Departamento base del Campamento."}</p>
+                      <p className="text-xs text-[var(--muted)]">
+                        {dept.dept_descripcion ?? "Departamento base del Campamento."}
+                      </p>
                     </div>
-                    <Badge variant={dept.dept_es_critico ? "err" : "info"}>{dept.dept_es_critico ? "crítico" : "operativo"}</Badge>
+                    <Badge variant={dept.dept_es_critico ? "err" : "info"}>
+                      {dept.dept_es_critico ? "crítico" : "operativo"}
+                    </Badge>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
                     {agents.map((agent) => (
-                      <article key={agent.id} className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/70 p-4">
+                      <article
+                        key={agent.id}
+                        className="rounded-xl border border-[var(--border)] bg-[var(--panel)]/70 p-4"
+                      >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div>
                             <p className="font-semibold">{agent.agent_nombre}</p>
                             <p className="text-xs text-[var(--muted)] capitalize">Tipo: {agent.agent_tipo}</p>
                           </div>
-                          <Badge variant={agent.estado === "activo" ? "ok" : agent.estado === "pausado" ? "warn" : "info"}>{agent.estado}</Badge>
+                          <Badge
+                            variant={
+                              agent.estado === "activo" ? "ok" : agent.estado === "pausado" ? "warn" : "info"
+                            }
+                          >
+                            {agent.estado}
+                          </Badge>
                         </div>
-                        <p className="mt-2 text-sm text-[var(--foreground)]">{agent.agent_descripcion ?? "Agente listo para ejecutar tareas del departamento."}</p>
+                        <p className="mt-2 text-sm text-[var(--foreground)]">
+                          {agent.agent_descripcion ?? "Agente listo para ejecutar tareas del departamento."}
+                        </p>
                         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">
                           <span>ID asignación: {agent.id}</span>
                           <span>Slug: {agent.agent_slug}</span>
