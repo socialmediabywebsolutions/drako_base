@@ -1,12 +1,19 @@
 // src/app/saas/[id]/page.tsx
-export const runtime = "edge";
-
 import SaasDetailClient from "./SaasDetailClient";
 
+export const runtime = "edge";
+
 type PageProps = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{
+    [key: string]: string | string[] | undefined;
+  }>;
 };
 
-export default function SaasDetailPage({ params }: PageProps) {
-  return <SaasDetailClient saasId={params.id} />;
+export default async function Page({ params }: PageProps) {
+  const { id } = await params;
+
+  const saasId = typeof id === "string" ? id : "";
+
+  return <SaasDetailClient saasId={saasId} />;
 }
