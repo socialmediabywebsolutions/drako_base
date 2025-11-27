@@ -37,7 +37,6 @@ type Alert = {
   message: string;
   created_at: string;
 };
-
 type Metric = {
   id: number;
   scope: string;
@@ -46,7 +45,6 @@ type Metric = {
   roi: number;
   captured_at: string;
 };
-
 type SaasAgent = {
   id: string;
   core_agent_id: string;
@@ -64,7 +62,10 @@ type SaasAgent = {
   dept_es_critico: number;
 };
 
-const severityMap: Record<string, { label: string; badge: "info" | "warn" | "err" }> = {
+const severityMap: Record<
+  string,
+  { label: string; badge: "info" | "warn" | "err" }
+> = {
   info: { label: "informativa", badge: "info" },
   warning: { label: "aviso", badge: "warn" },
   error: { label: "crítica", badge: "err" },
@@ -150,16 +151,22 @@ export default function SaasDetailClient() {
     const alertsEvents = alerts.map((a) => ({
       kind: "alert" as const,
       ts: new Date(a.created_at).getTime(),
-      title: `${severityMap[a.severity]?.label ?? a.severity} • ${a.source}`,
+      title: `${severityMap[a.severity]?.label ?? a.severity} • ${
+        a.source
+      }`,
       detail: a.message,
     }));
     const metricsEvents = metrics.map((m) => ({
       kind: "metric" as const,
       ts: new Date(m.captured_at).getTime(),
       title: "Métrica registrada",
-      detail: `${m.token_count} tokens • ${(m.ai_cost_cents / 100).toFixed(2)} € • ROI ${m.roi.toFixed(2)}`,
+      detail: `${m.token_count} tokens • ${(m.ai_cost_cents / 100).toFixed(
+        2
+      )} € • ROI ${m.roi.toFixed(2)}`,
     }));
-    return [...alertsEvents, ...metricsEvents].sort((a, b) => b.ts - a.ts).slice(0, 30);
+    return [...alertsEvents, ...metricsEvents]
+      .sort((a, b) => b.ts - a.ts)
+      .slice(0, 30);
   }, [alerts, metrics]);
 
   const loadSaas = useCallback(async () => {
@@ -179,9 +186,10 @@ export default function SaasDetailClient() {
     if (!saasId) return;
     setLoadingProv(true);
     try {
-      const res = await fetch(`/api/provisioning?saas_id=${encodeURIComponent(saasId)}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(
+        `/api/provisioning?saas_id=${encodeURIComponent(saasId)}`,
+        { cache: "no-store" }
+      );
       const data = (await res.json()) as { items?: Provision[] };
       setProvisions(data.items ?? []);
     } finally {
@@ -193,9 +201,10 @@ export default function SaasDetailClient() {
     if (!saasId) return;
     setAgentsLoading(true);
     try {
-      const res = await fetch(`/api/saas-agents?saas_id=${encodeURIComponent(saasId)}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(
+        `/api/saas-agents?saas_id=${encodeURIComponent(saasId)}`,
+        { cache: "no-store" }
+      );
       const data = (await res.json()) as { items?: SaasAgent[] };
       setSaasAgents(data.items ?? []);
     } finally {
@@ -207,9 +216,10 @@ export default function SaasDetailClient() {
     if (!saasId) return;
     setAlertsLoading(true);
     try {
-      const res = await fetch(`/api/alerts?saas_id=${encodeURIComponent(saasId)}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(
+        `/api/alerts?saas_id=${encodeURIComponent(saasId)}`,
+        { cache: "no-store" }
+      );
       const data = (await res.json()) as { items?: Alert[] };
       setAlerts(data.items ?? []);
     } finally {
@@ -222,9 +232,10 @@ export default function SaasDetailClient() {
     setMetricsLoading(true);
     try {
       const scope = `saas:${saasId}`;
-      const res = await fetch(`/api/metrics?scope=${encodeURIComponent(scope)}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(
+        `/api/metrics?scope=${encodeURIComponent(scope)}`,
+        { cache: "no-store" }
+      );
       const data = (await res.json()) as { items?: Metric[] };
       setMetrics(data.items ?? []);
       setMScope(scope);
@@ -236,19 +247,15 @@ export default function SaasDetailClient() {
   useEffect(() => {
     void loadSaas();
   }, [loadSaas]);
-
   useEffect(() => {
     void loadProvisions();
   }, [loadProvisions]);
-
   useEffect(() => {
     void loadSaasAgents();
   }, [loadSaasAgents]);
-
   useEffect(() => {
     void loadAlerts();
   }, [loadAlerts]);
-
   useEffect(() => {
     void loadMetrics();
   }, [loadMetrics]);
@@ -293,7 +300,9 @@ export default function SaasDetailClient() {
           <p className="text-sm uppercase tracking-[0.3em] text-[var(--muted)]">
             Campamento Base • SaaS
           </p>
-          <h1 className="text-3xl font-semibold">{saas?.name ?? "SaaS en provisión"}</h1>
+          <h1 className="text-3xl font-semibold">
+            {saas?.name ?? "SaaS en provisión"}
+          </h1>
           <p className="text-sm text-[var(--muted)]">ID: {saasId}</p>
         </div>
         <Link href="/saas">
@@ -309,7 +318,9 @@ export default function SaasDetailClient() {
           className="lg:col-span-2"
         >
           {loadingSaas ? (
-            <div className="text-sm text-[var(--muted)]">Cargando datos del SaaS...</div>
+            <div className="text-sm text-[var(--muted)]">
+              Cargando datos del SaaS...
+            </div>
           ) : !saas ? (
             <EmptyState
               title="No encontrado"
@@ -326,7 +337,9 @@ export default function SaasDetailClient() {
                 <dd className="font-medium">{saas.slug}</dd>
               </div>
               <div>
-                <dt className="text-[var(--muted)]">Dominio o subdominio</dt>
+                <dt className="text-[var(--muted)]">
+                  Dominio o subdominio
+                </dt>
                 <dd className="font-medium">{domainDisplay}</dd>
               </div>
               <div>
@@ -365,15 +378,24 @@ export default function SaasDetailClient() {
           ) : (
             <ul className="space-y-3 text-sm">
               {activity.map((item, idx) => (
-                <li key={idx} className="flex items_start justify-between gap-3">
+                <li
+                  key={idx}
+                  className="flex items-start justify-between gap-3"
+                >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <Badge variant={item.kind === "alert" ? "warn" : "info"}>
+                      <Badge
+                        variant={item.kind === "alert" ? "warn" : "info"}
+                      >
                         {item.kind === "alert" ? "alerta" : "métrica"}
                       </Badge>
-                      <span className="font-medium text-sm">{item.title}</span>
+                      <span className="font-medium text-sm">
+                        {item.title}
+                      </span>
                     </div>
-                    <p className="text-[var(--muted)] break-words">{item.detail}</p>
+                    <p className="text-[var(--muted)] break-words">
+                      {item.detail}
+                    </p>
                   </div>
                   <span className="text-[var(--muted)] text-xs whitespace-nowrap">
                     {new Date(item.ts).toLocaleString()}
@@ -386,7 +408,11 @@ export default function SaasDetailClient() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <Card tone="glass" title="Provisión" subtitle="Pasos del creador de SaaS">
+        <Card
+          tone="glass"
+          title="Provisión"
+          subtitle="Pasos del creador de SaaS"
+        >
           <div
             className="flex flex-wrap gap-2 mb-4"
             aria-label="Formulario de provisión"
@@ -441,7 +467,9 @@ export default function SaasDetailClient() {
             </Button>
           </div>
           {loadingProv ? (
-            <div className="text-sm text-[var(--muted)]">Cargando timeline...</div>
+            <div className="text-sm text-[var(--muted)]">
+              Cargando timeline...
+            </div>
           ) : provisions.length === 0 ? (
             <EmptyState
               title="Sin registros"
@@ -456,12 +484,16 @@ export default function SaasDetailClient() {
                 >
                   <div>
                     <p className="text-sm font-semibold">
-                      {provisioningSteps.find((s) => s.value === p.step)?.label ??
-                        p.step}
+                      {
+                        provisioningSteps.find((s) => s.value === p.step)
+                          ?.label ?? p.step
+                      }
                     </p>
                     <p className="text-xs text-[var(--muted)]">
-                      {provisioningStatus.find((s) => s.value === p.status)
-                        ?.label ?? p.status}{" "}
+                      {
+                        provisioningStatus.find((s) => s.value === p.status)
+                          ?.label ?? p.status
+                      }{" "}
                       • {p.details ?? "Sin detalles"}
                     </p>
                   </div>
@@ -510,7 +542,11 @@ export default function SaasDetailClient() {
           )}
         </Card>
 
-        <Card tone="glass" title="Alertas del SaaS" subtitle="Mensajes críticos por módulo">
+        <Card
+          tone="glass"
+          title="Alertas del SaaS"
+          subtitle="Mensajes críticos por módulo"
+        >
           <div
             className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4"
             aria-label="Formulario de alertas"
@@ -560,23 +596,34 @@ export default function SaasDetailClient() {
             </div>
           </div>
           {alertsLoading ? (
-            <div className="text-sm text-[var(--muted)]">Cargando alertas...</div>
+            <div className="text-sm text-[var(--muted)]">
+              Cargando alertas...
+            </div>
           ) : alerts.length === 0 ? (
             <EmptyState
               title="Sin alertas"
               subtitle="No se han creado alertas para este SaaS"
             />
           ) : (
-            <ul className="space-y-3 text-sm" aria-label="Listado de alertas">
+            <ul
+              className="space-y-3 text-sm"
+              aria-label="Listado de alertas"
+            >
               {alerts.map((alert) => (
-                <li key={alert.id} className="card p-3 flex items-center justify-between">
+                <li
+                  key={alert.id}
+                  className="card p-3 flex items-center justify-between"
+                >
                   <div className="min-w-0">
                     <p className="font-medium">{alert.message}</p>
                     <p className="text-xs text-[var(--muted)]">
-                      {alert.source} • {new Date(alert.created_at).toLocaleString()}
+                      {alert.source} •{" "}
+                      {new Date(alert.created_at).toLocaleString()}
                     </p>
                   </div>
-                  <Badge variant={severityMap[alert.severity]?.badge ?? "info"}>
+                  <Badge
+                    variant={severityMap[alert.severity]?.badge ?? "info"}
+                  >
                     {severityMap[alert.severity]?.label ?? alert.severity}
                   </Badge>
                 </li>
@@ -646,7 +693,9 @@ export default function SaasDetailClient() {
             </div>
           </div>
           {metricsLoading ? (
-            <div className="text-sm text-[var(--muted)]">Cargando métricas...</div>
+            <div className="text-sm text-[var(--muted)]">
+              Cargando métricas...
+            </div>
           ) : metrics.length === 0 ? (
             <EmptyState
               title="Sin métricas"
@@ -654,7 +703,10 @@ export default function SaasDetailClient() {
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="modern text-sm" aria-label="Tabla de métricas del SaaS">
+              <table
+                className="modern text-sm"
+                aria-label="Tabla de métricas del SaaS"
+              >
                 <thead>
                   <tr>
                     <th>Fecha</th>
@@ -667,7 +719,9 @@ export default function SaasDetailClient() {
                 <tbody>
                   {metrics.map((metric) => (
                     <tr key={metric.id}>
-                      <td>{new Date(metric.captured_at).toLocaleString()}</td>
+                      <td>
+                        {new Date(metric.captured_at).toLocaleString()}
+                      </td>
                       <td>{metric.scope}</td>
                       <td>{metric.token_count}</td>
                       <td>{(metric.ai_cost_cents / 100).toFixed(2)}</td>
@@ -708,7 +762,9 @@ export default function SaasDetailClient() {
             </Select>
           </div>
           {agentsLoading ? (
-            <div className="text-sm text-[var(--muted)]">Cargando agentes...</div>
+            <div className="text-sm text-[var(--muted)]">
+              Cargando agentes...
+            </div>
           ) : saasAgents.length === 0 ? (
             <EmptyState
               title="Sin agentes"
@@ -721,9 +777,8 @@ export default function SaasDetailClient() {
                   Record<string, { dept: SaasAgent; agents: SaasAgent[] }>
                 >((acc, agent) => {
                   if (filterDept && agent.dept_id !== filterDept) return acc;
-                  if (!acc[agent.dept_id]) {
+                  if (!acc[agent.dept_id])
                     acc[agent.dept_id] = { dept: agent, agents: [] };
-                  }
                   acc[agent.dept_id].agents.push(agent);
                   return acc;
                 }, {})
