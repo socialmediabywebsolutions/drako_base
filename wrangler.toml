@@ -1,0 +1,11 @@
+name = "drako-systems"
+compatibility_date = "2024-11-01"
+
+[assets]
+# next-on-pages will output static assets into .vercel/output/static
+# pages dev/deploy commands will use this path
+
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db"
+database_id = "10146888-ca79-41d6-b6c2-bf1025eb651b"

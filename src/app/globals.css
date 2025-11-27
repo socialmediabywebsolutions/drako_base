@@ -1,26 +1,159 @@
 @import "tailwindcss";
 
+/* Design tokens */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f7fb;
+  --background-alt: #ecf4ff;
+  --foreground: #0f172a;
+  --muted: #6b7280;
+  --panel: #ffffff;
+  --panel-alt: #f1f5f9;
+  --border: #e2e8f0;
+  --brand: #4cc9f0;
+  --brand-quiet: #e6f7ff;
+  --brand-strong: #0ea5e9;
+  --success: #10b981;
+  --warning: #fbbf24;
+  --danger: #ef4444;
+  --shadow-soft: 0 20px 60px rgb(15 23 42 / 0.08);
+  --shadow-glass: 0 30px 80px rgb(12 74 110 / 0.15);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Dark theme overrides (applied when html has class "dark") */
+.dark {
+  --background: #060c1b;
+  --background-alt: #0b152c;
+  --foreground: #e2e8f0;
+  --muted: #94a3b8;
+  --panel: #0f172a;
+  --panel-alt: #111b2e;
+  --border: #1f2937;
+  --brand: #4cc9f0;
+  --brand-quiet: #092d49;
+  --brand-strong: #7dd3fc;
+  --shadow-soft: 0 20px 60px rgb(0 0 0 / 0.45);
+  --shadow-glass: 0 30px 80px rgb(4 55 84 / 0.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
+  background: radial-gradient(circle at top, color-mix(in srgb, var(--brand-quiet) 65%, transparent), transparent 55%), var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, var(--font-geist-sans), sans-serif;
+  font-feature-settings: "liga" on, "calt" on;
+  min-height: 100vh;
 }
+
+a {
+  color: inherit;
+}
+
+/* Panels, cards and borders */
+.card {
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+  border-radius: 20px;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(12px);
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+.card:hover {
+  border-color: color-mix(in srgb, var(--border) 30%, var(--brand) 70%);
+  box-shadow: var(--shadow-glass);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  border-bottom: 1px solid var(--border);
+  padding: 1.25rem;
+}
+
+.card-content {
+  padding: 1.5rem;
+}
+
+.glass-panel {
+  background: linear-gradient(130deg, color-mix(in srgb, var(--panel) 90%, transparent), color-mix(in srgb, var(--brand-quiet) 70%, transparent));
+  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--brand) 40%);
+  border-radius: 22px;
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: blur(18px);
+}
+
+.grid-auto-panels {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.fade-in {
+  animation: fadeIn 280ms ease forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Tables */
+table.modern {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+table.modern thead th {
+  text-align: left;
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+table.modern tbody td {
+  padding: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+table.modern tbody tr:hover {
+  background: color-mix(in srgb, var(--brand-quiet) 30%, transparent);
+}
+
+/* Inputs */
+.input {
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
+  color: var(--foreground);
+  border-radius: 12px;
+  padding: 0.6rem 0.85rem;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.input:focus { outline: none; border-color: color-mix(in srgb, var(--brand) 60%, var(--border) 40%); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent); }
+
+.tag-pill {
+  border-radius: 999px;
+  padding: 0.15rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 0.5rem; border-radius: 10px; padding: 0.5rem 0.9rem;
+  font-weight: 600; border: 1px solid transparent;
+}
+.btn-primary { background: var(--brand); color: white; }
+.btn-primary:hover { filter: brightness(0.95); }
+.btn-outline { border-color: var(--border); background: transparent; color: var(--foreground); }
+.btn-outline:hover { background: var(--brand-quiet); }
+
+/* Badges */
+.badge { border-radius: 999px; padding: 0.15rem 0.5rem; font-size: 0.7rem; font-weight: 600; }
+.badge-info { background: var(--brand-quiet); color: var(--brand); }
+.badge-warn { background: #fef3c7; color: #b45309; }
+.badge-err { background: #fee2e2; color: #b91c1c; }
