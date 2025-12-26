@@ -35,6 +35,9 @@ CREATE INDEX IF NOT EXISTS idx_employee_contracts_tenant_saas ON employee_contra
 CREATE INDEX IF NOT EXISTS idx_employee_contracts_employee ON employee_contracts(employee_id);
 
 -- Weekly schedules per employee
+DROP INDEX IF EXISTS idx_employee_schedules_employee;
+DROP TABLE IF EXISTS employee_schedules;
+
 CREATE TABLE IF NOT EXISTS employee_schedules (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL,

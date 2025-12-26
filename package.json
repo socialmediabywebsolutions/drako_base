@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "qa": "npm run lint && npm run build",
-    "devarchitect:audit": "tsc --project tsconfig.scripts.json && node scripts/.dist/devarchitect-audit.js"
+    "devarchitect:audit": "tsc --project tsconfig.scripts.json && node scripts/.dist/devarchitect-audit.js",
+    "cf:build": "cross-env NEXT_ON_PAGES_PACKAGE_MANAGER=npm next-on-pages",
+    "cf:preview": "cross-env NEXT_ON_PAGES_PACKAGE_MANAGER=npm wrangler pages dev .vercel/output/static --d1=DRACO_DB",
+    "cf:deploy": "wrangler pages deploy .vercel/output/static"
   },
   "dependencies": {
     "@cloudflare/next-on-pages": "^1.13.0",
@@ -25,6 +28,7 @@
     "@types/node": "^20.17.9",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "cross-env": "^7.0.3",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
     "tailwindcss": "^4",

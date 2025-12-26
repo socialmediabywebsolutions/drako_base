@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS saas_social_accounts (
   display_name TEXT,
   status TEXT NOT NULL,
   auth_meta TEXT,
-  primary INTEGER NOT NULL DEFAULT 0,
+  is_primary INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

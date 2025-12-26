@@ -41,8 +41,14 @@ SELECT
   'month',
   7900,
   'EUR',
-  NULL,
-  NULL,
+  COALESCE(
+    (SELECT stripe_product_id FROM saas_plans WHERE id = 'plan_drako_clinic_starter'),
+    'local_drako_clinic_product'
+  ),
+  COALESCE(
+    (SELECT stripe_price_id FROM saas_plans WHERE id = 'plan_drako_clinic_starter'),
+    'local_drako_clinic_price'
+  ),
   'active',
   strftime('%Y-%m-%dT%H:%M:%fZ','now'),
   strftime('%Y-%m-%dT%H:%M:%fZ','now')
