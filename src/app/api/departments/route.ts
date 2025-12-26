@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { queryAll } from "@/lib/db";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { env } from "@/lib/cf";
+import { getCampamentoCoreDepartmentsCatalog } from "@/lib/campamento-base";
+import { DatabaseUnavailableError } from "@/lib/db";
+import { respondDatabaseError } from "@/lib/http/errors";
 
 export const runtime = "edge";
 
 type Department = { id: string; name: string; description: string | null };
+
+const allowDevFallback = process.env.NODE_ENV !== "production";
 
 function authErrorResponse(error: unknown) {
   if (error instanceof UnauthorizedError) {
@@ -16,14 +22,29 @@ function authErrorResponse(error: unknown) {
 export async function GET(req: Request) {
   try {
     const { tenantId } = await requireTenantAccess(req);
-    const items = await queryAll<Department>(
-      "SELECT id, name, description FROM departments WHERE tenant_id = ? ORDER BY name ASC",
-      tenantId
-    );
-    return NextResponse.json({ items, count: items.length });
+    const hasDb = Boolean(env()?.DRACO_DB);
+    if (!hasDb) {
+      if (!allowDevFallback) {
+        throw new DatabaseUnavailableError("binding-missing");
+      }
+      const items = getCampamentoCoreDepartmentsCatalog().map(
+        (dept) =>
+          ({
+            id: dept.id,
+            name: dept.nombre,
+            description: dept.descripcion,
+          }) satisfies Department
+      );
+      return NextResponse.json({ items, count: items.length, demoFallback: true, tenantId });
+    }
+
+    const items = await queryAll<Department>("SELECT id, name, description FROM departments WHERE tenant_id = ? ORDER BY name ASC", tenantId);
+    return NextResponse.json({ items, count: items.length, tenantId });
   } catch (error) {
     const response = authErrorResponse(error);
     if (response) return response;
+    const dbError = respondDatabaseError(error);
+    if (dbError) return dbError;
     console.error("DEPARTMENTS_GET_ERROR", error);
     return NextResponse.json({ ok: false, error: "Internal admin error" }, { status: 500 });
   }

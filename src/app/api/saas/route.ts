@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { queryAll, run } from "@/lib/db";
+import { queryAll, run, DatabaseUnavailableError } from "@/lib/db";
 import { ensureCampamentoBase } from "@/lib/campamento-base";
 import { env as resolveEnv } from "@/lib/cf";
 import { createSaasFromBlueprint } from "@/lib/campamento-base/saas-factory-orchestrator";
 import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-types";
 import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { env } from "@/lib/cf";
+import { respondDatabaseError } from "@/lib/http/errors";
 
 export const runtime = "edge";
 
@@ -30,10 +32,36 @@ function authErrorResponse(error: unknown) {
   return null;
 }
 
+const inMemorySaas = new Map<string, Saas[]>();
+const allowDevFallback = process.env.NODE_ENV !== "production";
+
 export async function GET(req: Request) {
   try {
     await ensureCampamentoBase();
     const { tenantId } = await requireTenantAccess(req);
+    const hasDb = Boolean(env()?.DRACO_DB);
+    if (!hasDb) {
+      if (!allowDevFallback) {
+        throw new DatabaseUnavailableError("binding-missing");
+      }
+      const sample = inMemorySaas.get(tenantId) ?? [
+        {
+          id: "demo-saas",
+          name: "Demo SaaS",
+          slug: "demo-saas",
+          domain: null,
+          subdomain: "demo",
+          status: "inactive",
+          public_domain: null,
+          public_subdomain: "demo",
+          domain_status: "unconfigured",
+          created_at: new Date().toISOString(),
+          tenant_id: tenantId,
+        },
+      ];
+      inMemorySaas.set(tenantId, sample);
+      return NextResponse.json({ items: sample, count: sample.length, demoFallback: true, tenantId });
+    }
     const items = await queryAll<Saas>(
       `SELECT id, name, slug, domain, subdomain, status, public_domain, public_subdomain, domain_status, created_at, tenant_id
        FROM saas WHERE tenant_id = ? ORDER BY created_at DESC`,
@@ -43,6 +71,8 @@ export async function GET(req: Request) {
   } catch (error) {
     const response = authErrorResponse(error);
     if (response) return response;
+    const dbError = respondDatabaseError(error);
+    if (dbError) return dbError;
     console.error("SAAS_GET_ERROR", error);
     return NextResponse.json({ ok: false, error: "Internal admin error" }, { status: 500 });
   }
@@ -52,6 +82,13 @@ export async function PATCH(req: Request) {
   try {
     await ensureCampamentoBase();
     const { tenantId } = await requireTenantAccess(req);
+    const hasDb = Boolean(env()?.DRACO_DB);
+    if (!hasDb) {
+      if (!allowDevFallback) {
+        throw new DatabaseUnavailableError("binding-missing");
+      }
+      return NextResponse.json({ error: "Database not configured", demoFallback: true }, { status: 501 });
+    }
     const body = (await req.json().catch(() => null)) as {
       id?: string;
       name?: string;
@@ -95,6 +132,8 @@ export async function PATCH(req: Request) {
   } catch (error) {
     const response = authErrorResponse(error);
     if (response) return response;
+    const dbError = respondDatabaseError(error);
+    if (dbError) return dbError;
     console.error("SAAS_PATCH_ERROR", error);
     return NextResponse.json({ ok: false, error: "Internal admin error" }, { status: 500 });
   }
@@ -104,6 +143,7 @@ export async function POST(req: Request) {
   await ensureCampamentoBase();
   const auth = await requireTenantAccess(req);
   const tenantId = auth.tenantId;
+  const hasDb = Boolean(env()?.DRACO_DB);
   const body = (await req.json().catch(() => null)) as {
     name?: string;
     slug?: string;
@@ -112,6 +152,12 @@ export async function POST(req: Request) {
   } | null;
 
   if (body?.blueprintDraft) {
+    if (!hasDb) {
+      if (!allowDevFallback) {
+        throw new DatabaseUnavailableError("binding-missing");
+      }
+      return NextResponse.json({ error: "Database not configured", demoFallback: true }, { status: 501 });
+    }
     const draft = body.blueprintDraft;
     const fallbackSlug = draft.proposedSlug ?? body.slug ?? "nuevo-saas";
     const blueprint: SaasBlueprintDraft = withCampamentoBaseProfile({
@@ -162,6 +208,29 @@ export async function POST(req: Request) {
 
   if (!body || !body.name || !body.slug) {
     return NextResponse.json({ error: "name and slug are required" }, { status: 400 });
+  }
+
+  if (!hasDb) {
+    if (!allowDevFallback) {
+      throw new DatabaseUnavailableError("binding-missing");
+    }
+    const tenantSaas = inMemorySaas.get(tenantId) ?? [];
+    const id = body.slug ?? `saas_${Date.now()}`;
+    const saasRecord: Saas = {
+      id,
+      name: body.name,
+      slug: body.slug,
+      domain: body.domain ?? null,
+      subdomain: body.slug ?? null,
+      status: "inactive",
+      public_domain: null,
+      public_subdomain: body.slug ?? null,
+      domain_status: "unconfigured",
+      created_at: new Date().toISOString(),
+      tenant_id: tenantId,
+    };
+    inMemorySaas.set(tenantId, [saasRecord, ...tenantSaas]);
+    return NextResponse.json({ ok: true, id, demoFallback: true });
   }
 
   const id = (globalThis.crypto?.randomUUID?.() ?? `saas_${Date.now()}`);
@@ -228,6 +297,8 @@ export async function POST(req: Request) {
     await cleanup(createdRecords);
     const response = authErrorResponse(error);
     if (response) return response;
+    const dbError = respondDatabaseError(error);
+    if (dbError) return dbError;
     return NextResponse.json({ error: "No se pudo completar la creación del SaaS" }, { status: 500 });
   }
 }

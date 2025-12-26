@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { queryAll, run } from "@/lib/db";
+import { queryAll, run, DatabaseUnavailableError } from "@/lib/db";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { env } from "@/lib/cf";
+import { respondDatabaseError } from "@/lib/http/errors";
 
 export const runtime = "edge";
 
@@ -16,6 +17,7 @@ type Agent = {
 };
 
 const inMemoryAgents = new Map<string, Agent[]>();
+const allowDevFallback = process.env.NODE_ENV !== "production";
 
 function authErrorResponse(error: unknown) {
   if (error instanceof UnauthorizedError) {
@@ -30,6 +32,9 @@ export async function GET(req: Request) {
     const bindings = env();
 
     if (!bindings || !bindings.DRACO_DB) {
+      if (!allowDevFallback) {
+        throw new DatabaseUnavailableError("binding-missing");
+      }
       const url = new URL(req.url);
       const departmentId = url.searchParams.get("department_id");
       const tenantAgents = inMemoryAgents.get(tenantId) ?? [];
@@ -51,6 +56,8 @@ export async function GET(req: Request) {
   } catch (error) {
     const response = authErrorResponse(error);
     if (response) return response;
+    const dbError = respondDatabaseError(error);
+    if (dbError) return dbError;
     console.error("AGENTS_GET_ERROR", error);
     return NextResponse.json({ ok: false, error: "Internal admin error" }, { status: 500 });
   }
@@ -102,6 +109,8 @@ export async function POST(req: Request) {
   } catch (error) {
     const response = authErrorResponse(error);
     if (response) return response;
+    const dbError = respondDatabaseError(error);
+    if (dbError) return dbError;
     console.error("AGENTS_POST_ERROR", error);
     return NextResponse.json({ ok: false, error: "Internal admin error" }, { status: 500 });
   }
