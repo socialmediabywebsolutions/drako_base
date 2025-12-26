@@ -6,7 +6,7 @@ import { queryAll } from "@/lib/db";
 import { listDemoClients, listDemoSaas, listDemoClientSaas } from "@/lib/admin/demo-data";
 import { getRequestBaseUrl } from "@/lib/http/base-url";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 function getPriceId(): string {
   if (process.env.DRAKO_BASE_STARTER_PRICE_ID) {

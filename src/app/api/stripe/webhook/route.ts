@@ -19,7 +19,7 @@ import {
 } from "@/lib/billing/stripe-webhook-repository";
 import { ensureStripeWebhookDedupe } from "@/lib/billing/stripe-webhook-processor";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 function getWebhookSecret(): string {
   if (typeof process !== "undefined" && process.env.STRIPE_WEBHOOK_SECRET) {
