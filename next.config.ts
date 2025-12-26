@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Ensure tracing resolves packages from the workspace root when running inside monorepo-like setups.
+  outputFileTracingRoot: __dirname,
 };
 
 export default nextConfig;

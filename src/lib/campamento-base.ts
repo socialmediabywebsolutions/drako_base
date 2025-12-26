@@ -1,4 +1,4 @@
-import { run } from "@/lib/db";
+import { queryAll, run } from "@/lib/db";
 
 const departments = [
   {
@@ -73,86 +73,228 @@ const departments = [
   },
 ];
 
+export function getCampamentoCoreDepartmentsCatalog() {
+  return departments.map((dept) => ({
+    id: dept.id,
+    slug: dept.slug,
+    nombre: dept.nombre,
+    descripcion: dept.descripcion,
+    es_critico: dept.esCritico,
+  }));
+}
+
+export function getCampamentoCoreAgentsCatalog() {
+  return agents.map((agent) => ({
+    id: agent.id,
+    department_id: agent.department,
+    slug: agent.slug,
+    nombre: agent.nombre,
+    descripcion: agent.descripcion,
+    tipo: agent.tipo,
+  }));
+}
+
 const agents = [
+  // Strategy & Direction
   {
     id: "core_agent_dir",
     department: "core_dir",
-    slug: "agente-direccion",
-    nombre: "Agente estratega del negocio",
-    descripcion: "Resume métricas base y propone foco trimestral.",
-    tipo: "estrategico",
+    slug: "strategy-analyst",
+    nombre: "Analista de estrategia",
+    descripcion: "Analiza KPIs globales y propone foco trimestral por SaaS.",
+    tipo: "analyst",
   },
+  {
+    id: "core_agent_dir_planner",
+    department: "core_dir",
+    slug: "okr-planner",
+    nombre: "Planificador OKR",
+    descripcion: "Traduce objetivos de negocio en planes y OKR trimestrales.",
+    tipo: "operator",
+  },
+  {
+    id: "core_agent_dir_supervisor",
+    department: "core_dir",
+    slug: "strategy-supervisor",
+    nombre: "Supervisor de foco",
+    descripcion: "Vigila desvíos de foco y genera alertas estratégicas.",
+    tipo: "supervisor",
+  },
+
+  // Marketing & Social
   {
     id: "core_agent_mkt",
     department: "core_mkt",
-    slug: "agente-marketing",
-    nombre: "Agente de marketing omnicanal",
-    descripcion: "Activa campañas y posicionamiento social.",
-    tipo: "creativo",
+    slug: "campaign-designer",
+    nombre: "Diseñador de campañas",
+    descripcion: "Configura campañas omnicanal a partir de briefs y objetivos.",
+    tipo: "operator",
   },
+  {
+    id: "core_agent_mkt_publisher",
+    department: "core_mkt",
+    slug: "social-publisher",
+    nombre: "Publicador social",
+    descripcion: "Programa y publica contenidos en redes según el calendario.",
+    tipo: "automation",
+  },
+  {
+    id: "core_agent_mkt_analyst",
+    department: "core_mkt",
+    slug: "performance-analyst",
+    nombre: "Analista de performance",
+    descripcion: "Revisa métricas de campañas y propone optimizaciones.",
+    tipo: "analyst",
+  },
+
+  // Sales & Success
   {
     id: "core_agent_sales",
     department: "core_sales",
-    slug: "agente-ventas",
-    nombre: "Agente comercial",
-    descripcion: "Orquesta demos, presupuestos y seguimiento.",
-    tipo: "operativo",
+    slug: "lead-scoring",
+    nombre: "Scoreador de leads",
+    descripcion: "Prioriza leads según probabilidad de cierre y urgencia.",
+    tipo: "analyst",
   },
+  {
+    id: "core_agent_sales_followup",
+    department: "core_sales",
+    slug: "followup-operator",
+    nombre: "Operador de seguimiento",
+    descripcion: "Orquesta recordatorios y follow-ups en la bandeja comercial.",
+    tipo: "operator",
+  },
+  {
+    id: "core_agent_sales_proposals",
+    department: "core_sales",
+    slug: "proposal-writer",
+    nombre: "Redactor de propuestas",
+    descripcion: "Genera propuestas y resúmenes ejecutivos listos para enviar.",
+    tipo: "operator",
+  },
+
+  // Operations & Support
   {
     id: "core_agent_support",
     department: "core_support",
-    slug: "agente-soporte",
-    nombre: "Agente de soporte",
-    descripcion: "Gestiona tickets críticos y runbooks.",
-    tipo: "operativo",
+    slug: "support-router",
+    nombre: "Enrutador de tickets",
+    descripcion: "Clasifica mensajes de inbox y los asigna al departamento correcto.",
+    tipo: "operator",
   },
+  {
+    id: "core_agent_support_runbook",
+    department: "core_support",
+    slug: "runbook-advisor",
+    nombre: "Asesor de runbooks",
+    descripcion: "Sugiere pasos de resolución y actualiza documentación operacional.",
+    tipo: "analyst",
+  },
+  {
+    id: "core_agent_support_supervisor",
+    department: "core_support",
+    slug: "sla-supervisor",
+    nombre: "Supervisor de SLA",
+    descripcion: "Supervisa tiempos de respuesta y dispara alertas de SLA.",
+    tipo: "supervisor",
+  },
+
+  // Finance & Accounting
   {
     id: "core_agent_acc",
     department: "core_acc",
-    slug: "agente-contable",
-    nombre: "Agente contable",
-    descripcion: "Concilia facturas, cobros y gastos.",
-    tipo: "financiero",
+    slug: "cashflow-analyst",
+    nombre: "Analista de cashflow",
+    descripcion: "Concilia cobros y pagos y detecta tensiones de caja.",
+    tipo: "analyst",
+  },
+  {
+    id: "core_agent_acc_billing",
+    department: "core_acc",
+    slug: "billing-operator",
+    nombre: "Operador de facturación",
+    descripcion: "Genera facturas y coordina recordatorios de cobro.",
+    tipo: "operator",
   },
   {
     id: "core_agent_tax",
     department: "core_tax",
-    slug: "agente-fiscal",
+    slug: "tax-compliance",
     nombre: "Agente fiscal",
-    descripcion: "Controla IVA, retenciones y modelos.",
-    tipo: "financiero",
+    descripcion: "Controla IVA, retenciones y modelos periódicos.",
+    tipo: "supervisor",
   },
+
+  // Legal & Compliance
   {
     id: "core_agent_legal",
     department: "core_legal",
-    slug: "agente-legal",
-    nombre: "Agente legal",
-    descripcion: "Revisa contratos y riesgos regulatorios.",
-    tipo: "legal",
+    slug: "contract-reviewer",
+    nombre: "Revisor de contratos",
+    descripcion: "Analiza contratos y resalta riesgos regulatorios.",
+    tipo: "analyst",
   },
   {
-    id: "core_agent_dev",
-    department: "core_dev",
-    slug: "agente-dev",
-    nombre: "Agente de desarrollo",
-    descripcion: "Coordina despliegues y calidad de código.",
-    tipo: "tecnico",
+    id: "core_agent_legal_privacy",
+    department: "core_legal",
+    slug: "privacy-operator",
+    nombre: "Operador de privacidad",
+    descripcion: "Prepara cláusulas y avisos legales para nuevos SaaS.",
+    tipo: "operator",
   },
-  {
-    id: "core_agent_sec",
-    department: "core_sec",
-    slug: "agente-seguridad",
-    nombre: "Agente de ciberseguridad",
-    descripcion: "Monitorea eventos y controles de acceso.",
-    tipo: "seguridad",
-  },
+
+  // Grants & Funding
   {
     id: "core_agent_grants",
     department: "core_grants",
-    slug: "agente-ayudas",
-    nombre: "Agente de subvenciones",
-    descripcion: "Detecta y prepara convocatorias vigentes.",
-    tipo: "financiero",
+    slug: "grants-scout",
+    nombre: "Explorador de ayudas",
+    descripcion: "Detecta convocatorias públicas alineadas con cada cliente.",
+    tipo: "analyst",
+  },
+  {
+    id: "core_agent_grants_writer",
+    department: "core_grants",
+    slug: "grant-writer",
+    nombre: "Redactor de expedientes",
+    descripcion: "Esboza memorias y documentación base para solicitudes.",
+    tipo: "operator",
+  },
+
+  // Tech & Development
+  {
+    id: "core_agent_dev",
+    department: "core_dev",
+    slug: "release-operator",
+    nombre: "Operador de despliegues",
+    descripcion: "Coordina releases y verifica checklists de despliegue.",
+    tipo: "operator",
+  },
+  {
+    id: "core_agent_dev_reviewer",
+    department: "core_dev",
+    slug: "code-reviewer",
+    nombre: "Revisor de código",
+    descripcion: "Resume PRs y resalta riesgos técnicos antes de fusionar.",
+    tipo: "analyst",
+  },
+
+  // Security & Risk
+  {
+    id: "core_agent_sec",
+    department: "core_sec",
+    slug: "security-monitor",
+    nombre: "Monitor de seguridad",
+    descripcion: "Monitorea eventos, accesos y anomalías de credenciales.",
+    tipo: "monitor",
+  },
+  {
+    id: "core_agent_sec_incident",
+    department: "core_sec",
+    slug: "incident-supervisor",
+    nombre: "Supervisor de incidentes",
+    descripcion: "Coordina respuesta a incidentes y escalado a equipos técnicos.",
+    tipo: "supervisor",
   },
 ];
 
@@ -199,5 +341,69 @@ export async function ensureCampamentoBase() {
     );
   }
 
+  await seedAdministrativeBackbone();
+
   globalState.__campamentoBaseSeeded = true;
+}
+
+async function seedAdministrativeBackbone() {
+  const ownerId = "owner_drako_base";
+  await run(
+    `INSERT INTO owners (id, name, nif, email, phone, country, city, address)
+     VALUES (?, 'DRĀKO Systems', 'B12345678', 'admin@drako.systems', '+34 600 000 000', 'Spain', 'Barcelona', 'Passeig de Gràcia 1')
+     ON CONFLICT(id) DO NOTHING`,
+    ownerId
+  );
+
+  const demoClients = [
+    {
+      id: "client_demo_clinic",
+      name: "Clínica Demo",
+      nif: "C12345678",
+      email: "facturacion@clinicademo.com",
+      phone: "+34 611 111 111",
+      city: "Madrid",
+    },
+    {
+      id: "client_demo_studio",
+      name: "Studio Creativo",
+      nif: "S87654321",
+      email: "hello@studiocreativo.io",
+      phone: "+34 622 222 222",
+      city: "Valencia",
+    },
+  ];
+
+  for (const client of demoClients) {
+    await run(
+      `INSERT INTO clients (id, owner_id, name, nif, email, phone, country, city, address)
+       VALUES (?, ?, ?, ?, ?, ?, 'Spain', ?, 'Dirección demo')
+       ON CONFLICT(id) DO NOTHING`,
+      client.id,
+      ownerId,
+      client.name,
+      client.nif,
+      client.email,
+      client.phone,
+      client.city
+    );
+  }
+
+  const saasList = await queryAll<{ id: string; slug: string }>("SELECT id, slug FROM saas ORDER BY created_at ASC");
+  if (saasList.length === 0) {
+    return;
+  }
+  const firstSaas = saasList[0];
+
+  const existingLink = await queryAll<{ id: string }>("SELECT id FROM client_saas WHERE saas_id = ? LIMIT 1", firstSaas.id);
+  if (existingLink.length === 0) {
+    await run(
+      `INSERT INTO client_saas (id, client_id, saas_id, status, plan)
+       VALUES (?, ?, ?, 'active', 'standard')
+       ON CONFLICT(id) DO NOTHING`,
+      `link_${firstSaas.id}`,
+      demoClients[0].id,
+      firstSaas.id
+    );
+  }
 }

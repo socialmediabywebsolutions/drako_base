@@ -1,0 +1,198 @@
+import { env } from "@/lib/cf";
+import { resolveTenantId } from "@/lib/tenants/services";
+
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+export const SESSION_COOKIE_NAME = "drako.session";
+export const SESSION_COOKIE_MAX_AGE = 60 * 60 * 8; // 8 hours
+
+export type SessionRole = "admin" | "user";
+
+export type SessionData = {
+  email: string;
+  tenantId: string;
+  role: SessionRole;
+  issuedAt: number;
+};
+
+type SessionPayload = SessionData;
+
+const COOKIE_SEPARATOR = ".";
+
+class UnauthorizedError extends Error {
+  status: number;
+
+  constructor(message = "Unauthorized", status = 401) {
+    super(message);
+    this.name = "UnauthorizedError";
+    this.status = status;
+  }
+}
+
+const SESSION_REQUIRED_ERROR = new UnauthorizedError("SESSION_REQUIRED");
+const ADMIN_REQUIRED_ERROR = new UnauthorizedError("ADMIN_ROLE_REQUIRED", 403);
+const TENANT_MISMATCH_ERROR = new UnauthorizedError("TENANT_MISMATCH", 403);
+
+const DEMO_SESSION_ENABLED =
+  typeof process !== "undefined" &&
+  process.env.NODE_ENV !== "production" &&
+  process.env.DRAKO_ENABLE_DEMO_SESSION !== "0";
+
+function getSecret(): string {
+  const conf = env();
+  if (!conf?.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET is not configured");
+  }
+  return conf.SESSION_SECRET;
+}
+
+let cachedKey: CryptoKey | null = null;
+let cachedSecret: string | null = null;
+
+async function importKey(secret: string): Promise<CryptoKey> {
+  if (cachedKey && cachedSecret === secret) {
+    return cachedKey;
+  }
+  cachedSecret = secret;
+  cachedKey = await crypto.subtle.importKey(
+    "raw",
+    textEncoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign", "verify"],
+  );
+  return cachedKey;
+}
+
+function bufferToHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function createSignature(payload: string, secret: string): Promise<string> {
+  const key = await importKey(secret);
+  const signature = await crypto.subtle.sign("HMAC", key, textEncoder.encode(payload));
+  return bufferToHex(signature);
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
+function toBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function fromBase64Url(value: string): Uint8Array {
+  const paddedLength = (4 - (value.length % 4)) % 4;
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat(paddedLength);
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function encodePayload(payload: SessionPayload): string {
+  return toBase64Url(textEncoder.encode(JSON.stringify(payload)));
+}
+
+function decodePayload(value: string): SessionPayload {
+  const bytes = fromBase64Url(value);
+  const json = textDecoder.decode(bytes);
+  return JSON.parse(json) as SessionPayload;
+}
+
+export async function createSessionValue(data: Omit<SessionPayload, "issuedAt"> & { issuedAt?: number }): Promise<string> {
+  const payload: SessionPayload = {
+    ...data,
+    issuedAt: data.issuedAt ?? Date.now(),
+  };
+  const encodedPayload = encodePayload(payload);
+  const signature = await createSignature(encodedPayload, getSecret());
+  return `${encodedPayload}${COOKIE_SEPARATOR}${signature}`;
+}
+
+async function decodeSessionValue(raw: string): Promise<SessionData | null> {
+  const [encodedPayload, signature] = raw.split(COOKIE_SEPARATOR);
+  if (!encodedPayload || !signature) {
+    return null;
+  }
+  const expectedSignature = await createSignature(encodedPayload, getSecret());
+  if (!constantTimeEqual(signature, expectedSignature)) {
+    return null;
+  }
+  try {
+    return decodePayload(encodedPayload);
+  } catch (error) {
+    console.error("SESSION_DECODE_ERROR", error);
+    return null;
+  }
+}
+
+function getCookieValue(header: string | null, name: string): string | null {
+  if (!header) return null;
+  const cookies = header.split(/;\s*/);
+  for (const cookie of cookies) {
+    const [cookieName, ...rest] = cookie.split("=");
+    if (cookieName === name) {
+      return rest.join("=");
+    }
+  }
+  return null;
+}
+
+export async function getSession(request: Request): Promise<SessionData | null> {
+  const value = getCookieValue(request.headers.get("cookie"), SESSION_COOKIE_NAME);
+  if (!value) {
+    return null;
+  }
+  return decodeSessionValue(value);
+}
+
+export async function requireSession(request: Request): Promise<SessionData> {
+  const session = await getSession(request);
+  if (!session) {
+    if (DEMO_SESSION_ENABLED) {
+      return {
+        email: "demo@drako.systems",
+        tenantId: "demo-tenant",
+        role: "admin",
+        issuedAt: Date.now(),
+      };
+    }
+    throw SESSION_REQUIRED_ERROR;
+  }
+  return session;
+}
+
+export async function requireAdmin(request: Request): Promise<SessionData> {
+  const session = await requireSession(request);
+  if (session.role !== "admin") {
+    throw ADMIN_REQUIRED_ERROR;
+  }
+  return session;
+}
+
+export async function requireTenantAccess(request: Request): Promise<{ tenantId: string; session: SessionData }> {
+  const session = await requireSession(request);
+  const resolvedTenantId = resolveTenantId(request);
+  if (session.tenantId !== resolvedTenantId) {
+    throw TENANT_MISMATCH_ERROR;
+  }
+  return { tenantId: session.tenantId, session };
+}
+
+export { UnauthorizedError };

@@ -17,6 +17,8 @@
   --danger: #ef4444;
   --shadow-soft: 0 20px 60px rgb(15 23 42 / 0.08);
   --shadow-glass: 0 30px 80px rgb(12 74 110 / 0.15);
+  --font-geist-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-geist-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 /* Dark theme overrides (applied when html has class "dark") */
@@ -42,7 +44,7 @@ html, body {
 body {
   background: radial-gradient(circle at top, color-mix(in srgb, var(--brand-quiet) 65%, transparent), transparent 55%), var(--background);
   color: var(--foreground);
-  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, var(--font-geist-sans), sans-serif;
+  font-family: var(--font-geist-sans);
   font-feature-settings: "liga" on, "calt" on;
   min-height: 100vh;
 }

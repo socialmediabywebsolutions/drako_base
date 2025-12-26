@@ -1,53 +1,41 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
+import ShellLayout from "@/components/layouts/shell-layout";
 import "./globals.css";
-import Sidebar from "@/components/sidebar";
-import RightPanel from "@/components/right-panel";
-import ThemeToggle from "@/components/ui/theme-toggle";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "DRĀKO.SYSTEMS",
   description: "Núcleo administrativo central para gestionar tu ecosistema de SaaS",
 };
 
-export default function RootLayout({
+// Ejecutar toda la aplicación en Edge Runtime para Cloudflare Pages
+export const runtime = "edge";
+
+const AdminShell = ({ children }: { children: React.ReactNode }) => <ShellLayout>{children}</ShellLayout>;
+
+function PublicShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative min-h-screen bg-[#03050b] text-white" data-shell="public">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(76,201,240,0.25),_transparent_60%)]" />
+      <div className="relative z-10 flex min-h-screen flex-col">{children}</div>
+    </div>
+  );
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headersList = await headers();
+  const matchedPath =
+    headersList.get("x-matched-path") || headersList.get("x-invoke-path") || headersList.get("next-url") || "";
+  const isSiteRoute = matchedPath.startsWith("/site");
+
   return (
     <html lang="es" className="light">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--background)] text-[var(--foreground)]`}>
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <div className="flex-1 min-w-0 flex flex-col bg-gradient-to-b from-[var(--background)] to-transparent">
-            <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--panel)]/80 backdrop-blur" role="banner">
-              <div className="mx-auto max-w-6xl px-6 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-6 w-6 rounded-md bg-[var(--brand)]" />
-                  <div className="text-sm text-[var(--muted)]">Centro de mando</div>
-                </div>
-                <ThemeToggle />
-              </div>
-            </header>
-            <main className="flex-1 overflow-y-auto p-6 bg-[var(--background)]/90" role="main" aria-label="Contenido principal">
-              <div className="mx-auto max-w-6xl">{children}</div>
-            </main>
-          </div>
-          <div role="complementary" aria-label="Panel derecho">
-            <RightPanel />
-          </div>
-        </div>
+      <body className="antialiased bg-[var(--background)] text-[var(--foreground)]">
+        {isSiteRoute ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
       </body>
     </html>
   );

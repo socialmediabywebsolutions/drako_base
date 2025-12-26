@@ -1,8 +1,8 @@
 import { clsx } from "clsx";
 import type { ButtonHTMLAttributes, PropsWithChildren } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "outline" | "ghost";
-type ButtonSize = "sm" | "md" | "lg";
+type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "brand";
+type ButtonSize = "xs" | "sm" | "md" | "lg";
 
 type ButtonProps = PropsWithChildren<ButtonHTMLAttributes<HTMLButtonElement>> & {
   variant?: ButtonVariant;
@@ -18,9 +18,11 @@ export default function Button({ className, children, variant = "primary", size 
     secondary: "text-[var(--brand-strong)] bg-[var(--brand-quiet)] hover:bg-[var(--brand-quiet)]/80",
     outline: "text-[var(--foreground)] border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent hover:bg-[var(--panel)]/70",
     ghost: "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--panel)]/50",
+    brand: "text-white bg-[var(--brand)]/90 border border-[var(--brand)]/40 hover:bg-[var(--brand)]",
   };
 
   const sizes: Record<ButtonSize, string> = {
+    xs: "text-xs px-2 py-1 rounded-full",
     sm: "text-xs px-3 py-1.5 rounded-full",
     md: "text-sm px-4 py-2 rounded-xl",
     lg: "text-base px-5 py-3 rounded-2xl",

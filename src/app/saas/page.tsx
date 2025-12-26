@@ -31,6 +31,13 @@ type Provision = {
   created_at: string;
 };
 
+function normalizeProvisioningStatus(status: string): string {
+  const normalized = status.trim().toLowerCase();
+  if (normalized === "success") return "completed";
+  if (normalized === "error") return "failed";
+  return normalized;
+}
+
 export default function SaasPage() {
   const router = useRouter();
   const [items, setItems] = useState<Saas[]>([]);
@@ -166,9 +173,14 @@ export default function SaasPage() {
                 {filteredItems.map((s) => {
                   const list = provisions.filter((p) => p.saas_id === s.id);
                   let derivado: ReactNode = <Badge variant="neutral">-</Badge>;
-                  if (list.some((p) => p.status === "failed" || p.step === "failed")) derivado = <Badge variant="err">fallido</Badge>;
-                  else if (list.some((p) => p.step === "done" && p.status === "completed")) derivado = <Badge variant="ok">operativo</Badge>;
-                  else if (list.some((p) => p.status === "running")) derivado = <Badge variant="info">en curso</Badge>;
+                  const normalizedStatuses = list.map((p) => normalizeProvisioningStatus(p.status));
+                  if (normalizedStatuses.some((status) => status === "failed") || list.some((p) => p.step === "failed")) {
+                    derivado = <Badge variant="err">fallido</Badge>;
+                  } else if (list.some((p) => p.step === "done") && normalizedStatuses.some((status) => status === "completed")) {
+                    derivado = <Badge variant="ok">operativo</Badge>;
+                  } else if (normalizedStatuses.some((status) => status === "running")) {
+                    derivado = <Badge variant="info">en curso</Badge>;
+                  }
                   else if (list.length > 0) derivado = <Badge variant="warn">pendiente</Badge>;
                   return (
                     <tr key={s.id} className="cursor-pointer hover:bg-[var(--brand-quiet)]/30" onClick={() => router.push(`/saas/${s.id}`)}>

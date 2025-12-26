@@ -1,0 +1,61 @@
+{
+  "publicOk": [
+    {
+      "route": "/api/auth/login",
+      "purpose": "Iniciar sesión del owner/staff en el panel",
+      "consumer": "Owner UI",
+      "risk": "Brute force de credenciales",
+      "mitigations": ["rate-limit"]
+    },
+    {
+      "route": "/api/health",
+      "purpose": "Healthcheck básico del runtime",
+      "consumer": "Infra/monitoring",
+      "risk": "Abuso de ping público",
+      "mitigations": ["rate-limit"]
+    },
+    {
+      "route": "/api/core-departments",
+      "purpose": "Catálogo público de departamentos core",
+      "consumer": "UI pública / onboarding",
+      "risk": "Scraping",
+      "mitigations": ["rate-limit"]
+    },
+    {
+      "route": "/api/packs",
+      "purpose": "Lista pública de packs disponibles",
+      "consumer": "UI pública",
+      "risk": "Scraping",
+      "mitigations": ["rate-limit"]
+    },
+    {
+      "route": "/api/catalog/saas",
+      "purpose": "Catálogo público de SaaS",
+      "consumer": "UI pública",
+      "risk": "Scraping",
+      "mitigations": ["rate-limit"]
+    },
+    {
+      "route": "/api/saas/public/[slug]",
+      "purpose": "Perfil público de SaaS",
+      "consumer": "Landing pública",
+      "risk": "Scraping",
+      "mitigations": ["rate-limit"]
+    },
+    {
+      "route": "/api/site/clinic/leads",
+      "purpose": "Lead público de clínica",
+      "consumer": "Formulario público",
+      "risk": "Spam/abuso",
+      "mitigations": ["rate-limit", "optional-token-or-hmac"]
+    },
+    {
+      "route": "/api/stripe/webhook",
+      "purpose": "Webhook Stripe",
+      "consumer": "Stripe",
+      "risk": "Eventos falsos",
+      "mitigations": ["stripe-signature", "rate-limit"]
+    }
+  ],
+  "mustAuth": []
+}

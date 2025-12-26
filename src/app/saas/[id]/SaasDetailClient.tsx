@@ -9,7 +9,24 @@ import Badge from "@/components/ui/badge";
 import Select from "@/components/ui/select";
 import { TextInput, TextArea } from "@/components/ui/input";
 import EmptyState from "@/components/ui/empty-state";
+import SaasBillingSection from "@/app/saas/[id]/SaasBillingSection";
+import SaasEconomySection from "@/app/saas/[id]/SaasEconomySection";
+import SaasCustomersSection from "@/app/saas/[id]/SaasCustomersSection";
+import SaasEmployeesSection from "@/app/saas/[id]/SaasEmployeesSection";
+import SaasInboxSection from "@/app/saas/[id]/SaasInboxSection";
+import SaasConversationsSection from "@/app/saas/[id]/SaasConversationsSection";
+import SaasWhatsappSection from "@/app/saas/[id]/SaasWhatsappSection";
+import SaasOwnerControlSection from "@/app/saas/[id]/SaasOwnerControlSection";
+import SaasSocialSection from "@/app/saas/[id]/SaasSocialSection";
+import SaasMarketingSection from "@/app/saas/[id]/SaasMarketingSection";
+import SaasBlueprintSection from "@/app/saas/[id]/SaasBlueprintSection";
+import SaasTasksSection from "@/app/saas/[id]/SaasTasksSection";
+import SaasKnowledgeSection from "@/app/saas/[id]/SaasKnowledgeSection";
+import SaasFeaturesSection from "@/app/saas/[id]/SaasFeaturesSection";
+import SaasBrandingSection from "@/app/saas/[id]/SaasBrandingSection";
+import SaasTaxSection from "@/app/saas/[id]/SaasTaxSection";
 import { setOrchestratorContext } from "@/lib/orchestrator-context";
+import type { SaasFeature, SaasFeatureKey } from "@/lib/features/types";
 
 type Saas = {
   id: string;
@@ -18,6 +35,9 @@ type Saas = {
   domain: string | null;
   subdomain: string | null;
   status: string;
+  public_domain: string | null;
+  public_subdomain: string | null;
+  domain_status: string;
   created_at: string;
 };
 
@@ -64,6 +84,14 @@ type SaasAgent = {
   dept_es_critico: number;
 };
 
+type SaasDomain = {
+  id: string;
+  domain: string;
+  isPrimary: boolean;
+  status: "pending" | "active" | "paused";
+  lastCheckedAt: string | null;
+};
+
 type SaasDetailClientProps = {
   saasId: string | null;
 };
@@ -90,7 +118,17 @@ const provisioningStatus = [
   { value: "running", label: "En curso" },
   { value: "completed", label: "Completado" },
   { value: "failed", label: "Fallido" },
+  { value: "PENDING", label: "Pendiente (Factory)" },
+  { value: "SUCCESS", label: "Completado (Factory)" },
+  { value: "ERROR", label: "Fallido (Factory)" },
 ];
+
+function normalizeProvisioningStatus(status: string): string {
+  const normalized = status.trim().toLowerCase();
+  if (normalized === "success") return "completed";
+  if (normalized === "error") return "failed";
+  return normalized;
+}
 
 export default function SaasDetailClient({ saasId }: SaasDetailClientProps) {
   const [saas, setSaas] = useState<Saas | null>(null);
@@ -118,6 +156,15 @@ export default function SaasDetailClient({ saasId }: SaasDetailClientProps) {
   const [filterDept, setFilterDept] = useState<string>("");
   const [saasAgents, setSaasAgents] = useState<SaasAgent[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(true);
+  const [domainForm, setDomainForm] = useState({ public_domain: "", public_subdomain: "" });
+  const [domainSaving, setDomainSaving] = useState(false);
+  const [domains, setDomains] = useState<SaasDomain[]>([]);
+  const [domainsLoading, setDomainsLoading] = useState(true);
+  const [domainActionLoading, setDomainActionLoading] = useState<string | null>(null);
+  const [newDomain, setNewDomain] = useState({ domain: "", isPrimary: false });
+  const [publicUrl, setPublicUrl] = useState("");
+  const [portalCopied, setPortalCopied] = useState(false);
+  const [enabledFeatures, setEnabledFeatures] = useState<SaasFeature[]>([]);
 
   const contextDetalle = useMemo(() => {
     return {
@@ -148,6 +195,18 @@ export default function SaasDetailClient({ saasId }: SaasDetailClientProps) {
   const domainDisplay = useMemo(() => {
     if (!saas) return "-";
     return saas.domain ?? saas.subdomain ?? "-";
+  }, [saas]);
+
+  const domainStatusBadge = useMemo(() => {
+    const status = saas?.domain_status ?? "unconfigured";
+    switch (status) {
+      case "active":
+        return <Badge variant="ok">Dominio activo</Badge>;
+      case "pending_dns":
+        return <Badge variant="warn">Pendiente DNS</Badge>;
+      default:
+        return <Badge variant="neutral">Sin configurar</Badge>;
+    }
   }, [saas]);
 
   const activity = useMemo(() => {
@@ -182,6 +241,38 @@ export default function SaasDetailClient({ saasId }: SaasDetailClientProps) {
       setLoadingSaas(false);
     }
   }, [saasId]);
+
+  const loadDomains = useCallback(async () => {
+    if (!saasId) return;
+    setDomainsLoading(true);
+    try {
+      const res = await fetch(`/api/saas/${encodeURIComponent(saasId)}/domains`, { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as { items?: SaasDomain[] } | null;
+      setDomains(data?.items ?? []);
+    } catch {
+      setDomains([]);
+    } finally {
+      setDomainsLoading(false);
+    }
+  }, [saasId]);
+
+  useEffect(() => {
+    if (saas) {
+      setDomainForm({
+        public_domain: saas.public_domain ?? "",
+        public_subdomain: saas.public_subdomain ?? "",
+      });
+    }
+  }, [saas]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (saas?.slug) {
+      setPublicUrl(`${window.location.origin}/site/saas/${saas.slug}`);
+    } else {
+      setPublicUrl("");
+    }
+  }, [saas?.slug]);
 
   const loadProvisions = useCallback(async () => {
     if (!saasId) return;
@@ -245,9 +336,122 @@ export default function SaasDetailClient({ saasId }: SaasDetailClientProps) {
     }
   }, [saasId]);
 
+  const loadFeatures = useCallback(async () => {
+    if (!saasId) return;
+    try {
+      const res = await fetch(`/api/features?saasId=${encodeURIComponent(saasId)}`, { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as { items?: SaasFeature[] } | null;
+      const enabled = (data?.items ?? []).filter((feature) => feature.status === "ENABLED");
+      setEnabledFeatures(enabled);
+    } catch {
+      setEnabledFeatures([]);
+    }
+  }, [saasId]);
+
+  const saveDomainSettings = useCallback(async () => {
+    if (!saasId) return;
+    setDomainSaving(true);
+    try {
+      await fetch("/api/saas/domain", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          saasId,
+          publicDomain: domainForm.public_domain || null,
+          publicSubdomain: domainForm.public_subdomain || null,
+        }),
+      });
+      await loadSaas();
+    } finally {
+      setDomainSaving(false);
+    }
+  }, [saasId, domainForm, loadSaas]);
+
+  const saveNewDomain = useCallback(async () => {
+    if (!saasId || !newDomain.domain.trim()) return;
+    setDomainActionLoading("create");
+    try {
+      await fetch(`/api/saas/${encodeURIComponent(saasId)}/domains`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          domain: newDomain.domain.trim(),
+          isPrimary: newDomain.isPrimary,
+          status: "pending",
+        }),
+      });
+      setNewDomain({ domain: "", isPrimary: false });
+      await loadDomains();
+    } finally {
+      setDomainActionLoading(null);
+    }
+  }, [saasId, newDomain, loadDomains]);
+
+  const updateDomainStatus = useCallback(
+    async (domain: SaasDomain, status: SaasDomain["status"]) => {
+      if (!saasId) return;
+      setDomainActionLoading(domain.id);
+      try {
+        await fetch(`/api/saas/${encodeURIComponent(saasId)}/domains`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: domain.id,
+            domain: domain.domain,
+            isPrimary: domain.isPrimary,
+            status,
+          }),
+        });
+        await loadDomains();
+      } finally {
+        setDomainActionLoading(null);
+      }
+    },
+    [saasId, loadDomains],
+  );
+
+  const markDomainPrimary = useCallback(
+    async (domain: SaasDomain) => {
+      if (!saasId) return;
+      setDomainActionLoading(domain.id);
+      try {
+        await fetch(`/api/saas/${encodeURIComponent(saasId)}/domains`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: domain.id,
+            domain: domain.domain,
+            isPrimary: true,
+            status: domain.status,
+          }),
+        });
+        await loadDomains();
+      } finally {
+        setDomainActionLoading(null);
+      }
+    },
+    [saasId, loadDomains],
+  );
+
+  const handleCopyPortal = useCallback(async () => {
+    const fallback = saas?.slug ? `/site/saas/${saas.slug}` : "";
+    const value = publicUrl || fallback;
+    if (!value || typeof navigator === "undefined") return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setPortalCopied(true);
+      window.setTimeout(() => setPortalCopied(false), 1800);
+    } catch {
+      // ignore clipboard errors
+    }
+  }, [publicUrl, saas?.slug]);
+
   useEffect(() => {
     void loadSaas();
   }, [loadSaas]);
+  useEffect(() => {
+    void loadDomains();
+  }, [loadDomains]);
   useEffect(() => {
     void loadProvisions();
   }, [loadProvisions]);
@@ -260,6 +464,9 @@ export default function SaasDetailClient({ saasId }: SaasDetailClientProps) {
   useEffect(() => {
     void loadMetrics();
   }, [loadMetrics]);
+  useEffect(() => {
+    void loadFeatures();
+  }, [loadFeatures]);
 
   useEffect(() => {
     if (!saas) return;
@@ -276,6 +483,19 @@ export default function SaasDetailClient({ saasId }: SaasDetailClientProps) {
     });
     return () => setOrchestratorContext(null);
   }, [contextDetalle, saas]);
+
+  const hasFeature = useCallback(
+    (key: SaasFeatureKey) => {
+      if (enabledFeatures.length === 0) return true;
+      return enabledFeatures.some((feature) => feature.featureKey === key);
+    },
+    [enabledFeatures],
+  );
+
+  const hasAnyFeature = useCallback(
+    (...keys: SaasFeatureKey[]) => keys.some((key) => hasFeature(key)),
+    [hasFeature],
+  );
 
   if (!saasId) {
     return (
@@ -493,7 +713,7 @@ export default function SaasDetailClient({ saasId }: SaasDetailClientProps) {
                     <p className="text-xs text-[var(--muted)]">
                       {
                         provisioningStatus.find(
-                          (s) => s.value === p.status
+                          (s) => s.value === normalizeProvisioningStatus(p.status)
                         )?.label ?? p.status
                       }{" "}
                       • {p.details ?? "Sin detalles"}
@@ -634,6 +854,181 @@ export default function SaasDetailClient({ saasId }: SaasDetailClientProps) {
           )}
         </Card>
       </div>
+
+      <div className="rounded-3xl border border-[var(--border)] bg-[var(--panel)]/80 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Dominio público</p>
+            <h2 className="text-xl font-semibold">Sitio para clientes</h2>
+            <p className="text-sm text-[var(--muted)]">
+              Configura el dominio que más adelante aprovisionaremos vía Cloudflare.
+            </p>
+          </div>
+          {domainStatusBadge}
+        </div>
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <label className="text-sm">
+            Dominio personalizado
+            <input
+              className="mt-1 w-full rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3 py-2"
+              value={domainForm.public_domain}
+              onChange={(e) => setDomainForm((prev) => ({ ...prev, public_domain: e.target.value }))}
+              placeholder="mi-clinica.com"
+            />
+          </label>
+          <label className="text-sm">
+            Subdominio Drako
+            <input
+              className="mt-1 w-full rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3 py-2"
+              value={domainForm.public_subdomain}
+              onChange={(e) => setDomainForm((prev) => ({ ...prev, public_subdomain: e.target.value }))}
+              placeholder="mi-clinica.drako.systems"
+            />
+          </label>
+        </div>
+        <p className="mt-3 text-xs text-[var(--muted)]">
+          Vista pública provisional: <code>/site/saas/{saas?.slug ?? "slug"}</code>
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button onClick={saveDomainSettings} disabled={domainSaving}>
+            {domainSaving ? "Guardando..." : "Guardar dominio"}
+          </Button>
+          {saas?.public_domain && (
+            <a
+              href={`https://${saas.public_domain}`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-2xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--foreground)] hover:border-[var(--brand)]/40"
+            >
+              Ver sitio
+            </a>
+          )}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--panel-alt)] px-4 py-3 text-sm">
+          <div className="min-w-[220px]">
+            <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Client Portal</p>
+            <p className="font-medium">{publicUrl || `/site/saas/${saas?.slug ?? "slug"}`}</p>
+            <p className="text-xs text-[var(--muted)]">
+              Enlace válido para bio de Instagram, botón de reserva en tu web o Google Maps.
+            </p>
+            <p className="text-xs text-[var(--muted)]">
+              Al configurar dominio propio, podrá mapearse a https://tudominio.com (pendiente DNS/rutas).
+            </p>
+          </div>
+          <Button onClick={handleCopyPortal} variant="ghost">
+            {portalCopied ? "Copiado" : "Copiar enlace público"}
+          </Button>
+        </div>
+
+        <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--panel-alt)] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Dominios de marca</p>
+              <p className="text-sm text-[var(--muted)]">
+                Añade dominios principales o secundarios. El estado se gestiona manualmente hasta tener chequeo DNS automático.
+              </p>
+            </div>
+            <div className="text-xs text-[var(--muted)]">
+              DNS: CNAME a <span className="font-semibold">{saas?.slug ?? "tu-saas"}.drako.site</span>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-[2fr_1fr_1fr_auto]">
+            <TextInput
+              value={newDomain.domain}
+              onChange={(event) => setNewDomain((prev) => ({ ...prev, domain: event.target.value }))}
+              placeholder="mi-peluqueria.com"
+            />
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={newDomain.isPrimary}
+                onChange={(event) => setNewDomain((prev) => ({ ...prev, isPrimary: event.target.checked }))}
+              />
+              Principal
+            </label>
+            <div className="text-sm text-[var(--muted)]">Estado: pending</div>
+            <Button onClick={saveNewDomain} disabled={domainActionLoading === "create"}>
+              {domainActionLoading === "create" ? "Guardando..." : "Añadir dominio"}
+            </Button>
+          </div>
+
+          {domainsLoading ? (
+            <p className="mt-4 text-sm text-[var(--muted)]">Cargando dominios...</p>
+          ) : domains.length === 0 ? (
+            <EmptyState title="Sin dominios" subtitle="Añade tu primer dominio para publicar el front." />
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="modern text-sm" aria-label="Dominios del SaaS">
+                <thead>
+                  <tr>
+                    <th>Dominio</th>
+                    <th>Principal</th>
+                    <th>Estado</th>
+                    <th>Ultima comprobacion</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {domains.map((domain) => (
+                    <tr key={domain.id}>
+                      <td className="font-semibold">{domain.domain}</td>
+                      <td>{domain.isPrimary ? "Si" : "No"}</td>
+                      <td>
+                        <Select value={domain.status} onChange={(event) => updateDomainStatus(domain, event.target.value as SaasDomain["status"])}>
+                          <option value="pending">pending</option>
+                          <option value="active">active</option>
+                          <option value="paused">paused</option>
+                        </Select>
+                      </td>
+                      <td>{domain.lastCheckedAt ? new Date(domain.lastCheckedAt).toLocaleDateString() : "—"}</td>
+                      <td>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => markDomainPrimary(domain)}
+                          disabled={domain.isPrimary || domainActionLoading === domain.id}
+                        >
+                          {domain.isPrimary ? "Principal" : "Marcar principal"}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <SaasFeaturesSection saasId={saasId} />
+
+      {hasFeature("CLIENT_PORTAL") && <SaasCustomersSection saasId={saasId} />}
+
+      {hasFeature("BLUEPRINT") && <SaasBlueprintSection saasId={saasId} />}
+
+      {hasFeature("TASKS") && <SaasTasksSection saasId={saasId} />}
+
+      {hasFeature("APPEARANCE_BRANDING") && <SaasBrandingSection saasId={saasId} />}
+
+      {hasFeature("KNOWLEDGE") && <SaasKnowledgeSection saasId={saasId} />}
+
+      {hasFeature("SOCIAL") && <SaasSocialSection saasId={saasId} />}
+      {hasFeature("SOCIAL") && <SaasMarketingSection saasId={saasId} />}
+
+      {hasAnyFeature("HR", "EMPLOYEES") && <SaasEmployeesSection saasId={saasId} saasName={saas?.name ?? null} />}
+
+      {hasFeature("ECONOMY") && <SaasEconomySection saasId={saasId} />}
+
+      {hasFeature("EMAIL_INTAKE") && <SaasWhatsappSection saasId={saasId} />}
+
+      {hasFeature("EMAIL_INTAKE") && <SaasConversationsSection saasId={saasId} />}
+
+      {hasFeature("EMAIL_INTAKE") && <SaasInboxSection saasId={saasId} />}
+
+      {hasFeature("TAX_ENGINE") && <SaasTaxSection saasId={saasId} />}
+
+      {hasFeature("OWNER_CONTROL") && <SaasOwnerControlSection saasId={saasId} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card
@@ -852,6 +1247,7 @@ export default function SaasDetailClient({ saasId }: SaasDetailClientProps) {
           )}
         </Card>
       </div>
+      <SaasBillingSection saasId={saasId} />
     </div>
   );
 }

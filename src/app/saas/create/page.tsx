@@ -1,65 +1,73 @@
-"use client";
-import { useState } from "react";
-import Link from "next/link";
-import Card from "@/components/ui/card";
-import Button from "@/components/ui/button";
-import { TextInput } from "@/components/ui/input";
-import EmptyState from "@/components/ui/empty-state";
+import { headers } from "next/headers";
+import SaasFactoryInteractiveShell from "@/app/saas/create/SaasFactoryInteractiveShell";
+import { createDefaultBlueprint } from "@/app/saas/create/blueprint";
+import type { SaasFactoryProvisioningResult } from "@/app/saas/create/types";
+import { queryAll } from "@/lib/db";
+import { resolveTenantId } from "@/lib/tenants/services";
 
-export default function SaasCreatePage() {
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [domain, setDomain] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export const dynamic = "force-dynamic";
 
-  const handleCreate = async () => {
-    if (!name || !slug) {
-      setError("Nombre y slug son obligatorios");
-      return;
+type ProvisioningRow = {
+  step: string;
+  status: string;
+  details: string | null;
+};
+
+async function loadLatestProvisioning(tenantId: string): Promise<SaasFactoryProvisioningResult | null> {
+  const saasRows = await queryAll<{ id: string }>(
+    "SELECT id FROM saas WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1",
+    tenantId,
+  );
+  const saasId = saasRows[0]?.id ?? null;
+  if (!saasId) return null;
+  const rows = await queryAll<ProvisioningRow>(
+    "SELECT step, status, details FROM provisioning WHERE tenant_id = ? AND saas_id = ? ORDER BY created_at DESC",
+    tenantId,
+    saasId,
+  );
+  const byStep = new Map<string, ProvisioningRow>();
+  for (const row of rows) {
+    if (!byStep.has(row.step)) {
+      byStep.set(row.step, row);
     }
-    setCreating(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/saas", { method: "POST", body: JSON.stringify({ name, slug, domain: domain || null }), headers: { "content-type": "application/json" } });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? "No se pudo crear el SaaS");
-      }
-      window.location.href = "/saas";
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error inesperado");
-    } finally {
-      setCreating(false);
-    }
+  }
+  const cloudflare = byStep.get("cloudflare");
+  const stripe = byStep.get("stripe");
+  const ai = byStep.get("ai");
+
+  return {
+    saasId,
+    cloudflare: cloudflare ? { status: cloudflare.status, message: cloudflare.details } : null,
+    stripe: stripe ? { status: stripe.status, message: stripe.details } : null,
+    ai: ai ? { status: ai.status } : null,
   };
+}
+
+export default async function SaasCreatePage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const headerList = await headers();
+  const resolvedSearchParams = await searchParams;
+  const url = new URL("http://internal/saas/create");
+  if (resolvedSearchParams) {
+    for (const [key, value] of Object.entries(resolvedSearchParams)) {
+      if (typeof value === "string") url.searchParams.set(key, value);
+      if (Array.isArray(value)) value.forEach((item) => url.searchParams.append(key, item));
+    }
+  }
+  const request = new Request(url, { headers: new Headers(headerList) });
+  const tenantId = resolveTenantId(request);
+  const initialBlueprintDraft = createDefaultBlueprint(tenantId);
+  const initialProvisioningState = await loadLatestProvisioning(tenantId);
+  const packId = typeof resolvedSearchParams?.packId === "string" ? resolvedSearchParams.packId : null;
 
   return (
-    <div className="space-y-6">
-      <Card tone="glass" title="Nuevo SaaS" subtitle="Provisiona un proyecto con gobernanza base" right={<Link href="/saas"><Button variant="outline">Volver</Button></Link>}>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-3">
-            <TextInput placeholder="Nombre comercial" value={name} onChange={(e) => setName(e.target.value)} />
-            <TextInput placeholder="Slug (sin espacios)" value={slug} onChange={(e) => setSlug(e.target.value)} />
-            <TextInput placeholder="Dominio (opcional)" value={domain} onChange={(e) => setDomain(e.target.value)} />
-            {error && <p className="text-sm text-red-500">{error}</p>}
-            <div className="flex gap-2">
-              <Button onClick={handleCreate} loading={creating}>Crear SaaS</Button>
-              <Button variant="outline" onClick={() => { setName(""); setSlug(""); setDomain(""); }}>Limpiar</Button>
-            </div>
-          </div>
-          <div className="rounded-2xl border border-[var(--border)]/60 bg-[var(--panel)]/60 p-4 space-y-2 text-sm text-[var(--muted)]">
-            <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Checklist</p>
-            <ul className="space-y-2">
-              <li>• DRĀKO creará alertas y timeline de provisión automáticamente.</li>
-              <li>• Los agentes base se clonarán en cuestión de segundos.</li>
-              <li>• El Chat Orquestador tendrá contexto inmediato del nuevo SaaS.</li>
-            </ul>
-          </div>
-        </div>
-      </Card>
-
-      <EmptyState title="¿Qué ocurre tras crear el SaaS?" subtitle="El orquestador coordina DNS, Cloudflare Pages y agentes IA. Puedes supervisarlo desde la lista principal." />
-    </div>
+    <SaasFactoryInteractiveShell
+      initialBlueprintDraft={initialBlueprintDraft}
+      initialProvisioningState={initialProvisioningState}
+      packId={packId}
+    />
   );
 }

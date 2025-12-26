@@ -2,24 +2,31 @@
 import { useCallback, useEffect, useState } from "react";
 
 export default function ThemeToggle() {
+
   const [dark, setDark] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
-    const stored = localStorage.getItem("drako.theme");
-    if (stored) return stored === "dark";
-    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const stored = window.localStorage.getItem("drako.theme");
+    if (stored === "dark" || stored === "light") {
+      return stored === "dark";
+    }
+    const prefersDark =
+      window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches;
     return prefersDark;
   });
 
   const apply = useCallback((enabled: boolean) => {
+    if (typeof document === "undefined") return;
     const html = document.documentElement;
     if (enabled) html.classList.add("dark");
     else html.classList.remove("dark");
-    localStorage.setItem("drako.theme", enabled ? "dark" : "light");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("drako.theme", enabled ? "dark" : "light");
+    }
   }, []);
-
   useEffect(() => {
     apply(dark);
-  }, [apply, dark]);
+  }, [dark, apply]);
 
   return (
     <button

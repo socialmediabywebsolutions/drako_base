@@ -1,4 +1,29 @@
+import type {
+  DevArchitectChecklist,
+  DevArchitectMode,
+  DevArchitectProject,
+  DevArchitectProjectMetrics,
+  DevArchitectSession,
+  DevArchitectTask,
+} from "@/lib/dev-architects/types";
+export type { DevArchitectMode } from "@/lib/dev-architects/types";
+
 const STORAGE_KEY = "orchestrator:context";
+
+export type BillingSummary = {
+  total: number;
+  paid: number;
+  pending: number;
+  overdue: number;
+  amount_cents: number;
+};
+
+export type SupportSummary = {
+  total: number;
+  open: number;
+  resolved: number;
+  high_priority: number;
+};
 
 export type SaasContext = {
   scope: "saas";
@@ -7,7 +32,22 @@ export type SaasContext = {
     name: string;
     slug: string;
     domain: string | null;
+    subdomain?: string | null;
     status: string;
+    client?: {
+      id: string;
+      name: string;
+      nif: string | null;
+      email: string | null;
+    } | null;
+    social_accounts?: {
+      platform: string;
+      handle: string | null;
+      url: string | null;
+      connected?: boolean;
+    }[];
+    billing?: BillingSummary;
+    support?: SupportSummary;
   };
   detalle?: {
     provisiones?: {
@@ -49,7 +89,43 @@ export type InboxContext = {
   };
 };
 
-export type OrchestratorContextPayload = SaasContext | InboxContext | null;
+export type ClientContext = {
+  scope: "client";
+  client: {
+    id: string;
+    name: string;
+    nif: string | null;
+    email: string | null;
+    phone: string | null;
+  };
+  billing?: BillingSummary;
+  support?: SupportSummary;
+  detalle?: {
+    saas?: { id: string; name: string; slug: string; status: string }[];
+  };
+};
+
+export type DevArchitectContext = {
+  scope: "devarchitect";
+  agentId?: string;
+  devArchitect: {
+    projects: DevArchitectProject[];
+    sessions: DevArchitectSession[];
+    checklists: DevArchitectChecklist[];
+    metrics: DevArchitectProjectMetrics[];
+     tasks: DevArchitectTask[];
+     taskCounts: {
+       todo: number;
+       in_progress: number;
+       done: number;
+       blocked: number;
+     };
+    activeProjectId: string;
+    mode: DevArchitectMode;
+  };
+};
+
+export type OrchestratorContextPayload = SaasContext | InboxContext | ClientContext | DevArchitectContext | null;
 
 export function getOrchestratorContext(): OrchestratorContextPayload {
   if (typeof window === "undefined") return null;

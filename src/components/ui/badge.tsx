@@ -1,7 +1,7 @@
 import { clsx } from "clsx";
 import type { PropsWithChildren } from "react";
 
-type BadgeTone = "info" | "warn" | "err" | "ok" | "neutral";
+type BadgeTone = "info" | "warn" | "err" | "ok" | "neutral" | "outline";
 
 const toneClass: Record<BadgeTone, string> = {
   info: "bg-[var(--brand-quiet)] text-[var(--brand)] border border-[var(--brand)]/30",
@@ -9,6 +9,7 @@ const toneClass: Record<BadgeTone, string> = {
   err: "bg-rose-100 text-rose-700 border border-rose-200",
   ok: "bg-emerald-100 text-emerald-700 border border-emerald-200",
   neutral: "bg-[var(--panel-alt)] text-[var(--muted)] border border-[var(--border)]",
+  outline: "bg-transparent text-[var(--foreground)] border border-[var(--border)]",
 };
 
 export default function Badge({ variant = "info", children, className }: PropsWithChildren<{ variant?: BadgeTone; className?: string }>) {
