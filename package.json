@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint src",
     "qa": "npm run lint && npm run build",
     "devarchitect:audit": "tsc --project tsconfig.scripts.json && node scripts/.dist/devarchitect-audit.js",
     "cf:build": "cross-env NEXT_ON_PAGES_PACKAGE_MANAGER=npm next-on-pages",

@@ -20,6 +20,8 @@ const config = [
     // Evitar lint sobre dependencias y artefactos externos.
     "node_modules/**",
     ".vercel/**",
+    ".wrangler/**",
+    "**/*.log",
     "scripts/.dist/**",
     "scripts/register-paths.js",
   ]),
