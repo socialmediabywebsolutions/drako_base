@@ -35,11 +35,43 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  if (!env()) {
+  const host = (req.headers.get("host") ?? "").toLowerCase();
+  const isPublicHost = host === "drako.systems" || host === "www.drako.systems";
+  const isAdminHost =
+    host === "base.drako.systems" ||
+    host === "admin.drako.systems" ||
+    host === "drako-base-3.pages.dev";
+
+  // Host-based routing split: public vs Campamento Base
+  if (isPublicHost) {
+    if (pathname === "/") {
+      const url = new URL(req.url);
+      url.pathname = "/site";
+      return NextResponse.redirect(url);
+    }
+    if (pathname.startsWith("/admin")) {
+      const url = new URL(req.url);
+      url.pathname = "/site";
+      return NextResponse.redirect(url);
+    }
     return NextResponse.next();
   }
 
-  const host = req.headers.get("host") ?? "";
+  if (isAdminHost) {
+    if (pathname === "/") {
+      const url = new URL(req.url);
+      url.pathname = "/admin";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
+  const bindings = env();
+  const hasDb = Boolean(bindings?.DRACO_DB);
+  if (!bindings || !hasDb) {
+    return NextResponse.next();
+  }
+
   const resolution = await resolveHostToSaas(host);
   const tenantId = resolution.tenantId ?? DEMO_TENANT_ID;
   const correlationId = resolution.correlationId;
@@ -50,35 +82,40 @@ export async function middleware(req: NextRequest) {
     reason: resolution.reason ?? null,
   };
 
-  const resolveType =
-    resolution.status === "ACTIVE"
-      ? "routing.resolve.success"
-      : resolution.status === "NOT_FOUND"
-        ? "routing.resolve.miss"
-        : resolution.reason === "DOMAIN_ERROR"
-          ? "routing.resolve.error"
-          : "routing.resolve.pending";
-  const severity =
-    resolution.status === "ACTIVE" ? "INFO" : resolution.reason === "DOMAIN_ERROR" ? "ERROR" : "WARNING";
+  try {
+    const resolveType =
+      resolution.status === "ACTIVE"
+        ? "routing.resolve.success"
+        : resolution.status === "NOT_FOUND"
+          ? "routing.resolve.miss"
+          : resolution.reason === "DOMAIN_ERROR"
+            ? "routing.resolve.error"
+            : "routing.resolve.pending";
+    const severity =
+      resolution.status === "ACTIVE" ? "INFO" : resolution.reason === "DOMAIN_ERROR" ? "ERROR" : "WARNING";
 
-  const sampleRate = resolveRoutingSampleRate();
-  const shouldLog =
-    resolution.status !== "ACTIVE" ||
-    (sampleRate > 0 && Math.random() <= sampleRate);
-  if (shouldLog) {
-    await recordCampamentoEvent({
-      tenantId,
-      saasId: resolution.saasId ?? null,
-      type: resolveType,
-      severity,
-      source: "ROUTER",
-      message:
-        resolution.status === "ACTIVE"
-          ? `Resolved host ${resolution.normalizedHost} to saas_id=${resolution.saasId ?? "unknown"}.`
-          : `Routing status ${resolution.status} for host ${resolution.normalizedHost}.`,
-      metadata: { ...metadata, sampleRate },
-      correlationId,
-    });
+    const sampleRate = resolveRoutingSampleRate();
+    const shouldLog =
+      resolution.status !== "ACTIVE" ||
+      (sampleRate > 0 && Math.random() <= sampleRate);
+    if (shouldLog) {
+      await recordCampamentoEvent({
+        tenantId,
+        saasId: resolution.saasId ?? null,
+        type: resolveType,
+        severity,
+        source: "ROUTER",
+        message:
+          resolution.status === "ACTIVE"
+            ? `Resolved host ${resolution.normalizedHost} to saas_id=${resolution.saasId ?? "unknown"}.`
+            : `Routing status ${resolution.status} for host ${resolution.normalizedHost}.`,
+        metadata: { ...metadata, sampleRate },
+        correlationId,
+      });
+    }
+  } catch (error) {
+    // Si D1 no está listo, no bloquear tráfico.
+    console.warn("ROUTING_EVENT_FALLBACK", error);
   }
 
   if (resolution.status === "ACTIVE") {

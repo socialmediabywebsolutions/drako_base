@@ -42,8 +42,10 @@ export default function SaasPage() {
   const router = useRouter();
   const [items, setItems] = useState<Saas[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [provisions, setProvisions] = useState<Provision[]>([]);
   const [loadingProv, setLoadingProv] = useState(true);
+  const [provisionMessage, setProvisionMessage] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [pSaasId, setPSaasId] = useState<string>("");
@@ -53,10 +55,17 @@ export default function SaasPage() {
 
   useEffect(() => {
     (async () => {
+      setErrorMessage(null);
       try {
         const res = await fetch("/api/saas", { cache: "no-store" });
-        const data = (await res.json()) as { items?: Saas[] };
+        const data = (await res.json().catch(() => ({}))) as { items?: Saas[]; error?: string };
+        if (!res.ok) {
+          throw new Error(data.error ?? "No se pudo cargar el listado de SaaS.");
+        }
         setItems(data.items ?? []);
+      } catch (error) {
+        console.error(error);
+        setErrorMessage(error instanceof Error ? error.message : "Error cargando los proyectos SaaS.");
       } finally {
         setLoading(false);
       }
@@ -66,10 +75,17 @@ export default function SaasPage() {
   useEffect(() => {
     (async () => {
       setLoadingProv(true);
+      setProvisionMessage(null);
       try {
         const res = await fetch("/api/provisioning", { cache: "no-store" });
-        const data = (await res.json()) as { items?: Provision[] };
+        const data = (await res.json().catch(() => ({}))) as { items?: Provision[]; error?: string };
+        if (!res.ok) {
+          throw new Error(data.error ?? "No se pudo cargar el timeline de provisión.");
+        }
         setProvisions(data.items ?? []);
+      } catch (error) {
+        console.error(error);
+        setProvisionMessage(error instanceof Error ? error.message : "Error cargando provisión.");
       } finally {
         setLoadingProv(false);
       }
@@ -149,6 +165,17 @@ export default function SaasPage() {
             <p>Filtra por estado para concentrar recursos en los despliegues críticos.</p>
           </div>
         </div>
+
+        {errorMessage && (
+          <div className="mb-3 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
+            {errorMessage}
+          </div>
+        )}
+        {provisionMessage && (
+          <div className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+            {provisionMessage}
+          </div>
+        )}
 
         {loading ? (
           <div className="text-sm text-[var(--muted)]">Cargando listado...</div>
