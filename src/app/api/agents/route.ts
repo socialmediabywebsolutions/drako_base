@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { queryAll, run, DatabaseUnavailableError } from "@/lib/db";
+import { queryAll, run } from "@/lib/db";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
-import { env } from "@/lib/cf";
 import { respondDatabaseError } from "@/lib/http/errors";
 
 export const runtime = "edge";
@@ -16,9 +15,6 @@ type Agent = {
   created_at: string;
 };
 
-const inMemoryAgents = new Map<string, Agent[]>();
-const allowDevFallback = process.env.NODE_ENV !== "production";
-
 function authErrorResponse(error: unknown) {
   if (error instanceof UnauthorizedError) {
     return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
@@ -29,21 +25,6 @@ function authErrorResponse(error: unknown) {
 export async function GET(req: Request) {
   try {
     const { tenantId } = await requireTenantAccess(req);
-    const bindings = env();
-
-    if (!bindings || !bindings.DRACO_DB) {
-      if (!allowDevFallback) {
-        throw new DatabaseUnavailableError("binding-missing");
-      }
-      const url = new URL(req.url);
-      const departmentId = url.searchParams.get("department_id");
-      const tenantAgents = inMemoryAgents.get(tenantId) ?? [];
-      const filtered = departmentId
-        ? tenantAgents.filter((agent) => agent.department_id === departmentId)
-        : tenantAgents;
-      return NextResponse.json({ items: filtered, count: filtered.length });
-    }
-
     const url = new URL(req.url);
     const departmentId = url.searchParams.get("department_id");
     const base =
@@ -77,22 +58,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "name and department_id are required" }, { status: 400 });
     }
     const id = globalThis.crypto?.randomUUID?.() ?? `agent_${Date.now()}`;
-
-    const bindings = env();
-    if (!bindings || !bindings.DRACO_DB) {
-      const agent: Agent = {
-        id,
-        name: body.name,
-        department_id: body.department_id,
-        provider: body.provider ?? null,
-        model: body.model ?? null,
-        active: body.active === false ? 0 : 1,
-        created_at: new Date().toISOString(),
-      };
-      const existing = inMemoryAgents.get(tenantId) ?? [];
-      inMemoryAgents.set(tenantId, [...existing, agent]);
-      return NextResponse.json({ ok: true, id });
-    }
 
     const ok = await run(
       "INSERT INTO agents (id, tenant_id, name, department_id, provider, model, active) VALUES (?, ?, ?, ?, ?, ?, ?)",

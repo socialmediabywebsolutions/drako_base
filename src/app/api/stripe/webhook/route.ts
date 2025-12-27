@@ -1,3 +1,5 @@
+export const runtime = "edge";
+
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/client";
@@ -11,6 +13,7 @@ import { resolveWebhookAttribution } from "@/lib/billing/stripe-webhook-attribut
 import { deriveStripeWebhookAnomalies } from "@/lib/billing/stripe-webhook-anomalies";
 import { createOrMergeActionFromWebhook } from "@/lib/owner/action-queue-repository";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
+import { respondDatabaseError } from "@/lib/http/errors";
 import {
   findStripeWebhookEvent,
   insertStripeWebhookReceived,
@@ -19,9 +22,7 @@ import {
 } from "@/lib/billing/stripe-webhook-repository";
 import { ensureStripeWebhookDedupe } from "@/lib/billing/stripe-webhook-processor";
 
-export const runtime = "edge";
-
-function getWebhookSecret(): string {
+function getWebhookSecret(): string | null {
   if (typeof process !== "undefined" && process.env.STRIPE_WEBHOOK_SECRET) {
     return process.env.STRIPE_WEBHOOK_SECRET;
   }
@@ -29,7 +30,7 @@ function getWebhookSecret(): string {
   if (cfEnv?.STRIPE_WEBHOOK_SECRET) {
     return cfEnv.STRIPE_WEBHOOK_SECRET;
   }
-  throw new Error("STRIPE_WEBHOOK_SECRET is not configured");
+  return null;
 }
 
 type SubscriptionMetadata = {
@@ -117,8 +118,7 @@ async function persistSubscriptionFromStripe(subscription: Stripe.Subscription) 
   await persistDrakoBaseSubscriptionFromStripe(metadata, subscription, customerId);
 }
 
-async function handleCheckoutSession(session: Stripe.Checkout.Session) {
-  const stripe = getStripe();
+async function handleCheckoutSession(stripe: Stripe, session: Stripe.Checkout.Session) {
   const metadata = extractMetadata(session.metadata);
   if (!metadata) {
     console.warn("CHECKOUT_SESSION_METADATA_MISSING", session.id);
@@ -207,171 +207,193 @@ async function createWebhookAction(params: {
 
 
 export async function POST(request: Request) {
-  const requestTenantId = resolveTenantId(request);
-  const blocked = await enforcePublicEndpointPolicy({ request, route: "/api/stripe/webhook", tenantId: requestTenantId });
-  if (blocked) return blocked;
-  const signature = request.headers.get("stripe-signature");
-  if (!signature) {
-    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
-  }
-
-  const stripe = getStripe();
-  const body = await request.text();
-  let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(body, signature, getWebhookSecret());
-  } catch (error) {
-    await recordBillingEvent({
-      tenantId: requestTenantId,
-      correlationId: `sig_${Date.now()}`,
-      type: "security.webhook.invalid_signature",
-      severity: "CRITICAL",
-      message: "Stripe webhook signature invalid.",
-      metadata: { hasSignature: true },
-    });
-    console.error("STRIPE_WEBHOOK_VERIFY_ERROR", error);
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-  }
+    const requestTenantId = resolveTenantId(request);
+    const blocked = await enforcePublicEndpointPolicy({ request, route: "/api/stripe/webhook", tenantId: requestTenantId });
+    if (blocked) return blocked;
+    const signature = request.headers.get("stripe-signature");
+    if (!signature) {
+      return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+    }
 
-  const correlationId = event.id;
-  const dedupe = await ensureStripeWebhookDedupe({
-    store: {
-      findEvent: findStripeWebhookEvent,
-      insertReceived: insertStripeWebhookReceived,
-      markProcessed: updateStripeWebhookProcessed,
-      markFailed: updateStripeWebhookFailed,
-    },
-    eventId: event.id,
-    correlationId,
-  });
+    const stripe = await getStripe();
+    if (!stripe) {
+      return NextResponse.json(
+        { ok: false, reason: "stripe_not_configured", hint: "Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET." },
+        { status: 503 }
+      );
+    }
+    const webhookSecret = getWebhookSecret();
+    if (!webhookSecret) {
+      return NextResponse.json(
+        { ok: false, reason: "stripe_not_configured", hint: "Set STRIPE_WEBHOOK_SECRET in the environment." },
+        { status: 503 }
+      );
+    }
+    const body = await request.text();
+    let event: Stripe.Event;
+    try {
+      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    } catch (error) {
+      await recordBillingEvent({
+        tenantId: requestTenantId,
+        correlationId: `sig_${Date.now()}`,
+        type: "security.webhook.invalid_signature",
+        severity: "CRITICAL",
+        message: "Stripe webhook signature invalid.",
+        metadata: { hasSignature: true },
+      });
+      console.error("STRIPE_WEBHOOK_VERIFY_ERROR", error);
+      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    }
 
-  if (dedupe.status === "duplicate") {
-    return NextResponse.json({ received: true, duplicate: true });
-  }
-
-  const attribution = await resolveWebhookAttribution(event);
-  const tenantId = attribution.tenantId ?? requestTenantId;
-
-  const anomalies = deriveStripeWebhookAnomalies(attribution);
-  for (const anomaly of anomalies) {
-    await createWebhookAction({
-      tenantId,
-      saasId: attribution.saasId,
-      saasSlug: attribution.saasSlug ?? null,
-      priority: anomaly.priority,
-      title: anomaly.title,
-      description: anomaly.description,
-      metadata: { eventType: event.type, stripeEventId: event.id, kind: anomaly.kind },
+    const correlationId = event.id;
+    const dedupe = await ensureStripeWebhookDedupe({
+      store: {
+        findEvent: findStripeWebhookEvent,
+        insertReceived: insertStripeWebhookReceived,
+        markProcessed: updateStripeWebhookProcessed,
+        markFailed: updateStripeWebhookFailed,
+      },
+      eventId: event.id,
       correlationId,
     });
-    await recordBillingEvent({
-      tenantId,
-      correlationId,
-      type:
-        anomaly.kind === "ATTRIBUTION_MISSING"
-          ? "billing.webhook.unattributed"
-          : anomaly.kind === "ATTRIBUTION_MISMATCH"
-            ? "billing.webhook.attribution_mismatch"
-            : "billing.stripe.drift_detected",
-      severity: anomaly.priority === "CRITICAL" ? "CRITICAL" : "WARNING",
-      message: anomaly.description,
-      metadata: { eventType: event.type, kind: anomaly.kind },
-    });
-  }
 
-  try {
-    switch (event.type) {
-      case "checkout.session.completed":
-        await handleCheckoutSession(event.data.object as Stripe.Checkout.Session);
-        await recordBillingEvent({
-          tenantId,
-          saasId: attribution.saasId,
-          saasSlug: attribution.saasSlug,
-          correlationId,
-          type: "billing.checkout.completed",
-          severity: "INFO",
-          message: "Checkout session completed.",
-          metadata: { stripeEventId: event.id },
-        });
-        break;
-      case "customer.subscription.created":
-      case "customer.subscription.updated":
-      case "customer.subscription.deleted":
-        await persistSubscriptionFromStripe(event.data.object as Stripe.Subscription);
-        await recordBillingEvent({
-          tenantId,
-          saasId: attribution.saasId,
-          saasSlug: attribution.saasSlug,
-          correlationId,
-          type: "billing.subscription.updated",
-          severity: "INFO",
-          message: "Subscription updated.",
-          metadata: { stripeEventId: event.id },
-        });
-        {
-          const subscription = event.data.object as Stripe.Subscription;
-          const metadata = extractMetadata(subscription.metadata);
-          if (metadata?.saasPlanId) {
-            try {
-              console.log("[STRIPE_WEBHOOK] Syncing plan features", { tenantId: metadata.tenantId, saasId: metadata.saasId, eventType: event.type });
-              await syncSaasFeaturesFromPlan(env(), metadata.tenantId, metadata.saasId);
-            } catch (error) {
-              console.error("[STRIPE_WEBHOOK] PLAN_FEATURE_SYNC_ERROR", {
-                tenantId: metadata.tenantId,
-                saasId: metadata.saasId,
-                eventType: event.type,
-                error: error instanceof Error ? error.message : String(error),
-              });
+    if (dedupe.status === "duplicate") {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+
+    const attribution = await resolveWebhookAttribution(event);
+    const tenantId = attribution.tenantId ?? requestTenantId;
+
+    const anomalies = deriveStripeWebhookAnomalies(attribution);
+    for (const anomaly of anomalies) {
+      await createWebhookAction({
+        tenantId,
+        saasId: attribution.saasId,
+        saasSlug: attribution.saasSlug ?? null,
+        priority: anomaly.priority,
+        title: anomaly.title,
+        description: anomaly.description,
+        metadata: { eventType: event.type, stripeEventId: event.id, kind: anomaly.kind },
+        correlationId,
+      });
+      await recordBillingEvent({
+        tenantId,
+        correlationId,
+        type:
+          anomaly.kind === "ATTRIBUTION_MISSING"
+            ? "billing.webhook.unattributed"
+            : anomaly.kind === "ATTRIBUTION_MISMATCH"
+              ? "billing.webhook.attribution_mismatch"
+              : "billing.stripe.drift_detected",
+        severity: anomaly.priority === "CRITICAL" ? "CRITICAL" : "WARNING",
+        message: anomaly.description,
+        metadata: { eventType: event.type, kind: anomaly.kind },
+      });
+    }
+
+    try {
+      switch (event.type) {
+        case "checkout.session.completed":
+          await handleCheckoutSession(stripe, event.data.object as Stripe.Checkout.Session);
+          await recordBillingEvent({
+            tenantId,
+            saasId: attribution.saasId,
+            saasSlug: attribution.saasSlug,
+            correlationId,
+            type: "billing.checkout.completed",
+            severity: "INFO",
+            message: "Checkout session completed.",
+            metadata: { stripeEventId: event.id },
+          });
+          break;
+        case "customer.subscription.created":
+        case "customer.subscription.updated":
+        case "customer.subscription.deleted":
+          await persistSubscriptionFromStripe(event.data.object as Stripe.Subscription);
+          await recordBillingEvent({
+            tenantId,
+            saasId: attribution.saasId,
+            saasSlug: attribution.saasSlug,
+            correlationId,
+            type: "billing.subscription.updated",
+            severity: "INFO",
+            message: "Subscription updated.",
+            metadata: { stripeEventId: event.id },
+          });
+          {
+            const subscription = event.data.object as Stripe.Subscription;
+            const metadata = extractMetadata(subscription.metadata);
+            if (metadata?.saasPlanId) {
+              try {
+                console.log("[STRIPE_WEBHOOK] Syncing plan features", { tenantId: metadata.tenantId, saasId: metadata.saasId, eventType: event.type });
+                await syncSaasFeaturesFromPlan(env(), metadata.tenantId, metadata.saasId);
+              } catch (error) {
+                console.error("[STRIPE_WEBHOOK] PLAN_FEATURE_SYNC_ERROR", {
+                  tenantId: metadata.tenantId,
+                  saasId: metadata.saasId,
+                  eventType: event.type,
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              }
             }
           }
-        }
-        break;
-      case "invoice.paid":
-        await recordBillingEvent({
-          tenantId,
-          saasId: attribution.saasId,
-          saasSlug: attribution.saasSlug,
-          correlationId,
-          type: "billing.invoice.paid",
-          severity: "INFO",
-          message: "Invoice paid.",
-          metadata: { stripeEventId: event.id },
-        });
-        break;
-      case "invoice.payment_failed":
-        await recordBillingEvent({
-          tenantId,
-          saasId: attribution.saasId,
-          saasSlug: attribution.saasSlug,
-          correlationId,
-          type: "billing.invoice.failed",
-          severity: "WARNING",
-          message: "Invoice payment failed.",
-          metadata: { stripeEventId: event.id },
-        });
-        break;
-      default:
-        break;
+          break;
+        case "invoice.paid":
+          await recordBillingEvent({
+            tenantId,
+            saasId: attribution.saasId,
+            saasSlug: attribution.saasSlug,
+            correlationId,
+            type: "billing.invoice.paid",
+            severity: "INFO",
+            message: "Invoice paid.",
+            metadata: { stripeEventId: event.id },
+          });
+          break;
+        case "invoice.payment_failed":
+          await recordBillingEvent({
+            tenantId,
+            saasId: attribution.saasId,
+            saasSlug: attribution.saasSlug,
+            correlationId,
+            type: "billing.invoice.failed",
+            severity: "WARNING",
+            message: "Invoice payment failed.",
+            metadata: { stripeEventId: event.id },
+          });
+          break;
+        default:
+          break;
+      }
+    } catch (error) {
+      const dbError = respondDatabaseError(error);
+      if (dbError) return dbError;
+      const lastError = error instanceof Error ? error.message : String(error);
+      await updateStripeWebhookFailed({
+        eventId: event.id,
+        attempts: dedupe.attempts,
+        lastError,
+        tenantId,
+        saasSlug: attribution.saasSlug ?? null,
+      });
+      console.error("STRIPE_WEBHOOK_PROCESS_ERROR", error);
+      return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
     }
-  } catch (error) {
-    const lastError = error instanceof Error ? error.message : String(error);
-    await updateStripeWebhookFailed({
+
+    await updateStripeWebhookProcessed({
       eventId: event.id,
       attempts: dedupe.attempts,
-      lastError,
       tenantId,
       saasSlug: attribution.saasSlug ?? null,
     });
-    console.error("STRIPE_WEBHOOK_PROCESS_ERROR", error);
+
+    return NextResponse.json({ received: true });
+  } catch (error) {
+    const dbError = respondDatabaseError(error);
+    if (dbError) return dbError;
+    console.error("STRIPE_WEBHOOK_FATAL", error);
     return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
-
-  await updateStripeWebhookProcessed({
-    eventId: event.id,
-    attempts: dedupe.attempts,
-    tenantId,
-    saasSlug: attribution.saasSlug ?? null,
-  });
-
-  return NextResponse.json({ received: true });
 }

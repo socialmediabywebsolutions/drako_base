@@ -1,6 +1,6 @@
 import { env } from "@/lib/cf";
 
-export type DatabaseUnavailableReason = "binding-missing" | "migrations-missing";
+export type DatabaseUnavailableReason = "binding-missing" | "migrations-missing" | "table-missing";
 
 export class DatabaseUnavailableError extends Error {
   constructor(public reason: DatabaseUnavailableReason, message?: string) {
@@ -9,7 +9,7 @@ export class DatabaseUnavailableError extends Error {
   }
 }
 
-function ensureDatabase(): D1Database {
+export function ensureDatabase(): D1Database {
   const bindings = env();
   if (!bindings?.DRACO_DB) {
     throw new DatabaseUnavailableError("binding-missing", "DRACO_DB binding is missing");
@@ -19,8 +19,13 @@ function ensureDatabase(): D1Database {
 
 function normalizeDbError(error: unknown): never {
   const message = error instanceof Error ? error.message : String(error);
-  if (/no such table/i.test(message) || /SQLITE_ERROR/i.test(message)) {
-    throw new DatabaseUnavailableError("migrations-missing", "D1 migrations missing");
+  if (/no such table/i.test(message)) {
+    console.error("DB_TABLE_MISSING", message);
+    throw new DatabaseUnavailableError("table-missing", message);
+  }
+  if (/no such column/i.test(message)) {
+    console.error("DB_MIGRATION_MISSING", message);
+    throw new DatabaseUnavailableError("migrations-missing", message);
   }
   throw error instanceof Error ? error : new Error(message);
 }

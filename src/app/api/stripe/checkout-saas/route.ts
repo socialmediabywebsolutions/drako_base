@@ -1,10 +1,11 @@
+export const runtime = "edge";
+
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/client";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { getRequestBaseUrl } from "@/lib/http/base-url";
 import { getSaasPlanByCode, getSaasPlanById } from "@/lib/billing/saas-plans";
-
-export const runtime = "edge";
+import { respondDatabaseError } from "@/lib/http/errors";
 
 type CheckoutBody = {
   saasId?: string;
@@ -15,7 +16,13 @@ type CheckoutBody = {
 
 export async function POST(request: Request) {
   try {
-    const stripe = getStripe();
+    const stripe = await getStripe();
+    if (!stripe) {
+      return NextResponse.json(
+        { ok: false, reason: "stripe_not_configured", hint: "Set STRIPE_SECRET_KEY and publishable keys." },
+        { status: 503 }
+      );
+    }
     const body = (await request.json().catch(() => null)) as CheckoutBody | null;
     if (!body || typeof body.saasId !== "string" || body.saasId.trim().length === 0) {
       return NextResponse.json({ error: "saasId is required" }, { status: 400 });
@@ -71,6 +78,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ url: sessionCheckout.url });
   } catch (error) {
+    const dbError = respondDatabaseError(error);
+    if (dbError) return dbError;
     console.error("STRIPE_SAAS_CHECKOUT_ERROR", error);
     return NextResponse.json({ error: (error as Error).message ?? "Unable to create SaaS checkout session" }, { status: 400 });
   }

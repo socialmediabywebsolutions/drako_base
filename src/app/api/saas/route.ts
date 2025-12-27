@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { queryAll, run, DatabaseUnavailableError } from "@/lib/db";
+import { ensureDatabase, queryAll, run } from "@/lib/db";
 import { ensureCampamentoBase } from "@/lib/campamento-base";
 import { env as resolveEnv } from "@/lib/cf";
 import { createSaasFromBlueprint } from "@/lib/campamento-base/saas-factory-orchestrator";
 import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-types";
 import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
-import { env } from "@/lib/cf";
 import { respondDatabaseError } from "@/lib/http/errors";
 
 export const runtime = "edge";
@@ -32,36 +31,16 @@ function authErrorResponse(error: unknown) {
   return null;
 }
 
-const inMemorySaas = new Map<string, Saas[]>();
-const allowDevFallback = process.env.NODE_ENV !== "production";
-
 export async function GET(req: Request) {
   try {
-    await ensureCampamentoBase();
-    const { tenantId } = await requireTenantAccess(req);
-    const hasDb = Boolean(env()?.DRACO_DB);
-    if (!hasDb) {
-      if (!allowDevFallback) {
-        throw new DatabaseUnavailableError("binding-missing");
-      }
-      const sample = inMemorySaas.get(tenantId) ?? [
-        {
-          id: "demo-saas",
-          name: "Demo SaaS",
-          slug: "demo-saas",
-          domain: null,
-          subdomain: "demo",
-          status: "inactive",
-          public_domain: null,
-          public_subdomain: "demo",
-          domain_status: "unconfigured",
-          created_at: new Date().toISOString(),
-          tenant_id: tenantId,
-        },
-      ];
-      inMemorySaas.set(tenantId, sample);
-      return NextResponse.json({ items: sample, count: sample.length, demoFallback: true, tenantId });
+    ensureDatabase();
+    try {
+      await ensureCampamentoBase();
+    } catch (error) {
+      console.error("SAAS_ENSURE_ERROR", error);
+      throw error;
     }
+    const { tenantId } = await requireTenantAccess(req);
     const items = await queryAll<Saas>(
       `SELECT id, name, slug, domain, subdomain, status, public_domain, public_subdomain, domain_status, created_at, tenant_id
        FROM saas WHERE tenant_id = ? ORDER BY created_at DESC`,
@@ -80,15 +59,14 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    await ensureCampamentoBase();
-    const { tenantId } = await requireTenantAccess(req);
-    const hasDb = Boolean(env()?.DRACO_DB);
-    if (!hasDb) {
-      if (!allowDevFallback) {
-        throw new DatabaseUnavailableError("binding-missing");
-      }
-      return NextResponse.json({ error: "Database not configured", demoFallback: true }, { status: 501 });
+    ensureDatabase();
+    try {
+      await ensureCampamentoBase();
+    } catch (error) {
+      console.error("SAAS_ENSURE_ERROR", error);
+      throw error;
     }
+    const { tenantId } = await requireTenantAccess(req);
     const body = (await req.json().catch(() => null)) as {
       id?: string;
       name?: string;
@@ -140,165 +118,145 @@ export async function PATCH(req: Request) {
 }
 
 export async function POST(req: Request) {
-  await ensureCampamentoBase();
-  const auth = await requireTenantAccess(req);
-  const tenantId = auth.tenantId;
-  const hasDb = Boolean(env()?.DRACO_DB);
-  const body = (await req.json().catch(() => null)) as {
-    name?: string;
-    slug?: string;
-    domain?: string | null;
-    blueprintDraft?: Partial<SaasBlueprintDraft> | null;
-  } | null;
-
-  if (body?.blueprintDraft) {
-    if (!hasDb) {
-      if (!allowDevFallback) {
-        throw new DatabaseUnavailableError("binding-missing");
-      }
-      return NextResponse.json({ error: "Database not configured", demoFallback: true }, { status: 501 });
-    }
-    const draft = body.blueprintDraft;
-    const fallbackSlug = draft.proposedSlug ?? body.slug ?? "nuevo-saas";
-    const blueprint: SaasBlueprintDraft = withCampamentoBaseProfile({
-      ownerTenantId: tenantId,
-      saasName: draft.saasName ?? body.name ?? "Nuevo SaaS",
-      proposedSlug: fallbackSlug,
-      proposedSubdomain: draft.proposedSubdomain ?? fallbackSlug,
-      verticalId: draft.verticalId ?? "OTHER",
-      summary: draft.summary ?? "SaaS creado con Campamento Base",
-      targetAudience: draft.targetAudience ?? "Clientes del vertical",
-      mainProblem: draft.mainProblem ?? "Operacion dispersa",
-      mainGoal: draft.mainGoal ?? "Mejorar eficiencia",
-      packsByDepartment: draft.packsByDepartment ?? {},
-      initialPricing: {
-        currentMonthlyPrice: draft.initialPricing?.currentMonthlyPrice ?? 0,
-        estimatedVendorCostMonthly: draft.initialPricing?.estimatedVendorCostMonthly ?? null,
-        recommendedMinPriceMonthly: draft.initialPricing?.recommendedMinPriceMonthly ?? null,
-        recommendedTargetPriceMonthly: draft.initialPricing?.recommendedTargetPriceMonthly ?? null,
-        recommendedStretchPriceMonthly: draft.initialPricing?.recommendedStretchPriceMonthly ?? null,
-      },
-      aiProfile: {
-        tier: draft.aiProfile?.tier ?? "BALANCED",
-        notes: draft.aiProfile?.notes,
-      },
-      knowledgeSeeds: draft.knowledgeSeeds ?? [],
-      initialFeatures: draft.initialFeatures ?? [],
-      interviewSummary: draft.interviewSummary ?? "",
-      provisioning: draft.provisioning,
-      campamentoBaseProfile: draft.campamentoBaseProfile,
-    });
-
-    const result = await createSaasFromBlueprint({
-      env: resolveEnv(),
-      ownerTenantId: tenantId,
-      blueprint,
-    });
-
-    return NextResponse.json({
-      ok: true,
-      id: result.saasId,
-      provisioningStatus: {
-        cloudflare: result.cloudflare,
-        stripe: result.stripe,
-        ai: result.ai,
-      },
-    });
-  }
-
-  if (!body || !body.name || !body.slug) {
-    return NextResponse.json({ error: "name and slug are required" }, { status: 400 });
-  }
-
-  if (!hasDb) {
-    if (!allowDevFallback) {
-      throw new DatabaseUnavailableError("binding-missing");
-    }
-    const tenantSaas = inMemorySaas.get(tenantId) ?? [];
-    const id = body.slug ?? `saas_${Date.now()}`;
-    const saasRecord: Saas = {
-      id,
-      name: body.name,
-      slug: body.slug,
-      domain: body.domain ?? null,
-      subdomain: body.slug ?? null,
-      status: "inactive",
-      public_domain: null,
-      public_subdomain: body.slug ?? null,
-      domain_status: "unconfigured",
-      created_at: new Date().toISOString(),
-      tenant_id: tenantId,
-    };
-    inMemorySaas.set(tenantId, [saasRecord, ...tenantSaas]);
-    return NextResponse.json({ ok: true, id, demoFallback: true });
-  }
-
-  const id = (globalThis.crypto?.randomUUID?.() ?? `saas_${Date.now()}`);
-  const domain = body.domain ?? null;
-
-  const cleanup = async (records: { alertId?: string | null; provId?: string | null }) => {
-    await run("DELETE FROM saas_agents WHERE saas_id = ? AND tenant_id = ?", id, tenantId);
-    if (records.alertId) await run("DELETE FROM alerts WHERE id = ? AND tenant_id = ?", records.alertId, tenantId);
-    if (records.provId) await run("DELETE FROM provisioning WHERE id = ? AND tenant_id = ?", records.provId, tenantId);
-    await run("DELETE FROM saas WHERE id = ? AND tenant_id = ?", id, tenantId);
-  };
-
-  const createdRecords: { alertId?: string | null; provId?: string | null } = {};
-
   try {
-    const ok = await run(
-      "INSERT INTO saas (id, name, slug, domain, status, tenant_id, public_domain, public_subdomain, domain_status) VALUES (?, ?, ?, ?, 'inactive', ?, NULL, NULL, 'unconfigured')",
-      id,
-      body.name,
-      body.slug,
-      domain,
-      tenantId
-    );
-    if (!ok) throw new Error("create_saas_failed");
+    ensureDatabase();
+    await ensureCampamentoBase();
+    const auth = await requireTenantAccess(req);
+    const tenantId = auth.tenantId;
+    const body = (await req.json().catch(() => null)) as {
+      name?: string;
+      slug?: string;
+      domain?: string | null;
+      blueprintDraft?: Partial<SaasBlueprintDraft> | null;
+    } | null;
 
-    const alertId = globalThis.crypto?.randomUUID?.() ?? `alert_${Date.now()}`;
-    const alertOk = await run(
-      "INSERT INTO alerts (id, tenant_id, severity, source, message, saas_id) VALUES (?, ?, 'info', 'SaaS Creator', ?, ?)",
-      alertId,
-      tenantId,
-      `Provisioning initiated for SaaS '${body.name}' (slug: ${body.slug}).`,
-      id
-    );
-    if (!alertOk) throw new Error("alert_failed");
-    createdRecords.alertId = alertId;
+    if (body?.blueprintDraft) {
+      const draft = body.blueprintDraft;
+      const fallbackSlug = draft.proposedSlug ?? body.slug ?? "nuevo-saas";
+      const blueprint: SaasBlueprintDraft = withCampamentoBaseProfile({
+        ownerTenantId: tenantId,
+        saasName: draft.saasName ?? body.name ?? "Nuevo SaaS",
+        proposedSlug: fallbackSlug,
+        proposedSubdomain: draft.proposedSubdomain ?? fallbackSlug,
+        verticalId: draft.verticalId ?? "OTHER",
+        summary: draft.summary ?? "SaaS creado con Campamento Base",
+        targetAudience: draft.targetAudience ?? "Clientes del vertical",
+        mainProblem: draft.mainProblem ?? "Operacion dispersa",
+        mainGoal: draft.mainGoal ?? "Mejorar eficiencia",
+        packsByDepartment: draft.packsByDepartment ?? {},
+        initialPricing: {
+          currentMonthlyPrice: draft.initialPricing?.currentMonthlyPrice ?? 0,
+          estimatedVendorCostMonthly: draft.initialPricing?.estimatedVendorCostMonthly ?? null,
+          recommendedMinPriceMonthly: draft.initialPricing?.recommendedMinPriceMonthly ?? null,
+          recommendedTargetPriceMonthly: draft.initialPricing?.recommendedTargetPriceMonthly ?? null,
+          recommendedStretchPriceMonthly: draft.initialPricing?.recommendedStretchPriceMonthly ?? null,
+        },
+        aiProfile: {
+          tier: draft.aiProfile?.tier ?? "BALANCED",
+          notes: draft.aiProfile?.notes,
+        },
+        knowledgeSeeds: draft.knowledgeSeeds ?? [],
+        initialFeatures: draft.initialFeatures ?? [],
+        interviewSummary: draft.interviewSummary ?? "",
+        provisioning: draft.provisioning,
+        campamentoBaseProfile: draft.campamentoBaseProfile,
+      });
 
-    const provId = globalThis.crypto?.randomUUID?.() ?? `prov_${Date.now()}`;
-    const provOk = await run(
-      "INSERT INTO provisioning (id, saas_id, tenant_id, step, status, details) VALUES (?, ?, ?, 'init', 'pending', ?)",
-      provId,
-      id,
-      tenantId,
-      `Queued provisioning for '${body.name}'`
-    );
-    if (!provOk) throw new Error("prov_failed");
-    createdRecords.provId = provId;
+      const result = await createSaasFromBlueprint({
+        env: resolveEnv(),
+        ownerTenantId: tenantId,
+        blueprint,
+      });
 
-    const coreAgents = await queryAll<{ id: string }>("SELECT id FROM core_agents");
-    for (const agent of coreAgents) {
-      const linkId = `link_${id}_${agent.id}`;
-      const assigned = await run(
-        "INSERT OR IGNORE INTO saas_agents (id, saas_id, tenant_id, core_agent_id, estado, config) VALUES (?, ?, ?, ?, 'activo', '{}')",
-        linkId,
+      return NextResponse.json({
+        ok: true,
+        id: result.saasId,
+        provisioningStatus: {
+          cloudflare: result.cloudflare,
+          stripe: result.stripe,
+          ai: result.ai,
+        },
+      });
+    }
+
+    if (!body || !body.name || !body.slug) {
+      return NextResponse.json({ error: "name and slug are required" }, { status: 400 });
+    }
+
+    const id = (globalThis.crypto?.randomUUID?.() ?? `saas_${Date.now()}`);
+    const domain = body.domain ?? null;
+
+    const cleanup = async (records: { alertId?: string | null; provId?: string | null }) => {
+      await run("DELETE FROM saas_agents WHERE saas_id = ? AND tenant_id = ?", id, tenantId);
+      if (records.alertId) await run("DELETE FROM alerts WHERE id = ? AND tenant_id = ?", records.alertId, tenantId);
+      if (records.provId) await run("DELETE FROM provisioning WHERE id = ? AND tenant_id = ?", records.provId, tenantId);
+      await run("DELETE FROM saas WHERE id = ? AND tenant_id = ?", id, tenantId);
+    };
+
+    const createdRecords: { alertId?: string | null; provId?: string | null } = {};
+
+    try {
+      const ok = await run(
+        "INSERT INTO saas (id, name, slug, domain, status, tenant_id, public_domain, public_subdomain, domain_status) VALUES (?, ?, ?, ?, 'inactive', ?, NULL, NULL, 'unconfigured')",
+        id,
+        body.name,
+        body.slug,
+        domain,
+        tenantId
+      );
+      if (!ok) throw new Error("create_saas_failed");
+
+      const alertId = globalThis.crypto?.randomUUID?.() ?? `alert_${Date.now()}`;
+      const alertOk = await run(
+        "INSERT INTO alerts (id, tenant_id, severity, source, message, saas_id) VALUES (?, ?, 'info', 'SaaS Creator', ?, ?)",
+        alertId,
+        tenantId,
+        `Provisioning initiated for SaaS '${body.name}' (slug: ${body.slug}).`,
+        id
+      );
+      if (!alertOk) throw new Error("alert_failed");
+      createdRecords.alertId = alertId;
+
+      const provId = globalThis.crypto?.randomUUID?.() ?? `prov_${Date.now()}`;
+      const provOk = await run(
+        "INSERT INTO provisioning (id, saas_id, tenant_id, step, status, details) VALUES (?, ?, ?, 'init', 'pending', ?)",
+        provId,
         id,
         tenantId,
-        agent.id
+        `Queued provisioning for '${body.name}'`
       );
-      if (!assigned) throw new Error("agent_clone_failed");
-    }
+      if (!provOk) throw new Error("prov_failed");
+      createdRecords.provId = provId;
 
-    return NextResponse.json({ ok: true, id });
+      const coreAgents = await queryAll<{ id: string }>("SELECT id FROM core_agents");
+      for (const agent of coreAgents) {
+        const linkId = `link_${id}_${agent.id}`;
+        const assigned = await run(
+          "INSERT OR IGNORE INTO saas_agents (id, saas_id, tenant_id, core_agent_id, estado, config) VALUES (?, ?, ?, ?, 'activo', '{}')",
+          linkId,
+          id,
+          tenantId,
+          agent.id
+        );
+        if (!assigned) throw new Error("agent_clone_failed");
+      }
+
+      return NextResponse.json({ ok: true, id });
+    } catch (error) {
+      console.error("SAAS_CREATE_ERROR", error);
+      await cleanup(createdRecords);
+      const response = authErrorResponse(error);
+      if (response) return response;
+      const dbError = respondDatabaseError(error);
+      if (dbError) return dbError;
+      return NextResponse.json({ error: "No se pudo completar la creación del SaaS" }, { status: 500 });
+    }
   } catch (error) {
-    console.error("SAAS_CREATE_ERROR", error);
-    await cleanup(createdRecords);
     const response = authErrorResponse(error);
     if (response) return response;
     const dbError = respondDatabaseError(error);
     if (dbError) return dbError;
+    console.error("SAAS_POST_ERROR", error);
     return NextResponse.json({ error: "No se pudo completar la creación del SaaS" }, { status: 500 });
   }
 }

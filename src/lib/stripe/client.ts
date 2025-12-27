@@ -1,4 +1,4 @@
-import Stripe from "stripe";
+import type Stripe from "stripe";
 import { env } from "@/lib/cf";
 
 function resolveSecretKey(): string | null {
@@ -14,15 +14,30 @@ function resolveSecretKey(): string | null {
 
 let stripeClient: Stripe | null = null;
 
-export function getStripe(): Stripe {
-  if (!stripeClient) {
-    const secretKey = resolveSecretKey();
-    if (!secretKey) {
-      throw new Error("STRIPE_SECRET_KEY is not configured");
-    }
-    stripeClient = new Stripe(secretKey, {});
+async function loadStripeCtor(): Promise<typeof import("stripe")["default"] | null> {
+  try {
+    const mod = await import("stripe");
+    return mod.default ?? (mod as unknown as typeof import("stripe")["default"]);
+  } catch (error) {
+    console.error("STRIPE_SDK_LOAD_FAILED", error);
+    return null;
   }
+}
+
+export async function getStripe(): Promise<Stripe | null> {
+  if (stripeClient) {
+    return stripeClient;
+  }
+  const secretKey = resolveSecretKey();
+  if (!secretKey) {
+    return null;
+  }
+  const StripeCtor = await loadStripeCtor();
+  if (!StripeCtor) {
+    return null;
+  }
+  stripeClient = new StripeCtor(secretKey, {});
   return stripeClient;
 }
 
-export type StripeClient = ReturnType<typeof getStripe>;
+export type StripeClient = NonNullable<Awaited<ReturnType<typeof getStripe>>>;

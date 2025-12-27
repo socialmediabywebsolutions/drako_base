@@ -1,3 +1,5 @@
+export const runtime = "edge";
+
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/client";
 import { requireTenantAccess } from "@/lib/auth/session";
@@ -5,8 +7,7 @@ import { env } from "@/lib/cf";
 import { queryAll } from "@/lib/db";
 import { listDemoClients, listDemoSaas, listDemoClientSaas } from "@/lib/admin/demo-data";
 import { getRequestBaseUrl } from "@/lib/http/base-url";
-
-export const runtime = "edge";
+import { respondDatabaseError } from "@/lib/http/errors";
 
 function getPriceId(): string {
   if (process.env.DRAKO_BASE_STARTER_PRICE_ID) {
@@ -20,7 +21,7 @@ function getPriceId(): string {
 }
 
 function hasDatabase(): boolean {
-  return Boolean(env());
+  return Boolean(env()?.DRACO_DB);
 }
 
 type BillingEntities = {
@@ -64,7 +65,13 @@ async function resolveBillingEntities(tenantId: string): Promise<BillingEntities
 
 export async function POST(request: Request) {
   try {
-    const stripe = getStripe();
+    const stripe = await getStripe();
+    if (!stripe) {
+      return NextResponse.json(
+        { ok: false, reason: "stripe_not_configured", hint: "Set STRIPE_SECRET_KEY and publishable keys." },
+        { status: 503 }
+      );
+    }
     const { tenantId, session } = await requireTenantAccess(request);
     const { clientId, saasId } = await resolveBillingEntities(tenantId);
     const baseUrl = getRequestBaseUrl(request);
@@ -98,6 +105,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ url: sessionCheckout.url });
   } catch (error) {
+    const dbError = respondDatabaseError(error);
+    if (dbError) return dbError;
     console.error("STRIPE_CHECKOUT_ERROR", error);
     return NextResponse.json({ error: (error as Error).message ?? "Unable to create checkout session" }, { status: 400 });
   }
