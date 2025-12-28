@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import ShellLayout from "@/components/layouts/shell-layout";
+import HostSwitcher from "@/components/dev/HostSwitcher";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ export default async function RootLayout({
     <html lang="es" className="light">
       <body className="antialiased bg-[var(--background)] text-[var(--foreground)]">
         {isSiteRoute ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
+        <HostSwitcher />
       </body>
     </html>
   );
