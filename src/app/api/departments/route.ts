@@ -24,7 +24,11 @@ export async function GET(req: Request) {
     if (response) return response;
     const dbError = respondDatabaseError(error);
     if (dbError) return dbError;
-    console.error("DEPARTMENTS_GET_ERROR", error);
-    return NextResponse.json({ ok: false, error: "Internal admin error" }, { status: 500 });
+    const correlationId = globalThis.crypto?.randomUUID?.() ?? `departments_err_${Date.now()}`;
+    console.error("DEPARTMENTS_GET_ERROR", correlationId, error);
+    return NextResponse.json(
+      { ok: false, error: "Internal admin error", error_code: "INTERNAL_ERROR", correlation_id: correlationId },
+      { status: 500 }
+    );
   }
 }
