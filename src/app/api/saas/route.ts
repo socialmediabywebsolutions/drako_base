@@ -12,16 +12,44 @@ export const runtime = "edge";
 
 type Saas = {
   id: string;
+  project_id?: string | null;
   name: string;
   slug: string;
   domain: string | null;
   subdomain: string | null;
   status: string;
+  project_status?: string | null;
   public_domain: string | null;
   public_subdomain: string | null;
+  primary_domain?: string | null;
   domain_status: string;
   created_at: string;
   tenant_id: string;
+};
+
+type SaasProject = {
+  id: string;
+  tenant_id: string;
+  slug: string;
+  display_name: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type SaasDomain = {
+  id: string;
+  tenant_id: string;
+  saas_id: string;
+  domain: string;
+  is_primary: number;
+  status: string;
+  verification_status: string | null;
+  verification_reason: string | null;
+  retry_count: number;
+  last_checked_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 function authErrorResponse(error: unknown) {
@@ -41,11 +69,53 @@ export async function GET(req: Request) {
       throw error;
     }
     const { tenantId } = await requireTenantAccess(req);
-    const items = await queryAll<Saas>(
-      `SELECT id, name, slug, domain, subdomain, status, public_domain, public_subdomain, domain_status, created_at, tenant_id
-       FROM saas WHERE tenant_id = ? ORDER BY created_at DESC`,
-      tenantId
-    );
+    const [saasRows, projectRows, domainRows] = await Promise.all([
+      queryAll<Saas>(
+        `SELECT id, name, slug, domain, subdomain, status, public_domain, public_subdomain, domain_status, created_at, tenant_id
+         FROM saas WHERE tenant_id = ? ORDER BY created_at DESC`,
+        tenantId
+      ),
+      queryAll<SaasProject>(
+        `SELECT id, tenant_id, slug, display_name, status, created_at, updated_at
+         FROM saas_projects WHERE tenant_id = ? ORDER BY created_at DESC`,
+        tenantId
+      ),
+      queryAll<SaasDomain>(
+        `SELECT id, tenant_id, saas_id, domain, is_primary, status, verification_status, verification_reason, retry_count, last_checked_at, created_at, updated_at
+         FROM saas_domains WHERE tenant_id = ? ORDER BY created_at DESC`,
+        tenantId
+      ),
+    ]);
+
+    const hasProjects = projectRows.length > 0;
+    const items = hasProjects
+      ? projectRows.map((project) => {
+          const linkedSaas = saasRows.find((s) => s.slug === project.slug) ?? null;
+          const primaryDomain = domainRows.find((d) => d.saas_id === linkedSaas?.id && d.is_primary === 1) ?? null;
+          return {
+            id: linkedSaas?.id ?? project.id,
+            project_id: project.id,
+            saas_id: linkedSaas?.id ?? null,
+            name: linkedSaas?.name ?? project.display_name,
+            slug: project.slug,
+            domain: linkedSaas?.domain ?? null,
+            subdomain: linkedSaas?.subdomain ?? null,
+            status: linkedSaas?.status ?? project.status ?? "pending",
+            project_status: project.status ?? null,
+            public_domain: linkedSaas?.public_domain ?? null,
+            public_subdomain: linkedSaas?.public_subdomain ?? null,
+            primary_domain: primaryDomain?.domain ?? linkedSaas?.public_domain ?? null,
+            domain_status:
+              primaryDomain?.verification_status ??
+              primaryDomain?.status ??
+              linkedSaas?.domain_status ??
+              "pending",
+            created_at: project.created_at ?? linkedSaas?.created_at ?? new Date().toISOString(),
+            tenant_id: project.tenant_id,
+          };
+        })
+      : saasRows;
+
     return NextResponse.json({ items, count: items.length });
   } catch (error) {
     const response = authErrorResponse(error);
@@ -192,16 +262,19 @@ export async function POST(req: Request) {
     }
 
     const id = (globalThis.crypto?.randomUUID?.() ?? `saas_${Date.now()}`);
-    const domain = body.domain ?? null;
+    const domain = body.domain ?? `${body.slug}.apps.drako.systems`;
+    const now = new Date().toISOString();
 
-    const cleanup = async (records: { alertId?: string | null; provId?: string | null }) => {
+    const cleanup = async (records: { alertId?: string | null; provId?: string | null; projectId?: string | null; domainId?: string | null }) => {
       await run("DELETE FROM saas_agents WHERE saas_id = ? AND tenant_id = ?", id, tenantId);
       if (records.alertId) await run("DELETE FROM alerts WHERE id = ? AND tenant_id = ?", records.alertId, tenantId);
       if (records.provId) await run("DELETE FROM provisioning WHERE id = ? AND tenant_id = ?", records.provId, tenantId);
+      if (records.domainId) await run("DELETE FROM saas_domains WHERE id = ? AND tenant_id = ?", records.domainId, tenantId);
+      if (records.projectId) await run("DELETE FROM saas_projects WHERE id = ? AND tenant_id = ?", records.projectId, tenantId);
       await run("DELETE FROM saas WHERE id = ? AND tenant_id = ?", id, tenantId);
     };
 
-    const createdRecords: { alertId?: string | null; provId?: string | null } = {};
+    const createdRecords: { alertId?: string | null; provId?: string | null; projectId?: string | null; domainId?: string | null } = {};
 
     try {
       const ok = await run(
@@ -213,6 +286,48 @@ export async function POST(req: Request) {
         tenantId
       );
       if (!ok) throw new Error("create_saas_failed");
+
+      const projectOk = await run(
+        `INSERT INTO saas_projects (id, tenant_id, slug, display_name, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'active', ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           slug = excluded.slug,
+           display_name = excluded.display_name,
+           status = excluded.status,
+           updated_at = excluded.updated_at`,
+        id,
+        tenantId,
+        body.slug,
+        body.name,
+        now,
+        now,
+      );
+      if (!projectOk) throw new Error("saas_project_failed");
+      createdRecords.projectId = id;
+
+      const domainId = `saas_domain_${id}`;
+      const domainOk = await run(
+        `INSERT INTO saas_domains (id, tenant_id, saas_id, domain, is_primary, status, last_checked_at, created_at, updated_at, verification_status, verification_reason, retry_count, verification_token, last_error)
+         VALUES (?, ?, ?, ?, 1, 'pending', ?, ?, ?, 'pending_dns', NULL, 0, ?, NULL)
+         ON CONFLICT(id) DO UPDATE SET
+           domain = excluded.domain,
+           is_primary = excluded.is_primary,
+           status = excluded.status,
+           verification_status = excluded.verification_status,
+           last_checked_at = excluded.last_checked_at,
+           updated_at = excluded.updated_at,
+           verification_token = excluded.verification_token`,
+        domainId,
+        tenantId,
+        id,
+        domain,
+        now,
+        now,
+        now,
+        `verify_${id}`,
+      );
+      if (!domainOk) throw new Error("saas_domain_failed");
+      createdRecords.domainId = domainId;
 
       const alertId = globalThis.crypto?.randomUUID?.() ?? `alert_${Date.now()}`;
       const alertOk = await run(
