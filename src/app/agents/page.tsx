@@ -50,12 +50,24 @@ export default function AgentsPage() {
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogDepartmentFilter, setCatalogDepartmentFilter] = useState<string>("all");
   const [recruitingId, setRecruitingId] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const withTimeout = useCallback(async (url: string) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+      const res = await fetch(url, { cache: "no-store", signal: controller.signal });
+      return res;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }, []);
 
   const loadAgents = useCallback(async () => {
     setAgentsLoading(true);
     setAgentsMessage(null);
     try {
-      const res = await fetch(`/api/agents?tenantId=${encodeURIComponent(tenantId)}`, { cache: "no-store" });
+      const res = await withTimeout(`/api/agents?tenantId=${encodeURIComponent(tenantId)}`);
       const data = (await res.json()) as { items?: Agent[]; error?: string };
       if (!res.ok) {
         throw new Error(data.error ?? "No se pudieron cargar los agentes.");
@@ -67,7 +79,7 @@ export default function AgentsPage() {
     } finally {
       setAgentsLoading(false);
     }
-  }, [tenantId]);
+  }, [tenantId, withTimeout]);
 
   const handleRecruit = useCallback(
     async (coreAgent: CoreAgent) => {
@@ -106,7 +118,7 @@ export default function AgentsPage() {
     setCoreLoading(true);
     setCoreMessage(null);
     try {
-      const res = await fetch(`/api/core-agents?tenantId=${encodeURIComponent(tenantId)}`, { cache: "no-store" });
+      const res = await withTimeout(`/api/core-agents?tenantId=${encodeURIComponent(tenantId)}`);
       const data = (await res.json()) as { items?: CoreAgent[]; error?: string };
       if (!res.ok) {
         throw new Error(data.error ?? "No se pudieron cargar los core agents.");
@@ -118,12 +130,12 @@ export default function AgentsPage() {
     } finally {
       setCoreLoading(false);
     }
-  }, [tenantId]);
+  }, [tenantId, withTimeout]);
 
   useEffect(() => {
     void loadAgents();
     void loadCoreAgents();
-  }, [loadAgents, loadCoreAgents]);
+  }, [loadAgents, loadCoreAgents, reloadKey]);
 
   const isConfigured = activeTab === "configured";
 
@@ -223,6 +235,19 @@ export default function AgentsPage() {
           />
         )}
       </Card>
+      {(agentsMessage || coreMessage) && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+          {agentsMessage || coreMessage}
+          <button
+            type="button"
+            className="ml-2 underline"
+            onClick={() => setReloadKey((k) => k + 1)}
+            aria-label="Reintentar carga"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import Card from "@/components/ui/card";
@@ -46,6 +46,7 @@ export default function SaasPage() {
   const [provisions, setProvisions] = useState<Provision[]>([]);
   const [loadingProv, setLoadingProv] = useState(true);
   const [provisionMessage, setProvisionMessage] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [pSaasId, setPSaasId] = useState<string>("");
@@ -53,11 +54,22 @@ export default function SaasPage() {
   const [pStatus, setPStatus] = useState<string>("pending");
   const [pDetails, setPDetails] = useState<string>("");
 
+  const withTimeout = useCallback(async (url: string) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+      const res = await fetch(url, { cache: "no-store", signal: controller.signal });
+      return res;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       setErrorMessage(null);
       try {
-        const res = await fetch("/api/saas", { cache: "no-store" });
+        const res = await withTimeout("/api/saas");
         const data = (await res.json().catch(() => ({}))) as { items?: Saas[]; error?: string };
         if (!res.ok) {
           throw new Error(data.error ?? "No se pudo cargar el listado de SaaS.");
@@ -70,14 +82,14 @@ export default function SaasPage() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [withTimeout]);
 
   useEffect(() => {
     (async () => {
       setLoadingProv(true);
       setProvisionMessage(null);
       try {
-        const res = await fetch("/api/provisioning", { cache: "no-store" });
+        const res = await withTimeout("/api/provisioning");
         const data = (await res.json().catch(() => ({}))) as { items?: Provision[]; error?: string };
         if (!res.ok) {
           throw new Error(data.error ?? "No se pudo cargar el timeline de provisión.");
@@ -90,7 +102,7 @@ export default function SaasPage() {
         setLoadingProv(false);
       }
     })();
-  }, []);
+  }, [reloadKey, withTimeout]);
 
   const filteredItems = useMemo(() => {
     return items.filter((s) => {
@@ -169,11 +181,17 @@ export default function SaasPage() {
         {errorMessage && (
           <div className="mb-3 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
             {errorMessage}
+            <button type="button" className="ml-2 underline" onClick={() => setReloadKey((k) => k + 1)}>
+              Reintentar
+            </button>
           </div>
         )}
         {provisionMessage && (
           <div className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
             {provisionMessage}
+            <button type="button" className="ml-2 underline" onClick={() => setReloadKey((k) => k + 1)}>
+              Reintentar
+            </button>
           </div>
         )}
 

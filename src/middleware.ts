@@ -36,11 +36,35 @@ export async function middleware(req: NextRequest) {
   }
 
   const host = (req.headers.get("host") ?? "").toLowerCase();
-  const isPublicHost = host === "drako.systems" || host === "www.drako.systems";
+  const isPublicHost =
+    host === "drako.systems" ||
+    host === "www.drako.systems" ||
+    host === "stage.drako.systems";
   const isAdminHost =
     host === "base.drako.systems" ||
     host === "admin.drako.systems" ||
-    host === "drako-base-3.pages.dev";
+    host === "drako-base-3.pages.dev" ||
+    host.endsWith(".pages.dev");
+
+  // Rutas admin a proteger en host público
+  const adminPrefixes = [
+    "/admin",
+    "/agents",
+    "/agentes",
+    "/departments",
+    "/departamentos",
+    "/metrics",
+    "/alerts",
+    "/owner",
+    "/saas",
+    "/inbox",
+    "/dev-architects",
+    "/grants",
+    "/clients",
+    "/clinic",
+    "/billing",
+    "/staff",
+  ];
 
   // Host-based routing split: public vs Campamento Base
   if (isPublicHost) {
@@ -49,7 +73,7 @@ export async function middleware(req: NextRequest) {
       url.pathname = "/site";
       return NextResponse.redirect(url);
     }
-    if (pathname.startsWith("/admin")) {
+    if (adminPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
       const url = new URL(req.url);
       url.pathname = "/site";
       return NextResponse.redirect(url);
