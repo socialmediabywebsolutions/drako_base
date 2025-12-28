@@ -14,11 +14,18 @@ import EmptyState from "@/components/ui/empty-state";
 
 type Saas = {
   id: string;
+  project_id?: string | null;
+  saas_id?: string | null;
   name: string;
   slug: string;
   domain: string | null;
   subdomain: string | null;
+  primary_domain?: string | null;
+  public_domain?: string | null;
+  public_subdomain?: string | null;
   status: string;
+  project_status?: string | null;
+  domain_status?: string | null;
   created_at: string;
 };
 
@@ -108,7 +115,8 @@ export default function SaasPage() {
     return items.filter((s) => {
       const byStatus = statusFilter ? s.status === statusFilter : true;
       const bySearch = searchTerm
-        ? [s.name, s.slug, s.domain, s.subdomain].some((value) => value?.toLowerCase().includes(searchTerm.toLowerCase()))
+        ? [s.name, s.slug, s.domain, s.subdomain, s.primary_domain, s.public_domain]
+            .some((value) => value?.toLowerCase().includes(searchTerm.toLowerCase()))
         : true;
       return byStatus && bySearch;
     });
@@ -217,6 +225,7 @@ export default function SaasPage() {
               <TBody>
                 {filteredItems.map((s) => {
                   const list = provisions.filter((p) => p.saas_id === s.id);
+                  const domainLabel = s.primary_domain ?? s.public_domain ?? s.domain ?? s.subdomain ?? "-";
                   let derivado: ReactNode = <Badge variant="neutral">-</Badge>;
                   const normalizedStatuses = list.map((p) => normalizeProvisioningStatus(p.status));
                   if (normalizedStatuses.some((status) => status === "failed") || list.some((p) => p.step === "failed")) {
@@ -231,9 +240,9 @@ export default function SaasPage() {
                     <tr key={s.id} className="cursor-pointer hover:bg-[var(--brand-quiet)]/30" onClick={() => router.push(`/saas/${s.id}`)}>
                       <TD className="font-semibold text-[var(--foreground)]">{s.name}</TD>
                       <TD>{s.slug}</TD>
-                      <TD>{s.domain ?? s.subdomain ?? "-"}</TD>
+                      <TD>{domainLabel}</TD>
                       <TD>
-                        <Tooltip label={`Estado operativo: ${s.status}`}>
+                        <Tooltip label={`Estado operativo: ${s.status}${s.domain_status ? ` • dominio ${s.domain_status}` : ""}`}>
                           <Badge variant="neutral">{s.status}</Badge>
                         </Tooltip>
                       </TD>
