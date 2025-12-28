@@ -42,6 +42,12 @@ export async function queryAll<T>(sql: string, ...params: unknown[]): Promise<T[
   }
 }
 
+export async function queryOne<T>(sql: string, ...params: unknown[]): Promise<T | null> {
+  const rows = await queryAll<T>(sql, ...params);
+  if (!rows || rows.length === 0) return null;
+  return rows[0];
+}
+
 export async function run(sql: string, ...params: unknown[]): Promise<boolean> {
   try {
     const db = ensureDatabase();
