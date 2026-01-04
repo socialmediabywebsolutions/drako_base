@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://drako.systems/schemas/domain-mapping.schema.json",
+  "title": "SaaS Domain Mapping",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "domain",
+    "tenant_id",
+    "saas_id",
+    "saas_slug",
+    "status",
+    "verification_status",
+    "is_primary"
+  ],
+  "properties": {
+    "domain": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "saas_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "saas_slug": {
+      "type": "string",
+      "minLength": 1
+    },
+    "is_primary": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "disabled"
+      ]
+    },
+    "verification_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "verified",
+        "failed"
+      ]
+    },
+    "verification_token": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "last_error": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "created_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  }
+}

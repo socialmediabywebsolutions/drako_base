@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://drako.systems/schemas/drako-config.schema.json",
+  "title": "Drako Config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "environment",
+    "domains",
+    "tenancy",
+    "cloudflare"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "dev",
+        "preview",
+        "production"
+      ]
+    },
+    "domains": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "campamentoBase",
+        "drakoSystems",
+        "appsBase"
+      ],
+      "properties": {
+        "campamentoBase": {
+          "type": "string",
+          "const": "base.drako.systems"
+        },
+        "drakoSystems": {
+          "type": "string",
+          "const": "drako.systems"
+        },
+        "appsBase": {
+          "type": "string",
+          "const": "apps.drako.systems"
+        },
+        "allowCustomDomains": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "tenancy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "defaultTenantId"
+      ],
+      "properties": {
+        "defaultTenantId": {
+          "type": "string",
+          "default": "demo-tenant"
+        },
+        "tenantHeader": {
+          "type": "string",
+          "default": "x-tenant-id"
+        }
+      }
+    },
+    "cloudflare": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "d1BindingName"
+      ],
+      "properties": {
+        "d1BindingName": {
+          "type": "string",
+          "const": "DRACO_DB"
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "founderTwin": {
+      "type": "object",
+      "description": "Configuración del Founder Twin (CrisClone) para Campamento Base y para instanciarlo por SaaS.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "profileRef": {
+          "type": "string",
+          "description": "Referencia al perfil/plantilla del founder twin (p.ej. 'crisclone-default')."
+        },
+        "inheritToSaas": {
+          "type": "boolean",
+          "default": true
+        },
+        "perSaasOverrides": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object"
+          },
+          "description": "Overrides por slug de SaaS."
+        }
+      },
+      "required": [
+        "enabled"
+      ]
+    },
+    "canonicalDocs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Lista de rutas/IDs de estos 20 archivos, para que cualquier agente los cargue como base."
+    }
+  }
+}

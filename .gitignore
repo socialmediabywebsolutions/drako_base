@@ -38,6 +38,8 @@ yarn-error.log*
 # vercel / cf
 .vercel
 .wrangler/
+.wrangler/state
+.dev.vars
 
 # typescript
 *.tsbuildinfo

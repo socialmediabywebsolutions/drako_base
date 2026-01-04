@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://drako.systems/schemas/campamento-kernel.schema.json",
+  "title": "Campamento Kernel",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "registry",
+    "tenancy",
+    "observability"
+  ],
+  "properties": {
+    "registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requiredSaasSlugs",
+        "canonicalDomains"
+      ],
+      "properties": {
+        "requiredSaasSlugs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "campamento-base",
+            "drako-systems"
+          ]
+        },
+        "canonicalDomains": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "campamentoBase",
+            "drakoSystems"
+          ],
+          "properties": {
+            "campamentoBase": {
+              "type": "string",
+              "const": "base.drako.systems"
+            },
+            "drakoSystems": {
+              "type": "string",
+              "const": "drako.systems"
+            }
+          }
+        }
+      }
+    },
+    "tenancy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "defaultTenantId"
+      ],
+      "properties": {
+        "defaultTenantId": {
+          "type": "string",
+          "default": "demo-tenant"
+        }
+      }
+    },
+    "observability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correlationHeader"
+      ],
+      "properties": {
+        "correlationHeader": {
+          "type": "string",
+          "default": "x-drako-correlation-id"
+        },
+        "eventTable": {
+          "type": "string",
+          "default": "campamento_events"
+        },
+        "metricsTable": {
+          "type": "string",
+          "default": "metrics"
+        }
+      }
+    },
+    "founderTwin": {
+      "type": "object",
+      "description": "Perfil del Gemelo del fundador (CrisClone) usado como árbitro de calidad y coherencia en Campamento Base y SaaS creados.",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "default": "CrisClone"
+        },
+        "tone": {
+          "type": "string",
+          "description": "Tono general (directo, cercano, visionario, etc.)."
+        },
+        "principles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Principios no negociables del holding."
+        },
+        "guardrails": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Límites y reglas (seguridad, scope, calidad, no MVP cutre, etc.)."
+        },
+        "approvalGates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Gates antes de marcar GO para producción."
+        }
+      },
+      "required": [
+        "displayName"
+      ]
+    },
+    "canonicalDocsVersion": {
+      "type": "string",
+      "description": "Versión de la base canónica (estos 20 archivos).",
+      "default": "v3"
+    }
+  }
+}
