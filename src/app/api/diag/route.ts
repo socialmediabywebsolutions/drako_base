@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureDatabase, queryAll, DatabaseUnavailableError } from "@/lib/db";
+import { ensureCampamentoBase, getCampamentoCoreAgentsCatalog, getCampamentoCoreDepartmentsCatalog } from "@/lib/campamento-base";
 
 export const runtime = "edge";
 
@@ -36,6 +37,7 @@ export async function GET() {
   const correlationId = globalThis.crypto?.randomUUID?.() ?? `diag_${Date.now()}`;
   try {
     ensureDatabase();
+    await ensureCampamentoBase();
   } catch (error) {
     const reason =
       error instanceof DatabaseUnavailableError
@@ -71,17 +73,50 @@ export async function GET() {
     .filter(([, exists]) => !exists)
     .map(([name]) => name);
 
+  const coreDepartmentsCatalog = getCampamentoCoreDepartmentsCatalog();
+  const coreAgentsCatalog = getCampamentoCoreAgentsCatalog();
+  let coreDepartments: Array<{ slug: string }> = [];
+  let coreAgents: Array<{ slug: string }> = [];
+  try {
+    coreDepartments = await queryAll("SELECT slug FROM core_departments");
+    coreAgents = await queryAll("SELECT slug FROM core_agents");
+  } catch (error) {
+    console.error("DIAG_CORE_CATALOG_ERROR", { correlationId, error });
+  }
+
+  const existingDepartmentSlugs = new Set(coreDepartments.map((dept) => dept.slug));
+  const existingAgentSlugs = new Set(coreAgents.map((agent) => agent.slug));
+  const missingCoreDepartments = coreDepartmentsCatalog
+    .map((dept) => dept.slug)
+    .filter((slug) => !existingDepartmentSlugs.has(slug));
+  const missingCoreAgents = coreAgentsCatalog
+    .map((agent) => agent.slug)
+    .filter((slug) => !existingAgentSlugs.has(slug));
+
+  const coreCatalogSnapshot = {
+    departmentsCount: coreDepartments.length,
+    agentsCount: coreAgents.length,
+  };
+
+  const recommendations: string[] = [];
+  if (missing.length > 0) recommendations.push("Apply D1 migrations.");
+  if (missingCoreDepartments.length > 0 || missingCoreAgents.length > 0) {
+    recommendations.push("Run ensureCampamentoBase / seed core catalog.");
+  }
+  if (Object.values(seeds).some((value) => !value)) recommendations.push("Insert demo seed records.");
+  if (recommendations.length === 0) recommendations.push("DB schema looks present; verify data if endpoints still fail.");
+
   return NextResponse.json({
-    ok: missing.length === 0,
+    ok: missing.length === 0 && missingCoreDepartments.length === 0 && missingCoreAgents.length === 0,
     correlationId,
     db: {
       tables,
       missing,
       seeds,
     },
-    recommendation:
-      missing.length > 0
-        ? "Apply D1 migrations and seed demo records."
-        : "DB schema looks present; verify data if endpoints still fail.",
+    coreCatalogSnapshot,
+    missingCoreDepartments,
+    missingCoreAgents,
+    recommendation: recommendations.join(" "),
   });
 }

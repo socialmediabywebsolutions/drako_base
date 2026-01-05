@@ -3,6 +3,7 @@ import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
 import { resolveHostToSaas } from "@/lib/empire/host-resolver";
 import { resolveEffectiveHost } from "@/lib/hosts";
 import { ensureDatabase, queryAll, queryOne, DatabaseUnavailableError } from "@/lib/db";
+import { ensureCampamentoBase } from "@/lib/campamento-base";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import type { NextRequest } from "next/server";
 
@@ -24,6 +25,23 @@ export async function GET(request: Request) {
       } catch {
         missingTables.push(table);
       }
+    }
+    try {
+      await ensureCampamentoBase();
+    } catch (seedError) {
+      dbStatus = "schema_error";
+      dbReason = seedError instanceof Error ? seedError.message : String(seedError);
+      return NextResponse.json(
+        {
+          ok: false,
+          name: "DRAKO",
+          reason: "seed_failed",
+          hint: dbReason,
+          db: { status: dbStatus, reason: dbReason },
+          tenantFallback: DEMO_TENANT_ID,
+        },
+        { status: 503 },
+      );
     }
   } catch (error) {
     if (error instanceof DatabaseUnavailableError) {
