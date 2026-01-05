@@ -13,6 +13,7 @@ export async function GET(request: Request) {
   const blocked = await enforcePublicEndpointPolicy({ request, route: "/api/health" });
   if (blocked) return blocked;
 
+  const correlationId = globalThis.crypto?.randomUUID?.() ?? `health_${Date.now()}`;
   let dbStatus: "ok" | "missing_binding" | "schema_error" | "unknown" = "ok";
   let dbReason: string | null = null;
   const missingTables: string[] = [];
@@ -38,6 +39,7 @@ export async function GET(request: Request) {
           reason: "seed_failed",
           hint: dbReason,
           db: { status: dbStatus, reason: dbReason },
+          correlationId,
           tenantFallback: DEMO_TENANT_ID,
         },
         { status: 503 },
@@ -51,6 +53,14 @@ export async function GET(request: Request) {
       dbStatus = "unknown";
       dbReason = error instanceof Error ? error.message : String(error);
     }
+    const bindingDetails =
+      dbStatus === "missing_binding"
+        ? {
+            bindingName: "DRACO_DB",
+            action:
+              "Configure D1 binding in Cloudflare Pages: Project -> Settings -> Functions -> D1 bindings.",
+          }
+        : {};
     return NextResponse.json(
       {
         ok: false,
@@ -58,6 +68,8 @@ export async function GET(request: Request) {
         reason: "database_unavailable",
         hint: dbReason,
         db: { status: dbStatus, reason: dbReason },
+        correlationId,
+        ...bindingDetails,
         tenantFallback: DEMO_TENANT_ID,
       },
       { status: 503 },

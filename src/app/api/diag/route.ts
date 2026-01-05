@@ -45,9 +45,17 @@ export async function GET() {
         : error instanceof Error
           ? error.message
           : String(error);
+    const bindingDetails =
+      error instanceof DatabaseUnavailableError && error.reason === "binding-missing"
+        ? {
+            bindingName: "DRACO_DB",
+            action:
+              "Configure D1 binding in Cloudflare Pages: Project -> Settings -> Functions -> D1 bindings.",
+          }
+        : {};
     console.error("DIAG_DB_UNAVAILABLE", { correlationId, reason });
     return NextResponse.json(
-      { ok: false, correlationId, db: { status: "unavailable", reason } },
+      { ok: false, correlationId, db: { status: "unavailable", reason }, ...bindingDetails },
       { status: 503 },
     );
   }
