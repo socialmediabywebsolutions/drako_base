@@ -12,7 +12,7 @@ type PublicClinicPageProps = {
   params?: Promise<{ slug: string }>;
 };
 
-export const dynamic = "force-static";
+export const runtime = "edge";
 
 export default async function PublicClinicPage({ params }: PublicClinicPageProps) {
   const resolvedParams = params ? await params : { slug: "" };

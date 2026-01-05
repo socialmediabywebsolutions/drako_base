@@ -11,12 +11,13 @@
     "devarchitect:audit": "tsc --project tsconfig.scripts.json && node scripts/.dist/devarchitect-audit.js",
     "cf:build": "cross-env NEXT_ON_PAGES_PACKAGE_MANAGER=npm next-on-pages",
     "cf:preview": "cross-env NEXT_ON_PAGES_PACKAGE_MANAGER=npm wrangler pages dev .vercel/output/static --d1=DRACO_DB",
-    "cf:deploy": "wrangler pages deploy .vercel/output/static"
+    "cf:deploy": "wrangler pages deploy .vercel/output/static",
+    "test:mapping": "node scripts/check-mapping.js"
   },
   "dependencies": {
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
-    "next": "15.5.2",
+    "next": "^15.5.9",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "stripe": "^20.1.0"
