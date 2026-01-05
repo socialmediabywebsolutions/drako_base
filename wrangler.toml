@@ -1,9 +1,15 @@
 name = "drako-systems"
+main = ".open-next/worker.js"
 compatibility_date = "2024-11-01"
-compatibility_flags = [ "nodejs_compat" ]
-pages_build_output_dir = ".vercel/output/static"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
 
 [[d1_databases]]
 binding = "DRACO_DB"
-database_name = "drako_db"
-database_id = "10146888-ca79-41d6-b6c2-bf1025eb651b"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+preview_database_name = "drako_db"
+preview_database_id = "10146888-ca79-41d6-b6c2-bf1025eb651b"
