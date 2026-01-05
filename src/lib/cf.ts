@@ -34,6 +34,8 @@ export type DracoEnv = {
   CF_API_TOKEN?: string;
   CF_ACCOUNT_ID?: string;
   CF_ZONE_ID?: string;
+  AI_GATEWAY_ID?: string;
+  AI_GATEWAY_COMPAT_TOKEN?: string;
 };
 
 type CtxWithEnv = { env?: DracoEnv };
