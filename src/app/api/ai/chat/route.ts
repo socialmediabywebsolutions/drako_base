@@ -34,7 +34,9 @@ export async function POST(req: Request) {
       mode,
       cache: body.cache,
     });
-    return NextResponse.json({ ok: true, ...resp });
+    const { ok: _ok, ...rest } = resp;
+    void _ok;
+    return NextResponse.json({ ok: true, ...rest });
   } catch (error) {
     console.error("AI_CHAT_ERROR", error);
     return NextResponse.json({ ok: false, error: "AI unavailable" }, { status: 503 });
