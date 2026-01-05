@@ -71,6 +71,27 @@ const departments = [
     descripcion: "Detecta programas públicos y coordina expedientes.",
     esCritico: 0,
   },
+  {
+    id: "core_cx",
+    slug: "customer-experiences",
+    nombre: "Customer Experiences",
+    descripcion: "Owns customer tickets, satisfaction, and knowledge updates.",
+    esCritico: 1,
+  },
+  {
+    id: "core_tech",
+    slug: "technical-operations",
+    nombre: "Technical Operations",
+    descripcion: "Handles runtime incidents, routing, D1 health, and deploy support.",
+    esCritico: 1,
+  },
+  {
+    id: "core_campamento_dev",
+    slug: "campamento-base-engineers",
+    nombre: "Campamento Base Engineers",
+    descripcion: "Internal engineering agents for the factory and platform work.",
+    esCritico: 1,
+  },
 ];
 
 export function getCampamentoCoreDepartmentsCatalog() {
@@ -296,6 +317,84 @@ const agents = [
     descripcion: "Coordina respuesta a incidentes y escalado a equipos técnicos.",
     tipo: "supervisor",
   },
+
+  // Customer Experience (CX)
+  {
+    id: "core_agent_cx_triage",
+    department: "core_cx",
+    slug: "cx-triage",
+    nombre: "CX triage",
+    descripcion: "Classifies CX tickets and routes requests to the right owner.",
+    tipo: "operator",
+  },
+  {
+    id: "core_agent_cx_knowledge",
+    department: "core_cx",
+    slug: "cx-knowledge-agent",
+    nombre: "CX knowledge agent",
+    descripcion: "Keeps help content updated and highlights documentation gaps.",
+    tipo: "analyst",
+  },
+  {
+    id: "core_agent_cx_satisfaction",
+    department: "core_cx",
+    slug: "cx-satisfaction-monitor",
+    nombre: "CX satisfaction monitor",
+    descripcion: "Tracks CSAT signals and flags service risks early.",
+    tipo: "monitor",
+  },
+
+  // Technical Operations (TECH)
+  {
+    id: "core_agent_tech_triage",
+    department: "core_tech",
+    slug: "tech-incident-triage",
+    nombre: "Tech incident triage",
+    descripcion: "Triages runtime incidents and prioritizes urgent fixes.",
+    tipo: "operator",
+  },
+  {
+    id: "core_agent_tech_runtime",
+    department: "core_tech",
+    slug: "tech-runtime-operator",
+    nombre: "Tech runtime operator",
+    descripcion: "Monitors runtime, D1 health, and routing reliability.",
+    tipo: "monitor",
+  },
+  {
+    id: "core_agent_tech_security",
+    department: "core_tech",
+    slug: "tech-security-ops",
+    nombre: "Tech security ops",
+    descripcion: "Coordinates security response and hardening for production.",
+    tipo: "supervisor",
+  },
+
+  // Campamento Base Engineering
+  {
+    id: "core_agent_factory_architect",
+    department: "core_campamento_dev",
+    slug: "factory-architect",
+    nombre: "Factory architect",
+    descripcion: "Designs SaaS factory systems and core platform patterns.",
+    tipo: "analyst",
+  },
+  {
+    id: "core_agent_factory_planner",
+    department: "core_campamento_dev",
+    slug: "factory-implementation-planner",
+    nombre: "Factory implementation planner",
+    descripcion: "Plans internal builds and keeps delivery sequencing on track.",
+    tipo: "operator",
+  },
+  {
+    id: "core_agent_factory_reviewer",
+    department: "core_campamento_dev",
+    slug: "factory-code-reviewer",
+    nombre: "Factory code reviewer",
+    descripcion: "Reviews factory changes and flags regressions early.",
+    tipo: "analyst",
+  },
 ];
 
 const globalState = globalThis as { __campamentoBaseSeeded?: boolean };
@@ -342,6 +441,7 @@ export async function ensureCampamentoBase() {
   }
 
   await seedAdministrativeBackbone();
+  await seedCampamentoRegistry();
 
   globalState.__campamentoBaseSeeded = true;
 }
@@ -406,4 +506,86 @@ async function seedAdministrativeBackbone() {
       firstSaas.id
     );
   }
+}
+
+async function seedCampamentoRegistry() {
+  // Campamento Base (control plane)
+  await run(
+    `INSERT INTO saas (id, name, slug, domain, subdomain, status, tenant_id, public_domain, public_subdomain, domain_status)
+     VALUES ('saas_campamento_base', 'Campamento Base', 'campamento-base', 'base.drako.systems', 'campamento-base', 'active', 'demo-tenant', 'base.drako.systems', 'campamento-base', 'active')
+     ON CONFLICT(id) DO UPDATE SET
+       name = excluded.name,
+       slug = excluded.slug,
+       domain = excluded.domain,
+       subdomain = excluded.subdomain,
+       status = excluded.status,
+       tenant_id = excluded.tenant_id,
+       public_domain = excluded.public_domain,
+       public_subdomain = excluded.public_subdomain,
+       domain_status = excluded.domain_status`
+  );
+  await run(
+    `INSERT INTO saas_projects (id, tenant_id, slug, display_name, status, created_at, updated_at)
+     VALUES ('saas_proj_campamento_base', 'demo-tenant', 'campamento-base', 'Campamento Base', 'active', strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(id) DO UPDATE SET
+       slug = excluded.slug,
+       display_name = excluded.display_name,
+       status = excluded.status,
+       updated_at = excluded.updated_at`
+  );
+  await run(
+    `INSERT INTO saas_domains (id, tenant_id, saas_id, domain, is_primary, status, verification_status, verification_reason, retry_count, last_checked_at, created_at, updated_at, verification_token, last_error)
+     VALUES ('saas_domain_campamento_base', 'demo-tenant', 'saas_campamento_base', 'base.drako.systems', 1, 'active', 'verified', NULL, 0, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'verify_campamento_base', NULL)
+     ON CONFLICT(id) DO UPDATE SET
+       domain = excluded.domain,
+       is_primary = excluded.is_primary,
+       status = excluded.status,
+       verification_status = excluded.verification_status,
+       verification_reason = excluded.verification_reason,
+       retry_count = excluded.retry_count,
+       last_checked_at = excluded.last_checked_at,
+       updated_at = excluded.updated_at,
+       verification_token = excluded.verification_token,
+       last_error = excluded.last_error`
+  );
+
+  // Drako.Systems (primer SaaS público)
+  await run(
+    `INSERT INTO saas (id, name, slug, domain, subdomain, status, tenant_id, public_domain, public_subdomain, domain_status)
+     VALUES ('saas_drako_systems', 'Drako.Systems', 'drako-systems', 'drako.systems', 'drako-systems', 'active', 'demo-tenant', 'drako.systems', 'drako-systems', 'active')
+     ON CONFLICT(id) DO UPDATE SET
+       name = excluded.name,
+       slug = excluded.slug,
+       domain = excluded.domain,
+       subdomain = excluded.subdomain,
+       status = excluded.status,
+       tenant_id = excluded.tenant_id,
+       public_domain = excluded.public_domain,
+       public_subdomain = excluded.public_subdomain,
+       domain_status = excluded.domain_status`
+  );
+  await run(
+    `INSERT INTO saas_projects (id, tenant_id, slug, display_name, status, created_at, updated_at)
+     VALUES ('saas_proj_drako_systems', 'demo-tenant', 'drako-systems', 'Drako.Systems', 'active', strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(id) DO UPDATE SET
+       slug = excluded.slug,
+       display_name = excluded.display_name,
+       status = excluded.status,
+       updated_at = excluded.updated_at`
+  );
+  await run(
+    `INSERT INTO saas_domains (id, tenant_id, saas_id, domain, is_primary, status, verification_status, verification_reason, retry_count, last_checked_at, created_at, updated_at, verification_token, last_error)
+     VALUES ('saas_domain_drako_systems', 'demo-tenant', 'saas_drako_systems', 'drako.systems', 1, 'active', 'verified', NULL, 0, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'verify_drako_systems', NULL)
+     ON CONFLICT(id) DO UPDATE SET
+       domain = excluded.domain,
+       is_primary = excluded.is_primary,
+       status = excluded.status,
+       verification_status = excluded.verification_status,
+       verification_reason = excluded.verification_reason,
+       retry_count = excluded.retry_count,
+       last_checked_at = excluded.last_checked_at,
+       updated_at = excluded.updated_at,
+       verification_token = excluded.verification_token,
+       last_error = excluded.last_error`
+  );
 }
