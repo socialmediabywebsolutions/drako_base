@@ -1,4 +1,5 @@
 // Edge-safe access to Cloudflare bindings without importing Node APIs.
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 export type DracoEnv = {
   DRACO_DB: D1Database;
@@ -42,8 +43,7 @@ type CtxWithEnv = { env?: DracoEnv };
 
 export function env(): DracoEnv | null {
   try {
-    const getCtx = (globalThis as never as { getRequestContext?: () => unknown })?.getRequestContext;
-    const ctx = (typeof getCtx === "function" ? getCtx() : null) as CtxWithEnv | null;
+    const ctx = getCloudflareContext() as unknown as CtxWithEnv | null;
     return ctx?.env ?? null;
   } catch {
     return null;

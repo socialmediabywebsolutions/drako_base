@@ -5,6 +5,7 @@ import { env } from "@/lib/cf";
 import { resolveHostToSaas } from "@/lib/empire/host-resolver";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
+import { resolveEffectiveHost } from "@/lib/hosts";
 
 /**
  * MODO DEV
@@ -20,40 +21,10 @@ function buildHtmlResponse(message: string, status = 200, extra?: string) {
 }
 
 function resolveRoutingSampleRate(): number {
-  const raw =
-    (env() as unknown as Record<string, string | undefined> | null)?.DRACO_ROUTING_EVENTS_SAMPLE_RATE ??
-    process.env.DRACO_ROUTING_EVENTS_SAMPLE_RATE ??
-    "0.05";
+  const raw = (env() as unknown as Record<string, string | undefined> | null)?.DRACO_ROUTING_EVENTS_SAMPLE_RATE ?? "0.05";
   const parsed = Number.parseFloat(raw);
   if (Number.isNaN(parsed) || parsed <= 0) return 0;
   return Math.min(parsed, 1);
-}
-
-function resolveDevHost(req: NextRequest) {
-  const hostHeader = (req.headers.get("host") ?? "").toLowerCase().split(":")[0];
-  const isLocalHost = hostHeader === "127.0.0.1" || hostHeader === "localhost";
-  const isProd = process.env.NODE_ENV === "production";
-  let override: string | null = null;
-  let shouldPersist = false;
-
-  if (!isProd && isLocalHost) {
-    const param = req.nextUrl.searchParams.get("__drako_host");
-    const cookie = req.cookies.get("drako_host")?.value;
-    if (param) {
-      override = param.toLowerCase();
-      shouldPersist = true;
-    } else if (cookie) {
-      override = cookie.toLowerCase();
-    } else {
-      override = "drako.systems";
-    }
-  }
-
-  return {
-    effectiveHost: override ?? hostHeader,
-    realHost: hostHeader,
-    shouldPersistCookie: shouldPersist && override ? override : null,
-  };
 }
 
 export async function middleware(req: NextRequest) {
@@ -62,7 +33,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const hostInfo = resolveDevHost(req);
+  const hostInfo = resolveEffectiveHost(req);
   const host = hostInfo.effectiveHost;
   const isPublicHost =
     host === "drako.systems" ||
@@ -213,7 +184,7 @@ export async function middleware(req: NextRequest) {
     buildHtmlResponse(
       "SaaS no registrado para este dominio. Revisa el DNS o crea el mapping en Campamento Base.",
       200,
-      `<a class="button" href="/owner/domains">Ir a /owner/domains (admin)</a><a class="button" href="?__drako_host=drako.systems">Cambiar host (solo local)</a><small>Host real: ${hostInfo.realHost} · Host virtual: ${host}</small>`,
+      `<a class="button" href="/owner/domains">Ir a /owner/domains (admin)</a><a class="button" href="?__drako_host=drako.systems">Cambiar host (solo local)</a><a class="button" href="/api/owner/domains/repair" data-repair>Repair mapping (DEV)</a><small>Host real: ${hostInfo.realHost} · Host virtual: ${host}</small>`,
     ),
   );
 }

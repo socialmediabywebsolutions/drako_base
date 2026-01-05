@@ -11,30 +11,57 @@ interface Department { id: number; name: string; }
 interface InboxItem { id: number; subject: string; }
 
 export default async function AdminPage() {
-  // Obtener tenant activo
-  const tenantId = await resolveTenantId();
-
-  // Fetch de datos específicos del tenant (sin usar caché para datos siempre frescos)
+  const correlationId = globalThis.crypto?.randomUUID?.() ?? `admin_${Date.now()}`;
   const baseUrl = getServerBaseUrl(await headers());
-  const [saasRes, deptRes, inboxRes] = await Promise.all([
-    fetch(new URL(`/api/saas?tenantId=${tenantId}`, baseUrl), { cache: "no-store" }),
-    fetch(new URL(`/api/departments?tenantId=${tenantId}`, baseUrl), { cache: "no-store" }),
-    fetch(new URL(`/api/inbox?tenantId=${tenantId}`, baseUrl), { cache: "no-store" }),
-  ]);
 
-  if (!saasRes.ok || !deptRes.ok || !inboxRes.ok) {
-    console.error("ADMIN_DATA_ERROR", {
-      saasStatus: saasRes.status,
-      departmentsStatus: deptRes.status,
-      inboxStatus: inboxRes.status,
-    });
+  let saasData: SaasInfo = { plan: "Demo", billingDate: "N/A" };
+  let departments: Department[] = [];
+  let inboxItems: InboxItem[] = [];
+  let errorMessage: string | null = null;
+
+  try {
+    const tenantId = await resolveTenantId();
+    const [saasRes, deptRes, inboxRes] = await Promise.all([
+      fetch(new URL(`/api/saas?tenantId=${tenantId}`, baseUrl), { cache: "no-store" }),
+      fetch(new URL(`/api/departments?tenantId=${tenantId}`, baseUrl), { cache: "no-store" }),
+      fetch(new URL(`/api/inbox?tenantId=${tenantId}`, baseUrl), { cache: "no-store" }),
+    ]);
+
+    if (!saasRes.ok || !deptRes.ok || !inboxRes.ok) {
+      errorMessage = "Some admin data endpoints are unavailable.";
+      console.error("ADMIN_DATA_ERROR", {
+        correlationId,
+        saasStatus: saasRes.status,
+        departmentsStatus: deptRes.status,
+        inboxStatus: inboxRes.status,
+      });
+    }
+
+    if (saasRes.ok) saasData = await saasRes.json();
+    if (deptRes.ok) departments = await deptRes.json();
+    if (inboxRes.ok) inboxItems = await inboxRes.json();
+  } catch (error) {
+    errorMessage = "Admin data loading failed.";
+    console.error("ADMIN_DATA_EXCEPTION", { correlationId, error });
   }
 
-  const saasData: SaasInfo = saasRes.ok
-    ? await saasRes.json()
-    : { plan: "Demo", billingDate: "N/A" };
-  const departments: Department[] = deptRes.ok ? await deptRes.json() : [];
-  const inboxItems: InboxItem[] = inboxRes.ok ? await inboxRes.json() : [];
+  if (errorMessage) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold">Admin Diagnostics</h1>
+        <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-900">
+          <p className="font-semibold">We hit an error fetching admin data.</p>
+          <p className="text-sm mt-2">{errorMessage}</p>
+          <p className="text-xs mt-2 text-red-800">
+            correlationId: <code>{correlationId}</code> · host: {baseUrl}
+          </p>
+          <p className="text-xs mt-1 text-red-800">
+            Check /api/health and /api/diag for DB/seed status.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

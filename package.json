@@ -9,10 +9,11 @@
     "lint": "eslint src",
     "qa": "npm run lint && npm run build",
     "devarchitect:audit": "tsc --project tsconfig.scripts.json && node scripts/.dist/devarchitect-audit.js",
-    "cf:build": "cross-env NEXT_ON_PAGES_PACKAGE_MANAGER=npm next-on-pages",
-    "cf:preview": "cross-env NEXT_ON_PAGES_PACKAGE_MANAGER=npm wrangler pages dev .vercel/output/static --d1=DRACO_DB",
-    "cf:deploy": "wrangler pages deploy .vercel/output/static",
-    "test:mapping": "node scripts/check-mapping.js"
+    "build:cloudflare": "npx @opennextjs/cloudflare build",
+    "preview:cloudflare": "npm run build:cloudflare && npx wrangler dev --config wrangler.toml",
+    "deploy:cloudflare": "npm run build:cloudflare && npx wrangler deploy --config wrangler.toml",
+    "test:mapping": "node scripts/check-mapping.js",
+    "smoke:cloudflare": "node scripts/smokes-cloudflare.js"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -23,8 +24,8 @@
     "stripe": "^20.1.0"
   },
   "devDependencies": {
-    "@cloudflare/next-on-pages": "^1.13.16",
     "@cloudflare/workers-types": "^4.20250204.0",
+    "@opennextjs/cloudflare": "^1.14.7",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^20.17.9",
     "@types/react": "^18.3.12",
