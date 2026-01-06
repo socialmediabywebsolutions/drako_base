@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { queryAll } from "@/lib/db";
 import { ensureCampamentoBase, getCampamentoCoreAgentsCatalog } from "@/lib/campamento-base";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+export const runtime = "edge";
 
 
 export type CoreAgent = {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import type { SaasBlueprintDraft, SaasVerticalId } from "@/lib/campamento-base/saas-factory-types";
 import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
+export const runtime = "edge";
 
 
 type ChatPayload = {

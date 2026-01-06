@@ -6,6 +6,7 @@ import {
   resolveSaasMarketingContext,
   upsertSaasMarketingPlan,
 } from "@/lib/saas/marketing-repository";
+export const runtime = "edge";
 
 
 type RouteContext = {

@@ -1,15 +1,15 @@
-# Production Checklist (Cloudflare)
+# Production Checklist (Cloudflare Pages / next-on-pages)
 
 ## Build
 - Install deps:
   - `npm ci`
-- Build OpenNext:
-  - `npm run build:cloudflare`
+- Pages build (next-on-pages):
+  - `npx @cloudflare/next-on-pages@1`
 
-## Deploy (OpenNext)
-- `npm run deploy:cloudflare`
+## Deploy (Pages)
+- Use Cloudflare Pages deployment (build output in `.vercel/output/static`).
 
-## Required bindings / env (Pages/Workers)
+## Required bindings / env (Pages)
 - D1 binding: `DRACO_DB` -> `drako_db_prod`
 - Env:
   - `SESSION_SECRET`

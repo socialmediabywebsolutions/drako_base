@@ -20,6 +20,7 @@ import {
   updateStripeWebhookFailed,
 } from "@/lib/billing/stripe-webhook-repository";
 import { ensureStripeWebhookDedupe } from "@/lib/billing/stripe-webhook-processor";
+export const runtime = "edge";
 
 function getWebhookSecret(): string | null {
   if (typeof process !== "undefined" && process.env.STRIPE_WEBHOOK_SECRET) {

@@ -3,6 +3,7 @@ import { requireTenantAccess } from "@/lib/auth/session";
 import { handleTasksApiError } from "@/lib/tasks/api-helpers";
 import { createTask, listTasks, resolveTasksContext } from "@/lib/tasks/repository";
 import type { SaasTaskCategory, SaasTaskStatus } from "@/lib/tasks/types";
+export const runtime = "edge";
 
 
 export async function GET(request: Request) {

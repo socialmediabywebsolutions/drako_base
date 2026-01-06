@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { syncSaasFeaturesFromPlan } from "@/lib/billing/entitlements";
+export const runtime = "edge";
 
 
 export async function POST(request: Request) {
