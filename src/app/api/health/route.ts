@@ -37,6 +37,7 @@ export async function GET(request: Request) {
 
   const correlationId = globalThis.crypto?.randomUUID?.() ?? `health_${Date.now()}`;
   const buildStamp = getPagesStamp(request, correlationId);
+  const noStoreHeaders = { headers: { "Cache-Control": "no-store" } };
   let dbStatus: "ok" | "missing_binding" | "schema_error" | "unknown" = "ok";
   let dbReason: string | null = null;
   const missingTables: string[] = [];
@@ -65,7 +66,7 @@ export async function GET(request: Request) {
           correlationId,
           tenantFallback: DEMO_TENANT_ID,
         },
-        { status: 503 },
+        { status: 503, ...noStoreHeaders },
       );
     }
   } catch (error) {
@@ -96,7 +97,7 @@ export async function GET(request: Request) {
         ...bindingDetails,
         tenantFallback: DEMO_TENANT_ID,
       },
-      { status: 503 },
+      { status: 503, ...noStoreHeaders },
     );
   }
 
@@ -140,19 +141,22 @@ export async function GET(request: Request) {
   if (resolution.status === "NOT_FOUND") hints.push("host_resolution_not_found");
   if (resolution.status === "PENDING") hints.push("host_pending_verification");
 
-  return NextResponse.json({
-    ok: hints.length === 0,
-    name: "DRAKO",
-    time: new Date().toISOString(),
-    host: { header: hostHeader, effective: effectiveHost, real: realHost, url: url.hostname },
-    resolution,
-    domains,
-    campamento,
-    publicSaas,
-    db: { status: dbStatus, reason: dbReason },
-    dbSnapshot: { missingTables },
-    hints,
-    build: buildStamp,
-    tenantFallback: DEMO_TENANT_ID,
-  });
+  return NextResponse.json(
+    {
+      ok: hints.length === 0,
+      name: "DRAKO",
+      time: new Date().toISOString(),
+      host: { header: hostHeader, effective: effectiveHost, real: realHost, url: url.hostname },
+      resolution,
+      domains,
+      campamento,
+      publicSaas,
+      db: { status: dbStatus, reason: dbReason },
+      dbSnapshot: { missingTables },
+      hints,
+      build: buildStamp,
+      tenantFallback: DEMO_TENANT_ID,
+    },
+    noStoreHeaders,
+  );
 }

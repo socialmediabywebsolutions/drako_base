@@ -6,6 +6,7 @@ export const runtime = "edge";
 
 export async function GET(request: Request) {
   const correlationId = globalThis.crypto?.randomUUID?.() ?? `debug_${Date.now()}`;
+  const noStoreHeaders = { headers: { "Cache-Control": "no-store" } };
   const bindings = env() as Record<string, string | undefined> | null;
   const envKeys = bindings ? Object.keys(bindings).sort() : [];
   const pagesBranch = bindings?.CF_PAGES_BRANCH ?? process.env.CF_PAGES_BRANCH ?? null;
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
         reason: "debug_token_required",
         correlationId,
       },
-      { status: 401 },
+      { status: 401, ...noStoreHeaders },
     );
   }
 
@@ -46,19 +47,22 @@ export async function GET(request: Request) {
         reason: "debug_token_required",
         correlationId,
       },
-      { status: 401 },
+      { status: 401, ...noStoreHeaders },
     );
   }
 
   let hasDracoDb = false;
   let dbPing: { ok: boolean; error?: string } | null = null;
   let reason: string | null = null;
+  let bindingStatus: "ok" | "no_request_context" | "binding_missing" = "ok";
   if (!bindings) {
     reason =
       "binding_missing_in_runtime: no request context detected (are you calling outside a request or using the wrong runtime?).";
+    bindingStatus = "no_request_context";
   } else if (!("DRACO_DB" in bindings)) {
     reason =
       "binding_missing_in_runtime: DRACO_DB not present (check Pages bindings, project, or branch).";
+    bindingStatus = "binding_missing";
   }
 
   if (!reason) {
@@ -75,11 +79,14 @@ export async function GET(request: Request) {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       reason = `binding_missing_in_runtime: ${message}`;
+      bindingStatus = message.toLowerCase().includes("request context")
+        ? "no_request_context"
+        : "binding_missing";
     }
   }
 
   return NextResponse.json({
-    ok: true,
+    ok: bindingStatus === "ok",
     correlationId,
     request: {
       host: request.headers.get("host") ?? "",
@@ -96,5 +103,6 @@ export async function GET(request: Request) {
     envKeys,
     dbPing,
     reason,
-  });
+    bindingStatus,
+  }, noStoreHeaders);
 }
