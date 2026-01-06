@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { buildCustomerPartnerContext, getCustomerPartnerSuggestions } from "@/lib/agents/customer-partner";
 import { CustomersContextError } from "@/lib/customers/repository";
-export const runtime = "edge";
 
 
 type RouteContext = {

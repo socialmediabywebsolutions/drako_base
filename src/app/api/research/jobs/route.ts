@@ -3,7 +3,6 @@ import { ensureDatabase, queryAll, run } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import { env } from "@/lib/cf";
-export const runtime = "edge";
 
 
 type JobRow = {

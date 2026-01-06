@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { buildOwnerControlSnapshot } from "@/lib/owner/control-dashboard";
-export const runtime = "edge";
 
 
 export async function GET(request: Request) {

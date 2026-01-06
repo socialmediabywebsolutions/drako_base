@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureDatabase, queryOne } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";
-export const runtime = "edge";
 
 
 type FileRow = { mime_type: string; content: string; report_id: string };

@@ -8,7 +8,6 @@ import {
 } from "@/lib/customers/repository";
 import type { CustomerBookingStatus } from "@/lib/customers/types";
 import { listSaasServices, resolveEconomyContext } from "@/lib/economy/repository";
-export const runtime = "edge";
 
 
 type RouteContext = {

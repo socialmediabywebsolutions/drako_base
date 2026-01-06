@@ -8,7 +8,45 @@ const root = process.cwd();
 const openNextDir = path.join(root, ".open-next");
 const openNextAssets = path.join(openNextDir, "assets");
 const openNextWorker = path.join(openNextDir, "worker.js");
-const pagesOutput = path.join(root, ".pages-output");
+const pagesOutput = path.join(root, ".vercel", "output", "static");
+
+function scanForNextOnPages() {
+  const targets = [
+    path.join(root, "package.json"),
+    path.join(root, "package-lock.json"),
+  ];
+
+  const scanDirs = [
+    path.join(root, "docs"),
+    path.join(root, "scripts"),
+  ];
+
+  for (const dir of scanDirs) {
+    if (!fs.existsSync(dir)) continue;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) continue;
+      if (!/\.(md|js|ts|json)$/i.test(entry.name)) continue;
+      if (path.resolve(full) === __filename) continue;
+      targets.push(full);
+    }
+  }
+
+  const hits = [];
+  for (const file of targets) {
+    if (!fs.existsSync(file)) continue;
+    const contents = fs.readFileSync(file, "utf8");
+    if (contents.includes("next-on-pages")) {
+      hits.push(path.relative(root, file));
+    }
+  }
+
+  if (hits.length > 0) {
+    console.error("Release gate failed: next-on-pages references detected in:");
+    hits.forEach((file) => console.error(`- ${file}`));
+    process.exit(1);
+  }
+}
 
 function run(command, args) {
   const result = spawnSync(command, args, { stdio: "inherit" });
@@ -17,6 +55,7 @@ function run(command, args) {
   }
 }
 
+scanForNextOnPages();
 run("npm", ["run", "build:cloudflare"]);
 
 if (!fs.existsSync(openNextAssets) || !fs.existsSync(openNextWorker)) {
@@ -30,6 +69,15 @@ if (fs.existsSync(pagesOutput)) {
 fs.mkdirSync(pagesOutput, { recursive: true });
 
 fs.cpSync(openNextAssets, pagesOutput, { recursive: true });
-fs.copyFileSync(openNextWorker, path.join(pagesOutput, "_worker.js"));
+const workerTarget = path.join(pagesOutput, "_worker.js");
+fs.copyFileSync(openNextWorker, workerTarget);
 
-console.log("Pages output ready at .pages-output");
+if (!fs.existsSync(workerTarget)) {
+  console.error("Missing _worker.js in .vercel/output/static");
+  process.exit(1);
+}
+
+console.log("OpenNext: OK");
+console.log("next-on-pages: NOT FOUND");
+console.log("Output dir: .vercel/output/static");
+console.log("_worker.js: FOUND");

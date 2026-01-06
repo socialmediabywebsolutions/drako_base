@@ -3,7 +3,6 @@ import { requireTenantAccess } from "@/lib/auth/session";
 import { handleKnowledgeApiError } from "@/lib/knowledge/api-helpers";
 import { createKnowledgeLink, resolveKnowledgeContext } from "@/lib/knowledge/repository";
 import type { SaasKnowledgeLinkTargetType } from "@/lib/knowledge/types";
-export const runtime = "edge";
 
 
 export async function POST(request: Request) {

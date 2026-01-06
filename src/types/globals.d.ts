@@ -12,7 +12,3 @@ interface D1Database {
   prepare(query: string): D1PreparedStatement;
   dump?(): Promise<ArrayBuffer>;
 }
-
-declare module "@cloudflare/next-on-pages" {
-  export function getRequestContext(): unknown;
-}

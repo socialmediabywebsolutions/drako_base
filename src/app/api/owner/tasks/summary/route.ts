@@ -3,7 +3,6 @@ import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { queryAll } from "@/lib/db";
 import { getDemoOwner } from "@/lib/admin/demo-data";
 import { getOwnerTasksSummary } from "@/lib/owner/tasks";
-export const runtime = "edge";
 
 
 type OwnerRow = { id: string };

@@ -3,7 +3,6 @@ import { env } from "@/lib/cf";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { listDevArchitectChecklists, updateDevArchitectChecklistStatus } from "@/lib/dev-architects/store";
 import type { DevArchitectChecklistStatus } from "@/lib/dev-architects/types";
-export const runtime = "edge";
 
 
 async function resolveTenantId(req: Request): Promise<string> {

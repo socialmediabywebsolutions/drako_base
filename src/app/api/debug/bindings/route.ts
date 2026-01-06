@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { env, runtimeAdapter } from "@/lib/cf";
+import { env } from "@/lib/cf";
 import { getDracoDbFromRequestContext } from "@/lib/db";
-export const runtime = "edge";
 
 
 export async function GET(request: Request) {
@@ -12,7 +11,6 @@ export async function GET(request: Request) {
   const pagesBranch = bindings?.CF_PAGES_BRANCH ?? process.env.CF_PAGES_BRANCH ?? null;
   const pagesCommitSha = bindings?.CF_PAGES_COMMIT_SHA ?? process.env.CF_PAGES_COMMIT_SHA ?? null;
   const pagesUrl = bindings?.CF_PAGES_URL ?? process.env.CF_PAGES_URL ?? null;
-  const adapter = runtimeAdapter();
   const runtime = process.env.NEXT_RUNTIME ?? "unknown";
   const isPages =
     typeof (globalThis as typeof globalThis & { caches?: unknown }).caches !== "undefined" &&
@@ -100,7 +98,6 @@ export async function GET(request: Request) {
       url: pagesUrl,
     },
     runtime,
-    adapter,
     isPages,
     hasRequestContext: Boolean(bindings),
     hasDracoDb,

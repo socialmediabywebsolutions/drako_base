@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { listSaasSocialCampaigns, resolveSocialContext, SocialContextError, upsertSaasSocialCampaign } from "@/lib/social/repository";
-export const runtime = "edge";
 
 
 export async function GET(request: Request) {

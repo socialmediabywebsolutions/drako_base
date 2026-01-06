@@ -1,16 +1,15 @@
-# Production Audit — Drako Base (next-on-pages)
+# Production Audit — Drako Base (OpenNext)
 
 Date: 2026-01-06
 
 ## Scope
-- Cloudflare Pages build (next-on-pages), host routing split, and public UI legibility.
+- Cloudflare Pages build (OpenNext), host routing split, and public UI legibility.
 
 ## Architecture decision
-- Pages build uses `@cloudflare/next-on-pages@1`.
-- Dynamic routes must export `runtime = \"edge\"`.
+- Pages build uses OpenNext only.
 
 ## Required Cloudflare Pages settings
-- Build command: `npx @cloudflare/next-on-pages@1`
+- Build command: `npm run pages:build`
 - Output directory: `.vercel/output/static`
 
 ## Host routing expectations
@@ -19,11 +18,11 @@ Date: 2026-01-06
 - `*.pages.dev` -> PREVIEW (diagnostics only, no admin)
 
 ## Evidence (local)
-- `npx @cloudflare/next-on-pages@1` ✅
+- `npm run pages:build` ✅
   - `.vercel/output/static/_worker.js` generated
 
 ## Pending verification (Cloudflare)
-- Build logs show `npx @cloudflare/next-on-pages@1`.
+- Build logs show `npm run pages:build`.
 - `https://drako.systems` renders public shell.
 - `https://base.drako.systems/admin` renders Campamento Base.
 - `https://drako-base-3.pages.dev/admin` rewrites to `/preview`.
@@ -32,3 +31,6 @@ Date: 2026-01-06
 ## Binding clarification
 - Binding name (code): `DRACO_DB`
 - D1 database name (Cloudflare): `drako_db_prod`
+
+## Output clarification
+- The `.vercel/output/static` directory includes `_worker.js`, so it is not static-only.

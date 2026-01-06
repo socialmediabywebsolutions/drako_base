@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { queryAll, run } from "@/lib/db";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { env } from "@/lib/cf";
-export const runtime = "edge";
 
 
 type Alert = {

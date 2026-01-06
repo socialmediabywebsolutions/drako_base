@@ -3,7 +3,6 @@ import { requireTenantAccess } from "@/lib/auth/session";
 import { handleFeaturesApiError } from "@/lib/features/api-helpers";
 import { listSaasFeatures, resolveFeaturesContext, upsertSaasFeature } from "@/lib/features/repository";
 import type { SaasFeatureCategory, SaasFeatureKey, SaasFeatureSource, SaasFeatureStatus } from "@/lib/features/types";
-export const runtime = "edge";
 
 
 const FEATURE_KEYS: SaasFeatureKey[] = [

@@ -3,7 +3,6 @@ import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { queryAll } from "@/lib/db";
 import { getDemoOwner } from "@/lib/admin/demo-data";
 import { getDrakoTreasurySnapshot } from "@/lib/owner/treasury";
-export const runtime = "edge";
 
 
 type OwnerRow = {

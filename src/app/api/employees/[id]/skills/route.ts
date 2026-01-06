@@ -3,7 +3,6 @@ import { requireTenantAccess } from "@/lib/auth/session";
 import { resolveEmployeesContext } from "@/lib/employees/context";
 import { handleEmployeesApiError } from "@/lib/employees/api-helpers";
 import { addEmployeeSkill, getEmployeeById } from "@/lib/employees/repository";
-export const runtime = "edge";
 
 
 type RouteContext = {

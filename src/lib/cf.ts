@@ -1,6 +1,5 @@
-// Edge-safe access to Cloudflare bindings from OpenNext or next-on-pages.
+// Edge-safe access to Cloudflare bindings from OpenNext.
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export type DracoEnv = {
   DRACO_DB: D1Database;
@@ -45,33 +44,12 @@ export type DracoEnv = {
 };
 
 type CtxWithEnv = { env?: DracoEnv };
-type Adapter = "opennext" | "next-on-pages" | "unknown";
-
-let lastAdapter: Adapter = "unknown";
 
 export function env(): DracoEnv | null {
   try {
     const ctx = getCloudflareContext() as unknown as CtxWithEnv | null;
-    if (ctx?.env) {
-      lastAdapter = "opennext";
-      return ctx.env;
-    }
+    return ctx?.env ?? null;
   } catch {
-    // fall through
+    return null;
   }
-  try {
-    const ctx = getRequestContext() as CtxWithEnv | null;
-    if (ctx?.env) {
-      lastAdapter = "next-on-pages";
-      return ctx.env;
-    }
-  } catch {
-    // fall through
-  }
-  lastAdapter = "unknown";
-  return null;
-}
-
-export function runtimeAdapter(): Adapter {
-  return lastAdapter;
 }

@@ -7,7 +7,6 @@ import {
   resolveCustomersContext,
   updateSaasCustomer,
 } from "@/lib/customers/repository";
-export const runtime = "edge";
 
 
 export async function POST(request: Request) {
