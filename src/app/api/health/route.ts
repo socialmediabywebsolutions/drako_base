@@ -7,6 +7,7 @@ import { ensureCampamentoBase } from "@/lib/campamento-base";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import type { NextRequest } from "next/server";
 import { env } from "@/lib/cf";
+export const runtime = "edge";
 
 
 function getPagesStamp(request: Request, correlationId: string) {
@@ -34,7 +35,11 @@ function getPagesStamp(request: Request, correlationId: string) {
     bindings: {
       dracoDb: Boolean(bindings?.DRACO_DB),
     },
-    request: { host: requestHost, url: requestUrl },
+    request: {
+      host: requestHost,
+      url: requestUrl,
+      hostMode: request.headers.get("x-drako-host-mode") ?? null,
+    },
     correlationId,
   };
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { env } from "@/lib/cf";
+import { env, runtimeAdapter } from "@/lib/cf";
 import { getDracoDbFromRequestContext } from "@/lib/db";
+export const runtime = "edge";
 
 
 export async function GET(request: Request) {
@@ -11,6 +12,8 @@ export async function GET(request: Request) {
   const pagesBranch = bindings?.CF_PAGES_BRANCH ?? process.env.CF_PAGES_BRANCH ?? null;
   const pagesCommitSha = bindings?.CF_PAGES_COMMIT_SHA ?? process.env.CF_PAGES_COMMIT_SHA ?? null;
   const pagesUrl = bindings?.CF_PAGES_URL ?? process.env.CF_PAGES_URL ?? null;
+  const adapter = runtimeAdapter();
+  const runtime = process.env.NEXT_RUNTIME ?? "unknown";
   const isPages =
     typeof (globalThis as typeof globalThis & { caches?: unknown }).caches !== "undefined" &&
     typeof (globalThis as typeof globalThis & { WebSocketPair?: unknown }).WebSocketPair !==
@@ -96,6 +99,8 @@ export async function GET(request: Request) {
       commitSha: pagesCommitSha,
       url: pagesUrl,
     },
+    runtime,
+    adapter,
     isPages,
     hasRequestContext: Boolean(bindings),
     hasDracoDb,
@@ -103,5 +108,9 @@ export async function GET(request: Request) {
     dbPing,
     reason,
     bindingStatus,
+    bindingHint:
+      bindingStatus === "binding_missing"
+        ? "Pages -> Settings -> Functions -> D1 bindings: add DRACO_DB -> drako_db_prod."
+        : null,
   }, noStoreHeaders);
 }

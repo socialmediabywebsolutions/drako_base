@@ -17,6 +17,7 @@
     "smoke:cloudflare": "node scripts/smokes-cloudflare.js"
   },
   "dependencies": {
+    "@cloudflare/next-on-pages": "1.13.16",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
     "next": "15.5.9",
