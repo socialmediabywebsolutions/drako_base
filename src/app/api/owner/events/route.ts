@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { UnauthorizedError, requireTenantAccess } from "@/lib/auth/session";
 import { queryAll } from "@/lib/db";
 
-export const runtime = "edge";
 
 type CriticalEventRow = {
   type: string;

@@ -5,7 +5,6 @@ import { handleClinicApiError } from "@/lib/clinic/api-helpers";
 import { saveClinicAppointment } from "@/lib/clinic/repository";
 import type { ClinicAppointment } from "@/lib/clinic/types";
 
-export const runtime = "edge";
 
 const ALLOWED_STATUSES = new Set<ClinicAppointment["status"]>(["booked", "done", "no-show", "cancelled"]);
 

@@ -8,7 +8,6 @@ import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-he
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
 
-export const runtime = "edge";
 
 type Saas = {
   id: string;

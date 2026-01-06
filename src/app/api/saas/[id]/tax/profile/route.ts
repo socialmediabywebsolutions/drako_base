@@ -4,7 +4,6 @@ import { handleTaxApiError } from "@/lib/tax/api-helpers";
 import { DEFAULT_TAX_PROFILE } from "@/lib/tax/engine";
 import { resolveTaxContext, getSaasTaxProfile, upsertSaasTaxProfile } from "@/lib/tax/repository";
 
-export const runtime = "edge";
 
 type RouteContext = {
   params: Promise<{ id: string }>;

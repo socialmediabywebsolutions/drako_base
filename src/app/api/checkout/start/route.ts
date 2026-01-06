@@ -3,7 +3,6 @@ import { ensureDatabase, run } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 
-export const runtime = "edge";
 
 export async function POST(req: Request) {
   try {

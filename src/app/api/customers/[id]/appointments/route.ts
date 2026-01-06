@@ -11,7 +11,6 @@ import { resolveEmployeesContext, EmployeesContextError } from "@/lib/employees/
 import { listEmployees } from "@/lib/employees/repository";
 import { evaluateSchedulingGuardrails } from "@/lib/employees/guardrails";
 
-export const runtime = "edge";
 
 type RouteContext = {
   params: Promise<{ id: string }>;

@@ -4,7 +4,6 @@ import { ensureCampamentoBase, getCampamentoCoreDepartmentsCatalog } from "@/lib
 import { resolveTenantId } from "@/lib/tenants/services";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
 
-export const runtime = "edge";
 
 export type CoreDepartment = {
   id: string;

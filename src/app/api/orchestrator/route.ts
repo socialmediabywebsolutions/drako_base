@@ -42,7 +42,6 @@ import type {
   DevArchitectTask,
 } from "@/lib/dev-architects/types";
 
-export const runtime = "edge";
 
 function readProcessEnv(key: string): string | undefined {
   if (typeof process === "undefined" || !process.env) return undefined;

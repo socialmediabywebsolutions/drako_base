@@ -4,7 +4,6 @@ import { queryAll } from "@/lib/db";
 import { getDemoOwner } from "@/lib/admin/demo-data";
 import { getOwnerActionQueueSnapshot } from "@/lib/owner/action-queue";
 
-export const runtime = "edge";
 
 type OwnerRow = {
   id: string;

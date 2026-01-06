@@ -9,9 +9,6 @@ export const metadata: Metadata = {
   description: "Núcleo administrativo central para gestionar tu ecosistema de SaaS",
 };
 
-// Ejecutar toda la aplicación en Edge Runtime para Cloudflare Pages
-export const runtime = "edge";
-
 const AdminShell = ({ children }: { children: React.ReactNode }) => <ShellLayout>{children}</ShellLayout>;
 
 function PublicShell({ children }: { children: React.ReactNode }) {

@@ -3,7 +3,6 @@ import { ensureDatabase, run } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 
-export const runtime = "edge";
 
 const REPORT_TYPES = [
   { type: "business_diagnostic", title: "Diagnóstico del negocio" },

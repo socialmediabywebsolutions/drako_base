@@ -4,7 +4,6 @@ import { resolveClinicContext } from "@/lib/clinic/context";
 import { handleClinicApiError } from "@/lib/clinic/api-helpers";
 import { addClinicFinanceEntry, listClinicFinanceEntries, summarizeFinance } from "@/lib/clinic/repository";
 
-export const runtime = "edge";
 
 export async function GET(request: Request) {
   try {

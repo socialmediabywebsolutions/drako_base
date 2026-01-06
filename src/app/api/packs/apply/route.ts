@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { applyPackToSaas, getSaasPackById } from "@/lib/packs/repository";
 
-export const runtime = "edge";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { saasId?: string | null; packId?: string | null } | null;

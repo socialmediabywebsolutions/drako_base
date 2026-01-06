@@ -10,7 +10,6 @@ import {
 import { resolveEmployeesContext } from "@/lib/employees/context";
 import { evaluateSchedulingGuardrails } from "@/lib/employees/guardrails";
 
-export const runtime = "edge";
 
 type RouteContext = {
   params: Promise<{ id: string }>;

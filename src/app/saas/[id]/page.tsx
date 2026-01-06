@@ -1,7 +1,6 @@
 // src/app/saas/[id]/page.tsx
 import SaasDetailClient from "./SaasDetailClient";
 
-export const runtime = "edge";
 
 type PageProps = {
   params: Promise<{ id: string }>;

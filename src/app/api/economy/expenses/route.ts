@@ -4,7 +4,6 @@ import { handleEconomyApiError } from "@/lib/economy/api-helpers";
 import { listSaasExpenses, resolveEconomyContext, upsertSaasExpense } from "@/lib/economy/repository";
 import type { SaasExpense } from "@/lib/economy/types";
 
-export const runtime = "edge";
 
 export async function GET(request: Request) {
   try {

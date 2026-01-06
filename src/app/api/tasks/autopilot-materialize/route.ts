@@ -4,7 +4,6 @@ import { handleTasksApiError } from "@/lib/tasks/api-helpers";
 import { materializeAutopilotActionsAsTasks } from "@/lib/tasks/autopilot-bridge";
 import { buildOwnerControlSnapshot } from "@/lib/owner/control-dashboard";
 
-export const runtime = "edge";
 
 export async function POST(request: Request) {
   try {

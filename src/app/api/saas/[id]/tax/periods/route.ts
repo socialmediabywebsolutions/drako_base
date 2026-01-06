@@ -3,7 +3,6 @@ import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { handleTaxApiError } from "@/lib/tax/api-helpers";
 import { listTaxPeriodsWithSummary, recalculateCurrentQuarter } from "@/lib/tax/engine";
 
-export const runtime = "edge";
 
 type RouteContext = {
   params: Promise<{ id: string }>;

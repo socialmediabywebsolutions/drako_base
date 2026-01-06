@@ -4,7 +4,6 @@ import { resolveEmployeesContext } from "@/lib/employees/context";
 import { handleEmployeesApiError } from "@/lib/employees/api-helpers";
 import { createEmployee, listEmployees } from "@/lib/employees/repository";
 
-export const runtime = "edge";
 
 export async function GET(request: Request) {
   try {

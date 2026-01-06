@@ -17,7 +17,6 @@ import type {
   ConversationStatus,
 } from "@/lib/conversations/types";
 
-export const runtime = "edge";
 
 const VALID_ACTOR_TYPES: ConversationActorType[] = ["OWNER", "EMPLOYEE"];
 const VALID_CHANNELS: ConversationChannel[] = [

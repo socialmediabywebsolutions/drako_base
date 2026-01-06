@@ -3,7 +3,6 @@ import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { resolveBrandingContext, getUserUiPreferences, upsertUserUiPreferences } from "@/lib/branding/repository";
 import type { BrandingLayoutDensity, BrandingRoleType } from "@/lib/branding/types";
 
-export const runtime = "edge";
 
 const VALID_DENSITIES: BrandingLayoutDensity[] = ["COMPACT", "COZY", "NORMAL"];
 const VALID_ROLES: BrandingRoleType[] = ["OWNER", "EMPLOYEE"];

@@ -4,7 +4,6 @@ import { handleFeaturesApiError } from "@/lib/features/api-helpers";
 import { resolveFeaturesContext, syncFeaturesFromBlueprint } from "@/lib/features/repository";
 import { listSaasModules, resolveBlueprintsContext } from "@/lib/blueprints/repository";
 
-export const runtime = "edge";
 
 export async function POST(request: Request) {
   try {

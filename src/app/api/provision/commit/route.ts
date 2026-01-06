@@ -3,7 +3,6 @@ import { ensureDatabase, queryAll, queryOne, run } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 
-export const runtime = "edge";
 
 type PackRow = { id: string; tier: string; departments: string };
 type AgentRow = { id: string; department_id: string };

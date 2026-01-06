@@ -4,7 +4,6 @@ import { createEmailMessage, resolveEmailIntakeContext, EmailIntakeContextError 
 import { resolveEconomyContext } from "@/lib/economy/repository";
 import { applyEmailAutomations } from "@/lib/email-intake/automation";
 
-export const runtime = "edge";
 
 const demoEmails = [
   {

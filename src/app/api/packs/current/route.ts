@@ -6,7 +6,6 @@ import { resolveFeaturesContext, listSaasFeatures } from "@/lib/features/reposit
 import { resolveEconomyContext, listSaasServices } from "@/lib/economy/repository";
 import { guessPackForSaas } from "@/lib/packs/repository";
 
-export const runtime = "edge";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);

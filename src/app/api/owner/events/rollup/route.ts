@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { UnauthorizedError, requireTenantAccess } from "@/lib/auth/session";
 import { runEventsRollupAndRetention } from "@/lib/empire/events-retention";
 
-export const runtime = "edge";
 
 export async function POST(request: Request) {
   try {

@@ -5,7 +5,6 @@ import { buildOwnerControlSnapshot } from "@/lib/owner/control-dashboard";
 import { resolveTasksContext, listTasks } from "@/lib/tasks/repository";
 import { listDemoClients, listDemoClientSaas, listDemoSaas } from "@/lib/admin/demo-data";
 
-export const runtime = "edge";
 
 type ClientRow = {
   id: string;

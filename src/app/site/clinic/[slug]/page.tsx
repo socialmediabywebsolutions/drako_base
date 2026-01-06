@@ -12,7 +12,6 @@ type PublicClinicPageProps = {
   params?: Promise<{ slug: string }>;
 };
 
-export const runtime = "edge";
 
 export default async function PublicClinicPage({ params }: PublicClinicPageProps) {
   const resolvedParams = params ? await params : { slug: "" };

@@ -3,7 +3,6 @@ import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { handleWhatsappApiError } from "@/lib/whatsapp/api-helpers";
 import { runWhatsappAutomation } from "@/lib/whatsapp/automation";
 
-export const runtime = "edge";
 
 export async function POST(request: Request) {
   try {

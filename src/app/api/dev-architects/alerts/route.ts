@@ -4,7 +4,6 @@ import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { listDevArchitectAlerts, syncDevArchitectAuditAlert } from "@/lib/dev-architects/store";
 import type { DevArchitectAlertSeverity } from "@/lib/dev-architects/types";
 
-export const runtime = "edge";
 
 async function resolveTenantId(req: Request): Promise<string> {
   const url = new URL(req.url);

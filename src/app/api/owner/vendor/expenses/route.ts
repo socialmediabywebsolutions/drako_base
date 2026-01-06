@@ -5,7 +5,6 @@ import { getDemoOwner } from "@/lib/admin/demo-data";
 import { listVendorExpenses, resolveVendorExpensesContext, upsertVendorExpense } from "@/lib/owner/vendor-expenses";
 import type { DrakoVendorExpenseFilters, DrakoVendorExpenseInput, DrakoVendorExpensePeriod, DrakoVendorExpenseType } from "@/lib/owner/vendor-types";
 
-export const runtime = "edge";
 
 type OwnerRow = {
   id: string;

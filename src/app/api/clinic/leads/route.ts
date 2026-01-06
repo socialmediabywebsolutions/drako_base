@@ -5,7 +5,6 @@ import { handleClinicApiError } from "@/lib/clinic/api-helpers";
 import { listClinicLeads, saveClinicLead } from "@/lib/clinic/repository";
 import type { ClinicLead } from "@/lib/clinic/types";
 
-export const runtime = "edge";
 
 const ALLOWED_STATUSES = new Set(["new", "contacted", "booked", "lost"]);
 const ALLOWED_PRIORITIES = new Set(["low", "medium", "high"]);

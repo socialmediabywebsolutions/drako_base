@@ -4,7 +4,6 @@ import { handleWhatsappApiError } from "@/lib/whatsapp/api-helpers";
 import { resolveWhatsappContext, listWhatsappIdentities, upsertWhatsappIdentity } from "@/lib/whatsapp/repository";
 import type { WhatsappActorType } from "@/lib/whatsapp/types";
 
-export const runtime = "edge";
 
 const ACTOR_TYPES: WhatsappActorType[] = ["PLATFORM_OWNER", "SAAS_OWNER", "EMPLOYEE", "CUSTOMER"];
 

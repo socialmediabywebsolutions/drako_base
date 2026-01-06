@@ -4,7 +4,6 @@ import { handleTasksApiError } from "@/lib/tasks/api-helpers";
 import { appendTaskEvent, getTaskById, listTaskEvents, resolveTasksContext, updateTask } from "@/lib/tasks/repository";
 import type { SaasTaskCategory, SaasTaskSeverity, SaasTaskStatus } from "@/lib/tasks/types";
 
-export const runtime = "edge";
 
 type RouteContext = {
   params: Promise<{ id: string }>;

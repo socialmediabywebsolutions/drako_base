@@ -8,7 +8,6 @@ import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import type { NextRequest } from "next/server";
 import { env } from "@/lib/cf";
 
-export const runtime = "edge";
 
 function getPagesStamp(request: Request, correlationId: string) {
   const bindings = env() as Record<string, string | undefined> | null;

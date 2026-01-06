@@ -4,7 +4,6 @@ import { handleEconomyApiError } from "@/lib/economy/api-helpers";
 import { recordInventoryMovement, resolveEconomyContext } from "@/lib/economy/repository";
 import type { SaasInventoryMovement } from "@/lib/economy/types";
 
-export const runtime = "edge";
 
 export async function POST(request: Request) {
   try {

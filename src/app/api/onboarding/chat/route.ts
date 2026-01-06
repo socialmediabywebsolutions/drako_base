@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { ensureDatabase, queryAll, queryOne, run } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";
 
-export const runtime = "edge";
 
 type SessionRow = {
   id: string;

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { UnauthorizedError, requireTenantAccess } from "@/lib/auth/session";
 import { transitionActionStatus } from "@/lib/owner/action-queue-repository";
 
-export const runtime = "edge";
 
 type RouteContext = {
   params: Promise<{ id: string }>;

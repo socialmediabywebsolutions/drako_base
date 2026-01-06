@@ -4,7 +4,6 @@ import { recordCampamentoEvent } from "@/lib/empire/events";
 import { getDbHealthSnapshot } from "@/lib/db/health";
 import { createOrMergeActionFromWebhook } from "@/lib/owner/action-queue-repository";
 
-export const runtime = "edge";
 
 function resolveCorrelationId(request: Request): string {
   return (

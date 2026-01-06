@@ -3,7 +3,6 @@ import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { resolveSocialContext, SocialContextError } from "@/lib/social/repository";
 import { getSocialPostSuggestionsForCampaign } from "@/lib/social/content-engine";
 
-export const runtime = "edge";
 
 export async function GET(request: Request) {
   try {

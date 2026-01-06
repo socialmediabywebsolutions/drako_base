@@ -5,7 +5,6 @@ import { findSaasBySlug } from "@/lib/site/clinic";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
 import { registerPublicIngestFailure, verifyPublicIngestAccess } from "@/lib/security/public-ingest";
 
-export const runtime = "edge";
 
 export async function POST(request: Request) {
   try {

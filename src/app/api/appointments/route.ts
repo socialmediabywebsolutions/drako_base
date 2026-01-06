@@ -9,7 +9,6 @@ import {
 import { resolveEmployeesContext } from "@/lib/employees/context";
 import { evaluateSchedulingGuardrails } from "@/lib/employees/guardrails";
 
-export const runtime = "edge";
 
 const SOURCE_CHANNELS = ["SOCIAL", "EMAIL", "DIRECT", "REFERRAL", "OTHER"] as const;
 

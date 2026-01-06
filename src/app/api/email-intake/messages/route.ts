@@ -11,7 +11,6 @@ import { resolveEconomyContext } from "@/lib/economy/repository";
 import { applyEmailAutomations } from "@/lib/email-intake/automation";
 import type { EmailClassification, EmailStatus } from "@/lib/email-intake/types";
 
-export const runtime = "edge";
 
 export async function GET(request: Request) {
   try {

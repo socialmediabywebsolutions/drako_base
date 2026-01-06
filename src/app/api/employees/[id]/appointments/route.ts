@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { AppointmentsContextError, listAppointmentsForEmployee, resolveAppointmentsContext } from "@/lib/appointments/repository";
 
-export const runtime = "edge";
 
 type RouteContext = {
   params: Promise<{ id: string }>;

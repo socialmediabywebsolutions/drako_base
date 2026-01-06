@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { env } from "@/lib/cf";
 import { getDracoDbFromRequestContext } from "@/lib/db";
 
-export const runtime = "edge";
 
 export async function GET(request: Request) {
   const correlationId = globalThis.crypto?.randomUUID?.() ?? `debug_${Date.now()}`;

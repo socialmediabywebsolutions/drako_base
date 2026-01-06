@@ -9,7 +9,6 @@ import {
   upsertSaasCustomerProfile,
 } from "@/lib/customers/repository";
 
-export const runtime = "edge";
 
 type RouteContext = {
   params: Promise<{ id: string }>;

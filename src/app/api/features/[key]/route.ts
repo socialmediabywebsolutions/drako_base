@@ -4,7 +4,6 @@ import { handleFeaturesApiError } from "@/lib/features/api-helpers";
 import { getSaasFeatureByKey, resolveFeaturesContext, upsertSaasFeature } from "@/lib/features/repository";
 import type { SaasFeatureKey, SaasFeatureSource, SaasFeatureStatus } from "@/lib/features/types";
 
-export const runtime = "edge";
 
 type RouteContext = {
   params: Promise<{ key: string }>;

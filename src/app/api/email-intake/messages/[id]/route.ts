@@ -10,7 +10,6 @@ import { resolveEconomyContext } from "@/lib/economy/repository";
 import { applyEmailAutomations } from "@/lib/email-intake/automation";
 import type { EmailClassification, EmailStatus } from "@/lib/email-intake/types";
 
-export const runtime = "edge";
 
 const validClassifications: EmailClassification[] = ["INVOICE", "QUOTE", "SUPPLIER", "LEAD", "OTHER"];
 const validStatuses: EmailStatus[] = ["NEW", "REVIEWED", "ARCHIVED", "CONVERTED_TO_EXPENSE", "CONVERTED_TO_LEAD"];

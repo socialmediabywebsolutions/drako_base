@@ -13,7 +13,6 @@ import {
 import { resolveTasksContext, getTaskById } from "@/lib/tasks/repository";
 import type { SaasKnowledgeLinkTargetType } from "@/lib/knowledge/types";
 
-export const runtime = "edge";
 
 type RouteContext = {
   params: Promise<{ id: string }>;

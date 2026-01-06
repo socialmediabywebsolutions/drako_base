@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { listSaasCatalogItems } from "@/lib/packs/repository";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
 
-export const runtime = "edge";
 
 export async function GET(request: Request) {
   try {

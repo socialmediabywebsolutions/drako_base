@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { getDrakoBaseSubscriptionAccess } from "@/lib/billing/subscription-guard";
 
-export const runtime = "edge";
 
 export async function GET(request: Request) {
   try {

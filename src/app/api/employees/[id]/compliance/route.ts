@@ -4,7 +4,6 @@ import { resolveEmployeesContext } from "@/lib/employees/context";
 import { handleEmployeesApiError } from "@/lib/employees/api-helpers";
 import { checkEmployeeCompliance } from "@/lib/employees/compliance";
 
-export const runtime = "edge";
 
 type RouteContext = {
   params: Promise<{ id: string }>;

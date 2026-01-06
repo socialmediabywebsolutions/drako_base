@@ -3,7 +3,6 @@ import { queryAll, run } from "@/lib/db";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
 
-export const runtime = "edge";
 
 type Metric = {
   id: number;
