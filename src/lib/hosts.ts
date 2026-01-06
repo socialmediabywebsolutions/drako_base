@@ -10,10 +10,21 @@ function isLocalHost(host: string) {
   return host === "127.0.0.1" || host === "localhost";
 }
 
-function normalizeHost(value: string): string {
+export function normalizeHost(value: string): string {
   const raw = value.split(",")[0]?.trim().toLowerCase() ?? "";
   const host = raw.split(":")[0] ?? "";
   return host.startsWith("www.") ? host.slice(4) : host;
+}
+
+export type HostMode = "PUBLIC_SAAS" | "CAMPAMENTO_BASE" | "PREVIEW";
+
+export function resolveHostMode(hostname: string): HostMode {
+  const host = normalizeHost(hostname);
+  if (host.endsWith(".pages.dev")) return "PREVIEW";
+  if (host === "base.drako.systems" || host === "admin.drako.systems") {
+    return "CAMPAMENTO_BASE";
+  }
+  return "PUBLIC_SAAS";
 }
 
 export function resolveEffectiveHost(req: NextRequest): EffectiveHost {

@@ -26,14 +26,16 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const headersList = await headers();
+  const hostMode = headersList.get("x-drako-host-mode") ?? "";
   const matchedPath =
     headersList.get("x-matched-path") || headersList.get("x-invoke-path") || headersList.get("next-url") || "";
   const isSiteRoute = matchedPath.startsWith("/site");
+  const usePublicShell = hostMode === "PUBLIC_SAAS" || hostMode === "PREVIEW" || isSiteRoute;
 
   return (
     <html lang="es" className="light">
       <body className="antialiased bg-[var(--background)] text-[var(--foreground)]">
-        {isSiteRoute ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
+        {usePublicShell ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
         <HostSwitcher />
       </body>
     </html>

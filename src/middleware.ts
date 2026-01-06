@@ -5,7 +5,7 @@ import { env } from "@/lib/cf";
 import { resolveHostToSaas } from "@/lib/empire/host-resolver";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
-import { resolveEffectiveHost } from "@/lib/hosts";
+import { resolveEffectiveHost, resolveHostMode } from "@/lib/hosts";
 
 /**
  * MODO DEV
@@ -36,15 +36,10 @@ export async function middleware(req: NextRequest) {
 
   const hostInfo = resolveEffectiveHost(req);
   const host = hostInfo.effectiveHost;
-  const isPagesDevHost = host.endsWith(".pages.dev");
-  const isPublicHost =
-    host === "drako.systems" ||
-    host === "www.drako.systems" ||
-    host === "stage.drako.systems" ||
-    isPagesDevHost;
-  const isAdminHost =
-    host === "base.drako.systems" ||
-    host === "admin.drako.systems";
+  const hostMode = resolveHostMode(host);
+  const isPagesDevHost = hostMode === "PREVIEW";
+  const isPublicHost = hostMode === "PUBLIC_SAAS";
+  const isAdminHost = hostMode === "CAMPAMENTO_BASE";
 
   // Rutas admin a proteger en host público
   const adminPrefixes = [
@@ -85,6 +80,9 @@ export async function middleware(req: NextRequest) {
     contextHeaders.delete("x-drako-correlation-id");
 
     const correlationId = globalThis.crypto?.randomUUID?.() ?? `corr_${Date.now()}`;
+    contextHeaders.set("x-drako-host-mode", hostMode);
+    contextHeaders.set("x-drako-effective-host", host);
+
     if (!bindings || !hasDb) {
       contextHeaders.set("x-drako-correlation-id", correlationId);
       return persistCookie(NextResponse.next({ request: { headers: contextHeaders } }));
@@ -106,27 +104,35 @@ export async function middleware(req: NextRequest) {
     return persistCookie(NextResponse.next({ request: { headers: contextHeaders } }));
   }
 
+  const responseHeaders = new Headers(req.headers);
+  responseHeaders.set("x-drako-host-mode", hostMode);
+  responseHeaders.set("x-drako-effective-host", host);
+
+  if (isPagesDevHost) {
+    if (pathname !== "/preview" && !pathname.startsWith("/preview/")) {
+      const url = new URL(req.url);
+      url.pathname = "/preview";
+      return persistCookie(NextResponse.rewrite(url, { request: { headers: responseHeaders } }));
+    }
+    return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
+  }
+
   if (isPublicHost) {
-    if (pathname === "/") {
+    if (pathname === "/" || adminPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
       const url = new URL(req.url);
       url.pathname = "/site";
-      return persistCookie(NextResponse.redirect(url));
+      return persistCookie(NextResponse.rewrite(url, { request: { headers: responseHeaders } }));
     }
-    if (adminPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
-      const url = new URL(req.url);
-      url.pathname = "/site";
-      return persistCookie(NextResponse.redirect(url));
-    }
-    return persistCookie(NextResponse.next());
+    return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
   }
 
   if (isAdminHost) {
     if (pathname === "/") {
       const url = new URL(req.url);
       url.pathname = "/admin";
-      return persistCookie(NextResponse.redirect(url));
+      return persistCookie(NextResponse.rewrite(url, { request: { headers: responseHeaders } }));
     }
-    return persistCookie(NextResponse.next());
+    return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
   }
 
   const bindings = env();
