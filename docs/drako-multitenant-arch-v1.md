@@ -273,7 +273,7 @@ Future `wrangler.toml` additions (names reserved):
 - `Queues DRACO_AUTOMATION_QUEUE` – automation + pipeline execution tasks.
 - `Queues DRACO_AGENT_QUEUE` – heavy agent/offline inference jobs.
 - `Cron Triggers` – tie to AutomationsService schedules.
-- `_worker.js` router (next-on-pages) already available; services will be imported there.
+- OpenNext `_worker.js` router already available; services will be imported there.
 
 ## Migration Strategy (from current single-owner state)
 1. **Bootstrap tenants:** create a migration that copies the existing single owner into `tenants` (`tenant_id = owner.id`). All existing records get `tenant_id` referencing this seed.

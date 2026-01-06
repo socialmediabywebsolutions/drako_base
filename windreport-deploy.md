@@ -1,7 +1,7 @@
 # Deploy Report — npm peer deps fix (Cloudflare Pages)
 
 ## Opción aplicada
-- ✅ Añadido `.npmrc` con `legacy-peer-deps=true` y `strict-peer-deps=false` para permitir la instalación con `next@15.5.9` aunque `@cloudflare/next-on-pages@1.13.16` tenga el peer range <=15.5.2.
+- ✅ Añadido `.npmrc` con `legacy-peer-deps=true` y `strict-peer-deps=false` para permitir la instalación con `next@15.5.9`.
 - Next se mantiene en `15.5.9` (parche de seguridad); no se aplicó downgrade.
 
 ## Resultados locales
@@ -13,5 +13,5 @@
 - GO para despliegue en Cloudflare Pages: la fase de `npm clean-install` ya no debería fallar por peer deps.
 
 ## Notas
-- `@cloudflare/next-on-pages` sigue deprecated; a futuro migrar a OpenNext recomendado.
+- OpenNext es el adaptador oficial para Cloudflare Pages/Workers; el pipeline actual ya usa OpenNext.
 - Plan B (no aplicado): bajar Next a 15.5.2 si surgiera un problema en runtime; no necesario tras este fix.

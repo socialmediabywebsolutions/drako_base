@@ -18,12 +18,5 @@ Module._resolveFilename = function resolveFilename(request, parent, isMain, opti
 };
 
 Module._load = function load(request, parent, isMain) {
-  if (request === "@cloudflare/next-on-pages") {
-    return {
-      getRequestContext() {
-        return { env: null };
-      },
-    };
-  }
   return originalLoad(request, parent, isMain);
 };

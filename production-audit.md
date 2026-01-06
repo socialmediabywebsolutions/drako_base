@@ -6,12 +6,13 @@ Date: 2026-01-06
 - Cloudflare Pages (OpenNext) build, D1 runtime access, routing for public/private domains, /api context, and provisioning mode.
 
 ## Findings (previous)
-- P0: Pages build failed because routes were not configured to run on Edge (next-on-pages).
+- P0: Pages build failed because routes were not configured to run on Edge (legacy adapter).
 - P0: Cloudflare provisioning stuck in dry-run.
 - P1: Middleware skipped `/api`, so tenant/saas context was missing in APIs.
 
 ## Changes applied
 - Switched Cloudflare Pages build to OpenNext output packaged for Pages (`.pages-output` with `_worker.js`).
+- Removed residual next-on-pages references from docs and scripts.
 - Middleware now processes `/api` requests to inject `x-drako-*` headers and correlation id; incoming spoofed headers are overwritten.
 - Public/private routing:
   - `drako.systems` and `*.pages.dev` treated as public.
@@ -22,6 +23,11 @@ Date: 2026-01-06
 ## Build evidence (Pages / OpenNext)
 - `npm run pages:build` ✅
   - `.pages-output/_worker.js` generated for Pages deployment.
+
+## Cloudflare Pages build settings (required)
+- Build command: `npm run pages:build`
+- Output directory: `.pages-output`
+- Expected log: no `@cloudflare/next-on-pages` usage
 
 ## Provisioning status
 - Live provisioning implemented, but **not executed** (requires tokens).

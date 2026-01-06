@@ -6,7 +6,7 @@
   - ignorar `.wrangler/**` y `.vercel/**` en lint (o limpiar antes de lint)
 
 ## Gate 2 — Build Cloudflare
-- `npm run cf:build` ✅ (Next-on-Pages sin errores)
+- `npm run pages:build` ✅ (OpenNext sin errores)
 
 ## Gate 3 — Preview local con D1
 - `wrangler d1 migrations apply drako_db --local --persist-to .wrangler/state`
