@@ -10,6 +10,7 @@
     "qa": "npm run lint && npm run build",
     "devarchitect:audit": "tsc --project tsconfig.scripts.json && node scripts/.dist/devarchitect-audit.js",
     "build:cloudflare": "npx @opennextjs/cloudflare build",
+    "pages:build": "node scripts/pages-build.js",
     "preview:cloudflare": "npm run build:cloudflare && npx wrangler dev --config wrangler.toml",
     "deploy:cloudflare": "npm run build:cloudflare && npx wrangler deploy --config wrangler.toml",
     "test:mapping": "node scripts/check-mapping.js",

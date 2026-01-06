@@ -7,7 +7,6 @@ import { ensureCampamentoBase } from "@/lib/campamento-base";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import type { NextRequest } from "next/server";
 import { env } from "@/lib/cf";
-export const runtime = "edge";
 
 
 function getPagesStamp(request: Request, correlationId: string) {
@@ -16,6 +15,8 @@ function getPagesStamp(request: Request, correlationId: string) {
   const pagesCommitSha = bindings?.CF_PAGES_COMMIT_SHA ?? process.env.CF_PAGES_COMMIT_SHA;
   const pagesUrl = bindings?.CF_PAGES_URL ?? process.env.CF_PAGES_URL;
   const pagesBuildId = bindings?.CF_PAGES_BUILD_ID ?? process.env.CF_PAGES_BUILD_ID;
+  const provisioningMode =
+    bindings?.CLOUDFLARE_PROVISIONING_MODE ?? process.env.CLOUDFLARE_PROVISIONING_MODE ?? null;
   const requestUrl = request.url;
   const requestHost = request.headers.get("host") ?? "";
 
@@ -25,6 +26,13 @@ function getPagesStamp(request: Request, correlationId: string) {
       commitSha: pagesCommitSha ?? null,
       url: pagesUrl ?? null,
       buildId: pagesBuildId ?? null,
+    },
+    environment: {
+      nodeEnv: process.env.NODE_ENV ?? null,
+      provisioningMode,
+    },
+    bindings: {
+      dracoDb: Boolean(bindings?.DRACO_DB),
     },
     request: { host: requestHost, url: requestUrl },
     correlationId,

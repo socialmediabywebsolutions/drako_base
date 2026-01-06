@@ -41,7 +41,6 @@ import type {
   DevArchitectSession,
   DevArchitectTask,
 } from "@/lib/dev-architects/types";
-export const runtime = "edge";
 
 
 function readProcessEnv(key: string): string | undefined {

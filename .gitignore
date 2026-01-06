@@ -41,6 +41,7 @@ yarn-error.log*
 .wrangler/state
 .dev.vars
 .open-next/
+.pages-output/
 
 # typescript
 *.tsbuildinfo

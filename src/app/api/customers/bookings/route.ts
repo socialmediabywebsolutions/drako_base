@@ -7,7 +7,6 @@ import {
 } from "@/lib/customers/repository";
 import { listSaasServices, resolveEconomyContext } from "@/lib/economy/repository";
 import type { SaasCustomerBooking } from "@/lib/customers/types";
-export const runtime = "edge";
 
 
 export async function GET(request: Request) {

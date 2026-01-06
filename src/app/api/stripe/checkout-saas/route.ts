@@ -5,7 +5,6 @@ import { requireTenantAccess } from "@/lib/auth/session";
 import { getRequestBaseUrl } from "@/lib/http/base-url";
 import { getSaasPlanByCode, getSaasPlanById } from "@/lib/billing/saas-plans";
 import { respondDatabaseError } from "@/lib/http/errors";
-export const runtime = "edge";
 
 type CheckoutBody = {
   saasId?: string;

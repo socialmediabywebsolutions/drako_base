@@ -2,8 +2,8 @@ name = "drako-base-3"
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Pages: salida de next-on-pages
-pages_build_output_dir = ".vercel/output/static"
+# Pages: OpenNext output packaged for Pages
+pages_build_output_dir = ".pages-output"
 
 # Production DB
 [[d1_databases]]
@@ -15,7 +15,7 @@ database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 [env.preview]
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = ".vercel/output/static"
+pages_build_output_dir = ".pages-output"
 
 [[env.preview.d1_databases]]
 binding = "DRACO_DB"

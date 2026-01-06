@@ -6,7 +6,6 @@ import {
   resolveCustomersContext,
   CustomersContextError,
 } from "@/lib/customers/repository";
-export const runtime = "edge";
 
 
 type RouteContext = {

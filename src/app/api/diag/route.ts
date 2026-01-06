@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureDatabase, queryAll, DatabaseUnavailableError } from "@/lib/db";
 import { ensureCampamentoBase, getCampamentoCoreAgentsCatalog, getCampamentoCoreDepartmentsCatalog } from "@/lib/campamento-base";
-export const runtime = "edge";
 
 
 const REQUIRED_TABLES = ["saas", "saas_domains", "saas_projects", "owners", "clients", "campamento_events"];

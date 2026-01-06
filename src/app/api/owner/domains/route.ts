@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { queryAll } from "@/lib/db";
-export const runtime = "edge";
 
 
 type DomainRow = {
