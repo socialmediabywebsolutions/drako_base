@@ -6,14 +6,37 @@ import { ensureDatabase, queryAll, queryOne, DatabaseUnavailableError } from "@/
 import { ensureCampamentoBase } from "@/lib/campamento-base";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import type { NextRequest } from "next/server";
+import { env } from "@/lib/cf";
 
 export const runtime = "edge";
+
+function getPagesStamp(request: Request, correlationId: string) {
+  const bindings = env() as Record<string, string | undefined> | null;
+  const pagesBranch = bindings?.CF_PAGES_BRANCH ?? process.env.CF_PAGES_BRANCH;
+  const pagesCommitSha = bindings?.CF_PAGES_COMMIT_SHA ?? process.env.CF_PAGES_COMMIT_SHA;
+  const pagesUrl = bindings?.CF_PAGES_URL ?? process.env.CF_PAGES_URL;
+  const pagesBuildId = bindings?.CF_PAGES_BUILD_ID ?? process.env.CF_PAGES_BUILD_ID;
+  const requestUrl = request.url;
+  const requestHost = request.headers.get("host") ?? "";
+
+  return {
+    pages: {
+      branch: pagesBranch ?? null,
+      commitSha: pagesCommitSha ?? null,
+      url: pagesUrl ?? null,
+      buildId: pagesBuildId ?? null,
+    },
+    request: { host: requestHost, url: requestUrl },
+    correlationId,
+  };
+}
 
 export async function GET(request: Request) {
   const blocked = await enforcePublicEndpointPolicy({ request, route: "/api/health" });
   if (blocked) return blocked;
 
   const correlationId = globalThis.crypto?.randomUUID?.() ?? `health_${Date.now()}`;
+  const buildStamp = getPagesStamp(request, correlationId);
   let dbStatus: "ok" | "missing_binding" | "schema_error" | "unknown" = "ok";
   let dbReason: string | null = null;
   const missingTables: string[] = [];
@@ -69,6 +92,7 @@ export async function GET(request: Request) {
         hint: dbReason,
         db: { status: dbStatus, reason: dbReason },
         correlationId,
+        build: buildStamp,
         ...bindingDetails,
         tenantFallback: DEMO_TENANT_ID,
       },
@@ -128,6 +152,7 @@ export async function GET(request: Request) {
     db: { status: dbStatus, reason: dbReason },
     dbSnapshot: { missingTables },
     hints,
+    build: buildStamp,
     tenantFallback: DEMO_TENANT_ID,
   });
 }
