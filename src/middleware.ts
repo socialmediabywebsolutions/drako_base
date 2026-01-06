@@ -29,21 +29,22 @@ function resolveRoutingSampleRate(): number {
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
-  if (pathname.startsWith("/_next") || pathname.startsWith("/api") || pathname === "/favicon.ico") {
+  const isApi = pathname.startsWith("/api");
+  if (pathname.startsWith("/_next") || pathname === "/favicon.ico") {
     return NextResponse.next();
   }
 
   const hostInfo = resolveEffectiveHost(req);
   const host = hostInfo.effectiveHost;
+  const isPagesDevHost = host.endsWith(".pages.dev");
   const isPublicHost =
     host === "drako.systems" ||
     host === "www.drako.systems" ||
-    host === "stage.drako.systems";
+    host === "stage.drako.systems" ||
+    isPagesDevHost;
   const isAdminHost =
     host === "base.drako.systems" ||
-    host === "admin.drako.systems" ||
-    host === "drako-base-3.pages.dev" ||
-    host.endsWith(".pages.dev");
+    host === "admin.drako.systems";
 
   // Rutas admin a proteger en host público
   const adminPrefixes = [
@@ -72,6 +73,38 @@ export async function middleware(req: NextRequest) {
     }
     return res;
   };
+
+  if (isApi) {
+    const bindings = env();
+    const hasDb = Boolean(bindings?.DRACO_DB);
+    const contextHeaders = new Headers(req.headers);
+    contextHeaders.delete("x-drako-tenant-id");
+    contextHeaders.delete("x-tenant-id");
+    contextHeaders.delete("x-drako-saas-id");
+    contextHeaders.delete("x-drako-saas-slug");
+    contextHeaders.delete("x-drako-correlation-id");
+
+    const correlationId = globalThis.crypto?.randomUUID?.() ?? `corr_${Date.now()}`;
+    if (!bindings || !hasDb) {
+      contextHeaders.set("x-drako-correlation-id", correlationId);
+      return persistCookie(NextResponse.next({ request: { headers: contextHeaders } }));
+    }
+
+    const resolutionHost = isPagesDevHost ? "drako.systems" : host;
+    const resolution = await resolveHostToSaas(resolutionHost);
+    if (resolution.status === "ACTIVE") {
+      if (resolution.tenantId) {
+        contextHeaders.set("x-drako-tenant-id", resolution.tenantId);
+        contextHeaders.set("x-tenant-id", resolution.tenantId);
+      }
+      if (resolution.saasId) {
+        contextHeaders.set("x-drako-saas-id", resolution.saasId);
+        contextHeaders.set("x-drako-saas-slug", resolution.saasSlug ?? "");
+      }
+    }
+    contextHeaders.set("x-drako-correlation-id", resolution.correlationId ?? correlationId);
+    return persistCookie(NextResponse.next({ request: { headers: contextHeaders } }));
+  }
 
   if (isPublicHost) {
     if (pathname === "/") {
@@ -180,13 +213,11 @@ export async function middleware(req: NextRequest) {
       ),
     );
   }
-  return persistCookie(
-    buildHtmlResponse(
-      "SaaS no registrado para este dominio. Revisa el DNS o crea el mapping en Campamento Base.",
-      200,
-      `<a class="button" href="/owner/domains">Ir a /owner/domains (admin)</a><a class="button" href="?__drako_host=drako.systems">Cambiar host (solo local)</a><a class="button" href="/api/owner/domains/repair" data-repair>Repair mapping (DEV)</a><small>Host real: ${hostInfo.realHost} · Host virtual: ${host}</small>`,
-    ),
-  );
+  const unknownMessage = "SaaS no registrado para este dominio. Revisa el DNS o crea el mapping en Campamento Base.";
+  const unknownExtra = isPagesDevHost
+    ? `<a class="button" href="/site">Ir a /site</a><small>Host real: ${hostInfo.realHost} · Host virtual: ${host}</small>`
+    : `<a class="button" href="/owner/domains">Ir a /owner/domains (admin)</a><a class="button" href="?__drako_host=drako.systems">Cambiar host (solo local)</a><a class="button" href="/api/owner/domains/repair" data-repair>Repair mapping (DEV)</a><small>Host real: ${hostInfo.realHost} · Host virtual: ${host}</small>`;
+  return persistCookie(buildHtmlResponse(unknownMessage, 200, unknownExtra));
 }
 
 // Ejecutar en todas las rutas
