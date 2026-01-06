@@ -38,12 +38,17 @@ Date: 2026-01-06
 - Public/private domain behavior enforced in middleware.
 
 ## Runtime verification (pending)
-- Requires deployment to production and a valid `DEBUG_TOKEN` to confirm:
-  - `GET /api/health`
-  - `GET /api/debug/bindings` (with token)
+Production check (current deployment):
+- `GET https://drako-base-3.pages.dev/api/health` -> 503
+  - reason: `database_unavailable`
+  - hint: `No request context found. DRACO_DB must be accessed inside a Pages/Edge request handler.`
+  - build stamp: commit `6356d0ac015d8b62a58cd65bb1262a1bf7e90b96`
+- `GET https://drako-base-3.pages.dev/api/debug/bindings` -> 401 (debug token required)
+
+This indicates production is still serving an older deployment and/or Pages runtime is not providing request context to OpenNext.
 
 ## Veredicto
-- **NO-GO** until production deploy and runtime checks succeed.
+- **NO-GO** until the latest commits deploy and `/api/health` shows `db.status=ok` with `hasDracoDb=true` in `/api/debug/bindings`.
 
 ## Next actions
 1) Deploy latest commits to production.
