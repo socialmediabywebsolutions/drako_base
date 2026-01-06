@@ -23,8 +23,17 @@ export function getDracoDbFromRequestContext(): D1Database {
   return bindings.DRACO_DB;
 }
 
-export function ensureDatabase(): D1Database {
+export function getDb(): D1Database {
   return getDracoDbFromRequestContext();
+}
+
+export async function withDb<T>(fn: (db: D1Database) => Promise<T>): Promise<T> {
+  const db = getDb();
+  return fn(db);
+}
+
+export function ensureDatabase(): D1Database {
+  return getDb();
 }
 
 function normalizeDbError(error: unknown): never {
@@ -42,7 +51,7 @@ function normalizeDbError(error: unknown): never {
 
 export async function queryAll<T>(sql: string, ...params: unknown[]): Promise<T[]> {
   try {
-    const db = ensureDatabase();
+    const db = getDb();
     const stmt = db.prepare(sql);
     const bound = params.length ? stmt.bind(...params) : stmt;
     const res = await bound.all<T>();
@@ -60,7 +69,7 @@ export async function queryOne<T>(sql: string, ...params: unknown[]): Promise<T 
 
 export async function run(sql: string, ...params: unknown[]): Promise<boolean> {
   try {
-    const db = ensureDatabase();
+    const db = getDb();
     const stmt = db.prepare(sql);
     const bound = params.length ? stmt.bind(...params) : stmt;
     const res = await bound.run();
