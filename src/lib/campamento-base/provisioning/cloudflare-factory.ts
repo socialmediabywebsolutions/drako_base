@@ -11,10 +11,123 @@ export type CloudflareProvisioningResult = {
 
 const PRIMARY_ZONE = "drako.systems";
 
-function resolveEnvValue(key: "CF_API_TOKEN" | "CF_ACCOUNT_ID" | "CF_ZONE_ID", env?: DracoEnv | null): string | undefined {
+type CloudflareMode = "dry-run" | "live";
+
+function resolveEnvValue(key: string, env?: DracoEnv | null): string | undefined {
   if (typeof process !== "undefined" && process.env[key]) return process.env[key];
   const envRecord = env as unknown as Record<string, string | undefined>;
   return env ? envRecord[key] : undefined;
+}
+
+function resolveCloudflareValue(env: DracoEnv | null | undefined, key: string): string | undefined {
+  const legacyKey = key.replace("CLOUDFLARE_", "CF_");
+  return resolveEnvValue(key, env) ?? resolveEnvValue(legacyKey, env);
+}
+
+function resolveProvisioningMode(env: DracoEnv | null | undefined): CloudflareMode {
+  const raw = resolveCloudflareValue(env, "CLOUDFLARE_PROVISIONING_MODE") ?? "dry-run";
+  return raw === "live" ? "live" : "dry-run";
+}
+
+function resolveAppHost(env: DracoEnv | null | undefined): string | null {
+  const appUrl = resolveEnvValue("APP_URL", env);
+  if (!appUrl) return null;
+  try {
+    return new URL(appUrl).host;
+  } catch {
+    return null;
+  }
+}
+
+async function callCloudflareApi<T>(
+  token: string,
+  path: string,
+  init?: RequestInit,
+): Promise<{ ok: boolean; result?: T; errors?: unknown[] }> {
+  const response = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+  const payload = (await response.json()) as { success: boolean; result?: T; errors?: unknown[] };
+  return { ok: payload.success, result: payload.result, errors: payload.errors };
+}
+
+async function resolveZoneId(token: string, zoneId: string | undefined): Promise<string | null> {
+  if (zoneId) return zoneId;
+  const response = await callCloudflareApi<Array<{ id: string }>>(
+    token,
+    `/zones?name=${encodeURIComponent(PRIMARY_ZONE)}`,
+  );
+  if (!response.ok || !response.result || response.result.length === 0) return null;
+  return response.result[0]?.id ?? null;
+}
+
+async function ensureDnsRecord(params: {
+  token: string;
+  zoneId: string;
+  name: string;
+  content: string;
+  proxied: boolean;
+}): Promise<string | null> {
+  const lookup = await callCloudflareApi<Array<{ id: string; content: string; proxied: boolean }>>(
+    params.token,
+    `/zones/${params.zoneId}/dns_records?type=CNAME&name=${encodeURIComponent(params.name)}`,
+  );
+  const existing = lookup.result?.[0] ?? null;
+  if (existing) {
+    if (existing.content !== params.content || existing.proxied !== params.proxied) {
+      const update = await callCloudflareApi(
+        params.token,
+        `/zones/${params.zoneId}/dns_records/${existing.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            type: "CNAME",
+            name: params.name,
+            content: params.content,
+            proxied: params.proxied,
+          }),
+        },
+      );
+      if (!update.ok) return null;
+    }
+    return existing.id;
+  }
+  const create = await callCloudflareApi<{ id: string }>(params.token, `/zones/${params.zoneId}/dns_records`, {
+    method: "POST",
+    body: JSON.stringify({
+      type: "CNAME",
+      name: params.name,
+      content: params.content,
+      proxied: params.proxied,
+    }),
+  });
+  return create.result?.id ?? null;
+}
+
+async function ensureCustomHostname(params: {
+  token: string;
+  zoneId: string;
+  hostname: string;
+}): Promise<string | null> {
+  const lookup = await callCloudflareApi<Array<{ id: string }>>(
+    params.token,
+    `/zones/${params.zoneId}/custom_hostnames?hostname=${encodeURIComponent(params.hostname)}`,
+  );
+  const existing = lookup.result?.[0] ?? null;
+  if (existing) return existing.id;
+  const create = await callCloudflareApi<{ id: string }>(params.token, `/zones/${params.zoneId}/custom_hostnames`, {
+    method: "POST",
+    body: JSON.stringify({
+      hostname: params.hostname,
+      ssl: { method: "http", type: "dv" },
+    }),
+  });
+  return create.result?.id ?? null;
 }
 
 export function computeDomainsForSaas(blueprint: SaasBlueprintDraft): {
@@ -34,14 +147,22 @@ export async function provisionSaasInCloudflare(params: {
   blueprint: SaasBlueprintDraft;
   saasId: string;
 }): Promise<CloudflareProvisioningResult> {
-  const token = resolveEnvValue("CF_API_TOKEN", params.env);
-  const accountId = resolveEnvValue("CF_ACCOUNT_ID", params.env);
-  const zoneId = resolveEnvValue("CF_ZONE_ID", params.env);
+  const token = resolveCloudflareValue(params.env, "CLOUDFLARE_API_TOKEN");
+  const accountId = resolveCloudflareValue(params.env, "CLOUDFLARE_ACCOUNT_ID");
+  const zoneId = resolveCloudflareValue(params.env, "CLOUDFLARE_ZONE_ID");
+  const mode = resolveProvisioningMode(params.env ?? null);
+  const appHost = resolveAppHost(params.env ?? null);
 
-  if (!token || !accountId || !zoneId) {
+  if (!token || !accountId) {
     return {
       status: "PENDING",
-      message: "Cloudflare provisioning disabled in this env.",
+      message: "Cloudflare provisioning disabled: missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID.",
+    };
+  }
+  if (!appHost) {
+    return {
+      status: "PENDING",
+      message: "Cloudflare provisioning disabled: APP_URL is missing or invalid.",
     };
   }
 
@@ -49,7 +170,7 @@ export async function provisionSaasInCloudflare(params: {
   const dnsPayload = {
     type: "CNAME",
     name: domains.primaryHostname,
-    content: params.blueprint.proposedSubdomain,
+    content: appHost,
     proxied: true,
   };
 
@@ -60,16 +181,70 @@ export async function provisionSaasInCloudflare(params: {
       }
     : null;
 
-  return {
-    status: "PENDING",
-    message: "Cloudflare payloads prepared (dry-run).",
-    createdDnsRecord: null,
-    createdCustomHostname: null,
-    payloads: {
-      zoneId,
-      accountId,
-      dnsPayload,
-      customHostnamePayload,
-    },
-  };
+  if (mode !== "live") {
+    return {
+      status: "PENDING",
+      message: "Cloudflare provisioning dry-run (set CLOUDFLARE_PROVISIONING_MODE=live to enable).",
+      createdDnsRecord: null,
+      createdCustomHostname: null,
+      payloads: {
+        accountId,
+        zoneId: zoneId ?? null,
+        dnsPayload,
+        customHostnamePayload,
+      },
+    };
+  }
+
+  try {
+    const resolvedZoneId = await resolveZoneId(token, zoneId);
+    if (!resolvedZoneId) {
+      return {
+        status: "ERROR",
+        message: "Cloudflare zone not found for drako.systems. Provide CLOUDFLARE_ZONE_ID.",
+      };
+    }
+
+    const dnsRecordId = await ensureDnsRecord({
+      token,
+      zoneId: resolvedZoneId,
+      name: dnsPayload.name,
+      content: dnsPayload.content,
+      proxied: dnsPayload.proxied,
+    });
+
+    const customHostnameId = customHostnamePayload
+      ? await ensureCustomHostname({
+          token,
+          zoneId: resolvedZoneId,
+          hostname: customHostnamePayload.hostname,
+        })
+      : null;
+
+    if (!dnsRecordId) {
+      return {
+        status: "ERROR",
+        message: "Cloudflare DNS provisioning failed.",
+      };
+    }
+
+    return {
+      status: "SUCCESS",
+      message: "Cloudflare provisioning complete.",
+      createdDnsRecord: dnsRecordId,
+      createdCustomHostname: customHostnameId,
+      payloads: {
+        accountId,
+        zoneId: resolvedZoneId,
+        dnsPayload,
+        customHostnamePayload,
+      },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      status: "ERROR",
+      message: `Cloudflare provisioning failed: ${message}`,
+    };
+  }
 }
