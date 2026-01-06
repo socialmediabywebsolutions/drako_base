@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { resolveBrandingContext, resolveEffectiveTheme } from "@/lib/branding/repository";
 import type { BrandingRoleType } from "@/lib/branding/types";
+export const runtime = "edge";
 
 
 const VALID_ROLES: BrandingRoleType[] = ["OWNER", "EMPLOYEE"];

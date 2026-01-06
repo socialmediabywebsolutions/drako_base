@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { handleBlueprintsApiError } from "@/lib/blueprints/api-helpers";
 import { applyInterviewToBlueprint, resolveBlueprintsContext } from "@/lib/blueprints/repository";
+export const runtime = "edge";
 
 
 export async function POST(request: Request) {

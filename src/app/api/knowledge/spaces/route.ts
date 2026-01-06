@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { handleKnowledgeApiError } from "@/lib/knowledge/api-helpers";
 import { createKnowledgeSpace, listKnowledgeSpaces, resolveKnowledgeContext } from "@/lib/knowledge/repository";
+export const runtime = "edge";
 
 
 export async function GET(request: Request) {

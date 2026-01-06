@@ -3,6 +3,7 @@ import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { createEmailMessage, resolveEmailIntakeContext, EmailIntakeContextError } from "@/lib/email-intake/repository";
 import { resolveEconomyContext } from "@/lib/economy/repository";
 import { applyEmailAutomations } from "@/lib/email-intake/automation";
+export const runtime = "edge";
 
 
 const demoEmails = [

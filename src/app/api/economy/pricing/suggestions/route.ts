@@ -3,6 +3,7 @@ import { requireTenantAccess } from "@/lib/auth/session";
 import { handleEconomyApiError } from "@/lib/economy/api-helpers";
 import { resolveEconomyContext } from "@/lib/economy/repository";
 import { getPricingSuggestions } from "@/lib/economy/pricing";
+export const runtime = "edge";
 
 
 export async function GET(request: Request) {

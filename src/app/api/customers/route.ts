@@ -7,6 +7,7 @@ import {
   upsertSaasCustomer,
   upsertSaasCustomerProfile,
 } from "@/lib/customers/repository";
+export const runtime = "edge";
 
 
 export async function GET(request: Request) {

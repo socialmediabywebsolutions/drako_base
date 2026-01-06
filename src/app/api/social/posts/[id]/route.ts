@@ -6,6 +6,7 @@ import {
   SocialContextError,
   updateSaasSocialPostStatus,
 } from "@/lib/social/repository";
+export const runtime = "edge";
 
 
 const ALLOWED_STATUSES = ["DRAFT", "SCHEDULED", "POSTED", "FAILED"] as const;
