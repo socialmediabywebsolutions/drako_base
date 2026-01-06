@@ -3,7 +3,7 @@
 Date: 2026-01-06
 
 ## Scope
-- Cloudflare Pages (OpenNext) build, D1 runtime access, routing for public/private domains, /api context, and provisioning mode.
+- Cloudflare Pages (next-on-pages) build, D1 runtime access, routing for public/private domains, /api context, and provisioning mode.
 
 ## Findings (previous)
 - P0: Pages build failed because routes were not configured to run on Edge (legacy adapter).
@@ -11,8 +11,8 @@ Date: 2026-01-06
 - P1: Middleware skipped `/api`, so tenant/saas context was missing in APIs.
 
 ## Changes applied
-- Switched Cloudflare Pages build to OpenNext output packaged for Pages (`.pages-output` with `_worker.js`).
-- Removed residual next-on-pages references from docs and scripts.
+- D1 access now resolves bindings from request context (next-on-pages compatible).
+- Edge runtime restored for dynamic routes to satisfy next-on-pages.
 - Middleware now processes `/api` requests to inject `x-drako-*` headers and correlation id; incoming spoofed headers are overwritten.
 - Public/private routing:
   - `drako.systems` and `*.pages.dev` treated as public.
@@ -20,14 +20,16 @@ Date: 2026-01-06
   - `/admin` not exposed on `.pages.dev`.
 - Cloudflare provisioning now supports live mode with `CLOUDFLARE_PROVISIONING_MODE=live` and uses Cloudflare API in an idempotent way.
 
-## Build evidence (Pages / OpenNext)
-- `npm run pages:build` ✅
-  - `.pages-output/_worker.js` generated for Pages deployment.
+## Build evidence (Pages / next-on-pages)
+- `npx @cloudflare/next-on-pages@1` ✅
+  - `.vercel/output/static/_worker.js` generated for Pages deployment.
 
 ## Cloudflare Pages build settings (required)
-- Build command: `npm run pages:build`
-- Output directory: `.pages-output`
-- Expected log: no `@cloudflare/next-on-pages` usage
+- Build command: `npx @cloudflare/next-on-pages@1`
+- Output directory: `.vercel/output/static`
+## Binding clarification
+- Binding name (code): `DRACO_DB`
+- D1 database name (Cloudflare): `drako_db_prod`
 
 ## Provisioning status
 - Live provisioning implemented, but **not executed** (requires tokens).

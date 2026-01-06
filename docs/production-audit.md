@@ -1,18 +1,17 @@
-# Production Audit — Drako Base (OpenNext)
+# Production Audit — Drako Base (next-on-pages)
 
 Date: 2026-01-06
 
 ## Scope
-- Cloudflare Pages build (OpenNext), host routing split, and public UI legibility.
+- Cloudflare Pages build (next-on-pages), host routing split, and public UI legibility.
 
 ## Architecture decision
-- Single adapter: OpenNext for Pages.
-- No `@cloudflare/next-on-pages` in build pipeline.
+- Pages build uses `@cloudflare/next-on-pages@1`.
+- Dynamic routes must export `runtime = \"edge\"`.
 
 ## Required Cloudflare Pages settings
-- Build command: `npm run pages:build`
-- Output directory: `.pages-output`
-- Expected log: no `@cloudflare/next-on-pages` usage
+- Build command: `npx @cloudflare/next-on-pages@1`
+- Output directory: `.vercel/output/static`
 
 ## Host routing expectations
 - `drako.systems` -> PUBLIC_SAAS (public shell)
@@ -20,12 +19,16 @@ Date: 2026-01-06
 - `*.pages.dev` -> PREVIEW (diagnostics only, no admin)
 
 ## Evidence (local)
-- `npm run pages:build` ✅
-  - `.pages-output/_worker.js` generated
+- `npx @cloudflare/next-on-pages@1` ✅
+  - `.vercel/output/static/_worker.js` generated
 
 ## Pending verification (Cloudflare)
-- Build logs show `npm run pages:build` and no `@cloudflare/next-on-pages`.
+- Build logs show `npx @cloudflare/next-on-pages@1`.
 - `https://drako.systems` renders public shell.
 - `https://base.drako.systems/admin` renders Campamento Base.
 - `https://drako-base-3.pages.dev/admin` rewrites to `/preview`.
 - `GET /api/health` returns build stamp for latest commit.
+
+## Binding clarification
+- Binding name (code): `DRACO_DB`
+- D1 database name (Cloudflare): `drako_db_prod`
