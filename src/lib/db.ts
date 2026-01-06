@@ -9,12 +9,22 @@ export class DatabaseUnavailableError extends Error {
   }
 }
 
-export function ensureDatabase(): D1Database {
+export function getDracoDbFromRequestContext(): D1Database {
   const bindings = env();
-  if (!bindings?.DRACO_DB) {
+  if (!bindings) {
+    throw new DatabaseUnavailableError(
+      "binding-missing",
+      "No request context found. DRACO_DB must be accessed inside a Pages/Edge request handler.",
+    );
+  }
+  if (!bindings.DRACO_DB) {
     throw new DatabaseUnavailableError("binding-missing", "DRACO_DB binding is missing");
   }
   return bindings.DRACO_DB;
+}
+
+export function ensureDatabase(): D1Database {
+  return getDracoDbFromRequestContext();
 }
 
 function normalizeDbError(error: unknown): never {
