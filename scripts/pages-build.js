@@ -9,6 +9,22 @@ const openNextDir = path.join(root, ".open-next");
 const openNextAssets = path.join(openNextDir, "assets");
 const openNextWorker = path.join(openNextDir, "worker.js");
 const pagesOutput = path.join(root, ".vercel", "output", "static");
+const openNextRuntimeDirs = [
+  "cloudflare",
+  "middleware",
+  ".build",
+  "server-functions",
+];
+const requiredRuntimeFiles = [
+  "cloudflare/images.js",
+  "cloudflare/init.js",
+  "cloudflare/skew-protection.js",
+  "middleware/handler.mjs",
+  ".build/durable-objects/queue.js",
+  ".build/durable-objects/sharded-tag-cache.js",
+  ".build/durable-objects/bucket-cache-purge.js",
+  "server-functions/default/handler.mjs",
+];
 
 function scanForNextOnPages() {
   const targets = [
@@ -72,9 +88,27 @@ fs.cpSync(openNextAssets, pagesOutput, { recursive: true });
 const workerTarget = path.join(pagesOutput, "_worker.js");
 fs.copyFileSync(openNextWorker, workerTarget);
 
+for (const dirName of openNextRuntimeDirs) {
+  const sourceDir = path.join(openNextDir, dirName);
+  const destDir = path.join(pagesOutput, dirName);
+  if (!fs.existsSync(sourceDir)) {
+    console.error(`Missing OpenNext runtime directory: ${sourceDir}`);
+    process.exit(1);
+  }
+  fs.cpSync(sourceDir, destDir, { recursive: true });
+}
+
 if (!fs.existsSync(workerTarget)) {
   console.error("Missing _worker.js in .vercel/output/static");
   process.exit(1);
+}
+
+for (const relativePath of requiredRuntimeFiles) {
+  const target = path.join(pagesOutput, relativePath);
+  if (!fs.existsSync(target)) {
+    console.error(`Missing runtime artifact in .vercel/output/static: ${relativePath}`);
+    process.exit(1);
+  }
 }
 
 console.log("OpenNext: OK");
