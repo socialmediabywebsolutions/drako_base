@@ -1,43 +1,28 @@
-# Cloudflare Workers (OpenNext) Deployment
+# Cloudflare Pages (next-on-pages) Deployment
 
 ## Build
-- Generate OpenNext output:
+- Generate Pages output:
   ```
-  npm run build:cloudflare
+  npm run pages:build
   ```
-  Output in `.open-next/` (ignored in git).
-
-## Preview (Workers runtime)
-- Run:
-  ```
-  npm run preview:cloudflare
-  ```
-  Base URL: `http://localhost:8787`.
-- Smoke tests:
-  ```
-  BASE_URL=http://localhost:8787 npm run smoke:cloudflare
-  ```
+  Output in `.vercel/output/static` (consumed by Pages).
 
 ## Deploy
 - Run:
   ```
-  npm run deploy:cloudflare
+  npx wrangler pages deploy .vercel/output/static --project-name drako-base-3
   ```
 
 ## Wrangler config (wrangler.toml)
-- `main = ".open-next/worker.js"`
-- `assets`:
-  - directory: `.open-next/assets`
-  - binding: `ASSETS`
-- compatibility_flags: `["nodejs_compat"]`
-- D1:
-  - binding: `DRACO_DB`
-  - database_name: `drako_db`
-  - database_id: `10146888-ca79-41d6-b6c2-bf1025eb651b`
+- `pages_build_output_dir = ".vercel/output/static"`
+- `compatibility_flags = ["nodejs_compat"]`
+- D1 bindings are configured per environment:
+  - Production: `DRACO_DB` → `drako_db_prod`
+  - Preview: `DRACO_DB` → `drako_db`
 
 ## Bindings / Env
 - D1 binding `DRACO_DB` required.
-- Add other vars/secrets in Wrangler/Workers as needed (same names used in code).
+- Add other vars/secrets in Pages → Settings → Variables.
 
 ## Checklist post-deploy
 - `/admin` loads (200).

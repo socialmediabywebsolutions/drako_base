@@ -1,9 +1,9 @@
-# Production Checklist (Cloudflare Pages / OpenNext)
+# Production Checklist (Cloudflare Pages / next-on-pages)
 
 ## Build
 - Install deps:
   - `npm ci`
-- Pages build (OpenNext):
+- Pages build (next-on-pages):
   - `npm run pages:build`
 
 ## Deploy (Pages)

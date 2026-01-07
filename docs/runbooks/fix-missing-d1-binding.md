@@ -18,12 +18,12 @@ This runbook fixes the "binding-missing" / "Falta el enlace DRACO_DB" error repo
 
 ## CLI alternative
 1) Ensure `wrangler.toml` is valid and includes:
-   - `pages_build_output_dir = ".open-next/assets"`
-   - `[[d1_databases]]` with `binding = "DRACO_DB"` and the correct production/preview DB IDs.
+   - `pages_build_output_dir = ".vercel/output/static"`
+   - `[env.production]` and `[env.preview]` with `DRACO_DB` pointing to the correct production/preview DB IDs.
 2) Deploy:
    ```bash
-   npm run build:cloudflare
-   npx wrangler pages deploy .open-next/assets --project-name drako-base-3
+   npm run pages:build
+   npx wrangler pages deploy .vercel/output/static --project-name drako-base-3
    ```
 
 ## Checklist

@@ -1,12 +1,12 @@
-# Production Audit — Drako Base (OpenNext)
+# Production Audit — Drako Base (next-on-pages)
 
 Date: 2026-01-06
 
 ## Scope
-- Cloudflare Pages build (OpenNext), host routing split, and public UI legibility.
+- Cloudflare Pages build (next-on-pages), host routing split, and public UI legibility.
 
 ## Architecture decision
-- Pages build uses OpenNext only.
+- Pages build uses next-on-pages via `npm run pages:build`.
 
 ## Required Cloudflare Pages settings
 - Build command: `npm run pages:build`

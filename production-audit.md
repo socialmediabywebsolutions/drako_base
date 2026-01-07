@@ -3,7 +3,7 @@
 Date: 2026-01-06
 
 ## Scope
-- Cloudflare Pages (OpenNext) build, D1 runtime access, routing for public/private domains, /api context, and provisioning mode.
+- Cloudflare Pages (next-on-pages) build, D1 runtime access, routing for public/private domains, /api context, and provisioning mode.
 
 ## Findings (previous)
 - P0: Pages build failed because routes were not configured to run on Edge (legacy adapter).
@@ -11,7 +11,7 @@ Date: 2026-01-06
 - P1: Middleware skipped `/api`, so tenant/saas context was missing in APIs.
 
 ## Changes applied
-- D1 access resolves bindings from OpenNext request context.
+- D1 access resolves bindings from next-on-pages request context.
 - Build output packaged to `.vercel/output/static` with `_worker.js`.
 - Middleware now processes `/api` requests to inject `x-drako-*` headers and correlation id; incoming spoofed headers are overwritten.
 - Public/private routing:
@@ -20,7 +20,7 @@ Date: 2026-01-06
   - `/admin` not exposed on `.pages.dev`.
 - Cloudflare provisioning now supports live mode with `CLOUDFLARE_PROVISIONING_MODE=live` and uses Cloudflare API in an idempotent way.
 
-## Build evidence (Pages / OpenNext)
+## Build evidence (Pages / next-on-pages)
 - `npm run pages:build` ✅
   - `.vercel/output/static/_worker.js` generated for Pages deployment.
 
