@@ -8,6 +8,7 @@ import {
   type SessionRole,
 } from "@/lib/auth/session";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
+export const runtime = "edge";
 
 
 type LoginBody = {

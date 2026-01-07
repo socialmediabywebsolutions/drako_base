@@ -4,6 +4,7 @@ import { queryAll } from "@/lib/db";
 import { getDemoOwner } from "@/lib/admin/demo-data";
 import { getOwnerActionQueueSnapshot } from "@/lib/owner/action-queue";
 import { transitionActionStatus, type CampamentoActionStatus } from "@/lib/owner/action-queue-repository";
+export const runtime = "edge";
 
 
 type OwnerRow = {

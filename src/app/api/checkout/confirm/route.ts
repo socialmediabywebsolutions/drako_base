@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureDatabase, run } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";
+export const runtime = "edge";
 
 
 export async function POST(req: Request) {

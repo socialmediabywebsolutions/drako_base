@@ -10,6 +10,7 @@ import { resolveAppointmentsContext, upsertAppointment, AppointmentsContextError
 import { resolveEmployeesContext, EmployeesContextError } from "@/lib/employees/context";
 import { listEmployees } from "@/lib/employees/repository";
 import { evaluateSchedulingGuardrails } from "@/lib/employees/guardrails";
+export const runtime = "edge";
 
 
 type RouteContext = {

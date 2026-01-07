@@ -8,6 +8,7 @@ import type {
   SaasKnowledgeDocumentStatus,
   SaasKnowledgeDocumentType,
 } from "@/lib/knowledge/types";
+export const runtime = "edge";
 
 
 const AUDIENCE_VALUES: KnowledgeAudience[] = ["OWNER", "STAFF", "BOTH"];

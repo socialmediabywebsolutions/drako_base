@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { resolveSocialContext, SocialContextError } from "@/lib/social/repository";
 import { getSocialCampaignIdeasForSaas } from "@/lib/social/content-engine";
+export const runtime = "edge";
 
 
 export async function GET(request: Request) {

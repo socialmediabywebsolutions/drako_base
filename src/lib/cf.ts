@@ -1,5 +1,5 @@
-// Edge-safe access to Cloudflare bindings from OpenNext.
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+// Edge-safe access to Cloudflare bindings from next-on-pages request context.
+import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export type DracoEnv = {
   DRACO_DB: D1Database;
@@ -47,7 +47,7 @@ type CtxWithEnv = { env?: DracoEnv };
 
 export function env(): DracoEnv | null {
   try {
-    const ctx = getCloudflareContext() as unknown as CtxWithEnv | null;
+    const ctx = getRequestContext() as CtxWithEnv | null;
     return ctx?.env ?? null;
   } catch {
     return null;
