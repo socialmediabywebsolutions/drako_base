@@ -6,7 +6,12 @@
     "moduleResolution": "Node16",
     "target": "ES2020",
     "esModuleInterop": true,
-    "noEmit": false
+    "noEmit": false,
+    "baseUrl": ".",
+    "paths": {
+      "@cloudflare/next-on-pages": ["scripts/shims/next-on-pages"],
+      "@/*": ["src/*"]
+    }
   },
-  "include": ["scripts/*.ts"]
+  "include": ["scripts/**/*.ts", "workers/autopilot-worker/src/**/*.ts"]
 }

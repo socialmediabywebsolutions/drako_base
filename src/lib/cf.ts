@@ -1,4 +1,3 @@
-// Edge-safe access to Cloudflare bindings from next-on-pages request context.
 import { getRequestContext } from "@cloudflare/next-on-pages";
 
 export type DracoEnv = {
@@ -47,8 +46,11 @@ type CtxWithEnv = { env?: DracoEnv };
 
 export function env(): DracoEnv | null {
   try {
-    const ctx = getRequestContext() as CtxWithEnv | null;
-    return ctx?.env ?? null;
+    const rawCtx = getRequestContext();
+    if (!rawCtx || typeof rawCtx !== "object") return null;
+    if (!("env" in rawCtx)) return null;
+    const ctx = rawCtx as unknown as CtxWithEnv;
+    return ctx.env ?? null;
   } catch {
     return null;
   }

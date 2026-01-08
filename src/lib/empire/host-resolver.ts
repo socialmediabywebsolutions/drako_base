@@ -1,11 +1,17 @@
-import { queryAll } from "@/lib/db";
-import { normalizeHostnameInput } from "@/lib/empire/domain-utils";
+import { queryAll } from "../db";
+import { normalizeHostnameInput } from "./domain-utils";
+import { mapDomainStatus, type DomainResolution, type HostResolutionStatus } from "./host-status-utils";
 
 type DomainRow = {
+  id: string;
   tenant_id: string;
   saas_id: string;
   domain: string;
   status: string;
+  verification_status: string | null;
+  verification_reason: string | null;
+  last_checked_at: string | null;
+  updated_at: string | null;
 };
 
 type SaasProjectRow = {
@@ -16,14 +22,18 @@ type SaasRow = {
   slug: string;
 };
 
-export type HostResolutionStatus = "ACTIVE" | "PENDING" | "PAUSED" | "NOT_FOUND";
-
 export type HostResolution = {
   status: HostResolutionStatus;
   tenantId?: string;
   saasId?: string;
   saasSlug?: string;
   reason?: string;
+  severity?: "INFO" | "WARNING" | "ERROR";
+  verificationStatus?: string | null;
+  verificationReason?: string | null;
+  lastCheckedAt?: string | null;
+  updatedAt?: string | null;
+  domainId?: string;
   correlationId: string;
   normalizedHost: string;
   wasWww: boolean;
@@ -31,19 +41,6 @@ export type HostResolution = {
 
 function generateCorrelationId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `corr_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
-}
-
-function mapDomainStatus(status: string): { status: HostResolutionStatus; reason?: string } {
-  const normalized = status.trim().toLowerCase();
-  if (normalized === "active") return { status: "ACTIVE" };
-  if (normalized === "paused") return { status: "PAUSED", reason: "DOMAIN_PAUSED" };
-  if (normalized === "error" || normalized === "error_check") {
-    return { status: "PENDING", reason: "DOMAIN_ERROR" };
-  }
-  if (normalized === "pending" || normalized === "pending_dns") {
-    return { status: "PENDING", reason: "DOMAIN_PENDING_VERIFICATION" };
-  }
-  return { status: "PENDING", reason: "DOMAIN_PENDING_VERIFICATION" };
 }
 
 async function resolveSaasSlug(params: { tenantId: string; saasId: string }): Promise<string | undefined> {
@@ -77,7 +74,8 @@ export async function resolveHostToSaas(hostname: string): Promise<HostResolutio
   }
 
   const rows = await queryAll<DomainRow>(
-    "SELECT tenant_id, saas_id, domain, status FROM saas_domains WHERE lower(domain) = ? LIMIT 1",
+    `SELECT id, tenant_id, saas_id, domain, status, verification_status, verification_reason, last_checked_at, updated_at
+     FROM saas_domains WHERE lower(domain) = ? LIMIT 1`,
     normalizedHost,
   );
   const row = rows[0];
@@ -85,13 +83,14 @@ export async function resolveHostToSaas(hostname: string): Promise<HostResolutio
     return {
       status: "NOT_FOUND",
       reason: "DOMAIN_NOT_FOUND",
+      severity: "WARNING",
       correlationId,
       normalizedHost,
       wasWww: normalized.wasWww,
     };
   }
 
-  const mapped = mapDomainStatus(row.status);
+  const mapped: DomainResolution = mapDomainStatus(row);
   const saasSlug = await resolveSaasSlug({ tenantId: row.tenant_id, saasId: row.saas_id });
 
   return {
@@ -100,6 +99,12 @@ export async function resolveHostToSaas(hostname: string): Promise<HostResolutio
     saasId: row.saas_id,
     saasSlug,
     reason: mapped.reason,
+    severity: mapped.severity ?? (mapped.status === "ACTIVE" ? "INFO" : "WARNING"),
+    verificationStatus: row.verification_status,
+    verificationReason: row.verification_reason,
+    lastCheckedAt: row.last_checked_at,
+    updatedAt: row.updated_at,
+    domainId: row.id,
     correlationId,
     normalizedHost,
     wasWww: normalized.wasWww,

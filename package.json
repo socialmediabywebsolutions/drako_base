@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint src",
     "qa": "npm run lint && npm run build",
+    "hostnames:tests": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/hostnames-tests.js",
+    "production:go": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/production-go.js",
     "devarchitect:audit": "tsc --project tsconfig.scripts.json && node scripts/.dist/devarchitect-audit.js",
     "pages:build": "npx @cloudflare/next-on-pages@1",
     "test:mapping": "node scripts/check-mapping.js",

@@ -1,4 +1,4 @@
-import { env } from "@/lib/cf";
+import { env } from "./cf";
 
 export type DatabaseUnavailableReason = "binding-missing" | "migrations-missing" | "table-missing";
 

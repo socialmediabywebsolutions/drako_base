@@ -149,36 +149,37 @@ export async function middleware(req: NextRequest) {
     status: resolution.status,
     wasWww: resolution.wasWww,
     reason: resolution.reason ?? null,
+    domainId: resolution.domainId ?? null,
+    verificationStatus: resolution.verificationStatus ?? null,
+    verificationReason: resolution.verificationReason ?? null,
+    lastCheckedAt: resolution.lastCheckedAt ?? null,
+    updatedAt: resolution.updatedAt ?? null,
   };
 
-  try {
-    const resolveType =
-      resolution.status === "ACTIVE"
-        ? "routing.resolve.success"
-        : resolution.status === "NOT_FOUND"
-          ? "routing.resolve.miss"
-          : resolution.reason === "DOMAIN_ERROR"
-            ? "routing.resolve.error"
-            : "routing.resolve.pending";
-    const severity =
-      resolution.status === "ACTIVE" ? "INFO" : resolution.reason === "DOMAIN_ERROR" ? "ERROR" : "WARNING";
+  const sampleRate = resolveRoutingSampleRate();
+  const shouldLogActive = resolution.status === "ACTIVE" && sampleRate > 0 && Math.random() <= sampleRate;
 
-    const sampleRate = resolveRoutingSampleRate();
-    const shouldLog =
-      resolution.status !== "ACTIVE" ||
-      (sampleRate > 0 && Math.random() <= sampleRate);
-    if (shouldLog) {
+  try {
+    if (shouldLogActive) {
       await recordCampamentoEvent({
         tenantId,
         saasId: resolution.saasId ?? null,
-        type: resolveType,
-        severity,
+        type: "routing.resolve.domain.active",
+        severity: resolution.severity ?? "INFO",
         source: "ROUTER",
-        message:
-          resolution.status === "ACTIVE"
-            ? `Resolved host ${resolution.normalizedHost} to saas_id=${resolution.saasId ?? "unknown"}.`
-            : `Routing status ${resolution.status} for host ${resolution.normalizedHost}.`,
+        message: `Resolved host ${resolution.normalizedHost} to saas_id=${resolution.saasId ?? "unknown"}.`,
         metadata: { ...metadata, sampleRate },
+        correlationId,
+      });
+    } else if (resolution.status === "PENDING" || resolution.status === "PAUSED") {
+      await recordCampamentoEvent({
+        tenantId,
+        saasId: resolution.saasId ?? null,
+        type: "routing.resolve.domain.blocked",
+        severity: resolution.severity ?? "WARNING",
+        source: "ROUTER",
+        message: `Blocked host ${resolution.normalizedHost} (${resolution.reason ?? "DOMAIN_BLOCKED"}).`,
+        metadata,
         correlationId,
       });
     }
@@ -198,31 +199,44 @@ export async function middleware(req: NextRequest) {
       headers.set("x-drako-saas-slug", resolution.saasSlug ?? "");
     }
     headers.set("x-drako-correlation-id", correlationId);
+    headers.set("x-drako-domain-status", resolution.status);
     return persistCookie(NextResponse.next({ request: { headers } }));
   }
 
-  if (resolution.status === "PENDING") {
-    return persistCookie(
-      buildHtmlResponse(
-        "Dominio en verificación. Campamento Base está validando la configuración.",
-        200,
-        `<a class="button" href="/owner/domains">Ir a /owner/domains (admin)</a><a class="button" href="?__drako_host=drako.systems">Cambiar host (solo local)</a><small>Host real: ${hostInfo.realHost} · Host virtual: ${host}</small>`,
-      ),
-    );
-  }
-  if (resolution.status === "PAUSED") {
-    return persistCookie(
-      buildHtmlResponse(
-        "Este SaaS está pausado por el owner. Vuelve más tarde.",
-        200,
-        `<a class="button" href="/owner/domains">Ir a /owner/domains (admin)</a><a class="button" href="?__drako_host=drako.systems">Cambiar host (solo local)</a><small>Host real: ${hostInfo.realHost} · Host virtual: ${host}</small>`,
-      ),
-    );
-  }
   const unknownMessage = "SaaS no registrado para este dominio. Revisa el DNS o crea el mapping en Campamento Base.";
   const unknownExtra = isPagesDevHost
     ? `<a class="button" href="/site">Ir a /site</a><small>Host real: ${hostInfo.realHost} · Host virtual: ${host}</small>`
     : `<a class="button" href="/owner/domains">Ir a /owner/domains (admin)</a><a class="button" href="?__drako_host=drako.systems">Cambiar host (solo local)</a><a class="button" href="/api/owner/domains/repair" data-repair>Repair mapping (DEV)</a><small>Host real: ${hostInfo.realHost} · Host virtual: ${host}</small>`;
+
+  if (resolution.status === "PENDING" || resolution.status === "PAUSED") {
+    const reason = resolution.reason ?? (resolution.status === "PAUSED" ? "DOMAIN_PAUSED" : "DOMAIN_BLOCKED");
+    const statusCode = reason === "DOMAIN_PENDING_ACTIVATION"
+      ? 409
+      : reason === "DOMAIN_NOT_ACTIVE"
+        ? 403
+        : reason === "DOMAIN_PAUSED"
+          ? 423
+          : 403;
+    const blockedHeaders = new Headers(responseHeaders);
+    blockedHeaders.set("x-drako-domain-status", resolution.status);
+    blockedHeaders.set("x-drako-domain-reason", reason);
+    blockedHeaders.set("x-drako-correlation-id", correlationId);
+
+    return persistCookie(
+      NextResponse.json(
+        {
+          error: reason,
+          host: resolution.normalizedHost,
+          correlation_id: correlationId,
+          domain_id: resolution.domainId ?? null,
+          tenant_id: resolution.tenantId ?? null,
+          saas_id: resolution.saasId ?? null,
+        },
+        { status: statusCode, headers: blockedHeaders },
+      ),
+    );
+  }
+
   return persistCookie(buildHtmlResponse(unknownMessage, 200, unknownExtra));
 }
 

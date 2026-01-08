@@ -1,0 +1,5 @@
+DRACO_DB=""
+AUTOPILOT_WORKER_API_TOKEN=""
+AUTOPILOT_QUEUE="autopilot_queue"
+AUTOPILOT_DLQ="autopilot_dlq"
+APP_URL="http://localhost:3000"
