@@ -416,6 +416,54 @@ Sources: `src/app/api/saas/route.ts`, `src/lib/campamento-base/saas-factory-orch
 
 ---
 
+## Step 2: companies compat layer (2026-01-09)
+
+### Database compatibility views
+- Migration `0061_projects_factory_companies_compat.sql` adds read-only views instead of duplicating data.
+  - `companies` view proxies `core_departments` (`id`, `slug`, `nombre→name`, `descripcion→description`, `created_at` fixed to `NULL` because source table has no timestamp).
+  - `company_domains` view proxies `saas_domains`, exposing verification metadata and mapping `company_id = saas_id` as an explicit temporary bridge until projects have their own primary key.
+- Both views are declared with `CREATE VIEW IF NOT EXISTS` so they are idempotent and safe for replays.
+
+### Read-only API surface
+- New endpoint `GET /api/companies` resolves tenant auth via `requireTenantAccess` and selects from the `companies` view ordering by `name`.
+- Response shape: `{ ok: true, tenantId, companies: Array<{ id, slug, name, description, created_at }> }`.
+- Error handling reuses existing helpers:
+  - `UnauthorizedError` → 401/403 JSON.
+  - `respondDatabaseError` → 503 when DRACO_DB binding/migrations missing.
+  - Unexpected errors emit correlation IDs with `reason: "query_failed"`.
+
+### Manual verification snippet
+Simulated curl against local dev (tenant header omitted defaults to demo tenant):
+```bash
+curl -s http://localhost:3000/api/companies | jq
+```
+Example JSON payload (derived from seeded `core_departments` rows):
+```json
+{
+  "ok": true,
+  "tenantId": "demo-tenant",
+  "companies": [
+    {
+      "id": "core_acc",
+      "slug": "contabilidad",
+      "name": "Contabilidad",
+      "description": "Controla facturas, cobros y cashflow.",
+      "created_at": null
+    },
+    {
+      "id": "core_dev",
+      "slug": "programacion",
+      "name": "Programación / Desarrollo",
+      "description": "Mantiene el código y coordina despliegues.",
+      "created_at": null
+    }
+  ]
+}
+```
+- `company_id = saas_id` remains a temporary alias noted in migration comments.
+
+---
+
 ## Next Steps
 1. Align stakeholders on phased rollout plan above.
 2. Prepare migration scripts (views, triggers) in draft PR with feature flag scaffolding.
