@@ -218,6 +218,39 @@ export async function listEnabledSaasFeatures(ctx: FeaturesContext): Promise<Saa
   return features.filter((feature) => feature.status === "ENABLED");
 }
 
+export type GetCompanyFeaturesInput = {
+  tenantId: string;
+  companyId?: string | null;
+  saasId?: string | null;
+  env?: DracoEnv | null;
+  resolver?: typeof resolveFeaturesContext;
+  loader?: (ctx: FeaturesContext) => Promise<SaasFeature[]>;
+};
+
+export type CompanyFeaturesResult = {
+  items: SaasFeature[];
+  resolvedSaasId: string | null;
+  contextMode: FeaturesContextMode | null;
+};
+
+export async function getCompanyFeatures({
+  tenantId,
+  companyId,
+  saasId,
+  env,
+  resolver = resolveFeaturesContext,
+  loader = listSaasFeatures,
+}: GetCompanyFeaturesInput): Promise<CompanyFeaturesResult> {
+  const effectiveSaasId = companyId?.trim() || saasId?.trim() || null;
+  if (!effectiveSaasId) {
+    return { items: [], resolvedSaasId: null, contextMode: null };
+  }
+
+  const ctx = await resolver({ tenantId, saasId: effectiveSaasId, env });
+  const items = await loader(ctx);
+  return { items, resolvedSaasId: ctx.saasId ?? effectiveSaasId, contextMode: ctx.mode };
+}
+
 export async function getSaasFeatureByKey(ctx: FeaturesContext, featureKey: SaasFeatureKey): Promise<SaasFeature | null> {
   const saasId = requireSaasId(ctx);
   if (ctx.mode === "demo") {

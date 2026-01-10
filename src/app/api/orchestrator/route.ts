@@ -25,6 +25,12 @@ import {
   recordCircuitBreakerSuccess,
   transitionBreakerToHalfOpen,
 } from "@/lib/orchestrator/ai-governance";
+import { getCompanyFeatures, type CompanyFeaturesResult } from "@/lib/features/repository";
+import type { SaasFeature } from "@/lib/features/types";
+import type { SaasPackDefinition } from "@/lib/packs/types";
+import { getCompanyPacks, listSaasPacks } from "@/lib/packs/repository";
+import type { CompanyRecord } from "@/lib/companies/companies";
+import { listCompanies } from "@/lib/companies/companies";
 
 import {
   listDevArchitectProjects,
@@ -71,6 +77,11 @@ type MessageRow = {
 type ContextInfo = {
   path?: string;
   scope?: "saas" | "inbox" | "devarchitect";
+  company?: {
+    id: string;
+    name: string | null;
+    slug: string | null;
+  } | null;
   saas?: {
     id: string;
     name: string;
@@ -226,6 +237,13 @@ type OrchestratorContextEnvelope = {
   inbox: OrchestratorInboxSummary;
   saas: OrchestratorSaasSummary[];
   clients: OrchestratorClientSummary[];
+  company?: CompanyRecord | null;
+  companyFeatures?: SaasFeature[];
+  companyPacks?: SaasPackDefinition[];
+  companyResolvedSaasId?: string | null;
+  company_id?: string | null;
+  company_name?: string | null;
+  saas_id?: string | null;
   devarchitect?: OrchestratorDevArchitectContext;
   contextError?: boolean;
   contextErrorMessage?: string;
@@ -400,6 +418,13 @@ async function buildOrchestratorContext({
     inbox: { total: 0, byStatus: {} },
     saas: [],
     clients: [],
+    company: null,
+    companyFeatures: undefined,
+    companyPacks: undefined,
+    companyResolvedSaasId: null,
+    company_id: null,
+    company_name: null,
+    saas_id: null,
   };
 
   if (!bindings || !bindings.DRACO_DB) {
@@ -468,7 +493,15 @@ async function buildOrchestratorContext({
 
   const contextErrors: string[] = [];
 
-  const [coreDepartmentsResult, coreAgentsResult, activeAgentsResult, alertsResult, saasResult, clientsResult, inboxResult] = await Promise.allSettled([
+  const [
+    coreDepartmentsResult,
+    coreAgentsResult,
+    activeAgentsResult,
+    alertsResult,
+    saasResult,
+    clientsResult,
+    inboxResult,
+  ] = await Promise.allSettled([
     queryAll<OrchestratorCoreDepartment>(
       "SELECT id, slug, nombre, descripcion, es_critico FROM core_departments ORDER BY nombre",
     ),
@@ -631,6 +664,91 @@ async function buildOrchestratorContext({
       contextErrors.push(...devErrors);
     }
   }
+
+  let companyId: string | null = null;
+  let companyName: string | null = null;
+  let companySlug: string | null = null;
+  if (panelContext?.company?.id) {
+    companyId = panelContext.company.id;
+    companyName = panelContext.company.name ?? null;
+    companySlug = panelContext.company.slug ?? null;
+  } else if (panelContext?.scope === "inbox") {
+    companyId = (panelContext.inbox as { company_id?: string | null } | undefined)?.company_id ?? null;
+  } else if (panelContext?.scope === "saas") {
+    companyId = panelContext.saas?.id ?? null;
+  }
+
+  const fallbackSaasId = panelContext?.saas?.id ?? null;
+
+  let companyRecord: CompanyRecord | null = null;
+  if (companyId) {
+    try {
+      const companies = await listCompanies();
+      companyRecord = companies.find((item) => item.id === companyId) ?? null;
+      if (companyRecord) {
+        companyName = companyRecord.name;
+        companySlug = companyRecord.slug;
+      }
+    } catch (error) {
+      console.error("ORCHESTRATOR_COMPANY_QUERY_ERROR", error);
+      contextErrors.push("company query failed");
+    }
+  }
+
+  let companyResolvedSaasId: string | null = null;
+  let companyFeatures: SaasFeature[] | undefined;
+  let companyPacks: SaasPackDefinition[] | undefined;
+  let featureResult: CompanyFeaturesResult | null = null;
+  if (companyId || fallbackSaasId) {
+    try {
+      featureResult = await getCompanyFeatures({ tenantId, companyId, saasId: fallbackSaasId, env: bindings ?? null });
+      companyResolvedSaasId = featureResult.resolvedSaasId;
+      companyFeatures = featureResult.items;
+    } catch (error) {
+      console.error("ORCHESTRATOR_COMPANY_FEATURES_ERROR", error);
+      contextErrors.push("company features query failed");
+    }
+
+    try {
+      const packResult = await getCompanyPacks({
+        tenantId,
+        companyId,
+        saasId: fallbackSaasId,
+        env: bindings ?? null,
+        featureResult: featureResult ?? undefined,
+      });
+      companyPacks = packResult.items;
+      companyResolvedSaasId = companyResolvedSaasId ?? packResult.resolvedSaasId;
+    } catch (error) {
+      console.error("ORCHESTRATOR_COMPANY_PACKS_ERROR", error);
+      contextErrors.push("company packs query failed");
+      if (!companyPacks) {
+        companyPacks = listSaasPacks();
+      }
+    }
+  } else if (panelContext?.saas?.id) {
+    companyPacks = listSaasPacks();
+  }
+
+  if (panelContext) {
+    base.panelContext = {
+      ...panelContext,
+      company: companyId
+        ? {
+            id: companyId,
+            name: companyName,
+            slug: companySlug,
+          }
+        : panelContext.company ?? null,
+    };
+  }
+  base.company = companyRecord;
+  base.companyFeatures = companyFeatures;
+  base.companyPacks = companyPacks;
+  base.companyResolvedSaasId = companyResolvedSaasId;
+  base.company_id = companyId;
+  base.company_name = companyName;
+  base.saas_id = companyResolvedSaasId ?? fallbackSaasId;
 
   if (contextErrors.length > 0) {
     base.contextError = true;

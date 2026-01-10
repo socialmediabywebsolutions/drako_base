@@ -1,9 +1,13 @@
 import type { SaasFeatureCategory, SaasFeatureKey } from "@/lib/features/types";
+import type { SaasFeature } from "@/lib/features/types";
+import { getCompanyFeatures } from "@/lib/features/repository";
+import type { CompanyFeaturesResult } from "@/lib/features/repository";
 import type { SaasCatalogVertical, SaasPackDefinition } from "@/lib/packs/types";
 import { SAAS_PACK_DEFINITIONS } from "@/lib/packs/definitions";
 import type { SaasModuleCode } from "@/lib/blueprints/types";
 import { resolveBlueprintsContext, listSaasModules, upsertSaasModule } from "@/lib/blueprints/repository";
 import { resolveFeaturesContext, listSaasFeatures, upsertSaasFeature } from "@/lib/features/repository";
+import type { DracoEnv } from "@/lib/cf";
 
 type PackGuessInput = {
   businessType?: string | null;
@@ -43,6 +47,79 @@ const FEATURE_DEFAULTS: Record<SaasFeatureKey, { label: string; category: SaasFe
 
 export function listSaasPacks(): SaasPackDefinition[] {
   return SAAS_PACK_DEFINITIONS;
+}
+
+export type GetCompanyPacksInput = {
+  tenantId: string;
+  companyId?: string | null;
+  saasId?: string | null;
+  env?: DracoEnv | null;
+  featureResult?: CompanyFeaturesResult | null;
+  featureResolver?: typeof getCompanyFeatures;
+  loader?: () => SaasPackDefinition[];
+};
+
+export type CompanyPacksResult = {
+  items: SaasPackDefinition[];
+  resolvedSaasId: string | null;
+  matchReason: "FEATURE_MATCH" | "FEATURE_INTERSECTION" | "FALLBACK";
+};
+
+function resolveEffectiveSaasId(companyId?: string | null, saasId?: string | null): string | null {
+  const normalizedCompany = companyId?.trim();
+  if (normalizedCompany) return normalizedCompany;
+  const normalizedSaas = saasId?.trim();
+  return normalizedSaas ?? null;
+}
+
+function filterPacksByFeatures(packs: SaasPackDefinition[], features: SaasFeature[]): {
+  items: SaasPackDefinition[];
+  matchReason: CompanyPacksResult["matchReason"];
+} {
+  if (features.length === 0) {
+    return { items: packs, matchReason: "FALLBACK" };
+  }
+
+  const enabledKeys = new Set<string>(
+    features.filter((feature) => feature.status === "ENABLED").map((feature) => feature.featureKey),
+  );
+
+  if (enabledKeys.size === 0) {
+    return { items: packs, matchReason: "FALLBACK" };
+  }
+
+  const fullMatches = packs.filter((pack) => pack.recommendedFeatureKeys.every((key) => enabledKeys.has(key)));
+  if (fullMatches.length > 0) {
+    return { items: fullMatches, matchReason: "FEATURE_MATCH" };
+  }
+
+  const partialMatches = packs.filter((pack) => pack.recommendedFeatureKeys.some((key) => enabledKeys.has(key)));
+  if (partialMatches.length > 0) {
+    return { items: partialMatches, matchReason: "FEATURE_INTERSECTION" };
+  }
+
+  return { items: packs, matchReason: "FALLBACK" };
+}
+
+export async function getCompanyPacks({
+  tenantId,
+  companyId,
+  saasId,
+  env,
+  featureResult,
+  featureResolver = getCompanyFeatures,
+  loader = listSaasPacks,
+}: GetCompanyPacksInput): Promise<CompanyPacksResult> {
+  const effectiveSaasId = resolveEffectiveSaasId(companyId, saasId);
+  if (!effectiveSaasId) {
+    return { items: loader(), resolvedSaasId: null, matchReason: "FALLBACK" };
+  }
+
+  const resolvedFeatures =
+    featureResult ?? (await featureResolver({ tenantId, companyId, saasId, env }));
+  const allPacks = loader();
+  const { items, matchReason } = filterPacksByFeatures(allPacks, resolvedFeatures.items);
+  return { items, resolvedSaasId: resolvedFeatures.resolvedSaasId ?? effectiveSaasId, matchReason };
 }
 
 export type SaasCatalogItem = {

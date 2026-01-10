@@ -1,4 +1,5 @@
 import type { OwnerControlSnapshot, DrakoSuggestedAction, AutopilotActionSeverity } from "@/lib/owner/types";
+import type { SaasFeatureKey } from "@/lib/features/types";
 import { getSaasPackById } from "@/lib/packs/repository";
 
 const SEVERITY_PRIORITY: Record<AutopilotActionSeverity, number> = {
@@ -22,7 +23,63 @@ function buildKey(parts: string[]) {
     .replace(/^_|_$/g, "");
 }
 
+type AutopilotEntitlements = {
+  featureKeys: Set<SaasFeatureKey>;
+  packIds: Set<string>;
+  gateFeatures: boolean;
+  gatePacks: boolean;
+};
+
+export function resolveAutopilotEntitlements(snapshot: OwnerControlSnapshot): AutopilotEntitlements {
+  const featureKeys = new Set<SaasFeatureKey>();
+  for (const feature of snapshot.companyFeatures ?? []) {
+    if (feature.status === "ENABLED") {
+      featureKeys.add(feature.featureKey);
+    }
+  }
+  const packIds = new Set<string>();
+  for (const pack of snapshot.companyPacks ?? []) {
+    if (pack.id) {
+      packIds.add(pack.id);
+    }
+  }
+  if (snapshot.currentPack?.id) {
+    packIds.add(snapshot.currentPack.id);
+  }
+
+  return {
+    featureKeys,
+    packIds,
+    gateFeatures: featureKeys.size > 0,
+    gatePacks: packIds.size > 0,
+  };
+}
+
+export function applyAutopilotEntitlementGate(
+  actions: DrakoSuggestedAction[],
+  entitlements: AutopilotEntitlements,
+): DrakoSuggestedAction[] {
+  return actions.filter((action) => {
+    if (entitlements.gateFeatures && action.requiresFeatures) {
+      for (const featureKey of action.requiresFeatures) {
+        if (!entitlements.featureKeys.has(featureKey)) {
+          return false;
+        }
+      }
+    }
+    if (entitlements.gatePacks && action.requiresPacks) {
+      for (const packId of action.requiresPacks) {
+        if (!entitlements.packIds.has(packId)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  });
+}
+
 export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): DrakoSuggestedAction[] {
+  const entitlements = resolveAutopilotEntitlements(snapshot);
   const actions: DrakoSuggestedAction[] = [];
   const createdAt = new Date().toISOString();
   let index = 0;
@@ -40,6 +97,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
       target: { type: "GENERAL" },
       knowledgeHints: { spaceSlug: "pricing", tags: ["pricing", "margen"] },
       targetArea: "pricing",
+      requiresFeatures: ["ECONOMY"],
       createdAt,
     });
   }
@@ -58,6 +116,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
       serviceId: firstLoss?.serviceId,
       target: { type: "SERVICE", id: firstLoss?.serviceId ?? null },
       knowledgeHints: { spaceSlug: "pricing", tags: ["margen", "loss"], targetType: "SERVICE", targetId: firstLoss?.serviceId ?? undefined },
+      requiresFeatures: ["ECONOMY"],
       createdAt,
     });
   }
@@ -73,6 +132,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
       target: { type: "GENERAL" },
       knowledgeHints: { spaceSlug: "hr", tags: ["fairness", "horas"] },
       targetArea: "hr",
+      requiresFeatures: ["HR"],
       createdAt,
     });
   }
@@ -88,6 +148,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
       target: { type: "GENERAL" },
       knowledgeHints: { spaceSlug: "hr", tags: ["salario", "compliance"] },
       targetArea: "hr",
+      requiresFeatures: ["HR"],
       createdAt,
     });
   }
@@ -103,6 +164,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
       target: { type: "GENERAL" },
       knowledgeHints: { spaceSlug: "operations", tags: ["agenda", "productividad"] },
       targetArea: "hr",
+      requiresFeatures: ["HR"],
       createdAt,
     });
   }
@@ -120,6 +182,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
           : "Hay señales de sobrecarga. Revisa horarios antes de seguir llenando la agenda.",
         target: { type: "GENERAL" },
         targetArea: "hr",
+        requiresFeatures: ["HR"],
         createdAt,
       });
     }
@@ -136,6 +199,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
           : "Revisa salarios y el mínimo configurado para evitar incumplimientos.",
         target: { type: "GENERAL" },
         targetArea: "hr",
+        requiresFeatures: ["HR"],
         createdAt,
       });
     }
@@ -152,6 +216,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
       target: { type: "GENERAL" },
       knowledgeHints: { spaceSlug: "operations", tags: ["proveedores", "ahorro"] },
       targetArea: "email",
+      requiresFeatures: ["EMAIL_INTAKE"],
       createdAt,
     });
   }
@@ -167,6 +232,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
       target: { type: "GENERAL" },
       knowledgeHints: { spaceSlug: "social-playbooks", tags: ["social", "cadencia"] },
       targetArea: "social",
+      requiresFeatures: ["SOCIAL"],
       createdAt,
     });
   }
@@ -183,6 +249,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
         target: { type: "GENERAL" },
         knowledgeHints: { spaceSlug: "social-playbooks", tags: ["conversion", "ofertas"] },
         targetArea: "social",
+        requiresFeatures: ["SOCIAL"],
         createdAt,
       });
     } else if (snapshot.socialConversion.topCampaignName && (snapshot.socialConversion.topCampaignRevenue ?? 0) > 0) {
@@ -196,6 +263,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
         target: { type: "CAMPAIGN" },
         knowledgeHints: { spaceSlug: "social-playbooks", tags: ["campañas"] },
         targetArea: "social",
+        requiresFeatures: ["SOCIAL"],
         createdAt,
       });
     }
@@ -215,6 +283,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
         target: { type: "GENERAL" },
         knowledgeHints: { spaceSlug: "pricing", tags: ["tax", "iva", "quarterly"] },
         targetArea: "tax",
+        requiresFeatures: ["TAX_ENGINE"],
         createdAt,
       });
     } else if (taxStatus === "RISK") {
@@ -228,6 +297,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
         target: { type: "GENERAL" },
         knowledgeHints: { spaceSlug: "pricing", tags: ["tax", "iva", "quarterly"] },
         targetArea: "tax",
+        requiresFeatures: ["TAX_ENGINE"],
         createdAt,
       });
     }
@@ -245,6 +315,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
         target: { type: "GENERAL" },
         knowledgeHints: { spaceSlug: "pricing", tags: ["margen", "equipo"] },
         targetArea: "hr",
+        requiresFeatures: ["ECONOMY"],
         createdAt,
       });
     } else if (snapshot.employeesProfitabilitySummary.tightCount > 0) {
@@ -258,6 +329,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
         target: { type: "GENERAL" },
         knowledgeHints: { spaceSlug: "pricing", tags: ["margen", "servicios"] },
         targetArea: "pricing",
+        requiresFeatures: ["ECONOMY"],
         createdAt,
       });
     }
@@ -274,6 +346,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
         employeeId: topEmployee.employeeId,
         target: { type: "EMPLOYEE", id: topEmployee.employeeId },
         knowledgeHints: { spaceSlug: "operations", tags: ["agenda", "upsell"], targetType: "EMPLOYEE", targetId: topEmployee.employeeId },
+        requiresFeatures: ["HR"],
         createdAt,
       });
     }
@@ -281,19 +354,20 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
 
   if (snapshot.blueprintSummary?.missingCriticalModules?.length) {
     const missing = snapshot.blueprintSummary.missingCriticalModules;
-      actions.push({
-        id: buildId("SYSTEM", index++),
-        key: buildKey(["blueprint_missing_modules", ...missing]),
-        category: "SYSTEM",
-        severity: "WARNING",
-        title: "Activa módulos clave del blueprint",
-        description: `Faltan módulos críticos para tu objetivo: ${missing.join(", ")}. Actívalos para alinear el sistema.`,
-        target: { type: "FEATURE", id: missing[0] ?? null },
-        knowledgeHints: { spaceSlug: "operations", tags: ["blueprint"] },
-        targetArea: "blueprint",
-        createdAt,
-      });
-    }
+    actions.push({
+      id: buildId("SYSTEM", index++),
+      key: buildKey(["blueprint_missing_modules", ...missing]),
+      category: "SYSTEM",
+      severity: "WARNING",
+      title: "Activa módulos clave del blueprint",
+      description: `Faltan módulos críticos para tu objetivo: ${missing.join(", ")}. Actívalos para alinear el sistema.`,
+      target: { type: "FEATURE", id: missing[0] ?? null },
+      knowledgeHints: { spaceSlug: "operations", tags: ["blueprint"] },
+      targetArea: "blueprint",
+      requiresFeatures: ["BLUEPRINT"],
+      createdAt,
+    });
+  }
 
   if (!snapshot.currentPack && snapshot.recommendedPackId) {
     const pack = getSaasPackById(snapshot.recommendedPackId);
@@ -309,6 +383,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
       target: { type: "PACK", id: snapshot.recommendedPackId },
       knowledgeHints: pack ? { tags: pack.recommendedKnowledgeTags } : { tags: ["pack"] },
       targetArea: "blueprint",
+      requiresPacks: [snapshot.recommendedPackId],
       createdAt,
     });
   }
@@ -324,6 +399,7 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
       target: { type: "GENERAL" },
       knowledgeHints: { spaceSlug: "hr", tags: ["contratacion"] },
       targetArea: "hr",
+      requiresFeatures: ["HR"],
       createdAt,
     });
   }
@@ -345,5 +421,6 @@ export function buildOwnerAutopilotActions(snapshot: OwnerControlSnapshot): Drak
     });
   }
 
-  return actions.sort((a, b) => SEVERITY_PRIORITY[a.severity] - SEVERITY_PRIORITY[b.severity]);
+  const gated = applyAutopilotEntitlementGate(actions, entitlements);
+  return gated.sort((a, b) => SEVERITY_PRIORITY[a.severity] - SEVERITY_PRIORITY[b.severity]);
 }

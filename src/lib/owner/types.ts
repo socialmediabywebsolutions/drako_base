@@ -1,6 +1,8 @@
 import type { SocialOwnerSummary } from "@/lib/social/repository";
 import type { SaasTaxSummaryForSaas } from "@/lib/tax/types";
 import type { BusinessType, BlueprintPrimaryGoal, BlueprintMaturityStage, SaasModuleCode } from "@/lib/blueprints/types";
+import type { SaasFeature, SaasFeatureKey } from "@/lib/features/types";
+import type { SaasPackDefinition } from "@/lib/packs/types";
 
 export type CanHireStatus = "CAN_HIRE" | "BORDERLINE" | "CANNOT_HIRE";
 
@@ -45,6 +47,8 @@ export type DrakoSuggestedAction = {
   customerId?: string | null;
   campaignId?: string | null;
   serviceId?: string | null;
+  requiresFeatures?: SaasFeatureKey[];
+  requiresPacks?: string[];
   createdAt: string;
 };
 
@@ -64,6 +68,9 @@ export type OwnerControlSnapshot = {
     vertical: string;
   };
   recommendedPackId?: string;
+  companyFeatures?: SaasFeature[];
+  companyPacks?: SaasPackDefinition[];
+  companyResolvedSaasId?: string | null;
   blueprintSummary?: {
     businessType: BusinessType;
     primaryGoal: BlueprintPrimaryGoal;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Card from "@/components/ui/card";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
@@ -8,6 +8,46 @@ import EmptyState from "@/components/ui/empty-state";
 import Link from "next/link";
 import type { OwnerControlSnapshot } from "@/lib/owner/types";
 import { SAAS_PACK_DEFINITIONS } from "@/lib/packs/definitions";
+import type { SaasFeatureKey } from "@/lib/features/types";
+import type { SaasPackDefinition } from "@/lib/packs/types";
+
+type Entitlements = {
+  featureKeys: Set<SaasFeatureKey>;
+  packIds: Set<string>;
+};
+
+function resolveEntitlements(snapshot: OwnerControlSnapshot | null): Entitlements {
+  const featureKeys = new Set<SaasFeatureKey>();
+  const packIds = new Set<string>();
+  if (snapshot?.companyFeatures) {
+    snapshot.companyFeatures.forEach((feature) => {
+      if (feature.status === "ENABLED") {
+        featureKeys.add(feature.featureKey);
+      }
+    });
+  }
+  if (snapshot?.companyPacks) {
+    snapshot.companyPacks.forEach((pack) => {
+      if (pack.id) {
+        packIds.add(pack.id);
+      }
+    });
+  }
+  if (snapshot?.currentPack?.id) {
+    packIds.add(snapshot.currentPack.id);
+  }
+  return { featureKeys, packIds };
+}
+
+function formatRequirementBadge({
+  label,
+  enabled,
+}: {
+  label: string;
+  enabled: boolean;
+}): JSX.Element {
+  return <Badge variant={enabled ? "outline" : "err"}>{label}</Badge>;
+}
 
 type Props = {
   saasId: string | null;
@@ -58,6 +98,8 @@ export default function SaasOwnerControlSection({ saasId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [materializing, setMaterializing] = useState(false);
   const [materializeMessage, setMaterializeMessage] = useState<string | null>(null);
+  const entitlements = useMemo(() => resolveEntitlements(snapshot), [snapshot]);
+  const packLookup = useMemo(() => new Map<string, SaasPackDefinition | undefined>(SAAS_PACK_DEFINITIONS.map((pack) => [pack.id, pack])), []);
 
   const loadSnapshot = useCallback(async () => {
     if (!saasId) return;
@@ -234,6 +276,9 @@ export default function SaasOwnerControlSection({ saasId }: Props) {
                 {materializing ? "Creando tareas..." : "Convertir en tareas"}
               </Button>
               {materializeMessage && <span className="text-xs text-[var(--muted)]">{materializeMessage}</span>}
+              <span className="ml-auto text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">
+                Features activos: {entitlements.featureKeys.size} · Packs activos: {entitlements.packIds.size}
+              </span>
             </div>
             {!snapshot.autopilotActions || snapshot.autopilotActions.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">
@@ -251,23 +296,59 @@ export default function SaasOwnerControlSection({ saasId }: Props) {
                   <div key={category} className="space-y-2">
                     <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">{category}</p>
                     <div className="space-y-2">
-                      {actions.map((action) => (
-                        <div
-                          key={action.id}
-                          className="rounded-xl border border-[var(--border)] bg-[var(--panel-alt)] p-3 text-sm"
-                        >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant={severityVariant[action.severity]}>{action.severity}</Badge>
-                            <p className="font-semibold">{action.title}</p>
-                            {action.targetArea && (
-                              <span className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-                                {action.targetArea}
-                              </span>
+                      {actions.map((action) => {
+                        const missingFeatures = (action.requiresFeatures ?? []).filter((key) => !entitlements.featureKeys.has(key));
+                        const missingPacks = (action.requiresPacks ?? []).filter((packId) => !entitlements.packIds.has(packId));
+                        const isLocked = missingFeatures.length > 0 || missingPacks.length > 0;
+                        return (
+                          <div
+                            key={action.id}
+                            className={`rounded-xl border ${
+                              isLocked ? "border-[var(--warn)]/50 bg-[var(--panel)]" : "border-[var(--border)] bg-[var(--panel-alt)]"
+                            } p-3 text-sm`}
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant={severityVariant[action.severity]}>{action.severity}</Badge>
+                              <p className="font-semibold">{action.title}</p>
+                              {action.targetArea && (
+                                <span className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+                                  {action.targetArea}
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-sm text-[var(--muted)]">{action.description}</p>
+                            {(action.requiresFeatures?.length || action.requiresPacks?.length) && (
+                              <div className="mt-2 flex flex-wrap items-center gap-1 text-[10px] uppercase tracking-[0.18em]">
+                                {(action.requiresFeatures ?? []).map((key) => {
+                                  const enabled = entitlements.featureKeys.has(key);
+                                  return (
+                                    <span key={key}>{formatRequirementBadge({ label: key, enabled })}</span>
+                                  );
+                                })}
+                                {(action.requiresPacks ?? []).map((packId) => {
+                                  const pack = packLookup.get(packId);
+                                  const enabled = entitlements.packIds.has(packId);
+                                  return (
+                                    <span key={packId}>{formatRequirementBadge({ label: pack?.label ?? packId, enabled })}</span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {isLocked && (
+                              <p className="mt-2 text-xs text-[var(--warn)]">
+                                Acción bloqueada: activa {missingFeatures.length > 0 ? `feature${missingFeatures.length > 1 ? "s" : ""} ${missingFeatures.join(", ")}` : ""}
+                                {missingFeatures.length > 0 && missingPacks.length > 0 ? " y " : ""}
+                                {missingPacks.length > 0
+                                  ? `pack${missingPacks.length > 1 ? "s" : ""} ${missingPacks
+                                      .map((packId) => packLookup.get(packId)?.label ?? packId)
+                                      .join(", ")}`
+                                  : ""}
+                                .
+                              </p>
                             )}
                           </div>
-                          <p className="mt-1 text-sm text-[var(--muted)]">{action.description}</p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}

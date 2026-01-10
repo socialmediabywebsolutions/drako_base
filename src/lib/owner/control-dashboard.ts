@@ -16,9 +16,9 @@ import { buildOwnerAutopilotActions } from "@/lib/owner/autopilot";
 import { getSocialConversionSnapshot, getSocialOwnerSummary, resolveSocialContext } from "@/lib/social/repository";
 import { getSaasBlueprint, listSaasModules, resolveBlueprintsContext } from "@/lib/blueprints/repository";
 import type { BusinessType, BlueprintPrimaryGoal, SaasModuleCode } from "@/lib/blueprints/types";
-import { resolveFeaturesContext, listSaasFeatures } from "@/lib/features/repository";
+import { resolveFeaturesContext, listSaasFeatures, getCompanyFeatures } from "@/lib/features/repository";
 import { getDemoSaasPackForSaas } from "@/lib/admin/demo-data";
-import { guessPackForSaas } from "@/lib/packs/repository";
+import { guessPackForSaas, getCompanyPacks } from "@/lib/packs/repository";
 import { resolveTasksContext, listTasks } from "@/lib/tasks/repository";
 import { getSaasTaxSummary } from "@/lib/tax/engine";
 import { listSaasForOwner } from "@/lib/owner/portfolio";
@@ -163,12 +163,32 @@ export async function buildOwnerControlSnapshot({ tenantId, saasId, env }: Build
 
   let currentPack: OwnerControlSnapshot["currentPack"];
   let recommendedPackId: OwnerControlSnapshot["recommendedPackId"];
+  let companyFeatures: OwnerControlSnapshot["companyFeatures"];
+  let companyPacks: OwnerControlSnapshot["companyPacks"];
+  let companyResolvedSaasId: string | null = null;
   try {
     const demoPack = getDemoSaasPackForSaas(saasId);
     const featuresCtx = await resolveFeaturesContext({ tenantId, saasId, env });
     const features = await listSaasFeatures(featuresCtx);
     const featureKeys = features.map((feature) => feature.featureKey);
     const serviceNames = services.map((service) => service.name);
+    companyFeatures = features;
+    companyResolvedSaasId = featuresCtx.saasId ?? saasId;
+    try {
+      const packResult = await getCompanyPacks({ tenantId, saasId: companyResolvedSaasId, env });
+      companyPacks = packResult.items;
+      companyResolvedSaasId = packResult.resolvedSaasId ?? companyResolvedSaasId;
+    } catch (error) {
+      console.warn("OWNER_CONTROL_PACKS_QUERY_ERROR", error);
+      companyPacks = undefined;
+    }
+    try {
+      const featureResult = await getCompanyFeatures({ tenantId, saasId: companyResolvedSaasId, env });
+      companyFeatures = featureResult.items;
+      companyResolvedSaasId = featureResult.resolvedSaasId ?? companyResolvedSaasId;
+    } catch (error) {
+      console.warn("OWNER_CONTROL_FEATURES_QUERY_ERROR", error);
+    }
     if (demoPack) {
       currentPack = {
         id: demoPack.id,
@@ -203,6 +223,9 @@ export async function buildOwnerControlSnapshot({ tenantId, saasId, env }: Build
     console.warn("OWNER_CONTROL_PACK_ERROR", error);
     currentPack = undefined;
     recommendedPackId = undefined;
+    companyFeatures = undefined;
+    companyPacks = undefined;
+    companyResolvedSaasId = null;
   }
 
   let employeesProfitabilitySummary: OwnerControlSnapshot["employeesProfitabilitySummary"];
@@ -309,6 +332,9 @@ export async function buildOwnerControlSnapshot({ tenantId, saasId, env }: Build
     saasId,
     currentPack,
     recommendedPackId,
+    companyFeatures,
+    companyPacks,
+    companyResolvedSaasId,
     blueprintSummary,
     guardrailsEnforcementSummary: {
       blockOverwork: hrSettings.blockOverwork,

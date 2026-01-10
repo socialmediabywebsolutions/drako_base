@@ -55,6 +55,18 @@ Date: 2026-01-06
 ## Veredicto
 - **NO-GO** until production deploy and runtime checks succeed.
 
+## Step 9 – Company-aware Autopilot gating (2026-01-10)
+- Portfolio control surfaces now expose Autopilot action requirements (features/packs) with lock messaging in SaaS Owner Control.
+- Autopilot filtering still respects entitlements via backend gating; no change to gating logic beyond UI visibility.
+- Repository now includes `resolveCompanyFeaturePackContext` helper for lint-safe context hydration.
+
+### Verification (Step 9)
+- `npm run test:orchestrator`
+- `npm run build`
+- `npm run pages:build`
+- `npm run production:go`
+- `node scripts/.dist/scripts/orchestrator-company-tests.js`
+
 ## Next actions
 1) Deploy latest commits to production.
 2) Validate:
