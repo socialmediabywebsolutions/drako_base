@@ -12,6 +12,8 @@
     "production:go": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/production-go.js",
     "devarchitect:audit": "tsc --project tsconfig.scripts.json && node scripts/.dist/devarchitect-audit.js",
     "pages:build": "npx @cloudflare/next-on-pages@1",
+    "test:companies": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/companies-api-tests.js",
+    "test:company-domains": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/company-domains-api-tests.js",
     "test:mapping": "node scripts/check-mapping.js",
     "smoke:cloudflare": "node scripts/smokes-cloudflare.js"
   },

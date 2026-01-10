@@ -86,6 +86,8 @@ export type InboxContext = {
     preview: string;
     saas_id: string | null;
     saas_name?: string | null;
+    company_id?: string | null;
+    company_name?: string | null;
   };
 };
 

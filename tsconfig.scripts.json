@@ -13,5 +13,12 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["scripts/**/*.ts", "workers/autopilot-worker/src/**/*.ts"]
+  "include": [
+    "scripts/**/*.ts",
+    "workers/autopilot-worker/src/**/*.ts",
+    "src/app/api/companies/route.ts",
+    "src/app/api/company-domains/route.ts",
+    "src/app/api/companies/[id]/domains/route.ts",
+    "src/app/api/inbox/route.ts"
+  ]
 }

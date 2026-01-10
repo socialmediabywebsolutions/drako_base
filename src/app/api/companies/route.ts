@@ -1,18 +1,10 @@
 import { NextResponse } from "next/server";
-import { queryAll } from "@/lib/db";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
+import { listCompanies } from "@/lib/companies/companies";
 
 export const runtime = "edge";
 
-
-type CompanyRecord = {
-  id: string;
-  slug: string | null;
-  name: string;
-  description: string | null;
-  created_at: string | null;
-};
 
 function authErrorResponse(error: unknown) {
   if (error instanceof UnauthorizedError) {
@@ -24,9 +16,7 @@ function authErrorResponse(error: unknown) {
 export async function GET(req: Request) {
   try {
     const { tenantId } = await requireTenantAccess(req);
-    const companies = await queryAll<CompanyRecord>(
-      "SELECT id, slug, name, description, created_at FROM companies ORDER BY name ASC"
-    );
+    const companies = await listCompanies();
     return NextResponse.json({ ok: true, tenantId, companies });
   } catch (error) {
     const authResponse = authErrorResponse(error);

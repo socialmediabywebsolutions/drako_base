@@ -51,6 +51,7 @@ type InboxMessage = {
   full_body: string;
   status: string;
   saas_id: string | null;
+  company_id: string | null;
   department_id: string | null;
   tags: string | null;
   created_at: string;
@@ -59,6 +60,7 @@ type InboxMessage = {
 
 type SaasSummary = { id: string; name: string; slug: string };
 type CoreDepartment = { id: string; nombre: string };
+type CompanySummary = { id: string; name: string; slug: string | null };
 
 const formatDate = (value: string) => new Date(value).toLocaleString();
 
@@ -71,10 +73,18 @@ export default function InboxPage() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [saasFilter, setSaasFilter] = useState<string>("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("");
+  const [companyFilter, setCompanyFilter] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    const params = new URLSearchParams(window.location.search);
+    return params.get("company_id") ?? "";
+  });
 
   const [saasList, setSaasList] = useState<SaasSummary[]>([]);
   const [departments, setDepartments] = useState<CoreDepartment[]>([]);
-  
+  const [companies, setCompanies] = useState<CompanySummary[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [companiesError, setCompaniesError] = useState<string | null>(null);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
   const departmentSelectRef = useRef<HTMLSelectElement | null>(null);
@@ -85,6 +95,12 @@ export default function InboxPage() {
     saasList.forEach((s) => { map[s.id] = s; });
     return map;
   }, [saasList]);
+
+  const companyMap = useMemo(() => {
+    const map: Record<string, CompanySummary> = {};
+    companies.forEach((company) => { map[company.id] = company; });
+    return map;
+  }, [companies]);
 
   const departmentMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -99,10 +115,11 @@ export default function InboxPage() {
     if (channelFilter) params.set("channel", channelFilter);
     if (statusFilter) params.set("status", statusFilter);
     if (saasFilter) params.set("saas_id", saasFilter);
+    if (companyFilter) params.set("company_id", companyFilter);
     if (departmentFilter) params.set("department_id", departmentFilter);
     const qs = params.toString();
     return qs ? `?${qs}` : "";
-  }, [channelFilter, statusFilter, saasFilter, departmentFilter]);
+  }, [channelFilter, statusFilter, saasFilter, companyFilter, departmentFilter]);
 
   const loadMessages = useCallback(async () => {
     setLoading(true);
@@ -134,9 +151,34 @@ export default function InboxPage() {
     setDepartments(data.items ?? []);
   }, []);
 
+  const loadCompanies = useCallback(async () => {
+    setCompaniesLoading(true);
+    setCompaniesError(null);
+    try {
+      const res = await fetch("/api/companies", { cache: "no-store" });
+      if (!res.ok) throw new Error("No se pudieron obtener las compañías");
+      const data = (await res.json()) as { companies?: CompanySummary[] };
+      setCompanies(data.companies ?? []);
+    } catch (err) {
+      setCompaniesError(err instanceof Error ? err.message : "Error cargando compañías");
+    } finally {
+      setCompaniesLoading(false);
+    }
+  }, []);
+
   useEffect(() => { void loadMessages(); }, [loadMessages]);
   useEffect(() => { void loadSaas(); }, [loadSaas]);
   useEffect(() => { void loadDepartments(); }, [loadDepartments]);
+  useEffect(() => { void loadCompanies(); }, [loadCompanies]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const initialCompany = params.get("company_id") ?? "";
+    if (initialCompany) {
+      setCompanyFilter(initialCompany);
+    }
+  }, []);
 
   useEffect(() => () => { setOrchestratorContext(null); }, []);
 
@@ -144,6 +186,7 @@ export default function InboxPage() {
     if (!selectedMessage) return;
     const deptLabel = selectedMessage.department_id ? (departmentMap[selectedMessage.department_id] ?? selectedMessage.department_id) : null;
     const saasLabel = selectedMessage.saas_id ? (saasMap[selectedMessage.saas_id]?.name ?? null) : null;
+    const companyLabel = selectedMessage.company_id ? (companyMap[selectedMessage.company_id]?.name ?? null) : null;
     setOrchestratorContext({
       scope: "inbox",
       inbox: {
@@ -156,11 +199,26 @@ export default function InboxPage() {
         preview: selectedMessage.body_preview,
         saas_id: selectedMessage.saas_id,
         saas_name: saasLabel,
+        company_id: selectedMessage.company_id,
+        company_name: companyLabel,
       },
     });
-  }, [departmentMap, saasMap, selectedMessage]);
+  }, [companyMap, departmentMap, saasMap, selectedMessage]);
 
   const refresh = useCallback(() => { void loadMessages(); }, [loadMessages]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (companyFilter) {
+      params.set("company_id", companyFilter);
+    } else {
+      params.delete("company_id");
+    }
+    const nextSearch = params.toString();
+    const nextUrl = nextSearch ? `${window.location.pathname}?${nextSearch}` : window.location.pathname;
+    window.history.replaceState(null, "", nextUrl);
+  }, [companyFilter]);
 
   const handleStatusChange = useCallback(async (newStatus: string) => {
     if (!selectedMessage) return;
@@ -248,6 +306,19 @@ export default function InboxPage() {
             ))}
           </Select>
         </div>
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <Select aria-label="Filtrar por compañía" value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
+            <option value="">All companies</option>
+            {companies.map((company) => (
+              <option key={company.id} value={company.id}>{company.name}</option>
+            ))}
+          </Select>
+          {companiesLoading && <span className="text-xs text-[var(--muted)]">Cargando compañías...</span>}
+          {companiesError && !companiesLoading && (
+            <span className="text-xs text-red-500">{companiesError}</span>
+          )}
+        </div>
+        <p className="mt-4 text-xs uppercase tracking-[0.3em] text-[var(--muted)]/80">Compat mode: company_id = saas_id (temporary)</p>
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
@@ -262,6 +333,7 @@ export default function InboxPage() {
             <ul className="space-y-2" role="list" aria-live="polite">
               {messages.map((msg) => {
                 const active = msg.id === selectedId;
+                const companyLabel = msg.company_id ? (companyMap[msg.company_id]?.name ?? "Unknown") : "Unknown";
                 return (
                   <li
                     key={msg.id}
@@ -292,6 +364,7 @@ export default function InboxPage() {
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">
                       <span>{saasMap[msg.saas_id ?? ""]?.name ?? "Campamento Base"}</span>
                       <span>Depto: {msg.department_id ? (departmentMap[msg.department_id] ?? msg.department_id) : "Sin asignar"}</span>
+                      <span>Company: {companyLabel}</span>
                       <span>{formatDate(msg.created_at)}</span>
                     </div>
                   </li>
@@ -356,6 +429,7 @@ export default function InboxPage() {
                 <span>Canal: {selectedMessage.channel === "email" ? "Email" : "WhatsApp"}</span>
                 <span>De: {selectedMessage.from_address}</span>
                 <span>Para: {selectedMessage.to_address}</span>
+                <span>Company: {selectedMessage.company_id ? (companyMap[selectedMessage.company_id]?.name ?? "Unknown") : "Unknown"}</span>
                 <span>Última actualización: {formatDate(selectedMessage.updated_at)}</span>
               </div>
             </div>

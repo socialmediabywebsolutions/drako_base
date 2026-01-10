@@ -2,25 +2,13 @@ import { NextResponse } from "next/server";
 import { queryAll, run } from "@/lib/db";
 import { ensureCampamentoBase } from "@/lib/campamento-base";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import {
+  buildInboxQuery,
+  resolveInboxCompanyAlias,
+  enrichInboxItemsWithCompany,
+  type InboxMessage,
+} from "@/lib/inbox/helpers";
 export const runtime = "edge";
-
-
-type InboxMessage = {
-  id: string;
-  channel: "email" | "whatsapp";
-  direction: "inbound" | "outbound";
-  from_address: string;
-  to_address: string;
-  subject: string | null;
-  body_preview: string;
-  full_body: string;
-  status: "nuevo" | "en_proceso" | "resuelto";
-  saas_id: string | null;
-  department_id: string | null;
-  tags: string | null;
-  created_at: string;
-  updated_at: string;
-};
 
 function detectDepartment(subject: string | null, body: string): string | null {
   const haystack = `${subject ?? ""} ${body}`.toLowerCase();
@@ -92,35 +80,15 @@ export async function GET(req: Request) {
     const { tenantId } = await requireTenantAccess(req);
     await ensureCampamentoBase();
     const url = new URL(req.url);
-    const filters: string[] = ["tenant_id = ?"];
-    const params: string[] = [tenantId];
-
     const channel = url.searchParams.get("channel");
     const status = url.searchParams.get("status");
-    const saasId = url.searchParams.get("saas_id");
+    const saasId = url.searchParams.get("saas_id") ?? url.searchParams.get("company_id");
     const departmentId = url.searchParams.get("department_id");
 
-    if (channel) {
-      filters.push("channel = ?");
-      params.push(channel);
-    }
-    if (status) {
-      filters.push("status = ?");
-      params.push(status);
-    }
-    if (saasId) {
-      filters.push("saas_id = ?");
-      params.push(saasId);
-    }
-    if (departmentId) {
-      filters.push("department_id = ?");
-      params.push(departmentId);
-    }
-
-    const where = `WHERE ${filters.join(" AND ")}`;
-    const sql = `SELECT id, channel, direction, from_address, to_address, subject, body_preview, full_body, status, saas_id, department_id, tags, created_at, updated_at FROM inbox_messages ${where} ORDER BY datetime(created_at) DESC LIMIT 200`;
+    const { sql, params } = buildInboxQuery({ tenantId, channel, status, saasId, departmentId });
     const items = await queryAll<InboxMessage>(sql, ...params);
-    return NextResponse.json({ items, count: items.length });
+    const enriched = enrichInboxItemsWithCompany(items);
+    return NextResponse.json({ items: enriched, count: enriched.length });
   } catch (error) {
     const response = authErrorResponse(error);
     if (response) return response;
@@ -139,6 +107,7 @@ export async function POST(req: Request) {
     }
 
     const departmentId = detectDepartment(body.subject ?? null, body.full_body ?? "");
+    const saasId = resolveInboxCompanyAlias(body);
     const preview = buildPreview(body.subject ?? null, body.full_body ?? "");
     const id = globalThis.crypto?.randomUUID?.() ?? `inbox_${Date.now()}`;
     const ok = await run(
@@ -154,7 +123,7 @@ export async function POST(req: Request) {
       preview,
       body.full_body,
       body.status ?? "nuevo",
-      body.saas_id ?? null,
+      saasId,
       body.department_id ?? departmentId,
       body.tags ?? null
     );
@@ -162,7 +131,7 @@ export async function POST(req: Request) {
     if (!ok) {
       return NextResponse.json({ error: "No se pudo registrar el mensaje" }, { status: 500 });
     }
-    return NextResponse.json({ ok: true, id, department_id: body.department_id ?? departmentId });
+    return NextResponse.json({ ok: true, id, department_id: body.department_id ?? departmentId, company_id: saasId });
   } catch (error) {
     const response = authErrorResponse(error);
     if (response) return response;

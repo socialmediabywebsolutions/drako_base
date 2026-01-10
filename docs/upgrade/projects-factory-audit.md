@@ -527,3 +527,9 @@ Rutas creadas: /companies, /companies/[id].
 Endpoints usados: GET /api/companies, GET /api/companies/[id]/domains.
 Nota: compat mode: company_id = saas_id (temporary).
 Checklist: vista /companies visible en admin, detalle /companies/[id] muestra dominios, navegación incluye Companies junto a Departments, etiqueta compat mode presente en ambas vistas, builds locales ejecutados tras cambios de código.
+
+## Step 7: Inbox UI compat con companies (2026-01-10)
+Cambios: la bandeja /inbox ahora carga el catálogo de compañías desde /api/companies para soportar compat `company_id = saas_id` sin tocar departamentos. Se añadió select de filtrado por company, persistencia en querystring y etiqueta de compat en los filtros. Cada mensaje muestra “Company: <nombre>” usando el listado cargado y el detalle refleja la misma información. El contexto de orquestador se actualiza con company_id/company_name.
+Endpoints usados: GET /api/companies, GET /api/inbox?company_id=.
+Compat mode: company_id = saas_id (temporary).
+Checklist: [x] filtro por company en UI, [x] listado Inbox muestra label de company, [x] department_id permanece intacto, [x] compat indicator visible, [x] npm run build, [x] npm run pages:build, [x] npm run production:go.
