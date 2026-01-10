@@ -464,7 +464,66 @@ Example JSON payload (derived from seeded `core_departments` rows):
 
 ---
 
+## Step 3: domains & inbox progressive migration (2026-01-09)
+
+### Company domains endpoint
+- New route `GET /api/company-domains` exposing the `company_domains` view with optional `company_id`/`saas_id` and `status` filters.
+- Ordering keeps recently updated domains first while remaining SQLite-compatible by avoiding `NULLS LAST` syntax.
+- Response payload mirrors compat structure: `{ ok: true, tenantId, domains: [...] }`.
+
+### Inbox dual vocabulary
+- `/api/inbox` now accepts `company_id` as an alias for `saas_id` in filters and POST payloads.
+- Responses enrich each message with `company_id` calculated from the underlying `saas_id`, keeping department metadata untouched.
+- Inserts continue to auto-detect `department_id` but record the provided `company_id` for forward compatibility.
+- No UI changes yet; front-end still consumes departments while receiving the new alias in the JSON payload.
+
+---
+
+## Step 4: company domains drilldown & automated coverage (2026-01-09)
+
+### Endpoint: `/api/companies/:id/domains`
+- Added read-only handler mirroring legacy `/api/saas/:id/domains` semantics but sourced from the `company_domains` view.
+- Accepts `company_id` path param (compat with `saas_id`) and returns `{ ok, tenantId, companyId, domains }` with the same ordering guarantees as the bulk endpoint.
+- Reuses shared query helper `listCompanyDomains`, ensuring filters stay consistent across endpoints.
+
+### Regression tests (Node scripts)
+- New script `npm run test:companies` compiles scripts and exercises:
+  1. `/api/companies` list helper (`listCompanies`) to verify SQL projection.
+  2. `/api/company-domains` helper filtering behaviour.
+  3. Inbox compatibility utilities (`buildInboxQuery`, `resolveInboxCompanyAlias`, `enrichInboxItemsWithCompany`).
+- Test runner depends on shared `register-paths` shim to load App Router modules inside Node.
+- Output stored in CI logs; no fixtures yet (tests operate on mock data via injected query functions).
+
+---
+
+## Step 5: company domains detail endpoint QA (2026-01-09)
+
+### Endpoint: `/api/companies/:id/domains`
+- Read-only handler using `company_domains` view; path `company_id` remains compat alias for `saas_id`.
+- Returns `{ ok: true, tenantId, companyId, domains }` with shared ordering to keep deterministic outputs across endpoints.
+- Validates path param presence, returning `400` with `company_id_required` when missing.
+
+### Automated coverage
+- `npm run test:companies` adds assertions for `listCompanyDomainsForCompany` helper bindings.
+- Added `npm run test:company-domains` script targeting shared helper logic (tenant-only filters, ordering with status).
+- Tests rely on the Node shim `register-paths` to access App Router/lib modules.
+
+### Checklist
+- [x] `/api/companies/:id/domains` returns expected payload for seeded compat data.
+- [x] Company domain helpers centralized under `@/lib/company-domains/domains`.
+- [x] `npm run test:companies` and `npm run test:company-domains` passing locally.
+- [x] `npm run build`, `npm run pages:build`, `npm run production:go` executed post-change.
+- [ ] UI untouched (pending future phases).
+
+---
+
 ## Next Steps
 1. Align stakeholders on phased rollout plan above.
 2. Prepare migration scripts (views, triggers) in draft PR with feature flag scaffolding.
 3. Schedule end-to-end dry run once synonyms in place, prior to renaming public surfaces.
+
+## Step 6: Companies UI (read-only)
+Rutas creadas: /companies, /companies/[id].
+Endpoints usados: GET /api/companies, GET /api/companies/[id]/domains.
+Nota: compat mode: company_id = saas_id (temporary).
+Checklist: vista /companies visible en admin, detalle /companies/[id] muestra dominios, navegación incluye Companies junto a Departments, etiqueta compat mode presente en ambas vistas, builds locales ejecutados tras cambios de código.
