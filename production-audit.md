@@ -67,6 +67,12 @@ Date: 2026-01-06
 - `npm run production:go`
 - `node scripts/.dist/scripts/orchestrator-company-tests.js`
 
+## Step 10 – Projects Factory minimal (API) (2026-01-11)
+- Endpoints creados: `/api/projects` (GET lista, POST creación), `/api/projects/[id]` (GET detalle con dominios y entitlements).
+- Esquema DB usado: tablas `projects`, `project_domains`, `project_entitlements` creadas en migración `0062_projects_factory_core.sql` con claves por tenant y relación de dominios/entitlements.
+- Casos de test cubiertos: runtime export edge, detalle exitoso, detalle 404, detalle con mismatch de tenant, listado con filtro `company_id`, validaciones de creación (name/company_id), repository create/list/detail helpers.
+- Comandos ejecutados: `npm run test:projects`, `npm run build`, `npm run pages:build`, `npm run production:go`.
+
 ## Next actions
 1) Deploy latest commits to production.
 2) Validate:

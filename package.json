@@ -14,6 +14,7 @@
     "pages:build": "npx @cloudflare/next-on-pages@1",
     "test:companies": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/companies-api-tests.js",
     "test:company-domains": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/company-domains-api-tests.js",
+    "test:projects": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/projects-api-tests.js",
     "test:orchestrator-company": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/orchestrator-company-tests.js",
     "test:orchestrator": "npm run test:company-domains && npm run test:companies && npm run test:orchestrator-company",
     "test:mapping": "node scripts/check-mapping.js",

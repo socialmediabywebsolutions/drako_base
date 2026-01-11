@@ -10,6 +10,7 @@ export const EXPECTED_MIGRATIONS = [
   "0053_drako_public_surface_security",
   "0054_drako_ai_governance",
   "0055_drako_migrations_state",
+  "0062_projects_factory_core",
 ] as const;
 
 export type ExpectedMigrationId = typeof EXPECTED_MIGRATIONS[number];
