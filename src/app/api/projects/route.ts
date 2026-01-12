@@ -43,18 +43,21 @@ export async function POST(req: Request) {
 
     const payload = body as Record<string, unknown>;
     const name = typeof payload.name === "string" ? payload.name.trim() : "";
-    const companyId = typeof payload.company_id === "string" ? payload.company_id.trim() : "";
+    const rawCompanyId = typeof payload.company_id === "string" ? payload.company_id.trim() : "";
     const slugInput = typeof payload.slug === "string" ? payload.slug.trim() : null;
     const domain = typeof payload.domain === "string" ? payload.domain.trim() : null;
 
     if (!name) {
       return NextResponse.json({ ok: false, error: "name es obligatorio" }, { status: 400 });
     }
-    if (!companyId) {
-      return NextResponse.json({ ok: false, error: "company_id es obligatorio" }, { status: 400 });
-    }
 
-    const created = await createProject({ tenantId, companyId, name, slug: slugInput, domain });
+    const created = await createProject({
+      tenantId,
+      companyId: rawCompanyId || null,
+      name,
+      slug: slugInput,
+      domain,
+    });
 
     return NextResponse.json({ ok: true, item: created });
   } catch (error) {

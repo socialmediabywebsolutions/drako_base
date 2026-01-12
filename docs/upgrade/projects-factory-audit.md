@@ -533,3 +533,17 @@ Cambios: la bandeja /inbox ahora carga el catálogo de compañías desde /api/co
 Endpoints usados: GET /api/companies, GET /api/inbox?company_id=.
 Compat mode: company_id = saas_id (temporary).
 Checklist: [x] filtro por company en UI, [x] listado Inbox muestra label de company, [x] department_id permanece intacto, [x] compat indicator visible, [x] npm run build, [x] npm run pages:build, [x] npm run production:go.
+
+## Step 12-A – Project Domains (API + UI + tests) (2026-01-11)
+- [x] UI `/owner/projects/[id]` muestra dominios con estados, feedback y formulario inline para alta y verificación.
+- [x] API `/api/projects/[id]/domains` y `/verify` gestionan duplicados y actualizan estados mediante `verifyProjectDomain` wrapper.
+- [x] Script `npm run test:project-domains` con cobertura para crear/listar/verificar dominios y enforcement de tenant.
+- [x] Ajustes en `ProjectsDbMock` para reflejar nuevos campos (last_error, verification_token, updated_at) y slugs de compañía.
+- [x] Gates ejecutados tras los cambios.
+
+Comandos ejecutados (orden cronológico):
+- npm run test:projects
+- npm run test:project-domains
+- npm run build
+- npm run pages:build
+- npm run production:go

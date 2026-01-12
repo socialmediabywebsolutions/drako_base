@@ -80,3 +80,44 @@ export async function verifyDomainMapping(params: {
     metrics: { normalizedHost, wasWww: normalized.wasWww, isCanonical },
   };
 }
+
+export type ProjectDomainVerificationInput = {
+  hostname: string;
+  tenantId: string;
+  projectId: string;
+  currentStatus: string;
+  verificationToken?: string | null;
+  providedToken?: string | null;
+};
+
+export type ProjectDomainVerificationResult =
+  | { status: "verified"; error?: undefined }
+  | { status: "pending" | "failed"; error?: string };
+
+export async function verifyProjectDomain(params: ProjectDomainVerificationInput): Promise<ProjectDomainVerificationResult> {
+  const { hostname, tenantId, projectId, currentStatus, verificationToken, providedToken } = params;
+  if (!hostname.trim()) {
+    return { status: "failed", error: "DOMAIN_INVALID" };
+  }
+
+  if (verificationToken && providedToken && verificationToken.trim() !== providedToken.trim()) {
+    return { status: "pending", error: "TOKEN_MISMATCH" };
+  }
+
+  const result = await verifyDomainMapping({
+    hostname,
+    tenantId,
+    saasId: projectId,
+    saasSlug: null,
+    currentStatus,
+    isPaused: currentStatus.trim().toUpperCase() === "PAUSED",
+  });
+
+  if (result.nextStatus === "active" && result.verificationStage === "verified") {
+    return { status: "verified" };
+  }
+
+  const reason = result.reason ?? (result.verificationStage === "failed" ? "VERIFY_FAILED" : "UNVERIFIED");
+  const status = result.verificationStage === "failed" ? "failed" : "pending";
+  return { status, error: reason };
+}

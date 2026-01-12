@@ -21,6 +21,8 @@
     "src/app/api/companies/[id]/domains/route.ts",
     "src/app/api/inbox/route.ts",
     "src/app/api/projects/route.ts",
-    "src/app/api/projects/[id]/route.ts"
+    "src/app/api/projects/[id]/route.ts",
+    "src/app/api/projects/[id]/domains/route.ts",
+    "src/app/api/projects/[id]/domains/verify/route.ts"
   ]
 }
