@@ -7,6 +7,7 @@ import {
   createProject,
   getProjectById,
   listProjects,
+  type ProjectDetail,
   type ProjectDomainRecord,
   type ProjectRecord,
 } from "@/lib/projects/repository";
@@ -189,6 +190,8 @@ async function testProjectsDetailRouteSuccess() {
     project_id: "proj_ok",
     packs_json: JSON.stringify(["growth"]),
     features_json: JSON.stringify(["automation"]),
+    limits_json: JSON.stringify({ seats: 5 }),
+    metadata_json: JSON.stringify({ tier: "growth" }),
     updated_at: "2025-03-04T00:00:00Z",
   });
 
@@ -201,14 +204,14 @@ async function testProjectsDetailRouteSuccess() {
       { params: Promise.resolve({ id: "proj_ok" }) },
     );
     assert.equal(response.status, 200, "Detail route should succeed");
-    const payload = (await response.json()) as {
-      ok: boolean;
-      item: { project: ProjectRecord; domains: ProjectDomainRecord[]; entitlements: { packs: string[]; features: string[] } };
-    };
+    const payload = (await response.json()) as { ok: boolean; item: ProjectDetail };
     assert.equal(payload.ok, true, "Response should indicate success");
     assert.equal(payload.item.project.name, "Project OK", "Project name should roundtrip");
     assert.equal(payload.item.domains[0]?.domain, "ok.example", "Domain list should include seeded value");
-    assert.deepEqual(payload.item.entitlements.packs, ["growth"], "Entitlements packs should parse");
+    assert.deepEqual(payload.item.entitlements.enabledPacks, ["growth"], "Entitlements packs should parse");
+    assert.deepEqual(payload.item.entitlements.enabledFeatures, ["automation"], "Entitlements features should parse");
+    assert.deepEqual(payload.item.entitlements.limits, { seats: 5 }, "Entitlements limits should parse");
+    assert.deepEqual(payload.item.entitlements.metadata, { tier: "growth" }, "Entitlements metadata should parse");
   } finally {
     resetModuleStubs();
   }
@@ -247,9 +250,9 @@ async function testCreateProjectGeneratesUniqueSlug() {
   assert.equal(detail.domains[0]?.domain, "example.com", "Domain should be normalized to lowercase");
   const key = mock.projectKey("tenant_1", detail.project.id);
   assert.ok(mock.entitlements.has(key), "Entitlements row should be created");
-  assert.deepEqual(detail.entitlements.packs, [], "Entitlements packs should default to empty array");
-  assert.deepEqual(detail.entitlements.features, [], "Entitlements features should default to empty array");
-  assert.ok(detail.entitlements.updated_at, "Entitlements updated_at should be populated");
+  assert.deepEqual(detail.entitlements.enabledPacks, [], "Entitlements packs should default to empty array");
+  assert.deepEqual(detail.entitlements.enabledFeatures, [], "Entitlements features should default to empty array");
+  assert.ok(detail.entitlements.updatedAt, "Entitlements updatedAt should be populated");
 }
 
 async function testListProjectsFiltersByCompany() {
@@ -313,6 +316,8 @@ async function testGetProjectDetailIncludesDomainsAndEntitlements() {
     project_id: "proj_x",
     packs_json: JSON.stringify(["starter"]),
     features_json: JSON.stringify(["automation"]),
+    limits_json: JSON.stringify({ seats: 3 }),
+    metadata_json: JSON.stringify({ tier: "pro" }),
     updated_at: "2025-02-04T00:00:00Z",
   });
 
@@ -322,8 +327,10 @@ async function testGetProjectDetailIncludesDomainsAndEntitlements() {
   assert.ok(detail, "Detail should be resolved");
   assert.equal(detail?.project.name, "Project X", "Project name should match");
   assert.equal(detail?.domains.length, 1, "Domains list should be returned");
-  assert.deepEqual(detail?.entitlements.packs, ["starter"], "Packs should be parsed from JSON");
-  assert.deepEqual(detail?.entitlements.features, ["automation"], "Features should be parsed from JSON");
+  assert.deepEqual(detail?.entitlements.enabledPacks, ["starter"], "Packs should be parsed from JSON");
+  assert.deepEqual(detail?.entitlements.enabledFeatures, ["automation"], "Features should be parsed from JSON");
+  assert.deepEqual(detail?.entitlements.limits, { seats: 3 }, "Limits should parse and normalize");
+  assert.deepEqual(detail?.entitlements.metadata, { tier: "pro" }, "Metadata should parse to object");
 }
 
 async function run() {

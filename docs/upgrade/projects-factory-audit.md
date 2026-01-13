@@ -547,3 +547,20 @@ Comandos ejecutados (orden cronológico):
 - npm run build
 - npm run pages:build
 - npm run production:go
+
+## Step 12-B – Project Entitlements (API + repository + tests) (2026-01-12)
+- [x] Repositorio `src/lib/projects/entitlements.ts` creado con normalizadores (`normalizeStringArray`, `normalizeLimits`, `normalizeMetadata`) y helpers `getProjectEntitlements`/`upsertProjectEntitlements` usando upsert D1.
+- [x] `src/lib/projects/repository.ts` actualizado para delegar en el nuevo módulo y retornar `ProjectDetail.entitlements` normalizado.
+- [x] API `/api/projects/[id]/entitlements` (GET/PUT) implementada con validaciones, normalización de payload y enforcement de tenant.
+- [x] Mock `ProjectsDbMock` extendido para soportar columnas `limits_json` y `metadata_json` en pruebas.
+- [x] Script dedicado `npm run test:project-entitlements` añadiendo cobertura para defaults, normalización, updates, validaciones y tenant mismatch; integrado en `npm run test:projects-factory`.
+- [x] Página `/owner/projects/[id]` sincronizada para mostrar packs, features y metadatos normalizados.
+- [x] `tsconfig.scripts.json` incluye las rutas nuevas para compilar los tests.
+
+Comandos ejecutados (orden cronológico):
+- npm run test:project-entitlements
+- npm run test:projects
+- npm run test:project-domains
+- npm run build
+- npm run pages:build
+- npm run production:go

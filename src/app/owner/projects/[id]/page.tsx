@@ -195,9 +195,11 @@ type ProjectDetailApi = {
       updated_at: string | null;
     }>;
     entitlements: {
-      packs: string[];
-      features: string[];
-      updated_at: string | null;
+      enabledPacks: string[];
+      enabledFeatures: string[];
+      limits: Record<string, number>;
+      metadata: Record<string, unknown> | null;
+      updatedAt: string | null;
     };
   };
 };
@@ -490,19 +492,19 @@ export default function OwnerProjectDetailPage() {
 
         <Card title="Entitlements" subtitle="Packs y funcionalidades asignadas">
           <div className="grid gap-4 md:grid-cols-2">
-            <MetadataTile label="Última actualización">{formatDate(detail.entitlements.updated_at)}</MetadataTile>
+            <MetadataTile label="Última actualización">{formatDate(detail.entitlements.updatedAt)}</MetadataTile>
             <MetadataTile label="Total funcionalidades">
-              {detail.entitlements.features.length + detail.entitlements.packs.length}
+              {detail.entitlements.enabledFeatures.length + detail.entitlements.enabledPacks.length}
             </MetadataTile>
           </div>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div>
               <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[var(--muted)]">Packs</h3>
-              {detail.entitlements.packs.length === 0 ? (
+              {detail.entitlements.enabledPacks.length === 0 ? (
                 <p className="mt-2 text-sm text-[var(--muted)]">Sin packs asignados.</p>
               ) : (
                 <ul className="mt-2 space-y-2 text-sm text-[var(--text)]">
-                  {detail.entitlements.packs.map((pack) => (
+                  {detail.entitlements.enabledPacks.map((pack) => (
                     <li key={pack} className="rounded-full border border-[var(--border)]/50 px-4 py-2">
                       {pack}
                     </li>
@@ -512,11 +514,11 @@ export default function OwnerProjectDetailPage() {
             </div>
             <div>
               <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[var(--muted)]">Features</h3>
-              {detail.entitlements.features.length === 0 ? (
+              {detail.entitlements.enabledFeatures.length === 0 ? (
                 <p className="mt-2 text-sm text-[var(--muted)]">Sin funcionalidades asignadas.</p>
               ) : (
                 <ul className="mt-2 space-y-2 text-sm text-[var(--text)]">
-                  {detail.entitlements.features.map((feature) => (
+                  {detail.entitlements.enabledFeatures.map((feature) => (
                     <li key={feature} className="rounded-full border border-[var(--border)]/50 px-4 py-2">
                       {feature}
                     </li>

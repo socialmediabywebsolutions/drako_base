@@ -1,4 +1,12 @@
 import { queryAll as queryAllDb, queryOne as queryOneDb, run as runDb } from "@/lib/db";
+import {
+  getProjectEntitlements as getEntitlements,
+  upsertProjectEntitlements as persistEntitlements,
+} from "@/lib/projects/entitlements";
+import type {
+  NormalizedProjectEntitlements,
+  ProjectEntitlementsRow,
+} from "@/lib/projects/entitlements";
 
 export type ProjectRecord = {
   id: string;
@@ -36,22 +44,12 @@ export type ListProjectDomainsFilters = {
   status?: string;
 };
 
-export type ProjectEntitlementsRecord = {
-  tenant_id: string;
-  project_id: string;
-  packs_json: string;
-  features_json: string;
-  updated_at: string;
-};
+export type ProjectEntitlementsRecord = ProjectEntitlementsRow;
 
 export type ProjectDetail = {
   project: ProjectRecord;
   domains: ProjectDomainRecord[];
-  entitlements: {
-    packs: string[];
-    features: string[];
-    updated_at: string | null;
-  };
+  entitlements: NormalizedProjectEntitlements;
 };
 
 type CreateProjectInput = {
@@ -224,7 +222,7 @@ export async function createProject(input: CreateProjectInput, adapter?: Partial
     await createProjectDomain({ tenantId, projectId: id, domain: input.domain }, db);
   }
 
-  await ensureEntitlementsRow({ tenantId, projectId: id, timestamp: now }, db);
+  await persistEntitlements({ tenantId, projectId: id, entitlements: {} }, db);
 
   const detail = await getProjectById({ tenantId, projectId: id }, db);
   if (!detail) throw new Error("Proyecto creado pero no encontrado");
@@ -282,40 +280,13 @@ export async function getProjectById(input: GetProjectByIdInput, adapter?: Parti
     projectId,
   );
 
-  const entitlementsRow = await db.queryOne<ProjectEntitlementsRecord>(
-    `SELECT tenant_id, project_id, packs_json, features_json, updated_at
-     FROM project_entitlements
-     WHERE tenant_id = ? AND project_id = ?
-     LIMIT 1`,
-    tenantId,
-    projectId,
-  );
-
-  const entitlements = deserializeEntitlements(entitlementsRow);
+  const entitlements = await getEntitlements({ tenantId, projectId }, db);
 
   return {
     project,
     domains,
     entitlements,
   };
-}
-
-async function ensureEntitlementsRow({
-  tenantId,
-  projectId,
-  timestamp,
-}: {
-  tenantId: string;
-  projectId: string;
-  timestamp: string;
-}, db: DbAdapter) {
-  await db.run(
-    `INSERT OR IGNORE INTO project_entitlements (tenant_id, project_id, packs_json, features_json, updated_at)
-     VALUES (?, ?, '[]', '[]', ?)` ,
-    tenantId,
-    projectId,
-    timestamp,
-  );
 }
 
 async function insertProjectDomain({
@@ -358,36 +329,6 @@ async function insertProjectDomain({
     created_at: now,
     updated_at: now,
   };
-}
-
-function deserializeEntitlements(row: ProjectEntitlementsRecord | null): {
-  packs: string[];
-  features: string[];
-  updated_at: string | null;
-} {
-  if (!row) {
-    return { packs: [], features: [], updated_at: null };
-  }
-
-  return {
-    packs: safeParseStringArray(row.packs_json),
-    features: safeParseStringArray(row.features_json),
-    updated_at: row.updated_at ?? null,
-  };
-}
-
-function safeParseStringArray(value: string | null | undefined): string[] {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value);
-    if (Array.isArray(parsed)) {
-      return parsed.filter((item) => typeof item === "string");
-    }
-    return [];
-  } catch (error) {
-    console.warn("PROJECT_ENTITLEMENTS_PARSE_ERROR", error);
-    return [];
-  }
 }
 
 async function ensureUniqueSlug(tenantId: string, desiredSlug: string, db: DbAdapter): Promise<string> {

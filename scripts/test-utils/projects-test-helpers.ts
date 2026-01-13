@@ -163,6 +163,29 @@ export class ProjectsDbMock {
       return true;
     }
 
+    if (normalized.includes("insert into project_entitlements") && normalized.includes("on conflict")) {
+      const [tenantId, projectId, packsJson, featuresJson, limitsJson, metadataJson, updatedAt] = params as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string | null,
+        string,
+      ];
+      const key = this.projectKey(tenantId, projectId);
+      this.entitlements.set(key, {
+        tenant_id: tenantId,
+        project_id: projectId,
+        packs_json: packsJson ?? "[]",
+        features_json: featuresJson ?? "[]",
+        limits_json: limitsJson ?? "{}",
+        metadata_json: metadataJson ?? null,
+        updated_at: updatedAt ?? new Date().toISOString(),
+      });
+      return true;
+    }
+
     if (normalized.includes("insert or ignore into project_entitlements")) {
       const [tenantId, projectId, packsJson, featuresJson, updatedAt] = (params.length === 5
         ? (params as [string, string, string, string, string])
@@ -173,15 +196,15 @@ export class ProjectsDbMock {
         string,
         string,
       ];
-      const safePacks = packsJson ?? "[]";
-      const safeFeatures = featuresJson ?? "[]";
-      const safeUpdatedAt = updatedAt ?? (params.length >= 3 ? (params[2] as string) : new Date().toISOString());
+      const safeUpdatedAt = updatedAt ?? new Date().toISOString();
       const key = this.projectKey(tenantId, projectId);
       this.entitlements.set(key, {
         tenant_id: tenantId,
         project_id: projectId,
-        packs_json: safePacks,
-        features_json: safeFeatures,
+        packs_json: packsJson ?? "[]",
+        features_json: featuresJson ?? "[]",
+        limits_json: "{}",
+        metadata_json: null,
         updated_at: safeUpdatedAt,
       });
       return true;
