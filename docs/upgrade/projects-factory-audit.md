@@ -564,3 +564,18 @@ Comandos ejecutados (orden cronológico):
 - npm run build
 - npm run pages:build
 - npm run production:go
+
+## Step 12-C – Entitlements UI editable (2026-01-13)
+- Files touched: `src/app/api/projects/[id]/entitlements/context/route.ts`, `src/app/owner/projects/[id]/page.tsx`, `scripts/project-entitlements-context-api-tests.ts`, `tsconfig.scripts.json`, `package.json`, `docs/upgrade/projects-factory-audit.md`.
+- Checklist
+  - [x] Endpoint `GET /api/projects/[id]/entitlements/context` that hydrates preserved project entitlements, inherited context, and source metadata without losing Edge compatibility.
+  - [x] Editable entitlements editor in `/owner/projects/[id]` with pack/feature checklists, custom entries, limits/metadata editing, override controls, and contextual badges.
+  - [x] Dedicated script `npm run test:project-entitlements-context` covering success, 404, and tenant enforcement plus source propagation; wired into `npm run test:projects-factory`.
+  - [x] UI feedback/control for context loading/errors plus metadata validation.
+- Comandos ejecutados (orden cronológico):
+  - npm run test:project-entitlements-context
+  - npm run test:project-entitlements
+  - npm run test:projects
+  - npm run build
+  - npm run pages:build
+  - npm run production:go

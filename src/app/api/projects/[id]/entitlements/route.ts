@@ -96,7 +96,7 @@ function validateMetadata(value: unknown): Record<string, unknown> | null {
   }
   try {
     JSON.stringify(value);
-  } catch (error) {
+  } catch {
     throw invalidRequest("metadata no es serializable");
   }
   return value as Record<string, unknown>;
@@ -188,3 +188,5 @@ export async function PUT(request: Request, context: RouteContext) {
     );
   }
 }
+
+export const POST = PUT;

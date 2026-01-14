@@ -8,8 +8,12 @@ import Button from "@/components/ui/button";
 import Badge from "@/components/ui/badge";
 import EmptyState from "@/components/ui/empty-state";
 import Tooltip from "@/components/ui/tooltip";
-import { TextInput } from "@/components/ui/input";
+import { TextInput, TextArea } from "@/components/ui/input";
 import { TableWrap, Table, THead, TBody, TH, TD } from "@/components/ui/table";
+import { SAAS_PACK_DEFINITIONS } from "@/lib/packs/definitions";
+import type { SaasPackDefinition } from "@/lib/packs/types";
+import type { SaasFeatureCategory, SaasFeatureKey } from "@/lib/features/types";
+import type { NormalizedProjectEntitlements } from "@/lib/projects/entitlements";
 
 const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
   year: "numeric",
@@ -26,6 +30,111 @@ function formatDate(value: string | null | undefined) {
   } catch {
     return value;
   }
+}
+
+const FEATURE_CATALOG: Array<{ key: SaasFeatureKey; label: string; category: SaasFeatureCategory }> = [
+  { key: "ECONOMY", label: "Economy Engine", category: "CORE" },
+  { key: "BLUEPRINT", label: "Blueprint & Factory", category: "CORE" },
+  { key: "APPEARANCE_BRANDING", label: "Branding & Themes", category: "CORE" },
+  { key: "HR", label: "HR & Compliance", category: "OPERATIONS" },
+  { key: "EMPLOYEES", label: "Equipo & Roles", category: "OPERATIONS" },
+  { key: "STAFF_PORTAL", label: "Staff Portal", category: "OPERATIONS" },
+  { key: "CLIENT_PORTAL", label: "Client Portal", category: "MARKETING" },
+  { key: "EMAIL_INTAKE", label: "Email Intake", category: "MARKETING" },
+  { key: "SOCIAL", label: "Social Engine", category: "MARKETING" },
+  { key: "OWNER_CONTROL", label: "Owner Control", category: "ANALYTICS" },
+  { key: "KNOWLEDGE", label: "Knowledge Base", category: "OPERATIONS" },
+  { key: "TASKS", label: "Tasks & Execution", category: "OPERATIONS" },
+  { key: "TAX_ENGINE", label: "Tax & Accounting", category: "ANALYTICS" },
+];
+
+const FEATURE_CATEGORY_LABELS: Record<SaasFeatureCategory, string> = {
+  CORE: "Core",
+  MARKETING: "Marketing",
+  ANALYTICS: "Analytics",
+  OPERATIONS: "Operaciones",
+};
+
+const FEATURE_CATALOG_MAP = new Map(FEATURE_CATALOG.map((entry) => [entry.key.toLowerCase(), entry]));
+const PACK_CATALOG_MAP = new Map(SAAS_PACK_DEFINITIONS.map((pack) => [pack.id, pack]));
+const FEATURE_GROUPS = FEATURE_CATALOG.reduce<Record<SaasFeatureCategory, typeof FEATURE_CATALOG>>((acc, entry) => {
+  if (!acc[entry.category]) {
+    acc[entry.category] = [];
+  }
+  acc[entry.category].push(entry);
+  return acc;
+}, {} as Record<SaasFeatureCategory, typeof FEATURE_CATALOG>);
+
+type EntitlementSource = "project" | "company" | "saas" | "none";
+
+const ENTITLEMENT_STATE_LABELS: Record<EntitlementSource, string> = {
+  project: "Active",
+  company: "Inherited",
+  saas: "Inherited",
+  none: "Locked",
+};
+
+const ENTITLEMENT_BADGE_VARIANTS: Record<EntitlementSource, "ok" | "warn" | "info" | "neutral"> = {
+  project: "ok",
+  company: "info",
+  saas: "info",
+  none: "warn",
+};
+
+type EntitlementsFeatureItem = {
+  featureKey: string;
+  label: string;
+  category: string;
+  status: string;
+  source: EntitlementSource;
+};
+
+type EntitlementsPackItem = SaasPackDefinition & { source: EntitlementSource };
+
+type EntitlementsContextResponse = {
+  ok: boolean;
+  tenantId: string;
+  projectId: string;
+  companyId: string | null;
+  resolvedSaasId: string | null;
+  projectEntitlements: NormalizedProjectEntitlements;
+  inheritedContext: {
+    source: EntitlementSource;
+    resolvedSaasId: string | null;
+    features: EntitlementsFeatureItem[];
+    packs: EntitlementsPackItem[];
+    errors: string[];
+  };
+};
+
+type EntitlementsContextState =
+  | { status: "idle" | "loading"; data: null; error: null }
+  | { status: "ready"; data: EntitlementsContextResponse; error: null }
+  | { status: "error"; data: null; error: string };
+
+type LimitsEntry = { key: string; value: string };
+
+function normalizeFeatureKey(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function normalizePackId(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function formatMetadataJSON(value: Record<string, unknown> | null) {
+  if (!value) return "";
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return "";
+  }
+}
+
+function buildLimitsEntries(limits: Record<string, number>) {
+  return Object.keys(limits)
+    .sort()
+    .map((key) => ({ key, value: String(limits[key]) }));
 }
 
 type AddDomainFormProps = {
@@ -265,6 +374,25 @@ export default function OwnerProjectDetailPage() {
   const [adding, setAdding] = useState(false);
   const [verifying, setVerifying] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [entitlementsContextState, setEntitlementsContextState] = useState<EntitlementsContextState>({
+    status: "idle",
+    data: null,
+    error: null,
+  });
+  const [selectedPacks, setSelectedPacks] = useState<Set<string>>(() => new Set());
+  const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(() => new Set());
+  const [limitsEntries, setLimitsEntries] = useState<LimitsEntry[]>([]);
+  const [metadataText, setMetadataText] = useState("");
+  const [metadataError, setMetadataError] = useState<string | null>(null);
+  const [limitError, setLimitError] = useState<string | null>(null);
+  const [savingEntitlements, setSavingEntitlements] = useState(false);
+  const [formFeedback, setFormFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [customPackInput, setCustomPackInput] = useState("");
+  const [customPackError, setCustomPackError] = useState<string | null>(null);
+  const [customFeatureInput, setCustomFeatureInput] = useState("");
+  const [customFeatureError, setCustomFeatureError] = useState<string | null>(null);
+  const [showCustomFeatures, setShowCustomFeatures] = useState(false);
+  const [lastKnownEntitlements, setLastKnownEntitlements] = useState<NormalizedProjectEntitlements | null>(null);
 
   const projectId = params?.id;
 
@@ -310,24 +438,248 @@ export default function OwnerProjectDetailPage() {
     return json.item;
   }, [projectId]);
 
+  const initializeEntitlementsForm = useCallback((entitlements: NormalizedProjectEntitlements) => {
+    setSelectedPacks(() => new Set(entitlements.enabledPacks));
+    setSelectedFeatures(() => new Set(entitlements.enabledFeatures));
+    setLimitsEntries(buildLimitsEntries(entitlements.limits));
+    setMetadataText(formatMetadataJSON(entitlements.metadata));
+    setMetadataError(null);
+    setLimitError(null);
+    setFormFeedback(null);
+    setCustomPackInput("");
+    setCustomPackError(null);
+    setCustomFeatureInput("");
+    setCustomFeatureError(null);
+    setLastKnownEntitlements(entitlements);
+  }, []);
+
+  const fetchEntitlementsContext = useCallback(
+    async (signal?: { cancelled: boolean }) => {
+      if (!projectId) return;
+      setEntitlementsContextState({ status: "loading", data: null, error: null });
+      try {
+        const res = await fetch(`/api/projects/${projectId}/entitlements/context`, { cache: "no-store" });
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(payload?.error ?? `Error ${res.status}`);
+        }
+        const payload = (await res.json().catch(() => null)) as EntitlementsContextResponse | null;
+        if (!payload?.ok || !payload.projectEntitlements || !payload.inheritedContext) {
+          throw new Error("Respuesta inválida del contexto de entitlements");
+        }
+        if (signal?.cancelled) return;
+        initializeEntitlementsForm(payload.projectEntitlements);
+        setEntitlementsContextState({ status: "ready", data: payload, error: null });
+      } catch (error) {
+        if (signal?.cancelled) return;
+        setEntitlementsContextState({
+          status: "error",
+          data: null,
+          error: error instanceof Error ? error.message : "No se pudo cargar el contexto de entitlements",
+        });
+      }
+    },
+    [projectId, initializeEntitlementsForm],
+  );
+
+  const loadProjectAndContext = useCallback(
+    async (signal?: { cancelled: boolean }) => {
+      const item = await fetchProjectDetail();
+      if (signal?.cancelled) return;
+      setState({ status: "ready", data: item });
+      setDomainsState({ status: "ready", items: item.domains.map(normalizeDomainRecord), error: null });
+      if (signal?.cancelled) return;
+      void loadDomains(item.project.id);
+      if (signal?.cancelled) return;
+      await fetchEntitlementsContext(signal);
+    },
+    [fetchProjectDetail, loadDomains, fetchEntitlementsContext],
+  );
+
   useEffect(() => {
-    let cancelled = false;
+    const signal = { cancelled: false };
     setState({ status: "loading" });
-    fetchProjectDetail()
-      .then((item) => {
-        if (cancelled) return;
-        setState({ status: "ready", data: item });
-        setDomainsState({ status: "ready", items: item.domains.map(normalizeDomainRecord), error: null });
-        void loadDomains(item.project.id);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setState({ status: "error", message: error instanceof Error ? error.message : "No se pudo cargar el proyecto" });
-      });
+    loadProjectAndContext(signal).catch((error) => {
+      if (signal.cancelled) return;
+      setState({ status: "error", message: error instanceof Error ? error.message : "No se pudo cargar el proyecto" });
+    });
     return () => {
-      cancelled = true;
+      signal.cancelled = true;
     };
-  }, [fetchProjectDetail, loadDomains]);
+  }, [loadProjectAndContext]);
+
+  const reloadProject = useCallback(() => {
+    if (!projectId) return;
+    const signal = { cancelled: false };
+    setState({ status: "loading" });
+    loadProjectAndContext(signal).catch((error) => {
+      if (signal.cancelled) return;
+      setState({ status: "error", message: error instanceof Error ? error.message : "No se pudo recargar el proyecto" });
+    });
+  }, [loadProjectAndContext, projectId]);
+
+  const togglePackSelection = useCallback((packId: string) => {
+    setSelectedPacks((prev) => {
+      const next = new Set(prev);
+      if (next.has(packId)) next.delete(packId);
+      else next.add(packId);
+      return next;
+    });
+  }, []);
+
+  const toggleFeatureSelection = useCallback((featureKey: string) => {
+    setSelectedFeatures((prev) => {
+      const next = new Set(prev);
+      if (next.has(featureKey)) next.delete(featureKey);
+      else next.add(featureKey);
+      return next;
+    });
+  }, []);
+
+  const addCustomPack = useCallback(() => {
+    const normalized = normalizePackId(customPackInput);
+    if (!normalized) {
+      setCustomPackError("El pack es obligatorio.");
+      return;
+    }
+    if (selectedPacks.has(normalized)) {
+      setCustomPackError("El pack ya está incluido.");
+      return;
+    }
+    setSelectedPacks((prev) => {
+      const next = new Set(prev);
+      next.add(normalized);
+      return next;
+    });
+    setCustomPackInput("");
+    setCustomPackError(null);
+  }, [customPackInput, selectedPacks]);
+
+  const removeCustomPack = useCallback((packId: string) => {
+    setSelectedPacks((prev) => {
+      const next = new Set(prev);
+      next.delete(packId);
+      return next;
+    });
+  }, []);
+
+  const addCustomFeature = useCallback(() => {
+    const normalized = normalizeFeatureKey(customFeatureInput);
+    if (!normalized) {
+      setCustomFeatureError("La funcionalidad es obligatoria.");
+      return;
+    }
+    if (selectedFeatures.has(normalized)) {
+      setCustomFeatureError("La funcionalidad ya está incluida.");
+      return;
+    }
+    setSelectedFeatures((prev) => {
+      const next = new Set(prev);
+      next.add(normalized);
+      return next;
+    });
+    setCustomFeatureInput("");
+    setCustomFeatureError(null);
+  }, [customFeatureInput, selectedFeatures]);
+
+  const removeCustomFeature = useCallback((featureKey: string) => {
+    setSelectedFeatures((prev) => {
+      const next = new Set(prev);
+      next.delete(featureKey);
+      return next;
+    });
+  }, []);
+
+  const addLimitEntry = useCallback(() => {
+    setLimitsEntries((prev) => [...prev, { key: "", value: "" }]);
+  }, []);
+
+  const updateLimitEntry = useCallback((index: number, field: keyof LimitsEntry, value: string) => {
+    setLimitsEntries((prev) => {
+      const next = prev.slice();
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  }, []);
+
+  const removeLimitEntry = useCallback((index: number) => {
+    setLimitsEntries((prev) => prev.filter((_, idx) => idx !== index));
+  }, []);
+
+  const handleSaveEntitlements = useCallback(async () => {
+    if (!projectId) return;
+    setSavingEntitlements(true);
+    setFormFeedback(null);
+    setMetadataError(null);
+    setLimitError(null);
+    try {
+      let metadataValue: Record<string, unknown> | null = null;
+      if (metadataText.trim()) {
+        try {
+          metadataValue = JSON.parse(metadataText);
+        } catch {
+          setMetadataError("JSON inválido");
+          throw new Error("metadata_invalid");
+        }
+      }
+
+      const limitsPayload: Record<string, number> = {};
+      for (const entry of limitsEntries) {
+        const key = entry.key.trim();
+        if (!key) continue;
+        const value = Number(entry.value);
+        if (Number.isNaN(value) || value < 0) {
+          setLimitError("Cada límite debe ser un número mayor o igual a 0");
+          throw new Error("limits_invalid");
+        }
+        limitsPayload[key] = value;
+      }
+
+      const response = await fetch(`/api/projects/${projectId}/entitlements`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({
+          enabled_features: Array.from(selectedFeatures),
+          enabled_packs: Array.from(selectedPacks),
+          limits: limitsPayload,
+          metadata: metadataValue,
+        }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+        throw new Error(payload?.error ?? `Error ${response.status}`);
+      }
+      const payload = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!payload?.ok) {
+        throw new Error(payload?.error ?? "No se pudo guardar los entitlements");
+      }
+      setFormFeedback({ type: "success", message: "Entitlements actualizados" });
+      await loadProjectAndContext();
+    } catch (error) {
+      if (error instanceof Error && error.message === "metadata_invalid") {
+        return;
+      }
+      if (error instanceof Error && error.message === "limits_invalid") {
+        return;
+      }
+      setFormFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "No se pudo guardar los entitlements",
+      });
+    } finally {
+      setSavingEntitlements(false);
+    }
+  }, [projectId, metadataText, limitsEntries, selectedFeatures, selectedPacks, loadProjectAndContext]);
+
+  const handleCancelEntitlements = useCallback(() => {
+    if (lastKnownEntitlements) {
+      initializeEntitlementsForm(lastKnownEntitlements);
+    }
+    setFormFeedback(null);
+    setMetadataError(null);
+    setLimitError(null);
+  }, [initializeEntitlementsForm, lastKnownEntitlements]);
 
   const headerTitle = state.status === "ready" ? state.data.project.name : "Project";
   const statusBadge = useMemo(() => {
@@ -337,6 +689,43 @@ export default function OwnerProjectDetailPage() {
     if (status === "archived") return { label: "Archivado", variant: "neutral" as const };
     return { label: state.data.project.status ?? "Desconocido", variant: "warn" as const };
   }, [state]);
+
+  const entitlementsContextData = entitlementsContextState.status === "ready" ? entitlementsContextState.data : null;
+
+  const featureInheritance = useMemo(() => {
+    const map = new Map<string, EntitlementSource>();
+    if (entitlementsContextState.status === "ready") {
+      entitlementsContextState.data.inheritedContext.features.forEach((feature) => {
+        map.set(feature.featureKey.toLowerCase(), feature.source);
+      });
+    }
+    return map;
+  }, [entitlementsContextState]);
+
+  const packInheritance = useMemo(() => {
+    const map = new Map<string, EntitlementSource>();
+    if (entitlementsContextState.status === "ready") {
+      entitlementsContextState.data.inheritedContext.packs.forEach((pack) => {
+        map.set(pack.id, pack.source);
+      });
+    }
+    return map;
+  }, [entitlementsContextState]);
+
+  const customFeatureKeys = useMemo(
+    () => Array.from(selectedFeatures).filter((value) => !FEATURE_CATALOG_MAP.has(value)),
+    [selectedFeatures],
+  );
+
+  const customPackIds = useMemo(
+    () => Array.from(selectedPacks).filter((value) => !PACK_CATALOG_MAP.has(value)),
+    [selectedPacks],
+  );
+
+  const contextSourceLabel = entitlementsContextState.status === "ready" ? entitlementsContextState.data.inheritedContext.source : "none";
+  const resolvedSaasId = entitlementsContextState.status === "ready" ? entitlementsContextState.data.resolvedSaasId : null;
+  const assignedFeatureCount = entitlementsContextData?.projectEntitlements.enabledFeatures.length ?? 0;
+  const assignedPackCount = entitlementsContextData?.projectEntitlements.enabledPacks.length ?? 0;
 
   let body: React.ReactNode;
   if (state.status === "loading" || state.status === "idle") {
@@ -351,28 +740,7 @@ export default function OwnerProjectDetailPage() {
         <p className="text-sm text-rose-400">{state.message}</p>
         <div className="mt-4 flex gap-2">
           <Button variant="secondary" onClick={() => router.push("/owner/projects")}>Volver a la lista</Button>
-          <Button
-            onClick={() => {
-              if (projectId) {
-                setState({ status: "loading" });
-                void fetch(`/api/projects/${projectId}`, { cache: "no-store" })
-                  .then(async (res) => {
-                    if (!res.ok) throw new Error(`Error ${res.status}`);
-                    const json = (await res.json().catch(() => null)) as ProjectDetailApi | null;
-                    if (!json?.ok || !json.item) throw new Error("Respuesta inválida del API");
-                    setState({ status: "ready", data: json.item });
-                  })
-                  .catch((error) => {
-                    setState({
-                      status: "error",
-                      message: error instanceof Error ? error.message : "No se pudo recargar",
-                    });
-                  });
-              }
-            }}
-          >
-            Reintentar
-          </Button>
+          <Button onClick={reloadProject}>Reintentar</Button>
         </div>
       </Card>
     );
@@ -491,42 +859,256 @@ export default function OwnerProjectDetailPage() {
         </Card>
 
         <Card title="Entitlements" subtitle="Packs y funcionalidades asignadas">
-          <div className="grid gap-4 md:grid-cols-2">
-            <MetadataTile label="Última actualización">{formatDate(detail.entitlements.updatedAt)}</MetadataTile>
-            <MetadataTile label="Total funcionalidades">
-              {detail.entitlements.enabledFeatures.length + detail.entitlements.enabledPacks.length}
-            </MetadataTile>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.25em] text-[var(--muted)]">
+            <span>
+              {contextSourceLabel === "none"
+                ? "Sin contexto heredado"
+                : `Contexto heredado · ${contextSourceLabel === "company" ? "Compañía" : "SaaS"}`}
+            </span>
+            {resolvedSaasId ? <span className="font-mono text-xs text-[var(--muted)]">SaaS: {resolvedSaasId}</span> : null}
           </div>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[var(--muted)]">Packs</h3>
-              {detail.entitlements.enabledPacks.length === 0 ? (
-                <p className="mt-2 text-sm text-[var(--muted)]">Sin packs asignados.</p>
-              ) : (
-                <ul className="mt-2 space-y-2 text-sm text-[var(--text)]">
-                  {detail.entitlements.enabledPacks.map((pack) => (
-                    <li key={pack} className="rounded-full border border-[var(--border)]/50 px-4 py-2">
-                      {pack}
-                    </li>
-                  ))}
-                </ul>
-              )}
+          {entitlementsContextState.status === "loading" ? (
+            <p className="mt-4 text-sm text-[var(--muted)]">Cargando entitlements…</p>
+          ) : entitlementsContextState.status === "error" ? (
+            <div className="mt-4 rounded-2xl border border-rose-400/50 bg-rose-100/20 p-4 text-sm text-rose-900">
+              <p>{entitlementsContextState.error}</p>
+              <Button variant="secondary" size="sm" className="mt-3" onClick={reloadProject}>
+                Reintentar carga
+              </Button>
             </div>
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[var(--muted)]">Features</h3>
-              {detail.entitlements.enabledFeatures.length === 0 ? (
-                <p className="mt-2 text-sm text-[var(--muted)]">Sin funcionalidades asignadas.</p>
-              ) : (
-                <ul className="mt-2 space-y-2 text-sm text-[var(--text)]">
-                  {detail.entitlements.enabledFeatures.map((feature) => (
-                    <li key={feature} className="rounded-full border border-[var(--border)]/50 px-4 py-2">
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <MetadataTile label="Última actualización">{formatDate(lastKnownEntitlements?.updatedAt)}</MetadataTile>
+                <MetadataTile label="Total funcionalidades">{assignedFeatureCount + assignedPackCount}</MetadataTile>
+              </div>
+              <div className="mt-4 grid gap-6 lg:grid-cols-2">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[var(--muted)]">Packs</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {SAAS_PACK_DEFINITIONS.map((pack) => {
+                      const isSelected = selectedPacks.has(pack.id);
+                      const source: EntitlementSource = isSelected ? "project" : packInheritance.get(pack.id) ?? "none";
+                      const badgeLabel = ENTITLEMENT_STATE_LABELS[source];
+                      const badgeVariant = ENTITLEMENT_BADGE_VARIANTS[source];
+                      const disabled = source === "company" || source === "saas";
+                      return (
+                        <label
+                          key={pack.id}
+                          className="grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-2xl border border-[var(--border)]/50 bg-[var(--surface)]/50 p-3 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={disabled}
+                            className="h-4 w-4 rounded border-[var(--border)] bg-[var(--surface)]"
+                            onChange={() => togglePackSelection(pack.id)}
+                          />
+                          <div>
+                            <span className="font-semibold text-[var(--text)]">{pack.label}</span>
+                            <p className="text-xs text-[var(--muted)]">{pack.description}</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <Badge variant={badgeVariant}>{badgeLabel}</Badge>
+                            {disabled ? (
+                              <Button size="xs" variant="ghost" onClick={() => togglePackSelection(pack.id)}>
+                                Override
+                              </Button>
+                            ) : null}
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <TextInput
+                        placeholder="custom_pack_id"
+                        value={customPackInput}
+                        onChange={(event) => setCustomPackInput(event.target.value)}
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
+                      <Button size="sm" onClick={addCustomPack}>
+                        Add custom pack
+                      </Button>
+                    </div>
+                    {customPackError ? <p className="text-xs text-rose-400">{customPackError}</p> : null}
+                    {customPackIds.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {customPackIds.map((customPack) => (
+                          <span
+                            key={customPack}
+                            className="flex items-center gap-2 rounded-full border border-[var(--border)]/50 px-3 py-1 text-xs font-mono"
+                          >
+                            {customPack}
+                            <button
+                              type="button"
+                              onClick={() => removeCustomPack(customPack)}
+                              className="text-[var(--muted)] hover:text-[var(--foreground)]"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[var(--muted)]">Features</h3>
+                    <Button size="xs" variant="ghost" onClick={() => setShowCustomFeatures((prev) => !prev)}>
+                      {showCustomFeatures ? "Ocultar custom" : "Show custom/unknown"}
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {Object.entries(FEATURE_GROUPS).map(([category, items]) => (
+                      <div key={category} className="space-y-2">
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--muted)]">
+                          {FEATURE_CATEGORY_LABELS[category as SaasFeatureCategory]}
+                        </p>
+                        <div className="space-y-2">
+                          {items.map((feature) => {
+                            const key = normalizeFeatureKey(feature.key);
+                            const isSelected = selectedFeatures.has(key);
+                            const source: EntitlementSource = isSelected ? "project" : featureInheritance.get(key) ?? "none";
+                            const badgeLabel = ENTITLEMENT_STATE_LABELS[source];
+                            const badgeVariant = ENTITLEMENT_BADGE_VARIANTS[source];
+                            const disabled = source === "company" || source === "saas";
+                            return (
+                              <label
+                                key={feature.key}
+                                className="grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-2xl border border-[var(--border)]/50 bg-[var(--surface)]/50 p-3 text-sm"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  disabled={disabled}
+                                  className="h-4 w-4 rounded border-[var(--border)] bg-[var(--surface)]"
+                                  onChange={() => toggleFeatureSelection(key)}
+                                />
+                                <div>
+                                  <span className="font-semibold text-[var(--text)]">{feature.label}</span>
+                                  {disabled ? (
+                                    <p className="text-xs text-[var(--muted)]">
+                                      Heredado desde {source === "company" ? "la compañía" : "SaaS"}.
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="flex flex-col items-end gap-2">
+                                  <Badge variant={badgeVariant}>{badgeLabel}</Badge>
+                                  {disabled ? (
+                                    <Button size="xs" variant="ghost" onClick={() => toggleFeatureSelection(key)}>
+                                      Override
+                                    </Button>
+                                  ) : null}
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {(showCustomFeatures || customFeatureKeys.length > 0) && (
+                    <div className="rounded-2xl border border-[var(--border)]/60 bg-[var(--surface)]/50 p-3">
+                      <div className="flex items-center gap-2">
+                        <TextInput
+                          placeholder="custom_feature_key"
+                          value={customFeatureInput}
+                          onChange={(event) => setCustomFeatureInput(event.target.value)}
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                        <Button size="sm" onClick={addCustomFeature}>
+                          Add custom
+                        </Button>
+                      </div>
+                      {customFeatureError ? <p className="mt-2 text-xs text-rose-400">{customFeatureError}</p> : null}
+                      {customFeatureKeys.length > 0 ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {customFeatureKeys.map((key) => (
+                            <span
+                              key={key}
+                              className="flex items-center gap-2 rounded-full border border-[var(--border)]/50 px-3 py-1 text-xs font-mono"
+                            >
+                              {key}
+                              <button
+                                type="button"
+                                onClick={() => removeCustomFeature(key)}
+                                className="text-[var(--muted)] hover:text-[var(--foreground)]"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-6 space-y-4 rounded-2xl border border-[var(--border)]/60 bg-[var(--surface)]/50 p-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[var(--muted)]">Limits</h3>
+                  <Button size="sm" variant="outline" onClick={addLimitEntry}>
+                    Add limit
+                  </Button>
+                </div>
+                {limitError ? <p className="text-xs text-rose-400">{limitError}</p> : null}
+                <div className="space-y-3">
+                  {limitsEntries.length === 0 ? (
+                    <p className="text-xs text-[var(--muted)]">Sin límites configurados.</p>
+                  ) : (
+                    limitsEntries.map((entry, index) => (
+                      <div key={`${entry.key}-${index}`} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                        <TextInput
+                          placeholder="Clave"
+                          value={entry.key}
+                          onChange={(event) => updateLimitEntry(index, "key", event.target.value)}
+                        />
+                        <TextInput
+                          placeholder="Valor"
+                          value={entry.value}
+                          onChange={(event) => updateLimitEntry(index, "value", event.target.value)}
+                        />
+                        <Button size="sm" variant="ghost" onClick={() => removeLimitEntry(index)}>
+                          Remove
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[var(--muted)]">Metadata</h3>
+                  {metadataError ? <p className="text-xs text-rose-400">{metadataError}</p> : null}
+                  <TextArea rows={5} placeholder="{}" value={metadataText} onChange={(event) => setMetadataText(event.target.value)} />
+                </div>
+              </div>
+              {formFeedback ? (
+                <div
+                  className={`rounded-xl border px-4 py-3 text-sm ${
+                    formFeedback.type === "success"
+                      ? "border-emerald-400/40 bg-emerald-100/20 text-emerald-900"
+                      : "border-rose-400/60 bg-rose-100/30 text-rose-900"
+                  }`}
+                >
+                  {formFeedback.message}
+                </div>
+              ) : null}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button onClick={handleSaveEntitlements} loading={savingEntitlements} disabled={savingEntitlements}>
+                  {savingEntitlements ? "Guardando..." : "Save"}
+                </Button>
+                <Button variant="outline" onClick={handleCancelEntitlements} disabled={savingEntitlements}>
+                  Cancel
+                </Button>
+              </div>
+            </>
+          )}
         </Card>
       </>
     );

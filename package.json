@@ -17,9 +17,10 @@
     "test:projects": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/projects-api-tests.js",
     "test:project-domains": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/project-domains-api-tests.js",
     "test:project-entitlements": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/project-entitlements-api-tests.js",
+    "test:project-entitlements-context": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/project-entitlements-context-api-tests.js",
     "test:orchestrator-company": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/orchestrator-company-tests.js",
     "test:orchestrator": "npm run test:company-domains && npm run test:companies && npm run test:orchestrator-company",
-    "test:projects-factory": "npm run test:projects && npm run test:project-domains && npm run test:project-entitlements",
+    "test:projects-factory": "npm run test:projects && npm run test:project-domains && npm run test:project-entitlements && npm run test:project-entitlements-context",
     "test:mapping": "node scripts/check-mapping.js",
     "smoke:cloudflare": "node scripts/smokes-cloudflare.js"
   },
