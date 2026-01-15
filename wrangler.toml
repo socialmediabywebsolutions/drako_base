@@ -1,22 +1,15 @@
 name = "drako-base-3"
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
-
-# Pages: output directory for Pages build
 pages_build_output_dir = ".vercel/output/static"
 
-# Production environment DB
-[env.production]
-compatibility_date = "2024-11-01"
-compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = ".vercel/output/static"
-
-[[env.production.d1_databases]]
+# ✅ Production DB (Pages default environment)
+[[d1_databases]]
 binding = "DRACO_DB"
 database_name = "drako_db_prod"
 database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 
-# Preview environment DB (para previews/branch deploys y para tus comandos con --env preview)
+# ✅ Preview DB (branch/preview deploys)
 [env.preview]
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
