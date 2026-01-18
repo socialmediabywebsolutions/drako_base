@@ -1,4 +1,4 @@
-import { env } from "./cf";
+import { env, type DracoEnv } from "./cf";
 
 export type DatabaseUnavailableReason = "binding-missing" | "migrations-missing" | "table-missing";
 
@@ -9,7 +9,7 @@ export class DatabaseUnavailableError extends Error {
   }
 }
 
-export function getDracoDbFromRequestContext(): D1Database {
+export function getRequestBindings(): DracoEnv {
   const bindings = env();
   if (!bindings) {
     throw new DatabaseUnavailableError(
@@ -17,6 +17,11 @@ export function getDracoDbFromRequestContext(): D1Database {
       "No request context found. DRACO_DB must be accessed inside a Pages/Edge request handler.",
     );
   }
+  return bindings;
+}
+
+export function getDracoDbFromRequestContext(): D1Database {
+  const bindings = getRequestBindings();
   if (!bindings.DRACO_DB) {
     throw new DatabaseUnavailableError("binding-missing", "DRACO_DB binding is missing");
   }

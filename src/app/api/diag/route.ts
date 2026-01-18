@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
-import { ensureDatabase, queryAll, DatabaseUnavailableError } from "@/lib/db";
+import {
+  ensureDatabase,
+  queryAll,
+  DatabaseUnavailableError,
+  getRequestBindings,
+} from "@/lib/db";
 import { ensureCampamentoBase, getCampamentoCoreAgentsCatalog, getCampamentoCoreDepartmentsCatalog } from "@/lib/campamento-base";
+import { getPagesBuildStamp } from "@/lib/pages/build-stamp";
 export const runtime = "edge";
 
 
@@ -33,8 +39,34 @@ async function getSeedStatus() {
   return seeds;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const correlationId = globalThis.crypto?.randomUUID?.() ?? `diag_${Date.now()}`;
+  const noStoreHeaders = { headers: { "Cache-Control": "no-store" } };
+  let buildStamp: ReturnType<typeof getPagesBuildStamp>;
+  try {
+    const bindings = getRequestBindings();
+    buildStamp = getPagesBuildStamp(request, correlationId, bindings);
+  } catch (error) {
+    const reason = error instanceof DatabaseUnavailableError ? error.message : String(error);
+    const bindingDetails = {
+      bindingName: "DRACO_DB",
+      action:
+        "Configure D1 binding in Cloudflare Pages: Project -> Settings -> Functions -> D1 bindings.",
+    };
+    console.error("DIAG_MISSING_CONTEXT", { correlationId, reason });
+    return NextResponse.json(
+      {
+        ok: false,
+        correlationId,
+        reason: "database_unavailable",
+        hint: reason,
+        db: { status: "unavailable", reason },
+        ...bindingDetails,
+      },
+      { status: 503, ...noStoreHeaders },
+    );
+  }
+
   try {
     ensureDatabase();
     await ensureCampamentoBase();
@@ -55,8 +87,8 @@ export async function GET() {
         : {};
     console.error("DIAG_DB_UNAVAILABLE", { correlationId, reason });
     return NextResponse.json(
-      { ok: false, correlationId, db: { status: "unavailable", reason }, ...bindingDetails },
-      { status: 503 },
+      { ok: false, correlationId, db: { status: "unavailable", reason }, ...bindingDetails, build: buildStamp },
+      { status: 503, ...noStoreHeaders },
     );
   }
 
@@ -114,17 +146,21 @@ export async function GET() {
   if (Object.values(seeds).some((value) => !value)) recommendations.push("Insert demo seed records.");
   if (recommendations.length === 0) recommendations.push("DB schema looks present; verify data if endpoints still fail.");
 
-  return NextResponse.json({
-    ok: missing.length === 0 && missingCoreDepartments.length === 0 && missingCoreAgents.length === 0,
-    correlationId,
-    db: {
-      tables,
-      missing,
-      seeds,
+  return NextResponse.json(
+    {
+      ok: missing.length === 0 && missingCoreDepartments.length === 0 && missingCoreAgents.length === 0,
+      correlationId,
+      db: {
+        tables,
+        missing,
+        seeds,
+      },
+      coreCatalogSnapshot,
+      missingCoreDepartments,
+      missingCoreAgents,
+      recommendation: recommendations.join(" "),
+      build: buildStamp,
     },
-    coreCatalogSnapshot,
-    missingCoreDepartments,
-    missingCoreAgents,
-    recommendation: recommendations.join(" "),
-  });
+    noStoreHeaders,
+  );
 }

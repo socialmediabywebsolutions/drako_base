@@ -73,6 +73,12 @@ Date: 2026-01-06
 - Casos de test cubiertos: runtime export edge, detalle exitoso, detalle 404, detalle con mismatch de tenant, listado con filtro `company_id`, validaciones de creación (name/company_id), repository create/list/detail helpers.
 - Comandos ejecutados: `npm run test:projects`, `npm run build`, `npm run pages:build`, `npm run production:go`.
 
+## Production gate
+- **D1 bindings OK (Prod+Preview)** — antes de dar GO a producción, seguir el runbook `docs/runbooks/cloudflare-pages-d1-bindings.md` para mostrar:
+  - `/api/health` en prod/preview con `bindings.dracoDb: true`.
+  - `/api/diag` y `/api/health` mostrando el `action` que apunta a `Settings → Bindings`.
+  - `build.pages.commitSha` igual al SHA esperado para el release.
+
 ## Next actions
 1) Deploy latest commits to production.
 2) Validate:

@@ -2,55 +2,55 @@ import { NextResponse } from "next/server";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
 import { resolveHostToSaas } from "@/lib/empire/host-resolver";
 import { resolveEffectiveHost } from "@/lib/hosts";
-import { ensureDatabase, queryAll, queryOne, DatabaseUnavailableError } from "@/lib/db";
+import {
+  ensureDatabase,
+  queryAll,
+  queryOne,
+  DatabaseUnavailableError,
+  getRequestBindings,
+} from "@/lib/db";
 import { ensureCampamentoBase } from "@/lib/campamento-base";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import type { NextRequest } from "next/server";
-import { env } from "@/lib/cf";
+import { getPagesBuildStamp } from "@/lib/pages/build-stamp";
 export const runtime = "edge";
 
-
-function getPagesStamp(request: Request, correlationId: string) {
-  const bindings = env() as Record<string, string | undefined> | null;
-  const pagesBranch = bindings?.CF_PAGES_BRANCH ?? process.env.CF_PAGES_BRANCH;
-  const pagesCommitSha = bindings?.CF_PAGES_COMMIT_SHA ?? process.env.CF_PAGES_COMMIT_SHA;
-  const pagesUrl = bindings?.CF_PAGES_URL ?? process.env.CF_PAGES_URL;
-  const pagesBuildId = bindings?.CF_PAGES_BUILD_ID ?? process.env.CF_PAGES_BUILD_ID;
-  const provisioningMode =
-    bindings?.CLOUDFLARE_PROVISIONING_MODE ?? process.env.CLOUDFLARE_PROVISIONING_MODE ?? null;
-  const requestUrl = request.url;
-  const requestHost = request.headers.get("host") ?? "";
-
-  return {
-    pages: {
-      branch: pagesBranch ?? null,
-      commitSha: pagesCommitSha ?? null,
-      url: pagesUrl ?? null,
-      buildId: pagesBuildId ?? null,
-    },
-    environment: {
-      nodeEnv: process.env.NODE_ENV ?? null,
-      provisioningMode,
-    },
-    bindings: {
-      dracoDb: Boolean(bindings?.DRACO_DB),
-    },
-    request: {
-      host: requestHost,
-      url: requestUrl,
-      hostMode: request.headers.get("x-drako-host-mode") ?? null,
-    },
-    correlationId,
-  };
-}
 
 export async function GET(request: Request) {
   const blocked = await enforcePublicEndpointPolicy({ request, route: "/api/health" });
   if (blocked) return blocked;
 
   const correlationId = globalThis.crypto?.randomUUID?.() ?? `health_${Date.now()}`;
-  const buildStamp = getPagesStamp(request, correlationId);
   const noStoreHeaders = { headers: { "Cache-Control": "no-store" } };
+  let buildStamp: ReturnType<typeof getPagesBuildStamp>;
+  try {
+    const bindings = getRequestBindings();
+    buildStamp = getPagesBuildStamp(request, correlationId, bindings);
+  } catch (error) {
+    const dbStatus: "missing_binding" | "unknown" = "missing_binding";
+    const reason = error instanceof DatabaseUnavailableError ? error.message : String(error);
+    const bindingDetails =
+      dbStatus === "missing_binding"
+        ? {
+            bindingName: "DRACO_DB",
+            action:
+              "Configure D1 binding in Cloudflare Pages: Project -> Settings -> Functions -> D1 bindings.",
+          }
+        : {};
+    return NextResponse.json(
+      {
+        ok: false,
+        name: "DRAKO",
+        reason: "database_unavailable",
+        hint: reason,
+        db: { status: dbStatus, reason },
+        correlationId,
+        ...bindingDetails,
+        tenantFallback: DEMO_TENANT_ID,
+      },
+      { status: 503, ...noStoreHeaders },
+    );
+  }
   let dbStatus: "ok" | "missing_binding" | "schema_error" | "unknown" = "ok";
   let dbReason: string | null = null;
   const missingTables: string[] = [];

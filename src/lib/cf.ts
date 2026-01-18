@@ -34,6 +34,11 @@ export type DracoEnv = {
   CF_API_TOKEN?: string;
   CF_ACCOUNT_ID?: string;
   CF_ZONE_ID?: string;
+  CF_PAGES_ENVIRONMENT?: string;
+  CF_PAGES_BRANCH?: string;
+  CF_PAGES_COMMIT_SHA?: string;
+  CF_PAGES_URL?: string;
+  CF_PAGES_BUILD_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_ZONE_ID?: string;

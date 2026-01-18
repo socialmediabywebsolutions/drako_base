@@ -36,7 +36,10 @@ export async function middleware(req: NextRequest) {
 
   const hostInfo = resolveEffectiveHost(req);
   const host = hostInfo.effectiveHost;
-  const hostMode = resolveHostMode(host);
+  const requestBindings = env();
+  const pagesEnvironment = requestBindings?.CF_PAGES_ENVIRONMENT ?? process.env.CF_PAGES_ENVIRONMENT ?? null;
+  const hostMode = resolveHostMode(host, pagesEnvironment);
+  const pagesEnvironmentHeader = pagesEnvironment ?? "unknown";
   const isPagesDevHost = hostMode === "PREVIEW";
   const isPublicHost = hostMode === "PUBLIC_SAAS";
   const isAdminHost = hostMode === "CAMPAMENTO_BASE";
@@ -70,7 +73,7 @@ export async function middleware(req: NextRequest) {
   };
 
   if (isApi) {
-    const bindings = env();
+    const bindings = requestBindings;
     const hasDb = Boolean(bindings?.DRACO_DB);
     const contextHeaders = new Headers(req.headers);
     contextHeaders.delete("x-drako-tenant-id");
@@ -82,6 +85,7 @@ export async function middleware(req: NextRequest) {
     const correlationId = globalThis.crypto?.randomUUID?.() ?? `corr_${Date.now()}`;
     contextHeaders.set("x-drako-host-mode", hostMode);
     contextHeaders.set("x-drako-effective-host", host);
+    contextHeaders.set("x-drako-pages-environment", pagesEnvironmentHeader);
 
     if (!bindings || !hasDb) {
       contextHeaders.set("x-drako-correlation-id", correlationId);
@@ -107,6 +111,7 @@ export async function middleware(req: NextRequest) {
   const responseHeaders = new Headers(req.headers);
   responseHeaders.set("x-drako-host-mode", hostMode);
   responseHeaders.set("x-drako-effective-host", host);
+  responseHeaders.set("x-drako-pages-environment", pagesEnvironmentHeader);
 
   if (isPagesDevHost) {
     if (pathname !== "/preview" && !pathname.startsWith("/preview/")) {
@@ -135,7 +140,7 @@ export async function middleware(req: NextRequest) {
     return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
   }
 
-  const bindings = env();
+  const bindings = requestBindings;
   const hasDb = Boolean(bindings?.DRACO_DB);
   if (!bindings || !hasDb) {
     return persistCookie(NextResponse.next());

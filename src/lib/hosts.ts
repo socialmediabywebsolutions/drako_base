@@ -18,9 +18,12 @@ export function normalizeHost(value: string): string {
 
 export type HostMode = "PUBLIC_SAAS" | "CAMPAMENTO_BASE" | "PREVIEW";
 
-export function resolveHostMode(hostname: string): HostMode {
+export function resolveHostMode(hostname: string, pagesEnvironment: string | null | undefined = null): HostMode {
+  const normalizedEnv = (pagesEnvironment ?? "").trim().toLowerCase();
+  if (normalizedEnv === "preview") {
+    return "PREVIEW";
+  }
   const host = normalizeHost(hostname);
-  if (host.endsWith(".pages.dev")) return "PREVIEW";
   if (host === "base.drako.systems" || host === "admin.drako.systems") {
     return "CAMPAMENTO_BASE";
   }
