@@ -19,6 +19,7 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const [currentPhase, setCurrentPhase] = useState(0);
+    const [projectName, setProjectName] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll
@@ -79,13 +80,18 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
 
             if (data?.reply) {
                 setMessages(prev => [...prev, { role: "assistant", content: data.reply as string }]);
-                const analysis = data.v2?.fullAnalysis;
-                if (analysis?.currentPhase !== undefined) {
+                const analysis = data.v2?.fullAnalysis as (BlueprintResponse & { currentPhase?: number });
+
+                if (analysis && typeof analysis.currentPhase === 'number') {
                     const nextPhase = analysis.currentPhase;
                     setCurrentPhase(nextPhase);
 
+                    if (analysis.understanding && analysis.understanding !== "Unable to parse AI response") {
+                        setProjectName(analysis.understanding);
+                    }
+
                     if (nextPhase >= 10 && onComplete) {
-                        setTimeout(() => onComplete(analysis as BlueprintResponse), 3000);
+                        setTimeout(() => onComplete(analysis), 3000);
                     }
                 }
             }
@@ -122,7 +128,9 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
                         <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-[#020617] shadow-[0_0_10px_#10b981]" />
                     </div>
                     <div>
-                        <h3 className="font-black text-sm uppercase tracking-[0.4em] text-white italic">Drako Partner</h3>
+                        <h3 className="font-black text-sm uppercase tracking-[0.4em] text-white italic">
+                            {projectName ? `Project: ${projectName}` : "Drako Partner"}
+                        </h3>
                         <div className="flex items-center gap-2 mt-1">
                             <span className="h-1 w-1 bg-brand rounded-full animate-ping" />
                             <p className="text-[9px] font-black text-brand uppercase tracking-[0.3em]">Neural Link Established • Session Elite v3.0</p>
