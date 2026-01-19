@@ -69,7 +69,7 @@ export async function saveBusinessKnowledge(kb: BusinessIntelligence) {
  */
 export async function generateSituationalAnalysis(tenantId: string, companyId: string) {
     const id = `${tenantId}:${companyId}`;
-    const kb = await queryOne<any>(
+    const kb = await queryOne<{ id: string; tenant_id: string }>(
         "SELECT * FROM company_business_intelligence WHERE id = ?", id
     );
 
