@@ -26,27 +26,29 @@ export default function SiteLandingPage() {
   return (
     <div className="space-y-32 pb-32">
       {/* Hero Section - The Cyber Forge */}
-      <section className="relative min-h-[80vh] flex flex-col items-center justify-center text-center p-6 pt-20 overflow-hidden">
-        {/* Background visual element */}
-        <div className="absolute inset-0 -z-10 bg-[url('/brain/8c6d1e6b-f577-40d7-a590-d5fd04124238/cyber_foundry_hero_bg_1768798075820.png')] bg-cover bg-center opacity-40 mix-blend-lighten" />
-        <div className="absolute inset-0 -z-20 bg-gradient-to-b from-background via-transparent to-background" />
+      <section className="relative min-h-[90vh] flex flex-col items-center justify-center text-center p-6 pt-20 overflow-hidden bg-[#020617]">
+        {/* Background visual element - Subtle Texture */}
+        <div className="absolute inset-0 -z-10 bg-[url('/brain/8c6d1e6b-f577-40d7-a590-d5fd04124238/cyber_foundry_hero_bg_1768798075820.png')] bg-cover bg-center opacity-20 mix-blend-overlay" />
+        <div className="absolute inset-0 -z-20 bg-slate-950" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#020617] via-transparent to-[#020617]" />
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          className="space-y-8 max-w-5xl"
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="space-y-10 max-w-6xl relative z-10"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/80 border border-brand/30 text-brand text-[10px] font-black uppercase tracking-[0.3em] backdrop-blur-md">
-            <span className="relative flex h-2 w-2">
+          <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-slate-900/40 border border-brand/20 text-brand text-[11px] font-black uppercase tracking-[0.4em] backdrop-blur-xl shadow-2xl">
+            <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-brand" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand" />
             </span>
-            Neural Foundry Activated • v2.0
+            Neural Foundry Activated • v2.1
           </div>
 
-          <h1 className="text-6xl md:text-9xl font-black text-white tracking-tighter leading-[0.8] uppercase italic">
+          <h1 className="text-7xl md:text-[10rem] font-black text-white tracking-tighter leading-[0.75] uppercase italic drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
             AGENTS <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand via-white to-brand animate-pulse">BUILDING</span> <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand via-white to-brand animate-pulse block py-2">BUILDING</span>
             PROJECTS.
           </h1>
 

@@ -119,14 +119,23 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
                             animate={{ opacity: 1, x: 0 }}
                             className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                         >
-                            <div className={`max-w-[75%] px-6 py-4 rounded-[1.5rem] text-sm leading-[1.6] shadow-xl ${m.role === "user"
-                                ? "bg-brand text-slate-950 font-bold rounded-tr-none"
-                                : "bg-slate-900/80 text-white border border-white/10 rounded-tl-none backdrop-blur-md"
+                            <div className={`max-w-[85%] px-8 py-6 rounded-[2rem] text-sm leading-[1.6] shadow-2xl relative overflow-hidden ${m.role === "user"
+                                ? "bg-brand text-slate-950 font-black rounded-tr-none tracking-tight"
+                                : "bg-slate-900/90 text-slate-200 border border-white/10 rounded-tl-none backdrop-blur-xl"
                                 }`}>
+                                {m.role === "assistant" && (
+                                    <div className="absolute top-0 right-0 p-2 opacity-10">
+                                        <span className="text-[40px] font-black uppercase tracking-tighter">DRKO</span>
+                                    </div>
+                                )}
                                 {m.content.split("\n").map((line, idx) => (
-                                    <p key={idx} className={idx > 0 ? "mt-3" : ""}>
+                                    <p key={idx} className={idx > 0 ? "mt-4" : ""}>
                                         {line.includes("**") ? (
-                                            line.split("**").map((part, pidx) => pidx % 2 === 1 ? <b key={pidx} className="text-brand-strong">{part}</b> : part)
+                                            line.split("**").map((part, pidx) => pidx % 2 === 1 ? (
+                                                <b key={pidx} className="text-white font-black uppercase tracking-widest text-[10px] bg-brand/20 px-1.5 py-0.5 rounded ml-1 mr-1 border border-brand/30">
+                                                    {part}
+                                                </b>
+                                            ) : part)
                                         ) : line}
                                     </p>
                                 ))}
