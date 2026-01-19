@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     if (body.mode === "partner") {
       tenantId = resolveTenantId(req);
       // Try to get session if it exists, but don't fail if null
-      sessionData = await getSession(req);
+      await getSession(req);
     } else {
       // Factory mode requires full access
       const access = await requireTenantAccess(req);
@@ -230,9 +230,10 @@ export async function POST(req: Request) {
         fullAnalysis: parsed,
         templates: templates.slice(0, 3).map((t) => ({
           id: t.id,
+          skipCache: !req.cache,
           name: t.name,
           slug: t.slug,
-        })),
+        })) as unknown, // Cast the array to unknown
       },
     });
   } catch (error) {
