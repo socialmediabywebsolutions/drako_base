@@ -89,7 +89,6 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
     };
 
     return (
-    return (
         <div className="w-full max-w-5xl mx-auto flex flex-col h-[750px] bg-slate-950/90 backdrop-blur-3xl rounded-[3rem] overflow-hidden border-2 border-white shadow-[0_0_50px_-15px_rgba(255,255,255,0.2)] relative transition-all duration-500 hover:shadow-[0_0_60px_-10px_rgba(255,255,255,0.3)]">
             {/* Header con Fases */}
             <div className="bg-slate-900/50 backdrop-blur px-8 py-5 border-b border-white/5 flex items-center justify-between">
