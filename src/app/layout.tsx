@@ -34,7 +34,7 @@ export default async function RootLayout({
   const usePublicShell = hostMode === "PUBLIC_SAAS" || hostMode === "PREVIEW" || isSiteRoute;
 
   return (
-    <html lang="es" className="light">
+    <html lang="es" className="dark">
       <body className="antialiased bg-[var(--background)] text-[var(--foreground)]">
         {usePublicShell ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
         <HostSwitcher />
