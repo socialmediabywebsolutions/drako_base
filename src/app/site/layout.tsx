@@ -14,7 +14,13 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
         <header className="sticky top-0 z-50 border-b border-white/5 bg-[#020617]/80 backdrop-blur-2xl">
           <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-8 py-5">
             <Link href="/site" className="flex items-center gap-4 text-xs font-black tracking-[0.3em] uppercase italic text-white group">
-              <span className="h-8 w-8 rounded-xl bg-brand shadow-[0_0_15px_var(--brand-glow)] group-hover:scale-110 transition-transform" />
+              <div className="relative">
+                <span className="h-8 w-8 rounded-xl bg-brand shadow-[0_0_15px_var(--brand-glow)] group-hover:scale-110 transition-transform block" />
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-brand border-2 border-[#020617]"></span>
+                </span>
+              </div>
               DRĀKO.SYSTEMS
             </Link>
             <nav className="flex items-center gap-8 text-[10px] font-black uppercase tracking-[0.2em]">
