@@ -160,7 +160,7 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
                     <input
                         type="text"
                         placeholder="Escriba su respuesta estratégica..."
-                        className="modern-input w-full pr-16 h-16 text-lg tracking-tight"
+                        className="modern-input w-full pr-16 h-16 text-lg tracking-tight text-white !placeholder-slate-500"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleSend()}
@@ -176,8 +176,11 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
                     </button>
                 </div>
                 <div className="flex justify-between items-center mt-4 px-2">
-                    <span className="text-[9px] text-muted font-bold uppercase tracking-[0.3em]">Neural Protocol Activated</span>
-                    <span className="text-[9px] text-brand/60 font-black uppercase tracking-[0.3em]">Drako Partner v2.1</span>
+                    <span className="text-[9px] text-muted font-bold uppercase tracking-[0.3em]">Protocol Activated</span>
+                    <span className="text-[9px] text-brand/60 font-black uppercase tracking-[0.3em] flex items-center gap-2">
+                        {isTyping && <span className="h-1 w-1 bg-brand rounded-full animate-ping" />}
+                        {isTyping ? "Sincronizando..." : "Drako Partner v2.1"}
+                    </span>
                 </div>
             </div>
         </div>

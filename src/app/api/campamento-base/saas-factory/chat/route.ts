@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { getSession, requireTenantAccess, UnauthorizedError, type SessionData } from "@/lib/auth/session";
+import { resolveTenantId } from "@/lib/tenants/services";
 import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-types";
 import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
 import { runAi } from "@/lib/ai/client";
@@ -78,8 +79,23 @@ function buildDefaultBlueprint(tenantId: string): SaasBlueprintDraft {
 
 export async function POST(req: Request) {
   try {
-    const { tenantId } = await requireTenantAccess(req);
     const body = (await req.json()) as ChatPayload;
+
+    // Relaxation: If mode is 'partner', we allow guest access using the resolved tenantId (defaults to demo)
+    let tenantId: string;
+    let sessionData: SessionData | null = null;
+
+    if (body.mode === "partner") {
+      tenantId = resolveTenantId(req);
+      // Try to get session if it exists, but don't fail if null
+      sessionData = await getSession(req);
+    } else {
+      // Factory mode requires full access
+      const access = await requireTenantAccess(req);
+      tenantId = access.tenantId;
+      sessionData = access.session;
+    }
+
     if (!body?.message) {
       return NextResponse.json({ error: "message is required" }, { status: 400 });
     }
