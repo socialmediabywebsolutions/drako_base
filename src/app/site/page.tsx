@@ -76,11 +76,12 @@ export default function SiteLandingPage() {
       </section>
 
       {/* Elite Interview & Foundry Canvas */}
-      <section id="interview" className="relative px-6">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full bg-brand/5 blur-[120px] -z-10 rounded-full" />
-        <div className="max-w-6xl mx-auto text-center mb-16 space-y-4">
-          <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">Foundry Intake System</h2>
-          <p className="text-muted text-sm max-w-xl mx-auto">Complete el protocolo de onboarding analítico para que Drako Partner diseñe su arquitectura.</p>
+      <section id="interview" className="relative px-6 -mt-40 z-20">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full bg-white/5 blur-[120px] -z-10 rounded-full" />
+        <div className="max-w-6xl mx-auto text-center mb-16 space-y-6">
+          <div className="h-0.5 w-24 bg-white mx-auto mb-8 rounded-full shadow-[0_0_15px_rgba(255,255,255,0.8)]" />
+          <h2 className="text-4xl font-black text-white uppercase tracking-tighter italic drop-shadow-lg">Protocolo de Materialización</h2>
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.4em] max-w-xl mx-auto opacity-70">Sincronización Neural Directa con Drako Partner</p>
         </div>
         <EliteInterview onComplete={handleInterviewComplete} />
       </section>
