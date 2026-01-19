@@ -151,7 +151,7 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
                             className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                         >
                             <div className={`max-w-[80%] px-10 py-8 rounded-[2.5rem] text-[15px] leading-relaxed shadow-2xl relative group/msg ${m.role === "user"
-                                ? "bg-brand text-slate-950 font-black rounded-tr-none border-2 border-white/20 shadow-[0_0_40px_-10px_rgba(0,210,255,0.4)]"
+                                ? "bg-brand text-slate-950 font-bold rounded-tr-none border-2 border-white/20 shadow-[0_0_40px_-10px_rgba(0,210,255,0.4)]"
                                 : "bg-slate-900/80 text-white border border-white/10 rounded-tl-none backdrop-blur-3xl"
                                 }`}>
 
@@ -164,10 +164,10 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
                                 )}
 
                                 {m.content.split("\n").map((line, idx) => (
-                                    <p key={idx} className={idx > 0 ? "mt-5" : ""}>
+                                    <p key={idx} className={`${idx > 0 ? "mt-5" : ""} ${m.role === 'user' ? 'text-slate-950' : 'text-white'}`}>
                                         {line.includes("**") ? (
                                             line.split("**").map((part, pidx) => pidx % 2 === 1 ? (
-                                                <span key={pidx} className={`font-black uppercase tracking-widest text-[11px] px-2 py-0.5 rounded mx-1 ${m.role === 'user' ? 'bg-slate-950/20 text-slate-950' : 'bg-brand/20 text-brand border border-brand/30'}`}>
+                                                <span key={pidx} className={`font-black uppercase tracking-widest text-[11px] px-2 py-0.5 rounded mx-1 ${m.role === 'user' ? 'bg-slate-950/10 text-slate-950 border border-slate-950/20' : 'bg-brand/20 text-brand border border-brand/30'}`}>
                                                     {part}
                                                 </span>
                                             ) : part)

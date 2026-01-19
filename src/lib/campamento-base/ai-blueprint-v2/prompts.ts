@@ -325,31 +325,48 @@ You MUST respond with valid JSON (no markdown, no backticks):
 Now, help the user build an amazing SaaS! 🚀`;
 }
 
+function fallbackResponse(reason: string): BlueprintResponse {
+    return {
+        understanding: "Análisis preliminar en curso...",
+        suggestedTemplate: null,
+        reasoning: reason,
+        pricing: { monthly: 49, yearly: 490, rationale: "Precio base para despliegue inicial" },
+        entitlements: {
+            packs: [],
+            features: [],
+            limits: {},
+        },
+        roadmap: [],
+        marketingCopy: {
+            tagline: "Transformando tu visión en Saas",
+            valueProps: [],
+            elevator_pitch: "",
+        },
+        risks: ["Análisis incompleto"],
+        nextSteps: ["Continuar la conversación"],
+    };
+}
+
 /**
  * Parsea la respuesta de IA de forma robusta
  */
 export function parseBlueprintResponse(aiResponse: string): BlueprintResponse {
-    // Remove markdown code blocks if present
-    let cleaned = aiResponse.trim();
+    // Robust extraction: find the first '{' and the last '}'
+    const startIdx = aiResponse.indexOf("{");
+    const endIdx = aiResponse.lastIndexOf("}");
 
-    // Remove ```json and ``` if present
-    if (cleaned.startsWith("```json")) {
-        cleaned = cleaned.slice(7);
-    }
-    if (cleaned.startsWith("```")) {
-        cleaned = cleaned.slice(3);
-    }
-    if (cleaned.endsWith("```")) {
-        cleaned = cleaned.slice(0, -3);
+    if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
+        console.error("BLUEPRINT_PARSE_ERROR: No JSON object found in response");
+        return fallbackResponse("No se pudo extraer la estructura de la respuesta.");
     }
 
-    cleaned = cleaned.trim();
+    const jsonPart = aiResponse.slice(startIdx, endIdx + 1);
 
     try {
         interface RawAiResponse extends BlueprintResponse {
             blueprintUpdate?: BlueprintResponse;
         }
-        const parsed = JSON.parse(cleaned) as RawAiResponse;
+        const parsed = JSON.parse(jsonPart) as RawAiResponse;
 
         // Handle Drako Partner nested structure if present
         if (parsed.reply && parsed.blueprintUpdate) {
@@ -365,27 +382,7 @@ export function parseBlueprintResponse(aiResponse: string): BlueprintResponse {
     } catch (error) {
         console.error("BLUEPRINT_PARSE_ERROR", error);
         console.error("Raw response:", aiResponse);
-
-        // Fallback response
-        return {
-            understanding: "Unable to parse AI response",
-            suggestedTemplate: null,
-            reasoning: "Error parsing AI output",
-            pricing: { monthly: 49, yearly: 490, rationale: "Default pricing" },
-            entitlements: {
-                packs: [],
-                features: [],
-                limits: {},
-            },
-            roadmap: [],
-            marketingCopy: {
-                tagline: "Error generating copy",
-                valueProps: [],
-                elevator_pitch: "",
-            },
-            risks: ["AI response parsing failed"],
-            nextSteps: ["Retry with clearer input"],
-        };
+        return fallbackResponse("Error al procesar el formato de respuesta del motor de IA.");
     }
 }
 
