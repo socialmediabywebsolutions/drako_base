@@ -85,63 +85,122 @@ export default function SiteSupportPage() {
   }
 
   return (
-    <div className="space-y-8 text-white">
-      <header className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.4em] text-white/40">Soporte</p>
-        <h1 className="text-3xl font-semibold">¿Necesitas ayuda?</h1>
-        <p className="text-sm text-white/70">Envía tickets vinculados a tu SaaS para que el Campamento Base los atienda.</p>
-      </header>
-      {error && <p className="text-sm text-red-300">{error}</p>}
-      {success && <p className="text-sm text-green-300">{success}</p>}
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <label className="space-y-2 text-sm">
-          <span className="text-white/60">Asunto</span>
-          <TextInput value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Necesito activar SSL" required disabled={!canSubmit || loading} />
-        </label>
-        <label className="space-y-2 text-sm">
-          <span className="text-white/60">Descripción</span>
-          <TextArea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Cuéntanos qué pasa" rows={5} disabled={!canSubmit || loading} required />
-        </label>
-        <label className="space-y-2 text-sm">
-          <span className="text-white/60">Prioridad</span>
-          <select
-            className="input w-full bg-black/40"
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-            disabled={!canSubmit || loading}
-          >
-            <option value="low">Baja</option>
-            <option value="normal">Normal</option>
-            <option value="high">Alta</option>
-          </select>
-        </label>
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-white/50">Se enviará a /api/tickets con tus client_id y saas_id reales.</p>
-          <Button type="submit" loading={loading} disabled={!canSubmit || loading}>
-            {loading ? "Enviando..." : "Enviar"}
-          </Button>
-        </div>
-      </form>
-      <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
-        <h2 className="text-base font-semibold">Tickets recientes</h2>
-        {tickets.length === 0 ? (
-          <p className="mt-2 text-sm text-white/70">No hay tickets registrados todavía.</p>
-        ) : (
-          <ul className="mt-4 space-y-3 text-sm text-white/80">
-            {tickets.slice(0, 5).map((ticket) => (
-              <li key={ticket.id} className="rounded-2xl border border-white/10 bg-black/30 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-white">{ticket.subject}</span>
-                  <span className="text-xs uppercase tracking-[0.3em] text-white/50">{ticket.status}</span>
+    <div className="max-w-7xl mx-auto px-8 py-20">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
+        {/* Left: Form */}
+        <div className="space-y-12">
+          <header className="space-y-4">
+            <div className="inline-flex px-3 py-1 rounded bg-brand/10 border border-brand/20 text-brand text-[9px] font-black uppercase tracking-[0.3em]">
+              Tech Support Hub • Intake
+            </div>
+            <h1 className="text-6xl font-black text-white italic uppercase tracking-tighter">¿Problemas Técnicos?</h1>
+            <p className="text-slate-400 font-bold max-w-xl text-sm leading-relaxed tracking-wide">
+              Reporte cualquier anomalía en su infraestructura. Nuestros agentes de soporte de Nivel 3 están preparados para el escalado inmediato.
+            </p>
+          </header>
+
+          {error && <div className="p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-[10px] font-black uppercase tracking-widest">{error}</div>}
+          {success && <div className="p-4 rounded-xl bg-success/10 border border-success/20 text-success text-[10px] font-black uppercase tracking-widest">{success}</div>}
+
+          <form className="space-y-8 bg-slate-900/30 p-10 rounded-[2.5rem] border border-white/5 backdrop-blur-xl" onSubmit={handleSubmit}>
+            <div className="space-y-3">
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 pl-2">Asunto del Protocolo</span>
+              <TextInput
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Ej: Optimización de bases de datos D1"
+                required
+                disabled={!canSubmit || loading}
+                className="modern-input h-14"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 pl-2">Descripción de la Anomalía</span>
+              <TextArea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describa el error técnico con detalle..."
+                rows={5}
+                disabled={!canSubmit || loading}
+                required
+                className="modern-input"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 pl-2">Nivel de Prioridad</span>
+              <select
+                className="modern-input w-full appearance-none cursor-pointer"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                disabled={!canSubmit || loading}
+              >
+                <option value="low">BAJA (Estético)</option>
+                <option value="normal">NORMAL (Funcional)</option>
+                <option value="high">ALTA (Bloqueo)</option>
+              </select>
+            </div>
+
+            <div className="flex items-center justify-between pt-4">
+              {!canSubmit ? (
+                <p className="text-[9px] text-warning font-black uppercase tracking-widest italic">⚠️ REQUIERE ONBOARDING</p>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-success animate-ping" />
+                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Canal Encriptado Activo</span>
                 </div>
-                <p className="text-xs text-white/60">Priority: {ticket.priority}</p>
-                {ticket.description && <p className="mt-1 text-white/70 line-clamp-2">{ticket.description}</p>}
-                <p className="mt-1 text-[10px] uppercase tracking-[0.3em] text-white/40">{new Date(ticket.created_at).toLocaleString()}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+              )}
+              <Button
+                type="submit"
+                loading={loading}
+                disabled={!canSubmit || loading}
+                className="px-10 py-3 bg-brand text-slate-950 font-black uppercase tracking-[0.3em] rounded-xl shadow-[0_0_15px_var(--brand-glow)] hover:scale-105 transition-transform"
+              >
+                {loading ? "TRANSMITIENDO..." : "ENVIAR TICKET"}
+              </Button>
+            </div>
+          </form>
+        </div>
+
+        {/* Right: History */}
+        <section className="space-y-10">
+          <div className="flex items-center gap-4">
+            <div className="h-0.5 flex-1 bg-white/5" />
+            <h2 className="text-[11px] font-black uppercase tracking-[0.5em] text-slate-500">Log de Operaciones</h2>
+            <div className="h-0.5 flex-1 bg-white/5" />
+          </div>
+
+          {tickets.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 opacity-30 italic">
+              <div className="text-4xl">📭</div>
+              <p className="text-xs uppercase tracking-[0.2em] font-bold">No se detectan incidencias previas</p>
+            </div>
+          ) : (
+            <div className="space-y-6 max-h-[800px] overflow-y-auto pr-4 custom-scrollbar">
+              {tickets.map((ticket) => (
+                <div key={ticket.id} className="p-8 rounded-[2rem] bg-slate-900/40 border border-white/5 hover:border-brand/30 transition-all group relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none uppercase font-black text-2xl italic tracking-tighter">
+                    TKT-{ticket.id.slice(0, 4)}
+                  </div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-sm font-black text-white italic group-hover:text-brand transition-colors tracking-tight">{ticket.subject}</span>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-widest border ${ticket.status === 'open' ? 'bg-warning/10 border-warning/20 text-warning' : 'bg-success/10 border-success/20 text-success'
+                      } uppercase`}>
+                      {ticket.status}
+                    </span>
+                  </div>
+                  {ticket.description && <p className="text-xs text-slate-400 font-medium line-clamp-2 leading-relaxed mb-6">{ticket.description}</p>}
+                  <div className="flex items-center justify-between border-t border-white/5 pt-4">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-600">Priority: {ticket.priority}</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-700">{new Date(ticket.created_at).toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
