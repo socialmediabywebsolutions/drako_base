@@ -26,42 +26,47 @@ export interface BusinessIntelligence {
 }
 
 /**
- * Guarda o actualiza la base de conocimiento del cliente
+ * Guarda o actualiza la base de conocimiento del cliente (soporta actualizaciones parciales)
  */
-export async function saveBusinessKnowledge(kb: BusinessIntelligence) {
-    const sql = `
-        INSERT INTO company_business_intelligence (
-            id, tenant_id, company_id, 
-            social_profiles_json,
-            physical_address,
-            rent_mortgage, electricity, water, gas, labor_costs, other_expenses,
-            tax_id, fiscal_address,
-            updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(id) DO UPDATE SET
-            social_profiles_json = excluded.social_profiles_json,
-            physical_address = excluded.physical_address,
-            rent_mortgage = excluded.rent_mortgage,
-            electricity = excluded.electricity,
-            water = excluded.water,
-            gas = excluded.gas,
-            labor_costs = excluded.labor_costs,
-            other_expenses = excluded.other_expenses,
-            tax_id = excluded.tax_id,
-            fiscal_address = excluded.fiscal_address,
-            updated_at = CURRENT_TIMESTAMP
-    `;
-
+export async function saveBusinessKnowledge(kb: Partial<BusinessIntelligence> & { tenantId: string; companyId: string }) {
     const id = `${kb.tenantId}:${kb.companyId}`;
 
-    await run(sql,
-        id, kb.tenantId, kb.companyId,
-        JSON.stringify(kb.socialProfiles),
-        kb.location.address,
-        kb.operatingCosts.rent, kb.operatingCosts.electricity, kb.operatingCosts.water,
-        kb.operatingCosts.gas, kb.operatingCosts.labor, kb.operatingCosts.other,
-        kb.fiscalInfo.taxId, kb.fiscalInfo.address
+    // Primero nos aseguramos de que el registro exista
+    await run(
+        "INSERT OR IGNORE INTO company_business_intelligence (id, tenant_id, company_id) VALUES (?, ?, ?)",
+        id, kb.tenantId, kb.companyId
     );
+
+    const updates: string[] = [];
+    const params: any[] = [];
+
+    if (kb.socialProfiles) {
+        updates.push("social_profiles_json = ?");
+        params.push(JSON.stringify(kb.socialProfiles));
+    }
+    if (kb.location?.address) {
+        updates.push("physical_address = ?");
+        params.push(kb.location.address);
+    }
+    if (kb.operatingCosts) {
+        if (kb.operatingCosts.rent !== undefined) { updates.push("rent_mortgage = ?"); params.push(kb.operatingCosts.rent); }
+        if (kb.operatingCosts.electricity !== undefined) { updates.push("electricity = ?"); params.push(kb.operatingCosts.electricity); }
+        if (kb.operatingCosts.water !== undefined) { updates.push("water = ?"); params.push(kb.operatingCosts.water); }
+        if (kb.operatingCosts.gas !== undefined) { updates.push("gas = ?"); params.push(kb.operatingCosts.gas); }
+        if (kb.operatingCosts.labor !== undefined) { updates.push("labor_costs = ?"); params.push(kb.operatingCosts.labor); }
+        if (kb.operatingCosts.other !== undefined) { updates.push("other_expenses = ?"); params.push(kb.operatingCosts.other); }
+    }
+    if (kb.fiscalInfo) {
+        if (kb.fiscalInfo.taxId) { updates.push("tax_id = ?"); params.push(kb.fiscalInfo.taxId); }
+        if (kb.fiscalInfo.address) { updates.push("fiscal_address = ?"); params.push(kb.fiscalInfo.address); }
+    }
+
+    if (updates.length > 0) {
+        updates.push("updated_at = CURRENT_TIMESTAMP");
+        const sql = `UPDATE company_business_intelligence SET ${updates.join(", ")} WHERE id = ?`;
+        params.push(id);
+        await run(sql, ...params);
+    }
 }
 
 /**

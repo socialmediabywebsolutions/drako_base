@@ -1,7 +1,25 @@
+"use client";
+
+import React, { useState } from "react";
 import Card from "@/components/ui/card";
 import { EliteInterview } from "@/components/onboarding/elite-interview";
+import { FoundryWorkplace } from "@/components/foundry/foundry-workplace";
 
 export default function SiteLandingPage() {
+  const [activeView, setActiveView] = useState<"landing" | "workspace">("landing");
+  const [finalBlueprint, setFinalBlueprint] = useState<any>(null);
+
+  const handleInterviewComplete = (data: any) => {
+    setFinalBlueprint(data);
+    setActiveView("workspace");
+    // Opcional: Hacer scroll al top
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  if (activeView === "workspace") {
+    return <FoundryWorkplace blueprint={finalBlueprint} />;
+  }
+
   return (
     <div className="space-y-24 pb-20">
       {/* Hero Section */}
@@ -32,7 +50,7 @@ export default function SiteLandingPage() {
       {/* Elite Interview Component (The Foundry) */}
       <section id="interview" className="relative">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-50/20 to-transparent -z-10" />
-        <EliteInterview />
+        <EliteInterview onComplete={handleInterviewComplete} />
       </section>
 
       {/* Strategy / Features Grid */}
