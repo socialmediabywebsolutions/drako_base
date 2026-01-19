@@ -51,21 +51,23 @@ type CtxWithEnv = { env?: DracoEnv };
 
 export function env(): DracoEnv | null {
   try {
+    // 1. Try Next-on-Pages context (standard)
     const rawCtx = getRequestContext();
-    if (!rawCtx) {
-      console.error("CF_ENV_ERROR: getRequestContext() returned null");
-      return null;
+    if (rawCtx && typeof rawCtx === "object" && "env" in rawCtx) {
+      return (rawCtx as unknown as CtxWithEnv).env ?? null;
     }
-    if (typeof rawCtx !== "object") {
-      console.error("CF_ENV_ERROR: getRequestContext() is not an object", typeof rawCtx);
-      return null;
+
+    // 2. Fallback to process.env (some versions of next-on-pages/cloudflare populate this)
+    // In Edge runtime, process.env is often available as a proxy to bindings
+    if (typeof process !== "undefined" && process.env) {
+      // Check for a known binding like DRACO_DB to see if it's likely working
+      if (process.env.DRACO_DB || process.env.AI || process.env.SESSION_SECRET) {
+        return process.env as unknown as DracoEnv;
+      }
     }
-    if (!("env" in rawCtx)) {
-      console.error("CF_ENV_ERROR: 'env' key missing in context", Object.keys(rawCtx));
-      return null;
-    }
-    const ctx = rawCtx as unknown as CtxWithEnv;
-    return ctx.env ?? null;
+
+    console.error("CF_ENV_ERROR: Both getRequestContext and process.env fallbacks failed.");
+    return null;
   } catch (err) {
     console.error("CF_ENV_ERROR: Exception in env()", err);
     return null;
