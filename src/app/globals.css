@@ -2,50 +2,31 @@
 
 /* Design tokens */
 :root {
-  --background: #f4f7fb;
-  --background-alt: #ecf4ff;
+  --background: #f8fafc;
+  --background-alt: #f1f5f9;
   --foreground: #0f172a;
-  --muted: #6b7280;
+  --muted: #64748b;
   --panel: #ffffff;
-  --panel-alt: #f1f5f9;
+  --panel-alt: #f8fafc;
   --border: #e2e8f0;
-  --brand: #4cc9f0;
-  --brand-quiet: #e6f7ff;
+  --brand: #4cc9f0; /* Celeste Drako */
+  --brand-quiet: #ecfeff;
   --brand-strong: #0ea5e9;
   --success: #10b981;
-  --warning: #fbbf24;
+  --warning: #f59e0b;
   --danger: #ef4444;
-  --shadow-soft: 0 20px 60px rgb(15 23 42 / 0.08);
-  --shadow-glass: 0 30px 80px rgb(12 74 110 / 0.15);
-  --font-geist-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-geist-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-}
-
-/* Dark theme overrides (applied when html has class "dark") */
-.dark {
-  --background: #060c1b;
-  --background-alt: #0b152c;
-  --foreground: #e2e8f0;
-  --muted: #94a3b8;
-  --panel: #0f172a;
-  --panel-alt: #111b2e;
-  --border: #1f2937;
-  --brand: #4cc9f0;
-  --brand-quiet: #092d49;
-  --brand-strong: #7dd3fc;
-  --shadow-soft: 0 20px 60px rgb(0 0 0 / 0.45);
-  --shadow-glass: 0 30px 80px rgb(4 55 84 / 0.6);
-}
-
-html, body {
-  height: 100%;
+  --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
+  --shadow-glass: 0 20px 50px -12px rgba(76, 201, 240, 0.15);
+  --font-geist-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
-  background: radial-gradient(circle at top, color-mix(in srgb, var(--brand-quiet) 65%, transparent), transparent 55%), var(--background);
+  background-color: var(--background);
+  background-image: 
+    radial-gradient(at 0% 0%, hsla(193, 86%, 85%, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, hsla(193, 86%, 85%, 0.1) 0px, transparent 50%);
   color: var(--foreground);
   font-family: var(--font-geist-sans);
-  font-feature-settings: "liga" on, "calt" on;
   min-height: 100vh;
 }
 

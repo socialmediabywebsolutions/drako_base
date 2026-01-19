@@ -1,63 +1,91 @@
 import Link from "next/link";
 import Card from "@/components/ui/card";
+import { EliteInterview } from "@/components/onboarding/elite-interview";
 
 export default function SiteLandingPage() {
   return (
-    <div className="space-y-12 text-white">
-      <section className="grid gap-10 text-center md:grid-cols-2 md:text-left">
-        <div className="space-y-6">
-          <p className="text-xs uppercase tracking-[0.4em] text-cyan-200">DRĀKO SYSTEMS</p>
-          <h1 className="text-4xl font-semibold leading-tight md:text-5xl">Crea tu propio SaaS en minutos</h1>
-          <p className="text-base text-slate-200">
-            Conecta tus ideas al Campamento Base de DRĀKO y lanza tu producto con facturación, soporte y orquestación incluidos.
-          </p>
-          <div className="flex flex-col gap-3 md:flex-row">
-            <Link
-              href="/site/onboarding/company"
-              className="inline-flex items-center justify-center rounded-2xl bg-[var(--brand,#4cc9f0)] px-6 py-3 text-base font-semibold text-black shadow-[0_12px_30px_rgba(76,201,240,0.35)] transition hover:-translate-y-0.5"
-            >
-              Comenzar
-            </Link>
-            <Link
-              href="/site/support"
-              className="inline-flex items-center justify-center rounded-2xl border border-white/30 px-6 py-3 text-base font-semibold text-white transition hover:border-white/60"
-            >
-              Habla con soporte
-            </Link>
-          </div>
+    <div className="space-y-24 pb-20">
+      {/* Hero Section */}
+      <section className="text-center space-y-8 pt-10">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-50 border border-cyan-100 text-cyan-600 text-[10px] font-black uppercase tracking-[0.2em]">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+          </span>
+          SaaS Factory v2.0 Live
         </div>
-        <div className="rounded-3xl border border-white/15 bg-white/5 p-8 text-left shadow-[0_25px_80px_rgba(3,5,11,0.6)]">
-          <p className="text-sm uppercase tracking-[0.6em] text-slate-300">Resumen</p>
-          <h2 className="mt-3 text-2xl font-semibold">Base operativa completa</h2>
-          <ul className="mt-6 space-y-4 text-sm text-slate-200">
-            <li>• Owner / Cliente listo para facturar</li>
-            <li>• SaaS aprovisionado con agentes y monitoreo</li>
-            <li>• Panel &quot;Mi SaaS&quot; conectado a DRĀKO BASE</li>
-            <li>• Tickets y soporte centralizado</li>
-          </ul>
-        </div>
+
+        <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tight leading-none">
+          Convierte tu idea en un <br />
+          <span className="text-cyan-500">Proyecto Llave en Mano</span>
+        </h1>
+
+        <p className="max-w-2xl mx-auto text-lg text-slate-500 font-medium italic">
+          "De la servilleta al mercado en 24 horas."
+        </p>
+
+        <p className="max-w-xl mx-auto text-base text-slate-400">
+          Analizamos tus costos reales, auditamos tus redes sociales y
+          construimos un ecosistema automatizado de ventas con IA.
+        </p>
       </section>
-      <section className="grid gap-6 md:grid-cols-3">
-        {["Onboarding guiado", "Panel unificado", "Soporte central"].map((title, index) => (
-          <Card
-            key={title}
-            tone="glass"
-            title={title}
-            subtitle={
-              index === 0
-                ? "Setup express"
-                : index === 1
-                  ? "Control continuo"
-                  : "Atención dedicada"
-            }
-          >
-            <p className="text-sm text-slate-200">
-              {index === 0 && "Completa los datos de tu empresa y SaaS en tres pasos."}
-              {index === 1 && "Revisa el estado del SaaS y accede al Admin en un clic."}
-              {index === 2 && "Gestiona tickets vinculados a tu cliente directamente desde DRĀKO."}
-            </p>
-          </Card>
-        ))}
+
+      {/* Elite Interview Component (The Foundry) */}
+      <section id="interview" className="relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-50/20 to-transparent -z-10" />
+        <EliteInterview />
+      </section>
+
+      {/* Strategy / Features Grid */}
+      <section className="grid gap-8 md:grid-cols-3">
+        <Card
+          tone="glass"
+          title="Embudo de Ventas"
+          subtitle="Social Audit"
+          icon={<span className="text-xl">📊</span>}
+        >
+          <p className="text-sm text-slate-500 leading-relaxed">
+            Analizamos tus perfiles de FB, IG y LinkedIn para detectar fallos en tu embudo
+            y mejorar tu conversión automáticamente.
+          </p>
+        </Card>
+        <Card
+          tone="glass"
+          title="Optimización ROI"
+          subtitle="Real-Time Data"
+          icon={<span className="text-xl">💰</span>}
+        >
+          <p className="text-sm text-slate-500 leading-relaxed">
+            Calculamos cuánto dinero recuperas al sustituir procesos manuales por
+            agentes autónomos de Drako. Resultados inmediatos.
+          </p>
+        </Card>
+        <Card
+          tone="glass"
+          title="Despliegue Full-Stack"
+          subtitle="Cloudflare + Stripe"
+          icon={<span className="text-xl">⚡</span>}
+        >
+          <p className="text-sm text-slate-500 leading-relaxed">
+            Al terminar tu entrevista, tendrás un presupuesto llave en mano y
+            una vista previa de tu proyecto funcional al momento.
+          </p>
+        </Card>
+      </section>
+
+      {/* Trust Section */}
+      <section className="bg-slate-900 rounded-[3rem] p-12 text-center text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 blur-[100px] rounded-full" />
+        <h2 className="text-3xl font-black mb-6">El Estándar Drako</h2>
+        <p className="max-w-2xl mx-auto text-slate-400 mb-8 font-medium">
+          Drako no es una plataforma genérica. Es una consultoría de élite digitalizada
+          que entrega proyectos listos para facturar con marca y dominio propios.
+        </p>
+        <div className="flex justify-center gap-4 flex-wrap">
+          <span className="inline-flex px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-cyan-300 text-[10px] font-bold uppercase tracking-widest">Fintech Ready</span>
+          <span className="inline-flex px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-cyan-300 text-[10px] font-bold uppercase tracking-widest">AI Orchestrated</span>
+          <span className="inline-flex px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-cyan-300 text-[10px] font-bold uppercase tracking-widest">Edge Optimized</span>
+        </div>
       </section>
     </div>
   );
