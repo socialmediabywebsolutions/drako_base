@@ -75,13 +75,18 @@ async function callViaBinding(req: AiRequest, e: DracoEnv, model: string): Promi
 
   // Robust content extraction
   let content = "";
-  const anyRes = res as any; // Temporary escape for property access in non-strict blocks or use safer casting
-  if (typeof anyRes?.response === "string") {
-    content = anyRes.response;
-  } else if (typeof anyRes?.response?.text === "string") {
-    content = anyRes.response.text;
-  } else if (Array.isArray(anyRes?.choices) && anyRes.choices[0]?.message?.content) {
-    content = anyRes.choices[0].message.content;
+  const bindingRes = res as {
+    response?: string | { text?: string; tokens?: number };
+    choices?: { message?: { content?: string } }[];
+    usage?: { total_tokens?: number };
+  };
+
+  if (typeof bindingRes?.response === "string") {
+    content = bindingRes.response;
+  } else if (typeof (bindingRes?.response as { text?: string })?.text === "string") {
+    content = (bindingRes.response as { text?: string }).text as string;
+  } else if (Array.isArray(bindingRes?.choices) && bindingRes.choices[0]?.message?.content) {
+    content = bindingRes.choices[0].message.content;
   }
 
   console.log("AI_BINDING_CALL", {
@@ -96,7 +101,9 @@ async function callViaBinding(req: AiRequest, e: DracoEnv, model: string): Promi
   return {
     ok: true,
     content,
-    usage: { tokens: anyRes?.response?.tokens || anyRes?.usage?.total_tokens },
+    usage: {
+      tokens: (typeof bindingRes?.response === 'object' ? bindingRes?.response?.tokens : undefined) || bindingRes?.usage?.total_tokens
+    },
     model,
     provider: "workers-ai"
   };
