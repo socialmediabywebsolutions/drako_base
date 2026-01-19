@@ -112,7 +112,7 @@ export default function SiteLandingPage() {
           icon={<span className="text-2xl text-brand">🧠</span>}
         >
           <p className="text-sm text-muted leading-relaxed">
-            Creamos un 'Brain' específico para su negocio que alimenta a los agentes de atención, ventas y soporte 24/7.
+            Creamos un &apos;Brain&apos; específico para su negocio que alimenta a los agentes de atención, ventas y soporte 24/7.
           </p>
         </Card>
       </section>
