@@ -81,62 +81,68 @@ export function FoundryWorkplace({ blueprint }: FoundryWorkplaceProps) {
                 </div>
             }
         >
-            <div className="space-y-8">
-                {/* Banner de Bienvenida */}
-                <header className="relative p-8 rounded-[2rem] bg-slate-900 text-white overflow-hidden shadow-2xl">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-brand/20 blur-[100px] rounded-full" />
-                    <h2 className="text-3xl font-black mb-2 italic">Bienvenido a su Fábrica, Partner.</h2>
-                    <p className="text-slate-400 font-medium">Estamos materializando su visión basada en el Onboarding Estratégico.</p>
+            <div className="space-y-12">
+                {/* Banner de Bienvenida - Proto Protocol */}
+                <header className="relative p-12 rounded-[3rem] bg-slate-900 border border-white/5 text-white overflow-hidden shadow-2xl">
+                    <div className="absolute top-0 right-0 w-80 h-80 bg-brand/10 blur-[120px] rounded-full" />
+                    <div className="relative z-10">
+                        <h2 className="text-4xl font-black mb-3 italic uppercase tracking-tighter">
+                            Bienvenido a su Fábrica, <span className="text-brand">Partner.</span>
+                        </h2>
+                        <p className="text-slate-400 font-bold max-w-xl text-sm leading-relaxed tracking-wide">
+                            Protocolo de materialización iniciado. Estamos orquestando la infraestructura basada en su visión estratégica.
+                        </p>
+                    </div>
                 </header>
 
                 {/* Grid de Inteligencia (La Pizarra) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* ROI Card */}
-                    <div className="glass-panel p-6 border-brand/20 border-l-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Métrica de Impacto (ROI)</h4>
-                        <div className="flex items-end gap-2 mb-2">
-                            <span className="text-4xl font-black text-slate-900">€{blueprint?.pricing?.monthly || 0}</span>
-                            <span className="text-xs font-bold text-success mb-2">AHORRO ESTIMADO / MES</span>
+                    <div className="bg-slate-900/50 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/5 border-l-brand border-l-4">
+                        <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500 mb-6 font-mono">Métrica de Impacto (ROI)</h4>
+                        <div className="flex items-end gap-3 mb-3">
+                            <span className="text-5xl font-black text-white tracking-tighter">€{blueprint?.pricing?.monthly || 0}</span>
+                            <span className="text-[10px] font-black text-success mb-3 uppercase tracking-widest">AHORRO / MES</span>
                         </div>
-                        <p className="text-xs text-slate-500 italic">Basado en la sustitución de procesos manuales detectados.</p>
+                        <p className="text-xs text-slate-400 font-medium italic">Eficiencia operativa detectada por Drako Analytics.</p>
                     </div>
 
                     {/* Social Score Card */}
-                    <div className="glass-panel p-6 border-cyan-400/20 border-l-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Visibility Score (Audit)</h4>
-                        <div className="flex items-end gap-2 mb-2">
-                            <span className="text-4xl font-black text-slate-900">{blueprint?.detectedKnowledge?.digitalAudit?.webScore ?? 85}%</span>
-                            <span className="text-xs font-bold text-cyan-500 mb-2">PUNTUACIÓN ACTUAL</span>
+                    <div className="bg-slate-900/50 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/5 border-l-cyan-500 border-l-4">
+                        <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500 mb-6 font-mono">Visibility Score (Audit)</h4>
+                        <div className="flex items-end gap-3 mb-3">
+                            <span className="text-5xl font-black text-white tracking-tighter">{blueprint?.detectedKnowledge?.digitalAudit?.webScore ?? 85}%</span>
+                            <span className="text-[10px] font-black text-cyan-400 mb-3 uppercase tracking-widest">SALUD DIGITAL</span>
                         </div>
-                        <p className="text-xs text-slate-500 italic">Detectamos fallos críticos en su embudo web que Drako está optimizando.</p>
+                        <p className="text-xs text-slate-400 font-medium italic">Puntuación de optimización en su ecosistema web.</p>
                     </div>
                 </div>
 
                 {/* Tech Stack / Pipeline */}
-                <div className="glass-panel p-8">
-                    <h3 className="font-black text-lg mb-6 flex items-center gap-2 uppercase tracking-tight">
-                        <span className="w-2 h-8 bg-brand rounded-full" />
+                <div className="bg-slate-900/50 backdrop-blur-xl p-10 rounded-[3rem] border border-white/5 shadow-inner">
+                    <h3 className="font-black text-xl mb-10 flex items-center gap-3 uppercase tracking-widest text-white italic">
+                        <span className="w-2 h-8 bg-brand rounded-full shadow-[0_0_15px_var(--brand-glow)]" />
                         Pipeline de Construcción Live
                     </h3>
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                         {[
                             { name: "SaaS Blueprinting", status: "COMPLETE", progress: 100 },
-                            { name: "Provisionamiento Cloudflare Pages", status: "IN_PROGRESS", progress: 65 },
-                            { name: "Arquitectura de Agentes", status: "WAITING", progress: 0 },
-                            { name: "Configuración Stripe Billing", status: "WAITING", progress: 0 }
+                            { name: "Provisionamiento Edge", status: "IN_PROGRESS", progress: 65 },
+                            { name: "Arquitectura Neural", status: "WAITING", progress: 0 },
+                            { name: "Integración Fintech", status: "WAITING", progress: 0 }
                         ].map((step, i) => (
-                            <div key={i} className="flex items-center gap-4">
-                                <div className="w-32 text-[10px] font-black uppercase text-slate-400">{step.name}</div>
-                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div key={i} className="space-y-2">
+                                <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-[0.2em]">
+                                    <span className="text-slate-400">{step.name}</span>
+                                    <span className={step.status === 'COMPLETE' ? 'text-success' : 'text-slate-500'}>{step.status}</span>
+                                </div>
+                                <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
                                     <motion.div
                                         initial={{ width: 0 }}
                                         animate={{ width: `${step.progress}%` }}
-                                        transition={{ duration: 1, delay: i * 0.2 }}
-                                        className={`h-full ${step.status === 'COMPLETE' ? 'bg-success' : 'bg-brand'}`}
+                                        transition={{ duration: 1.5, delay: i * 0.3 }}
+                                        className={`h-full ${step.status === 'COMPLETE' ? 'bg-success shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-brand shadow-[0_0_15px_var(--brand-glow)]'}`}
                                     />
-                                </div>
-                                <div className={`text-[10px] font-bold w-20 text-right ${step.status === 'COMPLETE' ? 'text-success' : 'text-slate-400'}`}>
-                                    {step.status}
                                 </div>
                             </div>
                         ))}
@@ -144,17 +150,20 @@ export function FoundryWorkplace({ blueprint }: FoundryWorkplaceProps) {
                 </div>
 
                 {/* Knowledge Insights */}
-                <div className="bg-white border border-slate-200 rounded-[2rem] p-8 shadow-sm">
-                    <h3 className="font-black text-lg mb-4 uppercase tracking-tight text-slate-800">Knowledge Base Insights</h3>
-                    <div className="grid gap-4">
+                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[3rem] p-10">
+                    <h3 className="font-black text-xl mb-6 uppercase tracking-widest text-white italic">Knowledge Base Insights</h3>
+                    <div className="grid gap-6">
                         {blueprint?.detectedKnowledge?.digitalAudit?.insights?.map((insight: string, i: number) => (
-                            <div key={i} className="flex gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-brand/40 transition-colors cursor-default">
-                                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-xs shadow-sm">💡</div>
-                                <p className="text-sm text-slate-600 font-medium leading-relaxed">{insight}</p>
+                            <div key={i} className="flex gap-6 p-6 rounded-[2rem] bg-slate-900/50 border border-white/5 hover:border-brand/40 transition-all cursor-default group">
+                                <div className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center text-sm shadow-xl group-hover:bg-brand transition-colors group-hover:text-slate-950">💡</div>
+                                <p className="text-sm text-slate-300 font-bold leading-relaxed">{insight}</p>
                             </div>
                         ))}
                         {(!blueprint?.detectedKnowledge?.digitalAudit?.insights || blueprint.detectedKnowledge.digitalAudit.insights.length === 0) && (
-                            <p className="text-xs text-slate-400 italic">Analizando datos del onboarding para generar insights estratégicos...</p>
+                            <div className="flex flex-col items-center justify-center py-12 space-y-4 opacity-50">
+                                <div className="w-12 h-12 rounded-full border-2 border-dashed border-white/20 animate-spin" />
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Analizando datos del onboarding...</p>
+                            </div>
                         )}
                     </div>
                 </div>

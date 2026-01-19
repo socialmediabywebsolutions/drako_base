@@ -89,42 +89,42 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
     };
 
     return (
-        <div className="w-full max-w-4xl mx-auto flex flex-col h-[700px] glass-panel overflow-hidden border border-brand/20 shadow-glass">
+        <div className="w-full max-w-5xl mx-auto flex flex-col h-[750px] bg-slate-950/80 backdrop-blur-2xl rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl relative">
             {/* Header con Fases */}
-            <div className="bg-white/50 backdrop-blur px-6 py-4 border-b border-border flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-xl shadow-lg">🐲</div>
+            <div className="bg-slate-900/50 backdrop-blur px-8 py-5 border-b border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand to-slate-900 flex items-center justify-center text-2xl shadow-lg border border-white/10">🐲</div>
                     <div>
-                        <h3 className="font-black text-xs uppercase tracking-widest text-slate-800">Drako Partner</h3>
-                        <p className="text-[10px] font-bold text-brand uppercase tracking-tighter">Entrevista Estratégica</p>
+                        <h3 className="font-black text-xs uppercase tracking-[0.2em] text-white">Drako Partner</h3>
+                        <p className="text-[10px] font-bold text-brand uppercase tracking-widest">Protocol Intake Server • Active</p>
                     </div>
                 </div>
-                <div className="flex gap-1.5">
+                <div className="flex gap-2">
                     {Array.from({ length: 11 }).map((_, i) => (
                         <div
                             key={i}
-                            className={`w-4 h-1 rounded-full transition-all duration-500 ${i <= currentPhase ? "bg-brand w-8" : "bg-slate-200"}`}
+                            className={`h-1.5 rounded-full transition-all duration-700 ${i <= currentPhase ? "bg-brand w-6 shadow-[0_0_10px_var(--brand-glow)]" : "bg-white/10 w-3"}`}
                         />
                     ))}
                 </div>
             </div>
 
             {/* Chat Area */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/30">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-8 bg-[radial-gradient(circle_at_center,rgba(0,210,255,0.03)_0,transparent_100%)]">
                 <AnimatePresence initial={false}>
                     {messages.map((m, i) => (
                         <motion.div
                             key={i}
-                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            initial={{ opacity: 0, x: m.role === "user" ? 20 : -20 }}
+                            animate={{ opacity: 1, x: 0 }}
                             className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                         >
-                            <div className={`max-w-[80%] px-5 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${m.role === "user"
-                                ? "bg-slate-900 text-white rounded-tr-none"
-                                : "bg-white text-slate-700 border border-slate-100 rounded-tl-none"
+                            <div className={`max-w-[75%] px-6 py-4 rounded-[1.5rem] text-sm leading-[1.6] shadow-xl ${m.role === "user"
+                                ? "bg-brand text-slate-950 font-bold rounded-tr-none"
+                                : "bg-slate-900/80 text-white border border-white/10 rounded-tl-none backdrop-blur-md"
                                 }`}>
                                 {m.content.split("\n").map((line, idx) => (
-                                    <p key={idx} className={idx > 0 ? "mt-2" : ""}>
+                                    <p key={idx} className={idx > 0 ? "mt-3" : ""}>
                                         {line.includes("**") ? (
                                             line.split("**").map((part, pidx) => pidx % 2 === 1 ? <b key={pidx} className="text-brand-strong">{part}</b> : part)
                                         ) : line}
@@ -135,10 +135,10 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
                     ))}
                     {isTyping && (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                            <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 rounded-tl-none flex gap-1">
+                            <div className="bg-slate-900/80 px-4 py-3 rounded-2xl border border-white/10 rounded-tl-none flex gap-1.5">
                                 <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" />
-                                <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce delay-75" />
-                                <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce delay-150" />
+                                <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce [animation-delay:0.2s]" />
+                                <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce [animation-delay:0.4s]" />
                             </div>
                         </motion.div>
                     )}
@@ -146,12 +146,12 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
             </div>
 
             {/* Input Area */}
-            <div className="p-6 bg-white border-t border-border">
-                <div className="relative group">
+            <div className="p-8 bg-slate-900/50 border-t border-white/5 backdrop-blur-xl">
+                <div className="relative group max-w-4xl mx-auto">
                     <input
                         type="text"
-                        placeholder="Escribe tu mensaje..."
-                        className="input w-full pr-14 h-14 bg-slate-50 border-slate-200 focus:bg-white focus:border-brand transition-all text-base"
+                        placeholder="Escriba su respuesta estratégica..."
+                        className="modern-input w-full pr-16 h-16 text-lg tracking-tight"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleSend()}
@@ -159,16 +159,17 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
                     <button
                         onClick={handleSend}
                         disabled={!input.trim() || isTyping}
-                        className="absolute right-2 top-2 w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center hover:bg-brand hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
+                        className="absolute right-3 top-3 w-10 h-10 bg-brand text-slate-950 rounded-xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all disabled:opacity-30 disabled:grayscale shadow-[0_0_15px_var(--brand-glow)]"
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                         </svg>
                     </button>
                 </div>
-                <p className="text-[10px] text-muted text-center mt-3 uppercase tracking-widest font-bold">
-                    Drako Partner v1.0 • Conversación Estratégica
-                </p>
+                <div className="flex justify-between items-center mt-4 px-2">
+                    <span className="text-[9px] text-muted font-bold uppercase tracking-[0.3em]">Neural Protocol Activated</span>
+                    <span className="text-[9px] text-brand/60 font-black uppercase tracking-[0.3em]">Drako Partner v2.1</span>
+                </div>
             </div>
         </div>
     );
