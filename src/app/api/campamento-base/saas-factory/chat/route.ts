@@ -12,7 +12,7 @@ import {
   analyzeCompetitors,
   type ChatMessage,
 } from "@/lib/campamento-base/ai-blueprint-v2/prompts";
-import { saveBusinessKnowledge } from "@/lib/campamento-base/bi/knowledge-base";
+import { type BusinessIntelligence, saveBusinessKnowledge } from "@/lib/campamento-base/bi/knowledge-base";
 
 export const runtime = "edge";
 
@@ -79,12 +79,12 @@ function buildDefaultBlueprint(tenantId: string): SaasBlueprintDraft {
 export async function POST(req: Request) {
   try {
     const { tenantId } = await requireTenantAccess(req);
-    const body = (await req.json().catch(() => null)) as ChatPayload | null;
+    const body = (await req.json()) as ChatPayload;
     if (!body?.message) {
       return NextResponse.json({ error: "message is required" }, { status: 400 });
     }
 
-    const currentBlueprint = body.blueprint ?? buildDefaultBlueprint(tenantId);
+    const currentBlueprint = body.blueprint || buildDefaultBlueprint(tenantId);
     currentBlueprint.ownerTenantId = currentBlueprint.ownerTenantId || tenantId;
 
     // Build conversation history
@@ -112,7 +112,7 @@ export async function POST(req: Request) {
     };
 
     // Build advanced system prompt with full context
-    const systemPrompt = (body as any).mode === "partner"
+    const systemPrompt = body.mode === "partner"
       ? buildDrakoPartnerSystemPrompt(context)
       : buildAdvancedSystemPrompt(context);
 
@@ -177,10 +177,10 @@ export async function POST(req: Request) {
         await saveBusinessKnowledge({
           tenantId: tenantId,
           companyId: body.companyId || `draft-${tenantId.slice(0, 8)}`,
-          socialProfiles: parsed.detectedKnowledge.identity?.socialProfiles as any,
+          socialProfiles: parsed.detectedKnowledge.identity?.socialProfiles as BusinessIntelligence["socialProfiles"],
           location: { address: parsed.detectedKnowledge.identity?.address as string },
-          operatingCosts: parsed.detectedKnowledge.finances as any,
-          fiscalInfo: parsed.detectedKnowledge.identity?.fiscal as any,
+          operatingCosts: parsed.detectedKnowledge.finances as BusinessIntelligence["operatingCosts"],
+          fiscalInfo: parsed.detectedKnowledge.identity?.fiscal as BusinessIntelligence["fiscalInfo"],
         });
       } catch (e) {
         console.error("BI_PERSISTENCE_ERROR", e);
