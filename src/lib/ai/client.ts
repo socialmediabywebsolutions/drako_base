@@ -69,18 +69,19 @@ async function callViaBinding(req: AiRequest, e: DracoEnv, model: string): Promi
     gateway: { id: e.AI_GATEWAY_ID },
     cacheTtl: req.cache ? 300 : 0,
     skipCache: !req.cache,
-  })) as any;
+  })) as unknown;
 
   const durationMs = Date.now() - start;
 
   // Robust content extraction
   let content = "";
-  if (typeof res?.response === "string") {
-    content = res.response;
-  } else if (typeof res?.response?.text === "string") {
-    content = res.response.text;
-  } else if (Array.isArray(res?.choices) && res.choices[0]?.message?.content) {
-    content = res.choices[0].message.content;
+  const anyRes = res as any; // Temporary escape for property access in non-strict blocks or use safer casting
+  if (typeof anyRes?.response === "string") {
+    content = anyRes.response;
+  } else if (typeof anyRes?.response?.text === "string") {
+    content = anyRes.response.text;
+  } else if (Array.isArray(anyRes?.choices) && anyRes.choices[0]?.message?.content) {
+    content = anyRes.choices[0].message.content;
   }
 
   console.log("AI_BINDING_CALL", {
@@ -95,7 +96,7 @@ async function callViaBinding(req: AiRequest, e: DracoEnv, model: string): Promi
   return {
     ok: true,
     content,
-    usage: { tokens: res?.response?.tokens || res?.usage?.total_tokens },
+    usage: { tokens: anyRes?.response?.tokens || anyRes?.usage?.total_tokens },
     model,
     provider: "workers-ai"
   };

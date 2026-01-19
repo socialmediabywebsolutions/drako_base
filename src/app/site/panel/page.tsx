@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Card from "@/components/ui/card";
-import Button from "@/components/ui/button";
 import { useSiteSession } from "@/contexts/site-session-context";
 
 type SaasInfo = {
@@ -24,7 +22,6 @@ export default function SitePanelPage() {
   const [saasInfo, setSaasInfo] = useState<SaasInfo | null>(null);
   const [invoiceCount, setInvoiceCount] = useState<number | null>(null);
   const [ticketCount, setTicketCount] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const canLoad = Boolean(session.saasId && session.clientId);
@@ -33,7 +30,6 @@ export default function SitePanelPage() {
     if (!session.saasId || !session.clientId) {
       return;
     }
-    setLoading(true);
     setError(null);
     try {
       const [saasRes, invoicesRes, ticketsRes] = await Promise.all([
@@ -65,7 +61,7 @@ export default function SitePanelPage() {
       console.error(apiError);
       setError(apiError instanceof Error ? apiError.message : "Error cargando datos del panel");
     } finally {
-      setLoading(false);
+      // Data load complete
     }
   }, [session.clientId, session.saasId]);
 
