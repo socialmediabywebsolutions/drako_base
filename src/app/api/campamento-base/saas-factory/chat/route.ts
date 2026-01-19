@@ -6,6 +6,7 @@ import { runAi } from "@/lib/ai/client";
 import { getAllTemplates } from "@/lib/campamento-base/templates/marketplace";
 import {
   buildAdvancedSystemPrompt,
+  buildDrakoPartnerSystemPrompt,
   parseBlueprintResponse,
   inferVertical,
   analyzeCompetitors,
@@ -99,14 +100,18 @@ export async function POST(req: Request) {
     const vertical = inferVertical(conversationHistory);
     const competitorData = vertical ? await analyzeCompetitors(vertical) : undefined;
 
-    // Build advanced system prompt with full context
-    const systemPrompt = buildAdvancedSystemPrompt({
+    const context = {
       templates,
       vertical,
       availablePacks: AVAILABLE_PACKS,
       competitorData,
       conversationHistory,
-    });
+    };
+
+    // Build advanced system prompt with full context
+    const systemPrompt = (body as any).mode === "partner"
+      ? buildDrakoPartnerSystemPrompt(context)
+      : buildAdvancedSystemPrompt(context);
 
     // Call AI with Llama 3.1 70B (smart mode)
     const response = await runAi({
