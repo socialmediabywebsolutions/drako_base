@@ -83,17 +83,13 @@ export async function POST(req: Request) {
 
     // Relaxation: If mode is 'partner', we allow guest access using the resolved tenantId (defaults to demo)
     let tenantId: string;
-    let sessionData: SessionData | null = null;
 
     if (body.mode === "partner") {
       tenantId = resolveTenantId(req);
-      // Try to get session if it exists, but don't fail if null
-      await getSession(req);
     } else {
       // Factory mode requires full access
       const access = await requireTenantAccess(req);
       tenantId = access.tenantId;
-      sessionData = access.session;
     }
 
     if (!body?.message) {
