@@ -30,7 +30,7 @@ type AiResponse = {
 
 type AiBinding = { run: (model: string, inputs: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown> };
 
-const MODEL_FAST = "@cf/meta/llama-3.2-3b-instruct";
+const MODEL_FAST = "@cf/meta/llama-3-8b-instruct";
 const MODEL_SMART = "@cf/meta/llama-3.1-70b-instruct";
 
 function selectModel(mode: AiMode): string {

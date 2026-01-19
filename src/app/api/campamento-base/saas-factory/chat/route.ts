@@ -1,32 +1,41 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
-import type { SaasBlueprintDraft, SaasVerticalId } from "@/lib/campamento-base/saas-factory-types";
+import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-types";
 import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
-export const runtime = "edge";
+import { runAi } from "@/lib/ai/client";
+import { getAllTemplates } from "@/lib/campamento-base/templates/marketplace";
+import {
+  buildAdvancedSystemPrompt,
+  parseBlueprintResponse,
+  inferVertical,
+  analyzeCompetitors,
+  type ChatMessage,
+} from "@/lib/campamento-base/ai-blueprint-v2/prompts";
 
+export const runtime = "edge";
 
 type ChatPayload = {
   message?: string;
   blueprint?: SaasBlueprintDraft | null;
+  history?: { role: "user" | "assistant"; content: string }[];
 };
 
-const VERTICAL_RULES: Array<{ id: SaasVerticalId; keywords: string[]; label: string }> = [
-  { id: "SALON", keywords: ["peluquer", "salon", "barber"], label: "salon" },
-  { id: "CLINIC", keywords: ["clinica", "clinic", "dent"], label: "clinica" },
-  { id: "PET_GROOMING", keywords: ["groom", "mascota", "perro"], label: "grooming" },
-  { id: "LAUNDRY", keywords: ["lavander", "laundry"], label: "lavanderia" },
-  { id: "EDUCATION", keywords: ["educacion", "escuela", "academia"], label: "educacion" },
-  { id: "CRYPTO", keywords: ["cripto", "crypto", "blockchain"], label: "cripto" },
+// Available packs (simplified list)
+const AVAILABLE_PACKS = [
+  "crm",
+  "support",
+  "marketing",
+  "social_media",
+  "accounting",
+  "tax",
+  "email_intake",
+  "knowledge",
+  "ecommerce",
+  "education",
+  "community",
+  "projects",
 ];
 
-function normalizeMessage(message: string): string {
-  return message
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 function buildDefaultBlueprint(tenantId: string): SaasBlueprintDraft {
   return withCampamentoBaseProfile({
@@ -63,183 +72,6 @@ function buildDefaultBlueprint(tenantId: string): SaasBlueprintDraft {
   });
 }
 
-function applyTierUpdates(message: string, blueprint: SaasBlueprintDraft, changes: string[]) {
-  const tierMarkers = [
-    { key: "BASIC", tokens: ["basic", "basico"] },
-    { key: "STANDARD", tokens: ["standard", "estandar"] },
-    { key: "FULL", tokens: ["full", "completo"] },
-  ];
-
-  const updatePackTier = (dept: "marketing" | "support" | "ops", label: string) => {
-    for (const tier of tierMarkers) {
-      if (message.includes(`${label} ${tier.tokens[0]}`) || tier.tokens.some((token) => message.includes(`${label} ${token}`))) {
-        blueprint.packsByDepartment[dept] = tier.key as "BASIC" | "STANDARD" | "FULL";
-        changes.push(`${label} -> ${tier.key}`);
-        return;
-      }
-      if (message.includes(`${tier.tokens[0]} ${label}`) || tier.tokens.some((token) => message.includes(`${token} ${label}`))) {
-        blueprint.packsByDepartment[dept] = tier.key as "BASIC" | "STANDARD" | "FULL";
-        changes.push(`${label} -> ${tier.key}`);
-        return;
-      }
-    }
-  };
-
-  updatePackTier("marketing", "marketing");
-  updatePackTier("support", "soporte");
-  updatePackTier("ops", "ops");
-
-  if (message.includes("contabilidad") || message.includes("accounting")) {
-    if (message.includes("full") || message.includes("completo")) {
-      blueprint.packsByDepartment.accounting = "FULL";
-      changes.push("contabilidad -> FULL");
-    } else if (message.includes("basic") || message.includes("basico")) {
-      blueprint.packsByDepartment.accounting = "BASIC";
-      changes.push("contabilidad -> BASIC");
-    }
-  }
-
-  if (message.includes("tax") || message.includes("fiscal") || message.includes("impuestos")) {
-    if (message.includes("full") || message.includes("completo")) {
-      blueprint.packsByDepartment.tax = "FULL";
-      changes.push("tax -> FULL");
-    } else if (message.includes("basic") || message.includes("basico")) {
-      blueprint.packsByDepartment.tax = "BASIC";
-      changes.push("tax -> BASIC");
-    }
-  }
-
-  if (message.includes("email") || message.includes("intake") || message.includes("whatsapp")) {
-    if (message.includes("full") || message.includes("completo")) {
-      blueprint.packsByDepartment.emailIntake = "FULL";
-      changes.push("email intake -> FULL");
-    } else if (message.includes("basic") || message.includes("basico")) {
-      blueprint.packsByDepartment.emailIntake = "BASIC";
-      changes.push("email intake -> BASIC");
-    }
-  }
-}
-
-function applyAiTierUpdates(message: string, blueprint: SaasBlueprintDraft, changes: string[]) {
-  if (message.includes("poco presupuesto") || message.includes("barato") || message.includes("low cost")) {
-    blueprint.aiProfile.tier = "COST_SAVER";
-    const baseProfile = withCampamentoBaseProfile(blueprint).campamentoBaseProfile!;
-    blueprint.campamentoBaseProfile = {
-      ...baseProfile,
-      ownerPricingIntent: "LOW_COST",
-    };
-    changes.push("IA -> COST_SAVER");
-    return;
-  }
-  if (message.includes("premium") || message.includes("alta calidad")) {
-    blueprint.aiProfile.tier = "PREMIUM";
-    const baseProfile = withCampamentoBaseProfile(blueprint).campamentoBaseProfile!;
-    blueprint.campamentoBaseProfile = {
-      ...baseProfile,
-      ownerPricingIntent: "PREMIUM",
-    };
-    changes.push("IA -> PREMIUM");
-    return;
-  }
-  if (message.includes("balance") || message.includes("equilibr")) {
-    blueprint.aiProfile.tier = "BALANCED";
-    const baseProfile = withCampamentoBaseProfile(blueprint).campamentoBaseProfile!;
-    blueprint.campamentoBaseProfile = {
-      ...baseProfile,
-      ownerPricingIntent: "BALANCED",
-    };
-    changes.push("IA -> BALANCED");
-  }
-}
-
-function applyPricing(message: string, blueprint: SaasBlueprintDraft, changes: string[]) {
-  const priceMatch = message.match(/(\d{2,5})(?:\s?€|\s?euros|\s?\/mes|\s?al mes)?/);
-  if (priceMatch && message.includes("precio")) {
-    const value = Number(priceMatch[1]);
-    if (Number.isFinite(value) && value > 0) {
-      blueprint.initialPricing.currentMonthlyPrice = value;
-      changes.push(`precio -> ${value} EUR/mes`);
-    }
-  }
-}
-
-function applySummary(message: string, blueprint: SaasBlueprintDraft, changes: string[], verticalLabel: string | null) {
-  const audienceMatch = message.match(/para\s+([a-z0-9\s]+?)(?:\.|,|$)/);
-  if (audienceMatch && audienceMatch[1]) {
-    blueprint.targetAudience = audienceMatch[1].trim();
-    changes.push(`audiencia -> ${blueprint.targetAudience}`);
-  }
-  if (message.includes("objetivo")) {
-    const goalMatch = message.match(/objetivo\s*:?\s*([a-z0-9\s]+?)(?:\.|,|$)/);
-    if (goalMatch?.[1]) {
-      blueprint.mainGoal = goalMatch[1].trim();
-      changes.push(`objetivo -> ${blueprint.mainGoal}`);
-    }
-  }
-  if (message.includes("problema")) {
-    const problemMatch = message.match(/problema\s*:?\s*([a-z0-9\s]+?)(?:\.|,|$)/);
-    if (problemMatch?.[1]) {
-      blueprint.mainProblem = problemMatch[1].trim();
-      changes.push(`problema -> ${blueprint.mainProblem}`);
-    }
-  }
-  if (!changes.length && verticalLabel) {
-    blueprint.summary = `SaaS ${verticalLabel} preparado por Campamento Base.`;
-  }
-}
-
-function applyVertical(message: string, blueprint: SaasBlueprintDraft, changes: string[]): string | null {
-  for (const rule of VERTICAL_RULES) {
-    if (rule.keywords.some((keyword) => message.includes(keyword))) {
-      blueprint.verticalId = rule.id;
-      changes.push(`vertical -> ${rule.id}`);
-      return rule.label;
-    }
-  }
-  return null;
-}
-
-function applyName(message: string, blueprint: SaasBlueprintDraft, changes: string[]) {
-  const quoted = message.match(/"([^"]+)"/);
-  if (quoted?.[1]) {
-    blueprint.saasName = quoted[1].trim();
-    changes.push(`nombre -> ${blueprint.saasName}`);
-    return;
-  }
-  const named = message.match(/nombre\s*:?\s*([a-z0-9\s-]+)/);
-  if (named?.[1]) {
-    const name = named[1].trim();
-    if (name.length >= 3) {
-      blueprint.saasName = name;
-      changes.push(`nombre -> ${blueprint.saasName}`);
-    }
-  }
-}
-
-function updateBlueprintFromMessage(message: string, blueprint: SaasBlueprintDraft): { reply: string; blueprint: SaasBlueprintDraft } {
-  const normalized = normalizeMessage(message);
-  const changes: string[] = [];
-
-  applyName(normalized, blueprint, changes);
-  const verticalLabel = applyVertical(normalized, blueprint, changes);
-  applyTierUpdates(normalized, blueprint, changes);
-  applyAiTierUpdates(normalized, blueprint, changes);
-  applyPricing(normalized, blueprint, changes);
-  applySummary(normalized, blueprint, changes, verticalLabel);
-
-  if (!changes.length) {
-    return {
-      reply: "No detecte cambios concretos. Indica vertical, packs o pricing para ajustar el blueprint.",
-      blueprint: withCampamentoBaseProfile(blueprint),
-    };
-  }
-
-  return {
-    reply: `He actualizado: ${changes.join(", ")}.`,
-    blueprint: withCampamentoBaseProfile(blueprint),
-  };
-}
-
 export async function POST(req: Request) {
   try {
     const { tenantId } = await requireTenantAccess(req);
@@ -247,17 +79,140 @@ export async function POST(req: Request) {
     if (!body?.message) {
       return NextResponse.json({ error: "message is required" }, { status: 400 });
     }
-    const blueprint = body.blueprint ?? buildDefaultBlueprint(tenantId);
-    blueprint.ownerTenantId = blueprint.ownerTenantId || tenantId;
 
-    const { reply, blueprint: nextBlueprint } = updateBlueprintFromMessage(body.message, blueprint);
+    const currentBlueprint = body.blueprint ?? buildDefaultBlueprint(tenantId);
+    currentBlueprint.ownerTenantId = currentBlueprint.ownerTenantId || tenantId;
 
-    return NextResponse.json({ reply, blueprint: nextBlueprint });
+    // Build conversation history
+    const conversationHistory: ChatMessage[] = [
+      ...(body.history || []).map((h) => ({
+        role: h.role as "user" | "assistant",
+        content: h.content,
+      })),
+      { role: "user" as const, content: body.message },
+    ];
+
+    // Get templates for context
+    const templates = await getAllTemplates({ featuredOnly: true }).catch(() => []);
+
+    // Infer vertical and get competitor analysis
+    const vertical = inferVertical(conversationHistory);
+    const competitorData = vertical ? await analyzeCompetitors(vertical) : undefined;
+
+    // Build advanced system prompt with full context
+    const systemPrompt = buildAdvancedSystemPrompt({
+      templates,
+      vertical,
+      availablePacks: AVAILABLE_PACKS,
+      competitorData,
+      conversationHistory,
+    });
+
+    // Call AI with Llama 3.1 70B (smart mode)
+    const response = await runAi({
+      mode: "smart",
+      tenantId,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: `CURRENT BLUEPRINT JSON:\n${JSON.stringify(currentBlueprint, null, 2)}\n\nUSER MESSAGE: "${body.message}"\n\nResponde con el JSON estructurado según las instrucciones.`,
+        },
+      ],
+    });
+
+    if (!response.ok || !response.content) {
+      throw new Error("AI did not return a valid response.");
+    }
+
+    // Parse with v2 robust parser
+    const parsed = parseBlueprintResponse(response.content);
+
+    // Check if we have a valid response
+    if (!parsed || !parsed.entitlements) {
+      return NextResponse.json({
+        reply: "No pude entender tu solicitud completamente. ¿Podrías darme más detalles?",
+        blueprint: currentBlueprint,
+      });
+    }
+
+    // Map v2 response to legacy blueprint format
+    const updatedBlueprint: SaasBlueprintDraft = {
+      ...currentBlueprint,
+      ownerTenantId: tenantId, // Ensure tenantId is set
+      saasName: parsed.understanding || currentBlueprint.saasName,
+      summary: parsed.marketingCopy?.tagline || currentBlueprint.summary,
+      initialPricing: {
+        ...currentBlueprint.initialPricing,
+        currentMonthlyPrice: parsed.pricing.monthly,
+      },
+      // Map packs to packsByDepartment (simplified mapping)
+      packsByDepartment: {
+        ...currentBlueprint.packsByDepartment,
+        marketing: parsed.entitlements.packs.includes("marketing")
+          ? "FULL"
+          : parsed.entitlements.packs.includes("social_media")
+            ? "STANDARD"
+            : "BASIC",
+        support: parsed.entitlements.packs.includes("support") ? "STANDARD" : "BASIC",
+      },
+    };
+
+    const finalBlueprint = withCampamentoBaseProfile(updatedBlueprint);
+
+    // Build conversational reply with roadmap if available
+    let reply = `✨ ${parsed.understanding}\n\n`;
+
+    if (parsed.suggestedTemplate) {
+      reply += `📋 **Template sugerido:** ${parsed.suggestedTemplate}\n`;
+    }
+
+    if (parsed.pricing) {
+      reply += `💰 **Precio recomendado:** $${parsed.pricing.monthly}/mes ($${parsed.pricing.yearly}/año)\n`;
+      reply += `_${parsed.pricing.rationale}_\n\n`;
+    }
+
+    if (parsed.marketingCopy?.valueProps && parsed.marketingCopy.valueProps.length > 0) {
+      reply += `🎯 **Value props:**\n`;
+      parsed.marketingCopy.valueProps.forEach((vp) => {
+        reply += `- ${vp}\n`;
+      });
+      reply += `\n`;
+    }
+
+    if (parsed.roadmap && parsed.roadmap.length > 0) {
+      reply += `🗺️ **Roadmap sugerido:**\n`;
+      parsed.roadmap.slice(0, 2).forEach((month) => {
+        reply += `**Mes ${month.month} - ${month.focus}:** ${month.features.slice(0, 2).join(", ")}\n`;
+      });
+      reply += `\n`;
+    }
+
+    if (parsed.nextSteps && parsed.nextSteps.length > 0) {
+      reply += `📝 **Próximos pasos:**\n`;
+      parsed.nextSteps.slice(0, 3).forEach((step) => {
+        reply += `${step}\n`;
+      });
+    }
+
+    return NextResponse.json({
+      reply,
+      blueprint: finalBlueprint,
+      // Extended v2 data (optional, for advanced clients)
+      v2: {
+        fullAnalysis: parsed,
+        templates: templates.slice(0, 3).map((t) => ({
+          id: t.id,
+          name: t.name,
+          slug: t.slug,
+        })),
+      },
+    });
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     console.error("SAAS_FACTORY_CHAT_ERROR", error);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal error processing AI request" }, { status: 500 });
   }
 }

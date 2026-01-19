@@ -3,6 +3,10 @@ compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
 
+# ✅ Workers AI binding (required for AI features)
+[ai]
+binding = "AI"
+
 # ✅ Production DB (Pages default environment)
 [[d1_databases]]
 binding = "DRACO_DB"
