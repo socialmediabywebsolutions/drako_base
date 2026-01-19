@@ -1,4 +1,3 @@
-import Link from "next/link";
 import Card from "@/components/ui/card";
 import { EliteInterview } from "@/components/onboarding/elite-interview";
 
@@ -21,7 +20,7 @@ export default function SiteLandingPage() {
         </h1>
 
         <p className="max-w-2xl mx-auto text-lg text-slate-500 font-medium italic">
-          "De la servilleta al mercado en 24 horas."
+          &quot;De la servilleta al mercado en 24 horas.&quot;
         </p>
 
         <p className="max-w-xl mx-auto text-base text-slate-400">
