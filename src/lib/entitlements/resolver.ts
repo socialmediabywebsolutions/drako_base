@@ -1,4 +1,3 @@
-```typescript
 import { queryOne, run } from "@/lib/db";
 import type { NormalizedProjectEntitlements } from "@/lib/projects/entitlements";
 import { getProjectEntitlements } from "@/lib/projects/entitlements";

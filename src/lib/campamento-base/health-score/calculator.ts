@@ -1,4 +1,4 @@
-import { queryOne, queryAll, run } from "@/lib/db";
+import { queryOne, run } from "@/lib/db";
 
 export interface HealthFactor {
     name: string;
@@ -20,12 +20,6 @@ export interface HealthScoreResult {
         avgResponseTimeHours: number;
         uptimePercentage: number;
     };
-}
-
-interface SaasMetricsRow {
-    mrr: number;
-    customer_count: number;
-    active_subscriptions: number;
 }
 
 interface ChurnData {
