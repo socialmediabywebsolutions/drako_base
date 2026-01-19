@@ -4,12 +4,16 @@ import React, { useState } from "react";
 import Link from "next/link";
 
 interface FoundryLayoutProps {
-    children: React.ReactNode; // El contenido de la pizarra (Columna 2)
-    chatComponent: React.ReactNode; // El chat del orquestador (Columna 3)
+    children: React.ReactNode;
+    chatComponent: React.ReactNode;
+    chatInput?: string;
+    onChatInputChange?: (val: string) => void;
+    onSendMessage?: () => void;
 }
 
-export function FoundryLayout({ children, chatComponent }: FoundryLayoutProps) {
+export function FoundryLayout({ children, chatComponent, chatInput, onChatInputChange, onSendMessage }: FoundryLayoutProps) {
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    // ... rest of the component
 
     return (
         <div className="flex h-screen w-full bg-slate-50 overflow-hidden text-slate-900">
@@ -89,8 +93,19 @@ export function FoundryLayout({ children, chatComponent }: FoundryLayoutProps) {
                         <textarea
                             placeholder="Escribe tu requerimiento o cambio..."
                             className="input w-full pr-12 h-24 resize-none brightness-105"
+                            value={chatInput}
+                            onChange={(e) => onChatInputChange?.(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    onSendMessage?.();
+                                }
+                            }}
                         />
-                        <button className="absolute bottom-3 right-3 p-2 bg-slate-900 text-white rounded-lg hover:bg-cyan-500 transition-all">
+                        <button
+                            onClick={onSendMessage}
+                            className="absolute bottom-3 right-3 p-2 bg-slate-900 text-white rounded-lg hover:bg-cyan-500 transition-all"
+                        >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
                         </button>
                     </div>

@@ -9,18 +9,71 @@ interface FoundryWorkplaceProps {
 }
 
 export function FoundryWorkplace({ blueprint }: FoundryWorkplaceProps) {
-    const [activeTab, setActiveTab] = useState("whiteboard");
+    const [messages, setMessages] = useState<any[]>([
+        { role: "assistant", content: `¡Hola de nuevo! Ya he cargado toda la inteligencia de tu negocio (**${blueprint?.understanding || 'SaaS'}**) en la Foundry.\n\nEstamos en la **Fase de Construcción**. El blueprint inicial está listo. ¿Quieres que ajustemos algún módulo o empezamos con el provisionamiento de Stripe?` }
+    ]);
+    const [input, setInput] = useState("");
+    const [isTyping, setIsTyping] = useState(false);
+
+    const handleSendMessage = async () => {
+        if (!input.trim() || isTyping) return;
+        const userMsg = { role: "user", content: input };
+        setMessages(prev => [...prev, userMsg]);
+        const currentInput = input;
+        setInput("");
+        setIsTyping(true);
+
+        try {
+            const response = await fetch("/api/campamento-base/saas-factory/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    message: currentInput,
+                    history: messages,
+                    blueprint: blueprint // Lleva el contexto del onboarding
+                })
+            });
+            const data = await response.json();
+            if (data.reply) {
+                setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
+            }
+        } catch (e) {
+            console.error(e);
+            setMessages(prev => [...prev, { role: "assistant", content: "Lo siento, ha habido un error en la conexión con la fábrica. Por favor, reintenta." }]);
+        } finally {
+            setIsTyping(false);
+        }
+    };
 
     return (
         <FoundryLayout
+            chatInput={input}
+            onChatInputChange={setInput}
+            onSendMessage={handleSendMessage}
             chatComponent={
-                <div className="flex flex-col h-full">
-                    <div className="flex-1 space-y-4">
-                        <div className="bg-slate-900 text-white p-4 rounded-2xl rounded-tl-none text-xs">
-                            ¡Hola de nuevo! Ya he cargado toda la inteligencia de tu negocio en la Foundry.
-                            Estamos en la **Fase de Construcción**. ¿Por dónde quieres empezar?
+                <div className="flex flex-col h-full space-y-4">
+                    {messages.map((m, i) => (
+                        <motion.div
+                            key={i}
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className={`p-4 rounded-2xl text-xs leading-relaxed ${m.role === "user"
+                                ? "bg-slate-100 text-slate-800 ml-8 rounded-tr-none"
+                                : "bg-slate-900 text-white mr-8 rounded-tl-none shadow-lg"
+                                }`}
+                        >
+                            {m.content.split("\n").map((line: string, idx: number) => (
+                                <p key={idx} className={idx > 0 ? "mt-2" : ""}>{line}</p>
+                            ))}
+                        </motion.div>
+                    ))}
+                    {isTyping && (
+                        <div className="flex gap-1 p-2">
+                            <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" />
+                            <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce delay-75" />
+                            <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce delay-150" />
                         </div>
-                    </div>
+                    )}
                 </div>
             }
         >
@@ -96,7 +149,7 @@ export function FoundryWorkplace({ blueprint }: FoundryWorkplaceProps) {
                                 <p className="text-sm text-slate-600 font-medium leading-relaxed">{insight}</p>
                             </div>
                         ))}
-                        {!blueprint?.detectedKnowledge?.digitalAudit?.insights && (
+                        {(!blueprint?.detectedKnowledge?.digitalAudit?.insights || blueprint?.detectedKnowledge?.digitalAudit?.insights.length === 0) && (
                             <p className="text-xs text-slate-400 italic">Analizando datos del onboarding para generar insights estratégicos...</p>
                         )}
                     </div>
@@ -105,3 +158,4 @@ export function FoundryWorkplace({ blueprint }: FoundryWorkplaceProps) {
         </FoundryLayout>
     );
 }
+
