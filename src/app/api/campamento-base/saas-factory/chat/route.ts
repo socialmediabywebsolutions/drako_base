@@ -16,6 +16,7 @@ import {
 import { type BusinessIntelligence, saveBusinessKnowledge } from "@/lib/campamento-base/bi/knowledge-base";
 
 export const runtime = "edge";
+export const dynamic = "force-dynamic";
 
 type ChatPayload = {
   message?: string;
