@@ -11,7 +11,8 @@ export const runtime = "edge";
  * GET /api/saas/[id]/health
  * Obtiene el health score de un SaaS (último calculado o calcula nuevo)
  */
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+    const params = await props.params;
     const saasId = params.id;
     const tenantId = request.headers.get("x-drako-tenant-id");
 
@@ -63,7 +64,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
  * POST /api/saas/[id]/health
  * Fuerza recálculo del health score
  */
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+    const params = await props.params;
     const saasId = params.id;
     const tenantId = request.headers.get("x-drako-tenant-id");
 
