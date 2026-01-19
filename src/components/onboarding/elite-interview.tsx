@@ -64,7 +64,7 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
             });
 
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
+                const errorData = await response.json().catch(() => ({})) as { error?: string };
                 setMessages(prev => [...prev, {
                     role: "assistant",
                     content: `⚠️ **ERROR TÉCNICO**: El servidor respondió con estado ${response.status}. ${errorData.error || "No se pudo establecer conexión con el motor de IA. Por favor, asegúrese de que el entorno esté configurado correctamente."}`
