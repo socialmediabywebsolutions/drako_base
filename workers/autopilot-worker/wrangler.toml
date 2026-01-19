@@ -10,7 +10,7 @@ APP_URL = "http://localhost:3000"
 [[d1_databases]]
 binding = "DRACO_DB"
 database_name = "draco_db"
-database_id = "TODO_D1_ID"
+database_id = "10146888-ca79-41d6-b6c2-bf1025eb651b"
 
 [[queues.consumers]]
 queue = "autopilot_queue"
