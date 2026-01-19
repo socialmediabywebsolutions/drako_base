@@ -5,11 +5,13 @@ import Card from "@/components/ui/card";
 import { EliteInterview } from "@/components/onboarding/elite-interview";
 import { FoundryWorkplace } from "@/components/foundry/foundry-workplace";
 
+import { type BlueprintResponse } from "@/lib/campamento-base/ai-blueprint-v2/prompts";
+
 export default function SiteLandingPage() {
   const [activeView, setActiveView] = useState<"landing" | "workspace">("landing");
-  const [finalBlueprint, setFinalBlueprint] = useState<any>(null);
+  const [finalBlueprint, setFinalBlueprint] = useState<BlueprintResponse | null>(null);
 
-  const handleInterviewComplete = (data: any) => {
+  const handleInterviewComplete = (data: BlueprintResponse) => {
     setFinalBlueprint(data);
     setActiveView("workspace");
     // Opcional: Hacer scroll al top

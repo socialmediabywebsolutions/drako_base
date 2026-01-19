@@ -38,7 +38,7 @@ export async function saveBusinessKnowledge(kb: Partial<BusinessIntelligence> & 
     );
 
     const updates: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (kb.socialProfiles) {
         updates.push("social_profiles_json = ?");

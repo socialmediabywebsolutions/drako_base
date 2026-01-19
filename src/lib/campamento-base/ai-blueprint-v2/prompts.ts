@@ -23,6 +23,12 @@ export interface CompetitorAnalysis {
     commonFeatures: string[];
 }
 
+export interface DigitalAudit {
+    webScore?: number;
+    socialScore?: number;
+    insights?: string[];
+}
+
 export interface BlueprintResponse {
     understanding: string;
     suggestedTemplate: string | null;
@@ -54,16 +60,16 @@ export interface BlueprintResponse {
     reply?: string;
     currentPhase?: number;
     detectedKnowledge?: {
-        identity?: any;
-        finances?: any;
-        digitalAudit?: any;
+        identity?: Record<string, unknown>;
+        finances?: Record<string, unknown>;
+        digitalAudit?: DigitalAudit;
     };
 }
 
 /**
  * Construye el system prompt específico para el Drako Partner Interview Engine
  */
-export function buildDrakoPartnerSystemPrompt(context: BlueprintContext): string {
+export function buildDrakoPartnerSystemPrompt(_context: BlueprintContext): string {
     return `# STAFF PROMPT — DRKO Partner Interview Engine v1.0
 ## Campamento Base + Drako.Systems
 
@@ -340,19 +346,22 @@ export function parseBlueprintResponse(aiResponse: string): BlueprintResponse {
     cleaned = cleaned.trim();
 
     try {
-        const parsed = JSON.parse(cleaned) as BlueprintResponse | any;
+        interface RawAiResponse extends BlueprintResponse {
+            blueprintUpdate?: BlueprintResponse;
+        }
+        const parsed = JSON.parse(cleaned) as RawAiResponse;
 
         // Handle Drako Partner nested structure if present
         if (parsed.reply && parsed.blueprintUpdate) {
             return {
-                ...parsed.blueprintUpdate,
+                ...(parsed.blueprintUpdate as BlueprintResponse),
                 reply: parsed.reply,
                 currentPhase: parsed.currentPhase,
                 detectedKnowledge: parsed.detectedKnowledge
-            } as BlueprintResponse;
+            };
         }
 
-        return parsed as BlueprintResponse;
+        return parsed;
     } catch (error) {
         console.error("BLUEPRINT_PARSE_ERROR", error);
         console.error("Raw response:", aiResponse);

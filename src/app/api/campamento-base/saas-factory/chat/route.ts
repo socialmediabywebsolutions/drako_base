@@ -20,6 +20,8 @@ type ChatPayload = {
   message?: string;
   blueprint?: SaasBlueprintDraft | null;
   history?: { role: "user" | "assistant"; content: string }[];
+  mode?: "partner" | "factory";
+  companyId?: string;
 };
 
 // Available packs (simplified list)
@@ -170,15 +172,15 @@ export async function POST(req: Request) {
     let reply = parsed.reply || `✨ ${parsed.understanding}\n\n`;
 
     // Real-time Persistence for Drako Partner
-    if ((body as any).mode === "partner" && parsed.detectedKnowledge) {
+    if (body.mode === "partner" && parsed.detectedKnowledge) {
       try {
         await saveBusinessKnowledge({
           tenantId: tenantId,
-          companyId: (body as any).companyId || `draft-${tenantId.slice(0, 8)}`,
-          socialProfiles: parsed.detectedKnowledge.identity?.socialProfiles,
-          location: { address: parsed.detectedKnowledge.identity?.address },
-          operatingCosts: parsed.detectedKnowledge.finances,
-          fiscalInfo: parsed.detectedKnowledge.identity?.fiscal,
+          companyId: body.companyId || `draft-${tenantId.slice(0, 8)}`,
+          socialProfiles: parsed.detectedKnowledge.identity?.socialProfiles as any,
+          location: { address: parsed.detectedKnowledge.identity?.address as string },
+          operatingCosts: parsed.detectedKnowledge.finances as any,
+          fiscalInfo: parsed.detectedKnowledge.identity?.fiscal as any,
         });
       } catch (e) {
         console.error("BI_PERSISTENCE_ERROR", e);
