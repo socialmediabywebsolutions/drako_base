@@ -71,10 +71,7 @@ function resolveDbAdapter(adapter?: Partial<DbAdapter>): DbAdapter {
 /**
  * Obtiene entitlements de la Company (inherited)
  */
-async function getCompanyEntitlements(
-    params: { tenantId: string; companyId: string },
-    db: DbAdapter,
-): Promise<NormalizedProjectEntitlements> {
+async function getCompanyEntitlements(): Promise<NormalizedProjectEntitlements> {
     // TODO: Implementar tabla company_entitlements
     // Por ahora retornamos vacío
     return {
@@ -245,7 +242,7 @@ export async function resolveProjectEntitlements(
 
     // Fetch all sources in parallel
     const [company, project, stripe] = await Promise.all([
-        companyId ? getCompanyEntitlements({ tenantId, companyId }, db) : Promise.resolve({
+        companyId ? getCompanyEntitlements() : Promise.resolve({
             enabledFeatures: [],
             enabledPacks: [],
             limits: {},
