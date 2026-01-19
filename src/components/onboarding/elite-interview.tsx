@@ -3,13 +3,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+import { type BlueprintResponse } from "@/lib/campamento-base/ai-blueprint-v2/prompts";
+
 interface Message {
     role: "user" | "assistant";
     content: string;
 }
 
 interface EliteInterviewProps {
-    onComplete?: (data: any) => void;
+    onComplete?: (data: BlueprintResponse) => void;
 }
 
 export function EliteInterview({ onComplete }: EliteInterviewProps) {
@@ -75,7 +77,7 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
 
                     // Si completamos todas las fases (o llegamos al cierre), notificamos al padre
                     if (nextPhase >= 10 && onComplete) {
-                        setTimeout(() => onComplete(analysis), 3000);
+                        setTimeout(() => onComplete(analysis as BlueprintResponse), 3000);
                     }
                 }
             }

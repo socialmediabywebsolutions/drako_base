@@ -4,12 +4,14 @@ import React, { useState } from "react";
 import { FoundryLayout } from "@/components/layouts/foundry-layout";
 import { motion } from "framer-motion";
 
+import { type BlueprintResponse, type ChatMessage } from "@/lib/campamento-base/ai-blueprint-v2/prompts";
+
 interface FoundryWorkplaceProps {
-    blueprint: any;
+    blueprint: BlueprintResponse | null;
 }
 
 export function FoundryWorkplace({ blueprint }: FoundryWorkplaceProps) {
-    const [messages, setMessages] = useState<any[]>([
+    const [messages, setMessages] = useState<ChatMessage[]>([
         { role: "assistant", content: `¡Hola de nuevo! Ya he cargado toda la inteligencia de tu negocio (**${blueprint?.understanding || 'SaaS'}**) en la Foundry.\n\nEstamos en la **Fase de Construcción**. El blueprint inicial está listo. ¿Quieres que ajustemos algún módulo o empezamos con el provisionamiento de Stripe?` }
     ]);
     const [input, setInput] = useState("");
@@ -17,7 +19,7 @@ export function FoundryWorkplace({ blueprint }: FoundryWorkplaceProps) {
 
     const handleSendMessage = async () => {
         if (!input.trim() || isTyping) return;
-        const userMsg = { role: "user", content: input };
+        const userMsg: ChatMessage = { role: "user", content: input };
         setMessages(prev => [...prev, userMsg]);
         const currentInput = input;
         setInput("");
@@ -30,16 +32,18 @@ export function FoundryWorkplace({ blueprint }: FoundryWorkplaceProps) {
                 body: JSON.stringify({
                     message: currentInput,
                     history: messages,
-                    blueprint: blueprint // Lleva el contexto del onboarding
+                    blueprint: blueprint
                 })
             });
-            const data = await response.json();
+            const data = (await response.json()) as { reply?: string };
             if (data.reply) {
-                setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
+                const assistantMsg: ChatMessage = { role: "assistant", content: data.reply };
+                setMessages(prev => [...prev, assistantMsg]);
             }
         } catch (e) {
             console.error(e);
-            setMessages(prev => [...prev, { role: "assistant", content: "Lo siento, ha habido un error en la conexión con la fábrica. Por favor, reintenta." }]);
+            const errorMsg: ChatMessage = { role: "assistant", content: "Lo siento, ha habido un error en la conexión con la fábrica. Por favor, reintenta." };
+            setMessages(prev => [...prev, errorMsg]);
         } finally {
             setIsTyping(false);
         }
@@ -101,7 +105,7 @@ export function FoundryWorkplace({ blueprint }: FoundryWorkplaceProps) {
                     <div className="glass-panel p-6 border-cyan-400/20 border-l-4">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Visibility Score (Audit)</h4>
                         <div className="flex items-end gap-2 mb-2">
-                            <span className="text-4xl font-black text-slate-900">{blueprint?.detectedKnowledge?.digitalAudit?.webScore || 85}%</span>
+                            <span className="text-4xl font-black text-slate-900">{blueprint?.detectedKnowledge?.digitalAudit?.webScore ?? 85}%</span>
                             <span className="text-xs font-bold text-cyan-500 mb-2">PUNTUACIÓN ACTUAL</span>
                         </div>
                         <p className="text-xs text-slate-500 italic">Detectamos fallos críticos en su embudo web que Drako está optimizando.</p>
@@ -149,7 +153,7 @@ export function FoundryWorkplace({ blueprint }: FoundryWorkplaceProps) {
                                 <p className="text-sm text-slate-600 font-medium leading-relaxed">{insight}</p>
                             </div>
                         ))}
-                        {(!blueprint?.detectedKnowledge?.digitalAudit?.insights || blueprint?.detectedKnowledge?.digitalAudit?.insights.length === 0) && (
+                        {(!blueprint?.detectedKnowledge?.digitalAudit?.insights || blueprint.detectedKnowledge.digitalAudit.insights.length === 0) && (
                             <p className="text-xs text-slate-400 italic">Analizando datos del onboarding para generar insights estratégicos...</p>
                         )}
                     </div>
