@@ -31,7 +31,7 @@ type AiResponse = {
 type AiBinding = { run: (model: string, inputs: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown> };
 
 const MODEL_FAST = "@cf/meta/llama-3-8b-instruct";
-const MODEL_SMART = "@cf/meta/llama-3.1-70b-instruct";
+const MODEL_SMART = "@cf/meta/llama-3.1-8b-instruct";
 
 function selectModel(mode: AiMode): string {
   return mode === "fast" ? MODEL_FAST : MODEL_SMART;
@@ -69,10 +69,36 @@ async function callViaBinding(req: AiRequest, e: DracoEnv, model: string): Promi
     gateway: { id: e.AI_GATEWAY_ID },
     cacheTtl: req.cache ? 300 : 0,
     skipCache: !req.cache,
-  })) as { response?: { text?: string; tokens?: number } };
+  })) as any;
+
   const durationMs = Date.now() - start;
-  console.log("AI_BINDING_CALL", { provider: "workers-ai", model, durationMs, tenantId: req.tenantId, agentId: req.agentId, cache: !!req.cache });
-  return { ok: true, content: res?.response?.text ?? "", usage: { tokens: res?.response?.tokens }, model, provider: "workers-ai" };
+
+  // Robust content extraction
+  let content = "";
+  if (typeof res?.response === "string") {
+    content = res.response;
+  } else if (typeof res?.response?.text === "string") {
+    content = res.response.text;
+  } else if (Array.isArray(res?.choices) && res.choices[0]?.message?.content) {
+    content = res.choices[0].message.content;
+  }
+
+  console.log("AI_BINDING_CALL", {
+    provider: "workers-ai",
+    model,
+    durationMs,
+    tenantId: req.tenantId,
+    hasContent: !!content,
+    hasRes: !!res
+  });
+
+  return {
+    ok: true,
+    content,
+    usage: { tokens: res?.response?.tokens || res?.usage?.total_tokens },
+    model,
+    provider: "workers-ai"
+  };
 }
 
 async function callViaCompat(req: AiRequest, e: DracoEnv, model: string): Promise<AiResponse> {
