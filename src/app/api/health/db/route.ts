@@ -13,7 +13,7 @@ export async function GET() {
 
     try {
         // 1. Verificar binding
-        const db = ensureDatabase();
+        ensureDatabase();
 
         // 2. Test query simple
         const pingResult = await queryOne<{ result: number }>("SELECT 1 as result");

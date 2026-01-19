@@ -1,4 +1,4 @@
-import { queryOne as queryOneDb, run as runDb } from "@/lib/db";
+import { queryOne, run } from "@/lib/db";
 import type { NormalizedProjectEntitlements } from "@/lib/projects/entitlements";
 import { getProjectEntitlements } from "@/lib/projects/entitlements";
 
@@ -56,8 +56,8 @@ type DbAdapter = {
 };
 
 const defaultDb: DbAdapter = {
-    queryOne: queryOneDb,
-    run: runDb,
+    queryOne: queryOne,
+    run: run,
 };
 
 function resolveDbAdapter(adapter?: Partial<DbAdapter>): DbAdapter {
@@ -102,14 +102,14 @@ async function getStripeEntitlements(
         features_json: string | null;
         limits_json: string | null;
     }>(
-        `SELECT 
-      sm.stripe_subscription_id,
-      sm.stripe_product_id,
-      sm.stripe_price_id,
-      sm.status,
-      sm.packs_json,
-      sm.features_json,
-      sm.limits_json
+        `SELECT
+sm.stripe_subscription_id,
+    sm.stripe_product_id,
+    sm.stripe_price_id,
+    sm.status,
+    sm.packs_json,
+    sm.features_json,
+    sm.limits_json
      FROM stripe_mapping sm
      WHERE sm.tenant_id = ? AND sm.project_id = ? AND sm.status = 'active'
      LIMIT 1`,
@@ -228,7 +228,7 @@ function mergeEntitlements(params: {
  * Resuelve entitlements completos con source tracking
  */
 export async function resolveProjectEntitlements(
-    params: {
+    props: {
         tenantId: string;
         projectId: string;
         companyId?: string | null;
@@ -236,9 +236,9 @@ export async function resolveProjectEntitlements(
     adapter?: Partial<DbAdapter>,
 ): Promise<ResolvedEntitlements> {
     const db = resolveDbAdapter(adapter);
-    const tenantId = params.tenantId.trim();
-    const projectId = params.projectId.trim();
-    const companyId = params.companyId?.trim() ?? null;
+    const tenantId = props.tenantId.trim();
+    const projectId = props.projectId.trim();
+    const companyId = props.companyId?.trim() ?? null;
 
     if (!tenantId) throw new Error("tenantId es obligatorio");
     if (!projectId) throw new Error("projectId es obligatorio");

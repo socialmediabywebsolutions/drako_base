@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAllTemplates, getTemplate, deployTemplate, addTemplateReview } from "@/lib/campamento-base/templates/marketplace";
+import { getAllTemplates, deployTemplate } from "@/lib/campamento-base/templates/marketplace";
 
 export const runtime = "edge";
 
@@ -45,7 +45,18 @@ export async function POST(request: Request) {
     }
 
     try {
-        const body = (await request.json()) as any;
+        const body = (await request.json()) as {
+            templateId: string;
+            customization: {
+                name: string;
+                slug: string;
+                domain?: string;
+                branding?: {
+                    primaryColor?: string;
+                    secondaryColor?: string;
+                }
+            }
+        };
         const { templateId, customization } = body;
 
         if (!templateId || !customization?.name || !customization?.slug) {
