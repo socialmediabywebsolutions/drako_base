@@ -239,7 +239,8 @@ export async function POST(req: Request) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    const errorMessage = error instanceof Error ? error.message : "Internal error processing AI request";
     console.error("SAAS_FACTORY_CHAT_ERROR", error);
-    return NextResponse.json({ error: "Internal error processing AI request" }, { status: 500 });
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
