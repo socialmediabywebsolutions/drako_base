@@ -12,6 +12,7 @@ import {
   analyzeCompetitors,
   type ChatMessage,
 } from "@/lib/campamento-base/ai-blueprint-v2/prompts";
+import { saveBusinessKnowledge } from "@/lib/campamento-base/bi/knowledge-base";
 
 export const runtime = "edge";
 
@@ -166,38 +167,41 @@ export async function POST(req: Request) {
     const finalBlueprint = withCampamentoBaseProfile(updatedBlueprint);
 
     // Build conversational reply with roadmap if available
-    let reply = `✨ ${parsed.understanding}\n\n`;
+    let reply = parsed.reply || `✨ ${parsed.understanding}\n\n`;
 
-    if (parsed.suggestedTemplate) {
-      reply += `📋 **Template sugerido:** ${parsed.suggestedTemplate}\n`;
+    // Real-time Persistence for Drako Partner
+    if ((body as any).mode === "partner" && parsed.detectedKnowledge) {
+      try {
+        await saveBusinessKnowledge({
+          tenantId: tenantId,
+          companyId: (body as any).companyId || `draft-${tenantId.slice(0, 8)}`,
+          socialProfiles: parsed.detectedKnowledge.identity?.socialProfiles,
+          location: { address: parsed.detectedKnowledge.identity?.address },
+          operatingCosts: parsed.detectedKnowledge.finances,
+          fiscalInfo: parsed.detectedKnowledge.identity?.fiscal,
+        });
+      } catch (e) {
+        console.error("BI_PERSISTENCE_ERROR", e);
+      }
     }
 
-    if (parsed.pricing) {
-      reply += `💰 **Precio recomendado:** $${parsed.pricing.monthly}/mes ($${parsed.pricing.yearly}/año)\n`;
-      reply += `_${parsed.pricing.rationale}_\n\n`;
-    }
+    if (!parsed.reply) {
+      if (parsed.suggestedTemplate) {
+        reply += `📋 **Template sugerido:** ${parsed.suggestedTemplate}\n`;
+      }
 
-    if (parsed.marketingCopy?.valueProps && parsed.marketingCopy.valueProps.length > 0) {
-      reply += `🎯 **Value props:**\n`;
-      parsed.marketingCopy.valueProps.forEach((vp) => {
-        reply += `- ${vp}\n`;
-      });
-      reply += `\n`;
-    }
+      if (parsed.pricing) {
+        reply += `💰 **Precio recomendado:** $${parsed.pricing.monthly}/mes ($${parsed.pricing.yearly}/año)\n`;
+        reply += `_${parsed.pricing.rationale}_\n\n`;
+      }
 
-    if (parsed.roadmap && parsed.roadmap.length > 0) {
-      reply += `🗺️ **Roadmap sugerido:**\n`;
-      parsed.roadmap.slice(0, 2).forEach((month) => {
-        reply += `**Mes ${month.month} - ${month.focus}:** ${month.features.slice(0, 2).join(", ")}\n`;
-      });
-      reply += `\n`;
-    }
-
-    if (parsed.nextSteps && parsed.nextSteps.length > 0) {
-      reply += `📝 **Próximos pasos:**\n`;
-      parsed.nextSteps.slice(0, 3).forEach((step) => {
-        reply += `${step}\n`;
-      });
+      if (parsed.marketingCopy?.valueProps && parsed.marketingCopy.valueProps.length > 0) {
+        reply += `🎯 **Value props:**\n`;
+        parsed.marketingCopy.valueProps.forEach((vp) => {
+          reply += `- ${vp}\n`;
+        });
+        reply += `\n`;
+      }
     }
 
     return NextResponse.json({
