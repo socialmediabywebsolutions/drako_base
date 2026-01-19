@@ -8,7 +8,11 @@ interface Message {
     content: string;
 }
 
-export function EliteInterview() {
+interface EliteInterviewProps {
+    onComplete?: (data: any) => void;
+}
+
+export function EliteInterview({ onComplete }: EliteInterviewProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -57,12 +61,22 @@ export function EliteInterview() {
                 })
             });
 
-            const data = await response.json();
+            const data = (await response.json()) as {
+                reply?: string;
+                v2?: { fullAnalysis?: { currentPhase?: number } }
+            };
 
-            if (data.reply) {
-                setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
-                if (data.v2?.fullAnalysis?.currentPhase !== undefined) {
-                    setCurrentPhase(data.v2.fullAnalysis.currentPhase);
+            if (data?.reply) {
+                setMessages(prev => [...prev, { role: "assistant", content: data.reply as string }]);
+                const analysis = data.v2?.fullAnalysis;
+                if (analysis?.currentPhase !== undefined) {
+                    const nextPhase = analysis.currentPhase;
+                    setCurrentPhase(nextPhase);
+
+                    // Si completamos todas las fases (o llegamos al cierre), notificamos al padre
+                    if (nextPhase >= 10 && onComplete) {
+                        setTimeout(() => onComplete(analysis), 3000);
+                    }
                 }
             }
         } catch (error) {
@@ -104,8 +118,8 @@ export function EliteInterview() {
                             className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                         >
                             <div className={`max-w-[80%] px-5 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${m.role === "user"
-                                    ? "bg-slate-900 text-white rounded-tr-none"
-                                    : "bg-white text-slate-700 border border-slate-100 rounded-tl-none"
+                                ? "bg-slate-900 text-white rounded-tr-none"
+                                : "bg-white text-slate-700 border border-slate-100 rounded-tl-none"
                                 }`}>
                                 {m.content.split("\n").map((line, idx) => (
                                     <p key={idx} className={idx > 0 ? "mt-2" : ""}>
