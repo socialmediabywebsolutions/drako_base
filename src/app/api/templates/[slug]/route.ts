@@ -7,7 +7,8 @@ export const runtime = "edge";
  * GET /api/templates/[slug]
  * Obtiene detalles de un template específico
  */
-export async function GET(request: Request, { params }: { params: { slug: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ slug: string }> }) {
+    const params = await props.params;
     const slug = params.slug;
 
     try {
