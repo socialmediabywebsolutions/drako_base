@@ -59,9 +59,18 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
                 body: JSON.stringify({
                     message: input,
                     history: messages,
-                    mode: "partner" // Nueva bandera para usar el prompt de Drako Partner
+                    mode: "partner"
                 })
             });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                setMessages(prev => [...prev, {
+                    role: "assistant",
+                    content: `⚠️ **ERROR TÉCNICO**: El servidor respondió con estado ${response.status}. ${errorData.error || "No se pudo establecer conexión con el motor de IA. Por favor, asegúrese de que el entorno esté configurado correctamente."}`
+                }]);
+                return;
+            }
 
             const data = (await response.json()) as {
                 reply?: string;
@@ -75,7 +84,6 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
                     const nextPhase = analysis.currentPhase;
                     setCurrentPhase(nextPhase);
 
-                    // Si completamos todas las fases (o llegamos al cierre), notificamos al padre
                     if (nextPhase >= 10 && onComplete) {
                         setTimeout(() => onComplete(analysis as BlueprintResponse), 3000);
                     }
@@ -83,6 +91,10 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
             }
         } catch (error) {
             console.error("Error en la entrevista:", error);
+            setMessages(prev => [...prev, {
+                role: "assistant",
+                content: "🛑 **ERROR DE RED**: No se pudo contactar con Drako Systems. Verifique su conexión o intente reiniciar la sesión."
+            }]);
         } finally {
             setIsTyping(false);
         }
@@ -160,7 +172,8 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
                     <input
                         type="text"
                         placeholder="Escriba su respuesta estratégica..."
-                        className="modern-input w-full pr-16 h-16 text-lg tracking-tight text-white !placeholder-slate-500"
+                        className="modern-input w-full pr-16 h-16 text-lg tracking-tight text-white !placeholder-slate-500 font-bold"
+                        style={{ color: 'white', backgroundColor: '#0f172a' }}
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleSend()}
