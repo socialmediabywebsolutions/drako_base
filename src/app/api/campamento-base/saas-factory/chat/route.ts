@@ -129,7 +129,7 @@ export async function POST(req: Request) {
 
     // Build advanced system prompt with full context
     const systemPrompt = body.mode === "partner"
-      ? buildDrakoPartnerSystemPrompt(context)
+      ? buildDrakoPartnerSystemPrompt()
       : buildAdvancedSystemPrompt(context);
 
     // Call AI with Llama 3.1 70B (smart mode)

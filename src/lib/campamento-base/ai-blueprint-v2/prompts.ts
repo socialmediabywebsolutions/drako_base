@@ -69,7 +69,7 @@ export interface BlueprintResponse {
 /**
  * Construye el system prompt específico para el Drako Partner Interview Engine
  */
-export function buildDrakoPartnerSystemPrompt(_context: BlueprintContext): string {
+export function buildDrakoPartnerSystemPrompt(): string {
     return `# STAFF PROMPT — DRKO Partner Interview Engine v1.0
 ## Campamento Base + Drako.Systems
 
