@@ -23,3 +23,7 @@ pages_build_output_dir = ".vercel/output/static"
 binding = "DRACO_DB"
 database_name = "drako_db"
 database_id = "10146888-ca79-41d6-b6c2-bf1025eb651b"
+
+# ✅ AI binding for Preview
+[env.preview.ai]
+binding = "AI"

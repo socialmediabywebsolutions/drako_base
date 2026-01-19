@@ -52,11 +52,22 @@ type CtxWithEnv = { env?: DracoEnv };
 export function env(): DracoEnv | null {
   try {
     const rawCtx = getRequestContext();
-    if (!rawCtx || typeof rawCtx !== "object") return null;
-    if (!("env" in rawCtx)) return null;
+    if (!rawCtx) {
+      console.error("CF_ENV_ERROR: getRequestContext() returned null");
+      return null;
+    }
+    if (typeof rawCtx !== "object") {
+      console.error("CF_ENV_ERROR: getRequestContext() is not an object", typeof rawCtx);
+      return null;
+    }
+    if (!("env" in rawCtx)) {
+      console.error("CF_ENV_ERROR: 'env' key missing in context", Object.keys(rawCtx));
+      return null;
+    }
     const ctx = rawCtx as unknown as CtxWithEnv;
     return ctx.env ?? null;
-  } catch {
+  } catch (err) {
+    console.error("CF_ENV_ERROR: Exception in env()", err);
     return null;
   }
 }
