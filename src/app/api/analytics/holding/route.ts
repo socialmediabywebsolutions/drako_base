@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     }
 
     try {
-        const body = await request.json().catch(() => ({}));
+        const body = (await request.json().catch(() => ({}))) as { type?: "daily" | "weekly" | "monthly" };
         const snapshotType = body.type || "daily";
 
         const metrics = await calculateHoldingMetrics(tenantId);
