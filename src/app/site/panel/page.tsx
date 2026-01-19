@@ -81,78 +81,106 @@ export default function SitePanelPage() {
   }, [session.saasId]);
 
   return (
-    <div className="space-y-8 text-white">
-      <header className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.4em] text-white/40">Panel</p>
-        <h1 className="text-3xl font-semibold">Mi SaaS</h1>
-        <p className="text-sm text-white/70">Aquí verás la información sincronizada desde DRĀKO BASE una vez completemos el onboarding.</p>
+    <div className="max-w-7xl mx-auto px-8 py-20 space-y-16">
+      <header className="space-y-4">
+        <div className="inline-flex px-3 py-1 rounded bg-brand/10 border border-brand/20 text-brand text-[9px] font-black uppercase tracking-[0.3em]">
+          Control Panel • Terminal
+        </div>
+        <h1 className="text-5xl font-black text-white italic uppercase tracking-tighter">Mi Fábrica <span className="text-brand">SaaS</span></h1>
+        <p className="text-slate-400 font-bold max-w-2xl text-sm leading-relaxed tracking-wide">
+          Sincronización activa con Drako Neural Engine. Aquí puede monitorear la salud y el progreso de sus activos digitales.
+        </p>
       </header>
-      {error && <p className="text-sm text-red-300">{error}</p>}
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card tone="glass" title="SaaS" subtitle="Datos básicos" actions={<Link href={saasCTA} className="text-xs uppercase tracking-[0.3em] text-cyan-300">Ver en Admin</Link>}>
-          <dl className="space-y-2 text-sm text-white/80">
-            <div>
-              <dt className="text-white/50">Nombre</dt>
-              <dd>{saasInfo?.name ?? session.draftSaas?.saasName ?? "Pendiente"}</dd>
+
+      {error && <div className="p-6 rounded-2xl bg-danger/10 border border-danger/20 text-danger text-xs font-bold uppercase tracking-widest animate-pulse">{error}</div>}
+
+      <div className="grid gap-10 md:grid-cols-3">
+        {/* SaaS Module */}
+        <div className="bg-slate-900/40 backdrop-blur-2xl p-10 rounded-[2.5rem] border border-white/5 border-l-brand border-l-4 shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 text-4xl font-black italic">MOD-01</div>
+          <div className="flex justify-between items-start mb-10">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 font-mono">Infraestructura</h4>
+            <Link href={saasCTA} className="text-[9px] font-black uppercase tracking-[0.2em] text-brand hover:scale-110 transition-transform underline underline-offset-4">ADMIN ACCESS</Link>
+          </div>
+          <dl className="space-y-6 text-xs">
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <dt className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">Nombre</dt>
+              <dd className="text-white font-black">{saasInfo?.name ?? session.draftSaas?.saasName ?? "PENDIENTE"}</dd>
             </div>
-            <div>
-              <dt className="text-white/50">Slug</dt>
-              <dd>{saasInfo?.slug ?? session.draftSaas?.saasSlug ?? "Pendiente"}</dd>
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <dt className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">Protocolo (Slug)</dt>
+              <dd className="text-white font-mono">{saasInfo?.slug ?? session.draftSaas?.saasSlug ?? "PENDIENTE"}</dd>
             </div>
-            <div>
-              <dt className="text-white/50">Estado</dt>
-              <dd>{saasInfo?.status ?? (session.saasId ? "Registrado" : "Borrador")}</dd>
-            </div>
-            {saasInfo?.domain && (
-              <div>
-                <dt className="text-white/50">Dominio</dt>
-                <dd>{saasInfo.domain}</dd>
-              </div>
-            )}
-            {saasInfo?.subdomain && (
-              <div>
-                <dt className="text-white/50">Subdominio</dt>
-                <dd>{saasInfo.subdomain}</dd>
-              </div>
-            )}
-          </dl>
-        </Card>
-        <Card tone="glass" title="Cliente" subtitle="Owner + Client">
-          <dl className="space-y-2 text-sm text-white/80">
-            <div>
-              <dt className="text-white/50">Owner</dt>
-              <dd>{session.draftCompany?.ownerName || "Pendiente"}</dd>
-            </div>
-            <div>
-              <dt className="text-white/50">Cliente</dt>
-              <dd>{session.draftCompany?.clientName || "Pendiente"}</dd>
-            </div>
-            <div>
-              <dt className="text-white/50">NIF/CIF</dt>
-              <dd>{session.draftCompany?.clientNif || "—"}</dd>
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <dt className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">Status Operativo</dt>
+              <dd className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand animate-pulse" />
+                <span className="text-brand font-black uppercase tracking-widest">{saasInfo?.status ?? (session.saasId ? "REGISTRADO" : "BORRADOR")}</span>
+              </dd>
             </div>
           </dl>
-        </Card>
-        <Card tone="glass" title="Resumen" subtitle="Datos provenientes de DRĀKO" actions={loading ? <span className="text-xs text-white/50">Cargando…</span> : <span className="text-xs text-white/50">Actualizado</span>}>
-          <ul className="space-y-2 text-sm text-white/70">
-            <li>Facturas: {invoiceCount ?? (session.clientId ? "consultando…" : "0 (pendiente)")}</li>
-            <li>Tickets: {ticketCount ?? (session.clientId ? "consultando…" : "0 (pendiente)")}</li>
-            <li>Último estado: {saasInfo?.status ?? (session.saasId ? "Operativo" : "Sin registrar")}</li>
+        </div>
+
+        {/* Client Module */}
+        <div className="bg-slate-900/40 backdrop-blur-2xl p-10 rounded-[2.5rem] border border-white/5 border-l-cyan-500 border-l-4 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-5 text-4xl font-black italic">MOD-02</div>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-10 font-mono">Entidad Fiscal</h4>
+          <dl className="space-y-6 text-xs">
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <dt className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">Owner</dt>
+              <dd className="text-white font-black">{session.draftCompany?.ownerName || "PENDIENTE"}</dd>
+            </div>
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <dt className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">Entidad</dt>
+              <dd className="text-white font-black">{session.draftCompany?.clientName || "PENDIENTE"}</dd>
+            </div>
+            <div className="flex justify-between border-b border-white/5 pb-2">
+              <dt className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">ID Fiscal</dt>
+              <dd className="text-white font-mono">{session.draftCompany?.clientNif || "—"}</dd>
+            </div>
+          </dl>
+        </div>
+
+        {/* Stats Module */}
+        <div className="bg-slate-900/40 backdrop-blur-2xl p-10 rounded-[2.5rem] border border-white/5 border-l-indigo-500 border-l-4 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-5 text-4xl font-black italic">MOD-03</div>
+          <div className="flex justify-between items-start mb-10">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 font-mono">Telemetría</h4>
+            {loading ? <span className="text-[9px] text-brand animate-pulse font-black">SYNCING...</span> : <span className="text-[9px] text-success font-black">SYNC OK</span>}
+          </div>
+          <ul className="space-y-8">
+            <li className="flex items-end gap-3">
+              <span className="text-4xl font-black text-white">{invoiceCount ?? "—"}</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-2">FACTURAS PEND.</span>
+            </li>
+            <li className="flex items-end gap-3">
+              <span className="text-4xl font-black text-white">{ticketCount ?? "—"}</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-2">TICKETS OPS.</span>
+            </li>
           </ul>
-        </Card>
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-3 text-sm text-white/60">
+
+      <div className="flex flex-wrap items-center gap-6 pt-10 border-t border-white/5">
         <Link
           href={saasCTA}
-          className="inline-flex items-center rounded-xl bg-[var(--brand,#4cc9f0)]/20 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-[var(--brand,#4cc9f0)]/30"
+          className="inline-flex items-center rounded-xl bg-brand px-8 py-3 text-xs font-black uppercase tracking-[0.3em] text-slate-950 transition hover:scale-105 active:scale-95 shadow-[0_0_20px_var(--brand-glow)]"
         >
-          Abrir en DRĀKO BASE
+          MATERIALIZAR EN FOUNDRY
         </Link>
-        <Button variant="outline" onClick={() => clearSession()}>
-          Resetear borrador
-        </Button>
+        <button
+          onClick={() => clearSession()}
+          className="px-8 py-3 rounded-xl border border-white/10 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 hover:bg-white/5 transition-colors"
+        >
+          RESETEAR PROTOCOLO
+        </button>
       </div>
-      {!canLoad && <p className="text-xs text-white/40">Completa el onboarding para ver datos reales aquí.</p>}
+      {!canLoad && (
+        <div className="p-8 rounded-[2rem] bg-indigo-500/5 border border-indigo-500/10 flex items-center gap-6">
+          <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-xl">ℹ️</div>
+          <p className="text-xs text-indigo-300 font-bold uppercase tracking-widest">Protocolo incompleto. Finalice el Onboarding Estratégico para activar la monitorización.</p>
+        </div>
+      )}
     </div>
   );
 }
