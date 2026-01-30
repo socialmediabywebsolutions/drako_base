@@ -273,6 +273,38 @@ export async function runWhatsappAutomation(params: {
     if (intent === "REQUEST_RESCHEDULE") {
       messagesToSend.push({ body: "Hemos registrado tu petición para cambiar la cita. En breve te respondemos.", intent });
     }
+
+    if (intent === "LEAD") {
+      messagesToSend.push({
+        body: "¡Gracias por tu interés en MentorIA Escolar! Soy el asistente de Marketing. Te enviaré un resumen informativo pronto para que veas cómo podemos ayudar a tus alumnos.",
+        intent
+      });
+    }
+
+    if (intent === "FAQ") {
+      messagesToSend.push({
+        body: "He consultado nuestra base de conocimiento: MentorIA es una plataforma de tutoría personalizada que usa IA para adaptarse al ritmo de cada estudiante. ¿Deseas saber más sobre algún módulo específico?",
+        intent
+      });
+    }
+
+    if (intent === "EMOTIONAL") {
+      messagesToSend.push({
+        body: "Siento que estés pasando por un momento difícil. He derivado tu caso al Psicólogo IA, quien te atenderá en breve con total confidencialidad. No estás solo.",
+        intent
+      });
+      await createNotification(conversationsCtx, {
+        saasId: params.saasId,
+        employeeId: null,
+        type: "SYSTEM",
+        severity: "WARNING",
+        title: "Derivación a Psicólogo IA",
+        body: `El usuario ${params.phoneNumber} requiere apoyo emocional.`,
+        relatedEntityType: "CONVERSATION",
+        relatedEntityId: conversation.id,
+        isRead: false,
+      });
+    }
   }
 
   if (actorType === "EMPLOYEE") {

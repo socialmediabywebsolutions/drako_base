@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession, requireTenantAccess, UnauthorizedError, type SessionData } from "@/lib/auth/session";
+import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { resolveTenantId } from "@/lib/tenants/services";
 import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-types";
 import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
@@ -14,8 +14,9 @@ import {
   type ChatMessage,
 } from "@/lib/campamento-base/ai-blueprint-v2/prompts";
 import { type BusinessIntelligence, saveBusinessKnowledge } from "@/lib/campamento-base/bi/knowledge-base";
+import { InterviewOrchestrator, type InterviewPhase } from "@/lib/interviews/orchestrator";
 
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 export const dynamic = "force-dynamic";
 
 type ChatPayload = {
@@ -24,6 +25,7 @@ type ChatPayload = {
   history?: { role: "user" | "assistant"; content: string }[];
   mode?: "partner" | "factory";
   companyId?: string;
+  currentPhase?: number;
 };
 
 // Available packs (simplified list)
@@ -125,21 +127,33 @@ export async function POST(req: Request) {
     };
 
     // Build advanced system prompt with full context
+    const initialPhase = (body.currentPhase ?? 0) as InterviewPhase;
     const systemPrompt = body.mode === "partner"
-      ? buildDrakoPartnerSystemPrompt()
+      ? buildDrakoPartnerSystemPrompt(initialPhase)
       : buildAdvancedSystemPrompt(context);
+
+    // Prepare full message chain for context-aware AI
+    const messagesForAi: { role: "system" | "user" | "assistant"; content: string }[] = [
+      { role: "system", content: systemPrompt },
+      // Inject history (excluding the very last duplicate message if constructed above)
+      // ROLLUP STRATEGY: Keep only the tail (last 15 msgs) to prevent context overflow.
+      // Long-term memory is preserved in the 'currentBlueprint' JSON injected below.
+      ...conversationHistory.slice(0, -1).slice(-15).map(h => ({
+        role: h.role,
+        content: h.content
+      })),
+      // Add the current context-augmented user message
+      {
+        role: "user",
+        content: `CONTEXTO DEL PROYECTO ACTUAL (BLUEPRINT JSON):\n${JSON.stringify(currentBlueprint, null, 2)}\n\nMENSAJE DEL USUARIO ACTUAL: "${body.message}"\n\nINSTRUCCIÓN CRÍTICA: Responde continuando la conversación de forma natural, basándote en el historial previo y avanzando el progreso si corresponde. Responde SIEMPRE con el JSON estructurado.`,
+      },
+    ];
 
     // Call AI with Llama 3.1 70B (smart mode)
     const response = await runAi({
       mode: "smart",
       tenantId,
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: `CURRENT BLUEPRINT JSON:\n${JSON.stringify(currentBlueprint, null, 2)}\n\nUSER MESSAGE: "${body.message}"\n\nResponde con el JSON estructurado según las instrucciones.`,
-        },
-      ],
+      messages: messagesForAi,
     });
 
     if (!response.ok || !response.content) {
@@ -150,33 +164,52 @@ export async function POST(req: Request) {
     const parsed = parseBlueprintResponse(response.content);
 
     // Check if we have a valid response
-    if (!parsed || !parsed.entitlements) {
+    if (!parsed || (!parsed.entitlements && body.mode !== "partner")) {
       return NextResponse.json({
         reply: "No pude entender tu solicitud completamente. ¿Podrías darme más detalles?",
         blueprint: currentBlueprint,
       });
     }
 
-    // Map v2 response to legacy blueprint format
+    // --- PHASE ORCHESTRATION (Hard Validation) ---
+    let orchestratedPhase = initialPhase;
+    if (body.mode === "partner") {
+      const sanitizedAiPhase = typeof parsed.currentPhase === 'number' ? parsed.currentPhase : initialPhase;
+      orchestratedPhase = InterviewOrchestrator.calculateNextPhase(
+        initialPhase,
+        parsed.detectedKnowledge,
+        sanitizedAiPhase
+      );
+
+      // LOG for debugging (Antigravity)
+      console.log(`[FactoryChat] Mode: Partner | Initial: ${initialPhase} | AI Suggested: ${sanitizedAiPhase} | Orchestrated: ${orchestratedPhase}`);
+    }
+
+    // 4. Map v2 response to legacy blueprint format with industrial precision
+    const packs = parsed.entitlements?.packs || [];
+
     const updatedBlueprint: SaasBlueprintDraft = {
       ...currentBlueprint,
-      ownerTenantId: tenantId, // Ensure tenantId is set
+      ownerTenantId: tenantId,
       saasName: parsed.understanding || currentBlueprint.saasName,
       summary: parsed.marketingCopy?.tagline || currentBlueprint.summary,
       initialPricing: {
         ...currentBlueprint.initialPricing,
         currentMonthlyPrice: parsed.pricing.monthly,
       },
-      // Map packs to packsByDepartment (simplified mapping)
+      // Map packs to all departments dynamically
       packsByDepartment: {
-        ...currentBlueprint.packsByDepartment,
-        marketing: parsed.entitlements.packs.includes("marketing")
-          ? "FULL"
-          : parsed.entitlements.packs.includes("social_media")
-            ? "STANDARD"
-            : "BASIC",
-        support: parsed.entitlements.packs.includes("support") ? "STANDARD" : "BASIC",
+        marketing: packs.includes("marketing") ? "FULL" : packs.includes("social_media") ? "STANDARD" : "BASIC",
+        accounting: packs.includes("accounting") ? "FULL" : "BASIC",
+        support: packs.includes("support") ? "STANDARD" : "BASIC",
+        emailIntake: packs.includes("email_intake") ? "FULL" : "BASIC",
+        ops: packs.includes("ops") ? "STANDARD" : "BASIC",
+        tax: packs.includes("tax") ? "FULL" : "BASIC",
       },
+      // Transfer AI Profile if designated as premium
+      aiProfile: {
+        tier: packs.includes("neural_kernel") ? "PREMIUM" : "BALANCED"
+      }
     };
 
     const finalBlueprint = withCampamentoBaseProfile(updatedBlueprint);
@@ -201,16 +234,18 @@ export async function POST(req: Request) {
     }
 
     if (!parsed.reply) {
-      if (parsed.suggestedTemplate) {
+      if (parsed.suggestedTemplate && (parsed.currentPhase || 0) >= 5) {
         reply += `📋 **Template sugerido:** ${parsed.suggestedTemplate}\n`;
       }
 
-      if (parsed.pricing) {
+      if (parsed.pricing && parsed.pricing.monthly > 0) {
         reply += `💰 **Precio recomendado:** $${parsed.pricing.monthly}/mes ($${parsed.pricing.yearly}/año)\n`;
         reply += `_${parsed.pricing.rationale}_\n\n`;
+      } else if (parsed.pricing && (parsed.currentPhase || 0) < 5) {
+        // Silently log or handle low-phase conversation without showing budget
       }
 
-      if (parsed.marketingCopy?.valueProps && parsed.marketingCopy.valueProps.length > 0) {
+      if (parsed.marketingCopy?.valueProps && parsed.marketingCopy.valueProps.length > 0 && (parsed.currentPhase || 0) >= 4) {
         reply += `🎯 **Value props:**\n`;
         parsed.marketingCopy.valueProps.forEach((vp) => {
           reply += `- ${vp}\n`;
@@ -222,15 +257,18 @@ export async function POST(req: Request) {
     return NextResponse.json({
       reply,
       blueprint: finalBlueprint,
-      // Extended v2 data (optional, for advanced clients)
+      // Extended v2 data
       v2: {
-        fullAnalysis: parsed,
+        fullAnalysis: {
+          ...parsed,
+          currentPhase: orchestratedPhase // Overwrite AI's guess with orchestrated reality
+        },
         templates: templates.slice(0, 3).map((t) => ({
           id: t.id,
           skipCache: !req.cache,
           name: t.name,
           slug: t.slug,
-        })) as unknown, // Cast the array to unknown
+        })) as unknown,
       },
     });
   } catch (error) {

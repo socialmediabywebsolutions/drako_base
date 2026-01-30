@@ -9,9 +9,10 @@ interface FoundryLayoutProps {
     chatInput?: string;
     onChatInputChange?: (val: string) => void;
     onSendMessage?: () => void;
+    onReset?: () => void;
 }
 
-export function FoundryLayout({ children, chatComponent, chatInput, onChatInputChange, onSendMessage }: FoundryLayoutProps) {
+export function FoundryLayout({ children, chatComponent, chatInput, onChatInputChange, onSendMessage, onReset }: FoundryLayoutProps) {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     // ... rest of the component
 
@@ -34,6 +35,18 @@ export function FoundryLayout({ children, chatComponent, chatInput, onChatInputC
                             <span className="w-1.5 h-1.5 rounded-full bg-brand opacity-0 group-hover:opacity-100 shadow-[0_0_8px_var(--brand-glow)]" />
                         </button>
                     ))}
+
+                    {onReset && (
+                        <div className="pt-10">
+                            <button
+                                onClick={onReset}
+                                className="w-full px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] bg-red-500/5 text-red-400 border border-red-500/20 hover:bg-red-500/10 transition-all flex items-center gap-3"
+                            >
+                                <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]" />
+                                Borrar Proyecto
+                            </button>
+                        </div>
+                    )}
                 </nav>
 
                 <div className="p-6 border-t border-white/5 bg-slate-900/20 backdrop-blur-xl">

@@ -7,7 +7,7 @@ import {
   resolveConversationsContext,
 } from "@/lib/conversations/repository";
 import type { ConversationActorType } from "@/lib/conversations/types";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 const VALID_ACTOR_TYPES: ConversationActorType[] = ["OWNER", "EMPLOYEE"];

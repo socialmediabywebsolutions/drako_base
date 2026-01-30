@@ -394,6 +394,9 @@ export default function OwnerProjectDetailPage() {
   const [showCustomFeatures, setShowCustomFeatures] = useState(false);
   const [lastKnownEntitlements, setLastKnownEntitlements] = useState<NormalizedProjectEntitlements | null>(null);
 
+  type ActiveTab = "domains" | "entitlements" | "swarm" | "interview" | "quote";
+  const [activeTab, setActiveTab] = useState<ActiveTab>("domains");
+
   const projectId = params?.id;
 
   const loadDomains = useCallback(
@@ -746,118 +749,135 @@ export default function OwnerProjectDetailPage() {
     );
   } else if (state.status === "ready") {
     const detail = state.data;
-    body = (
-      <>
-        <Card tone="glass" title="Metadata" subtitle="Información principal">
-          <div className="grid gap-4 md:grid-cols-3">
-            <MetadataTile label="Estado">
-              <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
-            </MetadataTile>
-            <MetadataTile label="Compañía">
-              {detail.project.company_id ? detail.project.company_id : <span className="italic">Sin compañía</span>}
-            </MetadataTile>
-            <MetadataTile label="Slug">/{detail.project.slug}</MetadataTile>
-            <MetadataTile label="Tenant">{detail.project.tenant_id}</MetadataTile>
-            <MetadataTile label="Creado">{formatDate(detail.project.created_at)}</MetadataTile>
-            <MetadataTile label="Actualizado">{formatDate(detail.project.updated_at)}</MetadataTile>
-          </div>
-        </Card>
+    const tabNav = (
+      <div className="flex flex-wrap gap-2 border-b border-[var(--border)]/30 pb-4 mb-6">
+        <Button size="sm" variant={activeTab === 'domains' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('domains')}>Domains</Button>
+        <Button size="sm" variant={activeTab === 'entitlements' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('entitlements')}>Entitlements</Button>
+        <Button size="sm" variant={activeTab === 'swarm' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('swarm')}>Swarm</Button>
+        <Button size="sm" variant={activeTab === 'interview' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('interview')}>Interview</Button>
+        <Button size="sm" variant={activeTab === 'quote' ? 'secondary' : 'ghost'} onClick={() => setActiveTab('quote')}>Quote</Button>
+      </div>
+    );
 
-        <Card
-          title="Domains"
-          subtitle="Gestión de dominios personalizados"
-          right={<span className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">{domainsState.items.length} registrados</span>}
-        >
-          <div className="space-y-6">
-            <AddDomainForm
-              domain={newDomain}
-              onDomainChange={setNewDomain}
-              loading={adding}
-              onSubmit={async () => {
-                if (!projectId) {
-                  setFeedback({ type: "error", message: "Proyecto no disponible" });
-                  return;
-                }
-                const normalized = sanitizeDomainInput(newDomain);
-                if (!normalized) {
-                  setFeedback({ type: "error", message: "El dominio es obligatorio." });
-                  return;
-                }
-                if (!normalized.includes(".")) {
-                  setFeedback({ type: "error", message: "El dominio debe contener un punto." });
-                  return;
-                }
-                setAdding(true);
-                setFeedback(null);
-                try {
-                  const res = await fetch(`/api/projects/${projectId}/domains`, {
-                    method: "POST",
-                    headers: { "content-type": "application/json" },
-                    cache: "no-store",
-                    body: JSON.stringify({ domain: normalized }),
-                  });
-                  const payload = (await res.json().catch(() => null)) as { ok?: boolean; duplicated?: boolean; error?: string } | null;
-                  if (!res.ok || !payload?.ok) {
-                    throw new Error(payload?.error ?? "No se pudo registrar el dominio.");
+    let tabContent: React.ReactNode = null;
+
+    if (activeTab === "domains") {
+      tabContent = (
+        <>
+          <Card tone="glass" title="Metadata" subtitle="Información principal">
+            <div className="grid gap-4 md:grid-cols-3">
+              <MetadataTile label="Estado">
+                <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+              </MetadataTile>
+              <MetadataTile label="Compañía">
+                {detail.project.company_id ? detail.project.company_id : <span className="italic">Sin compañía</span>}
+              </MetadataTile>
+              <MetadataTile label="Slug">/{detail.project.slug}</MetadataTile>
+              <MetadataTile label="Tenant">{detail.project.tenant_id}</MetadataTile>
+              <MetadataTile label="Creado">{formatDate(detail.project.created_at)}</MetadataTile>
+              <MetadataTile label="Actualizado">{formatDate(detail.project.updated_at)}</MetadataTile>
+            </div>
+          </Card>
+
+          <Card
+            title="Domains"
+            subtitle="Gestión de dominios personalizados"
+            right={<span className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">{domainsState.items.length} registrados</span>}
+          >
+            <div className="space-y-6">
+              <AddDomainForm
+                domain={newDomain}
+                onDomainChange={setNewDomain}
+                loading={adding}
+                onSubmit={async () => {
+                  if (!projectId) {
+                    setFeedback({ type: "error", message: "Proyecto no disponible" });
+                    return;
                   }
-                  setNewDomain("");
-                  await loadDomains(projectId);
-                  setFeedback({
-                    type: "success",
-                    message: payload.duplicated ? "El dominio ya existía y se reutilizó." : "Dominio añadido correctamente.",
-                  });
-                } catch (error) {
-                  setFeedback({ type: "error", message: error instanceof Error ? error.message : "No se pudo registrar el dominio." });
-                } finally {
-                  setAdding(false);
-                }
-              }}
-            />
+                  const normalized = sanitizeDomainInput(newDomain);
+                  if (!normalized) {
+                    setFeedback({ type: "error", message: "El dominio es obligatorio." });
+                    return;
+                  }
+                  if (!normalized.includes(".")) {
+                    setFeedback({ type: "error", message: "El dominio debe contener un punto." });
+                    return;
+                  }
+                  setAdding(true);
+                  setFeedback(null);
+                  try {
+                    const res = await fetch(`/api/projects/${projectId}/domains`, {
+                      method: "POST",
+                      headers: { "content-type": "application/json" },
+                      cache: "no-store",
+                      body: JSON.stringify({ domain: normalized }),
+                    });
+                    const payload = (await res.json().catch(() => null)) as { ok?: boolean; duplicated?: boolean; error?: string } | null;
+                    if (!res.ok || !payload?.ok) {
+                      throw new Error(payload?.error ?? "No se pudo registrar el dominio.");
+                    }
+                    setNewDomain("");
+                    await loadDomains(projectId);
+                    setFeedback({
+                      type: "success",
+                      message: payload.duplicated ? "El dominio ya existía y se reutilizó." : "Dominio añadido correctamente.",
+                    });
+                  } catch (error) {
+                    setFeedback({ type: "error", message: error instanceof Error ? error.message : "No se pudo registrar el dominio." });
+                  } finally {
+                    setAdding(false);
+                  }
+                }}
+              />
 
-            {feedback ? (
-              <div
-                className={`rounded-xl border px-4 py-3 text-sm ${
-                  feedback.type === "success"
+              {feedback ? (
+                <div
+                  className={`rounded-xl border px-4 py-3 text-sm ${feedback.type === "success"
                     ? "border-emerald-400/40 bg-emerald-100/20 text-emerald-900"
                     : "border-rose-400/60 bg-rose-100/30 text-rose-900"
-                }`}
-              >
-                {feedback.message}
-              </div>
-            ) : null}
+                    }`}
+                >
+                  {feedback.message}
+                </div>
+              ) : null}
 
-            <DomainsSection
-              state={domainsState}
-              verifyingId={verifying}
-              onReload={() => projectId && loadDomains(projectId)}
-              onAddRequest={() => setNewDomain((current) => current || "example.com")}
-              onVerify={async (domainId) => {
-                if (!projectId) return;
-                setVerifying(domainId);
-                setFeedback(null);
-                try {
-                  const res = await fetch(`/api/projects/${projectId}/domains/verify`, {
-                    method: "POST",
-                    headers: { "content-type": "application/json" },
-                    cache: "no-store",
-                    body: JSON.stringify({ domainId }),
-                  });
-                  const payload = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
-                  if (!res.ok || !payload?.ok) {
-                    throw new Error(payload?.error ?? "Verificación fallida");
+              <DomainsSection
+                state={domainsState}
+                verifyingId={verifying}
+                onReload={() => projectId && loadDomains(projectId)}
+                onAddRequest={() => setNewDomain((current) => current || "example.com")}
+                onVerify={async (domainId) => {
+                  if (!projectId) return;
+                  setVerifying(domainId);
+                  setFeedback(null);
+                  try {
+                    const res = await fetch(`/api/projects/${projectId}/domains/verify`, {
+                      method: "POST",
+                      headers: { "content-type": "application/json" },
+                      cache: "no-store",
+                      body: JSON.stringify({ domainId }),
+                    });
+                    const payload = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+                    if (!res.ok || !payload?.ok) {
+                      throw new Error(payload?.error ?? "Verificación fallida");
+                    }
+                    await loadDomains(projectId);
+                    setFeedback({ type: "success", message: "Verificación solicitada. Revisa el estado en unos minutos." });
+                  } catch (error) {
+                    setFeedback({ type: "error", message: error instanceof Error ? error.message : "No se pudo verificar el dominio." });
+                  } finally {
+                    setVerifying(null);
                   }
-                  await loadDomains(projectId);
-                  setFeedback({ type: "success", message: "Verificación solicitada. Revisa el estado en unos minutos." });
-                } catch (error) {
-                  setFeedback({ type: "error", message: error instanceof Error ? error.message : "No se pudo verificar el dominio." });
-                } finally {
-                  setVerifying(null);
-                }
-              }}
-            />
-          </div>
-        </Card>
+                }}
+              />
+            </div>
+          </Card>
+        </>
+      );
+    }
 
+    if (activeTab === "entitlements") {
+      tabContent = (
         <Card title="Entitlements" subtitle="Packs y funcionalidades asignadas">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-[0.25em] text-[var(--muted)]">
             <span>
@@ -1090,11 +1110,10 @@ export default function OwnerProjectDetailPage() {
               </div>
               {formFeedback ? (
                 <div
-                  className={`rounded-xl border px-4 py-3 text-sm ${
-                    formFeedback.type === "success"
-                      ? "border-emerald-400/40 bg-emerald-100/20 text-emerald-900"
-                      : "border-rose-400/60 bg-rose-100/30 text-rose-900"
-                  }`}
+                  className={`rounded-xl border px-4 py-3 text-sm ${formFeedback.type === "success"
+                    ? "border-emerald-400/40 bg-emerald-100/20 text-emerald-900"
+                    : "border-rose-400/60 bg-rose-100/30 text-rose-900"
+                    }`}
                 >
                   {formFeedback.message}
                 </div>
@@ -1110,8 +1129,38 @@ export default function OwnerProjectDetailPage() {
             </>
           )}
         </Card>
+      );
+    }
+
+    if (activeTab === "swarm") {
+      tabContent = (
+        <Card title="Swarm Configuration" subtitle="Active Agents & Configuration">
+          <EmptyState title="Swarm Configuration" subtitle="Configure and monitor your agent swarm." />
+        </Card>
+      );
+    }
+    if (activeTab === "interview") {
+      tabContent = (
+        <Card title="Interview Timeline" subtitle="Conversational Progress & Facts">
+          <EmptyState title="Interview Engine" subtitle="Track the progress of the automated interview." />
+        </Card>
+      );
+    }
+    if (activeTab === "quote") {
+      tabContent = (
+        <Card title="Pricing Quote" subtitle="Financial Estimation">
+          <EmptyState title="Pricing Engine" subtitle="View and manage the generated pricing quote." />
+        </Card>
+      );
+    }
+
+    body = (
+      <>
+        {tabNav}
+        {tabContent}
       </>
     );
+
   } else {
     body = null;
   }

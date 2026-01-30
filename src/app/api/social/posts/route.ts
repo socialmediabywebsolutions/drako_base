@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { listSaasSocialPosts, resolveSocialContext, SocialContextError, upsertSaasSocialPost } from "@/lib/social/repository";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function GET(request: Request) {

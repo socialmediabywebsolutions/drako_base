@@ -13,6 +13,8 @@ import { deriveStripeWebhookAnomalies } from "@/lib/billing/stripe-webhook-anoma
 import { createOrMergeActionFromWebhook } from "@/lib/owner/action-queue-repository";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
 import { respondDatabaseError } from "@/lib/http/errors";
+import { createSaasFromBlueprint } from "@/lib/campamento-base/saas-factory-orchestrator";
+import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
 import {
   findStripeWebhookEvent,
   insertStripeWebhookReceived,
@@ -20,7 +22,7 @@ import {
   updateStripeWebhookFailed,
 } from "@/lib/billing/stripe-webhook-repository";
 import { ensureStripeWebhookDedupe } from "@/lib/billing/stripe-webhook-processor";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 function getWebhookSecret(): string | null {
   if (typeof process !== "undefined" && process.env.STRIPE_WEBHOOK_SECRET) {
@@ -144,6 +146,7 @@ async function handleCheckoutSession(stripe: Stripe, session: Stripe.Checkout.Se
     subscription.metadata.planCode = metadata.planCode;
   }
   await persistSubscriptionFromStripe(subscription);
+
   if (metadata.saasPlanId) {
     try {
       console.log("[STRIPE_WEBHOOK] Syncing plan features", { tenantId: metadata.tenantId, saasId: metadata.saasId, eventType: "checkout.session.completed" });
@@ -153,6 +156,48 @@ async function handleCheckoutSession(stripe: Stripe, session: Stripe.Checkout.Se
         tenantId: metadata.tenantId,
         saasId: metadata.saasId,
         eventType: "checkout.session.completed",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (metadata.plan === "mentoria_ia") {
+    try {
+      console.log("[STRIPE_WEBHOOK] Triggering MentorIA SaaS Factory", { tenantId: metadata.tenantId });
+      const blueprint = withCampamentoBaseProfile({
+        ownerTenantId: metadata.tenantId,
+        saasName: "MentorIA Escolar",
+        proposedSlug: metadata.saasSlug ?? "mentor-ia-escolar",
+        proposedSubdomain: metadata.saasSlug ?? "mentor-ia-escolar",
+        verticalId: "OTHER",
+        summary: "IA para tutoría escolar",
+        targetAudience: "Instituciones educativas",
+        mainProblem: "Falta de apoyo personalizado",
+        mainGoal: "Brindar tutoría mediante IA",
+        packsByDepartment: {
+          accounting: "BASIC",
+          marketing: "BASIC",
+          support: "BASIC"
+        },
+        initialPricing: {
+          currentMonthlyPrice: 49,
+          estimatedVendorCostMonthly: 10,
+        },
+        aiProfile: {
+          tier: "BALANCED",
+        }
+      });
+
+      await createSaasFromBlueprint({
+        env: env(),
+        ownerTenantId: metadata.tenantId,
+        blueprint,
+      });
+
+      console.log("[STRIPE_WEBHOOK] MentorIA SaaS Factory completed", { tenantId: metadata.tenantId });
+    } catch (error) {
+      console.error("[STRIPE_WEBHOOK] MENTOR_IA_FACTORY_ERROR", {
+        tenantId: metadata.tenantId,
         error: error instanceof Error ? error.message : String(error),
       });
     }

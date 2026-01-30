@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { queryAll } from "@/lib/db";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 type Department = { id: string; name: string; description: string | null };

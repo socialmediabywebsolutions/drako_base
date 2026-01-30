@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { listSaasSocialAccounts, resolveSocialContext, SocialContextError, upsertSaasSocialAccount } from "@/lib/social/repository";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function GET(request: Request) {
@@ -49,6 +49,7 @@ export async function POST(request: Request) {
     const { tenantId } = await requireTenantAccess(request);
     const ctx = await resolveSocialContext({ tenantId, saasId });
     const provider = body.provider as "INSTAGRAM" | "FACEBOOK_PAGE" | "TIKTOK" | "WHATSAPP" | "OTHER";
+    // CONNECTED_REAL status is required for production autopublish
     const status = body.status as "DISCONNECTED" | "CONNECTED_DEMO" | "CONNECTED_REAL";
     const account = await upsertSaasSocialAccount(ctx, {
       id: body.id,

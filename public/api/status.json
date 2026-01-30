@@ -1,0 +1,52 @@
+{
+    "system": "DrakoBase",
+    "version": "1.0.0",
+    "lastUpdated": "2026-01-29",
+    "infrastructure": {
+        "runtime": "Cloudflare Workers + OpenNext",
+        "status": "stable",
+        "entryPoint": ".open-next/worker.js",
+        "envProfiles": [
+            "production",
+            "preview",
+            "local"
+        ]
+    },
+    "bindings": {
+        "active": [
+            "draco_db (D1)",
+            "ai (AI)",
+            "session_kv (KV)",
+            "logs_r2 (R2)",
+            "emails_queue (Queue)"
+        ],
+        "bottom_up_draft": [
+            "experimental_kv (KV)"
+        ],
+        "unregistered": []
+    },
+    "watchdogAlerts": {
+        "draftsInProduction": false,
+        "unregisteredBindings": false,
+        "envConflicts": false
+    },
+    "ciVerifiers": {
+        "check-bindings-registered": "pass",
+        "check-env-profile": "pass",
+        "check-watchdog-consistency": "pass"
+    },
+    "learningCycle": {
+        "id": "learning-cycle-v1",
+        "status": "active",
+        "signals": 4,
+        "artefactsChanged": 3,
+        "nextReview": "2026-02-15"
+    },
+    "links": {
+        "heartbeat": "/docs/knowledge/status.md",
+        "bindings": "/docs/infra/bindings-registry.md",
+        "envProfiles": "/docs/infra/env-profiles.md",
+        "verifiers": "/docs/infra/ci-verifiers.md",
+        "dashboardSchema": "/docs/infra/dashboard-schema.md"
+    }
+}

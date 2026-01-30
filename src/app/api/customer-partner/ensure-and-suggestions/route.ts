@@ -7,7 +7,7 @@ import {
   resolveCustomersContext,
   updateSaasCustomer,
 } from "@/lib/customers/repository";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function POST(request: Request) {

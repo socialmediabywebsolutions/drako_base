@@ -1,29 +1,37 @@
 name = "drako-base-3"
+main = ".open-next/worker.js" 
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = ".vercel/output/static"
 
 # ✅ Workers AI binding (required for AI features)
 [ai]
 binding = "AI"
 
-# ✅ Production DB (Pages default environment)
+# ✅ Production DB
 [[d1_databases]]
 binding = "DRACO_DB"
 database_name = "drako_db_prod"
 database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 
-# ✅ Preview DB (branch/preview deploys)
+# ✅ Preview DB
 [env.preview]
+main = ".open-next/worker.js"
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = ".vercel/output/static"
 
 [[env.preview.d1_databases]]
 binding = "DRACO_DB"
 database_name = "drako_db"
 database_id = "10146888-ca79-41d6-b6c2-bf1025eb651b"
 
-# ✅ AI binding for Preview
 [env.preview.ai]
 binding = "AI"
+
+# 🛰️ Alerts Agent Trigger (Cron)
+[triggers]
+crons = ["*/10 * * * *"]
+
+# 🔐 Environment Variables
+[vars]
+# ALERT_WEBHOOK_URL should be set as a secret in production
+ALERT_WEBHOOK_URL = "https://hooks.slack.com/services/XXX/YYY/ZZZ"

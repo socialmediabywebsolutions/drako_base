@@ -4,7 +4,7 @@ import { queryAll } from "@/lib/db";
 import { getDemoOwner } from "@/lib/admin/demo-data";
 import { handleTaxApiError } from "@/lib/tax/api-helpers";
 import { buildOwnerTaxPortfolioSummary } from "@/lib/tax/portfolio";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 type OwnerRow = { id: string };

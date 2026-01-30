@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { handleEconomyApiError } from "@/lib/economy/api-helpers";
 import { getSaasPricingSettings, resolveEconomyContext, upsertSaasPricingSettings } from "@/lib/economy/repository";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function GET(request: Request) {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { env, type DracoEnv } from "@/lib/cf";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { buildDevArchitectProjectMetrics, listDevArchitectChecklists, listDevArchitectProjects, listDevArchitectSessions } from "@/lib/dev-architects/store";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 async function resolveTenantId(req: Request): Promise<string> {

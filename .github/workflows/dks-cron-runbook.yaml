@@ -1,0 +1,66 @@
+name: 🔁 DKS Cron Runbook
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # Cada 10 minutos: Verificador de Alertas
+    - cron: '0 * * * *'      # Cada 1 hora: Auditor de Salud Manual
+    - cron: '0 3 * * *'      # Cada noche a las 03:00: Snapshot Infra
+    - cron: '0 6 * * 1'      # Cada lunes a las 06:00: Limpieza de Drafts
+  workflow_dispatch:         # Permite ejecución manual
+
+jobs:
+  alerts-agent:
+    name: 🚨 Verificador de Alertas (Worker)
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📦 Instalar Wrangler
+        run: npm install -g wrangler
+      - name: 🚀 Ejecutar Worker
+        run: npx wrangler deploy workers/alerts-agent.ts --name drako-alerts-agent
+
+  alerts-check:
+    name: 🧪 Auditor Manual de Salud
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Checkout
+        uses: actions/checkout@v4
+      - name: 🔧 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: 📦 Instalar dependencias
+        run: npm install
+      - name: 🔍 Ejecutar Auditor Local
+        run: npx tsx scripts/alerts-check.ts
+
+  snapshot-status:
+    name: 📤 Snapshot de Infraestructura
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📦 Descargar snapshot
+        run: curl -s https://drako.group/api/status.json -o snapshot-status.json
+      - name: 📁 Subir como artifact (opcional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-status
+          path: snapshot-status.json
+
+  cleanup-drafts:
+    name: 🧹 Limpieza de Drafts y Logs (opcional)
+    if: github.event.schedule == '0 6 * * 1'  # Solo semanal
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Checkout
+        uses: actions/checkout@v4
+      - name: 🔧 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: 📦 Instalar dependencias
+        run: npm install
+      - name: 🧼 Ejecutar limpieza (opcional)
+        run: |
+          if [ -f scripts/purge-drafts.ts ]; then
+            npx tsx scripts/purge-drafts.ts
+          else
+            echo "No purge script found. Skipping."

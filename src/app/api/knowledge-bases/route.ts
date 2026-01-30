@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ensureDatabase, queryOne, run } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 type SessionRow = { id: string; data_json: string };

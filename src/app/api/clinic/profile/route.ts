@@ -3,7 +3,7 @@ import { requireTenantAccess } from "@/lib/auth/session";
 import { resolveClinicContext } from "@/lib/clinic/context";
 import { handleClinicApiError } from "@/lib/clinic/api-helpers";
 import { getClinicProfile, saveClinicProfile } from "@/lib/clinic/repository";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function GET(request: Request) {

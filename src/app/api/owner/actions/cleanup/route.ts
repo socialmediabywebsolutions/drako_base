@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { UnauthorizedError, requireTenantAccess } from "@/lib/auth/session";
 import { runActionQueueRetention } from "@/lib/owner/action-queue-retention";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function POST(request: Request) {

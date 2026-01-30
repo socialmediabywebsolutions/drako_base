@@ -78,6 +78,7 @@ Date: 2026-01-06
   - `/api/health` en prod/preview con `bindings.dracoDb: true`.
   - `/api/diag` y `/api/health` mostrando el `action` que apunta a `Settings → Bindings`.
   - `build.pages.commitSha` igual al SHA esperado para el release.
+- **Agents catalog v1 OK** — verified via `npm run test:agents-catalog`. See [agents-catalog-audit.md](file:///c:/CAMPAMENTO%20BASE%20DRAKO/drako_base/docs/upgrade/agents-catalog-audit.md).
 
 ## Next actions
 1) Deploy latest commits to production.

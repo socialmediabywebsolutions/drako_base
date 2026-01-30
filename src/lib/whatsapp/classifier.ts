@@ -15,6 +15,16 @@ export function classifyWhatsappIntent(actorType: WhatsappActorType | null, body
 
   if (normalized.includes("menu")) return "SHOW_MENU";
 
+  if (normalized.includes("interesado") || normalized.includes("info") || normalized.includes("precio") || normalized.includes("cuanto cuesta")) {
+    return "LEAD";
+  }
+  if (normalized.includes("como funciona") || normalized.includes("ayuda") || normalized.includes("duda") || normalized.includes("pregunta")) {
+    return "FAQ";
+  }
+  if (normalized.includes("triste") || normalized.includes("mal") || normalized.includes("necesito hablar") || normalized.includes("apoyo")) {
+    return "EMOTIONAL";
+  }
+
   if (actorType === "CUSTOMER" || actorType === null) {
     if (normalized.includes("proxima cita") || normalized.includes("próxima cita") || normalized.includes("cuando es mi proxima cita")) {
       return "CUSTOMER_NEXT_APPOINTMENT";
