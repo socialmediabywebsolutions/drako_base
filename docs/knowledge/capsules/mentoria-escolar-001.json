@@ -1,0 +1,61 @@
+{
+    "tenant_id": "mentoria-escolar-001",
+    "name": "MentorIA Escolar",
+    "domain": "mentoriaescolar.drako.systems",
+    "infrastructure": {
+        "cloudflare": {
+            "pages_project": "mentoria-escolar-v1",
+            "d1_database": "DRAKO_DB",
+            "kv_namespace": "DRAKO_KV",
+            "r2_bucket": "mentoria-assets"
+        }
+    },
+    "agents": [
+        {
+            "id": "agent-tutor-001",
+            "role": "Tutor IA",
+            "prompt_id": "mentor-ia-prompts#1-4",
+            "status": "ready"
+        },
+        {
+            "id": "agent-psych-001",
+            "role": "Psicólogo IA",
+            "prompt_id": "mentor-ia-prompts#5-7",
+            "status": "ready"
+        },
+        {
+            "id": "agent-orient-001",
+            "role": "Orientador Académico",
+            "prompt_id": "mentor-ia-prompts#8-10",
+            "status": "ready"
+        },
+        {
+            "id": "agent-orch-001",
+            "role": "Orquestador IA",
+            "prompt_id": "mentor-ia-prompts#11-14",
+            "status": "active"
+        }
+    ],
+    "connectors": {
+        "whatsapp": {
+            "mode": "dry-run",
+            "events": [
+                "mentoria.event.whatsapp.inbound"
+            ]
+        },
+        "gmail": {
+            "mode": "dry-run",
+            "events": [
+                "mentoria.event.gmail.incoming"
+            ]
+        }
+    },
+    "ui_config": {
+        "layout": "three-pillar",
+        "theme": {
+            "primary": "#2196F3",
+            "secondary": "#E3F2FD",
+            "style": "glassmorphism"
+        }
+    }
+}

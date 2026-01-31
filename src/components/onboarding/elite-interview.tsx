@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-
 import { type BlueprintResponse } from "@/lib/campamento-base/ai-blueprint-v2/prompts";
 
 interface Message {
@@ -21,55 +20,93 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
     const [currentPhase, setCurrentPhase] = useState(0);
     const [projectName, setProjectName] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const [isLoaded, setIsLoaded] = useState(false);
 
-    // Auto-scroll
+    // 1. Cargar memoria persistente al iniciar
     useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-    }, [messages, isTyping]);
+        const savedMemory = localStorage.getItem("drako_interview_memory");
+        const savedPhase = localStorage.getItem("drako_interview_phase");
+        const savedProject = localStorage.getItem("drako_interview_project");
 
-    // Primer mensaje (Fase 0)
-    useEffect(() => {
-        const startInterview = async () => {
+        if (savedMemory) {
+            try {
+                setMessages(JSON.parse(savedMemory));
+                if (savedPhase) setCurrentPhase(parseInt(savedPhase));
+                if (savedProject) setProjectName(savedProject);
+            } catch (e) {
+                console.error("Error recuperando memoria de Drako:", e);
+            }
+        } else {
+            // Si no hay memoria previa, iniciar protocolo estándar
             setIsTyping(true);
             setTimeout(() => {
                 const firstMessage: Message = {
                     role: "assistant",
-                    content: "Hola, soy **Drako Partner**, tu arquitecto de negocio. Voy a hacerte una entrevista conversacional para entender tu visión. Mientras hablamos, analizaré tu mercado y competencia para darte un diagnóstico real y un presupuesto llave en mano. \n\nPara empezar, **¿cuál es tu sitio web, tus redes sociales y tu objetivo principal con este proyecto?**"
+                    content: "Soy **Drako Partner**, tu consultor de digitalización empresarial.\n\nMi objetivo es entender tu negocio en profundidad para diseñarte una solución tecnológica que **genere retorno real** en menos de 6 meses.\n\nNo vendo software genérico. Arquitecto sistemas a medida basándome en:\n• Tu operativa actual\n• Tus costes reales\n• Tus objetivos de crecimiento\n\n**Para empezar:** Cuéntame sobre tu negocio. ¿A qué te dedicas? ¿Tienes web o redes sociales donde pueda ver tu proyecto?"
                 };
                 setMessages([firstMessage]);
                 setIsTyping(false);
-            }, 1000);
-        };
-        startInterview();
+            }, 1200);
+        }
+        setIsLoaded(true);
     }, []);
+
+    // 2. Guardar memoria en cada actualización
+    useEffect(() => {
+        if (!isLoaded || messages.length === 0) return;
+        localStorage.setItem("drako_interview_memory", JSON.stringify(messages));
+        localStorage.setItem("drako_interview_phase", currentPhase.toString());
+        if (projectName) localStorage.setItem("drako_interview_project", projectName);
+    }, [messages, currentPhase, projectName, isLoaded]);
+
+    // Guardar memoria helper
+    const saveMemory = (msgs: Message[], phase: number, project: string | null) => {
+        localStorage.setItem("drako_interview_memory", JSON.stringify(msgs));
+        localStorage.setItem("drako_interview_phase", phase.toString());
+        if (project) localStorage.setItem("drako_interview_project", project);
+    };
 
     const handleSend = async () => {
         if (!input.trim()) return;
 
         const userMessage: Message = { role: "user", content: input };
-        setMessages(prev => [...prev, userMessage]);
+        const newMessages = [...messages, userMessage];
+
+        // 1. UI Update inmediata
+        setMessages(newMessages);
         setInput("");
         setIsTyping(true);
 
+        // 2. Persistencia Inmediata (Backup)
+        saveMemory(newMessages, currentPhase, projectName);
+
         try {
+            // Construct context from previous messages
+            const contextMessages = newMessages.map(m => ({
+                role: m.role,
+                content: m.content
+            }));
+
             const response = await fetch("/api/campamento-base/saas-factory/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    message: input,
-                    history: messages,
-                    mode: "partner"
+                    message: input, // Original input for the current turn
+                    history: contextMessages, // Full history for context
+                    mode: "partner",
+                    currentPhase: currentPhase
                 })
             });
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({})) as { error?: string };
-                setMessages(prev => [...prev, {
+                const errorMessage: Message = {
                     role: "assistant",
-                    content: `⚠️ **ERROR TÉCNICO**: El servidor respondió con estado ${response.status}. ${errorData.error || "No se pudo establecer conexión con el motor de IA. Por favor, asegúrese de que el entorno esté configurado correctamente."}`
-                }]);
+                    content: `⚠️ **Error de Sistema**: ${errorData.error || "No se pudo procesar tu mensaje. Por favor, intenta de nuevo."}`
+                };
+                const updatedMessagesWithError = [...newMessages, errorMessage];
+                setMessages(updatedMessagesWithError);
+                saveMemory(updatedMessagesWithError, currentPhase, projectName);
                 return;
             }
 
@@ -78,166 +115,236 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
                 v2?: { fullAnalysis?: { currentPhase?: number } }
             };
 
+            const analysis = data.v2?.fullAnalysis as (BlueprintResponse & { currentPhase?: number });
+
             if (data?.reply) {
-                setMessages(prev => [...prev, { role: "assistant", content: data.reply as string }]);
-                const analysis = data.v2?.fullAnalysis as (BlueprintResponse & { currentPhase?: number });
+                const aiMessage: Message = { role: "assistant", content: data.reply as string };
+                const updatedMessagesWithAi = [...newMessages, aiMessage];
+                setMessages(updatedMessagesWithAi);
+            }
 
-                if (analysis && typeof analysis.currentPhase === 'number') {
-                    const nextPhase = analysis.currentPhase;
-                    setCurrentPhase(nextPhase);
+            if (analysis) {
+                const nextPhaseValue = typeof analysis.currentPhase === 'number' ? analysis.currentPhase : currentPhase;
+                console.log(`[Drako] Phase Transition: ${currentPhase} -> ${nextPhaseValue}`);
 
-                    if (analysis.understanding && analysis.understanding !== "Unable to parse AI response") {
-                        setProjectName(analysis.understanding);
-                    }
+                setCurrentPhase(nextPhaseValue);
 
-                    if (nextPhase >= 10 && onComplete) {
-                        setTimeout(() => onComplete(analysis), 3000);
-                    }
+                const identityName = analysis.detectedKnowledge?.identity &&
+                    (analysis.detectedKnowledge.identity as Record<string, unknown>).name as string;
+
+                if (identityName) {
+                    setProjectName(identityName);
+                } else if (analysis.understanding && analysis.understanding.length < 50) {
+                    setProjectName(analysis.understanding);
+                }
+
+                if (nextPhaseValue >= 5 && onComplete) {
+                    console.log("[Drako] Materializing Foundry... Phase >= 5 reached.");
+                    setTimeout(() => onComplete(analysis), 3000);
                 }
             }
         } catch (error) {
             console.error("Error en la entrevista:", error);
             setMessages(prev => [...prev, {
                 role: "assistant",
-                content: "🛑 **ERROR DE RED**: No se pudo contactar con Drako Systems. Verifique su conexión o intente reiniciar la sesión."
+                content: "🛑 **Error de Conexión**: No se pudo contactar con el servidor. Verifica tu conexión."
             }]);
         } finally {
             setIsTyping(false);
         }
     };
 
+    // Dev tool: Reset
+    const resetMemory = () => {
+        if (confirm("¿Estás seguro de que quieres borrar el historial y empezar de nuevo desde la Fase 0?")) {
+            // Limpieza Total
+            localStorage.clear(); // Nuclear option for safety
+            sessionStorage.clear();
+
+            // Re-init state
+            setMessages([]);
+            setCurrentPhase(0);
+            setProjectName(null);
+
+            window.location.href = window.location.pathname; // Hard reload without hash/params
+        }
+    };
+
     return (
-        <div className="w-full max-w-5xl mx-auto flex flex-col h-[800px] bg-[#020617]/95 backdrop-blur-[100px] rounded-[2rem] overflow-hidden border-2 border-white/20 shadow-[0_0_100px_-20px_rgba(0,210,255,0.15)] relative group/chat">
-            {/* Scanning Line Animation */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-20">
-                <motion.div
-                    animate={{ y: ["0%", "100%", "0%"] }}
-                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                    className="h-[2px] w-full bg-gradient-to-r from-transparent via-brand to-transparent shadow-[0_0_15px_var(--brand-glow)]"
-                />
+        <div className="w-full max-w-6xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col md:flex-row min-h-[600px]">
+
+            {/* Sidebar Steps (Desktop) */}
+            <div className="hidden md:flex flex-col w-64 bg-slate-50 border-r border-slate-200 p-6 space-y-8">
+                <div>
+                    <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Progreso</span>
+                    <h3 className="font-bold text-slate-800 text-lg mt-1">Materialización</h3>
+                </div>
+
+                <div className="relative space-y-6 flex-1">
+                    {/* Vertical Line */}
+                    <div className="absolute left-3.5 top-2 bottom-2 w-0.5 bg-slate-200 -z-10" />
+
+                    {[
+                        { title: "Diagnóstico", desc: "4-5 preguntas" },
+                        { title: "Blueprint", desc: "Arquitectura" },
+                        { title: "Diseño", desc: "Identidad Visual" },
+                        { title: "Presupuesto", desc: "Validación" },
+                        { title: "Despliegue", desc: "Producción" }
+                    ].map((step, i) => (
+                        <div key={i} className={`flex gap-4 relative ${i === currentPhase ? 'opacity-100' : i < currentPhase ? 'opacity-50' : 'opacity-40'}`}>
+                            <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all z-10 ${i <= currentPhase ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-300 text-slate-400'
+                                }`}>
+                                {i < currentPhase ? '✓' : i + 1}
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-sm text-slate-800">{step.title}</h4>
+                                <p className="text-[10px] text-slate-500 font-medium">{step.desc}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                    <p className="text-xs text-blue-800 font-medium leading-relaxed">
+                        &quot;Analizando cada respuesta para optimizar tu infraestructura.&quot;
+                    </p>
+                </div>
             </div>
 
-            {/* Background Texture/Grid */}
-            <div className="absolute inset-0 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03]" />
+            {/* Main Chat Area */}
+            <div className="flex-1 flex flex-col relative bg-white">
 
-            {/* Industrial Header */}
-            <div className="bg-slate-900/40 px-10 py-6 border-b border-white/10 flex items-center justify-between relative z-10 backdrop-blur-md">
-                <div className="flex items-center gap-6">
-                    <div className="relative">
-                        <div className="w-14 h-14 rounded-2xl bg-brand/10 border-2 border-brand/50 flex items-center justify-center text-3xl shadow-[0_0_20px_rgba(0,210,255,0.3)] animate-pulse">🐲</div>
-                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-[#020617] shadow-[0_0_10px_#10b981]" />
-                    </div>
+                {/* Header */}
+                <div className="bg-white border-b border-slate-100 px-8 py-4 flex justify-between items-center sticky top-0 z-20 backdrop-blur-md bg-white/95">
                     <div>
-                        <h3 className="font-black text-sm uppercase tracking-[0.4em] text-white italic">
-                            {projectName ? `Project: ${projectName}` : "Drako Partner"}
+                        <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                            {projectName || "Consultoría Digital Personalizada"}
                         </h3>
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className="h-1 w-1 bg-brand rounded-full animate-ping" />
-                            <p className="text-[9px] font-black text-brand uppercase tracking-[0.3em]">Neural Link Established • Session Elite v3.0</p>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wide">
+                            {isTyping ? "Drako escribiendo..." : "Esperando respuesta..."}
+                        </p>
+                    </div>
+                    <div className="md:hidden text-xs font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-600">
+                        Fase {currentPhase + 1}/5
+                    </div>
+                </div>
+
+                {/* Info Banner */}
+                <div className="bg-blue-50 border-b border-blue-100 px-8 py-3">
+                    <div className="max-w-5xl mx-auto flex items-start gap-3">
+                        <div className="text-blue-600 mt-0.5 text-sm">ℹ️</div>
+                        <p className="text-sm font-medium text-blue-900 leading-relaxed">
+                            Responde con honestidad. Tus respuestas definen la arquitectura técnica y el coste final.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Chat Area */}
+                <div ref={scrollRef} className="flex-1 overflow-y-auto px-8 py-8 bg-slate-50 relative">
+                    {/* Background Pattern */}
+                    <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+                        style={{ backgroundImage: "radial-gradient(#0f172a 1px, transparent 1px)", backgroundSize: "24px 24px" }}
+                    />
+
+                    <div className="max-w-4xl mx-auto space-y-6 relative z-10">
+                        <AnimatePresence initial={false}>
+                            {messages.map((m, i) => (
+                                <motion.div
+                                    key={i}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                                >
+                                    {m.role === "assistant" && (
+                                        <div className="flex-shrink-0 mr-4">
+                                            <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs shadow-xl ring-4 ring-white">
+                                                DP
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className={`max-w-[85%] rounded-2xl px-6 py-4 shadow-sm ${m.role === "user"
+                                        ? "bg-slate-900 text-white"
+                                        : "bg-white text-slate-800 border border-slate-200"
+                                        }`}>
+                                        <div className="prose prose-sm max-w-none">
+                                            {m.content.split("\n").map((line, idx) => (
+                                                <p key={idx} className={`${idx > 0 ? "mt-2" : ""} ${m.role === "user" ? "text-slate-100" : "text-slate-700"} text-[15px] leading-relaxed`}>
+                                                    {line}
+                                                </p>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ))}
+
+                            {isTyping && (
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+                                    <div className="flex-shrink-0 mr-4">
+                                        <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-white font-bold text-xs shadow-xl ring-4 ring-white">
+                                            DP
+                                        </div>
+                                    </div>
+                                    <div className="bg-white border border-slate-200 rounded-2xl px-6 py-4 shadow-sm flex items-center gap-2">
+                                        <div className="flex gap-1">
+                                            <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="w-2 h-2 bg-slate-400 rounded-full" />
+                                            <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-2 h-2 bg-slate-400 rounded-full" />
+                                            <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-2 h-2 bg-slate-400 rounded-full" />
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                </div>
+
+                {/* Input Area */}
+                <div className="bg-white border-t border-slate-200 px-8 py-6 z-20">
+                    <div className="max-w-4xl mx-auto">
+                        <div className="flex gap-4 items-end">
+                            <div className="flex-1 bg-slate-50 rounded-2xl border border-slate-200 focus-within:bg-white focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900 transition-all p-1">
+                                <textarea
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSend();
+                                        }
+                                    }}
+                                    placeholder="Escribe tu respuesta aquí..."
+                                    className="w-full bg-transparent border-none focus:ring-0 text-slate-900 text-lg placeholder-slate-400 resize-none min-h-[50px] px-4 py-3"
+                                    rows={1}
+                                    style={{ height: input.split('\n').length > 1 ? 'auto' : '60px' }}
+                                />
+                            </div>
+                            <button
+                                onClick={handleSend}
+                                disabled={isTyping || !input.trim()}
+                                className="h-[60px] w-[60px] bg-slate-900 text-white rounded-2xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center shadow-lg hover:scale-105 active:scale-95"
+                            >
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 12h14M12 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Footer Controls */}
+                        <div className="mt-4 flex justify-between items-center text-xs text-slate-400 px-1">
+                            <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="font-semibold text-slate-500">Memoria Activa</span>
+                            </div>
+                            <button
+                                onClick={resetMemory}
+                                className="hover:text-red-500 transition-colors font-bold uppercase tracking-wide text-[10px]"
+                            >
+                                Reiniciar
+                            </button>
                         </div>
                     </div>
                 </div>
-                <div className="flex gap-3">
-                    {Array.from({ length: 11 }).map((_, i) => (
-                        <div
-                            key={i}
-                            className={`h-2.5 rounded-full transition-all duration-1000 ${i <= currentPhase ? "bg-brand w-8 shadow-[0_0_15px_var(--brand-glow)]" : "bg-white/5 w-4"}`}
-                        />
-                    ))}
-                </div>
             </div>
-
-            {/* Chat Area with custom scrollbar */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-10 space-y-10 relative z-10 scrollbar-hide">
-                <AnimatePresence initial={false}>
-                    {messages.map((m, i) => (
-                        <motion.div
-                            key={i}
-                            initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            transition={{ type: "spring", damping: 20 }}
-                            className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-                        >
-                            <div className={`max-w-[80%] px-10 py-8 rounded-[2.5rem] text-[15px] leading-relaxed shadow-2xl relative group/msg ${m.role === "user"
-                                ? "bg-brand text-slate-950 font-bold rounded-tr-none border-2 border-white/20 shadow-[0_0_40px_-10px_rgba(0,210,255,0.4)]"
-                                : "bg-slate-900/80 text-white border border-white/10 rounded-tl-none backdrop-blur-3xl"
-                                }`}>
-
-                                {/* Corner Accents for Assistant */}
-                                {m.role === "assistant" && (
-                                    <>
-                                        <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-brand/40 rounded-tl-lg" />
-                                        <div className="absolute bottom-0 right-0 w-8 h-8 opacity-5 font-black italic select-none text-4xl">DRKO</div>
-                                    </>
-                                )}
-
-                                {m.content.split("\n").map((line, idx) => (
-                                    <p key={idx} className={`${idx > 0 ? "mt-5" : ""} ${m.role === 'user' ? 'text-slate-950' : 'text-white'}`}>
-                                        {line.includes("**") ? (
-                                            line.split("**").map((part, pidx) => pidx % 2 === 1 ? (
-                                                <span key={pidx} className={`font-black uppercase tracking-widest text-[11px] px-2 py-0.5 rounded mx-1 ${m.role === 'user' ? 'bg-slate-950/10 text-slate-950 border border-slate-950/20' : 'bg-brand/20 text-brand border border-brand/30'}`}>
-                                                    {part}
-                                                </span>
-                                            ) : part)
-                                        ) : line}
-                                    </p>
-                                ))}
-                            </div>
-                        </motion.div>
-                    ))}
-                    {isTyping && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                            <div className="bg-slate-900/60 px-6 py-4 rounded-3xl border border-white/10 rounded-tl-none flex gap-2 items-center">
-                                <span className="text-[10px] font-black text-brand uppercase tracking-[0.2em] animate-pulse">Analizando Visión</span>
-                                <div className="flex gap-1 ml-2">
-                                    <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce" />
-                                    <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce [animation-delay:0.2s]" />
-                                    <span className="w-1.5 h-1.5 bg-brand rounded-full animate-bounce [animation-delay:0.4s]" />
-                                </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-
-            {/* Input Area - The Commander Console */}
-            <div className="p-10 bg-[#020617]/80 border-t-2 border-white/5 relative z-10">
-                <div className="relative group max-w-4xl mx-auto">
-                    {/* Input Glow Aura */}
-                    <div className="absolute -inset-1 bg-gradient-to-r from-brand to-slate-900 rounded-2xl blur opacity-20 group-focus-within:opacity-50 transition-opacity duration-500" />
-
-                    <input
-                        type="text"
-                        placeholder="Escriba su respuesta estratégica..."
-                        className="relative w-full pr-24 h-20 bg-slate-950 border-2 border-white/10 rounded-2xl px-8 text-xl font-bold tracking-tight text-white placeholder-slate-600 focus:outline-none focus:border-brand transition-all shadow-inner"
-                        style={{ color: 'white' }}
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                    />
-
-                    <button
-                        onClick={handleSend}
-                        disabled={!input.trim() || isTyping}
-                        className="absolute right-4 top-4 w-12 h-12 bg-white text-slate-950 rounded-xl flex items-center justify-center hover:bg-brand hover:scale-110 active:scale-95 transition-all disabled:opacity-30 disabled:grayscale shadow-[0_0_20px_rgba(255,255,255,0.2)] font-black"
-                    >
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
-                    </button>
-                </div>
-                <div className="flex justify-between items-center mt-6 px-4">
-                    <div className="flex items-center gap-4 text-[10px] text-slate-500 font-black uppercase tracking-[0.4em]">
-                        <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-brand" /> Secure Protocol</span>
-                        <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Server Optimized</span>
-                    </div>
-                    <span className="text-[10px] text-brand font-black uppercase tracking-[0.4em] italic">Materializer Engine v3.0</span>
-                </div>
-            </div>
-
-            {/* Corner Decorative Brackets */}
-            <div className="absolute top-0 left-0 w-20 h-20 border-t-4 border-l-4 border-brand/20 -m-1 pointer-events-none rounded-tl-[3rem]" />
-            <div className="absolute bottom-0 right-0 w-20 h-20 border-b-4 border-r-4 border-brand/20 -m-1 pointer-events-none rounded-br-[3rem]" />
         </div>
     );
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { listSaasPacks } from "@/lib/packs/repository";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function GET(request: Request) {

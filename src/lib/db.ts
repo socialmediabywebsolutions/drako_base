@@ -14,7 +14,7 @@ export function getRequestBindings(): DracoEnv {
   if (!bindings) {
     throw new DatabaseUnavailableError(
       "binding-missing",
-      "No request context found. DRACO_DB must be accessed inside a Pages/Edge request handler.",
+      "No request context found. DRACO_DB must be accessed inside a Workers/OpenNext request handler.",
     );
   }
   return bindings;

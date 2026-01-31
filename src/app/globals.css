@@ -6,10 +6,10 @@
   /* Obsidian Deep */
   --background-alt: #0f172a;
   --foreground: #f8fafc;
-  --muted: #94a3b8;
+  --muted: #64748b;
   --panel: #0f172a;
   --panel-alt: #1e293b;
-  --border: #1e293b;
+  --border: rgba(255, 255, 255, 0.1);
   --brand: #00d2ff;
   /* Electric Neon */
   --brand-glow: rgba(0, 210, 255, 0.4);
@@ -19,8 +19,18 @@
   --warning: #f59e0b;
   --danger: #ef4444;
   --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
-  --shadow-glass: 0 0 20px -5px var(--brand-glow);
-  --font-geist-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --shadow-glass: 0 0 25px -5px var(--brand-glow);
+  --font-technical: "Inter", monospace;
+}
+
+@theme {
+  --color-brand: var(--brand);
+  --color-brand-glow: var(--brand-glow);
+  --color-brand-quiet: var(--brand-quiet);
+  --color-brand-strong: var(--brand-strong);
+  --color-background-alt: var(--background-alt);
+  --color-panel: var(--panel);
+  --color-panel-alt: var(--panel-alt);
 }
 
 body {
@@ -64,11 +74,56 @@ a {
 }
 
 .glass-panel {
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(2, 6, 23, 0.95));
-  border: 1px solid rgba(0, 210, 255, 0.15);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(2, 6, 23, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 28px;
-  box-shadow: var(--shadow-glass);
-  backdrop-filter: blur(24px);
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(40px);
+}
+
+.glass-panel-elite {
+  background: rgba(15, 23, 42, 0.85);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 32px;
+  box-shadow: 0 0 60px -20px var(--brand-glow);
+  backdrop-filter: blur(100px);
+}
+
+.text-technical {
+  font-family: var(--font-technical);
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-weight: 900;
+  font-style: italic;
+}
+
+.cyber-scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--brand), transparent);
+  box-shadow: 0 0 15px var(--brand-glow);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 100;
+  animation: scanning 12s linear infinite;
+}
+
+.carbon-grid {
+  background-image: radial-gradient(rgba(0, 210, 255, 0.1) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+@keyframes scanning {
+  0% {
+    transform: translateY(-100vh);
+  }
+
+  100% {
+    transform: translateY(100vh);
+  }
 }
 
 .grid-auto-panels {

@@ -63,6 +63,9 @@ export type WhatsappIntent =
   | "OWNER_MARKETING_SUMMARY"
   | "OWNER_DEPARTMENT_COVERAGE_SUMMARY"
   | "OWNER_SAAS_HEALTH_SUMMARY"
+  | "LEAD"
+  | "FAQ"
+  | "EMOTIONAL"
   | "UNKNOWN";
 
 export type WhatsappIncomingPayload = {

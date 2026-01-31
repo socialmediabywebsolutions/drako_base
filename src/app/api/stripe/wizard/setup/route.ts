@@ -5,7 +5,7 @@ import {
     type StripeSetupConfig,
 } from "@/lib/campamento-base/stripe-wizard/flow";
 
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 /**
  * GET /api/stripe/wizard/templates

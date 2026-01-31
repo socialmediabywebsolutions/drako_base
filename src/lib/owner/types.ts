@@ -238,3 +238,35 @@ export type SaasHealthSnapshot = {
   recommendedTargetPriceMonthly?: number;
   signals: SaasHealthSignal[];
 };
+
+export type OwnerProfile = {
+  id: string;
+  name: string;
+  nif?: string;
+  address?: string;
+  email?: string;
+  phone?: string;
+  country?: string;
+  city?: string;
+};
+
+export type AgentRuntimeState = {
+  agent_id: string;
+  role: "GROWTH" | "ACCOUNTING" | "LEGAL" | "TECHOPS" | "SUPPORT";
+  status: "IDLE" | "WORKING" | "BLOCKED" | "ERROR" | "OFFLINE";
+  current_task?: string;
+  last_heartbeat?: number;
+  last_error?: string;
+  metadata_json?: string;
+  updated_at?: number;
+};
+
+export type TechIncident = {
+  id: string;
+  service: string;
+  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+  status: "OPEN" | "INVESTIGATING" | "RESOLVED" | "MONITORING";
+  title: string;
+  description?: string;
+  last_seen_at: number;
+};

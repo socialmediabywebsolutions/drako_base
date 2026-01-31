@@ -7,7 +7,7 @@ import {
 } from "@/lib/db";
 import { ensureCampamentoBase, getCampamentoCoreAgentsCatalog, getCampamentoCoreDepartmentsCatalog } from "@/lib/campamento-base";
 import { getPagesBuildStamp } from "@/lib/pages/build-stamp";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 const REQUIRED_TABLES = ["saas", "saas_domains", "saas_projects", "owners", "clients", "campamento_events"];

@@ -1,5 +1,8 @@
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
+/**
+ * Drako Knowledge System - Global Environment Type
+ */
 export type DracoEnv = {
   DRACO_DB: D1Database;
   SESSION_SECRET: string;
@@ -15,6 +18,7 @@ export type DracoEnv = {
   DRAKO_BASE_PRODUCT_ID?: string;
   DRAKO_BASE_STARTER_PRICE_ID?: string;
   DRAKO_CLINIC_STARTER_PRICE_ID?: string;
+  MENTOR_IA_PRICE_ID?: string;
   DRAKO_DEMO_MODE?: string;
   APP_URL?: string;
   DRACO_RATE_LIMIT_ENABLED?: string;
@@ -45,31 +49,37 @@ export type DracoEnv = {
   CLOUDFLARE_PROVISIONING_MODE?: string;
   AI_GATEWAY_ID?: string;
   AI_GATEWAY_COMPAT_TOKEN?: string;
+  AI?: { run: (model: string, inputs: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown> };
 };
 
-type CtxWithEnv = { env?: DracoEnv };
-
-export function env(): DracoEnv | null {
+/**
+ * REGLA DURA (Hard Rule): 
+ * env() solo puede resolverse dentro de una request.
+ * Si se llama fuera de un handler, lanza un error claro.
+ */
+export function env(): DracoEnv {
   try {
-    // 1. Try Next-on-Pages context (standard)
-    const rawCtx = getRequestContext();
-    if (rawCtx && typeof rawCtx === "object" && "env" in rawCtx) {
-      return (rawCtx as unknown as CtxWithEnv).env ?? null;
+    // 1. Try OpenNext Cloudflare context (Workers Runtime)
+    const ctx = getCloudflareContext();
+    if (ctx && ctx.env && typeof ctx.env === "object") {
+      return ctx.env as unknown as DracoEnv;
     }
-
-    // 2. Fallback to process.env (some versions of next-on-pages/cloudflare populate this)
-    // In Edge runtime, process.env is often available as a proxy to bindings
-    if (typeof process !== "undefined" && process.env) {
-      // Check for a known binding like DRACO_DB to see if it's likely working
-      if (process.env.DRACO_DB || process.env.AI || process.env.SESSION_SECRET) {
-        return process.env as unknown as DracoEnv;
-      }
-    }
-
-    console.error("CF_ENV_ERROR: Both getRequestContext and process.env fallbacks failed.");
-    return null;
-  } catch (err) {
-    console.error("CF_ENV_ERROR: Exception in env()", err);
-    return null;
+  } catch {
+    // In local development, we might not have the context yet
+    // but the users wants a HARD FAIL if called outside request.
   }
+
+  // 2. Fallback to process.env ONLY if we are in Development and NOT in a Worker
+  const isDev = process.env.NODE_ENV === "development";
+  if (isDev && typeof process !== "undefined" && process.env) {
+    // Simple filter to ensure we act like we have bindings
+    if (process.env.DRACO_DB || process.env.AI || process.env.SESSION_SECRET) {
+      return process.env as unknown as DracoEnv;
+    }
+  }
+
+  // 3. ACTUAL HARD FAIL
+  const errorMsg = "CF_CONTEXT_ERROR: env() called outside request scope. Environment bindings (D1/AI) are only available within a request context.";
+  console.error(errorMsg);
+  throw new Error(errorMsg);
 }

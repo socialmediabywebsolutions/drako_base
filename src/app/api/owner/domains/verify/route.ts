@@ -3,7 +3,7 @@ import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { queryAll, run } from "@/lib/db";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import { verifyDomainMapping } from "@/lib/empire/domain-verifier";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 type DomainRow = {

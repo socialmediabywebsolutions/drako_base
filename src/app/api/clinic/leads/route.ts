@@ -4,7 +4,7 @@ import { resolveClinicContext } from "@/lib/clinic/context";
 import { handleClinicApiError } from "@/lib/clinic/api-helpers";
 import { listClinicLeads, saveClinicLead } from "@/lib/clinic/repository";
 import type { ClinicLead } from "@/lib/clinic/types";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 const ALLOWED_STATUSES = new Set(["new", "contacted", "booked", "lost"]);

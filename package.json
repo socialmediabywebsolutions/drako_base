@@ -5,13 +5,14 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:worker": "npx open-next build --adapter @opennextjs/cloudflare",
+    "deploy": "wrangler deploy",
     "start": "next start",
     "lint": "eslint src",
     "qa": "npm run lint && npm run build",
     "hostnames:tests": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/hostnames-tests.js",
     "production:go": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/production-go.js",
     "devarchitect:audit": "tsc --project tsconfig.scripts.json && node scripts/.dist/devarchitect-audit.js",
-    "pages:build": "npx @cloudflare/next-on-pages@1",
     "test:companies": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/companies-api-tests.js",
     "test:company-domains": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/company-domains-api-tests.js",
     "test:projects": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/projects-api-tests.js",
@@ -20,9 +21,11 @@
     "test:project-entitlements-context": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/project-entitlements-context-api-tests.js",
     "test:orchestrator-company": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/orchestrator-company-tests.js",
     "test:orchestrator": "npm run test:company-domains && npm run test:companies && npm run test:orchestrator-company",
-    "test:projects-factory": "npm run test:projects && npm run test:project-domains && npm run test:project-entitlements && npm run test:project-entitlements-context",
+    "test:agents-catalog": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/agents-catalog-tests.js",
+    "test:projects-factory": "npm run test:projects && npm run test:project-domains && npm run test:project-entitlements && npm run test:project-entitlements-context && npm run test:agents-catalog",
     "test:mapping": "node scripts/check-mapping.js",
-    "smoke:cloudflare": "node scripts/smokes-cloudflare.js"
+    "smoke:cloudflare": "node scripts/smokes-cloudflare.js",
+    "check:alerts": "tsx scripts/alerts-check.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -34,8 +37,8 @@
     "stripe": "^20.1.0"
   },
   "devDependencies": {
-    "@cloudflare/next-on-pages": "1.13.16",
     "@cloudflare/workers-types": "^4.20250204.0",
+    "@opennextjs/cloudflare": "^1.16.1",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^20.17.9",
     "@types/react": "^18.3.12",
@@ -43,7 +46,9 @@
     "cross-env": "^7.0.3",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
+    "open-next": "^3.1.3",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "wrangler": "^4.48.0"
   }

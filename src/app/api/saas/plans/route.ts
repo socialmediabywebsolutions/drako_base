@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { getSaasPlansForSaas, getSaasPlansForTenant } from "@/lib/billing/saas-plans";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function GET(request: Request) {

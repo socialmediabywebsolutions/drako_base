@@ -80,3 +80,27 @@ export async function getTenantAgents(tenantId: string): Promise<TenantAgentReco
     tenantId,
   );
 }
+
+export async function createTenant(params: { name: string; slug: string; plan?: string }): Promise<string> {
+  const id = `tenant_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
+  await run(
+    `INSERT INTO tenants (id, slug, name, plan, status) VALUES (?, ?, ?, ?, 'pending_payment')`,
+    id,
+    params.slug,
+    params.name,
+    params.plan ?? "starter",
+  );
+  return id;
+}
+
+export async function createTenantUser(params: { tenantId: string; email: string; role: string }): Promise<string> {
+  const id = `u_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
+  await run(
+    `INSERT INTO tenant_users (id, tenant_id, email, role) VALUES (?, ?, ?, ?)`,
+    id,
+    params.tenantId,
+    params.email,
+    params.role,
+  );
+  return id;
+}

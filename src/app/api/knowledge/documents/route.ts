@@ -10,7 +10,7 @@ import type {
   SaasKnowledgeDocumentType,
   SaasKnowledgeLinkTargetType,
 } from "@/lib/knowledge/types";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 const AUDIENCE_VALUES: KnowledgeAudience[] = ["OWNER", "STAFF", "BOTH"];

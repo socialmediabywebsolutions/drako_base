@@ -1,3 +1,14 @@
+---
+id: packs-overview
+version: v1
+scope: holding
+status: active
+owners: [drako-team]
+tags: [packs, catalogs, saas]
+applies_to: [all]
+not_applies_to: []
+---
+
 # Packs & Blueprint Templates v1
 
 ## Packs disponibles

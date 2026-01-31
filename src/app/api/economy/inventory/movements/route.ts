@@ -3,7 +3,7 @@ import { requireTenantAccess } from "@/lib/auth/session";
 import { handleEconomyApiError } from "@/lib/economy/api-helpers";
 import { recordInventoryMovement, resolveEconomyContext } from "@/lib/economy/repository";
 import type { SaasInventoryMovement } from "@/lib/economy/types";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function POST(request: Request) {

@@ -3,7 +3,7 @@ import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { createProject, listProjects } from "@/lib/projects/repository";
 
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 function authErrorResponse(error: unknown) {
   if (error instanceof UnauthorizedError) {

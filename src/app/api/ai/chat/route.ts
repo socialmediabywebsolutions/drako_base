@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { runAi } from "@/lib/ai/client";
 import { requireTenantAccess } from "@/lib/auth/session";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 type Body = {

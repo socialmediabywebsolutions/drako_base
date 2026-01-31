@@ -47,7 +47,7 @@ import type {
   DevArchitectSession,
   DevArchitectTask,
 } from "@/lib/dev-architects/types";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 function readProcessEnv(key: string): string | undefined {

@@ -1,36 +1,27 @@
-# Production Audit — Drako Base (next-on-pages)
+# Production Audit — Drako Base (Workers + OpenNext)
 
-Date: 2026-01-06
+Date: 2026-01-29
 
 ## Scope
-- Cloudflare Pages build (next-on-pages), host routing split, and public UI legibility.
+- Cloudflare Workers build (OpenNext), host routing split, and D1 binding validation.
 
 ## Architecture decision
-- Pages build uses next-on-pages via `npm run pages:build`.
+- Migrated from Pages to Workers for better binding control and simpler deployment flow.
+- Uses OpenNext with Cloudflare adapter.
 
-## Required Cloudflare Pages settings
-- Build command: `npm run pages:build`
-- Output directory: `.vercel/output/static`
-
-## Host routing expectations
-- `drako.systems` -> PUBLIC_SAAS (public shell)
-- `base.drako.systems` / `admin.drako.systems` -> CAMPAMENTO_BASE (internal shell)
-- `*.pages.dev` -> PREVIEW (diagnostics only, no admin)
+## Required Cloudflare Workers settings
+- Entry: `.open-next/worker.js` (managed by `wrangler.toml`)
+- Bindings: Managed via `wrangler.toml` (Strict D1 IDs)
 
 ## Evidence (local)
-- `npm run pages:build` ✅
-  - `.vercel/output/static/_worker.js` generated
+- `npm run build:worker` ✅
+  - `.open-next/worker.js` generated
 
 ## Pending verification (Cloudflare)
-- Build logs show `npm run pages:build`.
-- `https://drako.systems` renders public shell.
-- `https://base.drako.systems/admin` renders Campamento Base.
-- `https://drako-base-3.pages.dev/admin` rewrites to `/preview`.
-- `GET /api/health` returns build stamp for latest commit.
+- `GET /api/health` returns `ok: true`.
+- `GET /api/debug/bindings` returns `adapter: "OpenNext"`.
 
 ## Binding clarification
 - Binding name (code): `DRACO_DB`
-- D1 database name (Cloudflare): `drako_db_prod`
-
-## Output clarification
-- The `.vercel/output/static` directory includes `_worker.js`, so it is not static-only.
+- Production ID: `5607a76a-97c7-45a9-a948-e545ba27eae7`
+- Preview ID: `10146888-ca79-41d6-b6c2-bf1025eb651b`

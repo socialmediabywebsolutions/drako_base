@@ -5,9 +5,14 @@ import Link from "next/link";
 import Card from "@/components/ui/card";
 import Button from "@/components/ui/button";
 import Badge from "@/components/ui/badge";
-import { TextInput, TextArea } from "@/components/ui/input";
 import EmptyState from "@/components/ui/empty-state";
-import type { OwnerGrowthAutopilotAction, OwnerPortfolioSnapshot } from "@/lib/owner/types";
+import type {
+  OwnerGrowthAutopilotAction,
+  OwnerPortfolioSnapshot,
+  OwnerProfile,
+  AgentRuntimeState,
+  TechIncident
+} from "@/lib/owner/types";
 import type { OwnerActionQueuePriority } from "@/lib/owner/action-queue";
 import type { DrakoTreasurySnapshot } from "@/lib/owner/vendor-types";
 import { SAAS_PACK_DEFINITIONS } from "@/lib/packs/definitions";
@@ -15,6 +20,9 @@ import OwnerTasksBoard from "@/app/owner/OwnerTasksBoard";
 import OwnerVendorSection from "@/app/owner/OwnerVendorSection";
 import OwnerPricingSection from "@/app/owner/OwnerPricingSection";
 import OwnerMarketingSection from "@/app/owner/OwnerMarketingSection";
+import CampamentoLeftPanel from "@/app/owner/components/CampamentoLeftPanel";
+import CampamentoCenterPanel from "@/app/owner/components/CampamentoCenterPanel";
+import CampamentoRightPanel from "@/app/owner/components/CampamentoRightPanel";
 
 type Owner = {
   id: string;
@@ -396,6 +404,14 @@ export default function OwnerPage() {
   const [factoryLoading, setFactoryLoading] = useState(true);
   const [factoryError, setFactoryError] = useState<string | null>(null);
 
+  // Phase 2: Campamento Base states
+  const [ownerProfile, setOwnerProfile] = useState<OwnerProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [agentStates, setAgentStates] = useState<AgentRuntimeState[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(true);
+  const [techIncidents, setTechIncidents] = useState<TechIncident[]>([]);
+  const [incidentsLoading, setIncidentsLoading] = useState(true);
+
   const [name, setName] = useState("");
   const [nif, setNif] = useState("");
   const [address, setAddress] = useState("");
@@ -767,6 +783,46 @@ export default function OwnerPage() {
     void loadDomains();
     void loadEvents();
     void loadDbHealth();
+
+    // Phase 2: Load Campamento Base data
+    void (async () => {
+      setProfileLoading(true);
+      try {
+        const res = await fetch("/api/owner/profile", { cache: "no-store" });
+        const data = await res.json() as { profile?: OwnerProfile };
+        setOwnerProfile(data.profile ?? null);
+      } catch (error) {
+        console.error("Failed to load profile:", error);
+      } finally {
+        setProfileLoading(false);
+      }
+    })();
+
+    void (async () => {
+      setAgentsLoading(true);
+      try {
+        const res = await fetch("/api/owner/agents", { cache: "no-store" });
+        const data = await res.json() as { agents?: AgentRuntimeState[] };
+        setAgentStates(data.agents ?? []);
+      } catch (error) {
+        console.error("Failed to load agents:", error);
+      } finally {
+        setAgentsLoading(false);
+      }
+    })();
+
+    void (async () => {
+      setIncidentsLoading(true);
+      try {
+        const res = await fetch("/api/owner/support/tech", { cache: "no-store" });
+        const data = await res.json() as { incidents?: TechIncident[] };
+        setTechIncidents(data.incidents ?? []);
+      } catch (error) {
+        console.error("Failed to load tech incidents:", error);
+      } finally {
+        setIncidentsLoading(false);
+      }
+    })();
   }, [
     loadOwner,
     loadPortfolio,
@@ -871,11 +927,78 @@ export default function OwnerPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm uppercase tracking-[0.3em] text-[var(--muted)]">Administración</p>
-        <h1 className="text-3xl font-semibold">Owner Portfolio Control Tower</h1>
-        <p className="text-sm text-[var(--muted)]">Visión agregada de todos tus SaaS y sus KPIs.</p>
+        <p className="text-sm uppercase tracking-[0.3em] text-[var(--muted)]">Campamento Base</p>
+        <h1 className="text-3xl font-semibold">Executive Command Center</h1>
+        <p className="text-sm text-[var(--muted)]">Real-time operations across your SaaS holding</p>
       </div>
 
+      {/* PHASE 2: 3-Panel Campamento Base Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[600px]">
+        {/* LEFT PANEL: Orchestrator + Alerts + Decisions */}
+        <div className="lg:col-span-3">
+          <CampamentoLeftPanel
+            criticalEvents={eventsSnapshot?.criticalEvents.filter(e => e.severity === "CRITICAL" || e.severity === "HIGH").map(e => ({
+              id: e.correlationId,
+              severity: e.severity as "CRITICAL" | "HIGH",
+              message: e.message,
+              timestamp: e.createdAt
+            })) ?? []}
+            pendingDecisions={actionQueue?.items.filter(a => a.priority === "CRITICAL" || a.priority === "HIGH").slice(0, 3).map(a => ({
+              id: a.id,
+              title: a.title,
+              priority: a.priority as "CRITICAL" | "HIGH" | "NORMAL"
+            })) ?? []}
+            techIncidents={techIncidents}
+          />
+        </div>
+
+        {/* CENTER PANEL: Financial + Health + Profile */}
+        <div className="lg:col-span-6">
+          <CampamentoCenterPanel
+            profile={ownerProfile}
+            onSaveProfile={async (updated) => {
+              try {
+                const res = await fetch("/api/owner/profile", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(updated),
+                });
+                if (res.ok) {
+                  const data = await res.json() as { profile?: OwnerProfile };
+                  setOwnerProfile(data.profile ?? null);
+                }
+              } catch (error) {
+                console.error("Failed to save profile:", error);
+              }
+            }}
+            financials={accounting ? {
+              totalMrr: accounting.totalSubscriptionMRR,
+              netProfit: accounting.totalOwnerRevenueMonthly - accounting.totalBaselineMonthly,
+              runwayMonths: accounting.totalOwnerRevenueMonthly > 0
+                ? Math.floor(accounting.totalOwnerRevenueMonthly / accounting.totalBaselineMonthly * 12)
+                : 0,
+              burnRate: accounting.totalBaselineMonthly
+            } : null}
+            saasMatrix={accounting?.saasHealthSummary?.items.slice(0, 6).map(item => ({
+              id: item.saasId,
+              name: item.saasName,
+              vertical: item.verticalId || "OTHER",
+              status: item.healthStatus === "CRITICAL" ? "CRITICAL" : item.healthStatus === "WARNING" ? "AT_RISK" : "HEALTHY",
+              mrr: 0,
+              agentsActive: 0
+            })) ?? []}
+          />
+        </div>
+
+        {/* RIGHT PANEL: Agents Fleet */}
+        <div className="lg:col-span-3">
+          <CampamentoRightPanel
+            agents={agentStates}
+          />
+        </div>
+      </div>
+
+      {/* Legacy sections preserved below for backward compatibility */}
       <Card tone="glass" title="Catálogo de SaaS" subtitle="Activa nuevos verticales desde Campamento Base">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-[var(--muted)]">
@@ -1185,62 +1308,62 @@ export default function OwnerPage() {
               </Button>
             </div>
             <div className="overflow-x-auto">
-            <table className="modern text-sm" aria-label="Dominios del imperio">
-              <thead>
-                <tr>
-                  <th>Hostname</th>
-                  <th>SaaS</th>
-                  <th>Tenant</th>
-                  <th>Status</th>
-                  <th>Verificacion</th>
-                  <th>Ultimo error</th>
-                  <th>Retry</th>
-                  <th>Updated</th>
-                  <th>Ultimo evento</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {domains.map((domain) => (
-                  <tr key={domain.id}>
-                    <td className="font-semibold">{domain.hostname}</td>
-                    <td>{domain.saasSlug ?? domain.saasId}</td>
-                    <td className="text-xs text-[var(--muted)]">{domain.tenantId}</td>
-                    <td>
-                      <Badge variant={resolveDomainStatusBadge(domain.status)}>{domain.status.toUpperCase()}</Badge>
-                    </td>
-                    <td className="text-xs text-[var(--muted)]">
-                      <div className="flex flex-col gap-1">
-                        <Badge variant={resolveVerificationBadge(domain.verificationStatus)}>
-                          {domain.verificationStatus ? domain.verificationStatus.toUpperCase() : "—"}
-                        </Badge>
-                        {domain.verificationReason ? <span>{domain.verificationReason}</span> : null}
-                      </div>
-                    </td>
-                    <td className="text-xs text-[var(--muted)]">{domain.lastError ?? "—"}</td>
-                    <td className="text-xs text-[var(--muted)]">{domain.retryCount ?? 0}</td>
-                    <td className="text-xs text-[var(--muted)]">
-                      {domain.updatedAt ? new Date(domain.updatedAt).toLocaleString() : "—"}
-                    </td>
-                    <td className="text-xs text-[var(--muted)]">
-                      {domain.lastRoutingEvent
-                        ? `${domain.lastRoutingEvent.type} (${domain.lastRoutingEvent.severity})`
-                        : "—"}
-                    </td>
-                    <td>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={domainsUpdating}
-                        onClick={() => verifyDomains({ scope: "domain", domain: domain.hostname })}
-                      >
-                        Verify
-                      </Button>
-                    </td>
+              <table className="modern text-sm" aria-label="Dominios del imperio">
+                <thead>
+                  <tr>
+                    <th>Hostname</th>
+                    <th>SaaS</th>
+                    <th>Tenant</th>
+                    <th>Status</th>
+                    <th>Verificacion</th>
+                    <th>Ultimo error</th>
+                    <th>Retry</th>
+                    <th>Updated</th>
+                    <th>Ultimo evento</th>
+                    <th>Acciones</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {domains.map((domain) => (
+                    <tr key={domain.id}>
+                      <td className="font-semibold">{domain.hostname}</td>
+                      <td>{domain.saasSlug ?? domain.saasId}</td>
+                      <td className="text-xs text-[var(--muted)]">{domain.tenantId}</td>
+                      <td>
+                        <Badge variant={resolveDomainStatusBadge(domain.status)}>{domain.status.toUpperCase()}</Badge>
+                      </td>
+                      <td className="text-xs text-[var(--muted)]">
+                        <div className="flex flex-col gap-1">
+                          <Badge variant={resolveVerificationBadge(domain.verificationStatus)}>
+                            {domain.verificationStatus ? domain.verificationStatus.toUpperCase() : "—"}
+                          </Badge>
+                          {domain.verificationReason ? <span>{domain.verificationReason}</span> : null}
+                        </div>
+                      </td>
+                      <td className="text-xs text-[var(--muted)]">{domain.lastError ?? "—"}</td>
+                      <td className="text-xs text-[var(--muted)]">{domain.retryCount ?? 0}</td>
+                      <td className="text-xs text-[var(--muted)]">
+                        {domain.updatedAt ? new Date(domain.updatedAt).toLocaleString() : "—"}
+                      </td>
+                      <td className="text-xs text-[var(--muted)]">
+                        {domain.lastRoutingEvent
+                          ? `${domain.lastRoutingEvent.type} (${domain.lastRoutingEvent.severity})`
+                          : "—"}
+                      </td>
+                      <td>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={domainsUpdating}
+                          onClick={() => verifyDomains({ scope: "domain", domain: domain.hostname })}
+                        >
+                          Verify
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -1313,22 +1436,20 @@ export default function OwnerPage() {
                 <button
                   type="button"
                   onClick={() => setHealthFilter("ALL")}
-                  className={`rounded-full border px-3 py-1 transition ${
-                    healthFilter === "ALL"
-                      ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
-                      : "border-[var(--border)]/60 text-[var(--muted)]"
-                  }`}
+                  className={`rounded-full border px-3 py-1 transition ${healthFilter === "ALL"
+                    ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
+                    : "border-[var(--border)]/60 text-[var(--muted)]"
+                    }`}
                 >
                   Todos
                 </button>
                 <button
                   type="button"
                   onClick={() => setHealthFilter("WARN_ONLY")}
-                  className={`rounded-full border px-3 py-1 transition ${
-                    healthFilter === "WARN_ONLY"
-                      ? "border-amber-300/60 bg-amber-200/10 text-amber-200"
-                      : "border-[var(--border)]/60 text-[var(--muted)]"
-                  }`}
+                  className={`rounded-full border px-3 py-1 transition ${healthFilter === "WARN_ONLY"
+                    ? "border-amber-300/60 bg-amber-200/10 text-amber-200"
+                    : "border-[var(--border)]/60 text-[var(--muted)]"
+                    }`}
                 >
                   Solo WARNING/CRITICAL
                 </button>
@@ -1608,25 +1729,25 @@ export default function OwnerPage() {
                   style={{ width: `${Math.min(100, accounting.baselineCoveragePercent * 100).toFixed(0)}%` }}
                 />
               </div>
-          </div>
+            </div>
 
-          {accounting.baselineCovered ? (
-            <p className="text-sm text-[var(--muted)]">Lo basico ya esta cubierto. A partir de aqui todo es margen y crecimiento.</p>
-          ) : (
-            <p className="text-sm text-[var(--muted)]">
-              Te faltan {accounting.baselineGapAmount.toFixed(0)} € para cubrir lo basico este mes.
+            {accounting.baselineCovered ? (
+              <p className="text-sm text-[var(--muted)]">Lo basico ya esta cubierto. A partir de aqui todo es margen y crecimiento.</p>
+            ) : (
+              <p className="text-sm text-[var(--muted)]">
+                Te faltan {accounting.baselineGapAmount.toFixed(0)} € para cubrir lo basico este mes.
+              </p>
+            )}
+            <p className="text-xs text-[var(--muted)]">
+              Tesoreria Campamento Base te indica cuanto reservar para impuestos, IA/infra y gastos personales.
             </p>
-          )}
-          <p className="text-xs text-[var(--muted)]">
-            Tesoreria Campamento Base te indica cuanto reservar para impuestos, IA/infra y gastos personales.
-          </p>
-          <p className="text-xs text-[var(--muted)]">
-            Los precios recomendados por SaaS tienen en cuenta tus costes de vendor. Cuando los ingresos superan tu minimo vital + costes fijos,
-            esta carta se marca como cubierta.
-          </p>
-        </div>
-      )}
-    </Card>
+            <p className="text-xs text-[var(--muted)]">
+              Los precios recomendados por SaaS tienen en cuenta tus costes de vendor. Cuando los ingresos superan tu minimo vital + costes fijos,
+              esta carta se marca como cubierta.
+            </p>
+          </div>
+        )}
+      </Card>
 
       <Card tone="glass" title="Tesoreria Campamento Base" subtitle="Reservas internas para impuestos, IA/infra y gastos personales">
         {treasuryLoading ? (
@@ -1795,33 +1916,30 @@ export default function OwnerPage() {
                 <button
                   type="button"
                   onClick={() => setActionStatusFilter("OPEN")}
-                  className={`rounded-full border px-3 py-1 transition ${
-                    actionStatusFilter === "OPEN"
-                      ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
-                      : "border-[var(--border)]/60 text-[var(--muted)]"
-                  }`}
+                  className={`rounded-full border px-3 py-1 transition ${actionStatusFilter === "OPEN"
+                    ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
+                    : "border-[var(--border)]/60 text-[var(--muted)]"
+                    }`}
                 >
                   OPEN
                 </button>
                 <button
                   type="button"
                   onClick={() => setActionStatusFilter("HISTORY")}
-                  className={`rounded-full border px-3 py-1 transition ${
-                    actionStatusFilter === "HISTORY"
-                      ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
-                      : "border-[var(--border)]/60 text-[var(--muted)]"
-                  }`}
+                  className={`rounded-full border px-3 py-1 transition ${actionStatusFilter === "HISTORY"
+                    ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
+                    : "border-[var(--border)]/60 text-[var(--muted)]"
+                    }`}
                 >
                   HISTORY
                 </button>
                 <button
                   type="button"
                   onClick={() => setActionFilter("ALL")}
-                  className={`rounded-full border px-3 py-1 transition ${
-                    actionFilter === "ALL"
-                      ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
-                      : "border-[var(--border)]/60 text-[var(--muted)]"
-                  }`}
+                  className={`rounded-full border px-3 py-1 transition ${actionFilter === "ALL"
+                    ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
+                    : "border-[var(--border)]/60 text-[var(--muted)]"
+                    }`}
                 >
                   ALL
                 </button>
@@ -1830,11 +1948,10 @@ export default function OwnerPage() {
                     key={priority}
                     type="button"
                     onClick={() => setActionFilter(priority)}
-                    className={`rounded-full border px-3 py-1 transition ${
-                      actionFilter === priority
-                        ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
-                        : "border-[var(--border)]/60 text-[var(--muted)]"
-                    }`}
+                    className={`rounded-full border px-3 py-1 transition ${actionFilter === priority
+                      ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
+                      : "border-[var(--border)]/60 text-[var(--muted)]"
+                      }`}
                   >
                     {priority}
                   </button>

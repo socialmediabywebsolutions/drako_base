@@ -7,9 +7,13 @@ import { queryAll } from "@/lib/db";
 import { listDemoClients, listDemoSaas, listDemoClientSaas } from "@/lib/admin/demo-data";
 import { getRequestBaseUrl } from "@/lib/http/base-url";
 import { respondDatabaseError } from "@/lib/http/errors";
-export const runtime = "edge";
+import { createTenant, createTenantUser, resolveTenantId } from "@/lib/tenants/services";
+// export const runtime = "edge"; // OpenNext Migration
 
-function getPriceId(): string {
+function getPriceId(plan?: string | null): string {
+  if (plan === "mentoria_ia") {
+    return process.env.MENTOR_IA_PRICE_ID || env()?.MENTOR_IA_PRICE_ID || "price_1mentoria_default";
+  }
   if (process.env.DRAKO_BASE_STARTER_PRICE_ID) {
     return process.env.DRAKO_BASE_STARTER_PRICE_ID;
   }
@@ -72,25 +76,64 @@ export async function POST(request: Request) {
         { status: 503 }
       );
     }
-    const { tenantId, session } = await requireTenantAccess(request);
-    const { clientId, saasId } = await resolveBillingEntities(tenantId);
+    const body = (await request.json().catch(() => ({}))) as any;
     const baseUrl = getRequestBaseUrl(request);
+    const plan = body.plan || "drako_base_starter";
+    let tenantId: string;
+    let email: string | undefined;
+    let clientId: string | undefined;
+    let saasId: string | undefined;
 
-    const metadata = {
+    // 1. Check for New Lead / Signup (Institution + Email)
+    if (body.institutionName && body.email) {
+      console.log("[CHECKOUT] Processing New Signup for", body.institutionName);
+      const slug = body.institutionName
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "");
+
+      tenantId = await createTenant({
+        name: body.institutionName,
+        slug: `${slug}-${Math.random().toString(16).slice(2, 6)}`,
+        plan: plan,
+      });
+
+      await createTenantUser({
+        tenantId,
+        email: body.email.trim().toLowerCase(),
+        role: "admin",
+      });
+
+      email = body.email.trim().toLowerCase();
+      // For new signups, we don't have clientId/saasId yet (will be created by factory)
+    } else {
+      // 2. Regular Checkout (Authenticated User)
+      const sessionData = await requireTenantAccess(request);
+      tenantId = sessionData.tenantId;
+      email = sessionData.session.email;
+
+      const entities = await resolveBillingEntities(tenantId);
+      clientId = entities.clientId;
+      saasId = entities.saasId;
+    }
+
+    const metadata: Record<string, string> = {
       tenantId,
-      clientId,
-      saasId,
-      plan: "drako_base_starter",
-      email: session.email,
-    } satisfies Record<string, string>;
+      plan,
+      email: email || "",
+    };
+
+    if (clientId) metadata.clientId = clientId;
+    if (saasId) metadata.saasId = saasId;
 
     const sessionCheckout = await stripe.checkout.sessions.create({
       mode: "subscription",
       client_reference_id: tenantId,
-      customer_email: session.email,
+      customer_email: email,
       line_items: [
         {
-          price: getPriceId(),
+          price: getPriceId(plan),
           quantity: 1,
         },
       ],

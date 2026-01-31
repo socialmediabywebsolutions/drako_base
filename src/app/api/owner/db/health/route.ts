@@ -3,7 +3,7 @@ import { UnauthorizedError, requireTenantAccess } from "@/lib/auth/session";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import { getDbHealthSnapshot } from "@/lib/db/health";
 import { createOrMergeActionFromWebhook } from "@/lib/owner/action-queue-repository";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 function resolveCorrelationId(request: Request): string {

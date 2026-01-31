@@ -6,7 +6,7 @@ import {
   upsertSaasBrandingSettings,
 } from "@/lib/branding/repository";
 import type { BrandingLayoutDensity } from "@/lib/branding/types";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext Migration
 
 
 const VALID_DENSITIES: BrandingLayoutDensity[] = ["COMPACT", "COZY", "NORMAL"];

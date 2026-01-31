@@ -31,7 +31,7 @@ type AiResponse = {
 type AiBinding = { run: (model: string, inputs: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown> };
 
 const MODEL_FAST = "@cf/meta/llama-3-8b-instruct";
-const MODEL_SMART = "@cf/meta/llama-3.1-8b-instruct";
+const MODEL_SMART = "@cf/meta/llama-3.1-70b-instruct";
 
 function selectModel(mode: AiMode): string {
   return mode === "fast" ? MODEL_FAST : MODEL_SMART;
@@ -154,11 +154,53 @@ export async function runAi(req: AiRequest): Promise<AiResponse> {
     throw new Error("messages are required");
   }
   const e = env();
-  if (!e) throw new Error("Env not available");
-  const model = selectModel(req.mode);
-  // Prefer binding when available (lower latency, authenticated)
-  if ((e as unknown as { AI?: AiBinding })?.AI) {
-    return callViaBinding(req, e, model);
+
+  // DEVELOPMENT MODE: Use mock when no Cloudflare env available
+  if (!e) {
+    console.warn("AI_MOCK_MODE: No Cloudflare env detected, using mock responses");
+    const { generateMockResponse } = await import("./mock-client");
+
+    // Infer phase from history length (assistant messages count)
+    // First message is intro (Phase 0). Next response triggers Phase 1 logic based on user input.
+    // So if there is 1 assistant message in history (the intro), we are generating response for Phase 0 completion -> Phase 1.
+    const assistantMessages = req.messages.filter(m => m.role === "assistant");
+    const inferredPhase = Math.max(0, assistantMessages.length);
+
+    console.log("AI_MOCK_INFERENCE", { assistantMsgCount: assistantMessages.length, inferredPhase });
+
+    const mockData = generateMockResponse(req.messages, inferredPhase);
+    return {
+      ok: true,
+      content: JSON.stringify(mockData),
+      usage: { tokens: 150 },
+      model: "mock-drako-partner",
+      provider: "workers-ai"
+    };
   }
-  return callViaCompat(req, e, model);
+
+  const model = selectModel(req.mode);
+
+  try {
+    // Prefer binding when available
+    if ((e as unknown as { AI?: AiBinding })?.AI) {
+      return await callViaBinding(req, e, model);
+    }
+    return await callViaCompat(req, e, model);
+  } catch (error) {
+    // Fallback logic: If smart model fails, try fast model
+    if (req.mode === "smart") {
+      console.warn("AI_SMART_FAILURE_FALLBACK", { error, model });
+      const fallbackModel = MODEL_FAST;
+      try {
+        if ((e as unknown as { AI?: AiBinding })?.AI) {
+          return await callViaBinding(req, e, fallbackModel);
+        }
+        return await callViaCompat(req, e, fallbackModel);
+      } catch (fallbackError) {
+        console.error("AI_TOTAL_FAILURE", fallbackError);
+        throw fallbackError;
+      }
+    }
+    throw error;
+  }
 }
