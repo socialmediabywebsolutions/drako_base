@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getCloudflareEnv } from "@/lib/cloudflare/context";
 
 /**
  * GET /api/owner/support/tickets
@@ -9,7 +9,7 @@ import { getRequestContext } from "@cloudflare/next-on-pages";
 export async function GET(request: Request): Promise<Response> {
     try {
         const { tenantId } = await requireTenantAccess(request);
-        const db = getRequestContext().env.DB as any;
+        const db = getCloudflareEnv().DB;
 
         const { results } = await db
             .prepare(

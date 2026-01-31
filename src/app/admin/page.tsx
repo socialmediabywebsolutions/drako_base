@@ -1,48 +1,60 @@
-// app/admin/page.tsx
-import { resolveTenantId } from "@/lib/tenants/services";
-import { getServerBaseUrl } from "@/lib/http/base-url";
+"use client";
+
+import { useEffect, useState } from "react";
 import Card from "@/components/ui/card";
 import Button from "@/components/ui/button";
 import Link from "next/link";
-import { headers } from "next/headers";
 
 interface SaasInfo { plan: string; billingDate: string; }
 interface Department { id: number; name: string; }
 interface InboxItem { id: number; subject: string; }
 
-export default async function AdminPage() {
-  const correlationId = globalThis.crypto?.randomUUID?.() ?? `admin_${Date.now()}`;
-  const baseUrl = getServerBaseUrl(await headers());
+export default function AdminPage() {
+  const [saasData, setSaasData] = useState<SaasInfo>({ plan: "Cargando...", billingDate: "N/A" });
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  let saasData: SaasInfo = { plan: "Demo", billingDate: "N/A" };
-  let departments: Department[] = [];
-  let inboxItems: InboxItem[] = [];
-  let errorMessage: string | null = null;
+  useEffect(() => {
+    const correlationId = crypto.randomUUID();
 
-  try {
-    const tenantId = await resolveTenantId();
-    const [saasRes, deptRes, inboxRes] = await Promise.all([
-      fetch(new URL(`/api/saas?tenantId=${tenantId}`, baseUrl), { cache: "no-store" }),
-      fetch(new URL(`/api/departments?tenantId=${tenantId}`, baseUrl), { cache: "no-store" }),
-      fetch(new URL(`/api/inbox?tenantId=${tenantId}`, baseUrl), { cache: "no-store" }),
-    ]);
+    Promise.all([
+      fetch(`/api/saas`, { cache: "no-store" }),
+      fetch(`/api/departments`, { cache: "no-store" }),
+      fetch(`/api/inbox`, { cache: "no-store" }),
+    ])
+      .then(async ([saasRes, deptRes, inboxRes]) => {
+        if (!saasRes.ok || !deptRes.ok || !inboxRes.ok) {
+          setErrorMessage("Some admin data endpoints are unavailable.");
+          console.error("ADMIN_DATA_ERROR", {
+            correlationId,
+            saasStatus: saasRes.status,
+            departmentsStatus: deptRes.status,
+            inboxStatus: inboxRes.status,
+          });
+        }
 
-    if (!saasRes.ok || !deptRes.ok || !inboxRes.ok) {
-      errorMessage = "Some admin data endpoints are unavailable.";
-      console.error("ADMIN_DATA_ERROR", {
-        correlationId,
-        saasStatus: saasRes.status,
-        departmentsStatus: deptRes.status,
-        inboxStatus: inboxRes.status,
+        if (saasRes.ok) setSaasData(await saasRes.json());
+        if (deptRes.ok) setDepartments(await deptRes.json());
+        if (inboxRes.ok) setInboxItems(await inboxRes.json());
+      })
+      .catch((error) => {
+        setErrorMessage("Admin data loading failed.");
+        console.error("ADMIN_DATA_EXCEPTION", { correlationId, error });
+      })
+      .finally(() => {
+        setLoading(false);
       });
-    }
+  }, []);
 
-    if (saasRes.ok) saasData = await saasRes.json();
-    if (deptRes.ok) departments = await deptRes.json();
-    if (inboxRes.ok) inboxItems = await inboxRes.json();
-  } catch (error) {
-    errorMessage = "Admin data loading failed.";
-    console.error("ADMIN_DATA_EXCEPTION", { correlationId, error });
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold">Panel de Administración</h1>
+        <p className="text-sm text-[var(--muted)]">Cargando datos...</p>
+      </div>
+    );
   }
 
   if (errorMessage) {
@@ -52,9 +64,6 @@ export default async function AdminPage() {
         <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-900">
           <p className="font-semibold">We hit an error fetching admin data.</p>
           <p className="text-sm mt-2">{errorMessage}</p>
-          <p className="text-xs mt-2 text-red-800">
-            correlationId: <code>{correlationId}</code> · host: {baseUrl}
-          </p>
           <p className="text-xs mt-1 text-red-800">
             Check /api/health and /api/diag for DB/seed status.
           </p>

@@ -44,15 +44,45 @@ export default function CampamentoProfile({ profile, onSave }: CampamentoProfile
         return (
             <Card tone="glass" title="Editando Perfil" subtitle="Asegúrate de que los datos fiscales sean correctos.">
                 <div className="space-y-4">
-                    <TextInput label="Razón Social / Nombre" value={formData.name || ""} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                    <input
+                        placeholder="Razón Social / Nombre"
+                        value={formData.name || ""}
+                        onChange={e => setFormData({ ...formData, name: e.target.value })}
+                        className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)]"
+                    />
                     <div className="grid grid-cols-2 gap-4">
-                        <TextInput label="NIF / CIF" value={formData.nif || ""} onChange={e => setFormData({ ...formData, nif: e.target.value })} />
-                        <TextInput label="Email (Facturación)" value={formData.email || ""} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                        <input
+                            placeholder="NIF / CIF"
+                            value={formData.nif || ""}
+                            onChange={e => setFormData({ ...formData, nif: e.target.value })}
+                            className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)]"
+                        />
+                        <input
+                            placeholder="Email (Facturación)"
+                            value={formData.email || ""}
+                            onChange={e => setFormData({ ...formData, email: e.target.value })}
+                            className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)]"
+                        />
                     </div>
-                    <TextInput label="Dirección Fiscal" value={formData.address || ""} onChange={e => setFormData({ ...formData, address: e.target.value })} />
+                    <input
+                        placeholder="Dirección Fiscal"
+                        value={formData.address || ""}
+                        onChange={e => setFormData({ ...formData, address: e.target.value })}
+                        className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)]"
+                    />
                     <div className="grid grid-cols-2 gap-4">
-                        <TextInput label="Ciudad" value={formData.city || ""} onChange={e => setFormData({ ...formData, city: e.target.value })} />
-                        <TextInput label="País" value={formData.country || ""} onChange={e => setFormData({ ...formData, country: e.target.value })} />
+                        <input
+                            placeholder="Ciudad"
+                            value={formData.city || ""}
+                            onChange={e => setFormData({ ...formData, city: e.target.value })}
+                            className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)]"
+                        />
+                        <input
+                            placeholder="País"
+                            value={formData.country || ""}
+                            onChange={e => setFormData({ ...formData, country: e.target.value })}
+                            className="w-full rounded border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)]"
+                        />
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
                         <Button variant="outline" onClick={() => setIsEditing(false)} disabled={saving}>Cancelar</Button>

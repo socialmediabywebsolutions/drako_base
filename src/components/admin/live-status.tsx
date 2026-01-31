@@ -26,7 +26,7 @@ export default function LiveStatusDashboard() {
     useEffect(() => {
         fetch("/api/status.json")
             .then((res) => res.json())
-            .then(setStatus)
+            .then((data) => setStatus(data as StatusData))
             .catch(err => console.error("Failed to load status.json", err));
     }, []);
 

@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getCloudflareEnv } from "@/lib/cloudflare/context";
 
 export const runtime = "edge";
 
 export async function GET(request: Request) {
     try {
         const { tenantId } = await requireTenantAccess(request);
-        const db = getRequestContext().env.DB as any;
+        const db = getCloudflareEnv().DB;
 
         // Fetch open incidents
         const { results } = await db.prepare("SELECT * FROM tech_incidents WHERE status != 'RESOLVED' ORDER BY severity = 'CRITICAL' DESC, created_at DESC").all();

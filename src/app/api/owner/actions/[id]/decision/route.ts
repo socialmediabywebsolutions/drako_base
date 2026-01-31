@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getCloudflareEnv } from "@/lib/cloudflare/context";
 
 type DecisionRequest = {
     decision: "APPROVE" | "REJECT";
@@ -14,11 +14,11 @@ type DecisionRequest = {
  */
 export async function POST(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
     try {
-        const { tenantId, session } = await requireTenantAccess(request);
-        const { id } = params;
+        const { tenantId } = await requireTenantAccess(request);
+        const { id } = await params;
         const body = (await request.json()) as DecisionRequest;
         const { decision, note } = body;
 
@@ -29,15 +29,15 @@ export async function POST(
             );
         }
 
-        const db = getRequestContext().env.DB as any;
+        const db = getCloudflareEnv().DB;
         const now = Math.floor(Date.now() / 1000);
         const correlation_id = crypto.randomUUID();
 
         // Get the action first
-        const action = await db
+        const action = (await db
             .prepare("SELECT * FROM campamento_actions WHERE id = ?")
             .bind(id)
-            .first();
+            .first()) as any;
 
         if (!action) {
             return NextResponse.json(
