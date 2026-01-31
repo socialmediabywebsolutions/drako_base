@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { trackGrowthEventClient } from "@/lib/saas/growth/client";
 import {
     Building2,
     Mail,
@@ -35,6 +36,18 @@ export default function MentoriaSignupPage() {
         try {
             // Logic would go here: const { tenantId } = await signup(formData);
             // For now, redirect to checkout
+            // Track 'mentoria.signup' (silent)
+            trackGrowthEventClient({
+                tenantId: "mentoria_ia", // Hardcoded for this specific landing flow
+                eventName: "mentoria.signup",
+                conversionSource: "direct", // In Phase 2 this will come from URL params
+                country: "OTHER", // Phase 2: Geo-IP detection
+                payload: {
+                    institutionName: formData.institutionName,
+                    email: formData.email
+                }
+            });
+
             const response = await fetch("/api/stripe/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
