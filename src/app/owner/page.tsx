@@ -23,6 +23,7 @@ import OwnerMarketingSection from "@/app/owner/OwnerMarketingSection";
 import CampamentoLeftPanel from "@/app/owner/components/CampamentoLeftPanel";
 import CampamentoCenterPanel from "@/app/owner/components/CampamentoCenterPanel";
 import CampamentoRightPanel from "@/app/owner/components/CampamentoRightPanel";
+import LegacyFiscalForm from "@/app/owner/components/LegacyFiscalForm";
 
 type Owner = {
   id: string;
@@ -2236,48 +2237,23 @@ export default function OwnerPage() {
         )}
       </Card>
 
-      <Card tone="glass" title="Datos fiscales" subtitle="Información usada en facturación">
-        {loading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando datos...</p>
-        ) : (
-          <form
-            className="grid grid-cols-1 md:grid-cols-2 gap-4"
-            onSubmit={(evt) => {
-              evt.preventDefault();
-              void handleSave();
-            }}
-          >
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-[var(--muted)]">Nombre / razón social</span>
-              <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="DRĀKO Systems" required />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-[var(--muted)]">NIF / CIF</span>
-              <TextInput value={nif} onChange={(e) => setNif(e.target.value)} placeholder="B12345678" />
-            </label>
-            <label className="flex flex-col gap-1 text-sm md:col-span-2">
-              <span className="text-[var(--muted)]">Dirección fiscal</span>
-              <TextArea value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Dirección completa" rows={3} />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-[var(--muted)]">Email de facturación</span>
-              <TextInput type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@drako.systems" />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-[var(--muted)]">Teléfono</span>
-              <TextInput value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+34 600 000 000" />
-            </label>
-            <div className="md:col-span-2 flex items-center justify-between">
-              <span className="text-sm text-[var(--muted)]">
-                {message ?? "Estos datos se usarán en la facturación generada desde DRĀKO BASE."}
-              </span>
-              <Button type="submit" disabled={saving}>
-                {saving ? "Guardando..." : "Guardar"}
-              </Button>
-            </div>
-          </form>
-        )}
-      </Card>
+      <LegacyFiscalForm
+        loading={loading}
+        saving={saving}
+        message={message}
+        name={name}
+        nif={nif}
+        address={address}
+        email={email}
+        phone={phone}
+        onNameChange={setName}
+        onNifChange={setNif}
+        onAddressChange={setAddress}
+        onEmailChange={setEmail}
+        onPhoneChange={setPhone}
+        onSave={handleSave}
+        enabled={false}
+      />
 
       {!loading && !owner && (
         <EmptyState
