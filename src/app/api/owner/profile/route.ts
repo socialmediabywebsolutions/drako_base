@@ -1,23 +1,23 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getCloudflareEnv } from "@/lib/cloudflare/context";
 
 export const runtime = "edge";
 
 export async function GET(request: Request) {
     try {
-        const { tenantId, session } = await requireTenantAccess(request);
+        const { tenantId } = await requireTenantAccess(request);
 
         // In this system, the "owner" is often the tenant admin. 
         // We assume the owner record shares the ID with the tenant or user, 
         // but for now let's query by the owner_id associated with the session.
         // The previous migration 0010 defines 'owners' table.
 
-        const db = getRequestContext().env.DB as any;
+        const db = getCloudflareEnv().DB;
 
         // We try to find the owner. Ideally 'user.id' or 'tenantId' maps to owner.
         // Let's assume tenantId is the owner context for Campamento Base.
-        let owner = await db.prepare("SELECT * FROM owners WHERE id = ?").bind(tenantId).first();
+        const owner = await db.prepare("SELECT * FROM owners WHERE id = ?").bind(tenantId).first();
 
         if (!owner) {
             // If no owner found, return null or empty structure so UI can prompt creation
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
         const body = await request.json() as any;
         const { name, nif, address, email, phone, country, city } = body;
 
-        const db = getRequestContext().env.DB as any;
+        const db = getCloudflareEnv().DB;
 
         // Upsert logic
         await db.prepare(`

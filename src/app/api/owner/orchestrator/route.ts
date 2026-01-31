@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getCloudflareEnv } from "@/lib/cloudflare/context";
 
 type OrchestratorRequest = {
     command: string;
@@ -22,7 +22,7 @@ type OrchestratorResponse = {
  */
 export async function POST(request: Request): Promise<Response> {
     try {
-        const { tenantId, session } = await requireTenantAccess(request);
+        const { tenantId } = await requireTenantAccess(request);
         const body = (await request.json()) as OrchestratorRequest;
         const { command, args = [], context = {} } = body;
 
@@ -33,7 +33,7 @@ export async function POST(request: Request): Promise<Response> {
             );
         }
 
-        const db = getRequestContext().env.DB as any;
+        const db = getCloudflareEnv().DB;
         const correlation_id = crypto.randomUUID();
         const now = Math.floor(Date.now() / 1000);
 
@@ -118,7 +118,7 @@ export async function POST(request: Request): Promise<Response> {
 
             data = { tickets, incidents };
         } else if (cmdLower === "/profile") {
-            const profile = await db.prepare("SELECT * FROM owners WHERE id = ?").bind(tenantId).first();
+            const profile = (await db.prepare("SELECT * FROM owners WHERE id = ?").bind(tenantId).first()) as any;
 
             reply = profile
                 ? `👤 PERFIL OWNER:\n• ${profile.name}\n• ${profile.nif ?? "Sin NIF"}\n• ${profile.email ?? "Sin email"}`

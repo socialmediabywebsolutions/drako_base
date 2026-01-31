@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getCloudflareEnv } from "@/lib/cloudflare/context";
 
 type UpdateRequest = {
     status?: "OPEN" | "INVESTIGATING" | "RESOLVED" | "MONITORING";
@@ -15,11 +15,11 @@ type UpdateRequest = {
  */
 export async function POST(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
     try {
-        const { tenantId, session } = await requireTenantAccess(request);
-        const { id } = params;
+        const { tenantId } = await requireTenantAccess(request);
+        const { id } = await params;
         const body = (await request.json()) as UpdateRequest;
         const { status, note, severity } = body;
 
@@ -30,15 +30,15 @@ export async function POST(
             );
         }
 
-        const db = getRequestContext().env.DB as any;
+        const db = getCloudflareEnv().DB;
         const now = Math.floor(Date.now() / 1000);
         const correlation_id = crypto.randomUUID();
 
         // Get current incident
-        const incident = await db
+        const incident = (await db
             .prepare("SELECT * FROM tech_incidents WHERE id = ?")
             .bind(id)
-            .first();
+            .first()) as any;
 
         if (!incident) {
             return NextResponse.json(

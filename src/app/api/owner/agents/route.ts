@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getCloudflareEnv } from "@/lib/cloudflare/context";
 
 export const runtime = "edge";
 
@@ -8,7 +8,7 @@ export const runtime = "edge";
 export async function GET(request: Request) {
     try {
         const { tenantId } = await requireTenantAccess(request);
-        const db = getRequestContext().env.DB as any;
+        const db = getCloudflareEnv().DB;
 
         const { results } = await db.prepare("SELECT * FROM agent_runtime_states ORDER BY role ASC").all();
 
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Missing agentId or role" }, { status: 400 });
         }
 
-        const db = getRequestContext().env.DB as any;
+        const db = getCloudflareEnv().DB;
         const now = Math.floor(Date.now() / 1000);
 
         await db.prepare(`

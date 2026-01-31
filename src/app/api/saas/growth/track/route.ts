@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
         // If coming from client-side, we would read the session.
 
         // Simplification for V1: Read tenant_id from header (Internal/Gateway) or Body
-        const body = await req.json();
+        const body = (await req.json()) as any;
         const tenantId = req.headers.get("x-tenant-id") || body.tenantId;
 
         if (!tenantId) {
