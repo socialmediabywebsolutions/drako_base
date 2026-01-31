@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:worker": "npx open-next build --adapter @opennextjs/cloudflare",
+    "pages:build": "npm run build:worker",
     "deploy": "wrangler deploy",
     "start": "next start",
     "lint": "eslint src",

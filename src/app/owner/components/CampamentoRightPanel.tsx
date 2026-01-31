@@ -16,13 +16,17 @@ const AGENT_META = {
     SUPPORT: { label: "Customer Support", icon: "🎧" },
 };
 
-function AgentCard({ agent }: { agent: AgentRuntimeState }) {
+function AgentCard({ agent }: { agent: AgentRuntimeState & { isOffline?: boolean } }) {
     const meta = AGENT_META[agent.role];
+    const isOffline = agent.isOffline || (agent.last_heartbeat && (Math.floor(Date.now() / 1000) - agent.last_heartbeat > 600));
+    const displayStatus = isOffline ? "OFFLINE" : agent.status;
+
     const statusColor =
-        agent.status === 'WORKING' ? 'border-green-500/30 bg-green-500/5' :
-            agent.status === 'BLOCKED' ? 'border-red-500/50 bg-red-950/20' :
-                agent.status === 'ERROR' ? 'border-red-600 bg-red-950/30' :
-                    'border-[var(--border)] bg-[var(--bg-surface)]';
+        isOffline ? 'border-gray-600/50 bg-gray-900/20' :
+            agent.status === 'WORKING' ? 'border-green-500/30 bg-green-500/5' :
+                agent.status === 'BLOCKED' ? 'border-red-500/50 bg-red-950/20' :
+                    agent.status === 'ERROR' ? 'border-red-600 bg-red-950/30' :
+                        'border-[var(--border)] bg-[var(--bg-surface)]';
 
     return (
         <div className={`rounded-lg border p-3 transition-colors ${statusColor}`}>
@@ -32,11 +36,12 @@ function AgentCard({ agent }: { agent: AgentRuntimeState }) {
                     <span className="text-sm font-semibold">{meta.label}</span>
                 </div>
                 <Badge variant={
-                    agent.status === 'WORKING' ? 'ok' :
-                        agent.status === 'BLOCKED' ? 'err' :
-                            agent.status === 'ERROR' ? 'err' : 'neutral'
+                    isOffline ? 'neutral' :
+                        agent.status === 'WORKING' ? 'ok' :
+                            agent.status === 'BLOCKED' ? 'err' :
+                                agent.status === 'ERROR' ? 'err' : 'neutral'
                 } className="text-[10px]">
-                    {agent.status}
+                    {displayStatus}
                 </Badge>
             </div>
 
