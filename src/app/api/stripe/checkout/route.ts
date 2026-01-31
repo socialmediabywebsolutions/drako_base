@@ -7,7 +7,7 @@ import { queryAll } from "@/lib/db";
 import { listDemoClients, listDemoSaas, listDemoClientSaas } from "@/lib/admin/demo-data";
 import { getRequestBaseUrl } from "@/lib/http/base-url";
 import { respondDatabaseError } from "@/lib/http/errors";
-import { createTenant, createTenantUser, resolveTenantId } from "@/lib/tenants/services";
+import { createTenant, createTenantUser } from "@/lib/tenants/services";
 // export const runtime = "edge"; // OpenNext Migration
 
 function getPriceId(plan?: string | null): string {
