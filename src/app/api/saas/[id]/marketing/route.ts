@@ -6,7 +6,7 @@ import {
   resolveSaasMarketingContext,
   upsertSaasMarketingPlan,
 } from "@/lib/saas/marketing-repository";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext: disabled for bundling
 
 
 type RouteContext = {

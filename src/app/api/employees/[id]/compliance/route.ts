@@ -3,7 +3,7 @@ import { requireTenantAccess } from "@/lib/auth/session";
 import { resolveEmployeesContext } from "@/lib/employees/context";
 import { handleEmployeesApiError } from "@/lib/employees/api-helpers";
 import { checkEmployeeCompliance } from "@/lib/employees/compliance";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext: disabled for bundling
 
 
 type RouteContext = {

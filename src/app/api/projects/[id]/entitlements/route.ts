@@ -7,7 +7,7 @@ import {
   upsertProjectEntitlements,
 } from "@/lib/projects/entitlements";
 
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext: disabled for bundling
 
 type RouteContext = {
   params: Promise<{ id: string }>;

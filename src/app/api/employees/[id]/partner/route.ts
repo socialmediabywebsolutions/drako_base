@@ -12,7 +12,7 @@ import {
   getEmployeeRealtimeSuggestions,
 } from "@/lib/agents/employee-partner";
 import { EmployeesContextError } from "@/lib/employees/context";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext: disabled for bundling
 
 
 type RouteContext = {

@@ -12,7 +12,7 @@ import {
 } from "@/lib/knowledge/repository";
 import { resolveTasksContext, getTaskById } from "@/lib/tasks/repository";
 import type { SaasKnowledgeLinkTargetType } from "@/lib/knowledge/types";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext: disabled for bundling
 
 
 type RouteContext = {

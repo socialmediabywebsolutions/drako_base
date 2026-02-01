@@ -8,7 +8,7 @@ import type {
   SaasKnowledgeDocumentStatus,
   SaasKnowledgeDocumentType,
 } from "@/lib/knowledge/types";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext: disabled for bundling
 
 
 const AUDIENCE_VALUES: KnowledgeAudience[] = ["OWNER", "STAFF", "BOTH"];

@@ -4,7 +4,7 @@ import { strict as assert } from "node:assert";
 import { UnauthorizedError } from "@/lib/auth/session";
 const contextModule = require("@/lib/orchestrator/company-context") as typeof import("@/lib/orchestrator/company-context");
 import type { SaasPackDefinition } from "@/lib/packs/types";
-import { runtime } from "@/app/api/projects/[id]/entitlements/context/route";
+// runtime export removed for OpenNext compatibility
 import * as entitlementsContextRoute from "@/app/api/projects/[id]/entitlements/context/route";
 import {
   ProjectsDbMock,
@@ -39,9 +39,11 @@ type ContextResponse = {
   };
 };
 
+/* OpenNext: edge runtime test disabled
 async function testRuntimeExportsEdge() {
   assert.equal(runtime, "edge", "Context route should expose edge runtime");
 }
+*/
 
 async function testContextReturnsInheritedData() {
   const mock = new ProjectsDbMock();
@@ -163,7 +165,7 @@ async function testTenantMismatch() {
 
 async function run() {
   const tests: Array<{ name: string; fn: () => Promise<void> }> = [
-    { name: "context route exports edge runtime", fn: testRuntimeExportsEdge },
+    // { name: "context route exports edge runtime", fn: testRuntimeExportsEdge }, // OpenNext: disabled
     { name: "context GET returns inherited data", fn: testContextReturnsInheritedData },
     { name: "context GET returns 404 for missing project", fn: testProjectNotFound },
     { name: "context GET enforces tenant access", fn: testTenantMismatch },

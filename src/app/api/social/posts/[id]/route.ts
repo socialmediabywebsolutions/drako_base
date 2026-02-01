@@ -6,7 +6,7 @@ import {
   SocialContextError,
   updateSaasSocialPostStatus,
 } from "@/lib/social/repository";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext: disabled for bundling
 
 
 const ALLOWED_STATUSES = ["DRAFT", "SCHEDULED", "POSTED", "FAILED"] as const;
