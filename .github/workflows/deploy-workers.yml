@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/migrate-to-opennext-workers  # Temporary: for testing before merge
   workflow_dispatch:
 
 jobs:
