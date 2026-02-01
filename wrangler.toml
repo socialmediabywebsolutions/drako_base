@@ -1,22 +1,2 @@
-# Cloudflare Pages configuration for OpenNext deployment
+name = "drako-base"
 pages_build_output_dir = ".open-next"
-
-# D1 Database bindings
-[[d1_databases]]
-binding = "DRACO_DB"
-database_name = "drako_db_prod"
-database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
-
-# Workers AI binding
-[ai]
-binding = "AI"
-
-# Preview environment
-[env.preview]
-[[env.preview.d1_databases]]
-binding = "DRACO_DB"
-database_name = "drako_db"
-database_id = "10146888-ca79-41d6-b6c2-bf1025eb651b"
-
-[env.preview.ai]
-binding = "AI"
