@@ -7,7 +7,7 @@ import {
   updateProjectDomainStatus,
 } from "@/lib/projects/repository";
 
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext: disabled for bundling
 
 type RouteContext = {
   params: Promise<{ id: string }>;

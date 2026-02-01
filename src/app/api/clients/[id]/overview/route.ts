@@ -4,7 +4,7 @@ import { queryAll } from "@/lib/db";
 import { buildOwnerControlSnapshot } from "@/lib/owner/control-dashboard";
 import { resolveTasksContext, listTasks } from "@/lib/tasks/repository";
 import { listDemoClients, listDemoClientSaas, listDemoSaas } from "@/lib/admin/demo-data";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext: disabled for bundling
 
 
 type ClientRow = {

@@ -1,7 +1,7 @@
 import "./register-paths";
 import { strict as assert } from "node:assert";
 import { UnauthorizedError } from "@/lib/auth/session";
-import { runtime } from "@/app/api/projects/[id]/entitlements/route";
+// runtime export removed for OpenNext compatibility
 import * as projectEntitlementsRoute from "@/app/api/projects/[id]/entitlements/route";
 import {
   ProjectsDbMock,
@@ -25,9 +25,11 @@ type EntitlementsResponse = {
   error?: string;
 };
 
+/* OpenNext: edge runtime test disabled - runtime export removed for bundling compatibility
 async function testRuntimeIsEdge() {
   assert.equal(runtime, "edge", "Entitlements API route should export edge runtime");
 }
+*/
 
 async function testEntitlementsValidationErrors() {
   const mock = new ProjectsDbMock();
@@ -105,7 +107,7 @@ async function testEntitlementsTenantMismatch() {
 
 async function run() {
   const tests: Array<{ name: string; fn: () => Promise<void> }> = [
-    { name: "entitlements route exports edge runtime", fn: testRuntimeIsEdge },
+    // { name: "entitlements route exports edge runtime", fn: testRuntimeIsEdge }, // OpenNext: disabled
     { name: "entitlements GET returns defaults", fn: testEntitlementsGetDefaults },
     { name: "entitlements PUT creates with normalization", fn: testEntitlementsPutCreatesAndNormalizes },
     { name: "entitlements PUT updates existing", fn: testEntitlementsPutUpdatesExisting },

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { AppointmentsContextError, listAppointmentsForEmployee, resolveAppointmentsContext } from "@/lib/appointments/repository";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext: disabled for bundling
 
 
 type RouteContext = {

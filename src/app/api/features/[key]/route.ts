@@ -3,7 +3,7 @@ import { requireTenantAccess } from "@/lib/auth/session";
 import { handleFeaturesApiError } from "@/lib/features/api-helpers";
 import { getSaasFeatureByKey, resolveFeaturesContext, upsertSaasFeature } from "@/lib/features/repository";
 import type { SaasFeatureKey, SaasFeatureSource, SaasFeatureStatus } from "@/lib/features/types";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext: disabled for bundling
 
 
 type RouteContext = {

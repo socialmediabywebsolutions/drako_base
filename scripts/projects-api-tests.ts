@@ -1,6 +1,6 @@
 import "./register-paths";
 import { strict as assert } from "node:assert";
-import { runtime } from "@/app/api/projects/[id]/route";
+// runtime export removed for OpenNext compatibility
 import * as projectsShowRoute from "@/app/api/projects/[id]/route";
 import * as projectsIndexRoute from "@/app/api/projects/route";
 import {
@@ -158,9 +158,11 @@ async function testProjectsCreateRouteAllowsMissingCompany() {
   }
 }
 
+/* OpenNext: edge runtime test disabled
 async function testProjectsRouteRuntimeIsEdge() {
   assert.equal(runtime, "edge", "API routes must export edge runtime");
 }
+*/
 
 async function testProjectsDetailRouteSuccess() {
   const mock = new ProjectsDbMock();
@@ -335,7 +337,7 @@ async function testGetProjectDetailIncludesDomainsAndEntitlements() {
 
 async function run() {
   const tests: Array<{ name: string; fn: () => Promise<void> }> = [
-    { name: "projects route exports edge runtime", fn: testProjectsRouteRuntimeIsEdge },
+    // { name: "projects route exports edge runtime", fn: testProjectsRouteRuntimeIsEdge }, // OpenNext: disabled
     { name: "projects detail route succeeds", fn: testProjectsDetailRouteSuccess },
     { name: "projects detail route returns 404", fn: testProjectsDetailRouteNotFound },
     { name: "projects detail route enforces tenant", fn: testProjectsDetailRouteTenantMismatch },

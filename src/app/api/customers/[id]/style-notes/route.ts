@@ -6,7 +6,7 @@ import {
   resolveCustomersContext,
   CustomersContextError,
 } from "@/lib/customers/repository";
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext: disabled for bundling
 
 
 type RouteContext = {

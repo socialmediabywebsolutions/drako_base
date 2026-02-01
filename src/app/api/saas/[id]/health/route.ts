@@ -5,7 +5,7 @@ import {
     getLatestHealthScore,
 } from "@/lib/campamento-base/health-score/calculator";
 
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext: disabled for bundling
 
 /**
  * GET /api/saas/[id]/health
