@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Image from "next/image";
 
 export function Testimonials() {
     const testimonials = [
@@ -9,7 +8,7 @@ export function Testimonials() {
             name: "Juan Pérez",
             role: "CEO",
             company: "MentorIA Escolar",
-            avatar: "👨‍💼",
+            initials: "JP",
             quote: "Drako transformó nuestra idea en un SaaS funcional en menos de 48 horas. Pasamos de 0 a 500 usuarios en 2 meses.",
             metrics: [
                 { label: "Reducción de costes", value: "67%" },
@@ -22,11 +21,11 @@ export function Testimonials() {
             name: "María González",
             role: "Fundadora",
             company: "EcoTrack Solutions",
-            avatar: "👩‍💼",
+            initials: "MG",
             quote: "Invertimos €2,500 con Drako vs los €25,000 que nos pedía una agencia. El ROI fue inmediato y el producto es de calidad profesional.",
             metrics: [
                 { label: "Ahorro vs agencia", value: "€22.5K" },
-                { label: "Escalabilidad", value: "Automática" },
+                { label: "Escalabilidad", value: "Auto" },
                 { label: "Satisfacción", value: "10/10" }
             ],
             rating: 5
@@ -35,12 +34,12 @@ export function Testimonials() {
             name: "Carlos Rodríguez",
             role: "CTO",
             company: "FinanceHub Pro",
-            avatar: "👨‍💻",
+            initials: "CR",
             quote: "La infraestructura Edge y el soporte 24/7 incluido nos ahorra €800/mes. Drako es la mejor decisión técnica que hemos tomado.",
             metrics: [
                 { label: "Uptime real", value: "99.97%" },
                 { label: "Ahorro mensual", value: "€800" },
-                { label: "Tiempo de respuesta", value: "<2h" }
+                { label: "Respuesta", value: "<2h" }
             ],
             rating: 5
         }
@@ -71,13 +70,17 @@ export function Testimonials() {
                         >
                             {/* Header */}
                             <div className="flex items-start gap-4">
-                                <div className="text-5xl">{testimonial.avatar}</div>
+                                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-sky-500 to-sky-600 flex items-center justify-center text-white font-black text-lg shadow-lg">
+                                    {testimonial.initials}
+                                </div>
                                 <div className="flex-1">
                                     <h3 className="font-black text-slate-900">{testimonial.name}</h3>
                                     <p className="text-sm text-slate-600 font-medium">{testimonial.role}, {testimonial.company}</p>
                                     <div className="flex gap-1 mt-2">
                                         {Array.from({ length: testimonial.rating }).map((_, i) => (
-                                            <span key={i} className="text-yellow-400 text-lg">★</span>
+                                            <svg key={i} className="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20">
+                                                <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+                                            </svg>
                                         ))}
                                     </div>
                                 </div>

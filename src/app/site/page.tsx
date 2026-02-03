@@ -98,10 +98,7 @@ export default function HomePage() {
       {/* Trust Badges */}
       <TrustBadges />
 
-      {/* ROI Calculator */}
-      <ROICalculator />
-
-      {/* Chat Section */}
+      {/* Chat Section - IMMEDIATELY AFTER TRUST BADGES */}
       <section id="chat-section" className="relative px-10 py-32 z-20 bg-gradient-to-b from-white to-sky-50">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16 space-y-4">
@@ -115,6 +112,9 @@ export default function HomePage() {
           <EliteInterview onComplete={handleInterviewComplete} />
         </div>
       </section>
+
+      {/* ROI Calculator */}
+      <ROICalculator />
 
       {/* What We Do Section */}
       <section className="px-10 py-32 max-w-7xl mx-auto">
