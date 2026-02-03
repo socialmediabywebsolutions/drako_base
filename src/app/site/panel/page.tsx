@@ -79,7 +79,7 @@ export default function SitePanelPage() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <Link href="/site" className="flex items-center gap-2 group">
-              <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-xs">
+              <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center text-white font-black text-xs">
                 DP
               </div>
               <span className="font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Drako Partner</span>
@@ -119,7 +119,7 @@ export default function SitePanelPage() {
             <Link href="/site/support" className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold rounded-lg hover:border-slate-300 hover:bg-slate-50 transition-all shadow-sm text-sm">
               Ayuda y Soporte
             </Link>
-            <Link href={saasCTA} className="px-5 py-2.5 bg-slate-900 text-white font-semibold rounded-lg hover:bg-slate-800 transition-all shadow-md text-sm flex items-center gap-2">
+            <Link href={saasCTA} className="px-5 py-2.5 bg-sky-500 text-white font-semibold rounded-lg hover:bg-sky-600 transition-all shadow-md text-sm flex items-center gap-2">
               <span>Entrar al Editor</span>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
             </Link>
@@ -226,21 +226,21 @@ export default function SitePanelPage() {
               </Link>
             </div>
 
-            <div className="bg-slate-900 text-white p-8 rounded-2xl shadow-lg relative overflow-hidden">
+            <div className="bg-white border-2 border-sky-100 p-8 rounded-2xl shadow-lg relative overflow-hidden">
               <div className="relative z-10 space-y-4">
-                <h3 className="font-bold">Infraestructura</h3>
-                <div className="space-y-2 text-sm text-slate-300">
+                <h3 className="font-bold text-slate-900">Infraestructura</h3>
+                <div className="space-y-2 text-sm text-slate-600">
                   <div className="flex justify-between">
                     <span>Server Status</span>
-                    <span className="text-emerald-400 font-bold">99.9% Uptime</span>
+                    <span className="text-emerald-600 font-bold">99.9% Uptime</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Región</span>
-                    <span className="text-white">eu-west-1 (Madrid)</span>
+                    <span className="text-slate-900">eu-west-1 (Madrid)</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Base de Datos</span>
-                    <span className="text-white">Drako D1 (Edge)</span>
+                    <span className="text-slate-900">Drako D1 (Edge)</span>
                   </div>
                 </div>
               </div>
