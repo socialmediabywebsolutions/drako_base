@@ -56,7 +56,7 @@ export default function HomePage() {
 
             <div className="space-y-4">
               <p className="text-2xl text-slate-900 font-black tracking-tighter italic leading-none uppercase">
-                "De la idea al provisionamiento en 24h."
+                &quot;De la idea al provisionamiento en 24h.&quot;
               </p>
               <p className="text-xs text-slate-600 font-bold uppercase tracking-[0.2em] leading-relaxed">
                 Factoría automatizada de grado militar para la materialización de SaaS y ecosistemas digitales auto-escalables.

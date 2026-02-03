@@ -208,7 +208,7 @@ export default function OnboardingChatPage() {
               <Button onClick={confirmCheckoutAndProvision} variant="secondary" disabled={!checkoutId}>Confirmar pago y provisionar</Button>
               <Link href="/site/panel"><Button variant="outline">Ver panel</Button></Link>
             </div>
-            <p className="text-sm text-slate-600 mt-2">Pack recomendado y pasos se ajustan a tu presupuesto. Pagos demo marcan el flujo como "paid" para provisionar.</p>
+            <p className="text-sm text-slate-600 mt-2">Pack recomendado y pasos se ajustan a tu presupuesto. Pagos demo marcan el flujo como &quot;paid&quot; para provisionar.</p>
           </Card>
         </div>
 
@@ -231,7 +231,7 @@ export default function OnboardingChatPage() {
             </div>
           </Card>
           <Card title="Notas">
-            <p className="text-sm text-slate-600">El orquestador siempre explica el porqué de cada pregunta. Si faltan claves de APIs, verás "requires_keys" y un checklist para conectarlas.</p>
+            <p className="text-sm text-slate-600">El orquestador siempre explica el porqué de cada pregunta. Si faltan claves de APIs, verás &quot;requires_keys&quot; y un checklist para conectarlas.</p>
           </Card>
         </div>
       </div>
