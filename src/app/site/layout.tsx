@@ -46,7 +46,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
                 Soporte
               </Link>
               <Link
-                href="/site"
+                href="/site#chat-section"
                 className="ml-4 inline-flex items-center rounded-xl bg-sky-500 px-8 py-3 text-[10px] font-black uppercase tracking-[0.4em] text-white shadow-lg shadow-sky-500/30 transition-all hover:bg-sky-600 hover:shadow-sky-600/40 hover:scale-105 active:scale-95 italic"
               >
                 Comenzar

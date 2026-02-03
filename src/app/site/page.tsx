@@ -17,6 +17,11 @@ export default function HomePage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const scrollToChat = () => {
+    const chatEl = document.getElementById('chat-section');
+    chatEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   if (activeView === "workspace") {
     return <FoundryWorkplace blueprint={finalBlueprint} />;
   }
@@ -66,10 +71,7 @@ export default function HomePage() {
             <div className="flex flex-col justify-center">
               <div className="flex gap-6">
                 <button
-                  onClick={() => {
-                    const el = document.getElementById('interview');
-                    el?.scrollIntoView({ behavior: 'smooth' });
-                  }}
+                  onClick={scrollToChat}
                   className="px-10 py-4 bg-sky-500 text-white font-black text-[10px] uppercase tracking-[0.4em] rounded-xl hover:bg-sky-600 transition-all hover:scale-105 shadow-lg shadow-sky-500/30 italic"
                 >
                   Iniciar Consultoría
@@ -85,6 +87,21 @@ export default function HomePage() {
             </div>
           </div>
         </motion.div>
+      </section>
+
+      {/* Chat Section - IMMEDIATELY AFTER HERO */}
+      <section id="chat-section" className="relative px-10 py-32 z-20 bg-gradient-to-b from-white to-sky-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16 space-y-4">
+            <span className="text-sky-600 text-xs font-black uppercase tracking-[0.5em]">Paso 1: Diagnóstico</span>
+            <h2 className="text-5xl font-black text-slate-900 tracking-tight">Consultoría Personalizada</h2>
+            <p className="text-slate-600 font-medium max-w-2xl mx-auto">
+              Responde 4-5 preguntas sobre tu negocio. Al finalizar, recibirás un análisis completo y presupuesto exacto.
+            </p>
+          </div>
+
+          <EliteInterview onComplete={handleInterviewComplete} />
+        </div>
       </section>
 
       {/* What We Do Section */}
@@ -144,21 +161,6 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Interview Section */}
-      <section id="interview" className="relative px-10 py-32 z-20 bg-gradient-to-b from-sky-50 to-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16 space-y-4">
-            <span className="text-sky-600 text-xs font-black uppercase tracking-[0.5em]">Paso 1: Diagnóstico</span>
-            <h2 className="text-5xl font-black text-slate-900 tracking-tight">Consultoría Personalizada</h2>
-            <p className="text-slate-600 font-medium max-w-2xl mx-auto">
-              Responde 4-5 preguntas sobre tu negocio. Al finalizar, recibirás un análisis completo y presupuesto exacto.
-            </p>
-          </div>
-
-          <EliteInterview onComplete={handleInterviewComplete} />
         </div>
       </section>
 
