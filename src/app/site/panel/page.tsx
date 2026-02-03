@@ -67,8 +67,8 @@ export default function SitePanelPage() {
   }, [canLoad, loadData]);
 
   const saasCTA = useMemo(() => {
-    if (!session.saasId) return "/saas";
-    return `/saas/${session.saasId}`;
+    if (!session.saasId) return "/site";
+    return `/saas/${session.saasId}/student`;
   }, [session.saasId]);
 
   return (
