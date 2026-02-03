@@ -6,6 +6,12 @@ import Link from "next/link";
 import { EliteInterview } from "@/components/onboarding/elite-interview";
 import { FoundryWorkplace } from "@/components/foundry/foundry-workplace";
 import { type BlueprintResponse } from "@/lib/campamento-base/ai-blueprint-v2/prompts";
+import { TrustBadges } from "@/components/marketing/trust-badges";
+import { ROICalculator } from "@/components/marketing/roi-calculator";
+import { PricingComparison } from "@/components/marketing/pricing-comparison";
+import { StatsCounter } from "@/components/marketing/stats-counter";
+import { Testimonials } from "@/components/marketing/testimonials";
+import { GuaranteeBanner } from "@/components/marketing/guarantee-banner";
 
 export default function HomePage() {
   const [activeView, setActiveView] = useState<"landing" | "workspace">("landing");
@@ -89,7 +95,13 @@ export default function HomePage() {
         </motion.div>
       </section>
 
-      {/* Chat Section - IMMEDIATELY AFTER HERO */}
+      {/* Trust Badges */}
+      <TrustBadges />
+
+      {/* ROI Calculator */}
+      <ROICalculator />
+
+      {/* Chat Section */}
       <section id="chat-section" className="relative px-10 py-32 z-20 bg-gradient-to-b from-white to-sky-50">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16 space-y-4">
@@ -164,21 +176,17 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Social Proof / Stats */}
-      <section className="px-10 py-32 max-w-7xl mx-auto">
-        <div className="grid md:grid-cols-3 gap-12">
-          {[
-            { stat: "< 24h", label: "Tiempo de Materialización" },
-            { stat: "< 6 meses", label: "Retorno de Inversión" },
-            { stat: "100%", label: "Edge Deployment" }
-          ].map((item, i) => (
-            <div key={i} className="text-center space-y-3 p-8 bg-white rounded-2xl border-2 border-sky-100 shadow-lg hover:shadow-xl transition-shadow">
-              <div className="text-5xl font-black text-sky-600 italic">{item.stat}</div>
-              <div className="text-sm text-slate-700 font-bold uppercase tracking-wider">{item.label}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* Pricing Comparison */}
+      <PricingComparison />
+
+      {/* Stats Counter */}
+      <StatsCounter />
+
+      {/* Testimonials */}
+      <Testimonials />
+
+      {/* Guarantee Banner */}
+      <GuaranteeBanner />
 
       {/* Footer CTA */}
       <section className="px-10 py-20 max-w-7xl mx-auto">
