@@ -131,11 +131,11 @@ export default function OnboardingChatPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b1220] text-white">
-      <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-white text-slate-900">
+      <header className="border-b border-sky-100 bg-white px-6 py-4 flex items-center justify-between shadow-sm">
         <div>
-          <p className="text-sm text-white/60">DRĀKO Systems</p>
-          <h1 className="text-xl font-semibold">Onboarding asistido</h1>
+          <p className="text-sm text-sky-600 font-semibold">DRĀKO Systems</p>
+          <h1 className="text-xl font-bold text-slate-900">Onboarding asistido</h1>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="neutral">{statusText}</Badge>
@@ -143,7 +143,7 @@ export default function OnboardingChatPage() {
         </div>
       </header>
 
-      <div className="grid gap-4 px-4 py-6 lg:grid-cols-[280px,1fr,360px]">
+      <div className="grid gap-4 px-4 py-6 lg:grid-cols-[280px,1fr,400px]">
         {/* izquierda */}
         <div className="space-y-4">
           <Card title="Progreso">
@@ -158,19 +158,19 @@ export default function OnboardingChatPage() {
           </Card>
           <Card title="Descargas">
             {reportLinks.length === 0 ? (
-              <p className="text-sm text-white/60">Genera los reportes para habilitar descargas.</p>
+              <p className="text-sm text-slate-600">Genera los reportes para habilitar descargas.</p>
             ) : (
               <ul className="space-y-2">
                 {reportLinks.map((r) => (
                   <li key={r.id}>
-                    <Link className="text-sky-300 underline" href={`/api/reports/${r.id}/pdf`}>Descargar {r.type}</Link>
+                    <Link className="text-sky-600 font-semibold underline hover:text-sky-700" href={`/api/reports/${r.id}/pdf`}>Descargar {r.type}</Link>
                   </li>
                 ))}
               </ul>
             )}
           </Card>
           <Card title="Estado de research">
-            <p className="text-sm">{researchStatus}</p>
+            <p className="text-sm text-slate-700 font-medium">{researchStatus}</p>
           </Card>
         </div>
 
@@ -208,30 +208,30 @@ export default function OnboardingChatPage() {
               <Button onClick={confirmCheckoutAndProvision} variant="secondary" disabled={!checkoutId}>Confirmar pago y provisionar</Button>
               <Link href="/site/panel"><Button variant="outline">Ver panel</Button></Link>
             </div>
-            <p className="text-sm text-white/70 mt-2">Pack recomendado y pasos se ajustan a tu presupuesto. Pagos demo marcan el flujo como “paid” para provisionar.</p>
+            <p className="text-sm text-slate-600 mt-2">Pack recomendado y pasos se ajustan a tu presupuesto. Pagos demo marcan el flujo como "paid" para provisionar.</p>
           </Card>
         </div>
 
-        {/* derecha chat */}
-        <div className="flex flex-col gap-3">
+        {/* derecha chat - FIXED: Positioned at top */}
+        <div className="flex flex-col gap-3 sticky top-4 self-start">
           <Card title="Chat con tu orquestador">
-            <div className="h-[360px] overflow-y-auto space-y-2 pr-1">
+            <div className="h-[500px] overflow-y-auto space-y-2 pr-1 mb-3">
               {messages.map((m) => (
-                <div key={m.id} className={`rounded-xl p-2 text-sm ${m.sender === "client" ? "bg-white/10 text-white" : "bg-emerald-500/15 text-emerald-100"}`}>
-                  <p className="text-[10px] uppercase tracking-wide opacity-60">{m.sender}</p>
-                  <p>{m.content}</p>
+                <div key={m.id} className={`rounded-xl p-3 text-sm ${m.sender === "client" ? "bg-sky-50 text-slate-900 border border-sky-100" : "bg-emerald-50 text-emerald-900 border border-emerald-100"}`}>
+                  <p className="text-[10px] uppercase tracking-wide opacity-70 font-bold mb-1">{m.sender}</p>
+                  <p className="leading-relaxed">{m.content}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-3 space-y-2">
+            <div className="space-y-2 border-t border-slate-100 pt-3">
               <TextArea placeholder={statusText} value={input} onChange={(e) => setInput(e.target.value)} />
-              <Button onClick={() => sendChat()} disabled={loadingChat || !sessionId} variant="primary">
+              <Button onClick={() => sendChat()} disabled={loadingChat || !sessionId} variant="primary" className="w-full">
                 {loadingChat ? "Enviando..." : "Enviar"}
               </Button>
             </div>
           </Card>
           <Card title="Notas">
-            <p className="text-sm text-white/70">El orquestador siempre explica el porqué de cada pregunta. Si faltan claves de APIs, verás “requires_keys” y un checklist para conectarlas.</p>
+            <p className="text-sm text-slate-600">El orquestador siempre explica el porqué de cada pregunta. Si faltan claves de APIs, verás "requires_keys" y un checklist para conectarlas.</p>
           </Card>
         </div>
       </div>
