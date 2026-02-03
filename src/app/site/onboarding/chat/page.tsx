@@ -143,9 +143,9 @@ export default function OnboardingChatPage() {
         </div>
       </header>
 
-      <div className="grid gap-4 px-4 py-6 lg:grid-cols-[280px,1fr,400px]">
+      <div className="grid gap-4 px-4 py-6 lg:grid-cols-[280px,1fr,400px] max-h-screen">
         {/* izquierda */}
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto">
           <Card title="Progreso">
             <ul className="space-y-2 text-sm">
               {leftNav.map((step) => (
@@ -175,7 +175,7 @@ export default function OnboardingChatPage() {
         </div>
 
         {/* centro */}
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto">
           <Card title="Ficha rápida">
             <div className="grid gap-2 md:grid-cols-2">
               <TextInput placeholder="Nombre / razón social" value={data.businessName ?? ""} onChange={(e) => setData({ ...data, businessName: e.target.value })} />
@@ -212,27 +212,29 @@ export default function OnboardingChatPage() {
           </Card>
         </div>
 
-        {/* derecha chat - FIXED: Positioned at top */}
-        <div className="flex flex-col gap-3 sticky top-4 self-start">
-          <Card title="Chat con tu orquestador">
-            <div className="h-[500px] overflow-y-auto space-y-2 pr-1 mb-3">
-              {messages.map((m) => (
-                <div key={m.id} className={`rounded-xl p-3 text-sm ${m.sender === "client" ? "bg-sky-50 text-slate-900 border border-sky-100" : "bg-emerald-50 text-emerald-900 border border-emerald-100"}`}>
-                  <p className="text-[10px] uppercase tracking-wide opacity-70 font-bold mb-1">{m.sender}</p>
-                  <p className="leading-relaxed">{m.content}</p>
-                </div>
-              ))}
-            </div>
-            <div className="space-y-2 border-t border-slate-100 pt-3">
-              <TextArea placeholder={statusText} value={input} onChange={(e) => setInput(e.target.value)} />
-              <Button onClick={() => sendChat()} disabled={loadingChat || !sessionId} variant="primary" className="w-full">
-                {loadingChat ? "Enviando..." : "Enviar"}
-              </Button>
-            </div>
-          </Card>
-          <Card title="Notas">
-            <p className="text-sm text-slate-600">El orquestador siempre explica el porqué de cada pregunta. Si faltan claves de APIs, verás &quot;requires_keys&quot; y un checklist para conectarlas.</p>
-          </Card>
+        {/* derecha chat - STICKY AT TOP */}
+        <div className="space-y-3">
+          <div className="sticky top-20">
+            <Card title="Chat con tu orquestador">
+              <div className="h-[500px] overflow-y-auto space-y-2 pr-1 mb-3">
+                {messages.map((m) => (
+                  <div key={m.id} className={`rounded-xl p-3 text-sm ${m.sender === "client" ? "bg-sky-50 text-slate-900 border border-sky-100" : "bg-emerald-50 text-emerald-900 border border-emerald-100"}`}>
+                    <p className="text-[10px] uppercase tracking-wide opacity-70 font-bold mb-1">{m.sender}</p>
+                    <p className="leading-relaxed">{m.content}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-2 border-t border-slate-100 pt-3">
+                <TextArea placeholder={statusText} value={input} onChange={(e) => setInput(e.target.value)} />
+                <Button onClick={() => sendChat()} disabled={loadingChat || !sessionId} variant="primary" className="w-full">
+                  {loadingChat ? "Enviando..." : "Enviar"}
+                </Button>
+              </div>
+            </Card>
+            <Card title="Notas" className="mt-3">
+              <p className="text-sm text-slate-600">El orquestador siempre explica el porqué de cada pregunta. Si faltan claves de APIs, verás &quot;requires_keys&quot; y un checklist para conectarlas.</p>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
