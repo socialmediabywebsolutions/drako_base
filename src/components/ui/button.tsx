@@ -14,11 +14,11 @@ export default function Button({ className, children, variant = "primary", size 
   const base = "relative inline-flex items-center justify-center gap-2 font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--brand)] disabled:opacity-60 disabled:cursor-not-allowed";
 
   const variants: Record<ButtonVariant, string> = {
-    primary: "text-white bg-[var(--brand)] shadow-[0_12px_30px_rgba(76,201,240,0.45)] hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(76,201,240,0.35)]",
-    secondary: "text-[var(--brand-strong)] bg-[var(--brand-quiet)] hover:bg-[var(--brand-quiet)]/80",
-    outline: "text-[var(--foreground)] border border-[color-mix(in_srgb,var(--border)_80%,transparent)] bg-transparent hover:bg-[var(--panel)]/70",
-    ghost: "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--panel)]/50",
-    brand: "text-white bg-[var(--brand)]/90 border border-[var(--brand)]/40 hover:bg-[var(--brand)]",
+    primary: "text-white bg-sky-500 shadow-lg shadow-sky-500/30 hover:-translate-y-0.5 hover:bg-sky-600 hover:shadow-sky-600/40",
+    secondary: "text-sky-700 bg-sky-100 hover:bg-sky-200 border-2 border-sky-300",
+    outline: "text-slate-700 border-2 border-slate-300 bg-transparent hover:bg-slate-50",
+    ghost: "text-slate-600 hover:text-slate-900 hover:bg-slate-100",
+    brand: "text-white bg-sky-500 border-2 border-sky-400 hover:bg-sky-600",
   };
 
   const sizes: Record<ButtonSize, string> = {
