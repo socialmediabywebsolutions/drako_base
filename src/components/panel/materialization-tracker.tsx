@@ -31,7 +31,7 @@ export function MaterializationTracker({
                 {/* Connecting Line */}
                 <div className="absolute top-4 left-0 w-full h-0.5 bg-slate-100 -z-10" />
                 <div
-                    className="absolute top-4 left-0 h-0.5 bg-slate-900 -z-10 transition-all duration-1000 ease-out"
+                    className="absolute top-4 left-0 h-0.5 bg-sky-500 -z-10 transition-all duration-1000 ease-out"
                     style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
                 />
 
@@ -44,9 +44,9 @@ export function MaterializationTracker({
                             <div key={idx} className="flex flex-col items-center group relative">
                                 {/* Dot */}
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 z-10 transition-all duration-500 ${isCompleted
-                                    ? "bg-slate-900 border-slate-900 text-white"
+                                    ? "bg-sky-500 border-sky-500 text-white"
                                     : isCurrent
-                                        ? "bg-white border-slate-900 text-slate-900 shadow-[0_0_0_4px_rgba(15,23,42,0.1)] scale-110"
+                                        ? "bg-white border-sky-500 text-sky-600 shadow-lg shadow-sky-500/20 scale-110"
                                         : "bg-white border-slate-200 text-slate-300"
                                     }`}>
                                     {isCompleted ? (
@@ -86,7 +86,7 @@ export function MaterializationTracker({
                         <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
                             {phase < 5 ? "Esperando finalización de diagnóstico..." : "Diagnóstico listo"}
                         </span>
-                        <a href="/site#interview" className="px-6 py-2 bg-slate-900 text-white text-sm font-bold rounded-lg shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2 no-underline">
+                        <a href="/site/onboarding/chat" className="px-6 py-2 bg-sky-500 text-white text-sm font-bold rounded-lg shadow-lg shadow-sky-500/30 hover:bg-sky-600 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 no-underline">
                             {phase < 5 ? "Continuar Entrevista" : "Ver Blueprint Final"} &rarr;
                         </a>
                     </div>
