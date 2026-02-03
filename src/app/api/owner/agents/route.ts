@@ -9,6 +9,9 @@ export async function GET(request: Request) {
     try {
         const { tenantId } = await requireTenantAccess(request);
         const db = getCloudflareEnv().DB;
+        if (!db) {
+            return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+        }
 
         const { results } = await db.prepare("SELECT * FROM agent_runtime_states ORDER BY role ASC").all();
 
@@ -49,6 +52,9 @@ export async function POST(request: Request) {
         }
 
         const db = getCloudflareEnv().DB;
+        if (!db) {
+            return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+        }
         const now = Math.floor(Date.now() / 1000);
 
         await db.prepare(`

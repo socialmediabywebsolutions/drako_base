@@ -40,13 +40,17 @@ export async function GET(request: Request) {
   } else {
     try {
       const db = getDracoDbFromRequestContext();
-      hasDracoDb = true;
-      const result = await db.prepare("SELECT 1 as ok").first<{ ok: number }>();
-      dbPing = { ok: result?.ok === 1 };
+      if (!db) {
+        dbPing = { ok: false, error: "Database unavailable" };
+      } else {
+        hasDracoDb = true;
+        const result = await db.prepare("SELECT 1 as ok").first<{ ok: number }>();
+        dbPing = { ok: result?.ok === 1 };
+      }
     } catch (error) {
       dbPing = { ok: false, error: error instanceof Error ? error.message : String(error) };
-      reason = dbPing.error || "DB ping failed";
     }
+    reason = dbPing.error || "DB ping failed";
   }
 
   return NextResponse.json({

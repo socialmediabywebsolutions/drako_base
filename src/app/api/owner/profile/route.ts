@@ -14,6 +14,9 @@ export async function GET(request: Request) {
         // The previous migration 0010 defines 'owners' table.
 
         const db = getCloudflareEnv().DB;
+        if (!db) {
+            return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+        }
 
         // We try to find the owner. Ideally 'user.id' or 'tenantId' maps to owner.
         // Let's assume tenantId is the owner context for Campamento Base.
@@ -42,6 +45,9 @@ export async function POST(request: Request) {
         const { name, nif, address, email, phone, country, city } = body;
 
         const db = getCloudflareEnv().DB;
+        if (!db) {
+            return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+        }
 
         // Upsert logic
         await db.prepare(`

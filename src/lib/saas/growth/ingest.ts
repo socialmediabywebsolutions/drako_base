@@ -20,7 +20,6 @@ export async function trackGrowthEvent(params: {
     conversionSource?: string;
     payload?: any;
 }) {
-    const d1 = getDb();
     const { tenantId, eventName, saasId, userId, country, conversionSource, payload } = params;
 
     // 1. Validation
@@ -39,6 +38,12 @@ export async function trackGrowthEvent(params: {
     const eventId = crypto.randomUUID();
 
     // 2. Persist to D1
+    const d1 = getDb();
+    if (!d1) {
+        console.warn(`[GROWTH_INGEST] Database unavailable, cannot persist event ${eventName}`);
+        return { success: false, error: "Database unavailable" };
+    }
+
     try {
         await d1.prepare(`
       INSERT INTO saas_growth_events (

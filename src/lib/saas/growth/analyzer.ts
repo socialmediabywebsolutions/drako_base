@@ -9,6 +9,13 @@ import type { GrowthAnalysisResult, GrowthOpportunity, GrowthEvent } from "./typ
  */
 export async function runWeeklyGrowthAnalysis(tenantId: string): Promise<GrowthAnalysisResult | null> {
     const d1 = getDb();
+    if (!d1) {
+        console.warn(`[GROWTH_ANALYZER] Database unavailable for tenant ${tenantId}`);
+        return null;
+    }
+
+    const oneWeekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+    const oneWeekAgoISO = new Date(oneWeekAgo).toISOString();
 
     // 1. Fetch relevant data (last 7 days for fast check, 30 days for archetypes)
     // Simplified for V1: Query raw events and process in memory (careful with scale)

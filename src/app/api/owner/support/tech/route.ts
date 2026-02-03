@@ -8,6 +8,9 @@ export async function GET(request: Request) {
     try {
         const { tenantId } = await requireTenantAccess(request);
         const db = getCloudflareEnv().DB;
+        if (!db) {
+            return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+        }
 
         // Fetch open incidents
         const { results } = await db.prepare("SELECT * FROM tech_incidents WHERE status != 'RESOLVED' ORDER BY severity = 'CRITICAL' DESC, created_at DESC").all();

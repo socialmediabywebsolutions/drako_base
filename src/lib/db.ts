@@ -9,35 +9,46 @@ export class DatabaseUnavailableError extends Error {
   }
 }
 
-export function getRequestBindings(): DracoEnv {
+/**
+ * OLIMPO: Check if database is available without throwing
+ */
+export function isDatabaseAvailable(): boolean {
   const bindings = env();
-  if (!bindings) {
-    throw new DatabaseUnavailableError(
-      "binding-missing",
-      "No request context found. DRACO_DB must be accessed inside a Workers/OpenNext request handler.",
-    );
-  }
+  return Boolean(bindings?.DRACO_DB);
+}
+
+export function getRequestBindings(): DracoEnv | null {
+  const bindings = env();
   return bindings;
 }
 
-export function getDracoDbFromRequestContext(): D1Database {
+export function getDracoDbFromRequestContext(): D1Database | null {
   const bindings = getRequestBindings();
-  if (!bindings.DRACO_DB) {
-    throw new DatabaseUnavailableError("binding-missing", "DRACO_DB binding is missing");
+  if (!bindings?.DRACO_DB) {
+    return null;
   }
   return bindings.DRACO_DB;
 }
 
-export function getDb(): D1Database {
+/**
+ * OLIMPO: Returns null instead of throwing when DB unavailable
+ */
+export function getDb(): D1Database | null {
   return getDracoDbFromRequestContext();
 }
 
-export async function withDb<T>(fn: (db: D1Database) => Promise<T>): Promise<T> {
+export async function withDb<T>(fn: (db: D1Database) => Promise<T>): Promise<T | null> {
   const db = getDb();
+  if (!db) {
+    return null;
+  }
   return fn(db);
 }
 
-export function ensureDatabase(): D1Database {
+/**
+ * OLIMPO: Returns null instead of throwing when DB unavailable
+ */
+export function ensureDatabase(): D1Database | null {
   return getDb();
 }
 
@@ -57,6 +68,10 @@ function normalizeDbError(error: unknown): never {
 export async function queryAll<T>(sql: string, ...params: unknown[]): Promise<T[]> {
   try {
     const db = getDb();
+    if (!db) {
+      // OLIMPO: DB unavailable (e.g., Vercel), return empty array
+      return [];
+    }
     const stmt = db.prepare(sql);
     const bound = params.length ? stmt.bind(...params) : stmt;
     const res = await bound.all<T>();
@@ -75,6 +90,10 @@ export async function queryOne<T>(sql: string, ...params: unknown[]): Promise<T 
 export async function run(sql: string, ...params: unknown[]): Promise<boolean> {
   try {
     const db = getDb();
+    if (!db) {
+      // OLIMPO: DB unavailable (e.g., Vercel), return false
+      return false;
+    }
     const stmt = db.prepare(sql);
     const bound = params.length ? stmt.bind(...params) : stmt;
     const res = await bound.run();

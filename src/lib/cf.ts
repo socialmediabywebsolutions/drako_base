@@ -53,11 +53,11 @@ export type DracoEnv = {
 };
 
 /**
- * REGLA DURA (Hard Rule): 
- * env() solo puede resolverse dentro de una request.
- * Si se llama fuera de un handler, lanza un error claro.
+ * OLIMPO RULE: 
+ * env() NEVER throws. Returns null when Cloudflare context is unavailable.
+ * This allows graceful degradation on Vercel and prevents middleware crashes.
  */
-export function env(): DracoEnv {
+export function env(): DracoEnv | null {
   try {
     // 1. Try OpenNext Cloudflare context (Workers Runtime)
     const ctx = getCloudflareContext();
@@ -65,21 +65,22 @@ export function env(): DracoEnv {
       return ctx.env as unknown as DracoEnv;
     }
   } catch {
-    // In local development, we might not have the context yet
-    // but the users wants a HARD FAIL if called outside request.
+    // Cloudflare context not available - this is expected on Vercel
   }
 
-  // 2. Fallback to process.env ONLY if we are in Development and NOT in a Worker
-  const isDev = process.env.NODE_ENV === "development";
+  // 2. Fallback to process.env in Development
+  const isDev = typeof process !== "undefined" && process.env.NODE_ENV === "development";
   if (isDev && typeof process !== "undefined" && process.env) {
-    // Simple filter to ensure we act like we have bindings
+    // If we have key env vars, treat process.env as DracoEnv for local dev
     if (process.env.DRACO_DB || process.env.AI || process.env.SESSION_SECRET) {
       return process.env as unknown as DracoEnv;
     }
   }
 
-  // 3. ACTUAL HARD FAIL
-  const errorMsg = "CF_CONTEXT_ERROR: env() called outside request scope. Environment bindings (D1/AI) are only available within a request context.";
-  console.error(errorMsg);
-  throw new Error(errorMsg);
+  // 3. FAIL-SAFE: Return null instead of throwing
+  // This allows the app to continue without Cloudflare bindings (e.g., on Vercel)
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
+    console.warn("CF_CONTEXT_UNAVAILABLE: Cloudflare bindings not available. Some features will be disabled.");
+  }
+  return null;
 }

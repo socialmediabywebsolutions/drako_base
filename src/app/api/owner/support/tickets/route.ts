@@ -10,6 +10,9 @@ export async function GET(request: Request): Promise<Response> {
     try {
         const { tenantId } = await requireTenantAccess(request);
         const db = getCloudflareEnv().DB;
+        if (!db) {
+            return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+        }
 
         const { results } = await db
             .prepare(

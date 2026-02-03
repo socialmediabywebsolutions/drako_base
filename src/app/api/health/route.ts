@@ -27,19 +27,47 @@ export async function GET(request: Request) {
     const bindings = getRequestBindings();
     buildStamp = getPagesBuildStamp(request, correlationId, bindings);
 
-    // Strict dbPing
-    const db = ensureDatabase();
-    await db.prepare("SELECT 1").run();
-    dbPing.ok = true;
-  } catch (error) {
-    dbPing.error = error instanceof Error ? error.message : String(error);
+    try {
+      // Strict dbPing
+      const db = ensureDatabase();
+      if (!db) {
+        dbPing.error = "Database unavailable";
+      } else {
+        await db.prepare("SELECT 1").run();
+        dbPing.ok = true;
+      }
+    } catch (error) {
+      dbPing.error = error instanceof Error ? error.message : String(error);
+    }
 
-    const dbStatus = error instanceof DatabaseUnavailableError ? "missing_binding" : "unknown";
+    if (!dbPing.ok) {
+      const dbStatus = dbPing.error?.includes("DatabaseUnavailableError") ? "missing_binding" : "unknown";
+      return NextResponse.json(
+        {
+          ok: false,
+          name: "DRAKO",
+          reason: "database_unavailable",
+          hint: dbPing.error,
+          db: { status: dbStatus, reason: dbPing.error },
+          dbPing,
+          correlationId,
+          tenantFallback: DEMO_TENANT_ID,
+          statusUrl: "/api/status.json",
+        },
+        { status: 503, ...noStoreHeaders },
+      );
+    }
+
+  } catch (error) {
+    // This catch block now primarily handles errors from getRequestBindings or getPagesBuildStamp
+    // If dbPing.ok is false here, it means the database check failed and was handled above.
+    // If an error occurs before the db check, it's a different kind of failure.
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const dbStatus = error instanceof DatabaseUnavailableError ? "missing_binding" : "unknown"; // This might still be relevant if ensureDatabase itself throws before the null check
     return NextResponse.json(
       {
         ok: false,
         name: "DRAKO",
-        reason: "database_unavailable",
         hint: dbPing.error,
         db: { status: dbStatus, reason: dbPing.error },
         dbPing,

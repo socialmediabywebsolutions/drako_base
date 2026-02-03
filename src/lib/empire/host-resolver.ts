@@ -73,11 +73,26 @@ export async function resolveHostToSaas(hostname: string): Promise<HostResolutio
     };
   }
 
-  const rows = await queryAll<DomainRow>(
-    `SELECT id, tenant_id, saas_id, domain, status, verification_status, verification_reason, last_checked_at, updated_at
-     FROM saas_domains WHERE lower(domain) = ? LIMIT 1`,
-    normalizedHost,
-  );
+  // OLIMPO: Handle DB unavailability gracefully
+  let rows: DomainRow[];
+  try {
+    rows = await queryAll<DomainRow>(
+      `SELECT id, tenant_id, saas_id, domain, status, verification_status, verification_reason, last_checked_at, updated_at
+       FROM saas_domains WHERE lower(domain) = ? LIMIT 1`,
+      normalizedHost,
+    );
+  } catch (error) {
+    console.error("HOST_RESOLVER_DB_UNAVAILABLE", error);
+    return {
+      status: "NOT_FOUND",
+      reason: "DATABASE_UNAVAILABLE",
+      severity: "ERROR",
+      correlationId,
+      normalizedHost,
+      wasWww: normalized.wasWww,
+    };
+  }
+
   const row = rows[0];
   if (!row) {
     return {

@@ -29,6 +29,9 @@ export async function POST(
         }
 
         const db = getCloudflareEnv().DB;
+        if (!db) {
+            return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+        }
         const now = Math.floor(Date.now() / 1000);
         const correlation_id = crypto.randomUUID();
         const message_id = crypto.randomUUID();

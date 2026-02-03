@@ -15,6 +15,13 @@ export async function GET(req: NextRequest) {
 
     // 2. Resolve Tenants
     const d1 = getDb();
+    if (!d1) {
+        return NextResponse.json(
+            { ok: false, error: "Database unavailable", timestamp: new Date().toISOString() },
+            { status: 503 }
+        );
+    }
+
     const { results: tenants } = await d1.prepare("SELECT id FROM tenants").all<{ id: string }>();
 
     const results = [];
