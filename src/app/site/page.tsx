@@ -76,12 +76,12 @@ export default function HomePage() {
 
             <div className="flex flex-col justify-center">
               <div className="flex gap-6">
-                <button
-                  onClick={scrollToChat}
+                <Link
+                  href="/site/workspace"
                   className="px-10 py-4 bg-sky-500 text-white font-black text-[10px] uppercase tracking-[0.4em] rounded-xl hover:bg-sky-600 transition-all hover:scale-105 shadow-lg shadow-sky-500/30 italic"
                 >
                   Iniciar Consultoría
-                </button>
+                </Link>
                 <Link
                   href="/site/marketplace"
                   className="px-10 py-4 border-2 border-sky-200 text-slate-700 font-black text-[10px] uppercase tracking-[0.4em] rounded-xl hover:bg-sky-50 transition-all flex items-center gap-3 group"
