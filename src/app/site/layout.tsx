@@ -35,15 +35,15 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
             <nav className="flex items-center gap-10 text-[10px] font-black uppercase tracking-[0.3em]">
               <Link href="/site/panel" className="text-slate-600 hover:text-sky-600 transition-colors flex items-center gap-2 group/nav">
                 <span className="h-1.5 w-1.5 rounded-full bg-sky-300 group-hover/nav:bg-sky-600 transition-colors" />
-                Módulos de Élite
+                Mi Panel
               </Link>
               <Link href="/site/marketplace" className="text-slate-600 hover:text-sky-600 transition-colors flex items-center gap-2 group/nav">
                 <span className="h-1.5 w-1.5 rounded-full bg-sky-300 group-hover/nav:bg-sky-600 transition-colors" />
-                Marketplace
+                Plantillas
               </Link>
               <Link href="/site/support" className="text-slate-600 hover:text-sky-600 transition-colors flex items-center gap-2 group/nav">
                 <span className="h-1.5 w-1.5 rounded-full bg-sky-300 group-hover/nav:bg-sky-600 transition-colors" />
-                Protocolos Activos
+                Soporte
               </Link>
               <Link
                 href="/site"
