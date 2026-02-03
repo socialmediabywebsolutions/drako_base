@@ -77,7 +77,7 @@ export default function HomePage() {
             <div className="flex flex-col justify-center">
               <div className="flex gap-6">
                 <Link
-                  href="/site/workspace"
+                  href="/site/panel"
                   className="px-10 py-4 bg-sky-500 text-white font-black text-[10px] uppercase tracking-[0.4em] rounded-xl hover:bg-sky-600 transition-all hover:scale-105 shadow-lg shadow-sky-500/30 italic"
                 >
                   Iniciar Consultoría
