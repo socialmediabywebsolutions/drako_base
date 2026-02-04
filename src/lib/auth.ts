@@ -8,7 +8,7 @@ export const authOptions: NextAuthOptions = {
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
             authorization: {
                 params: {
-                    prompt: "consent",
+                    prompt: "select_account",
                     access_type: "offline",
                     response_type: "code",
                 },
@@ -20,8 +20,11 @@ export const authOptions: NextAuthOptions = {
     },
     callbacks: {
         async redirect({ url, baseUrl }) {
-            // Always redirect to client panel after login, not admin
-            if (url.startsWith(baseUrl)) return url;
+            // If the url is relative, it's already safe
+            if (url.startsWith("/")) return `${baseUrl}${url}`;
+            // If the url is absolute, ensure it's within the same domain
+            if (new URL(url).origin === baseUrl) return url;
+            // Fallback to site panel
             return `${baseUrl}/site/panel`;
         },
         async session({ session, token }) {

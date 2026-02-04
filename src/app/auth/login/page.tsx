@@ -10,7 +10,10 @@ export default function LoginPage() {
 
     const handleGoogleLogin = async () => {
         setLoading(true);
-        await signIn("google", { callbackUrl: "/site/panel" });
+        // Get callbackUrl from URL search params or fallback to site panel
+        const params = new URLSearchParams(window.location.search);
+        const callbackUrl = params.get("callbackUrl") || "/site/panel";
+        await signIn("google", { callbackUrl });
     };
 
     return (

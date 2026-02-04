@@ -38,9 +38,15 @@ export default async function RootLayout({
     "";
 
   const referer = headersList.get("referer") || "";
-  const isSiteRoute = matchedPath.startsWith("/site") || referer.includes("/site/");
 
-  const usePublicShell = hostMode === "PUBLIC_SAAS" || hostMode === "PREVIEW" || isSiteRoute;
+  // Public routes that should NEVER show the admin sidebar
+  const isPublicRoute =
+    matchedPath.startsWith("/site") ||
+    matchedPath.startsWith("/auth") ||
+    referer.includes("/site/") ||
+    referer.includes("/auth/");
+
+  const usePublicShell = hostMode === "PUBLIC_SAAS" || hostMode === "PREVIEW" || isPublicRoute;
 
   return (
     <html lang="es" className="dark" suppressHydrationWarning>
