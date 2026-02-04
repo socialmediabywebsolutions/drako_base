@@ -3,9 +3,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { env } from "@/lib/cf";
 
+import { logger } from "@/lib/logger";
+
 // GET - Check if user completed onboarding
 export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions);
+
+    await logger.info("Checking onboarding status", { email: session?.user?.email });
 
     if (!session?.user?.email) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -50,7 +54,27 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const body = await req.json();
+        interface OnboardingBody {
+            contactName?: string;
+            companyName?: string;
+            phone?: string;
+            address?: string;
+            latitude?: number;
+            longitude?: number;
+            sector?: string;
+            niche?: string;
+            websiteUrl?: string;
+            instagramUrl?: string;
+            facebookUrl?: string;
+            linkedinUrl?: string;
+            tiktokUrl?: string;
+            twitterUrl?: string;
+            problemStatement?: string;
+            targetCustomer?: string;
+            goals?: string;
+        }
+
+        const body = await req.json() as OnboardingBody;
         const {
             contactName,
             companyName,

@@ -1,6 +1,7 @@
 import { queryAll } from "../db";
 import { normalizeHostnameInput } from "./domain-utils";
 import { mapDomainStatus, type DomainResolution, type HostResolutionStatus } from "./host-status-utils";
+import { generateCorrelationId } from "../correlation";
 
 type DomainRow = {
   id: string;
@@ -39,9 +40,6 @@ export type HostResolution = {
   wasWww: boolean;
 };
 
-function generateCorrelationId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `corr_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
-}
 
 async function resolveSaasSlug(params: { tenantId: string; saasId: string }): Promise<string | undefined> {
   const projectRows = await queryAll<SaasProjectRow>(
@@ -59,8 +57,8 @@ async function resolveSaasSlug(params: { tenantId: string; saasId: string }): Pr
   return saasRows[0]?.slug;
 }
 
-export async function resolveHostToSaas(hostname: string): Promise<HostResolution> {
-  const correlationId = generateCorrelationId();
+export async function resolveHostToSaas(hostname: string, providedCorrelationId?: string): Promise<HostResolution> {
+  const correlationId = providedCorrelationId ?? generateCorrelationId();
   const normalized = normalizeHostnameInput(hostname);
   const normalizedHost = normalized.hostname ?? "";
   if (!normalized.hostname) {

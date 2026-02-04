@@ -6,6 +6,15 @@ import { resolveHostToSaas } from "@/lib/empire/host-resolver";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import { resolveEffectiveHost, resolveHostMode } from "@/lib/hosts";
+import {
+  CORRELATION_HEADER,
+  TENANT_HEADER,
+  SAAS_HEADER,
+  generateCorrelationId,
+  isValidCorrelationId,
+  normalizeCorrelationId,
+  shouldBypassCorrelation
+} from "@/lib/correlation";
 
 /**
  * MODO DEV
@@ -42,9 +51,20 @@ export async function middleware(req: NextRequest) {
     const pathname = req.nextUrl.pathname;
     const isApi = pathname.startsWith("/api");
 
-    // Skip Next.js internal routes
-    if (pathname.startsWith("/_next") || pathname === "/favicon.ico") {
+    // 🔍 DRAKO STEEL v1.0.1: Correlation Identification
+    if (shouldBypassCorrelation(pathname)) {
       return NextResponse.next();
+    }
+
+    let incomingCorrelationId = req.headers.get(CORRELATION_HEADER);
+    let correlationId: string;
+    let isInvalidIncoming = false;
+
+    if (isValidCorrelationId(incomingCorrelationId)) {
+      correlationId = normalizeCorrelationId(incomingCorrelationId);
+    } else {
+      isInvalidIncoming = !!incomingCorrelationId;
+      correlationId = generateCorrelationId();
     }
 
     // ✅ AUTH CHECK: Protect /site/panel routes
@@ -66,7 +86,10 @@ export async function middleware(req: NextRequest) {
       const headers = new Headers(req.headers);
       headers.set("x-drako-host-mode", "MINIMAL");
       headers.set("x-drako-environment", "vercel");
-      return NextResponse.next({ request: { headers } });
+      headers.set(CORRELATION_HEADER, correlationId);
+      const res = NextResponse.next({ request: { headers } });
+      res.headers.set(CORRELATION_HEADER, correlationId);
+      return res;
     }
 
     const hostInfo = resolveEffectiveHost(req);
@@ -110,20 +133,21 @@ export async function middleware(req: NextRequest) {
       const bindings = requestBindings;
       const hasDb = Boolean(bindings?.DRACO_DB);
       const contextHeaders = new Headers(req.headers);
-      contextHeaders.delete("x-drako-tenant-id");
+      contextHeaders.delete(TENANT_HEADER);
       contextHeaders.delete("x-tenant-id");
-      contextHeaders.delete("x-drako-saas-id");
+      contextHeaders.delete(SAAS_HEADER);
       contextHeaders.delete("x-drako-saas-slug");
-      contextHeaders.delete("x-drako-correlation-id");
+      contextHeaders.delete(CORRELATION_HEADER);
 
-      const correlationId = globalThis.crypto?.randomUUID?.() ?? `corr_${Date.now()}`;
       contextHeaders.set("x-drako-host-mode", hostMode);
       contextHeaders.set("x-drako-effective-host", host);
       contextHeaders.set("x-drako-pages-environment", pagesEnvironmentHeader);
 
       if (!bindings || !hasDb) {
-        contextHeaders.set("x-drako-correlation-id", correlationId);
-        return persistCookie(NextResponse.next({ request: { headers: contextHeaders } }));
+        contextHeaders.set(CORRELATION_HEADER, correlationId);
+        const res = persistCookie(NextResponse.next({ request: { headers: contextHeaders } }));
+        res.headers.set(CORRELATION_HEADER, correlationId);
+        return res;
       }
 
       const resolutionHost = isPagesDevHost ? "drako.systems" : host;
@@ -131,7 +155,7 @@ export async function middleware(req: NextRequest) {
       // OLIMPO: Wrap host resolution in try/catch
       let resolution;
       try {
-        resolution = await resolveHostToSaas(resolutionHost);
+        resolution = await resolveHostToSaas(resolutionHost, correlationId);
       } catch (error) {
         console.error("HOST_RESOLUTION_FAILED", error);
         contextHeaders.set("x-drako-correlation-id", correlationId);
@@ -148,8 +172,10 @@ export async function middleware(req: NextRequest) {
           contextHeaders.set("x-drako-saas-slug", resolution.saasSlug ?? "");
         }
       }
-      contextHeaders.set("x-drako-correlation-id", resolution.correlationId ?? correlationId);
-      return persistCookie(NextResponse.next({ request: { headers: contextHeaders } }));
+      contextHeaders.set(CORRELATION_HEADER, resolution.correlationId ?? correlationId);
+      const res = persistCookie(NextResponse.next({ request: { headers: contextHeaders } }));
+      res.headers.set(CORRELATION_HEADER, resolution.correlationId ?? correlationId);
+      return res;
     }
 
     const responseHeaders = new Headers(req.headers);
@@ -193,14 +219,14 @@ export async function middleware(req: NextRequest) {
     // OLIMPO: Wrap host resolution in try/catch
     let resolution;
     try {
-      resolution = await resolveHostToSaas(host);
+      resolution = await resolveHostToSaas(host, correlationId);
     } catch (error) {
       console.error("HOST_RESOLUTION_FAILED", error);
       return persistCookie(NextResponse.next());
     }
 
     const tenantId = resolution.tenantId ?? DEMO_TENANT_ID;
-    const correlationId = resolution.correlationId;
+    const finalCorrelationId = resolution.correlationId ?? correlationId;
     const metadata = {
       host: resolution.normalizedHost,
       status: resolution.status,
@@ -226,7 +252,7 @@ export async function middleware(req: NextRequest) {
           source: "ROUTER",
           message: `Resolved host ${resolution.normalizedHost} to saas_id=${resolution.saasId ?? "unknown"}.`,
           metadata: { ...metadata, sampleRate },
-          correlationId,
+          correlationId: finalCorrelationId,
         });
       } else if (resolution.status === "PENDING" || resolution.status === "PAUSED") {
         await recordCampamentoEvent({
@@ -237,7 +263,19 @@ export async function middleware(req: NextRequest) {
           source: "ROUTER",
           message: `Blocked host ${resolution.normalizedHost} (${resolution.reason ?? "DOMAIN_BLOCKED"}).`,
           metadata,
-          correlationId,
+          correlationId: finalCorrelationId,
+        });
+      }
+
+      if (isInvalidIncoming) {
+        await recordCampamentoEvent({
+          tenantId,
+          saasId: resolution.saasId ?? null,
+          type: "observability.invalid_incoming",
+          severity: "WARNING",
+          source: "MIDDLEWARE",
+          message: `Rejected invalid incoming correlation ID: ${incomingCorrelationId}. Assigned: ${correlationId}`,
+          correlationId: finalCorrelationId,
         });
       }
     } catch (error) {
@@ -255,9 +293,11 @@ export async function middleware(req: NextRequest) {
         headers.set("x-drako-saas-id", resolution.saasId);
         headers.set("x-drako-saas-slug", resolution.saasSlug ?? "");
       }
-      headers.set("x-drako-correlation-id", correlationId);
+      headers.set(CORRELATION_HEADER, finalCorrelationId);
       headers.set("x-drako-domain-status", resolution.status);
-      return persistCookie(NextResponse.next({ request: { headers } }));
+      const res = persistCookie(NextResponse.next({ request: { headers } }));
+      res.headers.set(CORRELATION_HEADER, finalCorrelationId);
+      return res;
     }
 
     const unknownMessage = "SaaS no registrado para este dominio. Revisa el DNS o crea el mapping en Campamento Base.";
