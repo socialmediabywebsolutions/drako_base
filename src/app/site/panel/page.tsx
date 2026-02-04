@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSiteSession } from "@/contexts/site-session-context";
 import { MaterializationTracker } from "@/components/panel/materialization-tracker";
 import { EliteInterview } from "@/components/onboarding/elite-interview";
@@ -85,9 +86,13 @@ export default function SitePanelPage() {
         <div className="max-w-full mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <Link href="/site" className="flex items-center gap-2 group">
-              <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center text-white font-black text-xs">
-                DP
-              </div>
+              <Image
+                src="/logo-drako.png"
+                alt="Drako Systems"
+                width={32}
+                height={32}
+                className="object-contain"
+              />
               <span className="font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Drako Partner</span>
             </Link>
             <div className="h-4 w-[1px] bg-slate-200" />

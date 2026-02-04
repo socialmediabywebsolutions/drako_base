@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import SiteProviders from "./SiteProviders";
 
 export const metadata: Metadata = {
@@ -18,9 +19,13 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
           <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-10 py-6">
             <Link href="/site" className="flex items-center gap-6 group">
               <div className="relative">
-                <div className="h-12 w-12 rounded-xl bg-sky-100 border-2 border-sky-300 shadow-lg group-hover:scale-110 transition-all flex items-center justify-center text-xl">
-                  🐲
-                </div>
+                <Image
+                  src="/logo-drako.png"
+                  alt="Drako Systems"
+                  width={48}
+                  height={48}
+                  className="object-contain"
+                />
                 <div className="absolute -top-1 -right-1 flex h-4 w-4">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-500 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-4 w-4 bg-sky-500 border-2 border-white"></span>
