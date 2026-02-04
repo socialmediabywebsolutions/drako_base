@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSession, signOut } from "next-auth/react";
 import { useSiteSession } from "@/contexts/site-session-context";
 import { MaterializationTracker } from "@/components/panel/materialization-tracker";
 import { EliteInterview } from "@/components/onboarding/elite-interview";
@@ -99,16 +100,13 @@ export default function SitePanelPage() {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* User Session Info */}
+            <UserSessionDisplay />
+
             <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-xs font-bold uppercase tracking-wide">Conectado</span>
             </div>
-            <button
-              onClick={() => clearSession()}
-              className="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors"
-            >
-              Cerrar Sesión
-            </button>
           </div>
         </div>
       </nav>
@@ -281,6 +279,38 @@ export default function SitePanelPage() {
         </div>
       </div>
 
+    </div>
+  );
+}
+
+// User Session Display Component
+function UserSessionDisplay() {
+  const { data: session } = useSession();
+
+  if (!session?.user) return null;
+
+  return (
+    <div className="flex items-center gap-3">
+      {session.user.image && (
+        <Image
+          src={session.user.image}
+          alt={session.user.name || "User"}
+          width={32}
+          height={32}
+          className="rounded-full border-2 border-sky-200"
+        />
+      )}
+      <div className="hidden lg:block">
+        <p className="text-sm font-semibold text-slate-700">{session.user.name}</p>
+        <p className="text-xs text-slate-500">{session.user.email}</p>
+      </div>
+      <button
+        onClick={() => signOut({ callbackUrl: "/site" })}
+        className="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors px-3 py-1"
+        title="C errar sesión"
+      >
+        Salir
+      </button>
     </div>
   );
 }

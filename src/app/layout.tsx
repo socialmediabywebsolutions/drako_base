@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import ShellLayout from "@/components/layouts/shell-layout";
 import HostSwitcher from "@/components/dev/HostSwitcher";
+import { Providers } from "./providers";
 import "./globals.css";
 // export const runtime = "edge"; // DISABLED: OpenNext doesn't support edge runtime on pages, only API routes
 
@@ -36,8 +37,10 @@ export default async function RootLayout({
   return (
     <html lang="es" className="dark" suppressHydrationWarning>
       <body className="antialiased bg-[var(--background)] text-[var(--foreground)]">
-        {usePublicShell ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
-        <HostSwitcher />
+        <Providers>
+          {usePublicShell ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
+          <HostSwitcher />
+        </Providers>
       </body>
     </html>
   );

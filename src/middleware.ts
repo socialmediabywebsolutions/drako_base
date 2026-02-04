@@ -47,6 +47,17 @@ export async function middleware(req: NextRequest) {
       return NextResponse.next();
     }
 
+    // ✅ AUTH CHECK: Protect /site/panel routes
+    if (pathname.startsWith("/site/panel")) {
+      const token = req.cookies.get("next-auth.session-token") || req.cookies.get("__Secure-next-auth.session-token");
+
+      if (!token) {
+        const url = new URL("/auth/login", req.url);
+        url.searchParams.set("callbackUrl", pathname);
+        return NextResponse.redirect(url);
+      }
+    }
+
     // OLIMPO: Check if Cloudflare bindings are available
     const requestBindings = env();
 
