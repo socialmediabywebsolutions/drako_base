@@ -93,7 +93,6 @@ export default function SitePanelPage() {
                 height={32}
                 className="object-contain"
               />
-              <span className="font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Drako Partner</span>
             </Link>
             <div className="h-4 w-[1px] bg-slate-200" />
             <span className="text-sm font-medium text-slate-500">Panel de Cliente</span>

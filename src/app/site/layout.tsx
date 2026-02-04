@@ -17,23 +17,19 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
 
         <header className="sticky top-0 z-50 border-b border-sky-100 bg-white/90 backdrop-blur-xl shadow-sm">
           <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-10 py-6">
-            <Link href="/site" className="flex items-center gap-6 group">
+            <Link href="/site" className="flex items-center gap-4 group">
               <div className="relative">
                 <Image
-                  src="/logo-drako.png"
+                  src="/logo-drako-full.png"
                   alt="Drako Systems"
-                  width={48}
-                  height={48}
-                  className="object-contain"
+                  width={200}
+                  height={80}
+                  className="object-contain h-12 w-auto"
                 />
                 <div className="absolute -top-1 -right-1 flex h-4 w-4">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-500 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-4 w-4 bg-sky-500 border-2 border-white"></span>
                 </div>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-black tracking-[0.5em] uppercase italic text-slate-900 leading-none">DRĀKO.SYSTEMS</span>
-                <span className="text-[8px] font-black text-sky-600 uppercase tracking-[0.3em] mt-1">Elite Project Foundry</span>
               </div>
             </Link>
 
