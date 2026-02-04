@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
         LIMIT 1
       `)
             .bind(session.user.email)
-            .first();
+            .first() as any;
 
         if (!result) {
             return NextResponse.json({
