@@ -282,6 +282,5 @@ export default function SitePanelPage() {
       </div>
 
     </div>
-    </div >
   );
 }
