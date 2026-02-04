@@ -3,8 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { env } from "@/lib/cf";
 
-export const runtime = "edge";
-
 // GET - Check if user completed onboarding
 export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions);
