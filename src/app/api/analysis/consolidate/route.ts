@@ -19,7 +19,12 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const body = await req.json();
+        const body = await req.json() as {
+            geo_data: any;
+            client_social: any;
+            competitor_social: any;
+            web_data: any;
+        };
         const {
             geo_data,           // From Geo-Agent
             client_social,      // From Client-Social-Agent
