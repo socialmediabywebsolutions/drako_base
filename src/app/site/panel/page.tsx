@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useSiteSession } from "@/contexts/site-session-context";
 import { MaterializationTracker } from "@/components/panel/materialization-tracker";
 import { EliteInterview } from "@/components/onboarding/elite-interview";
@@ -24,6 +25,7 @@ type TicketResponse = { items?: { id: string }[] };
 type SaasResponse = { items?: SaasInfo[] };
 
 export default function SitePanelPage() {
+  const router = useRouter();
   const { session, clearSession } = useSiteSession();
   const [saasInfo, setSaasInfo] = useState<SaasInfo | null>(null);
   const [interviewPhase, setInterviewPhase] = useState(0);
@@ -32,6 +34,24 @@ export default function SitePanelPage() {
   const [error, setError] = useState<string | null>(null);
 
   const canLoad = Boolean(session.saasId && session.clientId);
+
+  // ✅ CHECK ONBOARDING: Redirect if not completed
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      try {
+        const response = await fetch("/api/onboarding");
+        if (response.ok) {
+          const data = await response.json();
+          if (!data.completed) {
+            router.push("/site/onboarding");
+          }
+        }
+      } catch (error) {
+        console.error("Error checking onboarding:", error);
+      }
+    };
+    checkOnboarding();
+  }, [router]);
 
   useEffect(() => {
     const savedPhase = localStorage.getItem("drako_interview_phase");
