@@ -1,3 +1,4 @@
+import React from "react";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import ShellLayout from "@/components/layouts/shell-layout";
