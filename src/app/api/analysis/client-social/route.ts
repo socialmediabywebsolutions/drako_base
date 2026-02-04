@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const body = await req.json();
+        const body = await req.json() as { instagram_url?: string; facebook_url?: string; linkedin_url?: string };
         const { instagram_url, facebook_url, linkedin_url } = body;
 
         if (!instagram_url && !facebook_url && !linkedin_url) {
