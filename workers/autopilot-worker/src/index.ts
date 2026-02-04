@@ -48,40 +48,47 @@ class RateLimiter {
   }
 }
 
-class CircuitBreaker {
-  private openedAt: number | null = null;
-  private failureCount = 0;
-
-  recordSuccess() {
-    this.failureCount = 0;
-    this.openedAt = null;
-  }
-
-  recordFailure() {
-    this.failureCount += 1;
-    if (this.failureCount >= CIRCUIT_FAILURE_THRESHOLD) {
-      this.openedAt = Date.now();
-    }
-  }
-
-  isOpen(): boolean {
-    if (this.openedAt == null) return false;
-    const elapsed = Date.now() - this.openedAt;
-    if (elapsed >= CIRCUIT_RESET_MS) {
-      this.failureCount = 0;
-      this.openedAt = null;
-      return false;
-    }
-    return true;
-  }
-}
 
 function isPollMessage(message: HostnameQueueMessage): message is HostnamePollPayload {
   return message.type === "domains.hostname.poll";
 }
 
 const rateLimiter = new RateLimiter(RATE_LIMIT_CAPACITY, RATE_LIMIT_INTERVAL_MS);
-const circuitBreaker = new CircuitBreaker();
+
+// Steel v1.0.1 - Persistent Circuit Breaker
+async function getBreakerStatus(db: D1Database, key: string): Promise<{ state: string; opened_at: string | null }> {
+  const stmt = db.prepare("SELECT state, opened_at FROM ai_circuit_breakers WHERE key = ? LIMIT 1");
+  const result = await stmt.bind(key).all<{ state: string; opened_at: string | null }>();
+  return result.results?.[0] || { state: "CLOSED", opened_at: null };
+}
+
+async function updateBreakerState(db: D1Database, key: string, next: string, reason: string, correlationId: string): Promise<void> {
+  const now = new Date().toISOString();
+  await db.batch([
+    db.prepare("INSERT INTO ai_circuit_breakers (key, state, failure_count, opened_at, updated_at) VALUES (?, ?, 0, ?, ?) ON CONFLICT(key) DO UPDATE SET state = excluded.state, failure_count = 0, opened_at = excluded.opened_at, updated_at = excluded.updated_at").bind(key, next, next === "OPEN" ? now : null, now),
+    db.prepare("INSERT INTO ai_breaker_logs (id, breaker_key, previous_state, new_state, reason, correlation_id, created_at) VALUES (?, ?, '?', ?, ?, ?, ?)").bind(`log_${Date.now()}`, key, next === "OPEN" ? "CLOSED" : "OPEN", next, reason, correlationId, now)
+  ]);
+}
+
+async function recordFailure(db: D1Database, key: string, threshold: number): Promise<void> {
+  const now = new Date().toISOString();
+  const rows = await db.prepare("SELECT state, failure_count FROM ai_circuit_breakers WHERE key = ?").bind(key).all<{ state: string, failure_count: number }>();
+  const current = rows.results?.[0] || { state: "CLOSED", failure_count: 0 };
+  const nextCount = current.failure_count + 1;
+
+  if (nextCount >= threshold && current.state !== "OPEN") {
+    await db.batch([
+      db.prepare("UPDATE ai_circuit_breakers SET state = 'OPEN', opened_at = ?, failure_count = ?, updated_at = ? WHERE key = ?").bind(now, nextCount, now, key),
+      db.prepare("INSERT INTO ai_breaker_logs (id, breaker_key, previous_state, new_state, reason, created_at) VALUES (?, ?, ?, 'OPEN', 'THRESHOLD_REACHED', ?)").bind(`log_${Date.now()}`, key, current.state, now)
+    ]);
+  } else {
+    await db.prepare("INSERT INTO ai_circuit_breakers (key, state, failure_count, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET failure_count = excluded.failure_count, updated_at = excluded.updated_at").bind(key, current.state, nextCount, now);
+  }
+}
+
+async function recordSuccess(db: D1Database, key: string): Promise<void> {
+  await db.prepare("UPDATE ai_circuit_breakers SET failure_count = 0, state = 'CLOSED', opened_at = NULL, updated_at = ? WHERE key = ?").bind(new Date().toISOString(), key).run();
+}
 
 async function checkIdempotency(db: D1Database, key: string): Promise<boolean> {
   const stmt = db.prepare("SELECT idempotency_key FROM processed_jobs WHERE idempotency_key = ? LIMIT 1");
@@ -97,24 +104,30 @@ async function markJobProcessed(db: D1Database, key: string, status: string, cor
 
 async function handleQueueMessage(message: Message<unknown>, env: AutopilotEnv): Promise<void> {
   const correlationId = generateCorrelationId();
+  const breakerKey = "autopilot:processor";
 
-  if (circuitBreaker.isOpen()) {
-    await emitEvent(env, {
-      tenantId: "system",
-      saasId: null,
-      type: "domains.hostname.circuit_open",
-      severity: "WARNING",
-      source: "AUTOPILOT_WORKER",
-      message: "Circuit breaker open, skipping message",
-      metadata: { messageId: message.id },
-      correlationId,
-    });
-    await message.retry();
-    return;
+  const breaker = await getBreakerStatus(env.DRACO_DB, breakerKey);
+  if (breaker.state === "OPEN") {
+    const openedAt = breaker.opened_at ? new Date(breaker.opened_at).getTime() : 0;
+    if (Date.now() - openedAt < CIRCUIT_RESET_MS) {
+      await emitEvent(env, {
+        tenantId: "system",
+        saasId: null,
+        type: "domains.hostname.circuit_open",
+        severity: "WARNING",
+        source: "AUTOPILOT_WORKER",
+        message: "Circuit breaker open, skipping message",
+        metadata: { messageId: message.id },
+        correlationId,
+      });
+      await message.retry();
+      return;
+    }
+    await updateBreakerState(env.DRACO_DB, breakerKey, "HALF_OPEN", "COOLDOWN_EXPIRED", correlationId);
   }
 
   if (!rateLimiter.take()) {
-    circuitBreaker.recordFailure();
+    await recordFailure(env.DRACO_DB, breakerKey, CIRCUIT_FAILURE_THRESHOLD);
     await emitEvent(env, {
       tenantId: "system",
       saasId: null,
@@ -136,7 +149,7 @@ async function handleQueueMessage(message: Message<unknown>, env: AutopilotEnv):
       throw new Error("INVALID_PAYLOAD");
     }
   } catch (error) {
-    circuitBreaker.recordFailure();
+    await recordFailure(env.DRACO_DB, breakerKey, CIRCUIT_FAILURE_THRESHOLD);
     await emitEvent(env, {
       tenantId: "system",
       saasId: null,
@@ -174,7 +187,7 @@ async function handleQueueMessage(message: Message<unknown>, env: AutopilotEnv):
 
   try {
     const result = await processHostnameMessage(payload, { repo, recordEvent });
-    circuitBreaker.recordSuccess();
+    await recordSuccess(env.DRACO_DB, breakerKey);
 
     if (result.outcome === "pending" && isPollMessage(payload)) {
       await emitEvent(env, {
@@ -210,7 +223,7 @@ async function handleQueueMessage(message: Message<unknown>, env: AutopilotEnv):
 
     await message.ack();
   } catch (error) {
-    circuitBreaker.recordFailure();
+    await recordFailure(env.DRACO_DB, breakerKey, CIRCUIT_FAILURE_THRESHOLD);
     await emitEvent(env, {
       tenantId: payload.tenantId,
       saasId: payload.saasId,
@@ -247,9 +260,11 @@ export default {
   },
 
   async scheduled(controller: ScheduledController, env: AutopilotEnv, ctx: ExecutionContext): Promise<void> {
-    if (!circuitBreaker.isOpen()) return;
+    const breakerKey = "autopilot:processor";
+    const breaker = await getBreakerStatus(env.DRACO_DB, breakerKey);
+    if (breaker.state !== "OPEN") return;
 
-    circuitBreaker.recordSuccess();
+    await recordSuccess(env.DRACO_DB, breakerKey);
     await emitEvent(env, {
       tenantId: "system",
       saasId: null,

@@ -50,5 +50,16 @@ Este documento describe los procedimientos operativos para manejar incidentes de
    > [!NOTE]
    > Gracias a la Idempotencia (tabla `processed_jobs`), es seguro re-encolar sin miedo a duplicar datos procesados parcialmente.
 
+## 5. Fuga de Interfaz (Shell Leaks)
+**Síntoma:** Usuarios públicos ven la barra lateral administrativa o el shell de "Campamento Base".
+
+### Diagnóstico
+1. Verificar si la ruta cargada pertenece a `/site` o `/auth`.
+2. Revisar los headers de la petición, específicamente `x-matched-path` y `x-drako-host-mode`.
+
+### Acción (Regla Steel)
+- **Aislamiento Estricto:** Nunca permitir que una ruta pública se renderice en el `AdminShell`.
+- **Corrección:** Si el leak persiste, forzar en `RootLayout` la condición de `isPublicRoute` para incluir explícitamente cualquier nuevo prefijo público.
+
 ---
 🚀 **Drako-Forge Steel: Resiliencia por Diseño.**
