@@ -7,6 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useSiteSession } from "@/contexts/site-session-context";
 import { MaterializationTracker } from "@/components/panel/materialization-tracker";
 import { EliteInterview } from "@/components/onboarding/elite-interview";
+import { ResizablePanels } from "@/components/panel/resizable-panels";
 import { type BlueprintResponse } from "@/lib/campamento-base/ai-blueprint-v2/prompts";
 
 type SaasInfo = {
@@ -141,176 +142,182 @@ export default function SitePanelPage() {
           </div>
         )}
 
-        {/* DYNAMIC 3-COLUMN FLEX LAYOUT */}
-        <div className="flex gap-6">
-
-          {/* COLUMN 1: Main Content (flex-1) */}
-          <div className="flex-1 space-y-6 min-w-0">
-            <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-8 relative group">
-              {/* Status Badge */}
-              <div className="absolute top-8 right-8">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${saasInfo?.status === 'active'
-                  ? "bg-green-50 text-green-700 border-green-200"
-                  : "bg-blue-50 text-blue-700 border-blue-200"
-                  }`}>
-                  {saasInfo?.status === 'active' ? "Activo" : "En Desarrollo"}
-                </span>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Proyecto Principal</span>
-                  <h2 className="text-4xl font-bold text-slate-900 mt-1 mb-2">
-                    {saasInfo?.name ?? session.draftSaas?.saasName ?? "Nuevo Proyecto"}
-                  </h2>
-                  <p className="text-slate-500 max-w-lg">
-                    {session.draftSaas?.saasSlug
-                      ? `https://${session.draftSaas.saasSlug}.drako.systems`
-                      : "Dominio pendiente de asignación"}
-                  </p>
-                </div>
-
-                {/* Progress Tracker */}
-                <div className="pt-6 border-t border-slate-100 mt-6">
-                  <MaterializationTracker
-                    phase={interviewPhase}
-                    status={saasInfo?.status ?? (canLoad ? 'active' : 'draft')}
-                  />
-                </div>
-              </div>
-            </section>
-
-            {/* STATS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3 mb-4 text-slate-500">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  <span className="text-xs font-bold uppercase tracking-wider">Facturación</span>
-                </div>
-                <div className="flex items-end gap-2">
-                  <span className="text-3xl font-bold text-slate-900">{invoiceCount ?? 0}</span>
-                  <span className="text-sm text-slate-500 font-medium mb-1">facturas pendientes</span>
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3 mb-4 text-slate-500">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  <span className="text-xs font-bold uppercase tracking-wider">Soporte Técnico</span>
-                </div>
-                <div className="flex items-end gap-2">
-                  <span className="text-3xl font-bold text-slate-900">{ticketCount ?? 0}</span>
-                  <span className="text-sm text-slate-500 font-medium mb-1">tickets abiertos</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* COLUMN 2: Business Info Sidebar (w-80) */}
-          <div className="w-80 space-y-6 flex-shrink-0 hidden lg:block">
-            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-              <div>
-                <h3 className="font-bold text-slate-900">Datos Fiscales</h3>
-                <p className="text-sm text-slate-500 mt-1">Información registrada en el sistema.</p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="py-3 border-b border-slate-100">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Razón Social</p>
-                  <p className="text-sm font-semibold text-slate-800">{session.draftCompany?.clientName || "—"}</p>
-                </div>
-                <div className="py-3 border-b border-slate-100">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Titular</p>
-                  <p className="text-sm font-semibold text-slate-800">{session.draftCompany?.ownerName || "—"}</p>
-                </div>
-                <div className="py-3 border-b border-slate-100">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Identificación (NIF/CIF)</p>
-                  <p className="text-sm font-semibold text-slate-800 font-mono">{session.draftCompany?.clientNif || "—"}</p>
-                </div>
-              </div>
-
-              <Link href="/site" className="block w-full py-2 text-center text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
-                Editar Información
-              </Link>
-            </div>
-
-            <div className="bg-white border-2 border-sky-100 p-8 rounded-2xl shadow-lg relative overflow-hidden">
-              <div className="relative z-10 space-y-4">
-                <h3 className="font-bold text-slate-900">Infraestructura</h3>
-                <div className="space-y-2 text-sm text-slate-600">
-                  <div className="flex justify-between">
-                    <span>Server Status</span>
-                    <span className="text-emerald-600 font-bold">99.9% Uptime</span>
+        {/* RESIZABLE 3-COLUMN LAYOUT */}
+        <div className="flex-1 overflow-hidden">
+          <ResizablePanels
+            defaultLeftWidth={20}
+            defaultRightWidth={30}
+            minWidth={15}
+            left={
+              // COLUMN 1: Business Info Sidebar
+              <div className="h-full overflow-y-auto p-6 space-y-6 bg-slate-50">
+                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                  <div>
+                    <h3 className="font-bold text-slate-900">Datos Fiscales</h3>
+                    <p className="text-sm text-slate-500 mt-1">Información registrada en el sistema.</p>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Región</span>
-                    <span className="text-slate-900">eu-west-1 (Madrid)</span>
+
+                  <div className="space-y-4">
+                    <div className="py-3 border-b border-slate-100">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Razón Social</p>
+                      <p className="text-sm font-semibold text-slate-800">{session.draftCompany?.clientName || "—"}</p>
+                    </div>
+                    <div className="py-3 border-b border-slate-100">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Titular</p>
+                      <p className="text-sm font-semibold text-slate-800">{session.draftCompany?.ownerName || "—"}</p>
+                    </div>
+                    <div className="py-3 border-b border-slate-100">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Identificación (NIF/CIF)</p>
+                      <p className="text-sm font-semibold text-slate-800 font-mono">{session.draftCompany?.clientNif || "—"}</p>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Base de Datos</span>
-                    <span className="text-slate-900">Drako D1 (Edge)</span>
+
+                  <Link href="/site" className="block w-full py-2 text-center text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
+                    Editar Información
+                  </Link>
+                </div>
+
+                <div className="bg-white border-2 border-sky-100 p-8 rounded-2xl shadow-lg relative overflow-hidden">
+                  <div className="relative z-10 space-y-4">
+                    <h3 className="font-bold text-slate-900">Infraestructura</h3>
+                    <div className="space-y-2 text-sm text-slate-600">
+                      <div className="flex justify-between">
+                        <span>Server Status</span>
+                        <span className="text-emerald-600 font-bold">99.9% Uptime</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Región</span>
+                        <span className="text-slate-900">eu-west-1 (Madrid)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Base de Datos</span>
+                        <span className="text-slate-900">Drako D1 (Edge)</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
+            }
+            center={
+              // COLUMN 2: Main Content
+              <div className="h-full overflow-y-auto p-6 space-y-6">
+                <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-8 relative group">
+                  {/* Status Badge */}
+                  <div className="absolute top-8 right-8">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${saasInfo?.status === 'active'
+                      ? "bg-green-50 text-green-700 border-green-200"
+                      : "bg-blue-50 text-blue-700 border-blue-200"
+                      }`}>
+                      {saasInfo?.status === 'active' ? "Activo" : "En Desarrollo"}
+                    </span>
+                  </div>
 
-          {/* COLUMN 3: Chat Sidebar (Always Visible) */}
-          <aside className="w-96 bg-white border-l border-slate-200 shadow-xl flex-shrink-0">
-            <div className="h-full flex flex-col">
-              {/* Chat Header */}
-              <div className="p-6 border-b border-slate-200 bg-gradient-to-br from-sky-50 to-white flex-shrink-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <svg className="w-5 h-5 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                  </svg>
-                  <h2 className="text-lg font-black text-slate-900">AI Orchestrator</h2>
+                  <div className="space-y-6">
+                    <div>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Proyecto Principal</span>
+                      <h2 className="text-4xl font-bold text-slate-900 mt-1 mb-2">
+                        {saasInfo?.name ?? session.draftSaas?.saasName ?? "Nuevo Proyecto"}
+                      </h2>
+                      <p className="text-slate-500 max-w-lg">
+                        {session.draftSaas?.saasSlug
+                          ? `https://${session.draftSaas.saasSlug}.drako.systems`
+                          : "Dominio pendiente de asignación"}
+                      </p>
+                    </div>
+
+                    {/* Progress Tracker */}
+                    <div className="pt-6 border-t border-slate-100 mt-6">
+                      <MaterializationTracker
+                        phase={interviewPhase}
+                        status={saasInfo?.status ?? (canLoad ? 'active' : 'draft')}
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                {/* STATS */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-3 mb-4 text-slate-500">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      <span className="text-xs font-bold uppercase tracking-wider">Facturación</span>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <span className="text-3xl font-bold text-slate-900">{invoiceCount ?? 0}</span>
+                      <span className="text-sm text-slate-500 font-medium mb-1">facturas pendientes</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-3 mb-4 text-slate-500">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      <span className="text-xs font-bold uppercase tracking-wider">Soporte Técnico</span>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <span className="text-3xl font-bold text-slate-900">{ticketCount ?? 0}</span>
+                      <span className="text-sm text-slate-500 font-medium mb-1">tickets abiertos</span>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-xs text-slate-500 font-medium">Tu asistente de arquitectura</p>
               </div>
+            }
+            right={
+              // COLUMN 3: Chat Sidebar (Always Visible)
+              <div className="h-full bg-white flex flex-col">
+                <div className="h-full flex flex-col">
+                  {/* Chat Header */}
+                  <div className="p-6 border-b border-slate-200 bg-gradient-to-br from-sky-50 to-white flex-shrink-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg className="w-5 h-5 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                      <h2 className="text-lg font-black text-slate-900">AI Orchestrator</h2>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium">Tu asistente de arquitectura</p>
+                  </div>
 
-              {/* Chat Content */}
-              <div className="flex-1 overflow-y-auto p-4">
-                <EliteInterview onComplete={handleChatComplete} />
+                  {/* Chat Content */}
+                  <div className="flex-1 overflow-y-auto p-4">
+                    <EliteInterview onComplete={handleChatComplete} />
+                  </div>
+                </div>
+            }
+          />
               </div>
-            </div>
-          </aside>
-
-        </div>
       </div>
 
-    </div>
-  );
+      </div>
+      );
 }
 
-// User Session Display Component
-function UserSessionDisplay() {
-  const { data: session } = useSession();
+      // User Session Display Component
+      function UserSessionDisplay() {
+  const {data: session } = useSession();
 
-  if (!session?.user) return null;
+      if (!session?.user) return null;
 
-  return (
-    <div className="flex items-center gap-3">
-      {session.user.image && (
-        <Image
-          src={session.user.image}
-          alt={session.user.name || "User"}
-          width={32}
-          height={32}
-          className="rounded-full border-2 border-sky-200"
-        />
-      )}
-      <div className="hidden lg:block">
-        <p className="text-sm font-semibold text-slate-700">{session.user.name}</p>
-        <p className="text-xs text-slate-500">{session.user.email}</p>
+      return (
+      <div className="flex items-center gap-3">
+        {session.user.image && (
+          <Image
+            src={session.user.image}
+            alt={session.user.name || "User"}
+            width={32}
+            height={32}
+            className="rounded-full border-2 border-sky-200"
+          />
+        )}
+        <div className="hidden lg:block">
+          <p className="text-sm font-semibold text-slate-700">{session.user.name}</p>
+          <p className="text-xs text-slate-500">{session.user.email}</p>
+        </div>
+        <button
+          onClick={() => signOut({ callbackUrl: "/site" })}
+          className="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors px-3 py-1"
+          title="C errar sesión"
+        >
+          Salir
+        </button>
       </div>
-      <button
-        onClick={() => signOut({ callbackUrl: "/site" })}
-        className="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors px-3 py-1"
-        title="C errar sesión"
-      >
-        Salir
-      </button>
-    </div>
-  );
+      );
 }
