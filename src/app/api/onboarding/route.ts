@@ -133,9 +133,56 @@ export async function POST(req: NextRequest) {
             )
             .run();
 
+        // Trigger competitive analysis in background (non-blocking)
+        triggerCompetitiveAnalysis({
+            userEmail: session.user.email,
+            address,
+            sector,
+            instagramUrl,
+            facebookUrl,
+            linkedinUrl,
+            websiteUrl,
+        }).catch(err => {
+            console.error("Failed to trigger competitive analysis:", err);
+            // Don't fail the onboarding if analysis fails
+        });
+
         return NextResponse.json({ success: true, id });
     } catch (error) {
         console.error("Error saving onboarding:", error);
         return NextResponse.json({ error: "Failed to save onboarding data" }, { status: 500 });
+    }
+}
+
+// Helper: Trigger competitive analysis (async, non-blocking)
+async function triggerCompetitiveAnalysis(data: {
+    userEmail: string;
+    address?: string;
+    sector?: string;
+    instagramUrl?: string;
+    facebookUrl?: string;
+    linkedinUrl?: string;
+    websiteUrl?: string;
+}) {
+    // This would ideally use a queue system (Cloudflare Queues, etc.)
+    // For now, we'll just call the geo agent as a starting point
+    // In production, this should be a background job
+
+    if (!data.address || !data.sector) {
+        console.log("Skipping analysis: missing address or sector");
+        return;
+    }
+
+    try {
+        // Call Geo-Agent to start the analysis chain
+        const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+        await fetch(`${baseUrl}/api/analysis/geo?address=${encodeURIComponent(data.address)}&sector=${encodeURIComponent(data.sector)}&radius=5`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+        });
+
+        console.log("Competitive analysis triggered for:", data.userEmail);
+    } catch (err) {
+        console.error("Error triggering analysis:", err);
     }
 }
