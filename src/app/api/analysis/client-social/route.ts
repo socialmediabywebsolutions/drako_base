@@ -171,7 +171,7 @@ function extractLinkedInCompanyId(url: string): string | null {
 }
 
 // Helper: Calculate overall sentiment
-function calculateOverallSentiment(results: any) {
+function calculateOverallSentiment(_results: any) {
     // Placeholder for sentiment analysis
     // In production, would analyze comments/reactions sentiment
     return {

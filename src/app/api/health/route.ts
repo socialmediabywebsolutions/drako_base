@@ -62,7 +62,7 @@ export async function GET(request: Request) {
     // This catch block now primarily handles errors from getRequestBindings or getPagesBuildStamp
     // If dbPing.ok is false here, it means the database check failed and was handled above.
     // If an error occurs before the db check, it's a different kind of failure.
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const _errorMessage = error instanceof Error ? error.message : String(error);
     const dbStatus = error instanceof DatabaseUnavailableError ? "missing_binding" : "unknown"; // This might still be relevant if ensureDatabase itself throws before the null check
     return NextResponse.json(
       {

@@ -7,7 +7,7 @@ import { getCloudflareEnv } from "@/lib/cloudflare/context";
 // GET: Returns all agent states
 export async function GET(request: Request) {
     try {
-        const { tenantId } = await requireTenantAccess(request);
+        const { tenantId: _tenantId } = await requireTenantAccess(request);
         const db = getCloudflareEnv().DB;
         if (!db) {
             return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     try {
         // For Phase 2 manual testing, we allow Owner to force-set status via UI too.
         // In production, this should check for a valid "Agent-Token" header as well.
-        const { tenantId } = await requireTenantAccess(request);
+        const { tenantId: _tenantId } = await requireTenantAccess(request);
 
         const body = await request.json() as any;
         const { agentId, role, status, currentTask, lastError, metadata } = body;

@@ -7,7 +7,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import { CompetitiveAnalysisReport } from "@/components/analysis/CompetitiveAnalysisReport";
 
 // POST - Generate PDF from analysis data
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {

@@ -183,7 +183,7 @@ function identifyStrengthsWeaknesses(gaps: any) {
 }
 
 // Helper: Generate opportunities
-function generateOpportunities(gaps: any, weaknesses: string[]) {
+function generateOpportunities(gaps: any, _weaknesses: string[]) {
     const opportunities: any[] = [];
 
     if (gaps.instagram_posts_gap < -30) {

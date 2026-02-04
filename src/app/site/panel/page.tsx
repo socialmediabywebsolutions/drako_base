@@ -41,7 +41,7 @@ export default function SitePanelPage() {
       try {
         const response = await fetch("/api/onboarding");
         if (response.ok) {
-          const data = await response.json();
+          const data = await response.json() as { completed: boolean };
           if (!data.completed) {
             router.push("/site/onboarding");
           }

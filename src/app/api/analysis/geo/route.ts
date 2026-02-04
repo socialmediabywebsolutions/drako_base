@@ -168,7 +168,7 @@ function toRad(degrees: number): number {
 
 // Helper: Extract social URLs from website (basic version)
 async function extractSocialUrls(
-    websiteUrl: string
+    _websiteUrl: string
 ): Promise<{ instagram: string | null; facebook: string | null }> {
     // In production, this would scrape the website
     // For now, return null - will be implemented in Web-Agent
