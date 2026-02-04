@@ -204,6 +204,31 @@ async function setCircuitBreakerInDb(params: {
   );
 }
 
+async function recordBreakerAudit(params: {
+  breakerKey: string;
+  previousState: string;
+  newState: string;
+  reason?: string;
+  correlationId?: string;
+  envOverride?: DracoEnv | null;
+}): Promise<void> {
+  const db = getDb(params.envOverride);
+  if (!db) return;
+
+  const id = `audit_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  await run(
+    `INSERT INTO ai_breaker_logs (id, breaker_key, previous_state, new_state, reason, correlation_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    id,
+    params.breakerKey,
+    params.previousState,
+    params.newState,
+    params.reason || null,
+    params.correlationId || null,
+    new Date().toISOString()
+  );
+}
+
 async function getStoreUsage(params: {
   key: string;
   envOverride?: DracoEnv | null;
@@ -434,6 +459,13 @@ export async function transitionBreakerToHalfOpen(params: {
     updated_at: now,
   };
   await updateCircuitBreaker({ row: updated, envOverride: params.envOverride, store: params.store });
+  await recordBreakerAudit({
+    breakerKey: params.key,
+    previousState: breaker.state,
+    newState: "HALF_OPEN",
+    reason: "COOLDOWN_EXPIRED",
+    envOverride: params.envOverride,
+  });
   return updated;
 }
 
@@ -459,6 +491,15 @@ export async function recordCircuitBreakerSuccess(params: {
       updated_at: now,
     };
     await updateCircuitBreaker({ row: updated, envOverride: params.envOverride, store: params.store });
+    if (shouldClose) {
+      await recordBreakerAudit({
+        breakerKey: params.key,
+        previousState: "HALF_OPEN",
+        newState: "CLOSED",
+        reason: "TRIALS_SUCCESS",
+        envOverride: params.envOverride,
+      });
+    }
     return updated;
   }
 
@@ -505,5 +546,14 @@ export async function recordCircuitBreakerFailure(params: {
     updated_at: now.toISOString(),
   };
   await updateCircuitBreaker({ row: updated, envOverride: params.envOverride, store: params.store });
+  if (shouldOpen) {
+    await recordBreakerAudit({
+      breakerKey: params.key,
+      previousState: breaker.state,
+      newState: "OPEN",
+      reason: params.error,
+      envOverride: params.envOverride,
+    });
+  }
   return { breaker: updated, opened: shouldOpen };
 }

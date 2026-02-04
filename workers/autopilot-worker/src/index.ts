@@ -83,6 +83,18 @@ function isPollMessage(message: HostnameQueueMessage): message is HostnamePollPa
 const rateLimiter = new RateLimiter(RATE_LIMIT_CAPACITY, RATE_LIMIT_INTERVAL_MS);
 const circuitBreaker = new CircuitBreaker();
 
+async function checkIdempotency(db: D1Database, key: string): Promise<boolean> {
+  const stmt = db.prepare("SELECT idempotency_key FROM processed_jobs WHERE idempotency_key = ? LIMIT 1");
+  const result = await stmt.bind(key).all();
+  return (result.results?.length ?? 0) > 0;
+}
+
+async function markJobProcessed(db: D1Database, key: string, status: string, correlationId: string): Promise<void> {
+  const stmt = db.prepare("INSERT INTO processed_jobs (idempotency_key, status, correlation_id, created_at, processed_at) VALUES (?, ?, ?, ?, ?)");
+  const now = new Date().toISOString();
+  await stmt.bind(key, status, correlationId, now, now).run();
+}
+
 async function handleQueueMessage(message: Message<unknown>, env: AutopilotEnv): Promise<void> {
   const correlationId = generateCorrelationId();
 
@@ -139,6 +151,24 @@ async function handleQueueMessage(message: Message<unknown>, env: AutopilotEnv):
     return;
   }
 
+  // Steel v1.0.1 - Idempotency Enforcement
+  if (payload.idempotencyKey) {
+    const isDuplicate = await checkIdempotency(env.DRACO_DB, payload.idempotencyKey);
+    if (isDuplicate) {
+      await emitEvent(env, {
+        tenantId: payload.tenantId || "system",
+        saasId: payload.saasId,
+        type: "queue.job.duplicate_skipped",
+        severity: "INFO",
+        source: "AUTOPILOT_WORKER",
+        message: `Skipping duplicate job with key ${payload.idempotencyKey}`,
+        correlationId: payload.correlationId || correlationId,
+      });
+      await message.ack();
+      return;
+    }
+  }
+
   const repo = createDomainsRepository(env.DRACO_DB);
   const recordEvent = createCampamentoEventsRecorder(env.DRACO_DB);
 
@@ -171,6 +201,11 @@ async function handleQueueMessage(message: Message<unknown>, env: AutopilotEnv):
           { delaySeconds: result.nextRetrySeconds },
         );
       }
+    }
+
+
+    if (payload.idempotencyKey) {
+      await markJobProcessed(env.DRACO_DB, payload.idempotencyKey, "COMPLETED", payload.correlationId || correlationId);
     }
 
     await message.ack();
