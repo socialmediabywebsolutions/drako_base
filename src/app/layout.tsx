@@ -29,9 +29,17 @@ export default async function RootLayout({
 }>) {
   const headersList = await headers();
   const hostMode = headersList.get("x-drako-host-mode") ?? "";
+
+  // En local, x-invoke-path o referer pueden ayudar si x-matched-path falla
   const matchedPath =
-    headersList.get("x-matched-path") || headersList.get("x-invoke-path") || headersList.get("next-url") || "";
-  const isSiteRoute = matchedPath.startsWith("/site");
+    headersList.get("x-matched-path") ||
+    headersList.get("x-invoke-path") ||
+    headersList.get("next-url") ||
+    "";
+
+  const referer = headersList.get("referer") || "";
+  const isSiteRoute = matchedPath.startsWith("/site") || referer.includes("/site/");
+
   const usePublicShell = hostMode === "PUBLIC_SAAS" || hostMode === "PREVIEW" || isSiteRoute;
 
   return (
