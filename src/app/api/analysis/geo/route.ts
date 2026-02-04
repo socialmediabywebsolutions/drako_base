@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
         )}&key=${apiKey}`;
 
         const geocodeRes = await fetch(geocodeUrl);
-        const geocodeData = await geocodeRes.json();
+        const geocodeData = await geocodeRes.json() as any;
 
         if (geocodeData.status !== "OK" || !geocodeData.results[0]) {
             return NextResponse.json(
