@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
         )}&key=${apiKey}`;
 
         const nearbyRes = await fetch(nearbyUrl);
-        const nearbyData = await nearbyRes.json();
+        const nearbyData = await nearbyRes.json() as any;
 
         if (nearbyData.status !== "OK" && nearbyData.status !== "ZERO_RESULTS") {
             return NextResponse.json(
@@ -78,12 +78,12 @@ export async function GET(req: NextRequest) {
                 // Get place details for more info
                 let website = null;
                 let phoneNumber = null;
-                let socialUrls = { instagram: null, facebook: null };
+                let socialUrls: { instagram: string | null; facebook: string | null } = { instagram: null, facebook: null };
 
                 try {
                     const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=website,formatted_phone_number&key=${apiKey}`;
                     const detailsRes = await fetch(detailsUrl);
-                    const detailsData = await detailsRes.json();
+                    const detailsData = await detailsRes.json() as any;
 
                     if (detailsData.status === "OK" && detailsData.result) {
                         website = detailsData.result.website || null;
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
         );
 
         // Sort by distance
-        competitors.sort((a, b) => a.distance_km - b.distance_km);
+        competitors.sort((a: any, b: any) => a.distance_km - b.distance_km);
 
         return NextResponse.json({
             success: true,
