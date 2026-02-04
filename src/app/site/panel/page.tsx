@@ -81,7 +81,7 @@ export default function SitePanelPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-sky-50 to-slate-100 text-slate-900 font-sans">
 
       {/* TOP NAVIGATION */}
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
@@ -89,11 +89,11 @@ export default function SitePanelPage() {
           <div className="flex items-center gap-8">
             <Link href="/site" className="flex items-center gap-2 group">
               <Image
-                src="/logo-drako.png"
+                src="/logo-drako-full.png"
                 alt="Drako Systems"
-                width={32}
-                height={32}
-                className="object-contain"
+                width={180}
+                height={60}
+                className="object-contain h-10 w-auto"
               />
             </Link>
             <div className="h-4 w-[1px] bg-slate-200" />

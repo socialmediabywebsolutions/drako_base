@@ -19,6 +19,11 @@ export const authOptions: NextAuthOptions = {
         signIn: "/auth/login",
     },
     callbacks: {
+        async redirect({ url, baseUrl }) {
+            // Always redirect to client panel after login, not admin
+            if (url.startsWith(baseUrl)) return url;
+            return `${baseUrl}/site/panel`;
+        },
         async session({ session, token }) {
             if (session.user) {
                 session.user.id = token.sub!;
