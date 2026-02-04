@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const body = await req.json();
+        const body = await req.json() as { client_website?: string; competitor_websites?: string[] };
         const { client_website, competitor_websites } = body;
 
         const results: any = {
