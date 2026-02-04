@@ -15,6 +15,7 @@ import {
   normalizeCorrelationId,
   shouldBypassCorrelation
 } from "@/lib/correlation";
+import { checkTenantRateLimit } from "@/lib/security/tenant-rate-limit";
 
 /**
  * MODO DEV
@@ -166,6 +167,30 @@ export async function middleware(req: NextRequest) {
         if (resolution.tenantId) {
           contextHeaders.set("x-drako-tenant-id", resolution.tenantId);
           contextHeaders.set("x-tenant-id", resolution.tenantId);
+
+          // 🛡️ DRAKO STEEL v1.0.1: Rate Limit Protection
+          const rateLimit = await checkTenantRateLimit({
+            tenantId: resolution.tenantId,
+            saasId: resolution.saasId,
+            route: pathname,
+            request: req,
+            // Plan detection would ideally be cached here
+            plan: "FREE",
+          });
+
+          if (!rateLimit.allowed) {
+            return persistCookie(NextResponse.json({
+              error: "RATE_LIMIT_EXCEEDED",
+              retry_after: rateLimit.retryAfter,
+              correlation_id: correlationId
+            }, {
+              status: 429,
+              headers: {
+                [CORRELATION_HEADER]: correlationId,
+                "Retry-After": String(rateLimit.retryAfter || 60)
+              }
+            }));
+          }
         }
         if (resolution.saasId) {
           contextHeaders.set("x-drako-saas-id", resolution.saasId);
