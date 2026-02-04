@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
         LIMIT 1
       `)
             .bind(session.user.email)
-            .first();
+            .first() as any;
 
         if (!analysisData || analysisData.status !== 'completed') {
             return NextResponse.json(
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
 
         // Generate PDF
         const pdfBuffer = await renderToBuffer(
-            React.createElement(CompetitiveAnalysisReport, pdfData)
+            React.createElement(CompetitiveAnalysisReport, pdfData) as any
         );
 
         // TODO: Upload to Cloudflare R2
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
             .run();
 
         // Return PDF as download
-        return new NextResponse(pdfBuffer, {
+        return new NextResponse(pdfBuffer as any, {
             headers: {
                 'Content-Type': 'application/pdf',
                 'Content-Disposition': `attachment; filename="${pdfFileName}"`,
