@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
+import { InfoTooltip } from "@/components/onboarding/info-tooltip";
 
 type OnboardingData = {
   contactName: string;
@@ -154,7 +155,10 @@ export default function OnboardingPage() {
               <h2 className="text-2xl font-bold text-slate-900 mb-6">Información Básica</h2>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Nombre del Responsable *</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center">
+                  Nombre del Responsable *
+                  <InfoTooltip text="Para personalizar tu experiencia y dirigirnos a ti directamente en el análisis." />
+                </label>
                 <input
                   type="text"
                   value={formData.contactName}
@@ -165,7 +169,10 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Nombre de la Empresa *</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center">
+                  Nombre de la Empresa *
+                  <InfoTooltip text="Identificaremos tu marca en el análisis competitivo y rastreo de mercado." />
+                </label>
                 <input
                   type="text"
                   value={formData.companyName}
@@ -176,7 +183,10 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Teléfono</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center">
+                  Teléfono
+                  <InfoTooltip text="Para contacto directo y soporte prioritario durante el análisis." />
+                </label>
                 <input
                   type="tel"
                   value={formData.phone}
@@ -193,7 +203,10 @@ export default function OnboardingPage() {
               <h2 className="text-2xl font-bold text-slate-900 mb-6">Ubicación y Mercado</h2>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Dirección Física</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center">
+                  Dirección Física
+                  <InfoTooltip text="🗺️ Analizaremos tus competidores en un radio de 5km usando Google Maps. Identificaremos su ubicación, rating y distancia a tu negocio." />
+                </label>
                 <input
                   type="text"
                   value={formData.address}
@@ -204,7 +217,10 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Sector *</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center">
+                  Sector *
+                  <InfoTooltip text="📊 Compararemos tu industria con benchmarks del mercado para identificar oportunidades de crecimiento específicas." />
+                </label>
                 <select
                   value={formData.sector}
                   onChange={(e) => updateField("sector", e.target.value)}
@@ -218,7 +234,10 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Nicho Específico</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center">
+                  Nicho Específico
+                  <InfoTooltip text="🎯 Identificaremos tu ventaja competitiva única y qué te diferencia del resto del mercado." />
+                </label>
                 <input
                   type="text"
                   value={formData.niche}
@@ -235,7 +254,10 @@ export default function OnboardingPage() {
               <h2 className="text-2xl font-bold text-slate-900 mb-6">Presencia Digital</h2>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Sitio Web</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center">
+                  Sitio Web
+                  <InfoTooltip text="🌐 Extraeremos tus servicios y precios para comparar con la competencia." />
+                </label>
                 <input
                   type="url"
                   value={formData.websiteUrl}
@@ -247,7 +269,10 @@ export default function OnboardingPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Instagram</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center">
+                    Instagram
+                    <InfoTooltip text="📱 Analizaremos: frecuencia de posts, promedio de likes, engagement rate, y comparativa vs competidores." />
+                  </label>
                   <input
                     type="url"
                     value={formData.instagramUrl}
@@ -258,7 +283,10 @@ export default function OnboardingPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Facebook</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center">
+                    Facebook
+                    <InfoTooltip text="📘 Analizaremos interacciones, frecuencia de publicación y sentimiento de comentarios." />
+                  </label>
                   <input
                     type="url"
                     value={formData.facebookUrl}
@@ -269,7 +297,10 @@ export default function OnboardingPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">LinkedIn</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center">
+                    LinkedIn
+                    <InfoTooltip text="💼 Evaluaremos tu presencia profesional y comparativa con empresas similares." />
+                  </label>
                   <input
                     type="url"
                     value={formData.linkedinUrl}
@@ -298,8 +329,9 @@ export default function OnboardingPage() {
               <h2 className="text-2xl font-bold text-slate-900 mb-6">Visión del Proyecto</h2>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center">
                   ¿Qué problema resuelve tu SaaS? *
+                  <InfoTooltip text="💡 Esto define tu propuesta de valor única. Lo usaremos para identificar tu posicionamiento vs competidores." />
                 </label>
                 <textarea
                   value={formData.problemStatement}
@@ -311,7 +343,10 @@ export default function OnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">¿Quién es tu cliente ideal?</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center">
+                  ¿Quién es tu cliente ideal?
+                  <InfoTooltip text="👥 Segmentaremos el mercado para encontrar oportunidades no atendidas y nichos desaprovechados." />
+                </label>
                 <textarea
                   value={formData.targetCustomer}
                   onChange={(e) => updateField("targetCustomer", e.target.value)}
