@@ -56,7 +56,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.next();
     }
 
-    let incomingCorrelationId = req.headers.get(CORRELATION_HEADER);
+    const incomingCorrelationId = req.headers.get(CORRELATION_HEADER);
     let correlationId: string;
     let isInvalidIncoming = false;
 

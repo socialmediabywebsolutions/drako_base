@@ -1,9 +1,4 @@
 import { fetchWithCorrelation } from "../api-client";
-import {
-    CORRELATION_HEADER,
-    TENANT_HEADER,
-    SAAS_HEADER
-} from "../correlation";
 
 /**
  * Drako-Forge Steel v1.0.1 - AI Gateway Utility

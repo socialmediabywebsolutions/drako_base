@@ -1,5 +1,5 @@
 import { env as resolveEnv, type DracoEnv } from "@/lib/cf";
-import { queryAll, run } from "@/lib/db";
+import { run } from "@/lib/db";
 import { consumeRateLimit, extractClientIp } from "./rate-limit";
 import { generateCorrelationId } from "../correlation";
 

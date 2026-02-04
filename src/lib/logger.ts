@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { isEdgeRuntime } from "./runtime";
+// isEdgeRuntime removed as it was unused
 import { CORRELATION_HEADER } from "./correlation";
 
 /**
@@ -12,7 +12,7 @@ async function getCorrelationId(): Promise<string> {
     try {
         const headersList = await headers();
         return headersList.get(CORRELATION_HEADER) || "no-ctx";
-    } catch (e) {
+    } catch {
         // In scenarios where headers() is not available (e.g. static generation)
         return "static-ctx";
     }

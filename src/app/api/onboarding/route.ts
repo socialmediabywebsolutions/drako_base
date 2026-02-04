@@ -6,7 +6,7 @@ import { env } from "@/lib/cf";
 import { logger } from "@/lib/logger";
 
 // GET - Check if user completed onboarding
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
     const session = await getServerSession(authOptions);
 
     await logger.info("Checking onboarding status", { email: session?.user?.email });
