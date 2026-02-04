@@ -264,60 +264,59 @@ export default function SitePanelPage() {
             right={
               // COLUMN 3: Chat Sidebar (Always Visible)
               <div className="h-full bg-white flex flex-col">
-                <div className="h-full flex flex-col">
-                  {/* Chat Header */}
-                  <div className="p-6 border-b border-slate-200 bg-gradient-to-br from-sky-50 to-white flex-shrink-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <svg className="w-5 h-5 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
-                      <h2 className="text-lg font-black text-slate-900">AI Orchestrator</h2>
-                    </div>
-                    <p className="text-xs text-slate-500 font-medium">Tu asistente de arquitectura</p>
+                {/* Chat Header */}
+                <div className="p-6 border-b border-slate-200 bg-gradient-to-br from-sky-50 to-white flex-shrink-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg className="w-5 h-5 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                    <h2 className="text-lg font-black text-slate-900">AI Orchestrator</h2>
                   </div>
-
-                  {/* Chat Content */}
-                  <div className="flex-1 overflow-y-auto p-4">
-                    <EliteInterview onComplete={handleChatComplete} />
-                  </div>
+                  <p className="text-xs text-slate-500 font-medium">Tu asistente de arquitectura</p>
                 </div>
+
+                {/* Chat Content */}
+                <div className="flex-1 overflow-y-auto p-4">
+                  <EliteInterview onComplete={handleChatComplete} />
+                </div>
+              </div>
             }
           />
-              </div>
+        </div>
       </div>
 
-      </div>
-      );
+    </div>
+  );
 }
 
-      // User Session Display Component
-      function UserSessionDisplay() {
-  const {data: session } = useSession();
+// User Session Display Component
+function UserSessionDisplay() {
+  const { data: session } = useSession();
 
-      if (!session?.user) return null;
+  if (!session?.user) return null;
 
-      return (
-      <div className="flex items-center gap-3">
-        {session.user.image && (
-          <Image
-            src={session.user.image}
-            alt={session.user.name || "User"}
-            width={32}
-            height={32}
-            className="rounded-full border-2 border-sky-200"
-          />
-        )}
-        <div className="hidden lg:block">
-          <p className="text-sm font-semibold text-slate-700">{session.user.name}</p>
-          <p className="text-xs text-slate-500">{session.user.email}</p>
-        </div>
-        <button
-          onClick={() => signOut({ callbackUrl: "/site" })}
-          className="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors px-3 py-1"
-          title="C errar sesión"
-        >
-          Salir
-        </button>
+  return (
+    <div className="flex items-center gap-3">
+      {session.user.image && (
+        <Image
+          src={session.user.image}
+          alt={session.user.name || "User"}
+          width={32}
+          height={32}
+          className="rounded-full border-2 border-sky-200"
+        />
+      )}
+      <div className="hidden lg:block">
+        <p className="text-sm font-semibold text-slate-700">{session.user.name}</p>
+        <p className="text-xs text-slate-500">{session.user.email}</p>
       </div>
-      );
+      <button
+        onClick={() => signOut({ callbackUrl: "/site" })}
+        className="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors px-3 py-1"
+        title="C errar sesión"
+      >
+        Salir
+      </button>
+    </div>
+  );
 }
