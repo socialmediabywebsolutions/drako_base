@@ -32,6 +32,7 @@
     "check:alerts": "tsx scripts/alerts-check.ts"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.3.2",
     "clsx": "^2.1.1",
     "framer-motion": "^12.27.0",
     "lucide-react": "^0.468.0",
