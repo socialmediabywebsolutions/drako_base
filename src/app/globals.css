@@ -2,23 +2,29 @@
 
 /* Design tokens - Drako Elite Cyber-Forge */
 :root {
-  --background: #020617;
-  /* Obsidian Deep */
-  --background-alt: #0f172a;
-  --foreground: #f8fafc;
+  --background: #ffffff;
+  /* Obsidian Deep -> Pure White */
+  --background-alt: #f8fafc;
+  /* slate-50 */
+  --foreground: #0f172a;
+  /* slate-900 */
   --muted: #64748b;
-  --panel: #0f172a;
-  --panel-alt: #1e293b;
-  --border: rgba(255, 255, 255, 0.1);
-  --brand: #00d2ff;
-  /* Electric Neon */
-  --brand-glow: rgba(0, 210, 255, 0.4);
-  --brand-quiet: rgba(0, 210, 255, 0.05);
-  --brand-strong: #38bdf8;
+  /* slate-500 */
+  --panel: #ffffff;
+  --panel-alt: #f1f5f9;
+  /* slate-100 */
+  --border: rgba(14, 165, 233, 0.1);
+  /* sky-500-10% */
+  --brand: #0ea5e9;
+  /* Sky-500 */
+  --brand-glow: rgba(14, 165, 233, 0.2);
+  --brand-quiet: rgba(14, 165, 233, 0.05);
+  --brand-strong: #0284c7;
+  /* Sky-600 */
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+  --shadow-soft: 0 10px 40px -10px rgba(14, 165, 233, 0.1);
   --shadow-glass: 0 0 25px -5px var(--brand-glow);
   --font-technical: "Inter", monospace;
 }

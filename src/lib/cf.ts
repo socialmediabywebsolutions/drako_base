@@ -36,7 +36,6 @@ export type DracoEnv = {
   DRACO_AI_CB_COOLDOWN_SECONDS?: string;
   DRACO_AI_CB_HALF_OPEN_TRIALS?: string;
   CF_API_TOKEN?: string;
-  CF_ACCOUNT_ID?: string;
   CF_ZONE_ID?: string;
   CF_PAGES_ENVIRONMENT?: string;
   CF_PAGES_BRANCH?: string;
@@ -49,6 +48,8 @@ export type DracoEnv = {
   CLOUDFLARE_PROVISIONING_MODE?: string;
   AI_GATEWAY_ID?: string;
   AI_GATEWAY_COMPAT_TOKEN?: string;
+  AUTOPILOT_WORKER_URL?: string;
+  VERCEL_TO_WORKER_SECRET?: string;
   AI?: { run: (model: string, inputs: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown> };
 };
 

@@ -38,7 +38,7 @@ export async function GET() {
                 hint: "Add [ai] binding = 'AI' to wrangler.toml",
                 gateway: {
                     configured: Boolean(bindings.AI_GATEWAY_ID),
-                    accountId: Boolean(bindings.CF_ACCOUNT_ID),
+                    accountId: Boolean(bindings.CLOUDFLARE_ACCOUNT_ID),
                 },
             },
             { status: 503 },
@@ -83,7 +83,7 @@ export async function GET() {
                 duration,
                 gateway: {
                     configured: Boolean(bindings.AI_GATEWAY_ID),
-                    accountId: Boolean(bindings.CF_ACCOUNT_ID),
+                    accountId: Boolean(bindings.CLOUDFLARE_ACCOUNT_ID),
                 },
             },
             { status: 200 },

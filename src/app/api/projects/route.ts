@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { createProject, listProjects } from "@/lib/projects/repository";
+import { createCheckoutSession } from "@/lib/stripe/checkout";
+import { PackName } from "@/lib/subscriptions";
 
 // export const runtime = "edge"; // OpenNext Migration
 
@@ -57,9 +59,29 @@ export async function POST(req: Request) {
       name,
       slug: slugInput,
       domain,
-    });
+    }); // Always creates with Starter first.
 
-    return NextResponse.json({ ok: true, item: created });
+    // Monetization Hook: Generate Checkout if Paid Pack
+    const packName = typeof payload.packName === "string" ? payload.packName : "Starter";
+    let checkoutUrl: string | null = null;
+
+    if (packName === "Pro" || packName === "Enterprise") {
+      try {
+        const origin = new URL(req.url).origin;
+        const { url } = await createCheckoutSession({
+          tenantId,
+          saasId: created.project.id,
+          packName: packName as PackName,
+          returnUrl: `${origin}/projects/${created.project.id}`, // Or a dedicated success page
+          email: undefined // We could extract user email if available in session
+        });
+        checkoutUrl = url;
+      } catch (e) {
+        console.error("STRIPE_CHECKOUT_ERROR", e);
+      }
+    }
+
+    return NextResponse.json({ ok: true, item: created, checkoutUrl });
   } catch (error) {
     const authResponse = authErrorResponse(error);
     if (authResponse) return authResponse;

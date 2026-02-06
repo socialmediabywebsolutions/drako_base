@@ -1,4 +1,5 @@
 import { queryAll as queryAllDb, queryOne as queryOneDb, run as runDb } from "@/lib/db";
+import { STRIPE_PRODUCT_MAP } from "@/lib/subscriptions";
 import {
   getProjectEntitlements as getEntitlements,
   upsertProjectEntitlements as persistEntitlements,
@@ -58,6 +59,7 @@ type CreateProjectInput = {
   name: string;
   slug?: string | null;
   domain?: string | null;
+  packName?: string; // Optional, defaults to Starter
 };
 
 type ListProjectsFilters = {
@@ -224,147 +226,252 @@ export async function createProject(input: CreateProjectInput, adapter?: Partial
 
   await persistEntitlements({ tenantId, projectId: id, entitlements: {} }, db);
 
+  // Hook: SaaS Policy Pack Cloning
+  // Projects act as "SaaS Instances" in this context.
+  // We clone the pack to the Tenant (if not exists) OR specific to the SaaS ID (project ID)?
+  // Decision: Clone to Tenant-level for simpler V1 management, or SaaS-level if we want per-project limits.
+  // Prompt says: "SaaS Policy Packs... Hook of onboarding: clona políticas al crear SaaS."
+  // "saas_id" in DB is optional. Let's bind it to the PROJECT ID to be granular.
+  try {
+    await clonePolicyPack(tenantId, id, input.packName || "Starter", db);
+  } catch (e) {
+    console.error("Failed to clone policy pack:", e);
+    // Non-blocking but logged
+  }
+
   const detail = await getProjectById({ tenantId, projectId: id }, db);
   if (!detail) throw new Error("Proyecto creado pero no encontrado");
   return detail;
 }
 
-export async function listProjects(filters: ListProjectsFilters, adapter?: Partial<DbAdapter>): Promise<ProjectRecord[]> {
-  const db = resolveDbAdapter(adapter);
-  const tenantId = filters.tenantId.trim();
-  if (!tenantId) throw new Error("tenantId es obligatorio");
+// Helper: Clone Policy Pack
+async function clonePolicyPack(tenantId: string, saasId: string, packName: string, db: DbAdapter) {
+  // 1. Get Pack
+  const pack = await db.queryOne<{ id: string, policies_json: string, cost_policy_json: string }>(
+    "SELECT id, policies_json, cost_policy_json FROM saas_policy_packs WHERE pack_name = ? LIMIT 1",
+    packName
+  );
 
-  const clauses = ["tenant_id = ?"];
-  const params: (string | null)[] = [tenantId];
-
-  if (filters.companyId) {
-    clauses.push("company_id = ?");
-    params.push(filters.companyId.trim());
+  if (!pack) {
+    console.warn(`Policy Pack '${packName}' not found. Skipping.`);
+    return;
   }
 
-  const whereClause = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const policies = JSON.parse(pack.policies_json);
+  const costPolicy = JSON.parse(pack.cost_policy_json);
+  const now = new Date().toISOString();
 
-  return db.queryAll<ProjectRecord>(
-    `SELECT id, tenant_id, company_id, name, slug, status, created_at, updated_at
+  // 2. Insert AI Provider Policies
+  for (const p of policies) {
+    const id = generateId("pol");
+    await db.run(
+      `INSERT OR IGNORE INTO ai_provider_policies 
+            (id, tenant_id, saas_id, plan, task_type, mode, provider, model, priority, is_active, created_at, updated_at)
+            VALUES (?, ?, ?, 'standard', ?, ?, ?, ?, ?, 1, ?, ?)`,
+      id, tenantId, saasId, p.task_type, p.mode, p.provider, p.model, p.priority, now, now
+    );
+  }
+
+  // 3. Insert AI Cost Policy
+  const cpId = generateId("cp");
+  await db.run(
+    `INSERT OR IGNORE INTO ai_cost_policies
+        (id, tenant_id, saas_id, soft_limit_usd, hard_limit_usd, latency_sla_ms, downgrade_provider, downgrade_model, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    cpId, tenantId, saasId,
+    costPolicy.soft_limit_usd,
+    costPolicy.hard_limit_usd,
+    costPolicy.latency_sla_ms,
+    costPolicy.downgrade_provider,
+    costPolicy.downgrade_model,
+    now, now
+  );
+
+
+  export async function provisionSubscription(
+    tenantId: string,
+    saasId: string | null,
+    stripeData: { customerId: string, subscriptionId: string, priceId: string, productId: string, status: string, periodEnd: string },
+    db: DbAdapter
+  ) {
+    const now = new Date().toISOString();
+
+    // 1. Upsert Subscription Record
+    await db.run(`
+        INSERT INTO saas_subscriptions (id, tenant_id, saas_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, status, current_period_end, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(tenant_id, saas_id) DO UPDATE SET
+            stripe_subscription_id = excluded.stripe_subscription_id,
+            stripe_price_id = excluded.stripe_price_id,
+            status = excluded.status,
+            current_period_end = excluded.current_period_end,
+            updated_at = excluded.updated_at
+    `,
+      generateId("sub"),
+      tenantId,
+      saasId,
+      stripeData.customerId,
+      stripeData.subscriptionId,
+      stripeData.priceId,
+      stripeData.status,
+      stripeData.periodEnd,
+      now, now
+    );
+
+    // 2. Resolve Pack from Product ID
+    const packName = STRIPE_PRODUCT_MAP[stripeData.productId];
+
+    if (packName && (stripeData.status === 'active' || stripeData.status === 'trialing')) {
+      console.log(`[MONETIZATION] Provisioning '${packName}' for ${tenantId}/${saasId}`);
+      // 3. Enforce Limits (Clone Pack)
+      if (saasId) {
+        await clonePolicyPack(tenantId, saasId, packName, db);
+      }
+    } else {
+      console.log(`[MONETIZATION] Subscription status '${stripeData.status}'. Checking downgrade.`);
+      // Downgrade logic to Starter if canceled/unpaid
+      if (saasId && (stripeData.status === 'canceled' || stripeData.status === 'unpaid' || stripeData.status === 'past_due')) {
+        await clonePolicyPack(tenantId, saasId, "Starter", db);
+      }
+    }
+  }
+
+  export async function listProjects(filters: ListProjectsFilters, adapter?: Partial<DbAdapter>): Promise<ProjectRecord[]> {
+    const db = resolveDbAdapter(adapter);
+    const tenantId = filters.tenantId.trim();
+    if (!tenantId) throw new Error("tenantId es obligatorio");
+
+    const clauses = ["tenant_id = ?"];
+    const params: (string | null)[] = [tenantId];
+
+    if (filters.companyId) {
+      clauses.push("company_id = ?");
+      params.push(filters.companyId.trim());
+    }
+
+    const whereClause = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+
+    return db.queryAll<ProjectRecord>(
+      `SELECT id, tenant_id, company_id, name, slug, status, created_at, updated_at
      FROM projects
      ${whereClause}
      ORDER BY datetime(updated_at) DESC, datetime(created_at) DESC`,
-    ...params,
-  );
-}
+      ...params,
+    );
+  }
 
-export async function getProjectById(input: GetProjectByIdInput, adapter?: Partial<DbAdapter>): Promise<ProjectDetail | null> {
-  const db = resolveDbAdapter(adapter);
-  const tenantId = input.tenantId.trim();
-  const projectId = input.projectId.trim();
-  if (!tenantId) throw new Error("tenantId es obligatorio");
-  if (!projectId) throw new Error("projectId es obligatorio");
+  export async function getProjectById(input: GetProjectByIdInput, adapter?: Partial<DbAdapter>): Promise<ProjectDetail | null> {
+    const db = resolveDbAdapter(adapter);
+    const tenantId = input.tenantId.trim();
+    const projectId = input.projectId.trim();
+    if (!tenantId) throw new Error("tenantId es obligatorio");
+    if (!projectId) throw new Error("projectId es obligatorio");
 
-  const project = await db.queryOne<ProjectRecord>(
-    `SELECT id, tenant_id, company_id, name, slug, status, created_at, updated_at
+    const project = await db.queryOne<ProjectRecord>(
+      `SELECT id, tenant_id, company_id, name, slug, status, created_at, updated_at
      FROM projects
      WHERE tenant_id = ? AND id = ?
      LIMIT 1`,
-    tenantId,
-    projectId,
-  );
+      tenantId,
+      projectId,
+    );
 
-  if (!project) return null;
+    if (!project) return null;
 
-  const domains = await db.queryAll<ProjectDomainRecord>(
-    `SELECT id, tenant_id, project_id, domain, status, verification_token, last_error, created_at, updated_at
+    const domains = await db.queryAll<ProjectDomainRecord>(
+      `SELECT id, tenant_id, project_id, domain, status, verification_token, last_error, created_at, updated_at
      FROM project_domains
      WHERE tenant_id = ? AND project_id = ?
      ORDER BY datetime(created_at) DESC, domain ASC`,
-    tenantId,
-    projectId,
-  );
+      tenantId,
+      projectId,
+    );
 
-  const entitlements = await getEntitlements({ tenantId, projectId }, db);
+    const entitlements = await getEntitlements({ tenantId, projectId }, db);
 
-  return {
-    project,
-    domains,
-    entitlements,
-  };
-}
-
-async function insertProjectDomain({
-  tenantId,
-  projectId,
-  domain,
-  status,
-}: {
-  tenantId: string;
-  projectId: string;
-  domain: string;
-  status: string;
-}, db: DbAdapter): Promise<ProjectDomainRecord> {
-  const id = generateId("projdom");
-  const now = new Date().toISOString();
-  const normalizedDomain = domain.trim().toLowerCase();
-  const normalizedStatus = status.trim() || "pending";
-  const ok = await db.run(
-    `INSERT INTO project_domains (id, tenant_id, project_id, domain, status, verification_token, last_error, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?)` ,
-    id,
-    tenantId,
-    projectId,
-    normalizedDomain,
-    normalizedStatus,
-    now,
-    now,
-  );
-
-  if (!ok) throw new Error("No se pudo crear el dominio del proyecto");
-
-  return {
-    id,
-    tenant_id: tenantId,
-    project_id: projectId,
-    domain: normalizedDomain,
-    status: normalizedStatus,
-    verification_token: null,
-    last_error: null,
-    created_at: now,
-    updated_at: now,
-  };
-}
-
-async function ensureUniqueSlug(tenantId: string, desiredSlug: string, db: DbAdapter): Promise<string> {
-  let slug = desiredSlug;
-  let counter = 1;
-  while (await slugExists(tenantId, slug, db)) {
-    slug = `${desiredSlug}-${counter++}`;
+    return {
+      project,
+      domains,
+      entitlements,
+    };
   }
-  return slug;
-}
 
-async function slugExists(tenantId: string, slug: string, db: DbAdapter): Promise<boolean> {
-  const row = await db.queryOne<{ count: number }>(
-    `SELECT COUNT(1) as count FROM projects WHERE tenant_id = ? AND slug = ? LIMIT 1`,
+  async function insertProjectDomain({
     tenantId,
-    slug,
-  );
-  return Boolean(row?.count);
-}
+    projectId,
+    domain,
+    status,
+  }: {
+    tenantId: string;
+    projectId: string;
+    domain: string;
+    status: string;
+  }, db: DbAdapter): Promise<ProjectDomainRecord> {
+    const id = generateId("projdom");
+    const now = new Date().toISOString();
+    const normalizedDomain = domain.trim().toLowerCase();
+    const normalizedStatus = status.trim() || "pending";
+    const ok = await db.run(
+      `INSERT INTO project_domains (id, tenant_id, project_id, domain, status, verification_token, last_error, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?)` ,
+      id,
+      tenantId,
+      projectId,
+      normalizedDomain,
+      normalizedStatus,
+      now,
+      now,
+    );
 
-function sanitizeSlug(value?: string | null): string {
-  return (
-    value
-      ?.trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9-]+/g, "-")
-      ?.replace(/--+/g, "-")
-      ?.replace(/^-|-$/g, "") ?? ""
-  );
-}
+    if (!ok) throw new Error("No se pudo crear el dominio del proyecto");
 
-function toSlug(value: string): string {
-  return sanitizeSlug(value) ?? "";
-}
+    return {
+      id,
+      tenant_id: tenantId,
+      project_id: projectId,
+      domain: normalizedDomain,
+      status: normalizedStatus,
+      verification_token: null,
+      last_error: null,
+      created_at: now,
+      updated_at: now,
+    };
+  }
 
-function generateId(prefix: string): string {
-  const base = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-  return `${prefix}_${base}`;
-}
+  async function ensureUniqueSlug(tenantId: string, desiredSlug: string, db: DbAdapter): Promise<string> {
+    let slug = desiredSlug;
+    let counter = 1;
+    while (await slugExists(tenantId, slug, db)) {
+      slug = `${desiredSlug}-${counter++}`;
+    }
+    return slug;
+  }
+
+  async function slugExists(tenantId: string, slug: string, db: DbAdapter): Promise<boolean> {
+    const row = await db.queryOne<{ count: number }>(
+      `SELECT COUNT(1) as count FROM projects WHERE tenant_id = ? AND slug = ? LIMIT 1`,
+      tenantId,
+      slug,
+    );
+    return Boolean(row?.count);
+  }
+
+  function sanitizeSlug(value?: string | null): string {
+    return (
+      value
+        ?.trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, "-")
+        ?.replace(/--+/g, "-")
+        ?.replace(/^-|-$/g, "") ?? ""
+    );
+  }
+
+  function toSlug(value: string): string {
+    return sanitizeSlug(value) ?? "";
+  }
+
+  function generateId(prefix: string): string {
+    const base = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+    return `${prefix}_${base}`;
+  }

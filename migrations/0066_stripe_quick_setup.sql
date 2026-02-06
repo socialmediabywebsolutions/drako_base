@@ -67,7 +67,7 @@ CREATE INDEX idx_stripe_setup_log_status ON stripe_setup_log(status);
 CREATE INDEX idx_stripe_setup_templates_vertical ON stripe_setup_templates(vertical);
 
 -- Seed template: SaaS B2B Starter
-INSERT INTO stripe_setup_templates (
+INSERT OR IGNORE INTO stripe_setup_templates (
   id, slug, name, vertical,
   suggested_monthly_price, suggested_yearly_price,
   suggested_tiers_json,
@@ -97,7 +97,7 @@ INSERT INTO stripe_setup_templates (
 );
 
 -- Seed template: E-commerce Essential
-INSERT INTO stripe_setup_templates (
+INSERT OR IGNORE INTO stripe_setup_templates (
   id, slug, name, vertical,
   suggested_monthly_price, suggested_yearly_price,
   suggested_tiers_json,
@@ -127,7 +127,7 @@ INSERT INTO stripe_setup_templates (
 );
 
 -- Seed template: Educational Platform
-INSERT INTO stripe_setup_templates (
+INSERT OR IGNORE INTO stripe_setup_templates (
   id, slug, name, vertical,
   suggested_monthly_price, suggested_yearly_price,
   suggested_tiers_json,

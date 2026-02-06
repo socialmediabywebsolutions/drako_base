@@ -32,15 +32,11 @@ CREATE TABLE IF NOT EXISTS client_onboarding (
   goals TEXT, -- JSON array: ["increase_sales", "automate_processes", etc.]
   
   -- Metadata
-  completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  completed_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_onboarding_email ON client_onboarding(user_email);
 
 -- Trigger to update updated_at
-CREATE TRIGGER IF NOT EXISTS update_onboarding_timestamp 
-AFTER UPDATE ON client_onboarding
-BEGIN
-  UPDATE client_onboarding SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-END;
+CREATE TRIGGER IF NOT EXISTS update_onboarding_timestamp AFTER UPDATE ON client_onboarding BEGIN UPDATE client_onboarding SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = NEW.id; END;

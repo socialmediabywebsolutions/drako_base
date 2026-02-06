@@ -11,6 +11,8 @@ import {
   generateCorrelationId,
   processHostnameMessage,
 } from "./hostnames";
+import { handleScheduledReset } from "./cron";
+import { handleAuthRequest } from "./api/auth";
 
 const RATE_LIMIT_CAPACITY = 40;
 const RATE_LIMIT_INTERVAL_MS = 60_000;
@@ -21,8 +23,12 @@ type ScheduledHandler = (controller: ScheduledController, env: AutopilotEnv, ctx
 
 export interface AutopilotEnv {
   DRACO_DB: D1Database;
+  AI: any;
   AUTOPILOT_QUEUE?: Queue;
   AUTOPILOT_DLQ?: Queue;
+  VERCEL_TO_WORKER_SECRET: string;
+  X_DRAKO_ORIGIN_SECRET: string;
+  ALERT_WEBHOOK_URL?: string;
 }
 
 class RateLimiter {
@@ -260,6 +266,10 @@ export default {
   },
 
   async scheduled(controller: ScheduledController, env: AutopilotEnv, ctx: ExecutionContext): Promise<void> {
+    // 1. Monthly Cost Reset (Idempotent)
+    ctx.waitUntil(handleScheduledReset(env));
+
+    // 2. Circuit Breaker Maintenance
     const breakerKey = "autopilot:processor";
     const breaker = await getBreakerStatus(env.DRACO_DB, breakerKey);
     if (breaker.state !== "OPEN") return;
@@ -277,4 +287,16 @@ export default {
     });
     ctx.waitUntil(Promise.resolve());
   },
+
+  async fetch(request: Request, env: AutopilotEnv, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.pathname.startsWith("/internal/auth")) {
+      return handleAuthRequest(request, env);
+    }
+    if (url.pathname.startsWith("/internal/ai/run")) {
+      const { handleAiRunRequest } = await import("./api/ai");
+      return handleAiRunRequest(request, env, ctx);
+    }
+    return new Response("Not found", { status: 404 });
+  }
 } satisfies ExportedHandler<AutopilotEnv>;

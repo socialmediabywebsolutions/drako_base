@@ -328,7 +328,7 @@ export default function RightPanel() {
     );
   }, [contextPayload, isDevArchitectRoute]);
   return (
-    <aside className="hidden xl:flex w-[26rem] shrink-0 flex-col border-l border-[color-mix(in_srgb,var(--border)_60%,transparent)] bg-[var(--panel)]/85 backdrop-blur-2xl p-5 gap-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+    <aside className="flex w-full shrink-0 flex-col bg-white p-5 gap-4 overflow-hidden">
       <header className="space-y-1">
         <div className="flex items-center justify-between gap-2">
           <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--muted)]">

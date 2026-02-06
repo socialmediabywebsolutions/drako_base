@@ -50,9 +50,9 @@ function buildMetadata(req: AiRequest) {
 }
 
 function getGatewayCompatUrl(e: DracoEnv) {
-  if (!e.CF_ACCOUNT_ID || !e.AI_GATEWAY_ID) return null;
+  if (!e.CLOUDFLARE_ACCOUNT_ID || !e.AI_GATEWAY_ID) return null;
   // OpenAI-compatible chat completions endpoint
-  return `https://gateway.ai.cloudflare.com/v1/${e.CF_ACCOUNT_ID}/${e.AI_GATEWAY_ID}/compat/chat/completions`;
+  return `https://gateway.ai.cloudflare.com/v1/${e.CLOUDFLARE_ACCOUNT_ID}/${e.AI_GATEWAY_ID}/compat/chat/completions`;
 }
 
 async function callViaBinding(req: AiRequest, e: DracoEnv, model: string): Promise<AiResponse> {
@@ -111,7 +111,7 @@ async function callViaBinding(req: AiRequest, e: DracoEnv, model: string): Promi
 
 async function callViaCompat(req: AiRequest, e: DracoEnv, model: string): Promise<AiResponse> {
   const url = getGatewayCompatUrl(e);
-  if (!url) throw new Error("AI Gateway compat URL not configured (missing CF_ACCOUNT_ID or AI_GATEWAY_ID)");
+  if (!url) throw new Error("AI Gateway compat URL not configured (missing CLOUDFLARE_ACCOUNT_ID or AI_GATEWAY_ID)");
   const start = Date.now();
   const metadata = buildMetadata(req);
   const body = {
@@ -149,57 +149,61 @@ async function callViaCompat(req: AiRequest, e: DracoEnv, model: string): Promis
   };
 }
 
-export async function runAi(req: AiRequest): Promise<AiResponse> {
+export async function runAi(req: AiRequest & { taskType?: string }): Promise<AiResponse> {
   if (!req.messages || req.messages.length === 0) {
     throw new Error("messages are required");
   }
-  const e = env();
 
-  // DEVELOPMENT MODE: Use mock when no Cloudflare env available
-  if (!e) {
-    console.warn("AI_MOCK_MODE: No Cloudflare env detected, using mock responses");
-    const { generateMockResponse } = await import("./mock-client");
-
-    // Infer phase from history length (assistant messages count)
-    // First message is intro (Phase 0). Next response triggers Phase 1 logic based on user input.
-    // So if there is 1 assistant message in history (the intro), we are generating response for Phase 0 completion -> Phase 1.
-    const assistantMessages = req.messages.filter(m => m.role === "assistant");
-    const inferredPhase = Math.max(0, assistantMessages.length);
-
-    console.log("AI_MOCK_INFERENCE", { assistantMsgCount: assistantMessages.length, inferredPhase });
-
-    const mockData = generateMockResponse(req.messages, inferredPhase);
-    return {
-      ok: true,
-      content: JSON.stringify(mockData),
-      usage: { tokens: 150 },
-      model: "mock-drako-partner",
-      provider: "workers-ai"
-    };
-  }
-
-  const model = selectModel(req.mode);
+  const workerUrl = process.env.AUTOPILOT_WORKER_URL || "http://localhost:8787";
+  const workerSecret = process.env.VERCEL_TO_WORKER_SECRET;
 
   try {
-    // Prefer binding when available
-    if ((e as unknown as { AI?: AiBinding })?.AI) {
-      return await callViaBinding(req, e, model);
+    const response = await fetch(`${workerUrl}/internal/ai/run`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${workerSecret}`,
+        "X-Drako-Origin-Secret": workerSecret || "",
+        "X-Drako-Tenant-Id": req.tenantId,
+        "X-Drako-Saas-Id": req.saasId || "",
+      },
+      body: JSON.stringify({
+        messages: req.messages,
+        taskType: req.taskType || "default",
+        mode: req.mode,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}) as any) as any;
+      console.error("AI_WORKER_ERROR", { status: response.status, errorData });
+      throw new Error((errorData as { error?: string }).error || `AI Worker returned ${response.status}`);
     }
-    return await callViaCompat(req, e, model);
+
+    const data = await response.json() as any;
+    return {
+      ok: true,
+      content: data.content,
+      usage: data.usage,
+      model: data.model,
+      provider: "workers-ai", // The router tells us it's CF AI for now
+    };
   } catch (error) {
-    // Fallback logic: If smart model fails, try fast model
-    if (req.mode === "smart") {
-      console.warn("AI_SMART_FAILURE_FALLBACK", { error, model });
-      const fallbackModel = MODEL_FAST;
-      try {
-        if ((e as unknown as { AI?: AiBinding })?.AI) {
-          return await callViaBinding(req, e, fallbackModel);
-        }
-        return await callViaCompat(req, e, fallbackModel);
-      } catch (fallbackError) {
-        console.error("AI_TOTAL_FAILURE", fallbackError);
-        throw fallbackError;
-      }
+    console.error("AI_ROUTER_FETCH_ERROR", error);
+    // Legacy Mock Fallback for local dev without worker
+    if (process.env.NODE_ENV === "development") {
+      console.warn("AI_MOCK_FALLBACK: Worker unavailable, using mock");
+      const { generateMockResponse } = await import("./mock-client");
+      const assistantMessages = req.messages.filter(m => m.role === "assistant");
+      const inferredPhase = Math.max(0, assistantMessages.length);
+      const mockData = generateMockResponse(req.messages, inferredPhase);
+      return {
+        ok: true,
+        content: JSON.stringify(mockData),
+        usage: { tokens: 150 },
+        model: "mock-drako-partner",
+        provider: "workers-ai"
+      };
     }
     throw error;
   }

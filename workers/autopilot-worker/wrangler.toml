@@ -9,12 +9,15 @@ APP_URL = "http://localhost:3000"
 
 [[d1_databases]]
 binding = "DRACO_DB"
-database_name = "draco_db"
-database_id = "10146888-ca79-41d6-b6c2-bf1025eb651b"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+
+[ai]
+binding = "AI"
 
 [[queues.consumers]]
-queue = "autopilot_queue"
-dead_letter_queue = "autopilot_dlq"
+queue = "autopilot-queue"
+dead_letter_queue = "autopilot-dlq"
 
 [triggers]
 crons = ["*/30 * * * *"]

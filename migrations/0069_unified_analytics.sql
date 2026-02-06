@@ -67,10 +67,10 @@ CREATE TABLE IF NOT EXISTS saas_daily_metrics (
   UNIQUE(saas_id, metric_date)
 );
 
-CREATE INDEX idx_holding_snapshots_tenant_date ON holding_metrics_snapshots(tenant_id, snapshot_date DESC);
-CREATE INDEX idx_holding_snapshots_type ON holding_metrics_snapshots(snapshot_type, snapshot_date DESC);
-CREATE INDEX idx_saas_daily_metrics ON saas_daily_metrics(saas_id, metric_date DESC);
-CREATE INDEX idx_saas_daily_metrics_tenant ON saas_daily_metrics(tenant_id, metric_date DESC);
+CREATE INDEX IF NOT EXISTS idx_holding_snapshots_tenant_date ON holding_metrics_snapshots(tenant_id, snapshot_date DESC);
+CREATE INDEX IF NOT EXISTS idx_holding_snapshots_type ON holding_metrics_snapshots(snapshot_type, snapshot_date DESC);
+CREATE INDEX IF NOT EXISTS idx_saas_daily_metrics ON saas_daily_metrics(saas_id, metric_date DESC);
+CREATE INDEX IF NOT EXISTS idx_saas_daily_metrics_tenant ON saas_daily_metrics(tenant_id, metric_date DESC);
 
 -- View for latest holding metrics
 CREATE VIEW IF NOT EXISTS v_latest_holding_metrics AS

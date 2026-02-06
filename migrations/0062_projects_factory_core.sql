@@ -53,7 +53,7 @@ SELECT
   s.slug,
   s.status,
   COALESCE(s.created_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  COALESCE(s.updated_at, s.created_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  COALESCE(s.created_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 FROM saas s;
 
 -- Backfill domains mapped to SaaS projects.

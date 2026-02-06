@@ -320,6 +320,35 @@ export async function middleware(req: NextRequest) {
       }
       headers.set(CORRELATION_HEADER, finalCorrelationId);
       headers.set("x-drako-domain-status", resolution.status);
+
+      // 🦅 DRAKO ORCHESTRATOR: Shielded Client Isolation
+
+      // 1. Block Tenants from /site/panel (Owner Only)
+      if (pathname.startsWith("/site/panel")) {
+        // If we resolved a Tenant (status ACTIVE), they should NEVER see Admin Panel.
+        // Redirect to their Client Shielded Environment.
+        const clientRoot = new URL("/client", req.url);
+        return NextResponse.redirect(clientRoot);
+      }
+
+      // 2. Enforce /client linear flow based on Materialization Step
+      if (pathname.startsWith("/client")) {
+        const matStep = resolution.materializationStep ?? 0;
+
+        if (matStep === 0 && !pathname.startsWith("/client/setup")) {
+          return NextResponse.redirect(new URL("/client/setup", req.url));
+        }
+        if (matStep === 1 && !pathname.startsWith("/client/analysis")) {
+          return NextResponse.redirect(new URL("/client/analysis", req.url));
+        }
+        // If step >= 2, they can access /client (and subroutes), 
+        // but we might want to redirect Setup/Analysis back to /client if accessed directly?
+        // For now, let's keep it simple: strict forward blocking.
+        if (matStep >= 2 && (pathname === "/client/setup" || pathname === "/client/analysis")) {
+          return NextResponse.redirect(new URL("/client", req.url));
+        }
+      }
+
       const res = persistCookie(NextResponse.next({ request: { headers } }));
       res.headers.set(CORRELATION_HEADER, finalCorrelationId);
       return res;

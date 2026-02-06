@@ -38,6 +38,7 @@ export type HostResolution = {
   correlationId: string;
   normalizedHost: string;
   wasWww: boolean;
+  materializationStep?: number; // 0=Init, 1=Form, 2=Dossier, 3=Plan, 4=Active
 };
 
 
@@ -106,6 +107,19 @@ export async function resolveHostToSaas(hostname: string, providedCorrelationId?
   const mapped: DomainResolution = mapDomainStatus(row);
   const saasSlug = await resolveSaasSlug({ tenantId: row.tenant_id, saasId: row.saas_id });
 
+  // 🦅 DRAKO ORCHESTRATOR: Fetch Materialization Step
+  let materializationStep = 0;
+  try {
+    const tenantRows = await queryAll<{ materialization_step: number }>(
+      "SELECT materialization_step FROM tenants WHERE id = ? LIMIT 1",
+      row.tenant_id
+    );
+    materializationStep = tenantRows[0]?.materialization_step ?? 0;
+  } catch (err) {
+    console.error("FAILED_FETCHING_MATERIALIZATION_STEP", err);
+    // Default to 0 (Gatekeeper Active) if DB fails here, safe fallback.
+  }
+
   return {
     status: mapped.status,
     tenantId: row.tenant_id,
@@ -121,5 +135,6 @@ export async function resolveHostToSaas(hostname: string, providedCorrelationId?
     correlationId,
     normalizedHost,
     wasWww: normalized.wasWww,
+    materializationStep,
   };
 }

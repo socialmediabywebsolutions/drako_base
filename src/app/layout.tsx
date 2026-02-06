@@ -16,8 +16,8 @@ const AdminShell = ({ children }: { children: React.ReactNode }) => <ShellLayout
 
 function PublicShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative min-h-screen bg-[#03050b] text-white" data-shell="public">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(76,201,240,0.25),_transparent_60%)]" />
+    <div className="relative min-h-screen bg-white text-slate-900" data-shell="public">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.1),_transparent_60%)]" />
       <div className="relative z-10 flex min-h-screen flex-col">{children}</div>
     </div>
   );
@@ -50,8 +50,8 @@ export default async function RootLayout({
   const usePublicShell = hostMode === "PUBLIC_SAAS" || hostMode === "PREVIEW" || isPublicRoute;
 
   return (
-    <html lang="es" className="dark" suppressHydrationWarning>
-      <body className="antialiased bg-[var(--background)] text-[var(--foreground)]">
+    <html lang="es" className="light" suppressHydrationWarning>
+      <body className="antialiased bg-white text-slate-900">
         <Providers>
           {usePublicShell ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
           <HostSwitcher />
