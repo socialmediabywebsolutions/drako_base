@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run build:worker",
+    "build:next": "next build",
     "build:worker": "npx open-next build --adapter @opennextjs/cloudflare && node scripts/finalize-worker.js",
     "verify:pages-output": "node -e \"const fs=require('fs');if(!fs.existsSync('.open-next')||!fs.existsSync('.open-next/assets')){console.error('ERROR: OpenNext output incomplete');process.exit(1);}console.log('✓ OpenNext build output verified');\"",
     "pages:build": "npm run build:worker && npm run verify:pages-output",

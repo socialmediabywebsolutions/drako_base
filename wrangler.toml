@@ -1,6 +1,9 @@
 name = "drako-base"
 pages_build_output_dir = ".open-next"
 
+[build]
+command = "npm run build:worker"
+
 # ✅ Production D1 Database
 [[d1_databases]]
 binding = "DRACO_DB"
