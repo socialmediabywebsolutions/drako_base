@@ -258,7 +258,22 @@ export async function createSaasFromBlueprint(params: {
     correlationId,
   });
 
-  await safeExecute("register_saas_project", async () => {
+  await safeExecute("register_saas_instance", async () => {
+    await run(
+      `INSERT INTO saas_instances (id, tenant_id, slug, name, status, plan_tier, created_at)
+       VALUES (?, ?, ?, ?, 'active', 'trial', ?)
+       ON CONFLICT(slug) DO UPDATE SET
+         name = excluded.name,
+         status = excluded.status`,
+      saasId,
+      params.ownerTenantId,
+      normalized.proposedSlug,
+      normalized.saasName,
+      now
+    );
+  });
+
+  await safeExecute("register_saas_project_legacy", async () => {
     await run(
       `INSERT INTO saas_projects (id, tenant_id, slug, display_name, status, created_at, updated_at)
        VALUES (?, ?, ?, ?, 'ACTIVE', ?, ?)

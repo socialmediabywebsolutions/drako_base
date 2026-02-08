@@ -225,6 +225,21 @@ export async function deployTemplate(params: DeployTemplateParams): Promise<Depl
     const now = new Date().toISOString();
 
     await run(
+        `INSERT INTO saas_instances (
+      id, tenant_id, name, slug, status, plan_tier, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        saasId,
+        tenantId,
+        customization.name,
+        customization.slug,
+        "active",
+        template.tier === "free" ? "starter" : template.tier,
+        now,
+        now,
+    );
+
+    // Legacy Mirror
+    await run(
         `INSERT INTO saas_projects (
       id, tenant_id, name, slug, vertical, status, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,

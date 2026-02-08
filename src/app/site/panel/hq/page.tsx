@@ -43,6 +43,21 @@ function PortfolioTable({ items }: { items: any[] }) {
                                 <div className="text-xs text-slate-400 font-mono">{item.slug}</div>
                             </td>
                             <td className="px-6 py-4">
+                                <div className="text-xs font-mono text-slate-600">
+                                    {item.custom_domain ? (
+                                        <div className="flex flex-col">
+                                            <span className="font-bold">{item.custom_domain}</span>
+                                            <span className={`text-[10px] uppercase ${item.domain_status === 'active' ? 'text-green-600' : 'text-amber-500'
+                                                }`}>
+                                                {item.domain_status || 'pending'}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-slate-400">---</span>
+                                    )}
+                                </div>
+                            </td>
+                            <td className="px-6 py-4">
                                 <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${item.status === 'active' ? 'bg-green-100 text-green-700' :
                                     item.status === 'trial_active' ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-500'
                                     }`}>

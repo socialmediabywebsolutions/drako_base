@@ -2,7 +2,7 @@
 
 // @ts-ignore - React 19 / Next 14 compatibility
 import { useFormState, useFormStatus } from 'react-dom';
-import { submitStrategicForm } from '@/app/site/panel/orchestrator/actions';
+import { submitStrategicForm } from '@/app/client/actions';
 import Button from '@/components/ui/button';
 import { TextInput, Field } from '@/components/ui/input';
 import Card from '@/components/ui/card';

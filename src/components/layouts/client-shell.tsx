@@ -116,7 +116,11 @@ export default function ClientShell({ children, dossier, instance }: ClientShell
                 </div>
 
                 <div className="p-4 border-t border-slate-100 text-[10px] text-center text-slate-400">
-                    {instance ? instance.slug + '.drako.systems' : 'DRAKO CLIENT ISOLATION'}
+                    <div>{instance ? instance.slug + '.drako.systems' : 'DRAKO CLIENT ISOLATION'}</div>
+                    {/* Branding Signal: Hide for Enterprise */}
+                    {!(instance?.plan_tier === 'enterprise') && (
+                        <div className="mt-1 opacity-50 font-medium">Powered by Drako Engine</div>
+                    )}
                 </div>
             </aside>
 

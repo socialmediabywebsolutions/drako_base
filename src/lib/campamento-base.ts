@@ -525,6 +525,15 @@ async function seedCampamentoRegistry() {
        domain_status = excluded.domain_status`
   );
   await run(
+    `INSERT INTO saas_instances (id, tenant_id, slug, name, status, plan_tier, created_at)
+     VALUES ('saas_campamento_base', 'demo-tenant', 'campamento-base', 'Campamento Base', 'active', 'enterprise', strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(slug) DO UPDATE SET
+       name = excluded.name,
+       status = excluded.status,
+       plan_tier = excluded.plan_tier`
+  );
+  // Legacy Mirror
+  await run(
     `INSERT INTO saas_projects (id, tenant_id, slug, display_name, status, created_at, updated_at)
      VALUES ('saas_proj_campamento_base', 'demo-tenant', 'campamento-base', 'Campamento Base', 'active', strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
      ON CONFLICT(id) DO UPDATE SET
@@ -564,6 +573,15 @@ async function seedCampamentoRegistry() {
        public_subdomain = excluded.public_subdomain,
        domain_status = excluded.domain_status`
   );
+  await run(
+    `INSERT INTO saas_instances (id, tenant_id, slug, name, status, plan_tier, created_at)
+     VALUES ('saas_drako_systems', 'demo-tenant', 'drako-systems', 'Drako.Systems', 'active', 'enterprise', strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(slug) DO UPDATE SET
+       name = excluded.name,
+       status = excluded.status,
+       plan_tier = excluded.plan_tier`
+  );
+  // Legacy Mirror
   await run(
     `INSERT INTO saas_projects (id, tenant_id, slug, display_name, status, created_at, updated_at)
      VALUES ('saas_proj_drako_systems', 'demo-tenant', 'drako-systems', 'Drako.Systems', 'active', strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))

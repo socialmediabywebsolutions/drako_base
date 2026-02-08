@@ -7,6 +7,10 @@ binding = "DRACO_DB"
 database_name = "drako_db_prod"
 database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 
+
 # ✅ Workers AI binding
 [ai]
 binding = "AI"
+
+[triggers]
+crons = ["0 0 * * *"] # Run daily at midnight UTC

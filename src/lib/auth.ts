@@ -1,12 +1,13 @@
 import { NextAuthOptions } from "next-auth";
+import { safeEnv } from "@/lib/env";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 
 export const authOptions: NextAuthOptions = {
     providers: [
         GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID!,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+            clientId: safeEnv.GOOGLE_CLIENT_ID,
+            clientSecret: safeEnv.GOOGLE_CLIENT_SECRET,
             authorization: {
                 params: {
                     prompt: "select_account",
@@ -25,7 +26,9 @@ export const authOptions: NextAuthOptions = {
                 if (!credentials?.email || !credentials?.password) return null;
 
                 try {
-                    const res = await fetch("https://drako.systems/internal/auth/verify", {
+                    // Use internal API URL from env, ensuring we don't break in dev/preview
+                    const baseUrl = safeEnv.INTERNAL_API_URL.replace(/\/$/, "");
+                    const res = await fetch(`${baseUrl}/api/auth/verify`, {
                         method: "POST",
                         body: JSON.stringify({
                             email: credentials.email,
@@ -33,11 +36,11 @@ export const authOptions: NextAuthOptions = {
                         }),
                         headers: {
                             "Content-Type": "application/json",
-                            "X-Drako-Origin-Secret": process.env.INTERNAL_API_SECRET || ""
+                            "X-Drako-Origin-Secret": safeEnv.INTERNAL_API_SECRET
                         }
                     });
 
-                    const data = await res.json();
+                    const data = (await res.json()) as { user?: any; error?: string };
 
                     if (!res.ok || !data.user) {
                         // Logging but not leaking details in prod
@@ -68,10 +71,17 @@ export const authOptions: NextAuthOptions = {
         async session({ session, token }) {
             if (session.user) {
                 session.user.id = token.sub!;
+                session.user.tenantId = token.tenantId as string;
+                session.user.role = token.role as string;
             }
             return session;
         },
-        async jwt({ token, account, profile }) {
+        async jwt({ token, user, account }) {
+            if (user) {
+                token.id = user.id;
+                token.tenantId = (user as any).tenantId;
+                token.role = (user as any).role;
+            }
             if (account) {
                 token.accessToken = account.access_token;
             }

@@ -25,6 +25,8 @@ export interface PortfolioItem {
     risk_level: string;
     degraded_mode: boolean;
     flags: string[];
+    custom_domain?: string;
+    domain_status?: string;
 }
 
 export async function getEmpireOverview(): Promise<{ stats: EmpireStats, portfolio: PortfolioItem[] }> {
@@ -75,7 +77,10 @@ export async function getEmpireOverview(): Promise<{ stats: EmpireStats, portfol
             cost: cost,
             risk_level: risk,
             degraded_mode: degraded,
-            flags: inst.intervention_flags ? JSON.parse(inst.intervention_flags) : []
+            degraded_mode: degraded,
+            flags: inst.intervention_flags ? JSON.parse(inst.intervention_flags) : [],
+            custom_domain: inst.custom_domain,
+            domain_status: inst.domain_status
         });
     }
 
@@ -91,4 +96,19 @@ export async function getEmpireOverview(): Promise<{ stats: EmpireStats, portfol
     };
 
     return { stats, portfolio };
+}
+
+export async function archiveInstance(saasId: string, tenantId: string): Promise<void> {
+    const bindings = env();
+    const db = bindings?.DRACO_DB;
+    if (!db) throw new Error("DB Connection Failed");
+
+    // 1. Update SaaS Instance Status
+    await db.prepare("UPDATE saas_instances SET status = 'archived' WHERE id = ? AND tenant_id = ?").bind(saasId, tenantId).run();
+
+    // 2. Update Legacy SaaS Table
+    await db.prepare("UPDATE saas SET status = 'archived' WHERE id = ? AND tenant_id = ?").bind(saasId, tenantId).run();
+
+    // 3. Update Domains (Release them or just mark archived so logic doesn't route)
+    await db.prepare("UPDATE saas_domains SET status = 'archived' WHERE saas_id = ? AND tenant_id = ?").bind(saasId, tenantId).run();
 }

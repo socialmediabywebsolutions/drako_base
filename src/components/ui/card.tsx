@@ -1,7 +1,7 @@
 import { clsx } from "clsx";
 import type { PropsWithChildren, ReactNode } from "react";
 
-type CardTone = "default" | "brand" | "glass";
+type CardTone = "default" | "brand" | "glass" | "danger" | "success";
 
 type CardProps = PropsWithChildren<{
   title?: ReactNode;
@@ -18,12 +18,16 @@ const toneClass: Record<CardTone, string> = {
   default: "bg-white border-2 border-sky-100 shadow-md hover:shadow-lg transition-shadow rounded-3xl",
   brand: "bg-sky-50 border-2 border-sky-300 shadow-lg rounded-3xl",
   glass: "bg-white/90 backdrop-blur-xl border-2 border-sky-200 shadow-xl rounded-3xl relative overflow-hidden group/card",
+  danger: "bg-red-50 border-2 border-red-200 shadow-lg rounded-3xl",
+  success: "bg-green-50 border-2 border-green-200 shadow-lg rounded-3xl",
 };
 
 const actionToneClass: Record<CardTone, string> = {
   default: "border-t-2 border-sky-100",
   brand: "border-t-2 border-sky-300",
   glass: "border-t-2 border-sky-200 bg-sky-50/50",
+  danger: "border-t-2 border-red-200",
+  success: "border-t-2 border-green-200",
 };
 
 export default function Card({ title, subtitle, right, icon, actions, children, className, bodyClassName, tone = "default" }: CardProps) {

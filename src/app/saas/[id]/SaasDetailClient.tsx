@@ -25,6 +25,7 @@ import SaasKnowledgeSection from "@/app/saas/[id]/SaasKnowledgeSection";
 import SaasFeaturesSection from "@/app/saas/[id]/SaasFeaturesSection";
 import SaasBrandingSection from "@/app/saas/[id]/SaasBrandingSection";
 import SaasTaxSection from "@/app/saas/[id]/SaasTaxSection";
+import DomainManager from "@/app/client/domains/DomainManager"; // Phase 12
 import { setOrchestratorContext } from "@/lib/orchestrator-context";
 import type { SaasFeature, SaasFeatureKey } from "@/lib/features/types";
 
@@ -571,8 +572,8 @@ export default function SaasDetailClient({ saasId }: SaasDetailClientProps) {
                       saas.status === "active"
                         ? "ok"
                         : saas.status === "failed"
-                        ? "err"
-                        : "info"
+                          ? "err"
+                          : "info"
                     }
                   >
                     {saas.status}
@@ -856,149 +857,7 @@ export default function SaasDetailClient({ saasId }: SaasDetailClientProps) {
       </div>
 
       <div className="rounded-3xl border border-[var(--border)] bg-[var(--panel)]/80 p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Dominio público</p>
-            <h2 className="text-xl font-semibold">Sitio para clientes</h2>
-            <p className="text-sm text-[var(--muted)]">
-              Configura el dominio que más adelante aprovisionaremos vía Cloudflare.
-            </p>
-          </div>
-          {domainStatusBadge}
-        </div>
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <label className="text-sm">
-            Dominio personalizado
-            <input
-              className="mt-1 w-full rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3 py-2"
-              value={domainForm.public_domain}
-              onChange={(e) => setDomainForm((prev) => ({ ...prev, public_domain: e.target.value }))}
-              placeholder="mi-clinica.com"
-            />
-          </label>
-          <label className="text-sm">
-            Subdominio Drako
-            <input
-              className="mt-1 w-full rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3 py-2"
-              value={domainForm.public_subdomain}
-              onChange={(e) => setDomainForm((prev) => ({ ...prev, public_subdomain: e.target.value }))}
-              placeholder="mi-clinica.drako.systems"
-            />
-          </label>
-        </div>
-        <p className="mt-3 text-xs text-[var(--muted)]">
-          Vista pública provisional: <code>/site/saas/{saas?.slug ?? "slug"}</code>
-        </p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button onClick={saveDomainSettings} disabled={domainSaving}>
-            {domainSaving ? "Guardando..." : "Guardar dominio"}
-          </Button>
-          {saas?.public_domain && (
-            <a
-              href={`https://${saas.public_domain}`}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-2xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--foreground)] hover:border-[var(--brand)]/40"
-            >
-              Ver sitio
-            </a>
-          )}
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--panel-alt)] px-4 py-3 text-sm">
-          <div className="min-w-[220px]">
-            <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Client Portal</p>
-            <p className="font-medium">{publicUrl || `/site/saas/${saas?.slug ?? "slug"}`}</p>
-            <p className="text-xs text-[var(--muted)]">
-              Enlace válido para bio de Instagram, botón de reserva en tu web o Google Maps.
-            </p>
-            <p className="text-xs text-[var(--muted)]">
-              Al configurar dominio propio, podrá mapearse a https://tudominio.com (pendiente DNS/rutas).
-            </p>
-          </div>
-          <Button onClick={handleCopyPortal} variant="ghost">
-            {portalCopied ? "Copiado" : "Copiar enlace público"}
-          </Button>
-        </div>
-
-        <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--panel-alt)] p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted)]">Dominios de marca</p>
-              <p className="text-sm text-[var(--muted)]">
-                Añade dominios principales o secundarios. El estado se gestiona manualmente hasta tener chequeo DNS automático.
-              </p>
-            </div>
-            <div className="text-xs text-[var(--muted)]">
-              DNS: CNAME a <span className="font-semibold">{saas?.slug ?? "tu-saas"}.drako.site</span>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-[2fr_1fr_1fr_auto]">
-            <TextInput
-              value={newDomain.domain}
-              onChange={(event) => setNewDomain((prev) => ({ ...prev, domain: event.target.value }))}
-              placeholder="mi-peluqueria.com"
-            />
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={newDomain.isPrimary}
-                onChange={(event) => setNewDomain((prev) => ({ ...prev, isPrimary: event.target.checked }))}
-              />
-              Principal
-            </label>
-            <div className="text-sm text-[var(--muted)]">Estado: pending</div>
-            <Button onClick={saveNewDomain} disabled={domainActionLoading === "create"}>
-              {domainActionLoading === "create" ? "Guardando..." : "Añadir dominio"}
-            </Button>
-          </div>
-
-          {domainsLoading ? (
-            <p className="mt-4 text-sm text-[var(--muted)]">Cargando dominios...</p>
-          ) : domains.length === 0 ? (
-            <EmptyState title="Sin dominios" subtitle="Añade tu primer dominio para publicar el front." />
-          ) : (
-            <div className="mt-4 overflow-x-auto">
-              <table className="modern text-sm" aria-label="Dominios del SaaS">
-                <thead>
-                  <tr>
-                    <th>Dominio</th>
-                    <th>Principal</th>
-                    <th>Estado</th>
-                    <th>Ultima comprobacion</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {domains.map((domain) => (
-                    <tr key={domain.id}>
-                      <td className="font-semibold">{domain.domain}</td>
-                      <td>{domain.isPrimary ? "Si" : "No"}</td>
-                      <td>
-                        <Select value={domain.status} onChange={(event) => updateDomainStatus(domain, event.target.value as SaasDomain["status"])}>
-                          <option value="pending">pending</option>
-                          <option value="active">active</option>
-                          <option value="paused">paused</option>
-                        </Select>
-                      </td>
-                      <td>{domain.lastCheckedAt ? new Date(domain.lastCheckedAt).toLocaleDateString() : "—"}</td>
-                      <td>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => markDomainPrimary(domain)}
-                          disabled={domain.isPrimary || domainActionLoading === domain.id}
-                        >
-                          {domain.isPrimary ? "Principal" : "Marcar principal"}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <DomainManager saasId={saasId} saasName={saas?.name ?? ""} />
       </div>
 
       <SaasFeaturesSection saasId={saasId} />
@@ -1217,8 +1076,8 @@ export default function SaasDetailClient({ saasId }: SaasDetailClientProps) {
                               agent.estado === "activo"
                                 ? "ok"
                                 : agent.estado === "pausado"
-                                ? "warn"
-                                : "info"
+                                  ? "warn"
+                                  : "info"
                             }
                           >
                             {agent.estado}

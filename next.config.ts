@@ -8,6 +8,30 @@ const nextConfig: NextConfig = {
   // experimental: {
   //   runtime: 'edge',
   // },
+  async redirects() {
+    return [
+      {
+        source: "/agentes",
+        destination: "/agents",
+        permanent: true,
+      },
+      {
+        source: "/departamentos",
+        destination: "/departments",
+        permanent: true,
+      },
+      {
+        source: "/agentes/:slug",
+        destination: "/agents/:slug",
+        permanent: true,
+      },
+      {
+        source: "/departamentos/:slug",
+        destination: "/departments/:slug",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

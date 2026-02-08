@@ -69,52 +69,43 @@ export async function GET(req: Request) {
       throw error;
     }
     const { tenantId } = await requireTenantAccess(req);
-    const [saasRows, projectRows, domainRows] = await Promise.all([
-      queryAll<Saas>(
-        `SELECT id, name, slug, domain, subdomain, status, public_domain, public_subdomain, domain_status, created_at, tenant_id
-         FROM saas WHERE tenant_id = ? ORDER BY created_at DESC`,
-        tenantId
-      ),
-      queryAll<SaasProject>(
-        `SELECT id, tenant_id, slug, display_name, status, created_at, updated_at
-         FROM saas_projects WHERE tenant_id = ? ORDER BY created_at DESC`,
-        tenantId
-      ),
-      queryAll<SaasDomain>(
-        `SELECT id, tenant_id, saas_id, domain, is_primary, status, verification_status, verification_reason, retry_count, last_checked_at, created_at, updated_at
-         FROM saas_domains WHERE tenant_id = ? ORDER BY created_at DESC`,
-        tenantId
-      ),
-    ]);
 
-    const hasProjects = projectRows.length > 0;
-    const items = hasProjects
-      ? projectRows.map((project) => {
-          const linkedSaas = saasRows.find((s) => s.slug === project.slug) ?? null;
-          const primaryDomain = domainRows.find((d) => d.saas_id === linkedSaas?.id && d.is_primary === 1) ?? null;
-          return {
-            id: linkedSaas?.id ?? project.id,
-            project_id: project.id,
-            saas_id: linkedSaas?.id ?? null,
-            name: linkedSaas?.name ?? project.display_name,
-            slug: project.slug,
-            domain: linkedSaas?.domain ?? null,
-            subdomain: linkedSaas?.subdomain ?? null,
-            status: linkedSaas?.status ?? project.status ?? "pending",
-            project_status: project.status ?? null,
-            public_domain: linkedSaas?.public_domain ?? null,
-            public_subdomain: linkedSaas?.public_subdomain ?? null,
-            primary_domain: primaryDomain?.domain ?? linkedSaas?.public_domain ?? null,
-            domain_status:
-              primaryDomain?.verification_status ??
-              primaryDomain?.status ??
-              linkedSaas?.domain_status ??
-              "pending",
-            created_at: project.created_at ?? linkedSaas?.created_at ?? new Date().toISOString(),
-            tenant_id: project.tenant_id,
-          };
-        })
-      : saasRows;
+    // CERTIFIED: Single Source of Truth = saas_instances
+    // We join with saas_domains to get the Primary Domain status.
+    const items = await queryAll(
+      `SELECT 
+        si.id, 
+        si.name, 
+        si.slug, 
+        si.status, 
+        si.plan_tier, 
+        si.created_at, 
+        si.tenant_id,
+        sd.domain as primary_domain,
+        sd.verification_status,
+        sd.status as domain_status
+       FROM saas_instances si
+       LEFT JOIN saas_domains sd ON sd.saas_id = si.id AND sd.is_primary = 1
+       WHERE si.tenant_id = ? 
+       ORDER BY si.created_at DESC`,
+      tenantId
+    );
+
+    // Map to expected format
+    const mappedItems = items.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      status: item.status,
+      domain: item.primary_domain, // Legacy compat
+      primary_domain: item.primary_domain,
+      domain_status: item.verification_status ?? item.domain_status ?? "pending",
+      created_at: item.created_at,
+      tenant_id: item.tenant_id,
+      plan_tier: item.plan_tier,
+    }));
+
+    return NextResponse.json({ items: mappedItems, count: mappedItems.length });
 
     return NextResponse.json({ items, count: items.length });
   } catch (error) {
@@ -208,7 +199,15 @@ export async function POST(req: Request) {
       blueprintDraft?: Partial<SaasBlueprintDraft> | null;
     } | null;
 
+    // Handle Blueprint Creation (SaaS Factory)
     if (body?.blueprintDraft) {
+      // NOTE: Blueprint creation goes through orchestrator.
+      // We should ideally update orchestrator to also write to saas_instances,
+      // but for Phase 11 'Create Vertical', we focus on the simple flow below.
+      // Steps:
+      // 1. Create via orchestrator (writes to 'saas')
+      // 2. We manually sync to 'saas_instances' here to ensure registry visibility.
+
       const draft = body.blueprintDraft;
       const fallbackSlug = draft.proposedSlug ?? body.slug ?? "nuevo-saas";
       const blueprint: SaasBlueprintDraft = withCampamentoBaseProfile({
@@ -246,6 +245,21 @@ export async function POST(req: Request) {
         blueprint,
       });
 
+      // SYNC TO saas_instances (Registry)
+      await run(
+        `INSERT INTO saas_instances (id, tenant_id, name, slug, status, plan_tier, created_at)
+          VALUES (?, ?, ?, ?, 'provisioning', 'trial', ?)
+          ON CONFLICT(slug) DO UPDATE SET
+            name = excluded.name,
+            status = excluded.status,
+            plan_tier = excluded.plan_tier`,
+        result.saasId,
+        tenantId,
+        blueprint.saasName,
+        blueprint.proposedSlug,
+        new Date().toISOString()
+      );
+
       return NextResponse.json({
         ok: true,
         id: result.saasId,
@@ -257,37 +271,56 @@ export async function POST(req: Request) {
       });
     }
 
+    // Handle Simple "Create Vertical"
     if (!body || !body.name || !body.slug) {
       return NextResponse.json({ error: "name and slug are required" }, { status: 400 });
     }
 
-    const id = (globalThis.crypto?.randomUUID?.() ?? `saas_${Date.now()}`);
+    // UPSERT Logic:
+    // 1. Check if slug exists in saas_instances to get stable ID.
+    // 2. If not, generate new ID.
+    let id = (globalThis.crypto?.randomUUID?.() ?? `saas_${Date.now()}`);
+    const existing = await queryAll<{ id: string }>("SELECT id FROM saas_instances WHERE slug = ?", body.slug);
+    if (existing.length > 0) {
+      id = existing[0].id;
+    }
+
     const domain = body.domain ?? `${body.slug}.apps.drako.systems`;
     const now = new Date().toISOString();
 
-    const cleanup = async (records: { alertId?: string | null; provId?: string | null; projectId?: string | null; domainId?: string | null }) => {
-      await run("DELETE FROM saas_agents WHERE saas_id = ? AND tenant_id = ?", id, tenantId);
-      if (records.alertId) await run("DELETE FROM alerts WHERE id = ? AND tenant_id = ?", records.alertId, tenantId);
-      if (records.provId) await run("DELETE FROM provisioning WHERE id = ? AND tenant_id = ?", records.provId, tenantId);
-      if (records.domainId) await run("DELETE FROM saas_domains WHERE id = ? AND tenant_id = ?", records.domainId, tenantId);
-      if (records.projectId) await run("DELETE FROM saas_projects WHERE id = ? AND tenant_id = ?", records.projectId, tenantId);
-      await run("DELETE FROM saas WHERE id = ? AND tenant_id = ?", id, tenantId);
-    };
-
-    const createdRecords: { alertId?: string | null; provId?: string | null; projectId?: string | null; domainId?: string | null } = {};
-
     try {
-      const ok = await run(
-        "INSERT INTO saas (id, name, slug, domain, status, tenant_id, public_domain, public_subdomain, domain_status) VALUES (?, ?, ?, ?, 'inactive', ?, NULL, NULL, 'unconfigured')",
+      // 1. UPSERT saas (Legacy)
+      await run(
+        `INSERT INTO saas (id, name, slug, domain, status, tenant_id, public_domain, public_subdomain, domain_status)
+         VALUES (?, ?, ?, ?, 'inactive', ?, NULL, NULL, 'unconfigured')
+         ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name,
+            slug = excluded.slug,
+            status = excluded.status`,
         id,
         body.name,
         body.slug,
         domain,
         tenantId
       );
-      if (!ok) throw new Error("create_saas_failed");
 
-      const projectOk = await run(
+      // 2. UPSERT saas_instances (New Registry)
+      await run(
+        `INSERT INTO saas_instances (id, tenant_id, name, slug, status, plan_tier, created_at)
+          VALUES (?, ?, ?, ?, 'active', 'trial', ?)
+          ON CONFLICT(slug) DO UPDATE SET
+            name = excluded.name,
+            status = 'active', 
+            plan_tier = excluded.plan_tier`,
+        id,
+        tenantId,
+        body.name,
+        body.slug,
+        now
+      );
+
+      // 3. UPSERT Projects & Domains (Legacy Compat)
+      await run(
         `INSERT INTO saas_projects (id, tenant_id, slug, display_name, status, created_at, updated_at)
          VALUES (?, ?, ?, ?, 'active', ?, ?)
          ON CONFLICT(id) DO UPDATE SET
@@ -302,21 +335,14 @@ export async function POST(req: Request) {
         now,
         now,
       );
-      if (!projectOk) throw new Error("saas_project_failed");
-      createdRecords.projectId = id;
 
       const domainId = `saas_domain_${id}`;
-      const domainOk = await run(
+      await run(
         `INSERT INTO saas_domains (id, tenant_id, saas_id, domain, is_primary, status, last_checked_at, created_at, updated_at, verification_status, verification_reason, retry_count, verification_token, last_error)
          VALUES (?, ?, ?, ?, 1, 'pending', ?, ?, ?, 'pending_dns', NULL, 0, ?, NULL)
          ON CONFLICT(id) DO UPDATE SET
            domain = excluded.domain,
-           is_primary = excluded.is_primary,
-           status = excluded.status,
-           verification_status = excluded.verification_status,
-           last_checked_at = excluded.last_checked_at,
-           updated_at = excluded.updated_at,
-           verification_token = excluded.verification_token`,
+           updated_at = excluded.updated_at`,
         domainId,
         tenantId,
         id,
@@ -326,52 +352,10 @@ export async function POST(req: Request) {
         now,
         `verify_${id}`,
       );
-      if (!domainOk) throw new Error("saas_domain_failed");
-      createdRecords.domainId = domainId;
 
-      const alertId = globalThis.crypto?.randomUUID?.() ?? `alert_${Date.now()}`;
-      const alertOk = await run(
-        "INSERT INTO alerts (id, tenant_id, severity, source, message, saas_id) VALUES (?, ?, 'info', 'SaaS Creator', ?, ?)",
-        alertId,
-        tenantId,
-        `Provisioning initiated for SaaS '${body.name}' (slug: ${body.slug}).`,
-        id
-      );
-      if (!alertOk) throw new Error("alert_failed");
-      createdRecords.alertId = alertId;
-
-      const provId = globalThis.crypto?.randomUUID?.() ?? `prov_${Date.now()}`;
-      const provOk = await run(
-        "INSERT INTO provisioning (id, saas_id, tenant_id, step, status, details) VALUES (?, ?, ?, 'init', 'pending', ?)",
-        provId,
-        id,
-        tenantId,
-        `Queued provisioning for '${body.name}'`
-      );
-      if (!provOk) throw new Error("prov_failed");
-      createdRecords.provId = provId;
-
-      const coreAgents = await queryAll<{ id: string }>("SELECT id FROM core_agents");
-      for (const agent of coreAgents) {
-        const linkId = `link_${id}_${agent.id}`;
-        const assigned = await run(
-          "INSERT OR IGNORE INTO saas_agents (id, saas_id, tenant_id, core_agent_id, estado, config) VALUES (?, ?, ?, ?, 'activo', '{}')",
-          linkId,
-          id,
-          tenantId,
-          agent.id
-        );
-        if (!assigned) throw new Error("agent_clone_failed");
-      }
-
-      return NextResponse.json({ ok: true, id });
+      return NextResponse.json({ ok: true, id, slug: body.slug });
     } catch (error) {
       console.error("SAAS_CREATE_ERROR", error);
-      await cleanup(createdRecords);
-      const response = authErrorResponse(error);
-      if (response) return response;
-      const dbError = respondDatabaseError(error);
-      if (dbError) return dbError;
       const correlationId = globalThis.crypto?.randomUUID?.() ?? `saas_create_err_${Date.now()}`;
       return NextResponse.json(
         { error: "No se pudo completar la creación del SaaS", error_code: "INTERNAL_ERROR", correlation_id: correlationId },

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { queryAll, run } from "@/lib/db";
-import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { authorizeSaasAccess, requireTenant } from "@/lib/authz/saas-access";
+import { UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
 // export const runtime = "edge"; // OpenNext Migration
 
@@ -16,15 +17,18 @@ type Agent = {
 };
 
 function authErrorResponse(error: unknown) {
-  if (error instanceof UnauthorizedError) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+  if (error instanceof Error && error.message.includes("FORBIDDEN")) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 403 });
   }
   return null;
 }
 
 export async function GET(req: Request) {
   try {
-    const { tenantId } = await requireTenantAccess(req);
+    const access = await authorizeSaasAccess({ headers: req.headers } as any);
+    requireTenant(access);
+    const tenantId = access.tenantId!;
+
     const url = new URL(req.url);
     const departmentId = url.searchParams.get("department_id");
     const base =
@@ -50,7 +54,10 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { tenantId } = await requireTenantAccess(req);
+    const access = await authorizeSaasAccess({ headers: req.headers } as any);
+    requireTenant(access);
+    const tenantId = access.tenantId!;
+
     const body = (await req.json().catch(() => null)) as {
       name?: string;
       department_id?: string;

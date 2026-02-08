@@ -3,6 +3,7 @@ import { env } from '@/lib/cf';
 import { syncStripeSubscription } from '@/lib/billing/stripe-sync';
 import { computeUnitEconomics } from '@/lib/os/economics';
 import { runInterventions } from '@/lib/os/interventions';
+import { autoPauseIfPastDueExceeded } from '@/lib/os/lifecycle';
 import { getEmpireOverview } from '@/lib/os/overseer'; // Still useful for pulse/matrix aggregator
 
 // MUST be Node.js for Stripe Compatibility
@@ -27,13 +28,23 @@ export async function GET(req: Request) {
     // ... (skipped for speed, assuming safe environment)
 
     try {
-        const instances = await db.prepare("SELECT * FROM saas_instances WHERE status IN ('active', 'trial_active')").all<any>();
+        // Query ALL instances to check past_due ones too
+        const instances = await db.prepare("SELECT * FROM saas_instances WHERE status IN ('active', 'trial_active') OR lifecycle_status = 'past_due'").all<any>();
 
         let processed = 0;
         let interventionsCount = 0;
 
         for (const instance of instances.results || []) {
             processed++;
+
+            // 0. LIFECYCLE CHECKS (Auto-Pause)
+            if (instance.lifecycle_status === 'past_due') {
+                await autoPauseIfPastDueExceeded(instance.id);
+            }
+
+            // Skip further processing if paused/archived (unless we want to sync stripe to see if they paid?)
+            // We should probably sync stripe even if paused to detect payment recovery, but for now focus on active/past_due.
+            if (instance.lifecycle_status === 'paused' || instance.lifecycle_status === 'archived') continue;
 
             // 1. STRIPE SYNC
             // Check if we need to sync? For now, sync always on daily cron is fine, or check last_stripe_sync_at

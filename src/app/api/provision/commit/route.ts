@@ -29,6 +29,16 @@ export async function POST(req: Request) {
       body.slug
     );
     await run(
+      `INSERT INTO saas_instances (id, tenant_id, slug, name, status, plan_tier, created_at)
+       VALUES (?, ?, ?, ?, 'active', 'basic', ?)`,
+      saasId,
+      DEMO_TENANT_ID,
+      body.slug,
+      body.name,
+      now
+    );
+    // Legacy Mirror
+    await run(
       `INSERT INTO saas_projects (id, tenant_id, slug, display_name, status, created_at, updated_at)
        VALUES (?, ?, ?, ?, 'active', ?, ?)`,
       saasId,

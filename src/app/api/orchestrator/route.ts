@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { queryAll, run } from "@/lib/db";
 import { executeProvisioningPlaybookForSaaS } from "@/lib/provisioning-playbook";
-import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { authorizeSaasAccess, requireTenant } from "@/lib/authz/saas-access";
+import { UnauthorizedError } from "@/lib/auth/session";
 import { env, type DracoEnv } from "@/lib/cf";
 import { ensureCampamentoBase, getCampamentoCoreAgentsCatalog, getCampamentoCoreDepartmentsCatalog } from "@/lib/campamento-base";
 import { listDemoSaas, listDemoClients } from "@/lib/admin/demo-data";
@@ -482,7 +483,7 @@ async function buildOrchestratorContext({
       }
       if (devErrors.length > 0) {
         base.contextError = true;
-        base.contextErrorMessage = devErrors.join("; " );
+        base.contextErrorMessage = devErrors.join("; ");
       }
     }
 
@@ -735,10 +736,10 @@ async function buildOrchestratorContext({
       ...panelContext,
       company: companyId
         ? {
-            id: companyId,
-            name: companyName,
-            slug: companySlug,
-          }
+          id: companyId,
+          name: companyName,
+          slug: companySlug,
+        }
         : panelContext.company ?? null,
     };
   }
@@ -820,8 +821,7 @@ function buildDevArchitectContextSummary(context?: OrchestratorDevArchitectConte
   const summaryParts: string[] = [];
   if (activeProject) {
     summaryParts.push(
-      `Proyecto activo: ${activeProject.name} (${activeProject.type}) • Estado ${activeProject.status}${
-        activeProject.branch_name ? ` • Rama ${activeProject.branch_name}` : ""
+      `Proyecto activo: ${activeProject.name} (${activeProject.type}) • Estado ${activeProject.status}${activeProject.branch_name ? ` • Rama ${activeProject.branch_name}` : ""
       }${activeProject.last_build_status ? ` • Build ${activeProject.last_build_status}` : ""}.`,
     );
   }
@@ -1115,8 +1115,8 @@ async function recordOrchestratorAlert({
 }
 
 function authErrorResponse(error: unknown) {
-  if (error instanceof UnauthorizedError) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+  if (error instanceof Error && error.message.includes("FORBIDDEN")) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 403 });
   }
   return null;
 }
@@ -1153,7 +1153,9 @@ function normalizePanelContext(
 
 export async function GET(req: Request) {
   try {
-    const { tenantId } = await requireTenantAccess(req);
+    const access = await authorizeSaasAccess({ headers: req.headers } as any);
+    requireTenant(access);
+    const tenantId = access.tenantId!;
     const url = new URL(req.url);
     const threadId = url.searchParams.get("thread_id");
     if (!threadId) {
@@ -1180,7 +1182,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { tenantId } = await requireTenantAccess(req);
+    const access = await authorizeSaasAccess({ headers: req.headers } as any);
+    requireTenant(access);
+    const tenantId = access.tenantId!;
     const body = (await req.json().catch(() => null)) as {
       thread_id?: string;
       message?: string;

@@ -91,13 +91,13 @@ export async function calculateHoldingMetrics(tenantId: string): Promise<Holding
         total_projects: number;
     }>(
         `SELECT 
-      COUNT(DISTINCT p.id) as active_saas,
+      COUNT(DISTINCT si.id) as active_saas,
       COUNT(DISTINCT c.id) as total_customers,
       COUNT(DISTINCT proj.id) as total_projects
-     FROM saas_projects p
-     LEFT JOIN saas_customers c ON c.saas_id = p.id AND c.status = 'active'
-     LEFT JOIN projects proj ON proj.saas_id = p.id
-     WHERE p.tenant_id = ? AND p.status = 'active'`,
+     FROM saas_instances si
+     LEFT JOIN saas_customers c ON c.saas_id = si.id AND c.status = 'active'
+     LEFT JOIN projects proj ON proj.saas_id = si.id
+     WHERE si.tenant_id = ? AND si.status = 'active'`,
         tenantId,
     );
 
@@ -121,7 +121,7 @@ export async function calculateHoldingMetrics(tenantId: string): Promise<Holding
     // New SaaS this month
     const newSaasThisMonth = await queryOne<{ count: number }>(
         `SELECT COUNT(*) as count
-     FROM saas_projects
+     FROM saas_instances
      WHERE tenant_id = ?
      AND created_at >= datetime('now', 'start of month')`,
         tenantId,
@@ -148,17 +148,17 @@ export async function calculateHoldingMetrics(tenantId: string): Promise<Holding
         health_status: "healthy" | "warning" | "critical";
     }>(
         `SELECT 
-      p.id as saas_id,
-      p.name as saas_name,
-      p.slug as saas_slug,
-      p.vertical,
+      si.id as saas_id,
+      si.name as saas_name,
+      si.slug as saas_slug,
+      'unknown' as vertical, -- saas_instances doesn't have vertical col yet, usage of plan_tier is alternative but keeping 'unknown' or migration needed
       COALESCE(m.mrr, 0) as mrr,
       COALESCE(m.active_customers, 0) as active_customers,
       COALESCE(m.active_subscriptions, 0) as active_subscriptions,
       COALESCE(h.overall_score, 50) as health_score,
       COALESCE(h.health_status, 'warning') as health_status
-     FROM saas_projects p
-     LEFT JOIN v_saas_performance m ON m.saas_id = p.id
+     FROM saas_instances si
+     LEFT JOIN v_saas_performance m ON m.saas_id = si.id
      LEFT JOIN (
        SELECT saas_id, overall_score, health_status
        FROM saas_health_metrics
@@ -168,8 +168,8 @@ export async function calculateHoldingMetrics(tenantId: string): Promise<Holding
          ORDER BY calculated_at DESC
          LIMIT 1
        )
-     ) h ON h.saas_id = p.id
-     WHERE p.tenant_id = ? AND p.status = 'active'
+     ) h ON h.saas_id = si.id
+     WHERE si.tenant_id = ? AND si.status = 'active'
      ORDER BY mrr DESC`,
         tenantId,
     );

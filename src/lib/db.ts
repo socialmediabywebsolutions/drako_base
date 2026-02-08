@@ -45,11 +45,12 @@ export async function withDb<T>(fn: (db: D1Database) => Promise<T>): Promise<T |
   return fn(db);
 }
 
-/**
- * OLIMPO: Returns null instead of throwing when DB unavailable
- */
-export function ensureDatabase(): D1Database | null {
-  return getDb();
+export function ensureDatabase(): D1Database {
+  const db = getDb();
+  if (!db) {
+    throw new DatabaseUnavailableError("binding-missing", "DRACO_DB binding is missing in environment.");
+  }
+  return db;
 }
 
 function normalizeDbError(error: unknown): never {

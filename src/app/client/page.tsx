@@ -2,7 +2,6 @@ import { headers } from 'next/headers';
 import { env } from '@/lib/cf';
 import type { StrategicDossier } from '@/lib/orchestrator/types';
 import Card from '@/components/ui/card';
-import Card from '@/components/ui/card';
 import DomainSettings from '@/components/saas/domain-settings';
 import AgentWorkFeed from '@/components/saas/agent-work-feed';
 
@@ -37,8 +36,9 @@ async function getSaaSInstance(tenantId: string) {
     }
 }
 
+import { getAgentWorkLogs } from './agent-actions';
+
 export default async function ClientDashboard() {
-    import { getAgentWorkLogs } from './agent-actions';
 
     const headersList = await headers();
     const tenantId = headersList.get('x-drako-tenant-id') || headersList.get('x-tenant-id');

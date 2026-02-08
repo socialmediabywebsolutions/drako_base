@@ -25,7 +25,7 @@ export async function GET() {
         const criticalTables = [
             "tenants",
             "companies",
-            "saas_projects",
+            "saas_instances",
             "project_entitlements",
             "saas_domains",
             "stripe_mapping",

@@ -16,6 +16,8 @@ import {
   shouldBypassCorrelation
 } from "@/lib/correlation";
 import { checkTenantRateLimit } from "@/lib/security/tenant-rate-limit";
+import { getToken } from "next-auth/jwt";
+
 
 /**
  * MODO DEV
@@ -69,9 +71,27 @@ export async function middleware(req: NextRequest) {
     }
 
     // ✅ AUTH CHECK: Protect /site/panel routes
+    // ✅ AUTH CHECK: Protect /site/panel routes
     if (pathname.startsWith("/site/panel")) {
-      const token = req.cookies.get("next-auth.session-token") || req.cookies.get("__Secure-next-auth.session-token");
+      const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
+      if (!token) {
+        const url = new URL("/auth/login", req.url);
+        url.searchParams.set("callbackUrl", pathname);
+        return NextResponse.redirect(url);
+      }
+
+      // 🛡️ ROLE CHECK: Only Owner/Superadmin/DrakoStaff can access Panel
+      const role = (token.role as string)?.toLowerCase();
+      if (!role || (role !== 'owner' && role !== 'superadmin' && role !== 'staff')) {
+        // Redirect unauthorized tenants to their client portal
+        return NextResponse.redirect(new URL("/client", req.url));
+      }
+    }
+
+    // ✅ AUTH CHECK: Protect /client routes
+    if (pathname.startsWith("/client")) {
+      const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
       if (!token) {
         const url = new URL("/auth/login", req.url);
         url.searchParams.set("callbackUrl", pathname);
@@ -106,9 +126,7 @@ export async function middleware(req: NextRequest) {
     const adminPrefixes = [
       "/admin",
       "/agents",
-      "/agentes",
       "/departments",
-      "/departamentos",
       "/metrics",
       "/alerts",
       "/owner",
@@ -167,6 +185,18 @@ export async function middleware(req: NextRequest) {
         if (resolution.tenantId) {
           contextHeaders.set("x-drako-tenant-id", resolution.tenantId);
           contextHeaders.set("x-tenant-id", resolution.tenantId);
+
+          // 🛡️ DRAKO STEEL v1.5: API HARD WALL
+          // For API calls, we might want to opt-out of cookie session checks if using API Keys (future).
+          // For now, if we have a session, we verify it.
+          const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+          if (token && token.tenantId && token.tenantId !== resolution.tenantId) {
+            // Only Owner can cross-tenant
+            const role = (token.role as string)?.toLowerCase();
+            if (role !== 'owner' && role !== 'superadmin') {
+              return NextResponse.json({ error: "CROSS_TENANT_ACCESS_FORBIDDEN" }, { status: 403 });
+            }
+          }
 
           // 🛡️ DRAKO STEEL v1.0.1: Rate Limit Protection
           const rateLimit = await checkTenantRateLimit({
@@ -320,6 +350,24 @@ export async function middleware(req: NextRequest) {
       }
       headers.set(CORRELATION_HEADER, finalCorrelationId);
       headers.set("x-drako-domain-status", resolution.status);
+
+      // 🛡️ DRAKO STEEL v1.5: UI HARD WALL (The Great Filter)
+      // Check if the current session belongs to this tenant
+      const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+      if (token && resolution.tenantId) {
+        const userTenantId = token.tenantId as string;
+        const userRole = (token.role as string)?.toLowerCase();
+
+        // If user has a tenantId (is a Tenant User) AND it mismatches the resolved host tenant
+        // AND user is NOT an Owner/Admin who can impersonate
+        if (userTenantId && userTenantId !== resolution.tenantId && userRole !== 'owner' && userRole !== 'superadmin') {
+          // HARD LOGOUT / BLOCK
+          // We redirect to a specialized 403 page or just logout.
+          // Logout is safer to prevent confusion.
+          const url = new URL("/auth/error?error=TenantMismatch", req.url);
+          return NextResponse.redirect(url);
+        }
+      }
 
       // 🦅 DRAKO ORCHESTRATOR: Shielded Client Isolation
 

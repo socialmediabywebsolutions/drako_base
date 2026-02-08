@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/client";
 import { env } from "@/lib/cf";
+import { safeEnv } from "@/lib/env";
 import { saveSubscriptionRecord } from "@/lib/billing/subscriptions";
 import { saveClientSaasSubscription } from "@/lib/billing/client-saas-subscriptions";
 import { syncSaasFeaturesFromPlan } from "@/lib/billing/entitlements";
@@ -22,17 +23,11 @@ import {
   updateStripeWebhookFailed,
 } from "@/lib/billing/stripe-webhook-repository";
 import { ensureStripeWebhookDedupe } from "@/lib/billing/stripe-webhook-processor";
+import { transitionToPastDue, resumeToActive } from "@/lib/os/lifecycle";
 // export const runtime = "edge"; // OpenNext Migration
 
-function getWebhookSecret(): string | null {
-  if (typeof process !== "undefined" && process.env.STRIPE_WEBHOOK_SECRET) {
-    return process.env.STRIPE_WEBHOOK_SECRET;
-  }
-  const cfEnv = env();
-  if (cfEnv?.STRIPE_WEBHOOK_SECRET) {
-    return cfEnv.STRIPE_WEBHOOK_SECRET;
-  }
-  return null;
+function getWebhookSecret(): string {
+  return safeEnv.STRIPE_WEBHOOK_SECRET;
 }
 
 type SubscriptionMetadata = {
@@ -356,7 +351,15 @@ export async function POST(request: Request) {
         case "customer.subscription.created":
         case "customer.subscription.updated":
         case "customer.subscription.deleted":
-          await persistSubscriptionFromStripe(event.data.object as Stripe.Subscription);
+          const sub = event.data.object as Stripe.Subscription;
+          await persistSubscriptionFromStripe(sub);
+
+          // LIFECYCLE: Resume if active
+          if (sub.status === 'active' && extractMetadata(sub.metadata)?.saasId) {
+            const meta = extractMetadata(sub.metadata);
+            if (meta?.saasId) await resumeToActive(meta.saasId, event.id);
+          }
+
           await recordBillingEvent({
             tenantId,
             saasId: attribution.saasId,
@@ -386,6 +389,10 @@ export async function POST(request: Request) {
           }
           break;
         case "invoice.paid":
+          // LIFECYCLE: Payment success -> Active
+          if (attribution.saasId) {
+            await resumeToActive(attribution.saasId, event.id);
+          }
           await recordBillingEvent({
             tenantId,
             saasId: attribution.saasId,
@@ -398,6 +405,13 @@ export async function POST(request: Request) {
           });
           break;
         case "invoice.payment_failed":
+          // LIFECYCLE: Payment failed -> Past Due
+          if (attribution.saasId) {
+            // Need reason from invoice?
+            const inv = event.data.object as Stripe.Invoice;
+            const reason = inv.billing_reason || "payment_failed";
+            await transitionToPastDue(attribution.saasId, reason, event.id);
+          }
           await recordBillingEvent({
             tenantId,
             saasId: attribution.saasId,

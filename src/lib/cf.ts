@@ -50,6 +50,7 @@ export type DracoEnv = {
   AI_GATEWAY_COMPAT_TOKEN?: string;
   AUTOPILOT_WORKER_URL?: string;
   VERCEL_TO_WORKER_SECRET?: string;
+  CRON_SECRET?: string;
   AI?: { run: (model: string, inputs: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown> };
 };
 

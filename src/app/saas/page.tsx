@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSaasRegistry } from "@/lib/os/registry";
 import Card from "@/components/ui/card";
 import Badge from "@/components/ui/badge";
+import CreateSaasDialog from "./CreateSaasDialog";
 
 export const runtime = 'edge';
 
@@ -14,6 +15,9 @@ export default async function SaasPortfolioPage() {
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">SaaS Registry</h1>
           <p className="text-slate-500 mt-2 font-mono text-sm">Active Instances & Portfolio</p>
+        </div>
+        <div className="mb-1">
+          <CreateSaasDialog />
         </div>
       </div>
 
