@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { queryAll, run } from "@/lib/db";
 import { authorizeSaasAccess, requireTenant } from "@/lib/authz/saas-access";
+import { extractSessionFromRequest } from "@/lib/edge-auth";
 import { UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
 // export const runtime = "edge"; // OpenNext Migration
@@ -25,7 +26,8 @@ function authErrorResponse(error: unknown) {
 
 export async function GET(req: Request) {
   try {
-    const access = await authorizeSaasAccess({ headers: req.headers } as any);
+    const session = await extractSessionFromRequest(req);
+    const access = await authorizeSaasAccess(session, { headers: req.headers } as any);
     requireTenant(access);
     const tenantId = access.tenantId!;
 
@@ -54,7 +56,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const access = await authorizeSaasAccess({ headers: req.headers } as any);
+    const session = await extractSessionFromRequest(req);
+    const access = await authorizeSaasAccess(session, { headers: req.headers } as any);
     requireTenant(access);
     const tenantId = access.tenantId!;
 

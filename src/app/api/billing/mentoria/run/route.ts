@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { MentoriaInvoicer } from '@/lib/billing/mentoria-invoicer';
 import { authorizeSaasAccess } from '@/lib/authz/saas-access';
+import { extractSessionFromRequest } from '@/lib/edge-auth';
 
 export async function POST(req: NextRequest) {
     const db = getDb();
@@ -16,7 +17,8 @@ export async function POST(req: NextRequest) {
         }
 
         // AuthZ: OWNER can run for any saasId, tenant users only for their own
-        const authResult = await authorizeSaasAccess(req, saasId);
+        const session = await extractSessionFromRequest(req);
+        const authResult = await authorizeSaasAccess(session, req, saasId);
 
         if (!authResult.authorized) {
             // Emit audit event for denied access

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { queryAll, run } from "@/lib/db";
 import { executeProvisioningPlaybookForSaaS } from "@/lib/provisioning-playbook";
 import { authorizeSaasAccess, requireTenant } from "@/lib/authz/saas-access";
+import { extractSessionFromRequest } from "@/lib/edge-auth";
 import { UnauthorizedError } from "@/lib/auth/session";
 import { env, type DracoEnv } from "@/lib/cf";
 import { ensureCampamentoBase, getCampamentoCoreAgentsCatalog, getCampamentoCoreDepartmentsCatalog } from "@/lib/campamento-base";
@@ -1153,7 +1154,8 @@ function normalizePanelContext(
 
 export async function GET(req: Request) {
   try {
-    const access = await authorizeSaasAccess({ headers: req.headers } as any);
+    const session = await extractSessionFromRequest(req);
+    const access = await authorizeSaasAccess(session, { headers: req.headers } as any);
     requireTenant(access);
     const tenantId = access.tenantId!;
     const url = new URL(req.url);
@@ -1182,7 +1184,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const access = await authorizeSaasAccess({ headers: req.headers } as any);
+    const session = await extractSessionFromRequest(req);
+    const access = await authorizeSaasAccess(session, { headers: req.headers } as any);
     requireTenant(access);
     const tenantId = access.tenantId!;
     const body = (await req.json().catch(() => null)) as {

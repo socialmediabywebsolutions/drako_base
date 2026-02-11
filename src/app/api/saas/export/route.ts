@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureDatabase, run } from "@/lib/db";
 import { authorizeSaasAccess, requireTenant } from "@/lib/authz/saas-access";
+import { extractSessionFromRequest } from "@/lib/edge-auth";
 import { UnauthorizedError } from "@/lib/auth/session"; // Keep error type if convenient, or use standard
 import { generateWipeoutPackage } from "@/lib/campamento-base/export-engine/wipeout";
 
@@ -20,7 +21,8 @@ export async function GET(req: Request) {
         ensureDatabase();
 
         // 1. Auth & Tenant Access (Strict Isolation)
-        const access = await authorizeSaasAccess({ headers: req.headers } as any);
+        const session = await extractSessionFromRequest(req);
+        const access = await authorizeSaasAccess(session, { headers: req.headers } as any);
         requireTenant(access);
 
         const tenantId = access.tenantId!;

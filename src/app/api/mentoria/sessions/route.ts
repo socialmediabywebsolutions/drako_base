@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { MentorSessionEngine } from '@/lib/mentoria/session-engine';
 import { authorizeSaasAccess } from '@/lib/authz/saas-access';
+import { extractSessionFromRequest } from '@/lib/edge-auth';
 
 // TEMP: Node.js runtime until Phase 21 Edge Auth migration complete
 // Issue: next-auth → crypto polyfill incompatible with Edge runtime
@@ -19,7 +20,8 @@ export async function GET(req: NextRequest) {
 
     try {
         // AuthZ: Extract tenantId from session
-        const authResult = await authorizeSaasAccess(req);
+        const session = await extractSessionFromRequest(req);
+        const authResult = await authorizeSaasAccess(session, req);
 
         if (!authResult.authorized || !authResult.tenantId) {
             return NextResponse.json({
@@ -94,7 +96,8 @@ export async function POST(req: NextRequest) {
 
     try {
         // AuthZ
-        const authResult = await authorizeSaasAccess(req);
+        const session = await extractSessionFromRequest(req);
+        const authResult = await authorizeSaasAccess(session, req);
 
         if (!authResult.authorized || !authResult.tenantId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
