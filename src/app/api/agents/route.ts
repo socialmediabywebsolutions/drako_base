@@ -4,7 +4,9 @@ import { authorizeSaasAccess, requireTenant } from "@/lib/authz/saas-access";
 import { extractSessionFromRequest } from "@/lib/edge-auth";
 import { UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
-// export const runtime = "edge"; // OpenNext Migration
+
+// Edge runtime: Phase 21 Edge Auth migration complete
+export const runtime = "edge";
 
 
 type Agent = {

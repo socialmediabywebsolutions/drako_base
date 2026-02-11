@@ -7,7 +7,8 @@ import { generateWipeoutPackage } from "@/lib/campamento-base/export-engine/wipe
 
 import { respondDatabaseError } from "@/lib/http/errors";
 
-// export const runtime = "nodejs"; // JSZip might prefer Node runtime over Edge for buffering
+// Edge runtime: Phase 21 Edge Auth migration complete
+export const runtime = "edge";
 
 function authErrorResponse(error: unknown) {
     if (error instanceof Error && error.message.includes("FORBIDDEN")) {

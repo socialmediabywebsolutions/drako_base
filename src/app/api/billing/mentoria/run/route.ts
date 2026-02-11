@@ -4,6 +4,9 @@ import { MentoriaInvoicer } from '@/lib/billing/mentoria-invoicer';
 import { authorizeSaasAccess } from '@/lib/authz/saas-access';
 import { extractSessionFromRequest } from '@/lib/edge-auth';
 
+// Edge runtime: Phase 21 Edge Auth migration complete
+export const runtime = 'edge';
+
 export async function POST(req: NextRequest) {
     const db = getDb();
 
