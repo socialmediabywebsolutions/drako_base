@@ -4,9 +4,10 @@ import { MentorSessionEngine } from '@/lib/mentoria/session-engine';
 import { authorizeSaasAccess } from '@/lib/authz/saas-access';
 import { extractSessionFromRequest } from '@/lib/edge-auth';
 
-// TEMP: Node.js runtime until Phase 21 Edge Auth migration complete
-// Issue: next-auth → crypto polyfill incompatible with Edge runtime
-export const runtime = 'nodejs';
+
+// Edge runtime: Phase 21 Edge Auth migration complete
+// Auth now uses extractSessionFromRequest + authorizeSaasAccess (Edge-native)
+export const runtime = 'edge';
 
 /**
  * GET /api/mentoria/sessions
