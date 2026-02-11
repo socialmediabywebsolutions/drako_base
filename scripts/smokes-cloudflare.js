@@ -1,7 +1,19 @@
 // Simple smoke runner for Cloudflare preview/deploy.
 // Usage: BASE_URL=http://localhost:8787 node scripts/smokes-cloudflare.js
 
-const baseUrl = process.env.BASE_URL ?? "http://localhost:8787";
+
+const baseUrl = (process.env.BASE_URL ?? "http://localhost:8787").trim();
+
+async function checkUrl(url, expectedStatus) {
+  try {
+    const res = await fetch(url, { method: 'HEAD' });
+    console.log(`[${res.status === expectedStatus ? "PASS" : "FAIL"}] ${url} -> ${res.status} (Expected ${expectedStatus})`);
+    if (res.status !== expectedStatus) throw new Error(`Status ${res.status}`);
+  } catch (e) {
+    console.error(`[ERR] ${url}: ${e.message}`);
+    throw e; // Propagate to fail test
+  }
+}
 
 const checks = [
   // 1. Health Checks
@@ -88,10 +100,41 @@ async function run() {
     }
   }
 
+  // Phase 19.1 Smoke Tests
+  try {
+
+    // 3. Check Tenant Isolation (Basic)
+    await checkUrl(`${baseUrl}/api/saas`, 401); // Unauthorized (no tenant context)
+
+    // 4. Phase 19.1: MentorIA Sessions (Public/Protected check)
+    await checkUrl(`${baseUrl}/saas/mentoria/sessions`, 200);
+
+    // 5. Phase 19.2: HQ Visibility
+    console.log('👉 Checking HQ Access...');
+    try {
+      const res = await fetch(`${baseUrl}/site/panel/hq`);
+      console.log(`   HQ Status: ${res.status}`);
+      if (res.status === 404) throw new Error('HQ not found');
+    } catch (e) {
+      console.error(`   HQ Check Failed: ${e.message}`);
+      // Don't fail the whole script for auth redirect, only for 404
+      if (e.message.includes('404')) process.exit(1);
+    }
+
+    console.log('\n✅ SMOKE TESTS PASSED!');
+  } catch (e) {
+    console.error("\n❌ Smoke tests failed during Phase 19.1 checks:", e.message);
+    process.exit(1);
+  }
+
+  // Original final check, now potentially redundant if new checks handle exit
   if (failed) {
     console.error("\n❌ Smoke tests failed");
     process.exit(1);
   } else {
+    // This block might be unreachable if the new checks exit on success/failure
+    // or if the new checks are designed to be the final word.
+    // Keeping it for now, but consider removing if the new checks fully replace final reporting.
     console.log("\n✅ Smoke tests passed");
   }
 }

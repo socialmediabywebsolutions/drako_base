@@ -1,0 +1,13 @@
+{"releaseId":"5798f9c0-f091-42a9-a0d0-300927dcd87c","commitHash":"1d6d39f","env":"preview","timestamp":"2026-02-08T23:05:14.554Z","status":"failure","error":"Command failed: npm run build:worker"}
+{"releaseId":"2b1ffc20-0f32-4861-9159-d6c6fc7ddd64","commitHash":"1d6d39f","env":"preview","timestamp":"2026-02-09T12:33:12.661Z","status":"failure","error":"Command failed: npx wrangler pages deploy .open-next --project-name drako-base-3 --branch preview --commit-hash 1d6d39f"}
+{"releaseId":"bce8b704-94b9-4991-86bd-56b79dbc1b09","commitHash":"1d6d39f","env":"preview","timestamp":"2026-02-09T12:40:03.284Z","status":"failure","error":"Command failed: npx wrangler pages deploy .open-next --project-name drako-base-3 --branch preview --commit-hash 1d6d39f"}
+{"releaseId":"ffaec78d-02be-4794-850c-08428e5bba5e","commitHash":"1d6d39f","env":"preview","timestamp":"2026-02-09T12:43:00.240Z","status":"failure","error":"Command failed: npx wrangler pages deploy .open-next --project-name drako-base-3 --branch preview --commit-hash 1d6d39f"}
+{"releaseId":"eee34504-ff78-4057-b4d7-90fa9996b88a","commitHash":"1d6d39f","env":"preview","timestamp":"2026-02-09T12:43:43.263Z","status":"success"}
+{"releaseId":"6107be1d-da94-4868-8e1e-29728d0da6c2","commitHash":"1d6d39f","env":"preview","timestamp":"2026-02-09T13:49:17.888Z","status":"failure","error":"Command failed: npm run build:worker"}
+{"releaseId":"d6ae0541-614a-4aa5-9d92-482c1df86dde","commitHash":"1d6d39f","env":"preview","timestamp":"2026-02-09T13:54:12.656Z","status":"failure","error":"Command failed: npm run build:worker"}
+{"releaseId":"2c407072-b66a-4f26-990d-6579d275e354","commitHash":"1d6d39f","env":"preview","timestamp":"2026-02-09T13:57:20.726Z","status":"failure","error":"Command failed: npm run build:worker"}
+{"releaseId":"c154a358-4c1e-4df0-8bf9-60c6259d257c","commitHash":"1d6d39f","env":"preview","timestamp":"2026-02-09T13:58:47.893Z","status":"failure","error":"Command failed: npm run build:worker"}
+{"releaseId":"c15a352b-f173-45c5-9bc5-80389fd813ec","commitHash":"1d6d39f","env":"preview","timestamp":"2026-02-09T14:00:51.799Z","status":"failure","error":"Command failed: npm run build:worker"}
+{"releaseId":"f751b49d-bf01-4c08-a66e-e301e687c8fa","commitHash":"1d6d39f","env":"preview","timestamp":"2026-02-09T14:01:35.601Z","status":"failure","error":"Command failed: npm run build:worker"}
+{"releaseId":"7fb37c5b-a69b-4ec6-8286-869aa5666f69","commitHash":"1d6d39f","env":"preview","timestamp":"2026-02-09T14:03:15.783Z","status":"failure","error":"Command failed: npm run build:worker"}
+{"releaseId":"f29e12f1-a09f-4989-9e84-939aae3fa5ec","commitHash":"1d6d39f","env":"preview","timestamp":"2026-02-09T21:03:35.785Z","status":"failure","error":"Command failed: npm run build:worker"}

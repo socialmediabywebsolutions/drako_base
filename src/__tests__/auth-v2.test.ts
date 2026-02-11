@@ -14,7 +14,9 @@ global.crypto = {
 
 global.btoa = (str) => Buffer.from(str).toString('base64');
 global.atob = (str) => Buffer.from(str, 'base64').toString();
-global.TextEncoder = require("util").TextEncoder;
+
+import { TextEncoder } from "util";
+global.TextEncoder = TextEncoder;
 
 describe("Auth v2 (Steel Hardened)", () => {
     let env: AutopilotEnv;

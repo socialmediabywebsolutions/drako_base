@@ -1,6 +1,6 @@
 'use client';
 
-// @ts-ignore - React 19 / Next 14 compatibility
+
 import { useFormState, useFormStatus } from 'react-dom';
 import { submitStrategicForm } from '@/app/client/actions';
 import Button from '@/components/ui/button';

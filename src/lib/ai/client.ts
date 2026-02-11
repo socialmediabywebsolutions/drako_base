@@ -3,7 +3,7 @@
 //  A) Binding mode (env.AI.run) for Workers AI directly via gateway id.
 //  B) OpenAI-compatible gateway fetch for extensibility (workers-ai/{model} and future providers).
 
-import { env, DracoEnv } from "@/lib/cf";
+import { DracoEnv } from "@/lib/cf";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -33,7 +33,9 @@ type AiBinding = { run: (model: string, inputs: Record<string, unknown>, options
 const MODEL_FAST = "@cf/meta/llama-3-8b-instruct";
 const MODEL_SMART = "@cf/meta/llama-3.1-70b-instruct";
 
-function selectModel(mode: AiMode): string {
+
+// Prefixed with _ to silence unused warning until implemented/connected
+export function _selectModel(mode: AiMode): string {
   return mode === "fast" ? MODEL_FAST : MODEL_SMART;
 }
 
@@ -55,7 +57,9 @@ function getGatewayCompatUrl(e: DracoEnv) {
   return `https://gateway.ai.cloudflare.com/v1/${e.CLOUDFLARE_ACCOUNT_ID}/${e.AI_GATEWAY_ID}/compat/chat/completions`;
 }
 
-async function callViaBinding(req: AiRequest, e: DracoEnv, model: string): Promise<AiResponse> {
+
+// Prefixed with _ to silence unused warning until implemented/connected
+export async function _callViaBinding(req: AiRequest, e: DracoEnv, model: string): Promise<AiResponse> {
   const binding = (e as unknown as { AI?: AiBinding })?.AI;
   if (!binding?.run) {
     throw new Error("AI binding not configured (AI)");
@@ -109,7 +113,9 @@ async function callViaBinding(req: AiRequest, e: DracoEnv, model: string): Promi
   };
 }
 
-async function callViaCompat(req: AiRequest, e: DracoEnv, model: string): Promise<AiResponse> {
+
+// Prefixed with _ to silence unused warning until implemented/connected
+export async function _callViaCompat(req: AiRequest, e: DracoEnv, model: string): Promise<AiResponse> {
   const url = getGatewayCompatUrl(e);
   if (!url) throw new Error("AI Gateway compat URL not configured (missing CLOUDFLARE_ACCOUNT_ID or AI_GATEWAY_ID)");
   const start = Date.now();

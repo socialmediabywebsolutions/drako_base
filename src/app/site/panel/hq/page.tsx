@@ -2,6 +2,7 @@ import { env } from '@/lib/cf';
 import { getEmpireOverview } from '@/lib/os/overseer';
 import Card from '@/components/ui/card';
 import RoiRankingTable from './roi-ranking-table';
+import { getDb } from '@/lib/db';
 
 export const runtime = 'edge';
 
@@ -119,7 +120,21 @@ export default async function HeadquartersPage() {
         );
     }
 
+
     const { stats, portfolio } = data;
+
+    // Phase 19.2: Fetch MentorIA Stats
+    const db = getDb();
+    let mentoriaStats = { count: 0, revenue: 0, cost: 0 };
+    if (db) {
+        try {
+            const { MentorSessionEngine } = await import('@/lib/mentoria/session-engine');
+            const engine = new MentorSessionEngine(db);
+            mentoriaStats = await engine.getStats(30);
+        } catch (e) {
+            console.error('Failed to load MentorIA stats', e);
+        }
+    }
 
     return (
         <div className="space-y-8 p-8 max-w-[1600px] mx-auto">
@@ -137,8 +152,9 @@ export default async function HeadquartersPage() {
                 </div>
             </div>
 
+
             {/* 1. GLOBAL COMMAND */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <StatCard
                     label="Active Nodes"
                     value={stats.total_active_saas.toString()}
@@ -158,6 +174,13 @@ export default async function HeadquartersPage() {
                     label="Avg Margin"
                     value={`€${stats.avg_margin.toFixed(2)}`}
                     tone={stats.avg_margin > 0 ? "success" : "danger"}
+                />
+                {/* MentorIA Specifics (Phase 19.2) */}
+                <StatCard
+                    label="Sessions (30d)"
+                    value={mentoriaStats.count.toString()}
+                    trend={`+€${mentoriaStats.revenue}`}
+                    tone="brand"
                 />
             </div>
 
