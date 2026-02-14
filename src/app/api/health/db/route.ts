@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureDatabase, queryOne, DatabaseUnavailableError } from "@/lib/db";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 /**
  * Health Check para D1 Database

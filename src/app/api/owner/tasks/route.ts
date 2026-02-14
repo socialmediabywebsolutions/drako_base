@@ -4,7 +4,6 @@ import { queryAll } from "@/lib/db";
 import { getDemoOwner } from "@/lib/admin/demo-data";
 import { listOwnerTasks, getOwnerTasksSummary } from "@/lib/owner/tasks";
 import type { SaasTaskCategory, SaasTaskStatus } from "@/lib/tasks/types";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 type OwnerRow = { id: string };

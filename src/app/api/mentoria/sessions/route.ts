@@ -5,9 +5,7 @@ import { authorizeSaasAccess } from '@/lib/authz/saas-access';
 import { extractSessionFromRequest } from '@/lib/edge-auth';
 
 
-// Edge runtime: Phase 21 Edge Auth migration complete
 // Auth now uses extractSessionFromRequest + authorizeSaasAccess (Edge-native)
-// export const runtime = 'edge'; // OpenNext: disabled for Cloudflare Pages compat
 
 /**
  * GET /api/mentoria/sessions

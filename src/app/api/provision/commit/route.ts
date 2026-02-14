@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { ensureDatabase, queryAll, queryOne, run } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 type PackRow = { id: string; tier: string; departments: string };

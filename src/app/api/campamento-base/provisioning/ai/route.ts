@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import {  run } from "@/lib/db";
 import { AGENT_PACKS_BY_DEPARTMENT, DepartmentId } from "@/lib/agents/agent-templates";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 /**
  * POST /api/campamento-base/provisioning/ai

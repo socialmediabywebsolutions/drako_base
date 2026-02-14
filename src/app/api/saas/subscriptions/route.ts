@@ -5,7 +5,6 @@ import {
   getSaasSubscriptions,
   getTenantClientSaasSubscriptions,
 } from "@/lib/billing/client-saas-subscriptions";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function GET(request: Request) {

@@ -16,7 +16,6 @@ import {
 import { type BusinessIntelligence, saveBusinessKnowledge } from "@/lib/campamento-base/bi/knowledge-base";
 import { InterviewOrchestrator, type InterviewPhase } from "@/lib/interviews/orchestrator";
 
-// export const runtime = "edge"; // OpenNext Migration
 export const dynamic = "force-dynamic";
 
 type ChatPayload = {

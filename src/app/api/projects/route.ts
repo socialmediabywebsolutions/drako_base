@@ -5,7 +5,6 @@ import { createProject, listProjects } from "@/lib/projects/repository";
 import { createCheckoutSession } from "@/lib/stripe/checkout";
 import { PackName } from "@/lib/subscriptions";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 function authErrorResponse(error: unknown) {
   if (error instanceof UnauthorizedError) {

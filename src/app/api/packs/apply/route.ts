@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { applyPackToSaas, getSaasPackById } from "@/lib/packs/repository";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function POST(request: Request) {

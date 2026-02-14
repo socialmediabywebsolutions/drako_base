@@ -11,7 +11,6 @@ import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import type { NextRequest } from "next/server";
 import { getPagesBuildStamp } from "@/lib/pages/build-stamp";
 
-// export const runtime = "edge"; // OpenNext handles the runtime
 
 export async function GET(request: Request) {
   const blocked = await enforcePublicEndpointPolicy({ request, route: "/api/health" });

@@ -7,7 +7,6 @@ import {
   upsertSaasCustomer,
   upsertSaasCustomerProfile,
 } from "@/lib/customers/repository";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function GET(request: Request) {

@@ -5,8 +5,6 @@ import { extractSessionFromRequest } from "@/lib/edge-auth";
 import { UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
 
-// Edge runtime: DISABLED for OpenNext Cloudflare Pages compatibility
-// // export const runtime = 'edge'; // OpenNext: disabled for Cloudflare Pages compat
 
 
 type Agent = {

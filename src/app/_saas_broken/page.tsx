@@ -4,7 +4,7 @@ import Card from "@/components/ui/card";
 import Badge from "@/components/ui/badge";
 import CreateSaasDialog from "./CreateSaasDialog";
 
-export const runtime = 'edge';
+
 
 export default async function SaasPortfolioPage() {
   const portfolio = await getSaasRegistry();

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { resolveBrandingContext, upsertSaasBrandingSettings } from "@/lib/branding/repository";
 import { BrandingLayoutDensity } from "@/lib/branding/types";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 /**
  * POST /api/campamento-base/provisioning/branding

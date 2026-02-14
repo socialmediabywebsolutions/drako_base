@@ -3,7 +3,6 @@ import { queryAll } from "@/lib/db";
 import { ensureCampamentoBase, getCampamentoCoreDepartmentsCatalog } from "@/lib/campamento-base";
 import { resolveTenantId } from "@/lib/tenants/services";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 export type CoreDepartment = {

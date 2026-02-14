@@ -3,7 +3,6 @@ import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { queryAll } from "@/lib/db";
 import { getDemoOwner } from "@/lib/admin/demo-data";
 import { materializeOwnerGrowthAutopilotTasks } from "@/lib/owner/tasks";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 type OwnerRow = { id: string };

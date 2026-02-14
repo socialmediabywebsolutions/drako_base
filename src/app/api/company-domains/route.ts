@@ -3,7 +3,6 @@ import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { listCompanyDomains } from "@/lib/company-domains/domains";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 
 function authErrorResponse(error: unknown) {

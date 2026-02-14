@@ -8,7 +8,6 @@ import { listDemoClients, listDemoSaas, listDemoClientSaas } from "@/lib/admin/d
 import { getRequestBaseUrl } from "@/lib/http/base-url";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { createTenant, createTenantUser } from "@/lib/tenants/services";
-// export const runtime = "edge"; // OpenNext Migration
 
 function getPriceId(plan?: string | null): string {
   if (plan === "mentoria_ia") {

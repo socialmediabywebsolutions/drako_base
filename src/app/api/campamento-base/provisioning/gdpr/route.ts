@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { runAi } from "@/lib/ai/client";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 /**
  * POST /api/campamento-base/provisioning/gdpr

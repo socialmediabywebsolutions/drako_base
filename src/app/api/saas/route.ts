@@ -7,7 +7,6 @@ import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-type
 import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 type Saas = {

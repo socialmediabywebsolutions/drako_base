@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 
-// export const runtime = 'edge'; // OpenNext: disabled for Cloudflare Pages compat
 
 export async function GET() {
     return NextResponse.json({

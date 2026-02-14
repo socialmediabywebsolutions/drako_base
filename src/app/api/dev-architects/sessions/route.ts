@@ -3,7 +3,6 @@ import { env, type DracoEnv } from "@/lib/cf";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { createDevArchitectSession, listDevArchitectSessions } from "@/lib/dev-architects/store";
 import type { DevArchitectMode } from "@/lib/dev-architects/types";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 async function resolveTenantId(req: Request): Promise<string> {

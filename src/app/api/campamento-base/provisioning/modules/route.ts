@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProjectEntitlements, upsertProjectEntitlements } from "@/lib/projects/entitlements";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 /**
  * POST /api/campamento-base/provisioning/modules

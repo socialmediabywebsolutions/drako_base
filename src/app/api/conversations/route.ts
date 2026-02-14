@@ -16,7 +16,6 @@ import type {
   ConversationType,
   ConversationStatus,
 } from "@/lib/conversations/types";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 const VALID_ACTOR_TYPES: ConversationActorType[] = ["OWNER", "EMPLOYEE"];

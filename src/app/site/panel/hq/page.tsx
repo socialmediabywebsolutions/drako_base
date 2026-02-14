@@ -4,7 +4,7 @@ import Card from '@/components/ui/card';
 import RoiRankingTable from './roi-ranking-table';
 import { getDb } from '@/lib/db';
 
-export const runtime = 'edge';
+
 
 function StatCard({ label, value, trend, tone }: { label: string, value: string, trend?: string, tone?: 'brand' | 'danger' | 'success' }) {
     return (

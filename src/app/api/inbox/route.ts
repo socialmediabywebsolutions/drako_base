@@ -8,7 +8,6 @@ import {
   enrichInboxItemsWithCompany,
   type InboxMessage,
 } from "@/lib/inbox/helpers";
-// export const runtime = "edge"; // OpenNext Migration
 
 function detectDepartment(subject: string | null, body: string): string | null {
   const haystack = `${subject ?? ""} ${body}`.toLowerCase();

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { getCloudflareEnv } from "@/lib/cloudflare/context";
 
-// export const runtime = "edge"; // OpenNext: disabled for bundling
 
 export async function GET(request: Request) {
     try {

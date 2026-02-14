@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAllTemplates, deployTemplate } from "@/lib/campamento-base/templates/marketplace";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 /**
  * GET /api/templates

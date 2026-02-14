@@ -24,7 +24,6 @@ import {
 } from "@/lib/billing/stripe-webhook-repository";
 import { ensureStripeWebhookDedupe } from "@/lib/billing/stripe-webhook-processor";
 import { transitionToPastDue, resumeToActive } from "@/lib/os/lifecycle";
-// export const runtime = "edge"; // OpenNext Migration
 
 function getWebhookSecret(): string {
   return safeEnv.STRIPE_WEBHOOK_SECRET;

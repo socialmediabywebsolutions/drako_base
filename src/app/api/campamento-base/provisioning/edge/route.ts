@@ -4,7 +4,6 @@ import { type SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-type
 import { type DracoEnv } from "@/lib/cf";
 import { } from "@/lib/db";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 /**
  * POST /api/campamento-base/provisioning/edge

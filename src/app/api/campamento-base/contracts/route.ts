@@ -3,7 +3,6 @@ import { ContractService } from "@/lib/campamento-base/contracts/service";
 import { resolveTenantId } from "@/lib/tenants/services";
 import type { BlueprintResponse } from "@/lib/campamento-base/ai-blueprint-v2/prompts";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 export async function POST(req: NextRequest) {
     try {

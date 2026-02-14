@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { env } from "@/lib/cf";
 import { runAi } from "@/lib/ai/client";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 /**
  * Health Check para Workers AI

@@ -6,7 +6,6 @@ import {
     getHoldingMetricsHistory,
 } from "@/lib/campamento-base/analytics/holding-metrics";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 /**
  * GET /api/analytics/holding

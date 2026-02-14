@@ -50,8 +50,6 @@ import type {
   DevArchitectTask,
 } from "@/lib/dev-architects/types";
 
-// Edge runtime: Phase 21 Edge Auth migration complete
-export const runtime = "edge";
 
 
 function readProcessEnv(key: string): string | undefined {

@@ -3,7 +3,6 @@ import { requireTenantAccess } from "@/lib/auth/session";
 import { resolveEmployeesContext } from "@/lib/employees/context";
 import { handleEmployeesApiError } from "@/lib/employees/api-helpers";
 import { getSaasComplianceSummary } from "@/lib/employees/compliance";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function GET(request: Request) {
