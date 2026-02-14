@@ -51,4 +51,36 @@ if (!fs.existsSync(assetsDir)) {
     console.log(`✅ Assets directory verified.`);
 }
 
+// PATCH: Add 'node:' prefix to built-in requires to satisfy Wrangler's bundling
+console.log("Patching _worker.js imports for Wrangler compatibility...");
+const destWorkerPath = path.join(outputDir, '_worker.js');
+let workerContent = fs.readFileSync(destWorkerPath, 'utf8');
+
+// List of Node.js built-ins to prefix
+const builtins = [
+    'crypto', 'fs', 'path', 'os', 'stream', 'tty', 'util', 'zlib', 'events',
+    'buffer', 'url', 'async_hooks', 'net', 'tls', 'diagnostics_channel',
+    'vm', 'worker_threads', 'perf_hooks', 'console', 'dgram', 'dns', 'http', 'https', 'http2', 'punycode', 'querystring', 'readline', 'repl', 'string_decoder', 'timers', 'trace_events', 'v8', 'wasi'
+];
+
+// Regex to match require("module") and require('module')
+const requireRegex = new RegExp(`require\\s*\\(\\s*['"](${builtins.join('|')})['"]\\s*\\)`, 'g');
+// Regex to match from "module" and from 'module' (import x from "...", export x from "...", import "...")
+const importRegex = new RegExp(`from\\s+['"](${builtins.join('|')})['"]`, 'g');
+
+let patchCount = 0;
+
+workerContent = workerContent.replace(requireRegex, (match, moduleName) => {
+    patchCount++;
+    return `require("node:${moduleName}")`;
+});
+
+workerContent = workerContent.replace(importRegex, (match, moduleName) => {
+    patchCount++;
+    return `from "node:${moduleName}"`;
+});
+
+fs.writeFileSync(destWorkerPath, workerContent);
+console.log(`✅ Patched ${patchCount} built-in imports in _worker.js with node: prefix.`);
+
 console.log(`\n🎉 Worker preparation complete. Ready for deployment.`);
