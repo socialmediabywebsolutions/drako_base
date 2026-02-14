@@ -146,6 +146,16 @@ try {
 }
 
 
+// Generate _routes.json to exclude assets from worker
+const routesConfig = {
+    version: 1,
+    include: ["/*"],
+    exclude: ["/assets/*"]
+};
+const routesPath = path.join(distDir, '_routes.json');
+fs.writeFileSync(routesPath, JSON.stringify(routesConfig, null, 2));
+console.log(`✅ Generated _routes.json at: ${path.relative(process.cwd(), routesPath)}`);
+
 // Final verification
 const finalWorker = path.join(distDir, '_worker.js');
 const stats = fs.statSync(finalWorker);
