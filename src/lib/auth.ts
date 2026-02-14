@@ -3,9 +3,13 @@ import { safeEnv } from "@/lib/env";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 
-export const authOptions: NextAuthOptions = {
-    providers: [
-        GoogleProvider({
+// Build providers array conditionally
+function buildProviders() {
+    const providers: any[] = [];
+
+    // Only add Google provider if credentials are configured
+    if (safeEnv.GOOGLE_CLIENT_ID && safeEnv.GOOGLE_CLIENT_SECRET) {
+        providers.push(GoogleProvider({
             clientId: safeEnv.GOOGLE_CLIENT_ID,
             clientSecret: safeEnv.GOOGLE_CLIENT_SECRET,
             authorization: {
@@ -15,47 +19,55 @@ export const authOptions: NextAuthOptions = {
                     response_type: "code",
                 },
             },
-        }),
-        CredentialsProvider({
-            name: "Email",
-            credentials: {
-                email: { label: "Email", type: "email" },
-                password: { label: "Password", type: "password" }
-            },
-            async authorize(credentials, req) {
-                if (!credentials?.email || !credentials?.password) return null;
+        }));
+    }
 
-                try {
-                    // Use internal API URL from env, ensuring we don't break in dev/preview
-                    const baseUrl = safeEnv.INTERNAL_API_URL.replace(/\/$/, "");
-                    const res = await fetch(`${baseUrl}/api/auth/verify`, {
-                        method: "POST",
-                        body: JSON.stringify({
-                            email: credentials.email,
-                            password: credentials.password,
-                        }),
-                        headers: {
-                            "Content-Type": "application/json",
-                            "X-Drako-Origin-Secret": safeEnv.INTERNAL_API_SECRET
-                        }
-                    });
+    // Always add credentials provider
+    providers.push(CredentialsProvider({
+        name: "Email",
+        credentials: {
+            email: { label: "Email", type: "email" },
+            password: { label: "Password", type: "password" }
+        },
+        async authorize(credentials, req) {
+            if (!credentials?.email || !credentials?.password) return null;
 
-                    const data = (await res.json()) as { user?: any; error?: string };
-
-                    if (!res.ok || !data.user) {
-                        // Logging but not leaking details in prod
-                        console.warn("AUTH_FAILED", credentials.email, data.error);
-                        return null;
+            try {
+                // Use internal API URL from env, ensuring we don't break in dev/preview
+                const baseUrl = safeEnv.INTERNAL_API_URL.replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/api/auth/verify`, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        email: credentials.email,
+                        password: credentials.password,
+                    }),
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Drako-Origin-Secret": safeEnv.INTERNAL_API_SECRET
                     }
+                });
 
-                    return data.user;
-                } catch (e: any) {
-                    console.error("AUTH_ERROR", e);
+                const data = (await res.json()) as { user?: any; error?: string };
+
+                if (!res.ok || !data.user) {
+                    // Logging but not leaking details in prod
+                    console.warn("AUTH_FAILED", credentials.email, data.error);
                     return null;
                 }
+
+                return data.user;
+            } catch (e: any) {
+                console.error("AUTH_ERROR", e);
+                return null;
             }
-        })
-    ],
+        }
+    }));
+
+    return providers;
+}
+
+export const authOptions: NextAuthOptions = {
+    providers: buildProviders(),
     pages: {
         signIn: "/auth/login",
     },

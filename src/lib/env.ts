@@ -15,8 +15,8 @@ export interface DrakoStrictEnv {
     // Auth
     NEXTAUTH_SECRET: string;
     NEXTAUTH_URL?: string;
-    GOOGLE_CLIENT_ID: string;
-    GOOGLE_CLIENT_SECRET: string;
+    GOOGLE_CLIENT_ID?: string;
+    GOOGLE_CLIENT_SECRET?: string;
     INTERNAL_API_SECRET?: string;
 
     // Admin
@@ -62,8 +62,8 @@ export function getEnv(key: string, defaultValue: string = ""): string {
 
 export const safeEnv = {
     get NEXTAUTH_SECRET() { return requireEnv("NEXTAUTH_SECRET"); },
-    get GOOGLE_CLIENT_ID() { return requireEnv("GOOGLE_CLIENT_ID"); },
-    get GOOGLE_CLIENT_SECRET() { return requireEnv("GOOGLE_CLIENT_SECRET"); },
+    get GOOGLE_CLIENT_ID() { return getEnv("GOOGLE_CLIENT_ID"); },
+    get GOOGLE_CLIENT_SECRET() { return getEnv("GOOGLE_CLIENT_SECRET"); },
     get NEXTAUTH_URL() { return getEnv("NEXTAUTH_URL", "http://localhost:3000"); },
     get INTERNAL_API_URL() { return getEnv("INTERNAL_API_URL", "http://localhost:3000"); },
     get INTERNAL_API_SECRET() { return getEnv("INTERNAL_API_SECRET"); },
