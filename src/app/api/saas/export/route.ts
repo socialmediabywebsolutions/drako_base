@@ -8,7 +8,7 @@ import { generateWipeoutPackage } from "@/lib/campamento-base/export-engine/wipe
 import { respondDatabaseError } from "@/lib/http/errors";
 
 // Edge runtime: Phase 21 Edge Auth migration complete
-export const runtime = "edge";
+// export const runtime = "edge"; // OpenNext: disabled for Cloudflare Pages compat
 
 function authErrorResponse(error: unknown) {
     if (error instanceof Error && error.message.includes("FORBIDDEN")) {

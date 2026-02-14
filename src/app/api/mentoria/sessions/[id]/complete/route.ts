@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { getDracoDbFromRequestContext } from '@/lib/db';
 import { MentorSessionEngine } from '@/lib/mentoria/session-engine';
 
-export const runtime = 'edge';
+// export const runtime = 'edge'; // OpenNext: disabled for Cloudflare Pages compat
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
     const db = getDracoDbFromRequestContext();

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ensureDatabase, queryAll } from "@/lib/db";
 import { verifyAndActivate } from "@/lib/domains/domain-service";
 
-export const runtime = 'edge'; // Optional if we want edge cron
+// export const runtime = 'edge'; // OpenNext: disabled for Cloudflare Pages compat
 
 export async function GET(req: Request) {
     try {
