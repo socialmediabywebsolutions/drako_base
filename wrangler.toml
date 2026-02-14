@@ -10,3 +10,6 @@ database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 # ✅ Workers AI binding
 [ai]
 binding = "AI"
+
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
