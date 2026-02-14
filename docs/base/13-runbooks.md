@@ -82,7 +82,7 @@ npm run cf:deploy
 ```
   - o directo:
 ```bash
-wrangler pages deploy .vercel/output/static
+wrangler pages deploy .open-next/assets
 ```
 
 4) **Custom Domains + DNS**
@@ -110,4 +110,5 @@ Resultado esperado:
 - `/api/health` reporta `db.status=ok`, `campamento`, `publicSaas`, y `domains` con `ACTIVE/verified`.
 - `/api/saas` lista mínimo: `campamento-base`, `drako-systems`, `drako-clinic-pack`, `demo-saas`.
 - Si falta binding o tablas: devuelve **503 con reason/hint**, nunca 500 silencioso.
+
 
