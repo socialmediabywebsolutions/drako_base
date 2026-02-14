@@ -5,7 +5,6 @@ import ShellLayout from "@/components/layouts/shell-layout";
 import HostSwitcher from "@/components/dev/HostSwitcher";
 import { Providers } from "./providers";
 import "./globals.css";
-// export const runtime = "edge"; // DISABLED: OpenNext doesn't support edge runtime on pages, only API routes
 
 export const metadata: Metadata = {
   title: "DRĀKO.SYSTEMS",
