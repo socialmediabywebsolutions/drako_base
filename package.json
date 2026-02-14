@@ -5,10 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:worker": "npx open-next build --adapter @opennextjs/cloudflare && echo \\\"\\n📦 OpenNext build complete, running worker finalization...\\n\\\" && node scripts/finalize-worker.js",
+    "build:worker": "npx open-next build --adapter @opennextjs/cloudflare && node scripts/copy-worker.js && node scripts/verify-worker.js",
     "verify:pages-output": "node -e \"const fs=require('fs');if(!fs.existsSync('.open-next')||!fs.existsSync('.open-next/assets')){console.error('ERROR: OpenNext output incomplete');process.exit(1);}console.log('✓ OpenNext build output verified');\"",
-    "pages:build": "npm run build:worker && npm run verify:pages-output",
-    "deploy": "npm run build:worker && npx wrangler deploy --config wrangler.workers.toml",
+    "pages:build": "npm run build:worker",
+    "deploy": "echo '⚠️ Use Git Deploy for Pages' && exit 1",
     "deploy:preview": "node scripts/deploy.js preview",
     "deploy:staging": "node scripts/deploy.js staging",
     "deploy:production": "node scripts/deploy.js production",
@@ -67,6 +67,6 @@
     "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.0.18",
-    "wrangler": "^4.48.0"
+    "wrangler": "^4.65.0"
   }
 }
