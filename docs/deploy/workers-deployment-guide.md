@@ -27,7 +27,7 @@ npm run dev
 ### Build for Production
 ```bash
 npm run build:worker
-# Generates: .open-next/worker.js + .open-next/assets/
+# Generates: .open-next/worker.js + .open-next/dist/
 ```
 
 ### Preview Locally (Wrangler)
@@ -64,7 +64,7 @@ compatibility_flags = ["nodejs_compat"]
 
 # Static assets
 [assets]
-directory = ".open-next/assets"
+directory = ".open-next/dist"
 
 # Workers AI
 [ai]
@@ -328,7 +328,7 @@ compatibility_date = "2024-11-01"  # or later
 **Fix:** Ensure `wrangler.workers.toml` has:
 ```toml
 [assets]
-directory = ".open-next/assets"
+directory = ".open-next/dist"
 ```
 
 ### "D1 binding not found"
@@ -448,3 +448,4 @@ Your Workers deployment is now configured for:
 ```bash
 npm run deploy
 ```
+

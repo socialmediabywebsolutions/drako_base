@@ -394,7 +394,7 @@ Once manual validation is complete:
 1. **Create `wrangler.pages.toml`**:
    ```toml
    name = "drako-base"
-   pages_build_output_dir = ".open-next"
+   pages_build_output_dir = ".open-next/dist"
    
    [[d1_databases]]
    binding = "DRACO_DB"
@@ -545,3 +545,4 @@ Legend:
 **Phase**: 22  
 **Status**: Complete  
 **Author**: Antigravity Agent
+

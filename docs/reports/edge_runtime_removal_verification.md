@@ -46,7 +46,7 @@ type Agent = {
 **wrangler.toml** (verified):
 ```toml
 name = "drako-base"
-pages_build_output_dir = ".open-next"  # ✅ Correct
+pages_build_output_dir = ".open-next/dist"  # ✅ Correct
 
 # Build command (in Cloudflare dashboard): npm run build:worker
 ```
@@ -132,3 +132,4 @@ OpenNext requires edge runtime function to be defined in a separate function.
 ✅ **Cloudflare deployment**: TRIGGERED
 
 **Resolution**: Edge runtime issue COMPLETELY RESOLVED. Build should succeed on Cloudflare Pages (Linux environment).
+

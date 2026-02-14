@@ -60,8 +60,8 @@ for (const candidate of workerCandidates) {
 
 **`wrangler.toml`** change:
 ```diff
--pages_build_output_dir = ".open-next"
-+pages_build_output_dir = ".open-next/assets"
+-pages_build_output_dir = ".open-next/dist"
++pages_build_output_dir = ".open-next/dist"
 ```
 
 **Rationale**:
@@ -71,7 +71,7 @@ for (const candidate of workerCandidates) {
 
 ### 3. Removed Legacy References
 
-**Files updated** (`.vercel/output/static` → `.open-next/assets`):
+**Files updated** (`.vercel/output/static` → `.open-next/dist`):
 - `docs/runbooks/13-runbooks.md`
 - `docs/deploy/cloudflare-workers-setup.md`
 - `docs/runbooks/fix-missing-d1-binding.md`
@@ -112,7 +112,7 @@ npm run build:worker      # Build with OpenNext + finalize
 ✅ Found worker at priority location: .open-next/server-functions/default/index.mjs
 
 ✅ Copied worker to: .open-next/_worker.js
-✅ Assets directory verified: .open-next/assets
+✅ Assets directory verified: .open-next/dist
 
 🚀 Worker artifacts ready for Cloudflare Pages deployment!
    Worker size: XXX KB
@@ -122,7 +122,7 @@ npm run build:worker      # Build with OpenNext + finalize
 ### Required Artifacts
 After successful build, verify:
 - ✅ `.open-next/_worker.js` exists (Cloudflare Pages worker entry point)
-- ✅ `.open-next/assets/` exists with static files
+- ✅ `.open-next/dist/` exists with static files
 - ✅ No errors in console output
 
 ---
@@ -137,7 +137,7 @@ After successful build, verify:
 
 2. **Deployment**:
    - Cloudflare Pages reads `wrangler.toml`
-   - Uses `.open-next/assets` for static files
+   - Uses `.open-next/dist` for static files
    - Uses `.open-next/_worker.js` for dynamic routes (if found in project root)
 
 3. **Runtime**:
@@ -167,5 +167,6 @@ This solution handles:
 
 **Key Locations**:
 - Worker entry: `.open-next/_worker.js` (after finalization)
-- Static assets: `.open-next/assets/`
+- Static assets: `.open-next/dist/`
 - Build output: `.open-next/` (root)
+

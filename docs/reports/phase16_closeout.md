@@ -6,10 +6,10 @@
 
 ## Diagnosis (Category 2: Routing Mismatch)
 - **Symptom:** 404 Fail-Closed on all routes.
-- **Root Cause:** `@opennextjs/cloudflare` outputs `worker.js` to `.open-next/worker.js`, but Cloudflare Pages expects the function entry point at `_worker.js` INSIDE the output directory (`.open-next/assets`) or configured via `wrangler.toml` (which pointed to assets).
+- **Root Cause:** `@opennextjs/cloudflare` outputs `worker.js` to `.open-next/worker.js`, but Cloudflare Pages expects the function entry point at `_worker.js` INSIDE the output directory (`.open-next/dist`) or configured via `wrangler.toml` (which pointed to assets).
 - **Resolution:** Modified `package.json` build script to copy the worker file:
   ```bash
-  cp .open-next/worker.js .open-next/assets/_worker.js
+  cp .open-next/worker.js .open-next/dist/_worker.js
   ```
 
 ## Verification Results
@@ -43,3 +43,4 @@
 - **Build Pipeline:** CORRECTED (Node Compat + Artifact Structure).
 - **Runtime:** EDGE COMPATIBLE (Polyfills fixed).
 - **Routing:** RESTORED (Worker injected into Pages assets).
+

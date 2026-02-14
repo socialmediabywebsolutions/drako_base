@@ -96,7 +96,7 @@ Once main branch deployment succeeds:
 **wrangler.toml Before**:
 ```toml
 name = "drako-base"
-pages_build_output_dir = ".open-next"
+pages_build_output_dir = ".open-next/dist"
 
 [build]  # ❌ INCOMPATIBLE  
 command = "npm run build:worker"
@@ -116,7 +116,7 @@ crons = ["0 0 * * *"]
 **wrangler.toml After**:
 ```toml
 name = "drako-base"
-pages_build_output_dir = ".open-next"
+pages_build_output_dir = ".open-next/dist"
 
 [[d1_databases]]
 binding = "DRACO_DB"
@@ -139,3 +139,4 @@ binding = "AI"
 ---
 
 **Status**: Main branch should deploy successfully now. Monitoring for completion.
+

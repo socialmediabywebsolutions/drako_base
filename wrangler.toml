@@ -1,5 +1,5 @@
 name = "drako-base"
-pages_build_output_dir = ".open-next"
+pages_build_output_dir = ".open-next/dist"
 
 # ✅ Production D1 Database
 [[d1_databases]]

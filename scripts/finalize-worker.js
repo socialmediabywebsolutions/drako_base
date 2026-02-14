@@ -91,7 +91,13 @@ if (!workerSource) {
 }
 
 // Cloudflare Pages expects _worker.js at the root of the output directory
-const destRoot = path.join(openNextDir, '_worker.js');
+// We create a clean 'dist' folder to avoid uploading unnecessary build artifacts
+const distDir = path.join(openNextDir, 'dist');
+if (!fs.existsSync(distDir)) {
+    fs.mkdirSync(distDir, { recursive: true });
+}
+
+const destRoot = path.join(distDir, '_worker.js');
 
 try {
     fs.copyFileSync(workerSource, destRoot);
@@ -101,19 +107,48 @@ try {
     process.exit(1);
 }
 
-// Verify assets directory exists (required by Cloudflare Pages)
-const assetsDir = path.join(openNextDir, 'assets');
-if (!fs.existsSync(assetsDir)) {
+// Copy assets to dist/assets
+const srcAssets = path.join(openNextDir, 'assets');
+const destAssets = path.join(distDir, 'assets');
+
+if (!fs.existsSync(srcAssets)) {
     console.error('\n❌ ERROR: .open-next/assets directory missing!');
-    console.error('   Cloudflare Pages requires static assets in this location.');
     process.exit(1);
 }
 
-console.log(`✅ Assets directory verified: ${path.relative(process.cwd(), assetsDir)}`);
+try {
+    // Recursive copy for Node scripts (simple version since fs.cpSync requires Node 16.7+)
+    // Using cpSync if available, else manual copy
+    if (fs.cpSync) {
+        fs.cpSync(srcAssets, destAssets, { recursive: true });
+    } else {
+        // Fallback for older Node if needed (though unlikely in modern envs)
+        // Simplified recursive copy
+        function copyRecursiveSync(src, dest) {
+            const exists = fs.existsSync(src);
+            const stats = exists && fs.statSync(src);
+            const isDirectory = exists && stats.isDirectory();
+            if (isDirectory) {
+                if (!fs.existsSync(dest)) fs.mkdirSync(dest);
+                fs.readdirSync(src).forEach(childItemName => {
+                    copyRecursiveSync(path.join(src, childItemName), path.join(dest, childItemName));
+                });
+            } else {
+                fs.copyFileSync(src, dest);
+            }
+        }
+        copyRecursiveSync(srcAssets, destAssets);
+    }
+    console.log(`✅ Assets copied to: ${path.relative(process.cwd(), destAssets)}`);
+} catch (err) {
+    console.error(`\n❌ Error copying assets: ${err.message}`);
+    process.exit(1);
+}
+
 
 // Final verification
-const finalWorker = path.join(openNextDir, '_worker.js');
+const finalWorker = path.join(distDir, '_worker.js');
 const stats = fs.statSync(finalWorker);
 console.log(`\n🚀 Worker artifacts ready for Cloudflare Pages deployment!`);
 console.log(`   Worker size: ${(stats.size / 1024).toFixed(2)} KB`);
-console.log(`   Output dir: ${path.relative(process.cwd(), openNextDir)}`);
+console.log(`   Output dir: ${path.relative(process.cwd(), distDir)}`);
