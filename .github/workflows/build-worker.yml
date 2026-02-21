@@ -26,7 +26,7 @@ jobs:
         run: npx tsx scripts/check-no-pages.ts
 
       - name: Build Worker
-        run: npm run build:worker
+        run: npm run cf:build
         env:
           NEXT_TELEMETRY_DISABLED: 1
 
@@ -57,7 +57,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config wrangler.workers.toml
+          command: run cf:deploy
 
   smoke-test:
     needs: deploy
@@ -66,6 +66,11 @@ jobs:
     steps:
       - name: Wait for deployment to propagate
         run: sleep 10
+
+      - name: Check Root URL
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://drako.systems/)
+          if [ "$STATUS" -ne 200 ] && [ "$STATUS" -ne 301 ] && [ "$STATUS" -ne 302 ]; then echo "Root check failed with $STATUS"; exit 1; fi
 
       - name: Check Health API
         run: |

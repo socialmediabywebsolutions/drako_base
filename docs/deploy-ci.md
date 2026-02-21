@@ -26,7 +26,10 @@ En tu repositorio de GitHub, ve a **Settings > Secrets and variables > Actions**
 
 ## 3. Disparar el Despliegue
 
-El despliegue se activa automáticamente en cada **push a la rama `main`**.
+El despliegue se activa automáticamente en cada **push a la rama `main`**. Los comandos utilizados por el sistema son:
+
+- **Build**: `npm run cf:build` (genera `.open-next/worker.js`).
+- **Deploy**: `npm run cf:deploy` (despliega en el entorno `production`).
 
 Para forzar un despliegue manual o inicial:
 1. Haz un commit vacío: `git commit --allow-empty -m "trigger deploy"`
@@ -56,3 +59,12 @@ Para que el dominio funcione correctamente, Cloudflare debe apuntar al Worker:
 ### C. DNS Recomendado
 - El dominio raíz `@` debe tener un registro **CNAME** o **A** administrado por el Custom Domain del Worker.
 - Asegúrate de que el SSL esté en modo **Full** o **Full (Strict)**.
+
+---
+
+## 🚀 Cloudflare Dashboard Checklist
+
+Sigue estos puntos para asegurar que la migración sea exitosa:
+- [ ] **Workers & Pages > drako-base-3 (Pages)**: Asegúrate de que **NO** tiene dominios vinculados.
+- [ ] **Workers & Pages > drako-base-3 (Worker) > Settings > Triggers**: Confirma que `drako.systems` aparece como **Custom Domain**.
+- [ ] **DNS**: Verifica que no hay registros `A` apuntando a Vercel (`76.76.21.21`).

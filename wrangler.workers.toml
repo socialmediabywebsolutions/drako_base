@@ -50,6 +50,48 @@ queue = "drako-saas-factory-queue"
 binding = "SCHEDULER"
 service = "drako-scheduler"
 
+# ✅ Production Environment (Explicit)
+[env.production]
+name = "drako-base-3"
+main = ".open-next/worker.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[env.production.routes]]
+pattern = "drako.systems/*"
+custom_domain = true
+
+[[env.production.routes]]
+pattern = "www.drako.systems/*"
+custom_domain = true
+
+[env.production.assets]
+directory = ".open-next/assets"
+
+[[env.production.d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+
+[[env.production.queues.producers]]
+queue = "drako-billing-queue"
+binding = "BILLING_QUEUE"
+
+[[env.production.queues.producers]]
+queue = "drako-saas-factory-queue"
+binding = "SAAS_FACTORY_QUEUE"
+
+[[env.production.queues.producers]]
+queue = "drako-provisioning-queue"
+binding = "PROVISIONING_QUEUE"
+
+[[env.production.queues.consumers]]
+queue = "drako-saas-factory-queue"
+
+[[env.production.services]]
+binding = "SCHEDULER"
+service = "drako-scheduler"
+
 # ✅ Preview DB
 [env.preview]
 name = "drako-base-3-preview"
