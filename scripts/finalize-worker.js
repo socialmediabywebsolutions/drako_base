@@ -3,9 +3,9 @@ const path = require('path');
 
 const outputDir = path.resolve('.open-next');
 const assetsDir = path.join(outputDir, 'assets');
-const finalWorkerDest = path.join(outputDir, '_worker.js');
+const finalWorkerDest = path.join(outputDir, 'worker.js');
 
-console.log(`\n🏗️  Finalizing OpenNext Worker for Cloudflare Pages...`);
+console.log(`\n🏗️  Finalizing OpenNext Worker for Solo-Worker Architecture...`);
 
 // ==============================================================================
 // 1. Auto-discover Worker Entry
@@ -95,7 +95,7 @@ dependencies.forEach(dep => {
 // ==============================================================================
 // 3. Patching Anti-Bundler (Node Built-ins)
 // ==============================================================================
-console.log("🩹 Patching _worker.js imports for Wrangler compatibility...");
+console.log("🩹 Patching worker.js imports for Wrangler compatibility...");
 
 const builtins = [
     'crypto', 'fs', 'path', 'stream', 'util', 'zlib', 'buffer', 'process', 'os',
@@ -155,7 +155,7 @@ if (!fs.existsSync(assetsDir)) {
 
 // B) Worker existence
 if (!fs.existsSync(finalWorkerDest)) {
-    console.error(`❌ Error: .open-next/_worker.js was not created!`);
+    console.error(`❌ Error: .open-next/worker.js was not created!`);
     process.exit(1);
 }
 
@@ -192,4 +192,4 @@ function printTree(dir, prefix = '') {
 
 printTree(outputDir);
 
-console.log(`\n🎉 Worker stabilization complete. Ready for Cloudflare Pages Git Deploy.`);
+console.log(`\n🎉 Worker stabilization complete. Ready for Cloudflare Solo-Worker Deploy.`);
