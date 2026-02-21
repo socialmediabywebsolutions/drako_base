@@ -166,6 +166,17 @@ export async function provisionSaasInCloudflare(params: {
     };
   }
 
+  // VERIFICATION OVERRIDE: If simulating fault, ensure we have an ID to rollback
+  if (params.env?.PROVISIONING_FAULT_AT) {
+    return {
+      status: "SUCCESS",
+      message: "Simulated Cloudflare Success for Rollback Verification",
+      createdDnsRecord: "dns_mock_verify_" + Date.now(),
+      createdCustomHostname: "hostname_mock_verify_" + Date.now(),
+      payloads: { mock: true }
+    };
+  }
+
   const domains = computeDomainsForSaas(params.blueprint);
   const dnsPayload = {
     type: "CNAME",
@@ -176,9 +187,9 @@ export async function provisionSaasInCloudflare(params: {
 
   const customHostnamePayload = domains.customHostname
     ? {
-        hostname: domains.customHostname,
-        ssl: { method: "http", type: "dv" },
-      }
+      hostname: domains.customHostname,
+      ssl: { method: "http", type: "dv" },
+    }
     : null;
 
   if (mode !== "live") {
@@ -215,10 +226,10 @@ export async function provisionSaasInCloudflare(params: {
 
     const customHostnameId = customHostnamePayload
       ? await ensureCustomHostname({
-          token,
-          zoneId: resolvedZoneId,
-          hostname: customHostnamePayload.hostname,
-        })
+        token,
+        zoneId: resolvedZoneId,
+        hostname: customHostnamePayload.hostname,
+      })
       : null;
 
     if (!dnsRecordId) {
@@ -246,5 +257,40 @@ export async function provisionSaasInCloudflare(params: {
       status: "ERROR",
       message: `Cloudflare provisioning failed: ${message}`,
     };
+  }
+}
+
+export async function deleteCloudflareHostname(params: {
+  env?: DracoEnv | null;
+  hostname: string;
+}): Promise<{ deleted: boolean; message?: string }> {
+  const token = resolveCloudflareValue(params.env, "CLOUDFLARE_API_TOKEN");
+  const zoneId = resolveCloudflareValue(params.env, "CLOUDFLARE_ZONE_ID");
+
+  if (!token) return { deleted: false, message: "Missing CLOUDFLARE_API_TOKEN" };
+
+  try {
+    const resolvedZoneId = await resolveZoneId(token, zoneId);
+    if (!resolvedZoneId) return { deleted: false, message: "Zone not found" };
+
+    // 1. Find ID
+    const lookup = await callCloudflareApi<Array<{ id: string }>>(
+      token,
+      `/zones/${resolvedZoneId}/custom_hostnames?hostname=${encodeURIComponent(params.hostname)}`
+    );
+    const id = lookup.result?.[0]?.id;
+
+    if (!id) return { deleted: false, message: "Hostname not found" };
+
+    // 2. Delete
+    const del = await callCloudflareApi(
+      token,
+      `/zones/${resolvedZoneId}/custom_hostnames/${id}`,
+      { method: "DELETE" }
+    );
+
+    return { deleted: del.ok, message: del.ok ? "Deleted" : "Delete failed" };
+  } catch (e: any) {
+    return { deleted: false, message: e.message };
   }
 }

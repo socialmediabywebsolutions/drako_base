@@ -34,7 +34,13 @@ export function getDracoDbFromRequestContext(): D1Database | null {
  * OLIMPO: Returns null instead of throwing when DB unavailable
  */
 export function getDb(): D1Database | null {
-  return getDracoDbFromRequestContext();
+  // 1. Try Request Context (Next.js/Pages)
+  const fromReq = getDracoDbFromRequestContext();
+  if (fromReq) return fromReq;
+
+  // 2. Try Global Env (Worker)
+  const bindings = env();
+  return bindings?.DRACO_DB ?? null;
 }
 
 export async function withDb<T>(fn: (db: D1Database) => Promise<T>): Promise<T | null> {

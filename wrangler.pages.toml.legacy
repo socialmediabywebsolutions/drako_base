@@ -1,0 +1,32 @@
+name = "drako-base"
+pages_build_output_dir = ".open-next"
+
+# ✅ Production D1 Database
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+
+# ✅ Workers AI binding
+[ai]
+binding = "AI"
+
+# ✅ Provisioning Queue (Producer)
+[[queues.producers]]
+queue = "drako-billing-queue"
+binding = "BILLING_QUEUE"
+
+# ✅ SaaS Factory Queue
+[[queues.producers]]
+queue = "drako-saas-factory-queue"
+binding = "SAAS_FACTORY_QUEUE"
+
+# ✅ Provisioning Queue (Phase 3.1 Hardening)
+[[queues.producers]]
+queue = "drako-provisioning-queue"
+binding = "PROVISIONING_QUEUE"
+
+# ✅ Scheduler Service Binding (Phase 3)
+[[services]]
+binding = "SCHEDULER"
+service = "drako-scheduler"

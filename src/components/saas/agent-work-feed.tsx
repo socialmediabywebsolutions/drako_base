@@ -20,6 +20,7 @@ export default function AgentWorkFeed({ logs }: AgentWorkFeedProps) {
     return (
         <div className="space-y-4">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Trabajo Realizado (Proof of Work)</h3>
+            <p className="text-sm text-slate-500">The &quot;Agent Feed&quot; shows real-time actions performed by your AI employees.</p>
 
             <div className="grid gap-3">
                 {logs.map(log => {
@@ -66,7 +67,7 @@ export default function AgentWorkFeed({ logs }: AgentWorkFeedProps) {
                                             {log.output_json.map((post: any) => (
                                                 <div key={post.id} className="bg-white p-3 rounded border border-slate-200">
                                                     <div className="font-bold text-purple-600 mb-1">{post.type}</div>
-                                                    <div className="mb-2 italic opacity-80">"{post.caption}"</div>
+                                                    <div className="mb-2 italic opacity-80">&quot;{post.caption}&quot;</div>
                                                     <div className="text-[10px] bg-slate-100 p-1 rounded text-slate-500">
                                                         Prompt: {post.image_prompt}
                                                     </div>

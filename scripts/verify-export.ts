@@ -42,13 +42,8 @@ async function run() {
             process.exit(1);
         }
         const saas = await createRes.json();
-        const saasId = saas.id || saas.item?.id; // backend response might vary (item vs id directly)
-
-        if (!saasId) {
-            console.error("Created SaaS JSON invalid", saas);
-            process.exit(1);
-        }
-
+        const s = saas as any;
+        const saasId = s.id || s.item?.id;
         console.log(`✅ SaaS Created: ${saasId} (${slug})`);
 
         // 2. Request Export

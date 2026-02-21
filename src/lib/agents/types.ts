@@ -15,3 +15,6 @@ export interface AgentContext {
     tenant_id: string;
     dossier: any; // Using any for flexibility with stored JSON
 }
+
+export type AgentVertical = 'GENERIC' | 'SOCIAL_MARKETING' | 'REAL_ESTATE';
+export type PackId = 'starter' | 'pro' | 'full';

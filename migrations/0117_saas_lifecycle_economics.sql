@@ -6,8 +6,8 @@
 -- but we can just add columns. D1 `execute` handles errors gracefully if managed, or we assume this hasn't run.
 -- Since this is a new migration file (0117), we assume it's fresh.
 
-ALTER TABLE saas_instances ADD COLUMN stripe_customer_id TEXT;
-ALTER TABLE saas_instances ADD COLUMN stripe_subscription_id TEXT;
+-- ALTER TABLE saas_instances ADD COLUMN stripe_customer_id TEXT; -- Exists from 0113
+-- ALTER TABLE saas_instances ADD COLUMN stripe_subscription_id TEXT; -- Exists from 0113
 ALTER TABLE saas_instances ADD COLUMN stripe_status TEXT; -- 'active', 'past_due', 'unpaid', 'canceled'
 ALTER TABLE saas_instances ADD COLUMN current_period_end TEXT;
 ALTER TABLE saas_instances ADD COLUMN cancel_at_period_end INTEGER DEFAULT 0;
@@ -23,7 +23,7 @@ ALTER TABLE saas_instances ADD COLUMN retention_until TEXT;
 ALTER TABLE saas_instances ADD COLUMN currency TEXT DEFAULT 'EUR';
 ALTER TABLE saas_instances ADD COLUMN mrr_major INTEGER DEFAULT 0; -- Major currency units (e.g. Euros, not cents, as per request "no floats... major currency units")
 ALTER TABLE saas_instances ADD COLUMN cost_est_major INTEGER DEFAULT 0; 
-ALTER TABLE saas_instances ADD COLUMN margin_pct REAL DEFAULT 0; -- Percentage is fine as REAL or can be INTEGER basis points. Using REAL for % is standard, but user said "No floats... mrr_major, cost_est_major int". I will stick to INT for money, REAL for %.
+-- ALTER TABLE saas_instances ADD COLUMN margin_pct REAL DEFAULT 0; -- Exists from 0113
 
 -- 4. Create Economics Snapshot Table (Historical Data)
 CREATE TABLE IF NOT EXISTS saas_economics_snapshots (
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS saas_economics_snapshots (
 CREATE INDEX IF NOT EXISTS idx_economics_saas_date ON saas_economics_snapshots(saas_id, snapshot_date);
 
 -- 5. Create Economic Events Log (Audit Trail)
-CREATE TABLE IF NOT EXISTS economic_events (
+CREATE TABLE IF NOT EXISTS saas_economic_events (
   id TEXT PRIMARY KEY,
   saas_id TEXT NOT NULL,
   tenant_id TEXT NOT NULL,
@@ -59,4 +59,4 @@ CREATE TABLE IF NOT EXISTS economic_events (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_eco_events_saas ON economic_events(saas_id);
+CREATE INDEX IF NOT EXISTS idx_eco_events_saas ON saas_economic_events(saas_id);

@@ -6,8 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "build:worker": "npx open-next build --adapter @opennextjs/cloudflare && node scripts/finalize-worker.js",
-    "pages:build": "npm run build:worker",
-    "deploy": "echo '⚠️ Use Git Deploy for Pages' && exit 1",
+    "verify:phase3": "npm run verify-phase3",
+    "verify:phase3_1": "npm run verify:phase3_1:tokens && npm run verify:phase3_1:recon:pagination && npm run verify:phase3_1:recon:twoway && npm run verify:phase3_1:security && npm run verify:phase3_1:nopolling",
+    "verify:phase3_1:tokens": "tsx scripts/verify-fencing-tokens.ts",
+    "verify:phase3_1:recon:pagination": "tsx scripts/verify-reconciliation-pagination.ts",
+    "verify:phase3_1:recon:twoway": "tsx scripts/verify-reconciliation-twoway.ts",
+    "verify:phase3_1:security": "tsx scripts/verify-scheduler-security.ts",
+    "verify:phase3_1:nopolling": "tsx scripts/verify-no-db-queue-polling.ts",
+    "legacy:pages:build": "npm run build:worker",
+    "deploy": "echo '⚠️ Use Git Deploy for Workers (drako-base-3)' && exit 1",
     "deploy:preview": "node scripts/deploy.js preview",
     "deploy:staging": "node scripts/deploy.js staging",
     "deploy:production": "node scripts/deploy.js production",
@@ -31,7 +38,10 @@
     "test:projects-factory": "npm run test:projects && npm run test:project-domains && npm run test:project-entitlements && npm run test:project-entitlements-context && npm run test:agents-catalog",
     "test:mapping": "node scripts/check-mapping.js",
     "smoke:cloudflare": "node scripts/smokes-cloudflare.js",
-    "check:alerts": "tsx scripts/alerts-check.ts"
+    "check:alerts": "tsx scripts/alerts-check.ts",
+    "seed:canon": "npx wrangler d1 execute drako_db_prod --local --file=scripts/create_canon_tables.sql && npx wrangler d1 execute drako_db_prod --local --file=scripts/seed_canon.sql",
+    "verify:monetization": "tsx scripts/verify-holding-monetization.ts",
+    "verify:provisioning": "tsx scripts/verify-provisioning-states.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",
@@ -43,7 +53,8 @@
     "next-auth": "^4.24.13",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "stripe": "^20.1.0"
+    "stripe": "^20.1.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250204.0",

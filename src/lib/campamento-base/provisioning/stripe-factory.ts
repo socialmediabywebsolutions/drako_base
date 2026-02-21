@@ -399,3 +399,27 @@ export async function ensureStripeProductForSaas(params: {
     priceIds,
   };
 }
+
+export async function archiveStripeProductAndPrices(params: {
+  env?: DracoEnv | null;
+  productId: string;
+  stripeClient?: Stripe;
+}): Promise<void> {
+  const stripeClient = params.stripeClient ?? (() => {
+    const secretKey = resolveSecretKey(params.env ?? null);
+    if (!secretKey) return null;
+    return buildStripeClient(secretKey);
+  })();
+
+  if (!stripeClient) return;
+
+  try {
+    await stripeClient.products.update(params.productId, {
+      active: false,
+      metadata: { orphaned_by_rollback: 'true' }
+    });
+    // Optionally archive prices if needed, but deactivating product usually suffices to stop usage.
+  } catch (e) {
+    console.error("Failed to archive stripe product:", e);
+  }
+}

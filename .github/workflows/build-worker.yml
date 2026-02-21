@@ -1,0 +1,83 @@
+name: Build & Deploy Worker
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build Worker (Linux)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Solo-Worker Guardrail
+        run: npx tsx scripts/check-no-pages.ts
+
+      - name: Build Worker
+        run: npm run build:worker
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Upload Worker Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-build
+          path: .open-next/
+          if-no-files-found: error
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    name: Deploy to Cloudflare
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: worker-build
+          path: .open-next/
+
+      - name: Deploy with Wrangler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config wrangler.workers.toml
+
+  smoke-test:
+    needs: deploy
+    runs-on: ubuntu-latest
+    name: Smoke Test
+    steps:
+      - name: Wait for deployment to propagate
+        run: sleep 10
+
+      - name: Check Health API
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://drako.systems/api/health)
+          if [ "$STATUS" -ne 200 ]; then echo "Health check failed with $STATUS"; exit 1; fi
+
+      - name: Check SaaS API
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://drako.systems/api/saas)
+          if [ "$STATUS" -ne 200 ]; then echo "SaaS check failed with $STATUS"; exit 1; fi
+
+      - name: Check Agents API
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://drako.systems/api/agents)
+          if [ "$STATUS" -ne 200 ]; then echo "Agents check failed with $STATUS"; exit 1; fi

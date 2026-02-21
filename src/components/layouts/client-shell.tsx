@@ -173,6 +173,9 @@ export default function ClientShell({ children, dossier, instance }: ClientShell
                         <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md text-center border border-slate-200">
                             <div className="text-4xl mb-4">🔒</div>
                             <h2 className="text-xl font-black text-slate-900 mb-2">Continuidad del Holding</h2>
+                            <p className="text-muted-foreground text-sm">
+                                &quot;Active&quot; means live. &quot;Maintenance&quot; shows a temporary page. &quot;Disabled&quot; takes it offline.
+                            </p>
                             <p className="text-slate-500 text-sm mb-6">
                                 Para mantener el acceso a tus agentes y datos, es necesario formalizar la suscripción de infraestructura.
                             </p>
@@ -206,7 +209,7 @@ export default function ClientShell({ children, dossier, instance }: ClientShell
                                     Trial: {daysLeft} días restantes.
                                 </span>
                                 <div className="mt-2 text-[10px] opacity-75 border-t border-slate-700 pt-2">
-                                    Comandos disponibles: "Genera posts", "Analiza SEO".
+                                    Comandos disponibles: &quot;Genera posts&quot;, &quot;Analiza SEO&quot;.
                                 </div>
                             </div>
 

@@ -26,11 +26,12 @@ async function run() {
         process.exit(1);
     }
     const saas = await createRes.json();
-    console.log(`✅ SaaS Created: ${saas.id} (${saas.slug})`);
+    const s = saas as any;
+    console.log(`✅ SaaS Created: ${s.id} (${s.slug})`);
 
     // 2. Request Export
     console.log("\n2. Requesting Export (ZIP)...");
-    const exportRes = await fetch(`${BASE_URL}/api/saas/export?saasId=${saas.id}`, {
+    const exportRes = await fetch(`${BASE_URL}/api/saas/export?saasId=${s.id}`, {
         headers: {
             "x-drako-tenant-id": TENANT_ID
         }

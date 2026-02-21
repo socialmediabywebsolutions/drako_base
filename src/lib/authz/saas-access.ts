@@ -103,3 +103,7 @@ export function requireTenant(result: AccessResult) {
         throw new Error("FORBIDDEN_TENANT_ONLY");
     }
 }
+
+
+
+

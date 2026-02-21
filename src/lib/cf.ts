@@ -52,7 +52,19 @@ export type DracoEnv = {
   VERCEL_TO_WORKER_SECRET?: string;
   CRON_SECRET?: string;
   AI?: { run: (model: string, inputs: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown> };
+  SAAS_FACTORY_QUEUE?: { send: (msg: any) => Promise<void> };
+  SCHEDULER?: Fetcher; // Service Binding to drako-scheduler
+  PROVISIONING_QUEUE?: { send: (msg: any) => Promise<void> }; // Cloudflare Queue Producer
+  INTERNAL_API_SECRET?: string; // Phase 3.1 Hardening
+  PROVISIONING_FAULT_AT?: "STRIPE_AFTER_CREATE" | "CLOUDFLARE_AFTER_CREATE";
 };
+
+
+let globalEnv: DracoEnv | null = null;
+
+export function setGlobalEnv(e: DracoEnv) {
+  globalEnv = e;
+}
 
 /**
  * OLIMPO RULE: 
@@ -60,6 +72,7 @@ export type DracoEnv = {
  * This allows graceful degradation on Vercel and prevents middleware crashes.
  */
 export function env(): DracoEnv | null {
+  if (globalEnv) return globalEnv;
   try {
     // 1. Try OpenNext Cloudflare context (Workers Runtime)
     const ctx = getCloudflareContext();

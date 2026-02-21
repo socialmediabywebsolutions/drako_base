@@ -8,26 +8,27 @@ ALTER TABLE saas_instances ADD COLUMN billing_cycle_end DATE;
 ALTER TABLE saas_instances ADD COLUMN billing_anchor_day INTEGER DEFAULT 1;
 
 -- 2. Create Economics Snapshots
-CREATE TABLE IF NOT EXISTS saas_economics_snapshots (
-    id TEXT PRIMARY KEY,
-    saas_id TEXT NOT NULL REFERENCES saas_instances(id),
-    tenant_id TEXT NOT NULL,
-    cycle_start DATE NOT NULL,
-    cycle_end DATE NOT NULL,
-    included_sessions_used INTEGER DEFAULT 0,
-    overage_sessions INTEGER DEFAULT 0,
-    usage_revenue_major INTEGER DEFAULT 0,
-    fixed_fee_major INTEGER DEFAULT 0,
-    cost_est_major INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- 2. Update Economics Snapshots (Extend 0117 schema)
+-- saas_economics_snapshots schema patch
+ALTER TABLE saas_economics_snapshots ADD COLUMN period_start DATE;
+ALTER TABLE saas_economics_snapshots ADD COLUMN period_end DATE;
+ALTER TABLE saas_economics_snapshots ADD COLUMN active_subscriptions INTEGER DEFAULT 0;
+ALTER TABLE saas_economics_snapshots ADD COLUMN revenue_major INTEGER DEFAULT 0;
+ALTER TABLE saas_economics_snapshots ADD COLUMN cost_major INTEGER DEFAULT 0;
+ALTER TABLE saas_economics_snapshots ADD COLUMN margin_major INTEGER DEFAULT 0;
+
+ALTER TABLE saas_economics_snapshots ADD COLUMN included_sessions_used INTEGER DEFAULT 0;
+ALTER TABLE saas_economics_snapshots ADD COLUMN overage_sessions INTEGER DEFAULT 0;
+ALTER TABLE saas_economics_snapshots ADD COLUMN fixed_fee_major INTEGER DEFAULT 0;
+-- usage_revenue_major is covered by revenue_major
+-- cost_est_major exist (checked via PRAGMA)
 
 -- 3. Indexes
-CREATE INDEX IF NOT EXISTS idx_snapshots_saas_cycle ON saas_economics_snapshots(saas_id, cycle_start);
+CREATE INDEX IF NOT EXISTS idx_snapshots_saas_period ON saas_economics_snapshots(saas_id, period_start);
 CREATE INDEX IF NOT EXISTS idx_mentoria_sessions_completed ON mentoria_sessions(tenant_id, completed_at);
 
 -- 4. Audit Log
-INSERT INTO economic_events (id, tenant_id, saas_id, event_type, severity, message, created_at)
+INSERT INTO saas_economic_events (id, tenant_id, saas_id, event_type, severity, message, created_at)
 SELECT 
     'evt_mig_0121_' || hex(randomblob(4)), 
     'mentoria-core', 

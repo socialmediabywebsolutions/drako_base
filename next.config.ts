@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Ensure tracing resolves packages from the workspace root when running inside monorepo-like setups.
 
-  outputFileTracingRoot: __dirname,
+  // outputFileTracingRoot: __dirname,
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -12,9 +12,13 @@ const nextConfig: NextConfig = {
   },
 
   // Optimize for Cloudflare Pages deployment
-  // experimental: {
-  //   runtime: 'edge',
-  // },
+  output: "standalone",
+  outputFileTracingExcludes: {
+    "*": ["**/*"],
+  },
+  experimental: {
+    // runtime: 'edge',
+  },
   async redirects() {
     return [
       {

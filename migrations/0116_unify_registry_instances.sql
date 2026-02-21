@@ -23,9 +23,10 @@ CREATE INDEX IF NOT EXISTS idx_saas_instances_slug ON saas_instances(slug);
 CREATE INDEX IF NOT EXISTS idx_saas_instances_status ON saas_instances(status);
 
 -- Migrate existing projects (Mirror)
-INSERT INTO saas_instances (id, slug, name, status, created_at, updated_at, plan_tier)
+INSERT OR IGNORE INTO saas_instances (id, tenant_id, slug, name, status, created_at, updated_at, plan_tier)
 SELECT 
     id, 
+    tenant_id,
     slug, 
     display_name, 
     status, 
@@ -35,14 +36,6 @@ SELECT
         WHEN slug IN ('drako', 'mentoria') THEN 'enterprise' 
         ELSE 'starter' 
     END
-FROM saas_projects
-WHERE NOT EXISTS (SELECT 1 FROM saas_instances WHERE slug = saas_projects.slug);
+FROM saas_projects;
 
--- Ensure Core Verticals (Idempotent Safety Net)
-INSERT INTO saas_instances (id, slug, name, status, created_at, plan_tier)
-SELECT 'saas_drako_core', 'drako', 'Drako Systems', 'active', strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'enterprise'
-WHERE NOT EXISTS (SELECT 1 FROM saas_instances WHERE slug = 'drako');
-
-INSERT INTO saas_instances (id, slug, name, status, created_at, plan_tier)
-SELECT 'saas_mentoria_core', 'mentoria', 'MentorIA', 'active', strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'enterprise'
-WHERE NOT EXISTS (SELECT 1 FROM saas_instances WHERE slug = 'mentoria');
+-- Core Verticals Safety Net removed (handled by 0115)

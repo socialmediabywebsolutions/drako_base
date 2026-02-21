@@ -1,3 +1,4 @@
+// @ts-expect-error - better-sqlite3 might not be in devDependencies
 import Database from "better-sqlite3";
 import path from "path";
 

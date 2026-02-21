@@ -1152,7 +1152,7 @@ function normalizePanelContext(
   return context;
 }
 
-export async function GET(req: Request) {
+export async function GET(req: Request | any) {
   try {
     const session = await extractSessionFromRequest(req);
     const access = await authorizeSaasAccess(session, { headers: req.headers } as any);
@@ -1182,7 +1182,7 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: Request | any) {
   try {
     const session = await extractSessionFromRequest(req);
     const access = await authorizeSaasAccess(session, { headers: req.headers } as any);

@@ -5,7 +5,8 @@ import { MentorSessionEngine } from '@/lib/mentoria/session-engine';
 
 // export const runtime = 'edge'; // OpenNext: disabled for Cloudflare Pages compat
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+    const params = await props.params;
     const db = getDracoDbFromRequestContext();
     if (!db) return NextResponse.json({ error: 'Database unavailable' }, { status: 503 });
 

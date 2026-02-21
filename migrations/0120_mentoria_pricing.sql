@@ -27,7 +27,7 @@ VALUES
     ('plan_mentoria_enterprise', 'Enterprise', -1, 0, 0); -- Custom fee handled via override or manual update
 
 -- 4. Audit Log
-INSERT INTO economic_events (id, tenant_id, saas_id, event_type, severity, message, created_at)
+INSERT INTO saas_economic_events (id, tenant_id, saas_id, event_type, severity, message, created_at)
 SELECT 
     'evt_mig_0120_' || hex(randomblob(4)), 
     'mentoria-core', 

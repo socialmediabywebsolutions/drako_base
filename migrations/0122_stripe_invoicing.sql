@@ -32,12 +32,12 @@ ON stripe_invoice_runs(saas_id, cycle_start, cycle_end);
 -- I will add them. If they exist, the migration might fail. 
 -- To be safe, I will trust they MIGHT NOT exist yet as per previous context.
 
-ALTER TABLE saas_instances ADD COLUMN stripe_customer_id TEXT;
-ALTER TABLE saas_instances ADD COLUMN stripe_subscription_id TEXT;
-ALTER TABLE saas_instances ADD COLUMN stripe_status TEXT;
+-- ALTER TABLE saas_instances ADD COLUMN stripe_customer_id TEXT; -- Exists
+-- ALTER TABLE saas_instances ADD COLUMN stripe_subscription_id TEXT; -- Exists
+-- ALTER TABLE saas_instances ADD COLUMN stripe_status TEXT; -- Exists
 
 -- 3. Audit Log
-INSERT INTO economic_events (id, saas_id, tenant_id, event_type, amount_major, currency, metadata_json, created_at)
+INSERT INTO saas_economic_events (id, saas_id, tenant_id, event_type, amount_major, currency, metadata_json, created_at)
 VALUES (
     'evt_mig_0122_' || hex(randomblob(4)), 
     'system', 

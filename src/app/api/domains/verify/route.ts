@@ -7,7 +7,7 @@ export async function POST(req: Request) {
     try {
         ensureDatabase();
         const { tenantId } = await requireTenantAccess(req);
-        const body = await req.json();
+        const body = await req.json() as any;
         const { saasId } = body;
 
         if (!saasId) {
