@@ -62,6 +62,12 @@ Para que el dominio funcione correctamente, Cloudflare debe apuntar al Worker:
 
 ---
 
+## 🚀 Cloudflare UI Configuration
+
+Configura estos 2 comandos exactos en **Settings > Build & Deploy**:
+- **Build command**: `npm run cf:build`
+- **Deploy command**: `npx wrangler deploy --config wrangler.workers.toml --env production`
+
 ## 🚀 Cloudflare Dashboard Checklist
 
 Sigue estos puntos para asegurar que la migración sea exitosa:
