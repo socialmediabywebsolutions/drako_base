@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "cf:build": "npx opennextjs-cloudflare build && node scripts/finalize-worker.js && node -e \"if(!require('fs').existsSync('.open-next/worker.js')) { console.error('❌ FATAL: .open-next/worker.js not found'); process.exit(1) }\"",
+    "cf:build": "npx opennextjs-cloudflare build --config wrangler.workers.toml --env production && node scripts/finalize-worker.js && node -e \"if(!require('fs').existsSync('.open-next/worker.js')) { console.error('❌ FATAL: .open-next/worker.js not found'); process.exit(1) }\"",
     "cf:deploy": "npx wrangler deploy --config wrangler.workers.toml --env production",
     "cf:preview": "npm run cf:build && npx wrangler dev --config wrangler.workers.toml",
     "build:worker": "npm run cf:build",

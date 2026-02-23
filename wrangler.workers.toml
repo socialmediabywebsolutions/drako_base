@@ -92,6 +92,12 @@ queue = "drako-saas-factory-queue"
 binding = "SCHEDULER"
 service = "drako-scheduler"
 
+[env.production.ai]
+binding = "AI"
+
+[env.production.vars]
+ALERT_WEBHOOK_URL = "https://hooks.slack.com/services/XXX/YYY/ZZZ"
+
 # ✅ Preview DB
 [env.preview]
 name = "drako-base-3-preview"
