@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { queryAll, run } from "@/lib/db";
 import { executeProvisioningPlaybookForSaaS } from "@/lib/provisioning-playbook";

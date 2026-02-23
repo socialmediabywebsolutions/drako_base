@@ -1,4 +1,4 @@
-import { stripe } from "./server";
+import { getStripe } from "./server";
 import { PackName, STRIPE_PRICE_MAP } from "@/lib/subscriptions";
 
 export async function createCheckoutSession({
@@ -20,6 +20,7 @@ export async function createCheckoutSession({
         throw new Error(`No price configured for pack: ${packName}`);
     }
 
+    const stripe = getStripe();
     const session = await stripe.checkout.sessions.create({
         mode: "subscription",
         payment_method_types: ["card"],
