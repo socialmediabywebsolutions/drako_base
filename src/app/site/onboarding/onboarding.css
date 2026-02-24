@@ -1,0 +1,536 @@
+/* ──────────────────────────────────────────────
+   Onboarding Wizard — Scoped Light Theme
+   Fondo blanco, celeste, mobile-first, mucho aire
+   ────────────────────────────────────────────── */
+
+.onboarding-wizard {
+  --sky-50: #f0f9ff;
+  --sky-100: #e0f2fe;
+  --sky-200: #bae6fd;
+  --sky-400: #38bdf8;
+  --sky-500: #0ea5e9;
+  --sky-600: #0284c7;
+  --sky-700: #0369a1;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --transition: 200ms ease;
+
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: white;
+  color: var(--gray-800);
+  min-height: 100dvh;
+  padding: 16px;
+}
+
+@media (min-width: 640px) {
+  .onboarding-wizard {
+    padding: 32px;
+  }
+}
+
+/* ─── Progress Bar ─── */
+.ow-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.ow-progress-step {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--gray-200);
+  transition: background var(--transition);
+  position: relative;
+}
+
+.ow-progress-step.active {
+  background: var(--sky-400);
+}
+
+.ow-progress-step.completed {
+  background: var(--sky-500);
+}
+
+.ow-progress-label {
+  font-size: 13px;
+  color: var(--gray-400);
+  font-weight: 500;
+  white-space: nowrap;
+  margin-left: 4px;
+}
+
+/* ─── Step Container ─── */
+.ow-step {
+  max-width: 640px;
+  margin: 0 auto;
+  animation: ow-fadeIn 300ms ease;
+}
+
+@keyframes ow-fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ow-step-header {
+  margin-bottom: 28px;
+}
+
+.ow-step-header h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0 0 6px;
+  line-height: 1.2;
+}
+
+@media (min-width: 640px) {
+  .ow-step-header h2 {
+    font-size: 32px;
+  }
+}
+
+.ow-step-header p {
+  font-size: 16px;
+  color: var(--gray-500);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ─── Microcopy ─── */
+.ow-microcopy {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--sky-50);
+  border: 1px solid var(--sky-100);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--sky-700);
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.ow-microcopy::before {
+  content: "💡";
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+/* ─── Fields ─── */
+.ow-field {
+  margin-bottom: 20px;
+}
+
+.ow-label {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 6px;
+}
+
+.ow-help {
+  font-size: 13px;
+  color: var(--gray-400);
+  margin-top: 4px;
+}
+
+.ow-input,
+.ow-textarea,
+.ow-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  color: var(--gray-800);
+  background: white;
+  transition: border-color var(--transition), box-shadow var(--transition);
+  outline: none;
+  font-family: inherit;
+}
+
+.ow-input:focus,
+.ow-textarea:focus,
+.ow-select:focus {
+  border-color: var(--sky-400);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
+.ow-input::placeholder,
+.ow-textarea::placeholder {
+  color: var(--gray-300);
+}
+
+.ow-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* ─── Option Cards (radio/checkbox style) ─── */
+.ow-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .ow-options.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+}
+
+.ow-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+  background: white;
+  user-select: none;
+}
+
+.ow-option:hover {
+  border-color: var(--sky-300);
+  background: var(--sky-50);
+}
+
+.ow-option.selected {
+  border-color: var(--sky-400);
+  background: var(--sky-50);
+}
+
+.ow-option-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--gray-300);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+}
+
+.ow-option.selected .ow-option-dot {
+  border-color: var(--sky-500);
+  background: var(--sky-500);
+}
+
+.ow-option.selected .ow-option-dot::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: white;
+}
+
+.ow-option-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 2px solid var(--gray-300);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  font-size: 12px;
+  color: transparent;
+}
+
+.ow-option.selected .ow-option-check {
+  border-color: var(--sky-500);
+  background: var(--sky-500);
+  color: white;
+}
+
+.ow-option-content {
+  flex: 1;
+}
+
+.ow-option-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.ow-option-desc {
+  font-size: 13px;
+  color: var(--gray-400);
+  margin-top: 2px;
+}
+
+/* ─── Toggle ─── */
+.ow-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--gray-50);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition);
+}
+
+.ow-toggle:hover {
+  background: var(--sky-50);
+}
+
+.ow-toggle-track {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--gray-300);
+  position: relative;
+  transition: background var(--transition);
+  flex-shrink: 0;
+}
+
+.ow-toggle.active .ow-toggle-track {
+  background: var(--sky-500);
+}
+
+.ow-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  transition: transform var(--transition);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.ow-toggle.active .ow-toggle-thumb {
+  transform: translateX(20px);
+}
+
+.ow-toggle-label {
+  font-size: 15px;
+  color: var(--gray-700);
+}
+
+/* ─── Social Input Row ─── */
+.ow-social-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ow-social-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--gray-100);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gray-500);
+  flex-shrink: 0;
+}
+
+.ow-social-row .ow-input {
+  flex: 1;
+}
+
+/* ─── Navigation ─── */
+.ow-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid var(--gray-100);
+  gap: 12px;
+}
+
+.ow-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 12px 28px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.ow-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ow-btn-primary {
+  background: var(--sky-500);
+  color: white;
+}
+
+.ow-btn-primary:hover:not(:disabled) {
+  background: var(--sky-600);
+  transform: translateY(-1px);
+}
+
+.ow-btn-back {
+  background: transparent;
+  color: var(--gray-500);
+  border: 1.5px solid var(--gray-200);
+}
+
+.ow-btn-back:hover:not(:disabled) {
+  color: var(--gray-700);
+  border-color: var(--gray-300);
+  background: var(--gray-50);
+}
+
+/* ─── Auto-save indicator ─── */
+.ow-autosave {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--gray-400);
+}
+
+.ow-autosave-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: ow-pulse 1.5s infinite;
+}
+
+@keyframes ow-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ─── Summary / Review (post-submit) ─── */
+.ow-summary {
+  max-width: 640px;
+  margin: 0 auto;
+  animation: ow-fadeIn 400ms ease;
+}
+
+.ow-summary-card {
+  padding: 20px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  background: white;
+}
+
+.ow-summary-card h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ow-summary-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--gray-100);
+  font-size: 14px;
+}
+
+.ow-summary-item:last-child {
+  border-bottom: none;
+}
+
+.ow-summary-key {
+  color: var(--gray-500);
+}
+
+.ow-summary-value {
+  color: var(--gray-800);
+  font-weight: 500;
+  text-align: right;
+}
+
+.ow-action-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ow-action-list li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--gray-100);
+  font-size: 14px;
+  color: var(--gray-700);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ow-action-list li::before {
+  content: "→";
+  color: var(--sky-500);
+  font-weight: 700;
+}
+
+.ow-action-list li:last-child {
+  border-bottom: none;
+}
+
+/* ─── Saving overlay ─── */
+.ow-saving-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(4px);
+}
+
+.ow-saving-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--gray-200);
+  border-top-color: var(--sky-500);
+  border-radius: 50%;
+  animation: ow-spin 0.8s linear infinite;
+}
+
+@keyframes ow-spin {
+  to { transform: rotate(360deg); }
+}
