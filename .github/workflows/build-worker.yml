@@ -37,8 +37,42 @@ jobs:
           path: .open-next/
           if-no-files-found: error
 
-  deploy:
+  deploy-deps:
     needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    name: Deploy Dependency Workers
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Deploy drako-scheduler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          workingDirectory: workers/drako-scheduler
+
+      - name: Deploy autopilot-worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          workingDirectory: workers/autopilot-worker
+
+  deploy:
+    needs: [build, deploy-deps]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     name: Deploy to Cloudflare
@@ -57,7 +91,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: run cf:deploy
+          command: deploy --config wrangler.workers.toml --env production
 
   smoke-test:
     needs: deploy
@@ -86,3 +120,4 @@ jobs:
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://drako.systems/api/agents)
           if [ "$STATUS" -ne 200 ]; then echo "Agents check failed with $STATUS"; exit 1; fi
+

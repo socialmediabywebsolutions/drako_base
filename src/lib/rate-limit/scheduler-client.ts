@@ -10,15 +10,20 @@ interface RateLimitResult {
 }
 
 export class SchedulerClient {
-    private scheduler: Fetcher;
+    private scheduler: Fetcher | null;
     private secret: string;
+    private degraded: boolean;
 
     constructor(env: DracoEnv) {
         if (!env.SCHEDULER) {
-            throw new Error("SCHEDULER Service Binding missing");
+            console.warn("[SchedulerClient] SCHEDULER binding missing — client in degraded mode (fail-open)");
+            this.scheduler = null;
+            this.degraded = true;
+        } else {
+            this.scheduler = env.SCHEDULER;
+            this.degraded = false;
         }
-        this.scheduler = env.SCHEDULER;
-        this.secret = env.INTERNAL_API_SECRET || "dev-secret-unsafe"; // Fail-closed in Prod via Env var check
+        this.secret = env.INTERNAL_API_SECRET || "dev-secret-unsafe";
         if (!env.INTERNAL_API_SECRET && env.ENVIRONMENT === 'production') {
             console.error("INTERNAL_API_SECRET missing in production!");
         }
@@ -26,7 +31,8 @@ export class SchedulerClient {
 
     /**
      * Checks rate limit against the Scheduler DO.
-     * Fail-Closed: If Scheduler is unreachable or errors, deny access.
+     * If scheduler is unavailable, degrades to fail-open (allows request).
+     * If scheduler is reachable but errors, fails closed (denies request).
      */
     async checkRateLimit(params: {
         tenantId: string;
@@ -34,13 +40,11 @@ export class SchedulerClient {
         route: string;
         ip?: string;
     }): Promise<RateLimitResult> {
-        try {
-            // Construct keys for 10s, 60s, 15m windows
-            // Key format: {tenant}:{saas}:{route}:{ip}:{window}
-            // Actually, DO expects list of keys.
-            // We want to limit by Tenant generally, or specific route?
-            // "keyspace: {tenant_id}:{saas_slug}:{route}:{ip?}"
+        if (this.degraded || !this.scheduler) {
+            return { allowed: true, reason: "scheduler_unavailable" };
+        }
 
+        try {
             const baseKey = `${params.tenantId}:${params.saasSlug}:${params.route}:${params.ip || 'na'}`;
 
             const keys = [
@@ -50,12 +54,8 @@ export class SchedulerClient {
             ];
 
             const query = new URLSearchParams();
-            query.set("tenantId", params.tenantId); // Sharding Key
+            query.set("tenantId", params.tenantId);
             keys.forEach(k => query.append("key", k));
-
-            // Call Scheduler Internal API
-            // Service Binding uses 'fetch' but bypasses network if local/same-account.
-            // We use a dummy URL for the fetcher.
 
             const signedHeaders = await signRequest(null, this.secret);
 

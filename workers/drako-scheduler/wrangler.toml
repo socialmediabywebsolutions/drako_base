@@ -1,6 +1,8 @@
 name = "drako-scheduler"
 main = "src/index.ts"
-compatibility_date = "2024-09-23"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+logpush = true
 
 # D1 Database (Shared with Main App)
 [[d1_databases]]

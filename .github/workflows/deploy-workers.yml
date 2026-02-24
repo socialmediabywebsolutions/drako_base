@@ -4,13 +4,46 @@ on:
   push:
     branches:
       - main
-      - feat/migrate-to-opennext-workers  # Temporary: for testing before merge
   workflow_dispatch:
 
 jobs:
-  deploy:
+  deploy-deps:
     runs-on: ubuntu-latest
-    name: Deploy Workers
+    name: Deploy Dependency Workers
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy drako-scheduler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          workingDirectory: workers/drako-scheduler
+
+      - name: Deploy autopilot-worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          workingDirectory: workers/autopilot-worker
+
+  deploy:
+    needs: deploy-deps
+    runs-on: ubuntu-latest
+    name: Deploy Main Worker
     
     steps:
       - name: Checkout
@@ -38,7 +71,7 @@ jobs:
             echo "Error: .open-next/assets directory not found"
             exit 1
           fi
-          echo "✓ Build output verified"
+          echo "Build output verified"
           ls -la .open-next/
       
       - name: Deploy to Cloudflare Workers
@@ -46,4 +79,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config wrangler.workers.toml
+          command: deploy --config wrangler.workers.toml --env production
+

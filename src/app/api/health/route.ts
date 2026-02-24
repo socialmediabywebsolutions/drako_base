@@ -93,6 +93,18 @@ export async function GET(request: Request) {
 
   const resolution = await resolveHostToSaas(effectiveHost);
 
+  // Bindings status (FIX 4: expose infra prerequisites)
+  const cfBindings = getRequestBindings() as Record<string, unknown> | null;
+  const bindingsStatus = {
+    scheduler: cfBindings?.SCHEDULER ? "connected" : "missing",
+    db: dbPing.ok ? "ok" : "missing",
+    queues: {
+      billing: cfBindings?.BILLING_QUEUE ? "connected" : "missing",
+      saas_factory: cfBindings?.SAAS_FACTORY_QUEUE ? "connected" : "missing",
+      provisioning: cfBindings?.PROVISIONING_QUEUE ? "connected" : "missing",
+    },
+  };
+
   return NextResponse.json(
     {
       ok: true,
@@ -102,6 +114,7 @@ export async function GET(request: Request) {
       resolution,
       db: { status: "ok" },
       dbPing,
+      bindings: bindingsStatus,
       build: buildStamp,
       tenantFallback: DEMO_TENANT_ID,
       correlationId,
