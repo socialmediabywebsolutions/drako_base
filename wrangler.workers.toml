@@ -5,11 +5,11 @@ compatibility_flags = ["nodejs_compat"]
 
 # 🌐 Custom Domain / Routes
 [[routes]]
-pattern = "drako.systems/*"
+pattern = "drako.systems"
 custom_domain = true
 
 [[routes]]
-pattern = "www.drako.systems/*"
+pattern = "www.drako.systems"
 custom_domain = true
 
 # ✅ Static assets directory (OpenNext generated)
@@ -58,11 +58,11 @@ compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
 
 [[env.production.routes]]
-pattern = "drako.systems/*"
+pattern = "drako.systems"
 custom_domain = true
 
 [[env.production.routes]]
-pattern = "www.drako.systems/*"
+pattern = "www.drako.systems"
 custom_domain = true
 
 [env.production.assets]
