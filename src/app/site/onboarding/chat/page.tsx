@@ -61,7 +61,6 @@ function getSuggestedActions(
   const actions: string[] = [];
   const isEs = lang === "es";
 
-  // Action based on primary goal
   const goal = ctx.primaryGoal as string;
   if (goal === "goalClients") {
     actions.push(
@@ -101,7 +100,6 @@ function getSuggestedActions(
     );
   }
 
-  // Action based on web presence
   if (ctx.wantWebCreated) {
     actions.push(
       isEs
@@ -122,7 +120,6 @@ function getSuggestedActions(
     );
   }
 
-  // Action based on departments
   const deps = (ctx.departments as string[]) ?? [];
   if (deps.includes("marketing")) {
     actions.push(
@@ -153,28 +150,45 @@ function getSuggestedActions(
   return actions.slice(0, 3);
 }
 
+/* ─── Fetch with timeout ─── */
+function fetchWithTimeout(url: string, ms = 8000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 /* ─── Main Component ─── */
 export default function OnboardingChatPage({ lang = "es" }: { lang?: OnboardingLang }) {
   const t = getOnboardingTexts(lang);
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const email = session?.user?.email ?? "";
 
   const [profile, setProfile] = useState<CompanyProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!email) return;
+    // Wait for session to finish loading
+    if (sessionStatus === "loading") return;
+    // No email → skip fetch, mark as loaded immediately
+    if (!email) {
+      setLoading(false);
+      return;
+    }
     (async () => {
       try {
-        const res = await fetch(`/api/company-profile?email=${encodeURIComponent(email)}`);
-        const json = (await res.json()) as { profile: CompanyProfile | null };
-        setProfile(json.profile);
+        const res = await fetchWithTimeout(
+          `/api/company-profile?email=${encodeURIComponent(email)}`
+        );
+        if (res.ok) {
+          const json = (await res.json()) as { profile: CompanyProfile | null };
+          setProfile(json.profile);
+        }
       } catch {
-        /* no profile yet */
+        console.warn("[Chat] Could not load profile");
       }
       setLoading(false);
     })();
-  }, [email]);
+  }, [email, sessionStatus]);
 
   if (loading) {
     return (
@@ -231,7 +245,6 @@ export default function OnboardingChatPage({ lang = "es" }: { lang?: OnboardingL
       <div className="ow-summary">
         {/* ── Header ── */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ fontSize: 48, marginBottom: 8 }}>🎉</div>
           <h1 style={{ fontSize: 28, fontWeight: 700, color: "#111827", margin: "0 0 8px" }}>
             {t.summary.title}
           </h1>
@@ -244,7 +257,7 @@ export default function OnboardingChatPage({ lang = "es" }: { lang?: OnboardingL
 
         {/* ── Card 1: What we understood ── */}
         <div className="ow-summary-card">
-          <h3>📋 {t.summary.understood}</h3>
+          <h3>{t.summary.understood}</h3>
           <div className="ow-summary-item">
             <span className="ow-summary-key">{t.step1.companyName}</span>
             <span className="ow-summary-value">{profile.company_name}</span>
@@ -303,7 +316,7 @@ export default function OnboardingChatPage({ lang = "es" }: { lang?: OnboardingL
 
         {/* ── Card 2: What we're analyzing ── */}
         <div className="ow-summary-card">
-          <h3>🔍 {t.summary.analyzing}</h3>
+          <h3>{t.summary.analyzing}</h3>
           <ul className="ow-action-list">
             {profile.sector && (profile.address || profile.zone) && (
               <li>
@@ -354,7 +367,7 @@ export default function OnboardingChatPage({ lang = "es" }: { lang?: OnboardingL
 
         {/* ── Card 3: Suggested first actions ── */}
         <div className="ow-summary-card">
-          <h3>🚀 {t.summary.suggestedActions}</h3>
+          <h3>{t.summary.suggestedActions}</h3>
           <ul className="ow-action-list">
             {actions.map((action, i) => (
               <li key={i}>{action}</li>
