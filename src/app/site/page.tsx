@@ -39,25 +39,27 @@ export default function HomePage() {
             {t.hero.ctaPrimary} →
           </Link>
           <button onClick={scrollToHow} className="dh-btn-secondary" type="button">
-            {t.hero.ctaSecondary} ↓
+            {t.hero.ctaSecondary}
           </button>
         </div>
       </section>
 
       {/* ── 2) Cómo funciona ── */}
-      <section id="how-it-works" className="dh-section dh-section-center dh-section-alt">
-        <span className="dh-badge">{t.howItWorks.badge}</span>
-        <h2 className="dh-section-title">{t.howItWorks.title}</h2>
-        <div className="dh-steps">
-          {t.howItWorks.steps.map((step, i) => (
-            <div key={i} className="dh-step-card dh-fade-in">
-              <div className="dh-step-icon">{step.icon}</div>
-              <h3>{step.title}</h3>
-              <p>{step.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <div className="dh-section-full-alt">
+        <section id="how-it-works" className="dh-section dh-section-center">
+          <span className="dh-badge">{t.howItWorks.badge}</span>
+          <h2 className="dh-section-title">{t.howItWorks.title}</h2>
+          <div className="dh-steps">
+            {t.howItWorks.steps.map((step, i) => (
+              <div key={i} className="dh-step-card">
+                <div className="dh-step-number">Paso {i + 1}</div>
+                <h3>{step.title.replace(/^\d+\.\s*/, "")}</h3>
+                <p>{step.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
 
       {/* ── 3) Departamentos ── */}
       <section className="dh-section dh-section-center">
@@ -66,8 +68,7 @@ export default function HomePage() {
         <p className="dh-section-subtitle">{t.departments.subtitle}</p>
         <div className="dh-departments">
           {t.departments.items.map((dept) => (
-            <div key={dept.id} className="dh-dept-card dh-fade-in">
-              <div className="dh-dept-icon">{dept.icon}</div>
+            <div key={dept.id} className="dh-dept-card">
               <h3>{dept.name}</h3>
               <p>{dept.desc}</p>
             </div>
@@ -77,19 +78,20 @@ export default function HomePage() {
       </section>
 
       {/* ── 4) Resultados ── */}
-      <section className="dh-section dh-section-center dh-section-alt">
-        <span className="dh-badge">{t.results.badge}</span>
-        <h2 className="dh-section-title">{t.results.title}</h2>
-        <div className="dh-results">
-          {t.results.items.map((item, i) => (
-            <div key={i} className="dh-result-card dh-fade-in">
-              <div className="dh-result-icon">{item.icon}</div>
-              <h3>{item.title}</h3>
-              <p>{item.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <div className="dh-section-full-alt">
+        <section className="dh-section dh-section-center">
+          <span className="dh-badge">{t.results.badge}</span>
+          <h2 className="dh-section-title">{t.results.title}</h2>
+          <div className="dh-results">
+            {t.results.items.map((item, i) => (
+              <div key={i} className="dh-result-card">
+                <h3>{item.title}</h3>
+                <p>{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
 
       {/* ── 5) Para quién es ── */}
       <section className="dh-section dh-section-center">
@@ -97,8 +99,7 @@ export default function HomePage() {
         <h2 className="dh-section-title">{t.forWhom.title}</h2>
         <div className="dh-profiles">
           {t.forWhom.profiles.map((p, i) => (
-            <div key={i} className="dh-profile-card dh-fade-in">
-              <div className="dh-profile-icon">{p.icon}</div>
+            <div key={i} className="dh-profile-card">
               <h3>{p.title}</h3>
               <p>{p.desc}</p>
             </div>

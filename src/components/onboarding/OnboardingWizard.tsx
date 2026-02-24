@@ -62,106 +62,146 @@ const INITIAL_DATA: WizardData = {
 
 const TOTAL_STEPS = 5;
 const SOCIAL_KEYS = ["instagram", "facebook", "linkedin", "tiktok", "youtube", "other"] as const;
+const FETCH_TIMEOUT = 8000; // 8s max per request
+
+/* ─── Fetch with timeout ─── */
+function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = FETCH_TIMEOUT): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
 
 /* ─── Main Component ─── */
 export default function OnboardingWizard({ lang = "es" }: { lang?: OnboardingLang }) {
     const t = useMemo(() => getOnboardingTexts(lang), [lang]);
     const router = useRouter();
-    const { data: session } = useSession();
+    const { data: session, status: sessionStatus } = useSession();
     const email = session?.user?.email ?? "";
 
     const [step, setStep] = useState(1);
     const [data, setData] = useState<WizardData>(INITIAL_DATA);
     const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [loaded, setLoaded] = useState(false);
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    /* Load existing profile on mount */
+    /* Load existing profile on mount — works even without auth */
     useEffect(() => {
-        if (!email || loaded) return;
+        if (loaded) return;
+        // If session is still loading, wait
+        if (sessionStatus === "loading") return;
+        // If no email (not logged in), skip load but mark as loaded
+        if (!email) {
+            setLoaded(true);
+            return;
+        }
         (async () => {
             try {
-                const res = await fetch(`/api/company-profile?email=${encodeURIComponent(email)}`);
-                const json = (await res.json()) as { profile?: Record<string, unknown> | null };
-                if (json.profile) {
-                    const ctx = (json.profile.structured_context ?? {}) as Record<string, unknown>;
-                    setData({
-                        companyName: (json.profile.company_name as string) ?? "",
-                        businessStatus: (ctx.businessStatus as string) ?? "",
-                        hasPhysicalLocation: Boolean(ctx.hasPhysicalLocation),
-                        address: (json.profile.address as string) ?? "",
-                        schedule: (ctx.schedule as string) ?? "",
-                        zone: (json.profile.zone as string) ?? "",
-                        offering: (ctx.offering as string) ?? "",
-                        sector: (json.profile.sector as string) ?? "",
-                        niche: (ctx.niche as string) ?? "",
-                        customerType: (ctx.customerType as string) ?? "",
-                        salesChannels: (ctx.salesChannels as string[]) ?? [],
-                        hasWeb: Boolean(ctx.hasWeb),
-                        websiteUrl: (ctx.websiteUrl as string) ?? "",
-                        wantWebCreated: Boolean(ctx.wantWebCreated),
-                        socialNetworks: (ctx.socialNetworks as Record<string, string>) ?? {},
-                        desiredSocialNetworks: (ctx.desiredSocialNetworks as string[]) ?? [],
-                        primaryGoal: (ctx.primaryGoal as string) ?? "",
-                        secondaryGoals: (ctx.secondaryGoals as string[]) ?? [],
-                        goalOtherText: (ctx.goalOtherText as string) ?? "",
-                        departments: (ctx.departments as string[]) ?? [],
-                        departmentOtherText: (ctx.departmentOtherText as string) ?? "",
-                    });
-                    setStep((json.profile.current_step as number) ?? 1);
+                const res = await fetchWithTimeout(
+                    `/api/company-profile?email=${encodeURIComponent(email)}`
+                );
+                if (res.ok) {
+                    const json = (await res.json()) as { profile?: Record<string, unknown> | null };
+                    if (json.profile) {
+                        const ctx = (json.profile.structured_context ?? {}) as Record<string, unknown>;
+                        setData({
+                            companyName: (json.profile.company_name as string) ?? "",
+                            businessStatus: (ctx.businessStatus as string) ?? "",
+                            hasPhysicalLocation: Boolean(ctx.hasPhysicalLocation),
+                            address: (json.profile.address as string) ?? "",
+                            schedule: (ctx.schedule as string) ?? "",
+                            zone: (json.profile.zone as string) ?? "",
+                            offering: (ctx.offering as string) ?? "",
+                            sector: (json.profile.sector as string) ?? "",
+                            niche: (ctx.niche as string) ?? "",
+                            customerType: (ctx.customerType as string) ?? "",
+                            salesChannels: (ctx.salesChannels as string[]) ?? [],
+                            hasWeb: Boolean(ctx.hasWeb),
+                            websiteUrl: (ctx.websiteUrl as string) ?? "",
+                            wantWebCreated: Boolean(ctx.wantWebCreated),
+                            socialNetworks: (ctx.socialNetworks as Record<string, string>) ?? {},
+                            desiredSocialNetworks: (ctx.desiredSocialNetworks as string[]) ?? [],
+                            primaryGoal: (ctx.primaryGoal as string) ?? "",
+                            secondaryGoals: (ctx.secondaryGoals as string[]) ?? [],
+                            goalOtherText: (ctx.goalOtherText as string) ?? "",
+                            departments: (ctx.departments as string[]) ?? [],
+                            departmentOtherText: (ctx.departmentOtherText as string) ?? "",
+                        });
+                        setStep((json.profile.current_step as number) ?? 1);
+                    }
                 }
-            } catch { /* first visit — no profile yet */ }
+            } catch {
+                // first visit, timeout, or DB not ready — wizard still works
+                console.warn("[Wizard] Could not load profile, starting fresh.");
+            }
             setLoaded(true);
         })();
-    }, [email, loaded]);
+    }, [email, loaded, sessionStatus]);
 
-    /* Auto-save with debounce */
+    /* Build the save payload (reusable) */
+    const buildPayload = useCallback(
+        (d: WizardData, currentStep: number, completed = false) => ({
+            userEmail: email,
+            companyName: d.companyName || "Sin nombre",
+            sector: d.sector || null,
+            address: d.address || null,
+            zone: d.zone || null,
+            currentStep,
+            completed,
+            structuredContext: {
+                businessStatus: d.businessStatus,
+                hasPhysicalLocation: d.hasPhysicalLocation,
+                schedule: d.schedule,
+                offering: d.offering,
+                niche: d.niche,
+                customerType: d.customerType,
+                salesChannels: d.salesChannels,
+                hasWeb: d.hasWeb,
+                websiteUrl: d.websiteUrl,
+                wantWebCreated: d.wantWebCreated,
+                socialNetworks: d.socialNetworks,
+                desiredSocialNetworks: d.desiredSocialNetworks,
+                primaryGoal: d.primaryGoal,
+                secondaryGoals: d.secondaryGoals,
+                goalOtherText: d.goalOtherText,
+                departments: d.departments,
+                departmentOtherText: d.departmentOtherText,
+            },
+        }),
+        [email]
+    );
+
+    /* Auto-save with debounce — NEVER blocks UI */
     const autoSave = useCallback(
         (newData: WizardData, currentStep: number) => {
-            if (!email) return;
+            if (!email) return; // no auth → skip (data lives in state)
             if (saveTimer.current) clearTimeout(saveTimer.current);
             saveTimer.current = setTimeout(async () => {
                 setSaving(true);
+                setSaveError(null);
                 try {
-                    await fetch("/api/company-profile", {
+                    const res = await fetchWithTimeout("/api/company-profile", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            userEmail: email,
-                            companyName: newData.companyName || "Sin nombre",
-                            sector: newData.sector || null,
-                            address: newData.address || null,
-                            zone: newData.zone || null,
-                            currentStep: currentStep,
-                            structuredContext: {
-                                businessStatus: newData.businessStatus,
-                                hasPhysicalLocation: newData.hasPhysicalLocation,
-                                schedule: newData.schedule,
-                                offering: newData.offering,
-                                niche: newData.niche,
-                                customerType: newData.customerType,
-                                salesChannels: newData.salesChannels,
-                                hasWeb: newData.hasWeb,
-                                websiteUrl: newData.websiteUrl,
-                                wantWebCreated: newData.wantWebCreated,
-                                socialNetworks: newData.socialNetworks,
-                                desiredSocialNetworks: newData.desiredSocialNetworks,
-                                primaryGoal: newData.primaryGoal,
-                                secondaryGoals: newData.secondaryGoals,
-                                goalOtherText: newData.goalOtherText,
-                                departments: newData.departments,
-                                departmentOtherText: newData.departmentOtherText,
-                            },
-                        }),
+                        body: JSON.stringify(buildPayload(newData, currentStep)),
                     });
+                    if (!res.ok) {
+                        const err = await res.text().catch(() => "Error desconocido");
+                        throw new Error(err);
+                    }
                 } catch (err) {
                     console.error("[Wizard] autosave failed:", err);
+                    setSaveError(
+                        lang === "es"
+                            ? "No se pudo guardar. Tus datos no se pierden."
+                            : "Could not save. Your data is not lost."
+                    );
                 }
                 setSaving(false);
             }, 800);
         },
-        [email]
+        [email, buildPayload, lang]
     );
 
     const update = useCallback(
@@ -216,42 +256,29 @@ export default function OnboardingWizard({ lang = "es" }: { lang?: OnboardingLan
 
     const handleSubmit = async () => {
         setSubmitting(true);
+        setSaveError(null);
         try {
-            await fetch("/api/company-profile", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    userEmail: email,
-                    companyName: data.companyName,
-                    sector: data.sector,
-                    address: data.address,
-                    zone: data.zone,
-                    currentStep: TOTAL_STEPS,
-                    completed: true,
-                    structuredContext: {
-                        businessStatus: data.businessStatus,
-                        hasPhysicalLocation: data.hasPhysicalLocation,
-                        schedule: data.schedule,
-                        offering: data.offering,
-                        niche: data.niche,
-                        customerType: data.customerType,
-                        salesChannels: data.salesChannels,
-                        hasWeb: data.hasWeb,
-                        websiteUrl: data.websiteUrl,
-                        wantWebCreated: data.wantWebCreated,
-                        socialNetworks: data.socialNetworks,
-                        desiredSocialNetworks: data.desiredSocialNetworks,
-                        primaryGoal: data.primaryGoal,
-                        secondaryGoals: data.secondaryGoals,
-                        goalOtherText: data.goalOtherText,
-                        departments: data.departments,
-                        departmentOtherText: data.departmentOtherText,
-                    },
-                }),
-            });
+            if (email) {
+                const res = await fetchWithTimeout("/api/company-profile", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(buildPayload(data, TOTAL_STEPS, true)),
+                });
+                if (!res.ok) {
+                    console.warn("[Wizard] final save returned", res.status);
+                }
+            }
+            // Always navigate — data is already in state
             router.push("/site/onboarding/chat");
         } catch (err) {
             console.error("[Wizard] submit failed:", err);
+            setSaveError(
+                lang === "es"
+                    ? "No se pudo guardar, pero puedes continuar."
+                    : "Could not save, but you can continue."
+            );
+            // Navigate anyway after a brief delay
+            setTimeout(() => router.push("/site/onboarding/chat"), 1500);
         }
         setSubmitting(false);
     };
@@ -292,6 +319,11 @@ export default function OnboardingWizard({ lang = "es" }: { lang?: OnboardingLan
                         <span className="ow-autosave">
                             <span className="ow-autosave-dot" />
                             {t.wizard.saving}
+                        </span>
+                    )}
+                    {saveError && (
+                        <span style={{ fontSize: 12, color: "#ef4444" }}>
+                            {saveError}
                         </span>
                     )}
                     {step < TOTAL_STEPS ? (
