@@ -29,37 +29,45 @@ function buildProviders() {
             email: { label: "Email", type: "email" },
             password: { label: "Password", type: "password" }
         },
-        async authorize(credentials, req) {
+        async authorize(credentials) {
             if (!credentials?.email || !credentials?.password) return null;
 
-            try {
-                // Use internal API URL from env, ensuring we don't break in dev/preview
-                const baseUrl = safeEnv.INTERNAL_API_URL.replace(/\/$/, "");
-                const res = await fetch(`${baseUrl}/api/auth/verify`, {
-                    method: "POST",
-                    body: JSON.stringify({
-                        email: credentials.email,
-                        password: credentials.password,
-                    }),
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-Drako-Origin-Secret": safeEnv.INTERNAL_API_SECRET
-                    }
-                });
-
-                const data = (await res.json()) as { user?: any; error?: string };
-
-                if (!res.ok || !data.user) {
-                    // Logging but not leaking details in prod
-                    console.warn("AUTH_FAILED", credentials.email, data.error);
-                    return null;
-                }
-
-                return data.user;
-            } catch (e: any) {
-                console.error("AUTH_ERROR", e);
+            // USE LOCAL LOGIC (from @/lib/cf) instead of falling fetch
+            const { env } = await import("@/lib/cf");
+            const conf = env();
+            if (!conf) {
+                console.warn("AUTH_ERROR: Environment not available");
                 return null;
             }
+
+            const email = credentials.email.trim().toLowerCase();
+            const adminEmail = conf.ADMIN_EMAIL?.trim().toLowerCase() ?? null;
+            const adminPassword = conf.ADMIN_PASSWORD ?? null;
+            const userPassword = conf.USER_PASSWORD ?? null;
+
+            let role: string | null = null;
+            let expectedPassword: string | null = null;
+
+            if (adminEmail && email === adminEmail) {
+                role = "admin";
+                expectedPassword = adminPassword ?? userPassword;
+            } else {
+                role = "user";
+                expectedPassword = userPassword ?? adminPassword;
+            }
+
+            if (!expectedPassword || credentials.password !== expectedPassword) {
+                console.warn("AUTH_FAILED: Invalid credentials for", email);
+                return null;
+            }
+
+            return {
+                id: email,
+                name: email.split("@")[0],
+                email: email,
+                role: role,
+                tenantId: conf.DEFAULT_TENANT_ID || "demo-tenant"
+            };
         }
     }));
 

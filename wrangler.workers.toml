@@ -99,4 +99,5 @@ crons = ["*/10 * * * *"]
 [vars]
 ALERT_WEBHOOK_URL = "https://hooks.slack.com/services/XXX/YYY/ZZZ"
 NEXTAUTH_SECRET = "temp_secret_change_me_in_dashboard"
-NEXTAUTH_URL = "http://localhost:3000"
+SESSION_SECRET = "temp_secret_change_me_in_dashboard"
+NEXTAUTH_URL = "https://drako-base-3.socialmediabywebsolutions.workers.dev"

@@ -261,11 +261,6 @@ export async function middleware(req: NextRequest) {
     }
 
     if (isAdminHost) {
-      if (pathname === "/") {
-        const url = new URL(req.url);
-        url.pathname = "/admin";
-        return persistCookie(NextResponse.rewrite(url, { request: { headers: responseHeaders } }));
-      }
       return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
     }
 

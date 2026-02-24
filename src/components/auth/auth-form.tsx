@@ -61,14 +61,19 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
             });
 
             if (res?.error) {
-                throw new Error("Invalid credentials");
+                if (res.error === "CredentialsSignin") {
+                    throw new Error("Invalid email or password");
+                }
+                throw new Error(res.error || "Authentication failed");
             }
 
             if (res?.ok) {
-                window.location.href = "/site/panel";
+                // Official Flow Start: Onboarding
+                window.location.href = "/site/onboarding";
             }
         } catch (err: any) {
-            setError(err.message);
+            setError(err.message || "An unexpected error occurred");
+            console.error("AUTH_FORM_ERROR", err);
         } finally {
             setLoading(false);
         }

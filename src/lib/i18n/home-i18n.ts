@@ -1,6 +1,6 @@
 /**
  * Home Page i18n Dictionary — ES/EN
- * No "SaaS" in ES copy. Simple, non-technical language.
+ * Premium B2B Copy, No Emojis.
  */
 
 export type HomeLang = "es" | "en";
@@ -72,277 +72,81 @@ const es: HomeTexts = {
         steps: [
             {
                 icon: "",
-                title: "1. Cuéntanos tu negocio",
-                desc: "Un formulario rápido de 5 minutos. Sin letra pequeña, sin compromisos.",
+                title: "1. Negocio",
+                desc: "Describe tu actividad en un formulario rápido de 5 minutos.",
             },
             {
                 icon: "",
-                title: "2. Diagnóstico inteligente",
-                desc: "Nuestros agentes analizan tu sector, competencia y oportunidades de crecimiento.",
+                title: "2. Diagnóstico",
+                desc: "Nuestros agentes analizan tu sector y competencia en tiempo real.",
             },
             {
                 icon: "",
-                title: "3. Activación de departamentos",
-                desc: "Se activan los departamentos que necesitas: marketing, ventas, atención al cliente y más.",
+                title: "3. Activación",
+                desc: "Activamos los departamentos de IA necesarios para tu crecimiento.",
             },
         ],
     },
     departments: {
         badge: "Departamentos",
-        title: "Tu equipo digital, listo para trabajar",
+        title: "Tu equipo digital de élite",
         subtitle:
-            "Cada departamento es un equipo de agentes de IA especializados. Elige lo que necesitas hoy; Drako mejora y crea agentes continuamente.",
+            "Agentes de IA especializados que operan tu negocio 24/7.",
         items: [
-            {
-                id: "marketing",
-                icon: "",
-                name: "Marketing",
-                desc: "Campañas, contenido y estrategia de captación.",
-            },
-            {
-                id: "sales",
-                icon: "",
-                name: "Ventas y CRM",
-                desc: "Seguimiento de leads, propuestas y cierre.",
-            },
-            {
-                id: "support",
-                icon: "",
-                name: "Atención al cliente",
-                desc: "Respuestas automáticas, tickets y satisfacción.",
-            },
-            {
-                id: "finance",
-                icon: "",
-                name: "Finanzas",
-                desc: "Facturación, gastos, informes y previsiones.",
-            },
-            {
-                id: "operations",
-                icon: "",
-                name: "Operaciones",
-                desc: "Procesos internos, inventario y logística.",
-            },
-            {
-                id: "content",
-                icon: "",
-                name: "Contenido y Redes",
-                desc: "Posts, calendarios editoriales y diseño.",
-            },
-            {
-                id: "automation",
-                icon: "",
-                name: "Automatización",
-                desc: "Flujos automáticos que eliminan tareas repetitivas.",
-            },
+            { id: "marketing", icon: "", name: "Marketing", desc: "Captación y contenido." },
+            { id: "sales", icon: "", name: "Ventas", desc: "Leads y cierres de contratos." },
+            { id: "support", icon: "", name: "Soporte", desc: "Atención al cliente inteligente." },
+            { id: "finance", icon: "", name: "Finanzas", desc: "Gestión de facturas e informes." },
+            { id: "ops", icon: "", name: "Operaciones", desc: "Procesos y logística digital." },
+            { id: "dev", icon: "", name: "Automatización", desc: "Ingeniería de procesos." },
         ],
-        footer:
-            "Drako.Systems es el sistema operativo de tu negocio. Todo lo que necesitas, en un solo lugar.",
+        footer: "Drako.Systems: El sistema operativo de la nueva economía.",
     },
     results: {
-        badge: "Resultados",
-        title: "Lo que verás desde el primer día",
+        badge: "Impacto",
+        title: "Resultados inmediatos",
         items: [
-            {
-                icon: "",
-                title: "Reportes inteligentes",
-                desc: "Informes automáticos de rendimiento, competencia y oportunidades.",
-            },
-            {
-                icon: "",
-                title: "Panel de control",
-                desc: "Todo tu negocio en una vista: métricas, tareas y alertas.",
-            },
-            {
-                icon: "",
-                title: "Tareas priorizadas",
-                desc: "Acciones concretas ordenadas por impacto. Sin adivinar qué hacer.",
-            },
-            {
-                icon: "",
-                title: "Automatizaciones activas",
-                desc: "Agentes trabajando 24/7: respuestas, seguimiento, publicaciones.",
-            },
+            { icon: "", title: "Velocidad", desc: "Ejecución inmediata de tareas complejas." },
+            { icon: "", title: "Escala", desc: "Crece sin aumentar tus costes fijos." },
+            { icon: "", title: "Control", desc: "Todo centralizado en un solo panel." },
+            { icon: "", title: "Ahorro", desc: "Reduce gastos operativos drásticamente." },
         ],
     },
     forWhom: {
-        badge: "¿Para quién es?",
-        title: "Pensado para negocios que quieren crecer",
+        badge: "Perfil",
+        title: "Diseñado para la excelencia",
         profiles: [
-            {
-                icon: "",
-                title: "Negocios locales",
-                desc: "Tiendas, restaurantes, clínicas, talleres... que quieren digitalizarse sin complicaciones.",
-            },
-            {
-                icon: "",
-                title: "Profesionales independientes",
-                desc: "Consultores, coaches, diseñadores... que necesitan automatizar su día a día.",
-            },
-            {
-                icon: "",
-                title: "Equipos pequeños",
-                desc: "Startups y pymes de 2–20 personas que quieren competir como las grandes.",
-            },
+            { icon: "", title: "Empresas locales", desc: "Digitalización sin fricciones." },
+            { icon: "", title: "SaaS & Tech", desc: "Potenciado por agentes expertos." },
+            { icon: "", title: "Consultoras", desc: "Automatiza la entrega de valor." },
         ],
     },
     finalCta: {
-        title: "¿Listo para empezar?",
-        subtitle:
-            "5 minutos de tu tiempo. Sin compromiso. Sin tarjeta de crédito.",
-        button: "Empezar análisis gratuito",
+        title: "Drako Systems",
+        subtitle: "La inteligencia que tu negocio merece.",
+        button: "Explorar ahora",
     },
     footer: {
-        copy: "© 2026 DRĀKO SYSTEMS",
-        legal: "Términos · Privacidad",
+        copy: "© 2026 DRÂKO SYSTEMS",
+        legal: "Privacidad · Términos",
         contact: "hola@drako.systems",
     },
 };
 
 const en: HomeTexts = {
+    ...es,
     nav: {
-        panel: "My Dashboard",
+        panel: "Dashboard",
         templates: "Templates",
         support: "Support",
         start: "Get Started",
     },
     hero: {
         title: "We make the hard stuff easy.",
-        subtitle:
-            "Your idea is one click away from becoming real: we analyze your business, detect opportunities, and activate AI agents that work for you.",
+        subtitle: "Analyze, Detect, Activate. Your business scaled by IA.",
         ctaPrimary: "Start analysis",
-        ctaSecondary: "See how it works",
-    },
-    howItWorks: {
-        badge: "How it works",
-        title: "From idea to action in 3 steps",
-        steps: [
-            {
-                icon: "📋",
-                title: "1. Tell us about your business",
-                desc: "A quick 5-minute form. No fine print, no commitments.",
-            },
-            {
-                icon: "🔍",
-                title: "2. Smart diagnosis",
-                desc: "Our agents analyze your sector, competition, and growth opportunities.",
-            },
-            {
-                icon: "🚀",
-                title: "3. Department activation",
-                desc: "The departments you need are activated: marketing, sales, customer support, and more.",
-            },
-        ],
-    },
-    departments: {
-        badge: "Departments",
-        title: "Your digital team, ready to work",
-        subtitle:
-            "Each department is a team of specialized AI agents. Choose what you need today; Drako improves and creates agents continuously.",
-        items: [
-            {
-                id: "marketing",
-                icon: "📢",
-                name: "Marketing",
-                desc: "Campaigns, content, and acquisition strategy.",
-            },
-            {
-                id: "sales",
-                icon: "💼",
-                name: "Sales & CRM",
-                desc: "Lead tracking, proposals, and closing.",
-            },
-            {
-                id: "support",
-                icon: "🎧",
-                name: "Customer Support",
-                desc: "Automated responses, tickets, and satisfaction.",
-            },
-            {
-                id: "finance",
-                icon: "📊",
-                name: "Finance",
-                desc: "Invoicing, expenses, reports, and forecasts.",
-            },
-            {
-                id: "operations",
-                icon: "⚙️",
-                name: "Operations",
-                desc: "Internal processes, inventory, and logistics.",
-            },
-            {
-                id: "content",
-                icon: "✍️",
-                name: "Content & Social",
-                desc: "Posts, editorial calendars, and design.",
-            },
-            {
-                id: "automation",
-                icon: "🤖",
-                name: "Automation",
-                desc: "Automated workflows that eliminate repetitive tasks.",
-            },
-        ],
-        footer:
-            "Drako.Systems is your business operating system. Everything you need, in one place.",
-    },
-    results: {
-        badge: "Results",
-        title: "What you'll see from day one",
-        items: [
-            {
-                icon: "📄",
-                title: "Smart reports",
-                desc: "Automatic performance, competition, and opportunity reports.",
-            },
-            {
-                icon: "📱",
-                title: "Control dashboard",
-                desc: "Your entire business in one view: metrics, tasks, and alerts.",
-            },
-            {
-                icon: "✅",
-                title: "Prioritized tasks",
-                desc: "Concrete actions sorted by impact. No guessing what to do.",
-            },
-            {
-                icon: "⚡",
-                title: "Active automations",
-                desc: "Agents working 24/7: responses, follow-ups, posts.",
-            },
-        ],
-    },
-    forWhom: {
-        badge: "Who is it for?",
-        title: "Built for businesses that want to grow",
-        profiles: [
-            {
-                icon: "🏪",
-                title: "Local businesses",
-                desc: "Shops, restaurants, clinics, workshops... that want to go digital without the hassle.",
-            },
-            {
-                icon: "👩‍💻",
-                title: "Independent professionals",
-                desc: "Consultants, coaches, designers... who need to automate their daily work.",
-            },
-            {
-                icon: "👥",
-                title: "Small teams",
-                desc: "Startups and SMBs of 2–20 people who want to compete with the big players.",
-            },
-        ],
-    },
-    finalCta: {
-        title: "Ready to start?",
-        subtitle: "5 minutes of your time. No commitment. No credit card.",
-        button: "Start free analysis",
-    },
-    footer: {
-        copy: "© 2026 DRĀKO SYSTEMS",
-        legal: "Terms · Privacy",
-        contact: "hello@drako.systems",
-    },
+        ctaSecondary: "How it works",
+    }
 };
 
 const dictionaries: Record<HomeLang, HomeTexts> = { es, en };
