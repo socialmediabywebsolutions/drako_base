@@ -32,10 +32,4 @@ CREATE TABLE IF NOT EXISTS company_profiles (
 
 CREATE INDEX IF NOT EXISTS idx_company_profiles_email ON company_profiles(user_email);
 
-CREATE TRIGGER IF NOT EXISTS trg_company_profiles_updated
-  AFTER UPDATE ON company_profiles
-  BEGIN
-    UPDATE company_profiles
-    SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-    WHERE id = NEW.id;
-  END;
+CREATE TRIGGER IF NOT EXISTS trg_company_profiles_updated AFTER UPDATE ON company_profiles BEGIN UPDATE company_profiles SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = NEW.id; END;
