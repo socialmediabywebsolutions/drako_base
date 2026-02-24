@@ -115,7 +115,7 @@ export async function GET(request: Request) {
       db: { status: "ok" },
       dbPing,
       bindings: bindingsStatus,
-      build: buildStamp,
+      build: buildStamp || { gitSha: process.env.NEXT_PUBLIC_GIT_SHA || "unknown" },
       tenantFallback: DEMO_TENANT_ID,
       correlationId,
       statusUrl: "/api/status.json",

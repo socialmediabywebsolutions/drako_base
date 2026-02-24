@@ -5,6 +5,8 @@ import { HostMode, resolveHostMode } from "@/lib/hosts";
 const isHostMode = (value: string | null): value is HostMode =>
   value === "CAMPAMENTO_BASE" || value === "PREVIEW" || value === "PUBLIC_SAAS";
 
+import HomePageComponent from "@/components/home/HomePage";
+
 export default async function Home() {
   const headersList = await headers();
   const host = headersList.get("x-drako-effective-host") ?? headersList.get("host") ?? "";
@@ -14,5 +16,6 @@ export default async function Home() {
   if (mode === "CAMPAMENTO_BASE") redirect("/admin");
   if (mode === "PREVIEW") redirect("/preview");
 
-  redirect("/site");
+  // Render Premium Home directly at root for Public SaaS
+  return <HomePageComponent />;
 }

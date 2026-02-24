@@ -89,8 +89,13 @@ export async function middleware(req: NextRequest) {
       }
     }
 
-    // ✅ AUTH CHECK: Protect /client & /site/onboarding routes (FAIL-CLOSED)
-    if (pathname.startsWith("/client") || pathname.startsWith("/site/onboarding")) {
+    // ✅ AUTH CHECK: Protect /client, /dashboard, /profile, & /site/onboarding routes (FAIL-CLOSED)
+    if (
+      pathname.startsWith("/client") ||
+      pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/profile") ||
+      pathname.startsWith("/site/onboarding")
+    ) {
       const session = await extractSessionFromRequest(req);
       if (!session) {
         // FAIL-CLOSED: No session → login
@@ -248,10 +253,9 @@ export async function middleware(req: NextRequest) {
     }
 
     if (isPublicHost) {
-      if (pathname === "/" || adminPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
-        const url = new URL(req.url);
-        url.pathname = "/site";
-        return persistCookie(NextResponse.rewrite(url, { request: { headers: responseHeaders } }));
+      if (adminPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
+        // Redirect attempt to access admin via public host
+        return persistCookie(NextResponse.redirect(new URL("/", req.url)));
       }
       return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
     }

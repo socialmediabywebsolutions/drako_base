@@ -215,6 +215,13 @@ export default function OnboardingWizard({ lang = "es" }: { lang?: OnboardingLan
         [autoSave, step]
     );
 
+    // Diagnostic log
+    useEffect(() => {
+        if (process.env.NODE_ENV === "development") {
+            console.log(`[Wizard] Step ${step} active. Data keys:`, Object.keys(data).filter(k => !!(data as any)[k]));
+        }
+    }, [step, data]);
+
     /* Navigation */
     const canProceed = (): boolean => {
         switch (step) {
@@ -241,7 +248,9 @@ export default function OnboardingWizard({ lang = "es" }: { lang?: OnboardingLan
     const goNext = () => {
         if (step < TOTAL_STEPS) {
             const next = step + 1;
+            console.log(`[Wizard] Advancing to step ${next}`);
             setStep(next);
+            // Optimistic save
             autoSave(data, next);
         }
     };
@@ -632,7 +641,7 @@ function Step3({ data, update, t }: StepProps) {
                         className="ow-input"
                         value={data.websiteUrl}
                         onChange={(e) => update({ websiteUrl: e.target.value })}
-                        placeholder={s.webUrlPlaceholder}
+                        placeholder="https://instagram.com/tu_negocio"
                         type="url"
                     />
                 </div>

@@ -6,8 +6,8 @@ import Image from "next/image";
 
 type AuthMode = "login" | "register";
 
-export function AuthForm() {
-    const [mode, setMode] = useState<AuthMode>("login");
+export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) {
+    const [mode, setMode] = useState<AuthMode>(defaultMode);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
