@@ -32,42 +32,78 @@ function buildProviders() {
         async authorize(credentials) {
             if (!credentials?.email || !credentials?.password) return null;
 
-            // USE LOCAL LOGIC (from @/lib/cf) instead of falling fetch
-            const { env } = await import("@/lib/cf");
-            const conf = env();
-            if (!conf) {
-                console.warn("AUTH_ERROR: Environment not available");
+            const { env: getEnv } = await import("@/lib/cf");
+            const { verifyPassword } = await import("@/lib/auth/crypto");
+
+            const conf = getEnv();
+            if (!conf || !conf.DRACO_DB) {
+                console.warn("AUTH_ERROR: Environment or DB not available");
                 return null;
             }
 
             const email = credentials.email.trim().toLowerCase();
-            const adminEmail = conf.ADMIN_EMAIL?.trim().toLowerCase() ?? null;
-            const adminPassword = conf.ADMIN_PASSWORD ?? null;
-            const userPassword = conf.USER_PASSWORD ?? null;
+            const db = conf.DRACO_DB;
 
-            let role: string | null = null;
-            let expectedPassword: string | null = null;
+            // 1. Try DB First (The Professional Path)
+            try {
+                const user = await db.prepare(`
+                    SELECT u.id, u.email, u.name, c.hash, c.salt, c.iterations 
+                    FROM auth_users u 
+                    JOIN auth_credentials c ON u.id = c.user_id 
+                    WHERE u.email = ? AND c.type = 'email'
+                    LIMIT 1
+                `).bind(email).first<{
+                    id: string;
+                    email: string;
+                    name: string | null;
+                    hash: string;
+                    salt: string;
+                    iterations: number;
+                }>();
 
-            if (adminEmail && email === adminEmail) {
-                role = "admin";
-                expectedPassword = adminPassword ?? userPassword;
-            } else {
-                role = "user";
-                expectedPassword = userPassword ?? adminPassword;
+                if (user) {
+                    const isValid = await verifyPassword(credentials.password, user.hash, user.salt, user.iterations);
+                    if (isValid) {
+                        return {
+                            id: user.id,
+                            name: user.name || user.email.split("@")[0],
+                            email: user.email,
+                            role: (user.email === conf.ADMIN_EMAIL?.toLowerCase()) ? "admin" : "user",
+                            tenantId: conf.DEFAULT_TENANT_ID || "demo-tenant"
+                        };
+                    }
+                }
+            } catch (dbError) {
+                console.error("AUTH_DB_QUERY_FAILED", dbError);
             }
 
-            if (!expectedPassword || credentials.password !== expectedPassword) {
-                console.warn("AUTH_FAILED: Invalid credentials for", email);
-                return null;
+            // 2. Fallback to Env Vars (Maintenance/Bootstrap)
+            const adminEmail = conf.ADMIN_EMAIL?.trim().toLowerCase();
+            const adminPassword = conf.ADMIN_PASSWORD;
+            const userPassword = conf.USER_PASSWORD;
+
+            if (adminEmail && email === adminEmail && adminPassword && credentials.password === adminPassword) {
+                return {
+                    id: "admin-system",
+                    name: "System Admin",
+                    email: email,
+                    role: "admin",
+                    tenantId: conf.DEFAULT_TENANT_ID || "demo-tenant"
+                };
             }
 
-            return {
-                id: email,
-                name: email.split("@")[0],
-                email: email,
-                role: role,
-                tenantId: conf.DEFAULT_TENANT_ID || "demo-tenant"
-            };
+            if (userPassword && credentials.password === userPassword) {
+                return {
+                    id: `env-user-${email}`,
+                    name: email.split("@")[0],
+                    email: email,
+                    role: "user",
+                    tenantId: conf.DEFAULT_TENANT_ID || "demo-tenant"
+                };
+            }
+
+            console.warn("AUTH_FAILED: Invalid credentials for", email);
+            return null;
         }
     }));
 

@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import Image from "next/image";
+import { getAuthTexts, AuthLang } from "@/lib/i18n/auth-i18n";
 
 type AuthMode = "login" | "register";
 
-export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) {
+export function AuthForm({ defaultMode = "login", lang = "es" }: { defaultMode?: AuthMode; lang?: AuthLang }) {
+    const t = getAuthTexts(lang);
     const [mode, setMode] = useState<AuthMode>(defaultMode);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -19,7 +20,7 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
     const handleGoogleLogin = async () => {
         setLoading(true);
         setError(null);
-        await signIn("google", { callbackUrl: "/site/panel" });
+        await signIn("google", { callbackUrl: "/site/onboarding" });
     };
 
     const handleEmailAuth = async (e: React.FormEvent) => {
@@ -29,13 +30,6 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
 
         try {
             if (mode === "register") {
-                // 1. Register via Internal API (through proxy to avoid exposing secret? No, we need a public proxy or server action).
-                // WAIT. Browser cannot call internal/auth/* directly because it needs X-Drako-Origin-Secret.
-                // We need a Next.js API Route/Server Action to proxy this safely.
-                // Or we update the CredentialsProvider logic? CredentialsProvider handles Login.
-                // Registration needs a public endpoint. 
-                // Let's call a new Next.js public API route `/api/auth/register` which calls the Worker.
-
                 const res = await fetch("/api/auth/register", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -43,11 +37,14 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
                 });
 
                 const data = await res.json() as { error?: string };
-                if (!res.ok) throw new Error(data.error || "Registration failed");
+                if (!res.ok) {
+                    const errorCode = data.error as keyof typeof t.errors;
+                    throw new Error(t.errors[errorCode] || t.errors.generic);
+                }
 
                 // Auto login after register
                 setMode("login");
-                setError("Account created! Please log in.");
+                setError(t.success_register);
                 setLoading(false);
                 return;
             }
@@ -57,14 +54,13 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
                 redirect: false,
                 email,
                 password,
-                callbackUrl: "/site/panel"
             });
 
             if (res?.error) {
                 if (res.error === "CredentialsSignin") {
-                    throw new Error("Invalid email or password");
+                    throw new Error(t.errors.INVALID_CREDENTIALS);
                 }
-                throw new Error(res.error || "Authentication failed");
+                throw new Error(t.errors.generic);
             }
 
             if (res?.ok) {
@@ -72,7 +68,7 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
                 window.location.href = "/site/onboarding";
             }
         } catch (err: any) {
-            setError(err.message || "An unexpected error occurred");
+            setError(err.message || t.errors.generic);
             console.error("AUTH_FORM_ERROR", err);
         } finally {
             setLoading(false);
@@ -85,66 +81,69 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
             <div className="flex mb-6 bg-slate-100 p-1 rounded-xl">
                 <button
                     onClick={() => setMode("login")}
-                    className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${mode === "login"
+                    className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${mode === "login"
                         ? "bg-white text-slate-900 shadow-sm"
                         : "text-slate-500 hover:text-slate-700"
                         }`}
                 >
-                    Login
+                    {t.login}
                 </button>
                 <button
                     onClick={() => setMode("register")}
-                    className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${mode === "register"
+                    className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${mode === "register"
                         ? "bg-white text-slate-900 shadow-sm"
                         : "text-slate-500 hover:text-slate-700"
                         }`}
                 >
-                    Register
+                    {t.register}
                 </button>
             </div>
 
             <form onSubmit={handleEmailAuth} className="space-y-4">
                 {mode === "register" && (
                     <div>
-                        <label className="block text-xs font-semibold text-slate-500 mb-1">NAME</label>
+                        <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-widest">{t.name}</label>
                         <input
                             type="text"
                             required
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 text-sm outline-none transition-all"
+                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-sm outline-none transition-all placeholder:text-slate-300"
                             placeholder="John Doe"
                         />
                     </div>
                 )}
 
                 <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1">EMAIL</label>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-widest">{t.email}</label>
                     <input
                         type="email"
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 text-sm outline-none transition-all"
-                        placeholder="you@company.com"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-sm outline-none transition-all placeholder:text-slate-300"
+                        placeholder="email@ejemplo.com"
                     />
                 </div>
 
                 <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1">PASSWORD</label>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-widest">{t.password}</label>
                     <input
                         type="password"
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 text-sm outline-none transition-all"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-sm outline-none transition-all placeholder:text-slate-300"
                         placeholder="••••••••"
                         minLength={8}
                     />
                 </div>
 
                 {error && (
-                    <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg font-medium">
+                    <div className={`p-4 text-xs rounded-xl font-semibold border ${error === t.success_register
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                            : "bg-red-50 text-red-600 border-red-100"
+                        }`}>
                         {error}
                     </div>
                 )}
@@ -152,18 +151,18 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
                 <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-slate-900 text-white font-semibold py-2.5 rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50"
+                    className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100"
                 >
-                    {loading ? "Processing..." : (mode === "login" ? "Sign In" : "Create Account")}
+                    {loading ? t.processing : (mode === "login" ? t.login : t.register)}
                 </button>
             </form>
 
-            <div className="relative my-6">
+            <div className="relative my-8">
                 <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-200"></div>
+                    <div className="w-full border-t border-slate-100"></div>
                 </div>
-                <div className="relative flex justify-center text-xs">
-                    <span className="px-2 bg-white text-slate-400 font-medium">OR</span>
+                <div className="relative flex justify-center text-[10px] font-bold tracking-widest uppercase">
+                    <span className="px-4 bg-white text-slate-400">{t.or}</span>
                 </div>
             </div>
 
@@ -171,10 +170,10 @@ export function AuthForm({ defaultMode = "login" }: { defaultMode?: AuthMode }) 
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-600 font-semibold py-2.5 rounded-xl hover:bg-slate-50 transition-all disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-600 font-bold py-3.5 rounded-xl hover:bg-slate-50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100"
             >
-                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4" />
-                Continue with Google
+                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4 opacity-80" />
+                {t.google}
             </button>
         </div>
     );

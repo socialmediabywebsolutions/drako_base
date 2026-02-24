@@ -1,37 +1,86 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { hashPassword } from "@/lib/auth/crypto";
+import { env } from "@/lib/cf";
 
 export async function POST(req: Request) {
+    const requestId = crypto.randomUUID();
+    const startTime = Date.now();
+
     try {
-        const body = await req.json();
+        const body = (await req.json()) as { email?: string; password?: string; name?: string };
+        const { email, password, name } = body;
 
-        // Steel Security: Forward to Internal Worker with Secret
-        // This keeps the INTERNAL_API_SECRET server-side.
-        const internalRes = await fetch("https://drako.systems/internal/auth/register", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                // Steel V1.0.1: Use specific secret for Vercel->Worker comms
-                "X-Drako-Origin-Secret": process.env.VERCEL_TO_WORKER_SECRET || "",
-            },
-            body: JSON.stringify(body),
-        });
-
-        const data = await internalRes.json() as { error?: string, [key: string]: any };
-
-        if (!internalRes.ok) {
+        // 1. Basic Validation
+        if (!email || !password) {
             return NextResponse.json(
-                { error: data.error || "Registration failed" },
-                { status: internalRes.status }
+                { error: "MISSING_FIELDS" },
+                { status: 400 }
             );
         }
 
-        return NextResponse.json(data, { status: 201 });
+        const conf = env();
+        if (!conf || !conf.DRACO_DB) {
+            console.error("REGISTER_ERROR: DB binding missing", { requestId });
+            return NextResponse.json(
+                { error: "SERVICE_UNAVAILABLE" },
+                { status: 503 }
+            );
+        }
+
+        const db = conf.DRACO_DB;
+        const normalizedEmail = email.trim().toLowerCase();
+
+        // 2. Check if user already exists
+        const existing = await db.prepare(
+            "SELECT id FROM auth_users WHERE email = ? LIMIT 1"
+        ).bind(normalizedEmail).first();
+
+        if (existing) {
+            return NextResponse.json(
+                { error: "EMAIL_EXISTS" },
+                { status: 409 }
+            );
+        }
+
+        // 3. Hash Password
+        const { hash, salt, iterations } = await hashPassword(password);
+        const userId = crypto.randomUUID();
+        const credId = crypto.randomUUID();
+        const now = new Date().toISOString();
+
+        // 4. Atomic Registration (Batch)
+        await db.batch([
+            db.prepare(
+                "INSERT INTO auth_users (id, email, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+            ).bind(userId, normalizedEmail, name || "User", now, now),
+            db.prepare(
+                "INSERT INTO auth_credentials (id, user_id, type, hash, salt, iterations, algo, created_at) VALUES (?, ?, 'email', ?, ?, ?, 'PBKDF2-SHA256', ?)"
+            ).bind(credId, userId, hash, salt, iterations, now)
+        ]);
+
+        console.info("REGISTER_SUCCESS", {
+            requestId,
+            userId,
+            durationMs: Date.now() - startTime
+        });
+
+        return NextResponse.json({
+            success: true,
+            user: { id: userId, email: normalizedEmail, name: name }
+        }, { status: 201 });
+
     } catch (error: any) {
-        console.error("PROXY_REGISTER_ERROR", error);
+        console.error("REGISTER_CRITICAL_FAILURE", {
+            requestId,
+            error: error.message,
+            stack: error.stack,
+            durationMs: Date.now() - startTime
+        });
+
         return NextResponse.json(
-            { error: "Internal Server Error" },
+            { error: "INTERNAL_SERVER_ERROR", requestId },
             { status: 500 }
         );
     }
