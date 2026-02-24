@@ -169,8 +169,18 @@ export default function OnboardingChatPage({ lang = "es" }: { lang?: OnboardingL
   useEffect(() => {
     // Wait for session to finish loading
     if (sessionStatus === "loading") return;
-    // No email → skip fetch, mark as loaded immediately
+
+    const loadFromStorage = (): CompanyProfile | null => {
+      try {
+        const raw = sessionStorage.getItem("drako_wizard_data");
+        if (raw) return JSON.parse(raw) as CompanyProfile;
+      } catch { /* ignore */ }
+      return null;
+    };
+
+    // No email → try sessionStorage fallback
     if (!email) {
+      setProfile(loadFromStorage());
       setLoading(false);
       return;
     }
@@ -181,10 +191,18 @@ export default function OnboardingChatPage({ lang = "es" }: { lang?: OnboardingL
         );
         if (res.ok) {
           const json = (await res.json()) as { profile: CompanyProfile | null };
-          setProfile(json.profile);
+          if (json.profile) {
+            setProfile(json.profile);
+          } else {
+            // DB has no profile → fallback to sessionStorage
+            setProfile(loadFromStorage());
+          }
+        } else {
+          setProfile(loadFromStorage());
         }
       } catch {
-        console.warn("[Chat] Could not load profile");
+        console.warn("[Chat] Could not load profile, trying sessionStorage");
+        setProfile(loadFromStorage());
       }
       setLoading(false);
     })();

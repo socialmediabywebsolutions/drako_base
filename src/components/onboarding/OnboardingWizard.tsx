@@ -263,6 +263,34 @@ export default function OnboardingWizard({ lang = "es" }: { lang?: OnboardingLan
                 body: JSON.stringify(buildPayload(data, TOTAL_STEPS, true)),
             }).catch((err) => console.warn("[Wizard] background save failed:", err));
         }
+        // Always stash data in sessionStorage so the chat page works without DB
+        try {
+            sessionStorage.setItem("drako_wizard_data", JSON.stringify({
+                company_name: data.companyName || "Mi Empresa",
+                sector: data.sector || null,
+                address: data.address || null,
+                zone: data.zone || null,
+                structured_context: {
+                    businessStatus: data.businessStatus,
+                    hasPhysicalLocation: data.hasPhysicalLocation,
+                    schedule: data.schedule,
+                    offering: data.offering,
+                    niche: data.niche,
+                    customerType: data.customerType,
+                    salesChannels: data.salesChannels,
+                    hasWeb: data.hasWeb,
+                    websiteUrl: data.websiteUrl,
+                    wantWebCreated: data.wantWebCreated,
+                    socialNetworks: data.socialNetworks,
+                    desiredSocialNetworks: data.desiredSocialNetworks,
+                    primaryGoal: data.primaryGoal,
+                    secondaryGoals: data.secondaryGoals,
+                    goalOtherText: data.goalOtherText,
+                    departments: data.departments,
+                    departmentOtherText: data.departmentOtherText,
+                },
+            }));
+        } catch { /* SSR or storage full — ignore */ }
         // Navigate instantly — never block, never show spinner
         router.push("/site/onboarding/chat");
     };
