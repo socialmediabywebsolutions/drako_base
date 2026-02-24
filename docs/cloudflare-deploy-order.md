@@ -11,31 +11,43 @@ The main worker `drako-base-3` has a **service binding** `SCHEDULER` that refere
 ```
 1. drako-scheduler        (workers/drako-scheduler)
 2. autopilot-worker       (workers/autopilot-worker)
-3. drako-base-3           (main app via wrangler.workers.toml --env production)
+3. preflight check        (verify deps exist)
+4. drako-base-3           (main app via wrangler.workers.toml --env production)
 ```
 
 ### Automated (CI/CD)
 
-Both GitHub Actions workflows (`build-worker.yml`, `deploy-workers.yml`) enforce this order automatically via the `deploy-deps` job which runs before the main deploy.
+Both GitHub Actions workflows (`build-worker.yml`, `deploy-workers.yml`) enforce this order automatically:
+1. `deploy-deps` job deploys scheduler + autopilot
+2. `deploy` job runs preflight check, then deploys main worker
 
 ### Manual
 
 ```bash
-# Step 1: Deploy dependency workers
-npm run deploy:scheduler
-# Equivalent: cd workers/drako-scheduler && npx wrangler deploy
-
-# Step 2: Deploy main app (only after step 1 succeeds)
-npm run deploy:production
-# Equivalent: npx wrangler deploy --config wrangler.workers.toml --env production
-
-# Or all at once:
+# Full pipeline (recommended):
 npm run deploy:all
+# Runs: deploy:scheduler -> deploy:preflight -> deploy:production
+
+# Or step-by-step:
+npm run deploy:scheduler      # Step 1
+npm run deploy:preflight      # Step 2 (verify scheduler exists)
+npm run deploy:production     # Step 3
 ```
 
-## Production Checklist
+## Preflight Checklist
 
-Before deploying `drako-base-3`, verify these resources exist in Cloudflare:
+Before deploying `drako-base-3`, confirm:
+
+| Check | Command | Expected |
+|---|---|---|
+| drako-scheduler exists | `npx wrangler deployments list --name drako-scheduler` | Shows version(s) |
+| Account ID matches | `npx wrangler whoami` | `874f900d672c1458ce134db296e6cbc6` |
+| Worker name is exact | Check `workers/drako-scheduler/wrangler.toml` | `name = "drako-scheduler"` |
+| API token has permissions | Deploy attempt succeeds | No auth errors |
+
+The automated preflight script (`scripts/preflight-deploy.js`) checks these via the Cloudflare API.
+
+## Production Resources
 
 | Resource | Type | Required By |
 |---|---|---|
@@ -50,20 +62,16 @@ Before deploying `drako-base-3`, verify these resources exist in Cloudflare:
 
 If `drako-scheduler` is not reachable at runtime:
 - **Rate limiting** bypassed (fail-open) with `console.warn`
-- No 500 errors — the app keeps running
+- No 500 errors -- the app keeps running
 - `/api/health` reports `bindings.scheduler: "missing"`
 
-**Log to watch for:**
-```
-[SCHEDULER] Service binding unavailable -- rate limiting bypassed (fail-open).
-```
-
-## Changing Bindings
+## Adding New Service Bindings
 
 If a new service binding is added:
 1. Create the target worker first
 2. Deploy the target worker
-3. Add the binding to `wrangler.workers.toml`
-4. Deploy the main worker
+3. Add it to `REQUIRED_WORKERS` in `scripts/preflight-deploy.js`
+4. Add the binding to `wrangler.workers.toml`
+5. Deploy the main worker
 
 See also: [cloudflare-service-bindings.md](./cloudflare-service-bindings.md) for technical details.
