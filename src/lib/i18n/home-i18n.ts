@@ -71,17 +71,17 @@ const es: HomeTexts = {
         title: "De la idea a la acción en 3 pasos",
         steps: [
             {
-                icon: "📋",
+                icon: "",
                 title: "1. Cuéntanos tu negocio",
                 desc: "Un formulario rápido de 5 minutos. Sin letra pequeña, sin compromisos.",
             },
             {
-                icon: "🔍",
+                icon: "",
                 title: "2. Diagnóstico inteligente",
                 desc: "Nuestros agentes analizan tu sector, competencia y oportunidades de crecimiento.",
             },
             {
-                icon: "🚀",
+                icon: "",
                 title: "3. Activación de departamentos",
                 desc: "Se activan los departamentos que necesitas: marketing, ventas, atención al cliente y más.",
             },
@@ -95,43 +95,43 @@ const es: HomeTexts = {
         items: [
             {
                 id: "marketing",
-                icon: "📢",
+                icon: "",
                 name: "Marketing",
                 desc: "Campañas, contenido y estrategia de captación.",
             },
             {
                 id: "sales",
-                icon: "💼",
+                icon: "",
                 name: "Ventas y CRM",
                 desc: "Seguimiento de leads, propuestas y cierre.",
             },
             {
                 id: "support",
-                icon: "🎧",
+                icon: "",
                 name: "Atención al cliente",
                 desc: "Respuestas automáticas, tickets y satisfacción.",
             },
             {
                 id: "finance",
-                icon: "📊",
+                icon: "",
                 name: "Finanzas",
                 desc: "Facturación, gastos, informes y previsiones.",
             },
             {
                 id: "operations",
-                icon: "⚙️",
+                icon: "",
                 name: "Operaciones",
                 desc: "Procesos internos, inventario y logística.",
             },
             {
                 id: "content",
-                icon: "✍️",
+                icon: "",
                 name: "Contenido y Redes",
                 desc: "Posts, calendarios editoriales y diseño.",
             },
             {
                 id: "automation",
-                icon: "🤖",
+                icon: "",
                 name: "Automatización",
                 desc: "Flujos automáticos que eliminan tareas repetitivas.",
             },
@@ -144,22 +144,22 @@ const es: HomeTexts = {
         title: "Lo que verás desde el primer día",
         items: [
             {
-                icon: "📄",
+                icon: "",
                 title: "Reportes inteligentes",
                 desc: "Informes automáticos de rendimiento, competencia y oportunidades.",
             },
             {
-                icon: "📱",
+                icon: "",
                 title: "Panel de control",
                 desc: "Todo tu negocio en una vista: métricas, tareas y alertas.",
             },
             {
-                icon: "✅",
+                icon: "",
                 title: "Tareas priorizadas",
                 desc: "Acciones concretas ordenadas por impacto. Sin adivinar qué hacer.",
             },
             {
-                icon: "⚡",
+                icon: "",
                 title: "Automatizaciones activas",
                 desc: "Agentes trabajando 24/7: respuestas, seguimiento, publicaciones.",
             },
@@ -170,17 +170,17 @@ const es: HomeTexts = {
         title: "Pensado para negocios que quieren crecer",
         profiles: [
             {
-                icon: "🏪",
+                icon: "",
                 title: "Negocios locales",
                 desc: "Tiendas, restaurantes, clínicas, talleres... que quieren digitalizarse sin complicaciones.",
             },
             {
-                icon: "👩‍💻",
+                icon: "",
                 title: "Profesionales independientes",
                 desc: "Consultores, coaches, diseñadores... que necesitan automatizar su día a día.",
             },
             {
-                icon: "👥",
+                icon: "",
                 title: "Equipos pequeños",
                 desc: "Startups y pymes de 2–20 personas que quieren competir como las grandes.",
             },

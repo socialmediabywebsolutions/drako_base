@@ -28,10 +28,14 @@ export function AuthForm() {
         setError(null);
 
         try {
-            const searchParams = new URLSearchParams(window.location.search);
-            const callbackUrl = searchParams.get("callbackUrl") || "/site/panel";
-
             if (mode === "register") {
+                // 1. Register via Internal API (through proxy to avoid exposing secret? No, we need a public proxy or server action).
+                // WAIT. Browser cannot call internal/auth/* directly because it needs X-Drako-Origin-Secret.
+                // We need a Next.js API Route/Server Action to proxy this safely.
+                // Or we update the CredentialsProvider logic? CredentialsProvider handles Login.
+                // Registration needs a public endpoint. 
+                // Let's call a new Next.js public API route `/api/auth/register` which calls the Worker.
+
                 const res = await fetch("/api/auth/register", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -53,7 +57,7 @@ export function AuthForm() {
                 redirect: false,
                 email,
                 password,
-                callbackUrl
+                callbackUrl: "/site/panel"
             });
 
             if (res?.error) {
@@ -61,7 +65,7 @@ export function AuthForm() {
             }
 
             if (res?.ok) {
-                window.location.href = callbackUrl;
+                window.location.href = "/site/panel";
             }
         } catch (err: any) {
             setError(err.message);
