@@ -254,33 +254,17 @@ export default function OnboardingWizard({ lang = "es" }: { lang?: OnboardingLan
         }
     };
 
-    const handleSubmit = async () => {
-        setSubmitting(true);
-        setSaveError(null);
-        try {
-            if (email) {
-                const res = await fetchWithTimeout("/api/company-profile", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(buildPayload(data, TOTAL_STEPS, true)),
-                });
-                if (!res.ok) {
-                    console.warn("[Wizard] final save returned", res.status);
-                }
-            }
-            // Always navigate — data is already in state
-            router.push("/site/onboarding/chat");
-        } catch (err) {
-            console.error("[Wizard] submit failed:", err);
-            setSaveError(
-                lang === "es"
-                    ? "No se pudo guardar, pero puedes continuar."
-                    : "Could not save, but you can continue."
-            );
-            // Navigate anyway after a brief delay
-            setTimeout(() => router.push("/site/onboarding/chat"), 1500);
+    const handleSubmit = () => {
+        // Fire-and-forget: save in background, navigate IMMEDIATELY
+        if (email) {
+            fetchWithTimeout("/api/company-profile", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(buildPayload(data, TOTAL_STEPS, true)),
+            }).catch((err) => console.warn("[Wizard] background save failed:", err));
         }
-        setSubmitting(false);
+        // Navigate instantly — never block, never show spinner
+        router.push("/site/onboarding/chat");
     };
 
     /* ─── Render ─── */
@@ -348,11 +332,6 @@ export default function OnboardingWizard({ lang = "es" }: { lang?: OnboardingLan
                 </div>
             </div>
 
-            {submitting && (
-                <div className="ow-saving-overlay">
-                    <div className="ow-saving-spinner" />
-                </div>
-            )}
         </div>
     );
 }
