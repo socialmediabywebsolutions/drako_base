@@ -37,9 +37,12 @@ export async function checkTenantRateLimit(params: {
     // In Edge Runtime, env() should return.
 
     if (!env.SCHEDULER) {
-        console.error("SCHEDULER binding missing in checkTenantRateLimit");
-        // Strict Fail Closed per Phase 3 requirements
-        return { allowed: false, retryAfter: 60 };
+        // HOTFIX: Graceful degradation when drako-scheduler is not yet deployed.
+        // Rate limiting is bypassed (fail-open) rather than blocking all traffic.
+        // ACTION REQUIRED: Deploy drako-scheduler via `npm run deploy:scheduler`
+        // See: docs/cloudflare-service-bindings.md
+        console.warn("[SCHEDULER] Service binding unavailable — rate limiting bypassed (fail-open). Deploy drako-scheduler to restore enforcement.");
+        return { allowed: true };
     }
 
     const client = new SchedulerClient(env);

@@ -11,6 +11,8 @@ export function getPagesBuildStamp(request: Request, correlationId: string, bind
   const requestHost = request.headers.get("host") ?? "";
 
   return {
+    gitSha: process.env.NEXT_PUBLIC_GIT_SHA ?? pagesCommitSha ?? "unknown",
+    buildTime: process.env.NEXT_PUBLIC_BUILD_TIME ?? new Date().toISOString(),
     pages: {
       branch: pagesBranch ?? null,
       commitSha: pagesCommitSha ?? null,

@@ -1,0 +1,490 @@
+/* ─── Drako Home — Light, Celeste, Mobile-First ─── */
+
+.drako-home {
+    --accent: #0ea5e9;
+    --accent-dark: #0284c7;
+    --accent-light: #e0f2fe;
+    --accent-glow: rgba(14, 165, 233, 0.15);
+    --bg: #ffffff;
+    --bg-alt: #f8fafc;
+    --text: #111827;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --radius: 16px;
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+}
+
+/* ── Hero ── */
+.dh-hero {
+    text-align: center;
+    padding: 80px 24px 64px;
+    background: linear-gradient(180deg, var(--bg) 0%, var(--accent-light) 100%);
+}
+
+.dh-hero h1 {
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.1;
+    margin: 0 0 20px;
+}
+
+.dh-hero p {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    color: var(--text-muted);
+    max-width: 640px;
+    margin: 0 auto 32px;
+    line-height: 1.6;
+}
+
+.dh-hero-ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+}
+
+.dh-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 32px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 14px var(--accent-glow);
+}
+
+.dh-btn-primary:hover {
+    background: var(--accent-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--accent-glow);
+}
+
+.dh-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 32px;
+    background: transparent;
+    color: var(--text);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.dh-btn-secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-light);
+}
+
+/* ── Section base ── */
+.dh-section {
+    padding: 72px 24px;
+    max-width: 1120px;
+    margin: 0 auto;
+}
+
+.dh-section-alt {
+    background: var(--bg-alt);
+}
+
+.dh-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+}
+
+.dh-section-title {
+    font-size: clamp(1.5rem, 4vw, 2.25rem);
+    font-weight: 800;
+    color: var(--text);
+    margin: 0 0 16px;
+    line-height: 1.2;
+}
+
+.dh-section-subtitle {
+    font-size: 1rem;
+    color: var(--text-muted);
+    max-width: 600px;
+    margin: 0 0 40px;
+    line-height: 1.6;
+}
+
+.dh-section-center {
+    text-align: center;
+}
+
+.dh-section-center .dh-section-subtitle {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ── Steps (How it works) ── */
+.dh-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+}
+
+.dh-step-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px 24px;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.dh-step-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 8px 24px var(--accent-glow);
+    transform: translateY(-4px);
+}
+
+.dh-step-icon {
+    font-size: 2.5rem;
+    margin-bottom: 16px;
+}
+
+.dh-step-card h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+    color: var(--text);
+}
+
+.dh-step-card p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* ── Department Cards ── */
+.dh-departments {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.dh-dept-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 20px;
+    transition: all 0.2s ease;
+}
+
+.dh-dept-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 4px 16px var(--accent-glow);
+    transform: translateY(-2px);
+}
+
+.dh-dept-icon {
+    font-size: 1.8rem;
+    margin-bottom: 10px;
+}
+
+.dh-dept-card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 6px;
+    color: var(--text);
+}
+
+.dh-dept-card p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin: 0;
+}
+
+.dh-departments-footer {
+    text-align: center;
+    margin-top: 32px;
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* ── Results Grid ── */
+.dh-results {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+}
+
+.dh-result-card {
+    background: var(--accent-light);
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    padding: 28px 24px;
+    transition: all 0.2s ease;
+}
+
+.dh-result-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+
+.dh-result-icon {
+    font-size: 2rem;
+    margin-bottom: 12px;
+}
+
+.dh-result-card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 6px;
+    color: var(--text);
+}
+
+.dh-result-card p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin: 0;
+}
+
+/* ── For Whom (Profiles) ── */
+.dh-profiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+}
+
+.dh-profile-card {
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px 24px;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.dh-profile-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 8px 24px var(--accent-glow);
+}
+
+.dh-profile-icon {
+    font-size: 2.5rem;
+    margin-bottom: 16px;
+}
+
+.dh-profile-card h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+    color: var(--text);
+}
+
+.dh-profile-card p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* ── Final CTA ── */
+.dh-cta-section {
+    text-align: center;
+    padding: 72px 24px;
+    background: linear-gradient(180deg, var(--bg-alt) 0%, var(--accent-light) 100%);
+}
+
+.dh-cta-section h2 {
+    font-size: clamp(1.5rem, 4vw, 2.25rem);
+    font-weight: 800;
+    margin: 0 0 12px;
+    color: var(--text);
+}
+
+.dh-cta-section p {
+    font-size: 1rem;
+    color: var(--text-muted);
+    margin: 0 0 32px;
+}
+
+/* ── Footer ── */
+.dh-footer {
+    padding: 32px 24px;
+    text-align: center;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+}
+
+.dh-footer-copy {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.dh-footer-links {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+}
+
+.dh-footer-links a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+/* ── Header ── */
+.dh-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+}
+
+.dh-header-inner {
+    max-width: 1120px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+}
+
+.dh-logo {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text);
+    text-decoration: none;
+    letter-spacing: -0.02em;
+}
+
+.dh-logo span {
+    color: var(--accent);
+}
+
+.dh-nav {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.dh-nav a {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.15s;
+}
+
+.dh-nav a:hover {
+    color: var(--accent);
+}
+
+.dh-nav-cta {
+    padding: 10px 20px !important;
+    background: var(--accent) !important;
+    color: #fff !important;
+    border-radius: 10px;
+    font-weight: 700 !important;
+    font-size: 0.8rem !important;
+    transition: all 0.2s;
+}
+
+.dh-nav-cta:hover {
+    background: var(--accent-dark) !important;
+}
+
+/* ── Mobile nav ── */
+@media (max-width: 768px) {
+    .dh-nav a:not(.dh-nav-cta) {
+        display: none;
+    }
+
+    .dh-hero h1 {
+        font-size: 2rem;
+    }
+
+    .dh-departments {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .dh-departments {
+        grid-template-columns: 1fr;
+    }
+
+    .dh-hero-ctas {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .dh-btn-primary,
+    .dh-btn-secondary {
+        justify-content: center;
+    }
+}
+
+/* ── Fade-in animation ── */
+.dh-fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: dhFadeIn 0.6s ease forwards;
+}
+
+@keyframes dhFadeIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dh-fade-in:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.dh-fade-in:nth-child(2) {
+    animation-delay: 0.08s;
+}
+
+.dh-fade-in:nth-child(3) {
+    animation-delay: 0.16s;
+}
+
+.dh-fade-in:nth-child(4) {
+    animation-delay: 0.24s;
+}
+
+.dh-fade-in:nth-child(5) {
+    animation-delay: 0.32s;
+}
+
+.dh-fade-in:nth-child(6) {
+    animation-delay: 0.4s;
+}
+
+.dh-fade-in:nth-child(7) {
+    animation-delay: 0.48s;
+}

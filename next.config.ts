@@ -1,6 +1,14 @@
+import { execSync } from "child_process";
 import type { NextConfig } from "next";
 
+let gitSha = "unknown";
+try { gitSha = execSync("git rev-parse --short HEAD").toString().trim(); } catch { /* ignore */ }
+
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_GIT_SHA: gitSha,
+    NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
+  },
   // Ensure tracing resolves packages from the workspace root when running inside monorepo-like setups.
 
   // outputFileTracingRoot: __dirname,
