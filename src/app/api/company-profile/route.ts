@@ -1,4 +1,4 @@
-export const runtime = "edge";
+export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/cf";
@@ -38,19 +38,18 @@ export async function GET(req: NextRequest) {
         const row = await db
             .prepare("SELECT * FROM company_profiles WHERE user_email = ?")
             .bind(email)
-            .first();
+            .first<Record<string, unknown>>();
 
         if (!row) {
             return NextResponse.json({ profile: null });
         }
 
+        const ctx = row.structured_context;
         return NextResponse.json({
             profile: {
                 ...row,
                 structured_context:
-                    typeof row.structured_context === "string"
-                        ? JSON.parse(row.structured_context as string)
-                        : row.structured_context ?? {},
+                    typeof ctx === "string" ? JSON.parse(ctx) : ctx ?? {},
             },
         });
     } catch (error) {
