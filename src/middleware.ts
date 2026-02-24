@@ -89,8 +89,8 @@ export async function middleware(req: NextRequest) {
       }
     }
 
-    // ✅ AUTH CHECK: Protect /client routes (FAIL-CLOSED)
-    if (pathname.startsWith("/client")) {
+    // ✅ AUTH CHECK: Protect /client & /site/onboarding routes (FAIL-CLOSED)
+    if (pathname.startsWith("/client") || pathname.startsWith("/site/onboarding")) {
       const session = await extractSessionFromRequest(req);
       if (!session) {
         // FAIL-CLOSED: No session → login

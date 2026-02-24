@@ -28,21 +28,17 @@ export function AuthForm() {
         setError(null);
 
         try {
-            if (mode === "register") {
-                // 1. Register via Internal API (through proxy to avoid exposing secret? No, we need a public proxy or server action).
-                // WAIT. Browser cannot call internal/auth/* directly because it needs X-Drako-Origin-Secret.
-                // We need a Next.js API Route/Server Action to proxy this safely.
-                // Or we update the CredentialsProvider logic? CredentialsProvider handles Login.
-                // Registration needs a public endpoint. 
-                // Let's call a new Next.js public API route `/api/auth/register` which calls the Worker.
+            const searchParams = new URLSearchParams(window.location.search);
+            const callbackUrl = searchParams.get("callbackUrl") || "/site/panel";
 
+            if (mode === "register") {
                 const res = await fetch("/api/auth/register", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email, password, name }),
                 });
 
-                const data = await res.json();
+                const data = await res.json() as { error?: string };
                 if (!res.ok) throw new Error(data.error || "Registration failed");
 
                 // Auto login after register
@@ -57,7 +53,7 @@ export function AuthForm() {
                 redirect: false,
                 email,
                 password,
-                callbackUrl: "/site/panel"
+                callbackUrl
             });
 
             if (res?.error) {
@@ -65,7 +61,7 @@ export function AuthForm() {
             }
 
             if (res?.ok) {
-                window.location.href = "/site/panel";
+                window.location.href = callbackUrl;
             }
         } catch (err: any) {
             setError(err.message);
@@ -81,8 +77,8 @@ export function AuthForm() {
                 <button
                     onClick={() => setMode("login")}
                     className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${mode === "login"
-                            ? "bg-white text-slate-900 shadow-sm"
-                            : "text-slate-500 hover:text-slate-700"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
                         }`}
                 >
                     Login
@@ -90,8 +86,8 @@ export function AuthForm() {
                 <button
                     onClick={() => setMode("register")}
                     className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${mode === "register"
-                            ? "bg-white text-slate-900 shadow-sm"
-                            : "text-slate-500 hover:text-slate-700"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
                         }`}
                 >
                     Register
