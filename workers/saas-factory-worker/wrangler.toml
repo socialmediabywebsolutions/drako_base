@@ -1,0 +1,21 @@
+name = "saas-factory-worker"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+logpush = true
+
+# D1 Database (Shared with Main App)
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+
+# Cloudflare Queues Consumer (SaaS Factory)
+[[queues.consumers]]
+queue = "drako-saas-factory-queue"
+max_batch_size = 5
+max_batch_timeout = 10
+
+# Vars
+[vars]
+STRICT_FAIL_CLOSED = "true"

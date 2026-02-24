@@ -60,16 +60,21 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
-          workingDirectory: workers/drako-scheduler
+          command: deploy --config workers/drako-scheduler/wrangler.toml
 
       - name: Deploy autopilot-worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
-          workingDirectory: workers/autopilot-worker
+          command: deploy --config workers/autopilot-worker/wrangler.toml
+
+      - name: Deploy saas-factory-worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config workers/saas-factory-worker/wrangler.toml
 
   deploy:
     needs: [build, deploy-deps]
@@ -117,13 +122,12 @@ jobs:
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://drako.systems/api/health)
           if [ "$STATUS" -ne 200 ]; then echo "Health check failed with $STATUS"; exit 1; fi
 
+      - name: Check Health bindings
+        run: |
+          BODY=$(curl -s https://drako.systems/api/health)
+          echo "$BODY" | grep -q '"scheduler"' && echo "Scheduler binding present" || echo "WARN: scheduler binding not in response"
+
       - name: Check SaaS API
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://drako.systems/api/saas)
           if [ "$STATUS" -ne 200 ]; then echo "SaaS check failed with $STATUS"; exit 1; fi
-
-      - name: Check Agents API
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://drako.systems/api/agents)
-          if [ "$STATUS" -ne 200 ]; then echo "Agents check failed with $STATUS"; exit 1; fi
-

@@ -33,9 +33,10 @@
     "verify:monetization": "tsx scripts/verify-holding-monetization.ts",
     "verify:provisioning": "tsx scripts/verify-provisioning-states.ts",
     "deploy:scheduler": "cd workers/drako-scheduler && npx wrangler deploy",
+    "deploy:saas-factory": "cd workers/saas-factory-worker && npx wrangler deploy",
     "deploy:preflight": "node scripts/preflight-deploy.js",
     "deploy:production": "npm run cf:deploy",
-    "deploy:all": "npm run deploy:scheduler && npm run deploy:preflight && npm run deploy:production"
+    "deploy:all": "npm run deploy:scheduler && npm run deploy:saas-factory && npm run deploy:preflight && npm run deploy:production"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",

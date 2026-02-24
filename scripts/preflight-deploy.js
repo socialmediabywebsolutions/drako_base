@@ -11,7 +11,10 @@
  * Requires: CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID env vars.
  */
 
-const REQUIRED_WORKERS = ["drako-scheduler"];
+const REQUIRED_WORKERS = [
+    "drako-scheduler",
+    "saas-factory-worker",
+];
 
 async function checkWorkerExists(accountId, apiToken, workerName) {
     const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${workerName}`;
@@ -36,15 +39,17 @@ async function main() {
     for (const name of REQUIRED_WORKERS) {
         const exists = await checkWorkerExists(accountId, apiToken, name);
         if (exists) {
-            console.log(`  OK: ${name} exists`);
+            console.log(`  ✅ ${name}`);
         } else {
-            console.error(`  MISSING: ${name} -- deploy it first with: npm run deploy:scheduler`);
+            console.error(`  ❌ MISSING: ${name}`);
             allOk = false;
         }
     }
 
     if (!allOk) {
-        console.error("\n[preflight] BLOCKED: Deploy the missing Workers before deploying drako-base-3.");
+        console.error("\n[preflight] BLOCKED: Deploy missing Workers first.");
+        console.error("  npm run deploy:scheduler       # drako-scheduler");
+        console.error("  npm run deploy:saas-factory     # saas-factory-worker");
         process.exit(1);
     }
 

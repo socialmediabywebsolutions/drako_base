@@ -29,16 +29,21 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
-          workingDirectory: workers/drako-scheduler
+          command: deploy --config workers/drako-scheduler/wrangler.toml
 
       - name: Deploy autopilot-worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
-          workingDirectory: workers/autopilot-worker
+          command: deploy --config workers/autopilot-worker/wrangler.toml
+
+      - name: Deploy saas-factory-worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config workers/saas-factory-worker/wrangler.toml
 
   deploy:
     needs: deploy-deps
@@ -73,6 +78,12 @@ jobs:
           fi
           echo "Build output verified"
           ls -la .open-next/
+
+      - name: Preflight check
+        run: node scripts/preflight-deploy.js
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
@@ -80,4 +91,3 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --config wrangler.workers.toml --env production
-
