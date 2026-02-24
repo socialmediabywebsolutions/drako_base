@@ -1,240 +1,392 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
-import Button from "@/components/ui/button";
-import Card from "@/components/ui/card";
-import Badge from "@/components/ui/badge";
-import { TextArea, TextInput } from "@/components/ui/input";
+import {
+  getOnboardingTexts,
+  GOAL_KEYS,
+  type GoalKey,
+  type OnboardingLang,
+} from "@/lib/i18n/onboarding-i18n";
 
-type Message = { id: string; sender: string; content: string; created_at: string };
+/* ─── Types ─── */
+interface CompanyProfile {
+  company_name: string;
+  sector: string | null;
+  address: string | null;
+  zone: string | null;
+  structured_context: Record<string, unknown>;
+}
 
-type ReportLink = { id: string; type: string };
+/* ─── Goal & Department label resolvers ─── */
+function goalLabel(key: string, t: ReturnType<typeof getOnboardingTexts>): string {
+  const s = t.step4;
+  const map: Record<string, string> = {};
+  for (const k of GOAL_KEYS) map[k] = s[k];
+  return map[key] ?? key;
+}
 
-export default function OnboardingChatPage() {
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [loadingChat, setLoadingChat] = useState(false);
-  const [statusText, setStatusText] = useState("Vamos a conocerte y montar tu SaaS.");
-  const [data, setData] = useState<Record<string, string>>({});
-  const [reportLinks, setReportLinks] = useState<ReportLink[]>([]);
-  const [researchStatus, setResearchStatus] = useState<string>("Pendiente");
-  const [checkoutId, setCheckoutId] = useState<string | null>(null);
-  const [provisionStatus, setProvisionStatus] = useState<string>("Pendiente");
+function deptLabel(id: string, t: ReturnType<typeof getOnboardingTexts>): string {
+  const dept = t.step5.departments.find((d) => d.id === id);
+  return dept?.label ?? id;
+}
+
+function customerLabel(type: string, t: ReturnType<typeof getOnboardingTexts>): string {
+  const s = t.step2;
+  const map: Record<string, string> = {
+    people: s.customerPeople,
+    companies: s.customerCompanies,
+    both: s.customerBoth,
+  };
+  return map[type] ?? type;
+}
+
+function statusLabel(status: string, t: ReturnType<typeof getOnboardingTexts>): string {
+  const s = t.step1;
+  const map: Record<string, string> = {
+    operating: s.statusOperating,
+    launching: s.statusLaunching,
+    idea: s.statusIdea,
+  };
+  return map[status] ?? status;
+}
+
+/* ─── Suggested Actions Generator ─── */
+function getSuggestedActions(
+  ctx: Record<string, unknown>,
+  profile: CompanyProfile,
+  lang: OnboardingLang
+): string[] {
+  const actions: string[] = [];
+  const isEs = lang === "es";
+
+  // Action based on primary goal
+  const goal = ctx.primaryGoal as string;
+  if (goal === "goalClients") {
+    actions.push(
+      isEs
+        ? `Analizar los competidores cerca de ${profile.address || profile.zone || "tu zona"} para encontrar oportunidades`
+        : `Analyze competitors near ${profile.address || profile.zone || "your area"} to find opportunities`
+    );
+  } else if (goal === "goalSocial") {
+    actions.push(
+      isEs
+        ? "Auditar tus redes sociales actuales y crear un calendario de contenido"
+        : "Audit your current social media and create a content calendar"
+    );
+  } else if (goal === "goalAutomate") {
+    actions.push(
+      isEs
+        ? "Identificar las 3 tareas más repetitivas de tu negocio para automatizarlas"
+        : "Identify the 3 most repetitive tasks in your business to automate them"
+    );
+  } else if (goal === "goalOrganize") {
+    actions.push(
+      isEs
+        ? "Crear un panel de control con los indicadores clave de tu negocio"
+        : "Create a dashboard with your business's key metrics"
+    );
+  } else if (goal === "goalFinance") {
+    actions.push(
+      isEs
+        ? "Configurar el seguimiento de gastos e ingresos con reportes automáticos"
+        : "Set up expense and income tracking with automated reports"
+    );
+  } else {
+    actions.push(
+      isEs
+        ? `Estudiar tu sector (${profile.sector ?? "general"}) y preparar un análisis de oportunidades`
+        : `Study your sector (${profile.sector ?? "general"}) and prepare an opportunity analysis`
+    );
+  }
+
+  // Action based on web presence
+  if (ctx.wantWebCreated) {
+    actions.push(
+      isEs
+        ? "Crear tu página web básica con la información de tu negocio"
+        : "Create your basic website with your business information"
+    );
+  } else if (ctx.hasWeb && ctx.websiteUrl) {
+    actions.push(
+      isEs
+        ? `Analizar tu web actual (${ctx.websiteUrl}) y sugerir mejoras`
+        : `Analyze your current website (${ctx.websiteUrl}) and suggest improvements`
+    );
+  } else {
+    actions.push(
+      isEs
+        ? "Preparar los perfiles de redes sociales para maximizar tu visibilidad"
+        : "Set up social media profiles to maximize your visibility"
+    );
+  }
+
+  // Action based on departments
+  const deps = (ctx.departments as string[]) ?? [];
+  if (deps.includes("marketing")) {
+    actions.push(
+      isEs
+        ? "Diseñar tu primera campaña de captación de clientes"
+        : "Design your first customer acquisition campaign"
+    );
+  } else if (deps.includes("strategy")) {
+    actions.push(
+      isEs
+        ? "Generar un análisis competitivo detallado de tu zona y sector"
+        : "Generate a detailed competitive analysis of your area and sector"
+    );
+  } else if (deps.includes("automation")) {
+    actions.push(
+      isEs
+        ? "Configurar las primeras automatizaciones para ahorrarte tiempo"
+        : "Set up the first automations to save you time"
+    );
+  } else {
+    actions.push(
+      isEs
+        ? "Preparar un plan de acción personalizado para las próximas 4 semanas"
+        : "Prepare a personalized action plan for the next 4 weeks"
+    );
+  }
+
+  return actions.slice(0, 3);
+}
+
+/* ─── Main Component ─── */
+export default function OnboardingChatPage({ lang = "es" }: { lang?: OnboardingLang }) {
+  const t = getOnboardingTexts(lang);
+  const { data: session } = useSession();
+  const email = session?.user?.email ?? "";
+
+  const [profile, setProfile] = useState<CompanyProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!email) return;
     (async () => {
-      if (sessionId) return;
-      const res = await fetch("/api/onboarding/session", { method: "POST" });
-      const json = (await res.json()) as { session?: { id: string } };
-      if (json.session?.id) {
-        setSessionId(json.session.id);
-        setMessages([
-          {
-            id: "welcome",
-            sender: "orchestrator",
-            content: "Soy tu orquestador. Te haré preguntas cortas y te explicaré cada paso.",
-            created_at: new Date().toISOString(),
-          },
-        ]);
+      try {
+        const res = await fetch(`/api/company-profile?email=${encodeURIComponent(email)}`);
+        const json = (await res.json()) as { profile: CompanyProfile | null };
+        setProfile(json.profile);
+      } catch {
+        /* no profile yet */
       }
+      setLoading(false);
     })();
-  }, [sessionId]);
+  }, [email]);
 
-  const leftNav = useMemo(
-    () => [
-      { label: "Datos negocio", done: Boolean(data.businessName && data.idNumber) },
-      { label: "Presencia digital", done: Boolean(data.web || data.social) },
-      { label: "Research", done: researchStatus !== "Pendiente" },
-      { label: "Reportes", done: reportLinks.length > 0 },
-      { label: "Pago", done: checkoutId !== null },
-      { label: "Provisión", done: provisionStatus === "Listo" },
-    ],
-    [data, researchStatus, reportLinks.length, checkoutId, provisionStatus]
-  );
-
-  async function sendChat(payload?: Record<string, string>) {
-    if (!sessionId) return;
-    setLoadingChat(true);
-    const body: Record<string, unknown> = { sessionId, message: input || undefined };
-    if (payload) body.data = payload;
-    const res = await fetch("/api/onboarding/chat", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const json = (await res.json()) as { messages?: Message[]; nextPrompt?: string; why?: string };
-    setLoadingChat(false);
-    if (json.messages) setMessages(json.messages);
-    if (json.nextPrompt) setStatusText(`${json.nextPrompt} ${json.why ? `(${json.why})` : ""}`);
-    setInput("");
+  if (loading) {
+    return (
+      <div className="onboarding-wizard" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+        <div className="ow-saving-spinner" />
+      </div>
+    );
   }
 
-  async function saveProfile() {
-    await sendChat(data);
+  if (!profile) {
+    return (
+      <div className="onboarding-wizard">
+        <div className="ow-step" style={{ textAlign: "center", paddingTop: 60 }}>
+          <h2 style={{ fontSize: 24, fontWeight: 700, color: "#111827", marginBottom: 12 }}>
+            {lang === "es" ? "No encontramos tu perfil" : "We couldn't find your profile"}
+          </h2>
+          <p style={{ color: "#6b7280", marginBottom: 24 }}>
+            {lang === "es"
+              ? "Parece que aún no has completado el formulario de registro."
+              : "It seems you haven't completed the registration form yet."}
+          </p>
+          <Link
+            href="/site/onboarding"
+            style={{
+              display: "inline-block",
+              padding: "12px 28px",
+              background: "#0ea5e9",
+              color: "white",
+              borderRadius: 12,
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >
+            {lang === "es" ? "Ir al formulario" : "Go to the form"}
+          </Link>
+        </div>
+      </div>
+    );
   }
 
-  async function runResearch() {
-    if (!sessionId) return;
-    setResearchStatus("En curso");
-    const res = await fetch("/api/research/jobs", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sessionId, address: data.address, radioKm: Number(data.radioKm ?? 2), industry: data.industry }),
-    });
-    const json = (await res.json()) as { status?: string };
-    setResearchStatus(json.status ?? "requires_keys");
-  }
+  const ctx = profile.structured_context ?? {};
+  const socialNets = (ctx.socialNetworks as Record<string, string>) ?? {};
+  const activeSocials = Object.entries(socialNets).filter(([, v]) => v);
+  const desiredNets = (ctx.desiredSocialNetworks as string[]) ?? [];
+  const departments = (ctx.departments as string[]) ?? [];
+  const primaryGoal = (ctx.primaryGoal as string) ?? "";
+  const secondaryGoals = (ctx.secondaryGoals as string[]) ?? [];
+  const actions = getSuggestedActions(ctx, profile, lang);
 
-  async function generateReports() {
-    if (!sessionId) return;
-    const res = await fetch("/api/reports/generate", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sessionId, radioKm: Number(data.radioKm ?? 2), pack: data.recommendedPack ?? "BASIC" }),
-    });
-    const json = (await res.json()) as { reportIds?: string[] };
-    if (json.reportIds) {
-      setReportLinks(json.reportIds.map((id, idx) => ({ id, type: `reporte-${idx + 1}` })));
-    }
-  }
-
-  async function startCheckout() {
-    if (!sessionId) return;
-    const res = await fetch("/api/checkout/start", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sessionId, amountCents: 14900 }),
-    });
-    const json = (await res.json()) as { id?: string };
-    if (json.id) setCheckoutId(json.id);
-  }
-
-  async function confirmCheckoutAndProvision() {
-    if (!sessionId || !checkoutId) return;
-    await fetch("/api/checkout/confirm", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ checkoutId, sessionId }),
-    });
-    await fetch("/api/provision/commit", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        sessionId,
-        name: data.businessName ?? "Nuevo SaaS",
-        slug: (data.businessName ?? "nuevo").toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        packTier: data.recommendedPack ?? "BASIC",
-      }),
-    });
-    setProvisionStatus("Listo");
-  }
+  const isEs = lang === "es";
 
   return (
-    <div className="min-h-screen bg-white text-slate-900">
-      <header className="border-b border-sky-100 bg-white px-6 py-4 flex items-center justify-between shadow-sm">
-        <div>
-          <p className="text-sm text-sky-600 font-semibold">DRĀKO Systems</p>
-          <h1 className="text-xl font-bold text-slate-900">Onboarding asistido</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="neutral">{statusText}</Badge>
-          <Link href="/site"><Button variant="outline">Volver a la home</Button></Link>
-        </div>
-      </header>
-
-      <div className="grid gap-4 px-4 py-6 lg:grid-cols-[280px,1fr,400px] max-h-screen">
-        {/* izquierda */}
-        <div className="space-y-4 overflow-y-auto">
-          <Card title="Progreso">
-            <ul className="space-y-2 text-sm">
-              {leftNav.map((step) => (
-                <li key={step.label} className="flex items-center justify-between">
-                  <span>{step.label}</span>
-                  <Badge variant={step.done ? "ok" : "neutral"}>{step.done ? "Listo" : "Pendiente"}</Badge>
-                </li>
-              ))}
-            </ul>
-          </Card>
-          <Card title="Descargas">
-            {reportLinks.length === 0 ? (
-              <p className="text-sm text-slate-600">Genera los reportes para habilitar descargas.</p>
-            ) : (
-              <ul className="space-y-2">
-                {reportLinks.map((r) => (
-                  <li key={r.id}>
-                    <Link className="text-sky-600 font-semibold underline hover:text-sky-700" href={`/api/reports/${r.id}/pdf`}>Descargar {r.type}</Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-          <Card title="Estado de research">
-            <p className="text-sm text-slate-700 font-medium">{researchStatus}</p>
-          </Card>
+    <div className="onboarding-wizard">
+      <div className="ow-summary">
+        {/* ── Header ── */}
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ fontSize: 48, marginBottom: 8 }}>🎉</div>
+          <h1 style={{ fontSize: 28, fontWeight: 700, color: "#111827", margin: "0 0 8px" }}>
+            {t.summary.title}
+          </h1>
+          <p style={{ fontSize: 16, color: "#6b7280" }}>
+            {isEs
+              ? `Bienvenido, ${profile.company_name}. Esto es lo que hemos preparado.`
+              : `Welcome, ${profile.company_name}. Here's what we've prepared.`}
+          </p>
         </div>
 
-        {/* centro */}
-        <div className="space-y-4 overflow-y-auto">
-          <Card title="Ficha rápida">
-            <div className="grid gap-2 md:grid-cols-2">
-              <TextInput placeholder="Nombre / razón social" value={data.businessName ?? ""} onChange={(e) => setData({ ...data, businessName: e.target.value })} />
-              <TextInput placeholder="NIF/CIF" value={data.idNumber ?? ""} onChange={(e) => setData({ ...data, idNumber: e.target.value })} />
-              <TextInput placeholder="Email" value={data.email ?? ""} onChange={(e) => setData({ ...data, email: e.target.value })} />
-              <TextInput placeholder="Teléfono" value={data.phone ?? ""} onChange={(e) => setData({ ...data, phone: e.target.value })} />
-              <TextInput placeholder="Dirección completa" value={data.address ?? ""} onChange={(e) => setData({ ...data, address: e.target.value })} />
-              <TextInput placeholder="Ciudad y país" value={data.cityCountry ?? ""} onChange={(e) => setData({ ...data, cityCountry: e.target.value })} />
-              <TextInput placeholder="Nicho / oficio" value={data.industry ?? ""} onChange={(e) => setData({ ...data, industry: e.target.value })} />
-              <TextInput placeholder="Servicios y precios" value={data.services ?? ""} onChange={(e) => setData({ ...data, services: e.target.value })} />
-              <TextInput placeholder="Horarios" value={data.schedule ?? ""} onChange={(e) => setData({ ...data, schedule: e.target.value })} />
-              <TextInput placeholder="Objetivo principal" value={data.goals ?? ""} onChange={(e) => setData({ ...data, goals: e.target.value })} />
-              <TextInput placeholder="Web" value={data.web ?? ""} onChange={(e) => setData({ ...data, web: e.target.value })} />
-              <TextInput placeholder="Redes sociales" value={data.social ?? ""} onChange={(e) => setData({ ...data, social: e.target.value })} />
-              <TextInput placeholder="Google Business Profile" value={data.gbp ?? ""} onChange={(e) => setData({ ...data, gbp: e.target.value })} />
-              <TextInput placeholder="Presupuesto mensual (€)" value={data.budget ?? ""} onChange={(e) => setData({ ...data, budget: e.target.value })} />
-              <TextInput placeholder="Equipo (personas)" value={data.team ?? ""} onChange={(e) => setData({ ...data, team: e.target.value })} />
-              <TextInput placeholder="Herramientas actuales" value={data.tools ?? ""} onChange={(e) => setData({ ...data, tools: e.target.value })} />
-            </div>
-            <div className="mt-3 flex gap-2">
-              <Button onClick={saveProfile} variant="primary">Guardar ficha</Button>
-              <Button onClick={runResearch} variant="secondary">Lanzar research</Button>
-              <Button onClick={generateReports} variant="secondary">Generar PDFs</Button>
-            </div>
-          </Card>
-
-          <Card title="Avance y acciones">
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={startCheckout} variant="primary">Iniciar checkout demo</Button>
-              <Button onClick={confirmCheckoutAndProvision} variant="secondary" disabled={!checkoutId}>Confirmar pago y provisionar</Button>
-              <Link href="/site/panel"><Button variant="outline">Ver panel</Button></Link>
-            </div>
-            <p className="text-sm text-slate-600 mt-2">Pack recomendado y pasos se ajustan a tu presupuesto. Pagos demo marcan el flujo como &quot;paid&quot; para provisionar.</p>
-          </Card>
-        </div>
-
-        {/* derecha chat - STICKY AT TOP */}
-        <div className="space-y-3">
-          <div className="sticky top-20">
-            <Card title="Chat con tu orquestador">
-              <div className="h-[500px] overflow-y-auto space-y-2 pr-1 mb-3">
-                {messages.map((m) => (
-                  <div key={m.id} className={`rounded-xl p-3 text-sm ${m.sender === "client" ? "bg-sky-50 text-slate-900 border border-sky-100" : "bg-emerald-50 text-emerald-900 border border-emerald-100"}`}>
-                    <p className="text-[10px] uppercase tracking-wide opacity-70 font-bold mb-1">{m.sender}</p>
-                    <p className="leading-relaxed">{m.content}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-2 border-t border-slate-100 pt-3">
-                <TextArea placeholder={statusText} value={input} onChange={(e) => setInput(e.target.value)} />
-                <Button onClick={() => sendChat()} disabled={loadingChat || !sessionId} variant="primary" className="w-full">
-                  {loadingChat ? "Enviando..." : "Enviar"}
-                </Button>
-              </div>
-            </Card>
-            <Card title="Notas" className="mt-3">
-              <p className="text-sm text-slate-600">El orquestador siempre explica el porqué de cada pregunta. Si faltan claves de APIs, verás &quot;requires_keys&quot; y un checklist para conectarlas.</p>
-            </Card>
+        {/* ── Card 1: What we understood ── */}
+        <div className="ow-summary-card">
+          <h3>📋 {t.summary.understood}</h3>
+          <div className="ow-summary-item">
+            <span className="ow-summary-key">{t.step1.companyName}</span>
+            <span className="ow-summary-value">{profile.company_name}</span>
           </div>
+          {ctx.businessStatus && (
+            <div className="ow-summary-item">
+              <span className="ow-summary-key">{t.step1.businessStatus}</span>
+              <span className="ow-summary-value">{statusLabel(ctx.businessStatus as string, t)}</span>
+            </div>
+          )}
+          {profile.sector && (
+            <div className="ow-summary-item">
+              <span className="ow-summary-key">{t.step2.sector}</span>
+              <span className="ow-summary-value">{profile.sector}</span>
+            </div>
+          )}
+          {ctx.offering && (
+            <div className="ow-summary-item">
+              <span className="ow-summary-key">{t.step2.offering}</span>
+              <span className="ow-summary-value">{ctx.offering as string}</span>
+            </div>
+          )}
+          {ctx.customerType && (
+            <div className="ow-summary-item">
+              <span className="ow-summary-key">{t.step2.customerType}</span>
+              <span className="ow-summary-value">{customerLabel(ctx.customerType as string, t)}</span>
+            </div>
+          )}
+          {(profile.address || profile.zone) && (
+            <div className="ow-summary-item">
+              <span className="ow-summary-key">{profile.address ? t.step1.address : t.step1.zone}</span>
+              <span className="ow-summary-value">{profile.address || profile.zone}</span>
+            </div>
+          )}
+          {activeSocials.length > 0 && (
+            <div className="ow-summary-item">
+              <span className="ow-summary-key">{t.step3.currentSocials}</span>
+              <span className="ow-summary-value">{activeSocials.map(([k]) => k).join(", ")}</span>
+            </div>
+          )}
+          {primaryGoal && (
+            <div className="ow-summary-item">
+              <span className="ow-summary-key">{t.step4.selectPrimary}</span>
+              <span className="ow-summary-value">{goalLabel(primaryGoal, t)}</span>
+            </div>
+          )}
+          {departments.length > 0 && (
+            <div className="ow-summary-item">
+              <span className="ow-summary-key">{t.step5.title}</span>
+              <span className="ow-summary-value">
+                {departments.map((d) => deptLabel(d, t)).join(", ")}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* ── Card 2: What we're analyzing ── */}
+        <div className="ow-summary-card">
+          <h3>🔍 {t.summary.analyzing}</h3>
+          <ul className="ow-action-list">
+            {profile.sector && (profile.address || profile.zone) && (
+              <li>
+                {isEs
+                  ? `Competidores en tu zona (${profile.address || profile.zone}) dentro del sector ${profile.sector}`
+                  : `Competitors in your area (${profile.address || profile.zone}) within the ${profile.sector} sector`}
+              </li>
+            )}
+            {ctx.hasWeb && ctx.websiteUrl && (
+              <li>
+                {isEs
+                  ? `Tu presencia web actual: ${ctx.websiteUrl}`
+                  : `Your current web presence: ${ctx.websiteUrl}`}
+              </li>
+            )}
+            {activeSocials.length > 0 && (
+              <li>
+                {isEs
+                  ? `Tus perfiles en ${activeSocials.map(([k]) => k).join(", ")}`
+                  : `Your profiles on ${activeSocials.map(([k]) => k).join(", ")}`}
+              </li>
+            )}
+            {desiredNets.length > 0 && (
+              <li>
+                {isEs
+                  ? `Oportunidades en las redes que quieres activar: ${desiredNets.join(", ")}`
+                  : `Opportunities on networks you want to activate: ${desiredNets.join(", ")}`}
+              </li>
+            )}
+            {secondaryGoals.length > 0 && (
+              <li>
+                {isEs
+                  ? `Estrategias para: ${secondaryGoals.map((g) => goalLabel(g, t)).join(", ")}`
+                  : `Strategies for: ${secondaryGoals.map((g) => goalLabel(g, t)).join(", ")}`}
+              </li>
+            )}
+            {!(profile.sector && (profile.address || profile.zone)) &&
+              activeSocials.length === 0 &&
+              desiredNets.length === 0 && (
+                <li>
+                  {isEs
+                    ? "Preparando tu análisis inicial basado en la información proporcionada"
+                    : "Preparing your initial analysis based on the information provided"}
+                </li>
+              )}
+          </ul>
+        </div>
+
+        {/* ── Card 3: Suggested first actions ── */}
+        <div className="ow-summary-card">
+          <h3>🚀 {t.summary.suggestedActions}</h3>
+          <ul className="ow-action-list">
+            {actions.map((action, i) => (
+              <li key={i}>{action}</li>
+            ))}
+          </ul>
+        </div>
+
+        {/* ── CTA ── */}
+        <div style={{ textAlign: "center", marginTop: 32 }}>
+          <Link
+            href="/site/panel"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "14px 32px",
+              background: "#0ea5e9",
+              color: "white",
+              borderRadius: 12,
+              fontWeight: 600,
+              fontSize: 16,
+              textDecoration: "none",
+              transition: "all 200ms",
+            }}
+          >
+            {isEs ? "Ir a mi panel →" : "Go to my dashboard →"}
+          </Link>
+          <p style={{ fontSize: 13, color: "#9ca3af", marginTop: 12 }}>
+            {isEs
+              ? "Desde el panel podrás seguir el progreso de todos los análisis."
+              : "From the dashboard you can track the progress of all analyses."}
+          </p>
         </div>
       </div>
     </div>
