@@ -13,9 +13,6 @@ const nextConfig: NextConfig = {
 
   // Optimize for Cloudflare Pages deployment
   output: "standalone",
-  outputFileTracingExcludes: {
-    "*": ["**/*"],
-  },
   experimental: {
     // runtime: 'edge',
   },

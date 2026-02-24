@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import {  run } from "@/lib/db";
 import { AGENT_PACKS_BY_DEPARTMENT, DepartmentId } from "@/lib/agents/agent-templates";

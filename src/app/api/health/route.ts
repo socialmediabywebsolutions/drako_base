@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
 import { resolveHostToSaas } from "@/lib/empire/host-resolver";

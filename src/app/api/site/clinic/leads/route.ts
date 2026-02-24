@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { resolveClinicContext, NoActiveClinicSubscriptionError } from "@/lib/clinic/context";
 import { saveClinicLead } from "@/lib/clinic/repository";

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { ensureDatabase, queryAll } from "@/lib/db";
 import { verifyAndActivate } from "@/lib/domains/domain-service";

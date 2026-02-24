@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { ensureDatabase } from "@/lib/db";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";

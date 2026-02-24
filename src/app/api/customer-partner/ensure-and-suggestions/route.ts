@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { buildCustomerPartnerContext, getCustomerServiceSuggestions } from "@/lib/agents/customer-partner";

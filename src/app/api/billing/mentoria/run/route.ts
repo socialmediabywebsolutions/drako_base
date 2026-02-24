@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { MentoriaInvoicer } from '@/lib/billing/mentoria-invoicer';

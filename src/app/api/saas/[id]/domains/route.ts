@@ -1,8 +1,9 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { listSaasDomains, resolveSaasContext, upsertSaasDomain } from "@/lib/saas/repository";
 import type { SaasDomainStatus } from "@/lib/saas/types";
-// export const runtime = "edge"; // OpenNext: disabled for bundling
+
 
 
 const DOMAIN_STATUSES: SaasDomainStatus[] = ["pending", "active", "paused"];

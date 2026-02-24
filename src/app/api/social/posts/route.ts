@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { listSaasSocialPosts, resolveSocialContext, SocialContextError, upsertSaasSocialPost } from "@/lib/social/repository";

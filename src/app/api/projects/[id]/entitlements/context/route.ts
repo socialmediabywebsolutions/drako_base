@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import { env } from "@/lib/cf";
@@ -6,7 +7,7 @@ import { respondDatabaseError } from "@/lib/http/errors";
 import { resolveCompanyFeaturePackContext } from "@/lib/orchestrator/company-context";
 import { getProjectById } from "@/lib/projects/repository";
 
-// export const runtime = "edge"; // OpenNext: disabled for bundling
+
 
 type RouteContext = {
   params: Promise<{ id: string }>;

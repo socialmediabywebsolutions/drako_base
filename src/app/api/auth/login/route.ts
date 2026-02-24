@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { env } from "@/lib/cf";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";

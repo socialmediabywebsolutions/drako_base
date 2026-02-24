@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { provisionSaasInCloudflare } from "@/lib/campamento-base/provisioning/cloudflare-factory";
 import { type SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-types";

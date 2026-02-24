@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { resolveBrandingContext, getUserUiPreferences, upsertUserUiPreferences } from "@/lib/branding/repository";

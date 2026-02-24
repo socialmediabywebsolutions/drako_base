@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { queryAll, run } from "@/lib/db";
 import { authorizeSaasAccess, requireTenant } from "@/lib/authz/saas-access";

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { UnauthorizedError, requireTenantAccess } from "@/lib/auth/session";
 import { runActionQueueRetention } from "@/lib/owner/action-queue-retention";

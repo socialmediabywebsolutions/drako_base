@@ -1,9 +1,10 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { handleEmployeesApiError } from "@/lib/employees/api-helpers";
 import { resolveEmployeesContext } from "@/lib/employees/context";
 import { getEmployeeProfitabilitySnapshot } from "@/lib/employees/repository";
-// export const runtime = "edge"; // OpenNext: disabled for bundling
+
 
 
 type RouteContext = {

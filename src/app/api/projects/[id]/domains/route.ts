@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { normalizeHostnameInput } from "@/lib/empire/domain-utils";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
@@ -9,7 +10,7 @@ import {
   type ProjectDomainRecord,
 } from "@/lib/projects/repository";
 
-// export const runtime = "edge"; // OpenNext: disabled for bundling
+
 
 function authErrorResponse(error: unknown) {
   if (error instanceof UnauthorizedError) {

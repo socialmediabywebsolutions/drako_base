@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { resolveBrandingContext, upsertSaasBrandingSettings } from "@/lib/branding/repository";
 import { BrandingLayoutDensity } from "@/lib/branding/types";

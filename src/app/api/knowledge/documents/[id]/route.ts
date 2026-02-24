@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { handleKnowledgeApiError } from "@/lib/knowledge/api-helpers";
@@ -8,7 +9,7 @@ import type {
   SaasKnowledgeDocumentStatus,
   SaasKnowledgeDocumentType,
 } from "@/lib/knowledge/types";
-// export const runtime = "edge"; // OpenNext: disabled for bundling
+
 
 
 const AUDIENCE_VALUES: KnowledgeAudience[] = ["OWNER", "STAFF", "BOTH"];

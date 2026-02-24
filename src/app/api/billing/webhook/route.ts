@@ -4,7 +4,7 @@ import Stripe from "stripe";
 import { env } from "@/lib/cf";
 import { type ProvisioningEvent } from "@/lib/billing/provisioning_workflow";
 
-export const runtime = 'edge';
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
     const bindings = env();

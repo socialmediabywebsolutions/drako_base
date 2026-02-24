@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import {
@@ -8,7 +9,7 @@ import {
 } from "@/lib/customers/repository";
 import type { CustomerBookingStatus } from "@/lib/customers/types";
 import { listSaasServices, resolveEconomyContext } from "@/lib/economy/repository";
-// export const runtime = "edge"; // OpenNext: disabled for bundling
+
 
 
 type RouteContext = {

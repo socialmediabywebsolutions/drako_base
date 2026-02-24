@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { saveBusinessKnowledge, generateSituationalAnalysis } from "@/lib/campamento-base/bi/knowledge-base";
 

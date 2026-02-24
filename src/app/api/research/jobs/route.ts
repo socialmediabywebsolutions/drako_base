@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { ensureDatabase, queryAll, run } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { listSaasPacks } from "@/lib/packs/repository";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";

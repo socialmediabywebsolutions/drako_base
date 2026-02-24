@@ -1,9 +1,10 @@
+export const dynamic = "force-dynamic";
 
 import { NextResponse } from 'next/server';
 import { getDracoDbFromRequestContext } from '@/lib/db';
 import { MentorSessionEngine } from '@/lib/mentoria/session-engine';
 
-// export const runtime = 'edge'; // OpenNext: disabled for Cloudflare Pages compat
+
 
 export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
     const params = await props.params;

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { env } from "@/lib/cf";
 import { runAi } from "@/lib/ai/client";

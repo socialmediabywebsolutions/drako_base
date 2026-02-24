@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import {
     calculateHealthScore,
@@ -5,7 +6,7 @@ import {
     getLatestHealthScore,
 } from "@/lib/campamento-base/health-score/calculator";
 
-// export const runtime = "edge"; // OpenNext: disabled for bundling
+
 
 /**
  * GET /api/saas/[id]/health

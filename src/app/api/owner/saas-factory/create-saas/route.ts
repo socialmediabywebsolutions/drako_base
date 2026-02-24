@@ -21,7 +21,7 @@ import { getSession } from "next-auth/react"; // Note: This might need server-si
 // Let's rely on headers or a simple secret for now if I can't find the auth helper, 
 // OR better: assume the middleware handles generic auth and we just check role.
 
-export const runtime = "edge";
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
     try {

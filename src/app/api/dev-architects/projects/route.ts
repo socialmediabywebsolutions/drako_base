@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { env, type DracoEnv } from "@/lib/cf";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";

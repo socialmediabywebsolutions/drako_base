@@ -1,7 +1,8 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getSaasPublicProfile } from "@/lib/saas/repository";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
-// export const runtime = "edge"; // OpenNext: disabled for bundling
+
 
 
 type RouteContext = {

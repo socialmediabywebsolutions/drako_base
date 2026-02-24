@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from 'next/server';
 import { env } from '@/lib/cf';
 import { syncStripeSubscription } from '@/lib/billing/stripe-sync';

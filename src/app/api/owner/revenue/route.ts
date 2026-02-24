@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { queryAll } from "@/lib/db";
 import { authorizeSaasAccess, requireOwner } from "@/lib/authz/saas-access";
 
-export const runtime = 'edge';
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
     try {

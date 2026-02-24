@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { queryAll } from "@/lib/db";
 import { ensureCampamentoBase, getCampamentoCoreAgentsCatalog } from "@/lib/campamento-base";

@@ -1,7 +1,8 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getTemplate } from "@/lib/campamento-base/templates/marketplace";
 
-// export const runtime = "edge"; // OpenNext: disabled for bundling
+
 
 /**
  * GET /api/templates/[slug]
