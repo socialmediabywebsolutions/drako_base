@@ -41,10 +41,6 @@ binding = "SAAS_FACTORY_QUEUE"
 queue = "drako-provisioning-queue"
 binding = "PROVISIONING_QUEUE"
 
-# ✅ SaaS Factory Queue (Consumer)
-[[queues.consumers]]
-queue = "drako-saas-factory-queue"
-
 # ✅ Scheduler Service Binding (Phase 3)
 [[services]]
 binding = "SCHEDULER"
@@ -84,9 +80,6 @@ binding = "SAAS_FACTORY_QUEUE"
 [[env.production.queues.producers]]
 queue = "drako-provisioning-queue"
 binding = "PROVISIONING_QUEUE"
-
-[[env.production.queues.consumers]]
-queue = "drako-saas-factory-queue"
 
 [[env.production.services]]
 binding = "SCHEDULER"
