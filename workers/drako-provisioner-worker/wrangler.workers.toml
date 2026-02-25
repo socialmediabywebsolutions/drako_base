@@ -7,6 +7,8 @@ workers_dev = true
 binding = "DRKO_HOLDING_DB"
 database_name = "drako_holding_db"
 database_id = "52752a5c-b290-4633-91c6-e2a371a0c669"
+migrations_table = "drko_provisioner_migrations"
+migrations_dir = "migrations"
 
 [[kv_namespaces]]
 binding = "DRKO_GLOBAL_CONFIG"
