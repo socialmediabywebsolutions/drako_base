@@ -64,6 +64,14 @@ Recommended order:
 5. Add cross-token rejection tests.
 6. Emit only aggregate telemetry events to base.
 
+## Migration Plan (Existing Users)
+1. Keep `AUTHS_LEGACY_COMPATS_ENABLED=true` during transition window.
+2. Enable `ROUTINGS_SUBDOMAINS_ENABLED=true` first.
+3. Enable `AUTHS_ISOLATIONS_ENABLED=true` and route all new signups to `/api/drakos/auths/*` or `/api/mentorias/auths/*`.
+4. Do not auto-merge identities between drakos and mentorias; users register independently per SaaS.
+5. Communicate re-registration flow to legacy users per SaaS where needed.
+6. After monitoring period, set `AUTHS_LEGACY_COMPATS_ENABLED=false`.
+
 ## Verification Procedure
 1. Run `pnpm test:auth-isolation`.
 2. Run `pnpm build`.

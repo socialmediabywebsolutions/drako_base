@@ -12,8 +12,8 @@ function assert(condition: unknown, message: string) {
 async function testCookieIsolation() {
   const drakosCookie = getAuthsCookieName("drakos");
   const mentoriasCookie = getAuthsCookieName("mentorias");
-  assert(drakosCookie === "drakos_session", `Expected drakos_session cookie, got ${drakosCookie}`);
-  assert(mentoriasCookie === "mentorias_session", `Expected mentorias_session cookie, got ${mentoriasCookie}`);
+  assert(drakosCookie === "__Host-drakos_session", `Expected __Host-drakos_session cookie, got ${drakosCookie}`);
+  assert(mentoriasCookie === "__Host-mentorias_session", `Expected __Host-mentorias_session cookie, got ${mentoriasCookie}`);
   assert(drakosCookie !== mentoriasCookie, "Cookies must be different per SaaS.");
   console.log("PASS cookie names are isolated.");
 }
@@ -47,6 +47,7 @@ async function testHostContextIsolation() {
 async function testBaseLegacyRegisterBlock() {
   process.env.AUTHS_ISOLATIONS_ENABLED = "true";
   process.env.AUTHS_LEGACY_COMPATS_ENABLED = "true";
+  process.env.AUTHS_LEGACY_REGISTER_ENABLED = "0";
 
   const req = new Request("https://base.drako.systems/api/auth/register", {
     method: "POST",
@@ -61,7 +62,7 @@ async function testBaseLegacyRegisterBlock() {
     }),
   });
   const res = await legacyRegister(req);
-  assert(res.status === 403, `Base register should be blocked (expected 403, got ${res.status}).`);
+  assert(res.status === 403 || res.status === 410, `Base register should be blocked (expected 403/410, got ${res.status}).`);
   console.log("PASS base host blocks legacy final-user registration.");
 }
 

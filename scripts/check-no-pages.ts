@@ -13,6 +13,23 @@ const forbiddenFiles = [
 
 console.log('🛡️ Running Solo-Worker Guardrail...');
 
+const pagesVars = [
+    'CF_PAGES',
+    'CF_PAGES_ENVIRONMENT',
+    'CF_PAGES_BRANCH',
+    'CF_PAGES_COMMIT_SHA',
+    'CF_PAGES_URL',
+    'CF_PAGES_BUILD_ID',
+];
+
+const detectedPagesVars = pagesVars.filter((key) => Boolean(process.env[key]));
+if (detectedPagesVars.length > 0) {
+    console.error(
+        `❌ ERROR: Cloudflare Pages environment detected (${detectedPagesVars.join(', ')}). This repo is Workers-only and must NOT be deployed on Pages.`
+    );
+    exit(1);
+}
+
 let detected = false;
 forbiddenFiles.forEach(file => {
     if (existsSync(file)) {

@@ -4,7 +4,7 @@ const DEFAULT_MAX_AGE_SECONDS = 60 * 60 * 8;
 
 const COOKIE_CONFIGS: Record<AuthsContext, AuthsCookieConfig> = {
   drakos: {
-    cookieName: "drakos_session",
+    cookieName: "__Host-drakos_session",
     cookiePath: "/",
     sameSite: "lax",
     secure: true,
@@ -12,7 +12,7 @@ const COOKIE_CONFIGS: Record<AuthsContext, AuthsCookieConfig> = {
     maxAgeSeconds: DEFAULT_MAX_AGE_SECONDS,
   },
   mentorias: {
-    cookieName: "mentorias_session",
+    cookieName: "__Host-mentorias_session",
     cookiePath: "/",
     sameSite: "lax",
     secure: true,
@@ -20,7 +20,7 @@ const COOKIE_CONFIGS: Record<AuthsContext, AuthsCookieConfig> = {
     maxAgeSeconds: DEFAULT_MAX_AGE_SECONDS,
   },
   bases: {
-    cookieName: "bases_session",
+    cookieName: "__Host-bases_session",
     cookiePath: "/",
     sameSite: "lax",
     secure: true,

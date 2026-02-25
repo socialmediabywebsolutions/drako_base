@@ -75,6 +75,13 @@ export async function middleware(req: NextRequest) {
       correlationId = generateCorrelationId();
     }
 
+    if (process.env.CF_PAGES === "1" || process.env.CF_PAGES_ENVIRONMENT || process.env.CF_PAGES_URL) {
+      return buildHtmlResponse(
+        "Workers-only enforcement: this application must NOT run on Cloudflare Pages. Deploy using Cloudflare Workers (wrangler) only.",
+        503,
+      );
+    }
+
     if (isRoutingsSubdomainsEnabled() && /^\/site\/mentoria(\/|$)/.test(pathname)) {
       const target = new URL(req.url);
       target.pathname = pathname.replace(/^\/site\/mentoria/, "") || "/";
