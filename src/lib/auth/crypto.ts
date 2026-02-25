@@ -17,7 +17,7 @@ export async function hashPassword(password: string): Promise<{ hash: string; sa
         {
             name: "PBKDF2",
             salt,
-            iterations: 600000, // NIST standard
+            iterations: 100000, // Reduced for Cloudflare Workers CPU limits
             hash: "SHA-256",
         },
         key,
@@ -26,7 +26,7 @@ export async function hashPassword(password: string): Promise<{ hash: string; sa
     return {
         hash: btoa(String.fromCharCode(...new Uint8Array(bits))),
         salt: btoa(String.fromCharCode(...salt)),
-        iterations: 600000,
+        iterations: 100000,
     };
 }
 

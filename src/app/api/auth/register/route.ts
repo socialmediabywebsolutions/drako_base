@@ -1,3 +1,4 @@
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
@@ -6,11 +7,12 @@ import { env } from "@/lib/cf";
 import { ensureDatabase } from "@/lib/db";
 
 /**
- * OPERACIÓN OLIMPO: Registro Definitivo
- * - Sin proxies externos.
+ * OPERACIÓN OLIMPO: Registro Definitivo (Tabula Rasa)
+ * --------------------------------------------------
+ * - Runtime: Edge (Cloudflare Workers)
+ * - Sin proxies externos (Autónomo)
  * - Lectura de body UNA sola vez.
- * - Logs JSON atómicos.
- * - Hashing WebCrypto.
+ * - Logs JSON atómicos con correlationId.
  */
 export async function POST(req: Request) {
     const incomingCorrelationId = req.headers.get("x-correlation-id");
@@ -24,7 +26,8 @@ export async function POST(req: Request) {
         correlationId,
         host,
         url: req.url,
-        method: req.method
+        method: req.method,
+        runtime: "edge"
     }));
 
     // 2. Fail-Safe Database Check (Early)
@@ -46,7 +49,7 @@ export async function POST(req: Request) {
             {
                 ok: false,
                 code: "D1_BINDING_MISSING",
-                message: "El sistema está iniciando. Reintenta en unos segundos.",
+                message: "El sistema está iniciando (D1 offline). Reintenta en unos segundos.",
                 correlationId
             },
             { status: 503 }
@@ -61,14 +64,14 @@ export async function POST(req: Request) {
         } catch (e) {
             console.warn(JSON.stringify({ event: "AUTH_REGISTER_VALIDATE_FAIL", correlationId, reason: "INVALID_JSON" }));
             return NextResponse.json(
-                { ok: false, code: "INVALID_INPUT", message: "Formato de datos inválido.", correlationId },
+                { ok: false, code: "INVALID_INPUT", message: "Formato de datos inválido (JSON malformado).", correlationId },
                 { status: 400 }
             );
         }
 
         const { email, password, name } = body;
 
-        // 4. Validation
+        // 4. Input Validation
         if (!email || !password) {
             console.warn(JSON.stringify({ event: "AUTH_REGISTER_VALIDATE_FAIL", correlationId, reason: "MISSING_FIELDS" }));
             return NextResponse.json(
@@ -80,7 +83,7 @@ export async function POST(req: Request) {
         const normalizedEmail = email.trim().toLowerCase();
         console.log(JSON.stringify({ event: "AUTH_REGISTER_VALIDATE_OK", correlationId, email: normalizedEmail }));
 
-        // 5. FASE 3: Integrity Check (Existence of tables)
+        // 5. Schema Check (Existence of tables via sqlite_master)
         console.log(JSON.stringify({ event: "AUTH_REGISTER_D1_CHECK", correlationId }));
         try {
             const tableCheck = await db.prepare(
@@ -107,32 +110,46 @@ export async function POST(req: Request) {
                 );
             }
         } catch (e: any) {
-            console.error(JSON.stringify({ event: "AUTH_REGISTER_ERROR", correlationId, code: "DB_ERROR", error: e.message }));
+            console.error(JSON.stringify({ event: "AUTH_REGISTER_ERROR", correlationId, code: "DB_ERROR", phase: "SCHEMA_CHECK", error: e.message }));
             return NextResponse.json(
                 { ok: false, code: "DB_ERROR", message: "Error al verificar la integridad de la base de datos.", correlationId },
                 { status: 500 }
             );
         }
 
-        // 6. Check duplicate
+        // 6. Check duplicate email
         const existing = await db.prepare(
             "SELECT id FROM auth_users WHERE email = ? LIMIT 1"
         ).bind(normalizedEmail).first();
 
         if (existing) {
-            console.warn(JSON.stringify({ event: "AUTH_REGISTER_VALIDATE_FAIL", correlationId, reason: "EMAIL_EXISTS" }));
+            console.warn(JSON.stringify({ event: "AUTH_REGISTER_EMAIL_EXISTS", correlationId, email: normalizedEmail }));
             return NextResponse.json(
                 { ok: false, code: "EMAIL_EXISTS", message: "Este correo ya está registrado.", correlationId },
                 { status: 409 }
             );
         }
 
-        // 7. Hash Password (WebCrypto)
+        // 7. Hash Password (WebCrypto PBKDF2 - 100k iter)
+        console.log(JSON.stringify({ event: "AUTH_REGISTER_HASH_START", correlationId }));
+        const hashStartTime = Date.now();
         let hashedPassword;
         try {
             hashedPassword = await hashPassword(password);
+            console.log(JSON.stringify({
+                event: "AUTH_REGISTER_HASH_OK",
+                correlationId,
+                hashDurationMs: Date.now() - hashStartTime,
+                iterations: hashedPassword.iterations
+            }));
         } catch (error: any) {
-            console.error(JSON.stringify({ event: "AUTH_REGISTER_ERROR", correlationId, code: "HASHING_ERROR", error: error.message }));
+            console.error(JSON.stringify({
+                event: "AUTH_REGISTER_ERROR",
+                correlationId,
+                code: "HASHING_ERROR",
+                error: error.message,
+                hint: error.name === "QuotaExceededError" ? "CPU_LIMIT" : "CRYPTO_SUBTLE_UNKNOWN"
+            }));
             return NextResponse.json(
                 { ok: false, code: "HASHING_ERROR", message: "Error al procesar la seguridad de la contraseña.", correlationId },
                 { status: 500 }
@@ -143,23 +160,37 @@ export async function POST(req: Request) {
         const credId = crypto.randomUUID();
         const now = new Date().toISOString();
 
-        // 8. Atomic Insert (Only auth tables)
-        await db.batch([
-            db.prepare(
-                "INSERT INTO auth_users (id, email, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
-            ).bind(userId, normalizedEmail, name || "Usuario", now, now),
-            db.prepare(
-                "INSERT INTO auth_credentials (id, user_id, type, hash, salt, iterations, algo, created_at) VALUES (?, ?, 'email', ?, ?, ?, 'PBKDF2-SHA256', ?)"
-            ).bind(credId, userId, hashedPassword.hash, hashedPassword.salt, hashedPassword.iterations, now)
-        ]);
+        // 8. Atomic Insert (batch)
+        try {
+            await db.batch([
+                db.prepare(
+                    "INSERT INTO auth_users (id, email, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+                ).bind(userId, normalizedEmail, name || "Usuario", now, now),
+                db.prepare(
+                    "INSERT INTO auth_credentials (id, user_id, type, hash, salt, iterations, algo, created_at) VALUES (?, ?, 'email', ?, ?, ?, 'PBKDF2-SHA256', ?)"
+                ).bind(credId, userId, hashedPassword.hash, hashedPassword.salt, hashedPassword.iterations, now)
+            ]);
 
-        console.log(JSON.stringify({
-            event: "AUTH_REGISTER_DB_OK",
-            correlationId,
-            userId,
-            durationMs: Date.now() - startTime
-        }));
+            console.log(JSON.stringify({
+                event: "AUTH_REGISTER_DB_OK",
+                correlationId,
+                userId,
+                durationMs: Date.now() - startTime
+            }));
+        } catch (dbError: any) {
+            console.error(JSON.stringify({
+                event: "AUTH_REGISTER_ERROR",
+                correlationId,
+                code: "DB_WRITE_ERROR",
+                error: dbError.message
+            }));
+            return NextResponse.json(
+                { ok: false, code: "DB_ERROR", message: "Error al guardar el usuario en la base de datos.", correlationId },
+                { status: 500 }
+            );
+        }
 
+        // 9. Success Response
         console.log(JSON.stringify({
             event: "AUTH_REGISTER_OK",
             correlationId,
@@ -188,7 +219,7 @@ export async function POST(req: Request) {
             {
                 ok: false,
                 code: "INTERNAL_SERVER_ERROR",
-                message: "Error interno del sistema. Reintenta o contacta soporte.",
+                message: "Error interno crítico en el registro. Contacta soporte.",
                 correlationId
             },
             { status: 500 }
