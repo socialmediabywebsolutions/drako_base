@@ -32,16 +32,32 @@ export default function MentoriaSignupPage() {
         }
 
         setLoading(true);
-        // Simulate API Call to create tenant/user
         try {
-            // Logic would go here: const { tenantId } = await signup(formData);
-            // For now, redirect to checkout
-            // Track 'mentoria.signup' (silent)
+            // 1. REGISTRO FORMAL EN D1 (Tabula Rasa API)
+            const regResponse = await fetch("/api/auth/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: formData.email,
+                    password: formData.password,
+                    name: formData.institutionName // Use institution name as name or separate if needed
+                })
+            });
+
+            const regData = await regResponse.json() as any;
+
+            // Si el email ya existe, procedemos (asumimos que es el mismo usuario reintentando pago)
+            // Si es un error distinto, paramos para informar al usuario
+            if (!regResponse.ok && regData.code !== "EMAIL_EXISTS") {
+                throw new Error(regData.message || "Error al crear la cuenta de acceso.");
+            }
+
+            // 2. TRACKING & STRIPE
             trackGrowthEventClient({
-                tenantId: "mentoria_ia", // Hardcoded for this specific landing flow
+                tenantId: "mentoria_ia",
                 eventName: "mentoria.signup",
-                conversionSource: "direct", // In Phase 2 this will come from URL params
-                country: "OTHER", // Phase 2: Geo-IP detection
+                conversionSource: "direct",
+                country: "OTHER",
                 payload: {
                     institutionName: formData.institutionName,
                     email: formData.email

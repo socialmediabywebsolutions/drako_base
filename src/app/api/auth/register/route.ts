@@ -8,219 +8,168 @@ import { ensureDatabase } from "@/lib/db";
 /**
  * OPERACIÓN OLIMPO: Registro Definitivo (Tabula Rasa)
  * --------------------------------------------------
- * - Runtime: Edge (Cloudflare Workers)
- * - Sin proxies externos (Autónomo)
- * - Lectura de body UNA sola vez.
+ * - 0 Proxies externos.
+ * - 1 Lectura de req.json().
  * - Logs JSON atómicos con correlationId.
+ * - Hashing WebCrypto a 100k iteraciones.
+ * - Integridad de tablas D1 verificada.
  */
 export async function POST(req: Request) {
-    const incomingCorrelationId = req.headers.get("x-correlation-id");
-    const correlationId = incomingCorrelationId || crypto.randomUUID();
     const startTime = Date.now();
-    const host = req.headers.get("host") || "unknown";
+    const correlationId = req.headers.get("x-correlation-id") || crypto.randomUUID();
 
-    // 1. Log START (JSON)
     console.log(JSON.stringify({
         event: "AUTH_REGISTER_START",
         correlationId,
-        host,
-        url: req.url,
         method: req.method,
-        runtime: "edge"
+        url: req.url
     }));
 
-    // 2. Fail-Safe Database Check (Early)
-    let db;
     try {
-        const bindings = env();
-        if (!bindings?.DRACO_DB) {
-            throw new Error("D1_BINDING_MISSING");
-        }
-        db = ensureDatabase();
-    } catch (e) {
-        console.error(JSON.stringify({
-            event: "AUTH_REGISTER_ERROR",
-            correlationId,
-            code: "D1_BINDING_MISSING",
-            error: e instanceof Error ? e.message : String(e)
-        }));
-        return NextResponse.json(
-            {
-                ok: false,
-                code: "D1_BINDING_MISSING",
-                message: "El sistema está iniciando (D1 offline). Reintenta en unos segundos.",
-                correlationId
-            },
-            { status: 503 }
-        );
-    }
-
-    try {
-        // 3. Parse Body (EXACTAMENTE UNA VEZ)
-        let body;
+        // 1. FASE 1: Recepción de datos (Lectura ÚNICA)
+        let body: any;
         try {
-            body = (await req.json()) as { email?: string; password?: string; name?: string };
+            body = await req.json();
         } catch (e) {
-            console.warn(JSON.stringify({ event: "AUTH_REGISTER_VALIDATE_FAIL", correlationId, reason: "INVALID_JSON" }));
+            console.error(JSON.stringify({ event: "AUTH_REGISTER_ERROR", correlationId, code: "INVALID_JSON" }));
             return NextResponse.json(
-                { ok: false, code: "INVALID_INPUT", message: "Formato de datos inválido (JSON malformado).", correlationId },
+                { ok: false, code: "INVALID_INPUT", message: "Formato JSON inválido.", correlationId },
                 { status: 400 }
             );
         }
 
         const { email, password, name } = body;
 
-        // 4. Input Validation
+        // 2. FASE 2: Validación
         if (!email || !password) {
-            console.warn(JSON.stringify({ event: "AUTH_REGISTER_VALIDATE_FAIL", correlationId, reason: "MISSING_FIELDS" }));
+            console.warn(JSON.stringify({ event: "AUTH_REGISTER_VALIDATE_FAIL", correlationId, missing: { email: !email, password: !password } }));
             return NextResponse.json(
                 { ok: false, code: "INVALID_INPUT", message: "Email y contraseña son obligatorios.", correlationId },
                 { status: 400 }
             );
         }
 
-        const normalizedEmail = email.trim().toLowerCase();
-        console.log(JSON.stringify({ event: "AUTH_REGISTER_VALIDATE_OK", correlationId, email: normalizedEmail }));
-
-        // 5. Schema Check (Existence of tables via sqlite_master)
-        console.log(JSON.stringify({ event: "AUTH_REGISTER_D1_CHECK", correlationId }));
-        try {
-            const tableCheck = await db.prepare(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('auth_users', 'auth_credentials')"
-            ).all();
-
-            const foundTables = tableCheck.results?.map((r: any) => r.name) || [];
-
-            if (!foundTables.includes('auth_users') || !foundTables.includes('auth_credentials')) {
-                console.error(JSON.stringify({
-                    event: "AUTH_REGISTER_ERROR",
-                    correlationId,
-                    code: "DB_NOT_READY",
-                    foundTables
-                }));
-                return NextResponse.json(
-                    {
-                        ok: false,
-                        code: "DB_NOT_READY",
-                        message: "La base de datos aún no está preparada (faltan tablas de acceso).",
-                        correlationId
-                    },
-                    { status: 503 }
-                );
-            }
-        } catch (e: any) {
-            console.error(JSON.stringify({ event: "AUTH_REGISTER_ERROR", correlationId, code: "DB_ERROR", phase: "SCHEMA_CHECK", error: e.message }));
+        const cleanEmail = email.trim().toLowerCase();
+        if (password.length < 8) {
             return NextResponse.json(
-                { ok: false, code: "DB_ERROR", message: "Error al verificar la integridad de la base de datos.", correlationId },
-                { status: 500 }
+                { ok: false, code: "INVALID_INPUT", message: "La contraseña debe tener al menos 8 caracteres.", correlationId },
+                { status: 400 }
             );
         }
 
-        // 6. Check duplicate email
-        const existing = await db.prepare(
-            "SELECT id FROM auth_users WHERE email = ? LIMIT 1"
-        ).bind(normalizedEmail).first();
-
-        if (existing) {
-            console.warn(JSON.stringify({ event: "AUTH_REGISTER_EMAIL_EXISTS", correlationId, email: normalizedEmail }));
+        // 3. FASE 3: Conectividad D1
+        const cloudflareEnv = env();
+        const db = cloudflareEnv?.DRACO_DB;
+        if (!db) {
+            console.error(JSON.stringify({ event: "AUTH_REGISTER_ERROR", correlationId, code: "D1_BINDING_MISSING" }));
             return NextResponse.json(
-                { ok: false, code: "EMAIL_EXISTS", message: "Este correo ya está registrado.", correlationId },
+                { ok: false, code: "D1_BINDING_MISSING", message: "Error interno: El binding de base de datos no está configurado.", correlationId },
+                { status: 503 }
+            );
+        }
+
+        try {
+            await ensureDatabase();
+        } catch (e: any) {
+            console.error(JSON.stringify({ event: "AUTH_REGISTER_ERROR", correlationId, code: "DB_INIT_FAIL", error: e.message }));
+            return NextResponse.json(
+                { ok: false, code: "DB_ERROR", message: "Error al inicializar la base de datos.", correlationId },
+                { status: 503 }
+            );
+        }
+
+        // 4. FASE 4: Integridad de tablas
+        const tableCheck = await db.prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('auth_users', 'auth_credentials')"
+        ).all();
+        const foundTables = tableCheck.results?.map((r: any) => r.name) || [];
+
+        if (foundTables.length < 2) {
+            console.error(JSON.stringify({ event: "AUTH_REGISTER_ERROR", correlationId, code: "DB_NOT_READY", foundTables }));
+            return NextResponse.json(
+                { ok: false, code: "DB_NOT_READY", message: "Estructura de base de datos incompleta.", correlationId },
+                { status: 503 }
+            );
+        }
+
+        // 5. FASE 5: Comprobar duplicado
+        const existing = await db.prepare("SELECT id FROM auth_users WHERE email = ?").bind(cleanEmail).first();
+        if (existing) {
+            console.warn(JSON.stringify({ event: "AUTH_REGISTER_VALIDATE_FAIL", correlationId, code: "EMAIL_EXISTS", email: cleanEmail }));
+            return NextResponse.json(
+                { ok: false, code: "EMAIL_EXISTS", message: "Este email ya está registrado.", correlationId },
                 { status: 409 }
             );
         }
 
-        // 7. Hash Password (WebCrypto PBKDF2 - 100k iter)
+        // 6. FASE 6: Hashing
+        const hashStart = Date.now();
         console.log(JSON.stringify({ event: "AUTH_REGISTER_HASH_START", correlationId }));
-        const hashStartTime = Date.now();
-        let hashedPassword;
+        let secure;
         try {
-            hashedPassword = await hashPassword(password);
+            secure = await hashPassword(password);
+            const hashDuration = Date.now() - hashStart;
             console.log(JSON.stringify({
                 event: "AUTH_REGISTER_HASH_OK",
                 correlationId,
-                hashDurationMs: Date.now() - hashStartTime,
-                iterations: hashedPassword.iterations
+                durationMs: hashDuration,
+                iterations: secure.iterations
             }));
-        } catch (error: any) {
-            console.error(JSON.stringify({
-                event: "AUTH_REGISTER_ERROR",
-                correlationId,
-                code: "HASHING_ERROR",
-                error: error.message,
-                hint: error.name === "QuotaExceededError" ? "CPU_LIMIT" : "CRYPTO_SUBTLE_UNKNOWN"
-            }));
+        } catch (e: any) {
+            console.error(JSON.stringify({ event: "AUTH_REGISTER_ERROR", correlationId, code: "HASHING_ERROR", error: e.name }));
             return NextResponse.json(
                 { ok: false, code: "HASHING_ERROR", message: "Error al procesar la seguridad de la contraseña.", correlationId },
                 { status: 500 }
             );
         }
 
+        // 7. FASE 7: Inserción Atómica
         const userId = crypto.randomUUID();
-        const credId = crypto.randomUUID();
         const now = new Date().toISOString();
 
-        // 8. Atomic Insert (batch)
         try {
             await db.batch([
                 db.prepare(
                     "INSERT INTO auth_users (id, email, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
-                ).bind(userId, normalizedEmail, name || "Usuario", now, now),
+                ).bind(userId, cleanEmail, name || null, now, now),
                 db.prepare(
-                    "INSERT INTO auth_credentials (id, user_id, type, hash, salt, iterations, algo, created_at) VALUES (?, ?, 'email', ?, ?, ?, 'PBKDF2-SHA256', ?)"
-                ).bind(credId, userId, hashedPassword.hash, hashedPassword.salt, hashedPassword.iterations, now)
+                    "INSERT INTO auth_credentials (id, user_id, type, value, salt, iterations, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+                ).bind(crypto.randomUUID(), userId, "password", secure.hash, secure.salt, secure.iterations, now)
             ]);
 
-            console.log(JSON.stringify({
-                event: "AUTH_REGISTER_DB_OK",
-                correlationId,
-                userId,
-                durationMs: Date.now() - startTime
-            }));
-        } catch (dbError: any) {
-            console.error(JSON.stringify({
-                event: "AUTH_REGISTER_ERROR",
-                correlationId,
-                code: "DB_WRITE_ERROR",
-                error: dbError.message
-            }));
+            console.log(JSON.stringify({ event: "AUTH_REGISTER_DB_OK", correlationId, userId }));
+        } catch (e: any) {
+            console.error(JSON.stringify({ event: "AUTH_REGISTER_ERROR", correlationId, code: "DB_WRITE_ERROR", error: e.message }));
             return NextResponse.json(
-                { ok: false, code: "DB_ERROR", message: "Error al guardar el usuario en la base de datos.", correlationId },
+                { ok: false, code: "DB_ERROR", message: "No se pudo crear la cuenta de usuario.", correlationId },
                 { status: 500 }
             );
         }
 
-        // 9. Success Response
+        // 8. FASE 8: Éxito Final
+        const totalDuration = Date.now() - startTime;
         console.log(JSON.stringify({
             event: "AUTH_REGISTER_OK",
             correlationId,
-            userId,
-            durationMs: Date.now() - startTime
+            durationMs: totalDuration,
+            userId
         }));
 
         return NextResponse.json({
             ok: true,
-            success: true,
-            user: { id: userId, email: normalizedEmail, name: name },
+            user: { id: userId, email: cleanEmail, name },
             correlationId
         }, { status: 201 });
 
-    } catch (error: any) {
+    } catch (e: any) {
         console.error(JSON.stringify({
             event: "AUTH_REGISTER_ERROR",
             correlationId,
             code: "INTERNAL_SERVER_ERROR",
-            error: error.message,
-            stack: error.stack,
-            durationMs: Date.now() - startTime
+            error: e.message
         }));
-
         return NextResponse.json(
-            {
-                ok: false,
-                code: "INTERNAL_SERVER_ERROR",
-                message: "Error interno crítico en el registro. Contacta soporte.",
-                correlationId
-            },
+            { ok: false, code: "INTERNAL_SERVER_ERROR", message: "Error inesperado en el servidor.", correlationId },
             { status: 500 }
         );
     }

@@ -45,9 +45,19 @@ export function AuthForm({ defaultMode = "login", lang = "es" }: { defaultMode?:
                 }
 
                 // Auto login after register
-                setMode("login");
-                setError(t.success_register);
-                setLoading(false);
+                const loginRes = await signIn("credentials", {
+                    redirect: false,
+                    email,
+                    password,
+                });
+
+                if (loginRes?.ok) {
+                    window.location.href = "/site/onboarding";
+                } else {
+                    setMode("login");
+                    setError(t.success_register);
+                    setLoading(false);
+                }
                 return;
             }
 
