@@ -5,8 +5,19 @@ import { signIn } from "next-auth/react";
 import { getAuthTexts, AuthLang } from "@/lib/i18n/auth-i18n";
 
 type AuthMode = "login" | "register";
+type AuthFormContext = "drakos" | "mentorias";
 
-export function AuthForm({ defaultMode = "login", lang = "es" }: { defaultMode?: AuthMode; lang?: AuthLang }) {
+export function AuthForm({
+    defaultMode = "login",
+    lang = "es",
+    context = "drakos",
+    redirectTo,
+}: {
+    defaultMode?: AuthMode;
+    lang?: AuthLang;
+    context?: AuthFormContext;
+    redirectTo?: string;
+}) {
     const t = getAuthTexts(lang);
     const [mode, setMode] = useState<AuthMode>(defaultMode);
     const [loading, setLoading] = useState(false);
@@ -17,8 +28,14 @@ export function AuthForm({ defaultMode = "login", lang = "es" }: { defaultMode?:
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [name, setName] = useState("");
+    const authsApiBase = context === "mentorias" ? "/api/mentorias/auths" : "/api/drakos/auths";
+    const postLoginRedirect = redirectTo ?? (context === "mentorias" ? "/client/sessions" : "/site/onboarding");
 
     const handleGoogleLogin = async () => {
+        if (context !== "drakos") {
+            setError("Google login is not available in Mentorias.");
+            return;
+        }
         setLoading(true);
         setError(null);
         await signIn("google", { callbackUrl: "/site/onboarding" });
@@ -31,7 +48,7 @@ export function AuthForm({ defaultMode = "login", lang = "es" }: { defaultMode?:
 
         try {
             if (mode === "register") {
-                const res = await fetch("/api/auth/register", {
+                const res = await fetch(`${authsApiBase}/registrations`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email, password, name }),
@@ -44,41 +61,27 @@ export function AuthForm({ defaultMode = "login", lang = "es" }: { defaultMode?:
                     throw new Error(displayMessage);
                 }
 
-                // Auto login after register
-                const loginRes = await signIn("credentials", {
-                    redirect: false,
-                    email,
-                    password,
-                });
-
-                if (loginRes?.ok) {
-                    window.location.href = "/site/onboarding";
-                } else {
-                    setMode("login");
-                    setError(t.success_register);
-                    setLoading(false);
-                }
+                window.location.href = postLoginRedirect;
                 return;
             }
 
             // Login Mode
-            const res = await signIn("credentials", {
-                redirect: false,
-                email,
-                password,
+            const loginResponse = await fetch(`${authsApiBase}/logins`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email,
+                    password,
+                }),
             });
+            const loginData = await loginResponse.json().catch(() => ({})) as { code?: string; message?: string };
 
-            if (res?.error) {
-                if (res.error === "CredentialsSignin") {
-                    throw new Error(t.errors.INVALID_CREDENTIALS);
-                }
-                throw new Error(t.errors.generic);
+            if (!loginResponse.ok) {
+                if (loginData.code === "INVALID_CREDENTIALS") throw new Error(t.errors.INVALID_CREDENTIALS);
+                throw new Error(loginData.message || t.errors.generic);
             }
 
-            if (res?.ok) {
-                // Official Flow Start: Onboarding
-                window.location.href = "/site/onboarding";
-            }
+            window.location.href = postLoginRedirect;
         } catch (err: any) {
             setError(err.message || t.errors.generic);
             console.error("AUTH_FORM_ERROR", err);

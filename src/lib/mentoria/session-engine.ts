@@ -6,12 +6,35 @@ export interface SessionConfig {
     db: any; // D1Database
 }
 
+type MentoriaSessionRow = {
+    status: string;
+    cost_est_major: number | null;
+};
+
+type CountRow = {
+    c: number | null;
+};
+
+type SumRow = {
+    total: number | null;
+};
+
+type SaasCycleRow = {
+    billing_cycle_start: string;
+    billing_cycle_end: string;
+    tenant_id: string;
+    included_sessions: number | null;
+};
+
 export class MentorSessionEngine {
     private db: D1Database;
-    private tenantId = 'mentoria-core';
+    private tenantId: string;
+    private saasId: string;
 
-    constructor(db: D1Database) {
+    constructor(db: D1Database, tenantId = "mentoria-core", saasId = "mentoria-global") {
         this.db = db;
+        this.tenantId = tenantId;
+        this.saasId = saasId;
     }
 
     async createSession(mentorId: string, clientId: string, metadata: any = {}): Promise<string> {
@@ -48,8 +71,8 @@ VALUES(?, ?, ?, ?, 'scheduled', ?, ?)`
 
         await this.emitEvent('SESSION_COMPLETED', { sessionId, durationMinutes, tokensUsed, costMajor });
 
-        const count = await this.db.prepare(`SELECT count(*) as c FROM mentoria_sessions WHERE tenant_id = ? AND status = 'completed'`).bind(this.tenantId).first('c');
-        if (count === 1) {
+        const count = await this.db.prepare(`SELECT count(*) as c FROM mentoria_sessions WHERE tenant_id = ? AND status = 'completed'`).bind(this.tenantId).first<number>('c');
+        if ((count ?? 0) === 1) {
             await this.emitEvent('FIRST_REAL_USAGE', { sessionId });
         }
     }
@@ -57,11 +80,11 @@ VALUES(?, ?, ?, ?, 'scheduled', ?, ?)`
     async billSession(sessionId: string): Promise<void> {
         const now = new Date().toISOString();
 
-        const session = await this.db.prepare(`SELECT * FROM mentoria_sessions WHERE id = ? AND tenant_id = ?`).bind(sessionId, this.tenantId).first();
+        const session = await this.db.prepare(`SELECT status, cost_est_major FROM mentoria_sessions WHERE id = ? AND tenant_id = ?`).bind(sessionId, this.tenantId).first<MentoriaSessionRow>();
         if (!session) throw new Error(`Session ${sessionId} not found`);
         if (session.status !== 'completed') throw new Error(`Session must be completed before billing`);
 
-        const costMajor = session.cost_est_major || 0;
+        const costMajor = session.cost_est_major ?? 0;
 
         await this.db.prepare(`UPDATE mentoria_sessions SET status = 'billed', billed_at = ? WHERE id = ?`).bind(now, sessionId).run();
 
@@ -86,34 +109,34 @@ VALUES(?, ?, ?, ?, 'scheduled', ?, ?)`
         // Count sessions (7d)
         const count7d = await this.db.prepare(
             `SELECT COUNT(*) as c FROM mentoria_sessions WHERE created_at >= ?`
-        ).bind(date7d).first();
+        ).bind(date7d).first<CountRow>();
 
         // Count sessions (30d)
         const count30d = await this.db.prepare(
             `SELECT COUNT(*) as c FROM mentoria_sessions WHERE created_at >= ?`
-        ).bind(date30d).first();
+        ).bind(date30d).first<CountRow>();
 
         // Count completed sessions (all time)
         const completedCount = await this.db.prepare(
             `SELECT COUNT(*) as c FROM mentoria_sessions WHERE status IN ('completed', 'billed')`
-        ).all();
+        ).first<CountRow>();
 
         // Calculate overage revenue from economic_events
         const revenueData = await this.db.prepare(
             `SELECT SUM(amount_major) as total FROM economic_events 
              WHERE event_type = 'SESSION_OVERAGE_BILLED'`
-        ).first();
+        ).first<SumRow>();
 
         // Count distinct instances
         const instanceCount = await this.db.prepare(
             `SELECT COUNT(DISTINCT id) as c FROM saas_instances WHERE slug = 'mentoria'`
-        ).first();
+        ).first<CountRow>();
 
-        const total7d = count7d?.c || 0;
-        const total30d = count30d?.c || 0;
-        const completed = completedCount.results?.[0]?.c || 0;
-        const overageRev = revenueData?.total || 0;
-        const instances = instanceCount?.c || 1;
+        const total7d = count7d?.c ?? 0;
+        const total30d = count30d?.c ?? 0;
+        const completed = completedCount?.c ?? 0;
+        const overageRev = revenueData?.total ?? 0;
+        const instances = Math.max(1, instanceCount?.c ?? 1);
 
         return {
             total_7d: total7d,
@@ -137,7 +160,9 @@ VALUES(?, ?, ?, ?, 'scheduled', ?, ?)`
         }
 
         // 1. Snapshot usage
-        const saas = await this.db.prepare(`SELECT * FROM saas_instances WHERE id = ?`).bind(saasId).first();
+        const saas = await this.db.prepare(
+            `SELECT billing_cycle_start, billing_cycle_end, tenant_id, included_sessions FROM saas_instances WHERE id = ?`
+        ).bind(saasId).first<SaasCycleRow>();
         if (!saas) throw new Error('SaaS not found');
 
         const start = saas.billing_cycle_start;
@@ -146,10 +171,10 @@ VALUES(?, ?, ?, ?, 'scheduled', ?, ?)`
         const usageRes = await this.db.prepare(
             `SELECT count(*) as total FROM mentoria_sessions 
              WHERE tenant_id = ? AND created_at >= ? AND created_at < ? AND status IN ('completed', 'billed')`
-        ).bind(saas.tenant_id, start, end).first();
+        ).bind(saas.tenant_id, start, end).first<SumRow>();
 
-        const usageCount = usageRes?.total || 0;
-        const includedSessions = saas.included_sessions || 10;
+        const usageCount = usageRes?.total ?? 0;
+        const includedSessions = saas.included_sessions ?? 10;
         const overage = Math.max(0, usageCount - includedSessions);
 
         await this.emitEvent('MONTHLY_USAGE_SNAPSHOT_CREATED', {
@@ -186,7 +211,7 @@ VALUES(?, ?, ?, ?, 'scheduled', ?, ?)`
         const id = crypto.randomUUID();
         await this.db.prepare(
             `INSERT INTO economic_events(id, saas_id, tenant_id, event_type, amount_major, currency, metadata_json, created_at)
-              VALUES(?, 'mentoria-global', 'mentoria-core', ?, ?, 'EUR', ?, datetime('now'))`
-        ).bind(id, type, amountMajor, JSON.stringify(metadata)).run();
+              VALUES(?, ?, ?, ?, ?, 'EUR', ?, datetime('now'))`
+        ).bind(id, this.saasId, this.tenantId, type, amountMajor, JSON.stringify(metadata)).run();
     }
 }

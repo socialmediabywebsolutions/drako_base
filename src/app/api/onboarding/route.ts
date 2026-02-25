@@ -4,16 +4,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { env } from "@/lib/cf";
+import { extractSessionFromRequest } from "@/lib/edge-auth";
 
 import { logger } from "@/lib/logger";
 
 // GET - Check if user completed onboarding
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions);
+    const edgeSession = await extractSessionFromRequest(req);
+    const effectiveEmail = session?.user?.email ?? edgeSession?.email ?? null;
 
-    await logger.info("Checking onboarding status", { email: session?.user?.email });
+    await logger.info("Checking onboarding status", { email: effectiveEmail });
 
-    if (!session?.user?.email) {
+    if (!effectiveEmail) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -27,7 +30,7 @@ export async function GET(_req: NextRequest) {
     try {
         const result = await db
             .prepare("SELECT id, completed_at FROM client_onboarding WHERE user_email = ?")
-            .bind(session.user.email)
+            .bind(effectiveEmail)
             .first();
 
         return NextResponse.json({
@@ -43,8 +46,10 @@ export async function GET(_req: NextRequest) {
 // POST - Save onboarding data
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
+    const edgeSession = await extractSessionFromRequest(req);
+    const effectiveEmail = session?.user?.email ?? edgeSession?.email ?? null;
 
-    if (!session?.user?.email) {
+    if (!effectiveEmail) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -138,7 +143,7 @@ export async function POST(req: NextRequest) {
             )
             .bind(
                 id,
-                session.user.email,
+                effectiveEmail,
                 contactName,
                 companyName,
                 phone || null,
@@ -161,7 +166,7 @@ export async function POST(req: NextRequest) {
 
         // Trigger competitive analysis in background (non-blocking)
         triggerCompetitiveAnalysis({
-            userEmail: session.user.email,
+            userEmail: effectiveEmail,
             address,
             sector,
             instagramUrl,

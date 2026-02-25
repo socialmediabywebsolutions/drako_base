@@ -10,7 +10,7 @@ export default function RegisterPage() {
                     <h1 className="text-3xl font-bold text-slate-900">Crear cuenta</h1>
                     <p className="mt-2 text-slate-500">Únete a DRĀKO Systems y lanza tu plataforma.</p>
                 </div>
-                <AuthForm defaultMode="register" />
+                <AuthForm defaultMode="register" context="drakos" redirectTo="/site/onboarding" />
             </div>
         </div>
     );

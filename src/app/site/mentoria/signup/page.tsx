@@ -34,7 +34,7 @@ export default function MentoriaSignupPage() {
         setLoading(true);
         try {
             // 1. REGISTRO FORMAL EN D1 (Tabula Rasa API)
-            const regResponse = await fetch("/api/auth/register", {
+            const regResponse = await fetch("/api/mentorias/auths/registrations", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

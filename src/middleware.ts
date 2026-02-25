@@ -17,6 +17,8 @@ import {
 } from "@/lib/correlation";
 import { checkTenantRateLimit } from "@/lib/security/tenant-rate-limit";
 import { extractSessionFromRequest } from "@/lib/edge-auth";
+import { isRoutingsSubdomainsEnabled } from "@/lib/auths/flags";
+import { resolveAuthsContextFromHost, resolveAuthsLoginPath } from "@/lib/auths/contexts";
 
 
 /**
@@ -53,6 +55,9 @@ export async function middleware(req: NextRequest) {
   try {
     const pathname = req.nextUrl.pathname;
     const isApi = pathname.startsWith("/api");
+    const requestedHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    const requestContext = resolveAuthsContextFromHost(requestedHost);
+    const loginPath = resolveAuthsLoginPath(requestContext);
 
     // 🔍 DRAKO STEEL v1.0.1: Correlation Identification
     if (shouldBypassCorrelation(pathname)) {
@@ -70,13 +75,25 @@ export async function middleware(req: NextRequest) {
       correlationId = generateCorrelationId();
     }
 
+    if (isRoutingsSubdomainsEnabled() && /^\/site\/mentoria(\/|$)/.test(pathname)) {
+      const target = new URL(req.url);
+      target.pathname = pathname.replace(/^\/site\/mentoria/, "") || "/";
+      if (!requestedHost || requestedHost.includes("localhost") || requestedHost.includes("127.0.0.1")) {
+        target.searchParams.set("__drako_host", "mentoria.drako.systems");
+      } else {
+        target.protocol = "https:";
+        target.hostname = "mentoria.drako.systems";
+      }
+      return NextResponse.redirect(target, 308);
+    }
+
     // ✅ AUTH CHECK: Protect /site/panel routes (FAIL-CLOSED)
     if (pathname.startsWith("/site/panel")) {
       const session = await extractSessionFromRequest(req);
 
       if (!session) {
         // FAIL-CLOSED: No session → login
-        const url = new URL("/auth/login", req.url);
+        const url = new URL(loginPath, req.url);
         url.searchParams.set("callbackUrl", pathname);
         return NextResponse.redirect(url);
       }
@@ -99,7 +116,7 @@ export async function middleware(req: NextRequest) {
       const session = await extractSessionFromRequest(req);
       if (!session) {
         // FAIL-CLOSED: No session → login
-        const url = new URL("/auth/login", req.url);
+        const url = new URL(loginPath, req.url);
         url.searchParams.set("callbackUrl", pathname);
         return NextResponse.redirect(url);
       }
@@ -127,6 +144,25 @@ export async function middleware(req: NextRequest) {
     const isPagesDevHost = hostMode === "PREVIEW";
     const isPublicHost = hostMode === "PUBLIC_SAAS";
     const isAdminHost = hostMode === "CAMPAMENTO_BASE";
+    const isMentoriasHost = host === "mentoria.drako.systems" || host.startsWith("mentoria.");
+
+    if (isRoutingsSubdomainsEnabled() && isMentoriasHost && !isApi) {
+      if (pathname === "/") {
+        const url = new URL(req.url);
+        url.pathname = "/site/mentoria";
+        return NextResponse.rewrite(url);
+      }
+      if (pathname === "/signup") {
+        const url = new URL(req.url);
+        url.pathname = "/mentorias/auths/registrations";
+        return NextResponse.rewrite(url);
+      }
+      if (pathname === "/login") {
+        const url = new URL(req.url);
+        url.pathname = "/mentorias/auths/logins";
+        return NextResponse.rewrite(url);
+      }
+    }
 
     // Rutas admin a proteger en host público
     const adminPrefixes = [
@@ -155,6 +191,19 @@ export async function middleware(req: NextRequest) {
     };
 
     if (isApi) {
+      if (isRoutingsSubdomainsEnabled() && pathname.startsWith("/api/bases/") && !isAdminHost) {
+        return NextResponse.json({ error: "Bases routes unavailable on this host" }, { status: 404 });
+      }
+      if (isRoutingsSubdomainsEnabled() && isMentoriasHost && pathname.startsWith("/api/drakos/")) {
+        return NextResponse.json({ error: "Drakos routes unavailable on Mentorias host" }, { status: 404 });
+      }
+      if (isRoutingsSubdomainsEnabled() && !isMentoriasHost && pathname.startsWith("/api/mentorias/")) {
+        return NextResponse.json({ error: "Mentorias routes unavailable on this host" }, { status: 404 });
+      }
+      if (isRoutingsSubdomainsEnabled() && isAdminHost && (pathname.startsWith("/api/drakos/auths/") || pathname.startsWith("/api/mentorias/auths/"))) {
+        return NextResponse.json({ error: "Final-user auth is unavailable on base host" }, { status: 403 });
+      }
+
       const bindings = requestBindings;
       const hasDb = Boolean(bindings?.DRACO_DB);
       const contextHeaders = new Headers(req.headers);
@@ -261,6 +310,14 @@ export async function middleware(req: NextRequest) {
     }
 
     if (isAdminHost) {
+      if (isRoutingsSubdomainsEnabled() && (
+        pathname === "/auth/login" ||
+        pathname === "/auth/register" ||
+        pathname.startsWith("/drakos/auths/") ||
+        pathname.startsWith("/mentorias/auths/")
+      )) {
+        return persistCookie(NextResponse.redirect(new URL("/", req.url)));
+      }
       return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
     }
 

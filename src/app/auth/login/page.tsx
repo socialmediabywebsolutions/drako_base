@@ -29,7 +29,7 @@ export default function LoginPage() {
                 </p>
 
                 {/* Unified Auth Form */}
-                <AuthForm />
+                <AuthForm context="drakos" redirectTo="/site/onboarding" />
 
                 {/* Back to home */}
                 <Link

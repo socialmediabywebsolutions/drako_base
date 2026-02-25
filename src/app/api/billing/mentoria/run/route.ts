@@ -5,12 +5,16 @@ import { getDb } from '@/lib/db';
 import { MentoriaInvoicer } from '@/lib/billing/mentoria-invoicer';
 import { authorizeSaasAccess } from '@/lib/authz/saas-access';
 import { extractSessionFromRequest } from '@/lib/edge-auth';
+import { resolveAuthsContextFromRequest } from '@/lib/auths/contexts';
 
 
 export async function POST(req: NextRequest) {
     const db = getDb();
 
     try {
+        if (resolveAuthsContextFromRequest(req) !== "mentorias") {
+            return NextResponse.json({ error: "Mentorias context required" }, { status: 401 });
+        }
         const body = await req.json() as any;
         const { saasId } = body;
 

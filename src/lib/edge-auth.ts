@@ -8,6 +8,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthsCookieName } from "@/lib/auths/cookies";
+import { resolveAuthsContextFromHost } from "@/lib/auths/contexts";
+import { verifyAuthsSessionToken } from "@/lib/auths/tokens";
+import { isAuthsIsolationEnabled } from "@/lib/auths/flags";
+import type { AuthsContext } from "@/lib/auths/types";
 
 // ========================================
 // SESSION INTERFACE
@@ -135,6 +140,39 @@ export async function extractSessionFromRequest(
     req: NextRequest,
     secret?: string
 ): Promise<EdgeSession | null> {
+    const requestedHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    const context = resolveAuthsContextFromHost(requestedHost);
+
+    if (isAuthsIsolationEnabled()) {
+        const isolatedCookieName = getAuthsCookieName(context);
+        const isolatedCookie = req.cookies.get(isolatedCookieName)?.value;
+        if (isolatedCookie) {
+            const claims = await verifyAuthsSessionToken(isolatedCookie, context);
+            if (claims) {
+                return {
+                    userId: claims.sub,
+                    email: claims.email,
+                    tenantId: claims.tenantId,
+                    role: claims.role,
+                    iat: claims.iat,
+                    exp: claims.exp,
+                };
+            }
+            // Explicitly block invalid cookie from current context.
+            return null;
+        }
+
+        // Explicit hard wall: if a foreign SaaS cookie is present, reject.
+        const foreignContexts: AuthsContext[] = ["drakos", "mentorias", "bases"].filter((item) => item !== context) as AuthsContext[];
+        for (const foreign of foreignContexts) {
+            const foreignCookie = req.cookies.get(getAuthsCookieName(foreign))?.value;
+            if (foreignCookie) return null;
+        }
+
+        // Do not accept legacy next-auth cookies or bearer tokens when isolation is enabled.
+        return null;
+    }
+
     const jwtSecret = secret || process.env.NEXTAUTH_SECRET;
     if (!jwtSecret) {
         console.error("NEXTAUTH_SECRET not configured");

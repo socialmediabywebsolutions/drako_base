@@ -1,19 +1,31 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getDracoDbFromRequestContext } from '@/lib/db';
 import { MentorSessionEngine } from '@/lib/mentoria/session-engine';
+import { resolveAuthsContextFromRequest } from '@/lib/auths/contexts';
+import { extractSessionFromRequest } from '@/lib/edge-auth';
+import { authorizeSaasAccess } from '@/lib/authz/saas-access';
 
 
 
-export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
     const db = getDracoDbFromRequestContext();
     if (!db) return NextResponse.json({ error: 'Database unavailable' }, { status: 503 });
 
+    if (resolveAuthsContextFromRequest(req) !== "mentorias") {
+        return NextResponse.json({ error: "Mentorias context required" }, { status: 401 });
+    }
+
     try {
         const { id } = await params;
-        const engine = new MentorSessionEngine(db);
+        const session = await extractSessionFromRequest(req);
+        const authResult = await authorizeSaasAccess(session, req);
+        if (!authResult.authorized || !authResult.tenantId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+        }
+        const engine = new MentorSessionEngine(db, authResult.tenantId, "mentoria-global");
         await engine.billSession(id);
 
         return NextResponse.json({ success: true });

@@ -10,6 +10,11 @@ import {
   type SessionRole,
 } from "@/lib/auth/session";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
+import { isAuthsIsolationEnabled, isAuthsLegacyCompatEnabled } from "@/lib/auths/flags";
+import { resolveLegacyAuthsContext } from "@/lib/auths/contexts";
+import { drakosAuths } from "@/lib/auths/drakos-auths";
+import { mentoriasAuths } from "@/lib/auths/mentorias-auths";
+import { setAuthsSessionCookie } from "@/lib/auths/http";
 
 
 type LoginBody = {
@@ -27,6 +32,34 @@ function unauthorized() {
 }
 
 export async function POST(req: Request) {
+  if (isAuthsIsolationEnabled()) {
+    if (!isAuthsLegacyCompatEnabled()) {
+      return jsonError("AUTHS_LEGACY_COMPATS_DISABLED", 410);
+    }
+
+    const body = (await req.json().catch(() => null)) as LoginBody | null;
+    if (!body?.email || !body.password) {
+      return jsonError("EMAIL_AND_PASSWORD_REQUIRED", 400);
+    }
+
+    const context = resolveLegacyAuthsContext(req);
+    if (context === "bases") {
+      return jsonError("BASES_FINAL_USER_AUTH_DISABLED", 403);
+    }
+
+    const factory = context === "mentorias" ? mentoriasAuths : drakosAuths;
+    const login = await factory.login({
+      context,
+      email: body.email,
+      password: body.password,
+    });
+    if (!login.ok) return jsonError(login.code, 401);
+
+    const response = NextResponse.json({ ok: true, role: login.role, tenantId: login.tenantId, context });
+    setAuthsSessionCookie({ response, context, token: login.token });
+    return response;
+  }
+
   const blocked = await enforcePublicEndpointPolicy({ request: req, route: "/api/auth/login" });
   if (blocked) return blocked;
   const body = (await req.json().catch(() => null)) as LoginBody | null;

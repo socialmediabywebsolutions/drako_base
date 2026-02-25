@@ -3,14 +3,17 @@ import { handleAuthRequest, RegisterPayload, VerifyPayload } from "../../workers
 import { AutopilotEnv } from "../../workers/autopilot-worker/src/index";
 
 // Mock crypto
-global.crypto = {
-    randomUUID: () => "test-uuid",
-    getRandomValues: (arr) => arr,
-    subtle: {
-        importKey: vi.fn().mockResolvedValue("key"),
-        deriveBits: vi.fn().mockResolvedValue(new ArrayBuffer(32)),
-    }
-} as any;
+Object.defineProperty(globalThis, "crypto", {
+    value: {
+        randomUUID: () => "test-uuid",
+        getRandomValues: (arr: unknown) => arr,
+        subtle: {
+            importKey: vi.fn().mockResolvedValue("key"),
+            deriveBits: vi.fn().mockResolvedValue(new ArrayBuffer(32)),
+        },
+    },
+    configurable: true,
+});
 
 global.btoa = (str) => Buffer.from(str).toString('base64');
 global.atob = (str) => Buffer.from(str, 'base64').toString();

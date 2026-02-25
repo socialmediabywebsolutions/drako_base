@@ -5,6 +5,14 @@ import { getDb } from '@/lib/db';
 import { MentorSessionEngine } from '@/lib/mentoria/session-engine';
 import { authorizeSaasAccess } from '@/lib/authz/saas-access';
 import { extractSessionFromRequest } from '@/lib/edge-auth';
+import { resolveAuthsContextFromRequest } from '@/lib/auths/contexts';
+
+type MentoriaSaasBillingRow = {
+    id: string;
+    billing_cycle_start: string;
+    billing_cycle_end: string;
+    included_sessions: number | null;
+};
 
 
 // Auth now uses extractSessionFromRequest + authorizeSaasAccess (Edge-native)
@@ -14,6 +22,9 @@ import { extractSessionFromRequest } from '@/lib/edge-auth';
  * Returns sessions for current tenant's billing cycle + usage stats
  */
 export async function GET(req: NextRequest) {
+    if (resolveAuthsContextFromRequest(req) !== "mentorias") {
+        return NextResponse.json({ error: "Mentorias context required" }, { status: 401 });
+    }
     const db = getDb();
     if (!db) {
         return NextResponse.json({ error: 'Database unavailable' }, { status: 503 });
@@ -37,7 +48,7 @@ export async function GET(req: NextRequest) {
             `SELECT id, billing_cycle_start, billing_cycle_end, included_sessions 
              FROM saas_instances 
              WHERE tenant_id = ? AND slug = 'mentoria'`
-        ).bind(tenantId).first();
+        ).bind(tenantId).first<MentoriaSaasBillingRow>();
 
         if (!saas) {
             return NextResponse.json({
@@ -90,6 +101,9 @@ export async function GET(req: NextRequest) {
  * Create a new session (if self-service enabled)
  */
 export async function POST(req: NextRequest) {
+    if (resolveAuthsContextFromRequest(req) !== "mentorias") {
+        return NextResponse.json({ error: "Mentorias context required" }, { status: 401 });
+    }
     const db = getDb();
     if (!db) {
         return NextResponse.json({ error: 'Database unavailable' }, { status: 503 });
@@ -113,7 +127,7 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        const engine = new MentorSessionEngine(db);
+        const engine = new MentorSessionEngine(db, authResult.tenantId, "mentoria-global");
         const id = await engine.createSession(mentorId, clientId, { topic });
 
         return NextResponse.json({ success: true, id }, { status: 201 });

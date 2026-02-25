@@ -1,0 +1,77 @@
+export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+import { mentoriasAuths } from "@/lib/auths/mentorias-auths";
+import { jsonError, setAuthsSessionCookie } from "@/lib/auths/http";
+import { isAuthsIsolationEnabled, isTelemetriesHoldingEnabled } from "@/lib/auths/flags";
+import { resolveAuthsContextFromRequest } from "@/lib/auths/contexts";
+import { recordCampamentoEvent } from "@/lib/empire/events";
+
+type RegistrationBody = {
+  email?: string;
+  password?: string;
+  name?: string;
+  tenantId?: string;
+};
+
+export async function POST(request: Request) {
+  if (!isAuthsIsolationEnabled()) {
+    return jsonError("AUTHS_ISOLATIONS_DISABLED", "Auth isolation is disabled.", 503);
+  }
+
+  const requestContext = resolveAuthsContextFromRequest(request);
+  if (requestContext !== "mentorias") {
+    return jsonError("HOST_CONTEXT_MISMATCH", "Invalid host for mentorias auth boundary.", 403);
+  }
+  const body = (await request.json().catch(() => null)) as RegistrationBody | null;
+  if (!body?.email || !body.password) {
+    return jsonError("INVALID_INPUT", "Email and password are required.");
+  }
+
+  const registration = await mentoriasAuths.register({
+    context: "mentorias",
+    email: body.email,
+    password: body.password,
+    name: body.name ?? null,
+    tenantId: body.tenantId ?? null,
+  });
+  if (!registration.ok) {
+    return jsonError(registration.code, registration.message, registration.code === "EMAIL_EXISTS" ? 409 : 400);
+  }
+
+  const login = await mentoriasAuths.login({
+    context: "mentorias",
+    email: body.email,
+    password: body.password,
+  });
+  if (!login.ok) {
+    return jsonError(login.code, login.message, 401);
+  }
+
+  const response = NextResponse.json({
+    ok: true,
+    user: {
+      id: registration.userId,
+      email: body.email.trim().toLowerCase(),
+      role: login.role,
+      tenantId: login.tenantId,
+    },
+  }, { status: 201 });
+
+  setAuthsSessionCookie({ response, context: "mentorias", token: login.token });
+
+  if (isTelemetriesHoldingEnabled()) {
+    await recordCampamentoEvent({
+      tenantId: login.tenantId,
+      saasId: null,
+      type: "telemetry.user_registered",
+      severity: "INFO",
+      source: "MENTORIAS_AUTHS",
+      message: "User registered in mentorias auth boundary.",
+      metadata: { saas_slug: "mentorias", event_name: "user_registered" },
+      correlationId: request.headers.get("x-drako-correlation-id") ?? crypto.randomUUID(),
+    });
+  }
+
+  return response;
+}
