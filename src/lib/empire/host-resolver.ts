@@ -76,8 +76,23 @@ export async function resolveHostToSaas(hostname: string, providedCorrelationId?
     };
   }
 
+  // 🏰 PHASE 12: FALLBACK SEGURO (Bypass DB for dev/preview hosts)
+  if (normalizedHost.endsWith(".workers.dev") || normalizedHost === "localhost" || normalizedHost === "127.0.0.1") {
+    const { DEMO_TENANT_ID } = await import("../tenants/services");
+    return {
+      status: "ACTIVE",
+      tenantId: DEMO_TENANT_ID,
+      saasSlug: "demo-saas",
+      reason: "DEVELOPMENT_HOST_FALLBACK",
+      severity: "INFO",
+      correlationId,
+      normalizedHost,
+      wasWww: normalized.wasWww,
+      materializationStep: 4,
+    };
+  }
+
   try {
-    // 🏰 PHASE 12: DOMAIN HOST RESOLVING PRIORITY
     // 1. Custom Domain (Strict: must be ACTIVE owner)
     const customRows = await queryAll<{ id: string, tenant_id: string, slug: string, domain_status: string }>(
       "SELECT id, tenant_id, slug, domain_status FROM saas_instances WHERE custom_domain = ? LIMIT 1",

@@ -122,6 +122,10 @@ export default function HomePageComponent() {
                 <div className="dh-footer-links">
                     {t.footer.legal} · <a href={`mailto:${t.footer.contact}`}>{t.footer.contact}</a>
                 </div>
+                {/* Build Stamp */}
+                <div className="dh-footer-stamp">
+                    v2 · {process.env.NEXT_PUBLIC_GIT_SHA?.slice(0, 7) || "dev"}
+                </div>
             </footer>
         </div>
     );

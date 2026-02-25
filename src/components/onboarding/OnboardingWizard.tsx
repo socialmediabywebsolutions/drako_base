@@ -17,23 +17,15 @@ interface WizardData {
     businessStatus: string;
     hasPhysicalLocation: boolean;
     address: string;
-    schedule: string;
-    zone: string;
-    offering: string;
-    sector: string;
+    country: string;
+    city: string;
     niche: string;
-    customerType: string;
-    salesChannels: string[];
     hasWeb: boolean;
     websiteUrl: string;
-    wantWebCreated: boolean;
     socialNetworks: Record<string, string>;
     desiredSocialNetworks: string[];
-    primaryGoal: string;
-    secondaryGoals: string[];
-    goalOtherText: string;
+    competitors: { name: string; url: string }[];
     departments: string[];
-    departmentOtherText: string;
 }
 
 const INITIAL_DATA: WizardData = {
@@ -41,23 +33,15 @@ const INITIAL_DATA: WizardData = {
     businessStatus: "",
     hasPhysicalLocation: false,
     address: "",
-    schedule: "",
-    zone: "",
-    offering: "",
-    sector: "",
+    country: "",
+    city: "",
     niche: "",
-    customerType: "",
-    salesChannels: [],
     hasWeb: false,
     websiteUrl: "",
-    wantWebCreated: false,
     socialNetworks: {},
     desiredSocialNetworks: [],
-    primaryGoal: "",
-    secondaryGoals: [],
-    goalOtherText: "",
+    competitors: [{ name: "", url: "" }, { name: "", url: "" }, { name: "", url: "" }],
     departments: [],
-    departmentOtherText: "",
 };
 
 const TOTAL_STEPS = 5;
@@ -110,29 +94,20 @@ export default function OnboardingWizard({ lang = "es" }: { lang?: OnboardingLan
                             businessStatus: (ctx.businessStatus as string) ?? "",
                             hasPhysicalLocation: Boolean(ctx.hasPhysicalLocation),
                             address: (json.profile.address as string) ?? "",
-                            schedule: (ctx.schedule as string) ?? "",
-                            zone: (json.profile.zone as string) ?? "",
-                            offering: (ctx.offering as string) ?? "",
-                            sector: (json.profile.sector as string) ?? "",
+                            country: (ctx.country as string) ?? "",
+                            city: (ctx.city as string) ?? "",
                             niche: (ctx.niche as string) ?? "",
-                            customerType: (ctx.customerType as string) ?? "",
-                            salesChannels: (ctx.salesChannels as string[]) ?? [],
                             hasWeb: Boolean(ctx.hasWeb),
                             websiteUrl: (ctx.websiteUrl as string) ?? "",
-                            wantWebCreated: Boolean(ctx.wantWebCreated),
                             socialNetworks: (ctx.socialNetworks as Record<string, string>) ?? {},
                             desiredSocialNetworks: (ctx.desiredSocialNetworks as string[]) ?? [],
-                            primaryGoal: (ctx.primaryGoal as string) ?? "",
-                            secondaryGoals: (ctx.secondaryGoals as string[]) ?? [],
-                            goalOtherText: (ctx.goalOtherText as string) ?? "",
+                            competitors: (ctx.competitors as { name: string; url: string }[]) ?? INITIAL_DATA.competitors,
                             departments: (ctx.departments as string[]) ?? [],
-                            departmentOtherText: (ctx.departmentOtherText as string) ?? "",
                         });
                         setStep((json.profile.current_step as number) ?? 1);
                     }
                 }
             } catch {
-                // first visit, timeout, or DB not ready — wizard still works
                 console.warn("[Wizard] Could not load profile, starting fresh.");
             }
             setLoaded(true);
@@ -144,29 +119,21 @@ export default function OnboardingWizard({ lang = "es" }: { lang?: OnboardingLan
         (d: WizardData, currentStep: number, completed = false) => ({
             userEmail: email,
             companyName: d.companyName || "Sin nombre",
-            sector: d.sector || null,
             address: d.address || null,
-            zone: d.zone || null,
             currentStep,
             completed,
             structuredContext: {
                 businessStatus: d.businessStatus,
                 hasPhysicalLocation: d.hasPhysicalLocation,
-                schedule: d.schedule,
-                offering: d.offering,
+                country: d.country,
+                city: d.city,
                 niche: d.niche,
-                customerType: d.customerType,
-                salesChannels: d.salesChannels,
                 hasWeb: d.hasWeb,
                 websiteUrl: d.websiteUrl,
-                wantWebCreated: d.wantWebCreated,
                 socialNetworks: d.socialNetworks,
                 desiredSocialNetworks: d.desiredSocialNetworks,
-                primaryGoal: d.primaryGoal,
-                secondaryGoals: d.secondaryGoals,
-                goalOtherText: d.goalOtherText,
+                competitors: d.competitors,
                 departments: d.departments,
-                departmentOtherText: d.departmentOtherText,
             },
         }),
         [email]
@@ -226,18 +193,16 @@ export default function OnboardingWizard({ lang = "es" }: { lang?: OnboardingLan
     const canProceed = (): boolean => {
         switch (step) {
             case 1:
-                if (!data.companyName.trim()) return false;
-                if (!data.businessStatus) return false;
-                if (data.hasPhysicalLocation && !data.address.trim()) return false;
-                if (!data.hasPhysicalLocation && !data.zone.trim()) return false;
-                return true;
+                return !!data.companyName.trim() && !!data.businessStatus && !!data.country.trim() && !!data.city.trim() && !!data.niche.trim();
             case 2:
-                return !!data.offering.trim() && !!data.customerType;
-            case 3:
                 if (data.hasWeb && !data.websiteUrl.trim()) return false;
                 return true;
+            case 3:
+                // Competitors are optional but name is required if URL is provided (handled in UI)
+                return true;
             case 4:
-                return !!data.primaryGoal;
+                if (data.hasPhysicalLocation && !data.address.trim()) return false;
+                return true;
             case 5:
                 return data.departments.length > 0;
             default:
@@ -248,9 +213,7 @@ export default function OnboardingWizard({ lang = "es" }: { lang?: OnboardingLan
     const goNext = () => {
         if (step < TOTAL_STEPS) {
             const next = step + 1;
-            console.log(`[Wizard] Advancing to step ${next}`);
             setStep(next);
-            // Optimistic save
             autoSave(data, next);
         }
     };
@@ -264,7 +227,7 @@ export default function OnboardingWizard({ lang = "es" }: { lang?: OnboardingLan
     };
 
     const handleSubmit = () => {
-        // Fire-and-forget: save in background, navigate IMMEDIATELY
+        // Fire-and-forget
         if (email) {
             fetchWithTimeout("/api/company-profile", {
                 method: "POST",
@@ -272,35 +235,26 @@ export default function OnboardingWizard({ lang = "es" }: { lang?: OnboardingLan
                 body: JSON.stringify(buildPayload(data, TOTAL_STEPS, true)),
             }).catch((err) => console.warn("[Wizard] background save failed:", err));
         }
-        // Always stash data in sessionStorage so the chat page works without DB
+        // Always stash data in sessionStorage
         try {
             sessionStorage.setItem("drako_wizard_data", JSON.stringify({
-                company_name: data.companyName || "Mi Empresa",
-                sector: data.sector || null,
-                address: data.address || null,
-                zone: data.zone || null,
+                company_name: data.companyName,
+                address: data.address,
+                country: data.country,
+                city: data.city,
                 structured_context: {
                     businessStatus: data.businessStatus,
                     hasPhysicalLocation: data.hasPhysicalLocation,
-                    schedule: data.schedule,
-                    offering: data.offering,
                     niche: data.niche,
-                    customerType: data.customerType,
-                    salesChannels: data.salesChannels,
                     hasWeb: data.hasWeb,
                     websiteUrl: data.websiteUrl,
-                    wantWebCreated: data.wantWebCreated,
                     socialNetworks: data.socialNetworks,
                     desiredSocialNetworks: data.desiredSocialNetworks,
-                    primaryGoal: data.primaryGoal,
-                    secondaryGoals: data.secondaryGoals,
-                    goalOtherText: data.goalOtherText,
+                    competitors: data.competitors,
                     departments: data.departments,
-                    departmentOtherText: data.departmentOtherText,
                 },
             }));
-        } catch { /* SSR or storage full — ignore */ }
-        // Navigate instantly — never block, never show spinner
+        } catch { /* ignore */ }
         router.push("/site/onboarding/chat");
     };
 
@@ -424,97 +378,25 @@ function Step1({ data, update, t }: StepProps) {
                 </div>
             </div>
 
-            <div className="ow-field">
-                <label className="ow-label">{s.hasLocation}</label>
-                <div className="ow-options grid">
-                    <div
-                        className={`ow-option ${data.hasPhysicalLocation ? "selected" : ""}`}
-                        onClick={() => update({ hasPhysicalLocation: true })}
-                    >
-                        <span className="ow-option-dot" />
-                        <span className="ow-option-label">{s.hasLocationYes}</span>
-                    </div>
-                    <div
-                        className={`ow-option ${!data.hasPhysicalLocation ? "selected" : ""}`}
-                        onClick={() => update({ hasPhysicalLocation: false })}
-                    >
-                        <span className="ow-option-dot" />
-                        <span className="ow-option-label">{s.hasLocationNo}</span>
-                    </div>
-                </div>
-            </div>
-
-            {data.hasPhysicalLocation ? (
-                <>
-                    <div className="ow-field">
-                        <label className="ow-label">{s.address}</label>
-                        <input
-                            className="ow-input"
-                            value={data.address}
-                            onChange={(e) => update({ address: e.target.value })}
-                            placeholder={s.addressPlaceholder}
-                        />
-                    </div>
-                    <div className="ow-field">
-                        <label className="ow-label">{s.schedule}</label>
-                        <input
-                            className="ow-input"
-                            value={data.schedule}
-                            onChange={(e) => update({ schedule: e.target.value })}
-                            placeholder={s.schedulePlaceholder}
-                        />
-                    </div>
-                </>
-            ) : (
+            <div className="ow-grid-fields">
                 <div className="ow-field">
-                    <label className="ow-label">{s.zone}</label>
+                    <label className="ow-label">{s.country}</label>
                     <input
                         className="ow-input"
-                        value={data.zone}
-                        onChange={(e) => update({ zone: e.target.value })}
-                        placeholder={s.zonePlaceholder}
+                        value={data.country}
+                        onChange={(e) => update({ country: e.target.value })}
+                        placeholder={s.countryPlaceholder}
                     />
                 </div>
-            )}
-        </div>
-    );
-}
-
-/* ─── Step 2: Qué haces y para quién ─── */
-function Step2({ data, update, t }: StepProps) {
-    const s = t.step2;
-    return (
-        <div className="ow-step">
-            <div className="ow-step-header">
-                <h2>{s.title}</h2>
-                <p>{s.subtitle}</p>
-            </div>
-            <div className="ow-microcopy">{s.microcopy}</div>
-
-            <div className="ow-field">
-                <label className="ow-label">{s.offering}</label>
-                <input
-                    className="ow-input"
-                    value={data.offering}
-                    onChange={(e) => update({ offering: e.target.value })}
-                    placeholder={s.offeringPlaceholder}
-                />
-            </div>
-
-            <div className="ow-field">
-                <label className="ow-label">{s.sector}</label>
-                <select
-                    className="ow-select"
-                    value={data.sector}
-                    onChange={(e) => update({ sector: e.target.value })}
-                >
-                    <option value="">{s.sectorPlaceholder}</option>
-                    {t.sectors.map((sec) => (
-                        <option key={sec} value={sec}>
-                            {sec}
-                        </option>
-                    ))}
-                </select>
+                <div className="ow-field">
+                    <label className="ow-label">{s.city}</label>
+                    <input
+                        className="ow-input"
+                        value={data.city}
+                        onChange={(e) => update({ city: e.target.value })}
+                        placeholder={s.cityPlaceholder}
+                    />
+                </div>
             </div>
 
             <div className="ow-field">
@@ -526,61 +408,13 @@ function Step2({ data, update, t }: StepProps) {
                     placeholder={s.nichePlaceholder}
                 />
             </div>
-
-            <div className="ow-field">
-                <label className="ow-label">{s.customerType}</label>
-                <div className="ow-options">
-                    {([
-                        ["people", s.customerPeople, s.customerPeopleExample],
-                        ["companies", s.customerCompanies, s.customerCompaniesExample],
-                        ["both", s.customerBoth, ""],
-                    ] as const).map(([val, label, example]) => (
-                        <div
-                            key={val}
-                            className={`ow-option ${data.customerType === val ? "selected" : ""}`}
-                            onClick={() => update({ customerType: val })}
-                        >
-                            <span className="ow-option-dot" />
-                            <div className="ow-option-content">
-                                <span className="ow-option-label">{label}</span>
-                                {example && <span className="ow-option-desc">{example}</span>}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            <div className="ow-field">
-                <label className="ow-label">{s.salesChannels}</label>
-                <div className="ow-options grid">
-                    {([
-                        ["online", s.salesOnline],
-                        ["in_person", s.salesInPerson],
-                        ["both", s.salesBoth],
-                    ] as const).map(([val, label]) => (
-                        <div
-                            key={val}
-                            className={`ow-option ${data.salesChannels.includes(val) ? "selected" : ""}`}
-                            onClick={() => {
-                                const channels = data.salesChannels.includes(val)
-                                    ? data.salesChannels.filter((c) => c !== val)
-                                    : [...data.salesChannels, val];
-                                update({ salesChannels: channels });
-                            }}
-                        >
-                            <span className="ow-option-check">✓</span>
-                            <span className="ow-option-label">{label}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
         </div>
     );
 }
 
-/* ─── Step 3: Presencia digital ─── */
-function Step3({ data, update, t }: StepProps) {
-    const s = t.step3;
+/* ─── Step 2: Presencia digital ─── */
+function Step2({ data, update, t }: StepProps) {
+    const s = t.step2;
 
     const socialLabel = (key: string): string => {
         const map: Record<string, string> = {
@@ -619,7 +453,7 @@ function Step3({ data, update, t }: StepProps) {
                 <div className="ow-options grid">
                     <div
                         className={`ow-option ${data.hasWeb ? "selected" : ""}`}
-                        onClick={() => update({ hasWeb: true, wantWebCreated: false })}
+                        onClick={() => update({ hasWeb: true })}
                     >
                         <span className="ow-option-dot" />
                         <span className="ow-option-label">{s.hasWebYes}</span>
@@ -634,28 +468,16 @@ function Step3({ data, update, t }: StepProps) {
                 </div>
             </div>
 
-            {data.hasWeb ? (
+            {data.hasWeb && (
                 <div className="ow-field">
                     <label className="ow-label">{s.webUrl}</label>
                     <input
                         className="ow-input"
                         value={data.websiteUrl}
                         onChange={(e) => update({ websiteUrl: e.target.value })}
-                        placeholder="https://instagram.com/tu_negocio"
+                        placeholder={s.webUrlPlaceholder}
                         type="url"
                     />
-                </div>
-            ) : (
-                <div className="ow-field">
-                    <div
-                        className={`ow-toggle ${data.wantWebCreated ? "active" : ""}`}
-                        onClick={() => update({ wantWebCreated: !data.wantWebCreated })}
-                    >
-                        <div className="ow-toggle-track">
-                            <div className="ow-toggle-thumb" />
-                        </div>
-                        <span className="ow-toggle-label">{s.wantWebCreated}</span>
-                    </div>
                 </div>
             )}
 
@@ -702,21 +524,14 @@ function Step3({ data, update, t }: StepProps) {
     );
 }
 
-/* ─── Step 4: Qué quieres conseguir ─── */
-function Step4({ data, update, t }: StepProps) {
-    const s = t.step4;
+/* ─── Step 3: Tu competencia ─── */
+function Step3({ data, update, t }: StepProps) {
+    const s = t.step3;
 
-    const goals: { key: GoalKey; label: string }[] = GOAL_KEYS.map((k) => ({
-        key: k,
-        label: s[k],
-    }));
-
-    const toggleSecondary = (key: string) => {
-        if (data.secondaryGoals.includes(key)) {
-            update({ secondaryGoals: data.secondaryGoals.filter((g) => g !== key) });
-        } else if (data.secondaryGoals.length < 2) {
-            update({ secondaryGoals: [...data.secondaryGoals, key] });
-        }
+    const updateComp = (idx: number, patch: Partial<{ name: string; url: string }>) => {
+        const newList = [...data.competitors];
+        newList[idx] = { ...newList[idx], ...patch };
+        update({ competitors: newList });
     };
 
     return (
@@ -727,56 +542,76 @@ function Step4({ data, update, t }: StepProps) {
             </div>
             <div className="ow-microcopy">{s.microcopy}</div>
 
+            {[0, 1, 2].map((i) => (
+                <div key={i} className="ow-competitor-box">
+                    <div className="ow-field">
+                        <label className="ow-label">{s[`competitor${i + 1}` as keyof typeof s]}</label>
+                        <input
+                            className="ow-input"
+                            value={data.competitors[i]?.name || ""}
+                            onChange={(e) => updateComp(i, { name: e.target.value })}
+                            placeholder="Nombre del competidor"
+                        />
+                    </div>
+                    <div className="ow-field">
+                        <label className="ow-label">{s[`competitor${i + 1}Url` as keyof typeof s]}</label>
+                        <input
+                            className="ow-input"
+                            value={data.competitors[i]?.url || ""}
+                            onChange={(e) => updateComp(i, { url: e.target.value })}
+                            placeholder="https://su-web.com"
+                            type="url"
+                        />
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+/* ─── Step 4: Operación local ─── */
+function Step4({ data, update, t }: StepProps) {
+    const s = t.step4;
+    return (
+        <div className="ow-step">
+            <div className="ow-step-header">
+                <h2>{s.title}</h2>
+                <p>{s.subtitle}</p>
+            </div>
+            <div className="ow-microcopy">{s.microcopy}</div>
+
             <div className="ow-field">
-                <label className="ow-label">{s.selectPrimary}</label>
+                <label className="ow-label">{s.hasLocation}</label>
                 <div className="ow-options">
-                    {goals.map(({ key, label }) => (
-                        <div
-                            key={key}
-                            className={`ow-option ${data.primaryGoal === key ? "selected" : ""}`}
-                            onClick={() => {
-                                update({
-                                    primaryGoal: key,
-                                    secondaryGoals: data.secondaryGoals.filter((g) => g !== key),
-                                });
-                            }}
-                        >
-                            <span className="ow-option-dot" />
-                            <span className="ow-option-label">{label}</span>
-                        </div>
-                    ))}
+                    <div
+                        className={`ow-option ${data.hasPhysicalLocation ? "selected" : ""}`}
+                        onClick={() => update({ hasPhysicalLocation: true })}
+                    >
+                        <span className="ow-option-dot" />
+                        <span className="ow-option-label">{s.hasLocationYes}</span>
+                    </div>
+                    <div
+                        className={`ow-option ${!data.hasPhysicalLocation ? "selected" : ""}`}
+                        onClick={() => update({ hasPhysicalLocation: false, address: "" })}
+                    >
+                        <span className="ow-option-dot" />
+                        <span className="ow-option-label">{s.hasLocationNo}</span>
+                    </div>
                 </div>
             </div>
 
-            {data.primaryGoal && (
+            {data.hasPhysicalLocation && (
                 <div className="ow-field">
-                    <label className="ow-label">{s.selectSecondary}</label>
-                    <div className="ow-options">
-                        {goals
-                            .filter(({ key }) => key !== data.primaryGoal)
-                            .map(({ key, label }) => (
-                                <div
-                                    key={key}
-                                    className={`ow-option ${data.secondaryGoals.includes(key) ? "selected" : ""}`}
-                                    onClick={() => toggleSecondary(key)}
-                                >
-                                    <span className="ow-option-check">✓</span>
-                                    <span className="ow-option-label">{label}</span>
-                                </div>
-                            ))}
-                    </div>
-                </div>
-            )}
-
-            {(data.primaryGoal === "goalOther" || data.secondaryGoals.includes("goalOther")) && (
-                <div className="ow-field">
-                    <textarea
-                        className="ow-textarea"
-                        value={data.goalOtherText}
-                        onChange={(e) => update({ goalOtherText: e.target.value })}
-                        placeholder={s.goalOtherPlaceholder}
-                        rows={3}
+                    <label className="ow-label">{s.address}</label>
+                    <input
+                        className="ow-input"
+                        value={data.address}
+                        onChange={(e) => update({ address: e.target.value })}
+                        placeholder={s.addressPlaceholder}
                     />
+                    <p className="ow-guide">
+                        {s.guideText}
+                    </p>
                 </div>
             )}
         </div>
@@ -817,17 +652,6 @@ function Step5({ data, update, t }: StepProps) {
                     </div>
                 ))}
             </div>
-
-            {data.departments.includes("other") && (
-                <div className="ow-field" style={{ marginTop: 16 }}>
-                    <input
-                        className="ow-input"
-                        value={data.departmentOtherText}
-                        onChange={(e) => update({ departmentOtherText: e.target.value })}
-                        placeholder={s.otherPlaceholder}
-                    />
-                </div>
-            )}
         </div>
     );
 }

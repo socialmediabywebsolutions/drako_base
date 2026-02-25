@@ -27,38 +27,14 @@ export interface OnboardingTexts {
         statusOperating: string;
         statusLaunching: string;
         statusIdea: string;
-        hasLocation: string;
-        hasLocationYes: string;
-        hasLocationNo: string;
-        address: string;
-        addressPlaceholder: string;
-        schedule: string;
-        schedulePlaceholder: string;
-        zone: string;
-        zonePlaceholder: string;
-    };
-    step2: {
-        title: string;
-        subtitle: string;
-        microcopy: string;
-        offering: string;
-        offeringPlaceholder: string;
-        sector: string;
-        sectorPlaceholder: string;
+        country: string;
+        countryPlaceholder: string;
+        city: string;
+        cityPlaceholder: string;
         niche: string;
         nichePlaceholder: string;
-        customerType: string;
-        customerPeople: string;
-        customerPeopleExample: string;
-        customerCompanies: string;
-        customerCompaniesExample: string;
-        customerBoth: string;
-        salesChannels: string;
-        salesOnline: string;
-        salesInPerson: string;
-        salesBoth: string;
     };
-    step3: {
+    step2: {
         title: string;
         subtitle: string;
         microcopy: string;
@@ -67,7 +43,6 @@ export interface OnboardingTexts {
         hasWebNo: string;
         webUrl: string;
         webUrlPlaceholder: string;
-        wantWebCreated: string;
         currentSocials: string;
         desiredSocials: string;
         instagram: string;
@@ -77,20 +52,27 @@ export interface OnboardingTexts {
         youtube: string;
         other: string;
     };
+    step3: {
+        title: string;
+        subtitle: string;
+        microcopy: string;
+        competitor1: string;
+        competitor1Url: string;
+        competitor2: string;
+        competitor2Url: string;
+        competitor3: string;
+        competitor3Url: string;
+    };
     step4: {
         title: string;
         subtitle: string;
         microcopy: string;
-        selectPrimary: string;
-        selectSecondary: string;
-        goalClients: string;
-        goalOrganize: string;
-        goalAutomate: string;
-        goalSocial: string;
-        goalFinance: string;
-        goalAI: string;
-        goalOther: string;
-        goalOtherPlaceholder: string;
+        hasLocation: string;
+        hasLocationYes: string;
+        hasLocationNo: string;
+        address: string;
+        addressPlaceholder: string;
+        guideText: string;
     };
     step5: {
         title: string;
@@ -124,56 +106,31 @@ const es: OnboardingTexts = {
     step1: {
         title: "Tu negocio",
         subtitle: "Cuéntanos lo básico sobre tu proyecto o empresa",
-        microcopy: "Esto nos ayuda a analizar tu mercado local y tu competencia real.",
+        microcopy: "Esto nos ayuda a configurar tu entorno inicial.",
         companyName: "Nombre del negocio o proyecto",
         companyNamePlaceholder: "Ej: Clínica Dental Sonrisa",
-        businessStatus: "¿Ya está funcionando?",
-        statusOperating: "Sí, ya estoy operando",
-        statusLaunching: "Estoy preparando el lanzamiento",
-        statusIdea: "Solo es una idea por ahora",
-        hasLocation: "¿Tienes un local abierto al público?",
-        hasLocationYes: "Sí, tengo local",
-        hasLocationNo: "No, trabajo sin local",
-        address: "Dirección del local",
-        addressPlaceholder: "Ej: Calle Gran Vía 28, Madrid",
-        schedule: "Horario de apertura (opcional)",
-        schedulePlaceholder: "Ej: Lunes a viernes 9:00–18:00",
-        zone: "Zona donde trabajas",
-        zonePlaceholder: "Ej: Madrid capital, Zona sur",
+        businessStatus: "¿En qué etapa estás?",
+        statusOperating: "Ya estoy funcionando",
+        statusLaunching: "Preparando lanzamiento",
+        statusIdea: "Es una idea",
+        country: "País",
+        countryPlaceholder: "Ej: España, México",
+        city: "Ciudad",
+        cityPlaceholder: "Ej: Madrid, CDMX",
+        niche: "Nicho o especialidad",
+        nichePlaceholder: "Ej: Ortodoncia, Yoga para embarazadas",
     },
     step2: {
-        title: "Qué haces y para quién",
-        subtitle: "Describe tu actividad y tus clientes",
-        microcopy: "Con esto afinamos el análisis de competencia y oportunidades.",
-        offering: "¿Qué ofreces?",
-        offeringPlaceholder: "Ej: Clases de yoga, Reparación de móviles, Consultoría fiscal",
-        sector: "Sector",
-        sectorPlaceholder: "Buscar sector...",
-        niche: "Nicho o especialidad",
-        nichePlaceholder: "Ej: Yoga prenatal, Pantallas de iPhone, Autónomos",
-        customerType: "¿Tus clientes son…?",
-        customerPeople: "Personas",
-        customerPeopleExample: "clientes particulares",
-        customerCompanies: "Empresas",
-        customerCompaniesExample: "negocios, pymes, equipos",
-        customerBoth: "Ambos",
-        salesChannels: "¿Cómo vendes?",
-        salesOnline: "Online",
-        salesInPerson: "Presencial",
-        salesBoth: "Ambas",
-    },
-    step3: {
-        title: "Tu presencia digital",
-        subtitle: "Lo que tienes hoy y lo que quieres conseguir",
-        microcopy: "Si no tienes web, podemos crear una base y luego mejorarla.",
+        title: "Presencia digital",
+        subtitle: "Cómo te encuentran tus clientes en internet",
+        microcopy: "Si no tienes nada aún, no te preocupes, lo crearemos juntos.",
         hasWeb: "¿Tienes una página web?",
         hasWebYes: "Sí, tengo web",
         hasWebNo: "No tengo web",
         webUrl: "URL de tu web",
         webUrlPlaceholder: "https://tu-negocio.com",
-        wantWebCreated: "Quiero que Drako me cree una página básica",
         currentSocials: "Tus redes actuales (opcional)",
-        desiredSocials: "Redes que quieres activar",
+        desiredSocials: "Redes que quieres activar o mejorar",
         instagram: "Instagram",
         facebook: "Facebook",
         linkedin: "LinkedIn",
@@ -181,35 +138,40 @@ const es: OnboardingTexts = {
         youtube: "YouTube",
         other: "Otra",
     },
+    step3: {
+        title: "Tu competencia",
+        subtitle: "¿A quién admiras o quiénes son tus rivales directos?",
+        microcopy: "Drako analizará a tus competidores para encontrar oportunidades.",
+        competitor1: "Competidor 1 (Nombre)",
+        competitor1Url: "URL del competidor 1 (si tiene)",
+        competitor2: "Competidor 2 (Nombre)",
+        competitor2Url: "URL del competidor 2 (si tiene)",
+        competitor3: "Competidor 3 (Nombre)",
+        competitor3Url: "URL del competidor 3 (si tiene)",
+    },
     step4: {
-        title: "¿Qué quieres conseguir?",
-        subtitle: "Elige tu prioridad principal y hasta 2 secundarias",
-        microcopy: "Esto define el primer plan de acción que Drako preparará para ti.",
-        selectPrimary: "Tu prioridad principal",
-        selectSecondary: "Puedes seleccionar hasta 2 más (opcional)",
-        goalClients: "Conseguir más clientes",
-        goalOrganize: "Organizar mi negocio",
-        goalAutomate: "Automatizar tareas repetitivas",
-        goalSocial: "Mejorar redes sociales y contenido",
-        goalFinance: "Controlar gastos e ingresos",
-        goalAI: "Crear procesos y equipos con IA",
-        goalOther: "Otra",
-        goalOtherPlaceholder: "Describe qué quieres conseguir...",
+        title: "Operación local",
+        subtitle: "¿Atiendes clientes en un lugar físico?",
+        microcopy: "Si tienes local comercial, la dirección es necesaria para el SEO local.",
+        hasLocation: "¿Tienes local abierto al público?",
+        hasLocationYes: "Sí, tengo local comercial",
+        hasLocationNo: "No, trabajo 100% online o a domicilio",
+        address: "Dirección completa (Calle, Número, CP)",
+        addressPlaceholder: "Ej: Calle Mayor 10, 28013 Madrid",
+        guideText: "Asegúrate de que la dirección sea exacta para que tus clientes te encuentren en Google Maps.",
     },
     step5: {
         title: "¿En qué áreas quieres ayuda?",
-        subtitle: "Selecciona las que te interesen ahora",
-        microcopy: "Selecciona lo que te interesa ahora; luego podrás añadir más.",
+        subtitle: "Drako tiene 'departamentos' listos para trabajar por ti",
+        microcopy: "Selecciona los que más te urgen. Podrás activar otros después.",
         departments: [
-            { id: "marketing", label: "Marketing", description: "Captación, campañas, anuncios" },
-            { id: "social_media", label: "Redes sociales", description: "Contenido y publicación" },
-            { id: "clients", label: "Clientes", description: "Seguimiento, relaciones, pipeline" },
-            { id: "automation", label: "Automatización", description: "Ahorrar tiempo con IA" },
-            { id: "finance", label: "Finanzas", description: "Gastos, ingresos, reportes" },
-            { id: "strategy", label: "Análisis y estrategia", description: "Competencia, oportunidades" },
-            { id: "support", label: "Soporte al cliente", description: "Respuestas, WhatsApp, emails" },
-            { id: "web", label: "Web y presencia online", description: "Mejorar o crear tu web" },
-            { id: "other", label: "Otro", description: "Algo que no está en la lista" },
+            { id: "marketing", label: "Marketing y Ventas", description: "Conseguir clientes y cerrar ventas" },
+            { id: "social_media", label: "Redes Sociales", description: "Publicar contenido y ganar seguidores" },
+            { id: "automation", label: "Automatización", description: "Ahorrar tiempo usando Inteligencia Artificial" },
+            { id: "finance", label: "Control de Dinero", description: "Saber cuánto ganas y cuánto gastas cada día" },
+            { id: "strategy", label: "Estrategia", description: "Saber qué pasos dar para crecer" },
+            { id: "support", label: "Atención al Cliente", description: "Responder dudas por WhatsApp y Email" },
+            { id: "web", label: "Tu Web", description: "Crear o mejorar tu página de internet" },
         ],
         otherPlaceholder: "¿Qué más necesitas?",
     },
@@ -253,56 +215,31 @@ const en: OnboardingTexts = {
     step1: {
         title: "Your business",
         subtitle: "Tell us the basics about your project or company",
-        microcopy: "This helps us analyze your local market and real competition.",
+        microcopy: "This helps us set up your initial environment.",
         companyName: "Business or project name",
         companyNamePlaceholder: "E.g.: Smile Dental Clinic",
-        businessStatus: "Is it already running?",
-        statusOperating: "Yes, I'm already operating",
-        statusLaunching: "I'm preparing the launch",
-        statusIdea: "It's just an idea for now",
-        hasLocation: "Do you have a physical location open to the public?",
-        hasLocationYes: "Yes, I have a location",
-        hasLocationNo: "No, I work without one",
-        address: "Location address",
-        addressPlaceholder: "E.g.: 123 Main Street, London",
-        schedule: "Opening hours (optional)",
-        schedulePlaceholder: "E.g.: Mon–Fri 9:00–18:00",
-        zone: "Area where you work",
-        zonePlaceholder: "E.g.: Central London, South zone",
+        businessStatus: "At what stage are you?",
+        statusOperating: "Already up and running",
+        statusLaunching: "Preparing for launch",
+        statusIdea: "It's just an idea",
+        country: "Country",
+        countryPlaceholder: "E.g.: USA, United Kingdom",
+        city: "City",
+        cityPlaceholder: "E.g.: New York, London",
+        niche: "Niche or specialty",
+        nichePlaceholder: "E.g.: Orthodontics, Prenatal Yoga",
     },
     step2: {
-        title: "What you do and for whom",
-        subtitle: "Describe your activity and your customers",
-        microcopy: "This helps us fine-tune competition analysis and opportunities.",
-        offering: "What do you offer?",
-        offeringPlaceholder: "E.g.: Yoga classes, Phone repairs, Tax consulting",
-        sector: "Sector",
-        sectorPlaceholder: "Search sector...",
-        niche: "Niche or specialty",
-        nichePlaceholder: "E.g.: Prenatal yoga, iPhone screens, Freelancers",
-        customerType: "Your customers are…?",
-        customerPeople: "Individuals",
-        customerPeopleExample: "private customers",
-        customerCompanies: "Businesses",
-        customerCompaniesExample: "companies, SMEs, teams",
-        customerBoth: "Both",
-        salesChannels: "How do you sell?",
-        salesOnline: "Online",
-        salesInPerson: "In person",
-        salesBoth: "Both",
-    },
-    step3: {
-        title: "Your digital presence",
-        subtitle: "What you have today and what you want to achieve",
-        microcopy: "If you don't have a website, we can create a basic one and improve it later.",
+        title: "Digital presence",
+        subtitle: "How customers find you online",
+        microcopy: "Don't worry if you have nothing yet, we'll build it together.",
         hasWeb: "Do you have a website?",
         hasWebYes: "Yes, I have one",
-        hasWebNo: "No, I don't",
+        hasWebNo: "No website",
         webUrl: "Your website URL",
         webUrlPlaceholder: "https://your-business.com",
-        wantWebCreated: "I want Drako to create a basic website for me",
         currentSocials: "Your current social media (optional)",
-        desiredSocials: "Social networks you want to activate",
+        desiredSocials: "Social networks you want to activate or improve",
         instagram: "Instagram",
         facebook: "Facebook",
         linkedin: "LinkedIn",
@@ -310,35 +247,40 @@ const en: OnboardingTexts = {
         youtube: "YouTube",
         other: "Other",
     },
+    step3: {
+        title: "Your competition",
+        subtitle: "Who do you admire or who are your direct rivals?",
+        microcopy: "Drako will analyze your competitors to find opportunities.",
+        competitor1: "Competitor 1 (Name)",
+        competitor1Url: "Competitor 1 URL (if any)",
+        competitor2: "Competitor 2 (Name)",
+        competitor2Url: "Competitor 2 URL (if any)",
+        competitor3: "Competitor 3 (Name)",
+        competitor3Url: "Competitor 3 URL (if any)",
+    },
     step4: {
-        title: "What do you want to achieve?",
-        subtitle: "Choose your main priority and up to 2 secondary ones",
-        microcopy: "This defines the first action plan Drako will prepare for you.",
-        selectPrimary: "Your main priority",
-        selectSecondary: "You can select up to 2 more (optional)",
-        goalClients: "Get more customers",
-        goalOrganize: "Organize my business",
-        goalAutomate: "Automate repetitive tasks",
-        goalSocial: "Improve social media and content",
-        goalFinance: "Track expenses and income",
-        goalAI: "Create processes and teams with AI",
-        goalOther: "Other",
-        goalOtherPlaceholder: "Describe what you want to achieve...",
+        title: "Local operation",
+        subtitle: "Do you serve customers at a physical location?",
+        microcopy: "If you have a commercial location, the address is needed for local SEO.",
+        hasLocation: "Do you have a physical presence open to the public?",
+        hasLocationYes: "Yes, I have a commercial location",
+        hasLocationNo: "No, I work 100% online or mobile",
+        address: "Full address (Street, Number, Postal Code)",
+        addressPlaceholder: "E.g.: 123 Main Street, London SW1A 1AA",
+        guideText: "Ensure the address is exact so your customers can find you on Google Maps.",
     },
     step5: {
         title: "Where do you need help?",
-        subtitle: "Select the areas you're interested in now",
-        microcopy: "Pick what interests you now; you can add more later.",
+        subtitle: "Drako has 'departments' ready to work for you",
+        microcopy: "Select your most urgent areas. You can activate others later.",
         departments: [
-            { id: "marketing", label: "Marketing", description: "Acquisition, campaigns, ads" },
-            { id: "social_media", label: "Social media", description: "Content and publishing" },
-            { id: "clients", label: "Clients", description: "Follow-up, relationships, pipeline" },
-            { id: "automation", label: "Automation", description: "Save time with AI" },
-            { id: "finance", label: "Finance", description: "Expenses, income, reports" },
-            { id: "strategy", label: "Analysis & strategy", description: "Competition, opportunities" },
-            { id: "support", label: "Customer support", description: "Responses, WhatsApp, emails" },
-            { id: "web", label: "Web & online presence", description: "Improve or create your website" },
-            { id: "other", label: "Other", description: "Something not on the list" },
+            { id: "marketing", label: "Marketing & Sales", description: "Get customers and close deals" },
+            { id: "social_media", label: "Social Media", description: "Publish content and gain followers" },
+            { id: "automation", label: "Automation", description: "Save time using Artificial Intelligence" },
+            { id: "finance", label: "Money Control", description: "Know what you earn and spend every day" },
+            { id: "strategy", label: "Strategy", description: "Know what steps to take to grow" },
+            { id: "support", label: "Customer Support", description: "Answer questions via WhatsApp and Email" },
+            { id: "web", label: "Your Website", description: "Create or improve your online presence" },
         ],
         otherPlaceholder: "What else do you need?",
     },

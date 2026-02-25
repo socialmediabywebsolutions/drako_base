@@ -394,6 +394,14 @@
     text-decoration: none;
 }
 
+.dh-footer-stamp {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    margin-top: 12px;
+    opacity: 0.5;
+    font-family: monospace;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
     .dh-nav a:not(.dh-nav-cta) {

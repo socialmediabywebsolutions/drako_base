@@ -83,6 +83,7 @@
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -138,6 +139,19 @@
 /* ─── Fields ─── */
 .ow-field {
   margin-bottom: 20px;
+}
+
+.ow-grid-fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+@media (min-width: 640px) {
+  .ow-grid-fields {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .ow-label {
@@ -362,6 +376,31 @@
   flex: 1;
 }
 
+/* ─── Competitor Box ─── */
+.ow-competitor-box {
+  padding: 16px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+}
+
+.ow-competitor-box .ow-field:last-child {
+  margin-bottom: 0;
+}
+
+/* ─── Guide Text ─── */
+.ow-guide {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sky-700);
+  background: var(--sky-50);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  margin-top: 12px;
+  border-left: 4px solid var(--sky-400);
+}
+
 /* ─── Navigation ─── */
 .ow-nav {
   display: flex;
@@ -433,8 +472,15 @@
 }
 
 @keyframes ow-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /* ─── Summary / Review (post-submit) ─── */
@@ -532,5 +578,7 @@
 }
 
 @keyframes ow-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }

@@ -11,6 +11,7 @@ export function AuthForm({ defaultMode = "login", lang = "es" }: { defaultMode?:
     const [mode, setMode] = useState<AuthMode>(defaultMode);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [errorData, setErrorData] = useState<{ correlationId?: string } | null>(null);
 
     // Form States
     const [email, setEmail] = useState("");
@@ -36,10 +37,11 @@ export function AuthForm({ defaultMode = "login", lang = "es" }: { defaultMode?:
                     body: JSON.stringify({ email, password, name }),
                 });
 
-                const data = await res.json() as { error?: string };
+                const data = await res.json() as { error?: string, code?: string, message?: string, correlationId?: string };
                 if (!res.ok) {
-                    const errorCode = data.error as keyof typeof t.errors;
-                    throw new Error(t.errors[errorCode] || t.errors.generic);
+                    setErrorData({ correlationId: data.correlationId });
+                    const displayMessage = data.message || (data.code && t.errors[data.code as keyof typeof t.errors]) || t.errors.generic;
+                    throw new Error(displayMessage);
                 }
 
                 // Auto login after register
@@ -140,11 +142,21 @@ export function AuthForm({ defaultMode = "login", lang = "es" }: { defaultMode?:
                 </div>
 
                 {error && (
-                    <div className={`p-4 text-xs rounded-xl font-semibold border ${error === t.success_register
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                            : "bg-red-50 text-red-600 border-red-100"
+                    <div className={`p-4 text-xs rounded-xl font-semibold border transition-all animate-in fade-in slide-in-from-top-1 ${error === t.success_register
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                        : "bg-red-50 text-red-600 border-red-100"
                         }`}>
-                        {error}
+                        <div className="flex items-start gap-2">
+                            <span className="flex-1">{error}</span>
+                        </div>
+                        {errorData?.correlationId && (
+                            <div className="mt-2 pt-2 border-t border-red-100/50 flex flex-col gap-1">
+                                <span className="text-[10px] text-red-400 uppercase tracking-widest font-bold">ID de diagnóstico</span>
+                                <code className="text-[10px] bg-white/50 p-1 rounded font-mono break-all select-all">
+                                    {errorData.correlationId}
+                                </code>
+                            </div>
+                        )}
                     </div>
                 )}
 
