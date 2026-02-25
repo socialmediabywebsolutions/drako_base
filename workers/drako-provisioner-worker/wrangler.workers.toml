@@ -1,0 +1,22 @@
+name = "drako-provisioner-worker"
+main = "src/workers.ts"
+compatibility_date = "2024-11-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DRKO_HOLDING_DB"
+database_name = "drako_holding_db"
+database_id = "52752a5c-b290-4633-91c6-e2a371a0c669"
+
+[[kv_namespaces]]
+binding = "DRKO_GLOBAL_CONFIG"
+id = "2a333512ad9c4c25a166496c1c121781"
+
+[[queues.producers]]
+binding = "DRKO_GLOBAL_EVENTS"
+queue = "drako-global-events"
+
+[vars]
+DRKO_PROVISIONER_CONTEXT = "holding"
+DRKO_CORE_WORKER_URL = "https://drako-core-worker.socialmediabywebsolutions.workers.dev"
+WORKERS_ONLY_MODE = "true"
