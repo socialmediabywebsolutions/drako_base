@@ -33,6 +33,19 @@ export type StrategicDossier = {
         web_score: number; // 0-100
         verified_maps: boolean;
         competitors_found: number;
+        competitors_data?: {
+            radius_km: number;
+            resolved_address?: string | null;
+            warnings?: string[];
+            items: Array<{
+                name: string;
+                category: string;
+                distance_km: number | null;
+                website: string | null;
+                social_urls: string[];
+                source: "geo_radius" | "sector_fallback";
+            }>;
+        };
         swot: {
             strengths: string[];
             weaknesses: string[];

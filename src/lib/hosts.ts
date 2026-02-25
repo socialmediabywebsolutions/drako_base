@@ -24,7 +24,7 @@ export function resolveHostMode(hostname: string, pagesEnvironment: string | nul
     return "PREVIEW";
   }
   const host = normalizeHost(hostname);
-  if (host === "base.drako.systems" || host === "admin.drako.systems") {
+  if (host === "base.drako.systems" || host === "bases.drako.systems" || host === "admin.drako.systems") {
     return "CAMPAMENTO_BASE";
   }
   return "PUBLIC_SAAS";

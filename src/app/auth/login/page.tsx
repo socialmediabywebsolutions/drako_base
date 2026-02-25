@@ -1,10 +1,15 @@
-"use client";
-
 import { AuthForm } from "@/components/auth/auth-form";
 import Link from "next/link";
 import Image from "next/image";
+import { headers } from "next/headers";
+import { resolveAuthsContextFromHost } from "@/lib/auths/contexts";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+    const requestHeaders = await headers();
+    const requestedHost = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host");
+    const context = resolveAuthsContextFromHost(requestedHost);
+    const isBasesContext = context === "bases";
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-sky-50 to-slate-100 flex items-center justify-center p-6">
             <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-10 border border-slate-200">
@@ -22,14 +27,14 @@ export default function LoginPage() {
 
                 {/* Heading */}
                 <h1 className="text-2xl font-black text-slate-900 text-center mb-2">
-                    Bienvenido a Drako
+                    {isBasesContext ? "Acceso Campamento Base" : "Bienvenido a Drako"}
                 </h1>
                 <p className="text-slate-500 text-center mb-8 text-sm">
-                    Inicia sesión o crea una cuenta
+                    {isBasesContext ? "Inicia sesión administrativa" : "Inicia sesión o crea una cuenta"}
                 </p>
 
                 {/* Unified Auth Form */}
-                <AuthForm context="drakos" redirectTo="/site/onboarding" />
+                <AuthForm context={context} redirectTo={isBasesContext ? "/admin" : undefined} />
 
                 {/* Back to home */}
                 <Link

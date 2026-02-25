@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 import { getAuthTexts, AuthLang } from "@/lib/i18n/auth-i18n";
 
 type AuthMode = "login" | "register";
-type AuthFormContext = "drakos" | "mentorias";
+type AuthFormContext = "drakos" | "mentorias" | "bases";
 
 export function AuthForm({
     defaultMode = "login",
@@ -28,12 +28,20 @@ export function AuthForm({
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [name, setName] = useState("");
-    const authsApiBase = context === "mentorias" ? "/api/mentorias/auths" : "/api/drakos/auths";
-    const postLoginRedirect = redirectTo ?? (context === "mentorias" ? "/client/sessions" : "/site/onboarding");
+    const hasRegistration = context !== "bases";
+    const authsApiBase =
+        context === "mentorias"
+            ? "/api/mentorias/auths"
+            : context === "bases"
+                ? "/api/bases/auths"
+                : "/api/drakos/auths";
+    const postLoginRedirect =
+        redirectTo ??
+        (context === "mentorias" ? "/client/sessions" : context === "bases" ? "/admin" : "/site/onboarding");
 
     const handleGoogleLogin = async () => {
         if (context !== "drakos") {
-            setError("Google login is not available in Mentorias.");
+            setError("Google login is available only in Drakos.");
             return;
         }
         setLoading(true);
@@ -47,7 +55,7 @@ export function AuthForm({
         setError(null);
 
         try {
-            if (mode === "register") {
+            if (mode === "register" && hasRegistration) {
                 const res = await fetch(`${authsApiBase}/registrations`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -103,19 +111,21 @@ export function AuthForm({
                 >
                     {t.login}
                 </button>
-                <button
-                    onClick={() => setMode("register")}
-                    className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${mode === "register"
-                        ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-500 hover:text-slate-700"
-                        }`}
-                >
-                    {t.register}
-                </button>
+                {hasRegistration ? (
+                    <button
+                        onClick={() => setMode("register")}
+                        className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${mode === "register"
+                            ? "bg-white text-slate-900 shadow-sm"
+                            : "text-slate-500 hover:text-slate-700"
+                            }`}
+                    >
+                        {t.register}
+                    </button>
+                ) : null}
             </div>
 
             <form onSubmit={handleEmailAuth} className="space-y-4">
-                {mode === "register" && (
+                {mode === "register" && hasRegistration && (
                     <div>
                         <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-widest">{t.name}</label>
                         <input
@@ -191,12 +201,12 @@ export function AuthForm({
                 </div>
             </div>
 
-            <button
-                type="button"
-                onClick={handleGoogleLogin}
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-600 font-bold py-3.5 rounded-xl hover:bg-slate-50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100"
-            >
+                <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    disabled={loading || context !== "drakos"}
+                    className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-600 font-bold py-3.5 rounded-xl hover:bg-slate-50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100"
+                >
                 <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4 opacity-80" />
                 {t.google}
             </button>

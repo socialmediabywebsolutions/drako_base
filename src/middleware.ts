@@ -151,7 +151,11 @@ export async function middleware(req: NextRequest) {
     const isPagesDevHost = hostMode === "PREVIEW";
     const isPublicHost = hostMode === "PUBLIC_SAAS";
     const isAdminHost = hostMode === "CAMPAMENTO_BASE";
-    const isMentoriasHost = host === "mentoria.drako.systems" || host.startsWith("mentoria.");
+    const isMentoriasHost =
+      host === "mentoria.drako.systems" ||
+      host === "mentorias.drako.systems" ||
+      host.startsWith("mentoria.") ||
+      host.startsWith("mentorias.");
 
     if (isRoutingsSubdomainsEnabled() && isMentoriasHost && !isApi) {
       if (pathname === "/") {
@@ -317,13 +321,30 @@ export async function middleware(req: NextRequest) {
     }
 
     if (isAdminHost) {
+      if (pathname === "/auth/register") {
+        return persistCookie(NextResponse.redirect(new URL("/auth/login", req.url)));
+      }
+
       if (isRoutingsSubdomainsEnabled() && (
-        pathname === "/auth/login" ||
-        pathname === "/auth/register" ||
         pathname.startsWith("/drakos/auths/") ||
         pathname.startsWith("/mentorias/auths/")
       )) {
         return persistCookie(NextResponse.redirect(new URL("/", req.url)));
+      }
+
+      const isAdminRoute = adminPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+      if (isAdminRoute) {
+        const session = await extractSessionFromRequest(req);
+        if (!session) {
+          const url = new URL("/auth/login", req.url);
+          url.searchParams.set("callbackUrl", pathname);
+          return persistCookie(NextResponse.redirect(url));
+        }
+
+      const role = session.role?.toLowerCase();
+      if (!role || (role !== "owner" && role !== "superadmin" && role !== "staff" && role !== "admin")) {
+        return persistCookie(NextResponse.redirect(new URL("/client", req.url)));
+      }
       }
       return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
     }

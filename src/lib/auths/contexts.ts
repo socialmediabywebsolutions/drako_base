@@ -4,8 +4,15 @@ import type { AuthsContext } from "@/lib/auths/types";
 export function resolveAuthsContextFromHost(hostname: string | null | undefined): AuthsContext {
   const host = normalizeHost(hostname ?? "");
   if (!host) return "drakos";
-  if (host === "base.drako.systems" || host === "admin.drako.systems") return "bases";
-  if (host === "mentoria.drako.systems" || host.startsWith("mentoria.")) return "mentorias";
+  if (host === "base.drako.systems" || host === "bases.drako.systems" || host === "admin.drako.systems") return "bases";
+  if (
+    host === "mentoria.drako.systems" ||
+    host === "mentorias.drako.systems" ||
+    host.startsWith("mentoria.") ||
+    host.startsWith("mentorias.")
+  ) {
+    return "mentorias";
+  }
   return "drakos";
 }
 

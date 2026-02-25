@@ -160,26 +160,27 @@ function getCookieValue(header: string | null, name: string): string | null {
 
 export async function getSession(request: Request): Promise<SessionData | null> {
   const value = getCookieValue(request.headers.get("cookie"), SESSION_COOKIE_NAME);
-  if (!value) {
-    if (!isAuthsIsolationEnabled()) return null;
-    const context = resolveAuthsContextFromRequest(request);
-    if (context === "bases") return null;
-    const isolatedCookieName = getAuthsCookieName(context);
-    const isolatedValue = getCookieValue(request.headers.get("cookie"), isolatedCookieName);
-    if (!isolatedValue) return null;
-    const claims = await verifyAuthsSessionToken(isolatedValue, context);
-    if (!claims) return null;
-    return {
-      email: claims.email,
-      tenantId: claims.tenantId,
-      role: claims.role,
-      issuedAt: claims.iat * 1000,
-    };
+  if (value) {
+    const decoded = await decodeSessionValue(value);
+    if (decoded) return decoded;
+    if (isAuthsIsolationEnabled() && !isAuthsLegacyCompatEnabled()) return null;
   }
-  const decoded = await decodeSessionValue(value);
-  if (decoded) return decoded;
-  if (isAuthsIsolationEnabled() && !isAuthsLegacyCompatEnabled()) return null;
-  return null;
+
+  if (!isAuthsIsolationEnabled()) return null;
+
+  const context = resolveAuthsContextFromRequest(request);
+  const isolatedCookieName = getAuthsCookieName(context);
+  const isolatedValue = getCookieValue(request.headers.get("cookie"), isolatedCookieName);
+  if (!isolatedValue) return null;
+
+  const claims = await verifyAuthsSessionToken(isolatedValue, context);
+  if (!claims) return null;
+  return {
+    email: claims.email,
+    tenantId: claims.tenantId,
+    role: claims.role,
+    issuedAt: claims.iat * 1000,
+  };
 }
 
 export async function requireSession(request: Request): Promise<SessionData> {

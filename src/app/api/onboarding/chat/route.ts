@@ -19,7 +19,7 @@ const QUESTION_FLOW: { key: string; prompt: string; why: string }[] = [
   { key: "businessName", prompt: "¿Cómo se llama tu negocio o razón social?", why: "Necesitamos identificarte en los documentos y la facturación." },
   { key: "idNumber", prompt: "¿Cuál es tu NIF/CIF?", why: "Lo usaremos para tus facturas y tu ficha fiscal." },
   { key: "contact", prompt: "Dame tu email y teléfono de contacto.", why: "Para enviarte reportes y coordinar contigo." },
-  { key: "address", prompt: "¿Cuál es la dirección completa de tu local?", why: "Así analizamos la zona y la competencia cerca (radio 2km por defecto)." },
+  { key: "address", prompt: "¿Cuál es la dirección completa de tu local?", why: "Así analizamos la zona y la competencia cerca (radio 5km por defecto)." },
   { key: "cityCountry", prompt: "Ciudad y país donde operas.", why: "Ayuda a elegir normativas y lenguaje adecuado." },
   { key: "industry", prompt: "¿A qué te dedicas? nicho/oficio/sector.", why: "Elegimos agentes y packs que conocen tu nicho." },
   { key: "services", prompt: "Servicios o productos principales y precios aproximados.", why: "Definimos ofertas y ticket promedio." },

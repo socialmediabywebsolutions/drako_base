@@ -1,32 +1,50 @@
 name = "saas-mentorias-prod"
-main = "src/workers.ts"
+main = "../../.open-next/worker.js"
 compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
 workers_dev = false
+
+[assets]
+directory = "../../.open-next/assets"
+
+[ai]
+binding = "AI"
+
+[[routes]]
+pattern = "mentoria.drako.systems"
+custom_domain = true
 
 [[routes]]
 pattern = "mentorias.drako.systems"
 custom_domain = true
 
-# Recommended strategy: one D1 per SaaS worker.
 [[d1_databases]]
-binding = "SAASES_DB"
-database_name = "saas_mentorias_prod_db"
-database_id = "67b013a3-dcd8-424b-adf9-558895817841"
-
-[[kv_namespaces]]
-binding = "SAASES_CACHE"
-id = "3cebfb9e724148b9a23a55946d06a766"
-
-[[r2_buckets]]
-binding = "SAASES_STORAGE"
-bucket_name = "saas-mentorias-prod-storage"
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 
 [[queues.producers]]
-binding = "SAASES_EVENTS"
-queue = "saas-mentorias-prod-events"
+queue = "drako-billing-queue"
+binding = "BILLING_QUEUE"
+
+[[queues.producers]]
+queue = "drako-saas-factory-queue"
+binding = "SAAS_FACTORY_QUEUE"
+
+[[queues.producers]]
+queue = "drako-provisioning-queue"
+binding = "PROVISIONING_QUEUE"
+
+[[services]]
+binding = "SCHEDULER"
+service = "drako-scheduler"
 
 [vars]
-SAASES_SLUG = "mentorias"
-SAASES_DOMAIN = "mentorias.drako.systems"
+SAASES_SLUG = "mentoria"
+SAASES_DOMAIN = "mentoria.drako.systems"
 AUTHS_SECRETS_NAME = "MENTORIAS_AUTHS_SECRET"
-WORKERS_ONLY_MODE = "true"
+NEXTAUTH_URL = "https://mentoria.drako.systems"
+AUTHS_ISOLATIONS_ENABLED = "true"
+AUTHS_LEGACY_COMPATS_ENABLED = "false"
+ROUTINGS_SUBDOMAINS_ENABLED = "true"
+TELEMETRIES_HOLDING_ENABLED = "true"

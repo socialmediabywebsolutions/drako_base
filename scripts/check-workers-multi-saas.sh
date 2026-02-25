@@ -3,7 +3,7 @@ set -euo pipefail
 
 saases=(
   "drakos:drakos.drako.systems"
-  "mentorias:mentorias.drako.systems"
+  "mentorias:mentoria.drako.systems"
   "bases:bases.drako.systems"
   "socialflows:socialflows.drako.systems"
   "cryptos:cryptos.drako.systems"

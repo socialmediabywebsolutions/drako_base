@@ -50,6 +50,10 @@ export async function submitStrategicForm(prevState: any, formData: FormData) {
             linkedin: formData.get('digital_linkedin'),
             tiktok: formData.get('digital_tiktok'),
         },
+        competition: {
+            radiusKm: formData.get('competition_radius_km'),
+            knownCompetitors: formData.get('competition_known_competitors'),
+        },
         departments: formData.getAll('departments'),
         level: formData.get('maturity_level'),
     };
@@ -58,8 +62,8 @@ export async function submitStrategicForm(prevState: any, formData: FormData) {
     if (!raw.personal.address || (raw.personal.address as string).length < 5) {
         return { error: "La Dirección Física es obligatoria y debe ser real." };
     }
-    if (!raw.digital.maps || !isValidUrl(raw.digital.maps as string)) {
-        return { error: "La URL de Google Maps es OBLIGATORIA para el análisis de competencia." };
+    if (raw.digital.maps && !isValidUrl(raw.digital.maps as string)) {
+        return { error: "La URL de Google Maps no es válida. Corrígela o déjala vacía." };
     }
 
     const bindings = env();

@@ -19,7 +19,7 @@ async function getDossier(tenantId: string): Promise<StrategicDossier | null> {
 
     try {
         const row = await bindings.DRACO_DB.prepare(
-            `SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status IN ('analyzed', 'active') ORDER BY created_at DESC LIMIT 1`
+            `SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1`
         ).bind(tenantId).first<any>();
 
         if (!row) return null;

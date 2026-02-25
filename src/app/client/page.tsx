@@ -10,7 +10,7 @@ async function getDossier(tenantId: string): Promise<StrategicDossier | null> {
     if (!bindings?.DRACO_DB) return null;
     try {
         const row = await bindings.DRACO_DB.prepare(
-            `SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status IN ('analyzed', 'active') ORDER BY created_at DESC LIMIT 1`
+            `SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1`
         ).bind(tenantId).first<any>();
         if (!row) return null;
         return {
@@ -46,10 +46,41 @@ export default async function ClientDashboard() {
     const instance = tenantId ? await getSaaSInstance(tenantId) : null;
     const logs = tenantId ? await getAgentWorkLogs(tenantId) : [];
 
-    if (!dossier || !dossier.analysis_data) {
+    if (!dossier) {
         return (
-            <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
-                <div className="animate-pulse text-2xl">⏳ Cargando perfil...</div>
+            <div className="flex h-full items-center justify-center">
+                <div className="max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                    <div className="text-3xl">🚀</div>
+                    <h1 className="mt-3 text-2xl font-bold text-slate-900">Activa tu perfil estratégico</h1>
+                    <p className="mt-2 text-sm text-slate-500">
+                        Aún no hay un dossier para tu cuenta. Completa el formulario para iniciar análisis de competencia y materialización.
+                    </p>
+                    <a href="/client/setup" className="mt-6 inline-block rounded-full bg-sky-600 px-6 py-3 text-sm font-bold text-white hover:bg-sky-500">
+                        Completar formulario
+                    </a>
+                </div>
+            </div>
+        );
+    }
+
+    if (!dossier.analysis_data || dossier.status === "draft") {
+        return (
+            <div className="flex h-full items-center justify-center">
+                <div className="max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                    <div className="animate-pulse text-3xl">⏳</div>
+                    <h1 className="mt-3 text-2xl font-bold text-slate-900">Análisis pendiente</h1>
+                    <p className="mt-2 text-sm text-slate-500">
+                        Tu formulario ya está guardado. Ejecuta el motor de análisis para construir el dossier y detectar competidores.
+                    </p>
+                    <div className="mt-6 flex items-center justify-center gap-3">
+                        <a href="/client/analysis" className="inline-block rounded-full bg-sky-600 px-6 py-3 text-sm font-bold text-white hover:bg-sky-500">
+                            Ejecutar análisis
+                        </a>
+                        <a href="/client/setup" className="inline-block rounded-full border border-slate-300 px-6 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">
+                            Editar formulario
+                        </a>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -184,12 +215,49 @@ export default async function ClientDashboard() {
                         <div className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-100">
                             <span className="text-sm font-medium">Competidores</span>
                             <span className="text-slate-600 font-bold text-xs">
-                                {dossier.analysis_data.competitors_found} Identificados
+                                {dossier.analysis_data.competitors_found} Identificados (radio {dossier.analysis_data.competitors_data?.radius_km ?? 5}km)
                             </span>
                         </div>
                     </div>
                 </Card>
             </div>
+
+            {dossier.analysis_data.competitors_data?.items?.length ? (
+                <Card title="Competidores Detectados" subtitle="Geo-Agent por dirección + fallback por nicho/sector">
+                    <div className="space-y-3">
+                        {dossier.analysis_data.competitors_data.items.slice(0, 8).map((competitor, index) => (
+                            <div key={`${competitor.name}-${index}`} className="rounded-lg border border-slate-200 p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="text-sm font-semibold text-slate-800">{competitor.name}</div>
+                                    <div className="text-xs text-slate-500">
+                                        {competitor.distance_km == null ? "Distancia no disponible" : `${competitor.distance_km.toFixed(2)} km`}
+                                    </div>
+                                </div>
+                                <div className="mt-1 text-xs text-slate-500">
+                                    Categoria: {competitor.category} · Fuente: {competitor.source}
+                                </div>
+                                <div className="mt-1 text-xs text-slate-600">
+                                    Web: {competitor.website ? competitor.website : "No detectada"}
+                                </div>
+                                <div className="mt-1 text-xs text-slate-600">
+                                    Redes: {competitor.social_urls.length > 0 ? competitor.social_urls.join(", ") : "No detectadas"}
+                                </div>
+                            </div>
+                        ))}
+                        {dossier.analysis_data.competitors_data.warnings?.length ? (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                                {dossier.analysis_data.competitors_data.warnings.join(" · ")}
+                            </div>
+                        ) : null}
+                    </div>
+                </Card>
+            ) : (
+                <Card title="Competidores Detectados" subtitle="Geo-Agent por dirección + fallback por nicho/sector">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                        No se encontraron competidores con datos suficientes todavía. Revisa dirección/sector o vuelve a ejecutar análisis.
+                    </div>
+                </Card>
+            )}
 
             {/* SWOT Matrix */}
             <div className="grid md:grid-cols-2 gap-6">

@@ -1,32 +1,47 @@
 name = "saas-bases-prod"
-main = "src/workers.ts"
+main = "../../.open-next/worker.js"
 compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
 workers_dev = false
+
+[assets]
+directory = "../../.open-next/assets"
+
+[ai]
+binding = "AI"
+
+[[routes]]
+pattern = "base.drako.systems"
+custom_domain = true
 
 [[routes]]
 pattern = "bases.drako.systems"
 custom_domain = true
 
-# Recommended strategy: one D1 per SaaS worker.
 [[d1_databases]]
-binding = "SAASES_DB"
-database_name = "saas_bases_prod_db"
-database_id = "9e08cf94-0ccd-4c21-9758-1674d9c6c863"
-
-[[kv_namespaces]]
-binding = "SAASES_CACHE"
-id = "c5fe3d22b20f4c2caf4b79290e6d74a2"
-
-[[r2_buckets]]
-binding = "SAASES_STORAGE"
-bucket_name = "saas-bases-prod-storage"
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 
 [[queues.producers]]
-binding = "SAASES_EVENTS"
-queue = "saas-bases-prod-events"
+queue = "drako-billing-queue"
+binding = "BILLING_QUEUE"
+
+[[queues.producers]]
+queue = "drako-saas-factory-queue"
+binding = "SAAS_FACTORY_QUEUE"
+
+[[queues.producers]]
+queue = "drako-provisioning-queue"
+binding = "PROVISIONING_QUEUE"
+
+[[services]]
+binding = "SCHEDULER"
+service = "drako-scheduler"
 
 [vars]
-SAASES_SLUG = "bases"
-SAASES_DOMAIN = "bases.drako.systems"
-AUTHS_SECRETS_NAME = "BASES_AUTHS_SECRET"
-WORKERS_ONLY_MODE = "true"
+NEXTAUTH_URL = "https://base.drako.systems"
+AUTHS_ISOLATIONS_ENABLED = "true"
+AUTHS_LEGACY_COMPATS_ENABLED = "false"
+ROUTINGS_SUBDOMAINS_ENABLED = "true"
+TELEMETRIES_HOLDING_ENABLED = "true"

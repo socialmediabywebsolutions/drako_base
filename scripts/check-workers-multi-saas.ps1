@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $saases = @(
   @{ slug = 'drakos'; domain = 'drakos.drako.systems' },
-  @{ slug = 'mentorias'; domain = 'mentorias.drako.systems' },
+  @{ slug = 'mentorias'; domain = 'mentoria.drako.systems' },
   @{ slug = 'bases'; domain = 'bases.drako.systems' },
   @{ slug = 'socialflows'; domain = 'socialflows.drako.systems' },
   @{ slug = 'cryptos'; domain = 'cryptos.drako.systems' },

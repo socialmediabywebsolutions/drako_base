@@ -1,5 +1,6 @@
 import { env } from "@/lib/cf";
 import type { StrategicDossier } from "./types";
+import { discoverCompetitors } from "./competitors";
 
 /**
  * Runs the Strategic Analysis using Cloudflare Workers AI (Llama 3).
@@ -16,7 +17,16 @@ export async function runOrchestratorAnalysis(dossier: StrategicDossier): Promis
     let score = 0;
     if (dossier.form_data.digital.web) score += 40;
     // Basic validation of Maps URL
-    const hasMaps = dossier.form_data.digital.maps && dossier.form_data.digital.maps.includes("google.com/maps");
+    const mapsValue = dossier.form_data.digital.maps ?? "";
+    const normalizedMapsValue = mapsValue.trim().toLowerCase();
+    const hasMaps =
+        normalizedMapsValue.length > 0 &&
+        (
+            normalizedMapsValue.includes("google.com/maps") ||
+            normalizedMapsValue.includes("goo.gl/maps") ||
+            normalizedMapsValue.includes("g.page") ||
+            normalizedMapsValue.includes("maps.app.goo.gl")
+        );
     if (hasMaps) score += 40;
 
     const socials = [
@@ -73,10 +83,41 @@ export async function runOrchestratorAnalysis(dossier: StrategicDossier): Promis
         // Continue with deterministic fallback
     }
 
+    let competitorsData: StrategicDossier["analysis_data"]["competitors_data"] | undefined;
+    let competitorsFound = 0;
+
+    try {
+        const radiusValue = Number.parseFloat(String((dossier.form_data as any)?.competition?.radiusKm ?? "5"));
+        const discovery = await discoverCompetitors({
+            address: dossier.form_data.personal.address,
+            city: dossier.form_data.personal.city,
+            sector: dossier.form_data.business.sector,
+            radiusKm: Number.isFinite(radiusValue) ? radiusValue : 5,
+        });
+
+        competitorsFound = discovery.competitors.length;
+        competitorsData = {
+            radius_km: discovery.radiusKm,
+            resolved_address: discovery.resolvedAddress,
+            warnings: discovery.warnings,
+            items: discovery.competitors.map((item) => ({
+                name: item.name,
+                category: item.category,
+                distance_km: item.distanceKm,
+                website: item.website,
+                social_urls: item.socialUrls,
+                source: item.source,
+            })),
+        };
+    } catch (error) {
+        console.error("COMPETITORS_DISCOVERY_FAILED", error);
+    }
+
     return {
         web_score: score,
         verified_maps: Boolean(hasMaps),
-        competitors_found: Math.floor(Math.random() * 5) + 3, // Mocked for now (Geo Agent is Step 2.5)
+        competitors_found: competitorsFound,
+        competitors_data: competitorsData,
         swot,
         recommended_strategy: strategy
     };

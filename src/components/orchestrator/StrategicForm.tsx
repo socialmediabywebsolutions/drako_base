@@ -98,8 +98,8 @@ export function StrategicForm() {
                             <Field label="Sitio Web">
                                 <TextInput name="digital_web" type="url" placeholder="https://" />
                             </Field>
-                            <Field label="Google Maps / Ficha (CRÍTICO)">
-                                <TextInput name="digital_maps" type="url" required placeholder="https://maps.google.com/..." />
+                            <Field label="Google Maps / Ficha (Opcional, recomendado)">
+                                <TextInput name="digital_maps" type="url" placeholder="https://maps.google.com/..." />
                             </Field>
                             <div className="grid grid-cols-2 gap-4">
                                 <TextInput name="digital_instagram" placeholder="Instagram URL" />
@@ -110,8 +110,27 @@ export function StrategicForm() {
                         </div>
                     </Card>
 
-                    {/* 4. NIVEL */}
-                    <Card title="4. Nivel de Madurez">
+                    {/* 4. COMPETIDORES */}
+                    <Card title="4. Inteligencia de Competidores" subtitle="El agente busca competencia en radio de 5 km por dirección y sector.">
+                        <div className="space-y-4">
+                            <input type="hidden" name="competition_radius_km" value="5" />
+                            <div className="rounded-lg border border-sky-100 bg-sky-50 p-3 text-xs text-sky-800">
+                                El Geo-Agent detecta competidores cercanos con tu dirección física (radio fijo de 5 km).
+                                Si no hay datos geográficos suficientes, activa fallback por sector + ciudad.
+                            </div>
+                            <Field label="Competidores conocidos (opcional)">
+                                <textarea
+                                    name="competition_known_competitors"
+                                    rows={3}
+                                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                    placeholder="Ej. Competidor A, Competidor B, https://competidor-c.com"
+                                />
+                            </Field>
+                        </div>
+                    </Card>
+
+                    {/* 5. NIVEL */}
+                    <Card title="5. Nivel de Madurez">
                         <div className="p-1">
                             <select name="maturity_level" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                                 <option value="Basic">Básico (Sin herramientas conectadas)</option>

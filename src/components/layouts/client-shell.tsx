@@ -251,15 +251,15 @@ export default function ClientShell({ children, dossier, instance }: ClientShell
                                 </form>
                             </div>
                         </div>
-                    ) : dossier ? (
+                    ) : dossier?.analysis_data ? (
                         // PASSIVE CONTEXT CHAT
                         <div className="flex-1 flex flex-col gap-4">
                             <div className="bg-sky-50 p-3 rounded-lg border border-sky-100 text-xs text-sky-800">
                                 🤖 <b>Drako Activo</b><br />
                                 He analizado tu negocio de <b>{dossier.form_data.business.sector}</b>.<br />
-                                Tu Web Score es <b>{dossier.analysis_data?.web_score}/100</b>.
+                                Tu Web Score es <b>{dossier.analysis_data.web_score}/100</b>.
                                 <div className="mt-2 text-[10px] opacity-75">
-                                    Puedo ayudarte a mejorar tu presencia en Google Maps o sugerir tácticas para superar a <i>{dossier.analysis_data?.competitors_found} competidores</i>.
+                                    Puedo ayudarte a mejorar tu presencia en Google Maps o sugerir tácticas para superar a <i>{dossier.analysis_data.competitors_found} competidores</i>.
                                 </div>
                             </div>
 
@@ -277,6 +277,15 @@ export default function ClientShell({ children, dossier, instance }: ClientShell
                                     placeholder="Chat desactivado en demo..."
                                 />
                             </div>
+                        </div>
+                    ) : dossier ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-center p-6">
+                            <div className="text-4xl mb-2">🧭</div>
+                            <p className="text-sm font-medium">Formulario recibido</p>
+                            <p className="text-xs mt-2">Tu análisis todavía no se ha ejecutado.</p>
+                            <a href="/client/analysis" className="mt-4 rounded-full bg-sky-600 px-4 py-2 text-xs font-bold text-white hover:bg-sky-500">
+                                Ejecutar análisis
+                            </a>
                         </div>
                     ) : (
                         <div className="flex-1 flex flex-col items-center justify-center text-slate-300 text-center p-6">
