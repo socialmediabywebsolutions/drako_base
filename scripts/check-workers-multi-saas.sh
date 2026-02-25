@@ -12,12 +12,29 @@ saases=(
   "automations:automations.drako.systems"
 )
 
+curl_with_retries() {
+  local url="$1"
+  shift
+  curl -4 -sS \
+    --retry 8 \
+    --retry-delay 1 \
+    --retry-all-errors \
+    --connect-timeout 5 \
+    --max-time 20 \
+    "$url" "$@"
+}
+
 echo "== Health checks =="
 for item in "${saases[@]}"; do
   slug="${item%%:*}"
   domain="${item##*:}"
   echo "-- ${slug} (${domain})"
-  curl -sS "https://${domain}/api/health" | jq '{ok,host,resolvedContext,workerName,gitSha,workersOnly}'
+  health_payload="$(curl_with_retries "https://${domain}/api/health" || true)"
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s' "$health_payload" | jq '{ok,host,resolvedContext,workerName,gitSha,workersOnly}'
+  else
+    echo "$health_payload"
+  fi
   echo
 
 done
@@ -27,7 +44,8 @@ for item in "${saases[@]}"; do
   slug="${item%%:*}"
   domain="${item##*:}"
   echo "-- ${slug} rejecting foreign Host header"
-  curl -sS -i "https://${domain}/api/health" -H 'Host: invalid.drako.systems' | head -n 1
+  fence_status="$(curl_with_retries "https://${domain}/api/health" -i -H 'Host: invalid.drako.systems' | head -n 1 || true)"
+  echo "${fence_status}"
   echo
 
 done
