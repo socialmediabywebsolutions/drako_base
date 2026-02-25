@@ -4,18 +4,18 @@ compatibility_date = "2024-11-01"
 workers_dev = false
 
 [[routes]]
-pattern = "automations.drako.systems/*"
+pattern = "automations.drako.systems"
 custom_domain = true
 
 # Recommended strategy: one D1 per SaaS worker.
 [[d1_databases]]
 binding = "SAASES_DB"
 database_name = "saas_automations_prod_db"
-database_id = "REPLACE_WITH_AUTOMATIONS_DB_ID"
+database_id = "518707ec-2367-4986-b01f-1f9350fc3e10"
 
 [[kv_namespaces]]
 binding = "SAASES_CACHE"
-id = "REPLACE_WITH_AUTOMATIONS_KV_ID"
+id = "88b03f2f25354c2f9def76ea4572951f"
 
 [[r2_buckets]]
 binding = "SAASES_STORAGE"

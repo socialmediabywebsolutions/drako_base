@@ -4,18 +4,18 @@ compatibility_date = "2024-11-01"
 workers_dev = false
 
 [[routes]]
-pattern = "analytics.drako.systems/*"
+pattern = "analytics.drako.systems"
 custom_domain = true
 
 # Recommended strategy: one D1 per SaaS worker.
 [[d1_databases]]
 binding = "SAASES_DB"
 database_name = "saas_analytics_prod_db"
-database_id = "REPLACE_WITH_ANALYTICS_DB_ID"
+database_id = "605db17c-4db6-41d0-b4cc-b98799dec9ad"
 
 [[kv_namespaces]]
 binding = "SAASES_CACHE"
-id = "REPLACE_WITH_ANALYTICS_KV_ID"
+id = "0fb2cacf438a4da581d4c79cf71e6e34"
 
 [[r2_buckets]]
 binding = "SAASES_STORAGE"

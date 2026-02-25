@@ -4,18 +4,18 @@ compatibility_date = "2024-11-01"
 workers_dev = false
 
 [[routes]]
-pattern = "socialflows.drako.systems/*"
+pattern = "socialflows.drako.systems"
 custom_domain = true
 
 # Recommended strategy: one D1 per SaaS worker.
 [[d1_databases]]
 binding = "SAASES_DB"
 database_name = "saas_socialflows_prod_db"
-database_id = "REPLACE_WITH_SOCIALFLOWS_DB_ID"
+database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
 
 [[kv_namespaces]]
 binding = "SAASES_CACHE"
-id = "REPLACE_WITH_SOCIALFLOWS_KV_ID"
+id = "2962b3ef53fe4433a253551c83a2df72"
 
 [[r2_buckets]]
 binding = "SAASES_STORAGE"
