@@ -1,0 +1,11 @@
+{
+  "name": "saas-bases-prod",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "deploys": "wrangler deploy --config wrangler.workers.toml",
+    "tails": "wrangler tail saas-bases-prod",
+    "checks": "wrangler deploy --config wrangler.workers.toml --dry-run"
+  }
+}

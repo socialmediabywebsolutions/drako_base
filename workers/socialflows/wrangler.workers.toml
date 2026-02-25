@@ -1,0 +1,32 @@
+name = "saas-socialflows-prod"
+main = "src/workers.ts"
+compatibility_date = "2024-11-01"
+workers_dev = false
+
+[[routes]]
+pattern = "socialflows.drako.systems/*"
+custom_domain = true
+
+# Recommended strategy: one D1 per SaaS worker.
+[[d1_databases]]
+binding = "SAASES_DB"
+database_name = "saas_socialflows_prod_db"
+database_id = "REPLACE_WITH_SOCIALFLOWS_DB_ID"
+
+[[kv_namespaces]]
+binding = "SAASES_CACHE"
+id = "REPLACE_WITH_SOCIALFLOWS_KV_ID"
+
+[[r2_buckets]]
+binding = "SAASES_STORAGE"
+bucket_name = "saas-socialflows-prod-storage"
+
+[[queues.producers]]
+binding = "SAASES_EVENTS"
+queue = "saas-socialflows-prod-events"
+
+[vars]
+SAASES_SLUG = "socialflows"
+SAASES_DOMAIN = "socialflows.drako.systems"
+AUTHS_SECRETS_NAME = "SOCIALFLOWS_AUTHS_SECRET"
+WORKERS_ONLY_MODE = "true"

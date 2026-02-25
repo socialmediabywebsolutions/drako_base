@@ -1,0 +1,14 @@
+{
+  "saasesSlug": "invoices",
+  "domainName": "invoices.drako.systems",
+  "dashboardsRoutes": {
+    "clients": "/clients",
+    "admins": "/admins"
+  },
+  "healthsRoute": "/api/health",
+  "authsRoutes": {
+    "logins": "/api/auths/logins",
+    "logouts": "/api/auths/logouts",
+    "sessions": "/api/auths/sessions"
+  }
+}
