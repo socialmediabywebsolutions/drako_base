@@ -1,0 +1,29 @@
+name = "drako-base-3"
+main = "src/workers.ts"
+compatibility_date = "2024-11-01"
+workers_dev = true
+
+[vars]
+CORE_WORKER_URL = "https://drako-core-worker.socialmediabywebsolutions.workers.dev"
+BILLING_WORKER_URL = "https://drako-billing-worker.socialmediabywebsolutions.workers.dev"
+OBSERVABILITY_WORKER_URL = "https://drako-observability-worker.socialmediabywebsolutions.workers.dev"
+AI_ORCHESTRATOR_WORKER_URL = "https://drako-ai-orchestrator-worker.socialmediabywebsolutions.workers.dev"
+LEGACY_ALLOWED_HOST_NAMES = "drako-base-3.socialmediabywebsolutions.workers.dev"
+WORKERS_ONLY_MODE = "true"
+SUNSETS_MODE = "true"
+
+[[services]]
+binding = "CORE_SERVICE"
+service = "drako-core-worker"
+
+[[services]]
+binding = "BILLING_SERVICE"
+service = "drako-billing-worker"
+
+[[services]]
+binding = "OBSERVABILITY_SERVICE"
+service = "drako-observability-worker"
+
+[[services]]
+binding = "AI_ORCHESTRATOR_SERVICE"
+service = "drako-ai-orchestrator-worker"
