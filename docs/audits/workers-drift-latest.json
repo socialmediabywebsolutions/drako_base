@@ -1,0 +1,240 @@
+{
+  "timestamp": "2026-02-26T18:41:11.884Z",
+  "mode": "real",
+  "sourceOfTruthPath": "docs/config/workers-expected-state.json",
+  "fixturesDir": null,
+  "autoRemediation": {
+    "enabled": false,
+    "attempted": false,
+    "actions": [],
+    "reranAfterRemediation": false
+  },
+  "summary": {
+    "workersTotal": 5,
+    "workersWithFailures": 0,
+    "checksTotal": 17,
+    "checksFailed": 0,
+    "violationsTotal": 0,
+    "blockersTotal": 0,
+    "warningsTotal": 0
+  },
+  "workers": [
+    {
+      "workerName": "drako-base-3",
+      "workerStatus": "ARCHIVED",
+      "severity": "BLOCKER",
+      "expected": {
+        "subdomain": {
+          "enabled": false,
+          "previews_enabled": false
+        },
+        "schedulesCount": 0,
+        "domainsCount": 0,
+        "routesCount": 0
+      },
+      "actual": {
+        "subdomain": {
+          "enabled": false,
+          "previews_enabled": false
+        },
+        "schedulesCount": 0,
+        "routesCount": 0,
+        "domainsCount": 0
+      },
+      "checks": [
+        {
+          "checkName": "subdomain.enabled",
+          "expected": false,
+          "actual": false,
+          "status": "PASS"
+        },
+        {
+          "checkName": "subdomain.previews_enabled",
+          "expected": false,
+          "actual": false,
+          "status": "PASS"
+        },
+        {
+          "checkName": "schedulesCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        },
+        {
+          "checkName": "domainsCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        },
+        {
+          "checkName": "routesCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        }
+      ],
+      "hasFailures": false
+    },
+    {
+      "workerName": "drako-core-worker",
+      "workerStatus": "ACTIVE",
+      "severity": "WARN",
+      "expected": {
+        "domainsCount": 0,
+        "routesCount": 0,
+        "schedulesCount": 0
+      },
+      "actual": {
+        "subdomain": {
+          "enabled": true,
+          "previews_enabled": true
+        },
+        "schedulesCount": 0,
+        "routesCount": 0,
+        "domainsCount": 0
+      },
+      "checks": [
+        {
+          "checkName": "schedulesCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        },
+        {
+          "checkName": "domainsCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        },
+        {
+          "checkName": "routesCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        }
+      ],
+      "hasFailures": false
+    },
+    {
+      "workerName": "drako-billing-worker",
+      "workerStatus": "ACTIVE",
+      "severity": "WARN",
+      "expected": {
+        "domainsCount": 0,
+        "routesCount": 0,
+        "schedulesCount": 0
+      },
+      "actual": {
+        "subdomain": {
+          "enabled": true,
+          "previews_enabled": true
+        },
+        "schedulesCount": 0,
+        "routesCount": 0,
+        "domainsCount": 0
+      },
+      "checks": [
+        {
+          "checkName": "schedulesCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        },
+        {
+          "checkName": "domainsCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        },
+        {
+          "checkName": "routesCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        }
+      ],
+      "hasFailures": false
+    },
+    {
+      "workerName": "drako-observability-worker",
+      "workerStatus": "ACTIVE",
+      "severity": "WARN",
+      "expected": {
+        "domainsCount": 0,
+        "routesCount": 0,
+        "schedulesCount": 0
+      },
+      "actual": {
+        "subdomain": {
+          "enabled": true,
+          "previews_enabled": true
+        },
+        "schedulesCount": 0,
+        "routesCount": 0,
+        "domainsCount": 0
+      },
+      "checks": [
+        {
+          "checkName": "schedulesCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        },
+        {
+          "checkName": "domainsCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        },
+        {
+          "checkName": "routesCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        }
+      ],
+      "hasFailures": false
+    },
+    {
+      "workerName": "drako-ai-orchestrator-worker",
+      "workerStatus": "ACTIVE",
+      "severity": "WARN",
+      "expected": {
+        "domainsCount": 0,
+        "routesCount": 0,
+        "schedulesCount": 0
+      },
+      "actual": {
+        "subdomain": {
+          "enabled": true,
+          "previews_enabled": true
+        },
+        "schedulesCount": 0,
+        "routesCount": 0,
+        "domainsCount": 0
+      },
+      "checks": [
+        {
+          "checkName": "schedulesCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        },
+        {
+          "checkName": "domainsCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        },
+        {
+          "checkName": "routesCount",
+          "expected": 0,
+          "actual": 0,
+          "status": "PASS"
+        }
+      ],
+      "hasFailures": false
+    }
+  ],
+  "violations": []
+}

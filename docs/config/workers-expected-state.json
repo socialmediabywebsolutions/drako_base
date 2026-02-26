@@ -1,0 +1,62 @@
+{
+  "meta": {
+    "updatedAt": "2026-02-26T18:05:00Z",
+    "owner": "holding"
+  },
+  "workers": [
+    {
+      "name": "drako-base-3",
+      "status": "ARCHIVED",
+      "expected": {
+        "subdomain": {
+          "enabled": false,
+          "previews_enabled": false
+        },
+        "schedulesCount": 0,
+        "domainsCount": 0,
+        "routesCount": 0
+      },
+      "severity": "BLOCKER"
+    },
+    {
+      "name": "drako-core-worker",
+      "status": "ACTIVE",
+      "expected": {
+        "domainsCount": 0,
+        "routesCount": 0,
+        "schedulesCount": 0
+      },
+      "severity": "WARN"
+    },
+    {
+      "name": "drako-billing-worker",
+      "status": "ACTIVE",
+      "expected": {
+        "domainsCount": 0,
+        "routesCount": 0,
+        "schedulesCount": 0
+      },
+      "severity": "WARN"
+    },
+    {
+      "name": "drako-observability-worker",
+      "status": "ACTIVE",
+      "expected": {
+        "domainsCount": 0,
+        "routesCount": 0,
+        "schedulesCount": 0
+      },
+      "severity": "WARN"
+    },
+    {
+      "name": "drako-ai-orchestrator-worker",
+      "status": "ACTIVE",
+      "expected": {
+        "domainsCount": 0,
+        "routesCount": 0,
+        "schedulesCount": 0
+      },
+      "severity": "WARN"
+    }
+  ]
+}

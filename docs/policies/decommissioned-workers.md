@@ -32,6 +32,10 @@ Holding-level drift checks are enabled via:
 
 - Script: `scripts/check-workers-drift.ts`
 - Command: `npm run check:workers`
+- Source of truth: `docs/config/workers-expected-state.json`
+- Report outputs:
+  - `docs/audits/workers-drift-latest.json`
+  - `docs/audits/workers-drift-latest.md`
 
 Validation enforced for archived workers (`drako-base-3`):
 
@@ -45,6 +49,9 @@ Failure behavior:
 - Script exits with code `1`.
 - Error message includes:
   - `DRIFT DETECTED: <worker> resurrected`
+- Optional auto-remediation for archived workers only:
+  - `AUTO_REMEDIATE_ARCHIVED=true`
+  - Actions allowed: disable subdomain, clear schedules.
 
 ## Recovery Procedure (Only With Explicit Approval)
 
