@@ -12,7 +12,7 @@ Evidence:
   - `main = ".open-next/worker.js"`
   - OpenNext standalone Worker output (not Pages Functions runtime).
 - [`package.json`](/mnt/c/CAMPAMENTO%20BASE%20DRAKO/drako_base/package.json)
-  - `cf:build` and `cf:deploy` target `wrangler.workers.toml`.
+  - legacy `cf:*` scripts are now guardrailed and blocked (`archived:cf:*` fail-closed).
 - [`scripts/finalize-worker.js`](/mnt/c/CAMPAMENTO%20BASE%20DRAKO/drako_base/scripts/finalize-worker.js)
   - Generates/finalizes `.open-next/worker.js`.
 
@@ -90,7 +90,7 @@ Repo references:
 Cloudflare exposure:
 
 - No zone route/custom-domain currently directs production domains to `drako-base-3`.
-- Workers.dev subdomain for `drako-base-3` is still enabled (legacy ingress still possible by direct URL).
+- `workers.dev` subdomain is disabled (`enabled=false`, `previews_enabled=false`).
 
 ## 6) What it does / does not do
 
@@ -154,13 +154,11 @@ Smoke checks:
 
 ## 9) Decommission risk assessment
 
-Risk level for immediate hard shutdown: **MEDIUM**.
+Risk level for immediate hard shutdown: **LOW**.
 
-Why not LOW:
+Why not OFF:
 
-- Legacy workers.dev ingress still exists.
-- Legacy config still points `NEXTAUTH_URL` to legacy workers.dev.
-- Monolith still has broad route and DB write capability if reached.
+- Historical references still exist in archived docs/reports (non-runtime).
 
 Why not HIGH:
 
@@ -183,6 +181,7 @@ Inventory executed (grep scope):
 - `NEXTAUTH_URL` legacy host references found in root `wrangler.workers.toml` (monolith legacy config file).
 - Multiple historical docs/reports still include `drako-base-3`/`pages.dev` strings.
 - Sunset shim files intentionally reference `drako-base-3` because they target that legacy script directly.
+- Active root-level deploy scripts (`cf:build`, `cf:deploy`, `cf:preview`) are now blocked by `archived:*` guardrails.
 
 Replacement policy:
 
@@ -192,7 +191,7 @@ Replacement policy:
 Notes:
 
 - Historical references in archived docs/reports remain unchanged intentionally for traceability.
-- Runtime ingress risk was eliminated at edge level in this gate (subdomain disabled + schedules removed).
+- Runtime ingress risk is blocked at edge level and by repo deploy policy.
 
 ## 12) Decommission
 
@@ -224,3 +223,41 @@ Rollback plan:
 3. Re-run health checks and tail:
    - `curl -sS https://drako-base-3.socialmediabywebsolutions.workers.dev/healths`
    - `npx wrangler tail drako-base-3 --format json`
+
+## 13) Cementerio
+
+Final state: `ARCHIVED` and ingress disabled.
+
+Pre-archive confirmation (this gate):
+
+- Subdomain check (API): `{ enabled: true, previews_enabled: true }` (unexpected reactivation detected).
+- Schedules check (API): `[{"cron":"*/10 * * * *"}]` (unexpected residual trigger).
+- Routes check (API): `0`.
+- Domains check (API): `drako-base-3 count = 0`.
+
+Actions applied:
+
+1. Re-deployed tomb shim with strict no-ingress targets:
+   - [`workers/drako-base-3-shims/wrangler.workers.toml`](/mnt/c/CAMPAMENTO%20BASE%20DRAKO/drako_base/workers/drako-base-3-shims/wrangler.workers.toml)
+   - `workers_dev = false`
+   - `preview_urls = false`
+2. Cleared schedules via API:
+   - `PUT /accounts/{account}/workers/scripts/drako-base-3/schedules` payload `[]`.
+3. Disabled subdomain via API:
+   - `POST /accounts/{account}/workers/scripts/drako-base-3/subdomain` payload `{"enabled":false}`.
+4. Added repo guardrails in `package.json`:
+   - `cf:build`, `cf:deploy`, `cf:preview` now fail closed through `archived:*`.
+
+Post-archive confirmation (API + curl):
+
+- Subdomain: `{ enabled: false, previews_enabled: false }`.
+- Schedules: `[]`.
+- Zone routes count: `0`.
+- Legacy custom domains count: `0`.
+- `curl -I https://drako-base-3.socialmediabywebsolutions.workers.dev/healths` -> `404` (workers.dev ingress closed).
+
+Rename attempt result:
+
+- Attempted API rename `drako-base-3 -> zz-archived-drako-base-3` was not viable with current token/API flow.
+- Response: `code 10000`, `PATCH method not allowed for the api_token authentication scheme`.
+- Operational marker used instead: archive policy + no-ingress config + blocked deploy scripts.
