@@ -129,3 +129,54 @@ If billing requires core context, consume holding events (`GovernanceEventSpec v
 - `pnpm exec tsc --noEmit --skipLibCheck --lib es2022,webworker --module esnext --moduleResolution bundler --types @cloudflare/workers-types workers/drako-billing-worker/src/workers.ts workers/drako-observability-worker/src/workers.ts`
 - `pnpm exec wrangler deploy --dry-run --config workers/drako-billing-worker/wrangler.workers.toml`
 - `pnpm exec wrangler deploy --dry-run --config workers/drako-observability-worker/wrangler.workers.toml`
+
+## Batch Update 2026-02-26 (AI Orchestrator)
+Status: completed (rehome + dedicated D1 + remote apply + deploy).
+
+### D1 Target Decision
+- `DRKO_AI_DB` now points to dedicated `drako_ai_orchestrator_db`.
+- Database id: `1687ec14-17fc-456a-b740-03b6bd9213c2`.
+- Migrations table: `drko_ai_migrations`.
+
+### Rehome Executed (`git mv`, no duplicate SQL)
+Moved from root `migrations/` to `workers/drako-ai-orchestrator-worker/migrations/`:
+- `0004_saas_agents.sql` -> `0001_saas_agents.sql`
+- `0006_orchestrator_messages.sql` -> `0002_orchestrator_messages.sql`
+- `0017_saas_domains.sql` -> `0003_saas_domains.sql`
+- `0023_email_intake_core.sql` -> `0004_email_intake_core.sql`
+- `0028_saas_domains_core.sql` -> `0005_saas_domains_core.sql`
+- `0030_hr_guardrails_enforcement.sql` -> `0006_hr_guardrails_enforcement.sql`
+- `0032_saas_knowledge_core.sql` -> `0007_saas_knowledge_core.sql`
+- `0033_knowledge_documents_meta.sql` -> `0008_knowledge_documents_meta.sql`
+- `0036_conversations_core.sql` -> `0009_conversations_core.sql`
+- `0038_whatsapp_gateway_core.sql` -> `0010_whatsapp_gateway_core.sql`
+- `0046_drako_empire_runtime_constraints.sql` -> `0011_drako_empire_runtime_constraints.sql`
+- `0047_drako_domain_verification.sql` -> `0012_drako_domain_verification.sql`
+- `0054_drako_ai_governance.sql` -> `0013_drako_ai_governance.sql`
+- `0073_saas_growth_intelligence.sql` -> `0014_saas_growth_intelligence.sql`
+- `0105_drako_ai_router_v1.1.sql` -> `0015_drako_ai_router_v1.1.sql`
+- `0106_cost_optimizer_and_packs.sql` -> `0016_cost_optimizer_and_packs.sql`
+- `0109_enable_orchestrator.sql` -> `0017_enable_orchestrator.sql`
+- `0110_orchestrator_dossier.sql` -> `0018_orchestrator_dossier.sql`
+- `0114_agent_work_logs.sql` -> `0019_agent_work_logs.sql`
+- `repair_remote_economic_events.sql` -> `0020_repair_remote_economic_events.sql`
+- `repair_remote_saas_instances.sql` -> `0021_repair_remote_saas_instances.sql`
+
+### Bootstrap
+- Added `workers/drako-ai-orchestrator-worker/migrations/0000_bootstrap.sql`.
+- Bootstrap includes minimal mirrors only (`tenants`, `saas`, `saas_projects`, `agents`, `employee_hr_settings`, `saas_domains`, `agents_registry_mirror`).
+- No full core schema duplication. No cross-worker FK coupling.
+
+### Dependency Notes
+- `0001_saas_agents.sql` needs `saas` + `agents`.
+- `0006_hr_guardrails_enforcement.sql` needs `employee_hr_settings`.
+- `0014_saas_growth_intelligence.sql` needs `tenants` + `saas_projects`.
+- `0017_enable_orchestrator.sql` needs `tenants`.
+- `0018_orchestrator_dossier.sql` needs `tenants`.
+- Remaining files create orchestrator-local structures.
+
+### Validation Evidence
+- `pnpm exec tsc --noEmit --skipLibCheck --lib es2022,webworker --module esnext --moduleResolution bundler --types @cloudflare/workers-types workers/drako-ai-orchestrator-worker/src/workers.ts`
+- `pnpm exec wrangler deploy --dry-run --config workers/drako-ai-orchestrator-worker/wrangler.workers.toml`
+- `pnpm exec wrangler d1 migrations apply drako_ai_orchestrator_db --remote --config workers/drako-ai-orchestrator-worker/wrangler.workers.toml`
+- `pnpm exec wrangler d1 migrations list drako_ai_orchestrator_db --remote --config workers/drako-ai-orchestrator-worker/wrangler.workers.toml` => `No migrations to apply`

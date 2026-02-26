@@ -346,3 +346,16 @@ Total SQL files: 218
   - `workers/drako-billing-worker/migrations/0001..0015`
   - `workers/drako-observability-worker/migrations/0001..0009`
 - Remote migration apply remains deferred.
+
+## Batch Delta 2026-02-26 (AI Orchestrator)
+- No duplicate SQL files created.
+- Canonical SQL files were rehomed with `git mv` only.
+- Root `migrations/` entries moved:
+  - `0004`, `0006`, `0017`, `0023`, `0028`, `0030`, `0032`, `0033`, `0036`, `0038`, `0046`, `0047`, `0054`, `0073`, `0105`, `0106`, `0109`, `0110`, `0114`, `repair_remote_economic_events`, `repair_remote_saas_instances`.
+- New canonical location:
+  - `workers/drako-ai-orchestrator-worker/migrations/0001..0021`
+- Added bootstrap:
+  - `workers/drako-ai-orchestrator-worker/migrations/0000_bootstrap.sql`
+- Remote apply status:
+  - applied in dedicated `drako_ai_orchestrator_db`
+  - migrations table `drko_ai_migrations` populated from `0000` to `0021`
