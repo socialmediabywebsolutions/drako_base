@@ -78,3 +78,54 @@ Hard constraints applied:
 - relocate and normalize billing/observability/ai-orchestrator SQL sets
 - convert any legacy duplicate-create scripts into compatibility-safe migration sequence per worker
 - do not apply mass migrations until each batch has worker-local dry-run and dependency checks
+
+## Batch Update 2026-02-26 (Billing + Observability)
+Status: completed for relocation and validation only.
+
+### D1 Target Decisions
+- `DRKO_HOLDING_DB`: existing and active for core/provisioner.
+- `DRKO_BILLING_DB`: preferred isolated target for billing. Not created yet.
+- `DRKO_OBSERVABILITY_DB`: preferred isolated target for observability. Not created yet.
+- Temporary dry-run bindings for `drako-billing-worker` and `drako-observability-worker` point to `drako_holding_db` only for validation. No remote `d1 migrations apply` executed.
+
+### Rehome Executed (`git mv`, no duplicate SQL)
+- Billing moved to `workers/drako-billing-worker/migrations/0001..0015`.
+- Observability moved to `workers/drako-observability-worker/migrations/0001..0009`.
+- Canonical files were removed from root `migrations/` by rename, not copy.
+
+### Dependency Report (pre-apply)
+Billing dependencies:
+- `0001_billing_support_notes.sql`: `invoices`, `tickets`
+- `0002_drako_subscriptions.sql`: `clients`, `saas`, `tenants`
+- `0003_saas_billing.sql`: `clients`, `saas`, `tenants`
+- `0004_clinic_pricing_inventory.sql`: none (new objects only)
+- `0005_saas_tax_core.sql`: none (new objects only)
+- `0006_drako_vendor_core.sql`: none (new objects only)
+- `0007_drako_treasury_core.sql`: internal dependency on `drako_treasury_accounts`
+- `0008_drako_stripe_mapping.sql`: none (new objects only)
+- `0009_drako_stripe_webhook_events.sql`: none (new objects only)
+- `0010_stripe_quick_setup.sql`: `tenants`, `saas_projects`
+- `0011_holding_economics.sql`: `saas_instances`
+- `0012_saas_lifecycle_economics.sql`: `saas_instances`
+- `0013_mentoria_pricing.sql`: `saas_instances`, `saas_economic_events`
+- `0014_mentoria_billing_cycles.sql`: `saas_instances`, `saas_economic_events`, `saas_economics_snapshots`
+- `0015_stripe_invoicing.sql`: `saas_instances`, `saas_economic_events`
+
+Observability dependencies:
+- `0001_alerts_saas_id.sql`: `alerts`
+- `0002_inbox_statuses.sql`: `saas`, `core_departments`
+- `0003_devarchitect_alerts_metrics.sql`: `alerts`
+- `0004_drako_domain_status_normalization.sql`: `saas_domains`
+- `0005_drako_events_rollups.sql`: none (new rollup objects)
+- `0006_saas_health_metrics.sql`: `tenants`, `saas_projects`
+- `0007_unified_analytics.sql`: `tenants`, `saas_projects`
+- `0008_overseer_columns.sql`: `saas_instances`
+- `0009_reconciliation_engine.sql`: internal dependency on `reconciliation_logs`
+
+### Interface Rule
+If billing requires core context, consume holding events (`GovernanceEventSpec v1`) instead of cross-worker foreign keys.
+
+### Validation Evidence (no remote apply)
+- `pnpm exec tsc --noEmit --skipLibCheck --lib es2022,webworker --module esnext --moduleResolution bundler --types @cloudflare/workers-types workers/drako-billing-worker/src/workers.ts workers/drako-observability-worker/src/workers.ts`
+- `pnpm exec wrangler deploy --dry-run --config workers/drako-billing-worker/wrangler.workers.toml`
+- `pnpm exec wrangler deploy --dry-run --config workers/drako-observability-worker/wrangler.workers.toml`

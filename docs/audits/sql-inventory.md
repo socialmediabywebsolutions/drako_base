@@ -335,3 +335,14 @@ Total SQL files: 218
 | workers/drako-core-worker/migrations/0003_release_governance.sql | index:idx_release_events_env_created<br>table:saas_release_events | - | drako-core-worker |
 | workers/drako-provisioner-worker/migrations/0001_provisioning_jobs.sql | index:idx_provisioning_entity_id<br>index:idx_provisioning_jobs_idempotency<br>index:idx_provisioning_jobs_lock<br>index:idx_provisioning_jobs_type_state<br>table:provisioning_jobs | - | drako-provisioner-worker |
 | workers/drako-provisioner-worker/migrations/0002_multi_tenant_coherence.sql | index:idx_provisioning_tenant<br>index:idx_tenant_saas | provisioning_jobs<br>saas | drako-provisioner-worker |
+
+## Batch Delta 2026-02-26 (Billing + Observability)
+- No new SQL files created in this batch.
+- Canonical SQL files were rehomed with `git mv` only (no copies).
+- Root `migrations/` entries moved:
+  - Billing: `0011`, `0016`, `0017`, `0020`, `0039`, `0040`, `0042`, `0049`, `0050`, `0066`, `0113`, `0117`, `0120`, `0121`, `0122`.
+  - Observability: `0003`, `0009`, `0016`, `0048`, `0051`, `0065`, `0069`, `0112`, `0132`.
+- New canonical locations:
+  - `workers/drako-billing-worker/migrations/0001..0015`
+  - `workers/drako-observability-worker/migrations/0001..0009`
+- Remote migration apply remains deferred.

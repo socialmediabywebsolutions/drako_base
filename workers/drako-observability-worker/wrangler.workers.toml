@@ -1,0 +1,25 @@
+name = "drako-observability-worker"
+main = "src/workers.ts"
+compatibility_date = "2024-11-01"
+workers_dev = true
+
+# Phase note: logical target is an isolated DRKO_OBSERVABILITY_DB.
+# Until that DB is created, this binding points to drako_holding_db for dry-run compatibility only.
+[[d1_databases]]
+binding = "DRKO_OBSERVABILITY_DB"
+database_name = "drako_holding_db"
+database_id = "52752a5c-b290-4633-91c6-e2a371a0c669"
+migrations_table = "drko_observability_migrations"
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "DRKO_GLOBAL_CONFIG"
+id = "2a333512ad9c4c25a166496c1c121781"
+
+[[queues.producers]]
+binding = "DRKO_GLOBAL_EVENTS"
+queue = "drako-global-events"
+
+[vars]
+DRKO_OBSERVABILITY_CONTEXT = "holding"
+WORKERS_ONLY_MODE = "true"

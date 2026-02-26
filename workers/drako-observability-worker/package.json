@@ -1,0 +1,10 @@
+{
+  "name": "drako-observability-worker",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "deploys": "wrangler deploy --config wrangler.workers.toml",
+    "checks": "wrangler deploy --config wrangler.workers.toml --dry-run"
+  }
+}
