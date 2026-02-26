@@ -155,6 +155,43 @@
             "run_id",
             "status_name"
           ]
+        },
+        {
+          "tableName": "holding_saases",
+          "requiredColumns": [
+            "id",
+            "saas_slug",
+            "worker_name",
+            "domain",
+            "status_name"
+          ]
+        },
+        {
+          "tableName": "holding_billing_rollups",
+          "requiredColumns": [
+            "saas_slug",
+            "mrr",
+            "churn",
+            "refunds"
+          ]
+        },
+        {
+          "tableName": "holding_ops_tickets",
+          "requiredColumns": [
+            "id",
+            "saas_slug",
+            "severity",
+            "status_name"
+          ]
+        },
+        {
+          "tableName": "holding_event_logs",
+          "requiredColumns": [
+            "id",
+            "source",
+            "type",
+            "payload_json"
+          ]
         }
       ]
     },
@@ -162,36 +199,79 @@
       "databaseName": "drako_db_prod",
       "tables": [
         {
-          "tableName": "users",
+          "tableName": "tenants",
           "requiredColumns": [
             "id",
-            "email",
-            "onboarding_completed"
+            "owner_user_id",
+            "saas_slug",
+            "status",
+            "created_at"
           ]
         },
         {
-          "tableName": "client_profiles",
+          "tableName": "tenant_profiles",
           "requiredColumns": [
-            "id",
-            "client_name"
+            "tenant_id",
+            "business_name",
+            "industry",
+            "locale",
+            "timezone"
           ]
         },
         {
-          "tableName": "knowledge_bases",
+          "tableName": "tenant_domains",
           "requiredColumns": [
-            "id"
+            "tenant_id",
+            "requested_domain",
+            "status_name",
+            "cf_zone_id",
+            "created_at"
           ]
         },
         {
-          "tableName": "jobs",
+          "tableName": "tenant_integrations",
           "requiredColumns": [
-            "id"
+            "tenant_id",
+            "provider",
+            "status_name",
+            "metadata_json"
           ]
         },
         {
-          "tableName": "documents",
+          "tableName": "tenant_stripe_connect",
           "requiredColumns": [
-            "id"
+            "tenant_id",
+            "connect_account_id",
+            "onboarding_status",
+            "fees_config"
+          ]
+        },
+        {
+          "tableName": "tenant_knowledge_bases",
+          "requiredColumns": [
+            "tenant_id",
+            "kb_id",
+            "status_name"
+          ]
+        },
+        {
+          "tableName": "tenant_jobs",
+          "requiredColumns": [
+            "tenant_id",
+            "type_name",
+            "status_name",
+            "payload_json",
+            "created_at"
+          ]
+        },
+        {
+          "tableName": "tenant_audit_logs",
+          "requiredColumns": [
+            "tenant_id",
+            "action",
+            "actor",
+            "metadata_json",
+            "created_at"
           ]
         }
       ]

@@ -1,18 +1,18 @@
 # Production Readiness Audit Report
 
-- Timestamp: `2026-02-26T19:55:34.628Z`
+- Timestamp: `2026-02-26T21:20:09.676Z`
 - Mode: `real`
 - Source of truth: `docs/config/production-audits-expected-state.json`
 - Fixtures dir: `n/a`
-- Production ready: `false`
+- Production ready: `true`
 
 ## Summary
 
-- Checks total: 77
-- Checks pass: 69
-- Checks fail: 5
+- Checks total: 136
+- Checks pass: 132
+- Checks fail: 1
 - Checks N/A: 3
-- Blockers: 4
+- Blockers: 0
 - Warnings: 1
 
 ## Checks
@@ -88,19 +88,74 @@
 | criticalTableMissing | BLOCKER | drako_holding_db.analyze_optimize_scale_runs | PASS | "present" | "present" |
 | criticalColumnMissing | BLOCKER | drako_holding_db.analyze_optimize_scale_runs.run_id | PASS | "present" | "present" |
 | criticalColumnMissing | BLOCKER | drako_holding_db.analyze_optimize_scale_runs.status_name | PASS | "present" | "present" |
+| criticalTableMissing | BLOCKER | drako_holding_db.holding_saases | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_saases.id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_saases.saas_slug | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_saases.worker_name | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_saases.domain | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_saases.status_name | PASS | "present" | "present" |
+| criticalTableMissing | BLOCKER | drako_holding_db.holding_billing_rollups | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_billing_rollups.saas_slug | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_billing_rollups.mrr | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_billing_rollups.churn | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_billing_rollups.refunds | PASS | "present" | "present" |
+| criticalTableMissing | BLOCKER | drako_holding_db.holding_ops_tickets | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_ops_tickets.id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_ops_tickets.saas_slug | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_ops_tickets.severity | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_ops_tickets.status_name | PASS | "present" | "present" |
+| criticalTableMissing | BLOCKER | drako_holding_db.holding_event_logs | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_event_logs.id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_event_logs.source | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_event_logs.type | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_holding_db.holding_event_logs.payload_json | PASS | "present" | "present" |
 | onboardingColumnsMismatch | BLOCKER | drako_holding_db.users.onboarding_completed | N/A | "present" | "table missing" |
-| criticalTableMissing | BLOCKER | drako_db_prod.users | FAIL | "present" | "missing" |
-| criticalTableMissing | BLOCKER | drako_db_prod.client_profiles | FAIL | "present" | "missing" |
-| criticalTableMissing | BLOCKER | drako_db_prod.knowledge_bases | PASS | "present" | "present" |
-| criticalColumnMissing | BLOCKER | drako_db_prod.knowledge_bases.id | PASS | "present" | "present" |
-| criticalTableMissing | BLOCKER | drako_db_prod.jobs | FAIL | "present" | "missing" |
-| criticalTableMissing | BLOCKER | drako_db_prod.documents | FAIL | "present" | "missing" |
+| criticalTableMissing | BLOCKER | drako_db_prod.tenants | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenants.id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenants.owner_user_id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenants.saas_slug | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenants.status | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenants.created_at | PASS | "present" | "present" |
+| criticalTableMissing | BLOCKER | drako_db_prod.tenant_profiles | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_profiles.tenant_id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_profiles.business_name | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_profiles.industry | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_profiles.locale | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_profiles.timezone | PASS | "present" | "present" |
+| criticalTableMissing | BLOCKER | drako_db_prod.tenant_domains | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_domains.tenant_id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_domains.requested_domain | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_domains.status_name | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_domains.cf_zone_id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_domains.created_at | PASS | "present" | "present" |
+| criticalTableMissing | BLOCKER | drako_db_prod.tenant_integrations | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_integrations.tenant_id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_integrations.provider | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_integrations.status_name | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_integrations.metadata_json | PASS | "present" | "present" |
+| criticalTableMissing | BLOCKER | drako_db_prod.tenant_stripe_connect | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_stripe_connect.tenant_id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_stripe_connect.connect_account_id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_stripe_connect.onboarding_status | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_stripe_connect.fees_config | PASS | "present" | "present" |
+| criticalTableMissing | BLOCKER | drako_db_prod.tenant_knowledge_bases | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_knowledge_bases.tenant_id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_knowledge_bases.kb_id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_knowledge_bases.status_name | PASS | "present" | "present" |
+| criticalTableMissing | BLOCKER | drako_db_prod.tenant_jobs | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_jobs.tenant_id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_jobs.type_name | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_jobs.status_name | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_jobs.payload_json | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_jobs.created_at | PASS | "present" | "present" |
+| criticalTableMissing | BLOCKER | drako_db_prod.tenant_audit_logs | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_audit_logs.tenant_id | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_audit_logs.action | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_audit_logs.actor | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_audit_logs.metadata_json | PASS | "present" | "present" |
+| criticalColumnMissing | BLOCKER | drako_db_prod.tenant_audit_logs.created_at | PASS | "present" | "present" |
 | onboardingColumnsMismatch | BLOCKER | drako_db_prod.users.onboarding_completed | N/A | "present" | "table missing" |
 
 ## Violations
 
 - WARN criticalRouteMissing @ drako.systems/*: expected="present" actual="missing"
-- BLOCKER criticalTableMissing @ drako_db_prod.users: expected="present" actual="missing"
-- BLOCKER criticalTableMissing @ drako_db_prod.client_profiles: expected="present" actual="missing"
-- BLOCKER criticalTableMissing @ drako_db_prod.jobs: expected="present" actual="missing"
-- BLOCKER criticalTableMissing @ drako_db_prod.documents: expected="present" actual="missing"

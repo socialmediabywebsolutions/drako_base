@@ -19,9 +19,9 @@
     },
     {
       "databaseName": "drako_db_prod",
-      "tables": ["knowledge_bases"],
+      "tables": ["tenants"],
       "columnsByTables": {
-        "knowledge_bases": ["id"]
+        "tenants": ["id"]
       }
     }
   ]
