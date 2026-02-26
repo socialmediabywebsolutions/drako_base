@@ -3,12 +3,11 @@ main = "src/workers.ts"
 compatibility_date = "2024-11-01"
 workers_dev = true
 
-# Phase note: logical target is an isolated DRKO_BILLING_DB.
-# Until that DB is created, this binding points to drako_holding_db for dry-run compatibility only.
+# Dedicated D1 for billing domain.
 [[d1_databases]]
 binding = "DRKO_BILLING_DB"
-database_name = "drako_holding_db"
-database_id = "52752a5c-b290-4633-91c6-e2a371a0c669"
+database_name = "drako_billing_db"
+database_id = "60e1c9bb-9799-41b7-9d20-f0f525f6434b"
 migrations_table = "drko_billing_migrations"
 migrations_dir = "migrations"
 

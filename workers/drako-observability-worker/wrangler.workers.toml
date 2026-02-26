@@ -3,12 +3,11 @@ main = "src/workers.ts"
 compatibility_date = "2024-11-01"
 workers_dev = true
 
-# Phase note: logical target is an isolated DRKO_OBSERVABILITY_DB.
-# Until that DB is created, this binding points to drako_holding_db for dry-run compatibility only.
+# Dedicated D1 for observability domain.
 [[d1_databases]]
 binding = "DRKO_OBSERVABILITY_DB"
-database_name = "drako_holding_db"
-database_id = "52752a5c-b290-4633-91c6-e2a371a0c669"
+database_name = "drako_observability_db"
+database_id = "98ae48e9-c254-4f0a-b757-5d41b7a3be1d"
 migrations_table = "drko_observability_migrations"
 migrations_dir = "migrations"
 
