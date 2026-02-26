@@ -1,0 +1,6 @@
+{
+  "success": true,
+  "result": [
+    { "pattern": "drako.systems/*", "script": "drako-base-3" }
+  ]
+}

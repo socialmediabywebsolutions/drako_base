@@ -1,0 +1,28 @@
+{
+  "result": [
+    {
+      "databaseName": "drako_holding_db",
+      "tables": [
+        "saases_registry",
+        "agents_registry",
+        "governance_events",
+        "audit_logs",
+        "analyze_optimize_scale_runs"
+      ],
+      "columnsByTables": {
+        "saases_registry": ["saas_id", "saas_slug"],
+        "agents_registry": ["agent_id", "role_name"],
+        "governance_events": ["event_id", "event_type", "schema_version"],
+        "audit_logs": ["action", "created_at"],
+        "analyze_optimize_scale_runs": ["run_id", "status_name"]
+      }
+    },
+    {
+      "databaseName": "drako_db_prod",
+      "tables": ["knowledge_bases"],
+      "columnsByTables": {
+        "knowledge_bases": ["id"]
+      }
+    }
+  ]
+}

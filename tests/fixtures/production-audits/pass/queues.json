@@ -1,0 +1,7 @@
+{
+  "success": true,
+  "result": [
+    { "queue_name": "drako-global-events" },
+    { "queue_name": "drako-billing-queue" }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "meta": {
+    "updatedAt": "2026-02-26T20:40:00Z",
+    "owner": "holding",
+    "notes": "P0 production readiness audits source of truth"
+  },
+  "criticalWorkers": [
+    {
+      "workerName": "drako-core-worker",
+      "expectedStatus": "ACTIVE",
+      "expectedSubdomain": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "expectedSchedulesCount": 0
+    },
+    {
+      "workerName": "drako-billing-worker",
+      "expectedStatus": "ACTIVE",
+      "expectedSubdomain": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "expectedSchedulesCount": 0
+    },
+    {
+      "workerName": "drako-observability-worker",
+      "expectedStatus": "ACTIVE",
+      "expectedSubdomain": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "expectedSchedulesCount": 0
+    },
+    {
+      "workerName": "drako-ai-orchestrator-worker",
+      "expectedStatus": "ACTIVE",
+      "expectedSubdomain": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "expectedSchedulesCount": 0
+    },
+    {
+      "workerName": "drako-base-3",
+      "expectedStatus": "ARCHIVED",
+      "expectedSubdomain": {
+        "enabled": false,
+        "previewsEnabled": false
+      },
+      "expectedSchedulesCount": 0,
+      "expectedDomainsCount": 0,
+      "expectedRoutesCount": 0
+    }
+  ],
+  "criticalHostnames": [
+    {
+      "hostname": "drako.systems",
+      "expectedService": "saas-drakos-prod"
+    },
+    {
+      "hostname": "drakos.drako.systems",
+      "expectedService": "saas-drakos-prod"
+    },
+    {
+      "hostname": "base.drako.systems",
+      "expectedService": "saas-bases-prod"
+    },
+    {
+      "hostname": "bases.drako.systems",
+      "expectedService": "saas-bases-prod"
+    },
+    {
+      "hostname": "mentoria.drako.systems",
+      "expectedService": "saas-mentorias-prod"
+    },
+    {
+      "hostname": "mentorias.drako.systems",
+      "expectedService": "saas-mentorias-prod"
+    }
+  ],
+  "criticalRoutes": [
+    {
+      "pattern": "drako.systems/*",
+      "expectedScript": "saas-drakos-prod"
+    }
+  ],
+  "blockedMappings": {
+    "services": [
+      "drako-base-3"
+    ],
+    "scripts": [
+      "drako-base-3"
+    ]
+  },
+  "criticalDatastores": {
+    "d1DatabaseNames": [
+      "drako_holding_db",
+      "drako_billing_db",
+      "drako_observability_db",
+      "drako_ai_orchestrator_db",
+      "drako_db_prod"
+    ],
+    "r2BucketNames": [
+      "saas-drakos-prod-storage",
+      "saas-bases-prod-storage",
+      "saas-mentorias-prod-storage"
+    ],
+    "kvNamespaceNames": [
+      "DRKO_GLOBAL_CONFIG",
+      "saas_drakos_prod_cache"
+    ],
+    "queueNames": [
+      "drako-global-events",
+      "drako-billing-queue"
+    ],
+    "durableObjectClassNames": []
+  },
+  "criticalTables": [
+    {
+      "databaseName": "drako_holding_db",
+      "tables": [
+        {
+          "tableName": "saases_registry",
+          "requiredColumns": [
+            "saas_id",
+            "saas_slug"
+          ]
+        },
+        {
+          "tableName": "agents_registry",
+          "requiredColumns": [
+            "agent_id",
+            "role_name"
+          ]
+        },
+        {
+          "tableName": "governance_events",
+          "requiredColumns": [
+            "event_id",
+            "event_type",
+            "schema_version"
+          ]
+        },
+        {
+          "tableName": "audit_logs",
+          "requiredColumns": [
+            "action",
+            "created_at"
+          ]
+        },
+        {
+          "tableName": "analyze_optimize_scale_runs",
+          "requiredColumns": [
+            "run_id",
+            "status_name"
+          ]
+        }
+      ]
+    },
+    {
+      "databaseName": "drako_db_prod",
+      "tables": [
+        {
+          "tableName": "users",
+          "requiredColumns": [
+            "id",
+            "email",
+            "onboarding_completed"
+          ]
+        },
+        {
+          "tableName": "client_profiles",
+          "requiredColumns": [
+            "id",
+            "client_name"
+          ]
+        },
+        {
+          "tableName": "knowledge_bases",
+          "requiredColumns": [
+            "id"
+          ]
+        },
+        {
+          "tableName": "jobs",
+          "requiredColumns": [
+            "id"
+          ]
+        },
+        {
+          "tableName": "documents",
+          "requiredColumns": [
+            "id"
+          ]
+        }
+      ]
+    }
+  ],
+  "severities": {
+    "criticalWorkerMissing": "BLOCKER",
+    "criticalWorkerArchivedMismatch": "BLOCKER",
+    "criticalWorkerSubdomainMismatch": "WARN",
+    "criticalWorkerSchedulesMismatch": "WARN",
+    "criticalHostnameMissing": "BLOCKER",
+    "criticalHostnameMismatch": "BLOCKER",
+    "criticalRouteMissing": "WARN",
+    "criticalRouteMismatch": "BLOCKER",
+    "blockedServiceHit": "BLOCKER",
+    "blockedScriptHit": "BLOCKER",
+    "criticalD1Missing": "BLOCKER",
+    "criticalR2Missing": "WARN",
+    "criticalKvMissing": "BLOCKER",
+    "criticalQueueMissing": "WARN",
+    "criticalDurableObjectMissing": "WARN",
+    "criticalTableMissing": "BLOCKER",
+    "criticalColumnMissing": "BLOCKER",
+    "onboardingColumnsMismatch": "BLOCKER"
+  }
+}

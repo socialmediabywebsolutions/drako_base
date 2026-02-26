@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "result": [
+    { "hostname": "drako.systems", "service": "saas-drakos-prod" },
+    { "hostname": "drakos.drako.systems", "service": "saas-drakos-prod" },
+    { "hostname": "base.drako.systems", "service": "saas-bases-prod" },
+    { "hostname": "bases.drako.systems", "service": "saas-bases-prod" },
+    { "hostname": "mentoria.drako.systems", "service": "saas-mentorias-prod" },
+    { "hostname": "mentorias.drako.systems", "service": "saas-mentorias-prod" }
+  ]
+}
