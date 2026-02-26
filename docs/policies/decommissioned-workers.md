@@ -26,6 +26,26 @@ Status: `ARCHIVED`
 
 Root `package.json` scripts `cf:build`, `cf:deploy`, and `cf:preview` are blocked and routed to `archived:*` commands that fail closed with explicit messages.
 
+## Automatic Drift Detection Enabled
+
+Holding-level drift checks are enabled via:
+
+- Script: `scripts/check-workers-drift.ts`
+- Command: `npm run check:workers`
+
+Validation enforced for archived workers (`drako-base-3`):
+
+- `workers.dev` subdomain must remain disabled.
+- schedules must remain empty.
+- zone routes count must remain zero.
+- custom domains count must remain zero.
+
+Failure behavior:
+
+- Script exits with code `1`.
+- Error message includes:
+  - `DRIFT DETECTED: <worker> resurrected`
+
 ## Recovery Procedure (Only With Explicit Approval)
 
 1. Re-enable subdomain using Cloudflare API:
