@@ -53,6 +53,22 @@ Failure behavior:
   - `AUTO_REMEDIATE_ARCHIVED=true`
   - Actions allowed: disable subdomain, clear schedules.
 
+## Hostnames And Routes Ownership Lock
+
+An additional P0 ownership gate validates Cloudflare hostname/route targets:
+
+- Script: `scripts/check-hostnames-drift.ts`
+- Command: `npm run check:hostnames`
+- Source of truth: `docs/config/workers-hostnames-expected-state.json`
+- Report outputs:
+  - `docs/audits/hostnames-drift-latest.json`
+  - `docs/audits/hostnames-drift-latest.md`
+
+Hard rule:
+
+- `drako-base-3` must never be a target service in Workers Domains.
+- `drako-base-3` must never be a target script in Workers Routes.
+
 ## Recovery Procedure (Only With Explicit Approval)
 
 1. Re-enable subdomain using Cloudflare API:

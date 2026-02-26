@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "updatedAt": "2026-02-26T18:45:00Z",
+    "owner": "holding",
+    "notes": "P0 gate for hostname/routes ownership"
+  },
+  "criticalHostnames": [
+    {
+      "hostname": "drako.systems",
+      "expectedService": "saas-drakos-prod"
+    },
+    {
+      "hostname": "base.drako.systems",
+      "expectedService": "saas-bases-prod"
+    },
+    {
+      "hostname": "bases.drako.systems",
+      "expectedService": "saas-bases-prod"
+    },
+    {
+      "hostname": "mentoria.drako.systems",
+      "expectedService": "saas-mentorias-prod"
+    },
+    {
+      "hostname": "mentorias.drako.systems",
+      "expectedService": "saas-mentorias-prod"
+    },
+    {
+      "hostname": "drakos.drako.systems",
+      "expectedService": "saas-drakos-prod"
+    }
+  ],
+  "criticalRoutes": [
+    {
+      "pattern": "drako.systems/*",
+      "expectedScript": "saas-drakos-prod"
+    }
+  ],
+  "blockedMappings": {
+    "services": [
+      "drako-base-3"
+    ],
+    "scripts": [
+      "drako-base-3"
+    ]
+  },
+  "severities": {
+    "hostnameMismatch": "BLOCKER",
+    "routeMismatch": "BLOCKER",
+    "blockedServiceHit": "BLOCKER",
+    "blockedScriptHit": "BLOCKER",
+    "unexpectedCriticalHostnameMissing": "BLOCKER",
+    "unexpectedCriticalRouteMissing": "WARN"
+  }
+}
