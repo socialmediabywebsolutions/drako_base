@@ -1,0 +1,244 @@
+name: Drako Factory Deploy
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drako-factory-deploy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js (LTS) + pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Verify pnpm lockfile
+        run: |
+          set -euo pipefail
+          if [ ! -f pnpm-lock.yaml ]; then
+            echo "BLOCKED: pnpm-lock.yaml is required for --frozen-lockfile."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run required gates
+        run: |
+          set -euo pipefail
+          pnpm verify:auth-ssot
+          npx vitest run tests/api/auth-cross-redirects.test.ts
+          pnpm typecheck
+          npx vitest run tests/lib/auth-db-selection-failclosed.test.ts
+          npx vitest run tests/lib/auth-origin-resolution.test.ts
+          npx vitest run tests/lib/auth-session-cookie-e2e.test.ts
+
+  build:
+    name: Build Real OpenNext
+    runs-on: ubuntu-latest
+    needs: gates
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js (LTS) + pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Verify pnpm lockfile
+        run: |
+          set -euo pipefail
+          if [ ! -f pnpm-lock.yaml ]; then
+            echo "BLOCKED: pnpm-lock.yaml is required for --frozen-lockfile."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build OpenNext + finalize worker
+        run: |
+          set -euo pipefail
+          npx open-next build 2>&1 | tee open-next-build.log
+          node scripts/finalize-worker.js 2>&1 | tee finalize-worker.log
+
+      - name: Guardrail (real worker only, no dry-run/stub)
+        run: |
+          set -euo pipefail
+          WORKER_FILE=".open-next/worker.js"
+
+          if [ ! -f "$WORKER_FILE" ]; then
+            echo "BLOCKED: $WORKER_FILE does not exist."
+            exit 1
+          fi
+
+          BYTES="$(wc -c < "$WORKER_FILE")"
+          if [ "$BYTES" -le 10240 ]; then
+            echo "BLOCKED: $WORKER_FILE size must be > 10KB, got ${BYTES} bytes."
+            exit 1
+          fi
+
+          if grep -Ein "dry-run|stub" "$WORKER_FILE"; then
+            echo "BLOCKED: detected forbidden dry-run/stub markers in $WORKER_FILE."
+            exit 1
+          fi
+
+          echo "Worker guardrail passed (${BYTES} bytes)."
+
+      - name: Upload worker and build logs (audit)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-next-worker-audit-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            .open-next/worker.js
+            open-next-build.log
+            finalize-worker.log
+
+  deploy:
+    name: Deploy Workers
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js (LTS) + pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Verify pnpm lockfile
+        run: |
+          set -euo pipefail
+          if [ ! -f pnpm-lock.yaml ]; then
+            echo "BLOCKED: pnpm-lock.yaml is required for --frozen-lockfile."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify Cloudflare secrets
+        run: |
+          set -euo pipefail
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            echo "BLOCKED: missing CLOUDFLARE_API_TOKEN secret."
+            exit 1
+          fi
+          if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "BLOCKED: missing CLOUDFLARE_ACCOUNT_ID secret."
+            exit 1
+          fi
+
+      - name: Deploy in strict order (scheduler -> drakos -> mentorias -> bases)
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --config workers/drako-scheduler/wrangler.toml
+          npx wrangler deploy --config workers/drakos/wrangler.workers.toml
+          npx wrangler deploy --config workers/mentorias/wrangler.workers.toml
+          npx wrangler deploy --config workers/bases/wrangler.workers.toml
+
+  smoke:
+    name: Smoke Tests (anti-loop / anti-cross)
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Wait for route propagation
+        run: sleep 20
+
+      - name: Validate redirects and domain isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          check_url() {
+            local label="$1"
+            local url="$2"
+            local allowed_host="$3"
+            local forbidden_csv="$4"
+
+            echo "=== ${label} ==="
+            echo "URL: ${url}"
+
+            local headers status location location_host
+            headers="$(curl -sS -I --max-redirs 0 "$url")"
+            status="$(printf '%s\n' "$headers" | awk 'toupper($1) ~ /^HTTP\\// {code=$2} END {print code}')"
+            location="$(printf '%s\n' "$headers" | awk 'BEGIN{IGNORECASE=1} /^Location:/ {sub(/\r$/,""); sub(/^Location:[[:space:]]*/,""); print; exit}')"
+
+            echo "status: ${status:-unknown}"
+            echo "location: ${location:-<none>}"
+
+            if [ -z "${status:-}" ]; then
+              echo "BLOCKED: could not read HTTP status for ${url}"
+              exit 1
+            fi
+
+            if [[ ! "$status" =~ ^(200|301|302|303|307|308)$ ]]; then
+              echo "BLOCKED: unexpected status ${status} for ${url}"
+              exit 1
+            fi
+
+            if ! curl -sS -L --max-redirs 10 -o /dev/null "$url"; then
+              echo "BLOCKED: redirect loop or unreachable redirect chain for ${url}"
+              exit 1
+            fi
+
+            if [ -n "${location:-}" ]; then
+              if [[ "$location" =~ ^https?:// ]]; then
+                location_host="$(printf '%s\n' "$location" | sed -E 's#^https?://([^/:]+).*$#\1#')"
+                if [ "$location_host" != "$allowed_host" ]; then
+                  echo "BLOCKED: ${url} redirected to foreign host ${location_host} (allowed: ${allowed_host})"
+                  exit 1
+                fi
+                IFS=',' read -r -a forbidden_hosts <<< "$forbidden_csv"
+                for forbidden in "${forbidden_hosts[@]}"; do
+                  if [ "$location_host" = "$forbidden" ]; then
+                    echo "BLOCKED: ${url} redirected to forbidden domain ${forbidden}"
+                    exit 1
+                  fi
+                done
+              fi
+            fi
+          }
+
+          check_url "drakos-client" "https://drako.systems/client" "drako.systems" "mentorias.drako.systems,bases.drako.systems"
+          check_url "mentorias-client" "https://mentorias.drako.systems/client" "mentorias.drako.systems" "drako.systems,bases.drako.systems"
+          check_url "bases-admin" "https://bases.drako.systems/admin" "bases.drako.systems" "drako.systems,mentorias.drako.systems"
+
+          echo "SMOKE_OK"
