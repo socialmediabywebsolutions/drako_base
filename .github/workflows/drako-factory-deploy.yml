@@ -178,6 +178,31 @@ jobs:
             exit 1
           fi
 
+      - name: Normalize OpenNext worker module export
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("fs");
+          const workerPath = ".open-next/worker.js";
+          const content = fs.readFileSync(workerPath, "utf8");
+
+          if (/export\s+default\s*\{/.test(content)) {
+            console.log("OPENNEXT_DEFAULT_EXPORT_OK");
+            process.exit(0);
+          }
+
+          const match = content.match(/export\{([A-Za-z_$][\w$]*) as handler\};?\s*$/);
+          if (!match) {
+            console.error("BLOCKED: could not detect OpenNext handler export in .open-next/worker.js");
+            process.exit(1);
+          }
+
+          const localHandler = match[1];
+          const patched = `${content}\nexport default { fetch: ${localHandler} };\n`;
+          fs.writeFileSync(workerPath, patched, "utf8");
+          console.log(`OPENNEXT_DEFAULT_EXPORT_ADDED handler=${localHandler}`);
+          NODE
+
       - name: Verify Cloudflare secrets
         run: |
           set -euo pipefail
@@ -239,15 +264,15 @@ jobs:
           popd
 
           pushd workers/drakos
-          wrangler deploy -c wrangler.workers.toml
+          wrangler deploy -c wrangler.workers.toml --no-bundle
           popd
 
           pushd workers/mentorias
-          wrangler deploy -c wrangler.workers.toml
+          wrangler deploy -c wrangler.workers.toml --no-bundle
           popd
 
           pushd workers/bases
-          wrangler deploy -c wrangler.workers.toml
+          wrangler deploy -c wrangler.workers.toml --no-bundle
           popd
 
   smoke:
