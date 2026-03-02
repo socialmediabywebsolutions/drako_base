@@ -118,10 +118,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: open-next-worker-audit-${{ github.run_id }}
+          name: open-next-build-${{ github.run_id }}
           if-no-files-found: ignore
           path: |
-            .open-next/worker.js
+            .open-next
             open-next-build.log
             finalize-worker.log
 
@@ -158,6 +158,24 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Download OpenNext build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: open-next-build-${{ github.run_id }}
+          path: .
+
+      - name: Verify OpenNext build artifacts
+        run: |
+          set -euo pipefail
+          if [ ! -f ".open-next/worker.js" ]; then
+            echo "BLOCKED: missing .open-next/worker.js artifact."
+            exit 1
+          fi
+          if [ ! -d ".open-next/assets" ]; then
+            echo "BLOCKED: missing .open-next/assets artifact."
+            exit 1
+          fi
 
       - name: Verify Cloudflare secrets
         run: |
