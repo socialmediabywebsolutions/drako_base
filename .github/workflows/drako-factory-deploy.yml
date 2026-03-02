@@ -171,13 +171,28 @@ jobs:
             exit 1
           fi
 
+      - name: Install Wrangler 4.69.0
+        run: npm install -g wrangler@4.69.0
+
+      - name: Validate Cloudflare account identifier
+        run: |
+          set -euo pipefail
+          RESPONSE="$(curl -sS -X GET "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json")"
+          echo "$RESPONSE"
+          echo "$RESPONSE" | grep -q '"success":true' || {
+            echo "BLOCKED: invalid CLOUDFLARE_ACCOUNT_ID/token mapping (Cloudflare API validation failed)."
+            exit 1
+          }
+
       - name: Deploy in strict order (scheduler -> drakos -> mentorias -> bases)
         run: |
           set -euo pipefail
-          npx wrangler deploy --config workers/drako-scheduler/wrangler.toml
-          npx wrangler deploy --config workers/drakos/wrangler.workers.toml
-          npx wrangler deploy --config workers/mentorias/wrangler.workers.toml
-          npx wrangler deploy --config workers/bases/wrangler.workers.toml
+          wrangler deploy --config workers/drako-scheduler/wrangler.toml
+          wrangler deploy --config workers/drakos/wrangler.workers.toml
+          wrangler deploy --config workers/mentorias/wrangler.workers.toml
+          wrangler deploy --config workers/bases/wrangler.workers.toml
 
   smoke:
     name: Smoke Tests (anti-loop / anti-cross)
