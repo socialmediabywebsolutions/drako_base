@@ -19,6 +19,7 @@
     "deploy": "npm run cf:deploy",
     "start": "next start",
     "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
     "qa": "npm run lint && npm run build",
     "hostnames:tests": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/hostnames-tests.js",
     "production:go": "tsc --project tsconfig.scripts.json && node scripts/.dist/scripts/production-go.js",
