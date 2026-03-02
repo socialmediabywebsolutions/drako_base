@@ -171,6 +171,26 @@ jobs:
             exit 1
           fi
 
+      - name: Validate Cloudflare account id format
+        run: |
+          set -euo pipefail
+          if [[ ! "${CLOUDFLARE_ACCOUNT_ID}" =~ ^[a-fA-F0-9]{32}$ ]]; then
+            echo "BLOCKED: CLOUDFLARE_ACCOUNT_ID must be a 32-character hex string."
+            exit 1
+          fi
+
+      - name: Validate Cloudflare token
+        run: |
+          set -euo pipefail
+          RESPONSE="$(curl -sS -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json")"
+          echo "$RESPONSE"
+          echo "$RESPONSE" | grep -q '"success":true' || {
+            echo "BLOCKED: invalid CLOUDFLARE_API_TOKEN (token verify failed)."
+            exit 1
+          }
+
       - name: Install Wrangler 4.69.0
         run: npm install -g wrangler@4.69.0
 
