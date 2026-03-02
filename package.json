@@ -49,6 +49,8 @@
     "check:alerts": "tsx scripts/alerts-check.ts",
     "seed:canon": "npx wrangler d1 execute drako_db_prod --local --file=scripts/create_canon_tables.sql && npx wrangler d1 execute drako_db_prod --local --file=scripts/seed_canon.sql",
     "verify:monetization": "tsx scripts/verify-holding-monetization.ts",
+    "verify:auth-ssot": "tsx scripts/verify-auth-ssot.ts",
+    "verify-auth-ssot": "tsx scripts/verify-auth-ssot.ts",
     "test:auth-isolation": "tsx scripts/test-auth-isolation.ts",
     "verify:provisioning": "tsx scripts/verify-provisioning-states.ts",
     "deploy:scheduler": "cd workers/drako-scheduler && npx wrangler deploy",
