@@ -29,3 +29,7 @@ export function isRoutingsSubdomainsEnabled(): boolean {
 export function isTelemetriesHoldingEnabled(): boolean {
   return readFlag("TELEMETRIES_HOLDING_ENABLED", true);
 }
+
+export function isAuthsContextDbRequired(): boolean {
+  return readFlag("AUTHS_REQUIRE_CONTEXT_DB", true);
+}

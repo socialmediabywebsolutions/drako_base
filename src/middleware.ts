@@ -173,6 +173,16 @@ export async function middleware(req: NextRequest) {
         url.pathname = "/mentorias/auths/logins";
         return NextResponse.rewrite(url);
       }
+      if (pathname === "/auth/register") {
+        const url = new URL(req.url);
+        url.pathname = "/mentorias/auths/registrations";
+        return NextResponse.rewrite(url);
+      }
+      if (pathname === "/auth/login") {
+        const url = new URL(req.url);
+        url.pathname = "/mentorias/auths/logins";
+        return NextResponse.rewrite(url);
+      }
     }
 
     // Rutas admin a proteger en host público

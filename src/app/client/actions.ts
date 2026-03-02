@@ -229,7 +229,9 @@ export async function approveSaaSPlan() {
             `UPDATE tenants SET materialization_step = 4 WHERE id = ?`
         ).bind(tenantId).run();
 
-        return { success: true, ...provisioningResult };
+        const { success: _ignored, ...rest } = provisioningResult as { success?: boolean } & Record<string, unknown>;
+        void _ignored;
+        return { success: true, ...rest };
 
     } catch (err) {
         console.error("Deploy Error", err);

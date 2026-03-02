@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { ensureDatabase } from "@/lib/db";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { verifyAndActivate } from "@/lib/domains/domain-service";
+import { evaluateCustomDomainEntitlement } from "@/lib/domains/entitlement-gate";
 
 export async function POST(req: Request) {
     try {
@@ -16,7 +17,16 @@ export async function POST(req: Request) {
             return NextResponse.json({ ok: false, error: "Missing saasId" }, { status: 400 });
         }
 
-        const result = await verifyAndActivate(tenantId, saasId, true); // Force check
+        const entitlement = await evaluateCustomDomainEntitlement({ tenantId, saasId });
+        if (!entitlement.allowed) {
+            const status = entitlement.code === "SAAS_NOT_FOUND" ? 404 : 403;
+            return NextResponse.json(
+                { ok: false, error: entitlement.message, code: entitlement.code, context: entitlement.context },
+                { status },
+            );
+        }
+
+        const result = await verifyAndActivate(tenantId, saasId);
 
         return NextResponse.json({ ok: true, ...result });
 

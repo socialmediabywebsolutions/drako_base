@@ -193,7 +193,7 @@ async function verifyProvisioning() {
     console.log(`Rollback History: ${history}`);
 
     // EVIDENCE 1: Stripe
-    const stripe = new Stripe(STRIPE_KEY, { apiVersion: '2025-01-27.acacia' });
+    const stripe = new Stripe(STRIPE_KEY, { apiVersion: '2025-12-15.clover' });
     const product = await stripe.products.retrieve(payload.stripeProductId);
 
     console.log(`\n🧾 Stripe Evidence:`);

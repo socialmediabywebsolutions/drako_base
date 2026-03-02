@@ -16,6 +16,7 @@ export type AuthsSessionClaims = {
   email: string;
   tenantId: string;
   role: AuthsRole;
+  saasSlug: "drako" | "mentorias" | "campo_base";
   context: AuthsContext;
   iss: string;
   aud: string;

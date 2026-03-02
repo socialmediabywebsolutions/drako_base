@@ -10,7 +10,7 @@ export const SaasPlanSchema = z.object({
     planCode: z.enum(["starter", "pro", "scale"]),
     monthlyPriceCents: z.number().int().min(0),
     currency: z.string().default("eur"),
-    limitsJson: z.record(z.any()), // flexible for now
+    limitsJson: z.record(z.string(), z.any()), // flexible for now
     departmentsJson: z.array(z.string()), // e.g. ["default", "sales"]
 });
 

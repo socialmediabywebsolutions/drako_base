@@ -21,6 +21,11 @@ interface CycleInfo {
     overage_count: number;
 }
 
+type SessionsResponse = {
+    sessions?: Session[];
+    cycle?: CycleInfo | null;
+};
+
 export function SessionsContent() {
     const [loading, setLoading] = useState(true);
     const [sessions, setSessions] = useState<Session[]>([]);
@@ -36,11 +41,11 @@ export function SessionsContent() {
                     throw new Error('Failed to fetch sessions');
                 }
 
-                const data = await res.json();
+                const data = await res.json() as SessionsResponse;
                 setSessions(data.sessions || []);
-                setCycle(data.cycle);
-            } catch (e: any) {
-                setError(e.message);
+                setCycle(data.cycle ?? null);
+            } catch (e: unknown) {
+                setError(e instanceof Error ? e.message : "Unknown error");
             } finally {
                 setLoading(false);
             }

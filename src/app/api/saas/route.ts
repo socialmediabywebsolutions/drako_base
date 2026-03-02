@@ -107,8 +107,6 @@ export async function GET(req: Request) {
     }));
 
     return NextResponse.json({ items: mappedItems, count: mappedItems.length });
-
-    return NextResponse.json({ items, count: items.length });
   } catch (error) {
     const response = authErrorResponse(error);
     if (response) return response;
@@ -265,9 +263,8 @@ export async function POST(req: Request) {
         ok: true,
         id: result.saasId,
         provisioningStatus: {
-          cloudflare: result.cloudflare,
-          stripe: result.stripe,
-          ai: result.ai,
+          status: result.status,
+          error: result.error ?? null,
         },
       });
     }

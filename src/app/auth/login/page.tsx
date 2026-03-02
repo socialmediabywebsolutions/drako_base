@@ -9,6 +9,14 @@ export default async function LoginPage() {
     const requestedHost = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host");
     const context = resolveAuthsContextFromHost(requestedHost);
     const isBasesContext = context === "bases";
+    const authApiBase =
+        context === "mentorias"
+            ? "/api/mentorias/auths"
+            : context === "bases"
+                ? "/api/bases/auths"
+                : "/api/drakos/auths";
+    const saasSlug = context === "mentorias" ? "mentorias" : context === "bases" ? "campo_base" : "drako";
+    const redirectTo = context === "mentorias" ? "/client/sessions" : context === "bases" ? "/admin" : "/site/onboarding";
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-sky-50 to-slate-100 flex items-center justify-center p-6">
@@ -34,7 +42,11 @@ export default async function LoginPage() {
                 </p>
 
                 {/* Unified Auth Form */}
-                <AuthForm context={context} redirectTo={isBasesContext ? "/admin" : undefined} />
+                <AuthForm
+                    saasSlug={saasSlug}
+                    authApiBase={authApiBase}
+                    postLoginRedirect={redirectTo}
+                />
 
                 {/* Back to home */}
                 <Link

@@ -1,5 +1,6 @@
-import { getDb } from "@/lib/db";
+import { env as resolveEnv } from "@/lib/cf";
 import type { AuthsContext } from "@/lib/auths/types";
+import { isAuthsContextDbRequired } from "@/lib/auths/flags";
 
 type AuthsTableConfig = {
   usersTable: string;
@@ -39,6 +40,26 @@ const TABLES_BY_CONTEXT: Record<Exclude<AuthsContext, "bases">, AuthsTableConfig
   },
 };
 
+export function resolveAuthsDbForContext(context: AuthsContext): D1Database | null {
+  const bindings = resolveEnv();
+  if (!bindings) return null;
+
+  if (context === "drakos") {
+    if (bindings.DRAKOS_AUTHS_DB) return bindings.DRAKOS_AUTHS_DB;
+  } else if (context === "mentorias") {
+    if (bindings.MENTORIAS_AUTHS_DB) return bindings.MENTORIAS_AUTHS_DB;
+  } else if (context === "bases") {
+    if (bindings.BASES_AUTHS_DB) return bindings.BASES_AUTHS_DB;
+  }
+
+  if (isAuthsContextDbRequired()) {
+    console.error("AUTHS_CONTEXT_DB_MISSING", { context });
+    return null;
+  }
+
+  return bindings.DRACO_DB ?? null;
+}
+
 function getTables(context: Exclude<AuthsContext, "bases">): AuthsTableConfig {
   return TABLES_BY_CONTEXT[context];
 }
@@ -47,7 +68,7 @@ export async function findUserWithCredentialByEmail(params: {
   context: Exclude<AuthsContext, "bases">;
   email: string;
 }): Promise<(AuthsUserRecord & AuthsCredentialRecord) | null> {
-  const db = getDb();
+  const db = resolveAuthsDbForContext(params.context);
   if (!db) return null;
   const tables = getTables(params.context);
 
@@ -91,7 +112,7 @@ export async function createUserWithCredential(params: {
   iterations: number;
   algo?: string;
 }): Promise<{ ok: true } | { ok: false; code: "EMAIL_EXISTS" | "DB_UNAVAILABLE" | "DB_ERROR" }> {
-  const db = getDb();
+  const db = resolveAuthsDbForContext(params.context);
   if (!db) return { ok: false, code: "DB_UNAVAILABLE" };
   const tables = getTables(params.context);
   const now = new Date().toISOString();
@@ -125,7 +146,7 @@ export async function saveSessionRecord(params: {
   tokenHash: string;
   expiresAt: string;
 }): Promise<void> {
-  const db = getDb();
+  const db = resolveAuthsDbForContext(params.context);
   if (!db) return;
   const tables = getTables(params.context);
   const now = new Date().toISOString();

@@ -1,6 +1,6 @@
 
 import { Stripe } from "stripe";
-import { env } from "@/lib/db";
+import { env } from "@/lib/cf";
 
 /**
  * STANDARD CAMPAMENTO BASE CHECKOUT

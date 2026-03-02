@@ -2,13 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { ContractService } from "@/lib/campamento-base/contracts/service";
-import { resolveTenantId } from "@/lib/tenants/services";
+import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import type { BlueprintResponse } from "@/lib/campamento-base/ai-blueprint-v2/prompts";
 
 
 export async function POST(req: NextRequest) {
     try {
-        const tenantId = resolveTenantId();
+        const { tenantId } = await requireTenantAccess(req);
         const body = (await req.json()) as { projectId: string; projectName?: string; blueprint: Record<string, unknown> };
         const { projectId, projectName, blueprint } = body;
         const blueprintRes = blueprint as unknown as BlueprintResponse;
@@ -26,6 +26,9 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ contract });
     } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error("Contract API Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
@@ -33,7 +36,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
     try {
-        const tenantId = resolveTenantId();
+        const { tenantId } = await requireTenantAccess(req);
         const body = (await req.json()) as { contractId: string; metadata: Record<string, unknown> };
         const { contractId, metadata } = body;
         const ip = req.headers.get("x-real-ip") || req.headers.get("cf-connecting-ip") || "0.0.0.0";
@@ -55,6 +58,9 @@ export async function PATCH(req: NextRequest) {
 
         return NextResponse.json({ ok: true });
     } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error("Contract Signing Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }

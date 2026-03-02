@@ -3,6 +3,10 @@
 import React, { useState } from 'react';
 import { Download, ShieldCheck, AlertTriangle } from 'lucide-react';
 
+type SaasListResponse = {
+    items?: Array<{ id: string; slug: string }>;
+};
+
 export default function OwnershipPage() {
     const [downloading, setDownloading] = useState(false);
 
@@ -28,7 +32,7 @@ export default function OwnershipPage() {
             // 1. Get SaaS ID (Quick fetch to own API to resolve "my" instance)
             const saasRes = await fetch('/api/saas');
             if (!saasRes.ok) throw new Error("Could not resolve SaaS Instance");
-            const saasData = await saasRes.json();
+            const saasData = await saasRes.json() as SaasListResponse;
             const instance = saasData.items?.[0]; // Assuming single instance for now per tenant context in Client Portal
 
             if (!instance) {

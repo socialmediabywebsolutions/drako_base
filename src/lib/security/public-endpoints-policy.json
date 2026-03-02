@@ -55,6 +55,13 @@
       "consumer": "Stripe",
       "risk": "Eventos falsos",
       "mitigations": ["stripe-signature", "rate-limit"]
+    },
+    {
+      "route": "/api/billing/webhook",
+      "purpose": "Alias legado hacia webhook canónico de Stripe",
+      "consumer": "Stripe (legacy)",
+      "risk": "Eventos falsos",
+      "mitigations": ["stripe-signature", "rate-limit"]
     }
   ],
   "mustAuth": []

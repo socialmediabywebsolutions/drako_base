@@ -8,7 +8,12 @@ export default function MentoriasLoginsPage() {
       <div className="w-full max-w-md">
         <h1 className="mb-3 text-3xl font-bold">Mentorias Login</h1>
         <p className="mb-6 text-sm text-slate-400">Access your Mentorias account.</p>
-        <AuthForm context="mentorias" defaultMode="login" redirectTo="/client/sessions" />
+        <AuthForm
+          saasSlug="mentorias"
+          authApiBase="/api/mentorias/auths"
+          defaultMode="login"
+          postLoginRedirect="/client/sessions"
+        />
       </div>
     </div>
   );

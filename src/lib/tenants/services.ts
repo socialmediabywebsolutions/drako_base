@@ -2,6 +2,11 @@ import { queryAll, run } from "@/lib/db";
 
 export const DEMO_TENANT_ID = "demo-tenant";
 
+export type ResolveTenantIdOptions = {
+  fallbackTenantId?: string | null;
+  allowUntrustedOverride?: boolean;
+};
+
 type TenantRecord = {
   id: string;
   slug: string;
@@ -35,16 +40,28 @@ type TenantAgentRecord = {
   updated_at: string;
 };
 
-export function resolveTenantId(req?: Request | null): string {
-  if (!req) return DEMO_TENANT_ID;
-  const header = req.headers.get("x-tenant-id")?.trim();
-  if (header) return header;
-  const url = new URL(req.url);
-  const param = url.searchParams.get("tenantId") ?? url.searchParams.get("tenant_id");
-  if (param && param.trim().length > 0) {
-    return param.trim();
+export function resolveTenantId(req?: Request | null, options: ResolveTenantIdOptions = {}): string {
+  const hasFallback = Object.prototype.hasOwnProperty.call(options, "fallbackTenantId");
+  const fallbackTenantId = hasFallback ? options.fallbackTenantId : DEMO_TENANT_ID;
+  if (!req) return fallbackTenantId ?? "";
+
+  // Trusted tenant resolution comes from middleware host mapping.
+  const trustedHeader = req.headers.get("x-drako-tenant-id")?.trim();
+  if (trustedHeader) return trustedHeader;
+
+  // Legacy override mode is restricted to explicitly internal use-cases only.
+  if (options.allowUntrustedOverride) {
+    const legacyHeader = req.headers.get("x-tenant-id")?.trim();
+    if (legacyHeader) return legacyHeader;
+
+    const url = new URL(req.url);
+    const queryTenantId = url.searchParams.get("tenantId") ?? url.searchParams.get("tenant_id");
+    if (queryTenantId && queryTenantId.trim().length > 0) {
+      return queryTenantId.trim();
+    }
   }
-  return DEMO_TENANT_ID;
+
+  return fallbackTenantId ?? "";
 }
 
 export async function getTenantBySlug(slug: string): Promise<TenantRecord | null> {

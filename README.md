@@ -34,3 +34,11 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Deployment: Factory Mode
+
+- Manual local deploy with `wrangler` is not allowed for production.
+- Official production deploy path is GitHub Actions CI/CD only.
+- To deploy, merge or push to `main`.
+- Required GitHub Actions secret: `CLOUDFLARE_API_TOKEN`.
+- Required GitHub Actions secret: `CLOUDFLARE_ACCOUNT_ID`.

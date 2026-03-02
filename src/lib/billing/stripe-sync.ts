@@ -7,7 +7,7 @@ import { crypto } from '@/lib/crypto-polyfill'; // Ensure we have crypto for IDs
 export const getStripe = () => {
     const key = process.env.STRIPE_SECRET_KEY || env()?.STRIPE_SECRET_KEY;
     if (!key) throw new Error("Missing STRIPE_SECRET_KEY");
-    return new Stripe(key, { apiVersion: '2025-01-27.acacia' });
+    return new Stripe(key, { apiVersion: '2025-12-15.clover' });
 };
 
 function resolvePackFromPrice(priceId: string): PackName | 'Custom' {

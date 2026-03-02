@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { getStripe } from "@/lib/billing/stripe-sync";
 import { env } from "@/lib/cf"; // verify path
+import { resolveAuthOriginFromRequest } from "@/lib/auths/origin";
 
 export const runtime = 'nodejs'; // REQUIRED for Stripe
 
@@ -20,6 +21,7 @@ export async function GET(req: Request) {
 
     try {
         const stripe = getStripe();
+        const origin = resolveAuthOriginFromRequest(req);
 
         // In a real implementation with valid D1 access in Node or an external stored customer ID,
         // we would fetch the customerId here.
@@ -32,7 +34,7 @@ export async function GET(req: Request) {
         if (customer) {
             const sessionPortal = await stripe.billingPortal.sessions.create({
                 customer: customer.id,
-                return_url: `${process.env.NEXTAUTH_URL || 'https://drako.systems'}/client`,
+                return_url: `${origin}/client`,
             });
             return NextResponse.redirect(sessionPortal.url);
         } else {

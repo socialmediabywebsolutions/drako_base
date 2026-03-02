@@ -1,6 +1,5 @@
 import { run, queryAll } from "@/lib/db";
-import { env } from "@/lib/cf"; // Assuming this helper exists or we access env directly
-import { createHash } from "crypto";
+import { evaluateCustomDomainEntitlement } from "@/lib/domains/entitlement-gate";
 
 // Types
 export type DomainStatus =
@@ -32,7 +31,7 @@ const VERIFY_PREFIX = getEnv("DOMAIN_VERIFY_PREFIX") || "drako-verify";
 const VERIFY_SALT = getEnv("DOMAIN_VERIFY_SALT") || "salt";
 const CF_ACCOUNT_ID = getEnv("CLOUDFLARE_ACCOUNT_ID") || getEnv("CF_ACCOUNT_ID");
 const CF_API_TOKEN = getEnv("CLOUDFLARE_API_TOKEN");
-const CF_PROJECT_NAME = getEnv("CLOUDFLARE_PAGES_PROJECT") || "drako-base-3";
+const CF_PROJECT_NAME = getEnv("CLOUDFLARE_PAGES_PROJECT");
 
 // Helper to record events
 async function logDomainEvent(
@@ -59,7 +58,6 @@ export async function requestCustomDomain(
     tenantId: string,
     saasId: string,
     domainInput: string,
-    isPlanActive: boolean // passed from caller to avoid circular dependency
 ): Promise<{ ok: boolean; error?: string; token?: string; status?: string }> {
 
     // Validation
@@ -68,8 +66,13 @@ export async function requestCustomDomain(
         return { ok: false, error: "Invalid domain format. Use hostname only (e.g. app.client.com)." };
     }
 
-    if (!isPlanActive) {
-        return { ok: false, error: "Plan requires upgrade for custom domains.", status: 'locked' };
+    const entitlement = await evaluateCustomDomainEntitlement({ tenantId, saasId });
+    if (!entitlement.allowed) {
+        return {
+            ok: false,
+            error: entitlement.message,
+            status: entitlement.code === "SAAS_NOT_FOUND" ? "failed" : "locked",
+        };
     }
 
     // Check availability
@@ -112,7 +115,7 @@ async function resolveTxtRecord(domain: string, host: string): Promise<string[]>
 
     try {
         const res = await fetch(url, { headers: { 'Accept': 'application/dns-json' } });
-        const json = await res.json();
+        const json = await res.json() as { Answer?: Array<{ data: string }> };
         if (json.Answer) {
             return json.Answer.map((a: any) => a.data.replace(/^"|"$/g, ''));
         }
@@ -127,7 +130,7 @@ async function resolveTxtRecord(domain: string, host: string): Promise<string[]>
 export async function verifyAndActivate(
     tenantId: string,
     saasId: string,
-    force: boolean = false
+    options: { forceRecheck?: boolean } = {}
 ): Promise<{ prevStatus: string; newStatus: string; message: string }> {
 
     const rows = await queryAll<{ custom_domain: string; domain_verify_token: string; domain_status: string; domain_provider: string }>(
@@ -139,7 +142,9 @@ export async function verifyAndActivate(
     const { custom_domain, domain_verify_token, domain_status } = rows[0];
 
     if (!custom_domain || !domain_verify_token) return { prevStatus: domain_status, newStatus: domain_status, message: 'No custom domain pending.' };
-    if (domain_status === 'active' && !force) return { prevStatus: 'active', newStatus: 'active', message: 'Already active.' };
+    if (domain_status === 'active' && !options.forceRecheck) {
+        return { prevStatus: 'active', newStatus: 'active', message: 'Already active.' };
+    }
 
     // Check DNS
     const txtRecords = await resolveTxtRecord(custom_domain, VERIFY_PREFIX);
@@ -147,7 +152,7 @@ export async function verifyAndActivate(
 
     if (!isVerified) {
         // If we can't find specific record, maybe they put it on root? (Flexible)
-        const rootTxt = await resolveTxtRecord(custom_domain, "@"); // @ isn't valid in DoH name usually, generally just domain
+        await resolveTxtRecord(custom_domain, "@"); // @ isn't valid in DoH name usually, generally just domain
         // Actually standard DoH just query domain
         // TODO: stricter check.
 
@@ -167,6 +172,11 @@ export async function verifyAndActivate(
         await logDomainEvent(tenantId, saasId, "DOMAIN_MANUAL_REQUIRED", { reason: "Missing CF_API_TOKEN" });
         return { prevStatus: domain_status, newStatus: 'pending_manual', message: 'Verified but manual activation required (Missing API Token).' };
     }
+    if (!CF_PROJECT_NAME) {
+        await run("UPDATE saas_instances SET domain_status = 'pending_manual', domain_error = 'Missing Pages project config' WHERE id = ?", saasId);
+        await logDomainEvent(tenantId, saasId, "DOMAIN_MANUAL_REQUIRED", { reason: "Missing CLOUDFLARE_PAGES_PROJECT" });
+        return { prevStatus: domain_status, newStatus: 'pending_manual', message: 'Verified but manual activation required (Missing CLOUDFLARE_PAGES_PROJECT).' };
+    }
 
     try {
         // Call Cloudflare API to add domain to Pages project
@@ -179,7 +189,7 @@ export async function verifyAndActivate(
             body: JSON.stringify({ name: custom_domain })
         });
 
-        const cfData = await cfRes.json();
+        const cfData = await cfRes.json() as { errors?: Array<{ message?: string }> };
         if (!cfRes.ok) {
             throw new Error(cfData.errors?.[0]?.message || "Cloudflare API Error");
         }

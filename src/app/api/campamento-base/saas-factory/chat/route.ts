@@ -87,7 +87,10 @@ export async function POST(req: Request) {
     let tenantId: string;
 
     if (body.mode === "partner") {
-      tenantId = resolveTenantId(req);
+      tenantId = resolveTenantId(req, { fallbackTenantId: null });
+      if (!tenantId) {
+        throw new UnauthorizedError("TENANT_CONTEXT_REQUIRED", 401);
+      }
     } else {
       // Factory mode requires full access
       const access = await requireTenantAccess(req);

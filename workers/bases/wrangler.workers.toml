@@ -23,6 +23,11 @@ binding = "DRACO_DB"
 database_name = "drako_db_prod"
 database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 
+[[d1_databases]]
+binding = "BASES_AUTHS_DB"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+
 [[queues.producers]]
 queue = "drako-billing-queue"
 binding = "BILLING_QUEUE"
@@ -40,8 +45,9 @@ binding = "SCHEDULER"
 service = "drako-scheduler"
 
 [vars]
-NEXTAUTH_URL = "https://base.drako.systems"
+NEXTAUTH_URL = "https://bases.drako.systems"
 AUTHS_ISOLATIONS_ENABLED = "true"
 AUTHS_LEGACY_COMPATS_ENABLED = "false"
 ROUTINGS_SUBDOMAINS_ENABLED = "true"
 TELEMETRIES_HOLDING_ENABLED = "true"
+AUTHS_REQUIRE_CONTEXT_DB = "true"

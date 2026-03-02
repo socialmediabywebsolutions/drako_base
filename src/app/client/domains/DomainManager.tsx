@@ -22,6 +22,9 @@ type DomainData = {
     error?: string;
 };
 
+type DomainStatusResponse = DomainData;
+type DomainMutationResponse = { ok?: boolean; error?: string; message?: string; status?: string };
+
 export default function DomainManager({ saasId, saasName }: { saasId: string, saasName: string }) {
     const [data, setData] = useState<DomainData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -33,7 +36,7 @@ export default function DomainManager({ saasId, saasName }: { saasId: string, sa
         try {
             const res = await fetch(`/api/domains/status?saasId=${saasId}`);
             if (res.ok) {
-                const json = await res.json();
+                const json = await res.json() as DomainStatusResponse;
                 setData(json);
             }
         } catch (e) {
@@ -56,7 +59,7 @@ export default function DomainManager({ saasId, saasName }: { saasId: string, sa
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ saasId, domain: newDomain }),
             });
-            const json = await res.json();
+            const json = await res.json() as DomainMutationResponse;
             if (!res.ok) {
                 alert(json.error || "Failed");
             } else {
@@ -77,7 +80,7 @@ export default function DomainManager({ saasId, saasName }: { saasId: string, sa
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ saasId }),
             });
-            const json = await res.json();
+            const json = await res.json() as DomainMutationResponse;
             if (json.ok) {
                 alert(json.message);
                 await fetchStatus();
@@ -111,11 +114,14 @@ export default function DomainManager({ saasId, saasName }: { saasId: string, sa
                     <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(`https://${data.trial_domain}`)}>
                         <Copy className="w-4 h-4" />
                     </Button>
-                    <Button variant="outline" size="sm" asChild>
-                        <a href={`https://${data.trial_domain}`} target="_blank" rel="noopener noreferrer">
-                            Open <ArrowRight className="w-3 h-3 ml-1" />
-                        </a>
-                    </Button>
+                    <a
+                        className="inline-flex items-center gap-1 rounded-full border-2 border-slate-300 bg-transparent px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        href={`https://${data.trial_domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Open <ArrowRight className="w-3 h-3 ml-1" />
+                    </a>
                 </div>
                 <p className="text-xs text-[var(--muted)] mt-2">
                     Your instant, always-on development URL.
@@ -142,7 +148,7 @@ export default function DomainManager({ saasId, saasName }: { saasId: string, sa
                         <ShieldCheck className="w-5 h-5 text-[var(--brand)]" /> Custom Domain
                     </h3>
                     {hasCustom && (
-                        <Badge variant={isActive ? "default" : "outline"} className={isActive ? "bg-green-500 hover:bg-green-600" : "text-yellow-600 border-yellow-200 bg-yellow-50"}>
+                        <Badge variant={isActive ? "ok" : "outline"} className={isActive ? "bg-green-500 hover:bg-green-600" : "text-yellow-600 border-yellow-200 bg-yellow-50"}>
                             {data.status.replace('_', ' ').toUpperCase()}
                         </Badge>
                     )}

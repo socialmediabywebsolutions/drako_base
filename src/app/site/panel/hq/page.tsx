@@ -125,7 +125,7 @@ export default async function HeadquartersPage() {
 
     // Phase 19.2: Fetch MentorIA Stats
     const db = getDb();
-    let mentoriaStats = { count: 0, revenue: 0, cost: 0 };
+    let mentoriaStats = { total_30d: 0, overage_revenue: 0 };
     if (db) {
         try {
             const { MentorSessionEngine } = await import('@/lib/mentoria/session-engine');
@@ -178,8 +178,8 @@ export default async function HeadquartersPage() {
                 {/* MentorIA Specifics (Phase 19.2) */}
                 <StatCard
                     label="Sessions (30d)"
-                    value={mentoriaStats.count.toString()}
-                    trend={`+€${mentoriaStats.revenue}`}
+                    value={mentoriaStats.total_30d.toString()}
+                    trend={`+€${mentoriaStats.overage_revenue}`}
                     tone="brand"
                 />
             </div>

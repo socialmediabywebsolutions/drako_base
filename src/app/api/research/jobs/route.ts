@@ -1,10 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { ensureDatabase, queryAll, run } from "@/lib/db";
+import { ensureDatabase, queryAll, queryOne, run } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";
-import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import { env } from "@/lib/cf";
+import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 
 
 type JobRow = {
@@ -20,8 +20,19 @@ type JobRow = {
 export async function POST(req: Request) {
   try {
     ensureDatabase();
+    const { tenantId } = await requireTenantAccess(req);
     const body = (await req.json().catch(() => null)) as { sessionId?: string; address?: string; radioKm?: number; industry?: string } | null;
     if (!body?.sessionId || !body.address) return NextResponse.json({ error: "sessionId y address requeridos" }, { status: 400 });
+
+    const session = await queryOne<{ id: string }>(
+      "SELECT id FROM onboarding_sessions WHERE id = ? AND tenant_id = ? LIMIT 1",
+      body.sessionId,
+      tenantId,
+    );
+    if (!session) {
+      return NextResponse.json({ error: "sessionId no pertenece al tenant autenticado" }, { status: 403 });
+    }
+
     const id = globalThis.crypto?.randomUUID?.() ?? `research_${Date.now()}`;
     const radio = body.radioKm ?? 2;
     const payload = { address: body.address, radioKm: radio, industry: body.industry ?? "general" };
@@ -41,7 +52,7 @@ export async function POST(req: Request) {
       "INSERT INTO research_jobs (id, session_id, tenant_id, status, payload, result, requires_keys_reason) VALUES (?, ?, ?, ?, ?, ?, ?)",
       id,
       body.sessionId,
-      DEMO_TENANT_ID,
+      tenantId,
       status,
       JSON.stringify(payload),
       result,
@@ -50,6 +61,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ id, status, result: JSON.parse(result) });
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     const dbError = respondDatabaseError(error);
     if (dbError) return dbError;
     const correlationId = globalThis.crypto?.randomUUID?.() ?? `research_err_${Date.now()}`;
@@ -61,15 +75,20 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     ensureDatabase();
+    const { tenantId } = await requireTenantAccess(req);
     const { searchParams } = new URL(req.url);
     const sessionId = searchParams.get("sessionId");
     if (!sessionId) return NextResponse.json({ error: "sessionId requerido" }, { status: 400 });
     const jobs = await queryAll<JobRow>(
-      "SELECT id, status, payload, result, requires_keys_reason, created_at, updated_at FROM research_jobs WHERE session_id = ? ORDER BY created_at DESC",
-      sessionId
+      "SELECT id, status, payload, result, requires_keys_reason, created_at, updated_at FROM research_jobs WHERE session_id = ? AND tenant_id = ? ORDER BY created_at DESC",
+      sessionId,
+      tenantId,
     );
     return NextResponse.json({ items: jobs.map((j) => ({ ...j, payload: JSON.parse(j.payload), result: j.result ? JSON.parse(j.result) : null })) });
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     const dbError = respondDatabaseError(error);
     if (dbError) return dbError;
     const correlationId = globalThis.crypto?.randomUUID?.() ?? `research_get_err_${Date.now()}`;

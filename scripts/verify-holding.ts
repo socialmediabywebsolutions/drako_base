@@ -32,10 +32,12 @@ async function main() {
     // 2. Verify Pricing Plans & Departments
     console.log("\n[2] Checking Pricing Plans Configuration...");
     try {
-        const plans = await queryAll(`SELECT saas_slug, plan_code, departments_json FROM saas_pricing_plans`);
+        const plans = await queryAll<{ saas_slug: string; plan_code: string; departments_json: string }>(
+            `SELECT saas_slug, plan_code, departments_json FROM saas_pricing_plans`
+        );
         if (plans.length > 0) {
             console.log(`✅ Found ${plans.length} Pricing Plans.`);
-            const drakoPro = plans.find((p: any) => p.saas_slug === 'drako' && p.plan_code === 'pro');
+            const drakoPro = plans.find((p) => p.saas_slug === 'drako' && p.plan_code === 'pro');
             if (drakoPro && JSON.parse(drakoPro.departments_json).length > 0) {
                 console.log(`✅ Drako Pro Plan includes departments: ${drakoPro.departments_json}`);
             } else {

@@ -230,7 +230,7 @@ async function searchFallbackBySector(params: {
   const payload = await fetchJsonWithTimeout<Array<{ lat: string; lon: string; display_name: string; type: string }>>(url);
 
   const competitors = payload
-    .map((item) => {
+    .map((item): CompetitorsProfile | null => {
       const lat = Number.parseFloat(item.lat);
       const lon = Number.parseFloat(item.lon);
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
@@ -247,7 +247,7 @@ async function searchFallbackBySector(params: {
         source: "sector_fallback" as const,
       };
     })
-    .filter((item): item is CompetitorsProfile => Boolean(item));
+    .filter((item): item is CompetitorsProfile => item !== null);
 
   return competitors.slice(0, MAX_COMPETITORS);
 }

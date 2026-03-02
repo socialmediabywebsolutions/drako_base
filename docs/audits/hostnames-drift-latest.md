@@ -1,6 +1,6 @@
 # Hostnames Drift Report
 
-- Timestamp: `2026-02-26T19:10:59.466Z`
+- Timestamp: `2026-02-26T21:21:34.665Z`
 - Mode: `real`
 - Source of truth: `docs/config/workers-hostnames-expected-state.json`
 - Fixtures dir: `n/a`

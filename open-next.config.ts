@@ -1,24 +1,24 @@
 const config = {
     default: {
         override: {
-            wrapper: "cloudflare-node",
+            wrapper: "cloudflare",
             converter: "edge",
             proxyExternalRequest: "fetch",
-            incrementalCache: "dummy",
-            tagCache: "dummy",
-            queue: "direct",
+            incrementalCache: "s3-lite",
+            tagCache: "dynamodb-lite",
+            queue: "sqs-lite",
         },
     },
     edgeExternals: ["node:crypto"],
     middleware: {
         external: true,
         override: {
-            wrapper: "cloudflare-edge",
+            wrapper: "cloudflare",
             converter: "edge",
             proxyExternalRequest: "fetch",
-            incrementalCache: "dummy",
-            tagCache: "dummy",
-            queue: "direct",
+            incrementalCache: "s3-lite",
+            tagCache: "dynamodb-lite",
+            queue: "sqs-lite",
         },
     },
 };

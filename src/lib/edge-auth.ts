@@ -23,6 +23,7 @@ export interface EdgeSession {
     email: string;
     tenantId: string;
     role: string;
+    saasSlug?: string;
     iat: number; // Issued at (timestamp)
     exp: number; // Expiration (timestamp)
 }
@@ -154,6 +155,7 @@ export async function extractSessionFromRequest(
                     email: claims.email,
                     tenantId: claims.tenantId,
                     role: claims.role,
+                    saasSlug: claims.saasSlug,
                     iat: claims.iat,
                     exp: claims.exp,
                 };

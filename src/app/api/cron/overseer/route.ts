@@ -7,18 +7,18 @@ import { computeUnitEconomics } from '@/lib/os/economics';
 import { runInterventions } from '@/lib/os/interventions';
 import { autoPauseIfPastDueExceeded } from '@/lib/os/lifecycle';
 import { getEmpireOverview } from '@/lib/os/overseer'; // Still useful for pulse/matrix aggregator
+import { CronAuthError, verifyCronAuth } from '@/lib/security/cron-auth';
 
 // MUST be Node.js for Stripe Compatibility
 export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
-    const url = new URL(req.url);
-    const key = url.searchParams.get('key');
-    const secret = req.headers.get('X-Drako-Origin-Secret');
-    const CRON_SECRET = process.env.CRON_SECRET || env()?.CRON_SECRET;
-
-    // Auth: Allow query param OR header
-    if (key !== CRON_SECRET && secret !== CRON_SECRET) {
+    try {
+        verifyCronAuth(req);
+    } catch (error) {
+        if (error instanceof CronAuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { env } from "@/lib/cf";
 import { extractSessionFromRequest } from "@/lib/edge-auth";
+import { resolveAuthOriginFromRequest } from "@/lib/auths/origin";
 
 import { logger } from "@/lib/logger";
 
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+        const requestOrigin = resolveAuthOriginFromRequest(req);
         interface OnboardingBody {
             contactName?: string;
             companyName?: string;
@@ -173,6 +175,7 @@ export async function POST(req: NextRequest) {
             facebookUrl,
             linkedinUrl,
             websiteUrl,
+            baseUrl: requestOrigin,
         }).catch(err => {
             console.error("Failed to trigger competitive analysis:", err);
             // Don't fail the onboarding if analysis fails
@@ -194,6 +197,7 @@ async function triggerCompetitiveAnalysis(data: {
     facebookUrl?: string;
     linkedinUrl?: string;
     websiteUrl?: string;
+    baseUrl: string;
 }) {
     // This would ideally use a queue system (Cloudflare Queues, etc.)
     // For now, we'll just call the geo agent as a starting point
@@ -206,8 +210,7 @@ async function triggerCompetitiveAnalysis(data: {
 
     try {
         // Call Geo-Agent to start the analysis chain
-        const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-        await fetch(`${baseUrl}/api/analysis/geo?address=${encodeURIComponent(data.address)}&sector=${encodeURIComponent(data.sector)}&radius=5`, {
+        await fetch(`${data.baseUrl}/api/analysis/geo?address=${encodeURIComponent(data.address)}&sector=${encodeURIComponent(data.sector)}&radius=5`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
         });

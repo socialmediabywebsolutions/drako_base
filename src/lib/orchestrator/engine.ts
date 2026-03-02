@@ -83,7 +83,8 @@ export async function runOrchestratorAnalysis(dossier: StrategicDossier): Promis
         // Continue with deterministic fallback
     }
 
-    let competitorsData: StrategicDossier["analysis_data"]["competitors_data"] | undefined;
+    type AnalysisData = NonNullable<StrategicDossier["analysis_data"]>;
+    let competitorsData: AnalysisData["competitors_data"] | undefined;
     let competitorsFound = 0;
 
     try {

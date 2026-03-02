@@ -61,14 +61,14 @@ JSON Structure:
         ],
         max_tokens: 1500,
         temperature: 0.2 // Low temperature for deterministic output
-    });
+    }) as unknown;
 
     // 3. Parse JSON Output
     let raw = "{}";
-    if ('response' in response) {
-        raw = response.response as string;
+    if (typeof response === "object" && response !== null && "response" in response) {
+        raw = (response as { response?: unknown }).response as string;
     } else if (Array.isArray(response)) {
-        raw = (response as any).join(""); // Fallback just in case
+        raw = response.join(""); // Fallback just in case
     } else {
         // stream handling if needed, but usually .run returns {response: string} for non-stream
         raw = JSON.stringify(response);

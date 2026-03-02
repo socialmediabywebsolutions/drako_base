@@ -5,8 +5,8 @@ import { drakosAuths } from "@/lib/auths/drakos-auths";
 import { jsonError, setAuthsSessionCookie } from "@/lib/auths/http";
 import { isAuthsIsolationEnabled } from "@/lib/auths/flags";
 import { isTelemetriesHoldingEnabled } from "@/lib/auths/flags";
-import { resolveAuthsContextFromRequest } from "@/lib/auths/contexts";
 import { recordCampamentoEvent } from "@/lib/empire/events";
+import { enforceAuthBoundary, resolveSaasSlugForAuthContext } from "@/lib/auths/ssot";
 
 type RegistrationBody = {
   email?: string;
@@ -20,10 +20,8 @@ export async function POST(request: Request) {
     return jsonError("AUTHS_ISOLATIONS_DISABLED", "Auth isolation is disabled.", 503);
   }
 
-  const requestContext = resolveAuthsContextFromRequest(request);
-  if (requestContext !== "drakos") {
-    return jsonError("HOST_CONTEXT_MISMATCH", "Invalid host for drakos auth boundary.", 403);
-  }
+  const boundary = enforceAuthBoundary({ request, expectedContext: "drakos", endpoint: "/api/drakos/auths/registrations" });
+  if (!boundary.ok) return boundary.response;
   const body = (await request.json().catch(() => null)) as RegistrationBody | null;
   if (!body?.email || !body.password) {
     return jsonError("INVALID_INPUT", "Email and password are required.");
@@ -56,6 +54,7 @@ export async function POST(request: Request) {
       email: body.email.trim().toLowerCase(),
       role: login.role,
       tenantId: login.tenantId,
+      saas_slug: resolveSaasSlugForAuthContext("drakos"),
     },
   }, { status: 201 });
 

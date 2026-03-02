@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   getOnboardingTexts,
   GOAL_KEYS,
-  type GoalKey,
   type OnboardingLang,
 } from "@/lib/i18n/onboarding-i18n";
 
@@ -21,9 +21,18 @@ interface CompanyProfile {
 
 /* ─── Goal & Department label resolvers ─── */
 function goalLabel(key: string, t: ReturnType<typeof getOnboardingTexts>): string {
-  const s = t.step4;
-  const map: Record<string, string> = {};
-  for (const k of GOAL_KEYS) map[k] = s[k];
+  const map: Record<string, string> = {
+    goalClients: "Conseguir clientes / Get more clients",
+    goalOrganize: "Organizar operación / Organize operations",
+    goalAutomate: "Automatizar tareas / Automate tasks",
+    goalSocial: "Mejorar redes / Improve social media",
+    goalFinance: "Control financiero / Financial control",
+    goalAI: "Integrar IA / Integrate AI",
+    goalOther: "Otro objetivo / Other goal",
+  };
+  for (const k of GOAL_KEYS) {
+    if (!map[k]) map[k] = k;
+  }
   return map[key] ?? key;
 }
 
@@ -33,11 +42,10 @@ function deptLabel(id: string, t: ReturnType<typeof getOnboardingTexts>): string
 }
 
 function customerLabel(type: string, t: ReturnType<typeof getOnboardingTexts>): string {
-  const s = t.step2;
   const map: Record<string, string> = {
-    people: s.customerPeople,
-    companies: s.customerCompanies,
-    both: s.customerBoth,
+    people: "Personas / Individuals",
+    companies: "Empresas / Companies",
+    both: "Ambos / Both",
   };
   return map[type] ?? type;
 }
@@ -158,7 +166,10 @@ function fetchWithTimeout(url: string, ms = 8000): Promise<Response> {
 }
 
 /* ─── Main Component ─── */
-export default function OnboardingChatPage({ lang = "es" }: { lang?: OnboardingLang }) {
+export default function OnboardingChatPage() {
+  const searchParams = useSearchParams();
+  const langParam = searchParams.get("lang");
+  const lang: OnboardingLang = langParam === "en" ? "en" : "es";
   const t = getOnboardingTexts(lang);
   const { data: session, status: sessionStatus } = useSession();
   const email = session?.user?.email ?? "";
@@ -247,7 +258,7 @@ export default function OnboardingChatPage({ lang = "es" }: { lang?: OnboardingL
     );
   }
 
-  const ctx = profile.structured_context ?? {};
+  const ctx = (profile.structured_context ?? {}) as Record<string, any>;
   const socialNets = (ctx.socialNetworks as Record<string, string>) ?? {};
   const activeSocials = Object.entries(socialNets).filter(([, v]) => v);
   const desiredNets = (ctx.desiredSocialNetworks as string[]) ?? [];
@@ -288,37 +299,37 @@ export default function OnboardingChatPage({ lang = "es" }: { lang?: OnboardingL
           )}
           {profile.sector && (
             <div className="ow-summary-item">
-              <span className="ow-summary-key">{t.step2.sector}</span>
+              <span className="ow-summary-key">{isEs ? "Sector" : "Sector"}</span>
               <span className="ow-summary-value">{profile.sector}</span>
             </div>
           )}
           {ctx.offering && (
             <div className="ow-summary-item">
-              <span className="ow-summary-key">{t.step2.offering}</span>
+              <span className="ow-summary-key">{isEs ? "Oferta principal" : "Main offering"}</span>
               <span className="ow-summary-value">{ctx.offering as string}</span>
             </div>
           )}
           {ctx.customerType && (
             <div className="ow-summary-item">
-              <span className="ow-summary-key">{t.step2.customerType}</span>
+              <span className="ow-summary-key">{isEs ? "Tipo de cliente" : "Customer type"}</span>
               <span className="ow-summary-value">{customerLabel(ctx.customerType as string, t)}</span>
             </div>
           )}
           {(profile.address || profile.zone) && (
             <div className="ow-summary-item">
-              <span className="ow-summary-key">{profile.address ? t.step1.address : t.step1.zone}</span>
+              <span className="ow-summary-key">{profile.address ? (isEs ? "Dirección" : "Address") : (isEs ? "Zona" : "Area")}</span>
               <span className="ow-summary-value">{profile.address || profile.zone}</span>
             </div>
           )}
           {activeSocials.length > 0 && (
             <div className="ow-summary-item">
-              <span className="ow-summary-key">{t.step3.currentSocials}</span>
+              <span className="ow-summary-key">{isEs ? "Redes activas" : "Active social networks"}</span>
               <span className="ow-summary-value">{activeSocials.map(([k]) => k).join(", ")}</span>
             </div>
           )}
           {primaryGoal && (
             <div className="ow-summary-item">
-              <span className="ow-summary-key">{t.step4.selectPrimary}</span>
+              <span className="ow-summary-key">{isEs ? "Objetivo principal" : "Primary goal"}</span>
               <span className="ow-summary-value">{goalLabel(primaryGoal, t)}</span>
             </div>
           )}

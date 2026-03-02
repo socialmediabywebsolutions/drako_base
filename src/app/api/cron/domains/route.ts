@@ -3,17 +3,13 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { ensureDatabase, queryAll } from "@/lib/db";
 import { verifyAndActivate } from "@/lib/domains/domain-service";
+import { CronAuthError, verifyCronAuth } from "@/lib/security/cron-auth";
 
 
 export async function GET(req: Request) {
     try {
         ensureDatabase();
-        const { searchParams } = new URL(req.url);
-        const key = searchParams.get("key");
-
-        if (key !== process.env.CRON_SECRET && key !== process.env.INTERNAL_API_SECRET) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+        verifyCronAuth(req);
 
         // 1. Find pending domains
         const rows = await queryAll<{ id: string; tenant_id: string; domain_status: string }>(
@@ -23,7 +19,7 @@ export async function GET(req: Request) {
         const results = [];
         for (const row of rows) {
             try {
-                const res = await verifyAndActivate(row.tenant_id, row.id, false);
+                const res = await verifyAndActivate(row.tenant_id, row.id);
                 results.push({ id: row.id, status: res.newStatus, msg: res.message });
             } catch (e: any) {
                 results.push({ id: row.id, error: e.message });
@@ -33,6 +29,9 @@ export async function GET(req: Request) {
         return NextResponse.json({ ok: true, processed: results.length, detail: results });
 
     } catch (error: any) {
+        if (error instanceof CronAuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

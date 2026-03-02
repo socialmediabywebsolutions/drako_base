@@ -6,7 +6,7 @@ import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import { createAuthsSessionToken } from "@/lib/auths/tokens";
 import { jsonError, setAuthsSessionCookie } from "@/lib/auths/http";
 import { isAuthsIsolationEnabled } from "@/lib/auths/flags";
-import { resolveAuthsContextFromRequest } from "@/lib/auths/contexts";
+import { enforceAuthBoundary, resolveSaasSlugForAuthContext } from "@/lib/auths/ssot";
 
 type LoginBody = {
   email?: string;
@@ -19,9 +19,8 @@ export async function POST(request: Request) {
     return jsonError("AUTHS_ISOLATIONS_DISABLED", "Auth isolation is disabled.", 503);
   }
 
-  if (resolveAuthsContextFromRequest(request) !== "bases") {
-    return jsonError("HOST_CONTEXT_MISMATCH", "Invalid host for bases auth boundary.", 403);
-  }
+  const boundary = enforceAuthBoundary({ request, expectedContext: "bases", endpoint: "/api/bases/auths/logins" });
+  if (!boundary.ok) return boundary.response;
 
   const body = (await request.json().catch(() => null)) as LoginBody | null;
   if (!body?.email || !body.password) {
@@ -62,7 +61,7 @@ export async function POST(request: Request) {
     role,
   });
 
-  const response = NextResponse.json({ ok: true, role, tenantId, context: "bases" });
+  const response = NextResponse.json({ ok: true, role, tenantId, context: "bases", saas_slug: resolveSaasSlugForAuthContext("bases") });
   setAuthsSessionCookie({ response, context: "bases", token });
   return response;
 }

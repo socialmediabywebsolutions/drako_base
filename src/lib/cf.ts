@@ -5,6 +5,9 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
  */
 export type DracoEnv = {
   DRACO_DB: D1Database;
+  DRAKOS_AUTHS_DB?: D1Database;
+  MENTORIAS_AUTHS_DB?: D1Database;
+  BASES_AUTHS_DB?: D1Database;
   SESSION_SECRET: string;
   DEFAULT_TENANT_ID?: string;
   ADMIN_EMAIL?: string;
@@ -57,6 +60,8 @@ export type DracoEnv = {
   PROVISIONING_QUEUE?: { send: (msg: any) => Promise<void> }; // Cloudflare Queue Producer
   INTERNAL_API_SECRET?: string; // Phase 3.1 Hardening
   PROVISIONING_FAULT_AT?: "STRIPE_AFTER_CREATE" | "CLOUDFLARE_AFTER_CREATE";
+  ENVIRONMENT?: string;
+  AUTHS_REQUIRE_CONTEXT_DB?: string;
 };
 
 

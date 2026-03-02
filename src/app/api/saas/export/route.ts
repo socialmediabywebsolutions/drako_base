@@ -2,15 +2,16 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { ensureDatabase, run } from "@/lib/db";
-import { authorizeSaasAccess, requireTenant } from "@/lib/authz/saas-access";
-import { extractSessionFromRequest } from "@/lib/edge-auth";
-import { UnauthorizedError } from "@/lib/auth/session"; // Keep error type if convenient, or use standard
+import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { generateWipeoutPackage } from "@/lib/campamento-base/export-engine/wipeout";
 
 import { respondDatabaseError } from "@/lib/http/errors";
 
 
 function authErrorResponse(error: unknown) {
+    if (error instanceof UnauthorizedError) {
+        return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+    }
     if (error instanceof Error && error.message.includes("FORBIDDEN")) {
         return NextResponse.json({ ok: false, error: error.message }, { status: 403 });
     }
@@ -22,11 +23,7 @@ export async function GET(req: Request) {
         ensureDatabase();
 
         // 1. Auth & Tenant Access (Strict Isolation)
-        const session = await extractSessionFromRequest(req);
-        const access = await authorizeSaasAccess(session, { headers: req.headers } as any);
-        requireTenant(access);
-
-        const tenantId = access.tenantId!;
+        const { tenantId, session } = await requireTenantAccess(req);
         const { searchParams } = new URL(req.url);
         const saasId = searchParams.get("saasId");
 
@@ -48,11 +45,8 @@ export async function GET(req: Request) {
             eventId,
             tenantId,
             saasId,
-            eventId,
-            tenantId,
-            saasId,
             JSON.stringify({
-                actor: access.email || "unknown",
+                actor: session.email || "unknown",
                 filename,
                 size_bytes: buffer.byteLength
             })

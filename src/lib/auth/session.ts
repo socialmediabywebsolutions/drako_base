@@ -17,6 +17,7 @@ export type SessionData = {
   email: string;
   tenantId: string;
   role: SessionRole;
+  saasSlug?: string;
   issuedAt: number;
 };
 
@@ -179,6 +180,7 @@ export async function getSession(request: Request): Promise<SessionData | null> 
     email: claims.email,
     tenantId: claims.tenantId,
     role: claims.role,
+    saasSlug: claims.saasSlug,
     issuedAt: claims.iat * 1000,
   };
 }
@@ -209,8 +211,8 @@ export async function requireAdmin(request: Request): Promise<SessionData> {
 
 export async function requireTenantAccess(request: Request): Promise<{ tenantId: string; session: SessionData }> {
   const session = await requireSession(request);
-  const resolvedTenantId = resolveTenantId(request);
-  if (session.tenantId !== resolvedTenantId) {
+  const resolvedTenantId = resolveTenantId(request, { fallbackTenantId: null });
+  if (resolvedTenantId && session.tenantId !== resolvedTenantId) {
     throw TENANT_MISMATCH_ERROR;
   }
   return { tenantId: session.tenantId, session };

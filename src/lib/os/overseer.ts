@@ -77,7 +77,6 @@ export async function getEmpireOverview(): Promise<{ stats: EmpireStats, portfol
             cost: cost,
             risk_level: risk,
             degraded_mode: degraded,
-            degraded_mode: degraded,
             flags: inst.intervention_flags ? JSON.parse(inst.intervention_flags) : [],
             custom_domain: inst.custom_domain,
             domain_status: inst.domain_status

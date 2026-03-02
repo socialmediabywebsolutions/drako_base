@@ -2,10 +2,9 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { queryAll } from "@/lib/db";
-import { respondDatabaseError } from "@/lib/http/errors";
 import { enforceBilling } from "@/lib/billing/enforce-billing";
 import { resolveSaasContext } from "@/lib/saas/resolve-saas-context";
-import { run } from "@/lib/db";
+import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 
 
 type Department = { id: string; name: string; description: string | null };
@@ -14,12 +13,14 @@ type Department = { id: string; name: string; description: string | null };
 
 export async function GET(req: Request) {
   try {
-    const tenantId = req.headers.get("x-tenant-id");;
-    if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { tenantId } = await requireTenantAccess(req);
 
     const items = await queryAll<Department>("SELECT id, name, description FROM departments WHERE tenant_id = ? ORDER BY name ASC", tenantId);
     return NextResponse.json({ items, count: items.length, tenantId });
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     const correlationId = globalThis.crypto?.randomUUID?.() ?? `departments_err_${Date.now()}`;
     console.error("DEPARTMENTS_GET_ERROR", correlationId, error);
     return NextResponse.json(
@@ -31,19 +32,16 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const sessionTenant = req.headers.get("x-tenant-id");
-    if (!sessionTenant) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { tenantId } = await requireTenantAccess(req);
 
-    const body = (await req.json()) as { name?: string; tenantId?: string };
+    const body = (await req.json()) as { name?: string };
     const name = body.name;
 
     if (!name) return NextResponse.json({ error: "Name required" }, { status: 400 });
 
-    const tenantId = body.tenantId ?? sessionTenant;
-
     // BILLING ENFORCEMENT
     const saasContext = resolveSaasContext(req as any);
-    const saasSlug = saasContext?.slug || 'drako';
+    const saasSlug = saasContext?.slug || "drako";
 
     const enforcement = await enforceBilling(saasSlug, tenantId, 'workspaces', 1);
     if (!enforcement.allowed) {
@@ -61,6 +59,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, id, name });
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("DEPARTMENTS_POST_ERROR", error);
     // Return 403/402/429 if enforcement failed
     if ((error as any).status) {

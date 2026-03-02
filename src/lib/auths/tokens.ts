@@ -1,5 +1,6 @@
 import type { AuthsContext, AuthsSessionClaims } from "@/lib/auths/types";
 import { env as resolveEnv } from "@/lib/cf";
+import { resolveSaasSlugForAuthContext } from "@/lib/auths/ssot";
 
 type JwtHeader = {
   alg: "HS256";
@@ -131,6 +132,7 @@ export async function createAuthsSessionToken(input: {
     email: input.email,
     tenantId: input.tenantId,
     role: input.role,
+    saasSlug: resolveSaasSlugForAuthContext(input.context),
     context: input.context,
     iss: getTokenIssuer(input.context),
     aud: getTokenAudience(input.context),
@@ -164,5 +166,6 @@ export async function verifyAuthsSessionToken(
   if (payload.iss !== getTokenIssuer(context)) return null;
   if (payload.aud !== getTokenAudience(context)) return null;
   if (payload.context !== context) return null;
+  if (payload.saasSlug !== resolveSaasSlugForAuthContext(context)) return null;
   return payload;
 }

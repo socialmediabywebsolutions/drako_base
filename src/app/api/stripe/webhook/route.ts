@@ -10,7 +10,6 @@ import { saveSubscriptionRecord } from "@/lib/billing/subscriptions";
 import { saveClientSaasSubscription } from "@/lib/billing/client-saas-subscriptions";
 import { syncSaasFeaturesFromPlan } from "@/lib/billing/entitlements";
 import { recordCampamentoEvent } from "@/lib/empire/events";
-import { resolveTenantId } from "@/lib/tenants/services";
 import { resolveWebhookAttribution } from "@/lib/billing/stripe-webhook-attribution";
 import { deriveStripeWebhookAnomalies } from "@/lib/billing/stripe-webhook-anomalies";
 import { createOrMergeActionFromWebhook } from "@/lib/owner/action-queue-repository";
@@ -26,6 +25,7 @@ import {
 } from "@/lib/billing/stripe-webhook-repository";
 import { ensureStripeWebhookDedupe } from "@/lib/billing/stripe-webhook-processor";
 import { transitionToPastDue, resumeToActive } from "@/lib/os/lifecycle";
+import { constructVerifiedStripeEvent, StripeWebhookAuthError } from "@/lib/billing/stripe-webhook-security";
 
 function getWebhookSecret(): string {
   return safeEnv.STRIPE_WEBHOOK_SECRET;
@@ -249,7 +249,7 @@ async function createWebhookAction(params: {
 
 export async function POST(request: Request) {
   try {
-    const requestTenantId = resolveTenantId(request);
+    const requestTenantId = "public";
     const blocked = await enforcePublicEndpointPolicy({ request, route: "/api/stripe/webhook", tenantId: requestTenantId });
     if (blocked) return blocked;
     const signature = request.headers.get("stripe-signature");
@@ -274,15 +274,31 @@ export async function POST(request: Request) {
     const body = await request.text();
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      event = constructVerifiedStripeEvent({
+        stripe,
+        rawBody: body,
+        signature,
+        webhookSecret,
+      });
     } catch (error) {
+      if (error instanceof StripeWebhookAuthError) {
+        await recordBillingEvent({
+          tenantId: requestTenantId,
+          correlationId: `sig_${Date.now()}`,
+          type: "security.webhook.invalid_signature",
+          severity: "CRITICAL",
+          message: "Stripe webhook signature invalid.",
+          metadata: { hasSignature: Boolean(signature), reason: error.message },
+        });
+        return NextResponse.json({ error: error.message }, { status: error.status });
+      }
       await recordBillingEvent({
         tenantId: requestTenantId,
         correlationId: `sig_${Date.now()}`,
         type: "security.webhook.invalid_signature",
         severity: "CRITICAL",
         message: "Stripe webhook signature invalid.",
-        metadata: { hasSignature: true },
+        metadata: { hasSignature: Boolean(signature) },
       });
       console.error("STRIPE_WEBHOOK_VERIFY_ERROR", error);
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });

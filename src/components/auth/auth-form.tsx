@@ -5,18 +5,20 @@ import { signIn } from "next-auth/react";
 import { getAuthTexts, AuthLang } from "@/lib/i18n/auth-i18n";
 
 type AuthMode = "login" | "register";
-type AuthFormContext = "drakos" | "mentorias" | "bases";
+type AuthSaasSlug = "drako" | "mentorias" | "campo_base";
 
 export function AuthForm({
     defaultMode = "login",
     lang = "es",
-    context = "drakos",
-    redirectTo,
+    saasSlug,
+    authApiBase,
+    postLoginRedirect,
 }: {
     defaultMode?: AuthMode;
     lang?: AuthLang;
-    context?: AuthFormContext;
-    redirectTo?: string;
+    saasSlug: AuthSaasSlug;
+    authApiBase: string;
+    postLoginRedirect: string;
 }) {
     const t = getAuthTexts(lang);
     const [mode, setMode] = useState<AuthMode>(defaultMode);
@@ -28,19 +30,20 @@ export function AuthForm({
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [name, setName] = useState("");
-    const hasRegistration = context !== "bases";
-    const authsApiBase =
-        context === "mentorias"
-            ? "/api/mentorias/auths"
-            : context === "bases"
-                ? "/api/bases/auths"
-                : "/api/drakos/auths";
-    const postLoginRedirect =
-        redirectTo ??
-        (context === "mentorias" ? "/client/sessions" : context === "bases" ? "/admin" : "/site/onboarding");
+    const hasRegistration = saasSlug !== "campo_base";
+
+    if (saasSlug === "drako" && authApiBase !== "/api/drakos/auths") {
+        throw new Error("AUTH_FORM_CONFIG_MISMATCH: drako must use /api/drakos/auths");
+    }
+    if (saasSlug === "mentorias" && authApiBase !== "/api/mentorias/auths") {
+        throw new Error("AUTH_FORM_CONFIG_MISMATCH: mentorias must use /api/mentorias/auths");
+    }
+    if (saasSlug === "campo_base" && authApiBase !== "/api/bases/auths") {
+        throw new Error("AUTH_FORM_CONFIG_MISMATCH: campo_base must use /api/bases/auths");
+    }
 
     const handleGoogleLogin = async () => {
-        if (context !== "drakos") {
+        if (saasSlug !== "drako") {
             setError("Google login is available only in Drakos.");
             return;
         }
@@ -56,7 +59,7 @@ export function AuthForm({
 
         try {
             if (mode === "register" && hasRegistration) {
-                const res = await fetch(`${authsApiBase}/registrations`, {
+                const res = await fetch(`${authApiBase}/registrations`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email, password, name }),
@@ -74,7 +77,7 @@ export function AuthForm({
             }
 
             // Login Mode
-            const loginResponse = await fetch(`${authsApiBase}/logins`, {
+            const loginResponse = await fetch(`${authApiBase}/logins`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -204,7 +207,7 @@ export function AuthForm({
                 <button
                     type="button"
                     onClick={handleGoogleLogin}
-                    disabled={loading || context !== "drakos"}
+                    disabled={loading || saasSlug !== "drako"}
                     className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-600 font-bold py-3.5 rounded-xl hover:bg-slate-50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100"
                 >
                 <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4 opacity-80" />
