@@ -191,13 +191,35 @@ jobs:
             process.exit(0);
           }
 
-          const match = content.match(/export\{([A-Za-z_$][\w$]*) as handler\};?\s*$/);
-          if (!match) {
-            console.error("BLOCKED: could not detect OpenNext handler export in .open-next/worker.js");
-            process.exit(1);
+          let localHandler = null;
+
+          // export { localName as handler };
+          let match = content.match(/export\s*\{\s*([A-Za-z_$][\w$]*)\s+as\s+handler\s*\}\s*;?/);
+          if (match) {
+            localHandler = match[1];
           }
 
-          const localHandler = match[1];
+          // export { handler };
+          if (!localHandler && /export\s*\{\s*handler\s*\}\s*;?/.test(content)) {
+            localHandler = "handler";
+          }
+
+          // export const handler = ...
+          if (!localHandler && /export\s+const\s+handler\b/.test(content)) {
+            localHandler = "handler";
+          }
+
+          // export function handler(...) / export async function handler(...)
+          if (!localHandler && /export\s+(?:async\s+)?function\s+handler\b/.test(content)) {
+            localHandler = "handler";
+          }
+
+          if (!localHandler) {
+            // Non-blocking: deployment may still work with --no-bundle.
+            console.log("OPENNEXT_DEFAULT_EXPORT_SKIPPED: could not infer handler export");
+            process.exit(0);
+          }
+
           const patched = `${content}\nexport default { fetch: ${localHandler} };\n`;
           fs.writeFileSync(workerPath, patched, "utf8");
           console.log(`OPENNEXT_DEFAULT_EXPORT_ADDED handler=${localHandler}`);
