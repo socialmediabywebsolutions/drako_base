@@ -227,10 +227,27 @@ jobs:
       - name: Deploy in strict order (scheduler -> drakos -> mentorias -> bases)
         run: |
           set -euo pipefail
-          wrangler deploy --config workers/drako-scheduler/wrangler.toml
-          wrangler deploy --config workers/drakos/wrangler.workers.toml
-          wrangler deploy --config workers/mentorias/wrangler.workers.toml
-          wrangler deploy --config workers/bases/wrangler.workers.toml
+          command -v wrangler >/dev/null
+          wrangler --version
+          ls -la .open-next
+          test -f .open-next/worker.js
+          test -d .open-next/assets
+
+          pushd workers/drako-scheduler
+          wrangler deploy -c wrangler.toml
+          popd
+
+          pushd workers/drakos
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
+          pushd workers/mentorias
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
+          pushd workers/bases
+          wrangler deploy -c wrangler.workers.toml
+          popd
 
   smoke:
     name: Smoke Tests (anti-loop / anti-cross)
