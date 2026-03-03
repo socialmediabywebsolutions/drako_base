@@ -9,6 +9,7 @@ import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-type
 import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
+import { isProductionEnvironment } from "@/lib/security/production-gate";
 
 
 type Saas = {
@@ -187,6 +188,17 @@ export async function PATCH(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    if (isProductionEnvironment(resolveEnv())) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "LEGACY_SAAS_CREATE_BLOCKED",
+          message: "Legacy SaaS creation endpoint is blocked in production. Use /api/owner/saas-factory/create-saas.",
+        },
+        { status: 410 },
+      );
+    }
+
     ensureDatabase();
     await ensureCampamentoBase();
     const auth = await requireTenantAccess(req);

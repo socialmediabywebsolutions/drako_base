@@ -65,14 +65,19 @@ export class JobRunner {
     }): Promise<{ jobId: string; created: boolean; state: ProvisioningJobState; entityId: string; payload: any }> {
         const now = new Date().toISOString();
         const payloadJson = JSON.stringify(params.payload);
+        let inserted = false;
 
         try {
-            await run(
+            const insertedOk = await run(
                 `INSERT INTO provisioning_jobs (
-                    job_id, type, entity_id, correlation_id, idempotency_key, current_state, payload_json, tenant_id, created_at, updated_at
+                    job_id, type, entity_id, correlation_id, idempotency_key, current_state, payload_json, tenant_id, created_at, updated_at, execution_lock
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 params.jobId, params.type, params.entityId, params.correlationId, params.idempotencyKey, params.initialState, payloadJson, params.tenantId || 'unknown', now, now, 0
             );
+            if (!insertedOk) {
+                throw new Error("PROVISIONING_JOB_INSERT_FAILED");
+            }
+            inserted = true;
 
             // Cloudflare Queue Enqueue (Strict Hardening)
             if (params.queue) {
@@ -88,9 +93,10 @@ export class JobRunner {
             }
 
             return { jobId: params.jobId, created: true, state: params.initialState, entityId: params.entityId, payload: params.payload };
-
-            return { jobId: params.jobId, created: true, state: params.initialState, entityId: params.entityId, payload: params.payload };
         } catch (e: any) {
+            if (inserted) {
+                await run(`DELETE FROM provisioning_jobs WHERE job_id = ? AND current_state = ?`, params.jobId, params.initialState);
+            }
             // Idempotency Check
             if (e.message?.includes('UNIQUE constraint failed')) {
                 const existing = await queryOne<{ job_id: string; current_state: string; entity_id: string; payload_json: string }>(

@@ -1,5 +1,5 @@
 
-import { JobRunner } from "../../../src/lib/provisioning/job-runner";
+import { JobLockedError, JobRunner } from "../../../src/lib/provisioning/job-runner";
 import { queryOne } from "../../../src/lib/db";
 import { provisionSaaS } from "../../../src/lib/campamento-base/saas-factory-orchestrator";
 import type { DracoEnv } from "../../../src/lib/cf";
@@ -74,7 +74,10 @@ export async function processQueueBatch(batch: MessageBatch<MessageBody>, env: E
             console.error(`[Consumer] Failed Job ${jobId}:`, error);
             // If FencingTokenMismatch, we do NOT retry implicitly. We failed because we lost the lock.
             // Just ack (fail effectively) or dead letter?
-            if (error.name === 'FencingTokenMismatchError') {
+            const message = error instanceof Error ? error.message : String(error);
+            if (error instanceof JobLockedError || message.includes("terminal state")) {
+                msg.ack();
+            } else if (error.name === 'FencingTokenMismatchError') {
                 // We lost the lock. Stop.
                 msg.ack();
             } else {

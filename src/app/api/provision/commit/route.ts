@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { ensureDatabase, queryAll, queryOne, run } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
+import { env as resolveEnv } from "@/lib/cf";
+import { isProductionEnvironment } from "@/lib/security/production-gate";
 
 
 type PackRow = { id: string; tier: string; departments: string };
@@ -11,6 +13,17 @@ type AgentRow = { id: string; department_id: string };
 
 export async function POST(req: Request) {
   try {
+    if (isProductionEnvironment(resolveEnv())) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "LEGACY_PROVISION_COMMIT_BLOCKED",
+          message: "Legacy provision commit endpoint is blocked in production. Use /api/owner/saas-factory/create-saas.",
+        },
+        { status: 410 },
+      );
+    }
+
     ensureDatabase();
     const body = (await req.json().catch(() => null)) as { sessionId?: string; name?: string; slug?: string; packTier?: string; domain?: string | null } | null;
     if (!body?.sessionId || !body.name || !body.slug) return NextResponse.json({ error: "sessionId, name y slug requeridos" }, { status: 400 });
