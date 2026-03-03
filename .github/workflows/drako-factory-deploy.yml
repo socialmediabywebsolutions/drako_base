@@ -301,7 +301,7 @@ jobs:
 
             local headers status location location_host
             headers="$(curl -sS -I --max-redirs 0 "$url")"
-            status="$(printf '%s\n' "$headers" | awk 'toupper($1) ~ /^HTTP\\// {code=$2} END {print code}')"
+            status="$(printf '%s\n' "$headers" | awk 'index(toupper($1),"HTTP/")==1 {code=$2} END {print code}')"
             location="$(printf '%s\n' "$headers" | awk 'BEGIN{IGNORECASE=1} /^Location:/ {sub(/\r$/,""); sub(/^Location:[[:space:]]*/,""); print; exit}')"
 
             echo "status: ${status:-unknown}"
