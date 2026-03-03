@@ -102,6 +102,8 @@ jobs:
         run: |
           set -euo pipefail
           npx opennextjs-cloudflare build 2>&1 | tee open-next-build.log
+          echo "=== BUILD: listing .open-next ==="
+          ls -R .open-next || true
 
       - name: Guardrail (real worker only, no dry-run/stub)
         run: |
@@ -176,6 +178,14 @@ jobs:
         with:
           name: open-next-build
           path: .
+
+      - name: Diagnostic OpenNext artifact layout
+        run: |
+          set -euo pipefail
+          echo "=== DEPLOY: listing root ==="
+          ls -la
+          echo "=== DEPLOY: listing .open-next ==="
+          ls -R .open-next || true
 
       - name: Verify OpenNext build artifacts
         run: |
