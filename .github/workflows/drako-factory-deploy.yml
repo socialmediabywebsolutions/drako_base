@@ -85,7 +85,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Ensure minimal wrangler config for non-interactive build
+        run: |
+          set -euo pipefail
+          if [ ! -f wrangler.toml ]; then
+            cat > wrangler.toml <<'EOF'
+            name = "drako-opennext-build"
+            main = ".open-next/worker.js"
+            compatibility_date = "2026-03-03"
+            EOF
+          fi
+
       - name: Build OpenNext for Cloudflare
+        env:
+          CI: "true"
         run: |
           set -euo pipefail
           npx opennextjs-cloudflare build 2>&1 | tee open-next-build.log
