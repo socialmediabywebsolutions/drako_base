@@ -89,11 +89,11 @@ jobs:
         run: |
           set -euo pipefail
           if [ ! -f wrangler.toml ]; then
-            cat > wrangler.toml <<'EOF'
-            name = "drako-opennext-build"
-            main = ".open-next/worker.js"
-            compatibility_date = "2026-03-03"
-            EOF
+            {
+              printf '%s\n' 'name = "drako-opennext-build"'
+              printf '%s\n' 'main = ".open-next/worker.js"'
+              printf '%s\n' 'compatibility_date = "2026-03-03"'
+            } > wrangler.toml
           fi
 
       - name: Build OpenNext for Cloudflare
