@@ -85,11 +85,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build OpenNext + finalize worker
+      - name: Build OpenNext for Cloudflare
         run: |
           set -euo pipefail
-          npx open-next build 2>&1 | tee open-next-build.log
-          node scripts/finalize-worker.js 2>&1 | tee finalize-worker.log
+          npx opennextjs-cloudflare build 2>&1 | tee open-next-build.log
 
       - name: Guardrail (real worker only, no dry-run/stub)
         run: |
@@ -124,7 +123,6 @@ jobs:
           path: |
             .open-next
             open-next-build.log
-            finalize-worker.log
 
   deploy:
     name: Deploy Workers
