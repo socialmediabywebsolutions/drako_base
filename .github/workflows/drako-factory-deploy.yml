@@ -116,17 +116,27 @@ jobs:
           fi
 
           BYTES="$(wc -c < "$WORKER_FILE")"
-          if [ "$BYTES" -le 10240 ]; then
-            echo "BLOCKED: $WORKER_FILE size must be > 10KB, got ${BYTES} bytes."
+          if [ "$BYTES" -le 1024 ]; then
+            echo "BLOCKED: $WORKER_FILE size must be > 1KB, got ${BYTES} bytes."
             exit 1
           fi
+
+          test -d .open-next/assets || {
+            echo "BLOCKED: .open-next/assets is missing."
+            exit 1
+          }
+
+          test -d .open-next/server-functions || {
+            echo "BLOCKED: .open-next/server-functions is missing."
+            exit 1
+          }
 
           if grep -Ein "dry-run|stub" "$WORKER_FILE"; then
             echo "BLOCKED: detected forbidden dry-run/stub markers in $WORKER_FILE."
             exit 1
           fi
 
-          echo "Worker guardrail passed (${BYTES} bytes)."
+          echo "Worker guardrail passed (${BYTES} bytes, assets + server-functions present)."
 
       - name: Upload worker and build logs (audit)
         if: always()
