@@ -117,7 +117,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: open-next-build-${{ github.run_id }}
+          name: open-next-build
           include-hidden-files: true
           if-no-files-found: ignore
           path: |
@@ -161,20 +161,15 @@ jobs:
       - name: Download OpenNext build artifact
         uses: actions/download-artifact@v4
         with:
-          name: open-next-build-${{ github.run_id }}
+          name: open-next-build
           path: .
 
       - name: Verify OpenNext build artifacts
         run: |
           set -euo pipefail
-          if [ ! -f ".open-next/worker.js" ]; then
-            echo "BLOCKED: missing .open-next/worker.js artifact."
-            exit 1
-          fi
-          if [ ! -d ".open-next/assets" ]; then
-            echo "BLOCKED: missing .open-next/assets artifact."
-            exit 1
-          fi
+          ls -la .open-next
+          test -f .open-next/worker.js
+          test -d .open-next/assets
 
       - name: Verify Cloudflare secrets
         run: |
@@ -236,9 +231,17 @@ jobs:
           wrangler deploy -c wrangler.toml
           popd
 
-          wrangler deploy --config workers/drakos/wrangler.workers.toml
-          wrangler deploy --config workers/mentorias/wrangler.workers.toml
-          wrangler deploy --config workers/bases/wrangler.workers.toml
+          pushd workers/drakos
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
+          pushd workers/mentorias
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
+          pushd workers/bases
+          wrangler deploy -c wrangler.workers.toml
+          popd
 
   smoke:
     name: Smoke Tests (anti-loop / anti-cross)
