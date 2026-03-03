@@ -178,53 +178,6 @@ jobs:
             exit 1
           fi
 
-      - name: Normalize OpenNext worker module export
-        run: |
-          set -euo pipefail
-          node <<'NODE'
-          const fs = require("fs");
-          const workerPath = ".open-next/worker.js";
-          const content = fs.readFileSync(workerPath, "utf8");
-
-          if (/export\s+default\s*\{/.test(content)) {
-            console.log("OPENNEXT_DEFAULT_EXPORT_OK");
-            process.exit(0);
-          }
-
-          let localHandler = null;
-
-          // export { localName as handler };
-          let match = content.match(/export\s*\{\s*([A-Za-z_$][\w$]*)\s+as\s+handler\s*\}\s*;?/);
-          if (match) {
-            localHandler = match[1];
-          }
-
-          // export { handler };
-          if (!localHandler && /export\s*\{\s*handler\s*\}\s*;?/.test(content)) {
-            localHandler = "handler";
-          }
-
-          // export const handler = ...
-          if (!localHandler && /export\s+const\s+handler\b/.test(content)) {
-            localHandler = "handler";
-          }
-
-          // export function handler(...) / export async function handler(...)
-          if (!localHandler && /export\s+(?:async\s+)?function\s+handler\b/.test(content)) {
-            localHandler = "handler";
-          }
-
-          if (!localHandler) {
-            // Non-blocking: deployment may still work with --no-bundle.
-            console.log("OPENNEXT_DEFAULT_EXPORT_SKIPPED: could not infer handler export");
-            process.exit(0);
-          }
-
-          const patched = `${content}\nexport default { fetch: ${localHandler} };\n`;
-          fs.writeFileSync(workerPath, patched, "utf8");
-          console.log(`OPENNEXT_DEFAULT_EXPORT_ADDED handler=${localHandler}`);
-          NODE
-
       - name: Verify Cloudflare secrets
         run: |
           set -euo pipefail
@@ -285,17 +238,9 @@ jobs:
           wrangler deploy -c wrangler.toml
           popd
 
-          pushd workers/drakos
-          wrangler deploy -c wrangler.workers.toml --no-bundle
-          popd
-
-          pushd workers/mentorias
-          wrangler deploy -c wrangler.workers.toml --no-bundle
-          popd
-
-          pushd workers/bases
-          wrangler deploy -c wrangler.workers.toml --no-bundle
-          popd
+          wrangler deploy --config workers/drakos/wrangler.workers.toml
+          wrangler deploy --config workers/mentorias/wrangler.workers.toml
+          wrangler deploy --config workers/bases/wrangler.workers.toml
 
   smoke:
     name: Smoke Tests (anti-loop / anti-cross)
