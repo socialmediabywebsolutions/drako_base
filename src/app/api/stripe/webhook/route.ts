@@ -6,7 +6,11 @@ import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/client";
 import { env } from "@/lib/cf";
 import { safeEnv } from "@/lib/env";
-import { saveSubscriptionRecord } from "@/lib/billing/subscriptions";
+import {
+  saveSubscriptionRecord,
+  syncSaasUsageQuotasFromPlan,
+  upsertCanonicalSubscriptionState,
+} from "@/lib/billing/subscriptions";
 import { saveClientSaasSubscription } from "@/lib/billing/client-saas-subscriptions";
 import { syncSaasFeaturesFromPlan } from "@/lib/billing/entitlements";
 import { recordCampamentoEvent } from "@/lib/empire/events";
@@ -15,6 +19,7 @@ import { deriveStripeWebhookAnomalies } from "@/lib/billing/stripe-webhook-anoma
 import { createOrMergeActionFromWebhook } from "@/lib/owner/action-queue-repository";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
 import { respondDatabaseError } from "@/lib/http/errors";
+import { queryOne } from "@/lib/db";
 import { createSaasFromBlueprint } from "@/lib/campamento-base/saas-factory-orchestrator";
 import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
 import {
@@ -116,16 +121,112 @@ async function persistSubscriptionFromStripe(subscription: Stripe.Subscription) 
   await persistDrakoBaseSubscriptionFromStripe(metadata, subscription, customerId);
 }
 
-async function handleCheckoutSession(stripe: Stripe, session: Stripe.Checkout.Session) {
+function normalizeCanonicalPlanCode(rawPlan: string | null | undefined): string | null {
+  if (!rawPlan) return null;
+  const normalized = rawPlan.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized.startsWith("drako_base_")) {
+    return normalized.replace("drako_base_", "");
+  }
+  return normalized;
+}
+
+async function resolveSaasSlugForCanonicalState(params: {
+  tenantId: string;
+  preferredSaasSlug?: string | null;
+  saasId?: string | null;
+}): Promise<string> {
+  const preferred = params.preferredSaasSlug?.trim().toLowerCase();
+  if (preferred) return preferred;
+
+  if (params.saasId) {
+    const byTenant = await queryOne<{ slug: string }>(
+      "SELECT slug FROM saas WHERE tenant_id = ? AND id = ? LIMIT 1",
+      params.tenantId,
+      params.saasId,
+    );
+    if (byTenant?.slug) return byTenant.slug.trim().toLowerCase();
+
+    const byId = await queryOne<{ slug: string }>(
+      "SELECT slug FROM saas WHERE id = ? LIMIT 1",
+      params.saasId,
+    );
+    if (byId?.slug) return byId.slug.trim().toLowerCase();
+  }
+
+  return "drako";
+}
+
+async function persistCanonicalSubscriptionState(params: {
+  subscription: Stripe.Subscription;
+  attribution: {
+    tenantId?: string | null;
+    saasSlug?: string | null;
+    saasId?: string | null;
+  };
+  statusOverride?: string;
+  fallbackPlanCode?: string | null;
+}): Promise<void> {
+  const metadata = extractMetadata(params.subscription.metadata);
+  const tenantId = metadata?.tenantId ?? params.attribution.tenantId ?? null;
+  if (!tenantId) {
+    console.warn("CANONICAL_SUBSCRIPTION_TENANT_MISSING", params.subscription.id);
+    return;
+  }
+
+  const saasSlug = await resolveSaasSlugForCanonicalState({
+    tenantId,
+    preferredSaasSlug: metadata?.saasSlug ?? params.attribution.saasSlug ?? null,
+    saasId: metadata?.saasId ?? params.attribution.saasId ?? null,
+  });
+  const stripeCustomerId =
+    typeof params.subscription.customer === "string"
+      ? params.subscription.customer
+      : params.subscription.customer?.id ?? null;
+  if (!stripeCustomerId) {
+    console.warn("CANONICAL_SUBSCRIPTION_CUSTOMER_MISSING", params.subscription.id);
+    return;
+  }
+
+  const primaryPriceId = params.subscription.items.data[0]?.price?.id ?? null;
+  const planCode = normalizeCanonicalPlanCode(
+    metadata?.planCode ?? metadata?.plan ?? params.fallbackPlanCode ?? null,
+  );
+  const status = (params.statusOverride ?? params.subscription.status).trim().toLowerCase();
+
+  await upsertCanonicalSubscriptionState({
+    tenantId,
+    saasSlug,
+    stripeCustomerId,
+    stripeSubscriptionId: params.subscription.id,
+    stripePriceId: primaryPriceId,
+    planCode,
+    status,
+    currentPeriodEnd: getCurrentPeriodEnd(params.subscription),
+    cancelAtPeriodEnd: Boolean(params.subscription.cancel_at_period_end),
+  });
+
+  await syncSaasUsageQuotasFromPlan({
+    tenantId,
+    saasSlug,
+    planCode,
+    status,
+  });
+}
+
+async function handleCheckoutSession(
+  stripe: Stripe,
+  session: Stripe.Checkout.Session,
+): Promise<{ subscription: Stripe.Subscription; metadata: SubscriptionMetadata } | null> {
   const metadata = extractMetadata(session.metadata);
   if (!metadata) {
     console.warn("CHECKOUT_SESSION_METADATA_MISSING", session.id);
-    return;
+    return null;
   }
   const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
   if (!subscriptionId) {
     console.warn("CHECKOUT_SESSION_NO_SUBSCRIPTION", session.id);
-    return;
+    return null;
   }
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   subscription.metadata = subscription.metadata ?? {};
@@ -198,6 +299,8 @@ async function handleCheckoutSession(stripe: Stripe, session: Stripe.Checkout.Se
       });
     }
   }
+
+  return { subscription, metadata };
 }
 
 async function recordBillingEvent(params: {
@@ -353,7 +456,16 @@ export async function POST(request: Request) {
     try {
       switch (event.type) {
         case "checkout.session.completed":
-          await handleCheckoutSession(stripe, event.data.object as Stripe.Checkout.Session);
+          {
+            const checkoutResult = await handleCheckoutSession(stripe, event.data.object as Stripe.Checkout.Session);
+            if (checkoutResult) {
+              await persistCanonicalSubscriptionState({
+                subscription: checkoutResult.subscription,
+                attribution,
+                fallbackPlanCode: checkoutResult.metadata.planCode ?? checkoutResult.metadata.plan,
+              });
+            }
+          }
           await recordBillingEvent({
             tenantId,
             saasId: attribution.saasId,
@@ -368,77 +480,105 @@ export async function POST(request: Request) {
         case "customer.subscription.created":
         case "customer.subscription.updated":
         case "customer.subscription.deleted":
-          const sub = event.data.object as Stripe.Subscription;
-          await persistSubscriptionFromStripe(sub);
-
-          // LIFECYCLE: Resume if active
-          if (sub.status === 'active' && extractMetadata(sub.metadata)?.saasId) {
-            const meta = extractMetadata(sub.metadata);
-            if (meta?.saasId) await resumeToActive(meta.saasId, event.id);
-          }
-
-          await recordBillingEvent({
-            tenantId,
-            saasId: attribution.saasId,
-            saasSlug: attribution.saasSlug,
-            correlationId,
-            type: "billing.subscription.updated",
-            severity: "INFO",
-            message: "Subscription updated.",
-            metadata: { stripeEventId: event.id },
-          });
           {
-            const subscription = event.data.object as Stripe.Subscription;
-            const metadata = extractMetadata(subscription.metadata);
-            if (metadata?.saasPlanId) {
-              try {
-                console.log("[STRIPE_WEBHOOK] Syncing plan features", { tenantId: metadata.tenantId, saasId: metadata.saasId, eventType: event.type });
-                await syncSaasFeaturesFromPlan(env(), metadata.tenantId, metadata.saasId);
-              } catch (error) {
-                console.error("[STRIPE_WEBHOOK] PLAN_FEATURE_SYNC_ERROR", {
-                  tenantId: metadata.tenantId,
-                  saasId: metadata.saasId,
-                  eventType: event.type,
-                  error: error instanceof Error ? error.message : String(error),
-                });
+            const sub = event.data.object as Stripe.Subscription;
+            await persistSubscriptionFromStripe(sub);
+            await persistCanonicalSubscriptionState({ subscription: sub, attribution });
+
+            // LIFECYCLE: Resume if active
+            if (sub.status === "active" && extractMetadata(sub.metadata)?.saasId) {
+              const meta = extractMetadata(sub.metadata);
+              if (meta?.saasId) await resumeToActive(meta.saasId, event.id);
+            }
+
+            await recordBillingEvent({
+              tenantId,
+              saasId: attribution.saasId,
+              saasSlug: attribution.saasSlug,
+              correlationId,
+              type: "billing.subscription.updated",
+              severity: "INFO",
+              message: "Subscription updated.",
+              metadata: { stripeEventId: event.id },
+            });
+            {
+              const metadata = extractMetadata(sub.metadata);
+              if (metadata?.saasPlanId) {
+                try {
+                  console.log("[STRIPE_WEBHOOK] Syncing plan features", { tenantId: metadata.tenantId, saasId: metadata.saasId, eventType: event.type });
+                  await syncSaasFeaturesFromPlan(env(), metadata.tenantId, metadata.saasId);
+                } catch (error) {
+                  console.error("[STRIPE_WEBHOOK] PLAN_FEATURE_SYNC_ERROR", {
+                    tenantId: metadata.tenantId,
+                    saasId: metadata.saasId,
+                    eventType: event.type,
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                }
               }
             }
           }
           break;
         case "invoice.paid":
-          // LIFECYCLE: Payment success -> Active
-          if (attribution.saasId) {
-            await resumeToActive(attribution.saasId, event.id);
+          {
+            const invoice = event.data.object as Stripe.Invoice;
+            const invoiceSubscription = (invoice as Stripe.Invoice & { subscription?: string | { id?: string } }).subscription;
+            const invoiceSubscriptionId =
+              typeof invoiceSubscription === "string" ? invoiceSubscription : invoiceSubscription?.id;
+            if (invoiceSubscriptionId) {
+              const subscription = await stripe.subscriptions.retrieve(invoiceSubscriptionId);
+              await persistCanonicalSubscriptionState({
+                subscription,
+                attribution,
+                statusOverride: "active",
+              });
+            }
+            // LIFECYCLE: Payment success -> Active
+            if (attribution.saasId) {
+              await resumeToActive(attribution.saasId, event.id);
+            }
+            await recordBillingEvent({
+              tenantId,
+              saasId: attribution.saasId,
+              saasSlug: attribution.saasSlug,
+              correlationId,
+              type: "billing.invoice.paid",
+              severity: "INFO",
+              message: "Invoice paid.",
+              metadata: { stripeEventId: event.id },
+            });
           }
-          await recordBillingEvent({
-            tenantId,
-            saasId: attribution.saasId,
-            saasSlug: attribution.saasSlug,
-            correlationId,
-            type: "billing.invoice.paid",
-            severity: "INFO",
-            message: "Invoice paid.",
-            metadata: { stripeEventId: event.id },
-          });
           break;
         case "invoice.payment_failed":
-          // LIFECYCLE: Payment failed -> Past Due
-          if (attribution.saasId) {
-            // Need reason from invoice?
+          {
             const inv = event.data.object as Stripe.Invoice;
-            const reason = inv.billing_reason || "payment_failed";
-            await transitionToPastDue(attribution.saasId, reason, event.id);
+            const invoiceSubscription = (inv as Stripe.Invoice & { subscription?: string | { id?: string } }).subscription;
+            const invoiceSubscriptionId =
+              typeof invoiceSubscription === "string" ? invoiceSubscription : invoiceSubscription?.id;
+            if (invoiceSubscriptionId) {
+              const subscription = await stripe.subscriptions.retrieve(invoiceSubscriptionId);
+              await persistCanonicalSubscriptionState({
+                subscription,
+                attribution,
+                statusOverride: "past_due",
+              });
+            }
+            // LIFECYCLE: Payment failed -> Past Due
+            if (attribution.saasId) {
+              const reason = inv.billing_reason || "payment_failed";
+              await transitionToPastDue(attribution.saasId, reason, event.id);
+            }
+            await recordBillingEvent({
+              tenantId,
+              saasId: attribution.saasId,
+              saasSlug: attribution.saasSlug,
+              correlationId,
+              type: "billing.invoice.failed",
+              severity: "WARNING",
+              message: "Invoice payment failed.",
+              metadata: { stripeEventId: event.id },
+            });
           }
-          await recordBillingEvent({
-            tenantId,
-            saasId: attribution.saasId,
-            saasSlug: attribution.saasSlug,
-            correlationId,
-            type: "billing.invoice.failed",
-            severity: "WARNING",
-            message: "Invoice payment failed.",
-            metadata: { stripeEventId: event.id },
-          });
           break;
         default:
           break;

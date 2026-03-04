@@ -14,6 +14,10 @@ const mocks = vi.hoisted(() => {
     recordCampamentoEvent: vi.fn(),
     enforcePublicEndpointPolicy: vi.fn(),
     constructVerifiedStripeEvent: vi.fn(),
+    resolveWebhookAttribution: vi.fn(),
+    ensureStripeWebhookDedupe: vi.fn(),
+    upsertCanonicalSubscriptionState: vi.fn(),
+    syncSaasUsageQuotasFromPlan: vi.fn(),
     StripeWebhookAuthError,
   };
 });
@@ -32,6 +36,8 @@ vi.mock("@/lib/cf", () => ({
 
 vi.mock("@/lib/billing/subscriptions", () => ({
   saveSubscriptionRecord: vi.fn(),
+  upsertCanonicalSubscriptionState: mocks.upsertCanonicalSubscriptionState,
+  syncSaasUsageQuotasFromPlan: mocks.syncSaasUsageQuotasFromPlan,
 }));
 
 vi.mock("@/lib/billing/client-saas-subscriptions", () => ({
@@ -47,7 +53,7 @@ vi.mock("@/lib/empire/events", () => ({
 }));
 
 vi.mock("@/lib/billing/stripe-webhook-attribution", () => ({
-  resolveWebhookAttribution: vi.fn(),
+  resolveWebhookAttribution: mocks.resolveWebhookAttribution,
 }));
 
 vi.mock("@/lib/billing/stripe-webhook-anomalies", () => ({
@@ -82,7 +88,7 @@ vi.mock("@/lib/billing/stripe-webhook-repository", () => ({
 }));
 
 vi.mock("@/lib/billing/stripe-webhook-processor", () => ({
-  ensureStripeWebhookDedupe: vi.fn(),
+  ensureStripeWebhookDedupe: mocks.ensureStripeWebhookDedupe,
 }));
 
 vi.mock("@/lib/os/lifecycle", () => ({
@@ -102,6 +108,15 @@ describe("/api/stripe/webhook signature validation", () => {
     vi.clearAllMocks();
     mocks.enforcePublicEndpointPolicy.mockResolvedValue(null);
     mocks.getStripe.mockResolvedValue({ webhooks: { constructEvent: vi.fn() } });
+    mocks.resolveWebhookAttribution.mockResolvedValue({
+      tenantId: "tenant_alpha",
+      saasId: "saas_alpha",
+      saasSlug: "drako",
+      source: "metadata",
+      mismatch: false,
+      drift: false,
+    });
+    mocks.ensureStripeWebhookDedupe.mockResolvedValue({ status: "accepted", attempts: 1 });
     mocks.constructVerifiedStripeEvent.mockImplementation(() => {
       throw new mocks.StripeWebhookAuthError("Invalid signature", 400);
     });
@@ -120,5 +135,45 @@ describe("/api/stripe/webhook signature validation", () => {
     const response = await POST(request);
     expect(response.status).toBe(400);
     expect(mocks.recordCampamentoEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it("updates canonical subscription state and quotas on customer.subscription.updated", async () => {
+    mocks.constructVerifiedStripeEvent.mockReturnValue({
+      id: "evt_subscription_updated",
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: "sub_123",
+          status: "active",
+          current_period_end: 1_700_000_000,
+          cancel_at_period_end: false,
+          customer: "cus_123",
+          items: {
+            data: [{ price: { id: "price_starter" } }],
+          },
+          metadata: {
+            tenantId: "tenant_alpha",
+            clientId: "client_alpha",
+            saasId: "saas_alpha",
+            saasSlug: "drako",
+            planCode: "starter",
+          },
+        },
+      },
+    });
+
+    const request = new Request("https://drako.systems/api/stripe/webhook", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "t=1,v1=valid",
+      },
+      body: JSON.stringify({ id: "evt_subscription_updated" }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+    expect(mocks.upsertCanonicalSubscriptionState).toHaveBeenCalledTimes(1);
+    expect(mocks.syncSaasUsageQuotasFromPlan).toHaveBeenCalledTimes(1);
   });
 });
