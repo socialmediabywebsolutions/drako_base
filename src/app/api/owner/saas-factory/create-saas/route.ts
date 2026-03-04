@@ -9,6 +9,7 @@ import { JobRunner } from "@/lib/provisioning/job-runner";
 import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-types";
 import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
 import { recordCampamentoEvent } from "@/lib/empire/events";
+import { getCanonicalBillingEntitlements } from "@/lib/billing/subscriptions";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,30 @@ const createSaasRequestSchema = z.object({
 
 function cleanJobIdSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9:_-]/g, "_").slice(0, 140);
+}
+
+function normalizeSaasSlug(value: string | null | undefined): string {
+  const normalized = value?.trim().toLowerCase();
+  return normalized && normalized.length > 0 ? normalized : "drako";
+}
+
+async function hashCreateRequest(input: {
+  tenantId: string;
+  blueprint: SaasBlueprintDraft;
+  dryRun: boolean;
+}): Promise<string> {
+  const stablePayload = JSON.stringify({
+    tenantId: input.tenantId,
+    slug: input.blueprint.proposedSlug,
+    name: input.blueprint.saasName,
+    dryRun: input.dryRun,
+    packs: input.blueprint.packsByDepartment,
+    pricing: input.blueprint.initialPricing,
+    aiTier: input.blueprint.aiProfile?.tier ?? null,
+  });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(stablePayload));
+  const bytes = Array.from(new Uint8Array(digest));
+  return bytes.map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 20);
 }
 
 function normalizeBlueprint(params: {
@@ -84,6 +109,19 @@ function isOwnerRole(role: string | null | undefined): boolean {
   return role === "owner" || role === "superadmin" || role === "admin";
 }
 
+function hasFactoryCreateEntitlement(entitlements: {
+  hasVerifiedSubscription: boolean;
+  subscriptionStatus: string | null;
+  limits: Record<string, number>;
+}): boolean {
+  if (!entitlements.hasVerifiedSubscription) return false;
+  const status = (entitlements.subscriptionStatus ?? "").trim().toLowerCase();
+  if (!["active", "trial", "trialing"].includes(status)) return false;
+  const workspaceLimit = entitlements.limits.workspaces;
+  if (typeof workspaceLimit !== "number") return false;
+  return workspaceLimit === -1 || workspaceLimit > 0;
+}
+
 export async function POST(req: NextRequest) {
   const fallbackCorrelationId = globalThis.crypto?.randomUUID?.() ?? `create_saas_${Date.now()}`;
   try {
@@ -133,10 +171,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const tenant = await queryOne<{ saas_slug: string | null }>(
+      "SELECT saas_slug FROM tenants WHERE id = ? LIMIT 1",
+      session.tenantId,
+    );
+    const entitlementSnapshot = await getCanonicalBillingEntitlements({
+      tenantId: session.tenantId,
+      saasSlug: normalizeSaasSlug(tenant?.saas_slug),
+    });
+    if (!hasFactoryCreateEntitlement(entitlementSnapshot)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "PLAN_REQUIRED",
+          message: "Active subscription with SaaS Factory entitlement is required to create SaaS.",
+        },
+        { status: 403 },
+      );
+    }
+
     const correlationId = payload.correlationId
       ?? req.headers.get("x-correlation-id")
       ?? fallbackCorrelationId;
-    const idempotencyKey = payload.idempotencyKey ?? `create_saas:${session.tenantId}:${blueprint.proposedSlug}`;
+    const requestHash = await hashCreateRequest({
+      tenantId: session.tenantId,
+      blueprint,
+      dryRun: payload.dryRun ?? false,
+    });
+    const idempotencyKey =
+      payload.idempotencyKey?.trim()
+      || `create_saas:${session.tenantId}:${blueprint.proposedSlug}:${requestHash}`;
     const entityId = globalThis.crypto?.randomUUID?.() ?? `saas_${Date.now()}`;
     const jobId = `job_${cleanJobIdSegment(idempotencyKey)}`;
 
