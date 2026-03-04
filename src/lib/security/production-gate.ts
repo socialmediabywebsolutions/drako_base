@@ -1,7 +1,10 @@
 import { env as resolveEnv, type DracoEnv } from "@/lib/cf";
 
 function readEnvValue(key: string, envOverride?: DracoEnv | null): string {
-  const fromBinding = envOverride ? (envOverride as Record<string, string | undefined>)[key] : undefined;
+  const fromBindingRaw = envOverride
+    ? (envOverride as unknown as Record<string, unknown>)[key]
+    : undefined;
+  const fromBinding = typeof fromBindingRaw === "string" ? fromBindingRaw : undefined;
   const fromProcess = typeof process !== "undefined" ? process.env[key] : undefined;
   return (fromBinding ?? fromProcess ?? "").trim().toLowerCase();
 }
