@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 import { buildOwnerControlSnapshot } from "@/lib/owner/control-dashboard";
 
 
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     if (!saasId) {
       return NextResponse.json({ code: "OWNER_CONTROL_MISSING_CONTEXT", message: "saasId is required" }, { status: 400 });
     }
-    const { tenantId } = await requireTenantAccess(request);
+    const { tenantId } = await requireOwnerAccess(request);
     const snapshot = await buildOwnerControlSnapshot({ tenantId, saasId });
     return NextResponse.json({ snapshot });
   } catch (error) {

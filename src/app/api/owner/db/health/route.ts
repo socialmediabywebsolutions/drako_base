@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { UnauthorizedError, requireTenantAccess } from "@/lib/auth/session";
+import { UnauthorizedError, requireOwnerAccess } from "@/lib/auth/session";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import { getDbHealthSnapshot } from "@/lib/db/health";
 import { createOrMergeActionFromWebhook } from "@/lib/owner/action-queue-repository";
@@ -18,7 +18,7 @@ function resolveCorrelationId(request: Request): string {
 
 export async function GET(request: Request) {
   try {
-    const { tenantId, session } = await requireTenantAccess(request);
+    const { tenantId, session } = await requireOwnerAccess(request);
     if (session.role !== "admin") {
       return NextResponse.json({ code: "FORBIDDEN", message: "Admin role required" }, { status: 403 });
     }

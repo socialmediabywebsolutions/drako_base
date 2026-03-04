@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { queryAll } from "@/lib/db";
-import { authorizeSaasAccess, requireOwner } from "@/lib/authz/saas-access";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
     try {
-        // 1. Authorize (Owner Only)
-        const access = await authorizeSaasAccess(null, req as any);
-        requireOwner(access);
+        // 1. Authorize (Owner Only / fail-closed)
+        await requireOwnerAccess(req);
 
         // 2. Aggregate Revenue & Stats per SaaS
         const stats = await queryAll(`
@@ -91,6 +90,9 @@ export async function GET(req: Request) {
         });
 
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 403 });
+        if (error instanceof UnauthorizedError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
     }
 }

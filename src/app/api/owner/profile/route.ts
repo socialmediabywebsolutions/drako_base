@@ -1,13 +1,13 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 import { getCloudflareEnv } from "@/lib/cloudflare/context";
 
 
 export async function GET(request: Request) {
     try {
-        const { tenantId } = await requireTenantAccess(request);
+        const { tenantId } = await requireOwnerAccess(request);
 
         // In this system, the "owner" is often the tenant admin. 
         // We assume the owner record shares the ID with the tenant or user, 
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
     try {
-        const { tenantId } = await requireTenantAccess(request);
+        const { tenantId } = await requireOwnerAccess(request);
         const body = await request.json() as any;
         const { name, nif, address, email, phone, country, city } = body;
 

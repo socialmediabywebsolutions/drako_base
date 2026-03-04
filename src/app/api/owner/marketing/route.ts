@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 import { queryAll } from "@/lib/db";
 import { getDemoOwner } from "@/lib/admin/demo-data";
 import { getOwnerMarketingSnapshot } from "@/lib/owner/accounting";
@@ -13,7 +13,7 @@ type OwnerRow = {
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await requireTenantAccess(request);
+    const { tenantId } = await requireOwnerAccess(request);
     const url = new URL(request.url);
     const ownerIdParam = url.searchParams.get("ownerId");
     let ownerId = ownerIdParam;

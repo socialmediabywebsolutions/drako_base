@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 import { queryAll } from "@/lib/db";
 import { getDemoOwner } from "@/lib/admin/demo-data";
 import { getOwnerActionQueueSnapshot } from "@/lib/owner/action-queue";
@@ -32,7 +32,7 @@ async function resolveOwnerId(tenantId: string, ownerIdParam: string | null): Pr
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await requireTenantAccess(request);
+    const { tenantId } = await requireOwnerAccess(request);
     const url = new URL(request.url);
     const ownerId = await resolveOwnerId(tenantId, url.searchParams.get("ownerId"));
     if (!ownerId) {
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { tenantId, session } = await requireTenantAccess(request);
+    const { tenantId, session } = await requireOwnerAccess(request);
     if (session.role !== "admin") {
       return NextResponse.json({ code: "FORBIDDEN", message: "Admin role required" }, { status: 403 });
     }

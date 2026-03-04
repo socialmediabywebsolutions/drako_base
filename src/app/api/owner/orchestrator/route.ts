@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireTenantAccess } from "@/lib/auth/session";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 import { getCloudflareEnv } from "@/lib/cloudflare/context";
 
 type OrchestratorRequest = {
@@ -24,7 +24,7 @@ type OrchestratorResponse = {
  */
 export async function POST(request: Request): Promise<Response> {
     try {
-        const { tenantId } = await requireTenantAccess(request);
+        const { tenantId } = await requireOwnerAccess(request);
         const body = (await request.json()) as OrchestratorRequest;
         const { command, args = [], context = {} } = body;
 
@@ -145,6 +145,16 @@ export async function POST(request: Request): Promise<Response> {
             correlation_id,
         } as OrchestratorResponse);
     } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: error.message,
+                    correlation_id: crypto.randomUUID(),
+                },
+                { status: error.status }
+            );
+        }
         console.error("Orchestrator error:", error);
         return NextResponse.json(
             {

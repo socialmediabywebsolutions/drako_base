@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { requireTenantAccess } from "@/lib/auth/session";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 import { getCloudflareEnv } from "@/lib/cloudflare/context";
 
 type UpdateRequest = {
@@ -19,7 +19,7 @@ export async function POST(
     { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
     try {
-        const { tenantId } = await requireTenantAccess(request);
+        const { tenantId } = await requireOwnerAccess(request);
         const { id } = await params;
         const body = (await request.json()) as UpdateRequest;
         const { status, note, severity } = body;
@@ -110,6 +110,12 @@ export async function POST(
             updated: { status, severity, note },
         });
     } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            return NextResponse.json(
+                { ok: false, error: error.message },
+                { status: error.status }
+            );
+        }
         console.error("Incident update error:", error);
         return NextResponse.json(
             { ok: false, error: "Internal error" },

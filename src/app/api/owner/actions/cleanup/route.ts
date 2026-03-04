@@ -1,13 +1,13 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { UnauthorizedError, requireTenantAccess } from "@/lib/auth/session";
+import { UnauthorizedError, requireOwnerAccess } from "@/lib/auth/session";
 import { runActionQueueRetention } from "@/lib/owner/action-queue-retention";
 
 
 export async function POST(request: Request) {
   try {
-    const { tenantId, session } = await requireTenantAccess(request);
+    const { tenantId, session } = await requireOwnerAccess(request);
     if (session.role !== "admin") {
       return NextResponse.json({ code: "FORBIDDEN", message: "Admin role required" }, { status: 403 });
     }

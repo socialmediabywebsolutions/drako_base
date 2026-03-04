@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { UnauthorizedError, requireTenantAccess } from "@/lib/auth/session";
+import { UnauthorizedError, requireOwnerAccess } from "@/lib/auth/session";
 import { queryAll } from "@/lib/db";
 
 
@@ -31,7 +31,7 @@ function isoDaysAgo(days: number): string {
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await requireTenantAccess(request);
+    const { tenantId } = await requireOwnerAccess(request);
     const criticalEvents = await queryAll<CriticalEventRow>(
       `SELECT e.type, e.severity, e.message, e.created_at, e.correlation_id, s.slug AS saas_slug
        FROM campamento_events e

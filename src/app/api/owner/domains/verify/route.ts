@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 import { queryAll, run } from "@/lib/db";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import { verifyDomainMapping } from "@/lib/empire/domain-verifier";
@@ -29,7 +29,7 @@ function generateCorrelationId() {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await requireTenantAccess(request);
+    const { tenantId } = await requireOwnerAccess(request);
     const payload = (await request.json().catch(() => null)) as VerifyPayload | null;
     const scope = payload?.scope ?? "all";
     const filters: string[] = ["d.tenant_id = ?"];

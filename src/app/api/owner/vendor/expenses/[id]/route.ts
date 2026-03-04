@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 import { queryAll } from "@/lib/db";
 import { getDemoOwner } from "@/lib/admin/demo-data";
 import { deleteVendorExpense, resolveVendorExpensesContext } from "@/lib/owner/vendor-expenses";
@@ -24,7 +24,7 @@ async function resolveOwnerId(tenantId: string, ownerIdParam: string | null): Pr
 
 export async function DELETE(request: Request, { params }: RouteContext) {
   try {
-    const { tenantId } = await requireTenantAccess(request);
+    const { tenantId } = await requireOwnerAccess(request);
     const url = new URL(request.url);
     const ownerId = await resolveOwnerId(tenantId, url.searchParams.get("ownerId"));
     if (!ownerId) {

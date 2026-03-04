@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { requireTenantAccess } from "@/lib/auth/session";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 import { getCloudflareEnv } from "@/lib/cloudflare/context";
 
 type DecisionRequest = {
@@ -18,7 +18,7 @@ export async function POST(
     { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
     try {
-        const { tenantId } = await requireTenantAccess(request);
+        const { tenantId } = await requireOwnerAccess(request);
         const { id } = await params;
         const body = (await request.json()) as DecisionRequest;
         const { decision, note } = body;
@@ -95,6 +95,12 @@ export async function POST(
             status: newStatus,
         });
     } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            return NextResponse.json(
+                { ok: false, error: error.message },
+                { status: error.status }
+            );
+        }
         console.error("Decision error:", error);
         return NextResponse.json(
             { ok: false, error: "Internal error" },
