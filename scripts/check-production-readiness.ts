@@ -118,7 +118,8 @@ type CheckCode =
   | "criticalDurableObjectMissing"
   | "criticalTableMissing"
   | "criticalColumnMissing"
-  | "onboardingColumnsMismatch";
+  | "onboardingColumnsMismatch"
+  | "legacyProductionGuardMissing";
 
 type CheckRecord = {
   checkCode: CheckCode;
@@ -136,7 +137,8 @@ type CheckRecord = {
     | "datastore_queue"
     | "durable_object"
     | "d1_table"
-    | "d1_column";
+    | "d1_column"
+    | "code_guard";
   targetName: string;
   expected: unknown;
   actual: unknown;
@@ -187,11 +189,41 @@ type ProductionAuditsRunOptions = {
   writeReports?: boolean;
   reportJsonPath?: string;
   reportMarkdownPath?: string;
+  legacyGuardsOverride?: LegacyProductionGuard[];
+};
+
+type LegacyProductionGuard = {
+  targetName: string;
+  filePath: string;
+  mustInclude: string[];
 };
 
 const DEFAULT_SOURCE_OF_TRUTH_PATH = "docs/config/production-audits-expected-state.json";
 const DEFAULT_REPORT_JSON_PATH = "docs/audits/production-readiness-latest.json";
 const DEFAULT_REPORT_MARKDOWN_PATH = "docs/audits/production-readiness-latest.md";
+const LEGACY_GUARD_DEFAULT_SEVERITY: SeverityLevel = "BLOCKER";
+const DEFAULT_LEGACY_PRODUCTION_GUARDS: LegacyProductionGuard[] = [
+  {
+    targetName: "legacy:create-saas-route",
+    filePath: "src/app/api/saas/route.ts",
+    mustInclude: ["LEGACY_SAAS_CREATE_BLOCKED", "/api/owner/saas-factory/create-saas", "status: 410"],
+  },
+  {
+    targetName: "legacy:provision-commit-route",
+    filePath: "src/app/api/provision/commit/route.ts",
+    mustInclude: ["LEGACY_PROVISION_COMMIT_BLOCKED", "/api/owner/saas-factory/create-saas", "status: 410"],
+  },
+  {
+    targetName: "legacy:saas-domain-route",
+    filePath: "src/app/api/saas/domain/route.ts",
+    mustInclude: ["LEGACY_SAAS_DOMAIN_ROUTE_BLOCKED", "/api/domains/request", "status: 410"],
+  },
+  {
+    targetName: "legacy:saas-factory-queue-consumer",
+    filePath: "src/workers/saas-factory-consumer.ts",
+    mustInclude: ["LEGACY_SAAS_FACTORY_QUEUE_BLOCKED", "legacy.saas_factory_queue.blocked", "message.ack"],
+  },
+];
 
 function stripQuotes(value: string): string {
   return value.replace(/^"+|"+$/g, "");
@@ -978,6 +1010,40 @@ function buildChecks(config: ProductionAuditsExpectedState, snapshots: Productio
   return checks;
 }
 
+async function buildLegacyProductionGuardChecks(guards: LegacyProductionGuard[]): Promise<CheckRecord[]> {
+  const checks: CheckRecord[] = [];
+
+  for (const guard of guards) {
+    let content = "";
+    let readError: string | null = null;
+    try {
+      content = await fs.readFile(resolveAbsolutePath(guard.filePath), "utf8");
+    } catch (error) {
+      readError = error instanceof Error ? error.message : String(error);
+    }
+
+    const missingTokens = readError
+      ? guard.mustInclude
+      : guard.mustInclude.filter((token) => !content.includes(token));
+    const passed = missingTokens.length === 0;
+
+    checks.push({
+      checkCode: "legacyProductionGuardMissing",
+      severity: LEGACY_GUARD_DEFAULT_SEVERITY,
+      status: passed ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: guard.mustInclude,
+      actual: readError ? `READ_ERROR:${readError}` : missingTokens.length === 0 ? "all_tokens_present" : missingTokens,
+      details: passed
+        ? `Legacy production guard verified in ${guard.filePath}.`
+        : `Legacy production guard drift detected in ${guard.filePath}. Missing tokens: ${missingTokens.join(", ")}`,
+    });
+  }
+
+  return checks;
+}
+
 function buildReport(params: {
   mode: "real" | "fixtures";
   sourceOfTruthPath: string;
@@ -1102,6 +1168,9 @@ export async function runProductionReadinessAudits(
   const snapshots =
     mode === "fixtures" ? await collectFixturesSnapshots(fixturesDir) : await collectRealSnapshots(config);
   const checks = buildChecks(config, snapshots);
+  const legacyGuards = options.legacyGuardsOverride ?? DEFAULT_LEGACY_PRODUCTION_GUARDS;
+  const legacyGuardChecks = await buildLegacyProductionGuardChecks(legacyGuards);
+  checks.push(...legacyGuardChecks);
   const report = buildReport({
     mode,
     sourceOfTruthPath,

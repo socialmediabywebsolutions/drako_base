@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   provisionSaasInCloudflare: vi.fn(),
   resolveSaasContext: vi.fn(),
   upsertSaasDomain: vi.fn(),
+  recordCampamentoEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/campamento-base", () => ({
@@ -55,6 +56,10 @@ vi.mock("@/lib/saas/repository", () => ({
   upsertSaasDomain: mocks.upsertSaasDomain,
 }));
 
+vi.mock("@/lib/empire/events", () => ({
+  recordCampamentoEvent: mocks.recordCampamentoEvent,
+}));
+
 import { provisionSaaS } from "@/lib/campamento-base/saas-factory-orchestrator";
 
 describe("saas-factory orchestrator canonical state flow", () => {
@@ -80,6 +85,7 @@ describe("saas-factory orchestrator canonical state flow", () => {
     });
     mocks.resolveSaasContext.mockResolvedValue({ tenantId: "tenant_a", saasId: "saas_1", mode: "live" });
     mocks.upsertSaasDomain.mockResolvedValue({ id: "factory_domain_saas_1" });
+    mocks.recordCampamentoEvent.mockResolvedValue(undefined);
   });
 
   it("transitions CREATED->RUNNING->...->SUCCESS and propagates correlation id", async () => {
@@ -141,5 +147,15 @@ describe("saas-factory orchestrator canonical state flow", () => {
         status: "pending",
       }),
     );
+    expect(mocks.recordCampamentoEvent).toHaveBeenCalled();
+    const eventPayloads = mocks.recordCampamentoEvent.mock.calls.map((call) => call[0]);
+    expect(
+      eventPayloads.some(
+        (payload) =>
+          payload.type === "provision.saas_factory.job.succeeded" &&
+          payload.correlationId === "corr_job_1" &&
+          typeof payload.metadata?.durationMs === "number",
+      ),
+    ).toBe(true);
   });
 });

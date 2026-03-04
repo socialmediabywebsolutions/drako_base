@@ -11,6 +11,7 @@ import { normalizeCampamentoBaseProfileForBlueprint } from "@/lib/campamento-bas
 import { ensureStripeProductForSaas, archiveStripeProductAndPrices } from "@/lib/campamento-base/provisioning/stripe-factory";
 import { provisionSaasInCloudflare, computeDomainsForSaas, deleteCloudflareHostname } from "@/lib/campamento-base/provisioning/cloudflare-factory";
 import { resolveSaasContext, upsertSaasDomain } from "@/lib/saas/repository";
+import { recordCampamentoEvent } from "@/lib/empire/events";
 
 type ExistingProvisioningJobContext = {
   jobId: string;
@@ -26,6 +27,40 @@ type OrchestratorPayload = SaasBlueprintDraft & {
   stripePriceIds?: Record<string, string>;
   cloudflareHostnameId?: string;
 };
+
+async function recordProvisioningStepEvent(params: {
+  tenantId: string;
+  saasId: string;
+  correlationId: string;
+  jobId: string;
+  step: string;
+  phase: "started" | "succeeded" | "failed";
+  severity: "INFO" | "WARNING" | "ERROR";
+  message: string;
+  durationMs?: number;
+  metadata?: Record<string, unknown>;
+}) {
+  try {
+    await recordCampamentoEvent({
+      tenantId: params.tenantId,
+      saasId: params.saasId,
+      correlationId: params.correlationId,
+      type: `provision.saas_factory.${params.step}.${params.phase}`,
+      severity: params.severity,
+      source: "PROVISIONING_CONSUMER",
+      message: params.message,
+      metadata: {
+        jobId: params.jobId,
+        step: params.step,
+        phase: params.phase,
+        durationMs: params.durationMs ?? null,
+        ...(params.metadata ?? {}),
+      },
+    });
+  } catch (eventError) {
+    console.error("[Provision] Failed to write campamento event", eventError);
+  }
+}
 
 export async function provisionSaaS(params: {
   env?: DracoEnv | null;
@@ -99,9 +134,22 @@ export async function provisionSaaS(params: {
   // We use 'as ProvisioningJobState' to allow full range of transitions in TS eyes
   if (currentState === 'CREATED') currentState = 'RUNNING';
 
+  const executionStartedAt = Date.now();
   try {
     // --- STEP 1: REGISTER SAAS (Internal DB) ---
     if (currentState === 'RUNNING') {
+      const startedAt = Date.now();
+      await recordProvisioningStepEvent({
+        tenantId: params.ownerTenantId,
+        saasId: realSaasId,
+        correlationId,
+        jobId: jobIdInUse,
+        step: "db_register",
+        phase: "started",
+        severity: "INFO",
+        message: "SaaS DB provisioning started.",
+      });
+
       await run(
         `INSERT INTO saas (id, name, slug, status, tenant_id, created_at)
                  VALUES (?, ?, ?, 'inactive', ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -121,10 +169,33 @@ export async function provisionSaaS(params: {
 
       await JobRunner.transitionState(jobIdInUse, 'RUNNING', 'SAAS_REGISTERED', token!, `SaaS registered.`);
       currentState = 'SAAS_REGISTERED';
+      await recordProvisioningStepEvent({
+        tenantId: params.ownerTenantId,
+        saasId: realSaasId,
+        correlationId,
+        jobId: jobIdInUse,
+        step: "db_register",
+        phase: "succeeded",
+        severity: "INFO",
+        message: "SaaS DB provisioning completed.",
+        durationMs: Date.now() - startedAt,
+      });
     }
 
     // --- STEP 2: STRIPE PRODUCT ---
     if (currentState === 'SAAS_REGISTERED') {
+      const startedAt = Date.now();
+      await recordProvisioningStepEvent({
+        tenantId: params.ownerTenantId,
+        saasId: realSaasId,
+        correlationId,
+        jobId: jobIdInUse,
+        step: "stripe",
+        phase: "started",
+        severity: "INFO",
+        message: "Stripe provisioning started.",
+      });
+
       const stripeRes = await ensureStripeProductForSaas({
         env: params.env,
         blueprint: normalized,
@@ -146,6 +217,18 @@ export async function provisionSaaS(params: {
 
       await JobRunner.transitionState(jobIdInUse, 'SAAS_REGISTERED', 'STRIPE_PRODUCT_CREATED', token!, 'Stripe resources created.');
       currentState = 'STRIPE_PRODUCT_CREATED';
+      await recordProvisioningStepEvent({
+        tenantId: params.ownerTenantId,
+        saasId: realSaasId,
+        correlationId,
+        jobId: jobIdInUse,
+        step: "stripe",
+        phase: "succeeded",
+        severity: "INFO",
+        message: "Stripe provisioning completed.",
+        durationMs: Date.now() - startedAt,
+        metadata: { stripeProductId: payload.stripeProductId ?? null },
+      });
 
       // FAULT INJECTION (VERIFICATION ONLY)
       if (params.env?.PROVISIONING_FAULT_AT === 'STRIPE_AFTER_CREATE') {
@@ -155,6 +238,18 @@ export async function provisionSaaS(params: {
 
     // --- STEP 3: CLOUDFLARE DOMAINS ---
     if (currentState === 'STRIPE_PRODUCT_CREATED') {
+      const startedAt = Date.now();
+      await recordProvisioningStepEvent({
+        tenantId: params.ownerTenantId,
+        saasId: realSaasId,
+        correlationId,
+        jobId: jobIdInUse,
+        step: "domains",
+        phase: "started",
+        severity: "INFO",
+        message: "Domains provisioning started.",
+      });
+
       const cfRes = await provisionSaasInCloudflare({
         env: params.env,
         blueprint: normalized,
@@ -190,6 +285,21 @@ export async function provisionSaaS(params: {
         cfRes.createdCustomHostname ? 'Domains configured.' : 'Domain provisioning pending provider verification.',
       );
       currentState = 'DOMAINS_REGISTERED';
+      await recordProvisioningStepEvent({
+        tenantId: params.ownerTenantId,
+        saasId: realSaasId,
+        correlationId,
+        jobId: jobIdInUse,
+        step: "domains",
+        phase: "succeeded",
+        severity: "INFO",
+        message: "Domains provisioning completed.",
+        durationMs: Date.now() - startedAt,
+        metadata: {
+          customHostnameId: payload.cloudflareHostnameId ?? null,
+          providerStatus: cfRes.status,
+        },
+      });
 
       // FAULT INJECTION (VERIFICATION ONLY)
       if (params.env?.PROVISIONING_FAULT_AT === 'CLOUDFLARE_AFTER_CREATE') {
@@ -199,12 +309,39 @@ export async function provisionSaaS(params: {
       // --- COMPLETION ---
       if (currentState === 'DOMAINS_REGISTERED') {
         await JobRunner.completeJob(jobIdInUse, 'DOMAINS_REGISTERED', token!);
+        await recordProvisioningStepEvent({
+          tenantId: params.ownerTenantId,
+          saasId: realSaasId,
+          correlationId,
+          jobId: jobIdInUse,
+          step: "job",
+          phase: "succeeded",
+          severity: "INFO",
+          message: "Provisioning job completed.",
+          durationMs: Date.now() - executionStartedAt,
+          metadata: { finalState: "SUCCESS" },
+        });
         return { saasId: realSaasId, status: 'SUCCESS' };
       }
 
     }
   } catch (error: any) {
     console.error(`[Provision] Job ${jobIdInUse} failed at ${currentState}:`, error);
+    await recordProvisioningStepEvent({
+      tenantId: params.ownerTenantId,
+      saasId: realSaasId,
+      correlationId,
+      jobId: jobIdInUse,
+      step: "job",
+      phase: "failed",
+      severity: "ERROR",
+      message: `Provisioning failed at state ${currentState}.`,
+      durationMs: Date.now() - executionStartedAt,
+      metadata: {
+        state: currentState,
+        error: error?.message ?? String(error),
+      },
+    });
 
     // --- ROLLBACK LOGIC ---
     try {

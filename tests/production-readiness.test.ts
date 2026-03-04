@@ -14,6 +14,7 @@ describe("production readiness audits", () => {
     expect(result.exitCode).toBe(0);
     expect(result.report.productionReady).toBe(true);
     expect(result.report.summary.blockersTotal).toBe(0);
+    expect(result.report.checks.some((check) => check.checkCode === "legacyProductionGuardMissing")).toBe(true);
   });
 
   it("fails with blockers when critical mismatches exist", async () => {
@@ -34,5 +35,23 @@ describe("production readiness audits", () => {
           violation.targetName.includes("drako-base-3"),
       ),
     ).toBe(true);
+  });
+
+  it("fails when a legacy production guard token is missing", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      legacyGuardsOverride: [
+        {
+          targetName: "legacy:create-saas-route",
+          filePath: "src/app/api/saas/route.ts",
+          mustInclude: ["__TOKEN_THAT_DOES_NOT_EXIST__"],
+        },
+      ],
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "legacyProductionGuardMissing")).toBe(true);
   });
 });
