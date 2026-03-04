@@ -37,6 +37,7 @@ class UnauthorizedError extends Error {
 
 const SESSION_REQUIRED_ERROR = new UnauthorizedError("SESSION_REQUIRED");
 const ADMIN_REQUIRED_ERROR = new UnauthorizedError("ADMIN_ROLE_REQUIRED", 403);
+const OWNER_REQUIRED_ERROR = new UnauthorizedError("OWNER_ROLE_REQUIRED", 403);
 const TENANT_MISMATCH_ERROR = new UnauthorizedError("TENANT_MISMATCH", 403);
 
 const DEMO_SESSION_ENABLED =
@@ -214,6 +215,22 @@ export async function requireTenantAccess(request: Request): Promise<{ tenantId:
   const resolvedTenantId = resolveTenantId(request, { fallbackTenantId: null });
   if (resolvedTenantId && session.tenantId !== resolvedTenantId) {
     throw TENANT_MISMATCH_ERROR;
+  }
+  return { tenantId: session.tenantId, session };
+}
+
+export async function requireOwnerAccess(request: Request): Promise<{ tenantId: string; session: SessionData }> {
+  const session = await getSession(request);
+  if (!session) {
+    throw SESSION_REQUIRED_ERROR;
+  }
+  const resolvedTenantId = resolveTenantId(request, { fallbackTenantId: null });
+  if (resolvedTenantId && session.tenantId !== resolvedTenantId) {
+    throw TENANT_MISMATCH_ERROR;
+  }
+  const role = String(session.role ?? "").toLowerCase();
+  if (role !== "admin" && role !== "owner" && role !== "superadmin") {
+    throw OWNER_REQUIRED_ERROR;
   }
   return { tenantId: session.tenantId, session };
 }
