@@ -270,7 +270,7 @@ export async function getCanonicalSubscriptionState(input: {
   tenantId: string;
   saasSlug: string;
 }): Promise<CanonicalSubscriptionState | null> {
-  const row = await queryOne<{
+  let row: {
     tenant_id: string;
     saas_slug: string;
     stripe_customer_id: string | null;
@@ -281,14 +281,49 @@ export async function getCanonicalSubscriptionState(input: {
     current_period_end: string | null;
     cancel_at_period_end?: number | null;
     updated_at: string;
-  }>(
-    `SELECT tenant_id, saas_slug, stripe_customer_id, stripe_subscription_id, stripe_price_id, plan_code, status, current_period_end, cancel_at_period_end, updated_at
-     FROM saas_subscriptions
-     WHERE tenant_id = ? AND saas_slug = ?
-     LIMIT 1`,
-    input.tenantId,
-    input.saasSlug,
-  );
+  } | null = null;
+  try {
+    row = await queryOne<{
+      tenant_id: string;
+      saas_slug: string;
+      stripe_customer_id: string | null;
+      stripe_subscription_id: string | null;
+      stripe_price_id?: string | null;
+      plan_code: string | null;
+      status: string;
+      current_period_end: string | null;
+      cancel_at_period_end?: number | null;
+      updated_at: string;
+    }>(
+      `SELECT tenant_id, saas_slug, stripe_customer_id, stripe_subscription_id, stripe_price_id, plan_code, status, current_period_end, cancel_at_period_end, updated_at
+       FROM saas_subscriptions
+       WHERE tenant_id = ? AND saas_slug = ?
+       LIMIT 1`,
+      input.tenantId,
+      input.saasSlug,
+    );
+  } catch (error) {
+    if (!(error instanceof Error) || !/no such column/i.test(error.message)) {
+      throw error;
+    }
+    row = await queryOne<{
+      tenant_id: string;
+      saas_slug: string;
+      stripe_customer_id: string | null;
+      stripe_subscription_id: string | null;
+      plan_code: string | null;
+      status: string;
+      current_period_end: string | null;
+      updated_at: string;
+    }>(
+      `SELECT tenant_id, saas_slug, stripe_customer_id, stripe_subscription_id, plan_code, status, current_period_end, updated_at
+       FROM saas_subscriptions
+       WHERE tenant_id = ? AND saas_slug = ?
+       LIMIT 1`,
+      input.tenantId,
+      input.saasSlug,
+    );
+  }
   if (!row?.stripe_customer_id || !row.stripe_subscription_id) {
     return null;
   }

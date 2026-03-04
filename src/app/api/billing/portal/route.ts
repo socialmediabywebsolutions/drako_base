@@ -1,60 +1,78 @@
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { getStripe } from "@/lib/billing/stripe-sync";
-import { env } from "@/lib/cf"; // verify path
-import { resolveAuthOriginFromRequest } from "@/lib/auths/origin";
+import { getStripe } from "@/lib/stripe/client";
+import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { queryOne } from "@/lib/db";
+import { getCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
+import { getRequestBaseUrl } from "@/lib/http/base-url";
 
-export const runtime = 'nodejs'; // REQUIRED for Stripe
+async function resolveSaasSlug(params: { tenantId: string; request: Request }): Promise<string> {
+  const { searchParams } = new URL(params.request.url);
+  const providedSlug = searchParams.get("saasSlug")?.trim().toLowerCase();
+  if (providedSlug) return providedSlug;
 
-export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url);
-    const saasId = searchParams.get('saasId');
-    const session = await getServerSession(authOptions);
+  const saasId = searchParams.get("saasId")?.trim();
+  if (saasId) {
+    const row = await queryOne<{ slug: string }>(
+      "SELECT slug FROM saas WHERE tenant_id = ? AND id = ? LIMIT 1",
+      params.tenantId,
+      saasId,
+    );
+    if (row?.slug) return row.slug.trim().toLowerCase();
+  }
 
-    if (!session?.user?.email || !saasId) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  return "drako";
+}
+
+export async function GET(request: Request) {
+  try {
+    const { tenantId } = await requireTenantAccess(request);
+    const correlationId = request.headers.get("x-correlation-id") ?? (globalThis.crypto?.randomUUID?.() ?? `portal_${Date.now()}`);
+    const saasSlug = await resolveSaasSlug({ tenantId, request });
+    const state = await getCanonicalSubscriptionState({ tenantId, saasSlug });
+
+    if (!state?.stripeCustomerId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "NEEDS_BILLING",
+          message: "No verified subscription/customer found for billing portal.",
+          tenantId,
+          saasSlug,
+          correlationId,
+        },
+        { status: 403 },
+      );
     }
 
-    try {
-        const stripe = getStripe();
-        const origin = resolveAuthOriginFromRequest(req);
-
-        // In a real implementation with valid D1 access in Node or an external stored customer ID,
-        // we would fetch the customerId here.
-        // For now, we will assume the CUSTOMER ID is passed or we redirect to the general portals login if unknown,
-        // OR we use the email to find the customer in Stripe (search).
-
-        const customers = await stripe.customers.list({ email: session.user.email, limit: 1 });
-        const customer = customers.data[0];
-
-        if (customer) {
-            const sessionPortal = await stripe.billingPortal.sessions.create({
-                customer: customer.id,
-                return_url: `${origin}/client`,
-            });
-            return NextResponse.redirect(sessionPortal.url);
-        } else {
-            // Fallback: No Stripe customer found for this email.
-            // Return a manual instruction page (mocked here as simple HTML for speed)
-            return new NextResponse(`
-                <html>
-                    <head><title>Reactivación Manual</title></head>
-                    <body style="font-family: sans-serif; padding: 40px; text-align: center;">
-                        <h1>Reactivación Manual Requerida</h1>
-                        <p>No encontramos una suscripción digital vinculada a tu email (${session.user.email}).</p>
-                        <p>Por favor, contacta a soporte para reactivar tu instancia: <b>${saasId}</b></p>
-                        <a href="/site/support" style="color: blue;">Contactar Soporte</a>
-                    </body>
-                </html>
-             `, { headers: { 'Content-Type': 'text/html' } });
-        }
-
-    } catch (e: any) {
-        console.error("Billing Portal Error:", e);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+    const stripe = await getStripe();
+    if (!stripe) {
+      return NextResponse.json(
+        { ok: false, code: "STRIPE_NOT_CONFIGURED", tenantId, saasSlug, correlationId },
+        { status: 503 },
+      );
     }
+
+    const origin = getRequestBaseUrl(request);
+    const sessionPortal = await stripe.billingPortal.sessions.create({
+      customer: state.stripeCustomerId,
+      return_url: `${origin}/billing`,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      url: sessionPortal.url,
+      tenantId,
+      saasSlug,
+      correlationId,
+    });
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ ok: false, code: error.message }, { status: error.status });
+    }
+    console.error("BILLING_PORTAL_ERROR", error);
+    return NextResponse.json({ ok: false, code: "INTERNAL_ERROR" }, { status: 500 });
+  }
 }

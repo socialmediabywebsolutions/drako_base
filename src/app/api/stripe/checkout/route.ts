@@ -119,10 +119,12 @@ export async function POST(request: Request) {
       saasId = entities.saasId;
     }
 
+    const correlationId = request.headers.get("x-correlation-id") ?? (globalThis.crypto?.randomUUID?.() ?? `checkout_${Date.now()}`);
     const metadata: Record<string, string> = {
       tenantId,
       plan,
       email: email || "",
+      correlationId,
     };
 
     if (clientId) metadata.clientId = clientId;
@@ -147,7 +149,13 @@ export async function POST(request: Request) {
       cancel_url: `${baseUrl}/billing/cancel`,
     });
 
-    return NextResponse.json({ url: sessionCheckout.url });
+    return NextResponse.json({
+      ok: true,
+      url: sessionCheckout.url,
+      sessionId: sessionCheckout.id,
+      tenantId,
+      correlationId,
+    });
   } catch (error) {
     const dbError = respondDatabaseError(error);
     if (dbError) return dbError;
