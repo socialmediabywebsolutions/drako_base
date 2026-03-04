@@ -27,8 +27,8 @@ export async function POST(req: Request) {
         }
 
         const result = await verifyAndActivate(tenantId, saasId);
-
-        return NextResponse.json({ ok: true, ...result });
+        const status = result.httpStatus ?? (result.ok ? 200 : 400);
+        return NextResponse.json(result, { status });
 
     } catch (error) {
         if (error instanceof UnauthorizedError) return NextResponse.json({ error: error.message }, { status: 401 });
