@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { queryAll, run } from "@/lib/db";
+import { env as resolveEnv } from "@/lib/cf";
+import { isProductionEnvironment } from "@/lib/security/production-gate";
 
 
 type DomainRow = {
@@ -21,6 +23,17 @@ function authErrorResponse(error: unknown) {
 }
 
 export async function PATCH(request: Request) {
+  if (isProductionEnvironment(resolveEnv())) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "LEGACY_SAAS_DOMAIN_ROUTE_BLOCKED",
+        message: "Legacy domain update route is disabled. Use /api/domains/request, /api/domains/verify and /api/domains/status.",
+      },
+      { status: 410 },
+    );
+  }
+
   try {
     const { tenantId } = await requireTenantAccess(request);
     const body = (await request.json().catch(() => null)) as {
