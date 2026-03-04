@@ -2,21 +2,25 @@ import path from "path";
 import { describe, expect, it, vi } from "vitest";
 import { runAuthSsotDriftChecks } from "../../scripts/lib/auth-ssot-audit";
 
+const projectRoot = path.resolve(__dirname, "../..");
+const ssotAuditResult = runAuthSsotDriftChecks(projectRoot);
+
 describe("auth ssot drift guard", () => {
   it("rejects cross-register/cross-login redirects", () => {
-    const projectRoot = path.resolve(__dirname, "../..");
-    const result = runAuthSsotDriftChecks(projectRoot);
-    expect(result.ok, result.errors.join("\n")).toBe(true);
+    expect(ssotAuditResult.ok, ssotAuditResult.errors.join("\n")).toBe(true);
   });
 
   it("rejects frontend references to legacy /api/auth login/register endpoints", () => {
-    const projectRoot = path.resolve(__dirname, "../..");
-    const result = runAuthSsotDriftChecks(projectRoot);
-    const legacyRefs = result.inventory.rows.filter((row) =>
+    const legacyRefs = ssotAuditResult.inventory.rows.filter((row) =>
       (row.destination === "/api/auth/login" || row.destination === "/api/auth/register")
       && row.file !== "src/app/api/auth/login/route.ts"
       && row.file !== "src/app/api/auth/register/route.ts",
     );
+    const selfRedirectLoops = ssotAuditResult.inventory.rows.filter((row) =>
+      row.reason !== "auth-surface" &&
+      row.sourceRoute === row.destination,
+    );
+    expect(selfRedirectLoops).toEqual([]);
     expect(legacyRefs).toEqual([]);
   });
 
