@@ -12,11 +12,27 @@ import { ensureStripeProductForSaas, archiveStripeProductAndPrices } from "@/lib
 import { provisionSaasInCloudflare, computeDomainsForSaas, deleteCloudflareHostname } from "@/lib/campamento-base/provisioning/cloudflare-factory";
 import { resolveSaasContext, upsertSaasDomain } from "@/lib/saas/repository";
 
+type ExistingProvisioningJobContext = {
+  jobId: string;
+  entityId: string;
+  state: ProvisioningJobState;
+  correlationId: string;
+  idempotencyKey: string;
+  payload: OrchestratorPayload;
+};
+
+type OrchestratorPayload = SaasBlueprintDraft & {
+  stripeProductId?: string;
+  stripePriceIds?: Record<string, string>;
+  cloudflareHostnameId?: string;
+};
+
 export async function provisionSaaS(params: {
   env?: DracoEnv | null;
   ownerTenantId: string;
   blueprint: SaasBlueprintDraft;
   preAcquiredToken?: { lockVersion: number; ownerId: string };
+  existingJob?: ExistingProvisioningJobContext;
 }): Promise<{ saasId: string; status: string; error?: string }> {
 
   await ensureCampamentoBase();
@@ -30,28 +46,37 @@ export async function provisionSaaS(params: {
     { applyDefaults: true }
   );
 
+  const fallbackCorrelationId = `corr_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const generatedSaasId = globalThis.crypto?.randomUUID?.() ?? `saas_${Date.now()}`;
-  const idempotencyKey = `prov_saas_${normalized.proposedSlug}`;
-  const correlationId = `corr_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
-  // 2. Ensure Job (Idempotent)
-  const jobResult = await JobRunner.ensureJob({
-    jobId: `job_${idempotencyKey}`,
-    type: 'SAAS_PROVISIONING',
-    entityId: generatedSaasId,
-    correlationId,
-    idempotencyKey,
-    initialState: 'CREATED',
-    payload: normalized,
-    tenantId: params.ownerTenantId,
-    queue: params.env?.PROVISIONING_QUEUE
-  });
+  // 2. Resolve Job Context (Idempotent)
+  let jobIdInUse = params.existingJob?.jobId ?? "";
+  let currentState: ProvisioningJobState = params.existingJob?.state ?? 'CREATED';
+  const realSaasId = params.existingJob?.entityId ?? generatedSaasId;
+  const correlationId = params.existingJob?.correlationId ?? fallbackCorrelationId;
+  const idempotencyKey = params.existingJob?.idempotencyKey ?? `prov_saas_${normalized.proposedSlug}`;
+  let payload: OrchestratorPayload = params.existingJob?.payload || normalized;
 
-  const realSaasId = jobResult.entityId;
-  let payload = jobResult.payload || normalized;
+  if (!params.existingJob) {
+    const jobResult = await JobRunner.ensureJob({
+      jobId: `job_${idempotencyKey}`,
+      type: 'SAAS_PROVISIONING',
+      entityId: generatedSaasId,
+      correlationId,
+      idempotencyKey,
+      initialState: 'CREATED',
+      payload: normalized,
+      tenantId: params.ownerTenantId,
+      queue: params.env?.PROVISIONING_QUEUE
+    });
 
-  if (jobResult.state === 'ACTIVE') {
-    return { saasId: realSaasId, status: 'ALREADY_ACTIVE' };
+    jobIdInUse = jobResult.jobId;
+    currentState = jobResult.state;
+    payload = jobResult.payload || normalized;
+
+    if (jobResult.state === 'ACTIVE') {
+      return { saasId: jobResult.entityId, status: 'ALREADY_ACTIVE' };
+    }
   }
 
   // 3. Locking
@@ -60,7 +85,7 @@ export async function provisionSaaS(params: {
 
   if (!token) {
     try {
-      const { lockVersion } = await JobRunner.acquireLock(jobResult.jobId, ownerId);
+      const { lockVersion } = await JobRunner.acquireLock(jobIdInUse, ownerId);
       token = { lockVersion, ownerId };
     } catch (e: any) {
       if (e.name === 'JobLockedError' || e.message.includes('terminal state')) {
@@ -70,12 +95,9 @@ export async function provisionSaaS(params: {
     }
   }
 
-  const jobIdInUse = jobResult.jobId;
-
   // 4. Execution Flow
   // We use 'as ProvisioningJobState' to allow full range of transitions in TS eyes
-  let currentState: ProvisioningJobState = (jobResult.state === 'CREATED' ? 'RUNNING' : jobResult.state) as ProvisioningJobState;
-  if (jobResult.state === 'CREATED') currentState = 'RUNNING';
+  if (currentState === 'CREATED') currentState = 'RUNNING';
 
   try {
     // --- STEP 1: REGISTER SAAS (Internal DB) ---

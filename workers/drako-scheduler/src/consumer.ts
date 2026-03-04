@@ -1,5 +1,5 @@
 
-import { JobLockedError, JobRunner } from "../../../src/lib/provisioning/job-runner";
+import { JobLockedError, JobRunner, type ProvisioningJobState } from "../../../src/lib/provisioning/job-runner";
 import { queryOne } from "../../../src/lib/db";
 import { provisionSaaS } from "../../../src/lib/campamento-base/saas-factory-orchestrator";
 import type { DracoEnv } from "../../../src/lib/cf";
@@ -38,8 +38,15 @@ export async function processQueueBatch(batch: MessageBatch<MessageBody>, env: E
             // Import dynamically or ensure imported at top
 
             // Load Job Payload
-            const job = await queryOne<{ payload_json: string; tenant_id: string }>(
-                "SELECT payload_json, tenant_id FROM provisioning_jobs WHERE job_id = ?",
+            const job = await queryOne<{
+                payload_json: string;
+                tenant_id: string;
+                current_state: string;
+                entity_id: string;
+                correlation_id: string;
+                idempotency_key: string;
+            }>(
+                "SELECT payload_json, tenant_id, current_state, entity_id, correlation_id, idempotency_key FROM provisioning_jobs WHERE job_id = ?",
                 jobId
             );
 
@@ -55,7 +62,15 @@ export async function processQueueBatch(batch: MessageBatch<MessageBody>, env: E
                 env: env as unknown as DracoEnv, // Cast Env
                 ownerTenantId: job.tenant_id,
                 blueprint: blueprint,
-                preAcquiredToken: token
+                preAcquiredToken: token,
+                existingJob: {
+                    jobId,
+                    entityId: job.entity_id,
+                    state: job.current_state as ProvisioningJobState,
+                    correlationId: job.correlation_id || msg.body.correlationId,
+                    idempotencyKey: job.idempotency_key,
+                    payload: blueprint,
+                },
             });
 
             // Note: provisionSaaS handles transitions and completion.
