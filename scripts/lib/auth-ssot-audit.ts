@@ -31,6 +31,13 @@ export type AuthInventory = {
 };
 
 const AUTH_TARGET_RE = /(\/(?:api\/(?:drakos|mentorias|bases|auth)\/[^\s"'`)\]]+|drakos\/auths\/[^\s"'`)\]]+|mentorias\/auths\/[^\s"'`)\]]+|auth\/(?:login|register)|(?:site\/)?mentoria(?:s)?\/signup|signup|login))/g;
+const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
+const DRIFT_CACHE = new Map<string, { ok: boolean; errors: string[]; inventory: AuthInventory }>();
+
+function shouldInspectFile(fileName: string): boolean {
+  const extension = path.extname(fileName).toLowerCase();
+  return SOURCE_EXTENSIONS.has(extension);
+}
 
 function walkFiles(dir: string, out: string[]) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -41,6 +48,7 @@ function walkFiles(dir: string, out: string[]) {
       walkFiles(full, out);
       continue;
     }
+    if (!shouldInspectFile(entry.name)) continue;
     out.push(full);
   }
 }
@@ -115,6 +123,9 @@ function sourceRouteFromFile(projectRoot: string, file: string): string {
 
 function extractAuthTargets(content: string): Array<{ target: string; reason: string }> {
   const targets: Array<{ target: string; reason: string }> = [];
+  if (!/auth|login|register|signup|drakos|mentorias|\/api\//i.test(content)) {
+    return targets;
+  }
   const patterns: Array<{ re: RegExp; reason: string }> = [
     { re: /href\s*=\s*["'`]([^"'`]+)["'`]/g, reason: "ui-link" },
     { re: /destination\s*:\s*["'`]([^"'`]+)["'`]/g, reason: "next-config-redirect" },
@@ -273,7 +284,13 @@ export function renderInventoryMarkdown(inventory: AuthInventory): string {
 }
 
 export function runAuthSsotDriftChecks(projectRoot = process.cwd()): { ok: boolean; errors: string[]; inventory: AuthInventory } {
-  const inventory = collectAuthInventory(projectRoot);
+  const normalizedRoot = path.resolve(projectRoot);
+  const cached = DRIFT_CACHE.get(normalizedRoot);
+  if (cached) {
+    return cached;
+  }
+
+  const inventory = collectAuthInventory(normalizedRoot);
   const errors: string[] = [];
 
   if (inventory.crossRedirects.length > 0) {
@@ -334,5 +351,7 @@ export function runAuthSsotDriftChecks(projectRoot = process.cwd()): { ok: boole
     }
   }
 
-  return { ok: errors.length === 0, errors, inventory };
+  const result = { ok: errors.length === 0, errors, inventory };
+  DRIFT_CACHE.set(normalizedRoot, result);
+  return result;
 }
