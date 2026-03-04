@@ -67,6 +67,14 @@ export type CanonicalSubscriptionState = {
   updatedAt: string;
 };
 
+export type CanonicalBillingEntitlements = {
+  tenantId: string;
+  saasSlug: string;
+  subscriptionStatus: string | null;
+  hasVerifiedSubscription: boolean;
+  limits: Record<string, number>;
+};
+
 function hasDatabase(): boolean {
   return Boolean(env());
 }
@@ -405,4 +413,32 @@ export async function syncSaasUsageQuotasFromPlan(input: {
       nowIso,
     );
   }
+}
+
+export async function getCanonicalBillingEntitlements(input: {
+  tenantId: string;
+  saasSlug: string;
+}): Promise<CanonicalBillingEntitlements> {
+  const subscription = await getCanonicalSubscriptionState(input);
+  const limitsRows = await queryAll<{ quota_key: string; limit_value: number }>(
+    `SELECT quota_key, limit_value
+     FROM saas_usage_quotas
+     WHERE tenant_id = ? AND saas_slug = ?`,
+    input.tenantId,
+    input.saasSlug,
+  );
+  const limits: Record<string, number> = {};
+  for (const row of limitsRows) {
+    const key = row.quota_key?.trim();
+    if (!key) continue;
+    limits[key] = typeof row.limit_value === "number" ? row.limit_value : Number(row.limit_value ?? 0);
+  }
+
+  return {
+    tenantId: input.tenantId,
+    saasSlug: input.saasSlug,
+    subscriptionStatus: subscription?.status ?? null,
+    hasVerifiedSubscription: Boolean(subscription),
+    limits,
+  };
 }

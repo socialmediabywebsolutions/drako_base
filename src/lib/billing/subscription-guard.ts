@@ -1,4 +1,4 @@
-import { getSubscriptionForTenant } from "@/lib/billing/subscriptions";
+import { getCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
 
 export type SubscriptionAccessSummary = {
   hasActiveDrakoBaseStarter: boolean;
@@ -7,15 +7,15 @@ export type SubscriptionAccessSummary = {
 };
 
 export async function getDrakoBaseSubscriptionAccess(tenantId: string) {
-  const subscription = await getSubscriptionForTenant(tenantId);
+  const subscription = await getCanonicalSubscriptionState({ tenantId, saasSlug: "drako" });
   const status = subscription?.status ?? "none";
   const renewsAt =
-    subscription?.currentPeriodEnd != null ? new Date(subscription.currentPeriodEnd * 1000).toISOString() : null;
+    subscription?.currentPeriodEnd != null ? new Date(subscription.currentPeriodEnd).toISOString() : null;
 
   return {
     subscription: subscription
       ? {
-          id: subscription.id,
+          id: subscription.stripeSubscriptionId,
           status: subscription.status,
           currentPeriodEnd: subscription.currentPeriodEnd,
           updatedAt: subscription.updatedAt,

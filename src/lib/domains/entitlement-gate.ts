@@ -1,8 +1,8 @@
-import { getSubscriptionForTenant, type SubscriptionRecord } from "@/lib/billing/subscriptions";
+import { getCanonicalSubscriptionState, type CanonicalSubscriptionState } from "@/lib/billing/subscriptions";
 import { queryOne } from "@/lib/db";
 
 type QueryOneFn = <T>(sql: string, ...params: unknown[]) => Promise<T | null>;
-type GetSubscriptionFn = (tenantId: string) => Promise<SubscriptionRecord | null>;
+type GetSubscriptionFn = (input: { tenantId: string; saasSlug: string }) => Promise<CanonicalSubscriptionState | null>;
 
 type EntitlementDeps = {
   queryOne: QueryOneFn;
@@ -63,7 +63,7 @@ export async function evaluateCustomDomainEntitlement(
   deps?: Partial<EntitlementDeps>,
 ): Promise<CustomDomainEntitlement> {
   const query = deps?.queryOne ?? queryOne;
-  const getTenantSubscription = deps?.getSubscriptionForTenant ?? getSubscriptionForTenant;
+  const getTenantSubscription = deps?.getSubscriptionForTenant ?? getCanonicalSubscriptionState;
 
   const saas = await query<SaasInstanceRow>(
     "SELECT id, tenant_id, plan_tier FROM saas_instances WHERE id = ? AND tenant_id = ? LIMIT 1",
@@ -105,7 +105,10 @@ export async function evaluateCustomDomainEntitlement(
     };
   }
 
-  const subscription = await getTenantSubscription(params.tenantId);
+  const subscription = await getTenantSubscription({
+    tenantId: params.tenantId,
+    saasSlug: normalize(tenant?.saas_slug) ?? "drako",
+  });
   const subscriptionStatus = normalize(subscription?.status);
   if (!subscriptionStatus || !ACTIVE_SUBSCRIPTION_STATUSES.has(subscriptionStatus)) {
     return {

@@ -1,5 +1,6 @@
 
 import { queryOne, run } from "@/lib/db";
+import { getCanonicalBillingEntitlements } from "@/lib/billing/subscriptions";
 import { resolveSaasContext, type SaasContext } from "@/lib/saas/resolve-saas-context";
 import { type NextRequest } from "next/server";
 
@@ -50,21 +51,14 @@ export async function enforceBilling(
     const cid = correlationId || `enf_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
     try {
-        // 1. Check Subscription
-        const sub = await queryOne<{ status: string }>(
-            `SELECT status FROM saas_subscriptions WHERE saas_slug = ? AND tenant_id = ?`,
-            saasSlug, tenantId
-        );
-
-        if (!sub) {
-            // FAIL CLOSED (402) - No Subscription
-            await logDeniedAccess(saasSlug, tenantId, action, "NO_SUBSCRIPTION", cid);
-            return { allowed: false, reason: "NO_SUBSCRIPTION", status: 402 };
+        const entitlements = await getCanonicalBillingEntitlements({ tenantId, saasSlug });
+        const status = entitlements.subscriptionStatus;
+        if (!status || !entitlements.hasVerifiedSubscription) {
+            await logDeniedAccess(saasSlug, tenantId, action, "NEEDS_BILLING", cid);
+            return { allowed: false, reason: "needs_billing", status: 403 };
         }
 
-        const { status } = sub;
-        const allowedStatuses = ["active", "trial", "past_due"];
-
+        const allowedStatuses = ["active", "trial", "trialing", "past_due"];
         if (!allowedStatuses.includes(status)) {
             await logDeniedAccess(saasSlug, tenantId, action, `SUBSCRIPTION_${status.toUpperCase()}`, cid);
             return { allowed: false, reason: `SUBSCRIPTION_${status.toUpperCase()}`, status: 402 };
@@ -78,9 +72,14 @@ export async function enforceBilling(
 
         // 2. Check Quota (If increment > 0)
         if (increment > 0) {
+            const entitlementsLimit = entitlements.limits[action];
+            if (typeof entitlementsLimit !== "number") {
+                await logDeniedAccess(saasSlug, tenantId, action, "QUOTA_NOT_DEFINED", cid);
+                return { allowed: false, reason: "QUOTA_NOT_DEFINED", status: 403 };
+            }
             const quota = await queryOne<{ current_value: number; limit_value: number }>(
                 `SELECT current_value, limit_value FROM saas_usage_quotas 
-             WHERE saas_slug = ? AND tenant_id = ? AND quota_key = ?`,
+                 WHERE saas_slug = ? AND tenant_id = ? AND quota_key = ?`,
                 saasSlug, tenantId, action
             );
 
@@ -93,7 +92,7 @@ export async function enforceBilling(
                 // Atomic Increment
                 await run(
                     `UPDATE saas_usage_quotas SET current_value = current_value + ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-                 WHERE saas_slug = ? AND tenant_id = ? AND quota_key = ?`,
+                     WHERE saas_slug = ? AND tenant_id = ? AND quota_key = ?`,
                     increment, saasSlug, tenantId, action
                 );
             } else {
