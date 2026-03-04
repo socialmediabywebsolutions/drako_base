@@ -116,9 +116,9 @@ function hasFactoryCreateEntitlement(entitlements: {
 }): boolean {
   if (!entitlements.hasVerifiedSubscription) return false;
   const status = (entitlements.subscriptionStatus ?? "").trim().toLowerCase();
-  if (!["active", "trial", "trialing"].includes(status)) return false;
+  if (!["active", "trialing"].includes(status)) return false;
   const workspaceLimit = entitlements.limits.workspaces;
-  if (typeof workspaceLimit !== "number") return false;
+  if (typeof workspaceLimit !== "number" || !Number.isFinite(workspaceLimit)) return false;
   return workspaceLimit === -1 || workspaceLimit > 0;
 }
 

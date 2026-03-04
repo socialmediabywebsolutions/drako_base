@@ -136,6 +136,29 @@ describe("/api/owner/saas-factory/create-saas canonical flow", () => {
     expect(mocks.ensureJob).not.toHaveBeenCalled();
   });
 
+  it("returns 403 when workspace limit is exhausted even with verified subscription", async () => {
+    mocks.getCanonicalBillingEntitlements.mockResolvedValue({
+      tenantId: "tenant_a",
+      saasSlug: "drako",
+      subscriptionStatus: "active",
+      hasVerifiedSubscription: true,
+      limits: { workspaces: 0 },
+    });
+
+    const response = await POST(
+      new Request("https://drako.systems/api/owner/saas-factory/create-saas", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Test SaaS", slug: "test-saas" }),
+      }) as any,
+    );
+
+    expect(response.status).toBe(403);
+    const payload = await response.json() as { code: string };
+    expect(payload.code).toBe("PLAN_REQUIRED");
+    expect(mocks.ensureJob).not.toHaveBeenCalled();
+  });
+
   it("queues canonical provisioning job with idempotent contract", async () => {
     const response = await POST(
       new Request("https://drako.systems/api/owner/saas-factory/create-saas", {
