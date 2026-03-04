@@ -6,6 +6,7 @@ export type ProvisioningJobState =
     | 'CREATED'
     | 'RUNNING'
     | 'ACTIVE'
+    | 'SUCCESS'
     | 'FAILED'
     | 'RETRYABLE_FAILED'
     | 'ROLLING_BACK'
@@ -17,6 +18,13 @@ export type ProvisioningJobState =
     | 'TENANT_CREATED'
     | 'SUBSCRIPTION_CREATED'
     | 'SUBSCRIPTION_CONFIRMED';
+
+export type CanonicalProvisioningJobState =
+    | 'CREATED'
+    | 'RUNNING'
+    | 'LOCKED'
+    | 'SUCCESS'
+    | 'FAILED';
 
 export type JobStepRecord = {
     step: string;
@@ -48,6 +56,18 @@ export class FencingTokenMismatchError extends Error {
 }
 
 export class JobRunner {
+
+    static isTerminalState(state: string | null | undefined): boolean {
+        return state === 'ACTIVE' || state === 'SUCCESS' || state === 'FAILED';
+    }
+
+    static toCanonicalState(state: string | null | undefined, executionLock: number | null | undefined): CanonicalProvisioningJobState {
+        if (state === 'FAILED') return 'FAILED';
+        if (state === 'ACTIVE' || state === 'SUCCESS') return 'SUCCESS';
+        if (executionLock === 1) return 'LOCKED';
+        if (state === 'CREATED') return 'CREATED';
+        return 'RUNNING';
+    }
 
     /**
      * Initializes a new job or returns existing one (Idempotent).
@@ -135,7 +155,7 @@ export class JobRunner {
                  lock_version = lock_version + 1
              WHERE job_id = ? 
                AND execution_lock = 0
-               AND current_state NOT IN ('ACTIVE', 'FAILED')`,
+               AND current_state NOT IN ('ACTIVE', 'SUCCESS', 'FAILED')`,
             ownerId,
             jobId
         );
@@ -149,12 +169,12 @@ export class JobRunner {
         if (!job) throw new Error("Job not found");
 
         // Verify we are the owner
-        if (job.lock_owner === ownerId && job.current_state !== 'ACTIVE' && job.current_state !== 'FAILED') {
+        if (job.lock_owner === ownerId && !JobRunner.isTerminalState(job.current_state)) {
             return { lockVersion: job.lock_version };
         }
 
         // If we failed to acquire (row not updated), check why
-        if (job.current_state === 'ACTIVE' || job.current_state === 'FAILED') {
+        if (JobRunner.isTerminalState(job.current_state)) {
             throw new Error(`Job ${jobId} is in terminal state: ${job.current_state}`);
         }
 
@@ -299,7 +319,7 @@ export class JobRunner {
     static async completeJob(jobId: string, fromState: ProvisioningJobState, token: { lockVersion: number; ownerId: string }): Promise<void> {
         const historyEntry: JobStepRecord = {
             step: 'COMPLETION',
-            state: 'ACTIVE',
+            state: 'SUCCESS',
             status: 'SUCCESS',
             timestamp: new Date().toISOString(),
             details: 'Job completed successfully'
@@ -307,7 +327,7 @@ export class JobRunner {
 
         const success = await run(
             `UPDATE provisioning_jobs 
-             SET current_state = 'ACTIVE', 
+             SET current_state = 'SUCCESS', 
                  execution_lock = 0, 
                  lock_acquired_at = NULL,
                  lock_owner = NULL,

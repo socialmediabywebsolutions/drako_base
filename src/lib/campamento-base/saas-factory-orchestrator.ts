@@ -74,7 +74,7 @@ export async function provisionSaaS(params: {
     currentState = jobResult.state;
     payload = jobResult.payload || normalized;
 
-    if (jobResult.state === 'ACTIVE') {
+    if (jobResult.state === 'ACTIVE' || jobResult.state === 'SUCCESS') {
       return { saasId: jobResult.entityId, status: 'ALREADY_ACTIVE' };
     }
   }
@@ -165,23 +165,35 @@ export async function provisionSaaS(params: {
         throw new Error(cfRes.message ?? 'Cloudflare provisioning failed');
       }
 
-      // PERSIST EXTERNAL IDs (Hostname ID) - Cloudflare returns it
+      // Persist provider identifiers when available.
       if (cfRes.createdCustomHostname) {
         payload = { ...payload, cloudflareHostnameId: cfRes.createdCustomHostname };
         await JobRunner.updatePayload(jobIdInUse, payload, token!);
+      }
 
-        // Register in DB
-        const ctx = await resolveSaasContext({ tenantId: params.ownerTenantId, saasId: realSaasId, env: params.env });
-        const domains = computeDomainsForSaas(normalized);
-        await upsertSaasDomain(ctx, { saasId: realSaasId, domain: domains.primaryHostname, isPrimary: true, status: 'active' });
+      // Register canonical domain state even when provider is pending.
+      const ctx = await resolveSaasContext({ tenantId: params.ownerTenantId, saasId: realSaasId, env: params.env });
+      const domains = computeDomainsForSaas(normalized);
+      await upsertSaasDomain(ctx, {
+        id: `factory_domain_${realSaasId}`,
+        saasId: realSaasId,
+        domain: domains.primaryHostname,
+        isPrimary: true,
+        status: cfRes.createdCustomHostname ? 'active' : 'pending',
+      });
 
-        await JobRunner.transitionState(jobIdInUse, 'STRIPE_PRODUCT_CREATED', 'DOMAINS_REGISTERED', token!, 'Domains configured.');
-        currentState = 'DOMAINS_REGISTERED';
+      await JobRunner.transitionState(
+        jobIdInUse,
+        'STRIPE_PRODUCT_CREATED',
+        'DOMAINS_REGISTERED',
+        token!,
+        cfRes.createdCustomHostname ? 'Domains configured.' : 'Domain provisioning pending provider verification.',
+      );
+      currentState = 'DOMAINS_REGISTERED';
 
-        // FAULT INJECTION (VERIFICATION ONLY)
-        if (params.env?.PROVISIONING_FAULT_AT === 'CLOUDFLARE_AFTER_CREATE') {
-          throw new Error("Simulated Fault: CLOUDFLARE_AFTER_CREATE");
-        }
+      // FAULT INJECTION (VERIFICATION ONLY)
+      if (params.env?.PROVISIONING_FAULT_AT === 'CLOUDFLARE_AFTER_CREATE') {
+        throw new Error("Simulated Fault: CLOUDFLARE_AFTER_CREATE");
       }
 
       // --- COMPLETION ---
