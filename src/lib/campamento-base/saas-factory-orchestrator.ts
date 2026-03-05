@@ -11,7 +11,7 @@ import { normalizeCampamentoBaseProfileForBlueprint } from "@/lib/campamento-bas
 import { ensureStripeProductForSaas, archiveStripeProductAndPrices } from "@/lib/campamento-base/provisioning/stripe-factory";
 import { provisionSaasInCloudflare, computeDomainsForSaas, deleteCloudflareHostname } from "@/lib/campamento-base/provisioning/cloudflare-factory";
 import { resolveSaasContext, upsertSaasDomain } from "@/lib/saas/repository";
-import { recordCampamentoEvent } from "@/lib/empire/events";
+import { recordCampamentoEventSafe } from "@/lib/empire/events-safe";
 
 type ExistingProvisioningJobContext = {
   jobId: string;
@@ -40,25 +40,26 @@ async function recordProvisioningStepEvent(params: {
   durationMs?: number;
   metadata?: Record<string, unknown>;
 }) {
-  try {
-    await recordCampamentoEvent({
-      tenantId: params.tenantId,
-      saasId: params.saasId,
-      correlationId: params.correlationId,
-      type: `provision.saas_factory.${params.step}.${params.phase}`,
-      severity: params.severity,
-      source: "PROVISIONING_CONSUMER",
-      message: params.message,
-      metadata: {
-        jobId: params.jobId,
-        step: params.step,
-        phase: params.phase,
-        durationMs: params.durationMs ?? null,
-        ...(params.metadata ?? {}),
-      },
-    });
-  } catch (eventError) {
-    console.error("[Provision] Failed to write campamento event", eventError);
+  const result = await recordCampamentoEventSafe({
+    tenantId: params.tenantId,
+    saasId: params.saasId,
+    correlationId: params.correlationId,
+    type: `provision.saas_factory.${params.step}.${params.phase}`,
+    severity: params.severity,
+    source: "PROVISIONING_CONSUMER",
+    message: params.message,
+    metadata: {
+      jobId: params.jobId,
+      step: params.step,
+      phase: params.phase,
+      durationMs: params.durationMs ?? null,
+      ...(params.metadata ?? {}),
+    },
+    jobId: params.jobId,
+    step: params.step,
+  });
+  if (!result.ok) {
+    console.error(`[Provision] Observability write degraded for job ${params.jobId} at step ${params.step}`);
   }
 }
 
