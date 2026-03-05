@@ -20,7 +20,7 @@ async function copyDir(source: string, target: string): Promise<void> {
 
 describe("provisioning ACTIVE -> SUCCESS backfill", () => {
   it("is idempotent in fixtures mode", async () => {
-    const fixtureSource = path.resolve(process.cwd(), "tests/fixtures/production-audits/pass");
+    const fixtureSource = path.resolve(process.cwd(), "tests/fixtures/production-audits/backfill-active/pass");
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "drako-backfill-"));
     const fixtureCopy = path.join(tmpDir, "pass");
 

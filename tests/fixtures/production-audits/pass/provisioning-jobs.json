@@ -1,11 +1,11 @@
 [
   {
-    "job_id": "job_fixture_active_1",
+    "job_id": "job_fixture_success_1",
     "tenant_id": "tenant_fixture_a",
-    "current_state": "ACTIVE"
+    "current_state": "SUCCESS"
   },
   {
-    "job_id": "job_fixture_success_1",
+    "job_id": "job_fixture_success_2",
     "tenant_id": "tenant_fixture_b",
     "current_state": "SUCCESS"
   },
@@ -15,8 +15,8 @@
     "current_state": "RUNNING"
   },
   {
-    "job_id": "job_fixture_active_2",
+    "job_id": "job_fixture_success_3",
     "tenant_id": "tenant_fixture_d",
-    "current_state": "ACTIVE"
+    "current_state": "SUCCESS"
   }
 ]
