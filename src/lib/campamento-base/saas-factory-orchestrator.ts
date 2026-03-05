@@ -29,6 +29,30 @@ type OrchestratorPayload = SaasBlueprintDraft & {
   cloudflareHostnameId?: string;
 };
 
+type DomainVerifyRetryConfig = {
+  maxAttempts: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+  jitterMs: number;
+  maxTotalWaitMs: number;
+};
+
+type VerifyDomainWithRetryInput = {
+  hostname: string;
+  bindingId?: string;
+  correlationId: string;
+  env?: DracoEnv | null;
+  tenantId: string;
+  saasId: string;
+  jobId: string;
+};
+
+type VerifyDomainWithRetryResult = {
+  result: Awaited<ReturnType<typeof verifyDomainBinding>>;
+  attempts: number;
+  waitedMs: number;
+};
+
 async function recordProvisioningStepEvent(params: {
   tenantId: string;
   saasId: string;
@@ -89,6 +113,160 @@ async function recordDomainProviderEvent(params: {
     jobId: params.jobId,
     step: "domain_provider",
   });
+}
+
+function readNumericEnvValue(envLike: DracoEnv | null | undefined, key: string, fallback: number): number {
+  const fromBindingRaw = envLike && typeof envLike === "object" ? Reflect.get(envLike, key) : undefined;
+  const fromBinding = typeof fromBindingRaw === "number"
+    ? fromBindingRaw
+    : typeof fromBindingRaw === "string"
+      ? Number(fromBindingRaw)
+      : NaN;
+  const fromProcessRaw = typeof process !== "undefined" ? process.env[key] : undefined;
+  const fromProcess = typeof fromProcessRaw === "string" ? Number(fromProcessRaw) : NaN;
+  const parsed = Number.isFinite(fromBinding) ? fromBinding : fromProcess;
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.trunc(parsed));
+}
+
+function getDomainVerifyRetryConfig(envLike: DracoEnv | null | undefined): DomainVerifyRetryConfig {
+  const retries = readNumericEnvValue(envLike, "PROVISION_DOMAIN_VERIFY_RETRIES", 4);
+  const baseDelayMs = readNumericEnvValue(envLike, "PROVISION_DOMAIN_VERIFY_BACKOFF_MS", 500);
+  const maxDelayMs = readNumericEnvValue(envLike, "PROVISION_DOMAIN_VERIFY_MAX_BACKOFF_MS", 5_000);
+  const jitterMs = readNumericEnvValue(envLike, "PROVISION_DOMAIN_VERIFY_JITTER_MS", 250);
+  const maxTotalWaitMs = readNumericEnvValue(envLike, "PROVISION_DOMAIN_VERIFY_TIMEOUT_MS", 20_000);
+  return {
+    maxAttempts: Math.max(1, retries + 1),
+    baseDelayMs,
+    maxDelayMs: Math.max(baseDelayMs, maxDelayMs),
+    jitterMs,
+    maxTotalWaitMs: Math.max(maxTotalWaitMs, baseDelayMs),
+  };
+}
+
+function computeBackoffDelayMs(config: DomainVerifyRetryConfig, attemptNumber: number): number {
+  const exponentialDelay = config.baseDelayMs * (2 ** Math.max(0, attemptNumber - 1));
+  const cappedDelay = Math.min(config.maxDelayMs, exponentialDelay);
+  const jitter = config.jitterMs > 0 ? Math.floor(Math.random() * (config.jitterMs + 1)) : 0;
+  return cappedDelay + jitter;
+}
+
+async function sleep(ms: number): Promise<void> {
+  if (ms <= 0) return;
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function verifyDomainWithRetry(input: VerifyDomainWithRetryInput): Promise<VerifyDomainWithRetryResult> {
+  const retryConfig = getDomainVerifyRetryConfig(input.env);
+  const startedAt = Date.now();
+  let waitedMs = 0;
+  let lastError: unknown = null;
+  let lastResult: Awaited<ReturnType<typeof verifyDomainBinding>> | null = null;
+
+  for (let attempt = 1; attempt <= retryConfig.maxAttempts; attempt += 1) {
+    await recordDomainProviderEvent({
+      tenantId: input.tenantId,
+      saasId: input.saasId,
+      correlationId: input.correlationId,
+      jobId: input.jobId,
+      type: "provision.domain.verify.attempt",
+      severity: "INFO",
+      message: "Domain verification attempt started.",
+      metadata: {
+        hostname: input.hostname,
+        bindingId: input.bindingId ?? null,
+        attempt,
+        maxAttempts: retryConfig.maxAttempts,
+      },
+    });
+
+    try {
+      const verifyRes = await verifyDomainBinding({
+        hostname: input.hostname,
+        bindingId: input.bindingId,
+        correlationId: input.correlationId,
+        envOverride: input.env,
+      });
+      lastResult = verifyRes;
+      if (verifyRes.providerStatus === "active") {
+        await recordDomainProviderEvent({
+          tenantId: input.tenantId,
+          saasId: input.saasId,
+          correlationId: input.correlationId,
+          jobId: input.jobId,
+          type: "provision.domain.verify.succeeded",
+          severity: "INFO",
+          message: "Domain verification succeeded.",
+          metadata: {
+            hostname: verifyRes.hostname,
+            bindingId: verifyRes.bindingId,
+            providerStatus: verifyRes.providerStatus,
+            attempt,
+            waitedMs,
+          },
+        });
+        return { result: verifyRes, attempts: attempt, waitedMs };
+      }
+    } catch (error) {
+      lastError = error;
+    }
+
+    const lastAttempt = attempt >= retryConfig.maxAttempts;
+    const elapsedMs = Date.now() - startedAt;
+    const delayMs = computeBackoffDelayMs(retryConfig, attempt);
+    const timeoutReached = elapsedMs + delayMs > retryConfig.maxTotalWaitMs;
+
+    if (lastAttempt || timeoutReached) {
+      const providerStatus = lastResult?.providerStatus ?? null;
+      const errorMessage = lastError instanceof Error ? lastError.message : null;
+      await recordDomainProviderEvent({
+        tenantId: input.tenantId,
+        saasId: input.saasId,
+        correlationId: input.correlationId,
+        jobId: input.jobId,
+        type: "provision.domain.verify.failed",
+        severity: "ERROR",
+        message: "Domain verification failed after retries.",
+        metadata: {
+          hostname: input.hostname,
+          bindingId: input.bindingId ?? null,
+          providerStatus,
+          attempts: attempt,
+          waitedMs,
+          timeoutReached,
+          error: errorMessage,
+        },
+      });
+      if (lastError instanceof Error) throw lastError;
+      throw new Error(`DOMAIN_VERIFY_FAILED:${providerStatus ?? "unknown"}`);
+    }
+
+    await recordDomainProviderEvent({
+      tenantId: input.tenantId,
+      saasId: input.saasId,
+      correlationId: input.correlationId,
+      jobId: input.jobId,
+      type: "provision.domain.verify.retrying",
+      severity: "WARNING",
+      message: "Domain verification pending; retrying.",
+      metadata: {
+        hostname: input.hostname,
+        bindingId: input.bindingId ?? null,
+        attempt,
+        nextAttempt: attempt + 1,
+        delayMs,
+        providerStatus: lastResult?.providerStatus ?? null,
+        error: lastError instanceof Error ? lastError.message : null,
+      },
+    });
+
+    await sleep(delayMs);
+    waitedMs += delayMs;
+  }
+
+  throw new Error("DOMAIN_VERIFY_FAILED:unexpected_exit");
 }
 
 export async function provisionSaaS(params: {
@@ -316,45 +494,18 @@ export async function provisionSaaS(params: {
 
     if (currentState === 'CREATE_DOMAIN_BINDING') {
       const domains = computeDomainsForSaas(normalized);
-      let verifyRes;
-      try {
-        verifyRes = await verifyDomainBinding({
-          hostname: domains.primaryHostname,
-          bindingId: payload.cloudflareHostnameId,
-          correlationId,
-          envOverride: params.env,
-        });
-      } catch (verifyError) {
-        await recordDomainProviderEvent({
-          tenantId: params.ownerTenantId,
-          saasId: realSaasId,
-          correlationId,
-          jobId: jobIdInUse,
-          type: "provision.domain.verify.failed",
-          severity: "ERROR",
-          message: "Domain verify call failed.",
-          metadata: {
-            hostname: domains.primaryHostname,
-            error: verifyError instanceof Error ? verifyError.message : String(verifyError),
-          },
-        });
-        throw verifyError;
-      }
+      const verifyResult = await verifyDomainWithRetry({
+        hostname: domains.primaryHostname,
+        bindingId: payload.cloudflareHostnameId,
+        correlationId,
+        env: params.env,
+        tenantId: params.ownerTenantId,
+        saasId: realSaasId,
+        jobId: jobIdInUse,
+      });
+      const verifyRes = verifyResult.result;
 
       if (verifyRes.providerStatus !== 'active') {
-        await recordDomainProviderEvent({
-          tenantId: params.ownerTenantId,
-          saasId: realSaasId,
-          correlationId,
-          jobId: jobIdInUse,
-          type: "provision.domain.verify.failed",
-          severity: "ERROR",
-          message: "Domain verify failed: provider status is not active.",
-          metadata: {
-            hostname: verifyRes.hostname,
-            providerStatus: verifyRes.providerStatus,
-          },
-        });
         throw new Error(`DOMAIN_VERIFY_FAILED:${verifyRes.providerStatus}`);
       }
 

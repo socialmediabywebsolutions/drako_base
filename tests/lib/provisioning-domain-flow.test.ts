@@ -80,6 +80,14 @@ const blueprint = {
   aiProfile: { tier: "BALANCED" },
 } as const;
 
+const retryEnv = {
+  PROVISION_DOMAIN_VERIFY_RETRIES: "2",
+  PROVISION_DOMAIN_VERIFY_BACKOFF_MS: "0",
+  PROVISION_DOMAIN_VERIFY_MAX_BACKOFF_MS: "0",
+  PROVISION_DOMAIN_VERIFY_JITTER_MS: "0",
+  PROVISION_DOMAIN_VERIFY_TIMEOUT_MS: "1000",
+} as any;
+
 describe("provisioning domain flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -96,20 +104,24 @@ describe("provisioning domain flow", () => {
     mocks.deleteDomainBinding.mockResolvedValue({ deleted: true });
   });
 
-  it("completes successfully when domain create + verify are active", async () => {
+  it("retries domain verify failures and eventually succeeds", async () => {
     mocks.createDomainBinding.mockResolvedValue({
       hostname: "test-saas.drako.systems",
       bindingId: "ch_1",
       providerStatus: "pending",
       alreadyExists: false,
     });
-    mocks.verifyDomainBinding.mockResolvedValue({
-      hostname: "test-saas.drako.systems",
-      bindingId: "ch_1",
-      providerStatus: "active",
-    });
+    mocks.verifyDomainBinding
+      .mockRejectedValueOnce(new Error("DOMAIN_VERIFY_TIMEOUT"))
+      .mockRejectedValueOnce(new Error("DOMAIN_VERIFY_TIMEOUT"))
+      .mockResolvedValueOnce({
+        hostname: "test-saas.drako.systems",
+        bindingId: "ch_1",
+        providerStatus: "active",
+      });
 
     const result = await provisionSaaS({
+      env: retryEnv,
       ownerTenantId: "tenant_a",
       blueprint: { ...blueprint },
       preAcquiredToken: { lockVersion: 7, ownerId: "worker_1" },
@@ -124,6 +136,10 @@ describe("provisioning domain flow", () => {
     });
 
     expect(result.status).toBe("SUCCESS");
+    expect(mocks.verifyDomainBinding).toHaveBeenCalledTimes(3);
+    const eventTypes = mocks.recordCampamentoEventSafe.mock.calls.map((call) => call[0]?.type);
+    expect(eventTypes.filter((eventType) => eventType === "provision.domain.verify.retrying")).toHaveLength(2);
+    expect(eventTypes).toContain("provision.domain.verify.succeeded");
     expect(mocks.completeJob).toHaveBeenCalledWith("job_1", "VERIFY_DOMAIN", { lockVersion: 7, ownerId: "worker_1" });
   });
 
@@ -148,20 +164,17 @@ describe("provisioning domain flow", () => {
     expect(mocks.failJob).toHaveBeenCalled();
   });
 
-  it("fails verify and emits provision.domain.verify.failed event", async () => {
+  it("fails verify after exhausting retries and emits provision.domain.verify.failed event", async () => {
     mocks.createDomainBinding.mockResolvedValue({
       hostname: "test-saas.drako.systems",
       bindingId: "ch_1",
       providerStatus: "pending",
       alreadyExists: false,
     });
-    mocks.verifyDomainBinding.mockResolvedValue({
-      hostname: "test-saas.drako.systems",
-      bindingId: "ch_1",
-      providerStatus: "pending",
-    });
+    mocks.verifyDomainBinding.mockRejectedValue(new Error("DOMAIN_VERIFY_TIMEOUT"));
 
     const result = await provisionSaaS({
+      env: retryEnv,
       ownerTenantId: "tenant_a",
       blueprint: { ...blueprint },
       preAcquiredToken: { lockVersion: 7, ownerId: "worker_1" },
@@ -176,6 +189,7 @@ describe("provisioning domain flow", () => {
     });
 
     expect(result.status).toBe("FAILED");
+    expect(mocks.verifyDomainBinding).toHaveBeenCalledTimes(3);
     const eventTypes = mocks.recordCampamentoEventSafe.mock.calls.map((call) => call[0]?.type);
     expect(eventTypes).toContain("provision.domain.verify.failed");
   });
