@@ -122,6 +122,67 @@ function hasFactoryCreateEntitlement(entitlements: {
   return workspaceLimit === -1 || workspaceLimit > 0;
 }
 
+function normalizeHostname(value: string): string {
+  return value.trim().toLowerCase().replace(/\.$/, "");
+}
+
+function resolveBaseDomain(envLike: unknown): string {
+  const fromEnvValue = envLike && typeof envLike === "object"
+    ? Reflect.get(envLike, "DRAKO_BASE_DOMAIN")
+    : undefined;
+  const fromEnv = typeof fromEnvValue === "string" ? fromEnvValue.trim() : "";
+  return fromEnv.length > 0 ? fromEnv.toLowerCase() : "drako.systems";
+}
+
+async function validateDomainEntitlement(params: {
+  tenantId: string;
+  env: ReturnType<typeof resolveEnv>;
+  blueprint: SaasBlueprintDraft;
+  entitlements: {
+    hasVerifiedSubscription: boolean;
+    subscriptionStatus: string | null;
+  };
+}): Promise<{ ok: true } | { ok: false; code: "DOMAIN_PLAN_NOT_ALLOWED" | "DOMAIN_ALREADY_EXISTS"; message: string; status: number }> {
+  const baseDomain = resolveBaseDomain(params.env);
+  const domainCandidate = normalizeHostname(
+    params.blueprint.provisioning?.domains.customDomainRequested
+      ?? `${params.blueprint.proposedSubdomain || params.blueprint.proposedSlug}.${baseDomain}`,
+  );
+
+  const tenantPlanRow = await queryOne<{ plan: string | null }>(
+    "SELECT plan FROM tenants WHERE id = ? LIMIT 1",
+    params.tenantId,
+  );
+  const tenantPlan = (tenantPlanRow?.plan ?? "").trim().toLowerCase();
+  const planBlocked = tenantPlan === "free" || tenantPlan === "starter" || tenantPlan === "locked";
+  const activeSubscription = ["active", "trialing"].includes((params.entitlements.subscriptionStatus ?? "").trim().toLowerCase());
+
+  if (planBlocked || !params.entitlements.hasVerifiedSubscription || !activeSubscription) {
+    return {
+      ok: false,
+      code: "DOMAIN_PLAN_NOT_ALLOWED",
+      message: "Domain provisioning requires eligible plan and active verified subscription.",
+      status: 403,
+    };
+  }
+
+  const existingDomain = await queryOne<{ id: string }>(
+    "SELECT id FROM saas_domains WHERE lower(domain) = lower(?) LIMIT 1",
+    domainCandidate,
+  );
+
+  if (existingDomain) {
+    return {
+      ok: false,
+      code: "DOMAIN_ALREADY_EXISTS",
+      message: "Domain is already in use.",
+      status: 409,
+    };
+  }
+
+  return { ok: true };
+}
+
 export async function POST(req: NextRequest) {
   const fallbackCorrelationId = globalThis.crypto?.randomUUID?.() ?? `create_saas_${Date.now()}`;
   try {
@@ -187,6 +248,22 @@ export async function POST(req: NextRequest) {
           message: "Active subscription with SaaS Factory entitlement is required to create SaaS.",
         },
         { status: 403 },
+      );
+    }
+
+    const domainGate = await validateDomainEntitlement({
+      tenantId: session.tenantId,
+      env,
+      blueprint,
+      entitlements: {
+        hasVerifiedSubscription: entitlementSnapshot.hasVerifiedSubscription,
+        subscriptionStatus: entitlementSnapshot.subscriptionStatus,
+      },
+    });
+    if (!domainGate.ok) {
+      return NextResponse.json(
+        { ok: false, code: domainGate.code, message: domainGate.message },
+        { status: domainGate.status },
       );
     }
 
