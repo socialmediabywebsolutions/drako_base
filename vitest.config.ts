@@ -9,7 +9,10 @@ export default defineConfig({
             "@": path.resolve(__dirname, "./src"),
             "server-only": path.resolve(__dirname, "src/__tests__/mocks/empty.ts"),
         },
-        exclude: [...configDefaults.exclude],
+        exclude: [
+            ...configDefaults.exclude,
+            "tests/**/*.spec.ts",
+        ],
         coverage: {
             provider: "v8",
             include: ["src/lib/security/**", "src/lib/correlation.ts", "src/lib/api-client.ts", "src/app/layout.tsx"],
