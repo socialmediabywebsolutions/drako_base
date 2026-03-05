@@ -30,28 +30,12 @@ function logStructuredError(payload: Record<string, unknown>): void {
   console.error(JSON.stringify(payload));
 }
 
-async function ensureFallbackTables(): Promise<void> {
-  await run(
-    `CREATE TABLE IF NOT EXISTS campamento_event_fallbacks (
-      id TEXT PRIMARY KEY,
-      created_at TEXT NOT NULL,
-      correlation_id TEXT NOT NULL,
-      tenant_id TEXT NOT NULL,
-      job_id TEXT NOT NULL,
-      step TEXT NOT NULL,
-      severity TEXT NOT NULL,
-      message TEXT NOT NULL,
-      error_message TEXT NOT NULL
-    )`,
-  );
-
-  await run(
-    `CREATE TABLE IF NOT EXISTS campamento_observability_metrics (
-      date TEXT PRIMARY KEY,
-      event_write_failures INTEGER NOT NULL DEFAULT 0,
-      last_failure_at TEXT NOT NULL
-    )`,
-  );
+function isSchemaMissingError(error: unknown): boolean {
+  const message = stringifyError(error).toLowerCase();
+  return message.includes("no such table")
+    || message.includes("no such column")
+    || message.includes("table-missing")
+    || message.includes("migrations-missing");
 }
 
 export async function recordCampamentoEventSafe(input: CampamentoEventSafeInput): Promise<CampamentoEventSafeResult> {
@@ -75,8 +59,6 @@ export async function recordCampamentoEventSafe(input: CampamentoEventSafeInput)
     const dateKey = currentDateKey(createdAt);
 
     try {
-      await ensureFallbackTables();
-
       const insertedFallback = await run(
         `INSERT INTO campamento_event_fallbacks (
           id,
@@ -110,8 +92,34 @@ export async function recordCampamentoEventSafe(input: CampamentoEventSafeInput)
         createdAt,
       );
 
-      return { ok: Boolean(insertedFallback && updatedMetric), mode: "fallback" };
+      if (!insertedFallback || !updatedMetric) {
+        logStructuredError({
+          code: "CAMPAMENTO_EVENT_FALLBACK_WRITE_FAILED",
+          correlationId: input.correlationId,
+          tenantId: input.tenantId,
+          jobId: input.jobId,
+          step: input.step,
+          severity: input.severity,
+          error: "Fallback persistence returned unsuccessful status.",
+        });
+        return { ok: false, mode: "fallback" };
+      }
+
+      return { ok: true, mode: "fallback" };
     } catch (fallbackError) {
+      if (isSchemaMissingError(fallbackError)) {
+        logStructuredError({
+          code: "CAMPAMENTO_EVENT_FALLBACK_SCHEMA_MISSING",
+          correlationId: input.correlationId,
+          tenantId: input.tenantId,
+          jobId: input.jobId,
+          step: input.step,
+          severity: input.severity,
+          error: stringifyError(fallbackError),
+        });
+        return { ok: false, mode: "fallback" };
+      }
+
       logStructuredError({
         code: "CAMPAMENTO_EVENT_FALLBACK_WRITE_FAILED",
         correlationId: input.correlationId,

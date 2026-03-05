@@ -43,6 +43,7 @@
     "check:production": "cross-env TMPDIR=/tmp tsx scripts/check-production-readiness.ts",
     "check:production:fixtures": "cross-env TMPDIR=/tmp FIXTURES_DIR=tests/fixtures/production-audits/pass tsx scripts/check-production-readiness.ts",
     "backfill:provisioning": "cross-env TMPDIR=/tmp tsx scripts/backfill-provisioning-success.ts",
+    "bootstrap:observability": "cross-env TMPDIR=/tmp tsx scripts/bootstrap-observability-fallback.ts",
     "predeploy:holding": "npm run check:workers && npm run check:hostnames && npm run check:production",
     "test:workers": "vitest run tests/workers-drift.test.ts",
     "test:hostnames": "vitest run tests/hostnames-drift.test.ts",

@@ -63,4 +63,42 @@ describe("recordCampamentoEventSafe", () => {
 
     errorSpy.mockRestore();
   });
+
+  it("returns fallback failure without throw when fallback schema is missing", async () => {
+    mocks.recordCampamentoEvent.mockRejectedValue(new Error("primary write timeout"));
+    mocks.run.mockRejectedValue(new Error("no such table: campamento_event_fallbacks"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await recordCampamentoEventSafe({
+      tenantId: "tenant_a",
+      saasId: "saas_1",
+      type: "provision.saas_factory.stripe.succeeded",
+      severity: "INFO",
+      source: "PROVISIONING_CONSUMER",
+      message: "Stripe step completed",
+      correlationId: "corr_schema_missing",
+      jobId: "job_schema_missing",
+      step: "stripe",
+    });
+
+    expect(result).toEqual({ ok: false, mode: "fallback" });
+
+    const schemaMissingLog = errorSpy.mock.calls
+      .map((call) => String(call[0]))
+      .find((line) => line.includes("CAMPAMENTO_EVENT_FALLBACK_SCHEMA_MISSING"));
+
+    expect(schemaMissingLog).toBeTruthy();
+    const parsed = JSON.parse(schemaMissingLog as string) as {
+      code: string;
+      correlationId: string;
+      jobId: string;
+      step: string;
+    };
+    expect(parsed.code).toBe("CAMPAMENTO_EVENT_FALLBACK_SCHEMA_MISSING");
+    expect(parsed.correlationId).toBe("corr_schema_missing");
+    expect(parsed.jobId).toBe("job_schema_missing");
+    expect(parsed.step).toBe("stripe");
+
+    errorSpy.mockRestore();
+  });
 });
