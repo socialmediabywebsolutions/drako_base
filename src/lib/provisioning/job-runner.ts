@@ -7,6 +7,7 @@ export type ProvisioningJobState =
     | 'RUNNING'
     | 'ACTIVE'
     | 'SUCCESS'
+    | 'DEGRADED'
     | 'FAILED'
     | 'RETRYABLE_FAILED'
     | 'ROLLING_BACK'
@@ -27,6 +28,7 @@ export type CanonicalProvisioningJobState =
     | 'RUNNING'
     | 'LOCKED'
     | 'SUCCESS'
+    | 'DEGRADED'
     | 'FAILED';
 
 export type JobStepRecord = {
@@ -61,11 +63,12 @@ export class FencingTokenMismatchError extends Error {
 export class JobRunner {
 
     static isTerminalState(state: string | null | undefined): boolean {
-        return state === 'ACTIVE' || state === 'SUCCESS' || state === 'FAILED';
+        return state === 'ACTIVE' || state === 'SUCCESS' || state === 'DEGRADED' || state === 'FAILED';
     }
 
     static toCanonicalState(state: string | null | undefined, executionLock: number | null | undefined): CanonicalProvisioningJobState {
         if (state === 'FAILED') return 'FAILED';
+        if (state === 'DEGRADED') return 'DEGRADED';
         if (state === 'ACTIVE' || state === 'SUCCESS') return 'SUCCESS';
         if (executionLock === 1) return 'LOCKED';
         if (state === 'CREATED') return 'CREATED';
@@ -349,6 +352,44 @@ export class JobRunner {
 
         if (!success) {
             throw new FencingTokenMismatchError(`Failed to complete job ${jobId}: Token mismatch or invalid state.`);
+        }
+    }
+
+    static async markDegraded(
+        jobId: string,
+        fromState: ProvisioningJobState,
+        token: { lockVersion: number; ownerId: string },
+        details?: string,
+    ): Promise<void> {
+        const historyEntry: JobStepRecord = {
+            step: 'DEGRADED_COMPLETION',
+            state: 'DEGRADED',
+            status: 'ERROR',
+            timestamp: new Date().toISOString(),
+            details: details ?? 'Job completed in degraded mode',
+        };
+
+        const success = await run(
+            `UPDATE provisioning_jobs 
+             SET current_state = 'DEGRADED', 
+                 execution_lock = 0, 
+                 lock_acquired_at = NULL,
+                 lock_owner = NULL,
+                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+                 step_history_json = json_insert(COALESCE(step_history_json, '[]'), '$[' || json_array_length(COALESCE(step_history_json, '[]')) || ']', json(?))
+             WHERE job_id = ? 
+               AND current_state = ?
+               AND lock_version = ?
+               AND lock_owner = ?`,
+            JSON.stringify(historyEntry),
+            jobId,
+            fromState,
+            token.lockVersion,
+            token.ownerId
+        );
+
+        if (!success) {
+            throw new FencingTokenMismatchError(`Failed to mark degraded job ${jobId}: Token mismatch or invalid state.`);
         }
     }
 

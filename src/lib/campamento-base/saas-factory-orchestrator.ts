@@ -45,12 +45,14 @@ type VerifyDomainWithRetryInput = {
   tenantId: string;
   saasId: string;
   jobId: string;
+  failOnNonActive?: boolean;
 };
 
 type VerifyDomainWithRetryResult = {
   result: Awaited<ReturnType<typeof verifyDomainBinding>>;
   attempts: number;
   waitedMs: number;
+  isActive: boolean;
 };
 
 async function recordProvisioningStepEvent(params: {
@@ -207,7 +209,7 @@ async function verifyDomainWithRetry(input: VerifyDomainWithRetryInput): Promise
             waitedMs,
           },
         });
-        return { result: verifyRes, attempts: attempt, waitedMs };
+        return { result: verifyRes, attempts: attempt, waitedMs, isActive: true };
       }
     } catch (error) {
       lastError = error;
@@ -239,6 +241,14 @@ async function verifyDomainWithRetry(input: VerifyDomainWithRetryInput): Promise
           error: errorMessage,
         },
       });
+      if (lastResult && !lastError && input.failOnNonActive === false) {
+        return {
+          result: lastResult,
+          attempts: attempt,
+          waitedMs,
+          isActive: false,
+        };
+      }
       if (lastError instanceof Error) throw lastError;
       throw new Error(`DOMAIN_VERIFY_FAILED:${providerStatus ?? "unknown"}`);
     }
@@ -502,12 +512,9 @@ export async function provisionSaaS(params: {
         tenantId: params.ownerTenantId,
         saasId: realSaasId,
         jobId: jobIdInUse,
+        failOnNonActive: false,
       });
       const verifyRes = verifyResult.result;
-
-      if (verifyRes.providerStatus !== 'active') {
-        throw new Error(`DOMAIN_VERIFY_FAILED:${verifyRes.providerStatus}`);
-      }
 
       const ctx = await resolveSaasContext({ tenantId: params.ownerTenantId, saasId: realSaasId, env: params.env });
       await upsertSaasDomain(ctx, {
@@ -515,11 +522,49 @@ export async function provisionSaaS(params: {
         saasId: realSaasId,
         domain: verifyRes.hostname,
         isPrimary: true,
-        status: 'active',
+        status: verifyRes.providerStatus === 'active' ? 'active' : 'pending',
       });
 
       await JobRunner.transitionState(jobIdInUse, 'CREATE_DOMAIN_BINDING', 'VERIFY_DOMAIN', token!, 'Domain binding verified.');
       currentState = 'VERIFY_DOMAIN';
+
+      if (!verifyResult.isActive) {
+        await recordDomainProviderEvent({
+          tenantId: params.ownerTenantId,
+          saasId: realSaasId,
+          correlationId,
+          jobId: jobIdInUse,
+          type: "provision.domain.degraded",
+          severity: "WARNING",
+          message: "Domain remains pending after retries; provisioning marked degraded.",
+          metadata: {
+            hostname: verifyRes.hostname,
+            bindingId: verifyRes.bindingId,
+            providerStatus: verifyRes.providerStatus,
+            retries: verifyResult.attempts,
+            waitedMs: verifyResult.waitedMs,
+          },
+        });
+        await JobRunner.markDegraded(
+          jobIdInUse,
+          'VERIFY_DOMAIN',
+          token!,
+          `Domain verification did not reach active status (${verifyRes.providerStatus}).`,
+        );
+        await recordProvisioningStepEvent({
+          tenantId: params.ownerTenantId,
+          saasId: realSaasId,
+          correlationId,
+          jobId: jobIdInUse,
+          step: "job",
+          phase: "succeeded",
+          severity: "WARNING",
+          message: "Provisioning completed in degraded mode.",
+          durationMs: Date.now() - executionStartedAt,
+          metadata: { finalState: "DEGRADED", domainStatus: verifyRes.providerStatus },
+        });
+        return { saasId: realSaasId, status: 'DEGRADED' };
+      }
 
       if (params.env?.PROVISIONING_FAULT_AT === 'CLOUDFLARE_AFTER_CREATE') {
         throw new Error("Simulated Fault: CLOUDFLARE_AFTER_CREATE");

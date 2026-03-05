@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   transitionState: vi.fn(),
   updatePayload: vi.fn(),
   completeJob: vi.fn(),
+  markDegraded: vi.fn(),
   failJob: vi.fn(),
   logRollback: vi.fn(),
   createDomainBinding: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock("@/lib/provisioning/job-runner", () => ({
     transitionState: mocks.transitionState,
     updatePayload: mocks.updatePayload,
     completeJob: mocks.completeJob,
+    markDegraded: mocks.markDegraded,
     failJob: mocks.failJob,
     logRollback: mocks.logRollback,
     ensureJob: vi.fn(),
@@ -96,6 +98,7 @@ describe("provisioning domain flow", () => {
     mocks.transitionState.mockResolvedValue(undefined);
     mocks.updatePayload.mockResolvedValue(undefined);
     mocks.completeJob.mockResolvedValue(undefined);
+    mocks.markDegraded.mockResolvedValue(undefined);
     mocks.failJob.mockResolvedValue(undefined);
     mocks.logRollback.mockResolvedValue(undefined);
     mocks.resolveSaasContext.mockResolvedValue({ tenantId: "tenant_a", saasId: "saas_1", mode: "live" });
@@ -192,5 +195,50 @@ describe("provisioning domain flow", () => {
     expect(mocks.verifyDomainBinding).toHaveBeenCalledTimes(3);
     const eventTypes = mocks.recordCampamentoEventSafe.mock.calls.map((call) => call[0]?.type);
     expect(eventTypes).toContain("provision.domain.verify.failed");
+  });
+
+  it("marks job degraded when verify remains pending after retries", async () => {
+    mocks.createDomainBinding.mockResolvedValue({
+      hostname: "test-saas.drako.systems",
+      bindingId: "ch_1",
+      providerStatus: "pending",
+      alreadyExists: false,
+    });
+    mocks.verifyDomainBinding.mockResolvedValue({
+      hostname: "test-saas.drako.systems",
+      bindingId: "ch_1",
+      providerStatus: "pending",
+    });
+
+    const result = await provisionSaaS({
+      env: retryEnv,
+      ownerTenantId: "tenant_a",
+      blueprint: { ...blueprint },
+      preAcquiredToken: { lockVersion: 7, ownerId: "worker_1" },
+      existingJob: {
+        jobId: "job_1",
+        entityId: "saas_1",
+        state: "STRIPE_PRODUCT_CREATED",
+        correlationId: "corr_4",
+        idempotencyKey: "idem_4",
+        payload: { ...blueprint },
+      },
+    });
+
+    expect(result.status).toBe("DEGRADED");
+    expect(mocks.failJob).not.toHaveBeenCalled();
+    expect(mocks.markDegraded).toHaveBeenCalledWith(
+      "job_1",
+      "VERIFY_DOMAIN",
+      { lockVersion: 7, ownerId: "worker_1" },
+      expect.stringContaining("pending"),
+    );
+    expect(mocks.deleteDomainBinding).not.toHaveBeenCalled();
+    expect(mocks.upsertSaasDomain).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: "pending" }),
+    );
+    const eventTypes = mocks.recordCampamentoEventSafe.mock.calls.map((call) => call[0]?.type);
+    expect(eventTypes).toContain("provision.domain.degraded");
   });
 });
