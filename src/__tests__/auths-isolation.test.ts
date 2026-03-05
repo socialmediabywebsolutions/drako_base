@@ -1,13 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { getAuthsCookieName } from "@/lib/auths/cookies";
+import { getAuthsCookieConfig, getAuthsCookieName } from "@/lib/auths/cookies";
 import { createAuthsSessionToken, verifyAuthsSessionToken } from "@/lib/auths/tokens";
 import { resolveAuthsContextFromHost } from "@/lib/auths/contexts";
 
 describe("Auths Isolation", () => {
   it("uses different cookie names per saas", () => {
-    expect(getAuthsCookieName("drakos")).toBe("drakos_session");
-    expect(getAuthsCookieName("mentorias")).toBe("mentorias_session");
-    expect(getAuthsCookieName("drakos")).not.toBe(getAuthsCookieName("mentorias"));
+    const drakosCookie = getAuthsCookieName("drakos");
+    const mentoriasCookie = getAuthsCookieName("mentorias");
+
+    expect(drakosCookie).toBe(getAuthsCookieConfig("drakos").cookieName);
+    expect(mentoriasCookie).toBe(getAuthsCookieConfig("mentorias").cookieName);
+    expect(drakosCookie).toMatch(/^__Host-.*_session$/);
+    expect(mentoriasCookie).toMatch(/^__Host-.*_session$/);
+    expect(drakosCookie).not.toBe(mentoriasCookie);
   });
 
   it("resolves host context using subdomains", () => {
