@@ -11,7 +11,9 @@ const mocks = vi.hoisted(() => ({
   failJob: vi.fn(),
   logRollback: vi.fn(),
   ensureStripeProductForSaas: vi.fn(),
-  provisionSaasInCloudflare: vi.fn(),
+  createDomainBinding: vi.fn(),
+  verifyDomainBinding: vi.fn(),
+  deleteDomainBinding: vi.fn(),
   resolveSaasContext: vi.fn(),
   upsertSaasDomain: vi.fn(),
   recordCampamentoEventSafe: vi.fn(),
@@ -43,12 +45,16 @@ vi.mock("@/lib/campamento-base/provisioning/stripe-factory", () => ({
 }));
 
 vi.mock("@/lib/campamento-base/provisioning/cloudflare-factory", () => ({
-  provisionSaasInCloudflare: mocks.provisionSaasInCloudflare,
   computeDomainsForSaas: (blueprint: { proposedSlug: string }) => ({
     primaryHostname: `${blueprint.proposedSlug}.drako.systems`,
     customHostname: null,
   }),
-  deleteCloudflareHostname: vi.fn(),
+}));
+
+vi.mock("@/lib/domains/domain-provider", () => ({
+  createDomainBinding: mocks.createDomainBinding,
+  verifyDomainBinding: mocks.verifyDomainBinding,
+  deleteDomainBinding: mocks.deleteDomainBinding,
 }));
 
 vi.mock("@/lib/saas/repository", () => ({
@@ -77,12 +83,18 @@ describe("saas-factory orchestrator canonical state flow", () => {
       productId: "prod_1",
       priceIds: { monthly: "price_1" },
     });
-    mocks.provisionSaasInCloudflare.mockResolvedValue({
-      status: "SUCCESS",
-      message: "configured",
-      createdDnsRecord: "dns_1",
-      createdCustomHostname: null,
+    mocks.createDomainBinding.mockResolvedValue({
+      hostname: "test-saas.drako.systems",
+      bindingId: "ch_1",
+      providerStatus: "pending",
+      alreadyExists: false,
     });
+    mocks.verifyDomainBinding.mockResolvedValue({
+      hostname: "test-saas.drako.systems",
+      bindingId: "ch_1",
+      providerStatus: "active",
+    });
+    mocks.deleteDomainBinding.mockResolvedValue({ deleted: true });
     mocks.resolveSaasContext.mockResolvedValue({ tenantId: "tenant_a", saasId: "saas_1", mode: "live" });
     mocks.upsertSaasDomain.mockResolvedValue({ id: "factory_domain_saas_1" });
     mocks.recordCampamentoEventSafe.mockResolvedValue({ ok: true, mode: "primary" });
@@ -132,8 +144,10 @@ describe("saas-factory orchestrator canonical state flow", () => {
     expect(result).toEqual({ saasId: "saas_1", status: "SUCCESS" });
     expect(mocks.transitionState).toHaveBeenNthCalledWith(1, "job_1", "RUNNING", "SAAS_REGISTERED", { lockVersion: 9, ownerId: "worker_1" }, "SaaS registered.");
     expect(mocks.transitionState).toHaveBeenNthCalledWith(2, "job_1", "SAAS_REGISTERED", "STRIPE_PRODUCT_CREATED", { lockVersion: 9, ownerId: "worker_1" }, "Stripe resources created.");
-    expect(mocks.transitionState).toHaveBeenNthCalledWith(3, "job_1", "STRIPE_PRODUCT_CREATED", "DOMAINS_REGISTERED", { lockVersion: 9, ownerId: "worker_1" }, "Domain provisioning pending provider verification.");
-    expect(mocks.completeJob).toHaveBeenCalledWith("job_1", "DOMAINS_REGISTERED", { lockVersion: 9, ownerId: "worker_1" });
+    expect(mocks.transitionState).toHaveBeenNthCalledWith(3, "job_1", "STRIPE_PRODUCT_CREATED", "PROVISION_WORKER", { lockVersion: 9, ownerId: "worker_1" }, "Domain provisioning worker step started.");
+    expect(mocks.transitionState).toHaveBeenNthCalledWith(4, "job_1", "PROVISION_WORKER", "CREATE_DOMAIN_BINDING", { lockVersion: 9, ownerId: "worker_1" }, "Domain binding created.");
+    expect(mocks.transitionState).toHaveBeenNthCalledWith(5, "job_1", "CREATE_DOMAIN_BINDING", "VERIFY_DOMAIN", { lockVersion: 9, ownerId: "worker_1" }, "Domain binding verified.");
+    expect(mocks.completeJob).toHaveBeenCalledWith("job_1", "VERIFY_DOMAIN", { lockVersion: 9, ownerId: "worker_1" });
 
     expect(mocks.ensureStripeProductForSaas).toHaveBeenCalledWith(
       expect.objectContaining({ correlationId: "corr_job_1", saasId: "saas_1", tenantId: "tenant_a" }),
@@ -144,7 +158,7 @@ describe("saas-factory orchestrator canonical state flow", () => {
         id: "factory_domain_saas_1",
         saasId: "saas_1",
         domain: "test-saas.drako.systems",
-        status: "pending",
+        status: "active",
       }),
     );
     expect(mocks.recordCampamentoEventSafe).toHaveBeenCalled();

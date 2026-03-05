@@ -13,6 +13,9 @@ export type ProvisioningJobState =
     // SaaS Specific
     | 'SAAS_REGISTERED'
     | 'STRIPE_PRODUCT_CREATED'
+    | 'PROVISION_WORKER'
+    | 'CREATE_DOMAIN_BINDING'
+    | 'VERIFY_DOMAIN'
     | 'DOMAINS_REGISTERED'
     // Tenant Specific
     | 'TENANT_CREATED'

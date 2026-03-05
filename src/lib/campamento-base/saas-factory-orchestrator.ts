@@ -9,7 +9,8 @@ import {
 } from "@/lib/campamento-base/saas-provisioning-plan";
 import { normalizeCampamentoBaseProfileForBlueprint } from "@/lib/campamento-base/saas-factory-helpers";
 import { ensureStripeProductForSaas, archiveStripeProductAndPrices } from "@/lib/campamento-base/provisioning/stripe-factory";
-import { provisionSaasInCloudflare, computeDomainsForSaas, deleteCloudflareHostname } from "@/lib/campamento-base/provisioning/cloudflare-factory";
+import { computeDomainsForSaas } from "@/lib/campamento-base/provisioning/cloudflare-factory";
+import { createDomainBinding, deleteDomainBinding, verifyDomainBinding } from "@/lib/domains/domain-provider";
 import { resolveSaasContext, upsertSaasDomain } from "@/lib/saas/repository";
 import { recordCampamentoEventSafe } from "@/lib/empire/events-safe";
 
@@ -61,6 +62,33 @@ async function recordProvisioningStepEvent(params: {
   if (!result.ok) {
     console.error(`[Provision] Observability write degraded for job ${params.jobId} at step ${params.step}`);
   }
+}
+
+async function recordDomainProviderEvent(params: {
+  tenantId: string;
+  saasId: string;
+  correlationId: string;
+  jobId: string;
+  type: string;
+  severity: "INFO" | "WARNING" | "ERROR";
+  message: string;
+  metadata?: Record<string, unknown>;
+}) {
+  await recordCampamentoEventSafe({
+    tenantId: params.tenantId,
+    saasId: params.saasId,
+    correlationId: params.correlationId,
+    type: params.type,
+    severity: params.severity,
+    source: "PROVISIONING_CONSUMER",
+    message: params.message,
+    metadata: {
+      jobId: params.jobId,
+      ...(params.metadata ?? {}),
+    },
+    jobId: params.jobId,
+    step: "domain_provider",
+  });
 }
 
 export async function provisionSaaS(params: {
@@ -237,94 +265,131 @@ export async function provisionSaaS(params: {
       }
     }
 
-    // --- STEP 3: CLOUDFLARE DOMAINS ---
+    // --- STEP 3: DOMAIN PROVIDER (Workers Custom Domains) ---
     if (currentState === 'STRIPE_PRODUCT_CREATED') {
-      const startedAt = Date.now();
-      await recordProvisioningStepEvent({
-        tenantId: params.ownerTenantId,
-        saasId: realSaasId,
-        correlationId,
-        jobId: jobIdInUse,
-        step: "domains",
-        phase: "started",
-        severity: "INFO",
-        message: "Domains provisioning started.",
-      });
+      await JobRunner.transitionState(jobIdInUse, 'STRIPE_PRODUCT_CREATED', 'PROVISION_WORKER', token!, 'Domain provisioning worker step started.');
+      currentState = 'PROVISION_WORKER';
+    }
 
-      const cfRes = await provisionSaasInCloudflare({
-        env: params.env,
-        blueprint: normalized,
-        saasId: realSaasId
-      });
-
-      if (cfRes.status === 'ERROR') {
-        throw new Error(cfRes.message ?? 'Cloudflare provisioning failed');
-      }
-
-      // Persist provider identifiers when available.
-      if (cfRes.createdCustomHostname) {
-        payload = { ...payload, cloudflareHostnameId: cfRes.createdCustomHostname };
-        await JobRunner.updatePayload(jobIdInUse, payload, token!);
-      }
-
-      // Register canonical domain state even when provider is pending.
-      const ctx = await resolveSaasContext({ tenantId: params.ownerTenantId, saasId: realSaasId, env: params.env });
+    if (currentState === 'PROVISION_WORKER') {
       const domains = computeDomainsForSaas(normalized);
-      await upsertSaasDomain(ctx, {
-        id: `factory_domain_${realSaasId}`,
-        saasId: realSaasId,
-        domain: domains.primaryHostname,
-        isPrimary: true,
-        status: cfRes.createdCustomHostname ? 'active' : 'pending',
-      });
-
-      await JobRunner.transitionState(
-        jobIdInUse,
-        'STRIPE_PRODUCT_CREATED',
-        'DOMAINS_REGISTERED',
-        token!,
-        cfRes.createdCustomHostname ? 'Domains configured.' : 'Domain provisioning pending provider verification.',
-      );
-      currentState = 'DOMAINS_REGISTERED';
-      await recordProvisioningStepEvent({
+      const startedAt = Date.now();
+      await recordDomainProviderEvent({
         tenantId: params.ownerTenantId,
         saasId: realSaasId,
         correlationId,
         jobId: jobIdInUse,
-        step: "domains",
-        phase: "succeeded",
+        type: "provision.domain.create.started",
         severity: "INFO",
-        message: "Domains provisioning completed.",
-        durationMs: Date.now() - startedAt,
+        message: "Domain binding creation started.",
+        metadata: { hostname: domains.primaryHostname },
+      });
+
+      const createRes = await createDomainBinding({
+        hostname: domains.primaryHostname,
+        correlationId,
+        envOverride: params.env,
+      });
+
+      payload = { ...payload, cloudflareHostnameId: createRes.bindingId ?? undefined };
+      await JobRunner.updatePayload(jobIdInUse, payload, token!);
+      await JobRunner.transitionState(jobIdInUse, 'PROVISION_WORKER', 'CREATE_DOMAIN_BINDING', token!, 'Domain binding created.');
+      currentState = 'CREATE_DOMAIN_BINDING';
+
+      await recordDomainProviderEvent({
+        tenantId: params.ownerTenantId,
+        saasId: realSaasId,
+        correlationId,
+        jobId: jobIdInUse,
+        type: "provision.domain.create.succeeded",
+        severity: "INFO",
+        message: "Domain binding creation succeeded.",
         metadata: {
-          customHostnameId: payload.cloudflareHostnameId ?? null,
-          providerStatus: cfRes.status,
+          hostname: createRes.hostname,
+          bindingId: createRes.bindingId,
+          providerStatus: createRes.providerStatus,
+          alreadyExists: Boolean(createRes.alreadyExists),
+          durationMs: Date.now() - startedAt,
         },
       });
+    }
 
-      // FAULT INJECTION (VERIFICATION ONLY)
-      if (params.env?.PROVISIONING_FAULT_AT === 'CLOUDFLARE_AFTER_CREATE') {
-        throw new Error("Simulated Fault: CLOUDFLARE_AFTER_CREATE");
-      }
-
-      // --- COMPLETION ---
-      if (currentState === 'DOMAINS_REGISTERED') {
-        await JobRunner.completeJob(jobIdInUse, 'DOMAINS_REGISTERED', token!);
-        await recordProvisioningStepEvent({
+    if (currentState === 'CREATE_DOMAIN_BINDING') {
+      const domains = computeDomainsForSaas(normalized);
+      let verifyRes;
+      try {
+        verifyRes = await verifyDomainBinding({
+          hostname: domains.primaryHostname,
+          bindingId: payload.cloudflareHostnameId,
+          correlationId,
+          envOverride: params.env,
+        });
+      } catch (verifyError) {
+        await recordDomainProviderEvent({
           tenantId: params.ownerTenantId,
           saasId: realSaasId,
           correlationId,
           jobId: jobIdInUse,
-          step: "job",
-          phase: "succeeded",
-          severity: "INFO",
-          message: "Provisioning job completed.",
-          durationMs: Date.now() - executionStartedAt,
-          metadata: { finalState: "SUCCESS" },
+          type: "provision.domain.verify.failed",
+          severity: "ERROR",
+          message: "Domain verify call failed.",
+          metadata: {
+            hostname: domains.primaryHostname,
+            error: verifyError instanceof Error ? verifyError.message : String(verifyError),
+          },
         });
-        return { saasId: realSaasId, status: 'SUCCESS' };
+        throw verifyError;
       }
 
+      if (verifyRes.providerStatus !== 'active') {
+        await recordDomainProviderEvent({
+          tenantId: params.ownerTenantId,
+          saasId: realSaasId,
+          correlationId,
+          jobId: jobIdInUse,
+          type: "provision.domain.verify.failed",
+          severity: "ERROR",
+          message: "Domain verify failed: provider status is not active.",
+          metadata: {
+            hostname: verifyRes.hostname,
+            providerStatus: verifyRes.providerStatus,
+          },
+        });
+        throw new Error(`DOMAIN_VERIFY_FAILED:${verifyRes.providerStatus}`);
+      }
+
+      const ctx = await resolveSaasContext({ tenantId: params.ownerTenantId, saasId: realSaasId, env: params.env });
+      await upsertSaasDomain(ctx, {
+        id: `factory_domain_${realSaasId}`,
+        saasId: realSaasId,
+        domain: verifyRes.hostname,
+        isPrimary: true,
+        status: 'active',
+      });
+
+      await JobRunner.transitionState(jobIdInUse, 'CREATE_DOMAIN_BINDING', 'VERIFY_DOMAIN', token!, 'Domain binding verified.');
+      currentState = 'VERIFY_DOMAIN';
+
+      if (params.env?.PROVISIONING_FAULT_AT === 'CLOUDFLARE_AFTER_CREATE') {
+        throw new Error("Simulated Fault: CLOUDFLARE_AFTER_CREATE");
+      }
+    }
+
+    if (currentState === 'VERIFY_DOMAIN') {
+      await JobRunner.completeJob(jobIdInUse, 'VERIFY_DOMAIN', token!);
+      await recordProvisioningStepEvent({
+        tenantId: params.ownerTenantId,
+        saasId: realSaasId,
+        correlationId,
+        jobId: jobIdInUse,
+        step: "job",
+        phase: "succeeded",
+        severity: "INFO",
+        message: "Provisioning job completed.",
+        durationMs: Date.now() - executionStartedAt,
+        metadata: { finalState: "SUCCESS" },
+      });
+      return { saasId: realSaasId, status: 'SUCCESS' };
     }
   } catch (error: any) {
     console.error(`[Provision] Job ${jobIdInUse} failed at ${currentState}:`, error);
@@ -357,15 +422,18 @@ export async function provisionSaaS(params: {
       // (In memory 'payload' variable is updated, but let's assume worst case crash recovery logic would read DB)
       const domains = computeDomainsForSaas(normalized);
 
-      if (currentState === 'DOMAINS_REGISTERED' || currentState === 'RUNNING') {
-        // Real Cloudflare ID?
+      if (currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'RUNNING') {
         const domains = computeDomainsForSaas(normalized);
-        // We try delete by Hostname if ID missing, or use ID if present
-        await deleteCloudflareHostname({ env: params.env, hostname: domains.primaryHostname });
-        await JobRunner.logRollback(jobIdInUse, 'DOMAINS_ROLLED_BACK', `Hard deleted hostname ${domains.primaryHostname}`);
+        await deleteDomainBinding({
+          hostname: domains.primaryHostname,
+          bindingId: payload.cloudflareHostnameId,
+          correlationId,
+          envOverride: params.env,
+        });
+        await JobRunner.logRollback(jobIdInUse, 'DOMAINS_ROLLED_BACK', `Deleted hostname binding ${domains.primaryHostname}`);
       }
 
-      if (currentState === 'DOMAINS_REGISTERED' || currentState === 'STRIPE_PRODUCT_CREATED') {
+      if (currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'STRIPE_PRODUCT_CREATED') {
         if (payload.stripeProductId) {
           await archiveStripeProductAndPrices({
             env: params.env,
@@ -375,7 +443,7 @@ export async function provisionSaaS(params: {
         }
       }
 
-      if (currentState === 'DOMAINS_REGISTERED' || currentState === 'STRIPE_PRODUCT_CREATED' || currentState === 'SAAS_REGISTERED') {
+      if (currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'STRIPE_PRODUCT_CREATED' || currentState === 'SAAS_REGISTERED') {
         await run(`DELETE FROM saas_instances WHERE id = ?`, realSaasId);
         await run(`DELETE FROM saas WHERE id = ?`, realSaasId);
         await JobRunner.logRollback(jobIdInUse, 'DB', 'Deleted SaaS records.');
