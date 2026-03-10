@@ -198,9 +198,33 @@ function selectRows(store: ProvisioningHarnessStore, sql: string, params: unknow
 
   if (hasSql(normalized, "from saas_subscriptions")) {
     const [tenantId, saasSlug] = params;
+    if (typeof saasSlug === "undefined") {
+      return store.saasSubscriptions
+        .filter((row) => row.tenant_id === tenantId)
+        .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1))
+        .slice(0, 1)
+        .map((row) => ({
+          ...row,
+          plan: row.plan_code,
+        }));
+    }
     return store.saasSubscriptions
       .filter((row) => row.tenant_id === tenantId && row.saas_slug === saasSlug)
       .slice(0, 1);
+  }
+
+  if (hasSql(normalized, "select count(*) as count from saas where tenant_id = ?")) {
+    const [tenantId] = params;
+    return [{ count: store.saas.filter((row) => row.tenant_id === tenantId).length }];
+  }
+
+  if (hasSql(normalized, "select count(*) as count", "from provisioning_jobs", "current_state in ('created','running')")) {
+    const [tenantId] = params;
+    return [{
+      count: store.provisioningJobs.filter(
+        (row) => row.tenant_id === tenantId && ["CREATED", "RUNNING"].includes(row.current_state),
+      ).length,
+    }];
   }
 
   if (hasSql(normalized, "from saas_usage_quotas")) {
@@ -618,6 +642,8 @@ export function createProvisioningHarnessStore(input?: {
   tenantPlan?: string;
   saasSlug?: string;
   workspaces?: number;
+  subscriptionPlan?: string;
+  subscriptionStatus?: string;
 }): ProvisioningHarnessStore {
   const tenantId = input?.tenantId ?? "tenant_owner";
   const saasSlug = input?.saasSlug ?? "drako";
@@ -634,8 +660,8 @@ export function createProvisioningHarnessStore(input?: {
         stripe_customer_id: "cus_test",
         stripe_subscription_id: "sub_test",
         stripe_price_id: "price_test",
-        plan_code: "pro",
-        status: "active",
+        plan_code: input?.subscriptionPlan ?? "pro",
+        status: input?.subscriptionStatus ?? "active",
         current_period_end: now,
         cancel_at_period_end: 0,
         updated_at: now,
@@ -757,6 +783,7 @@ export async function processQueuedFactoryJob(
 export function createCloudflareFetch(params: {
   verifyStatuses: string[];
   createStatus?: string;
+  failCreateMessage?: string;
 }): typeof fetch {
   const bindings = new Map<
     string,
@@ -784,6 +811,9 @@ export function createCloudflareFetch(params: {
     }
 
     if (method === "POST" && url.pathname.endsWith("/custom_hostnames")) {
+      if (params.failCreateMessage) {
+        throw new Error(params.failCreateMessage);
+      }
       const body = JSON.parse(String(init?.body ?? "{}")) as { hostname?: string };
       const hostname = lower(body.hostname);
       const bindingId = `ch_${bindings.size + 1}`;

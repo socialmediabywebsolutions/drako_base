@@ -9,6 +9,7 @@ import { JobRunner } from "@/lib/provisioning/job-runner";
 import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-types";
 import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
 import { recordCampamentoEvent } from "@/lib/empire/events";
+import { FactoryBillingError, assertFactoryQuota } from "@/lib/billing/factory-entitlements";
 import { getCanonicalBillingEntitlements } from "@/lib/billing/subscriptions";
 
 export const dynamic = "force-dynamic";
@@ -273,6 +274,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    await assertFactoryQuota(session.tenantId);
+
     const env = resolveEnv();
     if (!env?.PROVISIONING_QUEUE) {
       return NextResponse.json(
@@ -363,6 +366,13 @@ export async function POST(req: NextRequest) {
       { status: job.created ? 202 : 200 },
     );
   } catch (error: unknown) {
+    if (error instanceof FactoryBillingError) {
+      const status = error.code === "FACTORY_CONCURRENCY_LIMIT" ? 409 : 402;
+      return NextResponse.json(
+        { ok: false, error: error.code },
+        { status },
+      );
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { ok: false, code: "INVALID_CREATE_SAAS_PAYLOAD", message: "Invalid create SaaS payload.", details: error.issues },

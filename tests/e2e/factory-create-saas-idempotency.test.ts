@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockDb } from "@/__tests__/setup";
 import { env as resolveEnv } from "@/lib/cf";
+import { factoryCreateSaasMocks, setupFactoryCreateSaasOwnerMocks } from "./factory-create-saas.test-kit";
 import {
   buildCreateSaasRequest,
   createCloudflareFetch,
@@ -12,57 +13,6 @@ import {
   type ProvisioningHarnessStore,
   processQueuedFactoryJob,
 } from "./factory-create-saas.helpers";
-
-const mocks = vi.hoisted(() => {
-  class UnauthorizedError extends Error {
-    status: number;
-
-    constructor(message = "Unauthorized", status = 401) {
-      super(message);
-      this.name = "UnauthorizedError";
-      this.status = status;
-    }
-  }
-
-  return {
-    extractSessionFromRequest: vi.fn(),
-    authorizeSaasAccess: vi.fn(),
-    requireOwnerAccess: vi.fn(),
-    ensureCampamentoBase: vi.fn(),
-    domainFetchImpl: vi.fn(),
-    UnauthorizedError,
-  };
-});
-
-vi.mock("@/lib/edge-auth", () => ({
-  extractSessionFromRequest: mocks.extractSessionFromRequest,
-}));
-
-vi.mock("@/lib/authz/saas-access", () => ({
-  authorizeSaasAccess: mocks.authorizeSaasAccess,
-}));
-
-vi.mock("@/lib/auth/session", () => ({
-  requireOwnerAccess: mocks.requireOwnerAccess,
-  UnauthorizedError: mocks.UnauthorizedError,
-}));
-
-vi.mock("@/lib/campamento-base", () => ({
-  ensureCampamentoBase: mocks.ensureCampamentoBase,
-}));
-
-vi.mock("@/lib/domains/domain-provider", async (importActual) => {
-  const actual = await importActual<typeof import("@/lib/domains/domain-provider")>();
-  return {
-    ...actual,
-    createDomainBinding: (input: Parameters<typeof actual.createDomainBinding>[0]) =>
-      actual.createDomainBinding({ ...input, fetchImpl: mocks.domainFetchImpl as unknown as typeof fetch }),
-    verifyDomainBinding: (input: Parameters<typeof actual.verifyDomainBinding>[0]) =>
-      actual.verifyDomainBinding({ ...input, fetchImpl: mocks.domainFetchImpl as unknown as typeof fetch }),
-    deleteDomainBinding: (input: Parameters<typeof actual.deleteDomainBinding>[0]) =>
-      actual.deleteDomainBinding({ ...input, fetchImpl: mocks.domainFetchImpl as unknown as typeof fetch }),
-  };
-});
 
 import { POST as createSaas } from "@/app/api/owner/saas-factory/create-saas/route";
 import { GET as getJobStatus } from "@/app/api/owner/saas-factory/jobs/[jobId]/route";
@@ -107,18 +57,7 @@ async function fetchJob(jobId: string) {
 
 describe("factory create-saas idempotency", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.ensureCampamentoBase.mockResolvedValue(undefined);
-    mocks.extractSessionFromRequest.mockResolvedValue({
-      userId: "owner_user",
-      email: "owner@drako.systems",
-      tenantId: "tenant_owner",
-      role: "admin",
-      iat: 1,
-      exp: 9_999_999_999,
-    });
-    mocks.authorizeSaasAccess.mockResolvedValue({ authorized: true });
-    mocks.requireOwnerAccess.mockResolvedValue({ tenantId: "tenant_owner" });
+    setupFactoryCreateSaasOwnerMocks();
   });
 
   it("reuses the existing job for repeated POSTs with the same idempotencyKey", async () => {
@@ -126,7 +65,7 @@ describe("factory create-saas idempotency", () => {
     const runtimeEnv = createFactoryRuntimeEnv({ db: mockDb, store });
     vi.mocked(resolveEnv).mockReturnValue(runtimeEnv);
     installProvisioningDbMock(mockDb, store);
-    mocks.domainFetchImpl.mockImplementation(createCloudflareFetch({ verifyStatuses: ["active"], createStatus: "pending" }));
+    factoryCreateSaasMocks.domainFetchImpl.mockImplementation(createCloudflareFetch({ verifyStatuses: ["active"], createStatus: "pending" }));
 
     const requestParams = {
       slug: "e2e-idempotent-saas",

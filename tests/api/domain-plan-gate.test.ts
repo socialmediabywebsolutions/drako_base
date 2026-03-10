@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   extractSessionFromRequest: vi.fn(),
   ensureJob: vi.fn(),
   recordCampamentoEvent: vi.fn(),
+  assertFactoryQuota: vi.fn(),
   getCanonicalBillingEntitlements: vi.fn(),
 }));
 
@@ -31,6 +32,17 @@ vi.mock("@/lib/provisioning/job-runner", () => ({
 
 vi.mock("@/lib/empire/events", () => ({
   recordCampamentoEvent: mocks.recordCampamentoEvent,
+}));
+
+vi.mock("@/lib/billing/factory-entitlements", () => ({
+  FactoryBillingError: class FactoryBillingError extends Error {
+    code: string;
+    constructor(code: string) {
+      super(code);
+      this.code = code;
+    }
+  },
+  assertFactoryQuota: mocks.assertFactoryQuota,
 }));
 
 vi.mock("@/lib/billing/subscriptions", () => ({
@@ -61,6 +73,7 @@ describe("/api/owner/saas-factory/create-saas domain plan gate", () => {
       PROVISIONING_QUEUE: { send: vi.fn() },
       DRAKO_BASE_DOMAIN: "drako.systems",
     });
+    mocks.assertFactoryQuota.mockResolvedValue(undefined);
     mocks.getCanonicalBillingEntitlements.mockResolvedValue({
       tenantId: "tenant_a",
       saasSlug: "drako",
