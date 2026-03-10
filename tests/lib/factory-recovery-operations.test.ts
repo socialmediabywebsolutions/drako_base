@@ -2,9 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 async function loadSubject() {
   const recordCampamentoEvent = vi.fn();
+  const enqueueRecoveryOperation = vi.fn();
 
   vi.doMock("@/lib/empire/events", () => ({
     recordCampamentoEvent,
+  }));
+
+  vi.doMock("@/lib/factory/recovery-queue", () => ({
+    enqueueRecoveryOperation,
   }));
 
   const mod = await import("@/lib/factory/recovery-operations");
@@ -12,6 +17,7 @@ async function loadSubject() {
   return {
     ...mod,
     recordCampamentoEvent,
+    enqueueRecoveryOperation,
   };
 }
 
@@ -22,8 +28,9 @@ describe("factory recovery operations", () => {
   });
 
   it("accepts retry-job requests and records an audit event", async () => {
-    const { requestRetryJobOperation, recordCampamentoEvent } = await loadSubject();
+    const { requestRetryJobOperation, recordCampamentoEvent, enqueueRecoveryOperation } = await loadSubject();
     recordCampamentoEvent.mockResolvedValue(undefined);
+    enqueueRecoveryOperation.mockResolvedValue({ id: "op_job_1", status: "pending" });
 
     const result = await requestRetryJobOperation({
       tenantId: "tenant_owner",
@@ -45,11 +52,17 @@ describe("factory recovery operations", () => {
         operation: "retry_job",
       }),
     }));
+    expect(enqueueRecoveryOperation).toHaveBeenCalledWith({
+      tenantId: "tenant_owner",
+      type: "retry_job",
+      jobId: "job_123",
+    });
   });
 
   it("accepts retry-domain-verify requests and records an audit event", async () => {
-    const { requestRetryDomainVerifyOperation, recordCampamentoEvent } = await loadSubject();
+    const { requestRetryDomainVerifyOperation, recordCampamentoEvent, enqueueRecoveryOperation } = await loadSubject();
     recordCampamentoEvent.mockResolvedValue(undefined);
+    enqueueRecoveryOperation.mockResolvedValue({ id: "op_domain_1", status: "pending" });
 
     const result = await requestRetryDomainVerifyOperation({
       tenantId: "tenant_owner",
@@ -71,10 +84,15 @@ describe("factory recovery operations", () => {
         operation: "retry_domain_verify",
       }),
     }));
+    expect(enqueueRecoveryOperation).toHaveBeenCalledWith({
+      tenantId: "tenant_owner",
+      type: "retry_domain_verify",
+      domain: "foo.drako.systems",
+    });
   });
 
   it("rejects invalid job ids", async () => {
-    const { requestRetryJobOperation, FactoryRecoveryOperationError, recordCampamentoEvent } = await loadSubject();
+    const { requestRetryJobOperation, FactoryRecoveryOperationError, recordCampamentoEvent, enqueueRecoveryOperation } = await loadSubject();
 
     await expect(requestRetryJobOperation({
       tenantId: "tenant_owner",
@@ -84,10 +102,11 @@ describe("factory recovery operations", () => {
       status: 400,
     });
     expect(recordCampamentoEvent).not.toHaveBeenCalled();
+    expect(enqueueRecoveryOperation).not.toHaveBeenCalled();
   });
 
   it("rejects invalid domains", async () => {
-    const { requestRetryDomainVerifyOperation, FactoryRecoveryOperationError, recordCampamentoEvent } = await loadSubject();
+    const { requestRetryDomainVerifyOperation, FactoryRecoveryOperationError, recordCampamentoEvent, enqueueRecoveryOperation } = await loadSubject();
 
     await expect(requestRetryDomainVerifyOperation({
       tenantId: "tenant_owner",
@@ -97,5 +116,6 @@ describe("factory recovery operations", () => {
       status: 400,
     });
     expect(recordCampamentoEvent).not.toHaveBeenCalled();
+    expect(enqueueRecoveryOperation).not.toHaveBeenCalled();
   });
 });

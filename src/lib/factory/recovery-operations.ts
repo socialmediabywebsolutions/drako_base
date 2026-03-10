@@ -1,4 +1,5 @@
 import { recordCampamentoEvent } from "@/lib/empire/events";
+import { enqueueRecoveryOperation } from "@/lib/factory/recovery-queue";
 
 export class FactoryRecoveryOperationError extends Error {
   status: number;
@@ -82,6 +83,12 @@ export async function requestRetryJobOperation(params: {
     correlationId,
   });
 
+  await enqueueRecoveryOperation({
+    tenantId: params.tenantId,
+    type: "retry_job",
+    jobId,
+  });
+
   return {
     ok: true as const,
     accepted: true as const,
@@ -108,6 +115,12 @@ export async function requestRetryDomainVerifyOperation(params: {
       operation: "retry_domain_verify",
     },
     correlationId,
+  });
+
+  await enqueueRecoveryOperation({
+    tenantId: params.tenantId,
+    type: "retry_domain_verify",
+    domain,
   });
 
   return {
