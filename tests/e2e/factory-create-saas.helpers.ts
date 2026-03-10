@@ -1,3 +1,6 @@
+import { expect, vi } from "vitest";
+import { processQueueBatch } from "../../workers/drako-scheduler/src/consumer";
+
 type QueueMessage = {
   jobId: string;
   type: string;
@@ -102,6 +105,21 @@ export type ProvisioningHarnessStore = {
   saasDomains: SaasDomainRow[];
   campamentoEvents: CampamentoEventRow[];
   sentQueueMessages: QueueMessage[];
+};
+
+type CreateSaasQueueEnv = {
+  DRACO_DB: unknown;
+  PROVISIONING_QUEUE: {
+    send: (message: QueueMessage) => Promise<void>;
+  };
+  DRAKO_BASE_DOMAIN: string;
+  CLOUDFLARE_API_TOKEN: string;
+  CLOUDFLARE_ZONE_ID: string;
+  PROVISION_DOMAIN_VERIFY_RETRIES: string;
+  PROVISION_DOMAIN_VERIFY_BACKOFF_MS: string;
+  PROVISION_DOMAIN_VERIFY_MAX_BACKOFF_MS: string;
+  PROVISION_DOMAIN_VERIFY_JITTER_MS: string;
+  PROVISION_DOMAIN_VERIFY_TIMEOUT_MS: string;
 };
 
 function nowIso(): string {
@@ -657,6 +675,83 @@ export function installProvisioningDbMock(
     };
     return statement;
   });
+}
+
+export function createFactoryRuntimeEnv(params: {
+  db: unknown;
+  store: ProvisioningHarnessStore;
+}): CreateSaasQueueEnv {
+  return {
+    DRACO_DB: params.db,
+    PROVISIONING_QUEUE: {
+      send: async (message: QueueMessage) => {
+        params.store.sentQueueMessages.push(message);
+      },
+    },
+    DRAKO_BASE_DOMAIN: "drako.systems",
+    CLOUDFLARE_API_TOKEN: "token",
+    CLOUDFLARE_ZONE_ID: "zone_1",
+    PROVISION_DOMAIN_VERIFY_RETRIES: "0",
+    PROVISION_DOMAIN_VERIFY_BACKOFF_MS: "0",
+    PROVISION_DOMAIN_VERIFY_MAX_BACKOFF_MS: "0",
+    PROVISION_DOMAIN_VERIFY_JITTER_MS: "0",
+    PROVISION_DOMAIN_VERIFY_TIMEOUT_MS: "1",
+  };
+}
+
+export function buildCreateSaasRequest(params: {
+  slug: string;
+  idempotencyKey?: string;
+  correlationId?: string;
+}): Request {
+  return new Request("https://drako.systems/api/owner/saas-factory/create-saas", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-correlation-id": params.correlationId ?? `corr_${params.slug}`,
+    },
+    body: JSON.stringify({
+      name: `Factory ${params.slug}`,
+      slug: params.slug,
+      idempotencyKey: params.idempotencyKey ?? `idem_${params.slug}_0001`,
+      plans: [{ planCode: "pro", monthlyPriceCents: 2900 }],
+    }),
+  });
+}
+
+export function findProvisioningJob(store: ProvisioningHarnessStore, jobId: string) {
+  return store.provisioningJobs.find((job) => job.job_id === jobId);
+}
+
+export function findPrimaryDomainRow(store: ProvisioningHarnessStore, saasId: string) {
+  return store.saasDomains.find((row) => row.saas_id === saasId && row.is_primary === 1);
+}
+
+export async function processQueuedFactoryJob(
+  store: ProvisioningHarnessStore,
+  env: CreateSaasQueueEnv,
+  jobId: string,
+) {
+  const message = store.sentQueueMessages.find((candidate) => candidate.jobId === jobId);
+  expect(message).toBeTruthy();
+
+  const ack = vi.fn();
+  const retry = vi.fn();
+  const batch = {
+    messages: [
+      {
+        id: `msg_${message.jobId}`,
+        body: message,
+        ack,
+        retry,
+      },
+    ],
+  } as const;
+
+  await processQueueBatch(batch as any, env as any);
+
+  expect(retry).not.toHaveBeenCalled();
+  expect(ack).toHaveBeenCalledTimes(1);
 }
 
 export function createCloudflareFetch(params: {

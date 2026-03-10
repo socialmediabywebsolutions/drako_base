@@ -223,6 +223,55 @@ export async function POST(req: NextRequest) {
     const rawBody = await req.json().catch(() => null);
     const payload = createSaasRequestSchema.parse(rawBody ?? {});
     const blueprint = normalizeBlueprint({ tenantId: session.tenantId, payload });
+    const correlationId = payload.correlationId
+      ?? req.headers.get("x-correlation-id")
+      ?? fallbackCorrelationId;
+    const requestHash = await hashCreateRequest({
+      tenantId: session.tenantId,
+      blueprint,
+      dryRun: payload.dryRun ?? false,
+    });
+    const idempotencyKey =
+      payload.idempotencyKey?.trim()
+      || `create_saas:${session.tenantId}:${blueprint.proposedSlug}:${requestHash}`;
+
+    const existingJob = await queryOne<{ job_id: string; current_state: string; entity_id: string }>(
+      "SELECT job_id, current_state, entity_id FROM provisioning_jobs WHERE idempotency_key = ? AND tenant_id = ? LIMIT 1",
+      idempotencyKey,
+      session.tenantId,
+    );
+
+    if (existingJob) {
+      await recordCampamentoEvent({
+        tenantId: session.tenantId,
+        saasId: existingJob.entity_id,
+        type: "provision.saas_factory.job.reused",
+        severity: "INFO",
+        source: "OWNER_API",
+        message: "SaaS provisioning request matched existing idempotent job.",
+        metadata: {
+          jobId: existingJob.job_id,
+          idempotencyKey,
+          slug: blueprint.proposedSlug,
+          dryRun: payload.dryRun ?? false,
+        },
+        correlationId,
+      });
+
+      return NextResponse.json(
+        {
+          ok: true,
+          canonical: true,
+          queued: false,
+          jobId: existingJob.job_id,
+          state: existingJob.current_state,
+          saasId: existingJob.entity_id,
+          correlationId,
+          idempotencyKey,
+        },
+        { status: 200 },
+      );
+    }
 
     const env = resolveEnv();
     if (!env?.PROVISIONING_QUEUE) {
@@ -267,17 +316,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const correlationId = payload.correlationId
-      ?? req.headers.get("x-correlation-id")
-      ?? fallbackCorrelationId;
-    const requestHash = await hashCreateRequest({
-      tenantId: session.tenantId,
-      blueprint,
-      dryRun: payload.dryRun ?? false,
-    });
-    const idempotencyKey =
-      payload.idempotencyKey?.trim()
-      || `create_saas:${session.tenantId}:${blueprint.proposedSlug}:${requestHash}`;
     const entityId = globalThis.crypto?.randomUUID?.() ?? `saas_${Date.now()}`;
     const jobId = `job_${cleanJobIdSegment(idempotencyKey)}`;
 
