@@ -1,4 +1,5 @@
 import { recordCampamentoEvent } from "@/lib/empire/events";
+import { executeRetryDomainVerify, executeRetryJob } from "@/lib/factory/recovery-executors";
 import {
   listPendingRecoveryOperations,
   markRecoveryOperationCompleted,
@@ -35,6 +36,14 @@ export async function processPendingRecoveryOperations(): Promise<void> {
   const operations = await listPendingRecoveryOperations();
 
   for (const operation of operations) {
+    if (operation.type === "retry_job" && operation.jobId) {
+      await executeRetryJob(operation.jobId, operation.tenantId);
+    }
+
+    if (operation.type === "retry_domain_verify" && operation.domain) {
+      await executeRetryDomainVerify(operation.domain, operation.tenantId);
+    }
+
     await recordCampamentoEvent({
       tenantId: operation.tenantId,
       saasId: null,

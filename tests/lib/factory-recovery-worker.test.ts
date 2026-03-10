@@ -4,10 +4,17 @@ async function loadSubject() {
   const listPendingRecoveryOperations = vi.fn();
   const markRecoveryOperationCompleted = vi.fn();
   const recordCampamentoEvent = vi.fn();
+  const executeRetryJob = vi.fn();
+  const executeRetryDomainVerify = vi.fn();
 
   vi.doMock("@/lib/factory/recovery-queue", () => ({
     listPendingRecoveryOperations,
     markRecoveryOperationCompleted,
+  }));
+
+  vi.doMock("@/lib/factory/recovery-executors", () => ({
+    executeRetryJob,
+    executeRetryDomainVerify,
   }));
 
   vi.doMock("@/lib/empire/events", () => ({
@@ -21,6 +28,8 @@ async function loadSubject() {
     listPendingRecoveryOperations,
     markRecoveryOperationCompleted,
     recordCampamentoEvent,
+    executeRetryJob,
+    executeRetryDomainVerify,
   };
 }
 
@@ -36,6 +45,8 @@ describe("processPendingRecoveryOperations", () => {
       listPendingRecoveryOperations,
       markRecoveryOperationCompleted,
       recordCampamentoEvent,
+      executeRetryJob,
+      executeRetryDomainVerify,
     } = await loadSubject();
 
     listPendingRecoveryOperations.mockResolvedValue([
@@ -56,12 +67,16 @@ describe("processPendingRecoveryOperations", () => {
         status: "pending",
       },
     ]);
+    executeRetryJob.mockResolvedValue({ ok: true, success: true });
+    executeRetryDomainVerify.mockResolvedValue({ ok: true, success: true });
     recordCampamentoEvent.mockResolvedValue(undefined);
     markRecoveryOperationCompleted.mockResolvedValue(true);
 
     await processPendingRecoveryOperations();
 
     expect(listPendingRecoveryOperations).toHaveBeenCalledWith();
+    expect(executeRetryDomainVerify).toHaveBeenNthCalledWith(1, "foo.drako.systems", "tenant_owner");
+    expect(executeRetryJob).toHaveBeenNthCalledWith(1, "job_1", "tenant_owner");
     expect(recordCampamentoEvent).toHaveBeenNthCalledWith(1, expect.objectContaining({
       tenantId: "tenant_owner",
       type: "factory.recovery.retry_domain_verify.completed",
@@ -94,6 +109,7 @@ describe("processPendingRecoveryOperations", () => {
       listPendingRecoveryOperations,
       markRecoveryOperationCompleted,
       recordCampamentoEvent,
+      executeRetryJob,
     } = await loadSubject();
 
     listPendingRecoveryOperations.mockResolvedValue([
@@ -106,6 +122,7 @@ describe("processPendingRecoveryOperations", () => {
         status: "pending",
       },
     ]);
+    executeRetryJob.mockResolvedValue({ ok: true, success: true });
     recordCampamentoEvent.mockResolvedValue(undefined);
     markRecoveryOperationCompleted.mockResolvedValue(true);
 
@@ -121,6 +138,7 @@ describe("processPendingRecoveryOperations", () => {
       listPendingRecoveryOperations,
       markRecoveryOperationCompleted,
       recordCampamentoEvent,
+      executeRetryDomainVerify,
     } = await loadSubject();
 
     listPendingRecoveryOperations.mockResolvedValue([
@@ -133,6 +151,7 @@ describe("processPendingRecoveryOperations", () => {
         status: "pending",
       },
     ]);
+    executeRetryDomainVerify.mockResolvedValue({ ok: true, success: true });
     recordCampamentoEvent.mockResolvedValue(undefined);
     markRecoveryOperationCompleted.mockResolvedValue(true);
 
