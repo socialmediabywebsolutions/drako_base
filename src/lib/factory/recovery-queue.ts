@@ -5,7 +5,7 @@ export type FactoryRecoveryOperation = {
   jobId?: string;
   domain?: string;
   createdAt: number;
-  status: "pending";
+  status: "pending" | "completed";
 };
 
 type StoredFactoryRecoveryOperation = FactoryRecoveryOperation & {
@@ -64,4 +64,14 @@ export async function listPendingRecoveryOperations(params?: {
     })
     .map(({ sequence: _sequence, ...operation }) => operation)
     .slice(0, limit);
+}
+
+export async function markRecoveryOperationCompleted(operationId: string): Promise<boolean> {
+  const operation = operations.find((entry) => entry.id === operationId);
+  if (!operation || operation.status !== "pending") {
+    return false;
+  }
+
+  operation.status = "completed";
+  return true;
 }

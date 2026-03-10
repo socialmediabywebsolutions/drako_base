@@ -92,4 +92,21 @@ describe("factory recovery queue", () => {
       jobId: "job_new",
     });
   });
+
+  it("marks operations as completed so they no longer appear in pending lists", async () => {
+    const { enqueueRecoveryOperation, listPendingRecoveryOperations, markRecoveryOperationCompleted } = await loadSubject();
+
+    const enqueued = await enqueueRecoveryOperation({
+      tenantId: "tenant_owner",
+      type: "retry_domain_verify",
+      domain: "foo.drako.systems",
+    });
+
+    await expect(markRecoveryOperationCompleted(enqueued.id)).resolves.toBe(true);
+
+    const operations = await listPendingRecoveryOperations({ tenantId: "tenant_owner" });
+
+    expect(operations).toEqual([]);
+    await expect(markRecoveryOperationCompleted(enqueued.id)).resolves.toBe(false);
+  });
 });
