@@ -1,0 +1,303 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mockDb } from "@/__tests__/setup";
+import { env as resolveEnv } from "@/lib/cf";
+import {
+  createCloudflareFetch,
+  createProvisioningHarnessStore,
+  installProvisioningDbMock,
+  type ProvisioningHarnessStore,
+} from "./factory-create-saas.helpers";
+
+// High-fidelity integration flow test. The file keeps the `e2e` name because it
+// exercises the canonical route -> queue -> consumer -> orchestrator pipeline,
+// but the backing infra is deterministic in-memory test harnesses.
+
+const mocks = vi.hoisted(() => {
+  class UnauthorizedError extends Error {
+    status: number;
+
+    constructor(message = "Unauthorized", status = 401) {
+      super(message);
+      this.name = "UnauthorizedError";
+      this.status = status;
+    }
+  }
+
+  return {
+    extractSessionFromRequest: vi.fn(),
+    authorizeSaasAccess: vi.fn(),
+    requireOwnerAccess: vi.fn(),
+    ensureCampamentoBase: vi.fn(),
+    domainFetchImpl: vi.fn(),
+    UnauthorizedError,
+  };
+});
+
+vi.mock("@/lib/edge-auth", () => ({
+  extractSessionFromRequest: mocks.extractSessionFromRequest,
+}));
+
+vi.mock("@/lib/authz/saas-access", () => ({
+  authorizeSaasAccess: mocks.authorizeSaasAccess,
+}));
+
+vi.mock("@/lib/auth/session", () => ({
+  requireOwnerAccess: mocks.requireOwnerAccess,
+  UnauthorizedError: mocks.UnauthorizedError,
+}));
+
+vi.mock("@/lib/campamento-base", () => ({
+  ensureCampamentoBase: mocks.ensureCampamentoBase,
+}));
+
+vi.mock("@/lib/domains/domain-provider", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/domains/domain-provider")>();
+  return {
+    ...actual,
+    createDomainBinding: (input: Parameters<typeof actual.createDomainBinding>[0]) =>
+      actual.createDomainBinding({ ...input, fetchImpl: mocks.domainFetchImpl as unknown as typeof fetch }),
+    verifyDomainBinding: (input: Parameters<typeof actual.verifyDomainBinding>[0]) =>
+      actual.verifyDomainBinding({ ...input, fetchImpl: mocks.domainFetchImpl as unknown as typeof fetch }),
+    deleteDomainBinding: (input: Parameters<typeof actual.deleteDomainBinding>[0]) =>
+      actual.deleteDomainBinding({ ...input, fetchImpl: mocks.domainFetchImpl as unknown as typeof fetch }),
+  };
+});
+
+import { POST as createSaas } from "@/app/api/owner/saas-factory/create-saas/route";
+import { GET as getJobStatus } from "@/app/api/owner/saas-factory/jobs/[jobId]/route";
+import { GET as getDomainsHealth } from "@/app/api/owner/domains/health/route";
+import { processQueueBatch } from "../../workers/drako-scheduler/src/consumer";
+
+type JobStatusPayload = {
+  ok: boolean;
+  correlationId: string;
+  job: {
+    jobId: string;
+    saasId: string;
+    state: string;
+    rawState: string;
+    timeline: Array<{ type: string; step: string; state: string; status: string; details: string | null }>;
+  };
+};
+
+type DomainsHealthPayload = {
+  ok: boolean;
+  pendingDomains: Array<{ hostname: string; status: string; saasId: string }>;
+  degradedJobs: Array<{ jobId: string; hostname: string | null; state: string }>;
+  slo: { degraded: boolean };
+};
+
+type CreateSaasPayload = {
+  ok: boolean;
+  jobId: string;
+  correlationId: string;
+};
+
+function createRuntimeEnv(store: ProvisioningHarnessStore) {
+  return {
+    DRACO_DB: mockDb,
+    PROVISIONING_QUEUE: {
+      send: vi.fn(async (message: { jobId: string; type: string; correlationId: string; tenantId: string }) => {
+        store.sentQueueMessages.push(message);
+      }),
+    },
+    DRAKO_BASE_DOMAIN: "drako.systems",
+    CLOUDFLARE_API_TOKEN: "token",
+    CLOUDFLARE_ZONE_ID: "zone_1",
+    PROVISION_DOMAIN_VERIFY_RETRIES: "0",
+    PROVISION_DOMAIN_VERIFY_BACKOFF_MS: "0",
+    PROVISION_DOMAIN_VERIFY_MAX_BACKOFF_MS: "0",
+    PROVISION_DOMAIN_VERIFY_JITTER_MS: "0",
+    PROVISION_DOMAIN_VERIFY_TIMEOUT_MS: "1",
+  };
+}
+
+function buildCreateRequest(slug: string) {
+  return new Request("https://drako.systems/api/owner/saas-factory/create-saas", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-correlation-id": `corr_${slug}`,
+    },
+    body: JSON.stringify({
+      name: `Factory ${slug}`,
+      slug,
+      idempotencyKey: `idem_${slug}_0001`,
+      plans: [{ planCode: "pro", monthlyPriceCents: 2900 }],
+    }),
+  }) as any;
+}
+
+function findJobRecord(store: ProvisioningHarnessStore, jobId: string) {
+  return store.provisioningJobs.find((job) => job.job_id === jobId);
+}
+
+function findDomainRow(store: ProvisioningHarnessStore, saasId: string) {
+  return store.saasDomains.find((row) => row.saas_id === saasId && row.is_primary === 1);
+}
+
+async function runQueuedJob(
+  store: ProvisioningHarnessStore,
+  env: ReturnType<typeof createRuntimeEnv>,
+  jobId: string,
+) {
+  const message = store.sentQueueMessages.find((candidate) => candidate.jobId === jobId);
+  expect(message).toBeTruthy();
+
+  const ack = vi.fn();
+  const retry = vi.fn();
+  const batch = {
+    messages: [
+      {
+        id: `msg_${message.jobId}`,
+        body: message,
+        ack,
+        retry,
+      },
+    ],
+  } as any;
+
+  await processQueueBatch(batch, env as any);
+
+  expect(retry).not.toHaveBeenCalled();
+  expect(ack).toHaveBeenCalledTimes(1);
+}
+
+async function fetchJob(jobId: string) {
+  const jobResponse = await getJobStatus(
+    new Request(`https://drako.systems/api/owner/saas-factory/jobs/${jobId}`) as any,
+    { params: Promise.resolve({ jobId }) },
+  );
+  expect(jobResponse.status).toBe(200);
+  return await jobResponse.json() as JobStatusPayload;
+}
+
+async function fetchDomainsHealth() {
+  const healthResponse = await getDomainsHealth(
+    new Request("https://drako.systems/api/owner/domains/health?limit=10") as any,
+  );
+  expect(healthResponse.status).toBe(200);
+  return await healthResponse.json() as DomainsHealthPayload;
+}
+
+function parseEventMetadata(store: ProvisioningHarnessStore, type: string) {
+  return store.campamentoEvents
+    .filter((event) => event.type === type)
+    .map((event) => ({
+      ...event,
+      parsedMetadata: event.metadata ? (JSON.parse(event.metadata) as Record<string, unknown>) : null,
+    }));
+}
+
+function expectNoRollback(jobPayload: JobStatusPayload) {
+  expect(jobPayload.job.timeline.some((entry) => entry.type === "rollback")).toBe(false);
+}
+
+function expectNoFailureOutcome(store: ProvisioningHarnessStore, correlationId: string) {
+  expect(
+    store.campamentoEvents.some(
+      (event) =>
+        event.correlation_id === correlationId
+        && event.type === "provision.saas_factory.job.failed",
+    ),
+  ).toBe(false);
+}
+
+function expectActiveDomainsOmittedFromHealth(healthPayload: DomainsHealthPayload, hostname: string) {
+  // /api/owner/domains/health only reports pending/provisioning domains and degraded jobs.
+  expect(healthPayload.pendingDomains.some((domain) => domain.hostname === hostname)).toBe(false);
+}
+
+describe("factory create-saas e2e", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.ensureCampamentoBase.mockResolvedValue(undefined);
+    mocks.extractSessionFromRequest.mockResolvedValue({
+      userId: "owner_user",
+      email: "owner@drako.systems",
+      tenantId: "tenant_owner",
+      role: "admin",
+      iat: 1,
+      exp: 9_999_999_999,
+    });
+    mocks.authorizeSaasAccess.mockResolvedValue({ authorized: true });
+    mocks.requireOwnerAccess.mockResolvedValue({ tenantId: "tenant_owner" });
+  });
+
+  it("runs the canonical pipeline to SUCCESS with an active domain", async () => {
+    const store = createProvisioningHarnessStore();
+    const runtimeEnv = createRuntimeEnv(store);
+    vi.mocked(resolveEnv).mockReturnValue(runtimeEnv);
+    installProvisioningDbMock(mockDb, store);
+    mocks.domainFetchImpl.mockImplementation(createCloudflareFetch({ verifyStatuses: ["active"], createStatus: "pending" }));
+
+    const createResponse = await createSaas(buildCreateRequest("e2e-success-saas"));
+    expect(createResponse.status).toBe(202);
+
+    const createPayload = await createResponse.json() as CreateSaasPayload;
+    expect(createPayload.ok).toBe(true);
+    expect(createPayload.jobId).toBeTruthy();
+    expect(store.sentQueueMessages).toHaveLength(1);
+
+    await runQueuedJob(store, runtimeEnv, createPayload.jobId);
+
+    const jobPayload = await fetchJob(createPayload.jobId);
+    expect(jobPayload.job.state).toBe("SUCCESS");
+    expect(jobPayload.job.rawState).toBe("SUCCESS");
+    expect(jobPayload.job.timeline.some((entry) => entry.step === "COMPLETION")).toBe(true);
+    expectNoRollback(jobPayload);
+
+    const domainRow = findDomainRow(store, jobPayload.job.saasId);
+    expect(domainRow?.status).toBe("active");
+
+    const healthPayload = await fetchDomainsHealth();
+    expect(healthPayload.ok).toBe(true);
+    expectActiveDomainsOmittedFromHealth(healthPayload, domainRow!.domain);
+    expect(healthPayload.degradedJobs.find((job) => job.jobId === createPayload.jobId)).toBeUndefined();
+    expect(healthPayload.slo.degraded).toBe(false);
+
+    const finalEvents = parseEventMetadata(store, "provision.saas_factory.job.succeeded");
+    expect(finalEvents.some((event) => event.parsedMetadata?.finalState === "SUCCESS")).toBe(true);
+    expectNoFailureOutcome(store, createPayload.correlationId);
+    expect(findJobRecord(store, createPayload.jobId)?.rollback_history_json).toBe("[]");
+  });
+
+  it("runs the canonical pipeline to DEGRADED without destructive rollback", async () => {
+    const store = createProvisioningHarnessStore();
+    const runtimeEnv = createRuntimeEnv(store);
+    vi.mocked(resolveEnv).mockReturnValue(runtimeEnv);
+    installProvisioningDbMock(mockDb, store);
+    mocks.domainFetchImpl.mockImplementation(createCloudflareFetch({ verifyStatuses: ["pending"], createStatus: "pending" }));
+
+    const createResponse = await createSaas(buildCreateRequest("e2e-degraded-saas"));
+    expect(createResponse.status).toBe(202);
+
+    const createPayload = await createResponse.json() as CreateSaasPayload;
+    expect(createPayload.ok).toBe(true);
+    expect(createPayload.jobId).toBeTruthy();
+
+    await runQueuedJob(store, runtimeEnv, createPayload.jobId);
+
+    const jobPayload = await fetchJob(createPayload.jobId);
+    expect(jobPayload.job.state).toBe("DEGRADED");
+    expect(jobPayload.job.rawState).toBe("DEGRADED");
+    expect(jobPayload.job.timeline.some((entry) => entry.step === "DEGRADED_COMPLETION")).toBe(true);
+    expectNoRollback(jobPayload);
+
+    const domainRow = findDomainRow(store, jobPayload.job.saasId);
+    expect(domainRow?.status).toBe("pending");
+    expect(store.saas.find((row) => row.id === jobPayload.job.saasId)).toBeTruthy();
+    expect(store.saasInstances.find((row) => row.id === jobPayload.job.saasId)).toBeTruthy();
+
+    const healthPayload = await fetchDomainsHealth();
+    expect(healthPayload.pendingDomains.some((domain) => domain.hostname === domainRow?.domain)).toBe(true);
+    expect(healthPayload.degradedJobs.some((job) => job.jobId === createPayload.jobId && job.state === "DEGRADED")).toBe(true);
+    expect(healthPayload.slo.degraded).toBe(false);
+
+    const finalEvents = parseEventMetadata(store, "provision.saas_factory.job.succeeded");
+    expect(finalEvents.some((event) => event.parsedMetadata?.finalState === "DEGRADED")).toBe(true);
+    expect(store.campamentoEvents.some((event) => event.type === "provision.domain.degraded")).toBe(true);
+    expectNoFailureOutcome(store, createPayload.correlationId);
+    expect(findJobRecord(store, createPayload.jobId)?.rollback_history_json).toBe("[]");
+  });
+});
