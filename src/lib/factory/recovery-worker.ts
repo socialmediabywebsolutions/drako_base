@@ -32,8 +32,9 @@ function buildMetadata(operation: FactoryRecoveryOperation): Record<string, unkn
   };
 }
 
-export async function processPendingRecoveryOperations(): Promise<void> {
+export async function processPendingRecoveryOperations(): Promise<number> {
   const operations = await listPendingRecoveryOperations();
+  let processedOperationsCount = 0;
 
   for (const operation of operations) {
     if (operation.type === "retry_job" && operation.jobId) {
@@ -56,5 +57,8 @@ export async function processPendingRecoveryOperations(): Promise<void> {
     });
 
     await markRecoveryOperationCompleted(operation.id);
+    processedOperationsCount += 1;
   }
+
+  return processedOperationsCount;
 }

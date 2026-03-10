@@ -126,7 +126,7 @@ describe("processPendingRecoveryOperations", () => {
     recordCampamentoEvent.mockResolvedValue(undefined);
     markRecoveryOperationCompleted.mockResolvedValue(true);
 
-    await processPendingRecoveryOperations();
+    await expect(processPendingRecoveryOperations()).resolves.toBe(1);
 
     expect(markRecoveryOperationCompleted).toHaveBeenCalledTimes(1);
     expect(markRecoveryOperationCompleted).toHaveBeenCalledWith("op_job");
@@ -155,7 +155,7 @@ describe("processPendingRecoveryOperations", () => {
     recordCampamentoEvent.mockResolvedValue(undefined);
     markRecoveryOperationCompleted.mockResolvedValue(true);
 
-    await processPendingRecoveryOperations();
+    await expect(processPendingRecoveryOperations()).resolves.toBe(1);
 
     expect(recordCampamentoEvent).toHaveBeenCalledTimes(1);
     expect(recordCampamentoEvent).toHaveBeenCalledWith(expect.objectContaining({
@@ -163,5 +163,41 @@ describe("processPendingRecoveryOperations", () => {
       type: "factory.recovery.retry_domain_verify.completed",
       message: "Recovery worker accepted retry for domain foo.drako.systems.",
     }));
+  });
+
+  it("returns the number of processed operations", async () => {
+    const {
+      processPendingRecoveryOperations,
+      listPendingRecoveryOperations,
+      markRecoveryOperationCompleted,
+      recordCampamentoEvent,
+      executeRetryJob,
+      executeRetryDomainVerify,
+    } = await loadSubject();
+
+    listPendingRecoveryOperations.mockResolvedValue([
+      {
+        id: "op_2",
+        tenantId: "tenant_owner",
+        type: "retry_domain_verify",
+        domain: "foo.drako.systems",
+        createdAt: 2,
+        status: "pending",
+      },
+      {
+        id: "op_1",
+        tenantId: "tenant_owner",
+        type: "retry_job",
+        jobId: "job_1",
+        createdAt: 1,
+        status: "pending",
+      },
+    ]);
+    executeRetryJob.mockResolvedValue({ ok: true, success: true });
+    executeRetryDomainVerify.mockResolvedValue({ ok: true, success: true });
+    recordCampamentoEvent.mockResolvedValue(undefined);
+    markRecoveryOperationCompleted.mockResolvedValue(true);
+
+    await expect(processPendingRecoveryOperations()).resolves.toBe(2);
   });
 });
