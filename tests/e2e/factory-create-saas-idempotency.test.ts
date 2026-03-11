@@ -7,6 +7,7 @@ import {
   createCloudflareFetch,
   createFactoryRuntimeEnv,
   createProvisioningHarnessStore,
+  findCustomDomainRow,
   findPrimaryDomainRow,
   findProvisioningJob,
   installProvisioningDbMock,
@@ -138,5 +139,72 @@ describe("factory create-saas idempotency", () => {
 
     expect(parseEventMetadata(store, "provision.saas_factory.job.queued")).toHaveLength(1);
     expect(parseEventMetadata(store, "provision.saas_factory.job.reused")).toHaveLength(2);
+  });
+
+  it("preserves requested custom-domain state across idempotent replays", async () => {
+    const store = createProvisioningHarnessStore();
+    const runtimeEnv = createFactoryRuntimeEnv({ db: mockDb, store });
+    vi.mocked(resolveEnv).mockReturnValue(runtimeEnv);
+    installProvisioningDbMock(mockDb, store);
+    factoryCreateSaasMocks.domainFetchImpl.mockImplementation(
+      createCloudflareFetch({
+        verifyStatuses: ["active"],
+        createStatus: "pending",
+        hostnameStatuses: {
+          "e2e-idempotent-custom-saas.drako.systems": ["active"],
+          "app.e2e-idempotent-custom.com": ["active"],
+        },
+      }),
+    );
+
+    const requestParams = {
+      slug: "e2e-idempotent-custom-saas",
+      idempotencyKey: "idem_e2e_idempotent_custom_0001",
+      correlationId: "corr_e2e_idempotent_custom_0001",
+      customDomainRequested: "app.e2e-idempotent-custom.com",
+    } as const;
+
+    const firstResponse = await createSaas(buildCreateSaasRequest(requestParams) as any);
+    expect(firstResponse.status).toBe(202);
+    const firstPayload = await firstResponse.json() as CreateSaasPayload;
+
+    const secondResponse = await createSaas(buildCreateSaasRequest(requestParams) as any);
+    expect(secondResponse.status).toBe(200);
+    const secondPayload = await secondResponse.json() as CreateSaasPayload;
+    expect(secondPayload.jobId).toBe(firstPayload.jobId);
+    expect(secondPayload.saasId).toBe(firstPayload.saasId);
+    expect(secondPayload.state).toBe("CREATED");
+
+    await processQueuedFactoryJob(store, runtimeEnv, firstPayload.jobId);
+
+    const jobPayload = await fetchJob(firstPayload.jobId);
+    expect(jobPayload.job.state).toBe("SUCCESS");
+
+    const thirdResponse = await createSaas(buildCreateSaasRequest(requestParams) as any);
+    expect(thirdResponse.status).toBe(200);
+    const thirdPayload = await thirdResponse.json() as CreateSaasPayload;
+    expect(thirdPayload.state).toBe("SUCCESS");
+
+    const primaryDomainRow = findPrimaryDomainRow(store, jobPayload.job.saasId);
+    const customDomainRow = findCustomDomainRow(store, jobPayload.job.saasId, "app.e2e-idempotent-custom.com");
+    expect(primaryDomainRow?.status).toBe("active");
+    expect(customDomainRow?.status).toBe("active");
+    expect(store.saasInstances.find((row) => row.id === jobPayload.job.saasId)).toMatchObject({
+      status: "active",
+      trial_domain: primaryDomainRow?.domain,
+      custom_domain: "app.e2e-idempotent-custom.com",
+      domain_status: "active",
+    });
+    const provisioningPlan = store.campamentoProvisioning.find((row) => row.saas_id === jobPayload.job.saasId)?.plan;
+    const parsedPlan = provisioningPlan ? JSON.parse(provisioningPlan) as {
+      bootstrap?: { status?: string };
+      customDomainDeployment?: { status?: string; requestedDomain?: string; verificationReady?: boolean };
+    } : null;
+    expect(parsedPlan?.bootstrap?.status).toBe("ready");
+    expect(parsedPlan?.customDomainDeployment).toMatchObject({
+      status: "active",
+      requestedDomain: "app.e2e-idempotent-custom.com",
+      verificationReady: true,
+    });
   });
 });

@@ -48,6 +48,14 @@ type OrchestratorPayload = SaasBlueprintDraft & {
     featureBaselineReady: boolean;
     degradedReason: string | null;
   };
+  customDomainDeployment?: {
+    requestedDomain: string;
+    bindingId: string | null;
+    providerStatus: string;
+    status: "pending" | "active" | "degraded";
+    verificationReady: boolean;
+    degradedReason: string | null;
+  } | null;
 };
 
 type RuntimeContractStatus = "provisioning" | "active" | "degraded";
@@ -88,6 +96,17 @@ type BootstrapDeploymentResult = {
   degradedReason: string | null;
 };
 
+type CustomDomainContractStatus = "pending" | "active" | "degraded";
+
+type CustomDomainDeploymentResult = {
+  requestedDomain: string;
+  bindingId: string | null;
+  providerStatus: string;
+  status: CustomDomainContractStatus;
+  verificationReady: boolean;
+  degradedReason: string | null;
+};
+
 type ProvisioningContractPlan = {
   runtimeName?: string;
   routeType?: "trial_domain";
@@ -95,6 +114,7 @@ type ProvisioningContractPlan = {
   customDomain?: string | null;
   runtime?: RuntimeDeploymentResult;
   bootstrap?: BootstrapDeploymentResult;
+  customDomainDeployment?: CustomDomainDeploymentResult | null;
 };
 
 type BootstrapSnapshot = {
@@ -133,6 +153,8 @@ type VerifyDomainWithRetryInput = {
   saasId: string;
   jobId: string;
   failOnNonActive?: boolean;
+  eventTypePrefix?: string;
+  subject?: string;
 };
 
 type VerifyDomainWithRetryResult = {
@@ -140,6 +162,28 @@ type VerifyDomainWithRetryResult = {
   attempts: number;
   waitedMs: number;
   isActive: boolean;
+};
+
+type CustomDomainSnapshot = {
+  saasStatus: string | null;
+  saasDomainStatus: string | null;
+  instanceStatus: string | null;
+  instanceTrialDomain: string | null;
+  instanceCustomDomain: string | null;
+  instanceDomainStatus: string | null;
+  runtimeContractStatus: string | null;
+  runtimeActivationReady: boolean;
+  bootstrapContractStatus: string | null;
+  bootstrapReadinessMarker: string | null;
+  customDomainRowDomain: string | null;
+  customDomainRowStatus: string | null;
+  customDomainRowIsPrimary: boolean;
+  customDomainContractStatus: string | null;
+  customDomainRequestedDomain: string | null;
+  customDomainBindingId: string | null;
+  customDomainProviderStatus: string | null;
+  customDomainVerificationReady: boolean;
+  customDomainDegradedReason: string | null;
 };
 
 const CANONICAL_RUNTIME_NAME = "shared_open_next_runtime";
@@ -221,6 +265,21 @@ function buildPendingBootstrapContract(): BootstrapDeploymentResult {
   };
 }
 
+function buildPendingCustomDomainContract(requestedDomain: string): CustomDomainDeploymentResult {
+  return {
+    requestedDomain,
+    bindingId: null,
+    providerStatus: "pending",
+    status: "pending",
+    verificationReady: false,
+    degradedReason: null,
+  };
+}
+
+function normalizePersistedDomainRowStatus(status: string): "active" | "pending" {
+  return normalizeRuntimeDomainStatus(status) === "active" ? "active" : "pending";
+}
+
 function deriveBootstrapFeatureKeys(blueprint: SaasBlueprintDraft): SaasFeatureKey[] {
   const keys = new Set<SaasFeatureKey>(TRIAL_BOOTSTRAP_BASELINE);
   normalizeFeatureKeyList(blueprint.initialFeatures ?? []).forEach((featureKey) => keys.add(featureKey));
@@ -290,6 +349,7 @@ async function upsertProvisioningContract(params: {
   correlationId: string;
   runtime: RuntimeDeploymentResult;
   bootstrap?: BootstrapDeploymentResult | null;
+  customDomainDeployment?: CustomDomainDeploymentResult | null;
   lastError?: string | null;
 }) {
   const now = new Date().toISOString();
@@ -298,6 +358,13 @@ async function upsertProvisioningContract(params: {
     saasId: params.saasId,
   });
   const bootstrap = params.bootstrap ?? current.plan.bootstrap ?? buildPendingBootstrapContract();
+  const customDomainDeployment = params.customDomainDeployment === undefined
+    ? (
+      params.runtime.customDomain
+        ? current.plan.customDomainDeployment ?? buildPendingCustomDomainContract(params.runtime.customDomain)
+        : null
+    )
+    : params.customDomainDeployment;
   const plan = JSON.stringify({
     ...current.plan,
     runtimeName: CANONICAL_RUNTIME_NAME,
@@ -306,6 +373,7 @@ async function upsertProvisioningContract(params: {
     customDomain: params.runtime.customDomain,
     runtime: params.runtime,
     bootstrap,
+    customDomainDeployment,
   } satisfies ProvisioningContractPlan);
 
   await run(
@@ -855,6 +923,248 @@ async function bootstrapCanonicalSaas(params: {
   return bootstrapDeployment;
 }
 
+async function loadCustomDomainSnapshot(params: {
+  tenantId: string;
+  saasId: string;
+  requestedDomain: string;
+}): Promise<CustomDomainSnapshot> {
+  const [saasRow, instanceRow, provisioningRecord, customDomainRow] = await Promise.all([
+    queryOne<{
+      status: string | null;
+      domain_status: string | null;
+    }>(
+      `SELECT status, domain_status
+       FROM saas
+       WHERE id = ? AND tenant_id = ?
+       LIMIT 1`,
+      params.saasId,
+      params.tenantId,
+    ),
+    queryOne<{
+      status: string | null;
+      trial_domain: string | null;
+      custom_domain: string | null;
+      domain_status: string | null;
+    }>(
+      `SELECT status, trial_domain, custom_domain, domain_status
+       FROM saas_instances
+       WHERE id = ? AND tenant_id = ?
+       LIMIT 1`,
+      params.saasId,
+      params.tenantId,
+    ),
+    loadProvisioningContractRecord({
+      tenantId: params.tenantId,
+      saasId: params.saasId,
+    }),
+    queryOne<{
+      domain: string | null;
+      is_primary: number | null;
+      status: string | null;
+    }>(
+      `SELECT domain, is_primary, status
+       FROM saas_domains
+       WHERE tenant_id = ? AND saas_id = ? AND lower(domain) = lower(?)
+       LIMIT 1`,
+      params.tenantId,
+      params.saasId,
+      params.requestedDomain,
+    ),
+  ]);
+
+  const runtime = provisioningRecord.plan.runtime;
+  const bootstrap = provisioningRecord.plan.bootstrap;
+  const customDomain = provisioningRecord.plan.customDomainDeployment;
+
+  return {
+    saasStatus: saasRow?.status ?? null,
+    saasDomainStatus: saasRow?.domain_status ?? null,
+    instanceStatus: instanceRow?.status ?? null,
+    instanceTrialDomain: instanceRow?.trial_domain ?? null,
+    instanceCustomDomain: instanceRow?.custom_domain ?? null,
+    instanceDomainStatus: instanceRow?.domain_status ?? null,
+    runtimeContractStatus: runtime?.status ?? provisioningRecord.status ?? null,
+    runtimeActivationReady: Boolean(runtime?.activationReady),
+    bootstrapContractStatus: bootstrap?.status ?? null,
+    bootstrapReadinessMarker: bootstrap?.readinessMarker ?? null,
+    customDomainRowDomain: customDomainRow?.domain ?? null,
+    customDomainRowStatus: customDomainRow?.status ?? null,
+    customDomainRowIsPrimary: customDomainRow?.is_primary === 1,
+    customDomainContractStatus: customDomain?.status ?? null,
+    customDomainRequestedDomain: customDomain?.requestedDomain ?? null,
+    customDomainBindingId: customDomain?.bindingId ?? null,
+    customDomainProviderStatus: customDomain?.providerStatus ?? null,
+    customDomainVerificationReady: Boolean(customDomain?.verificationReady),
+    customDomainDegradedReason: customDomain?.degradedReason ?? provisioningRecord.lastError,
+  };
+}
+
+function isCustomDomainReady(snapshot: CustomDomainSnapshot, expected: CustomDomainDeploymentResult): boolean {
+  return snapshot.saasStatus === "active"
+    && snapshot.saasDomainStatus === "active"
+    && snapshot.instanceStatus === "active"
+    && snapshot.instanceDomainStatus === "active"
+    && snapshot.runtimeContractStatus === "active"
+    && snapshot.runtimeActivationReady
+    && snapshot.bootstrapContractStatus === "ready"
+    && snapshot.bootstrapReadinessMarker === "bootstrap_ready"
+    && snapshot.instanceCustomDomain === expected.requestedDomain
+    && snapshot.customDomainRowDomain === expected.requestedDomain
+    && snapshot.customDomainRowStatus === "active"
+    && !snapshot.customDomainRowIsPrimary
+    && snapshot.customDomainContractStatus === "active"
+    && snapshot.customDomainRequestedDomain === expected.requestedDomain
+    && snapshot.customDomainBindingId === expected.bindingId
+    && snapshot.customDomainProviderStatus === "active"
+    && snapshot.customDomainVerificationReady
+    && snapshot.customDomainDegradedReason === null;
+}
+
+function isCustomDomainDegradedConsistent(snapshot: CustomDomainSnapshot, expected: CustomDomainDeploymentResult): boolean {
+  return snapshot.saasStatus === "active"
+    && snapshot.saasDomainStatus === "active"
+    && snapshot.instanceStatus === "active"
+    && snapshot.instanceDomainStatus === "active"
+    && snapshot.runtimeContractStatus === "active"
+    && snapshot.runtimeActivationReady
+    && snapshot.bootstrapContractStatus === "ready"
+    && snapshot.bootstrapReadinessMarker === "bootstrap_ready"
+    && snapshot.instanceCustomDomain === expected.requestedDomain
+    && snapshot.customDomainRowDomain === expected.requestedDomain
+    && snapshot.customDomainRowStatus === normalizePersistedDomainRowStatus(expected.providerStatus)
+    && !snapshot.customDomainRowIsPrimary
+    && snapshot.customDomainContractStatus === "degraded"
+    && snapshot.customDomainRequestedDomain === expected.requestedDomain
+    && snapshot.customDomainBindingId === expected.bindingId
+    && snapshot.customDomainProviderStatus === expected.providerStatus
+    && !snapshot.customDomainVerificationReady
+    && snapshot.customDomainDegradedReason === expected.degradedReason
+    && expected.degradedReason !== null;
+}
+
+async function provisionCanonicalCustomDomain(params: {
+  env?: DracoEnv | null;
+  tenantId: string;
+  saasId: string;
+  jobId: string;
+  correlationId: string;
+  runtimeDeployment: RuntimeDeploymentResult;
+}): Promise<CustomDomainDeploymentResult | null> {
+  const requestedDomain = params.runtimeDeployment.customDomain?.trim().toLowerCase() ?? null;
+  if (!requestedDomain) return null;
+
+  const ctx = await resolveSaasContext({ tenantId: params.tenantId, saasId: params.saasId, env: params.env });
+  const createRes = await createDomainBinding({
+    hostname: requestedDomain,
+    correlationId: params.correlationId,
+    envOverride: params.env,
+  });
+  const provisionalDeployment: CustomDomainDeploymentResult = {
+    requestedDomain,
+    bindingId: createRes.bindingId,
+    providerStatus: normalizeRuntimeDomainStatus(createRes.providerStatus),
+    status: "pending",
+    verificationReady: false,
+    degradedReason: null,
+  };
+
+  await upsertSaasDomain(ctx, {
+    id: `factory_custom_domain_${params.saasId}`,
+    saasId: params.saasId,
+    domain: requestedDomain,
+    isPrimary: false,
+    status: normalizePersistedDomainRowStatus(createRes.providerStatus),
+  });
+
+  await upsertProvisioningContract({
+    tenantId: params.tenantId,
+    saasId: params.saasId,
+    correlationId: params.correlationId,
+    runtime: params.runtimeDeployment,
+    customDomainDeployment: provisionalDeployment,
+  });
+
+  const verifyResult = await verifyDomainWithRetry({
+    hostname: requestedDomain,
+    bindingId: createRes.bindingId ?? undefined,
+    correlationId: params.correlationId,
+    env: params.env,
+    tenantId: params.tenantId,
+    saasId: params.saasId,
+    jobId: params.jobId,
+    failOnNonActive: false,
+    eventTypePrefix: "provision.custom_domain.verify",
+    subject: "Custom domain",
+  });
+  const providerStatus = normalizeRuntimeDomainStatus(verifyResult.result.providerStatus);
+
+  await upsertSaasDomain(ctx, {
+    id: `factory_custom_domain_${params.saasId}`,
+    saasId: params.saasId,
+    domain: requestedDomain,
+    isPrimary: false,
+    status: normalizePersistedDomainRowStatus(providerStatus),
+  });
+
+  const customDomainDeployment: CustomDomainDeploymentResult = verifyResult.isActive
+    ? {
+      requestedDomain,
+      bindingId: verifyResult.result.bindingId,
+      providerStatus,
+      status: "active",
+      verificationReady: true,
+      degradedReason: null,
+    }
+    : {
+      requestedDomain,
+      bindingId: verifyResult.result.bindingId,
+      providerStatus,
+      status: "degraded",
+      verificationReady: false,
+      degradedReason: `CUSTOM_DOMAIN_PENDING:${providerStatus}`,
+    };
+
+  await upsertProvisioningContract({
+    tenantId: params.tenantId,
+    saasId: params.saasId,
+    correlationId: params.correlationId,
+    runtime: params.runtimeDeployment,
+    customDomainDeployment,
+    lastError: customDomainDeployment.status === "degraded"
+      ? `Requested custom domain waiting on provider status ${providerStatus}.`
+      : null,
+  });
+
+  if (params.env?.PROVISIONING_FAULT_AT === "CUSTOM_DOMAIN_CONSISTENCY_BREAK") {
+    await run(
+      `DELETE FROM saas_domains
+       WHERE tenant_id = ? AND saas_id = ? AND lower(domain) = lower(?)`,
+      params.tenantId,
+      params.saasId,
+      requestedDomain,
+    );
+  }
+
+  const snapshot = await loadCustomDomainSnapshot({
+    tenantId: params.tenantId,
+    saasId: params.saasId,
+    requestedDomain,
+  });
+
+  if (customDomainDeployment.status === "active") {
+    if (!isCustomDomainReady(snapshot, customDomainDeployment)) {
+      throw new Error("CANONICAL_CUSTOM_DOMAIN_NOT_READY");
+    }
+    return customDomainDeployment;
+  }
+
+  if (!isCustomDomainDegradedConsistent(snapshot, customDomainDeployment)) {
+    throw new Error("CANONICAL_CUSTOM_DOMAIN_DEGRADED_INCONSISTENT");
+  }
+
+  return customDomainDeployment;
+}
+
 async function recordProvisioningStepEvent(params: {
   tenantId: string;
   saasId: string;
@@ -966,6 +1276,8 @@ async function verifyDomainWithRetry(input: VerifyDomainWithRetryInput): Promise
   let waitedMs = 0;
   let lastError: unknown = null;
   let lastResult: Awaited<ReturnType<typeof verifyDomainBinding>> | null = null;
+  const eventTypePrefix = input.eventTypePrefix ?? "provision.domain.verify";
+  const subject = input.subject ?? "Domain";
 
   for (let attempt = 1; attempt <= retryConfig.maxAttempts; attempt += 1) {
     await recordDomainProviderEvent({
@@ -973,9 +1285,9 @@ async function verifyDomainWithRetry(input: VerifyDomainWithRetryInput): Promise
       saasId: input.saasId,
       correlationId: input.correlationId,
       jobId: input.jobId,
-      type: "provision.domain.verify.attempt",
+      type: `${eventTypePrefix}.attempt`,
       severity: "INFO",
-      message: "Domain verification attempt started.",
+      message: `${subject} verification attempt started.`,
       metadata: {
         hostname: input.hostname,
         bindingId: input.bindingId ?? null,
@@ -998,9 +1310,9 @@ async function verifyDomainWithRetry(input: VerifyDomainWithRetryInput): Promise
           saasId: input.saasId,
           correlationId: input.correlationId,
           jobId: input.jobId,
-          type: "provision.domain.verify.succeeded",
+          type: `${eventTypePrefix}.succeeded`,
           severity: "INFO",
-          message: "Domain verification succeeded.",
+          message: `${subject} verification succeeded.`,
           metadata: {
             hostname: verifyRes.hostname,
             bindingId: verifyRes.bindingId,
@@ -1028,9 +1340,9 @@ async function verifyDomainWithRetry(input: VerifyDomainWithRetryInput): Promise
         saasId: input.saasId,
         correlationId: input.correlationId,
         jobId: input.jobId,
-        type: "provision.domain.verify.failed",
+        type: `${eventTypePrefix}.failed`,
         severity: "ERROR",
-        message: "Domain verification failed after retries.",
+        message: `${subject} verification failed after retries.`,
         metadata: {
           hostname: input.hostname,
           bindingId: input.bindingId ?? null,
@@ -1058,9 +1370,9 @@ async function verifyDomainWithRetry(input: VerifyDomainWithRetryInput): Promise
       saasId: input.saasId,
       correlationId: input.correlationId,
       jobId: input.jobId,
-      type: "provision.domain.verify.retrying",
+      type: `${eventTypePrefix}.retrying`,
       severity: "WARNING",
-      message: "Domain verification pending; retrying.",
+      message: `${subject} verification pending; retrying.`,
       metadata: {
         hostname: input.hostname,
         bindingId: input.bindingId ?? null,
@@ -1561,6 +1873,9 @@ export async function provisionSaaS(params: {
     }
 
     if (currentState === 'BOOTSTRAP_READY') {
+      if (!payload.runtimeDeployment || payload.runtimeDeployment.status !== "active" || !payload.runtimeDeployment.activationReady) {
+        throw new Error("CANONICAL_RUNTIME_ACTIVATION_NOT_READY");
+      }
       if (!payload.bootstrapDeployment) {
         throw new Error("CANONICAL_BOOTSTRAP_MISSING");
       }
@@ -1595,7 +1910,172 @@ export async function provisionSaaS(params: {
         throw new Error("CANONICAL_BOOTSTRAP_NOT_READY");
       }
 
-      await JobRunner.completeJob(jobIdInUse, 'BOOTSTRAP_READY', token!);
+      const requestedCustomDomain = payload.runtimeDeployment?.customDomain?.trim().toLowerCase() ?? null;
+      if (requestedCustomDomain) {
+        const customDomainStartedAt = Date.now();
+        await recordProvisioningStepEvent({
+          tenantId: params.ownerTenantId,
+          saasId: realSaasId,
+          correlationId,
+          jobId: jobIdInUse,
+          step: "custom_domain",
+          phase: "started",
+          severity: "INFO",
+          message: "Canonical custom-domain provisioning started.",
+          metadata: { requestedDomain: requestedCustomDomain },
+        });
+        await recordDomainProviderEvent({
+          tenantId: params.ownerTenantId,
+          saasId: realSaasId,
+          correlationId,
+          jobId: jobIdInUse,
+          type: "provision.custom_domain.create.started",
+          severity: "INFO",
+          message: "Custom-domain binding creation started.",
+          metadata: { hostname: requestedCustomDomain },
+        });
+
+        const customDomainDeployment = await provisionCanonicalCustomDomain({
+          env: params.env,
+          tenantId: params.ownerTenantId,
+          saasId: realSaasId,
+          jobId: jobIdInUse,
+          correlationId,
+          runtimeDeployment: payload.runtimeDeployment,
+        });
+
+        if (!customDomainDeployment) {
+          throw new Error("CANONICAL_CUSTOM_DOMAIN_MISSING");
+        }
+
+        payload = { ...payload, customDomainDeployment };
+        await JobRunner.updatePayload(jobIdInUse, payload, token!);
+
+        await recordDomainProviderEvent({
+          tenantId: params.ownerTenantId,
+          saasId: realSaasId,
+          correlationId,
+          jobId: jobIdInUse,
+          type: "provision.custom_domain.create.succeeded",
+          severity: customDomainDeployment.status === "degraded" ? "WARNING" : "INFO",
+          message: customDomainDeployment.status === "degraded"
+            ? "Custom-domain provisioning completed in degraded mode."
+            : "Custom-domain provisioning completed.",
+          metadata: {
+            hostname: customDomainDeployment.requestedDomain,
+            bindingId: customDomainDeployment.bindingId,
+            providerStatus: customDomainDeployment.providerStatus,
+            status: customDomainDeployment.status,
+            degradedReason: customDomainDeployment.degradedReason,
+            durationMs: Date.now() - customDomainStartedAt,
+          },
+        });
+        if (customDomainDeployment.status === "degraded") {
+          await recordDomainProviderEvent({
+            tenantId: params.ownerTenantId,
+            saasId: realSaasId,
+            correlationId,
+            jobId: jobIdInUse,
+            type: "provision.custom_domain.degraded",
+            severity: "WARNING",
+            message: "Requested custom domain remains non-active after retries.",
+            metadata: {
+              hostname: customDomainDeployment.requestedDomain,
+              bindingId: customDomainDeployment.bindingId,
+              providerStatus: customDomainDeployment.providerStatus,
+              degradedReason: customDomainDeployment.degradedReason,
+            },
+          });
+        }
+        await recordProvisioningStepEvent({
+          tenantId: params.ownerTenantId,
+          saasId: realSaasId,
+          correlationId,
+          jobId: jobIdInUse,
+          step: "custom_domain",
+          phase: "succeeded",
+          severity: customDomainDeployment.status === "degraded" ? "WARNING" : "INFO",
+          message: customDomainDeployment.status === "degraded"
+            ? "Canonical custom-domain provisioning completed in degraded mode."
+            : "Canonical custom-domain provisioning completed.",
+          durationMs: Date.now() - customDomainStartedAt,
+          metadata: {
+            requestedDomain: customDomainDeployment.requestedDomain,
+            providerStatus: customDomainDeployment.providerStatus,
+            customDomainStatus: customDomainDeployment.status,
+            degradedReason: customDomainDeployment.degradedReason,
+          },
+        });
+      } else {
+        payload = { ...payload, customDomainDeployment: null };
+        await JobRunner.updatePayload(jobIdInUse, payload, token!);
+      }
+
+      await JobRunner.transitionState(
+        jobIdInUse,
+        'BOOTSTRAP_READY',
+        'CUSTOM_DOMAIN_READY',
+        token!,
+        requestedCustomDomain
+          ? 'Canonical custom-domain provisioning resolved.'
+          : 'No requested custom domain; canonical domain contract satisfied.',
+      );
+      currentState = 'CUSTOM_DOMAIN_READY';
+    }
+
+    if (currentState === 'CUSTOM_DOMAIN_READY') {
+      if (!payload.runtimeDeployment || payload.runtimeDeployment.status !== "active" || !payload.runtimeDeployment.activationReady) {
+        throw new Error("CANONICAL_RUNTIME_ACTIVATION_NOT_READY");
+      }
+      if (!payload.bootstrapDeployment) {
+        throw new Error("CANONICAL_BOOTSTRAP_MISSING");
+      }
+
+      if (payload.bootstrapDeployment.status !== "ready") {
+        throw new Error("CANONICAL_BOOTSTRAP_NOT_READY");
+      }
+
+      const requestedCustomDomain = payload.runtimeDeployment?.customDomain?.trim().toLowerCase() ?? null;
+      if (requestedCustomDomain) {
+        if (!payload.customDomainDeployment) {
+          throw new Error("CANONICAL_CUSTOM_DOMAIN_MISSING");
+        }
+
+        if (payload.customDomainDeployment.status === "degraded") {
+          await JobRunner.markDegraded(
+            jobIdInUse,
+            'CUSTOM_DOMAIN_READY',
+            token!,
+            payload.customDomainDeployment.degradedReason
+              ?? `Requested custom domain remains non-active (${payload.customDomainDeployment.providerStatus}).`,
+          );
+          await recordProvisioningStepEvent({
+            tenantId: params.ownerTenantId,
+            saasId: realSaasId,
+            correlationId,
+            jobId: jobIdInUse,
+            step: "job",
+            phase: "succeeded",
+            severity: "WARNING",
+            message: "Provisioning completed in degraded mode after custom-domain provisioning.",
+            durationMs: Date.now() - executionStartedAt,
+            metadata: {
+              finalState: "DEGRADED",
+              bootstrapStatus: payload.bootstrapDeployment.status,
+              customDomainStatus: payload.customDomainDeployment.status,
+              requestedDomain: payload.customDomainDeployment.requestedDomain,
+              degradedReason: payload.customDomainDeployment.degradedReason,
+            },
+          });
+          return { saasId: realSaasId, status: 'DEGRADED' };
+        }
+
+        if (payload.customDomainDeployment.status !== "active" || !payload.customDomainDeployment.verificationReady) {
+          throw new Error("CANONICAL_CUSTOM_DOMAIN_NOT_READY");
+        }
+      }
+
+      await JobRunner.completeJob(jobIdInUse, 'CUSTOM_DOMAIN_READY', token!);
       await recordProvisioningStepEvent({
         tenantId: params.ownerTenantId,
         saasId: realSaasId,
@@ -1610,6 +2090,8 @@ export async function provisionSaaS(params: {
           finalState: "SUCCESS",
           bootstrapStatus: payload.bootstrapDeployment.status,
           readinessMarker: payload.bootstrapDeployment.readinessMarker,
+          customDomainStatus: payload.customDomainDeployment?.status ?? "not_requested",
+          requestedDomain: payload.customDomainDeployment?.requestedDomain ?? null,
         },
       });
       return { saasId: realSaasId, status: 'SUCCESS' };
@@ -1645,7 +2127,7 @@ export async function provisionSaaS(params: {
       // (In memory 'payload' variable is updated, but let's assume worst case crash recovery logic would read DB)
       const domains = computeDomainsForSaas(normalized);
 
-      if (currentState === 'BOOTSTRAP_READY' || currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'RUNNING') {
+      if (currentState === 'CUSTOM_DOMAIN_READY' || currentState === 'BOOTSTRAP_READY' || currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'RUNNING') {
         const domains = computeDomainsForSaas(normalized);
         await deleteDomainBinding({
           hostname: domains.primaryHostname,
@@ -1653,17 +2135,25 @@ export async function provisionSaaS(params: {
           correlationId,
           envOverride: params.env,
         });
+        if (domains.customHostname || payload.customDomainDeployment?.requestedDomain) {
+          await deleteDomainBinding({
+            hostname: payload.customDomainDeployment?.requestedDomain ?? domains.customHostname!,
+            bindingId: payload.customDomainDeployment?.bindingId ?? undefined,
+            correlationId,
+            envOverride: params.env,
+          });
+        }
         await run(`DELETE FROM saas_domains WHERE tenant_id = ? AND saas_id = ?`, params.ownerTenantId, realSaasId);
         await JobRunner.logRollback(jobIdInUse, 'DOMAINS_ROLLED_BACK', `Deleted hostname binding ${domains.primaryHostname}`);
       }
 
-      if (currentState === 'BOOTSTRAP_READY' || currentState === 'VERIFY_DOMAIN') {
+      if (currentState === 'CUSTOM_DOMAIN_READY' || currentState === 'BOOTSTRAP_READY' || currentState === 'VERIFY_DOMAIN') {
         await run(`DELETE FROM saas_features WHERE tenant_id = ? AND saas_id = ?`, params.ownerTenantId, realSaasId);
         await run(`DELETE FROM saas_branding_settings WHERE tenant_id = ? AND saas_id = ?`, params.ownerTenantId, realSaasId);
         await JobRunner.logRollback(jobIdInUse, 'BOOTSTRAP', 'Deleted bootstrap defaults and feature baseline.');
       }
 
-      if (currentState === 'BOOTSTRAP_READY' || currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'RUNTIME_DEPLOYED' || currentState === 'STRIPE_PRODUCT_CREATED') {
+      if (currentState === 'CUSTOM_DOMAIN_READY' || currentState === 'BOOTSTRAP_READY' || currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'RUNTIME_DEPLOYED' || currentState === 'STRIPE_PRODUCT_CREATED') {
         if (payload.stripeProductId) {
           await archiveStripeProductAndPrices({
             env: params.env,
@@ -1673,12 +2163,12 @@ export async function provisionSaaS(params: {
         }
       }
 
-      if (currentState === 'BOOTSTRAP_READY' || currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'RUNTIME_DEPLOYED' || currentState === 'STRIPE_PRODUCT_CREATED') {
+      if (currentState === 'CUSTOM_DOMAIN_READY' || currentState === 'BOOTSTRAP_READY' || currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'RUNTIME_DEPLOYED' || currentState === 'STRIPE_PRODUCT_CREATED') {
         await run(`DELETE FROM campamento_provisioning WHERE tenant_id = ? AND saas_id = ?`, params.ownerTenantId, realSaasId);
         await JobRunner.logRollback(jobIdInUse, 'RUNTIME_CONTRACT', 'Deleted runtime contract state.');
       }
 
-      if (currentState === 'BOOTSTRAP_READY' || currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'RUNTIME_DEPLOYED' || currentState === 'STRIPE_PRODUCT_CREATED' || currentState === 'SAAS_REGISTERED') {
+      if (currentState === 'CUSTOM_DOMAIN_READY' || currentState === 'BOOTSTRAP_READY' || currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'RUNTIME_DEPLOYED' || currentState === 'STRIPE_PRODUCT_CREATED' || currentState === 'SAAS_REGISTERED') {
         await run(`DELETE FROM saas_instances WHERE id = ?`, realSaasId);
         await run(`DELETE FROM saas WHERE id = ?`, realSaasId);
         await JobRunner.logRollback(jobIdInUse, 'DB', 'Deleted SaaS records.');

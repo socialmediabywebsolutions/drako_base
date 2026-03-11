@@ -48,9 +48,9 @@ vi.mock("@/lib/campamento-base/provisioning/stripe-factory", () => ({
 }));
 
 vi.mock("@/lib/campamento-base/provisioning/cloudflare-factory", () => ({
-  computeDomainsForSaas: (blueprint: { proposedSlug: string }) => ({
+  computeDomainsForSaas: (blueprint: { proposedSlug: string; provisioning?: { domains?: { customDomainRequested?: string | null } } }) => ({
     primaryHostname: `${blueprint.proposedSlug}.drako.systems`,
-    customHostname: null,
+    customHostname: blueprint.provisioning?.domains?.customDomainRequested ?? null,
   }),
 }));
 
@@ -97,6 +97,7 @@ const retryEnv = {
 describe("provisioning domain flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    const domainRows = new Map<string, { domain: string; isPrimary: boolean; status: string }>();
     mocks.ensureCampamentoBase.mockResolvedValue(undefined);
     const runtimeSnapshot = {
       saasStatus: "inactive",
@@ -151,6 +152,9 @@ describe("provisioning domain flow", () => {
       if (normalized.startsWith("insert into saas_branding_settings")) {
         runtimeSnapshot.brandingSettingsId = String(params[0]);
       }
+      if (normalized.startsWith("delete from saas_domains") && normalized.includes("lower(domain) = lower(?)")) {
+        domainRows.delete(String(params[2] ?? "").toLowerCase());
+      }
       if (normalized.startsWith("delete from saas_branding_settings where tenant_id = ? and saas_id = ?")) {
         runtimeSnapshot.brandingSettingsId = null;
       }
@@ -162,7 +166,7 @@ describe("provisioning domain flow", () => {
       }
       return true;
     });
-    mocks.queryOne.mockImplementation(async (sql: string) => {
+    mocks.queryOne.mockImplementation(async (sql: string, ...params: unknown[]) => {
       const normalized = sql.replace(/\s+/g, " ").trim().toLowerCase();
       if (normalized.includes("select status, plan, last_error from campamento_provisioning")) {
         return {
@@ -191,6 +195,17 @@ describe("provisioning domain flow", () => {
       if (normalized.includes("from saas_branding_settings where tenant_id = ? and saas_id = ?")) {
         return { id: runtimeSnapshot.brandingSettingsId };
       }
+      if (normalized.includes("from saas_domains") && normalized.includes("lower(domain) = lower(?)")) {
+        const domainKey = String(params[2] ?? "");
+        const row = domainRows.get(domainKey.toLowerCase());
+        return row
+          ? {
+            domain: row.domain,
+            is_primary: row.isPrimary ? 1 : 0,
+            status: row.status,
+          }
+          : null;
+      }
       return null;
     });
     mocks.queryAll.mockImplementation(async (sql: string) => {
@@ -207,7 +222,14 @@ describe("provisioning domain flow", () => {
     mocks.failJob.mockResolvedValue(undefined);
     mocks.logRollback.mockResolvedValue(undefined);
     mocks.resolveSaasContext.mockResolvedValue({ tenantId: "tenant_a", saasId: "saas_1", mode: "live" });
-    mocks.upsertSaasDomain.mockResolvedValue({ id: "factory_domain_saas_1" });
+    mocks.upsertSaasDomain.mockImplementation(async (_ctx, input: { domain: string; isPrimary?: boolean; status?: string }) => {
+      domainRows.set(input.domain.toLowerCase(), {
+        domain: input.domain,
+        isPrimary: Boolean(input.isPrimary),
+        status: input.status ?? "pending",
+      });
+      return { id: input.isPrimary ? "factory_domain_saas_1" : "factory_custom_domain_saas_1" };
+    });
     mocks.recordCampamentoEventSafe.mockResolvedValue({ ok: true, mode: "primary" });
     mocks.deleteDomainBinding.mockResolvedValue({ deleted: true });
   });
@@ -248,7 +270,7 @@ describe("provisioning domain flow", () => {
     const eventTypes = mocks.recordCampamentoEventSafe.mock.calls.map((call) => call[0]?.type);
     expect(eventTypes.filter((eventType) => eventType === "provision.domain.verify.retrying")).toHaveLength(2);
     expect(eventTypes).toContain("provision.domain.verify.succeeded");
-    expect(mocks.completeJob).toHaveBeenCalledWith("job_1", "BOOTSTRAP_READY", { lockVersion: 7, ownerId: "worker_1" });
+    expect(mocks.completeJob).toHaveBeenCalledWith("job_1", "CUSTOM_DOMAIN_READY", { lockVersion: 7, ownerId: "worker_1" });
     expect(mocks.updatePayload).toHaveBeenCalledWith(
       "job_1",
       expect.objectContaining({
@@ -368,6 +390,151 @@ describe("provisioning domain flow", () => {
     expect(eventTypes).toContain("provision.domain.degraded");
   });
 
+  it("completes SUCCESS only when the requested custom domain is canonically active", async () => {
+    const customBlueprint = {
+      ...blueprint,
+      provisioning: {
+        domains: {
+          customDomainRequested: "app.test-saas.com",
+        },
+        stripe: {
+          billingInterval: "MONTHLY",
+          taxProfile: "ES_AUTONOMO",
+          currency: "EUR",
+        },
+        ai: {
+          tier: "BALANCED",
+          preferredProviders: [],
+        },
+      },
+    } as const;
+    mocks.createDomainBinding.mockImplementation(async ({ hostname }: { hostname: string }) => ({
+      hostname,
+      bindingId: hostname === "app.test-saas.com" ? "ch_custom_1" : "ch_1",
+      providerStatus: "pending",
+      alreadyExists: false,
+    }));
+    mocks.verifyDomainBinding.mockImplementation(async ({ hostname }: { hostname: string }) => ({
+      hostname,
+      bindingId: hostname === "app.test-saas.com" ? "ch_custom_1" : "ch_1",
+      providerStatus: "active",
+    }));
+
+    const result = await provisionSaaS({
+      env: retryEnv,
+      ownerTenantId: "tenant_a",
+      blueprint: customBlueprint,
+      preAcquiredToken: { lockVersion: 7, ownerId: "worker_1" },
+      existingJob: {
+        jobId: "job_1",
+        entityId: "saas_1",
+        state: "STRIPE_PRODUCT_CREATED",
+        correlationId: "corr_custom_success",
+        idempotencyKey: "idem_custom_success",
+        payload: customBlueprint,
+      },
+    });
+
+    expect(result.status).toBe("SUCCESS");
+    expect(mocks.transitionState).toHaveBeenCalledWith(
+      "job_1",
+      "BOOTSTRAP_READY",
+      "CUSTOM_DOMAIN_READY",
+      { lockVersion: 7, ownerId: "worker_1" },
+      "Canonical custom-domain provisioning resolved.",
+    );
+    expect(mocks.completeJob).toHaveBeenCalledWith("job_1", "CUSTOM_DOMAIN_READY", { lockVersion: 7, ownerId: "worker_1" });
+    expect(mocks.updatePayload).toHaveBeenCalledWith(
+      "job_1",
+      expect.objectContaining({
+        customDomainDeployment: expect.objectContaining({
+          requestedDomain: "app.test-saas.com",
+          status: "active",
+          verificationReady: true,
+        }),
+      }),
+      { lockVersion: 7, ownerId: "worker_1" },
+    );
+    expect(mocks.upsertSaasDomain).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        domain: "app.test-saas.com",
+        isPrimary: false,
+        status: "active",
+      }),
+    );
+    const eventTypes = mocks.recordCampamentoEventSafe.mock.calls.map((call) => call[0]?.type);
+    expect(eventTypes).toContain("provision.custom_domain.verify.succeeded");
+  });
+
+  it("marks job DEGRADED when runtime and bootstrap are active but the requested custom domain remains pending", async () => {
+    const customBlueprint = {
+      ...blueprint,
+      provisioning: {
+        domains: {
+          customDomainRequested: "app.test-saas.com",
+        },
+        stripe: {
+          billingInterval: "MONTHLY",
+          taxProfile: "ES_AUTONOMO",
+          currency: "EUR",
+        },
+        ai: {
+          tier: "BALANCED",
+          preferredProviders: [],
+        },
+      },
+    } as const;
+    mocks.createDomainBinding.mockImplementation(async ({ hostname }: { hostname: string }) => ({
+      hostname,
+      bindingId: hostname === "app.test-saas.com" ? "ch_custom_1" : "ch_1",
+      providerStatus: "pending",
+      alreadyExists: false,
+    }));
+    mocks.verifyDomainBinding.mockImplementation(async ({ hostname }: { hostname: string }) => ({
+      hostname,
+      bindingId: hostname === "app.test-saas.com" ? "ch_custom_1" : "ch_1",
+      providerStatus: hostname === "app.test-saas.com" ? "pending" : "active",
+    }));
+
+    const result = await provisionSaaS({
+      env: retryEnv,
+      ownerTenantId: "tenant_a",
+      blueprint: customBlueprint,
+      preAcquiredToken: { lockVersion: 7, ownerId: "worker_1" },
+      existingJob: {
+        jobId: "job_1",
+        entityId: "saas_1",
+        state: "STRIPE_PRODUCT_CREATED",
+        correlationId: "corr_custom_degraded",
+        idempotencyKey: "idem_custom_degraded",
+        payload: customBlueprint,
+      },
+    });
+
+    expect(result.status).toBe("DEGRADED");
+    expect(mocks.markDegraded).toHaveBeenCalledWith(
+      "job_1",
+      "CUSTOM_DOMAIN_READY",
+      { lockVersion: 7, ownerId: "worker_1" },
+      "CUSTOM_DOMAIN_PENDING:pending",
+    );
+    expect(mocks.updatePayload).toHaveBeenCalledWith(
+      "job_1",
+      expect.objectContaining({
+        customDomainDeployment: expect.objectContaining({
+          requestedDomain: "app.test-saas.com",
+          status: "degraded",
+          verificationReady: false,
+          degradedReason: "CUSTOM_DOMAIN_PENDING:pending",
+        }),
+      }),
+      { lockVersion: 7, ownerId: "worker_1" },
+    );
+    const eventTypes = mocks.recordCampamentoEventSafe.mock.calls.map((call) => call[0]?.type);
+    expect(eventTypes).toContain("provision.custom_domain.degraded");
+  });
+
   it("marks job degraded when bootstrap is partial after activation is valid", async () => {
     mocks.createDomainBinding.mockResolvedValue({
       hostname: "test-saas.drako.systems",
@@ -444,5 +611,59 @@ describe("provisioning domain flow", () => {
     expect(result.error).toBe("CANONICAL_BOOTSTRAP_NOT_READY");
     expect(mocks.failJob).toHaveBeenCalled();
     expect(mocks.logRollback).toHaveBeenCalledWith("job_1", "BOOTSTRAP", expect.stringContaining("Deleted bootstrap"));
+  });
+
+  it("fails and rolls back when custom-domain consistency breaks after activation and bootstrap succeed", async () => {
+    const customBlueprint = {
+      ...blueprint,
+      provisioning: {
+        domains: {
+          customDomainRequested: "app.test-saas.com",
+        },
+        stripe: {
+          billingInterval: "MONTHLY",
+          taxProfile: "ES_AUTONOMO",
+          currency: "EUR",
+        },
+        ai: {
+          tier: "BALANCED",
+          preferredProviders: [],
+        },
+      },
+    } as const;
+    mocks.createDomainBinding.mockImplementation(async ({ hostname }: { hostname: string }) => ({
+      hostname,
+      bindingId: hostname === "app.test-saas.com" ? "ch_custom_1" : "ch_1",
+      providerStatus: "pending",
+      alreadyExists: false,
+    }));
+    mocks.verifyDomainBinding.mockImplementation(async ({ hostname }: { hostname: string }) => ({
+      hostname,
+      bindingId: hostname === "app.test-saas.com" ? "ch_custom_1" : "ch_1",
+      providerStatus: "active",
+    }));
+
+    const result = await provisionSaaS({
+      env: { ...retryEnv, PROVISIONING_FAULT_AT: "CUSTOM_DOMAIN_CONSISTENCY_BREAK" },
+      ownerTenantId: "tenant_a",
+      blueprint: customBlueprint,
+      preAcquiredToken: { lockVersion: 7, ownerId: "worker_1" },
+      existingJob: {
+        jobId: "job_1",
+        entityId: "saas_1",
+        state: "STRIPE_PRODUCT_CREATED",
+        correlationId: "corr_custom_failed",
+        idempotencyKey: "idem_custom_failed",
+        payload: customBlueprint,
+      },
+    });
+
+    expect(result.status).toBe("FAILED");
+    expect(result.error).toBe("CANONICAL_CUSTOM_DOMAIN_NOT_READY");
+    expect(mocks.failJob).toHaveBeenCalled();
+    expect(mocks.deleteDomainBinding).toHaveBeenCalledWith(
+      expect.objectContaining({ hostname: "app.test-saas.com" }),
+    );
+    expect(mocks.logRollback).toHaveBeenCalledWith("job_1", "DOMAINS_ROLLED_BACK", expect.stringContaining("Deleted hostname binding"));
   });
 });

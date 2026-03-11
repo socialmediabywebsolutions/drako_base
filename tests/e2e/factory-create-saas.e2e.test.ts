@@ -7,6 +7,7 @@ import {
   createFactoryRuntimeEnv,
   createCloudflareFetch,
   createProvisioningHarnessStore,
+  findCustomDomainRow,
   findPrimaryDomainRow,
   findProvisioningJob,
   installProvisioningDbMock,
@@ -152,6 +153,7 @@ describe("factory create-saas e2e", () => {
     expect(store.saasBrandingSettings.find((row) => row.saas_id === jobPayload.job.saasId)).toBeTruthy();
     expect(store.saasFeatures.filter((row) => row.saas_id === jobPayload.job.saasId && row.status === "ENABLED").length).toBeGreaterThan(0);
     expect(jobPayload.job.timeline.some((entry) => entry.state === "BOOTSTRAP_READY")).toBe(true);
+    expect(jobPayload.job.timeline.some((entry) => entry.state === "CUSTOM_DOMAIN_READY")).toBe(true);
 
     const healthPayload = await fetchDomainsHealth();
     expect(healthPayload.ok).toBe(true);
@@ -219,6 +221,127 @@ describe("factory create-saas e2e", () => {
     expect(store.campamentoEvents.some((event) => event.type === "provision.domain.degraded")).toBe(true);
     expectNoFailureOutcome(store, createPayload.correlationId);
     expect(findProvisioningJob(store, createPayload.jobId)?.rollback_history_json).toBe("[]");
+  });
+
+  it("runs the canonical pipeline to SUCCESS with an active requested custom domain", async () => {
+    const store = createProvisioningHarnessStore();
+    const runtimeEnv = createFactoryRuntimeEnv({ db: mockDb, store });
+    vi.mocked(resolveEnv).mockReturnValue(runtimeEnv);
+    installProvisioningDbMock(mockDb, store);
+    factoryCreateSaasMocks.domainFetchImpl.mockImplementation(
+      createCloudflareFetch({
+        verifyStatuses: ["active"],
+        createStatus: "pending",
+        hostnameStatuses: {
+          "e2e-custom-success-saas.drako.systems": ["active"],
+          "app.e2e-custom-success.com": ["active"],
+        },
+      }),
+    );
+
+    const createResponse = await createSaas(
+      buildCreateSaasRequest({
+        slug: "e2e-custom-success-saas",
+        customDomainRequested: "app.e2e-custom-success.com",
+      }) as any,
+    );
+    expect(createResponse.status).toBe(202);
+
+    const createPayload = await createResponse.json() as CreateSaasPayload;
+    await processQueuedFactoryJob(store, runtimeEnv, createPayload.jobId);
+
+    const jobPayload = await fetchJob(createPayload.jobId);
+    expect(jobPayload.job.state).toBe("SUCCESS");
+    expect(jobPayload.job.timeline.some((entry) => entry.state === "CUSTOM_DOMAIN_READY")).toBe(true);
+    expectNoRollback(jobPayload);
+
+    const primaryDomainRow = findPrimaryDomainRow(store, jobPayload.job.saasId);
+    const customDomainRow = findCustomDomainRow(store, jobPayload.job.saasId, "app.e2e-custom-success.com");
+    const instanceRow = store.saasInstances.find((row) => row.id === jobPayload.job.saasId);
+    const provisioningPlan = parseProvisioningPlan(store, jobPayload.job.saasId) as {
+      bootstrap?: { status?: string };
+      customDomainDeployment?: { status?: string; verificationReady?: boolean; requestedDomain?: string; providerStatus?: string };
+    } | null;
+
+    expect(primaryDomainRow?.status).toBe("active");
+    expect(customDomainRow).toMatchObject({
+      domain: "app.e2e-custom-success.com",
+      status: "active",
+      is_primary: 0,
+    });
+    expect(instanceRow).toMatchObject({
+      status: "active",
+      trial_domain: primaryDomainRow?.domain,
+      custom_domain: "app.e2e-custom-success.com",
+      domain_status: "active",
+    });
+    expect(provisioningPlan?.bootstrap?.status).toBe("ready");
+    expect(provisioningPlan?.customDomainDeployment).toMatchObject({
+      status: "active",
+      verificationReady: true,
+      requestedDomain: "app.e2e-custom-success.com",
+      providerStatus: "active",
+    });
+
+    const healthPayload = await fetchDomainsHealth();
+    expectActiveDomainsOmittedFromHealth(healthPayload, primaryDomainRow!.domain);
+    expectActiveDomainsOmittedFromHealth(healthPayload, "app.e2e-custom-success.com");
+    expect(healthPayload.degradedJobs.find((job) => job.jobId === createPayload.jobId)).toBeUndefined();
+  });
+
+  it("marks the canonical pipeline DEGRADED when the requested custom domain remains pending", async () => {
+    const store = createProvisioningHarnessStore();
+    const runtimeEnv = createFactoryRuntimeEnv({ db: mockDb, store });
+    vi.mocked(resolveEnv).mockReturnValue(runtimeEnv);
+    installProvisioningDbMock(mockDb, store);
+    factoryCreateSaasMocks.domainFetchImpl.mockImplementation(
+      createCloudflareFetch({
+        verifyStatuses: ["active"],
+        createStatus: "pending",
+        hostnameStatuses: {
+          "e2e-custom-degraded-saas.drako.systems": ["active"],
+          "app.e2e-custom-degraded.com": ["pending"],
+        },
+      }),
+    );
+
+    const createResponse = await createSaas(
+      buildCreateSaasRequest({
+        slug: "e2e-custom-degraded-saas",
+        customDomainRequested: "app.e2e-custom-degraded.com",
+      }) as any,
+    );
+    expect(createResponse.status).toBe(202);
+
+    const createPayload = await createResponse.json() as CreateSaasPayload;
+    await processQueuedFactoryJob(store, runtimeEnv, createPayload.jobId);
+
+    const jobPayload = await fetchJob(createPayload.jobId);
+    expect(jobPayload.job.state).toBe("DEGRADED");
+    expect(jobPayload.job.timeline.some((entry) => entry.state === "CUSTOM_DOMAIN_READY")).toBe(true);
+    expectNoRollback(jobPayload);
+
+    const primaryDomainRow = findPrimaryDomainRow(store, jobPayload.job.saasId);
+    const customDomainRow = findCustomDomainRow(store, jobPayload.job.saasId, "app.e2e-custom-degraded.com");
+    const provisioningPlan = parseProvisioningPlan(store, jobPayload.job.saasId) as {
+      bootstrap?: { status?: string };
+      customDomainDeployment?: { status?: string; verificationReady?: boolean; degradedReason?: string; requestedDomain?: string };
+    } | null;
+
+    expect(primaryDomainRow?.status).toBe("active");
+    expect(customDomainRow?.status).toBe("pending");
+    expect(provisioningPlan?.bootstrap?.status).toBe("ready");
+    expect(provisioningPlan?.customDomainDeployment).toMatchObject({
+      status: "degraded",
+      verificationReady: false,
+      degradedReason: "CUSTOM_DOMAIN_PENDING:pending",
+      requestedDomain: "app.e2e-custom-degraded.com",
+    });
+
+    const healthPayload = await fetchDomainsHealth();
+    expectActiveDomainsOmittedFromHealth(healthPayload, primaryDomainRow!.domain);
+    expect(healthPayload.pendingDomains.some((domain) => domain.hostname === "app.e2e-custom-degraded.com")).toBe(true);
+    expect(healthPayload.degradedJobs.some((job) => job.jobId === createPayload.jobId && job.state === "DEGRADED")).toBe(true);
   });
 
   it("marks the canonical pipeline DEGRADED when bootstrap is partial after activation is valid", async () => {

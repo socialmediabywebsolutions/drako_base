@@ -7,6 +7,7 @@ import {
   createCloudflareFetch,
   createFactoryRuntimeEnv,
   createProvisioningHarnessStore,
+  findCustomDomainRow,
   findProvisioningJob,
   installProvisioningDbMock,
   type ProvisioningHarnessStore,
@@ -198,6 +199,61 @@ describe("factory create-saas failed path", () => {
     expect(store.saasInstances).toHaveLength(0);
     expect(store.saasDomains).toHaveLength(0);
     expect(store.campamentoProvisioning).toHaveLength(0);
+    expect(store.saasBrandingSettings).toHaveLength(0);
+    expect(store.saasFeatures).toHaveLength(0);
+  });
+
+  it("rolls back custom-domain artifacts when custom-domain consistency breaks after activation and bootstrap", async () => {
+    const store = createProvisioningHarnessStore();
+    const runtimeEnv = createFactoryRuntimeEnv({
+      db: mockDb,
+      store,
+      overrides: { PROVISIONING_FAULT_AT: "CUSTOM_DOMAIN_CONSISTENCY_BREAK" },
+    });
+    vi.mocked(resolveEnv).mockReturnValue(runtimeEnv);
+    installProvisioningDbMock(mockDb, store);
+    factoryCreateSaasMocks.domainFetchImpl.mockImplementation(
+      createCloudflareFetch({
+        verifyStatuses: ["active"],
+        createStatus: "pending",
+        hostnameStatuses: {
+          "e2e-custom-failed-saas.drako.systems": ["active"],
+          "app.e2e-custom-failed.com": ["active"],
+        },
+      }),
+    );
+
+    const createResponse = await createSaas(
+      buildCreateSaasRequest({
+        slug: "e2e-custom-failed-saas",
+        customDomainRequested: "app.e2e-custom-failed.com",
+      }) as any,
+    );
+    expect(createResponse.status).toBe(202);
+    const createPayload = await createResponse.json() as CreateSaasPayload;
+
+    await processQueuedFactoryJob(store, runtimeEnv, createPayload.jobId);
+
+    const jobPayload = await fetchJob(createPayload.jobId);
+    expect(jobPayload.job.state).toBe("FAILED");
+    expect(jobPayload.job.rawState).toBe("FAILED");
+    expect(jobPayload.job.error).toBe("CANONICAL_CUSTOM_DOMAIN_NOT_READY");
+    expect(jobPayload.job.timeline.some((entry) => entry.step === "TRANSITION_BOOTSTRAP_READY_TO_CUSTOM_DOMAIN_READY")).toBe(false);
+    expect(jobPayload.job.timeline.some((entry) => entry.step === "FAILURE" && entry.details === "CANONICAL_CUSTOM_DOMAIN_NOT_READY")).toBe(true);
+
+    const rollbackHistory = parseRollbackHistory(store, createPayload.jobId);
+    expect(rollbackHistory.map((entry) => entry.step)).toEqual([
+      "DOMAINS_ROLLED_BACK",
+      "BOOTSTRAP",
+      "RUNTIME_CONTRACT",
+      "DB",
+    ]);
+
+    expect(store.saas).toHaveLength(0);
+    expect(store.saasInstances).toHaveLength(0);
+    expect(store.campamentoProvisioning).toHaveLength(0);
+    expect(findCustomDomainRow(store, jobPayload.job.saasId, "app.e2e-custom-failed.com")).toBeUndefined();
+    expect(store.saasDomains).toHaveLength(0);
     expect(store.saasBrandingSettings).toHaveLength(0);
     expect(store.saasFeatures).toHaveLength(0);
   });

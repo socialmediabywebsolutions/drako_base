@@ -49,9 +49,9 @@ vi.mock("@/lib/campamento-base/provisioning/stripe-factory", () => ({
 }));
 
 vi.mock("@/lib/campamento-base/provisioning/cloudflare-factory", () => ({
-  computeDomainsForSaas: (blueprint: { proposedSlug: string }) => ({
+  computeDomainsForSaas: (blueprint: { proposedSlug: string; provisioning?: { domains?: { customDomainRequested?: string | null } } }) => ({
     primaryHostname: `${blueprint.proposedSlug}.drako.systems`,
-    customHostname: null,
+    customHostname: blueprint.provisioning?.domains?.customDomainRequested ?? null,
   }),
 }));
 
@@ -75,6 +75,7 @@ import { provisionSaaS } from "@/lib/campamento-base/saas-factory-orchestrator";
 describe("saas-factory orchestrator canonical state flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    const domainRows = new Map<string, { domain: string; isPrimary: boolean; status: string }>();
     mocks.ensureCampamentoBase.mockResolvedValue(undefined);
     const runtimeSnapshot = {
       saasStatus: "inactive",
@@ -129,12 +130,15 @@ describe("saas-factory orchestrator canonical state flow", () => {
       if (normalized.startsWith("insert into saas_branding_settings")) {
         runtimeSnapshot.brandingSettingsId = String(params[0]);
       }
+      if (normalized.startsWith("delete from saas_domains") && normalized.includes("lower(domain) = lower(?)")) {
+        domainRows.delete(String(params[2] ?? "").toLowerCase());
+      }
       if (normalized.startsWith("insert into saas_features")) {
         runtimeSnapshot.featureKeys = [...new Set([...runtimeSnapshot.featureKeys, String(params[3])])].sort();
       }
       return true;
     });
-    mocks.queryOne.mockImplementation(async (sql: string) => {
+    mocks.queryOne.mockImplementation(async (sql: string, ...params: unknown[]) => {
       const normalized = sql.replace(/\s+/g, " ").trim().toLowerCase();
       if (normalized.includes("select status, plan, last_error from campamento_provisioning")) {
         return {
@@ -162,6 +166,17 @@ describe("saas-factory orchestrator canonical state flow", () => {
       }
       if (normalized.includes("from saas_branding_settings where tenant_id = ? and saas_id = ?")) {
         return { id: runtimeSnapshot.brandingSettingsId };
+      }
+      if (normalized.includes("from saas_domains") && normalized.includes("lower(domain) = lower(?)")) {
+        const domainKey = String(params[2] ?? "");
+        const row = domainRows.get(domainKey.toLowerCase());
+        return row
+          ? {
+            domain: row.domain,
+            is_primary: row.isPrimary ? 1 : 0,
+            status: row.status,
+          }
+          : null;
       }
       return null;
     });
@@ -195,7 +210,14 @@ describe("saas-factory orchestrator canonical state flow", () => {
     });
     mocks.deleteDomainBinding.mockResolvedValue({ deleted: true });
     mocks.resolveSaasContext.mockResolvedValue({ tenantId: "tenant_a", saasId: "saas_1", mode: "live" });
-    mocks.upsertSaasDomain.mockResolvedValue({ id: "factory_domain_saas_1" });
+    mocks.upsertSaasDomain.mockImplementation(async (_ctx, input: { domain: string; isPrimary?: boolean; status?: string }) => {
+      domainRows.set(input.domain.toLowerCase(), {
+        domain: input.domain,
+        isPrimary: Boolean(input.isPrimary),
+        status: input.status ?? "pending",
+      });
+      return { id: input.isPrimary ? "factory_domain_saas_1" : "factory_custom_domain_saas_1" };
+    });
     mocks.recordCampamentoEventSafe.mockResolvedValue({ ok: true, mode: "primary" });
   });
 
@@ -248,7 +270,8 @@ describe("saas-factory orchestrator canonical state flow", () => {
     expect(mocks.transitionState).toHaveBeenNthCalledWith(5, "job_1", "PROVISION_WORKER", "CREATE_DOMAIN_BINDING", { lockVersion: 9, ownerId: "worker_1" }, "Domain binding created.");
     expect(mocks.transitionState).toHaveBeenNthCalledWith(6, "job_1", "CREATE_DOMAIN_BINDING", "VERIFY_DOMAIN", { lockVersion: 9, ownerId: "worker_1" }, "Domain binding verified.");
     expect(mocks.transitionState).toHaveBeenNthCalledWith(7, "job_1", "VERIFY_DOMAIN", "BOOTSTRAP_READY", { lockVersion: 9, ownerId: "worker_1" }, "Canonical bootstrap completed.");
-    expect(mocks.completeJob).toHaveBeenCalledWith("job_1", "BOOTSTRAP_READY", { lockVersion: 9, ownerId: "worker_1" });
+    expect(mocks.transitionState).toHaveBeenNthCalledWith(8, "job_1", "BOOTSTRAP_READY", "CUSTOM_DOMAIN_READY", { lockVersion: 9, ownerId: "worker_1" }, "No requested custom domain; canonical domain contract satisfied.");
+    expect(mocks.completeJob).toHaveBeenCalledWith("job_1", "CUSTOM_DOMAIN_READY", { lockVersion: 9, ownerId: "worker_1" });
 
     expect(mocks.ensureStripeProductForSaas).toHaveBeenCalledWith(
       expect.objectContaining({ correlationId: "corr_job_1", saasId: "saas_1", tenantId: "tenant_a" }),

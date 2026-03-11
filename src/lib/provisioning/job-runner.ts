@@ -19,6 +19,7 @@ export type ProvisioningJobState =
     | 'CREATE_DOMAIN_BINDING'
     | 'VERIFY_DOMAIN'
     | 'BOOTSTRAP_READY'
+    | 'CUSTOM_DOMAIN_READY'
     | 'DOMAINS_REGISTERED'
     // Tenant Specific
     | 'TENANT_CREATED'

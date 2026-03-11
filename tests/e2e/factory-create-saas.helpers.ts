@@ -167,7 +167,7 @@ type CreateSaasQueueEnv = {
   PROVISION_DOMAIN_VERIFY_MAX_BACKOFF_MS: string;
   PROVISION_DOMAIN_VERIFY_JITTER_MS: string;
   PROVISION_DOMAIN_VERIFY_TIMEOUT_MS: string;
-  PROVISIONING_FAULT_AT?: "BOOTSTRAP_PARTIAL_READY" | "BOOTSTRAP_CONSISTENCY_BREAK";
+  PROVISIONING_FAULT_AT?: "BOOTSTRAP_PARTIAL_READY" | "BOOTSTRAP_CONSISTENCY_BREAK" | "CUSTOM_DOMAIN_CONSISTENCY_BREAK";
 };
 
 function nowIso(): string {
@@ -236,7 +236,7 @@ function selectRows(store: ProvisioningHarnessStore, sql: string, params: unknow
       .map((row) => ({ plan: row.plan }));
   }
 
-  if (hasSql(normalized, "from saas_domains", "lower(domain) = lower(?)")) {
+  if (hasSql(normalized, "select id", "from saas_domains", "lower(domain) = lower(?)")) {
     const [domain] = params;
     return store.saasDomains
       .filter((row) => lower(row.domain) === lower(domain))
@@ -354,6 +354,18 @@ function selectRows(store: ProvisioningHarnessStore, sql: string, params: unknow
       .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId && row.is_primary === 1)
       .slice(0, 1)
       .map((row) => ({ status: row.status }));
+  }
+
+  if (hasSql(normalized, "select domain, is_primary, status", "from saas_domains", "where tenant_id = ? and saas_id = ? and lower(domain) = lower(?)")) {
+    const [tenantId, saasId, domain] = params;
+    return store.saasDomains
+      .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId && lower(row.domain) === lower(domain))
+      .slice(0, 1)
+      .map((row) => ({
+        domain: row.domain,
+        is_primary: row.is_primary,
+        status: row.status,
+      }));
   }
 
   if (hasSql(normalized, "select status, domain_status, domain, public_domain", "from saas", "where id = ? and tenant_id = ?")) {
@@ -1037,6 +1049,7 @@ export function buildCreateSaasRequest(params: {
   slug: string;
   idempotencyKey?: string;
   correlationId?: string;
+  customDomainRequested?: string;
 }): Request {
   return new Request("https://drako.systems/api/owner/saas-factory/create-saas", {
     method: "POST",
@@ -1049,6 +1062,24 @@ export function buildCreateSaasRequest(params: {
       slug: params.slug,
       idempotencyKey: params.idempotencyKey ?? `idem_${params.slug}_0001`,
       plans: [{ planCode: "pro", monthlyPriceCents: 2900 }],
+      blueprintDraft: params.customDomainRequested
+        ? {
+          provisioning: {
+            domains: {
+              customDomainRequested: params.customDomainRequested,
+            },
+            stripe: {
+              billingInterval: "MONTHLY",
+              taxProfile: "ES_AUTONOMO",
+              currency: "EUR",
+            },
+            ai: {
+              tier: "BALANCED",
+              preferredProviders: [],
+            },
+          },
+        }
+        : undefined,
     }),
   });
 }
@@ -1059,6 +1090,10 @@ export function findProvisioningJob(store: ProvisioningHarnessStore, jobId: stri
 
 export function findPrimaryDomainRow(store: ProvisioningHarnessStore, saasId: string) {
   return store.saasDomains.find((row) => row.saas_id === saasId && row.is_primary === 1);
+}
+
+export function findCustomDomainRow(store: ProvisioningHarnessStore, saasId: string, domain: string) {
+  return store.saasDomains.find((row) => row.saas_id === saasId && row.is_primary === 0 && lower(row.domain) === lower(domain));
 }
 
 export async function processQueuedFactoryJob(
@@ -1092,6 +1127,7 @@ export function createCloudflareFetch(params: {
   verifyStatuses: string[];
   createStatus?: string;
   failCreateMessage?: string;
+  hostnameStatuses?: Record<string, string[]>;
 }): typeof fetch {
   const bindings = new Map<
     string,
@@ -1124,12 +1160,15 @@ export function createCloudflareFetch(params: {
       }
       const body = JSON.parse(String(init?.body ?? "{}")) as { hostname?: string };
       const hostname = lower(body.hostname);
+      const hostnameVerifyStatuses = params.hostnameStatuses?.[hostname]
+        ? [...params.hostnameStatuses[hostname]!]
+        : [...params.verifyStatuses];
       const bindingId = `ch_${bindings.size + 1}`;
       bindings.set(hostname, {
         bindingId,
         hostname,
         createStatus: params.createStatus ?? "pending",
-        verifyStatuses: [...params.verifyStatuses],
+        verifyStatuses: hostnameVerifyStatuses,
         lastStatus: params.createStatus ?? "pending",
         deleted: false,
       });
