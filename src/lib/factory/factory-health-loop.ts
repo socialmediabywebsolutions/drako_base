@@ -1,5 +1,6 @@
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import { runFactoryCronCycle } from "@/lib/factory/factory-cron-trigger";
+import { recordFactoryIncidentIfNeeded } from "@/lib/factory/factory-incident-intelligence";
 
 const FACTORY_HEALTH_TENANT_ID = "system";
 
@@ -37,4 +38,6 @@ export async function runFactoryHealthLoop(): Promise<void> {
     },
     correlationId,
   });
+
+  await recordFactoryIncidentIfNeeded(outcome);
 }
