@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   ensureCampamentoBase: vi.fn(),
   run: vi.fn(),
   queryOne: vi.fn(),
+  queryAll: vi.fn(),
   transitionState: vi.fn(),
   updatePayload: vi.fn(),
   completeJob: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock("@/lib/campamento-base", () => ({
 vi.mock("@/lib/db", () => ({
   run: mocks.run,
   queryOne: mocks.queryOne,
+  queryAll: mocks.queryAll,
 }));
 
 vi.mock("@/lib/provisioning/job-runner", () => ({
@@ -102,10 +104,16 @@ describe("provisioning domain flow", () => {
       saasDomain: null as string | null,
       saasPublicDomain: null as string | null,
       instanceStatus: "inactive",
+      instancePlanTier: "trial",
       instanceTrialDomain: null as string | null,
       instanceCustomDomain: null as string | null,
       instanceDomainStatus: null as string | null,
       runtimeContractStatus: null as string | null,
+      provisioningStatus: null as string | null,
+      provisioningPlan: null as string | null,
+      provisioningLastError: null as string | null,
+      brandingSettingsId: null as string | null,
+      featureKeys: [] as string[],
     };
     mocks.run.mockImplementation(async (sql: string, ...params: unknown[]) => {
       const normalized = sql.replace(/\s+/g, " ").trim().toLowerCase();
@@ -122,7 +130,11 @@ describe("provisioning domain flow", () => {
         runtimeSnapshot.instanceDomainStatus = "pending";
       }
       if (normalized.startsWith("insert into campamento_provisioning")) {
-        runtimeSnapshot.runtimeContractStatus = String(params[4]);
+        runtimeSnapshot.provisioningStatus = String(params[4]);
+        runtimeSnapshot.provisioningPlan = String(params[5]);
+        runtimeSnapshot.provisioningLastError = params[6] ? String(params[6]) : null;
+        const plan = JSON.parse(String(params[5])) as { runtime?: { status?: string } };
+        runtimeSnapshot.runtimeContractStatus = plan.runtime?.status ?? String(params[4]);
       }
       if (normalized.startsWith("update saas set status = ?")) {
         runtimeSnapshot.saasStatus = String(params[0]);
@@ -136,10 +148,29 @@ describe("provisioning domain flow", () => {
         runtimeSnapshot.instanceCustomDomain = params[2] ? String(params[2]) : null;
         runtimeSnapshot.instanceDomainStatus = String(params[3]);
       }
+      if (normalized.startsWith("insert into saas_branding_settings")) {
+        runtimeSnapshot.brandingSettingsId = String(params[0]);
+      }
+      if (normalized.startsWith("delete from saas_branding_settings where tenant_id = ? and saas_id = ?")) {
+        runtimeSnapshot.brandingSettingsId = null;
+      }
+      if (normalized.startsWith("insert into saas_features")) {
+        runtimeSnapshot.featureKeys = [...new Set([...runtimeSnapshot.featureKeys, String(params[3])])].sort();
+      }
+      if (normalized.startsWith("delete from saas_features where tenant_id = ? and saas_id = ?")) {
+        runtimeSnapshot.featureKeys = [];
+      }
       return true;
     });
     mocks.queryOne.mockImplementation(async (sql: string) => {
       const normalized = sql.replace(/\s+/g, " ").trim().toLowerCase();
+      if (normalized.includes("select status, plan, last_error from campamento_provisioning")) {
+        return {
+          status: runtimeSnapshot.provisioningStatus,
+          plan: runtimeSnapshot.provisioningPlan,
+          last_error: runtimeSnapshot.provisioningLastError,
+        };
+      }
       if (normalized.includes("from saas where id = ? and tenant_id = ?")) {
         return {
           status: runtimeSnapshot.saasStatus,
@@ -151,15 +182,23 @@ describe("provisioning domain flow", () => {
       if (normalized.includes("from saas_instances where id = ? and tenant_id = ?")) {
         return {
           status: runtimeSnapshot.instanceStatus,
+          plan_tier: runtimeSnapshot.instancePlanTier,
           trial_domain: runtimeSnapshot.instanceTrialDomain,
           custom_domain: runtimeSnapshot.instanceCustomDomain,
           domain_status: runtimeSnapshot.instanceDomainStatus,
         };
       }
-      if (normalized.includes("from campamento_provisioning where tenant_id = ? and saas_id = ?")) {
-        return { status: runtimeSnapshot.runtimeContractStatus };
+      if (normalized.includes("from saas_branding_settings where tenant_id = ? and saas_id = ?")) {
+        return { id: runtimeSnapshot.brandingSettingsId };
       }
       return null;
+    });
+    mocks.queryAll.mockImplementation(async (sql: string) => {
+      const normalized = sql.replace(/\s+/g, " ").trim().toLowerCase();
+      if (normalized.includes("from saas_features")) {
+        return runtimeSnapshot.featureKeys.map((featureKey) => ({ feature_key: featureKey, status: "ENABLED" }));
+      }
+      return [];
     });
     mocks.transitionState.mockResolvedValue(undefined);
     mocks.updatePayload.mockResolvedValue(undefined);
@@ -209,11 +248,18 @@ describe("provisioning domain flow", () => {
     const eventTypes = mocks.recordCampamentoEventSafe.mock.calls.map((call) => call[0]?.type);
     expect(eventTypes.filter((eventType) => eventType === "provision.domain.verify.retrying")).toHaveLength(2);
     expect(eventTypes).toContain("provision.domain.verify.succeeded");
-    expect(mocks.completeJob).toHaveBeenCalledWith("job_1", "VERIFY_DOMAIN", { lockVersion: 7, ownerId: "worker_1" });
+    expect(mocks.completeJob).toHaveBeenCalledWith("job_1", "BOOTSTRAP_READY", { lockVersion: 7, ownerId: "worker_1" });
     expect(mocks.updatePayload).toHaveBeenCalledWith(
       "job_1",
       expect.objectContaining({
         runtimeDeployment: expect.objectContaining({ status: "active", activationReady: true }),
+      }),
+      { lockVersion: 7, ownerId: "worker_1" },
+    );
+    expect(mocks.updatePayload).toHaveBeenCalledWith(
+      "job_1",
+      expect.objectContaining({
+        bootstrapDeployment: expect.objectContaining({ status: "ready", readinessMarker: "bootstrap_ready" }),
       }),
       { lockVersion: 7, ownerId: "worker_1" },
     );
@@ -320,5 +366,83 @@ describe("provisioning domain flow", () => {
     );
     const eventTypes = mocks.recordCampamentoEventSafe.mock.calls.map((call) => call[0]?.type);
     expect(eventTypes).toContain("provision.domain.degraded");
+  });
+
+  it("marks job degraded when bootstrap is partial after activation is valid", async () => {
+    mocks.createDomainBinding.mockResolvedValue({
+      hostname: "test-saas.drako.systems",
+      bindingId: "ch_1",
+      providerStatus: "pending",
+      alreadyExists: false,
+    });
+    mocks.verifyDomainBinding.mockResolvedValue({
+      hostname: "test-saas.drako.systems",
+      bindingId: "ch_1",
+      providerStatus: "active",
+    });
+
+    const result = await provisionSaaS({
+      env: { ...retryEnv, PROVISIONING_FAULT_AT: "BOOTSTRAP_PARTIAL_READY" },
+      ownerTenantId: "tenant_a",
+      blueprint: { ...blueprint },
+      preAcquiredToken: { lockVersion: 7, ownerId: "worker_1" },
+      existingJob: {
+        jobId: "job_1",
+        entityId: "saas_1",
+        state: "STRIPE_PRODUCT_CREATED",
+        correlationId: "corr_5",
+        idempotencyKey: "idem_5",
+        payload: { ...blueprint },
+      },
+    });
+
+    expect(result.status).toBe("DEGRADED");
+    expect(mocks.markDegraded).toHaveBeenCalledWith(
+      "job_1",
+      "BOOTSTRAP_READY",
+      { lockVersion: 7, ownerId: "worker_1" },
+      expect.stringContaining("BOOTSTRAP_FEATURE_BASELINE_PARTIAL"),
+    );
+    expect(mocks.updatePayload).toHaveBeenCalledWith(
+      "job_1",
+      expect.objectContaining({
+        bootstrapDeployment: expect.objectContaining({ status: "degraded", readinessMarker: "bootstrap_partial" }),
+      }),
+      { lockVersion: 7, ownerId: "worker_1" },
+    );
+  });
+
+  it("fails when bootstrap consistency breaks after activation", async () => {
+    mocks.createDomainBinding.mockResolvedValue({
+      hostname: "test-saas.drako.systems",
+      bindingId: "ch_1",
+      providerStatus: "pending",
+      alreadyExists: false,
+    });
+    mocks.verifyDomainBinding.mockResolvedValue({
+      hostname: "test-saas.drako.systems",
+      bindingId: "ch_1",
+      providerStatus: "active",
+    });
+
+    const result = await provisionSaaS({
+      env: { ...retryEnv, PROVISIONING_FAULT_AT: "BOOTSTRAP_CONSISTENCY_BREAK" },
+      ownerTenantId: "tenant_a",
+      blueprint: { ...blueprint },
+      preAcquiredToken: { lockVersion: 7, ownerId: "worker_1" },
+      existingJob: {
+        jobId: "job_1",
+        entityId: "saas_1",
+        state: "STRIPE_PRODUCT_CREATED",
+        correlationId: "corr_6",
+        idempotencyKey: "idem_6",
+        payload: { ...blueprint },
+      },
+    });
+
+    expect(result.status).toBe("FAILED");
+    expect(result.error).toBe("CANONICAL_BOOTSTRAP_NOT_READY");
+    expect(mocks.failJob).toHaveBeenCalled();
+    expect(mocks.logRollback).toHaveBeenCalledWith("job_1", "BOOTSTRAP", expect.stringContaining("Deleted bootstrap"));
   });
 });

@@ -99,6 +99,28 @@ type CampamentoProvisioningRow = {
   updated_at: string;
 };
 
+type SaasBrandingSettingsRow = {
+  id: string;
+  tenant_id: string;
+  saas_id: string;
+  metadata: string | null;
+};
+
+type SaasFeatureRow = {
+  id: string;
+  tenant_id: string;
+  saas_id: string;
+  feature_key: string;
+  label: string;
+  category: string;
+  status: string;
+  source: string;
+  phase_order: number;
+  metadata: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ProvisioningHarnessStore = {
   owners: Array<{ id: string; tenant_id: string }>;
   tenants: Array<{ id: string; saas_slug: string | null; plan: string }>;
@@ -126,6 +148,8 @@ export type ProvisioningHarnessStore = {
   saasInstances: SaasInstanceRow[];
   saasDomains: SaasDomainRow[];
   campamentoProvisioning: CampamentoProvisioningRow[];
+  saasBrandingSettings: SaasBrandingSettingsRow[];
+  saasFeatures: SaasFeatureRow[];
   campamentoEvents: CampamentoEventRow[];
   sentQueueMessages: QueueMessage[];
 };
@@ -143,6 +167,7 @@ type CreateSaasQueueEnv = {
   PROVISION_DOMAIN_VERIFY_MAX_BACKOFF_MS: string;
   PROVISION_DOMAIN_VERIFY_JITTER_MS: string;
   PROVISION_DOMAIN_VERIFY_TIMEOUT_MS: string;
+  PROVISIONING_FAULT_AT?: "BOOTSTRAP_PARTIAL_READY" | "BOOTSTRAP_CONSISTENCY_BREAK";
 };
 
 function nowIso(): string {
@@ -344,6 +369,17 @@ function selectRows(store: ProvisioningHarnessStore, sql: string, params: unknow
       }));
   }
 
+  if (hasSql(normalized, "select status, domain_status", "from saas", "where id = ? and tenant_id = ?")) {
+    const [saasId, tenantId] = params;
+    return store.saas
+      .filter((row) => row.id === saasId && row.tenant_id === tenantId)
+      .slice(0, 1)
+      .map((row) => ({
+        status: row.status,
+        domain_status: row.domain_status,
+      }));
+  }
+
   if (hasSql(normalized, "select status, trial_domain, custom_domain, domain_status", "from saas_instances", "where id = ? and tenant_id = ?")) {
     const [saasId, tenantId] = params;
     return store.saasInstances
@@ -357,12 +393,55 @@ function selectRows(store: ProvisioningHarnessStore, sql: string, params: unknow
       }));
   }
 
-  if (hasSql(normalized, "select status", "from campamento_provisioning", "where tenant_id = ? and saas_id = ?")) {
+  if (hasSql(normalized, "select status, domain_status, plan_tier", "from saas_instances", "where id = ? and tenant_id = ?")) {
+    const [saasId, tenantId] = params;
+    return store.saasInstances
+      .filter((row) => row.id === saasId && row.tenant_id === tenantId)
+      .slice(0, 1)
+      .map((row) => ({
+        status: row.status,
+        domain_status: row.domain_status,
+        plan_tier: row.plan_tier,
+      }));
+  }
+
+  if (
+    hasSql(normalized, "select status", "from campamento_provisioning", "where tenant_id = ? and saas_id = ?")
+    && !normalized.includes("plan")
+  ) {
     const [tenantId, saasId] = params;
     return store.campamentoProvisioning
       .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId)
       .slice(0, 1)
       .map((row) => ({ status: row.status }));
+  }
+
+  if (hasSql(normalized, "select status, plan, last_error", "from campamento_provisioning", "where tenant_id = ? and saas_id = ?")) {
+    const [tenantId, saasId] = params;
+    return store.campamentoProvisioning
+      .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId)
+      .slice(0, 1)
+      .map((row) => ({
+        status: row.status,
+        plan: row.plan,
+        last_error: row.last_error,
+      }));
+  }
+
+  if (hasSql(normalized, "select id", "from saas_branding_settings", "where tenant_id = ? and saas_id = ?")) {
+    const [tenantId, saasId] = params;
+    return store.saasBrandingSettings
+      .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId)
+      .slice(0, 1)
+      .map((row) => ({ id: row.id }));
+  }
+
+  if (hasSql(normalized, "select feature_key, status", "from saas_features", "where tenant_id = ? and saas_id = ? and status = 'enabled'")) {
+    const [tenantId, saasId] = params;
+    return store.saasFeatures
+      .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId && lower(row.status) === "enabled")
+      .sort((a, b) => a.feature_key.localeCompare(b.feature_key))
+      .map((row) => ({ feature_key: row.feature_key, status: row.status }));
   }
 
   if (hasSql(normalized, "select tenant_id from saas where id = ?")) {
@@ -730,6 +809,81 @@ function executeRun(store: ProvisioningHarnessStore, sql: string, params: unknow
     return true;
   }
 
+  if (normalized.startsWith("insert into saas_branding_settings")) {
+    const id = params[0];
+    const tenantId = params[1];
+    const saasId = params[2];
+    const metadata = params[16];
+    const existing = store.saasBrandingSettings.find((row) => row.tenant_id === tenantId && row.saas_id === saasId);
+    if (existing) {
+      existing.metadata = metadata ? String(metadata) : null;
+      return true;
+    }
+    store.saasBrandingSettings.push({
+      id: String(id),
+      tenant_id: String(tenantId),
+      saas_id: String(saasId),
+      metadata: metadata ? String(metadata) : null,
+    });
+    return true;
+  }
+
+  if (normalized.startsWith("delete from saas_branding_settings where tenant_id = ? and saas_id = ?")) {
+    const [tenantId, saasId] = params;
+    store.saasBrandingSettings = store.saasBrandingSettings.filter(
+      (row) => !(row.tenant_id === tenantId && row.saas_id === saasId),
+    );
+    return true;
+  }
+
+  if (normalized.startsWith("insert into saas_features")) {
+    const [id, tenantId, saasId, featureKey, label, category, status, source, phaseOrder, metadata, createdAt, updatedAt] = params;
+    const existing = store.saasFeatures.find(
+      (row) => row.tenant_id === tenantId && row.saas_id === saasId && row.feature_key === featureKey,
+    );
+    if (existing) {
+      existing.label = String(label);
+      existing.category = String(category);
+      existing.status = String(status);
+      existing.source = String(source);
+      existing.phase_order = Number(phaseOrder);
+      existing.metadata = metadata ? String(metadata) : null;
+      existing.updated_at = String(updatedAt);
+      return true;
+    }
+    store.saasFeatures.push({
+      id: String(id),
+      tenant_id: String(tenantId),
+      saas_id: String(saasId),
+      feature_key: String(featureKey),
+      label: String(label),
+      category: String(category),
+      status: String(status),
+      source: String(source),
+      phase_order: Number(phaseOrder),
+      metadata: metadata ? String(metadata) : null,
+      created_at: String(createdAt),
+      updated_at: String(updatedAt),
+    });
+    return true;
+  }
+
+  if (normalized.startsWith("delete from saas_features where tenant_id = ? and saas_id = ?")) {
+    const [tenantId, saasId] = params;
+    store.saasFeatures = store.saasFeatures.filter(
+      (row) => !(row.tenant_id === tenantId && row.saas_id === saasId),
+    );
+    return true;
+  }
+
+  if (normalized.startsWith("delete from saas_domains where tenant_id = ? and saas_id = ?")) {
+    const [tenantId, saasId] = params;
+    store.saasDomains = store.saasDomains.filter(
+      (row) => !(row.tenant_id === tenantId && row.saas_id === saasId),
+    );
+    return true;
+  }
+
   if (normalized.startsWith("update saas_domains set is_primary = 0")) {
     const [updatedAt, tenantId, saasId] = params;
     for (const row of store.saasDomains) {
@@ -829,6 +983,8 @@ export function createProvisioningHarnessStore(input?: {
     saasInstances: [],
     saasDomains: [],
     campamentoProvisioning: [],
+    saasBrandingSettings: [],
+    saasFeatures: [],
     campamentoEvents: [],
     sentQueueMessages: [],
   };
@@ -856,6 +1012,7 @@ export function installProvisioningDbMock(
 export function createFactoryRuntimeEnv(params: {
   db: unknown;
   store: ProvisioningHarnessStore;
+  overrides?: Partial<CreateSaasQueueEnv>;
 }): CreateSaasQueueEnv {
   return {
     DRACO_DB: params.db,
@@ -872,6 +1029,7 @@ export function createFactoryRuntimeEnv(params: {
     PROVISION_DOMAIN_VERIFY_MAX_BACKOFF_MS: "0",
     PROVISION_DOMAIN_VERIFY_JITTER_MS: "0",
     PROVISION_DOMAIN_VERIFY_TIMEOUT_MS: "1",
+    ...(params.overrides ?? {}),
   };
 }
 

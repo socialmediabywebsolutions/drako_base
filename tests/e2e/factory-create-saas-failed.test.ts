@@ -142,6 +142,8 @@ describe("factory create-saas failed path", () => {
     expect(store.saasInstances).toHaveLength(0);
     expect(store.saasDomains).toHaveLength(0);
     expect(store.campamentoProvisioning).toHaveLength(0);
+    expect(store.saasBrandingSettings).toHaveLength(0);
+    expect(store.saasFeatures).toHaveLength(0);
 
     const healthPayload = await fetchDomainsHealth();
     expect(healthPayload.ok).toBe(true);
@@ -156,5 +158,47 @@ describe("factory create-saas failed path", () => {
     expect(parseEventMetadata(store, "provision.saas_factory.job.succeeded")).toHaveLength(0);
     expect(parseEventMetadata(store, "provision.domain.create.started")).toHaveLength(1);
     expect(parseEventMetadata(store, "provision.domain.create.succeeded")).toHaveLength(0);
+  });
+
+  it("rolls back canonical bootstrap artifacts when bootstrap consistency breaks after activation", async () => {
+    const store = createProvisioningHarnessStore();
+    const runtimeEnv = createFactoryRuntimeEnv({
+      db: mockDb,
+      store,
+      overrides: { PROVISIONING_FAULT_AT: "BOOTSTRAP_CONSISTENCY_BREAK" },
+    });
+    vi.mocked(resolveEnv).mockReturnValue(runtimeEnv);
+    installProvisioningDbMock(mockDb, store);
+    factoryCreateSaasMocks.domainFetchImpl.mockImplementation(
+      createCloudflareFetch({ verifyStatuses: ["active"], createStatus: "pending" }),
+    );
+
+    const createResponse = await createSaas(buildCreateSaasRequest({ slug: "e2e-bootstrap-failed-saas" }) as any);
+    expect(createResponse.status).toBe(202);
+    const createPayload = await createResponse.json() as CreateSaasPayload;
+
+    await processQueuedFactoryJob(store, runtimeEnv, createPayload.jobId);
+
+    const jobPayload = await fetchJob(createPayload.jobId);
+    expect(jobPayload.job.state).toBe("FAILED");
+    expect(jobPayload.job.rawState).toBe("FAILED");
+    expect(jobPayload.job.error).toBe("CANONICAL_BOOTSTRAP_NOT_READY");
+    expect(jobPayload.job.timeline.some((entry) => entry.step === "TRANSITION_CREATE_DOMAIN_BINDING_TO_VERIFY_DOMAIN")).toBe(true);
+    expect(jobPayload.job.timeline.some((entry) => entry.step === "FAILURE" && entry.details === "CANONICAL_BOOTSTRAP_NOT_READY")).toBe(true);
+
+    const rollbackHistory = parseRollbackHistory(store, createPayload.jobId);
+    expect(rollbackHistory.map((entry) => entry.step)).toEqual([
+      "DOMAINS_ROLLED_BACK",
+      "BOOTSTRAP",
+      "RUNTIME_CONTRACT",
+      "DB",
+    ]);
+
+    expect(store.saas).toHaveLength(0);
+    expect(store.saasInstances).toHaveLength(0);
+    expect(store.saasDomains).toHaveLength(0);
+    expect(store.campamentoProvisioning).toHaveLength(0);
+    expect(store.saasBrandingSettings).toHaveLength(0);
+    expect(store.saasFeatures).toHaveLength(0);
   });
 });

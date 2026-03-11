@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   ensureCampamentoBase: vi.fn(),
   run: vi.fn(),
   queryOne: vi.fn(),
+  queryAll: vi.fn(),
   ensureJob: vi.fn(),
   acquireLock: vi.fn(),
   transitionState: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock("@/lib/campamento-base", () => ({
 vi.mock("@/lib/db", () => ({
   run: mocks.run,
   queryOne: mocks.queryOne,
+  queryAll: mocks.queryAll,
 }));
 
 vi.mock("@/lib/provisioning/job-runner", () => ({
@@ -80,10 +82,16 @@ describe("saas-factory orchestrator canonical state flow", () => {
       saasDomain: null as string | null,
       saasPublicDomain: null as string | null,
       instanceStatus: "inactive",
+      instancePlanTier: "trial",
       instanceTrialDomain: null as string | null,
       instanceCustomDomain: null as string | null,
       instanceDomainStatus: null as string | null,
       runtimeContractStatus: null as string | null,
+      provisioningStatus: null as string | null,
+      provisioningPlan: null as string | null,
+      provisioningLastError: null as string | null,
+      brandingSettingsId: null as string | null,
+      featureKeys: [] as string[],
     };
     mocks.run.mockImplementation(async (sql: string, ...params: unknown[]) => {
       const normalized = sql.replace(/\s+/g, " ").trim().toLowerCase();
@@ -100,7 +108,11 @@ describe("saas-factory orchestrator canonical state flow", () => {
         runtimeSnapshot.instanceDomainStatus = "pending";
       }
       if (normalized.startsWith("insert into campamento_provisioning")) {
-        runtimeSnapshot.runtimeContractStatus = String(params[4]);
+        runtimeSnapshot.provisioningStatus = String(params[4]);
+        runtimeSnapshot.provisioningPlan = String(params[5]);
+        runtimeSnapshot.provisioningLastError = params[6] ? String(params[6]) : null;
+        const plan = JSON.parse(String(params[5])) as { runtime?: { status?: string } };
+        runtimeSnapshot.runtimeContractStatus = plan.runtime?.status ?? String(params[4]);
       }
       if (normalized.startsWith("update saas set status = ?")) {
         runtimeSnapshot.saasStatus = String(params[0]);
@@ -114,10 +126,23 @@ describe("saas-factory orchestrator canonical state flow", () => {
         runtimeSnapshot.instanceCustomDomain = params[2] ? String(params[2]) : null;
         runtimeSnapshot.instanceDomainStatus = String(params[3]);
       }
+      if (normalized.startsWith("insert into saas_branding_settings")) {
+        runtimeSnapshot.brandingSettingsId = String(params[0]);
+      }
+      if (normalized.startsWith("insert into saas_features")) {
+        runtimeSnapshot.featureKeys = [...new Set([...runtimeSnapshot.featureKeys, String(params[3])])].sort();
+      }
       return true;
     });
     mocks.queryOne.mockImplementation(async (sql: string) => {
       const normalized = sql.replace(/\s+/g, " ").trim().toLowerCase();
+      if (normalized.includes("select status, plan, last_error from campamento_provisioning")) {
+        return {
+          status: runtimeSnapshot.provisioningStatus,
+          plan: runtimeSnapshot.provisioningPlan,
+          last_error: runtimeSnapshot.provisioningLastError,
+        };
+      }
       if (normalized.includes("from saas where id = ? and tenant_id = ?")) {
         return {
           status: runtimeSnapshot.saasStatus,
@@ -129,15 +154,23 @@ describe("saas-factory orchestrator canonical state flow", () => {
       if (normalized.includes("from saas_instances where id = ? and tenant_id = ?")) {
         return {
           status: runtimeSnapshot.instanceStatus,
+          plan_tier: runtimeSnapshot.instancePlanTier,
           trial_domain: runtimeSnapshot.instanceTrialDomain,
           custom_domain: runtimeSnapshot.instanceCustomDomain,
           domain_status: runtimeSnapshot.instanceDomainStatus,
         };
       }
-      if (normalized.includes("from campamento_provisioning where tenant_id = ? and saas_id = ?")) {
-        return { status: runtimeSnapshot.runtimeContractStatus };
+      if (normalized.includes("from saas_branding_settings where tenant_id = ? and saas_id = ?")) {
+        return { id: runtimeSnapshot.brandingSettingsId };
       }
       return null;
+    });
+    mocks.queryAll.mockImplementation(async (sql: string) => {
+      const normalized = sql.replace(/\s+/g, " ").trim().toLowerCase();
+      if (normalized.includes("from saas_features")) {
+        return runtimeSnapshot.featureKeys.map((featureKey) => ({ feature_key: featureKey, status: "ENABLED" }));
+      }
+      return [];
     });
     mocks.transitionState.mockResolvedValue(undefined);
     mocks.updatePayload.mockResolvedValue(undefined);
@@ -214,7 +247,8 @@ describe("saas-factory orchestrator canonical state flow", () => {
     expect(mocks.transitionState).toHaveBeenNthCalledWith(4, "job_1", "RUNTIME_DEPLOYED", "PROVISION_WORKER", { lockVersion: 9, ownerId: "worker_1" }, "Domain provisioning worker step started.");
     expect(mocks.transitionState).toHaveBeenNthCalledWith(5, "job_1", "PROVISION_WORKER", "CREATE_DOMAIN_BINDING", { lockVersion: 9, ownerId: "worker_1" }, "Domain binding created.");
     expect(mocks.transitionState).toHaveBeenNthCalledWith(6, "job_1", "CREATE_DOMAIN_BINDING", "VERIFY_DOMAIN", { lockVersion: 9, ownerId: "worker_1" }, "Domain binding verified.");
-    expect(mocks.completeJob).toHaveBeenCalledWith("job_1", "VERIFY_DOMAIN", { lockVersion: 9, ownerId: "worker_1" });
+    expect(mocks.transitionState).toHaveBeenNthCalledWith(7, "job_1", "VERIFY_DOMAIN", "BOOTSTRAP_READY", { lockVersion: 9, ownerId: "worker_1" }, "Canonical bootstrap completed.");
+    expect(mocks.completeJob).toHaveBeenCalledWith("job_1", "BOOTSTRAP_READY", { lockVersion: 9, ownerId: "worker_1" });
 
     expect(mocks.ensureStripeProductForSaas).toHaveBeenCalledWith(
       expect.objectContaining({ correlationId: "corr_job_1", saasId: "saas_1", tenantId: "tenant_a" }),
@@ -245,6 +279,16 @@ describe("saas-factory orchestrator canonical state flow", () => {
         runtimeDeployment: expect.objectContaining({
           status: "active",
           activationReady: true,
+        }),
+      }),
+      { lockVersion: 9, ownerId: "worker_1" },
+    );
+    expect(mocks.updatePayload).toHaveBeenCalledWith(
+      "job_1",
+      expect.objectContaining({
+        bootstrapDeployment: expect.objectContaining({
+          status: "ready",
+          readinessMarker: "bootstrap_ready",
         }),
       }),
       { lockVersion: 9, ownerId: "worker_1" },

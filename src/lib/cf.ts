@@ -59,7 +59,11 @@ export type DracoEnv = {
   SCHEDULER?: Fetcher; // Service Binding to drako-scheduler
   PROVISIONING_QUEUE?: { send: (msg: any) => Promise<void> }; // Cloudflare Queue Producer
   INTERNAL_API_SECRET?: string; // Phase 3.1 Hardening
-  PROVISIONING_FAULT_AT?: "STRIPE_AFTER_CREATE" | "CLOUDFLARE_AFTER_CREATE";
+  PROVISIONING_FAULT_AT?:
+    | "STRIPE_AFTER_CREATE"
+    | "CLOUDFLARE_AFTER_CREATE"
+    | "BOOTSTRAP_PARTIAL_READY"
+    | "BOOTSTRAP_CONSISTENCY_BREAK";
   ENVIRONMENT?: string;
   AUTHS_REQUIRE_CONTEXT_DB?: string;
 };

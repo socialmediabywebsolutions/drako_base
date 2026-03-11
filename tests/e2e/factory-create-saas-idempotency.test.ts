@@ -131,6 +131,10 @@ describe("factory create-saas idempotency", () => {
       domain_status: "active",
     });
     expect(store.campamentoProvisioning.find((row) => row.saas_id === jobPayload.job.saasId)?.status).toBe("active");
+    const provisioningPlan = store.campamentoProvisioning.find((row) => row.saas_id === jobPayload.job.saasId)?.plan;
+    expect(provisioningPlan ? JSON.parse(provisioningPlan).bootstrap?.status : null).toBe("ready");
+    expect(store.saasBrandingSettings.find((row) => row.saas_id === jobPayload.job.saasId)).toBeTruthy();
+    expect(store.saasFeatures.filter((row) => row.saas_id === jobPayload.job.saasId && row.status === "ENABLED").length).toBeGreaterThan(0);
 
     expect(parseEventMetadata(store, "provision.saas_factory.job.queued")).toHaveLength(1);
     expect(parseEventMetadata(store, "provision.saas_factory.job.reused")).toHaveLength(2);

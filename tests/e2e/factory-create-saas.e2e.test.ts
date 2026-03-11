@@ -73,6 +73,11 @@ function parseEventMetadata(store: ProvisioningHarnessStore, type: string) {
     }));
 }
 
+function parseProvisioningPlan(store: ProvisioningHarnessStore, saasId: string) {
+  const runtimeRow = store.campamentoProvisioning.find((row) => row.saas_id === saasId);
+  return runtimeRow?.plan ? (JSON.parse(runtimeRow.plan) as Record<string, unknown>) : null;
+}
+
 function expectNoRollback(jobPayload: JobStatusPayload) {
   expect(jobPayload.job.timeline.some((entry) => entry.type === "rollback")).toBe(false);
 }
@@ -125,6 +130,9 @@ describe("factory create-saas e2e", () => {
     const saasRow = store.saas.find((row) => row.id === jobPayload.job.saasId);
     const instanceRow = store.saasInstances.find((row) => row.id === jobPayload.job.saasId);
     const runtimeRow = store.campamentoProvisioning.find((row) => row.saas_id === jobPayload.job.saasId);
+    const provisioningPlan = parseProvisioningPlan(store, jobPayload.job.saasId) as {
+      bootstrap?: { status?: string; readinessMarker?: string; featureKeys?: string[] };
+    } | null;
     expect(saasRow).toMatchObject({
       status: "active",
       domain: domainRow?.domain,
@@ -137,6 +145,13 @@ describe("factory create-saas e2e", () => {
       domain_status: "active",
     });
     expect(runtimeRow?.status).toBe("active");
+    expect(provisioningPlan?.bootstrap).toMatchObject({
+      status: "ready",
+      readinessMarker: "bootstrap_ready",
+    });
+    expect(store.saasBrandingSettings.find((row) => row.saas_id === jobPayload.job.saasId)).toBeTruthy();
+    expect(store.saasFeatures.filter((row) => row.saas_id === jobPayload.job.saasId && row.status === "ENABLED").length).toBeGreaterThan(0);
+    expect(jobPayload.job.timeline.some((entry) => entry.state === "BOOTSTRAP_READY")).toBe(true);
 
     const healthPayload = await fetchDomainsHealth();
     expect(healthPayload.ok).toBe(true);
@@ -177,6 +192,9 @@ describe("factory create-saas e2e", () => {
     const saasRow = store.saas.find((row) => row.id === jobPayload.job.saasId);
     const instanceRow = store.saasInstances.find((row) => row.id === jobPayload.job.saasId);
     const runtimeRow = store.campamentoProvisioning.find((row) => row.saas_id === jobPayload.job.saasId);
+    const provisioningPlan = parseProvisioningPlan(store, jobPayload.job.saasId) as {
+      bootstrap?: { status?: string; readinessMarker?: string };
+    } | null;
     expect(saasRow).toMatchObject({
       status: "provisioning",
       domain: domainRow?.domain,
@@ -189,6 +207,7 @@ describe("factory create-saas e2e", () => {
       domain_status: "pending",
     });
     expect(runtimeRow?.status).toBe("degraded");
+    expect(provisioningPlan?.bootstrap?.status).toBe("pending");
 
     const healthPayload = await fetchDomainsHealth();
     expect(healthPayload.pendingDomains.some((domain) => domain.hostname === domainRow?.domain)).toBe(true);
@@ -200,5 +219,51 @@ describe("factory create-saas e2e", () => {
     expect(store.campamentoEvents.some((event) => event.type === "provision.domain.degraded")).toBe(true);
     expectNoFailureOutcome(store, createPayload.correlationId);
     expect(findProvisioningJob(store, createPayload.jobId)?.rollback_history_json).toBe("[]");
+  });
+
+  it("marks the canonical pipeline DEGRADED when bootstrap is partial after activation is valid", async () => {
+    const store = createProvisioningHarnessStore();
+    const runtimeEnv = createFactoryRuntimeEnv({
+      db: mockDb,
+      store,
+      overrides: { PROVISIONING_FAULT_AT: "BOOTSTRAP_PARTIAL_READY" },
+    });
+    vi.mocked(resolveEnv).mockReturnValue(runtimeEnv);
+    installProvisioningDbMock(mockDb, store);
+    factoryCreateSaasMocks.domainFetchImpl.mockImplementation(createCloudflareFetch({ verifyStatuses: ["active"], createStatus: "pending" }));
+
+    const createResponse = await createSaas(buildCreateSaasRequest({ slug: "e2e-bootstrap-degraded-saas" }) as any);
+    expect(createResponse.status).toBe(202);
+
+    const createPayload = await createResponse.json() as CreateSaasPayload;
+    await processQueuedFactoryJob(store, runtimeEnv, createPayload.jobId);
+
+    const jobPayload = await fetchJob(createPayload.jobId);
+    expect(jobPayload.job.state).toBe("DEGRADED");
+    expect(jobPayload.job.rawState).toBe("DEGRADED");
+    expect(jobPayload.job.timeline.some((entry) => entry.state === "BOOTSTRAP_READY")).toBe(true);
+
+    const domainRow = findPrimaryDomainRow(store, jobPayload.job.saasId);
+    const saasRow = store.saas.find((row) => row.id === jobPayload.job.saasId);
+    const instanceRow = store.saasInstances.find((row) => row.id === jobPayload.job.saasId);
+    const runtimeRow = store.campamentoProvisioning.find((row) => row.saas_id === jobPayload.job.saasId);
+    const provisioningPlan = parseProvisioningPlan(store, jobPayload.job.saasId) as {
+      bootstrap?: { status?: string; readinessMarker?: string; degradedReason?: string; featureKeys?: string[]; expectedFeatureKeys?: string[] };
+    } | null;
+
+    expect(domainRow?.status).toBe("active");
+    expect(saasRow?.status).toBe("active");
+    expect(instanceRow?.status).toBe("active");
+    expect(runtimeRow?.status).toBe("active");
+    expect(provisioningPlan?.bootstrap).toMatchObject({
+      status: "degraded",
+      readinessMarker: "bootstrap_partial",
+    });
+    expect(provisioningPlan?.bootstrap?.featureKeys?.length).toBeGreaterThan(0);
+    expect(provisioningPlan?.bootstrap?.expectedFeatureKeys?.length).toBeGreaterThan(
+      provisioningPlan?.bootstrap?.featureKeys?.length ?? 0,
+    );
+    expect(store.saasBrandingSettings.find((row) => row.saas_id === jobPayload.job.saasId)).toBeTruthy();
+    expect(store.saasFeatures.filter((row) => row.saas_id === jobPayload.job.saasId && row.status === "ENABLED").length).toBeGreaterThan(0);
   });
 });
