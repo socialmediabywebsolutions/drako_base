@@ -51,6 +51,7 @@ jobs:
           pnpm verify:auth-ssot
           npx vitest run tests/api/auth-cross-redirects.test.ts
           pnpm typecheck
+          FIXTURES_DIR=tests/fixtures/production-audits/pass pnpm check:production
           npx vitest run tests/lib/auth-db-selection-failclosed.test.ts
           npx vitest run tests/lib/auth-origin-resolution.test.ts
           npx vitest run tests/lib/auth-session-cookie-e2e.test.ts
@@ -101,7 +102,7 @@ jobs:
           CI: "true"
         run: |
           set -euo pipefail
-          npx opennextjs-cloudflare build 2>&1 | tee open-next-build.log
+          pnpm build:factory 2>&1 | tee open-next-build.log
           echo "=== BUILD: listing .open-next ==="
           ls -R .open-next || true
 
