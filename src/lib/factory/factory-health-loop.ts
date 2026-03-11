@@ -5,6 +5,7 @@ const FACTORY_HEALTH_TENANT_ID = "system";
 
 export async function runFactoryHealthLoop(): Promise<void> {
   const correlationId = crypto.randomUUID();
+  const outcome = "stable";
 
   await recordCampamentoEvent({
     tenantId: FACTORY_HEALTH_TENANT_ID,
@@ -32,6 +33,7 @@ export async function runFactoryHealthLoop(): Promise<void> {
     metadata: {
       subsystem: "factory",
       stage: "post-recovery",
+      outcome,
     },
     correlationId,
   });

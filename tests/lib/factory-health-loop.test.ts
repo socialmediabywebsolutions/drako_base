@@ -72,6 +72,7 @@ describe("runFactoryHealthLoop", () => {
       metadata: {
         subsystem: "factory",
         stage: "post-recovery",
+        outcome: "stable",
       },
     }));
   });
