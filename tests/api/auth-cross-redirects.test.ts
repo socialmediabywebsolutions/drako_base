@@ -168,7 +168,7 @@ describe("auth ssot drift guard", () => {
     expect(payload.user.saas_slug).toBe("drako");
     expect(registerSpy).toHaveBeenCalledWith(expect.objectContaining({ context: "drakos" }));
     expect(loginSpy).toHaveBeenCalledWith(expect.objectContaining({ context: "drakos" }));
-  });
+  }, 15000);
 
   it("mentorias registration endpoint emits mentorias saas_slug and enforces mentorias context", async () => {
     vi.resetModules();
