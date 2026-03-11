@@ -1,4 +1,4 @@
-import { run } from "@/lib/db";
+import { queryOne, run } from "@/lib/db";
 import type { DracoEnv } from "@/lib/cf";
 import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-types";
 import { ensureCampamentoBase } from "@/lib/campamento-base";
@@ -27,6 +27,39 @@ type OrchestratorPayload = SaasBlueprintDraft & {
   stripeProductId?: string;
   stripePriceIds?: Record<string, string>;
   cloudflareHostnameId?: string;
+  runtimeDeployment?: {
+    mode: "shared_runtime";
+    runtimeName: string;
+    trialDomain: string;
+    customDomain: string | null;
+    status: "provisioning" | "active" | "degraded";
+    activationReady: boolean;
+    lastKnownDomainStatus: string;
+  };
+};
+
+type RuntimeContractStatus = "provisioning" | "active" | "degraded";
+
+type RuntimeDeploymentResult = {
+  mode: "shared_runtime";
+  runtimeName: string;
+  trialDomain: string;
+  customDomain: string | null;
+  status: RuntimeContractStatus;
+  activationReady: boolean;
+  lastKnownDomainStatus: string;
+};
+
+type RuntimeActivationSnapshot = {
+  saasStatus: string | null;
+  saasDomainStatus: string | null;
+  saasDomain: string | null;
+  saasPublicDomain: string | null;
+  instanceStatus: string | null;
+  instanceTrialDomain: string | null;
+  instanceCustomDomain: string | null;
+  instanceDomainStatus: string | null;
+  runtimeContractStatus: string | null;
 };
 
 type DomainVerifyRetryConfig = {
@@ -54,6 +87,317 @@ type VerifyDomainWithRetryResult = {
   waitedMs: number;
   isActive: boolean;
 };
+
+const CANONICAL_RUNTIME_NAME = "shared_open_next_runtime";
+
+function normalizeRuntimeDomainStatus(status: string): string {
+  const normalized = status.trim().toLowerCase();
+  if (!normalized) return "pending";
+  return normalized;
+}
+
+async function upsertRuntimeContract(params: {
+  tenantId: string;
+  saasId: string;
+  correlationId: string;
+  trialDomain: string;
+  customDomain: string | null;
+  status: RuntimeContractStatus;
+  lastError?: string | null;
+}) {
+  const now = new Date().toISOString();
+  const plan = JSON.stringify({
+    runtimeName: CANONICAL_RUNTIME_NAME,
+    routeType: "trial_domain",
+    trialDomain: params.trialDomain,
+    customDomain: params.customDomain,
+  });
+
+  await run(
+    `INSERT INTO campamento_provisioning (
+      id, tenant_id, saas_id, mode, status, plan, last_error, correlation_id, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(tenant_id, saas_id) DO UPDATE SET
+      mode = excluded.mode,
+      status = excluded.status,
+      plan = excluded.plan,
+      last_error = excluded.last_error,
+      correlation_id = excluded.correlation_id,
+      updated_at = excluded.updated_at`,
+    `runtime_${params.saasId}`,
+    params.tenantId,
+    params.saasId,
+    "shared_runtime",
+    params.status,
+    plan,
+    params.lastError ?? null,
+    params.correlationId,
+    now,
+    now,
+  );
+}
+
+async function loadRuntimeActivationSnapshot(params: {
+  tenantId: string;
+  saasId: string;
+}): Promise<RuntimeActivationSnapshot> {
+  const [saasRow, instanceRow, runtimeRow] = await Promise.all([
+    queryOne<{
+      status: string | null;
+      domain_status: string | null;
+      domain: string | null;
+      public_domain: string | null;
+    }>(
+      `SELECT status, domain_status, domain, public_domain
+       FROM saas
+       WHERE id = ? AND tenant_id = ?
+       LIMIT 1`,
+      params.saasId,
+      params.tenantId,
+    ),
+    queryOne<{
+      status: string | null;
+      trial_domain: string | null;
+      custom_domain: string | null;
+      domain_status: string | null;
+    }>(
+      `SELECT status, trial_domain, custom_domain, domain_status
+       FROM saas_instances
+       WHERE id = ? AND tenant_id = ?
+       LIMIT 1`,
+      params.saasId,
+      params.tenantId,
+    ),
+    queryOne<{ status: string | null }>(
+      `SELECT status
+       FROM campamento_provisioning
+       WHERE tenant_id = ? AND saas_id = ?
+       LIMIT 1`,
+      params.tenantId,
+      params.saasId,
+    ),
+  ]);
+
+  return {
+    saasStatus: saasRow?.status ?? null,
+    saasDomainStatus: saasRow?.domain_status ?? null,
+    saasDomain: saasRow?.domain ?? null,
+    saasPublicDomain: saasRow?.public_domain ?? null,
+    instanceStatus: instanceRow?.status ?? null,
+    instanceTrialDomain: instanceRow?.trial_domain ?? null,
+    instanceCustomDomain: instanceRow?.custom_domain ?? null,
+    instanceDomainStatus: instanceRow?.domain_status ?? null,
+    runtimeContractStatus: runtimeRow?.status ?? null,
+  };
+}
+
+function isRuntimeProvisioningConsistent(
+  snapshot: RuntimeActivationSnapshot,
+  contract: { trialDomain: string; customDomain: string | null },
+): boolean {
+  return snapshot.saasStatus === "provisioning"
+    && snapshot.saasDomainStatus === "pending"
+    && snapshot.saasDomain === contract.trialDomain
+    && snapshot.saasPublicDomain === contract.trialDomain
+    && snapshot.instanceStatus === "provisioning"
+    && snapshot.instanceTrialDomain === contract.trialDomain
+    && snapshot.instanceCustomDomain === contract.customDomain
+    && snapshot.instanceDomainStatus === "pending"
+    && snapshot.runtimeContractStatus === "provisioning";
+}
+
+function isRuntimeActivationReady(
+  snapshot: RuntimeActivationSnapshot,
+  contract: { trialDomain: string; customDomain: string | null },
+): boolean {
+  return snapshot.saasStatus === "active"
+    && snapshot.saasDomainStatus === "active"
+    && snapshot.saasDomain === contract.trialDomain
+    && snapshot.saasPublicDomain === contract.trialDomain
+    && snapshot.instanceStatus === "active"
+    && snapshot.instanceTrialDomain === contract.trialDomain
+    && snapshot.instanceCustomDomain === contract.customDomain
+    && snapshot.instanceDomainStatus === "active"
+    && snapshot.runtimeContractStatus === "active";
+}
+
+function isRuntimeDegradedConsistent(
+  snapshot: RuntimeActivationSnapshot,
+  contract: { trialDomain: string; customDomain: string | null; domainStatus: string },
+): boolean {
+  return snapshot.saasStatus === "provisioning"
+    && snapshot.saasDomainStatus === contract.domainStatus
+    && snapshot.saasDomain === contract.trialDomain
+    && snapshot.saasPublicDomain === contract.trialDomain
+    && snapshot.instanceStatus === "provisioning"
+    && snapshot.instanceTrialDomain === contract.trialDomain
+    && snapshot.instanceCustomDomain === contract.customDomain
+    && snapshot.instanceDomainStatus === contract.domainStatus
+    && snapshot.runtimeContractStatus === "degraded";
+}
+
+async function deployCanonicalRuntime(params: {
+  tenantId: string;
+  saasId: string;
+  blueprint: SaasBlueprintDraft;
+  correlationId: string;
+}): Promise<RuntimeDeploymentResult> {
+  const domains = computeDomainsForSaas(params.blueprint);
+  const trialDomain = domains.primaryHostname;
+  const customDomain = domains.customHostname ?? null;
+  const subdomain = params.blueprint.proposedSubdomain || params.blueprint.proposedSlug;
+  const now = new Date().toISOString();
+
+  await run(
+    `UPDATE saas
+     SET status = 'provisioning',
+         domain = ?,
+         subdomain = ?,
+         public_domain = ?,
+         public_subdomain = ?,
+         domain_status = 'pending'
+     WHERE id = ? AND tenant_id = ?`,
+    trialDomain,
+    subdomain,
+    trialDomain,
+    subdomain,
+    params.saasId,
+    params.tenantId,
+  );
+
+  await run(
+    `UPDATE saas_instances
+     SET status = 'provisioning',
+         trial_domain = ?,
+         custom_domain = ?,
+         domain_status = 'pending',
+         updated_at = ?
+     WHERE id = ? AND tenant_id = ?`,
+    trialDomain,
+    customDomain,
+    now,
+    params.saasId,
+    params.tenantId,
+  );
+
+  await upsertRuntimeContract({
+    tenantId: params.tenantId,
+    saasId: params.saasId,
+    correlationId: params.correlationId,
+    trialDomain,
+    customDomain,
+    status: "provisioning",
+  });
+
+  const snapshot = await loadRuntimeActivationSnapshot({
+    tenantId: params.tenantId,
+    saasId: params.saasId,
+  });
+
+  if (!isRuntimeProvisioningConsistent(snapshot, { trialDomain, customDomain })) {
+    throw new Error("CANONICAL_RUNTIME_DEPLOYMENT_INCONSISTENT");
+  }
+
+  return {
+    mode: "shared_runtime",
+    runtimeName: CANONICAL_RUNTIME_NAME,
+    trialDomain,
+    customDomain,
+    status: "provisioning",
+    activationReady: false,
+    lastKnownDomainStatus: "pending",
+  };
+}
+
+async function finalizeCanonicalActivation(params: {
+  tenantId: string;
+  saasId: string;
+  correlationId: string;
+  runtimeDeployment: RuntimeDeploymentResult;
+  domainStatus: string;
+  activationResult: "active" | "degraded";
+}): Promise<RuntimeDeploymentResult> {
+  const normalizedDomainStatus = normalizeRuntimeDomainStatus(params.domainStatus);
+  const nextSaasStatus = params.activationResult === "active" ? "active" : "provisioning";
+  const nextContractStatus: RuntimeContractStatus = params.activationResult === "active" ? "active" : "degraded";
+  const now = new Date().toISOString();
+
+  await run(
+    `UPDATE saas
+     SET status = ?,
+         domain = ?,
+         public_domain = ?,
+         domain_status = ?
+     WHERE id = ? AND tenant_id = ?`,
+    nextSaasStatus,
+    params.runtimeDeployment.trialDomain,
+    params.runtimeDeployment.trialDomain,
+    normalizedDomainStatus,
+    params.saasId,
+    params.tenantId,
+  );
+
+  await run(
+    `UPDATE saas_instances
+     SET status = ?,
+         trial_domain = ?,
+         custom_domain = ?,
+         domain_status = ?,
+         updated_at = ?
+     WHERE id = ? AND tenant_id = ?`,
+    nextSaasStatus,
+    params.runtimeDeployment.trialDomain,
+    params.runtimeDeployment.customDomain,
+    normalizedDomainStatus,
+    now,
+    params.saasId,
+    params.tenantId,
+  );
+
+  await upsertRuntimeContract({
+    tenantId: params.tenantId,
+    saasId: params.saasId,
+    correlationId: params.correlationId,
+    trialDomain: params.runtimeDeployment.trialDomain,
+    customDomain: params.runtimeDeployment.customDomain,
+    status: nextContractStatus,
+    lastError: params.activationResult === "degraded"
+      ? `Canonical runtime waiting on domain status ${normalizedDomainStatus}.`
+      : null,
+  });
+
+  const snapshot = await loadRuntimeActivationSnapshot({
+    tenantId: params.tenantId,
+    saasId: params.saasId,
+  });
+
+  if (params.activationResult === "active") {
+    if (!isRuntimeActivationReady(snapshot, params.runtimeDeployment)) {
+      throw new Error("CANONICAL_RUNTIME_ACTIVATION_NOT_READY");
+    }
+    return {
+      ...params.runtimeDeployment,
+      status: "active",
+      activationReady: true,
+      lastKnownDomainStatus: "active",
+    };
+  }
+
+  if (!isRuntimeDegradedConsistent(snapshot, {
+    trialDomain: params.runtimeDeployment.trialDomain,
+    customDomain: params.runtimeDeployment.customDomain,
+    domainStatus: normalizedDomainStatus,
+  })) {
+    throw new Error("CANONICAL_RUNTIME_DEGRADED_INCONSISTENT");
+  }
+
+  return {
+    ...params.runtimeDeployment,
+    status: "degraded",
+    activationReady: false,
+    lastKnownDomainStatus: normalizedDomainStatus,
+  };
+}
 
 async function recordProvisioningStepEvent(params: {
   tenantId: string;
@@ -379,7 +723,7 @@ export async function provisionSaaS(params: {
 
       await run(
         `INSERT INTO saas_instances (id, tenant_id, slug, name, status, plan_tier, created_at)
-                 VALUES (?, ?, ?, ?, 'active', 'trial', strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+                 VALUES (?, ?, ?, ?, 'inactive', 'trial', strftime('%Y-%m-%dT%H:%M:%fZ','now'))
                  ON CONFLICT(slug) DO NOTHING`,
         realSaasId, params.ownerTenantId, normalized.proposedSlug, normalized.saasName
       );
@@ -453,9 +797,53 @@ export async function provisionSaaS(params: {
       }
     }
 
-    // --- STEP 3: DOMAIN PROVIDER (Workers Custom Domains) ---
+    // --- STEP 3: CANONICAL RUNTIME CONTRACT ---
     if (currentState === 'STRIPE_PRODUCT_CREATED') {
-      await JobRunner.transitionState(jobIdInUse, 'STRIPE_PRODUCT_CREATED', 'PROVISION_WORKER', token!, 'Domain provisioning worker step started.');
+      const startedAt = Date.now();
+      await recordProvisioningStepEvent({
+        tenantId: params.ownerTenantId,
+        saasId: realSaasId,
+        correlationId,
+        jobId: jobIdInUse,
+        step: "runtime",
+        phase: "started",
+        severity: "INFO",
+        message: "Canonical runtime deployment started.",
+      });
+
+      const runtimeDeployment = await deployCanonicalRuntime({
+        tenantId: params.ownerTenantId,
+        saasId: realSaasId,
+        blueprint: normalized,
+        correlationId,
+      });
+
+      payload = { ...payload, runtimeDeployment };
+      await JobRunner.updatePayload(jobIdInUse, payload, token!);
+      await JobRunner.transitionState(jobIdInUse, 'STRIPE_PRODUCT_CREATED', 'RUNTIME_DEPLOYED', token!, 'Canonical runtime deployment recorded.');
+      currentState = 'RUNTIME_DEPLOYED';
+
+      await recordProvisioningStepEvent({
+        tenantId: params.ownerTenantId,
+        saasId: realSaasId,
+        correlationId,
+        jobId: jobIdInUse,
+        step: "runtime",
+        phase: "succeeded",
+        severity: "INFO",
+        message: "Canonical runtime deployment completed.",
+        durationMs: Date.now() - startedAt,
+        metadata: {
+          runtimeName: runtimeDeployment.runtimeName,
+          trialDomain: runtimeDeployment.trialDomain,
+          customDomain: runtimeDeployment.customDomain,
+        },
+      });
+    }
+
+    // --- STEP 4: DOMAIN PROVIDER (Workers Custom Domains) ---
+    if (currentState === 'RUNTIME_DEPLOYED') {
+      await JobRunner.transitionState(jobIdInUse, 'RUNTIME_DEPLOYED', 'PROVISION_WORKER', token!, 'Domain provisioning worker step started.');
       currentState = 'PROVISION_WORKER';
     }
 
@@ -529,6 +917,24 @@ export async function provisionSaaS(params: {
       currentState = 'VERIFY_DOMAIN';
 
       if (!verifyResult.isActive) {
+        const degradedRuntime = await finalizeCanonicalActivation({
+          tenantId: params.ownerTenantId,
+          saasId: realSaasId,
+          correlationId,
+          runtimeDeployment: payload.runtimeDeployment ?? {
+            mode: "shared_runtime",
+            runtimeName: CANONICAL_RUNTIME_NAME,
+            trialDomain: domains.primaryHostname,
+            customDomain: domains.customHostname ?? null,
+            status: "provisioning",
+            activationReady: false,
+            lastKnownDomainStatus: "pending",
+          },
+          domainStatus: verifyRes.providerStatus,
+          activationResult: "degraded",
+        });
+        payload = { ...payload, runtimeDeployment: degradedRuntime };
+        await JobRunner.updatePayload(jobIdInUse, payload, token!);
         await recordDomainProviderEvent({
           tenantId: params.ownerTenantId,
           saasId: realSaasId,
@@ -566,12 +972,64 @@ export async function provisionSaaS(params: {
         return { saasId: realSaasId, status: 'DEGRADED' };
       }
 
+      const activatedRuntime = await finalizeCanonicalActivation({
+        tenantId: params.ownerTenantId,
+        saasId: realSaasId,
+        correlationId,
+        runtimeDeployment: payload.runtimeDeployment ?? {
+          mode: "shared_runtime",
+          runtimeName: CANONICAL_RUNTIME_NAME,
+          trialDomain: domains.primaryHostname,
+          customDomain: domains.customHostname ?? null,
+          status: "provisioning",
+          activationReady: false,
+          lastKnownDomainStatus: "pending",
+        },
+        domainStatus: verifyRes.providerStatus,
+        activationResult: "active",
+      });
+      payload = { ...payload, runtimeDeployment: activatedRuntime };
+      await JobRunner.updatePayload(jobIdInUse, payload, token!);
+
       if (params.env?.PROVISIONING_FAULT_AT === 'CLOUDFLARE_AFTER_CREATE') {
         throw new Error("Simulated Fault: CLOUDFLARE_AFTER_CREATE");
       }
     }
 
     if (currentState === 'VERIFY_DOMAIN') {
+      if (!payload.runtimeDeployment) {
+        throw new Error("CANONICAL_RUNTIME_DEPLOYMENT_MISSING");
+      }
+
+      if (payload.runtimeDeployment.status === "degraded" && !payload.runtimeDeployment.activationReady) {
+        await JobRunner.markDegraded(
+          jobIdInUse,
+          'VERIFY_DOMAIN',
+          token!,
+          `Domain verification did not reach active status (${payload.runtimeDeployment.lastKnownDomainStatus}).`,
+        );
+        await recordProvisioningStepEvent({
+          tenantId: params.ownerTenantId,
+          saasId: realSaasId,
+          correlationId,
+          jobId: jobIdInUse,
+          step: "job",
+          phase: "succeeded",
+          severity: "WARNING",
+          message: "Provisioning completed in degraded mode.",
+          durationMs: Date.now() - executionStartedAt,
+          metadata: {
+            finalState: "DEGRADED",
+            domainStatus: payload.runtimeDeployment.lastKnownDomainStatus,
+          },
+        });
+        return { saasId: realSaasId, status: 'DEGRADED' };
+      }
+
+      if (!payload.runtimeDeployment.activationReady || payload.runtimeDeployment.status !== "active") {
+        throw new Error("CANONICAL_RUNTIME_ACTIVATION_NOT_READY");
+      }
+
       await JobRunner.completeJob(jobIdInUse, 'VERIFY_DOMAIN', token!);
       await recordProvisioningStepEvent({
         tenantId: params.ownerTenantId,
@@ -629,7 +1087,7 @@ export async function provisionSaaS(params: {
         await JobRunner.logRollback(jobIdInUse, 'DOMAINS_ROLLED_BACK', `Deleted hostname binding ${domains.primaryHostname}`);
       }
 
-      if (currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'STRIPE_PRODUCT_CREATED') {
+      if (currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'RUNTIME_DEPLOYED' || currentState === 'STRIPE_PRODUCT_CREATED') {
         if (payload.stripeProductId) {
           await archiveStripeProductAndPrices({
             env: params.env,
@@ -639,7 +1097,12 @@ export async function provisionSaaS(params: {
         }
       }
 
-      if (currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'STRIPE_PRODUCT_CREATED' || currentState === 'SAAS_REGISTERED') {
+      if (currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'RUNTIME_DEPLOYED' || currentState === 'STRIPE_PRODUCT_CREATED') {
+        await run(`DELETE FROM campamento_provisioning WHERE tenant_id = ? AND saas_id = ?`, params.ownerTenantId, realSaasId);
+        await JobRunner.logRollback(jobIdInUse, 'RUNTIME_CONTRACT', 'Deleted runtime contract state.');
+      }
+
+      if (currentState === 'VERIFY_DOMAIN' || currentState === 'CREATE_DOMAIN_BINDING' || currentState === 'PROVISION_WORKER' || currentState === 'RUNTIME_DEPLOYED' || currentState === 'STRIPE_PRODUCT_CREATED' || currentState === 'SAAS_REGISTERED') {
         await run(`DELETE FROM saas_instances WHERE id = ?`, realSaasId);
         await run(`DELETE FROM saas WHERE id = ?`, realSaasId);
         await JobRunner.logRollback(jobIdInUse, 'DB', 'Deleted SaaS records.');

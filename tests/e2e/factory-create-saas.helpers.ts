@@ -38,6 +38,11 @@ type SaasRow = {
   name: string;
   slug: string;
   status: string;
+  domain: string | null;
+  subdomain: string | null;
+  public_domain: string | null;
+  public_subdomain: string | null;
+  domain_status: string | null;
   tenant_id: string;
   created_at: string;
 };
@@ -48,8 +53,12 @@ type SaasInstanceRow = {
   slug: string;
   name: string;
   status: string;
+  trial_domain: string | null;
+  custom_domain: string | null;
+  domain_status: string | null;
   plan_tier: string;
   created_at: string;
+  updated_at: string;
 };
 
 type SaasDomainRow = {
@@ -75,6 +84,19 @@ type CampamentoEventRow = {
   metadata: string | null;
   correlation_id: string;
   created_at: string;
+};
+
+type CampamentoProvisioningRow = {
+  id: string;
+  tenant_id: string;
+  saas_id: string;
+  mode: string;
+  status: string;
+  plan: string;
+  last_error: string | null;
+  correlation_id: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type ProvisioningHarnessStore = {
@@ -103,6 +125,7 @@ export type ProvisioningHarnessStore = {
   saas: SaasRow[];
   saasInstances: SaasInstanceRow[];
   saasDomains: SaasDomainRow[];
+  campamentoProvisioning: CampamentoProvisioningRow[];
   campamentoEvents: CampamentoEventRow[];
   sentQueueMessages: QueueMessage[];
 };
@@ -304,6 +327,40 @@ function selectRows(store: ProvisioningHarnessStore, sql: string, params: unknow
     const [tenantId, saasId] = params;
     return store.saasDomains
       .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId && row.is_primary === 1)
+      .slice(0, 1)
+      .map((row) => ({ status: row.status }));
+  }
+
+  if (hasSql(normalized, "select status, domain_status, domain, public_domain", "from saas", "where id = ? and tenant_id = ?")) {
+    const [saasId, tenantId] = params;
+    return store.saas
+      .filter((row) => row.id === saasId && row.tenant_id === tenantId)
+      .slice(0, 1)
+      .map((row) => ({
+        status: row.status,
+        domain_status: row.domain_status,
+        domain: row.domain,
+        public_domain: row.public_domain,
+      }));
+  }
+
+  if (hasSql(normalized, "select status, trial_domain, custom_domain, domain_status", "from saas_instances", "where id = ? and tenant_id = ?")) {
+    const [saasId, tenantId] = params;
+    return store.saasInstances
+      .filter((row) => row.id === saasId && row.tenant_id === tenantId)
+      .slice(0, 1)
+      .map((row) => ({
+        status: row.status,
+        trial_domain: row.trial_domain,
+        custom_domain: row.custom_domain,
+        domain_status: row.domain_status,
+      }));
+  }
+
+  if (hasSql(normalized, "select status", "from campamento_provisioning", "where tenant_id = ? and saas_id = ?")) {
+    const [tenantId, saasId] = params;
+    return store.campamentoProvisioning
+      .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId)
       .slice(0, 1)
       .map((row) => ({ status: row.status }));
   }
@@ -547,6 +604,11 @@ function executeRun(store: ProvisioningHarnessStore, sql: string, params: unknow
       name: String(name),
       slug: String(slug),
       status: "inactive",
+      domain: null,
+      subdomain: null,
+      public_domain: null,
+      public_subdomain: null,
+      domain_status: null,
       tenant_id: String(tenantId),
       created_at: nowIso(),
     });
@@ -562,10 +624,62 @@ function executeRun(store: ProvisioningHarnessStore, sql: string, params: unknow
       tenant_id: String(tenantId),
       slug: String(slug),
       name: String(name),
-      status: "active",
+      status: "inactive",
+      trial_domain: null,
+      custom_domain: null,
+      domain_status: null,
       plan_tier: "trial",
       created_at: nowIso(),
+      updated_at: nowIso(),
     });
+    return true;
+  }
+
+  if (normalized.startsWith("update saas set status = 'provisioning'")) {
+    const [domain, subdomain, publicDomain, publicSubdomain, saasId, tenantId] = params;
+    const row = store.saas.find((item) => item.id === saasId && item.tenant_id === tenantId);
+    if (!row) return false;
+    row.status = "provisioning";
+    row.domain = String(domain);
+    row.subdomain = String(subdomain);
+    row.public_domain = String(publicDomain);
+    row.public_subdomain = String(publicSubdomain);
+    row.domain_status = "pending";
+    return true;
+  }
+
+  if (normalized.startsWith("update saas set status = ?")) {
+    const [status, domain, publicDomain, domainStatus, saasId, tenantId] = params;
+    const row = store.saas.find((item) => item.id === saasId && item.tenant_id === tenantId);
+    if (!row) return false;
+    row.status = String(status);
+    row.domain = String(domain);
+    row.public_domain = String(publicDomain);
+    row.domain_status = String(domainStatus);
+    return true;
+  }
+
+  if (normalized.startsWith("update saas_instances set status = 'provisioning'")) {
+    const [trialDomain, customDomain, updatedAt, saasId, tenantId] = params;
+    const row = store.saasInstances.find((item) => item.id === saasId && item.tenant_id === tenantId);
+    if (!row) return false;
+    row.status = "provisioning";
+    row.trial_domain = String(trialDomain);
+    row.custom_domain = customDomain ? String(customDomain) : null;
+    row.domain_status = "pending";
+    row.updated_at = String(updatedAt);
+    return true;
+  }
+
+  if (normalized.startsWith("update saas_instances set status = ?")) {
+    const [status, trialDomain, customDomain, domainStatus, updatedAt, saasId, tenantId] = params;
+    const row = store.saasInstances.find((item) => item.id === saasId && item.tenant_id === tenantId);
+    if (!row) return false;
+    row.status = String(status);
+    row.trial_domain = String(trialDomain);
+    row.custom_domain = customDomain ? String(customDomain) : null;
+    row.domain_status = String(domainStatus);
+    row.updated_at = String(updatedAt);
     return true;
   }
 
@@ -578,6 +692,41 @@ function executeRun(store: ProvisioningHarnessStore, sql: string, params: unknow
   if (normalized.startsWith("delete from saas where id = ?")) {
     const [saasId] = params;
     store.saas = store.saas.filter((row) => row.id !== saasId);
+    return true;
+  }
+
+  if (normalized.startsWith("insert into campamento_provisioning")) {
+    const [id, tenantId, saasId, mode, status, plan, lastError, correlationId, createdAt, updatedAt] = params;
+    const existing = store.campamentoProvisioning.find((row) => row.tenant_id === tenantId && row.saas_id === saasId);
+    if (existing) {
+      existing.mode = String(mode);
+      existing.status = String(status);
+      existing.plan = String(plan);
+      existing.last_error = lastError ? String(lastError) : null;
+      existing.correlation_id = String(correlationId);
+      existing.updated_at = String(updatedAt);
+      return true;
+    }
+    store.campamentoProvisioning.push({
+      id: String(id),
+      tenant_id: String(tenantId),
+      saas_id: String(saasId),
+      mode: String(mode),
+      status: String(status),
+      plan: String(plan),
+      last_error: lastError ? String(lastError) : null,
+      correlation_id: String(correlationId),
+      created_at: String(createdAt),
+      updated_at: String(updatedAt),
+    });
+    return true;
+  }
+
+  if (normalized.startsWith("delete from campamento_provisioning where tenant_id = ? and saas_id = ?")) {
+    const [tenantId, saasId] = params;
+    store.campamentoProvisioning = store.campamentoProvisioning.filter(
+      (row) => !(row.tenant_id === tenantId && row.saas_id === saasId),
+    );
     return true;
   }
 
@@ -679,6 +828,7 @@ export function createProvisioningHarnessStore(input?: {
     saas: [],
     saasInstances: [],
     saasDomains: [],
+    campamentoProvisioning: [],
     campamentoEvents: [],
     sentQueueMessages: [],
   };

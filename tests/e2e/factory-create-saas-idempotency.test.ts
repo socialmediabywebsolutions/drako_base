@@ -119,6 +119,18 @@ describe("factory create-saas idempotency", () => {
     const domainRow = findPrimaryDomainRow(store, jobPayload.job.saasId);
     expect(domainRow?.domain).toBe(expectedHostname);
     expect(domainRow?.status).toBe("active");
+    expect(store.saas.find((row) => row.id === jobPayload.job.saasId)).toMatchObject({
+      status: "active",
+      domain: expectedHostname,
+      public_domain: expectedHostname,
+      domain_status: "active",
+    });
+    expect(store.saasInstances.find((row) => row.id === jobPayload.job.saasId)).toMatchObject({
+      status: "active",
+      trial_domain: expectedHostname,
+      domain_status: "active",
+    });
+    expect(store.campamentoProvisioning.find((row) => row.saas_id === jobPayload.job.saasId)?.status).toBe("active");
 
     expect(parseEventMetadata(store, "provision.saas_factory.job.queued")).toHaveLength(1);
     expect(parseEventMetadata(store, "provision.saas_factory.job.reused")).toHaveLength(2);

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   ensureCampamentoBase: vi.fn(),
   run: vi.fn(),
+  queryOne: vi.fn(),
   transitionState: vi.fn(),
   updatePayload: vi.fn(),
   completeJob: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock("@/lib/campamento-base", () => ({
 
 vi.mock("@/lib/db", () => ({
   run: mocks.run,
+  queryOne: mocks.queryOne,
 }));
 
 vi.mock("@/lib/provisioning/job-runner", () => ({
@@ -94,7 +96,71 @@ describe("provisioning domain flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.ensureCampamentoBase.mockResolvedValue(undefined);
-    mocks.run.mockResolvedValue(true);
+    const runtimeSnapshot = {
+      saasStatus: "inactive",
+      saasDomainStatus: null as string | null,
+      saasDomain: null as string | null,
+      saasPublicDomain: null as string | null,
+      instanceStatus: "inactive",
+      instanceTrialDomain: null as string | null,
+      instanceCustomDomain: null as string | null,
+      instanceDomainStatus: null as string | null,
+      runtimeContractStatus: null as string | null,
+    };
+    mocks.run.mockImplementation(async (sql: string, ...params: unknown[]) => {
+      const normalized = sql.replace(/\s+/g, " ").trim().toLowerCase();
+      if (normalized.startsWith("update saas set status = 'provisioning'")) {
+        runtimeSnapshot.saasStatus = "provisioning";
+        runtimeSnapshot.saasDomainStatus = "pending";
+        runtimeSnapshot.saasDomain = String(params[0]);
+        runtimeSnapshot.saasPublicDomain = String(params[2]);
+      }
+      if (normalized.startsWith("update saas_instances set status = 'provisioning'")) {
+        runtimeSnapshot.instanceStatus = "provisioning";
+        runtimeSnapshot.instanceTrialDomain = String(params[0]);
+        runtimeSnapshot.instanceCustomDomain = params[1] ? String(params[1]) : null;
+        runtimeSnapshot.instanceDomainStatus = "pending";
+      }
+      if (normalized.startsWith("insert into campamento_provisioning")) {
+        runtimeSnapshot.runtimeContractStatus = String(params[4]);
+      }
+      if (normalized.startsWith("update saas set status = ?")) {
+        runtimeSnapshot.saasStatus = String(params[0]);
+        runtimeSnapshot.saasDomain = String(params[1]);
+        runtimeSnapshot.saasPublicDomain = String(params[2]);
+        runtimeSnapshot.saasDomainStatus = String(params[3]);
+      }
+      if (normalized.startsWith("update saas_instances set status = ?")) {
+        runtimeSnapshot.instanceStatus = String(params[0]);
+        runtimeSnapshot.instanceTrialDomain = String(params[1]);
+        runtimeSnapshot.instanceCustomDomain = params[2] ? String(params[2]) : null;
+        runtimeSnapshot.instanceDomainStatus = String(params[3]);
+      }
+      return true;
+    });
+    mocks.queryOne.mockImplementation(async (sql: string) => {
+      const normalized = sql.replace(/\s+/g, " ").trim().toLowerCase();
+      if (normalized.includes("from saas where id = ? and tenant_id = ?")) {
+        return {
+          status: runtimeSnapshot.saasStatus,
+          domain_status: runtimeSnapshot.saasDomainStatus,
+          domain: runtimeSnapshot.saasDomain,
+          public_domain: runtimeSnapshot.saasPublicDomain,
+        };
+      }
+      if (normalized.includes("from saas_instances where id = ? and tenant_id = ?")) {
+        return {
+          status: runtimeSnapshot.instanceStatus,
+          trial_domain: runtimeSnapshot.instanceTrialDomain,
+          custom_domain: runtimeSnapshot.instanceCustomDomain,
+          domain_status: runtimeSnapshot.instanceDomainStatus,
+        };
+      }
+      if (normalized.includes("from campamento_provisioning where tenant_id = ? and saas_id = ?")) {
+        return { status: runtimeSnapshot.runtimeContractStatus };
+      }
+      return null;
+    });
     mocks.transitionState.mockResolvedValue(undefined);
     mocks.updatePayload.mockResolvedValue(undefined);
     mocks.completeJob.mockResolvedValue(undefined);
@@ -144,6 +210,13 @@ describe("provisioning domain flow", () => {
     expect(eventTypes.filter((eventType) => eventType === "provision.domain.verify.retrying")).toHaveLength(2);
     expect(eventTypes).toContain("provision.domain.verify.succeeded");
     expect(mocks.completeJob).toHaveBeenCalledWith("job_1", "VERIFY_DOMAIN", { lockVersion: 7, ownerId: "worker_1" });
+    expect(mocks.updatePayload).toHaveBeenCalledWith(
+      "job_1",
+      expect.objectContaining({
+        runtimeDeployment: expect.objectContaining({ status: "active", activationReady: true }),
+      }),
+      { lockVersion: 7, ownerId: "worker_1" },
+    );
   });
 
   it("fails when domain provider create throws error", async () => {
@@ -232,6 +305,13 @@ describe("provisioning domain flow", () => {
       "VERIFY_DOMAIN",
       { lockVersion: 7, ownerId: "worker_1" },
       expect.stringContaining("pending"),
+    );
+    expect(mocks.updatePayload).toHaveBeenCalledWith(
+      "job_1",
+      expect.objectContaining({
+        runtimeDeployment: expect.objectContaining({ status: "degraded", activationReady: false }),
+      }),
+      { lockVersion: 7, ownerId: "worker_1" },
     );
     expect(mocks.deleteDomainBinding).not.toHaveBeenCalled();
     expect(mocks.upsertSaasDomain).toHaveBeenCalledWith(

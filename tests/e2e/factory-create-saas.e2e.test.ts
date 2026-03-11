@@ -122,6 +122,21 @@ describe("factory create-saas e2e", () => {
 
     const domainRow = findPrimaryDomainRow(store, jobPayload.job.saasId);
     expect(domainRow?.status).toBe("active");
+    const saasRow = store.saas.find((row) => row.id === jobPayload.job.saasId);
+    const instanceRow = store.saasInstances.find((row) => row.id === jobPayload.job.saasId);
+    const runtimeRow = store.campamentoProvisioning.find((row) => row.saas_id === jobPayload.job.saasId);
+    expect(saasRow).toMatchObject({
+      status: "active",
+      domain: domainRow?.domain,
+      public_domain: domainRow?.domain,
+      domain_status: "active",
+    });
+    expect(instanceRow).toMatchObject({
+      status: "active",
+      trial_domain: domainRow?.domain,
+      domain_status: "active",
+    });
+    expect(runtimeRow?.status).toBe("active");
 
     const healthPayload = await fetchDomainsHealth();
     expect(healthPayload.ok).toBe(true);
@@ -159,8 +174,21 @@ describe("factory create-saas e2e", () => {
 
     const domainRow = findPrimaryDomainRow(store, jobPayload.job.saasId);
     expect(domainRow?.status).toBe("pending");
-    expect(store.saas.find((row) => row.id === jobPayload.job.saasId)).toBeTruthy();
-    expect(store.saasInstances.find((row) => row.id === jobPayload.job.saasId)).toBeTruthy();
+    const saasRow = store.saas.find((row) => row.id === jobPayload.job.saasId);
+    const instanceRow = store.saasInstances.find((row) => row.id === jobPayload.job.saasId);
+    const runtimeRow = store.campamentoProvisioning.find((row) => row.saas_id === jobPayload.job.saasId);
+    expect(saasRow).toMatchObject({
+      status: "provisioning",
+      domain: domainRow?.domain,
+      public_domain: domainRow?.domain,
+      domain_status: "pending",
+    });
+    expect(instanceRow).toMatchObject({
+      status: "provisioning",
+      trial_domain: domainRow?.domain,
+      domain_status: "pending",
+    });
+    expect(runtimeRow?.status).toBe("degraded");
 
     const healthPayload = await fetchDomainsHealth();
     expect(healthPayload.pendingDomains.some((domain) => domain.hostname === domainRow?.domain)).toBe(true);

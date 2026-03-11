@@ -106,7 +106,15 @@ describe("factory create-saas failed path", () => {
       jobPayload.job.timeline.some(
         (entry) =>
           entry.type === "step"
-          && entry.step === "TRANSITION_STRIPE_PRODUCT_CREATED_TO_PROVISION_WORKER"
+          && entry.step === "TRANSITION_STRIPE_PRODUCT_CREATED_TO_RUNTIME_DEPLOYED"
+          && entry.state === "RUNTIME_DEPLOYED",
+      ),
+    ).toBe(true);
+    expect(
+      jobPayload.job.timeline.some(
+        (entry) =>
+          entry.type === "step"
+          && entry.step === "TRANSITION_RUNTIME_DEPLOYED_TO_PROVISION_WORKER"
           && entry.state === "PROVISION_WORKER",
       ),
     ).toBe(true);
@@ -122,9 +130,10 @@ describe("factory create-saas failed path", () => {
     expect(jobPayload.job.timeline.some((entry) => entry.type === "step" && entry.state === "DEGRADED")).toBe(false);
 
     const rollbackHistory = parseRollbackHistory(store, createPayload.jobId);
-    expect(rollbackHistory.map((entry) => entry.step)).toEqual(["DOMAINS_ROLLED_BACK", "DB"]);
+    expect(rollbackHistory.map((entry) => entry.step)).toEqual(["DOMAINS_ROLLED_BACK", "RUNTIME_CONTRACT", "DB"]);
     expect(jobPayload.job.timeline.filter((entry) => entry.type === "rollback").map((entry) => entry.step)).toEqual([
       "DOMAINS_ROLLED_BACK",
+      "RUNTIME_CONTRACT",
       "DB",
     ]);
     expect(rollbackHistory.some((entry) => entry.step === "ROLLBACK_ERROR")).toBe(false);
@@ -132,6 +141,7 @@ describe("factory create-saas failed path", () => {
     expect(store.saas).toHaveLength(0);
     expect(store.saasInstances).toHaveLength(0);
     expect(store.saasDomains).toHaveLength(0);
+    expect(store.campamentoProvisioning).toHaveLength(0);
 
     const healthPayload = await fetchDomainsHealth();
     expect(healthPayload.ok).toBe(true);
