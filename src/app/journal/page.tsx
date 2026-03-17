@@ -1,4 +1,5 @@
 import { SiteLayout } from "@/components/marketing/SiteLayout";
+import { OpsPanel, LogList } from "@/components/ui/ops-primitives";
 import { getMarketingCopy, resolveMarketingLocale, type MarketingLocale } from "@/lib/i18n/marketing";
 import { journalCategories, publishedJournalEntries } from "@/lib/marketing/journal";
 
@@ -15,40 +16,50 @@ export default async function JournalPage({ params }: { params?: Promise<{ local
 
   return (
     <SiteLayout locale={locale} currentPath="/journal" copy={{ nav: copy.nav, footerLine: copy.about.intro }}>
-      <div className="mx-auto max-w-5xl px-6 py-16 space-y-10">
-        <header className="space-y-3">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">{copy.nav.journal}</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">{copy.journal.title}</h1>
-          <p className="text-slate-600">{copy.journal.subtitle}</p>
-        </header>
+      <div className="min-h-screen bg-slate-950 text-slate-100 font-mono leading-tight">
+        <main className="mx-auto grid max-w-6xl gap-3 p-4 sm:p-5 font-sans">
+          <OpsPanel variant="elevated" className="p-5 sm:p-6">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{copy.nav.journal}</p>
+              <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-slate-50">{copy.journal.title}</h1>
+              <p className="text-sm text-slate-300 max-w-3xl">{copy.journal.subtitle}</p>
+            </div>
+          </OpsPanel>
 
-        <section className="space-y-4 rounded-2xl border border-slate-200 bg-white/70 p-6 shadow-sm">
-          <p className="text-slate-700">{copy.journal.intro}</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {categoriesWithCopy.map((theme) => (
-              <div key={theme.category} className="rounded-xl border border-slate-200 bg-white/80 px-4 py-3">
-                <h3 className="text-sm font-semibold text-slate-900">{theme.title}</h3>
-                {theme.desc ? <p className="mt-1 text-sm text-slate-600">{theme.desc}</p> : null}
-              </div>
-            ))}
-          </div>
-          {publishedJournalEntries.length === 0 ? (
-            <p className="text-sm text-slate-600">{copy.journal.empty}</p>
-          ) : (
-            <div className="space-y-3">
-              {publishedJournalEntries.map((entry) => (
-                <article key={entry.slug} className="rounded-xl border border-slate-200 bg-white/80 px-4 py-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">{entry.category}</p>
-                    {entry.publishedAt ? <span className="text-xs text-slate-500">{entry.publishedAt}</span> : null}
-                  </div>
-                  <h3 className="mt-1 text-base font-semibold text-slate-900">{entry.title}</h3>
-                  <p className="mt-1 text-sm text-slate-600">{entry.shortDescription}</p>
-                </article>
+          <OpsPanel variant="base" className="p-3 sm:p-4">
+            <header className="flex items-center justify-between text-sm text-slate-300">
+              <span className="font-semibold text-slate-100">Temas</span>
+            </header>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {categoriesWithCopy.map((theme) => (
+                <div key={theme.category} className="rounded border border-[#1D2433] bg-[#0F1116] px-3 py-2">
+                  <div className="text-sm font-semibold text-slate-100">{theme.title}</div>
+                  {theme.desc ? <p className="text-xs text-slate-400 mt-1">{theme.desc}</p> : null}
+                </div>
               ))}
             </div>
-          )}
-        </section>
+          </OpsPanel>
+
+          <OpsPanel variant="base" className="p-3 sm:p-4">
+            <header className="flex items-center justify-between text-sm text-slate-300">
+              <span className="font-semibold text-slate-100">Registro</span>
+            </header>
+            {publishedJournalEntries.length === 0 ? (
+              <div className="mt-2 text-xs text-slate-400">{copy.journal.empty}</div>
+            ) : (
+              <LogList
+                lines={publishedJournalEntries.map((entry) =>
+                  [
+                    entry.publishedAt ? `[${entry.publishedAt}]` : "[—]",
+                    entry.category,
+                    "→",
+                    entry.title,
+                  ].join(" ")
+                )}
+              />
+            )}
+          </OpsPanel>
+        </main>
       </div>
     </SiteLayout>
   );

@@ -1,4 +1,5 @@
 import { SiteLayout } from "@/components/marketing/SiteLayout";
+import { HeroModule, LogList, OpsPanel } from "@/components/ui/ops-primitives";
 import { getMarketingCopy, resolveMarketingLocale, type MarketingLocale } from "@/lib/i18n/marketing";
 
 export default async function VisionPage({ params }: { params?: Promise<{ locale?: string }> }) {
@@ -8,30 +9,36 @@ export default async function VisionPage({ params }: { params?: Promise<{ locale
 
   return (
     <SiteLayout locale={locale} currentPath="/vision" copy={{ nav: copy.nav, footerLine: copy.about.intro }}>
-      <div className="mx-auto max-w-5xl px-6 py-16 space-y-10">
-        <header className="space-y-3">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">{copy.nav.vision}</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">{copy.vision.title}</h1>
-          <p className="text-slate-600">{copy.vision.subtitle}</p>
-        </header>
+      <div className="min-h-screen bg-slate-950 text-slate-100 font-mono leading-tight">
+        <main className="mx-auto grid max-w-6xl gap-3 p-4 sm:p-5 font-sans">
+          <HeroModule
+            title={copy.vision.title}
+            subtitle={copy.vision.subtitle}
+            tags={["Visión", "Autonomía", "Gobernanza", "Agentes"]}
+            ctaHref="/system"
+          />
 
-        <section className="grid gap-4 sm:grid-cols-2">
-          {copy.vision.pillars.map((item) => (
-            <div key={item.title} className="rounded-2xl border border-slate-200 bg-white/70 p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-slate-900">{item.title}</h3>
-              <p className="mt-2 text-sm text-slate-600">{item.body}</p>
+          <OpsPanel variant="base" className="p-3 sm:p-4">
+            <header className="flex items-center justify-between text-sm text-slate-300">
+              <span className="font-semibold text-slate-100">Pilares</span>
+            </header>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {copy.vision.pillars.map((item) => (
+                <div key={item.title} className="rounded border border-[#1D2433] bg-[#0F1116] px-3 py-2">
+                  <div className="text-sm font-semibold text-slate-100">{item.title}</div>
+                  <p className="text-xs text-slate-400 mt-1">{item.body}</p>
+                </div>
+              ))}
             </div>
-          ))}
-        </section>
+          </OpsPanel>
 
-        <section className="space-y-4 rounded-2xl border border-slate-200 bg-white/70 p-8 shadow-sm">
-          <h2 className="text-xl font-semibold text-slate-900">Roadmap</h2>
-          <ul className="space-y-2 text-sm text-slate-700">
-            {copy.vision.roadmap.map((item) => (
-              <li key={item}>• {item}</li>
-            ))}
-          </ul>
-        </section>
+          <OpsPanel variant="flat" className="p-3 sm:p-4">
+            <header className="flex items-center justify-between text-sm text-slate-300">
+              <span className="font-semibold text-slate-100">Roadmap</span>
+            </header>
+            <LogList lines={copy.vision.roadmap.map((item) => `• ${item}`)} highlightFirst={false} />
+          </OpsPanel>
+        </main>
       </div>
     </SiteLayout>
   );

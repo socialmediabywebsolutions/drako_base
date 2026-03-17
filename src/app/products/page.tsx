@@ -1,4 +1,5 @@
 import { SiteLayout } from "@/components/marketing/SiteLayout";
+import { HeroModule, OpsPanel, ProductList, StateBlock } from "@/components/ui/ops-primitives";
 import { getMarketingCopy, resolveMarketingLocale, type MarketingLocale } from "@/lib/i18n/marketing";
 import { products as canonicalProducts, type Product } from "@/lib/marketing/products";
 
@@ -11,68 +12,44 @@ export default async function ProductsPage({ params }: { params?: Promise<{ loca
   const buildingProducts = canonicalProducts.filter((p) => p.status === "building");
   const researchProducts = canonicalProducts.filter((p) => p.status === "research");
 
-  const [liveCopy, buildingCopy, researchCopy] = copy.products.sections;
-
-  const blocks: { title: string; description: string; body?: string; items: Product[]; empty: string }[] = [
-    {
-      title: liveCopy.title,
-      description: liveCopy.description,
-      body: liveCopy.body,
-      items: liveProducts,
-      empty: liveCopy.empty,
-    },
-    {
-      title: buildingCopy.title,
-      description: buildingCopy.description,
-      body: buildingCopy.body,
-      items: buildingProducts,
-      empty: buildingCopy.empty,
-    },
-    {
-      title: researchCopy.title,
-      description: researchCopy.description,
-      body: researchCopy.body,
-      items: researchProducts,
-      empty: researchCopy.empty,
-    },
+  const productItems = [
+    ...liveProducts.map((p) => ({ name: p.name, desc: p.shortDescription ?? "", state: "RUNNING" as const })),
+    ...buildingProducts.map((p) => ({ name: p.name, desc: p.shortDescription ?? "", state: "BUILD" as const })),
+    ...researchProducts.map((p) => ({ name: p.name, desc: p.shortDescription ?? "", state: "RESEARCH" as const })),
   ];
+
+  const stateCount = {
+    RUNNING: productItems.filter((p) => p.state === "RUNNING").length,
+    BUILD: productItems.filter((p) => p.state === "BUILD").length,
+    RESEARCH: productItems.filter((p) => p.state === "RESEARCH").length,
+  };
 
   return (
     <SiteLayout locale={locale} currentPath="/products" copy={{ nav: copy.nav, footerLine: copy.about.intro }}>
-      <div className="mx-auto max-w-5xl px-6 py-16 space-y-10">
-        <header className="space-y-3">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">{copy.nav.products}</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">{copy.products.title}</h1>
-          <p className="text-slate-600">{copy.products.subtitle}</p>
-        </header>
+      <div className="min-h-screen bg-slate-950 text-slate-100 font-mono leading-tight">
+        <main className="mx-auto grid max-w-6xl gap-3 p-4 sm:p-5 font-sans">
+          <HeroModule
+            title={copy.products.title}
+            subtitle={copy.products.subtitle}
+            tags={["Holding operativo", "Servicios", "Control central", "Agentes"]}
+            ctaHref="/system"
+          />
 
-        <div className="space-y-8">
-          {blocks.map((section) => (
-            <section key={section.title} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">{section.title}</p>
-                  <h2 className="text-xl font-semibold text-slate-900">{section.description}</h2>
-                </div>
-              </div>
-              {section.body ? <p className="text-sm text-slate-600">{section.body}</p> : null}
-              <div className="grid gap-4 sm:grid-cols-2">
-                {section.items.length > 0 ? (
-                  section.items.map((item) => (
-                    <div key={item.slug} className="rounded-2xl border border-slate-200 bg-white/70 p-6 shadow-sm">
-                      <h3 className="text-lg font-semibold text-slate-900">{item.name}</h3>
-                      <p className="mt-2 text-sm text-slate-600">{item.shortDescription}</p>
-                    </div>
-                  ))
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-6 text-sm text-slate-500">
-                    {section.empty}
-                  </div>
-                )}
-              </div>
-            </section>
-          ))}
-        </div>
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <OpsPanel variant="base" className="p-3 sm:p-4 flex items-center gap-3 text-sm">
+              {[{ state: "RUNNING" as const, count: stateCount.RUNNING }, { state: "BUILD" as const, count: stateCount.BUILD }, { state: "RESEARCH" as const, count: stateCount.RESEARCH }].map((s) => (
+                <StateBlock key={s.state} state={s.state} count={s.count} />
+              ))}
+            </OpsPanel>
+
+            <OpsPanel variant="elevated" className="p-3 sm:p-4 lg:col-span-2">
+              <header className="flex items-center justify-between text-sm text-slate-300">
+                <span className="font-semibold text-slate-100">Servicios</span>
+              </header>
+              <ProductList items={productItems} />
+            </OpsPanel>
+          </section>
+        </main>
       </div>
     </SiteLayout>
   );
