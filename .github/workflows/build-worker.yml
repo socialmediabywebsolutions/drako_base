@@ -60,21 +60,21 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config workers/drako-scheduler/wrangler.toml
+          command: deploy --config workers/drako-scheduler/wrangler.workers.toml
 
       - name: Deploy autopilot-worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config workers/autopilot-worker/wrangler.toml
+          command: deploy --config workers/autopilot-worker/wrangler.workers.toml
 
       - name: Deploy saas-factory-worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config workers/saas-factory-worker/wrangler.toml
+          command: deploy --config workers/saas-factory-worker/wrangler.workers.toml
 
   deploy:
     needs: [build, deploy-deps]

@@ -89,15 +89,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Ensure minimal wrangler config for non-interactive build
+      - name: Ensure Solo-Worker config present (no legacy wrangler.toml)
         run: |
           set -euo pipefail
-          if [ ! -f wrangler.toml ]; then
-            {
-              printf '%s\n' 'name = "drako-opennext-build"'
-              printf '%s\n' 'main = ".open-next/worker.js"'
-              printf '%s\n' 'compatibility_date = "2026-03-03"'
-            } > wrangler.toml
+          if [ -f wrangler.toml ]; then
+            echo "BLOCKED: legacy wrangler.toml must be removed or renamed to wrangler.toml.legacy" >&2
+            exit 1
+          fi
+          if [ ! -f wrangler.workers.toml ]; then
+            echo "BLOCKED: wrangler.workers.toml is required for Solo-Worker architecture" >&2
+            exit 1
           fi
 
       - name: Build OpenNext for Cloudflare
@@ -265,7 +266,7 @@ jobs:
           test -d .open-next/assets
 
           pushd workers/drako-scheduler
-          wrangler deploy -c wrangler.toml
+          wrangler deploy -c wrangler.workers.toml
           popd
 
           pushd workers/drakos
