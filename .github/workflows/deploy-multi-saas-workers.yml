@@ -1,9 +1,6 @@
 name: Deploy Multi SaaS Workers
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 concurrency:
