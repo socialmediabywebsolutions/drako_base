@@ -1,8 +1,6 @@
 name: Build & Deploy Worker
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -39,7 +37,6 @@ jobs:
 
   deploy-deps:
     needs: build
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     name: Deploy Dependency Workers
     steps:
@@ -78,7 +75,6 @@ jobs:
 
   deploy:
     needs: [build, deploy-deps]
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     name: Deploy to Cloudflare
     steps:
