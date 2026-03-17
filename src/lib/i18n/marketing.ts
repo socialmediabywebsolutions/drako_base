@@ -56,9 +56,9 @@ export function getMarketingCopy(locale: MarketingLocale) {
         localeSwitch: "ES",
       },
       home: {
-        heroTitle: "Drako Systems — Holding of specialized SaaS",
-        heroSubtitle: "We design, build, and operate SaaS with a shared factory, governance, and automation layer.",
-        tags: ["Holding", "SaaS factory", "Governance", "Automation", "AI agents"],
+        heroTitle: "Infrastructure in operation",
+        heroSubtitle: "Central control. Agents execute.",
+        tags: ["Holding", "Operational infrastructure", "Governance", "Automation", "Agents"],
         ctas: {
           products: "See products",
           system: "Explore the system",
@@ -67,31 +67,30 @@ export function getMarketingCopy(locale: MarketingLocale) {
         },
         whatIs: {
           title: "What is Drako Systems",
-          body:
-            "Drako Systems is the central house of the holding. We operate an internal system to create and run SaaS with automation, governance, and observability from day one.",
+          body: "Central house of the holding. SaaS operated with automation, governance, and observability already on.",
         },
         products: {
           title: "Ecosystem",
-          subtitle: "SaaS built and operated by Drako.",
+          subtitle: "SaaS operated by Drako.",
           sections: [
             {
               title: "Active",
-              description: "Products operating with customers and internal agents.",
-              body: "Live SaaS with governance, observability, and automation baked in.",
+              description: "Products in operation with customers and internal agents.",
+              body: "Live SaaS with governance, observability, and automation built in.",
               items: [{ name: "SocialFlow", desc: "Social automation operated by agents with supervised workflows." }],
               empty: "We'll publish more live products soon.",
             },
             {
               title: "Building",
-              description: "New SaaS lines under construction and internal pilots.",
-              body: "We prioritize verticals where automation and governance give an unfair advantage. Each new product inherits Drako's factory, telemetry, and ops playbooks.",
+              description: "New SaaS lines integrating into the infrastructure.",
+              body: "Each product plugs into Drako's control plane, telemetry, and runbooks from day one.",
               items: [],
               empty: "We will share new SaaS lines as they reach pilot stage.",
             },
             {
               title: "Research",
-              description: "Exploring automation layers and autonomous operations.",
-              body: "Research on self-operating SaaS, agents for reliability, and automated pipelines from build to production.",
+              description: "Tracks on autonomous operation and control.",
+              body: "Research on self-operating SaaS, reliability agents, and automated pipelines.",
               items: [],
               empty: "Research tracks will be shared publicly when ready.",
             },
@@ -99,12 +98,12 @@ export function getMarketingCopy(locale: MarketingLocale) {
         },
         system: {
           title: "The Drako system",
-          blurb: "Internal factory and governance layer to launch and operate SaaS.",
+          blurb: "Operational infrastructure of the holding. Not for sale.",
           points: [
-            "Reusable foundations: identity, security, billing, observability, and CI/CD",
-            "Governance and data access baked in",
-            "Operations with agents, playbooks, and telemetry",
-            "Path toward self-operating SaaS",
+            "Shared foundations: identity, security, billing, observability, CI/CD",
+            "Governance coded and enforced",
+            "Autonomous deploy, QA, and support",
+            "Path to self-operating SaaS",
           ],
         },
         journal: {
@@ -113,11 +112,11 @@ export function getMarketingCopy(locale: MarketingLocale) {
         },
         vision: {
           title: "Vision",
-          body: "Build software that operates itself: SaaS with automation, agents, and guardrails to scale with minimal human loops.",
+          body: "Software that runs itself. Governance and agents by default.",
         },
         closing: {
           title: "Explore the ecosystem",
-          body: "Discover our products, how we build them, and the vision guiding the holding.",
+          body: "Discover the products under operation and the system behind them.",
           ctas: {
             products: "Products",
             system: "System",
@@ -128,23 +127,23 @@ export function getMarketingCopy(locale: MarketingLocale) {
       },
       system: {
         title: "How we operate the holding",
-        intro: "Internal infrastructure of the holding: factory, governance, observability, and automation to create and run SaaS. Not a product for sale.",
+        intro: "Internal infrastructure of the holding. Governance, observability, and automation already active. Not a product for sale.",
         pillars: [
           {
-            title: "SaaS factory",
-            body: "Repeatable pipelines with shared foundations: identity, billing, security, observability, CI/CD, and service templates versioned for every launch.",
+            title: "Control plane",
+            body: "Standardized stack: identity, billing, security, observability, CI/CD, templates versioned for every launch.",
           },
           {
             title: "Governance",
-            body: "Guardrails for data, access, and compliance. Services start with RBAC, auditability, change review, and ownership encoded in code.",
+            body: "Access and compliance encoded. RBAC, audit, change control, and ownership as code.",
           },
           {
             title: "Automation",
-            body: "Agents and jobs orchestrate operations: deployments, health checks, remediation, and L2 support with playbooks and telemetry.",
+            body: "Autonomous deploy, health, remediation, and L2 support under playbooks and telemetry.",
           },
           {
             title: "Future vision",
-            body: "SaaS that self-diagnose, self-remediate, and scale with minimal human intervention.",
+            body: "SaaS that self-diagnose, self-remediate, and scale within policy.",
           },
         ],
         practices: [
@@ -156,26 +155,26 @@ export function getMarketingCopy(locale: MarketingLocale) {
       },
       products: {
         title: "Holding SaaS",
-        subtitle: "Ecosystem of SaaS built and operated by Drako.",
+        subtitle: "Ecosystem of SaaS operated by Drako.",
         sections: [
           {
             title: "Active",
-            description: "Products operating with customers and internal agents.",
-            body: "Live SaaS with governance, observability, and automation baked in.",
+            description: "Products in operation with customers and internal agents.",
+            body: "Live SaaS with governance, observability, and automation built in.",
             items: [{ name: "SocialFlow", desc: "Social automation operated by agents and supervised workflows." }],
             empty: "We'll publish more live products soon.",
           },
           {
             title: "Building",
-            description: "New SaaS lines under construction and internal pilots.",
-            body: "We prioritize verticals where automation and governance give an unfair advantage. Each new product inherits Drako's factory, telemetry, and ops playbooks.",
+            description: "New SaaS lines integrating into the infrastructure.",
+            body: "Each product plugs into Drako's control plane, telemetry, and runbooks from day one.",
             items: [],
             empty: "We will share new SaaS lines as they reach pilot stage.",
           },
           {
             title: "Research",
-            description: "Exploring automation layers and autonomous operations.",
-            body: "Research on self-operating SaaS, agents for reliability, and automated pipelines from build to production.",
+            description: "Tracks on autonomous operation and control.",
+            body: "Research on self-operating SaaS, reliability agents, and automated pipelines.",
             items: [],
             empty: "Research tracks will be shared publicly when ready.",
           },
@@ -184,7 +183,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
       journal: {
         title: "Journal",
         subtitle: "Editorial space for Drako's engineering, product, and research narratives.",
-        intro: "We document how we build and operate SaaS: architecture decisions, automation patterns, governance, and product learnings.",
+        intro: "We document how we operate SaaS: architecture decisions, automation patterns, governance, and product learnings.",
         themes: [
           { title: "Architecture", desc: "How we design services, observability, and deployment pipelines across the holding." },
           { title: "Products", desc: "Progress and lessons from SocialFlow and future SaaS lines." },
@@ -196,51 +195,51 @@ export function getMarketingCopy(locale: MarketingLocale) {
       },
       vision: {
         title: "Towards self-operating SaaS",
-        subtitle: "Build software that runs itself: automated operations, accountable agents, and governance by default.",
+        subtitle: "Software that runs itself. Automated operations, accountable agents, governance by default.",
         pillars: [
           {
             title: "Deep automation",
-            body: "Automate the critical path: build, deploy, observe, remediate. Everything auditable and reversible.",
+            body: "Critical path automated: build, deploy, observe, remediate. Auditable and reversible.",
           },
           {
             title: "Software that runs software",
-            body: "Agents coordinate deployments, monitoring, cost control, and recovery so humans focus on intent and design.",
+            body: "Agents coordinate deployment, monitoring, cost control, recovery. Humans set intent.",
           },
           {
             title: "AI agents",
-            body: "Domain-specialized, versioned, observable. Metrics, guardrails, and human-in-the-loop where needed.",
+            body: "Domain-specialized, versioned, observable. Metrics and guardrails enforced.",
           },
           {
             title: "Self-managing SaaS",
-            body: "Products that detect drift, apply fixes, and scale within policy without manual toil.",
+            body: "Products that detect drift, apply fixes, and scale within policy.",
           },
         ],
         roadmap: [
-          "Telemetry → detection → automated action → review loops.",
-          "Agents execute playbooks with human review only on risk or exceptions.",
-          "Environments that auto-heal and prevent config drift.",
-          "Governance and audit stitched into every automation path.",
+          "Telemetry → detection → automated action → review.",
+          "Agents execute playbooks; humans review only on risk.",
+          "Environments that auto-heal and prevent drift.",
+          "Governance and audit in every automation path.",
         ],
       },
       about: {
         title: "About Drako Systems",
-        intro: "Central house of the holding and technology lab. We build and operate SaaS with a shared factory, governance, and automation discipline.",
+        intro: "Central house of the holding and technology lab. We operate SaaS with shared infrastructure, governance, and automation.",
         blocks: [
           {
             title: "What it is",
-            body: "The holding's factory and governance layer: infrastructure, pipelines, and playbooks to ship and run products reliably.",
+            body: "The holding's operational layer: infrastructure, pipelines, and playbooks to run products reliably.",
           },
           {
             title: "Why it exists",
-            body: "Born to launch specialized SaaS faster, with standards by default and less operational toil through automation and agents.",
+            body: "Built to operate specialized SaaS with standards by default and minimal toil.",
           },
           {
             title: "Mission",
-            body: "Build software that builds and operates software: products that can govern, remediate, and scale with minimal human loops.",
+            body: "Software that operates software: products that govern, remediate, and scale with minimal human loops.",
           },
           {
             title: "How we work",
-            body: "Small teams, clear metrics, fast deploy cycles. Shared infra, observability, and runbooks across every product.",
+            body: "Small teams, clear metrics, fast deploy cycles. Shared infra, observability, and runbooks across products.",
           },
         ],
       },
@@ -283,9 +282,9 @@ export function getMarketingCopy(locale: MarketingLocale) {
       localeSwitch: "EN",
     },
     home: {
-      heroTitle: "Drako Systems — Holding de SaaS especializados",
-      heroSubtitle: "Diseñamos, construimos y operamos SaaS con una factory común, gobernanza y automatización.",
-      tags: ["Holding", "SaaS factory", "Gobernanza", "Automatización", "Agentes IA"],
+      heroTitle: "Infraestructura en operación",
+      heroSubtitle: "Control central. Agentes ejecutan.",
+      tags: ["Holding operativo", "Infraestructura", "Gobernanza", "Automatización", "Agentes"],
       ctas: {
         products: "Ver productos",
         system: "Explorar sistema",
@@ -294,12 +293,11 @@ export function getMarketingCopy(locale: MarketingLocale) {
       },
       whatIs: {
         title: "Qué es Drako Systems",
-        body:
-          "Drako Systems es la casa central del holding. Operamos un sistema interno para crear y operar SaaS con automatización, gobernanza y observabilidad desde el día uno.",
+        body: "Casa central del holding. SaaS operados con automatización, gobernanza y observabilidad activas desde el inicio.",
       },
       products: {
         title: "Ecosistema",
-        subtitle: "SaaS creados y operados por Drako.",
+        subtitle: "SaaS operados por Drako.",
         sections: [
           {
             title: "Activos",
@@ -310,15 +308,15 @@ export function getMarketingCopy(locale: MarketingLocale) {
           },
           {
             title: "Building",
-            description: "Nuevas líneas SaaS en construcción y pilotos internos.",
-            body: "Priorizamos verticales donde la automatización y la gobernanza aportan ventaja. Cada producto hereda la factory de Drako, telemetría y playbooks de operación.",
+            description: "Nuevas líneas SaaS en integración y despliegue interno.",
+            body: "Cada producto se conecta desde el día cero a la infraestructura, telemetría y runbooks del holding.",
             items: [],
             empty: "Compartiremos nuevas líneas cuando entren en piloto.",
           },
           {
             title: "Research",
-            description: "Exploración de capas de automatización y operación autónoma.",
-            body: "Investigación en SaaS autogestionados, agentes para fiabilidad y pipelines automatizadas de build a producción.",
+            description: "Exploración de operación autónoma y control continuo.",
+            body: "Pistas sobre SaaS autooperados, agentes de fiabilidad y pipelines automatizadas.",
             items: [],
             empty: "Las líneas de research se compartirán cuando estén listas.",
           },
@@ -326,12 +324,12 @@ export function getMarketingCopy(locale: MarketingLocale) {
       },
       system: {
         title: "El sistema Drako",
-        blurb: "Factory y capa de gobernanza interna para lanzar y operar SaaS.",
+        blurb: "Infraestructura operativa del holding. No se vende.",
         points: [
-          "Fundamentos reutilizables: identidad, seguridad, billing, observabilidad y CI/CD",
-          "Gobernanza y acceso a datos incorporados",
-          "Operaciones con agentes, playbooks y telemetría",
-          "Camino hacia SaaS más autogestionados",
+          "Fundamentos compartidos: identidad, seguridad, billing, observabilidad, CI/CD",
+          "Gobernanza codificada y acceso controlado",
+          "Despliegue, QA y soporte autónomos",
+          "Trayectoria hacia SaaS autooperados",
         ],
       },
       journal: {
@@ -340,11 +338,11 @@ export function getMarketingCopy(locale: MarketingLocale) {
       },
       vision: {
         title: "Visión",
-        body: "Construir software que se opera solo: SaaS con automatización, agentes y guardrails para escalar con mínima intervención.",
+        body: "Software que se opera solo. Gobernanza y agentes por defecto.",
       },
       closing: {
         title: "Explora el ecosistema",
-        body: "Conoce nuestros productos, el sistema que los impulsa y la visión que guía al holding.",
+        body: "Conoce los productos en operación y el sistema que los gobierna.",
         ctas: {
           products: "Productos",
           system: "Sistema",
@@ -355,23 +353,23 @@ export function getMarketingCopy(locale: MarketingLocale) {
     },
     system: {
       title: "Cómo operamos el holding",
-      intro: "Infraestructura interna del holding: factory, gobernanza, observabilidad y automatización para crear y operar SaaS. No es un producto a la venta.",
+      intro: "Infraestructura interna del holding. Gobernanza, observabilidad y automatización activas. No es un producto a la venta.",
       pillars: [
         {
-          title: "SaaS factory",
-          body: "Pipelines reproducibles con bases compartidas: identidad, billing, seguridad, observabilidad, CI/CD y plantillas versionadas para cada lanzamiento.",
+          title: "Plano de control",
+          body: "Stack estandarizado: identidad, billing, seguridad, observabilidad, CI/CD y plantillas versionadas.",
         },
         {
           title: "Gobernanza",
-          body: "Guardrails de datos, acceso y cumplimiento. Los servicios nacen con RBAC, auditoría, revisión de cambios y ownership codificado.",
+          body: "Acceso y cumplimiento codificados. RBAC, auditoría, control de cambios y ownership como código.",
         },
         {
           title: "Automatización",
-          body: "Agentes y jobs orquestan operaciones: despliegues, health checks, remediación y soporte L2 con playbooks y telemetría.",
+          body: "Despliegues, health, remediación y soporte L2 autónomos bajo playbooks y telemetría.",
         },
         {
           title: "Visión futura",
-          body: "SaaS que se autodiagnostican, remediarán y escalarán con mínima intervención humana.",
+          body: "SaaS que se autodiagnostican, se remediarán y escalarán dentro de política.",
         },
       ],
       practices: [
@@ -383,7 +381,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
     },
     products: {
       title: "SaaS del holding",
-      subtitle: "Ecosistema de SaaS creados y operados por Drako.",
+      subtitle: "Ecosistema de SaaS operados por Drako.",
       sections: [
         {
           title: "Activos",
@@ -394,15 +392,15 @@ export function getMarketingCopy(locale: MarketingLocale) {
         },
         {
           title: "Building",
-          description: "Nuevas líneas SaaS en construcción y pilotos internos.",
-          body: "Priorizamos verticales donde la automatización y la gobernanza aportan ventaja. Cada producto hereda la factory de Drako, telemetría y playbooks de operación.",
+          description: "Nuevas líneas SaaS en integración y despliegue interno.",
+          body: "Cada producto se conecta desde el día cero a la infraestructura, telemetría y runbooks del holding.",
           items: [],
           empty: "Compartiremos nuevas líneas cuando entren en piloto.",
         },
         {
           title: "Research",
-          description: "Exploración de capas de automatización y operación autónoma.",
-          body: "Investigación en SaaS autogestionados, agentes para fiabilidad y pipelines automatizadas de build a producción.",
+          description: "Exploración de operación autónoma y control continuo.",
+          body: "Pistas sobre SaaS autooperados, agentes de fiabilidad y pipelines automatizadas.",
           items: [],
           empty: "Las líneas de research se compartirán cuando estén listas.",
         },
@@ -411,7 +409,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
     journal: {
       title: "Journal",
       subtitle: "Espacio editorial de Drako para arquitectura, producto y research.",
-      intro: "Documentamos cómo construimos y operamos SaaS: decisiones técnicas, automatización, gobernanza y aprendizajes de producto.",
+      intro: "Documentamos cómo operamos SaaS: decisiones técnicas, automatización, gobernanza y aprendizajes de producto.",
       themes: [
         { title: "Arquitectura", desc: "Diseño de servicios, observabilidad y despliegue en el holding." },
         { title: "Productos", desc: "Avances y lecciones de SocialFlow y futuras líneas SaaS." },
@@ -422,52 +420,52 @@ export function getMarketingCopy(locale: MarketingLocale) {
       empty: "Aún no hay artículos públicos. Publicaremos aquí los primeros avances.",
     },
     vision: {
-      title: "Hacia SaaS que se operan solos",
-      subtitle: "Construir software que se administra solo: operaciones automatizadas, agentes responsables y gobernanza por defecto.",
+      title: "SaaS que se operan solos",
+      subtitle: "Software que se administra solo. Operaciones automatizadas, agentes responsables y gobernanza por defecto.",
       pillars: [
         {
           title: "Automatización profunda",
-          body: "Automatizar el camino crítico: build, deploy, observar, remediar. Todo auditable y reversible.",
+          body: "Camino crítico automatizado: build, deploy, observar, remediar. Todo auditable y reversible.",
         },
         {
           title: "Software que opera software",
-          body: "Agentes coordinan despliegues, monitoreo, control de costos y recuperación; los humanos se enfocan en intención y diseño.",
+          body: "Agentes coordinan despliegue, monitoreo, costos y recuperación; los humanos fijan intención.",
         },
         {
           title: "Agentes IA",
-          body: "Especializados por dominio, versionados y observables. Métricas, guardrails y human-in-the-loop donde importa.",
+          body: "Especializados por dominio, versionados y observables. Métricas y guardrails cerrados.",
         },
         {
           title: "SaaS autogestionados",
-          body: "Productos que detectan deriva, aplican fixes y escalan dentro de política, sin trabajo manual.",
+          body: "Productos que detectan deriva, aplican fixes y escalan dentro de política.",
         },
       ],
       roadmap: [
         "Telemetría → detección → acción automatizada → revisión.",
-        "Agentes que ejecutan playbooks con revisión humana solo ante riesgo o excepciones.",
-        "Entornos que se autoreparan y evitan deriva de configuración.",
-        "Gobernanza y auditoría cosidas en cada automatización.",
+        "Agentes ejecutan playbooks; humanos revisan solo ante riesgo.",
+        "Entornos que se autoreparan y evitan deriva.",
+        "Gobernanza y auditoría en cada automatización.",
       ],
     },
     about: {
       title: "Sobre Drako Systems",
-      intro: "Casa central del holding y laboratorio tecnológico. Construimos y operamos SaaS con factory compartida, gobernanza y automatización disciplinada.",
+      intro: "Casa central del holding y laboratorio tecnológico. Operamos SaaS con infraestructura compartida, gobernanza y automatización.",
       blocks: [
         {
           title: "Qué es",
-          body: "La factory y capa de gobernanza del holding: infraestructura, pipelines y playbooks para lanzar y operar productos confiables.",
+          body: "La capa operativa del holding: infraestructura, pipelines y playbooks para ejecutar productos confiables.",
         },
         {
           title: "Por qué existe",
-          body: "Nació para lanzar SaaS especializados más rápido, con estándares por defecto y menos carga operativa gracias a automatización y agentes.",
+          body: "Nace para operar SaaS especializados con estándares por defecto y mínima carga operativa.",
         },
         {
           title: "Misión",
-          body: "Construir software que crea y opera software: productos capaces de gobernar, remediar y escalar con pocos loops humanos.",
+          body: "Software que opera software: productos que gobiernan, remediarán y escalarán con pocos loops humanos.",
         },
         {
           title: "Cómo trabajamos",
-          body: "Equipos pequeños, métricas claras, ciclos rápidos. Infra compartida, observabilidad y runbooks comunes en cada producto.",
+          body: "Equipos pequeños, métricas claras, ciclos rápidos. Infra compartida, observabilidad y runbooks comunes.",
         },
       ],
     },
