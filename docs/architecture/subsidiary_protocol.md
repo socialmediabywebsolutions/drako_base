@@ -1,5 +1,8 @@
 # Subsidiary Protocol (SaaS Registration)
 
+> LEGACY DOCUMENT
+> This document describes a historical holding-registry model. The live canonical Drako runtime now provisions and reads SaaS state from `saas`, `saas_instances`, `saas_domains`, `provisioning_jobs`, and `campamento_provisioning`. Do not use `holding_saas_registry` as the active source of truth for new work.
+
 **Purpose**: Defines how a new SaaS Product is on-boarded into the Campamento Base Holding.
 
 ## 1. Registration (`holding_saas_registry`)

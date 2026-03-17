@@ -1,46 +1,43 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-async function loadRoute() {
-  class UnauthorizedError extends Error {
+const {
+  requireOwnerAccess,
+  getFactoryStatus,
+  UnauthorizedError,
+} = vi.hoisted(() => {
+  class HoistedUnauthorizedError extends Error {
     status: number;
 
     constructor(message = "Unauthorized", status = 401) {
       super(message);
-      this.name = "UnauthorizedError";
       this.status = status;
     }
   }
 
-  const requireOwnerAccess = vi.fn();
-  const getFactoryStatus = vi.fn();
-
-  vi.doMock("@/lib/auth/session", () => ({
-    requireOwnerAccess,
-    UnauthorizedError,
-  }));
-
-  vi.doMock("@/lib/factory/status", () => ({
-    getFactoryStatus,
-  }));
-
-  const { GET } = await import("@/app/api/owner/factory/status/route");
-
   return {
-    GET,
-    requireOwnerAccess,
-    getFactoryStatus,
-    UnauthorizedError,
+    requireOwnerAccess: vi.fn(),
+    getFactoryStatus: vi.fn(),
+    UnauthorizedError: HoistedUnauthorizedError,
   };
-}
+});
+
+vi.mock("@/lib/auth/session", () => ({
+  requireOwnerAccess,
+  UnauthorizedError,
+}));
+
+vi.mock("@/lib/factory/status", () => ({
+  getFactoryStatus,
+}));
+
+import { GET } from "@/app/api/owner/factory/status/route";
 
 describe("GET /api/owner/factory/status", () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
   });
 
   it("returns 401 when session is missing", async () => {
-    const { GET, requireOwnerAccess, UnauthorizedError } = await loadRoute();
     requireOwnerAccess.mockRejectedValue(new UnauthorizedError("SESSION_REQUIRED", 401));
 
     const response = await GET(new Request("https://drako.systems/api/owner/factory/status") as any);
@@ -51,7 +48,6 @@ describe("GET /api/owner/factory/status", () => {
   });
 
   it("returns 403 when role is not owner-level", async () => {
-    const { GET, requireOwnerAccess, UnauthorizedError } = await loadRoute();
     requireOwnerAccess.mockRejectedValue(new UnauthorizedError("OWNER_ROLE_REQUIRED", 403));
 
     const response = await GET(new Request("https://drako.systems/api/owner/factory/status") as any);
@@ -62,7 +58,6 @@ describe("GET /api/owner/factory/status", () => {
   });
 
   it("returns 200 with the aggregated factory payload", async () => {
-    const { GET, requireOwnerAccess, getFactoryStatus } = await loadRoute();
     requireOwnerAccess.mockResolvedValue({ tenantId: "tenant_owner" });
     getFactoryStatus.mockResolvedValue({
       activeSaas: 4,

@@ -1,6 +1,7 @@
 
 import { Stripe } from "stripe";
 import { env } from "@/lib/cf";
+import { findCanonicalSaasBySlug } from "@/lib/saas/canonical-registry";
 
 /**
  * STANDARD CAMPAMENTO BASE CHECKOUT
@@ -21,13 +22,10 @@ export async function createCheckoutSession(params: {
     const e = env();
     if (!e?.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY missing");
 
-    // 1. Validate SaaS in Registry
-    const registry = await queryOne<{ saas_slug: string }>(
-        `SELECT saas_slug FROM holding_saas_registry WHERE saas_slug = ? AND status = 'active'`,
-        params.saasSlug
-    );
-    if (!registry) {
-        throw new Error(`SaaS '${params.saasSlug}' is not registered or active.`);
+    // 1. Validate SaaS against the canonical factory registry
+    const saas = await findCanonicalSaasBySlug(params.saasSlug);
+    if (!saas || (saas.saasStatus !== "active" && saas.instanceStatus !== "active")) {
+        throw new Error(`SaaS '${params.saasSlug}' is not canonically provisioned and active.`);
     }
 
     // 2. Resolve Price ID from Plan

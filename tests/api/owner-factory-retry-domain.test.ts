@@ -1,60 +1,57 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-async function loadRoute() {
-  class UnauthorizedError extends Error {
+const {
+  requireOwnerAccess,
+  requestRetryDomainVerifyOperation,
+  UnauthorizedError,
+  FactoryRecoveryOperationError,
+} = vi.hoisted(() => {
+  class HoistedUnauthorizedError extends Error {
     status: number;
 
     constructor(message = "Unauthorized", status = 401) {
       super(message);
-      this.name = "UnauthorizedError";
       this.status = status;
     }
   }
 
-  class FactoryRecoveryOperationError extends Error {
+  class HoistedFactoryRecoveryOperationError extends Error {
     status: number;
     code: string;
 
     constructor(code: string, status = 400, message?: string) {
       super(message ?? code);
-      this.name = "FactoryRecoveryOperationError";
       this.code = code;
       this.status = status;
     }
   }
 
-  const requireOwnerAccess = vi.fn();
-  const requestRetryDomainVerifyOperation = vi.fn();
-
-  vi.doMock("@/lib/auth/session", () => ({
-    requireOwnerAccess,
-    UnauthorizedError,
-  }));
-
-  vi.doMock("@/lib/factory/recovery-operations", () => ({
-    FactoryRecoveryOperationError,
-    requestRetryDomainVerifyOperation,
-  }));
-
-  const { POST } = await import("@/app/api/owner/factory/recovery/retry-domain-verify/route");
-
   return {
-    POST,
-    requireOwnerAccess,
-    requestRetryDomainVerifyOperation,
-    UnauthorizedError,
-    FactoryRecoveryOperationError,
+    requireOwnerAccess: vi.fn(),
+    requestRetryDomainVerifyOperation: vi.fn(),
+    UnauthorizedError: HoistedUnauthorizedError,
+    FactoryRecoveryOperationError: HoistedFactoryRecoveryOperationError,
   };
-}
+});
+
+vi.mock("@/lib/auth/session", () => ({
+  requireOwnerAccess,
+  UnauthorizedError,
+}));
+
+vi.mock("@/lib/factory/recovery-operations", () => ({
+  FactoryRecoveryOperationError,
+  requestRetryDomainVerifyOperation,
+}));
+
+import { POST } from "@/app/api/owner/factory/recovery/retry-domain-verify/route";
 
 describe("POST /api/owner/factory/recovery/retry-domain-verify", () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
   });
 
   it("returns 401 when session is missing", async () => {
-    const { POST, requireOwnerAccess, UnauthorizedError } = await loadRoute();
     requireOwnerAccess.mockRejectedValue(new UnauthorizedError("SESSION_REQUIRED", 401));
 
     const response = await POST(new Request("https://drako.systems/api/owner/factory/recovery/retry-domain-verify", {
@@ -67,7 +64,6 @@ describe("POST /api/owner/factory/recovery/retry-domain-verify", () => {
   });
 
   it("returns 403 when role is not owner-level", async () => {
-    const { POST, requireOwnerAccess, UnauthorizedError } = await loadRoute();
     requireOwnerAccess.mockRejectedValue(new UnauthorizedError("OWNER_ROLE_REQUIRED", 403));
 
     const response = await POST(new Request("https://drako.systems/api/owner/factory/recovery/retry-domain-verify", {
@@ -80,7 +76,6 @@ describe("POST /api/owner/factory/recovery/retry-domain-verify", () => {
   });
 
   it("accepts a valid retry-domain request", async () => {
-    const { POST, requireOwnerAccess, requestRetryDomainVerifyOperation } = await loadRoute();
     requireOwnerAccess.mockResolvedValue({ tenantId: "tenant_owner" });
     requestRetryDomainVerifyOperation.mockResolvedValue({
       ok: true,
@@ -110,7 +105,6 @@ describe("POST /api/owner/factory/recovery/retry-domain-verify", () => {
   });
 
   it("returns 400 for invalid input", async () => {
-    const { POST, requireOwnerAccess, requestRetryDomainVerifyOperation, FactoryRecoveryOperationError } = await loadRoute();
     requireOwnerAccess.mockResolvedValue({ tenantId: "tenant_owner" });
     requestRetryDomainVerifyOperation.mockRejectedValue(new FactoryRecoveryOperationError("INVALID_DOMAIN", 400));
 

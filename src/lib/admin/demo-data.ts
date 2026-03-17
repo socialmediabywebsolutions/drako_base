@@ -1020,7 +1020,10 @@ type DemoTenantState = {
   saasPaidAdsSpend: DemoSaasPaidAdsSpend[];
 };
 
+export type DemoTenantStateSnapshot = DemoTenantState;
+
 const tenantStore = new Map<string, DemoTenantState>();
+let externalDemoTenantStateCache: Map<string, DemoTenantStateSnapshot> | null | undefined;
 
 const NOW = "2024-05-01T10:00:00.000Z";
 
@@ -4649,11 +4652,37 @@ function cloneState(state: DemoTenantState): DemoTenantState {
   };
 }
 
+function getExternalDemoTenantState(tenantId: string): DemoTenantStateSnapshot | null {
+  if (typeof externalDemoTenantStateCache === "undefined") {
+    externalDemoTenantStateCache = new Map();
+    const raw =
+      typeof process !== "undefined" && process.env
+        ? process.env.DRAKO_SOCIALFLOW_DEMO_STATE
+        : undefined;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { tenants?: Record<string, DemoTenantStateSnapshot> };
+        const tenants = parsed?.tenants ?? {};
+        for (const [id, state] of Object.entries(tenants)) {
+          if (!state) continue;
+          externalDemoTenantStateCache.set(id, cloneState(state));
+        }
+      } catch (error) {
+        console.warn("SOCIALFLOW_DEMO_STATE_PARSE_FAILED", error);
+      }
+    }
+  }
+
+  const record = externalDemoTenantStateCache?.get(tenantId);
+  return record ? cloneState(record) : null;
+}
+
 function ensureTenantState(tenantId: string): DemoTenantState {
   const existing = tenantStore.get(tenantId);
   if (existing) return existing;
+  const external = getExternalDemoTenantState(tenantId);
   const base = tenantId === DEMO_TENANT_ID ? DEFAULT_STATE : EMPTY_STATE;
-  const cloned = cloneState(base);
+  const cloned = external ? cloneState(external) : cloneState(base);
   tenantStore.set(tenantId, cloned);
   return cloned;
 }
@@ -4667,6 +4696,16 @@ function generateId(prefix: string): string {
 export function getDemoOwner(tenantId: string): DemoOwner | null {
   const owner = ensureTenantState(tenantId).owner;
   return owner ? { ...owner } : null;
+}
+
+export function exportDemoTenantState(tenantId: string): DemoTenantStateSnapshot {
+  return cloneState(ensureTenantState(tenantId));
+}
+
+export function replaceDemoTenantState(tenantId: string, state: DemoTenantStateSnapshot): DemoTenantStateSnapshot {
+  const cloned = cloneState(state);
+  tenantStore.set(tenantId, cloned);
+  return cloneState(cloned);
 }
 
 export function upsertDemoOwner(tenantId: string, payload: Partial<DemoOwner>): DemoOwner {
@@ -6010,7 +6049,7 @@ export function updateDemoSaasSocialPostStatus(
   const record = state.saasSocialPosts.find((item) => item.id === payload.id);
   if (!record) return null;
   record.status = payload.status;
-  if (payload.status === "POSTED") {
+  if (payload.status === "POSTED" || payload.status === "PUBLISHED") {
     record.posted_at = payload.posted_at ?? record.posted_at ?? new Date().toISOString();
   }
   record.updated_at = new Date().toISOString();
@@ -6019,6 +6058,36 @@ export function updateDemoSaasSocialPostStatus(
 
 export function listDemoSaasSocialMetricsForPost(tenantId: string, postId: string): DemoSaasSocialMetrics[] {
   return ensureTenantState(tenantId).saasSocialMetrics.filter((item) => item.post_id === postId).map((item) => ({ ...item }));
+}
+
+export function upsertDemoSaasSocialMetric(
+  tenantId: string,
+  payload: Omit<DemoSaasSocialMetrics, "tenant_id"> & { id?: string },
+): DemoSaasSocialMetrics {
+  const state = ensureTenantState(tenantId);
+  const id = payload.id?.trim() ?? generateId("social_metric");
+  const index = state.saasSocialMetrics.findIndex((item) => item.id === id);
+  const record: DemoSaasSocialMetrics = {
+    id,
+    tenant_id: tenantId,
+    saas_id: payload.saas_id,
+    post_id: payload.post_id,
+    provider: payload.provider,
+    impressions: payload.impressions,
+    likes: payload.likes,
+    comments: payload.comments,
+    shares: payload.shares,
+    clicks: payload.clicks,
+    leads_generated: payload.leads_generated,
+    captured_at: payload.captured_at,
+    metadata: payload.metadata ?? null,
+  };
+  if (index >= 0) {
+    state.saasSocialMetrics[index] = record;
+  } else {
+    state.saasSocialMetrics.push(record);
+  }
+  return { ...record };
 }
 
 export function listDemoSaasDomains(tenantId: string, saasId: string): DemoSaasDomain[] {

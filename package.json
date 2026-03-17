@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test": "vitest run",
     "check:no-pages": "tsx scripts/check-no-pages.ts",
     "precf:build": "npm run check:no-pages",
     "build:factory": "npm run check:no-pages && npx opennextjs-cloudflare build",

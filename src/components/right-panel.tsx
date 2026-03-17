@@ -29,9 +29,10 @@ const statusLabel = (value: string) => statusLabelMap[value] ?? value;
 const IS_DEMO_ENV = typeof process !== "undefined" && process.env.NODE_ENV !== "production";
 
 const defaultActions = [
-  { label: "Resumen alertas", text: "Dame un resumen de alertas críticas y acciones sugeridas." },
-  { label: "Provisionar SaaS", text: "Coordina los pasos para provisionar un nuevo SaaS con Cloudflare." },
-  { label: "Estado bandeja", text: "¿Cómo va la bandeja unificada?" },
+  { label: "Estado fábrica", text: "Resume los SaaS activos, jobs degradados y el siguiente riesgo operativo del factory." },
+  { label: "Crear SaaS", text: "Prepárame los pasos para crear un nuevo SaaS por la ruta canónica y qué debo revisar al terminar." },
+  { label: "Revisar dominios", text: "Dime qué revisar en dominios, runtime y bootstrap antes de dar un SaaS por listo." },
+  { label: "Workspace health", text: "Resume billing, onboarding y señales de salud del workspace actual." },
 ];
 
 export default function RightPanel() {
@@ -197,7 +198,7 @@ export default function RightPanel() {
         const systemMessage: Message = {
           id: `${data.thread_id}-provisioning-${Date.now()}`,
           role: "assistant",
-          content: `He registrado los pasos de DNS + SSL, conexión a Cloudflare Pages y verificación de certificados para el SaaS con slug ${data.saasSlug}. Puedes verlos en la timeline de provisión.`,
+          content: `He registrado los pasos de DNS + SSL, Workers custom domains y verificación de certificados para el SaaS con slug ${data.saasSlug}. Puedes verlos en la timeline de provisión.`,
           created_at: new Date().toISOString(),
         };
         setMessages([...(data.items ?? []), systemMessage]);
@@ -344,7 +345,7 @@ export default function RightPanel() {
           <div>
             <h2 className="text-xl font-semibold">{isDevArchitectRoute ? "Chat DevArchitect" : "Chat Orquestador"}</h2>
             <p className="text-xs text-[var(--muted)] line-clamp-1">
-              {isDevArchitectRoute ? `Agente: ${DEV_ARCHITECT_AGENT.name}` : `Ruta activa: ${pathname}`}
+              {isDevArchitectRoute ? `Agente: ${DEV_ARCHITECT_AGENT.name}` : pathname.startsWith("/client") ? "Ayuda operativa para owner center, fábrica y workspace" : `Ruta activa: ${pathname}`}
             </p>
           </div>
           <button
@@ -411,7 +412,11 @@ export default function RightPanel() {
         {loadingHistory ? (
           <div className="flex items-center gap-2 text-xs text-[var(--muted)]"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Recuperando contexto...</div>
         ) : messages.length === 0 ? (
-          <div className="text-sm text-[var(--muted)]">Aún no hay conversación. Envía tu primera instrucción.</div>
+          <div className="text-sm text-[var(--muted)]">
+            {pathname.startsWith("/client")
+              ? "Todavía no hay conversación. Usa los accesos rápidos para revisar el factory, dominios o readiness del workspace."
+              : "Aún no hay conversación. Envía tu primera instrucción."}
+          </div>
         ) : (
           <ul className="space-y-3">
             {messages.map((msg) => (

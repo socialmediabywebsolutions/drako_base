@@ -13,15 +13,14 @@ function isLegacyAuthBlocked() {
 }
 
 export async function GET(req: NextRequest, ctx: any) {
-  if (isAuthsIsolationEnabled() && resolveAuthsContextFromRequest(req) === "bases") {
+  const context = resolveAuthsContextFromRequest(req);
+  if (isLegacyAuthBlocked() && context !== "bases") {
     return NextResponse.json(
-      { ok: false, code: "BASES_FINAL_USER_AUTH_DISABLED", message: "Campamento Base does not expose final-user auth." },
-      { status: 403 },
-    );
-  }
-  if (isLegacyAuthBlocked()) {
-    return NextResponse.json(
-      { ok: false, code: "AUTHS_LEGACY_COMPATS_DISABLED", message: "Legacy next-auth endpoint is disabled." },
+      {
+        ok: false,
+        code: "BASE_AUTH_OWNER_ONLY",
+        message: "Campamento Base NextAuth is owner-only. Final users must authenticate on the SaaS auth boundary.",
+      },
       { status: 410 },
     );
   }
@@ -29,15 +28,14 @@ export async function GET(req: NextRequest, ctx: any) {
 }
 
 export async function POST(req: NextRequest, ctx: any) {
-  if (isAuthsIsolationEnabled() && resolveAuthsContextFromRequest(req) === "bases") {
+  const context = resolveAuthsContextFromRequest(req);
+  if (isLegacyAuthBlocked() && context !== "bases") {
     return NextResponse.json(
-      { ok: false, code: "BASES_FINAL_USER_AUTH_DISABLED", message: "Campamento Base does not expose final-user auth." },
-      { status: 403 },
-    );
-  }
-  if (isLegacyAuthBlocked()) {
-    return NextResponse.json(
-      { ok: false, code: "AUTHS_LEGACY_COMPATS_DISABLED", message: "Legacy next-auth endpoint is disabled." },
+      {
+        ok: false,
+        code: "BASE_AUTH_OWNER_ONLY",
+        message: "Campamento Base NextAuth is owner-only. Final users must authenticate on the SaaS auth boundary.",
+      },
       { status: 410 },
     );
   }

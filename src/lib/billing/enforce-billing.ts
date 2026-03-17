@@ -1,5 +1,6 @@
 
 import { queryOne, run } from "@/lib/db";
+import { writeBillingAuditLog } from "@/lib/billing/billing-audit";
 import { getCanonicalBillingEntitlements } from "@/lib/billing/subscriptions";
 import { resolveSaasContext, type SaasContext } from "@/lib/saas/resolve-saas-context";
 import { type NextRequest } from "next/server";
@@ -28,11 +29,15 @@ export function requireSaasContext(req: NextRequest): { saasSlug: string; tenant
 
 async function logDeniedAccess(saasSlug: string, tenantId: string, action: string, reason: string, correlationId: string) {
     try {
-        await run(
-            `INSERT INTO billing_audit_logs (id, saas_slug, tenant_id, event_type, severity, correlation_id, metadata_json)
-             VALUES (?, ?, ?, 'access_denied', 'warning', ?, ?)`,
-            `deny_${correlationId}`, saasSlug, tenantId, correlationId, JSON.stringify({ action, reason })
-        );
+        await writeBillingAuditLog({
+            id: `deny_${correlationId}`,
+            saasSlug,
+            tenantId,
+            eventType: "access_denied",
+            severity: "warning",
+            correlationId,
+            metadata: { action, reason },
+        });
     } catch (e) {
         console.error("Failed to log access denial", e);
     }
@@ -58,16 +63,20 @@ export async function enforceBilling(
             return { allowed: false, reason: "needs_billing", status: 403 };
         }
 
-        const allowedStatuses = ["active", "trial", "trialing", "past_due"];
+        if (status === "incomplete") {
+            await logDeniedAccess(saasSlug, tenantId, action, "SUBSCRIPTION_INCOMPLETE", cid);
+            return { allowed: false, reason: "SUBSCRIPTION_INCOMPLETE", status: 402 };
+        }
+
+        if (status === "past_due") {
+            await logDeniedAccess(saasSlug, tenantId, action, "PAST_DUE_BLOCK", cid);
+            return { allowed: false, reason: "PAST_DUE_BLOCK", status: 402 };
+        }
+
+        const allowedStatuses = ["active", "trial", "trialing"];
         if (!allowedStatuses.includes(status)) {
             await logDeniedAccess(saasSlug, tenantId, action, `SUBSCRIPTION_${status.toUpperCase()}`, cid);
             return { allowed: false, reason: `SUBSCRIPTION_${status.toUpperCase()}`, status: 402 };
-        }
-
-        // Special Rule: Past Due blocks 'workspaces' creation
-        if (status === 'past_due' && (action === 'workspaces' || action === 'ai_calls')) {
-            await logDeniedAccess(saasSlug, tenantId, action, `PAST_DUE_BLOCK`, cid);
-            return { allowed: false, reason: `Payment Past Due. Please update payment method.`, status: 402 };
         }
 
         // 2. Check Quota (If increment > 0)

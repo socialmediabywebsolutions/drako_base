@@ -80,7 +80,7 @@ JSON Structure:
     try {
         const blueprint: SaaSBlueprint = JSON.parse(raw);
         // Force Standard Drako Stack where AI might hallucinate
-        blueprint.stack.hosting = "Cloudflare Pages (Global)";
+        blueprint.stack.hosting = "Cloudflare Workers + Custom Domains";
         blueprint.stack.database = "Cloudflare D1 (Edge SQL)";
 
         return blueprint;

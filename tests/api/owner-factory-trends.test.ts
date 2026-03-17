@@ -1,46 +1,43 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-async function loadRoute() {
-  class UnauthorizedError extends Error {
+const {
+  requireOwnerAccess,
+  getFactoryTrends,
+  UnauthorizedError,
+} = vi.hoisted(() => {
+  class HoistedUnauthorizedError extends Error {
     status: number;
 
     constructor(message = "Unauthorized", status = 401) {
       super(message);
-      this.name = "UnauthorizedError";
       this.status = status;
     }
   }
 
-  const requireOwnerAccess = vi.fn();
-  const getFactoryTrends = vi.fn();
-
-  vi.doMock("@/lib/auth/session", () => ({
-    requireOwnerAccess,
-    UnauthorizedError,
-  }));
-
-  vi.doMock("@/lib/factory/trends", () => ({
-    getFactoryTrends,
-  }));
-
-  const { GET } = await import("@/app/api/owner/factory/trends/route");
-
   return {
-    GET,
-    requireOwnerAccess,
-    getFactoryTrends,
-    UnauthorizedError,
+    requireOwnerAccess: vi.fn(),
+    getFactoryTrends: vi.fn(),
+    UnauthorizedError: HoistedUnauthorizedError,
   };
-}
+});
+
+vi.mock("@/lib/auth/session", () => ({
+  requireOwnerAccess,
+  UnauthorizedError,
+}));
+
+vi.mock("@/lib/factory/trends", () => ({
+  getFactoryTrends,
+}));
+
+import { GET } from "@/app/api/owner/factory/trends/route";
 
 describe("GET /api/owner/factory/trends", () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
   });
 
   it("returns 401 when session is missing", async () => {
-    const { GET, requireOwnerAccess, UnauthorizedError } = await loadRoute();
     requireOwnerAccess.mockRejectedValue(new UnauthorizedError("SESSION_REQUIRED", 401));
 
     const response = await GET(new Request("https://drako.systems/api/owner/factory/trends") as any);
@@ -51,7 +48,6 @@ describe("GET /api/owner/factory/trends", () => {
   });
 
   it("returns 403 when role is not owner-level", async () => {
-    const { GET, requireOwnerAccess, UnauthorizedError } = await loadRoute();
     requireOwnerAccess.mockRejectedValue(new UnauthorizedError("OWNER_ROLE_REQUIRED", 403));
 
     const response = await GET(new Request("https://drako.systems/api/owner/factory/trends") as any);
@@ -62,7 +58,6 @@ describe("GET /api/owner/factory/trends", () => {
   });
 
   it("returns 200 with trend payload for owner", async () => {
-    const { GET, requireOwnerAccess, getFactoryTrends } = await loadRoute();
     requireOwnerAccess.mockResolvedValue({ tenantId: "tenant_owner" });
     getFactoryTrends.mockResolvedValue({
       limit: 10,
@@ -134,7 +129,6 @@ describe("GET /api/owner/factory/trends", () => {
   });
 
   it("passes the validated limit query param to the service", async () => {
-    const { GET, requireOwnerAccess, getFactoryTrends } = await loadRoute();
     requireOwnerAccess.mockResolvedValue({ tenantId: "tenant_owner" });
     getFactoryTrends.mockResolvedValue({
       limit: 25,
@@ -153,9 +147,7 @@ describe("GET /api/owner/factory/trends", () => {
       },
     });
 
-    const response = await GET(
-      new Request("https://drako.systems/api/owner/factory/trends?limit=25") as any,
-    );
+    const response = await GET(new Request("https://drako.systems/api/owner/factory/trends?limit=25") as any);
 
     expect(response.status).toBe(200);
     expect(getFactoryTrends).toHaveBeenCalledWith("tenant_owner", { limit: 25 });

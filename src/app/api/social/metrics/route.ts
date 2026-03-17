@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
-import { listSaasSocialMetricsForPost, resolveSocialContext, SocialContextError } from "@/lib/social/repository";
+import { listSaasSocialMetricsForPost, resolveSocialContext, runSocialSchedulerSimulation, SocialContextError } from "@/lib/social/repository";
 
 
 export async function GET(request: Request) {
@@ -15,6 +15,7 @@ export async function GET(request: Request) {
     }
     const { tenantId } = await requireTenantAccess(request);
     const ctx = await resolveSocialContext({ tenantId, saasId });
+    await runSocialSchedulerSimulation(ctx);
     const items = await listSaasSocialMetricsForPost(ctx, postId);
     return NextResponse.json({ items });
   } catch (error) {

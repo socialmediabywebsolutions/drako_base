@@ -1,9 +1,15 @@
 import { headers } from 'next/headers';
 import { env } from '@/lib/cf';
-import type { StrategicDossier } from '@/lib/orchestrator/types';
+import SocialFlowDashboard from '@/components/saas/socialflow/SocialFlowDashboard';
 import Card from '@/components/ui/card';
 import DomainSettings from '@/components/saas/domain-settings';
+import OwnerFactoryControlCenter from '@/components/owner/OwnerFactoryControlCenter';
+import { isSocialFlowInstanceSlug, resolveClientTenantIdFromHeaders } from '@/lib/socialflow-local';
+import { findSocialFlowWorkspace } from '../../lib/socialflow-workspace';
+import type { StrategicDossier } from '@/lib/orchestrator/types';
 import AgentWorkFeed from '@/components/saas/agent-work-feed';
+import { getCurrentTenant } from '@/lib/auth/server';
+import { getCanonicalFactoryOverview } from '@/lib/saas/canonical-registry';
 
 async function getDossier(tenantId: string): Promise<StrategicDossier | null> {
     const bindings = env();
@@ -24,39 +30,84 @@ async function getDossier(tenantId: string): Promise<StrategicDossier | null> {
     }
 }
 
-async function getSaaSInstance(tenantId: string) {
-    const bindings = env();
-    if (!bindings?.DRACO_DB) return null;
-    try {
-        return await bindings.DRACO_DB.prepare(
-            `SELECT * FROM saas_instances WHERE tenant_id = ? AND status = 'trial_active'`
-        ).bind(tenantId).first<any>();
-    } catch {
-        return null;
-    }
-}
-
 import { getAgentWorkLogs } from './agent-actions';
 
 export default async function ClientDashboard() {
 
     const headersList = await headers();
-    const tenantId = headersList.get('x-drako-tenant-id') || headersList.get('x-tenant-id');
+    const currentTenant = await getCurrentTenant();
+    const tenantId = currentTenant?.tenant.id ?? resolveClientTenantIdFromHeaders(headersList);
+    const entryMode = headersList.get("x-drako-client-entry-mode") ?? "product_operator";
+    let workspaceError: string | null = null;
     const dossier = tenantId ? await getDossier(tenantId) : null;
-    const instance = tenantId ? await getSaaSInstance(tenantId) : null;
+    const instance = tenantId
+        ? await findSocialFlowWorkspace(tenantId).catch((error: unknown) => {
+              workspaceError = error instanceof Error ? error.message : "Workspace unavailable";
+              return null;
+          })
+        : null;
     const logs = tenantId ? await getAgentWorkLogs(tenantId) : [];
 
-    if (!dossier) {
+    if (tenantId && entryMode === "holding_operator") {
+        const overview = await getCanonicalFactoryOverview(tenantId);
+
+        return (
+            <div className="space-y-8">
+                <OwnerFactoryControlCenter
+                    tenantName={currentTenant?.tenant.name ?? "Owner tenant"}
+                    tenantRole={currentTenant?.membership.role ?? "OWNER"}
+                    initialOverview={overview}
+                    workspaceSummary={{
+                        plan: currentTenant?.billing?.plan ?? "STARTER",
+                        billingStatus: currentTenant?.billing?.status ?? "inactive",
+                        onboardingProgress: currentTenant?.onboardingSummary.progress ?? 0,
+                        onboardingNextStep: currentTenant?.onboardingSummary.nextStep ?? null,
+                        connectedProductsCount: currentTenant?.connectedProducts.length ?? 0,
+                    }}
+                />
+
+                <div className="mt-8">
+                    <AgentWorkFeed logs={logs} />
+                </div>
+            </div>
+        );
+    }
+
+    if (tenantId && instance?.id && isSocialFlowInstanceSlug(instance.slug)) {
+        return (
+            <div className="space-y-8">
+                <SocialFlowDashboard
+                    tenantId={tenantId}
+                    saasId={instance.id}
+                    instance={instance}
+                    workspaceBilling={{
+                        plan: currentTenant?.billing?.plan ?? "STARTER",
+                        status: currentTenant?.billing?.status ?? "inactive",
+                        currentPeriodEnd: currentTenant?.billing?.currentPeriodEnd ?? null,
+                        stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
+                    }}
+                />
+
+                <div className="mt-8">
+                    <AgentWorkFeed logs={logs} />
+                </div>
+            </div>
+        );
+    }
+
+    if (!dossier || workspaceError || (tenantId && !instance)) {
         return (
             <div className="flex h-full items-center justify-center">
                 <div className="max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
                     <div className="text-3xl">🚀</div>
-                    <h1 className="mt-3 text-2xl font-bold text-slate-900">Activa tu perfil estratégico</h1>
+                    <h1 className="mt-3 text-2xl font-bold text-slate-900">No active SocialFlow workspace</h1>
                     <p className="mt-2 text-sm text-slate-500">
-                        Aún no hay un dossier para tu cuenta. Completa el formulario para iniciar análisis de competencia y materialización.
+                        {workspaceError
+                            ? `Workspace cannot be loaded: ${workspaceError}`
+                            : "This tenant does not have an active SocialFlow instance on this host. Provision the SaaS through the canonical Drako factory route before entering the product workspace."}
                     </p>
-                    <a href="/client/setup" className="mt-6 inline-block rounded-full bg-sky-600 px-6 py-3 text-sm font-bold text-white hover:bg-sky-500">
-                        Completar formulario
+                    <a href="/site/panel" className="mt-6 inline-block rounded-full bg-sky-600 px-6 py-3 text-sm font-bold text-white hover:bg-sky-500">
+                        Open owner control center
                     </a>
                 </div>
             </div>
@@ -89,7 +140,9 @@ export default async function ClientDashboard() {
 
     // ACTIVE MODE: REALITY CHECK STARTS
     if (instance) {
-        const daysLeft = Math.ceil((new Date(instance.trial_ends_at).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+        const daysLeft = instance.trial_ends_at
+            ? Math.ceil((new Date(instance.trial_ends_at).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
+            : 0;
 
         return (
             <div className="space-y-8">

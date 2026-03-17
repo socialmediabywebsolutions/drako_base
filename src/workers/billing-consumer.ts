@@ -3,6 +3,7 @@ import { type MessageBatch, type Queue } from "@cloudflare/workers-types";
 import { setGlobalEnv, type DracoEnv } from "@/lib/cf";
 import { provisionTenantFromStripe, type ProvisioningEvent } from "@/lib/billing/provisioning_workflow";
 import { run, queryOne } from "@/lib/db";
+import { writeBillingAuditLog } from "@/lib/billing/billing-audit";
 
 export interface Env extends DracoEnv {
     BILLING_QUEUE: Queue<ProvisioningEvent>;
@@ -99,16 +100,17 @@ async function handleBillingEvent(event: ProvisioningEvent) {
             newStatus, stripeSubscriptionId, saasSlug
         );
 
-        const auditId = `audit_${event.eventId}_${Date.now()}`;
         try {
-            await run(
-                `INSERT INTO billing_audit_logs (id, saas_slug, tenant_id, event_type, metadata_json, correlation_id, stripe_event_id)
-                 VALUES (?, ?, 'system', 'billing_status_change', ?, ?, ?)`,
-                auditId, saasSlug,
-                JSON.stringify({ newStatus, stripeSubscriptionId, eventType: event.type }),
-                event.eventId,
-                event.eventId
-            );
+            await writeBillingAuditLog({
+                eventType: "billing_status_change",
+                saasSlug,
+                tenantId: "system",
+                severity: "info",
+                correlationId: event.eventId,
+                stripeEventId: event.eventId,
+                outcome: "processed",
+                metadata: { newStatus, stripeSubscriptionId, eventType: event.type },
+            });
         } catch (e) {
             console.warn("Failed to write audit log", e);
         }

@@ -1,151 +1,126 @@
-import { NextAuthOptions } from "next-auth";
-import { safeEnv } from "@/lib/env";
+import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { safeEnv } from "@/lib/env";
+import { DrakoD1AuthAdapter } from "@/lib/auth/nextauth-adapter";
+import {
+  ensureUserHasWorkspace,
+  getWorkspaceUserByEmail,
+  getWorkspaceUserById,
+  resolveActiveMembershipForUser,
+  validateWorkspaceCredentials,
+} from "@/lib/auth/campamento-core";
 
-// Build providers array conditionally
 function buildProviders() {
-    const providers: any[] = [];
+  const providers = [];
 
-    // Only add Google provider if credentials are configured
-    if (safeEnv.GOOGLE_CLIENT_ID && safeEnv.GOOGLE_CLIENT_SECRET) {
-        providers.push(GoogleProvider({
-            clientId: safeEnv.GOOGLE_CLIENT_ID,
-            clientSecret: safeEnv.GOOGLE_CLIENT_SECRET,
-            authorization: {
-                params: {
-                    prompt: "select_account",
-                    access_type: "offline",
-                    response_type: "code",
-                },
-            },
-        }));
-    }
-
-    // Always add credentials provider
-    providers.push(CredentialsProvider({
-        name: "Email",
-        credentials: {
-            email: { label: "Email", type: "email" },
-            password: { label: "Password", type: "password" }
+  if (safeEnv.GOOGLE_CLIENT_ID && safeEnv.GOOGLE_CLIENT_SECRET) {
+    providers.push(
+      GoogleProvider({
+        clientId: safeEnv.GOOGLE_CLIENT_ID,
+        clientSecret: safeEnv.GOOGLE_CLIENT_SECRET,
+        authorization: {
+          params: {
+            prompt: "select_account",
+            access_type: "offline",
+            response_type: "code",
+          },
         },
-        async authorize(credentials) {
-            if (!credentials?.email || !credentials?.password) return null;
+      }),
+    );
+  }
 
-            const { env: getEnv } = await import("@/lib/cf");
-            const { verifyPassword } = await import("@/lib/auth/crypto");
+  providers.push(
+    CredentialsProvider({
+      name: "Workspace credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email?.trim().toLowerCase();
+        const password = credentials?.password;
+        if (!email || !password) return null;
 
-            const conf = getEnv();
-            if (!conf || !conf.DRACO_DB) {
-                console.warn("AUTH_ERROR: Environment or DB not available");
-                return null;
-            }
+        const resolved = await validateWorkspaceCredentials(email, password);
+        if (!resolved) return null;
 
-            const email = credentials.email.trim().toLowerCase();
-            const db = conf.DRACO_DB;
+        return {
+          id: resolved.userId,
+          email: resolved.email,
+          name: resolved.name ?? resolved.email.split("@")[0],
+        };
+      },
+    }),
+  );
 
-            // 1. Try DB First (The Professional Path)
-            try {
-                const user = await db.prepare(`
-                    SELECT u.id, u.email, u.name, c.hash, c.salt, c.iterations 
-                    FROM auth_users u 
-                    JOIN auth_credentials c ON u.id = c.user_id 
-                    WHERE u.email = ? AND c.type = 'email'
-                    LIMIT 1
-                `).bind(email).first<{
-                    id: string;
-                    email: string;
-                    name: string | null;
-                    hash: string;
-                    salt: string;
-                    iterations: number;
-                }>();
+  return providers;
+}
 
-                if (user) {
-                    const isValid = await verifyPassword(credentials.password, user.hash, user.salt, user.iterations);
-                    if (isValid) {
-                        return {
-                            id: user.id,
-                            name: user.name || user.email.split("@")[0],
-                            email: user.email,
-                            role: (user.email === conf.ADMIN_EMAIL?.toLowerCase()) ? "admin" : "user",
-                            tenantId: conf.DEFAULT_TENANT_ID || "demo-tenant"
-                        };
-                    }
-                }
-            } catch (dbError) {
-                console.error("AUTH_DB_QUERY_FAILED", dbError);
-            }
+async function resolveSessionUser(sessionUser: {
+  id?: string;
+  email?: string | null;
+  name?: string | null;
+}) {
+  const userId = sessionUser.id ?? null;
+  const email = sessionUser.email?.trim().toLowerCase() ?? null;
+  if (!userId && !email) return null;
 
-            // 2. Fallback to Env Vars (Maintenance/Bootstrap)
-            const adminEmail = conf.ADMIN_EMAIL?.trim().toLowerCase();
-            const adminPassword = conf.ADMIN_PASSWORD;
-            const userPassword = conf.USER_PASSWORD;
+  const user = userId
+    ? await getWorkspaceUserById(userId)
+    : email
+      ? await getWorkspaceUserByEmail(email)
+      : null;
 
-            if (adminEmail && email === adminEmail && adminPassword && credentials.password === adminPassword) {
-                return {
-                    id: "admin-system",
-                    name: "System Admin",
-                    email: email,
-                    role: "admin",
-                    tenantId: conf.DEFAULT_TENANT_ID || "demo-tenant"
-                };
-            }
-
-            if (userPassword && credentials.password === userPassword) {
-                return {
-                    id: `env-user-${email}`,
-                    name: email.split("@")[0],
-                    email: email,
-                    role: "user",
-                    tenantId: conf.DEFAULT_TENANT_ID || "demo-tenant"
-                };
-            }
-
-            console.warn("AUTH_FAILED: Invalid credentials for", email);
-            return null;
-        }
-    }));
-
-    return providers;
+  if (!user) return null;
+  const membership = await resolveActiveMembershipForUser(user.id);
+  if (!membership) return null;
+  return {
+    user,
+    membership,
+  };
 }
 
 export const authOptions: NextAuthOptions = {
-    providers: buildProviders(),
-    pages: {
-        signIn: "/auth/login",
+  adapter: DrakoD1AuthAdapter(),
+  providers: buildProviders(),
+  pages: {
+    signIn: "/auth/login",
+  },
+  callbacks: {
+    async signIn({ user }) {
+      if (!user?.id || !user.email) return false;
+      await ensureUserHasWorkspace({
+        userId: user.id,
+        email: user.email,
+        name: user.name ?? null,
+      });
+      return true;
     },
-    callbacks: {
-        async redirect({ url, baseUrl }) {
-            // If the url is relative, it's already safe
-            if (url.startsWith("/")) return `${baseUrl}${url}`;
-            // If the url is absolute, ensure it's within the same domain
-            if (new URL(url).origin === baseUrl) return url;
-            // Fallback to site panel
-            return `${baseUrl}/site/panel`;
-        },
-        async session({ session, token }) {
-            if (session.user) {
-                session.user.id = token.sub!;
-                session.user.tenantId = token.tenantId as string;
-                session.user.role = token.role as string;
-            }
-            return session;
-        },
-        async jwt({ token, user, account }) {
-            if (user) {
-                token.id = user.id;
-                token.tenantId = (user as any).tenantId;
-                token.role = (user as any).role;
-            }
-            if (account) {
-                token.accessToken = account.access_token;
-            }
-            return token;
-        },
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      if (new URL(url).origin === baseUrl) return url;
+      return `${baseUrl}/client`;
     },
-    session: {
-        strategy: "jwt",
+    async session({ session }) {
+      if (!session.user) return session;
+      const resolved = await resolveSessionUser({
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name ?? null,
+      });
+      if (!resolved) return session;
+      session.user.id = resolved.user.id;
+      session.user.email = resolved.user.email;
+      session.user.name = resolved.user.name ?? session.user.name ?? null;
+      session.user.tenantId = resolved.membership.tenantId;
+      session.user.role = resolved.membership.role;
+      return session;
     },
-    secret: process.env.NEXTAUTH_SECRET,
+  },
+  session: {
+    strategy: "database",
+    maxAge: 30 * 24 * 60 * 60,
+  },
+  secret: process.env.NEXTAUTH_SECRET ?? process.env.SESSION_SECRET,
 };

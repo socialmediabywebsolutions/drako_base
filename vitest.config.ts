@@ -19,5 +19,8 @@ export default defineConfig({
             reporter: ["text", "json", "html"],
         },
         setupFiles: ["./src/__tests__/setup.ts"],
+        pool: "forks",
+        maxWorkers: 1,
+        fileParallelism: false,
     },
 });

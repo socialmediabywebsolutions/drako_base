@@ -10,7 +10,11 @@ function resolveCorrelationId(request: Request): string | null {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await requireOwnerAccess(request);
+    const access = await requireOwnerAccess(request);
+    if (!access?.tenantId) {
+      throw new UnauthorizedError("SESSION_REQUIRED", 401);
+    }
+    const { tenantId } = access;
     const body = await request.json().catch(() => null) as { jobId?: unknown } | null;
     const result = await requestRetryJobOperation({
       tenantId,

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { getAuthsCookieConfig, getAuthsCookieName } from "@/lib/auths/cookies";
 import { createAuthsSessionToken, verifyAuthsSessionToken } from "@/lib/auths/tokens";
-import { resolveAuthsContextFromHost } from "@/lib/auths/contexts";
+import { resolveAuthsContextFromHost, resolveAuthsContextFromRequest } from "@/lib/auths/contexts";
 
 describe("Auths Isolation", () => {
   it("uses different cookie names per saas", () => {
@@ -19,6 +19,20 @@ describe("Auths Isolation", () => {
     expect(resolveAuthsContextFromHost("drako.systems")).toBe("drakos");
     expect(resolveAuthsContextFromHost("mentoria.drako.systems")).toBe("mentorias");
     expect(resolveAuthsContextFromHost("base.drako.systems")).toBe("bases");
+  });
+
+  it("resolves tenant workspace auth by path and host surface", () => {
+    expect(resolveAuthsContextFromRequest(new Request("https://bases.drako.systems/client", {
+      headers: { host: "bases.drako.systems" },
+    }))).toBe("bases");
+
+    expect(resolveAuthsContextFromRequest(new Request("https://app.socialflow.example.com/client", {
+      headers: { host: "app.socialflow.example.com" },
+    }))).toBe("drakos");
+
+    expect(resolveAuthsContextFromRequest(new Request("https://mentorias.drako.systems/client", {
+      headers: { host: "mentorias.drako.systems" },
+    }))).toBe("mentorias");
   });
 
   it("rejects drakos tokens in mentorias context", async () => {

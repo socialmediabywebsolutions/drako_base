@@ -37,7 +37,12 @@ function isDemoFeatureEnabled(tenantId: string, envOverride?: DracoEnv | null): 
   if (tenantId === DEMO_TENANT_ID) return true;
   const runtimeEnv = resolveEnvOverride(envOverride);
   const flag = runtimeEnv?.DRAKO_DEMO_MODE ?? process.env.DRAKO_DEMO_MODE;
-  return typeof flag === "string" && flag.toLowerCase() === "true";
+  const runtimeEnvRecord = runtimeEnv as (Record<string, string | undefined> | null);
+  const configuredDemoTenantId =
+    runtimeEnvRecord?.DRAKO_CLIENT_DEMO_TENANT_ID
+    ?? process.env.DRAKO_CLIENT_DEMO_TENANT_ID
+    ?? DEMO_TENANT_ID;
+  return typeof flag === "string" && flag.toLowerCase() === "true" && tenantId === configuredDemoTenantId;
 }
 
 function shouldFallbackToDemo(error: unknown, ctx: SaasContext): boolean {

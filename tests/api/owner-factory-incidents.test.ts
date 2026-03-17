@@ -1,46 +1,43 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-async function loadRoute() {
-  class UnauthorizedError extends Error {
+const {
+  requireOwnerAccess,
+  getFactoryIncidents,
+  UnauthorizedError,
+} = vi.hoisted(() => {
+  class HoistedUnauthorizedError extends Error {
     status: number;
 
     constructor(message = "Unauthorized", status = 401) {
       super(message);
-      this.name = "UnauthorizedError";
       this.status = status;
     }
   }
 
-  const requireOwnerAccess = vi.fn();
-  const getFactoryIncidents = vi.fn();
-
-  vi.doMock("@/lib/auth/session", () => ({
-    requireOwnerAccess,
-    UnauthorizedError,
-  }));
-
-  vi.doMock("@/lib/factory/incidents", () => ({
-    getFactoryIncidents,
-  }));
-
-  const { GET } = await import("@/app/api/owner/factory/incidents/route");
-
   return {
-    GET,
-    requireOwnerAccess,
-    getFactoryIncidents,
-    UnauthorizedError,
+    requireOwnerAccess: vi.fn(),
+    getFactoryIncidents: vi.fn(),
+    UnauthorizedError: HoistedUnauthorizedError,
   };
-}
+});
+
+vi.mock("@/lib/auth/session", () => ({
+  requireOwnerAccess,
+  UnauthorizedError,
+}));
+
+vi.mock("@/lib/factory/incidents", () => ({
+  getFactoryIncidents,
+}));
+
+import { GET } from "@/app/api/owner/factory/incidents/route";
 
 describe("GET /api/owner/factory/incidents", () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
   });
 
   it("returns 401 when session is missing", async () => {
-    const { GET, requireOwnerAccess, UnauthorizedError } = await loadRoute();
     requireOwnerAccess.mockRejectedValue(new UnauthorizedError("SESSION_REQUIRED", 401));
 
     const response = await GET(new Request("https://drako.systems/api/owner/factory/incidents") as any);
@@ -51,7 +48,6 @@ describe("GET /api/owner/factory/incidents", () => {
   });
 
   it("returns 403 when role is not owner-level", async () => {
-    const { GET, requireOwnerAccess, UnauthorizedError } = await loadRoute();
     requireOwnerAccess.mockRejectedValue(new UnauthorizedError("OWNER_ROLE_REQUIRED", 403));
 
     const response = await GET(new Request("https://drako.systems/api/owner/factory/incidents") as any);
@@ -62,7 +58,6 @@ describe("GET /api/owner/factory/incidents", () => {
   });
 
   it("returns 200 with the incident feed for owner", async () => {
-    const { GET, requireOwnerAccess, getFactoryIncidents } = await loadRoute();
     requireOwnerAccess.mockResolvedValue({ tenantId: "tenant_owner" });
     getFactoryIncidents.mockResolvedValue({
       limit: 20,
@@ -116,7 +111,6 @@ describe("GET /api/owner/factory/incidents", () => {
   });
 
   it("passes the parsed limit query param to the service", async () => {
-    const { GET, requireOwnerAccess, getFactoryIncidents } = await loadRoute();
     requireOwnerAccess.mockResolvedValue({ tenantId: "tenant_owner" });
     getFactoryIncidents.mockResolvedValue({
       limit: 50,
@@ -130,9 +124,7 @@ describe("GET /api/owner/factory/incidents", () => {
       },
     });
 
-    const response = await GET(
-      new Request("https://drako.systems/api/owner/factory/incidents?limit=50") as any,
-    );
+    const response = await GET(new Request("https://drako.systems/api/owner/factory/incidents?limit=50") as any);
 
     expect(response.status).toBe(200);
     expect(getFactoryIncidents).toHaveBeenCalledWith("tenant_owner", { limit: 50 });

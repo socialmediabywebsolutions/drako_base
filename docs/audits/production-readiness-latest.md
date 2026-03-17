@@ -1,19 +1,19 @@
 # Production Readiness Audit Report
 
-- Timestamp: `2026-02-26T21:20:09.676Z`
-- Mode: `real`
+- Timestamp: `2026-03-14T14:35:38.401Z`
+- Mode: `fixtures`
 - Source of truth: `docs/config/production-audits-expected-state.json`
-- Fixtures dir: `n/a`
+- Fixtures dir: `tests/fixtures/production-audits/pass`
 - Production ready: `true`
 
 ## Summary
 
 - Checks total: 136
-- Checks pass: 132
-- Checks fail: 1
-- Checks N/A: 3
+- Checks pass: 134
+- Checks fail: 0
+- Checks N/A: 2
 - Blockers: 0
-- Warnings: 1
+- Warnings: 0
 
 ## Checks
 
@@ -47,19 +47,15 @@
 | criticalHostnameMismatch | BLOCKER | mentoria.drako.systems | PASS | "saas-mentorias-prod" | "saas-mentorias-prod" |
 | criticalHostnameMissing | BLOCKER | mentorias.drako.systems | PASS | "present" | "present" |
 | criticalHostnameMismatch | BLOCKER | mentorias.drako.systems | PASS | "saas-mentorias-prod" | "saas-mentorias-prod" |
-| criticalRouteMissing | WARN | drako.systems/* | FAIL | "present" | "missing" |
-| criticalRouteMismatch | BLOCKER | drako.systems/* | N/A | "saas-drakos-prod" | null |
-| blockedServiceHit | BLOCKER | analytics.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-analytics-prod" |
-| blockedServiceHit | BLOCKER | automations.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-automations-prod" |
-| blockedServiceHit | BLOCKER | invoices.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-invoices-prod" |
-| blockedServiceHit | BLOCKER | socialflows.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-socialflows-prod" |
-| blockedServiceHit | BLOCKER | cryptos.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-cryptos-prod" |
-| blockedServiceHit | BLOCKER | mentorias.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-mentorias-prod" |
-| blockedServiceHit | BLOCKER | mentoria.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-mentorias-prod" |
-| blockedServiceHit | BLOCKER | bases.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-bases-prod" |
-| blockedServiceHit | BLOCKER | base.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-bases-prod" |
+| criticalRouteMissing | WARN | drako.systems/* | PASS | "present" | "present" |
+| criticalRouteMismatch | BLOCKER | drako.systems/* | PASS | "saas-drakos-prod" | "saas-drakos-prod" |
 | blockedServiceHit | BLOCKER | drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-drakos-prod" |
 | blockedServiceHit | BLOCKER | drakos.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-drakos-prod" |
+| blockedServiceHit | BLOCKER | base.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-bases-prod" |
+| blockedServiceHit | BLOCKER | bases.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-bases-prod" |
+| blockedServiceHit | BLOCKER | mentoria.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-mentorias-prod" |
+| blockedServiceHit | BLOCKER | mentorias.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-mentorias-prod" |
+| blockedScriptHit | BLOCKER | drako.systems/* | PASS | "script NOT IN [drako-base-3]" | "saas-drakos-prod" |
 | criticalD1Missing | BLOCKER | drako_holding_db | PASS | "present" | "present" |
 | criticalD1Missing | BLOCKER | drako_billing_db | PASS | "present" | "present" |
 | criticalD1Missing | BLOCKER | drako_observability_db | PASS | "present" | "present" |
@@ -155,7 +151,11 @@
 | criticalColumnMissing | BLOCKER | drako_db_prod.tenant_audit_logs.metadata_json | PASS | "present" | "present" |
 | criticalColumnMissing | BLOCKER | drako_db_prod.tenant_audit_logs.created_at | PASS | "present" | "present" |
 | onboardingColumnsMismatch | BLOCKER | drako_db_prod.users.onboarding_completed | N/A | "present" | "table missing" |
+| legacyProductionGuardMissing | BLOCKER | legacy:create-saas-route | PASS | ["LEGACY_SAAS_CREATE_BLOCKED","/api/owner/saas-factory/create-saas","status: 410"] | "all_tokens_present" |
+| legacyProductionGuardMissing | BLOCKER | legacy:provision-commit-route | PASS | ["LEGACY_PROVISION_COMMIT_BLOCKED","/api/owner/saas-factory/create-saas","status: 410"] | "all_tokens_present" |
+| legacyProductionGuardMissing | BLOCKER | legacy:saas-domain-route | PASS | ["LEGACY_SAAS_DOMAIN_ROUTE_BLOCKED","/api/domains/request","status: 410"] | "all_tokens_present" |
+| legacyProductionGuardMissing | BLOCKER | legacy:saas-factory-queue-consumer | PASS | ["LEGACY_SAAS_FACTORY_QUEUE_BLOCKED","legacy.saas_factory_queue.blocked","message.ack"] | "all_tokens_present" |
 
 ## Violations
 
-- WARN criticalRouteMissing @ drako.systems/*: expected="present" actual="missing"
+- None

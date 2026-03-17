@@ -1,6 +1,9 @@
 # Monetization Execution Master Plan
 ## Campamento Base Enterprise Holding
 
+> LEGACY DOCUMENT
+> The billing ideas here are historical context. Active factory/runtime truth no longer depends on `holding_saas_registry`; use the canonical Drako runtime tables and current workspace billing flow instead.
+
 **Status**: Definitive Execution
 **Architect**: Drako AI
 

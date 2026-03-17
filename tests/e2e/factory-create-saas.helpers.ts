@@ -121,6 +121,98 @@ type SaasFeatureRow = {
   updated_at: string;
 };
 
+type SocialAccountRow = {
+  id: string;
+  tenant_id: string;
+  saas_id: string;
+  provider: string;
+  handle: string | null;
+  display_name: string | null;
+  status: string;
+  auth_meta: string | null;
+  primary: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type SocialCampaignRow = {
+  id: string;
+  tenant_id: string;
+  saas_id: string;
+  name: string;
+  objective: string;
+  status: string;
+  target_segment: string;
+  start_date: string | null;
+  end_date: string | null;
+  budget_estimate: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type SocialPostRow = {
+  id: string;
+  tenant_id: string;
+  saas_id: string;
+  campaign_id: string | null;
+  provider: string;
+  content_type: string;
+  title: string;
+  body: string;
+  image_hint: string | null;
+  status: string;
+  scheduled_at: string | null;
+  posted_at: string | null;
+  external_post_id: string | null;
+  metadata: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type SocialMetricRow = {
+  id: string;
+  tenant_id: string;
+  saas_id: string;
+  post_id: string;
+  provider: string;
+  impressions: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  clicks: number;
+  leads_generated: number;
+  captured_at: string;
+  metadata: string | null;
+};
+
+type TaskRow = {
+  id: string;
+  tenant_id: string;
+  saas_id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  source: string;
+  status: string;
+  severity: string;
+  assignee_employee_id: string | null;
+  due_date: string | null;
+  metadata: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type TaskEventRow = {
+  id: string;
+  tenant_id: string;
+  saas_id: string;
+  task_id: string;
+  type: string;
+  payload: string | null;
+  created_at: string;
+};
+
 export type ProvisioningHarnessStore = {
   owners: Array<{ id: string; tenant_id: string }>;
   tenants: Array<{ id: string; saas_slug: string | null; plan: string }>;
@@ -150,6 +242,12 @@ export type ProvisioningHarnessStore = {
   campamentoProvisioning: CampamentoProvisioningRow[];
   saasBrandingSettings: SaasBrandingSettingsRow[];
   saasFeatures: SaasFeatureRow[];
+  socialAccounts: SocialAccountRow[];
+  socialCampaigns: SocialCampaignRow[];
+  socialPosts: SocialPostRow[];
+  socialMetrics: SocialMetricRow[];
+  tasks: TaskRow[];
+  taskEvents: TaskEventRow[];
   campamentoEvents: CampamentoEventRow[];
   sentQueueMessages: QueueMessage[];
 };
@@ -454,6 +552,108 @@ function selectRows(store: ProvisioningHarnessStore, sql: string, params: unknow
       .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId && lower(row.status) === "enabled")
       .sort((a, b) => a.feature_key.localeCompare(b.feature_key))
       .map((row) => ({ feature_key: row.feature_key, status: row.status }));
+  }
+
+  if (hasSql(normalized, "select id, tenant_id, saas_id, feature_key, label, category, status, source, phase_order, metadata, created_at, updated_at", "from saas_features")) {
+    const [tenantId, saasId] = params;
+    return store.saasFeatures
+      .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId)
+      .sort((left, right) => (left.phase_order - right.phase_order) || left.label.localeCompare(right.label))
+      .map((row) => ({ ...row }));
+  }
+
+  if (hasSql(normalized, "from saas_social_accounts")) {
+    if (hasSql(normalized, "where id = ? limit 1")) {
+      const [id] = params;
+      return store.socialAccounts.filter((row) => row.id === id).slice(0, 1).map((row) => ({ ...row }));
+    }
+    const [tenantId, saasId] = params;
+    return store.socialAccounts
+      .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId)
+      .sort((left, right) => (left.created_at < right.created_at ? 1 : -1))
+      .map((row) => ({ ...row }));
+  }
+
+  if (hasSql(normalized, "from saas_social_campaigns")) {
+    if (hasSql(normalized, "where id = ? limit 1")) {
+      const [id] = params;
+      return store.socialCampaigns.filter((row) => row.id === id).slice(0, 1).map((row) => ({ ...row }));
+    }
+    const [tenantId, saasId] = params;
+    return store.socialCampaigns
+      .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId)
+      .sort((left, right) => (left.created_at < right.created_at ? 1 : -1))
+      .map((row) => ({ ...row }));
+  }
+
+  if (hasSql(normalized, "from saas_social_posts")) {
+    if (hasSql(normalized, "where id = ? limit 1")) {
+      const [id] = params;
+      return store.socialPosts.filter((row) => row.id === id).slice(0, 1).map((row) => ({ ...row }));
+    }
+    if (hasSql(normalized, "where tenant_id = ? and id = ? limit 1")) {
+      const [tenantId, id] = params;
+      return store.socialPosts
+        .filter((row) => row.tenant_id === tenantId && row.id === id)
+        .slice(0, 1)
+        .map((row) => ({ ...row }));
+    }
+    const [tenantId, saasId] = params;
+    let nextParamIndex = 2;
+    const campaignId = normalized.includes("campaign_id = ?") ? params[nextParamIndex++] : undefined;
+    const status = normalized.includes("status = ?") ? params[nextParamIndex++] : undefined;
+    const provider = normalized.includes("provider = ?") ? params[nextParamIndex++] : undefined;
+    return store.socialPosts
+      .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId)
+      .filter((row) => (!normalized.includes("campaign_id = ?") || row.campaign_id === campaignId))
+      .filter((row) => (!normalized.includes("status = ?") || row.status === status))
+      .filter((row) => (!normalized.includes("provider = ?") || row.provider === provider))
+      .sort((left, right) => (left.created_at < right.created_at ? 1 : -1))
+      .map((row) => ({ ...row }));
+  }
+
+  if (hasSql(normalized, "from saas_social_metrics")) {
+    if (hasSql(normalized, "where tenant_id = ? and post_id = ?")) {
+      const [tenantId, postId] = params;
+      return store.socialMetrics
+        .filter((row) => row.tenant_id === tenantId && row.post_id === postId)
+        .sort((left, right) => (left.captured_at < right.captured_at ? 1 : -1))
+        .map((row) => ({ ...row }));
+    }
+    if (hasSql(normalized, "where tenant_id = ? and saas_id = ?")) {
+      const [tenantId, saasId, capturedAfter] = params;
+      const threshold = typeof capturedAfter === "string" ? new Date(capturedAfter).getTime() : Number.NEGATIVE_INFINITY;
+      return store.socialMetrics
+        .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId)
+        .filter((row) => new Date(row.captured_at).getTime() >= threshold)
+        .map((row) => ({ ...row }));
+    }
+  }
+
+  if (hasSql(normalized, "from saas_tasks")) {
+    if (hasSql(normalized, "where tenant_id = ? and id = ? limit 1")) {
+      const [tenantId, taskId] = params;
+      return store.tasks
+        .filter((row) => row.tenant_id === tenantId && row.id === taskId)
+        .slice(0, 1)
+        .map((row) => ({ ...row }));
+    }
+    const [tenantId, saasId] = params;
+    return store.tasks
+      .filter((row) => row.tenant_id === tenantId && row.saas_id === saasId)
+      .filter((row) => (!normalized.includes("status = ?") || row.status === params[2] || row.status === params[3]))
+      .filter((row) => (!normalized.includes("category = ?") || row.category === params[3] || row.category === params[2] || row.category === params[4]))
+      .filter((row) => (!normalized.includes("assignee_employee_id = ?") || row.assignee_employee_id === params[4] || row.assignee_employee_id === params[3] || row.assignee_employee_id === params[2]))
+      .sort((left, right) => (left.updated_at < right.updated_at ? 1 : -1))
+      .map((row) => ({ ...row }));
+  }
+
+  if (hasSql(normalized, "from saas_task_events")) {
+    const [tenantId, taskId] = params;
+    return store.taskEvents
+      .filter((row) => row.tenant_id === tenantId && row.task_id === taskId)
+      .sort((left, right) => (left.created_at < right.created_at ? 1 : -1))
+      .map((row) => ({ ...row }));
   }
 
   if (hasSql(normalized, "select tenant_id from saas where id = ?")) {
@@ -880,6 +1080,146 @@ function executeRun(store: ProvisioningHarnessStore, sql: string, params: unknow
     return true;
   }
 
+  if (normalized.startsWith("insert into saas_social_accounts")) {
+    const [id, tenantId, saasId, provider, handle, displayName, status, authMeta, primary, createdAt, updatedAt] = params;
+    const existing = store.socialAccounts.findIndex((row) => row.id === id);
+    const next = {
+      id: String(id),
+      tenant_id: String(tenantId),
+      saas_id: String(saasId),
+      provider: String(provider),
+      handle: handle ? String(handle) : null,
+      display_name: displayName ? String(displayName) : null,
+      status: String(status),
+      auth_meta: authMeta ? String(authMeta) : null,
+      primary: Number(primary),
+      created_at: String(createdAt),
+      updated_at: String(updatedAt),
+    };
+    if (existing >= 0) {
+      store.socialAccounts[existing] = next;
+    } else {
+      store.socialAccounts.push(next);
+    }
+    return true;
+  }
+
+  if (normalized.startsWith("insert into saas_social_campaigns")) {
+    const [id, tenantId, saasId, name, objective, status, targetSegment, startDate, endDate, budgetEstimate, notes, createdAt, updatedAt] = params;
+    const existing = store.socialCampaigns.findIndex((row) => row.id === id);
+    const next = {
+      id: String(id),
+      tenant_id: String(tenantId),
+      saas_id: String(saasId),
+      name: String(name),
+      objective: String(objective),
+      status: String(status),
+      target_segment: String(targetSegment),
+      start_date: startDate ? String(startDate) : null,
+      end_date: endDate ? String(endDate) : null,
+      budget_estimate: typeof budgetEstimate === "number" ? budgetEstimate : (budgetEstimate == null ? null : Number(budgetEstimate)),
+      notes: notes ? String(notes) : null,
+      created_at: String(createdAt),
+      updated_at: String(updatedAt),
+    };
+    if (existing >= 0) {
+      store.socialCampaigns[existing] = next;
+    } else {
+      store.socialCampaigns.push(next);
+    }
+    return true;
+  }
+
+  if (normalized.startsWith("insert into saas_social_posts")) {
+    const [id, tenantId, saasId, campaignId, provider, contentType, title, body, imageHint, status, scheduledAt, postedAt, externalPostId, metadata, createdAt, updatedAt] = params;
+    const existing = store.socialPosts.findIndex((row) => row.id === id);
+    const next = {
+      id: String(id),
+      tenant_id: String(tenantId),
+      saas_id: String(saasId),
+      campaign_id: campaignId ? String(campaignId) : null,
+      provider: String(provider),
+      content_type: String(contentType),
+      title: String(title),
+      body: String(body),
+      image_hint: imageHint ? String(imageHint) : null,
+      status: String(status),
+      scheduled_at: scheduledAt ? String(scheduledAt) : null,
+      posted_at: postedAt ? String(postedAt) : null,
+      external_post_id: externalPostId ? String(externalPostId) : null,
+      metadata: metadata ? String(metadata) : null,
+      created_at: String(createdAt),
+      updated_at: String(updatedAt),
+    };
+    if (existing >= 0) {
+      store.socialPosts[existing] = next;
+    } else {
+      store.socialPosts.push(next);
+    }
+    return true;
+  }
+
+  if (normalized.startsWith("insert into saas_social_metrics")) {
+    const [id, tenantId, saasId, postId, provider, impressions, likes, comments, shares, clicks, leadsGenerated, capturedAt, metadata] = params;
+    const existing = store.socialMetrics.findIndex((row) => row.id === id);
+    const next = {
+      id: String(id),
+      tenant_id: String(tenantId),
+      saas_id: String(saasId),
+      post_id: String(postId),
+      provider: String(provider),
+      impressions: Number(impressions),
+      likes: Number(likes),
+      comments: Number(comments),
+      shares: Number(shares),
+      clicks: Number(clicks),
+      leads_generated: Number(leadsGenerated),
+      captured_at: String(capturedAt),
+      metadata: metadata ? String(metadata) : null,
+    };
+    if (existing >= 0) {
+      store.socialMetrics[existing] = next;
+    } else {
+      store.socialMetrics.push(next);
+    }
+    return true;
+  }
+
+  if (normalized.startsWith("insert into saas_tasks")) {
+    const [id, tenantId, saasId, title, description, category, source, status, severity, assigneeEmployeeId, dueDate, metadata, createdAt, updatedAt] = params;
+    store.tasks.push({
+      id: String(id),
+      tenant_id: String(tenantId),
+      saas_id: String(saasId),
+      title: String(title),
+      description: description ? String(description) : null,
+      category: String(category),
+      source: String(source),
+      status: String(status),
+      severity: String(severity),
+      assignee_employee_id: assigneeEmployeeId ? String(assigneeEmployeeId) : null,
+      due_date: dueDate ? String(dueDate) : null,
+      metadata: metadata ? String(metadata) : null,
+      created_at: String(createdAt),
+      updated_at: String(updatedAt),
+    });
+    return true;
+  }
+
+  if (normalized.startsWith("insert into saas_task_events")) {
+    const [id, tenantId, saasId, taskId, type, payload, createdAt] = params;
+    store.taskEvents.push({
+      id: String(id),
+      tenant_id: String(tenantId),
+      saas_id: String(saasId),
+      task_id: String(taskId),
+      type: String(type),
+      payload: payload ? String(payload) : null,
+      created_at: String(createdAt),
+    });
+    return true;
+  }
+
   if (normalized.startsWith("delete from saas_features where tenant_id = ? and saas_id = ?")) {
     const [tenantId, saasId] = params;
     store.saasFeatures = store.saasFeatures.filter(
@@ -997,6 +1337,12 @@ export function createProvisioningHarnessStore(input?: {
     campamentoProvisioning: [],
     saasBrandingSettings: [],
     saasFeatures: [],
+    socialAccounts: [],
+    socialCampaigns: [],
+    socialPosts: [],
+    socialMetrics: [],
+    tasks: [],
+    taskEvents: [],
     campamentoEvents: [],
     sentQueueMessages: [],
   };
@@ -1012,9 +1358,11 @@ export function installProvisioningDbMock(
     const statement = {
       bind: (...params: unknown[]) => ({
         all: async () => ({ results: selectRows(store, sql, params) }),
+        first: async () => selectRows(store, sql, params)[0] ?? null,
         run: async () => ({ success: executeRun(store, sql, params) }),
       }),
       all: async () => ({ results: selectRows(store, sql, []) }),
+      first: async () => selectRows(store, sql, [])[0] ?? null,
       run: async () => ({ success: executeRun(store, sql, []) }),
     };
     return statement;
@@ -1047,22 +1395,25 @@ export function createFactoryRuntimeEnv(params: {
 
 export function buildCreateSaasRequest(params: {
   slug: string;
+  name?: string;
   idempotencyKey?: string;
   correlationId?: string;
   customDomainRequested?: string;
+  blueprintDraft?: Record<string, unknown>;
 }): Request {
-  return new Request("https://drako.systems/api/owner/saas-factory/create-saas", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-correlation-id": params.correlationId ?? `corr_${params.slug}`,
-    },
-    body: JSON.stringify({
-      name: `Factory ${params.slug}`,
-      slug: params.slug,
-      idempotencyKey: params.idempotencyKey ?? `idem_${params.slug}_0001`,
-      plans: [{ planCode: "pro", monthlyPriceCents: 2900 }],
-      blueprintDraft: params.customDomainRequested
+  const blueprintDraft = params.blueprintDraft
+    ? {
+      ...params.blueprintDraft,
+      provisioning: {
+        ...((params.blueprintDraft.provisioning as Record<string, unknown> | undefined) ?? {}),
+        domains: {
+          ...((((params.blueprintDraft.provisioning as { domains?: Record<string, unknown> } | undefined)?.domains) ?? {})),
+          ...(params.customDomainRequested ? { customDomainRequested: params.customDomainRequested } : {}),
+        },
+      },
+    }
+    : (
+      params.customDomainRequested
         ? {
           provisioning: {
             domains: {
@@ -1079,7 +1430,21 @@ export function buildCreateSaasRequest(params: {
             },
           },
         }
-        : undefined,
+        : undefined
+    );
+
+  return new Request("https://drako.systems/api/owner/saas-factory/create-saas", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-correlation-id": params.correlationId ?? `corr_${params.slug}`,
+    },
+    body: JSON.stringify({
+      name: params.name ?? `Factory ${params.slug}`,
+      slug: params.slug,
+      idempotencyKey: params.idempotencyKey ?? `idem_${params.slug}_0001`,
+      plans: [{ planCode: "pro", monthlyPriceCents: 2900 }],
+      blueprintDraft,
     }),
   });
 }

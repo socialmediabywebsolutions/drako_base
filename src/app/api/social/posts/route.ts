@@ -2,8 +2,10 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
-import { listSaasSocialPosts, resolveSocialContext, SocialContextError, upsertSaasSocialPost } from "@/lib/social/repository";
+import { listSaasSocialPosts, resolveSocialContext, runSocialSchedulerSimulation, SocialContextError, upsertSaasSocialPost } from "@/lib/social/repository";
 
+const ALLOWED_PROVIDERS = ["LINKEDIN"] as const;
+const ALLOWED_CREATION_STATUSES = ["DRAFT", "SCHEDULED"] as const;
 
 export async function GET(request: Request) {
   try {
@@ -17,11 +19,11 @@ export async function GET(request: Request) {
     }
     const { tenantId } = await requireTenantAccess(request);
     const ctx = await resolveSocialContext({ tenantId, saasId });
+    await runSocialSchedulerSimulation(ctx);
     const items = await listSaasSocialPosts(ctx, {
       campaignId: campaignId ?? null,
       status: status && status !== "ALL" ? status : null,
-      provider:
-        provider && provider !== "ALL" ? (provider as "INSTAGRAM" | "FACEBOOK_PAGE" | "TIKTOK" | "WHATSAPP" | "OTHER") : null,
+      provider: provider && provider !== "ALL" ? (provider as (typeof ALLOWED_PROVIDERS)[number]) : null,
     });
     return NextResponse.json({ items, count: items.length });
   } catch (error) {
@@ -42,6 +44,7 @@ export async function POST(request: Request) {
       id?: string;
       saasId?: string | null;
       campaignId?: string | null;
+      channelId?: string | null;
       provider?: string;
       contentType?: string;
       title?: string;
@@ -57,7 +60,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ code: "INVALID_BODY", message: "Body is required" }, { status: 400 });
     }
     const saasId = body.saasId ?? null;
-    if (!saasId || !body.provider || !body.contentType || !body.title || !body.body || !body.status) {
+    if (!saasId || !body.provider || !body.contentType || !body.title?.trim() || !body.body?.trim() || !body.status) {
       return NextResponse.json(
         { code: "INVALID_BODY", message: "saasId, provider, contentType, title, body and status are required" },
         { status: 400 },
@@ -65,17 +68,24 @@ export async function POST(request: Request) {
     }
     const { tenantId } = await requireTenantAccess(request);
     const ctx = await resolveSocialContext({ tenantId, saasId });
-    const provider = body.provider as "INSTAGRAM" | "FACEBOOK_PAGE" | "TIKTOK" | "WHATSAPP" | "OTHER";
-    const contentType = body.contentType as "FEED" | "STORY" | "REEL" | "SHORT" | "CAROUSEL";
-    const status = body.status as "DRAFT" | "SCHEDULED" | "POSTED" | "FAILED";
+    if (!ALLOWED_PROVIDERS.includes(body.provider as (typeof ALLOWED_PROVIDERS)[number])) {
+      return NextResponse.json({ code: "INVALID_PROVIDER", message: "provider is invalid" }, { status: 400 });
+    }
+    if (!ALLOWED_CREATION_STATUSES.includes(body.status as (typeof ALLOWED_CREATION_STATUSES)[number])) {
+      return NextResponse.json({ code: "INVALID_STATUS", message: "status must be draft or scheduled" }, { status: 400 });
+    }
+    const provider = body.provider as (typeof ALLOWED_PROVIDERS)[number];
+    const contentType = "FEED";
+    const status = body.status as (typeof ALLOWED_CREATION_STATUSES)[number];
     const post = await upsertSaasSocialPost(ctx, {
       id: body.id,
       saasId,
       campaignId: body.campaignId ?? null,
+      channelId: body.channelId ?? null,
       provider,
       contentType,
-      title: body.title,
-      body: body.body,
+      title: body.title.trim(),
+      body: body.body.trim(),
       imageHint: body.imageHint ?? null,
       status,
       scheduledAt: body.scheduledAt ?? null,

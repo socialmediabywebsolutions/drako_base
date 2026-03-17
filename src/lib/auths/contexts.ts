@@ -1,5 +1,9 @@
 import { normalizeHost } from "@/lib/hosts";
 import type { AuthsContext } from "@/lib/auths/types";
+import {
+  isTenantWorkspaceApiPath,
+  isTenantWorkspacePath,
+} from "@/lib/platform/surfaces";
 
 export function resolveAuthsContextFromHost(hostname: string | null | undefined): AuthsContext {
   const host = normalizeHost(hostname ?? "");
@@ -23,7 +27,18 @@ export function resolveAuthsContextFromRequest(request: Request): AuthsContext {
   try {
     const url = new URL(request.url);
     const localOverrideHost = url.searchParams.get("__drako_host");
-    return resolveAuthsContextFromHost(localOverrideHost || effectiveHost || forwardedHost || host);
+    const pathname = url.pathname || "/";
+    const hostContext = resolveAuthsContextFromHost(localOverrideHost || effectiveHost || forwardedHost || host);
+    const pathContext = resolveAuthsContextFromPath(pathname);
+    if (pathContext) return pathContext;
+
+    if (isTenantWorkspacePath(pathname) || isTenantWorkspaceApiPath(pathname)) {
+      if (hostContext === "mentorias") return "mentorias";
+      if (hostContext === "bases") return "bases";
+      return "drakos";
+    }
+
+    return hostContext;
   } catch {
     return resolveAuthsContextFromHost(effectiveHost || forwardedHost || host);
   }

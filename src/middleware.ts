@@ -18,7 +18,8 @@ import {
 import { checkTenantRateLimit } from "@/lib/security/tenant-rate-limit";
 import { extractSessionFromRequest } from "@/lib/edge-auth";
 import { isRoutingsSubdomainsEnabled } from "@/lib/auths/flags";
-import { resolveAuthsContextFromHost, resolveAuthsLoginPath } from "@/lib/auths/contexts";
+import { resolveAuthsContextFromRequest, resolveAuthsLoginPath } from "@/lib/auths/contexts";
+import { isLocalDemoClientBypassRequest, resolveTenantWorkspaceEntryMode } from "@/lib/platform/surfaces";
 
 
 /**
@@ -56,8 +57,9 @@ export async function middleware(req: NextRequest) {
     const pathname = req.nextUrl.pathname;
     const isApi = pathname.startsWith("/api");
     const requestedHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
-    const requestContext = resolveAuthsContextFromHost(requestedHost);
+    const requestContext = resolveAuthsContextFromRequest(req);
     const loginPath = resolveAuthsLoginPath(requestContext);
+    const isLocalDemoClientBypass = isLocalDemoClientBypassRequest({ pathname, requestedHost });
 
     // 🔍 DRAKO STEEL v1.0.1: Correlation Identification
     if (shouldBypassCorrelation(pathname)) {
@@ -120,12 +122,34 @@ export async function middleware(req: NextRequest) {
       pathname.startsWith("/profile") ||
       pathname.startsWith("/site/onboarding")
     ) {
+      if (isLocalDemoClientBypass) {
+        const headers = new Headers(req.headers);
+        headers.set(CORRELATION_HEADER, correlationId);
+        headers.set(TENANT_HEADER, process.env.DRAKO_CLIENT_DEMO_TENANT_ID ?? DEMO_TENANT_ID);
+        headers.set("x-drako-client-entry-mode", "local_demo");
+        headers.set("x-drako-client-workspace-kind", "owned_saas");
+        const res = NextResponse.next({ request: { headers } });
+        res.headers.set(CORRELATION_HEADER, correlationId);
+        return res;
+      }
       const session = await extractSessionFromRequest(req);
       if (!session) {
         // FAIL-CLOSED: No session → login
         const url = new URL(loginPath, req.url);
         url.searchParams.set("callbackUrl", pathname);
         return NextResponse.redirect(url);
+      }
+      const earlyEntryMode = resolveTenantWorkspaceEntryMode({
+        pathname,
+        effectiveHost: requestedHost,
+        pagesEnvironment: process.env.CF_PAGES_ENVIRONMENT ?? null,
+        localDemoEnabled: isLocalDemoClientBypass,
+      });
+      if (earlyEntryMode === "holding_operator") {
+        const role = session.role?.toLowerCase();
+        if (!role || (role !== "owner" && role !== "superadmin" && role !== "staff" && role !== "admin")) {
+          return NextResponse.redirect(new URL("/site", req.url));
+        }
       }
     }
 
@@ -237,6 +261,16 @@ export async function middleware(req: NextRequest) {
       contextHeaders.set("x-drako-host-mode", hostMode);
       contextHeaders.set("x-drako-effective-host", host);
       contextHeaders.set("x-drako-pages-environment", pagesEnvironmentHeader);
+      const tenantWorkspaceEntryMode = resolveTenantWorkspaceEntryMode({
+        pathname,
+        effectiveHost: host,
+        pagesEnvironment,
+        localDemoEnabled: isLocalDemoClientBypass,
+      });
+      if (tenantWorkspaceEntryMode) {
+        contextHeaders.set("x-drako-client-entry-mode", tenantWorkspaceEntryMode);
+        contextHeaders.set("x-drako-client-workspace-kind", "owned_saas");
+      }
 
       if (!bindings || !hasDb) {
         contextHeaders.set(CORRELATION_HEADER, correlationId);
@@ -312,6 +346,16 @@ export async function middleware(req: NextRequest) {
     responseHeaders.set("x-drako-host-mode", hostMode);
     responseHeaders.set("x-drako-effective-host", host);
     responseHeaders.set("x-drako-pages-environment", pagesEnvironmentHeader);
+    const tenantWorkspaceEntryMode = resolveTenantWorkspaceEntryMode({
+      pathname,
+      effectiveHost: host,
+      pagesEnvironment,
+      localDemoEnabled: isLocalDemoClientBypass,
+    });
+    if (tenantWorkspaceEntryMode) {
+      responseHeaders.set("x-drako-client-entry-mode", tenantWorkspaceEntryMode);
+      responseHeaders.set("x-drako-client-workspace-kind", "owned_saas");
+    }
 
     if (isPagesDevHost) {
       if (pathname !== "/preview" && !pathname.startsWith("/preview/")) {
@@ -444,6 +488,16 @@ export async function middleware(req: NextRequest) {
       }
       headers.set(CORRELATION_HEADER, finalCorrelationId);
       headers.set("x-drako-domain-status", resolution.status);
+      const activeEntryMode = resolveTenantWorkspaceEntryMode({
+        pathname,
+        effectiveHost: host,
+        pagesEnvironment,
+        localDemoEnabled: false,
+      });
+      if (activeEntryMode) {
+        headers.set("x-drako-client-entry-mode", activeEntryMode);
+        headers.set("x-drako-client-workspace-kind", "owned_saas");
+      }
 
       // 🛡️ DRAKO STEEL v1.5: UI HARD WALL (The Great Filter) (FAIL-CLOSED)
       // Check if the current session belongs to this tenant

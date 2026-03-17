@@ -1,5 +1,8 @@
 # Campamento Base: Enterprise Holding Architecture
 
+> LEGACY DOCUMENT
+> This file captures a previous holding-centric registry and billing model. The current canonical runtime contract for active SaaS creation and readiness lives in the Drako factory tables: `saas`, `saas_instances`, `saas_domains`, `provisioning_jobs`, and `campamento_provisioning`.
+
 **System Mode**: ENTERPRISE HOLDING ARCHITECT
 **Status**: DEFINITIVE
 **Last Updated**: 2026-02-16

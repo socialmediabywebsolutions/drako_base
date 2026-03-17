@@ -1,5 +1,5 @@
 
-import { queryOne, run } from "@/lib/db";
+import { run } from "@/lib/db";
 import { z } from "zod";
 import Stripe from "stripe";
 import { env as resolveEnv } from "@/lib/cf";
@@ -53,26 +53,10 @@ export async function createSaasRegistryEntry(params: {
     name: string;
     correlationId: string;
 }): Promise<void> {
-    // Fail-closed: check existence first (handled by unique constraint usually, but let's be explicit)
-    const existing = await queryOne<{ saas_slug: string }>(
-        "SELECT saas_slug FROM holding_saas_registry WHERE saas_slug = ?",
-        params.saasSlug
+    console.warn(
+        `[${params.correlationId}] LEGACY_FACTORY_PATH_BLOCKED for ${params.saasSlug}. Use /api/owner/saas-factory/create-saas and the canonical provisioning pipeline.`,
     );
-
-    if (existing) {
-        // If it exists, we warn but don't fail hard if it's the same name? 
-        // Prompt says: "Rechazar si saasSlug ya existe y overwriteIfExists=false" (API layer)
-        // The worker should be idempotent. If it exists, we skip insert.
-        console.warn(`[${params.correlationId}] SaaS ${params.saasSlug} already in registry.`);
-        return;
-    }
-
-    await run(
-        `INSERT INTO holding_saas_registry (saas_slug, display_name, status, created_at)
-     VALUES (?, ?, 'active', strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
-        params.saasSlug,
-        params.name
-    );
+    throw new Error("LEGACY_FACTORY_PATH_BLOCKED: use the canonical owner SaaS factory route.");
 }
 
 export async function createStripeProductAndPrices(params: {
@@ -196,80 +180,14 @@ export async function persistPricingPlans(params: {
 }
 
 export async function runSaasFactoryJob(message: SaasFactoryJobMessage): Promise<{ success: boolean; error?: string }> {
-    const { correlationId, saasSlug, name, plans, dryRun } = message;
+    const { correlationId, saasSlug } = message;
 
-    try {
-        console.log(`[${correlationId}] Starting SaaS Factory Job for ${saasSlug} (dryRun=${dryRun})`);
+    console.warn(
+        `[${correlationId}] LEGACY_FACTORY_PATH_BLOCKED for ${saasSlug}. Canonical SaaS creation now lives in /api/owner/saas-factory/create-saas.`,
+    );
 
-        // 1. Create/Ensure Registry Entry
-        // In dry-run we might simulate or just skip if we want strictly NO DB changes.
-        // Prompt says: "Si dryRun=true: NO modificar DB de forma permanente (o escribir en tablas temporales / audit only)"
-        // BUT Verify E2E says: "Confirmar que NO existe en registry ni en plans"
-        // So in dry-run we SKIP registry insert.
-
-        if (!dryRun) {
-            await createSaasRegistryEntry({ saasSlug, name, correlationId });
-        }
-
-        // 2. Stripe
-        let stripeResult: { productId: string; priceIds: Record<string, string> } | null = null;
-        if (!dryRun) {
-            try {
-                stripeResult = await createStripeProductAndPrices({ saasSlug, name, plans, correlationId });
-            } catch (e: any) {
-                console.error(`[${correlationId}] Stripe failed:`, e);
-                // Rollback: Disable registry entry
-                await run(`UPDATE holding_saas_registry SET status = 'disabled' WHERE saas_slug = ?`, saasSlug);
-
-                await run(
-                    `INSERT INTO billing_audit_logs (id, saas_slug, event_type, severity, correlation_id, metadata_json)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-                    `err_${correlationId}`, saasSlug, "saas_factory.failed", "CRITICAL", correlationId,
-                    JSON.stringify({ error: e.message, stage: "stripe_creation" })
-                );
-                throw e; // Re-throw to trigger worker retry? Or return failure?
-                // Prompt says "Rollback mínimo... Audit critical".
-                return { success: false, error: e.message };
-            }
-        }
-
-        // 3. Persist Plans
-        // In dry-run, prompt says "Insertar planes con stripe_price_id = null"??
-        // Wait, prompt says: "Si dryRun=true: ... NO modificar DB de forma permanente ... Devolver audit indicando lo que HARÍA"
-        // AND "Verify E2E: Confirmar que NO existe en registry ni en plans"
-        // So we definitely do NOT insert into plans in dry-run properly. 
-        // But maybe for verifying logic we just log it.
-
-        if (!dryRun) {
-            await persistPricingPlans({
-                saasSlug,
-                plans,
-                stripeProductId: stripeResult?.productId,
-                stripePriceIds: stripeResult?.priceIds,
-                correlationId
-            });
-        }
-
-        // 4. Audit
-        const auditPayload = {
-            dryRun,
-            plansCount: plans.length,
-            stripeProductId: stripeResult?.productId,
-            stripePriceIds: stripeResult?.priceIds,
-        };
-
-        await run(
-            `INSERT INTO billing_audit_logs (id, saas_slug, event_type, severity, correlation_id, metadata_json)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-            `audit_${correlationId}`, saasSlug, "saas_factory.completed", "INFO", correlationId,
-            JSON.stringify(auditPayload)
-        );
-
-        console.log(`[${correlationId}] Job completed successfully.`);
-        return { success: true };
-
-    } catch (error: any) {
-        console.error(`[${correlationId}] Job failed unrecoverably:`, error);
-        return { success: false, error: error.message };
-    }
+    return {
+        success: false,
+        error: "LEGACY_FACTORY_PATH_BLOCKED: use the canonical owner SaaS factory route.",
+    };
 }

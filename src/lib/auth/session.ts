@@ -4,6 +4,9 @@ import { getAuthsCookieName } from "@/lib/auths/cookies";
 import { resolveAuthsContextFromRequest } from "@/lib/auths/contexts";
 import { verifyAuthsSessionToken } from "@/lib/auths/tokens";
 import { isAuthsIsolationEnabled, isAuthsLegacyCompatEnabled } from "@/lib/auths/flags";
+import { DEMO_TENANT_ID } from "@/lib/tenants/services";
+import { isLocalDemoEnabled, isTenantWorkspaceApiPath, isTenantWorkspacePath } from "@/lib/platform/surfaces";
+import { getWorkspaceSessionByToken } from "@/lib/auth/campamento-core";
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -11,14 +14,16 @@ const textDecoder = new TextDecoder();
 export const SESSION_COOKIE_NAME = "__Host-drako_session_legacy";
 export const SESSION_COOKIE_MAX_AGE = 60 * 60 * 8; // 8 hours
 
-export type SessionRole = "admin" | "user";
+export type SessionRole = "admin" | "user" | "owner" | "OWNER" | "ADMIN" | "MEMBER";
 
 export type SessionData = {
+  userId?: string;
   email: string;
   tenantId: string;
   role: SessionRole;
   saasSlug?: string;
   issuedAt: number;
+  authMode?: "legacy" | "isolated" | "local_demo" | "nextauth_database";
 };
 
 type SessionPayload = SessionData;
@@ -39,11 +44,6 @@ const SESSION_REQUIRED_ERROR = new UnauthorizedError("SESSION_REQUIRED");
 const ADMIN_REQUIRED_ERROR = new UnauthorizedError("ADMIN_ROLE_REQUIRED", 403);
 const OWNER_REQUIRED_ERROR = new UnauthorizedError("OWNER_ROLE_REQUIRED", 403);
 const TENANT_MISMATCH_ERROR = new UnauthorizedError("TENANT_MISMATCH", 403);
-
-const DEMO_SESSION_ENABLED =
-  typeof process !== "undefined" &&
-  process.env.NODE_ENV !== "production" &&
-  process.env.DRAKO_ENABLE_DEMO_SESSION !== "0";
 
 function getSecret(): string {
   const conf = env();
@@ -160,11 +160,24 @@ function getCookieValue(header: string | null, name: string): string | null {
   return null;
 }
 
+function normalizeRole(role: string | null | undefined): SessionRole {
+  const raw = (role ?? "").trim();
+  if (!raw) return "user";
+  const upper = raw.toUpperCase();
+  if (upper === "OWNER") return "OWNER";
+  if (upper === "ADMIN") return "ADMIN";
+  if (upper === "MEMBER") return "MEMBER";
+  if (upper === "SUPERADMIN") return "owner";
+  if (raw === "owner") return "owner";
+  if (raw === "admin") return "admin";
+  return "user";
+}
+
 export async function getSession(request: Request): Promise<SessionData | null> {
   const value = getCookieValue(request.headers.get("cookie"), SESSION_COOKIE_NAME);
   if (value) {
     const decoded = await decodeSessionValue(value);
-    if (decoded) return decoded;
+    if (decoded) return { ...decoded, authMode: decoded.authMode ?? "legacy" };
     if (isAuthsIsolationEnabled() && !isAuthsLegacyCompatEnabled()) return null;
   }
 
@@ -178,23 +191,54 @@ export async function getSession(request: Request): Promise<SessionData | null> 
   const claims = await verifyAuthsSessionToken(isolatedValue, context);
   if (!claims) return null;
   return {
+    userId: claims.sub,
     email: claims.email,
     tenantId: claims.tenantId,
-    role: claims.role,
+    role: normalizeRole(claims.role),
     saasSlug: claims.saasSlug,
     issuedAt: claims.iat * 1000,
+    authMode: "isolated",
   };
 }
 
+async function getNextAuthDatabaseSession(request: Request): Promise<SessionData | null> {
+  const cookieHeader = request.headers.get("cookie");
+  const sessionToken =
+    getCookieValue(cookieHeader, "__Secure-next-auth.session-token")
+    ?? getCookieValue(cookieHeader, "next-auth.session-token");
+  if (!sessionToken) return null;
+  const session = await getWorkspaceSessionByToken(sessionToken);
+  if (!session) return null;
+  return {
+    userId: session.userId,
+    email: session.email,
+    tenantId: session.tenantId,
+    role: normalizeRole(session.role),
+    issuedAt: Date.now(),
+    authMode: "nextauth_database",
+  };
+}
+
+function isLocalDemoSessionRequest(request: Request): boolean {
+  try {
+    const pathname = new URL(request.url).pathname;
+    return isTenantWorkspacePath(pathname) || isTenantWorkspaceApiPath(pathname);
+  } catch {
+    return false;
+  }
+}
+
 export async function requireSession(request: Request): Promise<SessionData> {
-  const session = await getSession(request);
+  const session = (await getSession(request)) ?? (await getNextAuthDatabaseSession(request));
   if (!session) {
-    if (DEMO_SESSION_ENABLED) {
+    if (isLocalDemoEnabled() && isLocalDemoSessionRequest(request)) {
       return {
+        userId: "local-demo-user",
         email: "demo@drako.systems",
-        tenantId: "demo-tenant",
-        role: "admin",
+        tenantId: process.env.DRAKO_CLIENT_DEMO_TENANT_ID ?? DEMO_TENANT_ID,
+        role: "ADMIN",
         issuedAt: Date.now(),
+        authMode: "local_demo",
       };
     }
     throw SESSION_REQUIRED_ERROR;
@@ -204,7 +248,8 @@ export async function requireSession(request: Request): Promise<SessionData> {
 
 export async function requireAdmin(request: Request): Promise<SessionData> {
   const session = await requireSession(request);
-  if (session.role !== "admin") {
+  const role = String(session.role ?? "").toLowerCase();
+  if (role !== "admin" && role !== "owner" && role !== "superadmin") {
     throw ADMIN_REQUIRED_ERROR;
   }
   return session;
@@ -220,7 +265,7 @@ export async function requireTenantAccess(request: Request): Promise<{ tenantId:
 }
 
 export async function requireOwnerAccess(request: Request): Promise<{ tenantId: string; session: SessionData }> {
-  const session = await getSession(request);
+  const session = (await getSession(request)) ?? (await getNextAuthDatabaseSession(request));
   if (!session) {
     throw SESSION_REQUIRED_ERROR;
   }

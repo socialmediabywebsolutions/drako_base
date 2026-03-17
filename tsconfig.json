@@ -45,6 +45,11 @@
     "node_modules",
     "src/app/_saas_broken",
     "tests",
-    "src/__tests__"
+    "src/__tests__",
+    "_temp",
+    "_temp/**",
+    "_temp/socialflow-recovery/**",
+    ".next",
+    ".next/**"
   ]
 }

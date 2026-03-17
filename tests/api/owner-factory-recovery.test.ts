@@ -1,46 +1,43 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-async function loadRoute() {
-  class UnauthorizedError extends Error {
+const {
+  requireOwnerAccess,
+  getFactoryRecoveryCandidates,
+  UnauthorizedError,
+} = vi.hoisted(() => {
+  class HoistedUnauthorizedError extends Error {
     status: number;
 
     constructor(message = "Unauthorized", status = 401) {
       super(message);
-      this.name = "UnauthorizedError";
       this.status = status;
     }
   }
 
-  const requireOwnerAccess = vi.fn();
-  const getFactoryRecoveryCandidates = vi.fn();
-
-  vi.doMock("@/lib/auth/session", () => ({
-    requireOwnerAccess,
-    UnauthorizedError,
-  }));
-
-  vi.doMock("@/lib/factory/recovery", () => ({
-    getFactoryRecoveryCandidates,
-  }));
-
-  const { GET } = await import("@/app/api/owner/factory/auto-recovery/route");
-
   return {
-    GET,
-    requireOwnerAccess,
-    getFactoryRecoveryCandidates,
-    UnauthorizedError,
+    requireOwnerAccess: vi.fn(),
+    getFactoryRecoveryCandidates: vi.fn(),
+    UnauthorizedError: HoistedUnauthorizedError,
   };
-}
+});
+
+vi.mock("@/lib/auth/session", () => ({
+  requireOwnerAccess,
+  UnauthorizedError,
+}));
+
+vi.mock("@/lib/factory/recovery", () => ({
+  getFactoryRecoveryCandidates,
+}));
+
+import { GET } from "@/app/api/owner/factory/auto-recovery/route";
 
 describe("GET /api/owner/factory/auto-recovery", () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
   });
 
   it("returns 401 when session is missing", async () => {
-    const { GET, requireOwnerAccess, UnauthorizedError } = await loadRoute();
     requireOwnerAccess.mockRejectedValue(new UnauthorizedError("SESSION_REQUIRED", 401));
 
     const response = await GET(new Request("https://drako.systems/api/owner/factory/auto-recovery") as any);
@@ -51,7 +48,6 @@ describe("GET /api/owner/factory/auto-recovery", () => {
   });
 
   it("returns 403 when role is not owner-level", async () => {
-    const { GET, requireOwnerAccess, UnauthorizedError } = await loadRoute();
     requireOwnerAccess.mockRejectedValue(new UnauthorizedError("OWNER_ROLE_REQUIRED", 403));
 
     const response = await GET(new Request("https://drako.systems/api/owner/factory/auto-recovery") as any);
@@ -62,7 +58,6 @@ describe("GET /api/owner/factory/auto-recovery", () => {
   });
 
   it("returns 200 with recovery candidates", async () => {
-    const { GET, requireOwnerAccess, getFactoryRecoveryCandidates } = await loadRoute();
     requireOwnerAccess.mockResolvedValue({ tenantId: "tenant_owner" });
     getFactoryRecoveryCandidates.mockResolvedValue([
       {
@@ -93,13 +88,10 @@ describe("GET /api/owner/factory/auto-recovery", () => {
   });
 
   it("passes the optional limit query param to the service", async () => {
-    const { GET, requireOwnerAccess, getFactoryRecoveryCandidates } = await loadRoute();
     requireOwnerAccess.mockResolvedValue({ tenantId: "tenant_owner" });
     getFactoryRecoveryCandidates.mockResolvedValue([]);
 
-    const response = await GET(
-      new Request("https://drako.systems/api/owner/factory/auto-recovery?limit=15") as any,
-    );
+    const response = await GET(new Request("https://drako.systems/api/owner/factory/auto-recovery?limit=15") as any);
 
     expect(response.status).toBe(200);
     expect(getFactoryRecoveryCandidates).toHaveBeenCalledWith("tenant_owner", { limit: 15 });

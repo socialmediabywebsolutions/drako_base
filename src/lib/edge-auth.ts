@@ -9,10 +9,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthsCookieName } from "@/lib/auths/cookies";
-import { resolveAuthsContextFromHost } from "@/lib/auths/contexts";
+import { resolveAuthsContextFromRequest } from "@/lib/auths/contexts";
 import { verifyAuthsSessionToken } from "@/lib/auths/tokens";
 import { isAuthsIsolationEnabled } from "@/lib/auths/flags";
 import type { AuthsContext } from "@/lib/auths/types";
+import { getWorkspaceSessionByToken } from "@/lib/auth/campamento-core";
+import { isTenantWorkspaceApiPath, isTenantWorkspacePath } from "@/lib/platform/surfaces";
 
 // ========================================
 // SESSION INTERFACE
@@ -141,8 +143,8 @@ export async function extractSessionFromRequest(
     req: NextRequest,
     secret?: string
 ): Promise<EdgeSession | null> {
-    const requestedHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
-    const context = resolveAuthsContextFromHost(requestedHost);
+    const context = resolveAuthsContextFromRequest(req);
+    const pathname = req.nextUrl.pathname;
 
     if (isAuthsIsolationEnabled()) {
         const isolatedCookieName = getAuthsCookieName(context);
@@ -172,6 +174,24 @@ export async function extractSessionFromRequest(
         }
 
         // Do not accept legacy next-auth cookies or bearer tokens when isolation is enabled.
+        if (isTenantWorkspacePath(pathname) || isTenantWorkspaceApiPath(pathname)) {
+            const nextAuthSessionToken =
+                req.cookies.get("__Secure-next-auth.session-token")?.value ||
+                req.cookies.get("next-auth.session-token")?.value;
+            if (nextAuthSessionToken) {
+                const resolved = await getWorkspaceSessionByToken(nextAuthSessionToken);
+                if (resolved) {
+                    return {
+                        userId: resolved.userId,
+                        email: resolved.email,
+                        tenantId: resolved.tenantId,
+                        role: resolved.role,
+                        iat: Math.floor(Date.now() / 1000),
+                        exp: Math.floor(new Date(resolved.expires).getTime() / 1000),
+                    };
+                }
+            }
+        }
         return null;
     }
 

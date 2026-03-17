@@ -14,6 +14,7 @@ export const factoryCreateSaasMocks = {
   extractSessionFromRequest: vi.fn(),
   authorizeSaasAccess: vi.fn(),
   requireOwnerAccess: vi.fn(),
+  requireTenantAccess: vi.fn(),
   ensureCampamentoBase: vi.fn(),
   domainFetchImpl: vi.fn(),
   UnauthorizedError,
@@ -29,6 +30,7 @@ vi.mock("@/lib/authz/saas-access", () => ({
 
 vi.mock("@/lib/auth/session", () => ({
   requireOwnerAccess: factoryCreateSaasMocks.requireOwnerAccess,
+  requireTenantAccess: factoryCreateSaasMocks.requireTenantAccess,
   UnauthorizedError: factoryCreateSaasMocks.UnauthorizedError,
 }));
 
@@ -71,4 +73,13 @@ export function setupFactoryCreateSaasOwnerMocks() {
   });
   factoryCreateSaasMocks.authorizeSaasAccess.mockResolvedValue({ authorized: true });
   factoryCreateSaasMocks.requireOwnerAccess.mockResolvedValue({ tenantId: "tenant_owner" });
+  factoryCreateSaasMocks.requireTenantAccess.mockResolvedValue({
+    tenantId: "tenant_owner",
+    session: {
+      email: "owner@drako.systems",
+      tenantId: "tenant_owner",
+      role: "admin",
+      issuedAt: Date.now(),
+    },
+  });
 }

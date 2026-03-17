@@ -14,7 +14,11 @@ function parseLimit(url: string): number | undefined {
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await requireOwnerAccess(request);
+    const access = await requireOwnerAccess(request);
+    if (!access?.tenantId) {
+      throw new UnauthorizedError("SESSION_REQUIRED", 401);
+    }
+    const { tenantId } = access;
     const incidents = await getFactoryIncidents(tenantId, { limit: parseLimit(request.url) });
 
     return NextResponse.json({

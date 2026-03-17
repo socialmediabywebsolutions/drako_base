@@ -1,5 +1,5 @@
-
 import { run, queryOne, queryAll } from "@/lib/db";
+import { writeBillingAuditLog } from "@/lib/billing/billing-audit";
 import { createTenant, createTenantUser } from "@/lib/tenants/services";
 
 export type ProvisioningEvent = {
@@ -143,29 +143,31 @@ export async function provisionTenantFromStripe(event: ProvisioningEvent): Promi
         }
 
         // 6. Log Event
-        await run(
-            `INSERT INTO billing_audit_logs (id, saas_slug, tenant_id, event_type, metadata_json, correlation_id)
-         VALUES (?, ?, ?, 'provisioning_success', ?, ?)`,
-            `audit_${correlationId}`,
+        await writeBillingAuditLog({
+            id: `audit_provisioning_success_${correlationId}`,
             saasSlug,
             tenantId,
-            JSON.stringify({ plan: plan_code, priceId: stripePriceId }),
-            correlationId
-        );
+            eventType: "provisioning_success",
+            severity: "info",
+            correlationId,
+            outcome: "processed",
+            metadata: { plan: plan_code, priceId: stripePriceId },
+        });
 
         return { success: true, tenantId };
 
     } catch (error) {
         console.error(`[Provisioning] Failed:`, error);
-        await run(
-            `INSERT INTO billing_audit_logs (id, saas_slug, tenant_id, event_type, metadata_json, correlation_id)
-         VALUES (?, ?, ?, 'provisioning_failed', ?, ?)`,
-            `audit_err_${correlationId}`,
+        await writeBillingAuditLog({
+            id: `audit_provisioning_failed_${correlationId}`,
             saasSlug,
-            'unknown',
-            JSON.stringify({ error: (error as Error).message }),
-            correlationId
-        );
+            tenantId: "unknown",
+            eventType: "provisioning_failed",
+            severity: "error",
+            correlationId,
+            outcome: "failed",
+            metadata: { error: (error as Error).message },
+        });
         return { success: false, error: (error as Error).message };
     }
 }

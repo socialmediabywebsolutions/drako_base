@@ -4,6 +4,7 @@ import {
   SESSION_COOKIE_NAME,
   UnauthorizedError,
   createSessionValue,
+  requireSession,
   requireOwnerAccess,
   requireTenantAccess,
 } from "@/lib/auth/session";
@@ -88,6 +89,39 @@ describe("requireOwnerAccess", () => {
       name: "UnauthorizedError",
       message: "OWNER_ROLE_REQUIRED",
       status: 403,
+    } satisfies Partial<UnauthorizedError>);
+  });
+});
+
+describe("local demo session boundaries", () => {
+  beforeEach(() => {
+    vi.mocked(env).mockReturnValue({
+      DRACO_DB: {} as D1Database,
+      SESSION_SECRET: "test-session-secret-32chars-min",
+    } as any);
+    process.env.DRAKO_ENABLE_DEMO_SESSION = "1";
+    process.env.DRAKO_CLIENT_DEMO_TENANT_ID = "demo-tenant";
+  });
+
+  it("allows local demo fallback only for tenant workspace surfaces", async () => {
+    const request = makeRequest("http://localhost:3000/api/social/summary?saasId=saas_1", {
+      host: "localhost:3000",
+    });
+
+    const session = await requireSession(request);
+    expect(session.tenantId).toBe("demo-tenant");
+    expect(session.authMode).toBe("local_demo");
+  });
+
+  it("does not allow local demo fallback for owner surfaces", async () => {
+    const request = makeRequest("http://localhost:3000/api/owner/factory-status", {
+      host: "localhost:3000",
+    });
+
+    await expect(requireSession(request)).rejects.toMatchObject({
+      name: "UnauthorizedError",
+      message: "SESSION_REQUIRED",
+      status: 401,
     } satisfies Partial<UnauthorizedError>);
   });
 });

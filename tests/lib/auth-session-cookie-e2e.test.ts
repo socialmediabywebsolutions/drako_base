@@ -159,4 +159,39 @@ describe("auth cookie/session e2e by context", () => {
     expect(session?.tenantId).toBe("tenant_bases");
     expect(session?.saasSlug).toBe("campo_base");
   });
+
+  it("bases session can enter the tenant workspace on base host without using drakos auth", async () => {
+    vi.resetModules();
+    vi.doMock("@/lib/cf", () => ({
+      env: () => ({
+        ADMIN_EMAIL: "admin@bases.drako.systems",
+        ADMIN_PASSWORD: "bases-password",
+        DEFAULT_TENANT_ID: "tenant_bases",
+        BASES_AUTHS_SECRET: "test-bases-secret",
+      }),
+    }));
+    vi.doMock("@/lib/auths/flags", () => ({
+      isAuthsIsolationEnabled: () => true,
+    }));
+
+    const { POST } = await import("@/app/api/bases/auths/logins/route");
+    const response = await POST(new Request("https://bases.drako.systems/api/bases/auths/logins", {
+      method: "POST",
+      headers: {
+        host: "bases.drako.systems",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ email: "admin@bases.drako.systems", password: "bases-password" }),
+    }));
+
+    const cookiePair = extractCookiePair(response.headers.get("set-cookie"));
+    const nextReq = new NextRequest("https://bases.drako.systems/client", {
+      headers: { host: "bases.drako.systems", cookie: cookiePair },
+    });
+    const { extractSessionFromRequest } = await import("@/lib/edge-auth");
+    const session = await extractSessionFromRequest(nextReq);
+
+    expect(session?.tenantId).toBe("tenant_bases");
+    expect(session?.saasSlug).toBe("campo_base");
+  });
 });
