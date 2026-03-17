@@ -10,12 +10,15 @@ jobs:
     steps:
       - name: ⬇️ Checkout
         uses: actions/checkout@v4
+
       - name: 🔧 Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
       - name: 📦 Instalar dependencias
-        run: npm install
+        run: npm ci
+
       - name: 🔍 Ejecutar Auditor Local
         run: npx tsx scripts/alerts-check.ts
 
@@ -25,6 +28,7 @@ jobs:
     steps:
       - name: 📦 Descargar snapshot
         run: curl -s https://drako.group/api/status.json -o snapshot-status.json
+
       - name: 📁 Subir como artifact
         uses: actions/upload-artifact@v4
         with:
@@ -37,12 +41,15 @@ jobs:
     steps:
       - name: ⬇️ Checkout
         uses: actions/checkout@v4
+
       - name: 🔧 Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
       - name: 📦 Instalar dependencias
-        run: npm install
+        run: npm ci
+
       - name: 🧼 Ejecutar limpieza
         run: |
           if [ -f scripts/purge-drafts.ts ]; then
