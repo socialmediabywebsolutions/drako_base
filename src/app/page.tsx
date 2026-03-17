@@ -32,24 +32,10 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
 
   const highlightedLive = liveProducts.filter((p) => p.highlighted);
 
-  const ecosystemBlocks = copy.products.sections.map((section) => {
-    if (section.title.toLowerCase().startsWith("activo") || section.title.toLowerCase().startsWith("active")) {
-      const items = highlightedLive.length > 0 ? highlightedLive : liveProducts;
-      return { ...section, items };
-    }
-    if (section.title.toLowerCase().startsWith("building")) {
-      return { ...section, items: buildingProducts };
-    }
-    if (section.title.toLowerCase().startsWith("research")) {
-      return { ...section, items: researchProducts };
-    }
-    return { ...section, items: [] as typeof canonicalProducts };
-  });
-
   const productItems = [
-    ...liveProducts.map((p) => ({ name: p.name, desc: p.shortDescription ?? p.tagline ?? "", state: "RUNNING" as const })),
-    ...buildingProducts.map((p) => ({ name: p.name, desc: p.shortDescription ?? p.tagline ?? "", state: "BUILD" as const })),
-    ...researchProducts.map((p) => ({ name: p.name, desc: p.shortDescription ?? p.tagline ?? "", state: "RESEARCH" as const })),
+    ...liveProducts.map((p) => ({ name: p.name, desc: p.shortDescription ?? "", state: "RUNNING" as const })),
+    ...buildingProducts.map((p) => ({ name: p.name, desc: p.shortDescription ?? "", state: "BUILD" as const })),
+    ...researchProducts.map((p) => ({ name: p.name, desc: p.shortDescription ?? "", state: "RESEARCH" as const })),
   ];
 
   const stateCount = {
@@ -84,12 +70,18 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
     return "h-2 w-2 rounded-full bg-sky-400";
   };
 
+  const stateBlockClass = (state: "RUNNING" | "BUILD" | "RESEARCH") => {
+    if (state === "RUNNING") return "flex items-center gap-2 rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-2";
+    if (state === "BUILD") return "flex items-center gap-2 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2";
+    return "flex items-center gap-2 rounded border border-sky-500/30 bg-sky-500/10 px-3 py-2";
+  };
+
   return (
     <SiteLayout locale={locale} currentPath={currentPath} copy={{ nav: copy.nav, footerLine: copy.about.intro }}>
       <div className="min-h-screen bg-slate-950 text-slate-100 font-mono leading-tight">
-        <main className="mx-auto grid max-w-6xl gap-4 p-4 sm:p-5">
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-4 sm:p-5 shadow-none hover:border-slate-700 hover:bg-slate-900 transition-colors duration-150">
+        <main className="mx-auto grid max-w-6xl gap-3 p-4 sm:p-5">
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-4 shadow-none hover:border-slate-700 hover:bg-slate-900 transition-colors duration-150 sm:p-5">
               <div className="flex items-center gap-2 text-sm text-slate-300">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase text-emerald-300">
@@ -100,9 +92,9 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
               <div className="mt-3 flex items-start justify-between gap-3">
                 <div>
                   <h1 className="text-4xl font-semibold tracking-tight text-slate-50 sm:text-5xl">Infraestructura en operación</h1>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
+                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-300">
                     {["Holding operativo", "Control Plane", "Observability", "Governance", "Agentes"].map((tag) => (
-                      <span key={tag} className="rounded border border-slate-700 bg-slate-900 px-2 py-1">
+                      <span key={tag} className="rounded border border-slate-700 bg-slate-900 px-2 py-0.5">
                         {tag}
                       </span>
                     ))}
@@ -127,7 +119,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
                   <div className="py-3 text-slate-400">Sin servicios públicos</div>
                 ) : (
                   productItems.map((item) => (
-                    <div key={`${item.state}-${item.name}`} className="flex items-center gap-3 py-2">
+                    <div key={`${item.state}-${item.name}`} className="flex items-center gap-3 py-1.5">
                       <span className={badgeClass(item.state)}>
                         <span className={badgeDotClass(item.state)} />
                         {item.state}
@@ -143,7 +135,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
             </section>
           </section>
 
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <section className="rounded-lg border border-slate-800 bg-slate-900/70 p-3 sm:p-4 shadow-none hover:border-slate-700 hover:bg-slate-900 transition-colors duration-150">
               <header className="flex items-center justify-between text-sm text-slate-300">
                 <span className="font-semibold text-slate-100">Sistema</span>
@@ -171,7 +163,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
                 <span className="font-semibold text-slate-100">Operación</span>
                 <span className="text-xs text-slate-500">eventos recientes</span>
               </header>
-              <div className="mt-2 space-y-1 text-xs font-medium text-slate-200">
+              <div className="mt-2 space-y-1 text-[12px] font-medium text-slate-200">
                 {opEvents.map((line) => (
                   <div key={line} className="flex items-start gap-2">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 mt-1" />
@@ -182,13 +174,10 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
             </section>
           </section>
 
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             <section className="rounded-lg border border-slate-800 bg-slate-900/70 p-3 sm:p-4 shadow-none hover:border-slate-700 hover:bg-slate-900 transition-colors duration-150 flex items-center gap-3 text-sm">
-              {[{ label: "RUNNING", count: stateCount.RUNNING, color: "emerald" }, { label: "BUILD", count: stateCount.BUILD, color: "amber" }, { label: "RESEARCH", count: stateCount.RESEARCH, color: "sky" }].map((s) => (
-                <div
-                  key={s.label}
-                  className={`flex items-center gap-2 rounded border border-${s.color}-500/30 bg-${s.color}-500/10 px-3 py-2`}
-                >
+              {[{ label: "RUNNING", count: stateCount.RUNNING, state: "RUNNING" as const }, { label: "BUILD", count: stateCount.BUILD, state: "BUILD" as const }, { label: "RESEARCH", count: stateCount.RESEARCH, state: "RESEARCH" as const }].map((s) => (
+                <div key={s.label} className={stateBlockClass(s.state)}>
                   <span className="text-xs font-semibold uppercase text-slate-50">{s.label}</span>
                   <span className="text-lg font-bold text-slate-50">{s.count}</span>
                 </div>
@@ -200,7 +189,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
                 <span className="font-semibold text-slate-100">Registro</span>
                 <span className="text-xs text-slate-500">log del sistema</span>
               </header>
-              <div className="mt-2 space-y-1 text-xs text-slate-200 font-medium">
+              <div className="mt-2 space-y-1 text-[12px] text-slate-200 font-medium">
                 {journalEvents.map((line) => (
                   <div key={line} className="flex items-start gap-2">
                     <span className="h-1.5 w-1.5 rounded-full bg-slate-600 mt-1" />
