@@ -8,9 +8,9 @@ type KnowledgeBody = {
   objective?: string | null;
   audience?: string | null;
   tone?: string | null;
-  keywords?: string[];
-  competitors?: string[];
-  sources?: string[];
+  keywords?: string[] | null;
+  competitors?: string[] | null;
+  sources?: string[] | null;
 };
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -70,6 +70,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       keywords: body.keywords ?? [],
       competitors: body.competitors ?? [],
       sources: body.sources ?? [],
+      updatedAt: new Date().toISOString(),
     });
     return NextResponse.json({ knowledge });
   } catch (error) {

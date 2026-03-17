@@ -22,6 +22,55 @@ export type SaasSocialAccount = {
   updatedAt: string;
 };
 
+export type SaasSocialChannel = {
+  id: string;
+  tenantId: string;
+  saasId: string;
+  name: string;
+  provider: SaasSocialProvider;
+  status: "ACTIVE" | "INACTIVE" | "ARCHIVED";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SaasSocialChannelIdeaStatus = "idea" | "approved" | "converted" | "discarded";
+
+export type SaasSocialChannelIdea = {
+  id: string;
+  tenantId: string;
+  saasId: string;
+  channelId: string;
+  title: string;
+  angle: string | null;
+  summary: string | null;
+  status: SaasSocialChannelIdeaStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SaasSocialChannelKnowledge = {
+  channelId: string;
+  objective: string | null;
+  audience: string | null;
+  tone: string | null;
+  keywords: string[];
+  competitors: string[];
+  sources: string[];
+  updatedAt: string | null;
+};
+
+export type SaasSocialChannelSignals = {
+  channelId: string;
+  tenantId: string;
+  saasId: string;
+  topics: string[];
+  activeKeywords: string[];
+  trendNotes: string | null;
+  watchedCompetitors: string[];
+  watchedSources: string[];
+  updatedAt: string;
+};
+
 export type SaasSocialCampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "FINISHED" | "ARCHIVED";
 
 export type SaasSocialCampaign = {
@@ -48,6 +97,7 @@ export type SaasSocialPost = {
   id: string;
   tenantId: string;
   saasId: string;
+  channelId?: string | null;
   campaignId: string | null;
   provider: SaasSocialProvider;
   contentType: SaasSocialContentType;
@@ -150,13 +200,13 @@ export type SocialLiveAnalyticsSummary = {
   failedPosts: number;
   noLiveAnalyticsYetPosts: number;
   lastHealthyLiveSyncAt: string | null;
-  healthySyncFreshnessStatus: string;
+  healthySyncFreshnessStatus: "FRESH" | "AGING" | "NOT_AVAILABLE";
   healthySyncNeedsRefresh: boolean;
   resolvedRecently: boolean;
   resolvedRecentlyCount: number;
   lastResolvedAt: string | null;
   lastWorkspaceSyncAt: string | null;
-  status: string;
+  status: "Healthy" | "Needs attention" | "No live analytics yet";
   recommendation: string;
   recentActivity: SocialAnalyticsActivity[];
   recentIncidents: SocialAnalyticsIncident[];
@@ -167,21 +217,35 @@ export type SocialAnalyticsActivity = {
   postTitle: string;
   provider: SaasSocialProvider;
   lastFetchedAt: string;
-  state: string;
+  state: "success" | "fallback" | "error" | "resolved" | string;
   summary: string;
   reviewed: boolean;
   manualReviewAt?: string | null;
   analyticsSource?: string | null;
-  lastRefreshStatus?: string | null;
+  lastRefreshStatus?: "success" | "fallback" | "error" | null;
+  lastRefreshErrorMessage?: string | null;
+  lastRefreshErrorCode?: string | null;
+  lastRefreshAt?: string | null;
+  lastFetchedAtDisplay?: string | null;
+  manualReviewNote?: string | null;
+  recommendation?: string | null;
   externalPostId?: string | null;
 };
 
 export type SocialAnalyticsIncident = {
   id: string;
   postId: string;
-  state: string;
+  state: "error" | "resolved" | "success" | "fallback" | string;
   summary: string;
   createdAt: string;
+  lastFetchedAt?: string | null;
+  postTitle?: string | null;
+  reviewed?: boolean;
+  manualReviewAt?: string | null;
+  lastRefreshErrorMessage?: string | null;
+  lastRefreshErrorCode?: string | null;
+  recommendation?: string | null;
+  manualReviewNote?: string | null;
 };
 
 export type SocialProductSummary = {
@@ -202,7 +266,7 @@ export type SocialProductSummary = {
     totalSteps: number;
     progressPercent: number;
     nextAction: string;
-    steps: unknown[];
+    steps: { key?: string; label?: string; hint?: string; completed?: boolean }[];
   };
   overview: {
     connectedAccounts: number;
@@ -218,7 +282,7 @@ export type SocialProductSummary = {
   };
   analytics: SocialAnalyticsSnapshot;
   analyticsHealth: SocialLiveAnalyticsSummary;
-  activeRules: unknown[];
+  activeRules: SocialAutomationRuleSummary[];
   operations: {
     status: string;
     headline: string;
@@ -227,4 +291,37 @@ export type SocialProductSummary = {
     counts: Record<string, number>;
   };
   transparency: { key: string; label: string; message: string }[];
+};
+
+export type SocialAutomationRuleSummary = {
+  id: string;
+  title: string;
+  description?: string;
+  scope?: {
+    providers?: string[];
+  } | null;
+};
+
+export type SocialCalendarDay = {
+  date: string;
+  posts: SaasSocialPost[];
+};
+
+export type SocialCalendarSnapshot = {
+  days: SocialCalendarDay[];
+  upcomingPosts: SaasSocialPost[];
+};
+
+export type AnalyticsMeta = {
+  source: string;
+  impressions: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  clicks: number;
+  engagement: number;
+  lastFetchedAt?: string | null;
+  lastRefreshStatus?: "success" | "fallback" | "error" | null;
+  lastRefreshErrorMessage?: string | null;
+  lastRefreshErrorCode?: string | null;
 };

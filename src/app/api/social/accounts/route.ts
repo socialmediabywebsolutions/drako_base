@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { listSaasSocialAccounts, resolveSocialContext, SocialContextError, upsertSaasSocialAccount } from "@/lib/social/repository";
 import { LinkedInIntegrationError, verifyLinkedInAccess } from "@/lib/social/linkedin";
+import type { SaasSocialAccountStatus } from "@/lib/social/types";
 
 const ALLOWED_PROVIDERS = ["INSTAGRAM", "TWITTER_X", "LINKEDIN", "FACEBOOK_PAGE", "TIKTOK", "WHATSAPP", "OTHER"] as const;
 const ALLOWED_STATUSES = ["DISCONNECTED", "CONNECTED_DEMO", "CONNECTED_REAL", "PENDING_REAL", "INVALID_CREDENTIALS", "NEEDS_RECONNECTION"] as const;
@@ -33,7 +34,7 @@ async function resolveLiveLinkedInAccount(input: {
         provider: "LINKEDIN" as const,
         handle: input.handle ?? null,
         displayName: input.displayName?.trim() || profile.displayName,
-        status: "CONNECTED_REAL" as const,
+        status: "CONNECTED_REAL" as SaasSocialAccountStatus,
         authMeta: {
           ...baseMeta,
           accessToken,
@@ -65,7 +66,7 @@ async function resolveLiveLinkedInAccount(input: {
         provider: "LINKEDIN" as const,
         handle: input.handle ?? null,
         displayName: input.displayName?.trim() || "LinkedIn connection",
-        status: normalized.accountStatus,
+        status: normalized.accountStatus as SaasSocialAccountStatus,
         authMeta: {
           ...baseMeta,
           accessToken,
@@ -136,7 +137,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ code: "INVALID_STATUS", message: "status is invalid" }, { status: 400 });
     }
     const provider = body.provider as (typeof ALLOWED_PROVIDERS)[number];
-    const status = body.status as (typeof ALLOWED_STATUSES)[number];
+    const status = body.status as SaasSocialAccountStatus;
     if (provider === "LINKEDIN" && body.authMeta?.mode === "live" && status === "CONNECTED_REAL") {
       const liveAccount = await resolveLiveLinkedInAccount({
         id: body.id,
@@ -195,8 +196,8 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ code: "NOT_FOUND", message: "Account not found" }, { status: 404 });
     }
 
-    const nextProvider = body.provider ?? current.provider;
-    const nextStatus = body.status ?? current.status;
+    const nextProvider = (body.provider ?? current.provider) as (typeof ALLOWED_PROVIDERS)[number];
+    const nextStatus = (body.status ?? current.status) as SaasSocialAccountStatus;
     if (!ALLOWED_PROVIDERS.includes(nextProvider as (typeof ALLOWED_PROVIDERS)[number])) {
       return NextResponse.json({ code: "INVALID_PROVIDER", message: "provider is invalid" }, { status: 400 });
     }

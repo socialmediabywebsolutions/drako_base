@@ -1,14 +1,4 @@
-import type { SaasSocialPost } from "@/lib/social/types";
-
-type AnalyticsMeta = {
-  source: string;
-  impressions: number;
-  likes: number;
-  comments: number;
-  shares: number;
-  clicks: number;
-  engagement: number;
-};
+import type { AnalyticsMeta, SaasSocialPost } from "@/lib/social/types";
 
 export function getPostAnalyticsMetadata(post: SaasSocialPost): AnalyticsMeta {
   const meta = (post as unknown as { analyticsMeta?: Partial<AnalyticsMeta> }).analyticsMeta;
@@ -20,6 +10,10 @@ export function getPostAnalyticsMetadata(post: SaasSocialPost): AnalyticsMeta {
     shares: meta?.shares ?? 0,
     clicks: meta?.clicks ?? 0,
     engagement: meta?.engagement ?? 0,
+    lastFetchedAt: meta?.lastFetchedAt ?? null,
+    lastRefreshStatus: meta?.lastRefreshStatus ?? null,
+    lastRefreshErrorMessage: meta?.lastRefreshErrorMessage ?? null,
+    lastRefreshErrorCode: meta?.lastRefreshErrorCode ?? null,
   };
 }
 

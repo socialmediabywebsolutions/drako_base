@@ -213,7 +213,7 @@ function getAnalyticsMeta(post: SaasSocialPost) {
   return getPostAnalyticsMetadata(post);
 }
 
-function formatAnalyticsSource(source: string | undefined) {
+function formatAnalyticsSource(source: string | null | undefined) {
   switch (source) {
     case "live_linkedin":
       return "Live metrics";
@@ -263,7 +263,7 @@ function formatHealthySyncFreshness(status: "FRESH" | "AGING" | "NOT_AVAILABLE")
   }
 }
 
-function getSyncActivityTone(state: "success" | "fallback" | "error" | "resolved") {
+function getSyncActivityTone(state: "success" | "fallback" | "error" | "resolved" | string) {
   switch (state) {
     case "resolved":
       return "border-sky-100 bg-sky-50 text-sky-800";
@@ -276,7 +276,7 @@ function getSyncActivityTone(state: "success" | "fallback" | "error" | "resolved
   }
 }
 
-function getReviewedTone(reviewed: boolean) {
+function getReviewedTone(reviewed: boolean | undefined) {
   return reviewed ? "border-slate-200 bg-slate-100 text-slate-700" : "border-transparent bg-transparent text-slate-400";
 }
 
@@ -615,7 +615,7 @@ export default function SocialFlowWorkspaceClient({
   async function loadChannelKnowledge(channelId: string) {
     setIsKnowledgeLoading(true);
     try {
-      const payload = await requestJson<{ knowledge: ChannelKnowledgeForm }>(
+      const payload = await requestJson<{ knowledge: SaasSocialChannelKnowledge }>(
         `/api/social/channels/${channelId}/knowledge?saasId=${saasId}`,
       );
       setKnowledgeForm({
@@ -623,9 +623,9 @@ export default function SocialFlowWorkspaceClient({
         objective: payload.knowledge.objective ?? "",
         audience: payload.knowledge.audience ?? "",
         tone: payload.knowledge.tone ?? "",
-        keywords: listToInput(payload.knowledge.keywords as unknown as string[]),
-        competitors: listToInput(payload.knowledge.competitors as unknown as string[]),
-        sources: listToInput(payload.knowledge.sources as unknown as string[]),
+        keywords: listToInput(payload.knowledge.keywords),
+        competitors: listToInput(payload.knowledge.competitors),
+        sources: listToInput(payload.knowledge.sources),
         updatedAt: payload.knowledge.updatedAt ?? null,
       });
     } catch (error) {
@@ -3018,12 +3018,12 @@ export default function SocialFlowWorkspaceClient({
                               {formatProvider(item.provider)} · {formatDateTime(item.lastFetchedAt)}
                             </div>
                           </div>
-                          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${getSyncActivityTone(item.state)}`}>
+                          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${getSyncActivityTone(item.state as "success" | "fallback" | "error" | "resolved")}`}>
                             {item.summary}
                           </span>
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${getReviewedTone(item.reviewed)}`}>
+                          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${getReviewedTone(!!item.reviewed)}`}>
                             {item.reviewed ? "Reviewed" : "Active"}
                           </span>
                           {item.manualReviewAt ? (
@@ -3040,7 +3040,7 @@ export default function SocialFlowWorkspaceClient({
                         <div className="mt-3 grid gap-2 sm:grid-cols-3 text-xs text-slate-600">
                           <div>
                             <div className="font-black uppercase tracking-[0.18em] text-slate-400">Source</div>
-                            <div className="mt-1 font-semibold text-slate-800">{formatAnalyticsSource(item.analyticsSource)}</div>
+                            <div className="mt-1 font-semibold text-slate-800">{formatAnalyticsSource(item.analyticsSource ?? "placeholder")}</div>
                           </div>
                           <div>
                             <div className="font-black uppercase tracking-[0.18em] text-slate-400">Sync status</div>

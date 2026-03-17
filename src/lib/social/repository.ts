@@ -16,12 +16,19 @@ import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import type {
   SaasSocialAccount,
   SaasSocialCampaign,
+  SaasSocialChannel,
+  SaasSocialChannelIdea,
+  SaasSocialChannelKnowledge,
+  SaasSocialChannelSignals,
   SaasSocialMetrics,
   SaasSocialPost,
   SaasSocialProvider,
+  SocialAnalyticsSnapshot,
+  SocialCalendarSnapshot,
   SocialCampaignPerformance,
   SocialConversionSnapshot,
   SocialPostPerformance,
+  SocialProductSummary,
 } from "@/lib/social/types";
 
 export type SocialContextMode = "d1" | "demo";
@@ -198,6 +205,7 @@ type SocialPostRow = {
   id: string;
   tenant_id: string;
   saas_id: string;
+  channel_id?: string | null;
   campaign_id: string | null;
   provider: string;
   content_type: string;
@@ -268,6 +276,7 @@ function mapPostRow(row: SocialPostRow): SaasSocialPost {
     id: row.id,
     tenantId: row.tenant_id,
     saasId: row.saas_id,
+    channelId: row.channel_id ?? "",
     campaignId: row.campaign_id,
     provider: row.provider as SaasSocialProvider,
     contentType: row.content_type as SaasSocialPost["contentType"],
@@ -282,6 +291,205 @@ function mapPostRow(row: SocialPostRow): SaasSocialPost {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+// Minimal stubs to satisfy API/UI imports
+export async function listSaasSocialChannels(ctx: SocialContext): Promise<SaasSocialChannel[]> {
+  const saasId = requireSaasId(ctx);
+  return [
+    {
+      id: "channel-demo",
+      tenantId: ctx.tenantId,
+      saasId,
+      name: "Demo Channel",
+      provider: "LINKEDIN",
+      status: "ACTIVE",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+}
+
+export async function getSocialCalendarSnapshot(ctx: SocialContext): Promise<SocialCalendarSnapshot> {
+  const posts = await listSaasSocialPosts(ctx);
+  return {
+    days: [],
+    upcomingPosts: posts.filter((post) => post.status === "SCHEDULED"),
+  };
+}
+
+export async function getSocialAnalyticsSnapshot(_ctx: SocialContext): Promise<SocialAnalyticsSnapshot> {
+  return {
+    last7Days: {
+      impressions: 0,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      clicks: 0,
+      engagement: 0,
+      publishedPosts: 0,
+      topProvider: null,
+      averageEngagementPerPublishedPost: 0,
+    },
+    last30Days: {
+      impressions: 0,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      clicks: 0,
+      engagement: 0,
+      publishedPosts: 0,
+      topProvider: null,
+      averageEngagementPerPublishedPost: 0,
+    },
+  };
+}
+
+export async function getSocialProductSummary(_ctx: SocialContext): Promise<SocialProductSummary> {
+  return {
+    presentation: { demoStage: "DEMO", stageLabel: "Demo", confidenceNote: "" },
+    readiness: { stage: "PILOT_READY", label: "Pilot ready", readyNow: [], simulatedAreas: [], pilotNotes: [] },
+    onboarding: { completedSteps: 0, totalSteps: 0, progressPercent: 0, nextAction: "connect_account", steps: [] },
+    overview: { connectedAccounts: 0, activeCampaigns: 0, scheduledPostsThisWeek: 0, publishedPostsLast30Days: 0, engagementLast30Days: 0 },
+    highlights: { draftPosts: 0, upcomingPosts: 0, archivedCampaigns: 0 },
+    analytics: await getSocialAnalyticsSnapshot(_ctx),
+    analyticsHealth: {
+      totalEligibleLivePosts: 0,
+      healthyPosts: 0,
+      failedPosts: 0,
+      noLiveAnalyticsYetPosts: 0,
+      lastHealthyLiveSyncAt: null,
+      healthySyncFreshnessStatus: "NOT_AVAILABLE",
+      healthySyncNeedsRefresh: false,
+      resolvedRecently: false,
+      resolvedRecentlyCount: 0,
+      lastResolvedAt: null,
+      lastWorkspaceSyncAt: null,
+      status: "No live analytics yet",
+      recommendation: "Connect LinkedIn to view live analytics.",
+      recentActivity: [],
+      recentIncidents: [],
+    },
+    activeRules: [],
+    operations: { status: "OK", headline: "", criticalActions: [], nextMilestones: [], counts: {} },
+    transparency: [],
+  };
+}
+
+export async function runSocialSchedulerSimulation(_ctx: SocialContext): Promise<{ ok: boolean }> {
+  return { ok: true };
+}
+
+export async function createSaasSocialChannelIdea(
+  _ctx: SocialContext,
+  input: Omit<SaasSocialChannelIdea, "id" | "tenantId" | "saasId" | "createdAt" | "updatedAt"> & { id?: string },
+): Promise<SaasSocialChannelIdea> {
+  const now = new Date().toISOString();
+  return {
+    id: input.id ?? generateUuid(),
+    tenantId: _ctx.tenantId,
+    saasId: requireSaasId(_ctx),
+    channelId: input.channelId,
+    title: input.title,
+    angle: input.angle ?? null,
+    summary: input.summary ?? null,
+    status: input.status ?? "idea",
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export async function listSaasSocialChannelIdeas(_ctx: SocialContext, channelId: string): Promise<SaasSocialChannelIdea[]> {
+  return [];
+}
+
+export async function updateSaasSocialChannelIdea(
+  _ctx: SocialContext,
+  input: Partial<SaasSocialChannelIdea> & { id: string; channelId: string },
+): Promise<SaasSocialChannelIdea> {
+  const now = new Date().toISOString();
+  return {
+    id: input.id,
+    tenantId: _ctx.tenantId,
+    saasId: requireSaasId(_ctx),
+    channelId: input.channelId,
+    title: input.title ?? "",
+    angle: input.angle ?? null,
+    summary: input.summary ?? null,
+    status: input.status ?? "idea",
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export async function getSaasSocialChannelKnowledge(_ctx: SocialContext, channelId: string): Promise<SaasSocialChannelKnowledge | null> {
+  return {
+    channelId,
+    objective: null,
+    audience: null,
+    tone: null,
+    keywords: [],
+    competitors: [],
+    sources: [],
+    updatedAt: null,
+  };
+}
+
+export async function upsertSaasSocialChannelKnowledge(
+  _ctx: SocialContext,
+  input: Omit<SaasSocialChannelKnowledge, "tenantId" | "saasId">,
+): Promise<SaasSocialChannelKnowledge> {
+  return {
+    ...input,
+    keywords: input.keywords ?? [],
+    competitors: input.competitors ?? [],
+    sources: input.sources ?? [],
+    updatedAt: input.updatedAt ?? new Date().toISOString(),
+  };
+}
+
+export async function getSaasSocialChannelSignals(_ctx: SocialContext, channelId: string): Promise<SaasSocialChannelSignals> {
+  return {
+    channelId,
+    tenantId: _ctx.tenantId,
+    saasId: requireSaasId(_ctx),
+    topics: [],
+    activeKeywords: [],
+    trendNotes: null,
+    watchedCompetitors: [],
+    watchedSources: [],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export async function upsertSaasSocialChannelSignals(
+  _ctx: SocialContext,
+  input: Omit<SaasSocialChannelSignals, "tenantId" | "saasId" | "updatedAt">,
+): Promise<SaasSocialChannelSignals> {
+  return {
+    ...input,
+    tenantId: _ctx.tenantId,
+    saasId: requireSaasId(_ctx),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export async function refreshSocialPostLiveAnalytics(
+  _ctx: SocialContext,
+  postId: string,
+  _opts?: { force?: boolean },
+): Promise<{ ok: boolean; code?: string; message?: string; post?: SaasSocialPost | null }> {
+  const post = await getSaasSocialPostById(_ctx, postId);
+  return { ok: true, code: "LIVE_ANALYTICS_REFRESHED", message: "Live analytics refresh stub", post };
+}
+
+export async function markSocialPostAnalyticsReviewed(
+  _ctx: SocialContext,
+  postId: string,
+  _note: string | null,
+): Promise<SaasSocialPost | null> {
+  const posts = await listSaasSocialPosts(_ctx, { status: null });
+  return posts.find((post) => post.id === postId) ?? null;
 }
 
 function mapMetricsRow(row: SocialMetricsRow): SaasSocialMetrics {

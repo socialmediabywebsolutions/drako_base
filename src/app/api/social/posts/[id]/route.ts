@@ -69,7 +69,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       const postCtx = await resolveSocialContext({ tenantId, saasId: post.saasId });
       const result = await publishSocialPostLive(postCtx, postId);
       return NextResponse.json({
-        post: result.post,
+        post: result.post ?? post,
         livePublish: {
           ok: result.ok,
           code: result.code ?? (result.ok ? "LIVE_PUBLISH_OK" : "LIVE_PUBLISH_FAILED"),
@@ -85,7 +85,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       const postCtx = await resolveSocialContext({ tenantId, saasId: post.saasId });
       const result = await refreshSocialPostLiveAnalytics(postCtx, postId, { force: true });
       return NextResponse.json({
-        post: result.post,
+        post: result.post ?? post,
         liveAnalytics: {
           ok: result.ok,
           code: result.code,
@@ -113,8 +113,6 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       id: postId,
       status: body.status as (typeof NEXT_ALLOWED_STATUSES)[number],
       postedAt: body.postedAt ?? null,
-      externalPostId: body.externalPostId ?? undefined,
-      metadata: body.metadata ?? undefined,
     });
     if (!post) {
       return NextResponse.json({ code: "NOT_FOUND", message: "Post not found" }, { status: 404 });
