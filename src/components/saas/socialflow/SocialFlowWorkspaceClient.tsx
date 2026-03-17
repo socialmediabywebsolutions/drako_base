@@ -15,6 +15,7 @@ import type {
   SaasSocialChannel,
   SaasSocialChannelIdea,
   SaasSocialChannelIdeaStatus,
+  SaasSocialChannelKnowledge,
   SaasSocialPost,
   SocialAnalyticsSnapshot,
   SocialAutomationRuleSummary,
@@ -3040,7 +3041,7 @@ export default function SocialFlowWorkspaceClient({
                         <div className="mt-3 grid gap-2 sm:grid-cols-3 text-xs text-slate-600">
                           <div>
                             <div className="font-black uppercase tracking-[0.18em] text-slate-400">Source</div>
-                            <div className="mt-1 font-semibold text-slate-800">{formatAnalyticsSource(item.analyticsSource ?? "placeholder")}</div>
+                            <div className="mt-1 font-semibold text-slate-800">{formatAnalyticsSource(String(item.analyticsSource ?? "placeholder"))}</div>
                           </div>
                           <div>
                             <div className="font-black uppercase tracking-[0.18em] text-slate-400">Sync status</div>
@@ -3128,12 +3129,12 @@ export default function SocialFlowWorkspaceClient({
                               {item.summary} · {formatDateTime(item.lastFetchedAt)}
                             </div>
                           </div>
-                          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${getSyncActivityTone(item.state)}`}>
+                          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${getSyncActivityTone(item.state as "success" | "fallback" | "error" | "resolved")}`}>
                             {item.state === "error" ? "Needs attention" : "Fallback active"}
                           </span>
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${getReviewedTone(item.reviewed)}`}>
+                          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${getReviewedTone(!!item.reviewed)}`}>
                             {item.reviewed ? "Reviewed" : "Active incident"}
                           </span>
                           {item.manualReviewAt ? (
