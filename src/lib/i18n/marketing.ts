@@ -56,7 +56,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
         localeSwitch: "ES",
       },
       home: {
-        heroTitle: "Infrastructure in operation",
+        heroTitle: "Infrastructure running",
         heroSubtitle: "Central control. Agents execute.",
         tags: ["Holding", "Operational infrastructure", "Governance", "Automation", "Agents"],
         ctas: {
@@ -67,7 +67,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
         },
         whatIs: {
           title: "What is Drako Systems",
-          body: "Central house of the holding. SaaS operated with automation, governance, and observability already on.",
+          body: "Central house of the holding. SaaS operated with automation, governance, observability on.",
         },
         products: {
           title: "Ecosystem",
@@ -75,24 +75,24 @@ export function getMarketingCopy(locale: MarketingLocale) {
           sections: [
             {
               title: "Active",
-              description: "Products in operation with customers and internal agents.",
-              body: "Live SaaS with governance, observability, and automation built in.",
+              description: "Products in operation with agents.",
+              body: "Live SaaS with governance, observability, automation built in.",
               items: [{ name: "SocialFlow", desc: "Social automation operated by agents with supervised workflows." }],
-              empty: "We'll publish more live products soon.",
+              empty: "More live products soon.",
             },
             {
               title: "Building",
-              description: "New SaaS lines integrating into the infrastructure.",
-              body: "Each product plugs into Drako's control plane, telemetry, and runbooks from day one.",
+              description: "SaaS lines integrating into the infrastructure.",
+              body: "Each product plugs into control plane, telemetry, runbooks from day one.",
               items: [],
-              empty: "We will share new SaaS lines as they reach pilot stage.",
+              empty: "New lines will be shared at pilot stage.",
             },
             {
               title: "Research",
-              description: "Tracks on autonomous operation and control.",
-              body: "Research on self-operating SaaS, reliability agents, and automated pipelines.",
+              description: "Autonomous operation and control tracks.",
+              body: "Research on self-operating SaaS, reliability agents, automated pipelines.",
               items: [],
-              empty: "Research tracks will be shared publicly when ready.",
+              empty: "Tracks will be shared when ready.",
             },
           ],
         },
@@ -102,7 +102,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
           points: [
             "Shared foundations: identity, security, billing, observability, CI/CD",
             "Governance coded and enforced",
-            "Autonomous deploy, QA, and support",
+            "Autonomous deploy, QA, support",
             "Path to self-operating SaaS",
           ],
         },
@@ -127,7 +127,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
       },
       system: {
         title: "How we operate the holding",
-        intro: "Internal infrastructure of the holding. Governance, observability, and automation already active. Not a product for sale.",
+        intro: "Internal infrastructure of the holding. Governance, observability, automation active. Not for sale.",
         pillars: [
           {
             title: "Control plane",
@@ -139,7 +139,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
           },
           {
             title: "Automation",
-            body: "Autonomous deploy, health, remediation, and L2 support under playbooks and telemetry.",
+            body: "Autonomous deploy, health, remediation, L2 support under playbooks and telemetry.",
           },
           {
             title: "Future vision",
@@ -159,24 +159,24 @@ export function getMarketingCopy(locale: MarketingLocale) {
         sections: [
           {
             title: "Active",
-            description: "Products in operation with customers and internal agents.",
-            body: "Live SaaS with governance, observability, and automation built in.",
+            description: "Products in operation with agents.",
+            body: "Live SaaS with governance, observability, automation built in.",
             items: [{ name: "SocialFlow", desc: "Social automation operated by agents and supervised workflows." }],
-            empty: "We'll publish more live products soon.",
+            empty: "More live products soon.",
           },
           {
             title: "Building",
-            description: "New SaaS lines integrating into the infrastructure.",
-            body: "Each product plugs into Drako's control plane, telemetry, and runbooks from day one.",
+            description: "SaaS lines integrating into the infrastructure.",
+            body: "Each product plugs into control plane, telemetry, runbooks from day one.",
             items: [],
-            empty: "We will share new SaaS lines as they reach pilot stage.",
+            empty: "New lines will be shared at pilot stage.",
           },
           {
             title: "Research",
-            description: "Tracks on autonomous operation and control.",
-            body: "Research on self-operating SaaS, reliability agents, and automated pipelines.",
+            description: "Autonomous operation and control tracks.",
+            body: "Research on self-operating SaaS, reliability agents, automated pipelines.",
             items: [],
-            empty: "Research tracks will be shared publicly when ready.",
+            empty: "Tracks will be shared when ready.",
           },
         ],
       },
@@ -199,7 +199,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
         pillars: [
           {
             title: "Deep automation",
-            body: "Critical path automated: build, deploy, observe, remediate. Auditable and reversible.",
+            body: "Critical path automated: build, deploy, observe, remediate. Auditable, reversible.",
           },
           {
             title: "Software that runs software",
@@ -217,7 +217,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
         roadmap: [
           "Telemetry → detection → automated action → review.",
           "Agents execute playbooks; humans review only on risk.",
-          "Environments that auto-heal and prevent drift.",
+          "Environments auto-heal and prevent drift.",
           "Governance and audit in every automation path.",
         ],
       },
@@ -235,7 +235,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
           },
           {
             title: "Mission",
-            body: "Software that operates software: products that govern, remediate, and scale with minimal human loops.",
+            body: "Software that operates software: products that govern, remediate, scale with minimal human loops.",
           },
           {
             title: "How we work",
@@ -282,7 +282,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
       localeSwitch: "EN",
     },
     home: {
-      heroTitle: "Infraestructura en operación",
+      heroTitle: "Infraestructura en ejecución",
       heroSubtitle: "Control central. Agentes ejecutan.",
       tags: ["Holding operativo", "Infraestructura", "Gobernanza", "Automatización", "Agentes"],
       ctas: {
@@ -293,7 +293,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
       },
       whatIs: {
         title: "Qué es Drako Systems",
-        body: "Casa central del holding. SaaS operados con automatización, gobernanza y observabilidad activas desde el inicio.",
+        body: "Casa central del holding. SaaS operados con automatización, gobernanza y observabilidad activas.",
       },
       products: {
         title: "Ecosistema",
@@ -301,24 +301,24 @@ export function getMarketingCopy(locale: MarketingLocale) {
         sections: [
           {
             title: "Activos",
-            description: "Productos en operación con clientes y agentes internos.",
+            description: "Productos en operación con agentes.",
             body: "SaaS vivos con gobernanza, observabilidad y automatización integradas.",
             items: [{ name: "SocialFlow", desc: "Automatización de redes sociales operada por agentes y flujos supervisados." }],
-            empty: "Publicaremos más productos activos pronto.",
+            empty: "Más activos pronto.",
           },
           {
             title: "Building",
-            description: "Nuevas líneas SaaS en integración y despliegue interno.",
-            body: "Cada producto se conecta desde el día cero a la infraestructura, telemetría y runbooks del holding.",
+            description: "Líneas SaaS en integración y despliegue interno.",
+            body: "Cada producto conectado desde el día cero a infraestructura, telemetría y runbooks del holding.",
             items: [],
-            empty: "Compartiremos nuevas líneas cuando entren en piloto.",
+            empty: "Nuevas líneas al entrar en piloto.",
           },
           {
             title: "Research",
-            description: "Exploración de operación autónoma y control continuo.",
-            body: "Pistas sobre SaaS autooperados, agentes de fiabilidad y pipelines automatizadas.",
+            description: "Operación autónoma y control continuo.",
+            body: "SaaS autooperados, agentes de fiabilidad, pipelines automatizadas.",
             items: [],
-            empty: "Las líneas de research se compartirán cuando estén listas.",
+            empty: "Se publicará cuando esté listo.",
           },
         ],
       },
@@ -353,11 +353,11 @@ export function getMarketingCopy(locale: MarketingLocale) {
     },
     system: {
       title: "Cómo operamos el holding",
-      intro: "Infraestructura interna del holding. Gobernanza, observabilidad y automatización activas. No es un producto a la venta.",
+      intro: "Infraestructura interna. Gobernanza, observabilidad y automatización activas. No se vende.",
       pillars: [
         {
           title: "Plano de control",
-          body: "Stack estandarizado: identidad, billing, seguridad, observabilidad, CI/CD y plantillas versionadas.",
+          body: "Stack estandarizado: identidad, billing, seguridad, observabilidad, CI/CD, plantillas versionadas.",
         },
         {
           title: "Gobernanza",
@@ -365,11 +365,11 @@ export function getMarketingCopy(locale: MarketingLocale) {
         },
         {
           title: "Automatización",
-          body: "Despliegues, health, remediación y soporte L2 autónomos bajo playbooks y telemetría.",
+          body: "Despliegues, health, remediación, soporte L2 autónomos bajo playbooks y telemetría.",
         },
         {
           title: "Visión futura",
-          body: "SaaS que se autodiagnostican, se remediarán y escalarán dentro de política.",
+          body: "SaaS que se autodiagnostican, se remedian y escalan dentro de política.",
         },
       ],
       practices: [
@@ -385,24 +385,24 @@ export function getMarketingCopy(locale: MarketingLocale) {
       sections: [
         {
           title: "Activos",
-          description: "Productos en operación con clientes y agentes internos.",
+          description: "Productos en operación con agentes.",
           body: "SaaS vivos con gobernanza, observabilidad y automatización integradas.",
           items: [{ name: "SocialFlow", desc: "Automatización de redes sociales operada por agentes y flujos supervisados." }],
-          empty: "Publicaremos más productos activos pronto.",
+          empty: "Más activos pronto.",
         },
         {
           title: "Building",
-          description: "Nuevas líneas SaaS en integración y despliegue interno.",
-          body: "Cada producto se conecta desde el día cero a la infraestructura, telemetría y runbooks del holding.",
+          description: "Líneas SaaS en integración y despliegue interno.",
+          body: "Cada producto conectado desde el día cero a infraestructura, telemetría y runbooks del holding.",
           items: [],
-          empty: "Compartiremos nuevas líneas cuando entren en piloto.",
+          empty: "Nuevas líneas al entrar en piloto.",
         },
         {
           title: "Research",
-          description: "Exploración de operación autónoma y control continuo.",
-          body: "Pistas sobre SaaS autooperados, agentes de fiabilidad y pipelines automatizadas.",
+          description: "Operación autónoma y control continuo.",
+          body: "SaaS autooperados, agentes de fiabilidad, pipelines automatizadas.",
           items: [],
-          empty: "Las líneas de research se compartirán cuando estén listas.",
+          empty: "Se publicará cuando esté listo.",
         },
       ],
     },
@@ -421,15 +421,15 @@ export function getMarketingCopy(locale: MarketingLocale) {
     },
     vision: {
       title: "SaaS que se operan solos",
-      subtitle: "Software que se administra solo. Operaciones automatizadas, agentes responsables y gobernanza por defecto.",
+      subtitle: "Software que se administra solo. Operaciones automatizadas, agentes responsables, gobernanza por defecto.",
       pillars: [
         {
           title: "Automatización profunda",
-          body: "Camino crítico automatizado: build, deploy, observar, remediar. Todo auditable y reversible.",
+          body: "Camino crítico automatizado: build, deploy, observar, remediar. Auditable y reversible.",
         },
         {
           title: "Software que opera software",
-          body: "Agentes coordinan despliegue, monitoreo, costos y recuperación; los humanos fijan intención.",
+          body: "Agentes coordinan despliegue, monitoreo, costos, recuperación; los humanos fijan intención.",
         },
         {
           title: "Agentes IA",
@@ -453,7 +453,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
       blocks: [
         {
           title: "Qué es",
-          body: "La capa operativa del holding: infraestructura, pipelines y playbooks para ejecutar productos confiables.",
+          body: "Capa operativa del holding: infraestructura, pipelines, playbooks para ejecutar productos confiables.",
         },
         {
           title: "Por qué existe",
