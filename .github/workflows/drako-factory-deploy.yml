@@ -101,21 +101,23 @@ jobs:
             exit 1
           fi
 
-      - name: Prepare temporary wrangler.toml for OpenNext build
-        run: cp wrangler.workers.toml wrangler.toml
-
-      - name: Build OpenNext for Cloudflare
+      - name: Build OpenNext for Cloudflare (guardrail first, then temp wrangler)
         env:
           CI: "true"
         run: |
           set -euo pipefail
-          pnpm build:factory 2>&1 | tee open-next-build.log
+          # Guardrail without legacy file present
+          npm run check:no-pages
+
+          # Temporary wrangler.toml for opennext build
+          cp wrangler.workers.toml wrangler.toml
+          npx opennextjs-cloudflare build 2>&1 | tee open-next-build.log
+
           echo "=== BUILD: listing .open-next ==="
           ls -R .open-next || true
 
-      - name: Cleanup temporary wrangler.toml
-        if: always()
-        run: rm -f wrangler.toml
+          # Cleanup always
+          rm -f wrangler.toml
 
       - name: Guardrail (real worker only, no dry-run/stub)
         run: |
