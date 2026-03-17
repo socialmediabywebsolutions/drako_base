@@ -1,15 +1,129 @@
-name: Archived Build & Deploy Worker
+name: Build & Deploy Worker
 
 on:
   workflow_dispatch:
 
 jobs:
-  blocked:
+  build:
     runs-on: ubuntu-latest
-    name: Blocked Legacy Workflow
+    name: Build Worker (Linux)
     steps:
-      - name: Explain canonical replacement
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Solo-Worker Guardrail
+        run: npx tsx scripts/check-no-pages.ts
+
+      - name: Build Worker
+        run: npm run cf:build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Upload Worker Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-build
+          path: .open-next/
+          if-no-files-found: error
+
+  deploy-deps:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Deploy Dependency Workers
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Deploy drako-scheduler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config workers/drako-scheduler/wrangler.toml
+
+      - name: Deploy autopilot-worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config workers/autopilot-worker/wrangler.toml
+
+      - name: Deploy saas-factory-worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config workers/saas-factory-worker/wrangler.toml
+
+  deploy:
+    needs: [build, deploy-deps]
+    runs-on: ubuntu-latest
+    name: Deploy to Cloudflare
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: worker-build
+          path: .open-next/
+
+      - name: Preflight check (verify deps exist)
+        run: node scripts/preflight-deploy.js
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy with Wrangler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config wrangler.workers.toml --env production
+
+  smoke-test:
+    needs: deploy
+    runs-on: ubuntu-latest
+    name: Smoke Test
+    steps:
+      - name: Wait for deployment to propagate
+        run: sleep 10
+
+      - name: Check Root URL
         run: |
-          echo "BLOCKED: .github/workflows/build-worker.yml is archived."
-          echo "Use .github/workflows/drako-factory-deploy.yml as the single canonical build/deploy path."
-          exit 1
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://drako.systems/)
+          if [ "$STATUS" -ne 200 ] && [ "$STATUS" -ne 301 ] && [ "$STATUS" -ne 302 ]; then echo "Root check failed with $STATUS"; exit 1; fi
+
+      - name: Check Health API
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://drako.systems/api/health)
+          if [ "$STATUS" -ne 200 ]; then echo "Health check failed with $STATUS"; exit 1; fi
+
+      - name: Check Health bindings
+        run: |
+          BODY=$(curl -s https://drako.systems/api/health)
+          echo "$BODY" | grep -q '"scheduler"' && echo "Scheduler binding present" || echo "WARN: scheduler binding not in response"
+
+      - name: Check SaaS API
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://drako.systems/api/saas)
+          if [ "$STATUS" -ne 200 ]; then echo "SaaS check failed with $STATUS"; exit 1; fi
