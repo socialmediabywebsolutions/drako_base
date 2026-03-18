@@ -1,39 +1,75 @@
 import { SiteLayout } from "@/components/marketing/SiteLayout";
-import { OpsPanel } from "@/components/ui/ops-primitives";
 import { getMarketingCopy, resolveMarketingLocale, type MarketingLocale } from "@/lib/i18n/marketing";
 
 export default async function VisionPage({ params }: { params?: Promise<{ locale?: string }> }) {
   const resolvedParams = params ? await params : undefined;
   const locale: MarketingLocale = resolveMarketingLocale(resolvedParams?.locale);
   const copy = getMarketingCopy(locale);
+  
+  const footerLine = copy.about.content[0];
 
   return (
-    <SiteLayout locale={locale} currentPath="/vision" copy={{ nav: copy.nav, footerLine: copy.about.paragraphs?.[0] ?? "" }}>
-      <div className="min-h-screen bg-[#f6f8fb] text-slate-900 leading-tight">
-        <main className="mx-auto grid max-w-6xl gap-3 p-4 sm:p-6">
-          <OpsPanel variant="elevated" className="p-5 sm:p-6 fade-in">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{copy.nav.vision}</p>
-              <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-slate-900">{copy.vision.title}</h1>
-              <p className="text-sm text-slate-600 max-w-3xl">{copy.vision.subtitle}</p>
-              <p className="text-sm text-slate-700 max-w-3xl">{copy.vision.text}</p>
-            </div>
-          </OpsPanel>
+    <SiteLayout locale={locale} currentPath="/vision" copy={{ nav: copy.nav, footerLine }}>
+      <div className="bg-[#f6f8fb] text-slate-900 font-sans min-h-screen">
+        
+        {/* HERO */}
+        <section className="pt-32 pb-20 md:pt-48 md:pb-32">
+          <div className="container-premium">
+             <div className="max-w-4xl fade-in-up">
+                <span className="text-sky-500 font-bold tracking-widest uppercase text-sm mb-6 block">
+                  {copy.nav.vision}
+                </span>
+                <h1 className="heading-xl text-slate-900 mb-8 text-balance">
+                  {copy.vision.title}
+                </h1>
+                <p className="text-xl md:text-2xl text-slate-600 max-w-2xl text-balance leading-relaxed">
+                  {copy.vision.subtitle}
+                </p>
+             </div>
+          </div>
+        </section>
 
-          <OpsPanel variant="base" className="p-4 sm:p-5 fade-in">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {copy.vision.pillars.map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-lg border border-[#e3e9f3] bg-white px-4 py-3 text-sm text-slate-900 transition hover:-translate-y-0.5 hover:border-sky-100 hover:bg-sky-50/70"
-                >
-                  <div className="text-base font-semibold text-slate-900">{item.title}</div>
-                  <p className="mt-1 text-xs text-slate-600">{item.body}</p>
-                </div>
-              ))}
-            </div>
-          </OpsPanel>
-        </main>
+        {/* MANIFESTO CONTENT */}
+        <section className="pb-24">
+           <div className="container-premium">
+              <div className="max-w-3xl mx-auto space-y-12">
+                 {copy.vision.content.map((paragraph, index) => (
+                    <p key={index} className={`text-xl md:text-2xl leading-loose text-slate-700 fade-in-up delay-${(index + 1) * 100}`}>
+                       {paragraph}
+                    </p>
+                 ))}
+              </div>
+           </div>
+        </section>
+
+        {/* PILLARS */}
+        <section className="section-spacing bg-white border-t border-slate-200">
+           <div className="container-premium">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
+                 {copy.vision.pillars.map((pillar, index) => (
+                    <div key={index} className="card-premium p-8 md:p-12 hover:border-indigo-200 group fade-in-up">
+                       <h3 className="text-2xl font-bold text-slate-900 mb-4 group-hover:text-indigo-600 transition-colors">
+                          {pillar.title}
+                       </h3>
+                       <p className="text-lg text-slate-600 leading-relaxed">
+                          {pillar.body}
+                       </p>
+                    </div>
+                 ))}
+              </div>
+           </div>
+        </section>
+
+        {/* CTA */}
+        <section className="py-32 bg-[#eef4fa] border-t border-slate-200">
+           <div className="container-premium text-center fade-in-up">
+              <h2 className="heading-lg mb-8">Construyamos ese futuro.</h2>
+              <a href="/contact" className="btn-premium btn-secondary text-lg px-8 py-4">
+                 Unirse a Drako
+              </a>
+           </div>
+        </section>
+
       </div>
     </SiteLayout>
   );

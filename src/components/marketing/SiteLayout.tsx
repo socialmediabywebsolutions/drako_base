@@ -44,29 +44,36 @@ export function SiteLayout({ children, locale, currentPath, copy }: Props) {
       : basePath;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href={locale === defaultMarketingLocale ? "/" : `/${locale}`} className="text-lg font-semibold tracking-tight">
+    <div className="min-h-screen flex flex-col bg-[var(--background)] text-[var(--foreground)] font-sans">
+      <header className="fixed top-0 w-full z-50 border-b border-[var(--border)] bg-[var(--panel)]/80 backdrop-blur-md transition-all duration-300">
+        <div className="container-premium flex items-center justify-between h-16 md:h-20">
+          <Link href={locale === defaultMarketingLocale ? "/" : `/${locale}`} className="text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--brand-strong)] transition-colors">
             Drako Systems
           </Link>
-          <nav className="hidden items-center gap-6 text-sm text-slate-600 sm:flex">
+          
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
             {navLinks(copy.nav, locale).map((item) => (
-              <Link key={item.href} href={item.href} className="transition hover:text-slate-900">
+              <Link 
+                key={item.href} 
+                href={item.href} 
+                className="hover:text-[var(--brand-strong)] transition-colors relative group"
+              >
                 {item.label}
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[var(--brand)] transition-all group-hover:w-full"></span>
               </Link>
             ))}
           </nav>
-          <div className="flex items-center gap-2 text-sm text-slate-700">
+
+          <div className="flex items-center gap-4 text-sm">
             <Link
               href={switchHref}
-              className="rounded-full border border-slate-300 px-3 py-1.5 font-medium text-slate-800 transition hover:border-slate-400 hover:bg-slate-100"
+              className="text-slate-500 hover:text-[var(--brand-strong)] font-semibold transition-colors"
             >
               {copy.nav.localeSwitch}
             </Link>
             <Link
               href={locale === defaultMarketingLocale ? "/contact" : `/${locale}/contact`}
-              className="hidden rounded-full border border-slate-300 px-3 py-1.5 font-medium text-slate-800 transition hover:border-slate-400 hover:bg-slate-100 sm:inline-flex"
+              className="hidden sm:inline-flex btn-premium btn-primary py-2 px-5 text-sm"
             >
               {copy.nav.contact}
             </Link>
@@ -74,12 +81,23 @@ export function SiteLayout({ children, locale, currentPath, copy }: Props) {
         </div>
       </header>
 
-      <main>{children}</main>
+      <main className="flex-grow">
+        {children}
+      </main>
 
-      <footer className="border-t border-slate-200 bg-white/80">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-6 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-          <span className="font-medium text-slate-800">Drako Systems</span>
-          <span className="text-slate-500">{copy.footerLine}</span>
+      <footer className="border-t border-[var(--border)] bg-[var(--panel)] mt-auto">
+        <div className="container-premium py-12">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="flex flex-col gap-2">
+              <span className="text-lg font-bold text-[var(--foreground)]">Drako Systems</span>
+              <p className="text-sm text-slate-500 max-w-md leading-relaxed">
+                {copy.footerLine}
+              </p>
+            </div>
+            <div className="flex gap-6 text-sm text-slate-500">
+              <span>&copy; {new Date().getFullYear()} Drako Systems</span>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

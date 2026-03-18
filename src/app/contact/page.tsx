@@ -1,96 +1,122 @@
 import { SiteLayout } from "@/components/marketing/SiteLayout";
-import { OpsPanel } from "@/components/ui/ops-primitives";
 import { getMarketingCopy, resolveMarketingLocale, type MarketingLocale } from "@/lib/i18n/marketing";
 
 export default async function ContactPage({ params }: { params?: Promise<{ locale?: string }> }) {
   const resolvedParams = params ? await params : undefined;
   const locale: MarketingLocale = resolveMarketingLocale(resolvedParams?.locale);
   const copy = getMarketingCopy(locale);
+  
+  const footerLine = copy.about.content[0];
 
   return (
-    <SiteLayout locale={locale} currentPath="/contact" copy={{ nav: copy.nav, footerLine: copy.about.paragraphs?.[0] ?? "" }}>
-      <div className="min-h-screen bg-[#f6f8fb] text-slate-900 leading-tight">
-        <main className="mx-auto grid max-w-5xl gap-4 p-4 sm:p-6">
-          <OpsPanel variant="elevated" className="p-5 sm:p-6 fade-in">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{copy.nav.contact}</p>
-              <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-slate-900">{copy.contact.title}</h1>
-              <p className="text-sm text-slate-600 max-w-3xl">{copy.contact.subtitle}</p>
-            </div>
-          </OpsPanel>
+    <SiteLayout locale={locale} currentPath="/contact" copy={{ nav: copy.nav, footerLine }}>
+      <div className="bg-[#f6f8fb] text-slate-900 font-sans min-h-screen">
+        
+        {/* HERO */}
+        <section className="pt-32 pb-20 md:pt-48 md:pb-32">
+          <div className="container-premium">
+             <div className="max-w-4xl fade-in-up">
+                <span className="text-sky-500 font-bold tracking-widest uppercase text-sm mb-6 block">
+                  {copy.nav.contact}
+                </span>
+                <h1 className="heading-xl text-slate-900 mb-8 text-balance">
+                  {copy.contact.title}
+                </h1>
+                <p className="text-xl md:text-2xl text-slate-600 max-w-2xl text-balance leading-relaxed">
+                  {copy.contact.subtitle}
+                </p>
+             </div>
+          </div>
+        </section>
 
-          <OpsPanel variant="base" className="p-5 sm:p-6 fade-in">
-            <section className="grid gap-6 sm:grid-cols-2">
-              <div className="space-y-3">
-                <h2 className="text-lg font-semibold text-slate-900">{copy.contact.title}</h2>
-                <ul className="space-y-2 text-sm text-slate-700">
-                  {copy.contact.options.map((option) => (
-                    <li key={option} className="rounded-xl border border-[#e3e9f3] bg-white px-4 py-3 hover:border-sky-100 hover:bg-sky-50/70 transition">
-                      <p className="font-semibold text-slate-900">{option}</p>
-                    </li>
-                  ))}
-                </ul>
-                <p className="text-xs text-slate-500">{copy.contact.note}</p>
+        {/* CONTENT & FORM */}
+        <section className="pb-32">
+           <div className="container-premium">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-12 items-start">
+                 
+                 {/* Left Column: Context */}
+                 <div className="md:col-span-5 fade-in-up delay-100">
+                    <div className="prose prose-lg text-slate-600 leading-loose">
+                       <p className="text-xl text-slate-800 font-medium mb-8">
+                          {copy.contact.intro}
+                       </p>
+                       <div className="bg-white p-8 rounded-2xl border border-slate-200 mt-8">
+                          <p className="text-base text-slate-500 italic">
+                             "{copy.contact.note}"
+                          </p>
+                       </div>
+                    </div>
+                 </div>
+
+                 {/* Right Column: Form */}
+                 <div className="md:col-span-7 fade-in-up delay-200">
+                    <form className="card-premium bg-white p-8 md:p-12 space-y-8">
+                       <div className="grid grid-cols-1 gap-8">
+                          <div className="space-y-2">
+                             <label htmlFor="name" className="text-sm font-bold uppercase tracking-widest text-slate-500">
+                                {copy.contact.form.name}
+                             </label>
+                             <input 
+                                type="text" 
+                                id="name"
+                                name="name"
+                                className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all"
+                                placeholder="Ej. Ana García"
+                             />
+                          </div>
+                          
+                          <div className="space-y-2">
+                             <label htmlFor="email" className="text-sm font-bold uppercase tracking-widest text-slate-500">
+                                {copy.contact.form.email}
+                             </label>
+                             <input 
+                                type="email" 
+                                id="email"
+                                name="email"
+                                className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all"
+                                placeholder="Ej. ana@empresa.com"
+                             />
+                          </div>
+
+                          <div className="space-y-2">
+                             <label htmlFor="role" className="text-sm font-bold uppercase tracking-widest text-slate-500">
+                                {copy.contact.form.role}
+                             </label>
+                             <input 
+                                type="text" 
+                                id="role"
+                                name="role"
+                                className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all"
+                                placeholder="Ej. Director de Operaciones"
+                             />
+                          </div>
+
+                          <div className="space-y-2">
+                             <label htmlFor="message" className="text-sm font-bold uppercase tracking-widest text-slate-500">
+                                {copy.contact.form.message}
+                             </label>
+                             <textarea 
+                                id="message"
+                                name="message"
+                                rows={5}
+                                className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all resize-none"
+                                placeholder="Cuéntanos brevemente qué buscas resolver..."
+                             />
+                          </div>
+                       </div>
+
+                       <div className="pt-4">
+                          <button type="submit" className="btn-premium btn-primary w-full md:w-auto text-lg px-8">
+                             {copy.contact.form.submit}
+                          </button>
+                       </div>
+                    </form>
+                 </div>
+
               </div>
-              <form className="space-y-4 rounded-2xl border border-[#e3e9f3] bg-white px-5 py-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-800" htmlFor="name">{copy.contact.form.name}</label>
-                  <input
-                    id="name"
-                    name="name"
-                    type="text"
-                    className="w-full rounded-xl border border-[#e3e9f3] bg-white px-3 py-2 text-slate-900 outline-none ring-0 focus:border-sky-200"
-                    placeholder={copy.contact.form.placeholderName}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-800" htmlFor="email">{copy.contact.form.email}</label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    className="w-full rounded-xl border border-[#e3e9f3] bg-white px-3 py-2 text-slate-900 outline-none ring-0 focus:border-sky-200"
-                    placeholder={copy.contact.form.placeholderEmail}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-800" htmlFor="reason">{copy.contact.form.reason}</label>
-                  <select
-                    id="reason"
-                    name="reason"
-                    className="w-full rounded-xl border border-[#e3e9f3] bg-white px-3 py-2 text-slate-900 outline-none ring-0 focus:border-sky-200"
-                    defaultValue=""
-                  >
-                    <option value="" disabled>
-                      --
-                    </option>
-                    {copy.contact.options.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-800" htmlFor="message">{copy.contact.form.message}</label>
-                  <textarea
-                    id="message"
-                    name="message"
-                    rows={5}
-                    className="w-full rounded-xl border border-[#e3e9f3] bg-white px-3 py-2 text-slate-900 outline-none ring-0 focus:border-sky-200"
-                    placeholder={copy.contact.form.placeholderMessage}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(56,189,248,0.35)] transition hover:-translate-y-0.5 hover:bg-sky-600"
-                >
-                  {copy.contact.form.submit}
-                </button>
-              </form>
-            </section>
-          </OpsPanel>
-        </main>
+           </div>
+        </section>
+
       </div>
     </SiteLayout>
   );

@@ -1,34 +1,82 @@
 import { SiteLayout } from "@/components/marketing/SiteLayout";
-import { OpsPanel } from "@/components/ui/ops-primitives";
-import { getMarketingCopy, resolveMarketingLocale, defaultMarketingLocale, type MarketingLocale } from "@/lib/i18n/marketing";
+import { getMarketingCopy, resolveMarketingLocale, type MarketingLocale } from "@/lib/i18n/marketing";
 
 export default async function AboutPage({ params }: { params?: Promise<{ locale?: string }> }) {
   const resolvedParams = params ? await params : undefined;
   const locale: MarketingLocale = resolveMarketingLocale(resolvedParams?.locale);
   const copy = getMarketingCopy(locale);
-  const prefix = locale === defaultMarketingLocale ? "" : `/${locale}`;
+  
+  const footerLine = copy.about.content[0];
 
   return (
-    <SiteLayout locale={locale} currentPath="/about" copy={{ nav: copy.nav, footerLine: copy.about.paragraphs?.[0] ?? "" }}>
-      <div className="min-h-screen bg-[#f6f8fb] text-slate-900 leading-tight">
-        <main className="mx-auto grid max-w-6xl gap-4 p-4 sm:p-6">
-          <OpsPanel variant="elevated" className="p-5 sm:p-6 fade-in">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{copy.nav.about}</p>
-              <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-slate-900">{copy.about.title}</h1>
-            </div>
-          </OpsPanel>
-
-          <OpsPanel variant="base" className="p-4 sm:p-5 fade-in">
-            <div className="space-y-3 text-sm text-slate-700">
-              {copy.about.paragraphs.map((paragraph) => (
-                <p key={paragraph} className="text-base text-slate-800">
-                  {paragraph}
+    <SiteLayout locale={locale} currentPath="/about" copy={{ nav: copy.nav, footerLine }}>
+      <div className="bg-[#f6f8fb] text-slate-900 font-sans min-h-screen">
+        
+        {/* HERO */}
+        <section className="pt-32 pb-20 md:pt-48 md:pb-32">
+          <div className="container-premium">
+             <div className="max-w-4xl fade-in-up">
+                <span className="text-sky-500 font-bold tracking-widest uppercase text-sm mb-6 block">
+                  {copy.nav.about}
+                </span>
+                <h1 className="heading-xl text-slate-900 mb-8 text-balance">
+                  {copy.about.title}
+                </h1>
+                <p className="text-xl md:text-2xl text-slate-600 max-w-2xl text-balance leading-relaxed">
+                  {copy.about.subtitle}
                 </p>
-              ))}
-            </div>
-          </OpsPanel>
-        </main>
+             </div>
+          </div>
+        </section>
+
+        {/* STORY CONTENT */}
+        <section className="pb-24">
+           <div className="container-premium">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-12">
+                 <div className="md:col-span-8 md:col-start-3 space-y-12">
+                    {copy.about.content.map((paragraph, index) => (
+                       <div key={index} className={`card-premium bg-white p-8 md:p-12 fade-in-up delay-${(index + 1) * 100}`}>
+                          <p className="text-xl leading-loose text-slate-700 font-medium">
+                             {paragraph}
+                          </p>
+                       </div>
+                    ))}
+                 </div>
+              </div>
+           </div>
+        </section>
+
+        {/* TEAM / CULTURE (Placeholder for future) */}
+        <section className="section-spacing bg-white border-t border-slate-200">
+           <div className="container-premium text-center fade-in-up">
+              <h2 className="heading-lg mb-12">Nuestros Valores</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                 <div className="p-8 rounded-2xl bg-slate-50">
+                    <h3 className="text-xl font-bold mb-4 text-slate-900">Pragmatismo Radical</h3>
+                    <p className="text-slate-600">Construimos lo que funciona, no lo que está de moda.</p>
+                 </div>
+                 <div className="p-8 rounded-2xl bg-slate-50">
+                    <h3 className="text-xl font-bold mb-4 text-slate-900">Velocidad y Calidad</h3>
+                    <p className="text-slate-600">No elegimos una. Exigimos ambas en cada entrega.</p>
+                 </div>
+                 <div className="p-8 rounded-2xl bg-slate-50">
+                    <h3 className="text-xl font-bold mb-4 text-slate-900">Transparencia Total</h3>
+                    <p className="text-slate-600">Sin cajas negras. Entiendes lo que construimos.</p>
+                 </div>
+              </div>
+           </div>
+        </section>
+
+        {/* CTA */}
+        <section className="py-32 bg-[#eef4fa] border-t border-slate-200">
+           <div className="container-premium text-center fade-in-up">
+              <h2 className="heading-lg mb-8">Trabaja con nosotros</h2>
+              <a href="/contact" className="btn-premium btn-primary text-lg px-8 py-4">
+                 Ver posiciones abiertas
+              </a>
+           </div>
+        </section>
+
       </div>
     </SiteLayout>
   );
