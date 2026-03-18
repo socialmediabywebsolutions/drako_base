@@ -59,8 +59,8 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
 
   return (
     <SiteLayout locale={locale} currentPath={currentPath} copy={{ nav: copy.nav, footerLine: copy.about.intro }}>
-      <div className="min-h-screen bg-slate-950 text-slate-100 font-sans leading-tight">
-        <main className="mx-auto grid max-w-6xl gap-3 p-4 sm:p-5">
+      <div className="min-h-screen bg-[#f6f8fb] text-slate-900 font-sans leading-tight">
+        <main className="mx-auto grid max-w-6xl gap-3 p-4 sm:p-6">
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <HeroModule
               title="Infraestructura en operación"
@@ -70,8 +70,8 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
             />
 
             <OpsPanel variant="elevated" className="p-3 sm:p-4">
-              <header className="flex items-center justify-between text-sm text-slate-300">
-                <span className="font-semibold text-slate-100">Productos</span>
+              <header className="flex items-center justify-between text-sm text-slate-500">
+                <span className="font-semibold text-slate-900">Productos</span>
               </header>
               <ProductList items={productItems} />
             </OpsPanel>
@@ -79,8 +79,8 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
 
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <OpsPanel variant="base" className="p-3 sm:p-4">
-              <header className="flex items-center justify-between text-sm text-slate-300">
-                <span className="font-semibold text-slate-100">Sistema</span>
+              <header className="flex items-center justify-between text-sm text-slate-500">
+                <span className="font-semibold text-slate-900">Sistema</span>
               </header>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {[
@@ -91,17 +91,17 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
                   ["CI/CD", "Deploy automatizado"],
                   ["Gobernanza", "Policies enforced"],
                 ].map(([title, desc]) => (
-                  <div key={title} className="rounded border border-[#1D2433] bg-[#0F1116] px-2 py-2 text-sm text-slate-100 hover:border-[#2A3448]">
+                  <div key={title} className="rounded-lg border border-[#e3e9f3] bg-white px-3 py-2 text-sm text-slate-900 hover:border-sky-100 hover:bg-sky-50/70">
                     <div className="font-semibold">{title}</div>
-                    <div className="text-xs text-slate-400">{desc}</div>
+                    <div className="text-xs text-slate-500">{desc}</div>
                   </div>
                 ))}
               </div>
             </OpsPanel>
 
             <OpsPanel variant="base" className="p-3 sm:p-4">
-              <header className="flex items-center justify-between text-sm text-slate-300">
-                <span className="font-semibold text-slate-100">Operación</span>
+              <header className="flex items-center justify-between text-sm text-slate-500">
+                <span className="font-semibold text-slate-900">Operación</span>
               </header>
               <LogList lines={opEvents} />
             </OpsPanel>
@@ -115,18 +115,18 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
             </OpsPanel>
 
             <OpsPanel variant="base" className="p-3 sm:p-4">
-              <header className="flex items-center justify-between text-sm text-slate-300">
-                <span className="font-semibold text-slate-100">Registro</span>
+              <header className="flex items-center justify-between text-sm text-slate-500">
+                <span className="font-semibold text-slate-900">Registro</span>
               </header>
               <LogList lines={journalEvents} />
             </OpsPanel>
 
             <OpsPanel variant="flat" className="p-3 sm:p-4">
-              <div className="text-sm text-slate-400 uppercase tracking-[0.2em]">Visión</div>
-              <div className="mt-2 text-lg font-semibold text-slate-100 leading-tight">
+              <div className="text-sm text-slate-500 uppercase tracking-[0.2em]">Visión</div>
+              <div className="mt-2 text-lg font-semibold text-slate-900 leading-tight">
                 SaaS que se operan solos. Gobernanza y agentes por defecto.
               </div>
-              <a href={`${prefix}/vision`} className="mt-2 inline-flex text-xs font-semibold text-slate-300 hover:text-emerald-100 underline">
+              <a href={`${prefix}/vision`} className="mt-2 inline-flex text-xs font-semibold text-slate-700 hover:text-sky-600 underline">
                 Ver tesis →
               </a>
             </OpsPanel>

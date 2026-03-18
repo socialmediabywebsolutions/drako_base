@@ -26,8 +26,8 @@ export default async function ProductsPage({ params }: { params?: Promise<{ loca
 
   return (
     <SiteLayout locale={locale} currentPath="/products" copy={{ nav: copy.nav, footerLine: copy.about.intro }}>
-      <div className="min-h-screen bg-slate-950 text-slate-100 font-mono leading-tight">
-        <main className="mx-auto grid max-w-6xl gap-3 p-4 sm:p-5 font-sans">
+      <div className="min-h-screen bg-[#f6f8fb] text-slate-900 leading-tight">
+        <main className="mx-auto grid max-w-6xl gap-3 p-4 sm:p-6">
           <HeroModule
             title={copy.products.title}
             subtitle={copy.products.subtitle}
@@ -43,8 +43,8 @@ export default async function ProductsPage({ params }: { params?: Promise<{ loca
             </OpsPanel>
 
             <OpsPanel variant="elevated" className="p-3 sm:p-4 lg:col-span-2">
-              <header className="flex items-center justify-between text-sm text-slate-300">
-                <span className="font-semibold text-slate-100">Servicios</span>
+              <header className="flex items-center justify-between text-sm text-slate-500">
+                <span className="font-semibold text-slate-900">Servicios</span>
               </header>
               <ProductList items={productItems} />
             </OpsPanel>
