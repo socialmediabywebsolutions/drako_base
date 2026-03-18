@@ -56,8 +56,8 @@ export function getMarketingCopy(locale: MarketingLocale) {
         localeSwitch: "ES",
       },
       home: {
-        heroTitle: "We build AI products for the problems still unsolved at work.",
-        heroSubtitle: "We automate work, improve decisions, and help teams work better, not harder.",
+        heroTitle: "We build AI products to fix the work no one should still be doing.",
+        heroSubtitle: "Teams lose hours to manual steps and shaky calls. We cut that work so people can do what matters.",
         tags: ["AI products", "Real impact", "Applied AI", "Decision intelligence"],
         ctas: {
           products: "See products",
@@ -66,13 +66,13 @@ export function getMarketingCopy(locale: MarketingLocale) {
           journal: "Go to journal",
         },
         context:
-          "Too much work is still manual, slow, or imprecise. That's where applied AI makes a real difference.",
+          "Marketing, ops, support, finance: too many hours go to copy-paste, reviews, and rework. Applied AI removes that drag so days stop leaking time.",
         productCards: [
           {
             name: "SocialFlow",
-            problem: "Marketing teams lose time coordinating content and replying to messages.",
-            does: "Automates publishing, replies, and reporting with oversight.",
-            improves: "Cuts hours of manual work so the team can focus on what matters and keeps communication consistent without constant babysitting.",
+            problem: "Marketing teams burn hours cada semana revisando comentarios, coordinando publicaciones y apagando incendios de marca.",
+            does: "Publica, responde y reporta con el tono correcto sin que el equipo vigile cada paso.",
+            improves: "Libera horas de tareas repetitivas, evita errores de tono y mantiene la marca coherente incluso cuando el equipo va justo de tiempo.",
           },
         ],
         whatIs: {
@@ -193,7 +193,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
       journal: {
         title: "Journal",
         subtitle: "Ideas, progress, and applied learnings.",
-        intro: "We share how we bring AI to real problems: design decisions, lessons, and vision in motion.",
+        intro: "Real problems, what we tried, what failed, what worked. Journal Drako no es un decorado: es cómo pensamos y qué aprendemos al meter IA donde duele.",
         themes: [
           { title: "Cases", desc: "What we learned solving real problems." },
           { title: "Product", desc: "Progress and decisions in our products." },
@@ -233,7 +233,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
       },
       about: {
         title: "About Drako",
-        intro: "We are Drako: a team allergic to wasted effort. We build AI products that fix real work and stand up to pressure.",
+        intro: "We are Drako. We see hours wasted and fragile decisions every day. We use AI to remove that waste and ship products that hold up under pressure.",
         blocks: [
           {
             title: "Who we are",
@@ -292,8 +292,8 @@ export function getMarketingCopy(locale: MarketingLocale) {
       localeSwitch: "EN",
     },
     home: {
-      heroTitle: "Construimos productos de IA para los problemas reales que siguen sin resolverse en el día a día.",
-      heroSubtitle: "Automatizamos tareas, mejoramos decisiones y ayudamos a equipos a trabajar mejor, no más.",
+      heroTitle: "Construimos productos de IA para quitar el trabajo que nadie debería seguir haciendo.",
+      heroSubtitle: "Equipos pierden horas en pasos manuales y decisiones frágiles. Cortamos ese trabajo para que hagan lo que de verdad importa.",
       tags: ["Productos de IA", "Impacto real", "IA aplicada", "Decisiones precisas"],
       ctas: {
         products: "Ver productos",
@@ -302,13 +302,13 @@ export function getMarketingCopy(locale: MarketingLocale) {
         journal: "Ir al journal",
       },
       context:
-        "En muchas empresas, demasiado trabajo sigue siendo manual, lento o poco preciso. Ahí es donde la IA bien aplicada marca la diferencia.",
+        "Marketing, operaciones, soporte, finanzas: demasiadas horas en copiar, revisar y rehacer. La IA aplicada quita ese lastre para que el día no se fugue en tareas inútiles.",
       productCards: [
         {
           name: "SocialFlow",
-          problem: "Los equipos de marketing pierden tiempo coordinando contenido y respondiendo mensajes.",
-          does: "Automatiza publicaciones, respuestas y reporting con supervisión.",
-          improves: "Reduce horas de trabajo manual para que el equipo se centre en lo importante y mantiene la consistencia sin depender de tareas manuales constantes.",
+          problem: "Los equipos de marketing queman horas cada semana revisando comentarios, coordinando publicaciones y apagando incendios de marca.",
+          does: "Publica, responde y reporta con el tono correcto sin que el equipo vigile cada paso.",
+          improves: "Libera horas de tareas repetitivas, evita errores de tono y mantiene la marca coherente incluso cuando el equipo va justo de tiempo.",
         },
       ],
       whatIs: {
@@ -429,7 +429,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
     journal: {
       title: "Journal",
       subtitle: "Ideas, avances y aprendizajes aplicados.",
-      intro: "Compartimos cómo llevamos IA a problemas reales: decisiones de diseño, aprendizajes y visión en progreso.",
+      intro: "Problemas reales, qué probamos, qué falló, qué funcionó. Journal Drako no es un decorado: es cómo pensamos y qué aprendemos al meter IA donde duele.",
       themes: [
         { title: "Casos", desc: "Qué aprendimos resolviendo problemas reales." },
         { title: "Producto", desc: "Avances y decisiones en nuestros productos." },
@@ -469,7 +469,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
     },
     about: {
       title: "Sobre Drako",
-      intro: "Somos Drako: un equipo alérgico al esfuerzo desperdiciado. Construimos productos de IA que arreglan el trabajo y aguantan presión.",
+      intro: "Somos Drako. Vemos horas desperdiciadas y decisiones frágiles todos los días. Usamos IA para quitar ese desperdicio y lanzar productos que aguantan presión.",
       blocks: [
         {
           title: "Quiénes somos",
