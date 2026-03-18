@@ -2,9 +2,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { HostMode, resolveHostMode } from "@/lib/hosts";
 import { SiteLayout } from "@/components/marketing/SiteLayout";
-import { getMarketingCopy, resolveMarketingLocale, defaultMarketingLocale } from "@/lib/i18n/marketing";
-import { products as canonicalProducts } from "@/lib/marketing/products";
-import { HeroModule, LogList, OpsPanel, ProductList, StateBlock } from "@/components/ui/ops-primitives";
+import { getMarketingCopy, resolveMarketingLocale, defaultMarketingLocale, type MarketingLocale } from "@/lib/i18n/marketing";
+import { OpsPanel } from "@/components/ui/ops-primitives";
 
 const isHostMode = (value: string | null): value is HostMode =>
   value === "CAMPAMENTO_BASE" || value === "PREVIEW" || value === "PUBLIC_SAAS";
@@ -22,109 +21,125 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
   const matchedPath = headersList.get("x-matched-path") || headersList.get("x-invoke-path") || headersList.get("next-url") || "/";
   const pathParts = matchedPath.split("/");
   const localeFromPath = resolveMarketingLocale(resolvedParams?.locale ?? (pathParts[1] || undefined));
-  const locale = localeFromPath;
+  const locale: MarketingLocale = localeFromPath;
   const copy = getMarketingCopy(locale);
   const prefix = locale === defaultMarketingLocale ? "" : `/${locale}`;
   const currentPath = "/";
 
-  const liveProducts = canonicalProducts.filter((p) => p.status === "live");
-  const buildingProducts = canonicalProducts.filter((p) => p.status === "building");
-  const researchProducts = canonicalProducts.filter((p) => p.status === "research");
-
-  const productItems = [
-    ...liveProducts.map((p) => ({ name: p.name, desc: p.shortDescription ?? "", state: "RUNNING" as const })),
-    ...buildingProducts.map((p) => ({ name: p.name, desc: p.shortDescription ?? "", state: "BUILD" as const })),
-    ...researchProducts.map((p) => ({ name: p.name, desc: p.shortDescription ?? "", state: "RESEARCH" as const })),
-  ];
-
-  const stateCount = {
-    RUNNING: productItems.filter((p) => p.state === "RUNNING").length,
-    BUILD: productItems.filter((p) => p.state === "BUILD").length,
-    RESEARCH: productItems.filter((p) => p.state === "RESEARCH").length,
-  };
-
-  const opEvents = [
-    "Actualizamos SocialFlow con mejoras en respuesta automática",
-    "Probamos nueva señal de calidad para recomendaciones",
-    "Preparamos siguiente piloto con un equipo de marketing",
-  ];
-
-  const journalEvents = [
-    "Artículo: cómo evaluamos impacto real en un piloto",
-    "Idea: IA aplicada a operaciones de servicio al cliente",
-    "Nota: aprendizajes lanzando iteraciones semanales",
-  ];
+  const productCards = copy.home.productCards ?? [];
 
   return (
     <SiteLayout locale={locale} currentPath={currentPath} copy={{ nav: copy.nav, footerLine: copy.about.intro }}>
       <div className="min-h-screen bg-[#f6f8fb] text-slate-900 font-sans leading-tight">
-        <main className="mx-auto grid max-w-6xl gap-3 p-4 sm:p-6">
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <HeroModule
-              title={copy.home.heroTitle}
-              subtitle={copy.home.heroSubtitle}
-              tags={copy.home.tags}
-              ctaHref={`${prefix}/system`}
-              ctaLabel={copy.home.ctas.system}
-            />
+        <main className="mx-auto grid max-w-6xl gap-4 p-4 sm:p-6">
+          <section className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-3">
+            <OpsPanel
+              variant="elevated"
+              className="p-6 sm:p-7 bg-gradient-to-br from-white via-white to-sky-50/60"
+            >
+              <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-500">
+                <span className="h-2 w-2 rounded-full bg-sky-400" />
+                <span>{copy.nav.home}</span>
+              </div>
+              <div className="mt-4 space-y-3">
+                <h1 className="text-3xl sm:text-4xl font-semibold text-slate-900 leading-tight">
+                  {copy.home.heroTitle}
+                </h1>
+                <p className="text-base text-slate-600 max-w-3xl">{copy.home.heroSubtitle}</p>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={`${prefix}/products`}
+                    className="inline-flex items-center justify-center rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(56,189,248,0.35)] transition hover:bg-sky-600"
+                  >
+                    {copy.home.ctas.products}
+                  </a>
+                  <a
+                    href={`${prefix}/system`}
+                    className="inline-flex items-center justify-center rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:border-sky-300 hover:text-sky-700"
+                  >
+                    {copy.home.ctas.system}
+                  </a>
+                </div>
+              </div>
+            </OpsPanel>
 
-            <OpsPanel variant="elevated" className="p-3 sm:p-4">
-              <header className="flex items-center justify-between text-sm text-slate-500">
-                <span className="font-semibold text-slate-900">Productos</span>
-              </header>
-              <ProductList items={productItems} />
+            <OpsPanel variant="base" className="p-5 sm:p-6">
+              <div className="text-sm text-slate-500">{copy.home.context}</div>
             </OpsPanel>
           </section>
 
+          <section className="grid gap-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{copy.nav.products}</p>
+                <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900">{copy.home.products.title}</h2>
+              </div>
+              <a
+                href={`${prefix}/products`}
+                className="text-sm font-semibold text-slate-700 hover:text-sky-600"
+              >
+                {copy.home.ctas.products} →
+              </a>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {productCards.length === 0 ? (
+                <OpsPanel variant="base" className="p-4 text-sm text-slate-600">
+                  Soon: we'll share the first products here.
+                </OpsPanel>
+              ) : (
+                productCards.map((card) => (
+                  <OpsPanel key={card.name} variant="elevated" className="p-5 sm:p-6 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-semibold text-slate-900">{card.name}</div>
+                    </div>
+                    <div className="space-y-2 text-sm text-slate-700">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{locale === "es" ? "Problema" : "Problem"}</div>
+                        <p className="text-slate-800">{card.problem}</p>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{locale === "es" ? "Qué hace" : "What it does"}</div>
+                        <p className="text-slate-800">{card.does}</p>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{locale === "es" ? "Qué mejora" : "What it improves"}</div>
+                        <p className="text-slate-800">{card.improves}</p>
+                      </div>
+                    </div>
+                  </OpsPanel>
+                ))
+              )}
+            </div>
+          </section>
+
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <OpsPanel variant="base" className="p-3 sm:p-4">
-              <header className="flex items-center justify-between text-sm text-slate-500">
-                <span className="font-semibold text-slate-900">Cómo trabajamos</span>
-              </header>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {[
-                  ["Claridad", "Problema y métrica definidos"],
-                  ["Automatización útil", "IA donde quita fricción"],
-                  ["Ritmo", "Ciclos cortos y feedback real"],
-                  ["Fiabilidad", "Entregas cuidadas"],
-                ].map(([title, desc]) => (
-                  <div key={title} className="rounded-lg border border-[#e3e9f3] bg-white px-3 py-2 text-sm text-slate-900 hover:border-sky-100 hover:bg-sky-50/70">
-                    <div className="font-semibold">{title}</div>
-                    <div className="text-xs text-slate-500">{desc}</div>
+            <OpsPanel variant="base" className="p-5 sm:p-6">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{copy.nav.system}</p>
+              </div>
+              <h3 className="mt-2 text-2xl font-semibold text-slate-900">{copy.home.system.title}</h3>
+              <p className="mt-1 text-sm text-slate-600">{copy.home.system.blurb}</p>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {copy.home.system.points.map((point) => (
+                  <div
+                    key={point}
+                    className="rounded-lg border border-[#e3e9f3] bg-white px-3 py-2 text-sm text-slate-900 hover:border-sky-100 hover:bg-sky-50/70"
+                  >
+                    {point}
                   </div>
                 ))}
               </div>
             </OpsPanel>
 
-            <OpsPanel variant="base" className="p-3 sm:p-4">
-              <header className="flex items-center justify-between text-sm text-slate-500">
-                <span className="font-semibold text-slate-900">Operación</span>
-              </header>
-              <LogList lines={opEvents} highlightFirst={false} />
-            </OpsPanel>
-          </section>
-
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-            <OpsPanel variant="base" className="p-3 sm:p-4 flex items-center gap-3 text-sm">
-              {[{ state: "RUNNING" as const, count: stateCount.RUNNING }, { state: "BUILD" as const, count: stateCount.BUILD }, { state: "RESEARCH" as const, count: stateCount.RESEARCH }].map((s) => (
-                <StateBlock key={s.state} state={s.state} count={s.count} />
-              ))}
-            </OpsPanel>
-
-            <OpsPanel variant="base" className="p-3 sm:p-4">
-              <header className="flex items-center justify-between text-sm text-slate-500">
-                <span className="font-semibold text-slate-900">Registro</span>
-              </header>
-              <LogList lines={journalEvents} highlightFirst={false} />
-            </OpsPanel>
-
-            <OpsPanel variant="flat" className="p-3 sm:p-4">
-              <div className="text-sm text-slate-500 uppercase tracking-[0.2em]">Visión</div>
-              <div className="mt-2 text-lg font-semibold text-slate-900 leading-tight">
-                IA para mejorar trabajo y servicios críticos.
-              </div>
-              <a href={`${prefix}/vision`} className="mt-2 inline-flex text-xs font-semibold text-slate-700 hover:text-sky-600 underline">
-                Ver visión →
+            <OpsPanel variant="flat" className="p-5 sm:p-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{copy.nav.vision}</p>
+              <h3 className="mt-2 text-2xl font-semibold text-slate-900">{copy.home.vision.title}</h3>
+              <p className="mt-2 text-sm text-slate-600">{copy.home.vision.body}</p>
+              <a
+                href={`${prefix}/vision`}
+                className="mt-4 inline-flex text-sm font-semibold text-slate-800 hover:text-sky-600"
+              >
+                {locale === "es" ? "Ver visión" : "See vision"} →
               </a>
             </OpsPanel>
           </section>

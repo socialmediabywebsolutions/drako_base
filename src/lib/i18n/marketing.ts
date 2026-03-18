@@ -56,8 +56,8 @@ export function getMarketingCopy(locale: MarketingLocale) {
         localeSwitch: "ES",
       },
       home: {
-        heroTitle: "Drako runs AI products for problems you can't ignore.",
-        heroSubtitle: "We step into real operations to cut lag, steady decisions, and keep teams moving.",
+        heroTitle: "We build AI products for the problems still unsolved at work.",
+        heroSubtitle: "We automate work, improve decisions, and help teams work better, not harder.",
         tags: ["AI products", "Real impact", "Applied AI", "Decision intelligence"],
         ctas: {
           products: "See products",
@@ -65,6 +65,16 @@ export function getMarketingCopy(locale: MarketingLocale) {
           vision: "Read the vision",
           journal: "Go to journal",
         },
+        context:
+          "Too much work is still manual, slow, or imprecise. That's where applied AI makes a real difference.",
+        productCards: [
+          {
+            name: "SocialFlow",
+            problem: "Marketing teams lose time coordinating content and replying to messages.",
+            does: "Automates publishing, replies, and reporting with oversight.",
+            improves: "Cuts hours of manual work so the team can focus on what matters and keeps communication consistent without constant babysitting.",
+          },
+        ],
         whatIs: {
           title: "What we do",
           body: "We build and operate AI products that land inside demanding companies and stay running.",
@@ -98,12 +108,12 @@ export function getMarketingCopy(locale: MarketingLocale) {
         },
         system: {
           title: "How we build AI solutions",
-          blurb: "We name the real problem, ship fast, and keep people in the loop.",
+          blurb: "We understand the problem before we build, ship fast, and keep people involved.",
           points: [
-            "Problem first: name the pain and the metric to move",
-            "AI where it saves hours or reduces risk",
-            "Pace: ship weekly, learn from real use",
-            "Assurance: care in delivery without exposing the plumbing",
+            "Clarity: understand the real problem before building",
+            "Useful AI: only where it brings real value",
+            "Pace: launch fast and improve continuously",
+            "Reliability: what we build has to work well",
           ],
         },
         journal: {
@@ -111,8 +121,8 @@ export function getMarketingCopy(locale: MarketingLocale) {
           summary: "Ideas, progress, and applied learnings on bringing AI to real problems.",
         },
         vision: {
-          title: "AI that makes work unmistakably better.",
-          body: "Autonomy where it speeds you up, oversight where it matters most.",
+          title: "AI that makes work better.",
+          body: "We apply it where it truly changes operations, services, and key decisions.",
         },
         closing: {
           title: "Explore the ecosystem",
@@ -127,23 +137,23 @@ export function getMarketingCopy(locale: MarketingLocale) {
       },
       system: {
         title: "How we build AI solutions",
-        intro: "Clarity on the problem, useful automation, fast and responsible delivery.",
+        intro: "We understand the problem before we build, ship fast, and keep people involved.",
         pillars: [
           {
             title: "Clarity",
-            body: "We define the problem and the metric that must move.",
+            body: "Understand the real problem before building.",
           },
           {
-            title: "Useful automation",
-            body: "We apply AI where it removes friction and errors for people.",
+            title: "Useful AI",
+            body: "Use AI only where it brings real value.",
           },
           {
             title: "Pace",
-            body: "Short cycles, frequent releases, and feedback from real use.",
+            body: "Launch fast and improve continuously.",
           },
           {
             title: "Reliability",
-            body: "Quality and care in delivery without exposing internal machinery.",
+            body: "What we build has to work well.",
           },
         ],
         practices: [
@@ -194,8 +204,8 @@ export function getMarketingCopy(locale: MarketingLocale) {
         empty: "No public articles yet. We'll publish first entries here.",
       },
       vision: {
-        title: "AI to improve work and critical services.",
-        subtitle: "More autonomy where it helps, more responsibility where it matters.",
+        title: "AI that makes work better.",
+        subtitle: "We apply it where it truly changes operations, services, and key decisions.",
         pillars: [
           {
             title: "Utility",
@@ -282,8 +292,8 @@ export function getMarketingCopy(locale: MarketingLocale) {
       localeSwitch: "EN",
     },
     home: {
-      heroTitle: "Drako opera productos de IA para problemas que no admiten excusas.",
-      heroSubtitle: "Entramos en operaciones reales para cortar demoras, afinar decisiones y mantener a los equipos en ritmo.",
+      heroTitle: "Construimos productos de IA para los problemas reales que siguen sin resolverse en el día a día.",
+      heroSubtitle: "Automatizamos tareas, mejoramos decisiones y ayudamos a equipos a trabajar mejor, no más.",
       tags: ["Productos de IA", "Impacto real", "IA aplicada", "Decisiones precisas"],
       ctas: {
         products: "Ver productos",
@@ -291,6 +301,16 @@ export function getMarketingCopy(locale: MarketingLocale) {
         vision: "Leer visión",
         journal: "Ir al journal",
       },
+      context:
+        "En muchas empresas, demasiado trabajo sigue siendo manual, lento o poco preciso. Ahí es donde la IA bien aplicada marca la diferencia.",
+      productCards: [
+        {
+          name: "SocialFlow",
+          problem: "Los equipos de marketing pierden tiempo coordinando contenido y respondiendo mensajes.",
+          does: "Automatiza publicaciones, respuestas y reporting con supervisión.",
+          improves: "Reduce horas de trabajo manual para que el equipo se centre en lo importante y mantiene la consistencia sin depender de tareas manuales constantes.",
+        },
+      ],
       whatIs: {
         title: "Qué hacemos",
         body: "Creamos y operamos productos de IA que se integran en empresas exigentes y se quedan funcionando.",
@@ -324,12 +344,12 @@ export function getMarketingCopy(locale: MarketingLocale) {
       },
       system: {
         title: "Cómo construimos soluciones de IA",
-        blurb: "Nombramos el problema real, entregamos rápido y mantenemos a las personas en control.",
+        blurb: "Entendemos bien el problema antes de construir, lanzamos rápido y mantenemos a las personas involucradas.",
         points: [
-          "Problema primero: nombrar el dolor y la métrica a mover",
-          "IA donde ahorra horas o reduce riesgo",
-          "Ritmo: entregas semanales, aprendizaje en uso real",
-          "Confianza: cuidado en la entrega sin mostrar la cocina",
+          "Claridad: entendemos bien el problema antes de construir",
+          "IA útil: usamos IA solo donde aporta valor real",
+          "Ritmo: lanzamos rápido y mejoramos continuamente",
+          "Fiabilidad: lo que construimos tiene que funcionar bien",
         ],
       },
       journal: {
@@ -337,8 +357,8 @@ export function getMarketingCopy(locale: MarketingLocale) {
         summary: "Ideas, avances y aprendizajes aplicados.",
       },
       vision: {
-        title: "IA que mejora el trabajo sin dudas.",
-        body: "Autonomía donde acelera, supervisión donde más importa.",
+        title: "Creemos que la IA puede mejorar cómo se trabaja.",
+        body: "Queremos aplicarla donde marca la diferencia: operaciones, servicios y decisiones importantes.",
       },
       closing: {
         title: "Explora el ecosistema",
