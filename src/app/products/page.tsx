@@ -31,8 +31,9 @@ export default async function ProductsPage({ params }: { params?: Promise<{ loca
           <HeroModule
             title={copy.products.title}
             subtitle={copy.products.subtitle}
-            tags={["Holding operativo", "Servicios", "Control central", "Agentes"]}
+            tags={copy.home.tags}
             ctaHref="/system"
+            ctaLabel={copy.home.ctas.system}
           />
 
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">

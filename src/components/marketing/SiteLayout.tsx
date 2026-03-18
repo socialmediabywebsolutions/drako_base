@@ -24,13 +24,13 @@ type Props = {
 const navLinks = (copy: Props["copy"]["nav"], locale: MarketingLocale) => {
   const prefix = locale === defaultMarketingLocale ? "" : `/${locale}`;
   return [
-    { href: `${prefix}/`, label: copy.home },
-    { href: `${prefix}/system`, label: copy.system },
-    { href: `${prefix}/products`, label: copy.products },
-    { href: `${prefix}/journal`, label: copy.journal },
-    { href: `${prefix}/vision`, label: copy.vision },
-    { href: `${prefix}/about`, label: copy.about },
-    { href: `${prefix}/contact`, label: copy.contact },
+    { href: copy.home ? `/${locale}` : "/", label: copy.home ?? "Inicio" },
+    { href: `${prefix}/system`, label: copy.system ?? "Cómo trabajamos" },
+    { href: `${prefix}/products`, label: copy.products ?? "Productos" },
+    { href: `${prefix}/journal`, label: copy.journal ?? "Journal" },
+    { href: `${prefix}/vision`, label: copy.vision ?? "Visión" },
+    { href: `${prefix}/about`, label: copy.about ?? "Sobre Drako" },
+    { href: `${prefix}/contact`, label: copy.contact ?? "Contacto" },
   ];
 };
 

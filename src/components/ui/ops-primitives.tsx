@@ -85,7 +85,8 @@ export const HeroModule: React.FC<{
   subtitle: string;
   tags: string[];
   ctaHref: string;
-}> = ({ title, subtitle, tags, ctaHref }) => (
+  ctaLabel?: string;
+}> = ({ title, subtitle, tags, ctaHref, ctaLabel = "Learn more" }) => (
   <OpsPanel variant="elevated" className="relative overflow-hidden p-6 sm:p-7 bg-gradient-to-br from-white via-white to-sky-50/60">
     <div className="absolute inset-0 pointer-events-none" aria-hidden>
       <div className="absolute inset-y-6 left-3 w-[2px] bg-sky-200" />
@@ -111,7 +112,7 @@ export const HeroModule: React.FC<{
         href={ctaHref}
         className="h-10 rounded-full border border-sky-200 bg-sky-500 px-4 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(56,189,248,0.35)] transition hover:bg-sky-600"
       >
-        Ver panel
+        {ctaLabel}
       </a>
     </div>
   </OpsPanel>

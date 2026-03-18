@@ -17,9 +17,9 @@ export const products: Product[] = [
     slug: "socialflow",
     name: "SocialFlow",
     status: "live",
-    shortDescription: "Automatización de redes sociales operada por agentes con flujos supervisados.",
+    shortDescription: "Reduce tiempo manual en marketing: publicaciones y respuestas se mantienen al día con soporte de IA.",
     longDescription:
-      "SaaS de automatización de contenido y gestión en redes, ejecutado por agentes con playbooks, gobernanza y observabilidad integradas.",
+      "Producto enfocado en equipos de marketing que pierden horas coordinando publicaciones y respuestas. SocialFlow mantiene el calendario, responde con contexto y entrega reportes consistentes para mejorar resultados sin esfuerzo extra.",
     track: "automation",
     isPublic: true,
     highlighted: true,

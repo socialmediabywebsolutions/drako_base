@@ -22,7 +22,7 @@ export default async function SystemPage({ params }: { params?: Promise<{ locale
 
           <OpsPanel variant="base" className="p-3 sm:p-4">
             <header className="flex items-center justify-between text-sm text-slate-500">
-              <span className="font-semibold text-slate-900">Módulos</span>
+              <span className="font-semibold text-slate-900">Cómo trabajamos</span>
             </header>
             <div className="mt-2 grid grid-cols-2 gap-2">
               {copy.system.pillars.map((item) => (
@@ -38,7 +38,7 @@ export default async function SystemPage({ params }: { params?: Promise<{ locale
             <header className="flex items-center justify-between text-sm text-slate-500">
               <span className="font-semibold text-slate-900">Prácticas</span>
             </header>
-            <ul className="mt-2 space-y-1.5 text-xs text-slate-700 font-mono">
+            <ul className="mt-2 space-y-1.5 text-xs text-slate-700">
               {copy.system.practices.map((item) => (
                 <li key={item} className="flex items-start gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-slate-300 mt-1" />

@@ -44,17 +44,15 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
   };
 
   const opEvents = [
-    "[12:03:21] deploy completed — socialflow@v1.8.2",
-    "[12:02:10] health check OK — api-social",
-    "[12:01:44] remediation executed — agent/reliability",
-    "[11:58:22] job finished — backfill analytics",
-    "[11:57:03] billing sync OK — workspace-core",
+    "Actualizamos SocialFlow con mejoras en respuesta automática",
+    "Probamos nueva señal de calidad para recomendaciones",
+    "Preparamos siguiente piloto con un equipo de marketing",
   ];
 
   const journalEvents = [
-    "[11:55:10] journal → publicado: telemetry pipeline hardening",
-    "[10:21:44] research → observability baseline updated",
-    "[09:48:02] ops → postmortem cerrado: incident-324",
+    "Artículo: cómo evaluamos impacto real en un piloto",
+    "Idea: IA aplicada a operaciones de servicio al cliente",
+    "Nota: aprendizajes lanzando iteraciones semanales",
   ];
 
   return (
@@ -63,10 +61,11 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
         <main className="mx-auto grid max-w-6xl gap-3 p-4 sm:p-6">
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <HeroModule
-              title="Infraestructura en operación"
-              subtitle="Operando en producción"
-              tags={["Holding operativo", "Control Plane", "Observability", "Governance", "Agentes"]}
+              title={copy.home.heroTitle}
+              subtitle={copy.home.heroSubtitle}
+              tags={copy.home.tags}
               ctaHref={`${prefix}/system`}
+              ctaLabel={copy.home.ctas.system}
             />
 
             <OpsPanel variant="elevated" className="p-3 sm:p-4">
@@ -80,16 +79,14 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <OpsPanel variant="base" className="p-3 sm:p-4">
               <header className="flex items-center justify-between text-sm text-slate-500">
-                <span className="font-semibold text-slate-900">Sistema</span>
+                <span className="font-semibold text-slate-900">Cómo trabajamos</span>
               </header>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {[
-                  ["Identidad", "RBAC activo"],
-                  ["Billing", "Cobro y límites"],
-                  ["Observabilidad", "Tracing + logs"],
-                  ["Agentes", "Orquestación"],
-                  ["CI/CD", "Deploy automatizado"],
-                  ["Gobernanza", "Policies enforced"],
+                  ["Claridad", "Problema y métrica definidos"],
+                  ["Automatización útil", "IA donde quita fricción"],
+                  ["Ritmo", "Ciclos cortos y feedback real"],
+                  ["Fiabilidad", "Entregas cuidadas"],
                 ].map(([title, desc]) => (
                   <div key={title} className="rounded-lg border border-[#e3e9f3] bg-white px-3 py-2 text-sm text-slate-900 hover:border-sky-100 hover:bg-sky-50/70">
                     <div className="font-semibold">{title}</div>
@@ -103,7 +100,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
               <header className="flex items-center justify-between text-sm text-slate-500">
                 <span className="font-semibold text-slate-900">Operación</span>
               </header>
-              <LogList lines={opEvents} />
+              <LogList lines={opEvents} highlightFirst={false} />
             </OpsPanel>
           </section>
 
@@ -118,16 +115,16 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
               <header className="flex items-center justify-between text-sm text-slate-500">
                 <span className="font-semibold text-slate-900">Registro</span>
               </header>
-              <LogList lines={journalEvents} />
+              <LogList lines={journalEvents} highlightFirst={false} />
             </OpsPanel>
 
             <OpsPanel variant="flat" className="p-3 sm:p-4">
               <div className="text-sm text-slate-500 uppercase tracking-[0.2em]">Visión</div>
               <div className="mt-2 text-lg font-semibold text-slate-900 leading-tight">
-                SaaS que se operan solos. Gobernanza y agentes por defecto.
+                IA para mejorar trabajo y servicios críticos.
               </div>
               <a href={`${prefix}/vision`} className="mt-2 inline-flex text-xs font-semibold text-slate-700 hover:text-sky-600 underline">
-                Ver tesis →
+                Ver visión →
               </a>
             </OpsPanel>
           </section>
