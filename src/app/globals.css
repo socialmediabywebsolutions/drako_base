@@ -1,42 +1,20 @@
 @import "tailwindcss";
 
-/* Design tokens - Drako Elite Cyber-Forge */
+/* Light system tokens */
 :root {
-  --background: #ffffff;
-  /* Obsidian Deep -> Pure White */
-  --background-alt: #f8fafc;
-  /* slate-50 */
+  --background: #f6f8fb;
+  --background-alt: #eef4fa;
   --foreground: #0f172a;
-  /* slate-900 */
   --muted: #64748b;
-  /* slate-500 */
   --panel: #ffffff;
   --panel-alt: #f1f5f9;
-  /* slate-100 */
-  --border: rgba(14, 165, 233, 0.1);
-  /* sky-500-10% */
-  --brand: #0ea5e9;
-  /* Sky-500 */
-  --brand-glow: rgba(14, 165, 233, 0.2);
-  --brand-quiet: rgba(14, 165, 233, 0.05);
-  --brand-strong: #0284c7;
-  /* Sky-600 */
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --shadow-soft: 0 10px 40px -10px rgba(14, 165, 233, 0.1);
-  --shadow-glass: 0 0 25px -5px var(--brand-glow);
+  --border: #dce3ee;
+  --brand: #4cc9f0;
+  --brand-strong: #3ba7e0;
+  --brand-quiet: #e6f7fd;
+  --shadow-soft: 0 12px 36px rgba(15, 23, 42, 0.08);
+  --shadow-strong: 0 18px 50px rgba(15, 23, 42, 0.12);
   --font-technical: "Inter", monospace;
-}
-
-@theme {
-  --color-brand: var(--brand);
-  --color-brand-glow: var(--brand-glow);
-  --color-brand-quiet: var(--brand-quiet);
-  --color-brand-strong: var(--brand-strong);
-  --color-background-alt: var(--background-alt);
-  --color-panel: var(--panel);
-  --color-panel-alt: var(--panel-alt);
 }
 
 body {
@@ -50,19 +28,18 @@ a {
   color: inherit;
 }
 
-/* Panels, cards and borders */
+/* Light cards and spacing */
 .card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--panel);
+  border: 1px solid var(--border);
   border-radius: 24px;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(20px);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .card:hover {
-  border-color: rgba(0, 210, 255, 0.3);
-  box-shadow: var(--shadow-glass);
+  border-color: var(--brand);
+  box-shadow: var(--shadow-strong);
   transform: translateY(-4px) scale(1.01);
 }
 
@@ -75,59 +52,6 @@ a {
   padding: 1.5rem;
 }
 
-.glass-panel {
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(2, 6, 23, 0.98));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 28px;
-  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(40px);
-}
-
-.glass-panel-elite {
-  background: rgba(15, 23, 42, 0.85);
-  border: 2px solid rgba(255, 255, 255, 0.12);
-  border-radius: 32px;
-  box-shadow: 0 0 60px -20px var(--brand-glow);
-  backdrop-filter: blur(100px);
-}
-
-.text-technical {
-  font-family: var(--font-technical);
-  text-transform: uppercase;
-  letter-spacing: 0.3em;
-  font-weight: 900;
-  font-style: italic;
-}
-
-.cyber-scanline {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--brand), transparent);
-  box-shadow: 0 0 15px var(--brand-glow);
-  opacity: 0.15;
-  pointer-events: none;
-  z-index: 100;
-  animation: scanning 12s linear infinite;
-}
-
-.carbon-grid {
-  background-image: radial-gradient(rgba(0, 210, 255, 0.1) 1px, transparent 1px);
-  background-size: 30px 30px;
-}
-
-@keyframes scanning {
-  0% {
-    transform: translateY(-100vh);
-  }
-
-  100% {
-    transform: translateY(100vh);
-  }
-}
-
 .grid-auto-panels {
   display: grid;
   gap: 1rem;
@@ -135,7 +59,7 @@ a {
 }
 
 .fade-in {
-  animation: fadeIn 280ms ease forwards;
+  animation: fadeIn 260ms ease forwards;
 }
 
 @keyframes fadeIn {
@@ -150,54 +74,16 @@ a {
   }
 }
 
-/* Tables */
-table.modern {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-table.modern thead th {
-  text-align: left;
-  font-size: 0.75rem;
-  color: var(--muted);
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--border);
-}
-
-table.modern tbody td {
-  padding: 0.75rem;
-  border-top: 1px solid var(--border);
-}
-
-table.modern tbody tr:hover {
-  background: color-mix(in srgb, var(--brand-quiet) 30%, transparent);
-}
-
-/* Inputs */
-.modern-input {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(15, 23, 42, 0.4);
-  color: #fff;
-  border-radius: 14px;
-  padding: 0.8rem 1rem;
-  transition: all 0.2s ease;
-}
-
-.modern-input:focus {
-  outline: none;
-  border-color: var(--brand);
-  box-shadow: 0 0 15px var(--brand-glow);
-  background: rgba(15, 23, 42, 0.6);
-}
-
+/* Utility chips */
 .tag-pill {
   border-radius: 999px;
-  padding: 0.15rem 0.75rem;
-  font-size: 0.7rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  background: var(--brand-quiet);
+  color: var(--foreground);
   border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
 }
 

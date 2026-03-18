@@ -8,10 +8,10 @@ export default async function ContactPage({ params }: { params?: Promise<{ local
   const copy = getMarketingCopy(locale);
 
   return (
-    <SiteLayout locale={locale} currentPath="/contact" copy={{ nav: copy.nav, footerLine: copy.about.intro }}>
+    <SiteLayout locale={locale} currentPath="/contact" copy={{ nav: copy.nav, footerLine: copy.about.paragraphs?.[0] ?? "" }}>
       <div className="min-h-screen bg-[#f6f8fb] text-slate-900 leading-tight">
         <main className="mx-auto grid max-w-5xl gap-4 p-4 sm:p-6">
-          <OpsPanel variant="elevated" className="p-5 sm:p-6">
+          <OpsPanel variant="elevated" className="p-5 sm:p-6 fade-in">
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{copy.nav.contact}</p>
               <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-slate-900">{copy.contact.title}</h1>
@@ -19,18 +19,18 @@ export default async function ContactPage({ params }: { params?: Promise<{ local
             </div>
           </OpsPanel>
 
-          <OpsPanel variant="base" className="p-5 sm:p-6">
+          <OpsPanel variant="base" className="p-5 sm:p-6 fade-in">
             <section className="grid gap-6 sm:grid-cols-2">
               <div className="space-y-3">
-                <h2 className="text-lg font-semibold text-slate-900">Motivos de contacto</h2>
+                <h2 className="text-lg font-semibold text-slate-900">{copy.contact.title}</h2>
                 <ul className="space-y-2 text-sm text-slate-700">
-                  {copy.contact.reasons.map((reason) => (
-                    <li key={reason.title} className="rounded-xl border border-[#e3e9f3] bg-white px-4 py-3">
-                      <p className="font-semibold text-slate-900">{reason.title}</p>
-                      <p className="text-slate-600">{reason.desc}</p>
+                  {copy.contact.options.map((option) => (
+                    <li key={option} className="rounded-xl border border-[#e3e9f3] bg-white px-4 py-3 hover:border-sky-100 hover:bg-sky-50/70 transition">
+                      <p className="font-semibold text-slate-900">{option}</p>
                     </li>
                   ))}
                 </ul>
+                <p className="text-xs text-slate-500">{copy.contact.note}</p>
               </div>
               <form className="space-y-4 rounded-2xl border border-[#e3e9f3] bg-white px-5 py-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
                 <div className="space-y-2">
@@ -64,9 +64,9 @@ export default async function ContactPage({ params }: { params?: Promise<{ local
                     <option value="" disabled>
                       --
                     </option>
-                    {copy.contact.reasons.map((reason) => (
-                      <option key={reason.title} value={reason.title}>
-                        {reason.title}
+                    {copy.contact.options.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
                       </option>
                     ))}
                   </select>
@@ -83,14 +83,12 @@ export default async function ContactPage({ params }: { params?: Promise<{ local
                 </div>
                 <button
                   type="submit"
-                  className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(56,189,248,0.35)] transition hover:bg-sky-600"
+                  className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(56,189,248,0.35)] transition hover:-translate-y-0.5 hover:bg-sky-600"
                 >
                   {copy.contact.form.submit}
                 </button>
-                <p className="text-xs text-slate-500">{copy.contact.note}</p>
               </form>
             </section>
-            <p className="mt-4 text-sm text-slate-600">{copy.contact.footer}</p>
           </OpsPanel>
         </main>
       </div>

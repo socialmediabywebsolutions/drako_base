@@ -43,244 +43,7 @@ export function resolveLocaleFromRequest(pathname: string, queryLocale?: string 
 }
 
 export function getMarketingCopy(locale: MarketingLocale) {
-  if (locale === "en") {
-    return {
-      nav: {
-        home: "Home",
-        system: "How we work",
-        products: "Products",
-        journal: "Journal",
-        vision: "Vision",
-        about: "About",
-        contact: "Contact",
-        localeSwitch: "ES",
-      },
-      home: {
-        heroTitle: "We build AI products to fix the work no one should still be doing.",
-        heroSubtitle: "Teams lose hours to manual steps and shaky calls. We cut that work so people can do what matters.",
-        tags: ["AI products", "Real impact", "Applied AI", "Decision intelligence"],
-        ctas: {
-          products: "See products",
-          system: "How we work",
-          vision: "Read the vision",
-          journal: "Go to journal",
-        },
-        context:
-          "Marketing, ops, support, finance: too many hours go to copy-paste, reviews, and rework. Applied AI removes that drag so days stop leaking time.",
-        productCards: [
-          {
-            name: "SocialFlow",
-            problem: "Marketing teams burn hours cada semana revisando comentarios, coordinando publicaciones y apagando incendios de marca.",
-            does: "Publica, responde y reporta con el tono correcto sin que el equipo vigile cada paso.",
-            improves: "Libera horas de tareas repetitivas, evita errores de tono y mantiene la marca coherente incluso cuando el equipo va justo de tiempo.",
-          },
-        ],
-        whatIs: {
-          title: "What we do",
-          body: "We build and operate AI products that land inside demanding companies and stay running.",
-        },
-        products: {
-          title: "Ecosystem",
-          subtitle: "AI products from Drako.",
-          sections: [
-            {
-              title: "Active",
-              description: "Products solving real problems today.",
-              body: "Live products that keep work moving and decisions sharp.",
-              items: [{ name: "SocialFlow", desc: "Marketing teams reduce manual coordination; publishing, replies, and reporting stay on track." }],
-              empty: "More live products soon.",
-            },
-            {
-              title: "Building",
-              description: "Lines in build stage with clear outcomes.",
-              body: "Products in build, each tied to a specific role and result.",
-              items: [],
-              empty: "New lines will be shared at pilot stage.",
-            },
-            {
-              title: "Research",
-              description: "Applied research on autonomy and responsible AI.",
-              body: "Experiments to make AI more useful and accountable for future products.",
-              items: [],
-              empty: "Tracks will be shared when ready.",
-            },
-          ],
-        },
-        system: {
-          title: "How we build AI solutions",
-          blurb: "We understand the problem before we build, ship fast, and keep people involved.",
-          points: [
-            "Clarity: understand the real problem before building",
-            "Useful AI: only where it brings real value",
-            "Pace: launch fast and improve continuously",
-            "Reliability: what we build has to work well",
-          ],
-        },
-        journal: {
-          title: "Journal",
-          summary: "Ideas, progress, and applied learnings on bringing AI to real problems.",
-        },
-        vision: {
-          title: "AI that makes work better.",
-          body: "We apply it where it truly changes operations, services, and key decisions.",
-        },
-        closing: {
-          title: "Explore the ecosystem",
-          body: "See the products we build and how we approach new problems.",
-          ctas: {
-            products: "Products",
-            system: "How we work",
-            journal: "Journal",
-            vision: "Vision",
-          },
-        },
-      },
-      system: {
-        title: "How we build AI solutions",
-        intro: "We understand the problem before we build, ship fast, and keep people involved.",
-        pillars: [
-          {
-            title: "Clarity",
-            body: "Understand the real problem before building.",
-          },
-          {
-            title: "Useful AI",
-            body: "Use AI only where it brings real value.",
-          },
-          {
-            title: "Pace",
-            body: "Launch fast and improve continuously.",
-          },
-          {
-            title: "Reliability",
-            body: "What we build has to work well.",
-          },
-        ],
-        practices: [
-          "Problem-first scopes tied to an outcome.",
-          "Prototypes to measurable results quickly.",
-          "Feedback loops with real users, iterate fast.",
-          "Safeguards and responsibility built into delivery.",
-        ],
-      },
-      products: {
-        title: "AI products from Drako",
-        subtitle: "AI products built to remove bottlenecks and bad calls.",
-        sections: [
-          {
-            title: "Active",
-            description: "Products solving real problems today.",
-            body: "Live products that keep work moving and decisions sharp.",
-            items: [{ name: "SocialFlow", desc: "Marketing teams reduce manual coordination; publishing, replies, and reporting stay on track." }],
-            empty: "More live products soon.",
-          },
-          {
-            title: "Building",
-            description: "Lines in build stage with clear outcomes.",
-            body: "Products in build, each tied to a specific role and result.",
-            items: [],
-            empty: "New lines will be shared at pilot stage.",
-          },
-          {
-            title: "Research",
-            description: "Applied research on autonomy and responsible AI.",
-            body: "Experiments to make AI more useful and accountable for future products.",
-            items: [],
-            empty: "Tracks will be shared when ready.",
-          },
-        ],
-      },
-      journal: {
-        title: "Journal",
-        subtitle: "Ideas, progress, and applied learnings.",
-        intro: "Real problems, what we tried, what failed, what worked. Journal Drako no es un decorado: es cómo pensamos y qué aprendemos al meter IA donde duele.",
-        themes: [
-          { title: "Cases", desc: "What we learned solving real problems." },
-          { title: "Product", desc: "Progress and decisions in our products." },
-          { title: "Applied research", desc: "Experiments and findings in AI." },
-          { title: "Responsible operation", desc: "How we balance autonomy and care." },
-          { title: "Delivery", desc: "Rhythm, feedback, and iteration." },
-        ],
-        empty: "No public articles yet. We'll publish first entries here.",
-      },
-      vision: {
-        title: "AI that makes work better.",
-        subtitle: "We apply it where it truly changes operations, services, and key decisions.",
-        pillars: [
-          {
-            title: "Utility",
-            body: "AI that makes a real impact and improves work.",
-          },
-          {
-            title: "Trust",
-            body: "Decisions traced and cared for, especially when people are impacted.",
-          },
-          {
-            title: "Responsible future",
-            body: "Automation without losing human oversight where it matters.",
-          },
-          {
-            title: "Scale",
-            body: "Bring these improvements to more industries and contexts.",
-          },
-        ],
-        roadmap: [
-          "Apply AI to real problems, measure outcomes.",
-          "Expand to new sectors with clear safeguards.",
-          "Improve decisioning transparency and user control.",
-          "Scale responsibly with better checks and accountability.",
-        ],
-      },
-      about: {
-        title: "About Drako",
-        intro: "We are Drako. We see hours wasted and fragile decisions every day. We use AI to remove that waste and ship products that hold up under pressure.",
-        blocks: [
-          {
-            title: "Who we are",
-            body: "People who prefer shipping over talking and measure themselves by outcomes.",
-          },
-          {
-            title: "Why we exist",
-            body: "We use AI to remove friction in critical work, not to chase hype.",
-          },
-          {
-            title: "Mission",
-            body: "Put AI to work on problems that matter and prove it with outcomes.",
-          },
-          {
-            title: "How we work",
-            body: "Small teams, clear ownership, fast cycles, and tight loops with users.",
-          },
-        ],
-      },
-      contact: {
-        title: "Contact",
-        subtitle: "Tell us the problem you want to solve. Let's see if we can help.",
-        reasonsTitle: "Reasons to contact",
-        reasons: [
-          { title: "Products", desc: "Our products and how they might help you." },
-          { title: "Collaborations", desc: "Building together around applied AI." },
-          { title: "Partners", desc: "Allies in data or security." },
-          { title: "Talent", desc: "Profiles in engineering, product, or research." },
-          { title: "Other", desc: "Any conversation where we can add value." },
-        ],
-        form: {
-          name: "Name",
-          email: "Email",
-          reason: "Reason",
-          message: "Message",
-          submit: "Send",
-          placeholderName: "Your name",
-          placeholderEmail: "you@example.com",
-          placeholderMessage: "Share the problem and how we can help",
-        },
-        note: "We read every message with care.",
-        footer: "You can also write to contacto@drako.systems.",
-      },
-    };
-  }
-
-  return {
+  const shared = {
     nav: {
       home: "Inicio",
       system: "Cómo trabajamos",
@@ -289,217 +52,78 @@ export function getMarketingCopy(locale: MarketingLocale) {
       vision: "Visión",
       about: "Sobre Drako",
       contact: "Contacto",
-      localeSwitch: "EN",
+      localeSwitch: locale === "en" ? "ES" : "EN",
     },
     home: {
-      heroTitle: "Construimos productos de IA para quitar el trabajo que nadie debería seguir haciendo.",
-      heroSubtitle: "Equipos pierden horas en pasos manuales y decisiones frágiles. Cortamos ese trabajo para que hagan lo que de verdad importa.",
-      tags: ["Productos de IA", "Impacto real", "IA aplicada", "Decisiones precisas"],
+      heroTitle: "Drako crea productos de IA que mejoran cómo trabajan los equipos.",
+      heroSubtitle: "Automatizamos tareas reales, reducimos errores y ayudamos a que las decisiones se tomen mejor y más rápido.",
       ctas: {
         products: "Ver productos",
-        system: "Cómo trabajamos",
-        vision: "Leer visión",
-        journal: "Ir al journal",
       },
-      context:
-        "Marketing, operaciones, soporte, finanzas: demasiadas horas en copiar, revisar y rehacer. La IA aplicada quita ese lastre para que el día no se fugue en tareas inútiles.",
+      context: "Muchas empresas siguen funcionando con procesos lentos, trabajo manual y decisiones poco precisas. Nosotros construimos productos que cambian eso.",
+      productsIntro: "Cada producto de Drako resuelve un problema concreto dentro de equipos reales.",
       productCards: [
         {
           name: "SocialFlow",
-          problem: "Los equipos de marketing queman horas cada semana revisando comentarios, coordinando publicaciones y apagando incendios de marca.",
-          does: "Publica, responde y reporta con el tono correcto sin que el equipo vigile cada paso.",
-          improves: "Libera horas de tareas repetitivas, evita errores de tono y mantiene la marca coherente incluso cuando el equipo va justo de tiempo.",
+          description: "SocialFlow ayuda a equipos de marketing a gestionar contenido, respuestas y seguimiento sin perder tiempo en tareas repetitivas.",
+          problem: "Publicar, responder mensajes y mantener la coherencia de marca consume más tiempo del que debería.",
+          does: "Organiza publicaciones, respuestas y seguimiento en un flujo claro y centralizado.",
+          changes: "Reduce el tiempo operativo, mejora la consistencia de la comunicación y permite al equipo centrarse en tareas más importantes.",
         },
       ],
-      whatIs: {
-        title: "Qué hacemos",
-        body: "Creamos y operamos productos de IA que se integran en empresas exigentes y se quedan funcionando.",
-      },
-      products: {
-        title: "Ecosistema",
-        subtitle: "Productos de IA de Drako.",
-        sections: [
-          {
-            title: "Activos",
-            description: "Productos que ya resuelven problemas reales.",
-            body: "Productos en vivo que mantienen el trabajo en ritmo y las decisiones precisas.",
-            items: [{ name: "SocialFlow", desc: "Equipos de marketing reducen coordinación manual; publicaciones, respuestas y reporting se mantienen al día." }],
-            empty: "Más activos pronto.",
-          },
-          {
-            title: "Building",
-            description: "Líneas en construcción con resultados claros.",
-            body: "Productos en construcción, cada uno ligado a un rol y un resultado.",
-            items: [],
-            empty: "Nuevas líneas al entrar en piloto.",
-          },
-          {
-            title: "Research",
-            description: "Investigación aplicada sobre autonomía y IA responsable.",
-            body: "Experimentos para que la IA sea útil y responsable en futuros productos.",
-            items: [],
-            empty: "Se publicará cuando esté listo.",
-          },
-        ],
-      },
-      system: {
-        title: "Cómo construimos soluciones de IA",
-        blurb: "Entendemos bien el problema antes de construir, lanzamos rápido y mantenemos a las personas involucradas.",
-        points: [
-          "Claridad: entendemos bien el problema antes de construir",
-          "IA útil: usamos IA solo donde aporta valor real",
-          "Ritmo: lanzamos rápido y mejoramos continuamente",
-          "Fiabilidad: lo que construimos tiene que funcionar bien",
-        ],
-      },
-      journal: {
-        title: "Journal",
-        summary: "Ideas, avances y aprendizajes aplicados.",
-      },
-      vision: {
-        title: "Creemos que la IA puede mejorar cómo se trabaja.",
-        body: "Queremos aplicarla donde marca la diferencia: operaciones, servicios y decisiones importantes.",
-      },
-      closing: {
-        title: "Explora el ecosistema",
-        body: "Conoce los productos que creamos y cómo abordamos nuevos problemas.",
-        ctas: {
-          products: "Productos",
-          system: "Cómo trabajamos",
-          journal: "Journal",
-          vision: "Visión",
-        },
-      },
     },
     system: {
-      title: "Cómo construimos soluciones de IA",
-      intro: "Claridad en el problema, IA útil, entrega rápida y responsable.",
-      pillars: [
-        {
-          title: "Claridad",
-          body: "Definimos el problema y la métrica que debe moverse.",
-        },
-        {
-          title: "IA útil",
-          body: "Aplicamos IA donde hace un impacto real para las personas.",
-        },
-        {
-          title: "Ritmo",
-          body: "Ciclos cortos, releases frecuentes y feedback real.",
-        },
-        {
-          title: "Fiabilidad",
-          body: "Calidad y cuidado en la entrega sin exponer la cocina interna.",
-        },
-      ],
-      practices: [
-        "Alcances ligados a un resultado medible.",
-        "Prototipos a resultados rápidos.",
-        "Feedback con usuarios reales, iteración veloz.",
-        "Salvaguardas y responsabilidad en cada entrega.",
+      title: "Cómo trabajamos",
+      subtitle: "Construimos productos que funcionan en la práctica, no en teoría.",
+      blocks: [
+        { title: "Entender el problema", body: "Antes de construir, entendemos bien qué está fallando y qué debería mejorar." },
+        { title: "Aplicar IA con criterio", body: "Usamos inteligencia artificial donde realmente aporta valor, no donde suena bien." },
+        { title: "Construir y mejorar", body: "Lanzamos rápido, aprendemos con uso real y ajustamos continuamente." },
+        { title: "Cuidar el resultado", body: "Lo que construimos tiene que ser claro, útil y fiable." },
       ],
     },
     products: {
-      title: "Productos de IA de Drako",
-      subtitle: "Productos de IA para eliminar cuellos de botella y malas decisiones.",
-      sections: [
+      intro: "Los productos de Drako están diseñados para resolver problemas reales en equipos que operan cada día.",
+      items: [
         {
-          title: "Activos",
-          description: "Productos que ya resuelven problemas reales.",
-          body: "Productos en vivo que mantienen el trabajo en ritmo y las decisiones precisas.",
-          items: [{ name: "SocialFlow", desc: "Equipos de marketing reducen coordinación manual; publicaciones, respuestas y reporting se mantienen al día." }],
-          empty: "Más activos pronto.",
-        },
-        {
-          title: "Building",
-          description: "Líneas en construcción con resultados claros.",
-          body: "Productos en construcción, cada uno ligado a un rol y un resultado.",
-          items: [],
-          empty: "Nuevas líneas al entrar en piloto.",
-        },
-        {
-          title: "Research",
-          description: "Investigación aplicada sobre autonomía y IA responsable.",
-          body: "Experimentos para que la IA sea útil y responsable en futuros productos.",
-          items: [],
-          empty: "Se publicará cuando esté listo.",
+          name: "SocialFlow",
+          description: "SocialFlow ayuda a equipos de marketing a gestionar contenido, respuestas y seguimiento sin perder tiempo en tareas repetitivas.",
+          problem: "Publicar, responder mensajes y mantener la coherencia de marca consume más tiempo del que debería.",
+          does: "Organiza publicaciones, respuestas y seguimiento en un flujo claro y centralizado.",
+          changes: "Reduce el tiempo operativo, mejora la consistencia de la comunicación y permite al equipo centrarse en tareas más importantes.",
         },
       ],
     },
     journal: {
       title: "Journal",
-      subtitle: "Ideas, avances y aprendizajes aplicados.",
-      intro: "Problemas reales, qué probamos, qué falló, qué funcionó. Journal Drako no es un decorado: es cómo pensamos y qué aprendemos al meter IA donde duele.",
-      themes: [
-        { title: "Casos", desc: "Qué aprendimos resolviendo problemas reales." },
-        { title: "Producto", desc: "Avances y decisiones en nuestros productos." },
-        { title: "Investigación aplicada", desc: "Experimentos y hallazgos en IA aplicada." },
-        { title: "Operación responsable", desc: "Cómo equilibramos autonomía y cuidado." },
-        { title: "Entrega", desc: "Ritmo, feedback e iteración." },
-      ],
-      empty: "Aún no hay artículos públicos. Publicaremos las primeras entradas aquí.",
+      subtitle: "Un espacio donde compartimos cómo aplicamos la IA a problemas reales.",
+      text: "Aquí reunimos ideas, avances de producto y aprendizajes que nacen del trabajo real. No es teoría. Es lo que vemos, lo que probamos y lo que funciona.",
+      cta: "Leer artículos",
     },
     vision: {
-      title: "IA para mejorar trabajo y servicios críticos.",
-      subtitle: "Más autonomía donde aporta, más responsabilidad donde importa.",
+      title: "Visión",
+      subtitle: "Creemos que la IA puede mejorar cómo se trabaja y cómo se toman decisiones.",
+      text: "La inteligencia artificial es una herramienta para hacer el trabajo más eficiente, más claro y más escalable. Nuestro objetivo es aplicarla donde realmente aporta valor: operaciones, comunicación y toma de decisiones.",
       pillars: [
-        {
-          title: "Utilidad",
-          body: "IA que hace un impacto real y mejora el trabajo.",
-        },
-        {
-          title: "Confianza",
-          body: "Decisiones trazables y cuidadas, sobre todo cuando impactan a personas.",
-        },
-        {
-          title: "Futuro responsable",
-          body: "Automatizar sin perder supervisión humana donde es crítico.",
-        },
-        {
-          title: "Escala",
-          body: "Llevar estas mejoras a más industrias y contextos.",
-        },
-      ],
-      roadmap: [
-        "Aplicar IA a problemas reales, medir resultados.",
-        "Expandir a nuevos sectores con salvaguardas claras.",
-        "Mejorar transparencia de decisiones y control del usuario.",
-        "Escalar con responsabilidad y mejores checks.",
+        { title: "Utilidad", body: "Resolver problemas reales con impacto directo." },
+        { title: "Claridad", body: "Hacer que el trabajo sea más comprensible y controlable." },
+        { title: "Responsabilidad", body: "Aplicar tecnología sin perder el criterio humano." },
+        { title: "Escala", body: "Construir soluciones que crecen con el tiempo." },
       ],
     },
     about: {
       title: "Sobre Drako",
-      intro: "Somos Drako. Vemos horas desperdiciadas y decisiones frágiles todos los días. Usamos IA para quitar ese desperdicio y lanzar productos que aguantan presión.",
-      blocks: [
-        {
-          title: "Quiénes somos",
-          body: "Gente que prefiere entregar antes que hablar y se mide por resultados.",
-        },
-        {
-          title: "Por qué existimos",
-          body: "Usamos IA para quitar fricción en trabajo crítico, no por moda.",
-        },
-        {
-          title: "Misión",
-          body: "Poner la IA a trabajar en problemas que importan y demostrarlo con resultados.",
-        },
-        {
-          title: "Cómo trabajamos",
-          body: "Equipos pequeños, ownership claro, ciclos rápidos y feedback cercano con usuarios.",
-        },
+      paragraphs: [
+        "Drako es un holding que desarrolla productos de inteligencia artificial enfocados en resolver problemas reales en empresas.",
+        "Nos centramos en construir herramientas que funcionan en el día a día, no en ideas que se quedan en presentaciones.",
+        "Buscamos mejorar cómo trabajan los equipos: menos fricción, más claridad y mejores decisiones.",
       ],
     },
     contact: {
       title: "Contacto",
-      subtitle: "Cuéntanos el problema que quieres resolver. Hablemos si podemos aportar.",
-      reasonsTitle: "Motivos de contacto",
-      reasons: [
-        { title: "Productos", desc: "Nuestros productos y cómo pueden ayudarte." },
-        { title: "Colaboraciones", desc: "Construir juntos con IA aplicada." },
-        { title: "Partners", desc: "Aliados en datos o seguridad." },
-        { title: "Talento", desc: "Perfiles de ingeniería, producto o research." },
-        { title: "Otros", desc: "Cualquier conversación donde podamos aportar." },
-      ],
+      subtitle: "Cuéntanos qué estás intentando mejorar. Si podemos ayudarte, lo hablamos.",
+      options: ["Productos", "Colaboraciones", "Partners", "Talento", "Otros"],
+      note: "Leemos cada mensaje con atención.",
       form: {
         name: "Nombre",
         email: "Email",
@@ -508,10 +132,10 @@ export function getMarketingCopy(locale: MarketingLocale) {
         submit: "Enviar",
         placeholderName: "Tu nombre",
         placeholderEmail: "tu@ejemplo.com",
-        placeholderMessage: "Cuéntanos el problema y cómo ayudar",
+        placeholderMessage: "Escribe los detalles",
       },
-      note: "Leemos cada mensaje con atención.",
-      footer: "También puedes escribir a contacto@drako.systems.",
     },
   };
+
+  return shared;
 }
