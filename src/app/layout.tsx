@@ -23,7 +23,7 @@ const AdminShell = ({ children }: { children: React.ReactNode }) => <ShellLayout
 
 function PublicShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative min-h-screen bg-white text-slate-900" data-shell="public">
+    <div className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]" data-shell="public">
       <div className="relative z-10 flex min-h-screen flex-col">{children}</div>
     </div>
   );

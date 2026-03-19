@@ -11,7 +11,7 @@ export default async function SystemPage({ params }: { params?: Promise<{ locale
 
   return (
     <SiteLayout locale={locale} currentPath="/system" copy={{ nav: copy.nav, footerLine }}>
-      <div className="bg-[#f6f8fb] text-slate-900 font-sans min-h-screen">
+      <div>
         
         {/* HERO */}
         <section className="pt-32 pb-20 md:pt-48 md:pb-32">
@@ -73,7 +73,7 @@ export default async function SystemPage({ params }: { params?: Promise<{ locale
         </section>
 
         {/* CTA */}
-        <section className="py-32 bg-[#eef4fa] border-t border-slate-200">
+        <section className="py-32 bg-[var(--background-alt)] border-t border-slate-200">
            <div className="container-premium text-center fade-in-up">
               <h2 className="heading-lg mb-8">¿Listo para construir?</h2>
               <a href="/contact" className="btn-premium btn-primary text-lg px-8 py-4">

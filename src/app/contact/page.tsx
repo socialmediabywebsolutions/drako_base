@@ -10,7 +10,7 @@ export default async function ContactPage({ params }: { params?: Promise<{ local
 
   return (
     <SiteLayout locale={locale} currentPath="/contact" copy={{ nav: copy.nav, footerLine }}>
-      <div className="bg-[#f6f8fb] text-slate-900 font-sans min-h-screen">
+      <div>
         
         {/* HERO */}
         <section className="pt-32 pb-20 md:pt-48 md:pb-32">

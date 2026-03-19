@@ -31,7 +31,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
 
   return (
     <SiteLayout locale={locale} currentPath={currentPath} copy={{ nav: copy.nav, footerLine }}>
-      <div className="bg-[#f6f8fb] text-slate-900 font-sans selection:bg-sky-100 selection:text-sky-900">
+      <div>
         
         {/* HERO SECTION */}
         <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden">
@@ -124,7 +124,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
         </section>
 
         {/* PRODUCTS PREVIEW */}
-        <section className="section-spacing bg-[#eef4fa]">
+        <section className="section-spacing bg-[var(--background-alt)]">
           <div className="container-premium">
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
               <div>
