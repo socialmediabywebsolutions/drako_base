@@ -88,7 +88,16 @@ export function getMarketingCopy(locale: MarketingLocale) {
       },
       future: {
         title: "En construcción",
-        description: "Estamos desarrollando nuevas líneas de producto enfocadas en logística, análisis financiero y gestión de talento. Siempre bajo la misma premisa: IA aplicada a problemas reales."
+        description: "Estamos desarrollando nuevas líneas de producto enfocadas en logística, análisis financiero y gestión de talento. Siempre bajo la misma premisa: IA aplicada a problemas reales.",
+        items: [
+          { title: "Logística Inteligente", desc: "Optimización de rutas y stock en tiempo real.", color: "bg-orange-500" },
+          { title: "Finanzas Predictivas", desc: "Detección de anomalías y proyección de flujo.", color: "bg-emerald-500" },
+          { title: "Talento & Cultura", desc: "Matching de skills y análisis de sentimiento.", color: "bg-purple-500" }
+        ]
+      },
+      cta: {
+        title: "¿Tu operación necesita esto?",
+        button: "Hablemos de ingeniería"
       },
       items: [
         {
@@ -139,22 +148,26 @@ export function getMarketingCopy(locale: MarketingLocale) {
       ],
       pillars: [
         {
-            title: "Utilidad",
-            body: "Resolver problemas reales con impacto directo. Si no mejora una métrica o reduce un dolor, no nos interesa."
+          title: "Utilidad",
+          body: "Resolver problemas reales con impacto directo. Si no mejora una métrica o reduce un dolor, no nos interesa."
         },
         {
-            title: "Claridad",
-            body: "Hacer que el trabajo sea más comprensible y controlable. La IA debe explicar sus decisiones, no ocultarlas."
+          title: "Claridad",
+          body: "Hacer que el trabajo sea más comprensible y controlable. La IA debe explicar sus decisiones, no ocultarlas."
         },
         {
-            title: "Responsabilidad",
-            body: "Aplicar tecnología sin perder el criterio humano. Automatizamos la tarea, no la responsabilidad."
+          title: "Responsabilidad",
+          body: "Aplicar tecnología sin perder el criterio humano. Automatizamos la tarea, no la responsabilidad."
         },
         {
-            title: "Escala",
-            body: "Construir soluciones que crecen con el tiempo. Sistemas que aprenden y mejoran cuanto más se usan."
+          title: "Escala",
+          body: "Construir soluciones que crecen con el tiempo. Sistemas que aprenden y mejoran cuanto más se usan."
         }
-      ]
+      ],
+      cta: {
+        title: "Construyamos ese futuro.",
+        button: "Unirse a Drako"
+      }
     },
     about: {
       title: "Sobre Drako",
@@ -163,7 +176,17 @@ export function getMarketingCopy(locale: MarketingLocale) {
         "Drako Systems nace de la frustración con el estado actual del software empresarial. Vimos demasiadas promesas vacías y demasiadas herramientas complejas que nadie usaba.",
         "Somos un equipo híbrido de ingenieros, diseñadores y estrategas obsesionados con la utilidad. Nos mueve la curiosidad técnica y el pragmatismo operativo. No buscamos el aplauso de la industria, buscamos que nuestros clientes duerman tranquilos sabiendo que sus sistemas funcionan.",
         "Operamos como un holding de producto: identificamos oportunidades, asignamos recursos y construimos startups verticales que resuelven problemas específicos con la profundidad que merecen."
-      ]
+      ],
+      valuesTitle: "Nuestros Valores",
+      values: [
+        { title: "Pragmatismo Radical", desc: "Construimos lo que funciona, no lo que está de moda." },
+        { title: "Velocidad y Calidad", desc: "No elegimos una. Exigimos ambas en cada entrega." },
+        { title: "Transparencia Total", desc: "Sin cajas negras. Entiendes lo que construimos." }
+      ],
+      cta: {
+        title: "Trabaja con nosotros",
+        button: "Ver posiciones abiertas"
+      }
     },
     contact: {
       title: "Hablemos de tu operación",

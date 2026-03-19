@@ -175,11 +175,7 @@ export default async function ProductsPage({ params }: { params?: Promise<{ loca
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                 {[
-                    { title: "Logística Inteligente", desc: "Optimización de rutas y stock en tiempo real.", color: "bg-orange-500" },
-                    { title: "Finanzas Predictivas", desc: "Detección de anomalías y proyección de flujo.", color: "bg-emerald-500" },
-                    { title: "Talento & Cultura", desc: "Matching de skills y análisis de sentimiento.", color: "bg-purple-500" }
-                 ].map((item, i) => (
+                 {copy.products.future.items.map((item, i) => (
                     <div key={i} className="card-premium group p-8 hover:bg-slate-50 transition-colors">
                        <div className={`w-12 h-1 mb-6 ${item.color} opacity-40 group-hover:opacity-100 transition-opacity`} />
                        <h3 className="text-xl font-bold text-slate-900 mb-3">{item.title}</h3>
@@ -193,9 +189,9 @@ export default async function ProductsPage({ params }: { params?: Promise<{ loca
         {/* CTA */}
         <section className="py-32 bg-[var(--background-alt)] border-t border-slate-200">
            <div className="container-premium text-center fade-in-up">
-              <h2 className="heading-lg mb-8 text-slate-900">¿Tu operación necesita esto?</h2>
+              <h2 className="heading-lg mb-8 text-slate-900">{copy.products.cta.title}</h2>
               <Link href="/contact" className="btn-premium btn-secondary text-lg px-10 py-5">
-                 Hablemos de ingeniería
+                 {copy.products.cta.button}
               </Link>
            </div>
         </section>

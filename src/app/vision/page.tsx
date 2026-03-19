@@ -63,9 +63,9 @@ export default async function VisionPage({ params }: { params?: Promise<{ locale
         {/* CTA */}
         <section className="py-32 bg-[var(--background-alt)] border-t border-slate-200">
            <div className="container-premium text-center fade-in-up">
-              <h2 className="heading-lg mb-8">Construyamos ese futuro.</h2>
+              <h2 className="heading-lg mb-8">{copy.vision.cta.title}</h2>
               <a href="/contact" className="btn-premium btn-secondary text-lg px-8 py-4">
-                 Unirse a Drako
+                 {copy.vision.cta.button}
               </a>
            </div>
         </section>

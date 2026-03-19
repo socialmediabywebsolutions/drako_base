@@ -46,18 +46,18 @@ export function SiteLayout({ children, locale, currentPath, copy }: Props) {
              <div className="space-y-6">
                 <h4 className="font-semibold text-slate-900">Explorar</h4>
                 <ul className="space-y-4 text-slate-600">
-                   <li><Link href="/products" className="hover:text-sky-600 transition-colors">Productos</Link></li>
-                   <li><Link href="/system" className="hover:text-sky-600 transition-colors">Cómo trabajamos</Link></li>
-                   <li><Link href="/journal" className="hover:text-sky-600 transition-colors">Journal</Link></li>
+                   <li><Link href="/products" className="hover:text-sky-600 transition-colors">{copy.nav.products}</Link></li>
+                   <li><Link href="/system" className="hover:text-sky-600 transition-colors">{copy.nav.system}</Link></li>
+                   <li><Link href="/journal" className="hover:text-sky-600 transition-colors">{copy.nav.journal}</Link></li>
                 </ul>
              </div>
 
              <div className="space-y-6">
                 <h4 className="font-semibold text-slate-900">Compañía</h4>
                 <ul className="space-y-4 text-slate-600">
-                   <li><Link href="/about" className="hover:text-sky-600 transition-colors">Sobre nosotros</Link></li>
-                   <li><Link href="/vision" className="hover:text-sky-600 transition-colors">Visión</Link></li>
-                   <li><Link href="/contact" className="hover:text-sky-600 transition-colors">Contacto</Link></li>
+                   <li><Link href="/about" className="hover:text-sky-600 transition-colors">{copy.nav.about}</Link></li>
+                   <li><Link href="/vision" className="hover:text-sky-600 transition-colors">{copy.nav.vision}</Link></li>
+                   <li><Link href="/contact" className="hover:text-sky-600 transition-colors">{copy.nav.contact}</Link></li>
                 </ul>
              </div>
           </div>

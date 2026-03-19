@@ -61,7 +61,7 @@ export function SiteHeader({ locale, copy }: Props) {
           href={locale === defaultMarketingLocale ? "/" : `/${locale}`} 
           className="relative z-10 group"
         >
-          <span className={`text-xl font-bold tracking-tight transition-colors duration-300 ${isScrolled ? "text-[var(--foreground)]" : "text-[var(--foreground)]"}`}>
+          <span className="text-xl font-bold tracking-tight transition-colors duration-300 text-[var(--foreground)]">
             Drako Systems
           </span>
         </Link>
