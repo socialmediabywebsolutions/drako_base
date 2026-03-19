@@ -60,7 +60,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
             </div>
 
             <div className="mt-20 max-w-3xl mx-auto delay-300 fade-in-up">
-              <div className="card-premium bg-white/50 backdrop-blur-sm border-slate-200/60 p-8 md:p-12">
+              <div className="card-premium !bg-white/50 backdrop-blur-sm border-slate-200/60 p-8 md:p-12">
                 <p className="text-base md:text-lg text-slate-700 leading-loose">
                   {copy.home.hero.description}
                 </p>
@@ -98,7 +98,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
         <section className="section-spacing">
           <div className="container-premium">
             <div className="max-w-4xl mx-auto">
-              <div className="card-premium bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none shadow-2xl overflow-hidden">
+              <div className="rounded-3xl bg-slate-900 bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-2xl overflow-hidden relative">
                  {/* Dark card content */}
                  <div className="relative z-10 p-8 md:p-12">
                     <span className="inline-block py-1 px-3 rounded-full bg-white/10 text-sky-300 text-xs font-bold tracking-widest uppercase mb-6">

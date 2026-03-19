@@ -72,7 +72,7 @@ export default async function JournalPage({ params }: { params?: Promise<{ local
                  {/* Main Featured Article */}
                  <div className="lg:col-span-8 fade-in-up delay-100">
                     <Link href="#" className="group block h-full">
-                       <div className="card-premium h-full p-0 overflow-hidden bg-slate-900 text-white border-none relative group-hover:shadow-2xl transition-all duration-500">
+                       <div className="h-full rounded-3xl overflow-hidden bg-slate-900 text-white relative shadow-xl group-hover:shadow-2xl transition-all duration-500">
                           <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-950 z-0" />
                           <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-500/20 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 group-hover:bg-indigo-500/30 transition-colors duration-500" />
                           
