@@ -1047,28 +1047,6 @@ type DemoTenantState = {
   saasPaidAdsSpend: DemoSaasPaidAdsSpend[];
 };
 
-// Dev-only persistence for SocialFlow demo state
-const isNodeDev =
-  typeof process !== "undefined" &&
-  process.env.NODE_ENV === "development";
-
-// We deliberately keep this path inside .next to avoid polluting the repo
-const SOCIALFLOW_DEMO_SNAPSHOT_PATH = ".next/socialflow-demo.json";
-
-// Lazy-loaded fs to avoid bundling it into Cloudflare Workers
-let devFs: typeof import("fs") | null = null;
-function getDevFs(): typeof import("fs") | null {
-  if (!isNodeDev) return null;
-  if (devFs) return devFs;
-  try {
-    // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-    devFs = require("fs");
-  } catch {
-    devFs = null;
-  }
-  return devFs;
-}
-
 type SocialflowDemoSnapshot = {
   tenants: {
     [tenantId: string]: {
