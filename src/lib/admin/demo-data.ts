@@ -1066,23 +1066,24 @@ let externalDemoTenantStateCache: Map<string, DemoTenantStateSnapshot> | null | 
 function loadSocialflowDemoSnapshot(): SocialflowDemoSnapshot | null {
   if (!isNodeDev) return null;
   const fs = getDevFs();
-  if (!fs) return null;
+  const snapshotPath = getSocialflowDemoStatePath();
+  if (!fs || !snapshotPath) return null;
   try {
-    if (!fs.existsSync(SOCIALFLOW_DEMO_SNAPSHOT_PATH)) return null;
-    const raw = fs.readFileSync(SOCIALFLOW_DEMO_SNAPSHOT_PATH, "utf8");
+    if (!fs.existsSync(snapshotPath)) return null;
+    const raw = fs.readFileSync(snapshotPath, "utf8");
     if (!raw) return null;
     const parsed = JSON.parse(raw) as SocialflowDemoSnapshot;
     // Dev-only trace
     // eslint-disable-next-line no-console
     console.log("[SOCIALFLOW_DEMO] load snapshot", {
-      path: SOCIALFLOW_DEMO_SNAPSHOT_PATH,
+      path: snapshotPath,
       tenants: Object.keys(parsed.tenants ?? {}),
     });
     if (!parsed || typeof parsed !== "object" || !parsed.tenants) return null;
     return parsed;
   } catch {
     // eslint-disable-next-line no-console
-    console.warn("[SOCIALFLOW_DEMO] failed to load snapshot", SOCIALFLOW_DEMO_SNAPSHOT_PATH);
+    console.warn("[SOCIALFLOW_DEMO] failed to load snapshot", getSocialflowDemoStatePath());
     return null;
   }
 }
@@ -1090,7 +1091,8 @@ function loadSocialflowDemoSnapshot(): SocialflowDemoSnapshot | null {
 function saveSocialflowDemoSnapshot(tenantId: string): void {
   if (!isNodeDev) return;
   const fs = getDevFs();
-  if (!fs) return;
+  const snapshotPath = getSocialflowDemoStatePath();
+  if (!fs || !snapshotPath) return;
   const state = tenantStore.get(tenantId);
   if (!state) return;
 
@@ -1103,14 +1105,14 @@ function saveSocialflowDemoSnapshot(tenantId: string): void {
   };
 
   try {
-    const dir = require("path").dirname(SOCIALFLOW_DEMO_SNAPSHOT_PATH);
+    const dir = require("path").dirname(snapshotPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(SOCIALFLOW_DEMO_SNAPSHOT_PATH, JSON.stringify(current, null, 2), "utf8");
+    fs.writeFileSync(snapshotPath, JSON.stringify(current, null, 2), "utf8");
     // eslint-disable-next-line no-console
     console.log("[SOCIALFLOW_DEMO] save snapshot", {
-      path: SOCIALFLOW_DEMO_SNAPSHOT_PATH,
+      path: snapshotPath,
       tenantId,
       accounts: state.saasSocialAccounts.length,
       campaigns: state.saasSocialCampaigns.length,
