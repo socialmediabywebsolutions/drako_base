@@ -127,7 +127,11 @@ async function runTest() {
         console.log("Scheduler Logs:", logs);
 
         console.log("3. Verifying Post Status...");
-        const post = await mockDb.prepare("SELECT status, posted_at FROM saas_social_posts WHERE id = ?").bind(testId).first<{ status: string; posted_at: string }>();
+        const rawPost = await mockDb
+            .prepare("SELECT status, posted_at FROM saas_social_posts WHERE id = ?")
+            .bind(testId)
+            .first();
+        const post = rawPost as { status: string; posted_at: string } | null;
 
         if (post?.status === "PUBLISHED" && post.posted_at) {
             console.log("✅ SUCCESS: Post was published!");

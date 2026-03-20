@@ -5,8 +5,27 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { name, email, role, interest, message } = body;
+    const body: unknown = await request.json();
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      typeof (body as any).name !== "string" ||
+      typeof (body as any).email !== "string" ||
+      typeof (body as any).message !== "string"
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid request body" },
+        { status: 400 },
+      );
+    }
+
+    const { name, email, role, interest, message } = body as {
+      name: string;
+      email: string;
+      role?: string;
+      interest?: string;
+      message: string;
+    };
 
     // Basic validation
     if (!name || !email || !message) {

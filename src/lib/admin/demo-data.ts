@@ -4816,7 +4816,13 @@ export function getDemoOwner(tenantId: string): DemoOwner | null {
 }
 
 export function __resetDemoTenantStateForDev(tenantId?: string): DemoTenantStateSnapshot {
-  return cloneState(ensureTenantState(tenantId));
+  if (!tenantId) {
+    tenantStore.clear();
+    return cloneState(EMPTY_STATE);
+  }
+  const cleared = ensureTenantState(tenantId);
+  tenantStore.delete(tenantId);
+  return cloneState(cleared);
 }
 
 export function exportDemoTenantState(tenantId: string): DemoTenantStateSnapshot {

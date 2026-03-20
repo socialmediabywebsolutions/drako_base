@@ -34,6 +34,7 @@ async function main() {
   const campaignName = `Campaña Persistencia ${Date.now()}`;
   console.log("[SOCIALFLOW_VALIDATE] Creating demo campaign", { campaignName });
   const campaign = upsertDemoSaasSocialCampaign(tenantId, {
+    id: `demo_campaign_${Date.now()}`,
     saas_id: saasId,
     name: campaignName,
     objective: "AWARENESS",
@@ -59,6 +60,7 @@ async function main() {
   // 4. Crear post programado ligado a campaña (sin id)
   console.log("[SOCIALFLOW_VALIDATE] Creating demo post for campaign", { campaignId });
   const post = upsertDemoSaasSocialPost(tenantId, {
+    id: `demo_post_${Date.now()}`,
     saas_id: saasId,
     campaign_id: campaignId,
     provider: "LINKEDIN",
@@ -117,6 +119,7 @@ async function main() {
   // 7. Crear post con scheduledAt en el pasado para que el scheduler lo procese
   console.log("[SOCIALFLOW_VALIDATE] Creating scheduled post in the past for scheduler test");
   const scheduledPost = upsertDemoSaasSocialPost(tenantId, {
+    id: `demo_post_sched_${Date.now()}`,
     saas_id: saasId,
     campaign_id: campaignId,
     provider: "LINKEDIN",

@@ -40,15 +40,16 @@ async function validateSocialCron() {
   console.log("🚀 Validating SocialFlow Cron Route...");
   console.log(`Target: ${BASE_URL}/api/cron/social`);
   // Mask secret for logging
-  const maskedSecret = CRON_SECRET.slice(0, 4) + "*".repeat(Math.max(0, CRON_SECRET.length - 8)) + CRON_SECRET.slice(-4);
-  console.log(`Using Token: ${maskedSecret} (Length: ${CRON_SECRET.length})`);
+  const secret = CRON_SECRET!;
+  const maskedSecret = secret.slice(0, 4) + "*".repeat(Math.max(0, secret.length - 8)) + secret.slice(-4);
+  console.log(`Using Token: ${maskedSecret} (Length: ${secret.length})`);
 
   try {
     // Use global fetch (available in Node.js 18+)
     const response = await fetch(`${BASE_URL}/api/cron/social`, {
       method: "GET",
       headers: {
-        "Authorization": `Bearer ${CRON_SECRET}`,
+        "Authorization": `Bearer ${secret}`,
         "Content-Type": "application/json",
       },
     });
