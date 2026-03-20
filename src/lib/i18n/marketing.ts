@@ -82,9 +82,189 @@ export function getMarketingCopy(locale: MarketingLocale) {
       socialFlow: {
         name: "SocialFlow",
         tagline: "El sistema operativo para la comunicación de marca.",
-        problem: "Los equipos de marketing modernos están saturados. Gestionar múltiples canales, mantener la coherencia de voz en cada respuesta y analizar el rendimiento en tiempo real se ha convertido en una tarea imposible de escalar manualmente. El resultado es un equipo reactivo, agotado y propenso a errores que dañan la marca.",
-        solution: "SocialFlow centraliza y eleva la operación de marketing. Utiliza IA para entender el contexto profundo de tu marca, sugerir contenidos alineados y automatizar respuestas con supervisión humana. Transforma el caos de notificaciones en un flujo de trabajo sereno y controlado.",
-        impact: "Transformamos departamentos de marketing estresados en redacciones ágiles. Reducimos el tiempo operativo significativamente, aseguramos que cada interacción pública refleje los valores de la empresa y liberamos a los creativos para que hagan lo que mejor saben hacer: estrategia y narrativa.",
+        badge: "SocialFlow v1.0",
+        hero: {
+            title: "Tu marca no debería depender de quién está de turno hoy.",
+            subtitle: "SocialFlow es el sistema operativo que estandariza, protege y escala la comunicación digital de tu empresa. Deja de apagar fuegos y empieza a construir activos.",
+            cta: "Solicitar piloto",
+            ctaSecondary: "Ver vídeo de producto", // Less prominent, actionable
+            trustedBy: "Operando críticas en tiempo real para:"
+        },
+        problem: {
+            title: "El caos operativo es el enemigo de la marca.",
+            subtitle: "La falta de control no es neutra: genera coste. Equipos pierden entre 10 y 20 horas semanales en tareas repetitivas y un error de tono puede costar semanas de reputación.",
+            cards: [
+                {
+                    icon: "🔥",
+                    title: "Riesgo Reputacional",
+                    text: "Un error de tono o una respuesta improvisada pueden destruir años de construcción de marca en minutos."
+                },
+                {
+                    icon: "📉",
+                    title: "Ineficiencia Operativa",
+                    text: "Validar un copy toma 3 días. Responder una crisis toma 4 horas. La burocracia interna asfixia la relevancia."
+                },
+                {
+                    icon: "🌑",
+                    title: "Ceguera de Datos",
+                    text: "Sin trazabilidad, no hay mejora. Los reportes manuales en PDF ocultan la realidad de la operación."
+                }
+            ]
+        },
+        realFunctionality: {
+            title: "Qué hace SocialFlow en la práctica",
+            subtitle: "Funcionalidad real para problemas diarios. Sin humo.",
+            features: [
+                {
+                    title: "Inbox Multicanal Unificado",
+                    desc: "Centraliza comentarios, DMs y menciones de LinkedIn, X e Instagram en una sola cola de trabajo priorizada."
+                },
+                {
+                    title: "Respuestas Asistidas con Guardarrieles",
+                    desc: "La IA redacta borradores basándose estrictamente en tu manual de estilo. Tú apruebas o editas, pero nunca empiezas de cero."
+                },
+                {
+                    title: "Flujos de Aprobación Jerárquicos",
+                    desc: "Define quién puede publicar qué. Los juniors redactan, los seniors validan. Nada sale sin el 'ok' correcto."
+                },
+                {
+                    title: "Historial de Auditoría Forense",
+                    desc: "Registro inmutable de cada interacción: quién escribió, quién aprobó y cuándo se publicó. Trazabilidad total."
+                },
+                {
+                    title: "Automatización de Reglas de Negocio",
+                    desc: "Configura 'triggers': si es una duda frecuente, responde solo. Si detecta enfado, escala a soporte humano inmediatamente."
+                }
+            ]
+        },
+        icp: {
+            title: "Para quién es SocialFlow",
+            for: [
+                "Equipos de marketing con alto volumen de interacción diaria.",
+                "Empresas reguladas (Fintech, Salud, Legal) donde el error es costoso.",
+                "Marcas B2B que necesitan coherencia total en todos sus canales.",
+                "Equipos distribuidos que necesitan ordenar su proceso de publicación."
+            ],
+            notFor: [
+                "Freelancers o marcas personales pequeñas.",
+                "Proyectos en fase inicial sin volumen de comunicación.",
+                "Equipos que buscan viralidad rápida sin importar el riesgo."
+            ]
+        },
+        integrations: {
+            title: "Se integra con los canales que ya usas",
+            subtitle: "Conectamos con tu ecosistema actual. Sin migraciones dolorosas.",
+            items: ["LinkedIn", "X (Twitter)", "Instagram", "Salesforce", "HubSpot", "Slack", "Zendesk"]
+        },
+        pilot: {
+            badge: "Cupo Limitado Q4",
+            title: "Programa Piloto: Validación Operativa",
+            subtitle: "No queremos venderte software. Queremos arreglar tu flujo de trabajo. Danos 4 semanas para demostrar el impacto con tus propios datos.",
+            price: "Setup único de calibración",
+            features: [
+                "Configuración técnica completa (Auth + Integraciones)",
+                "Fine-tuning del modelo con tu Brand Book y tono histórico",
+                "Acceso ilimitado para 3 usuarios durante 30 días",
+                "Canal privado de Slack con nuestro equipo de ingeniería"
+            ],
+            cta: "Solicitar plaza en el piloto",
+            guarantee: "Garantía de ROI: Si no reducimos tu tiempo de gestión un 30% en el primer mes, te devolvemos el 100% del coste de setup."
+        },
+        solution: {
+            title: "Ingeniería aplicada a la conversación.",
+            subtitle: "No es una herramienta de publicación. Es un entorno de control de calidad y eficiencia.",
+            features: [
+                {
+                    title: "Guardianes de Marca IA",
+                    desc: "Configuramos modelos de lenguaje con tu manual de estilo. SocialFlow revisa cada borrador antes de que salga, sugiriendo correcciones de tono, gramática y cumplimiento normativo en tiempo real.",
+                    icon: "🛡️"
+                },
+                {
+                    title: "Flujos de Aprobación Líquidos",
+                    desc: "El sistema sabe quién debe aprobar qué. El contenido de bajo riesgo pasa rápido; las comunicaciones corporativas escalan automáticamente a los responsables correctos.",
+                    icon: "🌊"
+                },
+                {
+                    title: "Inbox Unificado Inteligente",
+                    desc: "Centraliza todas las conversaciones. La IA pre-redacta respuestas basadas en tu base de conocimiento y categoriza automáticamente cada interacción por sentimiento y urgencia.",
+                    icon: "⚡"
+                },
+                {
+                    title: "Analítica de Sentimiento Real",
+                    desc: "Más allá de los likes. Entendemos cómo se siente tu audiencia. Detectamos anomalías negativas antes de que se conviertan en crisis de relaciones públicas.",
+                    icon: "📊"
+                }
+            ]
+        },
+        howItWorks: {
+            title: "Cómo se integra en tu operación",
+            steps: [
+                {
+                    num: "01",
+                    title: "Conexión y Calibración",
+                    text: "Conectamos tus canales y alimentamos el modelo con tu histórico de mejores publicaciones y guías de estilo. En 48 horas, SocialFlow 'habla' como tu mejor copywriter."
+                },
+                {
+                    num: "02",
+                    title: "Adopción del Equipo",
+                    text: "Tu equipo sigue trabajando donde prefiere (Slack, Teams o nuestra interfaz). SocialFlow actúa como una capa invisible que asiste, no que interrumpe."
+                },
+                {
+                    num: "03",
+                    title: "Automatización Progresiva",
+                    text: "Empezamos asistiendo borradores. A medida que ganas confianza, activas el piloto automático para tareas repetitivas, manteniendo supervisión humana solo donde aporta valor."
+                }
+            ]
+        },
+        impact: {
+            title: "ROI medible en eficiencia y riesgo.",
+            text: "Nuestros clienpiloaalFloVpmodocumantaciónLo usan porque los números cuadran.",
+            metrics: [
+                { value: "-40%", label: "Tiempo en gestión operativa", desc: "Menos copiar-pegar, más estrategia." },
+                { value: "0", label: "Incidentes de marca", desc: "Bloqueo preventivo de contenido fuera de tono." },
+                { value: "+3x", label: "Velocidad de respuesta", desc: "Atención al cliente en tiempo real, 24/7." },
+                { value: "100%", label: "Trazabilidad", desc: "Auditoría completa de quién dijo qué y cuándo." }
+            ]
+        },
+        caseStudy: {
+            title: "Caso Real: FinTech Logística",
+            subtitle: "Cómo una empresa B2B escaló su soporte en Twitter sin duplicar equipo.",
+            before: {
+                title: "Antes de SocialFlow",
+                items: ["4 horas de tiempo de respuesta promedio", "Tono inconsistente entre agentes", "Sin datos de motivos de contacto"]
+            },
+            after: {
+                title: "Con SocialFlow",
+                items: ["15 minutos de tiempo de respuesta", "Tono unificado y profesional", "Detección automática de incidencias técnicas"]
+            },
+            quote: "SocialFlow nos permitió triplicar el volumen de interacciones manteniendo el mismo equipo. Es la única herramienta que se ha pagado sola el primer mes."
+        },
+        faq: {
+            title: "Preguntas Frecuentes",
+            items: [
+                {
+                    q: "¿SocialFlow reemplaza a mi equipo de marketing?",
+                    a: "No. SocialFlow elimina el trabajo robótico (programar, revisar erratas, etiquetar tickets) para que tu equipo se dedique a la estrategia, la creatividad y las relaciones complejas. Es un exoesqueleto, no un sustituto."
+                },
+                {
+                    q: "¿Cuánto tarda en aprender mi tono de voz?",
+                    a: "El 'cold start' toma aproximadamente 48-72 horas de análisis de tu histórico. A partir de ahí, el ajuste fino es continuo basado en las correcciones que hace tu equipo sobre las sugerencias."
+                },
+                {
+                    q: "¿Es seguro conectar mis cuentas corporativas?",
+                    a: "Absolutamente. Usamos APIs oficiales con tokens encriptados. Nunca almacenamos contraseñas y nuestros permisos de escritura son estrictamente controlados. Cumplimos con GDPR y estándares de seguridad empresarial."
+                },
+                {
+                    q: "¿Puedo usarlo para múltiples marcas?",
+                    a: "Sí. SocialFlow es multi-tenant nativo. Puedes gestionar distintos tonos de voz, equipos y permisos para cada marca o región sin que se mezclen los datos ni los estilos."
+                }
+            ]
+        },
+        ctaFinal: {
+            title: "¿Listo para profesionalizar tu operación?",
+            subtitle: "Deja de tratar tus redes sociales como un hobby y empieza a gestionarlas como un activo empresarial crítico.",
+            buttons: ["Solicitar acceso anticipado", "Agendar demo técnica"]
+        }
       },
       future: {
         title: "En construcción",
@@ -103,9 +283,9 @@ export function getMarketingCopy(locale: MarketingLocale) {
         {
           name: "SocialFlow",
           tagline: "El sistema operativo para la comunicación de marca.",
-          problem: "Los equipos de marketing modernos están saturados. Gestionar múltiples canales, mantener la coherencia de voz en cada respuesta y analizar el rendimiento en tiempo real se ha convertido en una tarea imposible de escalar manualmente. El resultado es un equipo reactivo, agotado y propenso a errores que dañan la marca.",
-          solution: "SocialFlow centraliza y eleva la operación de marketing. Utiliza IA para entender el contexto profundo de tu marca, sugerir contenidos alineados y automatizar respuestas con supervisión humana. Transforma el caos de notificaciones en un flujo de trabajo sereno y controlado.",
-          impact: "Transformamos departamentos de marketing estresados en redacciones ágiles. Reducimos el tiempo operativo significativamente, aseguramos que cada interacción pública refleje los valores de la empresa y liberamos a los creativos para que hagan lo que mejor saben hacer: estrategia y narrativa.",
+          problem: "Gestión manual caótica, errores de tono y respuestas lentas que dañan la marca.",
+          solution: "Un entorno unificado donde la IA redacta, supervisa y protege cada interacción pública de tu empresa.",
+          impact: "Escala tu capacidad de respuesta sin aumentar el equipo y blinda tu reputación 24/7.",
         }
       ]
     },
@@ -196,6 +376,13 @@ export function getMarketingCopy(locale: MarketingLocale) {
         name: "Tu nombre",
         email: "Tu correo electrónico",
         role: "Tu rol o cargo",
+        interest: "¿Qué estás buscando?",
+        interests: [
+            "Solicitar Piloto SocialFlow", 
+            "Consultoría de Operaciones", 
+            "Explorar otros productos", 
+            "Hablar con ingeniería"
+        ],
         message: "Cuéntanos el reto o la idea",
         submit: "Iniciar conversación"
       },

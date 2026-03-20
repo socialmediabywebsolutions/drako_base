@@ -68,7 +68,11 @@ export function SiteHeader({ locale, copy }: Props) {
         
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
           {navLinks(copy, locale).map((item) => {
-            const isActive = pathname === item.href;
+            const isHome = item.href === "/" || item.href === `/${locale}`;
+            const isActive = isHome 
+              ? pathname === item.href 
+              : pathname.startsWith(item.href);
+            
             return (
               <Link 
                 key={item.href} 

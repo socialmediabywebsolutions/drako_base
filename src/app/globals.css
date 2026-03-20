@@ -236,3 +236,46 @@ body::before {
   border-radius: 50%;
   background: #e2e8f0;
 }
+
+/* Custom Utilities for SocialFlow Landing */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+/* 3D Transforms */
+.rotate-y-\[-5deg\] {
+  transform: rotateY(-5deg);
+}
+.rotate-x-\[5deg\] {
+  transform: rotateX(5deg);
+}
+/* Composite transform when both are present */
+.rotate-y-\[-5deg\].rotate-x-\[5deg\] {
+  transform: rotateX(5deg) rotateY(-5deg);
+}
+
+/* Override hover behavior for 3D elements */
+.hover\:rotate-0:hover {
+  transform: rotateX(0) rotateY(0) !important;
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 4s ease-in-out infinite;
+}
+
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(-5px); }
+  50% { transform: translateY(5px); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.ui-grid-bg {
+  background-size: 40px 40px;
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+}

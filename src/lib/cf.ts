@@ -5,6 +5,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
  */
 export type DracoEnv = {
   DRACO_DB: D1Database;
+  SOCIAL_DB?: D1Database;
   DRAKOS_AUTHS_DB?: D1Database;
   MENTORIAS_AUTHS_DB?: D1Database;
   BASES_AUTHS_DB?: D1Database;

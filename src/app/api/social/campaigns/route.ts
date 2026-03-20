@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { listSaasSocialCampaigns, resolveSocialContext, SocialContextError, upsertSaasSocialCampaign } from "@/lib/social/repository";
 
-const ALLOWED_CAMPAIGN_STATUSES = ["DRAFT", "ACTIVE", "PAUSED", "FINISHED", "ARCHIVED"] as const;
+const ALLOWED_CAMPAIGN_STATUSES = ["ACTIVE", "PAUSED"] as const;
 
 export async function GET(request: Request) {
   try {
@@ -47,25 +47,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ code: "INVALID_BODY", message: "Body is required" }, { status: 400 });
     }
     const saasId = body.saasId ?? null;
-    if (!saasId || !body.name || !body.objective || !body.status || !body.targetSegment) {
+    const name = body.name?.trim() ?? "";
+    const status = body.status as (typeof ALLOWED_CAMPAIGN_STATUSES)[number] | null;
+
+    if (!saasId || !name || !status) {
       return NextResponse.json(
-        { code: "INVALID_BODY", message: "saasId, name, objective, status, targetSegment are required" },
+        { code: "INVALID_BODY", message: "saasId, name and status are required" },
         { status: 400 },
       );
     }
     const { tenantId } = await requireTenantAccess(request);
     const ctx = await resolveSocialContext({ tenantId, saasId });
-    if (!ALLOWED_CAMPAIGN_STATUSES.includes(body.status as (typeof ALLOWED_CAMPAIGN_STATUSES)[number])) {
-      return NextResponse.json({ code: "INVALID_STATUS", message: "status is invalid" }, { status: 400 });
+
+    if (!ALLOWED_CAMPAIGN_STATUSES.includes(status)) {
+      return NextResponse.json({ code: "INVALID_STATUS", message: "status must be ACTIVE or PAUSED" }, { status: 400 });
     }
-    const status = body.status as (typeof ALLOWED_CAMPAIGN_STATUSES)[number];
     const campaign = await upsertSaasSocialCampaign(ctx, {
       id: body.id,
       saasId,
-      name: body.name,
-      objective: body.objective,
+      name,
+      objective: body.objective ?? "AWARENESS",
       status,
-      targetSegment: body.targetSegment,
+      targetSegment: body.targetSegment ?? "DEFAULT",
       startDate: body.startDate ?? null,
       endDate: body.endDate ?? null,
       budgetEstimate: typeof body.budgetEstimate === "number" ? body.budgetEstimate : null,
@@ -89,10 +92,10 @@ export async function PATCH(request: Request) {
     const body = (await request.json().catch(() => null)) as {
       id?: string;
       saasId?: string | null;
-      name?: string;
-      objective?: string;
-      status?: string;
-      targetSegment?: string;
+      name?: string | null;
+      status?: string | null;
+      objective?: string | null;
+      targetSegment?: string | null;
       startDate?: string | null;
       endDate?: string | null;
       budgetEstimate?: number | null;

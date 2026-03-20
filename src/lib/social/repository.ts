@@ -39,7 +39,8 @@ export type SocialContext = {
   mode: SocialContextMode;
   allowDemoFallback: boolean;
   demoTenantId?: string;
-  db?: D1Database;
+  coreDb?: D1Database;
+  socialDb?: D1Database;
   env?: DracoEnv | null;
 };
 
@@ -75,7 +76,11 @@ function shouldFallbackToDemo(error: unknown, ctx: SocialContext): boolean {
 }
 
 function generateUuid(): string {
-  const globalCrypto = typeof globalThis !== "undefined" ? (globalThis.crypto as { randomUUID?: () => string } | undefined) : undefined;
+  const globalCrypto =
+    typeof globalThis !== "undefined"
+      ? ((globalThis.crypto as { randomUUID?: () => string } | undefined) ?? undefined)
+      : undefined;
+
   if (globalCrypto?.randomUUID) {
     try {
       return globalCrypto.randomUUID();
@@ -83,6 +88,7 @@ function generateUuid(): string {
       // ignore and fallback
     }
   }
+
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
@@ -112,9 +118,13 @@ function requireSaasId(ctx: SocialContext): string {
   return saasId;
 }
 
-async function queryAllWithCtx<T>(ctx: SocialContext, sql: string, ...params: unknown[]): Promise<T[]> {
+async function queryAllWithCtx<T>(
+  ctx: SocialContext,
+  sql: string,
+  db: D1Database | undefined,
+  ...params: unknown[]
+): Promise<T[]> {
   if (ctx.mode !== "d1") return [];
-  const db = ctx.db ?? resolveEnvOverride(ctx.env)?.DRACO_DB;
   if (!db) return [];
   const stmt = db.prepare(sql);
   const bound = params.length ? stmt.bind(...params) : stmt;
@@ -122,9 +132,13 @@ async function queryAllWithCtx<T>(ctx: SocialContext, sql: string, ...params: un
   return res.results ?? [];
 }
 
-async function runWithCtx(ctx: SocialContext, sql: string, ...params: unknown[]): Promise<boolean> {
+async function runWithCtx(
+  ctx: SocialContext,
+  sql: string,
+  db: D1Database | undefined,
+  ...params: unknown[]
+): Promise<boolean> {
   if (ctx.mode !== "d1") return false;
-  const db = ctx.db ?? resolveEnvOverride(ctx.env)?.DRACO_DB;
   if (!db) return false;
   const stmt = db.prepare(sql);
   const bound = params.length ? stmt.bind(...params) : stmt;
@@ -143,16 +157,21 @@ export async function resolveSocialContext({
 }): Promise<SocialContext> {
   const normalizedSaasId = saasId?.trim() ?? null;
   const demoEnabled = isDemoFeatureEnabled(tenantId, env);
+  const runtimeEnv = resolveEnvOverride(env);
 
   if (hasDatabase(env)) {
-    const runtimeEnv = resolveEnvOverride(env);
+    if (!runtimeEnv?.SOCIAL_DB) {
+      throw new SocialContextError("SOCIAL_DB not configured");
+    }
+
     return {
       tenantId,
       saasId: normalizedSaasId,
       mode: "d1",
       allowDemoFallback: demoEnabled,
       demoTenantId: demoEnabled ? DEMO_TENANT_ID : undefined,
-      db: runtimeEnv?.DRACO_DB,
+      coreDb: runtimeEnv?.DRACO_DB,
+      socialDb: runtimeEnv.SOCIAL_DB,
       env: runtimeEnv,
     };
   }
@@ -180,7 +199,8 @@ type SocialAccountRow = {
   display_name: string | null;
   status: string;
   auth_meta: string | null;
-  primary: number;
+  is_primary?: number;
+  primary?: number;
   created_at: string;
   updated_at: string;
 };
@@ -238,6 +258,8 @@ type SocialMetricsRow = {
 };
 
 function mapAccountRow(row: SocialAccountRow): SaasSocialAccount {
+  const primaryValue = typeof row.is_primary === "number" ? row.is_primary : (row.primary ?? 0);
+
   return {
     id: row.id,
     tenantId: row.tenant_id,
@@ -247,7 +269,7 @@ function mapAccountRow(row: SocialAccountRow): SaasSocialAccount {
     displayName: row.display_name,
     status: row.status as SaasSocialAccount["status"],
     authMeta: parseJson<Record<string, unknown>>(row.auth_meta),
-    isPrimary: row.primary === 1,
+    isPrimary: primaryValue === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -291,6 +313,28 @@ function mapPostRow(row: SocialPostRow): SaasSocialPost {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function mapMetricsRow(row: SocialMetricsRow): SaasSocialMetrics {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    saasId: row.saas_id,
+    postId: row.post_id,
+    provider: row.provider as SaasSocialProvider,
+    impressions: row.impressions,
+    likes: row.likes,
+    comments: row.comments,
+    shares: row.shares,
+    clicks: row.clicks,
+    leadsGenerated: row.leads_generated,
+    capturedAt: row.captured_at,
+    metadata: parseJson<Record<string, unknown>>(row.metadata),
+  };
+}
+
+function demoTenantId(ctx: SocialContext): string {
+  return ctx.demoTenantId ?? ctx.tenantId;
 }
 
 // Minimal stubs to satisfy API/UI imports
@@ -350,7 +394,13 @@ export async function getSocialProductSummary(_ctx: SocialContext): Promise<Soci
     presentation: { demoStage: "DEMO", stageLabel: "Demo", confidenceNote: "" },
     readiness: { stage: "PILOT_READY", label: "Pilot ready", readyNow: [], simulatedAreas: [], pilotNotes: [] },
     onboarding: { completedSteps: 0, totalSteps: 0, progressPercent: 0, nextAction: "connect_account", steps: [] },
-    overview: { connectedAccounts: 0, activeCampaigns: 0, scheduledPostsThisWeek: 0, publishedPostsLast30Days: 0, engagementLast30Days: 0 },
+    overview: {
+      connectedAccounts: 0,
+      activeCampaigns: 0,
+      scheduledPostsThisWeek: 0,
+      publishedPostsLast30Days: 0,
+      engagementLast30Days: 0,
+    },
     highlights: { draftPosts: 0, upcomingPosts: 0, archivedCampaigns: 0 },
     analytics: await getSocialAnalyticsSnapshot(_ctx),
     analyticsHealth: {
@@ -376,8 +426,55 @@ export async function getSocialProductSummary(_ctx: SocialContext): Promise<Soci
   };
 }
 
-export async function runSocialSchedulerSimulation(_ctx: SocialContext): Promise<{ ok: boolean }> {
-  return { ok: true };
+export async function runSocialSchedulerSimulation(ctx: SocialContext): Promise<{ ok: boolean }> {
+  const now = new Date();
+  const nowIso = now.toISOString();
+
+  if (ctx.mode === "demo") {
+    const saasId = requireSaasId(ctx);
+    const demoPosts = listDemoSaasSocialPosts(demoTenantId(ctx), saasId, {
+      campaignId: null,
+      status: "SCHEDULED",
+      provider: null,
+    });
+
+    for (const post of demoPosts) {
+      if (!post.scheduled_at) continue;
+      if (new Date(post.scheduled_at).getTime() > new Date(nowIso).getTime()) continue;
+
+      updateDemoSaasSocialPostStatus(demoTenantId(ctx), {
+        id: post.id,
+        status: "POSTED",
+        posted_at: nowIso,
+      });
+    }
+
+    return { ok: true };
+  }
+
+  // D1 mode: perform bulk update in SOCIAL_DB
+  if (ctx.mode === "d1") {
+    const saasId = requireSaasId(ctx);
+    await runWithCtx(
+      ctx,
+      `UPDATE saas_social_posts
+       SET status = 'POSTED', posted_at = ?, updated_at = ?
+       WHERE tenant_id = ?
+         AND saas_id = ?
+         AND status = 'SCHEDULED'
+         AND scheduled_at IS NOT NULL
+         AND datetime(scheduled_at) <= datetime(?)`,
+      ctx.socialDb,
+      nowIso,
+      nowIso,
+      ctx.tenantId,
+      saasId,
+      nowIso,
+    );
+    return { ok: true };
+  }
+
+  return { ok: false };
 }
 
 export async function createSaasSocialChannelIdea(
@@ -399,7 +496,10 @@ export async function createSaasSocialChannelIdea(
   };
 }
 
-export async function listSaasSocialChannelIdeas(_ctx: SocialContext, channelId: string): Promise<SaasSocialChannelIdea[]> {
+export async function listSaasSocialChannelIdeas(
+  _ctx: SocialContext,
+  _channelId: string,
+): Promise<SaasSocialChannelIdea[]> {
   return [];
 }
 
@@ -422,7 +522,10 @@ export async function updateSaasSocialChannelIdea(
   };
 }
 
-export async function getSaasSocialChannelKnowledge(_ctx: SocialContext, channelId: string): Promise<SaasSocialChannelKnowledge | null> {
+export async function getSaasSocialChannelKnowledge(
+  _ctx: SocialContext,
+  channelId: string,
+): Promise<SaasSocialChannelKnowledge | null> {
   return {
     channelId,
     objective: null,
@@ -448,7 +551,10 @@ export async function upsertSaasSocialChannelKnowledge(
   };
 }
 
-export async function getSaasSocialChannelSignals(_ctx: SocialContext, channelId: string): Promise<SaasSocialChannelSignals> {
+export async function getSaasSocialChannelSignals(
+  _ctx: SocialContext,
+  channelId: string,
+): Promise<SaasSocialChannelSignals> {
   return {
     channelId,
     tenantId: _ctx.tenantId,
@@ -492,40 +598,21 @@ export async function markSocialPostAnalyticsReviewed(
   return posts.find((post) => post.id === postId) ?? null;
 }
 
-function mapMetricsRow(row: SocialMetricsRow): SaasSocialMetrics {
-  return {
-    id: row.id,
-    tenantId: row.tenant_id,
-    saasId: row.saas_id,
-    postId: row.post_id,
-    provider: row.provider as SaasSocialProvider,
-    impressions: row.impressions,
-    likes: row.likes,
-    comments: row.comments,
-    shares: row.shares,
-    clicks: row.clicks,
-    leadsGenerated: row.leads_generated,
-    capturedAt: row.captured_at,
-    metadata: parseJson<Record<string, unknown>>(row.metadata),
-  };
-}
-
-function demoTenantId(ctx: SocialContext): string {
-  return ctx.demoTenantId ?? ctx.tenantId;
-}
-
 export async function listSaasSocialAccounts(ctx: SocialContext): Promise<SaasSocialAccount[]> {
   const saasId = requireSaasId(ctx);
+
   if (ctx.mode === "demo") {
     return listDemoSaasSocialAccounts(demoTenantId(ctx), saasId).map(mapAccountRow);
   }
+
   try {
     const rows = await queryAllWithCtx<SocialAccountRow>(
       ctx,
-      `SELECT id, tenant_id, saas_id, provider, handle, display_name, status, auth_meta, primary, created_at, updated_at
+      `SELECT id, tenant_id, saas_id, provider, handle, display_name, status, auth_meta, is_primary, created_at, updated_at
        FROM saas_social_accounts
        WHERE tenant_id = ? AND saas_id = ?
        ORDER BY created_at DESC`,
+      ctx.socialDb,
       ctx.tenantId,
       saasId,
     );
@@ -549,6 +636,7 @@ export async function upsertSaasSocialAccount(
   const saasId = input.saasId?.trim() ?? requireSaasId(ctx);
   const now = new Date().toISOString();
   const id = input.id?.trim() ?? generateUuid();
+
   if (ctx.mode === "demo") {
     const record = upsertDemoSaasSocialAccount(demoTenantId(ctx), {
       id,
@@ -562,10 +650,11 @@ export async function upsertSaasSocialAccount(
     });
     return mapAccountRow(record);
   }
+
   try {
     await runWithCtx(
       ctx,
-      `INSERT INTO saas_social_accounts (id, tenant_id, saas_id, provider, handle, display_name, status, auth_meta, primary, created_at, updated_at)
+      `INSERT INTO saas_social_accounts (id, tenant_id, saas_id, provider, handle, display_name, status, auth_meta, is_primary, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          provider = excluded.provider,
@@ -573,8 +662,9 @@ export async function upsertSaasSocialAccount(
          display_name = excluded.display_name,
          status = excluded.status,
          auth_meta = excluded.auth_meta,
-         primary = excluded.primary,
+         is_primary = excluded.is_primary,
          updated_at = excluded.updated_at`,
+      ctx.socialDb,
       id,
       ctx.tenantId,
       saasId,
@@ -587,13 +677,16 @@ export async function upsertSaasSocialAccount(
       now,
       now,
     );
+
     const rows = await queryAllWithCtx<SocialAccountRow>(
       ctx,
-      `SELECT id, tenant_id, saas_id, provider, handle, display_name, status, auth_meta, primary, created_at, updated_at
+      `SELECT id, tenant_id, saas_id, provider, handle, display_name, status, auth_meta, is_primary, created_at, updated_at
        FROM saas_social_accounts
        WHERE id = ? LIMIT 1`,
+      ctx.socialDb,
       id,
     );
+
     return mapAccountRow(rows[0]);
   } catch (error) {
     if (shouldFallbackToDemo(error, ctx)) {
@@ -615,9 +708,11 @@ export async function upsertSaasSocialAccount(
 
 export async function listSaasSocialCampaigns(ctx: SocialContext): Promise<SaasSocialCampaign[]> {
   const saasId = requireSaasId(ctx);
+
   if (ctx.mode === "demo") {
     return listDemoSaasSocialCampaigns(demoTenantId(ctx), saasId).map(mapCampaignRow);
   }
+
   try {
     const rows = await queryAllWithCtx<SocialCampaignRow>(
       ctx,
@@ -625,6 +720,7 @@ export async function listSaasSocialCampaigns(ctx: SocialContext): Promise<SaasS
        FROM saas_social_campaigns
        WHERE tenant_id = ? AND saas_id = ?
        ORDER BY created_at DESC`,
+      ctx.socialDb,
       ctx.tenantId,
       saasId,
     );
@@ -644,6 +740,7 @@ export async function upsertSaasSocialCampaign(
   const saasId = input.saasId?.trim() ?? requireSaasId(ctx);
   const now = new Date().toISOString();
   const id = input.id?.trim() ?? generateUuid();
+
   if (ctx.mode === "demo") {
     const record = upsertDemoSaasSocialCampaign(demoTenantId(ctx), {
       id,
@@ -659,6 +756,7 @@ export async function upsertSaasSocialCampaign(
     });
     return mapCampaignRow(record);
   }
+
   try {
     await runWithCtx(
       ctx,
@@ -676,6 +774,7 @@ export async function upsertSaasSocialCampaign(
          budget_estimate = excluded.budget_estimate,
          notes = excluded.notes,
          updated_at = excluded.updated_at`,
+      ctx.socialDb,
       id,
       ctx.tenantId,
       saasId,
@@ -690,13 +789,16 @@ export async function upsertSaasSocialCampaign(
       now,
       now,
     );
+
     const rows = await queryAllWithCtx<SocialCampaignRow>(
       ctx,
       `SELECT id, tenant_id, saas_id, name, objective, status, target_segment, start_date, end_date, budget_estimate, notes, created_at, updated_at
        FROM saas_social_campaigns
        WHERE id = ? LIMIT 1`,
+      ctx.socialDb,
       id,
     );
+
     return mapCampaignRow(rows[0]);
   } catch (error) {
     if (shouldFallbackToDemo(error, ctx)) {
@@ -723,6 +825,7 @@ export async function listSaasSocialPosts(
   filters?: { campaignId?: string | null; status?: string | null; provider?: SaasSocialProvider | null },
 ): Promise<SaasSocialPost[]> {
   const saasId = requireSaasId(ctx);
+
   if (ctx.mode === "demo") {
     return listDemoSaasSocialPosts(demoTenantId(ctx), saasId, {
       campaignId: filters?.campaignId ?? null,
@@ -730,9 +833,11 @@ export async function listSaasSocialPosts(
       provider: filters?.provider ?? null,
     }).map(mapPostRow);
   }
+
   try {
     const clauses = ["tenant_id = ?", "saas_id = ?"];
     const params: unknown[] = [ctx.tenantId, saasId];
+
     if (filters?.campaignId) {
       clauses.push("campaign_id = ?");
       params.push(filters.campaignId);
@@ -745,6 +850,7 @@ export async function listSaasSocialPosts(
       clauses.push("provider = ?");
       params.push(filters.provider);
     }
+
     const rows = await queryAllWithCtx<SocialPostRow>(
       ctx,
       `SELECT id, tenant_id, saas_id, campaign_id, provider, content_type, title, body, image_hint, status,
@@ -752,8 +858,10 @@ export async function listSaasSocialPosts(
        FROM saas_social_posts
        WHERE ${clauses.join(" AND ")}
        ORDER BY datetime(created_at) DESC`,
+      ctx.socialDb,
       ...params,
     );
+
     return rows.map(mapPostRow);
   } catch (error) {
     if (shouldFallbackToDemo(error, ctx)) {
@@ -772,6 +880,7 @@ export async function getSaasSocialPostById(ctx: SocialContext, postId: string):
     const record = getDemoSaasSocialPostById(demoTenantId(ctx), postId);
     return record ? mapPostRow(record) : null;
   }
+
   try {
     const rows = await queryAllWithCtx<SocialPostRow>(
       ctx,
@@ -779,9 +888,11 @@ export async function getSaasSocialPostById(ctx: SocialContext, postId: string):
               scheduled_at, posted_at, external_post_id, metadata, created_at, updated_at
        FROM saas_social_posts
        WHERE tenant_id = ? AND id = ? LIMIT 1`,
+      ctx.socialDb,
       ctx.tenantId,
       postId,
     );
+
     return rows.length ? mapPostRow(rows[0]) : null;
   } catch (error) {
     if (shouldFallbackToDemo(error, ctx)) {
@@ -797,7 +908,8 @@ export async function updateSaasSocialPostStatus(
   input: { id: string; status: SaasSocialPost["status"]; postedAt?: string | null },
 ): Promise<SaasSocialPost | null> {
   const now = new Date().toISOString();
-  const postedAt = input.status === "POSTED" ? input.postedAt ?? now : null;
+  const postedAt = input.status === "POSTED" || input.status === "PUBLISHED" ? input.postedAt ?? now : null;
+
   if (ctx.mode === "demo") {
     const record = updateDemoSaasSocialPostStatus(demoTenantId(ctx), {
       id: input.id,
@@ -806,27 +918,32 @@ export async function updateSaasSocialPostStatus(
     });
     return record ? mapPostRow(record) : null;
   }
+
   try {
     await runWithCtx(
       ctx,
       `UPDATE saas_social_posts
        SET status = ?, posted_at = COALESCE(?, posted_at), updated_at = ?
        WHERE tenant_id = ? AND id = ?`,
+      ctx.socialDb,
       input.status,
       postedAt,
       now,
       ctx.tenantId,
       input.id,
     );
+
     const rows = await queryAllWithCtx<SocialPostRow>(
       ctx,
       `SELECT id, tenant_id, saas_id, campaign_id, provider, content_type, title, body, image_hint, status,
               scheduled_at, posted_at, external_post_id, metadata, created_at, updated_at
        FROM saas_social_posts
        WHERE tenant_id = ? AND id = ? LIMIT 1`,
+      ctx.socialDb,
       ctx.tenantId,
       input.id,
     );
+
     return rows.length ? mapPostRow(rows[0]) : null;
   } catch (error) {
     if (shouldFallbackToDemo(error, ctx)) {
@@ -848,6 +965,7 @@ export async function upsertSaasSocialPost(
   const saasId = input.saasId?.trim() ?? requireSaasId(ctx);
   const now = new Date().toISOString();
   const id = input.id?.trim() ?? generateUuid();
+
   if (ctx.mode === "demo") {
     const record = upsertDemoSaasSocialPost(demoTenantId(ctx), {
       id,
@@ -866,6 +984,7 @@ export async function upsertSaasSocialPost(
     });
     return mapPostRow(record);
   }
+
   try {
     await runWithCtx(
       ctx,
@@ -887,6 +1006,7 @@ export async function upsertSaasSocialPost(
          external_post_id = excluded.external_post_id,
          metadata = excluded.metadata,
          updated_at = excluded.updated_at`,
+      ctx.socialDb,
       id,
       ctx.tenantId,
       saasId,
@@ -904,14 +1024,17 @@ export async function upsertSaasSocialPost(
       now,
       now,
     );
+
     const rows = await queryAllWithCtx<SocialPostRow>(
       ctx,
       `SELECT id, tenant_id, saas_id, campaign_id, provider, content_type, title, body, image_hint, status,
               scheduled_at, posted_at, external_post_id, metadata, created_at, updated_at
        FROM saas_social_posts
        WHERE id = ? LIMIT 1`,
+      ctx.socialDb,
       id,
     );
+
     return mapPostRow(rows[0]);
   } catch (error) {
     if (shouldFallbackToDemo(error, ctx)) {
@@ -940,6 +1063,7 @@ export async function listSaasSocialMetricsForPost(ctx: SocialContext, postId: s
   if (ctx.mode === "demo") {
     return listDemoSaasSocialMetricsForPost(demoTenantId(ctx), postId).map(mapMetricsRow);
   }
+
   try {
     const rows = await queryAllWithCtx<SocialMetricsRow>(
       ctx,
@@ -947,9 +1071,11 @@ export async function listSaasSocialMetricsForPost(ctx: SocialContext, postId: s
        FROM saas_social_metrics
        WHERE tenant_id = ? AND post_id = ?
        ORDER BY datetime(captured_at) DESC`,
+      ctx.socialDb,
       ctx.tenantId,
       postId,
     );
+
     return rows.map(mapMetricsRow);
   } catch (error) {
     if (shouldFallbackToDemo(error, ctx)) {
@@ -970,6 +1096,7 @@ export async function getSocialOverview(ctx: SocialContext): Promise<{
     listSaasSocialCampaigns(ctx),
     listSaasSocialPosts(ctx),
   ]);
+
   const connectedAccounts = accounts.filter((account) => account.status !== "DISCONNECTED").length;
   const activeCampaigns = campaigns.filter((campaign) => campaign.status === "ACTIVE").length;
   const now = Date.now();
@@ -981,20 +1108,25 @@ export async function getSocialOverview(ctx: SocialContext): Promise<{
   }).length;
 
   let engagementLast30Days = 0;
+
   if (ctx.mode === "demo") {
     const demoMetrics = listDemoSaasSocialPosts(demoTenantId(ctx), requireSaasId(ctx)).flatMap((post) =>
       listDemoSaasSocialMetricsForPost(demoTenantId(ctx), post.id),
     );
     const since = now - 30 * 24 * 60 * 60 * 1000;
+
     engagementLast30Days = demoMetrics
       .filter((metric) => new Date(metric.captured_at).getTime() >= since)
       .reduce((acc, metric) => acc + metric.likes + metric.comments + metric.shares + metric.clicks, 0);
   } else {
-    const rows = await queryAllWithCtx<Pick<SocialMetricsRow, "likes" | "comments" | "shares" | "clicks" | "captured_at">>(
+    const rows = await queryAllWithCtx<
+      Pick<SocialMetricsRow, "likes" | "comments" | "shares" | "clicks" | "captured_at">
+    >(
       ctx,
       `SELECT likes, comments, shares, clicks, captured_at
        FROM saas_social_metrics
        WHERE tenant_id = ? AND saas_id = ? AND datetime(captured_at) >= datetime(?)`,
+      ctx.socialDb,
       ctx.tenantId,
       requireSaasId(ctx),
       new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -1009,7 +1141,10 @@ function isConversionStatus(status: string): boolean {
   return status !== "CANCELLED" && status !== "NO_SHOW";
 }
 
-function estimateAppointmentRevenue(appointment: { status: string; priceAtBooking: number | null }, servicePrice: number): number {
+function estimateAppointmentRevenue(
+  appointment: { status: string; priceAtBooking: number | null },
+  servicePrice: number,
+): number {
   if (appointment.status !== "DONE") return 0;
   if (typeof appointment.priceAtBooking === "number") return appointment.priceAtBooking;
   return servicePrice;
@@ -1018,7 +1153,9 @@ function estimateAppointmentRevenue(appointment: { status: string; priceAtBookin
 export async function getSocialCampaignPerformance(ctx: SocialContext): Promise<SocialCampaignPerformance[]> {
   const saasId = requireSaasId(ctx);
   const [campaigns, posts] = await Promise.all([listSaasSocialCampaigns(ctx), listSaasSocialPosts(ctx)]);
-  const appointments = await listAppointmentsForSaas(await resolveAppointmentsContext({ tenantId: ctx.tenantId, saasId, env: ctx.env }));
+  const appointments = await listAppointmentsForSaas(
+    await resolveAppointmentsContext({ tenantId: ctx.tenantId, saasId, env: ctx.env }),
+  );
   const economyCtx = await resolveEconomyContext({ tenantId: ctx.tenantId, saasId, env: ctx.env }).catch(() => null);
   const services = economyCtx ? await listSaasServices(economyCtx).catch(() => []) : [];
   const servicePriceById = new Map(services.map((service) => [service.id, service.currentPrice]));
@@ -1031,6 +1168,7 @@ export async function getSocialCampaignPerformance(ctx: SocialContext): Promise<
       return acc + estimateAppointmentRevenue(appt, servicePrice);
     }, 0);
     const provider = campaignPosts[0]?.provider ?? "OTHER";
+
     return {
       campaignId: campaign.id,
       name: campaign.name,
@@ -1045,7 +1183,9 @@ export async function getSocialCampaignPerformance(ctx: SocialContext): Promise<
 export async function getSocialPostPerformance(ctx: SocialContext): Promise<SocialPostPerformance[]> {
   const saasId = requireSaasId(ctx);
   const posts = await listSaasSocialPosts(ctx);
-  const appointments = await listAppointmentsForSaas(await resolveAppointmentsContext({ tenantId: ctx.tenantId, saasId, env: ctx.env }));
+  const appointments = await listAppointmentsForSaas(
+    await resolveAppointmentsContext({ tenantId: ctx.tenantId, saasId, env: ctx.env }),
+  );
   const economyCtx = await resolveEconomyContext({ tenantId: ctx.tenantId, saasId, env: ctx.env }).catch(() => null);
   const services = economyCtx ? await listSaasServices(economyCtx).catch(() => []) : [];
   const servicePriceById = new Map(services.map((service) => [service.id, service.currentPrice]));
@@ -1113,6 +1253,7 @@ export async function getSocialOwnerSummary(ctx: SocialContext): Promise<SocialO
       `SELECT likes, comments, shares
        FROM saas_social_metrics
        WHERE tenant_id = ? AND saas_id = ? AND datetime(captured_at) >= datetime(?)`,
+      ctx.socialDb,
       ctx.tenantId,
       requireSaasId(ctx),
       new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString(),

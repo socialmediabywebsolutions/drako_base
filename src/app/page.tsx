@@ -138,39 +138,75 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
 
             <div className="grid grid-cols-1 gap-8">
               {copy.products.items.map((item) => (
-                <div key={item.name} className="card-premium bg-white hover:border-sky-200 group">
-                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12">
-                      <div className="lg:col-span-4 flex flex-col justify-between">
+                <div key={item.name} className="card-premium bg-slate-900 border-slate-800 text-white overflow-hidden p-0 shadow-2xl group">
+                   <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[400px]">
+                      <div className="p-8 md:p-12 flex flex-col justify-center relative z-10">
+                         <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-cyan-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                         
+                         {item.name === 'SocialFlow' ? (
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-bold tracking-widest uppercase mb-6 w-fit">
+                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"/>
+                                Pilot Program Open
+                            </div>
+                         ) : (
+                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-cyan-400 text-xs font-bold tracking-widest uppercase mb-6 w-fit">
+                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"/>
+                                Live Product
+                             </div>
+                         )}
+                         
+                         <h3 className="text-3xl md:text-5xl font-bold text-white mb-4 tracking-tight">{item.name}</h3>
+                         <p className="text-xl text-cyan-400 font-medium mb-6">{item.tagline}</p>
+                         <p className="text-slate-400 mb-8 leading-relaxed text-lg max-w-md">
+                            {item.solution}
+                         </p>
+                         
                          <div>
-                            <h3 className="text-3xl font-bold text-slate-900 mb-2">{item.name}</h3>
-                            <p className="text-sky-600 font-medium mb-6">{item.tagline}</p>
-                         </div>
-                         <div className="hidden lg:block">
-                            <Link href={`${prefix}/products`} className="text-sm font-bold uppercase tracking-widest text-slate-400 group-hover:text-sky-500 transition-colors">
-                              Explorar producto →
+                            <Link 
+                              href={`${prefix}/products/socialflow`} 
+                              className="inline-flex items-center gap-2 bg-cyan-500 text-white hover:bg-cyan-400 px-6 py-3 rounded-lg font-bold transition-all shadow-lg shadow-cyan-500/20"
+                            >
+                              Ver Landing Page
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                             </Link>
                          </div>
                       </div>
-                      <div className="lg:col-span-8 space-y-8">
-                         <div>
-                            <h4 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-2">El Problema</h4>
-                            <p className="text-slate-700">{item.problem}</p>
-                         </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div>
-                               <h4 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-2">Solución</h4>
-                               <p className="text-slate-600 text-sm leading-relaxed">{item.solution}</p>
-                            </div>
-                            <div>
-                               <h4 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-2">Impacto</h4>
-                               <p className="text-slate-600 text-sm leading-relaxed">{item.impact}</p>
-                            </div>
-                         </div>
-                         <div className="lg:hidden pt-4">
-                            <Link href={`${prefix}/products`} className="text-sm font-bold uppercase tracking-widest text-slate-500 group-hover:text-sky-500 transition-colors">
-                              Explorar producto →
-                            </Link>
-                         </div>
+                      
+                      {/* Visual Preview - Dark Theme */}
+                      <div className="bg-slate-800/50 relative border-t lg:border-t-0 lg:border-l border-slate-700/50 p-8 flex items-center justify-center overflow-hidden">
+                          <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-20" />
+                          
+                          {/* Abstract UI representation */}
+                          <div className="relative w-full max-w-md aspect-video bg-slate-900 rounded-xl shadow-2xl border border-slate-700 p-4 transform rotate-1 group-hover:rotate-0 transition-transform duration-500 hover:shadow-cyan-900/20">
+                              <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-2">
+                                  <div className="w-2 h-2 rounded-full bg-slate-600" />
+                                  <div className="w-2 h-2 rounded-full bg-slate-600" />
+                                  <div className="w-2 h-2 rounded-full bg-slate-600" />
+                              </div>
+                              <div className="space-y-4">
+                                  <div className="flex gap-3">
+                                      <div className="w-8 h-8 rounded-full bg-slate-800 flex-shrink-0 border border-slate-700" />
+                                      <div className="space-y-2 flex-1 pt-1">
+                                          <div className="h-2 bg-slate-800 rounded w-3/4" />
+                                          <div className="h-2 bg-slate-800 rounded w-1/2" />
+                                      </div>
+                                  </div>
+                                  
+                                  <div className="bg-cyan-900/20 p-3 rounded-lg border border-cyan-900/50 ml-11">
+                                      <div className="flex items-center gap-2 text-cyan-400 text-[10px] font-bold mb-1 uppercase tracking-wide">
+                                          <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse"/>
+                                          AI Response
+                                      </div>
+                                      <div className="h-1.5 bg-cyan-900/50 rounded w-full mb-1" />
+                                      <div className="h-1.5 bg-cyan-900/50 rounded w-5/6" />
+                                  </div>
+                              </div>
+                              
+                              <div className="absolute -bottom-4 -right-4 bg-white text-slate-900 text-xs font-bold px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+                                  <span className="w-2 h-2 bg-green-500 rounded-full" />
+                                  System Active
+                              </div>
+                          </div>
                       </div>
                    </div>
                 </div>

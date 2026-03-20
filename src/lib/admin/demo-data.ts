@@ -16,6 +16,10 @@ import type {
   NotificationSeverity,
   NotificationType,
 } from "@/lib/conversations/types";
+import * as fs from 'fs';
+import * as path from 'path';
+
+const socialFlowDemoStateFile = path.join(__dirname, 'social-flow-demo-state.json');
 
 export type DemoOwner = {
   id: string;
@@ -1020,10 +1024,102 @@ type DemoTenantState = {
   saasPaidAdsSpend: DemoSaasPaidAdsSpend[];
 };
 
+// Dev-only persistence for SocialFlow demo state
+const isNodeDev =
+  typeof process !== "undefined" &&
+  process.env.NODE_ENV === "development";
+
+// We deliberately keep this path inside .next to avoid polluting the repo
+const SOCIALFLOW_DEMO_SNAPSHOT_PATH = ".next/socialflow-demo.json";
+
+// Lazy-loaded fs to avoid bundling it into Cloudflare Workers
+let devFs: typeof import("fs") | null = null;
+function getDevFs(): typeof import("fs") | null {
+  if (!isNodeDev) return null;
+  if (devFs) return devFs;
+  try {
+    // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+    devFs = require("fs");
+  } catch {
+    devFs = null;
+  }
+  return devFs;
+}
+
+type SocialflowDemoSnapshot = {
+  tenants: {
+    [tenantId: string]: {
+      saasSocialAccounts?: DemoSaasSocialAccount[];
+      saasSocialCampaigns?: DemoSaasSocialCampaign[];
+      saasSocialPosts?: DemoSaasSocialPost[];
+      saasSocialMetrics?: DemoSaasSocialMetrics[];
+    };
+  };
+};
+
 export type DemoTenantStateSnapshot = DemoTenantState;
 
-const tenantStore = new Map<string, DemoTenantState>();
+export const tenantStore = new Map<string, DemoTenantState>();
 let externalDemoTenantStateCache: Map<string, DemoTenantStateSnapshot> | null | undefined;
+
+function loadSocialflowDemoSnapshot(): SocialflowDemoSnapshot | null {
+  if (!isNodeDev) return null;
+  const fs = getDevFs();
+  if (!fs) return null;
+  try {
+    if (!fs.existsSync(SOCIALFLOW_DEMO_SNAPSHOT_PATH)) return null;
+    const raw = fs.readFileSync(SOCIALFLOW_DEMO_SNAPSHOT_PATH, "utf8");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SocialflowDemoSnapshot;
+    // Dev-only trace
+    // eslint-disable-next-line no-console
+    console.log("[SOCIALFLOW_DEMO] load snapshot", {
+      path: SOCIALFLOW_DEMO_SNAPSHOT_PATH,
+      tenants: Object.keys(parsed.tenants ?? {}),
+    });
+    if (!parsed || typeof parsed !== "object" || !parsed.tenants) return null;
+    return parsed;
+  } catch {
+    // eslint-disable-next-line no-console
+    console.warn("[SOCIALFLOW_DEMO] failed to load snapshot", SOCIALFLOW_DEMO_SNAPSHOT_PATH);
+    return null;
+  }
+}
+
+function saveSocialflowDemoSnapshot(tenantId: string): void {
+  if (!isNodeDev) return;
+  const fs = getDevFs();
+  if (!fs) return;
+  const state = tenantStore.get(tenantId);
+  if (!state) return;
+
+  const current: SocialflowDemoSnapshot = loadSocialflowDemoSnapshot() ?? { tenants: {} };
+  current.tenants[tenantId] = {
+    saasSocialAccounts: state.saasSocialAccounts,
+    saasSocialCampaigns: state.saasSocialCampaigns,
+    saasSocialPosts: state.saasSocialPosts,
+    saasSocialMetrics: state.saasSocialMetrics,
+  };
+
+  try {
+    const dir = require("path").dirname(SOCIALFLOW_DEMO_SNAPSHOT_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(SOCIALFLOW_DEMO_SNAPSHOT_PATH, JSON.stringify(current, null, 2), "utf8");
+    // eslint-disable-next-line no-console
+    console.log("[SOCIALFLOW_DEMO] save snapshot", {
+      path: SOCIALFLOW_DEMO_SNAPSHOT_PATH,
+      tenantId,
+      accounts: state.saasSocialAccounts.length,
+      campaigns: state.saasSocialCampaigns.length,
+      posts: state.saasSocialPosts.length,
+      metrics: state.saasSocialMetrics.length,
+    });
+  } catch {
+    // Swallow errors in dev persistence to avoid breaking demo
+  }
+}
 
 const NOW = "2024-05-01T10:00:00.000Z";
 
@@ -4683,6 +4779,27 @@ function ensureTenantState(tenantId: string): DemoTenantState {
   const external = getExternalDemoTenantState(tenantId);
   const base = tenantId === DEMO_TENANT_ID ? DEFAULT_STATE : EMPTY_STATE;
   const cloned = external ? cloneState(external) : cloneState(base);
+
+  // In Node dev, merge any persisted SocialFlow demo snapshot for this tenant
+  if (isNodeDev) {
+    const snapshot = loadSocialflowDemoSnapshot();
+    const snapTenant = snapshot?.tenants?.[tenantId];
+    if (snapTenant) {
+      if (Array.isArray(snapTenant.saasSocialAccounts)) {
+        cloned.saasSocialAccounts = snapTenant.saasSocialAccounts;
+      }
+      if (Array.isArray(snapTenant.saasSocialCampaigns)) {
+        cloned.saasSocialCampaigns = snapTenant.saasSocialCampaigns;
+      }
+      if (Array.isArray(snapTenant.saasSocialPosts)) {
+        cloned.saasSocialPosts = snapTenant.saasSocialPosts;
+      }
+      if (Array.isArray(snapTenant.saasSocialMetrics)) {
+        cloned.saasSocialMetrics = snapTenant.saasSocialMetrics;
+      }
+    }
+  }
+
   tenantStore.set(tenantId, cloned);
   return cloned;
 }
@@ -4696,6 +4813,10 @@ function generateId(prefix: string): string {
 export function getDemoOwner(tenantId: string): DemoOwner | null {
   const owner = ensureTenantState(tenantId).owner;
   return owner ? { ...owner } : null;
+}
+
+export function __resetDemoTenantStateForDev(tenantId?: string): DemoTenantStateSnapshot {
+  return cloneState(ensureTenantState(tenantId));
 }
 
 export function exportDemoTenantState(tenantId: string): DemoTenantStateSnapshot {
@@ -5948,6 +6069,9 @@ export function upsertDemoSaasSocialAccount(
   } else {
     state.saasSocialAccounts.push(record);
   }
+  if (isNodeDev) {
+    saveSocialflowDemoSnapshot(tenantId);
+  }
   return { ...record };
 }
 
@@ -5982,6 +6106,9 @@ export function upsertDemoSaasSocialCampaign(
     state.saasSocialCampaigns[index] = record;
   } else {
     state.saasSocialCampaigns.push(record);
+  }
+  if (isNodeDev) {
+    saveSocialflowDemoSnapshot(tenantId);
   }
   return { ...record };
 }
@@ -6038,6 +6165,9 @@ export function upsertDemoSaasSocialPost(
   } else {
     state.saasSocialPosts.push(record);
   }
+  if (isNodeDev) {
+    saveSocialflowDemoSnapshot(tenantId);
+  }
   return { ...record };
 }
 
@@ -6053,6 +6183,9 @@ export function updateDemoSaasSocialPostStatus(
     record.posted_at = payload.posted_at ?? record.posted_at ?? new Date().toISOString();
   }
   record.updated_at = new Date().toISOString();
+  if (isNodeDev) {
+    saveSocialflowDemoSnapshot(tenantId);
+  }
   return { ...record };
 }
 
@@ -6086,6 +6219,9 @@ export function upsertDemoSaasSocialMetric(
     state.saasSocialMetrics[index] = record;
   } else {
     state.saasSocialMetrics.push(record);
+  }
+  if (isNodeDev) {
+    saveSocialflowDemoSnapshot(tenantId);
   }
   return { ...record };
 }

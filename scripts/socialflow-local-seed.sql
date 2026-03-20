@@ -1,0 +1,61 @@
+INSERT INTO saas_social_accounts (
+  id,
+  tenant_id,
+  saas_id,
+  provider,
+  handle,
+  display_name,
+  status,
+  auth_meta,
+  is_primary,
+  created_at,
+  updated_at
+) VALUES (
+  'acc_social_test_1',
+  'demo-tenant',
+  'socialflow',
+  'LINKEDIN',
+  'cris-test',
+  'Cris Test',
+  'CONNECTED_REAL',
+  '{"mode":"live","accessToken":"fake-token-123","authorUrn":"urn:li:person:fake-user"}',
+  1,
+  datetime('now'),
+  datetime('now')
+);
+
+INSERT INTO saas_social_posts (
+  id,
+  tenant_id,
+  saas_id,
+  campaign_id,
+  provider,
+  content_type,
+  title,
+  body,
+  image_hint,
+  status,
+  scheduled_at,
+  posted_at,
+  external_post_id,
+  metadata,
+  created_at,
+  updated_at
+) VALUES (
+  'post_social_test_1',
+  'demo-tenant',
+  'socialflow',
+  NULL,
+  'LINKEDIN',
+  'FEED',
+  'Post de prueba',
+  'Post de prueba desde SOCIAL_DB',
+  NULL,
+  'SCHEDULED',
+  '2025-01-01T00:00:00.000Z',
+  NULL,
+  NULL,
+  NULL,
+  datetime('now'),
+  datetime('now')
+);
