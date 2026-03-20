@@ -3,8 +3,8 @@ import {
   exportDemoTenantState,
   upsertDemoSaasSocialCampaign,
   upsertDemoSaasSocialPost,
-} from "@/lib/admin/demo-data";
-import { resolveSocialContext, runSocialSchedulerSimulation } from "@/lib/social/repository";
+} from "../src/lib/admin/demo-data";
+import { runSocialSchedulerSimulation } from "../src/lib/social/repository";
 
 const DEMO_TENANT_ID = "demo_tenant_id";
 const DEMO_SAAS_ID = "socialflow";
@@ -26,9 +26,16 @@ async function main() {
   console.log("[SOCIALFLOW_VALIDATE] Resetting demo tenant state for dev");
   __resetDemoTenantStateForDev(tenantId);
 
-  // 2. Resuelve el contexto SocialFlow en modo demo (sin HTTP)
-  console.log("[SOCIALFLOW_VALIDATE] Resolving Social context");
-  const ctx = await resolveSocialContext({ tenantId, saasId, env: null });
+  // 2. Construye un contexto mínimo en modo demo, sin depender de Cloudflare
+  console.log("[SOCIALFLOW_VALIDATE] Building demo Social context (local, no CF bindings)");
+  const ctx = {
+    mode: "demo" as const,
+    tenantId,
+    saasId,
+    env: null,
+    socialDb: undefined,
+    allowDemoFallback: true as const,
+  } as const;
 
   // 3. Crear campaña demo directamente en demo-data (sin id)
   const campaignName = `Campaña Persistencia ${Date.now()}`;

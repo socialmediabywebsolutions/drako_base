@@ -7,9 +7,15 @@ workers_dev = false
 pattern = "socialflows.drako.systems"
 custom_domain = true
 
-# Recommended strategy: one D1 per SaaS worker.
+# D1 DATABASES
 [[d1_databases]]
 binding = "SAASES_DB"
+database_name = "saas_socialflows_prod_db"
+database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
+
+# 🔥 FIX: binding adicional para SocialFlow
+[[d1_databases]]
+binding = "SOCIAL_DB"
 database_name = "saas_socialflows_prod_db"
 database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
 
