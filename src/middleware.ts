@@ -308,27 +308,34 @@ export async function middleware(req: NextRequest) {
           }
 
           // 🛡️ DRAKO STEEL v1.0.1: Rate Limit Protection
-          const rateLimit = await checkTenantRateLimit({
-            tenantId: resolution.tenantId,
-            saasId: resolution.saasId,
-            route: pathname,
-            request: req,
-            // Plan detection would ideally be cached here
-            plan: "FREE",
-          });
+          // Relaxed for SocialFlow demo and disabled in local development
+          const isDev = process.env.NODE_ENV === "development";
+          const isSocialFlowRoute =
+            pathname.startsWith("/api/social/") || pathname.startsWith("/socialflow");
 
-          if (!rateLimit.allowed) {
-            return persistCookie(NextResponse.json({
-              error: "RATE_LIMIT_EXCEEDED",
-              retry_after: rateLimit.retryAfter,
-              correlation_id: correlationId
-            }, {
-              status: 429,
-              headers: {
-                [CORRELATION_HEADER]: correlationId,
-                "Retry-After": String(rateLimit.retryAfter || 60)
-              }
-            }));
+          if (!isDev) {
+            const effectivePlan = isSocialFlowRoute ? "PRO" : "FREE" as const;
+            const rateLimit = await checkTenantRateLimit({
+              tenantId: resolution.tenantId,
+              saasId: resolution.saasId,
+              route: pathname,
+              request: req,
+              plan: effectivePlan,
+            });
+
+            if (!rateLimit.allowed) {
+              return persistCookie(NextResponse.json({
+                error: "RATE_LIMIT_EXCEEDED",
+                retry_after: rateLimit.retryAfter,
+                correlation_id: correlationId
+              }, {
+                status: 429,
+                headers: {
+                  [CORRELATION_HEADER]: correlationId,
+                  "Retry-After": String(rateLimit.retryAfter || 60)
+                }
+              }));
+            }
           }
         }
         if (resolution.saasId) {
