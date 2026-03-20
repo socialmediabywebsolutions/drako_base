@@ -18,6 +18,8 @@ import type {
 } from "@/lib/conversations/types";
 
 // Node-dev-only flags for SocialFlow demo persistence (avoid breaking Cloudflare Workers)
+// Node-dev-only flags for SocialFlow demo persistence (avoid breaking Cloudflare Workers)
+// NOTE: These are defined once here and reused by SocialFlow demo snapshot helpers later.
 const isNode =
   typeof process !== "undefined" &&
   typeof process.versions !== "undefined" &&
