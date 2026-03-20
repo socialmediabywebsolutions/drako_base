@@ -16,10 +16,31 @@ import type {
   NotificationSeverity,
   NotificationType,
 } from "@/lib/conversations/types";
-import * as fs from 'fs';
-import * as path from 'path';
 
-const socialFlowDemoStateFile = path.join(__dirname, 'social-flow-demo-state.json');
+// Node-dev-only flags for SocialFlow demo persistence (avoid breaking Cloudflare Workers)
+const isNode =
+  typeof process !== "undefined" &&
+  typeof process.versions !== "undefined" &&
+  typeof process.versions.node === "string";
+const isNodeDev = isNode && process.env && process.env.NODE_ENV === "development";
+
+function getDevFs(): typeof import("fs") | null {
+  if (!isNodeDev) return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+    return require("fs") as typeof import("fs");
+  } catch {
+    return null;
+  }
+}
+
+function getSocialflowDemoStatePath(): string | null {
+  if (!isNodeDev) return null;
+  const cwd = typeof process !== "undefined" && process.cwd ? process.cwd() : null;
+  if (!cwd) return null;
+  // Store snapshot under .next to keep it local to Next dev builds
+  return `${cwd}/.next/socialflow-demo.json`;
+}
 
 export type DemoOwner = {
   id: string;
