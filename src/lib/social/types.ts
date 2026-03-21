@@ -1,4 +1,11 @@
-export type SaasSocialProvider = "INSTAGRAM" | "FACEBOOK_PAGE" | "TIKTOK" | "WHATSAPP" | "TWITTER_X" | "OTHER" | "LINKEDIN";
+export type SaasSocialProvider =
+  | "INSTAGRAM"
+  | "FACEBOOK_PAGE"
+  | "TIKTOK"
+  | "WHATSAPP"
+  | "TWITTER_X"
+  | "OTHER"
+  | "LINKEDIN";
 
 export type SaasSocialAccountStatus =
   | "DISCONNECTED"
@@ -91,7 +98,16 @@ export type SaasSocialCampaign = {
 
 export type SaasSocialContentType = "FEED" | "STORY" | "REEL" | "SHORT" | "CAROUSEL";
 
-export type SaasSocialPostStatus = "DRAFT" | "SCHEDULED" | "POSTED" | "PUBLISHED" | "FAILED";
+export type SaasSocialPostStatus =
+  | "IDEA"
+  | "DRAFT"
+  | "IN_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "SCHEDULED"
+  | "POSTED"
+  | "PUBLISHED"
+  | "FAILED";
 
 export type SaasSocialPost = {
   id: string;
@@ -111,6 +127,30 @@ export type SaasSocialPost = {
   metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type SocialProviderName = "linkedin" | "instagram" | "facebook" | "x";
+
+export type SocialProviderConfig = {
+  provider: SocialProviderName;
+  enabled: boolean;
+  supportsScheduling: boolean;
+  supportsEditingAfterPublish: boolean;
+  maxCharacters?: number | null;
+  maxHashtags?: number | null;
+  mediaRequirements?: string | null;
+};
+
+export type SocialPostPublishState = {
+  postId: string;
+  provider: SocialProviderName;
+  status: "PENDING" | "QUEUED" | "PUBLISHED" | "FAILED";
+  externalPostId: string | null;
+  publishedUrl: string | null;
+  publishedAt: string | null;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
+  rawResponse: Record<string, unknown> | null;
 };
 
 export type SaasSocialMetrics = {

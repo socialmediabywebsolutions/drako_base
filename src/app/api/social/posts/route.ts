@@ -3,9 +3,13 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import {
+  approvePost,
   listSaasSocialPosts,
+  markAsPosted,
+  rejectPost,
   resolveSocialContext,
   runSocialSchedulerSimulation,
+  schedulePost,
   SocialContextError,
   upsertSaasSocialPost,
 } from "@/lib/social/repository";
@@ -159,5 +163,86 @@ export async function POST(request: Request) {
     }
     console.error("SOCIAL_POSTS_UPSERT_ERROR", error);
     return NextResponse.json({ code: "SOCIAL_ERROR", message: "No se pudo guardar el post" }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = (await request.json().catch(() => null)) as {
+      id?: string;
+      saasId?: string | null;
+      title?: string | null;
+      body?: string | null;
+      status?: string | null;
+      scheduledAt?: string | null;
+      postedAt?: string | null;
+      externalPostId?: string | null;
+      metadata?: Record<string, unknown> | null;
+      action?: "approve" | "reject" | "schedule" | "mark_posted";
+    } | null;
+
+    if (!body?.id || !body.saasId) {
+      return NextResponse.json({ code: "INVALID_BODY", message: "id and saasId are required" }, { status: 400 });
+    }
+
+    const { tenantId } = await requireTenantAccess(request);
+    const ctx = await resolveSocialContext({ tenantId, saasId: body.saasId });
+
+    // High-level editorial actions
+    if (body.action === "approve") {
+      const post = await approvePost(ctx, body.id);
+      return NextResponse.json({ post });
+    }
+    if (body.action === "reject") {
+      const post = await rejectPost(ctx, body.id);
+      return NextResponse.json({ post });
+    }
+    if (body.action === "schedule") {
+      const post = await schedulePost(ctx, { id: body.id, scheduledAt: body.scheduledAt ?? null });
+      return NextResponse.json({ post });
+    }
+    if (body.action === "mark_posted") {
+      const post = await markAsPosted(ctx, {
+        id: body.id,
+        externalPostId: body.externalPostId ?? null,
+        postedAt: body.postedAt ?? null,
+      });
+      return NextResponse.json({ post });
+    }
+
+    // Generic content / status update via upsert
+    const existingPosts = await listSaasSocialPosts(ctx, { campaignId: null, status: null, provider: null });
+    const current = existingPosts.find((p) => p.id === body.id);
+    if (!current) {
+      return NextResponse.json({ code: "NOT_FOUND", message: "Post not found" }, { status: 404 });
+    }
+
+    const post = await upsertSaasSocialPost(ctx, {
+      id: current.id,
+      saasId: current.saasId,
+      campaignId: current.campaignId,
+      channelId: current.channelId ?? null,
+      provider: current.provider,
+      contentType: current.contentType,
+      title: typeof body.title === "string" ? body.title : current.title,
+      body: typeof body.body === "string" ? body.body : current.body,
+      imageHint: current.imageHint,
+      status: (body.status as typeof ALLOWED_CREATION_STATUSES[number]) ?? current.status,
+      scheduledAt: typeof body.scheduledAt === "undefined" ? current.scheduledAt : body.scheduledAt,
+      postedAt: typeof body.postedAt === "undefined" ? current.postedAt : body.postedAt,
+      externalPostId: typeof body.externalPostId === "undefined" ? current.externalPostId : body.externalPostId,
+      metadata: typeof body.metadata === "undefined" ? current.metadata : body.metadata,
+    });
+
+    return NextResponse.json({ post });
+  } catch (error) {
+    if (error instanceof SocialContextError) {
+      return NextResponse.json({ code: "INVALID_SOCIAL_CONTEXT", message: error.message }, { status: 400 });
+    }
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ code: "UNAUTHORIZED", message: error.message }, { status: error.status });
+    }
+    console.error("SOCIAL_POSTS_PATCH_ERROR", error);
+    return NextResponse.json({ code: "SOCIAL_ERROR", message: "No se pudo actualizar el post" }, { status: 500 });
   }
 }

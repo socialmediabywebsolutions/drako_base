@@ -51,6 +51,133 @@ export class SocialContextError extends Error {
   }
 }
 
+export async function approvePost(ctx: SocialContext, id: string): Promise<SaasSocialPost | null> {
+  // IDEA/DRAFT/IN_REVIEW -> APPROVED
+  const post = await getSaasSocialPostById(ctx, id);
+  if (!post) return null;
+  if (!["IDEA", "DRAFT", "IN_REVIEW"].includes(post.status)) {
+    return post;
+  }
+  return updateSaasSocialPostStatus(ctx, { id, status: "APPROVED" });
+}
+
+export async function rejectPost(ctx: SocialContext, id: string): Promise<SaasSocialPost | null> {
+  const post = await getSaasSocialPostById(ctx, id);
+  if (!post) return null;
+  return updateSaasSocialPostStatus(ctx, { id, status: "REJECTED" });
+}
+
+export async function schedulePost(
+  ctx: SocialContext,
+  input: { id: string; scheduledAt: string | null },
+): Promise<SaasSocialPost | null> {
+  const post = await getSaasSocialPostById(ctx, input.id);
+  if (!post) return null;
+
+  const now = new Date().toISOString();
+  const scheduledAt = input.scheduledAt;
+
+  if (ctx.mode === "demo") {
+    const record = upsertDemoSaasSocialPost(demoTenantId(ctx), {
+      id: post.id,
+      saas_id: post.saasId,
+      campaign_id: post.campaignId ?? null,
+      provider: post.provider,
+      content_type: post.contentType,
+      title: post.title,
+      body: post.body,
+      image_hint: post.imageHint ?? null,
+      status: "SCHEDULED",
+      scheduled_at: scheduledAt,
+      posted_at: post.postedAt,
+      external_post_id: post.externalPostId,
+      metadata: serializeJson(post.metadata),
+    });
+    return mapPostRow(record);
+  }
+
+  await runWithCtx(
+    ctx,
+    `UPDATE saas_social_posts
+     SET status = 'SCHEDULED', scheduled_at = ?, updated_at = ?
+     WHERE tenant_id = ? AND id = ?`,
+    ctx.socialDb,
+    scheduledAt,
+    now,
+    ctx.tenantId,
+    input.id,
+  );
+
+  const rows = await queryAllWithCtx<SocialPostRow>(
+    ctx,
+    `SELECT id, tenant_id, saas_id, campaign_id, provider, content_type, title, body, image_hint, status,
+            scheduled_at, posted_at, external_post_id, metadata, created_at, updated_at
+     FROM saas_social_posts
+     WHERE tenant_id = ? AND id = ? LIMIT 1`,
+    ctx.socialDb,
+    ctx.tenantId,
+    input.id,
+  );
+
+  return rows.length ? mapPostRow(rows[0]) : null;
+}
+
+export async function markAsPosted(
+  ctx: SocialContext,
+  input: { id: string; externalPostId?: string | null; postedAt?: string | null },
+): Promise<SaasSocialPost | null> {
+  const now = new Date().toISOString();
+  const post = await getSaasSocialPostById(ctx, input.id);
+  if (!post) return null;
+
+  const postedAt = input.postedAt ?? now;
+
+  if (ctx.mode === "demo") {
+    const record = upsertDemoSaasSocialPost(demoTenantId(ctx), {
+      id: post.id,
+      saas_id: post.saasId,
+      campaign_id: post.campaignId ?? null,
+      provider: post.provider,
+      content_type: post.contentType,
+      title: post.title,
+      body: post.body,
+      image_hint: post.imageHint ?? null,
+      status: "POSTED",
+      scheduled_at: post.scheduledAt,
+      posted_at: postedAt,
+      external_post_id: input.externalPostId ?? post.externalPostId,
+      metadata: serializeJson(post.metadata),
+    });
+    return mapPostRow(record);
+  }
+
+  await runWithCtx(
+    ctx,
+    `UPDATE saas_social_posts
+     SET status = 'POSTED', posted_at = COALESCE(?, posted_at), external_post_id = COALESCE(?, external_post_id), updated_at = ?
+     WHERE tenant_id = ? AND id = ?`,
+    ctx.socialDb,
+    postedAt,
+    input.externalPostId ?? null,
+    now,
+    ctx.tenantId,
+    input.id,
+  );
+
+  const rows = await queryAllWithCtx<SocialPostRow>(
+    ctx,
+    `SELECT id, tenant_id, saas_id, campaign_id, provider, content_type, title, body, image_hint, status,
+            scheduled_at, posted_at, external_post_id, metadata, created_at, updated_at
+     FROM saas_social_posts
+     WHERE tenant_id = ? AND id = ? LIMIT 1`,
+    ctx.socialDb,
+    ctx.tenantId,
+    input.id,
+  );
+
+  return rows.length ? mapPostRow(rows[0]) : null;
+}
+
 const FALLBACK_ERROR_PATTERNS = ["no such table", "no such column"];
 
 function resolveEnvOverride(envOverride?: DracoEnv | null): DracoEnv | null {

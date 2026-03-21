@@ -35,14 +35,22 @@ export default function SocialflowPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [campaignFilter, setCampaignFilter] = useState<string>("ALL");
+  const [providerFilter, setProviderFilter] = useState<string>("ALL");
+  const [search, setSearch] = useState<string>("");
 
   async function loadData() {
     setLoading(true);
     setError(null);
     try {
+      const statusParam = statusFilter && statusFilter !== "ALL" ? `&status=${encodeURIComponent(statusFilter)}` : "";
+      const campaignParam = campaignFilter && campaignFilter !== "ALL" ? `&campaignId=${encodeURIComponent(campaignFilter)}` : "";
+      const providerParam = providerFilter && providerFilter !== "ALL" ? `&provider=${encodeURIComponent(providerFilter)}` : "";
+
       const [campaignRes, postsRes] = await Promise.all([
         fetch(`/api/social/campaigns?saasId=${encodeURIComponent(saasId)}`),
-        fetch(`/api/social/posts?saasId=${encodeURIComponent(saasId)}`),
+        fetch(`/api/social/posts?saasId=${encodeURIComponent(saasId)}${statusParam}${campaignParam}${providerParam}`),
       ]);
 
       if (!campaignRes.ok) {
@@ -87,6 +95,15 @@ export default function SocialflowPage() {
 
     return { totalCampaigns, scheduledPosts, publishedPosts, upcomingPosts };
   }, [campaigns, posts]);
+
+  const filteredPosts = useMemo(() => {
+    return posts.filter((p) => {
+      if (statusFilter !== "ALL" && p.status !== statusFilter) return false;
+      if (campaignFilter !== "ALL" && p.campaignId !== campaignFilter) return false;
+      if (search && !`${p.title} ${p.body}`.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+  }, [posts, statusFilter, campaignFilter, search]);
 
   return (
     <div className="space-y-8 bg-gradient-to-b from-slate-50 via-white to-white p-6">
@@ -154,9 +171,41 @@ export default function SocialflowPage() {
                 <h2 className="text-sm font-semibold tracking-tight text-slate-900">Próximas publicaciones</h2>
                 <p className="text-xs text-slate-500">Programa tu contenido y deja que se publique automáticamente</p>
               </div>
-              <span className="text-xs text-slate-400">{summary.upcomingPosts.length} próximas</span>
+              <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                <select
+                  className="rounded border border-slate-200 bg-white px-2 py-1"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="ALL">Todos los estados</option>
+                  <option value="IDEA">Idea</option>
+                  <option value="DRAFT">Borrador</option>
+                  <option value="IN_REVIEW">En revisión</option>
+                  <option value="APPROVED">Aprobado</option>
+                  <option value="SCHEDULED">Programado</option>
+                  <option value="POSTED">Publicado</option>
+                </select>
+                <select
+                  className="rounded border border-slate-200 bg-white px-2 py-1"
+                  value={campaignFilter}
+                  onChange={(e) => setCampaignFilter(e.target.value)}
+                >
+                  <option value="ALL">Todas las campañas</option>
+                  {campaigns.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="rounded border border-slate-200 px-2 py-1"
+                  placeholder="Buscar por título o texto"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
             </div>
-            <PostList posts={summary.upcomingPosts} campaigns={campaigns} />
+            <PostList posts={filteredPosts} campaigns={campaigns} />
           </section>
 
           <section className="rounded-xl border border-slate-200/70 bg-white p-5 shadow-sm">
@@ -167,6 +216,33 @@ export default function SocialflowPage() {
               </div>
             </div>
             <Calendar posts={posts} campaigns={campaigns} />
+          </section>
+          <section className="rounded-xl border border-slate-200/70 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-semibold tracking-tight text-slate-900">Pipeline editorial</h2>
+                <p className="text-xs text-slate-500">Visualiza tus posts por estado editorial</p>
+              </div>
+            </div>
+            <EditorialPipeline
+              posts={filteredPosts}
+              onStatusChange={async (id, nextStatus) => {
+                try {
+                  const res = await fetch("/api/social/posts", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ saasId, id, status: nextStatus }),
+                  });
+                  if (!res.ok) return;
+                  const data = (await res.json().catch(() => null)) as { post?: SocialPost } | null;
+                  if (data?.post) {
+                    setPosts((prev) => prev.map((p) => (p.id === data.post!.id ? { ...p, ...data.post } : p)));
+                  }
+                } catch (e) {
+                  console.error("SOCIALFLOW_PIPELINE_STATUS_ERROR", e);
+                }
+              }}
+            />
           </section>
         </div>
 
@@ -201,6 +277,63 @@ export default function SocialflowPage() {
       {loading && (
         <div className="text-xs text-gray-400">Cargando SocialFlow...</div>
       )}
+    </div>
+  );
+}
+
+function EditorialPipeline(props: { posts: SocialPost[]; onStatusChange?: (id: string, nextStatus: string) => void }) {
+  const columns: { key: string; label: string }[] = [
+    { key: "IDEA", label: "Ideas" },
+    { key: "DRAFT", label: "Borradores" },
+    { key: "IN_REVIEW", label: "En revisión" },
+    { key: "APPROVED", label: "Aprobados" },
+    { key: "SCHEDULED", label: "Programados" },
+    { key: "POSTED", label: "Publicados" },
+  ];
+
+  return (
+    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6 text-xs">
+      {columns.map((col) => {
+        const bucket = props.posts.filter((post) => post.status === col.key);
+        return (
+          <div key={col.key} className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">{col.label}</p>
+              <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-slate-500 border border-slate-200">
+                {bucket.length}
+              </span>
+            </div>
+            {bucket.length === 0 ? (
+              <p className="text-[11px] text-slate-400">Sin posts en este estado</p>
+            ) : (
+              <ul className="space-y-1">
+                {bucket.slice(0, 50).map((post) => (
+                  <li
+                    key={post.id}
+                    className="rounded-md bg-white px-2 py-1 shadow-sm border border-slate-200/80 cursor-pointer hover:bg-slate-50"
+                    onClick={() => {
+                      if (!props.onStatusChange) return;
+                      const order = ["IDEA", "DRAFT", "IN_REVIEW", "APPROVED", "SCHEDULED", "POSTED"];
+                      const idx = order.indexOf(post.status);
+                      const next = order[Math.min(order.length - 1, Math.max(0, idx + 1))];
+                      if (next && next !== post.status) {
+                        props.onStatusChange(post.id, next);
+                      }
+                    }}
+                  >
+                    <p className="truncate text-[11px] font-medium text-slate-900">{post.title}</p>
+                    {post.scheduledAt && (
+                      <p className="mt-0.5 text-[10px] text-slate-500">
+                        {new Date(post.scheduledAt).toLocaleDateString()}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
