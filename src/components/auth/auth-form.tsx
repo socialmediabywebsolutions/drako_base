@@ -21,6 +21,10 @@ export function AuthForm({
   authApiBase,
   postLoginRedirect,
   inviteHint,
+  allowRegistration = true,
+  registrationLabel,
+  enableGoogleAuth = false,
+  googleButtonLabel,
 }: {
   defaultMode?: AuthMode;
   lang?: AuthLang;
@@ -28,6 +32,10 @@ export function AuthForm({
   authApiBase: string;
   postLoginRedirect: string;
   inviteHint?: InviteHint | null;
+  allowRegistration?: boolean;
+  registrationLabel?: string;
+  enableGoogleAuth?: boolean;
+  googleButtonLabel?: string;
 }) {
   const t = getAuthTexts(lang);
   const searchParams = useSearchParams();
@@ -44,10 +52,11 @@ export function AuthForm({
   const [name, setName] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
 
-  const hasRegistration = true;
   const isWorkspaceAuth = saasSlug === "campo_base";
   const isInviteFlow = Boolean(inviteToken);
   const readOnlyInviteEmail = Boolean(inviteHint?.email);
+  const resolvedRegistrationLabel = registrationLabel ?? (isWorkspaceAuth ? "Workspace setup" : t.register);
+  const resolvedGoogleButtonLabel = googleButtonLabel ?? t.google;
 
   if (saasSlug === "drako" && authApiBase !== "/api/drakos/auths") {
     throw new Error("AUTH_FORM_CONFIG_MISMATCH: drako must use /api/drakos/auths");
@@ -67,14 +76,14 @@ export function AuthForm({
   }, [isInviteFlow, isWorkspaceAuth, mode, t.register]);
 
   const handleGoogleLogin = async () => {
-    if (saasSlug !== "drako") {
-      setError("Google login is available only in Drako.");
+    if (!enableGoogleAuth) {
+      setError("Google sign-in is unavailable in this access surface.");
       return;
     }
     setLoading(true);
     setError(null);
     setSuccess(null);
-    await signIn("google", { callbackUrl: "/site/onboarding" });
+    await signIn("google", { callbackUrl: redirectTarget });
   };
 
   async function loginIntoWorkspace() {
@@ -212,7 +221,7 @@ export function AuthForm({
         >
           {t.login}
         </button>
-        {hasRegistration ? (
+        {allowRegistration ? (
           <button
             type="button"
             onClick={() => setMode("register")}
@@ -220,7 +229,7 @@ export function AuthForm({
               mode === "register" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
             }`}
           >
-            {isWorkspaceAuth ? "Workspace setup" : t.register}
+            {resolvedRegistrationLabel}
           </button>
         ) : null}
       </div>
@@ -322,24 +331,28 @@ export function AuthForm({
         </button>
       </form>
 
-      <div className="relative my-8">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-slate-200" />
-        </div>
-        <div className="relative flex justify-center">
-          <span className="bg-white px-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{t.or}</span>
-        </div>
-      </div>
+      {enableGoogleAuth ? (
+        <>
+          <div className="relative my-8">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-white px-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{t.or}</span>
+            </div>
+          </div>
 
-      <button
-        type="button"
-        onClick={handleGoogleLogin}
-        disabled={loading || saasSlug !== "drako"}
-        className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <img src="https://www.google.com/favicon.ico" alt="Google" className="h-4 w-4 opacity-80" />
-        {t.google}
-      </button>
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <img src="https://www.google.com/favicon.ico" alt="Google" className="h-4 w-4 opacity-80" />
+            {resolvedGoogleButtonLabel}
+          </button>
+        </>
+      ) : null}
     </div>
   );
 }
