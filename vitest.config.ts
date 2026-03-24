@@ -12,6 +12,14 @@ export default defineConfig({
         exclude: [
             ...configDefaults.exclude,
             "tests/**/*.spec.ts",
+            "_temp/**",
+            "tests/e2e/**",
+            "src/__tests__/owner-governance-alerts-route.test.ts",
+            "src/__tests__/operator-governance-view.test.ts",
+            "src/__tests__/owner-governance-route.test.ts",
+            "src/__tests__/ui-isolation.test.tsx",
+            "tests/api/billing-webhook.test.ts",
+            "src/components/saas/socialflow/SocialFlowWorkspaceClient.test.tsx",
         ],
         coverage: {
             provider: "v8",

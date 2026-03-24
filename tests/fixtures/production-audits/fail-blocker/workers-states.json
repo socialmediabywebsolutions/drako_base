@@ -35,10 +35,10 @@
     {
       "workerName": "drako-base-3",
       "scriptExists": true,
-      "subdomain": { "enabled": true, "previewsEnabled": true },
-      "schedulesCount": 1,
-      "domainsCount": 1,
-      "routesCount": 1
+      "subdomain": { "enabled": false, "previewsEnabled": false },
+      "schedulesCount": 0,
+      "domainsCount": 0,
+      "routesCount": 0
     }
   ]
 }

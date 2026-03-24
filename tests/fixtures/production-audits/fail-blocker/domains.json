@@ -1,7 +1,7 @@
 {
   "success": true,
   "result": [
-    { "hostname": "drako.systems", "service": "drako-base-3" },
+    { "hostname": "drako.systems", "service": "drako-legacy-edge" },
     { "hostname": "drakos.drako.systems", "service": "saas-drakos-prod" },
     { "hostname": "base.drako.systems", "service": "saas-bases-prod" },
     { "hostname": "bases.drako.systems", "service": "saas-bases-prod" },

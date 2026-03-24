@@ -153,6 +153,7 @@ export type SocialAIPipelineResult = {
   generatedPosts: GeneratedPost[];
   optimizedPosts: OptimizedPost[];
   schedule: ScheduledPostPlan[];
+  campaignId?: string;
 };
 
 export type SocialAIPipelineInput = {

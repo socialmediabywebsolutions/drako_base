@@ -7,21 +7,45 @@
         "agents_registry",
         "governance_events",
         "audit_logs",
-        "analyze_optimize_scale_runs"
+        "analyze_optimize_scale_runs",
+        "holding_saases",
+        "holding_billing_rollups",
+        "holding_ops_tickets",
+        "holding_event_logs"
       ],
       "columnsByTables": {
         "saases_registry": ["saas_id", "saas_slug"],
         "agents_registry": ["agent_id", "role_name"],
         "governance_events": ["event_id", "event_type", "schema_version"],
         "audit_logs": ["action", "created_at"],
-        "analyze_optimize_scale_runs": ["run_id", "status_name"]
+        "analyze_optimize_scale_runs": ["run_id", "status_name"],
+        "holding_saases": ["id", "saas_slug", "worker_name", "domain", "status_name"],
+        "holding_billing_rollups": ["saas_slug", "mrr", "churn", "refunds"],
+        "holding_ops_tickets": ["id", "saas_slug", "severity", "status_name"],
+        "holding_event_logs": ["id", "source", "type", "payload_json"]
       }
     },
     {
       "databaseName": "drako_db_prod",
-      "tables": ["tenants"],
+      "tables": [
+        "tenants",
+        "tenant_profiles",
+        "tenant_domains",
+        "tenant_integrations",
+        "tenant_stripe_connect",
+        "tenant_knowledge_bases",
+        "tenant_jobs",
+        "tenant_audit_logs"
+      ],
       "columnsByTables": {
-        "tenants": ["id"]
+        "tenants": ["id", "owner_user_id", "saas_slug", "status", "created_at"],
+        "tenant_profiles": ["tenant_id", "business_name", "industry", "locale", "timezone"],
+        "tenant_domains": ["tenant_id", "requested_domain", "status_name", "cf_zone_id", "created_at"],
+        "tenant_integrations": ["tenant_id", "provider", "status_name", "metadata_json"],
+        "tenant_stripe_connect": ["tenant_id", "connect_account_id", "onboarding_status", "fees_config"],
+        "tenant_knowledge_bases": ["tenant_id", "kb_id", "status_name"],
+        "tenant_jobs": ["tenant_id", "type_name", "status_name", "payload_json", "created_at"],
+        "tenant_audit_logs": ["tenant_id", "action", "actor", "metadata_json", "created_at"]
       }
     }
   ]

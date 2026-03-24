@@ -2233,6 +2233,9 @@ export default function OwnerPage() {
             <Link href={`/saas/${portfolio.saas[0].saasId}#packs`}>
               <Button size="sm" variant="outline">Ir a packs/blueprint</Button>
             </Link>
+            <Link href="/campobase/socialflow">
+              <Button size="sm" variant="outline">Control SocialFlow</Button>
+            </Link>
           </div>
         )}
       </Card>

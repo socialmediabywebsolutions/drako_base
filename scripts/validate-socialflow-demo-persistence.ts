@@ -33,9 +33,9 @@ async function main() {
     tenantId,
     saasId,
     env: null,
-    socialDb: undefined,
+    socialDb: undefined as unknown as D1Database,
     allowDemoFallback: true as const,
-  } as const;
+  } as const as any;
 
   // 3. Crear campaña demo directamente en demo-data (sin id)
   const campaignName = `Campaña Persistencia ${Date.now()}`;
