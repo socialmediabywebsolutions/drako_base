@@ -2,15 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
-import { LINKEDIN_REDIRECT_URI } from "@/lib/social/linkedin";
-
-function getLinkedInClientId() {
-  const clientId = process.env.LINKEDIN_CLIENT_ID?.trim();
-  if (!clientId) {
-    throw new Error("LINKEDIN_CLIENT_ID is not configured");
-  }
-  return clientId;
-}
+import { resolveLinkedInOAuthDiagnostics } from "@/lib/social/linkedin";
 
 export async function GET(request: Request) {
   try {
@@ -22,10 +14,11 @@ export async function GET(request: Request) {
 
     const { tenantId } = await requireTenantAccess(request);
     const state = `${tenantId}__${saasId}`;
+    const oauth = resolveLinkedInOAuthDiagnostics(request);
     const linkedInUrl = new URL("https://www.linkedin.com/oauth/v2/authorization");
     linkedInUrl.searchParams.set("response_type", "code");
-    linkedInUrl.searchParams.set("client_id", getLinkedInClientId());
-    linkedInUrl.searchParams.set("redirect_uri", LINKEDIN_REDIRECT_URI);
+    linkedInUrl.searchParams.set("client_id", oauth.clientId);
+    linkedInUrl.searchParams.set("redirect_uri", oauth.callbackUrl);
     linkedInUrl.searchParams.set("scope", "openid profile email w_member_social");
     linkedInUrl.searchParams.set("state", state);
 

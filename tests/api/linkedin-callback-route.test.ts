@@ -5,6 +5,7 @@ const exchangeLinkedInCodeForAccessToken = vi.hoisted(() => vi.fn());
 const fetchLinkedInUserProfile = vi.hoisted(() => vi.fn());
 const parseLinkedInOAuthState = vi.hoisted(() => vi.fn());
 const resolveLinkedInIdentity = vi.hoisted(() => vi.fn());
+const resolveLinkedInTokenExchangeDiagnostics = vi.hoisted(() => vi.fn());
 const persistLinkedInConnection = vi.hoisted(() => vi.fn());
 const recordObservabilityActivity = vi.hoisted(() => vi.fn());
 const env = vi.hoisted(() => vi.fn());
@@ -31,6 +32,7 @@ vi.mock("@/lib/social/linkedin", () => ({
   fetchLinkedInUserProfile,
   parseLinkedInOAuthState,
   resolveLinkedInIdentity,
+  resolveLinkedInTokenExchangeDiagnostics,
 }));
 
 vi.mock("@/lib/social/linkedin-connection", () => ({
@@ -81,6 +83,16 @@ describe("/auth/linkedin/callback", () => {
         status: "CONNECTED_REAL",
       },
     });
+    resolveLinkedInTokenExchangeDiagnostics.mockReturnValue({
+      clientId: "linkedin-client-id",
+      clientIdSource: "process.env.LINKEDIN_CLIENT_ID",
+      clientSecretSource: "process.env.LINKEDIN_CLIENT_SECRET",
+      callbackUrl: "http://localhost:8787/auth/linkedin/callback",
+      origin: "http://localhost:8787",
+      originSource: "request.url",
+      runtime: "worker-local",
+      pkceUsed: false,
+    });
   });
 
   it("returns 400 when code is missing", async () => {
@@ -97,7 +109,10 @@ describe("/auth/linkedin/callback", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(exchangeLinkedInCodeForAccessToken).toHaveBeenCalledWith("abc");
+    expect(exchangeLinkedInCodeForAccessToken).toHaveBeenCalledWith(
+      "abc",
+      expect.any(Request),
+    );
     expect(fetchLinkedInUserProfile).toHaveBeenCalledWith("token-123");
     expect(persistLinkedInConnection).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -117,6 +132,13 @@ describe("/auth/linkedin/callback", () => {
     expect(payload.persistence.status).toBe("persisted");
     expect(payload.persistence.accountId).toBe("account-1");
     expect(payload.observability.status).toBe("available");
+    expect(payload.debug).toEqual(
+      expect.objectContaining({
+        effectiveClientId: "linkedin-client-id",
+        effectiveRedirectUri: "http://localhost:8787/auth/linkedin/callback",
+        effectiveRuntime: "worker-local",
+      }),
+    );
   });
 
   it("resolves tenant and saas from state when query params are missing", async () => {
@@ -238,6 +260,11 @@ describe("/auth/linkedin/callback", () => {
     expect(payload.tokenExchange.error.message).toBe("invalid code");
     expect(payload.tokenExchange.error.details.normalizedReason).toBe("authorization_code_expired_or_reused_or_redirect_mismatch");
     expect(payload.persistence.status).toBe("skipped");
+    expect(payload.debug).toEqual(
+      expect.objectContaining({
+        effectiveRedirectUri: "http://localhost:8787/auth/linkedin/callback",
+      }),
+    );
     expect(recordObservabilityActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         sourceKey: "linkedin",

@@ -1,6 +1,53 @@
+import { env } from "@/lib/cf";
+
 const LINKEDIN_TOKEN_ENDPOINT = "https://www.linkedin.com/oauth/v2/accessToken";
 const LINKEDIN_USERINFO_ENDPOINT = "https://api.linkedin.com/v2/userinfo";
-export const LINKEDIN_REDIRECT_URI = "http://localhost:3000/auth/linkedin/callback";
+const LINKEDIN_CALLBACK_PATH = "/auth/linkedin/callback";
+
+type LinkedInEnvKey =
+  | "LINKEDIN_CLIENT_ID"
+  | "LINKEDIN_CLIENT_SECRET"
+  | "APP_URL"
+  | "NEXT_PUBLIC_APP_URL"
+  | "BASE_URL"
+  | "SITE_URL"
+  | "NEXTAUTH_URL"
+  | "CF_PAGES_URL";
+
+type LinkedInResolvedValue = {
+  value: string;
+  source: string;
+};
+
+export type LinkedInRuntimeKind =
+  | "worker-local"
+  | "next-dev-local"
+  | "local"
+  | "worker"
+  | "production";
+
+export type LinkedInCallbackResolution = {
+  callbackUrl: string;
+  origin: string;
+  originSource: string;
+  runtime: LinkedInRuntimeKind;
+};
+
+export type LinkedInOAuthDiagnostics = LinkedInCallbackResolution & {
+  clientId: string;
+  clientIdSource: string;
+  clientSecretSource?: string;
+  pkceUsed: false;
+};
+
+const LINKEDIN_BASE_URL_ENV_KEYS: LinkedInEnvKey[] = [
+  "APP_URL",
+  "NEXT_PUBLIC_APP_URL",
+  "BASE_URL",
+  "SITE_URL",
+  "NEXTAUTH_URL",
+  "CF_PAGES_URL",
+];
 
 type LinkedInErrorStatus = "INVALID_CREDENTIALS" | "PENDING";
 
@@ -69,15 +116,166 @@ export class LinkedInIntegrationError extends Error {
 }
 
 function getEnvString(key: "LINKEDIN_CLIENT_ID" | "LINKEDIN_CLIENT_SECRET"): string {
-  const value = process.env[key];
-  if (typeof value === "string" && value.trim()) {
-    return value.trim();
+  const resolved = resolveLinkedInEnvValue(key);
+  if (resolved) {
+    return resolved.value;
   }
   throw new LinkedInIntegrationError(`${key} is not configured.`, {
     code: "LINKEDIN_ENV_MISSING",
     accountStatus: "PENDING",
-    details: { key },
+    details: { key, attemptedSources: ["process.env", "cloudflare.env"] },
   });
+}
+
+function getLinkedInClientIdWithSource(): LinkedInResolvedValue {
+  const resolved = resolveLinkedInEnvValue("LINKEDIN_CLIENT_ID");
+  if (resolved) return resolved;
+  throw new LinkedInIntegrationError("LINKEDIN_CLIENT_ID is not configured.", {
+    code: "LINKEDIN_ENV_MISSING",
+    accountStatus: "PENDING",
+    details: { key: "LINKEDIN_CLIENT_ID", attemptedSources: ["process.env", "cloudflare.env"] },
+  });
+}
+
+function getLinkedInClientSecretWithSource(): LinkedInResolvedValue {
+  const resolved = resolveLinkedInEnvValue("LINKEDIN_CLIENT_SECRET");
+  if (resolved) return resolved;
+  throw new LinkedInIntegrationError("LINKEDIN_CLIENT_SECRET is not configured.", {
+    code: "LINKEDIN_ENV_MISSING",
+    accountStatus: "PENDING",
+    details: { key: "LINKEDIN_CLIENT_SECRET", attemptedSources: ["process.env", "cloudflare.env"] },
+  });
+}
+
+function resolveLinkedInEnvValue(key: LinkedInEnvKey): LinkedInResolvedValue | null {
+  const processValue = process.env[key];
+  if (typeof processValue === "string" && processValue.trim()) {
+    return { value: processValue.trim(), source: `process.env.${key}` };
+  }
+
+  const bindings = env() as Record<string, unknown> | null;
+  const bindingValue = bindings?.[key];
+  if (typeof bindingValue === "string" && bindingValue.trim()) {
+    return { value: bindingValue.trim(), source: `cloudflare.env.${key}` };
+  }
+
+  return null;
+}
+
+function normalizeOrigin(input: string): string | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  try {
+    const url = new URL(trimmed);
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function classifyLinkedInRuntime(origin: string): LinkedInRuntimeKind {
+  const url = new URL(origin);
+  const hostname = url.hostname.toLowerCase();
+  const port = url.port;
+
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    if (port === "8787") return "worker-local";
+    if (port === "3000") return "next-dev-local";
+    return "local";
+  }
+
+  if (hostname.endsWith(".workers.dev")) {
+    return "worker";
+  }
+
+  return "production";
+}
+
+function resolveRequestOrigin(request?: Request): LinkedInResolvedValue | null {
+  if (!request) return null;
+
+  const forwardedHost = request.headers.get("x-forwarded-host")?.trim();
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.trim();
+  if (forwardedHost) {
+    const inferredProto = forwardedProto || (forwardedHost.includes("localhost") || forwardedHost.startsWith("127.0.0.1") ? "http" : "https");
+    const origin = normalizeOrigin(`${inferredProto}://${forwardedHost}`);
+    if (origin) {
+      return { value: origin, source: forwardedProto ? "request.forwarded" : "request.forwarded_host" };
+    }
+  }
+
+  const originHeader = request.headers.get("origin");
+  if (originHeader) {
+    const origin = normalizeOrigin(originHeader);
+    if (origin) {
+      return { value: origin, source: "request.origin_header" };
+    }
+  }
+
+  try {
+    const url = new URL(request.url);
+    return { value: url.origin, source: "request.url" };
+  } catch {
+    return null;
+  }
+}
+
+export function resolveLinkedInCallback(request?: Request): LinkedInCallbackResolution {
+  const requestOrigin = resolveRequestOrigin(request);
+  if (requestOrigin) {
+    return {
+      callbackUrl: `${requestOrigin.value}${LINKEDIN_CALLBACK_PATH}`,
+      origin: requestOrigin.value,
+      originSource: requestOrigin.source,
+      runtime: classifyLinkedInRuntime(requestOrigin.value),
+    };
+  }
+
+  for (const key of LINKEDIN_BASE_URL_ENV_KEYS) {
+    const resolved = resolveLinkedInEnvValue(key);
+    const origin = resolved ? normalizeOrigin(resolved.value) : null;
+    if (resolved && origin) {
+      return {
+        callbackUrl: `${origin}${LINKEDIN_CALLBACK_PATH}`,
+        origin,
+        originSource: resolved.source,
+        runtime: classifyLinkedInRuntime(origin),
+      };
+    }
+  }
+
+  const fallbackOrigin = "http://localhost:3000";
+  return {
+    callbackUrl: `${fallbackOrigin}${LINKEDIN_CALLBACK_PATH}`,
+    origin: fallbackOrigin,
+    originSource: "default.localhost:3000",
+    runtime: "next-dev-local",
+  };
+}
+
+export function resolveLinkedInCallbackUrl(request?: Request): string {
+  return resolveLinkedInCallback(request).callbackUrl;
+}
+
+export function resolveLinkedInOAuthDiagnostics(request?: Request): LinkedInOAuthDiagnostics {
+  const callback = resolveLinkedInCallback(request);
+  const clientId = getLinkedInClientIdWithSource();
+  return {
+    ...callback,
+    clientId: clientId.value,
+    clientIdSource: clientId.source,
+    pkceUsed: false,
+  };
+}
+
+export function resolveLinkedInTokenExchangeDiagnostics(request?: Request): LinkedInOAuthDiagnostics {
+  const diagnostics = resolveLinkedInOAuthDiagnostics(request);
+  const clientSecret = getLinkedInClientSecretWithSource();
+  return {
+    ...diagnostics,
+    clientSecretSource: clientSecret.source,
+  };
 }
 
 function buildLinkedInApiError(code: string, message: string, opts?: {
@@ -123,6 +321,47 @@ function isAuthorizationCodeMismatchError(payload: Record<string, unknown> | nul
     || message.includes("code verifier")
     || message.includes("verificador de código")
   );
+}
+
+function inferTokenExchangeFailureReason(payload: Record<string, unknown> | null, status?: number): string {
+  const message = normalizeLinkedInApiMessage(payload, "").toLowerCase();
+  const error = typeof payload?.error === "string" ? payload.error.toLowerCase() : "";
+
+  if (
+    error.includes("invalid_client")
+    || message.includes("client secret")
+    || message.includes("client_id")
+    || message.includes("appid")
+  ) {
+    return "client_credentials_invalid";
+  }
+
+  if (
+    message.includes("redirect")
+    || message.includes("redirecci")
+    || message.includes("code verifier")
+    || message.includes("verificador de c")
+  ) {
+    return "redirect_uri_mismatch";
+  }
+
+  if (message.includes("reused") || message.includes("already used") || message.includes("ya fue usado")) {
+    return "authorization_code_reused";
+  }
+
+  if (message.includes("expired") || message.includes("caduc")) {
+    return "authorization_code_expired";
+  }
+
+  if (status === 401 || status === 403) {
+    return "client_credentials_invalid";
+  }
+
+  if (isAuthorizationCodeMismatchError(payload)) {
+    return "authorization_code_expired_or_reused_or_redirect_mismatch";
+  }
+
+  return "unknown";
 }
 
 async function parseLinkedInJson(response: Response): Promise<Record<string, unknown> | null> {
@@ -199,7 +438,7 @@ export function parseLinkedInOAuthState(state: string | null): LinkedInOAuthStat
   return null;
 }
 
-export async function exchangeLinkedInCodeForAccessToken(code: string): Promise<LinkedInTokenResponse> {
+export async function exchangeLinkedInCodeForAccessToken(code: string, request?: Request): Promise<LinkedInTokenResponse> {
   const normalizedCode = code.trim();
   if (!normalizedCode) {
     throw buildLinkedInApiError(
@@ -209,12 +448,16 @@ export async function exchangeLinkedInCodeForAccessToken(code: string): Promise<
     );
   }
 
+  const callback = resolveLinkedInCallback(request);
+  const clientId = getLinkedInClientIdWithSource();
+  const clientSecret = getLinkedInClientSecretWithSource();
+
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code: normalizedCode,
-    client_id: getEnvString("LINKEDIN_CLIENT_ID"),
-    client_secret: getEnvString("LINKEDIN_CLIENT_SECRET"),
-    redirect_uri: LINKEDIN_REDIRECT_URI,
+    client_id: clientId.value,
+    client_secret: clientSecret.value,
+    redirect_uri: callback.callbackUrl,
   });
 
   const response = await fetch(LINKEDIN_TOKEN_ENDPOINT, {
@@ -228,6 +471,7 @@ export async function exchangeLinkedInCodeForAccessToken(code: string): Promise<
 
   const payload = await parseLinkedInJson(response);
   if (!response.ok) {
+    const normalizedReason = inferTokenExchangeFailureReason(payload, response.status);
     if (isAuthorizationCodeMismatchError(payload)) {
       throw buildLinkedInApiError(
         "LINKEDIN_AUTHORIZATION_CODE_INVALID",
@@ -235,7 +479,12 @@ export async function exchangeLinkedInCodeForAccessToken(code: string): Promise<
         {
           status: response.status,
           payload: {
-            normalizedReason: "authorization_code_expired_or_reused_or_redirect_mismatch",
+            normalizedReason,
+            redirectUri: callback.callbackUrl,
+            redirectSource: callback.originSource,
+            clientIdSource: clientId.source,
+            clientSecretSource: clientSecret.source,
+            pkceUsed: false,
             ...(payload ?? {}),
           },
           accountStatus: "INVALID_CREDENTIALS",
@@ -245,7 +494,18 @@ export async function exchangeLinkedInCodeForAccessToken(code: string): Promise<
     throw buildLinkedInApiError(
       "LINKEDIN_TOKEN_EXCHANGE_FAILED",
       normalizeLinkedInApiMessage(payload, "LinkedIn token exchange failed."),
-      { status: response.status, payload },
+      {
+        status: response.status,
+        payload: {
+          normalizedReason,
+          redirectUri: callback.callbackUrl,
+          redirectSource: callback.originSource,
+          clientIdSource: clientId.source,
+          clientSecretSource: clientSecret.source,
+          pkceUsed: false,
+          ...(payload ?? {}),
+        },
+      },
     );
   }
 

@@ -4,6 +4,7 @@ import {
   exchangeLinkedInCodeForAccessToken,
   fetchLinkedInUserProfile,
   parseLinkedInOAuthState,
+  resolveLinkedInCallbackUrl,
   resolveLinkedInIdentity,
 } from "@/lib/social/linkedin";
 
@@ -15,6 +16,10 @@ describe("social linkedin helpers", () => {
     vi.stubGlobal("fetch", fetchMock);
     process.env.LINKEDIN_CLIENT_ID = "client-id";
     process.env.LINKEDIN_CLIENT_SECRET = "client-secret";
+    process.env.NEXTAUTH_URL = "";
+    process.env.APP_URL = "";
+    process.env.NEXT_PUBLIC_APP_URL = "";
+    process.env.CF_PAGES_URL = "";
   });
 
   it("parses oauth state from raw json, base64url json and compact format", () => {
@@ -52,7 +57,10 @@ describe("social linkedin helpers", () => {
       }),
     });
 
-    const token = await exchangeLinkedInCodeForAccessToken("code-123");
+    const token = await exchangeLinkedInCodeForAccessToken(
+      "code-123",
+      new Request("http://localhost:8787/auth/linkedin/callback?code=code-123"),
+    );
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://www.linkedin.com/oauth/v2/accessToken",
@@ -62,6 +70,9 @@ describe("social linkedin helpers", () => {
     );
     expect(token.access_token).toBe("access-token");
     expect(token.id_token).toBe("id-token");
+
+    const [, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((requestInit.body as URLSearchParams).get("redirect_uri")).toBe("http://localhost:8787/auth/linkedin/callback");
   });
 
   it("fetches userinfo and resolves identity", async () => {
@@ -95,13 +106,34 @@ describe("social linkedin helpers", () => {
       }),
     });
 
-    await expect(exchangeLinkedInCodeForAccessToken("bad-code")).rejects.toMatchObject<Partial<LinkedInIntegrationError>>({
+    await expect(
+      exchangeLinkedInCodeForAccessToken(
+        "bad-code",
+        new Request("http://localhost:8787/auth/linkedin/callback?code=bad-code"),
+      ),
+    ).rejects.toMatchObject<Partial<LinkedInIntegrationError>>({
       code: "LINKEDIN_AUTHORIZATION_CODE_INVALID",
       accountStatus: "INVALID_CREDENTIALS",
       message: "LinkedIn rejected the authorization code because it expired, was already used, or does not match the redirect URI.",
       details: expect.objectContaining({
-        normalizedReason: "authorization_code_expired_or_reused_or_redirect_mismatch",
+        normalizedReason: "authorization_code_expired",
+        redirectUri: "http://localhost:8787/auth/linkedin/callback",
       }),
     });
+  });
+
+  it("resolves localhost:8787 callback from the worker request instead of inherited env", () => {
+    process.env.NEXTAUTH_URL = "http://localhost:3000";
+    process.env.APP_URL = "https://drako.systems";
+
+    expect(resolveLinkedInCallbackUrl(new Request("http://localhost:8787/api/social/linkedin/connect"))).toBe(
+      "http://localhost:8787/auth/linkedin/callback",
+    );
+  });
+
+  it("resolves localhost:3000 callback for next dev", () => {
+    expect(resolveLinkedInCallbackUrl(new Request("http://localhost:3000/api/social/linkedin/connect"))).toBe(
+      "http://localhost:3000/auth/linkedin/callback",
+    );
   });
 });

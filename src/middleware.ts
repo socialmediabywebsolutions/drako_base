@@ -35,6 +35,14 @@ function buildHtmlResponse(message: string, status = 200, extra?: string) {
   );
 }
 
+export function shouldBypassLocalLinkedInOAuthRateLimit(req: NextRequest): boolean {
+  if (req.method !== "GET") return false;
+  if (req.nextUrl.pathname !== "/api/social/linkedin/connect") return false;
+
+  const host = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "").trim().toLowerCase();
+  return host === "localhost:8787" || host === "127.0.0.1:8787";
+}
+
 /**
  * OLIMPO MIDDLEWARE - ULTRA MINIMAL & FAIL-SAFE
  * 
@@ -312,8 +320,9 @@ export async function middleware(req: NextRequest) {
           const isDev = process.env.NODE_ENV === "development";
           const isSocialFlowRoute =
             pathname.startsWith("/api/social/") || pathname.startsWith("/socialflow");
+          const bypassLocalLinkedInOAuthRateLimit = shouldBypassLocalLinkedInOAuthRateLimit(req);
 
-          if (!isDev) {
+          if (!isDev && !bypassLocalLinkedInOAuthRateLimit) {
             const effectivePlan = isSocialFlowRoute ? "PRO" : "FREE" as const;
             const rateLimit = await checkTenantRateLimit({
               tenantId: resolution.tenantId,

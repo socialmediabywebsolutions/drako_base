@@ -11,6 +11,7 @@ import {
   fetchLinkedInUserProfile,
   parseLinkedInOAuthState,
   resolveLinkedInIdentity,
+  resolveLinkedInTokenExchangeDiagnostics,
 } from "@/lib/social/linkedin";
 
 function resolveTenantAndSaas(request: Request, sessionTenantId?: string | null) {
@@ -133,12 +134,51 @@ function resolveStorageAvailability() {
   };
 }
 
+function shouldExposeLinkedInDebug(debug: { runtime: string; origin: string }) {
+  if (process.env.NODE_ENV !== "production") return true;
+  return debug.runtime.includes("local") || debug.origin.includes("localhost") || debug.origin.includes("127.0.0.1");
+}
+
+function createLinkedInDebugPayload(request: Request) {
+  const oauth = resolveLinkedInTokenExchangeDiagnostics(request);
+  return {
+    effectiveClientId: oauth.clientId,
+    effectiveRedirectUri: oauth.callbackUrl,
+    effectiveRuntime: oauth.runtime,
+    effectiveOrigin: oauth.origin,
+    redirectResolutionSource: oauth.originSource,
+    credentialSource: {
+      clientId: oauth.clientIdSource,
+      clientSecret: oauth.clientSecretSource,
+    },
+    pkceUsed: oauth.pkceUsed,
+  };
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code")?.trim() || "";
   const session = await getSession(request).catch(() => null);
   const context = resolveTenantAndSaas(request, session?.tenantId ?? null);
   const storage = resolveStorageAvailability();
+  const debug = createLinkedInDebugPayload(request);
+  const exposeDebug = shouldExposeLinkedInDebug({
+    runtime: debug.effectiveRuntime,
+    origin: debug.effectiveOrigin,
+  });
+
+  console.info("LINKEDIN_CALLBACK_DEBUG", {
+    clientId: debug.effectiveClientId,
+    redirectUri: debug.effectiveRedirectUri,
+    runtime: debug.effectiveRuntime,
+    redirectResolutionSource: debug.redirectResolutionSource,
+    credentialSource: debug.credentialSource,
+    requestUrl: request.url,
+    host: request.headers.get("host"),
+    origin: request.headers.get("origin"),
+    state: url.searchParams.get("state"),
+    pkceUsed: debug.pkceUsed,
+  });
 
   if (!code) {
     return NextResponse.json(
@@ -167,6 +207,7 @@ export async function GET(request: Request) {
           status: storage.observabilityAvailable ? "skipped" : "unavailable",
           missingBindings: storage.observabilityAvailable ? [] : storage.missingBindings,
         },
+        ...(exposeDebug ? { debug } : {}),
       },
       { status: 400 },
     );
@@ -174,7 +215,7 @@ export async function GET(request: Request) {
 
   let token;
   try {
-    token = await exchangeLinkedInCodeForAccessToken(code);
+    token = await exchangeLinkedInCodeForAccessToken(code, request);
   } catch (error) {
     const normalized = normalizeError(error);
     await recordCallbackFailure({
@@ -205,6 +246,7 @@ export async function GET(request: Request) {
           status: storage.observabilityAvailable ? "skipped" : "unavailable",
           missingBindings: storage.observabilityAvailable ? [] : storage.missingBindings,
         },
+        ...(exposeDebug ? { debug } : {}),
       },
       { status: normalized.status },
     );
@@ -243,6 +285,7 @@ export async function GET(request: Request) {
           status: storage.observabilityAvailable ? "skipped" : "unavailable",
           missingBindings: storage.observabilityAvailable ? [] : storage.missingBindings,
         },
+        ...(exposeDebug ? { debug } : {}),
       },
       { status: normalized.status },
     );
@@ -321,6 +364,7 @@ export async function GET(request: Request) {
       identity,
       persistence,
       observability,
+      ...(exposeDebug ? { debug } : {}),
     });
   } catch (error) {
     const normalized = normalizeError(error);
@@ -352,6 +396,7 @@ export async function GET(request: Request) {
           missingBindings: storage.observabilityAvailable ? [] : storage.missingBindings,
         },
         callbackError: normalized.error,
+        ...(exposeDebug ? { debug } : {}),
       },
       { status: normalized.status },
     );
