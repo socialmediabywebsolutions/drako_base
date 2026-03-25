@@ -18,9 +18,6 @@ custom_domain = true
 pattern = "drako.systems"
 custom_domain = true
 
-[[routes]]
-pattern = "drako.systems/*"
-
 [[d1_databases]]
 binding = "DRACO_DB"
 database_name = "drako_db_prod"
