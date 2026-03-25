@@ -885,6 +885,10 @@ export default function SocialFlowWorkspaceClient({
     });
   }
 
+  function handleLinkedInOAuthConnect() {
+    window.location.href = `/api/social/linkedin/connect?saasId=${encodeURIComponent(saasId)}`;
+  }
+
   async function handlePrimaryAccount(accountId: string) {
     await withAction(`account-primary-${accountId}`, async () => {
       await requestJson(`/api/social/accounts`, {
@@ -2105,9 +2109,14 @@ export default function SocialFlowWorkspaceClient({
                 <Button type="submit" loading={activeAction === "account-submit"}>
                   {accountForm.connectionMode === "live" ? "Verify live LinkedIn" : "Connect demo account"}
                 </Button>
+                {accountForm.connectionMode === "live" ? (
+                  <Button type="button" variant="outline" onClick={handleLinkedInOAuthConnect}>
+                    Connect with LinkedIn OAuth
+                  </Button>
+                ) : null}
                 <Help>
                   {accountForm.connectionMode === "live"
-                    ? "This is the one real channel in the product today. Other providers stay explicitly in demo mode."
+                    ? "Use OAuth to persist the real LinkedIn connection on this workspace. Manual token paste stays available as fallback."
                     : "The active account list below doubles as the first-user connected-channels proof point."}
                 </Help>
               </div>

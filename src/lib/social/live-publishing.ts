@@ -1,75 +1,33 @@
 import type { SaasSocialPost, SaasSocialProvider } from "@/lib/social/types";
-import { getSaasSocialPostById, listSaasSocialAccounts, updateSaasSocialPostStatus } from "@/lib/social/repository";
+import { publishPost } from "@/lib/social/linkedin-service";
+import { getSaasSocialPostById, listSaasSocialAccounts, markAsPosted, updateSaasSocialPostStatus } from "@/lib/social/repository";
 import type { SocialContext } from "@/lib/social/repository";
 
-type LinkedInAuthMeta = {
-  accessToken?: string;
-  authorUrn?: string;
-  profileId?: string;
-  token_status?: string;
-  lastErrorCode?: string;
-  lastErrorMessage?: string;
-  [key: string]: unknown;
-};
-
-async function findPrimaryLinkedInAccount(ctx: SocialContext): Promise<{ authMeta: LinkedInAuthMeta } | null> {
+async function findPrimaryLinkedInAccount(ctx: SocialContext) {
   const accounts = await listSaasSocialAccounts(ctx);
-  const linkedin = accounts.find((account) => account.provider === "LINKEDIN" && account.isPrimary);
-  if (!linkedin) return null;
-  return { authMeta: (linkedin.authMeta ?? {}) as LinkedInAuthMeta };
+  return accounts.find((account) => account.provider === "LINKEDIN" && account.isPrimary) ?? null;
 }
 
 async function publishToLinkedIn(input: {
   provider: SaasSocialProvider;
-  auth: LinkedInAuthMeta;
+  account: Awaited<ReturnType<typeof findPrimaryLinkedInAccount>>;
   post: SaasSocialPost;
 }): Promise<{ externalPostId?: string | null }> {
   if (input.provider !== "LINKEDIN") {
     throw new Error("UNSUPPORTED_PROVIDER_FOR_LIVE_PUBLISHING");
   }
-
-  const accessToken = (input.auth.accessToken ?? "").trim();
-  const authorUrn = (input.auth.authorUrn ?? "").trim();
-
-  if (!accessToken || !authorUrn) {
-    throw new Error("LINKEDIN_CREDENTIALS_MISSING");
+  if (!input.account) {
+    throw new Error("LINKEDIN_ACCOUNT_MISSING");
   }
 
-  const body = {
-    author: authorUrn,
-    lifecycleState: "PUBLISHED",
-    specificContent: {
-      "com.linkedin.ugc.ShareContent": {
-        shareCommentary: {
-          text: input.post.body || input.post.title,
-        },
-        shareMediaCategory: "NONE",
-      },
-    },
-    visibility: {
-      "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
-    },
+  const operation = await publishPost(
+    input.account,
+    input.post.body?.trim() || input.post.title,
+  );
+
+  return {
+    externalPostId: operation.externalPostId,
   };
-
-  const response = await fetch("https://api.linkedin.com/v2/ugcPosts", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-      "X-Restli-Protocol-Version": "2.0.0",
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    const message = text || `HTTP_${response.status}`;
-    throw new Error(`LINKEDIN_PUBLISH_FAILED:${message}`);
-  }
-
-  // LinkedIn returns the URN of the created post in the "x-restli-id" header for some endpoints.
-  const externalPostId = response.headers.get("x-restli-id");
-  return { externalPostId };
 }
 
 export async function publishSocialPostLive(
@@ -121,7 +79,7 @@ export async function publishSocialPostLive(
     try {
       const result = await publishToLinkedIn({
         provider: post.provider,
-        auth: account.authMeta,
+        account,
         post,
       });
       externalPostId = result.externalPostId ?? null;
@@ -142,9 +100,9 @@ export async function publishSocialPostLive(
       };
     }
 
-    const updatedPost = await updateSaasSocialPostStatus(ctx, {
+    const updatedPost = await markAsPosted(ctx, {
       id: postId,
-      status: "PUBLISHED",
+      externalPostId,
       postedAt: new Date().toISOString(),
     });
 

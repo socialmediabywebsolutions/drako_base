@@ -1,58 +1,58 @@
-
-import { getDb } from "@/lib/db";
+import { env } from "@/lib/cf";
 import { publishSocialPostLive } from "@/lib/social/live-publishing";
 import { resolveSocialContext } from "@/lib/social/repository";
 
+type DuePostRow = {
+  id: string;
+  tenant_id: string;
+  saas_id: string;
+};
+
 export async function processScheduledPosts() {
-  const db = getDb();
-  if (!db) {
-    console.error("[SocialScheduler] Database unavailable");
-    return [];
+  const bindings = env();
+  const socialDb = bindings?.SOCIAL_DB;
+  if (!socialDb) {
+    throw new Error("SOCIAL_DB not configured");
   }
 
-  // 1. Find due posts (Global Query for efficiency)
   const now = new Date().toISOString();
-  // Using 'any' for the raw row to avoid tight coupling with the full type definitions for now
-  const { results: posts } = await db.prepare(
+  const { results: posts } = await socialDb.prepare(
     `SELECT id, tenant_id, saas_id
      FROM saas_social_posts
      WHERE status = 'SCHEDULED'
-       AND scheduled_at <= ?
-     ORDER BY scheduled_at ASC
-     LIMIT 20` 
-  ).bind(now).all<{ id: string; tenant_id: string; saas_id: string }>();
+       AND scheduled_at IS NOT NULL
+       AND datetime(scheduled_at) <= datetime(?)
+     ORDER BY datetime(scheduled_at) ASC
+     LIMIT 20`,
+  ).bind(now).all<DuePostRow>();
 
-  if (!posts || posts.length === 0) {
+  if (!posts?.length) {
     return [];
   }
 
-  console.log(`[SocialScheduler] Found ${posts.length} due posts.`);
-  const results = [];
+  const results: Array<{ id: string; tenantId: string; saasId: string; status: string; message: string | null }> = [];
 
-  // 2. Process each
   for (const post of posts) {
     try {
-      // Construct context for this specific post
       const ctx = await resolveSocialContext({
         tenantId: post.tenant_id,
         saasId: post.saas_id,
       });
-
-      console.log(`[SocialScheduler] Publishing post ${post.id} for ${post.saas_id}...`);
-      
       const result = await publishSocialPostLive(ctx, post.id);
-      results.push({ 
-        id: post.id, 
-        status: result.ok ? "PUBLISHED" : "FAILED", 
-        message: result.message 
+      results.push({
+        id: post.id,
+        tenantId: post.tenant_id,
+        saasId: post.saas_id,
+        status: result.ok ? "PUBLISHED" : "FAILED",
+        message: result.message ?? null,
       });
-      
     } catch (error) {
-      console.error(`[SocialScheduler] Error processing post ${post.id}`, error);
-      results.push({ 
-        id: post.id, 
-        status: "ERROR", 
-        message: String(error) 
+      results.push({
+        id: post.id,
+        tenantId: post.tenant_id,
+        saasId: post.saas_id,
+        status: "ERROR",
+        message: error instanceof Error ? error.message : String(error),
       });
     }
   }

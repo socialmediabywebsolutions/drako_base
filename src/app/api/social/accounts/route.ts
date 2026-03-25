@@ -2,8 +2,9 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { connectIntegration, disconnectIntegration, validateIntegrationConnection } from "@/lib/integration-core";
+import { ensureLinkedInIntegrationAvailable, LINKEDIN_INTEGRATION_KEY } from "@/lib/integration-core/providers/linkedin";
 import { listSaasSocialAccounts, resolveSocialContext, SocialContextError, upsertSaasSocialAccount } from "@/lib/social/repository";
-import { LinkedInIntegrationError, verifyLinkedInAccess } from "@/lib/social/linkedin";
 import type { SaasSocialAccountStatus } from "@/lib/social/types";
 
 const ALLOWED_PROVIDERS = ["INSTAGRAM", "TWITTER_X", "LINKEDIN", "FACEBOOK_PAGE", "TIKTOK", "WHATSAPP", "OTHER"] as const;
@@ -25,21 +26,57 @@ async function resolveLiveLinkedInAccount(input: {
     lastValidationAt: new Date().toISOString(),
   };
 
-  try {
-    const profile = await verifyLinkedInAccess(accessToken);
+  await ensureLinkedInIntegrationAvailable();
+  await connectIntegration({
+    tenantId,
+    saasId: input.saasId,
+    integrationKey: LINKEDIN_INTEGRATION_KEY,
+    connectionLabel: input.displayName?.trim() || input.handle || "LinkedIn connection",
+    status: "PENDING",
+    metadata: {
+      provider: "LINKEDIN",
+      mode: "live",
+      handle: input.handle ?? null,
+      displayName: input.displayName ?? null,
+      isPrimary: input.isPrimary ?? true,
+    },
+    credentials: {
+      accessToken,
+      authorUrn: typeof input.authMeta?.authorUrn === "string" ? input.authMeta.authorUrn : null,
+      profileId: typeof input.authMeta?.profileId === "string" ? input.authMeta.profileId : null,
+    },
+  });
+
+  const validation = await validateIntegrationConnection({
+    tenantId,
+    saasId: input.saasId,
+    integrationKey: LINKEDIN_INTEGRATION_KEY,
+  });
+
+  if (validation.ok) {
+    const displayName =
+      typeof validation.connection.metadata?.displayName === "string"
+        ? validation.connection.metadata.displayName
+        : "LinkedIn user";
     return {
       accountInput: {
         id: input.id,
         saasId: input.saasId,
         provider: "LINKEDIN" as const,
         handle: input.handle ?? null,
-        displayName: input.displayName?.trim() || profile.displayName,
+        displayName: input.displayName?.trim() || displayName,
         status: "CONNECTED_REAL" as SaasSocialAccountStatus,
         authMeta: {
           ...baseMeta,
           accessToken,
-          authorUrn: profile.authorUrn,
-          profileId: profile.profileId,
+          authorUrn:
+            typeof validation.connection.metadata?.authorUrn === "string"
+              ? validation.connection.metadata.authorUrn
+              : input.authMeta?.authorUrn ?? null,
+          profileId:
+            typeof validation.connection.metadata?.profileId === "string"
+              ? validation.connection.metadata.profileId
+              : input.authMeta?.profileId ?? null,
           token_status: "active",
           tenantId,
         },
@@ -51,39 +88,37 @@ async function resolveLiveLinkedInAccount(input: {
         message: "LinkedIn live connection verified.",
       },
     };
-  } catch (error) {
-    const normalized = error instanceof LinkedInIntegrationError
-      ? error
-      : new LinkedInIntegrationError(
-        error instanceof Error ? error.message : "LinkedIn connection could not be verified.",
-        { code: "LINKEDIN_CONNECTION_PENDING", accountStatus: "PENDING_REAL" },
-      );
-
-    return {
-      accountInput: {
-        id: input.id,
-        saasId: input.saasId,
-        provider: "LINKEDIN" as const,
-        handle: input.handle ?? null,
-        displayName: input.displayName?.trim() || "LinkedIn connection",
-        status: normalized.accountStatus as SaasSocialAccountStatus,
-        authMeta: {
-          ...baseMeta,
-          accessToken,
-          token_status: normalized.accountStatus === "INVALID_CREDENTIALS" ? "invalid" : "pending",
-          lastErrorCode: normalized.code,
-          lastErrorMessage: normalized.message,
-          tenantId,
-        },
-        isPrimary: input.isPrimary ?? true,
-      },
-      liveConnection: {
-        ok: false,
-        code: normalized.code,
-        message: normalized.message,
-      },
-    };
   }
+
+  const accountStatus: SaasSocialAccountStatus =
+    validation.status === "INVALID" || validation.status === "NEEDS_REAUTH"
+      ? "INVALID_CREDENTIALS"
+      : "PENDING_REAL";
+
+  return {
+    accountInput: {
+      id: input.id,
+      saasId: input.saasId,
+      provider: "LINKEDIN" as const,
+      handle: input.handle ?? null,
+      displayName: input.displayName?.trim() || "LinkedIn connection",
+      status: accountStatus,
+      authMeta: {
+        ...baseMeta,
+        accessToken,
+        token_status: accountStatus === "INVALID_CREDENTIALS" ? "invalid" : "pending",
+        lastErrorCode: validation.error?.code ?? "LINKEDIN_CONNECTION_PENDING",
+        lastErrorMessage: validation.error?.message ?? "LinkedIn connection could not be verified.",
+        tenantId,
+      },
+      isPrimary: input.isPrimary ?? true,
+    },
+    liveConnection: {
+      ok: false,
+      code: validation.error?.code ?? "LINKEDIN_CONNECTION_PENDING",
+      message: validation.error?.message ?? "LinkedIn connection could not be verified.",
+    },
+  };
 }
 
 export async function GET(request: Request) {
@@ -269,6 +304,15 @@ export async function DELETE(request: Request) {
       },
       isPrimary: false,
     });
+
+    if (current.provider === "LINKEDIN") {
+      try {
+        await ensureLinkedInIntegrationAvailable();
+        await disconnectIntegration(ctx.tenantId, current.saasId, LINKEDIN_INTEGRATION_KEY);
+      } catch (error) {
+        console.error("SOCIAL_ACCOUNTS_DISCONNECT_LINKEDIN_CORE_ERROR", error);
+      }
+    }
 
     if (current.isPrimary) {
       const fallbackPrimary = accounts.find((candidate) => candidate.id !== current.id && candidate.status !== "DISCONNECTED");

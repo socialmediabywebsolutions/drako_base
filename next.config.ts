@@ -1,5 +1,8 @@
 import { execSync } from "child_process";
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+void initOpenNextCloudflareForDev();
 
 let gitSha = "unknown";
 try { gitSha = execSync("git rev-parse --short HEAD").toString().trim(); } catch { /* ignore */ }
@@ -19,8 +22,6 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
 
-  // Optimize for Cloudflare Pages deployment
-  output: "standalone",
   experimental: {
     // runtime: 'edge',
   },

@@ -6,19 +6,23 @@ import {
   disableCampoBaseSocialAutomationForSaas,
   enableCampoBaseSocialAutomationForSaas,
   getCampoBaseSocialAutomationStatus,
-  runCampoBaseSocialAutomationForAllRegisteredSaas,
-  runCampoBaseSocialAutomationForRegisteredSaas,
-} from "@/lib/campobase/socialflow-service";
-import {
   listCampoBaseSocialAutomationRuns,
   listCampoBaseSocialAutomationRunsForSaas,
-} from "@/lib/campobase/social-automation-history";
+  registerCampoBaseSocialAutomation,
+  registerCampoBaseSocialHealthCheck,
+  runCampoBaseSocialAutomationForAllRegisteredSaas,
+  runCampoBaseSocialHealthCheckForRegisteredSaas,
+  runCampoBaseSocialAutomationForRegisteredSaas,
+  type SocialFlowAutomationKey,
+} from "@/lib/campobase/socialflow-service";
 
 type SocialFlowRouteAction =
   | { action: "run_all" }
-  | { action: "run_one"; tenantId: string; saasId: string }
-  | { action: "enable"; tenantId: string; saasId: string }
-  | { action: "disable"; tenantId: string; saasId: string };
+  | { action: "run_one"; tenantId: string; saasId: string; automationKey?: SocialFlowAutomationKey }
+  | { action: "register"; tenantId: string; saasId: string; niche: string; tone: string; frequencyPerWeek: number; enabled?: boolean; automationKey?: SocialFlowAutomationKey }
+  | { action: "register_health"; tenantId: string; saasId: string; tone?: string; enabled?: boolean; automationKey?: SocialFlowAutomationKey }
+  | { action: "enable"; tenantId: string; saasId: string; automationKey?: SocialFlowAutomationKey }
+  | { action: "disable"; tenantId: string; saasId: string; automationKey?: SocialFlowAutomationKey };
 
 function validateAction(body: unknown): SocialFlowRouteAction | null {
   if (!body || typeof body !== "object") {
@@ -28,9 +32,52 @@ function validateAction(body: unknown): SocialFlowRouteAction | null {
   const action = "action" in body ? body.action : null;
   const tenantId = "tenantId" in body ? body.tenantId : null;
   const saasId = "saasId" in body ? body.saasId : null;
+  const niche = "niche" in body ? body.niche : null;
+  const tone = "tone" in body ? body.tone : null;
+  const frequencyPerWeek = "frequencyPerWeek" in body ? body.frequencyPerWeek : null;
+  const enabled = "enabled" in body ? body.enabled : undefined;
+  const automationKey =
+    "automationKey" in body && typeof body.automationKey === "string"
+      ? body.automationKey as SocialFlowAutomationKey
+      : undefined;
 
   if (action === "run_all") {
     return { action };
+  }
+
+  if (
+    action === "register"
+    && typeof tenantId === "string"
+    && typeof saasId === "string"
+    && typeof niche === "string"
+    && typeof tone === "string"
+    && typeof frequencyPerWeek === "number"
+  ) {
+    return {
+      action,
+      tenantId,
+      saasId,
+      niche,
+      tone,
+      frequencyPerWeek,
+      enabled: typeof enabled === "boolean" ? enabled : undefined,
+      automationKey,
+    };
+  }
+
+  if (
+    action === "register_health"
+    && typeof tenantId === "string"
+    && typeof saasId === "string"
+  ) {
+    return {
+      action,
+      tenantId,
+      saasId,
+      tone: typeof tone === "string" ? tone : undefined,
+      enabled: typeof enabled === "boolean" ? enabled : undefined,
+      automationKey,
+    };
   }
 
   if (
@@ -38,7 +85,7 @@ function validateAction(body: unknown): SocialFlowRouteAction | null {
     && typeof tenantId === "string"
     && typeof saasId === "string"
   ) {
-    return { action, tenantId, saasId };
+    return { action, tenantId, saasId, automationKey };
   }
 
   return null;
@@ -203,6 +250,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const tenantId = url.searchParams.get("tenantId")?.trim() ?? "";
     const saasId = url.searchParams.get("saasId")?.trim() ?? "";
+    const automationKeyParam = url.searchParams.get("automationKey")?.trim() ?? "";
     const limitParam = url.searchParams.get("limit");
     const statusFilter = parseStatusFilter(url.searchParams.get("status"));
     const dateFromFilter = parseDateFilter(url.searchParams.get("dateFrom"));
@@ -213,8 +261,16 @@ export async function GET(request: Request) {
       limit = 100;
     }
     const history = tenantId && saasId
-      ? await listCampoBaseSocialAutomationRunsForSaas(tenantId, saasId, limit)
-      : await listCampoBaseSocialAutomationRuns(limit);
+      ? await listCampoBaseSocialAutomationRunsForSaas(
+          tenantId,
+          saasId,
+          limit,
+          automationKeyParam ? automationKeyParam as SocialFlowAutomationKey : undefined,
+        )
+      : await listCampoBaseSocialAutomationRuns(
+          limit,
+          automationKeyParam ? automationKeyParam as SocialFlowAutomationKey : undefined,
+        );
     const filteredHistory = filterHistory(history, {
       status: statusFilter,
       dateFrom: dateFromFilter,
@@ -257,7 +313,41 @@ export async function POST(request: Request) {
     }
 
     if (action.action === "run_one") {
-      const result = await runCampoBaseSocialAutomationForRegisteredSaas(action.tenantId, action.saasId);
+      const result = action.automationKey === "socialflow.health_check"
+        ? await runCampoBaseSocialHealthCheckForRegisteredSaas(action.tenantId, action.saasId)
+        : await runCampoBaseSocialAutomationForRegisteredSaas(action.tenantId, action.saasId, action.automationKey);
+      const status = await getCampoBaseSocialAutomationStatus();
+      return NextResponse.json({
+        action: action.action,
+        result,
+        status,
+      });
+    }
+
+    if (action.action === "register") {
+      const result = await registerCampoBaseSocialAutomation({
+        tenantId: action.tenantId,
+        saasId: action.saasId,
+        niche: action.niche,
+        tone: action.tone,
+        frequencyPerWeek: action.frequencyPerWeek,
+        enabled: action.enabled,
+      });
+      const status = await getCampoBaseSocialAutomationStatus();
+      return NextResponse.json({
+        action: action.action,
+        result,
+        status,
+      });
+    }
+
+    if (action.action === "register_health") {
+      const result = await registerCampoBaseSocialHealthCheck({
+        tenantId: action.tenantId,
+        saasId: action.saasId,
+        tone: action.tone,
+        enabled: action.enabled,
+      });
       const status = await getCampoBaseSocialAutomationStatus();
       return NextResponse.json({
         action: action.action,
@@ -267,8 +357,8 @@ export async function POST(request: Request) {
     }
 
     const result = action.action === "enable"
-      ? await enableCampoBaseSocialAutomationForSaas(action.tenantId, action.saasId)
-      : await disableCampoBaseSocialAutomationForSaas(action.tenantId, action.saasId);
+      ? await enableCampoBaseSocialAutomationForSaas(action.tenantId, action.saasId, action.automationKey)
+      : await disableCampoBaseSocialAutomationForSaas(action.tenantId, action.saasId, action.automationKey);
 
     const status = await getCampoBaseSocialAutomationStatus();
 

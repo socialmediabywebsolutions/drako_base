@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import {
   approvePost,
+  getSaasSocialPostById,
   listSaasSocialPosts,
   markAsPosted,
   rejectPost,
@@ -13,9 +14,28 @@ import {
   SocialContextError,
   upsertSaasSocialPost,
 } from "@/lib/social/repository";
+import { publishSocialPostLive } from "@/lib/social/live-publishing";
 
 const ALLOWED_PROVIDERS = ["LINKEDIN"] as const;
 const ALLOWED_CREATION_STATUSES = ["DRAFT", "SCHEDULED"] as const;
+const SOCIAL_DB_LOCAL_HINT = "Run `npm run build:worker && npx wrangler dev --config wrangler.workers.toml` to load D1 bindings in local.";
+
+function isSocialDbUnavailableError(error: unknown) {
+  return error instanceof SocialContextError && error.message.includes("SOCIAL_DB not configured");
+}
+
+function getSocialDbUnavailablePayload() {
+  return {
+    code: "SOCIAL_DB_UNAVAILABLE",
+    message: "SOCIAL_DB is not configured in the current local runtime.",
+    details: {
+      binding: "SOCIAL_DB",
+      currentRuntime: "local_without_workers_bindings",
+      expectedRuntime: "wrangler.workers",
+      hint: SOCIAL_DB_LOCAL_HINT,
+    },
+  };
+}
 
 export async function GET(request: Request) {
   try {
@@ -60,6 +80,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ items, count: items.length });
   } catch (error) {
+    if (isSocialDbUnavailableError(error)) {
+      return NextResponse.json(getSocialDbUnavailablePayload(), { status: 503 });
+    }
     if (error instanceof SocialContextError) {
       return NextResponse.json({ code: "INVALID_SOCIAL_CONTEXT", message: error.message }, { status: 400 });
     }
@@ -76,6 +99,7 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => null)) as {
       id?: string;
       saasId?: string | null;
+      content?: string | null;
       campaignId?: string | null;
       channelId?: string | null;
       provider?: string;
@@ -91,14 +115,39 @@ export async function POST(request: Request) {
     } | null;
 
     if (!body) {
-      return NextResponse.json({ code: "INVALID_BODY", message: "Body is required" }, { status: 400 });
+      return NextResponse.json(
+        {
+          code: "INVALID_BODY",
+          message: "Body is required",
+          details: {
+            expectedContentType: "application/json",
+          },
+        },
+        { status: 400 },
+      );
     }
 
     const saasId = body.saasId ?? null;
 
-    if (!saasId || !body.provider || !body.contentType || !body.title?.trim() || !body.body?.trim() || !body.status) {
+    const simplifiedContent = body.content?.trim() ?? "";
+    const usingSimplifiedContract = Boolean(simplifiedContent);
+    const provider = (body.provider ?? (usingSimplifiedContract ? "LINKEDIN" : null)) as string | null;
+    const contentType = (body.contentType ?? (usingSimplifiedContract ? "FEED" : null)) as string | null;
+    const title = body.title?.trim() || (usingSimplifiedContract ? simplifiedContent.slice(0, 72) : "");
+    const postBody = body.body?.trim() || simplifiedContent;
+    const scheduledAt = typeof body.scheduledAt === "undefined" ? null : body.scheduledAt;
+    const creationStatus = body.status ?? (usingSimplifiedContract ? (scheduledAt ? "SCHEDULED" : "DRAFT") : null);
+
+    if (!saasId || !provider || !contentType || !title || !postBody || !creationStatus) {
       return NextResponse.json(
-        { code: "INVALID_BODY", message: "saasId, provider, contentType, title, body and status are required" },
+        {
+          code: "INVALID_BODY",
+          message: "saasId, provider, contentType, title, body and status are required",
+          details: {
+            requiredFields: ["saasId", "provider", "contentType", "title", "body", "status"],
+            simplifiedContract: ["saasId", "content", "scheduledAt?"],
+          },
+        },
         { status: 400 },
       );
     }
@@ -112,35 +161,35 @@ export async function POST(request: Request) {
       ctxTenantId: ctx.tenantId,
       ctxSaasId: ctx.saasId,
       mode: ctx.mode,
-      provider: body.provider,
-      status: body.status,
-      title: body.title?.trim(),
+      provider,
+      status: creationStatus,
+      title,
     });
 
-    if (!ALLOWED_PROVIDERS.includes(body.provider as (typeof ALLOWED_PROVIDERS)[number])) {
+    if (!ALLOWED_PROVIDERS.includes(provider as (typeof ALLOWED_PROVIDERS)[number])) {
       return NextResponse.json({ code: "INVALID_PROVIDER", message: "provider is invalid" }, { status: 400 });
     }
 
-    if (!ALLOWED_CREATION_STATUSES.includes(body.status as (typeof ALLOWED_CREATION_STATUSES)[number])) {
+    if (!ALLOWED_CREATION_STATUSES.includes(creationStatus as (typeof ALLOWED_CREATION_STATUSES)[number])) {
       return NextResponse.json({ code: "INVALID_STATUS", message: "status must be draft or scheduled" }, { status: 400 });
     }
 
-    const provider = body.provider as (typeof ALLOWED_PROVIDERS)[number];
-    const contentType = "FEED";
-    const status = body.status as (typeof ALLOWED_CREATION_STATUSES)[number];
+    const normalizedProvider = provider as (typeof ALLOWED_PROVIDERS)[number];
+    const normalizedContentType = "FEED";
+    const status = creationStatus as (typeof ALLOWED_CREATION_STATUSES)[number];
 
     const post = await upsertSaasSocialPost(ctx, {
       id: body.id,
       saasId,
       campaignId: body.campaignId ?? null,
       channelId: body.channelId ?? null,
-      provider,
-      contentType,
-      title: body.title.trim(),
-      body: body.body.trim(),
+      provider: normalizedProvider,
+      contentType: normalizedContentType,
+      title,
+      body: postBody,
       imageHint: body.imageHint ?? null,
       status,
-      scheduledAt: body.scheduledAt ?? null,
+      scheduledAt,
       postedAt: body.postedAt ?? null,
       externalPostId: body.externalPostId ?? null,
       metadata: body.metadata ?? null,
@@ -153,8 +202,38 @@ export async function POST(request: Request) {
       status: post.status,
     });
 
+    if (usingSimplifiedContract && !scheduledAt) {
+      const liveResult = await publishSocialPostLive(ctx, post.id);
+      if (!liveResult.ok) {
+        return NextResponse.json(
+          {
+            post: liveResult.post ?? (await getSaasSocialPostById(ctx, post.id)) ?? post,
+            livePublish: {
+              ok: false,
+              code: liveResult.code ?? "LIVE_PUBLISH_FAILED",
+              message: liveResult.message ?? "Live publish failed.",
+            },
+          },
+          { status: 409 },
+        );
+      }
+
+      return NextResponse.json({
+        post: liveResult.post ?? post,
+        livePublish: {
+          ok: true,
+          code: liveResult.code ?? "PUBLISHED_LIVE_LINKEDIN",
+          message: liveResult.message ?? "Post published live.",
+          externalPostId: liveResult.externalPostId ?? null,
+        },
+      });
+    }
+
     return NextResponse.json({ post });
   } catch (error) {
+    if (isSocialDbUnavailableError(error)) {
+      return NextResponse.json(getSocialDbUnavailablePayload(), { status: 503 });
+    }
     if (error instanceof SocialContextError) {
       return NextResponse.json({ code: "INVALID_SOCIAL_CONTEXT", message: error.message }, { status: 400 });
     }
@@ -236,6 +315,9 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ post });
   } catch (error) {
+    if (isSocialDbUnavailableError(error)) {
+      return NextResponse.json(getSocialDbUnavailablePayload(), { status: 503 });
+    }
     if (error instanceof SocialContextError) {
       return NextResponse.json({ code: "INVALID_SOCIAL_CONTEXT", message: error.message }, { status: 400 });
     }

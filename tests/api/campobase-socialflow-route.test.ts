@@ -4,6 +4,7 @@ const {
   UnauthorizedError,
   requireOwnerAccess,
   getCampoBaseSocialAutomationStatus,
+  registerCampoBaseSocialAutomation,
   runCampoBaseSocialAutomationForAllRegisteredSaas,
   runCampoBaseSocialAutomationForRegisteredSaas,
   enableCampoBaseSocialAutomationForSaas,
@@ -25,6 +26,7 @@ const {
     UnauthorizedError: HoistedUnauthorizedError,
     requireOwnerAccess: vi.fn(),
     getCampoBaseSocialAutomationStatus: vi.fn(),
+    registerCampoBaseSocialAutomation: vi.fn(),
     runCampoBaseSocialAutomationForAllRegisteredSaas: vi.fn(),
     runCampoBaseSocialAutomationForRegisteredSaas: vi.fn(),
     enableCampoBaseSocialAutomationForSaas: vi.fn(),
@@ -41,13 +43,11 @@ vi.mock("@/lib/auth/session", () => ({
 
 vi.mock("@/lib/campobase/socialflow-service", () => ({
   getCampoBaseSocialAutomationStatus,
+  registerCampoBaseSocialAutomation,
   runCampoBaseSocialAutomationForAllRegisteredSaas,
   runCampoBaseSocialAutomationForRegisteredSaas,
   enableCampoBaseSocialAutomationForSaas,
   disableCampoBaseSocialAutomationForSaas,
-}));
-
-vi.mock("@/lib/campobase/social-automation-history", () => ({
   listCampoBaseSocialAutomationRuns,
   listCampoBaseSocialAutomationRunsForSaas,
 }));
@@ -61,9 +61,11 @@ type StatusPayload = {
   items: Array<{
     tenantId: string;
     saasId: string;
+    automationKey: string;
+    displayName: string;
     enabled: boolean;
-    niche: string;
-    tone: string;
+    niche: string | null;
+    tone: string | null;
     frequencyPerWeek: number;
     updatedAt: string;
   }>;
@@ -103,6 +105,8 @@ const baseStatus: StatusPayload = {
     {
       tenantId: "tenant-1",
       saasId: "saas-1",
+      automationKey: "socialflow.content_generation",
+      displayName: "SocialFlow content generation",
       enabled: true,
       niche: "fitness",
       tone: "direct",
@@ -177,7 +181,7 @@ describe("/api/campobase/socialflow", () => {
     const payload = await response.json() as { status: StatusPayload; history: HistoryPayload };
     expect(payload.status).toEqual(baseStatus);
     expect(payload.history).toEqual(baseHistory);
-    expect(listCampoBaseSocialAutomationRuns).toHaveBeenCalledWith(25);
+    expect(listCampoBaseSocialAutomationRuns).toHaveBeenCalledWith(25, undefined);
   });
 
   it("GET returns summary for unfiltered history", async () => {
@@ -200,14 +204,23 @@ describe("/api/campobase/socialflow", () => {
     const response = await GET(new Request("https://drako.systems/api/campobase/socialflow?tenantId=tenant-1&saasId=saas-1") as any);
 
     expect(response.status).toBe(200);
-    expect(listCampoBaseSocialAutomationRunsForSaas).toHaveBeenCalledWith("tenant-1", "saas-1", 25);
+    expect(listCampoBaseSocialAutomationRunsForSaas).toHaveBeenCalledWith("tenant-1", "saas-1", 25, undefined);
+  });
+
+  it("GET forwards automationKey filter to history", async () => {
+    const response = await GET(
+      new Request("https://drako.systems/api/campobase/socialflow?automationKey=socialflow.health_check") as any,
+    );
+
+    expect(response.status).toBe(200);
+    expect(listCampoBaseSocialAutomationRuns).toHaveBeenCalledWith(25, "socialflow.health_check");
   });
 
   it("GET uses limit when provided", async () => {
     const response = await GET(new Request("https://drako.systems/api/campobase/socialflow?limit=10") as any);
 
     expect(response.status).toBe(200);
-    expect(listCampoBaseSocialAutomationRuns).toHaveBeenCalledWith(10);
+    expect(listCampoBaseSocialAutomationRuns).toHaveBeenCalledWith(10, undefined);
   });
 
   it("GET filters by status", async () => {
@@ -235,7 +248,7 @@ describe("/api/campobase/socialflow", () => {
     const response = await GET(new Request("https://drako.systems/api/campobase/socialflow?tenantId=tenant-1&saasId=saas-1&status=SUCCESS&limit=10") as any);
 
     expect(response.status).toBe(200);
-    expect(listCampoBaseSocialAutomationRunsForSaas).toHaveBeenCalledWith("tenant-1", "saas-1", 10);
+    expect(listCampoBaseSocialAutomationRunsForSaas).toHaveBeenCalledWith("tenant-1", "saas-1", 10, undefined);
     const payload = await response.json() as { history: HistoryPayload };
     expect(payload.history).toEqual([baseHistory[0]]);
   });
@@ -244,7 +257,7 @@ describe("/api/campobase/socialflow", () => {
     const response = await GET(new Request("https://drako.systems/api/campobase/socialflow?limit=bad") as any);
 
     expect(response.status).toBe(200);
-    expect(listCampoBaseSocialAutomationRuns).toHaveBeenCalledWith(25);
+    expect(listCampoBaseSocialAutomationRuns).toHaveBeenCalledWith(25, undefined);
   });
 
   it("GET ignores invalid status and dates", async () => {
@@ -259,7 +272,7 @@ describe("/api/campobase/socialflow", () => {
     const response = await GET(new Request("https://drako.systems/api/campobase/socialflow?tenantId=tenant-1") as any);
 
     expect(response.status).toBe(200);
-    expect(listCampoBaseSocialAutomationRuns).toHaveBeenCalledWith(25);
+    expect(listCampoBaseSocialAutomationRuns).toHaveBeenCalledWith(25, undefined);
     expect(listCampoBaseSocialAutomationRunsForSaas).not.toHaveBeenCalled();
   });
 
@@ -315,13 +328,51 @@ describe("/api/campobase/socialflow", () => {
     const payload = await response.json() as { action: string; result: unknown; status: StatusPayload };
     expect(payload.action).toBe("run_one");
     expect(payload.result).toEqual(expect.objectContaining({ campaignId: "campaign-1", postsCount: 1, scheduledCount: 1 }));
-    expect(runCampoBaseSocialAutomationForRegisteredSaas).toHaveBeenCalledWith("tenant-1", "saas-1");
+    expect(runCampoBaseSocialAutomationForRegisteredSaas).toHaveBeenCalledWith("tenant-1", "saas-1", undefined);
+  });
+
+  it("POST register returns result and status", async () => {
+    registerCampoBaseSocialAutomation.mockResolvedValue({
+      tenantId: "tenant-1",
+      saasId: "saas-1",
+      automationKey: "socialflow.content_generation",
+      displayName: "SocialFlow content generation",
+      enabled: true,
+      niche: "fitness",
+      tone: "direct",
+      frequencyPerWeek: 2,
+      updatedAt: "2024-01-01T00:00:00.000Z",
+    });
+
+    const response = await POST(buildRequest({
+      action: "register",
+      tenantId: "tenant-1",
+      saasId: "saas-1",
+      niche: "fitness",
+      tone: "direct",
+      frequencyPerWeek: 2,
+    }) as any);
+
+    expect(response.status).toBe(200);
+    const payload = await response.json() as { action: string; result: unknown; status: StatusPayload };
+    expect(payload.action).toBe("register");
+    expect(payload.result).toEqual(expect.objectContaining({ enabled: true, niche: "fitness" }));
+    expect(registerCampoBaseSocialAutomation).toHaveBeenCalledWith({
+      tenantId: "tenant-1",
+      saasId: "saas-1",
+      niche: "fitness",
+      tone: "direct",
+      frequencyPerWeek: 2,
+      enabled: undefined,
+    });
   });
 
   it("POST enable returns result and status", async () => {
     enableCampoBaseSocialAutomationForSaas.mockResolvedValue({
       tenantId: "tenant-1",
       saasId: "saas-1",
+      automationKey: "socialflow.content_generation",
+      displayName: "SocialFlow content generation",
       enabled: true,
       niche: "fitness",
       tone: "direct",
@@ -340,13 +391,15 @@ describe("/api/campobase/socialflow", () => {
     expect(payload.action).toBe("enable");
     expect(payload.result).toEqual(expect.objectContaining({ enabled: true }));
     expect(payload.status).toEqual(baseStatus);
-    expect(enableCampoBaseSocialAutomationForSaas).toHaveBeenCalledWith("tenant-1", "saas-1");
+    expect(enableCampoBaseSocialAutomationForSaas).toHaveBeenCalledWith("tenant-1", "saas-1", undefined);
   });
 
   it("POST disable returns result and status", async () => {
     disableCampoBaseSocialAutomationForSaas.mockResolvedValue({
       tenantId: "tenant-1",
       saasId: "saas-1",
+      automationKey: "socialflow.content_generation",
+      displayName: "SocialFlow content generation",
       enabled: false,
       niche: "fitness",
       tone: "direct",
@@ -365,7 +418,7 @@ describe("/api/campobase/socialflow", () => {
     expect(payload.action).toBe("disable");
     expect(payload.result).toEqual(expect.objectContaining({ enabled: false }));
     expect(payload.status).toEqual(baseStatus);
-    expect(disableCampoBaseSocialAutomationForSaas).toHaveBeenCalledWith("tenant-1", "saas-1");
+    expect(disableCampoBaseSocialAutomationForSaas).toHaveBeenCalledWith("tenant-1", "saas-1", undefined);
   });
 
   it("POST returns 400 on invalid payload", async () => {
