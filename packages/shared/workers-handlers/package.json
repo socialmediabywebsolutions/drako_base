@@ -1,0 +1,15 @@
+{
+  "name": "@drako/workers-handlers",
+  "version": "1.0.0",
+  "description": "Shared workers handlers for Cloudflare Workers",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "keywords": [
+    "workers",
+    "handlers",
+    "cloudflare"
+  ]
+}

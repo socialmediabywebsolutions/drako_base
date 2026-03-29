@@ -57,6 +57,9 @@ export async function GET() {
     // 4. RETRIEVE BUNDLE
     results.steps.push({ step: "Retrieving family bundle...", status: "IN_PROGRESS" });
     const bundle = await service.getFamilyBundle(TEST_FAMILY_ID);
+    if (!bundle.family) {
+      throw new Error("Family bundle is null - family not found");
+    }
     results.steps[3].status = "COMPLETED";
     results.steps[3].result = {
       familyId: bundle.family.id,

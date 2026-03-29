@@ -95,6 +95,9 @@ export async function GET() {
     // Test 8: Retrieve Family Bundle
     results.tests.push({ name: "Retrieve Family Bundle", status: "IN_PROGRESS" });
     const bundle = await service.getFamilyBundle(testFamilyId);
+    if (!bundle.family) {
+      throw new Error("Family bundle is null - family not found");
+    }
     results.tests[7].status = "PASSED";
     results.tests[7].result = {
       familyId: bundle.family.id,

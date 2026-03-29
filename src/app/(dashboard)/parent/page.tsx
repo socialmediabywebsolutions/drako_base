@@ -69,7 +69,7 @@ export default function ParentDashboard() {
           throw new Error("Failed to load parent overview");
         }
 
-        const result = await response.json();
+        const result = (await response.json()) as OverviewData;
         setData(result);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");

@@ -51,6 +51,12 @@ const NOTIFICATION_RULES: Record<EventType, Array<{ targetType: NotificationTarg
   "student.progress.updated": [
     { targetType: "guardian", channels: ["app", "whatsapp"] },
   ],
+  "student.alert.generated": [
+    { targetType: "guardian", channels: ["app", "whatsapp"] },
+  ],
+  "student.summary.generated": [
+    { targetType: "guardian", channels: ["app"] },
+  ],
   "guardian.invited": [
     { targetType: "guardian", channels: ["app", "whatsapp"] },
   ],
@@ -195,6 +201,16 @@ function generateNotificationPayload(event: Event, channel: NotificationChannel)
       title: "Progreso actualizado",
       body: "El progreso de tu hijo ha sido actualizado",
       actionUrl: "/student/progress",
+    },
+    "student.alert.generated": {
+      title: "Alerta de desempeño",
+      body: "Se ha detectado una alerta en el desempeño de tu hijo",
+      actionUrl: "/alerts",
+    },
+    "student.summary.generated": {
+      title: "Resumen disponible",
+      body: "El resumen de la sesión de tu hijo está listo",
+      actionUrl: "/student/summaries",
     },
     "guardian.invited": {
       title: "Invitación aceptada",
