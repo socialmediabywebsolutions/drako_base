@@ -1,5 +1,6 @@
-import { sendWhatsAppAlert } from "@/connectors/whatsapp/agent";
+import { sendWhatsAppMessage } from "@/connectors/whatsapp/client";
 import type { SessionSummary } from "@/lib/mentoria/session-summary";
+import { getDb } from "@/lib/db";
 
 export type ParentNotification = {
   sessionId: string;
@@ -10,7 +11,15 @@ export type ParentNotification = {
   sentAt: string;
   success: boolean;
   error?: string;
+  messageId?: string;
+  retryCount?: number;
 };
+
+function validatePhoneNumber(phone: string): boolean {
+  if (!phone || typeof phone !== "string") return false;
+  const cleaned = phone.replace(/\D/g, "");
+  return cleaned.length >= 10 && cleaned.length <= 15;
+}
 
 export async function sendParentSessionNotification(input: {
   sessionId: string;
@@ -19,14 +28,42 @@ export async function sendParentSessionNotification(input: {
   summary: SessionSummary;
 }): Promise<ParentNotification> {
   const now = new Date().toISOString();
+  const message = buildNotificationMessage(input.summary);
+
+  if (!validatePhoneNumber(input.parentPhone)) {
+    const errorMsg = "INVALID_PHONE_NUMBER";
+    console.error("[ParentNotification] Invalid phone number:", input.parentPhone);
+    await logNotificationFailure({
+      sessionId: input.sessionId,
+      studentId: input.studentId,
+      parentPhone: input.parentPhone,
+      error: errorMsg,
+      timestamp: now,
+    });
+    return {
+      sessionId: input.sessionId,
+      studentId: input.studentId,
+      parentPhone: input.parentPhone,
+      message,
+      actionItems: input.summary.actionItems,
+      sentAt: now,
+      success: false,
+      error: errorMsg,
+    };
+  }
 
   try {
-    const message = buildNotificationMessage(input.summary);
-    
-    const result = await sendWhatsAppAlert(message);
+    const result = await sendWhatsAppMessage(input.parentPhone, message);
 
     if (!result.success) {
-      console.error("[ParentNotification] WhatsApp send failed:", result.error);
+      console.error("[ParentNotification] WhatsApp send failed:", result.error, "Retries:", result.retryCount);
+      await logNotificationFailure({
+        sessionId: input.sessionId,
+        studentId: input.studentId,
+        parentPhone: input.parentPhone,
+        error: result.error || "WhatsApp send failed",
+        timestamp: now,
+      });
       return {
         sessionId: input.sessionId,
         studentId: input.studentId,
@@ -35,11 +72,19 @@ export async function sendParentSessionNotification(input: {
         actionItems: input.summary.actionItems,
         sentAt: now,
         success: false,
-        error: result.error || "WhatsApp send failed",
+        error: result.error,
+        retryCount: result.retryCount,
       };
     }
 
-    console.log("[ParentNotification] Message sent successfully:", result.messageId);
+    console.log("[ParentNotification] Message sent successfully:", result.messageId, "Retries:", result.retryCount);
+    await logNotificationSuccess({
+      sessionId: input.sessionId,
+      studentId: input.studentId,
+      parentPhone: input.parentPhone,
+      messageId: result.messageId,
+      timestamp: now,
+    });
     return {
       sessionId: input.sessionId,
       studentId: input.studentId,
@@ -48,20 +93,89 @@ export async function sendParentSessionNotification(input: {
       actionItems: input.summary.actionItems,
       sentAt: now,
       success: true,
+      messageId: result.messageId,
+      retryCount: result.retryCount,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("[ParentNotification] Error sending notification:", errorMessage);
+    await logNotificationFailure({
+      sessionId: input.sessionId,
+      studentId: input.studentId,
+      parentPhone: input.parentPhone,
+      error: errorMessage,
+      timestamp: now,
+    });
     return {
       sessionId: input.sessionId,
       studentId: input.studentId,
       parentPhone: input.parentPhone,
-      message: input.summary.parentMessage,
+      message,
       actionItems: input.summary.actionItems,
       sentAt: now,
       success: false,
       error: errorMessage,
     };
+  }
+}
+
+async function logNotificationSuccess(input: {
+  sessionId: string;
+  studentId: string;
+  parentPhone: string;
+  messageId?: string;
+  timestamp: string;
+}): Promise<void> {
+  try {
+    const db = getDb();
+    await db
+      .prepare(
+        `INSERT INTO mentoria_notification_log (
+          id, session_id, student_id, parent_phone, message_id, status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        crypto.randomUUID(),
+        input.sessionId,
+        input.studentId,
+        input.parentPhone,
+        input.messageId || null,
+        "success",
+        input.timestamp
+      )
+      .run();
+  } catch (error) {
+    console.error("[NotificationLog] Failed to log success:", error);
+  }
+}
+
+async function logNotificationFailure(input: {
+  sessionId: string;
+  studentId: string;
+  parentPhone: string;
+  error: string;
+  timestamp: string;
+}): Promise<void> {
+  try {
+    const db = getDb();
+    await db
+      .prepare(
+        `INSERT INTO mentoria_notification_log (
+          id, session_id, student_id, parent_phone, error_message, status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        crypto.randomUUID(),
+        input.sessionId,
+        input.studentId,
+        input.parentPhone,
+        input.error,
+        "failed",
+        input.timestamp
+      )
+      .run();
+  } catch (error) {
+    console.error("[NotificationLog] Failed to log failure:", error);
   }
 }
 

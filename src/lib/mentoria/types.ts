@@ -55,6 +55,7 @@ export type StudentProfile = {
   userId?: string;
   learningStage: "primary" | "eso" | "bachillerato";
   fullName: string;
+  name?: string;
   age: number;
   schoolYear: string;
   learningGoals: string[];
@@ -64,6 +65,7 @@ export type StudentProfile = {
   preferredStudyMinutes: number;
   strengths: string[];
   supportNotes?: string;
+  parentPhoneNumber?: string;
   onboardingCompleted: boolean;
   createdAt: string;
   updatedAt: string;

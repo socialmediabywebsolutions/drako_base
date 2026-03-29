@@ -48,7 +48,8 @@ import { generateSessionSummary } from "@/lib/mentoria/session-summary";
 import { sendParentSessionNotification, detectAndTriggerAlerts } from "@/lib/mentoria/parent-notifications";
 import { generateSessionFeedback, buildSessionCompletionMessage } from "@/lib/mentoria/session-feedback";
 import { TrialManager } from "@/lib/mentoria/trial-system";
-import { checkAccessControl, UpgradeFlowError, buildTrialExpiringWarning } from "@/lib/mentoria/upgrade-flow";
+import { checkAccessControl, UpgradeFlowError, buildTrialExpiringWarning, buildUpgradePrompt } from "@/lib/mentoria/upgrade-flow";
+import { FeedbackSystem } from "@/lib/mentoria/feedback-system";
 import {
   createInitialEvolutionProfile,
   updateEvolutionFromSession,
@@ -1262,6 +1263,21 @@ export class MentoriaService {
       await this.trialManager.startTrial(actor.tenantId, student.id);
     }
     
+    // TRIAL EXPIRATION CHECK: ENFORCE BEFORE SESSION START
+    const isTrialActive = await this.trialManager.isTrialActive(actor.tenantId, student.id);
+    const daysRemaining = await this.trialManager.getTrialDaysRemaining(actor.tenantId, student.id);
+    
+    const billing = await this.getBillingSummary({ tenantId: actor.tenantId, canManageBilling: this.canManageBilling(actor) }, student);
+    
+    // CRITICAL: Check trial expiration BEFORE allowing session
+    if (!isTrialActive && billing.planCode === "free") {
+      const upgradePrompt = buildUpgradePrompt({
+        reason: "trial_expired",
+        upgradeUrl: `${actor.tenantId}/upgrade`,
+      });
+      throw new UpgradeFlowError("trial_expired", "Trial expired. Please upgrade to continue.", upgradePrompt);
+    }
+    
     // SESSION RECOVERY: Check for active session to resume
     let recoveredSession = null;
     if (payload.sessionId) {
@@ -1273,10 +1289,6 @@ export class MentoriaService {
     if (recoveredSession && recoveredSession.status === "active") {
       await this.persistence.resumeSession(actor.tenantId, recoveredSession.sessionId);
     }
-    
-    const billing = await this.getBillingSummary({ tenantId: actor.tenantId, canManageBilling: this.canManageBilling(actor) }, student);
-    const isTrialActive = await this.trialManager.isTrialActive(actor.tenantId, student.id);
-    const daysRemaining = await this.trialManager.getTrialDaysRemaining(actor.tenantId, student.id);
     
     // ACCESS CONTROL: Check if user can start session (trial or paid plan)
     try {
@@ -1618,7 +1630,7 @@ export class MentoriaService {
       currentConfidence: updatedSubjectProgress?.confidenceScore ?? (current?.confidenceScore ?? 50),
       performanceScore: updatedSubjectProgress?.masteryScore ?? (current?.masteryScore ?? 50),
       sessionCount: (current?.sessionsCompleted ?? 0) + 1,
-      studentName: student.name,
+      studentName: student.name || student.fullName,
     });
 
     const completionMessage = buildSessionCompletionMessage(sessionFeedback, subject.name);
@@ -1647,6 +1659,20 @@ export class MentoriaService {
         console.error("[SessionCompletion] Failed to detect alerts:", error);
       });
     }
+
+    // COLLECT FEEDBACK AFTER SESSION (CRITICAL: TRIGGER FEEDBACK SYSTEM)
+    const feedbackSystem = new FeedbackSystem();
+    const feedbackPrompt = feedbackSystem.getFeedbackPrompt((current?.sessionsCompleted ?? 0) + 1);
+    await feedbackSystem.collectFeedback({
+      tenantId: actor.tenantId,
+      studentProfileId: student.id,
+      sessionCount: (current?.sessionsCompleted ?? 0) + 1,
+      liked: [],
+      missing: [],
+      wouldRecommend: sessionFeedback.scoreChange > 0,
+    }).catch((error) => {
+      console.error("[SessionCompletion] Failed to collect feedback:", error);
+    });
 
     return {
       session,

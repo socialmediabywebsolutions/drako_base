@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db";
 import type { AcquisitionPost } from "@/lib/mentoria/acquisition-content";
+import { publishPost } from "@/lib/socialflow/client";
 
 export type PublishedPost = {
   id: string;
@@ -30,10 +31,21 @@ type PublishedPostRow = {
 export class AcquisitionPublisher {
   constructor(private db: D1Database = getDb()) {}
 
-  async publishPost(post: AcquisitionPost, externalId?: string): Promise<PublishedPost> {
+  async publishPost(post: AcquisitionPost): Promise<PublishedPost> {
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
 
+    // CRITICAL: REAL SOCIALFLOW INTEGRATION - Actually publish to external platform
+    const publishResult = await publishPost(post.channel, post.content);
+
+    if (!publishResult.success) {
+      console.error("[AcquisitionPublisher] SocialFlow publish failed:", publishResult.error);
+      throw new Error(`SOCIALFLOW_PUBLISH_FAILED: ${publishResult.error}`);
+    }
+
+    const externalId = publishResult.externalId;
+
+    // Store published post with external ID
     await this.db
       .prepare(
         `INSERT INTO acquisition_posts (
