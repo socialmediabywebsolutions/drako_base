@@ -15,6 +15,8 @@ export type EventType =
   | "student.session.completed"
   | "student.activity.completed"
   | "student.progress.updated"
+  | "student.alert.generated"
+  | "student.summary.generated"
   | "guardian.invited"
   | "guardian.accepted"
   | "teacher.feedback.sent"
@@ -156,4 +158,40 @@ export async function getEventsByType(type: EventType, limit: number = 50): Prom
     metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
     createdAt: row.created_at,
   }));
+}
+
+/**
+ * Genera notificaciones a partir de un evento
+ */
+export async function generateNotificationsFromEvent(event: Event): Promise<Array<{ type: string; message: string }>> {
+  const notifications: Array<{ type: string; message: string }> = [];
+
+  switch (event.type) {
+    case "student.alert.generated":
+      notifications.push({
+        type: "alert",
+        message: `Alert generated for student ${event.studentId}`,
+      });
+      break;
+    case "student.summary.generated":
+      notifications.push({
+        type: "summary",
+        message: `Summary generated for student ${event.studentId}`,
+      });
+      break;
+    case "student.session.completed":
+      notifications.push({
+        type: "session",
+        message: `Session completed for student ${event.studentId}`,
+      });
+      break;
+    case "student.progress.updated":
+      notifications.push({
+        type: "progress",
+        message: `Progress updated for student ${event.studentId}`,
+      });
+      break;
+  }
+
+  return notifications;
 }

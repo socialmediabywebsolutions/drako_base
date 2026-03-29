@@ -6,8 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { emitEvent, getEventsByStudent, getEventsByFamily, getEventsByType } from "@/lib/mentoria/event-system";
-import { generateNotificationsFromEvent } from "@/lib/notifications/notification-engine";
+import { emitEvent, getEventsByStudent, getEventsByFamily, getEventsByType, generateNotificationsFromEvent, type EventType, type ActorType } from "@/lib/mentoria/event-system";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +42,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as {
+      type?: string;
+      actorType?: string;
+      actorId?: string;
+      studentId?: string;
+      familyId?: string;
+      metadata?: Record<string, unknown>;
+    };
     const { type, actorType, actorId, studentId, familyId, metadata } = body;
 
     if (!type || !actorType || !actorId) {
@@ -55,8 +61,8 @@ export async function POST(request: NextRequest) {
 
     // Emitir evento
     const event = await emitEvent({
-      type,
-      actorType,
+      type: type as EventType,
+      actorType: actorType as ActorType,
       actorId,
       studentId,
       familyId,

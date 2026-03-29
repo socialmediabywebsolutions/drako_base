@@ -37,6 +37,7 @@ export interface Alert {
   type: AlertType;
   severity: AlertSeverity;
   message: string;
+  resolved?: boolean;
   createdAt: string;
 }
 

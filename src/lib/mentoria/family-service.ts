@@ -87,6 +87,10 @@ export class MentoriaFamilyService {
     };
   }
 
+  async getFamilyBundle(familyId: string) {
+    return this.repository.getFamilyBundle(familyId);
+  }
+
   async resolveRegistrationFamily(input: {
     email: string;
     name?: string | null;

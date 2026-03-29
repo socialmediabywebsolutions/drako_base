@@ -41,7 +41,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as {
+      studentId?: string;
+      familyId?: string;
+      type?: string;
+      studentName?: string;
+    };
     const { studentId, familyId, type = "daily", studentName } = body;
 
     if (!studentId || !familyId) {

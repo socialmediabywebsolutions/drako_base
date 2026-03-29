@@ -610,7 +610,7 @@ export class MentoriaService {
     return this.repository.saveDailyPlan(tenantId, completeDailyPlanTask(plan, input));
   }
 
-  private async getBillingSummary(
+  async getBillingSummary(
     context: { tenantId: string; canManageBilling: boolean },
     student: StudentProfile,
   ): Promise<MentoriaBillingSummary> {
@@ -828,7 +828,7 @@ export class MentoriaService {
     return { profile, subjects, studentSubjects, parents };
   }
 
-  private async requireOnboardedStudent(actor: MentoriaSessionActor): Promise<StudentProfile> {
+  async requireOnboardedStudent(actor: MentoriaSessionActor): Promise<StudentProfile> {
     const student = await this.getProfile(actor);
     if (!student || !student.onboardingCompleted) {
       throw new Error("ONBOARDING_REQUIRED");

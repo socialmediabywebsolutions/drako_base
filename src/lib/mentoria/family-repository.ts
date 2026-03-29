@@ -279,4 +279,17 @@ export class MentoriaFamilyRepository {
       role: "tutor",
     });
   }
+
+  async getStudentById(studentId: string): Promise<MentoriaFamilyStudent | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT id, name, age, level, family_id, created_at
+         FROM students
+         WHERE id = ?
+         LIMIT 1`,
+      )
+      .bind(studentId)
+      .first<StudentRow>();
+    return row ? mapStudent(row) : null;
+  }
 }
