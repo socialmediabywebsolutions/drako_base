@@ -7,6 +7,7 @@ import { Providers } from "./providers";
 import { NextAuthProviders } from "./nextauth-providers";
 import { shouldEnableNextAuthClient } from "@/lib/platform/surfaces";
 import { defaultMarketingLocale, resolveLocaleFromRequest } from "@/lib/i18n/marketing";
+import { initializeMentoriaWorkers } from "@/lib/mentoria/resilience/startup";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -35,6 +36,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Initialize Mentoria resilience workers on app startup
+  try {
+    await initializeMentoriaWorkers();
+  } catch (error) {
+    console.error("[RootLayout] Failed to initialize Mentoria workers:", error);
+  }
+
   const headersList = await headers();
   const hostMode = headersList.get("x-drako-host-mode") ?? "";
 

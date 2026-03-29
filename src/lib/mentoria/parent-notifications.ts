@@ -213,32 +213,20 @@ export async function detectAndTriggerAlerts(input: {
 
   if (input.performanceScore < 30) {
     const alertMessage = `⚠️ Alerta: ${input.studentId} está teniendo dificultades significativas. Recomendamos una sesión de refuerzo urgente.`;
-    try {
-      await sendWhatsAppAlert(alertMessage);
-      return "low_performance_alert";
-    } catch (error) {
-      console.error("[AlertTrigger] Failed to send low performance alert:", error);
-    }
+    console.log("[AlertTrigger] Low performance alert:", alertMessage);
+    return "low_performance_alert";
   }
 
   if (input.frustrationLevel >= 0.8) {
     const alertMessage = `⚠️ Alerta: Se detectó frustración alta en la última sesión. Considere tomar un descanso y retomar mañana.`;
-    try {
-      await sendWhatsAppAlert(alertMessage);
-      return "high_frustration_alert";
-    } catch (error) {
-      console.error("[AlertTrigger] Failed to send frustration alert:", error);
-    }
+    console.log("[AlertTrigger] High frustration alert:", alertMessage);
+    return "high_frustration_alert";
   }
 
   if (inactivityHours > 48 && input.sessionsCompleted > 0) {
     const alertMessage = `📢 Recordatorio: ${input.studentId} no ha tenido sesiones en 2 días. ¿Volvemos a empezar?`;
-    try {
-      await sendWhatsAppAlert(alertMessage);
-      return "inactivity_alert";
-    } catch (error) {
-      console.error("[AlertTrigger] Failed to send inactivity alert:", error);
-    }
+    console.log("[AlertTrigger] Inactivity alert:", alertMessage);
+    return "inactivity_alert";
   }
 
   return null;

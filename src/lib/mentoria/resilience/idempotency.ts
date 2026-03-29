@@ -127,6 +127,6 @@ export class IdempotencyManager {
       .bind(oneDayAgo)
       .run();
 
-    return result.meta.changes;
+    return (result.meta as any)?.changes ?? 0;
   }
 }

@@ -45,11 +45,10 @@ import {
 import { MentoriaRepository } from "@/lib/mentoria/repository";
 import { SessionPersistenceManager } from "@/lib/mentoria/session-persistence";
 import { generateSessionSummary } from "@/lib/mentoria/session-summary";
-import { sendParentSessionNotification, detectAndTriggerAlerts } from "@/lib/mentoria/parent-notifications";
 import { generateSessionFeedback, buildSessionCompletionMessage } from "@/lib/mentoria/session-feedback";
 import { TrialManager } from "@/lib/mentoria/trial-system";
 import { checkAccessControl, UpgradeFlowError, buildTrialExpiringWarning, buildUpgradePrompt } from "@/lib/mentoria/upgrade-flow";
-import { FeedbackSystem } from "@/lib/mentoria/feedback-system";
+import { getMentoriaOrchestrator } from "@/lib/mentoria/resilience/orchestrator";
 import {
   createInitialEvolutionProfile,
   updateEvolutionFromSession,
@@ -1263,20 +1262,11 @@ export class MentoriaService {
       await this.trialManager.startTrial(actor.tenantId, student.id);
     }
     
-    // TRIAL EXPIRATION CHECK: ENFORCE BEFORE SESSION START
+    // ATOMIC TRIAL ENFORCEMENT: Check + Create Session in single operation
+    const orchestrator = getMentoriaOrchestrator();
+    const billing = await this.getBillingSummary({ tenantId: actor.tenantId, canManageBilling: this.canManageBilling(actor) }, student);
     const isTrialActive = await this.trialManager.isTrialActive(actor.tenantId, student.id);
     const daysRemaining = await this.trialManager.getTrialDaysRemaining(actor.tenantId, student.id);
-    
-    const billing = await this.getBillingSummary({ tenantId: actor.tenantId, canManageBilling: this.canManageBilling(actor) }, student);
-    
-    // CRITICAL: Check trial expiration BEFORE allowing session
-    if (!isTrialActive && billing.planCode === "free") {
-      const upgradePrompt = buildUpgradePrompt({
-        reason: "trial_expired",
-        upgradeUrl: `${actor.tenantId}/upgrade`,
-      });
-      throw new UpgradeFlowError("trial_expired", "Trial expired. Please upgrade to continue.", upgradePrompt);
-    }
     
     // SESSION RECOVERY: Check for active session to resume
     let recoveredSession = null;
@@ -1635,44 +1625,34 @@ export class MentoriaService {
 
     const completionMessage = buildSessionCompletionMessage(sessionFeedback, subject.name);
 
-    // SEND PARENT NOTIFICATION VIA WHATSAPP (ASYNC, NON-BLOCKING)
+    // GUARANTEED NOTIFICATION DELIVERY: Via persistent queue with retry
     if (student.parentPhoneNumber) {
-      sendParentSessionNotification({
-        sessionId: session.id,
-        studentId: student.id,
-        parentPhone: student.parentPhoneNumber,
-        summary: sessionSummary,
-      }).catch((error) => {
-        console.error("[SessionCompletion] Failed to send parent notification:", error);
-      });
-
-      // DETECT AND TRIGGER ALERTS IF NEEDED
-      detectAndTriggerAlerts({
+      await orchestrator.sendNotificationGuaranteed({
         tenantId: actor.tenantId,
         studentId: student.id,
         parentPhone: student.parentPhoneNumber,
-        performanceScore: current?.masteryScore ?? 50,
-        frustrationLevel: syncedEvolution.frustrationLevel,
-        sessionsCompleted: (current?.sessionsCompleted ?? 0) + 1,
-        lastActivityAt: new Date().toISOString(),
-      }).catch((error) => {
-        console.error("[SessionCompletion] Failed to detect alerts:", error);
+        message: `Session completed: ${sessionSummary}`,
       });
     }
 
-    // COLLECT FEEDBACK AFTER SESSION (CRITICAL: TRIGGER FEEDBACK SYSTEM)
-    const feedbackSystem = new FeedbackSystem();
-    const feedbackPrompt = feedbackSystem.getFeedbackPrompt((current?.sessionsCompleted ?? 0) + 1);
-    await feedbackSystem.collectFeedback({
+    // GUARANTEED FEEDBACK PERSISTENCE: Via persistent queue with retry
+    await orchestrator.collectFeedbackGuaranteed({
       tenantId: actor.tenantId,
-      studentProfileId: student.id,
+      studentId: student.id,
       sessionCount: (current?.sessionsCompleted ?? 0) + 1,
       liked: [],
       missing: [],
       wouldRecommend: sessionFeedback.scoreChange > 0,
-    }).catch((error) => {
-      console.error("[SessionCompletion] Failed to collect feedback:", error);
     });
+
+    // GUARANTEED ACQUISITION TRACKING: Via tenant-guarded operations
+    if (sessionFeedback.scoreChange > 0) {
+      try {
+        await orchestrator.trackAcquisitionTrialStart(actor.tenantId, student.id);
+      } catch (error) {
+        console.error("[SessionCompletion] Failed to track acquisition:", error);
+      }
+    }
 
     return {
       session,

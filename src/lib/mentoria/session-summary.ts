@@ -37,12 +37,13 @@ export function generateSessionSummary(input: {
   const emotionalSignal = detectEmotionalSignal(frustrationLevel, confidenceScore, input.emotionalState);
   const detectedDifficulty = detectDifficulty(performanceScore, frustrationLevel, progressionVelocity);
   const recommendation = generateRecommendation(input.subject.slug, detectedDifficulty, input.topic, input.progress);
-  const parentMessage = buildParentMessage(input.student.name, input.subject.name, input.topic, detectedDifficulty, emotionalSignal, recommendation);
+  const studentName = input.student.name || input.student.fullName || "Estudiante";
+  const parentMessage = buildParentMessage(studentName, input.subject.name, input.topic, detectedDifficulty, emotionalSignal, recommendation);
   const actionItems = buildActionItems(detectedDifficulty, input.progress, input.evolution);
 
   return {
     sessionId: input.sessionId,
-    studentName: input.student.name,
+    studentName,
     subjectName: input.subject.name,
     topic: input.topic,
     durationMinutes: input.durationMinutes,
