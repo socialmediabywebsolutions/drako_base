@@ -133,6 +133,8 @@ export class MentoriaFamilyRepository {
       .prepare(`INSERT OR IGNORE INTO families (id) VALUES (?)`)
       .bind(familyId)
       .run();
+    
+    // Fetch the family to verify it was created or already exists
     const family = await this.getFamilyById(familyId);
     if (!family) {
       throw new Error("FAMILY_CREATE_FAILED");

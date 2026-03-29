@@ -83,6 +83,26 @@ describe("auth cookie/session e2e by context", () => {
       role: "admin",
     });
 
+    // Mock database for Mentoria family operations
+    const mockDb = {
+      prepare: vi.fn(function(sql: string) {
+        return {
+          bind: vi.fn(function(...params: unknown[]) {
+            return {
+              run: vi.fn().mockResolvedValue({ success: true }),
+              all: vi.fn().mockResolvedValue({
+                results: sql.includes("SELECT") ? [{ id: params[0], created_at: new Date().toISOString() }] : [],
+              }),
+            };
+          }),
+        };
+      }),
+    };
+
+    vi.doMock("@/lib/db", () => ({
+      getDb: () => mockDb as unknown as D1Database,
+    }));
+
     vi.doMock("@/lib/auths/mentorias-auths", () => ({
       mentoriasAuths: {
         register: vi.fn().mockResolvedValue({ ok: true, userId: "u2" }),
