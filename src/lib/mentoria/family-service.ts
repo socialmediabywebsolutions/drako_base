@@ -5,7 +5,7 @@ import type { MentoriaGuardianRole } from "@/lib/mentoria/types";
 type FamilyActor = MentoriaRequestSession;
 
 export class MentoriaFamilyService {
-  constructor(private readonly repository = new MentoriaFamilyRepository()) {}
+  constructor(private readonly repository: MentoriaFamilyRepository) {}
 
   private assertActor(actor: FamilyActor): asserts actor is FamilyActor & { email: string; tenantId: string } {
     if (!actor.email || !actor.tenantId) {
@@ -15,12 +15,8 @@ export class MentoriaFamilyService {
 
   async getFamilyForSession(actor: FamilyActor) {
     this.assertActor(actor);
-    await this.repository.ensureFamilyMembershipByUser({
-      userId: actor.userId,
-      email: actor.email,
-      tenantId: actor.tenantId,
-    });
-
+    
+    // Verify actor email matches a guardian in the family
     const membership = await this.repository.getGuardianByFamilyAndEmail(actor.tenantId, actor.email);
     if (!membership) {
       throw new Error("FAMILY_ACCESS_DENIED");

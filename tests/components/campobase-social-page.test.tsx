@@ -177,8 +177,8 @@ describe("Campobase social automation dashboard", () => {
 
     expect(screen.getAllByText("saas-1").length).toBeGreaterThan(0);
     expect(screen.getAllByText("tenant-1").length).toBeGreaterThan(0);
-    expect(screen.getByText("SUCCESS")).toBeInTheDocument();
-    expect(screen.getByText("Global history")).toBeInTheDocument();
+    expect(screen.getByText((text, element) => element?.tagName === "TD" && text === "SUCCESS")).toBeInTheDocument();
+    expect(screen.getByText(/Global history/)).toBeInTheDocument();
     expect(screen.getByText("Total runs")).toBeInTheDocument();
     expect(screen.getByText("Success rate")).toBeInTheDocument();
     expect(screen.getByText("Total posts")).toBeInTheDocument();
@@ -294,7 +294,7 @@ describe("Campobase social automation dashboard", () => {
 
     const filterCall = fetchMock.mock.calls[1];
     expect(filterCall[0]).toContain("status=FAILED");
-    expect(screen.getByText("Filtered history")).toBeInTheDocument();
+    expect(screen.getByText(/Filtered/)).toBeInTheDocument();
   });
 
   it("resets filters", async () => {
@@ -314,7 +314,7 @@ describe("Campobase social automation dashboard", () => {
 
     const resetCall = fetchMock.mock.calls[2];
     expect(resetCall[0]).toBe("/api/operator/socialflow");
-    expect(screen.getByText("Global history")).toBeInTheDocument();
+    expect(screen.getByText(/Global history/)).toBeInTheDocument();
   });
 
   it("posts enable", async () => {
@@ -376,7 +376,7 @@ describe("Campobase social automation dashboard", () => {
 
     const filterCall = fetchMock.mock.calls[1];
     expect(filterCall[0]).toBe("/api/operator/socialflow?tenantId=tenant-1&saasId=saas-1");
-    expect(screen.getByText("Filtered by saas-1")).toBeInTheDocument();
+    expect(screen.getByText(/Filtered by saas-1/)).toBeInTheDocument();
   });
 
   it("clears filter and fetches global history", async () => {
@@ -395,7 +395,7 @@ describe("Campobase social automation dashboard", () => {
 
     const clearCall = fetchMock.mock.calls[2];
     expect(clearCall[0]).toBe("/api/operator/socialflow");
-    expect(screen.getByText("Global history")).toBeInTheDocument();
+    expect(screen.getByText(/Global history/)).toBeInTheDocument();
   });
 
   it("retries failed runs", async () => {

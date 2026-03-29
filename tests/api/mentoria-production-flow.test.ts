@@ -38,10 +38,14 @@ vi.mock("@/lib/auths/repositories", () => ({
   deleteUserWithCredential: mocks.deleteUserWithCredential,
 }));
 
-vi.mock("@/lib/auths/flags", () => ({
-  isAuthsIsolationEnabled: () => true,
-  isTelemetriesHoldingEnabled: () => false,
-}));
+vi.mock("@/lib/auths/flags", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auths/flags")>();
+  return {
+    ...actual,
+    isAuthsIsolationEnabled: () => true,
+    isTelemetriesHoldingEnabled: () => false,
+  };
+});
 
 vi.mock("@/lib/auths/ssot", () => ({
   enforceAuthBoundary: () => ({ ok: true }),

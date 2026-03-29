@@ -100,9 +100,13 @@ describe("auth ssot drift guard", () => {
         MENTORIAS_AUTHS_DB: mentoriasDb,
       }),
     }));
-    vi.doMock("@/lib/auths/flags", () => ({
-      isAuthsContextDbRequired: () => true,
-    }));
+    vi.doMock("@/lib/auths/flags", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/auths/flags")>();
+      return {
+        ...actual,
+        isAuthsContextDbRequired: () => true,
+      };
+    });
 
     const repositories = await import("@/lib/auths/repositories");
     const result = await repositories.createUserWithCredential({
@@ -143,10 +147,14 @@ describe("auth ssot drift guard", () => {
         }),
       setAuthsSessionCookie: () => {},
     }));
-    vi.doMock("@/lib/auths/flags", () => ({
-      isAuthsIsolationEnabled: () => true,
-      isTelemetriesHoldingEnabled: () => false,
-    }));
+    vi.doMock("@/lib/auths/flags", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/auths/flags")>();
+      return {
+        ...actual,
+        isAuthsIsolationEnabled: () => true,
+        isTelemetriesHoldingEnabled: () => false,
+      };
+    });
     vi.doMock("@/lib/empire/events", () => ({
       recordCampamentoEvent: vi.fn(),
     }));
@@ -193,10 +201,14 @@ describe("auth ssot drift guard", () => {
         }),
       setAuthsSessionCookie: () => {},
     }));
-    vi.doMock("@/lib/auths/flags", () => ({
-      isAuthsIsolationEnabled: () => true,
-      isTelemetriesHoldingEnabled: () => false,
-    }));
+    vi.doMock("@/lib/auths/flags", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/auths/flags")>();
+      return {
+        ...actual,
+        isAuthsIsolationEnabled: () => true,
+        isTelemetriesHoldingEnabled: () => false,
+      };
+    });
     vi.doMock("@/lib/empire/events", () => ({
       recordCampamentoEvent: vi.fn(),
     }));

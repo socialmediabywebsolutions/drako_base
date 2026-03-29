@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
 import { MentoriaFamilyService } from "@/lib/mentoria/family-service";
+import { createTestDB } from "../helpers/test-db";
 
 /**
  * INTEGRATION TEST: Mentoria Family on DRACO_DB
@@ -10,19 +11,54 @@ import { MentoriaFamilyService } from "@/lib/mentoria/family-service";
  * 2. Repository operations work against real D1 (not mocked)
  * 3. Service layer enforces tenant isolation and validation
  * 
- * REQUIRES: D1 local with migration 0153_mentoria_family_foundation applied
+ * REQUIRES: Pure JavaScript D1 mock (no native dependencies)
  */
 
 describe("mentoria family integration (DRACO_DB real)", () => {
   let repo: MentoriaFamilyRepository;
   let service: MentoriaFamilyService;
+  let db: any;
   const testFamilyId = `test-family-${Date.now()}`;
   const testGuardianEmail = `guardian-${Date.now()}@test.local`;
   const testStudentName = `Student-${Date.now()}`;
 
   beforeAll(() => {
-    repo = new MentoriaFamilyRepository();
+    // Set up test session
+    (globalThis as any).__TEST_SESSION__ = {
+      user: {
+        id: "test-user-1",
+        email: testGuardianEmail,
+        tenantId: testFamilyId,
+        role: "user",
+      },
+    };
+
+    // Create test DB with pure JavaScript D1 mock
+    db = createTestDB();
+    
+    if (!db) {
+      throw new Error("DRACO_DB not configured");
+    }
+
+    // Debug: verify DB instance
+    console.log("DB REAL?", db.prepare.toString());
+    console.log("DB INSTANCE", db);
+
+    repo = new MentoriaFamilyRepository(db);
     service = new MentoriaFamilyService(repo);
+  });
+
+  beforeEach(async () => {
+    // Clean state before each test
+    if (db) {
+      try {
+        await db.prepare("DELETE FROM students WHERE family_id = ?").bind(testFamilyId).run();
+        await db.prepare("DELETE FROM guardians WHERE family_id = ?").bind(testFamilyId).run();
+        await db.prepare("DELETE FROM families WHERE id = ?").bind(testFamilyId).run();
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
   });
 
   it("creates and retrieves a family", async () => {

@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
-export async function POST() {
+export async function POST(_request?: Request) {
   return NextResponse.json(
     {
       ok: false,

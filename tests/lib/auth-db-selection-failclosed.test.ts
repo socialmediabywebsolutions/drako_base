@@ -31,9 +31,13 @@ describe("auth contextual DB selection and fail-closed behavior", () => {
         DRACO_DB: fallbackDb,
       }),
     }));
-    vi.doMock("@/lib/auths/flags", () => ({
-      isAuthsContextDbRequired: () => true,
-    }));
+    vi.doMock("@/lib/auths/flags", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/auths/flags")>();
+      return {
+        ...actual,
+        isAuthsContextDbRequired: () => true,
+      };
+    });
 
     const { resolveAuthsDbForContext } = await import("@/lib/auths/repositories");
     expect(resolveAuthsDbForContext("drakos")).toBe(drakosDb);
@@ -51,9 +55,13 @@ describe("auth contextual DB selection and fail-closed behavior", () => {
         DRACO_DB: fallbackDb,
       }),
     }));
-    vi.doMock("@/lib/auths/flags", () => ({
-      isAuthsContextDbRequired: () => true,
-    }));
+    vi.doMock("@/lib/auths/flags", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/auths/flags")>();
+      return {
+        ...actual,
+        isAuthsContextDbRequired: () => true,
+      };
+    });
 
     const { resolveAuthsDbForContext, createUserWithCredential } = await import("@/lib/auths/repositories");
 

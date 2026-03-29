@@ -1,4 +1,5 @@
 import { getAuthsUserById } from "@/lib/auths/repositories";
+import { env } from "@/lib/cf";
 import { getDb } from "@/lib/db";
 import type {
   MentoriaFamily,
@@ -62,7 +63,12 @@ function mapStudent(row: StudentRow): MentoriaFamilyStudent {
 }
 
 export class MentoriaFamilyRepository {
-  constructor(private readonly db: DbLike = getDb()) {}
+  constructor(private readonly db: DbLike) {
+    if (!db) {
+      throw new Error("DB_BINDING_REQUIRED");
+    }
+    console.log("DB INSTANCE", db);
+  }
 
   async getFamilyById(familyId: string): Promise<MentoriaFamily | null> {
     const result = await this.db
@@ -148,29 +154,57 @@ export class MentoriaFamilyRepository {
     name?: string | null;
     familyId: string;
     role?: MentoriaGuardianRole;
+    tenantId?: string;
   }): Promise<MentoriaGuardian> {
-    const existing = await this.getGuardianByFamilyAndEmail(input.familyId, input.email);
+    const email = input.email.trim().toLowerCase();
+    const tenantId = input.tenantId ?? input.familyId;
+    
+    // Check existing by email + family_id
+    const existingResult = await this.db
+      .prepare(
+        `SELECT * FROM guardians
+         WHERE email = ? AND family_id = ?
+         LIMIT 1`,
+      )
+      .bind(email, input.familyId)
+      .all<GuardianRow>();
+    
+    const existing = existingResult.results?.[0];
+    
     if (existing) {
+      // Update existing
       await this.db
         .prepare(
           `UPDATE guardians
            SET name = ?, role = ?
            WHERE id = ?`,
         )
-        .bind(input.name ?? existing.name ?? null, input.role ?? existing.role, existing.id)
+        .bind(input.name ?? null, input.role ?? "tutor", existing.id)
         .run();
-      return (await this.getGuardianByFamilyAndEmail(input.familyId, input.email)) as MentoriaGuardian;
+      
+      // Re-fetch updated record
+      const updatedResult = await this.db
+        .prepare(`SELECT * FROM guardians WHERE id = ?`)
+        .bind(existing.id)
+        .all<GuardianRow>();
+      
+      const updated = updatedResult.results?.[0];
+      return updated ? mapGuardian(updated) : mapGuardian(existing);
     }
 
+    // Insert new
     const guardianId = input.id ?? crypto.randomUUID();
+    const now = new Date().toISOString();
+    
     await this.db
       .prepare(
-        `INSERT INTO guardians (id, email, name, family_id, role)
-         VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO guardians (id, email, name, family_id, role, tenant_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .bind(guardianId, input.email.trim().toLowerCase(), input.name ?? null, input.familyId, input.role ?? "tutor")
+      .bind(guardianId, email, input.name ?? null, input.familyId, input.role ?? "tutor", tenantId, now)
       .run();
-    return (await this.getGuardianByFamilyAndEmail(input.familyId, input.email)) as MentoriaGuardian;
+    
+    return (await this.getGuardianByFamilyAndEmail(input.familyId, email)) as MentoriaGuardian;
   }
 
   async createStudent(input: {

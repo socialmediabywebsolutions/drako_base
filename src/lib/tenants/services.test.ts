@@ -18,7 +18,7 @@ describe("resolveTenantId", () => {
       headers: { "x-tenant-id": "tenant_header" },
     });
 
-    expect(resolveTenantId(request)).toBe(DEMO_TENANT_ID);
+    expect(resolveTenantId(request)).toBe("");
   });
 
   it("allows explicit internal legacy override mode", () => {

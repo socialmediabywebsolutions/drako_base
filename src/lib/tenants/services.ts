@@ -42,7 +42,7 @@ type TenantAgentRecord = {
 
 export function resolveTenantId(req?: Request | null, options: ResolveTenantIdOptions = {}): string {
   const hasFallback = Object.prototype.hasOwnProperty.call(options, "fallbackTenantId");
-  const fallbackTenantId = hasFallback ? options.fallbackTenantId : null;
+  const fallbackTenantId = hasFallback ? options.fallbackTenantId : "";
   if (!req) return fallbackTenantId ?? "";
 
   // Trusted tenant resolution comes from middleware host mapping.

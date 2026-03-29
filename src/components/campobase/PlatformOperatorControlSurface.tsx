@@ -398,6 +398,8 @@ export default function PlatformOperatorControlSurface(props: {
                             variant="outline"
                             loading={busyKey === `validate_integration:${item.integrationKey}`}
                             onClick={() => void runAction("validate_integration", { integrationKey: item.integrationKey })}
+                            aria-label={`Validate integration ${item.integrationKey}`}
+                            data-testid={`validate-integration-${item.integrationKey}`}
                           >
                             Validate
                           </Button>

@@ -7,10 +7,10 @@ const LEGACY_ROUTE_PAYLOAD = {
   message: "Legacy Mentoria sessions runtime is removed. Use /api/mentoria/session and /api/mentoria/exercises.",
 };
 
-export async function GET() {
+export async function GET(_request?: Request) {
   return NextResponse.json(LEGACY_ROUTE_PAYLOAD, { status: 410 });
 }
 
-export async function POST() {
+export async function POST(_request?: Request) {
   return NextResponse.json(LEGACY_ROUTE_PAYLOAD, { status: 410 });
 }

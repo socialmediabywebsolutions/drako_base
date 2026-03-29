@@ -40,10 +40,14 @@ describe("auth cookie/session e2e by context", () => {
         login: vi.fn().mockResolvedValue({ ok: true, token, role: "admin", tenantId: "tenant_drako" }),
       },
     }));
-    vi.doMock("@/lib/auths/flags", () => ({
-      isAuthsIsolationEnabled: () => true,
-      isTelemetriesHoldingEnabled: () => false,
-    }));
+    vi.doMock("@/lib/auths/flags", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/auths/flags")>();
+      return {
+        ...actual,
+        isAuthsIsolationEnabled: () => true,
+        isTelemetriesHoldingEnabled: () => false,
+      };
+    });
     vi.doMock("@/lib/empire/events", () => ({
       recordCampamentoEvent: vi.fn(),
     }));
@@ -109,10 +113,14 @@ describe("auth cookie/session e2e by context", () => {
         login: vi.fn().mockResolvedValue({ ok: true, token, role: "admin", tenantId: "tenant_mentorias" }),
       },
     }));
-    vi.doMock("@/lib/auths/flags", () => ({
-      isAuthsIsolationEnabled: () => true,
-      isTelemetriesHoldingEnabled: () => false,
-    }));
+    vi.doMock("@/lib/auths/flags", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/auths/flags")>();
+      return {
+        ...actual,
+        isAuthsIsolationEnabled: () => true,
+        isTelemetriesHoldingEnabled: () => false,
+      };
+    });
     vi.doMock("@/lib/empire/events", () => ({
       recordCampamentoEvent: vi.fn(),
     }));
@@ -157,10 +165,14 @@ describe("auth cookie/session e2e by context", () => {
         login: vi.fn().mockResolvedValue({ ok: true, token, role: "user", tenantId: "tenant_socialflow" }),
       },
     }));
-    vi.doMock("@/lib/auths/flags", () => ({
-      isAuthsIsolationEnabled: () => true,
-      isTelemetriesHoldingEnabled: () => false,
-    }));
+    vi.doMock("@/lib/auths/flags", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/auths/flags")>();
+      return {
+        ...actual,
+        isAuthsIsolationEnabled: () => true,
+        isTelemetriesHoldingEnabled: () => false,
+      };
+    });
     vi.doMock("@/lib/empire/events", () => ({
       recordCampamentoEvent: vi.fn(),
     }));
