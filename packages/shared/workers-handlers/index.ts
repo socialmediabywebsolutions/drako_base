@@ -7,6 +7,7 @@ export interface WorkersHandlersConfig {
   saasSlug: string;
   workerName: string;
   domainName: string;
+  aliasDomainNames?: string[];
   authsSecretName: string;
   allSaasesSlugs: string[];
 }
@@ -26,7 +27,7 @@ export function createWorkersHandlers(config: WorkersHandlersConfig): WorkersHan
       try {
         // Validate request origin
         const origin = request.headers.get("origin");
-        if (!origin || !isValidOrigin(origin, config.domainName)) {
+        if (!origin || !isValidOrigin(origin, config.domainName, config.aliasDomainNames)) {
           return new Response(JSON.stringify({ error: "Unauthorized origin" }), {
             status: 403,
             headers: { "Content-Type": "application/json" },
@@ -67,10 +68,26 @@ export function createWorkersHandlers(config: WorkersHandlersConfig): WorkersHan
 /**
  * Validates if the origin is allowed for this domain
  */
-function isValidOrigin(origin: string, domainName: string): boolean {
+function isValidOrigin(origin: string, domainName: string, aliasDomainNames?: string[]): boolean {
   try {
     const url = new URL(origin);
-    return url.hostname === domainName || url.hostname === `*.${domainName}`;
+    const hostname = url.hostname;
+    
+    // Check primary domain
+    if (hostname === domainName || hostname === `*.${domainName}`) {
+      return true;
+    }
+    
+    // Check alias domains
+    if (aliasDomainNames) {
+      for (const aliasDomain of aliasDomainNames) {
+        if (hostname === aliasDomain || hostname === `*.${aliasDomain}`) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
   } catch {
     return false;
   }
