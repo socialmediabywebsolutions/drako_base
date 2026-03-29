@@ -7,6 +7,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
+import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
+import { env } from "@/lib/cf";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +24,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const repo = new MentoriaFamilyRepository();
+    const db = getMentoriaDb(env?.());
+    const repo = new MentoriaFamilyRepository(db);
     const student = await repo.getStudentById(studentId);
 
     if (!student) {
@@ -56,7 +59,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const repo = new MentoriaFamilyRepository();
+    const db = getMentoriaDb(env?.());
+    const repo = new MentoriaFamilyRepository(db);
     const student = await repo.createStudent({
       familyId,
       name,

@@ -7,6 +7,8 @@
 
 import { NextResponse } from "next/server";
 import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
+import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
+import { env } from "@/lib/cf";
 import { MentoriaFamilyService } from "@/lib/mentoria/family-service";
 
 const TEST_FAMILY_ID = `p0-test-family-${Date.now()}`;
@@ -25,7 +27,8 @@ export async function GET() {
   try {
     // 1. CREATE FAMILY
     results.steps.push({ step: "Creating family...", status: "IN_PROGRESS" });
-    const repo = new MentoriaFamilyRepository();
+    const mentoriaDb = getMentoriaDb(env?.());
+    const repo = new MentoriaFamilyRepository(mentoriaDb);
     const service = new MentoriaFamilyService(repo);
 
     const family = await repo.createFamily(TEST_FAMILY_ID);

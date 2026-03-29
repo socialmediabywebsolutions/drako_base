@@ -29,8 +29,9 @@ export default function CampoBaseSocialPage() {
         return res.json();
       })
       .then((json) => {
-        setData(json);
-        setFilteredData(json);
+        const typedData = json as SocialData;
+        setData(typedData);
+        setFilteredData(typedData);
       })
       .catch(() => setError("LOAD_FAIL"));
   }, []);
@@ -43,7 +44,7 @@ export default function CampoBaseSocialPage() {
         body: JSON.stringify({ action: "run_all" }),
       });
       const response = await fetch("/api/operator/socialflow", { cache: "no-store" });
-      const result = await response.json();
+      const result = (await response.json()) as SocialData;
       setData(result);
       setFilteredData(result);
     } catch {
@@ -59,10 +60,10 @@ export default function CampoBaseSocialPage() {
         method: "POST",
         body: JSON.stringify({ action: "run_one", tenantId, saasId }),
       });
-      const result = await response.json();
+      const result = (await response.json()) as SocialData;
       const url = `/api/operator/socialflow?tenantId=${tenantId}&saasId=${saasId}`;
       const refreshResponse = await fetch(url, { cache: "no-store" });
-      const refreshed = await refreshResponse.json();
+      const refreshed = (await refreshResponse.json()) as SocialData;
       setData(refreshed);
       setFilteredData(refreshed);
     } catch {
@@ -77,7 +78,7 @@ export default function CampoBaseSocialPage() {
         method: "POST",
         body: JSON.stringify({ action: "enable", tenantId, saasId }),
       });
-      const result = await response.json();
+      const result = (await response.json()) as SocialData;
       setData(result);
       setFilteredData(result);
     } catch {
@@ -92,7 +93,7 @@ export default function CampoBaseSocialPage() {
         method: "POST",
         body: JSON.stringify({ action: "disable", tenantId, saasId }),
       });
-      const result = await response.json();
+      const result = (await response.json()) as SocialData;
       setData(result);
       setFilteredData(result);
     } catch {
@@ -106,7 +107,7 @@ export default function CampoBaseSocialPage() {
       setSelectedSaas(saasId);
       const url = `/api/operator/socialflow?tenantId=${tenantId}&saasId=${saasId}`;
       const response = await fetch(url, { cache: "no-store" });
-      const result = await response.json();
+      const result = (await response.json()) as SocialData;
       setFilteredData(result);
     } catch {
       setError("LOAD_FAIL");

@@ -25,6 +25,8 @@ import {
   buildMentoriaBillingSummary,
 } from "@/lib/mentoria/plans";
 import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
+import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
+import { env } from "@/lib/cf";
 import {
   buildGuardianHookEvents,
   buildStudentMemorySummary,
@@ -234,7 +236,7 @@ function toOnboardingInput(
 export class MentoriaService {
   constructor(
     private repository = new MentoriaRepository(),
-    private familyRepository = new MentoriaFamilyRepository(),
+    private familyRepository = new MentoriaFamilyRepository(getMentoriaDb(env?.())),
     private persistence = new SessionPersistenceManager(),
     private trialManager = new TrialManager(),
   ) {

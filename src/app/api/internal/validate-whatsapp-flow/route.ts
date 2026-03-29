@@ -10,6 +10,8 @@
 
 import { NextResponse } from "next/server";
 import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
+import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
+import { env } from "@/lib/cf";
 import { registerWhatsAppContact, getWhatsAppContacts, updateWhatsAppOptIn, WhatsAppService } from "@/lib/notifications/whatsapp-service";
 import { emitEvent } from "@/lib/mentoria/event-system";
 import { generateNotificationsFromEvent, getPendingNotifications } from "@/lib/notifications/notification-engine";
@@ -24,7 +26,8 @@ export async function GET() {
   };
 
   try {
-    const repo = new MentoriaFamilyRepository();
+    const mentoriaDb = getMentoriaDb(env?.());
+    const repo = new MentoriaFamilyRepository(mentoriaDb);
     const testFamilyId = `p1-whatsapp-test-${Date.now()}`;
     const testGuardianEmail = `p1-wa-guardian-${Date.now()}@test.local`;
     const testPhoneNumber = "+34612345678";

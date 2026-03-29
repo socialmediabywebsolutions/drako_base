@@ -1,7 +1,13 @@
 import { publishLinkedInMemberPost, LinkedInIntegrationError } from "@/lib/social/linkedin";
 
+interface LinkedInPublishRequest {
+  content: string;
+  accessToken?: string;
+  authorUrn?: string;
+}
+
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
+  const body = (await request.json().catch(() => null)) as LinkedInPublishRequest | null;
 
   if (!body || !body.content) {
     return new Response(

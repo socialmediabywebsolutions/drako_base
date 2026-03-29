@@ -2,6 +2,12 @@ import { requireTenantAccess } from "@/lib/auth/session";
 import { resolveSocialContext, upsertSaasSocialPost, getSaasSocialPostById, SocialContextError } from "@/lib/social/repository";
 import { publishSocialPostLive } from "@/lib/social/live-publishing";
 
+interface PostRequest {
+  saasId: string;
+  content: string;
+  scheduledAt?: string;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const saasId = searchParams.get("saasId");
@@ -21,7 +27,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
+  const body = (await request.json().catch(() => null)) as PostRequest | null;
 
   if (!body || !body.saasId || !body.content) {
     return new Response(

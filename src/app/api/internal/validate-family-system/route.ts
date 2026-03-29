@@ -10,6 +10,8 @@
 
 import { NextResponse } from "next/server";
 import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
+import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
+import { env } from "@/lib/cf";
 import { MentoriaFamilyService } from "@/lib/mentoria/family-service";
 import { emitEvent, getEventsByFamily } from "@/lib/mentoria/event-system";
 import { generateNotificationsFromEvent, getPendingNotifications } from "@/lib/notifications/notification-engine";
@@ -24,7 +26,8 @@ export async function GET() {
   };
 
   try {
-    const repo = new MentoriaFamilyRepository();
+    const mentoriaDb = getMentoriaDb(env?.());
+    const repo = new MentoriaFamilyRepository(mentoriaDb);
     const service = new MentoriaFamilyService(repo);
     const testFamilyId = `p1-test-family-${Date.now()}`;
     const testStudentName = `P1-Student-${Date.now()}`;

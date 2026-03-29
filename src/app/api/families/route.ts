@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
 import { MentoriaFamilyService } from "@/lib/mentoria/family-service";
+import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
+import { env } from "@/lib/cf";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +25,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const repo = new MentoriaFamilyRepository();
+    const db = getMentoriaDb(env?.());
+    const repo = new MentoriaFamilyRepository(db);
     const family = await repo.getFamilyById(familyId);
 
     if (!family) {
@@ -52,7 +55,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const repo = new MentoriaFamilyRepository();
+    const db = getMentoriaDb(env?.());
+    const repo = new MentoriaFamilyRepository(db);
     const family = await repo.createFamily(familyId);
 
     return NextResponse.json({ family }, { status: 201 });

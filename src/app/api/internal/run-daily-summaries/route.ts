@@ -20,6 +20,8 @@ import { emitEvent, getEventsByStudent } from "@/lib/mentoria/event-system";
 import { generateNotificationsFromEvent, getPendingNotifications, markNotificationAsSent } from "@/lib/notifications/notification-engine";
 import { getWhatsAppContacts, WhatsAppService } from "@/lib/notifications/whatsapp-service";
 import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
+import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
+import { env } from "@/lib/cf";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +37,8 @@ export async function POST() {
 
   try {
     const db = getDb();
-    const repo = new MentoriaFamilyRepository();
+    const mentoriaDb = getMentoriaDb(env?.());
+    const repo = new MentoriaFamilyRepository(mentoriaDb);
 
     // 1. Obtener estudiantes activos (con eventos en últimas 24h)
     const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
