@@ -15,6 +15,11 @@ export const EXPECTED_MIGRATIONS = [
   "0139_drako_integration_core",
   "0140_drako_observability_core",
   "0141_drako_factory_saas_registry",
+  "0151_drako_factory_runtime",
+  "0153_mentoria_family_foundation",
+  "0154_mentoria_events_notifications",
+  "0155_mentoria_summaries",
+  "0156_mentoria_alerts",
 ] as const;
 
 export type ExpectedMigrationId = typeof EXPECTED_MIGRATIONS[number];

@@ -358,7 +358,7 @@ export default async function SocialFlowPage({ params }: { params?: Promise<{ lo
                 
                 <div className="mt-12 text-center max-w-4xl mx-auto fade-in-up delay-200">
                     <blockquote className="text-2xl md:text-3xl font-serif text-slate-800 italic leading-relaxed">
-                        "{content.caseStudy.quote}"
+                        &quot;{content.caseStudy.quote}&quot;
                     </blockquote>
                 </div>
             </div>

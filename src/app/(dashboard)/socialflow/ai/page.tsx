@@ -23,7 +23,7 @@ export default function SocialFlowAIPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/social/ai/generate", {
+      const res = await fetch("/api/socialflow/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ niche, tone, frequencyPerWeek: frequency, saasId: "socialflow" }),
@@ -46,7 +46,7 @@ export default function SocialFlowAIPage() {
   async function saveEdits(postId: string) {
     if (!editDraft) return;
     try {
-      const res = await fetch("/api/social/posts", {
+      const res = await fetch("/api/socialflow/posts", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -75,7 +75,7 @@ export default function SocialFlowAIPage() {
 
   async function regeneratePost(postId: string) {
     try {
-      const res = await fetch("/api/social/ai/regenerate", {
+      const res = await fetch("/api/socialflow/ai/regenerate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -97,7 +97,7 @@ export default function SocialFlowAIPage() {
 
   async function updatePost(action: "approve" | "reject" | "schedule", payload: { id: string; scheduledAt?: string }) {
     try {
-      const res = await fetch("/api/social/posts", {
+      const res = await fetch("/api/socialflow/posts", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

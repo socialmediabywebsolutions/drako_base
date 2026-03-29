@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import { getMentoriaBillingCycle } from "@/lib/mentoria/billing-cycle";
 
 export interface InvoiceRunResult {
     runId: string;
@@ -10,51 +11,25 @@ export interface InvoiceRunResult {
 
 export class MentoriaInvoicer {
     private db: any; // D1Database
-    private stripe?: Stripe;
-    private billingMode: 'mock' | 'live';
+    private stripe: Stripe;
 
-    constructor(db: any, stripeSecretKey?: string, forceMock = false) {
+    constructor(db: any, stripeSecretKey?: string) {
         this.db = db;
-        // Check env var if not provided? Usually passed from binding or process.env
-        // In this context, we'll try to instantiate Stripe if key presence
         const key = stripeSecretKey || (typeof process !== 'undefined' ? process.env.STRIPE_SECRET_KEY : undefined);
-
-        // Determine billing mode from environment
-        const envMode = typeof process !== 'undefined' ? process.env.BILLING_MODE : undefined;
-
-        // Priority: forceMock > BILLING_MODE env > key presence
-        if (forceMock || envMode === 'mock') {
-            this.billingMode = 'mock';
-        } else if (envMode === 'live' || key) {
-            this.billingMode = 'live';
-        } else {
-            this.billingMode = 'mock'; // Default to mock for safety
+        if (!key) {
+            throw new Error('MENTORIA_STRIPE_SECRET_KEY_MISSING');
         }
-
-        // Initialize Stripe only in live mode with valid key
-        if (this.billingMode === 'live' && key) {
-            this.stripe = new Stripe(key, { apiVersion: '2023-10-16' as any });
-        } else if (this.billingMode === 'live' && !key) {
-            console.warn('[MentoriaInvoicer] BILLING_MODE=live but STRIPE_SECRET_KEY missing. Falling back to mock.');
-            this.billingMode = 'mock';
-        }
+        this.stripe = new Stripe(key, { apiVersion: '2023-10-16' as any });
     }
 
     async createUsageInvoiceRun(saasId: string): Promise<InvoiceRunResult> {
         const runId = crypto.randomUUID(); // Global in Workers/Node 19+
 
         try {
-            // 1. Get SaaS & Cycle Info
-            const saas = await this.db.prepare(`SELECT * FROM saas_instances WHERE id = ?`).bind(saasId).first();
-
-            if (!saas) throw new Error(`SaaS ${saasId} not found`);
-            if (!saas.billing_cycle_start || !saas.billing_cycle_end) {
-                throw new Error('Billing cycle dates missing');
-            }
-
-            const start = saas.billing_cycle_start;
-            const end = saas.billing_cycle_end;
-            const tenantId = saas.tenant_id;
+            const tenantId = saasId;
+            const cycle = await getMentoriaBillingCycle(this.db, tenantId);
+            const start = cycle.cycleStart;
+            const end = cycle.cycleEnd;
 
             // 2. Idempotency Check
             const existing = await this.db.prepare(
@@ -127,73 +102,36 @@ export class MentoriaInvoicer {
                 return { runId, status: 'skipped_no_usage', usageMajor: 0 };
             }
 
-            // 5. Invoicing (Live or Mock) with Guardrails
+            // 5. Invoicing with explicit live Stripe guardrails
             let stripeInvoiceId = '';
+            console.log(`[Invoicer] Live Mode - Creating real Stripe invoice for ${saasId}`);
+            const stripeCustomerId = typeof process !== 'undefined' ? process.env.MENTORIA_STRIPE_CUSTOMER_ID : undefined;
+            const currency = (typeof process !== 'undefined' ? process.env.MENTORIA_BILLING_CURRENCY : undefined) || 'eur';
 
-            if (this.billingMode === 'mock') {
-                console.log(`[Invoicer] Mock Mode - Generating fake invoice for ${saasId} (Amount: ${usageTotal})`);
-                stripeInvoiceId = 'mock_inv_' + crypto.randomUUID().substring(0, 8);
-                await new Promise(r => setTimeout(r, 100)); // Simulate API delay
-            } else {
-                // Live Stripe Mode - Apply Guardrails
-                console.log(`[Invoicer] Live Mode - Creating real Stripe invoice for ${saasId}`);
-
-                // Guardrail: Check for required Stripe fields
-                if (!saas.stripe_customer_id) {
-                    await this.emitEvent(tenantId, saasId, 'INVOICE_RUN_BLOCKED_MISSING_STRIPE', {
-                        reason: 'stripe_customer_id missing',
-                        saasId,
-                        billingMode: 'live'
-                    });
-                    throw new Error('Cannot create live invoice: stripe_customer_id missing on SaaS instance');
-                }
-
-                // Create Invoice Item
-                await this.stripe!.invoiceItems.create({
-                    customer: saas.stripe_customer_id,
-                    amount: usageTotal,
-                    // User Rule: "mrr_major = 0". "amount_major" usually implies Integer Unit of Currency? 
-                    // In Drako we use "major" for basic units or cents?
-                    // Previous context: "price_charged_major = 1500". "1500" EUR? Or 15.00?
-                    // If it is 'major', it usually means 1500 EUR.
-                    // Stripe takes CENTS. So 1500 EUR = 150000 cents.
-                    // Wait, standard convention in this project:
-                    // saas_instances has `mrr_major`.
-                    // events have `amount_major`.
-                    // User prompt: "amount = usage_total_major".
-                    // Query in verify script inserts 1500.
-                    // If usage_total_major is passed directly to Stripe `amount`, we must know if Stripe expects cents.
-                    // YES, Stripe expects CENTS (integer).
-                    // Does `amount_major` mean Cents? "Major" usually implies "Units" (Dollars). "Minor" implies "Cents".
-                    // But if verify script uses 1500 for a session, 1500 EUR is huge. 15.00 EUR is reasonable.
-                    // If 1500 represents 15.00, then it is CENTS.
-                    // If the field name is `amount_major`, it is creating confusion.
-                    // But I must follow User Rule: "amount = usage_total_major".
-                    // implies Direct Mapping.
-                    // I will pass `usageTotal` directly to Stripe `amount`.
-                    // If `usageTotal` is 1500 (cents), passing 1500 to Stripe results in 15.00 EUR. Correct.
-                    // If `usageTotal` is 1500 (EUR), passing 1500 to Stripe results in 15.00 EUR. Wrong.
-                    // I will assume the system creates events in CENTS (despite the name _major).
-                    // Or `_major` indicates the main currency unit?
-                    // Re-reading Phase 19.4 Task: "cost_est_major... 600". 600 cents = 6 EUR. Reasonable.
-                    // So `_major` implies CENTS/Lowest Denom in this codebase's idiosyncrasy? 
-                    // Or maybe it means "Major importance"?
-                    // Use UsageTotal directly.
-                    currency: saas.currency || 'eur',
-                    description: `MentorIA Overage Sessions (${start} -> ${end})`,
+            if (!stripeCustomerId) {
+                await this.emitEvent(tenantId, saasId, 'INVOICE_RUN_BLOCKED_MISSING_STRIPE', {
+                    reason: 'MENTORIA_STRIPE_CUSTOMER_ID missing',
+                    saasId,
+                    billingMode: 'live'
                 });
-
-                // Create Invoice
-                const invoice = await this.stripe!.invoices.create({
-                    customer: saas.stripe_customer_id,
-                    auto_advance: true, // Finalize immediately
-                    collection_method: 'charge_automatically',
-                    description: `Overage Billing Cycle ${start} - ${end}`
-                });
-
-                // Finalize? auto_advance handles it eventually, but we might want to ensure it's finalized or just return ID.
-                stripeInvoiceId = invoice.id;
+                throw new Error('MENTORIA_STRIPE_CUSTOMER_ID_MISSING');
             }
+
+            await this.stripe.invoiceItems.create({
+                customer: stripeCustomerId,
+                amount: usageTotal,
+                currency,
+                description: `MentorIA Overage Sessions (${start} -> ${end})`,
+            });
+
+            const invoice = await this.stripe.invoices.create({
+                customer: stripeCustomerId,
+                auto_advance: true,
+                collection_method: 'charge_automatically',
+                description: `Overage Billing Cycle ${start} - ${end}`
+            });
+
+            stripeInvoiceId = invoice.id;
 
             // 6. Record Success
             await this.db.prepare(
@@ -206,8 +144,7 @@ export class MentoriaInvoicer {
                 runId,
                 stripeInvoiceId,
                 amount: usageTotal,
-                period: { start, end },
-                mock: this.billingMode === 'mock'
+                period: { start, end }
             }, usageTotal);
 
             return {

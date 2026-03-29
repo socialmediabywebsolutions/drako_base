@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     {
       ok: false,
       code: "LEGACY_AUTH_ENDPOINT_DEPRECATED",
-      message: "Use /api/drakos/auths/logins, /api/mentorias/auths/logins or /api/bases/auths/logins.",
+      message: "Use /api/drakos/auths/logins, /api/mentorias/auths/logins, /api/socialflow/auths/logins or /bases/login for holding access.",
       context,
     },
     { status: 410 },

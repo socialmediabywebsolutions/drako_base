@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import { SAAS_PACK_DEFINITIONS } from "@/lib/packs/definitions";
 import type { SaasPackDefinition } from "@/lib/packs/types";
@@ -27,13 +29,7 @@ const isNode =
 const isNodeDev = isNode && process.env && process.env.NODE_ENV === "development";
 
 function getDevFs(): typeof import("fs") | null {
-  if (!isNodeDev) return null;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-    return require("fs") as typeof import("fs");
-  } catch {
-    return null;
-  }
+  return isNodeDev ? fs : null;
 }
 
 function getSocialflowDemoStatePath(): string | null {
@@ -1105,7 +1101,7 @@ function saveSocialflowDemoSnapshot(tenantId: string): void {
   };
 
   try {
-    const dir = require("path").dirname(snapshotPath);
+    const dir = path.dirname(snapshotPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
@@ -4814,6 +4810,13 @@ function generateId(prefix: string): string {
 }
 
 export function getDemoOwner(tenantId: string): DemoOwner | null {
+  const runtimeDemoEnabled =
+    typeof process !== "undefined"
+    && process.env.NODE_ENV === "development"
+    && process.env.DRAKO_ENABLE_RUNTIME_DEMO === "1";
+  if (!runtimeDemoEnabled) {
+    return null;
+  }
   const owner = ensureTenantState(tenantId).owner;
   return owner ? { ...owner } : null;
 }

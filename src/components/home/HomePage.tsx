@@ -23,7 +23,7 @@ export default function HomePageComponent() {
                     <nav className="dh-nav">
                         <Link href="/dashboard">{t.nav.panel}</Link>
                         <Link href="/support">{t.nav.support}</Link>
-                        <Link href="/auth/register" className="dh-nav-cta">
+                        <Link href="/drakos/auths/registrations" className="dh-nav-cta">
                             {t.nav.start}
                         </Link>
                     </nav>
@@ -35,7 +35,7 @@ export default function HomePageComponent() {
                 <h1>{t.hero.title}</h1>
                 <p>{t.hero.subtitle}</p>
                 <div className="dh-hero-ctas">
-                    <Link href="/auth/register" className="dh-btn-primary">
+                    <Link href="/drakos/auths/registrations" className="dh-btn-primary">
                         {t.hero.ctaPrimary} →
                     </Link>
                     <button onClick={scrollToHow} className="dh-btn-secondary" type="button">
@@ -111,7 +111,7 @@ export default function HomePageComponent() {
             <section className="dh-cta-section">
                 <h2>{t.finalCta.title}</h2>
                 <p>{t.finalCta.subtitle}</p>
-                <Link href="/auth/register" className="dh-btn-primary">
+                <Link href="/drakos/auths/registrations" className="dh-btn-primary">
                     {t.finalCta.button} →
                 </Link>
             </section>

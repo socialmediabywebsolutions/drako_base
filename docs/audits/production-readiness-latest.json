@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-03-14T14:35:38.401Z",
-  "mode": "fixtures",
+  "timestamp": "2026-03-28T15:25:48.361Z",
+  "mode": "real",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
-  "fixturesDir": "tests/fixtures/production-audits/pass",
+  "fixturesDir": null,
   "productionReady": true,
   "summary": {
-    "checksTotal": 136,
-    "checksPass": 134,
-    "checksFail": 0,
-    "checksNa": 2,
-    "violationsTotal": 0,
+    "checksTotal": 140,
+    "checksPass": 136,
+    "checksFail": 1,
+    "checksNa": 3,
+    "violationsTotal": 1,
     "blockersTotal": 0,
-    "warningsTotal": 0
+    "warningsTotal": 1
   },
   "checks": [
     {
@@ -343,22 +343,72 @@
     {
       "checkCode": "criticalRouteMissing",
       "severity": "WARN",
-      "status": "PASS",
+      "status": "FAIL",
       "targetType": "route",
       "targetName": "drako.systems/*",
       "expected": "present",
-      "actual": "present",
-      "details": "Critical route drako.systems/* exists."
+      "actual": "missing",
+      "details": "Critical route drako.systems/* is missing."
     },
     {
       "checkCode": "criticalRouteMismatch",
       "severity": "BLOCKER",
-      "status": "PASS",
+      "status": "N/A",
       "targetType": "route",
       "targetName": "drako.systems/*",
       "expected": "saas-drakos-prod",
-      "actual": "saas-drakos-prod",
-      "details": "Critical route drako.systems/* points to expected script."
+      "actual": null,
+      "details": "Route ownership check skipped because drako.systems/* is missing."
+    },
+    {
+      "checkCode": "blockedServiceHit",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "domain",
+      "targetName": "analytics.drako.systems",
+      "expected": "service NOT IN [drako-base-3]",
+      "actual": "saas-analytics-prod",
+      "details": "Domain analytics.drako.systems is not attached to blocked services."
+    },
+    {
+      "checkCode": "blockedServiceHit",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "domain",
+      "targetName": "automations.drako.systems",
+      "expected": "service NOT IN [drako-base-3]",
+      "actual": "saas-automations-prod",
+      "details": "Domain automations.drako.systems is not attached to blocked services."
+    },
+    {
+      "checkCode": "blockedServiceHit",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "domain",
+      "targetName": "invoices.drako.systems",
+      "expected": "service NOT IN [drako-base-3]",
+      "actual": "saas-invoices-prod",
+      "details": "Domain invoices.drako.systems is not attached to blocked services."
+    },
+    {
+      "checkCode": "blockedServiceHit",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "domain",
+      "targetName": "socialflows.drako.systems",
+      "expected": "service NOT IN [drako-base-3]",
+      "actual": "saas-socialflows-prod",
+      "details": "Domain socialflows.drako.systems is not attached to blocked services."
+    },
+    {
+      "checkCode": "blockedServiceHit",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "domain",
+      "targetName": "cryptos.drako.systems",
+      "expected": "service NOT IN [drako-base-3]",
+      "actual": "saas-cryptos-prod",
+      "details": "Domain cryptos.drako.systems is not attached to blocked services."
     },
     {
       "checkCode": "blockedServiceHit",
@@ -385,16 +435,6 @@
       "severity": "BLOCKER",
       "status": "PASS",
       "targetType": "domain",
-      "targetName": "base.drako.systems",
-      "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-bases-prod",
-      "details": "Domain base.drako.systems is not attached to blocked services."
-    },
-    {
-      "checkCode": "blockedServiceHit",
-      "severity": "BLOCKER",
-      "status": "PASS",
-      "targetType": "domain",
       "targetName": "bases.drako.systems",
       "expected": "service NOT IN [drako-base-3]",
       "actual": "saas-bases-prod",
@@ -405,10 +445,10 @@
       "severity": "BLOCKER",
       "status": "PASS",
       "targetType": "domain",
-      "targetName": "mentoria.drako.systems",
+      "targetName": "base.drako.systems",
       "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-mentorias-prod",
-      "details": "Domain mentoria.drako.systems is not attached to blocked services."
+      "actual": "saas-bases-prod",
+      "details": "Domain base.drako.systems is not attached to blocked services."
     },
     {
       "checkCode": "blockedServiceHit",
@@ -421,14 +461,14 @@
       "details": "Domain mentorias.drako.systems is not attached to blocked services."
     },
     {
-      "checkCode": "blockedScriptHit",
+      "checkCode": "blockedServiceHit",
       "severity": "BLOCKER",
       "status": "PASS",
-      "targetType": "route_global",
-      "targetName": "drako.systems/*",
-      "expected": "script NOT IN [drako-base-3]",
-      "actual": "saas-drakos-prod",
-      "details": "Route drako.systems/* is not attached to blocked scripts."
+      "targetType": "domain",
+      "targetName": "mentoria.drako.systems",
+      "expected": "service NOT IN [drako-base-3]",
+      "actual": "saas-mentorias-prod",
+      "details": "Domain mentoria.drako.systems is not attached to blocked services."
     },
     {
       "checkCode": "criticalD1Missing",
@@ -1437,7 +1477,17 @@
       "details": "Legacy production guard verified in src/workers/saas-factory-consumer.ts."
     }
   ],
-  "violations": [],
+  "violations": [
+    {
+      "checkCode": "criticalRouteMissing",
+      "severity": "WARN",
+      "targetType": "route",
+      "targetName": "drako.systems/*",
+      "expected": "present",
+      "actual": "missing",
+      "details": "Critical route drako.systems/* is missing."
+    }
+  ],
   "snapshots": {
     "workers": [
       {
@@ -1498,6 +1548,26 @@
     ],
     "domains": [
       {
+        "hostname": "analytics.drako.systems",
+        "service": "saas-analytics-prod"
+      },
+      {
+        "hostname": "automations.drako.systems",
+        "service": "saas-automations-prod"
+      },
+      {
+        "hostname": "invoices.drako.systems",
+        "service": "saas-invoices-prod"
+      },
+      {
+        "hostname": "socialflows.drako.systems",
+        "service": "saas-socialflows-prod"
+      },
+      {
+        "hostname": "cryptos.drako.systems",
+        "service": "saas-cryptos-prod"
+      },
+      {
         "hostname": "drako.systems",
         "service": "saas-drakos-prod"
       },
@@ -1506,176 +1576,500 @@
         "service": "saas-drakos-prod"
       },
       {
-        "hostname": "base.drako.systems",
-        "service": "saas-bases-prod"
-      },
-      {
         "hostname": "bases.drako.systems",
         "service": "saas-bases-prod"
       },
       {
-        "hostname": "mentoria.drako.systems",
-        "service": "saas-mentorias-prod"
+        "hostname": "base.drako.systems",
+        "service": "saas-bases-prod"
       },
       {
         "hostname": "mentorias.drako.systems",
         "service": "saas-mentorias-prod"
-      }
-    ],
-    "routes": [
+      },
       {
-        "pattern": "drako.systems/*",
-        "script": "saas-drakos-prod"
+        "hostname": "mentoria.drako.systems",
+        "service": "saas-mentorias-prod"
       }
     ],
+    "routes": [],
     "d1DatabaseNames": [
-      "drako_holding_db",
+      "drako_ai_orchestrator_db",
       "drako_billing_db",
       "drako_observability_db",
-      "drako_ai_orchestrator_db",
-      "drako_db_prod"
+      "drako_holding_db",
+      "saas_automations_prod_db",
+      "saas_analytics_prod_db",
+      "saas_invoices_prod_db",
+      "saas_cryptos_prod_db",
+      "saas_socialflows_prod_db",
+      "saas_bases_prod_db",
+      "saas_mentorias_prod_db",
+      "saas_drakos_prod_db",
+      "drako_db_preview",
+      "drako_db_prod",
+      "socialflow_db"
     ],
     "r2BucketNames": [
-      "saas-drakos-prod-storage",
+      "drakosystems-opennext-cache",
+      "saas-analytics-prod-storage",
+      "saas-automations-prod-storage",
       "saas-bases-prod-storage",
-      "saas-mentorias-prod-storage"
+      "saas-cryptos-prod-storage",
+      "saas-drakos-prod-storage",
+      "saas-invoices-prod-storage",
+      "saas-mentorias-prod-storage",
+      "saas-socialflows-prod-storage"
     ],
     "kvNamespaceNames": [
+      "saas_drakos_prod_cache",
+      "saas_analytics_prod_cache",
+      "saas_socialflows_prod_cache",
       "DRKO_GLOBAL_CONFIG",
-      "saas_drakos_prod_cache"
+      "saas_cryptos_prod_cache",
+      "saas_mentorias_prod_cache",
+      "saas_invoices_prod_cache",
+      "socialflow_settings",
+      "saas_automations_prod_cache",
+      "saas_bases_prod_cache"
     ],
     "queueNames": [
+      "autopilot-dlq",
+      "autopilot-queue",
+      "drako-billing-queue",
       "drako-global-events",
-      "drako-billing-queue"
+      "drako-provisioning-queue",
+      "drako-saas-factory-queue",
+      "saas-analytics-prod-events",
+      "saas-automations-prod-events",
+      "saas-bases-prod-events",
+      "saas-cryptos-prod-events",
+      "saas-drakos-prod-events",
+      "saas-invoices-prod-events",
+      "saas-mentorias-prod-events",
+      "saas-socialflows-prod-events"
     ],
     "durableObjectClassNames": [],
     "d1TablesByDatabases": [
       {
         "databaseName": "drako_holding_db",
         "tables": [
-          "saases_registry",
           "agents_registry",
-          "governance_events",
-          "audit_logs",
           "analyze_optimize_scale_runs",
-          "holding_saases",
+          "audit_logs",
+          "drko_holding_migrations",
+          "governance_events",
           "holding_billing_rollups",
+          "holding_event_logs",
           "holding_ops_tickets",
-          "holding_event_logs"
+          "holding_saases",
+          "saases_registry"
         ],
         "columnsByTables": {
-          "saases_registry": [
-            "saas_id",
-            "saas_slug"
-          ],
           "agents_registry": [
             "agent_id",
-            "role_name"
+            "saas_slug",
+            "role_name",
+            "model_name",
+            "supervisor_agent_id",
+            "status_name",
+            "estimated_cost_per_run_major",
+            "metadata_json",
+            "created_at",
+            "updated_at"
+          ],
+          "analyze_optimize_scale_runs": [
+            "run_id",
+            "loop_name",
+            "phase_name",
+            "status_name",
+            "saas_slug",
+            "tenant_id",
+            "started_at",
+            "finished_at",
+            "duration_ms",
+            "metrics_json",
+            "notes_text",
+            "created_at",
+            "updated_at"
+          ],
+          "audit_logs": [
+            "log_id",
+            "actor_type",
+            "actor_id",
+            "action",
+            "target_type",
+            "target_id",
+            "saas_slug",
+            "tenant_id",
+            "status_name",
+            "request_id",
+            "ip_address",
+            "user_agent",
+            "metadata",
+            "created_at"
           ],
           "governance_events": [
             "event_id",
             "event_type",
-            "schema_version"
+            "severity_name",
+            "source_name",
+            "saas_slug",
+            "tenant_id",
+            "actor_id",
+            "correlation_id",
+            "payload_json",
+            "created_at",
+            "schema_version",
+            "trace_id",
+            "actor_type",
+            "occurred_at",
+            "metadata",
+            "source",
+            "severity",
+            "event_json"
           ],
-          "audit_logs": [
-            "action",
+          "holding_billing_rollups": [
+            "saas_slug",
+            "mrr",
+            "churn",
+            "refunds",
+            "updated_at"
+          ],
+          "holding_event_logs": [
+            "id",
+            "source",
+            "saas_slug",
+            "type",
+            "payload_json",
             "created_at"
           ],
-          "analyze_optimize_scale_runs": [
-            "run_id",
-            "status_name"
+          "holding_ops_tickets": [
+            "id",
+            "saas_slug",
+            "severity",
+            "status_name",
+            "created_at",
+            "updated_at"
           ],
           "holding_saases": [
             "id",
             "saas_slug",
             "worker_name",
             "domain",
-            "status_name"
+            "status_name",
+            "created_at",
+            "updated_at"
           ],
-          "holding_billing_rollups": [
+          "saases_registry": [
+            "saas_id",
             "saas_slug",
-            "mrr",
-            "churn",
-            "refunds"
-          ],
-          "holding_ops_tickets": [
-            "id",
-            "saas_slug",
-            "severity",
-            "status_name"
-          ],
-          "holding_event_logs": [
-            "id",
-            "source",
-            "type",
-            "payload_json"
+            "display_name",
+            "status_name",
+            "owner_tenant_id",
+            "domain_name",
+            "worker_name",
+            "database_name",
+            "namespace_key",
+            "metadata_json",
+            "created_at",
+            "updated_at"
           ]
         }
       },
       {
         "databaseName": "drako_db_prod",
         "tables": [
-          "tenants",
-          "tenant_profiles",
+          "agent_assignments",
+          "agent_catalog",
+          "agent_runs",
+          "agent_runtime_states",
+          "agent_work_logs",
+          "agents",
+          "agents_catalog_versions",
+          "ai_breaker_logs",
+          "ai_circuit_breakers",
+          "ai_cost_policies",
+          "ai_provider_policies",
+          "ai_rate_limit_buckets",
+          "ai_request_audits",
+          "ai_usage_counters",
+          "alerts",
+          "auth_credentials",
+          "auth_users",
+          "billing_audit_logs",
+          "campamento_actions",
+          "campamento_event_rollups_daily",
+          "campamento_events",
+          "campamento_provisioning",
+          "checkouts",
+          "client_onboarding",
+          "client_saas",
+          "client_saas_subscriptions",
+          "clients",
+          "clinic_appointments",
+          "clinic_cost_entries",
+          "clinic_finance_entries",
+          "clinic_inventory_movements",
+          "clinic_leads",
+          "clinic_pricing_settings",
+          "clinic_products",
+          "clinic_profiles",
+          "clinic_reviews",
+          "clinic_service_products",
+          "clinic_services",
+          "company_business_intelligence",
+          "company_profiles",
+          "competitive_analysis",
+          "core_agents",
+          "core_departments",
+          "d1_migrations",
+          "department_catalog",
+          "departments",
+          "devarchitect_checklists",
+          "devarchitect_projects",
+          "devarchitect_sessions",
+          "devarchitect_tasks",
+          "domain_events",
+          "drako_events",
+          "drako_migrations",
+          "drako_owner_baseline_needs",
+          "drako_subscriptions",
+          "drako_treasury_accounts",
+          "drako_treasury_config",
+          "drako_treasury_movements",
+          "drako_vendor_expenses",
+          "drakos_credentials",
+          "drakos_sessions",
+          "drakos_users",
+          "economic_events",
+          "employee_contracts",
+          "employee_hr_events",
+          "employee_hr_flags",
+          "employee_hr_settings",
+          "employee_payroll_runs",
+          "employee_roles",
+          "employee_schedules",
+          "employee_skills",
+          "employee_timesheets",
+          "employees",
+          "grants",
+          "holding_metrics_snapshots",
+          "holding_saas_registry",
+          "inbox_messages",
+          "intervention_actions",
+          "interviews_sessions",
+          "invoices",
+          "knowledge_bases",
+          "mentoria_daily_plans",
+          "mentoria_exercises",
+          "mentoria_focus_sessions",
+          "mentoria_interventions",
+          "mentoria_motivation_states",
+          "mentoria_pricing_plans",
+          "mentoria_progress",
+          "mentoria_progress_shares",
+          "mentoria_referral_profiles",
+          "mentoria_referrals",
+          "mentoria_sessions",
+          "mentoria_student_evolution",
+          "mentoria_student_subjects",
+          "mentoria_study_plans",
+          "mentoria_subjects",
+          "mentorias_credentials",
+          "mentorias_sessions",
+          "mentorias_users",
+          "metrics",
+          "onboarding_messages",
+          "onboarding_sessions",
+          "orchestrator_messages",
+          "owner_events",
+          "owners",
+          "pack_catalog",
+          "parent_accounts",
+          "pricing_quotes",
+          "processed_jobs",
+          "project_contracts",
+          "project_domains",
+          "project_entitlements",
+          "projects",
+          "projects_swarms",
+          "provisioning",
+          "provisioning_jobs",
+          "public_ingest_tokens",
+          "rate_limit_audits",
+          "rate_limit_buckets",
+          "reconciliation_logs",
+          "reconciliation_mismatches",
+          "report_files",
+          "reports",
+          "research_jobs",
+          "saas",
+          "saas_agents",
+          "saas_appointments",
+          "saas_billing_audit",
+          "saas_blueprint_templates",
+          "saas_blueprints",
+          "saas_branding_settings",
+          "saas_chats",
+          "saas_conversation_messages",
+          "saas_conversations",
+          "saas_customer_bookings",
+          "saas_customer_metrics",
+          "saas_customer_profiles",
+          "saas_customer_style_notes",
+          "saas_customers",
+          "saas_daily_metrics",
+          "saas_domains",
+          "saas_economic_events",
+          "saas_economics_snapshots",
+          "saas_email_labels",
+          "saas_email_message_labels",
+          "saas_email_messages",
+          "saas_expenses",
+          "saas_features",
+          "saas_growth_events",
+          "saas_health_metrics",
+          "saas_instances",
+          "saas_interview_answers",
+          "saas_inventory_items",
+          "saas_inventory_movements",
+          "saas_knowledge_documents",
+          "saas_knowledge_links",
+          "saas_knowledge_spaces",
+          "saas_marketing_plans",
+          "saas_marketing_usage",
+          "saas_modules",
+          "saas_notifications",
+          "saas_paid_ads_spend",
+          "saas_plan_features",
+          "saas_plans",
+          "saas_policy_packs",
+          "saas_pricing_plans",
+          "saas_pricing_settings",
+          "saas_projects",
+          "saas_release_events",
+          "saas_service_products",
+          "saas_services",
+          "saas_social_accounts",
+          "saas_social_campaigns",
+          "saas_social_metrics",
+          "saas_social_posts",
+          "saas_stripe_mapping",
+          "saas_subscriptions",
+          "saas_task_events",
+          "saas_tasks",
+          "saas_tax_periods",
+          "saas_tax_profiles",
+          "saas_template_installations",
+          "saas_template_reviews",
+          "saas_tenants",
+          "saas_usage_quotas",
+          "saas_user_ui_preferences",
+          "saas_whatsapp_identities",
+          "saas_whatsapp_messages",
+          "social_accounts",
+          "stripe_invoice_runs",
+          "stripe_setup_log",
+          "stripe_setup_templates",
+          "stripe_webhook_events",
+          "student_profiles",
+          "tech_incidents",
+          "tenant_accounting_entries",
+          "tenant_agents",
+          "tenant_audit_logs",
+          "tenant_automations",
+          "tenant_departments",
           "tenant_domains",
           "tenant_integrations",
-          "tenant_stripe_connect",
-          "tenant_knowledge_bases",
           "tenant_jobs",
-          "tenant_audit_logs"
+          "tenant_knowledge_bases",
+          "tenant_logs",
+          "tenant_pipelines",
+          "tenant_profiles",
+          "tenant_strategic_dossiers",
+          "tenant_stripe_connect",
+          "tenant_users",
+          "tenants",
+          "ticket_messages",
+          "tickets",
+          "user_memory"
         ],
         "columnsByTables": {
-          "tenants": [
+          "tenant_audit_logs": [
             "id",
-            "owner_user_id",
-            "saas_slug",
-            "status",
+            "tenant_id",
+            "action",
+            "actor",
+            "metadata_json",
             "created_at"
+          ],
+          "tenant_domains": [
+            "id",
+            "tenant_id",
+            "requested_domain",
+            "status_name",
+            "cf_zone_id",
+            "created_at",
+            "updated_at"
+          ],
+          "tenant_integrations": [
+            "id",
+            "tenant_id",
+            "provider",
+            "status_name",
+            "metadata_json",
+            "created_at",
+            "updated_at"
+          ],
+          "tenant_jobs": [
+            "id",
+            "tenant_id",
+            "type_name",
+            "status_name",
+            "payload_json",
+            "created_at",
+            "updated_at"
+          ],
+          "tenant_knowledge_bases": [
+            "id",
+            "tenant_id",
+            "name",
+            "source_type",
+            "metadata",
+            "created_at",
+            "updated_at",
+            "kb_id",
+            "status_name"
           ],
           "tenant_profiles": [
             "tenant_id",
             "business_name",
             "industry",
             "locale",
-            "timezone"
-          ],
-          "tenant_domains": [
-            "tenant_id",
-            "requested_domain",
-            "status_name",
-            "cf_zone_id",
-            "created_at"
-          ],
-          "tenant_integrations": [
-            "tenant_id",
-            "provider",
-            "status_name",
-            "metadata_json"
+            "timezone",
+            "created_at",
+            "updated_at"
           ],
           "tenant_stripe_connect": [
             "tenant_id",
             "connect_account_id",
             "onboarding_status",
-            "fees_config"
+            "fees_config",
+            "created_at",
+            "updated_at"
           ],
-          "tenant_knowledge_bases": [
-            "tenant_id",
-            "kb_id",
-            "status_name"
-          ],
-          "tenant_jobs": [
-            "tenant_id",
-            "type_name",
-            "status_name",
-            "payload_json",
-            "created_at"
-          ],
-          "tenant_audit_logs": [
-            "tenant_id",
-            "action",
-            "actor",
-            "metadata_json",
-            "created_at"
+          "tenants": [
+            "id",
+            "slug",
+            "name",
+            "plan",
+            "status",
+            "created_at",
+            "updated_at",
+            "materialization_step",
+            "owner_user_id",
+            "saas_slug"
           ]
         }
       }

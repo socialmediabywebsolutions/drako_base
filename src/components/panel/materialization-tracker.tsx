@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from "next/link";
 
 export function MaterializationTracker({
     phase = 0,
@@ -86,9 +87,9 @@ export function MaterializationTracker({
                         <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
                             {phase < 5 ? "Esperando finalización de diagnóstico..." : "Diagnóstico listo"}
                         </span>
-                        <a href="/site/onboarding/chat" className="px-6 py-2 bg-sky-500 text-white text-sm font-bold rounded-lg shadow-lg shadow-sky-500/30 hover:bg-sky-600 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 no-underline">
+                        <Link href="/site/onboarding/chat" className="px-6 py-2 bg-sky-500 text-white text-sm font-bold rounded-lg shadow-lg shadow-sky-500/30 hover:bg-sky-600 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 no-underline">
                             {phase < 5 ? "Continuar Entrevista" : "Ver Blueprint Final"} &rarr;
-                        </a>
+                        </Link>
                     </div>
                 )}
             </div>

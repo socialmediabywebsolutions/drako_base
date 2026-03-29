@@ -6,6 +6,7 @@ const ALLOWED_AUTH_HOSTS = new Set([
   "drakos.drako.systems",
   "mentoria.drako.systems",
   "mentorias.drako.systems",
+  "socialflow.drako.systems",
   "base.drako.systems",
   "bases.drako.systems",
   "admin.drako.systems",
@@ -18,8 +19,9 @@ function isAllowedAuthHost(host: string): boolean {
   return false;
 }
 
-function getCanonicalOriginForContext(context: "drakos" | "mentorias" | "bases"): string {
+function getCanonicalOriginForContext(context: "drakos" | "mentorias" | "socialflow" | "bases"): string {
   if (context === "mentorias") return "https://mentorias.drako.systems";
+  if (context === "socialflow") return "https://socialflow.drako.systems";
   if (context === "bases") return "https://bases.drako.systems";
   return "https://drako.systems";
 }

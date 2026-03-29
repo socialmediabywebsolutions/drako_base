@@ -38,6 +38,11 @@ const TABLES_BY_CONTEXT: Record<Exclude<AuthsContext, "bases">, AuthsTableConfig
     credentialsTable: "mentorias_credentials",
     sessionsTable: "mentorias_sessions",
   },
+  socialflow: {
+    usersTable: "socialflow_users",
+    credentialsTable: "socialflow_credentials",
+    sessionsTable: "socialflow_sessions",
+  },
 };
 
 export function resolveAuthsDbForContext(context: AuthsContext): D1Database | null {
@@ -48,6 +53,11 @@ export function resolveAuthsDbForContext(context: AuthsContext): D1Database | nu
     if (bindings.DRAKOS_AUTHS_DB) return bindings.DRAKOS_AUTHS_DB;
   } else if (context === "mentorias") {
     if (bindings.MENTORIAS_AUTHS_DB) return bindings.MENTORIAS_AUTHS_DB;
+  } else if (context === "socialflow") {
+    if ((bindings as typeof bindings & { SOCIALFLOW_AUTHS_DB?: D1Database }).SOCIALFLOW_AUTHS_DB) {
+      return (bindings as typeof bindings & { SOCIALFLOW_AUTHS_DB?: D1Database }).SOCIALFLOW_AUTHS_DB ?? null;
+    }
+    return bindings.DRACO_DB ?? null;
   } else if (context === "bases") {
     if (bindings.BASES_AUTHS_DB) return bindings.BASES_AUTHS_DB;
   }
@@ -62,6 +72,38 @@ export function resolveAuthsDbForContext(context: AuthsContext): D1Database | nu
 
 function getTables(context: Exclude<AuthsContext, "bases">): AuthsTableConfig {
   return TABLES_BY_CONTEXT[context];
+}
+
+export async function getAuthsUserById(params: {
+  context: Exclude<AuthsContext, "bases">;
+  userId: string;
+}): Promise<AuthsUserRecord | null> {
+  const db = resolveAuthsDbForContext(params.context);
+  if (!db) return null;
+  const tables = getTables(params.context);
+
+  return db.prepare(
+    `SELECT id, email, name, role, tenant_id, status
+     FROM ${tables.usersTable}
+     WHERE id = ?
+     LIMIT 1`,
+  ).bind(params.userId).first<AuthsUserRecord>();
+}
+
+export async function listAuthsUsersByTenant(params: {
+  context: Exclude<AuthsContext, "bases">;
+  tenantId: string;
+}): Promise<AuthsUserRecord[]> {
+  const db = resolveAuthsDbForContext(params.context);
+  if (!db) return [];
+  const tables = getTables(params.context);
+  const { results } = await db.prepare(
+    `SELECT id, email, name, role, tenant_id, status
+     FROM ${tables.usersTable}
+     WHERE tenant_id = ?
+     ORDER BY created_at ASC`,
+  ).bind(params.tenantId).all<AuthsUserRecord>();
+  return results ?? [];
 }
 
 export async function findUserWithCredentialByEmail(params: {
@@ -135,6 +177,20 @@ export async function createUserWithCredential(params: {
     }
     console.error("AUTHS_CREATE_USER_ERROR", { context: params.context, message });
     return { ok: false, code: "DB_ERROR" };
+  }
+}
+
+export async function deleteUserWithCredential(params: {
+  context: Exclude<AuthsContext, "bases">;
+  userId: string;
+}): Promise<void> {
+  const db = resolveAuthsDbForContext(params.context);
+  if (!db) return;
+  const tables = getTables(params.context);
+  try {
+    await db.prepare(`DELETE FROM ${tables.usersTable} WHERE id = ?`).bind(params.userId).run();
+  } catch (error) {
+    console.error("AUTHS_DELETE_USER_ERROR", error);
   }
 }
 

@@ -78,8 +78,8 @@ export default function GovernanceControlPlane() {
     setOverviewError(null);
     try {
       const [govRes, alertRes] = await Promise.all([
-        fetch(`/api/owner/governance?limit=5&sort=priority`, { cache: "no-store" }).then((r) => r.json() as Promise<GovApiResponse>),
-        fetch(`/api/owner/governance/alerts?limit=5&sort=priority`, { cache: "no-store" }).then((r) => r.json() as Promise<AlertApiResponse>),
+        fetch(`/api/operator/governance?limit=5&sort=priority`, { cache: "no-store" }).then((r) => r.json() as Promise<GovApiResponse>),
+        fetch(`/api/operator/governance/alerts?limit=5&sort=priority`, { cache: "no-store" }).then((r) => r.json() as Promise<AlertApiResponse>),
       ]);
       if (!govRes.ok) throw new Error(govRes.message || govRes.code || "Failed to load governance overview");
       if (!alertRes.ok) throw new Error(alertRes.message || alertRes.code || "Failed to load alerts overview");
@@ -99,8 +99,8 @@ export default function GovernanceControlPlane() {
     setExecError(null);
     try {
       const [govRes, alertRes] = await Promise.all([
-        fetch(`/api/owner/governance?limit=20&sort=priority`, { cache: "no-store" }).then((r) => r.json() as Promise<GovApiResponse>),
-        fetch(`/api/owner/governance/alerts?limit=20&sort=priority`, { cache: "no-store" }).then((r) => r.json() as Promise<AlertApiResponse>),
+        fetch(`/api/operator/governance?limit=20&sort=priority`, { cache: "no-store" }).then((r) => r.json() as Promise<GovApiResponse>),
+        fetch(`/api/operator/governance/alerts?limit=20&sort=priority`, { cache: "no-store" }).then((r) => r.json() as Promise<AlertApiResponse>),
       ]);
       if (!govRes.ok) throw new Error(govRes.message || govRes.code || "Failed to load governance snapshot");
       if (!alertRes.ok) throw new Error(alertRes.message || alertRes.code || "Failed to load alerts snapshot");
@@ -215,9 +215,9 @@ export default function GovernanceControlPlane() {
                       size="sm"
                       onClick={() => {
                         if (item.type === "row") {
-                          window.open(`/owner/governance?saasSlug=${item.key}`, "_blank");
+                          window.open(`/operator/governance?saasSlug=${item.key}`, "_blank");
                         } else {
-                          window.open(`/owner/governance/alerts?saasSlug=${item.key.split(":")[0] ?? ""}`, "_blank");
+                          window.open(`/operator/governance/alerts?saasSlug=${item.key.split(":")[0] ?? ""}`, "_blank");
                         }
                       }}
                     >
@@ -406,7 +406,7 @@ export default function GovernanceControlPlane() {
                       </div>
                       <div className="flex gap-2 items-center">
                         <Badge variant={r.overallGovernanceStatus === "BLOCKED" ? "err" : "warn"}>{r.overallGovernanceStatus}</Badge>
-                        <Button variant="outline" size="sm" onClick={() => window.open(`/owner/governance?saasSlug=${r.saasSlug}`, "_blank")}>Open</Button>
+                        <Button variant="outline" size="sm" onClick={() => window.open(`/operator/governance?saasSlug=${r.saasSlug}`, "_blank")}>Open</Button>
                       </div>
                     </div>
                   ))}
@@ -428,7 +428,7 @@ export default function GovernanceControlPlane() {
                       </div>
                       <div className="flex gap-2 items-center">
                         <Badge variant={"err"}>{a.severity}</Badge>
-                        <Button variant="outline" size="sm" onClick={() => window.open(`/owner/governance/alerts?saasSlug=${a.saasSlug}`, "_blank")}>Open</Button>
+                        <Button variant="outline" size="sm" onClick={() => window.open(`/operator/governance/alerts?saasSlug=${a.saasSlug}`, "_blank")}>Open</Button>
                       </div>
                     </div>
                   ))}

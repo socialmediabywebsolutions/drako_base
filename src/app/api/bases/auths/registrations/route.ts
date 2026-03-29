@@ -1,15 +1,11 @@
 export const dynamic = "force-dynamic";
 
-import { jsonError } from "@/lib/auths/http";
-import { enforceAuthBoundary } from "@/lib/auths/ssot";
+import { NextResponse } from "next/server";
 
-export async function POST(request: Request) {
-  const boundary = enforceAuthBoundary({ request, expectedContext: "bases", endpoint: "/api/bases/auths/registrations" });
-  if (!boundary.ok) return boundary.response;
-
-  return jsonError(
-    "BASES_FINAL_USER_AUTH_DISABLED",
-    "Campamento Base does not support final-user registration.",
-    403,
-  );
+export async function POST() {
+  return NextResponse.json({
+    ok: false,
+    code: "BASES_CUSTOM_AUTHS_DEPRECATED",
+    message: "Campo Base operator auth now uses NextAuth + D1 only. Use /bases/login.",
+  }, { status: 410 });
 }

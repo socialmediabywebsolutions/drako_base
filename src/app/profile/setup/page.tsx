@@ -1,2 +1,5 @@
-import ProfileSetup from "@/app/client/setup/page";
-export default ProfileSetup;
+import { redirect } from "next/navigation";
+
+export default function ProfileSetupLegacyRedirect() {
+  redirect("/socialflow/setup");
+}

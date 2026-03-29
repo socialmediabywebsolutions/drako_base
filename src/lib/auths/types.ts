@@ -1,4 +1,4 @@
-export type AuthsContext = "drakos" | "mentorias" | "bases";
+export type AuthsContext = "drakos" | "mentorias" | "socialflow" | "bases";
 
 export type AuthsRole = "admin" | "user";
 
@@ -16,7 +16,7 @@ export type AuthsSessionClaims = {
   email: string;
   tenantId: string;
   role: AuthsRole;
-  saasSlug: "drako" | "mentorias" | "campo_base";
+  saasSlug: "drako" | "mentorias" | "socialflow" | "campo_base";
   context: AuthsContext;
   iss: string;
   aud: string;

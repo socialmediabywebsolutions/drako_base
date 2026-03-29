@@ -26,7 +26,7 @@ describe("OwnerFactoryControlCenter", () => {
       .mockImplementation(async (input) => {
         const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
-        if (url === "/api/owner/saas-factory/create-saas") {
+        if (url === "/api/factory/provisioning/create-saas") {
           return new Response(
             JSON.stringify({
               ok: true,
@@ -36,7 +36,7 @@ describe("OwnerFactoryControlCenter", () => {
           );
         }
 
-        if (url === "/api/owner/saas-factory/jobs/job_socialflow_1") {
+        if (url === "/api/factory/provisioning/jobs/job_socialflow_1") {
           return new Response(
             JSON.stringify({
               ok: true,
@@ -120,7 +120,7 @@ describe("OwnerFactoryControlCenter", () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/owner/saas-factory/create-saas",
+        "/api/factory/provisioning/create-saas",
         expect.objectContaining({
           method: "POST",
         }),
@@ -133,7 +133,7 @@ describe("OwnerFactoryControlCenter", () => {
     await screen.findByText("BOOTSTRAP_READY");
     expect(await screen.findByRole("link", { name: "Open SaaS" })).toHaveAttribute(
       "href",
-      "/client?__drako_host=app.socialflow.example.com",
+      "/socialflow?__drako_host=app.socialflow.example.com",
     );
     expect(refresh).toHaveBeenCalled();
   });

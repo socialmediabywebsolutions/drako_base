@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Card from '@/components/ui/card';
-import { secureSaaS } from '@/app/client/actions';
+import { secureSaaS } from '@/modules/socialflow-app/actions';
 
 interface DomainSettingsProps {
     instance: any;

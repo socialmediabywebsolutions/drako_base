@@ -7,7 +7,7 @@ import Button from "@/components/ui/button";
 import { useSiteSession } from "@/contexts/site-session-context";
 
 type ItemResponse = { ok?: boolean; item?: { id: string } | null; error?: string };
-type SaasResponse = { ok?: boolean; id?: string; error?: string };
+type SaasResponse = { ok?: boolean; saasId?: string; error?: string; message?: string };
 
 export default function OnboardingReviewPage() {
   const router = useRouter();
@@ -75,33 +75,19 @@ export default function OnboardingReviewPage() {
           name: saas.saasName.trim(),
           slug: saas.saasSlug.trim(),
         };
-        const saasRes = await fetch("/api/saas", {
+        const saasRes = await fetch("/api/factory/provisioning/create-saas", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(saasPayload),
         });
         const saasData = (await saasRes.json()) as SaasResponse;
-        if (!saasRes.ok || saasData.ok === false || !saasData.id) {
-          throw new Error(saasData.error || "No se pudo crear el SaaS");
+        if (!saasRes.ok || saasData.ok === false || !saasData.saasId) {
+          throw new Error(saasData.error || saasData.message || "No se pudo crear el SaaS");
         }
-        saasId = saasData.id;
+        saasId = saasData.saasId;
       }
 
-      let clientSaasId = session.clientSaasId;
-      if (!clientSaasId) {
-        const linkRes = await fetch("/api/client-saas", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ client_id: clientId, saas_id: saasId }),
-        });
-        const linkData = (await linkRes.json()) as ItemResponse;
-        if (!linkRes.ok || linkData.ok === false || !linkData.item?.id) {
-          throw new Error(linkData.error || "No se pudo vincular el cliente con el SaaS");
-        }
-        clientSaasId = linkData.item.id;
-      }
-
-      updateSession({ ownerId, clientId, saasId, clientSaasId });
+      updateSession({ ownerId, clientId, saasId });
       router.push("/site/panel");
     } catch (apiError) {
       console.error(apiError);

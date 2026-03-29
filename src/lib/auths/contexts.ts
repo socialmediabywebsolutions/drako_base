@@ -17,6 +17,13 @@ export function resolveAuthsContextFromHost(hostname: string | null | undefined)
   ) {
     return "mentorias";
   }
+  if (
+    host === "socialflow.drako.systems"
+    || host.startsWith("socialflow.")
+    || host.includes("socialflow")
+  ) {
+    return "socialflow";
+  }
   return "drakos";
 }
 
@@ -34,6 +41,7 @@ export function resolveAuthsContextFromRequest(request: Request): AuthsContext {
 
     if (isTenantWorkspacePath(pathname) || isTenantWorkspaceApiPath(pathname)) {
       if (hostContext === "mentorias") return "mentorias";
+      if (hostContext === "socialflow") return "socialflow";
       if (hostContext === "bases") return "bases";
       return "drakos";
     }
@@ -57,12 +65,18 @@ export function resolveLegacyAuthsContext(request: Request): AuthsContext {
 export function resolveAuthsContextFromPath(pathname: string): AuthsContext | null {
   if (pathname.startsWith("/api/drakos/auths")) return "drakos";
   if (pathname.startsWith("/api/mentorias/auths")) return "mentorias";
+  if (pathname.startsWith("/api/socialflow/auths")) return "socialflow";
   if (pathname.startsWith("/api/bases")) return "bases";
+  if (pathname.startsWith("/drakos/auths")) return "drakos";
+  if (pathname.startsWith("/mentorias/auths")) return "mentorias";
+  if (pathname.startsWith("/socialflow/auth")) return "socialflow";
+  if (pathname.startsWith("/bases/")) return "bases";
   return null;
 }
 
 export function resolveAuthsLoginPath(context: AuthsContext): string {
   if (context === "mentorias") return "/mentorias/auths/logins";
-  if (context === "bases") return "/auth/login";
+  if (context === "socialflow") return "/socialflow/auth";
+  if (context === "bases") return "/bases/login";
   return "/drakos/auths/logins";
 }

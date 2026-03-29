@@ -7,7 +7,7 @@ import Card from "@/components/ui/card";
 import { Field, TextInput } from "@/components/ui/input";
 import Select from "@/components/ui/select";
 import type { CanonicalFactoryOverview } from "@/lib/saas/canonical-registry";
-import { buildSocialFlowBlueprintDraft } from "@/lib/factory-products/socialflow";
+import { buildSocialFlowBlueprintDraft } from "@/lib/catalog/products/socialflow";
 
 type JobTimelineEntry = {
   type: string;
@@ -77,9 +77,9 @@ function formatDate(value: string | null | undefined): string {
 function buildProductEntryHref(domain: string | null | undefined): string | null {
   if (!domain) return null;
   if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-    return `/client?__drako_host=${encodeURIComponent(domain)}`;
+    return `/socialflow?__drako_host=${encodeURIComponent(domain)}`;
   }
-  return `https://${domain}/client`;
+  return `https://${domain}/socialflow`;
 }
 
 const TERMINAL_STATES = new Set(["SUCCESS", "DEGRADED", "FAILED"]);
@@ -149,7 +149,7 @@ export default function OwnerFactoryControlCenter({
 
     const tick = async () => {
       try {
-        const response = await fetch(`/api/owner/saas-factory/jobs/${jobId}`, { cache: "no-store" });
+        const response = await fetch(`/api/factory/provisioning/jobs/${jobId}`, { cache: "no-store" });
         const payload = (await response.json()) as JobStatusPayload;
         if (!response.ok || !payload.ok) {
           throw new Error("Unable to refresh provisioning job");
@@ -206,7 +206,7 @@ export default function OwnerFactoryControlCenter({
                 },
               };
 
-        const response = await fetch("/api/owner/saas-factory/create-saas", {
+        const response = await fetch("/api/factory/provisioning/create-saas", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
@@ -234,9 +234,9 @@ export default function OwnerFactoryControlCenter({
         <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
           <div className="max-w-4xl space-y-4">
             <div className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.24em] text-sky-700">
-              Campamento Base
+              Operator
             </div>
-            <h1 className="text-4xl font-black tracking-tight text-slate-950">Owner control center</h1>
+            <h1 className="text-4xl font-black tracking-tight text-slate-950">Operator control center</h1>
             <p className="text-sm leading-7 text-slate-500">
               Control the real Drako ecosystem from one place: create SaaS through the canonical factory, track runtime and domain readiness, and enter only products that exist in the canonical runtime tables.
             </p>
@@ -359,7 +359,7 @@ export default function OwnerFactoryControlCenter({
           </div>
 
           <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600">
-            This form calls the live canonical route `/api/owner/saas-factory/create-saas`. It does not bypass the queue, orchestrator, runtime activation, bootstrap, or domain provisioning contract.
+            This form calls the live canonical route `/api/factory/provisioning/create-saas`. It does not bypass the queue, orchestrator, runtime activation, bootstrap, or domain provisioning contract.
           </div>
 
           {feedback ? <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-medium ${feedbackToneClass}`}>{feedback}</div> : null}

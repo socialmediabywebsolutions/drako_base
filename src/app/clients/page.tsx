@@ -21,10 +21,8 @@ type Client = {
 };
 
 type ClientLink = {
-  id: string;
-  client_id: string;
-  saas_id: string;
-  created_at: string;
+  clientId: string;
+  saasCount: number;
 };
 
 export default function ClientsPage() {
@@ -43,16 +41,14 @@ export default function ClientsPage() {
     setLoading(true);
     setMessage(null);
     try {
-      const [clientsRes, linksRes, ownerRes] = await Promise.all([
+      const [clientsRes, ownerRes] = await Promise.all([
         fetch("/api/clients", { cache: "no-store" }),
-        fetch("/api/client-saas", { cache: "no-store" }),
         fetch("/api/owners", { cache: "no-store" }),
       ]);
       const clientsData = (await clientsRes.json()) as { items?: Client[] };
-      const linksData = (await linksRes.json()) as { items?: ClientLink[] };
       const ownersData = (await ownerRes.json()) as { items?: { id: string }[] };
       setClients(clientsData.items ?? []);
-      setLinks(linksData.items ?? []);
+      setLinks([]);
       setOwnerId(ownersData.items?.[0]?.id ?? null);
     } catch (error) {
       console.error(error);
@@ -68,17 +64,7 @@ export default function ClientsPage() {
 
   const saasCountByClient = useMemo(() => {
     return links.reduce<Record<string, number>>((acc, link) => {
-      acc[link.client_id] = (acc[link.client_id] ?? 0) + 1;
-      return acc;
-    }, {});
-  }, [links]);
-
-  const lastActivityByClient = useMemo(() => {
-    return links.reduce<Record<string, string>>((acc, link) => {
-      const current = acc[link.client_id];
-      if (!current || new Date(link.created_at).getTime() > new Date(current).getTime()) {
-        acc[link.client_id] = link.created_at;
-      }
+      acc[link.clientId] = link.saasCount;
       return acc;
     }, {});
   }, [links]);
@@ -191,7 +177,7 @@ export default function ClientsPage() {
                     <td>{client.email ?? "–"}</td>
                     <td>{client.phone ?? "–"}</td>
                     <td>{saasCountByClient[client.id] ?? "–"}</td>
-                    <td>{lastActivityByClient[client.id] ? new Date(lastActivityByClient[client.id]).toLocaleDateString() : "—"}</td>
+                    <td>{saasCountByClient[client.id] ? "Portfolio sync" : "—"}</td>
                     <td>
                       <Link href={`/clients/${client.id}`} className="text-[var(--brand)] text-sm font-semibold">
                         Ver ficha

@@ -1,5 +1,6 @@
 
 import { MentoriaInvoicer } from '../billing/mentoria-invoicer';
+import { getMentoriaBillingCycle, updateMentoriaBillingCycle } from "@/lib/mentoria/billing-cycle";
 
 export interface SessionConfig {
     tenantId: string;
@@ -17,13 +18,6 @@ type CountRow = {
 
 type SumRow = {
     total: number | null;
-};
-
-type SaasCycleRow = {
-    billing_cycle_start: string;
-    billing_cycle_end: string;
-    tenant_id: string;
-    included_sessions: number | null;
 };
 
 export class MentorSessionEngine {
@@ -129,7 +123,7 @@ VALUES(?, ?, ?, ?, 'scheduled', ?, ?)`
 
         // Count distinct instances
         const instanceCount = await this.db.prepare(
-            `SELECT COUNT(DISTINCT id) as c FROM saas_instances WHERE slug = 'mentoria'`
+            `SELECT COUNT(DISTINCT tenant_id) as c FROM mentoria_sessions`
         ).first<CountRow>();
 
         const total7d = count7d?.c ?? 0;
@@ -160,21 +154,17 @@ VALUES(?, ?, ?, ?, 'scheduled', ?, ?)`
         }
 
         // 1. Snapshot usage
-        const saas = await this.db.prepare(
-            `SELECT billing_cycle_start, billing_cycle_end, tenant_id, included_sessions FROM saas_instances WHERE id = ?`
-        ).bind(saasId).first<SaasCycleRow>();
-        if (!saas) throw new Error('SaaS not found');
-
-        const start = saas.billing_cycle_start;
-        const end = saas.billing_cycle_end;
+        const cycle = await getMentoriaBillingCycle(this.db, this.tenantId);
+        const start = cycle.cycleStart;
+        const end = cycle.cycleEnd;
 
         const usageRes = await this.db.prepare(
-            `SELECT count(*) as total FROM mentoria_sessions 
-             WHERE tenant_id = ? AND created_at >= ? AND created_at < ? AND status IN ('completed', 'billed')`
-        ).bind(saas.tenant_id, start, end).first<SumRow>();
+             `SELECT count(*) as total FROM mentoria_sessions 
+              WHERE tenant_id = ? AND created_at >= ? AND created_at < ? AND status IN ('completed', 'billed')`
+        ).bind(this.tenantId, start, end).first<SumRow>();
 
         const usageCount = usageRes?.total ?? 0;
-        const includedSessions = saas.included_sessions ?? 10;
+        const includedSessions = cycle.includedSessions;
         const overage = Math.max(0, usageCount - includedSessions);
 
         await this.emitEvent('MONTHLY_USAGE_SNAPSHOT_CREATED', {
@@ -189,9 +179,11 @@ VALUES(?, ?, ?, ?, 'scheduled', ?, ?)`
         const newStart = end;
         const nextEnd = new Date(new Date(end).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-        await this.db.prepare(
-            `UPDATE saas_instances SET billing_cycle_start = ?, billing_cycle_end = ? WHERE id = ?`
-        ).bind(newStart, nextEnd, saasId).run();
+        await updateMentoriaBillingCycle(this.db, this.tenantId, {
+            cycleStart: newStart,
+            cycleEnd: nextEnd,
+            includedSessions,
+        });
 
         // 3. Emit rollover event
         await this.emitEvent('BILLING_CYCLE_ROLLOVER', {

@@ -26,8 +26,6 @@ export interface DrakoStrictEnv {
     STRIPE_SECRET_KEY?: string;
     STRIPE_WEBHOOK_SECRET?: string;
 
-    // AI
-    FIREWORKS_API_KEY?: string;
 }
 
 // Helper to get raw env from either Cloudflare or Node

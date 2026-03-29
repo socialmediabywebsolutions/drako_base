@@ -44,6 +44,10 @@ function normalizeIsoTimestamp(value: number | string | null | undefined): strin
   return date.toISOString();
 }
 
+function isMissingColumnError(error: unknown): boolean {
+  return error instanceof Error && /(?:no such column|has no column named)/i.test(error.message);
+}
+
 export type CanonicalSubscriptionStatus =
   | "trial"
   | "trialing"
@@ -246,7 +250,7 @@ export async function upsertCanonicalSubscriptionState(input: {
     );
   } catch (error) {
     // Backward-compatible fallback for schemas without stripe_price_id/cancel_at_period_end.
-    if (!(error instanceof Error) || !/no such column/i.test(error.message)) {
+    if (!isMissingColumnError(error)) {
       throw error;
     }
     await run(
@@ -311,7 +315,7 @@ export async function getCanonicalSubscriptionState(input: {
       input.saasSlug,
     );
   } catch (error) {
-    if (!(error instanceof Error) || !/no such column/i.test(error.message)) {
+    if (!isMissingColumnError(error)) {
       throw error;
     }
     row = await queryOne<{

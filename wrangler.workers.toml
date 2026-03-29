@@ -33,6 +33,11 @@ database_name = "drako_db_prod"
 database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 
 [[d1_databases]]
+binding = "DB"
+database_name = "saas_mentorias_prod_db"
+database_id = "67b013a3-dcd8-424b-adf9-558895817841"
+
+[[d1_databases]]
 binding = "SOCIAL_DB"
 database_name = "saas_socialflows_prod_db"
 database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
@@ -84,6 +89,11 @@ database_name = "drako_db_prod"
 database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 
 [[env.production.d1_databases]]
+binding = "DB"
+database_name = "saas_mentorias_prod_db"
+database_id = "67b013a3-dcd8-424b-adf9-558895817841"
+
+[[env.production.d1_databases]]
 binding = "SOCIAL_DB"
 database_name = "saas_socialflows_prod_db"
 database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
@@ -109,12 +119,8 @@ binding = "AI"
 
 [env.production.vars]
 ALERT_WEBHOOK_URL = "https://hooks.slack.com/services/XXX/YYY/ZZZ"
-NEXTAUTH_SECRET = "temp_secret_change_me_in_dashboard"
 NEXTAUTH_URL = "https://drako.systems"
 AUTHS_LEGACY_REGISTER_ENABLED = "0"
-DRAKOS_AUTHS_SECRET = "temp_secret_change_me_in_dashboard"
-MENTORIAS_AUTHS_SECRET = "temp_secret_change_me_in_dashboard"
-BASES_AUTHS_SECRET = "temp_secret_change_me_in_dashboard"
 AUTHS_ISOLATIONS_ENABLED = "true"
 AUTHS_LEGACY_COMPATS_ENABLED = "true"
 ROUTINGS_SUBDOMAINS_ENABLED = "true"
@@ -130,23 +136,28 @@ workers_dev = false
 
 [[env.preview.d1_databases]]
 binding = "DRACO_DB"
-database_name = "drako_db"
-database_id = "10146888-ca79-41d6-b6c2-bf1025eb651b"
+database_name = "drako_db_preview"
+database_id = "4cfbe4ed-23ae-43a6-b442-367ff2d4ad9c"
 
 [[env.preview.d1_databases]]
 binding = "DRAKOS_AUTHS_DB"
-database_name = "drako_db"
-database_id = "10146888-ca79-41d6-b6c2-bf1025eb651b"
+database_name = "drako_db_preview"
+database_id = "4cfbe4ed-23ae-43a6-b442-367ff2d4ad9c"
 
 [[env.preview.d1_databases]]
 binding = "MENTORIAS_AUTHS_DB"
-database_name = "drako_db"
-database_id = "10146888-ca79-41d6-b6c2-bf1025eb651b"
+database_name = "drako_db_preview"
+database_id = "4cfbe4ed-23ae-43a6-b442-367ff2d4ad9c"
 
 [[env.preview.d1_databases]]
 binding = "BASES_AUTHS_DB"
-database_name = "drako_db"
-database_id = "10146888-ca79-41d6-b6c2-bf1025eb651b"
+database_name = "drako_db_preview"
+database_id = "4cfbe4ed-23ae-43a6-b442-367ff2d4ad9c"
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "saas_mentorias_preview_db"
+database_id = "874636a0-ae0d-490f-830b-a14241729b49"
 
 [[env.preview.d1_databases]]
 binding = "SOCIAL_DB"
@@ -156,7 +167,24 @@ database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
 [env.preview.ai]
 binding = "AI"
 
+[[env.preview.queues.producers]]
+queue = "drako-billing-queue"
+binding = "BILLING_QUEUE"
+
+[[env.preview.queues.producers]]
+queue = "drako-saas-factory-queue"
+binding = "SAAS_FACTORY_QUEUE"
+
+[[env.preview.queues.producers]]
+queue = "drako-provisioning-queue"
+binding = "PROVISIONING_QUEUE"
+
+[[env.preview.services]]
+binding = "SCHEDULER"
+service = "drako-scheduler"
+
+[env.preview.vars]
+ALERT_WEBHOOK_URL = "https://hooks.slack.com/services/XXX/YYY/ZZZ"
+
 [vars]
 ALERT_WEBHOOK_URL = "https://hooks.slack.com/services/XXX/YYY/ZZZ"
-NEXTAUTH_SECRET = "temp_secret_change_me_in_dashboard"
-SESSION_SECRET = "temp_secret_change_me_in_dashboard"

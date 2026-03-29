@@ -2,13 +2,14 @@ import { resolveAuthsContextFromRequest } from "@/lib/auths/contexts";
 import { jsonError } from "@/lib/auths/http";
 import type { AuthsContext } from "@/lib/auths/types";
 
-const SAAS_SLUG_BY_CONTEXT: Record<AuthsContext, "drako" | "mentorias" | "campo_base"> = {
+const SAAS_SLUG_BY_CONTEXT: Record<AuthsContext, "drako" | "mentorias" | "socialflow" | "campo_base"> = {
   drakos: "drako",
   mentorias: "mentorias",
+  socialflow: "socialflow",
   bases: "campo_base",
 };
 
-export function resolveSaasSlugForAuthContext(context: AuthsContext): "drako" | "mentorias" | "campo_base" {
+export function resolveSaasSlugForAuthContext(context: AuthsContext): "drako" | "mentorias" | "socialflow" | "campo_base" {
   return SAAS_SLUG_BY_CONTEXT[context];
 }
 

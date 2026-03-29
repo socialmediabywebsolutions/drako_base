@@ -6,7 +6,7 @@ import { signIn } from "next-auth/react";
 import { getAuthTexts, AuthLang } from "@/lib/i18n/auth-i18n";
 
 type AuthMode = "login" | "register";
-type AuthSaasSlug = "drako" | "mentorias" | "campo_base";
+type AuthSaasSlug = "drako" | "mentorias" | "socialflow" | "campo_base";
 
 type InviteHint = {
   email: string;
@@ -67,9 +67,12 @@ export function AuthForm({
   if (saasSlug === "campo_base" && authApiBase !== "/api/auth/workspace") {
     throw new Error("AUTH_FORM_CONFIG_MISMATCH: campo_base must use /api/auth/workspace");
   }
+  if (saasSlug === "socialflow" && authApiBase !== "/api/socialflow/auths") {
+    throw new Error("AUTH_FORM_CONFIG_MISMATCH: socialflow must use /api/socialflow/auths");
+  }
 
   const primaryButtonLabel = useMemo(() => {
-    if (mode === "login") return "Enter workspace";
+    if (mode === "login") return isWorkspaceAuth ? "Enter operator workspace" : "Enter product workspace";
     if (isInviteFlow) return "Accept invite";
     if (isWorkspaceAuth) return "Create workspace";
     return t.register;
@@ -299,7 +302,9 @@ export function AuthForm({
           />
           {mode === "register" ? (
             <p className="mt-2 text-xs text-slate-500">
-              Use at least 8 characters. This password will secure your Campamento Base workspace session.
+              {isWorkspaceAuth
+                ? "Use at least 8 characters. This password secures the private holding operator session."
+                : "Use at least 8 characters. This password secures your product workspace session."}
             </p>
           ) : null}
         </div>

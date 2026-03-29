@@ -112,19 +112,26 @@ export async function provisionTenantFromStripe(event: ProvisioningEvent): Promi
 
         // 4. Initialize Quotas
         for (const key of Object.keys(limits)) {
+            const nowIso = new Date().toISOString();
+            const periodEndIso = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
             await run(
-                `INSERT INTO saas_usage_quotas (id, tenant_id, saas_slug, quota_key, limit_value, period_start, period_end, reset_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now', '+1 month'))
-             ON CONFLICT(tenant_id, saas_slug, quota_key) DO UPDATE SET
+                `INSERT INTO saas_usage_quotas (id, tenant_id, saas_slug, quota_key, current_value, limit_value, period_start, period_end, reset_at, updated_at)
+             VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)
+             ON CONFLICT(saas_slug, tenant_id, quota_key) DO UPDATE SET
                 limit_value = excluded.limit_value,
-                period_end = excluded.period_end`,
+                period_start = excluded.period_start,
+                period_end = excluded.period_end,
+                reset_at = excluded.reset_at,
+                updated_at = excluded.updated_at`,
                 `quota_${tenantId}_${key}`,
                 tenantId,
                 saasSlug,
                 key,
                 limits[key],
-                new Date().toISOString(),
-                new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+                nowIso,
+                periodEndIso,
+                periodEndIso,
+                nowIso
             );
         }
 

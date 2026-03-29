@@ -345,7 +345,7 @@ export default function RightPanel() {
           <div>
             <h2 className="text-xl font-semibold">{isDevArchitectRoute ? "Chat DevArchitect" : "Chat Orquestador"}</h2>
             <p className="text-xs text-[var(--muted)] line-clamp-1">
-              {isDevArchitectRoute ? `Agente: ${DEV_ARCHITECT_AGENT.name}` : pathname.startsWith("/client") ? "Ayuda operativa para owner center, fábrica y workspace" : `Ruta activa: ${pathname}`}
+              {isDevArchitectRoute ? `Agente: ${DEV_ARCHITECT_AGENT.name}` : pathname.startsWith("/socialflow") ? "Ayuda operativa para operator, factory y workspace" : `Ruta activa: ${pathname}`}
             </p>
           </div>
           <button
@@ -413,7 +413,7 @@ export default function RightPanel() {
           <div className="flex items-center gap-2 text-xs text-[var(--muted)]"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Recuperando contexto...</div>
         ) : messages.length === 0 ? (
           <div className="text-sm text-[var(--muted)]">
-            {pathname.startsWith("/client")
+            {pathname.startsWith("/socialflow")
               ? "Todavía no hay conversación. Usa los accesos rápidos para revisar el factory, dominios o readiness del workspace."
               : "Aún no hay conversación. Envía tu primera instrucción."}
           </div>

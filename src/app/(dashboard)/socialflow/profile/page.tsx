@@ -23,7 +23,7 @@ export default function SocialFlowProfilePage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("/api/social/profile");
+        const res = await fetch("/api/socialflow/profile");
         const json: ProfileResponse = await res.json();
         if (!json.ok) {
           if (!cancelled) setError(json.error || "Failed to load profile");
@@ -50,7 +50,7 @@ export default function SocialFlowProfilePage() {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/social/profile", {
+      const res = await fetch("/api/socialflow/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ profile }),

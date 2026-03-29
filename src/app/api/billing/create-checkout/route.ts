@@ -15,11 +15,14 @@ type RequestBody = {
 export async function POST(request: Request) {
   try {
     const { tenantId, session } = await requireTenantAccess(request);
-    if (!session.userId) {
+    if (!session.userId && session.authMode !== "isolated" && session.authMode !== "local_demo") {
       return NextResponse.json({ ok: false, code: "WORKSPACE_SESSION_REQUIRED" }, { status: 403 });
     }
-    const membership = await findMembershipByTenantAndUser(tenantId, session.userId);
-    if (!membership || !hasRequiredWorkspaceRole(membership.role, "ADMIN")) {
+    const isProductAdminSession =
+      (session.authMode === "isolated" || session.authMode === "local_demo")
+      && String(session.role ?? "").toLowerCase() === "admin";
+    const membership = session.userId ? await findMembershipByTenantAndUser(tenantId, session.userId) : null;
+    if (!isProductAdminSession && (!membership || !hasRequiredWorkspaceRole(membership.role, "ADMIN"))) {
       return NextResponse.json({ ok: false, code: "FORBIDDEN" }, { status: 403 });
     }
     const body = (await request.json().catch(() => ({}))) as RequestBody;
@@ -33,7 +36,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, code: "STRIPE_NOT_CONFIGURED" }, { status: 503 });
     }
 
-    const user = await getWorkspaceUserById(session.userId);
+    const user = session.userId ? await getWorkspaceUserById(session.userId) : null;
     const billing = await getTenantBilling(tenantId);
     let customerId = billing?.stripeCustomerId ?? null;
     if (!customerId) {
@@ -57,8 +60,8 @@ export async function POST(request: Request) {
       line_items: [{ price: priceId, quantity: 1 }],
       metadata,
       subscription_data: { metadata },
-      success_url: `${baseUrl}/client/settings/billing?billing=success`,
-      cancel_url: `${baseUrl}/client/settings/billing?billing=cancelled`,
+      success_url: `${baseUrl}/socialflow/settings/billing?billing=success`,
+      cancel_url: `${baseUrl}/socialflow/settings/billing?billing=cancelled`,
       allow_promotion_codes: true,
     });
 

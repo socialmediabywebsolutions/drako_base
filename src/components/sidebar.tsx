@@ -20,7 +20,7 @@ const grupos: { titulo: string; items: Item[] }[] = [
   {
     titulo: "Administración",
     items: [
-      { href: "/owner", label: "Owner / Datos fiscales", description: "Configuración tributaria", icon: <Landmark className="h-4 w-4" /> },
+      { href: "/operator", label: "Operator / Datos fiscales", description: "Configuración tributaria", icon: <Landmark className="h-4 w-4" /> },
       { href: "/clients", label: "Clientes", description: "Relaciones y SaaS", icon: <Users2 className="h-4 w-4" /> },
     ],
   },
@@ -65,7 +65,7 @@ export default function Sidebar({ innerStyle }: SidebarProps) {
           </div>
           <div className="min-w-0">
             <p className="text-[9px] uppercase tracking-[0.3em] text-slate-400 truncate">Drāko</p>
-            <p className="text-base font-bold text-slate-900 leading-tight truncate">Campamento base</p>
+            <p className="text-base font-bold text-slate-900 leading-tight truncate">Operator</p>
           </div>
         </div>
       </div>

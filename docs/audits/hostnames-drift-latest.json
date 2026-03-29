@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-02-26T21:21:34.665Z",
+  "timestamp": "2026-03-28T15:24:50.009Z",
   "mode": "real",
   "sourceOfTruthPath": "docs/config/workers-hostnames-expected-state.json",
   "fixturesDir": null,
@@ -189,21 +189,21 @@
       "checkCode": "blockedServiceHit",
       "severity": "BLOCKER",
       "targetType": "domain",
-      "targetName": "mentorias.drako.systems",
+      "targetName": "drako.systems",
       "status": "PASS",
       "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-mentorias-prod",
-      "details": "Domain mentorias.drako.systems does not use blocked services."
+      "actual": "saas-drakos-prod",
+      "details": "Domain drako.systems does not use blocked services."
     },
     {
       "checkCode": "blockedServiceHit",
       "severity": "BLOCKER",
       "targetType": "domain",
-      "targetName": "mentoria.drako.systems",
+      "targetName": "drakos.drako.systems",
       "status": "PASS",
       "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-mentorias-prod",
-      "details": "Domain mentoria.drako.systems does not use blocked services."
+      "actual": "saas-drakos-prod",
+      "details": "Domain drakos.drako.systems does not use blocked services."
     },
     {
       "checkCode": "blockedServiceHit",
@@ -229,21 +229,21 @@
       "checkCode": "blockedServiceHit",
       "severity": "BLOCKER",
       "targetType": "domain",
-      "targetName": "drako.systems",
+      "targetName": "mentorias.drako.systems",
       "status": "PASS",
       "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-drakos-prod",
-      "details": "Domain drako.systems does not use blocked services."
+      "actual": "saas-mentorias-prod",
+      "details": "Domain mentorias.drako.systems does not use blocked services."
     },
     {
       "checkCode": "blockedServiceHit",
       "severity": "BLOCKER",
       "targetType": "domain",
-      "targetName": "drakos.drako.systems",
+      "targetName": "mentoria.drako.systems",
       "status": "PASS",
       "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-drakos-prod",
-      "details": "Domain drakos.drako.systems does not use blocked services."
+      "actual": "saas-mentorias-prod",
+      "details": "Domain mentoria.drako.systems does not use blocked services."
     },
     {
       "checkCode": "unexpectedCriticalRouteMissing",
@@ -300,12 +300,12 @@
         "service": "saas-cryptos-prod"
       },
       {
-        "hostname": "mentorias.drako.systems",
-        "service": "saas-mentorias-prod"
+        "hostname": "drako.systems",
+        "service": "saas-drakos-prod"
       },
       {
-        "hostname": "mentoria.drako.systems",
-        "service": "saas-mentorias-prod"
+        "hostname": "drakos.drako.systems",
+        "service": "saas-drakos-prod"
       },
       {
         "hostname": "bases.drako.systems",
@@ -316,12 +316,12 @@
         "service": "saas-bases-prod"
       },
       {
-        "hostname": "drako.systems",
-        "service": "saas-drakos-prod"
+        "hostname": "mentorias.drako.systems",
+        "service": "saas-mentorias-prod"
       },
       {
-        "hostname": "drakos.drako.systems",
-        "service": "saas-drakos-prod"
+        "hostname": "mentoria.drako.systems",
+        "service": "saas-mentorias-prod"
       }
     ],
     "routes": []

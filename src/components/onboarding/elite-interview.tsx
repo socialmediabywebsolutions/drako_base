@@ -87,7 +87,7 @@ export function EliteInterview({ onComplete }: EliteInterviewProps) {
                 content: m.content
             }));
 
-            const response = await fetch("/api/campamento-base/saas-factory/chat", {
+            const response = await fetch("/api/factory/blueprints/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

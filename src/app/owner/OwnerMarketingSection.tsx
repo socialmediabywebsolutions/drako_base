@@ -32,7 +32,7 @@ export default function OwnerMarketingSection() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/owner/marketing", { cache: "no-store" });
+      const res = await fetch("/api/operator/marketing", { cache: "no-store" });
       const data = (await res.json().catch(() => null)) as { snapshot?: OwnerMarketingSnapshot } | null;
       setSnapshot(data?.snapshot ?? null);
     } catch (err) {

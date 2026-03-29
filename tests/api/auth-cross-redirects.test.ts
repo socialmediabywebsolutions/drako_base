@@ -174,12 +174,16 @@ describe("auth ssot drift guard", () => {
     vi.resetModules();
     const registerSpy = vi.fn().mockResolvedValue({ ok: true, userId: "u-mentorias" });
     const loginSpy = vi.fn().mockResolvedValue({ ok: true, token: "tok-mentorias", role: "admin", tenantId: "tenant_mentorias" });
+    const deleteUserWithCredential = vi.fn();
 
     vi.doMock("@/lib/auths/mentorias-auths", () => ({
       mentoriasAuths: {
         register: registerSpy,
         login: loginSpy,
       },
+    }));
+    vi.doMock("@/lib/auths/repositories", () => ({
+      deleteUserWithCredential,
     }));
     vi.doMock("@/lib/auths/http", () => ({
       jsonError: (code: string, message: string, status = 400) =>
@@ -195,6 +199,25 @@ describe("auth ssot drift guard", () => {
     }));
     vi.doMock("@/lib/empire/events", () => ({
       recordCampamentoEvent: vi.fn(),
+    }));
+    vi.doMock("@/lib/mentoria/family-service", () => ({
+      MentoriaFamilyService: class MentoriaFamilyService {
+        resolveRegistrationFamily = vi.fn().mockResolvedValue({
+          familyId: "tenant_mentorias",
+          guardianRole: "tutor",
+        });
+        finalizeRegistration = vi.fn().mockResolvedValue({
+          id: "guardian_1",
+          familyId: "tenant_mentorias",
+          email: "owner@mentoria.ai",
+          role: "tutor",
+        });
+        getFamilyForSession = vi.fn().mockResolvedValue({
+          family: { id: "tenant_mentorias", createdAt: "2026-03-28T00:00:00.000Z" },
+          guardians: [],
+          students: [],
+        });
+      },
     }));
 
     const { POST } = await import("@/app/api/mentorias/auths/registrations/route");

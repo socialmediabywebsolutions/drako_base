@@ -1,6 +1,6 @@
 # Hostnames Drift Report
 
-- Timestamp: `2026-02-26T21:21:34.665Z`
+- Timestamp: `2026-03-28T15:24:50.009Z`
 - Mode: `real`
 - Source of truth: `docs/config/workers-hostnames-expected-state.json`
 - Fixtures dir: `n/a`
@@ -37,12 +37,12 @@
 | blockedServiceHit | BLOCKER | domain | invoices.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-invoices-prod" |
 | blockedServiceHit | BLOCKER | domain | socialflows.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-socialflows-prod" |
 | blockedServiceHit | BLOCKER | domain | cryptos.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-cryptos-prod" |
-| blockedServiceHit | BLOCKER | domain | mentorias.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-mentorias-prod" |
-| blockedServiceHit | BLOCKER | domain | mentoria.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-mentorias-prod" |
-| blockedServiceHit | BLOCKER | domain | bases.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-bases-prod" |
-| blockedServiceHit | BLOCKER | domain | base.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-bases-prod" |
 | blockedServiceHit | BLOCKER | domain | drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-drakos-prod" |
 | blockedServiceHit | BLOCKER | domain | drakos.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-drakos-prod" |
+| blockedServiceHit | BLOCKER | domain | bases.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-bases-prod" |
+| blockedServiceHit | BLOCKER | domain | base.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-bases-prod" |
+| blockedServiceHit | BLOCKER | domain | mentorias.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-mentorias-prod" |
+| blockedServiceHit | BLOCKER | domain | mentoria.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-mentorias-prod" |
 | unexpectedCriticalRouteMissing | WARN | route | drako.systems/* | FAIL | "present" | "missing" |
 | routeMismatch | BLOCKER | route | drako.systems/* | N/A | "saas-drakos-prod" | null |
 

@@ -19,7 +19,7 @@ import { checkTenantRateLimit } from "@/lib/security/tenant-rate-limit";
 import { extractSessionFromRequest } from "@/lib/edge-auth";
 import { isRoutingsSubdomainsEnabled } from "@/lib/auths/flags";
 import { resolveAuthsContextFromRequest, resolveAuthsLoginPath } from "@/lib/auths/contexts";
-import { isLocalDemoClientBypassRequest, resolveTenantWorkspaceEntryMode } from "@/lib/platform/surfaces";
+import { isLocalDemoClientBypassRequest, isTenantWorkspaceApiPath, isTenantWorkspacePath, resolveTenantWorkspaceEntryMode } from "@/lib/platform/surfaces";
 
 
 /**
@@ -30,17 +30,65 @@ import { isLocalDemoClientBypassRequest, resolveTenantWorkspaceEntryMode } from 
  */
 function buildHtmlResponse(message: string, status = 200, extra?: string) {
   return new NextResponse(
-    `<!doctype html><html lang="es"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Campamento Base</title><style>body{font-family:system-ui,-apple-system,sans-serif;padding:40px;color:#0f172a;background:#f8fafc;}a.button{display:inline-block;margin-right:12px;margin-top:12px;padding:10px 14px;border-radius:999px;border:1px solid #0f172a;text-decoration:none;color:#0f172a;font-weight:600;}small{color:#475569;display:block;margin-top:12px}</style></head><body><h1 style="font-size:24px; margin-bottom:12px;">Campamento Base</h1><p style="font-size:16px; line-height:1.5; max-width:720px;">${message}</p>${extra ?? ""}</body></html>`,
+    `<!doctype html><html lang="es"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Operator</title><style>body{font-family:system-ui,-apple-system,sans-serif;padding:40px;color:#0f172a;background:#f8fafc;}a.button{display:inline-block;margin-right:12px;margin-top:12px;padding:10px 14px;border-radius:999px;border:1px solid #0f172a;text-decoration:none;color:#0f172a;font-weight:600;}small{color:#475569;display:block;margin-top:12px}</style></head><body><h1 style="font-size:24px; margin-bottom:12px;">Operator</h1><p style="font-size:16px; line-height:1.5; max-width:720px;">${message}</p>${extra ?? ""}</body></html>`,
     { status, headers: { "content-type": "text/html; charset=utf-8" } },
   );
 }
 
 export function shouldBypassLocalLinkedInOAuthRateLimit(req: NextRequest): boolean {
   if (req.method !== "GET") return false;
-  if (req.nextUrl.pathname !== "/api/social/linkedin/connect") return false;
+  if (
+    req.nextUrl.pathname !== "/api/socialflow/linkedin/connect"
+    && req.nextUrl.pathname !== "/api/social/linkedin/connect"
+  ) return false;
 
   const host = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "").trim().toLowerCase();
   return host === "localhost:8787" || host === "127.0.0.1:8787";
+}
+
+function requiresExplicitLocalAuthContext(req: NextRequest): boolean {
+  const host = (req.headers.get("host") || req.headers.get("x-forwarded-host") || "").trim().toLowerCase();
+  const normalizedHost = host.split(":")[0] ?? "";
+  if (normalizedHost !== "localhost" && normalizedHost !== "127.0.0.1") return false;
+  if (req.nextUrl.searchParams.get("__drako_host")) return false;
+  if (req.cookies.get("drako_host")?.value) return false;
+  return true;
+}
+
+function isAuthRoute(pathname: string): boolean {
+  return (
+    pathname.startsWith("/api/auth/")
+    || pathname.startsWith("/api/drakos/auths/")
+    || pathname.startsWith("/api/mentorias/auths/")
+    || pathname.startsWith("/api/socialflow/auths/")
+    || pathname.startsWith("/api/bases/auths/")
+  );
+}
+
+function resolveLegacyWorkspaceRedirect(pathname: string): string | null {
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
+    return pathname.replace(/^\/dashboard/, "/socialflow");
+  }
+  if (pathname === "/profile/setup" || pathname.startsWith("/profile/setup/")) {
+    return pathname.replace(/^\/profile\/setup/, "/socialflow/setup");
+  }
+  return null;
+}
+
+function resolveLegacyOperatorRedirect(pathname: string): string | null {
+  if (pathname === "/owner" || pathname.startsWith("/owner/")) {
+    return pathname.replace(/^\/owner/, "/operator");
+  }
+  if (pathname === "/campobase/platform" || pathname.startsWith("/campobase/platform/")) {
+    return pathname.replace(/^\/campobase\/platform/, "/operator/platform");
+  }
+  if (pathname === "/campobase/socialflow" || pathname.startsWith("/campobase/socialflow/")) {
+    return pathname.replace(/^\/campobase\/socialflow/, "/operator/socialflow");
+  }
+  if (pathname === "/campobase/social" || pathname.startsWith("/campobase/social/")) {
+    return pathname.replace(/^\/campobase\/social/, "/operator/social");
+  }
+  return null;
 }
 
 /**
@@ -68,6 +116,9 @@ export async function middleware(req: NextRequest) {
     const requestContext = resolveAuthsContextFromRequest(req);
     const loginPath = resolveAuthsLoginPath(requestContext);
     const isLocalDemoClientBypass = isLocalDemoClientBypassRequest({ pathname, requestedHost });
+    const needsExplicitLocalContext = requiresExplicitLocalAuthContext(req);
+    const legacyWorkspaceRedirect = resolveLegacyWorkspaceRedirect(pathname);
+    const legacyOperatorRedirect = resolveLegacyOperatorRedirect(pathname);
 
     // 🔍 DRAKO STEEL v1.0.1: Correlation Identification
     if (shouldBypassCorrelation(pathname)) {
@@ -105,8 +156,17 @@ export async function middleware(req: NextRequest) {
     }
 
     // ✅ AUTH CHECK: Protect /site/panel routes (FAIL-CLOSED)
+    if (legacyOperatorRedirect) {
+      return NextResponse.redirect(new URL(legacyOperatorRedirect, req.url), 308);
+    }
+
+    // ✅ AUTH CHECK: Protect /site/panel routes (FAIL-CLOSED)
     if (pathname.startsWith("/site/panel")) {
       const session = await extractSessionFromRequest(req);
+
+      if (!session && needsExplicitLocalContext) {
+        return buildHtmlResponse("Explicit auth context required in local development. Add ?__drako_host=bases.drako.systems, drako.systems, mentorias.drako.systems or a SocialFlow host.", 400);
+      }
 
       if (!session) {
         // FAIL-CLOSED: No session → login
@@ -119,45 +179,7 @@ export async function middleware(req: NextRequest) {
       const role = session.role?.toLowerCase();
       if (!role || (role !== 'owner' && role !== 'superadmin' && role !== 'staff')) {
         // Redirect unauthorized tenants to their client portal
-        return NextResponse.redirect(new URL("/client", req.url));
-      }
-    }
-
-    // ✅ AUTH CHECK: Protect /client, /dashboard, /profile, & /site/onboarding routes (FAIL-CLOSED)
-    if (
-      pathname.startsWith("/client") ||
-      pathname.startsWith("/dashboard") ||
-      pathname.startsWith("/profile") ||
-      pathname.startsWith("/site/onboarding")
-    ) {
-      if (isLocalDemoClientBypass) {
-        const headers = new Headers(req.headers);
-        headers.set(CORRELATION_HEADER, correlationId);
-        headers.set(TENANT_HEADER, process.env.DRAKO_CLIENT_DEMO_TENANT_ID ?? DEMO_TENANT_ID);
-        headers.set("x-drako-client-entry-mode", "local_demo");
-        headers.set("x-drako-client-workspace-kind", "owned_saas");
-        const res = NextResponse.next({ request: { headers } });
-        res.headers.set(CORRELATION_HEADER, correlationId);
-        return res;
-      }
-      const session = await extractSessionFromRequest(req);
-      if (!session) {
-        // FAIL-CLOSED: No session → login
-        const url = new URL(loginPath, req.url);
-        url.searchParams.set("callbackUrl", pathname);
-        return NextResponse.redirect(url);
-      }
-      const earlyEntryMode = resolveTenantWorkspaceEntryMode({
-        pathname,
-        effectiveHost: requestedHost,
-        pagesEnvironment: process.env.CF_PAGES_ENVIRONMENT ?? null,
-        localDemoEnabled: isLocalDemoClientBypass,
-      });
-      if (earlyEntryMode === "holding_operator") {
-        const role = session.role?.toLowerCase();
-        if (!role || (role !== "owner" && role !== "superadmin" && role !== "staff" && role !== "admin")) {
-          return NextResponse.redirect(new URL("/site", req.url));
-        }
+        return NextResponse.redirect(new URL("/socialflow", req.url));
       }
     }
 
@@ -195,6 +217,21 @@ export async function middleware(req: NextRequest) {
         url.pathname = "/site/mentoria";
         return NextResponse.rewrite(url);
       }
+      if (pathname === "/app" || pathname.startsWith("/app/")) {
+        const url = new URL(req.url);
+        url.pathname = pathname.replace(/^\/app/, "/mentoria/app");
+        return NextResponse.rewrite(url);
+      }
+      if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) {
+        const url = new URL(req.url);
+        url.pathname = pathname.replace(/^\/onboarding/, "/mentoria/onboarding");
+        return NextResponse.rewrite(url);
+      }
+      if (pathname === "/share" || pathname.startsWith("/share/")) {
+        const url = new URL(req.url);
+        url.pathname = pathname.replace(/^\/share/, "/mentoria/share");
+        return NextResponse.rewrite(url);
+      }
       if (pathname === "/signup") {
         const url = new URL(req.url);
         url.pathname = "/mentorias/auths/registrations";
@@ -224,6 +261,7 @@ export async function middleware(req: NextRequest) {
       "/departments",
       "/metrics",
       "/alerts",
+      "/operator",
       "/owner",
       "/saas",
       "/inbox",
@@ -235,7 +273,7 @@ export async function middleware(req: NextRequest) {
       "/staff",
     ];
 
-    // Host-based routing split: public vs Campamento Base
+    // Host-based routing split: public vs operator
     const persistCookie = (res: NextResponse) => {
       if (hostInfo.shouldPersistCookie) {
         res.cookies.set("drako_host", hostInfo.shouldPersistCookie, { path: "/", maxAge: 60 * 60 * 24 * 7 });
@@ -253,8 +291,18 @@ export async function middleware(req: NextRequest) {
       if (isRoutingsSubdomainsEnabled() && !isMentoriasHost && pathname.startsWith("/api/mentorias/")) {
         return NextResponse.json({ error: "Mentorias routes unavailable on this host" }, { status: 404 });
       }
-      if (isRoutingsSubdomainsEnabled() && isAdminHost && (pathname.startsWith("/api/drakos/auths/") || pathname.startsWith("/api/mentorias/auths/"))) {
+      if (isRoutingsSubdomainsEnabled() && isAdminHost && (
+        pathname.startsWith("/api/drakos/auths/")
+        || pathname.startsWith("/api/mentorias/auths/")
+        || pathname.startsWith("/api/socialflow/auths/")
+      )) {
         return NextResponse.json({ error: "Final-user auth is unavailable on base host" }, { status: 403 });
+      }
+      if (pathname.startsWith("/api/bases/auths/")) {
+        return NextResponse.json({
+          error: "BASES_CUSTOM_AUTHS_DEPRECATED",
+          message: "Campo Base operator auth uses NextAuth + D1 only. Use /bases/login.",
+        }, { status: 410 });
       }
 
       const bindings = requestBindings;
@@ -278,6 +326,13 @@ export async function middleware(req: NextRequest) {
       if (tenantWorkspaceEntryMode) {
         contextHeaders.set("x-drako-client-entry-mode", tenantWorkspaceEntryMode);
         contextHeaders.set("x-drako-client-workspace-kind", "owned_saas");
+      }
+
+      if (isTenantWorkspaceApiPath(pathname)) {
+        contextHeaders.set(CORRELATION_HEADER, correlationId);
+        const res = persistCookie(NextResponse.next({ request: { headers: contextHeaders } }));
+        res.headers.set(CORRELATION_HEADER, correlationId);
+        return res;
       }
 
       if (!bindings || !hasDb) {
@@ -319,10 +374,10 @@ export async function middleware(req: NextRequest) {
           // Relaxed for SocialFlow demo and disabled in local development
           const isDev = process.env.NODE_ENV === "development";
           const isSocialFlowRoute =
-            pathname.startsWith("/api/social/") || pathname.startsWith("/socialflow");
+            pathname.startsWith("/api/socialflow/") || pathname.startsWith("/socialflow");
           const bypassLocalLinkedInOAuthRateLimit = shouldBypassLocalLinkedInOAuthRateLimit(req);
 
-          if (!isDev && !bypassLocalLinkedInOAuthRateLimit) {
+          if (!isDev && !bypassLocalLinkedInOAuthRateLimit && !isAuthRoute(pathname)) {
             const effectivePlan = isSocialFlowRoute ? "PRO" : "FREE" as const;
             const rateLimit = await checkTenantRateLimit({
               tenantId: resolution.tenantId,
@@ -382,6 +437,10 @@ export async function middleware(req: NextRequest) {
       return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
     }
 
+    if (isTenantWorkspacePath(pathname)) {
+      return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
+    }
+
     if (isPublicHost) {
       if (adminPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
         // Redirect attempt to access admin via public host
@@ -392,12 +451,16 @@ export async function middleware(req: NextRequest) {
 
     if (isAdminHost) {
       if (pathname === "/auth/register") {
-        return persistCookie(NextResponse.redirect(new URL("/auth/login", req.url)));
+        return persistCookie(NextResponse.redirect(new URL("/bases/register", req.url)));
+      }
+      if (pathname === "/auth/login") {
+        return persistCookie(NextResponse.redirect(new URL("/bases/login", req.url)));
       }
 
       if (isRoutingsSubdomainsEnabled() && (
         pathname.startsWith("/drakos/auths/") ||
-        pathname.startsWith("/mentorias/auths/")
+        pathname.startsWith("/mentorias/auths/") ||
+        pathname.startsWith("/socialflow/auth")
       )) {
         return persistCookie(NextResponse.redirect(new URL("/", req.url)));
       }
@@ -406,14 +469,14 @@ export async function middleware(req: NextRequest) {
       if (isAdminRoute) {
         const session = await extractSessionFromRequest(req);
         if (!session) {
-          const url = new URL("/auth/login", req.url);
+          const url = new URL("/bases/login", req.url);
           url.searchParams.set("callbackUrl", pathname);
           return persistCookie(NextResponse.redirect(url));
         }
 
       const role = session.role?.toLowerCase();
       if (!role || (role !== "owner" && role !== "superadmin" && role !== "staff" && role !== "admin")) {
-        return persistCookie(NextResponse.redirect(new URL("/client", req.url)));
+        return persistCookie(NextResponse.redirect(new URL("/bases", req.url)));
       }
       }
       return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
@@ -539,26 +602,12 @@ export async function middleware(req: NextRequest) {
       if (pathname.startsWith("/site/panel")) {
         // If we resolved a Tenant (status ACTIVE), they should NEVER see Admin Panel.
         // Redirect to their Client Shielded Environment.
-        const clientRoot = new URL("/client", req.url);
+        const clientRoot = new URL("/socialflow", req.url);
         return NextResponse.redirect(clientRoot);
       }
 
-      // 2. Enforce /client linear flow based on Materialization Step
-      if (pathname.startsWith("/client")) {
-        const matStep = resolution.materializationStep ?? 0;
-
-        if (matStep === 0 && !pathname.startsWith("/client/setup")) {
-          return NextResponse.redirect(new URL("/client/setup", req.url));
-        }
-        if (matStep === 1 && !pathname.startsWith("/client/analysis")) {
-          return NextResponse.redirect(new URL("/client/analysis", req.url));
-        }
-        // If step >= 2, they can access /client (and subroutes), 
-        // but we might want to redirect Setup/Analysis back to /client if accessed directly?
-        // For now, let's keep it simple: strict forward blocking.
-        if (matStep >= 2 && (pathname === "/client/setup" || pathname === "/client/analysis")) {
-          return NextResponse.redirect(new URL("/client", req.url));
-        }
+      if (legacyWorkspaceRedirect) {
+        return NextResponse.redirect(new URL(legacyWorkspaceRedirect, req.url), 308);
       }
 
       const res = persistCookie(NextResponse.next({ request: { headers } }));
@@ -566,10 +615,10 @@ export async function middleware(req: NextRequest) {
       return res;
     }
 
-    const unknownMessage = "SaaS no registrado para este dominio. Revisa el DNS o crea el mapping en Campamento Base.";
+    const unknownMessage = "SaaS no registrado para este dominio. Revisa el DNS o crea el mapping en operator.";
     const unknownExtra = isPagesDevHost
       ? `<a class="button" href="/site">Ir a /site</a><small>Host real: ${hostInfo.realHost} · Host virtual: ${host}</small>`
-      : `<a class="button" href="/owner/domains">Ir a /owner/domains (admin)</a><a class="button" href="?__drako_host=drako.systems">Cambiar host (solo local)</a><a class="button" href="/api/owner/domains/repair" data-repair>Repair mapping (DEV)</a><small>Host real: ${hostInfo.realHost} · Host virtual: ${host}</small>`;
+      : `<a class="button" href="/operator/domains">Ir a /operator/domains (admin)</a><a class="button" href="?__drako_host=drako.systems">Cambiar host (solo local)</a><small>Host real: ${hostInfo.realHost} · Host virtual: ${host}</small>`;
 
     if (resolution.status === "PENDING" || resolution.status === "PAUSED") {
       const reason = resolution.reason ?? (resolution.status === "PAUSED" ? "DOMAIN_PAUSED" : "DOMAIN_BLOCKED");
@@ -613,3 +662,4 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: "/:path*",
 };
+

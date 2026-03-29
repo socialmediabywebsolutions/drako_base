@@ -128,7 +128,7 @@ describe("Platform operator control surface", () => {
 
     await screen.findByText("SocialFlow content generation");
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/campobase/platform?tenantId=tenant_socialflow&saasId=socialflow",
+      "/api/operator/platform?tenantId=tenant_socialflow&saasId=socialflow",
       { cache: "no-store" },
     );
     expect(screen.getByText("linkedin")).toBeInTheDocument();
@@ -155,7 +155,7 @@ describe("Platform operator control surface", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
     const postCall = fetchMock.mock.calls[1];
-    expect(postCall[0]).toBe("/api/campobase/platform");
+    expect(postCall[0]).toBe("/api/operator/platform");
     expect(postCall[1]?.method).toBe("POST");
     expect(JSON.parse(postCall[1]?.body as string)).toEqual({
       action: "run_automation",
@@ -202,9 +202,9 @@ describe("Platform operator control surface", () => {
     fireEvent.change(screen.getByLabelText("SaaS ID"), { target: { value: "socialflow" } });
     fireEvent.click(screen.getByRole("button", { name: "Inspect" }));
 
-    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/campobase/platform?tenantId=tenant_socialflow&saasId=socialflow"));
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/operator/platform?tenantId=tenant_socialflow&saasId=socialflow"));
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/campobase/platform?tenantId=tenant_socialflow&saasId=socialflow",
+      "/api/operator/platform?tenantId=tenant_socialflow&saasId=socialflow",
       { cache: "no-store" },
     );
   });

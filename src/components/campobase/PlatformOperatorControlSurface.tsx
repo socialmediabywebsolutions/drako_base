@@ -9,7 +9,7 @@ import EmptyState from "@/components/ui/empty-state";
 import { Table, TableWrap, TBody, TD, TH, THead } from "@/components/ui/table";
 import type { PlatformOperatorSurface } from "@/lib/campobase/platform-operator-service";
 
-const endpoint = "/api/campobase/platform";
+const endpoint = "/api/operator/platform";
 
 type SurfaceResponse = {
   surface?: PlatformOperatorSurface;
@@ -161,7 +161,7 @@ export default function PlatformOperatorControlSurface(props: {
 
     const nextTenantId = tenantId.trim();
     const nextSaasId = saasId.trim();
-    router.replace(`/campobase/platform?tenantId=${encodeURIComponent(nextTenantId)}&saasId=${encodeURIComponent(nextSaasId)}`);
+    router.replace(`/operator/platform?tenantId=${encodeURIComponent(nextTenantId)}&saasId=${encodeURIComponent(nextSaasId)}`);
     void loadSurface(nextTenantId, nextSaasId);
   }
 
@@ -180,7 +180,7 @@ export default function PlatformOperatorControlSurface(props: {
     <div className="space-y-6 p-6">
       <Card
         tone="glass"
-        title="Platform Operator Control"
+        title="Operator Platform Control"
         subtitle="Tenant + SaaS operational surface"
         right={surface ? `${surface.tenantId} / ${surface.saasId}` : "Operator only"}
         actions={refreshAction}

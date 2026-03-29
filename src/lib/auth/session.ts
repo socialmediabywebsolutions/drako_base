@@ -202,6 +202,7 @@ export async function getSession(request: Request): Promise<SessionData | null> 
 }
 
 async function getNextAuthDatabaseSession(request: Request): Promise<SessionData | null> {
+  if (!shouldAcceptNextAuthDatabaseSession(request)) return null;
   const cookieHeader = request.headers.get("cookie");
   const sessionToken =
     getCookieValue(cookieHeader, "__Secure-next-auth.session-token")
@@ -219,6 +220,15 @@ async function getNextAuthDatabaseSession(request: Request): Promise<SessionData
   };
 }
 
+function shouldAcceptNextAuthDatabaseSession(request: Request): boolean {
+  try {
+    const pathname = new URL(request.url).pathname;
+    return !isTenantWorkspacePath(pathname) && !isTenantWorkspaceApiPath(pathname);
+  } catch {
+    return true;
+  }
+}
+
 function isLocalDemoSessionRequest(request: Request): boolean {
   try {
     const pathname = new URL(request.url).pathname;
@@ -231,16 +241,6 @@ function isLocalDemoSessionRequest(request: Request): boolean {
 export async function requireSession(request: Request): Promise<SessionData> {
   const session = (await getSession(request)) ?? (await getNextAuthDatabaseSession(request));
   if (!session) {
-    if (isLocalDemoEnabled() && isLocalDemoSessionRequest(request)) {
-      return {
-        userId: "local-demo-user",
-        email: "demo@drako.systems",
-        tenantId: process.env.DRAKO_CLIENT_DEMO_TENANT_ID ?? DEMO_TENANT_ID,
-        role: "ADMIN",
-        issuedAt: Date.now(),
-        authMode: "local_demo",
-      };
-    }
     throw SESSION_REQUIRED_ERROR;
   }
   return session;

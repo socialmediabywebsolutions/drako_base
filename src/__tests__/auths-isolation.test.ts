@@ -7,30 +7,35 @@ describe("Auths Isolation", () => {
   it("uses different cookie names per saas", () => {
     const drakosCookie = getAuthsCookieName("drakos");
     const mentoriasCookie = getAuthsCookieName("mentorias");
+    const socialflowCookie = getAuthsCookieName("socialflow");
 
     expect(drakosCookie).toBe(getAuthsCookieConfig("drakos").cookieName);
     expect(mentoriasCookie).toBe(getAuthsCookieConfig("mentorias").cookieName);
+    expect(socialflowCookie).toBe(getAuthsCookieConfig("socialflow").cookieName);
     expect(drakosCookie).toMatch(/^__Host-.*_session$/);
     expect(mentoriasCookie).toMatch(/^__Host-.*_session$/);
+    expect(socialflowCookie).toMatch(/^__Host-.*_session$/);
     expect(drakosCookie).not.toBe(mentoriasCookie);
+    expect(drakosCookie).not.toBe(socialflowCookie);
   });
 
   it("resolves host context using subdomains", () => {
     expect(resolveAuthsContextFromHost("drako.systems")).toBe("drakos");
     expect(resolveAuthsContextFromHost("mentoria.drako.systems")).toBe("mentorias");
+    expect(resolveAuthsContextFromHost("app.socialflow.example.com")).toBe("socialflow");
     expect(resolveAuthsContextFromHost("base.drako.systems")).toBe("bases");
   });
 
   it("resolves tenant workspace auth by path and host surface", () => {
-    expect(resolveAuthsContextFromRequest(new Request("https://bases.drako.systems/client", {
+    expect(resolveAuthsContextFromRequest(new Request("https://bases.drako.systems/socialflow", {
       headers: { host: "bases.drako.systems" },
     }))).toBe("bases");
 
-    expect(resolveAuthsContextFromRequest(new Request("https://app.socialflow.example.com/client", {
+    expect(resolveAuthsContextFromRequest(new Request("https://app.socialflow.example.com/socialflow", {
       headers: { host: "app.socialflow.example.com" },
-    }))).toBe("drakos");
+    }))).toBe("socialflow");
 
-    expect(resolveAuthsContextFromRequest(new Request("https://mentorias.drako.systems/client", {
+    expect(resolveAuthsContextFromRequest(new Request("https://mentorias.drako.systems/socialflow", {
       headers: { host: "mentorias.drako.systems" },
     }))).toBe("mentorias");
   });
@@ -51,6 +56,14 @@ describe("Auths Isolation", () => {
     const rejected = await verifyAuthsSessionToken(token, "mentorias");
 
     expect(accepted).not.toBeNull();
+    expect(rejected).toBeNull();
+  });
+
+  it("fails closed for malformed mentorias tokens", async () => {
+    process.env.MENTORIAS_AUTHS_SECRET = "mentorias_test_secret_0987654321";
+
+    const rejected = await verifyAuthsSessionToken("bad.header.payload", "mentorias");
+
     expect(rejected).toBeNull();
   });
 });

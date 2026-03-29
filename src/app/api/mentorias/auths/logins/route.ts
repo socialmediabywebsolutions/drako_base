@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { mentoriasAuths } from "@/lib/auths/mentorias-auths";
 import { jsonError, setAuthsSessionCookie } from "@/lib/auths/http";
 import { isAuthsIsolationEnabled } from "@/lib/auths/flags";
+import { MentoriaFamilyService } from "@/lib/mentoria/family-service";
 import { enforceAuthBoundary, resolveSaasSlugForAuthContext } from "@/lib/auths/ssot";
 
 type LoginBody = {
@@ -32,11 +33,22 @@ export async function POST(request: Request) {
     return jsonError(login.code, login.message, 401);
   }
 
+  const familyService = new MentoriaFamilyService();
+  const familyBundle = await familyService.getFamilyForSession({
+    userId: login.userId,
+    email: body.email.trim().toLowerCase(),
+    tenantId: login.tenantId,
+    role: login.role,
+  });
+
   const response = NextResponse.json({
     ok: true,
     role: login.role,
     tenantId: login.tenantId,
     saas_slug: resolveSaasSlugForAuthContext("mentorias"),
+    family: familyBundle.family,
+    guardians: familyBundle.guardians,
+    students: familyBundle.students,
   });
   setAuthsSessionCookie({ response, context: "mentorias", token: login.token });
   return response;

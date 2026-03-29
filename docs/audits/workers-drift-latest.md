@@ -1,6 +1,6 @@
 # Workers Drift Report
 
-- Timestamp: `2026-02-26T21:21:39.938Z`
+- Timestamp: `2026-03-28T15:24:56.663Z`
 - Mode: `real`
 - Source of truth: `docs/config/workers-expected-state.json`
 - Fixtures dir: `n/a`

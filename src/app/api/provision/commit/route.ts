@@ -18,7 +18,7 @@ export async function POST(req: Request) {
         {
           ok: false,
           code: "LEGACY_PROVISION_COMMIT_BLOCKED",
-          message: "Legacy provision commit endpoint is blocked in production. Use /api/owner/saas-factory/create-saas.",
+          message: "Legacy provision commit endpoint is blocked in production. Use /api/owner/saas-factory/create-saas or /api/factory/provisioning/create-saas.",
         },
         { status: 410 },
       );

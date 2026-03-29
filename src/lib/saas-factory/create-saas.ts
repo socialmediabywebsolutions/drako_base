@@ -54,9 +54,9 @@ export async function createSaasRegistryEntry(params: {
     correlationId: string;
 }): Promise<void> {
     console.warn(
-        `[${params.correlationId}] LEGACY_FACTORY_PATH_BLOCKED for ${params.saasSlug}. Use /api/owner/saas-factory/create-saas and the canonical provisioning pipeline.`,
+        `[${params.correlationId}] LEGACY_FACTORY_PATH_BLOCKED for ${params.saasSlug}. Use /api/factory/provisioning/create-saas and the canonical provisioning pipeline.`,
     );
-    throw new Error("LEGACY_FACTORY_PATH_BLOCKED: use the canonical owner SaaS factory route.");
+    throw new Error("LEGACY_FACTORY_PATH_BLOCKED: use the canonical factory provisioning route.");
 }
 
 export async function createStripeProductAndPrices(params: {
@@ -183,11 +183,11 @@ export async function runSaasFactoryJob(message: SaasFactoryJobMessage): Promise
     const { correlationId, saasSlug } = message;
 
     console.warn(
-        `[${correlationId}] LEGACY_FACTORY_PATH_BLOCKED for ${saasSlug}. Canonical SaaS creation now lives in /api/owner/saas-factory/create-saas.`,
+        `[${correlationId}] LEGACY_FACTORY_PATH_BLOCKED for ${saasSlug}. Canonical SaaS creation now lives in /api/factory/provisioning/create-saas.`,
     );
 
     return {
         success: false,
-        error: "LEGACY_FACTORY_PATH_BLOCKED: use the canonical owner SaaS factory route.",
+        error: "LEGACY_FACTORY_PATH_BLOCKED: use the canonical factory provisioning route.",
     };
 }

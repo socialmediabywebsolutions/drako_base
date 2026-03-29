@@ -81,12 +81,7 @@ if (!saasId) {
     process.exit(1);
 }
 
-const invoicer = new MentoriaInvoicer(db, undefined, true); // Mock mode forced or via env?
-// Constructor: (db, key, forceMock).
-// We pass forceMock=false, but ensure STRIPE_MODE=mock env var is set in wrapper.
-// Actually, let's look at constructor again.
-// const key = stripeSecretKey || (typeof process !== 'undefined' ? process.env.STRIPE_SECRET_KEY : undefined);
-// this.isMock = forceMock || !key || ...
+const invoicer = new MentoriaInvoicer(db);
 // So if we don't pass key, it enters mock mode.
 
 (async () => {

@@ -81,11 +81,14 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const { tenantId, session } = await requireTenantAccess(request);
-    if (!session.userId) {
+    if (!session.userId && session.authMode !== "isolated" && session.authMode !== "local_demo") {
       return NextResponse.json({ ok: false, code: "WORKSPACE_SESSION_REQUIRED" }, { status: 403 });
     }
-    const membership = await findMembershipByTenantAndUser(tenantId, session.userId);
-    if (!membership || !hasRequiredWorkspaceRole(membership.role, "ADMIN")) {
+    const isProductAdminSession =
+      (session.authMode === "isolated" || session.authMode === "local_demo")
+      && String(session.role ?? "").toLowerCase() === "admin";
+    const membership = session.userId ? await findMembershipByTenantAndUser(tenantId, session.userId) : null;
+    if (!isProductAdminSession && (!membership || !hasRequiredWorkspaceRole(membership.role, "ADMIN"))) {
       return NextResponse.json({ ok: false, code: "FORBIDDEN" }, { status: 403 });
     }
     const billing = await getTenantBilling(tenantId);
@@ -99,7 +102,7 @@ export async function POST(request: Request) {
     const origin = getRequestBaseUrl(request);
     const sessionPortal = await stripe.billingPortal.sessions.create({
       customer: billing.stripeCustomerId,
-      return_url: `${origin}/client/settings/billing`,
+      return_url: `${origin}/socialflow/settings/billing`,
     });
     return NextResponse.json({ ok: true, url: sessionPortal.url, tenantId });
   } catch (error) {

@@ -7,8 +7,8 @@ import {
 } from "@/lib/platform/surfaces";
 
 describe("platform surface contract", () => {
-  it("classifies /client as the tenant workspace", () => {
-    expect(resolvePlatformSurfaceFromPath("/client")).toBe("tenant_workspace");
+  it("classifies /socialflow as the tenant workspace", () => {
+    expect(resolvePlatformSurfaceFromPath("/socialflow")).toBe("tenant_workspace");
     expect(resolvePlatformSurfaceFromPath("/api/social/summary")).toBe("tenant_workspace_api");
   });
 
@@ -18,24 +18,24 @@ describe("platform surface contract", () => {
   });
 
   it("enables next-auth only for drako onboarding/admin client hooks", () => {
-    expect(shouldEnableNextAuthClient("/client")).toBe(false);
+    expect(shouldEnableNextAuthClient("/socialflow")).toBe(false);
     expect(shouldEnableNextAuthClient("/site/onboarding")).toBe(true);
     expect(shouldEnableNextAuthClient("/site/panel")).toBe(true);
   });
 
   it("resolves tenant workspace entry mode for product, holding, and local demo", () => {
     expect(resolveTenantWorkspaceEntryMode({
-      pathname: "/client",
+      pathname: "/socialflow",
       effectiveHost: "app.socialflow.example.com",
     })).toBe("product_operator");
 
     expect(resolveTenantWorkspaceEntryMode({
-      pathname: "/client",
+      pathname: "/socialflow",
       effectiveHost: "bases.drako.systems",
     })).toBe("holding_operator");
 
     expect(resolveTenantWorkspaceEntryMode({
-      pathname: "/client",
+      pathname: "/socialflow",
       effectiveHost: "localhost",
       localDemoEnabled: true,
     })).toBe("local_demo");

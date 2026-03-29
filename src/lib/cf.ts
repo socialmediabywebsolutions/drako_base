@@ -5,16 +5,17 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
  */
 export type DracoEnv = {
   DRACO_DB: D1Database;
+  DB?: D1Database;
   SOCIAL_DB?: D1Database;
   DRAKOS_AUTHS_DB?: D1Database;
   MENTORIAS_AUTHS_DB?: D1Database;
+  SOCIALFLOW_AUTHS_DB?: D1Database;
   BASES_AUTHS_DB?: D1Database;
   SESSION_SECRET: string;
   DEFAULT_TENANT_ID?: string;
   ADMIN_EMAIL?: string;
   ADMIN_PASSWORD?: string;
   USER_PASSWORD?: string;
-  FIREWORKS_API_KEY?: string;
   ORCHESTRATOR_MODEL?: string;
   STRIPE_PUBLISHABLE_KEY?: string;
   STRIPE_SECRET_KEY?: string;
@@ -51,9 +52,6 @@ export type DracoEnv = {
   CLOUDFLARE_ZONE_ID?: string;
   CLOUDFLARE_PROVISIONING_MODE?: string;
   AI_GATEWAY_ID?: string;
-  AI_GATEWAY_COMPAT_TOKEN?: string;
-  AUTOPILOT_WORKER_URL?: string;
-  VERCEL_TO_WORKER_SECRET?: string;
   CRON_SECRET?: string;
   AI?: { run: (model: string, inputs: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown> };
   SAAS_FACTORY_QUEUE?: { send: (msg: any) => Promise<void> };

@@ -148,16 +148,14 @@ export default function ClientDetailClient({ clientId }: ClientDetailClientProps
     setLoading(true);
     setMessage(null);
     try {
-      const [clientRes, linkRes, saasRes] = await Promise.all([
+      const [clientRes, saasRes] = await Promise.all([
         fetch(`/api/clients?id=${encodeURIComponent(clientId)}`, { cache: "no-store" }),
-        fetch(`/api/client-saas?client_id=${encodeURIComponent(clientId)}`, { cache: "no-store" }),
-        fetch("/api/saas", { cache: "no-store" }),
+        fetch("/api/operator/saas", { cache: "no-store" }),
       ]);
       const clientData = (await clientRes.json()) as { items?: Client[] };
-      const linkData = (await linkRes.json()) as { items?: ClientLink[] };
       const saasData = (await saasRes.json()) as { items?: Saas[] };
       setClient(clientData.items?.[0] ?? null);
-      setSaasLinks(linkData.items ?? []);
+      setSaasLinks([]);
       setSaasList(saasData.items ?? []);
     } catch (error) {
       console.error(error);
@@ -197,17 +195,9 @@ export default function ClientDetailClient({ clientId }: ClientDetailClientProps
 
   const loadSaasSubscriptions = useCallback(async () => {
     setSaasSubscriptionsLoading(true);
-    try {
-      const res = await fetch(`/api/saas/subscriptions?clientId=${encodeURIComponent(clientId)}`, { cache: "no-store" });
-      const data = (await res.json()) as { items?: ClientSaasSubscriptionRecord[] };
-      setSaasSubscriptions(data.items ?? []);
-    } catch (error) {
-      console.error(error);
-      setSaasSubscriptions([]);
-    } finally {
-      setSaasSubscriptionsLoading(false);
-    }
-  }, [clientId]);
+    setSaasSubscriptions([]);
+    setSaasSubscriptionsLoading(false);
+  }, []);
 
   const loadOverview = useCallback(async () => {
     setOverviewLoading(true);
@@ -337,32 +327,10 @@ export default function ClientDetailClient({ clientId }: ClientDetailClientProps
   }, [client]);
 
   const handleLinkSaas = useCallback(async () => {
-    if (!client || !selectedSaas) {
-      setMessage("Selecciona un SaaS para vincular.");
-      return;
-    }
-    setLinking(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/client-saas", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ client_id: client.id, saas_id: selectedSaas }),
-      });
-      const data = (await res.json()) as { ok?: boolean; error?: string };
-      if (data.ok === false) {
-        throw new Error(data.error ?? "No se pudo vincular el SaaS");
-      }
-      setSelectedSaas("");
-      setMessage("SaaS vinculado correctamente.");
-      await loadData();
-    } catch (error) {
-      console.error(error);
-      setMessage(error instanceof Error ? error.message : "Error al vincular");
-    } finally {
-      setLinking(false);
-    }
-  }, [client, loadData, selectedSaas]);
+    void client;
+    void selectedSaas;
+    setMessage("La vinculación desde /clients ahora debe hacerse desde operator; /api/client-saas fue deshabilitado.");
+  }, [client, selectedSaas]);
 
   const linkedSaas = useMemo(() => {
     return saasLinks

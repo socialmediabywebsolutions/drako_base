@@ -19,6 +19,14 @@ const COOKIE_CONFIGS: Record<AuthsContext, AuthsCookieConfig> = {
     httpOnly: true,
     maxAgeSeconds: DEFAULT_MAX_AGE_SECONDS,
   },
+  socialflow: {
+    cookieName: "__Host-socialflow_session",
+    cookiePath: "/",
+    sameSite: "lax",
+    secure: true,
+    httpOnly: true,
+    maxAgeSeconds: DEFAULT_MAX_AGE_SECONDS,
+  },
   bases: {
     cookieName: "__Host-bases_session",
     cookiePath: "/",

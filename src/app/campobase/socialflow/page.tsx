@@ -1,7 +1,7 @@
-import CampoBaseSocialAutomationControl from "@/components/campobase/CampoBaseSocialAutomationControl";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default function CampoBaseSocialFlowPage() {
-  return <CampoBaseSocialAutomationControl />;
+  redirect("/operator/socialflow");
 }

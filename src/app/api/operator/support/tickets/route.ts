@@ -1,0 +1,43 @@
+export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
+import { getCloudflareEnv } from "@/lib/cloudflare/context";
+
+/**
+ * GET /api/owner/support/tickets
+ * Fetch all non-closed support tickets for owner review
+ */
+export async function GET(request: Request): Promise<Response> {
+    try {
+        const { tenantId } = await requireOwnerAccess(request);
+        const db = getCloudflareEnv().DB;
+        if (!db) {
+            return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+        }
+
+        const { results } = await db
+            .prepare(
+                `SELECT id, saas_id, title, description, status, priority, created_at, updated_at
+         FROM tickets
+         WHERE status != 'CLOSED'
+         ORDER BY priority DESC, created_at DESC
+         LIMIT 50`
+            )
+            .all();
+
+        return NextResponse.json({ tickets: results });
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            return NextResponse.json(
+                { error: error.message },
+                { status: error.status }
+            );
+        }
+        console.error("Tickets fetch error:", error);
+        return NextResponse.json(
+            { error: "Failed to fetch tickets" },
+            { status: 500 }
+        );
+    }
+}

@@ -1,4 +1,5 @@
 import { SiteLayout } from "@/components/marketing/SiteLayout";
+import Link from "next/link";
 import { getMarketingCopy, resolveMarketingLocale, type MarketingLocale } from "@/lib/i18n/marketing";
 
 export default async function VisionPage({ params }: { params?: Promise<{ locale?: string }> }) {
@@ -64,9 +65,9 @@ export default async function VisionPage({ params }: { params?: Promise<{ locale
         <section className="py-32 bg-[var(--background-alt)] border-t border-slate-200">
            <div className="container-premium text-center fade-in-up">
               <h2 className="heading-lg mb-8">{copy.vision.cta.title}</h2>
-              <a href="/contact" className="btn-premium btn-secondary text-lg px-8 py-4">
-                 {copy.vision.cta.button}
-              </a>
+              <Link href="/contact" className="btn-premium btn-secondary text-lg px-8 py-4">
+                {copy.vision.cta.button}
+              </Link>
            </div>
         </section>
 

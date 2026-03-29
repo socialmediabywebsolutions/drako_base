@@ -10,12 +10,14 @@ type JwtHeader = {
 const ISSUER_BY_CONTEXT: Record<AuthsContext, string> = {
   drakos: "drakos.auths",
   mentorias: "mentorias.auths",
+  socialflow: "socialflow.auths",
   bases: "bases.auths",
 };
 
 const AUDIENCE_BY_CONTEXT: Record<AuthsContext, string> = {
   drakos: "drakos.apps",
   mentorias: "mentorias.apps",
+  socialflow: "socialflow.apps",
   bases: "bases.apps",
 };
 
@@ -104,6 +106,11 @@ function readSecret(context: AuthsContext): string {
     if (!secret) throw new Error("MENTORIAS_AUTHS_SECRET is not configured");
     return secret;
   }
+  if (context === "socialflow") {
+    const secret = direct("SOCIALFLOW_AUTHS_SECRET") ?? direct("SESSION_SECRET");
+    if (!secret) throw new Error("SOCIALFLOW_AUTHS_SECRET is not configured");
+    return secret;
+  }
   const secret = direct("BASES_AUTHS_SECRET") ?? direct("SESSION_SECRET");
   if (!secret) throw new Error("BASES_AUTHS_SECRET is not configured");
   return secret;
@@ -153,19 +160,23 @@ export async function verifyAuthsSessionToken(
   token: string,
   context: AuthsContext,
 ): Promise<AuthsSessionClaims | null> {
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  const [encodedHeader, encodedPayload, signature] = parts;
-  const signingInput = `${encodedHeader}.${encodedPayload}`;
-  const valid = await verifyHmac(signingInput, signature, readSecret(context));
-  if (!valid) return null;
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const [encodedHeader, encodedPayload, signature] = parts;
+    const signingInput = `${encodedHeader}.${encodedPayload}`;
+    const valid = await verifyHmac(signingInput, signature, readSecret(context));
+    if (!valid) return null;
 
-  const payload = JSON.parse(base64UrlDecodeToString(encodedPayload)) as AuthsSessionClaims;
-  const now = Math.floor(Date.now() / 1000);
-  if (payload.exp < now) return null;
-  if (payload.iss !== getTokenIssuer(context)) return null;
-  if (payload.aud !== getTokenAudience(context)) return null;
-  if (payload.context !== context) return null;
-  if (payload.saasSlug !== resolveSaasSlugForAuthContext(context)) return null;
-  return payload;
+    const payload = JSON.parse(base64UrlDecodeToString(encodedPayload)) as AuthsSessionClaims;
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp < now) return null;
+    if (payload.iss !== getTokenIssuer(context)) return null;
+    if (payload.aud !== getTokenAudience(context)) return null;
+    if (payload.context !== context) return null;
+    if (payload.saasSlug !== resolveSaasSlugForAuthContext(context)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
 }

@@ -19,8 +19,8 @@ describe("legacy SaaS creation routes are blocked in production", () => {
 
     expect(response.status).toBe(410);
     const payload = await response.json() as { code: string; message: string };
-    expect(payload.code).toBe("LEGACY_SAAS_CREATE_BLOCKED");
-    expect(payload.message).toContain("/api/owner/saas-factory/create-saas");
+    expect(payload.code).toBe("LEGACY_SAAS_CREATE_DEPRECATED");
+    expect(payload.message).toContain("/api/factory/provisioning/create-saas");
   });
 
   it("blocks POST /api/provision/commit with 410", async () => {
@@ -35,6 +35,6 @@ describe("legacy SaaS creation routes are blocked in production", () => {
     expect(response.status).toBe(410);
     const payload = await response.json() as { code: string; message: string };
     expect(payload.code).toBe("LEGACY_PROVISION_COMMIT_BLOCKED");
-    expect(payload.message).toContain("/api/owner/saas-factory/create-saas");
+    expect(payload.message).toContain("/api/factory/provisioning/create-saas");
   });
 });

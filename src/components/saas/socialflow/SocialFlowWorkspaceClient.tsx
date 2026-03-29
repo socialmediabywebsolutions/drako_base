@@ -2018,7 +2018,7 @@ export default function SocialFlowWorkspaceClient({
               <Button
                 variant="outline"
                 onClick={() => {
-                  window.location.href = "/client/settings/billing";
+                  window.location.href = "/socialflow/settings/billing";
                 }}
               >
                 Open billing settings

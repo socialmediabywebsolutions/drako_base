@@ -18,7 +18,7 @@ export function CampaignForm(props: {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch("/api/social/campaigns", {
+      const res = await fetch("/api/socialflow/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ saasId: props.saasId, name, status }),

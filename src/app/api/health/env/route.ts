@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 
 import { NextResponse } from "next/server";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { safeEnv, type DrakoStrictEnv } from "@/lib/env";
 
 export const runtime = "nodejs"; // Strict Requirement: Node runtime for secure env access
@@ -56,7 +57,7 @@ export async function GET(req: Request) {
         STRIPE_WEBHOOK_SECRET: check("STRIPE_WEBHOOK_SECRET"),
 
         // AI
-        FIREWORKS_API_KEY: check("FIREWORKS_API_KEY"),
+        AI: !!(getCloudflareContextSafe()?.env as Record<string, unknown> | undefined)?.AI,
     };
 
     return NextResponse.json(status, {
@@ -67,4 +68,12 @@ export async function GET(req: Request) {
             "Expires": "0",
         }
     });
+}
+
+function getCloudflareContextSafe(): { env?: unknown } | null {
+    try {
+        return getCloudflareContext() as { env?: unknown };
+    } catch {
+        return null;
+    }
 }

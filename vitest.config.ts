@@ -2,6 +2,10 @@ import { defineConfig, configDefaults } from "vitest/config";
 import path from "path";
 
 export default defineConfig({
+    esbuild: {
+        jsx: "automatic",
+        jsxImportSource: "react",
+    },
     test: {
         environment: "jsdom",
         globals: true,
@@ -18,7 +22,6 @@ export default defineConfig({
             "src/__tests__/operator-governance-view.test.ts",
             "src/__tests__/owner-governance-route.test.ts",
             "src/__tests__/ui-isolation.test.tsx",
-            "tests/api/billing-webhook.test.ts",
             "src/components/saas/socialflow/SocialFlowWorkspaceClient.test.tsx",
         ],
         coverage: {

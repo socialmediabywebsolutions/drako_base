@@ -29,6 +29,11 @@ type AccountSettingsProps = {
     onboardingProgress: number;
   };
   memberships: Membership[];
+  allowWorkspaceSwitch?: boolean;
+  logoutMode?: "nextauth" | "auths";
+  logoutEndpoint?: string;
+  logoutRedirectTo?: string;
+  sessionLabel?: string;
 };
 
 function RoleBadge({ role }: { role: Membership["role"] }) {
@@ -41,7 +46,16 @@ function RoleBadge({ role }: { role: Membership["role"] }) {
   return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] ${styles}`}>{role}</span>;
 }
 
-export default function AccountSettings({ user, workspace, memberships }: AccountSettingsProps) {
+export default function AccountSettings({
+  user,
+  workspace,
+  memberships,
+  allowWorkspaceSwitch = true,
+  logoutMode = "nextauth",
+  logoutEndpoint,
+  logoutRedirectTo = "/bases/login",
+  sessionLabel = "database-backed",
+}: AccountSettingsProps) {
   const router = useRouter();
   const [tenantId, setTenantId] = useState(user.currentTenantId);
   const [message, setMessage] = useState<string | null>(null);
@@ -68,7 +82,13 @@ export default function AccountSettings({ user, workspace, memberships }: Accoun
 
   const handleSignOut = () => {
     startSignOut(async () => {
-      await signOut({ callbackUrl: "/auth/login" });
+      if (logoutMode === "auths" && logoutEndpoint) {
+        await fetch(logoutEndpoint, { method: "POST" });
+        router.push(logoutRedirectTo);
+        router.refresh();
+        return;
+      }
+      await signOut({ callbackUrl: logoutRedirectTo });
     });
   };
 
@@ -90,7 +110,7 @@ export default function AccountSettings({ user, workspace, memberships }: Accoun
                 Active role: {user.role}
               </span>
               <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
-                Session: database-backed
+                Session: {sessionLabel}
               </span>
             </div>
           </div>
@@ -125,9 +145,11 @@ export default function AccountSettings({ user, workspace, memberships }: Accoun
             <Button variant="outline" onClick={handleSignOut} loading={isSigningOut}>
               Sign out
             </Button>
-            <Button onClick={switchTenant} loading={isPending} disabled={tenantId === user.currentTenantId}>
-              Switch workspace
-            </Button>
+            {allowWorkspaceSwitch ? (
+              <Button onClick={switchTenant} loading={isPending} disabled={tenantId === user.currentTenantId}>
+                Switch workspace
+              </Button>
+            ) : null}
           </>
         )}
       >
@@ -146,7 +168,7 @@ export default function AccountSettings({ user, workspace, memberships }: Accoun
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
             <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Canonical session model</div>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              `/client` uses the active tenant resolved from the real workspace session. Local demo bypass stays isolated to localhost.
+              `/socialflow` uses the active tenant resolved from the real workspace session. Local demo bypass stays isolated to localhost.
             </p>
           </div>
         </div>

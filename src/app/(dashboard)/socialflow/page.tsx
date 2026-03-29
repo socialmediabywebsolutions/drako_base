@@ -49,8 +49,8 @@ export default function SocialflowPage() {
       const providerParam = providerFilter && providerFilter !== "ALL" ? `&provider=${encodeURIComponent(providerFilter)}` : "";
 
       const [campaignRes, postsRes] = await Promise.all([
-        fetch(`/api/social/campaigns?saasId=${encodeURIComponent(saasId)}`),
-        fetch(`/api/social/posts?saasId=${encodeURIComponent(saasId)}${statusParam}${campaignParam}${providerParam}`),
+        fetch(`/api/socialflow/campaigns?saasId=${encodeURIComponent(saasId)}`),
+        fetch(`/api/socialflow/posts?saasId=${encodeURIComponent(saasId)}${statusParam}${campaignParam}${providerParam}`),
       ]);
 
       if (!campaignRes.ok) {
@@ -228,7 +228,7 @@ export default function SocialflowPage() {
               posts={filteredPosts}
               onStatusChange={async (id, nextStatus) => {
                 try {
-                  const res = await fetch("/api/social/posts", {
+                  const res = await fetch("/api/socialflow/posts", {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ saasId, id, status: nextStatus }),

@@ -180,7 +180,7 @@ export default function OperatorGovernanceView() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/owner/governance?${queryString}`, { cache: "no-store" });
+      const res = await fetch(`/api/operator/governance?${queryString}`, { cache: "no-store" });
       const json = (await res.json()) as ApiResponse;
       if (!json.ok) {
         throw new Error(json.message || json.code || "Failed to load governance view");
@@ -550,10 +550,10 @@ export default function OperatorGovernanceView() {
                   <div>
                     <div className="text-[11px] font-bold uppercase text-slate-500">Related links</div>
                     <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                      <Button variant="ghost" size="sm" onClick={() => window.open(`/owner/projects/${selected.saasSlug}`, "_blank")}>SaaS</Button>
-                      <Button variant="ghost" size="sm" onClick={() => selected.domainId ? window.open(`/owner/domains/${selected.domainId}`, "_blank") : undefined} disabled={!selected.domainId}>Domain</Button>
-                      <Button variant="ghost" size="sm" onClick={() => window.open(`/owner/factory/jobs?saas=${selected.saasSlug}`, "_blank")}>Provisioning</Button>
-                      <Button variant="ghost" size="sm" onClick={() => window.open(`/owner/billing?saas=${selected.saasSlug}`, "_blank")}>Billing</Button>
+                      <Button variant="ghost" size="sm" onClick={() => window.open(`/operator/projects/${selected.saasSlug}`, "_blank")}>SaaS</Button>
+                      <Button variant="ghost" size="sm" onClick={() => selected.domainId ? window.open(`/operator/domains?domainId=${selected.domainId}`, "_blank") : undefined} disabled={!selected.domainId}>Domain</Button>
+                      <Button variant="ghost" size="sm" onClick={() => window.open(`/operator`, "_blank")}>Provisioning</Button>
+                      <Button variant="ghost" size="sm" onClick={() => window.open(`/billing?saas=${selected.saasSlug}`, "_blank")}>Billing</Button>
                     </div>
                   </div>
 
@@ -571,7 +571,7 @@ export default function OperatorGovernanceView() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => window.open(`/owner/governance/alerts?saasSlug=${selected.saasSlug}`, "_blank")}
+                      onClick={() => window.open(`/operator/governance/alerts?saasSlug=${selected.saasSlug}`, "_blank")}
                     >
                       Open alerts
                     </Button>

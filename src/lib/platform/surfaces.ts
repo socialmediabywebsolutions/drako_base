@@ -19,6 +19,7 @@ const HOLDING_ADMIN_PREFIXES = [
   "/departments",
   "/metrics",
   "/alerts",
+  "/operator",
   "/owner",
   "/saas",
   "/inbox",
@@ -31,21 +32,12 @@ const HOLDING_ADMIN_PREFIXES = [
   "/site/panel",
 ];
 
-const TENANT_WORKSPACE_PREFIXES = ["/client", "/dashboard", "/profile"];
+const TENANT_WORKSPACE_PREFIXES = ["/socialflow"];
 
 const TENANT_WORKSPACE_API_PREFIXES = [
+  "/api/socialflow",
   "/api/social",
-  "/api/tasks",
-  "/api/features",
-  "/api/client-saas",
-  "/api/saas-agents",
-  "/api/dev-architects",
-  "/api/departments",
-  "/api/customers",
-  "/api/saas/",
-  "/api/whatsapp",
-  "/api/tickets",
-  "/api/stripe/checkout-saas",
+  "/api/mentoria",
 ];
 
 function matchesPrefix(pathname: string, prefix: string): boolean {
@@ -57,6 +49,7 @@ export function isHoldingAdminPath(pathname: string): boolean {
 }
 
 export function isTenantWorkspacePath(pathname: string): boolean {
+  if (pathname.startsWith("/socialflow/auth")) return false;
   return TENANT_WORKSPACE_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix));
 }
 
@@ -72,6 +65,7 @@ export function isAuthApiPath(pathname: string): boolean {
   return (
     matchesPrefix(pathname, "/api/drakos/auths")
     || matchesPrefix(pathname, "/api/mentorias/auths")
+    || matchesPrefix(pathname, "/api/socialflow/auths")
     || matchesPrefix(pathname, "/api/bases/auths")
   );
 }

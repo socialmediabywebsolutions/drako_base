@@ -29,7 +29,7 @@ export default {
           "CRITICAL",
           correlationId,
           JSON.stringify({
-            message: "Legacy SAAS_FACTORY_QUEUE is decommissioned. Use /api/owner/saas-factory/create-saas canonical flow.",
+            message: "Legacy SAAS_FACTORY_QUEUE is decommissioned. Use /api/factory/provisioning/create-saas canonical flow.",
           }),
         );
       } catch (error) {

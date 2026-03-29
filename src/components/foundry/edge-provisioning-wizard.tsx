@@ -46,7 +46,7 @@ export function EdgeProvisioningWizard({ saasId, subdomain, customDomain, onComp
             }
 
             // Simulation for now, or actual API call if ready
-            const res = await fetch("/api/campamento-base/provisioning/edge", {
+            const res = await fetch("/api/factory/provisioning/edge", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-drako-tenant-id": "demo" },
                 body: JSON.stringify({ saasId, subdomain, customDomain })

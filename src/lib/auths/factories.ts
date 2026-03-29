@@ -20,3 +20,4 @@ function createAuthsFactory(context: Exclude<AuthsContext, "bases">): AuthsFacto
 
 export const drakosAuthsFactory = createAuthsFactory("drakos");
 export const mentoriasAuthsFactory = createAuthsFactory("mentorias");
+export const socialflowAuthsFactory = createAuthsFactory("socialflow");

@@ -12,7 +12,7 @@ describe("auth cookie/session e2e by context", () => {
   beforeEach(() => {
     process.env.DRAKOS_AUTHS_SECRET = "test-drakos-secret";
     process.env.MENTORIAS_AUTHS_SECRET = "test-mentorias-secret";
-    process.env.BASES_AUTHS_SECRET = "test-bases-secret";
+    process.env.SOCIALFLOW_AUTHS_SECRET = "test-socialflow-secret";
     process.env.NEXTAUTH_SECRET = "test-nextauth-secret";
     process.env.SESSION_SECRET = "test-session-secret";
   });
@@ -61,7 +61,7 @@ describe("auth cookie/session e2e by context", () => {
     const cookiePair = extractCookiePair(response.headers.get("set-cookie"));
     expect(cookiePair.startsWith("__Host-drakos_session=")).toBe(true);
 
-    const nextReq = new NextRequest("https://drako.systems/client", {
+    const nextReq = new NextRequest("https://drako.systems/socialflow", {
       headers: { host: "drako.systems", cookie: cookiePair },
     });
     const { extractSessionFromRequest } = await import("@/lib/edge-auth");
@@ -110,7 +110,7 @@ describe("auth cookie/session e2e by context", () => {
     const cookiePair = extractCookiePair(response.headers.get("set-cookie"));
     expect(cookiePair.startsWith("__Host-mentorias_session=")).toBe(true);
 
-    const nextReq = new NextRequest("https://mentorias.drako.systems/client", {
+    const nextReq = new NextRequest("https://mentorias.drako.systems/socialflow", {
       headers: { host: "mentorias.drako.systems", cookie: cookiePair },
     });
     const { extractSessionFromRequest } = await import("@/lib/edge-auth");
@@ -121,58 +121,57 @@ describe("auth cookie/session e2e by context", () => {
     expect(session?.saasSlug).toBe("mentorias");
   });
 
-  it("bases login sets bases cookie and next request resolves session", async () => {
+  it("socialflow registration sets socialflow cookie and next request resolves session", async () => {
     vi.resetModules();
-    vi.doMock("@/lib/cf", () => ({
-      env: () => ({
-        ADMIN_EMAIL: "admin@bases.drako.systems",
-        ADMIN_PASSWORD: "bases-password",
-        DEFAULT_TENANT_ID: "tenant_bases",
-        BASES_AUTHS_SECRET: "test-bases-secret",
-      }),
+    const { createAuthsSessionToken } = await import("@/lib/auths/tokens");
+    const token = await createAuthsSessionToken({
+      context: "socialflow",
+      sub: "socialflow:u3",
+      email: "owner@socialflow.app",
+      tenantId: "tenant_socialflow",
+      role: "user",
+    });
+    vi.doMock("@/lib/auths/socialflow-auths", () => ({
+      socialflowAuths: {
+        register: vi.fn().mockResolvedValue({ ok: true, userId: "u3" }),
+        login: vi.fn().mockResolvedValue({ ok: true, token, role: "user", tenantId: "tenant_socialflow" }),
+      },
     }));
     vi.doMock("@/lib/auths/flags", () => ({
       isAuthsIsolationEnabled: () => true,
+      isTelemetriesHoldingEnabled: () => false,
+    }));
+    vi.doMock("@/lib/empire/events", () => ({
+      recordCampamentoEvent: vi.fn(),
     }));
 
-    const { POST } = await import("@/app/api/bases/auths/logins/route");
-    const response = await POST(new Request("https://bases.drako.systems/api/bases/auths/logins", {
+    const { POST } = await import("@/app/api/socialflow/auths/registrations/route");
+    const response = await POST(new Request("https://app.socialflow.example.com/api/socialflow/auths/registrations", {
       method: "POST",
       headers: {
-        host: "bases.drako.systems",
+        host: "app.socialflow.example.com",
         "content-type": "application/json",
       },
-      body: JSON.stringify({ email: "admin@bases.drako.systems", password: "bases-password" }),
+      body: JSON.stringify({ email: "owner@socialflow.app", password: "password123", name: "Owner" }),
     }));
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(201);
     const cookiePair = extractCookiePair(response.headers.get("set-cookie"));
-    expect(cookiePair.startsWith("__Host-bases_session=")).toBe(true);
+    expect(cookiePair.startsWith("__Host-socialflow_session=")).toBe(true);
 
-    const nextReq = new NextRequest("https://bases.drako.systems/admin", {
-      headers: { host: "bases.drako.systems", cookie: cookiePair },
+    const nextReq = new NextRequest("https://app.socialflow.example.com/socialflow", {
+      headers: { host: "app.socialflow.example.com", cookie: cookiePair },
     });
     const { extractSessionFromRequest } = await import("@/lib/edge-auth");
     const session = await extractSessionFromRequest(nextReq);
 
-    expect(session?.email).toBe("admin@bases.drako.systems");
-    expect(session?.tenantId).toBe("tenant_bases");
-    expect(session?.saasSlug).toBe("campo_base");
+    expect(session?.email).toBe("owner@socialflow.app");
+    expect(session?.tenantId).toBe("tenant_socialflow");
+    expect(session?.saasSlug).toBe("socialflow");
   });
 
-  it("bases session can enter the tenant workspace on base host without using drakos auth", async () => {
+  it("bases auth endpoint is deprecated in favor of NextAuth operator auth", async () => {
     vi.resetModules();
-    vi.doMock("@/lib/cf", () => ({
-      env: () => ({
-        ADMIN_EMAIL: "admin@bases.drako.systems",
-        ADMIN_PASSWORD: "bases-password",
-        DEFAULT_TENANT_ID: "tenant_bases",
-        BASES_AUTHS_SECRET: "test-bases-secret",
-      }),
-    }));
-    vi.doMock("@/lib/auths/flags", () => ({
-      isAuthsIsolationEnabled: () => true,
-    }));
 
     const { POST } = await import("@/app/api/bases/auths/logins/route");
     const response = await POST(new Request("https://bases.drako.systems/api/bases/auths/logins", {
@@ -184,14 +183,36 @@ describe("auth cookie/session e2e by context", () => {
       body: JSON.stringify({ email: "admin@bases.drako.systems", password: "bases-password" }),
     }));
 
-    const cookiePair = extractCookiePair(response.headers.get("set-cookie"));
-    const nextReq = new NextRequest("https://bases.drako.systems/client", {
-      headers: { host: "bases.drako.systems", cookie: cookiePair },
+    expect(response.status).toBe(410);
+  });
+
+  it("bases admin routes accept NextAuth database sessions without custom bases cookies", async () => {
+    vi.resetModules();
+    vi.doMock("@/lib/auth/campamento-core", async () => {
+      const actual = await vi.importActual<typeof import("@/lib/auth/campamento-core")>("@/lib/auth/campamento-core");
+      return {
+        ...actual,
+        getWorkspaceSessionByToken: vi.fn().mockResolvedValue({
+          userId: "operator_1",
+          email: "operator@drako.systems",
+          name: "Operator",
+          tenantId: "tenant_holding",
+          tenantName: "Holding",
+          tenantSlug: "holding",
+          role: "OWNER",
+          sessionToken: "nextauth-token",
+          expires: new Date(Date.now() + 60_000).toISOString(),
+        }),
+      };
+    });
+
+    const nextReq = new NextRequest("https://bases.drako.systems/admin", {
+      headers: { host: "bases.drako.systems", cookie: "__Secure-next-auth.session-token=nextauth-token" },
     });
     const { extractSessionFromRequest } = await import("@/lib/edge-auth");
     const session = await extractSessionFromRequest(nextReq);
 
-    expect(session?.tenantId).toBe("tenant_bases");
-    expect(session?.saasSlug).toBe("campo_base");
+    expect(session?.email).toBe("operator@drako.systems");
+    expect(session?.tenantId).toBe("tenant_holding");
   });
 });

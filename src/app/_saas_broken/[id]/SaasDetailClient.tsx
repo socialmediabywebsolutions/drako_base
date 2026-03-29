@@ -25,7 +25,7 @@ import SaasKnowledgeSection from "@/app/saas/[id]/SaasKnowledgeSection";
 import SaasFeaturesSection from "@/app/saas/[id]/SaasFeaturesSection";
 import SaasBrandingSection from "@/app/saas/[id]/SaasBrandingSection";
 import SaasTaxSection from "@/app/saas/[id]/SaasTaxSection";
-import DomainManager from "@/app/client/domains/DomainManager"; // Phase 12
+import DomainManager from "@/modules/socialflow-app/domains/DomainManager"; // Phase 12
 import { setOrchestratorContext } from "@/lib/orchestrator-context";
 import type { SaasFeature, SaasFeatureKey } from "@/lib/features/types";
 

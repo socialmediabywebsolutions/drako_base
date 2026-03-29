@@ -25,11 +25,11 @@ export async function GET() {
         // 3. Verificar tablas críticas
         const criticalTables = [
             "tenants",
-            "companies",
             "saas_instances",
-            "project_entitlements",
+            "saas_subscriptions",
             "saas_domains",
-            "stripe_mapping",
+            "mentoria_sessions",
+            "stripe_webhook_events",
         ];
 
         const missingTables: string[] = [];
@@ -72,7 +72,7 @@ export async function GET() {
                         status: "incomplete",
                         missingTables,
                     },
-                    message: `Database connected but missing ${missingTables.length} critical tables. Run migrations.`,
+                    message: `Database connected but missing ${missingTables.length} Mentoría runtime-critical tables. Run migrations.`,
                 },
                 { status: 200 },
             );

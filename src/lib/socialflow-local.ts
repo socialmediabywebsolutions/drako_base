@@ -1,6 +1,6 @@
 import { listDemoSaas } from "@/lib/admin/demo-data";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
-import { SOCIALFLOW_SLUG } from "@/lib/factory-products/socialflow";
+import { SOCIALFLOW_SLUG } from "@/lib/catalog/products/socialflow";
 
 export const LOCAL_SOCIALFLOW_SLUG = "socialflow";
 

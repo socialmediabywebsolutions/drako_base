@@ -140,7 +140,7 @@ export default function InboxPage() {
   }, [buildQuery, selectedId]);
 
   const loadSaas = useCallback(async () => {
-    const res = await fetch("/api/saas", { cache: "no-store" });
+    const res = await fetch("/api/operator/saas", { cache: "no-store" });
     const data = (await res.json()) as { items?: SaasSummary[] };
     setSaasList(data.items ?? []);
   }, []);

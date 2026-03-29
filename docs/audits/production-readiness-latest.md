@@ -1,19 +1,19 @@
 # Production Readiness Audit Report
 
-- Timestamp: `2026-03-14T14:35:38.401Z`
-- Mode: `fixtures`
+- Timestamp: `2026-03-28T15:25:48.361Z`
+- Mode: `real`
 - Source of truth: `docs/config/production-audits-expected-state.json`
-- Fixtures dir: `tests/fixtures/production-audits/pass`
+- Fixtures dir: `n/a`
 - Production ready: `true`
 
 ## Summary
 
-- Checks total: 136
-- Checks pass: 134
-- Checks fail: 0
-- Checks N/A: 2
+- Checks total: 140
+- Checks pass: 136
+- Checks fail: 1
+- Checks N/A: 3
 - Blockers: 0
-- Warnings: 0
+- Warnings: 1
 
 ## Checks
 
@@ -47,15 +47,19 @@
 | criticalHostnameMismatch | BLOCKER | mentoria.drako.systems | PASS | "saas-mentorias-prod" | "saas-mentorias-prod" |
 | criticalHostnameMissing | BLOCKER | mentorias.drako.systems | PASS | "present" | "present" |
 | criticalHostnameMismatch | BLOCKER | mentorias.drako.systems | PASS | "saas-mentorias-prod" | "saas-mentorias-prod" |
-| criticalRouteMissing | WARN | drako.systems/* | PASS | "present" | "present" |
-| criticalRouteMismatch | BLOCKER | drako.systems/* | PASS | "saas-drakos-prod" | "saas-drakos-prod" |
+| criticalRouteMissing | WARN | drako.systems/* | FAIL | "present" | "missing" |
+| criticalRouteMismatch | BLOCKER | drako.systems/* | N/A | "saas-drakos-prod" | null |
+| blockedServiceHit | BLOCKER | analytics.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-analytics-prod" |
+| blockedServiceHit | BLOCKER | automations.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-automations-prod" |
+| blockedServiceHit | BLOCKER | invoices.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-invoices-prod" |
+| blockedServiceHit | BLOCKER | socialflows.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-socialflows-prod" |
+| blockedServiceHit | BLOCKER | cryptos.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-cryptos-prod" |
 | blockedServiceHit | BLOCKER | drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-drakos-prod" |
 | blockedServiceHit | BLOCKER | drakos.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-drakos-prod" |
-| blockedServiceHit | BLOCKER | base.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-bases-prod" |
 | blockedServiceHit | BLOCKER | bases.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-bases-prod" |
-| blockedServiceHit | BLOCKER | mentoria.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-mentorias-prod" |
+| blockedServiceHit | BLOCKER | base.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-bases-prod" |
 | blockedServiceHit | BLOCKER | mentorias.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-mentorias-prod" |
-| blockedScriptHit | BLOCKER | drako.systems/* | PASS | "script NOT IN [drako-base-3]" | "saas-drakos-prod" |
+| blockedServiceHit | BLOCKER | mentoria.drako.systems | PASS | "service NOT IN [drako-base-3]" | "saas-mentorias-prod" |
 | criticalD1Missing | BLOCKER | drako_holding_db | PASS | "present" | "present" |
 | criticalD1Missing | BLOCKER | drako_billing_db | PASS | "present" | "present" |
 | criticalD1Missing | BLOCKER | drako_observability_db | PASS | "present" | "present" |
@@ -158,4 +162,4 @@
 
 ## Violations
 
-- None
+- WARN criticalRouteMissing @ drako.systems/*: expected="present" actual="missing"

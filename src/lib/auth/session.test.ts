@@ -93,7 +93,7 @@ describe("requireOwnerAccess", () => {
   });
 });
 
-describe("local demo session boundaries", () => {
+describe("workspace session hardening", () => {
   beforeEach(() => {
     vi.mocked(env).mockReturnValue({
       DRACO_DB: {} as D1Database,
@@ -103,14 +103,16 @@ describe("local demo session boundaries", () => {
     process.env.DRAKO_CLIENT_DEMO_TENANT_ID = "demo-tenant";
   });
 
-  it("allows local demo fallback only for tenant workspace surfaces", async () => {
+  it("does not allow local demo fallback for tenant workspace surfaces", async () => {
     const request = makeRequest("http://localhost:3000/api/social/summary?saasId=saas_1", {
       host: "localhost:3000",
     });
 
-    const session = await requireSession(request);
-    expect(session.tenantId).toBe("demo-tenant");
-    expect(session.authMode).toBe("local_demo");
+    await expect(requireSession(request)).rejects.toMatchObject({
+      name: "UnauthorizedError",
+      message: "SESSION_REQUIRED",
+      status: 401,
+    } satisfies Partial<UnauthorizedError>);
   });
 
   it("does not allow local demo fallback for owner surfaces", async () => {

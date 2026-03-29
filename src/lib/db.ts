@@ -31,7 +31,10 @@ export function getDb(): D1Database {
 
   const bindings = env();
   if (!bindings?.DRACO_DB) {
-    throw new DatabaseUnavailableError("binding-missing", "DRACO_DB binding is missing in environment.");
+    throw new DatabaseUnavailableError(
+      "binding-missing",
+      "DRACO_DB binding is missing. Execute scripts with: wrangler dev or wrangler d1 execute"
+    );
   }
 
   return bindings.DRACO_DB;

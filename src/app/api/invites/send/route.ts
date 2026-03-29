@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       invite,
-      inviteUrl: `${baseUrl}/auth/login?invite=${invite.token}`,
+      inviteUrl: `${baseUrl}/bases/login?invite=${invite.token}`,
     }, { status: 201 });
   } catch (error) {
     if (error instanceof UnauthorizedError) {

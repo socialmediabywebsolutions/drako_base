@@ -1,0 +1,2104 @@
+import { getDb } from "@/lib/db";
+import { getLearningProfile } from "@/lib/mentoria/learning-profile";
+import type { MotivationState } from "@/lib/mentoria/motivation-engine";
+import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
+import type {
+  DailyPlan,
+  DailyPlanTask,
+  FocusSession,
+  InterventionType,
+  LearningSession,
+  MentoriaIntervention,
+  MentoriaDashboard,
+  MentoriaEmotionalBaseline,
+  MentoriaExercise,
+  MentoriaInitialLevel,
+  MentoriaProgress,
+  MentoriaProgressShare,
+  MentoriaProgressSharePayload,
+  MentoriaReferral,
+  MentoriaReferralProfile,
+  MentoriaRewardFeature,
+  MentoriaSessionMessage,
+  MentoriaStudentSubject,
+  MentoriaSubject,
+  ParentAccount,
+  StudentProfile,
+  StudyPlan,
+  StudyPlanBlock,
+} from "@/lib/mentoria/types";
+
+type DbLike = D1Database;
+
+type StudentProfileRow = {
+  id: string;
+  tenant_id: string;
+  user_id: string | null;
+  full_name: string;
+  age: number;
+  school_year: string;
+  learning_goals_json: string | null;
+  base_emotional_state: string;
+  emotional_baseline_json: string | null;
+  learning_preference: string | null;
+  preferred_study_minutes: number;
+  strengths_json: string | null;
+  support_notes: string | null;
+  onboarding_completed: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type SubjectRow = {
+  id: string;
+  tenant_id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  difficulty_band: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type ParentAccountRow = {
+  id: string;
+  tenant_id: string;
+  user_id: string | null;
+  student_profile_id: string;
+  full_name: string;
+  email: string;
+  relation: string;
+  relationship_label: string | null;
+  notification_preferences_json: string | null;
+  daily_study_minutes: number | null;
+  supervision_level: string | null;
+  can_view_full_progress: number;
+  can_manage_schedule: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type StudentSubjectRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  subject_id: string;
+  initial_level: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type StudyPlanRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  week_start: string;
+  week_end: string;
+  goals_summary: string | null;
+  blocks_json: string;
+  generated_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type ProgressRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  subject_id: string;
+  mastery_score: number;
+  confidence_score: number;
+  streak_days: number;
+  sessions_completed: number;
+  exercises_completed: number;
+  weak_topics_json: string | null;
+  strong_topics_json: string | null;
+  last_activity_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ExerciseRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  subject_id: string;
+  session_id: string | null;
+  prompt: string;
+  expected_competency: string;
+  hints_json: string | null;
+  answer_format: string;
+  student_answer: string | null;
+  correction_feedback: string | null;
+  status: string;
+  difficulty_level: string;
+  score: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type FocusSessionRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  subject_id: string | null;
+  study_plan_id: string | null;
+  started_at: string;
+  ended_at: string | null;
+  duration_minutes: number;
+  distractions_count: number;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type LearningSessionRow = {
+  id: string;
+  tenant_id: string;
+  mentor_id: string;
+  client_id: string;
+  student_profile_id: string | null;
+  subject_id: string | null;
+  topic: string | null;
+  status: string;
+  duration_minutes: number | null;
+  ai_tokens_used: number | null;
+  transcript_json: string | null;
+  emotional_state: string | null;
+  tutor_summary: string | null;
+  recommended_next_step: string | null;
+  created_at: string;
+  updated_at: string | null;
+  completed_at: string | null;
+};
+
+type StudentEvolutionRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  strengths_json: string;
+  weaknesses_json: string;
+  frustration_level: number;
+  consistency_score: number;
+  average_response_time: number;
+  last_sessions: number;
+  common_mistakes_json: string;
+  progression_velocity: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type InterventionRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  intervention_type: string;
+  severity: string;
+  status: string;
+  summary: string;
+  recommendations_json: string;
+  channels_json: string;
+  metadata_json: string;
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
+};
+
+type MotivationStateRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  streak: number;
+  last_activity_at: string;
+  effort_score: number;
+  reward_points: number;
+  level: number;
+  achievements_json: string;
+  motivation_profile: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type DailyPlanRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  plan_date: string;
+  recommended_duration: number;
+  tasks_json: string;
+  completed_task_ids_json: string;
+  priority: string;
+  adaptation_reason: string;
+  generated_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type ReferralProfileRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  referral_code: string;
+  total_invites: number;
+  registered_invites: number;
+  converted_invites: number;
+  premium_access_until: string | null;
+  reward_points_earned: number;
+  feature_unlocks_json: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type ReferralRow = {
+  id: string;
+  tenant_id: string;
+  inviter_student_profile_id: string;
+  invitee_student_profile_id: string | null;
+  invited_email: string | null;
+  referral_code: string;
+  invite_token: string | null;
+  status: string;
+  reward_premium_days: number;
+  reward_points: number;
+  reward_features_json: string;
+  source: string;
+  created_at: string;
+  registered_at: string | null;
+  converted_at: string | null;
+  rewarded_at: string | null;
+  updated_at: string;
+};
+
+type ProgressShareRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  created_by_user_id: string;
+  share_code: string;
+  share_kind: string;
+  title: string;
+  summary_json: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type DashboardRow = {
+  student_id: string;
+  student_name: string;
+  school_year: string;
+  base_emotional_state: string;
+  preferred_study_minutes: number;
+  plan_id: string | null;
+  plan_week_start: string | null;
+  plan_week_end: string | null;
+  plan_goals_summary: string | null;
+  plan_blocks_json: string | null;
+};
+
+function parseJsonArray<T>(value: string | null): T[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseEmotionalBaseline(value: string | null): MentoriaEmotionalBaseline {
+  if (!value) {
+    return { frustration: "medium", motivation: "medium", concentration: "medium" };
+  }
+  try {
+    const parsed = JSON.parse(value) as Partial<MentoriaEmotionalBaseline>;
+    return {
+      frustration: parsed.frustration === "low" || parsed.frustration === "high" ? parsed.frustration : "medium",
+      motivation: parsed.motivation === "low" || parsed.motivation === "high" ? parsed.motivation : "medium",
+      concentration: parsed.concentration === "low" || parsed.concentration === "high" ? parsed.concentration : "medium",
+    };
+  } catch {
+    return { frustration: "medium", motivation: "medium", concentration: "medium" };
+  }
+}
+
+function parseBlocks(value: string | null): StudyPlanBlock[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? (parsed as StudyPlanBlock[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function mapStudent(row: StudentProfileRow): StudentProfile {
+  const learningProfile = getLearningProfile({
+    schoolYear: row.school_year,
+    age: row.age,
+  });
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    userId: row.user_id ?? undefined,
+    learningStage: learningProfile.stage,
+    fullName: row.full_name,
+    age: row.age,
+    schoolYear: row.school_year,
+    learningGoals: parseJsonArray<string>(row.learning_goals_json),
+    baseEmotionalState: row.base_emotional_state as StudentProfile["baseEmotionalState"],
+    emotionalBaseline: parseEmotionalBaseline(row.emotional_baseline_json),
+    learningPreference: (row.learning_preference ?? "step_by_step") as StudentProfile["learningPreference"],
+    preferredStudyMinutes: row.preferred_study_minutes,
+    strengths: parseJsonArray<string>(row.strengths_json),
+    supportNotes: row.support_notes ?? undefined,
+    onboardingCompleted: Boolean(row.onboarding_completed),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapSubject(row: SubjectRow): MentoriaSubject {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    slug: row.slug,
+    name: row.name,
+    description: row.description ?? "",
+    difficultyBand: row.difficulty_band,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapParent(row: ParentAccountRow): ParentAccount {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    userId: row.user_id ?? undefined,
+    studentProfileId: row.student_profile_id,
+    fullName: row.full_name,
+    email: row.email,
+    relation: row.relationship_label ?? row.relation,
+    dailyStudyMinutes: Number(row.daily_study_minutes ?? 0),
+    supervisionLevel: (row.supervision_level ?? "balanced") as ParentAccount["supervisionLevel"],
+    canViewFullProgress: Boolean(row.can_view_full_progress),
+    canManageSchedule: Boolean(row.can_manage_schedule),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapStudentSubject(row: StudentSubjectRow, subject?: MentoriaSubject): MentoriaStudentSubject {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    studentProfileId: row.student_profile_id,
+    subjectId: row.subject_id,
+    initialLevel: row.initial_level as MentoriaInitialLevel,
+    subject,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapPlan(row: StudyPlanRow): StudyPlan {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    studentProfileId: row.student_profile_id,
+    weekStart: row.week_start,
+    weekEnd: row.week_end,
+    goalsSummary: row.goals_summary ?? "",
+    blocks: parseBlocks(row.blocks_json),
+    generatedBy: row.generated_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapProgress(row: ProgressRow, subject?: MentoriaSubject): MentoriaProgress {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    studentProfileId: row.student_profile_id,
+    subjectId: row.subject_id,
+    subject,
+    masteryScore: row.mastery_score,
+    confidenceScore: row.confidence_score,
+    streakDays: row.streak_days,
+    sessionsCompleted: row.sessions_completed,
+    exercisesCompleted: row.exercises_completed,
+    weakTopics: parseJsonArray<string>(row.weak_topics_json),
+    strongTopics: parseJsonArray<string>(row.strong_topics_json),
+    lastActivityAt: row.last_activity_at ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapExercise(row: ExerciseRow): MentoriaExercise {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    studentProfileId: row.student_profile_id,
+    subjectId: row.subject_id,
+    sessionId: row.session_id ?? undefined,
+    prompt: row.prompt,
+    expectedCompetency: row.expected_competency,
+    hints: parseJsonArray<string>(row.hints_json),
+    answerFormat: row.answer_format,
+    studentAnswer: row.student_answer ?? undefined,
+    correctionFeedback: row.correction_feedback ?? undefined,
+    status: row.status as MentoriaExercise["status"],
+    difficultyLevel: row.difficulty_level,
+    score: row.score ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapFocus(row: FocusSessionRow): FocusSession {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    studentProfileId: row.student_profile_id,
+    subjectId: row.subject_id ?? undefined,
+    studyPlanId: row.study_plan_id ?? undefined,
+    startedAt: row.started_at,
+    endedAt: row.ended_at ?? undefined,
+    durationMinutes: row.duration_minutes,
+    distractionsCount: row.distractions_count,
+    status: row.status as FocusSession["status"],
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapMessages(value: string | null): MentoriaSessionMessage[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? (parsed as MentoriaSessionMessage[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function mapLearningSession(row: LearningSessionRow): LearningSession {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    mentorId: row.mentor_id,
+    clientId: row.client_id,
+    studentProfileId: row.student_profile_id ?? "",
+    subjectId: row.subject_id ?? "",
+    topic: row.topic ?? "",
+    status: row.status as LearningSession["status"],
+    durationMinutes: row.duration_minutes ?? 0,
+    aiTokensUsed: row.ai_tokens_used ?? 0,
+    transcript: mapMessages(row.transcript_json),
+    emotionalState: (row.emotional_state ?? "steady") as LearningSession["emotionalState"],
+    tutorSummary: row.tutor_summary ?? "",
+    recommendedNextStep: row.recommended_next_step ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? row.created_at,
+    completedAt: row.completed_at ?? undefined,
+  };
+}
+
+function mapStudentEvolution(row: StudentEvolutionRow): StudentEvolutionProfile {
+  return {
+    studentId: row.student_profile_id,
+    strengths: parseJsonArray<string>(row.strengths_json),
+    weaknesses: parseJsonArray<string>(row.weaknesses_json),
+    frustrationLevel: row.frustration_level,
+    consistencyScore: row.consistency_score,
+    averageResponseTime: row.average_response_time,
+    lastSessions: row.last_sessions,
+    commonMistakes: parseJsonArray<string>(row.common_mistakes_json),
+    progressionVelocity: row.progression_velocity,
+    updatedAt: row.updated_at,
+  };
+}
+
+function parseMetadata(value: string): Record<string, string | number | boolean | string[]> {
+  try {
+    const parsed = JSON.parse(value) as Record<string, string | number | boolean | string[]>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function mapIntervention(row: InterventionRow): MentoriaIntervention {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    studentProfileId: row.student_profile_id,
+    type: row.intervention_type as InterventionType,
+    severity: row.severity as MentoriaIntervention["severity"],
+    status: row.status as MentoriaIntervention["status"],
+    summary: row.summary,
+    recommendations: parseJsonArray<string>(row.recommendations_json),
+    channels: parseJsonArray<string>(row.channels_json),
+    metadata: parseMetadata(row.metadata_json),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    resolvedAt: row.resolved_at ?? undefined,
+  };
+}
+
+function mapMotivationState(row: MotivationStateRow): MotivationState {
+  return {
+    studentId: row.student_profile_id,
+    streak: row.streak,
+    lastActivityAt: row.last_activity_at,
+    effortScore: row.effort_score,
+    rewardPoints: row.reward_points,
+    level: row.level,
+    achievements: parseJsonArray<string>(row.achievements_json),
+    motivationProfile: row.motivation_profile as MotivationState["motivationProfile"],
+  };
+}
+
+function mapDailyPlan(row: DailyPlanRow): DailyPlan {
+  const tasks = parseJsonArray<DailyPlanTask>(row.tasks_json);
+  const completedTaskIds = parseJsonArray<string>(row.completed_task_ids_json);
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    studentId: row.student_profile_id,
+    planDate: row.plan_date,
+    recommendedDuration: row.recommended_duration,
+    tasks: tasks.map((task) => ({
+      ...task,
+      completed: completedTaskIds.includes(task.id) || Boolean(task.completed),
+    })),
+    completedTaskIds,
+    priority: row.priority as DailyPlan["priority"],
+    adaptationReason: row.adaptation_reason,
+    generatedAt: row.generated_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    completionRate: tasks.length ? completedTaskIds.length / tasks.length : 0,
+  };
+}
+
+function parseJsonObject<T extends Record<string, unknown>>(value: string | null): T {
+  if (!value) return {} as T;
+  try {
+    const parsed = JSON.parse(value) as T;
+    return parsed && typeof parsed === "object" ? parsed : ({} as T);
+  } catch {
+    return {} as T;
+  }
+}
+
+function mapReferralProfile(row: ReferralProfileRow): MentoriaReferralProfile {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    studentId: row.student_profile_id,
+    referralCode: row.referral_code,
+    totalInvites: row.total_invites,
+    registeredInvites: row.registered_invites,
+    convertedInvites: row.converted_invites,
+    premiumAccessUntil: row.premium_access_until ?? undefined,
+    rewardPointsEarned: row.reward_points_earned,
+    featureUnlocks: parseJsonObject<Partial<Record<MentoriaRewardFeature, string>>>(row.feature_unlocks_json),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapReferral(row: ReferralRow): MentoriaReferral {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    inviterStudentId: row.inviter_student_profile_id,
+    inviteeStudentId: row.invitee_student_profile_id ?? undefined,
+    invitedEmail: row.invited_email ?? undefined,
+    referralCode: row.referral_code,
+    inviteToken: row.invite_token ?? undefined,
+    status: row.status as MentoriaReferral["status"],
+    rewardPremiumDays: row.reward_premium_days,
+    rewardPoints: row.reward_points,
+    rewardFeatures: parseJsonArray<MentoriaRewardFeature>(row.reward_features_json),
+    source: row.source as MentoriaReferral["source"],
+    createdAt: row.created_at,
+    registeredAt: row.registered_at ?? undefined,
+    convertedAt: row.converted_at ?? undefined,
+    rewardedAt: row.rewarded_at ?? undefined,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapProgressShare(row: ProgressShareRow): MentoriaProgressShare {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    studentId: row.student_profile_id,
+    createdByUserId: row.created_by_user_id,
+    shareCode: row.share_code,
+    shareKind: row.share_kind as MentoriaProgressShare["shareKind"],
+    title: row.title,
+    payload: parseJsonObject<MentoriaProgressSharePayload>(row.summary_json),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export class MentoriaRepository {
+  constructor(private db: DbLike = getDb()) {}
+
+  async getStudentProfileByUser(tenantId: string, userId: string): Promise<StudentProfile | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM student_profiles
+         WHERE tenant_id = ? AND user_id = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, userId)
+      .first<StudentProfileRow>();
+    return row ? mapStudent(row) : null;
+  }
+
+  async getStudentProfileById(tenantId: string, studentId: string): Promise<StudentProfile | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM student_profiles
+         WHERE tenant_id = ? AND id = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, studentId)
+      .first<StudentProfileRow>();
+    return row ? mapStudent(row) : null;
+  }
+
+  async listStudentsForTenant(tenantId: string): Promise<StudentProfile[]> {
+    const result = await this.db
+      .prepare(`SELECT * FROM student_profiles WHERE tenant_id = ? ORDER BY full_name ASC`)
+      .bind(tenantId)
+      .all<StudentProfileRow>();
+    return (result.results ?? []).map(mapStudent);
+  }
+
+  async getStudentEvolutionProfile(tenantId: string, studentId: string): Promise<StudentEvolutionProfile | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_student_evolution
+         WHERE tenant_id = ? AND student_profile_id = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, studentId)
+      .first<StudentEvolutionRow>();
+    return row ? mapStudentEvolution(row) : null;
+  }
+
+  async saveStudentEvolutionProfile(
+    tenantId: string,
+    profile: StudentEvolutionProfile,
+  ): Promise<StudentEvolutionProfile> {
+    const existing = await this.db
+      .prepare(
+        `SELECT id FROM mentoria_student_evolution
+         WHERE tenant_id = ? AND student_profile_id = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, profile.studentId)
+      .first<{ id: string }>();
+    const now = profile.updatedAt || new Date().toISOString();
+
+    if (existing) {
+      await this.db
+        .prepare(
+          `UPDATE mentoria_student_evolution
+           SET strengths_json = ?, weaknesses_json = ?, frustration_level = ?, consistency_score = ?,
+               average_response_time = ?, last_sessions = ?, common_mistakes_json = ?, progression_velocity = ?, updated_at = ?
+           WHERE tenant_id = ? AND id = ?`,
+        )
+        .bind(
+          JSON.stringify(profile.strengths),
+          JSON.stringify(profile.weaknesses),
+          profile.frustrationLevel,
+          profile.consistencyScore,
+          profile.averageResponseTime,
+          profile.lastSessions,
+          JSON.stringify(profile.commonMistakes),
+          profile.progressionVelocity,
+          now,
+          tenantId,
+          existing.id,
+        )
+        .run();
+    } else {
+      await this.db
+        .prepare(
+          `INSERT INTO mentoria_student_evolution (
+            id, tenant_id, student_profile_id, strengths_json, weaknesses_json, frustration_level,
+            consistency_score, average_response_time, last_sessions, common_mistakes_json,
+            progression_velocity, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          tenantId,
+          profile.studentId,
+          JSON.stringify(profile.strengths),
+          JSON.stringify(profile.weaknesses),
+          profile.frustrationLevel,
+          profile.consistencyScore,
+          profile.averageResponseTime,
+          profile.lastSessions,
+          JSON.stringify(profile.commonMistakes),
+          profile.progressionVelocity,
+          now,
+          now,
+        )
+        .run();
+    }
+
+    const saved = await this.getStudentEvolutionProfile(tenantId, profile.studentId);
+    if (!saved) {
+      throw new Error("MENTORIA_EVOLUTION_PROFILE_PERSIST_FAILED");
+    }
+    return saved;
+  }
+
+  async listInterventions(tenantId: string, studentId: string): Promise<MentoriaIntervention[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_interventions
+         WHERE tenant_id = ? AND student_profile_id = ?
+         ORDER BY updated_at DESC`,
+      )
+      .bind(tenantId, studentId)
+      .all<InterventionRow>();
+    return (result.results ?? []).map(mapIntervention);
+  }
+
+  async saveInterventions(tenantId: string, interventions: MentoriaIntervention[]): Promise<MentoriaIntervention[]> {
+    for (const item of interventions) {
+      const existing = await this.db
+        .prepare(`SELECT id FROM mentoria_interventions WHERE tenant_id = ? AND id = ? LIMIT 1`)
+        .bind(tenantId, item.id)
+        .first<{ id: string }>();
+
+      if (existing) {
+        await this.db
+          .prepare(
+            `UPDATE mentoria_interventions
+             SET student_profile_id = ?, intervention_type = ?, severity = ?, status = ?, summary = ?,
+                 recommendations_json = ?, channels_json = ?, metadata_json = ?, updated_at = ?, resolved_at = ?
+             WHERE tenant_id = ? AND id = ?`,
+          )
+          .bind(
+            item.studentProfileId,
+            item.type,
+            item.severity,
+            item.status,
+            item.summary,
+            JSON.stringify(item.recommendations),
+            JSON.stringify(item.channels),
+            JSON.stringify(item.metadata),
+            item.updatedAt,
+            item.resolvedAt ?? null,
+            tenantId,
+            item.id,
+          )
+          .run();
+      } else {
+        await this.db
+          .prepare(
+            `INSERT INTO mentoria_interventions (
+              id, tenant_id, student_profile_id, intervention_type, severity, status, summary,
+              recommendations_json, channels_json, metadata_json, created_at, updated_at, resolved_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(
+            item.id,
+            tenantId,
+            item.studentProfileId,
+            item.type,
+            item.severity,
+            item.status,
+            item.summary,
+            JSON.stringify(item.recommendations),
+            JSON.stringify(item.channels),
+            JSON.stringify(item.metadata),
+            item.createdAt,
+            item.updatedAt,
+            item.resolvedAt ?? null,
+          )
+          .run();
+      }
+    }
+
+    const studentId = interventions[0]?.studentProfileId;
+    if (!studentId) {
+      return [];
+    }
+    return this.listInterventions(tenantId, studentId);
+  }
+
+  async getMotivationState(tenantId: string, studentId: string): Promise<MotivationState | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_motivation_states
+         WHERE tenant_id = ? AND student_profile_id = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, studentId)
+      .first<MotivationStateRow>();
+    return row ? mapMotivationState(row) : null;
+  }
+
+  async saveMotivationState(tenantId: string, state: MotivationState): Promise<MotivationState> {
+    const existing = await this.db
+      .prepare(
+        `SELECT id FROM mentoria_motivation_states
+         WHERE tenant_id = ? AND student_profile_id = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, state.studentId)
+      .first<{ id: string }>();
+    const now = new Date().toISOString();
+
+    if (existing) {
+      await this.db
+        .prepare(
+          `UPDATE mentoria_motivation_states
+           SET streak = ?, last_activity_at = ?, effort_score = ?, reward_points = ?, level = ?,
+               achievements_json = ?, motivation_profile = ?, updated_at = ?
+           WHERE tenant_id = ? AND id = ?`,
+        )
+        .bind(
+          state.streak,
+          state.lastActivityAt,
+          state.effortScore,
+          state.rewardPoints,
+          state.level,
+          JSON.stringify(state.achievements),
+          state.motivationProfile,
+          now,
+          tenantId,
+          existing.id,
+        )
+        .run();
+    } else {
+      await this.db
+        .prepare(
+          `INSERT INTO mentoria_motivation_states (
+            id, tenant_id, student_profile_id, streak, last_activity_at, effort_score, reward_points,
+            level, achievements_json, motivation_profile, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          tenantId,
+          state.studentId,
+          state.streak,
+          state.lastActivityAt,
+          state.effortScore,
+          state.rewardPoints,
+          state.level,
+          JSON.stringify(state.achievements),
+          state.motivationProfile,
+          now,
+          now,
+        )
+        .run();
+    }
+
+    const saved = await this.getMotivationState(tenantId, state.studentId);
+    if (!saved) {
+      throw new Error("MENTORIA_MOTIVATION_STATE_PERSIST_FAILED");
+    }
+    return saved;
+  }
+
+  async getDailyPlan(tenantId: string, studentId: string, planDate = new Date().toISOString().slice(0, 10)): Promise<DailyPlan | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_daily_plans
+         WHERE tenant_id = ? AND student_profile_id = ? AND plan_date = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, studentId, planDate)
+      .first<DailyPlanRow>();
+    return row ? mapDailyPlan(row) : null;
+  }
+
+  async saveDailyPlan(tenantId: string, plan: DailyPlan): Promise<DailyPlan> {
+    const existing = await this.db
+      .prepare(
+        `SELECT id FROM mentoria_daily_plans
+         WHERE tenant_id = ? AND student_profile_id = ? AND plan_date = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, plan.studentId, plan.planDate)
+      .first<{ id: string }>();
+
+    if (existing) {
+      await this.db
+        .prepare(
+          `UPDATE mentoria_daily_plans
+           SET recommended_duration = ?, tasks_json = ?, completed_task_ids_json = ?, priority = ?,
+               adaptation_reason = ?, generated_at = ?, updated_at = ?
+           WHERE tenant_id = ? AND id = ?`,
+        )
+        .bind(
+          plan.recommendedDuration,
+          JSON.stringify(plan.tasks),
+          JSON.stringify(plan.completedTaskIds),
+          plan.priority,
+          plan.adaptationReason,
+          plan.generatedAt,
+          plan.updatedAt,
+          tenantId,
+          existing.id,
+        )
+        .run();
+    } else {
+      await this.db
+        .prepare(
+          `INSERT INTO mentoria_daily_plans (
+            id, tenant_id, student_profile_id, plan_date, recommended_duration, tasks_json,
+            completed_task_ids_json, priority, adaptation_reason, generated_at, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          plan.id,
+          tenantId,
+          plan.studentId,
+          plan.planDate,
+          plan.recommendedDuration,
+          JSON.stringify(plan.tasks),
+          JSON.stringify(plan.completedTaskIds),
+          plan.priority,
+          plan.adaptationReason,
+          plan.generatedAt,
+          plan.createdAt,
+          plan.updatedAt,
+        )
+        .run();
+    }
+
+    const saved = await this.getDailyPlan(tenantId, plan.studentId, plan.planDate);
+    if (!saved) {
+      throw new Error("MENTORIA_DAILY_PLAN_PERSIST_FAILED");
+    }
+    return saved;
+  }
+
+  async getReferralProfile(tenantId: string, studentId: string): Promise<MentoriaReferralProfile | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_referral_profiles
+         WHERE tenant_id = ? AND student_profile_id = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, studentId)
+      .first<ReferralProfileRow>();
+    return row ? mapReferralProfile(row) : null;
+  }
+
+  async getReferralProfileByCode(tenantId: string, referralCode: string): Promise<MentoriaReferralProfile | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_referral_profiles
+         WHERE tenant_id = ? AND referral_code = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, referralCode)
+      .first<ReferralProfileRow>();
+    return row ? mapReferralProfile(row) : null;
+  }
+
+  async saveReferralProfile(tenantId: string, profile: MentoriaReferralProfile): Promise<MentoriaReferralProfile> {
+    const existing = await this.getReferralProfile(tenantId, profile.studentId);
+    const now = new Date().toISOString();
+
+    if (existing) {
+      await this.db
+        .prepare(
+          `UPDATE mentoria_referral_profiles
+           SET referral_code = ?, total_invites = ?, registered_invites = ?, converted_invites = ?,
+               premium_access_until = ?, reward_points_earned = ?, feature_unlocks_json = ?, updated_at = ?
+           WHERE tenant_id = ? AND student_profile_id = ?`,
+        )
+        .bind(
+          profile.referralCode,
+          profile.totalInvites,
+          profile.registeredInvites,
+          profile.convertedInvites,
+          profile.premiumAccessUntil ?? null,
+          profile.rewardPointsEarned,
+          JSON.stringify(profile.featureUnlocks),
+          now,
+          tenantId,
+          profile.studentId,
+        )
+        .run();
+    } else {
+      await this.db
+        .prepare(
+          `INSERT INTO mentoria_referral_profiles (
+            id, tenant_id, student_profile_id, referral_code, total_invites, registered_invites,
+            converted_invites, premium_access_until, reward_points_earned, feature_unlocks_json,
+            created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          profile.id,
+          tenantId,
+          profile.studentId,
+          profile.referralCode,
+          profile.totalInvites,
+          profile.registeredInvites,
+          profile.convertedInvites,
+          profile.premiumAccessUntil ?? null,
+          profile.rewardPointsEarned,
+          JSON.stringify(profile.featureUnlocks),
+          profile.createdAt,
+          now,
+        )
+        .run();
+    }
+
+    const saved = await this.getReferralProfile(tenantId, profile.studentId);
+    if (!saved) {
+      throw new Error("MENTORIA_REFERRAL_PROFILE_PERSIST_FAILED");
+    }
+    return saved;
+  }
+
+  async listReferralsByInviter(tenantId: string, inviterStudentId: string): Promise<MentoriaReferral[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_referrals
+         WHERE tenant_id = ? AND inviter_student_profile_id = ?
+         ORDER BY created_at DESC`,
+      )
+      .bind(tenantId, inviterStudentId)
+      .all<ReferralRow>();
+    return (result.results ?? []).map(mapReferral);
+  }
+
+  async getReferralByInviteToken(tenantId: string, inviteToken: string): Promise<MentoriaReferral | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_referrals
+         WHERE tenant_id = ? AND invite_token = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, inviteToken)
+      .first<ReferralRow>();
+    return row ? mapReferral(row) : null;
+  }
+
+  async getReferralByInvitee(tenantId: string, inviteeStudentId: string): Promise<MentoriaReferral | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_referrals
+         WHERE tenant_id = ? AND invitee_student_profile_id = ?
+         ORDER BY updated_at DESC
+         LIMIT 1`,
+      )
+      .bind(tenantId, inviteeStudentId)
+      .first<ReferralRow>();
+    return row ? mapReferral(row) : null;
+  }
+
+  async saveReferral(tenantId: string, referral: MentoriaReferral): Promise<MentoriaReferral> {
+    const existing = await this.db
+      .prepare(
+        `SELECT id FROM mentoria_referrals
+         WHERE tenant_id = ? AND id = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, referral.id)
+      .first<{ id: string }>();
+    const now = new Date().toISOString();
+
+    if (existing) {
+      await this.db
+        .prepare(
+          `UPDATE mentoria_referrals
+           SET invitee_student_profile_id = ?, invited_email = ?, referral_code = ?, invite_token = ?, status = ?,
+               reward_premium_days = ?, reward_points = ?, reward_features_json = ?, source = ?, registered_at = ?,
+               converted_at = ?, rewarded_at = ?, updated_at = ?
+           WHERE tenant_id = ? AND id = ?`,
+        )
+        .bind(
+          referral.inviteeStudentId ?? null,
+          referral.invitedEmail ?? null,
+          referral.referralCode,
+          referral.inviteToken ?? null,
+          referral.status,
+          referral.rewardPremiumDays,
+          referral.rewardPoints,
+          JSON.stringify(referral.rewardFeatures),
+          referral.source,
+          referral.registeredAt ?? null,
+          referral.convertedAt ?? null,
+          referral.rewardedAt ?? null,
+          now,
+          tenantId,
+          referral.id,
+        )
+        .run();
+    } else {
+      await this.db
+        .prepare(
+          `INSERT INTO mentoria_referrals (
+            id, tenant_id, inviter_student_profile_id, invitee_student_profile_id, invited_email,
+            referral_code, invite_token, status, reward_premium_days, reward_points, reward_features_json,
+            source, created_at, registered_at, converted_at, rewarded_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          referral.id,
+          tenantId,
+          referral.inviterStudentId,
+          referral.inviteeStudentId ?? null,
+          referral.invitedEmail ?? null,
+          referral.referralCode,
+          referral.inviteToken ?? null,
+          referral.status,
+          referral.rewardPremiumDays,
+          referral.rewardPoints,
+          JSON.stringify(referral.rewardFeatures),
+          referral.source,
+          referral.createdAt,
+          referral.registeredAt ?? null,
+          referral.convertedAt ?? null,
+          referral.rewardedAt ?? null,
+          now,
+        )
+        .run();
+    }
+
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_referrals
+         WHERE tenant_id = ? AND id = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, referral.id)
+      .first<ReferralRow>();
+    if (!row) {
+      throw new Error("MENTORIA_REFERRAL_PERSIST_FAILED");
+    }
+    return mapReferral(row);
+  }
+
+  async createProgressShare(tenantId: string, share: MentoriaProgressShare): Promise<MentoriaProgressShare> {
+    await this.db
+      .prepare(
+        `INSERT INTO mentoria_progress_shares (
+          id, tenant_id, student_profile_id, created_by_user_id, share_code, share_kind, title,
+          summary_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        share.id,
+        tenantId,
+        share.studentId,
+        share.createdByUserId,
+        share.shareCode,
+        share.shareKind,
+        share.title,
+        JSON.stringify(share.payload),
+        share.createdAt,
+        share.updatedAt,
+      )
+      .run();
+
+    const saved = await this.getProgressShareByCode(tenantId, share.shareCode);
+    if (!saved) {
+      throw new Error("MENTORIA_PROGRESS_SHARE_PERSIST_FAILED");
+    }
+    return saved;
+  }
+
+  async getLatestProgressShare(tenantId: string, studentId: string): Promise<MentoriaProgressShare | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_progress_shares
+         WHERE tenant_id = ? AND student_profile_id = ?
+         ORDER BY created_at DESC
+         LIMIT 1`,
+      )
+      .bind(tenantId, studentId)
+      .first<ProgressShareRow>();
+    return row ? mapProgressShare(row) : null;
+  }
+
+  async getProgressShareByCode(tenantId: string, shareCode: string): Promise<MentoriaProgressShare | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_progress_shares
+         WHERE tenant_id = ? AND share_code = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, shareCode)
+      .first<ProgressShareRow>();
+    return row ? mapProgressShare(row) : null;
+  }
+
+  async getProgressShareByCodeGlobal(shareCode: string): Promise<MentoriaProgressShare | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_progress_shares
+         WHERE share_code = ?
+         LIMIT 1`,
+      )
+      .bind(shareCode)
+      .first<ProgressShareRow>();
+    return row ? mapProgressShare(row) : null;
+  }
+
+  async upsertStudentProfile(input: {
+    tenantId: string;
+    userId: string;
+    fullName: string;
+    age: number;
+    schoolYear: string;
+    learningGoals: string[];
+    baseEmotionalState: StudentProfile["baseEmotionalState"];
+    emotionalBaseline: StudentProfile["emotionalBaseline"];
+    learningPreference: StudentProfile["learningPreference"];
+    preferredStudyMinutes: number;
+    strengths: string[];
+    onboardingCompleted: boolean;
+    supportNotes?: string;
+  }): Promise<StudentProfile> {
+    const existing = await this.getStudentProfileByUser(input.tenantId, input.userId);
+    const now = new Date().toISOString();
+    if (existing) {
+      await this.db
+        .prepare(
+          `UPDATE student_profiles
+           SET display_name = ?, full_name = ?, age = ?, grade_level = ?, school_year = ?, goals_json = ?, learning_goals_json = ?,
+               emotional_baseline = ?, base_emotional_state = ?, learning_style = ?, emotional_baseline_json = ?, learning_preference = ?, preferred_session_minutes = ?, preferred_study_minutes = ?,
+               strengths_json = ?, support_notes = ?, onboarding_completed = ?, updated_at = ?
+           WHERE tenant_id = ? AND user_id = ?`,
+        )
+        .bind(
+          input.fullName,
+          input.fullName,
+          input.age,
+          input.schoolYear,
+          input.schoolYear,
+          JSON.stringify(input.learningGoals),
+          JSON.stringify(input.learningGoals),
+          input.baseEmotionalState,
+          input.baseEmotionalState,
+          input.learningPreference,
+          JSON.stringify(input.emotionalBaseline),
+          input.learningPreference,
+          input.preferredStudyMinutes,
+          input.preferredStudyMinutes,
+          JSON.stringify(input.strengths),
+          input.supportNotes ?? null,
+          input.onboardingCompleted ? 1 : 0,
+          now,
+          input.tenantId,
+          input.userId,
+        )
+        .run();
+      return (await this.getStudentProfileByUser(input.tenantId, input.userId)) as StudentProfile;
+    }
+
+    const id = crypto.randomUUID();
+    await this.db
+      .prepare(
+        `INSERT INTO student_profiles (
+          id, tenant_id, display_name, user_id, full_name, age, grade_level, school_year, goals_json, learning_goals_json,
+          emotional_baseline, base_emotional_state, learning_style, emotional_baseline_json, learning_preference, preferred_session_minutes, preferred_study_minutes,
+          strengths_json, support_notes, onboarding_completed, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        id,
+        input.tenantId,
+        input.fullName,
+        input.userId,
+        input.fullName,
+        input.age,
+        input.schoolYear,
+        input.schoolYear,
+        JSON.stringify(input.learningGoals),
+        JSON.stringify(input.learningGoals),
+        input.baseEmotionalState,
+        input.baseEmotionalState,
+        input.learningPreference,
+        JSON.stringify(input.emotionalBaseline),
+        input.learningPreference,
+        input.preferredStudyMinutes,
+        input.preferredStudyMinutes,
+        JSON.stringify(input.strengths),
+        input.supportNotes ?? null,
+        input.onboardingCompleted ? 1 : 0,
+        now,
+        now,
+      )
+      .run();
+    return (await this.getStudentProfileById(input.tenantId, id)) as StudentProfile;
+  }
+
+  async seedSubjects(tenantId: string): Promise<MentoriaSubject[]> {
+    const defaults = [
+      ["matematicas", "Matematicas", "Razonamiento, calculo y resolucion guiada.", "core"],
+      ["lengua", "Lengua", "Comprension, expresion escrita y lectura.", "core"],
+      ["ciencias", "Ciencias", "Ciencias naturales y metodo cientifico.", "core"],
+      ["historia", "Historia", "Contexto, memoria y pensamiento critico.", "growth"],
+      ["ingles", "Ingles", "Comprension, speaking y vocabulario.", "growth"],
+    ] as const;
+
+    for (const [slug, name, description, difficultyBand] of defaults) {
+      const now = new Date().toISOString();
+      await this.db
+        .prepare(
+          `INSERT OR IGNORE INTO mentoria_subjects (
+            id, tenant_id, slug, name, description, difficulty_band, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(crypto.randomUUID(), tenantId, slug, name, description, difficultyBand, now, now)
+        .run();
+    }
+    return this.listSubjects(tenantId);
+  }
+
+  async listSubjects(tenantId: string): Promise<MentoriaSubject[]> {
+    const result = await this.db
+      .prepare(`SELECT * FROM mentoria_subjects WHERE tenant_id = ? ORDER BY name ASC`)
+      .bind(tenantId)
+      .all<SubjectRow>();
+    return (result.results ?? []).map(mapSubject);
+  }
+
+  async getSubjectBySlug(tenantId: string, slug: string): Promise<MentoriaSubject | null> {
+    const row = await this.db
+      .prepare(`SELECT * FROM mentoria_subjects WHERE tenant_id = ? AND slug = ? LIMIT 1`)
+      .bind(tenantId, slug)
+      .first<SubjectRow>();
+    return row ? mapSubject(row) : null;
+  }
+
+  async getSubjectById(tenantId: string, subjectId: string): Promise<MentoriaSubject | null> {
+    const row = await this.db
+      .prepare(`SELECT * FROM mentoria_subjects WHERE tenant_id = ? AND id = ? LIMIT 1`)
+      .bind(tenantId, subjectId)
+      .first<SubjectRow>();
+    return row ? mapSubject(row) : null;
+  }
+
+  async listParentAccounts(tenantId: string, studentProfileId: string): Promise<ParentAccount[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM parent_accounts
+         WHERE tenant_id = ? AND student_profile_id = ?
+         ORDER BY full_name ASC`,
+      )
+      .bind(tenantId, studentProfileId)
+      .all<ParentAccountRow>();
+    return (result.results ?? []).map(mapParent);
+  }
+
+  async deleteParentAccountsForStudent(tenantId: string, studentProfileId: string): Promise<void> {
+    await this.db
+      .prepare(`DELETE FROM parent_accounts WHERE tenant_id = ? AND student_profile_id = ?`)
+      .bind(tenantId, studentProfileId)
+      .run();
+  }
+
+  async getParentAccountByUser(tenantId: string, userId: string): Promise<ParentAccount | null> {
+    const row = await this.db
+      .prepare(`SELECT * FROM parent_accounts WHERE tenant_id = ? AND user_id = ? LIMIT 1`)
+      .bind(tenantId, userId)
+      .first<ParentAccountRow>();
+    return row ? mapParent(row) : null;
+  }
+
+  async upsertParentAccount(input: {
+    tenantId: string;
+    userId: string;
+    studentProfileId: string;
+    fullName: string;
+    email: string;
+    relation: string;
+    dailyStudyMinutes: number;
+    supervisionLevel: ParentAccount["supervisionLevel"];
+    canViewFullProgress: boolean;
+    canManageSchedule: boolean;
+    notificationPreferences?: string[];
+  }): Promise<ParentAccount> {
+    const existing = await this.getParentAccountByUser(input.tenantId, input.userId);
+    const now = new Date().toISOString();
+    if (existing) {
+      await this.db
+        .prepare(
+          `UPDATE parent_accounts
+           SET student_profile_id = ?, label = ?, display_name = ?, full_name = ?, email = ?, relationship = ?, relation = ?, visibility_mode = ?, relationship_label = ?,
+               notification_preferences_json = ?, daily_study_minutes = ?, supervision_level = ?,
+               daily_minutes_limit = ?, can_view_full_progress = ?, can_manage_schedule = ?, updated_at = ?
+           WHERE tenant_id = ? AND user_id = ?`,
+        )
+        .bind(
+          input.studentProfileId,
+          input.relation,
+          input.fullName,
+          input.fullName,
+          input.email,
+          input.relation,
+          input.fullName,
+          input.relation,
+          input.supervisionLevel,
+          input.relation,
+          JSON.stringify(input.notificationPreferences ?? []),
+          input.dailyStudyMinutes,
+          input.supervisionLevel,
+          input.dailyStudyMinutes,
+          input.canViewFullProgress ? 1 : 0,
+          input.canManageSchedule ? 1 : 0,
+          now,
+          input.tenantId,
+          input.userId,
+        )
+        .run();
+      return (await this.getParentAccountByUser(input.tenantId, input.userId)) as ParentAccount;
+    }
+
+    const id = crypto.randomUUID();
+    await this.db
+      .prepare(
+        `INSERT INTO parent_accounts (
+          id, tenant_id, user_id, student_profile_id, label, display_name, full_name, email, relationship, relation, visibility_mode, relationship_label,
+          notification_preferences_json, daily_study_minutes, supervision_level, can_view_full_progress,
+          can_manage_schedule, daily_minutes_limit, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        id,
+        input.tenantId,
+        input.userId,
+        input.studentProfileId,
+        input.relation,
+        input.fullName,
+        input.fullName,
+        input.email,
+        input.relation,
+        input.relation,
+        input.supervisionLevel,
+        input.relation,
+        JSON.stringify(input.notificationPreferences ?? []),
+        input.dailyStudyMinutes,
+        input.supervisionLevel,
+        input.canViewFullProgress ? 1 : 0,
+        input.canManageSchedule ? 1 : 0,
+        input.dailyStudyMinutes,
+        now,
+        now,
+      )
+      .run();
+    return (await this.getParentAccountByUser(input.tenantId, input.userId)) as ParentAccount;
+  }
+
+  async getCurrentStudyPlan(tenantId: string, studentProfileId: string): Promise<StudyPlan | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_study_plans
+         WHERE tenant_id = ? AND student_profile_id = ?
+         ORDER BY week_start DESC
+         LIMIT 1`,
+      )
+      .bind(tenantId, studentProfileId)
+      .first<StudyPlanRow>();
+    return row ? mapPlan(row) : null;
+  }
+
+  async replaceStudentSubjects(input: {
+    tenantId: string;
+    studentProfileId: string;
+    subjects: Array<{ subjectId: string; initialLevel: MentoriaInitialLevel }>;
+  }): Promise<MentoriaStudentSubject[]> {
+    await this.db
+      .prepare(`DELETE FROM mentoria_student_subjects WHERE tenant_id = ? AND student_profile_id = ?`)
+      .bind(input.tenantId, input.studentProfileId)
+      .run();
+
+    const now = new Date().toISOString();
+    for (const item of input.subjects) {
+      await this.db
+        .prepare(
+          `INSERT INTO mentoria_student_subjects (
+            id, tenant_id, student_profile_id, subject_id, initial_level, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(crypto.randomUUID(), input.tenantId, input.studentProfileId, item.subjectId, item.initialLevel, now, now)
+        .run();
+    }
+    return this.listStudentSubjects(input.tenantId, input.studentProfileId);
+  }
+
+  async listStudentSubjects(tenantId: string, studentProfileId: string): Promise<MentoriaStudentSubject[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_student_subjects
+         WHERE tenant_id = ? AND student_profile_id = ?
+         ORDER BY updated_at DESC`,
+      )
+      .bind(tenantId, studentProfileId)
+      .all<StudentSubjectRow>();
+    const rows = result.results ?? [];
+    const subjects = await this.listSubjects(tenantId);
+    const byId = new Map(subjects.map((subject) => [subject.id, subject]));
+    return rows.map((row) => mapStudentSubject(row, byId.get(row.subject_id)));
+  }
+
+  async saveStudyPlan(input: {
+    tenantId: string;
+    studentProfileId: string;
+    weekStart: string;
+    weekEnd: string;
+    goalsSummary: string;
+    blocks: StudyPlanBlock[];
+    generatedBy: string;
+  }): Promise<StudyPlan> {
+    const existing = await this.db
+      .prepare(
+        `SELECT id FROM mentoria_study_plans
+         WHERE tenant_id = ? AND student_profile_id = ? AND week_start = ?
+         LIMIT 1`,
+      )
+      .bind(input.tenantId, input.studentProfileId, input.weekStart)
+      .first<{ id: string }>();
+    const now = new Date().toISOString();
+
+    if (existing) {
+      await this.db
+        .prepare(
+          `UPDATE mentoria_study_plans
+           SET week_end = ?, goals_summary = ?, blocks_json = ?, generated_by = ?, updated_at = ?
+           WHERE tenant_id = ? AND id = ?`,
+        )
+        .bind(
+          input.weekEnd,
+          input.goalsSummary,
+          JSON.stringify(input.blocks),
+          input.generatedBy,
+          now,
+          input.tenantId,
+          existing.id,
+        )
+        .run();
+    } else {
+      await this.db
+        .prepare(
+          `INSERT INTO mentoria_study_plans (
+            id, tenant_id, student_profile_id, week_start, week_end, goals_summary,
+            blocks_json, generated_by, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          input.tenantId,
+          input.studentProfileId,
+          input.weekStart,
+          input.weekEnd,
+          input.goalsSummary,
+          JSON.stringify(input.blocks),
+          input.generatedBy,
+          now,
+          now,
+        )
+        .run();
+    }
+
+    return (await this.getCurrentStudyPlan(input.tenantId, input.studentProfileId)) as StudyPlan;
+  }
+
+  async listProgress(tenantId: string, studentProfileId: string): Promise<MentoriaProgress[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_progress
+         WHERE tenant_id = ? AND student_profile_id = ?
+         ORDER BY updated_at DESC`,
+      )
+      .bind(tenantId, studentProfileId)
+      .all<ProgressRow>();
+    const rows = result.results ?? [];
+    const subjects = await this.listSubjects(tenantId);
+    const byId = new Map(subjects.map((subject) => [subject.id, subject]));
+    return rows.map((row) => mapProgress(row, byId.get(row.subject_id)));
+  }
+
+  async upsertProgress(input: {
+    tenantId: string;
+    studentProfileId: string;
+    subjectId: string;
+    masteryScore: number;
+    confidenceScore: number;
+    streakDays: number;
+    sessionsCompleted: number;
+    exercisesCompleted: number;
+    weakTopics: string[];
+    strongTopics: string[];
+    lastActivityAt?: string;
+  }): Promise<MentoriaProgress> {
+    const existing = await this.db
+      .prepare(
+        `SELECT id FROM mentoria_progress
+         WHERE tenant_id = ? AND student_profile_id = ? AND subject_id = ?
+         LIMIT 1`,
+      )
+      .bind(input.tenantId, input.studentProfileId, input.subjectId)
+      .first<{ id: string }>();
+    const now = new Date().toISOString();
+
+    if (existing) {
+      await this.db
+        .prepare(
+          `UPDATE mentoria_progress
+           SET mastery_score = ?, confidence_score = ?, streak_days = ?, sessions_completed = ?,
+               exercises_completed = ?, weak_topics_json = ?, strong_topics_json = ?, last_activity_at = ?, updated_at = ?
+           WHERE tenant_id = ? AND id = ?`,
+        )
+        .bind(
+          input.masteryScore,
+          input.confidenceScore,
+          input.streakDays,
+          input.sessionsCompleted,
+          input.exercisesCompleted,
+          JSON.stringify(input.weakTopics),
+          JSON.stringify(input.strongTopics),
+          input.lastActivityAt ?? now,
+          now,
+          input.tenantId,
+          existing.id,
+        )
+        .run();
+    } else {
+      await this.db
+        .prepare(
+          `INSERT INTO mentoria_progress (
+            id, tenant_id, student_profile_id, subject_id, mastery_score, confidence_score, streak_days,
+            sessions_completed, exercises_completed, weak_topics_json, strong_topics_json, last_activity_at,
+            created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          input.tenantId,
+          input.studentProfileId,
+          input.subjectId,
+          input.masteryScore,
+          input.confidenceScore,
+          input.streakDays,
+          input.sessionsCompleted,
+          input.exercisesCompleted,
+          JSON.stringify(input.weakTopics),
+          JSON.stringify(input.strongTopics),
+          input.lastActivityAt ?? now,
+          now,
+          now,
+        )
+        .run();
+    }
+
+    return (await this.listProgress(input.tenantId, input.studentProfileId)).find((item) => item.subjectId === input.subjectId) as MentoriaProgress;
+  }
+
+  async deleteProgressForStudent(tenantId: string, studentProfileId: string): Promise<void> {
+    await this.db
+      .prepare(`DELETE FROM mentoria_progress WHERE tenant_id = ? AND student_profile_id = ?`)
+      .bind(tenantId, studentProfileId)
+      .run();
+  }
+
+  async listExercises(tenantId: string, studentProfileId: string, subjectId?: string): Promise<MentoriaExercise[]> {
+    const statement = subjectId
+      ? this.db.prepare(
+          `SELECT * FROM mentoria_exercises
+           WHERE tenant_id = ? AND student_profile_id = ? AND subject_id = ?
+           ORDER BY created_at DESC`,
+        ).bind(tenantId, studentProfileId, subjectId)
+      : this.db.prepare(
+          `SELECT * FROM mentoria_exercises
+           WHERE tenant_id = ? AND student_profile_id = ?
+           ORDER BY created_at DESC`,
+        ).bind(tenantId, studentProfileId);
+    const result = await statement.all<ExerciseRow>();
+    return (result.results ?? []).map(mapExercise);
+  }
+
+  async createExercise(input: {
+    tenantId: string;
+    studentProfileId: string;
+    subjectId: string;
+    sessionId?: string;
+    prompt: string;
+    expectedCompetency: string;
+    hints: string[];
+    answerFormat: string;
+    difficultyLevel: string;
+  }): Promise<MentoriaExercise> {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await this.db
+      .prepare(
+        `INSERT INTO mentoria_exercises (
+          id, tenant_id, student_profile_id, subject_id, session_id, prompt, expected_competency,
+          hints_json, answer_format, status, difficulty_level, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`,
+      )
+      .bind(
+        id,
+        input.tenantId,
+        input.studentProfileId,
+        input.subjectId,
+        input.sessionId ?? null,
+        input.prompt,
+        input.expectedCompetency,
+        JSON.stringify(input.hints),
+        input.answerFormat,
+        input.difficultyLevel,
+        now,
+        now,
+      )
+      .run();
+    return (await this.listExercises(input.tenantId, input.studentProfileId, input.subjectId)).find((exercise) => exercise.id === id) as MentoriaExercise;
+  }
+
+  async completeExercise(input: {
+    tenantId: string;
+    exerciseId: string;
+    studentProfileId: string;
+    studentAnswer: string;
+    correctionFeedback: string;
+    score: number;
+  }): Promise<MentoriaExercise | null> {
+    const now = new Date().toISOString();
+    await this.db
+      .prepare(
+        `UPDATE mentoria_exercises
+         SET student_answer = ?, correction_feedback = ?, score = ?, status = 'corrected', updated_at = ?
+         WHERE tenant_id = ? AND id = ? AND student_profile_id = ?`,
+      )
+      .bind(
+        input.studentAnswer,
+        input.correctionFeedback,
+        input.score,
+        now,
+        input.tenantId,
+        input.exerciseId,
+        input.studentProfileId,
+      )
+      .run();
+    const exercises = await this.listExercises(input.tenantId, input.studentProfileId);
+    return exercises.find((exercise) => exercise.id === input.exerciseId) ?? null;
+  }
+
+  async createLearningSession(input: {
+    tenantId: string;
+    studentProfileId: string;
+    subjectId: string;
+    topic: string;
+    transcript: MentoriaSessionMessage[];
+    emotionalState: string;
+    tutorSummary: string;
+    recommendedNextStep: string;
+    aiTokensUsed: number;
+  }): Promise<LearningSession> {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await this.db
+      .prepare(
+        `INSERT INTO mentoria_sessions (
+          id, tenant_id, mentor_id, client_id, student_profile_id, subject_id, topic, status,
+          duration_minutes, ai_tokens_used, transcript_json, emotional_state, tutor_summary,
+          recommended_next_step, created_at, updated_at
+        ) VALUES (?, ?, 'mentor-orchestrated', ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        id,
+        input.tenantId,
+        input.studentProfileId,
+        input.studentProfileId,
+        input.subjectId,
+        input.topic,
+        Math.max(10, input.transcript.length * 3),
+        input.aiTokensUsed,
+        JSON.stringify(input.transcript),
+        input.emotionalState,
+        input.tutorSummary,
+        input.recommendedNextStep,
+        now,
+        now,
+      )
+      .run();
+    return (await this.getLearningSessionById(input.tenantId, id)) as LearningSession;
+  }
+
+  async getLearningSessionById(tenantId: string, id: string): Promise<LearningSession | null> {
+    const row = await this.db
+      .prepare(`SELECT * FROM mentoria_sessions WHERE tenant_id = ? AND id = ? LIMIT 1`)
+      .bind(tenantId, id)
+      .first<LearningSessionRow>();
+    return row ? mapLearningSession(row) : null;
+  }
+
+  async listLearningSessions(tenantId: string, studentProfileId: string): Promise<LearningSession[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_sessions
+         WHERE tenant_id = ? AND student_profile_id = ?
+         ORDER BY created_at DESC
+         LIMIT 20`,
+      )
+      .bind(tenantId, studentProfileId)
+      .all<LearningSessionRow>();
+    return (result.results ?? []).map(mapLearningSession);
+  }
+
+  async countLearningSessionsForDay(tenantId: string, studentProfileId: string, isoDay: string): Promise<number> {
+    const row = await this.db
+      .prepare(
+        `SELECT COUNT(*) as total
+         FROM mentoria_sessions
+         WHERE tenant_id = ? AND student_profile_id = ? AND substr(created_at, 1, 10) = ?`,
+      )
+      .bind(tenantId, studentProfileId, isoDay)
+      .first<{ total: number }>();
+    return Number(row?.total ?? 0);
+  }
+
+  async countExercisesForDay(tenantId: string, studentProfileId: string, isoDay: string): Promise<number> {
+    const row = await this.db
+      .prepare(
+        `SELECT COUNT(*) as total
+         FROM mentoria_exercises
+         WHERE tenant_id = ? AND student_profile_id = ? AND substr(created_at, 1, 10) = ?`,
+      )
+      .bind(tenantId, studentProfileId, isoDay)
+      .first<{ total: number }>();
+    return Number(row?.total ?? 0);
+  }
+
+  async countPlannerRegenerationsForDay(tenantId: string, studentProfileId: string, isoDay: string): Promise<number> {
+    const row = await this.db
+      .prepare(
+        `SELECT COUNT(*) as total
+         FROM mentoria_study_plans
+         WHERE tenant_id = ? AND student_profile_id = ? AND substr(updated_at, 1, 10) = ?`,
+      )
+      .bind(tenantId, studentProfileId, isoDay)
+      .first<{ total: number }>();
+    return Number(row?.total ?? 0);
+  }
+
+  async startFocusSession(input: {
+    tenantId: string;
+    studentProfileId: string;
+    subjectId?: string;
+    studyPlanId?: string;
+    durationMinutes: number;
+    notes?: string;
+  }): Promise<FocusSession> {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await this.db
+      .prepare(
+        `INSERT INTO mentoria_focus_sessions (
+          id, tenant_id, student_profile_id, subject_id, study_plan_id, started_at,
+          duration_minutes, distractions_count, status, notes, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'active', ?, ?, ?)`,
+      )
+      .bind(
+        id,
+        input.tenantId,
+        input.studentProfileId,
+        input.subjectId ?? null,
+        input.studyPlanId ?? null,
+        now,
+        input.durationMinutes,
+        input.notes ?? null,
+        now,
+        now,
+      )
+      .run();
+    return (await this.getFocusSessionById(input.tenantId, id)) as FocusSession;
+  }
+
+  async completeFocusSession(input: {
+    tenantId: string;
+    focusSessionId: string;
+    studentProfileId: string;
+    distractionsCount: number;
+    notes?: string;
+  }): Promise<FocusSession | null> {
+    const now = new Date().toISOString();
+    await this.db
+      .prepare(
+        `UPDATE mentoria_focus_sessions
+         SET ended_at = ?, distractions_count = ?, status = 'completed', notes = ?, updated_at = ?
+         WHERE tenant_id = ? AND id = ? AND student_profile_id = ?`,
+      )
+      .bind(
+        now,
+        input.distractionsCount,
+        input.notes ?? null,
+        now,
+        input.tenantId,
+        input.focusSessionId,
+        input.studentProfileId,
+      )
+      .run();
+    return this.getFocusSessionById(input.tenantId, input.focusSessionId);
+  }
+
+  async getFocusSessionById(tenantId: string, focusSessionId: string): Promise<FocusSession | null> {
+    const row = await this.db
+      .prepare(`SELECT * FROM mentoria_focus_sessions WHERE tenant_id = ? AND id = ? LIMIT 1`)
+      .bind(tenantId, focusSessionId)
+      .first<FocusSessionRow>();
+    return row ? mapFocus(row) : null;
+  }
+
+  async listFocusSessions(tenantId: string, studentProfileId: string): Promise<FocusSession[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_focus_sessions
+         WHERE tenant_id = ? AND student_profile_id = ?
+         ORDER BY started_at DESC
+         LIMIT 20`,
+      )
+      .bind(tenantId, studentProfileId)
+      .all<FocusSessionRow>();
+    return (result.results ?? []).map(mapFocus);
+  }
+
+  async incrementSessionsCompleted(input: {
+    tenantId: string;
+    studentProfileId: string;
+    subjectId: string;
+  }): Promise<MentoriaProgress> {
+    const progress = await this.listProgress(input.tenantId, input.studentProfileId);
+    const current = progress.find((p) => p.subjectId === input.subjectId);
+    
+    if (!current) {
+      throw new Error("MENTORIA_PROGRESS_NOT_FOUND");
+    }
+
+    return this.upsertProgress({
+      tenantId: input.tenantId,
+      studentProfileId: input.studentProfileId,
+      subjectId: input.subjectId,
+      masteryScore: current.masteryScore,
+      confidenceScore: current.confidenceScore,
+      streakDays: current.streakDays,
+      sessionsCompleted: current.sessionsCompleted + 1,
+      exercisesCompleted: current.exercisesCompleted,
+      weakTopics: current.weakTopics,
+      strongTopics: current.strongTopics,
+      lastActivityAt: new Date().toISOString(),
+    });
+  }
+
+  async incrementExercisesCompleted(input: {
+    tenantId: string;
+    studentProfileId: string;
+    subjectId: string;
+  }): Promise<MentoriaProgress> {
+    const progress = await this.listProgress(input.tenantId, input.studentProfileId);
+    const current = progress.find((p) => p.subjectId === input.subjectId);
+    
+    if (!current) {
+      throw new Error("MENTORIA_PROGRESS_NOT_FOUND");
+    }
+
+    return this.upsertProgress({
+      tenantId: input.tenantId,
+      studentProfileId: input.studentProfileId,
+      subjectId: input.subjectId,
+      masteryScore: current.masteryScore,
+      confidenceScore: current.confidenceScore,
+      streakDays: current.streakDays,
+      sessionsCompleted: current.sessionsCompleted,
+      exercisesCompleted: current.exercisesCompleted + 1,
+      weakTopics: current.weakTopics,
+      strongTopics: current.strongTopics,
+      lastActivityAt: new Date().toISOString(),
+    });
+  }
+
+  async getDashboard(tenantId: string, studentProfileId: string): Promise<Omit<MentoriaDashboard, "billing"> | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT
+            s.id AS student_id,
+            s.full_name AS student_name,
+            s.school_year,
+            s.base_emotional_state,
+            s.preferred_study_minutes,
+            p.id AS plan_id,
+            p.week_start AS plan_week_start,
+            p.week_end AS plan_week_end,
+            p.goals_summary AS plan_goals_summary,
+            p.blocks_json AS plan_blocks_json
+         FROM student_profiles s
+         LEFT JOIN mentoria_study_plans p
+           ON p.tenant_id = s.tenant_id
+          AND p.student_profile_id = s.id
+          AND p.week_start = (
+            SELECT MAX(week_start) FROM mentoria_study_plans
+            WHERE tenant_id = s.tenant_id AND student_profile_id = s.id
+          )
+         WHERE s.tenant_id = ? AND s.id = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, studentProfileId)
+      .first<DashboardRow>();
+    if (!row) return null;
+
+    const [profile, subjects, studentSubjects, progress, sessions, focusSessions, parents, dailyPlan] = await Promise.all([
+      this.getStudentProfileById(tenantId, studentProfileId),
+      this.listSubjects(tenantId),
+      this.listStudentSubjects(tenantId, studentProfileId),
+      this.listProgress(tenantId, studentProfileId),
+      this.listLearningSessions(tenantId, studentProfileId),
+      this.listFocusSessions(tenantId, studentProfileId),
+      this.listParentAccounts(tenantId, studentProfileId),
+      this.getDailyPlan(tenantId, studentProfileId),
+    ]);
+
+    return {
+      student: profile as StudentProfile,
+      subjects,
+      studentSubjects,
+      currentPlan: row.plan_id
+        ? {
+            id: row.plan_id,
+            tenantId,
+            studentProfileId,
+            weekStart: row.plan_week_start as string,
+            weekEnd: row.plan_week_end as string,
+            goalsSummary: row.plan_goals_summary ?? "",
+            blocks: parseBlocks(row.plan_blocks_json),
+            generatedBy: "planner-agent",
+            createdAt: row.plan_week_start as string,
+            updatedAt: row.plan_week_end as string,
+          }
+        : null,
+      dailyPlan,
+      progress,
+      recentSessions: sessions,
+      focusSessions,
+      parents,
+    };
+  }
+}

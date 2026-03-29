@@ -20,8 +20,7 @@ import { createOrMergeActionFromWebhook } from "@/lib/owner/action-queue-reposit
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { queryOne } from "@/lib/db";
-import { createSaasFromBlueprint } from "@/lib/campamento-base/saas-factory-orchestrator";
-import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
+import { handleFactorySubscriptionActivation } from "@/lib/factory/contracts/stripe-subscription-activation";
 import {
   findStripeWebhookEvent,
   insertStripeWebhookReceived,
@@ -112,6 +111,12 @@ async function persistSubscriptionFromStripe(subscription: Stripe.Subscription) 
   const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
   if (!customerId) {
     console.warn("STRIPE_WEBHOOK_CUSTOMER_MISSING", subscription.id);
+    return;
+  }
+  // Canonical SaaS products such as Mentoria sync through `saas_subscriptions`.
+  // Writing them into `drako_subscriptions` would require a legacy `clients.id`
+  // relationship that product-auth flows do not have.
+  if (metadata.saasSlug && !metadata.saasPlanId) {
     return;
   }
   if (metadata.saasPlanId) {
@@ -217,6 +222,7 @@ async function persistCanonicalSubscriptionState(params: {
 async function handleCheckoutSession(
   stripe: Stripe,
   session: Stripe.Checkout.Session,
+  correlationId?: string,
 ): Promise<{ subscription: Stripe.Subscription; metadata: SubscriptionMetadata } | null> {
   const metadata = extractMetadata(session.metadata);
   if (!metadata) {
@@ -258,46 +264,27 @@ async function handleCheckoutSession(
     }
   }
 
-  if (metadata.plan === "mentoria_ia") {
-    try {
-      console.log("[STRIPE_WEBHOOK] Triggering MentorIA SaaS Factory", { tenantId: metadata.tenantId });
-      const blueprint = withCampamentoBaseProfile({
-        ownerTenantId: metadata.tenantId,
-        saasName: "MentorIA Escolar",
-        proposedSlug: metadata.saasSlug ?? "mentor-ia-escolar",
-        proposedSubdomain: metadata.saasSlug ?? "mentor-ia-escolar",
-        verticalId: "OTHER",
-        summary: "IA para tutoría escolar",
-        targetAudience: "Instituciones educativas",
-        mainProblem: "Falta de apoyo personalizado",
-        mainGoal: "Brindar tutoría mediante IA",
-        packsByDepartment: {
-          accounting: "BASIC",
-          marketing: "BASIC",
-          support: "BASIC"
-        },
-        initialPricing: {
-          currentMonthlyPrice: 49,
-          estimatedVendorCostMonthly: 10,
-        },
-        aiProfile: {
-          tier: "BALANCED",
-        }
-      });
-
-      await createSaasFromBlueprint({
-        env: env(),
-        ownerTenantId: metadata.tenantId,
-        blueprint,
-      });
-
-      console.log("[STRIPE_WEBHOOK] MentorIA SaaS Factory completed", { tenantId: metadata.tenantId });
-    } catch (error) {
-      console.error("[STRIPE_WEBHOOK] MENTOR_IA_FACTORY_ERROR", {
+  try {
+    const factoryActivation = await handleFactorySubscriptionActivation({
+      plan: metadata.plan,
+      tenantId: metadata.tenantId,
+      saasSlug: metadata.saasSlug ?? null,
+      correlationId,
+    });
+    if (factoryActivation.handled) {
+      console.log("[STRIPE_WEBHOOK] Factory contract queued", {
         tenantId: metadata.tenantId,
-        error: error instanceof Error ? error.message : String(error),
+        contract: factoryActivation.contract,
+        jobId: factoryActivation.jobId ?? null,
+        queued: factoryActivation.queued ?? false,
       });
     }
+  } catch (error) {
+    console.error("[STRIPE_WEBHOOK] FACTORY_CONTRACT_ERROR", {
+      tenantId: metadata.tenantId,
+      error: error instanceof Error ? error.message : String(error),
+      contract: "billing_subscription_activation",
+    });
   }
 
   return { subscription, metadata };
@@ -457,7 +444,7 @@ export async function POST(request: Request) {
       switch (event.type) {
         case "checkout.session.completed":
           {
-            const checkoutResult = await handleCheckoutSession(stripe, event.data.object as Stripe.Checkout.Session);
+            const checkoutResult = await handleCheckoutSession(stripe, event.data.object as Stripe.Checkout.Session, correlationId);
             if (checkoutResult) {
               await persistCanonicalSubscriptionState({
                 subscription: checkoutResult.subscription,

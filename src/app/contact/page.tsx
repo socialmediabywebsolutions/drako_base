@@ -52,7 +52,7 @@ export default async function ContactPage({
                        </p>
                        <div className="bg-white p-8 rounded-2xl border border-slate-200 mt-8">
                           <p className="text-base text-slate-500 italic">
-                             "{copy.contact.note}"
+                            &quot;{copy.contact.note}&quot;
                           </p>
                        </div>
                     </div>

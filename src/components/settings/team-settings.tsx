@@ -191,7 +191,7 @@ export default function TeamSettings({ workspaceName, inviteBaseUrl, members, in
               No pending invites yet. Invite a teammate when you want to bring operators or admins into the workspace.
             </div>
           ) : invites.map((invite) => {
-            const inviteUrl = `${inviteBaseUrl}/auth/register?invite=${invite.token}`;
+            const inviteUrl = `${inviteBaseUrl}/bases/register?invite=${invite.token}`;
             return (
               <div key={invite.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">

@@ -61,6 +61,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     console.error("AI_CHAT_ERROR", error);
-    return NextResponse.json({ ok: false, error: "AI unavailable" }, { status: 503 });
+    const message = error instanceof Error ? error.message : "DRAKO_AI_NOT_AVAILABLE";
+    const status = message === "DRAKO_AI_NOT_AVAILABLE" ? 503 : 500;
+    return NextResponse.json({ ok: false, error: message }, { status });
   }
 }

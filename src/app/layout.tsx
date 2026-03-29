@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import ShellLayout from "@/components/layouts/shell-layout";
 import HostSwitcher from "@/components/dev/HostSwitcher";
 import { Providers } from "./providers";
+import { NextAuthProviders } from "./nextauth-providers";
 import { shouldEnableNextAuthClient } from "@/lib/platform/surfaces";
 import { defaultMarketingLocale, resolveLocaleFromRequest } from "@/lib/i18n/marketing";
 import "./globals.css";
@@ -85,7 +86,11 @@ export default async function RootLayout({
     <html lang={htmlLang} className="light" suppressHydrationWarning>
       <body className="antialiased bg-white text-slate-900">
         <Providers enableNextAuth={enableNextAuth}>
-          {usePublicShell ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
+          {enableNextAuth ? (
+            <NextAuthProviders>
+              {usePublicShell ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
+            </NextAuthProviders>
+          ) : usePublicShell ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
           <HostSwitcher />
         </Providers>
       </body>

@@ -85,7 +85,7 @@ export const authOptions: NextAuthOptions = {
   adapter: DrakoD1AuthAdapter(),
   providers: buildProviders(),
   pages: {
-    signIn: "/auth/login",
+    signIn: "/bases/login",
   },
   callbacks: {
     async signIn({ user }) {
@@ -100,7 +100,7 @@ export const authOptions: NextAuthOptions = {
     async redirect({ url, baseUrl }) {
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       if (new URL(url).origin === baseUrl) return url;
-      return `${baseUrl}/client`;
+      return `${baseUrl}/bases`;
     },
     async session({ session }) {
       if (!session.user) return session;

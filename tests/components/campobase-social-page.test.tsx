@@ -157,7 +157,7 @@ describe("Campobase social automation dashboard", () => {
     render(<CampoBaseSocialPage />);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(fetchMock).toHaveBeenCalledWith("/api/campobase/socialflow", { cache: "no-store" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/operator/socialflow", { cache: "no-store" });
   });
 
   it("renders metrics, SaaS table and history table", async () => {
@@ -243,12 +243,12 @@ describe("Campobase social automation dashboard", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
 
     const postCall = fetchMock.mock.calls[1];
-    expect(postCall[0]).toBe("/api/campobase/socialflow");
+    expect(postCall[0]).toBe("/api/operator/socialflow");
     expect(postCall[1]?.method).toBe("POST");
     expect(JSON.parse(postCall[1]?.body as string)).toEqual({ action: "run_all" });
 
     const refreshCall = fetchMock.mock.calls[2];
-    expect(refreshCall[0]).toBe("/api/campobase/socialflow");
+    expect(refreshCall[0]).toBe("/api/operator/socialflow");
     expect(refreshCall[1]?.method).toBeUndefined();
   });
 
@@ -276,7 +276,7 @@ describe("Campobase social automation dashboard", () => {
     });
 
     const refreshCall = fetchMock.mock.calls[2];
-    expect(refreshCall[0]).toBe("/api/campobase/socialflow?tenantId=tenant-1&saasId=saas-1");
+    expect(refreshCall[0]).toBe("/api/operator/socialflow?tenantId=tenant-1&saasId=saas-1");
     expect(screen.getByText("Filtered by saas-1")).toBeInTheDocument();
   });
 
@@ -313,7 +313,7 @@ describe("Campobase social automation dashboard", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
 
     const resetCall = fetchMock.mock.calls[2];
-    expect(resetCall[0]).toBe("/api/campobase/socialflow");
+    expect(resetCall[0]).toBe("/api/operator/socialflow");
     expect(screen.getByText("Global history")).toBeInTheDocument();
   });
 
@@ -375,7 +375,7 @@ describe("Campobase social automation dashboard", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
     const filterCall = fetchMock.mock.calls[1];
-    expect(filterCall[0]).toBe("/api/campobase/socialflow?tenantId=tenant-1&saasId=saas-1");
+    expect(filterCall[0]).toBe("/api/operator/socialflow?tenantId=tenant-1&saasId=saas-1");
     expect(screen.getByText("Filtered by saas-1")).toBeInTheDocument();
   });
 
@@ -394,7 +394,7 @@ describe("Campobase social automation dashboard", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
 
     const clearCall = fetchMock.mock.calls[2];
-    expect(clearCall[0]).toBe("/api/campobase/socialflow");
+    expect(clearCall[0]).toBe("/api/operator/socialflow");
     expect(screen.getByText("Global history")).toBeInTheDocument();
   });
 

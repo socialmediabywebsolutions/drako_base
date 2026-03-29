@@ -116,7 +116,7 @@ export async function resolveHostToSaas(hostname: string, providedCorrelationId?
       } else {
         // Domain matched but NOT active (e.g. pending, failed, or locked).
         // Should we return error or redirect?
-        // User requirement: "si Host == custom_domain pero status != active => redirigir al trial_domain o mostrar /client/domains con aviso (NO 500)"
+        // User requirement: if Host == custom_domain but status != active, redirect to the trial domain or show a domain warning without returning 500.
         // We return a status that middleware can handle (e.g. DOMAIN_NOT_ACTIVE)
         return {
           status: "PENDING",

@@ -63,7 +63,7 @@ export default function SitePanelPage() {
     setError(null);
     try {
       const [saasRes, invoicesRes, ticketsRes] = await Promise.all([
-        fetch("/api/saas", { cache: "no-store" }),
+        fetch("/api/operator/saas", { cache: "no-store" }),
         fetch(`/api/invoices?client_id=${session.clientId}&saas_id=${session.saasId}`, { cache: "no-store" }),
         fetch(`/api/tickets?saas_id=${session.saasId}`, { cache: "no-store" }),
       ]);

@@ -20,13 +20,14 @@ function resolveDefaultTenantId(context: Exclude<AuthsContext, "bases">): string
   if (context === "mentorias") {
     return process.env.MENTORIAS_DEFAULT_TENANT_ID ?? defaultTenantFromBindings ?? "mentoria-core";
   }
+  if (context === "socialflow") {
+    return process.env.SOCIALFLOW_DEFAULT_TENANT_ID ?? defaultTenantFromBindings ?? "socialflow-core";
+  }
   return process.env.DRAKOS_DEFAULT_TENANT_ID ?? defaultTenantFromBindings ?? "demo-tenant";
 }
 
 function resolveRole(email: string): "admin" | "user" {
-  const cfEnv = resolveEnv();
-  const adminEmail = cfEnv?.ADMIN_EMAIL ?? process.env.ADMIN_EMAIL ?? "";
-  if (adminEmail.trim().toLowerCase() === email.trim().toLowerCase()) return "admin";
+  void email;
   return "user";
 }
 

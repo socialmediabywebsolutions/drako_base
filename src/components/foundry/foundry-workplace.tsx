@@ -51,7 +51,7 @@ export function FoundryWorkplace({ blueprint }: FoundryWorkplaceProps) {
         const initContract = async () => {
             if (!blueprint) return;
             try {
-                const res = await fetch("/api/campamento-base/contracts", {
+                const res = await fetch("/api/factory/contracts", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -85,7 +85,7 @@ export function FoundryWorkplace({ blueprint }: FoundryWorkplaceProps) {
         setIsTyping(true);
 
         try {
-            const response = await fetch("/api/campamento-base/saas-factory/chat", {
+            const response = await fetch("/api/factory/blueprints/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

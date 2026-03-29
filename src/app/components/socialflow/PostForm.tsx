@@ -27,7 +27,7 @@ export function PostForm(props: {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/social/posts", {
+      const res = await fetch("/api/socialflow/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

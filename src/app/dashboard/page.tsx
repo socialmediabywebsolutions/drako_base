@@ -1,2 +1,5 @@
-import ClientDashboard from "@/app/client/page";
-export default ClientDashboard;
+import { redirect } from "next/navigation";
+
+export default function DashboardLegacyRedirect() {
+  redirect("/socialflow");
+}

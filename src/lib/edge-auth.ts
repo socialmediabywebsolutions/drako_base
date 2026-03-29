@@ -167,14 +167,14 @@ export async function extractSessionFromRequest(
         }
 
         // Explicit hard wall: if a foreign SaaS cookie is present, reject.
-        const foreignContexts: AuthsContext[] = ["drakos", "mentorias", "bases"].filter((item) => item !== context) as AuthsContext[];
+        const foreignContexts: AuthsContext[] = ["drakos", "mentorias", "socialflow", "bases"].filter((item) => item !== context) as AuthsContext[];
         for (const foreign of foreignContexts) {
             const foreignCookie = req.cookies.get(getAuthsCookieName(foreign))?.value;
             if (foreignCookie) return null;
         }
 
         // Do not accept legacy next-auth cookies or bearer tokens when isolation is enabled.
-        if (isTenantWorkspacePath(pathname) || isTenantWorkspaceApiPath(pathname)) {
+        if (shouldAcceptNextAuthDatabaseSession(context, pathname)) {
             const nextAuthSessionToken =
                 req.cookies.get("__Secure-next-auth.session-token")?.value ||
                 req.cookies.get("next-auth.session-token")?.value;
@@ -300,7 +300,12 @@ function base64UrlDecode(input: string): Uint8Array {
 }
 
 function base64UrlDecodeToString(input: string): string {
-    const bytes = base64UrlDecode(input);
-    const decoder = new TextDecoder();
-    return decoder.decode(bytes);
+  const bytes = base64UrlDecode(input);
+  const decoder = new TextDecoder();
+  return decoder.decode(bytes);
+}
+
+function shouldAcceptNextAuthDatabaseSession(context: AuthsContext, pathname: string): boolean {
+    void pathname;
+    return context === "bases";
 }

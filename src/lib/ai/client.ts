@@ -1,9 +1,4 @@
-// Server-only AI client that routes all model calls through Cloudflare AI Gateway.
-// Supports two modes:
-//  A) Binding mode (env.AI.run) for Workers AI directly via gateway id.
-//  B) OpenAI-compatible gateway fetch for extensibility (workers-ai/{model} and future providers).
-
-import { DracoEnv } from "@/lib/cf";
+import { env } from "@/lib/cf";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -34,46 +29,35 @@ const MODEL_FAST = "@cf/meta/llama-3-8b-instruct";
 const MODEL_SMART = "@cf/meta/llama-3.1-70b-instruct";
 
 
-// Prefixed with _ to silence unused warning until implemented/connected
 export function _selectModel(mode: AiMode): string {
   return mode === "fast" ? MODEL_FAST : MODEL_SMART;
 }
 
-function buildMetadata(req: AiRequest) {
-  const meta = {
+function buildMetadata(req: AiRequest): string {
+  return JSON.stringify({
     tenantId: req.tenantId,
     saasId: req.saasId ?? undefined,
     agentId: req.agentId ?? undefined,
     department: req.department ?? undefined,
     plan: req.plan ?? undefined,
     mode: req.mode,
-  };
-  return JSON.stringify(meta);
+  });
 }
 
-function getGatewayCompatUrl(e: DracoEnv) {
-  if (!e.CLOUDFLARE_ACCOUNT_ID || !e.AI_GATEWAY_ID) return null;
-  // OpenAI-compatible chat completions endpoint
-  return `https://gateway.ai.cloudflare.com/v1/${e.CLOUDFLARE_ACCOUNT_ID}/${e.AI_GATEWAY_ID}/compat/chat/completions`;
-}
-
-
-// Prefixed with _ to silence unused warning until implemented/connected
-export async function _callViaBinding(req: AiRequest, e: DracoEnv, model: string): Promise<AiResponse> {
-  const binding = (e as unknown as { AI?: AiBinding })?.AI;
-  if (!binding?.run) {
-    throw new Error("AI binding not configured (AI)");
-  }
+export async function _callViaBinding(req: AiRequest, binding: AiBinding, model: string): Promise<AiResponse> {
   const start = Date.now();
   const metadata = buildMetadata(req);
-  const res = (await binding.run(model, {
-    messages: req.messages,
-    metadata,
-  }, {
-    gateway: { id: e.AI_GATEWAY_ID },
-    cacheTtl: req.cache ? 300 : 0,
-    skipCache: !req.cache,
-  })) as unknown;
+  const res = (await binding.run(
+    model,
+    {
+      messages: req.messages,
+      metadata,
+    },
+    {
+      cacheTtl: req.cache ? 300 : 0,
+      skipCache: !req.cache,
+    },
+  )) as unknown;
 
   const durationMs = Date.now() - start;
 
@@ -99,57 +83,15 @@ export async function _callViaBinding(req: AiRequest, e: DracoEnv, model: string
     durationMs,
     tenantId: req.tenantId,
     hasContent: !!content,
-    hasRes: !!res
+    hasRes: !!res,
   });
 
   return {
     ok: true,
     content,
     usage: {
-      tokens: (typeof bindingRes?.response === 'object' ? bindingRes?.response?.tokens : undefined) || bindingRes?.usage?.total_tokens
+      tokens: (typeof bindingRes?.response === "object" ? bindingRes?.response?.tokens : undefined) || bindingRes?.usage?.total_tokens,
     },
-    model,
-    provider: "workers-ai"
-  };
-}
-
-
-// Prefixed with _ to silence unused warning until implemented/connected
-export async function _callViaCompat(req: AiRequest, e: DracoEnv, model: string): Promise<AiResponse> {
-  const url = getGatewayCompatUrl(e);
-  if (!url) throw new Error("AI Gateway compat URL not configured (missing CLOUDFLARE_ACCOUNT_ID or AI_GATEWAY_ID)");
-  const start = Date.now();
-  const metadata = buildMetadata(req);
-  const body = {
-    model: `workers-ai/${model}`,
-    messages: req.messages,
-  };
-  const headers: Record<string, string> = {
-    "content-type": "application/json",
-    "cf-aig-metadata": metadata,
-  };
-  if (e.AI_GATEWAY_COMPAT_TOKEN) headers.authorization = `Bearer ${e.AI_GATEWAY_COMPAT_TOKEN}`;
-
-  const resp = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
-  const durationMs = Date.now() - start;
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    console.error("AI_COMPAT_ERROR", { status: resp.status, text });
-    throw new Error(`AI compat request failed: ${resp.status}`);
-  }
-  const json = (await resp.json()) as {
-    choices?: { message?: { content?: string } }[];
-    usage?: { total_tokens?: number };
-  };
-  console.log("AI_COMPAT_CALL", { provider: "workers-ai", model, durationMs, tenantId: req.tenantId, agentId: req.agentId, cache: !!req.cache });
-  return {
-    ok: true,
-    content: json.choices?.[0]?.message?.content ?? "",
-    usage: { tokens: json.usage?.total_tokens },
     model,
     provider: "workers-ai",
   };
@@ -160,57 +102,13 @@ export async function runAi(req: AiRequest & { taskType?: string }): Promise<AiR
     throw new Error("messages are required");
   }
 
-  const workerUrl = process.env.AUTOPILOT_WORKER_URL || "http://localhost:8787";
-  const workerSecret = process.env.VERCEL_TO_WORKER_SECRET;
+  const runtimeEnv = env();
+  const model = _selectModel(req.mode);
+  const binding = runtimeEnv?.AI;
 
-  try {
-    const response = await fetch(`${workerUrl}/internal/ai/run`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${workerSecret}`,
-        "X-Drako-Origin-Secret": workerSecret || "",
-        "X-Drako-Tenant-Id": req.tenantId,
-        "X-Drako-Saas-Id": req.saasId || "",
-      },
-      body: JSON.stringify({
-        messages: req.messages,
-        taskType: req.taskType || "default",
-        mode: req.mode,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}) as any) as any;
-      console.error("AI_WORKER_ERROR", { status: response.status, errorData });
-      throw new Error((errorData as { error?: string }).error || `AI Worker returned ${response.status}`);
-    }
-
-    const data = await response.json() as any;
-    return {
-      ok: true,
-      content: data.content,
-      usage: data.usage,
-      model: data.model,
-      provider: "workers-ai", // The router tells us it's CF AI for now
-    };
-  } catch (error) {
-    console.error("AI_ROUTER_FETCH_ERROR", error);
-    // Legacy Mock Fallback for local dev without worker
-    if (process.env.NODE_ENV === "development") {
-      console.warn("AI_MOCK_FALLBACK: Worker unavailable, using mock");
-      const { generateMockResponse } = await import("./mock-client");
-      const assistantMessages = req.messages.filter(m => m.role === "assistant");
-      const inferredPhase = Math.max(0, assistantMessages.length);
-      const mockData = generateMockResponse(req.messages, inferredPhase);
-      return {
-        ok: true,
-        content: JSON.stringify(mockData),
-        usage: { tokens: 150 },
-        model: "mock-drako-partner",
-        provider: "workers-ai"
-      };
-    }
-    throw error;
+  if (!binding?.run) {
+    throw new Error("DRAKO_AI_NOT_AVAILABLE");
   }
+
+  return _callViaBinding(req, binding, model);
 }

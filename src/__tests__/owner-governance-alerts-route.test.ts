@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "../app/api/owner/governance/alerts/route";
-import { UnauthorizedError } from "../lib/auth/session";
+import { requireOwnerAccess, UnauthorizedError } from "../lib/auth/session";
+import { listOperatorGovernanceView } from "../lib/ops/operator-governance-view";
 import type { GovernanceRow } from "../lib/ops/operator-governance-view";
 
 vi.mock("../lib/auth/session", () => ({
@@ -17,8 +18,8 @@ vi.mock("../lib/ops/operator-governance-view", () => ({
   listOperatorGovernanceView: vi.fn(),
 }));
 
-const mockRequireOwnerAccess = require("../lib/auth/session").requireOwnerAccess as unknown as ReturnType<typeof vi.fn>;
-const mockListView = require("../lib/ops/operator-governance-view").listOperatorGovernanceView as unknown as ReturnType<typeof vi.fn>;
+const mockRequireOwnerAccess = vi.mocked(requireOwnerAccess);
+const mockListView = vi.mocked(listOperatorGovernanceView);
 
 function makeRow(overrides: Partial<GovernanceRow> = {}): GovernanceRow {
   return {

@@ -20,7 +20,7 @@ export default function AdminPage() {
     const correlationId = crypto.randomUUID();
 
     Promise.all([
-      fetch(`/api/saas`, { cache: "no-store" }),
+      fetch(`/api/operator/saas`, { cache: "no-store" }),
       fetch(`/api/departments`, { cache: "no-store" }),
       fetch(`/api/inbox`, { cache: "no-store" }),
     ])

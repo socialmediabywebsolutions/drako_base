@@ -9,10 +9,20 @@ import {
   DatabaseUnavailableError,
   getRequestBindings,
 } from "@/lib/db";
-import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import type { NextRequest } from "next/server";
 import { getPagesBuildStamp } from "@/lib/pages/build-stamp";
 
+function resolveTenantFallback(host: string): string | null {
+  const normalizedHost = host.split(":")[0]?.trim().toLowerCase() ?? "";
+  if (
+    normalizedHost === "localhost" ||
+    normalizedHost === "127.0.0.1" ||
+    normalizedHost.endsWith(".workers.dev")
+  ) {
+    return "demo-tenant";
+  }
+  return null;
+}
 
 export async function GET(request: Request) {
   const blocked = await enforcePublicEndpointPolicy({ request, route: "/api/health" });
@@ -20,6 +30,7 @@ export async function GET(request: Request) {
 
   const correlationId = globalThis.crypto?.randomUUID?.() ?? `health_${Date.now()}`;
   const noStoreHeaders = { headers: { "Cache-Control": "no-store" } };
+  const tenantFallback = resolveTenantFallback(request.headers.get("host") ?? "");
 
   let buildStamp: unknown;
   const dbPing = { ok: false, error: null as string | null };
@@ -52,7 +63,7 @@ export async function GET(request: Request) {
           db: { status: dbStatus, reason: dbPing.error },
           dbPing,
           correlationId,
-          tenantFallback: DEMO_TENANT_ID,
+          tenantFallback,
           statusUrl: "/api/status.json",
         },
         { status: 503, ...noStoreHeaders },
@@ -73,7 +84,7 @@ export async function GET(request: Request) {
         db: { status: dbStatus, reason: dbPing.error },
         dbPing,
         correlationId,
-        tenantFallback: DEMO_TENANT_ID,
+        tenantFallback,
         statusUrl: "/api/status.json",
       },
       { status: 503, ...noStoreHeaders },
@@ -116,7 +127,7 @@ export async function GET(request: Request) {
       dbPing,
       bindings: bindingsStatus,
       build: buildStamp || { gitSha: process.env.NEXT_PUBLIC_GIT_SHA || "unknown" },
-      tenantFallback: DEMO_TENANT_ID,
+      tenantFallback,
       correlationId,
       statusUrl: "/api/status.json",
     },

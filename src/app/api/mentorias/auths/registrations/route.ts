@@ -2,9 +2,11 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { mentoriasAuths } from "@/lib/auths/mentorias-auths";
+import { deleteUserWithCredential } from "@/lib/auths/repositories";
 import { jsonError, setAuthsSessionCookie } from "@/lib/auths/http";
 import { isAuthsIsolationEnabled, isTelemetriesHoldingEnabled } from "@/lib/auths/flags";
 import { recordCampamentoEvent } from "@/lib/empire/events";
+import { MentoriaFamilyService } from "@/lib/mentoria/family-service";
 import { enforceAuthBoundary, resolveSaasSlugForAuthContext } from "@/lib/auths/ssot";
 
 type RegistrationBody = {
@@ -26,15 +28,36 @@ export async function POST(request: Request) {
     return jsonError("INVALID_INPUT", "Email and password are required.");
   }
 
+  const familyService = new MentoriaFamilyService();
+  const registrationFamily = await familyService.resolveRegistrationFamily({
+    email: body.email,
+    name: body.name ?? null,
+    preferredRole: "tutor",
+  });
+
   const registration = await mentoriasAuths.register({
     context: "mentorias",
     email: body.email,
     password: body.password,
     name: body.name ?? null,
-    tenantId: body.tenantId ?? null,
+    tenantId: registrationFamily.familyId,
   });
   if (!registration.ok) {
     return jsonError(registration.code, registration.message, registration.code === "EMAIL_EXISTS" ? 409 : 400);
+  }
+
+  try {
+    await familyService.finalizeRegistration({
+      userId: registration.userId,
+      email: body.email,
+      tenantId: registration.tenantId,
+      name: body.name ?? null,
+      role: registrationFamily.guardianRole,
+    });
+  } catch (error) {
+    await deleteUserWithCredential({ context: "mentorias", userId: registration.userId });
+    const message = error instanceof Error ? error.message : "FAMILY_REGISTRATION_FAILED";
+    return jsonError(message, "Failed to create family membership.", 500);
   }
 
   const login = await mentoriasAuths.login({
@@ -46,6 +69,13 @@ export async function POST(request: Request) {
     return jsonError(login.code, login.message, 401);
   }
 
+  const familyBundle = await familyService.getFamilyForSession({
+    userId: login.userId,
+    email: body.email.trim().toLowerCase(),
+    tenantId: login.tenantId,
+    role: login.role,
+  });
+
   const response = NextResponse.json({
     ok: true,
     user: {
@@ -55,6 +85,9 @@ export async function POST(request: Request) {
       tenantId: login.tenantId,
       saas_slug: resolveSaasSlugForAuthContext("mentorias"),
     },
+    family: familyBundle.family,
+    guardians: familyBundle.guardians,
+    students: familyBundle.students,
   }, { status: 201 });
 
   setAuthsSessionCookie({ response, context: "mentorias", token: login.token });

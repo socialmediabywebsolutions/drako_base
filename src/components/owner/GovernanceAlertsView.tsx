@@ -137,7 +137,7 @@ export default function GovernanceAlertsView() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/owner/governance/alerts?${queryString}`, { cache: "no-store" });
+      const res = await fetch(`/api/operator/governance/alerts?${queryString}`, { cache: "no-store" });
       const json = (await res.json()) as ApiResponse;
       if (!json.ok) {
         throw new Error(json.message || json.code || "Failed to load alerts");
@@ -371,13 +371,13 @@ export default function GovernanceAlertsView() {
                   </div>
 
                   <div className="flex flex-wrap gap-2 text-xs">
-                    <Button variant="outline" size="sm" onClick={() => window.open(`/owner/governance?saasSlug=${selected.saasSlug}`, "_blank")}>Open governance</Button>
-                    <Button variant="outline" size="sm" onClick={() => window.open(`/owner/projects/${selected.saasSlug}`, "_blank")}>SaaS</Button>
+                    <Button variant="outline" size="sm" onClick={() => window.open(`/operator/governance?saasSlug=${selected.saasSlug}`, "_blank")}>Open governance</Button>
+                    <Button variant="outline" size="sm" onClick={() => window.open(`/operator/projects/${selected.saasSlug}`, "_blank")}>SaaS</Button>
                     {selected.domainId && (
-                      <Button variant="outline" size="sm" onClick={() => window.open(`/owner/domains/${selected.domainId}`, "_blank")}>Domain</Button>
+                      <Button variant="outline" size="sm" onClick={() => window.open(`/operator/domains?domainId=${selected.domainId}`, "_blank")}>Domain</Button>
                     )}
-                    <Button variant="outline" size="sm" onClick={() => window.open(`/owner/factory/jobs?saas=${selected.saasSlug}`, "_blank")}>Provisioning</Button>
-                    <Button variant="outline" size="sm" onClick={() => window.open(`/owner/billing?saas=${selected.saasSlug}`, "_blank")}>Billing</Button>
+                    <Button variant="outline" size="sm" onClick={() => window.open(`/operator`, "_blank")}>Provisioning</Button>
+                    <Button variant="outline" size="sm" onClick={() => window.open(`/billing?saas=${selected.saasSlug}`, "_blank")}>Billing</Button>
                   </div>
                 </div>
               )}

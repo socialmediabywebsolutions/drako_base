@@ -20,7 +20,7 @@ type ControlResponse = {
   code?: string;
 };
 
-const endpoint = "/api/campobase/socialflow";
+const endpoint = "/api/operator/socialflow";
 
 function formatDate(value: string): string {
   const parsed = new Date(value);
@@ -110,7 +110,7 @@ export default function CampoBaseSocialAutomationControl() {
     <div className="space-y-6 p-6">
       <Card
         tone="glass"
-        title="Campo Base Social Automation"
+        title="Operator Social Automation"
         subtitle="Control de automatización social por SaaS"
         right={status ? `${status.total} saas registrados` : "Control interno"}
         actions={(

@@ -2,7 +2,7 @@
 
 
 import { useFormState, useFormStatus } from 'react-dom';
-import { submitStrategicForm } from '@/app/client/actions';
+import { submitStrategicForm } from '@/modules/socialflow-app/actions';
 import Button from '@/components/ui/button';
 import { TextInput, Field } from '@/components/ui/input';
 import Card from '@/components/ui/card';
