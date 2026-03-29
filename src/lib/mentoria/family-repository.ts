@@ -65,15 +65,16 @@ export class MentoriaFamilyRepository {
   constructor(private readonly db: DbLike = getDb()) {}
 
   async getFamilyById(familyId: string): Promise<MentoriaFamily | null> {
-    const row = await this.db
+    const result = await this.db
       .prepare(`SELECT id, created_at FROM families WHERE id = ? LIMIT 1`)
       .bind(familyId)
-      .first<FamilyRow>();
+      .all<FamilyRow>();
+    const row = result.results?.[0];
     return row ? mapFamily(row) : null;
   }
 
   async getGuardianByFamilyAndEmail(familyId: string, email: string): Promise<MentoriaGuardian | null> {
-    const row = await this.db
+    const result = await this.db
       .prepare(
         `SELECT id, email, name, family_id, role, created_at
          FROM guardians
@@ -81,12 +82,13 @@ export class MentoriaFamilyRepository {
          LIMIT 1`,
       )
       .bind(familyId, email)
-      .first<GuardianRow>();
+      .all<GuardianRow>();
+    const row = result.results?.[0];
     return row ? mapGuardian(row) : null;
   }
 
   async getGuardianByEmail(email: string): Promise<MentoriaGuardian | null> {
-    const row = await this.db
+    const result = await this.db
       .prepare(
         `SELECT id, email, name, family_id, role, created_at
          FROM guardians
@@ -95,7 +97,8 @@ export class MentoriaFamilyRepository {
          LIMIT 1`,
       )
       .bind(email)
-      .first<GuardianRow>();
+      .all<GuardianRow>();
+    const row = result.results?.[0];
     return row ? mapGuardian(row) : null;
   }
 
@@ -184,7 +187,7 @@ export class MentoriaFamilyRepository {
       .bind(studentId, input.name.trim(), input.age ?? null, input.level ?? null, input.familyId)
       .run();
 
-    const row = await this.db
+    const result = await this.db
       .prepare(
         `SELECT id, name, age, level, family_id, created_at
          FROM students
@@ -192,7 +195,8 @@ export class MentoriaFamilyRepository {
          LIMIT 1`,
       )
       .bind(studentId, input.familyId)
-      .first<StudentRow>();
+      .all<StudentRow>();
+    const row = result.results?.[0];
     if (!row) {
       throw new Error("STUDENT_CREATE_FAILED");
     }
@@ -206,7 +210,7 @@ export class MentoriaFamilyRepository {
     age?: number | null;
     level?: string | null;
   }): Promise<MentoriaFamilyStudent> {
-    const existing = await this.db
+    const existingResult = await this.db
       .prepare(
         `SELECT id, name, age, level, family_id, created_at
          FROM students
@@ -214,7 +218,8 @@ export class MentoriaFamilyRepository {
          LIMIT 1`,
       )
       .bind(input.id, input.familyId)
-      .first<StudentRow>();
+      .all<StudentRow>();
+    const existing = existingResult.results?.[0];
 
     if (existing) {
       await this.db
@@ -235,7 +240,7 @@ export class MentoriaFamilyRepository {
         .run();
     }
 
-    const row = await this.db
+    const result = await this.db
       .prepare(
         `SELECT id, name, age, level, family_id, created_at
          FROM students
@@ -243,7 +248,8 @@ export class MentoriaFamilyRepository {
          LIMIT 1`,
       )
       .bind(input.id, input.familyId)
-      .first<StudentRow>();
+      .all<StudentRow>();
+    const row = result.results?.[0];
     if (!row) {
       throw new Error("STUDENT_UPSERT_FAILED");
     }
@@ -281,7 +287,7 @@ export class MentoriaFamilyRepository {
   }
 
   async getStudentById(studentId: string): Promise<MentoriaFamilyStudent | null> {
-    const row = await this.db
+    const result = await this.db
       .prepare(
         `SELECT id, name, age, level, family_id, created_at
          FROM students
@@ -289,7 +295,8 @@ export class MentoriaFamilyRepository {
          LIMIT 1`,
       )
       .bind(studentId)
-      .first<StudentRow>();
+      .all<StudentRow>();
+    const row = result.results?.[0];
     return row ? mapStudent(row) : null;
   }
 }
