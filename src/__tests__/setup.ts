@@ -1,5 +1,14 @@
 import { vi } from "vitest";
 
+// Mock @/lib/cf FIRST
+vi.mock("@/lib/cf", () => ({
+  env: () => ({
+    DRACO_DB: {} as D1Database,
+    SESSION_SECRET: "test-session-secret-32chars-min",
+  }),
+  setGlobalEnv: vi.fn(),
+}));
+
 vi.mock("server-only", () => ({}));
 
 // Mock Next.js headers

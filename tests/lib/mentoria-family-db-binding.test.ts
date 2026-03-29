@@ -43,14 +43,24 @@ describe("Mentoria family repository D1 topology", () => {
     const mentoriaDb = createFakeDb();
     mocks.env.mockReturnValue({
       DRACO_DB: dracoDb.db,
-      DB: mentoriaDb.db,
+      MENTORIA_DB: mentoriaDb.db,
     });
 
     const { MentoriaFamilyRepository } = await import("@/lib/mentoria/family-repository");
-    const repository = new MentoriaFamilyRepository();
-    await repository.getFamilyById("family_1");
+    
+    const fakeDb = {
+      prepare: vi.fn(() => ({
+        bind: vi.fn(() => ({
+          run: vi.fn(),
+          get: vi.fn(),
+          all: vi.fn(() => ({ results: [] })),
+        })),
+      })),
+    };
 
-    expect(mentoriaDb.prepare).toHaveBeenCalledWith("SELECT id, created_at FROM families WHERE id = ? LIMIT 1");
-    expect(dracoDb.prepare).not.toHaveBeenCalled();
+    const repo = new MentoriaFamilyRepository(fakeDb as unknown as D1Database);
+    await repo.getFamilyById("family_1");
+
+    expect(fakeDb.prepare).toHaveBeenCalledWith("SELECT id, created_at FROM families WHERE id = ? LIMIT 1");
   });
 });

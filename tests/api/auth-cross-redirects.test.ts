@@ -232,6 +232,21 @@ describe("auth ssot drift guard", () => {
       },
     }));
 
+    const mockDb = {
+      prepare: vi.fn(() => ({
+        bind: vi.fn(() => ({
+          run: vi.fn().mockResolvedValue({ success: true }),
+          all: vi.fn().mockResolvedValue({ results: [] }),
+        })),
+      })),
+    };
+
+    vi.doMock("@/lib/cf", () => ({
+      env: () => ({
+        MENTORIA_DB: mockDb,
+      }),
+    }));
+
     const { POST } = await import("@/app/api/mentorias/auths/registrations/route");
     const response = await POST(
       new Request("https://mentoria.drako.systems/api/mentorias/auths/registrations", {

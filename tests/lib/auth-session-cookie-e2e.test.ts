@@ -107,6 +107,52 @@ describe("auth cookie/session e2e by context", () => {
       getDb: () => mockDb as unknown as D1Database,
     }));
 
+    // Mock MentoriaFamilyRepository
+    const mockRepo = {
+      getGuardianByEmail: vi.fn().mockResolvedValue({
+        id: "guardian_1",
+        email: "owner@mentoria.ai",
+        familyId: "tenant_mentorias",
+        role: "tutor",
+      }),
+      getGuardianByFamilyAndEmail: vi.fn().mockResolvedValue({
+        id: "guardian_1",
+        email: "owner@mentoria.ai",
+        familyId: "tenant_mentorias",
+        role: "tutor",
+      }),
+      createFamily: vi.fn().mockResolvedValue({ id: "tenant_mentorias", createdAt: new Date().toISOString() }),
+      getFamilyBundle: vi.fn().mockResolvedValue({
+        family: { id: "tenant_mentorias", createdAt: new Date().toISOString() },
+        guardians: [],
+        students: [],
+      }),
+      createStudent: vi.fn().mockResolvedValue({
+        id: "student_1",
+        name: "Student",
+        age: null,
+        level: null,
+        familyId: "tenant_mentorias",
+        createdAt: new Date().toISOString(),
+      }),
+      upsertGuardian: vi.fn().mockResolvedValue({
+        id: "guardian_1",
+        email: "owner@mentoria.ai",
+        familyId: "tenant_mentorias",
+        role: "tutor",
+        createdAt: new Date().toISOString(),
+      }),
+      ensureFamilyMembershipByUser: vi.fn().mockResolvedValue(true),
+    };
+
+    vi.doMock("@/lib/mentoria/family-repository", () => ({
+      MentoriaFamilyRepository: class {
+        constructor() {
+          return mockRepo;
+        }
+      },
+    }));
+
     vi.doMock("@/lib/auths/mentorias-auths", () => ({
       mentoriasAuths: {
         register: vi.fn().mockResolvedValue({ ok: true, userId: "u2" }),
@@ -123,6 +169,12 @@ describe("auth cookie/session e2e by context", () => {
     });
     vi.doMock("@/lib/empire/events", () => ({
       recordCampamentoEvent: vi.fn(),
+    }));
+
+    vi.doMock("@/lib/cf", () => ({
+      env: () => ({
+        MENTORIA_DB: mockDb as unknown as D1Database,
+      }),
     }));
 
     const { POST } = await import("@/app/api/mentorias/auths/registrations/route");

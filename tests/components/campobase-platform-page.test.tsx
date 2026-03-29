@@ -150,7 +150,7 @@ describe("Platform operator control surface", () => {
     }));
 
     await screen.findByText("SocialFlow content generation");
-    fireEvent.click(screen.getByRole("button", { name: "Run now" }));
+    fireEvent.click(screen.getByRole("button", { name: /run automation socialflow.content_generation/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
@@ -180,7 +180,7 @@ describe("Platform operator control surface", () => {
     }));
 
     await screen.findByText("linkedin");
-    fireEvent.click(screen.getByRole("button", { name: "Validate" }));
+    fireEvent.click(screen.getByRole("button", { name: /validate integration linkedin/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 

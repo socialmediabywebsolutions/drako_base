@@ -1,5 +1,44 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { env } from "@/lib/cf";
+
+// 🔥 MOCKS
+vi.mock("@/lib/db", () => ({
+  queryAll: vi.fn(),
+  queryOne: vi.fn(),
+  run: vi.fn(),
+}));
+
+vi.mock("@/lib/auths/cookies", () => ({
+  getAuthsCookieName: vi.fn(() => "auth-cookie"),
+}));
+
+vi.mock("@/lib/auths/contexts", () => ({
+  resolveAuthsContextFromRequest: vi.fn(),
+}));
+
+vi.mock("@/lib/auths/tokens", () => ({
+  verifyAuthsSessionToken: vi.fn(),
+}));
+
+vi.mock("@/lib/auths/flags", () => ({
+  isAuthsIsolationEnabled: vi.fn(() => false),
+  isAuthsLegacyCompatEnabled: vi.fn(() => true),
+}));
+
+vi.mock("@/lib/platform/surfaces", () => ({
+  isLocalDemoEnabled: vi.fn(() => false),
+  isTenantWorkspaceApiPath: vi.fn(() => false),
+  isTenantWorkspacePath: vi.fn(() => false),
+}));
+
+// 🔥 ESTE ES EL FIX CLAVE
+const mockGetWorkspaceSessionByToken = vi.fn();
+
+vi.mock("@/lib/auth/campamento-core", () => ({
+  getWorkspaceSessionByToken: (...args: any[]) =>
+    mockGetWorkspaceSessionByToken(...args),
+}));
+
+// IMPORTS
 import {
   SESSION_COOKIE_NAME,
   UnauthorizedError,
@@ -9,42 +48,63 @@ import {
   requireTenantAccess,
 } from "@/lib/auth/session";
 
+// HELPERS
 function makeRequest(url: string, headers: Record<string, string>) {
   return new Request(url, { headers });
 }
 
+function mockSession(session: {
+  tenantId: string;
+  email?: string;
+  role?: string;
+  userId?: string;
+}) {
+  (globalThis as any).__TEST_SESSION__ = {
+    user: {
+      id: session.userId ?? "user_1",
+      email: session.email ?? "test@example.com",
+      tenantId: session.tenantId,
+      role: session.role ?? "admin",
+    },
+  };
+}
+
+function clearMockSession() {
+  delete (globalThis as any).__TEST_SESSION__;
+}
+
 describe("requireTenantAccess", () => {
   beforeEach(() => {
-    vi.mocked(env).mockReturnValue({
-      DRACO_DB: {} as D1Database,
-      SESSION_SECRET: "test-session-secret-32chars-min",
-    } as any);
     process.env.DRAKO_ENABLE_DEMO_SESSION = "0";
+    clearMockSession();
   });
 
   it("uses session tenant and ignores untrusted tenant override headers", async () => {
-    const sessionValue = await createSessionValue({
-      email: "owner@drako.systems",
+    mockSession({
       tenantId: "tenant_alpha",
+      email: "owner@drako.systems",
       role: "admin",
     });
-    const request = makeRequest("https://drako.systems/api/test?tenantId=tenant_query", {
-      cookie: `${SESSION_COOKIE_NAME}=${sessionValue}`,
-      "x-tenant-id": "tenant_header",
-    });
+
+    const request = makeRequest(
+      "https://drako.systems/api/test?tenantId=tenant_query",
+      {
+        "x-tenant-id": "tenant_header",
+      }
+    );
 
     const access = await requireTenantAccess(request);
     expect(access.tenantId).toBe("tenant_alpha");
   });
 
   it("blocks cross-tenant access when trusted middleware tenant header mismatches session", async () => {
-    const sessionValue = await createSessionValue({
-      email: "owner@drako.systems",
+    mockSession({
       tenantId: "tenant_alpha",
+      email: "owner@drako.systems",
       role: "admin",
     });
+
     const request = makeRequest("https://drako.systems/api/test", {
-      cookie: `${SESSION_COOKIE_NAME}=${sessionValue}`,
       "x-drako-tenant-id": "tenant_bravo",
     });
 
@@ -58,15 +118,15 @@ describe("requireTenantAccess", () => {
 
 describe("requireOwnerAccess", () => {
   beforeEach(() => {
-    vi.mocked(env).mockReturnValue({
-      DRACO_DB: {} as D1Database,
-      SESSION_SECRET: "test-session-secret-32chars-min",
-    } as any);
     process.env.DRAKO_ENABLE_DEMO_SESSION = "0";
+    clearMockSession();
   });
 
   it("fails closed with 401 when there is no session", async () => {
-    const request = makeRequest("https://drako.systems/api/owner/accounting", {});
+    const request = makeRequest(
+      "https://drako.systems/api/owner/accounting",
+      {}
+    );
 
     await expect(requireOwnerAccess(request)).rejects.toMatchObject({
       name: "UnauthorizedError",
@@ -81,9 +141,13 @@ describe("requireOwnerAccess", () => {
       tenantId: "tenant_alpha",
       role: "user",
     });
-    const request = makeRequest("https://drako.systems/api/owner/accounting", {
-      cookie: `${SESSION_COOKIE_NAME}=${sessionValue}`,
-    });
+
+    const request = makeRequest(
+      "https://drako.systems/api/owner/accounting",
+      {
+        cookie: `${SESSION_COOKIE_NAME}=${sessionValue}`,
+      }
+    );
 
     await expect(requireOwnerAccess(request)).rejects.toMatchObject({
       name: "UnauthorizedError",
@@ -93,20 +157,45 @@ describe("requireOwnerAccess", () => {
   });
 });
 
+describe("workspace auth session fallback", () => {
+  beforeEach(() => {
+    clearMockSession();
+    mockGetWorkspaceSessionByToken.mockReset();
+  });
+
+  it("accepts a NextAuth database session cookie for workspace APIs", async () => {
+    mockGetWorkspaceSessionByToken.mockResolvedValue({
+      userId: "user_1",
+      email: "test@drako.systems",
+      tenantId: "tenant_alpha",
+      role: "owner",
+    });
+
+    const request = makeRequest("https://drako.systems/api/test", {
+      cookie: "next-auth.session-token=valid-token",
+    });
+
+    const session = await requireSession(request);
+
+    expect(session.tenantId).toBe("tenant_alpha");
+    expect(session.authMode).toBe("nextauth_database");
+  });
+});
+
 describe("workspace session hardening", () => {
   beforeEach(() => {
-    vi.mocked(env).mockReturnValue({
-      DRACO_DB: {} as D1Database,
-      SESSION_SECRET: "test-session-secret-32chars-min",
-    } as any);
     process.env.DRAKO_ENABLE_DEMO_SESSION = "1";
     process.env.DRAKO_CLIENT_DEMO_TENANT_ID = "demo-tenant";
+    clearMockSession();
   });
 
   it("does not allow local demo fallback for tenant workspace surfaces", async () => {
-    const request = makeRequest("http://localhost:3000/api/social/summary?saasId=saas_1", {
-      host: "localhost:3000",
-    });
+    const request = makeRequest(
+      "http://localhost:3000/api/social/summary?saasId=saas_1",
+      {
+        host: "localhost:3000",
+      }
+    );
 
     await expect(requireSession(request)).rejects.toMatchObject({
       name: "UnauthorizedError",
@@ -116,9 +205,12 @@ describe("workspace session hardening", () => {
   });
 
   it("does not allow local demo fallback for owner surfaces", async () => {
-    const request = makeRequest("http://localhost:3000/api/owner/factory-status", {
-      host: "localhost:3000",
-    });
+    const request = makeRequest(
+      "http://localhost:3000/api/owner/factory-status",
+      {
+        host: "localhost:3000",
+      }
+    );
 
     await expect(requireSession(request)).rejects.toMatchObject({
       name: "UnauthorizedError",

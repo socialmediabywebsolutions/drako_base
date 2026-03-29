@@ -334,6 +334,8 @@ export default function PlatformOperatorControlSurface(props: {
                               loading={busyKey === `run_automation:${item.automationKey}`}
                               disabled={!item.enabled}
                               onClick={() => void runAction("run_automation", { automationKey: item.automationKey })}
+                              aria-label={`Run automation ${item.automationKey}`}
+                              data-testid={`run-automation-${item.automationKey}`}
                             >
                               Run now
                             </Button>

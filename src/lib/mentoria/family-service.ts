@@ -5,7 +5,11 @@ import type { MentoriaGuardianRole } from "@/lib/mentoria/types";
 type FamilyActor = MentoriaRequestSession;
 
 export class MentoriaFamilyService {
-  constructor(private readonly repository: MentoriaFamilyRepository) {}
+  constructor(private readonly repository: MentoriaFamilyRepository) {
+    if (!repository) {
+      throw new Error("REPOSITORY_REQUIRED");
+    }
+  }
 
   private assertActor(actor: FamilyActor): asserts actor is FamilyActor & { email: string; tenantId: string } {
     if (!actor.email || !actor.tenantId) {

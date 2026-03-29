@@ -7,6 +7,9 @@ import { jsonError, setAuthsSessionCookie } from "@/lib/auths/http";
 import { isAuthsIsolationEnabled, isTelemetriesHoldingEnabled } from "@/lib/auths/flags";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import { MentoriaFamilyService } from "@/lib/mentoria/family-service";
+import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
+import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
+import { env } from "@/lib/cf";
 import { enforceAuthBoundary, resolveSaasSlugForAuthContext } from "@/lib/auths/ssot";
 
 type RegistrationBody = {
@@ -28,7 +31,9 @@ export async function POST(request: Request) {
     return jsonError("INVALID_INPUT", "Email and password are required.");
   }
 
-  const familyService = new MentoriaFamilyService();
+  const db = getMentoriaDb(env?.());
+  const repository = new MentoriaFamilyRepository(db);
+  const familyService = new MentoriaFamilyService(repository);
   const registrationFamily = await familyService.resolveRegistrationFamily({
     email: body.email,
     name: body.name ?? null,

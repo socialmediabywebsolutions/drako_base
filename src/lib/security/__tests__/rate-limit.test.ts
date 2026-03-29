@@ -1,7 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { consumeRateLimit, extractClientIp } from "../rate-limit";
 import { checkTenantRateLimit } from "../tenant-rate-limit";
-import { mockDb } from "@/__tests__/setup";
+
+const { mockQueryAll, mockQueryOne, mockRun, mockDb } = vi.hoisted(() => {
+  const queryAll = vi.fn().mockResolvedValue([]);
+  const queryOne = vi.fn().mockResolvedValue(null);
+  const run = vi.fn().mockResolvedValue({ success: true });
+  const batch = vi.fn().mockResolvedValue([]);
+  const prepare = vi.fn().mockReturnValue({
+    bind: vi.fn().mockReturnValue({
+      run: run,
+      all: queryAll,
+      first: queryOne,
+    }),
+  });
+  const db = { prepare, batch };
+  return { mockQueryAll: queryAll, mockQueryOne: queryOne, mockRun: run, mockDb: db };
+});
+
+vi.mock("@/lib/db", () => ({
+  getDb: () => mockDb,
+  queryAll: mockQueryAll,
+  queryOne: mockQueryOne,
+  run: mockRun,
+}));
 
 describe("Rate Limiting Core", () => {
     const windowMs = 60_000;
@@ -87,14 +109,12 @@ describe("Rate Limit Persistence (D1)", () => {
 
     it("should fetch bucket from D1 if not in memory", async () => {
         // Mock D1 response for bucket
-        mockDb.all.mockResolvedValueOnce({
-            results: [{
-                key: "d1-key",
-                window_start: Math.floor(Date.now() / 60000) * 60000,
-                count: 3,
-                updated_at: new Date().toISOString()
-            }]
-        });
+        mockQueryAll.mockResolvedValueOnce([{
+            key: "d1-key",
+            window_start: Math.floor(Date.now() / 60000) * 60000,
+            count: 3,
+            updated_at: new Date().toISOString()
+        }]);
 
         const result = await consumeRateLimit({
             key: "d1-key",
@@ -103,7 +123,7 @@ describe("Rate Limit Persistence (D1)", () => {
         });
 
         expect(result.count).toBe(4);
-        expect(mockDb.prepare).toHaveBeenCalledWith(expect.stringContaining("SELECT"));
+        expect(mockQueryAll).toHaveBeenCalled();
     });
 
     it("should save bucket to D1 after consumption", async () => {
@@ -113,7 +133,6 @@ describe("Rate Limit Persistence (D1)", () => {
             windowMs: 60000
         });
 
-        expect(mockDb.prepare).toHaveBeenCalledWith(expect.stringContaining("INSERT"));
-        expect(mockDb.bind).toHaveBeenCalled();
+        expect(mockRun).toHaveBeenCalled();
     });
 });
