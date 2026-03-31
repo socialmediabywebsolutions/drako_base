@@ -12,7 +12,7 @@
 
 import { getDb } from "@/lib/db";
 import { getEventsByStudent } from "@/lib/mentoria/event-system";
-import { crypto } from "@cloudflare/workers-types";
+import { randomUUID } from "crypto";
 
 export type AlertType = "LOW_ACTIVITY" | "REPEATED_ERRORS" | "NO_PROGRESS" | "DROPOUT_RISK";
 export type AlertSeverity = "low" | "medium" | "high";
@@ -209,7 +209,7 @@ async function createAlert(
   severity: AlertSeverity,
   message: string
 ): Promise<Alert> {
-  const alertId = crypto.randomUUID();
+  const alertId = randomUUID();
   const createdAt = new Date().toISOString();
 
   await db

@@ -8,7 +8,7 @@
  */
 
 import { getDb } from "@/lib/db";
-import { crypto } from "@cloudflare/workers-types";
+import { randomUUID } from "crypto";
 
 export type EventType =
   | "student.session.started"
@@ -44,7 +44,7 @@ export interface Event extends EventPayload {
  */
 export async function emitEvent(payload: EventPayload): Promise<Event> {
   const db = getDb();
-  const eventId = crypto.randomUUID();
+  const eventId = randomUUID();
   const createdAt = new Date().toISOString();
 
   const metadataJson = payload.metadata ? JSON.stringify(payload.metadata) : null;

@@ -12,7 +12,7 @@
 import { getDb } from "@/lib/db";
 import { getEventsByStudent } from "@/lib/mentoria/event-system";
 import { generateNotificationsFromEvent, emitEvent } from "@/lib/mentoria/event-system";
-import { crypto } from "@cloudflare/workers-types";
+import { randomUUID } from "crypto";
 
 export type SummaryType = "daily" | "weekly";
 
@@ -202,7 +202,7 @@ export async function generateDailySummary(
   const summaryContent = await callAIForSummary(prompt);
 
   // Guardar en D1
-  const summaryId = crypto.randomUUID();
+  const summaryId = randomUUID();
   const createdAt = new Date().toISOString();
 
   await db
@@ -267,7 +267,7 @@ export async function generateWeeklySummary(
   const summaryContent = await callAIForSummary(prompt);
 
   // Guardar en D1
-  const summaryId = crypto.randomUUID();
+  const summaryId = randomUUID();
   const createdAt = new Date().toISOString();
 
   await db
