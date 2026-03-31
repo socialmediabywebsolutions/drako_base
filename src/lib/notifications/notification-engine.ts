@@ -10,7 +10,7 @@
 import { getDb } from "@/lib/db";
 import { Event, EventType } from "@/lib/mentoria/event-system";
 import { getWhatsAppContacts } from "@/lib/notifications/whatsapp-service";
-import { crypto } from "@cloudflare/workers-types";
+import { randomUUID } from "crypto";
 
 export type NotificationChannel = "app" | "whatsapp";
 export type NotificationStatus = "pending" | "sent" | "failed" | "delivered";
@@ -142,7 +142,7 @@ async function createNotification(
   channel: NotificationChannel,
   event: Event
 ): Promise<Notification> {
-  const notificationId = crypto.randomUUID();
+  const notificationId = randomUUID();
   const createdAt = new Date().toISOString();
 
   const payload = generateNotificationPayload(event, channel);

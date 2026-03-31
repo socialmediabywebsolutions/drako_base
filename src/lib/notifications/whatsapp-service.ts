@@ -9,7 +9,7 @@
  */
 
 import { getDb } from "@/lib/db";
-import { crypto } from "@cloudflare/workers-types";
+import { randomUUID } from "crypto";
 
 export interface WhatsAppMessage {
   to: string;
@@ -137,7 +137,7 @@ export class WhatsAppService {
    * Mock para desarrollo/testing
    */
   private async sendMockMessage(message: WhatsAppMessage): Promise<{ messageId: string; status: string }> {
-    const messageId = crypto.randomUUID();
+    const messageId = randomUUID();
     console.log(`[MOCK WhatsApp] To: ${message.to}, Body: ${message.body}`);
     return {
       messageId,
@@ -155,7 +155,7 @@ export async function registerWhatsAppContact(
   verified: boolean = false
 ): Promise<{ id: string; guardianId: string; phoneNumber: string }> {
   const db = getDb();
-  const contactId = crypto.randomUUID();
+  const contactId = randomUUID();
 
   await db
     .prepare(
