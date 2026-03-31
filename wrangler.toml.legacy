@@ -1,40 +1,16 @@
-name = "drako-base-3"
-pages_build_output_dir = ".open-next"
-
-# ✅ Production D1 Database
-[[d1_databases]]
-binding = "DRACO_DB"
-database_name = "drako_db_prod"
-database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
-
-# ✅ Workers AI binding
-[ai]
-binding = "AI"
-
-compatibility_date = "2025-02-14"
+name = "drako-base"
+main = ".open-next/worker.js"
+compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
 
-# ✅ Provisioning Queue (Producer)
-[[queues.producers]]
-queue = "drako-billing-queue"
-binding = "BILLING_QUEUE"
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_local"
+database_id = "local-dev"
 
-# ✅ SaaS Factory Queue
-[[queues.producers]]
-queue = "drako-saas-factory-queue"
-binding = "SAAS_FACTORY_QUEUE"
-
-# ✅ Provisioning Queue (Phase 3.1 Hardening)
-[[queues.producers]]
-queue = "drako-provisioning-queue"
-binding = "PROVISIONING_QUEUE"
-
-[[queues.consumers]]
-queue = "drako-saas-factory-queue"
-# Consumer logic must be exported by the main worker script
-
-# ✅ Scheduler Service Binding (Phase 3)
-[[services]]
-binding = "SCHEDULER"
-service = "drako-scheduler"
-
+[env.local]
+name = "drako-base-local"
+[[env.local.d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_local"
+database_id = "local-dev"
