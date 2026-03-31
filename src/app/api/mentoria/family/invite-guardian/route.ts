@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireCurrentMentoriaSession } from "@/lib/mentoria/auth/request";
 import { MentoriaFamilyService } from "@/lib/mentoria/family-service";
+import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
+import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
 import type { MentoriaGuardianRole } from "@/lib/mentoria/types";
 
 function statusFor(message: string) {
@@ -21,7 +23,9 @@ export async function POST(request: Request) {
       name?: string | null;
       role?: MentoriaGuardianRole;
     } | null;
-    const service = new MentoriaFamilyService();
+    const db = getMentoriaDb();
+    const repository = new MentoriaFamilyRepository(db);
+    const service = new MentoriaFamilyService(repository);
     const result = await service.inviteGuardian(actor, {
       email: body?.email,
       name: body?.name ?? null,

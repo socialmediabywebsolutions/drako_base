@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const origin = requestUrl.origin;
   
-  let callbackPath = "/auth/linkedin/callback";
+  const callbackPath = "/auth/linkedin/callback";
   const redirectUri = `${origin}${callbackPath}`;
   
   const state = `${tenantId}__${saasId}`;

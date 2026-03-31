@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireCurrentMentoriaSession } from "@/lib/mentoria/auth/request";
 import { MentoriaFamilyService } from "@/lib/mentoria/family-service";
+import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
+import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
 
 function statusFor(message: string) {
   if (message === "SESSION_REQUIRED") return 401;
@@ -20,7 +22,9 @@ export async function POST(request: Request) {
       age?: number | null;
       level?: string | null;
     } | null;
-    const service = new MentoriaFamilyService();
+    const db = getMentoriaDb();
+    const repository = new MentoriaFamilyRepository(db);
+    const service = new MentoriaFamilyService(repository);
     const result = await service.createStudent(actor, {
       name: body?.name,
       age: body?.age ?? null,

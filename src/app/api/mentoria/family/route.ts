@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireCurrentMentoriaSession } from "@/lib/mentoria/auth/request";
 import { MentoriaFamilyService } from "@/lib/mentoria/family-service";
+import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
+import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
 
 function statusFor(message: string) {
   if (message === "SESSION_REQUIRED") return 401;
@@ -14,7 +16,9 @@ function statusFor(message: string) {
 export async function GET(request: Request) {
   try {
     const actor = await requireCurrentMentoriaSession(request);
-    const service = new MentoriaFamilyService();
+    const db = getMentoriaDb();
+    const repository = new MentoriaFamilyRepository(db);
+    const service = new MentoriaFamilyService(repository);
     const familyBundle = await service.getFamilyForSession(actor);
     return NextResponse.json({ ok: true, ...familyBundle });
   } catch (error) {

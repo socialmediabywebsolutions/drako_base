@@ -70,7 +70,6 @@ export function generateAcquisitionPost(input: {
   let hook: string;
   let problem: string;
   let solution: string;
-  let cta: string;
 
   if (input.category === "parent_frustration") {
     hook = PARENT_FRUSTRATION_HOOKS[Math.floor(Math.random() * PARENT_FRUSTRATION_HOOKS.length)];
@@ -90,7 +89,7 @@ export function generateAcquisitionPost(input: {
     solution = "Mentoría adapta el aprendizaje a cada estudiante.";
   }
 
-  cta = CTA_VARIATIONS[Math.floor(Math.random() * CTA_VARIATIONS.length)];
+  const cta = CTA_VARIATIONS[Math.floor(Math.random() * CTA_VARIATIONS.length)];
 
   const content = buildPostContent({
     hook,

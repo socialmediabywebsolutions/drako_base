@@ -3,15 +3,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   requireCurrentMentoriaSession: vi.fn(),
   createMentoriaFamilyServiceInstance: vi.fn(),
+  getMentoriaDb: vi.fn(),
+  MentoriaFamilyRepository: vi.fn(),
 }));
 
 vi.mock("@/lib/mentoria/auth/request", () => ({
   requireCurrentMentoriaSession: mocks.requireCurrentMentoriaSession,
 }));
 
+vi.mock("@/lib/mentoria/get-mentoria-db", () => ({
+  getMentoriaDb: mocks.getMentoriaDb,
+}));
+
+vi.mock("@/lib/mentoria/family-repository", () => ({
+  MentoriaFamilyRepository: class MentoriaFamilyRepository {
+    constructor(_db?: any) {}
+  },
+}));
+
 vi.mock("@/lib/mentoria/family-service", () => ({
   MentoriaFamilyService: class MentoriaFamilyService {
-    constructor() {
+    constructor(_repository?: any) {
       return mocks.createMentoriaFamilyServiceInstance();
     }
   },
@@ -30,6 +42,8 @@ describe("mentoria family routes", () => {
       tenantId: "family_tenant_1",
       role: "user",
     });
+    mocks.getMentoriaDb.mockReturnValue({});
+    mocks.MentoriaFamilyRepository.mockReturnValue({});
     mocks.createMentoriaFamilyServiceInstance.mockReturnValue({
       getFamilyForSession: vi.fn().mockResolvedValue({
         family: { id: "family_tenant_1", createdAt: "2026-03-28T00:00:00.000Z" },

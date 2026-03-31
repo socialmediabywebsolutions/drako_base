@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { MentoriaFocusMode } from "@/components/mentoria-app/focus-mode";
@@ -772,7 +773,7 @@ export function MentoriaWorkspace() {
                   </div>
                 ))}
               </div>
-              <a href="/mentoria/app/parents" className="mt-4 inline-block text-sm font-semibold text-rose-700">{ui.parentsAction}</a>
+              <Link href="/mentoria/app/parents" className="mt-4 inline-block text-sm font-semibold text-rose-700">{ui.parentsAction}</Link>
             </section>
           </div>
         </div>

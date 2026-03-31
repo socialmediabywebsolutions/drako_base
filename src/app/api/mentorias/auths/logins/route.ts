@@ -5,6 +5,8 @@ import { mentoriasAuths } from "@/lib/auths/mentorias-auths";
 import { jsonError, setAuthsSessionCookie } from "@/lib/auths/http";
 import { isAuthsIsolationEnabled } from "@/lib/auths/flags";
 import { MentoriaFamilyService } from "@/lib/mentoria/family-service";
+import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
+import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
 import { enforceAuthBoundary, resolveSaasSlugForAuthContext } from "@/lib/auths/ssot";
 
 type LoginBody = {
@@ -33,7 +35,9 @@ export async function POST(request: Request) {
     return jsonError(login.code, login.message, 401);
   }
 
-  const familyService = new MentoriaFamilyService();
+  const db = getMentoriaDb();
+  const repository = new MentoriaFamilyRepository(db);
+  const familyService = new MentoriaFamilyService(repository);
   const familyBundle = await familyService.getFamilyForSession({
     userId: login.userId,
     email: body.email.trim().toLowerCase(),

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getMicrocopy, getParentHubUiCopy, MENTORIA_PARENT_SLOT_A, MENTORIA_PARENT_SLOT_B } from "@/lib/mentoria/microcopy";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
@@ -345,9 +346,9 @@ export function MentoriaParentHub() {
                 ))}
               </div>
             </div>
-            <a href="/mentoria/app" className="mt-4 inline-block text-sm font-semibold text-sky-300">
+            <Link href="/mentoria/app" className="mt-4 inline-block text-sm font-semibold text-sky-300">
               {ui.backAction}
-            </a>
+            </Link>
           </section>
         </div>
 
