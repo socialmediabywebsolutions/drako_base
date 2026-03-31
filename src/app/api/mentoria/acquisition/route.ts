@@ -83,17 +83,17 @@ export async function POST(request: Request) {
     }
 
     if (body.action === "track_click" && body.postId) {
-      await publisher.trackClick(body.postId);
+      await publisher.trackClick(body.postId, actor.tenantId);
       return NextResponse.json({ ok: true, message: "Click tracked" });
     }
 
     if (body.action === "track_signup" && body.postId) {
-      await publisher.trackSignup(body.postId);
+      await publisher.trackSignup(body.postId, actor.tenantId);
       return NextResponse.json({ ok: true, message: "Signup tracked" });
     }
 
     if (body.action === "track_trial" && body.postId) {
-      await publisher.trackTrialStart(body.postId);
+      await publisher.trackTrialStart(body.postId, actor.tenantId);
       return NextResponse.json({ ok: true, message: "Trial start tracked" });
     }
 

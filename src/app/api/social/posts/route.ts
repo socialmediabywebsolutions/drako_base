@@ -44,8 +44,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    await requireTenantAccess(request);
-    const context = await resolveSocialContext(body.saasId);
+    const access = await requireTenantAccess(request);
+    const context = await resolveSocialContext({ tenantId: access.tenantId, saasId: body.saasId });
 
     const postData = {
       saasId: body.saasId,

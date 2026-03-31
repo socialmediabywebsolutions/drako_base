@@ -9,12 +9,12 @@ interface LinkedInPublishRequest {
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as LinkedInPublishRequest | null;
 
-  if (!body || !body.content) {
+  if (!body || !body.content || !body.accessToken || !body.authorUrn) {
     return new Response(
       JSON.stringify({
         ok: false,
         code: "LINKEDIN_PUBLISH_CONTENT_REQUIRED",
-        message: "content is required",
+        message: "content, accessToken, and authorUrn are required",
       }),
       { status: 400, headers: { "content-type": "application/json" } }
     );

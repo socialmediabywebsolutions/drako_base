@@ -31,7 +31,7 @@ type PublishedPostRow = {
 export class AcquisitionPublisher {
   constructor(private db: D1Database = getDb()) {}
 
-  async publishPost(post: AcquisitionPost): Promise<PublishedPost> {
+  async publishPost(post: AcquisitionPost, tenantId: string): Promise<PublishedPost> {
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
 
@@ -49,11 +49,12 @@ export class AcquisitionPublisher {
     await this.db
       .prepare(
         `INSERT INTO acquisition_posts (
-          id, post_id, channel, content, published_at, external_id, clicks, signups, trial_starts, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          id, tenant_id, post_id, channel, content, published_at, external_id, clicks, signups, trial_starts, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         id,
+        tenantId,
         post.id,
         post.channel,
         post.content,
@@ -80,39 +81,39 @@ export class AcquisitionPublisher {
     };
   }
 
-  async trackClick(publishedPostId: string): Promise<void> {
+  async trackClick(publishedPostId: string, tenantId: string): Promise<void> {
     const now = new Date().toISOString();
     await this.db
       .prepare(
         `UPDATE acquisition_posts
          SET clicks = clicks + 1, updated_at = ?
-         WHERE id = ?`
+         WHERE id = ? AND tenant_id = ?`
       )
-      .bind(now, publishedPostId)
+      .bind(now, publishedPostId, tenantId)
       .run();
   }
 
-  async trackSignup(publishedPostId: string): Promise<void> {
+  async trackSignup(publishedPostId: string, tenantId: string): Promise<void> {
     const now = new Date().toISOString();
     await this.db
       .prepare(
         `UPDATE acquisition_posts
          SET signups = signups + 1, updated_at = ?
-         WHERE id = ?`
+         WHERE id = ? AND tenant_id = ?`
       )
-      .bind(now, publishedPostId)
+      .bind(now, publishedPostId, tenantId)
       .run();
   }
 
-  async trackTrialStart(publishedPostId: string): Promise<void> {
+  async trackTrialStart(publishedPostId: string, tenantId: string): Promise<void> {
     const now = new Date().toISOString();
     await this.db
       .prepare(
         `UPDATE acquisition_posts
          SET trial_starts = trial_starts + 1, updated_at = ?
-         WHERE id = ?`
+         WHERE id = ? AND tenant_id = ?`
       )
-      .bind(now, publishedPostId)
+      .bind(now, publishedPostId, tenantId)
       .run();
   }
 

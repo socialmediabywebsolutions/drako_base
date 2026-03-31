@@ -5,11 +5,20 @@ export type SocialFlowPublishResult = {
   externalId?: string;
   error?: string;
   platform?: string;
+  retryCount?: number;
 };
+
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY_MS = 1000;
+
+async function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function publishToSocialFlow(
   channel: "linkedin" | "instagram" | "tiktok",
-  content: string
+  content: string,
+  retryCount: number = 0
 ): Promise<SocialFlowPublishResult> {
   const bindings = env();
   const socialflowApiKey =
@@ -52,10 +61,18 @@ async function publishToSocialFlow(
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const errorMessage = (errorData as any)?.message || `HTTP ${response.status}`;
+      
+      if (retryCount < MAX_RETRIES) {
+        const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, retryCount);
+        await delay(delayMs);
+        return publishToSocialFlow(channel, content, retryCount + 1);
+      }
+
       return {
         success: false,
         error: errorMessage,
         platform: channel,
+        retryCount,
       };
     }
 
@@ -63,10 +80,17 @@ async function publishToSocialFlow(
     const externalId = data?.id || data?.post_id;
 
     if (!externalId) {
+      if (retryCount < MAX_RETRIES) {
+        const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, retryCount);
+        await delay(delayMs);
+        return publishToSocialFlow(channel, content, retryCount + 1);
+      }
+
       return {
         success: false,
         error: "NO_EXTERNAL_ID_RETURNED",
         platform: channel,
+        retryCount,
       };
     }
 
@@ -74,13 +98,22 @@ async function publishToSocialFlow(
       success: true,
       externalId,
       platform: channel,
+      retryCount,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+
+    if (retryCount < MAX_RETRIES) {
+      const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, retryCount);
+      await delay(delayMs);
+      return publishToSocialFlow(channel, content, retryCount + 1);
+    }
+
     return {
       success: false,
       error: errorMessage,
       platform: channel,
+      retryCount,
     };
   }
 }

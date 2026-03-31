@@ -121,7 +121,7 @@ export default function CampoBaseSocialPage() {
       if (filterStatus) params.append("status", filterStatus);
       const url = `/api/operator/socialflow?${params.toString()}`;
       const response = await fetch(url, { cache: "no-store" });
-      const result = await response.json();
+      const result = (await response.json()) as SocialData;
       setFilteredData(result);
       setSelectedSaas("filtered");
     } catch {
@@ -133,7 +133,7 @@ export default function CampoBaseSocialPage() {
     if (!data) return;
     try {
       const response = await fetch("/api/operator/socialflow", { cache: "no-store" });
-      const result = await response.json();
+      const result = (await response.json()) as SocialData;
       setFilteredData(result);
       setFilterStatus("");
       setSelectedSaas(null);
@@ -146,7 +146,7 @@ export default function CampoBaseSocialPage() {
     if (!data) return;
     try {
       const response = await fetch("/api/operator/socialflow", { cache: "no-store" });
-      const result = await response.json();
+      const result = (await response.json()) as SocialData;
       setFilteredData(result);
       setSelectedSaas(null);
     } catch {
@@ -161,10 +161,10 @@ export default function CampoBaseSocialPage() {
         method: "POST",
         body: JSON.stringify({ action: "run_one", tenantId, saasId }),
       });
-      const result = await response.json();
+      const result = (await response.json()) as SocialData;
       const url = filterStatus ? `/api/operator/socialflow?status=${filterStatus}` : "/api/operator/socialflow";
       const refreshResponse = await fetch(url, { cache: "no-store" });
-      const refreshed = await refreshResponse.json();
+      const refreshed = (await refreshResponse.json()) as SocialData;
       setData(refreshed);
       setFilteredData(refreshed);
     } catch {
@@ -190,7 +190,7 @@ export default function CampoBaseSocialPage() {
 
       const url = filterStatus ? `/api/operator/socialflow?status=${filterStatus}` : "/api/operator/socialflow";
       const refreshResponse = await fetch(url, { cache: "no-store" });
-      const refreshed = await refreshResponse.json();
+      const refreshed = (await refreshResponse.json()) as SocialData;
       setData(refreshed);
       setFilteredData(refreshed);
     } catch {

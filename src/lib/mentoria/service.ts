@@ -1264,11 +1264,13 @@ export class MentoriaService {
       await this.trialManager.startTrial(actor.tenantId, student.id);
     }
     
-    // ATOMIC TRIAL ENFORCEMENT: Check + Create Session in single operation
+    // ATOMIC TRIAL ENFORCEMENT: Get trial + billing in single batch to prevent race condition
     const orchestrator = getMentoriaOrchestrator();
-    const billing = await this.getBillingSummary({ tenantId: actor.tenantId, canManageBilling: this.canManageBilling(actor) }, student);
-    const isTrialActive = await this.trialManager.isTrialActive(actor.tenantId, student.id);
-    const daysRemaining = await this.trialManager.getTrialDaysRemaining(actor.tenantId, student.id);
+    const [billing, isTrialActive, daysRemaining] = await Promise.all([
+      this.getBillingSummary({ tenantId: actor.tenantId, canManageBilling: this.canManageBilling(actor) }, student),
+      this.trialManager.isTrialActive(actor.tenantId, student.id),
+      this.trialManager.getTrialDaysRemaining(actor.tenantId, student.id),
+    ]);
     
     // SESSION RECOVERY: Check for active session to resume
     let recoveredSession = null;
@@ -1421,6 +1423,19 @@ export class MentoriaService {
       },
     );
     await trackEvent(sessionMetric);
+
+    // ATOMIC TRIAL ENFORCEMENT: Re-verify trial status immediately before session creation
+    // This prevents race condition where trial expires between initial check and session creation
+    const finalTrialCheck = await this.trialManager.isTrialActive(actor.tenantId, student.id);
+    const finalBillingCheck = await this.getBillingSummary({ tenantId: actor.tenantId, canManageBilling: this.canManageBilling(actor) }, student);
+    
+    // If trial or billing status changed, reject session creation
+    if (isTrialActive !== finalTrialCheck || billing.planCode !== finalBillingCheck.planCode) {
+      throw new UpgradeFlowError(
+        "trial_expired",
+        "Tu estado de acceso cambió durante la sesión. Por favor, intenta de nuevo."
+      );
+    }
 
     const session = await this.repository.createLearningSession({
       tenantId: actor.tenantId,

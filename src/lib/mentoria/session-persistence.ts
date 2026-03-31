@@ -220,7 +220,13 @@ export class SessionPersistenceManager {
     try {
       const parsed = JSON.parse(json);
       return Array.isArray(parsed) ? parsed : [];
-    } catch {
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("[SessionPersistence] Transcript corruption detected:", {
+        error: errorMsg,
+        jsonLength: json?.length ?? 0,
+        jsonPreview: json?.substring(0, 100) ?? "null",
+      });
       return [];
     }
   }
