@@ -9,13 +9,12 @@ import { IncidentService } from "@/lib/supervisor";
 
 export const dynamic = "force-dynamic";
 
-const incidentService = new IncidentService();
-
 /**
  * GET: Obtener incidentes críticos abiertos
  */
 export async function GET(request: NextRequest) {
   try {
+    const incidentService = new IncidentService();
     const incidents = await incidentService.getCriticalOpenIncidents();
 
     return NextResponse.json({

@@ -11,13 +11,12 @@ import type { IncidentPayload, IncidentQueryFilter, IncidentSource, ServiceSurfa
 
 export const dynamic = "force-dynamic";
 
-const incidentService = new IncidentService();
-
 /**
  * POST: Ingestar nuevo incidente técnico
  */
 export async function POST(request: NextRequest) {
   try {
+    const incidentService = new IncidentService();
     const body = (await request.json()) as Record<string, unknown>;
 
     // Validar campos requeridos
@@ -54,6 +53,7 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
+    const incidentService = new IncidentService();
     const searchParams = request.nextUrl.searchParams;
 
     const filter: IncidentQueryFilter = {

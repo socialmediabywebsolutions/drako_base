@@ -10,8 +10,6 @@ import { IncidentService } from "@/lib/supervisor";
 
 export const dynamic = "force-dynamic";
 
-const incidentService = new IncidentService();
-
 /**
  * GET: Obtener incidente específico con recomendaciones
  */
@@ -20,6 +18,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    const incidentService = new IncidentService();
     const { id } = params;
 
     const result = await incidentService.getIncidentWithRecommendations(id);
@@ -49,6 +48,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    const incidentService = new IncidentService();
     const { id } = params;
     const body = (await request.json()) as Record<string, unknown>;
 
