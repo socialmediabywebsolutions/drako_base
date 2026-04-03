@@ -30,11 +30,20 @@ function buildQueryOneMock(options: {
 describe("evaluateCustomDomainEntitlement", () => {
   it("allows custom domains when plan, subscription and connect are active", async () => {
     const queryOne = buildQueryOneMock({});
-    const getSubscriptionForTenant = vi.fn().mockResolvedValue({ status: "active" });
+    const getBillingEntitlements = vi.fn().mockResolvedValue({
+      tenantId: "tenant_1",
+      saasSlug: "drako",
+      saasId: "saas_1",
+      subscriptionStatus: "active",
+      hasVerifiedSubscription: true,
+      limits: {},
+      features: [],
+      usage: {},
+    });
 
     const result = await evaluateCustomDomainEntitlement(
       { tenantId: "tenant_1", saasId: "saas_1" },
-      { queryOne: queryOne as any, getSubscriptionForTenant },
+      { queryOne: queryOne as any, getBillingEntitlements },
     );
 
     expect(result.allowed).toBe(true);
@@ -43,27 +52,104 @@ describe("evaluateCustomDomainEntitlement", () => {
 
   it("denies custom domain when subscription is inactive", async () => {
     const queryOne = buildQueryOneMock({});
-    const getSubscriptionForTenant = vi.fn().mockResolvedValue({ status: "canceled" });
+    const getBillingEntitlements = vi.fn().mockResolvedValue({
+      tenantId: "tenant_1",
+      saasSlug: "drako",
+      saasId: "saas_1",
+      subscriptionStatus: "canceled",
+      hasVerifiedSubscription: true,
+      limits: {},
+      features: [],
+      usage: {},
+    });
 
     const result = await evaluateCustomDomainEntitlement(
       { tenantId: "tenant_1", saasId: "saas_1" },
-      { queryOne: queryOne as any, getSubscriptionForTenant },
+      { queryOne: queryOne as any, getBillingEntitlements },
     );
 
     expect(result.allowed).toBe(false);
     expect(result.code).toBe("SUBSCRIPTION_INACTIVE");
   });
 
-  it("denies drako tenant when connect onboarding is not completed", async () => {
-    const queryOne = buildQueryOneMock({ connectStatus: "pending", connectAccountId: "acct_123", tenantSaasSlug: "drako" });
-    const getSubscriptionForTenant = vi.fn().mockResolvedValue({ status: "active" });
+  it("allows custom domains during verified trialing subscriptions", async () => {
+    const queryOne = buildQueryOneMock({});
+    const getBillingEntitlements = vi.fn().mockResolvedValue({
+      tenantId: "tenant_1",
+      saasSlug: "drako",
+      saasId: "saas_1",
+      subscriptionStatus: "trialing",
+      hasVerifiedSubscription: true,
+      limits: {},
+      features: [],
+      usage: {},
+    });
 
     const result = await evaluateCustomDomainEntitlement(
       { tenantId: "tenant_1", saasId: "saas_1" },
-      { queryOne: queryOne as any, getSubscriptionForTenant },
+      { queryOne: queryOne as any, getBillingEntitlements },
+    );
+
+    expect(result.allowed).toBe(true);
+    expect(result.code).toBe("ENTITLED");
+  });
+
+  it("fails closed when billing is not verified even if status looks active", async () => {
+    const queryOne = buildQueryOneMock({});
+    const getBillingEntitlements = vi.fn().mockResolvedValue({
+      tenantId: "tenant_1",
+      saasSlug: "drako",
+      saasId: "saas_1",
+      subscriptionStatus: "active",
+      hasVerifiedSubscription: false,
+      limits: {},
+      features: [],
+      usage: {},
+    });
+
+    const result = await evaluateCustomDomainEntitlement(
+      { tenantId: "tenant_1", saasId: "saas_1" },
+      { queryOne: queryOne as any, getBillingEntitlements },
+    );
+
+    expect(result.allowed).toBe(false);
+    expect(result.code).toBe("SUBSCRIPTION_INACTIVE");
+    expect(result.context.subscriptionStatus).toBe("active");
+  });
+
+  it("denies drako tenant when connect onboarding is not completed", async () => {
+    const queryOne = buildQueryOneMock({ connectStatus: "pending", connectAccountId: "acct_123", tenantSaasSlug: "drako" });
+    const getBillingEntitlements = vi.fn().mockResolvedValue({
+      tenantId: "tenant_1",
+      saasSlug: "drako",
+      saasId: "saas_1",
+      subscriptionStatus: "active",
+      hasVerifiedSubscription: true,
+      limits: {},
+      features: [],
+      usage: {},
+    });
+
+    const result = await evaluateCustomDomainEntitlement(
+      { tenantId: "tenant_1", saasId: "saas_1" },
+      { queryOne: queryOne as any, getBillingEntitlements },
     );
 
     expect(result.allowed).toBe(false);
     expect(result.code).toBe("STRIPE_CONNECT_REQUIRED");
+  });
+
+  it("fails closed when canonical billing lookup throws", async () => {
+    const queryOne = buildQueryOneMock({});
+    const getBillingEntitlements = vi.fn().mockRejectedValue(new Error("boom"));
+
+    const result = await evaluateCustomDomainEntitlement(
+      { tenantId: "tenant_1", saasId: "saas_1" },
+      { queryOne: queryOne as any, getBillingEntitlements },
+    );
+
+    expect(result.allowed).toBe(false);
+    expect(result.code).toBe("SUBSCRIPTION_INACTIVE");
+    expect(result.context.subscriptionStatus).toBeNull();
   });
 });

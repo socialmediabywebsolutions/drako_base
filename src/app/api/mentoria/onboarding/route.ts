@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { DatabaseUnavailableError } from "@/lib/db";
+import { getWorkspaceUiCopy } from "@/lib/mentoria/microcopy";
 import { requireCurrentMentoriaSession } from "@/lib/mentoria/auth/request";
 import { MentoriaService } from "@/lib/mentoria/service";
 
@@ -26,6 +28,23 @@ export async function GET(request: Request) {
     const state = await service.getOnboardingState(actor);
     return NextResponse.json({ ok: true, ...state });
   } catch (error) {
+    if (
+      error instanceof DatabaseUnavailableError ||
+      (error instanceof Error &&
+        (error.message === "DB_BINDING_REQUIRED" || /no such (table|column)/i.test(error.message)))
+    ) {
+      const subjects = getWorkspaceUiCopy("eso").fallbackSubjects.map((s) => ({
+        id: s.slug,
+        tenantId: "",
+        slug: s.slug,
+        name: s.label,
+        description: "",
+        difficultyBand: "core",
+        createdAt: "",
+        updatedAt: "",
+      }));
+      return NextResponse.json({ ok: true, profile: null, subjects, studentSubjects: [], parents: [] }, { status: 200 });
+    }
     const message = error instanceof Error ? error.message : "ONBOARDING_LOAD_FAILED";
     return NextResponse.json({ ok: false, error: message }, { status: statusFor(message) });
   }
@@ -55,7 +74,11 @@ export async function POST(request: Request) {
       inviteToken?: string;
     };
     const result = await service.submitOnboarding(actor, body);
-    return NextResponse.json({ ok: true, ...result });
+    // Ensure JSON-serializable payload to avoid DataCloneError in runtime environments
+    const safeResult = JSON.parse(
+      JSON.stringify(result, (_key, value) => (typeof value === "bigint" ? Number(value) : value)),
+    ) as typeof result;
+    return NextResponse.json({ ok: true, ...safeResult });
   } catch (error) {
     const message = error instanceof Error ? error.message : "ONBOARDING_SUBMIT_FAILED";
     return NextResponse.json({ ok: false, error: message }, { status: statusFor(message) });

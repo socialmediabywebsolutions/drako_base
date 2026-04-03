@@ -11,6 +11,28 @@
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"
 	},
+	"d1_databases": [
+		{
+			"binding": "DRACO_DB",
+			"database_name": "drako_db_local",
+			"database_id": "local-dev"
+		},
+		{
+			"binding": "MENTORIAS_AUTHS_DB",
+			"database_name": "drako_db_local",
+			"database_id": "local-dev"
+		},
+		{
+			"binding": "DRAKOS_AUTHS_DB",
+			"database_name": "drako_db_local",
+			"database_id": "local-dev"
+		},
+		{
+			"binding": "BASES_AUTHS_DB",
+			"database_name": "drako_db_local",
+			"database_id": "local-dev"
+		}
+	],
 	"services": [
 		{
 			// Self-reference service binding, the service name must match the worker name

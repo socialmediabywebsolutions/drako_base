@@ -165,17 +165,6 @@ export default function PlatformOperatorControlSurface(props: {
     void loadSurface(nextTenantId, nextSaasId);
   }
 
-  const refreshAction = (
-    <Button
-      variant="brand"
-      loading={busyKey === "refresh:global"}
-      disabled={!canLoad}
-      onClick={() => void runAction("refresh")}
-    >
-      Refresh
-    </Button>
-  );
-
   return (
     <div className="space-y-6 p-6">
       <Card
@@ -183,7 +172,16 @@ export default function PlatformOperatorControlSurface(props: {
         title="Operator Platform Control"
         subtitle="Tenant + SaaS operational surface"
         right={surface ? `${surface.tenantId} / ${surface.saasId}` : "Operator only"}
-        actions={refreshAction}
+        actions={(
+          <Button
+            variant="brand"
+            loading={busyKey === "refresh:global"}
+            disabled={!canLoad}
+            onClick={() => void runAction("refresh")}
+          >
+            Refresh
+          </Button>
+        )}
       >
         <form className="grid gap-4 md:grid-cols-[1fr_1fr_auto]" onSubmit={handleInspectSubmit}>
           <label className="space-y-2 text-sm font-medium text-slate-700">

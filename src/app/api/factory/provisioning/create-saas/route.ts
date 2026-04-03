@@ -9,8 +9,7 @@ import { JobRunner } from "@/lib/provisioning/job-runner";
 import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-types";
 import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
 import { recordCampamentoEvent } from "@/lib/empire/events";
-import { FactoryBillingError, assertFactoryQuota } from "@/lib/billing/factory-entitlements";
-import { getCanonicalBillingEntitlements } from "@/lib/billing/subscriptions";
+import { FactoryBillingError, assertFactoryQuota, getFactoryBillingState } from "@/lib/billing/factory-billing";
 
 export const dynamic = "force-dynamic";
 
@@ -34,11 +33,6 @@ const createSaasRequestSchema = z.object({
 
 function cleanJobIdSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9:_-]/g, "_").slice(0, 140);
-}
-
-function normalizeSaasSlug(value: string | null | undefined): string {
-  const normalized = value?.trim().toLowerCase();
-  return normalized && normalized.length > 0 ? normalized : "drako";
 }
 
 async function hashCreateRequest(input: {
@@ -108,19 +102,6 @@ function normalizeBlueprint(params: {
 
 function isOwnerRole(role: string | null | undefined): boolean {
   return role === "owner" || role === "superadmin" || role === "admin";
-}
-
-function hasFactoryCreateEntitlement(entitlements: {
-  hasVerifiedSubscription: boolean;
-  subscriptionStatus: string | null;
-  limits: Record<string, number>;
-}): boolean {
-  if (!entitlements.hasVerifiedSubscription) return false;
-  const status = (entitlements.subscriptionStatus ?? "").trim().toLowerCase();
-  if (!["active", "trialing"].includes(status)) return false;
-  const workspaceLimit = entitlements.limits.workspaces;
-  if (typeof workspaceLimit !== "number" || !Number.isFinite(workspaceLimit)) return false;
-  return workspaceLimit === -1 || workspaceLimit > 0;
 }
 
 function normalizeHostname(value: string): string {
@@ -274,7 +255,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await assertFactoryQuota(session.tenantId);
+    const factoryBilling = await getFactoryBillingState(session.tenantId);
+    await assertFactoryQuota(session.tenantId, factoryBilling);
 
     const env = resolveEnv();
     if (!env?.PROVISIONING_QUEUE) {
@@ -284,15 +266,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const tenant = await queryOne<{ saas_slug: string | null }>(
-      "SELECT saas_slug FROM tenants WHERE id = ? LIMIT 1",
-      session.tenantId,
-    );
-    const entitlementSnapshot = await getCanonicalBillingEntitlements({
-      tenantId: session.tenantId,
-      saasSlug: normalizeSaasSlug(tenant?.saas_slug),
-    });
-    if (!hasFactoryCreateEntitlement(entitlementSnapshot)) {
+    if (!factoryBilling.eligibleToCreate) {
       return NextResponse.json(
         {
           ok: false,
@@ -308,8 +282,8 @@ export async function POST(req: NextRequest) {
       env,
       blueprint,
       entitlements: {
-        hasVerifiedSubscription: entitlementSnapshot.hasVerifiedSubscription,
-        subscriptionStatus: entitlementSnapshot.subscriptionStatus,
+        hasVerifiedSubscription: factoryBilling.hasVerifiedSubscription,
+        subscriptionStatus: factoryBilling.subscriptionStatus,
       },
     });
     if (!domainGate.ok) {

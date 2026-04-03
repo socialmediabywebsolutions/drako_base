@@ -9,6 +9,10 @@ export type WorkspaceBillingMetadata = {
   scope: "tenant_workspace";
 };
 
+type SyncWorkspaceBillingOptions = {
+  statusOverride?: string;
+};
+
 function normalizePlan(value: string | null | undefined): WorkspacePlan {
   const upper = (value ?? "STARTER").trim().toUpperCase();
   if (upper === "PRO") return "PRO";
@@ -47,7 +51,10 @@ function getCurrentPeriodEnd(subscription: Stripe.Subscription): string | null {
   return null;
 }
 
-export async function syncWorkspaceBillingFromSubscription(subscription: Stripe.Subscription): Promise<void> {
+export async function syncWorkspaceBillingFromSubscription(
+  subscription: Stripe.Subscription,
+  options?: SyncWorkspaceBillingOptions,
+): Promise<void> {
   const metadata = extractWorkspaceBillingMetadata(subscription.metadata);
   if (!metadata) return;
   const stripeCustomerId =
@@ -59,7 +66,7 @@ export async function syncWorkspaceBillingFromSubscription(subscription: Stripe.
     stripeCustomerId,
     stripeSubscriptionId: subscription.id,
     plan: metadata.plan,
-    status: subscription.status,
+    status: options?.statusOverride ?? subscription.status,
     currentPeriodEnd: getCurrentPeriodEnd(subscription),
   });
 }

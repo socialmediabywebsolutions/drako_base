@@ -70,49 +70,47 @@ describe("OwnerFactoryControlCenter", () => {
         throw new Error(`Unexpected fetch URL: ${url}`);
       });
 
-    render(
-      <OwnerFactoryControlCenter
-        tenantName="Owner tenant"
-        tenantRole="OWNER"
-        workspaceSummary={{
-          plan: "STARTER",
-          billingStatus: "active",
-          onboardingProgress: 100,
-          onboardingNextStep: null,
-          connectedProductsCount: 1,
-        }}
-        initialOverview={{
-          counts: {
-            activeSaas: 1,
-            provisioningRunning: 0,
-            degradedJobs: 0,
-            activeDomains: 1,
+    render(React.createElement(OwnerFactoryControlCenter, {
+      tenantName: "Owner tenant",
+      tenantRole: "OWNER",
+      workspaceSummary: {
+        plan: "STARTER",
+        billingStatus: "active",
+        onboardingProgress: 100,
+        onboardingNextStep: null,
+        connectedProductsCount: 1,
+      },
+      initialOverview: {
+        counts: {
+          activeSaas: 1,
+          provisioningRunning: 0,
+          degradedJobs: 0,
+          activeDomains: 1,
+        },
+        saases: [
+          {
+            id: "saas_socialflow",
+            tenantId: "tenant_owner",
+            name: "SocialFlow",
+            slug: "socialflow",
+            saasStatus: "active",
+            instanceStatus: "active",
+            domain: "app.socialflow.example.com",
+            domainStatus: "active",
+            provisioningStatus: "SUCCESS",
+            updatedAt: "2026-03-13T10:00:00.000Z",
           },
-          saases: [
-            {
-              id: "saas_socialflow",
-              tenantId: "tenant_owner",
-              name: "SocialFlow",
-              slug: "socialflow",
-              saasStatus: "active",
-              instanceStatus: "active",
-              domain: "app.socialflow.example.com",
-              domainStatus: "active",
-              provisioningStatus: "SUCCESS",
-              updatedAt: "2026-03-13T10:00:00.000Z",
-            },
-          ],
-          jobs: [
-            {
-              jobId: "job_existing",
-              saasId: "saas_socialflow",
-              state: "SUCCESS",
-              updatedAt: "2026-03-13T10:00:00.000Z",
-            },
-          ],
-        }}
-      />,
-    );
+        ],
+        jobs: [
+          {
+            jobId: "job_existing",
+            saasId: "saas_socialflow",
+            state: "SUCCESS",
+            updatedAt: "2026-03-13T10:00:00.000Z",
+          },
+        ],
+      },
+    }));
 
     await user.type(screen.getByPlaceholderText("SocialFlow"), "SocialFlow");
     await user.type(screen.getByPlaceholderText("socialflows"), "socialflow");

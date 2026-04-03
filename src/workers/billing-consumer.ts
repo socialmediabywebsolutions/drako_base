@@ -2,8 +2,9 @@
 import { type MessageBatch, type Queue } from "@cloudflare/workers-types";
 import { setGlobalEnv, type DracoEnv } from "@/lib/cf";
 import { provisionTenantFromStripe, type ProvisioningEvent } from "@/lib/billing/provisioning_workflow";
-import { run, queryOne } from "@/lib/db";
+import { queryOne } from "@/lib/db";
 import { writeBillingAuditLog } from "@/lib/billing/billing-audit";
+import { updateCanonicalSubscriptionLifecycleState } from "@/lib/billing/subscriptions";
 
 export interface Env extends DracoEnv {
     BILLING_QUEUE: Queue<ProvisioningEvent>;
@@ -18,33 +19,6 @@ export default {
             try {
                 const event = message.body;
                 console.log(`[BillingWorker] Processing event ${event.eventId} (${event.type}) for SaaS: ${event.data.saasSlug}`);
-
-                // 1. Idempotency Check
-                const alreadyProcessed = await run(`SELECT id FROM billing_audit_logs WHERE stripe_event_id = ?`, event.eventId)
-                    .then(() => false) // .run() returns boolean success for write, need queryOne to read? 
-                // Wait, run() in db.ts returns success boolean for INSERT/UPDATE. 
-                // Let's use queryOne to check existence.
-                // But we can't easily import queryOne in Worker context if db.ts relies on Context...
-                // Actually billing-consumer.ts imports 'run' from '@/lib/db'.
-                // Let's assume we can import queryOne.
-
-                // Using a direct check approach
-                // Since this is a worker, we might need to be careful about imports.
-                // But let's follow the established pattern.
-
-                // For now, let's implement the logic within the try/catch block properly
-                // We'll skip the complex import logic and assume idempotency is handled by the state machine 
-                // OR we query the audit log.
-
-                // NOTE: To properly check "SELECT id", we need queryOne. 
-                // Let's assume we can fetch it or we insert and ignore conflict?
-                // The prompt demands "Idempotencia por stripeEventId en billing_audit_logs (si ya existe -> skip)"
-
-                // NOTE: 'run' executes and returns success. SELECT isn't supported by 'run'.
-                // I need to import queryOne. I'll add it to the imports first.
-
-
-                // 1. Idempotency Check
                 const existingLog = await queryOne<{ id: string }>(
                     `SELECT id FROM billing_audit_logs WHERE stripe_event_id = ?`,
                     event.eventId
@@ -80,7 +54,7 @@ export default {
 };
 
 async function handleBillingEvent(event: ProvisioningEvent) {
-    const { stripeSubscriptionId, saasSlug } = event.data;
+    const { stripeSubscriptionId, saasSlug, currentPeriodEnd, cancelAtPeriodEnd } = event.data;
     let newStatus: string | null = null;
 
     switch (event.type) {
@@ -93,12 +67,13 @@ async function handleBillingEvent(event: ProvisioningEvent) {
     if (newStatus) {
         console.log(`[BillingWorker] Updating subscription ${stripeSubscriptionId} to ${newStatus}`);
 
-        await run(
-            `UPDATE saas_subscriptions 
-             SET status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-             WHERE stripe_subscription_id = ? AND saas_slug = ?`,
-            newStatus, stripeSubscriptionId, saasSlug
-        );
+        await updateCanonicalSubscriptionLifecycleState({
+            stripeSubscriptionId,
+            saasSlug,
+            status: newStatus,
+            currentPeriodEnd,
+            cancelAtPeriodEnd: cancelAtPeriodEnd ?? null,
+        });
 
         try {
             await writeBillingAuditLog({

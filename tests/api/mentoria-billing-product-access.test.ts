@@ -58,9 +58,7 @@ describe("mentoria billing product access", () => {
     });
     mocks.getMentoriaStripePriceId.mockReturnValue("price_mentoria_pro");
     mocks.getRequestBaseUrl.mockReturnValue("https://mentoria.drako.systems");
-    mocks.queryOne
-      .mockResolvedValueOnce({ stripe_customer_id: "cus_existing" })
-      .mockResolvedValueOnce({ id: "saas-mentoria-core" });
+    mocks.queryOne.mockResolvedValue({ id: "saas-mentoria-core" });
     mocks.getCanonicalSubscriptionState.mockResolvedValue({
       tenantId: "tenant_mentoria",
       saasSlug: "mentoria",
@@ -118,6 +116,13 @@ describe("mentoria billing product access", () => {
         cancelUrl: "https://mentoria.drako.systems/mentoria/app?billing=cancelled",
       }),
     );
+    expect(mocks.getCanonicalSubscriptionState).toHaveBeenCalledWith({
+      tenantId: "tenant_mentoria",
+      saasSlug: "mentoria",
+    });
+    expect(
+      mocks.queryOne.mock.calls.some(([sql]) => String(sql).includes("FROM saas_subscriptions")),
+    ).toBe(false);
   });
 
   it("allows a valid mentorias product user to confirm checkout", async () => {
@@ -178,5 +183,36 @@ describe("mentoria billing product access", () => {
     expect(response.status).toBe(401);
     const payload = await response.json() as { code: string };
     expect(payload.code).toBe("SESSION_REQUIRED");
+  });
+
+  it("creates a Stripe customer when no canonical subscription exists yet", async () => {
+    mocks.getCanonicalSubscriptionState.mockResolvedValueOnce(null);
+
+    const response = await checkoutPost(
+      new Request("https://mentoria.drako.systems/api/mentoria/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: "family" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.createStripeCustomer).toHaveBeenCalledWith({
+      email: "family@example.com",
+      metadata: {
+        tenantId: "tenant_mentoria",
+        saasSlug: "mentoria",
+        scope: "mentoria_product",
+      },
+    });
+    expect(mocks.createStripeCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer: "cus_created",
+        metadata: expect.objectContaining({
+          plan: "family",
+          planCode: "family",
+        }),
+      }),
+    );
   });
 });

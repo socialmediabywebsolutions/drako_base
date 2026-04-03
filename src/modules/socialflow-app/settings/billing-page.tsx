@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import BillingSettings from "@/components/settings/billing-settings";
-import { ensureTenantBilling } from "@/lib/auth/campamento-core";
+import { getDefaultTenantBillingRecord, getTenantBilling } from "@/lib/auth/campamento-core";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 
 export default async function SocialFlowBillingSettingsPage() {
@@ -9,7 +9,7 @@ export default async function SocialFlowBillingSettingsPage() {
     redirect("/socialflow/auth");
   }
 
-  const billing = await ensureTenantBilling(session.tenantId);
+  const billing = (await getTenantBilling(session.tenantId)) ?? getDefaultTenantBillingRecord(session.tenantId);
 
   return (
     <div className="space-y-6">

@@ -1,12 +1,15 @@
-import { getCanonicalSubscriptionState, type CanonicalSubscriptionState } from "@/lib/billing/subscriptions";
+import { getCanonicalBillingEntitlements, type CanonicalBillingEntitlements } from "@/lib/billing/subscriptions";
 import { queryOne } from "@/lib/db";
 
 type QueryOneFn = <T>(sql: string, ...params: unknown[]) => Promise<T | null>;
-type GetSubscriptionFn = (input: { tenantId: string; saasSlug: string }) => Promise<CanonicalSubscriptionState | null>;
+type GetBillingEntitlementsFn = (input: {
+  tenantId: string;
+  saasSlug: string;
+}) => Promise<CanonicalBillingEntitlements>;
 
 type EntitlementDeps = {
   queryOne: QueryOneFn;
-  getSubscriptionForTenant: GetSubscriptionFn;
+  getBillingEntitlements: GetBillingEntitlementsFn;
 };
 
 type SaasInstanceRow = {
@@ -63,7 +66,7 @@ export async function evaluateCustomDomainEntitlement(
   deps?: Partial<EntitlementDeps>,
 ): Promise<CustomDomainEntitlement> {
   const query = deps?.queryOne ?? queryOne;
-  const getTenantSubscription = deps?.getSubscriptionForTenant ?? getCanonicalSubscriptionState;
+  const readBillingEntitlements = deps?.getBillingEntitlements ?? getCanonicalBillingEntitlements;
 
   const saas = await query<SaasInstanceRow>(
     "SELECT id, tenant_id, plan_tier FROM saas_instances WHERE id = ? AND tenant_id = ? LIMIT 1",
@@ -105,12 +108,28 @@ export async function evaluateCustomDomainEntitlement(
     };
   }
 
-  const subscription = await getTenantSubscription({
-    tenantId: params.tenantId,
-    saasSlug: normalize(tenant?.saas_slug) ?? "drako",
-  });
-  const subscriptionStatus = normalize(subscription?.status);
-  if (!subscriptionStatus || !ACTIVE_SUBSCRIPTION_STATUSES.has(subscriptionStatus)) {
+  let subscriptionStatus: string | null = null;
+  try {
+    const entitlements = await readBillingEntitlements({
+      tenantId: params.tenantId,
+      saasSlug: normalize(tenant?.saas_slug) ?? "drako",
+    });
+    subscriptionStatus = normalize(entitlements.subscriptionStatus);
+    if (!entitlements.hasVerifiedSubscription || !subscriptionStatus || !ACTIVE_SUBSCRIPTION_STATUSES.has(subscriptionStatus)) {
+      return {
+        allowed: false,
+        code: "SUBSCRIPTION_INACTIVE",
+        message: "Active subscription required for custom domains",
+        context: {
+          isDrakoFactoryTenant,
+          planTier,
+          tenantPlan,
+          subscriptionStatus,
+          connectStatus: null,
+        },
+      };
+    }
+  } catch {
     return {
       allowed: false,
       code: "SUBSCRIPTION_INACTIVE",

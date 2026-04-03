@@ -312,14 +312,36 @@ export class MentoriaFamilyRepository {
     tenantId: string;
     fallbackName?: string | null;
   }): Promise<void> {
+    console.log("[ensureFamilyMembershipByUser] ENTRADA", {
+      userId: params.userId,
+      email: params.email,
+      tenantId: params.tenantId,
+      fallbackName: params.fallbackName,
+    });
+
     const authUser = await getAuthsUserById({ context: "mentorias", userId: params.userId });
+    console.log("[ensureFamilyMembershipByUser] getAuthsUserById resultado", {
+      authUser,
+      authUserName: authUser?.name,
+    });
+
     await this.createFamily(params.tenantId);
-    await this.upsertGuardian({
+    console.log("[ensureFamilyMembershipByUser] createFamily completado", {
+      tenantId: params.tenantId,
+    });
+
+    const guardianResult = await this.upsertGuardian({
       email: params.email,
       familyId: params.tenantId,
       name: authUser?.name ?? params.fallbackName ?? null,
       role: "tutor",
     });
+    console.log("[ensureFamilyMembershipByUser] upsertGuardian completado", {
+      guardianId: guardianResult.id,
+      guardianEmail: guardianResult.email,
+    });
+
+    console.log("[ensureFamilyMembershipByUser] SALIDA exitosa");
   }
 
   async getStudentById(studentId: string): Promise<MentoriaFamilyStudent | null> {

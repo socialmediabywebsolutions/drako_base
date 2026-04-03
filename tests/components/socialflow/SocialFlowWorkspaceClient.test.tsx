@@ -226,14 +226,14 @@ function jsonResponse(body: unknown, init: ResponseInit = { status: 200 }) {
 
 describe("SocialFlowWorkspaceClient channel knowledge", () => {
   it("loads knowledge for default channel and fills form", async () => {
-    render(<SocialFlowWorkspaceClient {...buildProps()} />);
+    render(React.createElement(SocialFlowWorkspaceClient, buildProps()));
 
     await waitFor(() => expect(getKnowledgeFormField("knowledge-objective").value).toBe("b2b"));
     expect(getKnowledgeFormField("knowledge-keywords").value).toContain("pilot");
   });
 
   it("saves updated knowledge", async () => {
-    render(<SocialFlowWorkspaceClient {...buildProps()} />);
+    render(React.createElement(SocialFlowWorkspaceClient, buildProps()));
 
     await waitFor(() => expect(getKnowledgeFormField("knowledge-objective").value).toBe("b2b"));
     fireEvent.change(getKnowledgeFormField("knowledge-objective"), { target: { value: "saas niche" } });
@@ -252,14 +252,14 @@ describe("SocialFlowWorkspaceClient channel knowledge", () => {
 
 describe("SocialFlowWorkspaceClient channel ideas", () => {
   it("loads ideas for default channel and shows list", async () => {
-    render(<SocialFlowWorkspaceClient {...buildProps()} />);
+    render(React.createElement(SocialFlowWorkspaceClient, buildProps()));
 
     await waitFor(() => expect(screen.getByTestId("idea-title-idea_1")).toBeInTheDocument());
     expect(screen.getByTestId("idea-status-idea_1")).toHaveValue("idea");
   });
 
   it("creates a new idea", async () => {
-    render(<SocialFlowWorkspaceClient {...buildProps()} />);
+    render(React.createElement(SocialFlowWorkspaceClient, buildProps()));
 
     await waitFor(() => expect(screen.getByTestId("idea-title-idea_1")).toBeInTheDocument());
     fireEvent.change(getIdeaField("idea-title"), { target: { value: "New angle" } });
@@ -276,7 +276,7 @@ describe("SocialFlowWorkspaceClient channel ideas", () => {
   });
 
   it("updates idea status", async () => {
-    render(<SocialFlowWorkspaceClient {...buildProps()} />);
+    render(React.createElement(SocialFlowWorkspaceClient, buildProps()));
 
     await waitFor(() => expect(screen.getByTestId("idea-status-idea_1")).toBeInTheDocument());
     fireEvent.change(screen.getByTestId("idea-status-idea_1"), { target: { value: "approved" } });
@@ -291,7 +291,7 @@ describe("SocialFlowWorkspaceClient channel ideas", () => {
 
 describe("SocialFlowWorkspaceClient channel signals", () => {
   it("loads signals for default channel and fills form", async () => {
-    render(<SocialFlowWorkspaceClient {...buildProps()} />);
+    render(React.createElement(SocialFlowWorkspaceClient, buildProps()));
 
     await waitFor(() => expect(getSignalsField("signals-topics").value).toBe("launches"));
     expect(getSignalsField("signals-active-keywords").value).toContain("pilot");
@@ -299,7 +299,7 @@ describe("SocialFlowWorkspaceClient channel signals", () => {
   });
 
   it("saves updated signals", async () => {
-    render(<SocialFlowWorkspaceClient {...buildProps()} />);
+    render(React.createElement(SocialFlowWorkspaceClient, buildProps()));
 
     await waitFor(() => expect(getSignalsField("signals-topics").value).toBe("launches"));
     fireEvent.change(getSignalsField("signals-topics"), { target: { value: "product" } });
@@ -421,7 +421,7 @@ beforeEach(() => {
 
 describe("SocialFlowWorkspaceClient LinkedIn account selection", () => {
   it("renders LinkedIn account selector when live accounts exist", () => {
-    render(<SocialFlowWorkspaceClient {...buildProps()} />);
+    render(React.createElement(SocialFlowWorkspaceClient, buildProps()));
 
     expect(getLinkedInAccountSelect()).toBeInTheDocument();
     linkedInAccounts.forEach((account) => {
@@ -432,7 +432,7 @@ describe("SocialFlowWorkspaceClient LinkedIn account selection", () => {
   });
 
   it("auto-selects a live account for scheduled publishing", async () => {
-    render(<SocialFlowWorkspaceClient {...buildProps()} />);
+    render(React.createElement(SocialFlowWorkspaceClient, buildProps()));
 
     await act(async () => {
       fireEvent.change(getStatusSelect(), { target: { value: "SCHEDULED" } });
@@ -468,7 +468,7 @@ describe("SocialFlowWorkspaceClient LinkedIn account selection", () => {
       return new Response(base, { status: 200, headers: { "content-type": "application/json" } });
     });
 
-    render(<SocialFlowWorkspaceClient {...buildProps()} />);
+    render(React.createElement(SocialFlowWorkspaceClient, buildProps()));
 
     fireEvent.change(getStatusSelect(), { target: { value: "SCHEDULED" } });
     fireEvent.change(getPublishingPathSelect(), { target: { value: "live" } });
@@ -500,7 +500,7 @@ describe("SocialFlowWorkspaceClient LinkedIn account selection", () => {
       new Response(JSON.stringify(props.initialData), { status: 200, headers: { "content-type": "application/json" } }),
     );
 
-    render(<SocialFlowWorkspaceClient {...props} />);
+    render(React.createElement(SocialFlowWorkspaceClient, props));
 
     await act(async () => {
       fireEvent.click(screen.getByTestId("post-edit-post_2"));
@@ -520,7 +520,7 @@ describe("SocialFlowWorkspaceClient LinkedIn account selection", () => {
       new Response(JSON.stringify(props.initialData), { status: 200, headers: { "content-type": "application/json" } }),
     );
 
-    render(<SocialFlowWorkspaceClient {...props} />);
+    render(React.createElement(SocialFlowWorkspaceClient, props));
 
     expect(screen.getByTestId("post-account-handle-post_3").textContent).toBe("@socialflow");
   });
@@ -536,7 +536,7 @@ describe("SocialFlowWorkspaceClient LinkedIn account selection", () => {
       new Response(JSON.stringify(props.initialData), { status: 200, headers: { "content-type": "application/json" } }),
     );
 
-    render(<SocialFlowWorkspaceClient {...props} />);
+    render(React.createElement(SocialFlowWorkspaceClient, props));
 
     expect(screen.getByTestId("post-channel-post_4").textContent).toBe(channels[1].name);
   });

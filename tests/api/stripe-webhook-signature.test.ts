@@ -18,6 +18,9 @@ const mocks = vi.hoisted(() => {
     ensureStripeWebhookDedupe: vi.fn(),
     upsertCanonicalSubscriptionState: vi.fn(),
     syncSaasUsageQuotasFromPlan: vi.fn(),
+    syncWorkspaceBillingFromCheckout: vi.fn(),
+    syncWorkspaceBillingFromSubscription: vi.fn(),
+    extractWorkspaceBillingMetadata: vi.fn(),
     StripeWebhookAuthError,
   };
 });
@@ -38,6 +41,12 @@ vi.mock("@/lib/billing/subscriptions", () => ({
   saveSubscriptionRecord: vi.fn(),
   upsertCanonicalSubscriptionState: mocks.upsertCanonicalSubscriptionState,
   syncSaasUsageQuotasFromPlan: mocks.syncSaasUsageQuotasFromPlan,
+}));
+
+vi.mock("@/lib/billing/tenant-workspace", () => ({
+  extractWorkspaceBillingMetadata: mocks.extractWorkspaceBillingMetadata,
+  syncWorkspaceBillingFromCheckout: mocks.syncWorkspaceBillingFromCheckout,
+  syncWorkspaceBillingFromSubscription: mocks.syncWorkspaceBillingFromSubscription,
 }));
 
 vi.mock("@/lib/billing/client-saas-subscriptions", () => ({
@@ -117,6 +126,7 @@ describe("/api/stripe/webhook signature validation", () => {
       drift: false,
     });
     mocks.ensureStripeWebhookDedupe.mockResolvedValue({ status: "accepted", attempts: 1 });
+    mocks.extractWorkspaceBillingMetadata.mockReturnValue(null);
     mocks.constructVerifiedStripeEvent.mockImplementation(() => {
       throw new mocks.StripeWebhookAuthError("Invalid signature", 400);
     });
@@ -175,5 +185,118 @@ describe("/api/stripe/webhook signature validation", () => {
     expect(response.status).toBe(200);
     expect(mocks.upsertCanonicalSubscriptionState).toHaveBeenCalledTimes(1);
     expect(mocks.syncSaasUsageQuotasFromPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes tenant_workspace checkout completion into tenant_billing without touching product billing", async () => {
+    mocks.resolveWebhookAttribution.mockResolvedValue({
+      tenantId: "tenant_workspace_1",
+      saasId: null,
+      saasSlug: null,
+      source: "metadata",
+      mismatch: false,
+      drift: false,
+    });
+    mocks.extractWorkspaceBillingMetadata.mockImplementation((metadata: Record<string, string> | null | undefined) => {
+      if (metadata?.scope !== "tenant_workspace" || !metadata.tenantId) return null;
+      return {
+        tenantId: metadata.tenantId,
+        plan: "PRO",
+        scope: "tenant_workspace",
+      };
+    });
+    mocks.constructVerifiedStripeEvent.mockReturnValue({
+      id: "evt_workspace_checkout",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_workspace_1",
+          customer: "cus_workspace_1",
+          subscription: "sub_workspace_1",
+          metadata: {
+            tenantId: "tenant_workspace_1",
+            plan: "PRO",
+            scope: "tenant_workspace",
+          },
+        },
+      },
+    });
+
+    const response = await POST(
+      new Request("https://drako.systems/api/stripe/webhook", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "stripe-signature": "t=1,v1=valid",
+        },
+        body: JSON.stringify({ id: "evt_workspace_checkout" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.syncWorkspaceBillingFromCheckout).toHaveBeenCalledTimes(1);
+    expect(mocks.upsertCanonicalSubscriptionState).not.toHaveBeenCalled();
+    expect(mocks.syncSaasUsageQuotasFromPlan).not.toHaveBeenCalled();
+  });
+
+  it("routes tenant_workspace invoice failures into tenant_billing without touching product billing", async () => {
+    mocks.resolveWebhookAttribution.mockResolvedValue({
+      tenantId: "tenant_workspace_1",
+      saasId: null,
+      saasSlug: null,
+      source: "metadata",
+      mismatch: false,
+      drift: false,
+    });
+    mocks.extractWorkspaceBillingMetadata.mockImplementation((metadata: Record<string, string> | null | undefined) => {
+      if (metadata?.scope !== "tenant_workspace" || !metadata.tenantId) return null;
+      return {
+        tenantId: metadata.tenantId,
+        plan: "STARTER",
+        scope: "tenant_workspace",
+      };
+    });
+    mocks.getStripe.mockResolvedValue({
+      subscriptions: {
+        retrieve: vi.fn().mockResolvedValue({
+          id: "sub_workspace_1",
+          status: "active",
+          customer: "cus_workspace_1",
+          metadata: {
+            tenantId: "tenant_workspace_1",
+            plan: "STARTER",
+            scope: "tenant_workspace",
+          },
+          items: { data: [{ price: { id: "price_workspace" } }] },
+        }),
+      },
+    });
+    mocks.constructVerifiedStripeEvent.mockReturnValue({
+      id: "evt_workspace_failed",
+      type: "invoice.payment_failed",
+      data: {
+        object: {
+          subscription: "sub_workspace_1",
+          billing_reason: "subscription_cycle",
+        },
+      },
+    });
+
+    const response = await POST(
+      new Request("https://drako.systems/api/stripe/webhook", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "stripe-signature": "t=1,v1=valid",
+        },
+        body: JSON.stringify({ id: "evt_workspace_failed" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.syncWorkspaceBillingFromSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "sub_workspace_1" }),
+      { statusOverride: "past_due" },
+    );
+    expect(mocks.upsertCanonicalSubscriptionState).not.toHaveBeenCalled();
   });
 });

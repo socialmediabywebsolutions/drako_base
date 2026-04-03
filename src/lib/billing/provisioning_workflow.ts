@@ -1,5 +1,6 @@
 import { run, queryOne, queryAll } from "@/lib/db";
 import { writeBillingAuditLog } from "@/lib/billing/billing-audit";
+import { upsertCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
 import { createTenant, createTenantUser } from "@/lib/tenants/services";
 
 export type ProvisioningEvent = {
@@ -86,29 +87,19 @@ export async function provisionTenantFromStripe(event: ProvisioningEvent): Promi
         // 3. Subscription (Source of Truth)
         const periodStart = event.data.currentPeriodStart || new Date().toISOString();
         const periodEnd = event.data.currentPeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-        const cancelAtEnd = event.data.cancelAtPeriodEnd ? 1 : 0;
 
-        await run(
-            `INSERT INTO saas_subscriptions (id, tenant_id, saas_slug, plan_code, stripe_customer_id, stripe_subscription_id, status, current_period_start, current_period_end, cancel_at_period_end, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-         ON CONFLICT(tenant_id, saas_slug) DO UPDATE SET
-            status = 'active',
-            plan_code = excluded.plan_code,
-            stripe_subscription_id = excluded.stripe_subscription_id,
-            current_period_start = excluded.current_period_start,
-            current_period_end = excluded.current_period_end,
-            cancel_at_period_end = excluded.cancel_at_period_end,
-            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
-            `sub_${stripeSubscriptionId}`,
+        await upsertCanonicalSubscriptionState({
             tenantId,
             saasSlug,
-            plan_code,
             stripeCustomerId,
             stripeSubscriptionId,
-            periodStart,
-            periodEnd,
-            cancelAtEnd
-        );
+            stripePriceId: stripePriceId ?? null,
+            planCode: plan_code,
+            status: "active",
+            currentPeriodStart: periodStart,
+            currentPeriodEnd: periodEnd,
+            cancelAtPeriodEnd: Boolean(event.data.cancelAtPeriodEnd),
+        });
 
         // 4. Initialize Quotas
         for (const key of Object.keys(limits)) {

@@ -5,6 +5,7 @@
   "packageManager": "pnpm@10.25.0",
   "scripts": {
     "dev": "next dev",
+    "dev:wrangler": "npm run build:factory && wrangler dev --local",
     "build": "next build",
     "test": "vitest run",
     "check:no-pages": "tsx scripts/check-no-pages.ts",

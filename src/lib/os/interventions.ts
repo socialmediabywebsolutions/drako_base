@@ -1,4 +1,7 @@
 import { crypto } from '@/lib/crypto-polyfill';
+import { getCanonicalBillingSnapshot } from '@/lib/billing/subscriptions';
+
+const BILLING_RISK_STATUSES = new Set(["past_due", "unpaid", "canceled"]);
 
 export async function runInterventions(db: any, instance: any, economics: any, pulse: number) {
     const actionsTaken: string[] = [];
@@ -20,13 +23,12 @@ export async function runInterventions(db: any, instance: any, economics: any, p
 
     // 2. RULE B (BILLING): Bad Stripe Status -> Freeze
     // Statuses: 'past_due', 'unpaid', 'canceled'
-    // saas_subscriptions status is strict.
-    // We check instance.stripe_subscription_id to verify we have a link.
+    // Resolve from the canonical tenant + saas slug subscription, and only
+    // trust it when it matches the instance-linked Stripe subscription.
     if (instance.stripe_subscription_id) {
-        // Fetch sub status from DB (it was just synced by stripe-sync)
-        const subStatus = await db.prepare("SELECT status FROM saas_subscriptions WHERE stripe_subscription_id = ?").bind(instance.stripe_subscription_id).first('status');
+        const subStatus = await resolveCanonicalBillingStatus(instance);
 
-        if (['past_due', 'unpaid', 'canceled'].includes(subStatus as string)) {
+        if (subStatus && BILLING_RISK_STATUSES.has(subStatus)) {
             if (!await isActionApplied(db, instance.id, 'FREEZE_EXPANSION')) {
                 await applyIntervention(db, instance, 'FREEZE_EXPANSION', `BILLING_STATUS_${subStatus}`, { status: subStatus });
                 await addInterventionFlag(db, instance, 'billing_risk');
@@ -45,6 +47,25 @@ export async function runInterventions(db: any, instance: any, economics: any, p
     }
 
     return actionsTaken;
+}
+
+async function resolveCanonicalBillingStatus(instance: any): Promise<string | null> {
+    const tenantId = instance.tenant_id?.trim();
+    const saasSlug = instance.slug?.trim().toLowerCase();
+    const stripeSubscriptionId = instance.stripe_subscription_id?.trim();
+    if (!tenantId || !saasSlug || !stripeSubscriptionId) {
+        return null;
+    }
+
+    const snapshot = await getCanonicalBillingSnapshot({ tenantId, saasSlug });
+    const canonicalStripeSubscriptionId = snapshot.subscription.stripeSubscriptionId?.trim();
+    const canonicalStatus = snapshot.subscription.status?.trim().toLowerCase() ?? null;
+
+    if (!canonicalStripeSubscriptionId || canonicalStripeSubscriptionId !== stripeSubscriptionId) {
+        return null;
+    }
+
+    return canonicalStatus;
 }
 
 async function isActionApplied(db: any, saasId: string, action: string): Promise<boolean> {

@@ -1,5 +1,5 @@
 import { queryOne } from "@/lib/db";
-import { FactoryBillingError, getFactoryQuota, type FactoryQuota } from "@/lib/billing/factory-entitlements";
+import { getFactoryBillingState, type FactoryQuota } from "@/lib/billing/factory-billing";
 
 type CountRow = {
   count: number | string;
@@ -65,7 +65,6 @@ function computeRemaining(limit: number, used: number): number | null {
 
 export async function getFactoryStatus(tenantId: string): Promise<FactoryStatus> {
   const [
-    activeSaas,
     jobsCreated,
     jobsRunning,
     jobsDegraded,
@@ -75,10 +74,8 @@ export async function getFactoryStatus(tenantId: string): Promise<FactoryStatus>
     provisioningDomains,
     activeDomains,
     failedDomains,
-    domainCount,
-    quotaResult,
+    factoryBilling,
   ] = await Promise.all([
-    countForTenant("SELECT COUNT(*) AS count FROM saas WHERE tenant_id = ?", tenantId),
     countForTenant("SELECT COUNT(*) AS count FROM provisioning_jobs WHERE tenant_id = ? AND current_state = 'CREATED'", tenantId),
     countForTenant("SELECT COUNT(*) AS count FROM provisioning_jobs WHERE tenant_id = ? AND current_state = 'RUNNING'", tenantId),
     countForTenant("SELECT COUNT(*) AS count FROM provisioning_jobs WHERE tenant_id = ? AND current_state = 'DEGRADED'", tenantId),
@@ -88,20 +85,11 @@ export async function getFactoryStatus(tenantId: string): Promise<FactoryStatus>
     countForTenant("SELECT COUNT(*) AS count FROM saas_domains WHERE tenant_id = ? AND lower(status) = 'provisioning'", tenantId),
     countForTenant("SELECT COUNT(*) AS count FROM saas_domains WHERE tenant_id = ? AND lower(status) = 'active'", tenantId),
     countForTenant("SELECT COUNT(*) AS count FROM saas_domains WHERE tenant_id = ? AND lower(status) = 'failed'", tenantId),
-    countForTenant("SELECT COUNT(*) AS count FROM saas_domains WHERE tenant_id = ?", tenantId),
-    getFactoryQuota(tenantId).catch((error: unknown) => {
-      if (error instanceof FactoryBillingError && error.code === "PLAN_INACTIVE") {
-        return null;
-      }
-      throw error;
-    }),
+    getFactoryBillingState(tenantId),
   ]);
 
-  const usage = {
-    saasCount: activeSaas,
-    activeJobCount: jobsCreated + jobsRunning,
-    domainCount,
-  };
+  const usage = factoryBilling.usage;
+  const activeSaas = usage.saasCount;
 
   const status: FactoryStatus = {
     activeSaas,
@@ -125,15 +113,15 @@ export async function getFactoryStatus(tenantId: string): Promise<FactoryStatus>
     },
   };
 
-  if (!quotaResult) {
+  if (!factoryBilling.quota) {
     return status;
   }
 
-  status.quota = quotaResult;
-  status.limits = {
-    saasRemaining: computeRemaining(quotaResult.maxSaas, activeSaas),
-    jobSlotsRemaining: computeRemaining(quotaResult.maxConcurrentJobs, usage.activeJobCount),
-    domainsRemaining: computeRemaining(quotaResult.maxDomains, domainCount),
+  status.quota = factoryBilling.quota;
+  status.limits = factoryBilling.limits ?? {
+    saasRemaining: computeRemaining(factoryBilling.quota.maxSaas, activeSaas),
+    jobSlotsRemaining: computeRemaining(factoryBilling.quota.maxConcurrentJobs, usage.activeJobCount),
+    domainsRemaining: computeRemaining(factoryBilling.quota.maxDomains, usage.domainCount),
   };
 
   return status;

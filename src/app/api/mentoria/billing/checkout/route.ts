@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { getCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
 import { queryOne } from "@/lib/db";
 import { getRequestBaseUrl } from "@/lib/http/base-url";
 import { requireCurrentMentoriaSession } from "@/lib/mentoria/auth/request";
@@ -23,16 +24,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, code: "MENTORIA_STRIPE_PRICE_NOT_CONFIGURED" }, { status: 503 });
     }
 
-    const existing = await queryOne<{ stripe_customer_id: string | null }>(
-      `SELECT stripe_customer_id
-       FROM saas_subscriptions
-       WHERE tenant_id = ? AND saas_slug = 'mentoria'
-       ORDER BY datetime(updated_at) DESC
-       LIMIT 1`,
-      actor.tenantId,
-    );
-
-    let customerId = existing?.stripe_customer_id ?? null;
+    const subscription = await getCanonicalSubscriptionState({ tenantId: actor.tenantId, saasSlug: "mentoria" });
+    let customerId = subscription?.stripeCustomerId ?? null;
     if (!customerId) {
       if (!actor.email) {
         return NextResponse.json({ ok: false, code: "MENTORIA_BILLING_EMAIL_REQUIRED" }, { status: 409 });

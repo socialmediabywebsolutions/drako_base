@@ -37,7 +37,16 @@ type NotificationJobRow = {
 };
 
 export class NotificationQueueManager {
-  constructor(private db: D1Database = getDb()) {}
+  private db: D1Database | null = null;
+
+  private getDb(): D1Database {
+    if (!this.db) {
+      this.db = getDb();
+    }
+    return this.db;
+  }
+
+  constructor() {}
 
   async enqueueNotification(input: {
     tenantId: string;
@@ -50,7 +59,7 @@ export class NotificationQueueManager {
     const id = crypto.randomUUID();
     const maxRetries = input.maxRetries ?? 3;
 
-    await this.db
+    await this.getDb()
       .prepare(
         `INSERT INTO mentoria_notification_jobs (
           id, tenant_id, student_id, parent_phone, message, status, retry_count, max_retries, created_at, updated_at
@@ -75,7 +84,7 @@ export class NotificationQueueManager {
 
   async getPendingJobs(limit: number = 10): Promise<NotificationJob[]> {
     const now = new Date().toISOString();
-    const result = await this.db
+    const result = await this.getDb()
       .prepare(
         `SELECT * FROM mentoria_notification_jobs
          WHERE status = 'pending' OR (status = 'failed' AND next_retry_at <= ?)
@@ -90,7 +99,7 @@ export class NotificationQueueManager {
 
   async markProcessing(jobId: string, tenantId: string): Promise<void> {
     const now = new Date().toISOString();
-    await this.db
+    await this.getDb()
       .prepare(
         `UPDATE mentoria_notification_jobs
          SET status = 'processing', updated_at = ?
@@ -102,7 +111,7 @@ export class NotificationQueueManager {
 
   async markDelivered(jobId: string, tenantId: string, messageId: string): Promise<void> {
     const now = new Date().toISOString();
-    await this.db
+    await this.getDb()
       .prepare(
         `UPDATE mentoria_notification_jobs
          SET status = 'delivered', message_id = ?, delivered_at = ?, updated_at = ?
@@ -114,7 +123,7 @@ export class NotificationQueueManager {
 
   async markFailed(jobId: string, tenantId: string, error: string): Promise<void> {
     const now = new Date().toISOString();
-    const job = await this.db
+    const job = await this.getDb()
       .prepare(
         `SELECT retry_count, max_retries FROM mentoria_notification_jobs
          WHERE id = ? AND tenant_id = ?`
@@ -128,7 +137,7 @@ export class NotificationQueueManager {
     const isAbandoned = retryCount >= job.max_retries;
     const nextRetryAt = isAbandoned ? null : this.calculateNextRetryTime(retryCount);
 
-    await this.db
+    await this.getDb()
       .prepare(
         `UPDATE mentoria_notification_jobs
          SET status = ?, retry_count = ?, last_error = ?, next_retry_at = ?, updated_at = ?
@@ -189,7 +198,7 @@ export class NotificationQueueManager {
     data: Record<string, unknown>;
   }): Promise<void> {
     const now = new Date().toISOString();
-    await this.db
+    await this.getDb()
       .prepare(
         `INSERT INTO mentoria_system_events (
           id, tenant_id, event_type, severity, data_json, created_at

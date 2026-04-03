@@ -6,7 +6,7 @@ import {
   type WorkspaceConnectedProductRecord,
   type WorkspaceRole,
   type WorkspaceTenantRecord,
-  ensureTenantBilling,
+  getDefaultTenantBillingRecord,
   getDefaultWorkspaceTenantId,
   getTenantBilling,
   listUserMemberships,
@@ -152,7 +152,7 @@ export async function getCurrentTenant(): Promise<CurrentWorkspaceTenant | null>
   const tenant = await resolveWorkspaceTenant(membership.tenantId);
   if (!tenant) return null;
   const onboarding = await refreshTenantOnboardingState(membership.tenantId);
-  const billing = await ensureTenantBilling(membership.tenantId);
+  const billing = (await getTenantBilling(membership.tenantId)) ?? getDefaultTenantBillingRecord(membership.tenantId);
   const connectedProducts = await listConnectedWorkspaceProducts(membership.tenantId);
   return {
     tenant,

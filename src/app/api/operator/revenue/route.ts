@@ -4,21 +4,43 @@ import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
+const REVENUE_ACTIVE_STATUSES = new Set(["active", "trial", "trialing"]);
+const REVENUE_AT_RISK_STATUSES = new Set(["past_due"]);
+
 export async function GET(req: Request) {
     try {
         // 1. Authorize (Owner Only / fail-closed)
         await requireOwnerAccess(req);
 
-        // 2. Aggregate Revenue & Stats per SaaS
+        // 2. Aggregate revenue from verified canonical product subscriptions only.
         const stats = await queryAll(`
-            SELECT 
-                s.saas_slug,
-                s.status,
-                COUNT(s.id) as count,
-                SUM(p.monthly_price_cents) as mrr_cents
-            FROM saas_subscriptions s
-            LEFT JOIN saas_pricing_plans p ON s.saas_slug = p.saas_slug AND s.plan_code = p.plan_code
-            GROUP BY s.saas_slug, s.status
+            WITH canonical_revenue_rows AS (
+                SELECT
+                    s.tenant_id,
+                    s.saas_slug,
+                    lower(trim(s.status)) AS status,
+                    s.plan_code
+                FROM saas_subscriptions s
+                WHERE s.stripe_customer_id IS NOT NULL
+                  AND s.stripe_subscription_id IS NOT NULL
+            )
+            SELECT
+                c.saas_slug,
+                c.status,
+                COUNT(*) AS count,
+                SUM(
+                    CASE
+                        WHEN c.status IN ('active', 'trial', 'trialing', 'past_due')
+                            THEN COALESCE(p.monthly_price_cents, 0)
+                        ELSE 0
+                    END
+                ) AS mrr_cents
+            FROM canonical_revenue_rows c
+            LEFT JOIN saas_pricing_plans p
+              ON c.saas_slug = p.saas_slug
+             AND c.plan_code = p.plan_code
+             AND p.is_active = 1
+            GROUP BY c.saas_slug, c.status
         `);
 
         // 3. Transform to clean JSON
@@ -50,14 +72,14 @@ export async function GET(req: Request) {
             saas.status_breakdown[row.status] = count;
             saas.total_tenants += count;
 
-            if (['active', 'trial'].includes(row.status)) {
+            if (REVENUE_ACTIVE_STATUSES.has(row.status)) {
                 saas.active_tenants += count;
                 saas.mrr_cents += (row.mrr_cents || 0);
 
                 dashboard.global_active_tenants += count;
                 dashboard.global_mrr_cents += (row.mrr_cents || 0);
                 totals.active += count;
-            } else if (row.status === 'past_due') {
+            } else if (REVENUE_AT_RISK_STATUSES.has(row.status)) {
                 saas.past_due_count += count;
                 saas.mrr_cents += (row.mrr_cents || 0); // Count Potential MRR? Usually recognized but risky.
 

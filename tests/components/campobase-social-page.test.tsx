@@ -154,7 +154,7 @@ describe("Campobase social automation dashboard", () => {
   it("loads initial data from the API", async () => {
     mockInitialLoad();
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(fetchMock).toHaveBeenCalledWith("/api/operator/socialflow", { cache: "no-store" });
@@ -163,7 +163,7 @@ describe("Campobase social automation dashboard", () => {
   it("renders metrics, SaaS table and history table", async () => {
     mockInitialLoad();
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findAllByText("saas-1");
 
@@ -188,7 +188,7 @@ describe("Campobase social automation dashboard", () => {
   it("renders duration in history table", async () => {
     mockInitialLoad();
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findAllByText("saas-1");
     expect(screen.getByText("300s")).toBeInTheDocument();
@@ -211,7 +211,7 @@ describe("Campobase social automation dashboard", () => {
       },
     );
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findByText("No hay SaaS registrados.");
     expect(screen.getByText("Sin historial todavía.")).toBeInTheDocument();
@@ -220,7 +220,7 @@ describe("Campobase social automation dashboard", () => {
   it("shows error when GET fails", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ message: "LOAD_FAIL" }, 500));
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findByText("LOAD_FAIL");
     expect(screen.getByText("LOAD_FAIL")).toBeInTheDocument();
@@ -235,7 +235,7 @@ describe("Campobase social automation dashboard", () => {
     }));
     fetchMock.mockResolvedValueOnce(jsonResponse({ status: baseStatus, history: baseHistory, summary: baseSummary }));
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findAllByText("saas-1");
     fireEvent.click(screen.getByRole("button", { name: "Run ALL" }));
@@ -261,7 +261,7 @@ describe("Campobase social automation dashboard", () => {
     }));
     fetchMock.mockResolvedValueOnce(jsonResponse({ status: baseStatus, history: baseHistory, summary: baseSummary }));
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findAllByText("saas-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Run" })[0]);
@@ -284,7 +284,7 @@ describe("Campobase social automation dashboard", () => {
     mockInitialLoad();
     fetchMock.mockResolvedValueOnce(jsonResponse({ status: baseStatus, history: failedHistory, summary: failedSummary }));
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findAllByText("saas-1");
     fireEvent.change(screen.getByLabelText("Status"), { target: { value: "FAILED" } });
@@ -302,7 +302,7 @@ describe("Campobase social automation dashboard", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ status: baseStatus, history: failedHistory, summary: failedSummary }));
     fetchMock.mockResolvedValueOnce(jsonResponse({ status: baseStatus, history: baseHistory, summary: baseSummary }));
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findAllByText("saas-1");
     fireEvent.change(screen.getByLabelText("Status"), { target: { value: "FAILED" } });
@@ -325,7 +325,7 @@ describe("Campobase social automation dashboard", () => {
       status: baseStatus,
     }));
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findAllByText("saas-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Enable" })[1]);
@@ -348,7 +348,7 @@ describe("Campobase social automation dashboard", () => {
       status: baseStatus,
     }));
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findAllByText("saas-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Disable" })[0]);
@@ -367,7 +367,7 @@ describe("Campobase social automation dashboard", () => {
     mockInitialLoad();
     fetchMock.mockResolvedValueOnce(jsonResponse({ status: baseStatus, history: baseHistory, summary: baseSummary }));
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findAllByText("saas-1");
     fireEvent.click(screen.getAllByRole("button", { name: "View history" })[0]);
@@ -384,7 +384,7 @@ describe("Campobase social automation dashboard", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ status: baseStatus, history: baseHistory, summary: baseSummary }));
     fetchMock.mockResolvedValueOnce(jsonResponse({ status: baseStatus, history: baseHistory, summary: baseSummary }));
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findAllByText("saas-1");
     fireEvent.click(screen.getAllByRole("button", { name: "View history" })[0]);
@@ -407,7 +407,7 @@ describe("Campobase social automation dashboard", () => {
     }));
     fetchMock.mockResolvedValueOnce(jsonResponse({ status: baseStatus, history: failedHistory, summary: failedSummary }));
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findByText("Retry run");
     fireEvent.click(screen.getByRole("button", { name: "Retry run" }));
@@ -432,7 +432,7 @@ describe("Campobase social automation dashboard", () => {
     }));
     fetchMock.mockResolvedValueOnce(jsonResponse({ status: baseStatus, history: failedHistory, summary: failedSummary }));
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findAllByText("saas-1");
     fireEvent.change(screen.getByLabelText("Status"), { target: { value: "FAILED" } });
@@ -450,7 +450,7 @@ describe("Campobase social automation dashboard", () => {
     mockInitialLoad();
     fetchMock.mockResolvedValueOnce(jsonResponse({ status: baseStatus, history: [], summary: baseSummary }));
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findAllByText("saas-1");
     fireEvent.change(screen.getByLabelText("Status"), { target: { value: "FAILED" } });
@@ -498,7 +498,7 @@ describe("Campobase social automation dashboard", () => {
         },
       }));
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findByRole("button", { name: "Retry failed visible" });
     fireEvent.click(screen.getByRole("button", { name: "Retry failed visible" }));
@@ -567,7 +567,7 @@ describe("Campobase social automation dashboard", () => {
         },
       }));
 
-    render(<CampoBaseSocialPage />);
+    render(React.createElement(CampoBaseSocialPage));
 
     await screen.findAllByText("saas-1");
     fireEvent.change(screen.getByLabelText("Status"), { target: { value: "FAILED" } });

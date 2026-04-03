@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireCurrentMentoriaSession } from "@/lib/mentoria/auth/request";
-import { generateDailyContentBatch } from "@/lib/mentoria/acquisition-content";
 import { AcquisitionPublisher } from "@/lib/mentoria/acquisition-publishing";
 import { AcquisitionScheduler } from "@/lib/mentoria/acquisition-scheduler";
 
@@ -16,7 +15,7 @@ export async function GET(request: Request) {
     }
 
     const publisher = new AcquisitionPublisher();
-    const scheduler = new AcquisitionScheduler();
+    const scheduler = new AcquisitionScheduler({ tenantId: actor.tenantId });
 
     const metrics = await publisher.getPerformanceMetrics();
     const scheduledPosts = await scheduler.getScheduledPostsForNextDays(7);
@@ -47,7 +46,7 @@ export async function POST(request: Request) {
       postId?: string;
     };
 
-    const scheduler = new AcquisitionScheduler();
+    const scheduler = new AcquisitionScheduler({ tenantId: actor.tenantId });
     const publisher = new AcquisitionPublisher();
 
     if (body.action === "generate_daily") {

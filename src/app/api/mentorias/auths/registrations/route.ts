@@ -26,12 +26,54 @@ export async function POST(request: Request) {
 
   const boundary = enforceAuthBoundary({ request, expectedContext: "mentorias", endpoint: "/api/mentorias/auths/registrations" });
   if (!boundary.ok) return boundary.response;
-  const body = (await request.json().catch(() => null)) as RegistrationBody | null;
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+  let body: RegistrationBody | null = null;
+  try {
+    if (contentType.includes("application/json")) {
+      const raw = await request.text();
+      try {
+        body = JSON.parse(raw) as RegistrationBody;
+      } catch {
+        body = null;
+      }
+    } else if (contentType.includes("application/x-www-form-urlencoded")) {
+      const raw = await request.text();
+      const params = new URLSearchParams(raw);
+      body = {
+        email: params.get("email") ?? undefined,
+        password: params.get("password") ?? undefined,
+        name: params.get("name") ?? undefined,
+      };
+    } else {
+      const raw = await request.text();
+      try {
+        body = JSON.parse(raw) as RegistrationBody;
+      } catch {
+        body = null;
+      }
+    }
+  } catch {
+    body = null;
+  }
   if (!body?.email || !body.password) {
+    console.error("[registrations POST] INVALID_INPUT — body parse failed or missing fields", {
+      contentType,
+      hasEmail: Boolean(body?.email),
+      hasPassword: Boolean(body?.password),
+    });
     return jsonError("INVALID_INPUT", "Email and password are required.");
   }
 
-  const db = getMentoriaDb(env?.());
+  const bindings = env?.();
+  if (!bindings?.MENTORIA_DB && !bindings?.DRACO_DB) {
+    console.error("[registrations POST] DB bindings not available", {
+      hasMentoriaDb: Boolean(bindings?.MENTORIA_DB),
+      hasDracoDb: Boolean(bindings?.DRACO_DB),
+    });
+    return jsonError("DB_UNAVAILABLE", "Database bindings not available. Please try again later.", 503);
+  }
+
+  const db = getMentoriaDb(bindings);
   const repository = new MentoriaFamilyRepository(db);
   const familyService = new MentoriaFamilyService(repository);
   const registrationFamily = await familyService.resolveRegistrationFamily({
@@ -52,6 +94,14 @@ export async function POST(request: Request) {
   }
 
   try {
+    console.log("[registrations POST] Iniciando finalizeRegistration", {
+      userId: registration.userId,
+      email: body.email,
+      tenantId: registration.tenantId,
+      name: body.name,
+      role: registrationFamily.guardianRole,
+    });
+
     await familyService.finalizeRegistration({
       userId: registration.userId,
       email: body.email,
@@ -59,7 +109,17 @@ export async function POST(request: Request) {
       name: body.name ?? null,
       role: registrationFamily.guardianRole,
     });
+
+    console.log("[registrations POST] finalizeRegistration completado exitosamente");
   } catch (error) {
+    console.error("[registrations POST] finalizeRegistration FALLÓ", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: registration.userId,
+      email: body.email,
+      tenantId: registration.tenantId,
+    });
+
     await deleteUserWithCredential({ context: "mentorias", userId: registration.userId });
     const message = error instanceof Error ? error.message : "FAMILY_REGISTRATION_FAILED";
     return jsonError(message, "Failed to create family membership.", 500);

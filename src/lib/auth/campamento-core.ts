@@ -935,6 +935,20 @@ export async function getTenantBilling(tenantId: string): Promise<TenantBillingR
   return mapBilling(row);
 }
 
+export function getDefaultTenantBillingRecord(tenantId: string): TenantBillingRecord {
+  const now = nowIso();
+  return {
+    tenantId,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
+    plan: "STARTER",
+    status: "inactive",
+    currentPeriodEnd: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 export async function upsertTenantBilling(input: {
   tenantId: string;
   stripeCustomerId?: string | null;

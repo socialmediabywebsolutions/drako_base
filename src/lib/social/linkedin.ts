@@ -636,6 +636,8 @@ export async function publishLinkedInMemberPost(
         ? "LINKEDIN_PUBLISH_TOKEN_INVALID"
         : response.status === 403
           ? "LINKEDIN_PUBLISH_FORBIDDEN"
+          : response.status === 429
+            ? "LINKEDIN_PUBLISH_RATE_LIMITED"
           : response.status === 400
             ? "LINKEDIN_PUBLISH_INVALID_REQUEST"
             : "LINKEDIN_PUBLISH_FAILED";

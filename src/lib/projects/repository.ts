@@ -1,4 +1,5 @@
 import { queryAll as queryAllDb, queryOne as queryOneDb, run as runDb } from "@/lib/db";
+import { upsertCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
 import { STRIPE_PRODUCT_MAP } from "@/lib/subscriptions";
 import {
   getProjectEntitlements as getEntitlements,
@@ -289,6 +290,22 @@ async function clonePolicyPack(tenantId: string, saasId: string, packName: strin
   );
 }
 
+async function resolveProjectSubscriptionSlug(
+  tenantId: string,
+  projectId: string,
+  db: DbAdapter,
+): Promise<string | null> {
+  const project = await db.queryOne<{ slug: string }>(
+    `SELECT slug
+     FROM projects
+     WHERE tenant_id = ? AND id = ?
+     LIMIT 1`,
+    tenantId,
+    projectId,
+  );
+  const slug = project?.slug?.trim().toLowerCase();
+  return slug || null;
+}
 
 export async function provisionSubscription(
   tenantId: string,
@@ -296,29 +313,21 @@ export async function provisionSubscription(
   stripeData: { customerId: string, subscriptionId: string, priceId: string, productId: string, status: string, periodEnd: string },
   db: DbAdapter
 ) {
-  const now = new Date().toISOString();
+  const canonicalSaasSlug = saasId
+    ? await resolveProjectSubscriptionSlug(tenantId, saasId, db)
+    : null;
 
-  // 1. Upsert Subscription Record
-  await db.run(`
-        INSERT INTO saas_subscriptions (id, tenant_id, saas_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, status, current_period_end, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(tenant_id, saas_id) DO UPDATE SET
-            stripe_subscription_id = excluded.stripe_subscription_id,
-            stripe_price_id = excluded.stripe_price_id,
-            status = excluded.status,
-            current_period_end = excluded.current_period_end,
-            updated_at = excluded.updated_at
-    `,
-    generateId("sub"),
-    tenantId,
-    saasId,
-    stripeData.customerId,
-    stripeData.subscriptionId,
-    stripeData.priceId,
-    stripeData.status,
-    stripeData.periodEnd,
-    now, now
-  );
+  if (canonicalSaasSlug) {
+    await upsertCanonicalSubscriptionState({
+      tenantId,
+      saasSlug: canonicalSaasSlug,
+      stripeCustomerId: stripeData.customerId,
+      stripeSubscriptionId: stripeData.subscriptionId,
+      stripePriceId: stripeData.priceId,
+      status: stripeData.status,
+      currentPeriodEnd: stripeData.periodEnd,
+    });
+  }
 
   // 2. Resolve Pack from Product ID
   const packName = STRIPE_PRODUCT_MAP[stripeData.productId];

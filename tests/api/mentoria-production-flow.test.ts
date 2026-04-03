@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   requireCurrentMentoriaSession: vi.fn(),
   createStripeCheckoutSession: vi.fn(),
   queryOne: vi.fn(),
+  getCanonicalSubscriptionState: vi.fn(),
   getMentoriaStripePriceId: vi.fn(),
   getRequestBaseUrl: vi.fn(),
   createStripeCustomer: vi.fn(),
@@ -85,6 +86,10 @@ vi.mock("@/lib/db", () => ({
   queryOne: mocks.queryOne,
 }));
 
+vi.mock("@/lib/billing/subscriptions", () => ({
+  getCanonicalSubscriptionState: mocks.getCanonicalSubscriptionState,
+}));
+
 vi.mock("@/lib/mentoria/plans", () => ({
   getMentoriaStripePriceId: mocks.getMentoriaStripePriceId,
 }));
@@ -152,9 +157,19 @@ describe("mentoria product flow surface", () => {
     });
     mocks.getMentoriaStripePriceId.mockReturnValue("price_mentoria_pro");
     mocks.getRequestBaseUrl.mockReturnValue("https://mentoria.drako.systems");
-    mocks.queryOne
-      .mockResolvedValueOnce({ stripe_customer_id: "cus_existing" })
-      .mockResolvedValueOnce({ id: "saas_mentoria_active" });
+    mocks.queryOne.mockResolvedValue({ id: "saas_mentoria_active" });
+    mocks.getCanonicalSubscriptionState.mockResolvedValue({
+      tenantId: "tenant_mentoria",
+      saasSlug: "mentoria",
+      stripeCustomerId: "cus_existing",
+      stripeSubscriptionId: "sub_mentoria",
+      stripePriceId: "price_mentoria_pro",
+      planCode: "pro",
+      status: "active",
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+      updatedAt: new Date().toISOString(),
+    });
     mocks.createStripeCustomer.mockResolvedValue({ id: "cus_created" });
     mocks.createStripeCheckoutSession.mockResolvedValue({ id: "cs_flow", url: "https://stripe.test/checkout" });
   });

@@ -126,6 +126,14 @@ export class MentoriaFamilyService {
     name?: string | null;
     role?: MentoriaGuardianRole;
   }) {
+    console.log("[MentoriaFamilyService.finalizeRegistration] ENTRADA", {
+      userId: input.userId,
+      email: input.email,
+      tenantId: input.tenantId,
+      name: input.name,
+      role: input.role,
+    });
+
     await this.repository.ensureFamilyMembershipByUser({
       userId: input.userId,
       email: input.email,
@@ -133,11 +141,19 @@ export class MentoriaFamilyService {
       fallbackName: input.name ?? null,
     });
 
-    return this.repository.upsertGuardian({
+    console.log("[MentoriaFamilyService.finalizeRegistration] ensureFamilyMembershipByUser completado");
+
+    const result = await this.repository.upsertGuardian({
       email: input.email,
       familyId: input.tenantId,
       name: input.name ?? null,
       role: input.role ?? "tutor",
     });
+
+    console.log("[MentoriaFamilyService.finalizeRegistration] upsertGuardian completado", {
+      guardianId: result.id,
+    });
+
+    return result;
   }
 }

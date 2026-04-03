@@ -333,26 +333,34 @@ function parseBlocks(value: string | null): StudyPlanBlock[] {
 }
 
 function mapStudent(row: StudentProfileRow): StudentProfile {
-  const learningProfile = getLearningProfile({
-    schoolYear: row.school_year,
-    age: row.age,
-  });
+  const anyRow = row as unknown as Record<string, any>;
+  const fullName = anyRow.full_name ?? anyRow.display_name ?? "";
+  const schoolYear = anyRow.school_year ?? anyRow.grade_level ?? "";
+  const learningGoalsJson = (anyRow.learning_goals_json ?? anyRow.goals_json ?? "[]") as string | null;
+  const baseEmotionalState = (anyRow.base_emotional_state ?? anyRow.emotional_baseline ?? "steady") as StudentProfile["baseEmotionalState"];
+  const emotionalBaselineJson = (anyRow.emotional_baseline_json ?? null) as string | null;
+  const learningPreference = (anyRow.learning_preference ?? anyRow.learning_style ?? "step_by_step") as StudentProfile["learningPreference"];
+  const preferredStudyMinutes = (anyRow.preferred_study_minutes ?? anyRow.preferred_session_minutes ?? 25) as number;
+  const strengthsJson = (anyRow.strengths_json ?? "[]") as string | null;
+  const supportNotes = (anyRow.support_notes ?? undefined) as string | undefined;
+  const onboardingCompleted = Boolean(anyRow.onboarding_completed ?? 1);
+  const learningProfile = getLearningProfile({ schoolYear, age: row.age });
   return {
     id: row.id,
     tenantId: row.tenant_id,
-    userId: row.user_id ?? undefined,
+    userId: (anyRow.user_id as string | null) ?? undefined,
     learningStage: learningProfile.stage,
-    fullName: row.full_name,
+    fullName,
     age: row.age,
-    schoolYear: row.school_year,
-    learningGoals: parseJsonArray<string>(row.learning_goals_json),
-    baseEmotionalState: row.base_emotional_state as StudentProfile["baseEmotionalState"],
-    emotionalBaseline: parseEmotionalBaseline(row.emotional_baseline_json),
-    learningPreference: (row.learning_preference ?? "step_by_step") as StudentProfile["learningPreference"],
-    preferredStudyMinutes: row.preferred_study_minutes,
-    strengths: parseJsonArray<string>(row.strengths_json),
-    supportNotes: row.support_notes ?? undefined,
-    onboardingCompleted: Boolean(row.onboarding_completed),
+    schoolYear,
+    learningGoals: parseJsonArray<string>(learningGoalsJson),
+    baseEmotionalState,
+    emotionalBaseline: parseEmotionalBaseline(emotionalBaselineJson),
+    learningPreference,
+    preferredStudyMinutes,
+    strengths: parseJsonArray<string>(strengthsJson),
+    supportNotes,
+    onboardingCompleted,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -365,7 +373,15 @@ function mapSubject(row: SubjectRow): MentoriaSubject {
     slug: row.slug,
     name: row.name,
     description: row.description ?? "",
-    difficultyBand: row.difficulty_band,
+    difficultyBand: (row as any).difficulty_band
+      ? ((row as any).difficulty_band as unknown as string)
+      : (() => {
+          const w = (row as any).difficulty_weight as unknown as number | undefined;
+          if (typeof w === "number") {
+            return w <= 1.05 ? "core" : "growth";
+          }
+          return "core";
+        })(),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -403,21 +419,27 @@ function mapStudentSubject(row: StudentSubjectRow, subject?: MentoriaSubject): M
 }
 
 function mapPlan(row: StudyPlanRow): StudyPlan {
+  const rawBlocks = (row as any).blocks_json ?? (row as any).plan_json ?? "[]";
+  const goalsSummary = (row as any).goals_summary ?? (row as any).title ?? "";
   return {
     id: row.id,
     tenantId: row.tenant_id,
     studentProfileId: row.student_profile_id,
-    weekStart: row.week_start,
-    weekEnd: row.week_end,
-    goalsSummary: row.goals_summary ?? "",
-    blocks: parseBlocks(row.blocks_json),
-    generatedBy: row.generated_by,
+    weekStart: (row as any).week_start ?? "",
+    weekEnd: (row as any).week_end ?? (row as any).week_start ?? "",
+    goalsSummary,
+    blocks: parseBlocks(rawBlocks),
+    generatedBy: (row as any).generated_by ?? "planner-agent",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
 function mapProgress(row: ProgressRow, subject?: MentoriaSubject): MentoriaProgress {
+  const weakTopics = parseJsonArray<string>((row as any).weak_topics_json ?? (row as any).weaknesses_json ?? null);
+  const strongTopics = parseJsonArray<string>((row as any).strong_topics_json ?? (row as any).strengths_json ?? null);
+  const confidence = (row as any).confidence_score as unknown as number | undefined;
+  const fallbackConfidence = (row as any).focus_score as unknown as number | undefined;
   return {
     id: row.id,
     tenantId: row.tenant_id,
@@ -425,12 +447,12 @@ function mapProgress(row: ProgressRow, subject?: MentoriaSubject): MentoriaProgr
     subjectId: row.subject_id,
     subject,
     masteryScore: row.mastery_score,
-    confidenceScore: row.confidence_score,
+    confidenceScore: typeof confidence === "number" ? confidence : typeof fallbackConfidence === "number" ? fallbackConfidence : 0,
     streakDays: row.streak_days,
     sessionsCompleted: row.sessions_completed,
     exercisesCompleted: row.exercises_completed,
-    weakTopics: parseJsonArray<string>(row.weak_topics_json),
-    strongTopics: parseJsonArray<string>(row.strong_topics_json),
+    weakTopics,
+    strongTopics,
     lastActivityAt: row.last_activity_at ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -653,7 +675,15 @@ function mapProgressShare(row: ProgressShareRow): MentoriaProgressShare {
 export class MentoriaRepository {
   constructor(private db: DbLike = getDb()) {}
 
+  private async hasColumn(table: string, column: string): Promise<boolean> {
+    const res = await this.db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+    const names = (res.results ?? []).map((r) => (r?.name ?? "").toLowerCase());
+    return names.includes(column.toLowerCase());
+  }
+
   async getStudentProfileByUser(tenantId: string, userId: string): Promise<StudentProfile | null> {
+    const hasUserId = await this.hasColumn("student_profiles", "user_id");
+    if (!hasUserId) return null;
     const row = await this.db
       .prepare(
         `SELECT * FROM student_profiles
@@ -678,8 +708,10 @@ export class MentoriaRepository {
   }
 
   async listStudentsForTenant(tenantId: string): Promise<StudentProfile[]> {
+    const hasFullName = await this.hasColumn("student_profiles", "full_name");
+    const orderBy = hasFullName ? "full_name" : "display_name";
     const result = await this.db
-      .prepare(`SELECT * FROM student_profiles WHERE tenant_id = ? ORDER BY full_name ASC`)
+      .prepare(`SELECT * FROM student_profiles WHERE tenant_id = ? ORDER BY ${orderBy} ASC`)
       .bind(tenantId)
       .all<StudentProfileRow>();
     return (result.results ?? []).map(mapStudent);
@@ -1276,77 +1308,133 @@ export class MentoriaRepository {
     onboardingCompleted: boolean;
     supportNotes?: string;
   }): Promise<StudentProfile> {
-    const existing = await this.getStudentProfileByUser(input.tenantId, input.userId);
+    const hasUserId = await this.hasColumn("student_profiles", "user_id");
+    const hasFullName = await this.hasColumn("student_profiles", "full_name");
+    const hasSchoolYear = await this.hasColumn("student_profiles", "school_year");
+    const hasLearningGoalsJson = await this.hasColumn("student_profiles", "learning_goals_json");
+    const hasBaseEmotionalState = await this.hasColumn("student_profiles", "base_emotional_state");
+    const hasPreferredStudy = await this.hasColumn("student_profiles", "preferred_study_minutes");
+    const hasStrengths = await this.hasColumn("student_profiles", "strengths_json");
+    const hasSupportNotes = await this.hasColumn("student_profiles", "support_notes");
+    const hasEmotionalBaselineJson = await this.hasColumn("student_profiles", "emotional_baseline_json");
+    const hasLearningPreference = await this.hasColumn("student_profiles", "learning_preference");
+    const hasOnboardingCompleted = await this.hasColumn("student_profiles", "onboarding_completed");
+
+    const existing = hasUserId ? await this.getStudentProfileByUser(input.tenantId, input.userId) : null;
     const now = new Date().toISOString();
     if (existing) {
-      await this.db
-        .prepare(
-          `UPDATE student_profiles
-           SET display_name = ?, full_name = ?, age = ?, grade_level = ?, school_year = ?, goals_json = ?, learning_goals_json = ?,
-               emotional_baseline = ?, base_emotional_state = ?, learning_style = ?, emotional_baseline_json = ?, learning_preference = ?, preferred_session_minutes = ?, preferred_study_minutes = ?,
-               strengths_json = ?, support_notes = ?, onboarding_completed = ?, updated_at = ?
-           WHERE tenant_id = ? AND user_id = ?`,
-        )
-        .bind(
-          input.fullName,
-          input.fullName,
-          input.age,
-          input.schoolYear,
-          input.schoolYear,
-          JSON.stringify(input.learningGoals),
-          JSON.stringify(input.learningGoals),
-          input.baseEmotionalState,
-          input.baseEmotionalState,
-          input.learningPreference,
-          JSON.stringify(input.emotionalBaseline),
-          input.learningPreference,
-          input.preferredStudyMinutes,
-          input.preferredStudyMinutes,
-          JSON.stringify(input.strengths),
-          input.supportNotes ?? null,
-          input.onboardingCompleted ? 1 : 0,
-          now,
-          input.tenantId,
-          input.userId,
-        )
-        .run();
-      return (await this.getStudentProfileByUser(input.tenantId, input.userId)) as StudentProfile;
-    }
-
-    const id = crypto.randomUUID();
-    await this.db
-      .prepare(
-        `INSERT INTO student_profiles (
-          id, tenant_id, display_name, user_id, full_name, age, grade_level, school_year, goals_json, learning_goals_json,
-          emotional_baseline, base_emotional_state, learning_style, emotional_baseline_json, learning_preference, preferred_session_minutes, preferred_study_minutes,
-          strengths_json, support_notes, onboarding_completed, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .bind(
-        id,
-        input.tenantId,
-        input.fullName,
-        input.userId,
+      // Build dynamic UPDATE with available columns
+      const sets: string[] = ["display_name = ?", "age = ?", "grade_level = ?", "goals_json = ?", "emotional_baseline = ?", "learning_style = ?", "preferred_session_minutes = ?"]; 
+      const binds: any[] = [
         input.fullName,
         input.age,
         input.schoolYear,
-        input.schoolYear,
-        JSON.stringify(input.learningGoals),
         JSON.stringify(input.learningGoals),
         input.baseEmotionalState,
-        input.baseEmotionalState,
-        input.learningPreference,
-        JSON.stringify(input.emotionalBaseline),
         input.learningPreference,
         input.preferredStudyMinutes,
-        input.preferredStudyMinutes,
-        JSON.stringify(input.strengths),
-        input.supportNotes ?? null,
-        input.onboardingCompleted ? 1 : 0,
-        now,
-        now,
-      )
-      .run();
+      ];
+      if (hasFullName) {
+        sets.push("full_name = ?");
+        binds.push(input.fullName);
+      }
+      if (hasSchoolYear) {
+        sets.push("school_year = ?");
+        binds.push(input.schoolYear);
+      }
+      if (hasLearningGoalsJson) {
+        sets.push("learning_goals_json = ?");
+        binds.push(JSON.stringify(input.learningGoals));
+      }
+      if (hasBaseEmotionalState) {
+        sets.push("base_emotional_state = ?");
+        binds.push(input.baseEmotionalState);
+      }
+      if (hasEmotionalBaselineJson) {
+        sets.push("emotional_baseline_json = ?");
+        binds.push(JSON.stringify(input.emotionalBaseline));
+      }
+      if (hasLearningPreference) {
+        sets.push("learning_preference = ?");
+        binds.push(input.learningPreference);
+      }
+      if (hasPreferredStudy) {
+        sets.push("preferred_study_minutes = ?");
+        binds.push(input.preferredStudyMinutes);
+      }
+      if (hasStrengths) {
+        sets.push("strengths_json = ?");
+        binds.push(JSON.stringify(input.strengths));
+      }
+      if (hasSupportNotes) {
+        sets.push("support_notes = ?");
+        binds.push(input.supportNotes ?? null);
+      }
+      if (hasOnboardingCompleted) {
+        sets.push("onboarding_completed = ?");
+        binds.push(input.onboardingCompleted ? 1 : 0);
+      }
+      sets.push("updated_at = ?");
+      binds.push(now);
+      binds.push(input.tenantId, input.userId);
+      const sql = `UPDATE student_profiles SET ${sets.join(", ")} WHERE tenant_id = ? AND user_id = ?`;
+      await this.db.prepare(sql).bind(...binds).run();
+      return (await this.getStudentProfileByUser(input.tenantId, input.userId)) as StudentProfile;
+    }
+
+    // INSERT path
+    const id = crypto.randomUUID();
+    const cols = [
+      "id",
+      "tenant_id",
+      "display_name",
+      ...(hasUserId ? ["user_id"] : []),
+      ...(hasFullName ? ["full_name"] : []),
+      "age",
+      "grade_level",
+      ...(hasSchoolYear ? ["school_year"] : []),
+      "goals_json",
+      ...(hasLearningGoalsJson ? ["learning_goals_json"] : []),
+      "emotional_baseline",
+      ...(hasBaseEmotionalState ? ["base_emotional_state"] : []),
+      "learning_style",
+      ...(hasEmotionalBaselineJson ? ["emotional_baseline_json"] : []),
+      ...(hasLearningPreference ? ["learning_preference"] : []),
+      "preferred_session_minutes",
+      ...(hasPreferredStudy ? ["preferred_study_minutes"] : []),
+      ...(hasStrengths ? ["strengths_json"] : []),
+      ...(hasSupportNotes ? ["support_notes"] : []),
+      ...(hasOnboardingCompleted ? ["onboarding_completed"] : []),
+      "created_at",
+      "updated_at",
+    ];
+    const values: any[] = [
+      id,
+      input.tenantId,
+      input.fullName,
+      ...(hasUserId ? [input.userId] : []),
+      ...(hasFullName ? [input.fullName] : []),
+      input.age,
+      input.schoolYear,
+      ...(hasSchoolYear ? [input.schoolYear] : []),
+      JSON.stringify(input.learningGoals),
+      ...(hasLearningGoalsJson ? [JSON.stringify(input.learningGoals)] : []),
+      input.baseEmotionalState,
+      ...(hasBaseEmotionalState ? [input.baseEmotionalState] : []),
+      input.learningPreference,
+      ...(hasEmotionalBaselineJson ? [JSON.stringify(input.emotionalBaseline)] : []),
+      ...(hasLearningPreference ? [input.learningPreference] : []),
+      input.preferredStudyMinutes,
+      ...(hasPreferredStudy ? [input.preferredStudyMinutes] : []),
+      ...(hasStrengths ? [JSON.stringify(input.strengths)] : []),
+      ...(hasSupportNotes ? [input.supportNotes ?? null] : []),
+      ...(hasOnboardingCompleted ? [input.onboardingCompleted ? 1 : 0] : []),
+      now,
+      now,
+    ];
+    const placeholders = cols.map(() => "?").join(", ");
+    const sql = `INSERT INTO student_profiles (${cols.join(", ")}) VALUES (${placeholders})`;
+    await this.db.prepare(sql).bind(...values).run();
     return (await this.getStudentProfileById(input.tenantId, id)) as StudentProfile;
   }
 
@@ -1359,16 +1447,40 @@ export class MentoriaRepository {
       ["ingles", "Ingles", "Comprension, speaking y vocabulario.", "growth"],
     ] as const;
 
+    const hasBand = await this.hasColumn("mentoria_subjects", "difficulty_band");
+    const hasWeight = hasBand ? false : await this.hasColumn("mentoria_subjects", "difficulty_weight");
     for (const [slug, name, description, difficultyBand] of defaults) {
       const now = new Date().toISOString();
-      await this.db
-        .prepare(
-          `INSERT OR IGNORE INTO mentoria_subjects (
-            id, tenant_id, slug, name, description, difficulty_band, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(crypto.randomUUID(), tenantId, slug, name, description, difficultyBand, now, now)
-        .run();
+      if (hasBand) {
+        await this.db
+          .prepare(
+            `INSERT OR IGNORE INTO mentoria_subjects (
+              id, tenant_id, slug, name, description, difficulty_band, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(crypto.randomUUID(), tenantId, slug, name, description, difficultyBand, now, now)
+          .run();
+      } else if (hasWeight) {
+        const weight = difficultyBand === "growth" ? 1.2 : 1.0;
+        await this.db
+          .prepare(
+            `INSERT OR IGNORE INTO mentoria_subjects (
+              id, tenant_id, slug, name, description, difficulty_weight, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(crypto.randomUUID(), tenantId, slug, name, description, weight, now, now)
+          .run();
+      } else {
+        // Fallback: insert without difficulty column if none exists (unlikely legacy)
+        await this.db
+          .prepare(
+            `INSERT OR IGNORE INTO mentoria_subjects (
+              id, tenant_id, slug, name, description, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(crypto.randomUUID(), tenantId, slug, name, description, now, now)
+          .run();
+      }
     }
     return this.listSubjects(tenantId);
   }
@@ -1398,11 +1510,13 @@ export class MentoriaRepository {
   }
 
   async listParentAccounts(tenantId: string, studentProfileId: string): Promise<ParentAccount[]> {
+    const hasFullName = await this.hasColumn("parent_accounts", "full_name");
+    const orderBy = hasFullName ? "full_name" : "display_name";
     const result = await this.db
       .prepare(
         `SELECT * FROM parent_accounts
          WHERE tenant_id = ? AND student_profile_id = ?
-         ORDER BY full_name ASC`,
+         ORDER BY ${orderBy} ASC`,
       )
       .bind(tenantId, studentProfileId)
       .all<ParentAccountRow>();
@@ -1437,18 +1551,50 @@ export class MentoriaRepository {
     canManageSchedule: boolean;
     notificationPreferences?: string[];
   }): Promise<ParentAccount> {
-    const existing = await this.getParentAccountByUser(input.tenantId, input.userId);
+    const hasUserId = await this.hasColumn("parent_accounts", "user_id");
+    const existingRow = hasUserId
+      ? await this.getParentAccountByUser(input.tenantId, input.userId)
+      : (await this.db
+          .prepare(
+            `SELECT * FROM parent_accounts WHERE tenant_id = ? AND student_profile_id = ? AND relationship = ? LIMIT 1`,
+          )
+          .bind(input.tenantId, input.studentProfileId, input.relation)
+          .first<ParentAccountRow>())
+          ? mapParent(
+              (await this.db
+                .prepare(
+                  `SELECT * FROM parent_accounts WHERE tenant_id = ? AND student_profile_id = ? AND relationship = ? LIMIT 1`,
+                )
+                .bind(input.tenantId, input.studentProfileId, input.relation)
+                .first<ParentAccountRow>()) as ParentAccountRow,
+            )
+          : null;
     const now = new Date().toISOString();
-    if (existing) {
-      await this.db
-        .prepare(
+    if (existingRow) {
+      // Detect legacy/new columns
+      const hasFullName = await this.hasColumn("parent_accounts", "full_name");
+      const hasRelation = await this.hasColumn("parent_accounts", "relation");
+      const hasRelLabel = await this.hasColumn("parent_accounts", "relationship_label");
+      const hasNotif = await this.hasColumn("parent_accounts", "notification_preferences_json");
+      const hasDailyStudy = await this.hasColumn("parent_accounts", "daily_study_minutes");
+      const hasSupervision = await this.hasColumn("parent_accounts", "supervision_level");
+      const hasCanView = await this.hasColumn("parent_accounts", "can_view_full_progress");
+      const hasCanManage = await this.hasColumn("parent_accounts", "can_manage_schedule");
+      const hasVisibility = await this.hasColumn("parent_accounts", "visibility_mode");
+      const hasDailyLimit = await this.hasColumn("parent_accounts", "daily_minutes_limit");
+
+      if (hasFullName && hasRelation && hasRelLabel && hasNotif && hasDailyStudy && hasSupervision && hasCanView && hasCanManage) {
+        const whereSql = hasUserId
+          ? `WHERE tenant_id = ? AND user_id = ?`
+          : `WHERE tenant_id = ? AND student_profile_id = ? AND relationship = ?`;
+        const stmt = this.db.prepare(
           `UPDATE parent_accounts
            SET student_profile_id = ?, label = ?, display_name = ?, full_name = ?, email = ?, relationship = ?, relation = ?, visibility_mode = ?, relationship_label = ?,
                notification_preferences_json = ?, daily_study_minutes = ?, supervision_level = ?,
                daily_minutes_limit = ?, can_view_full_progress = ?, can_manage_schedule = ?, updated_at = ?
-           WHERE tenant_id = ? AND user_id = ?`,
-        )
-        .bind(
+           ${whereSql}`,
+        );
+        const binds = [
           input.studentProfileId,
           input.relation,
           input.fullName,
@@ -1467,45 +1613,179 @@ export class MentoriaRepository {
           input.canManageSchedule ? 1 : 0,
           now,
           input.tenantId,
-          input.userId,
+          ...(hasUserId ? [input.userId] : [input.studentProfileId, input.relation]),
+        ];
+        await stmt.bind(...binds).run();
+      } else {
+        // Legacy minimal update
+        const whereSql = hasUserId
+          ? `WHERE tenant_id = ? AND user_id = ?`
+          : `WHERE tenant_id = ? AND student_profile_id = ? AND relationship = ?`;
+        const stmt = this.db.prepare(
+          `UPDATE parent_accounts
+           SET student_profile_id = ?, label = ?, display_name = ?, email = ?, relationship = ?, ${hasVisibility ? "visibility_mode = ?," : ""} ${hasDailyLimit ? "daily_minutes_limit = ?," : ""} updated_at = ?
+           ${whereSql}`,
+        );
+        const binds = [
+          input.studentProfileId,
+          input.relation,
+          input.fullName,
+          input.email,
+          input.relation,
+          ...(hasVisibility ? [input.supervisionLevel] : []),
+          ...(hasDailyLimit ? [input.dailyStudyMinutes] : []),
+          now,
+          input.tenantId,
+          ...(hasUserId ? [input.userId] : [input.studentProfileId, input.relation]),
+        ];
+        await stmt.bind(...binds).run();
+      }
+      if (hasUserId) {
+        return (await this.getParentAccountByUser(input.tenantId, input.userId)) as ParentAccount;
+      }
+      const updated = await this.db
+        .prepare(
+          `SELECT * FROM parent_accounts WHERE tenant_id = ? AND student_profile_id = ? AND relationship = ? LIMIT 1`,
         )
-        .run();
-      return (await this.getParentAccountByUser(input.tenantId, input.userId)) as ParentAccount;
+        .bind(input.tenantId, input.studentProfileId, input.relation)
+        .first<ParentAccountRow>();
+      return mapParent(updated as ParentAccountRow);
     }
 
     const id = crypto.randomUUID();
-    await this.db
+    const hasFullName = await this.hasColumn("parent_accounts", "full_name");
+    const hasRelation = await this.hasColumn("parent_accounts", "relation");
+    const hasRelLabel = await this.hasColumn("parent_accounts", "relationship_label");
+    const hasNotif = await this.hasColumn("parent_accounts", "notification_preferences_json");
+    const hasDailyStudy = await this.hasColumn("parent_accounts", "daily_study_minutes");
+    const hasSupervision = await this.hasColumn("parent_accounts", "supervision_level");
+    const hasCanView = await this.hasColumn("parent_accounts", "can_view_full_progress");
+    const hasCanManage = await this.hasColumn("parent_accounts", "can_manage_schedule");
+    const hasVisibility = await this.hasColumn("parent_accounts", "visibility_mode");
+    const hasDailyLimit = await this.hasColumn("parent_accounts", "daily_minutes_limit");
+
+    if (hasFullName && hasRelation && hasRelLabel && hasNotif && hasDailyStudy && hasSupervision && hasCanView && hasCanManage) {
+      if (hasUserId) {
+        await this.db
+          .prepare(
+            `INSERT INTO parent_accounts (
+              id, tenant_id, user_id, student_profile_id, label, display_name, full_name, email, relationship, relation, visibility_mode, relationship_label,
+              notification_preferences_json, daily_study_minutes, supervision_level, can_view_full_progress,
+              can_manage_schedule, daily_minutes_limit, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(
+            id,
+            input.tenantId,
+            input.userId,
+            input.studentProfileId,
+            input.relation,
+            input.fullName,
+            input.fullName,
+            input.email,
+            input.relation,
+            input.relation,
+            input.supervisionLevel,
+            input.relation,
+            JSON.stringify(input.notificationPreferences ?? []),
+            input.dailyStudyMinutes,
+            input.supervisionLevel,
+            input.canViewFullProgress ? 1 : 0,
+            input.canManageSchedule ? 1 : 0,
+            input.dailyStudyMinutes,
+            now,
+            now,
+          )
+          .run();
+      } else {
+        await this.db
+          .prepare(
+            `INSERT INTO parent_accounts (
+              id, tenant_id, student_profile_id, label, display_name, full_name, email, relationship, relation, visibility_mode, relationship_label,
+              notification_preferences_json, daily_study_minutes, supervision_level, can_view_full_progress,
+              can_manage_schedule, daily_minutes_limit, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(
+            id,
+            input.tenantId,
+            input.studentProfileId,
+            input.relation,
+            input.fullName,
+            input.fullName,
+            input.email,
+            input.relation,
+            input.relation,
+            input.supervisionLevel,
+            input.relation,
+            JSON.stringify(input.notificationPreferences ?? []),
+            input.dailyStudyMinutes,
+            input.supervisionLevel,
+            input.canViewFullProgress ? 1 : 0,
+            input.canManageSchedule ? 1 : 0,
+            input.dailyStudyMinutes,
+            now,
+            now,
+          )
+          .run();
+      }
+    } else {
+      // Legacy minimal insert
+      if (hasUserId) {
+        await this.db
+          .prepare(
+            `INSERT INTO parent_accounts (
+              id, tenant_id, user_id, student_profile_id, label, display_name, email, relationship${hasVisibility ? ", visibility_mode" : ""}${hasDailyLimit ? ", daily_minutes_limit" : ""}, created_at, updated_at
+            ) VALUES (${[...Array(10 + (hasVisibility ? 1 : 0) + (hasDailyLimit ? 1 : 0))].map((_, i) => (i === 0 ? "?" : ", ?")).join("")})`,
+          )
+          .bind(
+            id,
+            input.tenantId,
+            input.userId,
+            input.studentProfileId,
+            input.relation,
+            input.fullName,
+            input.email,
+            input.relation,
+            ...(hasVisibility ? [input.supervisionLevel] : []),
+            ...(hasDailyLimit ? [input.dailyStudyMinutes] : []),
+            now,
+            now,
+          )
+          .run();
+      } else {
+        await this.db
+          .prepare(
+            `INSERT INTO parent_accounts (
+              id, tenant_id, student_profile_id, label, display_name, email, relationship${hasVisibility ? ", visibility_mode" : ""}${hasDailyLimit ? ", daily_minutes_limit" : ""}, created_at, updated_at
+            ) VALUES (${[...Array(9 + (hasVisibility ? 1 : 0) + (hasDailyLimit ? 1 : 0))].map((_, i) => (i === 0 ? "?" : ", ?")).join("")})`,
+          )
+          .bind(
+            id,
+            input.tenantId,
+            input.studentProfileId,
+            input.relation,
+            input.fullName,
+            input.email,
+            input.relation,
+            ...(hasVisibility ? [input.supervisionLevel] : []),
+            ...(hasDailyLimit ? [input.dailyStudyMinutes] : []),
+            now,
+            now,
+          )
+          .run();
+      }
+    }
+    if (hasUserId) {
+      return (await this.getParentAccountByUser(input.tenantId, input.userId)) as ParentAccount;
+    }
+    const inserted = await this.db
       .prepare(
-        `INSERT INTO parent_accounts (
-          id, tenant_id, user_id, student_profile_id, label, display_name, full_name, email, relationship, relation, visibility_mode, relationship_label,
-          notification_preferences_json, daily_study_minutes, supervision_level, can_view_full_progress,
-          can_manage_schedule, daily_minutes_limit, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `SELECT * FROM parent_accounts WHERE tenant_id = ? AND student_profile_id = ? AND relationship = ? ORDER BY created_at DESC LIMIT 1`,
       )
-      .bind(
-        id,
-        input.tenantId,
-        input.userId,
-        input.studentProfileId,
-        input.relation,
-        input.fullName,
-        input.fullName,
-        input.email,
-        input.relation,
-        input.relation,
-        input.supervisionLevel,
-        input.relation,
-        JSON.stringify(input.notificationPreferences ?? []),
-        input.dailyStudyMinutes,
-        input.supervisionLevel,
-        input.canViewFullProgress ? 1 : 0,
-        input.canManageSchedule ? 1 : 0,
-        input.dailyStudyMinutes,
-        now,
-        now,
-      )
-      .run();
-    return (await this.getParentAccountByUser(input.tenantId, input.userId)) as ParentAccount;
+      .bind(input.tenantId, input.studentProfileId, input.relation)
+      .first<ParentAccountRow>();
+    return mapParent(inserted as ParentAccountRow);
   }
 
   async getCurrentStudyPlan(tenantId: string, studentProfileId: string): Promise<StudyPlan | null> {
@@ -1578,45 +1858,100 @@ export class MentoriaRepository {
       .bind(input.tenantId, input.studentProfileId, input.weekStart)
       .first<{ id: string }>();
     const now = new Date().toISOString();
+    const hasBlocks = await this.hasColumn("mentoria_study_plans", "blocks_json");
+    const hasGoals = await this.hasColumn("mentoria_study_plans", "goals_summary");
+    const hasWeekEnd = await this.hasColumn("mentoria_study_plans", "week_end");
+    const hasTitle = await this.hasColumn("mentoria_study_plans", "title");
+    const hasPlanJson = await this.hasColumn("mentoria_study_plans", "plan_json");
 
     if (existing) {
-      await this.db
-        .prepare(
-          `UPDATE mentoria_study_plans
-           SET week_end = ?, goals_summary = ?, blocks_json = ?, generated_by = ?, updated_at = ?
-           WHERE tenant_id = ? AND id = ?`,
-        )
-        .bind(
-          input.weekEnd,
-          input.goalsSummary,
-          JSON.stringify(input.blocks),
-          input.generatedBy,
-          now,
-          input.tenantId,
-          existing.id,
-        )
-        .run();
+      if (hasBlocks && hasGoals) {
+        await this.db
+          .prepare(
+            `UPDATE mentoria_study_plans
+             SET ${hasWeekEnd ? "week_end = ?," : ""} goals_summary = ?, blocks_json = ?, generated_by = ?, updated_at = ?
+             WHERE tenant_id = ? AND id = ?`,
+          )
+          .bind(
+            ...(hasWeekEnd ? [input.weekEnd] : []),
+            input.goalsSummary,
+            JSON.stringify(input.blocks),
+            input.generatedBy,
+            now,
+            input.tenantId,
+            existing.id,
+          )
+          .run();
+      } else if (hasTitle && hasPlanJson) {
+        await this.db
+          .prepare(
+            `UPDATE mentoria_study_plans
+             SET title = ?, plan_json = ?, generated_by = ?, updated_at = ?
+             WHERE tenant_id = ? AND id = ?`,
+          )
+          .bind(
+            input.goalsSummary,
+            JSON.stringify(input.blocks),
+            input.generatedBy,
+            now,
+            input.tenantId,
+            existing.id,
+          )
+          .run();
+      }
     } else {
-      await this.db
-        .prepare(
-          `INSERT INTO mentoria_study_plans (
-            id, tenant_id, student_profile_id, week_start, week_end, goals_summary,
-            blocks_json, generated_by, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(
-          crypto.randomUUID(),
-          input.tenantId,
-          input.studentProfileId,
-          input.weekStart,
-          input.weekEnd,
-          input.goalsSummary,
-          JSON.stringify(input.blocks),
-          input.generatedBy,
-          now,
-          now,
-        )
-        .run();
+      if (hasBlocks && hasGoals) {
+        const cols = [
+          "id",
+          "tenant_id",
+          "student_profile_id",
+          "week_start",
+          ...(hasWeekEnd ? ["week_end"] : []),
+          "goals_summary",
+          "blocks_json",
+          "generated_by",
+          "created_at",
+          "updated_at",
+        ];
+        const placeholders = cols.map(() => "?").join(", ");
+        await this.db
+          .prepare(
+            `INSERT INTO mentoria_study_plans (${cols.join(", ")}) VALUES (${placeholders})`,
+          )
+          .bind(
+            crypto.randomUUID(),
+            input.tenantId,
+            input.studentProfileId,
+            input.weekStart,
+            ...(hasWeekEnd ? [input.weekEnd] : []),
+            input.goalsSummary,
+            JSON.stringify(input.blocks),
+            input.generatedBy,
+            now,
+            now,
+          )
+          .run();
+      } else if (hasTitle && hasPlanJson) {
+        await this.db
+          .prepare(
+            `INSERT INTO mentoria_study_plans (
+              id, tenant_id, student_profile_id, title, week_start, plan_json, status, generated_by, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(
+            crypto.randomUUID(),
+            input.tenantId,
+            input.studentProfileId,
+            input.goalsSummary || "Plan de estudio",
+            input.weekStart,
+            JSON.stringify(input.blocks),
+            "active",
+            input.generatedBy,
+            now,
+            now,
+          )
+          .run();
+      }
     }
 
     return (await this.getCurrentStudyPlan(input.tenantId, input.studentProfileId)) as StudyPlan;
@@ -1659,55 +1994,114 @@ export class MentoriaRepository {
       .bind(input.tenantId, input.studentProfileId, input.subjectId)
       .first<{ id: string }>();
     const now = new Date().toISOString();
+    const hasConfidence = await this.hasColumn("mentoria_progress", "confidence_score");
+    const hasWeakTopics = await this.hasColumn("mentoria_progress", "weak_topics_json");
+    const hasStrongTopics = await this.hasColumn("mentoria_progress", "strong_topics_json");
+    const hasWeaknesses = hasWeakTopics ? false : await this.hasColumn("mentoria_progress", "weaknesses_json");
+    const hasStrengths = hasStrongTopics ? false : await this.hasColumn("mentoria_progress", "strengths_json");
+    const hasStreak = await this.hasColumn("mentoria_progress", "streak_days");
+    const hasSessionsCompleted = await this.hasColumn("mentoria_progress", "sessions_completed");
+    const hasExercisesCompleted = await this.hasColumn("mentoria_progress", "exercises_completed");
 
     if (existing) {
-      await this.db
-        .prepare(
-          `UPDATE mentoria_progress
-           SET mastery_score = ?, confidence_score = ?, streak_days = ?, sessions_completed = ?,
-               exercises_completed = ?, weak_topics_json = ?, strong_topics_json = ?, last_activity_at = ?, updated_at = ?
-           WHERE tenant_id = ? AND id = ?`,
-        )
-        .bind(
-          input.masteryScore,
-          input.confidenceScore,
-          input.streakDays,
-          input.sessionsCompleted,
-          input.exercisesCompleted,
-          JSON.stringify(input.weakTopics),
-          JSON.stringify(input.strongTopics),
-          input.lastActivityAt ?? now,
-          now,
-          input.tenantId,
-          existing.id,
-        )
-        .run();
+      if (hasConfidence && hasWeakTopics && hasStrongTopics) {
+        await this.db
+          .prepare(
+            `UPDATE mentoria_progress
+             SET mastery_score = ?, confidence_score = ?, ${hasStreak ? "streak_days = ?," : ""} ${hasSessionsCompleted ? "sessions_completed = ?," : ""}
+                 ${hasExercisesCompleted ? "exercises_completed = ?," : ""} weak_topics_json = ?, strong_topics_json = ?, last_activity_at = ?, updated_at = ?
+             WHERE tenant_id = ? AND id = ?`,
+          )
+          .bind(
+            input.masteryScore,
+            input.confidenceScore,
+            ...(hasStreak ? [input.streakDays] : []),
+            ...(hasSessionsCompleted ? [input.sessionsCompleted] : []),
+            ...(hasExercisesCompleted ? [input.exercisesCompleted] : []),
+            JSON.stringify(input.weakTopics),
+            JSON.stringify(input.strongTopics),
+            input.lastActivityAt ?? now,
+            now,
+            input.tenantId,
+            existing.id,
+          )
+          .run();
+      } else {
+        // Legacy schema fallback
+        await this.db
+          .prepare(
+            `UPDATE mentoria_progress
+             SET mastery_score = ?, ${hasConfidence ? "confidence_score = ?," : "focus_score = ?,"} ${hasStreak ? "streak_days = ?," : ""} ${hasSessionsCompleted ? "sessions_completed = ?," : ""}
+                 ${hasExercisesCompleted ? "exercises_completed = ?," : ""} ${hasWeaknesses ? "weaknesses_json = ?," : "weak_topics_json = ?,"} ${hasStrengths ? "strengths_json = ?," : "strong_topics_json = ?,"} last_activity_at = ?, updated_at = ?
+             WHERE tenant_id = ? AND id = ?`,
+          )
+          .bind(
+            input.masteryScore,
+            input.confidenceScore,
+            ...(hasStreak ? [input.streakDays] : []),
+            ...(hasSessionsCompleted ? [input.sessionsCompleted] : []),
+            ...(hasExercisesCompleted ? [input.exercisesCompleted] : []),
+            JSON.stringify(input.weakTopics),
+            JSON.stringify(input.strongTopics),
+            input.lastActivityAt ?? now,
+            now,
+            input.tenantId,
+            existing.id,
+          )
+          .run();
+      }
     } else {
-      await this.db
-        .prepare(
-          `INSERT INTO mentoria_progress (
-            id, tenant_id, student_profile_id, subject_id, mastery_score, confidence_score, streak_days,
-            sessions_completed, exercises_completed, weak_topics_json, strong_topics_json, last_activity_at,
-            created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(
-          crypto.randomUUID(),
-          input.tenantId,
-          input.studentProfileId,
-          input.subjectId,
-          input.masteryScore,
-          input.confidenceScore,
-          input.streakDays,
-          input.sessionsCompleted,
-          input.exercisesCompleted,
-          JSON.stringify(input.weakTopics),
-          JSON.stringify(input.strongTopics),
-          input.lastActivityAt ?? now,
-          now,
-          now,
-        )
-        .run();
+      if (hasConfidence && hasWeakTopics && hasStrongTopics) {
+        await this.db
+          .prepare(
+            `INSERT INTO mentoria_progress (
+              id, tenant_id, student_profile_id, subject_id, mastery_score, confidence_score${hasStreak ? ", streak_days" : ""}${hasSessionsCompleted ? ", sessions_completed" : ""}${hasExercisesCompleted ? ", exercises_completed" : ""},
+              weak_topics_json, strong_topics_json, last_activity_at, created_at, updated_at
+            ) VALUES (${["?","?","?","?","?","?"].concat(hasStreak?["?"]:[]).concat(hasSessionsCompleted?["?"]:[]).concat(hasExercisesCompleted?["?"]:[]).concat(["?","?","?","?","?"]).join(", ")})`,
+          )
+          .bind(
+            crypto.randomUUID(),
+            input.tenantId,
+            input.studentProfileId,
+            input.subjectId,
+            input.masteryScore,
+            input.confidenceScore,
+            ...(hasStreak ? [input.streakDays] : []),
+            ...(hasSessionsCompleted ? [input.sessionsCompleted] : []),
+            ...(hasExercisesCompleted ? [input.exercisesCompleted] : []),
+            JSON.stringify(input.weakTopics),
+            JSON.stringify(input.strongTopics),
+            input.lastActivityAt ?? now,
+            now,
+            now,
+          )
+          .run();
+      } else {
+        await this.db
+          .prepare(
+            `INSERT INTO mentoria_progress (
+              id, tenant_id, student_profile_id, subject_id, mastery_score, ${hasConfidence ? "confidence_score" : "focus_score"}${hasStreak ? ", streak_days" : ""}${hasSessionsCompleted ? ", sessions_completed" : ""}${hasExercisesCompleted ? ", exercises_completed" : ""},
+              ${hasWeaknesses ? "weaknesses_json" : "weak_topics_json"}, ${hasStrengths ? "strengths_json" : "strong_topics_json"}, last_activity_at, created_at, updated_at
+            ) VALUES (${["?","?","?","?","?","?"].concat(hasStreak?["?"]:[]).concat(hasSessionsCompleted?["?"]:[]).concat(hasExercisesCompleted?["?"]:[]).concat(["?","?","?","?","?"]).join(", ")})`,
+          )
+          .bind(
+            crypto.randomUUID(),
+            input.tenantId,
+            input.studentProfileId,
+            input.subjectId,
+            input.masteryScore,
+            input.confidenceScore,
+            ...(hasStreak ? [input.streakDays] : []),
+            ...(hasSessionsCompleted ? [input.sessionsCompleted] : []),
+            ...(hasExercisesCompleted ? [input.exercisesCompleted] : []),
+            JSON.stringify(input.weakTopics),
+            JSON.stringify(input.strongTopics),
+            input.lastActivityAt ?? now,
+            now,
+            now,
+          )
+          .run();
+      }
     }
 
     return (await this.listProgress(input.tenantId, input.studentProfileId)).find((item) => item.subjectId === input.subjectId) as MentoriaProgress;

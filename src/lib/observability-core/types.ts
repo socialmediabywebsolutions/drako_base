@@ -1,3 +1,15 @@
+/**
+ * Public vocabulary for observability-core.
+ *
+ * This file defines the canonical, reusable contracts for:
+ * - correlation-aware operational activity
+ * - operational incidents
+ * - health snapshots
+ * - status summaries
+ *
+ * Neighbor systems such as empire/events, factory incidents, supervisor
+ * incidents, and db/health are intentionally outside this contract.
+ */
 export type ObservabilitySourceType = "automation" | "integration" | "saas";
 
 export type ObservabilityActivityStatus = "info" | "success" | "warning" | "error";

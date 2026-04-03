@@ -110,6 +110,7 @@ type OnboardingPayload = {
   confidenceLevel?: "low" | "medium" | "high";
   referralCode?: string;
   inviteToken?: string;
+  guardianName?: string;
 };
 
 type MentoriaOnboardingAttributes = {
@@ -235,7 +236,7 @@ function toOnboardingInput(
 
 export class MentoriaService {
   constructor(
-    private repository = new MentoriaRepository(),
+    private repository = new MentoriaRepository(getMentoriaDb(env?.())),
     private familyRepository = new MentoriaFamilyRepository(getMentoriaDb(env?.())),
     private persistence = new SessionPersistenceManager(),
     private trialManager = new TrialManager(),
@@ -258,7 +259,12 @@ export class MentoriaService {
       lastSubject?: MentoriaSubject | null;
     },
   ): Promise<UserContext> {
-    const existing = await getUserContext(actor.userId);
+    let existing: UserContext | undefined;
+    try {
+      existing = (await getUserContext(actor.userId)) ?? undefined;
+    } catch {
+      existing = undefined;
+    }
     const progress = options?.progress ?? (await this.repository.listProgress(actor.tenantId, student.id));
     const evolution = options?.evolution ?? (await this.ensureEvolutionProfile(actor.tenantId, student));
     const interventions = await this.syncInterventions(actor.tenantId, student.id, evolution);
@@ -309,7 +315,11 @@ export class MentoriaService {
       },
     });
 
-    return saveUserContext(actor.userId, context);
+    try {
+      return await saveUserContext(actor.userId, context);
+    } catch {
+      return context;
+    }
   }
 
   private async buildUserInsights(actor: MentoriaSessionActor, context: UserContext): Promise<Insight[]> {
@@ -906,8 +916,12 @@ export class MentoriaService {
       preferredStudyMinutes,
       strengths,
       onboardingCompleted: true,
-      supportNotes: `Objetivo inicial ${payload.objective ?? "improve_understanding"} | confianza ${confidenceLevel}`,
+      supportNotes: `${payload.guardianName ? `Tutor ${payload.guardianName} | ` : ""}Objetivo inicial ${
+        payload.objective ?? "improve_understanding"
+      } | confianza ${confidenceLevel}`,
     });
+    // Ensure a family exists for the tenant before linking student records (foreign key safety in local dev)
+    await this.familyRepository.createFamily(actor.tenantId);
 
     await this.familyRepository.upsertStudent({
       id: student.id,

@@ -1,6 +1,5 @@
 import { getDb } from "@/lib/db";
 import { generateDailyContentBatch } from "@/lib/mentoria/acquisition-content";
-import { AcquisitionPublisher } from "@/lib/mentoria/acquisition-publishing";
 
 export type ScheduledPost = {
   id: string;
@@ -27,7 +26,13 @@ type ScheduledPostRow = {
 };
 
 export class AcquisitionScheduler {
-  constructor(private db: D1Database = getDb()) {}
+  private tenantId: string;
+  private db: D1Database;
+
+  constructor(params: { tenantId: string; saasId?: string | null; db?: D1Database }) {
+    this.tenantId = params.tenantId;
+    this.db = params.db ?? getDb();
+  }
 
   async schedulePost(
     postId: string,
@@ -41,10 +46,10 @@ export class AcquisitionScheduler {
     await this.db
       .prepare(
         `INSERT INTO scheduled_posts (
-          id, post_id, channel, content, scheduled_for, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          id, tenant_id, post_id, channel, content, scheduled_for, status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .bind(id, postId, channel, content, scheduledFor, "pending", now, now)
+      .bind(id, this.tenantId, postId, channel, content, scheduledFor, "pending", now, now)
       .run();
 
     return {
@@ -61,12 +66,13 @@ export class AcquisitionScheduler {
     const now = new Date().toISOString();
     const rows = await this.db
       .prepare(
-        `SELECT * FROM scheduled_posts
-         WHERE status = 'pending' AND scheduled_for <= ?
+        `SELECT id, post_id, channel, content, scheduled_for, status, published_at, error
+         FROM scheduled_posts
+         WHERE tenant_id = ? AND status = 'pending' AND scheduled_for <= ?
          ORDER BY scheduled_for ASC
          LIMIT 10`
       )
-      .bind(now)
+      .bind(this.tenantId, now)
       .all<ScheduledPostRow>();
 
     return rows.results.map((row) => ({
@@ -87,9 +93,9 @@ export class AcquisitionScheduler {
       .prepare(
         `UPDATE scheduled_posts
          SET status = 'published', published_at = ?, updated_at = ?
-         WHERE id = ?`
+         WHERE id = ? AND tenant_id = ?`
       )
-      .bind(now, now, id)
+      .bind(now, now, id, this.tenantId)
       .run();
   }
 
@@ -99,9 +105,9 @@ export class AcquisitionScheduler {
       .prepare(
         `UPDATE scheduled_posts
          SET status = 'failed', error = ?, updated_at = ?
-         WHERE id = ?`
+         WHERE id = ? AND tenant_id = ?`
       )
-      .bind(error, now, id)
+      .bind(error, now, id, this.tenantId)
       .run();
   }
 
@@ -142,11 +148,12 @@ export class AcquisitionScheduler {
 
     const rows = await this.db
       .prepare(
-        `SELECT * FROM scheduled_posts
-         WHERE status = 'pending' AND scheduled_for BETWEEN ? AND ?
+        `SELECT id, post_id, channel, content, scheduled_for, status, published_at, error
+         FROM scheduled_posts
+         WHERE tenant_id = ? AND status = 'pending' AND scheduled_for BETWEEN ? AND ?
          ORDER BY scheduled_for ASC`
       )
-      .bind(now.toISOString(), future.toISOString())
+      .bind(this.tenantId, now.toISOString(), future.toISOString())
       .all<ScheduledPostRow>();
 
     return rows.results.map((row) => ({

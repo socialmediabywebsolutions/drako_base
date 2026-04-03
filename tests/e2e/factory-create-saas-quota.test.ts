@@ -100,6 +100,36 @@ describe("factory create-saas quota enforcement", () => {
     expect(store.provisioningJobs).toHaveLength(3);
   });
 
+  it("does not infer factory plan from a newer unrelated tenant subscription", async () => {
+    const store = createProvisioningHarnessStore({ tenantPlan: "free", subscriptionPlan: "free", workspaces: 1 });
+    store.saas.push(createSaasRow({ tenantId: "tenant_owner", slug: "existing-free", index: 1 }));
+    store.saasSubscriptions.push({
+      id: "tenant_owner:socialflow",
+      tenant_id: "tenant_owner",
+      saas_slug: "socialflow",
+      stripe_customer_id: "cus_other",
+      stripe_subscription_id: "sub_other",
+      stripe_price_id: "price_other",
+      plan_code: "enterprise",
+      status: "active",
+      current_period_end: new Date().toISOString(),
+      cancel_at_period_end: 0,
+      updated_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const runtimeEnv = createFactoryRuntimeEnv({ db: mockDb, store });
+
+    vi.mocked(resolveEnv).mockReturnValue(runtimeEnv);
+    installProvisioningDbMock(mockDb, store);
+
+    const response = await createSaas(buildCreateSaasRequest({ slug: "quota-ambiguous-subscription" }) as any);
+    expect(response.status).toBe(402);
+
+    const payload = await response.json() as ErrorPayload;
+    expect(payload).toEqual({ ok: false, error: "SAAS_LIMIT_REACHED" });
+    expect(store.sentQueueMessages).toHaveLength(0);
+    expect(store.provisioningJobs).toHaveLength(0);
+  });
+
   it("returns 402 PLAN_INACTIVE when the subscription is not active", async () => {
     const store = createProvisioningHarnessStore({ tenantPlan: "pro", subscriptionPlan: "pro", subscriptionStatus: "canceled" });
     const runtimeEnv = createFactoryRuntimeEnv({ db: mockDb, store });

@@ -22,6 +22,11 @@ import { respondDatabaseError } from "@/lib/http/errors";
 import { queryOne } from "@/lib/db";
 import { handleFactorySubscriptionActivation } from "@/lib/factory/contracts/stripe-subscription-activation";
 import {
+  extractWorkspaceBillingMetadata,
+  syncWorkspaceBillingFromCheckout,
+  syncWorkspaceBillingFromSubscription,
+} from "@/lib/billing/tenant-workspace";
+import {
   findStripeWebhookEvent,
   insertStripeWebhookReceived,
   updateStripeWebhookProcessed,
@@ -103,6 +108,11 @@ async function persistClientSaasSubscriptionFromStripe(
 }
 
 async function persistSubscriptionFromStripe(subscription: Stripe.Subscription) {
+  if (extractWorkspaceBillingMetadata(subscription.metadata)) {
+    await syncWorkspaceBillingFromSubscription(subscription);
+    return;
+  }
+
   const metadata = extractMetadata(subscription.metadata);
   if (!metadata) {
     console.warn("STRIPE_WEBHOOK_METADATA_MISSING", subscription.id);
@@ -223,7 +233,16 @@ async function handleCheckoutSession(
   stripe: Stripe,
   session: Stripe.Checkout.Session,
   correlationId?: string,
-): Promise<{ subscription: Stripe.Subscription; metadata: SubscriptionMetadata } | null> {
+): Promise<
+  | { scope: "workspace" }
+  | { scope: "product"; subscription: Stripe.Subscription; metadata: SubscriptionMetadata }
+  | null
+> {
+  if (extractWorkspaceBillingMetadata(session.metadata)) {
+    await syncWorkspaceBillingFromCheckout(session);
+    return { scope: "workspace" };
+  }
+
   const metadata = extractMetadata(session.metadata);
   if (!metadata) {
     console.warn("CHECKOUT_SESSION_METADATA_MISSING", session.id);
@@ -287,7 +306,7 @@ async function handleCheckoutSession(
     });
   }
 
-  return { subscription, metadata };
+  return { scope: "product", subscription, metadata };
 }
 
 async function recordBillingEvent(params: {
@@ -445,7 +464,7 @@ export async function POST(request: Request) {
         case "checkout.session.completed":
           {
             const checkoutResult = await handleCheckoutSession(stripe, event.data.object as Stripe.Checkout.Session, correlationId);
-            if (checkoutResult) {
+            if (checkoutResult?.scope === "product") {
               await persistCanonicalSubscriptionState({
                 subscription: checkoutResult.subscription,
                 attribution,
@@ -470,7 +489,9 @@ export async function POST(request: Request) {
           {
             const sub = event.data.object as Stripe.Subscription;
             await persistSubscriptionFromStripe(sub);
-            await persistCanonicalSubscriptionState({ subscription: sub, attribution });
+            if (!extractWorkspaceBillingMetadata(sub.metadata)) {
+              await persistCanonicalSubscriptionState({ subscription: sub, attribution });
+            }
 
             // LIFECYCLE: Resume if active
             if (sub.status === "active" && extractMetadata(sub.metadata)?.saasId) {
@@ -514,11 +535,15 @@ export async function POST(request: Request) {
               typeof invoiceSubscription === "string" ? invoiceSubscription : invoiceSubscription?.id;
             if (invoiceSubscriptionId) {
               const subscription = await stripe.subscriptions.retrieve(invoiceSubscriptionId);
-              await persistCanonicalSubscriptionState({
-                subscription,
-                attribution,
-                statusOverride: "active",
-              });
+              if (extractWorkspaceBillingMetadata(subscription.metadata)) {
+                await syncWorkspaceBillingFromSubscription(subscription, { statusOverride: "active" });
+              } else {
+                await persistCanonicalSubscriptionState({
+                  subscription,
+                  attribution,
+                  statusOverride: "active",
+                });
+              }
             }
             // LIFECYCLE: Payment success -> Active
             if (attribution.saasId) {
@@ -544,11 +569,15 @@ export async function POST(request: Request) {
               typeof invoiceSubscription === "string" ? invoiceSubscription : invoiceSubscription?.id;
             if (invoiceSubscriptionId) {
               const subscription = await stripe.subscriptions.retrieve(invoiceSubscriptionId);
-              await persistCanonicalSubscriptionState({
-                subscription,
-                attribution,
-                statusOverride: "past_due",
-              });
+              if (extractWorkspaceBillingMetadata(subscription.metadata)) {
+                await syncWorkspaceBillingFromSubscription(subscription, { statusOverride: "past_due" });
+              } else {
+                await persistCanonicalSubscriptionState({
+                  subscription,
+                  attribution,
+                  statusOverride: "past_due",
+                });
+              }
             }
             // LIFECYCLE: Payment failed -> Past Due
             if (attribution.saasId) {
