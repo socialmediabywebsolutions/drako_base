@@ -29,6 +29,7 @@ import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
 import { env } from "@/lib/cf";
 import { runMentoriaBehavioralShadow } from "@/lib/behavioral-engine/adapters/mentoria";
 import type { BehavioralShadowComparison } from "@/lib/behavioral-engine/contracts";
+import { getMentoriaBehavioralEngineRollout, type BehavioralEngineRolloutMode } from "@/lib/behavioral-engine/rollout";
 import {
   buildDailyClosureSummary,
   buildGuardianHookEvents,
@@ -1255,6 +1256,7 @@ export class MentoriaService {
       dailyClosure: MentoriaDailyClosureSummary | null;
       guardianHooks: MentoriaGuardianHookEvent[];
       exercises: MentoriaExercise[];
+      behavioralRollout: BehavioralEngineRolloutMode;
       behavioralShadow: BehavioralShadowComparison;
     }
   > {
@@ -1302,24 +1304,60 @@ export class MentoriaService {
       events,
     });
     const exercises = await this.repository.listExercises(actor.tenantId, dashboard.student.id);
-    const behavioralShadow = runMentoriaBehavioralShadow({
-      actor: {
-        userId: actor.userId,
-        tenantId: actor.tenantId,
+    const behavioralRollout = getMentoriaBehavioralEngineRollout();
+    let behavioralShadow: BehavioralShadowComparison = {
+      currentStrategy: "entry",
+      shadowStrategy: "entry",
+      diverged: false,
+      currentAction: {
+        strategy: "entry",
+        title: "Empezar ahora",
+        description: "Conviene entrar por el prompt ya preparado.",
+        rationale: ["Shadow evaluation fallback."],
+        confidence: 0,
+        task: null,
+        prompt: null,
       },
-      student: dashboard.student,
-      dailyPlan: dashboard.dailyPlan,
-      motivation: dashboard.motivation,
-      recentSessions: dashboard.recentSessions,
-      entry,
-      dailyClosure,
-      evolution: dashboard.evolution,
-    });
+      shadowAction: {
+        strategy: "entry",
+        title: "Empezar ahora",
+        description: "Conviene entrar por el prompt ya preparado.",
+        rationale: ["Shadow evaluation fallback."],
+        confidence: 0,
+        task: null,
+        prompt: null,
+      },
+      loggedAt: new Date().toISOString(),
+    };
+
+    try {
+      behavioralShadow = runMentoriaBehavioralShadow({
+        actor: {
+          userId: actor.userId,
+          tenantId: actor.tenantId,
+        },
+        student: dashboard.student,
+        dailyPlan: dashboard.dailyPlan,
+        motivation: dashboard.motivation,
+        recentSessions: dashboard.recentSessions,
+        entry,
+        dailyClosure,
+        evolution: dashboard.evolution,
+      });
+    } catch (error) {
+      console.warn("[BehavioralEngineShadow] Unable to evaluate mentoria rollout shadow", {
+        tenantId: actor.tenantId,
+        userId: actor.userId,
+        behavioralRollout,
+        reason: error instanceof Error ? error.message : "UNKNOWN",
+      });
+    }
 
     if (behavioralShadow.diverged) {
       console.warn("[BehavioralEngineShadow] Mentoria divergence detected", {
         tenantId: actor.tenantId,
         userId: actor.userId,
+        behavioralRollout,
         currentStrategy: behavioralShadow.currentStrategy,
         shadowStrategy: behavioralShadow.shadowStrategy,
         currentTask: behavioralShadow.currentAction.task,
@@ -1355,6 +1393,7 @@ export class MentoriaService {
       dailyClosure,
       guardianHooks,
       exercises,
+      behavioralRollout,
       behavioralShadow,
     };
   }

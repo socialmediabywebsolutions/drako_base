@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { MentoriaFocusMode } from "@/components/mentoria-app/focus-mode";
-import type { BehavioralShadowComparison } from "@/lib/behavioral-engine/contracts";
+import { buildBehavioralExplanationFrame } from "@/lib/behavioral-engine/explanation";
+import type { BehavioralContext, BehavioralShadowComparison } from "@/lib/behavioral-engine/contracts";
+import {
+  shouldUseEngineExplanation,
+  shouldUseEngineStrategy,
+  type BehavioralEngineRolloutMode,
+} from "@/lib/behavioral-engine/rollout";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
 import { getMicrocopy, getWorkspaceUiCopy } from "@/lib/mentoria/microcopy";
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
@@ -46,6 +52,7 @@ type WorkspaceState = {
   growth: MentoriaGrowthSummary | null;
   dailyClosure: MentoriaDailyClosureSummary | null;
   guardianHooks: MentoriaGuardianHookEvent[];
+  behavioralRollout: BehavioralEngineRolloutMode;
   behavioralShadow?: BehavioralShadowComparison | null;
 };
 
@@ -85,6 +92,7 @@ type WorkspaceApiResponse = WorkspaceState & {
   growth?: MentoriaGrowthSummary | null;
   dailyClosure?: MentoriaDailyClosureSummary | null;
   guardianHooks?: MentoriaGuardianHookEvent[];
+  behavioralRollout?: BehavioralEngineRolloutMode;
   behavioralShadow?: BehavioralShadowComparison | null;
 };
 
@@ -159,6 +167,7 @@ export function MentoriaWorkspace() {
       growth: null,
       dailyClosure: null,
       guardianHooks: [],
+      behavioralRollout: "shadow_only",
       behavioralShadow: null,
     });
   const searchParams = useSearchParams();
@@ -209,10 +218,43 @@ export function MentoriaWorkspace() {
 
       if (workspaceBody.behavioralShadow?.diverged) {
         console.warn("[BehavioralEngineShadow] Client divergence observed", {
+          rollout: workspaceBody.behavioralRollout ?? "shadow_only",
           currentStrategy: workspaceBody.behavioralShadow.currentStrategy,
           shadowStrategy: workspaceBody.behavioralShadow.shadowStrategy,
           currentTask: workspaceBody.behavioralShadow.currentAction.task,
           shadowTask: workspaceBody.behavioralShadow.shadowAction.task,
+        });
+      }
+
+      if ((workspaceBody.behavioralRollout ?? "shadow_only") !== "shadow_only" && workspaceBody.behavioralShadow) {
+        const rolloutMode = workspaceBody.behavioralRollout ?? "shadow_only";
+        const usesEngineStrategy = shouldUseEngineStrategy(rolloutMode);
+        const usesEngineExplanation = shouldUseEngineExplanation(rolloutMode);
+        const shadowTaskId = workspaceBody.behavioralShadow.shadowAction.task?.id ?? null;
+        const engineSelectionValid =
+          workspaceBody.behavioralShadow.shadowStrategy === "entry"
+          || workspaceBody.behavioralShadow.shadowStrategy === "resume_session"
+          || Boolean(workspaceBody.dailyPlan?.tasks.find((task) => task.id === shadowTaskId));
+        const loggedStrategySource =
+          usesEngineStrategy
+            ? (engineSelectionValid ? "engine" : "fallback_live")
+            : "live";
+        const loggedExplanationSource =
+          usesEngineExplanation
+            ? (engineSelectionValid ? "engine" : "fallback_live")
+            : "live";
+
+        console.info("[BehavioralEngineRollout] Mentoria workspace selection", {
+          rollout: rolloutMode,
+          strategySource: loggedStrategySource,
+          explanationSource: loggedExplanationSource,
+          currentStrategy: workspaceBody.behavioralShadow.currentStrategy,
+          shadowStrategy: workspaceBody.behavioralShadow.shadowStrategy,
+          diverged: workspaceBody.behavioralShadow.diverged,
+          strategyFallbackReason:
+            loggedStrategySource === "fallback_live" ? "invalid_engine_strategy_payload" : null,
+          explanationFallbackReason:
+            loggedExplanationSource === "fallback_live" ? "invalid_engine_strategy_payload" : null,
         });
       }
 
@@ -252,6 +294,7 @@ export function MentoriaWorkspace() {
         growth: workspaceBody.growth ?? null,
         dailyClosure: workspaceBody.dailyClosure ?? null,
         guardianHooks: workspaceBody.guardianHooks ?? [],
+        behavioralRollout: workspaceBody.behavioralRollout ?? "shadow_only",
         behavioralShadow: workspaceBody.behavioralShadow ?? null,
       });
       setActiveExerciseId(workspaceBody.exercises?.find((exercise) => exercise.status === "pending")?.id ?? null);
@@ -913,8 +956,39 @@ export function MentoriaWorkspace() {
           ? "momentum_push"
           : needsGentleRestart
             ? "gentle_restart"
-        : "plan_task"
+            : "plan_task"
         : "entry";
+  const rolloutUsesEngineStrategy = shouldUseEngineStrategy(state.behavioralRollout);
+  const rolloutUsesEngineExplanation = shouldUseEngineExplanation(state.behavioralRollout);
+  const engineStrategyCandidate = state.behavioralShadow?.shadowStrategy ?? null;
+  const engineActionCandidate = state.behavioralShadow?.shadowAction ?? null;
+  const engineTaskCandidate =
+    engineActionCandidate?.task?.id
+      ? (state.dailyPlan?.tasks.find((task) => task.id === engineActionCandidate.task?.id) ?? null)
+      : null;
+  const engineSelectionValid =
+    Boolean(engineStrategyCandidate)
+    && (
+      engineStrategyCandidate === "entry"
+      || engineStrategyCandidate === "resume_session"
+      || Boolean(engineTaskCandidate)
+    );
+  const strategySource: "live" | "engine" | "fallback_live" =
+    rolloutUsesEngineStrategy
+      ? (engineSelectionValid ? "engine" : "fallback_live")
+      : "live";
+  const strategyFallbackReason =
+    strategySource === "fallback_live"
+      ? (state.behavioralShadow ? "invalid_engine_strategy_payload" : "missing_behavioral_shadow_payload")
+      : null;
+  const activeReentryMode: ReentryMode =
+    strategySource === "engine" && engineStrategyCandidate
+      ? engineStrategyCandidate
+      : reentryMode;
+  const activeReentryTask =
+    strategySource === "engine"
+      ? engineTaskCandidate
+      : reentryTask;
   const closureStatusLabel =
     state.dailyClosure?.status === "completed"
       ? "Dia cerrado"
@@ -989,78 +1063,149 @@ export function MentoriaWorkspace() {
     velocityPercent > 0 ? `Velocidad de mejora: ${velocityPercent}%` : null,
     state.analysis?.nextActions[0] ? `Puente hacia ese nivel: ${state.analysis.nextActions[0]}` : null,
   ].filter(Boolean);
+  const engineExplanationContext: BehavioralContext | null =
+    state.student
+      ? {
+          userState: {
+            userId: state.student.userId ?? state.student.id,
+            tenantId: state.student.tenantId,
+            lifecycleStage:
+              !latestSession && completedTasksCount === 0
+                ? "new"
+                : (hoursSinceActivity ?? 0) >= 24
+                  ? "returning"
+                  : "active",
+            activeContext:
+              latestSession?.topic
+              ?? state.dailyClosure?.carryOverTopic
+              ?? state.entry?.recommendedTopic
+              ?? null,
+          },
+          signals: {
+            lastActivityAt: reentryReferenceAt ?? null,
+            hoursSinceActivity,
+            streak: state.motivation?.streak ?? 0,
+            motivationProfile: state.motivation?.motivationProfile ?? null,
+            consistencyScore: state.evolution?.consistencyScore ?? null,
+            progressionVelocity: state.evolution?.progressionVelocity ?? null,
+            frustrationLevel: state.evolution?.frustrationLevel ?? null,
+            dailyCompletionRate: state.dailyPlan?.completionRate ?? 0,
+            completedTasksCount,
+            pendingTasksCount: pendingDailyTasks.length,
+            recentSessionId: latestSession?.id ?? null,
+            recentSessionTopic: latestSession?.topic ?? null,
+            recentSessionRecommendedNextStep: latestSession?.recommendedNextStep ?? null,
+            pendingTasks: pendingDailyTasks.map((task) => ({
+              id: task.id,
+              subject: task.subject,
+              subjectId: task.subjectId ?? null,
+              type: task.type,
+              difficulty: task.difficulty,
+              completed: task.completed,
+            })),
+            entryPromptAvailable: Boolean(state.entry?.recommendedPrompt),
+            carryOverPromptAvailable: Boolean(state.dailyClosure?.carryOverPrompt),
+          },
+          product: "mentoria",
+          surface: "workspace",
+          nowIso: new Date().toISOString(),
+          availableActions: {
+            canResumeSession: Boolean(latestSession?.recommendedNextStep),
+            canStartPendingTask: pendingDailyTasks.length > 0,
+            canUseEntryPrompt: Boolean(state.entry?.recommendedPrompt || state.dailyClosure?.carryOverPrompt),
+          },
+        }
+      : null;
 
-  const reentryTitle =
-    reentryMode === "resume_session"
+  const liveReentryTitle =
+    activeReentryMode === "resume_session"
       ? `Tu ultima sesion fue ${formatReentryMoment(reentryReferenceAt)} y ya tienes un siguiente paso listo.`
-      : reentryMode === "gentle_restart"
+      : activeReentryMode === "gentle_restart"
         ? "Hoy te conviene volver con una victoria rapida para recuperar ritmo."
-        : reentryMode === "momentum_push"
+        : activeReentryMode === "momentum_push"
           ? "Vienes con buena inercia. Hoy toca subir un paso sin perder claridad."
-          : reentryMode === "plan_task"
-            ? `Tu plan de hoy sigue esperandote con ${reentryTask?.subject ?? "tu siguiente tarea"}.`
+          : activeReentryMode === "plan_task"
+            ? `Tu plan de hoy sigue esperandote con ${activeReentryTask?.subject ?? "tu siguiente tarea"}.`
             : "Tu siguiente paso ya esta preparado para volver sin friccion.";
-  const reentryDescription =
-    reentryMode === "resume_session"
+  const liveReentryDescription =
+    activeReentryMode === "resume_session"
       ? (latestSession?.tutorSummary ?? "Tu ultima sesion ya dejo el siguiente paso listo para continuar.")
-      : reentryMode === "gentle_restart"
-        ? reentryTask
-          ? `Han pasado ${formatReentryMoment(reentryReferenceAt)} desde tu ultima actividad. Empezamos por ${reentryTask.subject} - ${taskTypeLabels[reentryTask.type]} para que vuelvas a engancharte sin friccion.`
+      : activeReentryMode === "gentle_restart"
+        ? activeReentryTask
+          ? `Han pasado ${formatReentryMoment(reentryReferenceAt)} desde tu ultima actividad. Empezamos por ${activeReentryTask.subject} - ${taskTypeLabels[activeReentryTask.type]} para que vuelvas a engancharte sin friccion.`
           : "Hoy conviene volver con un paso sencillo y guiado para recuperar ritmo."
-        : reentryMode === "momentum_push"
-          ? reentryTask
-            ? `Tu racha va bien y puedes asumir ${reentryTask.subject} - ${taskTypeLabels[reentryTask.type]} como primera accion del dia.`
+        : activeReentryMode === "momentum_push"
+          ? activeReentryTask
+            ? `Tu racha va bien y puedes asumir ${activeReentryTask.subject} - ${taskTypeLabels[activeReentryTask.type]} como primera accion del dia.`
             : "Tu momento de hoy pide una accion un poco mas exigente para mantener el avance."
-          : reentryMode === "plan_task"
-            ? reentryTask
-              ? `Llevas ${completedTasksCount} ${completedTasksCount === 1 ? "tarea cerrada" : "tareas cerradas"} y la siguiente es ${reentryTask.subject} - ${taskTypeLabels[reentryTask.type]}.`
+          : activeReentryMode === "plan_task"
+            ? activeReentryTask
+              ? `Llevas ${completedTasksCount} ${completedTasksCount === 1 ? "tarea cerrada" : "tareas cerradas"} y la siguiente es ${activeReentryTask.subject} - ${taskTypeLabels[activeReentryTask.type]}.`
               : (state.entry?.subheadline ?? "Tu espacio ya tiene contexto suficiente para guiarte desde el primer clic.")
             : state.entry?.subheadline ?? "Tu espacio ya tiene contexto suficiente para guiarte desde el primer clic.";
-  const reentryPrimaryLabel =
-    reentryMode === "resume_session"
+  const liveReentryPrimaryLabel =
+    activeReentryMode === "resume_session"
       ? "Retomar ultimo paso"
-      : reentryMode === "gentle_restart"
+      : activeReentryMode === "gentle_restart"
         ? "Volver con algo facil"
-        : reentryMode === "momentum_push"
+        : activeReentryMode === "momentum_push"
           ? "Subir un paso hoy"
-          : reentryMode === "plan_task"
+          : activeReentryMode === "plan_task"
             ? "Volver al plan de hoy"
             : "Empezar ahora";
-  const reentryModeBadge =
-    reentryMode === "resume_session"
+  const liveReentryModeBadge =
+    activeReentryMode === "resume_session"
       ? "Modo de hoy: continuidad"
-      : reentryMode === "gentle_restart"
+      : activeReentryMode === "gentle_restart"
         ? "Modo de hoy: vuelta suave"
-        : reentryMode === "momentum_push"
+        : activeReentryMode === "momentum_push"
           ? "Modo de hoy: subir un paso"
-          : reentryMode === "plan_task"
+          : activeReentryMode === "plan_task"
             ? "Modo de hoy: plan del dia"
             : "Modo de hoy: entrada guiada";
-  const reentryWhyToday =
-    reentryMode === "resume_session"
+  const liveReentryWhyToday =
+    activeReentryMode === "resume_session"
       ? `Tu ultima sesion ya dejo una accion concreta y retomar ahora evita volver a pensar desde cero.`
-      : reentryMode === "gentle_restart"
+      : activeReentryMode === "gentle_restart"
         ? state.motivation?.motivationProfile === "fragile"
           ? "Hoy priorizamos un arranque suave porque tu ritmo reciente necesita recuperar confianza antes de exigir mas."
           : `Hoy priorizamos un arranque suave porque llevas ${formatReentryMoment(reentryReferenceAt)} sin entrar y conviene recuperar traccion rapido.`
-        : reentryMode === "momentum_push"
+        : activeReentryMode === "momentum_push"
           ? `Hoy te proponemos un paso un poco mas ambicioso porque llevas ${state.motivation?.streak ?? 0} dias de ritmo y tu inercia esta a favor.`
-          : reentryMode === "plan_task"
+          : activeReentryMode === "plan_task"
             ? `Hoy lo mas sensato es seguir el plan: ya llevas ${dailyPlanPercent}% del dia encaminado y esta es la siguiente pieza natural.`
             : "Hoy te dejamos un punto de entrada simple para que no tengas que decidir por donde empezar.";
-  const reentryOutcome =
-    reentryMode === "resume_session"
+  const liveReentryOutcome =
+    activeReentryMode === "resume_session"
       ? "Si haces clic, el tutor abre justo el siguiente paso que dejaste preparado en tu ultima sesion."
-      : reentryMode === "gentle_restart"
+      : activeReentryMode === "gentle_restart"
         ? "Si haces clic, entraras en una accion facil y guiada para volver a coger ritmo sin friccion."
-        : reentryMode === "momentum_push"
+        : activeReentryMode === "momentum_push"
           ? "Si haces clic, empezaras por una accion mas potente, pensada para aprovechar tu buen momento de hoy."
-          : reentryMode === "plan_task"
+          : activeReentryMode === "plan_task"
             ? "Si haces clic, entraras directamente en la siguiente tarea util del plan de hoy."
             : "Si haces clic, el sistema te dejara la entrada preparada con el mejor prompt disponible ahora mismo.";
+  const explanationFallbackReason =
+    rolloutUsesEngineExplanation && !engineSelectionValid
+      ? strategyFallbackReason
+      : null;
+  const engineExplanationFrame =
+    rolloutUsesEngineExplanation && strategySource === "engine" && engineActionCandidate && engineExplanationContext
+      ? buildBehavioralExplanationFrame(engineActionCandidate, engineExplanationContext)
+      : null;
+  const explanationSource: "live" | "engine" | "fallback_live" =
+    rolloutUsesEngineExplanation
+      ? (engineExplanationFrame ? "engine" : "fallback_live")
+      : "live";
+  const reentryTitle = engineExplanationFrame?.title ?? liveReentryTitle;
+  const reentryDescription = engineExplanationFrame?.description ?? liveReentryDescription;
+  const reentryPrimaryLabel = engineExplanationFrame?.primaryLabel ?? liveReentryPrimaryLabel;
+  const reentryModeBadge = engineExplanationFrame?.modeBadge ?? liveReentryModeBadge;
+  const reentryWhyToday = engineExplanationFrame?.whyToday ?? liveReentryWhyToday;
+  const reentryOutcome = engineExplanationFrame?.expectedOutcome ?? liveReentryOutcome;
 
   function handleReentryPrimaryAction() {
-    if (reentryMode === "resume_session" && latestSession) {
+    if (activeReentryMode === "resume_session" && latestSession) {
       void sendTutorMessage({
         subjectSlug: resolveSubjectSlugFromSubjectId(latestSession.subjectId) || undefined,
         topic: latestSession.topic || initialUi.defaultTopic,
@@ -1075,25 +1220,25 @@ export function MentoriaWorkspace() {
       setDailyPlanFeedback("Seguimos donde lo dejaste. El tutor ya esta preparado con tu siguiente paso.");
       return;
     }
-    if (reentryMode === "gentle_restart" && reentryTask) {
-      void startDailyPlanTask(reentryTask, {
+    if (activeReentryMode === "gentle_restart" && activeReentryTask) {
+      void startDailyPlanTask(activeReentryTask, {
         forceTutorPrep: true,
         autoLaunch: true,
         entryMode: "gentle_restart",
-        feedbackOverride: `Hoy toca volver con un paso facil: ${reentryTask.subject} - ${taskTypeLabels[reentryTask.type]}. Empieza sin presion y el siguiente paso se ajustara despues.`,
+        feedbackOverride: `Hoy toca volver con un paso facil: ${activeReentryTask.subject} - ${taskTypeLabels[activeReentryTask.type]}. Empieza sin presion y el siguiente paso se ajustara despues.`,
       });
       return;
     }
-    if (reentryMode === "momentum_push" && reentryTask) {
-      void startDailyPlanTask(reentryTask, {
+    if (activeReentryMode === "momentum_push" && activeReentryTask) {
+      void startDailyPlanTask(activeReentryTask, {
         autoLaunch: true,
         entryMode: "momentum_push",
-        feedbackOverride: `Hoy vienes con ritmo: ${reentryTask.subject} - ${taskTypeLabels[reentryTask.type]}. Vamos a aprovecharlo con una primera accion un poco mas ambiciosa.`,
+        feedbackOverride: `Hoy vienes con ritmo: ${activeReentryTask.subject} - ${taskTypeLabels[activeReentryTask.type]}. Vamos a aprovecharlo con una primera accion un poco mas ambiciosa.`,
       });
       return;
     }
-    if (reentryMode === "plan_task" && reentryTask) {
-      void startDailyPlanTask(reentryTask, { autoLaunch: true, entryMode: "plan_task" });
+    if (activeReentryMode === "plan_task" && activeReentryTask) {
+      void startDailyPlanTask(activeReentryTask, { autoLaunch: true, entryMode: "plan_task" });
       return;
     }
     if (state.entry?.recommendedPrompt) {
@@ -1213,11 +1358,11 @@ export function MentoriaWorkspace() {
                   {reentryReferenceAt ? (
                     <span className="rounded-full bg-slate-100 px-3 py-2">{`Ultima actividad: ${formatReentryMoment(reentryReferenceAt)}`}</span>
                   ) : null}
-                  {latestSession?.recommendedNextStep && reentryMode === "resume_session" ? (
+                  {latestSession?.recommendedNextStep && activeReentryMode === "resume_session" ? (
                     <span className="rounded-full bg-sky-100 px-3 py-2 text-sky-900">{`Retoma: ${latestSession.recommendedNextStep}`}</span>
                   ) : null}
-                  {reentryTask ? (
-                    <span className="rounded-full bg-amber-100 px-3 py-2 text-amber-900">{`Arranque recomendado: ${reentryTask.subject} - ${taskTypeLabels[reentryTask.type]}`}</span>
+                  {activeReentryTask ? (
+                    <span className="rounded-full bg-amber-100 px-3 py-2 text-amber-900">{`Arranque recomendado: ${activeReentryTask.subject} - ${taskTypeLabels[activeReentryTask.type]}`}</span>
                   ) : null}
                   {state.motivation ? (
                     <span className="rounded-full bg-emerald-100 px-3 py-2 text-emerald-900">{`Racha actual: ${state.motivation.streak} dias`}</span>

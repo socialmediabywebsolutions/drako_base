@@ -84,6 +84,8 @@ function buildWorkspaceResponse(overrides?: Record<string, unknown>) {
     growth: null,
     dailyClosure: null,
     guardianHooks: [],
+    behavioralRollout: "shadow_only",
+    behavioralShadow: null,
     ...overrides,
   };
 }
@@ -108,6 +110,48 @@ function buildStudentSubject() {
       createdAt: "2026-04-03T00:00:00.000Z",
       updatedAt: "2026-04-03T00:00:00.000Z",
     },
+  };
+}
+
+function buildBehavioralShadow(overrides?: Record<string, unknown>) {
+  return {
+    currentStrategy: "plan_task",
+    shadowStrategy: "plan_task",
+    diverged: false,
+    currentAction: {
+      strategy: "plan_task",
+      title: "Volver al plan de hoy",
+      description: "La continuidad natural viene de la siguiente tarea pendiente del plan.",
+      rationale: ["Hay tarea pendiente."],
+      confidence: 0.86,
+      task: {
+        id: "task_practice",
+        subject: "Matematicas",
+        subjectId: "subject_matematicas",
+        type: "practice",
+        difficulty: 3,
+        completed: false,
+      },
+      prompt: null,
+    },
+    shadowAction: {
+      strategy: "plan_task",
+      title: "Volver al plan de hoy",
+      description: "La continuidad natural viene de la siguiente tarea pendiente del plan.",
+      rationale: ["Hay tarea pendiente."],
+      confidence: 0.86,
+      task: {
+        id: "task_practice",
+        subject: "Matematicas",
+        subjectId: "subject_matematicas",
+        type: "practice",
+        difficulty: 3,
+        completed: false,
+      },
+      prompt: null,
+    },
+    loggedAt: "2026-04-04T09:00:00.000Z",
+    ...overrides,
   };
 }
 
@@ -173,6 +217,261 @@ describe("MentoriaWorkspace", () => {
     expect(screen.getByText("Empieza por una duda concreta")).toBeInTheDocument();
     expect(screen.getByText("Tutor IA")).toBeInTheDocument();
     expect(screen.getByText("Actividad reciente")).toBeInTheDocument();
+  });
+
+  it("uses the engine-selected reentry strategy when the rollout enables engine strategy", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        buildWorkspaceResponse({
+          studentSubjects: [buildStudentSubject()],
+          motivation: {
+            studentId: "student_1",
+            streak: 1,
+            lastActivityAt: "2026-04-01T08:00:00.000Z",
+            effortScore: 0.4,
+            rewardPoints: 10,
+            level: 1,
+            achievements: [],
+            motivationProfile: "fragile",
+          },
+          dailyPlan: {
+            id: "plan_1",
+            tenantId: "tenant_mentoria",
+            studentId: "student_1",
+            planDate: "2026-04-04",
+            recommendedDuration: 30,
+            tasks: [
+              {
+                id: "task_review",
+                subject: "Matematicas",
+                subjectId: "subject_matematicas",
+                type: "review",
+                difficulty: 2,
+                completed: false,
+              },
+              {
+                id: "task_challenge",
+                subject: "Matematicas",
+                subjectId: "subject_matematicas",
+                type: "challenge",
+                difficulty: 4,
+                completed: false,
+              },
+            ],
+            priority: "medium",
+            adaptationReason: "Hoy conviene reforzar base antes de subir dificultad.",
+            generatedAt: "2026-04-04T08:00:00.000Z",
+            createdAt: "2026-04-04T08:00:00.000Z",
+            updatedAt: "2026-04-04T08:00:00.000Z",
+            completedTaskIds: [],
+            completionRate: 0,
+          },
+          behavioralRollout: "engine_strategy",
+          behavioralShadow: buildBehavioralShadow({
+            currentStrategy: "gentle_restart",
+            shadowStrategy: "momentum_push",
+            diverged: true,
+            currentAction: {
+              strategy: "gentle_restart",
+              title: "Volver con algo facil",
+              description: "La mejor primera accion del dia debe recuperar traccion sin friccion.",
+              rationale: ["Perfil fragile."],
+              confidence: 0.9,
+              task: {
+                id: "task_review",
+                subject: "Matematicas",
+                subjectId: "subject_matematicas",
+                type: "review",
+                difficulty: 2,
+                completed: false,
+              },
+              prompt: null,
+            },
+            shadowAction: {
+              strategy: "momentum_push",
+              title: "Subir un paso hoy",
+              description: "La mejor primera accion del dia puede ser un poco mas exigente.",
+              rationale: ["Momentum."],
+              confidence: 0.92,
+              task: {
+                id: "task_challenge",
+                subject: "Matematicas",
+                subjectId: "subject_matematicas",
+                type: "challenge",
+                difficulty: 4,
+                completed: false,
+              },
+              prompt: null,
+            },
+          }),
+        }),
+      ),
+    );
+
+    render(React.createElement(MentoriaWorkspace));
+
+    await screen.findByRole("heading", { name: "Hola, Alex" });
+    expect(screen.getByText("Vienes con buena inercia. Hoy toca subir un paso sin perder claridad.")).toBeInTheDocument();
+    expect(screen.getByText("Modo de hoy: subir un paso")).toBeInTheDocument();
+    expect(screen.getByText("Arranque recomendado: Matematicas - reto corto")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Subir un paso hoy" })).toBeInTheDocument();
+  });
+
+  it("falls back to the live reentry strategy when engine strategy payload is invalid", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        buildWorkspaceResponse({
+          studentSubjects: [buildStudentSubject()],
+          motivation: {
+            studentId: "student_1",
+            streak: 1,
+            lastActivityAt: "2026-04-01T08:00:00.000Z",
+            effortScore: 0.4,
+            rewardPoints: 10,
+            level: 1,
+            achievements: [],
+            motivationProfile: "fragile",
+          },
+          dailyPlan: {
+            id: "plan_1",
+            tenantId: "tenant_mentoria",
+            studentId: "student_1",
+            planDate: "2026-04-04",
+            recommendedDuration: 30,
+            tasks: [
+              {
+                id: "task_review",
+                subject: "Matematicas",
+                subjectId: "subject_matematicas",
+                type: "review",
+                difficulty: 2,
+                completed: false,
+              },
+            ],
+            priority: "medium",
+            adaptationReason: "Hoy conviene reforzar base antes de subir dificultad.",
+            generatedAt: "2026-04-04T08:00:00.000Z",
+            createdAt: "2026-04-04T08:00:00.000Z",
+            updatedAt: "2026-04-04T08:00:00.000Z",
+            completedTaskIds: [],
+            completionRate: 0,
+          },
+          behavioralRollout: "engine_strategy",
+          behavioralShadow: buildBehavioralShadow({
+            currentStrategy: "gentle_restart",
+            shadowStrategy: "momentum_push",
+            diverged: true,
+            currentAction: {
+              strategy: "gentle_restart",
+              title: "Volver con algo facil",
+              description: "La mejor primera accion del dia debe recuperar traccion sin friccion.",
+              rationale: ["Perfil fragile."],
+              confidence: 0.9,
+              task: {
+                id: "task_review",
+                subject: "Matematicas",
+                subjectId: "subject_matematicas",
+                type: "review",
+                difficulty: 2,
+                completed: false,
+              },
+              prompt: null,
+            },
+            shadowAction: {
+              strategy: "momentum_push",
+              title: "Subir un paso hoy",
+              description: "La mejor primera accion del dia puede ser un poco mas exigente.",
+              rationale: ["Momentum."],
+              confidence: 0.92,
+              task: null,
+              prompt: null,
+            },
+          }),
+        }),
+      ),
+    );
+
+    render(React.createElement(MentoriaWorkspace));
+
+    await screen.findByRole("heading", { name: "Hola, Alex" });
+    expect(screen.getByText("Hoy te conviene volver con una victoria rapida para recuperar ritmo.")).toBeInTheDocument();
+    expect(screen.getByText("Modo de hoy: vuelta suave")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Volver con algo facil" })).toBeInTheDocument();
+  });
+
+  it("uses engine explanation only when the rollout enables strategy and explanation together", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        buildWorkspaceResponse({
+          studentSubjects: [buildStudentSubject()],
+          motivation: {
+            studentId: "student_1",
+            streak: 2,
+            lastActivityAt: "2026-04-04T07:00:00.000Z",
+            effortScore: 0.68,
+            rewardPoints: 90,
+            level: 2,
+            achievements: [],
+            motivationProfile: "stable",
+          },
+          dailyPlan: {
+            id: "plan_1",
+            tenantId: "tenant_mentoria",
+            studentId: "student_1",
+            planDate: "2026-04-04",
+            recommendedDuration: 30,
+            tasks: [
+              {
+                id: "task_review",
+                subject: "Matematicas",
+                subjectId: "subject_matematicas",
+                type: "review",
+                difficulty: 2,
+                completed: false,
+              },
+            ],
+            priority: "medium",
+            adaptationReason: "Hoy conviene reforzar base antes de subir dificultad.",
+            generatedAt: "2026-04-04T08:00:00.000Z",
+            createdAt: "2026-04-04T08:00:00.000Z",
+            updatedAt: "2026-04-04T08:00:00.000Z",
+            completedTaskIds: [],
+            completionRate: 0,
+          },
+          behavioralRollout: "engine_strategy_and_explanation",
+          behavioralShadow: buildBehavioralShadow({
+            currentStrategy: "plan_task",
+            shadowStrategy: "plan_task",
+            diverged: false,
+            shadowAction: {
+              strategy: "plan_task",
+              title: "Volver al plan de hoy",
+              description: "La continuidad natural viene de la siguiente tarea pendiente del plan.",
+              rationale: ["Plan task."],
+              confidence: 0.9,
+              task: {
+                id: "task_review",
+                subject: "Matematicas",
+                subjectId: "subject_matematicas",
+                type: "review",
+                difficulty: 2,
+                completed: false,
+              },
+              prompt: null,
+            },
+          }),
+        }),
+      ),
+    );
+
+    render(React.createElement(MentoriaWorkspace));
+
+    await screen.findByRole("heading", { name: "Hola, Alex" });
+    expect(screen.getByText("La continuidad natural hoy viene del plan del dia.")).toBeInTheDocument();
+    expect(screen.getByText("La siguiente tarea util es Matematicas - review.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Si haces clic, entraras directamente en la siguiente tarea natural del plan."),
+    ).toBeInTheDocument();
   });
 
   it("turns accumulated signals into an identity-focused progress narrative", async () => {
