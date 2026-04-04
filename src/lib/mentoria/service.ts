@@ -27,7 +27,10 @@ import {
 import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
 import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
 import { env } from "@/lib/cf";
+import { runMentoriaBehavioralShadow } from "@/lib/behavioral-engine/adapters/mentoria";
+import type { BehavioralShadowComparison } from "@/lib/behavioral-engine/contracts";
 import {
+  buildDailyClosureSummary,
   buildGuardianHookEvents,
   buildStudentMemorySummary,
   buildWorkspaceEntry,
@@ -60,8 +63,11 @@ import {
 import type {
   DailyPlan,
   MentoriaBillingSummary,
+  MentoriaDailyClosureSummary,
   MentoriaDashboard,
   MentoriaProgress,
+  FocusSession,
+  LearningSession,
   MentoriaEmotionalBaseline,
   MentoriaExercise,
   MentoriaGuardianHookEvent,
@@ -84,6 +90,8 @@ import type {
 type MentoriaSessionActor = Pick<UserContext, "userId" | "email" | "tenantId"> & {
   role: "admin" | "user";
 };
+
+type MentoriaEntryMode = "resume_session" | "gentle_restart" | "momentum_push" | "plan_task" | "entry";
 
 type OnboardingSubjectInput = {
   subjectSlug: string;
@@ -119,6 +127,89 @@ type MentoriaOnboardingAttributes = {
   confidenceLevel: "low" | "medium" | "high";
   learningPreference?: MentoriaLearningPreference;
 };
+
+function getTutorEntryModeAdjustments(entryMode?: MentoriaEntryMode) {
+  if (entryMode === "gentle_restart") {
+    return {
+      explanationDepth: "step_by_step" as const,
+      difficultyAdjustment: "down" as const,
+      tutorInstruction:
+        "Esta respuesta nace desde un reenganche suave. Empieza por una victoria rapida, reduce la carga cognitiva y deja claro el primer paso antes de ampliar.",
+    };
+  }
+
+  if (entryMode === "momentum_push") {
+    return {
+      explanationDepth: "challenge" as const,
+      difficultyAdjustment: "up" as const,
+      tutorInstruction:
+        "Esta respuesta nace desde un momento de buena inercia. Sube un poco el liston, pero deja un reto muy claro y accionable desde el primer turno.",
+    };
+  }
+
+  if (entryMode === "resume_session") {
+    return {
+      explanationDepth: "guided" as const,
+      difficultyAdjustment: "steady" as const,
+      tutorInstruction:
+        "Esta respuesta retoma una sesion anterior. Entra directamente en el siguiente paso y evita repetir una introduccion generica o empezar desde cero.",
+    };
+  }
+
+  if (entryMode === "plan_task") {
+    return {
+      explanationDepth: "guided" as const,
+      difficultyAdjustment: "steady" as const,
+      tutorInstruction:
+        "Esta respuesta nace desde la siguiente tarea del plan del dia. Haz visible por que esta accion encaja ahora mismo y conecta el primer paso con el plan.",
+    };
+  }
+
+  return {
+    explanationDepth: null,
+    difficultyAdjustment: null,
+    tutorInstruction: "",
+  };
+}
+
+function getExerciseEntryModeAdjustments(entryMode?: MentoriaEntryMode) {
+  if (entryMode === "gentle_restart") {
+    return {
+      difficultyLevel: "easy",
+      promptInstruction:
+        "La primera experiencia tras volver debe sentirse facil de arrancar, con una consigna corta y una primera pista especialmente clara.",
+    };
+  }
+
+  if (entryMode === "momentum_push") {
+    return {
+      difficultyLevel: "hard",
+      promptInstruction:
+        "La primera experiencia tras volver debe sentirse como un pequeno salto de nivel: mas exigente que una practica estandar, pero aun resoluble en pocos minutos.",
+    };
+  }
+
+  if (entryMode === "plan_task") {
+    return {
+      difficultyLevel: null,
+      promptInstruction:
+        "La primera experiencia tras volver debe sentirse como continuidad natural del plan del dia, no como una tarea aislada.",
+    };
+  }
+
+  if (entryMode === "resume_session") {
+    return {
+      difficultyLevel: null,
+      promptInstruction:
+        "La primera experiencia tras volver debe conectar con el siguiente paso de la sesion anterior y no sonar como un ejercicio generico.",
+    };
+  }
+
+  return {
+    difficultyLevel: null,
+    promptInstruction: "",
+  };
+}
 
 function deriveEmotionalBaselineFromConfidence(confidenceLevel: "low" | "medium" | "high"): MentoriaEmotionalBaseline {
   if (confidenceLevel === "low") {
@@ -1161,8 +1252,10 @@ export class MentoriaService {
       analysis: { weakSubjects: string[]; strongSubjects: string[]; nextActions: string[] };
       entry: MentoriaWorkspaceEntry;
       memory: MentoriaStudentMemorySummary;
+      dailyClosure: MentoriaDailyClosureSummary | null;
       guardianHooks: MentoriaGuardianHookEvent[];
       exercises: MentoriaExercise[];
+      behavioralShadow: BehavioralShadowComparison;
     }
   > {
     const dashboard = await this.getDashboard(actor);
@@ -1190,6 +1283,16 @@ export class MentoriaService {
       analysis,
     });
     const events = await listEventsForUser(actor.userId, 50);
+    const dailyClosure = buildDailyClosureSummary({
+      student: dashboard.student,
+      progress: dashboard.progress,
+      dailyPlan: dashboard.dailyPlan,
+      motivation: dashboard.motivation,
+      recentSessions: dashboard.recentSessions,
+      focusSessions: dashboard.focusSessions,
+      events,
+      todayIso: new Date().toISOString().slice(0, 10),
+    });
     const guardianHooks = buildGuardianHookEvents({
       student: dashboard.student,
       progress: dashboard.progress,
@@ -1199,14 +1302,60 @@ export class MentoriaService {
       events,
     });
     const exercises = await this.repository.listExercises(actor.tenantId, dashboard.student.id);
+    const behavioralShadow = runMentoriaBehavioralShadow({
+      actor: {
+        userId: actor.userId,
+        tenantId: actor.tenantId,
+      },
+      student: dashboard.student,
+      dailyPlan: dashboard.dailyPlan,
+      motivation: dashboard.motivation,
+      recentSessions: dashboard.recentSessions,
+      entry,
+      dailyClosure,
+      evolution: dashboard.evolution,
+    });
+
+    if (behavioralShadow.diverged) {
+      console.warn("[BehavioralEngineShadow] Mentoria divergence detected", {
+        tenantId: actor.tenantId,
+        userId: actor.userId,
+        currentStrategy: behavioralShadow.currentStrategy,
+        shadowStrategy: behavioralShadow.shadowStrategy,
+        currentTask: behavioralShadow.currentAction.task,
+        shadowTask: behavioralShadow.shadowAction.task,
+      });
+
+      const shadowContext = await getUserContext(actor.userId);
+      if (shadowContext) {
+        await trackEvent(
+          createMetricEvent({
+            context: shadowContext,
+            name: "behavioral_engine_shadow_divergence",
+            type: "behavioral_engine_shadow_divergence",
+            source: "mentoria.service.getWorkspaceExperience",
+            metadata: {
+              currentStrategy: behavioralShadow.currentStrategy,
+              shadowStrategy: behavioralShadow.shadowStrategy,
+              currentTaskType: behavioralShadow.currentAction.task?.type ?? null,
+              shadowTaskType: behavioralShadow.shadowAction.task?.type ?? null,
+              currentTaskSubjectId: behavioralShadow.currentAction.task?.subjectId ?? null,
+              shadowTaskSubjectId: behavioralShadow.shadowAction.task?.subjectId ?? null,
+            },
+          }),
+        );
+      }
+    }
 
     return {
       ...dashboard,
       analysis,
       entry,
       memory,
+      dailyClosure,
       guardianHooks,
       exercises,
+      behavioralShadow,
     };
   }
 
@@ -1245,11 +1394,48 @@ export class MentoriaService {
     return saved;
   }
 
+  private async trackDailyClosureSnapshot(input: {
+    actor: MentoriaSessionActor;
+    student: StudentProfile;
+    progress: MentoriaProgress[];
+    motivation: MotivationState;
+    dailyPlan: DailyPlan;
+    context: UserContext;
+    recentSessions?: LearningSession[];
+    focusSessions?: FocusSession[];
+  }): Promise<MentoriaDailyClosureSummary | null> {
+    const recentSessions = input.recentSessions ?? (await this.repository.listLearningSessions(input.actor.tenantId, input.student.id));
+    const focusSessions = input.focusSessions ?? (await this.repository.listFocusSessions(input.actor.tenantId, input.student.id));
+    const summary = buildDailyClosureSummary({
+      student: input.student,
+      progress: input.progress,
+      dailyPlan: input.dailyPlan,
+      motivation: input.motivation,
+      recentSessions,
+      focusSessions,
+      todayIso: new Date().toISOString().slice(0, 10),
+    });
+    if (!summary) {
+      return null;
+    }
+    await trackEvent(
+      createMetricEvent({
+        context: input.context,
+        name: "mentoria_daily_closure",
+        type: "mentoria_daily_closure",
+        source: "mentoria.service.trackDailyClosureSnapshot",
+        metadata: summary,
+      }),
+    );
+    return summary;
+  }
+
   async startGuidedSession(actor: MentoriaSessionActor, payload: {
     subjectSlug?: string;
     topic?: string;
     message: string;
     sessionId?: string;
+    entryMode?: MentoriaEntryMode;
   }): Promise<{
     session: Awaited<ReturnType<MentoriaRepository["createLearningSession"]>>;
     subject: MentoriaSubject;
@@ -1400,6 +1586,13 @@ export class MentoriaService {
       interventions: adaptiveContext.interventions,
       motivation: adaptiveContext.motivation,
     });
+    const entryModeAdjustments = getTutorEntryModeAdjustments(payload.entryMode);
+    const adaptedEntry = {
+      ...adaptation,
+      explanationDepth: entryModeAdjustments.explanationDepth ?? adaptation.explanationDepth,
+      difficultyAdjustment: entryModeAdjustments.difficultyAdjustment ?? adaptation.difficultyAdjustment,
+      tutorInstruction: [adaptation.tutorInstruction, entryModeAdjustments.tutorInstruction].filter(Boolean).join(" ").trim(),
+    };
     const history: MentoriaAgentHistoryTurn[] = recentSessions
       .filter((item) => item.subjectId === subject.id)
       .slice(0, 3)
@@ -1429,7 +1622,7 @@ export class MentoriaService {
         ...tutorTask,
         input: {
           ...tutorTask.input,
-          adaptation,
+          adaptation: adaptedEntry,
           interventions: adaptiveContext.interventions,
           motivation: adaptiveContext.motivation,
           history,
@@ -1540,16 +1733,17 @@ export class MentoriaService {
         motivation: savedMotivation,
       },
     );
+    const refreshedDailyPlan = await this.ensureDailyPlan(actor.tenantId, student, {
+      progress: updatedProgress,
+      evolution: syncedEvolution,
+      interventions: syncedInterventions,
+      motivation: savedMotivation,
+    });
     const syncedContext = await this.syncUserContext(actor, student, {
       progress: updatedProgress,
       evolution: syncedEvolution,
       motivation: savedMotivation,
-      dailyPlan: await this.ensureDailyPlan(actor.tenantId, student, {
-        progress: updatedProgress,
-        evolution: syncedEvolution,
-        interventions: syncedInterventions,
-        motivation: savedMotivation,
-      }),
+      dailyPlan: refreshedDailyPlan,
       lastSubject: subject,
     });
     const trackedSessions = await this.repository.listLearningSessions(actor.tenantId, student.id);
@@ -1581,6 +1775,15 @@ export class MentoriaService {
       );
     }
     const insights = await this.buildUserInsights(actor, syncedContext);
+    await this.trackDailyClosureSnapshot({
+      actor,
+      student,
+      progress: updatedProgress,
+      motivation: savedMotivation,
+      dailyPlan: refreshedDailyPlan,
+      context: syncedContext,
+      recentSessions: trackedSessions,
+    });
     await trackEvent(
       createMetricEvent({
         context: syncedContext,
@@ -1688,7 +1891,7 @@ export class MentoriaService {
     return {
       session,
       subject,
-      adaptation,
+      adaptation: adaptedEntry,
       reply: tutorResponse.reply,
       explanation: String(tutorResponse.output.explanation),
       suggestedSteps: Array.isArray(tutorResponse.output.suggestedSteps) ? tutorResponse.output.suggestedSteps.map((item) => String(item)) : [],
@@ -1711,6 +1914,7 @@ export class MentoriaService {
     subjectSlug: string;
     topic: string;
     difficultyLevel?: string;
+    entryMode?: MentoriaEntryMode;
   }): Promise<MentoriaExercise> {
     const student = await this.requireOnboardedStudent(actor);
     const billing = await this.getBillingSummary({ tenantId: actor.tenantId, canManageBilling: this.canManageBilling(actor) }, student);
@@ -1742,6 +1946,8 @@ export class MentoriaService {
         subject,
         topic: payload.topic,
         difficultyLevel: payload.difficultyLevel ?? "medium",
+        entryMode: payload.entryMode,
+        promptInstruction: "",
         evolution,
         interventions: [],
         motivation,
@@ -1754,12 +1960,15 @@ export class MentoriaService {
       },
     });
     const adaptiveContext = this.getAdaptiveContext(billing, interventions, motivation);
+    const entryModeAdjustments = getExerciseEntryModeAdjustments(payload.entryMode);
     const generated = await executeAgent<
       {
         profile: StudentProfile;
         subject: MentoriaSubject;
         topic: string;
         difficultyLevel: string;
+        entryMode?: MentoriaEntryMode;
+        promptInstruction?: string;
         evolution: StudentEvolutionProfile;
         interventions: MentoriaIntervention[];
         motivation: MotivationState;
@@ -1777,6 +1986,9 @@ export class MentoriaService {
       ...exerciseTask,
       input: {
         ...exerciseTask.input,
+        difficultyLevel: entryModeAdjustments.difficultyLevel ?? exerciseTask.input.difficultyLevel,
+        entryMode: payload.entryMode,
+        promptInstruction: entryModeAdjustments.promptInstruction,
         interventions: adaptiveContext.interventions,
         motivation: adaptiveContext.motivation,
       },
@@ -1894,17 +2106,26 @@ export class MentoriaService {
         motivation: savedMotivation,
       },
     );
+    const refreshedDailyPlan = await this.ensureDailyPlan(actor.tenantId, student, {
+      progress: updatedProgress,
+      evolution: syncedEvolution,
+      interventions: syncedInterventions,
+      motivation: savedMotivation,
+    });
     const syncedContext = await this.syncUserContext(actor, student, {
       progress: updatedProgress,
       evolution: syncedEvolution,
       motivation: savedMotivation,
-      dailyPlan: await this.ensureDailyPlan(actor.tenantId, student, {
-        progress: updatedProgress,
-        evolution: syncedEvolution,
-        interventions: syncedInterventions,
-        motivation: savedMotivation,
-      }),
+      dailyPlan: refreshedDailyPlan,
       lastSubject: subject,
+    });
+    await this.trackDailyClosureSnapshot({
+      actor,
+      student,
+      progress: updatedProgress,
+      motivation: savedMotivation,
+      dailyPlan: refreshedDailyPlan,
+      context: syncedContext,
     });
     await trackEvent(
       createMetricEvent({
@@ -2069,15 +2290,27 @@ export class MentoriaService {
           motivation: savedMotivation,
         },
       );
+      const updatedProgress = await this.repository.listProgress(actor.tenantId, student.id);
+      const refreshedDailyPlan = await this.ensureDailyPlan(actor.tenantId, student, {
+        progress: updatedProgress,
+        evolution: updatedEvolution,
+        interventions: syncedInterventions,
+        motivation: savedMotivation,
+      });
       const syncedContext = await this.syncUserContext(actor, student, {
-        progress: await this.repository.listProgress(actor.tenantId, student.id),
+        progress: updatedProgress,
         evolution: updatedEvolution,
         motivation: savedMotivation,
-        dailyPlan: await this.ensureDailyPlan(actor.tenantId, student, {
-          evolution: updatedEvolution,
-          interventions: syncedInterventions,
-          motivation: savedMotivation,
-        }),
+        dailyPlan: refreshedDailyPlan,
+      });
+      await this.trackDailyClosureSnapshot({
+        actor,
+        student,
+        progress: updatedProgress,
+        motivation: savedMotivation,
+        dailyPlan: refreshedDailyPlan,
+        context: syncedContext,
+        focusSessions: [focusSession],
       });
       await trackEvent(
         createMetricEvent({

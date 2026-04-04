@@ -2,6 +2,7 @@ import type {
   DailyPlan,
   FocusSession,
   LearningSession,
+  MentoriaDailyClosureSummary,
   MentoriaGuardianHookEvent,
   MentoriaProgress,
   MentoriaStudentMemorySummary,
@@ -11,6 +12,7 @@ import type {
 } from "@/lib/mentoria/types";
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
 import type { DrakoEventRecord } from "@/lib/drako/metrics";
+import type { MotivationState } from "@/lib/mentoria/motivation-engine";
 
 type InferSubjectInput = {
   requestedSubjectSlug?: string | null;
@@ -37,6 +39,40 @@ function normalize(value: string): string {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function isoDay(value?: string | null): string | null {
+  return value ? value.slice(0, 10) : null;
+}
+
+function taskTypeLabel(type: DailyPlan["tasks"][number]["type"]): string {
+  if (type === "review") return "repaso guiado";
+  if (type === "challenge") return "reto corto";
+  return "practica guiada";
+}
+
+function buildTaskCarryOver(task: DailyPlan["tasks"][number]) {
+  return {
+    carryOverPrompt:
+      task.type === "review"
+        ? `Quiero repasar ${task.subject} paso a paso y ver que debo vigilar hoy.`
+        : task.type === "challenge"
+          ? `Quiero un reto corto de ${task.subject} para comprobar si ya lo domino.`
+          : `Quiero practicar ${task.subject} con una actividad guiada de dificultad ${task.difficulty}.`,
+    carryOverTopic: task.type === "review" ? `Repaso de ${task.subject}` : task.subject,
+    carryOverSubjectId: task.subjectId ?? null,
+  };
+}
+
+function isDailyClosureSummary(value: unknown): value is MentoriaDailyClosureSummary {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.closureDate === "string"
+    && typeof record.title === "string"
+    && typeof record.summary === "string"
+    && typeof record.completionRate === "number"
+    && typeof record.completedTasks === "number"
+    && typeof record.totalTasks === "number";
 }
 
 function extractTopic(message: string, fallbackSubjectName: string): string {
@@ -217,6 +253,150 @@ export function buildWorkspaceEntry(input: {
         prompt: `Ayudame a completar la tarea de hoy sobre ${recommendedTopic}.`,
       },
     ],
+  };
+}
+
+export function buildDailyClosureSummary(input: {
+  student: StudentProfile;
+  progress: MentoriaProgress[];
+  dailyPlan?: DailyPlan | null;
+  motivation?: MotivationState | null;
+  recentSessions: LearningSession[];
+  focusSessions: FocusSession[];
+  events?: DrakoEventRecord[];
+  todayIso?: string;
+}): MentoriaDailyClosureSummary | null {
+  const todayIso = input.todayIso ?? new Date().toISOString().slice(0, 10);
+  const latestSession = input.recentSessions[0] ?? null;
+  const latestFocus = input.focusSessions[0] ?? null;
+  const lastProgress = input.progress.slice().sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] ?? null;
+  const lastActivityAt =
+    latestSession?.updatedAt
+    ?? latestFocus?.updatedAt
+    ?? input.motivation?.lastActivityAt
+    ?? lastProgress?.updatedAt
+    ?? null;
+  const latestClosureEvent = (input.events ?? []).find((event) => event.type === "mentoria_daily_closure");
+  const eventMetadata = latestClosureEvent
+    ? ((latestClosureEvent.payload as Record<string, unknown> | undefined)?.metadata ?? null)
+    : null;
+  const persistedClosure = isDailyClosureSummary(eventMetadata) ? eventMetadata : null;
+  const hasStartedToday =
+    (input.dailyPlan?.completedTaskIds.length ?? 0) > 0
+    || isoDay(lastActivityAt) === todayIso;
+
+  if (persistedClosure && persistedClosure.closureDate < todayIso && !hasStartedToday) {
+    return {
+      ...persistedClosure,
+      source: "event",
+    };
+  }
+
+  if (!input.dailyPlan) {
+    return persistedClosure ? { ...persistedClosure, source: "event" } : null;
+  }
+
+  const completedTasks = input.dailyPlan.completedTaskIds.length;
+  const totalTasks = input.dailyPlan.tasks.length;
+  const completionRate = input.dailyPlan.completionRate;
+  const nextPendingTask = input.dailyPlan.tasks.find((task) => !task.completed) ?? null;
+  const carryOver =
+    latestSession?.recommendedNextStep
+      ? {
+          carryOverPrompt: latestSession.recommendedNextStep,
+          carryOverTopic: latestSession.topic || nextPendingTask?.subject || null,
+          carryOverSubjectId: latestSession.subjectId,
+        }
+      : nextPendingTask
+        ? buildTaskCarryOver(nextPendingTask)
+        : {
+            carryOverPrompt: null,
+            carryOverTopic: null,
+            carryOverSubjectId: null,
+          };
+  const activityLabel =
+    latestSession
+      ? `cerraste una sesion en ${latestSession.topic || "tu materia prioritaria"}`
+      : latestFocus
+        ? `cerraste un bloque de foco de ${latestFocus.durationMinutes} minutos`
+        : "dejaste actividad registrada";
+
+  if (completionRate >= 1) {
+    return {
+      closureDate: todayIso,
+      source: "live",
+      status: "completed",
+      title: "Hoy has cerrado algo importante y manana puedes subir un paso",
+      summary:
+        carryOver.carryOverPrompt
+          ? `Has completado ${completedTasks} de ${totalTasks} tareas y ${activityLabel}. Se nota el avance: manana no volveras a arrancar desde cero y ya queda preparado "${carryOver.carryOverPrompt}".`
+          : `Has completado ${completedTasks} de ${totalTasks} tareas y ${activityLabel}. Se nota el avance y el sistema ya puede proponerte un siguiente paso con mas ambicion manana.`,
+      carryOverPrompt: carryOver.carryOverPrompt,
+      carryOverTopic: carryOver.carryOverTopic,
+      carryOverSubjectId: carryOver.carryOverSubjectId,
+      completionRate,
+      completedTasks,
+      totalTasks,
+      lastActivityAt,
+    };
+  }
+
+  if (input.motivation?.motivationProfile === "fragile") {
+    return {
+      closureDate: todayIso,
+      source: "live",
+      status: "needs_support",
+      title: "Hoy has protegido el ritmo y manana volveras con una entrada amable",
+      summary:
+        nextPendingTask
+          ? `Hoy has cerrado ${completedTasks} de ${totalTasks} tareas. Eso ya cuenta: manana queda preparado ${nextPendingTask.subject} - ${taskTypeLabel(nextPendingTask.type)} con una entrada mas guiada para que recuperes confianza rapido.`
+          : "Hoy hubo avance, y manana conviene volver con una accion sencilla y clara para coger ritmo sin presion.",
+      carryOverPrompt: carryOver.carryOverPrompt,
+      carryOverTopic: carryOver.carryOverTopic,
+      carryOverSubjectId: carryOver.carryOverSubjectId,
+      completionRate,
+      completedTasks,
+      totalTasks,
+      lastActivityAt,
+    };
+  }
+
+  if (completedTasks > 0) {
+    return {
+      closureDate: todayIso,
+      source: "live",
+      status: "in_progress",
+      title: "Hoy has dejado avance real y manana seguiras con ventaja",
+      summary:
+        nextPendingTask
+          ? `Hoy has cerrado ${completedTasks} de ${totalTasks} tareas y ya has ganado traccion. El siguiente paso natural queda preparado: ${nextPendingTask.subject} - ${taskTypeLabel(nextPendingTask.type)}.`
+          : "Hoy has dejado avance real y el sistema ya tiene contexto para continuar manana sin reconstruir todo desde cero.",
+      carryOverPrompt: carryOver.carryOverPrompt,
+      carryOverTopic: carryOver.carryOverTopic,
+      carryOverSubjectId: carryOver.carryOverSubjectId,
+      completionRate,
+      completedTasks,
+      totalTasks,
+      lastActivityAt,
+    };
+  }
+
+  return {
+    closureDate: todayIso,
+    source: "live",
+    status: "incomplete",
+    title: "Hoy no ha quedado un cierre fuerte, pero manana no empezaras desde cero",
+    summary:
+      nextPendingTask
+        ? `Conviene dejar preparado ${nextPendingTask.subject} - ${taskTypeLabel(nextPendingTask.type)} para que manana el arranque sea mas claro y te resulte mas facil volver.`
+        : "Conviene dejar un siguiente paso muy claro para que manana no parezca un reinicio generico.",
+    carryOverPrompt: carryOver.carryOverPrompt,
+    carryOverTopic: carryOver.carryOverTopic,
+    carryOverSubjectId: carryOver.carryOverSubjectId,
+    completionRate,
+    completedTasks,
+    totalTasks,
+    lastActivityAt,
   };
 }
 

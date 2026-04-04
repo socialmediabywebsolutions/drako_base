@@ -30,6 +30,8 @@ export async function generateExercise(input: {
   subject: MentoriaSubject;
   topic: string;
   difficultyLevel: string;
+  entryMode?: "resume_session" | "gentle_restart" | "momentum_push" | "plan_task" | "entry";
+  promptInstruction?: string;
   evolution: StudentEvolutionProfile;
   interventions: MentoriaIntervention[];
   motivation: MotivationState;
@@ -78,11 +80,13 @@ export async function generateExercise(input: {
             `Modo evolutivo: apoyo=${evolutionSignals.supportLevel}; reto=${evolutionSignals.challengeLevel}; explicacion=${evolutionSignals.explanationMode}.`,
             `Modo de intervencion: tono=${interventionResponse.toneMode}; tutor=${interventionResponse.tutorMode}.`,
             `Motivacion: perfil=${input.motivation.motivationProfile}; esfuerzo=${input.motivation.effortScore.toFixed(2)}; racha=${input.motivation.streak}.`,
+            `Modo de entrada: ${input.entryMode ?? "default"}.`,
             `Plan comercial: ${input.billing.planCode}; estado=${input.billing.subscriptionStatus}.`,
             `Plan diario: prioridad=${input.dailyPlan.priority}; razon=${input.dailyPlan.adaptationReason}; tarea actual=${plannedTask ? `${plannedTask.type} dificultad ${plannedTask.difficulty}` : "sin tarea especifica"}.`,
             `Debilidades activas: ${input.evolution.weaknesses.join(", ") || "sin debilidades activas"}.`,
             `Microcopy de introduccion: ${introCopy}.`,
             `Microcopy de ayuda: ${errorCopy}.`,
+            input.promptInstruction ?? "",
             "Para primary usa consignas cortas y concretas. Para eso estructura mejor el reto. Para bachillerato pide mas analisis y justificacion.",
             interventionResponse.tutorMode === "gentle" || evolutionSignals.supportLevel === "high"
               ? "Genera una consigna mas corta, una competencia muy concreta y pistas mas graduales."

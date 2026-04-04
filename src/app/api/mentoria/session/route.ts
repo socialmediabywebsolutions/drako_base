@@ -13,6 +13,7 @@ export async function POST(request: Request) {
       subjectSlug?: string;
       topic?: string;
       message: string;
+      entryMode?: "resume_session" | "gentle_restart" | "momentum_push" | "plan_task" | "entry";
     };
     const result = await service.startGuidedSession(actor, body);
     return NextResponse.json({ ok: true, ...result });

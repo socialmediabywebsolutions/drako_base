@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildDailyClosureSummary,
   buildGuardianHookEvents,
   buildStudentMemorySummary,
   buildWorkspaceEntry,
@@ -184,6 +185,144 @@ describe("mentoria product experience", () => {
     expect(entry.recommendedSubjectSlug).toBe("matematicas");
     expect(entry.quickActions).toHaveLength(3);
     expect(entry.recommendedPrompt).toContain("Matematicas");
+  });
+
+  it("derives a visible daily closure with carry-over from the current day", () => {
+    const subjects = createSubjects();
+    const progress = createProgress(subjects);
+    const closure = buildDailyClosureSummary({
+      student: createStudent(),
+      progress,
+      dailyPlan: {
+        ...createDailyPlan(),
+        tasks: [
+          {
+            id: "task_review",
+            subject: "Matematicas",
+            subjectId: "subject_math",
+            type: "review",
+            difficulty: 2,
+            completed: true,
+          },
+          {
+            id: "task_practice",
+            subject: "Matematicas",
+            subjectId: "subject_math",
+            type: "practice",
+            difficulty: 3,
+            completed: false,
+          },
+        ],
+        completedTaskIds: ["task_review"],
+        completionRate: 0.5,
+      },
+      motivation: {
+        studentId: "student_1",
+        streak: 2,
+        lastActivityAt: "2026-03-29T09:30:00.000Z",
+        effortScore: 0.62,
+        confidenceTrend: "up",
+        emotionalState: "steady",
+        recentRewards: [],
+        rewardPoints: 30,
+        level: 2,
+        achievements: [],
+        motivationProfile: "steady",
+        updatedAt: "2026-03-29T09:30:00.000Z",
+      },
+      recentSessions: [
+        {
+          id: "session_1",
+          tenantId: "tenant_1",
+          studentProfileId: "student_1",
+          subjectId: "subject_math",
+          mentorId: "mentor_1",
+          clientId: "client_1",
+          topic: "Fracciones",
+          status: "completed",
+          durationMinutes: 25,
+          aiTokensUsed: 100,
+          emotionalState: "steady",
+          tutorSummary: "Buen avance",
+          recommendedNextStep: "Haz una practica corta de fracciones equivalentes.",
+          transcript: [],
+          createdAt: "2026-03-29T09:00:00.000Z",
+          completedAt: "2026-03-29T09:25:00.000Z",
+          updatedAt: "2026-03-29T09:25:00.000Z",
+        },
+      ],
+      focusSessions: [],
+      todayIso: "2026-03-29",
+    });
+
+    expect(closure).not.toBeNull();
+    expect(closure?.source).toBe("live");
+    expect(closure?.status).toBe("in_progress");
+    expect(closure?.carryOverPrompt).toBe("Haz una practica corta de fracciones equivalentes.");
+    expect(closure?.title).toBe("Hoy has dejado avance real y manana seguiras con ventaja");
+    expect(closure?.summary).toContain("ya has ganado traccion");
+  });
+
+  it("reuses the last daily closure as tomorrow entry memory when the new day has not started yet", () => {
+    const closure = buildDailyClosureSummary({
+      student: createStudent(),
+      progress: createProgress(createSubjects()),
+      dailyPlan: {
+        ...createDailyPlan(),
+        planDate: "2026-03-30",
+        completedTaskIds: [],
+        completionRate: 0,
+      },
+      motivation: {
+        studentId: "student_1",
+        streak: 3,
+        lastActivityAt: "2026-03-29T21:00:00.000Z",
+        effortScore: 0.58,
+        confidenceTrend: "steady",
+        emotionalState: "calm",
+        recentRewards: [],
+        rewardPoints: 40,
+        level: 2,
+        achievements: [],
+        motivationProfile: "steady",
+        updatedAt: "2026-03-29T21:00:00.000Z",
+      },
+      recentSessions: [],
+      focusSessions: [],
+      events: [
+        {
+          id: "evt_closure",
+          tenantId: "tenant_1",
+          userId: "student_1",
+          type: "mentoria_daily_closure",
+          payload: {
+            name: "Cierre diario",
+            metadata: {
+              closureDate: "2026-03-29",
+              source: "live",
+              status: "completed",
+              title: "Hoy has cerrado algo importante",
+              summary: "Has cerrado el dia y has dejado listo un repaso corto para manana.",
+              carryOverPrompt: "Empieza repasando fracciones equivalentes con un ejemplo guiado.",
+              carryOverTopic: "Fracciones equivalentes",
+              carryOverSubjectId: "subject_math",
+              completionRate: 1,
+              completedTasks: 2,
+              totalTasks: 2,
+              lastActivityAt: "2026-03-29T21:00:00.000Z",
+            },
+          },
+          createdAt: "2026-03-29T21:01:00.000Z",
+        },
+      ],
+      todayIso: "2026-03-30",
+    });
+
+    expect(closure).not.toBeNull();
+    expect(closure?.source).toBe("event");
+    expect(closure?.closureDate).toBe("2026-03-29");
+    expect(closure?.carryOverPrompt).toBe("Empieza repasando fracciones equivalentes con un ejemplo guiado.");
+    expect(closure?.title).toBe("Hoy has cerrado algo importante");
   });
 
   it("prepares guardian hooks with activity, progress and alerts", () => {

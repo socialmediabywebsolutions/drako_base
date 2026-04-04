@@ -23,7 +23,13 @@ export async function POST(request: Request) {
     const actor = await requireCurrentMentoriaSession(request);
     const service = new MentoriaService();
     const body = (await request.json()) as
-      | { action?: "generate"; subjectSlug: string; topic: string; difficultyLevel?: string }
+      | {
+          action?: "generate";
+          subjectSlug: string;
+          topic: string;
+          difficultyLevel?: string;
+          entryMode?: "resume_session" | "gentle_restart" | "momentum_push" | "plan_task" | "entry";
+        }
       | { action: "correct"; exerciseId: string; studentAnswer: string };
 
     if (body.action === "correct") {
@@ -38,6 +44,7 @@ export async function POST(request: Request) {
       subjectSlug: body.subjectSlug,
       topic: body.topic,
       difficultyLevel: body.difficultyLevel,
+      entryMode: body.entryMode,
     });
     return NextResponse.json({ ok: true, exercise }, { status: 201 });
   } catch (error) {

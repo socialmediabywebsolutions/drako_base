@@ -319,6 +319,21 @@ export type MentoriaStudentMemorySummary = {
   nextPriorityTask?: string | null;
 };
 
+export type MentoriaDailyClosureSummary = {
+  closureDate: string;
+  source: "live" | "event";
+  status: "completed" | "in_progress" | "needs_support" | "incomplete";
+  title: string;
+  summary: string;
+  carryOverPrompt: string | null;
+  carryOverTopic: string | null;
+  carryOverSubjectId?: string | null;
+  completionRate: number;
+  completedTasks: number;
+  totalTasks: number;
+  lastActivityAt?: string | null;
+};
+
 export type MentoriaWorkspaceQuickAction = {
   id: string;
   label: string;

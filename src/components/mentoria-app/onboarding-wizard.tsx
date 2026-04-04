@@ -34,7 +34,7 @@ type OnboardingDraft = {
     schoolYear: string;
     subjects: SubjectChoice[];
     goal: OnboardingObjective;
-    confidence: number; // 1 (low) | 2 (medium) | 3 (high)
+    confidence: number;
   };
 };
 
@@ -45,7 +45,40 @@ type ActivationState = {
   nextActions: string[];
 };
 
+type OnboardingValidation = {
+  valid: boolean;
+  message: string | null;
+};
+
+type OnboardingSubmissionPayload = {
+  guardianName: string;
+  fullName: string;
+  age: number;
+  schoolYear: string;
+  subjects: SubjectChoice[];
+  objective: OnboardingObjective;
+  confidenceLevel: ConfidenceLabel;
+  referralCode?: string;
+  inviteToken?: string;
+};
+
+type SearchParamReader = {
+  get(name: string): string | null;
+};
+
 const STORAGE_KEY = "mentoria-onboarding-activation-v2";
+const DEFAULT_STAGE = "eso";
+const DEFAULT_SCHOOL_YEAR = MENTORIA_SCHOOL_YEAR_OPTIONS[6];
+const DEFAULT_FALLBACK_SUBJECTS = getWorkspaceUiCopy(DEFAULT_STAGE).fallbackSubjects;
+const GUARDIAN_STEP_COPY = {
+  title: "1. Quien acompana al alumno?",
+  description: "Eres el tutor legal. Con tu nombre personalizamos mensajes y decisiones.",
+};
+const OBJECTIVE_STEP_COPY = {
+  title: "4. Objetivo principal",
+  description: "Con esto guiamos la ayuda inicial al resultado mas importante.",
+};
+
 const EMPTY_DRAFT: OnboardingDraft = {
   guardians: [{ name: "" }, { name: undefined }],
   student: {
@@ -63,10 +96,69 @@ function confidenceLabelToNumber(label: ConfidenceLabel): number {
   return 2;
 }
 
-function confidenceNumberToLabel(n: number): ConfidenceLabel {
-  if (n <= 1) return "low";
-  if (n >= 3) return "high";
+function confidenceNumberToLabel(value: number): ConfidenceLabel {
+  if (value <= 1) return "low";
+  if (value >= 3) return "high";
   return "medium";
+}
+
+function renumberStepTitle(title: string, step: number): string {
+  return title.replace(/^\d+\.\s*/, `${step}. `);
+}
+
+function getStepValidation(step: number, draft: OnboardingDraft): OnboardingValidation {
+  if (step === 1) {
+    return draft.guardians[0]?.name?.trim()
+      ? { valid: true, message: null }
+      : { valid: false, message: "Escribe el nombre del tutor principal." };
+  }
+
+  if (step === 2) {
+    if (!draft.student.fullName.trim()) {
+      return { valid: false, message: "Escribe el nombre del alumno." };
+    }
+    if (!draft.student.schoolYear.trim()) {
+      return { valid: false, message: "Selecciona el curso del alumno." };
+    }
+    return { valid: true, message: null };
+  }
+
+  if (step === 3) {
+    return draft.student.subjects.length > 0
+      ? { valid: true, message: null }
+      : { valid: false, message: "Selecciona al menos una materia." };
+  }
+
+  if (step === 4) {
+    return draft.student.goal
+      ? { valid: true, message: null }
+      : { valid: false, message: "Selecciona el objetivo principal." };
+  }
+
+  if (step === 5) {
+    return typeof draft.student.confidence === "number" && draft.student.confidence >= 1
+      ? { valid: true, message: null }
+      : { valid: false, message: "Indica como se siente ahora mismo." };
+  }
+
+  return { valid: true, message: null };
+}
+
+function buildOnboardingPayload(
+  draft: OnboardingDraft,
+  searchParams: SearchParamReader,
+): OnboardingSubmissionPayload {
+  return {
+    guardianName: draft.guardians[0]?.name?.trim() ?? "",
+    fullName: draft.student.fullName.trim(),
+    age: getAgeFromSchoolYear(draft.student.schoolYear),
+    schoolYear: draft.student.schoolYear,
+    subjects: draft.student.subjects,
+    objective: draft.student.goal,
+    confidenceLevel: confidenceNumberToLabel(draft.student.confidence),
+    referralCode: searchParams.get("ref") ?? undefined,
+    inviteToken: searchParams.get("invite") ?? undefined,
+  };
 }
 
 function StepBadge({ current }: { current: number }) {
@@ -105,8 +197,8 @@ export function MentoriaOnboardingWizard() {
   const [activation, setActivation] = useState<ActivationState | null>(null);
 
   const learningProfile = getLearningProfile({
-    schoolYear: draft.student.schoolYear || MENTORIA_SCHOOL_YEAR_OPTIONS[6],
-    age: getAgeFromSchoolYear(draft.student.schoolYear || MENTORIA_SCHOOL_YEAR_OPTIONS[6]),
+    schoolYear: draft.student.schoolYear || DEFAULT_SCHOOL_YEAR,
+    age: getAgeFromSchoolYear(draft.student.schoolYear || DEFAULT_SCHOOL_YEAR),
   });
   const ui = getOnboardingUiCopy(learningProfile.stage);
   const workspaceUi = getWorkspaceUiCopy(learningProfile.stage);
@@ -116,8 +208,14 @@ export function MentoriaOnboardingWizard() {
     const local = window.localStorage.getItem(STORAGE_KEY);
     if (local) {
       try {
-        const parsed = JSON.parse(local) as any;
-        // Migrate old flat draft shape to new structured draft
+        const parsed = JSON.parse(local) as Partial<OnboardingDraft> & {
+          guardianName?: string;
+          fullName?: string;
+          schoolYear?: string;
+          subjects?: SubjectChoice[];
+          objective?: OnboardingObjective;
+          confidenceLevel?: ConfidenceLabel;
+        };
         if (parsed && typeof parsed === "object" && !parsed.student) {
           const migrated: OnboardingDraft = {
             guardians: [{ name: parsed.guardianName ?? "" }, { name: undefined }],
@@ -125,83 +223,99 @@ export function MentoriaOnboardingWizard() {
               fullName: parsed.fullName ?? "",
               schoolYear: parsed.schoolYear ?? "",
               subjects: Array.isArray(parsed.subjects) ? parsed.subjects : [],
-              goal: (parsed.objective as OnboardingObjective) ?? "improve_understanding",
-              confidence: confidenceLabelToNumber((parsed.confidenceLevel as ConfidenceLabel) ?? "medium"),
+              goal: parsed.objective ?? "improve_understanding",
+              confidence: confidenceLabelToNumber(parsed.confidenceLevel ?? "medium"),
             },
           };
           setDraft(migrated);
         } else if (parsed && parsed.student) {
           setDraft(parsed as OnboardingDraft);
         }
-      } catch {}
+      } catch {
+        // Ignore invalid local storage snapshots and continue with a fresh draft.
+      }
     }
 
     void (async () => {
-      const response = await fetch("/api/mentoria/onboarding", { cache: "no-store" });
-      if (response.status === 401) {
-        window.location.href = "/mentorias/auths/logins?callbackUrl=/mentoria/onboarding";
-        return;
-      }
-      const body = (await response.json()) as {
-        profile?: StudentProfile | null;
-        subjects?: MentoriaSubject[];
-        studentSubjects?: MentoriaStudentSubject[];
-        parents?: ParentAccount[];
-      };
-      const fb = Array.isArray(workspaceUi.fallbackSubjects) ? workspaceUi.fallbackSubjects : [];
-      setSubjects(
-        body.subjects && body.subjects.length > 0
-          ? body.subjects
-          : fb.length
-            ? fb.map(
-                (s) =>
+      try {
+        const response = await fetch("/api/mentoria/onboarding", { cache: "no-store" });
+        if (response.status === 401) {
+          window.location.href = "/mentorias/auths/logins?callbackUrl=/mentoria/onboarding";
+          return;
+        }
+
+        const body = (await response.json()) as {
+          ok?: boolean;
+          error?: string;
+          profile?: StudentProfile | null;
+          subjects?: MentoriaSubject[];
+          studentSubjects?: MentoriaStudentSubject[];
+          parents?: ParentAccount[];
+        };
+
+        if (!response.ok) {
+          setError(body.error ?? ui.submitError);
+          return;
+        }
+
+        setSubjects(
+          body.subjects && body.subjects.length > 0
+            ? body.subjects
+            : DEFAULT_FALLBACK_SUBJECTS.map(
+                (subject) =>
                   ({
-                    id: s.slug,
+                    id: subject.slug,
                     tenantId: "",
-                    slug: s.slug,
-                    name: s.label,
+                    slug: subject.slug,
+                    name: subject.label,
                     description: "",
                     difficultyBand: "core",
                     createdAt: "",
                     updatedAt: "",
                   }) as MentoriaSubject,
-              )
-            : [],
-      );
-      if (body.profile?.onboardingCompleted) {
-        window.location.href = "/mentoria/app";
-        return;
+              ),
+        );
+
+        if (body.profile?.onboardingCompleted) {
+          window.location.href = "/mentoria/app";
+          return;
+        }
+
+        if (body.profile) {
+          const profile = body.profile;
+          const studentSubjects = body.studentSubjects ?? [];
+          const inferredObjective =
+            profile.supportNotes?.includes("pass_subject")
+              ? "pass_subject"
+              : profile.supportNotes?.includes("build_habit")
+                ? "build_habit"
+                : profile.supportNotes?.includes("gain_confidence")
+                  ? "gain_confidence"
+                  : "improve_understanding";
+          const inferredConfidenceLabel: ConfidenceLabel = profile.supportNotes?.includes("confianza low")
+            ? "low"
+            : profile.supportNotes?.includes("confianza high")
+              ? "high"
+              : "medium";
+
+          setDraft((current) => ({
+            guardians: current.guardians ?? [{ name: "" }, { name: undefined }],
+            student: {
+              fullName: profile.fullName,
+              schoolYear: profile.schoolYear,
+              goal: inferredObjective,
+              confidence: confidenceLabelToNumber(inferredConfidenceLabel),
+              subjects: studentSubjects
+                .map((item) => ({ subjectSlug: item.subject?.slug ?? "", initialLevel: item.initialLevel }))
+                .filter((item) => item.subjectSlug),
+            },
+          }));
+        }
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : ui.submitError);
+      } finally {
+        setLoading(false);
       }
-      if (body.profile) {
-        const profile = body.profile;
-        const studentSubjects = body.studentSubjects ?? [];
-        const inferredObjective =
-          profile.supportNotes?.includes("pass_subject")
-            ? "pass_subject"
-            : profile.supportNotes?.includes("build_habit")
-              ? "build_habit"
-              : profile.supportNotes?.includes("gain_confidence")
-                ? "gain_confidence"
-                : "improve_understanding";
-        const inferredConfidenceLabel: ConfidenceLabel = profile.supportNotes?.includes("confianza low")
-          ? "low"
-          : profile.supportNotes?.includes("confianza high")
-            ? "high"
-            : "medium";
-        setDraft((prev) => ({
-          guardians: prev.guardians ?? [{ name: "" }, { name: undefined }],
-          student: {
-            fullName: profile.fullName,
-            schoolYear: profile.schoolYear,
-            goal: inferredObjective,
-            confidence: confidenceLabelToNumber(inferredConfidenceLabel),
-            subjects: studentSubjects
-              .map((item) => ({ subjectSlug: item.subject?.slug ?? "", initialLevel: item.initialLevel }))
-              .filter((item) => item.subjectSlug),
-          },
-        }));
-      }
-      setLoading(false);
     })();
   }, []);
 
@@ -214,46 +328,38 @@ export function MentoriaOnboardingWizard() {
     [draft.student.subjects],
   );
 
-  function validateCurrentStep() {
-    if (step === 1) return Boolean(draft.guardians[0]?.name?.trim());
-    if (step === 2) return Boolean(draft.student.fullName.trim() && draft.student.schoolYear);
-    if (step === 3) return Boolean(draft.student.subjects.length > 0);
-    if (step === 4) return Boolean(draft.student.goal);
-    if (step === 5) return typeof draft.student.confidence === "number" && draft.student.confidence >= 1;
-    return true;
-  }
-
   async function finish() {
+    const blockingStep = [1, 2, 3, 4, 5]
+      .map((candidateStep) => getStepValidation(candidateStep, draft))
+      .find((validation) => !validation.valid);
+
+    if (blockingStep) {
+      setError(blockingStep.message ?? ui.validationError);
+      return;
+    }
+
     setSaving(true);
     setError(null);
+
     const response = await fetch("/api/mentoria/onboarding", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        guardianName: draft.guardians[0]?.name ?? "",
-        fullName: draft.student.fullName,
-        age: getAgeFromSchoolYear(draft.student.schoolYear),
-        schoolYear: draft.student.schoolYear,
-        subjects: draft.student.subjects,
-        objective: draft.student.goal,
-        confidenceLevel: confidenceNumberToLabel(draft.student.confidence),
-        referralCode: searchParams.get("ref") ?? undefined,
-        inviteToken: searchParams.get("invite") ?? undefined,
-      }),
+      body: JSON.stringify(buildOnboardingPayload(draft, searchParams)),
     });
     const body = (await response.json()) as {
       error?: string;
       activation?: ActivationState;
       progress?: MentoriaProgress[];
     };
+
     setSaving(false);
     if (!response.ok || !body.activation) {
       setError(body.error ?? ui.submitError);
       return;
     }
+
     setActivation(body.activation);
     window.localStorage.removeItem(STORAGE_KEY);
-    setStep(6);
   }
 
   if (loading) {
@@ -275,12 +381,12 @@ export function MentoriaOnboardingWizard() {
 
         {step === 1 ? (
           <section className="space-y-4">
-            <h2 className="text-2xl font-bold">1. ¿Quién acompaña al alumno?</h2>
-            <p className="text-sm text-slate-600">Eres el tutor legal. Con tu nombre personalizamos mensajes y decisiones.</p>
+            <h2 className="text-2xl font-bold">{GUARDIAN_STEP_COPY.title}</h2>
+            <p className="text-sm text-slate-600">{GUARDIAN_STEP_COPY.description}</p>
             <input
               value={draft.guardians[0]?.name ?? ""}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                setDraft((current: OnboardingDraft) => ({
+                setDraft((current) => ({
                   ...current,
                   guardians: [{ name: event.target.value }, { name: current.guardians[1]?.name }],
                 }))
@@ -291,7 +397,7 @@ export function MentoriaOnboardingWizard() {
             <input
               value={draft.guardians[1]?.name ?? ""}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                setDraft((current: OnboardingDraft) => ({
+                setDraft((current) => ({
                   ...current,
                   guardians: [
                     { name: current.guardians[0]?.name ?? "" },
@@ -310,12 +416,15 @@ export function MentoriaOnboardingWizard() {
 
         {step === 2 ? (
           <section className="space-y-4">
-            <h2 className="text-2xl font-bold">2. Datos básicos del alumno</h2>
-            <p className="text-sm text-slate-600">Con esto ajustamos el tono y el nivel desde el primer día.</p>
+            <h2 className="text-2xl font-bold">{renumberStepTitle(ui.step1.title, 2)}</h2>
+            <p className="text-sm text-slate-600">{ui.step1.description}</p>
             <input
               value={draft.student.fullName}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                setDraft((current: OnboardingDraft) => ({ ...current, student: { ...current.student, fullName: event.target.value } }))
+                setDraft((current) => ({
+                  ...current,
+                  student: { ...current.student, fullName: event.target.value },
+                }))
               }
               className="w-full rounded-3xl border border-slate-200 px-5 py-4"
               placeholder={ui.step1.fullNamePlaceholder}
@@ -325,8 +434,17 @@ export function MentoriaOnboardingWizard() {
                 <button
                   key={year}
                   type="button"
-                  onClick={() => setDraft((current: OnboardingDraft) => ({ ...current, student: { ...current.student, schoolYear: year } }))}
-                  className={`rounded-3xl border px-4 py-4 text-left text-sm ${draft.student.schoolYear === year ? "border-emerald-500 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-700"}`}
+                  onClick={() =>
+                    setDraft((current) => ({
+                      ...current,
+                      student: { ...current.student, schoolYear: year },
+                    }))
+                  }
+                  className={`rounded-3xl border px-4 py-4 text-left text-sm ${
+                    draft.student.schoolYear === year
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-900"
+                      : "border-slate-200 bg-white text-slate-700"
+                  }`}
                 >
                   {year}
                 </button>
@@ -337,8 +455,8 @@ export function MentoriaOnboardingWizard() {
 
         {step === 3 ? (
           <section className="space-y-5">
-            <h2 className="text-2xl font-bold">3. Materias del alumno</h2>
-            <p className="text-sm text-slate-600">Así nos centramos solo en lo que realmente necesita y no pierde tiempo.</p>
+            <h2 className="text-2xl font-bold">{renumberStepTitle(ui.step2.title, 3)}</h2>
+            <p className="text-sm text-slate-600">{ui.step2.description}</p>
             <div className="grid gap-4 md:grid-cols-2">
               {subjects.map((subject) => {
                 const current = draft.student.subjects.find((item) => item.subjectSlug === subject.slug);
@@ -353,12 +471,12 @@ export function MentoriaOnboardingWizard() {
                         type="checkbox"
                         checked={selectedSubjectSlugs.has(subject.slug)}
                         onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                          setDraft((currentDraft: OnboardingDraft) => ({
+                          setDraft((currentDraft) => ({
                             ...currentDraft,
                             student: {
                               ...currentDraft.student,
                               subjects: event.target.checked
-                                ? currentDraft.student.subjects.some((i: SubjectChoice) => i.subjectSlug === subject.slug)
+                                ? currentDraft.student.subjects.some((item) => item.subjectSlug === subject.slug)
                                   ? currentDraft.student.subjects
                                   : [
                                       ...currentDraft.student.subjects,
@@ -377,7 +495,7 @@ export function MentoriaOnboardingWizard() {
                             key={value}
                             type="button"
                             onClick={() =>
-                              setDraft((currentDraft: OnboardingDraft) => ({
+                              setDraft((currentDraft) => ({
                                 ...currentDraft,
                                 student: {
                                   ...currentDraft.student,
@@ -389,7 +507,9 @@ export function MentoriaOnboardingWizard() {
                                 },
                               }))
                             }
-                            className={`rounded-2xl px-4 py-3 text-left text-sm ${current.initialLevel === value ? "bg-emerald-100 text-emerald-900" : "bg-slate-50 text-slate-700"}`}
+                            className={`rounded-2xl px-4 py-3 text-left text-sm ${
+                              current.initialLevel === value ? "bg-emerald-100 text-emerald-900" : "bg-slate-50 text-slate-700"
+                            }`}
                           >
                             {label}
                           </button>
@@ -405,15 +525,22 @@ export function MentoriaOnboardingWizard() {
 
         {step === 4 ? (
           <section className="space-y-5">
-            <h2 className="text-2xl font-bold">4. Objetivo principal</h2>
-            <p className="text-sm text-slate-600">Con esto guiamos la ayuda inicial al resultado más importante.</p>
+            <h2 className="text-2xl font-bold">{OBJECTIVE_STEP_COPY.title}</h2>
+            <p className="text-sm text-slate-600">{OBJECTIVE_STEP_COPY.description}</p>
             <div className="grid gap-3 md:grid-cols-2">
               {Object.entries(ui.step2.objectives).map(([value, option]) => (
                 <button
                   key={value}
                   type="button"
-                  onClick={() => setDraft((current: OnboardingDraft) => ({ ...current, student: { ...current.student, goal: value as OnboardingObjective } }))}
-                  className={`rounded-3xl border p-5 text-left ${draft.student.goal === value ? "border-sky-500 bg-sky-50" : "border-slate-200 bg-white"}`}
+                  onClick={() =>
+                    setDraft((current) => ({
+                      ...current,
+                      student: { ...current.student, goal: value as OnboardingObjective },
+                    }))
+                  }
+                  className={`rounded-3xl border p-5 text-left ${
+                    draft.student.goal === value ? "border-sky-500 bg-sky-50" : "border-slate-200 bg-white"
+                  }`}
                 >
                   <div className="font-semibold">{option.title}</div>
                   <div className="mt-2 text-sm text-slate-600">{option.text}</div>
@@ -425,8 +552,8 @@ export function MentoriaOnboardingWizard() {
 
         {step === 5 ? (
           <section className="space-y-5">
-            <h2 className="text-2xl font-bold">5. Ajuste de confianza</h2>
-            <p className="text-sm text-slate-600">Solo necesitamos esto para calibrar bien la primera ayuda.</p>
+            <h2 className="text-2xl font-bold">{renumberStepTitle(ui.step3.title, 5)}</h2>
+            <p className="text-sm text-slate-600">{ui.step3.description}</p>
             <div className="rounded-3xl bg-slate-50 p-5">
               <div className="font-semibold">{ui.step3.confidenceTitle}</div>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
@@ -434,8 +561,17 @@ export function MentoriaOnboardingWizard() {
                   <button
                     key={value}
                     type="button"
-                    onClick={() => setDraft((current: OnboardingDraft) => ({ ...current, student: { ...current.student, confidence: confidenceLabelToNumber(value as ConfidenceLabel) } }))}
-                    className={`rounded-2xl px-4 py-3 text-sm ${confidenceNumberToLabel(draft.student.confidence) === value ? "bg-sky-100 text-sky-900" : "bg-white text-slate-700"}`}
+                    onClick={() =>
+                      setDraft((current) => ({
+                        ...current,
+                        student: { ...current.student, confidence: confidenceLabelToNumber(value as ConfidenceLabel) },
+                      }))
+                    }
+                    className={`rounded-2xl px-4 py-3 text-sm ${
+                      confidenceNumberToLabel(draft.student.confidence) === value
+                        ? "bg-sky-100 text-sky-900"
+                        : "bg-white text-slate-700"
+                    }`}
                   >
                     {label}
                   </button>
@@ -448,7 +584,7 @@ export function MentoriaOnboardingWizard() {
 
         {step === 6 ? (
           <section className="space-y-5">
-            <h2 className="text-2xl font-bold">6. Activamos tu primer avance</h2>
+            <h2 className="text-2xl font-bold">{renumberStepTitle(ui.step4.title, 6)}</h2>
             <p className="text-sm text-slate-600">{ui.step4.description}</p>
             {!activation ? (
               <div className="rounded-3xl bg-slate-50 p-5 text-sm text-slate-700">
@@ -470,7 +606,7 @@ export function MentoriaOnboardingWizard() {
                     <div className="mt-3 space-y-2">
                       {activation.dailyPlan.tasks.map((task) => (
                         <div key={task.id} className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-700">
-                          {`${task.subject} · ${workspaceUi.dailyPlanTaskTypes[task.type]} · ${workspaceUi.dailyPlanDifficultyPrefix}${task.difficulty}`}
+                          {`${task.subject} - ${workspaceUi.dailyPlanTaskTypes[task.type]} - ${workspaceUi.dailyPlanDifficultyPrefix}${task.difficulty}`}
                         </div>
                       ))}
                     </div>
@@ -504,11 +640,12 @@ export function MentoriaOnboardingWizard() {
             <button
               type="button"
               onClick={() => {
-                if (validateCurrentStep()) {
+                const validation = getStepValidation(step, draft);
+                if (validation.valid) {
                   setError(null);
                   setStep((current) => Math.min(6, current + 1));
                 } else {
-                  setError(ui.validationError);
+                  setError(validation.message ?? ui.validationError);
                 }
               }}
               className="rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold text-white"
@@ -526,7 +663,12 @@ export function MentoriaOnboardingWizard() {
               {ui.step4.enterAction}
             </button>
           ) : (
-            <button type="button" disabled={saving} onClick={finish} className="rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white disabled:opacity-60">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={finish}
+              className="rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white disabled:opacity-60"
+            >
               {saving ? ui.saving : ui.step4.launchAction}
             </button>
           )}
