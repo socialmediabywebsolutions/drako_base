@@ -8,6 +8,6 @@ export async function POST(request: Request) {
   const boundary = enforceAuthBoundary({ request, expectedContext: "mentorias", endpoint: "/api/mentorias/auths/logouts" });
   if (!boundary.ok) return boundary.response;
   const response = NextResponse.json({ ok: true });
-  clearAuthsSessionCookie({ response, context: "mentorias" });
+  clearAuthsSessionCookie({ response, context: "mentorias", request });
   return response;
 }

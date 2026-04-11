@@ -134,7 +134,11 @@ export async function generateExercise(input: {
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[ExerciseAgent] AI call failed, using fallback:", errorMessage);
+    if (errorMessage === "MENTORIA_AI_NOT_AVAILABLE") {
+      console.warn("[ExerciseAgent] AI not available (local/off). Using fallback.");
+    } else {
+      console.error("[ExerciseAgent] AI call failed, using fallback:", errorMessage);
+    }
     
     const fallback = generateFallbackExercise({
       subject: input.subject,
@@ -206,7 +210,11 @@ export async function correctExercise(input: {
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[ExerciseCorrection] AI call failed, using fallback:", errorMessage);
+    if (errorMessage === "MENTORIA_AI_NOT_AVAILABLE") {
+      console.warn("[ExerciseCorrection] AI not available (local/off). Using fallback.");
+    } else {
+      console.error("[ExerciseCorrection] AI call failed, using fallback:", errorMessage);
+    }
     
     const estimatedScore = input.studentAnswer.trim().length > 20 ? 65 : 45;
     const fallback = generateFallbackCorrection({

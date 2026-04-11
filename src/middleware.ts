@@ -185,31 +185,80 @@ export async function middleware(req: NextRequest) {
 
     // OLIMPO: Check if Cloudflare bindings are available
     const requestBindings = env();
-
-    // If no bindings (e.g., Vercel), proceed with minimal headers
-    if (!requestBindings) {
-      const headers = new Headers(req.headers);
-      headers.set("x-drako-host-mode", "MINIMAL");
-      headers.set("x-drako-environment", "vercel");
-      headers.set(CORRELATION_HEADER, correlationId);
-      const res = NextResponse.next({ request: { headers } });
-      res.headers.set(CORRELATION_HEADER, correlationId);
-      return res;
-    }
-
     const hostInfo = resolveEffectiveHost(req);
     const host = hostInfo.effectiveHost;
     const pagesEnvironment = requestBindings?.CF_PAGES_ENVIRONMENT ?? process.env.CF_PAGES_ENVIRONMENT ?? null;
     const hostMode = resolveHostMode(host, pagesEnvironment);
     const pagesEnvironmentHeader = pagesEnvironment ?? "unknown";
-    const isPagesDevHost = hostMode === "PREVIEW";
-    const isPublicHost = hostMode === "PUBLIC_SAAS";
-    const isAdminHost = hostMode === "CAMPAMENTO_BASE";
     const isMentoriasHost =
       host === "mentoria.drako.systems" ||
       host === "mentorias.drako.systems" ||
       host.startsWith("mentoria.") ||
       host.startsWith("mentorias.");
+
+    // If no bindings (e.g., Next local runtime), proceed with minimal headers
+    // but preserve effective host context for auth boundary isolation.
+    if (!requestBindings) {
+      if (isRoutingsSubdomainsEnabled() && isMentoriasHost && !isApi) {
+        if (pathname === "/") {
+          const url = new URL(req.url);
+          url.pathname = "/site/mentoria";
+          return NextResponse.rewrite(url);
+        }
+        if (pathname === "/app" || pathname.startsWith("/app/")) {
+          const url = new URL(req.url);
+          url.pathname = pathname.replace(/^\/app/, "/mentoria/app");
+          return NextResponse.rewrite(url);
+        }
+        if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) {
+          const url = new URL(req.url);
+          url.pathname = pathname.replace(/^\/onboarding/, "/mentoria/onboarding");
+          return NextResponse.rewrite(url);
+        }
+        if (pathname === "/share" || pathname.startsWith("/share/")) {
+          const url = new URL(req.url);
+          url.pathname = pathname.replace(/^\/share/, "/mentoria/share");
+          return NextResponse.rewrite(url);
+        }
+        if (pathname === "/signup") {
+          const url = new URL(req.url);
+          url.pathname = "/mentorias/auths/registrations";
+          return NextResponse.redirect(url, 308);
+        }
+        if (pathname === "/login") {
+          const url = new URL(req.url);
+          url.pathname = "/mentorias/auths/logins";
+          return NextResponse.rewrite(url);
+        }
+        if (pathname === "/auth/register") {
+          const url = new URL(req.url);
+          url.pathname = "/mentorias/auths/registrations";
+          return NextResponse.rewrite(url);
+        }
+        if (pathname === "/auth/login") {
+          const url = new URL(req.url);
+          url.pathname = "/mentorias/auths/logins";
+          return NextResponse.rewrite(url);
+        }
+      }
+
+      const headers = new Headers(req.headers);
+      headers.set("x-drako-host-mode", hostMode);
+      headers.set("x-drako-effective-host", host);
+      headers.set("x-drako-pages-environment", pagesEnvironmentHeader);
+      headers.set("x-drako-environment", "vercel");
+      headers.set(CORRELATION_HEADER, correlationId);
+      const res = NextResponse.next({ request: { headers } });
+      res.headers.set(CORRELATION_HEADER, correlationId);
+      if (hostInfo.shouldPersistCookie) {
+        res.cookies.set("drako_host", hostInfo.shouldPersistCookie, { path: "/", maxAge: 60 * 60 * 24 * 7 });
+      }
+      return res;
+    }
+
+    const isPagesDevHost = hostMode === "PREVIEW";
+    const isPublicHost = hostMode === "PUBLIC_SAAS";
+    const isAdminHost = hostMode === "CAMPAMENTO_BASE";
 
     if (isRoutingsSubdomainsEnabled() && isMentoriasHost && !isApi) {
       if (pathname === "/") {
@@ -233,10 +282,10 @@ export async function middleware(req: NextRequest) {
         return NextResponse.rewrite(url);
       }
       if (pathname === "/signup") {
-        const url = new URL(req.url);
-        url.pathname = "/mentorias/auths/registrations";
-        return NextResponse.rewrite(url);
-      }
+  const url = new URL(req.url);
+  url.pathname = "/mentorias/auths/registrations";
+  return NextResponse.redirect(url, 308);
+}
       if (pathname === "/login") {
         const url = new URL(req.url);
         url.pathname = "/mentorias/auths/logins";

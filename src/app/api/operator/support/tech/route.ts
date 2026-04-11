@@ -13,8 +13,11 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
         }
 
-        // Fetch open incidents
-        const { results } = await db.prepare("SELECT * FROM tech_incidents WHERE status != 'RESOLVED' ORDER BY severity = 'CRITICAL' DESC, created_at DESC").all();
+        // Fetch open incidents for current tenant only
+        const { results } = await db
+            .prepare("SELECT * FROM tech_incidents WHERE tenant_id = ? AND status != 'RESOLVED' ORDER BY severity = 'CRITICAL' DESC, created_at DESC")
+            .bind(tenantId)
+            .all();
 
         return NextResponse.json({ incidents: results });
 

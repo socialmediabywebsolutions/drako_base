@@ -36,6 +36,10 @@ export async function GET() {
         status: "unhealthy",
         timestamp,
         error: message,
+        hint:
+          message === "MENTORIA_AI_NOT_AVAILABLE"
+            ? "Workers AI no configurado en local. Configure AI binding o exporte AI_HARD_OFF=false para habilitar."
+            : undefined,
       },
       { status },
     );

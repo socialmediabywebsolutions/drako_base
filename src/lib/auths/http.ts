@@ -10,8 +10,9 @@ export function setAuthsSessionCookie(params: {
   response: NextResponse;
   context: AuthsContext;
   token: string;
+  request?: Request;
 }) {
-  const config = getAuthsCookieConfig(params.context);
+  const config = getAuthsCookieConfig(params.context, params.request);
   params.response.cookies.set({
     name: config.cookieName,
     value: params.token,
@@ -26,8 +27,9 @@ export function setAuthsSessionCookie(params: {
 export function clearAuthsSessionCookie(params: {
   response: NextResponse;
   context: AuthsContext;
+  request?: Request;
 }) {
-  const config = getAuthsCookieConfig(params.context);
+  const config = getAuthsCookieConfig(params.context, params.request);
   params.response.cookies.set({
     name: config.cookieName,
     value: "",

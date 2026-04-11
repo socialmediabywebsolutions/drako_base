@@ -38,10 +38,10 @@ export async function POST(
         const now = Math.floor(Date.now() / 1000);
         const correlation_id = crypto.randomUUID();
 
-        // Get current incident
+        // Get current incident restricted to tenant
         const incident = (await db
-            .prepare("SELECT * FROM tech_incidents WHERE id = ?")
-            .bind(id)
+            .prepare("SELECT * FROM tech_incidents WHERE id = ? AND tenant_id = ?")
+            .bind(id, tenantId)
             .first()) as any;
 
         if (!incident) {
@@ -74,8 +74,8 @@ export async function POST(
         binds.push(id);
 
         await db
-            .prepare(`UPDATE tech_incidents SET ${updates.join(", ")} WHERE id = ?`)
-            .bind(...binds)
+            .prepare(`UPDATE tech_incidents SET ${updates.join(", ")} WHERE id = ? AND tenant_id = ?`)
+            .bind(...binds, tenantId)
             .run();
 
         // Log event

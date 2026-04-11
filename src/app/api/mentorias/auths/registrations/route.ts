@@ -155,7 +155,7 @@ export async function POST(request: Request) {
     students: familyBundle.students,
   }, { status: 201 });
 
-  setAuthsSessionCookie({ response, context: "mentorias", token: login.token });
+  setAuthsSessionCookie({ response, context: "mentorias", token: login.token, request });
 
   if (isTelemetriesHoldingEnabled()) {
     await recordCampamentoEvent({

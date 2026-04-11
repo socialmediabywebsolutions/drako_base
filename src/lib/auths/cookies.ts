@@ -1,4 +1,5 @@
 import type { AuthsContext, AuthsCookieConfig } from "@/lib/auths/types";
+import { normalizeHost } from "@/lib/hosts";
 
 /**
  * Canonical cookie lifetime for isolated auth sessions.
@@ -9,6 +10,49 @@ export const AUTHS_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 8;
 
 function freezeCookieConfig(config: AuthsCookieConfig): Readonly<AuthsCookieConfig> {
   return Object.freeze({ ...config });
+}
+
+const LOCAL_COOKIE_HOSTS = new Set(["127.0.0.1", "localhost"]);
+
+function getLocalCookieName(cookieName: string): string {
+  return cookieName.startsWith("__Host-") ? cookieName.slice("__Host-".length) : cookieName;
+}
+
+function resolveRuntimeHosts(runtime?: Request | URL | Headers | string | null): string[] {
+  if (!runtime) return [];
+
+  if (typeof runtime === "string") {
+    return [normalizeHost(runtime)];
+  }
+
+  if (runtime instanceof URL) {
+    return [normalizeHost(runtime.host)];
+  }
+
+  if (runtime instanceof Headers) {
+    return [
+      normalizeHost(runtime.get("x-forwarded-host") ?? ""),
+      normalizeHost(runtime.get("host") ?? ""),
+    ];
+  }
+
+  const urlHost = (() => {
+    try {
+      return normalizeHost(new URL(runtime.url).host);
+    } catch {
+      return "";
+    }
+  })();
+
+  return [
+    normalizeHost(runtime.headers.get("x-forwarded-host") ?? ""),
+    normalizeHost(runtime.headers.get("host") ?? ""),
+    urlHost,
+  ];
+}
+
+function isLocalCookieRuntime(runtime?: Request | URL | Headers | string | null): boolean {
+  return resolveRuntimeHosts(runtime).some((host) => LOCAL_COOKIE_HOSTS.has(host));
 }
 
 /**
@@ -53,18 +97,52 @@ export const AUTHS_COOKIE_CONFIGS: Readonly<Record<AuthsContext, Readonly<AuthsC
   }),
 });
 
+function buildRuntimeCookieConfig(
+  config: Readonly<AuthsCookieConfig>,
+  runtime?: Request | URL | Headers | string | null,
+): AuthsCookieConfig {
+  if (!isLocalCookieRuntime(runtime)) {
+    return { ...config };
+  }
+
+  return {
+    ...config,
+    cookieName: getLocalCookieName(config.cookieName),
+    secure: false,
+  };
+}
+
 /**
  * Canonical cookie config lookup by auth context.
  */
-export function getAuthsCookieConfig(context: AuthsContext): AuthsCookieConfig {
-  return AUTHS_COOKIE_CONFIGS[context];
+export function getAuthsCookieConfig(
+  context: AuthsContext,
+  runtime?: Request | URL | Headers | string | null,
+): AuthsCookieConfig {
+  return buildRuntimeCookieConfig(AUTHS_COOKIE_CONFIGS[context], runtime);
 }
 
 /**
  * Canonical isolated cookie name lookup by auth context.
  */
-export function getAuthsCookieName(context: AuthsContext): string {
-  return AUTHS_COOKIE_CONFIGS[context].cookieName;
+export function getAuthsCookieName(
+  context: AuthsContext,
+  runtime?: Request | URL | Headers | string | null,
+): string {
+  return getAuthsCookieConfig(context, runtime).cookieName;
+}
+
+export function getAuthsCookieCandidateNames(
+  context: AuthsContext,
+  runtime?: Request | URL | Headers | string | null,
+): string[] {
+  const canonicalName = AUTHS_COOKIE_CONFIGS[context].cookieName;
+  if (!isLocalCookieRuntime(runtime)) {
+    return [canonicalName];
+  }
+
+  const localName = getLocalCookieName(canonicalName);
+  return localName === canonicalName ? [canonicalName] : [localName, canonicalName];
 }
 
 /**

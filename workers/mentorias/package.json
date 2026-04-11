@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "migrations:local": "wrangler d1 migrations apply DRACO_DB --local --config wrangler.workers.toml",
     "deploys": "wrangler deploy --config wrangler.workers.toml",
     "tails": "wrangler tail saas-mentorias-prod",
     "checks": "wrangler deploy --config wrangler.workers.toml --dry-run"

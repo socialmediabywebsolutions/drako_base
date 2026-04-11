@@ -5,6 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 import { IncidentService } from "@/lib/supervisor";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: NextRequest) {
   try {
+    await requireOwnerAccess(request);
     const incidentService = new IncidentService();
     const incidents = await incidentService.getCriticalOpenIncidents();
 
@@ -23,6 +25,9 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("[supervisor/critical GET]", error);
     return NextResponse.json(
       { error: "Failed to fetch critical incidents" },

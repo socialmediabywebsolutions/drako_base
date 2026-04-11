@@ -79,6 +79,18 @@ const OBJECTIVE_STEP_COPY = {
   description: "Con esto guiamos la ayuda inicial al resultado mas importante.",
 };
 
+function buildMentoriaWorkspaceUrl(searchParams: SearchParamReader): string {
+  const target = new URL("/mentoria/app", window.location.origin);
+  const localOverrideHost = searchParams.get("__drako_host")?.trim();
+  const hostname = window.location.hostname.toLowerCase();
+  if (localOverrideHost) {
+    target.searchParams.set("__drako_host", localOverrideHost);
+  } else if (hostname === "localhost" || hostname === "127.0.0.1") {
+    target.searchParams.set("__drako_host", "mentoria.drako.systems");
+  }
+  return `${target.pathname}${target.search}`;
+}
+
 const EMPTY_DRAFT: OnboardingDraft = {
   guardians: [{ name: "" }, { name: undefined }],
   student: {
@@ -165,7 +177,12 @@ function StepBadge({ current }: { current: number }) {
   return (
     <div className="mb-8 flex items-center gap-2">
       {[1, 2, 3, 4, 5, 6].map((step) => (
-        <div key={step} className={`h-2 flex-1 rounded-full ${step <= current ? "bg-emerald-500" : "bg-slate-200"}`} />
+        <div
+          key={step}
+          className={`h-2 flex-1 rounded-full transition-colors duration-200 ${
+            step <= current ? "bg-emerald-500 shadow-md" : "bg-slate-200 shadow-inner"
+          }`}
+        />
       ))}
     </div>
   );
@@ -277,7 +294,7 @@ export function MentoriaOnboardingWizard() {
         );
 
         if (body.profile?.onboardingCompleted) {
-          window.location.href = "/mentoria/app";
+          window.location.href = buildMentoriaWorkspaceUrl(searchParams);
           return;
         }
 
@@ -368,7 +385,7 @@ export function MentoriaOnboardingWizard() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,#fff7ed,0,#f8fafc_55%,#eef6ff_100%)] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-4xl rounded-[36px] bg-white/90 p-8 shadow-[0_24px_90px_rgba(15,23,42,0.08)]">
+      <div className="mx-auto max-w-4xl rounded-[36px] bg-white/90 p-8 shadow-[0_24px_90px_rgba(15,23,42,0.08)] backdrop-blur-sm transition-shadow duration-200">
         <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-700">{ui.badge}</p>
         <h1 className="mt-3 text-4xl font-black tracking-tight">{ui.title}</h1>
         <p className="mt-2 max-w-2xl text-sm text-slate-600">{`${onboardingMessage} ${ui.description}`}</p>
@@ -377,7 +394,9 @@ export function MentoriaOnboardingWizard() {
           <StepBadge current={step} />
         </div>
 
-        {error ? <div className="mb-4 rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+        {error ? (
+          <div role="alert" className="mb-4 rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm ring-1 ring-red-100">{error}</div>
+        ) : null}
 
         {step === 1 ? (
           <section className="space-y-4">
@@ -391,7 +410,7 @@ export function MentoriaOnboardingWizard() {
                   guardians: [{ name: event.target.value }, { name: current.guardians[1]?.name }],
                 }))
               }
-              className="w-full rounded-3xl border border-slate-200 px-5 py-4"
+              className="w-full rounded-3xl border border-slate-200 px-5 py-4 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors duration-200"
               placeholder="Tu nombre (padre, madre o tutor)"
             />
             <input
@@ -405,7 +424,7 @@ export function MentoriaOnboardingWizard() {
                   ],
                 }))
               }
-              className="w-full rounded-3xl border border-slate-200 px-5 py-4"
+              className="w-full rounded-3xl border border-slate-200 px-5 py-4 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors duration-200"
               placeholder="Nombre del segundo tutor (opcional)"
             />
             {draft.guardians[0]?.name?.trim() ? (
@@ -426,7 +445,7 @@ export function MentoriaOnboardingWizard() {
                   student: { ...current.student, fullName: event.target.value },
                 }))
               }
-              className="w-full rounded-3xl border border-slate-200 px-5 py-4"
+              className="w-full rounded-3xl border border-slate-200 px-5 py-4 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors duration-200"
               placeholder={ui.step1.fullNamePlaceholder}
             />
             <div className="grid gap-3 md:grid-cols-3">
@@ -440,10 +459,10 @@ export function MentoriaOnboardingWizard() {
                       student: { ...current.student, schoolYear: year },
                     }))
                   }
-                  className={`rounded-3xl border px-4 py-4 text-left text-sm ${
+                  className={`rounded-3xl border px-4 py-4 text-left text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-shadow transition-transform duration-200 ease-out active:scale-[0.99] ${
                     draft.student.schoolYear === year
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-900"
-                      : "border-slate-200 bg-white text-slate-700"
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-900 shadow-md hover:shadow-lg"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
                   }`}
                 >
                   {year}
@@ -459,9 +478,43 @@ export function MentoriaOnboardingWizard() {
             <p className="text-sm text-slate-600">{ui.step2.description}</p>
             <div className="grid gap-4 md:grid-cols-2">
               {subjects.map((subject) => {
-                const current = draft.student.subjects.find((item) => item.subjectSlug === subject.slug);
+                const current = draft.student.subjects.find((item: SubjectChoice) => item.subjectSlug === subject.slug);
+                const selected = selectedSubjectSlugs.has(subject.slug);
+                const toggle = () =>
+                  setDraft((currentDraft: OnboardingDraft) => ({
+                    ...currentDraft,
+                    student: {
+                      ...currentDraft.student,
+                      subjects: selected
+                        ? currentDraft.student.subjects.filter((item: SubjectChoice) => item.subjectSlug !== subject.slug)
+                        : currentDraft.student.subjects.some((item: SubjectChoice) => item.subjectSlug === subject.slug)
+                          ? currentDraft.student.subjects
+                          : [
+                              ...currentDraft.student.subjects,
+                              { subjectSlug: subject.slug, initialLevel: "me_cuesta_mucho" },
+                            ],
+                    },
+                  }));
                 return (
-                  <div key={subject.id} className="rounded-3xl border border-slate-200 p-4">
+                  <div
+                    key={subject.id}
+                    role="checkbox"
+                    aria-checked={selected}
+                    tabIndex={0}
+                    onClick={toggle}
+                    onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
+                      if (e.currentTarget !== e.target) return;
+                      if (e.key === " " || e.key === "Spacebar" || e.key === "Enter") {
+                        e.preventDefault();
+                        toggle();
+                      }
+                    }}
+                    className={`rounded-3xl border p-4 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-shadow transition-transform duration-200 ease-out active:scale-[0.99] ${
+                      selected
+                        ? "border-emerald-500 bg-emerald-50 shadow-md hover:shadow-lg"
+                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
+                    }`}
+                  >
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="font-semibold">{subject.name}</div>
@@ -469,23 +522,10 @@ export function MentoriaOnboardingWizard() {
                       </div>
                       <input
                         type="checkbox"
-                        checked={selectedSubjectSlugs.has(subject.slug)}
-                        onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                          setDraft((currentDraft) => ({
-                            ...currentDraft,
-                            student: {
-                              ...currentDraft.student,
-                              subjects: event.target.checked
-                                ? currentDraft.student.subjects.some((item) => item.subjectSlug === subject.slug)
-                                  ? currentDraft.student.subjects
-                                  : [
-                                      ...currentDraft.student.subjects,
-                                      { subjectSlug: subject.slug, initialLevel: "me_cuesta_mucho" },
-                                    ]
-                                : currentDraft.student.subjects.filter((item) => item.subjectSlug !== subject.slug),
-                            },
-                          }))
-                        }
+                        checked={selected}
+                        readOnly
+                        tabIndex={-1}
+                        aria-hidden="true"
                       />
                     </div>
                     {current ? (
@@ -494,20 +534,21 @@ export function MentoriaOnboardingWizard() {
                           <button
                             key={value}
                             type="button"
-                            onClick={() =>
-                              setDraft((currentDraft) => ({
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                              e.stopPropagation();
+                              setDraft((currentDraft: OnboardingDraft) => ({
                                 ...currentDraft,
                                 student: {
                                   ...currentDraft.student,
-                                  subjects: currentDraft.student.subjects.map((item) =>
+                                  subjects: currentDraft.student.subjects.map((item: SubjectChoice) =>
                                     item.subjectSlug === subject.slug
                                       ? { ...item, initialLevel: value as SubjectChoice["initialLevel"] }
                                       : item,
                                   ),
                                 },
-                              }))
-                            }
-                            className={`rounded-2xl px-4 py-3 text-left text-sm ${
+                              }));
+                            }}
+                            className={`rounded-2xl px-4 py-3 text-left text-sm transition-transform duration-150 ease-out active:scale-[0.99] ${
                               current.initialLevel === value ? "bg-emerald-100 text-emerald-900" : "bg-slate-50 text-slate-700"
                             }`}
                           >
@@ -538,8 +579,10 @@ export function MentoriaOnboardingWizard() {
                       student: { ...current.student, goal: value as OnboardingObjective },
                     }))
                   }
-                  className={`rounded-3xl border p-5 text-left ${
-                    draft.student.goal === value ? "border-sky-500 bg-sky-50" : "border-slate-200 bg-white"
+                  className={`rounded-3xl border p-5 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-shadow transition-transform duration-200 ease-out active:scale-[0.99] ${
+                    draft.student.goal === value
+                      ? "border-sky-500 bg-sky-50 shadow-md hover:shadow-lg"
+                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
                   }`}
                 >
                   <div className="font-semibold">{option.title}</div>
@@ -554,7 +597,7 @@ export function MentoriaOnboardingWizard() {
           <section className="space-y-5">
             <h2 className="text-2xl font-bold">{renumberStepTitle(ui.step3.title, 5)}</h2>
             <p className="text-sm text-slate-600">{ui.step3.description}</p>
-            <div className="rounded-3xl bg-slate-50 p-5">
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
               <div className="font-semibold">{ui.step3.confidenceTitle}</div>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
                 {Object.entries(ui.step3.confidenceOptions).map(([value, label]) => (
@@ -567,10 +610,10 @@ export function MentoriaOnboardingWizard() {
                         student: { ...current.student, confidence: confidenceLabelToNumber(value as ConfidenceLabel) },
                       }))
                     }
-                    className={`rounded-2xl px-4 py-3 text-sm ${
+                    className={`rounded-2xl border px-4 py-3 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-shadow transition-transform duration-200 ease-out active:scale-[0.99] ${
                       confidenceNumberToLabel(draft.student.confidence) === value
-                        ? "bg-sky-100 text-sky-900"
-                        : "bg-white text-slate-700"
+                        ? "border-sky-500 bg-sky-50 text-sky-900 shadow-md hover:shadow-lg"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
                     }`}
                   >
                     {label}
@@ -578,7 +621,7 @@ export function MentoriaOnboardingWizard() {
                 ))}
               </div>
             </div>
-            <div className="rounded-3xl bg-emerald-50 p-5 text-sm text-slate-700">{ui.step4.wowMessage}</div>
+            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-slate-700 shadow-sm">{ui.step4.wowMessage}</div>
           </section>
         ) : null}
 
@@ -587,7 +630,7 @@ export function MentoriaOnboardingWizard() {
             <h2 className="text-2xl font-bold">{renumberStepTitle(ui.step4.title, 6)}</h2>
             <p className="text-sm text-slate-600">{ui.step4.description}</p>
             {!activation ? (
-              <div className="rounded-3xl bg-slate-50 p-5 text-sm text-slate-700">
+              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-700 shadow-sm">
                 <p><strong>Tutor:</strong> {draft.guardians[0]?.name || ""}</p>
                 <p className="mt-2"><strong>{ui.step6.summaryStudent}:</strong> {draft.student.fullName}</p>
                 <p className="mt-2"><strong>{ui.step6.summarySubjects}:</strong> {draft.student.subjects.map((item) => subjects.find((subject) => subject.slug === item.subjectSlug)?.name ?? item.subjectSlug).join(", ")}</p>
@@ -596,26 +639,26 @@ export function MentoriaOnboardingWizard() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="rounded-3xl bg-emerald-50 p-5">
+                <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
                   <div className="text-sm font-semibold text-emerald-900">{ui.step4.firstSessionLabel}</div>
                   <div className="mt-2 text-sm leading-7 text-slate-700">{activation.reply}</div>
                 </div>
                 <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-                  <div className="rounded-3xl bg-slate-50 p-5">
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
                     <div className="text-sm font-semibold">{ui.step4.dailyPlanLabel}</div>
                     <div className="mt-3 space-y-2">
                       {activation.dailyPlan.tasks.map((task) => (
-                        <div key={task.id} className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-700">
+                        <div key={task.id} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
                           {`${task.subject} - ${workspaceUi.dailyPlanTaskTypes[task.type]} - ${workspaceUi.dailyPlanDifficultyPrefix}${task.difficulty}`}
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div className="rounded-3xl bg-slate-50 p-5">
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
                     <div className="text-sm font-semibold">{ui.step4.nextActionsLabel}</div>
                     <div className="mt-3 space-y-2">
                       {activation.nextActions.map((action) => (
-                        <div key={action} className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-700">
+                        <div key={action} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
                           {action}
                         </div>
                       ))}
@@ -631,7 +674,7 @@ export function MentoriaOnboardingWizard() {
           <button
             type="button"
             onClick={() => setStep((current) => Math.max(1, current - 1))}
-            className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold"
+            className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold hover:bg-slate-50 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-transform duration-200 active:scale-[0.99]"
             disabled={saving || Boolean(activation)}
           >
             {ui.back}
@@ -648,7 +691,7 @@ export function MentoriaOnboardingWizard() {
                   setError(validation.message ?? ui.validationError);
                 }
               }}
-              className="rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold text-white"
+              className="rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-transform duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {ui.next}
             </button>
@@ -656,9 +699,9 @@ export function MentoriaOnboardingWizard() {
             <button
               type="button"
               onClick={() => {
-                window.location.href = "/mentoria/app";
+                window.location.href = buildMentoriaWorkspaceUrl(searchParams);
               }}
-              className="rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white"
+              className="rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-black focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-transform duration-200 active:scale-[0.99]"
             >
               {ui.step4.enterAction}
             </button>
@@ -667,7 +710,7 @@ export function MentoriaOnboardingWizard() {
               type="button"
               disabled={saving}
               onClick={finish}
-              className="rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white disabled:opacity-60"
+              className="rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-black focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-transform duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {saving ? ui.saving : ui.step4.launchAction}
             </button>

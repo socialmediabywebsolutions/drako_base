@@ -19,6 +19,29 @@ describe("Auths Isolation", () => {
     expect(drakosCookie).not.toBe(socialflowCookie);
   });
 
+  it("drops __Host- and Secure only for real localhost requests", () => {
+    const localRequest = new Request("http://127.0.0.1:8787/api/mentorias/auths/logins", {
+      headers: { host: "127.0.0.1:8787" },
+    });
+
+    const localConfig = getAuthsCookieConfig("mentorias", localRequest);
+
+    expect(localConfig.cookieName).toBe("mentorias_session");
+    expect(localConfig.secure).toBe(false);
+    expect(getAuthsCookieName("mentorias", localRequest)).toBe("mentorias_session");
+  });
+
+  it("fails closed for production or unknown cookie runtime", () => {
+    const productionRequest = new Request("https://mentoria.drako.systems/api/mentorias/auths/logins", {
+      headers: { host: "mentoria.drako.systems" },
+    });
+
+    expect(getAuthsCookieConfig("mentorias").cookieName).toBe("__Host-mentorias_session");
+    expect(getAuthsCookieConfig("mentorias").secure).toBe(true);
+    expect(getAuthsCookieConfig("mentorias", productionRequest).cookieName).toBe("__Host-mentorias_session");
+    expect(getAuthsCookieConfig("mentorias", productionRequest).secure).toBe(true);
+  });
+
   it("resolves host context using subdomains", () => {
     expect(resolveAuthsContextFromHost("drako.systems")).toBe("drakos");
     expect(resolveAuthsContextFromHost("mentoria.drako.systems")).toBe("mentorias");

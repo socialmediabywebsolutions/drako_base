@@ -62,6 +62,14 @@ function mapStudent(row: StudentRow): MentoriaFamilyStudent {
   };
 }
 
+function buildMentoriaTenantSlug(familyId: string): string {
+  return `mentoria-${familyId}`.toLowerCase();
+}
+
+function buildMentoriaTenantName(familyId: string): string {
+  return `Mentoria ${familyId.slice(0, 8)}`;
+}
+
 export class MentoriaFamilyRepository {
   constructor(private readonly db: DbLike) {
     if (!db) {
@@ -138,6 +146,20 @@ export class MentoriaFamilyRepository {
     await this.db
       .prepare(`INSERT OR IGNORE INTO families (id) VALUES (?)`)
       .bind(familyId)
+      .run();
+
+    await this.db
+      .prepare(
+        `INSERT OR IGNORE INTO tenants (id, slug, name, plan, status, created_at, updated_at)
+         VALUES (?, ?, ?, 'starter', 'active', ?, ?)`,
+      )
+      .bind(
+        familyId,
+        buildMentoriaTenantSlug(familyId),
+        buildMentoriaTenantName(familyId),
+        new Date().toISOString(),
+        new Date().toISOString(),
+      )
       .run();
     
     // Fetch the family to verify it was created or already exists

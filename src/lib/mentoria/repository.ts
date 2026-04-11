@@ -675,6 +675,19 @@ function mapProgressShare(row: ProgressShareRow): MentoriaProgressShare {
 export class MentoriaRepository {
   constructor(private db: DbLike = getDb()) {}
 
+  private async hasTable(table: string): Promise<boolean> {
+    const row = await this.db
+      .prepare(
+        `SELECT name
+         FROM sqlite_master
+         WHERE type = 'table' AND name = ?
+         LIMIT 1`,
+      )
+      .bind(table)
+      .first<{ name: string }>();
+    return Boolean(row?.name);
+  }
+
   private async hasColumn(table: string, column: string): Promise<boolean> {
     const res = await this.db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
     const names = (res.results ?? []).map((r) => (r?.name ?? "").toLowerCase());
@@ -1449,36 +1462,63 @@ export class MentoriaRepository {
 
     const hasBand = await this.hasColumn("mentoria_subjects", "difficulty_band");
     const hasWeight = hasBand ? false : await this.hasColumn("mentoria_subjects", "difficulty_weight");
+    const hasDescription = await this.hasColumn("mentoria_subjects", "description");
     for (const [slug, name, description, difficultyBand] of defaults) {
       const now = new Date().toISOString();
       if (hasBand) {
         await this.db
           .prepare(
             `INSERT OR IGNORE INTO mentoria_subjects (
-              id, tenant_id, slug, name, description, difficulty_band, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              id, tenant_id, slug, name, ${hasDescription ? "description, " : ""}difficulty_band, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ${hasDescription ? "?, " : ""}?, ?, ?)`,
           )
-          .bind(crypto.randomUUID(), tenantId, slug, name, description, difficultyBand, now, now)
+          .bind(
+            crypto.randomUUID(),
+            tenantId,
+            slug,
+            name,
+            ...(hasDescription ? [description] : []),
+            difficultyBand,
+            now,
+            now,
+          )
           .run();
       } else if (hasWeight) {
         const weight = difficultyBand === "growth" ? 1.2 : 1.0;
         await this.db
           .prepare(
             `INSERT OR IGNORE INTO mentoria_subjects (
-              id, tenant_id, slug, name, description, difficulty_weight, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              id, tenant_id, slug, name, ${hasDescription ? "description, " : ""}difficulty_weight, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ${hasDescription ? "?, " : ""}?, ?, ?)`,
           )
-          .bind(crypto.randomUUID(), tenantId, slug, name, description, weight, now, now)
+          .bind(
+            crypto.randomUUID(),
+            tenantId,
+            slug,
+            name,
+            ...(hasDescription ? [description] : []),
+            weight,
+            now,
+            now,
+          )
           .run();
       } else {
         // Fallback: insert without difficulty column if none exists (unlikely legacy)
         await this.db
           .prepare(
             `INSERT OR IGNORE INTO mentoria_subjects (
-              id, tenant_id, slug, name, description, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              id, tenant_id, slug, name, ${hasDescription ? "description, " : ""}created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ${hasDescription ? "?, " : ""}?, ?)`,
           )
-          .bind(crypto.randomUUID(), tenantId, slug, name, description, now, now)
+          .bind(
+            crypto.randomUUID(),
+            tenantId,
+            slug,
+            name,
+            ...(hasDescription ? [description] : []),
+            now,
+            now,
+          )
           .run();
       }
     }
@@ -2431,6 +2471,35 @@ export class MentoriaRepository {
   }
 
   async getDashboard(tenantId: string, studentProfileId: string): Promise<Omit<MentoriaDashboard, "billing"> | null> {
+    const hasStudyPlansTable = await this.hasTable("mentoria_study_plans");
+    const hasPlanWeekEnd = hasStudyPlansTable && await this.hasColumn("mentoria_study_plans", "week_end");
+    const hasPlanGoalsSummary = hasStudyPlansTable && await this.hasColumn("mentoria_study_plans", "goals_summary");
+    const hasPlanBlocksJson = hasStudyPlansTable && await this.hasColumn("mentoria_study_plans", "blocks_json");
+    const hasPlanTitle = hasStudyPlansTable && await this.hasColumn("mentoria_study_plans", "title");
+    const hasPlanJson = hasStudyPlansTable && await this.hasColumn("mentoria_study_plans", "plan_json");
+    const planSelect = hasStudyPlansTable
+      ? `,
+            p.id AS plan_id,
+            p.week_start AS plan_week_start,
+            ${hasPlanWeekEnd ? "p.week_end" : "p.week_start"} AS plan_week_end,
+            ${hasPlanGoalsSummary ? "p.goals_summary" : hasPlanTitle ? "p.title" : "NULL"} AS plan_goals_summary,
+            ${hasPlanBlocksJson ? "p.blocks_json" : hasPlanJson ? "p.plan_json" : "'[]'"} AS plan_blocks_json`
+      : `,
+            NULL AS plan_id,
+            NULL AS plan_week_start,
+            NULL AS plan_week_end,
+            NULL AS plan_goals_summary,
+            NULL AS plan_blocks_json`;
+    const planJoin = hasStudyPlansTable
+      ? `
+         LEFT JOIN mentoria_study_plans p
+           ON p.tenant_id = s.tenant_id
+          AND p.student_profile_id = s.id
+          AND p.week_start = (
+            SELECT MAX(week_start) FROM mentoria_study_plans
+            WHERE tenant_id = s.tenant_id AND student_profile_id = s.id
+          )`
+      : "";
     const row = await this.db
       .prepare(
         `SELECT
@@ -2438,20 +2507,9 @@ export class MentoriaRepository {
             s.full_name AS student_name,
             s.school_year,
             s.base_emotional_state,
-            s.preferred_study_minutes,
-            p.id AS plan_id,
-            p.week_start AS plan_week_start,
-            p.week_end AS plan_week_end,
-            p.goals_summary AS plan_goals_summary,
-            p.blocks_json AS plan_blocks_json
-         FROM student_profiles s
-         LEFT JOIN mentoria_study_plans p
-           ON p.tenant_id = s.tenant_id
-          AND p.student_profile_id = s.id
-          AND p.week_start = (
-            SELECT MAX(week_start) FROM mentoria_study_plans
-            WHERE tenant_id = s.tenant_id AND student_profile_id = s.id
-          )
+            s.preferred_study_minutes
+            ${planSelect}
+         FROM student_profiles s${planJoin}
          WHERE s.tenant_id = ? AND s.id = ?
          LIMIT 1`,
       )

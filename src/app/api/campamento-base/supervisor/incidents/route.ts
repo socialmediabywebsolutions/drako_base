@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 import { IncidentService } from "@/lib/supervisor";
 import type { IncidentPayload, IncidentQueryFilter, IncidentSource, ServiceSurface } from "@/lib/supervisor";
 
@@ -16,6 +17,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest) {
   try {
+    await requireOwnerAccess(request);
     const incidentService = new IncidentService();
     const body = (await request.json()) as Record<string, unknown>;
 
@@ -40,6 +42,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("[supervisor/incidents POST]", error);
     return NextResponse.json(
       { error: "Failed to ingest incident" },
@@ -53,6 +58,7 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
+    await requireOwnerAccess(request);
     const incidentService = new IncidentService();
     const searchParams = request.nextUrl.searchParams;
 
@@ -72,6 +78,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ incidents, count: incidents.length });
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("[supervisor/incidents GET]", error);
     return NextResponse.json(
       { error: "Failed to list incidents" },

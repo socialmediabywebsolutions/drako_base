@@ -36,12 +36,14 @@ export function resolveEffectiveHost(req: NextRequest): EffectiveHost {
   const realHost = normalizeHost(hostHeader ?? "");
   const forwardedHost = normalizeHost(forwarded ?? "");
   const effectiveBase = forwardedHost || realHost || "localhost";
-  const isLocal = isLocalHost(effectiveBase);
-  const isProd = process.env.NODE_ENV === "production";
+  const isLocalRequest =
+    isLocalHost(realHost) ||
+    isLocalHost(forwardedHost) ||
+    isLocalHost(effectiveBase);
   let override: string | null = null;
   let shouldPersist = false;
 
-  if (!isProd && isLocal) {
+  if (isLocalRequest) {
     const param = req.nextUrl.searchParams.get("__drako_host");
     const cookie = req.cookies.get("drako_host")?.value;
     if (param) {

@@ -53,9 +53,9 @@ export async function GET(request: Request) {
               s.slug as saas_slug,
               d.tenant_id,
               d.last_error,
-              d.verification_status,
-              d.verification_reason,
-              d.retry_count,
+              CASE WHEN 1=1 THEN d.verification_status END AS verification_status,
+              CASE WHEN 1=1 THEN d.verification_reason END AS verification_reason,
+              CASE WHEN 1=1 THEN d.retry_count END AS retry_count,
               d.updated_at
        FROM saas_domains d
        LEFT JOIN saas s ON s.id = d.saas_id AND s.tenant_id = d.tenant_id

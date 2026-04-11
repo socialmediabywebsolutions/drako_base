@@ -44,15 +44,22 @@ export async function GET(request: Request) {
     );
 
     const dayCutoff = isoDaysAgo(14);
-    const rollups = await queryAll<RollupRow>(
-      `SELECT day, saas_slug, type, severity, count, first_seen_at, last_seen_at
-       FROM campamento_event_rollups_daily
-       WHERE tenant_id = ?
-         AND day >= ?
-       ORDER BY day DESC, severity DESC`,
-      tenantId,
-      dayCutoff,
-    );
+    let rollups: RollupRow[] = [];
+    try {
+      rollups = await queryAll<RollupRow>(
+        `SELECT day, saas_slug, type, severity, count, first_seen_at, last_seen_at
+         FROM campamento_event_rollups_daily
+         WHERE tenant_id = ?
+           AND day >= ?
+         ORDER BY day DESC, severity DESC`,
+        tenantId,
+        dayCutoff,
+      );
+    } catch (err) {
+      // Fallback seguro si la tabla de rollups no existe aún (migraciones de workers no aplicadas)
+      console.warn("OPERATOR_EVENTS_ROLLUPS_FALLBACK", { message: (err as Error).message });
+      rollups = [];
+    }
 
     return NextResponse.json({ criticalEvents, rollups });
   } catch (error) {

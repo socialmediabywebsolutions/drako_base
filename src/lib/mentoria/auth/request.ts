@@ -1,4 +1,4 @@
-import { getAuthsCookieName } from "@/lib/auths/cookies";
+import { getAuthsCookieCandidateNames, readCookieFromHeader } from "@/lib/auths/cookies";
 import { verifyAuthsSessionToken } from "@/lib/auths/tokens";
 import type { UserContext } from "@/lib/drako/memory";
 
@@ -6,18 +6,11 @@ export type MentoriaRequestSession = Pick<UserContext, "userId" | "email" | "ten
   role: "admin" | "user";
 };
 
-function readCookieValue(cookieHeader: string | null, name: string): string | null {
-  if (!cookieHeader) return null;
-  for (const part of cookieHeader.split(/;\s*/)) {
-    const [cookieName, ...rest] = part.split("=");
-    if (cookieName === name) return rest.join("=");
-  }
-  return null;
-}
-
 export async function getCurrentMentoriaSessionFromRequest(request: Request): Promise<MentoriaRequestSession | null> {
-  const cookieName = getAuthsCookieName("mentorias");
-  const token = readCookieValue(request.headers.get("cookie"), cookieName);
+  const cookieHeader = request.headers.get("cookie");
+  const token = getAuthsCookieCandidateNames("mentorias", request)
+    .map((cookieName) => readCookieFromHeader(cookieHeader, cookieName))
+    .find((value): value is string => Boolean(value));
   if (!token) return null;
 
   const claims = await verifyAuthsSessionToken(token, "mentorias");

@@ -1918,12 +1918,14 @@ export class MentoriaService {
       wouldRecommend: sessionFeedback.scoreChange > 0,
     });
 
-    // GUARANTEED ACQUISITION TRACKING: Via tenant-guarded operations
-    if (sessionFeedback.scoreChange > 0) {
+    // GUARANTEED ACQUISITION TRACKING: only when explicitly enabled and with a valid published post id
+    const enableAcqTracking = process.env.MENTORIA_ENABLE_ACQUISITION_TRACKING === "1";
+    const acqPostId = process.env.MENTORIA_ACQUISITION_POST_ID;
+    if (enableAcqTracking && acqPostId && sessionFeedback.scoreChange > 0) {
       try {
-        await orchestrator.trackAcquisitionTrialStart(actor.tenantId, student.id);
+        await orchestrator.trackAcquisitionTrialStart(actor.tenantId, acqPostId);
       } catch (error) {
-        console.error("[SessionCompletion] Failed to track acquisition:", error);
+        console.error("[SessionCompletion] Acquisition tracking failed:", error);
       }
     }
 

@@ -166,7 +166,11 @@ export async function runMentoriaLlmStructured(input: {
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[MentoriaLLM] Structured call failed:", errorMessage);
+    if (errorMessage === "MENTORIA_AI_NOT_AVAILABLE") {
+      console.warn("[MentoriaLLM] AI not available (local/off). Structured call will degrade upstream.");
+    } else {
+      console.error("[MentoriaLLM] Structured call failed:", errorMessage);
+    }
     throw error;
   }
 }

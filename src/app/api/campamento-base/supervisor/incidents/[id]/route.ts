@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 import { IncidentService } from "@/lib/supervisor";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    await requireOwnerAccess(request);
     const incidentService = new IncidentService();
     const { id } = params;
 
@@ -32,6 +34,9 @@ export async function GET(
 
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("[supervisor/incidents/[id] GET]", error);
     return NextResponse.json(
       { error: "Failed to fetch incident" },
@@ -48,6 +53,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    await requireOwnerAccess(request);
     const incidentService = new IncidentService();
     const { id } = params;
     const body = (await request.json()) as Record<string, unknown>;
@@ -67,6 +73,9 @@ export async function PATCH(
 
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("[supervisor/incidents/[id] PATCH]", error);
     return NextResponse.json(
       { error: "Failed to update incident" },

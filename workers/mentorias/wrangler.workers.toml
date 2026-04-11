@@ -22,11 +22,13 @@ custom_domain = true
 binding = "DRACO_DB"
 database_name = "drako_db_prod"
 database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+migrations_dir = "migrations"
 
 [[d1_databases]]
 binding = "MENTORIAS_AUTHS_DB"
 database_name = "drako_db_prod"
 database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+migrations_dir = "migrations"
 
 [[queues.producers]]
 queue = "drako-billing-queue"
@@ -46,9 +48,9 @@ service = "drako-scheduler"
 
 [vars]
 SAASES_SLUG = "mentoria"
-SAASES_DOMAIN = "mentoria.drako.systems"
+SAASES_DOMAIN = "localhost:8787"
 AUTHS_SECRETS_NAME = "MENTORIAS_AUTHS_SECRET"
-NEXTAUTH_URL = "https://mentorias.drako.systems"
+NEXTAUTH_URL = "http://localhost:8787"
 AUTHS_ISOLATIONS_ENABLED = "true"
 AUTHS_LEGACY_COMPATS_ENABLED = "false"
 ROUTINGS_SUBDOMAINS_ENABLED = "true"
