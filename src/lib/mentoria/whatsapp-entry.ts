@@ -2,6 +2,7 @@ import { env } from "@/lib/cf";
 import { queryOne } from "@/lib/db";
 import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
 import { MentoriaRepository } from "@/lib/mentoria/repository";
+import { recordObservabilityActivity } from "@/lib/observability-core";
 import type { WhatsappActorType } from "@/lib/whatsapp/types";
 
 export type MentoriaWhatsappEntryParams = {
@@ -41,6 +42,7 @@ type SupportedStudentMediaKind = "image" | "document";
 const SUPPORTED_GUARDIAN_INTENTS = new Set(["resumen", "estado", "como va", "proxima tarea", "ultima sesion", "plan", "alertas"]);
 const MAX_CONTEXT_TEXT_LENGTH = 160;
 const MATERIAL_CONTEXT_WINDOW_MS = 15 * 60 * 1000;
+const MENTORIA_WHATSAPP_SOURCE_KEY = "mentoria.whatsapp";
 
 function normalizeIntent(raw: string): string {
   return raw
@@ -247,9 +249,67 @@ function buildStudentMediaReply(kind: SupportedStudentMediaKind, studentFullName
   return `He recibido tu imagen, ${studentFullName}. La he guardado como material pendiente de revision manual.`;
 }
 
+async function recordMentoriaWhatsappActivity(params: {
+  tenantId: string;
+  saasId: string;
+  activityType: string;
+  status: "info" | "success" | "warning" | "error";
+  summary: string;
+  metadata?: Record<string, unknown> | null;
+}) {
+  try {
+    await recordObservabilityActivity({
+      tenantId: params.tenantId,
+      saasId: params.saasId,
+      sourceType: "integration",
+      sourceKey: MENTORIA_WHATSAPP_SOURCE_KEY,
+      activityType: params.activityType,
+      status: params.status,
+      summary: params.summary,
+      metadata: params.metadata ?? null,
+    });
+  } catch (error) {
+    console.error("MENTORIA_WHATSAPP_OBSERVABILITY_ACTIVITY_ERROR", error);
+  }
+}
+
+async function recordMentoriaWhatsappOutcome(params: {
+  tenantId: string;
+  saasId: string;
+  handled: boolean;
+  intent?: string;
+  error?: string;
+  metadata?: Record<string, unknown> | null;
+}) {
+  await recordMentoriaWhatsappActivity({
+    tenantId: params.tenantId,
+    saasId: params.saasId,
+    activityType: "mentoria_whatsapp_result",
+    status: params.error ? "error" : params.handled ? "success" : "warning",
+    summary: params.error
+      ? `Mentoria WhatsApp returned ${params.error}.`
+      : params.handled
+        ? `Mentoria WhatsApp handled ${params.intent ?? "unknown_intent"}.`
+        : "Mentoria WhatsApp did not handle the inbound message.",
+    metadata: {
+      handled: params.handled,
+      intent: params.intent ?? null,
+      error: params.error ?? null,
+      ...(params.metadata ?? {}),
+    },
+  });
+}
+
+function classifyGuardianIntent(normalizedIntent: string): "guardian_summary_command" | "guardian_operational_command" {
+  return normalizedIntent === "resumen" || normalizedIntent === "estado" || normalizedIntent === "como va"
+    ? "guardian_summary_command"
+    : "guardian_operational_command";
+}
+
 async function handleStudentMediaIntake(params: {
   repository: MentoriaRepository;
   tenantId: string;
+  saasId: string;
   actorId: string;
   actorType: WhatsappActorType;
   phoneNumber: string;
@@ -258,63 +318,153 @@ async function handleStudentMediaIntake(params: {
   media: MentoriaWhatsappMediaMetadata | null;
   kind: SupportedStudentMediaKind;
 }): Promise<MentoriaWhatsappEntryResult | null> {
-  const { repository, tenantId, actorId, actorType, phoneNumber, body, metadata, media, kind } = params;
+  const { repository, tenantId, saasId, actorId, actorType, phoneNumber, body, metadata, media, kind } = params;
 
   if (actorType !== "CUSTOMER") {
-    return {
+    const result = {
       handled: false,
       messagesToSend: [],
       error: "MENTORIA_WHATSAPP_STUDENT_ONLY",
     };
+
+    await recordMentoriaWhatsappOutcome({
+      tenantId,
+      saasId,
+      handled: result.handled,
+      error: result.error,
+      metadata: {
+        actorType,
+        actorId,
+        messageType: kind,
+        useCase: "rejected_by_actor_mismatch",
+      },
+    });
+
+    return result;
   }
 
   const student = await repository.getStudentProfileByUser(tenantId, actorId).catch(() => null);
   if (!student) {
-    return {
+    const result = {
       handled: false,
       messagesToSend: [],
       error: "MENTORIA_STUDENT_CONTEXT_MISMATCH",
     };
+
+    await recordMentoriaWhatsappOutcome({
+      tenantId,
+      saasId,
+      handled: result.handled,
+      error: result.error,
+      metadata: {
+        actorType,
+        actorId,
+        messageType: kind,
+        useCase: "rejected_by_actor_mismatch",
+      },
+    });
+
+    return result;
   }
 
   if (!media?.mediaId) {
-    return {
+    const result = {
       handled: false,
       messagesToSend: [],
       error: "MENTORIA_WHATSAPP_MEDIA_MISSING",
     };
+
+    await recordMentoriaWhatsappOutcome({
+      tenantId,
+      saasId,
+      handled: result.handled,
+      error: result.error,
+      metadata: {
+        actorType,
+        actorId,
+        messageType: kind,
+        useCase: "rejected_by_invalid_media",
+      },
+    });
+
+    return result;
   }
 
   if (media.kind !== kind) {
-    return {
+    const result = {
       handled: false,
       messagesToSend: [],
       error: "MENTORIA_WHATSAPP_MEDIA_TYPE_NOT_SUPPORTED",
     };
+
+    await recordMentoriaWhatsappOutcome({
+      tenantId,
+      saasId,
+      handled: result.handled,
+      error: result.error,
+      metadata: {
+        actorType,
+        actorId,
+        messageType: kind,
+        useCase: "rejected_by_invalid_media",
+      },
+    });
+
+    return result;
   }
 
   const mimeType = media.mimeType?.trim().toLowerCase() ?? "";
   if (!isSupportedStudentMediaMime(kind, mimeType)) {
-    return {
+    const result = {
       handled: false,
       messagesToSend: [],
       error: "MENTORIA_WHATSAPP_MEDIA_TYPE_NOT_SUPPORTED",
     };
+
+    await recordMentoriaWhatsappOutcome({
+      tenantId,
+      saasId,
+      handled: result.handled,
+      error: result.error,
+      metadata: {
+        actorType,
+        actorId,
+        messageType: kind,
+        useCase: "rejected_by_invalid_media",
+      },
+    });
+
+    return result;
   }
 
   const sourceMessageId = typeof metadata?.messageId === "string" ? metadata.messageId.trim() : "";
   if (!sourceMessageId) {
-    return {
+    const result = {
       handled: false,
       messagesToSend: [],
       error: "INVALID_MENTORIA_WHATSAPP_CONTEXT",
     };
+
+    await recordMentoriaWhatsappOutcome({
+      tenantId,
+      saasId,
+      handled: result.handled,
+      error: result.error,
+      metadata: {
+        actorType,
+        actorId,
+        messageType: kind,
+        useCase: "rejected_by_invalid_media",
+      },
+    });
+
+    return result;
   }
 
   const normalizedText = normalizeIntent(body ?? media.caption ?? media.fileName ?? "");
 
   try {
-    await repository.createMaterialIntake({
+    const persisted = await repository.createMaterialIntake({
       tenantId,
       studentProfileId: student.id,
       sourceMessageId,
@@ -327,12 +477,47 @@ async function handleStudentMediaIntake(params: {
       caption: media.caption ?? null,
       originalText: body ?? null,
     });
+
+    await recordMentoriaWhatsappActivity({
+      tenantId,
+      saasId,
+      activityType: kind === "document" ? "student_pdf_intake" : "student_image_intake",
+      status: "success",
+      summary: persisted.replayed
+        ? `Mentoria WhatsApp replayed ${kind} intake safely.`
+        : `Mentoria WhatsApp persisted ${kind} intake successfully.`,
+      metadata: {
+        actorType,
+        actorId,
+        messageType: kind,
+        useCase: kind === "document" ? "student_pdf_intake" : "student_image_intake",
+        studentProfileId: student.id,
+        sourceMessageId,
+        intakeId: persisted.intake.id,
+        replayed: persisted.replayed,
+      },
+    });
   } catch {
-    return {
+    const result = {
       handled: false,
       messagesToSend: [],
       error: "MENTORIA_MATERIAL_INTAKE_PERSIST_FAILED",
     };
+
+    await recordMentoriaWhatsappOutcome({
+      tenantId,
+      saasId,
+      handled: result.handled,
+      error: result.error,
+      metadata: {
+        actorType,
+        actorId,
+        messageType: kind,
+        useCase: kind === "document" ? "student_pdf_intake" : "student_image_intake",
+      },
+    });
+
+    return result;
   }
 
   return {
@@ -350,6 +535,23 @@ export async function runMentoriaWhatsappEntry(
   const phoneNumber = params.phoneNumber?.trim();
   const body = params.body?.trim();
   const actorId = params.actorId?.trim() ?? "";
+  const messageType = typeof params.metadata?.messageType === "string" ? params.metadata.messageType : "text";
+
+  if (tenantId && saasId) {
+    await recordMentoriaWhatsappActivity({
+      tenantId,
+      saasId,
+      activityType: "mentoria_whatsapp_inbound",
+      status: "info",
+      summary: `Mentoria WhatsApp received ${messageType} message.`,
+      metadata: {
+        actorType: params.actorType ?? null,
+        actorId: actorId || null,
+        messageType,
+        sourceMessageId: typeof params.metadata?.messageId === "string" ? params.metadata.messageId.trim() : null,
+      },
+    });
+  }
 
   if (!tenantId || !saasId || !phoneNumber) {
     return {
@@ -396,7 +598,6 @@ export async function runMentoriaWhatsappEntry(
   }
 
   const repository = new MentoriaRepository(db);
-  const messageType = typeof params.metadata?.messageType === "string" ? params.metadata.messageType : "text";
   const media =
     params.metadata?.media && typeof params.metadata.media === "object"
       ? (params.metadata.media as MentoriaWhatsappMediaMetadata)
@@ -406,6 +607,7 @@ export async function runMentoriaWhatsappEntry(
     const mediaResult = await handleStudentMediaIntake({
       repository,
       tenantId,
+      saasId,
       actorId,
       actorType: params.actorType,
       phoneNumber,
@@ -415,6 +617,19 @@ export async function runMentoriaWhatsappEntry(
       kind: messageType,
     });
     if (mediaResult) {
+      await recordMentoriaWhatsappOutcome({
+        tenantId,
+        saasId,
+        handled: mediaResult.handled,
+        intent: mediaResult.intent,
+        error: mediaResult.error,
+        metadata: {
+          actorType: params.actorType,
+          actorId,
+          messageType,
+          useCase: messageType === "document" ? "student_pdf_intake" : "student_image_intake",
+        },
+      });
       return mediaResult;
     }
   }
@@ -457,12 +672,33 @@ export async function runMentoriaWhatsappEntry(
       }
 
       try {
-        await repository.createMaterialContextNote({
+        const persisted = await repository.createMaterialContextNote({
           tenantId,
           studentProfileId: student.id,
           materialIntakeId: latestMaterial.id,
           sourceMessageId,
           body,
+        });
+
+        await recordMentoriaWhatsappActivity({
+          tenantId,
+          saasId,
+          activityType: "student_context_note",
+          status: "success",
+          summary: persisted.replayed
+            ? "Mentoria WhatsApp replayed contextual note safely."
+            : "Mentoria WhatsApp persisted contextual note successfully.",
+          metadata: {
+            actorType: params.actorType,
+            actorId,
+            messageType,
+            useCase: "student_context_note",
+            studentProfileId: student.id,
+            sourceMessageId,
+            materialIntakeId: latestMaterial.id,
+            contextNoteId: persisted.note.id,
+            replayed: persisted.replayed,
+          },
         });
       } catch {
         return {
@@ -472,29 +708,74 @@ export async function runMentoriaWhatsappEntry(
         };
       }
 
-      return {
+      const result = {
         handled: true,
         messagesToSend: [{ body: `He añadido tu texto al material que enviaste hace un momento, ${student.fullName}. Queda guardado como contexto.` }],
         intent: "MENTORIA_STUDENT_MATERIAL_CONTEXT_RECORDED",
       };
+
+      await recordMentoriaWhatsappOutcome({
+        tenantId,
+        saasId,
+        handled: result.handled,
+        intent: result.intent,
+        metadata: {
+          actorType: params.actorType,
+          actorId,
+          messageType,
+          useCase: "student_context_note",
+        },
+      });
+
+      return result;
     }
   }
 
   if (params.actorType !== "CUSTOMER") {
-    return {
+    const result = {
       handled: false,
       messagesToSend: [],
       error: "MENTORIA_WHATSAPP_GUARDIAN_ONLY",
     };
+
+    await recordMentoriaWhatsappOutcome({
+      tenantId,
+      saasId,
+      handled: result.handled,
+      error: result.error,
+      metadata: {
+        actorType: params.actorType,
+        actorId,
+        messageType,
+        useCase: "rejected_by_actor_mismatch",
+      },
+    });
+
+    return result;
   }
 
   const normalizedIntent = normalizeIntent(body);
   if (!SUPPORTED_GUARDIAN_INTENTS.has(normalizedIntent)) {
-    return {
+    const result = {
       handled: false,
       messagesToSend: [],
       error: "MENTORIA_WHATSAPP_INTENT_NOT_SUPPORTED",
     };
+
+    await recordMentoriaWhatsappOutcome({
+      tenantId,
+      saasId,
+      handled: result.handled,
+      error: result.error,
+      metadata: {
+        actorType: params.actorType,
+        actorId,
+        messageType,
+        useCase: "guardian_unsupported_intent",
+      },
+    });
+
+    return result;
   }
 
   const parentAccount = await repository.getParentAccountByUser(tenantId, actorId).catch(() => null);
@@ -515,11 +796,46 @@ export async function runMentoriaWhatsappEntry(
     };
   }
 
-  return buildGuardianIntentResult({
+  const result = await buildGuardianIntentResult({
     repository,
     tenantId,
     studentId: student.id,
     studentName: student.fullName,
     normalizedIntent,
   });
+
+  await recordMentoriaWhatsappActivity({
+    tenantId,
+    saasId,
+    activityType: classifyGuardianIntent(normalizedIntent),
+    status: "success",
+    summary:
+      classifyGuardianIntent(normalizedIntent) === "guardian_summary_command"
+        ? `Mentoria WhatsApp resolved guardian summary command ${normalizedIntent}.`
+        : `Mentoria WhatsApp resolved guardian operational command ${normalizedIntent}.`,
+    metadata: {
+      actorType: params.actorType,
+      actorId,
+      messageType,
+      useCase: classifyGuardianIntent(normalizedIntent),
+      normalizedIntent,
+      studentProfileId: student.id,
+    },
+  });
+
+  await recordMentoriaWhatsappOutcome({
+    tenantId,
+    saasId,
+    handled: result.handled,
+    intent: result.intent,
+    metadata: {
+      actorType: params.actorType,
+      actorId,
+      messageType,
+      useCase: classifyGuardianIntent(normalizedIntent),
+      normalizedIntent,
+    },
+  });
+
+  return result;
 }

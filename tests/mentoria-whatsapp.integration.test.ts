@@ -1,7 +1,17 @@
 // @ts-nocheck
 /// <reference types="vitest" />
 
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+const recordObservabilityActivity = vi.hoisted(() => vi.fn(async (input: Record<string, unknown>) => ({
+  id: "activity_test",
+  createdAt: new Date().toISOString(),
+  ...input,
+})));
+
+vi.mock("@/lib/observability-core", () => ({
+  recordObservabilityActivity,
+}));
 
 type ConversationRoute = import("../src/lib/conversation-router/types").ConversationRoute;
 
@@ -24,6 +34,10 @@ describe("Mentoria WhatsApp integration", () => {
   let routeConversation: typeof import("../src/lib/conversation-router").routeConversation;
   let registerMentoriaWhatsappHandler: typeof import("../src/lib/conversation-router/handlers").registerMentoriaWhatsappHandler;
   let setGlobalEnv: (env: any) => void;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   beforeAll(async () => {
     vi.doUnmock("@/lib/cf");
@@ -198,6 +212,17 @@ describe("Mentoria WhatsApp integration", () => {
     expect(result.handled).toBe(false);
     expect(result.error).toBe("MENTORIA_WHATSAPP_GUARDIAN_ONLY");
     expect(result.reply).toBeNull();
+    expect(recordObservabilityActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceKey: "mentoria.whatsapp",
+        activityType: "mentoria_whatsapp_result",
+        status: "error",
+        metadata: expect.objectContaining({
+          error: "MENTORIA_WHATSAPP_GUARDIAN_ONLY",
+          useCase: "rejected_by_actor_mismatch",
+        }),
+      }),
+    );
   });
 
   it("returns next task for guardian closed command", async () => {
@@ -221,6 +246,32 @@ describe("Mentoria WhatsApp integration", () => {
     expect(result.intent).toBe("MENTORIA_GUARDIAN_NEXT_TASK");
     expect(result.reply).toContain("Proxima tarea de Alex:");
     expect(result.reply).toContain("Materia: Matematicas");
+    expect(recordObservabilityActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceKey: "mentoria.whatsapp",
+        activityType: "mentoria_whatsapp_inbound",
+        status: "info",
+      }),
+    );
+    expect(recordObservabilityActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceKey: "mentoria.whatsapp",
+        activityType: "guardian_operational_command",
+        status: "success",
+      }),
+    );
+    expect(recordObservabilityActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceKey: "mentoria.whatsapp",
+        activityType: "mentoria_whatsapp_result",
+        status: "success",
+        metadata: expect.objectContaining({
+          handled: true,
+          intent: "MENTORIA_GUARDIAN_NEXT_TASK",
+          useCase: "guardian_operational_command",
+        }),
+      }),
+    );
   });
 
   it("returns last session for guardian closed command", async () => {
@@ -355,6 +406,17 @@ describe("Mentoria WhatsApp integration", () => {
     expect(second.handled).toBe(true);
     expect(second.intent).toBe("MENTORIA_STUDENT_MATERIAL_RECEIVED");
     expect(after.materialIntakeInsertCount - before.materialIntakeInsertCount).toBe(1);
+    expect(recordObservabilityActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceKey: "mentoria.whatsapp",
+        activityType: "student_image_intake",
+        status: "success",
+        metadata: expect.objectContaining({
+          replayed: true,
+          useCase: "student_image_intake",
+        }),
+      }),
+    );
   });
 
   it("handles duplicate document retries idempotently by source message id", async () => {
@@ -443,6 +505,17 @@ describe("Mentoria WhatsApp integration", () => {
     expect(result.handled).toBe(false);
     expect(result.error).toBe("MENTORIA_WHATSAPP_MEDIA_MISSING");
     expect(result.reply).toBeNull();
+    expect(recordObservabilityActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceKey: "mentoria.whatsapp",
+        activityType: "mentoria_whatsapp_result",
+        status: "error",
+        metadata: expect.objectContaining({
+          error: "MENTORIA_WHATSAPP_MEDIA_MISSING",
+          useCase: "rejected_by_invalid_media",
+        }),
+      }),
+    );
   });
 
   it("rejects image intake when mime type is not image", async () => {

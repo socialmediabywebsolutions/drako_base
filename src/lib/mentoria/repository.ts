@@ -2383,7 +2383,7 @@ export class MentoriaRepository {
     fileName?: string | null;
     caption?: string | null;
     originalText?: string | null;
-  }): Promise<MentoriaMaterialIntake> {
+  }): Promise<{ intake: MentoriaMaterialIntake; replayed: boolean }> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     try {
@@ -2416,7 +2416,7 @@ export class MentoriaRepository {
       if (isUniqueConstraintError(error)) {
         const existing = await this.getMaterialIntakeBySourceMessage(input.tenantId, input.sourceMessageId);
         if (existing) {
-          return existing;
+          return { intake: existing, replayed: true };
         }
       }
       throw error;
@@ -2431,7 +2431,7 @@ export class MentoriaRepository {
       throw new Error("MENTORIA_MATERIAL_INTAKE_PERSIST_FAILED");
     }
 
-    return mapMaterialIntake(row);
+    return { intake: mapMaterialIntake(row), replayed: false };
   }
 
   async getLatestMaterialIntake(tenantId: string, studentProfileId: string): Promise<MentoriaMaterialIntake | null> {
@@ -2465,7 +2465,7 @@ export class MentoriaRepository {
     materialIntakeId: string;
     sourceMessageId: string;
     body: string;
-  }): Promise<MentoriaMaterialContextNote> {
+  }): Promise<{ note: MentoriaMaterialContextNote; replayed: boolean }> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     try {
@@ -2481,7 +2481,7 @@ export class MentoriaRepository {
       if (isUniqueConstraintError(error)) {
         const existing = await this.getMaterialContextNoteBySourceMessage(input.tenantId, input.sourceMessageId);
         if (existing) {
-          return existing;
+          return { note: existing, replayed: true };
         }
       }
       throw error;
@@ -2496,7 +2496,7 @@ export class MentoriaRepository {
       throw new Error("MENTORIA_MATERIAL_CONTEXT_NOTE_PERSIST_FAILED");
     }
 
-    return mapMaterialContextNote(row);
+    return { note: mapMaterialContextNote(row), replayed: false };
   }
 
   async getMaterialContextNoteBySourceMessage(tenantId: string, sourceMessageId: string): Promise<MentoriaMaterialContextNote | null> {
