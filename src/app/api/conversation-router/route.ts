@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  */
 import { NextRequest, NextResponse } from "next/server";
 import { routeConversation } from "@/lib/conversation-router";
-import { registerCampamentoBaseHandler } from "@/lib/conversation-router/campamento-base-handler";
+import { registerCampamentoBaseWhatsappHandler } from "@/lib/conversation-router/handlers";
 import { findWhatsappIdentityByPhoneGlobal } from "@/lib/whatsapp/repository";
 import type { Channel } from "@/lib/conversation-router/types";
 
@@ -27,8 +27,9 @@ let handlersBootstrapped = false;
 function bootstrapHandlers(): void {
   if (handlersBootstrapped) return;
   
-  // Register the Campamento Base handler
-  registerCampamentoBaseHandler();
+  // Only campamento-base has a real WhatsApp automation implementation.
+  // Additional SaaS handlers must be wired here once their domain logic exists.
+  registerCampamentoBaseWhatsappHandler();
   
   handlersBootstrapped = true;
 }
@@ -91,7 +92,10 @@ export async function POST(request: NextRequest): Promise<Response> {
       return NextResponse.json({ error: "UNKNOWN_SENDER", senderId }, { status: 404 });
     }
     tenantId = identity.tenantId;
-    saasTarget = saasTarget ?? "campamento-base";
+    // All inbound WhatsApp routes to campamento-base — the only SaaS with a real
+    // WhatsApp automation implementation. Multi-SaaS routing requires a platform
+    // type resolver (saasId → handler key) which does not exist yet.
+    saasTarget = "campamento-base";
     resolvedMetadata = {
       ...resolvedMetadata,
       saasId: identity.saasId,
