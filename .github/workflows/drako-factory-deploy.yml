@@ -253,6 +253,21 @@ jobs:
       - name: Install Wrangler 4.69.0
         run: npm install -g wrangler@4.69.0
 
+      - name: Hotfix mentoria_session_state in production D1
+        run: |
+          set -euo pipefail
+          wrangler d1 execute DRACO_DB --remote --config wrangler.workers.toml --file migrations/0160_mentoria_session_persistence.sql
+
+      - name: Verify mentoria_session_state exists in production D1
+        run: |
+          set -euo pipefail
+          OUTPUT="$(wrangler d1 execute DRACO_DB --remote --config wrangler.workers.toml --command "SELECT name FROM sqlite_master WHERE type='table' AND name='mentoria_session_state';")"
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "mentoria_session_state" || {
+            echo "BLOCKED: mentoria_session_state missing in production DRACO_DB after migrations."
+            exit 1
+          }
+
       - name: Validate Cloudflare account identifier
         run: |
           set -euo pipefail
