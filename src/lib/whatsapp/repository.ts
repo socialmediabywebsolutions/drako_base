@@ -298,6 +298,7 @@ export async function findWhatsappIdentityByPhoneGlobal(
       `SELECT id, tenant_id, saas_id, actor_type, actor_id, phone_number, preferred_language, allowed_channels, consent_flags, metadata, created_at, updated_at
        FROM saas_whatsapp_identities
        WHERE phone_number = ?
+       ORDER BY created_at DESC
        LIMIT 1`,
       phoneNumber,
     );
