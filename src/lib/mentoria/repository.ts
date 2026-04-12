@@ -365,6 +365,11 @@ function parseBlocks(value: string | null): StudyPlanBlock[] {
   }
 }
 
+function isUniqueConstraintError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return message.toLowerCase().includes("unique constraint");
+}
+
 function mapStudent(row: StudentProfileRow): StudentProfile {
   const anyRow = row as unknown as Record<string, any>;
   const fullName = anyRow.full_name ?? anyRow.display_name ?? "";
@@ -2381,31 +2386,41 @@ export class MentoriaRepository {
   }): Promise<MentoriaMaterialIntake> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    await this.db
-      .prepare(
-        `INSERT INTO mentoria_material_intakes (
-           id, tenant_id, student_profile_id, channel, source_message_id, phone_number,
-           media_type, intake_kind, provider_media_id, mime_type, file_name, caption, original_text,
-           status, created_at, updated_at
-         ) VALUES (?, ?, ?, 'whatsapp', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'received', ?, ?)`
-      )
-      .bind(
-        id,
-        input.tenantId,
-        input.studentProfileId,
-        input.sourceMessageId,
-        input.phoneNumber,
-        input.mediaType,
-        input.intakeKind,
-        input.providerMediaId,
-        input.mimeType,
-        input.fileName ?? null,
-        input.caption ?? null,
-        input.originalText ?? null,
-        now,
-        now,
-      )
-      .run();
+    try {
+      await this.db
+        .prepare(
+          `INSERT INTO mentoria_material_intakes (
+             id, tenant_id, student_profile_id, channel, source_message_id, phone_number,
+             media_type, intake_kind, provider_media_id, mime_type, file_name, caption, original_text,
+             status, created_at, updated_at
+           ) VALUES (?, ?, ?, 'whatsapp', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'received', ?, ?)`
+        )
+        .bind(
+          id,
+          input.tenantId,
+          input.studentProfileId,
+          input.sourceMessageId,
+          input.phoneNumber,
+          input.mediaType,
+          input.intakeKind,
+          input.providerMediaId,
+          input.mimeType,
+          input.fileName ?? null,
+          input.caption ?? null,
+          input.originalText ?? null,
+          now,
+          now,
+        )
+        .run();
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        const existing = await this.getMaterialIntakeBySourceMessage(input.tenantId, input.sourceMessageId);
+        if (existing) {
+          return existing;
+        }
+      }
+      throw error;
+    }
 
     const row = await this.db
       .prepare(`SELECT * FROM mentoria_material_intakes WHERE tenant_id = ? AND id = ? LIMIT 1`)
@@ -2432,6 +2447,18 @@ export class MentoriaRepository {
     return row ? mapMaterialIntake(row) : null;
   }
 
+  async getMaterialIntakeBySourceMessage(tenantId: string, sourceMessageId: string): Promise<MentoriaMaterialIntake | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_material_intakes
+         WHERE tenant_id = ? AND source_message_id = ?
+         LIMIT 1`
+      )
+      .bind(tenantId, sourceMessageId)
+      .first<MaterialIntakeRow>();
+    return row ? mapMaterialIntake(row) : null;
+  }
+
   async createMaterialContextNote(input: {
     tenantId: string;
     studentProfileId: string;
@@ -2441,14 +2468,24 @@ export class MentoriaRepository {
   }): Promise<MentoriaMaterialContextNote> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    await this.db
-      .prepare(
-        `INSERT INTO mentoria_material_context_notes (
-           id, tenant_id, student_profile_id, material_intake_id, channel, source_message_id, body, created_at
-         ) VALUES (?, ?, ?, ?, 'whatsapp', ?, ?, ?)`
-      )
-      .bind(id, input.tenantId, input.studentProfileId, input.materialIntakeId, input.sourceMessageId, input.body, now)
-      .run();
+    try {
+      await this.db
+        .prepare(
+          `INSERT INTO mentoria_material_context_notes (
+             id, tenant_id, student_profile_id, material_intake_id, channel, source_message_id, body, created_at
+           ) VALUES (?, ?, ?, ?, 'whatsapp', ?, ?, ?)`
+        )
+        .bind(id, input.tenantId, input.studentProfileId, input.materialIntakeId, input.sourceMessageId, input.body, now)
+        .run();
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        const existing = await this.getMaterialContextNoteBySourceMessage(input.tenantId, input.sourceMessageId);
+        if (existing) {
+          return existing;
+        }
+      }
+      throw error;
+    }
 
     const row = await this.db
       .prepare(`SELECT * FROM mentoria_material_context_notes WHERE tenant_id = ? AND id = ? LIMIT 1`)
@@ -2460,6 +2497,18 @@ export class MentoriaRepository {
     }
 
     return mapMaterialContextNote(row);
+  }
+
+  async getMaterialContextNoteBySourceMessage(tenantId: string, sourceMessageId: string): Promise<MentoriaMaterialContextNote | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_material_context_notes
+         WHERE tenant_id = ? AND source_message_id = ?
+         LIMIT 1`
+      )
+      .bind(tenantId, sourceMessageId)
+      .first<MaterialContextNoteRow>();
+    return row ? mapMaterialContextNote(row) : null;
   }
 
   async countLearningSessionsForDay(tenantId: string, studentProfileId: string, isoDay: string): Promise<number> {

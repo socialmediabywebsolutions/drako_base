@@ -323,6 +323,75 @@ describe("Mentoria WhatsApp integration", () => {
     expect(result.reply).toContain("He recibido tu imagen, Alex.");
   });
 
+  it("handles duplicate image retries idempotently by source message id", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000002",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "foto de tarea",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid-image-retry-1",
+        messageType: "image",
+        media: {
+          kind: "image",
+          mediaId: "media_retry_1",
+          mimeType: "image/jpeg",
+          caption: "foto de tarea",
+        },
+      },
+    };
+
+    const before = (globalThis as any).__TEST_DB__.__debug();
+    const first = await routeConversation(route);
+    const second = await routeConversation(route);
+    const after = (globalThis as any).__TEST_DB__.__debug();
+
+    expect(first.handled).toBe(true);
+    expect(first.intent).toBe("MENTORIA_STUDENT_MATERIAL_RECEIVED");
+    expect(second.handled).toBe(true);
+    expect(second.intent).toBe("MENTORIA_STUDENT_MATERIAL_RECEIVED");
+    expect(after.materialIntakeInsertCount - before.materialIntakeInsertCount).toBe(1);
+  });
+
+  it("handles duplicate document retries idempotently by source message id", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000004",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "material de estudio",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid-document-retry-1",
+        messageType: "document",
+        media: {
+          kind: "document",
+          mediaId: "doc_retry_1",
+          mimeType: "application/pdf",
+          fileName: "material.pdf",
+          caption: "material",
+        },
+      },
+    };
+
+    const before = (globalThis as any).__TEST_DB__.__debug();
+    const first = await routeConversation(route);
+    const second = await routeConversation(route);
+    const after = (globalThis as any).__TEST_DB__.__debug();
+
+    expect(first.handled).toBe(true);
+    expect(first.intent).toBe("MENTORIA_STUDENT_MATERIAL_RECEIVED");
+    expect(second.handled).toBe(true);
+    expect(second.intent).toBe("MENTORIA_STUDENT_MATERIAL_RECEIVED");
+    expect(after.materialIntakeInsertCount - before.materialIntakeInsertCount).toBe(1);
+  });
+
   it("rejects image intake when actor is not student", async () => {
     const route: ConversationRoute = {
       channel: "whatsapp",
@@ -452,6 +521,56 @@ describe("Mentoria WhatsApp integration", () => {
     expect(contextResult.reply).toContain("He añadido tu texto al material que enviaste hace un momento, Alex.");
   });
 
+  it("handles duplicate context retries idempotently by source message id", async () => {
+    const imageRoute: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000005",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "foto de apoyo",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid-image-phase3-retry-base",
+        messageType: "image",
+        media: {
+          kind: "image",
+          mediaId: "media_phase3_retry",
+          mimeType: "image/jpeg",
+          caption: "foto",
+        },
+      },
+    };
+
+    const contextRoute: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000005",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "Esto era del tema de hoy",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid-text-phase3-retry-context",
+      },
+    };
+
+    const before = (globalThis as any).__TEST_DB__.__debug();
+    const imageResult = await routeConversation(imageRoute);
+    const first = await routeConversation(contextRoute);
+    const second = await routeConversation(contextRoute);
+    const after = (globalThis as any).__TEST_DB__.__debug();
+
+    expect(imageResult.intent).toBe("MENTORIA_STUDENT_MATERIAL_RECEIVED");
+    expect(first.handled).toBe(true);
+    expect(first.intent).toBe("MENTORIA_STUDENT_MATERIAL_CONTEXT_RECORDED");
+    expect(second.handled).toBe(true);
+    expect(second.intent).toBe("MENTORIA_STUDENT_MATERIAL_CONTEXT_RECORDED");
+    expect(after.materialContextNoteInsertCount - before.materialContextNoteInsertCount).toBe(1);
+  });
+
   it("rejects student contextual text when no recent material exists", async () => {
     const route: ConversationRoute = {
       channel: "whatsapp",
@@ -539,6 +658,8 @@ describe("Mentoria WhatsApp integration", () => {
 });
 
 function createMentoriaTestDb(): TestD1Database {
+  let materialIntakeInsertCount = 0;
+  let materialContextNoteInsertCount = 0;
   let saasInstanceRow: { id: string; tenant_id: string; platform_type: string } | null = null;
   let studentProfileRow: {
     id: string;
@@ -819,6 +940,9 @@ function createMentoriaTestDb(): TestD1Database {
           string,
           string,
         ];
+        if (materialContextNoteRow && materialContextNoteRow.tenant_id === tenantId && materialContextNoteRow.source_message_id === sourceMessageId) {
+          throw new Error("UNIQUE constraint failed: mentoria_material_context_notes.tenant_id, mentoria_material_context_notes.source_message_id");
+        }
         materialContextNoteRow = {
           id,
           tenant_id: tenantId,
@@ -829,6 +953,7 @@ function createMentoriaTestDb(): TestD1Database {
           body,
           created_at: createdAt,
         };
+        materialContextNoteInsertCount += 1;
         return { success: true, changes: 1 };
       }
 
@@ -864,6 +989,9 @@ function createMentoriaTestDb(): TestD1Database {
           string,
           string,
         ];
+        if (materialIntakeRow && materialIntakeRow.tenant_id === tenantId && materialIntakeRow.source_message_id === sourceMessageId) {
+          throw new Error("UNIQUE constraint failed: mentoria_material_intakes.tenant_id, mentoria_material_intakes.source_message_id");
+        }
         materialIntakeRow = {
           id,
           tenant_id: tenantId,
@@ -882,6 +1010,7 @@ function createMentoriaTestDb(): TestD1Database {
           created_at: createdAt,
           updated_at: updatedAt,
         };
+        materialIntakeInsertCount += 1;
         return { success: true, changes: 1 };
       }
 
@@ -1080,6 +1209,17 @@ function createMentoriaTestDb(): TestD1Database {
           return { results: match ? ([match] as unknown as T[]) : [] };
         }
 
+        if (normalized.includes("SOURCE_MESSAGE_ID = ?")) {
+          const [tenantId, sourceMessageId] = this.params as [string, string];
+          const match =
+            materialIntakeRow &&
+            materialIntakeRow.tenant_id === tenantId &&
+            materialIntakeRow.source_message_id === sourceMessageId
+              ? materialIntakeRow
+              : null;
+          return { results: match ? ([match] as unknown as T[]) : [] };
+        }
+
         const [tenantId, id] = this.params as [string, string];
         const match =
           materialIntakeRow &&
@@ -1101,6 +1241,17 @@ function createMentoriaTestDb(): TestD1Database {
       }
 
       if (normalized.includes("FROM MENTORIA_MATERIAL_CONTEXT_NOTES")) {
+        if (normalized.includes("SOURCE_MESSAGE_ID = ?")) {
+          const [tenantId, sourceMessageId] = this.params as [string, string];
+          const match =
+            materialContextNoteRow &&
+            materialContextNoteRow.tenant_id === tenantId &&
+            materialContextNoteRow.source_message_id === sourceMessageId
+              ? materialContextNoteRow
+              : null;
+          return { results: match ? ([match] as unknown as T[]) : [] };
+        }
+
         const [tenantId, id] = this.params as [string, string];
         const match =
           materialContextNoteRow &&
@@ -1130,6 +1281,11 @@ function createMentoriaTestDb(): TestD1Database {
       return new FakeStatement(sql);
     },
   };
+
+  (fakeDb as any).__debug = () => ({
+    materialIntakeInsertCount,
+    materialContextNoteInsertCount,
+  });
 
   return fakeDb;
 }
