@@ -24,6 +24,7 @@ export default function CampamentoBaseOrchestratorChatPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthError, setIsAuthError] = useState(false);
   const [reply, setReply] = useState<OrchestratorReply | null>(null);
 
   const suggestions = useMemo(
@@ -41,18 +42,31 @@ export default function CampamentoBaseOrchestratorChatPage() {
     if (!q) return;
     setLoading(true);
     setError(null);
+    setIsAuthError(false);
     setReply(null);
     try {
       const url = "/api/campamento-base/orchestrator?q=" + encodeURIComponent(q);
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await fetch(url, { cache: "no-store", credentials: "include" });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as any;
-        throw new Error(body?.error ?? `HTTP ${res.status}`);
+        const errMsg = String(body?.error ?? "");
+        if (res.status === 401 || res.status === 403 || errMsg.includes("SESSION_REQUIRED")) {
+          setIsAuthError(true);
+          setError("Necesitas iniciar sesión como owner para usar el copiloto.");
+          return;
+        }
+        throw new Error(errMsg || `HTTP ${res.status}`);
       }
       const data = (await res.json()) as OrchestratorReply;
       setReply(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo contactar con el orquestador");
+      const msg = e instanceof Error ? e.message : "No se pudo contactar con el orquestador";
+      if (msg.includes("SESSION_REQUIRED")) {
+        setIsAuthError(true);
+        setError("Necesitas iniciar sesión como owner para usar el copiloto.");
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -87,7 +101,17 @@ export default function CampamentoBaseOrchestratorChatPage() {
           </Field>
 
           {error && (
-            <div className="text-red-600 text-sm">{error}</div>
+            <div className="text-red-600 text-sm space-y-2">
+              <div>{error}</div>
+              {isAuthError && (
+                <a
+                  href={`/auth/login?callbackUrl=${encodeURIComponent("/campamento-base/orchestrator")}`}
+                  className="inline-block text-xs px-3 py-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent hover:border-slate-200"
+                >
+                  Iniciar sesión
+                </a>
+              )}
+            </div>
           )}
 
           {loading && (

@@ -272,6 +272,41 @@ export async function getWhatsappIdentityByPhone(
   }
 }
 
+/**
+ * Global reverse lookup: resolves tenant + saas from a phone number alone.
+ * Used by the conversation router to bootstrap a WhatsApp message without
+ * prior knowledge of the tenant (i.e. inbound from an unknown origin).
+ *
+ * Does NOT require a WhatsappContext because tenantId is what we are resolving.
+ * Returns null when no DB is bound (demo environments must use scoped getWhatsappIdentityByPhone).
+ */
+export async function findWhatsappIdentityByPhoneGlobal(
+  phoneNumber: string,
+  env?: DracoEnv | null,
+): Promise<WhatsappIdentity | null> {
+  const runtimeEnv = resolveEnvOverride(env);
+  const db = runtimeEnv?.DRACO_DB;
+
+  if (!db) {
+    // No DB available — global lookup is not possible without a known tenantId/saasId.
+    // Demo environments should use the scoped getWhatsappIdentityByPhone instead.
+    return null;
+  }
+
+  try {
+    const rows = await queryAll<WhatsappIdentityRow>(
+      `SELECT id, tenant_id, saas_id, actor_type, actor_id, phone_number, preferred_language, allowed_channels, consent_flags, metadata, created_at, updated_at
+       FROM saas_whatsapp_identities
+       WHERE phone_number = ?
+       LIMIT 1`,
+      phoneNumber,
+    );
+    return rows[0] ? mapIdentityRow(rows[0]) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function upsertWhatsappIdentity(
   ctx: WhatsappContext,
   input: WhatsappActorIdentity & { saasId?: string | null },
