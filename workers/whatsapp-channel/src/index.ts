@@ -84,6 +84,8 @@ async function callRouter(
       messageId: msg.messageId,
       timestamp: msg.timestamp,
       senderName: msg.senderName ?? null,
+      messageType: msg.messageType,
+      media: msg.media ?? null,
     },
   };
 
@@ -149,7 +151,7 @@ export default {
         return new Response("Bad Request", { status: 400 });
       }
 
-      // 4. Extract text messages (CHANNEL LAYER)
+      // 4. Extract supported inbound messages (CHANNEL LAYER)
       const messages = extractInboundMessages(payload);
 
       // 5. Process each message

@@ -9,6 +9,8 @@ import type {
   InterventionType,
   LearningSession,
   MentoriaIntervention,
+  MentoriaMaterialIntake,
+  MentoriaMaterialIntakeKind,
   MentoriaDashboard,
   MentoriaEmotionalBaseline,
   MentoriaExercise,
@@ -171,6 +173,24 @@ type LearningSessionRow = {
   created_at: string;
   updated_at: string | null;
   completed_at: string | null;
+};
+
+type MaterialIntakeRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  channel: string;
+  source_message_id: string;
+  phone_number: string;
+  media_type: string;
+  intake_kind: string;
+  provider_media_id: string;
+  mime_type: string;
+  caption: string | null;
+  original_text: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
 };
 
 type StudentEvolutionRow = {
@@ -361,6 +381,26 @@ function mapStudent(row: StudentProfileRow): StudentProfile {
     strengths: parseJsonArray<string>(strengthsJson),
     supportNotes,
     onboardingCompleted,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapMaterialIntake(row: MaterialIntakeRow): MentoriaMaterialIntake {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    studentProfileId: row.student_profile_id,
+    channel: row.channel as MentoriaMaterialIntake["channel"],
+    sourceMessageId: row.source_message_id,
+    phoneNumber: row.phone_number,
+    mediaType: row.media_type as MentoriaMaterialIntake["mediaType"],
+    intakeKind: row.intake_kind as MentoriaMaterialIntakeKind,
+    providerMediaId: row.provider_media_id,
+    mimeType: row.mime_type,
+    caption: row.caption,
+    originalText: row.original_text,
+    status: row.status as MentoriaMaterialIntake["status"],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -2297,6 +2337,57 @@ export class MentoriaRepository {
       .bind(tenantId, studentProfileId)
       .all<LearningSessionRow>();
     return (result.results ?? []).map(mapLearningSession);
+  }
+
+  async createMaterialIntake(input: {
+    tenantId: string;
+    studentProfileId: string;
+    sourceMessageId: string;
+    phoneNumber: string;
+    mediaType: "image";
+    intakeKind: MentoriaMaterialIntakeKind;
+    providerMediaId: string;
+    mimeType: string;
+    caption?: string | null;
+    originalText?: string | null;
+  }): Promise<MentoriaMaterialIntake> {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await this.db
+      .prepare(
+        `INSERT INTO mentoria_material_intakes (
+           id, tenant_id, student_profile_id, channel, source_message_id, phone_number,
+           media_type, intake_kind, provider_media_id, mime_type, caption, original_text,
+           status, created_at, updated_at
+         ) VALUES (?, ?, ?, 'whatsapp', ?, ?, ?, ?, ?, ?, ?, ?, 'received', ?, ?)`
+      )
+      .bind(
+        id,
+        input.tenantId,
+        input.studentProfileId,
+        input.sourceMessageId,
+        input.phoneNumber,
+        input.mediaType,
+        input.intakeKind,
+        input.providerMediaId,
+        input.mimeType,
+        input.caption ?? null,
+        input.originalText ?? null,
+        now,
+        now,
+      )
+      .run();
+
+    const row = await this.db
+      .prepare(`SELECT * FROM mentoria_material_intakes WHERE tenant_id = ? AND id = ? LIMIT 1`)
+      .bind(input.tenantId, id)
+      .first<MaterialIntakeRow>();
+
+    if (!row) {
+      throw new Error("MENTORIA_MATERIAL_INTAKE_PERSIST_FAILED");
+    }
+
+    return mapMaterialIntake(row);
   }
 
   async countLearningSessionsForDay(tenantId: string, studentProfileId: string, isoDay: string): Promise<number> {

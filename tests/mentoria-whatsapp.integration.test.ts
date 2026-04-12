@@ -76,7 +76,7 @@ describe("Mentoria WhatsApp integration", () => {
       .bind(
         "student_mentoria_1",
         "tenant_mentoria",
-        null,
+        "student_user_1",
         "Alex",
         12,
         "ESO",
@@ -199,6 +199,119 @@ describe("Mentoria WhatsApp integration", () => {
     expect(result.error).toBe("MENTORIA_WHATSAPP_GUARDIAN_ONLY");
     expect(result.reply).toBeNull();
   });
+
+  it("accepts student academic image intake and confirms safe receipt", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000002",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "foto de tarea",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid-image-1",
+        messageType: "image",
+        media: {
+          kind: "image",
+          mediaId: "media_123",
+          mimeType: "image/jpeg",
+          caption: "foto de tarea",
+        },
+      },
+    };
+
+    const result = await routeConversation(route);
+
+    expect(result.handler).toBe("mentoria");
+    expect(result.handled).toBe(true);
+    expect(result.intent).toBe("MENTORIA_STUDENT_MATERIAL_RECEIVED");
+    expect(result.error).toBeUndefined();
+    expect(result.reply).toContain("He recibido tu imagen, Alex.");
+  });
+
+  it("rejects image intake when actor is not student", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000003",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "foto de examen",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "EMPLOYEE",
+        actorId: "student_user_1",
+        messageId: "wamid-image-actor-invalid",
+        messageType: "image",
+        media: {
+          kind: "image",
+          mediaId: "media_124",
+          mimeType: "image/jpeg",
+        },
+      },
+    };
+
+    const result = await routeConversation(route);
+
+    expect(result.handler).toBe("mentoria");
+    expect(result.handled).toBe(false);
+    expect(result.error).toBe("MENTORIA_WHATSAPP_STUDENT_ONLY");
+    expect(result.reply).toBeNull();
+  });
+
+  it("rejects image intake when media metadata is missing", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000004",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "foto de apuntes",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid-image-missing-media",
+        messageType: "image",
+      },
+    };
+
+    const result = await routeConversation(route);
+
+    expect(result.handler).toBe("mentoria");
+    expect(result.handled).toBe(false);
+    expect(result.error).toBe("MENTORIA_WHATSAPP_MEDIA_MISSING");
+    expect(result.reply).toBeNull();
+  });
+
+  it("rejects image intake when mime type is not image", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000005",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "foto de ejercicios",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid-image-invalid-mime",
+        messageType: "image",
+        media: {
+          kind: "image",
+          mediaId: "media_125",
+          mimeType: "application/pdf",
+        },
+      },
+    };
+
+    const result = await routeConversation(route);
+
+    expect(result.handler).toBe("mentoria");
+    expect(result.handled).toBe(false);
+    expect(result.error).toBe("MENTORIA_WHATSAPP_MEDIA_TYPE_NOT_SUPPORTED");
+    expect(result.reply).toBeNull();
+  });
 });
 
 function createMentoriaTestDb(): TestD1Database {
@@ -218,6 +331,23 @@ function createMentoriaTestDb(): TestD1Database {
     strengths_json: string | null;
     support_notes: string | null;
     onboarding_completed: number;
+    created_at: string;
+    updated_at: string;
+  } | null = null;
+  let materialIntakeRow: {
+    id: string;
+    tenant_id: string;
+    student_profile_id: string;
+    channel: string;
+    source_message_id: string;
+    phone_number: string;
+    media_type: string;
+    intake_kind: string;
+    provider_media_id: string;
+    mime_type: string;
+    caption: string | null;
+    original_text: string | null;
+    status: string;
     created_at: string;
     updated_at: string;
   } | null = null;
@@ -279,6 +409,56 @@ function createMentoriaTestDb(): TestD1Database {
       if (normalized.startsWith("INSERT INTO SAAS_INSTANCES")) {
         const [id, tenantId, platformType] = this.params as [string, string, string];
         saasInstanceRow = { id, tenant_id: tenantId, platform_type: platformType };
+        return { success: true, changes: 1 };
+      }
+
+      if (normalized.startsWith("INSERT INTO MENTORIA_MATERIAL_INTAKES")) {
+        const [
+          id,
+          tenantId,
+          studentProfileId,
+          sourceMessageId,
+          phoneNumber,
+          mediaType,
+          intakeKind,
+          providerMediaId,
+          mimeType,
+          caption,
+          originalText,
+          createdAt,
+          updatedAt,
+        ] = this.params as [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string | null,
+          string | null,
+          string,
+          string,
+        ];
+        materialIntakeRow = {
+          id,
+          tenant_id: tenantId,
+          student_profile_id: studentProfileId,
+          channel: "whatsapp",
+          source_message_id: sourceMessageId,
+          phone_number: phoneNumber,
+          media_type: mediaType,
+          intake_kind: intakeKind,
+          provider_media_id: providerMediaId,
+          mime_type: mimeType,
+          caption,
+          original_text: originalText,
+          status: "received",
+          created_at: createdAt,
+          updated_at: updatedAt,
+        };
         return { success: true, changes: 1 };
       }
 
@@ -420,16 +600,29 @@ function createMentoriaTestDb(): TestD1Database {
         return { results: match ? ([match] as unknown as T[]) : [] };
       }
 
-      if (normalized.includes("FROM STUDENT_PROFILES")) {
-        const [tenantOrId, maybeStudentId] = this.params as [string, string | undefined];
-        const tenantId = maybeStudentId ? tenantOrId : undefined;
-        const studentId = maybeStudentId ? maybeStudentId : tenantOrId;
+      if (normalized.includes("FROM MENTORIA_MATERIAL_INTAKES")) {
+        const [tenantId, id] = this.params as [string, string];
         const match =
-          studentProfileRow &&
-          (!tenantId || studentProfileRow.tenant_id === tenantId) &&
-          studentProfileRow.id === studentId
-            ? studentProfileRow
+          materialIntakeRow &&
+          materialIntakeRow.tenant_id === tenantId &&
+          materialIntakeRow.id === id
+            ? materialIntakeRow
             : null;
+        return { results: match ? ([match] as unknown as T[]) : [] };
+      }
+
+      if (normalized.includes("FROM STUDENT_PROFILES")) {
+        const [tenantOrId, maybeValue] = this.params as [string, string | undefined];
+        const match =
+          normalized.includes("USER_ID = ?")
+            ? studentProfileRow && studentProfileRow.tenant_id === tenantOrId && studentProfileRow.user_id === maybeValue
+              ? studentProfileRow
+              : null
+            : studentProfileRow &&
+                (!maybeValue || studentProfileRow.tenant_id === tenantOrId) &&
+                studentProfileRow.id === (maybeValue ?? tenantOrId)
+              ? studentProfileRow
+              : null;
         return { results: match ? ([match] as unknown as T[]) : [] };
       }
 

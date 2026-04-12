@@ -77,6 +77,19 @@ export type MetaInboundMessage = {
   timestamp: string;
   type: "text" | "image" | "document" | "audio" | "video" | string;
   text?: { body: string };
+  image?: {
+    id: string;
+    mime_type?: string;
+    caption?: string;
+    sha256?: string;
+  };
+  document?: {
+    id: string;
+    mime_type?: string;
+    filename?: string;
+    caption?: string;
+    sha256?: string;
+  };
 };
 
 /** Normalized inbound turn — channel-agnostic representation */
@@ -86,6 +99,15 @@ export type NormalizedInbound = {
   body: string;
   timestamp: string;
   senderName?: string;
+  messageType: "text" | "image" | "document";
+  media?: {
+    kind: "image" | "document";
+    mediaId: string;
+    mimeType?: string;
+    fileName?: string;
+    caption?: string;
+    sha256?: string;
+  };
 };
 
 // ── Routing layer ─────────────────────────────────────────────────────────────

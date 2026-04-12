@@ -28,20 +28,40 @@ export function extractInboundMessages(payload: MetaWebhookPayload): NormalizedI
       const value = change.value;
 
       for (const msg of value.messages ?? []) {
-        if (msg.type !== "text") continue;
-
-        const body = msg.text?.body?.trim();
-        if (!body) continue;
-
         const contact = value.contacts?.find((c) => c.wa_id === msg.from);
 
-        results.push({
-          phoneNumber: msg.from,
-          messageId: msg.id,
-          body,
-          timestamp: msg.timestamp,
-          senderName: contact?.profile?.name,
-        });
+        if (msg.type === "text") {
+          const body = msg.text?.body?.trim();
+          if (!body) continue;
+
+          results.push({
+            phoneNumber: msg.from,
+            messageId: msg.id,
+            body,
+            timestamp: msg.timestamp,
+            senderName: contact?.profile?.name,
+            messageType: "text",
+          });
+          continue;
+        }
+
+        if (msg.type === "image" && msg.image?.id) {
+          results.push({
+            phoneNumber: msg.from,
+            messageId: msg.id,
+            body: msg.image.caption?.trim() || "[image]",
+            timestamp: msg.timestamp,
+            senderName: contact?.profile?.name,
+            messageType: "image",
+            media: {
+              kind: "image",
+              mediaId: msg.image.id,
+              mimeType: msg.image.mime_type,
+              caption: msg.image.caption?.trim() || undefined,
+              sha256: msg.image.sha256,
+            },
+          });
+        }
       }
     }
   }

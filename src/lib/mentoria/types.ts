@@ -373,6 +373,26 @@ export type MentoriaPreparedImage = {
   preparedAt: string;
 };
 
+export type MentoriaMaterialIntakeKind = "exam_photo" | "homework_photo" | "notes_photo" | "exercise_photo" | "academic_image";
+
+export type MentoriaMaterialIntake = {
+  id: string;
+  tenantId: string;
+  studentProfileId: string;
+  channel: "whatsapp";
+  sourceMessageId: string;
+  phoneNumber: string;
+  mediaType: "image";
+  intakeKind: MentoriaMaterialIntakeKind;
+  providerMediaId: string;
+  mimeType: string;
+  caption?: string | null;
+  originalText?: string | null;
+  status: "received";
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type MentoriaReferralProfile = {
   id: string;
   tenantId: string;
