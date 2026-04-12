@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Card from "@/components/ui/card";
 import Badge from "@/components/ui/badge";
 import EmptyState from "@/components/ui/empty-state";
+import Link from "next/link";
 
 type RevenueSnapshot = {
   global?: { mrr: number; activeSaas: number; activeSubscriptions?: number };
@@ -453,7 +454,16 @@ export default function CampamentoBasePanelPage() {
 
   return (
     <div className="p-4 space-y-6">
-      <h1 className="text-2xl font-semibold">Campamento Base · Panel financiero-operativo (read-only)</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Campamento Base · Panel financiero-operativo (read-only)</h1>
+        <Link
+          href="/campamento-base/orchestrator"
+          aria-label="Abrir copiloto del orquestador"
+          className="text-xs px-3 py-1.5 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent hover:border-slate-200"
+        >
+          Abrir copiloto
+        </Link>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>

@@ -9,6 +9,7 @@ import {
   type AutomationExecutionResult,
   type TriggerAutomationInput,
 } from "@/lib/automation-core/types";
+import { recordCampamentoEvent } from "@/lib/empire/events";
 
 type ExecutionRow = {
   id: string;
@@ -286,6 +287,21 @@ export async function triggerAutomation(input: TriggerAutomationInput): Promise<
       errorCode: completed.errorCode,
       errorMessage: completed.errorMessage,
     });
+    await recordCampamentoEvent({
+      tenantId: completed.tenantId,
+      saasId: completed.saasId,
+      type: "socialflow.automation.success",
+      severity: "INFO",
+      source: "socialflow.automation",
+      message: completed.summary ?? `Automation ${completed.automationKey} executed successfully.`,
+      metadata: {
+        automationKey: completed.automationKey,
+        triggerType: completed.triggerType,
+        metrics: completed.metrics ?? {},
+        output: completed.output ?? null,
+      },
+      correlationId: completed.id,
+    });
     return { execution: completed, result: normalized };
   } catch (error) {
     const errorResult: AutomationExecutionResult = {
@@ -304,6 +320,21 @@ export async function triggerAutomation(input: TriggerAutomationInput): Promise<
       summary: completed.summary,
       errorCode: completed.errorCode,
       errorMessage: completed.errorMessage,
+    });
+    await recordCampamentoEvent({
+      tenantId: completed.tenantId,
+      saasId: completed.saasId,
+      type: "socialflow.automation.failed",
+      severity: "CRITICAL",
+      source: "socialflow.automation",
+      message: completed.errorMessage ?? `Automation ${completed.automationKey} failed.`,
+      metadata: {
+        automationKey: completed.automationKey,
+        triggerType: completed.triggerType,
+        errorCode: completed.errorCode,
+        errorMessage: completed.errorMessage,
+      },
+      correlationId: completed.id,
     });
     throw Object.assign(
       new AutomationCoreError("AUTOMATION_HANDLER_ERROR", error instanceof Error ? error.message : undefined),

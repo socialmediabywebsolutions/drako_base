@@ -10,6 +10,7 @@ import { correctExercise } from "@/lib/agents/mentoria/exercise-agent";
 import { buildStudyPlan } from "@/lib/agents/mentoria/planner-agent";
 import { buildInitialProgressFromOnboarding } from "@/lib/agents/mentoria/progress-agent";
 import { getCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
+import { recordCampamentoEvent } from "@/lib/empire/events";
 import { ensureMentoriaAgentHandlersRegistered } from "@/lib/mentoria/drako-agent-handlers";
 import { detectInterventions, materializeInterventions } from "@/lib/mentoria/intervention-engine";
 import { completeDailyPlanTask, generateDailyPlan } from "@/lib/mentoria/learning-loop-engine";
@@ -1201,6 +1202,19 @@ export class MentoriaService {
     });
     await trackEvent(activation);
 
+    await recordCampamentoEvent({
+      tenantId: actor.tenantId,
+      type: "mentoria.onboarding.completed",
+      severity: "INFO",
+      source: "mentoria.onboarding",
+      message: "Onboarding completed",
+      metadata: {
+        studentId: student.id,
+        firstSubjectId: weakestSubjectSelection.subject.slug ?? weakestSubjectSelection.subject.id,
+      },
+      correlationId: student.id,
+    });
+
     return {
       student,
       parents,
@@ -1870,6 +1884,23 @@ export class MentoriaService {
     }
     // MARK SESSION AS COMPLETED
     await this.persistence.completeSession(actor.tenantId, session.id);
+
+    await recordCampamentoEvent({
+      tenantId: actor.tenantId,
+      type: "mentoria.session.completed",
+      severity: "INFO",
+      source: "mentoria.session",
+      message: "Learning session completed",
+      metadata: {
+        studentId: student.id,
+        subjectId: subject.id,
+        topic: resolvedTopic,
+        durationMinutes: session.durationMinutes ?? null,
+        aiTokensUsed: tutorResponse.usage?.tokens ?? 0,
+        emotionalState: adaptation.emotionalState,
+      },
+      correlationId: session.id,
+    });
 
     // GENERATE SESSION SUMMARY FOR PARENT VALUE DELIVERY
     const sessionSummary = generateSessionSummary({

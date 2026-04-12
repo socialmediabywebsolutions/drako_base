@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db";
+import { recordCampamentoEvent } from "@/lib/empire/events";
 
 export type SystemEventSeverity = "info" | "warning" | "error" | "critical";
 
@@ -41,6 +42,35 @@ export class EventLogger {
         )
         .bind(id, input.tenantId, input.eventType, input.severity, JSON.stringify(input.data), now)
         .run();
+
+      // Reflect into Campamento Base canonical events (minimal, safe)
+      const sev = input.severity === "info"
+        ? "INFO"
+        : input.severity === "warning"
+          ? "WARNING"
+          : input.severity === "error"
+            ? "ERROR"
+            : "CRITICAL";
+      const message = typeof (input.data as any)?.message === "string" && (input.data as any).message.trim()
+        ? String((input.data as any).message)
+        : `Mentoria system event: ${input.eventType}`;
+      const correlationId = typeof (input.data as any)?.correlationId === "string" && (input.data as any).correlationId.trim()
+        ? String((input.data as any).correlationId)
+        : id;
+      try {
+        await recordCampamentoEvent({
+          tenantId: input.tenantId,
+          type: `mentoria.system.${input.eventType}`,
+          severity: sev,
+          source: "mentoria.system",
+          message,
+          metadata: input.data ?? {},
+          correlationId,
+          createdAt: now,
+        });
+      } catch (reflectError) {
+        console.error("[EventLogger] Failed to reflect event to campamento_events:", reflectError);
+      }
     } catch (error) {
       console.error("[EventLogger] Failed to log event:", error);
       // Don't throw - logging failure should not break the system
