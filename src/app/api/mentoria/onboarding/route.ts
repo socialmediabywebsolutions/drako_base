@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { DatabaseUnavailableError } from "@/lib/db";
-import { getWorkspaceUiCopy } from "@/lib/mentoria/microcopy";
 import { requireCurrentMentoriaSession } from "@/lib/mentoria/auth/request";
 import { MentoriaService } from "@/lib/mentoria/service";
 
@@ -31,35 +29,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ ok: true, ...state });
   } catch (error) {
-    if (
-      error instanceof DatabaseUnavailableError ||
-      (error instanceof Error &&
-        (error.message === "DB_BINDING_REQUIRED" ||
-          /no such (table|column)/i.test(error.message)))
-    ) {
-      const subjects = getWorkspaceUiCopy("eso").fallbackSubjects.map((s) => ({
-        id: s.slug,
-        tenantId: "",
-        slug: s.slug,
-        name: s.label,
-        description: "",
-        difficultyBand: "core",
-        createdAt: "",
-        updatedAt: "",
-      }));
-
-      return NextResponse.json(
-        {
-          ok: true,
-          profile: null,
-          subjects,
-          studentSubjects: [],
-          parents: [],
-        },
-        { status: 200 },
-      );
-    }
-
     const message =
       error instanceof Error ? error.message : "ONBOARDING_LOAD_FAILED";
 
