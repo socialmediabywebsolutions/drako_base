@@ -61,6 +61,26 @@ export function extractInboundMessages(payload: MetaWebhookPayload): NormalizedI
               sha256: msg.image.sha256,
             },
           });
+          continue;
+        }
+
+        if (msg.type === "document" && msg.document?.id) {
+          results.push({
+            phoneNumber: msg.from,
+            messageId: msg.id,
+            body: msg.document.caption?.trim() || msg.document.filename?.trim() || "[document]",
+            timestamp: msg.timestamp,
+            senderName: contact?.profile?.name,
+            messageType: "document",
+            media: {
+              kind: "document",
+              mediaId: msg.document.id,
+              mimeType: msg.document.mime_type,
+              fileName: msg.document.filename?.trim() || undefined,
+              caption: msg.document.caption?.trim() || undefined,
+              sha256: msg.document.sha256,
+            },
+          });
         }
       }
     }

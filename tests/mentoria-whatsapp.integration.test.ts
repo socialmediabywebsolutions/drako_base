@@ -200,6 +200,98 @@ describe("Mentoria WhatsApp integration", () => {
     expect(result.reply).toBeNull();
   });
 
+  it("returns next task for guardian closed command", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000001",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "proxima tarea",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "guardian_user_1",
+      },
+    };
+
+    const result = await routeConversation(route);
+
+    expect(result.handler).toBe("mentoria");
+    expect(result.handled).toBe(true);
+    expect(result.intent).toBe("MENTORIA_GUARDIAN_NEXT_TASK");
+    expect(result.reply).toContain("Proxima tarea de Alex:");
+    expect(result.reply).toContain("Materia: Matematicas");
+  });
+
+  it("returns last session for guardian closed command", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000001",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "ultima sesion",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "guardian_user_1",
+      },
+    };
+
+    const result = await routeConversation(route);
+
+    expect(result.handler).toBe("mentoria");
+    expect(result.handled).toBe(true);
+    expect(result.intent).toBe("MENTORIA_GUARDIAN_LAST_SESSION");
+    expect(result.reply).toContain("Ultima sesion de Alex:");
+    expect(result.reply).toContain("Tema: Ecuaciones lineales");
+  });
+
+  it("returns current plan for guardian closed command", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000001",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "plan",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "guardian_user_1",
+      },
+    };
+
+    const result = await routeConversation(route);
+
+    expect(result.handler).toBe("mentoria");
+    expect(result.handled).toBe(true);
+    expect(result.intent).toBe("MENTORIA_GUARDIAN_PLAN");
+    expect(result.reply).toContain("Plan actual de Alex:");
+    expect(result.reply).toContain("Objetivo: Consolidar algebra y repasar ciencias");
+  });
+
+  it("returns active alerts for guardian closed command", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000001",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "alertas",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "guardian_user_1",
+      },
+    };
+
+    const result = await routeConversation(route);
+
+    expect(result.handler).toBe("mentoria");
+    expect(result.handled).toBe(true);
+    expect(result.intent).toBe("MENTORIA_GUARDIAN_ALERTS");
+    expect(result.reply).toContain("Alertas de Alex:");
+    expect(result.reply).toContain("Nivel: high");
+  });
+
   it("accepts student academic image intake and confirms safe receipt", async () => {
     const route: ConversationRoute = {
       channel: "whatsapp",
@@ -312,6 +404,138 @@ describe("Mentoria WhatsApp integration", () => {
     expect(result.error).toBe("MENTORIA_WHATSAPP_MEDIA_TYPE_NOT_SUPPORTED");
     expect(result.reply).toBeNull();
   });
+
+  it("records short student text as context for the latest recent material", async () => {
+    const imageRoute: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000006",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "te mando examen de mates",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid-image-phase3-base",
+        messageType: "image",
+        media: {
+          kind: "image",
+          mediaId: "media_200",
+          mimeType: "image/jpeg",
+          caption: "te mando examen de mates",
+        },
+      },
+    };
+
+    const contextRoute: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000006",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "no entendí este ejercicio",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid-text-phase3-context",
+      },
+    };
+
+    const imageResult = await routeConversation(imageRoute);
+    const contextResult = await routeConversation(contextRoute);
+
+    expect(imageResult.intent).toBe("MENTORIA_STUDENT_MATERIAL_RECEIVED");
+    expect(contextResult.handler).toBe("mentoria");
+    expect(contextResult.handled).toBe(true);
+    expect(contextResult.intent).toBe("MENTORIA_STUDENT_MATERIAL_CONTEXT_RECORDED");
+    expect(contextResult.error).toBeUndefined();
+    expect(contextResult.reply).toContain("He añadido tu texto al material que enviaste hace un momento, Alex.");
+  });
+
+  it("rejects student contextual text when no recent material exists", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000007",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "esta nota es importante",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_2",
+        messageId: "wamid-text-phase3-no-material",
+      },
+    };
+
+    const result = await routeConversation(route);
+
+    expect(result.handler).toBe("mentoria");
+    expect(result.handled).toBe(false);
+    expect(result.error).toBe("MENTORIA_WHATSAPP_RECENT_MATERIAL_NOT_FOUND");
+    expect(result.reply).toBeNull();
+  });
+
+  it("accepts student PDF document intake and confirms safe receipt", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000008",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "apuntes de ciencias",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid-document-1",
+        messageType: "document",
+        media: {
+          kind: "document",
+          mediaId: "doc_123",
+          mimeType: "application/pdf",
+          fileName: "apuntes-ciencias.pdf",
+          caption: "apuntes de ciencias",
+        },
+      },
+    };
+
+    const result = await routeConversation(route);
+
+    expect(result.handler).toBe("mentoria");
+    expect(result.handled).toBe(true);
+    expect(result.intent).toBe("MENTORIA_STUDENT_MATERIAL_RECEIVED");
+    expect(result.error).toBeUndefined();
+    expect(result.reply).toContain("He recibido tu PDF, Alex.");
+  });
+
+  it("rejects student document intake when mime type is not pdf", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000009",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "material de estudio",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid-document-bad-mime",
+        messageType: "document",
+        media: {
+          kind: "document",
+          mediaId: "doc_124",
+          mimeType: "application/msword",
+          fileName: "material.doc",
+        },
+      },
+    };
+
+    const result = await routeConversation(route);
+
+    expect(result.handler).toBe("mentoria");
+    expect(result.handled).toBe(false);
+    expect(result.error).toBe("MENTORIA_WHATSAPP_MEDIA_TYPE_NOT_SUPPORTED");
+    expect(result.reply).toBeNull();
+  });
 });
 
 function createMentoriaTestDb(): TestD1Database {
@@ -334,6 +558,168 @@ function createMentoriaTestDb(): TestD1Database {
     created_at: string;
     updated_at: string;
   } | null = null;
+  let dailyPlanRow: {
+    id: string;
+    tenant_id: string;
+    student_profile_id: string;
+    plan_date: string;
+    recommended_duration: number;
+    tasks_json: string;
+    completed_task_ids_json: string;
+    priority: string;
+    adaptation_reason: string;
+    generated_at: string;
+    created_at: string;
+    updated_at: string;
+  } | null = {
+    id: "daily_plan_1",
+    tenant_id: "tenant_mentoria",
+    student_profile_id: "student_mentoria_1",
+    plan_date: new Date().toISOString().slice(0, 10),
+    recommended_duration: 40,
+    tasks_json: JSON.stringify([
+      { id: "task_1", subject: "Matematicas", type: "practice", difficulty: 3, completed: false },
+      { id: "task_2", subject: "Ciencias", type: "review", difficulty: 2, completed: true },
+    ]),
+    completed_task_ids_json: JSON.stringify(["task_2"]),
+    priority: "high",
+    adaptation_reason: "refuerzo de algebra",
+    generated_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  let studyPlanRow: {
+    id: string;
+    tenant_id: string;
+    student_profile_id: string;
+    week_start: string;
+    week_end: string;
+    goals_summary: string;
+    generated_by: string;
+    blocks_json: string;
+    created_at: string;
+    updated_at: string;
+  } | null = {
+    id: "study_plan_1",
+    tenant_id: "tenant_mentoria",
+    student_profile_id: "student_mentoria_1",
+    week_start: "2026-04-07",
+    week_end: "2026-04-13",
+    goals_summary: "Consolidar algebra y repasar ciencias",
+    generated_by: "planner",
+    blocks_json: JSON.stringify([
+      { id: "block_1", day: "monday", subjectId: "math", title: "Algebra", goal: "Practicar ecuaciones", durationMinutes: 30, focusMode: true },
+    ]),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  let learningSessionRow: {
+    id: string;
+    tenant_id: string;
+    mentor_id: string;
+    client_id: string;
+    student_profile_id: string;
+    subject_id: string;
+    topic: string;
+    status: string;
+    duration_minutes: number;
+    ai_tokens_used: number;
+    emotional_state: string;
+    tutor_summary: string;
+    recommended_next_step: string;
+    explanation: string | null;
+    suggested_steps_json: string | null;
+    reinforcement_question: string | null;
+    transcript_json: string;
+    created_at: string;
+    completed_at: string | null;
+    updated_at: string;
+  } | null = {
+    id: "session_1",
+    tenant_id: "tenant_mentoria",
+    mentor_id: "mentor_1",
+    client_id: "client_1",
+    student_profile_id: "student_mentoria_1",
+    subject_id: "math",
+    topic: "Ecuaciones lineales",
+    status: "completed",
+    duration_minutes: 45,
+    ai_tokens_used: 0,
+    emotional_state: "confident",
+    tutor_summary: "Buena sesion",
+    recommended_next_step: "Repasar dos ejercicios mas",
+    explanation: null,
+    suggested_steps_json: null,
+    reinforcement_question: null,
+    transcript_json: JSON.stringify([]),
+    created_at: new Date().toISOString(),
+    completed_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  let interventionRow: {
+    id: string;
+    tenant_id: string;
+    student_profile_id: string;
+    intervention_type: string;
+    severity: string;
+    status: string;
+    summary: string;
+    recommendations_json: string;
+    channels_json: string;
+    metadata_json: string;
+    created_at: string;
+    updated_at: string;
+    resolved_at: string | null;
+  } | null = {
+    id: "intervention_1",
+    tenant_id: "tenant_mentoria",
+    student_profile_id: "student_mentoria_1",
+    intervention_type: "low_consistency",
+    severity: "high",
+    status: "active",
+    summary: "Ha bajado la constancia esta semana",
+    recommendations_json: JSON.stringify(["Revisar el plan diario con Alex hoy"]),
+    channels_json: JSON.stringify(["parent"]),
+    metadata_json: JSON.stringify({}),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    resolved_at: null,
+  };
+  let secondStudentProfileRow: {
+    id: string;
+    tenant_id: string;
+    user_id: string | null;
+    full_name: string;
+    age: number;
+    school_year: string;
+    learning_goals_json: string | null;
+    base_emotional_state: string;
+    emotional_baseline_json: string | null;
+    learning_preference: string | null;
+    preferred_study_minutes: number;
+    strengths_json: string | null;
+    support_notes: string | null;
+    onboarding_completed: number;
+    created_at: string;
+    updated_at: string;
+  } | null = {
+    id: "student_mentoria_2",
+    tenant_id: "tenant_mentoria",
+    user_id: "student_user_2",
+    full_name: "Sam",
+    age: 13,
+    school_year: "ESO",
+    learning_goals_json: null,
+    base_emotional_state: "balanced",
+    emotional_baseline_json: null,
+    learning_preference: null,
+    preferred_study_minutes: 30,
+    strengths_json: null,
+    support_notes: null,
+    onboarding_completed: 1,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
   let materialIntakeRow: {
     id: string;
     tenant_id: string;
@@ -345,11 +731,22 @@ function createMentoriaTestDb(): TestD1Database {
     intake_kind: string;
     provider_media_id: string;
     mime_type: string;
+    file_name: string | null;
     caption: string | null;
     original_text: string | null;
     status: string;
     created_at: string;
     updated_at: string;
+  } | null = null;
+  let materialContextNoteRow: {
+    id: string;
+    tenant_id: string;
+    student_profile_id: string;
+    material_intake_id: string;
+    channel: string;
+    source_message_id: string;
+    body: string;
+    created_at: string;
   } | null = null;
   let parentAccountRow: {
     id: string;
@@ -412,6 +809,29 @@ function createMentoriaTestDb(): TestD1Database {
         return { success: true, changes: 1 };
       }
 
+      if (normalized.startsWith("INSERT INTO MENTORIA_MATERIAL_CONTEXT_NOTES")) {
+        const [id, tenantId, studentProfileId, materialIntakeId, sourceMessageId, body, createdAt] = this.params as [
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ];
+        materialContextNoteRow = {
+          id,
+          tenant_id: tenantId,
+          student_profile_id: studentProfileId,
+          material_intake_id: materialIntakeId,
+          channel: "whatsapp",
+          source_message_id: sourceMessageId,
+          body,
+          created_at: createdAt,
+        };
+        return { success: true, changes: 1 };
+      }
+
       if (normalized.startsWith("INSERT INTO MENTORIA_MATERIAL_INTAKES")) {
         const [
           id,
@@ -423,6 +843,7 @@ function createMentoriaTestDb(): TestD1Database {
           intakeKind,
           providerMediaId,
           mimeType,
+          fileName,
           caption,
           originalText,
           createdAt,
@@ -439,6 +860,7 @@ function createMentoriaTestDb(): TestD1Database {
           string,
           string | null,
           string | null,
+          string | null,
           string,
           string,
         ];
@@ -453,6 +875,7 @@ function createMentoriaTestDb(): TestD1Database {
           intake_kind: intakeKind,
           provider_media_id: providerMediaId,
           mime_type: mimeType,
+          file_name: fileName,
           caption,
           original_text: originalText,
           status: "received",
@@ -589,6 +1012,51 @@ function createMentoriaTestDb(): TestD1Database {
         return { results: match ? ([match] as unknown as T[]) : [] };
       }
 
+      if (normalized.includes("FROM MENTORIA_DAILY_PLANS")) {
+        const [tenantId, studentId, planDate] = this.params as [string, string, string];
+        const match =
+          dailyPlanRow &&
+          dailyPlanRow.tenant_id === tenantId &&
+          dailyPlanRow.student_profile_id === studentId &&
+          dailyPlanRow.plan_date === planDate
+            ? dailyPlanRow
+            : null;
+        return { results: match ? ([match] as unknown as T[]) : [] };
+      }
+
+      if (normalized.includes("FROM MENTORIA_STUDY_PLANS")) {
+        const [tenantId, studentProfileId] = this.params as [string, string];
+        const match =
+          studyPlanRow &&
+          studyPlanRow.tenant_id === tenantId &&
+          studyPlanRow.student_profile_id === studentProfileId
+            ? studyPlanRow
+            : null;
+        return { results: match ? ([match] as unknown as T[]) : [] };
+      }
+
+      if (normalized.includes("FROM MENTORIA_SESSIONS")) {
+        const [tenantId, studentProfileId] = this.params as [string, string];
+        const match =
+          learningSessionRow &&
+          learningSessionRow.tenant_id === tenantId &&
+          learningSessionRow.student_profile_id === studentProfileId
+            ? learningSessionRow
+            : null;
+        return { results: match ? ([match] as unknown as T[]) : [] };
+      }
+
+      if (normalized.includes("FROM MENTORIA_INTERVENTIONS")) {
+        const [tenantId, studentProfileId] = this.params as [string, string];
+        const match =
+          interventionRow &&
+          interventionRow.tenant_id === tenantId &&
+          interventionRow.student_profile_id === studentProfileId
+            ? interventionRow
+            : null;
+        return { results: match ? ([match] as unknown as T[]) : [] };
+      }
+
       if (normalized.includes("FROM PARENT_ACCOUNTS")) {
         const [tenantId, userId] = this.params as [string, string];
         const match =
@@ -601,6 +1069,17 @@ function createMentoriaTestDb(): TestD1Database {
       }
 
       if (normalized.includes("FROM MENTORIA_MATERIAL_INTAKES")) {
+        if (normalized.includes("STUDENT_PROFILE_ID = ?") && normalized.includes("ORDER BY CREATED_AT DESC")) {
+          const [tenantId, studentProfileId] = this.params as [string, string];
+          const match =
+            materialIntakeRow &&
+            materialIntakeRow.tenant_id === tenantId &&
+            materialIntakeRow.student_profile_id === studentProfileId
+              ? materialIntakeRow
+              : null;
+          return { results: match ? ([match] as unknown as T[]) : [] };
+        }
+
         const [tenantId, id] = this.params as [string, string];
         const match =
           materialIntakeRow &&
@@ -613,16 +1092,22 @@ function createMentoriaTestDb(): TestD1Database {
 
       if (normalized.includes("FROM STUDENT_PROFILES")) {
         const [tenantOrId, maybeValue] = this.params as [string, string | undefined];
+        const studentRows = [studentProfileRow, secondStudentProfileRow].filter(Boolean);
         const match =
           normalized.includes("USER_ID = ?")
-            ? studentProfileRow && studentProfileRow.tenant_id === tenantOrId && studentProfileRow.user_id === maybeValue
-              ? studentProfileRow
-              : null
-            : studentProfileRow &&
-                (!maybeValue || studentProfileRow.tenant_id === tenantOrId) &&
-                studentProfileRow.id === (maybeValue ?? tenantOrId)
-              ? studentProfileRow
-              : null;
+            ? studentRows.find((row) => row.tenant_id === tenantOrId && row.user_id === maybeValue) ?? null
+            : studentRows.find((row) => (!maybeValue || row.tenant_id === tenantOrId) && row.id === (maybeValue ?? tenantOrId)) ?? null;
+        return { results: match ? ([match] as unknown as T[]) : [] };
+      }
+
+      if (normalized.includes("FROM MENTORIA_MATERIAL_CONTEXT_NOTES")) {
+        const [tenantId, id] = this.params as [string, string];
+        const match =
+          materialContextNoteRow &&
+          materialContextNoteRow.tenant_id === tenantId &&
+          materialContextNoteRow.id === id
+            ? materialContextNoteRow
+            : null;
         return { results: match ? ([match] as unknown as T[]) : [] };
       }
 

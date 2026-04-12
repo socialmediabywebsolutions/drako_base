@@ -9,6 +9,7 @@ import type {
   InterventionType,
   LearningSession,
   MentoriaIntervention,
+  MentoriaMaterialContextNote,
   MentoriaMaterialIntake,
   MentoriaMaterialIntakeKind,
   MentoriaDashboard,
@@ -49,6 +50,17 @@ type StudentProfileRow = {
   onboarding_completed: number;
   created_at: string;
   updated_at: string;
+};
+
+type MaterialContextNoteRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  material_intake_id: string;
+  channel: string;
+  source_message_id: string;
+  body: string;
+  created_at: string;
 };
 
 type SubjectRow = {
@@ -186,6 +198,7 @@ type MaterialIntakeRow = {
   intake_kind: string;
   provider_media_id: string;
   mime_type: string;
+  file_name: string | null;
   caption: string | null;
   original_text: string | null;
   status: string;
@@ -386,6 +399,19 @@ function mapStudent(row: StudentProfileRow): StudentProfile {
   };
 }
 
+function mapMaterialContextNote(row: MaterialContextNoteRow): MentoriaMaterialContextNote {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    studentProfileId: row.student_profile_id,
+    materialIntakeId: row.material_intake_id,
+    channel: row.channel as MentoriaMaterialContextNote["channel"],
+    sourceMessageId: row.source_message_id,
+    body: row.body,
+    createdAt: row.created_at,
+  };
+}
+
 function mapMaterialIntake(row: MaterialIntakeRow): MentoriaMaterialIntake {
   return {
     id: row.id,
@@ -398,6 +424,7 @@ function mapMaterialIntake(row: MaterialIntakeRow): MentoriaMaterialIntake {
     intakeKind: row.intake_kind as MentoriaMaterialIntakeKind,
     providerMediaId: row.provider_media_id,
     mimeType: row.mime_type,
+    fileName: row.file_name,
     caption: row.caption,
     originalText: row.original_text,
     status: row.status as MentoriaMaterialIntake["status"],
@@ -2344,10 +2371,11 @@ export class MentoriaRepository {
     studentProfileId: string;
     sourceMessageId: string;
     phoneNumber: string;
-    mediaType: "image";
+    mediaType: "image" | "document";
     intakeKind: MentoriaMaterialIntakeKind;
     providerMediaId: string;
     mimeType: string;
+    fileName?: string | null;
     caption?: string | null;
     originalText?: string | null;
   }): Promise<MentoriaMaterialIntake> {
@@ -2357,9 +2385,9 @@ export class MentoriaRepository {
       .prepare(
         `INSERT INTO mentoria_material_intakes (
            id, tenant_id, student_profile_id, channel, source_message_id, phone_number,
-           media_type, intake_kind, provider_media_id, mime_type, caption, original_text,
+           media_type, intake_kind, provider_media_id, mime_type, file_name, caption, original_text,
            status, created_at, updated_at
-         ) VALUES (?, ?, ?, 'whatsapp', ?, ?, ?, ?, ?, ?, ?, ?, 'received', ?, ?)`
+         ) VALUES (?, ?, ?, 'whatsapp', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'received', ?, ?)`
       )
       .bind(
         id,
@@ -2371,6 +2399,7 @@ export class MentoriaRepository {
         input.intakeKind,
         input.providerMediaId,
         input.mimeType,
+        input.fileName ?? null,
         input.caption ?? null,
         input.originalText ?? null,
         now,
@@ -2388,6 +2417,49 @@ export class MentoriaRepository {
     }
 
     return mapMaterialIntake(row);
+  }
+
+  async getLatestMaterialIntake(tenantId: string, studentProfileId: string): Promise<MentoriaMaterialIntake | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_material_intakes
+         WHERE tenant_id = ? AND student_profile_id = ?
+         ORDER BY created_at DESC
+         LIMIT 1`
+      )
+      .bind(tenantId, studentProfileId)
+      .first<MaterialIntakeRow>();
+    return row ? mapMaterialIntake(row) : null;
+  }
+
+  async createMaterialContextNote(input: {
+    tenantId: string;
+    studentProfileId: string;
+    materialIntakeId: string;
+    sourceMessageId: string;
+    body: string;
+  }): Promise<MentoriaMaterialContextNote> {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await this.db
+      .prepare(
+        `INSERT INTO mentoria_material_context_notes (
+           id, tenant_id, student_profile_id, material_intake_id, channel, source_message_id, body, created_at
+         ) VALUES (?, ?, ?, ?, 'whatsapp', ?, ?, ?)`
+      )
+      .bind(id, input.tenantId, input.studentProfileId, input.materialIntakeId, input.sourceMessageId, input.body, now)
+      .run();
+
+    const row = await this.db
+      .prepare(`SELECT * FROM mentoria_material_context_notes WHERE tenant_id = ? AND id = ? LIMIT 1`)
+      .bind(input.tenantId, id)
+      .first<MaterialContextNoteRow>();
+
+    if (!row) {
+      throw new Error("MENTORIA_MATERIAL_CONTEXT_NOTE_PERSIST_FAILED");
+    }
+
+    return mapMaterialContextNote(row);
   }
 
   async countLearningSessionsForDay(tenantId: string, studentProfileId: string, isoDay: string): Promise<number> {

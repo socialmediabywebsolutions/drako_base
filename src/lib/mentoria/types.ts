@@ -71,6 +71,17 @@ export type StudentProfile = {
   updatedAt: string;
 };
 
+export type MentoriaMaterialContextNote = {
+  id: string;
+  tenantId: string;
+  studentProfileId: string;
+  materialIntakeId: string;
+  channel: "whatsapp";
+  sourceMessageId: string;
+  body: string;
+  createdAt: string;
+};
+
 export type MentoriaSubject = {
   id: string;
   tenantId: string;
@@ -373,7 +384,17 @@ export type MentoriaPreparedImage = {
   preparedAt: string;
 };
 
-export type MentoriaMaterialIntakeKind = "exam_photo" | "homework_photo" | "notes_photo" | "exercise_photo" | "academic_image";
+export type MentoriaMaterialIntakeKind =
+  | "exam_photo"
+  | "homework_photo"
+  | "notes_photo"
+  | "exercise_photo"
+  | "academic_image"
+  | "exam_document"
+  | "homework_document"
+  | "notes_document"
+  | "study_document"
+  | "academic_document";
 
 export type MentoriaMaterialIntake = {
   id: string;
@@ -382,10 +403,11 @@ export type MentoriaMaterialIntake = {
   channel: "whatsapp";
   sourceMessageId: string;
   phoneNumber: string;
-  mediaType: "image";
+  mediaType: "image" | "document";
   intakeKind: MentoriaMaterialIntakeKind;
   providerMediaId: string;
   mimeType: string;
+  fileName?: string | null;
   caption?: string | null;
   originalText?: string | null;
   status: "received";
