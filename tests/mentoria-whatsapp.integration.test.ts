@@ -93,20 +93,80 @@ describe("Mentoria WhatsApp integration", () => {
       )
       .run();
 
+    await fakeDb
+      .prepare(
+        `INSERT INTO parent_accounts (
+           id,
+           tenant_id,
+           user_id,
+           student_profile_id,
+           full_name,
+           email,
+           relation,
+           relationship_label,
+           daily_study_minutes,
+           supervision_level,
+           can_view_full_progress,
+           can_manage_schedule,
+           created_at,
+           updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        "parent_account_1",
+        "tenant_mentoria",
+        "guardian_user_1",
+        "student_mentoria_1",
+        "Madre de Alex",
+        "madre@example.com",
+        "mother",
+        "madre",
+        30,
+        "balanced",
+        1,
+        1,
+        new Date().toISOString(),
+        new Date().toISOString(),
+      )
+      .run();
+
     registerMentoriaWhatsappHandler();
   });
 
-  it("routes Mentoria platform type to Mentoria handler and returns not ready when domain not ready", async () => {
+  it("routes Mentoria platform type to Mentoria guardian summary flow for closed text intent", async () => {
     const route: ConversationRoute = {
       channel: "whatsapp",
       senderId: "+34611000001",
       tenantId: "tenant_mentoria",
       saasTarget: "mentoria",
-      message: "Hola",
+      message: "Cómo va",
       metadata: {
         saasId: "saas_mentoria",
         actorType: "CUSTOMER",
-        actorId: "student_mentoria_1",
+        actorId: "guardian_user_1",
+      },
+    };
+
+    const result = await routeConversation(route);
+
+    expect(result.handler).toBe("mentoria");
+    expect(result.handled).toBe(true);
+    expect(result.intent).toBe("MENTORIA_GUARDIAN_SUMMARY");
+    expect(result.error).toBeUndefined();
+    expect(result.reply).toContain("Resumen de Alex:");
+  });
+
+  it("rejects guardian messages when intent is not supported", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000001",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "Necesito hablar",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "guardian_user_1",
       },
     };
 
@@ -114,7 +174,30 @@ describe("Mentoria WhatsApp integration", () => {
 
     expect(result.handler).toBe("mentoria");
     expect(result.handled).toBe(false);
-    expect(result.error).toBe("MENTORIA_WHATSAPP_NOT_READY");
+    expect(result.error).toBe("MENTORIA_WHATSAPP_INTENT_NOT_SUPPORTED");
+    expect(result.reply).toBeNull();
+  });
+
+  it("rejects non-guardian actors for Mentoria WhatsApp phase 1", async () => {
+    const route: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000001",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "resumen",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "EMPLOYEE",
+        actorId: "guardian_user_1",
+      },
+    };
+
+    const result = await routeConversation(route);
+
+    expect(result.handler).toBe("mentoria");
+    expect(result.handled).toBe(false);
+    expect(result.error).toBe("MENTORIA_WHATSAPP_GUARDIAN_ONLY");
+    expect(result.reply).toBeNull();
   });
 });
 
@@ -135,6 +218,22 @@ function createMentoriaTestDb(): TestD1Database {
     strengths_json: string | null;
     support_notes: string | null;
     onboarding_completed: number;
+    created_at: string;
+    updated_at: string;
+  } | null = null;
+  let parentAccountRow: {
+    id: string;
+    tenant_id: string;
+    user_id: string | null;
+    student_profile_id: string;
+    full_name: string;
+    email: string;
+    relation: string;
+    relationship_label: string | null;
+    daily_study_minutes: number;
+    supervision_level: string | null;
+    can_view_full_progress: number;
+    can_manage_schedule: number;
     created_at: string;
     updated_at: string;
   } | null = null;
@@ -180,6 +279,57 @@ function createMentoriaTestDb(): TestD1Database {
       if (normalized.startsWith("INSERT INTO SAAS_INSTANCES")) {
         const [id, tenantId, platformType] = this.params as [string, string, string];
         saasInstanceRow = { id, tenant_id: tenantId, platform_type: platformType };
+        return { success: true, changes: 1 };
+      }
+
+      if (normalized.startsWith("INSERT INTO PARENT_ACCOUNTS")) {
+        const [
+          id,
+          tenantId,
+          userId,
+          studentProfileId,
+          fullName,
+          email,
+          relation,
+          relationshipLabel,
+          dailyStudyMinutes,
+          supervisionLevel,
+          canViewFullProgress,
+          canManageSchedule,
+          createdAt,
+          updatedAt,
+        ] = this.params as [
+          string,
+          string,
+          string | null,
+          string,
+          string,
+          string,
+          string,
+          string | null,
+          number,
+          string | null,
+          number,
+          number,
+          string,
+          string,
+        ];
+        parentAccountRow = {
+          id,
+          tenant_id: tenantId,
+          user_id: userId,
+          student_profile_id: studentProfileId,
+          full_name: fullName,
+          email,
+          relation,
+          relationship_label: relationshipLabel,
+          daily_study_minutes: dailyStudyMinutes,
+          supervision_level: supervisionLevel,
+          can_view_full_progress: canViewFullProgress,
+          can_manage_schedule: canManageSchedule,
+          created_at: createdAt,
+          updated_at: updatedAt,
+        };
         return { success: true, changes: 1 };
       }
 
@@ -256,6 +406,17 @@ function createMentoriaTestDb(): TestD1Database {
       if (normalized.includes("FROM SAAS_INSTANCES")) {
         const [id, tenantId] = this.params as [string, string];
         const match = saasInstanceRow && saasInstanceRow.id === id && saasInstanceRow.tenant_id === tenantId ? saasInstanceRow : null;
+        return { results: match ? ([match] as unknown as T[]) : [] };
+      }
+
+      if (normalized.includes("FROM PARENT_ACCOUNTS")) {
+        const [tenantId, userId] = this.params as [string, string];
+        const match =
+          parentAccountRow &&
+          parentAccountRow.tenant_id === tenantId &&
+          parentAccountRow.user_id === userId
+            ? parentAccountRow
+            : null;
         return { results: match ? ([match] as unknown as T[]) : [] };
       }
 

@@ -1,6 +1,5 @@
 import { env } from "@/lib/cf";
 import { queryOne } from "@/lib/db";
-import { MentoriaFamilyRepository } from "@/lib/mentoria/family-repository";
 import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
 import { MentoriaRepository } from "@/lib/mentoria/repository";
 import type { WhatsappActorType } from "@/lib/whatsapp/types";
@@ -27,6 +26,22 @@ type SaasInstancePlatformRow = {
   tenant_id: string;
   platform_type: string;
 };
+
+const SUPPORTED_GUARDIAN_INTENTS = new Set(["resumen", "estado", "como va"]);
+
+function normalizeIntent(raw: string): string {
+  return raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatIsoDate(date?: string | null): string {
+  if (!date) return "sin actividad registrada";
+  return date.slice(0, 10);
+}
 
 export async function runMentoriaWhatsappEntry(
   params: MentoriaWhatsappEntryParams,
@@ -82,31 +97,67 @@ export async function runMentoriaWhatsappEntry(
   }
 
   const repository = new MentoriaRepository(db);
-  const familyRepository = new MentoriaFamilyRepository(db);
 
-  let actorExists = false;
-
-  if (params.actorType === "CUSTOMER") {
-    const student = await repository.getStudentProfileById(tenantId, actorId).catch(() => null);
-    if (student) {
-      actorExists = true;
-    } else {
-      const familyStudent = await familyRepository.getStudentById(actorId).catch(() => null);
-      actorExists = Boolean(familyStudent && familyStudent.familyId === tenantId);
-    }
-  }
-
-  if (!actorExists) {
+  if (params.actorType !== "CUSTOMER") {
     return {
       handled: false,
       messagesToSend: [],
-      error: "MENTORIA_ACTOR_CONTEXT_MISMATCH",
+      error: "MENTORIA_WHATSAPP_GUARDIAN_ONLY",
     };
   }
 
+  const normalizedIntent = normalizeIntent(body);
+  if (!SUPPORTED_GUARDIAN_INTENTS.has(normalizedIntent)) {
+    return {
+      handled: false,
+      messagesToSend: [],
+      error: "MENTORIA_WHATSAPP_INTENT_NOT_SUPPORTED",
+    };
+  }
+
+  const parentAccount = await repository.getParentAccountByUser(tenantId, actorId).catch(() => null);
+  if (!parentAccount) {
+    return {
+      handled: false,
+      messagesToSend: [],
+      error: "MENTORIA_GUARDIAN_CONTEXT_MISMATCH",
+    };
+  }
+
+  const student = await repository.getStudentProfileById(tenantId, parentAccount.studentProfileId).catch(() => null);
+  if (!student) {
+    return {
+      handled: false,
+      messagesToSend: [],
+      error: "MENTORIA_STUDENT_DATA_UNAVAILABLE",
+    };
+  }
+
+  const [progress, sessions, currentPlan] = await Promise.all([
+    repository.listProgress(tenantId, student.id).catch(() => []),
+    repository.listLearningSessions(tenantId, student.id).catch(() => []),
+    repository.getCurrentStudyPlan(tenantId, student.id).catch(() => null),
+  ]);
+
+  const topProgress = progress[0];
+  const topProgressLabel = topProgress
+    ? `${topProgress.subject?.name ?? "materia"}: ${Math.round(topProgress.masteryScore)}%`
+    : "sin progreso registrado";
+
+  const lastActivity = topProgress?.lastActivityAt ?? sessions[0]?.updatedAt ?? null;
+  const planSummary = currentPlan?.goalsSummary?.trim() || "sin plan activo";
+
+  const summary = [
+    `Resumen de ${student.fullName}:`,
+    `- Sesiones recientes: ${sessions.length}`,
+    `- Ultima actividad: ${formatIsoDate(lastActivity)}`,
+    `- Progreso principal: ${topProgressLabel}`,
+    `- Plan actual: ${planSummary}`,
+  ].join("\n");
+
   return {
-    handled: false,
-    messagesToSend: [],
-    error: "MENTORIA_WHATSAPP_NOT_READY",
+    handled: true,
+    messagesToSend: [{ body: summary }],
+    intent: "MENTORIA_GUARDIAN_SUMMARY",
   };
 }
