@@ -19,6 +19,7 @@ Snapshot operativo del estado actual del sistema para retomar trabajo sin perder
 - onboarding POST: PASS
 - workspace: PASS
 - `/mentoria/app`: PASS
+- WhatsApp inbound: routing via `platform_type = "mentoria"` resuelve al handler de dominio, valida actor real y devuelve `MENTORIA_WHATSAPP_NOT_READY` hasta completar la automatizacion.
 
 ## Fixes que dejaron este estado
 - Sesion local:

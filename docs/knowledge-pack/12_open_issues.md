@@ -46,6 +46,7 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
 - Area: QA operativo
 - Riesgo:
   - El flujo local puede volver a derivar si el siguiente operador no sigue una checklist fija.
+- Nota 2026-04-12: la entrada WhatsApp de Mentoria ya valida `platform_type`, actor y contexto real; falta documentar el checklist QA para habilitar el flujo completo cuando se implemente la automatizacion.
 
 ### ISSUE-008 - Riesgo de regresion en CTAs regionales por cambios de contenido
 - Severidad: `P2`

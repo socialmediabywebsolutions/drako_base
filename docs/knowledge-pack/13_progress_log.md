@@ -102,6 +102,56 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
   - `ISSUE-006`, `ISSUE-009`
 
+## [2026-04-12 16:05 UTC+02:00] MENTORIA-WHATSAPP-ENTRYPOINT-HONEST
+- Contexto:
+  - Integracion inicial real de WhatsApp para Mentoria usando el resolver `platform_type`.
+- Cambio realizado:
+  - Creacion de `src/lib/mentoria/whatsapp-entry.ts` con validaciones reales (DB Mentoria, actor y pertenencia `tenantId/saasId`).
+  - El handler `mentoria-whatsapp-handler.ts` se convierte en adapter fino al entrypoint.
+  - Se registra Mentoria en `bootstrapHandlers()` y se crea el test `tests/mentoria-whatsapp.integration.test.ts`.
+- Archivos tocados:
+  - `src/lib/mentoria/whatsapp-entry.ts`
+  - `src/lib/conversation-router/handlers/mentoria-whatsapp-handler.ts`
+  - `src/app/api/conversation-router/route.ts`
+  - `tests/mentoria-whatsapp.integration.test.ts`
+  - `docs/knowledge-pack/11_current_state.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - `npm run typecheck`
+  - `npm test`
+  - `npm run build`
+- Resultado:
+  - WhatsApp enruta via handler de Mentoria, valida actor real y devuelve `MENTORIA_WHATSAPP_NOT_READY` hasta completar automatizacion.
+- Riesgo residual:
+  - Falta automatizacion de respuestas Mentoria sobre WhatsApp; QA manual por definir (`ISSUE-006`).
+- Siguiente accion:
+  - Diseñar el flujo real de automatizacion Mentoria WhatsApp y checklist QA antes de habilitar respuestas.
+- Relacion con issues:
+  - `ISSUE-006`
+
+## [2026-04-12 17:12 UTC+02:00] MENTORIA-WHATSAPP-INTEGRATION-STUB-READY
+- Contexto:
+  - El test de integracion de Mentoria WhatsApp seguia fallando con `MENTORIA_SAAS_CONTEXT_MISMATCH` debido al mock global de `@/lib/cf` que anulaba los bindings configurados en el test.
+- Cambio realizado:
+  - Se reescribio el test `tests/mentoria-whatsapp.integration.test.ts` para importar el modulo real de Cloudflare (`env/setGlobalEnv`), configurar un stub D1 en memoria compatible con `queryOne` y reusar el handler real del router.
+  - Se elimino el `console.log` residual de `MentoriaFamilyRepository`.
+- Archivos tocados:
+  - `tests/mentoria-whatsapp.integration.test.ts`
+  - `src/lib/mentoria/family-repository.ts`
+- Verificacion ejecutada:
+  - `npm test -- --run tests/mentoria-whatsapp.integration.test.ts`
+  - `npm run typecheck`
+  - `npm run build`
+- Resultado:
+  - El router enruta la plataforma Mentoria correcta en el test, valida actor real y devuelve `MENTORIA_WHATSAPP_NOT_READY` como se espera.
+- Riesgo residual:
+  - El flujo Mentoria sigue marcado como "not ready" hasta implementar la automatizacion completa y checklist QA (`ISSUE-006`).
+- Siguiente accion:
+  - Diseñar la automatizacion WhatsApp y checklist QA para poder retirar el mensaje `MENTORIA_WHATSAPP_NOT_READY` cuando el flujo este operativo.
+- Relacion con issues:
+  - `ISSUE-006`
+
 ## Checklist al cerrar cada sesion
 - [ ] Actualizar `11_current_state.md` si cambio el baseline tecnico.
 - [ ] Actualizar el estado de issues en `12_open_issues.md`.

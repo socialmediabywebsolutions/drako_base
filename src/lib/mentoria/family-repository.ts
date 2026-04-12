@@ -75,7 +75,6 @@ export class MentoriaFamilyRepository {
     if (!db) {
       throw new Error("DB_BINDING_REQUIRED");
     }
-    console.log("DB INSTANCE", db);
   }
 
   async getFamilyById(familyId: string): Promise<MentoriaFamily | null> {

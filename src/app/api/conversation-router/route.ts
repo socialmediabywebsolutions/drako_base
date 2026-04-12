@@ -17,7 +17,9 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { routeConversation } from "@/lib/conversation-router";
 import { registerCampamentoBaseWhatsappHandler } from "@/lib/conversation-router/handlers";
+import { registerMentoriaWhatsappHandler } from "@/lib/conversation-router/handlers";
 import { findWhatsappIdentityByPhoneGlobal } from "@/lib/whatsapp/repository";
+import { PlatformTypeResolutionError, resolvePlatformTypeFromSaasId } from "@/lib/saas/resolve-platform-type";
 import type { Channel } from "@/lib/conversation-router/types";
 
 const VALID_CHANNELS = new Set<Channel>(["whatsapp", "instagram_dm", "messenger", "email", "phone_call", "in_person", "sms", "slack", "api", "other"]);
@@ -27,9 +29,9 @@ let handlersBootstrapped = false;
 function bootstrapHandlers(): void {
   if (handlersBootstrapped) return;
   
-  // Only campamento-base has a real WhatsApp automation implementation.
-  // Additional SaaS handlers must be wired here once their domain logic exists.
+  // Active domain handlers for WhatsApp.
   registerCampamentoBaseWhatsappHandler();
+  registerMentoriaWhatsappHandler();
   
   handlersBootstrapped = true;
 }
@@ -40,6 +42,17 @@ function validateBearer(request: NextRequest): boolean {
   const token = auth.slice(7).trim();
   const expected = process.env.DRAKO_ROUTER_SECRET ?? "";
   return expected.length > 0 && token === expected;
+}
+
+function platformTypeResolutionStatus(code: PlatformTypeResolutionError["code"]): number {
+  switch (code) {
+    case "PLATFORM_TYPE_SAAS_NOT_FOUND":
+      return 404;
+    case "PLATFORM_TYPE_INVALID":
+      return 422;
+    case "PLATFORM_TYPE_DB_UNAVAILABLE":
+      return 503;
+  }
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
@@ -92,10 +105,26 @@ export async function POST(request: NextRequest): Promise<Response> {
       return NextResponse.json({ error: "UNKNOWN_SENDER", senderId }, { status: 404 });
     }
     tenantId = identity.tenantId;
-    // All inbound WhatsApp routes to campamento-base — the only SaaS with a real
-    // WhatsApp automation implementation. Multi-SaaS routing requires a platform
-    // type resolver (saasId → handler key) which does not exist yet.
-    saasTarget = "campamento-base";
+    // Resolve the platform handler key from the SaaS instance record.
+    // saas_instances.platform_type is the authoritative source for routing.
+    // No silent fallback is allowed: unresolved or invalid platform types must
+    // fail closed so the message is observable and never routed to the wrong domain.
+    try {
+      saasTarget = await resolvePlatformTypeFromSaasId(identity.saasId);
+    } catch (error) {
+      const detail = error instanceof PlatformTypeResolutionError ? error.code : "PLATFORM_TYPE_DB_UNAVAILABLE";
+      return NextResponse.json(
+        { error: "PLATFORM_TYPE_RESOLUTION_FAILED", detail, saasId: identity.saasId },
+        {
+          status:
+            detail === "PLATFORM_TYPE_SAAS_NOT_FOUND"
+              ? platformTypeResolutionStatus("PLATFORM_TYPE_SAAS_NOT_FOUND")
+              : detail === "PLATFORM_TYPE_INVALID"
+                ? platformTypeResolutionStatus("PLATFORM_TYPE_INVALID")
+                : platformTypeResolutionStatus("PLATFORM_TYPE_DB_UNAVAILABLE"),
+        },
+      );
+    }
     resolvedMetadata = {
       ...resolvedMetadata,
       saasId: identity.saasId,

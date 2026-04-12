@@ -1,34 +1,55 @@
 /**
  * conversation-router/handlers/mentoria-whatsapp-handler.ts
  *
- * NOT_IMPLEMENTED — stub handler for Mentoria SaaS.
- *
- * This handler is a placeholder. It will never be dispatched by the router
- * in the current routing scheme (all WhatsApp routes to campamento-base).
- *
- * To activate: wire this handler to real Mentoria domain logic
- * (src/lib/mentoria/service.ts, src/lib/mentoria/session-engine.ts, etc.)
- * and implement a saasId → platform type resolver in the router.
+ * Thin router adapter for Mentoria WhatsApp domain entrypoint.
  */
+import { runMentoriaWhatsappEntry } from "@/lib/mentoria/whatsapp-entry";
 import { registerHandler } from "../index";
 import type { ConversationHandler, RouteResult } from "../types";
 
 const HANDLER_ID = "mentoria";
 
-const mentoriaWhatsappHandler: ConversationHandler = async (): Promise<RouteResult> => {
-  return {
-    handled: false,
-    handler: HANDLER_ID,
-    reply: null,
-    error: "NOT_IMPLEMENTED",
-  };
+const mentoriaWhatsappHandler: ConversationHandler = async (route): Promise<RouteResult> => {
+  try {
+    const saasId = route.metadata?.saasId as string;
+    if (!saasId) {
+      return {
+        handled: false,
+        handler: HANDLER_ID,
+        reply: null,
+        error: "MISSING_SAAS_ID",
+      };
+    }
+
+    const result = await runMentoriaWhatsappEntry({
+      tenantId: route.tenantId,
+      saasId,
+      phoneNumber: route.senderId,
+      body: route.message,
+      actorType: (route.metadata?.actorType as "PLATFORM_OWNER" | "SAAS_OWNER" | "EMPLOYEE" | "CUSTOMER" | null) ?? null,
+      actorId: (route.metadata?.actorId as string | null) ?? null,
+      metadata: route.metadata ?? null,
+    });
+
+    const reply = result.messagesToSend.map((m) => m.body).join("\n") || null;
+
+    return {
+      handled: result.handled,
+      handler: HANDLER_ID,
+      reply,
+      intent: result.intent,
+      error: result.error,
+    };
+  } catch (error) {
+    return {
+      handled: false,
+      handler: HANDLER_ID,
+      reply: null,
+      error: error instanceof Error ? error.message : "MENTORIA_WHATSAPP_HANDLER_ERROR",
+    };
+  }
 };
 
-/**
- * Register the Mentoria WhatsApp stub with the router.
- * The handler will return NOT_IMPLEMENTED for all messages until
- * real Mentoria domain logic is connected.
- */
 export function registerMentoriaWhatsappHandler(): void {
   registerHandler(HANDLER_ID, mentoriaWhatsappHandler);
 }
