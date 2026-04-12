@@ -3,6 +3,7 @@ import { queryOne } from "@/lib/db";
 import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
 import { MentoriaRepository } from "@/lib/mentoria/repository";
 import { recordObservabilityActivity } from "@/lib/observability-core";
+import type { MentoriaMaterialIntake, MentoriaMaterialIntakeKind } from "@/lib/mentoria/types";
 import type { WhatsappActorType } from "@/lib/whatsapp/types";
 
 export type MentoriaWhatsappEntryParams = {
@@ -40,6 +41,7 @@ type MentoriaWhatsappMediaMetadata = {
 type SupportedStudentMediaKind = "image" | "document";
 
 const SUPPORTED_GUARDIAN_INTENTS = new Set(["resumen", "estado", "como va", "proxima tarea", "ultima sesion", "plan", "alertas"]);
+const MANUAL_MATERIAL_LABELS = new Set(["examen", "tarea", "apuntes", "nota"]);
 const MAX_CONTEXT_TEXT_LENGTH = 160;
 const MATERIAL_CONTEXT_WINDOW_MS = 15 * 60 * 1000;
 const MENTORIA_WHATSAPP_SOURCE_KEY = "mentoria.whatsapp";
@@ -235,6 +237,27 @@ function resolveAcademicDocumentKind(text: string): "exam_document" | "homework_
   if (text.includes("apunte") || text.includes("apuntes")) return "notes_document";
   if (text.includes("estudio") || text.includes("material")) return "study_document";
   return "academic_document";
+}
+
+function isManualMaterialClassification(text: string): boolean {
+  return MANUAL_MATERIAL_LABELS.has(text);
+}
+
+function resolveManualMaterialClassificationKind(intake: MentoriaMaterialIntake, label: string): MentoriaMaterialIntakeKind {
+  if (intake.mediaType === "document") {
+    if (label === "examen") return "exam_document";
+    if (label === "tarea") return "homework_document";
+    return "notes_document";
+  }
+
+  if (label === "examen") return "exam_photo";
+  if (label === "tarea") return "homework_photo";
+  if (label === "apuntes" || label === "nota") return "notes_photo";
+  return "academic_image";
+}
+
+function buildManualClassificationReply(studentName: string, label: string): string {
+  return `He clasificado tu material reciente como ${label}, ${studentName}.`;
 }
 
 function isSupportedStudentMediaMime(kind: SupportedStudentMediaKind, mimeType: string): boolean {
@@ -645,89 +668,150 @@ export async function runMentoriaWhatsappEntry(
   if (params.actorType === "CUSTOMER") {
     const student = await repository.getStudentProfileByUser(tenantId, actorId).catch(() => null);
     if (student) {
-      if (!isShortContextualStudentText(body)) {
-        return {
-          handled: false,
-          messagesToSend: [],
-          error: "MENTORIA_WHATSAPP_CONTEXT_TEXT_NOT_SUPPORTED",
+      if (body.length > 0 && body.length <= MAX_CONTEXT_TEXT_LENGTH) {
+        const sourceMessageId = typeof params.metadata?.messageId === "string" ? params.metadata.messageId.trim() : "";
+        if (!sourceMessageId) {
+          return {
+            handled: false,
+            messagesToSend: [],
+            error: "INVALID_MENTORIA_WHATSAPP_CONTEXT",
+          };
+        }
+
+        const latestMaterial = await repository.getLatestMaterialIntake(tenantId, student.id).catch(() => null);
+        if (!latestMaterial || !isRecentIsoDate(latestMaterial.createdAt, MATERIAL_CONTEXT_WINDOW_MS)) {
+          return {
+            handled: false,
+            messagesToSend: [],
+            error: "MENTORIA_WHATSAPP_RECENT_MATERIAL_NOT_FOUND",
+          };
+        }
+
+        const normalizedBody = normalizeIntent(body);
+        if (isManualMaterialClassification(normalizedBody)) {
+          try {
+            const classified = await repository.updateMaterialIntakeKind({
+              tenantId,
+              intakeId: latestMaterial.id,
+              intakeKind: resolveManualMaterialClassificationKind(latestMaterial, normalizedBody),
+            });
+
+            await recordMentoriaWhatsappActivity({
+              tenantId,
+              saasId,
+              activityType: "student_material_manual_classification",
+              status: "success",
+              summary: classified.replayed
+                ? `Mentoria WhatsApp replayed manual classification ${normalizedBody} safely.`
+                : `Mentoria WhatsApp classified recent material as ${normalizedBody}.`,
+              metadata: {
+                actorType: params.actorType,
+                actorId,
+                messageType,
+                useCase: "student_material_manual_classification",
+                sourceMessageId,
+                studentProfileId: student.id,
+                materialIntakeId: latestMaterial.id,
+                intakeKind: classified.intake.intakeKind,
+                manualLabel: normalizedBody,
+                replayed: classified.replayed,
+              },
+            });
+          } catch {
+            return {
+              handled: false,
+              messagesToSend: [],
+              error: "MENTORIA_MATERIAL_INTAKE_PERSIST_FAILED",
+            };
+          }
+
+          const result = {
+            handled: true,
+            messagesToSend: [{ body: buildManualClassificationReply(student.fullName, normalizedBody) }],
+            intent: "MENTORIA_STUDENT_MATERIAL_CLASSIFIED",
+          };
+
+          await recordMentoriaWhatsappOutcome({
+            tenantId,
+            saasId,
+            handled: result.handled,
+            intent: result.intent,
+            metadata: {
+              actorType: params.actorType,
+              actorId,
+              messageType,
+              useCase: "student_material_manual_classification",
+              manualLabel: normalizedBody,
+            },
+          });
+
+          return result;
+        }
+
+        try {
+          const persisted = await repository.createMaterialContextNote({
+            tenantId,
+            studentProfileId: student.id,
+            materialIntakeId: latestMaterial.id,
+            sourceMessageId,
+            body,
+          });
+
+          await recordMentoriaWhatsappActivity({
+            tenantId,
+            saasId,
+            activityType: "student_context_note",
+            status: "success",
+            summary: persisted.replayed
+              ? "Mentoria WhatsApp replayed contextual note safely."
+              : "Mentoria WhatsApp persisted contextual note successfully.",
+            metadata: {
+              actorType: params.actorType,
+              actorId,
+              messageType,
+              useCase: "student_context_note",
+              studentProfileId: student.id,
+              sourceMessageId,
+              materialIntakeId: latestMaterial.id,
+              contextNoteId: persisted.note.id,
+              replayed: persisted.replayed,
+            },
+          });
+        } catch {
+          return {
+            handled: false,
+            messagesToSend: [],
+            error: "MENTORIA_MATERIAL_CONTEXT_NOTE_PERSIST_FAILED",
+          };
+        }
+
+        const result = {
+          handled: true,
+          messagesToSend: [{ body: `He añadido tu texto al material que enviaste hace un momento, ${student.fullName}. Queda guardado como contexto.` }],
+          intent: "MENTORIA_STUDENT_MATERIAL_CONTEXT_RECORDED",
         };
-      }
 
-      const sourceMessageId = typeof params.metadata?.messageId === "string" ? params.metadata.messageId.trim() : "";
-      if (!sourceMessageId) {
-        return {
-          handled: false,
-          messagesToSend: [],
-          error: "INVALID_MENTORIA_WHATSAPP_CONTEXT",
-        };
-      }
-
-      const latestMaterial = await repository.getLatestMaterialIntake(tenantId, student.id).catch(() => null);
-      if (!latestMaterial || !isRecentIsoDate(latestMaterial.createdAt, MATERIAL_CONTEXT_WINDOW_MS)) {
-        return {
-          handled: false,
-          messagesToSend: [],
-          error: "MENTORIA_WHATSAPP_RECENT_MATERIAL_NOT_FOUND",
-        };
-      }
-
-      try {
-        const persisted = await repository.createMaterialContextNote({
-          tenantId,
-          studentProfileId: student.id,
-          materialIntakeId: latestMaterial.id,
-          sourceMessageId,
-          body,
-        });
-
-        await recordMentoriaWhatsappActivity({
+        await recordMentoriaWhatsappOutcome({
           tenantId,
           saasId,
-          activityType: "student_context_note",
-          status: "success",
-          summary: persisted.replayed
-            ? "Mentoria WhatsApp replayed contextual note safely."
-            : "Mentoria WhatsApp persisted contextual note successfully.",
+          handled: result.handled,
+          intent: result.intent,
           metadata: {
             actorType: params.actorType,
             actorId,
             messageType,
             useCase: "student_context_note",
-            studentProfileId: student.id,
-            sourceMessageId,
-            materialIntakeId: latestMaterial.id,
-            contextNoteId: persisted.note.id,
-            replayed: persisted.replayed,
           },
         });
-      } catch {
-        return {
-          handled: false,
-          messagesToSend: [],
-          error: "MENTORIA_MATERIAL_CONTEXT_NOTE_PERSIST_FAILED",
-        };
+
+        return result;
       }
 
-      const result = {
-        handled: true,
-        messagesToSend: [{ body: `He añadido tu texto al material que enviaste hace un momento, ${student.fullName}. Queda guardado como contexto.` }],
-        intent: "MENTORIA_STUDENT_MATERIAL_CONTEXT_RECORDED",
+      return {
+        handled: false,
+        messagesToSend: [],
+        error: "MENTORIA_WHATSAPP_CONTEXT_TEXT_NOT_SUPPORTED",
       };
-
-      await recordMentoriaWhatsappOutcome({
-        tenantId,
-        saasId,
-        handled: result.handled,
-        intent: result.intent,
-        metadata: {
-          actorType: params.actorType,
-          actorId,
-          messageType,
-          useCase: "student_context_note",
-        },
-      });
-
-      return result;
     }
   }
 

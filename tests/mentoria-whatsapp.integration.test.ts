@@ -594,6 +594,126 @@ describe("Mentoria WhatsApp integration", () => {
     expect(contextResult.reply).toContain("He añadido tu texto al material que enviaste hace un momento, Alex.");
   });
 
+  it("classifies recent student image material with exact closed label", async () => {
+    const imageRoute: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000004",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "foto",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid.image.classification.base",
+        messageType: "image",
+        media: {
+          kind: "image",
+          mediaId: "media_image_classification",
+          mimeType: "image/jpeg",
+        },
+      },
+    };
+    const classificationRoute: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000004",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "examen",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid.image.classification.label",
+        messageType: "text",
+      },
+    };
+
+    const imageResult = await routeConversation(imageRoute);
+    const classificationResult = await routeConversation(classificationRoute);
+    const debug = (globalThis as any).__TEST_DB__.__debug();
+
+    expect(imageResult.intent).toBe("MENTORIA_STUDENT_MATERIAL_RECEIVED");
+    expect(classificationResult.handler).toBe("mentoria");
+    expect(classificationResult.handled).toBe(true);
+    expect(classificationResult.intent).toBe("MENTORIA_STUDENT_MATERIAL_CLASSIFIED");
+    expect(classificationResult.reply).toContain("He clasificado tu material reciente como examen, Alex.");
+    expect(debug.materialIntakeKind).toBe("exam_photo");
+    expect(recordObservabilityActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceKey: "mentoria.whatsapp",
+        activityType: "student_material_manual_classification",
+        status: "success",
+        metadata: expect.objectContaining({
+          manualLabel: "examen",
+          intakeKind: "exam_photo",
+        }),
+      }),
+    );
+  });
+
+  it("replays manual classification safely when the same closed label is sent again", async () => {
+    const imageRoute: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000004",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "foto",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid.image.classification.replay.base",
+        messageType: "image",
+        media: {
+          kind: "image",
+          mediaId: "media_image_classification_replay",
+          mimeType: "image/jpeg",
+        },
+      },
+    };
+    const classificationRoute: ConversationRoute = {
+      channel: "whatsapp",
+      senderId: "+34611000004",
+      tenantId: "tenant_mentoria",
+      saasTarget: "mentoria",
+      message: "apuntes",
+      metadata: {
+        saasId: "saas_mentoria",
+        actorType: "CUSTOMER",
+        actorId: "student_user_1",
+        messageId: "wamid.image.classification.replay.label.1",
+        messageType: "text",
+      },
+    };
+    const classificationRouteSecond: ConversationRoute = {
+      ...classificationRoute,
+      metadata: {
+        ...classificationRoute.metadata,
+        messageId: "wamid.image.classification.replay.label.2",
+      },
+    };
+
+    await routeConversation(imageRoute);
+    const first = await routeConversation(classificationRoute);
+    const second = await routeConversation(classificationRouteSecond);
+
+    expect(first.intent).toBe("MENTORIA_STUDENT_MATERIAL_CLASSIFIED");
+    expect(second.intent).toBe("MENTORIA_STUDENT_MATERIAL_CLASSIFIED");
+    expect(recordObservabilityActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceKey: "mentoria.whatsapp",
+        activityType: "student_material_manual_classification",
+        status: "success",
+        metadata: expect.objectContaining({
+          manualLabel: "apuntes",
+          replayed: true,
+          intakeKind: "notes_photo",
+        }),
+      }),
+    );
+  });
+
   it("handles duplicate context retries idempotently by source message id", async () => {
     const imageRoute: ConversationRoute = {
       channel: "whatsapp",
@@ -1087,6 +1207,19 @@ function createMentoriaTestDb(): TestD1Database {
         return { success: true, changes: 1 };
       }
 
+      if (normalized.startsWith("UPDATE MENTORIA_MATERIAL_INTAKES")) {
+        const [intakeKind, updatedAt, tenantId, intakeId] = this.params as [string, string, string, string];
+        if (materialIntakeRow && materialIntakeRow.tenant_id === tenantId && materialIntakeRow.id === intakeId) {
+          materialIntakeRow = {
+            ...materialIntakeRow,
+            intake_kind: intakeKind,
+            updated_at: updatedAt,
+          };
+          return { success: true, changes: 1 };
+        }
+        return { success: true, changes: 0 };
+      }
+
       if (normalized.startsWith("INSERT INTO PARENT_ACCOUNTS")) {
         const [
           id,
@@ -1358,6 +1491,7 @@ function createMentoriaTestDb(): TestD1Database {
   (fakeDb as any).__debug = () => ({
     materialIntakeInsertCount,
     materialContextNoteInsertCount,
+    materialIntakeKind: materialIntakeRow?.intake_kind ?? null,
   });
 
   return fakeDb;

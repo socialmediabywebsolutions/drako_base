@@ -2459,6 +2459,46 @@ export class MentoriaRepository {
     return row ? mapMaterialIntake(row) : null;
   }
 
+  async updateMaterialIntakeKind(input: {
+    tenantId: string;
+    intakeId: string;
+    intakeKind: MentoriaMaterialIntakeKind;
+  }): Promise<{ intake: MentoriaMaterialIntake; replayed: boolean }> {
+    const existing = await this.db
+      .prepare(`SELECT * FROM mentoria_material_intakes WHERE tenant_id = ? AND id = ? LIMIT 1`)
+      .bind(input.tenantId, input.intakeId)
+      .first<MaterialIntakeRow>();
+
+    if (!existing) {
+      throw new Error("MENTORIA_MATERIAL_INTAKE_NOT_FOUND");
+    }
+
+    if (existing.intake_kind === input.intakeKind) {
+      return { intake: mapMaterialIntake(existing), replayed: true };
+    }
+
+    const now = new Date().toISOString();
+    await this.db
+      .prepare(
+        `UPDATE mentoria_material_intakes
+         SET intake_kind = ?, updated_at = ?
+         WHERE tenant_id = ? AND id = ?`
+      )
+      .bind(input.intakeKind, now, input.tenantId, input.intakeId)
+      .run();
+
+    const updated = await this.db
+      .prepare(`SELECT * FROM mentoria_material_intakes WHERE tenant_id = ? AND id = ? LIMIT 1`)
+      .bind(input.tenantId, input.intakeId)
+      .first<MaterialIntakeRow>();
+
+    if (!updated) {
+      throw new Error("MENTORIA_MATERIAL_INTAKE_PERSIST_FAILED");
+    }
+
+    return { intake: mapMaterialIntake(updated), replayed: false };
+  }
+
   async createMaterialContextNote(input: {
     tenantId: string;
     studentProfileId: string;
