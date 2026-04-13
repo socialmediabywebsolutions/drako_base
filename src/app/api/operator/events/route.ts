@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { UnauthorizedError, requireOwnerAccess } from "@/lib/auth/session";
 import { queryAll } from "@/lib/db";
+import { triggerOperatorRealtimeWhatsappAlertForMentoriaEvent } from "@/lib/campamento-base/operator-whatsapp-notifications";
 
 
 type CriticalEventRow = {
@@ -12,6 +13,7 @@ type CriticalEventRow = {
   created_at: string;
   correlation_id: string;
   saas_slug: string | null;
+  saas_id: string | null;
 };
 
 type RollupRow = {
@@ -33,7 +35,7 @@ export async function GET(request: Request) {
   try {
     const { tenantId } = await requireOwnerAccess(request);
     const criticalEvents = await queryAll<CriticalEventRow>(
-      `SELECT e.type, e.severity, e.message, e.created_at, e.correlation_id, s.slug AS saas_slug
+      `SELECT e.type, e.severity, e.message, e.created_at, e.correlation_id, s.slug AS saas_slug, e.saas_id
        FROM campamento_events e
        LEFT JOIN saas s ON s.id = e.saas_id AND s.tenant_id = e.tenant_id
        WHERE e.tenant_id = ?
@@ -59,6 +61,22 @@ export async function GET(request: Request) {
       // Fallback seguro si la tabla de rollups no existe aún (migraciones de workers no aplicadas)
       console.warn("OPERATOR_EVENTS_ROLLUPS_FALLBACK", { message: (err as Error).message });
       rollups = [];
+    }
+
+    const mentoriaCriticalEvent = criticalEvents.find((event) =>
+      event.severity === "CRITICAL" && event.type.startsWith("mentoria.system."),
+    );
+    if (mentoriaCriticalEvent) {
+      try {
+        await triggerOperatorRealtimeWhatsappAlertForMentoriaEvent({
+          operatorTenantId: tenantId,
+          eventType: mentoriaCriticalEvent.type,
+          severity: mentoriaCriticalEvent.severity,
+          saasId: mentoriaCriticalEvent.saas_id,
+        });
+      } catch (triggerError) {
+        console.error("OPERATOR_EVENTS_MENTORIA_WHATSAPP_TRIGGER_ERROR", triggerError);
+      }
     }
 
     return NextResponse.json({ criticalEvents, rollups });

@@ -126,6 +126,60 @@ function mapIdentityRow(row: WhatsappIdentityRow): WhatsappIdentity {
   };
 }
 
+type WhatsappLineHints = {
+  phoneNumberId?: string | null;
+  displayPhoneNumber?: string | null;
+};
+
+function normalizeLineHint(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function metadataLineCandidates(metadata: Record<string, unknown> | null): string[] {
+  if (!metadata) return [];
+
+  const candidateKeys = [
+    "phoneNumberId",
+    "linePhoneNumberId",
+    "whatsappPhoneNumberId",
+    "providerPhoneNumberId",
+    "displayPhoneNumber",
+    "lineDisplayPhoneNumber",
+  ];
+
+  const candidates: string[] = [];
+  for (const key of candidateKeys) {
+    const raw = metadata[key];
+    if (typeof raw !== "string") continue;
+    const normalized = normalizeLineHint(raw);
+    if (normalized) {
+      candidates.push(normalized);
+    }
+  }
+  return candidates;
+}
+
+function identityMatchesLineHints(identity: WhatsappIdentity, hints: WhatsappLineHints): boolean {
+  const normalizedPhoneNumberId = normalizeLineHint(hints.phoneNumberId);
+  const normalizedDisplayPhoneNumber = normalizeLineHint(hints.displayPhoneNumber);
+
+  if (!normalizedPhoneNumberId && !normalizedDisplayPhoneNumber) {
+    return false;
+  }
+
+  const candidates = metadataLineCandidates(identity.metadata);
+  if (candidates.length === 0) {
+    return false;
+  }
+
+  return (
+    (normalizedPhoneNumberId ? candidates.includes(normalizedPhoneNumberId) : false)
+    || (normalizedDisplayPhoneNumber ? candidates.includes(normalizedDisplayPhoneNumber) : false)
+  );
+}
+
 function mapMessageRow(row: WhatsappMessageRow): WhatsappMessage {
   return {
     id: row.id,
@@ -284,7 +338,19 @@ export async function findWhatsappIdentityByPhoneGlobal(
   phoneNumber: string,
   env?: DracoEnv | null,
 ): Promise<WhatsappIdentity | null> {
-  const runtimeEnv = resolveEnvOverride(env);
+  return findWhatsappIdentityByPhoneAndLineGlobal({
+    phoneNumber,
+    env,
+  });
+}
+
+export async function findWhatsappIdentityByPhoneAndLineGlobal(input: {
+  phoneNumber: string;
+  phoneNumberId?: string | null;
+  displayPhoneNumber?: string | null;
+  env?: DracoEnv | null;
+}): Promise<WhatsappIdentity | null> {
+  const runtimeEnv = resolveEnvOverride(input.env);
   const db = runtimeEnv?.DRACO_DB;
 
   if (!db) {
@@ -298,11 +364,32 @@ export async function findWhatsappIdentityByPhoneGlobal(
       `SELECT id, tenant_id, saas_id, actor_type, actor_id, phone_number, preferred_language, allowed_channels, consent_flags, metadata, created_at, updated_at
        FROM saas_whatsapp_identities
        WHERE phone_number = ?
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      phoneNumber,
+       ORDER BY created_at DESC`,
+      input.phoneNumber,
     );
-    return rows[0] ? mapIdentityRow(rows[0]) : null;
+
+    if (!rows[0]) {
+      return null;
+    }
+
+    const candidates = rows.map(mapIdentityRow);
+    const hints: WhatsappLineHints = {
+      phoneNumberId: input.phoneNumberId ?? null,
+      displayPhoneNumber: input.displayPhoneNumber ?? null,
+    };
+
+    const hasLineHints = Boolean(normalizeLineHint(hints.phoneNumberId) || normalizeLineHint(hints.displayPhoneNumber));
+    if (hasLineHints) {
+      const lineMatches = candidates.filter((identity) => identityMatchesLineHints(identity, hints));
+      if (lineMatches.length === 1) {
+        return lineMatches[0] ?? null;
+      }
+      if (lineMatches.length > 1) {
+        return null;
+      }
+    }
+
+    return candidates.length === 1 ? (candidates[0] ?? null) : null;
   } catch {
     return null;
   }

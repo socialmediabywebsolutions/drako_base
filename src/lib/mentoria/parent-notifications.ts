@@ -22,6 +22,7 @@ function validatePhoneNumber(phone: string): boolean {
 }
 
 export async function sendParentSessionNotification(input: {
+  tenantId?: string;
   sessionId: string;
   studentId: string;
   parentPhone: string;
@@ -34,6 +35,7 @@ export async function sendParentSessionNotification(input: {
     const errorMsg = "INVALID_PHONE_NUMBER";
     console.error("[ParentNotification] Invalid phone number:", input.parentPhone);
     await logNotificationFailure({
+      tenantId: input.tenantId,
       sessionId: input.sessionId,
       studentId: input.studentId,
       parentPhone: input.parentPhone,
@@ -58,6 +60,7 @@ export async function sendParentSessionNotification(input: {
     if (!result.success) {
       console.error("[ParentNotification] WhatsApp send failed:", result.error, "Retries:", result.retryCount);
       await logNotificationFailure({
+        tenantId: input.tenantId,
         sessionId: input.sessionId,
         studentId: input.studentId,
         parentPhone: input.parentPhone,
@@ -79,6 +82,7 @@ export async function sendParentSessionNotification(input: {
 
     console.log("[ParentNotification] Message sent successfully:", result.messageId, "Retries:", result.retryCount);
     await logNotificationSuccess({
+      tenantId: input.tenantId,
       sessionId: input.sessionId,
       studentId: input.studentId,
       parentPhone: input.parentPhone,
@@ -100,6 +104,7 @@ export async function sendParentSessionNotification(input: {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("[ParentNotification] Error sending notification:", errorMessage);
     await logNotificationFailure({
+      tenantId: input.tenantId,
       sessionId: input.sessionId,
       studentId: input.studentId,
       parentPhone: input.parentPhone,
@@ -120,6 +125,7 @@ export async function sendParentSessionNotification(input: {
 }
 
 async function logNotificationSuccess(input: {
+  tenantId?: string;
   sessionId: string;
   studentId: string;
   parentPhone: string;
@@ -131,11 +137,12 @@ async function logNotificationSuccess(input: {
     await db
       .prepare(
         `INSERT INTO mentoria_notification_log (
-          id, session_id, student_id, parent_phone, message_id, status, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+          id, tenant_id, session_id, student_id, parent_phone, message_id, status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         crypto.randomUUID(),
+        input.tenantId ?? null,
         input.sessionId,
         input.studentId,
         input.parentPhone,
@@ -150,6 +157,7 @@ async function logNotificationSuccess(input: {
 }
 
 async function logNotificationFailure(input: {
+  tenantId?: string;
   sessionId: string;
   studentId: string;
   parentPhone: string;
@@ -161,11 +169,12 @@ async function logNotificationFailure(input: {
     await db
       .prepare(
         `INSERT INTO mentoria_notification_log (
-          id, session_id, student_id, parent_phone, error_message, status, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+          id, tenant_id, session_id, student_id, parent_phone, error_message, status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         crypto.randomUUID(),
+        input.tenantId ?? null,
         input.sessionId,
         input.studentId,
         input.parentPhone,

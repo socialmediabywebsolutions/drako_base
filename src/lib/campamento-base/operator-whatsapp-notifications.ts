@@ -46,6 +46,12 @@ export type OperatorRealtimeWhatsappAlertResult = {
   reason?: "SAAS_NOT_VISIBLE" | "NO_RELEVANT_ACTIVITY";
 };
 
+export type OperatorMentoriaRealtimeTriggerResult = {
+  triggered: boolean;
+  reason?: "NOT_MENTORIA" | "NOT_CRITICAL" | "MISSING_SAAS_ID";
+  alert?: OperatorRealtimeWhatsappAlertResult;
+};
+
 type OperatorVisibleSaas = Pick<FactorySaasRecord, "saasId" | "displayName" | "metadata">;
 
 type DailySummarySaasBlock = {
@@ -406,6 +412,36 @@ export async function sendOperatorDailyWhatsappSummary(
     });
     throw error;
   }
+}
+
+export async function triggerOperatorRealtimeWhatsappAlertForMentoriaEvent(input: {
+  operatorTenantId: string;
+  eventType: string;
+  severity: string;
+  saasId: string | null;
+}): Promise<OperatorMentoriaRealtimeTriggerResult> {
+  const eventType = normalizeString(input.eventType);
+  const severity = normalizeString(input.severity).toLowerCase();
+  const saasId = normalizeString(input.saasId ?? "");
+
+  if (!eventType.startsWith("mentoria.system.")) {
+    return { triggered: false, reason: "NOT_MENTORIA" };
+  }
+
+  if (severity !== "critical") {
+    return { triggered: false, reason: "NOT_CRITICAL" };
+  }
+
+  if (!saasId) {
+    return { triggered: false, reason: "MISSING_SAAS_ID" };
+  }
+
+  const alert = await sendOperatorRealtimeWhatsappAlert({
+    operatorTenantId: input.operatorTenantId,
+    saasId,
+  });
+
+  return { triggered: true, alert };
 }
 
 export async function sendOperatorRealtimeWhatsappAlert(

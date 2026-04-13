@@ -26,6 +26,8 @@ export function extractInboundMessages(payload: MetaWebhookPayload): NormalizedI
       if (change.field !== "messages") continue;
 
       const value = change.value;
+      const linePhoneNumberId = value.metadata?.phone_number_id?.trim();
+      const lineDisplayPhoneNumber = value.metadata?.display_phone_number?.trim();
 
       for (const msg of value.messages ?? []) {
         const contact = value.contacts?.find((c) => c.wa_id === msg.from);
@@ -39,6 +41,8 @@ export function extractInboundMessages(payload: MetaWebhookPayload): NormalizedI
             messageId: msg.id,
             body,
             timestamp: msg.timestamp,
+            linePhoneNumberId: linePhoneNumberId || undefined,
+            lineDisplayPhoneNumber: lineDisplayPhoneNumber || undefined,
             senderName: contact?.profile?.name,
             messageType: "text",
           });
@@ -51,6 +55,8 @@ export function extractInboundMessages(payload: MetaWebhookPayload): NormalizedI
             messageId: msg.id,
             body: msg.image.caption?.trim() || "[image]",
             timestamp: msg.timestamp,
+            linePhoneNumberId: linePhoneNumberId || undefined,
+            lineDisplayPhoneNumber: lineDisplayPhoneNumber || undefined,
             senderName: contact?.profile?.name,
             messageType: "image",
             media: {
@@ -70,6 +76,8 @@ export function extractInboundMessages(payload: MetaWebhookPayload): NormalizedI
             messageId: msg.id,
             body: msg.document.caption?.trim() || msg.document.filename?.trim() || "[document]",
             timestamp: msg.timestamp,
+            linePhoneNumberId: linePhoneNumberId || undefined,
+            lineDisplayPhoneNumber: lineDisplayPhoneNumber || undefined,
             senderName: contact?.profile?.name,
             messageType: "document",
             media: {

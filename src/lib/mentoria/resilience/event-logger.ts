@@ -21,6 +21,10 @@ type SystemEventRow = {
   created_at: string;
 };
 
+type EventCountRow = {
+  count: number;
+};
+
 export class EventLogger {
   constructor(private db: D1Database = getDb()) {}
 
@@ -149,5 +153,39 @@ export class EventLogger {
       eventType,
       limit,
     });
+  }
+
+  async getEventCount(input: {
+    tenantId: string;
+    severity?: SystemEventSeverity;
+    eventType?: string;
+    since?: string;
+    excludeEventTypePrefix?: string;
+  }): Promise<number> {
+    let query = `SELECT COUNT(*) AS count FROM mentoria_system_events WHERE tenant_id = ?`;
+    const params: any[] = [input.tenantId];
+
+    if (input.severity) {
+      query += ` AND severity = ?`;
+      params.push(input.severity);
+    }
+
+    if (input.eventType) {
+      query += ` AND event_type = ?`;
+      params.push(input.eventType);
+    }
+
+    if (input.since) {
+      query += ` AND created_at >= ?`;
+      params.push(input.since);
+    }
+
+    if (input.excludeEventTypePrefix) {
+      query += ` AND event_type NOT LIKE ?`;
+      params.push(`${input.excludeEventTypePrefix}%`);
+    }
+
+    const result = await this.db.prepare(query).bind(...params).first<EventCountRow>();
+    return Number(result?.count ?? 0);
   }
 }

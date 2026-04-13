@@ -88,6 +88,37 @@ type FactoryItem = {
   missingDepartments?: string[];
 };
 
+type MentoriaSystemHealth = {
+  notifications: { pending: number; failed: number; abandoned: number; total: number };
+  feedback: { pending: number; failed: number; total: number };
+  publishes: { pending: number; failed: number; abandoned: number; total: number };
+  criticalEvents: number;
+  silence?: {
+    studentsWithoutRecentFeedback: number;
+    studentsWithoutRecentParentNotification: number;
+    studentsWithoutRecentAcademicActivity: number;
+  };
+};
+
+type OperatorCriticalEvent = {
+  type: string;
+  severity: string;
+  message: string;
+  createdAt: string;
+  correlationId: string;
+  saasSlug?: string | null;
+};
+
+type OperatorEventRollup = {
+  day: string;
+  saasSlug?: string | null;
+  type: string;
+  severity: string;
+  count: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+
 function normalizeFactoryStatus(status?: string | null): { label: string; badge: "ok" | "warn" | "err" } {
   const normalized = status?.toUpperCase() ?? "PENDING";
   if (normalized === "SUCCESS" || normalized === "COMPLETED") return { label: "SUCCESS", badge: "ok" };
@@ -202,6 +233,10 @@ function resolveDbHealthBadge(status?: string | null): "ok" | "warn" | "err" | "
   if (status === "WARNING") return "warn";
   if (status === "OK") return "ok";
   return "neutral";
+}
+
+function isMentoriaSystemEventType(type?: string | null): boolean {
+  return typeof type === "string" && type.startsWith("mentoria.system.");
 }
 
 export default function OwnerPage() {
@@ -345,26 +380,15 @@ export default function OwnerPage() {
   const [treasuryLoading, setTreasuryLoading] = useState(true);
   const [treasuryError, setTreasuryError] = useState<string | null>(null);
   const [eventsSnapshot, setEventsSnapshot] = useState<{
-    criticalEvents: Array<{
-      type: string;
-      severity: string;
-      message: string;
-      createdAt: string;
-      correlationId: string;
-      saasSlug?: string | null;
-    }>;
-    rollups: Array<{
-      day: string;
-      saasSlug?: string | null;
-      type: string;
-      severity: string;
-      count: number;
-      firstSeenAt: string;
-      lastSeenAt: string;
-    }>;
+    criticalEvents: OperatorCriticalEvent[];
+    rollups: OperatorEventRollup[];
   } | null>(null);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
+  const [mentoriaSystemHealth, setMentoriaSystemHealth] = useState<MentoriaSystemHealth | null>(null);
+  const [mentoriaSystemHealthLoading, setMentoriaSystemHealthLoading] = useState(true);
+  const [mentoriaSystemHealthError, setMentoriaSystemHealthError] = useState<string | null>(null);
+  const [showOnlyMentoriaEvents, setShowOnlyMentoriaEvents] = useState(false);
   const [dbHealth, setDbHealth] = useState<{
     status: "OK" | "WARNING" | "CRITICAL";
     appliedMigrations: { count: number; ids: string[] };
@@ -472,6 +496,40 @@ export default function OwnerPage() {
       setMessage("No se pudieron cargar los datos fiscales.");
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const loadMentoriaSystemHealth = useCallback(async () => {
+    setMentoriaSystemHealthLoading(true);
+    setMentoriaSystemHealthError(null);
+    try {
+      const parseBody = async (response: Response) => {
+        return (await response.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          health?: MentoriaSystemHealth;
+        } | null;
+      };
+
+      const directRes = await fetch("/api/mentoria/health/system", { cache: "no-store" });
+      const directBody = await parseBody(directRes);
+      if (directRes.ok && directBody?.ok && directBody.health) {
+        setMentoriaSystemHealth(directBody.health);
+        return;
+      }
+
+      const fallbackRes = await fetch("/api/operator/mentoria/health/system", { cache: "no-store" });
+      const fallbackBody = await parseBody(fallbackRes);
+      if (!fallbackRes.ok || !fallbackBody?.ok || !fallbackBody.health) {
+        throw new Error(fallbackBody?.error ?? directBody?.error ?? "No se pudo cargar Mentoria system health.");
+      }
+
+      setMentoriaSystemHealth(fallbackBody.health);
+    } catch (error) {
+      setMentoriaSystemHealth(null);
+      setMentoriaSystemHealthError(error instanceof Error ? error.message : "No se pudo cargar Mentoria system health.");
+    } finally {
+      setMentoriaSystemHealthLoading(false);
     }
   }, []);
 
@@ -783,6 +841,7 @@ export default function OwnerPage() {
     void loadFactory();
     void loadDomains();
     void loadEvents();
+    void loadMentoriaSystemHealth();
     void loadDbHealth();
 
     // Phase 2: load operator data
@@ -834,6 +893,7 @@ export default function OwnerPage() {
     loadFactory,
     loadDomains,
     loadEvents,
+    loadMentoriaSystemHealth,
     loadDbHealth,
   ]);
 
@@ -858,6 +918,12 @@ export default function OwnerPage() {
         a.title.localeCompare(b.title),
     );
   const topCriticalActions = actionItems.filter((item) => item.priority === "CRITICAL").slice(0, 5);
+  const visibleCriticalEvents: OperatorCriticalEvent[] = (eventsSnapshot?.criticalEvents ?? []).filter((event) =>
+    showOnlyMentoriaEvents ? isMentoriaSystemEventType(event.type) : true,
+  );
+  const visibleRollups: OperatorEventRollup[] = (eventsSnapshot?.rollups ?? []).filter((rollup) =>
+    showOnlyMentoriaEvents ? isMentoriaSystemEventType(rollup.type) : true,
+  );
 
   const resolveTargetLabel = useCallback(
     (action: OwnerGrowthAutopilotAction) => {
@@ -1011,6 +1077,34 @@ export default function OwnerPage() {
         </div>
       </Card>
 
+      <Card tone="glass" title="Mentoria System Health" subtitle="Estado de resiliencia (jobs, eventos y silencio)">
+        {mentoriaSystemHealthLoading ? (
+          <p className="text-sm text-[var(--muted)]">Cargando Mentoria system health...</p>
+        ) : mentoriaSystemHealthError ? (
+          <p className="text-sm text-red-300">{mentoriaSystemHealthError}</p>
+        ) : !mentoriaSystemHealth ? (
+          <EmptyState title="Sin datos" subtitle="No hay datos de health disponibles." />
+        ) : (
+          <div className="space-y-3 text-sm text-[var(--muted)]">
+            <p>
+              Notifications - pending: {mentoriaSystemHealth.notifications.pending}, failed: {mentoriaSystemHealth.notifications.failed}, abandoned: {mentoriaSystemHealth.notifications.abandoned}
+            </p>
+            <p>
+              Feedback - pending: {mentoriaSystemHealth.feedback.pending}, failed: {mentoriaSystemHealth.feedback.failed}
+            </p>
+            <p>
+              Publishes - pending: {mentoriaSystemHealth.publishes.pending}, failed: {mentoriaSystemHealth.publishes.failed}
+            </p>
+            <p>Critical events: {mentoriaSystemHealth.criticalEvents}</p>
+            {mentoriaSystemHealth.silence ? (
+              <p>
+                Silence - no feedback: {mentoriaSystemHealth.silence.studentsWithoutRecentFeedback}, no parent notification: {mentoriaSystemHealth.silence.studentsWithoutRecentParentNotification}, no academic activity: {mentoriaSystemHealth.silence.studentsWithoutRecentAcademicActivity}
+              </p>
+            ) : null}
+          </div>
+        )}
+      </Card>
+
       <Card tone="glass" title="Resumen global" subtitle="Indicadores combinados">
         {portfolioLoading ? (
           <p className="text-sm text-[var(--muted)]">Cargando portfolio...</p>
@@ -1053,9 +1147,17 @@ export default function OwnerPage() {
           <EmptyState title="Sin eventos" subtitle="No hay eventos disponibles todavia." />
         ) : (
           <div className="space-y-4">
+            <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]">
+              <input
+                type="checkbox"
+                checked={showOnlyMentoriaEvents}
+                onChange={() => setShowOnlyMentoriaEvents(!showOnlyMentoriaEvents)}
+              />
+              Show only Mentoria events
+            </label>
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Ultimos CRITICAL/SECURITY</p>
-              {eventsSnapshot.criticalEvents.length === 0 ? (
+              {visibleCriticalEvents.length === 0 ? (
                 <p className="text-sm text-[var(--muted)]">No hay eventos criticos recientes.</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -1070,10 +1172,15 @@ export default function OwnerPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {eventsSnapshot.criticalEvents.map((event) => (
+                      {visibleCriticalEvents.map((event) => (
                         <tr key={`${event.correlationId}-${event.createdAt}`}>
                           <td className="text-xs text-[var(--muted)]">{new Date(event.createdAt).toLocaleString()}</td>
-                          <td>{event.type}</td>
+                          <td>
+                            {event.type}
+                            {isMentoriaSystemEventType(event.type) ? (
+                              <span className="ml-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-cyan-300">MENTORIA</span>
+                            ) : null}
+                          </td>
                           <td>
                             <Badge variant="err">{event.severity}</Badge>
                           </td>
@@ -1088,7 +1195,7 @@ export default function OwnerPage() {
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Rollups diarios (14 dias)</p>
-              {eventsSnapshot.rollups.length === 0 ? (
+              {visibleRollups.length === 0 ? (
                 <p className="text-sm text-[var(--muted)]">Sin rollups en los ultimos dias.</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -1103,13 +1210,18 @@ export default function OwnerPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {eventsSnapshot.rollups.map((rollup) => (
+                      {visibleRollups.map((rollup) => (
                         <tr key={`${rollup.day}-${rollup.type}-${rollup.severity}-${rollup.saasSlug ?? "global"}`}>
                           <td className="text-xs text-[var(--muted)]">{rollup.day}</td>
                           <td>
                             <Badge variant={resolveHealthBadge(rollup.severity)}>{rollup.severity}</Badge>
                           </td>
-                          <td>{rollup.type}</td>
+                          <td>
+                            {rollup.type}
+                            {isMentoriaSystemEventType(rollup.type) ? (
+                              <span className="ml-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-cyan-300">MENTORIA</span>
+                            ) : null}
+                          </td>
                           <td className="text-xs text-[var(--muted)]">{rollup.saasSlug ?? "global"}</td>
                           <td>{rollup.count}</td>
                         </tr>

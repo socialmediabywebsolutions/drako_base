@@ -98,6 +98,8 @@ export type NormalizedInbound = {
   messageId: string;
   body: string;
   timestamp: string;
+  linePhoneNumberId?: string;
+  lineDisplayPhoneNumber?: string;
   senderName?: string;
   messageType: "text" | "image" | "document";
   media?: {

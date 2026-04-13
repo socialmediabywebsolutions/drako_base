@@ -85,6 +85,8 @@ async function callRouter(
       timestamp: msg.timestamp,
       senderName: msg.senderName ?? null,
       messageType: msg.messageType,
+      phoneNumberId: msg.linePhoneNumberId ?? null,
+      displayPhoneNumber: msg.lineDisplayPhoneNumber ?? null,
       media: msg.media ?? null,
     },
   };

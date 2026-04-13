@@ -18,7 +18,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { routeConversation } from "@/lib/conversation-router";
 import { registerCampamentoBaseWhatsappHandler } from "@/lib/conversation-router/handlers";
 import { registerMentoriaWhatsappHandler } from "@/lib/conversation-router/handlers";
-import { findWhatsappIdentityByPhoneGlobal } from "@/lib/whatsapp/repository";
+import { findWhatsappIdentityByPhoneAndLineGlobal } from "@/lib/whatsapp/repository";
 import { PlatformTypeResolutionError, resolvePlatformTypeFromSaasId } from "@/lib/saas/resolve-platform-type";
 import type { Channel } from "@/lib/conversation-router/types";
 
@@ -34,6 +34,15 @@ function bootstrapHandlers(): void {
   registerMentoriaWhatsappHandler();
   
   handlersBootstrapped = true;
+}
+
+function readLineHints(metadata: Record<string, unknown>): { phoneNumberId: string | null; displayPhoneNumber: string | null } {
+  const phoneNumberId = typeof metadata.phoneNumberId === "string" ? metadata.phoneNumberId.trim() : "";
+  const displayPhoneNumber = typeof metadata.displayPhoneNumber === "string" ? metadata.displayPhoneNumber.trim() : "";
+  return {
+    phoneNumberId: phoneNumberId || null,
+    displayPhoneNumber: displayPhoneNumber || null,
+  };
 }
 
 function validateBearer(request: NextRequest): boolean {
@@ -100,7 +109,12 @@ export async function POST(request: NextRequest): Promise<Response> {
   if (channel === "whatsapp" && !tenantId) {
     // For inbound WhatsApp from the channel worker, tenantId is resolved here
     // from the saas_whatsapp_identities table using the sender phone number.
-    const identity = await findWhatsappIdentityByPhoneGlobal(senderId).catch(() => null);
+    const lineHints = readLineHints(resolvedMetadata);
+    const identity = await findWhatsappIdentityByPhoneAndLineGlobal({
+      phoneNumber: senderId,
+      phoneNumberId: lineHints.phoneNumberId,
+      displayPhoneNumber: lineHints.displayPhoneNumber,
+    }).catch(() => null);
     if (!identity) {
       return NextResponse.json({ error: "UNKNOWN_SENDER", senderId }, { status: 404 });
     }
