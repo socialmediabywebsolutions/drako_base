@@ -47,10 +47,10 @@ binding = "SCHEDULER"
 service = "drako-scheduler"
 
 [vars]
-SAASES_SLUG = "mentoria"
-SAASES_DOMAIN = "localhost:8787"
+SAASES_SLUG = "mentorias"
+SAASES_DOMAIN = "mentoria.drako.systems"
 AUTHS_SECRETS_NAME = "MENTORIAS_AUTHS_SECRET"
-NEXTAUTH_URL = "http://localhost:8787"
+NEXTAUTH_URL = "https://mentoria.drako.systems"
 AUTHS_ISOLATIONS_ENABLED = "true"
 AUTHS_LEGACY_COMPATS_ENABLED = "false"
 ROUTINGS_SUBDOMAINS_ENABLED = "true"
