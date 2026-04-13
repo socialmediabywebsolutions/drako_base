@@ -58,16 +58,42 @@ type SearchParamReader = {
 };
 
 const STORAGE_KEY = "mentoria-onboarding-activation-v2";
+const TOTAL_STEPS = 6;
 const DEFAULT_STAGE = "eso";
 const DEFAULT_SCHOOL_YEAR = MENTORIA_SCHOOL_YEAR_OPTIONS[6];
 const DEFAULT_FALLBACK_SUBJECTS = getWorkspaceUiCopy(DEFAULT_STAGE).fallbackSubjects;
-const GUARDIAN_STEP_COPY = {
-  title: "1. Tutor principal",
-  description: "Quien esta haciendo el alta y acompanara este primer arranque del alumno.",
+const WELCOME_STEP_COPY = {
+  title: "Vamos a ayudar a tu hijo de verdad",
+  description:
+    "No es solo estudiar mas. Es entender que le cuesta, acompanarle y hacer que avance sin frustracion.",
+  note: "En menos de 2 minutos dejamos todo listo.",
+  cta: "Empezar",
 };
-const OBJECTIVE_STEP_COPY = {
-  title: "4. Objetivo principal",
-  description: "Con esto guiamos la ayuda inicial al resultado mas importante.",
+const GUARDIAN_STEP_COPY = {
+  title: "Tutor principal",
+  description: "Queremos adaptar Mentoria tambien a como tu quieres ayudarle.",
+};
+const STUDENT_STEP_COPY = {
+  title: "Cuentanos sobre tu hijo/a",
+  description:
+    "Cada alumno es distinto. Cuanto mejor lo entendamos, mejor podremos ayudarle. No importa si le cuesta o si ha repetido. Nos adaptamos a su ritmo.",
+};
+const SUBJECTS_STEP_COPY = {
+  title: "Donde necesita mas ayuda?",
+  description:
+    "Selecciona las materias y como le van ahora mismo. Esto no es para evaluarle, es para empezar en el punto correcto.",
+};
+const GOAL_STEP_COPY = {
+  title: "Que te gustaria que cambiara primero?",
+  confidenceTitle: "Como se siente ahora con los estudios?",
+  description: "Esto nos ayuda a ajustar como le hablamos y como le acompanamos.",
+};
+const FINAL_STEP_COPY = {
+  title: "Todo listo. Ya estamos con el.",
+  description: "Hemos preparado:",
+  extra: "Mas adelante podras anadir mas hijos o invitar a otro tutor.",
+  enterCta: "Entrar a Mentoria",
+  launchCta: "Dejar todo listo",
 };
 
 function buildMentoriaWorkspaceUrl(searchParams: SearchParamReader): string {
@@ -80,6 +106,12 @@ function buildMentoriaWorkspaceUrl(searchParams: SearchParamReader): string {
     target.searchParams.set("__drako_host", "mentoria.drako.systems");
   }
   return `${target.pathname}${target.search}`;
+}
+
+function getSelectedSubjectNames(draft: OnboardingDraft, subjects: MentoriaSubject[]): string[] {
+  return draft.student.subjects
+    .map((item) => subjects.find((subject) => subject.slug === item.subjectSlug)?.name ?? item.subjectSlug)
+    .filter((name) => Boolean(name));
 }
 
 const EMPTY_DRAFT: OnboardingDraft = {
@@ -108,12 +140,8 @@ function confidenceNumberToLabel(value: number): ConfidenceLabel {
   return "medium";
 }
 
-function renumberStepTitle(title: string, step: number): string {
-  return title.replace(/^\d+\.\s*/, `${step}. `);
-}
-
 function getStepValidation(step: number, draft: OnboardingDraft): OnboardingValidation {
-  if (step === 1) {
+  if (step === 2) {
     if (!draft.primaryGuardian.fullName.trim()) {
       return { valid: false, message: "Escribe el nombre del tutor principal." };
     }
@@ -123,7 +151,7 @@ function getStepValidation(step: number, draft: OnboardingDraft): OnboardingVali
     return { valid: true, message: null };
   }
 
-  if (step === 2) {
+  if (step === 3) {
     if (!draft.student.fullName.trim()) {
       return { valid: false, message: "Escribe el nombre del alumno." };
     }
@@ -133,19 +161,16 @@ function getStepValidation(step: number, draft: OnboardingDraft): OnboardingVali
     return { valid: true, message: null };
   }
 
-  if (step === 3) {
+  if (step === 4) {
     return draft.student.subjects.length > 0
       ? { valid: true, message: null }
       : { valid: false, message: "Selecciona al menos una materia." };
   }
 
-  if (step === 4) {
-    return draft.student.goal
-      ? { valid: true, message: null }
-      : { valid: false, message: "Selecciona el objetivo principal." };
-  }
-
   if (step === 5) {
+    if (!draft.student.goal) {
+      return { valid: false, message: "Selecciona el objetivo principal." };
+    }
     return typeof draft.student.confidence === "number" && draft.student.confidence >= 1
       ? { valid: true, message: null }
       : { valid: false, message: "Indica como se siente ahora mismo." };
@@ -184,7 +209,7 @@ function formatGuardianRelationLabel(relation: MentoriaGuardianRole): string {
 function StepBadge({ current }: { current: number }) {
   return (
     <div className="mb-8 flex items-center gap-2">
-      {[1, 2, 3, 4, 5, 6].map((step) => (
+      {Array.from({ length: TOTAL_STEPS }, (_, index) => index + 1).map((step) => (
         <div
           key={step}
           className={`h-2 flex-1 rounded-full transition-colors duration-200 ${
@@ -418,6 +443,7 @@ export function MentoriaOnboardingWizard() {
 
         <div className="mt-8">
           <StepBadge current={step} />
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{`Paso ${step} de ${TOTAL_STEPS}`}</p>
         </div>
 
         {error ? (
@@ -425,8 +451,19 @@ export function MentoriaOnboardingWizard() {
         ) : null}
 
         {step === 1 ? (
+          <section className="space-y-5">
+            <h2 className="text-3xl font-black tracking-tight">{WELCOME_STEP_COPY.title}</h2>
+            <p className="max-w-2xl text-sm text-slate-600">{WELCOME_STEP_COPY.description}</p>
+            <p className="text-sm font-semibold text-emerald-700">{WELCOME_STEP_COPY.note}</p>
+            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900 shadow-sm">
+              Activacion guiada para familias: iremos paso a paso y podras revisar todo antes de activar.
+            </div>
+          </section>
+        ) : null}
+
+        {step === 2 ? (
           <section className="space-y-4">
-            <h2 className="text-2xl font-bold">{GUARDIAN_STEP_COPY.title}</h2>
+            <h2 className="text-2xl font-bold">{`Quien esta acompanando a ${draft.student.fullName.trim() || "tu hijo/a"}?`}</h2>
             <p className="text-sm text-slate-600">{GUARDIAN_STEP_COPY.description}</p>
             <input
               value={draft.primaryGuardian.fullName}
@@ -440,7 +477,7 @@ export function MentoriaOnboardingWizard() {
                 }))
               }
               className="w-full rounded-3xl border border-slate-200 px-5 py-4 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors duration-200"
-              placeholder="Tu nombre (padre, madre o tutor)"
+              placeholder="Nombre completo del tutor principal"
             />
             <div className="grid gap-3 md:grid-cols-3">
               {([
@@ -470,16 +507,13 @@ export function MentoriaOnboardingWizard() {
                 </button>
               ))}
             </div>
-            {draft.primaryGuardian.fullName.trim() ? (
-              <div className="rounded-3xl bg-emerald-50 p-4 text-sm text-emerald-900">{`Tranquilo, ${draft.primaryGuardian.fullName.trim()}, vamos paso a paso.`}</div>
-            ) : null}
           </section>
         ) : null}
 
-        {step === 2 ? (
+        {step === 3 ? (
           <section className="space-y-4">
-            <h2 className="text-2xl font-bold">{renumberStepTitle(ui.step1.title, 2)}</h2>
-            <p className="text-sm text-slate-600">{ui.step1.description}</p>
+            <h2 className="text-2xl font-bold">{STUDENT_STEP_COPY.title}</h2>
+            <p className="text-sm text-slate-600">{STUDENT_STEP_COPY.description}</p>
             <input
               value={draft.student.fullName}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
@@ -489,7 +523,7 @@ export function MentoriaOnboardingWizard() {
                 }))
               }
               className="w-full rounded-3xl border border-slate-200 px-5 py-4 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors duration-200"
-              placeholder={ui.step1.fullNamePlaceholder}
+              placeholder="Nombre del alumno/a"
             />
             <div className="grid gap-3 md:grid-cols-3">
               {MENTORIA_SCHOOL_YEAR_OPTIONS.map((year) => (
@@ -515,10 +549,10 @@ export function MentoriaOnboardingWizard() {
           </section>
         ) : null}
 
-        {step === 3 ? (
+        {step === 4 ? (
           <section className="space-y-5">
-            <h2 className="text-2xl font-bold">{renumberStepTitle(ui.step2.title, 3)}</h2>
-            <p className="text-sm text-slate-600">{ui.step2.description}</p>
+            <h2 className="text-2xl font-bold">{SUBJECTS_STEP_COPY.title}</h2>
+            <p className="text-sm text-slate-600">{SUBJECTS_STEP_COPY.description}</p>
             <div className="grid gap-4 md:grid-cols-2">
               {subjects.map((subject) => {
                 const current = draft.student.subjects.find((item: SubjectChoice) => item.subjectSlug === subject.slug);
@@ -607,10 +641,9 @@ export function MentoriaOnboardingWizard() {
           </section>
         ) : null}
 
-        {step === 4 ? (
+        {step === 5 ? (
           <section className="space-y-5">
-            <h2 className="text-2xl font-bold">{OBJECTIVE_STEP_COPY.title}</h2>
-            <p className="text-sm text-slate-600">{OBJECTIVE_STEP_COPY.description}</p>
+            <h2 className="text-2xl font-bold">{GOAL_STEP_COPY.title}</h2>
             <div className="grid gap-3 md:grid-cols-2">
               {Object.entries(ui.step2.objectives).map(([value, option]) => (
                 <button
@@ -633,13 +666,10 @@ export function MentoriaOnboardingWizard() {
                 </button>
               ))}
             </div>
-          </section>
-        ) : null}
-
-        {step === 5 ? (
-          <section className="space-y-5">
-            <h2 className="text-2xl font-bold">{renumberStepTitle(ui.step3.title, 5)}</h2>
-            <p className="text-sm text-slate-600">{ui.step3.description}</p>
+            <div className="pt-2">
+              <h3 className="text-lg font-bold">{GOAL_STEP_COPY.confidenceTitle}</h3>
+              <p className="mt-2 text-sm text-slate-600">{GOAL_STEP_COPY.description}</p>
+            </div>
             <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
               <div className="font-semibold">{ui.step3.confidenceTitle}</div>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
@@ -664,21 +694,25 @@ export function MentoriaOnboardingWizard() {
                 ))}
               </div>
             </div>
-            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-slate-700 shadow-sm">{ui.step4.wowMessage}</div>
           </section>
         ) : null}
 
         {step === 6 ? (
           <section className="space-y-5">
-            <h2 className="text-2xl font-bold">{renumberStepTitle(ui.step4.title, 6)}</h2>
-            <p className="text-sm text-slate-600">{ui.step4.description}</p>
+            <h2 className="text-2xl font-bold">{FINAL_STEP_COPY.title}</h2>
             {!activation ? (
               <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-700 shadow-sm">
-                <p><strong>Tutor principal:</strong> {`${formatGuardianRelationLabel(draft.primaryGuardian.relation)} ${draft.primaryGuardian.fullName}`.trim()}</p>
-                <p className="mt-2"><strong>{ui.step6.summaryStudent}:</strong> {draft.student.fullName}</p>
-                <p className="mt-2"><strong>{ui.step6.summarySubjects}:</strong> {draft.student.subjects.map((item) => subjects.find((subject) => subject.slug === item.subjectSlug)?.name ?? item.subjectSlug).join(", ")}</p>
-                <p className="mt-2"><strong>{ui.step4.summaryObjective}:</strong> {ui.step2.objectives[draft.student.goal].title}</p>
-                <p className="mt-2"><strong>{ui.step4.summaryConfidence}:</strong> {ui.step3.confidenceOptions[confidenceNumberToLabel(draft.student.confidence)]}</p>
+                <p className="font-semibold text-slate-900">{FINAL_STEP_COPY.description}</p>
+                <ul className="mt-3 space-y-2 list-disc pl-5">
+                  <li>Un plan adaptado a su nivel</li>
+                  <li>{`Apoyo en ${getSelectedSubjectNames(draft, subjects).join(", ") || "sus materias prioritarias"}`}</li>
+                  <li>Seguimiento de su progreso</li>
+                  <li>Acompanamiento para que gane seguridad</li>
+                </ul>
+                <p className="mt-4"><strong>Tutor principal:</strong> {`${formatGuardianRelationLabel(draft.primaryGuardian.relation)} ${draft.primaryGuardian.fullName}`.trim()}</p>
+                <p className="mt-1"><strong>{ui.step6.summaryStudent}:</strong> {draft.student.fullName}</p>
+                <p className="mt-1"><strong>{ui.step6.summarySubjects}:</strong> {getSelectedSubjectNames(draft, subjects).join(", ")}</p>
+                <p className="mt-4 text-slate-600">{FINAL_STEP_COPY.extra}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -718,25 +752,25 @@ export function MentoriaOnboardingWizard() {
             type="button"
             onClick={() => setStep((current) => Math.max(1, current - 1))}
             className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold hover:bg-slate-50 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-transform duration-200 active:scale-[0.99]"
-            disabled={saving || Boolean(activation)}
+            disabled={saving || Boolean(activation) || step === 1}
           >
             {ui.back}
           </button>
-          {step < 6 ? (
+          {step < TOTAL_STEPS ? (
             <button
               type="button"
               onClick={() => {
                 const validation = getStepValidation(step, draft);
                 if (validation.valid) {
                   setError(null);
-                  setStep((current) => Math.min(6, current + 1));
+                  setStep((current) => Math.min(TOTAL_STEPS, current + 1));
                 } else {
                   setError(validation.message ?? ui.validationError);
                 }
               }}
               className="rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-transform duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {ui.next}
+              {step === 1 ? WELCOME_STEP_COPY.cta : ui.next}
             </button>
           ) : activation ? (
             <button
@@ -746,7 +780,7 @@ export function MentoriaOnboardingWizard() {
               }}
               className="rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-black focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-transform duration-200 active:scale-[0.99]"
             >
-              {ui.step4.enterAction}
+              {FINAL_STEP_COPY.enterCta}
             </button>
           ) : (
             <button
@@ -755,7 +789,7 @@ export function MentoriaOnboardingWizard() {
               onClick={finish}
               className="rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-black focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-transform duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {saving ? ui.saving : ui.step4.launchAction}
+              {saving ? ui.saving : FINAL_STEP_COPY.launchCta}
             </button>
           )}
         </div>
