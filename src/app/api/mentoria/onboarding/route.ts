@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireCurrentMentoriaSession } from "@/lib/mentoria/auth/request";
 import { MentoriaService } from "@/lib/mentoria/service";
+import type { MentoriaOnboardingPayload } from "@/lib/mentoria/types";
 
 export const dynamic = "force-dynamic";
 
@@ -44,39 +45,7 @@ export async function POST(request: Request) {
     const actor = await requireCurrentMentoriaSession(request);
     const service = new MentoriaService();
 
-    const body = (await request.json()) as {
-      fullName: string;
-      age: number;
-      schoolYear: string;
-      subjects: Array<{
-        subjectSlug: string;
-        initialLevel: "me_cuesta_mucho" | "voy_normal" | "se_me_da_bien";
-      }>;
-      emotionalBaseline?: {
-        frustration: "low" | "medium" | "high";
-        motivation: "low" | "medium" | "high";
-        concentration: "low" | "medium" | "high";
-      };
-      learningPreference?:
-        | "practical_examples"
-        | "step_by_step"
-        | "quick_summaries";
-      parents?: Array<{
-        slot: "Parent A" | "Parent B";
-        fullName: string;
-        email: string;
-        dailyStudyMinutes: number;
-        supervisionLevel: "light" | "balanced" | "close";
-      }>;
-      objective?:
-        | "improve_understanding"
-        | "pass_subject"
-        | "build_habit"
-        | "gain_confidence";
-      confidenceLevel?: "low" | "medium" | "high";
-      referralCode?: string;
-      inviteToken?: string;
-    };
+    const body = (await request.json()) as MentoriaOnboardingPayload;
 
     const result = await service.submitOnboarding(actor, body);
 

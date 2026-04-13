@@ -45,16 +45,16 @@ describe("MentoriaOnboardingWizard", () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         ok: true,
+        primaryGuardian: null,
         profile: null,
         subjects: onboardingSubjects,
         studentSubjects: [],
-        parents: [],
       }),
     );
 
     render(React.createElement(MentoriaOnboardingWizard));
 
-    await screen.findByText("1. Quien acompana al alumno?");
+    await screen.findByText("1. Tutor principal");
 
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.getByText("Escribe el nombre del tutor principal.")).toBeInTheDocument();
@@ -86,10 +86,10 @@ describe("MentoriaOnboardingWizard", () => {
       .mockResolvedValueOnce(
         jsonResponse({
           ok: true,
+          primaryGuardian: null,
           profile: null,
           subjects: onboardingSubjects,
           studentSubjects: [],
-          parents: [],
         }),
       )
       .mockResolvedValueOnce(
@@ -129,7 +129,7 @@ describe("MentoriaOnboardingWizard", () => {
 
     render(React.createElement(MentoriaOnboardingWizard));
 
-    await screen.findByText("1. Quien acompana al alumno?");
+    await screen.findByText("1. Tutor principal");
 
     fireEvent.change(screen.getByPlaceholderText("Tu nombre (padre, madre o tutor)"), {
       target: { value: "Marta" },
@@ -166,12 +166,16 @@ describe("MentoriaOnboardingWizard", () => {
 
     const payload = JSON.parse(String(request?.body));
     expect(payload).toEqual({
-      guardianName: "Marta",
-      fullName: "Alex",
-      age: 13,
-      schoolYear: "2 ESO",
+      primaryGuardian: {
+        fullName: "Marta",
+        relation: "tutor",
+      },
+      student: {
+        fullName: "Alex",
+        schoolYear: "2 ESO",
+      },
       subjects: [{ subjectSlug: "matematicas", initialLevel: "me_cuesta_mucho" }],
-      objective: "improve_understanding",
+      goal: "improve_understanding",
       confidenceLevel: "medium",
     });
 

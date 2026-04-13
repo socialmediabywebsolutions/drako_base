@@ -8,6 +8,8 @@ import type {
   FocusSession,
   InterventionType,
   LearningSession,
+  MentoriaConversationContext,
+  MentoriaConversationScopeType,
   MentoriaIntervention,
   MentoriaMaterialContextNote,
   MentoriaMaterialIntake,
@@ -15,6 +17,9 @@ import type {
   MentoriaDashboard,
   MentoriaEmotionalBaseline,
   MentoriaExercise,
+  MentoriaGuardianAccessibleStudent,
+  MentoriaGuardianFamilyRelation,
+  MentoriaGuardianSystemRole,
   MentoriaInitialLevel,
   MentoriaProgress,
   MentoriaProgressShare,
@@ -88,6 +93,43 @@ type ParentAccountRow = {
   supervision_level: string | null;
   can_view_full_progress: number;
   can_manage_schedule: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type GuardianAccessibleStudentRow = {
+  access_id?: string | null;
+  family_id: string;
+  guardian_id?: string | null;
+  student_id: string;
+  student_profile_id?: string | null;
+  can_view_full_progress?: number | null;
+  can_manage_schedule?: number | null;
+  daily_study_minutes?: number | null;
+  supervision_level?: string | null;
+  notification_preferences_json?: string | null;
+  is_primary_contact?: number | null;
+  guardian_email?: string | null;
+  guardian_name?: string | null;
+  guardian_system_role?: MentoriaGuardianSystemRole | null;
+  guardian_family_relation?: MentoriaGuardianFamilyRelation | null;
+  student_name?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type ConversationContextRow = {
+  id: string;
+  family_id: string;
+  actor_type: "guardian_actor" | "student_actor";
+  actor_id: string;
+  channel: "whatsapp";
+  thread_key: string;
+  scope_type: MentoriaConversationScopeType;
+  active_student_id: string | null;
+  status: "active" | "closed";
+  resolved_by: "single_access" | "explicit_switch" | "legacy_fallback";
+  last_explicit_switch_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -477,6 +519,61 @@ function mapParent(row: ParentAccountRow): ParentAccount {
   };
 }
 
+function parseStringArray(value: string | null | undefined): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map((item) => String(item)) : [];
+  } catch {
+    return [];
+  }
+}
+
+function mapGuardianAccessibleStudent(row: GuardianAccessibleStudentRow): MentoriaGuardianAccessibleStudent {
+  const studentProfileId = row.student_profile_id ?? row.student_id;
+  const createdAt = row.created_at ?? new Date(0).toISOString();
+  const updatedAt = row.updated_at ?? createdAt;
+  return {
+    id: row.access_id ?? `legacy:${row.family_id}:${studentProfileId}`,
+    familyId: row.family_id,
+    guardianId: row.guardian_id ?? "",
+    studentId: row.student_id,
+    studentProfileId,
+    canViewFullProgress: row.can_view_full_progress === null || row.can_view_full_progress === undefined ? true : Boolean(row.can_view_full_progress),
+    canManageSchedule: Boolean(row.can_manage_schedule),
+    dailyStudyMinutes: Number(row.daily_study_minutes ?? 0),
+    supervisionLevel: (row.supervision_level ?? "balanced") as MentoriaGuardianAccessibleStudent["supervisionLevel"],
+    notificationPreferences: parseStringArray(row.notification_preferences_json),
+    isPrimaryContact: Boolean(row.is_primary_contact),
+    guardianEmail: row.guardian_email ?? null,
+    guardianName: row.guardian_name ?? null,
+    guardianSystemRole: row.guardian_system_role ?? null,
+    guardianFamilyRelation: row.guardian_family_relation ?? null,
+    studentName: row.student_name?.trim() || studentProfileId,
+    source: row.access_id ? "canonical" : "legacy_parent_accounts",
+    createdAt,
+    updatedAt,
+  };
+}
+
+function mapConversationContext(row: ConversationContextRow): MentoriaConversationContext {
+  return {
+    id: row.id,
+    familyId: row.family_id,
+    actorType: row.actor_type,
+    actorId: row.actor_id,
+    channel: row.channel,
+    threadKey: row.thread_key,
+    scopeType: row.scope_type,
+    activeStudentId: row.active_student_id ?? null,
+    status: row.status,
+    resolvedBy: row.resolved_by,
+    lastExplicitSwitchAt: row.last_explicit_switch_at ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function mapStudentSubject(row: StudentSubjectRow, subject?: MentoriaSubject): MentoriaStudentSubject {
   return {
     id: row.id,
@@ -748,7 +845,7 @@ export class MentoriaRepository {
   constructor(private db: DbLike = getDb()) {}
 
   private async hasTable(table: string): Promise<boolean> {
-    const row = await this.db
+    const result = await this.db
       .prepare(
         `SELECT name
          FROM sqlite_master
@@ -756,14 +853,218 @@ export class MentoriaRepository {
          LIMIT 1`,
       )
       .bind(table)
-      .first<{ name: string }>();
+      .all<{ name: string }>();
+    const row = result.results?.[0] ?? null;
     return Boolean(row?.name);
   }
 
   private async hasColumn(table: string, column: string): Promise<boolean> {
-    const res = await this.db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+    const res = await this.db.prepare(`PRAGMA table_info(${table})`).bind().all<{ name: string }>();
     const names = (res.results ?? []).map((r) => (r?.name ?? "").toLowerCase());
     return names.includes(column.toLowerCase());
+  }
+
+  async listGuardianAccessibleStudents(tenantId: string, guardianUserId: string): Promise<MentoriaGuardianAccessibleStudent[]> {
+    if (await this.hasTable("guardian_student_access")) {
+      const canonicalRows = await this.db
+        .prepare(
+          `SELECT
+             gsa.id AS access_id,
+             gsa.family_id,
+             gsa.guardian_id,
+             gsa.student_id,
+             COALESCE(gsa.student_profile_id, gsa.student_id) AS student_profile_id,
+             gsa.can_view_full_progress,
+             gsa.can_manage_schedule,
+             gsa.daily_study_minutes,
+             gsa.supervision_level,
+             gsa.notification_preferences_json,
+             gsa.is_primary_contact,
+             g.email AS guardian_email,
+             g.name AS guardian_name,
+             ${await this.hasColumn("guardians", "system_role") ? "g.system_role" : "NULL"} AS guardian_system_role,
+             ${await this.hasColumn("guardians", "family_relation") ? "g.family_relation" : "g.role"} AS guardian_family_relation,
+             COALESCE(sp.full_name, sp.display_name, s.name) AS student_name,
+             gsa.created_at,
+             gsa.updated_at
+           FROM guardian_student_access gsa
+           JOIN guardians g
+             ON g.id = gsa.guardian_id
+            AND g.family_id = gsa.family_id
+           JOIN (
+             SELECT tenant_id, user_id, lower(email) AS guardian_email
+             FROM parent_accounts
+             WHERE user_id IS NOT NULL
+             GROUP BY tenant_id, user_id, lower(email)
+           ) guardian_bridge
+             ON guardian_bridge.tenant_id = gsa.family_id
+            AND guardian_bridge.user_id = ?
+            AND guardian_bridge.guardian_email = lower(g.email)
+           LEFT JOIN student_profiles sp
+             ON sp.tenant_id = gsa.family_id
+            AND sp.id = COALESCE(gsa.student_profile_id, gsa.student_id)
+           LEFT JOIN students s
+             ON s.family_id = gsa.family_id
+            AND s.id = gsa.student_id
+           WHERE gsa.family_id = ?
+           ORDER BY student_name ASC`,
+        )
+        .bind(guardianUserId, tenantId)
+        .all<GuardianAccessibleStudentRow>()
+        .catch(() => ({ results: [] as GuardianAccessibleStudentRow[] }));
+
+      const canonical = (canonicalRows.results ?? []).map(mapGuardianAccessibleStudent);
+      if (canonical.length > 0) {
+        return canonical;
+      }
+    }
+
+    const legacyRows = await this.db
+      .prepare(
+        `SELECT
+           NULL AS access_id,
+           pa.tenant_id AS family_id,
+           NULL AS guardian_id,
+           pa.student_profile_id AS student_id,
+           pa.student_profile_id AS student_profile_id,
+           pa.can_view_full_progress,
+           pa.can_manage_schedule,
+           pa.daily_study_minutes,
+           pa.supervision_level,
+           pa.notification_preferences_json,
+           0 AS is_primary_contact,
+           pa.email AS guardian_email,
+           pa.full_name AS guardian_name,
+           NULL AS guardian_system_role,
+           pa.relationship_label AS guardian_family_relation,
+           COALESCE(sp.full_name, sp.display_name, pa.student_profile_id) AS student_name,
+           pa.created_at,
+           pa.updated_at
+         FROM parent_accounts pa
+         LEFT JOIN student_profiles sp
+           ON sp.tenant_id = pa.tenant_id
+          AND sp.id = pa.student_profile_id
+         WHERE pa.tenant_id = ? AND pa.user_id = ?
+         ORDER BY student_name ASC`,
+      )
+      .bind(tenantId, guardianUserId)
+      .all<GuardianAccessibleStudentRow>();
+
+    const seen = new Set<string>();
+    return (legacyRows.results ?? [])
+      .map(mapGuardianAccessibleStudent)
+      .filter((row) => {
+        const key = `${row.studentId}:${row.studentProfileId}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
+  async getConversationContext(input: {
+    familyId: string;
+    channel: "whatsapp";
+    threadKey: string;
+    actorType: "guardian_actor" | "student_actor";
+    actorId: string;
+  }): Promise<MentoriaConversationContext | null> {
+    if (!(await this.hasTable("conversation_context"))) {
+      return null;
+    }
+
+    const row = await this.db
+      .prepare(
+        `SELECT *
+         FROM conversation_context
+         WHERE family_id = ? AND channel = ? AND thread_key = ? AND actor_type = ? AND actor_id = ?
+         LIMIT 1`,
+      )
+      .bind(input.familyId, input.channel, input.threadKey, input.actorType, input.actorId)
+      .first<ConversationContextRow>();
+    return row ? mapConversationContext(row) : null;
+  }
+
+  async upsertConversationContext(input: {
+    familyId: string;
+    channel: "whatsapp";
+    threadKey: string;
+    actorType: "guardian_actor" | "student_actor";
+    actorId: string;
+    scopeType: MentoriaConversationScopeType;
+    activeStudentId?: string | null;
+    resolvedBy: MentoriaConversationContext["resolvedBy"];
+    status?: MentoriaConversationContext["status"];
+    markExplicitSwitch?: boolean;
+  }): Promise<MentoriaConversationContext> {
+    if (!(await this.hasTable("conversation_context"))) {
+      const now = new Date().toISOString();
+      return {
+        id: `synthetic:${input.familyId}:${input.channel}:${input.threadKey}:${input.actorType}:${input.actorId}`,
+        familyId: input.familyId,
+        actorType: input.actorType,
+        actorId: input.actorId,
+        channel: input.channel,
+        threadKey: input.threadKey,
+        scopeType: input.scopeType,
+        activeStudentId: input.activeStudentId ?? null,
+        status: input.status ?? "active",
+        resolvedBy: input.resolvedBy,
+        lastExplicitSwitchAt: input.markExplicitSwitch ? now : null,
+        createdAt: now,
+        updatedAt: now,
+      };
+    }
+
+    const now = new Date().toISOString();
+    const existing = await this.getConversationContext({
+      familyId: input.familyId,
+      channel: input.channel,
+      threadKey: input.threadKey,
+      actorType: input.actorType,
+      actorId: input.actorId,
+    });
+
+    const id = existing?.id ?? crypto.randomUUID();
+    const lastExplicitSwitchAt = input.markExplicitSwitch ? now : existing?.lastExplicitSwitchAt ?? null;
+
+    await this.db
+      .prepare(
+        `INSERT INTO conversation_context (
+           id, family_id, actor_type, actor_id, channel, thread_key, scope_type, active_student_id,
+           status, resolved_by, last_explicit_switch_at, created_at, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(family_id, channel, thread_key, actor_type, actor_id) DO UPDATE SET
+           scope_type = excluded.scope_type,
+           active_student_id = excluded.active_student_id,
+           status = excluded.status,
+           resolved_by = excluded.resolved_by,
+           last_explicit_switch_at = excluded.last_explicit_switch_at,
+           updated_at = excluded.updated_at`,
+      )
+      .bind(
+        id,
+        input.familyId,
+        input.actorType,
+        input.actorId,
+        input.channel,
+        input.threadKey,
+        input.scopeType,
+        input.activeStudentId ?? null,
+        input.status ?? "active",
+        input.resolvedBy,
+        lastExplicitSwitchAt,
+        existing?.createdAt ?? now,
+        now,
+      )
+      .run();
+
+    return (await this.getConversationContext({
+      familyId: input.familyId,
+      channel: input.channel,
+      threadKey: input.threadKey,
+      actorType: input.actorType,
+      actorId: input.actorId,
+    })) as MentoriaConversationContext;
   }
 
   async getStudentProfileByUser(tenantId: string, userId: string): Promise<StudentProfile | null> {

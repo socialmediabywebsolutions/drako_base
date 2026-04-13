@@ -3,7 +3,7 @@ import { queryOne } from "@/lib/db";
 import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
 import { MentoriaRepository } from "@/lib/mentoria/repository";
 import { recordObservabilityActivity } from "@/lib/observability-core";
-import type { MentoriaMaterialIntake, MentoriaMaterialIntakeKind } from "@/lib/mentoria/types";
+import type { MentoriaGuardianAccessibleStudent, MentoriaMaterialIntake, MentoriaMaterialIntakeKind } from "@/lib/mentoria/types";
 import type { WhatsappActorType } from "@/lib/whatsapp/types";
 
 export type MentoriaWhatsappEntryParams = {
@@ -135,6 +135,104 @@ function buildGuardianAlertsResponse(studentName: string, interventions: Awaited
     `- Resumen: ${topAlert.summary}`,
     `- Recomendacion: ${topAlert.recommendations[0] ?? "sin recomendacion registrada"}`,
   ]);
+}
+
+function buildGuardianContextRequiredReply(accessList: MentoriaGuardianAccessibleStudent[]): string {
+  const names = accessList.map((item) => item.studentName).filter(Boolean);
+  return `Necesito que indiques de que alumno hablas antes de continuar. Alumnos disponibles: ${names.join(", ")}.`;
+}
+
+async function resolveGuardianStudentTarget(params: {
+  repository: MentoriaRepository;
+  tenantId: string;
+  actorId: string;
+  phoneNumber: string;
+  metadata?: Record<string, unknown> | null;
+}) {
+  const accessList = await params.repository.listGuardianAccessibleStudents(params.tenantId, params.actorId).catch(() => []);
+  if (accessList.length === 0) {
+    return {
+      kind: "missing" as const,
+    };
+  }
+
+  const requestedActiveStudentId = typeof params.metadata?.activeStudentId === "string" ? params.metadata.activeStudentId.trim() : "";
+  if (requestedActiveStudentId) {
+    const explicitTarget =
+      accessList.find((item) => item.studentId === requestedActiveStudentId || item.studentProfileId === requestedActiveStudentId) ?? null;
+    if (!explicitTarget) {
+      return {
+        kind: "forbidden" as const,
+        accessList,
+      };
+    }
+
+    await params.repository.upsertConversationContext({
+      familyId: params.tenantId,
+      channel: "whatsapp",
+      threadKey: params.phoneNumber,
+      actorType: "guardian_actor",
+      actorId: params.actorId,
+      scopeType: "student",
+      activeStudentId: explicitTarget.studentId,
+      resolvedBy: "explicit_switch",
+      markExplicitSwitch: true,
+    });
+
+    return {
+      kind: "resolved" as const,
+      target: explicitTarget,
+      accessList,
+      resolution: "explicit_switch" as const,
+    };
+  }
+
+  if (accessList.length === 1) {
+    const singleTarget = accessList[0] as MentoriaGuardianAccessibleStudent;
+    await params.repository.upsertConversationContext({
+      familyId: params.tenantId,
+      channel: "whatsapp",
+      threadKey: params.phoneNumber,
+      actorType: "guardian_actor",
+      actorId: params.actorId,
+      scopeType: "student",
+      activeStudentId: singleTarget.studentId,
+      resolvedBy: singleTarget.source === "canonical" ? "single_access" : "legacy_fallback",
+    });
+
+    return {
+      kind: "resolved" as const,
+      target: singleTarget,
+      accessList,
+      resolution: singleTarget.source === "canonical" ? "single_access" : "legacy_fallback",
+    };
+  }
+
+  const context = await params.repository.getConversationContext({
+    familyId: params.tenantId,
+    channel: "whatsapp",
+    threadKey: params.phoneNumber,
+    actorType: "guardian_actor",
+    actorId: params.actorId,
+  });
+
+  if (context?.activeStudentId) {
+    const contextualTarget =
+      accessList.find((item) => item.studentId === context.activeStudentId || item.studentProfileId === context.activeStudentId) ?? null;
+    if (contextualTarget) {
+      return {
+        kind: "resolved" as const,
+        target: contextualTarget,
+        accessList,
+        resolution: "context" as const,
+      };
+    }
+  }
+
+  return {
+    kind: "ambiguous" as const,
+    accessList,
+  };
 }
 
 async function buildGuardianIntentResult(params: {
@@ -862,8 +960,15 @@ export async function runMentoriaWhatsappEntry(
     return result;
   }
 
-  const parentAccount = await repository.getParentAccountByUser(tenantId, actorId).catch(() => null);
-  if (!parentAccount) {
+  const guardianTarget = await resolveGuardianStudentTarget({
+    repository,
+    tenantId,
+    actorId,
+    phoneNumber,
+    metadata: params.metadata,
+  });
+
+  if (guardianTarget.kind === "missing") {
     return {
       handled: false,
       messagesToSend: [],
@@ -871,7 +976,54 @@ export async function runMentoriaWhatsappEntry(
     };
   }
 
-  const student = await repository.getStudentProfileById(tenantId, parentAccount.studentProfileId).catch(() => null);
+  if (guardianTarget.kind === "forbidden") {
+    const result = {
+      handled: false,
+      messagesToSend: [],
+      error: "MENTORIA_WHATSAPP_STUDENT_CONTEXT_FORBIDDEN",
+    };
+
+    await recordMentoriaWhatsappOutcome({
+      tenantId,
+      saasId,
+      handled: result.handled,
+      error: result.error,
+      metadata: {
+        actorType: params.actorType,
+        actorId,
+        messageType,
+        useCase: "guardian_invalid_student_context",
+      },
+    });
+
+    return result;
+  }
+
+  if (guardianTarget.kind === "ambiguous") {
+    const result = {
+      handled: false,
+      messagesToSend: [{ body: buildGuardianContextRequiredReply(guardianTarget.accessList) }],
+      error: "MENTORIA_WHATSAPP_STUDENT_CONTEXT_REQUIRED",
+    };
+
+    await recordMentoriaWhatsappOutcome({
+      tenantId,
+      saasId,
+      handled: result.handled,
+      error: result.error,
+      metadata: {
+        actorType: params.actorType,
+        actorId,
+        messageType,
+        useCase: "guardian_student_context_required",
+        availableStudents: guardianTarget.accessList.map((item) => item.studentId),
+      },
+    });
+
+    return result;
+  }
+
+  const student = await repository.getStudentProfileById(tenantId, guardianTarget.target.studentProfileId).catch(() => null);
   if (!student) {
     return {
       handled: false,
@@ -904,6 +1056,8 @@ export async function runMentoriaWhatsappEntry(
       useCase: classifyGuardianIntent(normalizedIntent),
       normalizedIntent,
       studentProfileId: student.id,
+      studentResolution: guardianTarget.resolution,
+      accessSource: guardianTarget.target.source,
     },
   });
 
@@ -918,6 +1072,8 @@ export async function runMentoriaWhatsappEntry(
       messageType,
       useCase: classifyGuardianIntent(normalizedIntent),
       normalizedIntent,
+      studentResolution: guardianTarget.resolution,
+      accessSource: guardianTarget.target.source,
     },
   });
 

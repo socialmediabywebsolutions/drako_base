@@ -189,10 +189,16 @@ describe("mentoria product flow surface", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          fullName: "Alex",
-          age: 13,
-          schoolYear: "2 eso",
+          primaryGuardian: {
+            fullName: "Family",
+            relation: "tutor",
+          },
+          student: {
+            fullName: "Alex",
+            schoolYear: "2 eso",
+          },
           subjects: [{ subjectSlug: "matematicas", initialLevel: "me_cuesta_mucho" }],
+          goal: "improve_understanding",
           confidenceLevel: "medium",
         }),
       }),

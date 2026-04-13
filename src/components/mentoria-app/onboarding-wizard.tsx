@@ -12,14 +12,16 @@ import {
 } from "@/lib/mentoria/microcopy";
 import type {
   DailyPlan,
+  MentoriaGuardianRole,
+  MentoriaOnboardingPayload,
+  MentoriaOnboardingPrimaryGuardian,
   MentoriaProgress,
   MentoriaStudentSubject,
   MentoriaSubject,
-  ParentAccount,
   StudentProfile,
 } from "@/lib/mentoria/types";
 
-type OnboardingObjective = "improve_understanding" | "pass_subject" | "build_habit" | "gain_confidence";
+type OnboardingObjective = MentoriaOnboardingPayload["goal"];
 type ConfidenceLabel = "low" | "medium" | "high";
 
 type SubjectChoice = {
@@ -28,7 +30,7 @@ type SubjectChoice = {
 };
 
 type OnboardingDraft = {
-  guardians: [{ name: string }, { name?: string }];
+  primaryGuardian: MentoriaOnboardingPrimaryGuardian;
   student: {
     fullName: string;
     schoolYear: string;
@@ -50,17 +52,7 @@ type OnboardingValidation = {
   message: string | null;
 };
 
-type OnboardingSubmissionPayload = {
-  guardianName: string;
-  fullName: string;
-  age: number;
-  schoolYear: string;
-  subjects: SubjectChoice[];
-  objective: OnboardingObjective;
-  confidenceLevel: ConfidenceLabel;
-  referralCode?: string;
-  inviteToken?: string;
-};
+type OnboardingSubmissionPayload = MentoriaOnboardingPayload;
 
 type SearchParamReader = {
   get(name: string): string | null;
@@ -71,8 +63,8 @@ const DEFAULT_STAGE = "eso";
 const DEFAULT_SCHOOL_YEAR = MENTORIA_SCHOOL_YEAR_OPTIONS[6];
 const DEFAULT_FALLBACK_SUBJECTS = getWorkspaceUiCopy(DEFAULT_STAGE).fallbackSubjects;
 const GUARDIAN_STEP_COPY = {
-  title: "1. Quien acompana al alumno?",
-  description: "Eres el tutor legal. Con tu nombre personalizamos mensajes y decisiones.",
+  title: "1. Tutor principal",
+  description: "Quien esta haciendo el alta y acompanara este primer arranque del alumno.",
 };
 const OBJECTIVE_STEP_COPY = {
   title: "4. Objetivo principal",
@@ -92,7 +84,10 @@ function buildMentoriaWorkspaceUrl(searchParams: SearchParamReader): string {
 }
 
 const EMPTY_DRAFT: OnboardingDraft = {
-  guardians: [{ name: "" }, { name: undefined }],
+  primaryGuardian: {
+    fullName: "",
+    relation: "tutor",
+  },
   student: {
     fullName: "",
     schoolYear: "",
@@ -120,9 +115,13 @@ function renumberStepTitle(title: string, step: number): string {
 
 function getStepValidation(step: number, draft: OnboardingDraft): OnboardingValidation {
   if (step === 1) {
-    return draft.guardians[0]?.name?.trim()
-      ? { valid: true, message: null }
-      : { valid: false, message: "Escribe el nombre del tutor principal." };
+    if (!draft.primaryGuardian.fullName.trim()) {
+      return { valid: false, message: "Escribe el nombre del tutor principal." };
+    }
+    if (!draft.primaryGuardian.relation) {
+      return { valid: false, message: "Selecciona si eres padre, madre o tutor." };
+    }
+    return { valid: true, message: null };
   }
 
   if (step === 2) {
@@ -161,16 +160,26 @@ function buildOnboardingPayload(
   searchParams: SearchParamReader,
 ): OnboardingSubmissionPayload {
   return {
-    guardianName: draft.guardians[0]?.name?.trim() ?? "",
-    fullName: draft.student.fullName.trim(),
-    age: getAgeFromSchoolYear(draft.student.schoolYear),
-    schoolYear: draft.student.schoolYear,
+    primaryGuardian: {
+      fullName: draft.primaryGuardian.fullName.trim(),
+      relation: draft.primaryGuardian.relation,
+    },
+    student: {
+      fullName: draft.student.fullName.trim(),
+      schoolYear: draft.student.schoolYear,
+    },
     subjects: draft.student.subjects,
-    objective: draft.student.goal,
+    goal: draft.student.goal,
     confidenceLevel: confidenceNumberToLabel(draft.student.confidence),
     referralCode: searchParams.get("ref") ?? undefined,
     inviteToken: searchParams.get("invite") ?? undefined,
   };
+}
+
+function formatGuardianRelationLabel(relation: MentoriaGuardianRole): string {
+  if (relation === "father") return "Padre";
+  if (relation === "mother") return "Madre";
+  return "Tutor";
 }
 
 function StepBadge({ current }: { current: number }) {
@@ -235,7 +244,10 @@ export function MentoriaOnboardingWizard() {
         };
         if (parsed && typeof parsed === "object" && !parsed.student) {
           const migrated: OnboardingDraft = {
-            guardians: [{ name: parsed.guardianName ?? "" }, { name: undefined }],
+            primaryGuardian: {
+              fullName: parsed.guardianName ?? "",
+              relation: "tutor",
+            },
             student: {
               fullName: parsed.fullName ?? "",
               schoolYear: parsed.schoolYear ?? "",
@@ -246,7 +258,14 @@ export function MentoriaOnboardingWizard() {
           };
           setDraft(migrated);
         } else if (parsed && parsed.student) {
-          setDraft(parsed as OnboardingDraft);
+          setDraft((current) => ({
+            ...current,
+            ...(parsed as OnboardingDraft),
+            primaryGuardian: {
+              fullName: parsed.primaryGuardian?.fullName ?? current.primaryGuardian.fullName,
+              relation: parsed.primaryGuardian?.relation ?? current.primaryGuardian.relation,
+            },
+          }));
         }
       } catch {
         // Ignore invalid local storage snapshots and continue with a fresh draft.
@@ -264,10 +283,10 @@ export function MentoriaOnboardingWizard() {
         const body = (await response.json()) as {
           ok?: boolean;
           error?: string;
+          primaryGuardian?: MentoriaOnboardingPrimaryGuardian | null;
           profile?: StudentProfile | null;
           subjects?: MentoriaSubject[];
           studentSubjects?: MentoriaStudentSubject[];
-          parents?: ParentAccount[];
         };
 
         if (!response.ok) {
@@ -293,6 +312,16 @@ export function MentoriaOnboardingWizard() {
               ),
         );
 
+        if (body.primaryGuardian) {
+          setDraft((current) => ({
+            ...current,
+            primaryGuardian: {
+              fullName: current.primaryGuardian.fullName || body.primaryGuardian?.fullName || "",
+              relation: body.primaryGuardian?.relation ?? current.primaryGuardian.relation,
+            },
+          }));
+        }
+
         if (body.profile?.onboardingCompleted) {
           window.location.href = buildMentoriaWorkspaceUrl(searchParams);
           return;
@@ -316,7 +345,10 @@ export function MentoriaOnboardingWizard() {
               : "medium";
 
           setDraft((current) => ({
-            guardians: current.guardians ?? [{ name: "" }, { name: undefined }],
+            primaryGuardian: {
+              fullName: current.primaryGuardian.fullName || body.primaryGuardian?.fullName || "",
+              relation: body.primaryGuardian?.relation ?? current.primaryGuardian.relation,
+            },
             student: {
               fullName: profile.fullName,
               schoolYear: profile.schoolYear,
@@ -403,32 +435,49 @@ export function MentoriaOnboardingWizard() {
             <h2 className="text-2xl font-bold">{GUARDIAN_STEP_COPY.title}</h2>
             <p className="text-sm text-slate-600">{GUARDIAN_STEP_COPY.description}</p>
             <input
-              value={draft.guardians[0]?.name ?? ""}
+              value={draft.primaryGuardian.fullName}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
                 setDraft((current) => ({
                   ...current,
-                  guardians: [{ name: event.target.value }, { name: current.guardians[1]?.name }],
+                  primaryGuardian: {
+                    ...current.primaryGuardian,
+                    fullName: event.target.value,
+                  },
                 }))
               }
               className="w-full rounded-3xl border border-slate-200 px-5 py-4 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors duration-200"
               placeholder="Tu nombre (padre, madre o tutor)"
             />
-            <input
-              value={draft.guardians[1]?.name ?? ""}
-              onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                setDraft((current) => ({
-                  ...current,
-                  guardians: [
-                    { name: current.guardians[0]?.name ?? "" },
-                    { name: event.target.value || undefined },
-                  ],
-                }))
-              }
-              className="w-full rounded-3xl border border-slate-200 px-5 py-4 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors duration-200"
-              placeholder="Nombre del segundo tutor (opcional)"
-            />
-            {draft.guardians[0]?.name?.trim() ? (
-              <div className="rounded-3xl bg-emerald-50 p-4 text-sm text-emerald-900">{`Tranquilo, ${draft.guardians[0].name.trim()}, vamos paso a paso.`}</div>
+            <div className="grid gap-3 md:grid-cols-3">
+              {([
+                { value: "father", label: "Padre" },
+                { value: "mother", label: "Madre" },
+                { value: "tutor", label: "Tutor" },
+              ] as const).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() =>
+                    setDraft((current) => ({
+                      ...current,
+                      primaryGuardian: {
+                        ...current.primaryGuardian,
+                        relation: option.value,
+                      },
+                    }))
+                  }
+                  className={`rounded-3xl border px-4 py-4 text-left text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-shadow transition-transform duration-200 ease-out active:scale-[0.99] ${
+                    draft.primaryGuardian.relation === option.value
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-900 shadow-md hover:shadow-lg"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {draft.primaryGuardian.fullName.trim() ? (
+              <div className="rounded-3xl bg-emerald-50 p-4 text-sm text-emerald-900">{`Tranquilo, ${draft.primaryGuardian.fullName.trim()}, vamos paso a paso.`}</div>
             ) : null}
           </section>
         ) : null}
@@ -631,7 +680,7 @@ export function MentoriaOnboardingWizard() {
             <p className="text-sm text-slate-600">{ui.step4.description}</p>
             {!activation ? (
               <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-700 shadow-sm">
-                <p><strong>Tutor:</strong> {draft.guardians[0]?.name || ""}</p>
+                <p><strong>Tutor principal:</strong> {`${formatGuardianRelationLabel(draft.primaryGuardian.relation)} ${draft.primaryGuardian.fullName}`.trim()}</p>
                 <p className="mt-2"><strong>{ui.step6.summaryStudent}:</strong> {draft.student.fullName}</p>
                 <p className="mt-2"><strong>{ui.step6.summarySubjects}:</strong> {draft.student.subjects.map((item) => subjects.find((subject) => subject.slug === item.subjectSlug)?.name ?? item.subjectSlug).join(", ")}</p>
                 <p className="mt-2"><strong>{ui.step4.summaryObjective}:</strong> {ui.step2.objectives[draft.student.goal].title}</p>

@@ -10,6 +10,7 @@ export type MentoriaEmotionalLevel = "low" | "medium" | "high";
 export type MentoriaLearningPreference = "practical_examples" | "step_by_step" | "quick_summaries";
 export type MentoriaInitialLevel = "me_cuesta_mucho" | "voy_normal" | "se_me_da_bien";
 export type MentoriaSupervisionLevel = "light" | "balanced" | "close";
+export type MentoriaOnboardingGoal = "improve_understanding" | "pass_subject" | "build_habit" | "gain_confidence";
 export type InterventionType = "high_frustration" | "low_consistency" | "rapid_progress" | "stagnation" | "risk_student";
 export type MentoriaInterventionSeverity = "low" | "medium" | "high" | "critical";
 export type MentoriaInterventionStatus = "active" | "resolved";
@@ -18,7 +19,11 @@ export type DailyPlanPriority = "low" | "medium" | "high";
 export type MentoriaPlanCode = "free" | "pro" | "family";
 export type MentoriaReferralStatus = "pending" | "registered" | "converted" | "rewarded";
 export type MentoriaRewardFeature = "advanced_parent_insights" | "adaptive_motivation_boost" | "progress_sharing_branding";
-export type MentoriaGuardianRole = "father" | "mother" | "tutor";
+export type MentoriaGuardianFamilyRelation = "father" | "mother" | "tutor";
+export type MentoriaGuardianSystemRole = "primary_guardian" | "secondary_guardian";
+export type MentoriaGuardianRole = MentoriaGuardianFamilyRelation;
+export type MentoriaConversationScopeType = "family" | "student";
+export type MentoriaConversationChannel = "whatsapp";
 
 export type MentoriaFamily = {
   id: string;
@@ -31,7 +36,33 @@ export type MentoriaGuardian = {
   name?: string | null;
   familyId: string;
   role: MentoriaGuardianRole;
+  systemRole: MentoriaGuardianSystemRole;
+  familyRelation: MentoriaGuardianFamilyRelation;
+  tenantId?: string | null;
   createdAt: string;
+};
+
+export type MentoriaOnboardingPrimaryGuardian = {
+  fullName: string;
+  relation: MentoriaGuardianRole;
+};
+
+export type MentoriaOnboardingSubjectInput = {
+  subjectSlug: string;
+  initialLevel: MentoriaInitialLevel;
+};
+
+export type MentoriaOnboardingPayload = {
+  primaryGuardian: MentoriaOnboardingPrimaryGuardian;
+  student: {
+    fullName: string;
+    schoolYear: string;
+  };
+  subjects: MentoriaOnboardingSubjectInput[];
+  goal: MentoriaOnboardingGoal;
+  confidenceLevel: "low" | "medium" | "high";
+  referralCode?: string;
+  inviteToken?: string;
 };
 
 export type MentoriaFamilyStudent = {
@@ -80,6 +111,47 @@ export type MentoriaMaterialContextNote = {
   sourceMessageId: string;
   body: string;
   createdAt: string;
+};
+
+export type MentoriaGuardianStudentAccess = {
+  id: string;
+  familyId: string;
+  guardianId: string;
+  studentId: string;
+  studentProfileId: string;
+  canViewFullProgress: boolean;
+  canManageSchedule: boolean;
+  dailyStudyMinutes: number;
+  supervisionLevel: MentoriaSupervisionLevel;
+  notificationPreferences: string[];
+  isPrimaryContact: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MentoriaGuardianAccessibleStudent = MentoriaGuardianStudentAccess & {
+  guardianEmail?: string | null;
+  guardianName?: string | null;
+  guardianSystemRole?: MentoriaGuardianSystemRole | null;
+  guardianFamilyRelation?: MentoriaGuardianFamilyRelation | null;
+  studentName: string;
+  source: "canonical" | "legacy_parent_accounts";
+};
+
+export type MentoriaConversationContext = {
+  id: string;
+  familyId: string;
+  actorType: "guardian_actor" | "student_actor";
+  actorId: string;
+  channel: MentoriaConversationChannel;
+  threadKey: string;
+  scopeType: MentoriaConversationScopeType;
+  activeStudentId?: string | null;
+  status: "active" | "closed";
+  resolvedBy: "single_access" | "explicit_switch" | "legacy_fallback";
+  lastExplicitSwitchAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type MentoriaSubject = {

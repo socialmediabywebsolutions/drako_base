@@ -75,14 +75,17 @@ import type {
   MentoriaGuardianHookEvent,
   MentoriaGrowthSummary,
   MentoriaIntervention,
-  MentoriaInitialLevel,
   MentoriaLearningPreference,
+  MentoriaSupervisionLevel,
+  MentoriaOnboardingGoal,
+  MentoriaOnboardingPayload,
+  MentoriaOnboardingPrimaryGuardian,
+  MentoriaOnboardingSubjectInput,
   MentoriaProgressShare,
   MentoriaReferral,
   MentoriaReferralProfile,
   MentoriaStudentMemorySummary,
   MentoriaSubject,
-  MentoriaSupervisionLevel,
   MentoriaWorkspaceEntry,
   ParentAccount,
   StudentProfile,
@@ -95,39 +98,11 @@ type MentoriaSessionActor = Pick<UserContext, "userId" | "email" | "tenantId"> &
 
 type MentoriaEntryMode = "resume_session" | "gentle_restart" | "momentum_push" | "plan_task" | "entry";
 
-type OnboardingSubjectInput = {
-  subjectSlug: string;
-  initialLevel: MentoriaInitialLevel;
-};
-
-type OnboardingParentInput = {
-  slot: "Parent A" | "Parent B";
-  fullName: string;
-  email: string;
-  dailyStudyMinutes: number;
-  supervisionLevel: MentoriaSupervisionLevel;
-};
-
-type OnboardingPayload = {
-  fullName: string;
-  age: number;
-  schoolYear: string;
-  subjects: OnboardingSubjectInput[];
-  emotionalBaseline?: MentoriaEmotionalBaseline;
-  learningPreference?: MentoriaLearningPreference;
-  parents?: OnboardingParentInput[];
-  objective?: "improve_understanding" | "pass_subject" | "build_habit" | "gain_confidence";
-  confidenceLevel?: "low" | "medium" | "high";
-  referralCode?: string;
-  inviteToken?: string;
-  guardianName?: string;
-};
-
 type MentoriaOnboardingAttributes = {
   schoolYear: string;
-  objective?: OnboardingPayload["objective"];
+  goal: MentoriaOnboardingGoal;
   confidenceLevel: "low" | "medium" | "high";
-  learningPreference?: MentoriaLearningPreference;
+  learningPreference: MentoriaLearningPreference;
 };
 
 function getTutorEntryModeAdjustments(entryMode?: MentoriaEntryMode) {
@@ -223,27 +198,42 @@ function deriveEmotionalBaselineFromConfidence(confidenceLevel: "low" | "medium"
   return { frustration: "medium", motivation: "medium", concentration: "medium" };
 }
 
-function deriveLearningPreferenceFromObjective(
-  objective: OnboardingPayload["objective"],
+function getAgeFromSchoolYear(schoolYear: string): number {
+  const year = schoolYear.toLowerCase().trim();
+  if (year === "1 primaria") return 6;
+  if (year === "2 primaria") return 7;
+  if (year === "3 primaria") return 8;
+  if (year === "4 primaria") return 9;
+  if (year === "5 primaria") return 10;
+  if (year === "6 primaria") return 11;
+  if (year === "1 eso") return 12;
+  if (year === "2 eso") return 13;
+  if (year === "3 eso") return 14;
+  if (year === "4 eso") return 15;
+  return 16;
+}
+
+function deriveLearningPreferenceFromGoal(
+  goal: MentoriaOnboardingGoal,
   schoolYear: string,
 ): MentoriaLearningPreference {
-  if (objective === "build_habit" || objective === "pass_subject") {
+  if (goal === "build_habit" || goal === "pass_subject") {
     return "step_by_step";
   }
-  if (objective === "gain_confidence") {
+  if (goal === "gain_confidence") {
     return "practical_examples";
   }
   return schoolYear.toLowerCase().includes("bachillerato") ? "quick_summaries" : "practical_examples";
 }
 
-function deriveLearningGoalsFromObjective(subjects: Array<{ name: string }>, objective: OnboardingPayload["objective"]): string[] {
-  if (objective === "pass_subject") {
+function deriveLearningGoalsFromGoal(subjects: Array<{ name: string }>, goal: MentoriaOnboardingGoal): string[] {
+  if (goal === "pass_subject") {
     return subjects.map((subject) => `Aprobar ${subject.name} con una base mas segura`);
   }
-  if (objective === "build_habit") {
+  if (goal === "build_habit") {
     return subjects.map((subject) => `Crear una rutina estable en ${subject.name}`);
   }
-  if (objective === "gain_confidence") {
+  if (goal === "gain_confidence") {
     return subjects.map((subject) => `Recuperar confianza al trabajar ${subject.name}`);
   }
   return subjects.map((subject) => `Comprender mejor ${subject.name} con ayuda guiada`);
@@ -257,7 +247,7 @@ function derivePreferredStudyMinutesFromConfidence(schoolYear: string, confidenc
 
 function buildActivationPrompt(input: {
   student: StudentProfile;
-  objective: OnboardingPayload["objective"];
+  goal: MentoriaOnboardingGoal;
   confidenceLevel: "low" | "medium" | "high";
   weakestSubjectName: string;
 }) {
@@ -268,11 +258,11 @@ function buildActivationPrompt(input: {
         ? "Quiero avanzar con buen ritmo desde ya."
         : "Quiero empezar con claridad y sin liarme.";
   const objectiveMessage =
-    input.objective === "pass_subject"
+    input.goal === "pass_subject"
       ? `Quiero aprobar ${input.weakestSubjectName}.`
-      : input.objective === "build_habit"
+      : input.goal === "build_habit"
         ? `Quiero coger habito en ${input.weakestSubjectName}.`
-        : input.objective === "gain_confidence"
+        : input.goal === "gain_confidence"
           ? `Quiero sentirme mas seguro con ${input.weakestSubjectName}.`
           : `Quiero entender mejor ${input.weakestSubjectName}.`;
 
@@ -290,34 +280,34 @@ function deriveBaseEmotionalState(baseline: MentoriaEmotionalBaseline): StudentP
   return "steady";
 }
 
-function deriveLearningGoals(subjects: Array<{ name: string }>): string[] {
-  return subjects.map((subject) => `Construir una base solida en ${subject.name}`);
-}
-
-function deriveStrengths(input: OnboardingSubjectInput[], subjects: Array<{ id: string; name: string }>): string[] {
+function deriveStrengths(input: MentoriaOnboardingSubjectInput[], subjects: Array<{ id: string; name: string }>): string[] {
   return input
     .filter((item) => item.initialLevel === "se_me_da_bien")
     .map((item) => subjects.find((subject) => subject.id === item.subjectSlug || subject.name === item.subjectSlug)?.name ?? item.subjectSlug);
 }
 
-function averageDailyMinutes(parents: OnboardingParentInput[]): number {
-  return Math.max(20, Math.round(parents.reduce((total, parent) => total + parent.dailyStudyMinutes, 0) / parents.length));
+function formatGuardianRoleForSupportNotes(guardian: MentoriaOnboardingPrimaryGuardian): string {
+  if (guardian.relation === "father") return "Padre";
+  if (guardian.relation === "mother") return "Madre";
+  return "Tutor";
 }
 
 function toOnboardingInput(
-  payload: OnboardingPayload,
+  payload: MentoriaOnboardingPayload,
   learningGoals: string[],
+  age: number,
+  learningPreference: MentoriaLearningPreference,
   confidenceLevel: "low" | "medium" | "high",
-): OnboardingInput<MentoriaOnboardingAttributes, OnboardingSubjectInput> {
+): OnboardingInput<MentoriaOnboardingAttributes, MentoriaOnboardingSubjectInput> {
   return {
-    fullName: payload.fullName,
-    age: payload.age,
+    fullName: payload.student.fullName,
+    age,
     goals: learningGoals,
     attributes: {
-      schoolYear: payload.schoolYear,
-      objective: payload.objective,
+      schoolYear: payload.student.schoolYear,
+      goal: payload.goal,
       confidenceLevel,
-      learningPreference: payload.learningPreference,
+      learningPreference,
     },
     selections: payload.subjects,
     metadata: {
@@ -921,16 +911,36 @@ export class MentoriaService {
 
   async getOnboardingState(actor: MentoriaSessionActor) {
     await this.repository.seedSubjects(actor.tenantId);
+    const primaryGuardian = actor.email
+      ? await this.familyRepository.getGuardianByFamilyAndEmail(actor.tenantId, actor.email)
+      : null;
     const profile = await this.repository.getStudentProfileByUser(actor.tenantId, actor.userId);
     const subjects = await this.repository.listSubjects(actor.tenantId);
     if (!profile) {
-      return { profile: null, subjects, studentSubjects: [], parents: [] };
+      return {
+        primaryGuardian: primaryGuardian
+          ? {
+              fullName: primaryGuardian.name ?? "",
+              relation: primaryGuardian.familyRelation,
+            }
+          : null,
+        profile: null,
+        subjects,
+        studentSubjects: [],
+      };
     }
-    const [studentSubjects, parents] = await Promise.all([
-      this.repository.listStudentSubjects(actor.tenantId, profile.id),
-      this.repository.listParentAccounts(actor.tenantId, profile.id),
-    ]);
-    return { profile, subjects, studentSubjects, parents };
+    const studentSubjects = await this.repository.listStudentSubjects(actor.tenantId, profile.id);
+    return {
+      primaryGuardian: primaryGuardian
+        ? {
+            fullName: primaryGuardian.name ?? "",
+            relation: primaryGuardian.familyRelation,
+          }
+        : null,
+      profile,
+      subjects,
+      studentSubjects,
+    };
   }
 
   async requireOnboardedStudent(actor: MentoriaSessionActor): Promise<StudentProfile> {
@@ -941,7 +951,7 @@ export class MentoriaService {
     return student;
   }
 
-  async submitOnboarding(actor: MentoriaSessionActor, payload: OnboardingPayload): Promise<{
+  async submitOnboarding(actor: MentoriaSessionActor, payload: MentoriaOnboardingPayload): Promise<{
     student: StudentProfile;
     parents: ParentAccount[];
     plan: StudyPlan;
@@ -955,9 +965,10 @@ export class MentoriaService {
   }> {
     await this.repository.seedSubjects(actor.tenantId);
 
-    if (!payload.fullName.trim()) throw new Error("INVALID_STUDENT_NAME");
-    if (payload.age < 5 || payload.age > 18) throw new Error("INVALID_AGE");
-    if (!payload.schoolYear.trim()) throw new Error("INVALID_SCHOOL_YEAR");
+    if (!payload.primaryGuardian.fullName.trim()) throw new Error("INVALID_PRIMARY_GUARDIAN_NAME");
+    if (!payload.primaryGuardian.relation) throw new Error("INVALID_PRIMARY_GUARDIAN_RELATION");
+    if (!payload.student.fullName.trim()) throw new Error("INVALID_STUDENT_NAME");
+    if (!payload.student.schoolYear.trim()) throw new Error("INVALID_SCHOOL_YEAR");
     if (payload.subjects.length === 0) throw new Error("SUBJECTS_REQUIRED");
 
     const allSubjects = await this.repository.listSubjects(actor.tenantId);
@@ -969,26 +980,25 @@ export class MentoriaService {
     });
 
     const confidenceLevel = payload.confidenceLevel ?? "medium";
-    const emotionalBaseline = payload.emotionalBaseline ?? deriveEmotionalBaselineFromConfidence(confidenceLevel);
-    const learningPreference = payload.learningPreference ?? deriveLearningPreferenceFromObjective(payload.objective, payload.schoolYear);
-    const preferredStudyMinutes =
-      payload.parents && payload.parents.length > 0
-        ? averageDailyMinutes(payload.parents)
-        : derivePreferredStudyMinutesFromConfidence(payload.schoolYear, confidenceLevel);
+    const studentAge = getAgeFromSchoolYear(payload.student.schoolYear);
+    if (studentAge < 5 || studentAge > 18) throw new Error("INVALID_SCHOOL_YEAR");
+    const emotionalBaseline = deriveEmotionalBaselineFromConfidence(confidenceLevel);
+    const learningPreference = deriveLearningPreferenceFromGoal(payload.goal, payload.student.schoolYear);
+    const preferredStudyMinutes = derivePreferredStudyMinutesFromConfidence(payload.student.schoolYear, confidenceLevel);
     const baseEmotionalState = deriveBaseEmotionalState(emotionalBaseline);
-    const learningGoals = deriveLearningGoalsFromObjective(selectedSubjects.map((item) => ({ name: item.subject.name })), payload.objective);
+    const learningGoals = deriveLearningGoalsFromGoal(selectedSubjects.map((item) => ({ name: item.subject.name })), payload.goal);
     const strengths = deriveStrengths(
       payload.subjects.map((item) => ({ ...item, subjectSlug: item.subjectSlug })),
       selectedSubjects.map((item) => ({ id: item.subject.slug, name: item.subject.name })),
     );
-    const onboardingInput = toOnboardingInput(payload, learningGoals, confidenceLevel);
+    const onboardingInput = toOnboardingInput(payload, learningGoals, studentAge, learningPreference, confidenceLevel);
     const onboardingContext = buildOnboardingUserContext({
       actor,
       onboarding: onboardingInput,
       tags: ["mentoria", "onboarding"],
       traits: {
-        schoolYear: payload.schoolYear,
-        objective: payload.objective ?? "improve_understanding",
+        schoolYear: payload.student.schoolYear,
+        objective: payload.goal,
       },
       preferences: {
         learningPreference: learningPreference,
@@ -999,9 +1009,9 @@ export class MentoriaService {
     const student = await this.repository.upsertStudentProfile({
       tenantId: actor.tenantId,
       userId: actor.userId,
-      fullName: payload.fullName.trim(),
-      age: payload.age,
-      schoolYear: payload.schoolYear,
+      fullName: payload.student.fullName.trim(),
+      age: studentAge,
+      schoolYear: payload.student.schoolYear,
       learningGoals,
       baseEmotionalState,
       emotionalBaseline,
@@ -1009,12 +1019,35 @@ export class MentoriaService {
       preferredStudyMinutes,
       strengths,
       onboardingCompleted: true,
-      supportNotes: `${payload.guardianName ? `Tutor ${payload.guardianName} | ` : ""}Objetivo inicial ${
-        payload.objective ?? "improve_understanding"
+      supportNotes: `${formatGuardianRoleForSupportNotes(payload.primaryGuardian)} principal ${payload.primaryGuardian.fullName.trim()} | Objetivo inicial ${
+        payload.goal
       } | confianza ${confidenceLevel}`,
     });
     // Ensure a family exists for the tenant before linking student records (foreign key safety in local dev)
     await this.familyRepository.createFamily(actor.tenantId);
+    if (actor.email) {
+      const primaryGuardian = await this.familyRepository.upsertGuardian({
+        email: actor.email,
+        familyId: actor.tenantId,
+        name: payload.primaryGuardian.fullName.trim(),
+        role: payload.primaryGuardian.relation,
+        familyRelation: payload.primaryGuardian.relation,
+        systemRole: "primary_guardian",
+      });
+
+      await this.familyRepository.upsertGuardianStudentAccess({
+        familyId: actor.tenantId,
+        guardianId: primaryGuardian.id,
+        studentId: student.id,
+        studentProfileId: student.id,
+        canViewFullProgress: true,
+        canManageSchedule: true,
+        dailyStudyMinutes: preferredStudyMinutes,
+        supervisionLevel: "balanced",
+        notificationPreferences: ["progress", "alerts", "planner"],
+        isPrimaryContact: true,
+      });
+    }
 
     await this.familyRepository.upsertStudent({
       id: student.id,
@@ -1033,33 +1066,7 @@ export class MentoriaService {
       })),
     });
 
-    const onboardingParents = payload.parents ?? [];
-    await this.repository.deleteParentAccountsForStudent(actor.tenantId, student.id);
-    const parents: ParentAccount[] = [];
-    for (const parent of onboardingParents) {
-      if (!parent.fullName.trim() || !parent.email.trim()) continue;
-      await this.familyRepository.upsertGuardian({
-        email: parent.email.trim(),
-        familyId: actor.tenantId,
-        name: parent.fullName.trim(),
-        role: "tutor",
-      });
-      parents.push(
-        await this.repository.upsertParentAccount({
-          tenantId: actor.tenantId,
-          userId: `${student.id}:${parent.slot.toLowerCase().replace(/\s+/g, "-")}`,
-          studentProfileId: student.id,
-          fullName: parent.fullName.trim(),
-          email: parent.email.trim(),
-          relation: parent.slot,
-          dailyStudyMinutes: parent.dailyStudyMinutes,
-          supervisionLevel: parent.supervisionLevel,
-          canViewFullProgress: true,
-          canManageSchedule: parent.supervisionLevel !== "light",
-          notificationPreferences: ["progress", "planner"],
-        }),
-      );
-    }
+    const parents = await this.repository.listParentAccounts(actor.tenantId, student.id);
 
     await this.repository.deleteProgressForStudent(actor.tenantId, student.id);
     for (const item of selectedSubjects) {
@@ -1123,7 +1130,7 @@ export class MentoriaService {
       selectedSubjects.find((item) => item.selection.initialLevel === "me_cuesta_mucho") ?? selectedSubjects[0];
     const activationPrompt = buildActivationPrompt({
       student,
-      objective: payload.objective ?? "improve_understanding",
+      goal: payload.goal,
       confidenceLevel,
       weakestSubjectName: weakestSubjectSelection.subject.name,
     });
@@ -1139,7 +1146,7 @@ export class MentoriaService {
       },
       metadata: {
         product: "mentoria",
-        objective: payload.objective ?? "improve_understanding",
+        objective: payload.goal,
         confidenceLevel,
       },
     });
@@ -1443,6 +1450,27 @@ export class MentoriaService {
           notificationPreferences: ["progress", "planner"],
         }),
       );
+
+      const guardian = await this.familyRepository.upsertGuardian({
+        email: parent.email,
+        familyId: actor.tenantId,
+        name: parent.fullName,
+        familyRelation: "tutor",
+        systemRole: "secondary_guardian",
+      });
+
+      await this.familyRepository.upsertGuardianStudentAccess({
+        familyId: actor.tenantId,
+        guardianId: guardian.id,
+        studentId: student.id,
+        studentProfileId: student.id,
+        canViewFullProgress: parent.canViewFullProgress,
+        canManageSchedule: parent.canManageSchedule,
+        dailyStudyMinutes: parent.dailyStudyMinutes,
+        supervisionLevel: parent.supervisionLevel,
+        notificationPreferences: ["progress", "planner"],
+        isPrimaryContact: false,
+      });
     }
     return saved;
   }
