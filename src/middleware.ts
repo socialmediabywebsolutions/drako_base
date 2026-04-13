@@ -62,6 +62,10 @@ function isAuthRoute(pathname: string): boolean {
     || pathname.startsWith("/api/mentorias/auths/")
     || pathname.startsWith("/api/socialflow/auths/")
     || pathname.startsWith("/api/bases/auths/")
+    || pathname.startsWith("/mentorias/auths/")
+    || pathname.startsWith("/drakos/auths/")
+    || pathname.startsWith("/socialflow/auth")
+    || pathname.startsWith("/bases/")
   );
 }
 
