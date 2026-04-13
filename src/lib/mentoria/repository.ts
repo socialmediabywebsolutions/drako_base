@@ -1681,7 +1681,8 @@ export class MentoriaRepository {
 
   async upsertStudentProfile(input: {
     tenantId: string;
-    userId: string;
+    studentId?: string;
+    userId?: string | null;
     fullName: string;
     age: number;
     schoolYear: string;
@@ -1706,7 +1707,9 @@ export class MentoriaRepository {
     const hasLearningPreference = await this.hasColumn("student_profiles", "learning_preference");
     const hasOnboardingCompleted = await this.hasColumn("student_profiles", "onboarding_completed");
 
-    const existing = hasUserId ? await this.getStudentProfileByUser(input.tenantId, input.userId) : null;
+    const existing =
+      (input.studentId ? await this.getStudentProfileById(input.tenantId, input.studentId) : null) ??
+      (hasUserId && input.userId ? await this.getStudentProfileByUser(input.tenantId, input.userId) : null);
     const now = new Date().toISOString();
     if (existing) {
       // Build dynamic UPDATE with available columns
@@ -1723,6 +1726,10 @@ export class MentoriaRepository {
       if (hasFullName) {
         sets.push("full_name = ?");
         binds.push(input.fullName);
+      }
+      if (hasUserId && input.userId !== undefined) {
+        sets.push("user_id = ?");
+        binds.push(input.userId ?? null);
       }
       if (hasSchoolYear) {
         sets.push("school_year = ?");
@@ -1762,14 +1769,14 @@ export class MentoriaRepository {
       }
       sets.push("updated_at = ?");
       binds.push(now);
-      binds.push(input.tenantId, input.userId);
-      const sql = `UPDATE student_profiles SET ${sets.join(", ")} WHERE tenant_id = ? AND user_id = ?`;
+      binds.push(input.tenantId, existing.id);
+      const sql = `UPDATE student_profiles SET ${sets.join(", ")} WHERE tenant_id = ? AND id = ?`;
       await this.db.prepare(sql).bind(...binds).run();
-      return (await this.getStudentProfileByUser(input.tenantId, input.userId)) as StudentProfile;
+      return (await this.getStudentProfileById(input.tenantId, existing.id)) as StudentProfile;
     }
 
     // INSERT path
-    const id = crypto.randomUUID();
+    const id = input.studentId ?? crypto.randomUUID();
     const cols = [
       "id",
       "tenant_id",
@@ -1798,7 +1805,7 @@ export class MentoriaRepository {
       id,
       input.tenantId,
       input.fullName,
-      ...(hasUserId ? [input.userId] : []),
+      ...(hasUserId ? [input.userId ?? null] : []),
       ...(hasFullName ? [input.fullName] : []),
       input.age,
       input.schoolYear,

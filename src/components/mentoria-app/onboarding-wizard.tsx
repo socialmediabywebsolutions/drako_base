@@ -15,10 +15,9 @@ import type {
   MentoriaGuardianRole,
   MentoriaOnboardingPayload,
   MentoriaOnboardingPrimaryGuardian,
+  MentoriaOnboardingState,
   MentoriaProgress,
-  MentoriaStudentSubject,
   MentoriaSubject,
-  StudentProfile,
 } from "@/lib/mentoria/types";
 
 type OnboardingObjective = MentoriaOnboardingPayload["goal"];
@@ -280,14 +279,7 @@ export function MentoriaOnboardingWizard() {
           return;
         }
 
-        const body = (await response.json()) as {
-          ok?: boolean;
-          error?: string;
-          primaryGuardian?: MentoriaOnboardingPrimaryGuardian | null;
-          profile?: StudentProfile | null;
-          subjects?: MentoriaSubject[];
-          studentSubjects?: MentoriaStudentSubject[];
-        };
+        const body = (await response.json()) as ({ ok?: boolean; error?: string } & Partial<MentoriaOnboardingState>);
 
         if (!response.ok) {
           setError(body.error ?? ui.submitError);
@@ -322,13 +314,15 @@ export function MentoriaOnboardingWizard() {
           }));
         }
 
-        if (body.profile?.onboardingCompleted) {
+        const currentStudent = body.student ?? body.profile ?? null;
+
+        if (currentStudent?.onboardingCompleted) {
           window.location.href = buildMentoriaWorkspaceUrl(searchParams);
           return;
         }
 
-        if (body.profile) {
-          const profile = body.profile;
+        if (currentStudent) {
+          const profile = currentStudent;
           const studentSubjects = body.studentSubjects ?? [];
           const inferredObjective =
             profile.supportNotes?.includes("pass_subject")

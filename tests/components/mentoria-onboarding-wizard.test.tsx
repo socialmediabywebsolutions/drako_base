@@ -46,6 +46,7 @@ describe("MentoriaOnboardingWizard", () => {
       jsonResponse({
         ok: true,
         primaryGuardian: null,
+        student: null,
         profile: null,
         subjects: onboardingSubjects,
         studentSubjects: [],
@@ -87,6 +88,7 @@ describe("MentoriaOnboardingWizard", () => {
         jsonResponse({
           ok: true,
           primaryGuardian: null,
+          student: null,
           profile: null,
           subjects: onboardingSubjects,
           studentSubjects: [],

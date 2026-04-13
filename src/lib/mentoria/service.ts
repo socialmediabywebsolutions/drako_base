@@ -80,6 +80,7 @@ import type {
   MentoriaOnboardingGoal,
   MentoriaOnboardingPayload,
   MentoriaOnboardingPrimaryGuardian,
+  MentoriaOnboardingState,
   MentoriaOnboardingSubjectInput,
   MentoriaProgressShare,
   MentoriaReferral,
@@ -329,6 +330,43 @@ export class MentoriaService {
 
   private canManageBilling(actor: MentoriaSessionActor): boolean {
     return Boolean(actor.userId && actor.tenantId);
+  }
+
+  private async resolveStudentForActor(actor: MentoriaSessionActor): Promise<StudentProfile | null> {
+    const directStudent = await this.repository.getStudentProfileByUser(actor.tenantId, actor.userId);
+    if (directStudent) {
+      return directStudent;
+    }
+
+    const accessibleStudents = await this.repository.listGuardianAccessibleStudents(actor.tenantId, actor.userId).catch(() => []);
+    if (accessibleStudents.length === 0) {
+      return null;
+    }
+
+    const prioritizedStudents = [...accessibleStudents].sort((left, right) => {
+      if (left.isPrimaryContact !== right.isPrimaryContact) {
+        return Number(right.isPrimaryContact) - Number(left.isPrimaryContact);
+      }
+
+      const leftCreatedAt = Date.parse(left.createdAt);
+      const rightCreatedAt = Date.parse(right.createdAt);
+      const leftTime = Number.isFinite(leftCreatedAt) ? leftCreatedAt : 0;
+      const rightTime = Number.isFinite(rightCreatedAt) ? rightCreatedAt : 0;
+      if (leftTime !== rightTime) {
+        return leftTime - rightTime;
+      }
+
+      return left.studentProfileId.localeCompare(right.studentProfileId);
+    });
+
+    for (const access of prioritizedStudents) {
+      const student = await this.repository.getStudentProfileById(actor.tenantId, access.studentProfileId);
+      if (student) {
+        return student;
+      }
+    }
+
+    return null;
   }
 
   private async syncUserContext(
@@ -827,7 +865,7 @@ export class MentoriaService {
 
   async getProfile(actor: MentoriaSessionActor): Promise<StudentProfile | null> {
     await this.repository.seedSubjects(actor.tenantId);
-    return this.repository.getStudentProfileByUser(actor.tenantId, actor.userId);
+    return this.resolveStudentForActor(actor);
   }
 
   async createReferralInvite(actor: MentoriaSessionActor, input: { invitedEmail?: string }) {
@@ -909,14 +947,14 @@ export class MentoriaService {
     };
   }
 
-  async getOnboardingState(actor: MentoriaSessionActor) {
+  async getOnboardingState(actor: MentoriaSessionActor): Promise<MentoriaOnboardingState> {
     await this.repository.seedSubjects(actor.tenantId);
     const primaryGuardian = actor.email
       ? await this.familyRepository.getGuardianByFamilyAndEmail(actor.tenantId, actor.email)
       : null;
-    const profile = await this.repository.getStudentProfileByUser(actor.tenantId, actor.userId);
+    const student = await this.resolveStudentForActor(actor);
     const subjects = await this.repository.listSubjects(actor.tenantId);
-    if (!profile) {
+    if (!student) {
       return {
         primaryGuardian: primaryGuardian
           ? {
@@ -924,12 +962,13 @@ export class MentoriaService {
               relation: primaryGuardian.familyRelation,
             }
           : null,
+        student: null,
         profile: null,
         subjects,
         studentSubjects: [],
       };
     }
-    const studentSubjects = await this.repository.listStudentSubjects(actor.tenantId, profile.id);
+    const studentSubjects = await this.repository.listStudentSubjects(actor.tenantId, student.id);
     return {
       primaryGuardian: primaryGuardian
         ? {
@@ -937,7 +976,8 @@ export class MentoriaService {
             relation: primaryGuardian.familyRelation,
           }
         : null,
-      profile,
+      student,
+      profile: student,
       subjects,
       studentSubjects,
     };
@@ -1006,9 +1046,12 @@ export class MentoriaService {
       },
     });
 
+    const existingStudent = await this.resolveStudentForActor(actor);
+
     const student = await this.repository.upsertStudentProfile({
+      studentId: existingStudent?.id,
       tenantId: actor.tenantId,
-      userId: actor.userId,
+      userId: null,
       fullName: payload.student.fullName.trim(),
       age: studentAge,
       schoolYear: payload.student.schoolYear,

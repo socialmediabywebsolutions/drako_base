@@ -65,6 +65,14 @@ export type MentoriaOnboardingPayload = {
   inviteToken?: string;
 };
 
+export type MentoriaOnboardingState = {
+  primaryGuardian: MentoriaOnboardingPrimaryGuardian | null;
+  student: StudentProfile | null;
+  profile: StudentProfile | null;
+  subjects: MentoriaSubject[];
+  studentSubjects: MentoriaStudentSubject[];
+};
+
 export type MentoriaFamilyStudent = {
   id: string;
   name: string;
