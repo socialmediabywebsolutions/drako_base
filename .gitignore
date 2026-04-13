@@ -50,3 +50,9 @@ scripts/.dist/
 
 # Windsurf
 .windsurf/
+
+node_modules/
+**/node_modules/
+.next/
+dist/
+build/

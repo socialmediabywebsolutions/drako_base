@@ -411,7 +411,7 @@ export async function middleware(req: NextRequest) {
           // 🛡️ DRAKO STEEL v1.5: API HARD WALL (FAIL-CLOSED)
           // For API calls, if session exists, verify tenant isolation
           const session = await extractSessionFromRequest(req);
-          if (session && session.tenantId && session.tenantId !== resolution.tenantId) {
+          if (session && session.tenantId && session.tenantId !== resolution.tenantId && !isAuthRoute(pathname)) {
             // Only Owner can cross-tenant
             const role = session.role?.toLowerCase();
             if (role !== 'owner' && role !== 'superadmin') {
