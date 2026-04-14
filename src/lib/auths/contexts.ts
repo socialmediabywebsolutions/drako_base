@@ -91,12 +91,18 @@ function resolveCompatLocalOverrideHost(url: URL): string | null {
  */
 export function resolveAuthsContextFromRequest(request: Request): AuthsContext {
   const effectiveHost = request.headers.get("x-drako-effective-host");
+  const saasSlugHeader = (request.headers.get("x-drako-saas-slug") || "").trim().toLowerCase();
   const forwardedHost = request.headers.get("x-forwarded-host");
   const host = request.headers.get("host");
   try {
     const url = new URL(request.url);
     const pathname = url.pathname || "/";
     const localOverrideHost = resolveCompatLocalOverrideHost(url);
+
+    // Prefer explicit SaaS slug header when available (set by middleware after host resolution)
+    if (saasSlugHeader === "mentorias") return "mentorias";
+    if (saasSlugHeader === "socialflow") return "socialflow";
+    if (saasSlugHeader === "campo_base" || saasSlugHeader === "bases") return "bases";
     return resolveCanonicalAuthsContextFromSignals({
       effectiveHost: localOverrideHost || effectiveHost,
       forwardedHost,

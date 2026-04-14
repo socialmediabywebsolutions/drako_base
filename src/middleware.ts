@@ -250,6 +250,9 @@ export async function middleware(req: NextRequest) {
       headers.set("x-drako-host-mode", hostMode);
       headers.set("x-drako-effective-host", host);
       headers.set("x-drako-pages-environment", pagesEnvironmentHeader);
+      if (isMentoriasHost) {
+        headers.set("x-drako-saas-slug", "mentorias");
+      }
       headers.set("x-drako-environment", "vercel");
       headers.set(CORRELATION_HEADER, correlationId);
       const res = NextResponse.next({ request: { headers } });
@@ -370,6 +373,9 @@ export async function middleware(req: NextRequest) {
       contextHeaders.set("x-drako-host-mode", hostMode);
       contextHeaders.set("x-drako-effective-host", host);
       contextHeaders.set("x-drako-pages-environment", pagesEnvironmentHeader);
+      if (isMentoriasHost) {
+        contextHeaders.set("x-drako-saas-slug", "mentorias");
+      }
       const tenantWorkspaceEntryMode = resolveTenantWorkspaceEntryMode({
         pathname,
         effectiveHost: host,
@@ -470,6 +476,9 @@ export async function middleware(req: NextRequest) {
     responseHeaders.set("x-drako-host-mode", hostMode);
     responseHeaders.set("x-drako-effective-host", host);
     responseHeaders.set("x-drako-pages-environment", pagesEnvironmentHeader);
+    if (isMentoriasHost) {
+      responseHeaders.set("x-drako-saas-slug", "mentorias");
+    }
     const tenantWorkspaceEntryMode = resolveTenantWorkspaceEntryMode({
       pathname,
       effectiveHost: host,

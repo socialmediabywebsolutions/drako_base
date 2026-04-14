@@ -32,12 +32,13 @@ const HOLDING_ADMIN_PREFIXES = [
   "/site/panel",
 ];
 
-const TENANT_WORKSPACE_PREFIXES = ["/socialflow"];
+const TENANT_WORKSPACE_PREFIXES = ["/socialflow", "/mentoria"];
 
 const TENANT_WORKSPACE_API_PREFIXES = [
   "/api/socialflow",
   "/api/social",
   "/api/mentoria",
+  "/api/mentorias",
 ];
 
 function matchesPrefix(pathname: string, prefix: string): boolean {
