@@ -13,14 +13,18 @@ import {
   generateCorrelationId,
   isValidCorrelationId,
   normalizeCorrelationId,
-  shouldBypassCorrelation
+  shouldBypassCorrelation,
 } from "@/lib/correlation";
 import { checkTenantRateLimit } from "@/lib/security/tenant-rate-limit";
 import { extractSessionFromRequest } from "@/lib/edge-auth";
 import { isRoutingsSubdomainsEnabled } from "@/lib/auths/flags";
 import { resolveAuthsContextFromRequest, resolveAuthsLoginPath } from "@/lib/auths/contexts";
-import { isLocalDemoClientBypassRequest, isTenantWorkspaceApiPath, isTenantWorkspacePath, resolveTenantWorkspaceEntryMode } from "@/lib/platform/surfaces";
-
+import {
+  isLocalDemoClientBypassRequest,
+  isTenantWorkspaceApiPath,
+  isTenantWorkspacePath,
+  resolveTenantWorkspaceEntryMode,
+} from "@/lib/platform/surfaces";
 
 /**
  * MODO DEV
@@ -38,16 +42,23 @@ function buildHtmlResponse(message: string, status = 200, extra?: string) {
 export function shouldBypassLocalLinkedInOAuthRateLimit(req: NextRequest): boolean {
   if (req.method !== "GET") return false;
   if (
-    req.nextUrl.pathname !== "/api/socialflow/linkedin/connect"
-    && req.nextUrl.pathname !== "/api/social/linkedin/connect"
-  ) return false;
+    req.nextUrl.pathname !== "/api/socialflow/linkedin/connect" &&
+    req.nextUrl.pathname !== "/api/social/linkedin/connect"
+  ) {
+    return false;
+  }
 
-  const host = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "").trim().toLowerCase();
+  const host = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "")
+    .trim()
+    .toLowerCase();
+
   return host === "localhost:8787" || host === "127.0.0.1:8787";
 }
 
 function requiresExplicitLocalAuthContext(req: NextRequest): boolean {
-  const host = (req.headers.get("host") || req.headers.get("x-forwarded-host") || "").trim().toLowerCase();
+  const host = (req.headers.get("host") || req.headers.get("x-forwarded-host") || "")
+    .trim()
+    .toLowerCase();
   const normalizedHost = host.split(":")[0] ?? "";
   if (normalizedHost !== "localhost" && normalizedHost !== "127.0.0.1") return false;
   if (req.nextUrl.searchParams.get("__drako_host")) return false;
@@ -57,15 +68,15 @@ function requiresExplicitLocalAuthContext(req: NextRequest): boolean {
 
 function isAuthRoute(pathname: string): boolean {
   return (
-    pathname.startsWith("/api/auth/")
-    || pathname.startsWith("/api/drakos/auths/")
-    || pathname.startsWith("/api/mentorias/auths/")
-    || pathname.startsWith("/api/socialflow/auths/")
-    || pathname.startsWith("/api/bases/auths/")
-    || pathname.startsWith("/mentorias/auths/")
-    || pathname.startsWith("/drakos/auths/")
-    || pathname.startsWith("/socialflow/auth")
-    || pathname.startsWith("/bases/")
+    pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/api/drakos/auths/") ||
+    pathname.startsWith("/api/mentorias/auths/") ||
+    pathname.startsWith("/api/socialflow/auths/") ||
+    pathname.startsWith("/api/bases/auths/") ||
+    pathname.startsWith("/mentorias/auths/") ||
+    pathname.startsWith("/drakos/auths/") ||
+    pathname.startsWith("/socialflow/auth") ||
+    pathname.startsWith("/bases/")
   );
 }
 
@@ -95,19 +106,84 @@ function resolveLegacyOperatorRedirect(pathname: string): string | null {
   return null;
 }
 
+function isMentoriaProductPath(pathname: string): boolean {
+  return (
+    pathname === "/mentoria" ||
+    pathname.startsWith("/mentoria/") ||
+    pathname === "/app" ||
+    pathname.startsWith("/app/") ||
+    pathname === "/onboarding" ||
+    pathname.startsWith("/onboarding/") ||
+    pathname === "/share" ||
+    pathname.startsWith("/share/") ||
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname === "/auth/login" ||
+    pathname === "/auth/register" ||
+    pathname.startsWith("/mentorias/auths/")
+  );
+}
+
+function rewriteMentoriaHostPath(req: NextRequest, pathname: string) {
+  const url = new URL(req.url);
+
+  if (pathname === "/") {
+    url.pathname = "/site/mentoria";
+    return NextResponse.rewrite(url);
+  }
+
+  if (pathname === "/app" || pathname.startsWith("/app/")) {
+    url.pathname = pathname.replace(/^\/app/, "/mentoria/app");
+    return NextResponse.rewrite(url);
+  }
+
+  if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) {
+    url.pathname = pathname.replace(/^\/onboarding/, "/mentoria/onboarding");
+    return NextResponse.rewrite(url);
+  }
+
+  if (pathname === "/share" || pathname.startsWith("/share/")) {
+    url.pathname = pathname.replace(/^\/share/, "/mentoria/share");
+    return NextResponse.rewrite(url);
+  }
+
+  if (pathname === "/signup") {
+    url.pathname = "/mentorias/auths/registrations";
+    return NextResponse.redirect(url, 308);
+  }
+
+  if (pathname === "/login") {
+    url.pathname = "/mentorias/auths/logins";
+    return NextResponse.rewrite(url);
+  }
+
+  if (pathname === "/auth/register") {
+    url.pathname = "/mentorias/auths/registrations";
+    return NextResponse.rewrite(url);
+  }
+
+  if (pathname === "/auth/login") {
+    url.pathname = "/mentorias/auths/logins";
+    return NextResponse.rewrite(url);
+  }
+
+  return null;
+}
+
 /**
  * OLIMPO MIDDLEWARE - ULTRA MINIMAL & FAIL-SAFE
- * 
+ *
  * ABSOLUTE RULES:
  * 1. NEVER throw exceptions - always return NextResponse
  * 2. MINIMAL imports - no heavy DB/SDK imports
  * 3. Graceful degradation when Cloudflare bindings unavailable
  */
 export async function middleware(req: NextRequest) {
-  // Helper function for sample rate
   function resolveRoutingSampleRate(): number {
     const requestBindings = env();
-    const raw = (requestBindings as unknown as Record<string, string | undefined> | null)?.DRACO_ROUTING_EVENTS_SAMPLE_RATE ?? "0.05";
+    const raw =
+      (requestBindings as unknown as Record<string, string | undefined> | null)
+        ?.DRACO_ROUTING_EVENTS_SAMPLE_RATE ?? "0.05";
     const parsed = Number.parseFloat(raw);
     if (Number.isNaN(parsed) || parsed <= 0) return 0;
     return Math.min(parsed, 1);
@@ -124,7 +200,6 @@ export async function middleware(req: NextRequest) {
     const legacyWorkspaceRedirect = resolveLegacyWorkspaceRedirect(pathname);
     const legacyOperatorRedirect = resolveLegacyOperatorRedirect(pathname);
 
-    // 🔍 DRAKO STEEL v1.0.1: Correlation Identification
     if (shouldBypassCorrelation(pathname)) {
       return NextResponse.next();
     }
@@ -147,47 +222,32 @@ export async function middleware(req: NextRequest) {
       );
     }
 
-    if (isRoutingsSubdomainsEnabled() && /^\/site\/mentoria(\/|$)/.test(pathname)) {
-      const target = new URL(req.url);
-      target.pathname = pathname.replace(/^\/site\/mentoria/, "") || "/";
-      if (!requestedHost || requestedHost.includes("localhost") || requestedHost.includes("127.0.0.1")) {
-        target.searchParams.set("__drako_host", "mentoria.drako.systems");
-      } else {
-        target.protocol = "https:";
-        target.hostname = "mentoria.drako.systems";
-      }
-      return NextResponse.redirect(target, 308);
-    }
-
-    // ✅ AUTH CHECK: Protect /site/panel routes (FAIL-CLOSED)
     if (legacyOperatorRedirect) {
       return NextResponse.redirect(new URL(legacyOperatorRedirect, req.url), 308);
     }
 
-    // ✅ AUTH CHECK: Protect /site/panel routes (FAIL-CLOSED)
     if (pathname.startsWith("/site/panel")) {
       const session = await extractSessionFromRequest(req);
 
       if (!session && needsExplicitLocalContext) {
-        return buildHtmlResponse("Explicit auth context required in local development. Add ?__drako_host=bases.drako.systems, drako.systems, mentorias.drako.systems or a SocialFlow host.", 400);
+        return buildHtmlResponse(
+          "Explicit auth context required in local development. Add ?__drako_host=bases.drako.systems, drako.systems, mentorias.drako.systems or a SocialFlow host.",
+          400,
+        );
       }
 
       if (!session) {
-        // FAIL-CLOSED: No session → login
         const url = new URL(loginPath, req.url);
         url.searchParams.set("callbackUrl", pathname);
         return NextResponse.redirect(url);
       }
 
-      // 🛡️ ROLE CHECK: Only Owner/Superadmin/Staff can access Panel
       const role = session.role?.toLowerCase();
-      if (!role || (role !== 'owner' && role !== 'superadmin' && role !== 'staff')) {
-        // Redirect unauthorized tenants to their client portal
+      if (!role || (role !== "owner" && role !== "superadmin" && role !== "staff")) {
         return NextResponse.redirect(new URL("/socialflow", req.url));
       }
     }
 
-    // OLIMPO: Check if Cloudflare bindings are available
     const requestBindings = env();
     const hostInfo = resolveEffectiveHost(req);
     const host = hostInfo.effectiveHost;
@@ -200,50 +260,10 @@ export async function middleware(req: NextRequest) {
       host.startsWith("mentoria.") ||
       host.startsWith("mentorias.");
 
-    // If no bindings (e.g., Next local runtime), proceed with minimal headers
-    // but preserve effective host context for auth boundary isolation.
     if (!requestBindings) {
       if (isRoutingsSubdomainsEnabled() && isMentoriasHost && !isApi) {
-        if (pathname === "/") {
-          const url = new URL(req.url);
-          url.pathname = "/site/mentoria";
-          return NextResponse.rewrite(url);
-        }
-        if (pathname === "/app" || pathname.startsWith("/app/")) {
-          const url = new URL(req.url);
-          url.pathname = pathname.replace(/^\/app/, "/mentoria/app");
-          return NextResponse.rewrite(url);
-        }
-        if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) {
-          const url = new URL(req.url);
-          url.pathname = pathname.replace(/^\/onboarding/, "/mentoria/onboarding");
-          return NextResponse.rewrite(url);
-        }
-        if (pathname === "/share" || pathname.startsWith("/share/")) {
-          const url = new URL(req.url);
-          url.pathname = pathname.replace(/^\/share/, "/mentoria/share");
-          return NextResponse.rewrite(url);
-        }
-        if (pathname === "/signup") {
-          const url = new URL(req.url);
-          url.pathname = "/mentorias/auths/registrations";
-          return NextResponse.redirect(url, 308);
-        }
-        if (pathname === "/login") {
-          const url = new URL(req.url);
-          url.pathname = "/mentorias/auths/logins";
-          return NextResponse.rewrite(url);
-        }
-        if (pathname === "/auth/register") {
-          const url = new URL(req.url);
-          url.pathname = "/mentorias/auths/registrations";
-          return NextResponse.rewrite(url);
-        }
-        if (pathname === "/auth/login") {
-          const url = new URL(req.url);
-          url.pathname = "/mentorias/auths/logins";
-          return NextResponse.rewrite(url);
-        }
+        const mentoriaRewrite = rewriteMentoriaHostPath(req, pathname);
+        if (mentoriaRewrite) return mentoriaRewrite;
       }
 
       const headers = new Headers(req.headers);
@@ -255,11 +275,17 @@ export async function middleware(req: NextRequest) {
       }
       headers.set("x-drako-environment", "vercel");
       headers.set(CORRELATION_HEADER, correlationId);
+
       const res = NextResponse.next({ request: { headers } });
       res.headers.set(CORRELATION_HEADER, correlationId);
+
       if (hostInfo.shouldPersistCookie) {
-        res.cookies.set("drako_host", hostInfo.shouldPersistCookie, { path: "/", maxAge: 60 * 60 * 24 * 7 });
+        res.cookies.set("drako_host", hostInfo.shouldPersistCookie, {
+          path: "/",
+          maxAge: 60 * 60 * 24 * 7,
+        });
       }
+
       return res;
     }
 
@@ -268,49 +294,10 @@ export async function middleware(req: NextRequest) {
     const isAdminHost = hostMode === "CAMPAMENTO_BASE";
 
     if (isRoutingsSubdomainsEnabled() && isMentoriasHost && !isApi) {
-      if (pathname === "/") {
-        const url = new URL(req.url);
-        url.pathname = "/site/mentoria";
-        return NextResponse.rewrite(url);
-      }
-      if (pathname === "/app" || pathname.startsWith("/app/")) {
-        const url = new URL(req.url);
-        url.pathname = pathname.replace(/^\/app/, "/mentoria/app");
-        return NextResponse.rewrite(url);
-      }
-      if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) {
-        const url = new URL(req.url);
-        url.pathname = pathname.replace(/^\/onboarding/, "/mentoria/onboarding");
-        return NextResponse.rewrite(url);
-      }
-      if (pathname === "/share" || pathname.startsWith("/share/")) {
-        const url = new URL(req.url);
-        url.pathname = pathname.replace(/^\/share/, "/mentoria/share");
-        return NextResponse.rewrite(url);
-      }
-      if (pathname === "/signup") {
-  const url = new URL(req.url);
-  url.pathname = "/mentorias/auths/registrations";
-  return NextResponse.redirect(url, 308);
-}
-      if (pathname === "/login") {
-        const url = new URL(req.url);
-        url.pathname = "/mentorias/auths/logins";
-        return NextResponse.rewrite(url);
-      }
-      if (pathname === "/auth/register") {
-        const url = new URL(req.url);
-        url.pathname = "/mentorias/auths/registrations";
-        return NextResponse.rewrite(url);
-      }
-      if (pathname === "/auth/login") {
-        const url = new URL(req.url);
-        url.pathname = "/mentorias/auths/logins";
-        return NextResponse.rewrite(url);
-      }
+      const mentoriaRewrite = rewriteMentoriaHostPath(req, pathname);
+      if (mentoriaRewrite) return mentoriaRewrite;
     }
 
-    // Rutas admin a proteger en host público
     const adminPrefixes = [
       "/admin",
       "/agents",
@@ -329,10 +316,12 @@ export async function middleware(req: NextRequest) {
       "/staff",
     ];
 
-    // Host-based routing split: public vs operator
     const persistCookie = (res: NextResponse) => {
       if (hostInfo.shouldPersistCookie) {
-        res.cookies.set("drako_host", hostInfo.shouldPersistCookie, { path: "/", maxAge: 60 * 60 * 24 * 7 });
+        res.cookies.set("drako_host", hostInfo.shouldPersistCookie, {
+          path: "/",
+          maxAge: 60 * 60 * 24 * 7,
+        });
       }
       return res;
     };
@@ -347,18 +336,23 @@ export async function middleware(req: NextRequest) {
       if (isRoutingsSubdomainsEnabled() && !isMentoriasHost && pathname.startsWith("/api/mentorias/")) {
         return NextResponse.json({ error: "Mentorias routes unavailable on this host" }, { status: 404 });
       }
-      if (isRoutingsSubdomainsEnabled() && isAdminHost && (
-        pathname.startsWith("/api/drakos/auths/")
-        || pathname.startsWith("/api/mentorias/auths/")
-        || pathname.startsWith("/api/socialflow/auths/")
-      )) {
+      if (
+        isRoutingsSubdomainsEnabled() &&
+        isAdminHost &&
+        (pathname.startsWith("/api/drakos/auths/") ||
+          pathname.startsWith("/api/mentorias/auths/") ||
+          pathname.startsWith("/api/socialflow/auths/"))
+      ) {
         return NextResponse.json({ error: "Final-user auth is unavailable on base host" }, { status: 403 });
       }
       if (pathname.startsWith("/api/bases/auths/")) {
-        return NextResponse.json({
-          error: "BASES_CUSTOM_AUTHS_DEPRECATED",
-          message: "Campo Base operator auth uses NextAuth + D1 only. Use /bases/login.",
-        }, { status: 410 });
+        return NextResponse.json(
+          {
+            error: "BASES_CUSTOM_AUTHS_DEPRECATED",
+            message: "Campo Base operator auth uses NextAuth + D1 only. Use /bases/login.",
+          },
+          { status: 410 },
+        );
       }
 
       const bindings = requestBindings;
@@ -376,12 +370,14 @@ export async function middleware(req: NextRequest) {
       if (isMentoriasHost) {
         contextHeaders.set("x-drako-saas-slug", "mentorias");
       }
+
       const tenantWorkspaceEntryMode = resolveTenantWorkspaceEntryMode({
         pathname,
         effectiveHost: host,
         pagesEnvironment,
         localDemoEnabled: isLocalDemoClientBypass,
       });
+
       if (tenantWorkspaceEntryMode) {
         contextHeaders.set("x-drako-client-entry-mode", tenantWorkspaceEntryMode);
         contextHeaders.set("x-drako-client-workspace-kind", "owned_saas");
@@ -403,7 +399,6 @@ export async function middleware(req: NextRequest) {
 
       const resolutionHost = isPagesDevHost ? "drako.systems" : host;
 
-      // OLIMPO: Wrap host resolution in try/catch
       let resolution;
       try {
         resolution = await resolveHostToSaas(resolutionHost, correlationId);
@@ -418,26 +413,21 @@ export async function middleware(req: NextRequest) {
           contextHeaders.set("x-drako-tenant-id", resolution.tenantId);
           contextHeaders.set("x-tenant-id", resolution.tenantId);
 
-          // 🛡️ DRAKO STEEL v1.5: API HARD WALL (FAIL-CLOSED)
-          // For API calls, if session exists, verify tenant isolation
           const session = await extractSessionFromRequest(req);
           if (session && session.tenantId && session.tenantId !== resolution.tenantId && !isAuthRoute(pathname)) {
-            // Only Owner can cross-tenant
             const role = session.role?.toLowerCase();
-            if (role !== 'owner' && role !== 'superadmin') {
+            if (role !== "owner" && role !== "superadmin") {
               return NextResponse.json({ error: "CROSS_TENANT_ACCESS_FORBIDDEN" }, { status: 403 });
             }
           }
 
-          // 🛡️ DRAKO STEEL v1.0.1: Rate Limit Protection
-          // Relaxed for SocialFlow demo and disabled in local development
           const isDev = process.env.NODE_ENV === "development";
           const isSocialFlowRoute =
             pathname.startsWith("/api/socialflow/") || pathname.startsWith("/socialflow");
           const bypassLocalLinkedInOAuthRateLimit = shouldBypassLocalLinkedInOAuthRateLimit(req);
 
           if (!isDev && !bypassLocalLinkedInOAuthRateLimit && !isAuthRoute(pathname)) {
-            const effectivePlan = isSocialFlowRoute ? "PRO" : "FREE" as const;
+            const effectivePlan = (isSocialFlowRoute ? "PRO" : "FREE") as const;
             const rateLimit = await checkTenantRateLimit({
               tenantId: resolution.tenantId,
               saasId: resolution.saasId,
@@ -447,25 +437,32 @@ export async function middleware(req: NextRequest) {
             });
 
             if (!rateLimit.allowed) {
-              return persistCookie(NextResponse.json({
-                error: "RATE_LIMIT_EXCEEDED",
-                retry_after: rateLimit.retryAfter,
-                correlation_id: correlationId
-              }, {
-                status: 429,
-                headers: {
-                  [CORRELATION_HEADER]: correlationId,
-                  "Retry-After": String(rateLimit.retryAfter || 60)
-                }
-              }));
+              return persistCookie(
+                NextResponse.json(
+                  {
+                    error: "RATE_LIMIT_EXCEEDED",
+                    retry_after: rateLimit.retryAfter,
+                    correlation_id: correlationId,
+                  },
+                  {
+                    status: 429,
+                    headers: {
+                      [CORRELATION_HEADER]: correlationId,
+                      "Retry-After": String(rateLimit.retryAfter || 60),
+                    },
+                  },
+                ),
+              );
             }
           }
         }
+
         if (resolution.saasId) {
           contextHeaders.set("x-drako-saas-id", resolution.saasId);
           contextHeaders.set("x-drako-saas-slug", resolution.saasSlug ?? "");
         }
       }
+
       contextHeaders.set(CORRELATION_HEADER, resolution.correlationId ?? correlationId);
       const res = persistCookie(NextResponse.next({ request: { headers: contextHeaders } }));
       res.headers.set(CORRELATION_HEADER, resolution.correlationId ?? correlationId);
@@ -479,12 +476,14 @@ export async function middleware(req: NextRequest) {
     if (isMentoriasHost) {
       responseHeaders.set("x-drako-saas-slug", "mentorias");
     }
+
     const tenantWorkspaceEntryMode = resolveTenantWorkspaceEntryMode({
       pathname,
       effectiveHost: host,
       pagesEnvironment,
       localDemoEnabled: isLocalDemoClientBypass,
     });
+
     if (tenantWorkspaceEntryMode) {
       responseHeaders.set("x-drako-client-entry-mode", tenantWorkspaceEntryMode);
       responseHeaders.set("x-drako-client-workspace-kind", "owned_saas");
@@ -499,15 +498,25 @@ export async function middleware(req: NextRequest) {
       return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
     }
 
+    if (isMentoriasHost && isMentoriaProductPath(pathname)) {
+      return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
+    }
+
     if (isTenantWorkspacePath(pathname)) {
       return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
     }
 
     if (isPublicHost) {
+      if (isMentoriasHost) {
+        const url = new URL(req.url);
+        url.pathname = "/site/mentoria";
+        return persistCookie(NextResponse.rewrite(url, { request: { headers: responseHeaders } }));
+      }
+
       if (adminPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
-        // Redirect attempt to access admin via public host
         return persistCookie(NextResponse.redirect(new URL("/", req.url)));
       }
+
       return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
     }
 
@@ -519,15 +528,19 @@ export async function middleware(req: NextRequest) {
         return persistCookie(NextResponse.redirect(new URL("/bases/login", req.url)));
       }
 
-      if (isRoutingsSubdomainsEnabled() && (
-        pathname.startsWith("/drakos/auths/") ||
-        pathname.startsWith("/mentorias/auths/") ||
-        pathname.startsWith("/socialflow/auth")
-      )) {
+      if (
+        isRoutingsSubdomainsEnabled() &&
+        (pathname.startsWith("/drakos/auths/") ||
+          pathname.startsWith("/mentorias/auths/") ||
+          pathname.startsWith("/socialflow/auth"))
+      ) {
         return persistCookie(NextResponse.redirect(new URL("/", req.url)));
       }
 
-      const isAdminRoute = adminPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+      const isAdminRoute = adminPrefixes.some(
+        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+      );
+
       if (isAdminRoute) {
         const session = await extractSessionFromRequest(req);
         if (!session) {
@@ -536,11 +549,12 @@ export async function middleware(req: NextRequest) {
           return persistCookie(NextResponse.redirect(url));
         }
 
-      const role = session.role?.toLowerCase();
-      if (!role || (role !== "owner" && role !== "superadmin" && role !== "staff" && role !== "admin")) {
-        return persistCookie(NextResponse.redirect(new URL("/bases", req.url)));
+        const role = session.role?.toLowerCase();
+        if (!role || (role !== "owner" && role !== "superadmin" && role !== "staff" && role !== "admin")) {
+          return persistCookie(NextResponse.redirect(new URL("/bases", req.url)));
+        }
       }
-      }
+
       return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
     }
 
@@ -550,7 +564,6 @@ export async function middleware(req: NextRequest) {
       return persistCookie(NextResponse.next());
     }
 
-    // OLIMPO: Wrap host resolution in try/catch
     let resolution;
     try {
       resolution = await resolveHostToSaas(host, correlationId);
@@ -574,7 +587,8 @@ export async function middleware(req: NextRequest) {
     };
 
     const sampleRate = resolveRoutingSampleRate();
-    const shouldLogActive = resolution.status === "ACTIVE" && sampleRate > 0 && Math.random() <= sampleRate;
+    const shouldLogActive =
+      resolution.status === "ACTIVE" && sampleRate > 0 && Math.random() <= sampleRate;
 
     try {
       if (shouldLogActive) {
@@ -613,57 +627,54 @@ export async function middleware(req: NextRequest) {
         });
       }
     } catch (error) {
-      // Si D1 no está listo, no bloquear tráfico.
       console.warn("ROUTING_EVENT_FALLBACK", error);
     }
 
     if (resolution.status === "ACTIVE") {
       const headers = new Headers(req.headers);
+
       if (resolution.tenantId) {
         headers.set("x-drako-tenant-id", resolution.tenantId);
         headers.set("x-tenant-id", resolution.tenantId);
       }
+
       if (resolution.saasId) {
         headers.set("x-drako-saas-id", resolution.saasId);
         headers.set("x-drako-saas-slug", resolution.saasSlug ?? "");
       }
+
       headers.set(CORRELATION_HEADER, finalCorrelationId);
       headers.set("x-drako-domain-status", resolution.status);
+
       const activeEntryMode = resolveTenantWorkspaceEntryMode({
         pathname,
         effectiveHost: host,
         pagesEnvironment,
         localDemoEnabled: false,
       });
+
       if (activeEntryMode) {
         headers.set("x-drako-client-entry-mode", activeEntryMode);
         headers.set("x-drako-client-workspace-kind", "owned_saas");
       }
 
-      // 🛡️ DRAKO STEEL v1.5: UI HARD WALL (The Great Filter) (FAIL-CLOSED)
-      // Check if the current session belongs to this tenant
       const session = await extractSessionFromRequest(req);
       if (session && resolution.tenantId) {
         const userTenantId = session.tenantId;
         const userRole = session.role?.toLowerCase();
 
-        // If user has a tenantId (is a Tenant User) AND it mismatches the resolved host tenant
-        // AND user is NOT an Owner/Admin who can impersonate
-        if (userTenantId && userTenantId !== resolution.tenantId && userRole !== 'owner' && userRole !== 'superadmin') {
-          // HARD LOGOUT / BLOCK (FAIL-CLOSED)
-          // We redirect to a specialized 403 page or just logout.
-          // Logout is safer to prevent confusion.
+        if (
+          userTenantId &&
+          userTenantId !== resolution.tenantId &&
+          userRole !== "owner" &&
+          userRole !== "superadmin"
+        ) {
           const url = new URL("/auth/error?error=TenantMismatch", req.url);
           return NextResponse.redirect(url);
         }
       }
 
-      // 🦅 DRAKO ORCHESTRATOR: Shielded Client Isolation
-
-      // 1. Block Tenants from /site/panel (Owner Only)
       if (pathname.startsWith("/site/panel")) {
-        // If we resolved a Tenant (status ACTIVE), they should NEVER see Admin Panel.
-        // Redirect to their Client Shielded Environment.
         const clientRoot = new URL("/socialflow", req.url);
         return NextResponse.redirect(clientRoot);
       }
@@ -677,20 +688,24 @@ export async function middleware(req: NextRequest) {
       return res;
     }
 
-    const unknownMessage = "SaaS no registrado para este dominio. Revisa el DNS o crea el mapping en operator.";
+    const unknownMessage =
+      "SaaS no registrado para este dominio. Revisa el DNS o crea el mapping en operator.";
     const unknownExtra = isPagesDevHost
       ? `<a class="button" href="/site">Ir a /site</a><small>Host real: ${hostInfo.realHost} · Host virtual: ${host}</small>`
       : `<a class="button" href="/operator/domains">Ir a /operator/domains (admin)</a><a class="button" href="?__drako_host=drako.systems">Cambiar host (solo local)</a><small>Host real: ${hostInfo.realHost} · Host virtual: ${host}</small>`;
 
     if (resolution.status === "PENDING" || resolution.status === "PAUSED") {
-      const reason = resolution.reason ?? (resolution.status === "PAUSED" ? "DOMAIN_PAUSED" : "DOMAIN_BLOCKED");
-      const statusCode = reason === "DOMAIN_PENDING_ACTIVATION"
-        ? 409
-        : reason === "DOMAIN_NOT_ACTIVE"
-          ? 403
-          : reason === "DOMAIN_PAUSED"
-            ? 423
-            : 403;
+      const reason =
+        resolution.reason ?? (resolution.status === "PAUSED" ? "DOMAIN_PAUSED" : "DOMAIN_BLOCKED");
+      const statusCode =
+        reason === "DOMAIN_PENDING_ACTIVATION"
+          ? 409
+          : reason === "DOMAIN_NOT_ACTIVE"
+            ? 403
+            : reason === "DOMAIN_PAUSED"
+              ? 423
+              : 403;
+
       const blockedHeaders = new Headers(responseHeaders);
       blockedHeaders.set("x-drako-domain-status", resolution.status);
       blockedHeaders.set("x-drako-domain-reason", reason);
@@ -713,15 +728,11 @@ export async function middleware(req: NextRequest) {
 
     return persistCookie(buildHtmlResponse(unknownMessage, 200, unknownExtra));
   } catch (error) {
-    // OLIMPO: GLOBAL CATCH - NEVER let an exception escape
     console.error("MIDDLEWARE_CRITICAL_FAILURE", error);
-    // Return NextResponse.next() to allow the request to continue
     return NextResponse.next();
   }
 }
 
-// Ejecutar en todas las rutas
 export const config = {
   matcher: "/:path*",
 };
-
