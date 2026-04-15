@@ -427,7 +427,7 @@ export async function middleware(req: NextRequest) {
           const bypassLocalLinkedInOAuthRateLimit = shouldBypassLocalLinkedInOAuthRateLimit(req);
 
           if (!isDev && !bypassLocalLinkedInOAuthRateLimit && !isAuthRoute(pathname)) {
-            const effectivePlan = (isSocialFlowRoute ? "PRO" : "FREE") as const;
+            const effectivePlan: "PRO" | "FREE" = isSocialFlowRoute ? "PRO" : "FREE";
             const rateLimit = await checkTenantRateLimit({
               tenantId: resolution.tenantId,
               saasId: resolution.saasId,
