@@ -1,17 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import type { StudentProfile, LearningSession, MentoriaExercise, DailyPlan, DailyPlanTask, FocusSession, MentoriaWorkspaceEntry } from "@/lib/mentoria/types";
+import type {
+  StudentProfile,
+  LearningSession,
+  MentoriaExercise,
+  DailyPlan,
+  DailyPlanTask,
+  FocusSession,
+  MentoriaWorkspaceEntry,
+  MentoriaProgress,
+  MentoriaStudentMemorySummary,
+  MentoriaStudentSubject,
+  MentoriaGuardianHookEvent,
+} from "@/lib/mentoria/types";
 
 type WorkspaceBoardProps = {
   activeSection: string;
   student: StudentProfile | null;
+  studentSubjects: MentoriaStudentSubject[];
+  progress: MentoriaProgress[];
   dailyPlan: DailyPlan | null;
   focusSessions: FocusSession[];
   entry: MentoriaWorkspaceEntry | null;
   latestSession: LearningSession | null;
+  recentSessions: LearningSession[];
   latestExercise: MentoriaExercise | null;
+  exercises: MentoriaExercise[];
   activeDailyTask: DailyPlanTask | null;
+  memory: MentoriaStudentMemorySummary | null;
+  analysis: { weakSubjects: string[]; strongSubjects: string[]; nextActions: string[] } | null;
+  guardianHooks: MentoriaGuardianHookEvent[];
+  motivationMessage: string | null;
   tutorMessages: Array<{ role: "student" | "tutor"; content: string }>;
   exerciseAnswer: string;
   sessionStatusMessage?: string | null;
@@ -20,6 +40,8 @@ type WorkspaceBoardProps = {
   onExerciseAnswerChange: (answer: string) => void;
   onStartDailyTask: (task: DailyPlanTask) => void;
   onStartFocusSession?: () => void;
+  onStartSubjectSession: (subject: MentoriaStudentSubject | MentoriaProgress) => void;
+  onOpenExercise: (exerciseId: string) => void;
   onSectionChange?: (section: string) => void;
   onResumeSession: (session: LearningSession) => void;
   onQuickAction: (action: { topic: string; prompt: string; subjectSlug?: string | null }) => void;
@@ -28,12 +50,20 @@ type WorkspaceBoardProps = {
 export function WorkspaceBoard({
   activeSection,
   student,
+  studentSubjects,
+  progress,
   dailyPlan,
   focusSessions,
   entry,
   latestSession,
+  recentSessions,
   latestExercise,
+  exercises,
   activeDailyTask,
+  memory,
+  analysis,
+  guardianHooks,
+  motivationMessage,
   tutorMessages,
   exerciseAnswer,
   sessionStatusMessage,
@@ -42,6 +72,8 @@ export function WorkspaceBoard({
   onExerciseAnswerChange,
   onStartDailyTask,
   onStartFocusSession,
+  onStartSubjectSession,
+  onOpenExercise,
   onSectionChange,
   onResumeSession,
   onQuickAction,
@@ -53,6 +85,9 @@ export function WorkspaceBoard({
     onSendMessage(tutorInput);
     setTutorInput("");
   };
+
+  const progressBySubjectId = new Map(progress.map((item) => [item.subjectId, item]));
+  const pendingExerciseCount = exercises.filter((exercise) => exercise.status === "pending").length;
 
   if (activeSection === "planner") {
     return (
@@ -80,6 +115,169 @@ export function WorkspaceBoard({
                   {task.type}
                 </div>
               </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (activeSection === "subjects") {
+    return (
+      <div className="p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">Tus materias</h2>
+          <p className="text-sm text-slate-600">Elige una materia para abrir una sesión guiada con contexto real.</p>
+        </div>
+
+        {studentSubjects.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
+            Aún no hay materias configuradas para este alumno.
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {studentSubjects.map((item) => {
+              const progressItem = progressBySubjectId.get(item.subjectId);
+
+              return (
+                <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-slate-900">{item.subject?.name ?? "Materia"}</h3>
+                      <p className="text-xs text-slate-500">Nivel inicial: {item.initialLevel.replaceAll("_", " ")}</p>
+                    </div>
+                    {progressItem && (
+                      <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                        {progressItem.masteryScore}% dominio
+                      </div>
+                    )}
+                  </div>
+
+                  {progressItem ? (
+                    <div className="space-y-2 text-sm text-slate-600">
+                      <div>Confianza: {progressItem.confidenceScore}%</div>
+                      <div>Sesiones completadas: {progressItem.sessionsCompleted}</div>
+                      <div>Ejercicios completados: {progressItem.exercisesCompleted}</div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-slate-500">Todavía no hay progreso consolidado en esta materia.</div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => onStartSubjectSession(item)}
+                    className="mt-4 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+                  >
+                    Empezar sesión guiada
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (activeSection === "sessions") {
+    return (
+      <div className="p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">Sesiones recientes</h2>
+          <p className="text-sm text-slate-600">Retoma una sesión previa o vuelve al tutor con continuidad real.</p>
+        </div>
+
+        {recentSessions.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
+            Todavía no hay sesiones recientes para continuar.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {recentSessions.map((session) => (
+              <div key={session.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <h3 className="text-base font-semibold text-slate-900">{session.topic || "Sesión guiada"}</h3>
+                  <div className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+                    {session.status}
+                  </div>
+                </div>
+                <p className="mb-3 text-sm text-slate-600">{session.tutorSummary}</p>
+                <div className="mb-4 text-xs text-slate-500">Siguiente paso: {session.recommendedNextStep}</div>
+                <button
+                  type="button"
+                  onClick={() => onResumeSession(session)}
+                  className="rounded-xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white hover:bg-sky-700"
+                >
+                  Retomar sesión
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (activeSection === "progress") {
+    return (
+      <div className="p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">Tu progreso</h2>
+          <p className="text-sm text-slate-600">Lee cómo vas por materia y salta a la siguiente acción útil.</p>
+        </div>
+
+        {progress.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
+            Aún no hay progreso suficiente para mostrar métricas.
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {progress.map((item) => (
+              <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h3 className="text-base font-semibold text-slate-900">{item.subject?.name ?? "Materia"}</h3>
+                  <div className="text-xs text-slate-500">Racha: {item.streakDays} días</div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <div className="mb-1 flex justify-between text-xs text-slate-500">
+                      <span>Dominio</span>
+                      <span>{item.masteryScore}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                      <div className="h-full bg-emerald-500" style={{ width: `${item.masteryScore}%` }} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-1 flex justify-between text-xs text-slate-500">
+                      <span>Confianza</span>
+                      <span>{item.confidenceScore}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                      <div className="h-full bg-sky-500" style={{ width: `${item.confidenceScore}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs text-slate-600">
+                    <div className="rounded-xl bg-slate-50 p-3">{item.sessionsCompleted} sesiones</div>
+                    <div className="rounded-xl bg-slate-50 p-3">{item.exercisesCompleted} ejercicios</div>
+                  </div>
+
+                  {item.weakTopics.length > 0 && (
+                    <div className="text-xs text-amber-700">Vigilar: {item.weakTopics.slice(0, 2).join(", ")}</div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => onStartSubjectSession(item)}
+                    className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Trabajar esta materia
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -126,10 +324,110 @@ export function WorkspaceBoard({
     );
   }
 
-  if (activeSection !== "board") {
+  if (activeSection === "exercises") {
     return (
-      <div className="p-6 text-sm text-slate-600">
-        Sección: {activeSection}
+      <div className="p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">Ejercicios</h2>
+          <p className="text-sm text-slate-600">Continúa un ejercicio pendiente o vuelve al tutor para practicar.</p>
+        </div>
+
+        <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+          Pendientes: {pendingExerciseCount} · Total: {exercises.length}
+        </div>
+
+        {exercises.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
+            Todavía no hay ejercicios generados.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {exercises.map((exercise) => (
+              <div key={exercise.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-slate-900">{exercise.expectedCompetency}</div>
+                  <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                    {exercise.status}
+                  </div>
+                </div>
+                <p className="mb-3 text-sm text-slate-600">{exercise.prompt}</p>
+                <div className="mb-4 text-xs text-slate-500">
+                  Dificultad: {exercise.difficultyLevel} · Formato: {exercise.answerFormat}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onOpenExercise(exercise.id)}
+                  className="rounded-xl bg-amber-600 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-700"
+                >
+                  {exercise.status === "pending" ? "Continuar ejercicio" : "Ver ejercicio"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (activeSection === "memory") {
+    return (
+      <div className="p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">Memoria del alumno</h2>
+          <p className="text-sm text-slate-600">Señales reales para acompañar mejor la siguiente sesión.</p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 text-sm font-semibold text-slate-900">Vigilar</div>
+            {memory?.watchouts.length ? (
+              <div className="space-y-2 text-sm text-slate-700">
+                {memory.watchouts.map((item, index) => <div key={index}>{item}</div>)}
+              </div>
+            ) : (
+              <div className="text-sm text-slate-500">No hay alertas activas ahora mismo.</div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 text-sm font-semibold text-slate-900">Errores comunes</div>
+            {memory?.commonMistakes.length ? (
+              <div className="space-y-2 text-sm text-slate-700">
+                {memory.commonMistakes.map((item, index) => <div key={index}>{item}</div>)}
+              </div>
+            ) : (
+              <div className="text-sm text-slate-500">Aún no hay patrones de error consolidados.</div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 text-sm font-semibold text-slate-900">Fortalezas</div>
+            {memory?.strengths.length ? (
+              <div className="space-y-2 text-sm text-slate-700">
+                {memory.strengths.map((item, index) => <div key={index}>{item}</div>)}
+              </div>
+            ) : (
+              <div className="text-sm text-slate-500">Todavía no hay fortalezas destacadas registradas.</div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-3 text-sm font-semibold text-slate-900">Acompañamiento</div>
+            <div className="space-y-2 text-sm text-slate-700">
+              {motivationMessage && <div>{motivationMessage}</div>}
+              {analysis?.nextActions?.slice(0, 2).map((item, index) => <div key={index}>{item}</div>)}
+              {guardianHooks.slice(0, 2).map((hook) => <div key={hook.id}>{hook.title}: {hook.summary}</div>)}
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onSectionChange?.("board")}
+          className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-black"
+        >
+          Volver al tutor IA
+        </button>
       </div>
     );
   }

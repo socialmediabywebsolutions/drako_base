@@ -12,9 +12,6 @@ import type {
   DailyPlan,
   FocusSession,
   LearningSession,
-  MentoriaBillingSummary,
-  MentoriaGrowthSummary,
-  MentoriaDailyClosureSummary,
   MentoriaExercise,
   MentoriaGuardianHookEvent,
   MentoriaProgress,
@@ -23,14 +20,10 @@ import type {
   MentoriaWorkspaceEntry,
   ParentAccount,
   StudentProfile,
-  StudyPlan,
 } from "@/lib/mentoria/types";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
-import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
-import type { BehavioralShadowComparison } from "@/lib/behavioral-engine/contracts";
-import type { BehavioralEngineRolloutMode } from "@/lib/behavioral-engine/rollout";
 
-type WorkspaceSection = "board" | "subjects" | "sessions" | "planner" | "focus" | "exercises" | "memory";
+type WorkspaceSection = "board" | "subjects" | "sessions" | "progress" | "planner" | "focus" | "exercises" | "memory";
 type ReentryMode = "resume_session" | "gentle_restart" | "momentum_push" | "plan_task" | "entry";
 type TutorResult = {
   reply: string;
@@ -53,21 +46,14 @@ type WorkspaceState = {
   studentSubjects: MentoriaStudentSubject[];
   progress: MentoriaProgress[];
   analysis: { weakSubjects: string[]; strongSubjects: string[]; nextActions: string[] } | null;
-  plan: StudyPlan | null;
   exercises: MentoriaExercise[];
   motivation: MotivationState | null;
   dailyPlan: DailyPlan | null;
-  billing: MentoriaBillingSummary | null;
   recentSessions: LearningSession[];
   focusSessions: FocusSession[];
   entry: MentoriaWorkspaceEntry | null;
   memory: MentoriaStudentMemorySummary | null;
-  evolution: StudentEvolutionProfile | null;
-  growth: MentoriaGrowthSummary | null;
-  dailyClosure: MentoriaDailyClosureSummary | null;
   guardianHooks: MentoriaGuardianHookEvent[];
-  behavioralRollout: BehavioralEngineRolloutMode;
-  behavioralShadow?: BehavioralShadowComparison | null;
 };
 
 type WorkspaceApiResponse = WorkspaceState & {
@@ -78,21 +64,14 @@ type WorkspaceApiResponse = WorkspaceState & {
   studentSubjects?: MentoriaStudentSubject[];
   motivation?: MotivationState | null;
   dailyPlan?: DailyPlan | null;
-  billing?: MentoriaBillingSummary | null;
   progress?: MentoriaProgress[];
   analysis?: { weakSubjects: string[]; strongSubjects: string[]; nextActions: string[] };
-  currentPlan?: StudyPlan | null;
   exercises?: MentoriaExercise[];
   recentSessions?: LearningSession[];
   focusSessions?: FocusSession[];
   entry?: MentoriaWorkspaceEntry | null;
   memory?: MentoriaStudentMemorySummary | null;
-  evolution?: StudentEvolutionProfile | null;
-  growth?: MentoriaGrowthSummary | null;
-  dailyClosure?: MentoriaDailyClosureSummary | null;
   guardianHooks?: MentoriaGuardianHookEvent[];
-  behavioralRollout?: BehavioralEngineRolloutMode;
-  behavioralShadow?: BehavioralShadowComparison | null;
 };
 
 type SessionApiResponse = {
@@ -117,32 +96,20 @@ type SessionApiResponse = {
 
 export function MentoriaWorkspace() {
   const initialUi = getWorkspaceUiCopy("eso");
-  const taskTypeLabels: Record<"practice" | "review" | "challenge", string> = {
-    practice: "práctica guiada",
-    review: "repaso guiado",
-    challenge: "reto corto",
-  };
   const [state, setState] = useState<WorkspaceState>({
     student: null,
     parents: [],
     studentSubjects: [],
     progress: [],
     analysis: null,
-    plan: null,
     exercises: [],
     motivation: null,
     dailyPlan: null,
-    billing: null,
     recentSessions: [],
     focusSessions: [],
     entry: null,
     memory: null,
-    evolution: null,
-    growth: null,
-    dailyClosure: null,
     guardianHooks: [],
-    behavioralRollout: "shadow_only",
-    behavioralShadow: null,
   });
 
   const searchParams = useSearchParams();
@@ -155,11 +122,7 @@ export function MentoriaWorkspace() {
   const [tutorResult, setTutorResult] = useState<TutorResult | null>(null);
   const [exerciseAnswer, setExerciseAnswer] = useState("");
   const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null);
-  const [focusTimer, setFocusTimer] = useState(25);
-  const [focusSession, setFocusSession] = useState<FocusSession | null>(null);
-  const [dailyPlanFeedback, setDailyPlanFeedback] = useState<string | null>(null);
   const [sessionStatusMessage, setSessionStatusMessage] = useState<string | null>(null);
-  const [dynamicNextAction, setDynamicNextAction] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -192,21 +155,14 @@ export function MentoriaWorkspace() {
         studentSubjects: workspaceBody.studentSubjects ?? [],
         progress: workspaceBody.progress ?? [],
         analysis: workspaceBody.analysis ?? null,
-        plan: workspaceBody.currentPlan ?? null,
         exercises: workspaceBody.exercises ?? [],
         motivation: workspaceBody.motivation ?? null,
         dailyPlan: workspaceBody.dailyPlan ?? null,
-        billing: workspaceBody.billing ?? null,
         recentSessions: workspaceBody.recentSessions ?? [],
         focusSessions: workspaceBody.focusSessions ?? [],
         entry: workspaceBody.entry ?? null,
         memory: workspaceBody.memory ?? null,
-        evolution: workspaceBody.evolution ?? null,
-        growth: workspaceBody.growth ?? null,
-        dailyClosure: workspaceBody.dailyClosure ?? null,
         guardianHooks: workspaceBody.guardianHooks ?? [],
-        behavioralRollout: workspaceBody.behavioralRollout ?? "shadow_only",
-        behavioralShadow: workspaceBody.behavioralShadow ?? null,
       });
       setActiveExerciseId(workspaceBody.exercises?.find((exercise) => exercise.status === "pending")?.id ?? null);
       if (!subjectSlug && workspaceBody.entry?.recommendedSubjectSlug) {
@@ -249,30 +205,6 @@ export function MentoriaWorkspace() {
     return state.studentSubjects.find((item: MentoriaStudentSubject) => item.subjectId === subjectId)?.subject?.slug ?? "";
   }
 
-  function resolveSubjectIdFromSlug(slug?: string) {
-    if (!slug) return undefined;
-    return state.studentSubjects.find((item: MentoriaStudentSubject) => item.subject?.slug === slug)?.subjectId;
-  }
-
-  function buildTaskTopic(task: DailyPlan["tasks"][number]) {
-    return task.type === "review" ? `Repaso de ${task.subject}` : task.subject;
-  }
-
-  function buildTaskPrompt(task: DailyPlan["tasks"][number]) {
-    if (task.type === "review") {
-      return `Quiero repasar ${task.subject} paso a paso y ver qué debo vigilar hoy.`;
-    }
-    if (task.type === "challenge") {
-      return `Quiero un reto corto de ${task.subject} para comprobar si ya lo domino.`;
-    }
-    return `Quiero practicar ${task.subject} con una actividad guiada de nivel ${task.difficulty}.`;
-  }
-
-  function pickNextPendingTask(preferredSubjectId?: string) {
-    const pendingTasks = state.dailyPlan?.tasks.filter((task: DailyPlan["tasks"][number]) => !task.completed) ?? [];
-    return pendingTasks.find((task: DailyPlan["tasks"][number]) => task.subjectId === preferredSubjectId) ?? pendingTasks[0] ?? null;
-  }
-
   async function handleSendMessage(
     input?:
       | string
@@ -285,7 +217,6 @@ export function MentoriaWorkspace() {
         },
   ) {
     setError(null);
-    setDynamicNextAction(null);
     const normalizedInput = typeof input === "string" ? { message: input } : input;
     const inferredTaskSubjectSlug = activeDailyTask?.subjectId ? resolveSubjectSlugFromSubjectId(activeDailyTask.subjectId) : undefined;
     const resolvedSubjectSlug = (normalizedInput?.subjectSlug ?? subjectSlug) || inferredTaskSubjectSlug || undefined;
@@ -372,6 +303,25 @@ export function MentoriaWorkspace() {
     });
   }
 
+  async function handleStartSubjectSession(subject: MentoriaStudentSubject | MentoriaProgress) {
+    const subjectName = subject.subject?.name ?? "esta materia";
+    const slug = (subject.subject?.slug ?? resolveSubjectSlugFromSubjectId(subject.subjectId)) || undefined;
+    setActiveSection("board");
+    setSessionStatusMessage(`Vamos con ${subjectName} 👇`);
+    await handleSendMessage({
+      message: `Quiero avanzar en ${subjectName}`,
+      topic: subjectName,
+      subjectSlug: slug,
+      entryMode: "entry",
+    });
+  }
+
+  function handleOpenExercise(exerciseId: string) {
+    setActiveExerciseId(exerciseId);
+    setActiveSection("board");
+    setSessionStatusMessage("Vamos a seguir con este ejercicio 👇");
+  }
+
   async function handleStartFocusSession() {
     setActiveSection("board");
     setSessionStatusMessage("Entrando en modo concentración...");
@@ -454,13 +404,6 @@ export function MentoriaWorkspace() {
         { role: "tutor" as const, content: tutorResult.reply },
       ]
     : [];
-  const subjectOptions = state.studentSubjects
-    .map((item: MentoriaStudentSubject) => ({
-      slug: item.subject?.slug ?? "",
-      label: item.subject?.name ?? "Materia",
-      subjectId: item.subjectId,
-    }))
-    .filter((item: { slug: string; label: string; subjectId: string }) => item.slug);
   const motivationMessage =
     state.motivation?.motivationProfile === "fragile"
       ? "Hoy es un buen día para empezar con algo pequeño y claro"
@@ -486,12 +429,20 @@ export function MentoriaWorkspace() {
         <WorkspaceBoard
           activeSection={activeSection}
           student={state.student}
+          studentSubjects={state.studentSubjects}
+          progress={state.progress}
           dailyPlan={state.dailyPlan}
           focusSessions={state.focusSessions}
           entry={state.entry}
           latestSession={latestSession}
+          recentSessions={state.recentSessions}
           latestExercise={latestExercise}
+          exercises={state.exercises}
           activeDailyTask={activeDailyTask}
+          memory={state.memory}
+          analysis={state.analysis}
+          guardianHooks={state.guardianHooks}
+          motivationMessage={motivationMessage}
           tutorMessages={tutorMessages}
           exerciseAnswer={exerciseAnswer}
           sessionStatusMessage={sessionStatusMessage}
@@ -500,6 +451,8 @@ export function MentoriaWorkspace() {
           onExerciseAnswerChange={setExerciseAnswer}
           onStartDailyTask={handleStartDailyTask}
           onStartFocusSession={handleStartFocusSession}
+          onStartSubjectSession={handleStartSubjectSession}
+          onOpenExercise={handleOpenExercise}
           onSectionChange={(section) => setActiveSection(section as WorkspaceSection)}
           onResumeSession={handleResumeSession}
           onQuickAction={handleQuickAction}
@@ -511,7 +464,6 @@ export function MentoriaWorkspace() {
           dailyPlan={state.dailyPlan}
           memory={state.memory}
           guardianHooks={state.guardianHooks}
-          dynamicNextAction={dynamicNextAction}
           analysisNextActions={state.analysis?.nextActions ?? []}
           motivationMessage={motivationMessage}
           onQuickAction={handleQuickAction}

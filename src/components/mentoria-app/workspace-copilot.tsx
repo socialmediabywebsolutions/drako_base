@@ -7,7 +7,6 @@ type WorkspaceCopilotProps = {
   dailyPlan: DailyPlan | null;
   memory: MentoriaStudentMemorySummary | null;
   guardianHooks: MentoriaGuardianHookEvent[];
-  dynamicNextAction: string | null;
   analysisNextActions: string[];
   motivationMessage: string | null;
   onQuickAction: (action: { topic: string; prompt: string; subjectSlug?: string | null }) => void;
@@ -18,12 +17,11 @@ export function WorkspaceCopilot({
   dailyPlan,
   memory,
   guardianHooks,
-  dynamicNextAction,
   analysisNextActions,
   motivationMessage,
   onQuickAction,
 }: WorkspaceCopilotProps) {
-  const hasNextActions = dynamicNextAction || analysisNextActions.length > 0;
+  const hasNextActions = analysisNextActions.length > 0;
   const hasDailyPlan = dailyPlan && dailyPlan.tasks.length > 0;
   const hasMemory = memory && (memory.watchouts.length > 0 || memory.commonMistakes.length > 0);
   const hasHooks = guardianHooks.length > 0;
@@ -51,7 +49,6 @@ export function WorkspaceCopilot({
               Siguiente paso
             </div>
             <div className="space-y-2 text-sm text-slate-900">
-              {dynamicNextAction && <div className="font-medium">{dynamicNextAction}</div>}
               {analysisNextActions.map((action, idx) => (
                 <div key={idx} className="text-slate-700">• {action}</div>
               ))}
