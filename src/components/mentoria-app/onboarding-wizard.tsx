@@ -11,12 +11,9 @@ import {
   getWorkspaceUiCopy,
 } from "@/lib/mentoria/microcopy";
 import type {
-  DailyPlan,
-  MentoriaGuardianRole,
   MentoriaOnboardingPayload,
   MentoriaOnboardingPrimaryGuardian,
   MentoriaOnboardingState,
-  MentoriaProgress,
   MentoriaSubject,
 } from "@/lib/mentoria/types";
 
@@ -37,13 +34,6 @@ type OnboardingDraft = {
     goal: OnboardingObjective;
     confidence: number;
   };
-};
-
-type ActivationState = {
-  reply: string;
-  subjectName: string;
-  dailyPlan: DailyPlan;
-  nextActions: string[];
 };
 
 type OnboardingValidation = {
@@ -89,29 +79,31 @@ const GOAL_STEP_COPY = {
   description: "Esto nos ayuda a ajustar como le hablamos y como le acompanamos.",
 };
 const FINAL_STEP_COPY = {
-  title: "Todo listo. Ya estamos con el.",
-  description: "Hemos preparado:",
-  extra: "Mas adelante podras anadir mas hijos o invitar a otro tutor.",
+  title: "Todo listo",
+  description: "Tu espacio ya esta preparado.",
   enterCta: "Entrar a Mentoria",
-  launchCta: "Dejar todo listo",
+  launchCta: "Preparar espacio",
 };
 
 function buildMentoriaWorkspaceUrl(searchParams: SearchParamReader): string {
-  const target = new URL("/mentoria/app", window.location.origin);
+  const target = new URL("/app", window.location.origin);
   const localOverrideHost = searchParams.get("__drako_host")?.trim();
   const hostname = window.location.hostname.toLowerCase();
   if (localOverrideHost) {
     target.searchParams.set("__drako_host", localOverrideHost);
   } else if (hostname === "localhost" || hostname === "127.0.0.1") {
     target.searchParams.set("__drako_host", "mentoria.drako.systems");
+  } else if (
+    hostname !== "mentoria.drako.systems"
+    && hostname !== "mentorias.drako.systems"
+    && !hostname.startsWith("mentoria.")
+    && !hostname.startsWith("mentorias.")
+  ) {
+    target.protocol = "https:";
+    target.hostname = "mentoria.drako.systems";
+    target.port = "";
   }
-  return `${target.pathname}${target.search}`;
-}
-
-function getSelectedSubjectNames(draft: OnboardingDraft, subjects: MentoriaSubject[]): string[] {
-  return draft.student.subjects
-    .map((item) => subjects.find((subject) => subject.slug === item.subjectSlug)?.name ?? item.subjectSlug)
-    .filter((name) => Boolean(name));
+  return target.toString();
 }
 
 const EMPTY_DRAFT: OnboardingDraft = {
@@ -200,12 +192,6 @@ function buildOnboardingPayload(
   };
 }
 
-function formatGuardianRelationLabel(relation: MentoriaGuardianRole): string {
-  if (relation === "father") return "Padre";
-  if (relation === "mother") return "Madre";
-  return "Tutor";
-}
-
 function StepBadge({ current }: { current: number }) {
   return (
     <div className="mb-8 flex items-center gap-2">
@@ -244,14 +230,13 @@ export function MentoriaOnboardingWizard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activation, setActivation] = useState<ActivationState | null>(null);
+  const [activation, setActivation] = useState<Record<string, unknown> | null>(null);
 
   const learningProfile = getLearningProfile({
     schoolYear: draft.student.schoolYear || DEFAULT_SCHOOL_YEAR,
     age: getAgeFromSchoolYear(draft.student.schoolYear || DEFAULT_SCHOOL_YEAR),
   });
   const ui = getOnboardingUiCopy(learningProfile.stage);
-  const workspaceUi = getWorkspaceUiCopy(learningProfile.stage);
   const onboardingMessage = getMicrocopy(learningProfile.stage, "onboarding_message");
 
   useEffect(() => {
@@ -416,8 +401,7 @@ export function MentoriaOnboardingWizard() {
     });
     const body = (await response.json()) as {
       error?: string;
-      activation?: ActivationState;
-      progress?: MentoriaProgress[];
+      activation?: Record<string, unknown>;
     };
 
     setSaving(false);
@@ -700,62 +684,23 @@ export function MentoriaOnboardingWizard() {
         {step === 6 ? (
           <section className="space-y-5">
             <h2 className="text-2xl font-bold">{FINAL_STEP_COPY.title}</h2>
-            {!activation ? (
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-700 shadow-sm">
-                <p className="font-semibold text-slate-900">{FINAL_STEP_COPY.description}</p>
-                <ul className="mt-3 space-y-2 list-disc pl-5">
-                  <li>Un plan adaptado a su nivel</li>
-                  <li>{`Apoyo en ${getSelectedSubjectNames(draft, subjects).join(", ") || "sus materias prioritarias"}`}</li>
-                  <li>Seguimiento de su progreso</li>
-                  <li>Acompanamiento para que gane seguridad</li>
-                </ul>
-                <p className="mt-4"><strong>Tutor principal:</strong> {`${formatGuardianRelationLabel(draft.primaryGuardian.relation)} ${draft.primaryGuardian.fullName}`.trim()}</p>
-                <p className="mt-1"><strong>{ui.step6.summaryStudent}:</strong> {draft.student.fullName}</p>
-                <p className="mt-1"><strong>{ui.step6.summarySubjects}:</strong> {getSelectedSubjectNames(draft, subjects).join(", ")}</p>
-                <p className="mt-4 text-slate-600">{FINAL_STEP_COPY.extra}</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-                  <div className="text-sm font-semibold text-emerald-900">{ui.step4.firstSessionLabel}</div>
-                  <div className="mt-2 text-sm leading-7 text-slate-700">{activation.reply}</div>
-                </div>
-                <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
-                    <div className="text-sm font-semibold">{ui.step4.dailyPlanLabel}</div>
-                    <div className="mt-3 space-y-2">
-                      {activation.dailyPlan.tasks.map((task) => (
-                        <div key={task.id} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-                          {`${task.subject} - ${workspaceUi.dailyPlanTaskTypes[task.type]} - ${workspaceUi.dailyPlanDifficultyPrefix}${task.difficulty}`}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
-                    <div className="text-sm font-semibold">{ui.step4.nextActionsLabel}</div>
-                    <div className="mt-3 space-y-2">
-                      {activation.nextActions.map((action) => (
-                        <div key={action} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-                          {action}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-700 shadow-sm">
+              <p className="font-semibold text-slate-900">{FINAL_STEP_COPY.description}</p>
+            </div>
           </section>
         ) : null}
 
-        <div className="mt-8 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setStep((current) => Math.max(1, current - 1))}
-            className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold hover:bg-slate-50 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-transform duration-200 active:scale-[0.99]"
-            disabled={saving || Boolean(activation) || step === 1}
-          >
-            {ui.back}
-          </button>
+        <div className={`mt-8 flex items-center ${step === TOTAL_STEPS ? "justify-end" : "justify-between"}`}>
+          {step !== TOTAL_STEPS ? (
+            <button
+              type="button"
+              onClick={() => setStep((current) => Math.max(1, current - 1))}
+              className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold hover:bg-slate-50 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-transform duration-200 active:scale-[0.99]"
+              disabled={saving || Boolean(activation) || step === 1}
+            >
+              {ui.back}
+            </button>
+          ) : null}
           {step < TOTAL_STEPS ? (
             <button
               type="button"

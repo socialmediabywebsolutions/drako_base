@@ -1,6 +1,6 @@
 "use client";
 
-import type { MentoriaWorkspaceEntry, DailyPlan, MentoriaStudentMemorySummary, MentoriaGuardianHookEvent } from "@/lib/mentoria/types";
+import type { MentoriaWorkspaceEntry, DailyPlan, MentoriaStudentMemorySummary, MentoriaGuardianHookEvent, StudentProfile } from "@/lib/mentoria/types";
 
 type WorkspaceCopilotProps = {
   entry: MentoriaWorkspaceEntry | null;
@@ -9,6 +9,15 @@ type WorkspaceCopilotProps = {
   guardianHooks: MentoriaGuardianHookEvent[];
   analysisNextActions: string[];
   motivationMessage: string | null;
+  dynamicNextAction?: string | null;
+  student?: StudentProfile | null;
+  activeSubjectSlug?: string | null;
+  tutorResult?: {
+    topic?: string;
+    reinforcementQuestion?: string;
+    progressMessage?: string;
+    recommendedNextStep?: string;
+  } | null;
   onQuickAction: (action: { topic: string; prompt: string; subjectSlug?: string | null }) => void;
 };
 
@@ -19,23 +28,40 @@ export function WorkspaceCopilot({
   guardianHooks,
   analysisNextActions,
   motivationMessage,
+  student,
+  activeSubjectSlug,
+  tutorResult,
   onQuickAction,
 }: WorkspaceCopilotProps) {
   const hasNextActions = analysisNextActions.length > 0;
   const hasDailyPlan = dailyPlan && dailyPlan.tasks.length > 0;
   const hasMemory = memory && (memory.watchouts.length > 0 || memory.commonMistakes.length > 0);
   const hasHooks = guardianHooks.length > 0;
+  const stageLabel = student?.learningStage === "primary" ? "Primaria" : student?.learningStage === "bachillerato" ? "Bachillerato" : student?.learningStage === "eso" ? "ESO" : null;
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="border-b border-slate-200 p-6">
-        <h2 className="text-lg font-bold text-slate-900">Copiloto IA</h2>
-        <p className="text-xs text-slate-600">Guía y contexto personalizado</p>
+    <div className="flex h-full flex-col bg-slate-50/60">
+      <header className="border-b border-slate-200/80 p-5">
+        <h2 className="text-base font-semibold text-slate-800">Apoyo lateral</h2>
+        <p className="text-xs text-slate-500">Contexto breve para acompañar la sesión central</p>
       </header>
 
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
+        {(stageLabel || activeSubjectSlug || tutorResult?.topic) && (
+          <div className="rounded-xl border border-slate-200 bg-white/80 p-4">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-700">
+              Sesión actual
+            </div>
+            <div className="space-y-1 text-sm text-slate-700">
+              {tutorResult?.topic ? <div><span className="font-semibold text-slate-900">Tema:</span> {tutorResult.topic}</div> : null}
+              {activeSubjectSlug ? <div><span className="font-semibold text-slate-900">Materia:</span> {activeSubjectSlug}</div> : null}
+              {stageLabel ? <div><span className="font-semibold text-slate-900">Nivel:</span> {stageLabel}</div> : null}
+            </div>
+          </div>
+        )}
+
         {motivationMessage && (
-          <div className="rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 p-4">
+          <div className="rounded-xl border border-purple-100 bg-gradient-to-br from-purple-50/80 to-pink-50/80 p-4">
             <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-purple-700">
               Motivación
             </div>
@@ -44,7 +70,7 @@ export function WorkspaceCopilot({
         )}
 
         {hasNextActions && (
-          <div className="rounded-xl bg-emerald-50 p-4">
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50/75 p-4">
             <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-700">
               Siguiente paso
             </div>
@@ -56,10 +82,23 @@ export function WorkspaceCopilot({
           </div>
         )}
 
-        {entry && entry.quickActions.length > 0 && (
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+        {(tutorResult?.progressMessage || tutorResult?.reinforcementQuestion || tutorResult?.recommendedNextStep) && (
+          <div className="rounded-xl border border-slate-200 bg-white/85 p-4">
             <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-700">
-              Acciones rápidas
+              Refuerzo de la sesión
+            </div>
+            <div className="space-y-3 text-sm text-slate-700">
+              {tutorResult?.progressMessage ? <div>{tutorResult.progressMessage}</div> : null}
+              {tutorResult?.reinforcementQuestion ? <div className="rounded-lg bg-slate-50 px-3 py-2"><span className="font-semibold text-slate-900">Pregunta:</span> {tutorResult.reinforcementQuestion}</div> : null}
+              {tutorResult?.recommendedNextStep ? <div className="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900"><span className="font-semibold">Siguiente acción:</span> {tutorResult.recommendedNextStep}</div> : null}
+            </div>
+          </div>
+        )}
+
+        {entry && entry.quickActions.length > 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white/85 p-4">
+            <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-700">
+              Atajos de apoyo
             </div>
             <div className="space-y-2">
               {entry.quickActions.slice(0, 3).map((action) => (
@@ -73,7 +112,7 @@ export function WorkspaceCopilot({
                       subjectSlug: action.subjectSlug,
                     })
                   }
-                  className="w-full rounded-lg bg-slate-50 px-3 py-2 text-left text-xs hover:bg-emerald-50"
+                  className="w-full rounded-lg bg-slate-50/90 px-3 py-2 text-left text-xs hover:bg-slate-100"
                 >
                   <div className="font-semibold text-slate-900">{action.label}</div>
                   <div className="text-slate-600">{action.description}</div>
@@ -84,7 +123,7 @@ export function WorkspaceCopilot({
         )}
 
         {hasDailyPlan && (
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-xl border border-slate-200 bg-white/85 p-4">
             <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-700">
               Plan del día
             </div>
@@ -116,7 +155,7 @@ export function WorkspaceCopilot({
         )}
 
         {hasMemory && (
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-xl border border-slate-200 bg-white/85 p-4">
             <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-700">
               Memoria del alumno
             </div>
@@ -136,7 +175,7 @@ export function WorkspaceCopilot({
         )}
 
         {hasHooks && (
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-xl border border-slate-200 bg-white/85 p-4">
             <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-700">
               Eventos destacados
             </div>
@@ -157,10 +196,10 @@ export function WorkspaceCopilot({
         )}
 
         {!hasNextActions && !hasDailyPlan && !hasMemory && !hasHooks && !motivationMessage && (
-          <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center">
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white/70 p-6 text-center">
             <div className="mb-2 text-2xl">🤖</div>
             <div className="text-xs text-slate-500">
-              El copiloto se activará cuando tengas actividad
+              Este panel solo aparece para reforzar la sesión cuando haga falta
             </div>
           </div>
         )}

@@ -40,6 +40,12 @@ type TutorResult = {
   recommendedNextStep?: string;
 };
 
+type TutorMessage = {
+  role: "student" | "tutor";
+  content: string;
+  kind?: "message" | "explanation" | "steps" | "question" | "feedback";
+};
+
 type WorkspaceState = {
   student: StudentProfile | null;
   parents: ParentAccount[];
@@ -120,6 +126,7 @@ export function MentoriaWorkspace() {
   const [topic, setTopic] = useState(initialUi.defaultTopic);
   const [message, setMessage] = useState(initialUi.defaultMessage);
   const [tutorResult, setTutorResult] = useState<TutorResult | null>(null);
+  const [tutorMessages, setTutorMessages] = useState<TutorMessage[]>([]);
   const [exerciseAnswer, setExerciseAnswer] = useState("");
   const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null);
   const [sessionStatusMessage, setSessionStatusMessage] = useState<string | null>(null);
@@ -173,6 +180,18 @@ export function MentoriaWorkspace() {
       }
       if (workspaceBody.entry?.recommendedPrompt && message === initialUi.defaultMessage) {
         setMessage(workspaceBody.entry.recommendedPrompt);
+      }
+      if ((workspaceBody.recentSessions?.length ?? 0) > 0) {
+        const transcript = workspaceBody.recentSessions?.[0]?.transcript ?? [];
+        if (transcript.length > 0) {
+          setTutorMessages(
+            transcript.map((item) => ({
+              role: item.role,
+              content: item.content,
+              kind: "message" as const,
+            })),
+          );
+        }
       }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "MENTORIA_WORKSPACE_LOAD_FAILED");
@@ -228,6 +247,10 @@ export function MentoriaWorkspace() {
     setTopic(resolvedTopic);
     setMessage(resolvedMessage);
     setActiveSection("board");
+    setTutorMessages((current: TutorMessage[]) => [
+      ...current,
+      { role: "student", content: resolvedMessage, kind: "message" },
+    ]);
 
     const response = await fetch("/api/mentoria/session", {
       method: "POST",
@@ -248,6 +271,19 @@ export function MentoriaWorkspace() {
     }
 
     if (body.reply) {
+      const nextTutorMessages: TutorMessage[] = [{ role: "tutor", content: body.reply ?? "", kind: "message" }];
+      if (body.explanation) {
+        nextTutorMessages.push({ role: "tutor", content: body.explanation, kind: "explanation" });
+      }
+      if ((body.suggestedSteps ?? []).length > 0) {
+        nextTutorMessages.push({ role: "tutor", content: (body.suggestedSteps ?? []).join("\n"), kind: "steps" });
+      }
+      if (body.reinforcementQuestion) {
+        nextTutorMessages.push({ role: "tutor", content: body.reinforcementQuestion, kind: "question" });
+      }
+      if (body.sessionFeedback?.progressMessage) {
+        nextTutorMessages.push({ role: "tutor", content: body.sessionFeedback.progressMessage, kind: "feedback" });
+      }
       setTutorResult({
         reply: body.reply ?? "",
         explanation: body.explanation ?? "",
@@ -262,6 +298,7 @@ export function MentoriaWorkspace() {
         nextSteps: body.sessionFeedback?.nextSteps,
         recommendedNextStep: body.session?.recommendedNextStep,
       });
+      setTutorMessages((current: TutorMessage[]) => [...current, ...nextTutorMessages]);
       setSessionStatusMessage(null);
     }
 
@@ -333,6 +370,13 @@ export function MentoriaWorkspace() {
 
   async function handleResumeSession(session: LearningSession) {
     setTutorResult(null);
+    setTutorMessages(
+      session.transcript?.map((item) => ({
+        role: item.role,
+        content: item.content,
+        kind: "message" as const,
+      })) ?? [],
+    );
     if (session.recommendedNextStep) {
       await handleSendMessage({
         message: session.recommendedNextStep,
@@ -398,12 +442,7 @@ export function MentoriaWorkspace() {
     ?? state.exercises.find((ex: MentoriaExercise) => ex.status === "pending")
     ?? null;
   const activeDailyTask = state.dailyPlan?.tasks.find((task) => !task.completed) ?? null;
-  const tutorMessages = tutorResult
-    ? [
-        { role: "student" as const, content: message },
-        { role: "tutor" as const, content: tutorResult.reply },
-      ]
-    : [];
+  const activeSubjectSlugForUi = tutorResult?.subjectSlug ?? subjectSlug ?? state.entry?.recommendedSubjectSlug ?? null;
   const motivationMessage =
     state.motivation?.motivationProfile === "fragile"
       ? "Hoy es un buen día para empezar con algo pequeño y claro"
@@ -444,6 +483,7 @@ export function MentoriaWorkspace() {
           guardianHooks={state.guardianHooks}
           motivationMessage={motivationMessage}
           tutorMessages={tutorMessages}
+          tutorResult={tutorResult}
           exerciseAnswer={exerciseAnswer}
           sessionStatusMessage={sessionStatusMessage}
           onSendMessage={handleSendMessage}
@@ -466,6 +506,9 @@ export function MentoriaWorkspace() {
           guardianHooks={state.guardianHooks}
           analysisNextActions={state.analysis?.nextActions ?? []}
           motivationMessage={motivationMessage}
+          student={state.student}
+          activeSubjectSlug={activeSubjectSlugForUi}
+          tutorResult={tutorResult}
           onQuickAction={handleQuickAction}
         />
       }

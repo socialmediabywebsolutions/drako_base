@@ -158,8 +158,8 @@ describe("MentoriaOnboardingWizard", () => {
     await screen.findByText("Que te gustaria que cambiara primero?");
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
-    await screen.findByText("Todo listo. Ya estamos con el.");
-    fireEvent.click(screen.getByRole("button", { name: "Dejar todo listo" }));
+    await screen.findByText("Todo listo");
+    fireEvent.click(screen.getByRole("button", { name: "Preparar espacio" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
@@ -184,8 +184,7 @@ describe("MentoriaOnboardingWizard", () => {
       confidenceLevel: "medium",
     });
 
-    await screen.findAllByText("Primera ayuda guiada");
-    expect(screen.getByText("Matematicas - Practica - D2")).toBeInTheDocument();
-    expect(screen.getByText("Resolver un primer ejercicio")).toBeInTheDocument();
+    await screen.findByRole("button", { name: "Entrar a Mentoria" });
+    expect(screen.getByText("Tu espacio ya esta preparado.")).toBeInTheDocument();
   });
 });
