@@ -1051,7 +1051,7 @@ export class MentoriaService {
     const student = await this.repository.upsertStudentProfile({
       studentId: existingStudent?.id,
       tenantId: actor.tenantId,
-      userId: null,
+      userId: actor.userId,
       fullName: payload.student.fullName.trim(),
       age: studentAge,
       schoolYear: payload.student.schoolYear,
