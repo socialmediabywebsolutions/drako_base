@@ -158,16 +158,24 @@ export async function POST(request: Request) {
   setAuthsSessionCookie({ response, context: "mentorias", token: login.token, request });
 
   if (isTelemetriesHoldingEnabled()) {
-    await recordCampamentoEvent({
-      tenantId: login.tenantId,
-      saasId: null,
-      type: "telemetry.user_registered",
-      severity: "INFO",
-      source: "MENTORIAS_AUTHS",
-      message: "User registered in mentorias auth boundary.",
-      metadata: { saas_slug: "mentorias", event_name: "user_registered" },
-      correlationId: request.headers.get("x-drako-correlation-id") ?? crypto.randomUUID(),
-    });
+    try {
+      await recordCampamentoEvent({
+        tenantId: login.tenantId,
+        saasId: null,
+        type: "telemetry.user_registered",
+        severity: "INFO",
+        source: "MENTORIAS_AUTHS",
+        message: "User registered in mentorias auth boundary.",
+        metadata: { saas_slug: "mentorias", event_name: "user_registered" },
+        correlationId: request.headers.get("x-drako-correlation-id") ?? crypto.randomUUID(),
+      });
+    } catch (error) {
+      console.error("[registrations POST] telemetry.user_registered failed", {
+        error: error instanceof Error ? error.message : String(error),
+        tenantId: login.tenantId,
+        userId: login.userId,
+      });
+    }
   }
 
   return response;

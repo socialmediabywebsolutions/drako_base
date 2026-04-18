@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { WorkspaceShell } from "@/components/mentoria-app/workspace-shell";
 import { WorkspaceNav } from "@/components/mentoria-app/workspace-nav";
@@ -25,6 +25,8 @@ import type { MotivationState } from "@/lib/mentoria/motivation-engine";
 
 type WorkspaceSection = "board" | "subjects" | "sessions" | "progress" | "planner" | "focus" | "exercises" | "memory";
 type ReentryMode = "resume_session" | "gentle_restart" | "momentum_push" | "plan_task" | "entry";
+type GuidedFeedbackStatus = "correct" | "almost" | "incorrect";
+type GuidedSessionState = "idle" | "answering" | "checking" | "retry" | "completed";
 type TutorResult = {
   reply: string;
   explanation: string;
@@ -44,6 +46,20 @@ type TutorMessage = {
   role: "student" | "tutor";
   content: string;
   kind?: "message" | "explanation" | "steps" | "question" | "feedback";
+};
+
+type GuidedFeedback = {
+  status: GuidedFeedbackStatus;
+  message: string;
+  rationale: string;
+};
+
+type WorkspaceNextAction = {
+  kind: "guided_step" | "exercise" | "task" | "resume_session" | "subject_session" | "quick_action" | "focus_session";
+  title: string;
+  detail: string;
+  ctaLabel: string;
+  sessionState?: GuidedSessionState;
 };
 
 type WorkspaceState = {
@@ -100,6 +116,53 @@ type SessionApiResponse = {
   };
 };
 
+function normalizeGuidedTokens(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-záéíóúñ0-9\s]/gi, " ")
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 3);
+}
+
+function evaluateGuidedResponse(step: string, answer: string): GuidedFeedback {
+  const normalizedAnswer = answer.trim();
+  if (!normalizedAnswer) {
+    return {
+      status: "incorrect",
+      message: "Necesito una respuesta para saber si seguimos o ajustamos el paso.",
+      rationale: "Todavía no puedo comprobar nada porque no has dejado una idea concreta para evaluar.",
+    };
+  }
+
+  const stepTokens = Array.from(new Set(normalizeGuidedTokens(step)));
+  const answerTokens = Array.from(new Set(normalizeGuidedTokens(normalizedAnswer)));
+  const overlap = stepTokens.filter((token) => answerTokens.includes(token)).length;
+  const overlapRatio = stepTokens.length > 0 ? overlap / stepTokens.length : 0;
+
+  if (normalizedAnswer.length >= 18 && (overlapRatio >= 0.35 || answerTokens.length >= 4)) {
+    return {
+      status: "correct",
+      message: "Correcto. Has resuelto bien este paso y podemos avanzar.",
+      rationale: "Tu respuesta recoge la idea principal del paso y la desarrolla con suficiente detalle para seguir.",
+    };
+  }
+
+  if (normalizedAnswer.length >= 8 && (overlapRatio >= 0.15 || answerTokens.length >= 2)) {
+    return {
+      status: "almost",
+      message: "Casi. La idea va bien, así que avanzamos manteniendo atención en el siguiente paso.",
+      rationale: "Has captado parte de la intención, pero falta concretar mejor la relación entre la idea principal y tu respuesta.",
+    };
+  }
+
+  return {
+    status: "incorrect",
+    message: "Incorrecto. Revisa la idea principal y prueba una respuesta más concreta.",
+    rationale: "La respuesta es demasiado breve o se aleja del foco del paso, así que conviene reformularla antes de seguir.",
+  };
+}
+
 export function MentoriaWorkspace() {
   const initialUi = getWorkspaceUiCopy("eso");
   const [state, setState] = useState<WorkspaceState>({
@@ -129,7 +192,18 @@ export function MentoriaWorkspace() {
   const [tutorMessages, setTutorMessages] = useState<TutorMessage[]>([]);
   const [exerciseAnswer, setExerciseAnswer] = useState("");
   const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [sessionStatusMessage, setSessionStatusMessage] = useState<string | null>(null);
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [guidedStepInput, setGuidedStepInput] = useState("");
+  const [guidedFeedback, setGuidedFeedback] = useState<GuidedFeedback | null>(null);
+  const [sessionState, setSessionState] = useState<GuidedSessionState>("idle");
+  const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
+
+  const selectedSubject = useMemo(
+    () => state.studentSubjects.find((item: MentoriaStudentSubject) => item.subject?.slug === subjectSlug) ?? null,
+    [state.studentSubjects, subjectSlug],
+  );
 
   async function load() {
     setLoading(true);
@@ -193,6 +267,7 @@ export function MentoriaWorkspace() {
           );
         }
       }
+      setCompletedTaskIds(workspaceBody.dailyPlan?.completedTaskIds ?? []);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "MENTORIA_WORKSPACE_LOAD_FAILED");
     } finally {
@@ -222,6 +297,31 @@ export function MentoriaWorkspace() {
   function resolveSubjectSlugFromSubjectId(subjectId?: string) {
     if (!subjectId) return "";
     return state.studentSubjects.find((item: MentoriaStudentSubject) => item.subjectId === subjectId)?.subject?.slug ?? "";
+  }
+
+  const guidedSteps = useMemo(() => {
+    if ((tutorResult?.suggestedSteps?.length ?? 0) > 0) return tutorResult?.suggestedSteps ?? [];
+    if (tutorResult?.recommendedNextStep) return [tutorResult.recommendedNextStep];
+    if (tutorResult?.reinforcementQuestion) return [tutorResult.reinforcementQuestion];
+    return [];
+  }, [tutorResult?.reinforcementQuestion, tutorResult?.recommendedNextStep, tutorResult?.suggestedSteps]);
+
+  const activeGuidedStep = guidedSteps[activeStepIndex] ?? null;
+  const sessionProgressPercent = guidedSteps.length > 0 ? Math.round(((Math.min(activeStepIndex, guidedSteps.length - 1) + (guidedFeedback?.status && guidedFeedback.status !== "incorrect" ? 1 : 0)) / guidedSteps.length) * 100) : 0;
+  const derivedSessionState = useMemo<GuidedSessionState>(() => {
+    if (guidedSteps.length === 0) return "idle";
+    if (sessionState === "checking") return "checking";
+    if (sessionState === "completed") return "completed";
+    if (guidedFeedback?.status === "incorrect") return "retry";
+    if (guidedStepInput.trim().length > 0) return "answering";
+    return "idle";
+  }, [guidedFeedback?.status, guidedStepInput, guidedSteps.length, sessionState]);
+
+  function resetGuidedFlow() {
+    setActiveStepIndex(0);
+    setGuidedStepInput("");
+    setGuidedFeedback(null);
+    setSessionState("idle");
   }
 
   async function handleSendMessage(
@@ -300,9 +400,60 @@ export function MentoriaWorkspace() {
       });
       setTutorMessages((current: TutorMessage[]) => [...current, ...nextTutorMessages]);
       setSessionStatusMessage(null);
+      resetGuidedFlow();
     }
 
     void load();
+  }
+
+  function handleGuidedStepSubmit() {
+    if (!activeGuidedStep || !guidedStepInput.trim()) return;
+    setSessionState("checking");
+    const feedback = evaluateGuidedResponse(activeGuidedStep, guidedStepInput);
+    const shouldAdvance = feedback.status !== "incorrect";
+    const isLastStep = activeStepIndex >= guidedSteps.length - 1;
+    const nextStepIndex = shouldAdvance && !isLastStep ? activeStepIndex + 1 : activeStepIndex;
+
+    setGuidedFeedback(feedback);
+    setTutorMessages((current: TutorMessage[]) => {
+      const nextMessages: TutorMessage[] = [
+        ...current,
+        { role: "student", content: guidedStepInput, kind: "message" },
+        { role: "tutor", content: feedback.message, kind: "feedback" },
+        { role: "tutor", content: feedback.rationale, kind: "explanation" },
+      ];
+
+      if (shouldAdvance && !isLastStep && guidedSteps[nextStepIndex]) {
+        nextMessages.push({ role: "tutor", content: `Siguiente paso: ${guidedSteps[nextStepIndex]}`, kind: "question" });
+      }
+
+      if (shouldAdvance && isLastStep) {
+        nextMessages.push({ role: "tutor", content: "Has completado la secuencia principal de esta sesión.", kind: "feedback" });
+      }
+
+      return nextMessages;
+    });
+
+    if (shouldAdvance && !isLastStep) {
+      setActiveStepIndex(nextStepIndex);
+      setGuidedStepInput("");
+      setSessionState("idle");
+      setSessionStatusMessage(`Bien. Ahora toca el paso ${nextStepIndex + 1}.`);
+      return;
+    }
+
+    if (shouldAdvance && isLastStep) {
+      setGuidedStepInput("");
+      setSessionState("completed");
+      setSessionStatusMessage("Sesión completada. Ya sabes cuál es el siguiente movimiento.");
+      if (activeTaskId) {
+        setCompletedTaskIds((current: string[]) => (current.includes(activeTaskId) ? current : [...current, activeTaskId]));
+      }
+      return;
+    }
+
+    setSessionState("retry");
+    setSessionStatusMessage("Todavía no. Ajusta tu respuesta y vuelve a intentarlo.");
   }
 
   async function handleSubmitExercise() {
@@ -330,11 +481,17 @@ export function MentoriaWorkspace() {
   }
 
   async function handleStartDailyTask(task: DailyPlan["tasks"][number]) {
+    setActiveTaskId(task.id);
+    resetGuidedFlow();
+    const taskSubjectSlug = resolveSubjectSlugFromSubjectId(task.subjectId) || undefined;
+    if (taskSubjectSlug) {
+      setSubjectSlug(taskSubjectSlug);
+    }
     setActiveSection("board");
-    setSessionStatusMessage("Perfecto. Vamos a empezar con esto 👇");
+    setSessionStatusMessage(`Plan del día: ${task.subject}. Vamos paso a paso 👇`);
     await handleSendMessage({
       message: `Empezar tarea: ${task.subject}`,
-      subjectSlug: resolveSubjectSlugFromSubjectId(task.subjectId) || undefined,
+      subjectSlug: taskSubjectSlug,
       topic: task.subject,
       entryMode: "plan_task",
     });
@@ -343,6 +500,11 @@ export function MentoriaWorkspace() {
   async function handleStartSubjectSession(subject: MentoriaStudentSubject | MentoriaProgress) {
     const subjectName = subject.subject?.name ?? "esta materia";
     const slug = (subject.subject?.slug ?? resolveSubjectSlugFromSubjectId(subject.subjectId)) || undefined;
+    setActiveTaskId(null);
+    resetGuidedFlow();
+    if (slug) {
+      setSubjectSlug(slug);
+    }
     setActiveSection("board");
     setSessionStatusMessage(`Vamos con ${subjectName} 👇`);
     await handleSendMessage({
@@ -360,16 +522,25 @@ export function MentoriaWorkspace() {
   }
 
   async function handleStartFocusSession() {
+    resetGuidedFlow();
+    const focusSubjectSlug = subjectSlug || state.entry?.recommendedSubjectSlug || undefined;
+    if (focusSubjectSlug) {
+      setSubjectSlug(focusSubjectSlug);
+    }
     setActiveSection("board");
-    setSessionStatusMessage("Entrando en modo concentración...");
+    setSessionStatusMessage(`Entrando en modo concentración${focusSubjectSlug ? ` para ${selectedSubject?.subject?.name ?? focusSubjectSlug}` : ""}...`);
     await handleSendMessage({
       message: "Quiero empezar una sesión de concentración",
+      subjectSlug: focusSubjectSlug,
+      topic: selectedSubject?.subject?.name ?? topic,
       entryMode: "entry",
     });
   }
 
   async function handleResumeSession(session: LearningSession) {
     setTutorResult(null);
+    setActiveTaskId(null);
+    resetGuidedFlow();
     setTutorMessages(
       session.transcript?.map((item) => ({
         role: item.role,
@@ -377,11 +548,15 @@ export function MentoriaWorkspace() {
         kind: "message" as const,
       })) ?? [],
     );
+    const resumeSubjectSlug = resolveSubjectSlugFromSubjectId(session.subjectId) || undefined;
+    if (resumeSubjectSlug) {
+      setSubjectSlug(resumeSubjectSlug);
+    }
     if (session.recommendedNextStep) {
       await handleSendMessage({
         message: session.recommendedNextStep,
         topic: session.topic,
-        subjectSlug: resolveSubjectSlugFromSubjectId(session.subjectId) || undefined,
+        subjectSlug: resumeSubjectSlug,
         entryMode: "resume_session",
         sessionId: session.id,
       });
@@ -390,6 +565,11 @@ export function MentoriaWorkspace() {
 
   async function handleQuickAction(action: { topic: string; prompt: string; subjectSlug?: string | null }) {
     setTutorResult(null);
+    setActiveTaskId(null);
+    resetGuidedFlow();
+    if (action.subjectSlug) {
+      setSubjectSlug(action.subjectSlug);
+    }
     await handleSendMessage({
       message: action.prompt,
       topic: action.topic,
@@ -441,14 +621,168 @@ export function MentoriaWorkspace() {
     state.exercises.find((ex: MentoriaExercise) => ex.id === activeExerciseId)
     ?? state.exercises.find((ex: MentoriaExercise) => ex.status === "pending")
     ?? null;
-  const activeDailyTask = state.dailyPlan?.tasks.find((task) => !task.completed) ?? null;
-  const activeSubjectSlugForUi = tutorResult?.subjectSlug ?? subjectSlug ?? state.entry?.recommendedSubjectSlug ?? null;
+  const activeDailyTask = state.dailyPlan?.tasks.find((task: DailyPlan["tasks"][number]) => task.id === activeTaskId)
+    ?? state.dailyPlan?.tasks.find((task: DailyPlan["tasks"][number]) => !task.completed)
+    ?? null;
+  const actionableDailyPlan = state.dailyPlan
+    ? {
+        ...state.dailyPlan,
+        completedTaskIds,
+        tasks: state.dailyPlan.tasks.map((task: DailyPlan["tasks"][number]) => ({
+          ...task,
+          completed: task.completed || completedTaskIds.includes(task.id),
+        })),
+      }
+    : null;
+  const activeSubjectSlugForUi = subjectSlug || tutorResult?.subjectSlug || state.entry?.recommendedSubjectSlug || null;
   const motivationMessage =
     state.motivation?.motivationProfile === "fragile"
       ? "Hoy es un buen día para empezar con algo pequeño y claro"
       : state.motivation?.motivationProfile === "high_performer"
         ? "Estás en racha, aprovecha el momento"
         : "Sigue con tu ritmo, vas bien";
+  const nextAction = useMemo<WorkspaceNextAction | null>(() => {
+    if (activeGuidedStep) {
+      if (derivedSessionState === "completed") {
+        return {
+          kind: "guided_step",
+          title: "Sesión guiada completada",
+          detail: "Has cerrado la secuencia principal. Revisa el cierre y prepárate para el siguiente bloque.",
+          ctaLabel: "Sesión completada",
+          sessionState: "completed",
+        };
+      }
+
+      return {
+        kind: "guided_step",
+        title: derivedSessionState === "retry"
+          ? "Reformular este paso"
+          : derivedSessionState === "checking"
+            ? "Comprobando la respuesta"
+            : derivedSessionState === "answering"
+              ? "Responder el paso activo"
+              : "Preparar la respuesta del paso activo",
+        detail: derivedSessionState === "retry"
+          ? "Ajusta la respuesta con la explicación recibida y vuelve a intentarlo sobre este mismo paso."
+          : derivedSessionState === "checking"
+            ? "Estamos validando si la idea principal está bien resuelta antes de avanzar."
+            : derivedSessionState === "answering"
+              ? "Ya has empezado a responder. Remata la idea principal antes de comprobar."
+              : "Lee el paso, piensa la idea clave y escribe una respuesta corta y concreta.",
+        ctaLabel: derivedSessionState === "retry"
+          ? "Reintentar este paso"
+          : derivedSessionState === "checking"
+            ? "Comprobando..."
+            : "Comprobar y seguir",
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (latestExercise && latestExercise.status !== "corrected") {
+      return {
+        kind: "exercise",
+        title: "Entregar el ejercicio actual",
+        detail: "Ahora mismo lo importante es resolver este ejercicio para mantener el hilo de la sesión.",
+        ctaLabel: "Entregar ejercicio",
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (activeDailyTask) {
+      return {
+        kind: "task",
+        title: "Empezar la tarea del día",
+        detail: `Tu siguiente movimiento es abrir ${activeDailyTask.subject} y entrar en su sesión guiada.`,
+        ctaLabel: "Empezar tarea del día",
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (latestSession) {
+      return {
+        kind: "resume_session",
+        title: "Retomar la última sesión",
+        detail: "Sigue desde donde lo dejaste para no perder continuidad ni contexto.",
+        ctaLabel: "Retomar sesión",
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (selectedSubject) {
+      return {
+        kind: "subject_session",
+        title: "Abrir sesión guiada de la materia activa",
+        detail: `La materia ya está elegida. Solo falta abrir la sesión y empezar a trabajar.`,
+        ctaLabel: "Abrir sesión guiada",
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (state.entry?.recommendedPrompt && state.entry?.recommendedTopic) {
+      return {
+        kind: "quick_action",
+        title: "Empezar por la recomendación principal",
+        detail: "Esta es la entrada más clara para arrancar la sesión sin decidir entre varias opciones.",
+        ctaLabel: state.entry.recommendedTopic,
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (state.focusSessions.length > 0) {
+      return {
+        kind: "focus_session",
+        title: "Entrar en bloque de foco",
+        detail: "Si no hay sesión activa, el siguiente paso más claro es abrir un bloque corto de concentración.",
+        ctaLabel: "Empezar bloque de foco",
+        sessionState: derivedSessionState,
+      };
+    }
+
+    return null;
+  }, [activeDailyTask, activeGuidedStep, derivedSessionState, guidedFeedback?.status, latestExercise, latestSession, selectedSubject, state.entry, state.focusSessions.length]);
+
+  async function handleRunNextAction() {
+    if (!nextAction) return;
+
+    if (nextAction.kind === "guided_step") {
+      if (nextAction.sessionState === "checking" || nextAction.sessionState === "completed") return;
+      handleGuidedStepSubmit();
+      return;
+    }
+
+    if (nextAction.kind === "exercise") {
+      void handleSubmitExercise();
+      return;
+    }
+
+    if (nextAction.kind === "task" && activeDailyTask) {
+      void handleStartDailyTask(activeDailyTask);
+      return;
+    }
+
+    if (nextAction.kind === "resume_session" && latestSession) {
+      void handleResumeSession(latestSession);
+      return;
+    }
+
+    if (nextAction.kind === "subject_session" && selectedSubject) {
+      void handleStartSubjectSession(selectedSubject);
+      return;
+    }
+
+    if (nextAction.kind === "quick_action" && state.entry) {
+      void handleQuickAction({
+        topic: state.entry.recommendedTopic,
+        prompt: state.entry.recommendedPrompt,
+        subjectSlug: state.entry.recommendedSubjectSlug,
+      });
+      return;
+    }
+
+    if (nextAction.kind === "focus_session") {
+      void handleStartFocusSession();
+    }
+  }
 
   return (
     <WorkspaceShell
@@ -461,7 +795,15 @@ export function MentoriaWorkspace() {
           focusSessions={state.focusSessions}
           parents={state.parents}
           activeSection={activeSection}
+          activeSubjectSlug={activeSubjectSlugForUi}
           onSectionChange={(section) => setActiveSection(section as WorkspaceSection)}
+          onSubjectSelect={(slug) => {
+            setActiveTaskId(null);
+            setSubjectSlug(slug);
+            setTutorResult(null);
+            setSessionStatusMessage(`Materia activa: ${state.studentSubjects.find((item: MentoriaStudentSubject) => item.subject?.slug === slug)?.subject?.name ?? slug}`);
+            setActiveSection("subjects");
+          }}
         />
       }
       centerBoard={
@@ -470,7 +812,7 @@ export function MentoriaWorkspace() {
           student={state.student}
           studentSubjects={state.studentSubjects}
           progress={state.progress}
-          dailyPlan={state.dailyPlan}
+          dailyPlan={actionableDailyPlan}
           focusSessions={state.focusSessions}
           entry={state.entry}
           latestSession={latestSession}
@@ -482,11 +824,21 @@ export function MentoriaWorkspace() {
           analysis={state.analysis}
           guardianHooks={state.guardianHooks}
           motivationMessage={motivationMessage}
-          tutorMessages={tutorMessages}
+          activeSubjectSlug={activeSubjectSlugForUi}
+          selectedSubject={selectedSubject}
           tutorResult={tutorResult}
+          nextAction={nextAction}
+          sessionState={derivedSessionState}
+          activeGuidedStep={activeGuidedStep}
+          activeStepIndex={activeStepIndex}
+          totalSteps={guidedSteps.length}
+          sessionProgressPercent={sessionProgressPercent}
+          guidedStepInput={guidedStepInput}
+          guidedFeedback={guidedFeedback}
           exerciseAnswer={exerciseAnswer}
           sessionStatusMessage={sessionStatusMessage}
-          onSendMessage={handleSendMessage}
+          onGuidedStepInputChange={setGuidedStepInput}
+          onSubmitGuidedStep={handleGuidedStepSubmit}
           onSubmitExercise={handleSubmitExercise}
           onExerciseAnswerChange={setExerciseAnswer}
           onStartDailyTask={handleStartDailyTask}
@@ -496,20 +848,30 @@ export function MentoriaWorkspace() {
           onSectionChange={(section) => setActiveSection(section as WorkspaceSection)}
           onResumeSession={handleResumeSession}
           onQuickAction={handleQuickAction}
+          onRunNextAction={handleRunNextAction}
         />
       }
       rightCopilot={
         <WorkspaceCopilot
           entry={state.entry}
-          dailyPlan={state.dailyPlan}
+          dailyPlan={actionableDailyPlan}
           memory={state.memory}
           guardianHooks={state.guardianHooks}
           analysisNextActions={state.analysis?.nextActions ?? []}
           motivationMessage={motivationMessage}
+          dynamicNextAction={nextAction}
+          sessionState={derivedSessionState}
           student={state.student}
           activeSubjectSlug={activeSubjectSlugForUi}
+          selectedSubjectName={selectedSubject?.subject?.name ?? selectedSubject?.subject?.slug ?? null}
+          tutorMessages={tutorMessages}
           tutorResult={tutorResult}
+          activeGuidedStep={activeGuidedStep}
+          guidedFeedback={guidedFeedback}
+          sessionProgressPercent={sessionProgressPercent}
+          onSendMessage={handleSendMessage}
           onQuickAction={handleQuickAction}
+          onRunNextAction={handleRunNextAction}
         />
       }
     />

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent, KeyboardEvent } from "react";
+import { useMemo } from "react";
+import type { ChangeEvent } from "react";
 import type {
   StudentProfile,
   LearningSession,
@@ -33,7 +33,8 @@ type WorkspaceBoardProps = {
   analysis?: { weakSubjects: string[]; strongSubjects: string[]; nextActions: string[] } | null;
   guardianHooks?: MentoriaGuardianHookEvent[];
   motivationMessage?: string | null;
-  tutorMessages?: Array<{ role: "student" | "tutor"; content: string; kind?: "message" | "explanation" | "steps" | "question" | "feedback" }>;
+  activeSubjectSlug?: string | null;
+  selectedSubject?: MentoriaStudentSubject | null;
   tutorResult: {
     reply: string;
     explanation: string;
@@ -48,9 +49,24 @@ type WorkspaceBoardProps = {
     nextSteps?: string[];
     recommendedNextStep?: string;
   } | null;
+  nextAction?: {
+    kind: "guided_step" | "exercise" | "task" | "resume_session" | "subject_session" | "quick_action" | "focus_session";
+    title: string;
+    detail: string;
+    ctaLabel: string;
+    sessionState?: "idle" | "answering" | "checking" | "retry" | "completed";
+  } | null;
+  sessionState?: "idle" | "answering" | "checking" | "retry" | "completed";
+  activeGuidedStep?: string | null;
+  activeStepIndex?: number;
+  totalSteps?: number;
+  sessionProgressPercent?: number;
+  guidedStepInput?: string;
+  guidedFeedback?: { status: "correct" | "almost" | "incorrect"; message: string; rationale: string } | null;
   exerciseAnswer: string;
   sessionStatusMessage?: string | null;
-  onSendMessage: (message: string) => void;
+  onGuidedStepInputChange: (answer: string) => void;
+  onSubmitGuidedStep: () => void;
   onSubmitExercise: () => void;
   onExerciseAnswerChange: (answer: string) => void;
   onStartDailyTask: (task: DailyPlanTask) => void;
@@ -60,6 +76,7 @@ type WorkspaceBoardProps = {
   onSectionChange?: (section: string) => void;
   onResumeSession: (session: LearningSession) => void;
   onQuickAction: (action: { topic: string; prompt: string; subjectSlug?: string | null }) => void;
+  onRunNextAction?: () => void;
 };
 
 export function WorkspaceBoard({
@@ -79,11 +96,21 @@ export function WorkspaceBoard({
   analysis = null,
   guardianHooks = [],
   motivationMessage = null,
-  tutorMessages = [],
+  activeSubjectSlug = null,
+  selectedSubject = null,
   tutorResult,
+  nextAction = null,
+  sessionState = "idle",
+  activeGuidedStep = null,
+  activeStepIndex = 0,
+  totalSteps = 0,
+  sessionProgressPercent = 0,
+  guidedStepInput = "",
+  guidedFeedback = null,
   exerciseAnswer,
   sessionStatusMessage,
-  onSendMessage,
+  onGuidedStepInputChange,
+  onSubmitGuidedStep,
   onSubmitExercise,
   onExerciseAnswerChange,
   onStartDailyTask,
@@ -93,19 +120,47 @@ export function WorkspaceBoard({
   onSectionChange,
   onResumeSession,
   onQuickAction,
+  onRunNextAction,
 }: WorkspaceBoardProps) {
-  const [tutorInput, setTutorInput] = useState("");
-  const chatScrollRef = useRef<HTMLDivElement | null>(null);
-
-  const handleSend = () => {
-    if (!tutorInput.trim()) return;
-    onSendMessage(tutorInput);
-    setTutorInput("");
-  };
-
+  const feedbackToneMap = {
+    correct: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    almost: "border-amber-200 bg-amber-50 text-amber-900",
+    incorrect: "border-rose-200 bg-rose-50 text-rose-900",
+  } as const;
+  const guidedStateUi = {
+    idle: {
+      badge: "Listo para pensar",
+      copy: "Lee el paso, localiza la idea clave y prepara una respuesta breve antes de comprobar.",
+      accent: "border-slate-200 bg-slate-50 text-slate-900",
+    },
+    answering: {
+      badge: "Estás respondiendo",
+      copy: "Ya has empezado. Ahora conviene cerrar la idea con una respuesta más concreta.",
+      accent: "border-sky-200 bg-sky-50 text-sky-900",
+    },
+    checking: {
+      badge: "Comprobando",
+      copy: "El sistema está validando si tu respuesta resuelve bien el objetivo del paso.",
+      accent: "border-violet-200 bg-violet-50 text-violet-900",
+    },
+    retry: {
+      badge: "Toca ajustar",
+      copy: "No cambies de bloque: rehace este mismo paso usando la explicación para corregir el enfoque.",
+      accent: "border-rose-200 bg-rose-50 text-rose-900",
+    },
+    completed: {
+      badge: "Sesión cerrada",
+      copy: "La secuencia principal ya está resuelta. Puedes quedarte con la idea final y pasar al siguiente bloque cuando toque.",
+      accent: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    },
+  } as const;
+  const resolvedGuidedState = guidedStateUi[sessionState];
   const progressBySubjectId = new Map(progress.map((item) => [item.subjectId, item]));
   const pendingExerciseCount = exercises.filter((exercise) => exercise.status === "pending").length;
   const activeSubject = useMemo(() => {
+    const byActiveSlug = studentSubjects.find((item) => item.subject?.slug === activeSubjectSlug) ?? null;
+    if (byActiveSlug?.subject) return byActiveSlug.subject;
+    if (selectedSubject?.subject) return selectedSubject.subject;
     const resultSubjectSlug = tutorResult?.subjectSlug ?? latestSession?.subjectId ?? activeDailyTask?.subjectId ?? null;
     const bySlug = studentSubjects.find((item) => item.subject?.slug === tutorResult?.subjectSlug) ?? null;
     if (bySlug) return bySlug.subject ?? null;
@@ -117,7 +172,9 @@ export function WorkspaceBoard({
       return { id: "", tenantId: "", slug: resultSubjectSlug, name: tutorResult?.subjectName ?? activeDailyTask?.subject ?? "Materia", description: "", difficultyBand: "core", createdAt: "", updatedAt: "" };
     }
     return studentSubjects[0]?.subject ?? null;
-  }, [activeDailyTask?.subject, activeDailyTask?.subjectId, latestSession?.subjectId, studentSubjects, tutorResult?.subjectName, tutorResult?.subjectSlug]);
+  }, [activeDailyTask?.subject, activeDailyTask?.subjectId, activeSubjectSlug, latestSession?.subjectId, selectedSubject?.subject, studentSubjects, tutorResult?.subjectName, tutorResult?.subjectSlug]);
+  const activeSubjectProgress = activeSubject ? studentSubjects.find((item) => item.subject?.slug === activeSubject.slug) : null;
+  const activeProgressMetrics = activeSubjectProgress ? progressBySubjectId.get(activeSubjectProgress.subjectId) : null;
   const subjectThemeMap = {
     matematicas: {
       accent: "emerald",
@@ -182,55 +239,63 @@ export function WorkspaceBoard({
       ? "Más autonomía, foco en razonamiento y conexiones entre ideas."
       : "Contexto real de 2 ESO: explicación ordenada, pasos cortos y preguntas que ayuden a pensar sin abrumar.";
 
-  function splitMessageLines(content: string) {
-    return content
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-  }
-
-  function extractExampleLines(content: string) {
-    const lines = splitMessageLines(content);
-    return lines.filter((line) => /ejemplo|por ejemplo|imagina/i.test(line));
-  }
-
-  function extractExplanationLines(content: string) {
-    const lines = splitMessageLines(content);
-    return lines.filter((line) => !/ejemplo|por ejemplo|imagina/i.test(line));
-  }
-
-  useEffect(() => {
-    if (!chatScrollRef.current) return;
-    chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
-  }, [tutorMessages]);
-
   if (activeSection === "planner") {
     return (
-      <div className="p-6 space-y-4">
-        <h2 className="text-lg font-bold text-slate-900">
-          Tu plan para hoy
-        </h2>
+      <div className="p-6 space-y-5">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">Camino del día</h2>
+          <p className="text-sm text-slate-600">Cada bloque te dice si aún no has empezado, si estás dentro o si ya lo cerraste.</p>
+        </div>
 
         {!dailyPlan || dailyPlan.tasks.length === 0 ? (
           <div className="text-sm text-slate-500">
             No hay tareas para hoy
           </div>
         ) : (
-          <div className="space-y-3">
-            {dailyPlan.tasks.map((task) => (
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Progreso del día</div>
+                <div className="mt-2 text-2xl font-bold text-slate-900">{dailyPlan.completionRate}%</div>
+                <div className="mt-1 text-sm text-slate-600">{dailyPlan.completedTaskIds.length} de {dailyPlan.tasks.length} tareas cerradas</div>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Tiempo sugerido</div>
+                <div className="mt-2 text-2xl font-bold text-slate-900">{dailyPlan.recommendedDuration} min</div>
+                <div className="mt-1 text-sm text-slate-600">Carga {dailyPlan.priority === "high" ? "alta" : dailyPlan.priority === "medium" ? "media" : "ligera"}</div>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Razón del plan</div>
+                <div className="mt-2 text-sm text-slate-700">{dailyPlan.adaptationReason}</div>
+              </div>
+            </div>
+            {dailyPlan.tasks.map((task, index) => {
+              const taskState = task.completed ? "completed" : activeDailyTask?.id === task.id ? "in_progress" : "pending";
+              return (
               <button
                 key={task.id}
                 onClick={() => onStartDailyTask(task)}
-                className="w-full rounded-xl border p-4 text-left hover:bg-slate-50"
+                className="w-full rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/40"
               >
-                <div className="font-semibold text-slate-900">
-                  {task.subject}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-700">{index + 1}</span>
+                      <div className="font-semibold text-slate-900">{task.subject}</div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1">{task.type}</span>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1">dificultad {task.difficulty}/5</span>
+                    </div>
+                  </div>
+                  <div className={`rounded-full px-3 py-1 text-xs font-semibold ${taskState === "completed" ? "bg-emerald-100 text-emerald-800" : taskState === "in_progress" ? "bg-sky-100 text-sky-900" : "bg-amber-100 text-amber-900"}`}>
+                    {taskState === "completed" ? "Completado" : taskState === "in_progress" ? "En progreso" : "Pendiente"}
+                  </div>
                 </div>
-                <div className="text-xs text-slate-500">
-                  {task.type}
-                </div>
+                <div className="mt-3 text-sm text-slate-600">Abre una sesión guiada con esta materia ya cargada y el siguiente paso listo.</div>
               </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -242,52 +307,49 @@ export function WorkspaceBoard({
       <div className="p-6 space-y-4">
         <div>
           <h2 className="text-lg font-bold text-slate-900">Tus materias</h2>
-          <p className="text-sm text-slate-600">Elige una materia para abrir una sesión guiada con contexto real.</p>
+          <p className="text-sm text-slate-600">Aquí solo aparece la materia activa. Todo lo demás se decide desde la navegación izquierda.</p>
         </div>
 
-        {studentSubjects.length === 0 ? (
+        {!selectedSubject ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
-            Aún no hay materias configuradas para este alumno.
+            Selecciona una materia en la navegación izquierda para ver su drill-down aquí.
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {studentSubjects.map((item) => {
-              const progressItem = progressBySubjectId.get(item.subjectId);
-
-              return (
-                <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-base font-semibold text-slate-900">{item.subject?.name ?? "Materia"}</h3>
-                      <p className="text-xs text-slate-500">Nivel inicial: {item.initialLevel.replaceAll("_", " ")}</p>
-                    </div>
-                    {progressItem && (
-                      <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                        {progressItem.masteryScore}% dominio
-                      </div>
-                    )}
-                  </div>
-
-                  {progressItem ? (
-                    <div className="space-y-2 text-sm text-slate-600">
-                      <div>Confianza: {progressItem.confidenceScore}%</div>
-                      <div>Sesiones completadas: {progressItem.sessionsCompleted}</div>
-                      <div>Ejercicios completados: {progressItem.exercisesCompleted}</div>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-slate-500">Todavía no hay progreso consolidado en esta materia.</div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => onStartSubjectSession(item)}
-                    className="mt-4 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
-                  >
-                    Empezar sesión guiada
-                  </button>
+          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">{selectedSubject.subject?.name ?? "Materia"}</h3>
+                  <p className="text-xs text-slate-500">Nivel inicial: {selectedSubject.initialLevel.replaceAll("_", " ")}</p>
                 </div>
-              );
-            })}
+                {progressBySubjectId.get(selectedSubject.subjectId) && (
+                  <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                    {progressBySubjectId.get(selectedSubject.subjectId)?.masteryScore}% dominio
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2 text-sm text-slate-600">
+                <div>Confianza: {progressBySubjectId.get(selectedSubject.subjectId)?.confidenceScore ?? 0}%</div>
+                <div>Sesiones completadas: {progressBySubjectId.get(selectedSubject.subjectId)?.sessionsCompleted ?? 0}</div>
+                <div>Ejercicios completados: {progressBySubjectId.get(selectedSubject.subjectId)?.exercisesCompleted ?? 0}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onStartSubjectSession(selectedSubject)}
+                className="mt-4 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                Abrir sesión guiada en la pizarra
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 text-sm font-semibold text-slate-900">Ruta rápida</div>
+              <div className="space-y-3 text-sm text-slate-600">
+                <div>1. La izquierda fija la materia.</div>
+                <div>2. Esta vista te enseña nivel y progreso real.</div>
+                <div>3. La pizarra abre el contenido y el panel derecho recoge la conversación.</div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -403,12 +465,13 @@ export function WorkspaceBoard({
   if (activeSection === "focus") {
     return (
       <div className="p-6 space-y-4">
-        <h2 className="text-lg font-bold text-slate-900">
-          Modo concentración
-        </h2>
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">Modo concentración</h2>
+          <p className="text-sm text-slate-600">Sirve para entrar en una sesión breve con una sola materia y menos ruido visual.</p>
+        </div>
 
         {focusSessions.length === 0 ? (
-          <div className="text-sm text-slate-500">
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
             Aún no has iniciado sesiones de foco
           </div>
         ) : (
@@ -416,14 +479,12 @@ export function WorkspaceBoard({
             {focusSessions.map((session) => (
               <div
                 key={session.id}
-                className="rounded-xl border p-4"
+                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
               >
                 <div className="font-semibold text-slate-900">
                   {session.notes || "Sesión de foco"}
                 </div>
-                <div className="text-xs text-slate-500">
-                  {session.durationMinutes} min
-                </div>
+                <div className="mt-1 text-xs text-slate-500">{session.durationMinutes} min</div>
               </div>
             ))}
           </div>
@@ -444,7 +505,7 @@ export function WorkspaceBoard({
       <div className="p-6 space-y-4">
         <div>
           <h2 className="text-lg font-bold text-slate-900">Ejercicios</h2>
-          <p className="text-sm text-slate-600">Continúa un ejercicio pendiente o vuelve al tutor para practicar.</p>
+          <p className="text-sm text-slate-600">Úsalo para retomar práctica real. Cada tarjeta te devuelve al ejercicio correcto.</p>
         </div>
 
         <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
@@ -547,11 +608,11 @@ export function WorkspaceBoard({
     );
   }
 
-  const showTutorBoard = tutorMessages.length > 0;
+  const showTutorBoard = Boolean(activeGuidedStep || tutorResult?.reply || tutorResult?.recommendedNextStep);
   const showExerciseBoard = latestExercise && latestExercise.status !== "corrected";
   const showTaskLauncher = activeDailyTask !== null;
   const showResumeSession = !showTutorBoard && !showExerciseBoard && latestSession;
-  const showQuickActions = !showTutorBoard && !showExerciseBoard && !showResumeSession && entry;
+  const showQuickActions = !showTutorBoard && !showExerciseBoard && !showResumeSession && entry && !nextAction;
 
   return (
     <div className="flex h-full flex-col">
@@ -577,11 +638,18 @@ export function WorkspaceBoard({
               </p>
             )}
           </div>
-          {showTaskLauncher && (
-            <div className="rounded-full bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900">
-              Tarea activa: {activeDailyTask.subject}
-            </div>
-          )}
+          <div className="flex flex-col items-end gap-2">
+            {showTaskLauncher && (
+              <div className="rounded-full bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900">
+                Tarea activa: {activeDailyTask.subject}
+              </div>
+            )}
+            {activeProgressMetrics && (
+              <div className="rounded-full bg-white/85 px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm">
+                {activeProgressMetrics.masteryScore}% dominio · {activeProgressMetrics.confidenceScore}% confianza
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -598,132 +666,68 @@ export function WorkspaceBoard({
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Sesión guiada</div>
-                  <h2 className="mt-1 text-xl font-bold text-slate-900">{tutorResult?.topic ?? activeSubject?.name ?? "Tutor de apoyo"}</h2>
-                  <p className="mt-1 text-sm text-slate-600">Hilo completo visible, con estructura pedagógica clara para que entiendas qué idea va primero y qué tienes que hacer después.</p>
+                  <h2 className="mt-1 text-xl font-bold text-slate-900">{tutorResult?.topic ?? activeSubject?.name ?? "Pizarra activa"}</h2>
+                  <p className="mt-1 text-sm text-slate-600">Solo ves el paso activo y lo que toca hacer ahora.</p>
                 </div>
                 {activeSubject?.name ? <div className={`rounded-full px-4 py-2 text-sm font-semibold shadow-sm ring-1 ring-white/70 ${resolvedTheme.badge}`}>{activeSubject.name}</div> : null}
               </div>
 
-              {(tutorResult?.reply || (tutorResult?.suggestedSteps?.length ?? 0) > 0 || tutorResult?.reinforcementQuestion || tutorResult?.explanation) ? (
-                <div className={`mb-5 grid gap-3 rounded-3xl border bg-gradient-to-r ${resolvedTheme.shell} p-4 ${resolvedTheme.border} lg:grid-cols-[1.3fr_0.9fr]`}>
-                  <div className="space-y-3">
-                    <div className="rounded-2xl bg-white/85 p-4 shadow-sm">
-                      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Idea principal</div>
-                      <div className="text-sm leading-7 text-slate-800">{tutorResult?.reply ?? "Vamos paso a paso."}</div>
+              {activeGuidedStep ? (
+                <div className={`mb-5 space-y-4 rounded-3xl border bg-gradient-to-r ${resolvedTheme.shell} p-4 ${resolvedTheme.border}`}>
+                  <div className="rounded-2xl bg-white/90 p-5 shadow-sm">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Progreso de sesión</div>
+                      <div className="text-sm font-semibold text-slate-700">Paso {Math.min(activeStepIndex + 1, Math.max(totalSteps, 1))} de {Math.max(totalSteps, 1)}</div>
                     </div>
-                    {tutorResult?.explanation ? (
-                      <div className="rounded-2xl bg-white/80 p-4 shadow-sm">
-                        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Explicación</div>
-                        <div className="space-y-2 text-sm leading-7 text-slate-700">
-                          {extractExplanationLines(tutorResult.explanation).slice(0, 4).map((line, index) => (
-                            <p key={`${line}-${index}`}>{line}</p>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-                    {extractExampleLines(tutorResult?.explanation ?? "").length > 0 ? (
-                      <div className="rounded-2xl border border-white/80 bg-white/70 p-4 shadow-sm">
-                        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Ejemplo</div>
-                        <div className="space-y-2 text-sm leading-7 text-slate-700">
-                          {extractExampleLines(tutorResult?.explanation ?? "").slice(0, 2).map((line, index) => (
-                            <p key={`${line}-${index}`}>{line}</p>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
+                    <div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-200">
+                      <div className="h-full bg-emerald-500 transition-all" style={{ width: `${sessionProgressPercent}%` }} />
+                    </div>
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Paso activo</div>
+                    <div className="text-base font-semibold leading-7 text-slate-900">{activeGuidedStep}</div>
                   </div>
-                  <div className="space-y-3">
-                    {(tutorResult?.suggestedSteps?.length ?? 0) > 0 ? (
-                      <div className="rounded-2xl bg-white/85 p-4 shadow-sm">
-                        <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Pasos</div>
-                        <div className="space-y-2">
-                          {tutorResult?.suggestedSteps?.map((step, index) => (
-                            <div key={`${step}-${index}`} className="flex gap-3 rounded-xl bg-white px-3 py-3 text-sm text-slate-700 ring-1 ring-slate-100">
-                              <span className={`mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${resolvedTheme.badge}`}>{index + 1}</span>
-                              <span>{step}</span>
-                            </div>
-                          ))}
-                        </div>
+
+                  <div className="rounded-2xl bg-white/90 p-5 shadow-sm">
+                    {nextAction ? (
+                      <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">Siguiente acción</div>
+                        <div className="mt-1 text-base font-semibold text-slate-900">{nextAction.title}</div>
+                        <div className="mt-2 text-sm text-slate-700">{nextAction.detail}</div>
                       </div>
                     ) : null}
-                    {tutorResult?.reinforcementQuestion ? (
-                      <div className="rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm">
-                        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Pregunta de refuerzo</div>
-                        <div className="text-sm font-medium leading-7 text-slate-800">{tutorResult.reinforcementQuestion}</div>
-                      </div>
-                    ) : null}
+                    <div className={`mb-4 rounded-2xl border p-4 ${resolvedGuidedState.accent}`}>
+                      <div className="text-[11px] font-semibold uppercase tracking-wider">{resolvedGuidedState.badge}</div>
+                      <div className="mt-2 text-sm">{resolvedGuidedState.copy}</div>
+                    </div>
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Tu respuesta</div>
+                    <textarea
+                      value={guidedStepInput}
+                      onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onGuidedStepInputChange(event.target.value)}
+                      placeholder="Escribe lo que harías o responderías en este paso"
+                      className="min-h-28 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                      disabled={sessionState === "checking" || sessionState === "completed"}
+                    />
+                    <div className="mt-3 flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => onRunNextAction?.() ?? onSubmitGuidedStep()}
+                        className={`rounded-xl px-4 py-3 text-sm font-semibold text-white ${resolvedTheme.strong}`}
+                        disabled={sessionState === "checking" || sessionState === "completed"}
+                      >
+                        {nextAction?.ctaLabel ?? "Comprobar y seguir"}
+                      </button>
+                    </div>
                   </div>
+
+                  {guidedFeedback ? (
+                    <div className={`rounded-2xl border p-4 ${feedbackToneMap[guidedFeedback.status]}`}>
+                      <div className="text-sm font-semibold">
+                        {guidedFeedback.status === "correct" ? "Correcto" : guidedFeedback.status === "almost" ? "Casi" : "Incorrecto"}: {guidedFeedback.message}
+                      </div>
+                      <div className="mt-2 text-sm leading-6">{guidedFeedback.rationale}</div>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
-
-              <div ref={chatScrollRef} className="max-h-[52vh] space-y-4 overflow-y-auto pr-2">
-                {tutorMessages.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={`rounded-3xl px-4 py-4 shadow-sm ${
-                      msg.role === "student"
-                        ? "ml-12 border border-emerald-200 bg-emerald-50/95 text-slate-900"
-                        : `mr-12 border ${resolvedTheme.border} bg-gradient-to-br from-white to-white/95 text-slate-900`
-                    }`}
-                  >
-                    <div className="mb-1 flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      <span>{msg.role === "student" ? "Tú" : msg.kind === "question" ? "Tutor · pregunta" : msg.kind === "steps" ? "Tutor · pasos" : msg.kind === "feedback" ? "Tutor · avance" : msg.kind === "explanation" ? "Tutor · explicación" : "Tutor"}</span>
-                    </div>
-                    {msg.role === "student" ? (
-                      <div className="whitespace-pre-line text-sm leading-7">{msg.content}</div>
-                    ) : msg.kind === "steps" ? (
-                      <div className="space-y-2">
-                        {splitMessageLines(msg.content).map((line, index) => (
-                          <div key={`${line}-${index}`} className="flex gap-3 rounded-2xl bg-white px-3 py-3 text-sm text-slate-700 ring-1 ring-slate-100">
-                            <span className={`mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${resolvedTheme.badge}`}>{index + 1}</span>
-                            <span>{line}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : msg.kind === "question" ? (
-                      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium leading-7 text-slate-800">{msg.content}</div>
-                    ) : msg.kind === "explanation" ? (
-                      <div className="space-y-3">
-                        {extractExplanationLines(msg.content).slice(0, 4).map((line, index) => (
-                          <p key={`${line}-${index}`} className="text-sm leading-7 text-slate-700">{line}</p>
-                        ))}
-                        {extractExampleLines(msg.content).length > 0 ? (
-                          <div className="rounded-2xl bg-white px-4 py-3 text-sm leading-7 text-slate-700 ring-1 ring-slate-100">
-                            <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Ejemplo</div>
-                            {extractExampleLines(msg.content).slice(0, 2).map((line, index) => (
-                              <p key={`${line}-${index}`}>{line}</p>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : msg.kind === "feedback" ? (
-                      <div className="rounded-2xl bg-white px-4 py-3 text-sm leading-7 text-slate-700 ring-1 ring-slate-100">{msg.content}</div>
-                    ) : (
-                      <div className="whitespace-pre-line text-sm leading-7">{msg.content}</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/90 p-3">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Tu siguiente mensaje</div>
-                <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={tutorInput}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setTutorInput(e.target.value)}
-                  onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && handleSend()}
-                  placeholder="Escribe tu pregunta o respuesta..."
-                  className="flex-1 rounded-full border border-slate-300 bg-white px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                />
-                <button
-                  type="button"
-                  onClick={handleSend}
-                  className={`rounded-full px-6 py-3 text-sm font-semibold text-white ${resolvedTheme.strong}`}
-                >
-                  Enviar
-                </button>
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -733,6 +737,13 @@ export function WorkspaceBoard({
             <div className="rounded-2xl bg-white p-6 shadow-sm">
               <h2 className="mb-4 text-lg font-bold text-slate-900">Ejercicio activo</h2>
               <div className="rounded-xl bg-amber-50 p-4">
+                {nextAction ? (
+                  <div className="mb-4 rounded-2xl border border-amber-200 bg-white/90 p-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-700">Siguiente acción</div>
+                    <div className="mt-1 text-base font-semibold text-slate-900">{nextAction.title}</div>
+                    <div className="mt-2 text-sm text-slate-700">{nextAction.detail}</div>
+                  </div>
+                ) : null}
                 <div className="mb-3 text-sm font-semibold text-amber-900">{latestExercise.prompt}</div>
                 <div className="mb-3 text-xs uppercase tracking-wider text-amber-700">
                   {latestExercise.expectedCompetency}
@@ -746,16 +757,16 @@ export function WorkspaceBoard({
                 )}
                 <textarea
                   value={exerciseAnswer}
-                  onChange={(e) => onExerciseAnswerChange(e.target.value)}
+                  onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onExerciseAnswerChange(event.target.value)}
                   placeholder="Escribe tu respuesta aquí..."
                   className="mb-3 min-h-32 w-full rounded-xl border border-amber-200 px-4 py-3 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
                 />
                 <button
                   type="button"
-                  onClick={onSubmitExercise}
+                  onClick={() => onRunNextAction?.() ?? onSubmitExercise()}
                   className="rounded-full bg-amber-600 px-6 py-3 text-sm font-semibold text-white hover:bg-amber-700"
                 >
-                  Enviar respuesta
+                  {nextAction?.ctaLabel ?? "Enviar respuesta"}
                 </button>
                 {latestExercise.correctionFeedback && (
                   <div className="mt-4 rounded-xl bg-white p-4 text-sm text-slate-700">
@@ -773,6 +784,13 @@ export function WorkspaceBoard({
             <div className="rounded-2xl bg-white p-6 shadow-sm">
               <h2 className="mb-4 text-lg font-bold text-slate-900">Continuar donde lo dejaste</h2>
               <div className="rounded-xl bg-sky-50 p-4">
+                {nextAction ? (
+                  <div className="mb-4 rounded-2xl border border-sky-200 bg-white/90 p-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-sky-700">Siguiente acción</div>
+                    <div className="mt-1 text-base font-semibold text-slate-900">{nextAction.title}</div>
+                    <div className="mt-2 text-sm text-slate-700">{nextAction.detail}</div>
+                  </div>
+                ) : null}
                 <div className="mb-2 text-sm font-semibold text-sky-900">
                   {latestSession.topic || "Sesión guiada"}
                 </div>
@@ -782,10 +800,10 @@ export function WorkspaceBoard({
                 </div>
                 <button
                   type="button"
-                  onClick={() => onResumeSession(latestSession)}
+                  onClick={() => onRunNextAction?.() ?? onResumeSession(latestSession)}
                   className="rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white hover:bg-sky-700"
                 >
-                  Retomar sesión
+                  {nextAction?.ctaLabel ?? "Retomar sesión"}
                 </button>
               </div>
             </div>
@@ -850,36 +868,22 @@ export function WorkspaceBoard({
         {!showTutorBoard && !showExerciseBoard && !showResumeSession && !showQuickActions && (
           <div className="mx-auto max-w-3xl">
             <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <h1 className="text-xl font-bold text-slate-900">
-                Empieza por aquí
-              </h1>
-
-              <p className="text-sm text-slate-600">
-                Elige una tarea del plan o empieza una sesión de foco.
-                Yo te guiaré paso a paso.
+              <h1 className="text-xl font-bold text-slate-900">Empieza por aquí</h1>
+              <p className="mt-2 text-sm text-slate-600">
+                {nextAction?.detail ?? "Solo verás un siguiente paso claro en cuanto haya una sesión o tarea activa."}
               </p>
-
-              <small className="text-slate-400">
-                Poco a poco cada día = resultados reales
-              </small>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => onSectionChange?.("planner")}
-                  className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  Ver plan del día
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onSectionChange?.("focus")}
-                  className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
-                >
-                  Empezar foco
-                </button>
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">Siguiente acción</div>
+                <div className="mt-1 text-base font-semibold text-slate-900">{nextAction?.title ?? "Abrir el siguiente paso"}</div>
               </div>
+              <button
+                type="button"
+                onClick={() => onRunNextAction?.()}
+                className="mt-4 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+                disabled={!nextAction}
+              >
+                {nextAction?.ctaLabel ?? "Esperando siguiente acción"}
+              </button>
             </div>
           </div>
         )}
