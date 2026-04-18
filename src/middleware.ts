@@ -132,6 +132,11 @@ function rewriteMentoriaHostPath(req: NextRequest, pathname: string) {
     return NextResponse.rewrite(url);
   }
 
+  if (pathname === "/mentoria/app") {
+    url.pathname = "/mentoria/app/workspace";
+    return NextResponse.rewrite(url);
+  }
+
   if (pathname === "/app" || pathname.startsWith("/app/")) {
     url.pathname = pathname.replace(/^\/app/, "/mentoria/app");
     return NextResponse.redirect(url, 308);

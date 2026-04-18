@@ -1,7 +1,7 @@
-import { MentoriaWorkspace } from "@/components/mentoria-app/workspace";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default function MentoriaAppPage() {
-  return <MentoriaWorkspace />;
+  redirect("/mentoria/app/workspace");
 }
