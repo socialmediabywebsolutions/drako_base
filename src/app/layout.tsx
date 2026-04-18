@@ -78,16 +78,6 @@ export default async function RootLayout({
     "/contact",
   ];
 
-  const mentoriasPublicPrefixes = [
-    "/site",
-    "/mentoria/onboarding",
-    "/mentoria/share",
-    "/mentorias/auths",
-    "/login",
-    "/signup",
-    "/auth",
-  ];
-
   const isHomeRoute = normalizedPath === "/" || normalizedPath === "";
   const isMentoriasHost =
     effectiveHost === "mentoria.drako.systems"
@@ -99,14 +89,12 @@ export default async function RootLayout({
     publicPrefixes.some((prefix) => normalizedPath.startsWith(prefix) || normalizedRefererPath.startsWith(prefix)) ||
     referer.includes("/site/") ||
     referer.includes("/auth/");
-  const isMentoriasPublicRoute = mentoriasPublicPrefixes.some(
-    (prefix) => normalizedPath.startsWith(prefix) || normalizedRefererPath.startsWith(prefix),
-  );
 
   const usePublicShell = isMentoriasHost
-    ? isMentoriasPublicRoute
+    ? true
     : hostMode === "PUBLIC_SAAS" || hostMode === "PREVIEW" || isPublicRoute;
   const enableNextAuth = shouldEnableNextAuthClient(matchedPath || normalizedRefererPath || "/");
+  const showHostSwitcher = !isMentoriasHost;
 
   const htmlLang = localeFromPath || defaultMarketingLocale;
 
@@ -119,7 +107,7 @@ export default async function RootLayout({
               {usePublicShell ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
             </NextAuthProviders>
           ) : usePublicShell ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
-          <HostSwitcher />
+          {showHostSwitcher ? <HostSwitcher /> : null}
         </Providers>
       </body>
     </html>

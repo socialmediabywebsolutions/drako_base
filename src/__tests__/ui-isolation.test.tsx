@@ -64,6 +64,57 @@ describe("UI Shell Isolation (Steel Anti-Leak)", () => {
         const publicShell = document.querySelector('[data-shell="public"]');
         expect(publicShell).toBeInTheDocument();
     });
+
+    it("should render PublicShell for /mentoria/app on Mentoria host", async () => {
+        (headers as any).mockResolvedValue(new Map([
+            ["x-drako-host-mode", "PUBLIC_SAAS"],
+            ["x-drako-effective-host", "mentoria.drako.systems"],
+            ["x-matched-path", "/mentoria/app"]
+        ]));
+
+        const result = await RootLayout({ children: <div data-testid="content">Content</div> });
+        render(result as any);
+
+        const publicShell = document.querySelector('[data-shell="public"]');
+        const adminShell = document.querySelector('[data-shell="admin"]');
+        expect(publicShell).toBeInTheDocument();
+        expect(adminShell).not.toBeInTheDocument();
+        expect(document.querySelector('[data-testid="host-switcher"]')).not.toBeInTheDocument();
+    });
+
+    it("should render PublicShell for /mentorias/auths/logins on Mentoria host", async () => {
+        (headers as any).mockResolvedValue(new Map([
+            ["x-drako-host-mode", "PUBLIC_SAAS"],
+            ["x-drako-effective-host", "mentoria.drako.systems"],
+            ["x-matched-path", "/mentorias/auths/logins"]
+        ]));
+
+        const result = await RootLayout({ children: <div data-testid="content">Content</div> });
+        render(result as any);
+
+        const publicShell = document.querySelector('[data-shell="public"]');
+        const adminShell = document.querySelector('[data-shell="admin"]');
+        expect(publicShell).toBeInTheDocument();
+        expect(adminShell).not.toBeInTheDocument();
+        expect(document.querySelector('[data-testid="host-switcher"]')).not.toBeInTheDocument();
+    });
+
+    it("should render PublicShell for /mentorias/auths/registrations on Mentoria host", async () => {
+        (headers as any).mockResolvedValue(new Map([
+            ["x-drako-host-mode", "PUBLIC_SAAS"],
+            ["x-drako-effective-host", "mentoria.drako.systems"],
+            ["x-matched-path", "/mentorias/auths/registrations"]
+        ]));
+
+        const result = await RootLayout({ children: <div data-testid="content">Content</div> });
+        render(result as any);
+
+        const publicShell = document.querySelector('[data-shell="public"]');
+        const adminShell = document.querySelector('[data-shell="admin"]');
+        expect(publicShell).toBeInTheDocument();
+        expect(adminShell).not.toBeInTheDocument();
+        expect(document.querySelector('[data-testid="host-switcher"]')).not.toBeInTheDocument();
+    });
 });
 
 import "@testing-library/jest-dom";
