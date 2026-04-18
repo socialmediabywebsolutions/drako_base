@@ -134,7 +134,7 @@ function rewriteMentoriaHostPath(req: NextRequest, pathname: string) {
 
   if (pathname === "/app" || pathname.startsWith("/app/")) {
     url.pathname = pathname.replace(/^\/app/, "/mentoria/app");
-    return NextResponse.rewrite(url);
+    return NextResponse.redirect(url, 308);
   }
 
   if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) {
@@ -261,7 +261,7 @@ export async function middleware(req: NextRequest) {
       host.startsWith("mentorias.");
 
     if (!requestBindings) {
-      if (isRoutingsSubdomainsEnabled() && isMentoriasHost && !isApi) {
+      if (isMentoriasHost && !isApi) {
         const mentoriaRewrite = rewriteMentoriaHostPath(req, pathname);
         if (mentoriaRewrite) return mentoriaRewrite;
       }
@@ -293,7 +293,7 @@ export async function middleware(req: NextRequest) {
     const isPublicHost = hostMode === "PUBLIC_SAAS";
     const isAdminHost = hostMode === "CAMPAMENTO_BASE";
 
-    if (isRoutingsSubdomainsEnabled() && isMentoriasHost && !isApi) {
+    if (isMentoriasHost && !isApi) {
       const mentoriaRewrite = rewriteMentoriaHostPath(req, pathname);
       if (mentoriaRewrite) return mentoriaRewrite;
     }
@@ -473,6 +473,7 @@ export async function middleware(req: NextRequest) {
     responseHeaders.set("x-drako-host-mode", hostMode);
     responseHeaders.set("x-drako-effective-host", host);
     responseHeaders.set("x-drako-pages-environment", pagesEnvironmentHeader);
+    responseHeaders.set("x-drako-original-pathname", pathname);
     if (isMentoriasHost) {
       responseHeaders.set("x-drako-saas-slug", "mentorias");
     }

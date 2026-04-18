@@ -48,7 +48,7 @@ type SearchParamReader = {
 };
 
 const STORAGE_KEY = "mentoria-onboarding-activation-v2";
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 5;
 const DEFAULT_STAGE = "eso";
 const DEFAULT_SCHOOL_YEAR = MENTORIA_SCHOOL_YEAR_OPTIONS[6];
 const DEFAULT_FALLBACK_SUBJECTS = getWorkspaceUiCopy(DEFAULT_STAGE).fallbackSubjects;
@@ -81,12 +81,11 @@ const GOAL_STEP_COPY = {
 const FINAL_STEP_COPY = {
   title: "Todo listo",
   description: "Tu espacio ya esta preparado.",
-  enterCta: "Entrar a Mentoria",
-  launchCta: "Preparar espacio",
+  launchCta: "Entrar en Mentoria",
 };
 
 function buildMentoriaWorkspaceUrl(searchParams: SearchParamReader): string {
-  const target = new URL("/app", window.location.origin);
+  const target = new URL("/mentoria/app", window.location.origin);
   const localOverrideHost = searchParams.get("__drako_host")?.trim();
   const hostname = window.location.hostname.toLowerCase();
   if (localOverrideHost) {
@@ -230,7 +229,6 @@ export function MentoriaOnboardingWizard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activation, setActivation] = useState<Record<string, unknown> | null>(null);
 
   const learningProfile = getLearningProfile({
     schoolYear: draft.student.schoolYear || DEFAULT_SCHOOL_YEAR,
@@ -410,8 +408,8 @@ export function MentoriaOnboardingWizard() {
       return;
     }
 
-    setActivation(body.activation);
     window.localStorage.removeItem(STORAGE_KEY);
+    window.location.href = buildMentoriaWorkspaceUrl(searchParams);
   }
 
   if (loading) {
@@ -681,22 +679,13 @@ export function MentoriaOnboardingWizard() {
           </section>
         ) : null}
 
-        {step === 6 ? (
-          <section className="space-y-5">
-            <h2 className="text-2xl font-bold">{FINAL_STEP_COPY.title}</h2>
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-700 shadow-sm">
-              <p className="font-semibold text-slate-900">{FINAL_STEP_COPY.description}</p>
-            </div>
-          </section>
-        ) : null}
-
         <div className={`mt-8 flex items-center ${step === TOTAL_STEPS ? "justify-end" : "justify-between"}`}>
           {step !== TOTAL_STEPS ? (
             <button
               type="button"
               onClick={() => setStep((current) => Math.max(1, current - 1))}
               className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold hover:bg-slate-50 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-transform duration-200 active:scale-[0.99]"
-              disabled={saving || Boolean(activation) || step === 1}
+              disabled={saving || step === 1}
             >
               {ui.back}
             </button>
@@ -716,16 +705,6 @@ export function MentoriaOnboardingWizard() {
               className="rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-transform duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {step === 1 ? WELCOME_STEP_COPY.cta : ui.next}
-            </button>
-          ) : activation ? (
-            <button
-              type="button"
-              onClick={() => {
-                window.location.href = buildMentoriaWorkspaceUrl(searchParams);
-              }}
-              className="rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-black focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors transition-transform duration-200 active:scale-[0.99]"
-            >
-              {FINAL_STEP_COPY.enterCta}
             </button>
           ) : (
             <button
