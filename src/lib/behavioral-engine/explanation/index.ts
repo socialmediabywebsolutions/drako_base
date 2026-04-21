@@ -5,6 +5,13 @@ export type BehavioralExplanation = {
   expectedOutcome: string;
 };
 
+function formatBehavioralTaskType(type?: string | null) {
+  if (type === "practice") return "practica guiada";
+  if (type === "review") return "repaso guiado";
+  if (type === "challenge") return "reto corto";
+  return type ?? "tarea";
+}
+
 export type BehavioralExplanationFrame = {
   title: string;
   description: string;
@@ -40,9 +47,9 @@ export function buildBehavioralExplanationFrame(action: NextBestAction, context:
     const hours = context.signals.hoursSinceActivity;
     const fragileProfile = context.signals.motivationProfile === "fragile";
     return {
-      title: "Hoy te conviene volver con una victoria rapida.",
+      title: "Hoy te conviene volver con una victoria rapida para recuperar ritmo.",
       description: action.task
-        ? `La mejor entrada hoy es ${action.task.subject} - ${action.task.type}, en un formato mas facil de arrancar.`
+        ? `Arranque recomendado: ${action.task.subject} - ${formatBehavioralTaskType(action.task.type)}`
         : "La mejor entrada hoy es una accion corta y guiada para recuperar traccion.",
       primaryLabel: "Volver con algo facil",
       modeBadge: "Modo de hoy: vuelta suave",
@@ -55,9 +62,9 @@ export function buildBehavioralExplanationFrame(action: NextBestAction, context:
 
   if (action.strategy === "momentum_push") {
     return {
-      title: "La inercia de hoy te permite subir un paso.",
+      title: "Vienes con buena inercia. Hoy toca subir un paso sin perder claridad.",
       description: action.task
-        ? `La entrada mas util hoy es ${action.task.subject} - ${action.task.type}, con un punto mas de exigencia.`
+        ? `Arranque recomendado: ${action.task.subject} - ${formatBehavioralTaskType(action.task.type)}`
         : "La entrada mas util hoy es una accion mas ambiciosa que aprovecha tu buen ritmo.",
       primaryLabel: "Subir un paso hoy",
       modeBadge: "Modo de hoy: subir un paso",
@@ -68,14 +75,17 @@ export function buildBehavioralExplanationFrame(action: NextBestAction, context:
 
   if (action.strategy === "plan_task") {
     const subject = action.task?.subject ?? "tu siguiente tarea";
-    const type = action.task?.type ?? "task";
+    const type = formatBehavioralTaskType(action.task?.type ?? "task");
+    const dailyCompletionPercent = Number.isFinite(context.signals.dailyCompletionRate)
+      ? Math.round(context.signals.dailyCompletionRate * 100)
+      : 0;
     return {
       title: "La continuidad natural hoy viene del plan del dia.",
-      description: `La siguiente tarea util es ${subject} - ${type}.`,
+      description: `Arranque recomendado: ${subject} - ${type}`,
       primaryLabel: "Volver al plan de hoy",
       modeBadge: "Modo de hoy: plan del dia",
-      whyToday: `Hoy lo mas sensato es seguir el plan: ya llevas ${Math.round(context.signals.dailyCompletionRate * 100)}% del dia encaminado y esta es la siguiente pieza natural.`,
-      expectedOutcome: "Si haces clic, entraras directamente en la siguiente tarea natural del plan.",
+      whyToday: `Hoy lo mas sensato es seguir el plan: ya llevas ${dailyCompletionPercent}% del dia encaminado y esta es la siguiente pieza natural.`,
+      expectedOutcome: "Si haces clic, entraras directamente en la siguiente tarea util del plan de hoy.",
     };
   }
 

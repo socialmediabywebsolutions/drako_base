@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { StudentProfile, MentoriaStudentSubject, MentoriaProgress, LearningSession, FocusSession, ParentAccount } from "@/lib/mentoria/types";
+import type { StudentProfile, MentoriaStudentSubject, MentoriaProgress, LearningSession, FocusSession, MentoriaGuardian } from "@/lib/mentoria/types";
 
 type WorkspaceNavProps = {
   student: StudentProfile | null;
@@ -10,7 +10,7 @@ type WorkspaceNavProps = {
   progress: MentoriaProgress[];
   recentSessions: LearningSession[];
   focusSessions: FocusSession[];
-  parents: ParentAccount[];
+  connectedGuardians: MentoriaGuardian[];
   activeSection: string;
   activeSubjectSlug?: string | null;
   onSectionChange: (section: string) => void;
@@ -23,7 +23,7 @@ export function WorkspaceNav({
   progress,
   recentSessions,
   focusSessions,
-  parents,
+  connectedGuardians,
   activeSection,
   activeSubjectSlug,
   onSectionChange,
@@ -172,7 +172,7 @@ export function WorkspaceNav({
         })}
       </nav>
 
-      {parents.length > 0 && (
+      {connectedGuardians.length > 0 && (
         <div className="border-t border-slate-200 p-3">
           <Link
             href="/mentoria/app/parents"

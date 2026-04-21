@@ -1,9 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 
 type ProductAuthMode = "login" | "register";
+type RegisterSelectField = {
+  name: string;
+  label: string;
+  defaultValue: string;
+  options: Array<{ value: string; label: string }>;
+};
 
 export function ProductAuthForm({
   authApiBase,
@@ -11,12 +18,14 @@ export function ProductAuthForm({
   defaultMode = "login",
   title,
   description,
+  registerSelectField,
 }: {
   authApiBase: string;
   postLoginRedirect: string;
   defaultMode?: ProductAuthMode;
   title: string;
   description: string;
+  registerSelectField?: RegisterSelectField;
 }) {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
@@ -25,10 +34,21 @@ export function ProductAuthForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [registerSelectValue, setRegisterSelectValue] = useState(registerSelectField?.defaultValue ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(event: React.FormEvent) {
+  function resolveRedirectTarget() {
+    if (mode !== "register" || !registerSelectField || !registerSelectValue) {
+      return redirectTarget;
+    }
+
+    const target = new URL(redirectTarget, window.location.origin);
+    target.searchParams.set(registerSelectField.name, registerSelectValue);
+    return `${target.pathname}${target.search}${target.hash}`;
+  }
+
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
     setError(null);
@@ -47,7 +67,7 @@ export function ProductAuthForm({
         throw new Error(body.message || body.code || body.error || "Authentication failed.");
       }
 
-      window.location.href = redirectTarget;
+      window.location.href = resolveRedirectTarget();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Authentication failed.");
     } finally {
@@ -91,10 +111,27 @@ export function ProductAuthForm({
               type="text"
               required
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event: ChangeEvent<HTMLInputElement>) => setName(event.target.value)}
               className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-sky-500"
               placeholder="Ada Lovelace"
             />
+          </div>
+        ) : null}
+
+        {mode === "register" && registerSelectField ? (
+          <div>
+            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">{registerSelectField.label}</label>
+            <select
+              value={registerSelectValue}
+              onChange={(event: ChangeEvent<HTMLSelectElement>) => setRegisterSelectValue(event.target.value)}
+              className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-sky-500"
+            >
+              {registerSelectField.options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
         ) : null}
 
@@ -104,7 +141,7 @@ export function ProductAuthForm({
             type="email"
             required
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => setEmail(event.target.value)}
             className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-sky-500"
             placeholder="operator@company.com"
           />
@@ -117,7 +154,7 @@ export function ProductAuthForm({
             required
             minLength={8}
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)}
             className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-sky-500"
             placeholder="********"
           />

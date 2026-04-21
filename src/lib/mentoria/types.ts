@@ -21,6 +21,7 @@ export type MentoriaReferralStatus = "pending" | "registered" | "converted" | "r
 export type MentoriaRewardFeature = "advanced_parent_insights" | "adaptive_motivation_boost" | "progress_sharing_branding";
 export type MentoriaGuardianFamilyRelation = "father" | "mother" | "tutor";
 export type MentoriaGuardianSystemRole = "primary_guardian" | "secondary_guardian";
+export type MentoriaActorSystemRole = MentoriaGuardianSystemRole | "student";
 export type MentoriaGuardianRole = MentoriaGuardianFamilyRelation;
 export type MentoriaConversationScopeType = "family" | "student";
 export type MentoriaConversationChannel = "whatsapp";
@@ -57,20 +58,45 @@ export type MentoriaOnboardingPayload = {
   student: {
     fullName: string;
     schoolYear: string;
+    approximateAge?: number;
+    schoolName?: string;
   };
   subjects: MentoriaOnboardingSubjectInput[];
   goal: MentoriaOnboardingGoal;
   confidenceLevel: "low" | "medium" | "high";
+  primaryConcern?: string;
   referralCode?: string;
   inviteToken?: string;
 };
 
+export type MentoriaSessionActorType = "guardian" | "student" | "unknown";
+
+export type MentoriaSessionContext = {
+  actorType: MentoriaSessionActorType;
+  familyId: string | null;
+  guardianId?: string | null;
+  studentProfileId?: string | null;
+  systemRole?: MentoriaActorSystemRole | null;
+};
+
+export type MentoriaCanonicalFamilyContract = {
+  family: MentoriaFamily | null;
+  primaryGuardian: MentoriaGuardian | null;
+  secondaryGuardians: MentoriaGuardian[];
+  guardianStudentAccess: MentoriaGuardianStudentAccess[];
+};
+
 export type MentoriaOnboardingState = {
+  sessionEmail?: string | null;
   primaryGuardian: MentoriaOnboardingPrimaryGuardian | null;
   student: StudentProfile | null;
   profile: StudentProfile | null;
   subjects: MentoriaSubject[];
   studentSubjects: MentoriaStudentSubject[];
+  family: MentoriaFamily | null;
+  secondaryGuardians: MentoriaGuardian[];
+  guardianStudentAccess: MentoriaGuardianStudentAccess[];
+  sessionContext: MentoriaSessionContext;
 };
 
 export type MentoriaFamilyStudent = {
@@ -397,7 +423,11 @@ export type MentoriaDashboard = {
   billing: MentoriaBillingSummary;
   focusSessions: FocusSession[];
   recentSessions: LearningSession[];
-  parents: ParentAccount[];
+  family: MentoriaFamily | null;
+  primaryGuardian: MentoriaGuardian | null;
+  secondaryGuardians: MentoriaGuardian[];
+  guardianStudentAccess: MentoriaGuardianStudentAccess[];
+  sessionContext: MentoriaSessionContext;
   insights?: import("@/lib/drako/insights").Insight[];
 };
 

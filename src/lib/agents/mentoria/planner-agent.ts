@@ -5,7 +5,7 @@ import type { MotivationState } from "@/lib/mentoria/motivation-engine";
 import { getMicrocopy } from "@/lib/mentoria/microcopy";
 import { buildEvolutionAdaptiveSignals } from "@/lib/mentoria/student-evolution";
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
-import type { DailyPlan, MentoriaBillingSummary, MentoriaIntervention, MentoriaProgress, MentoriaSubject, ParentAccount, StudentProfile, StudyPlanBlock } from "@/lib/mentoria/types";
+import type { DailyPlan, MentoriaBillingSummary, MentoriaGuardianStudentAccess, MentoriaIntervention, MentoriaProgress, MentoriaSubject, StudentProfile, StudyPlanBlock } from "@/lib/mentoria/types";
 
 const DAYS = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes"];
 
@@ -13,7 +13,7 @@ export function buildStudyPlan(input: {
   profile: StudentProfile;
   subjects: MentoriaSubject[];
   progress: MentoriaProgress[];
-  parents?: ParentAccount[];
+  guardianStudentAccess?: MentoriaGuardianStudentAccess[];
   evolution: StudentEvolutionProfile;
   interventions: MentoriaIntervention[];
   motivation: MotivationState;
@@ -31,9 +31,15 @@ export function buildStudyPlan(input: {
   const evolutionSignals = buildEvolutionAdaptiveSignals(input.evolution);
   const interventionResponse = buildInterventionResponse(input.interventions);
   const plannerMessage = getMicrocopy(learningProfile.stage, "planner_message");
-  const supervisionLevel = input.parents?.[0]?.supervisionLevel ?? "balanced";
-  const dailyStudyMinutes = input.parents?.length
-    ? Math.max(20, Math.round(input.parents.reduce((total, parent) => total + parent.dailyStudyMinutes, 0) / input.parents.length))
+  const prioritizedAccess = [...(input.guardianStudentAccess ?? [])].sort((left, right) => {
+    if (left.isPrimaryContact !== right.isPrimaryContact) {
+      return Number(right.isPrimaryContact) - Number(left.isPrimaryContact);
+    }
+    return left.createdAt.localeCompare(right.createdAt);
+  });
+  const supervisionLevel = prioritizedAccess[0]?.supervisionLevel ?? "balanced";
+  const dailyStudyMinutes = prioritizedAccess.length
+    ? Math.max(20, Math.round(prioritizedAccess.reduce((total, access) => total + access.dailyStudyMinutes, 0) / prioritizedAccess.length))
     : input.profile.preferredStudyMinutes;
   const orderedSubjects = [...input.subjects].sort((left, right) => {
     const leftProgress = input.progress.find((item) => item.subjectId === left.id);

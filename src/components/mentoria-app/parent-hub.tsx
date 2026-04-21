@@ -1,15 +1,66 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getMicrocopy, getParentHubUiCopy, MENTORIA_PARENT_SLOT_A, MENTORIA_PARENT_SLOT_B } from "@/lib/mentoria/microcopy";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
+import { buildGuardianViewModel } from "@/lib/mentoria/state/guardian-visibility-policy";
+import { deriveStateActions } from "@/lib/mentoria/state/intervention-engine";
+import { collectStudentSignals, evaluateStudentState } from "@/lib/mentoria/state/student-state-engine";
+import type { GuardianViewModel } from "@/lib/mentoria/state/state-types";
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
-import type { DailyPlan, Insight, MentoriaBillingSummary, MentoriaGrowthSummary, MentoriaIntervention, MentoriaProgress, ParentAccount, StudentProfile, StudyPlan } from "@/lib/mentoria/types";
+import type { DailyPlan, Insight, MentoriaBillingSummary, MentoriaGrowthSummary, MentoriaGuardian, MentoriaGuardianStudentAccess, MentoriaIntervention, MentoriaProgress, StudentProfile, StudyPlan } from "@/lib/mentoria/types";
+
+type ConnectedGuardianView = {
+  id: string;
+  fullName: string;
+  email: string;
+  relation: string;
+  slot: "Parent A" | "Parent B";
+  canManageSchedule: boolean;
+};
+
+type GuardianDraft = {
+  id?: string | null;
+  fullName: string;
+  email: string;
+  familyRelation?: MentoriaGuardian["familyRelation"];
+  systemRole: MentoriaGuardian["systemRole"];
+  access: {
+    dailyStudyMinutes: number;
+    supervisionLevel: MentoriaGuardianStudentAccess["supervisionLevel"];
+    canViewFullProgress: boolean;
+    canManageSchedule: boolean;
+    notificationPreferences?: string[];
+    isPrimaryContact?: boolean;
+  };
+};
+
+function buildConnectedGuardians(input: {
+  primaryGuardian: MentoriaGuardian | null;
+  secondaryGuardians: MentoriaGuardian[];
+  guardianStudentAccess: MentoriaGuardianStudentAccess[];
+}): ConnectedGuardianView[] {
+  const canonicalGuardians = [input.primaryGuardian, ...input.secondaryGuardians].filter((item): item is MentoriaGuardian => Boolean(item));
+
+  return canonicalGuardians.map((guardian, index) => {
+    const access = input.guardianStudentAccess.find((item) => item.guardianId === guardian.id) ?? null;
+    return {
+      id: guardian.id,
+      fullName: guardian.name?.trim() || guardian.email,
+      email: guardian.email,
+      relation: guardian.systemRole === "primary_guardian" ? "Tutor principal" : "Tutor secundario",
+      slot: guardian.systemRole === "primary_guardian" || index === 0 ? "Parent A" : "Parent B",
+      canManageSchedule: access?.canManageSchedule ?? false,
+    };
+  });
+}
 
 export function MentoriaParentHub() {
   const [student, setStudent] = useState<StudentProfile | null>(null);
-  const [parents, setParents] = useState<ParentAccount[]>([]);
+  const [primaryGuardian, setPrimaryGuardian] = useState<MentoriaGuardian | null>(null);
+  const [secondaryGuardians, setSecondaryGuardians] = useState<MentoriaGuardian[]>([]);
+  const [guardianStudentAccess, setGuardianStudentAccess] = useState<MentoriaGuardianStudentAccess[]>([]);
   const [progress, setProgress] = useState<MentoriaProgress[]>([]);
   const [plan, setPlan] = useState<StudyPlan | null>(null);
   const [evolution, setEvolution] = useState<StudentEvolutionProfile | null>(null);
@@ -19,10 +70,33 @@ export function MentoriaParentHub() {
   const [interventions, setInterventions] = useState<MentoriaIntervention[]>([]);
   const [growth, setGrowth] = useState<MentoriaGrowthSummary | null>(null);
   const [insights, setInsights] = useState<Insight[]>([]);
-  const [parentAName, setParentAName] = useState("");
-  const [parentAEmail, setParentAEmail] = useState("");
-  const [parentBName, setParentBName] = useState("");
-  const [parentBEmail, setParentBEmail] = useState("");
+  const [guardianViewModel, setGuardianViewModel] = useState<GuardianViewModel | null>(null);
+  const [primaryGuardianDraft, setPrimaryGuardianDraft] = useState<GuardianDraft>({
+    fullName: "",
+    email: "",
+    systemRole: "primary_guardian",
+    access: {
+      dailyStudyMinutes: 45,
+      supervisionLevel: "balanced",
+      canViewFullProgress: true,
+      canManageSchedule: true,
+      notificationPreferences: ["progress", "planner"],
+      isPrimaryContact: true,
+    },
+  });
+  const [secondaryGuardianDraft, setSecondaryGuardianDraft] = useState<GuardianDraft>({
+    fullName: "",
+    email: "",
+    systemRole: "secondary_guardian",
+    access: {
+      dailyStudyMinutes: 45,
+      supervisionLevel: "light",
+      canViewFullProgress: true,
+      canManageSchedule: false,
+      notificationPreferences: ["progress", "planner"],
+      isPrimaryContact: false,
+    },
+  });
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteMessage, setInviteMessage] = useState<string | null>(null);
@@ -46,7 +120,9 @@ export function MentoriaParentHub() {
       }
       const profileBody = (await profileRes.json()) as {
         student?: StudentProfile;
-        parents?: ParentAccount[];
+        primaryGuardian?: MentoriaGuardian | null;
+        secondaryGuardians?: MentoriaGuardian[];
+        guardianStudentAccess?: MentoriaGuardianStudentAccess[];
         evolution?: StudentEvolutionProfile;
         motivation?: MotivationState;
         dailyPlan?: DailyPlan | null;
@@ -58,7 +134,9 @@ export function MentoriaParentHub() {
       const progressBody = (await progressRes.json()) as { progress?: MentoriaProgress[] };
       const plannerBody = (await plannerRes.json()) as { plan?: StudyPlan | null };
       setStudent(profileBody.student ?? null);
-      setParents(profileBody.parents ?? []);
+      setPrimaryGuardian(profileBody.primaryGuardian ?? null);
+      setSecondaryGuardians(profileBody.secondaryGuardians ?? []);
+      setGuardianStudentAccess(profileBody.guardianStudentAccess ?? []);
       setEvolution(profileBody.evolution ?? null);
       setMotivation(profileBody.motivation ?? null);
       setDailyPlan(profileBody.dailyPlan ?? null);
@@ -68,46 +146,59 @@ export function MentoriaParentHub() {
       setInsights(profileBody.insights ?? []);
       setProgress(progressBody.progress ?? []);
       setPlan(plannerBody.plan ?? null);
-      const parentA = (profileBody.parents ?? []).find((item) => item.relation === MENTORIA_PARENT_SLOT_A);
-      const parentB = (profileBody.parents ?? []).find((item) => item.relation === MENTORIA_PARENT_SLOT_B);
-      setParentAName(parentA?.fullName ?? "");
-      setParentAEmail(parentA?.email ?? "");
-      setParentBName(parentB?.fullName ?? "");
-      setParentBEmail(parentB?.email ?? "");
+      if (profileBody.student?.id) {
+        const signals = await collectStudentSignals(profileBody.student.id);
+        const decision = evaluateStudentState(signals);
+        const actions = deriveStateActions(decision);
+        setGuardianViewModel(buildGuardianViewModel({ decision, actions }));
+      }
+      const canonicalGuardians = buildConnectedGuardians({
+        primaryGuardian: profileBody.primaryGuardian ?? null,
+        secondaryGuardians: profileBody.secondaryGuardians ?? [],
+        guardianStudentAccess: profileBody.guardianStudentAccess ?? [],
+      });
+      const parentA = canonicalGuardians.find((item) => item.slot === MENTORIA_PARENT_SLOT_A);
+      const parentB = canonicalGuardians.find((item) => item.slot === MENTORIA_PARENT_SLOT_B);
+      setPrimaryGuardianDraft((current) => ({
+        ...current,
+        id: profileBody.primaryGuardian?.id ?? null,
+        fullName: parentA?.fullName ?? "",
+        email: parentA?.email ?? "",
+        familyRelation: profileBody.primaryGuardian?.familyRelation ?? current.familyRelation,
+      }));
+      setSecondaryGuardianDraft((current) => ({
+        ...current,
+        id: profileBody.secondaryGuardians?.[0]?.id ?? null,
+        fullName: parentB?.fullName ?? "",
+        email: parentB?.email ?? "",
+        familyRelation: profileBody.secondaryGuardians?.[0]?.familyRelation ?? current.familyRelation,
+      }));
     })();
   }, []);
 
-  async function saveParents() {
+  async function saveGuardiansProfile() {
     if (!student) return;
     const response = await fetch("/api/mentoria/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        parents: [
-          {
-            slot: MENTORIA_PARENT_SLOT_A,
-            fullName: parentAName,
-            email: parentAEmail,
-            dailyStudyMinutes: 45,
-            supervisionLevel: "balanced",
-            canViewFullProgress: true,
-            canManageSchedule: true,
-          },
-          {
-            slot: MENTORIA_PARENT_SLOT_B,
-            fullName: parentBName,
-            email: parentBEmail,
-            dailyStudyMinutes: 45,
-            supervisionLevel: "light",
-            canViewFullProgress: true,
-            canManageSchedule: false,
-          },
-        ],
+        primaryGuardian: primaryGuardianDraft.fullName.trim() || primaryGuardianDraft.email.trim()
+          ? primaryGuardianDraft
+          : null,
+        secondaryGuardians: secondaryGuardianDraft.fullName.trim() || secondaryGuardianDraft.email.trim()
+          ? [secondaryGuardianDraft]
+          : [],
       }),
     });
     if (response.ok) {
-      const body = (await response.json()) as { parents?: ParentAccount[] };
-      setParents(body.parents ?? []);
+      const body = (await response.json()) as {
+        primaryGuardian?: MentoriaGuardian | null;
+        secondaryGuardians?: MentoriaGuardian[];
+        guardianStudentAccess?: MentoriaGuardianStudentAccess[];
+      };
+      setPrimaryGuardian(body.primaryGuardian ?? null);
+      setSecondaryGuardians(body.secondaryGuardians ?? []);
+      setGuardianStudentAccess(body.guardianStudentAccess ?? []);
     }
   }
 
@@ -118,6 +209,10 @@ export function MentoriaParentHub() {
   const stage = student.learningStage;
   const ui = getParentHubUiCopy(stage);
   const parentMessage = getMicrocopy(stage, "parent_message");
+  const connectedGuardians = useMemo(
+    () => buildConnectedGuardians({ primaryGuardian, secondaryGuardians, guardianStudentAccess }),
+    [primaryGuardian, secondaryGuardians, guardianStudentAccess],
+  );
   const completedDailyTasks = dailyPlan?.tasks.filter((task) => task.completed) ?? [];
   const dailyCompliance = Math.round((dailyPlan?.completionRate ?? 0) * 100);
   const premiumRewardDays = growth?.rewardEntitlements.premiumAccessUntil
@@ -233,16 +328,42 @@ export function MentoriaParentHub() {
         ) : null}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          {parents.map((parent) => (
-            <div key={parent.id} className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-              <div className="text-sm font-semibold">{parent.fullName}</div>
-              <div className="mt-1 text-sm text-slate-300">{parent.relation}</div>
+          {connectedGuardians.map((guardian) => (
+            <div key={guardian.id} className="rounded-[28px] border border-white/10 bg-white/5 p-5">
+              <div className="text-sm font-semibold">{guardian.fullName}</div>
+              <div className="mt-1 text-sm text-slate-300">{guardian.relation}</div>
               <div className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-400">
-                {parent.canManageSchedule ? ui.parentViewManage : ui.parentViewReadOnly}
+                {guardian.canManageSchedule ? ui.parentViewManage : ui.parentViewReadOnly}
               </div>
             </div>
           ))}
         </div>
+
+        {guardianViewModel ? (
+          <section className="mt-6 rounded-[28px] border border-white/10 bg-white/5 p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="text-xs uppercase tracking-[0.22em] text-slate-400">Estado del alumno</div>
+                <h2 className="mt-2 text-xl font-bold">{guardianViewModel.summary}</h2>
+                <p className="mt-2 text-sm text-slate-300">{guardianViewModel.message}</p>
+              </div>
+              <div className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.18em]">
+                <div className="rounded-full border border-white/10 px-4 py-2 text-sky-300">Prioridad {guardianViewModel.priority}</div>
+                <div className={`rounded-full border px-4 py-2 ${guardianViewModel.requiresIntervention ? "border-amber-400/30 text-amber-300" : "border-emerald-400/30 text-emerald-300"}`}>
+                  {guardianViewModel.requiresIntervention ? "Requiere intervención" : "Sin intervención inmediata"}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 rounded-3xl bg-slate-900 p-4">
+              <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Qué hacer ahora</div>
+              <div className="mt-2 text-sm text-slate-200">
+                {guardianViewModel.requiresIntervention
+                  ? "Conviene acompañar hoy con una acción simple, corta y muy concreta, evitando meter varias tareas a la vez."
+                  : "Lo mejor ahora es sostener el ritmo actual sin añadir presión innecesaria ni cambiar demasiadas cosas a la vez."}
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         {insights.length > 0 ? (
           <section className="mt-6 rounded-[28px] border border-white/10 bg-white/5 p-6">
@@ -530,16 +651,16 @@ export function MentoriaParentHub() {
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div className="rounded-3xl bg-slate-900 p-4">
               <div className="text-sm font-semibold">{ui.parentSlotA}</div>
-              <input value={parentAName} onChange={(event) => setParentAName(event.target.value)} className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm" placeholder={ui.fullNamePlaceholder} />
-              <input value={parentAEmail} onChange={(event) => setParentAEmail(event.target.value)} className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm" placeholder={ui.emailPlaceholder} />
+              <input value={primaryGuardianDraft.fullName} onChange={(event) => setPrimaryGuardianDraft((current) => ({ ...current, fullName: event.target.value }))} className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm" placeholder={ui.fullNamePlaceholder} />
+              <input value={primaryGuardianDraft.email} onChange={(event) => setPrimaryGuardianDraft((current) => ({ ...current, email: event.target.value }))} className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm" placeholder={ui.emailPlaceholder} />
             </div>
             <div className="rounded-3xl bg-slate-900 p-4">
               <div className="text-sm font-semibold">{ui.parentSlotB}</div>
-              <input value={parentBName} onChange={(event) => setParentBName(event.target.value)} className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm" placeholder={ui.fullNamePlaceholder} />
-              <input value={parentBEmail} onChange={(event) => setParentBEmail(event.target.value)} className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm" placeholder={ui.emailPlaceholder} />
+              <input value={secondaryGuardianDraft.fullName} onChange={(event) => setSecondaryGuardianDraft((current) => ({ ...current, fullName: event.target.value }))} className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm" placeholder={ui.fullNamePlaceholder} />
+              <input value={secondaryGuardianDraft.email} onChange={(event) => setSecondaryGuardianDraft((current) => ({ ...current, email: event.target.value }))} className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm" placeholder={ui.emailPlaceholder} />
             </div>
           </div>
-          <button onClick={saveParents} className="mt-4 rounded-full bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950">
+          <button onClick={saveGuardiansProfile} className="mt-4 rounded-full bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950">
             {ui.saveAction}
           </button>
         </section>

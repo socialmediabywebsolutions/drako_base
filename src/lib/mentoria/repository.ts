@@ -3030,7 +3030,15 @@ export class MentoriaRepository {
     });
   }
 
-  async getDashboard(tenantId: string, studentProfileId: string): Promise<Omit<MentoriaDashboard, "billing"> | null> {
+  async getDashboard(
+    tenantId: string,
+    studentProfileId: string,
+  ): Promise<
+    Omit<
+      MentoriaDashboard,
+      "billing" | "family" | "primaryGuardian" | "secondaryGuardians" | "guardianStudentAccess" | "sessionContext"
+    > | null
+  > {
     const hasStudyPlansTable = await this.hasTable("mentoria_study_plans");
     const hasPlanWeekEnd = hasStudyPlansTable && await this.hasColumn("mentoria_study_plans", "week_end");
     const hasPlanGoalsSummary = hasStudyPlansTable && await this.hasColumn("mentoria_study_plans", "goals_summary");
@@ -3077,14 +3085,13 @@ export class MentoriaRepository {
       .first<DashboardRow>();
     if (!row) return null;
 
-    const [profile, subjects, studentSubjects, progress, sessions, focusSessions, parents, dailyPlan] = await Promise.all([
+    const [profile, subjects, studentSubjects, progress, sessions, focusSessions, dailyPlan] = await Promise.all([
       this.getStudentProfileById(tenantId, studentProfileId),
       this.listSubjects(tenantId),
       this.listStudentSubjects(tenantId, studentProfileId),
       this.listProgress(tenantId, studentProfileId),
       this.listLearningSessions(tenantId, studentProfileId),
       this.listFocusSessions(tenantId, studentProfileId),
-      this.listParentAccounts(tenantId, studentProfileId),
       this.getDailyPlan(tenantId, studentProfileId),
     ]);
 
@@ -3110,7 +3117,6 @@ export class MentoriaRepository {
       progress,
       recentSessions: sessions,
       focusSessions,
-      parents,
     };
   }
 }

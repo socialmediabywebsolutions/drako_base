@@ -456,6 +456,62 @@ export class MentoriaFamilyRepository {
     return mapGuardianStudentAccess(row);
   }
 
+  async listGuardianStudentAccessByStudent(familyId: string, studentId: string): Promise<MentoriaGuardianStudentAccess[]> {
+    if (!(await this.hasTable("guardian_student_access"))) {
+      return [];
+    }
+
+    const result = await this.db
+      .prepare(
+        `SELECT *
+         FROM guardian_student_access
+         WHERE family_id = ? AND student_id = ?
+         ORDER BY is_primary_contact DESC, created_at ASC`,
+      )
+      .bind(familyId, studentId)
+      .all<GuardianStudentAccessRow>();
+
+    return (result.results ?? []).map(mapGuardianStudentAccess);
+  }
+
+  async deleteGuardianStudentAccessByStudentAndGuardianIds(
+    familyId: string,
+    studentId: string,
+    guardianIds: string[],
+  ): Promise<void> {
+    if (!(await this.hasTable("guardian_student_access")) || guardianIds.length === 0) {
+      return;
+    }
+
+    const placeholders = guardianIds.map(() => "?").join(", ");
+    await this.db
+      .prepare(
+        `DELETE FROM guardian_student_access
+         WHERE family_id = ? AND student_id = ? AND guardian_id IN (${placeholders})`,
+      )
+      .bind(familyId, studentId, ...guardianIds)
+      .run();
+  }
+
+  async deleteSecondaryGuardiansByIds(familyId: string, guardianIds: string[]): Promise<void> {
+    if (guardianIds.length === 0) {
+      return;
+    }
+
+    const placeholders = guardianIds.map(() => "?").join(", ");
+    const hasSystemRole = await this.hasColumn("guardians", "system_role");
+    const query = hasSystemRole
+      ? `DELETE FROM guardians
+         WHERE family_id = ? AND id IN (${placeholders}) AND system_role != 'primary_guardian'`
+      : `DELETE FROM guardians
+         WHERE family_id = ? AND id IN (${placeholders})`;
+
+    await this.db
+      .prepare(query)
+      .bind(familyId, ...guardianIds)
+      .run();
+  }
+
   async createStudent(input: {
     id?: string;
     familyId: string;

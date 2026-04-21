@@ -49,6 +49,11 @@ export async function POST(request: Request) {
     email: body.email.trim().toLowerCase(),
     tenantId: login.tenantId,
     role: login.role,
+    actorType: "guardian",
+    familyId: login.tenantId,
+    guardianId: null,
+    studentProfileId: null,
+    systemRole: null,
   });
 
   const response = NextResponse.json({

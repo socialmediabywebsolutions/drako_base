@@ -11,6 +11,7 @@ import { buildStudyPlan } from "@/lib/agents/mentoria/planner-agent";
 import { buildInitialProgressFromOnboarding } from "@/lib/agents/mentoria/progress-agent";
 import { getCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
 import { recordCampamentoEvent } from "@/lib/empire/events";
+import type { MentoriaRequestSession } from "@/lib/mentoria/auth/request";
 import { ensureMentoriaAgentHandlersRegistered } from "@/lib/mentoria/drako-agent-handlers";
 import { detectInterventions, materializeInterventions } from "@/lib/mentoria/intervention-engine";
 import { completeDailyPlanTask, generateDailyPlan } from "@/lib/mentoria/learning-loop-engine";
@@ -64,7 +65,9 @@ import {
 } from "@/lib/mentoria/student-evolution";
 import type {
   DailyPlan,
+  MentoriaCanonicalFamilyContract,
   MentoriaBillingSummary,
+  MentoriaFamily,
   MentoriaDailyClosureSummary,
   MentoriaDashboard,
   MentoriaProgress,
@@ -73,9 +76,12 @@ import type {
   MentoriaEmotionalBaseline,
   MentoriaExercise,
   MentoriaGuardianHookEvent,
+  MentoriaGuardian,
+  MentoriaGuardianStudentAccess,
   MentoriaGrowthSummary,
   MentoriaIntervention,
   MentoriaLearningPreference,
+  MentoriaSessionContext,
   MentoriaSupervisionLevel,
   MentoriaOnboardingGoal,
   MentoriaOnboardingPayload,
@@ -93,9 +99,7 @@ import type {
   StudyPlan,
 } from "@/lib/mentoria/types";
 
-type MentoriaSessionActor = Pick<UserContext, "userId" | "email" | "tenantId"> & {
-  role: "admin" | "user";
-};
+type MentoriaSessionActor = MentoriaRequestSession;
 
 type MentoriaEntryMode = "resume_session" | "gentle_restart" | "momentum_push" | "plan_task" | "entry";
 
@@ -318,6 +322,63 @@ function toOnboardingInput(
   };
 }
 
+function buildLegacyParentsProjection(input: {
+  tenantId: string;
+  studentId: string;
+  guardians: MentoriaGuardian[];
+  accesses: MentoriaGuardianStudentAccess[];
+}): ParentAccount[] {
+  return input.accesses.map((access) => {
+    const guardian = input.guardians.find((item) => item.id === access.guardianId) ?? null;
+    return {
+      id: `legacy:${access.guardianId}:${access.studentProfileId}`,
+      tenantId: input.tenantId,
+      userId: guardian?.id,
+      studentProfileId: input.studentId,
+      fullName: guardian?.name?.trim() || guardian?.email || access.guardianId,
+      email: guardian?.email ?? "",
+      relation: guardian?.systemRole === "primary_guardian" ? "Parent A" : "Parent B",
+      dailyStudyMinutes: access.dailyStudyMinutes,
+      supervisionLevel: access.supervisionLevel,
+      canViewFullProgress: access.canViewFullProgress,
+      canManageSchedule: access.canManageSchedule,
+      createdAt: access.createdAt,
+      updatedAt: access.updatedAt,
+    };
+  });
+}
+
+type MentoriaLegacyParentInput = {
+  slot: "Parent A" | "Parent B";
+  fullName: string;
+  email: string;
+  dailyStudyMinutes: number;
+  supervisionLevel: MentoriaSupervisionLevel;
+  canViewFullProgress: boolean;
+  canManageSchedule: boolean;
+};
+
+type MentoriaGuardianProfileInput = {
+  id?: string | null;
+  fullName: string;
+  email: string;
+  familyRelation?: "father" | "mother" | "tutor";
+  systemRole: "primary_guardian" | "secondary_guardian";
+  access: {
+    dailyStudyMinutes: number;
+    supervisionLevel: MentoriaSupervisionLevel;
+    canViewFullProgress: boolean;
+    canManageSchedule: boolean;
+    notificationPreferences?: string[];
+    isPrimaryContact?: boolean;
+  };
+};
+
+type MentoriaFamilyProfileInput = {
+  primaryGuardian: MentoriaGuardianProfileInput | null;
+  secondaryGuardians: MentoriaGuardianProfileInput[];
+};
+
 export class MentoriaService {
   constructor(
     private repository = new MentoriaRepository(getMentoriaDb(env?.())),
@@ -330,6 +391,180 @@ export class MentoriaService {
 
   private canManageBilling(actor: MentoriaSessionActor): boolean {
     return Boolean(actor.userId && actor.tenantId);
+  }
+
+  private async getCanonicalFamilyContract(actor: MentoriaSessionActor, student: StudentProfile): Promise<MentoriaCanonicalFamilyContract> {
+    const [family, guardians, guardianStudentAccess] = await Promise.all([
+      this.familyRepository.getFamilyById(actor.tenantId),
+      this.familyRepository.listGuardiansByFamily(actor.tenantId),
+      this.familyRepository.listGuardianStudentAccessByStudent(actor.tenantId, student.id),
+    ]);
+
+    const primaryGuardian = guardians.find((guardian) => guardian.systemRole === "primary_guardian") ?? null;
+    const secondaryGuardians = guardians.filter((guardian) => guardian.systemRole !== "primary_guardian");
+
+    return {
+      family,
+      primaryGuardian,
+      secondaryGuardians,
+      guardianStudentAccess,
+    };
+  }
+
+  private async syncCanonicalGuardiansFromProfile(
+    actor: MentoriaSessionActor,
+    student: StudentProfile,
+    profile: MentoriaFamilyProfileInput,
+  ): Promise<MentoriaCanonicalFamilyContract> {
+    const existingGuardians = await this.familyRepository.listGuardiansByFamily(actor.tenantId);
+    const existingPrimaryGuardian = existingGuardians.find((guardian) => guardian.systemRole === "primary_guardian") ?? null;
+    const existingSecondaryGuardians = existingGuardians.filter((guardian) => guardian.systemRole !== "primary_guardian");
+
+    const normalizedPrimaryGuardian = profile.primaryGuardian && profile.primaryGuardian.fullName.trim() && profile.primaryGuardian.email.trim()
+      ? {
+          ...profile.primaryGuardian,
+          fullName: profile.primaryGuardian.fullName.trim(),
+          email: profile.primaryGuardian.email.trim().toLowerCase(),
+        }
+      : null;
+
+    const normalizedSecondaryGuardians = profile.secondaryGuardians
+      .map((guardian) => ({
+        ...guardian,
+        fullName: guardian.fullName.trim(),
+        email: guardian.email.trim().toLowerCase(),
+      }))
+      .filter((guardian) => guardian.fullName && guardian.email);
+
+    const keptGuardianIds = new Set<string>();
+
+    const primaryGuardian = normalizedPrimaryGuardian
+      ? await this.familyRepository.upsertGuardian({
+          id: normalizedPrimaryGuardian.id ?? existingPrimaryGuardian?.id,
+          email: normalizedPrimaryGuardian.email,
+          familyId: actor.tenantId,
+          name: normalizedPrimaryGuardian.fullName,
+          familyRelation: normalizedPrimaryGuardian.familyRelation ?? existingPrimaryGuardian?.familyRelation ?? "tutor",
+          systemRole: "primary_guardian",
+        })
+      : existingPrimaryGuardian;
+
+    if (primaryGuardian) {
+      keptGuardianIds.add(primaryGuardian.id);
+      await this.familyRepository.upsertGuardianStudentAccess({
+        familyId: actor.tenantId,
+        guardianId: primaryGuardian.id,
+        studentId: student.id,
+        studentProfileId: student.id,
+        canViewFullProgress: normalizedPrimaryGuardian?.access.canViewFullProgress ?? true,
+        canManageSchedule: normalizedPrimaryGuardian?.access.canManageSchedule ?? true,
+        dailyStudyMinutes: normalizedPrimaryGuardian?.access.dailyStudyMinutes ?? 45,
+        supervisionLevel: normalizedPrimaryGuardian?.access.supervisionLevel ?? "balanced",
+        notificationPreferences: normalizedPrimaryGuardian?.access.notificationPreferences ?? ["progress", "planner"],
+        isPrimaryContact: normalizedPrimaryGuardian?.access.isPrimaryContact ?? true,
+      });
+    }
+
+    for (const secondaryGuardian of normalizedSecondaryGuardians) {
+      const matchedExistingGuardian = existingSecondaryGuardians.find((guardian) => guardian.email.toLowerCase() === secondaryGuardian.email) ?? null;
+      const guardian = await this.familyRepository.upsertGuardian({
+        id: secondaryGuardian.id ?? matchedExistingGuardian?.id,
+        email: secondaryGuardian.email,
+        familyId: actor.tenantId,
+        name: secondaryGuardian.fullName,
+        familyRelation: secondaryGuardian.familyRelation ?? matchedExistingGuardian?.familyRelation ?? "tutor",
+        systemRole: "secondary_guardian",
+      });
+
+      keptGuardianIds.add(guardian.id);
+
+      await this.familyRepository.upsertGuardianStudentAccess({
+        familyId: actor.tenantId,
+        guardianId: guardian.id,
+        studentId: student.id,
+        studentProfileId: student.id,
+        canViewFullProgress: secondaryGuardian.access.canViewFullProgress,
+        canManageSchedule: secondaryGuardian.access.canManageSchedule,
+        dailyStudyMinutes: secondaryGuardian.access.dailyStudyMinutes,
+        supervisionLevel: secondaryGuardian.access.supervisionLevel,
+        notificationPreferences: secondaryGuardian.access.notificationPreferences ?? ["progress", "planner"],
+        isPrimaryContact: secondaryGuardian.access.isPrimaryContact ?? false,
+      });
+    }
+
+    const removableSecondaryGuardians = existingSecondaryGuardians.filter((guardian) => !keptGuardianIds.has(guardian.id));
+    if (removableSecondaryGuardians.length > 0) {
+      const removableIds = removableSecondaryGuardians.map((guardian) => guardian.id);
+      await this.familyRepository.deleteGuardianStudentAccessByStudentAndGuardianIds(actor.tenantId, student.id, removableIds);
+      await this.familyRepository.deleteSecondaryGuardiansByIds(actor.tenantId, removableIds);
+    }
+
+    await this.repository.deleteParentAccountsForStudent(actor.tenantId, student.id);
+    const syncedGuardians = await this.familyRepository.listGuardiansByFamily(actor.tenantId);
+    const syncedAccess = await this.familyRepository.listGuardianStudentAccessByStudent(actor.tenantId, student.id);
+    const legacyParentsProjection = buildLegacyParentsProjection({
+      tenantId: actor.tenantId,
+      studentId: student.id,
+      guardians: syncedGuardians,
+      accesses: syncedAccess,
+    });
+    for (const legacyParent of legacyParentsProjection) {
+      await this.repository.upsertParentAccount({
+        tenantId: legacyParent.tenantId,
+        userId: legacyParent.userId ?? `${student.id}:${legacyParent.relation.toLowerCase().replace(/\s+/g, "-")}`,
+        studentProfileId: legacyParent.studentProfileId,
+        fullName: legacyParent.fullName,
+        email: legacyParent.email,
+        relation: legacyParent.relation,
+        dailyStudyMinutes: legacyParent.dailyStudyMinutes,
+        supervisionLevel: legacyParent.supervisionLevel,
+        canViewFullProgress: legacyParent.canViewFullProgress,
+        canManageSchedule: legacyParent.canManageSchedule,
+        notificationPreferences: ["progress", "planner"],
+      });
+    }
+
+    return {
+      family: await this.familyRepository.getFamilyById(actor.tenantId),
+      primaryGuardian,
+      secondaryGuardians: syncedGuardians.filter((guardian) => guardian.systemRole !== "primary_guardian"),
+      guardianStudentAccess: syncedAccess,
+    };
+  }
+
+  private buildSessionContext(actor: MentoriaSessionActor, student: StudentProfile | null, canonical?: MentoriaCanonicalFamilyContract): MentoriaSessionContext {
+    const directStudentOwner = Boolean(student?.userId && actor.userId && student.userId === actor.userId);
+    if (directStudentOwner && student) {
+      return {
+        actorType: "student",
+        familyId: actor.tenantId ?? canonical?.family?.id ?? null,
+        studentProfileId: student.id,
+        guardianId: null,
+        systemRole: null,
+      };
+    }
+
+    if (canonical?.primaryGuardian || canonical?.secondaryGuardians.length) {
+      const guardian = canonical.primaryGuardian
+        ?? canonical.secondaryGuardians.find((item) => item.email && actor.email && item.email.toLowerCase() === actor.email.toLowerCase())
+        ?? canonical.secondaryGuardians[0]
+        ?? null;
+      return {
+        actorType: guardian ? "guardian" : "unknown",
+        familyId: actor.tenantId ?? canonical?.family?.id ?? null,
+        guardianId: guardian?.id ?? null,
+        studentProfileId: student?.id ?? null,
+        systemRole: guardian?.systemRole ?? null,
+      };
+    }
+
+    return {
+      actorType: "unknown",
+      familyId: actor.tenantId ?? canonical?.family?.id ?? null,
+      guardianId: null,
+      studentProfileId: student?.id ?? null,
+      systemRole: null,
+    };
   }
 
   private async resolveStudentForActor(actor: MentoriaSessionActor): Promise<StudentProfile | null> {
@@ -642,7 +877,7 @@ export class MentoriaService {
   private async buildPlanForStudent(
     tenantId: string,
     student: StudentProfile,
-    parents?: ParentAccount[],
+    guardianStudentAccess?: MentoriaGuardianStudentAccess[],
   ): Promise<StudyPlan> {
     const progress = await this.repository.listProgress(tenantId, student.id);
     const selectedSubjects = await this.repository.listStudentSubjects(tenantId, student.id);
@@ -658,7 +893,7 @@ export class MentoriaService {
       profile: student,
       subjects,
       progress,
-      parents,
+      guardianStudentAccess,
       evolution,
       interventions: adaptiveContext.interventions,
       motivation: adaptiveContext.motivation,
@@ -954,8 +1189,15 @@ export class MentoriaService {
       : null;
     const student = await this.resolveStudentForActor(actor);
     const subjects = await this.repository.listSubjects(actor.tenantId);
+    const canonical = student ? await this.getCanonicalFamilyContract(actor, student) : {
+      family: await this.familyRepository.getFamilyById(actor.tenantId),
+      primaryGuardian,
+      secondaryGuardians: primaryGuardian ? [] : await this.familyRepository.listGuardiansByFamily(actor.tenantId).then((guardians) => guardians.filter((guardian) => guardian.systemRole !== "primary_guardian")),
+      guardianStudentAccess: [] as MentoriaGuardianStudentAccess[],
+    };
     if (!student) {
       return {
+        sessionEmail: actor.email ?? null,
         primaryGuardian: primaryGuardian
           ? {
               fullName: primaryGuardian.name ?? "",
@@ -966,10 +1208,15 @@ export class MentoriaService {
         profile: null,
         subjects,
         studentSubjects: [],
+        family: canonical.family,
+        secondaryGuardians: canonical.secondaryGuardians,
+        guardianStudentAccess: canonical.guardianStudentAccess,
+        sessionContext: this.buildSessionContext(actor, null, canonical),
       };
     }
     const studentSubjects = await this.repository.listStudentSubjects(actor.tenantId, student.id);
     return {
+      sessionEmail: actor.email ?? null,
       primaryGuardian: primaryGuardian
         ? {
             fullName: primaryGuardian.name ?? "",
@@ -980,6 +1227,10 @@ export class MentoriaService {
       profile: student,
       subjects,
       studentSubjects,
+      family: canonical.family,
+      secondaryGuardians: canonical.secondaryGuardians,
+      guardianStudentAccess: canonical.guardianStudentAccess,
+      sessionContext: this.buildSessionContext(actor, student, canonical),
     };
   }
 
@@ -993,7 +1244,11 @@ export class MentoriaService {
 
   async submitOnboarding(actor: MentoriaSessionActor, payload: MentoriaOnboardingPayload): Promise<{
     student: StudentProfile;
-    parents: ParentAccount[];
+    family: MentoriaFamily | null;
+    primaryGuardian: MentoriaGuardian | null;
+    secondaryGuardians: MentoriaGuardian[];
+    guardianStudentAccess: MentoriaGuardianStudentAccess[];
+    sessionContext: MentoriaSessionContext;
     plan: StudyPlan;
     progress: MentoriaProgress[];
     activation: ActivationEvent & {
@@ -1031,6 +1286,18 @@ export class MentoriaService {
       payload.subjects.map((item) => ({ ...item, subjectSlug: item.subjectSlug })),
       selectedSubjects.map((item) => ({ id: item.subject.slug, name: item.subject.name })),
     );
+    const supportNotesParts = [
+      `${formatGuardianRoleForSupportNotes(payload.primaryGuardian)} principal ${payload.primaryGuardian.fullName.trim()}`,
+      `Objetivo inicial ${payload.goal}`,
+      `confianza ${confidenceLevel}`,
+    ];
+    if (payload.primaryConcern?.trim()) {
+      supportNotesParts.push(`preocupacion ${payload.primaryConcern.trim()}`);
+    }
+    if (payload.student.schoolName?.trim()) {
+      supportNotesParts.push(`centro ${payload.student.schoolName.trim()}`);
+    }
+
     const onboardingInput = toOnboardingInput(payload, learningGoals, studentAge, learningPreference, confidenceLevel);
     const onboardingContext = buildOnboardingUserContext({
       actor,
@@ -1062,9 +1329,7 @@ export class MentoriaService {
       preferredStudyMinutes,
       strengths,
       onboardingCompleted: true,
-      supportNotes: `${formatGuardianRoleForSupportNotes(payload.primaryGuardian)} principal ${payload.primaryGuardian.fullName.trim()} | Objetivo inicial ${
-        payload.goal
-      } | confianza ${confidenceLevel}`,
+      supportNotes: supportNotesParts.join(" | "),
     });
     // Ensure a family exists for the tenant before linking student records (foreign key safety in local dev)
     await this.familyRepository.createFamily(actor.tenantId);
@@ -1109,7 +1374,7 @@ export class MentoriaService {
       })),
     });
 
-    const parents = await this.repository.listParentAccounts(actor.tenantId, student.id);
+    const canonical = await this.getCanonicalFamilyContract(actor, student);
 
     await this.repository.deleteProgressForStudent(actor.tenantId, student.id);
     for (const item of selectedSubjects) {
@@ -1155,7 +1420,7 @@ export class MentoriaService {
         inviteToken: payload.inviteToken,
       });
     }
-    const plan = await this.buildPlanForStudent(actor.tenantId, student, parents);
+    const plan = await this.buildPlanForStudent(actor.tenantId, student, canonical.guardianStudentAccess);
     const dailyPlan = await this.ensureDailyPlan(actor.tenantId, student, {
       force: true,
       progress,
@@ -1258,18 +1523,22 @@ export class MentoriaService {
       severity: "INFO",
       source: "mentoria.onboarding",
       message: "Onboarding completed",
+      correlationId: student.id,
       metadata: {
         studentId: student.id,
         firstSubjectId: weakestSubjectSelection.subject.slug ?? weakestSubjectSelection.subject.id,
       },
-      correlationId: student.id,
     });
 
     return {
       student,
-      parents,
+      family: canonical.family,
+      primaryGuardian: canonical.primaryGuardian,
+      secondaryGuardians: canonical.secondaryGuardians,
+      guardianStudentAccess: canonical.guardianStudentAccess,
+      sessionContext: this.buildSessionContext(actor, student, canonical),
       plan,
-      progress,
+      progress: refreshedProgress.progress,
       activation: {
         ...activation,
         subjectSlug: weakestSubjectSelection.subject.slug,
@@ -1288,6 +1557,7 @@ export class MentoriaService {
     const dailyPlan = await this.ensureDailyPlan(actor.tenantId, student, { evolution, interventions, motivation });
     const billing = await this.getBillingSummary({ tenantId: actor.tenantId, canManageBilling: this.canManageBilling(actor) }, student);
     const dashboard = await this.repository.getDashboard(actor.tenantId, student.id);
+    const canonical = await this.getCanonicalFamilyContract(actor, student);
     const growth = await this.getGrowthSummary(actor, student, {
       evolution,
       interventions,
@@ -1302,7 +1572,21 @@ export class MentoriaService {
       dailyPlan,
     });
     const insights = await this.buildUserInsights(actor, userContext);
-    return { ...(dashboard as MentoriaDashboard), evolution, interventions, motivation, dailyPlan, billing, growth, insights };
+    return {
+      ...(dashboard as MentoriaDashboard),
+      family: canonical.family,
+      primaryGuardian: canonical.primaryGuardian,
+      secondaryGuardians: canonical.secondaryGuardians,
+      guardianStudentAccess: canonical.guardianStudentAccess,
+      sessionContext: this.buildSessionContext(actor, student, canonical),
+      evolution,
+      interventions,
+      motivation,
+      dailyPlan,
+      billing,
+      growth,
+      insights,
+    };
   }
 
   async getWorkspaceExperience(actor: MentoriaSessionActor): Promise<
@@ -1462,60 +1746,12 @@ export class MentoriaService {
     };
   }
 
-  async saveParents(
+  async saveFamilyGuardiansProfile(
     actor: MentoriaSessionActor,
-    parents: Array<{
-      slot: "Parent A" | "Parent B";
-      fullName: string;
-      email: string;
-      dailyStudyMinutes: number;
-      supervisionLevel: MentoriaSupervisionLevel;
-      canViewFullProgress: boolean;
-      canManageSchedule: boolean;
-    }>,
+    profile: MentoriaFamilyProfileInput,
   ) {
     const student = await this.requireOnboardedStudent(actor);
-    const saved = [];
-    for (const parent of parents) {
-      if (!parent.fullName || !parent.email) continue;
-      saved.push(
-        await this.repository.upsertParentAccount({
-          tenantId: actor.tenantId,
-          userId: `${student.id}:${parent.slot.toLowerCase().replace(/\s+/g, "-")}`,
-          studentProfileId: student.id,
-          fullName: parent.fullName,
-          email: parent.email,
-          relation: parent.slot,
-          dailyStudyMinutes: parent.dailyStudyMinutes,
-          supervisionLevel: parent.supervisionLevel,
-          canViewFullProgress: parent.canViewFullProgress,
-          canManageSchedule: parent.canManageSchedule,
-          notificationPreferences: ["progress", "planner"],
-        }),
-      );
-
-      const guardian = await this.familyRepository.upsertGuardian({
-        email: parent.email,
-        familyId: actor.tenantId,
-        name: parent.fullName,
-        familyRelation: "tutor",
-        systemRole: "secondary_guardian",
-      });
-
-      await this.familyRepository.upsertGuardianStudentAccess({
-        familyId: actor.tenantId,
-        guardianId: guardian.id,
-        studentId: student.id,
-        studentProfileId: student.id,
-        canViewFullProgress: parent.canViewFullProgress,
-        canManageSchedule: parent.canManageSchedule,
-        dailyStudyMinutes: parent.dailyStudyMinutes,
-        supervisionLevel: parent.supervisionLevel,
-        notificationPreferences: ["progress", "planner"],
-        isPrimaryContact: false,
-      });
-    }
-    return saved;
+    return this.syncCanonicalGuardiansFromProfile(actor, student, profile);
   }
 
   private async trackDailyClosureSnapshot(input: {
@@ -2357,12 +2593,12 @@ export class MentoriaService {
       "Has alcanzado el limite diario de regeneraciones del planner.",
       "MENTORIA_PLANNER_LIMIT_REACHED",
     );
-    const parents = await this.repository.listParentAccounts(actor.tenantId, targetStudent.id);
+    const canonical = await this.getCanonicalFamilyContract(actor, targetStudent);
     const evolution = await this.ensureEvolutionProfile(actor.tenantId, targetStudent);
     const interventions = await this.syncInterventions(actor.tenantId, targetStudent.id, evolution);
     const motivation = await this.ensureMotivationState(actor.tenantId, targetStudent, evolution, interventions);
     await this.ensureDailyPlan(actor.tenantId, targetStudent, { force: true, evolution, interventions, motivation });
-    return this.buildPlanForStudent(actor.tenantId, targetStudent, parents);
+    return this.buildPlanForStudent(actor.tenantId, targetStudent, canonical.guardianStudentAccess);
   }
 
   async startFocus(actor: MentoriaSessionActor, payload: {

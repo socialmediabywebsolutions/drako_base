@@ -34,7 +34,6 @@ describe("mentoria workspace route", () => {
     mocks.createMentoriaServiceInstance.mockReturnValue({
       getWorkspaceExperience: vi.fn().mockResolvedValue({
         student: { id: "student_1", fullName: "Alex" },
-        parents: [],
         studentSubjects: [],
         progress: [],
         currentPlan: null,

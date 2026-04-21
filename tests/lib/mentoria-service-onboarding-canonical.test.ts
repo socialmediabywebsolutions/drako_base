@@ -65,15 +65,33 @@ describe("MentoriaService canonical onboarding state", () => {
       listStudentSubjects: vi.fn().mockResolvedValue([]),
     };
     const familyRepository = {
+      getFamilyById: vi.fn().mockResolvedValue({
+        id: "tenant_mentoria",
+        createdAt: "2026-04-13T10:00:00.000Z",
+      }),
       getGuardianByFamilyAndEmail: vi.fn().mockResolvedValue({
         id: "guardian_1",
         email: "family@example.com",
+        name: "",
         familyId: "tenant_mentoria",
         role: "mother",
         familyRelation: "mother",
         systemRole: "primary_guardian",
         createdAt: "2026-04-13T10:00:00.000Z",
       }),
+      listGuardiansByFamily: vi.fn().mockResolvedValue([
+        {
+          id: "guardian_1",
+          email: "family@example.com",
+          name: "",
+          familyId: "tenant_mentoria",
+          role: "mother",
+          familyRelation: "mother",
+          systemRole: "primary_guardian",
+          createdAt: "2026-04-13T10:00:00.000Z",
+        },
+      ]),
+      listGuardianStudentAccessByStudent: vi.fn().mockResolvedValue([buildAccess()]),
     };
 
     const service = new MentoriaService(repository as any, familyRepository as any, {} as any, {} as any);

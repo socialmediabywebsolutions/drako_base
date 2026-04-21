@@ -6,11 +6,14 @@ import "@testing-library/jest-dom";
 import { MentoriaOnboardingWizard } from "@/components/mentoria-app/onboarding-wizard";
 
 const fetchMock = vi.spyOn(global, "fetch");
+const navigationMock = vi.hoisted(() => ({
+  searchParams: {
+    get: vi.fn((_name: string) => null),
+  },
+}));
 
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => ({
-    get: () => null,
-  }),
+  useSearchParams: () => navigationMock.searchParams,
 }));
 
 globalThis.React = React;
@@ -38,6 +41,7 @@ const onboardingSubjects = [
 describe("MentoriaOnboardingWizard", () => {
   beforeEach(() => {
     fetchMock.mockReset();
+    navigationMock.searchParams.get.mockReturnValue(null);
     window.localStorage.clear();
   });
 

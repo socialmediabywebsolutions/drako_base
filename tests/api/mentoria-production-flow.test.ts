@@ -117,7 +117,6 @@ describe("mentoria product flow surface", () => {
     mocks.createMentoriaServiceInstance.mockReturnValue({
       submitOnboarding: vi.fn().mockResolvedValue({
         student: { id: "student_1" },
-        parents: [],
         plan: { id: "plan_1" },
         progress: [],
         activation: {

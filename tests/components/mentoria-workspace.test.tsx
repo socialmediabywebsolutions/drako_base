@@ -49,7 +49,6 @@ function buildWorkspaceResponse(overrides?: Record<string, unknown>) {
       createdAt: "2026-04-03T00:00:00.000Z",
       updatedAt: "2026-04-03T00:00:00.000Z",
     },
-    parents: [],
     studentSubjects: [],
     progress: [],
     analysis: {
@@ -197,7 +196,6 @@ describe("MentoriaWorkspace", () => {
       jsonResponse({
         ok: true,
         student: null,
-        parents: [],
         studentSubjects: [],
       }),
     );

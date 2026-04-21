@@ -8,24 +8,39 @@ import { WorkspaceNav } from "@/components/mentoria-app/workspace-nav";
 import { WorkspaceBoard } from "@/components/mentoria-app/workspace-board";
 import { WorkspaceCopilot } from "@/components/mentoria-app/workspace-copilot";
 import { getWorkspaceUiCopy } from "@/lib/mentoria/microcopy";
+import { decideNextBestAction } from "@/lib/behavioral-engine/decision";
+import { buildBehavioralExplanationFrame } from "@/lib/behavioral-engine/explanation";
+import type { BehavioralContext, BehavioralShadowComparison, BehavioralTaskCandidate, NextBestAction as BehavioralNextBestAction } from "@/lib/behavioral-engine/contracts";
+import { buildOrchestratorContext } from "@/lib/mentoria/state/orchestrator-policy";
+import { buildGuardianViewModel } from "@/lib/mentoria/state/guardian-visibility-policy";
+import { deriveStateActions } from "@/lib/mentoria/state/intervention-engine";
+import { collectStudentSignals, evaluateStudentState } from "@/lib/mentoria/state/student-state-engine";
+import type { GuardianViewModel, OrchestratorContext, StateActions, StateDecision } from "@/lib/mentoria/state/state-types";
 import type {
   DailyPlan,
   FocusSession,
   LearningSession,
   MentoriaExercise,
+  MentoriaFamily,
+  MentoriaDailyClosureSummary,
+  MentoriaGuardian,
   MentoriaGuardianHookEvent,
+  MentoriaGuardianStudentAccess,
+  MentoriaGrowthSummary,
   MentoriaProgress,
   MentoriaStudentMemorySummary,
   MentoriaStudentSubject,
   MentoriaWorkspaceEntry,
-  ParentAccount,
   StudentProfile,
 } from "@/lib/mentoria/types";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
+import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
 
 type WorkspaceSection = "board" | "subjects" | "sessions" | "progress" | "planner" | "focus" | "exercises" | "memory";
 type ReentryMode = "resume_session" | "gentle_restart" | "momentum_push" | "plan_task" | "entry";
 type GuidedFeedbackStatus = "correct" | "almost" | "incorrect";
+type GuidedResponseLevel = "short" | "superficial" | "explained" | "incorrect";
+type GuidedSupportTone = "guided" | "direct" | "paced";
 type GuidedSessionState = "idle" | "answering" | "checking" | "retry" | "completed";
 type TutorResult = {
   reply: string;
@@ -50,6 +65,8 @@ type TutorMessage = {
 
 type GuidedFeedback = {
   status: GuidedFeedbackStatus;
+  level: GuidedResponseLevel;
+  tone: GuidedSupportTone;
   message: string;
   rationale: string;
 };
@@ -64,7 +81,10 @@ type WorkspaceNextAction = {
 
 type WorkspaceState = {
   student: StudentProfile | null;
-  parents: ParentAccount[];
+  family: MentoriaFamily | null;
+  primaryGuardian: MentoriaGuardian | null;
+  secondaryGuardians: MentoriaGuardian[];
+  guardianStudentAccess: MentoriaGuardianStudentAccess[];
   studentSubjects: MentoriaStudentSubject[];
   progress: MentoriaProgress[];
   analysis: { weakSubjects: string[]; strongSubjects: string[]; nextActions: string[] } | null;
@@ -75,14 +95,22 @@ type WorkspaceState = {
   focusSessions: FocusSession[];
   entry: MentoriaWorkspaceEntry | null;
   memory: MentoriaStudentMemorySummary | null;
+  evolution: StudentEvolutionProfile | null;
+  growth: MentoriaGrowthSummary | null;
+  dailyClosure: MentoriaDailyClosureSummary | null;
   guardianHooks: MentoriaGuardianHookEvent[];
+  behavioralRollout?: "shadow_only" | "engine_strategy" | "engine_strategy_and_explanation" | null;
+  behavioralShadow?: BehavioralShadowComparison | null;
 };
 
 type WorkspaceApiResponse = WorkspaceState & {
   ok?: boolean;
   error?: string;
   student?: StudentProfile | null;
-  parents?: ParentAccount[];
+  family?: MentoriaFamily | null;
+  primaryGuardian?: MentoriaGuardian | null;
+  secondaryGuardians?: MentoriaGuardian[];
+  guardianStudentAccess?: MentoriaGuardianStudentAccess[];
   studentSubjects?: MentoriaStudentSubject[];
   motivation?: MotivationState | null;
   dailyPlan?: DailyPlan | null;
@@ -93,7 +121,12 @@ type WorkspaceApiResponse = WorkspaceState & {
   focusSessions?: FocusSession[];
   entry?: MentoriaWorkspaceEntry | null;
   memory?: MentoriaStudentMemorySummary | null;
+  evolution?: StudentEvolutionProfile | null;
+  growth?: MentoriaGrowthSummary | null;
+  dailyClosure?: MentoriaDailyClosureSummary | null;
   guardianHooks?: MentoriaGuardianHookEvent[];
+  behavioralRollout?: "shadow_only" | "engine_strategy" | "engine_strategy_and_explanation" | null;
+  behavioralShadow?: BehavioralShadowComparison | null;
 };
 
 type SessionApiResponse = {
@@ -125,13 +158,38 @@ function normalizeGuidedTokens(value: string) {
     .filter((item) => item.length > 3);
 }
 
+function normalizeBehavioralTaskType(type?: string | null): BehavioralTaskCandidate["type"] {
+  if (type === "practice" || type === "review" || type === "challenge" || type === "other") return type;
+  return "other";
+}
+
+function formatBehavioralTaskType(type?: string | null) {
+  if (type === "practice") return "practica guiada";
+  if (type === "review") return "repaso guiado";
+  if (type === "challenge") return "reto corto";
+  return type ?? "tarea";
+}
+
+function actionNeedsTask(action: BehavioralNextBestAction) {
+  return action.strategy === "gentle_restart" || action.strategy === "momentum_push" || action.strategy === "plan_task";
+}
+
+function isValidBehavioralAction(action: BehavioralNextBestAction | null | undefined): action is BehavioralNextBestAction {
+  if (!action) return false;
+  if (!action.strategy || !action.title) return false;
+  if (actionNeedsTask(action) && !action.task) return false;
+  return true;
+}
+
 function evaluateGuidedResponse(step: string, answer: string): GuidedFeedback {
   const normalizedAnswer = answer.trim();
   if (!normalizedAnswer) {
     return {
       status: "incorrect",
-      message: "Necesito una respuesta para saber si seguimos o ajustamos el paso.",
-      rationale: "Todavía no puedo comprobar nada porque no has dejado una idea concreta para evaluar.",
+      level: "short",
+      tone: "guided",
+      message: "Todavía no hay respuesta.",
+      rationale: "Escribe una idea concreta para poder comprobar si va en la dirección correcta.",
     };
   }
 
@@ -139,27 +197,41 @@ function evaluateGuidedResponse(step: string, answer: string): GuidedFeedback {
   const answerTokens = Array.from(new Set(normalizeGuidedTokens(normalizedAnswer)));
   const overlap = stepTokens.filter((token) => answerTokens.includes(token)).length;
   const overlapRatio = stepTokens.length > 0 ? overlap / stepTokens.length : 0;
+  const isVeryShort = normalizedAnswer.length < 18 || answerTokens.length <= 2;
+  const isWellExplained = normalizedAnswer.length >= 42 || answerTokens.length >= 7 || overlapRatio >= 0.6;
 
   if (normalizedAnswer.length >= 18 && (overlapRatio >= 0.35 || answerTokens.length >= 4)) {
     return {
       status: "correct",
-      message: "Correcto. Has resuelto bien este paso y podemos avanzar.",
-      rationale: "Tu respuesta recoge la idea principal del paso y la desarrolla con suficiente detalle para seguir.",
+      level: isWellExplained ? "explained" : "superficial",
+      tone: isWellExplained ? "paced" : "direct",
+      message: isWellExplained ? "Bien. Está claro." : "Bien, pero ve al grano.",
+      rationale: isWellExplained
+        ? "La idea principal está bien explicada. Avanzamos."
+        : "La idea es correcta, aunque algo superficial. Ya puedes seguir.",
     };
   }
 
   if (normalizedAnswer.length >= 8 && (overlapRatio >= 0.15 || answerTokens.length >= 2)) {
     return {
       status: "almost",
-      message: "Casi. La idea va bien, así que avanzamos manteniendo atención en el siguiente paso.",
-      rationale: "Has captado parte de la intención, pero falta concretar mejor la relación entre la idea principal y tu respuesta.",
+      level: isVeryShort ? "short" : "superficial",
+      tone: isVeryShort ? "guided" : "direct",
+      message: isVeryShort ? "Vas bien, pero está muy corto." : "Vas bien, pero falta una parte clave.",
+      rationale: isVeryShort
+        ? "Amplía una idea más para que se entienda qué quieres decir."
+        : "Se entiende la base, pero falta decir exactamente qué relación o punto principal cierra el paso.",
     };
   }
 
   return {
     status: "incorrect",
-    message: "Incorrecto. Revisa la idea principal y prueba una respuesta más concreta.",
-    rationale: "La respuesta es demasiado breve o se aleja del foco del paso, así que conviene reformularla antes de seguir.",
+    level: "incorrect",
+    tone: "guided",
+    message: isVeryShort ? "Aún no. Está demasiado corto." : "Aún no. Rehaz este paso.",
+    rationale: isVeryShort
+      ? "Vuelve al paso y escribe qué idea principal te está pidiendo."
+      : "La respuesta se sale del foco. Vuelve a la idea principal y exprésala de forma más simple.",
   };
 }
 
@@ -167,7 +239,10 @@ export function MentoriaWorkspace() {
   const initialUi = getWorkspaceUiCopy("eso");
   const [state, setState] = useState<WorkspaceState>({
     student: null,
-    parents: [],
+    family: null,
+    primaryGuardian: null,
+    secondaryGuardians: [],
+    guardianStudentAccess: [],
     studentSubjects: [],
     progress: [],
     analysis: null,
@@ -178,7 +253,12 @@ export function MentoriaWorkspace() {
     focusSessions: [],
     entry: null,
     memory: null,
+    evolution: null,
+    growth: null,
+    dailyClosure: null,
     guardianHooks: [],
+    behavioralRollout: null,
+    behavioralShadow: null,
   });
 
   const searchParams = useSearchParams();
@@ -199,10 +279,18 @@ export function MentoriaWorkspace() {
   const [guidedFeedback, setGuidedFeedback] = useState<GuidedFeedback | null>(null);
   const [sessionState, setSessionState] = useState<GuidedSessionState>("idle");
   const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
+  const [stateDecision, setStateDecision] = useState<StateDecision | null>(null);
+  const [stateActions, setStateActions] = useState<StateActions | null>(null);
+  const [orchestratorContextStudent, setOrchestratorContextStudent] = useState<OrchestratorContext | null>(null);
+  const [guardianViewModel, setGuardianViewModel] = useState<GuardianViewModel | null>(null);
 
   const selectedSubject = useMemo(
     () => state.studentSubjects.find((item: MentoriaStudentSubject) => item.subject?.slug === subjectSlug) ?? null,
     [state.studentSubjects, subjectSlug],
+  );
+  const connectedGuardians = useMemo(
+    () => [state.primaryGuardian, ...state.secondaryGuardians].filter((item): item is MentoriaGuardian => Boolean(item)),
+    [state.primaryGuardian, state.secondaryGuardians],
   );
 
   async function load() {
@@ -210,6 +298,10 @@ export function MentoriaWorkspace() {
     setError(null);
     try {
       const workspaceRes = await fetch("/api/mentoria/workspace", { cache: "no-store" });
+      if (!workspaceRes || typeof workspaceRes.json !== "function") {
+        setError("MENTORIA_WORKSPACE_LOAD_FAILED");
+        return;
+      }
       if (workspaceRes.status === 401) {
         window.location.href = "/mentorias/auths/logins?callbackUrl=/mentoria/app";
         return;
@@ -230,9 +322,25 @@ export function MentoriaWorkspace() {
         return;
       }
 
+      const signals = await collectStudentSignals(workspaceBody.student.id);
+      const nextStateDecision = evaluateStudentState(signals);
+      const nextStateActions = deriveStateActions(nextStateDecision);
+      const nextOrchestratorContextStudent = buildOrchestratorContext({
+        decision: nextStateDecision,
+        actions: nextStateActions,
+        actorType: "student",
+      });
+      const nextGuardianViewModel = buildGuardianViewModel({
+        decision: nextStateDecision,
+        actions: nextStateActions,
+      });
+
       setState({
         student: workspaceBody.student ?? null,
-        parents: workspaceBody.parents ?? [],
+        family: workspaceBody.family ?? null,
+        primaryGuardian: workspaceBody.primaryGuardian ?? null,
+        secondaryGuardians: workspaceBody.secondaryGuardians ?? [],
+        guardianStudentAccess: workspaceBody.guardianStudentAccess ?? [],
         studentSubjects: workspaceBody.studentSubjects ?? [],
         progress: workspaceBody.progress ?? [],
         analysis: workspaceBody.analysis ?? null,
@@ -243,9 +351,23 @@ export function MentoriaWorkspace() {
         focusSessions: workspaceBody.focusSessions ?? [],
         entry: workspaceBody.entry ?? null,
         memory: workspaceBody.memory ?? null,
+        evolution: workspaceBody.evolution ?? null,
+        growth: workspaceBody.growth ?? null,
+        dailyClosure: workspaceBody.dailyClosure ?? null,
         guardianHooks: workspaceBody.guardianHooks ?? [],
+        behavioralRollout: workspaceBody.behavioralRollout ?? null,
+        behavioralShadow: workspaceBody.behavioralShadow ?? null,
       });
-      setActiveExerciseId(workspaceBody.exercises?.find((exercise) => exercise.status === "pending")?.id ?? null);
+      setStateDecision(nextStateDecision);
+      setStateActions(nextStateActions);
+      setOrchestratorContextStudent(nextOrchestratorContextStudent);
+      setGuardianViewModel(nextGuardianViewModel);
+      setActiveExerciseId(
+        workspaceBody.exercises?.find((exercise) => exercise.status === "pending")?.id
+          ?? activeExerciseId
+          ?? workspaceBody.exercises?.[0]?.id
+          ?? null,
+      );
       if (!subjectSlug && workspaceBody.entry?.recommendedSubjectSlug) {
         setSubjectSlug(workspaceBody.entry.recommendedSubjectSlug);
       }
@@ -352,25 +474,40 @@ export function MentoriaWorkspace() {
       { role: "student", content: resolvedMessage, kind: "message" },
     ]);
 
-    const response = await fetch("/api/mentoria/session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        subjectSlug: resolvedSubjectSlug,
-        topic: resolvedTopic,
-        message: resolvedMessage,
-        entryMode: normalizedInput?.entryMode,
-        sessionId: normalizedInput?.sessionId ?? latestSession?.id,
-      }),
-    });
-
-    const body = (await response.json()) as SessionApiResponse;
-    if (!response.ok) {
-      setError(body.error ?? null);
+    let response: Response | null = null;
+    try {
+      response = await fetch("/api/mentoria/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subjectSlug: resolvedSubjectSlug,
+          topic: resolvedTopic,
+          message: resolvedMessage,
+          entryMode: normalizedInput?.entryMode,
+          sessionId: normalizedInput?.sessionId ?? latestSession?.id,
+        }),
+      });
+    } catch {
       return;
     }
 
-    if (body.reply) {
+    if (!response || typeof response.json !== "function") {
+      return;
+    }
+
+    let body: SessionApiResponse | null = null;
+    try {
+      body = (await response.json()) as SessionApiResponse;
+    } catch {
+      body = null;
+    }
+
+    if (!response.ok) {
+      setError(body?.error ?? null);
+      return;
+    }
+
+    if (body?.reply) {
       const nextTutorMessages: TutorMessage[] = [{ role: "tutor", content: body.reply ?? "", kind: "message" }];
       if (body.explanation) {
         nextTutorMessages.push({ role: "tutor", content: body.explanation, kind: "explanation" });
@@ -381,8 +518,14 @@ export function MentoriaWorkspace() {
       if (body.reinforcementQuestion) {
         nextTutorMessages.push({ role: "tutor", content: body.reinforcementQuestion, kind: "question" });
       }
+      if (body.sessionFeedback?.completionMessage) {
+        nextTutorMessages.push({ role: "tutor", content: body.sessionFeedback.completionMessage, kind: "feedback" });
+      }
       if (body.sessionFeedback?.progressMessage) {
         nextTutorMessages.push({ role: "tutor", content: body.sessionFeedback.progressMessage, kind: "feedback" });
+      }
+      if (body.sessionFeedback?.encouragement) {
+        nextTutorMessages.push({ role: "tutor", content: body.sessionFeedback.encouragement, kind: "feedback" });
       }
       setTutorResult({
         reply: body.reply ?? "",
@@ -398,6 +541,8 @@ export function MentoriaWorkspace() {
         nextSteps: body.sessionFeedback?.nextSteps,
         recommendedNextStep: body.session?.recommendedNextStep,
       });
+      setTopic(body.session?.topic ?? resolvedTopic);
+      setMessage(body.session?.recommendedNextStep ?? resolvedMessage);
       setTutorMessages((current: TutorMessage[]) => [...current, ...nextTutorMessages]);
       setSessionStatusMessage(null);
       resetGuidedFlow();
@@ -464,15 +609,30 @@ export function MentoriaWorkspace() {
     if (!latestExercise) return;
 
     setError(null);
-    const response = await fetch("/api/mentoria/exercises", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "correct", exerciseId: latestExercise.id, studentAnswer: exerciseAnswer }),
-    });
+    let response: Response | null = null;
+    try {
+      response = await fetch("/api/mentoria/exercises", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "correct", exerciseId: latestExercise.id, studentAnswer: exerciseAnswer }),
+      });
+    } catch {
+      return;
+    }
 
-    const body = (await response.json()) as { error?: string; exercise?: MentoriaExercise };
+    if (!response || typeof response.json !== "function") {
+      return;
+    }
+
+    let body: { error?: string; exercise?: MentoriaExercise } | null = null;
+    try {
+      body = (await response.json()) as { error?: string; exercise?: MentoriaExercise };
+    } catch {
+      body = null;
+    }
+
     if (!response.ok) {
-      setError(body.error ?? null);
+      setError(body?.error ?? null);
       return;
     }
 
@@ -480,20 +640,49 @@ export function MentoriaWorkspace() {
     void load();
   }
 
-  async function handleStartDailyTask(task: DailyPlan["tasks"][number]) {
+  function buildTaskStarterCopy(task: DailyPlan["tasks"][number]) {
+    if (task.type === "review") {
+      return {
+        topic: `Repaso de ${task.subject}`,
+        message: `Quiero repasar ${task.subject} paso a paso y ver que debo vigilar hoy.`,
+        status: `Tarea lista: ${task.subject} - ${formatBehavioralTaskType(task.type)}. Ya puedes avanzar desde el tutor.`,
+      };
+    }
+    if (task.type === "challenge") {
+      return {
+        topic: `Reto de ${task.subject}`,
+        message: `Quiero resolver un reto corto de ${task.subject} con una primera pista clara.`,
+        status: `Reto listo: ${task.subject} - ${formatBehavioralTaskType(task.type)}. Ya puedes avanzar desde el tutor.`,
+      };
+    }
+    return {
+      topic: `Practica de ${task.subject}`,
+      message: `Quiero practicar ${task.subject} con una guia corta y clara.`,
+      status: `Practica lista para ${task.subject}. Cuando la completes, el plan se actualizara aqui mismo.`,
+    };
+  }
+
+  async function handleStartDailyTask(
+    task: DailyPlan["tasks"][number],
+    statusMessageOverride?: string | null,
+    entryModeOverride?: ReentryMode,
+  ) {
     setActiveTaskId(task.id);
     resetGuidedFlow();
     const taskSubjectSlug = resolveSubjectSlugFromSubjectId(task.subjectId) || undefined;
+    const starterCopy = buildTaskStarterCopy(task);
     if (taskSubjectSlug) {
       setSubjectSlug(taskSubjectSlug);
     }
+    setTopic(starterCopy.topic);
+    setMessage(starterCopy.message);
     setActiveSection("board");
-    setSessionStatusMessage(`Plan del día: ${task.subject}. Vamos paso a paso 👇`);
+    setSessionStatusMessage(statusMessageOverride ?? starterCopy.status);
     await handleSendMessage({
-      message: `Empezar tarea: ${task.subject}`,
+      message: starterCopy.message,
       subjectSlug: taskSubjectSlug,
-      topic: task.subject,
-      entryMode: "plan_task",
+      topic: starterCopy.topic,
+      entryMode: entryModeOverride ?? "plan_task",
     });
   }
 
@@ -541,6 +730,7 @@ export function MentoriaWorkspace() {
     setTutorResult(null);
     setActiveTaskId(null);
     resetGuidedFlow();
+    setActiveSection("board");
     setTutorMessages(
       session.transcript?.map((item) => ({
         role: item.role,
@@ -551,6 +741,12 @@ export function MentoriaWorkspace() {
     const resumeSubjectSlug = resolveSubjectSlugFromSubjectId(session.subjectId) || undefined;
     if (resumeSubjectSlug) {
       setSubjectSlug(resumeSubjectSlug);
+    }
+    if (session.topic) {
+      setTopic(session.topic);
+    }
+    if (session.recommendedNextStep) {
+      setMessage(session.recommendedNextStep);
     }
     if (session.recommendedNextStep) {
       await handleSendMessage({
@@ -577,6 +773,281 @@ export function MentoriaWorkspace() {
       entryMode: "entry",
     });
   }
+
+  function handleResumeDailyClosure(closure: MentoriaDailyClosureSummary) {
+    const carryOverTopic = closure.carryOverTopic ?? state.entry?.recommendedTopic ?? initialUi.defaultTopic;
+    const carryOverPrompt = closure.carryOverPrompt ?? state.entry?.recommendedPrompt ?? initialUi.defaultMessage;
+    const carryOverSubjectSlug = resolveSubjectSlugFromSubjectId(closure.carryOverSubjectId ?? undefined)
+      || state.entry?.recommendedSubjectSlug
+      || undefined;
+    setTutorResult(null);
+    setActiveTaskId(null);
+    resetGuidedFlow();
+    if (carryOverSubjectSlug) {
+      setSubjectSlug(carryOverSubjectSlug);
+    }
+    setTopic(carryOverTopic);
+    setMessage(carryOverPrompt);
+    setActiveSection("board");
+    setSessionStatusMessage("Ayer te dejaste una pista clara y hoy puedes retomarla con ventaja, sin volver a pensar desde cero.");
+  }
+
+  const latestSession = state.recentSessions[0] ?? null;
+  const latestExercise =
+    state.exercises.find((ex: MentoriaExercise) => ex.id === activeExerciseId)
+    ?? state.exercises.find((ex: MentoriaExercise) => ex.status === "pending")
+    ?? null;
+  const activeDailyTask = state.dailyPlan?.tasks.find((task: DailyPlan["tasks"][number]) => task.id === activeTaskId)
+    ?? state.dailyPlan?.tasks.find((task: DailyPlan["tasks"][number]) => !task.completed)
+    ?? null;
+  const actionableDailyPlan = state.dailyPlan
+    ? {
+        ...state.dailyPlan,
+        tasks: state.dailyPlan.tasks.map((task: DailyPlan["tasks"][number]) => ({
+          ...task,
+          completed: task.completed || completedTaskIds.includes(task.id),
+        })),
+      }
+    : null;
+  const activeSubjectSlugForUi = subjectSlug || tutorResult?.subjectSlug || state.entry?.recommendedSubjectSlug || null;
+  const behavioralContext = useMemo<BehavioralContext>(() => {
+    const normalizedCompletionRate = state.dailyPlan?.completionRate ?? 0;
+    const completionRate = normalizedCompletionRate > 1 ? normalizedCompletionRate / 100 : normalizedCompletionRate;
+    const lastActivityAt = state.motivation?.lastActivityAt ?? latestSession?.updatedAt ?? null;
+    const hoursSinceActivity = lastActivityAt ? Math.max(0, (Date.now() - new Date(lastActivityAt).getTime()) / (1000 * 60 * 60)) : null;
+    const pendingTasks = (actionableDailyPlan?.tasks ?? [])
+      .filter((task: DailyPlan["tasks"][number]) => !task.completed)
+      .map((task: DailyPlan["tasks"][number]) => ({
+        id: task.id,
+        subject: task.subject,
+        subjectId: task.subjectId,
+        type: normalizeBehavioralTaskType(task.type),
+        difficulty: task.difficulty,
+        completed: task.completed,
+      }));
+    return {
+      userState: {
+        userId: state.student?.userId ?? "workspace_user",
+        tenantId: state.student?.tenantId ?? "workspace_tenant",
+        lifecycleStage: "returning",
+        activeContext: activeSubjectSlugForUi,
+      },
+      signals: {
+        lastActivityAt,
+        hoursSinceActivity,
+        streak: state.motivation?.streak ?? 0,
+        motivationProfile: state.motivation?.motivationProfile ?? null,
+        consistencyScore: null,
+        progressionVelocity: null,
+        frustrationLevel: null,
+        dailyCompletionRate: Number.isFinite(completionRate) ? completionRate : 0,
+        completedTasksCount: actionableDailyPlan?.completedTaskIds.length ?? 0,
+        pendingTasksCount: pendingTasks.length,
+        recentSessionId: latestSession?.id ?? null,
+        recentSessionTopic: latestSession?.topic ?? null,
+        recentSessionRecommendedNextStep: latestSession?.recommendedNextStep ?? null,
+        pendingTasks,
+        entryPromptAvailable: Boolean(state.entry?.recommendedPrompt),
+        carryOverPromptAvailable: false,
+      },
+      product: "mentoria",
+      surface: "workspace",
+      nowIso: new Date().toISOString(),
+      availableActions: {
+        canResumeSession: Boolean(latestSession?.recommendedNextStep),
+        canStartPendingTask: pendingTasks.length > 0,
+        canUseEntryPrompt: Boolean(state.entry?.recommendedPrompt),
+      },
+    };
+  }, [actionableDailyPlan?.completedTaskIds.length, actionableDailyPlan?.tasks, activeSubjectSlugForUi, latestSession?.id, latestSession?.recommendedNextStep, latestSession?.topic, latestSession?.updatedAt, state.dailyPlan?.completionRate, state.entry?.recommendedPrompt, state.motivation?.lastActivityAt, state.motivation?.motivationProfile, state.motivation?.streak, state.student?.tenantId, state.student?.userId]);
+  const liveBehavioralAction = useMemo(() => decideNextBestAction(behavioralContext), [behavioralContext]);
+  const selectedBehavioralAction = useMemo(() => {
+    const rollout = state.behavioralRollout;
+    const shadowAction = state.behavioralShadow?.shadowAction;
+    if ((rollout === "engine_strategy" || rollout === "engine_strategy_and_explanation") && isValidBehavioralAction(shadowAction)) {
+      return shadowAction;
+    }
+    return liveBehavioralAction;
+  }, [liveBehavioralAction, state.behavioralRollout, state.behavioralShadow?.shadowAction]);
+  const behavioralFrame = useMemo(
+    () => buildBehavioralExplanationFrame(selectedBehavioralAction, behavioralContext),
+    [behavioralContext, selectedBehavioralAction],
+  );
+  const shouldUseBehavioralReentry = useMemo(() => {
+    if (state.behavioralRollout === "engine_strategy" || state.behavioralRollout === "engine_strategy_and_explanation") {
+      return true;
+    }
+    return Boolean(state.motivation || latestSession);
+  }, [latestSession, state.behavioralRollout, state.motivation]);
+  const recentActivityLabel = useMemo(() => {
+    const activityIso = latestSession?.updatedAt ?? state.motivation?.lastActivityAt ?? null;
+    if (!activityIso) return null;
+    const hours = (Date.now() - new Date(activityIso).getTime()) / (1000 * 60 * 60);
+    if (hours >= 24 && hours < 48) return "ayer";
+    if (hours < 24) return "hoy";
+    return null;
+  }, [latestSession?.updatedAt, state.motivation?.lastActivityAt]);
+  const motivationMessage =
+    stateActions?.primaryStudentAction
+      ?? (stateDecision?.state === "demotivated" || stateDecision?.state === "recovering"
+        ? "Hoy no hace falta hacer mucho: hace falta cerrar bien el siguiente paso."
+        : stateDecision?.state === "overloaded" || stateDecision?.state === "at_risk"
+          ? "Vamos a bajar el ruido y centrarnos en una sola prioridad."
+          : state.motivation?.motivationProfile === "fragile"
+      ? "Hoy es un buen día para empezar con algo pequeño y claro"
+      : state.motivation?.motivationProfile === "high_performer"
+        ? "Estás en racha, aprovecha el momento"
+        : "Sigue con tu ritmo, vas bien");
+  const nextAction = useMemo<WorkspaceNextAction | null>(() => {
+    if (activeGuidedStep) {
+      if (derivedSessionState === "completed") {
+        return {
+          kind: "guided_step",
+          title: "Sesión guiada completada",
+          detail: "Has terminado la secuencia principal.",
+          ctaLabel: "Sesión completada",
+          sessionState: "completed",
+        };
+      }
+
+      return {
+        kind: "guided_step",
+        title: derivedSessionState === "retry"
+          ? "Reformular este paso"
+          : derivedSessionState === "checking"
+            ? "Comprobando la respuesta"
+            : derivedSessionState === "answering"
+              ? "Terminar este paso"
+              : "Responder este paso",
+        detail: derivedSessionState === "retry"
+          ? guidedFeedback?.level === "short"
+            ? "Amplía tu respuesta antes de volver a comprobar."
+            : guidedFeedback?.level === "incorrect"
+              ? "Vuelve a la idea principal y reházalo más simple."
+              : "Añade justo la parte que falta y vuelve a comprobar."
+          : derivedSessionState === "checking"
+            ? "Estamos revisando si este paso ya está claro."
+          : derivedSessionState === "answering"
+            ? "Cierra tu respuesta y después comprueba."
+          : "Escribe una respuesta corta con la idea clave.",
+        ctaLabel: derivedSessionState === "retry"
+          ? "Reintentar este paso"
+          : derivedSessionState === "checking"
+            ? "Comprobando..."
+            : "Comprobar y seguir",
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (latestExercise && latestExercise.status !== "corrected") {
+      return {
+        kind: "exercise",
+        title: "Entregar el ejercicio actual",
+        detail: "Ahora mismo lo importante es resolver este ejercicio para mantener el hilo de la sesión.",
+        ctaLabel: "Corregir respuesta",
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (latestExercise?.status === "corrected" && typeof latestExercise.score === "number") {
+      const nextPendingTask = actionableDailyPlan?.tasks.find((task: DailyPlan["tasks"][number]) => !task.completed) ?? null;
+      const nextTaskLabel = nextPendingTask ? `${nextPendingTask.subject} - ${formatBehavioralTaskType(nextPendingTask.type)}` : "la siguiente tarea";
+      if (latestExercise.score >= 80) {
+        return {
+          kind: "task",
+          title: "Vamos a aprovechar que te ha salido bien",
+          detail: `Siguiente accion: ${nextTaskLabel}`,
+          ctaLabel: "Lanzar siguiente reto",
+          sessionState: derivedSessionState,
+        };
+      }
+      return {
+        kind: "task",
+        title: "Bajamos un paso para consolidar",
+        detail: `Siguiente accion: ${nextTaskLabel}`,
+        ctaLabel: "Abrir ayuda guiada",
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (shouldUseBehavioralReentry && selectedBehavioralAction.strategy === "resume_session" && latestSession) {
+      return {
+        kind: "resume_session",
+        title: "Seguimos donde lo dejaste",
+        detail: "Retoma el siguiente paso ya preparado en tu ultima sesion.",
+        ctaLabel: behavioralFrame.primaryLabel,
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (
+      shouldUseBehavioralReentry
+      && (selectedBehavioralAction.strategy === "plan_task"
+        || selectedBehavioralAction.strategy === "gentle_restart"
+        || selectedBehavioralAction.strategy === "momentum_push")
+      && selectedBehavioralAction.task
+    ) {
+      return {
+        kind: "task",
+        title: "Tu siguiente paso ya esta preparado.",
+        detail: "Revisa la recomendacion y entra con un solo clic.",
+        ctaLabel: "Abrir siguiente paso",
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (activeDailyTask) {
+      return {
+        kind: "task",
+        title: "Empezar la tarea del día",
+        detail: `Tu siguiente movimiento es abrir ${activeDailyTask.subject} y entrar en su sesión guiada.`,
+        ctaLabel: shouldUseBehavioralReentry ? "Volver al plan de hoy" : "Preparar con el tutor",
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (latestSession) {
+      return {
+        kind: "resume_session",
+        title: "Retomar la última sesión",
+        detail: "Sigue desde donde lo dejaste para no perder continuidad ni contexto.",
+        ctaLabel: "Retomar sesión",
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (selectedSubject) {
+      return {
+        kind: "subject_session",
+        title: "Abrir sesión guiada de la materia activa",
+        detail: "La materia ya está elegida. Solo falta abrir la sesión y empezar a trabajar.",
+        ctaLabel: "Abrir sesión guiada",
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (state.entry?.recommendedPrompt && state.entry?.recommendedTopic) {
+      return {
+        kind: "quick_action",
+        title: "Empezar por la recomendación principal",
+        detail: "Esta es la entrada más clara para arrancar la sesión sin decidir entre varias opciones.",
+        ctaLabel: state.entry.recommendedTopic,
+        sessionState: derivedSessionState,
+      };
+    }
+
+    if (state.focusSessions.length > 0) {
+      return {
+        kind: "focus_session",
+        title: "Entrar en bloque de foco",
+        detail: "Si no hay sesión activa, el siguiente paso más claro es abrir un bloque corto de concentración.",
+        ctaLabel: "Empezar bloque de foco",
+        sessionState: derivedSessionState,
+      };
+    }
+
+    return null;
+  }, [actionableDailyPlan?.tasks, activeDailyTask, activeGuidedStep, behavioralFrame.primaryLabel, behavioralFrame.title, behavioralFrame.whyToday, derivedSessionState, guidedFeedback?.level, latestExercise, latestSession, selectedBehavioralAction.strategy, selectedBehavioralAction.task, selectedSubject, shouldUseBehavioralReentry, state.entry, state.focusSessions.length]);
 
   if (loading && !state.student) {
     return (
@@ -616,131 +1087,6 @@ export function MentoriaWorkspace() {
     );
   }
 
-  const latestSession = state.recentSessions[0] ?? null;
-  const latestExercise =
-    state.exercises.find((ex: MentoriaExercise) => ex.id === activeExerciseId)
-    ?? state.exercises.find((ex: MentoriaExercise) => ex.status === "pending")
-    ?? null;
-  const activeDailyTask = state.dailyPlan?.tasks.find((task: DailyPlan["tasks"][number]) => task.id === activeTaskId)
-    ?? state.dailyPlan?.tasks.find((task: DailyPlan["tasks"][number]) => !task.completed)
-    ?? null;
-  const actionableDailyPlan = state.dailyPlan
-    ? {
-        ...state.dailyPlan,
-        completedTaskIds,
-        tasks: state.dailyPlan.tasks.map((task: DailyPlan["tasks"][number]) => ({
-          ...task,
-          completed: task.completed || completedTaskIds.includes(task.id),
-        })),
-      }
-    : null;
-  const activeSubjectSlugForUi = subjectSlug || tutorResult?.subjectSlug || state.entry?.recommendedSubjectSlug || null;
-  const motivationMessage =
-    state.motivation?.motivationProfile === "fragile"
-      ? "Hoy es un buen día para empezar con algo pequeño y claro"
-      : state.motivation?.motivationProfile === "high_performer"
-        ? "Estás en racha, aprovecha el momento"
-        : "Sigue con tu ritmo, vas bien";
-  const nextAction = useMemo<WorkspaceNextAction | null>(() => {
-    if (activeGuidedStep) {
-      if (derivedSessionState === "completed") {
-        return {
-          kind: "guided_step",
-          title: "Sesión guiada completada",
-          detail: "Has cerrado la secuencia principal. Revisa el cierre y prepárate para el siguiente bloque.",
-          ctaLabel: "Sesión completada",
-          sessionState: "completed",
-        };
-      }
-
-      return {
-        kind: "guided_step",
-        title: derivedSessionState === "retry"
-          ? "Reformular este paso"
-          : derivedSessionState === "checking"
-            ? "Comprobando la respuesta"
-            : derivedSessionState === "answering"
-              ? "Responder el paso activo"
-              : "Preparar la respuesta del paso activo",
-        detail: derivedSessionState === "retry"
-          ? "Ajusta la respuesta con la explicación recibida y vuelve a intentarlo sobre este mismo paso."
-          : derivedSessionState === "checking"
-            ? "Estamos validando si la idea principal está bien resuelta antes de avanzar."
-            : derivedSessionState === "answering"
-              ? "Ya has empezado a responder. Remata la idea principal antes de comprobar."
-              : "Lee el paso, piensa la idea clave y escribe una respuesta corta y concreta.",
-        ctaLabel: derivedSessionState === "retry"
-          ? "Reintentar este paso"
-          : derivedSessionState === "checking"
-            ? "Comprobando..."
-            : "Comprobar y seguir",
-        sessionState: derivedSessionState,
-      };
-    }
-
-    if (latestExercise && latestExercise.status !== "corrected") {
-      return {
-        kind: "exercise",
-        title: "Entregar el ejercicio actual",
-        detail: "Ahora mismo lo importante es resolver este ejercicio para mantener el hilo de la sesión.",
-        ctaLabel: "Entregar ejercicio",
-        sessionState: derivedSessionState,
-      };
-    }
-
-    if (activeDailyTask) {
-      return {
-        kind: "task",
-        title: "Empezar la tarea del día",
-        detail: `Tu siguiente movimiento es abrir ${activeDailyTask.subject} y entrar en su sesión guiada.`,
-        ctaLabel: "Empezar tarea del día",
-        sessionState: derivedSessionState,
-      };
-    }
-
-    if (latestSession) {
-      return {
-        kind: "resume_session",
-        title: "Retomar la última sesión",
-        detail: "Sigue desde donde lo dejaste para no perder continuidad ni contexto.",
-        ctaLabel: "Retomar sesión",
-        sessionState: derivedSessionState,
-      };
-    }
-
-    if (selectedSubject) {
-      return {
-        kind: "subject_session",
-        title: "Abrir sesión guiada de la materia activa",
-        detail: `La materia ya está elegida. Solo falta abrir la sesión y empezar a trabajar.`,
-        ctaLabel: "Abrir sesión guiada",
-        sessionState: derivedSessionState,
-      };
-    }
-
-    if (state.entry?.recommendedPrompt && state.entry?.recommendedTopic) {
-      return {
-        kind: "quick_action",
-        title: "Empezar por la recomendación principal",
-        detail: "Esta es la entrada más clara para arrancar la sesión sin decidir entre varias opciones.",
-        ctaLabel: state.entry.recommendedTopic,
-        sessionState: derivedSessionState,
-      };
-    }
-
-    if (state.focusSessions.length > 0) {
-      return {
-        kind: "focus_session",
-        title: "Entrar en bloque de foco",
-        detail: "Si no hay sesión activa, el siguiente paso más claro es abrir un bloque corto de concentración.",
-        ctaLabel: "Empezar bloque de foco",
-        sessionState: derivedSessionState,
-      };
-    }
-
-    return null;
-  }, [activeDailyTask, activeGuidedStep, derivedSessionState, guidedFeedback?.status, latestExercise, latestSession, selectedSubject, state.entry, state.focusSessions.length]);
-
   async function handleRunNextAction() {
     if (!nextAction) return;
 
@@ -755,8 +1101,16 @@ export function MentoriaWorkspace() {
       return;
     }
 
-    if (nextAction.kind === "task" && activeDailyTask) {
-      void handleStartDailyTask(activeDailyTask);
+    if (nextAction.kind === "task") {
+      const strategyTask = selectedBehavioralAction.task?.id
+        ? actionableDailyPlan?.tasks.find((task) => task.id === selectedBehavioralAction.task?.id)
+        : null;
+      const resolvedTask = strategyTask ?? activeDailyTask;
+      if (!resolvedTask) return;
+      const momentumStatus = selectedBehavioralAction.strategy === "momentum_push"
+        ? `Hoy vienes con ritmo: ${resolvedTask.subject} - ${formatBehavioralTaskType(resolvedTask.type)}. Vamos a aprovecharlo con una primera accion un poco mas ambiciosa.`
+        : null;
+      void handleStartDailyTask(resolvedTask, momentumStatus, selectedBehavioralAction.strategy);
       return;
     }
 
@@ -793,7 +1147,7 @@ export function MentoriaWorkspace() {
           progress={state.progress}
           recentSessions={state.recentSessions}
           focusSessions={state.focusSessions}
-          parents={state.parents}
+          connectedGuardians={connectedGuardians}
           activeSection={activeSection}
           activeSubjectSlug={activeSubjectSlugForUi}
           onSectionChange={(section) => setActiveSection(section as WorkspaceSection)}
@@ -815,6 +1169,9 @@ export function MentoriaWorkspace() {
           dailyPlan={actionableDailyPlan}
           focusSessions={state.focusSessions}
           entry={state.entry}
+          evolution={state.evolution}
+          growth={state.growth}
+          dailyClosure={state.dailyClosure}
           latestSession={latestSession}
           recentSessions={state.recentSessions}
           latestExercise={latestExercise}
@@ -824,8 +1181,13 @@ export function MentoriaWorkspace() {
           analysis={state.analysis}
           guardianHooks={state.guardianHooks}
           motivationMessage={motivationMessage}
+          stateDecision={stateDecision}
+          stateActions={stateActions}
+          guardianViewModel={guardianViewModel}
           activeSubjectSlug={activeSubjectSlugForUi}
           selectedSubject={selectedSubject}
+          currentTopic={topic}
+          currentMessage={message}
           tutorResult={tutorResult}
           nextAction={nextAction}
           sessionState={derivedSessionState}
@@ -847,6 +1209,7 @@ export function MentoriaWorkspace() {
           onOpenExercise={handleOpenExercise}
           onSectionChange={(section) => setActiveSection(section as WorkspaceSection)}
           onResumeSession={handleResumeSession}
+          onResumeDailyClosure={handleResumeDailyClosure}
           onQuickAction={handleQuickAction}
           onRunNextAction={handleRunNextAction}
         />
@@ -859,6 +1222,15 @@ export function MentoriaWorkspace() {
           guardianHooks={state.guardianHooks}
           analysisNextActions={state.analysis?.nextActions ?? []}
           motivationMessage={motivationMessage}
+          behavioralAction={selectedBehavioralAction}
+          behavioralFrame={behavioralFrame}
+          behavioralRollout={state.behavioralRollout ?? null}
+          recentActivityLabel={recentActivityLabel}
+          motivationStreak={state.motivation?.streak ?? null}
+          latestSessionSummary={latestSession?.tutorSummary ?? null}
+          stateDecision={stateDecision}
+          stateActions={stateActions}
+          orchestratorContext={orchestratorContextStudent}
           dynamicNextAction={nextAction}
           sessionState={derivedSessionState}
           student={state.student}
