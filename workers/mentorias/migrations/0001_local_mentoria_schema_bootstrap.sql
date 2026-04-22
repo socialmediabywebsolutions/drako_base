@@ -241,6 +241,31 @@ CREATE TABLE IF NOT EXISTS mentoria_motivation_states (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mentoria_motivation_tenant_student
   ON mentoria_motivation_states(tenant_id, student_profile_id);
 
+CREATE TABLE IF NOT EXISTS mentoria_student_subject_memory (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  student_profile_id TEXT NOT NULL,
+  subject_slug TEXT NOT NULL,
+  concept_key TEXT NOT NULL,
+  confidence_level TEXT NOT NULL DEFAULT 'medium',
+  mastery_level TEXT NOT NULL DEFAULT 'developing',
+  recurrence_count INTEGER NOT NULL DEFAULT 0,
+  last_error_type TEXT,
+  preferred_support_style TEXT NOT NULL DEFAULT 'step_by_step',
+  last_worked_at TEXT NOT NULL,
+  needs_reinforcement INTEGER NOT NULL DEFAULT 0,
+  evidence_summary TEXT NOT NULL DEFAULT '',
+  internal_summary_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mentoria_student_subject_memory_unique
+  ON mentoria_student_subject_memory(tenant_id, student_profile_id, subject_slug, concept_key);
+
+CREATE INDEX IF NOT EXISTS idx_mentoria_student_subject_memory_reinforcement
+  ON mentoria_student_subject_memory(tenant_id, student_profile_id, needs_reinforcement, updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS mentoria_daily_plans (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL,

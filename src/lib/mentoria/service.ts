@@ -22,6 +22,18 @@ import {
   updateMotivationFromSession,
 } from "@/lib/mentoria/motivation-engine";
 import {
+  adaptDailyPlanWithLearningMemory,
+  updateStudentLearningMemory,
+} from "@/lib/mentoria/student-memory-engine";
+import {
+  buildStudentSubjectMemoryEventConcept,
+  updateStudentSubjectMemory,
+} from "@/lib/mentoria/student-subject-memory-engine";
+import {
+  createInitialStudentLearningMemory,
+  type StudentLearningMemory,
+} from "@/lib/mentoria/student-learning-memory";
+import {
   applyMentoriaGrowthEntitlements,
   assertMentoriaLimit,
   buildMentoriaBillingSummary,
@@ -52,9 +64,17 @@ import {
 } from "@/lib/mentoria/referral-system";
 import { MentoriaRepository } from "@/lib/mentoria/repository";
 import { buildMentoriaSessionContract, resolveMentoriaSessionMode } from "@/lib/mentoria/session-modes";
+import {
+  applyTutorBehaviorPolicy,
+  buildTutorBehaviorPolicy,
+  resolveSessionModeFromProfile,
+  updateDynamicStudentProfile,
+  type TutorBehaviorPolicy,
+} from "@/lib/mentoria/profile-engine";
 import { SessionPersistenceManager } from "@/lib/mentoria/session-persistence";
 import { generateSessionSummary } from "@/lib/mentoria/session-summary";
 import { generateSessionFeedback, buildSessionCompletionMessage } from "@/lib/mentoria/session-feedback";
+import { buildDynamicStudentProfile, type DynamicStudentProfile } from "@/lib/mentoria/student-profile";
 import { TrialManager } from "@/lib/mentoria/trial-system";
 import { checkAccessControl, UpgradeFlowError, buildTrialExpiringWarning, buildUpgradePrompt } from "@/lib/mentoria/upgrade-flow";
 import { getMentoriaOrchestrator } from "@/lib/mentoria/resilience/orchestrator";
@@ -80,8 +100,11 @@ import type {
   MentoriaGuardian,
   MentoriaGuardianStudentAccess,
   MentoriaGrowthSummary,
+  MentoriaInitialPriority,
   MentoriaIntervention,
+  MentoriaFamilyStructure,
   MentoriaLearningPreference,
+  MentoriaLearningStage,
   MentoriaSessionContext,
   MentoriaSupervisionLevel,
   MentoriaOnboardingGoal,
@@ -95,6 +118,7 @@ import type {
   MentoriaSessionInputKind,
   MentoriaSessionMode,
   MentoriaStudentMemorySummary,
+  MentoriaStudentSubjectMemory,
   MentoriaSubject,
   MentoriaWorkspaceEntry,
   ParentAccount,
@@ -124,9 +148,13 @@ function getTutorModeInstruction(mode: MentoriaSessionMode, contractHeadline: st
 
 type MentoriaOnboardingAttributes = {
   schoolYear: string;
+  stage?: MentoriaLearningStage;
   goal: MentoriaOnboardingGoal;
   confidenceLevel: "low" | "medium" | "high";
   learningPreference: MentoriaLearningPreference;
+  familyStructure?: MentoriaFamilyStructure;
+  hasRepeatedCourse?: boolean;
+  initialPriority?: MentoriaInitialPriority;
 };
 
 function getTutorEntryModeAdjustments(entryMode?: MentoriaEntryMode) {
@@ -234,6 +262,8 @@ function getAgeFromSchoolYear(schoolYear: string): number {
   if (year === "2 eso") return 13;
   if (year === "3 eso") return 14;
   if (year === "4 eso") return 15;
+  if (year === "1 bachillerato") return 16;
+  if (year === "2 bachillerato") return 17;
   return 16;
 }
 
@@ -316,6 +346,22 @@ function formatGuardianRoleForSupportNotes(guardian: MentoriaOnboardingPrimaryGu
   return "Tutor";
 }
 
+function formatFamilyStructureForSupportNotes(value: MentoriaFamilyStructure): string {
+  if (value === "two_guardians") return "dos tutores";
+  if (value === "separated_parents") return "padres separados";
+  if (value === "legal_guardian") return "tutor legal";
+  return "un tutor";
+}
+
+function formatInitialPriorityForSupportNotes(value: MentoriaInitialPriority): string {
+  if (value === "homework") return "deberes";
+  if (value === "exam") return "examen";
+  if (value === "reinforcement") return "refuerzo";
+  if (value === "organization") return "organizacion";
+  if (value === "frustration") return "bloqueo/frustracion";
+  return "otra necesidad";
+}
+
 function toOnboardingInput(
   payload: MentoriaOnboardingPayload,
   learningGoals: string[],
@@ -329,14 +375,19 @@ function toOnboardingInput(
     goals: learningGoals,
     attributes: {
       schoolYear: payload.student.schoolYear,
+      stage: payload.student.stage,
       goal: payload.goal,
       confidenceLevel,
       learningPreference,
+      familyStructure: payload.familyStructure,
+      hasRepeatedCourse: payload.student.hasRepeatedCourse,
+      initialPriority: payload.initialPriority,
     },
     selections: payload.subjects,
     metadata: {
       referralCode: payload.referralCode ?? null,
       inviteToken: payload.inviteToken ?? null,
+      primaryConcern: payload.primaryConcern ?? null,
     },
   };
 }
@@ -775,6 +826,41 @@ export class MentoriaService {
     return this.repository.saveStudentEvolutionProfile(tenantId, initial);
   }
 
+  private async ensureLearningMemoryProfile(
+    tenantId: string,
+    student: StudentProfile,
+    options?: {
+      evolution?: StudentEvolutionProfile | null;
+      progress?: MentoriaProgress[];
+      subjects?: MentoriaSubject[];
+      studentSubjects?: Awaited<ReturnType<MentoriaRepository["listStudentSubjects"]>>;
+      recentSessions?: LearningSession[];
+    },
+  ): Promise<StudentLearningMemory> {
+    const existing = await this.repository.getStudentLearningMemory(tenantId, student.id);
+    if (existing) {
+      return existing;
+    }
+
+    const [evolution, progress, subjects, studentSubjects, recentSessions] = await Promise.all([
+      options?.evolution ? Promise.resolve(options.evolution) : this.ensureEvolutionProfile(tenantId, student),
+      options?.progress ? Promise.resolve(options.progress) : this.repository.listProgress(tenantId, student.id),
+      options?.subjects ? Promise.resolve(options.subjects) : this.repository.listSubjects(tenantId),
+      options?.studentSubjects ? Promise.resolve(options.studentSubjects) : this.repository.listStudentSubjects(tenantId, student.id),
+      options?.recentSessions ? Promise.resolve(options.recentSessions) : this.repository.listLearningSessions(tenantId, student.id),
+    ]);
+
+    const initial = createInitialStudentLearningMemory({
+      student,
+      evolution,
+      progress,
+      subjects,
+      studentSubjects,
+      recentSessions,
+    });
+    return this.repository.saveStudentLearningMemory(tenantId, initial);
+  }
+
   private async syncInterventions(
     tenantId: string,
     studentId: string,
@@ -942,6 +1028,7 @@ export class MentoriaService {
       evolution?: StudentEvolutionProfile;
       interventions?: MentoriaIntervention[];
       motivation?: MotivationState;
+      learningMemory?: StudentLearningMemory;
     },
   ): Promise<DailyPlan> {
     const planDate = new Date().toISOString().slice(0, 10);
@@ -958,10 +1045,16 @@ export class MentoriaService {
     const evolution = options?.evolution ?? (await this.ensureEvolutionProfile(tenantId, student));
     const interventions = options?.interventions ?? (await this.syncInterventions(tenantId, student.id, evolution));
     const motivation = options?.motivation ?? (await this.ensureMotivationState(tenantId, student, evolution, interventions));
+    const learningMemory = options?.learningMemory ?? (await this.ensureLearningMemoryProfile(tenantId, student, {
+      evolution,
+      progress,
+      subjects,
+      studentSubjects: selectedSubjects,
+    }));
 
     return this.repository.saveDailyPlan(
       tenantId,
-      generateDailyPlan({
+      adaptDailyPlanWithLearningMemory(generateDailyPlan({
         profile: student,
         subjects,
         progress,
@@ -969,7 +1062,7 @@ export class MentoriaService {
         motivation,
         interventions,
         existingPlan: existing,
-      }),
+      }), learningMemory),
     );
   }
 
@@ -984,6 +1077,7 @@ export class MentoriaService {
       evolution?: StudentEvolutionProfile;
       interventions?: MentoriaIntervention[];
       motivation?: MotivationState;
+      learningMemory?: StudentLearningMemory;
     },
   ): Promise<DailyPlan> {
     const plan = await this.ensureDailyPlan(tenantId, student, {
@@ -993,6 +1087,7 @@ export class MentoriaService {
       evolution: options?.evolution,
       interventions: options?.interventions,
       motivation: options?.motivation,
+      learningMemory: options?.learningMemory,
     });
     return this.repository.saveDailyPlan(tenantId, completeDailyPlanTask(plan, input));
   }
@@ -1285,6 +1380,29 @@ export class MentoriaService {
     if (!payload.student.schoolYear.trim()) throw new Error("INVALID_SCHOOL_YEAR");
     if (payload.subjects.length === 0) throw new Error("SUBJECTS_REQUIRED");
 
+    const familyStructure = payload.familyStructure ?? "single_guardian";
+    const secondaryGuardian =
+      payload.secondaryGuardian && (payload.secondaryGuardian.fullName.trim() || payload.secondaryGuardian.email?.trim())
+        ? {
+            fullName: payload.secondaryGuardian.fullName.trim(),
+            relation: payload.secondaryGuardian.relation,
+            email: payload.secondaryGuardian.email?.trim().toLowerCase() ?? "",
+          }
+        : null;
+
+    if (familyStructure === "two_guardians" && !secondaryGuardian?.fullName) {
+      throw new Error("INVALID_SECONDARY_GUARDIAN_NAME");
+    }
+    if (familyStructure === "two_guardians" && !secondaryGuardian?.email) {
+      throw new Error("INVALID_SECONDARY_GUARDIAN_EMAIL");
+    }
+    if (secondaryGuardian && !secondaryGuardian.fullName) {
+      throw new Error("INVALID_SECONDARY_GUARDIAN_NAME");
+    }
+    if (secondaryGuardian && secondaryGuardian.email && !secondaryGuardian.email.includes("@")) {
+      throw new Error("INVALID_SECONDARY_GUARDIAN_EMAIL");
+    }
+
     const allSubjects = await this.repository.listSubjects(actor.tenantId);
     const subjectsBySlug = new Map(allSubjects.map((subject) => [subject.slug, subject]));
     const selectedSubjects = payload.subjects.map((item) => {
@@ -1307,9 +1425,19 @@ export class MentoriaService {
     );
     const supportNotesParts = [
       `${formatGuardianRoleForSupportNotes(payload.primaryGuardian)} principal ${payload.primaryGuardian.fullName.trim()}`,
+      `estructura familiar ${formatFamilyStructureForSupportNotes(familyStructure)}`,
+      `etapa ${payload.student.stage ?? "sin especificar"}`,
+      `curso ${payload.student.schoolYear}`,
+      `repeticion ${payload.student.hasRepeatedCourse === true ? "si" : payload.student.hasRepeatedCourse === false ? "no" : "sin confirmar"}`,
       `Objetivo inicial ${payload.goal}`,
       `confianza ${confidenceLevel}`,
     ];
+    if (payload.initialPriority) {
+      supportNotesParts.push(`prioridad inicial ${formatInitialPriorityForSupportNotes(payload.initialPriority)}`);
+    }
+    if (secondaryGuardian?.fullName) {
+      supportNotesParts.push(`${formatGuardianRoleForSupportNotes(secondaryGuardian)} secundario ${secondaryGuardian.fullName}`);
+    }
     if (payload.primaryConcern?.trim()) {
       supportNotesParts.push(`preocupacion ${payload.primaryConcern.trim()}`);
     }
@@ -1352,29 +1480,42 @@ export class MentoriaService {
     });
     // Ensure a family exists for the tenant before linking student records (foreign key safety in local dev)
     await this.familyRepository.createFamily(actor.tenantId);
-    if (actor.email) {
-      const primaryGuardian = await this.familyRepository.upsertGuardian({
-        email: actor.email,
-        familyId: actor.tenantId,
-        name: payload.primaryGuardian.fullName.trim(),
-        role: payload.primaryGuardian.relation,
-        familyRelation: payload.primaryGuardian.relation,
-        systemRole: "primary_guardian",
-      });
-
-      await this.familyRepository.upsertGuardianStudentAccess({
-        familyId: actor.tenantId,
-        guardianId: primaryGuardian.id,
-        studentId: student.id,
-        studentProfileId: student.id,
-        canViewFullProgress: true,
-        canManageSchedule: true,
-        dailyStudyMinutes: preferredStudyMinutes,
-        supervisionLevel: "balanced",
-        notificationPreferences: ["progress", "alerts", "planner"],
-        isPrimaryContact: true,
-      });
-    }
+    const canonical = actor.email
+      ? await this.syncCanonicalGuardiansFromProfile(actor, student, {
+          primaryGuardian: {
+            fullName: payload.primaryGuardian.fullName.trim(),
+            email: actor.email,
+            familyRelation: payload.primaryGuardian.relation,
+            systemRole: "primary_guardian",
+            access: {
+              dailyStudyMinutes: preferredStudyMinutes,
+              supervisionLevel: "balanced",
+              canViewFullProgress: true,
+              canManageSchedule: true,
+              notificationPreferences: ["progress", "alerts", "planner"],
+              isPrimaryContact: true,
+            },
+          },
+          secondaryGuardians: secondaryGuardian?.email
+            ? [
+                {
+                  fullName: secondaryGuardian.fullName,
+                  email: secondaryGuardian.email,
+                  familyRelation: secondaryGuardian.relation,
+                  systemRole: "secondary_guardian",
+                  access: {
+                    dailyStudyMinutes: preferredStudyMinutes,
+                    supervisionLevel: familyStructure === "separated_parents" ? "light" : "balanced",
+                    canViewFullProgress: true,
+                    canManageSchedule: familyStructure !== "separated_parents",
+                    notificationPreferences: ["progress", "planner"],
+                    isPrimaryContact: false,
+                  },
+                },
+              ]
+            : [],
+        })
+      : await this.getCanonicalFamilyContract(actor, student);
 
     await this.familyRepository.upsertStudent({
       id: student.id,
@@ -1392,8 +1533,6 @@ export class MentoriaService {
         initialLevel: item.selection.initialLevel,
       })),
     });
-
-    const canonical = await this.getCanonicalFamilyContract(actor, student);
 
     await this.repository.deleteProgressForStudent(actor.tenantId, student.id);
     for (const item of selectedSubjects) {
@@ -1620,6 +1759,8 @@ export class MentoriaService {
       analysis: { weakSubjects: string[]; strongSubjects: string[]; nextActions: string[] };
       entry: MentoriaWorkspaceEntry;
       memory: MentoriaStudentMemorySummary;
+      learningMemory: StudentLearningMemory;
+      subjectMemories: MentoriaStudentSubjectMemory[];
       dailyClosure: MentoriaDailyClosureSummary | null;
       guardianHooks: MentoriaGuardianHookEvent[];
       exercises: MentoriaExercise[];
@@ -1638,10 +1779,19 @@ export class MentoriaService {
       motivation: dashboard.motivation,
       dailyPlan: dashboard.dailyPlan,
     });
+    const subjectMemories = await this.repository.listStudentSubjectMemories(actor.tenantId, dashboard.student.id);
     const memory = buildStudentMemorySummary({
       evolution: dashboard.evolution,
       progress: dashboard.progress,
       dailyPlan: dashboard.dailyPlan,
+      subjectMemories,
+    });
+    const learningMemory = await this.ensureLearningMemoryProfile(actor.tenantId, dashboard.student, {
+      evolution: dashboard.evolution,
+      progress: dashboard.progress,
+      subjects: dashboard.subjects,
+      studentSubjects: dashboard.studentSubjects,
+      recentSessions: dashboard.recentSessions,
     });
     const entry = buildWorkspaceEntry({
       student: dashboard.student,
@@ -1649,6 +1799,7 @@ export class MentoriaService {
       progress: dashboard.progress,
       dailyPlan: dashboard.dailyPlan,
       memory,
+      subjectMemories,
       analysis,
     });
     const events = await listEventsForUser(actor.userId, 50);
@@ -1757,6 +1908,8 @@ export class MentoriaService {
       analysis,
       entry,
       memory,
+      learningMemory,
+      subjectMemories,
       dailyClosure,
       guardianHooks,
       exercises,
@@ -1892,16 +2045,24 @@ export class MentoriaService {
       "Has llegado al limite diario de sesiones guiadas de tu plan actual.",
       "MENTORIA_GUIDED_SESSIONS_LIMIT_REACHED",
     );
-    const [evolution, progress, recentSessions, studentSubjects, subjects] = await Promise.all([
+    const [evolution, progress, recentSessions, studentSubjects, subjects, canonicalFamily] = await Promise.all([
       this.ensureEvolutionProfile(actor.tenantId, student),
       this.repository.listProgress(actor.tenantId, student.id),
       this.repository.listLearningSessions(actor.tenantId, student.id),
       this.repository.listStudentSubjects(actor.tenantId, student.id),
       this.repository.listSubjects(actor.tenantId),
+      this.getCanonicalFamilyContract(actor, student).catch(() => null),
     ]);
     const interventions = await this.syncInterventions(actor.tenantId, student.id, evolution);
     const motivation = await this.ensureMotivationState(actor.tenantId, student, evolution, interventions);
-    const dailyPlan = await this.ensureDailyPlan(actor.tenantId, student, { evolution, interventions, motivation, progress });
+    const learningMemory = await this.ensureLearningMemoryProfile(actor.tenantId, student, {
+      evolution,
+      progress,
+      subjects,
+      studentSubjects,
+      recentSessions,
+    });
+    const dailyPlan = await this.ensureDailyPlan(actor.tenantId, student, { evolution, interventions, motivation, progress, learningMemory });
     const enabledSubjectIds = new Set(studentSubjects.map((item) => item.subjectId));
     const availableSubjects = subjects.filter((subject) => enabledSubjectIds.has(subject.id));
     const subjectSelection = inferSubjectAndTopic({
@@ -1915,6 +2076,19 @@ export class MentoriaService {
     const subject = subjectSelection.subject;
     const resolvedTopic = subjectSelection.topic;
     const current = progress.find((item) => item.subjectId === subject.id);
+    const subjectMemories = await this.repository.listStudentSubjectMemories(actor.tenantId, student.id);
+    const dynamicProfile = buildDynamicStudentProfile({
+      student,
+      studentSubjects,
+      progress,
+      evolution,
+      learningMemory,
+      subjectMemories,
+      guardianStudentAccess: canonicalFamily?.guardianStudentAccess ?? [],
+      activeSubjectSlug: subject.slug,
+      activeTopic: resolvedTopic,
+    });
+    const tutorPolicy = buildTutorBehaviorPolicy(dynamicProfile);
     const actorContext = await this.syncUserContext(actor, student, {
       progress,
       evolution,
@@ -1943,10 +2117,18 @@ export class MentoriaService {
         motivation,
         dailyPlan,
         billing,
+        dynamicProfile,
+        learningMemory,
+        tutorPolicy,
       },
       metadata: {
         product: "mentoria",
         subjectId: subject.id,
+        dynamicTone: tutorPolicy.tone,
+        dynamicDifficulty: tutorPolicy.difficulty,
+        dynamicPace: tutorPolicy.pace,
+        memoryStyle: learningMemory.preferredExplanationStyle,
+        memoryBestSessionLength: learningMemory.bestSessionLength,
       },
     });
     const sessionMetric = createMetricEvent({
@@ -1957,6 +2139,10 @@ export class MentoriaService {
       metadata: {
         subjectSlug: subject.slug,
         subjectInferenceReason: subjectSelection.reason,
+        dynamicTone: tutorPolicy.tone,
+        dynamicDifficulty: tutorPolicy.difficulty,
+        dynamicPace: tutorPolicy.pace,
+        memoryStyle: learningMemory.preferredExplanationStyle,
       },
     });
 
@@ -1970,7 +2156,7 @@ export class MentoriaService {
       motivation: adaptiveContext.motivation,
     });
     const entryModeAdjustments = getTutorEntryModeAdjustments(payload.entryMode);
-    const resolvedSessionMode = payload.sessionMode ?? resolveMentoriaSessionMode({
+    const baseSessionMode = resolveMentoriaSessionMode({
       student,
       dailyPlan,
       latestSession: recentSessions[0] ?? null,
@@ -1981,6 +2167,7 @@ export class MentoriaService {
       stateLabel: adaptiveContext.interventions[0]?.summary ?? motivation.motivationProfile ?? null,
       suggestedInputKind: payload.sessionInputKind ?? null,
     });
+    const resolvedSessionMode = payload.sessionMode ?? resolveSessionModeFromProfile(dynamicProfile, baseSessionMode);
     const fallbackInputKind: MentoriaSessionInputKind = resolvedSessionMode === "exam_preparation"
       ? "exam_photo"
       : resolvedSessionMode === "study_routine"
@@ -1994,12 +2181,13 @@ export class MentoriaService {
               : "free_message";
     const resolvedSessionInputKind = payload.sessionInputKind ?? fallbackInputKind;
     const sessionContract = buildMentoriaSessionContract(resolvedSessionMode, resolvedSessionInputKind);
+    const profileAdaptation = applyTutorBehaviorPolicy(adaptation, tutorPolicy);
     const adaptedEntry = {
-      ...adaptation,
-      explanationDepth: entryModeAdjustments.explanationDepth ?? adaptation.explanationDepth,
-      difficultyAdjustment: entryModeAdjustments.difficultyAdjustment ?? adaptation.difficultyAdjustment,
+      ...profileAdaptation,
+      explanationDepth: entryModeAdjustments.explanationDepth ?? profileAdaptation.explanationDepth,
+      difficultyAdjustment: entryModeAdjustments.difficultyAdjustment ?? profileAdaptation.difficultyAdjustment,
       tutorInstruction: [
-        adaptation.tutorInstruction,
+        profileAdaptation.tutorInstruction,
         entryModeAdjustments.tutorInstruction,
         getTutorModeInstruction(resolvedSessionMode, sessionContract.headline),
       ].filter(Boolean).join(" ").trim(),
@@ -2021,6 +2209,9 @@ export class MentoriaService {
       motivation: MotivationState;
       dailyPlan: DailyPlan;
       billing: MentoriaBillingSummary;
+      dynamicProfile?: DynamicStudentProfile;
+      learningMemory?: StudentLearningMemory;
+      tutorPolicy?: TutorBehaviorPolicy;
       history?: MentoriaAgentHistoryTurn[];
     }, {
       tutorSummary: string;
@@ -2036,6 +2227,9 @@ export class MentoriaService {
           adaptation: adaptedEntry,
           interventions: adaptiveContext.interventions,
           motivation: adaptiveContext.motivation,
+          dynamicProfile,
+          learningMemory,
+          tutorPolicy,
           history,
         },
       },
@@ -2116,6 +2310,14 @@ export class MentoriaService {
         progress: current,
       }),
     );
+    const updatedDynamicProfile = updateDynamicStudentProfile(dynamicProfile, {
+      kind: "session",
+      emotionalState: session.emotionalState,
+      totalAnswers: tutorResponse.output.reinforcementQuestion ? 1 : 0,
+      correctAnswers: adaptation.emotionalState === "confident" || adaptation.emotionalState === "steady" ? 1 : 0,
+      abandoned: false,
+      responseSpeed: session.durationMinutes <= 10 ? "fast" : session.durationMinutes >= 24 ? "slow" : "medium",
+    });
     const syncedEvolution = await this.ensureEvolutionProfile(actor.tenantId, student);
     const syncedInterventions = await this.syncInterventions(actor.tenantId, student.id, syncedEvolution);
     const savedMotivation = await this.repository.saveMotivationState(
@@ -2132,6 +2334,45 @@ export class MentoriaService {
       }),
     );
     const updatedProgress = await this.repository.listProgress(actor.tenantId, student.id);
+    const updatedSubjectProgress = updatedProgress.find((item) => item.subjectId === subject.id) ?? current ?? null;
+    const updatedLearningMemory = await this.repository.saveStudentLearningMemory(
+      actor.tenantId,
+      updateStudentLearningMemory(learningMemory, {
+        kind: "guided_session",
+        subject,
+        session,
+        studentMessage: payload.message,
+        tutorReply: tutorResponse.reply,
+        progress: updatedSubjectProgress,
+        allProgress: updatedProgress,
+        evolution: syncedEvolution,
+        dynamicProfile: updatedDynamicProfile,
+        tutorPolicy,
+        happenedAt: session.createdAt,
+      }),
+    );
+    const sessionConceptKey = buildStudentSubjectMemoryEventConcept({
+      subject,
+      topic: resolvedTopic,
+      studentText: payload.message,
+    });
+    const currentSubjectMemory = await this.repository.getStudentSubjectMemory(actor.tenantId, student.id, subject.slug, sessionConceptKey);
+    const updatedSubjectMemory = await this.repository.saveStudentSubjectMemory(
+      actor.tenantId,
+      updateStudentSubjectMemory(currentSubjectMemory, {
+        kind: "guided_session",
+        studentId: student.id,
+        tenantId: actor.tenantId,
+        subject,
+        topic: resolvedTopic,
+        studentText: payload.message,
+        tutorReply: tutorResponse.reply,
+        tutorPolicy,
+        dynamicProfile: updatedDynamicProfile,
+        success: adaptation.emotionalState === "confident" || adaptation.emotionalState === "steady",
+        happenedAt: session.createdAt,
+      }),
+    );
     await this.completeDailyPlan(
       actor.tenantId,
       student,
@@ -2142,6 +2383,7 @@ export class MentoriaService {
         evolution: syncedEvolution,
         interventions: syncedInterventions,
         motivation: savedMotivation,
+        learningMemory: updatedLearningMemory,
       },
     );
     const refreshedDailyPlan = await this.ensureDailyPlan(actor.tenantId, student, {
@@ -2149,6 +2391,7 @@ export class MentoriaService {
       evolution: syncedEvolution,
       interventions: syncedInterventions,
       motivation: savedMotivation,
+      learningMemory: updatedLearningMemory,
     });
     const syncedContext = await this.syncUserContext(actor, student, {
       progress: updatedProgress,
@@ -2209,7 +2452,6 @@ export class MentoriaService {
         },
       }),
     );
-    const updatedSubjectProgress = updatedProgress.find((item) => item.subjectId === subject.id);
     await trackEvent(
       createMetricEvent({
         context: syncedContext,
@@ -2256,6 +2498,24 @@ export class MentoriaService {
         durationMinutes: session.durationMinutes ?? null,
         aiTokensUsed: tutorResponse.usage?.tokens ?? 0,
         emotionalState: adaptation.emotionalState,
+        dynamicProfile: {
+          comprehensionLevel: updatedDynamicProfile.cognitive.comprehensionLevel,
+          frustrationLevel: updatedDynamicProfile.emotional.frustrationLevel,
+          confidenceLevel: updatedDynamicProfile.emotional.confidenceLevel,
+          consistency: updatedDynamicProfile.emotional.consistency,
+        },
+        learningMemory: {
+          preferredExplanationStyle: updatedLearningMemory.preferredExplanationStyle,
+          confidenceTrend: updatedLearningMemory.confidenceTrend,
+          frustrationTrend: updatedLearningMemory.frustrationTrend,
+          consistencyTrend: updatedLearningMemory.consistencyTrend,
+          activeConceptKey: updatedSubjectMemory.conceptKey,
+          activeConceptMastery: updatedSubjectMemory.masteryLevel,
+          activeConceptConfidence: updatedSubjectMemory.confidenceLevel,
+          activeConceptNeedsReinforcement: updatedSubjectMemory.needsReinforcement,
+          bestSessionLength: updatedLearningMemory.bestSessionLength,
+          nextStart: updatedLearningMemory.lastAdaptationSummary.nextStart,
+        },
       },
       correlationId: session.id,
     });
@@ -2358,10 +2618,20 @@ export class MentoriaService {
     );
     const subject = await this.repository.getSubjectBySlug(actor.tenantId, payload.subjectSlug);
     if (!subject) throw new Error("SUBJECT_NOT_FOUND");
-    const evolution = await this.ensureEvolutionProfile(actor.tenantId, student);
+    const [evolution, progress, studentSubjects] = await Promise.all([
+      this.ensureEvolutionProfile(actor.tenantId, student),
+      this.repository.listProgress(actor.tenantId, student.id),
+      this.repository.listStudentSubjects(actor.tenantId, student.id),
+    ]);
     const interventions = await this.syncInterventions(actor.tenantId, student.id, evolution);
     const motivation = await this.ensureMotivationState(actor.tenantId, student, evolution, interventions);
-    const dailyPlan = await this.ensureDailyPlan(actor.tenantId, student, { evolution, interventions, motivation });
+    const learningMemory = await this.ensureLearningMemoryProfile(actor.tenantId, student, {
+      evolution,
+      progress,
+      subjects: [subject],
+      studentSubjects,
+    });
+    const dailyPlan = await this.ensureDailyPlan(actor.tenantId, student, { evolution, interventions, motivation, progress, learningMemory });
     const actorContext = await this.syncUserContext(actor, student, {
       evolution,
       motivation,
@@ -2385,6 +2655,7 @@ export class MentoriaService {
         motivation,
         dailyPlan,
         billing,
+        learningMemory,
       },
       metadata: {
         product: "mentoria",
@@ -2406,6 +2677,7 @@ export class MentoriaService {
         motivation: MotivationState;
         dailyPlan: DailyPlan;
         billing: MentoriaBillingSummary;
+        learningMemory?: StudentLearningMemory;
       },
       {
         prompt: string;
@@ -2449,10 +2721,18 @@ export class MentoriaService {
       this.ensureEvolutionProfile(actor.tenantId, student),
       this.repository.listProgress(actor.tenantId, student.id),
     ]);
+    const studentSubjects = await this.repository.listStudentSubjects(actor.tenantId, student.id);
     const interventions = await this.syncInterventions(actor.tenantId, student.id, evolution);
     const motivation = await this.ensureMotivationState(actor.tenantId, student, evolution, interventions);
+    const learningMemory = await this.ensureLearningMemoryProfile(actor.tenantId, student, {
+      evolution,
+      progress,
+      subjects: [subject],
+      studentSubjects,
+    });
+    const subjectMemories = await this.repository.listStudentSubjectMemories(actor.tenantId, student.id);
     const current = progress.find((item) => item.subjectId === subject.id);
-    await this.ensureDailyPlan(actor.tenantId, student, { evolution, interventions, motivation, progress });
+    await this.ensureDailyPlan(actor.tenantId, student, { evolution, interventions, motivation, progress, learningMemory });
     const billing = await this.getBillingSummary({ tenantId: actor.tenantId, canManageBilling: this.canManageBilling(actor) }, student);
     const adaptiveContext = this.getAdaptiveContext(billing, interventions, motivation);
     const correction = await correctExercise({
@@ -2523,6 +2803,57 @@ export class MentoriaService {
       }),
     );
     const updatedProgress = await this.repository.listProgress(actor.tenantId, student.id);
+    const updatedSubjectProgress = updatedProgress.find((item) => item.subjectId === subject.id) ?? current ?? null;
+    const exerciseDynamicProfile = buildDynamicStudentProfile({
+      student,
+      studentSubjects,
+      progress: updatedProgress,
+      evolution: syncedEvolution,
+      learningMemory,
+      subjectMemories,
+      activeSubjectSlug: subject.slug,
+      activeTopic: exercise.expectedCompetency,
+    });
+    const updatedLearningMemory = await this.repository.saveStudentLearningMemory(
+      actor.tenantId,
+      updateStudentLearningMemory(learningMemory, {
+        kind: "exercise",
+        subject,
+        exercise: saved,
+        score: correction.score,
+        studentMessage: payload.studentAnswer,
+        correctionFeedback: correction.feedback,
+        progress: updatedSubjectProgress,
+        allProgress: updatedProgress,
+        evolution: syncedEvolution,
+        dynamicProfile: exerciseDynamicProfile,
+        happenedAt: saved.updatedAt,
+      }),
+    );
+    const exerciseConceptKey = buildStudentSubjectMemoryEventConcept({
+      subject,
+      topic: exercise.expectedCompetency,
+      expectedCompetency: exercise.expectedCompetency,
+      studentText: payload.studentAnswer,
+    });
+    const currentExerciseSubjectMemory = await this.repository.getStudentSubjectMemory(actor.tenantId, student.id, subject.slug, exerciseConceptKey);
+    const updatedSubjectMemory = await this.repository.saveStudentSubjectMemory(
+      actor.tenantId,
+      updateStudentSubjectMemory(currentExerciseSubjectMemory, {
+        kind: correction.score >= 85 ? "microevaluation" : correction.score >= 70 ? "practice" : "reinforcement",
+        studentId: student.id,
+        tenantId: actor.tenantId,
+        subject,
+        topic: exercise.expectedCompetency,
+        expectedCompetency: exercise.expectedCompetency,
+        studentText: payload.studentAnswer,
+        correctionFeedback: correction.feedback,
+        score: correction.score,
+        dynamicProfile: exerciseDynamicProfile,
+        success: correction.score >= 78,
+        happenedAt: saved.updatedAt,
+      }),
+    );
     await this.completeDailyPlan(
       actor.tenantId,
       student,
@@ -2536,6 +2867,7 @@ export class MentoriaService {
         evolution: syncedEvolution,
         interventions: syncedInterventions,
         motivation: savedMotivation,
+        learningMemory: updatedLearningMemory,
       },
     );
     const refreshedDailyPlan = await this.ensureDailyPlan(actor.tenantId, student, {
@@ -2543,6 +2875,7 @@ export class MentoriaService {
       evolution: syncedEvolution,
       interventions: syncedInterventions,
       motivation: savedMotivation,
+      learningMemory: updatedLearningMemory,
     });
     const syncedContext = await this.syncUserContext(actor, student, {
       progress: updatedProgress,
@@ -2571,6 +2904,10 @@ export class MentoriaService {
           subject: subject.name,
           expectedCompetency: exercise.expectedCompetency,
           score: correction.score,
+          memoryStyle: updatedLearningMemory.preferredExplanationStyle,
+          memoryNextStart: updatedLearningMemory.lastAdaptationSummary.nextStart,
+          conceptKey: updatedSubjectMemory.conceptKey,
+          conceptMastery: updatedSubjectMemory.masteryLevel,
         },
       }),
     );
@@ -2599,6 +2936,9 @@ export class MentoriaService {
           subject: subject.name,
           score: correction.score,
           competency: exercise.expectedCompetency,
+          confidenceTrend: updatedLearningMemory.confidenceTrend,
+          frustrationTrend: updatedLearningMemory.frustrationTrend,
+          conceptKey: updatedSubjectMemory.conceptKey,
         },
       }),
     );

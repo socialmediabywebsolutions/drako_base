@@ -13,6 +13,9 @@ import { buildInterventionResponse } from "@/lib/mentoria/intervention-engine";
 import { getLearningProfile } from "@/lib/mentoria/learning-profile";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
 import { getMicrocopy } from "@/lib/mentoria/microcopy";
+import { buildTutorBehaviorPolicy, type TutorBehaviorPolicy } from "@/lib/mentoria/profile-engine";
+import type { StudentLearningMemory } from "@/lib/mentoria/student-learning-memory";
+import type { DynamicStudentProfile } from "@/lib/mentoria/student-profile";
 import { buildEvolutionAdaptiveSignals } from "@/lib/mentoria/student-evolution";
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
 import type { DailyPlan, MentoriaBillingSummary, MentoriaIntervention, MentoriaSubject, StudentProfile } from "@/lib/mentoria/types";
@@ -25,13 +28,60 @@ function selectSubjectAgent(subject: MentoriaSubject) {
   return scienceAgent;
 }
 
-function composeReply(teaching: MentoriaTeachingResponse, introCopy: string): string {
+export function composeAdaptiveTutorReply(
+  teaching: MentoriaTeachingResponse,
+  introCopy: string,
+  policy?: TutorBehaviorPolicy | null,
+): string {
+  const stepsLimit = policy?.explanationLength === "short" ? 2 : policy?.explanationLength === "deep" ? 4 : 3;
+  const visibleSteps = teaching.suggestedSteps.slice(0, stepsLimit);
+  const emotionalOpening =
+    policy?.tone === "empathetic"
+      ? "Vamos despacio. Que cueste ahora no significa que no puedas con ello."
+      : policy?.tone === "direct"
+        ? "Voy directo: primero comprobamos la idea y luego subimos un punto."
+        : null;
+  const detailCue =
+    policy?.detailLevel === "minimal"
+      ? "Me quedo con una idea clave y un primer paso."
+      : policy?.detailLevel === "analytical"
+        ? "Quiero que justifiques el razonamiento, no solo el resultado."
+        : null;
+  const reinforcementCue =
+    policy?.positiveReinforcement === "high"
+      ? "Si una parte sale regular, la usamos como pista y repetimos solo ese paso."
+      : policy?.positiveReinforcement === "low"
+        ? "Te dare menos pistas para que ganes autonomia."
+        : null;
+  const memoryCue =
+    policy?.preferredExplanationStyle === "visual_step_by_step" || policy?.exampleUse === "visual_step"
+      ? "Te lo pongo como esquema visual: partes, orden y comprobacion."
+      : policy?.preferredExplanationStyle === "concrete_examples"
+        ? "Empiezo por un ejemplo concreto y luego sacamos la regla."
+        : policy?.preferredExplanationStyle === "short_guided"
+          ? "Lo mantenemos corto: una idea, un paso y una comprobacion."
+          : policy?.preferredExplanationStyle === "challenge_first"
+            ? "Primero intentas justificar la idea; si falla, doy una pista."
+            : null;
+  const sessionLengthCue = policy?.bestSessionLength && policy.bestSessionLength <= 14
+    ? `Hoy no alargamos: bloque corto de unos ${policy.bestSessionLength} minutos.`
+    : null;
+  const conceptCue = policy?.memorySummary
+    ? `Hoy afinamos un concepto concreto: ${policy.memorySummary}`
+    : null;
+
   return [
+    emotionalOpening,
     introCopy,
+    conceptCue,
+    memoryCue,
+    sessionLengthCue,
+    detailCue,
     teaching.explanation,
-    teaching.suggestedSteps.length > 0
-      ? `Pasos sugeridos: ${teaching.suggestedSteps.map((step, index) => `${index + 1}. ${step}`).join(" ")}`
+    visibleSteps.length > 0
+      ? `Pasos sugeridos: ${visibleSteps.map((step, index) => `${index + 1}. ${step}`).join(" ")}`
       : null,
+    reinforcementCue,
     `Pregunta de refuerzo: ${teaching.reinforcementQuestion}`,
   ].filter(Boolean).join("\n\n");
 }
@@ -47,6 +97,9 @@ export async function runTutorAgent(input: {
   motivation: MotivationState;
   dailyPlan: DailyPlan;
   billing: MentoriaBillingSummary;
+  dynamicProfile?: DynamicStudentProfile;
+  learningMemory?: StudentLearningMemory;
+  tutorPolicy?: TutorBehaviorPolicy;
   history?: MentoriaAgentHistoryTurn[];
 }): Promise<{
   reply: string;
@@ -66,6 +119,7 @@ export async function runTutorAgent(input: {
   });
   const learningProfile = getLearningProfile(input.profile);
   const evolutionSignals = buildEvolutionAdaptiveSignals(input.evolution, { subject: input.subject });
+  const tutorPolicy = input.tutorPolicy ?? (input.dynamicProfile ? buildTutorBehaviorPolicy(input.dynamicProfile) : null);
   const interventionResponse = buildInterventionResponse(input.interventions);
   const introCopy = getMicrocopy(learningProfile.stage, "explanation_intro");
   const encouragementCopy = getMicrocopy(learningProfile.stage, "encouragement");
@@ -94,6 +148,38 @@ export async function runTutorAgent(input: {
           `Fortalezas recordadas: ${input.evolution.strengths.join(", ") || "sin fortalezas registradas"}.`,
           `Debilidades activas: ${input.evolution.weaknesses.join(", ") || "sin debilidades registradas"}.`,
           `Modo adaptativo: apoyo=${evolutionSignals.supportLevel}; reto=${evolutionSignals.challengeLevel}; explicacion=${evolutionSignals.explanationMode}; refuerzo=${evolutionSignals.reinforcementFrequency}.`,
+          input.dynamicProfile
+            ? [
+                `Perfil dinamico academico: etapa=${input.dynamicProfile.academic.stage}; curso=${input.dynamicProfile.academic.schoolYear}; repeticion=${input.dynamicProfile.academic.hasRepeatedCourse ? "si" : "no"}.`,
+                `Perfil dinamico cognitivo: comprension=${input.dynamicProfile.cognitive.comprehensionLevel}; errorRate=${input.dynamicProfile.cognitive.errorRate.toFixed(2)}; velocidad=${input.dynamicProfile.cognitive.responseSpeed}.`,
+                `Perfil dinamico emocional: frustracion=${input.dynamicProfile.emotional.frustrationLevel}; confianza=${input.dynamicProfile.emotional.confidenceLevel}; consistencia=${input.dynamicProfile.emotional.consistency}.`,
+                `Perfil dinamico familiar: estructura=${input.dynamicProfile.contextual.familyStructure}; soporte=${input.dynamicProfile.contextual.supportLevel}.`,
+              ].join("\n")
+            : null,
+          input.learningMemory
+            ? [
+                `Memoria evolutiva persistente: estilo=${input.learningMemory.preferredExplanationStyle}; velocidad=${input.learningMemory.averageResponseSpeed}; mejorDuracion=${input.learningMemory.bestSessionLength}; mejorFranja=${input.learningMemory.bestSessionTimeWindow}.`,
+                `Tendencias persistentes: confianza=${input.learningMemory.confidenceTrend}; frustracion=${input.learningMemory.frustrationTrend}; consistencia=${input.learningMemory.consistencyTrend}; motivacion=${input.learningMemory.motivationPattern}.`,
+                `Materias fuertes recordadas: ${input.learningMemory.strongestSubjects.join(", ") || "sin patron fuerte estable"}.`,
+                `Materias debiles recordadas: ${input.learningMemory.weakestSubjects.join(", ") || "sin debilidad persistente"}.`,
+                `Resumen interno anterior: funciono=${input.learningMemory.lastAdaptationSummary.worked}; friccion=${input.learningMemory.lastAdaptationSummary.friction}; proximoInicio=${input.learningMemory.lastAdaptationSummary.nextStart}.`,
+              ].join("\n")
+            : null,
+          input.dynamicProfile?.memory?.activeConceptKey
+            ? [
+                `Memoria didactica por concepto: concepto=${input.dynamicProfile.memory.activeConceptKey}; dominio=${input.dynamicProfile.memory.activeConceptMastery}; confianza=${input.dynamicProfile.memory.activeConceptConfidence}; refuerzoPendiente=${input.dynamicProfile.memory.activeConceptNeedsReinforcement ? "si" : "no"}; apoyo=${input.dynamicProfile.memory.activeConceptSupportStyle}.`,
+                `Resumen didactico activo: ${input.dynamicProfile.memory.activeConceptSummary ?? "sin resumen activo"}.`,
+                input.dynamicProfile.memory.fragileConcepts?.length
+                  ? `Conceptos fragiles cercanos: ${input.dynamicProfile.memory.fragileConcepts.map((item) => `${item.conceptKey}(${item.masteryLevel}, recurrencia=${item.recurrenceCount})`).join(", ")}.`
+                  : null,
+              ].filter(Boolean).join("\n")
+            : null,
+          tutorPolicy
+            ? [
+                `Politica viva del tutor: tono=${tutorPolicy.tone}; ritmo=${tutorPolicy.pace}; dificultad=${tutorPolicy.difficulty}; detalle=${tutorPolicy.detailLevel}; ejemplos=${tutorPolicy.exampleUse}; refuerzo positivo=${tutorPolicy.positiveReinforcement}.`,
+                ...tutorPolicy.directives,
+              ].join("\n")
+            : null,
           `Intervencion activa: tono=${interventionResponse.toneMode}; planner=${interventionResponse.plannerMode}; tutor=${interventionResponse.tutorMode}.`,
           `Motivacion: perfil=${input.motivation.motivationProfile}; racha=${input.motivation.streak}; esfuerzo=${input.motivation.effortScore.toFixed(2)}; nivel=${input.motivation.level}; puntos=${input.motivation.rewardPoints}.`,
           `Logros activos: ${input.motivation.achievements.join(", ") || "sin logros activos"}.`,
@@ -141,9 +227,16 @@ export async function runTutorAgent(input: {
     };
   }
 
-  const reply = composeReply(teaching, introCopy);
-  const tutorSummary = `Explicacion guiada de ${input.subject.name} sobre ${input.topic}, adaptada a ${input.profile.schoolYear} con tono ${input.adaptation.tone}.`;
+  const reply = composeAdaptiveTutorReply(teaching, introCopy, tutorPolicy);
+  const tutorSummary = `Explicacion guiada de ${input.subject.name} sobre ${input.topic}, adaptada a ${input.profile.schoolYear} con tono ${input.adaptation.tone}${tutorPolicy ? `, ritmo ${tutorPolicy.pace} y dificultad ${tutorPolicy.difficulty}` : ""}.`;
   const recommendedNextStep =
+    tutorPolicy?.sessionStage === "reinforcement"
+      ? "Repetir el patron clave con un ejemplo corto antes de avanzar."
+      : tutorPolicy?.sessionStage === "light_evaluation"
+        ? "Comprobar autonomia con un reto breve y pedir justificacion."
+        : tutorPolicy?.sessionStage === "guided_practice"
+          ? "Resolver un micro-paso guiado y confirmar seguridad antes de subir dificultad."
+          :
     input.dailyPlan.tasks.some((task) => !task.completed && task.subjectId === input.subject.id && task.type === "challenge")
       ? "Cerrar la comprension con un reto corto alineado al plan del dia."
       : input.adaptation.explanationDepth === "step_by_step" || interventionResponse.tutorMode === "gentle" || evolutionSignals.supportLevel === "high"

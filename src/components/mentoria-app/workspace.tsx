@@ -40,11 +40,14 @@ import type {
   MentoriaSessionMode,
   MentoriaSessionModeOption,
   MentoriaStudentMemorySummary,
+  MentoriaStudentSubjectMemory,
   MentoriaStudentSubject,
   MentoriaWorkspaceEntry,
   StudentProfile,
 } from "@/lib/mentoria/types";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
+import { buildDynamicStudentProfile } from "@/lib/mentoria/student-profile";
+import type { StudentLearningMemory } from "@/lib/mentoria/student-learning-memory";
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
 
 type WorkspaceSection = "board" | "subjects" | "sessions" | "progress" | "planner" | "focus" | "exercises" | "memory";
@@ -106,6 +109,8 @@ type WorkspaceState = {
   focusSessions: FocusSession[];
   entry: MentoriaWorkspaceEntry | null;
   memory: MentoriaStudentMemorySummary | null;
+  learningMemory: StudentLearningMemory | null;
+  subjectMemories: MentoriaStudentSubjectMemory[];
   evolution: StudentEvolutionProfile | null;
   growth: MentoriaGrowthSummary | null;
   dailyClosure: MentoriaDailyClosureSummary | null;
@@ -132,6 +137,8 @@ type WorkspaceApiResponse = WorkspaceState & {
   focusSessions?: FocusSession[];
   entry?: MentoriaWorkspaceEntry | null;
   memory?: MentoriaStudentMemorySummary | null;
+  learningMemory?: StudentLearningMemory | null;
+  subjectMemories?: MentoriaStudentSubjectMemory[];
   evolution?: StudentEvolutionProfile | null;
   growth?: MentoriaGrowthSummary | null;
   dailyClosure?: MentoriaDailyClosureSummary | null;
@@ -266,6 +273,8 @@ export function MentoriaWorkspace() {
     focusSessions: [],
     entry: null,
     memory: null,
+    learningMemory: null,
+    subjectMemories: [],
     evolution: null,
     growth: null,
     dailyClosure: null,
@@ -368,6 +377,8 @@ export function MentoriaWorkspace() {
         focusSessions: workspaceBody.focusSessions ?? [],
         entry: workspaceBody.entry ?? null,
         memory: workspaceBody.memory ?? null,
+        learningMemory: workspaceBody.learningMemory ?? null,
+        subjectMemories: workspaceBody.subjectMemories ?? [],
         evolution: workspaceBody.evolution ?? null,
         growth: workspaceBody.growth ?? null,
         dailyClosure: workspaceBody.dailyClosure ?? null,
@@ -1164,6 +1175,23 @@ export function MentoriaWorkspace() {
     return nextAction.ctaLabel;
   }, [behavioralFrame.primaryLabel, nextAction]);
 
+  const dynamicStudentProfile = useMemo(
+    () => state.student
+      ? buildDynamicStudentProfile({
+          student: state.student,
+          studentSubjects: state.studentSubjects,
+          progress: state.progress,
+          evolution: state.evolution,
+          learningMemory: state.learningMemory,
+          subjectMemories: state.subjectMemories,
+          guardianStudentAccess: state.guardianStudentAccess,
+          activeSubjectSlug: selectedSubject?.subject?.slug ?? subjectSlug,
+          activeTopic: topic,
+        })
+      : null,
+    [selectedSubject?.subject?.slug, state.evolution, state.guardianStudentAccess, state.learningMemory, state.progress, state.student, state.studentSubjects, state.subjectMemories, subjectSlug, topic],
+  );
+
   const orchestratorPlan = useMemo(
     () => buildWorkspaceOrchestratorPlan({
       nextAction,
@@ -1184,6 +1212,7 @@ export function MentoriaWorkspace() {
       latestExercise,
       latestSession,
       motivationMessage,
+      dynamicProfile: dynamicStudentProfile,
     }),
     [
       activeDailyTask,
@@ -1203,6 +1232,7 @@ export function MentoriaWorkspace() {
       selectedSubject?.subject?.slug,
       sessionProgressPercent,
       state.entry,
+      dynamicStudentProfile,
       topic,
       tutorResult,
     ],

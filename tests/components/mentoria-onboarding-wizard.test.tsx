@@ -59,21 +59,14 @@ describe("MentoriaOnboardingWizard", () => {
 
     render(React.createElement(MentoriaOnboardingWizard));
 
-    await screen.findByText("Vamos a ayudar a tu hijo de verdad");
-
-    fireEvent.click(screen.getByRole("button", { name: "Empezar" }));
-    await screen.findByText("Quien esta acompanando a tu hijo/a?");
+    await screen.findByText("Quienes sois");
 
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.getByText("Escribe el nombre del tutor principal.")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("Nombre completo del tutor principal"), {
+    fireEvent.change(screen.getByPlaceholderText("Nombre del tutor principal"), {
       target: { value: "Marta" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
-
-    await screen.findByText("Cuentanos sobre tu hijo/a");
-
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.getByText("Escribe el nombre del alumno.")).toBeInTheDocument();
 
@@ -81,15 +74,26 @@ describe("MentoriaOnboardingWizard", () => {
       target: { value: "Alex" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
-    expect(screen.getByText("Selecciona el curso del alumno.")).toBeInTheDocument();
+
+    await screen.findByText("Donde esta hoy");
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByText("Selecciona el curso real del alumno.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "2 ESO" }));
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByText("Indica si ha repetido curso.")).toBeInTheDocument();
 
-    await screen.findByText("Donde necesita mas ayuda?");
+    fireEvent.click(screen.getByRole("button", { name: "No ha repetido" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByText("Selecciona la materia o foco principal.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Matematicas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+
+    await screen.findByText("Con que arrancamos");
   });
 
-  it("submits the canonical onboarding payload and renders the activation result", async () => {
+  it("submits the canonical three-step onboarding payload and renders the activation result", async () => {
     fetchMock
       .mockResolvedValueOnce(
         jsonResponse({
@@ -138,31 +142,32 @@ describe("MentoriaOnboardingWizard", () => {
 
     render(React.createElement(MentoriaOnboardingWizard));
 
-    await screen.findByText("Vamos a ayudar a tu hijo de verdad");
+    await screen.findByText("Quienes sois");
 
-    fireEvent.click(screen.getByRole("button", { name: "Empezar" }));
-    await screen.findByText("Quien esta acompanando a tu hijo/a?");
-
-    fireEvent.change(screen.getByPlaceholderText("Nombre completo del tutor principal"), {
+    fireEvent.change(screen.getByPlaceholderText("Nombre del tutor principal"), {
       target: { value: "Marta" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
-
-    await screen.findByText("Cuentanos sobre tu hijo/a");
+    fireEvent.click(screen.getByRole("button", { name: "Madre" }));
+    fireEvent.click(screen.getByRole("button", { name: /Padres separados/ }));
+    fireEvent.change(screen.getByPlaceholderText("Nombre del segundo tutor"), {
+      target: { value: "Carlos" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Email del segundo tutor (opcional)"), {
+      target: { value: "carlos@example.com" },
+    });
     fireEvent.change(screen.getByPlaceholderText("Nombre del alumno/a"), {
       target: { value: "Alex" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+
+    await screen.findByText("Donde esta hoy");
     fireEvent.click(screen.getByRole("button", { name: "2 ESO" }));
+    fireEvent.click(screen.getByRole("button", { name: "Si, ha repetido" }));
+    fireEvent.click(screen.getByRole("button", { name: "Matematicas" }));
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
-    await screen.findByText("Donde necesita mas ayuda?");
-    fireEvent.click(screen.getByRole("checkbox"));
-    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
-
-    await screen.findByText("Que te gustaria que cambiara primero?");
-    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
-
-    await screen.findByText("Todo listo");
+    await screen.findByText("Con que arrancamos");
+    fireEvent.click(screen.getByRole("button", { name: /Examen cerca/ }));
     fireEvent.click(screen.getByRole("button", { name: "Preparar espacio" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
@@ -177,15 +182,25 @@ describe("MentoriaOnboardingWizard", () => {
     expect(payload).toEqual({
       primaryGuardian: {
         fullName: "Marta",
-        relation: "tutor",
+        relation: "mother",
       },
+      secondaryGuardian: {
+        fullName: "Carlos",
+        relation: "father",
+        email: "carlos@example.com",
+      },
+      familyStructure: "separated_parents",
       student: {
         fullName: "Alex",
+        stage: "eso",
         schoolYear: "2 ESO",
+        hasRepeatedCourse: true,
       },
       subjects: [{ subjectSlug: "matematicas", initialLevel: "me_cuesta_mucho" }],
-      goal: "improve_understanding",
+      goal: "pass_subject",
       confidenceLevel: "medium",
+      initialPriority: "exam",
+      primaryConcern: "Examen cerca",
     });
 
     await screen.findByRole("button", { name: "Entrar a Mentoria" });

@@ -8,14 +8,20 @@ export const dynamic = "force-dynamic";
 type LegacyMentoriaOnboardingPayload = {
   fullName?: string;
   schoolYear?: string;
+  stage?: MentoriaOnboardingPayload["student"]["stage"];
   subjects?: MentoriaOnboardingPayload["subjects"];
+  familyStructure?: MentoriaOnboardingPayload["familyStructure"];
+  hasRepeatedCourse?: boolean;
   parents?: Array<{
     fullName?: string;
     relation?: MentoriaOnboardingPayload["primaryGuardian"]["relation"];
+    email?: string;
     slot?: string;
   }>;
   objective?: MentoriaOnboardingPayload["goal"];
   confidenceLevel?: MentoriaOnboardingPayload["confidenceLevel"];
+  initialPriority?: MentoriaOnboardingPayload["initialPriority"];
+  primaryConcern?: string;
 };
 
 function statusFor(message: string) {
@@ -47,19 +53,34 @@ function normalizePayload(body: unknown): MentoriaOnboardingPayload {
   }
 
   const firstParent = Array.isArray(payload.parents) ? payload.parents.find((parent) => parent?.fullName?.trim()) : undefined;
+  const secondParent = Array.isArray(payload.parents)
+    ? payload.parents.filter((parent) => parent?.fullName?.trim())[1]
+    : undefined;
 
   return {
     primaryGuardian: {
       fullName: firstParent?.fullName?.trim() ?? "",
       relation: firstParent?.relation ?? "tutor",
     },
+    secondaryGuardian: secondParent
+      ? {
+          fullName: secondParent.fullName?.trim() ?? "",
+          relation: secondParent.relation ?? "tutor",
+          ...(secondParent.email?.trim() ? { email: secondParent.email.trim() } : {}),
+        }
+      : null,
+    familyStructure: payload.familyStructure ?? (secondParent ? "two_guardians" : "single_guardian"),
     student: {
       fullName: payload.fullName?.trim() ?? "",
+      stage: payload.stage,
       schoolYear: payload.schoolYear?.trim() ?? "",
+      hasRepeatedCourse: payload.hasRepeatedCourse,
     },
     subjects: Array.isArray(payload.subjects) ? payload.subjects : [],
     goal: payload.objective ?? "improve_understanding",
     confidenceLevel: payload.confidenceLevel ?? "medium",
+    initialPriority: payload.initialPriority,
+    primaryConcern: payload.primaryConcern,
   };
 }
 

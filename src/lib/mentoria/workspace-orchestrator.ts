@@ -1,3 +1,6 @@
+import { buildTutorBehaviorPolicy } from "@/lib/mentoria/profile-engine";
+import type { DynamicStudentProfile } from "@/lib/mentoria/student-profile";
+
 export type WorkspaceOrchestratorStage =
   | "idle"
   | "explaining"
@@ -37,6 +40,11 @@ export type WorkspaceOrchestratorPlan = {
   primaryAction: WorkspaceOrchestratorAction;
   secondaryActions: WorkspaceOrchestratorAction[];
   progressLabel?: string;
+  tutorBehavior?: {
+    tone: "empathetic" | "clear" | "direct";
+    difficulty: "down" | "steady" | "up";
+    pace: "slow" | "steady" | "fast";
+  };
 };
 
 export type WorkspaceOrchestratorNextAction = {
@@ -93,6 +101,7 @@ export type BuildWorkspaceOrchestratorPlanInput = {
     recommendedNextStep: string;
   } | null;
   motivationMessage?: string | null;
+  dynamicProfile?: DynamicStudentProfile | null;
 };
 
 const STAGE_COPY: Record<WorkspaceOrchestratorStage, { label: string; intent: string }> = {
@@ -129,6 +138,11 @@ function fallbackSubject(input: BuildWorkspaceOrchestratorPlanInput) {
     ?? input.currentTopic
     ?? input.activeSubjectSlug
     ?? "la materia activa";
+}
+
+function activeConceptLabel(input: BuildWorkspaceOrchestratorPlanInput): string | null {
+  const concept = input.dynamicProfile?.memory?.activeConceptKey ?? null;
+  return concept ? concept.replaceAll("_", " ") : null;
 }
 
 function makeSendAction(input: {
@@ -194,12 +208,15 @@ function buildPrimaryAction(input: BuildWorkspaceOrchestratorPlanInput): Workspa
   }
 
   const subject = fallbackSubject(input);
+  const profilePolicy = input.dynamicProfile ? buildTutorBehaviorPolicy(input.dynamicProfile) : null;
   return makeSendAction({
     id: "primary_explain",
-    label: "Te explico esto paso a paso",
-    description: "Abre una explicacion corta y accionable.",
+    label: profilePolicy?.difficulty === "up" ? "Ponme a prueba" : "Te explico esto paso a paso",
+    description: profilePolicy?.pace === "slow" ? "Abre una explicacion corta, pausada y accionable." : "Abre una explicacion corta y accionable.",
     topic: input.currentTopic ?? subject,
-    prompt: `Quiero que me expliques ${subject} paso a paso y luego me propongas una practica corta.`,
+    prompt: profilePolicy
+      ? `Quiero trabajar ${subject}. Adapta tono=${profilePolicy.tone}, ritmo=${profilePolicy.pace}, dificultad=${profilePolicy.difficulty} y despues proponme una practica corta.`
+      : `Quiero que me expliques ${subject} paso a paso y luego me propongas una practica corta.`,
     subjectSlug: input.activeSubjectSlug,
   });
 }
@@ -209,45 +226,62 @@ function resolveStage(input: BuildWorkspaceOrchestratorPlanInput): WorkspaceOrch
   if (input.sessionState === "checking" || input.nextAction?.kind === "exercise") return "light_evaluation";
   if (input.sessionState === "retry" || input.guidedFeedback?.status === "almost" || input.guidedFeedback?.status === "incorrect") return "reinforcement";
   if (input.activeGuidedStep || input.sessionState === "answering") return "guided_practice";
+  if (input.dynamicProfile) {
+    return buildTutorBehaviorPolicy(input.dynamicProfile).sessionStage;
+  }
   if (input.tutorResult?.recommendedNextStep || input.tutorResult?.reinforcementQuestion) return "explaining";
   return "idle";
 }
 
 function resolveMicroObjective(stage: WorkspaceOrchestratorStage, input: BuildWorkspaceOrchestratorPlanInput) {
   const subject = fallbackSubject(input);
+  const concept = activeConceptLabel(input);
   if (stage === "guided_practice" && input.activeGuidedStep) {
     return `Completar el paso ${Math.max(1, (input.activeStepIndex ?? 0) + 1)} sin abrir otro frente.`;
   }
   if (stage === "reinforcement") {
-    return input.guidedFeedback?.level === "short"
-      ? "Ampliar una idea mas y volver a comprobar."
-      : "Rehacer el mismo paso con la idea principal mas clara.";
+    return concept
+      ? `Reforzar ${concept} antes de continuar con ${subject}.`
+      : input.guidedFeedback?.level === "short"
+        ? "Ampliar una idea mas y volver a comprobar."
+        : "Rehacer el mismo paso con la idea principal mas clara.";
   }
   if (stage === "light_evaluation") {
-    return input.nextAction?.kind === "exercise"
-      ? "Entregar el ejercicio de la pizarra y decidir si subir o reforzar."
-      : "Comprobar la respuesta y decidir el siguiente movimiento.";
+    return concept
+      ? `Comprobar si ${concept} ya aguanta una evaluacion ligera.`
+      : input.nextAction?.kind === "exercise"
+        ? "Entregar el ejercicio de la pizarra y decidir si subir o reforzar."
+        : "Comprobar la respuesta y decidir el siguiente movimiento.";
   }
   if (stage === "summary") {
     return "Cerrar el bloque y dejar preparado el siguiente paso.";
   }
   if (stage === "explaining") {
-    return `Convertir la explicacion de ${subject} en una practica corta.`;
+    return concept
+      ? `Convertir la explicacion de ${concept} en una practica corta.`
+      : `Convertir la explicacion de ${subject} en una practica corta.`;
   }
-  return `Empezar por una accion clara en ${subject}.`;
+  return concept
+    ? `Empezar por una accion clara en ${concept}.`
+    : `Empezar por una accion clara en ${subject}.`;
 }
 
 function resolveNextStep(stage: WorkspaceOrchestratorStage, input: BuildWorkspaceOrchestratorPlanInput) {
+  const concept = activeConceptLabel(input);
   if (input.activeGuidedStep) return input.activeGuidedStep;
   if (input.nextAction?.title) return input.nextAction.title;
   if (input.tutorResult?.recommendedNextStep) return input.tutorResult.recommendedNextStep;
   if (input.latestSession?.recommendedNextStep) return input.latestSession.recommendedNextStep;
   if (input.entry?.recommendedTopic) return input.entry.recommendedTopic;
   if (stage === "summary") return "Elegir si conviene practicar otro ejemplo o cerrar por hoy.";
+  if (concept && input.dynamicProfile?.memory?.activeConceptNeedsReinforcement) {
+    return `Retomar ${concept} con apoyo ${input.dynamicProfile.memory.activeConceptSupportStyle?.replaceAll("_", " ") ?? "guiado"}.`;
+  }
   return "Abrir una sesion guiada y resolver el primer paso.";
 }
 
 function buildGuidedSteps(input: BuildWorkspaceOrchestratorPlanInput) {
+  const concept = activeConceptLabel(input);
   if (input.activeGuidedStep) {
     return [
       input.activeGuidedStep,
@@ -271,6 +305,13 @@ function buildGuidedSteps(input: BuildWorkspaceOrchestratorPlanInput) {
 
   if (input.nextAction?.detail) {
     return [input.nextAction.detail];
+  }
+
+  if (concept && input.dynamicProfile?.memory?.activeConceptNeedsReinforcement) {
+    return [
+      `Recupera ${concept} con una explicacion corta.`,
+      "Haz una comprobacion muy breve antes de subir el nivel.",
+    ];
   }
 
   return [];
@@ -343,6 +384,7 @@ function buildPracticeTrigger(input: BuildWorkspaceOrchestratorPlanInput): Works
 
 function buildSecondaryActions(input: BuildWorkspaceOrchestratorPlanInput): WorkspaceOrchestratorAction[] {
   const subject = fallbackSubject(input);
+  const concept = activeConceptLabel(input);
   const topic = input.tutorResult?.topic ?? input.currentTopic ?? subject;
   const subjectSlug = input.activeSubjectSlug ?? input.entry?.recommendedSubjectSlug ?? null;
   const actions: WorkspaceOrchestratorAction[] = [];
@@ -380,10 +422,12 @@ function buildSecondaryActions(input: BuildWorkspaceOrchestratorPlanInput): Work
 
   actions.push(makeSendAction({
     id: "explain",
-    label: "Te explico esto paso a paso",
-    description: "Pide una explicacion breve con practica.",
+    label: input.dynamicProfile && buildTutorBehaviorPolicy(input.dynamicProfile).difficulty === "up" ? "Subir el reto" : concept ? `Reexplicar ${concept}` : "Te explico esto paso a paso",
+    description: input.dynamicProfile && buildTutorBehaviorPolicy(input.dynamicProfile).pace === "slow" ? "Pide una explicacion breve, pausada y con practica." : "Pide una explicacion breve con practica.",
     topic,
-    prompt: `Explicame ${subject} paso a paso y despues dame un ejercicio corto.`,
+    prompt: input.dynamicProfile
+      ? `Explicame ${concept ?? subject} con el ritmo y dificultad adecuados a mi perfil actual, y despues dame un ejercicio corto.`
+      : `Explicame ${subject} paso a paso y despues dame un ejercicio corto.`,
     subjectSlug,
   }));
 
@@ -406,6 +450,8 @@ export function buildWorkspaceOrchestratorPlan(input: BuildWorkspaceOrchestrator
   const stage = resolveStage(input);
   const copy = STAGE_COPY[stage];
   const subject = fallbackSubject(input);
+  const concept = activeConceptLabel(input);
+  const profilePolicy = input.dynamicProfile ? buildTutorBehaviorPolicy(input.dynamicProfile) : null;
   const nextStep = resolveNextStep(stage, input);
   const microObjective = resolveMicroObjective(stage, input);
   const progressLabel = input.totalSteps && input.totalSteps > 0
@@ -418,19 +464,37 @@ export function buildWorkspaceOrchestratorPlan(input: BuildWorkspaceOrchestrator
       ? "La pizarra contiene el paso activo. El chat decide si avanzas, refuerzas o cierras."
       : input.nextAction?.kind === "resume_session"
         ? "La pizarra recupera el punto exacto de la ultima sesion."
-        : `La pizarra abre el trabajo principal de ${subject}.`;
+        : concept
+          ? `La pizarra abre el trabajo principal de ${concept} en ${subject}.`
+          : `La pizarra abre el trabajo principal de ${subject}.`;
 
-  const message = stage === "summary"
+  const profileMessage = profilePolicy?.tone === "empathetic"
+    ? "Vamos con menos carga y un paso claro. Primero seguridad, luego velocidad."
+    : profilePolicy?.tone === "direct" && profilePolicy.difficulty === "up"
+      ? "Vas con buena base: comprobamos rapido y subimos el reto si encaja."
+      : profilePolicy?.sessionStage === "reinforcement"
+        ? "Hoy conviene reforzar el patron y cerrar con continuidad."
+        : null;
+
+  const message = profileMessage ?? (stage === "summary"
     ? "Bien. No alargamos por alargar: cerramos avance y dejamos continuidad."
     : stage === "reinforcement"
-      ? "No cambiamos de tema. Ajustamos este paso y seguimos."
+      ? concept
+        ? `No cambiamos de foco. Ajustamos ${concept} y seguimos.`
+        : "No cambiamos de tema. Ajustamos este paso y seguimos."
       : stage === "light_evaluation"
-        ? "Toca comprobar con calma y decidir el nivel siguiente."
+        ? concept
+          ? `Toca comprobar con calma si ${concept} ya esta estable.`
+          : "Toca comprobar con calma y decidir el nivel siguiente."
         : stage === "guided_practice"
-          ? "Vamos a resolver esto juntos, un paso cada vez."
+          ? concept
+            ? `Vamos a trabajar ${concept} juntos, un paso cada vez.`
+            : "Vamos a resolver esto juntos, un paso cada vez."
           : stage === "explaining"
-            ? "Primero claridad, despues practica."
-            : input.motivationMessage ?? "Empezamos con una accion pequena y clara.";
+            ? concept
+              ? `Primero claridad en ${concept}, despues practica.`
+              : "Primero claridad, despues practica."
+            : input.motivationMessage ?? "Empezamos con una accion pequena y clara.");
 
   return {
     stage,
@@ -446,5 +510,12 @@ export function buildWorkspaceOrchestratorPlan(input: BuildWorkspaceOrchestrator
     primaryAction: buildPrimaryAction(input),
     secondaryActions: buildSecondaryActions(input),
     progressLabel,
+    tutorBehavior: profilePolicy
+      ? {
+          tone: profilePolicy.tone,
+          difficulty: profilePolicy.difficulty,
+          pace: profilePolicy.pace,
+        }
+      : undefined,
   };
 }

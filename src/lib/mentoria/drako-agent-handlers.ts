@@ -8,6 +8,9 @@ import { buildInterventionResponse } from "@/lib/mentoria/intervention-engine";
 import { getLearningProfile } from "@/lib/mentoria/learning-profile";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
 import { getMicrocopy } from "@/lib/mentoria/microcopy";
+import type { TutorBehaviorPolicy } from "@/lib/mentoria/profile-engine";
+import type { StudentLearningMemory } from "@/lib/mentoria/student-learning-memory";
+import type { DynamicStudentProfile } from "@/lib/mentoria/student-profile";
 import { buildEvolutionAdaptiveSignals } from "@/lib/mentoria/student-evolution";
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
 import type { DailyPlan, MentoriaBillingSummary, MentoriaIntervention, MentoriaProgress, MentoriaSubject, StudentProfile } from "@/lib/mentoria/types";
@@ -23,6 +26,9 @@ type TutorTaskInput = {
   motivation: MotivationState;
   dailyPlan: DailyPlan;
   billing: MentoriaBillingSummary;
+  dynamicProfile?: DynamicStudentProfile;
+  learningMemory?: StudentLearningMemory;
+  tutorPolicy?: TutorBehaviorPolicy;
   history?: MentoriaAgentHistoryTurn[];
 };
 
@@ -36,6 +42,7 @@ type ExerciseGeneratorTaskInput = {
   motivation: MotivationState;
   dailyPlan: DailyPlan;
   billing: MentoriaBillingSummary;
+  learningMemory?: StudentLearningMemory;
 };
 
 type ProgressEvaluatorTaskInput = {
@@ -128,9 +135,9 @@ async function exerciseGeneratorHandler(task: AgentTask<ExerciseGeneratorTaskInp
           : "guided"
       : task.input.difficultyLevel;
   const effectiveDifficulty =
-    interventionResponse.tutorMode === "gentle" || evolutionSignals.challengeLevel === "down"
+    task.input.learningMemory?.frustrationTrend === "rising" || interventionResponse.tutorMode === "gentle" || evolutionSignals.challengeLevel === "down"
       ? "guided"
-      : interventionResponse.tutorMode === "stretch" || evolutionSignals.challengeLevel === "up"
+      : task.input.learningMemory?.confidenceTrend === "rising" || interventionResponse.tutorMode === "stretch" || evolutionSignals.challengeLevel === "up"
         ? "stretch"
         : plannedDifficulty;
 
@@ -157,6 +164,9 @@ async function exerciseGeneratorHandler(task: AgentTask<ExerciseGeneratorTaskInp
             `Plan comercial: ${task.input.billing.planCode}; estado=${task.input.billing.subscriptionStatus}.`,
             `Plan diario: prioridad=${task.input.dailyPlan.priority}; razon=${task.input.dailyPlan.adaptationReason}; tarea actual=${plannedTask ? `${plannedTask.type} dificultad ${plannedTask.difficulty}` : "sin tarea especifica"}.`,
             `Debilidades activas: ${task.input.evolution.weaknesses.join(", ") || "sin debilidades activas"}.`,
+            task.input.learningMemory
+              ? `Memoria persistente: estilo=${task.input.learningMemory.preferredExplanationStyle}; mejorDuracion=${task.input.learningMemory.bestSessionLength}; confianza=${task.input.learningMemory.confidenceTrend}; frustracion=${task.input.learningMemory.frustrationTrend}.`
+              : "Memoria persistente: sin memoria longitudinal todavia.",
             `Microcopy de introduccion: ${introCopy}.`,
             `Microcopy de ayuda: ${errorCopy}.`,
             interventionResponse.tutorMode === "gentle" || evolutionSignals.supportLevel === "high"

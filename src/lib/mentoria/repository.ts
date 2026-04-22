@@ -1,6 +1,15 @@
 import { getDb } from "@/lib/db";
 import { getLearningProfile } from "@/lib/mentoria/learning-profile";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
+import { createInitialStudentSubjectMemory } from "@/lib/mentoria/student-subject-memory";
+import type {
+  StudentExplanationStyle,
+  StudentLearningMemory,
+  StudentLearningMemoryLastAdaptationSummary,
+  StudentLearningTrend,
+  StudentMotivationPattern,
+  StudentSessionTimeWindow,
+} from "@/lib/mentoria/student-learning-memory";
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
 import type {
   DailyPlan,
@@ -27,7 +36,9 @@ import type {
   MentoriaReferral,
   MentoriaReferralProfile,
   MentoriaRewardFeature,
+  MentoriaConceptInternalSummary,
   MentoriaSessionMessage,
+  MentoriaStudentSubjectMemory,
   MentoriaStudentSubject,
   MentoriaSubject,
   ParentAccount,
@@ -53,6 +64,25 @@ type StudentProfileRow = {
   strengths_json: string | null;
   support_notes: string | null;
   onboarding_completed: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type StudentSubjectMemoryRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  subject_slug: string;
+  concept_key: string;
+  confidence_level: string;
+  mastery_level: string;
+  recurrence_count: number;
+  last_error_type: string | null;
+  preferred_support_style: string;
+  last_worked_at: string;
+  needs_reinforcement: number;
+  evidence_summary: string;
+  internal_summary_json: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -260,6 +290,29 @@ type StudentEvolutionRow = {
   last_sessions: number;
   common_mistakes_json: string;
   progression_velocity: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type StudentLearningMemoryRow = {
+  id: string;
+  tenant_id: string;
+  student_profile_id: string;
+  strongest_subjects_json: string;
+  weakest_subjects_json: string;
+  preferred_explanation_style: string;
+  average_response_speed: string;
+  confidence_trend: string;
+  frustration_trend: string;
+  consistency_trend: string;
+  repetition_risk_signals_json: string;
+  motivation_pattern: string;
+  best_session_length: number;
+  best_session_time_window: string;
+  last_adaptation_summary_json: string;
+  style_evidence_json: string;
+  time_window_evidence_json: string;
+  adaptation_count: number;
   created_at: string;
   updated_at: string;
 };
@@ -714,6 +767,68 @@ function mapStudentEvolution(row: StudentEvolutionRow): StudentEvolutionProfile 
   };
 }
 
+function parseNumberRecord(value: string | null | undefined): Record<string, number> {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== "object") return {};
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .filter(([, item]) => typeof item === "number" && Number.isFinite(item))
+        .map(([key, item]) => [key, item as number]),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function parseAdaptationSummary(value: string | null | undefined): StudentLearningMemoryLastAdaptationSummary {
+  if (!value) {
+    return {
+      worked: "Sin aprendizaje persistente registrado todavia.",
+      friction: "Sin friccion persistente registrada todavia.",
+      nextStart: "Empezar con una comprobacion corta.",
+    };
+  }
+  try {
+    const parsed = JSON.parse(value) as Partial<StudentLearningMemoryLastAdaptationSummary>;
+    return {
+      worked: typeof parsed.worked === "string" && parsed.worked.trim() ? parsed.worked : "Sin aprendizaje persistente registrado todavia.",
+      friction: typeof parsed.friction === "string" && parsed.friction.trim() ? parsed.friction : "Sin friccion persistente registrada todavia.",
+      nextStart: typeof parsed.nextStart === "string" && parsed.nextStart.trim() ? parsed.nextStart : "Empezar con una comprobacion corta.",
+    };
+  } catch {
+    return {
+      worked: "Sin aprendizaje persistente registrado todavia.",
+      friction: "Sin friccion persistente registrada todavia.",
+      nextStart: "Empezar con una comprobacion corta.",
+    };
+  }
+}
+
+function mapStudentLearningMemory(row: StudentLearningMemoryRow): StudentLearningMemory {
+  return {
+    studentId: row.student_profile_id,
+    tenantId: row.tenant_id,
+    strongestSubjects: parseJsonArray<string>(row.strongest_subjects_json),
+    weakestSubjects: parseJsonArray<string>(row.weakest_subjects_json),
+    preferredExplanationStyle: row.preferred_explanation_style as StudentExplanationStyle,
+    averageResponseSpeed: row.average_response_speed as StudentLearningMemory["averageResponseSpeed"],
+    confidenceTrend: row.confidence_trend as StudentLearningTrend,
+    frustrationTrend: row.frustration_trend as StudentLearningTrend,
+    consistencyTrend: row.consistency_trend as StudentLearningTrend,
+    repetitionRiskSignals: parseJsonArray<string>(row.repetition_risk_signals_json),
+    motivationPattern: row.motivation_pattern as StudentMotivationPattern,
+    bestSessionLength: Number(row.best_session_length || 20),
+    bestSessionTimeWindow: row.best_session_time_window as StudentSessionTimeWindow,
+    lastAdaptationSummary: parseAdaptationSummary(row.last_adaptation_summary_json),
+    styleEvidence: parseNumberRecord(row.style_evidence_json) as StudentLearningMemory["styleEvidence"],
+    timeWindowEvidence: parseNumberRecord(row.time_window_evidence_json) as StudentLearningMemory["timeWindowEvidence"],
+    adaptationCount: Number(row.adaptation_count ?? 0),
+    updatedAt: row.updated_at,
+  };
+}
+
 function parseMetadata(value: string): Record<string, string | number | boolean | string[]> {
   try {
     const parsed = JSON.parse(value) as Record<string, string | number | boolean | string[]>;
@@ -721,6 +836,52 @@ function parseMetadata(value: string): Record<string, string | number | boolean 
   } catch {
     return {};
   }
+}
+
+function parseConceptInternalSummary(value: string | null | undefined): MentoriaConceptInternalSummary {
+  if (!value) {
+    return {
+      conceptWorked: "Concepto activo",
+      errorDetected: null,
+      interventionThatWorked: "step by step",
+      revisitSoon: true,
+    };
+  }
+  try {
+    const parsed = JSON.parse(value) as Partial<MentoriaConceptInternalSummary>;
+    return {
+      conceptWorked: typeof parsed.conceptWorked === "string" && parsed.conceptWorked.trim() ? parsed.conceptWorked : "Concepto activo",
+      errorDetected: typeof parsed.errorDetected === "string" && parsed.errorDetected.trim() ? parsed.errorDetected : null,
+      interventionThatWorked: typeof parsed.interventionThatWorked === "string" && parsed.interventionThatWorked.trim() ? parsed.interventionThatWorked : "step by step",
+      revisitSoon: Boolean(parsed.revisitSoon),
+    };
+  } catch {
+    return {
+      conceptWorked: "Concepto activo",
+      errorDetected: null,
+      interventionThatWorked: "step by step",
+      revisitSoon: true,
+    };
+  }
+}
+
+function mapStudentSubjectMemory(row: StudentSubjectMemoryRow): MentoriaStudentSubjectMemory {
+  return {
+    studentId: row.student_profile_id,
+    tenantId: row.tenant_id,
+    subjectSlug: row.subject_slug,
+    conceptKey: row.concept_key,
+    confidenceLevel: row.confidence_level as MentoriaStudentSubjectMemory["confidenceLevel"],
+    masteryLevel: row.mastery_level as MentoriaStudentSubjectMemory["masteryLevel"],
+    recurrenceCount: Number(row.recurrence_count ?? 0),
+    lastErrorType: row.last_error_type ?? null,
+    preferredSupportStyle: row.preferred_support_style as MentoriaStudentSubjectMemory["preferredSupportStyle"],
+    lastWorkedAt: row.last_worked_at,
+    needsReinforcement: Boolean(row.needs_reinforcement),
+    evidenceSummary: row.evidence_summary,
+    internalSummary: parseConceptInternalSummary(row.internal_summary_json),
+    updatedAt: row.updated_at,
+  };
 }
 
 function mapIntervention(row: InterventionRow): MentoriaIntervention {
@@ -1181,6 +1342,254 @@ export class MentoriaRepository {
     const saved = await this.getStudentEvolutionProfile(tenantId, profile.studentId);
     if (!saved) {
       throw new Error("MENTORIA_EVOLUTION_PROFILE_PERSIST_FAILED");
+    }
+    return saved;
+  }
+
+  async getStudentLearningMemory(tenantId: string, studentId: string): Promise<StudentLearningMemory | null> {
+    if (!(await this.hasTable("mentoria_student_learning_memory"))) {
+      return null;
+    }
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_student_learning_memory
+         WHERE tenant_id = ? AND student_profile_id = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, studentId)
+      .first<StudentLearningMemoryRow>();
+    return row ? mapStudentLearningMemory(row) : null;
+  }
+
+  async saveStudentLearningMemory(
+    tenantId: string,
+    memory: StudentLearningMemory,
+  ): Promise<StudentLearningMemory> {
+    if (!(await this.hasTable("mentoria_student_learning_memory"))) {
+      return { ...memory, tenantId };
+    }
+
+    const existing = await this.db
+      .prepare(
+        `SELECT id FROM mentoria_student_learning_memory
+         WHERE tenant_id = ? AND student_profile_id = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, memory.studentId)
+      .first<{ id: string }>();
+    const now = memory.updatedAt || new Date().toISOString();
+
+    if (existing) {
+      await this.db
+        .prepare(
+          `UPDATE mentoria_student_learning_memory
+           SET strongest_subjects_json = ?, weakest_subjects_json = ?, preferred_explanation_style = ?,
+               average_response_speed = ?, confidence_trend = ?, frustration_trend = ?, consistency_trend = ?,
+               repetition_risk_signals_json = ?, motivation_pattern = ?, best_session_length = ?,
+               best_session_time_window = ?, last_adaptation_summary_json = ?, style_evidence_json = ?,
+               time_window_evidence_json = ?, adaptation_count = ?, updated_at = ?
+           WHERE tenant_id = ? AND id = ?`,
+        )
+        .bind(
+          JSON.stringify(memory.strongestSubjects),
+          JSON.stringify(memory.weakestSubjects),
+          memory.preferredExplanationStyle,
+          memory.averageResponseSpeed,
+          memory.confidenceTrend,
+          memory.frustrationTrend,
+          memory.consistencyTrend,
+          JSON.stringify(memory.repetitionRiskSignals),
+          memory.motivationPattern,
+          memory.bestSessionLength,
+          memory.bestSessionTimeWindow,
+          JSON.stringify(memory.lastAdaptationSummary),
+          JSON.stringify(memory.styleEvidence),
+          JSON.stringify(memory.timeWindowEvidence),
+          memory.adaptationCount,
+          now,
+          tenantId,
+          existing.id,
+        )
+        .run();
+    } else {
+      await this.db
+        .prepare(
+          `INSERT INTO mentoria_student_learning_memory (
+            id, tenant_id, student_profile_id, strongest_subjects_json, weakest_subjects_json,
+            preferred_explanation_style, average_response_speed, confidence_trend, frustration_trend,
+            consistency_trend, repetition_risk_signals_json, motivation_pattern, best_session_length,
+            best_session_time_window, last_adaptation_summary_json, style_evidence_json,
+            time_window_evidence_json, adaptation_count, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          tenantId,
+          memory.studentId,
+          JSON.stringify(memory.strongestSubjects),
+          JSON.stringify(memory.weakestSubjects),
+          memory.preferredExplanationStyle,
+          memory.averageResponseSpeed,
+          memory.confidenceTrend,
+          memory.frustrationTrend,
+          memory.consistencyTrend,
+          JSON.stringify(memory.repetitionRiskSignals),
+          memory.motivationPattern,
+          memory.bestSessionLength,
+          memory.bestSessionTimeWindow,
+          JSON.stringify(memory.lastAdaptationSummary),
+          JSON.stringify(memory.styleEvidence),
+          JSON.stringify(memory.timeWindowEvidence),
+          memory.adaptationCount,
+          now,
+          now,
+        )
+        .run();
+    }
+
+    const saved = await this.getStudentLearningMemory(tenantId, memory.studentId);
+    if (!saved) {
+      throw new Error("MENTORIA_STUDENT_LEARNING_MEMORY_PERSIST_FAILED");
+    }
+    return saved;
+  }
+
+  async listStudentSubjectMemories(
+    tenantId: string,
+    studentId: string,
+    options?: { subjectSlug?: string | null },
+  ): Promise<MentoriaStudentSubjectMemory[]> {
+    if (!(await this.hasTable("mentoria_student_subject_memory"))) {
+      return [];
+    }
+
+    const subjectSlug = options?.subjectSlug?.trim() ?? "";
+    const result = subjectSlug
+      ? await this.db
+          .prepare(
+            `SELECT * FROM mentoria_student_subject_memory
+             WHERE tenant_id = ? AND student_profile_id = ? AND subject_slug = ?
+             ORDER BY needs_reinforcement DESC, recurrence_count DESC, updated_at DESC`,
+          )
+          .bind(tenantId, studentId, subjectSlug)
+          .all<StudentSubjectMemoryRow>()
+      : await this.db
+          .prepare(
+            `SELECT * FROM mentoria_student_subject_memory
+             WHERE tenant_id = ? AND student_profile_id = ?
+             ORDER BY needs_reinforcement DESC, recurrence_count DESC, updated_at DESC`,
+          )
+          .bind(tenantId, studentId)
+          .all<StudentSubjectMemoryRow>();
+
+    return (result.results ?? []).map(mapStudentSubjectMemory);
+  }
+
+  async getStudentSubjectMemory(
+    tenantId: string,
+    studentId: string,
+    subjectSlug: string,
+    conceptKey: string,
+  ): Promise<MentoriaStudentSubjectMemory | null> {
+    if (!(await this.hasTable("mentoria_student_subject_memory"))) {
+      return null;
+    }
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM mentoria_student_subject_memory
+         WHERE tenant_id = ? AND student_profile_id = ? AND subject_slug = ? AND concept_key = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, studentId, subjectSlug, conceptKey)
+      .first<StudentSubjectMemoryRow>();
+    return row ? mapStudentSubjectMemory(row) : null;
+  }
+
+  async saveStudentSubjectMemory(
+    tenantId: string,
+    memory: MentoriaStudentSubjectMemory,
+  ): Promise<MentoriaStudentSubjectMemory> {
+    if (!(await this.hasTable("mentoria_student_subject_memory"))) {
+      return { ...memory, tenantId };
+    }
+
+    const existing = await this.db
+      .prepare(
+        `SELECT id FROM mentoria_student_subject_memory
+         WHERE tenant_id = ? AND student_profile_id = ? AND subject_slug = ? AND concept_key = ?
+         LIMIT 1`,
+      )
+      .bind(tenantId, memory.studentId, memory.subjectSlug, memory.conceptKey)
+      .first<{ id: string }>();
+    const now = memory.updatedAt || new Date().toISOString();
+
+    if (existing) {
+      await this.db
+        .prepare(
+          `UPDATE mentoria_student_subject_memory
+           SET confidence_level = ?, mastery_level = ?, recurrence_count = ?, last_error_type = ?,
+               preferred_support_style = ?, last_worked_at = ?, needs_reinforcement = ?, evidence_summary = ?,
+               internal_summary_json = ?, updated_at = ?
+           WHERE tenant_id = ? AND id = ?`,
+        )
+        .bind(
+          memory.confidenceLevel,
+          memory.masteryLevel,
+          memory.recurrenceCount,
+          memory.lastErrorType ?? null,
+          memory.preferredSupportStyle,
+          memory.lastWorkedAt,
+          memory.needsReinforcement ? 1 : 0,
+          memory.evidenceSummary,
+          JSON.stringify(memory.internalSummary),
+          now,
+          tenantId,
+          existing.id,
+        )
+        .run();
+    } else {
+      const initial = createInitialStudentSubjectMemory({
+        studentId: memory.studentId,
+        tenantId,
+        subjectSlug: memory.subjectSlug,
+        conceptKey: memory.conceptKey,
+        supportStyle: memory.preferredSupportStyle,
+        happenedAt: memory.updatedAt,
+        evidenceSummary: memory.evidenceSummary,
+        errorType: memory.lastErrorType,
+      });
+      await this.db
+        .prepare(
+          `INSERT INTO mentoria_student_subject_memory (
+            id, tenant_id, student_profile_id, subject_slug, concept_key, confidence_level, mastery_level,
+            recurrence_count, last_error_type, preferred_support_style, last_worked_at, needs_reinforcement,
+            evidence_summary, internal_summary_json, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          tenantId,
+          memory.studentId,
+          memory.subjectSlug,
+          memory.conceptKey,
+          memory.confidenceLevel ?? initial.confidenceLevel,
+          memory.masteryLevel ?? initial.masteryLevel,
+          memory.recurrenceCount,
+          memory.lastErrorType ?? null,
+          memory.preferredSupportStyle,
+          memory.lastWorkedAt,
+          memory.needsReinforcement ? 1 : 0,
+          memory.evidenceSummary,
+          JSON.stringify(memory.internalSummary),
+          now,
+          now,
+        )
+        .run();
+    }
+
+    const saved = await this.getStudentSubjectMemory(tenantId, memory.studentId, memory.subjectSlug, memory.conceptKey);
+    if (!saved) {
+      throw new Error("MENTORIA_STUDENT_SUBJECT_MEMORY_PERSIST_FAILED");
     }
     return saved;
   }

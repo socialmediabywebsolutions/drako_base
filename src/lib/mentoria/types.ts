@@ -11,6 +11,9 @@ export type MentoriaLearningPreference = "practical_examples" | "step_by_step" |
 export type MentoriaInitialLevel = "me_cuesta_mucho" | "voy_normal" | "se_me_da_bien";
 export type MentoriaSupervisionLevel = "light" | "balanced" | "close";
 export type MentoriaOnboardingGoal = "improve_understanding" | "pass_subject" | "build_habit" | "gain_confidence";
+export type MentoriaFamilyStructure = "single_guardian" | "two_guardians" | "separated_parents" | "legal_guardian";
+export type MentoriaLearningStage = "primary" | "eso" | "bachillerato";
+export type MentoriaInitialPriority = "homework" | "exam" | "reinforcement" | "organization" | "frustration" | "other";
 export type InterventionType = "high_frustration" | "low_consistency" | "rapid_progress" | "stagnation" | "risk_student";
 export type MentoriaInterventionSeverity = "low" | "medium" | "high" | "critical";
 export type MentoriaInterventionStatus = "active" | "resolved";
@@ -25,6 +28,9 @@ export type MentoriaActorSystemRole = MentoriaGuardianSystemRole | "student";
 export type MentoriaGuardianRole = MentoriaGuardianFamilyRelation;
 export type MentoriaConversationScopeType = "family" | "student";
 export type MentoriaConversationChannel = "whatsapp";
+export type MentoriaConceptConfidenceLevel = "low" | "medium" | "high";
+export type MentoriaConceptMasteryLevel = "fragile" | "developing" | "secure" | "mastered";
+export type MentoriaSupportStyle = "step_by_step" | "visual_steps" | "concrete_example" | "guided_practice" | "retrieval_check";
 
 export type MentoriaFamily = {
   id: string;
@@ -48,6 +54,12 @@ export type MentoriaOnboardingPrimaryGuardian = {
   relation: MentoriaGuardianRole;
 };
 
+export type MentoriaOnboardingSecondaryGuardian = {
+  fullName: string;
+  relation: MentoriaGuardianRole;
+  email?: string;
+};
+
 export type MentoriaOnboardingSubjectInput = {
   subjectSlug: string;
   initialLevel: MentoriaInitialLevel;
@@ -55,15 +67,20 @@ export type MentoriaOnboardingSubjectInput = {
 
 export type MentoriaOnboardingPayload = {
   primaryGuardian: MentoriaOnboardingPrimaryGuardian;
+  secondaryGuardian?: MentoriaOnboardingSecondaryGuardian | null;
+  familyStructure?: MentoriaFamilyStructure;
   student: {
     fullName: string;
+    stage?: MentoriaLearningStage;
     schoolYear: string;
     approximateAge?: number;
     schoolName?: string;
+    hasRepeatedCourse?: boolean;
   };
   subjects: MentoriaOnboardingSubjectInput[];
   goal: MentoriaOnboardingGoal;
   confidenceLevel: "low" | "medium" | "high";
+  initialPriority?: MentoriaInitialPriority;
   primaryConcern?: string;
   referralCode?: string;
   inviteToken?: string;
@@ -475,6 +492,7 @@ export type MentoriaDashboard = {
   secondaryGuardians: MentoriaGuardian[];
   guardianStudentAccess: MentoriaGuardianStudentAccess[];
   sessionContext: MentoriaSessionContext;
+  subjectMemories?: MentoriaStudentSubjectMemory[];
   insights?: import("@/lib/drako/insights").Insight[];
 };
 
@@ -485,6 +503,30 @@ export type MentoriaStudentMemorySummary = {
   suggestedDifficulty: "guided" | "steady" | "stretch";
   nextPrioritySubjectId?: string | null;
   nextPriorityTask?: string | null;
+};
+
+export type MentoriaConceptInternalSummary = {
+  conceptWorked: string;
+  errorDetected: string | null;
+  interventionThatWorked: string;
+  revisitSoon: boolean;
+};
+
+export type MentoriaStudentSubjectMemory = {
+  studentId: string;
+  tenantId?: string;
+  subjectSlug: string;
+  conceptKey: string;
+  confidenceLevel: MentoriaConceptConfidenceLevel;
+  masteryLevel: MentoriaConceptMasteryLevel;
+  recurrenceCount: number;
+  lastErrorType: string | null;
+  preferredSupportStyle: MentoriaSupportStyle;
+  lastWorkedAt: string;
+  needsReinforcement: boolean;
+  evidenceSummary: string;
+  internalSummary: MentoriaConceptInternalSummary;
+  updatedAt: string;
 };
 
 export type MentoriaDailyClosureSummary = {

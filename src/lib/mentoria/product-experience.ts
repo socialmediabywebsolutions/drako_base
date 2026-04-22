@@ -6,6 +6,7 @@ import type {
   MentoriaGuardianHookEvent,
   MentoriaProgress,
   MentoriaStudentMemorySummary,
+  MentoriaStudentSubjectMemory,
   MentoriaSubject,
   MentoriaWorkspaceEntry,
   StudentProfile,
@@ -13,6 +14,7 @@ import type {
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
 import type { DrakoEventRecord } from "@/lib/drako/metrics";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
+import { humanizeConceptKey, rankFragileSubjectMemories } from "@/lib/mentoria/student-subject-memory";
 
 type InferSubjectInput = {
   requestedSubjectSlug?: string | null;
@@ -163,23 +165,33 @@ export function buildStudentMemorySummary(input: {
   evolution: StudentEvolutionProfile;
   progress: MentoriaProgress[];
   dailyPlan?: DailyPlan | null;
+  subjectMemories?: MentoriaStudentSubjectMemory[];
 }): MentoriaStudentMemorySummary {
   const weakestProgress = [...input.progress].sort((left, right) => {
     const leftScore = left.masteryScore + left.confidenceScore;
     const rightScore = right.masteryScore + right.confidenceScore;
     return leftScore - rightScore;
   })[0];
+  const fragileConcepts = rankFragileSubjectMemories(input.subjectMemories ?? []).slice(0, 3);
+  const conceptWatchouts = fragileConcepts.map((item) => `${humanizeConceptKey(item.conceptKey)} (${item.subjectSlug})`);
+  const conceptMistakes = fragileConcepts
+    .map((item) => item.lastErrorType ? `${humanizeConceptKey(item.conceptKey)}: ${item.lastErrorType}` : humanizeConceptKey(item.conceptKey))
+    .slice(0, 3);
+  const consolidatedWatchouts = Array.from(new Set([...conceptWatchouts, ...input.evolution.weaknesses])).slice(0, 4);
+  const consolidatedMistakes = Array.from(new Set([...conceptMistakes, ...input.evolution.commonMistakes])).slice(0, 5);
 
   const suggestedDifficulty =
-    input.evolution.frustrationLevel > 0.72
+    fragileConcepts.some((item) => item.needsReinforcement)
+      ? "guided"
+      : input.evolution.frustrationLevel > 0.72
       ? "guided"
       : input.evolution.progressionVelocity > 0.72 && input.evolution.consistencyScore > 0.58
         ? "stretch"
         : "steady";
 
   return {
-    commonMistakes: input.evolution.commonMistakes.slice(0, 5),
-    watchouts: input.evolution.weaknesses.slice(0, 4),
+    commonMistakes: consolidatedMistakes,
+    watchouts: consolidatedWatchouts,
     strengths: input.evolution.strengths.slice(0, 4),
     suggestedDifficulty,
     nextPrioritySubjectId: weakestProgress?.subjectId,
@@ -196,6 +208,7 @@ export function buildWorkspaceEntry(input: {
   progress: MentoriaProgress[];
   dailyPlan?: DailyPlan | null;
   memory: MentoriaStudentMemorySummary;
+  subjectMemories?: MentoriaStudentSubjectMemory[];
   analysis: { weakSubjects: string[]; strongSubjects: string[]; nextActions: string[] };
 }): MentoriaWorkspaceEntry {
   const nextTask = input.dailyPlan?.tasks.find((task) => !task.completed) ?? input.dailyPlan?.tasks[0] ?? null;
@@ -203,15 +216,20 @@ export function buildWorkspaceEntry(input: {
     input.subjects.find((subject) => subject.id === input.memory.nextPrioritySubjectId)
     ?? input.subjects[0]
     ?? null;
+  const priorityConcept = rankFragileSubjectMemories(input.subjectMemories ?? []).find((item) => item.needsReinforcement) ?? null;
+  const priorityConceptLabel = priorityConcept ? humanizeConceptKey(priorityConcept.conceptKey) : null;
 
   const recommendedPrompt = nextTask
     ? `Quiero avanzar con ${nextTask.subject}. Necesito ayuda para ${nextTask.type === "challenge" ? "resolver un reto" : "entender mejor un paso"}.`
+    : priorityConceptLabel && prioritySubject
+      ? `Quiero repasar ${priorityConceptLabel} en ${prioritySubject.name} paso a paso porque ahi sigo fallando.`
     : prioritySubject
       ? `Quiero repasar ${prioritySubject.name} paso a paso porque sigo teniendo dudas.`
       : "Quiero empezar con una duda que me esta costando.";
 
   const recommendedTopic =
-    nextTask?.subject
+    priorityConceptLabel
+    ?? nextTask?.subject
     ?? prioritySubject?.name
     ?? input.analysis.weakSubjects[0]
     ?? "Repaso guiado";
@@ -220,6 +238,8 @@ export function buildWorkspaceEntry(input: {
     headline:
       nextTask
         ? `Hoy tu siguiente paso claro es ${nextTask.type === "challenge" ? "cerrar un reto" : "trabajar una base"} en ${nextTask.subject}.`
+        : priorityConceptLabel && prioritySubject
+          ? `Hoy conviene recuperar ${priorityConceptLabel} dentro de ${prioritySubject.name}.`
         : "Empieza por una duda concreta y Mentoria te llevara paso a paso.",
     subheadline:
       input.analysis.nextActions[0]

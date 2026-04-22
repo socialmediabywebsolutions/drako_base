@@ -3,43 +3,40 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { getLearningProfile } from "@/lib/mentoria/learning-profile";
-import {
-  getMicrocopy,
-  getOnboardingUiCopy,
-  MENTORIA_SCHOOL_YEAR_OPTIONS,
-  getWorkspaceUiCopy,
-} from "@/lib/mentoria/microcopy";
+import { ArrowRight, Check, Loader2 } from "lucide-react";
+import { getWorkspaceUiCopy, MENTORIA_SCHOOL_YEAR_OPTIONS } from "@/lib/mentoria/microcopy";
 import type {
+  MentoriaFamilyStructure,
+  MentoriaGuardian,
   MentoriaGuardianRole,
+  MentoriaInitialPriority,
+  MentoriaLearningStage,
   MentoriaOnboardingPayload,
   MentoriaOnboardingPrimaryGuardian,
+  MentoriaOnboardingSecondaryGuardian,
   MentoriaOnboardingState,
+  MentoriaOnboardingSubjectInput,
   MentoriaSubject,
 } from "@/lib/mentoria/types";
 
 type OnboardingObjective = MentoriaOnboardingPayload["goal"];
-type ConfidenceLabel = "low" | "medium" | "high";
-type LearningStage = "primary" | "eso" | "bachillerato";
-type PrimaryConcernKey = "focus" | "math" | "reading" | "frustration" | "organization";
+type ConfidenceLabel = MentoriaOnboardingPayload["confidenceLevel"];
+type PriorityDraftValue = MentoriaInitialPriority | "";
 
-type SubjectChoice = {
-  subjectSlug: string;
-  initialLevel: "me_cuesta_mucho" | "voy_normal" | "se_me_da_bien";
-};
+type SubjectChoice = MentoriaOnboardingSubjectInput;
 
 type OnboardingDraft = {
+  familyStructure: MentoriaFamilyStructure;
   primaryGuardian: MentoriaOnboardingPrimaryGuardian;
+  secondaryGuardian: MentoriaOnboardingSecondaryGuardian & { email: string };
   student: {
     fullName: string;
-    stage: LearningStage;
+    stage: MentoriaLearningStage;
     schoolYear: string;
-    approximateAge: string;
-    schoolName: string;
+    hasRepeatedCourse: boolean | null;
     subjects: SubjectChoice[];
-    goal: OnboardingObjective;
-    confidence: number;
-    primaryConcern: PrimaryConcernKey;
+    initialPriority: PriorityDraftValue;
+    confidenceLevel: ConfidenceLabel;
   };
 };
 
@@ -48,44 +45,39 @@ type OnboardingValidation = {
   message: string | null;
 };
 
-type OnboardingSubmissionPayload = MentoriaOnboardingPayload;
-
 type SearchParamReader = {
   get(name: string): string | null;
 };
 
-const STORAGE_KEY = "mentoria-onboarding-activation-v2";
-const TOTAL_STEPS = 5;
-const DEFAULT_STAGE = "eso";
-const DEFAULT_SCHOOL_YEAR = MENTORIA_SCHOOL_YEAR_OPTIONS[6];
-const DEFAULT_FALLBACK_SUBJECTS = getWorkspaceUiCopy(DEFAULT_STAGE).fallbackSubjects;
-const GUARDIAN_STEP_COPY = {
-  title: "Quien esta acompanando a tu hijo/a?",
-  description: "Este acceso es del tutor principal. El pago y la configuracion de familia iran ligados a este perfil, no al alumno.",
-};
-const STUDENT_STEP_COPY = {
-  title: "Cuentanos sobre tu hijo/a",
-  description:
-    "Solo pedimos lo esencial para empezar con algo util sobre lo que ya trae del colegio: deberes, examenes, notas, organizacion o bloqueo.",
-};
-const GOAL_STEP_COPY = {
-  title: "Que te gustaria que cambiara primero?",
-  confidenceTitle: "Como esta viviendo esto ahora mismo?",
-  description: "Con esto elegimos la primera ayuda, la materia mas probable y el tono con el que arrancamos.",
-};
-const PRIMARY_GUARDIAN_OPTIONS: Array<{ value: MentoriaGuardianRole; label: string }> = [
+const STORAGE_KEY = "mentoria-onboarding-activation-v3";
+const TOTAL_STEPS = 3;
+const DEFAULT_STAGE: MentoriaLearningStage = "eso";
+
+const RELATION_OPTIONS: Array<{ value: MentoriaGuardianRole; label: string }> = [
   { value: "mother", label: "Madre" },
   { value: "father", label: "Padre" },
-  { value: "tutor", label: "Tutor" },
+  { value: "tutor", label: "Tutor legal" },
 ];
-const STAGE_OPTIONS: Array<{ value: LearningStage; label: string }> = [
+
+const FAMILY_STRUCTURE_OPTIONS: Array<{
+  value: MentoriaFamilyStructure;
+  title: string;
+  text: string;
+}> = [
+  { value: "single_guardian", title: "Un solo tutor", text: "Una persona acompana y gestiona el espacio." },
+  { value: "two_guardians", title: "Dos tutores", text: "Dos adultos coordinan el seguimiento." },
+  { value: "separated_parents", title: "Padres separados", text: "Un tutor entra ahora y el otro puede quedar invitado." },
+  { value: "legal_guardian", title: "Otro tutor legal", text: "Tutor, familiar o responsable legal." },
+];
+
+const STAGE_OPTIONS: Array<{ value: MentoriaLearningStage; label: string }> = [
   { value: "primary", label: "Primaria" },
   { value: "eso", label: "ESO" },
   { value: "bachillerato", label: "Bachillerato" },
 ];
-const APPROXIMATE_AGE_OPTIONS = ["8-9", "10-11", "12-13", "14-15", "16-17"];
-const PRIMARY_CONCERN_OPTIONS: Array<{
-  value: PrimaryConcernKey;
+
+const PRIORITY_OPTIONS: Array<{
+  value: MentoriaInitialPriority;
   title: string;
   text: string;
   goal: OnboardingObjective;
@@ -93,55 +85,89 @@ const PRIMARY_CONCERN_OPTIONS: Array<{
   subjectSlugs: string[];
 }> = [
   {
-    value: "focus",
-    title: "Le cuesta concentrarse",
-    text: "Le cuesta sentarse, empezar o sostener la atencion con deberes y estudio.",
-    goal: "build_habit",
-    confidence: "low",
-    subjectSlugs: ["lengua", "ciencias", "historia"],
-  },
-  {
-    value: "math",
-    title: "Va mal en mates",
-    text: "Queremos reforzar una materia concreta que le esta frenando ahora mismo.",
-    goal: "pass_subject",
-    confidence: "medium",
-    subjectSlugs: ["matematicas", "fisica-y-quimica", "economia"],
-  },
-  {
-    value: "reading",
-    title: "No entiende lo que lee",
-    text: "Le cuesta comprender enunciados, textos o resumir lo importante.",
+    value: "homework",
+    title: "Deberes de hoy",
+    text: "Entrar con una tarea concreta y resolver el atasco.",
     goal: "improve_understanding",
     confidence: "medium",
-    subjectSlugs: ["lengua", "historia", "biologia"],
+    subjectSlugs: ["matematicas", "lengua", "ingles"],
+  },
+  {
+    value: "exam",
+    title: "Examen cerca",
+    text: "Ordenar que estudiar primero y practicar con foco.",
+    goal: "pass_subject",
+    confidence: "medium",
+    subjectSlugs: ["matematicas", "fisica-y-quimica", "lengua"],
+  },
+  {
+    value: "reinforcement",
+    title: "Refuerzo",
+    text: "Reforzar una materia que se esta haciendo cuesta arriba.",
+    goal: "improve_understanding",
+    confidence: "medium",
+    subjectSlugs: ["matematicas", "lengua", "ciencias"],
+  },
+  {
+    value: "organization",
+    title: "Organizacion",
+    text: "Convertir estudio, deberes y examenes en un plan viable.",
+    goal: "build_habit",
+    confidence: "medium",
+    subjectSlugs: ["lengua", "matematicas", "ingles"],
   },
   {
     value: "frustration",
-    title: "Se frustra con los deberes",
-    text: "Necesita apoyo para desbloquearse y volver a sentir que puede avanzar.",
+    title: "Bloqueo o frustracion",
+    text: "Bajar carga, recuperar confianza y conseguir una primera victoria.",
     goal: "gain_confidence",
     confidence: "low",
     subjectSlugs: ["matematicas", "lengua", "ingles"],
   },
   {
-    value: "organization",
-    title: "Queremos organizar mejor su estudio",
-    text: "Necesitamos mas orden para deberes, examenes y continuidad semanal.",
-    goal: "build_habit",
+    value: "other",
+    title: "Otra necesidad",
+    text: "Empezar con una ayuda guiada y ajustar despues.",
+    goal: "improve_understanding",
     confidence: "medium",
-    subjectSlugs: ["lengua", "matematicas", "ingles"],
+    subjectSlugs: ["matematicas", "lengua", "ciencias"],
   },
 ];
 
-function deriveStageFromSchoolYear(schoolYear: string): LearningStage {
+const EMPTY_DRAFT: OnboardingDraft = {
+  familyStructure: "single_guardian",
+  primaryGuardian: {
+    fullName: "",
+    relation: "tutor",
+  },
+  secondaryGuardian: {
+    fullName: "",
+    relation: "father",
+    email: "",
+  },
+  student: {
+    fullName: "",
+    stage: DEFAULT_STAGE,
+    schoolYear: "",
+    hasRepeatedCourse: null,
+    subjects: [],
+    initialPriority: "",
+    confidenceLevel: "medium",
+  },
+};
+
+function isGuardianRole(value: string | null): value is MentoriaGuardianRole {
+  return value === "mother" || value === "father" || value === "tutor";
+}
+
+function deriveStageFromSchoolYear(schoolYear: string): MentoriaLearningStage {
   const normalized = schoolYear.toLowerCase().trim();
   if (normalized.includes("primaria")) return "primary";
   if (normalized.includes("bach")) return "bachillerato";
   return "eso";
 }
 
-function getSchoolYearOptions(stage: LearningStage): string[] {
+function getSchoolYearOptions(stage: MentoriaLearningStage): string[] {
   if (stage === "primary") {
     return MENTORIA_SCHOOL_YEAR_OPTIONS.filter((year) => year.toLowerCase().includes("primaria"));
   }
@@ -151,28 +177,37 @@ function getSchoolYearOptions(stage: LearningStage): string[] {
   return MENTORIA_SCHOOL_YEAR_OPTIONS.filter((year) => year.toLowerCase().includes("eso"));
 }
 
-function inferSubjectsFromConcern(
-  concern: PrimaryConcernKey,
-  subjects: MentoriaSubject[],
-): SubjectChoice[] {
-  const concernConfig = PRIMARY_CONCERN_OPTIONS.find((option) => option.value === concern) ?? PRIMARY_CONCERN_OPTIONS[0];
+function getFallbackSubjects(stage: MentoriaLearningStage): MentoriaSubject[] {
+  return getWorkspaceUiCopy(stage).fallbackSubjects.map(
+    (subject) =>
+      ({
+        id: subject.slug,
+        tenantId: "",
+        slug: subject.slug,
+        name: subject.label,
+        description: "",
+        difficultyBand: "core",
+        createdAt: "",
+        updatedAt: "",
+      }) as MentoriaSubject,
+  );
+}
+
+function inferSubjectsFromPriority(priority: MentoriaInitialPriority, subjects: MentoriaSubject[]): SubjectChoice[] {
+  const priorityConfig = PRIORITY_OPTIONS.find((option) => option.value === priority) ?? PRIORITY_OPTIONS[2];
   const availableBySlug = new Map(subjects.map((subject) => [subject.slug, subject]));
-  const matched = concernConfig.subjectSlugs
+  const matched = priorityConfig.subjectSlugs
     .filter((slug) => availableBySlug.has(slug))
-    .slice(0, 2)
-    .map((slug, index) => ({
+    .slice(0, 1)
+    .map((slug) => ({
       subjectSlug: slug,
-      initialLevel: index === 0 ? "me_cuesta_mucho" : "voy_normal",
+      initialLevel: priority === "frustration" ? "me_cuesta_mucho" : "voy_normal",
     })) as SubjectChoice[];
 
-  if (matched.length > 0) {
-    return matched;
-  }
+  if (matched.length > 0) return matched;
 
-  return DEFAULT_FALLBACK_SUBJECTS.slice(0, 2).map((subject, index) => ({
-    subjectSlug: subject.slug,
-    initialLevel: index === 0 ? "me_cuesta_mucho" : "voy_normal",
-  }));
+  const fallback = subjects[0] ?? getFallbackSubjects(DEFAULT_STAGE)[0];
+  return fallback ? [{ subjectSlug: fallback.slug, initialLevel: "me_cuesta_mucho" }] : [];
 }
 
 function buildMentoriaWorkspaceUrl(searchParams: SearchParamReader): string {
@@ -196,34 +231,12 @@ function buildMentoriaWorkspaceUrl(searchParams: SearchParamReader): string {
   return target.toString();
 }
 
-const EMPTY_DRAFT: OnboardingDraft = {
-  primaryGuardian: {
-    fullName: "",
-    relation: "tutor",
-  },
-  student: {
-    fullName: "",
-    stage: "eso",
-    schoolYear: "",
-    approximateAge: "12-13",
-    schoolName: "",
-    subjects: [],
-    goal: "improve_understanding",
-    confidence: 2,
-    primaryConcern: "math",
-  },
-};
-
-function confidenceLabelToNumber(label: ConfidenceLabel): number {
-  if (label === "low") return 1;
-  if (label === "high") return 3;
-  return 2;
+function isSecondaryGuardianExpected(familyStructure: MentoriaFamilyStructure) {
+  return familyStructure === "two_guardians";
 }
 
-function confidenceNumberToLabel(value: number): ConfidenceLabel {
-  if (value <= 1) return "low";
-  if (value >= 3) return "high";
-  return "medium";
+function hasSecondaryGuardianDraft(draft: OnboardingDraft) {
+  return Boolean(draft.secondaryGuardian.fullName.trim() || draft.secondaryGuardian.email.trim());
 }
 
 function getStepValidation(step: number, draft: OnboardingDraft): OnboardingValidation {
@@ -232,35 +245,44 @@ function getStepValidation(step: number, draft: OnboardingDraft): OnboardingVali
       return { valid: false, message: "Escribe el nombre del tutor principal." };
     }
     if (!draft.primaryGuardian.relation) {
-      return { valid: false, message: "Selecciona si eres padre, madre o tutor." };
+      return { valid: false, message: "Indica que relacion tiene el tutor principal." };
+    }
+    if (isSecondaryGuardianExpected(draft.familyStructure) && !draft.secondaryGuardian.fullName.trim()) {
+      return { valid: false, message: "Anade el nombre del segundo tutor o cambia la estructura familiar." };
+    }
+    if (isSecondaryGuardianExpected(draft.familyStructure) && !draft.secondaryGuardian.email.trim()) {
+      return { valid: false, message: "Anade el email del segundo tutor para conectarlo al espacio." };
+    }
+    if (hasSecondaryGuardianDraft(draft) && !draft.secondaryGuardian.fullName.trim()) {
+      return { valid: false, message: "Escribe el nombre del segundo tutor." };
+    }
+    if (draft.secondaryGuardian.email.trim() && !draft.secondaryGuardian.email.includes("@")) {
+      return { valid: false, message: "Revisa el email del segundo tutor." };
+    }
+    if (!draft.student.fullName.trim()) {
+      return { valid: false, message: "Escribe el nombre del alumno." };
     }
     return { valid: true, message: null };
   }
 
   if (step === 2) {
-    if (!draft.student.fullName.trim()) {
-      return { valid: false, message: "Escribe el nombre del alumno." };
-    }
     if (!draft.student.schoolYear.trim()) {
-      return { valid: false, message: "Selecciona el curso del alumno." };
+      return { valid: false, message: "Selecciona el curso real del alumno." };
+    }
+    if (draft.student.hasRepeatedCourse === null) {
+      return { valid: false, message: "Indica si ha repetido curso." };
+    }
+    if (draft.student.subjects.length === 0) {
+      return { valid: false, message: "Selecciona la materia o foco principal." };
     }
     return { valid: true, message: null };
   }
 
   if (step === 3) {
-    if (draft.student.subjects.length === 0) {
-      return { valid: false, message: "Selecciona al menos una materia." };
+    if (!draft.student.initialPriority) {
+      return { valid: false, message: "Selecciona con que arrancamos." };
     }
     return { valid: true, message: null };
-  }
-
-  if (step === 4) {
-    if (!draft.student.goal) {
-      return { valid: false, message: "Selecciona el objetivo principal." };
-    }
-    return typeof draft.student.confidence === "number" && draft.student.confidence >= 1
-      ? { valid: true, message: null }
-      : { valid: false, message: "Indica como se siente ahora mismo." };
   }
 
   return { valid: true, message: null };
@@ -268,38 +290,72 @@ function getStepValidation(step: number, draft: OnboardingDraft): OnboardingVali
 
 function buildOnboardingPayload(
   draft: OnboardingDraft,
+  subjects: MentoriaSubject[],
   searchParams: SearchParamReader,
-): OnboardingSubmissionPayload {
-  const payload: OnboardingSubmissionPayload = {
+): MentoriaOnboardingPayload {
+  const selectedPriority = PRIORITY_OPTIONS.find((option) => option.value === draft.student.initialPriority) ?? PRIORITY_OPTIONS[2];
+  const selectedSubjects = draft.student.subjects.length > 0
+    ? draft.student.subjects
+    : inferSubjectsFromPriority(selectedPriority.value, subjects);
+  const secondaryGuardian = hasSecondaryGuardianDraft(draft)
+    ? {
+        fullName: draft.secondaryGuardian.fullName.trim(),
+        relation: draft.secondaryGuardian.relation,
+        ...(draft.secondaryGuardian.email.trim() ? { email: draft.secondaryGuardian.email.trim() } : {}),
+      }
+    : null;
+  const referralCode = searchParams.get("ref") ?? undefined;
+  const inviteToken = searchParams.get("invite") ?? undefined;
+
+  return {
     primaryGuardian: {
       fullName: draft.primaryGuardian.fullName.trim(),
       relation: draft.primaryGuardian.relation,
     },
+    secondaryGuardian,
+    familyStructure: draft.familyStructure,
     student: {
       fullName: draft.student.fullName.trim(),
+      stage: draft.student.stage,
       schoolYear: draft.student.schoolYear,
+      hasRepeatedCourse: draft.student.hasRepeatedCourse ?? false,
     },
-    subjects: draft.student.subjects,
-    goal: draft.student.goal,
-    confidenceLevel: confidenceNumberToLabel(draft.student.confidence),
+    subjects: selectedSubjects,
+    goal: selectedPriority.goal,
+    confidenceLevel: draft.student.confidenceLevel,
+    initialPriority: selectedPriority.value,
+    primaryConcern: selectedPriority.title,
+    referralCode,
+    inviteToken,
   };
-  const schoolName = draft.student.schoolName.trim();
-  const referralCode = searchParams.get("ref") ?? undefined;
-  const inviteToken = searchParams.get("invite") ?? undefined;
-  if (schoolName) payload.student.schoolName = schoolName;
-  if (referralCode) payload.referralCode = referralCode;
-  if (inviteToken) payload.inviteToken = inviteToken;
-  return payload;
+}
+
+function parseRepeatedCourse(supportNotes?: string): boolean | null {
+  if (!supportNotes) return null;
+  if (supportNotes.includes("repeticion si")) return true;
+  if (supportNotes.includes("repeticion no")) return false;
+  return null;
+}
+
+function parseInitialPriority(supportNotes?: string): PriorityDraftValue {
+  if (!supportNotes) return "";
+  if (supportNotes.includes("prioridad inicial deberes")) return "homework";
+  if (supportNotes.includes("prioridad inicial examen")) return "exam";
+  if (supportNotes.includes("prioridad inicial refuerzo")) return "reinforcement";
+  if (supportNotes.includes("prioridad inicial organizacion")) return "organization";
+  if (supportNotes.includes("prioridad inicial bloqueo/frustracion")) return "frustration";
+  if (supportNotes.includes("prioridad inicial otra necesidad")) return "other";
+  return "";
 }
 
 function StepBadge({ current }: { current: number }) {
   return (
-    <div className="mb-8 flex items-center gap-2">
+    <div className="flex items-center gap-2" aria-label={`Paso ${current} de ${TOTAL_STEPS}`}>
       {Array.from({ length: TOTAL_STEPS }, (_, index) => index + 1).map((step) => (
         <div
           key={step}
-          className={`h-2 flex-1 rounded-full transition-colors duration-200 ${
-            step <= current ? "bg-emerald-500 shadow-md" : "bg-slate-200 shadow-inner"
+          className={`h-1.5 flex-1 rounded-full transition-colors duration-200 ${
+            step <= current ? "bg-emerald-600" : "bg-slate-200"
           }`}
         />
       ))}
@@ -307,42 +363,63 @@ function StepBadge({ current }: { current: number }) {
   );
 }
 
-function getAgeFromSchoolYear(schoolYear: string): number {
-  const year = schoolYear.toLowerCase().trim();
-  if (year === "1 primaria") return 6;
-  if (year === "2 primaria") return 7;
-  if (year === "3 primaria") return 8;
-  if (year === "4 primaria") return 9;
-  if (year === "5 primaria") return 10;
-  if (year === "6 primaria") return 11;
-  if (year === "1 eso") return 12;
-  if (year === "2 eso") return 13;
-  if (year === "3 eso") return 14;
-  if (year === "4 eso") return 15;
-  return 16;
+function ChoiceButton({
+  selected,
+  onClick,
+  title,
+  text,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  title: string;
+  text?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`min-h-[72px] rounded-lg border px-4 py-3 text-left text-sm transition-colors duration-200 ${
+        selected
+          ? "border-emerald-600 bg-emerald-50 text-emerald-950"
+          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+      }`}
+    >
+      <span className="flex items-center justify-between gap-3 font-semibold">
+        {title}
+        {selected ? <Check className="h-4 w-4 shrink-0" aria-hidden="true" /> : null}
+      </span>
+      {text ? <span className="mt-1 block leading-5 text-slate-500">{text}</span> : null}
+    </button>
+  );
 }
 
 export function MentoriaOnboardingWizard() {
   const searchParams = useSearchParams();
-  const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState<OnboardingDraft>(EMPTY_DRAFT);
+  const relationParamValue = searchParams.get("relation");
+  const relationParam = isGuardianRole(relationParamValue) ? relationParamValue : null;
+  const [step, setStep] = useState(1);
+  const [draft, setDraft] = useState<OnboardingDraft>(() => ({
+    ...EMPTY_DRAFT,
+    primaryGuardian: {
+      ...EMPTY_DRAFT.primaryGuardian,
+      relation: relationParam ?? EMPTY_DRAFT.primaryGuardian.relation,
+    },
+  }));
   const [subjects, setSubjects] = useState<MentoriaSubject[]>([]);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activationReady, setActivationReady] = useState(false);
 
-  const learningProfile = getLearningProfile({
-    schoolYear: draft.student.schoolYear || DEFAULT_SCHOOL_YEAR,
-    age: getAgeFromSchoolYear(draft.student.schoolYear || DEFAULT_SCHOOL_YEAR),
-  });
-  const ui = getOnboardingUiCopy(learningProfile.stage);
-  const onboardingMessage = getMicrocopy(learningProfile.stage, "onboarding_message");
-  const relationParam = searchParams.get("relation") as MentoriaGuardianRole | null;
   const schoolYearOptions = useMemo(() => getSchoolYearOptions(draft.student.stage), [draft.student.stage]);
-  const selectedConcern = useMemo(
-    () => PRIMARY_CONCERN_OPTIONS.find((option) => option.value === draft.student.primaryConcern) ?? PRIMARY_CONCERN_OPTIONS[0],
-    [draft.student.primaryConcern],
+  const subjectOptions = useMemo(
+    () => (subjects.length > 0 ? subjects : getFallbackSubjects(draft.student.stage)),
+    [draft.student.stage, subjects],
+  );
+  const selectedPriority = useMemo(
+    () => PRIORITY_OPTIONS.find((option) => option.value === draft.student.initialPriority) ?? null,
+    [draft.student.initialPriority],
   );
 
   useEffect(() => {
@@ -354,43 +431,49 @@ export function MentoriaOnboardingWizard() {
           fullName?: string;
           schoolYear?: string;
           subjects?: SubjectChoice[];
-          objective?: OnboardingObjective;
           confidenceLevel?: ConfidenceLabel;
         };
         if (parsed && typeof parsed === "object" && !parsed.student) {
-          const migrated: OnboardingDraft = {
-            primaryGuardian: {
-              fullName: parsed.guardianName ?? "",
-              relation: relationParam ?? "tutor",
-            },
-            student: {
-              fullName: parsed.fullName ?? "",
-              stage: deriveStageFromSchoolYear(parsed.schoolYear ?? ""),
-              schoolYear: parsed.schoolYear ?? "",
-              approximateAge: "12-13",
-              schoolName: "",
-              subjects: Array.isArray(parsed.subjects) ? parsed.subjects : [],
-              goal: parsed.objective ?? "improve_understanding",
-              confidence: confidenceLabelToNumber(parsed.confidenceLevel ?? "medium"),
-              primaryConcern: "math",
-            },
-          };
-          setDraft(migrated);
-        } else if (parsed && parsed.student) {
-          setDraft((current: OnboardingDraft) => ({
+          setDraft((current) => ({
             ...current,
-            ...(parsed as OnboardingDraft),
             primaryGuardian: {
-              fullName: parsed.primaryGuardian?.fullName ?? current.primaryGuardian.fullName,
-              relation: parsed.primaryGuardian?.relation ?? (relationParam ?? current.primaryGuardian.relation),
+              fullName: parsed.guardianName ?? current.primaryGuardian.fullName,
+              relation: relationParam ?? current.primaryGuardian.relation,
             },
             student: {
               ...current.student,
-              ...(parsed as OnboardingDraft).student,
-              stage: (parsed as OnboardingDraft).student?.stage ?? deriveStageFromSchoolYear((parsed as OnboardingDraft).student?.schoolYear ?? current.student.schoolYear),
-              approximateAge: (parsed as OnboardingDraft).student?.approximateAge ?? current.student.approximateAge,
-              schoolName: (parsed as OnboardingDraft).student?.schoolName ?? current.student.schoolName,
-              primaryConcern: (parsed as OnboardingDraft).student?.primaryConcern ?? current.student.primaryConcern,
+              fullName: parsed.fullName ?? current.student.fullName,
+              stage: deriveStageFromSchoolYear(parsed.schoolYear ?? current.student.schoolYear),
+              schoolYear: parsed.schoolYear ?? current.student.schoolYear,
+              subjects: Array.isArray(parsed.subjects) ? parsed.subjects : current.student.subjects,
+              confidenceLevel: parsed.confidenceLevel ?? current.student.confidenceLevel,
+            },
+          }));
+        } else if (parsed && parsed.student) {
+          const parsedStudent = parsed.student;
+          setDraft((current) => ({
+            ...current,
+            ...parsed,
+            familyStructure: parsed.familyStructure ?? current.familyStructure,
+            primaryGuardian: {
+              ...current.primaryGuardian,
+              ...parsed.primaryGuardian,
+              relation: parsed.primaryGuardian?.relation ?? (relationParam ?? current.primaryGuardian.relation),
+            },
+            secondaryGuardian: {
+              ...current.secondaryGuardian,
+              ...parsed.secondaryGuardian,
+              email: parsed.secondaryGuardian?.email ?? current.secondaryGuardian.email,
+            },
+            student: {
+              ...current.student,
+              ...parsedStudent,
+              stage: parsedStudent.stage ?? deriveStageFromSchoolYear(parsedStudent.schoolYear ?? current.student.schoolYear),
+              schoolYear: parsedStudent.schoolYear ?? current.student.schoolYear,
+              hasRepeatedCourse: parsedStudent.hasRepeatedCourse ?? current.student.hasRepeatedCourse,
+              subjects: Array.isArray(parsedStudent.subjects) ? parsedStudent.subjects : current.student.subjects,
+              initialPriority: parsedStudent.initialPriority ?? current.student.initialPriority,
+              confidenceLevel: parsedStudent.confidenceLevel ?? current.student.confidenceLevel,
             },
           }));
         }
@@ -413,128 +496,86 @@ export function MentoriaOnboardingWizard() {
         const body = (await response.json().catch(() => null)) as ({ ok?: boolean; error?: string } & Partial<MentoriaOnboardingState>) | null;
 
         if (!body || !response.ok) {
-          setError(body?.error ?? ui.submitError);
+          setError(body?.error ?? "No hemos podido cargar el onboarding.");
           return;
         }
 
-        setSubjects(
-          body.subjects && body.subjects.length > 0
-            ? body.subjects
-            : DEFAULT_FALLBACK_SUBJECTS.map(
-                (subject) =>
-                  ({
-                    id: subject.slug,
-                    tenantId: "",
-                    slug: subject.slug,
-                    name: subject.label,
-                    description: "",
-                    difficultyBand: "core",
-                    createdAt: "",
-                    updatedAt: "",
-                  }) as MentoriaSubject,
-              ),
-        );
+        setSessionEmail(body.sessionEmail ?? searchParams.get("email"));
+        setSubjects(body.subjects && body.subjects.length > 0 ? body.subjects : getFallbackSubjects(DEFAULT_STAGE));
 
         if (body.primaryGuardian) {
-          setDraft((current: OnboardingDraft) => ({
+          setDraft((current) => ({
             ...current,
             primaryGuardian: {
               fullName: current.primaryGuardian.fullName || body.primaryGuardian?.fullName || "",
               relation: body.primaryGuardian?.relation ?? (relationParam ?? current.primaryGuardian.relation),
             },
           }));
-        } else {
-          if (relationParam) {
-            setDraft((current: OnboardingDraft) => ({
-              ...current,
-              primaryGuardian: {
-                ...current.primaryGuardian,
-                relation: relationParam,
-              },
-            }));
-          }
+        } else if (relationParam) {
+          setDraft((current) => ({
+            ...current,
+            primaryGuardian: {
+              ...current.primaryGuardian,
+              relation: relationParam,
+            },
+          }));
+        }
+
+        const secondaryGuardian = (body.secondaryGuardians?.[0] ?? null) as MentoriaGuardian | null;
+        if (secondaryGuardian) {
+          setDraft((current) => ({
+            ...current,
+            familyStructure: "two_guardians",
+            secondaryGuardian: {
+              fullName: secondaryGuardian.name ?? "",
+              relation: secondaryGuardian.familyRelation,
+              email: secondaryGuardian.email ?? "",
+            },
+          }));
         }
 
         const currentStudent = body.student ?? body.profile ?? null;
-
         if (currentStudent?.onboardingCompleted) {
           window.location.href = buildMentoriaWorkspaceUrl(searchParams);
           return;
         }
 
         if (currentStudent) {
-          const profile = currentStudent;
           const studentSubjects = body.studentSubjects ?? [];
-          const inferredObjective =
-            profile.supportNotes?.includes("pass_subject")
-              ? "pass_subject"
-              : profile.supportNotes?.includes("build_habit")
-                ? "build_habit"
-                : profile.supportNotes?.includes("gain_confidence")
-                  ? "gain_confidence"
-                  : "improve_understanding";
-          const inferredConfidenceLabel: ConfidenceLabel = profile.supportNotes?.includes("confianza low")
-            ? "low"
-            : profile.supportNotes?.includes("confianza high")
-              ? "high"
-              : "medium";
-
-          setDraft((current: OnboardingDraft) => ({
-            primaryGuardian: {
-              fullName: current.primaryGuardian.fullName || body.primaryGuardian?.fullName || "",
-              relation: body.primaryGuardian?.relation ?? current.primaryGuardian.relation,
-            },
+          setDraft((current) => ({
+            ...current,
             student: {
-              fullName: profile.fullName,
-              stage: deriveStageFromSchoolYear(profile.schoolYear),
-              schoolYear: profile.schoolYear,
-              approximateAge: `${Math.max(profile.age - 1, 6)}-${profile.age}`,
-              schoolName: profile.supportNotes?.match(/centro ([^|]+)/)?.[1]?.trim() ?? "",
-              goal: inferredObjective,
-              confidence: confidenceLabelToNumber(inferredConfidenceLabel),
+              ...current.student,
+              fullName: currentStudent.fullName,
+              stage: deriveStageFromSchoolYear(currentStudent.schoolYear),
+              schoolYear: currentStudent.schoolYear,
+              hasRepeatedCourse: parseRepeatedCourse(currentStudent.supportNotes),
               subjects: studentSubjects
                 .map((item) => ({ subjectSlug: item.subject?.slug ?? "", initialLevel: item.initialLevel }))
                 .filter((item) => item.subjectSlug),
-              primaryConcern: profile.supportNotes?.includes("preocupacion Le cuesta concentrarse")
-                ? "focus"
-                : profile.supportNotes?.includes("preocupacion No entiende lo que lee")
-                  ? "reading"
-                  : profile.supportNotes?.includes("preocupacion Se frustra con los deberes")
-                    ? "frustration"
-                    : profile.supportNotes?.includes("preocupacion Queremos organizar mejor su estudio")
-                      ? "organization"
-                      : "math",
+              initialPriority: parseInitialPriority(currentStudent.supportNotes),
             },
           }));
         }
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : ui.submitError);
+        setError(loadError instanceof Error ? loadError.message : "No hemos podido cargar el onboarding.");
       } finally {
         setLoading(false);
       }
     })();
-  }, [relationParam]);
+  }, [relationParam, searchParams]);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
   }, [draft]);
 
   async function finish() {
-    const inferredSubjects = draft.student.subjects.length > 0 ? draft.student.subjects : inferSubjectsFromConcern(draft.student.primaryConcern, subjects);
-    const draftToSubmit: OnboardingDraft = {
-      ...draft,
-      student: {
-        ...draft.student,
-        subjects: inferredSubjects,
-      },
-    };
-
-    const blockingStep = [1, 2, 3, 4]
+    const blockingStep = [1, 2, 3]
       .map((candidateStep) => getStepValidation(candidateStep, draft))
       .find((validation) => !validation.valid);
 
     if (blockingStep) {
-      setError(blockingStep.message ?? ui.validationError);
+      setError(blockingStep.message ?? "Completa este paso para seguir.");
       return;
     }
 
@@ -544,409 +585,437 @@ export function MentoriaOnboardingWizard() {
       const response = await fetch("/api/mentoria/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildOnboardingPayload(draftToSubmit, searchParams)),
+        body: JSON.stringify(buildOnboardingPayload(draft, subjectOptions, searchParams)),
       });
-      const body = (await response.json().catch(() => null)) as {
-        error?: string;
-        activation?: Record<string, unknown>;
-      } | null;
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
 
       if (!response.ok) {
-        setError(body?.error ?? ui.submitError);
+        setError(body?.error ?? "No hemos podido preparar el espacio.");
         return;
       }
 
       window.localStorage.removeItem(STORAGE_KEY);
       setActivationReady(true);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : ui.submitError);
+      setError(submitError instanceof Error ? submitError.message : "No hemos podido preparar el espacio.");
     } finally {
       setSaving(false);
     }
   }
 
   if (loading) {
-    return <div className="min-h-screen bg-[#f5f2eb] p-8">{ui.loading}</div>;
+    return <div className="min-h-screen bg-slate-50 p-8 text-sm text-slate-600">Preparando Mentoria...</div>;
   }
 
   if (activationReady) {
     return (
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top,#fff7ed,0,#f8fafc_55%,#eef6ff_100%)] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-4xl rounded-[36px] bg-white/90 p-8 shadow-[0_24px_90px_rgba(15,23,42,0.08)] backdrop-blur-sm transition-shadow duration-200">
-          <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-700">Mentoria familiar</p>
-          <h1 className="mt-3 text-4xl font-black tracking-tight">Tu espacio ya esta preparado.</h1>
-          <p className="mt-2 max-w-3xl text-sm text-slate-600">Primera ayuda guiada lista para empezar con contexto.</p>
+      <div className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
+        <main className="mx-auto max-w-3xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Mentoria familiar</p>
+          <h1 className="mt-3 text-3xl font-black tracking-tight">Tu espacio ya esta preparado.</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Primera ayuda guiada lista con tutor, alumno, curso y prioridad inicial.</p>
           <button
             type="button"
             onClick={() => {
               window.location.href = buildMentoriaWorkspaceUrl(searchParams);
             }}
-            className="mt-8 rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="mt-8 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             Entrar a Mentoria
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === 0) {
-    return (
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top,#fff7ed,0,#f8fafc_55%,#eef6ff_100%)] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-4xl rounded-[36px] bg-white/90 p-8 shadow-[0_24px_90px_rgba(15,23,42,0.08)] backdrop-blur-sm transition-shadow duration-200">
-          <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-700">Mentoria familiar</p>
-          <h1 className="mt-3 text-4xl font-black tracking-tight">Vamos a ayudar a tu hijo de verdad</h1>
-          <p className="mt-2 max-w-3xl text-sm text-slate-600">{onboardingMessage}</p>
-          <button
-            type="button"
-            onClick={() => setStep(1)}
-            className="mt-8 rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            Empezar
-          </button>
-        </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#fff7ed,0,#f8fafc_55%,#eef6ff_100%)] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-4xl rounded-[36px] bg-white/90 p-8 shadow-[0_24px_90px_rgba(15,23,42,0.08)] backdrop-blur-sm transition-shadow duration-200">
-        <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-700">Mentoria familiar</p>
-        <h1 className="mt-3 text-4xl font-black tracking-tight">Alta corta para empezar con valor real</h1>
-        <p className="mt-2 max-w-3xl text-sm text-slate-600">{`${onboardingMessage} Lo justo para entender quien acompana, a que alumno ayudamos y cual es la primera prioridad que ya trae del colegio.`}</p>
+    <div className="min-h-screen bg-slate-50 px-4 py-6 text-slate-950 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-5xl">
+        <header className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Mentoria familiar</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Alta corta para empezar hoy</h1>
+          </div>
+          <div className="w-full sm:w-64">
+            <StepBadge current={step} />
+            <p className="mt-2 text-right text-xs font-semibold text-slate-500">{`Paso ${step} de ${TOTAL_STEPS}`}</p>
+          </div>
+        </header>
 
-        <div className="mt-8">
-          <StepBadge current={step} />
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{`Paso ${step} de ${TOTAL_STEPS}`}</p>
-        </div>
-
-        {error ? (
-          <div role="alert" className="mb-4 rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm ring-1 ring-red-100">{error}</div>
-        ) : null}
-
-        {step === 1 ? (
-          <section className="space-y-5">
-            <div>
-              <h2 className="text-2xl font-bold">{GUARDIAN_STEP_COPY.title}</h2>
-              <p className="mt-2 text-sm text-slate-600">{GUARDIAN_STEP_COPY.description}</p>
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+          {error ? (
+            <div role="alert" className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
+          ) : null}
+
+          {step === 1 ? (
+            <div className="space-y-6">
               <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Nombre</label>
-                <input
-                  value={draft.primaryGuardian.fullName}
-                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                    setDraft((current: OnboardingDraft) => ({
-                      ...current,
-                      primaryGuardian: {
-                        ...current.primaryGuardian,
-                        fullName: event.target.value,
-                      },
-                    }))
-                  }
-                  className="w-full rounded-3xl border border-slate-200 bg-white px-5 py-4 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="Nombre completo del tutor principal"
-                />
+                <h2 className="text-2xl font-bold">Quienes sois</h2>
+                <p className="mt-1 text-sm text-slate-600">Tutor, estructura familiar y alumno. Solo lo necesario para abrir bien el espacio.</p>
               </div>
-              <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Email</label>
-                <input
-                  value={searchParams.get("email") ?? ""}
-                  readOnly
-                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-slate-500 focus:outline-none"
-                  placeholder="El email viene del alta"
-                />
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              {PRIMARY_GUARDIAN_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() =>
-                    setDraft((current: OnboardingDraft) => ({
-                      ...current,
-                      primaryGuardian: {
-                        ...current.primaryGuardian,
-                        relation: option.value,
-                      },
-                    }))
-                  }
-                  className={`rounded-3xl border px-4 py-4 text-left text-sm transition-colors transition-shadow duration-200 ${
-                    draft.primaryGuardian.relation === option.value
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-900 shadow-md"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <div className="rounded-3xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-900">
-              El tutor principal es quien entra primero, gestiona la familia y ve despues el pago si hace falta. El alumno no paga.
-            </div>
-          </section>
-        ) : null}
 
-        {step === 2 ? (
-          <section className="space-y-4">
-            <h2 className="text-2xl font-bold">{STUDENT_STEP_COPY.title}</h2>
-            <p className="text-sm text-slate-600">{STUDENT_STEP_COPY.description}</p>
-            <input
-              value={draft.student.fullName}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                setDraft((current: OnboardingDraft) => ({
-                  ...current,
-                  student: { ...current.student, fullName: event.target.value },
-                }))
-              }
-              className="w-full rounded-3xl border border-slate-200 bg-white px-5 py-4 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="Nombre del alumno/a"
-            />
-            <div className="grid gap-3 md:grid-cols-3">
-              {STAGE_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() =>
-                    setDraft((current: OnboardingDraft) => ({
-                      ...current,
-                      student: {
-                        ...current.student,
-                        stage: option.value,
-                        schoolYear: getSchoolYearOptions(option.value)[0] ?? current.student.schoolYear,
-                      },
-                    }))
-                  }
-                  className={`rounded-3xl border px-4 py-4 text-left text-sm transition-colors duration-200 ${
-                    draft.student.stage === option.value
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-900 shadow-md hover:shadow-lg"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              {schoolYearOptions.map((year) => (
-                <button
-                  key={year}
-                  type="button"
-                  onClick={() =>
-                    setDraft((current: OnboardingDraft) => ({
-                      ...current,
-                      student: { ...current.student, schoolYear: year },
-                    }))
-                  }
-                  className={`rounded-3xl border px-4 py-4 text-left text-sm transition-colors duration-200 ${
-                    draft.student.schoolYear === year
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-900 shadow-md"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                  }`}
-                >
-                  {year}
-                </button>
-              ))}
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Edad aproximada</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {APPROXIMATE_AGE_OPTIONS.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() =>
-                        setDraft((current: OnboardingDraft) => ({
-                          ...current,
-                          student: { ...current.student, approximateAge: option },
-                        }))
-                      }
-                      className={`rounded-2xl border px-4 py-3 text-sm ${draft.student.approximateAge === option ? "border-emerald-500 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-700"}`}
-                    >
-                      {option}
-                    </button>
-                  ))}
+              <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Tutor principal</label>
+                  <input
+                    value={draft.primaryGuardian.fullName}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                      setDraft((current) => ({
+                        ...current,
+                        primaryGuardian: { ...current.primaryGuardian, fullName: event.target.value },
+                      }))
+                    }
+                    className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Nombre del tutor principal"
+                  />
+                  {sessionEmail ? <p className="mt-2 text-xs text-slate-500">{`Acceso: ${sessionEmail}`}</p> : null}
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Relacion</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {RELATION_OPTIONS.map((option) => (
+                      <ChoiceButton
+                        key={option.value}
+                        title={option.label}
+                        selected={draft.primaryGuardian.relation === option.value}
+                        onClick={() =>
+                          setDraft((current) => ({
+                            ...current,
+                            primaryGuardian: { ...current.primaryGuardian, relation: option.value },
+                          }))
+                        }
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Centro</label>
-                <input
-                  value={draft.student.schoolName}
-                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                    setDraft((current: OnboardingDraft) => ({
-                      ...current,
-                      student: { ...current.student, schoolName: event.target.value },
-                    }))
-                  }
-                  className="w-full rounded-3xl border border-slate-200 bg-white px-5 py-4 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="Centro opcional"
-                />
-              </div>
-            </div>
-          </section>
-        ) : null}
 
-        {step === 3 ? (
-          <section className="space-y-5">
-            <h2 className="text-2xl font-bold">Donde necesita mas ayuda?</h2>
-            <p className="text-sm text-slate-600">Elige la materia principal para preparar la primera ayuda.</p>
-            <div className="grid gap-3 md:grid-cols-2">
-              {(subjects.length > 0 ? subjects : DEFAULT_FALLBACK_SUBJECTS.map((subject) => ({
-                id: subject.slug,
-                tenantId: "",
-                slug: subject.slug,
-                name: subject.label,
-                description: "",
-                difficultyBand: "core",
-                createdAt: "",
-                updatedAt: "",
-              } as MentoriaSubject))).map((subject) => {
-                const checked = draft.student.subjects.some((item) => item.subjectSlug === subject.slug);
-                return (
-                  <label
-                    key={subject.slug}
-                    className={`flex items-center gap-3 rounded-3xl border p-5 text-left transition-colors ${
-                      checked ? "border-emerald-500 bg-emerald-50 text-emerald-900 shadow-md" : "border-slate-200 bg-white text-slate-700"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                        setDraft((current: OnboardingDraft) => ({
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Estructura familiar</label>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {FAMILY_STRUCTURE_OPTIONS.map((option) => (
+                    <ChoiceButton
+                      key={option.value}
+                      title={option.title}
+                      text={option.text}
+                      selected={draft.familyStructure === option.value}
+                      onClick={() =>
+                        setDraft((current) => ({
                           ...current,
-                          student: {
-                            ...current.student,
-                            subjects: event.target.checked
-                              ? [{ subjectSlug: subject.slug, initialLevel: "me_cuesta_mucho" }]
-                              : current.student.subjects.filter((item) => item.subjectSlug !== subject.slug),
+                          familyStructure: option.value,
+                          primaryGuardian: {
+                            ...current.primaryGuardian,
+                            relation: option.value === "legal_guardian" ? "tutor" : current.primaryGuardian.relation,
                           },
                         }))
                       }
-                      className="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                     />
-                    <span className="font-semibold">{subject.name}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </section>
-        ) : null}
+                  ))}
+                </div>
+              </div>
 
-        {step === 4 ? (
-          <section className="space-y-5">
-            <h2 className="text-2xl font-bold">{GOAL_STEP_COPY.title}</h2>
-            <div className="grid gap-3 md:grid-cols-2">
-              {PRIMARY_CONCERN_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() =>
-                    setDraft((current: OnboardingDraft) => ({
+              {draft.familyStructure === "two_guardians" || draft.familyStructure === "separated_parents" ? (
+                <div className="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 lg:grid-cols-[1fr_1fr]">
+                  <div>
+                    <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                      {draft.familyStructure === "two_guardians" ? "Segundo tutor" : "Segundo tutor opcional"}
+                    </label>
+                    <input
+                      value={draft.secondaryGuardian.fullName}
+                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                        setDraft((current) => ({
+                          ...current,
+                          secondaryGuardian: { ...current.secondaryGuardian, fullName: event.target.value },
+                        }))
+                      }
+                      className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="Nombre del segundo tutor"
+                    />
+                    <input
+                      value={draft.secondaryGuardian.email}
+                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                        setDraft((current) => ({
+                          ...current,
+                          secondaryGuardian: { ...current.secondaryGuardian, email: event.target.value },
+                        }))
+                      }
+                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder={draft.familyStructure === "two_guardians" ? "Email del segundo tutor" : "Email del segundo tutor (opcional)"}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Relacion</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {RELATION_OPTIONS.map((option) => (
+                        <ChoiceButton
+                          key={option.value}
+                          title={option.label}
+                          selected={draft.secondaryGuardian.relation === option.value}
+                          onClick={() =>
+                            setDraft((current) => ({
+                              ...current,
+                              secondaryGuardian: { ...current.secondaryGuardian, relation: option.value },
+                            }))
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Alumno</label>
+                <input
+                  value={draft.student.fullName}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setDraft((current) => ({
                       ...current,
-                      student: {
-                        ...current.student,
-                        primaryConcern: option.value,
-                        goal: option.goal,
-                        confidence: confidenceLabelToNumber(option.confidence),
-                      },
+                      student: { ...current.student, fullName: event.target.value },
                     }))
                   }
-                  className={`rounded-3xl border p-5 text-left transition-colors transition-shadow duration-200 ${
-                    draft.student.primaryConcern === option.value
-                      ? "border-sky-500 bg-sky-50 shadow-md hover:shadow-lg"
-                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
-                  }`}
-                >
-                  <div className="font-semibold">{option.title}</div>
-                  <div className="mt-2 text-sm text-slate-600">{option.text}</div>
-                </button>
-              ))}
-            </div>
-            <div className="pt-2">
-              <h3 className="text-lg font-bold">{GOAL_STEP_COPY.confidenceTitle}</h3>
-              <p className="mt-2 text-sm text-slate-600">{GOAL_STEP_COPY.description}</p>
-            </div>
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
-              <div className="font-semibold">Lectura inicial</div>
-              <div className="mt-3 grid gap-3 md:grid-cols-3">
-                {Object.entries(ui.step3.confidenceOptions).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() =>
-                      setDraft((current: OnboardingDraft) => ({
-                        ...current,
-                        student: { ...current.student, confidence: confidenceLabelToNumber(value as ConfidenceLabel) },
-                      }))
-                    }
-                    className={`rounded-2xl border px-4 py-3 text-sm ${confidenceNumberToLabel(draft.student.confidence) === value ? "border-sky-500 bg-sky-50 text-sky-900" : "border-slate-200 bg-white text-slate-700"}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-4 rounded-2xl bg-white px-4 py-4 text-sm text-slate-700">
-                <div className="font-semibold text-slate-900">Lo que vera el tutor al entrar</div>
-                <div className="mt-2">Alumno asociado, trabajo pendiente, materias con mas dificultad, progreso, senales de bloqueo y una siguiente accion concreta para acompanar hoy.</div>
-                <div className="mt-3 text-slate-600">Primera ayuda prevista: {selectedConcern.title}.</div>
+                  className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="Nombre del alumno/a"
+                />
               </div>
             </div>
-          </section>
-        ) : null}
-
-        {step === 5 ? (
-          <section className="space-y-5">
-            <h2 className="text-2xl font-bold">Todo listo</h2>
-            <p className="text-sm text-slate-600">Ya tenemos el tutor principal, el alumno, la materia y la primera prioridad.</p>
-            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900">
-              Mentoria preparara el primer espacio guiado con {draft.student.subjects[0]?.subjectSlug ?? "la materia elegida"}.
-            </div>
-          </section>
-        ) : null}
-
-        <div className={`mt-8 flex items-center ${step === TOTAL_STEPS ? "justify-end" : "justify-between"}`}>
-          {step > 1 ? (
-            <button
-              type="button"
-              onClick={() => setStep((current: number) => Math.max(1, current - 1))}
-              className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              disabled={saving}
-            >
-              {ui.back}
-            </button>
           ) : null}
-          {step < TOTAL_STEPS ? (
-            <button
-              type="button"
-              onClick={() => {
-                const validation = getStepValidation(step, draft);
-                if (validation.valid) {
+
+          {step === 2 ? (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold">Donde esta hoy</h2>
+                <p className="mt-1 text-sm text-slate-600">Etapa, curso real, repeticion y foco principal. La edad sale del curso, no al reves.</p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Etapa</label>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {STAGE_OPTIONS.map((option) => (
+                    <ChoiceButton
+                      key={option.value}
+                      title={option.label}
+                      selected={draft.student.stage === option.value}
+                      onClick={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          student: {
+                            ...current.student,
+                            stage: option.value,
+                            schoolYear: getSchoolYearOptions(option.value).includes(current.student.schoolYear)
+                              ? current.student.schoolYear
+                              : "",
+                          },
+                        }))
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Curso real</label>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {schoolYearOptions.map((year) => (
+                    <ChoiceButton
+                      key={year}
+                      title={year}
+                      selected={draft.student.schoolYear === year}
+                      onClick={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          student: { ...current.student, schoolYear: year },
+                        }))
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Repeticion de curso</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <ChoiceButton
+                      title="No ha repetido"
+                      selected={draft.student.hasRepeatedCourse === false}
+                      onClick={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          student: { ...current.student, hasRepeatedCourse: false },
+                        }))
+                      }
+                    />
+                    <ChoiceButton
+                      title="Si, ha repetido"
+                      selected={draft.student.hasRepeatedCourse === true}
+                      onClick={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          student: { ...current.student, hasRepeatedCourse: true },
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Materia o foco principal</label>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {subjectOptions.map((subject) => {
+                      const selected = draft.student.subjects.some((item) => item.subjectSlug === subject.slug);
+                      return (
+                        <ChoiceButton
+                          key={subject.slug}
+                          title={subject.name}
+                          selected={selected}
+                          onClick={() =>
+                            setDraft((current) => ({
+                              ...current,
+                              student: {
+                                ...current.student,
+                                subjects: [{ subjectSlug: subject.slug, initialLevel: "me_cuesta_mucho" }],
+                              },
+                            }))
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {step === 3 ? (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold">Con que arrancamos</h2>
+                <p className="mt-1 text-sm text-slate-600">Elegimos la primera ayuda para que el espacio no nazca vacio.</p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Prioridad inicial</label>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {PRIORITY_OPTIONS.map((option) => (
+                    <ChoiceButton
+                      key={option.value}
+                      title={option.title}
+                      text={option.text}
+                      selected={draft.student.initialPriority === option.value}
+                      onClick={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          student: {
+                            ...current.student,
+                            initialPriority: option.value,
+                            confidenceLevel: option.confidence,
+                          },
+                        }))
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Como llega hoy</label>
+                  <div className="grid gap-2">
+                    {[
+                      { value: "low" as const, label: "Bloqueado" },
+                      { value: "medium" as const, label: "Normal" },
+                      { value: "high" as const, label: "Con ganas" },
+                    ].map((option) => (
+                      <ChoiceButton
+                        key={option.value}
+                        title={option.label}
+                        selected={draft.student.confidenceLevel === option.value}
+                        onClick={() =>
+                          setDraft((current) => ({
+                            ...current,
+                            student: { ...current.student, confidenceLevel: option.value },
+                          }))
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
+                  <div className="font-bold">Primer arranque</div>
+                  <p className="mt-2">
+                    {selectedPriority
+                      ? `Mentoria preparara una ayuda de ${selectedPriority.title.toLowerCase()} para ${draft.student.fullName || "el alumno"}.`
+                      : "Selecciona una prioridad y dejamos el primer espacio guiado listo."}
+                  </p>
+                  <p className="mt-2 text-emerald-800">
+                    {draft.student.schoolYear || "Curso pendiente"} · {draft.student.subjects[0]?.subjectSlug ?? "materia pendiente"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-8 flex items-center justify-between gap-3">
+            {step > 1 ? (
+              <button
+                type="button"
+                onClick={() => {
                   setError(null);
-                  setStep((current: number) => Math.min(TOTAL_STEPS, current + 1));
-                } else {
-                  setError(validation.message ?? ui.validationError);
-                }
-              }}
-              className="rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {ui.next}
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={finish}
-              className="rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-black focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saving ? ui.saving : "Preparar espacio"}
-            </button>
-          )}
-        </div>
-      </div>
+                  setStep((current) => Math.max(1, current - 1));
+                }}
+                className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                disabled={saving}
+              >
+                Volver
+              </button>
+            ) : <span />}
+
+            {step < TOTAL_STEPS ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const validation = getStepValidation(step, draft);
+                  if (validation.valid) {
+                    setError(null);
+                    setStep((current) => Math.min(TOTAL_STEPS, current + 1));
+                  } else {
+                    setError(validation.message ?? "Completa este paso para seguir.");
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                Continuar
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={finish}
+                className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-5 py-3 text-sm font-semibold text-white hover:bg-black focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    Preparando
+                  </>
+                ) : (
+                  <>
+                    Preparar espacio
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

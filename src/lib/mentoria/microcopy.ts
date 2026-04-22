@@ -27,6 +27,7 @@ export const MENTORIA_SCHOOL_YEAR_OPTIONS = [
   "3 ESO",
   "4 ESO",
   "1 bachillerato",
+  "2 bachillerato",
 ] as const;
 
 const microcopy: Record<MicrocopyStage, Record<MicrocopyContext, string>> = {
