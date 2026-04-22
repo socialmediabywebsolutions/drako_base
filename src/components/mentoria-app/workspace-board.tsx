@@ -11,6 +11,9 @@ import type {
   MentoriaDailyClosureSummary,
   FocusSession,
   MentoriaGrowthSummary,
+  MentoriaSessionContract,
+  MentoriaSessionMode,
+  MentoriaSessionModeOption,
   MentoriaWorkspaceEntry,
   MentoriaProgress,
   MentoriaStudentMemorySummary,
@@ -19,6 +22,7 @@ import type {
 } from "@/lib/mentoria/types";
 import type { GuardianViewModel, StateActions, StateDecision } from "@/lib/mentoria/state/state-types";
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
+import type { WorkspaceOrchestratorPlan } from "@/lib/mentoria/workspace-orchestrator";
 
 type WorkspaceBoardProps = {
   activeSection: string;
@@ -47,6 +51,8 @@ type WorkspaceBoardProps = {
   selectedSubject?: MentoriaStudentSubject | null;
   currentTopic?: string;
   currentMessage?: string;
+  sessionContract: MentoriaSessionContract;
+  sessionModeOptions?: MentoriaSessionModeOption[];
   tutorResult: {
     reply: string;
     explanation: string;
@@ -68,6 +74,7 @@ type WorkspaceBoardProps = {
     ctaLabel: string;
     sessionState?: "idle" | "answering" | "checking" | "retry" | "completed";
   } | null;
+  orchestratorPlan?: WorkspaceOrchestratorPlan | null;
   sessionState?: "idle" | "answering" | "checking" | "retry" | "completed";
   activeGuidedStep?: string | null;
   activeStepIndex?: number;
@@ -88,7 +95,8 @@ type WorkspaceBoardProps = {
   onSectionChange?: (section: string) => void;
   onResumeSession: (session: LearningSession) => void;
   onResumeDailyClosure?: (closure: MentoriaDailyClosureSummary) => void;
-  onQuickAction: (action: { topic: string; prompt: string; subjectSlug?: string | null }) => void;
+  onQuickAction: (action: { topic: string; prompt: string; subjectSlug?: string | null; sessionMode?: MentoriaSessionMode; sessionInputKind?: MentoriaSessionModeOption["inputKind"] }) => void;
+  onSelectSessionMode?: (option: MentoriaSessionModeOption) => void;
   onRunNextAction?: () => void;
 };
 
@@ -126,8 +134,11 @@ export function WorkspaceBoard({
   selectedSubject = null,
   currentTopic = "",
   currentMessage = "",
+  sessionContract,
+  sessionModeOptions = [],
   tutorResult,
   nextAction = null,
+  orchestratorPlan = null,
   sessionState = "idle",
   activeGuidedStep = null,
   activeStepIndex = 0,
@@ -149,6 +160,7 @@ export function WorkspaceBoard({
   onResumeSession,
   onResumeDailyClosure,
   onQuickAction,
+  onSelectSessionMode,
   onRunNextAction,
 }: WorkspaceBoardProps) {
   const feedbackToneMap = {
@@ -351,6 +363,15 @@ export function WorkspaceBoard({
   const identitySubject = evolution?.strengths[0] ?? progress[0]?.subject?.name ?? studentSubjects[0]?.subject?.name ?? "tu materia principal";
   const bridgeAction = analysis?.nextActions?.[0] ?? memory?.nextPriorityTask ?? growth?.recommendedShareMessage ?? "Resolver un ejercicio guiado";
   const shouldShowGrowthNarrative = progress.length > 0 && (totalSessionsCompleted > 0 || totalPracticesCompleted > 0);
+  const sessionModeTone = sessionContract.mode === "task_resolution"
+    ? "bg-amber-50 text-amber-900 border-amber-200"
+    : sessionContract.mode === "exam_preparation"
+      ? "bg-rose-50 text-rose-900 border-rose-200"
+      : sessionContract.mode === "subject_reinforcement"
+        ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+        : sessionContract.mode === "study_routine"
+          ? "bg-sky-50 text-sky-900 border-sky-200"
+          : "bg-violet-50 text-violet-900 border-violet-200";
 
   if (activeSection === "planner") {
     return (
@@ -417,17 +438,55 @@ export function WorkspaceBoard({
 
   if (activeSection === "subjects") {
     return (
-      <div className="p-6 space-y-4">
+      <div className="space-y-5 p-6">
         <div>
           <h2 className="text-lg font-bold text-slate-900">Tus materias</h2>
-          <p className="text-sm text-slate-600">Aquí solo aparece la materia activa. Todo lo demás se decide desde la navegación izquierda.</p>
+          <p className="text-sm text-slate-600">Puedes moverte entre varias materias sin perder la pizarra ni el hilo del tutor.</p>
         </div>
 
-        {!selectedSubject ? (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {studentSubjects.map((subject) => {
+            const subjectProgress = progressBySubjectId.get(subject.subjectId);
+            const subjectName = subject.subject?.name ?? "Materia";
+            const subjectSlug = subject.subject?.slug ?? "";
+            const isActive = selectedSubject?.id === subject.id || activeSubjectSlug === subjectSlug;
+
+            return (
+              <button
+                key={subject.id}
+                type="button"
+                onClick={() => onStartSubjectSession(subject)}
+                className={`rounded-xl border bg-white p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50 ${
+                  isActive ? "border-emerald-300 ring-1 ring-emerald-100" : "border-slate-200"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="font-semibold text-slate-900">{subjectName}</div>
+                  {subjectProgress ? (
+                    <div className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                      {subjectProgress.masteryScore}%
+                    </div>
+                  ) : null}
+                </div>
+                <div className="mt-2 text-xs text-slate-500">Nivel: {subject.initialLevel.replaceAll("_", " ")}</div>
+                <div className="mt-3 text-sm text-slate-600">
+                  {subjectProgress
+                    ? `${subjectProgress.sessionsCompleted} sesiones · ${subjectProgress.exercisesCompleted} practicas`
+                    : "Lista para una primera sesión guiada"}
+                </div>
+                <div className="mt-4 text-sm font-semibold text-emerald-700">Abrir sesión guiada</div>
+              </button>
+            );
+          })}
+        </div>
+
+        {studentSubjects.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
-            Selecciona una materia en la navegación izquierda para ver su drill-down aquí.
+            Aún no hay materias configuradas para este alumno.
           </div>
-        ) : (
+        ) : null}
+
+        {selectedSubject ? (
           <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-start justify-between gap-3">
@@ -456,15 +515,15 @@ export function WorkspaceBoard({
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-3 text-sm font-semibold text-slate-900">Ruta rápida</div>
+              <div className="mb-3 text-sm font-semibold text-slate-900">Cómo se usa</div>
               <div className="space-y-3 text-sm text-slate-600">
-                <div>1. La izquierda fija la materia.</div>
-                <div>2. Esta vista te enseña nivel y progreso real.</div>
-                <div>3. La pizarra abre el contenido y el panel derecho recoge la conversación.</div>
+                <div>1. Elige la materia que toca hoy.</div>
+                <div>2. La pizarra abre el trabajo concreto.</div>
+                <div>3. El chat derecho mantiene el hilo y las ayudas.</div>
               </div>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     );
   }
@@ -728,6 +787,7 @@ export function WorkspaceBoard({
   const showDailyClosure = Boolean(!showTutorBoard && !showExerciseBoard && !latestSession && dailyClosure?.carryOverPrompt);
   const showResumeSession = !showTutorBoard && !showExerciseBoard && !showDailyClosure && latestSession;
   const showQuickActions = !showTutorBoard && !showExerciseBoard && !showResumeSession && !showDailyClosure && entry && (!nextAction || nextAction.kind === "quick_action");
+  const shouldKeepBoardSurfaceMinimal = Boolean(showTutorBoard || showExerciseBoard || showResumeSession || showDailyClosure);
 
   return (
     <div className={`flex h-full flex-col ${resolvedBoardModeUi.shell}`}>
@@ -735,25 +795,33 @@ export function WorkspaceBoard({
         <input readOnly value={currentTopic} />
         <input readOnly value={currentMessage} />
       </div>
-      <header className={`border-b bg-gradient-to-r ${resolvedTheme.shell} px-6 py-6 ${resolvedTheme.border}`}>
+      <header className="border-b border-slate-200 bg-white px-6 py-5">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="sr-only">{student?.fullName ? `Hola, ${student.fullName.split(" ")[0]}` : "Hola"}</h1>
-            <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-              <span className={`rounded-full px-3 py-1 font-semibold shadow-sm ${resolvedTheme.badge}`}>Pizarra viva</span>
-              <span className={`rounded-full border px-3 py-1 font-semibold shadow-sm ${resolvedBoardModeUi.banner}`}>{resolvedBoardModeUi.title}</span>
-              <span className="rounded-full bg-white/85 px-3 py-1 font-medium text-slate-700 shadow-sm">Nivel: {stageLabel}</span>
-              {schoolYearLabel ? <span className="rounded-full bg-white/85 px-3 py-1 font-medium text-slate-700 shadow-sm">Curso: {schoolYearLabel}</span> : null}
-              {activeSubject?.name ? <span className={`rounded-full px-4 py-1.5 font-semibold shadow-sm ring-1 ring-white/70 ${resolvedTheme.badge}`}>Ahora estás en {activeSubject.name}</span> : null}
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+              <span className="font-semibold text-emerald-700">Pizarra viva</span>
+              <span>·</span>
+              <span>{resolvedBoardModeUi.title}</span>
+              <span>·</span>
+              <span>{schoolYearLabel ?? stageLabel}</span>
+              {activeSubject?.name ? (
+                <>
+                  <span>·</span>
+                  <span className="font-semibold text-slate-900">{activeSubject.name}</span>
+                </>
+              ) : null}
             </div>
-            <h2 className="text-sm font-semibold text-slate-500">Tutor IA · sesión guiada</h2>
-            <h1 className="text-2xl font-black tracking-tight text-slate-900">Pizarra de aprendizaje</h1>
+            <h2 className="text-sm font-semibold text-slate-500">Tutor IA · pizarra guiada</h2>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900">{showTutorBoard ? (tutorResult?.topic ?? sessionContract.headline) : sessionContract.headline}</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-700">
-              {student?.fullName ? `Hola ${student.fullName.split(" ")[0]}, aquí tienes una sesión guiada clara para avanzar sin perder el hilo.` : "Espacio de trabajo"}
+              {student?.fullName ? `Hola ${student.fullName.split(" ")[0]}, aquí trabajas una sola cosa cada vez con el tutor marcando el siguiente paso.` : "Espacio de trabajo"}
             </p>
             <p className="mt-1 text-xs font-medium text-slate-500">{supportTone}</p>
-            <p className="mt-2 max-w-2xl text-xs leading-6 text-slate-600">{pedagogicalContext}</p>
-            <p className="mt-2 max-w-2xl text-sm font-medium text-slate-700">{resolvedBoardModeUi.summary}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
+              <span className={`rounded-full border px-3 py-1 ${sessionModeTone}`}>Modo de hoy: {sessionContract.label}</span>
+              <span className="rounded-full bg-slate-100 px-3 py-1">Objetivo: {sessionContract.objective}</span>
+            </div>
             {latestSession && (
               <p className="mt-2 text-xs text-slate-500">
                 Sigues donde lo dejaste. Vamos a continuar.
@@ -762,12 +830,12 @@ export function WorkspaceBoard({
           </div>
           <div className="flex flex-col items-end gap-2">
             {showTaskLauncher && (
-              <div className="rounded-full bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900">
+              <div className="rounded-lg bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900">
                 Tarea activa: {activeDailyTask.subject}
               </div>
             )}
             {activeProgressMetrics && (
-              <div className="rounded-full bg-white/85 px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm">
+              <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700">
                 {activeProgressMetrics.masteryScore}% dominio · {activeProgressMetrics.confidenceScore}% confianza
               </div>
             )}
@@ -782,7 +850,60 @@ export function WorkspaceBoard({
           </div>
         )}
 
-        {completedDailyTasks.length > 0 && dailyPlan ? (
+        {orchestratorPlan ? (
+          <div className="mx-auto mb-4 max-w-4xl rounded-xl border border-emerald-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Ahora manda el tutor</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900">{orchestratorPlan.microObjective}</div>
+                <p className="mt-1 text-sm leading-6 text-slate-600">{orchestratorPlan.message}</p>
+              </div>
+              {orchestratorPlan.progressLabel ? <div className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">{orchestratorPlan.progressLabel}</div> : null}
+            </div>
+          </div>
+        ) : null}
+
+        {shouldKeepBoardSurfaceMinimal ? (
+          <div className="mx-auto mb-4 max-w-4xl rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Modo de sesión</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900">{sessionContract.headline}</div>
+                <div className="mt-1 text-sm text-slate-600">{sessionContract.boardBehavior}</div>
+              </div>
+              <div className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">{sessionContract.primaryCta}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="mx-auto mb-4 max-w-4xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Modo de sesión activo</div>
+                <h2 className="mt-2 text-xl font-bold text-slate-900">{sessionContract.headline}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{sessionContract.subheadline}</p>
+                <div className="mt-3 grid gap-2 text-sm text-slate-700 md:grid-cols-2">
+                  <div className="rounded-xl bg-slate-50 px-3 py-3"><span className="font-semibold text-slate-900">Chat</span>: {sessionContract.chatBehavior}</div>
+                  <div className="rounded-xl bg-slate-50 px-3 py-3"><span className="font-semibold text-slate-900">Pizarra</span>: {sessionContract.boardBehavior}</div>
+                </div>
+              </div>
+              <div className="min-w-0 lg:w-[320px]">
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Cómo progresa</div>
+                  <div className="mt-3 space-y-2 text-sm text-slate-700">
+                    {sessionContract.progression.map((step, index) => (
+                      <div key={`${step}-${index}`} className="rounded-lg bg-white px-3 py-2">
+                        {index + 1}. {step}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 text-xs text-slate-500">Cierre: {sessionContract.completionRule}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {completedDailyTasks.length > 0 && dailyPlan && !shouldKeepBoardSurfaceMinimal ? (
           <div className="mx-auto mb-4 max-w-4xl rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
@@ -819,7 +940,7 @@ export function WorkspaceBoard({
           </div>
         ) : null}
 
-        {shouldShowGrowthNarrative ? (
+        {shouldShowGrowthNarrative && !shouldKeepBoardSurfaceMinimal ? (
           <div className="mx-auto mb-4 max-w-4xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Lo que ya esta cambiando</div>
             <h2 className="mt-1 text-lg font-bold text-slate-900">Ya estas construyendo un ritmo propio</h2>
@@ -842,7 +963,7 @@ export function WorkspaceBoard({
           </div>
         ) : null}
 
-        {(stateDecision || guardianViewModel) && (
+        {(stateDecision || guardianViewModel) && !shouldKeepBoardSurfaceMinimal && (
           <div className={`mx-auto mb-4 max-w-4xl rounded-2xl border px-4 py-4 ${resolvedBoardModeUi.banner}`}>
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
@@ -1124,14 +1245,35 @@ export function WorkspaceBoard({
                       topic: entry.recommendedTopic,
                       prompt: entry.recommendedPrompt,
                       subjectSlug: entry.recommendedSubjectSlug,
+                      sessionMode: sessionContract.mode,
+                      sessionInputKind: sessionContract.entryKind,
                     })
                   }
                   aria-label="Hablar con el tutor"
                   className="w-full rounded-xl bg-emerald-600 px-6 py-4 text-left text-sm font-semibold text-white hover:bg-emerald-700"
                 >
-                  {entry.recommendedTopic}
+                  {sessionContract.primaryCta}
                 </button>
               </div>
+              {sessionModeOptions.length > 0 ? (
+                <div className="mb-6">
+                  <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Elegir otro modo</div>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {sessionModeOptions.map((option) => (
+                      <button
+                        key={option.mode}
+                        type="button"
+                        onClick={() => onSelectSessionMode?.(option)}
+                        className={`rounded-xl border p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50 ${option.mode === sessionContract.mode ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white"}`}
+                      >
+                        <div className="text-sm font-semibold text-slate-900">{option.label}</div>
+                        <div className="mt-1 text-xs leading-5 text-slate-600">{option.description}</div>
+                        <div className="mt-3 text-xs font-semibold text-emerald-700">{option.ctaLabel}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {entry.quickActions.length > 0 && !shouldCompactSecondaryPanels && (
                 <div>
                   <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -1147,6 +1289,8 @@ export function WorkspaceBoard({
                             topic: action.topic,
                             prompt: action.prompt,
                             subjectSlug: action.subjectSlug,
+                            sessionMode: sessionContract.mode,
+                            sessionInputKind: action.subjectSlug ? "selected_subject" : sessionContract.entryKind,
                           })
                         }
                         className="rounded-xl border border-slate-200 bg-white p-4 text-left hover:border-emerald-300 hover:bg-emerald-50"

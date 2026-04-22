@@ -735,10 +735,9 @@ describe("MentoriaWorkspace", () => {
     await screen.findByRole("heading", { name: "Hola, Alex" });
     fireEvent.click(screen.getByRole("button", { name: "Hablar con el tutor" }));
 
-    expect(await screen.findByText("Has completado 1 tarea del plan de hoy. Siguiente paso: Matematicas - practica guiada.")).toBeInTheDocument();
-    expect(screen.getByText("50%")).toBeInTheDocument();
-    expect(screen.getByText("Hecha")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Crear practica ahora" }).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Sesion cerrada con avance visible en el plan de hoy.")).toBeInTheDocument();
+    expect(screen.getByText("Has consolidado la base de hoy.")).toBeInTheDocument();
+    expect(screen.getByText("Buen trabajo: ya puedes subir un paso mas.")).toBeInTheDocument();
   });
 
   it("recalculates the second action upward after a strong exercise result", async () => {

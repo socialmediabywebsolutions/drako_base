@@ -2,14 +2,20 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { WorkspaceShell } from "@/components/mentoria-app/workspace-shell";
 import { getMicrocopy, getParentHubUiCopy, MENTORIA_PARENT_SLOT_A, MENTORIA_PARENT_SLOT_B } from "@/lib/mentoria/microcopy";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
+import {
+  buildMentoriaSessionContract,
+  buildMentoriaSessionModeOptions,
+  resolveMentoriaSessionMode,
+} from "@/lib/mentoria/session-modes";
 import { buildGuardianViewModel } from "@/lib/mentoria/state/guardian-visibility-policy";
 import { deriveStateActions } from "@/lib/mentoria/state/intervention-engine";
 import { collectStudentSignals, evaluateStudentState } from "@/lib/mentoria/state/student-state-engine";
 import type { GuardianViewModel } from "@/lib/mentoria/state/state-types";
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
-import type { DailyPlan, Insight, MentoriaBillingSummary, MentoriaGrowthSummary, MentoriaGuardian, MentoriaGuardianStudentAccess, MentoriaIntervention, MentoriaProgress, StudentProfile, StudyPlan } from "@/lib/mentoria/types";
+import type { DailyPlan, Insight, MentoriaBillingSummary, MentoriaGrowthSummary, MentoriaGuardian, MentoriaGuardianStudentAccess, MentoriaIntervention, MentoriaProgress, MentoriaSessionContract, MentoriaSessionModeOption, StudentProfile, StudyPlan } from "@/lib/mentoria/types";
 
 type ConnectedGuardianView = {
   id: string;
@@ -202,6 +208,11 @@ export function MentoriaParentHub() {
     }
   }
 
+  const connectedGuardians = useMemo(
+    () => buildConnectedGuardians({ primaryGuardian, secondaryGuardians, guardianStudentAccess }),
+    [primaryGuardian, secondaryGuardians, guardianStudentAccess],
+  );
+
   if (!student) {
     return null;
   }
@@ -209,15 +220,77 @@ export function MentoriaParentHub() {
   const stage = student.learningStage;
   const ui = getParentHubUiCopy(stage);
   const parentMessage = getMicrocopy(stage, "parent_message");
-  const connectedGuardians = useMemo(
-    () => buildConnectedGuardians({ primaryGuardian, secondaryGuardians, guardianStudentAccess }),
-    [primaryGuardian, secondaryGuardians, guardianStudentAccess],
-  );
   const completedDailyTasks = dailyPlan?.tasks.filter((task) => task.completed) ?? [];
-  const dailyCompliance = Math.round((dailyPlan?.completionRate ?? 0) * 100);
+  const rawDailyCompliance = dailyPlan?.completionRate ?? 0;
+  const dailyCompliance = Math.round(rawDailyCompliance > 1 ? rawDailyCompliance : rawDailyCompliance * 100);
+  const nextDailyTask = dailyPlan?.tasks.find((task) => !task.completed && !dailyPlan.completedTaskIds.includes(task.id))
+    ?? dailyPlan?.tasks.find((task) => !task.completed)
+    ?? null;
+  const emotionalSupportLabel = !evolution
+    ? "Acompañamiento equilibrado"
+    : evolution.frustrationLevel >= 0.66
+      ? "Necesita calma y pasos pequeños"
+      : evolution.consistencyScore >= 0.66
+        ? "Está sosteniendo buen ritmo"
+        : "Conviene proteger continuidad";
+  const academicSupportLabel = progress.length > 0
+    ? `${progress[0].subject?.name ?? ui.subjectFallbackLabel}: ${progress[0].masteryScore}% dominio, ${progress[0].confidenceScore}% confianza`
+    : "Aún falta progreso consolidado por materia";
+  const guardianPrimaryAction = guardianViewModel?.requiresIntervention
+    ? "Acompañar hoy con una acción corta, concreta y sin añadir más tareas."
+    : "Sostener el ritmo actual y preguntar por el siguiente paso, no por toda la semana.";
   const premiumRewardDays = growth?.rewardEntitlements.premiumAccessUntil
     ? Math.max(0, Math.ceil((new Date(growth.rewardEntitlements.premiumAccessUntil).getTime() - Date.now()) / 86400000))
     : 0;
+  const parentPriorityItems = [
+    guardianViewModel?.summary ?? emotionalSupportLabel,
+    nextDailyTask
+      ? `Hoy conviene priorizar ${nextDailyTask.subject} y no abrir mas frentes.`
+      : "Hoy conviene sostener continuidad sin meter tareas extra.",
+    insights[0]?.actions[0] ?? guardianPrimaryAction,
+  ].filter((item): item is string => Boolean(item));
+  const parentHelpActions = [
+    "Pregunta por el siguiente paso concreto, no por toda la semana.",
+    nextDailyTask
+      ? `Ofrece 10 minutos de presencia tranquila antes de ${nextDailyTask.subject}.`
+      : "Celebra el intento y deja que el alumno cierre un bloque pequeno.",
+    guardianViewModel?.requiresIntervention
+      ? "Reduce exigencia: una tarea corta, descanso y cierre claro."
+      : "Manten el ritmo con una pregunta simple al terminar.",
+  ];
+  const familySessionMode = resolveMentoriaSessionMode({
+    student,
+    dailyPlan,
+    activeTask: nextDailyTask,
+    stateLabel: guardianViewModel?.summary ?? emotionalSupportLabel,
+    currentTopic: nextDailyTask?.subject ?? progress[0]?.subject?.name ?? null,
+    currentMessage: insights[0]?.summary ?? guardianPrimaryAction,
+    recentActivityLabel: null,
+  });
+  const familySessionContract: MentoriaSessionContract = buildMentoriaSessionContract(
+    familySessionMode,
+    nextDailyTask ? "family_routine" : guardianViewModel?.requiresIntervention ? "student_state_signal" : "orchestrator_recommendation",
+  );
+  const familySessionOptions: MentoriaSessionModeOption[] = buildMentoriaSessionModeOptions({
+    student,
+    dailyPlan,
+    activeTask: nextDailyTask,
+    currentTopic: nextDailyTask?.subject ?? progress[0]?.subject?.name ?? null,
+    currentMessage: guardianPrimaryAction,
+    stateLabel: guardianViewModel?.summary ?? emotionalSupportLabel,
+  });
+  const familyFollowThroughItems = [
+    nextDailyTask
+      ? `Siguiente paso real: ${nextDailyTask.subject} · ${ui.dailyPlanTaskTypes[nextDailyTask.type]}.`
+      : null,
+    insights[0]?.summary ?? null,
+    progress[0]
+      ? `${progress[0].subject?.name ?? ui.subjectFallbackLabel}: ${progress[0].masteryScore}% dominio y ${progress[0].confidenceScore}% confianza.`
+      : null,
+    plan?.blocks?.[0]
+      ? `${plan.blocks[0].day}: ${plan.blocks[0].title} · ${plan.blocks[0].durationMinutes} ${ui.blockDurationSuffix}.`
+      : null,
+  ].filter((item): item is string => Boolean(item)).slice(0, 3);
 
   async function startCheckout(plan: "pro" | "family") {
     const response = await fetch("/api/mentoria/billing/checkout", {
@@ -290,381 +363,290 @@ export function MentoriaParentHub() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-5xl">
-        <div className="rounded-[32px] border border-white/10 bg-white/5 p-6">
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-sky-300">{ui.badge}</p>
-          <h1 className="mt-3 text-4xl font-black">{`${ui.headingPrefix} ${student.fullName}`}</h1>
-          <p className="mt-2 text-sm text-slate-300">{parentMessage}</p>
+    <WorkspaceShell
+      leftNav={
+        <div className="flex h-full flex-col bg-white">
+          <div className="border-b border-slate-200 p-5">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">{ui.badge}</div>
+            <h1 className="mt-2 text-xl font-black text-slate-900">{student.fullName}</h1>
+            <p className="mt-1 text-sm text-slate-600">{student.schoolYear}</p>
+            <Link href="/mentoria/app" className="mt-4 inline-flex rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              {ui.backAction}
+            </Link>
+          </div>
+
+          <div className="flex-1 space-y-4 overflow-y-auto p-4">
+            <section>
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Personas conectadas</div>
+              <div className="mt-3 space-y-2">
+                {connectedGuardians.length > 0 ? (
+                  connectedGuardians.map((guardian) => (
+                    <div key={guardian.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <div className="text-sm font-semibold text-slate-900">{guardian.fullName}</div>
+                      <div className="mt-1 text-xs text-slate-600">{guardian.relation}</div>
+                      <div className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                        {guardian.canManageSchedule ? ui.parentViewManage : ui.parentViewReadOnly}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-lg border border-dashed border-slate-200 p-3 text-sm text-slate-500">
+                    Aún no hay tutores conectados.
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-lg bg-emerald-50 p-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Hoy importa</div>
+              <p className="mt-2 text-sm text-emerald-950">{guardianPrimaryAction}</p>
+            </section>
+
+            <section className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+              <div className="font-semibold text-slate-900">Estado simple</div>
+              <div className="mt-2">{emotionalSupportLabel}</div>
+              <div className="mt-1">{academicSupportLabel}</div>
+            </section>
+          </div>
         </div>
+      }
+      centerBoard={
+        <div className="min-h-full bg-slate-50 p-6">
+          <div className="mx-auto max-w-5xl space-y-5">
+            <header className="rounded-xl border border-slate-200 bg-white p-6">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Perfil familiar conectado</div>
+              <h2 className="mt-2 text-2xl font-black text-slate-900">{`${ui.headingPrefix} ${student.fullName}`}</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{parentMessage}</p>
+            </header>
 
-        {billing ? (
-          <section className="mt-6 rounded-[28px] border border-white/10 bg-white/5 p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="max-w-2xl">
-                <h2 className="text-xl font-bold">{ui.billingTitle}</h2>
-                <p className="mt-2 text-sm text-slate-300">
-                  {`${billing.planLabel} · sesiones ${billing.usage.guidedSessionsToday}/${billing.limits.guidedSessionsPerDay} · practicas ${billing.usage.exercisesToday}/${billing.limits.exercisesPerDay}`}
-                </p>
-                {billing.paywall ? <p className="mt-3 text-sm text-amber-300">{billing.paywall.message}</p> : null}
-              </div>
-              <div className="flex flex-wrap gap-3">
-                {billing.paywall?.canManageBilling ? (
-                  <button
-                    onClick={() => startCheckout(billing.paywall?.recommendedPlan ?? "pro")}
-                    className="rounded-full bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950"
-                  >
-                    {ui.billingUpgradeAction}
-                  </button>
-                ) : null}
-                {billing.planCode !== "free" ? (
-                  <button onClick={openBillingPortal} className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold">
-                    {ui.billingManageAction}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </section>
-        ) : null}
-
-        <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          {connectedGuardians.map((guardian) => (
-            <div key={guardian.id} className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-              <div className="text-sm font-semibold">{guardian.fullName}</div>
-              <div className="mt-1 text-sm text-slate-300">{guardian.relation}</div>
-              <div className="mt-3 text-xs uppercase tracking-[0.18em] text-slate-400">
-                {guardian.canManageSchedule ? ui.parentViewManage : ui.parentViewReadOnly}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {guardianViewModel ? (
-          <section className="mt-6 rounded-[28px] border border-white/10 bg-white/5 p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="max-w-2xl">
-                <div className="text-xs uppercase tracking-[0.22em] text-slate-400">Estado del alumno</div>
-                <h2 className="mt-2 text-xl font-bold">{guardianViewModel.summary}</h2>
-                <p className="mt-2 text-sm text-slate-300">{guardianViewModel.message}</p>
-              </div>
-              <div className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.18em]">
-                <div className="rounded-full border border-white/10 px-4 py-2 text-sky-300">Prioridad {guardianViewModel.priority}</div>
-                <div className={`rounded-full border px-4 py-2 ${guardianViewModel.requiresIntervention ? "border-amber-400/30 text-amber-300" : "border-emerald-400/30 text-emerald-300"}`}>
-                  {guardianViewModel.requiresIntervention ? "Requiere intervención" : "Sin intervención inmediata"}
+            <section className="rounded-xl border border-slate-200 bg-white p-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Estado real del alumno</div>
+                  <h3 className="mt-2 text-xl font-bold text-slate-900">{guardianViewModel?.summary ?? "Seguimiento preparado"}</h3>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                    {guardianViewModel?.message ?? "Cuando el alumno avance en sesiones, aquí verás la lectura útil para acompañar sin invadir."}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">Prioridad {guardianViewModel?.priority ?? "normal"}</span>
+                  <span className={`rounded-full px-3 py-1 ${guardianViewModel?.requiresIntervention ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-800"}`}>
+                    {guardianViewModel?.requiresIntervention ? "Necesita apoyo hoy" : "Sin intervención urgente"}
+                  </span>
                 </div>
               </div>
-            </div>
-            <div className="mt-4 rounded-3xl bg-slate-900 p-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Qué hacer ahora</div>
-              <div className="mt-2 text-sm text-slate-200">
-                {guardianViewModel.requiresIntervention
-                  ? "Conviene acompañar hoy con una acción simple, corta y muy concreta, evitando meter varias tareas a la vez."
-                  : "Lo mejor ahora es sostener el ritmo actual sin añadir presión innecesaria ni cambiar demasiadas cosas a la vez."}
+              <div className="mt-5 rounded-lg bg-emerald-50 p-4">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Apoyo recomendado</div>
+                <p className="mt-2 text-sm leading-6 text-emerald-950">{guardianPrimaryAction}</p>
               </div>
-            </div>
-          </section>
-        ) : null}
+            </section>
 
-        {insights.length > 0 ? (
-          <section className="mt-6 rounded-[28px] border border-white/10 bg-white/5 p-6">
-            <h2 className="text-xl font-bold">{ui.recommendationsTitle}</h2>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              {insights.map((insight) => (
-                <div key={insight.id} className="rounded-3xl bg-slate-900 p-4">
-                  <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{insight.category}</div>
-                  <div className="mt-2 text-base font-semibold">{insight.title}</div>
-                  <p className="mt-2 text-sm text-slate-300">{insight.summary}</p>
-                  <div className="mt-3 space-y-2">
-                    {insight.actions.map((action) => (
-                      <div key={action} className="rounded-2xl bg-white/5 px-3 py-2 text-sm text-slate-200">
-                        {action}
-                      </div>
-                    ))}
+            <section className="rounded-xl border border-slate-200 bg-white p-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-3xl">
+                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Modo que más ayuda hoy</div>
+                  <h3 className="mt-2 text-xl font-bold text-slate-900">{familySessionContract.headline}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{familySessionContract.subheadline}</p>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-700">
+                      <div className="font-semibold text-slate-900">Lo que conviene priorizar</div>
+                      <div className="mt-2">{familySessionContract.objective}</div>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-700">
+                      <div className="font-semibold text-slate-900">Cómo encaja la familia</div>
+                      <div className="mt-2">{familySessionContract.familyRole}</div>
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {dailyPlan ? (
-          <section className="mt-6 rounded-[28px] border border-white/10 bg-white/5 p-6">
-            <h2 className="text-xl font-bold">{ui.dailyPlanTitle}</h2>
-            <div className="mt-4 grid gap-4 md:grid-cols-4">
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.dailyPlanComplianceLabel}</div>
-                <div className="mt-2 text-lg font-bold">{`${dailyCompliance}%`}</div>
+                <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900">
+                  Modo sugerido: {familySessionContract.label}
+                </div>
               </div>
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.dailyPlanDurationLabel}</div>
-                <div className="mt-2 text-lg font-bold">{`${dailyPlan.recommendedDuration} ${ui.blockDurationSuffix}`}</div>
-              </div>
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.dailyPlanPriorityLabel}</div>
-                <div className="mt-2 text-lg font-bold">{ui.dailyPlanPriorityValues[dailyPlan.priority]}</div>
-              </div>
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.dailyPlanConsistencyLabel}</div>
-                <div className="mt-2 text-lg font-bold">{`${Math.round((evolution?.consistencyScore ?? 0) * 100)}%`}</div>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.dailyPlanReasonLabel}</div>
-                <div className="mt-2 text-sm text-slate-200">{dailyPlan.adaptationReason}</div>
-                <div className="mt-4 space-y-2">
-                  {dailyPlan.tasks.map((task) => (
-                    <div key={task.id} className="rounded-2xl border border-white/10 px-4 py-3 text-sm">
-                      {`${task.subject} · ${ui.dailyPlanTaskTypes[task.type]} · ${ui.dailyPlanDifficultyPrefix}${task.difficulty}`}
+              <div className="mt-5 rounded-lg bg-slate-50 p-4">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cómo se traduce hoy</div>
+                <div className="mt-3 space-y-2 text-sm text-slate-700">
+                  {familySessionOptions.slice(0, 3).map((option) => (
+                    <div key={option.mode} className={`rounded-lg px-3 py-3 ${option.mode === familySessionContract.mode ? "bg-emerald-50 text-emerald-950" : "bg-white"}`}>
+                      <span className="font-semibold">{option.label}</span>: {option.description}
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.dailyPlanCompletedLabel}</div>
-                <div className="mt-3 space-y-2">
-                  {completedDailyTasks.length > 0 ? (
-                    completedDailyTasks.map((task) => (
-                      <div key={task.id} className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-                        {`${task.subject} · ${ui.dailyPlanTaskTypes[task.type]}`}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="rounded-2xl border border-white/10 px-4 py-3 text-sm text-slate-300">{ui.dailyPlanCompletedEmpty}</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
-        ) : null}
+            </section>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <section className="rounded-[28px] border border-white/10 bg-white/5 p-6">
-            <h2 className="text-xl font-bold">{ui.metricsTitle}</h2>
-            <div className="mt-4 space-y-3">
-              {progress.map((item) => (
-                <div key={item.id} className="rounded-3xl bg-slate-900 p-4">
-                  <div className="flex items-center justify-between">
-                    <span>{item.subject?.name ?? ui.subjectFallbackLabel}</span>
-                    <span className="text-sm text-slate-400">{`${item.masteryScore}%`}</span>
+            {dailyPlan ? (
+              <section className="rounded-xl border border-slate-200 bg-white p-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">{ui.dailyPlanTitle}</h3>
+                    <p className="mt-2 text-sm text-slate-600">{dailyPlan.adaptationReason}</p>
                   </div>
-                  <div className="mt-2 text-sm text-slate-300">{`${ui.confidenceLabel} ${item.confidenceScore}% - ${ui.sessionsLabel} ${item.sessionsCompleted} - ${ui.exercisesLabel} ${item.exercisesCompleted}`}</div>
+                  <div className="rounded-lg bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-800">
+                    {dailyCompliance}% · {completedDailyTasks.length}/{dailyPlan.tasks.length} tareas
+                  </div>
                 </div>
-              ))}
-            </div>
-          </section>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {dailyPlan.tasks.map((task) => {
+                    const isCompleted = task.completed || dailyPlan.completedTaskIds.includes(task.id);
+                    return (
+                      <div key={task.id} className={`rounded-lg border p-4 ${isCompleted ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50"}`}>
+                        <div className="text-sm font-semibold text-slate-900">{task.subject}</div>
+                        <div className="mt-1 text-xs text-slate-600">
+                          {ui.dailyPlanTaskTypes[task.type]} · {ui.dailyPlanDifficultyPrefix}{task.difficulty}
+                        </div>
+                        <div className="mt-3 text-xs font-semibold text-slate-500">{isCompleted ? "Ya cerrada" : "Pendiente"}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {nextDailyTask ? (
+                  <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                    Próxima prioridad: {nextDailyTask.subject} · {ui.dailyPlanTaskTypes[nextDailyTask.type]}.
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
 
-          <section className="rounded-[28px] border border-white/10 bg-white/5 p-6">
-            <h2 className="text-xl font-bold">{ui.configuredUseTitle}</h2>
-            <div className="mt-4 rounded-3xl bg-slate-900 p-5">
-              <div className="text-xs uppercase tracking-[0.22em] text-slate-400">{ui.weeklyPlanLabel}</div>
-              <div className="mt-2 text-lg font-semibold">{plan?.goalsSummary ?? ui.noPlan}</div>
-              <div className="mt-4 space-y-2">
-                {(plan?.blocks ?? []).map((block) => (
-                  <div key={block.id} className="rounded-2xl border border-white/10 px-4 py-3 text-sm">
-                    {`${block.day}: ${block.title} - ${block.durationMinutes} ${ui.blockDurationSuffix}`}
+            {familyFollowThroughItems.length > 0 ? (
+              <section className="rounded-xl border border-slate-200 bg-white p-5">
+                <h3 className="text-lg font-bold text-slate-900">Qué conviene sostener ahora</h3>
+                <p className="mt-2 text-sm text-slate-600">Mantén el foco en el siguiente paso real del alumno y evita abrir un seguimiento paralelo.</p>
+                <div className="mt-4 space-y-3">
+                  {familyFollowThroughItems.map((item) => (
+                    <div key={item} className="rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </div>
+        </div>
+      }
+      rightCopilot={
+        <div className="flex h-full min-h-0 flex-col bg-white">
+          <header className="border-b border-slate-200 p-5">
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Orquestador familiar</div>
+            <h2 className="mt-1 text-base font-semibold text-slate-900">Qué conviene hacer</h2>
+            <p className="mt-1 text-xs text-slate-500">Lectura accionable para padres/tutores, conectada al alumno.</p>
+          </header>
+
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-slate-50/70 p-4">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Mensaje principal</div>
+              <p className="mt-2 text-sm leading-6 text-emerald-950">{guardianPrimaryAction}</p>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Acompañamiento de hoy</div>
+              <div className="mt-3 space-y-2 text-sm text-slate-700">
+                {parentPriorityItems.slice(0, 3).map((item, index) => (
+                  <div key={`${item}-${index}`} className="rounded-lg bg-slate-50 px-3 py-2">
+                    {item}
                   </div>
                 ))}
               </div>
-            </div>
-            <Link href="/mentoria/app" className="mt-4 inline-block text-sm font-semibold text-sky-300">
-              {ui.backAction}
-            </Link>
-          </section>
-        </div>
-
-        <div className="mt-6 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-          <section className="rounded-[28px] border border-white/10 bg-white/5 p-6">
-            <h2 className="text-xl font-bold">{ui.alertsTitle}</h2>
-            <div className="mt-4 space-y-3">
-              {billing?.features.advancedParentInsights && interventions.length > 0 ? (
-                interventions.map((item) => (
-                  <div key={item.id} className="rounded-3xl bg-slate-900 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-sm font-semibold">{item.summary}</div>
-                      <div className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-sky-300">
-                        {`${ui.severityLabel} ${item.severity}`}
-                      </div>
-                    </div>
+              <div className="mt-3 space-y-2 text-sm text-slate-700">
+                {parentHelpActions.map((item, index) => (
+                  <div key={`${item}-${index}`} className="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-950">
+                    {index + 1}. {item}
                   </div>
-                ))
-              ) : (
-                <div className="rounded-3xl bg-slate-900 p-4 text-sm text-slate-300">{ui.noAlerts}</div>
-              )}
+                ))}
+              </div>
+              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
+                Si hoy toca <span className="font-semibold">{familySessionContract.label}</span>, ayuda más una presencia breve y tranquila que abrir todos los frentes a la vez.
+              </div>
+              {motivation ? (
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  Lectura simple: lleva {motivation.streak} dias de ritmo; usalo para animar, no para presionar.
+                </p>
+              ) : null}
             </div>
-          </section>
 
-          <section className="rounded-[28px] border border-white/10 bg-white/5 p-6">
-            <h2 className="text-xl font-bold">{ui.recommendationsTitle}</h2>
-            <div className="mt-4 rounded-3xl bg-slate-900 p-5">
-              {billing?.features.advancedParentInsights && interventions.length > 0 ? (
-                <div className="space-y-3 text-sm text-slate-200">
-                  {Array.from(new Set(interventions.flatMap((item) => item.recommendations))).slice(0, 6).map((recommendation) => (
-                    <div key={recommendation} className="rounded-2xl border border-white/10 px-4 py-3">
-                      {recommendation}
+            {interventions.length > 0 ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-800">{ui.alertsTitle}</div>
+                <div className="mt-3 space-y-3">
+                  {interventions.slice(0, 2).map((item) => (
+                    <div key={item.id} className="text-sm leading-6 text-amber-950">
+                      <div className="font-semibold">{item.summary}</div>
+                      {item.recommendations[0] ? <div className="mt-1">{item.recommendations[0]}</div> : null}
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="text-sm text-slate-300">{billing?.features.advancedParentInsights ? ui.noRecommendations : (billing?.paywall?.message ?? ui.noRecommendations)}</div>
-              )}
-            </div>
-          </section>
-        </div>
+              </div>
+            ) : null}
 
-        {billing?.features.fullParentHub && evolution ? (
-          <section className="mt-6 rounded-[28px] border border-white/10 bg-white/5 p-6">
-            <h2 className="text-xl font-bold">{ui.evolutionSummaryTitle}</h2>
-            <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.frustrationLabel}</div>
-                <div className="mt-2 text-2xl font-bold">{`${Math.round(evolution.frustrationLevel * 100)}%`}</div>
-              </div>
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.consistencyStateLabel}</div>
-                <div className="mt-2 text-2xl font-bold">{`${Math.round(evolution.consistencyScore * 100)}%`}</div>
-              </div>
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.progressionLabel}</div>
-                <div className="mt-2 text-2xl font-bold">{`${Math.round(evolution.progressionVelocity * 100)}%`}</div>
-              </div>
-            </div>
-          </section>
-        ) : null}
-
-        {billing?.features.fullParentHub && motivation ? (
-          <section className="mt-6 rounded-[28px] border border-white/10 bg-white/5 p-6">
-            <h2 className="text-xl font-bold">{ui.motivationTitle}</h2>
-            <div className="mt-4 grid gap-4 md:grid-cols-4">
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.motivationProfileLabel}</div>
-                <div className="mt-2 text-lg font-bold">{ui.motivationProfileValues[motivation.motivationProfile]}</div>
-              </div>
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.streakLabel}</div>
-                <div className="mt-2 text-lg font-bold">{motivation.streak}</div>
-              </div>
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.effortLabel}</div>
-                <div className="mt-2 text-lg font-bold">{`${Math.round(motivation.effortScore * 100)}%`}</div>
-              </div>
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.rewardPointsLabel}</div>
-                <div className="mt-2 text-lg font-bold">{motivation.rewardPoints}</div>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.levelLabel}</div>
-                <div className="mt-2 text-lg font-bold">{motivation.level}</div>
-              </div>
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.achievementsTitle}</div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {motivation.achievements.length > 0 ? (
-                    motivation.achievements.slice(0, 6).map((achievement) => (
-                      <div key={achievement} className="rounded-full border border-white/10 px-3 py-2 text-sm">
-                        {achievement}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-slate-300">{ui.noAchievements}</div>
-                  )}
+            <section className="rounded-xl border border-slate-200 bg-white p-4">
+              <h3 className="text-sm font-semibold text-slate-900">{ui.configureTitle}</h3>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <div className="text-xs font-semibold text-slate-600">{ui.parentSlotA}</div>
+                  <input value={primaryGuardianDraft.fullName} onChange={(event) => setPrimaryGuardianDraft((current) => ({ ...current, fullName: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder={ui.fullNamePlaceholder} />
+                  <input value={primaryGuardianDraft.email} onChange={(event) => setPrimaryGuardianDraft((current) => ({ ...current, email: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder={ui.emailPlaceholder} />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-slate-600">{ui.parentSlotB}</div>
+                  <input value={secondaryGuardianDraft.fullName} onChange={(event) => setSecondaryGuardianDraft((current) => ({ ...current, fullName: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder={ui.fullNamePlaceholder} />
+                  <input value={secondaryGuardianDraft.email} onChange={(event) => setSecondaryGuardianDraft((current) => ({ ...current, email: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder={ui.emailPlaceholder} />
                 </div>
               </div>
-            </div>
-          </section>
-        ) : null}
+              <button onClick={saveGuardiansProfile} className="mt-4 rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-black">
+                {ui.saveAction}
+              </button>
+            </section>
 
-        {growth ? (
-          <section className="mt-6 rounded-[28px] border border-white/10 bg-white/5 p-6">
-            <h2 className="text-xl font-bold">{ui.growthTitle}</h2>
-            <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.referralCodeLabel}</div>
-                <div className="mt-2 text-lg font-bold">{growth.referralProfile.referralCode}</div>
-              </div>
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.rewardDaysLabel}</div>
-                <div className="mt-2 text-lg font-bold">{premiumRewardDays}</div>
-              </div>
-              <div className="rounded-3xl bg-slate-900 p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{ui.convertedReferralsLabel}</div>
-                <div className="mt-2 text-lg font-bold">{growth.referralProfile.convertedInvites}</div>
-              </div>
-            </div>
+            {billing ? (
+              <section className="rounded-xl border border-slate-200 bg-white p-4">
+                <h3 className="text-sm font-semibold text-slate-900">{ui.billingTitle}</h3>
+                <p className="mt-2 text-xs leading-5 text-slate-600">
+                  {`${billing.planLabel} · sesiones ${billing.usage.guidedSessionsToday}/${billing.limits.guidedSessionsPerDay} · practicas ${billing.usage.exercisesToday}/${billing.limits.exercisesPerDay}`}
+                </p>
+                {billing.paywall ? <p className="mt-3 text-xs text-amber-700">{billing.paywall.message}</p> : null}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {billing.paywall?.canManageBilling ? (
+                    <button onClick={() => startCheckout(billing.paywall?.recommendedPlan ?? "pro")} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">
+                      {ui.billingUpgradeAction}
+                    </button>
+                  ) : null}
+                  {billing.planCode !== "free" ? (
+                    <button onClick={openBillingPortal} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">
+                      {ui.billingManageAction}
+                    </button>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-3xl bg-slate-900 p-5">
-                <div className="text-sm font-semibold">{ui.recommendedInviteLabel}</div>
-                <div className="mt-2 text-sm text-slate-300">{growth.recommendedInviteMessage}</div>
+            {growth ? (
+              <section className="rounded-xl border border-slate-200 bg-white p-4">
+                <h3 className="text-sm font-semibold text-slate-900">{ui.growthTitle}</h3>
+                <p className="mt-2 text-xs text-slate-600">{growth.recommendedShareMessage}</p>
+                <div className="mt-3 text-xs text-slate-500">{ui.rewardDaysLabel}: {premiumRewardDays}</div>
                 <input
                   value={inviteEmail}
                   onChange={(event) => setInviteEmail(event.target.value)}
-                  className="mt-4 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm"
+                  className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   placeholder={ui.invitePlaceholder}
                 />
-                <div className="mt-3 flex flex-wrap gap-3">
-                  <button onClick={createInvite} className="rounded-full bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950">
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button onClick={createInvite} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">
                     {ui.inviteAction}
                   </button>
-                  {inviteMessage ? (
-                    <button onClick={() => copyText(inviteMessage)} className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold">
-                      {ui.copyAction}
-                    </button>
-                  ) : null}
-                </div>
-                {inviteUrl ? (
-                  <div className="mt-4 rounded-2xl border border-white/10 px-4 py-3 text-sm text-slate-300">
-                    <div className="font-semibold text-white">{ui.inviteReadyLabel}</div>
-                    <div className="mt-2 break-all">{inviteUrl}</div>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="rounded-3xl bg-slate-900 p-5">
-                <div className="text-sm font-semibold">{ui.recommendedShareLabel}</div>
-                <div className="mt-2 text-sm text-slate-300">{growth.recommendedShareMessage}</div>
-                <div className="mt-3 flex flex-wrap gap-3">
-                  <button onClick={createShare} className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950">
+                  <button onClick={createShare} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">
                     {ui.shareProgressAction}
                   </button>
-                  {shareMessage ? (
-                    <button onClick={() => copyText(shareMessage)} className="rounded-full border border-white/10 px-5 py-3 text-sm font-semibold">
-                      {ui.copyAction}
-                    </button>
-                  ) : null}
+                  {inviteMessage ? <button onClick={() => copyText(inviteMessage)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">{ui.copyAction}</button> : null}
+                  {shareMessage ? <button onClick={() => copyText(shareMessage)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700">{ui.copyAction}</button> : null}
                 </div>
-                {(shareUrl || growth.latestShare) ? (
-                  <div className="mt-4 rounded-2xl border border-white/10 px-4 py-3 text-sm text-slate-300">
-                    <div className="font-semibold text-white">{ui.shareLinkLabel}</div>
-                    <div className="mt-2 break-all">{shareUrl ?? `${window.location.origin}/mentoria/share/${growth.latestShare?.shareCode}`}</div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </section>
-        ) : null}
-
-        <section className="mt-6 rounded-[28px] border border-white/10 bg-white/5 p-6">
-          <h2 className="text-xl font-bold">{ui.configureTitle}</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div className="rounded-3xl bg-slate-900 p-4">
-              <div className="text-sm font-semibold">{ui.parentSlotA}</div>
-              <input value={primaryGuardianDraft.fullName} onChange={(event) => setPrimaryGuardianDraft((current) => ({ ...current, fullName: event.target.value }))} className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm" placeholder={ui.fullNamePlaceholder} />
-              <input value={primaryGuardianDraft.email} onChange={(event) => setPrimaryGuardianDraft((current) => ({ ...current, email: event.target.value }))} className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm" placeholder={ui.emailPlaceholder} />
-            </div>
-            <div className="rounded-3xl bg-slate-900 p-4">
-              <div className="text-sm font-semibold">{ui.parentSlotB}</div>
-              <input value={secondaryGuardianDraft.fullName} onChange={(event) => setSecondaryGuardianDraft((current) => ({ ...current, fullName: event.target.value }))} className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm" placeholder={ui.fullNamePlaceholder} />
-              <input value={secondaryGuardianDraft.email} onChange={(event) => setSecondaryGuardianDraft((current) => ({ ...current, email: event.target.value }))} className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm" placeholder={ui.emailPlaceholder} />
-            </div>
+                {inviteUrl ? <div className="mt-3 break-all text-xs text-slate-500">{inviteUrl}</div> : null}
+                {(shareUrl || growth.latestShare) ? <div className="mt-3 break-all text-xs text-slate-500">{shareUrl ?? `${window.location.origin}/mentoria/share/${growth.latestShare?.shareCode}`}</div> : null}
+              </section>
+            ) : null}
           </div>
-          <button onClick={saveGuardiansProfile} className="mt-4 rounded-full bg-sky-400 px-5 py-3 text-sm font-semibold text-slate-950">
-            {ui.saveAction}
-          </button>
-        </section>
-      </div>
-    </div>
+        </div>
+      }
+    />
   );
+
 }

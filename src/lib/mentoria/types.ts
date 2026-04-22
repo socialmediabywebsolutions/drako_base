@@ -71,6 +71,53 @@ export type MentoriaOnboardingPayload = {
 
 export type MentoriaSessionActorType = "guardian" | "student" | "unknown";
 
+export type MentoriaSessionMode =
+  | "task_resolution"
+  | "exam_preparation"
+  | "subject_reinforcement"
+  | "study_routine"
+  | "soft_reentry";
+
+export type MentoriaSessionInputKind =
+  | "task_photo"
+  | "exam_photo"
+  | "pasted_text"
+  | "selected_subject"
+  | "orchestrator_recommendation"
+  | "family_routine"
+  | "student_state_signal"
+  | "recent_session"
+  | "free_message";
+
+export type MentoriaSessionContract = {
+  mode: MentoriaSessionMode;
+  label: string;
+  headline: string;
+  subheadline: string;
+  objective: string;
+  entryKind: MentoriaSessionInputKind;
+  entryLabel: string;
+  primaryCta: string;
+  chatBehavior: string;
+  boardBehavior: string;
+  progression: string[];
+  tutorTone: string;
+  completionRule: string;
+  familyRole: string;
+  statusLabel: string;
+};
+
+export type MentoriaSessionModeOption = {
+  mode: MentoriaSessionMode;
+  label: string;
+  description: string;
+  ctaLabel: string;
+  topic: string;
+  prompt: string;
+  inputKind: MentoriaSessionInputKind;
+  subjectSlug?: string | null;
+};
+
 export type MentoriaSessionContext = {
   actorType: MentoriaSessionActorType;
   familyId: string | null;

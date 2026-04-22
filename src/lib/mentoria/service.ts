@@ -51,6 +51,7 @@ import {
   resolveGrowthEntitlements,
 } from "@/lib/mentoria/referral-system";
 import { MentoriaRepository } from "@/lib/mentoria/repository";
+import { buildMentoriaSessionContract, resolveMentoriaSessionMode } from "@/lib/mentoria/session-modes";
 import { SessionPersistenceManager } from "@/lib/mentoria/session-persistence";
 import { generateSessionSummary } from "@/lib/mentoria/session-summary";
 import { generateSessionFeedback, buildSessionCompletionMessage } from "@/lib/mentoria/session-feedback";
@@ -91,6 +92,8 @@ import type {
   MentoriaProgressShare,
   MentoriaReferral,
   MentoriaReferralProfile,
+  MentoriaSessionInputKind,
+  MentoriaSessionMode,
   MentoriaStudentMemorySummary,
   MentoriaSubject,
   MentoriaWorkspaceEntry,
@@ -102,6 +105,22 @@ import type {
 type MentoriaSessionActor = MentoriaRequestSession;
 
 type MentoriaEntryMode = "resume_session" | "gentle_restart" | "momentum_push" | "plan_task" | "entry";
+
+function getTutorModeInstruction(mode: MentoriaSessionMode, contractHeadline: string) {
+  if (mode === "task_resolution") {
+    return `${contractHeadline}. Trabaja desde un deber real, aclara el enunciado y evita convertir la sesión en explicación abstracta.`;
+  }
+  if (mode === "exam_preparation") {
+    return `${contractHeadline}. Ordena el repaso por prioridad, reduce ansiedad y deja claro qué bloque conviene preparar hoy.`;
+  }
+  if (mode === "subject_reinforcement") {
+    return `${contractHeadline}. Refuerza comprensión aunque no haya tarea y cierra con una práctica de consolidación.`;
+  }
+  if (mode === "study_routine") {
+    return `${contractHeadline}. Convierte la rutina en un bloque viable, humano y claro, sin sonar a panel administrativo.`;
+  }
+  return `${contractHeadline}. Protege la vuelta suave, baja carga y busca una primera victoria rápida antes de exigir más.`;
+}
 
 type MentoriaOnboardingAttributes = {
   schoolYear: string;
@@ -1796,6 +1815,8 @@ export class MentoriaService {
     message: string;
     sessionId?: string;
     entryMode?: MentoriaEntryMode;
+    sessionMode?: MentoriaSessionMode;
+    sessionInputKind?: MentoriaSessionInputKind;
   }): Promise<{
     session: Awaited<ReturnType<MentoriaRepository["createLearningSession"]>>;
     subject: MentoriaSubject;
@@ -1804,6 +1825,8 @@ export class MentoriaService {
     explanation: string;
     suggestedSteps: string[];
     reinforcementQuestion: string;
+    sessionMode: MentoriaSessionMode;
+    sessionInputKind: MentoriaSessionInputKind;
     insights: Insight[];
     isRecovered?: boolean;
     sessionFeedback?: {
@@ -1947,11 +1970,39 @@ export class MentoriaService {
       motivation: adaptiveContext.motivation,
     });
     const entryModeAdjustments = getTutorEntryModeAdjustments(payload.entryMode);
+    const resolvedSessionMode = payload.sessionMode ?? resolveMentoriaSessionMode({
+      student,
+      dailyPlan,
+      latestSession: recentSessions[0] ?? null,
+      selectedSubject: studentSubjects.find((item) => item.subjectId === subject.id) ?? null,
+      activeTask: dailyPlan.tasks.find((task) => task.subjectId === subject.id && !task.completed) ?? dailyPlan.tasks.find((task) => !task.completed) ?? null,
+      currentTopic: payload.topic ?? subjectSelection.topic,
+      currentMessage: payload.message,
+      stateLabel: adaptiveContext.interventions[0]?.summary ?? motivation.motivationProfile ?? null,
+      suggestedInputKind: payload.sessionInputKind ?? null,
+    });
+    const fallbackInputKind: MentoriaSessionInputKind = resolvedSessionMode === "exam_preparation"
+      ? "exam_photo"
+      : resolvedSessionMode === "study_routine"
+        ? "family_routine"
+        : resolvedSessionMode === "soft_reentry"
+          ? "student_state_signal"
+          : payload.entryMode === "resume_session"
+            ? "recent_session"
+            : payload.entryMode === "plan_task"
+              ? "family_routine"
+              : "free_message";
+    const resolvedSessionInputKind = payload.sessionInputKind ?? fallbackInputKind;
+    const sessionContract = buildMentoriaSessionContract(resolvedSessionMode, resolvedSessionInputKind);
     const adaptedEntry = {
       ...adaptation,
       explanationDepth: entryModeAdjustments.explanationDepth ?? adaptation.explanationDepth,
       difficultyAdjustment: entryModeAdjustments.difficultyAdjustment ?? adaptation.difficultyAdjustment,
-      tutorInstruction: [adaptation.tutorInstruction, entryModeAdjustments.tutorInstruction].filter(Boolean).join(" ").trim(),
+      tutorInstruction: [
+        adaptation.tutorInstruction,
+        entryModeAdjustments.tutorInstruction,
+        getTutorModeInstruction(resolvedSessionMode, sessionContract.headline),
+      ].filter(Boolean).join(" ").trim(),
     };
     const history: MentoriaAgentHistoryTurn[] = recentSessions
       .filter((item) => item.subjectId === subject.id)
@@ -2275,6 +2326,8 @@ export class MentoriaService {
       explanation: String(tutorResponse.output.explanation),
       suggestedSteps: Array.isArray(tutorResponse.output.suggestedSteps) ? tutorResponse.output.suggestedSteps.map((item) => String(item)) : [],
       reinforcementQuestion: String(tutorResponse.output.reinforcementQuestion),
+      sessionMode: resolvedSessionMode,
+      sessionInputKind: resolvedSessionInputKind,
       insights,
       isRecovered: !!recoveredSession,
       sessionFeedback: {

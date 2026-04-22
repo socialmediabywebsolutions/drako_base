@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import type { BehavioralExplanationFrame } from "@/lib/behavioral-engine/explanation";
 import type { NextBestAction as BehavioralNextBestAction } from "@/lib/behavioral-engine/contracts";
-import type { MentoriaWorkspaceEntry, DailyPlan, MentoriaStudentMemorySummary, MentoriaGuardianHookEvent, StudentProfile } from "@/lib/mentoria/types";
+import type { MentoriaWorkspaceEntry, DailyPlan, MentoriaSessionContract, MentoriaSessionMode, MentoriaSessionModeOption, MentoriaStudentMemorySummary, MentoriaGuardianHookEvent, StudentProfile } from "@/lib/mentoria/types";
 import type { OrchestratorContext, StateActions, StateDecision } from "@/lib/mentoria/state/state-types";
+import type { WorkspaceOrchestratorAction, WorkspaceOrchestratorPlan } from "@/lib/mentoria/workspace-orchestrator";
 
 type WorkspaceCopilotProps = {
   entry: MentoriaWorkspaceEntry | null;
@@ -34,6 +35,8 @@ type WorkspaceCopilotProps = {
   student?: StudentProfile | null;
   activeSubjectSlug?: string | null;
   selectedSubjectName?: string | null;
+  sessionContract: MentoriaSessionContract;
+  sessionModeOptions?: MentoriaSessionModeOption[];
   tutorMessages?: Array<{ role: "student" | "tutor"; content: string; kind?: "message" | "explanation" | "steps" | "question" | "feedback" }>;
   tutorResult?: {
     topic?: string;
@@ -44,9 +47,12 @@ type WorkspaceCopilotProps = {
   activeGuidedStep?: string | null;
   guidedFeedback?: { status: "correct" | "almost" | "incorrect"; level: "short" | "superficial" | "explained" | "incorrect"; tone: "guided" | "direct" | "paced"; message: string; rationale: string } | null;
   sessionProgressPercent?: number;
+  orchestratorPlan?: WorkspaceOrchestratorPlan | null;
   onSendMessage: (message: string) => void;
-  onQuickAction: (action: { topic: string; prompt: string; subjectSlug?: string | null }) => void;
+  onQuickAction: (action: { topic: string; prompt: string; subjectSlug?: string | null; sessionMode?: MentoriaSessionMode; sessionInputKind?: MentoriaSessionModeOption["inputKind"] }) => void;
+  onSelectSessionMode?: (option: MentoriaSessionModeOption) => void;
   onRunNextAction?: () => void;
+  onRunOrchestratorAction?: (action: WorkspaceOrchestratorAction) => void;
 };
 
 export function WorkspaceCopilot({
@@ -70,14 +76,19 @@ export function WorkspaceCopilot({
   student,
   activeSubjectSlug,
   selectedSubjectName,
+  sessionContract,
+  sessionModeOptions = [],
   tutorMessages = [],
   tutorResult,
   activeGuidedStep = null,
   guidedFeedback = null,
   sessionProgressPercent = 0,
+  orchestratorPlan = null,
   onSendMessage,
   onQuickAction,
+  onSelectSessionMode,
   onRunNextAction,
+  onRunOrchestratorAction,
 }: WorkspaceCopilotProps) {
   const [chatInput, setChatInput] = useState("");
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -196,6 +207,18 @@ export function WorkspaceCopilot({
     : stateDecision?.state === "overloaded" || stateDecision?.state === "at_risk"
       ? "Escribe solo la idea principal o pide una pista corta..."
       : "Responde al paso o pide una pista corta...";
+  const resolvedPrimaryNextAction = orchestratorPlan?.nextStep ?? primaryNextAction;
+  const resolvedCompactActionLabel = orchestratorPlan?.primaryAction.label ?? compactActionLabel;
+  const resolvedOrchestratorPrimaryCopy = orchestratorPlan?.message ?? orchestratorPrimaryCopy;
+  const modeBadgeTone = sessionContract.mode === "task_resolution"
+    ? "bg-amber-100 text-amber-900"
+    : sessionContract.mode === "exam_preparation"
+      ? "bg-rose-100 text-rose-900"
+      : sessionContract.mode === "subject_reinforcement"
+        ? "bg-emerald-100 text-emerald-900"
+        : sessionContract.mode === "study_routine"
+          ? "bg-sky-100 text-sky-900"
+          : "bg-violet-100 text-violet-900";
 
   useEffect(() => {
     if (!chatScrollRef.current) return;
@@ -215,45 +238,133 @@ export function WorkspaceCopilot({
     setChatInput("");
   }
 
+  function handleOrchestratorAction(action: WorkspaceOrchestratorAction) {
+    if (onRunOrchestratorAction) {
+      onRunOrchestratorAction(action);
+      return;
+    }
+
+    if (action.kind === "run_next") {
+      onRunNextAction?.();
+      return;
+    }
+
+    if (action.kind === "quick_action" && action.prompt && action.topic) {
+      onQuickAction({
+        topic: action.topic,
+        prompt: action.prompt,
+        subjectSlug: action.subjectSlug,
+      });
+      return;
+    }
+
+    if (action.kind === "send_message") {
+      onSendMessage(action.prompt ?? action.label);
+    }
+  }
+
+  const showNowPanel = Boolean(orchestratorPlan || resolvedPrimaryNextAction || currentTask || tutorResult?.progressMessage || activeGuidedStep);
+  const showQuickActionsPanel = Boolean(entry && entry.quickActions.length > 0 && !dynamicNextAction);
+  const showSecondaryContext = Boolean(activeGuidedStep || guidedFeedback || memorySummary || primaryHook || motivationMessage || showQuickActionsPanel);
+  const compactSecondaryActions = orchestratorPlan?.secondaryActions.slice(0, 2) ?? [];
+
   return (
-    <div className="flex h-full flex-col bg-slate-50/60">
-      <header className="border-b border-slate-200/80 p-5">
-        <h2 className="text-base font-semibold text-slate-800">Entrenador de sesión</h2>
-        <p className="text-xs text-slate-500">{resolvedStateUi?.subheader ?? "Contexto corto, acción clara."}</p>
+    <div className="flex h-full min-h-0 flex-col bg-white">
+      <header className="border-b border-slate-200 p-5">
+        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Chat orquestador</div>
+        <h2 className="mt-1 text-base font-semibold text-slate-900">El tutor dirige la sesión</h2>
+        <p className="mt-1 text-xs text-slate-500">{orchestratorPlan?.intentLabel ?? resolvedStateUi?.subheader ?? "Aquí decides, preguntas o sigues la siguiente indicación."}</p>
+        <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-700">
+          <span className={`rounded-full px-2.5 py-1 ${modeBadgeTone}`}>{sessionContract.label}</span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1">{sessionContract.entryLabel}</span>
+        </div>
+        {(stageLabel || selectedSubjectName || activeSubjectSlug || tutorResult?.topic) ? (
+          <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
+            {selectedSubjectName || activeSubjectSlug ? <span className="rounded-full bg-slate-100 px-2.5 py-1">{selectedSubjectName ?? activeSubjectSlug}</span> : null}
+            {tutorResult?.topic ? <span className="rounded-full bg-slate-100 px-2.5 py-1">{tutorResult.topic}</span> : null}
+            {stageLabel ? <span className="rounded-full bg-slate-100 px-2.5 py-1">{stageLabel}</span> : null}
+          </div>
+        ) : null}
       </header>
 
-      <div className="border-b border-slate-200/80 p-4">
-        {(resolvedStateUi || orchestratorContext || stateActions) && (
-          <div className={`mb-4 rounded-xl border p-4 ${resolvedStateUi?.panel ?? "border-slate-200 bg-white/80"}`}>
-            <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-700">
-              <span>{resolvedStateUi?.header ?? "Acompañamiento"}</span>
-              {stateDecision ? <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-slate-700">{stateDecision.state}</span> : null}
-              {orchestratorContext ? <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-slate-700">{visibleTone}</span> : null}
-              {orchestratorContext ? <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-slate-700">{visibleIntensity}</span> : null}
-            </div>
-            <div className="text-sm text-slate-900">{orchestratorPrimaryCopy}</div>
-            {stateActions?.primaryStudentAction ? <div className="mt-2 text-sm font-semibold text-slate-900">Siguiente foco: {stateActions.primaryStudentAction}</div> : null}
+      {showNowPanel ? (
+        <section className={`border-b border-slate-200 p-4 ${resolvedStateUi?.panel ?? "bg-emerald-50/70"}`}>
+          <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
+            <span>{orchestratorPlan?.stageLabel ?? "Ahora mismo"}</span>
+            {orchestratorPlan?.progressLabel ? <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-slate-700">{orchestratorPlan.progressLabel}</span> : null}
+            {orchestratorContext ? <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-slate-700">{visibleTone}</span> : null}
+            {orchestratorContext ? <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-bold text-slate-700">{visibleIntensity}</span> : null}
           </div>
-        )}
-        {(stageLabel || activeSubjectSlug || tutorResult?.topic) && (
-          <div className="rounded-xl border border-slate-200 bg-white/80 p-4">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-700">
-              Sesión actual
+          {!isBehavioralReentry ? <div className="text-sm font-semibold text-slate-900">{resolvedOrchestratorPrimaryCopy}</div> : null}
+          {isBehavioralReentry && behavioralFrame ? (
+            <div className="mt-2 space-y-1 text-sm text-slate-900">
+              <div>{behavioralFrame.title}</div>
+              {behavioralAction?.strategy === "resume_session" ? <div>Seguimos donde lo dejaste</div> : null}
+              {behavioralAction?.strategy === "resume_session" && latestSessionSummary ? <div>{latestSessionSummary}</div> : null}
+              {behavioralAction?.strategy === "resume_session" && recentActivityLabel ? <div>Ultima actividad: {recentActivityLabel}</div> : null}
+              {behavioralAction?.strategy === "resume_session" && typeof motivationStreak === "number" ? <div>Racha actual: {motivationStreak} dias</div> : null}
+              {behavioralFrame.modeBadge ? <div>{behavioralFrame.modeBadge}</div> : null}
+              {behavioralDescription ? <div>{behavioralDescription}</div> : null}
+              {behavioralAction?.strategy === "plan_task" && currentTask ? (
+                <>
+                  <div>Tu plan de hoy sigue esperandote con {currentTask.subject}.</div>
+                  <div>Llevas {completedTaskCount} tareas cerradas y la siguiente es {currentTask.subject} - {normalizedCurrentTaskType ?? currentTask.type}.</div>
+                  <div>{behavioralFrame.whyToday}</div>
+                  <div>{behavioralExpectedOutcome ?? "Si haces clic, entraras directamente en la siguiente tarea util del plan de hoy."}</div>
+                </>
+              ) : null}
+              {behavioralAction?.strategy !== "plan_task" && behavioralFrame.whyToday ? <div>{behavioralFrame.whyToday}</div> : null}
+              {behavioralAction?.strategy !== "plan_task" && behavioralExpectedOutcome ? <div>{behavioralExpectedOutcome}</div> : null}
             </div>
-            <div className="space-y-1 text-sm text-slate-700">
-              {tutorResult?.topic ? <div><span className="font-semibold text-slate-900">Tema:</span> {tutorResult.topic}</div> : null}
-              {selectedSubjectName || activeSubjectSlug ? <div><span className="font-semibold text-slate-900">Materia:</span> {selectedSubjectName ?? activeSubjectSlug}</div> : null}
-              {stageLabel ? <div><span className="font-semibold text-slate-900">Nivel:</span> {stageLabel}</div> : null}
-              {activeGuidedStep ? <div><span className="font-semibold text-slate-900">Paso activo:</span> {activeGuidedStep}</div> : null}
+          ) : null}
+          {orchestratorPlan?.microObjective ? (
+            <div className="mt-2 rounded-lg bg-white/70 px-3 py-2 text-sm text-slate-900">
+              Siguiente foco: <span className="font-semibold">{orchestratorPlan.microObjective}</span>
             </div>
-          </div>
-        )}
-      </div>
+          ) : null}
+          <div className="mt-3 text-sm font-semibold text-slate-900">Ahora toca: {resolvedPrimaryNextAction ?? resolvedCompactActionLabel}</div>
+          {orchestratorPlan?.boardFocus ? <div className="mt-1 text-xs leading-5 text-slate-700">En la pizarra: {orchestratorPlan.boardFocus}</div> : null}
+          {orchestratorPlan?.primaryAction ? (
+            <button
+              type="button"
+              onClick={() => handleOrchestratorAction(orchestratorPlan.primaryAction)}
+              className="mt-3 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+              disabled={sessionState === "checking"}
+            >
+              {orchestratorPlan.primaryAction.label}
+            </button>
+          ) : dynamicNextAction && dynamicNextAction.kind !== "exercise" ? (
+            <button
+              type="button"
+              onClick={() => onRunNextAction?.()}
+              className="mt-3 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+              disabled={sessionState === "checking"}
+            >
+              {resolvedCompactActionLabel}
+            </button>
+          ) : null}
+          {compactSecondaryActions.length ? (
+            <div className="mt-3 grid gap-2">
+              {compactSecondaryActions.map((action) => (
+                <button
+                  key={action.id}
+                  type="button"
+                  onClick={() => handleOrchestratorAction(action)}
+                  className="rounded-lg border border-white/80 bg-white/75 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-white"
+                >
+                  <span className="block text-slate-900">{action.label}</span>
+                  <span className="mt-1 block font-normal leading-5 text-slate-600">{action.description}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
-      <div ref={chatScrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+      <div ref={chatScrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50/70 p-4">
         {tutorMessages.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white/80 p-5 text-sm text-slate-500">
-            Empieza una materia o una tarea y el chat irá siguiendo el hilo real de la sesión.
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-500">
+            {orchestratorPlan?.message ?? "Empieza una materia o una tarea y el chat irá siguiendo el hilo real de la sesión."}
           </div>
         ) : (
           tutorMessages.map((msg, idx) => (
@@ -294,8 +405,8 @@ export function WorkspaceCopilot({
         )}
       </div>
 
-      <div className="border-t border-slate-200/80 p-4">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Responder al entrenador</div>
+      <div className="border-t border-slate-200 bg-white p-4">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Habla con el tutor</div>
         <div className="flex gap-2">
           <input
             type="text"
@@ -308,133 +419,110 @@ export function WorkspaceCopilot({
           <button
             type="button"
             onClick={handleSubmitMessage}
-            className="rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-black"
+            className="rounded-lg bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-black"
           >
             Enviar
           </button>
         </div>
-      </div>
-
-      <div className="space-y-4 border-t border-slate-200/80 p-4">
-        {(primaryNextAction || currentTask || tutorResult?.progressMessage || activeGuidedStep) && (
-          <div className={`rounded-xl border p-4 ${resolvedStateUi?.panel ?? "border-emerald-100 bg-emerald-50/75"}`}>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-700">Ahora mismo</div>
-            {!isBehavioralReentry ? <div className="text-sm text-slate-900">{orchestratorPrimaryCopy}</div> : null}
-            {isBehavioralReentry && behavioralFrame ? (
-              <div className="mt-2 space-y-1 text-sm text-slate-900">
-                <div>{behavioralFrame.title}</div>
-                {behavioralAction?.strategy === "resume_session" ? <div>Seguimos donde lo dejaste</div> : null}
-                {behavioralAction?.strategy === "resume_session" && latestSessionSummary ? <div>{latestSessionSummary}</div> : null}
-                {behavioralAction?.strategy === "resume_session" && recentActivityLabel ? <div>Ultima actividad: {recentActivityLabel}</div> : null}
-                {behavioralAction?.strategy === "resume_session" && typeof motivationStreak === "number" ? <div>Racha actual: {motivationStreak} dias</div> : null}
-                {behavioralFrame.modeBadge ? <div>{behavioralFrame.modeBadge}</div> : null}
-                {behavioralDescription ? <div>{behavioralDescription}</div> : null}
-                {behavioralAction?.strategy === "plan_task" && currentTask ? (
-                  <>
-                    <div>Tu plan de hoy sigue esperandote con {currentTask.subject}.</div>
-                    <div>Llevas {completedTaskCount} tareas cerradas y la siguiente es {currentTask.subject} - {normalizedCurrentTaskType ?? currentTask.type}.</div>
-                    <div>{behavioralFrame.whyToday}</div>
-                    <div>{behavioralExpectedOutcome ?? "Si haces clic, entraras directamente en la siguiente tarea util del plan de hoy."}</div>
-                  </>
-                ) : null}
-                {behavioralAction?.strategy !== "plan_task" && behavioralFrame.whyToday ? <div>{behavioralFrame.whyToday}</div> : null}
-                {behavioralAction?.strategy !== "plan_task" && behavioralExpectedOutcome ? <div>{behavioralExpectedOutcome}</div> : null}
+        <div className="mt-2 text-xs text-slate-500">Pregunta, responde o pide una pista corta. La pizarra ejecuta el trabajo.</div>
+        {showSecondaryContext ? (
+          <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <summary className="cursor-pointer text-xs font-semibold text-slate-700">Ver apoyo extra</summary>
+            <div className="mt-3 space-y-3">
+              <div className="rounded-lg bg-white p-3">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-600">Modo de esta sesión</div>
+                <div className="mt-2 text-sm font-semibold text-slate-900">{sessionContract.headline}</div>
+                <div className="mt-1 text-xs leading-5 text-slate-600">{sessionContract.chatBehavior}</div>
               </div>
-            ) : null}
-            <div className="mt-2 text-sm font-semibold text-slate-900">Acción: {primaryNextAction ?? compactActionLabel}</div>
-            {dynamicNextAction && dynamicNextAction.kind !== "exercise" ? (
-              <button
-                type="button"
-                onClick={() => onRunNextAction?.()}
-                className="mt-3 rounded-full bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
-                disabled={sessionState === "checking"}
-              >
-                {compactActionLabel}
-              </button>
-            ) : null}
-          </div>
-        )}
 
-        {activeGuidedStep ? (
-          <div className="rounded-xl border border-slate-200 bg-white/85 p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-700">Paso activo</div>
-            <div className="mt-2 text-sm text-slate-900">{activeGuidedStep}</div>
-            {guidedFeedback ? (
-              <div className={`mt-3 rounded-lg px-3 py-3 ${guidedFeedback.status === "correct" ? "bg-emerald-50 text-emerald-800" : guidedFeedback.status === "almost" ? "bg-amber-50 text-amber-800" : "bg-rose-50 text-rose-800"}`}>
-                <div className="text-xs font-semibold">
-                  {guidedFeedback.status === "correct" ? "Correcto" : guidedFeedback.status === "almost" ? "Casi" : "Incorrecto"}
+              {activeGuidedStep ? (
+                <div className="rounded-lg bg-white p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-600">Paso activo</div>
+                  <div className="mt-2 text-sm text-slate-900">{activeGuidedStep}</div>
+                  {guidedFeedback ? (
+                    <div className={`mt-3 rounded-lg px-3 py-3 ${guidedFeedback.status === "correct" ? "bg-emerald-50 text-emerald-800" : guidedFeedback.status === "almost" ? "bg-amber-50 text-amber-800" : "bg-rose-50 text-rose-800"}`}>
+                      <div className="text-xs font-semibold">
+                        {guidedFeedback.status === "correct" ? "Correcto" : guidedFeedback.status === "almost" ? "Casi" : "Incorrecto"}
+                      </div>
+                      <div className="mt-1 text-xs leading-5">{guidedFeedback.rationale}</div>
+                    </div>
+                  ) : null}
                 </div>
-                <div className="mt-1 text-xs leading-5">{guidedFeedback.rationale}</div>
-              </div>
-            ) : null}
-          </div>
+              ) : null}
+
+              {showQuickActionsPanel && entry ? (
+                <div className="rounded-lg bg-white p-3">
+                  <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-600">Atajos útiles</div>
+                  <div className="space-y-2">
+                    {entry.quickActions
+                      .filter((action) => !activeSubjectSlug || !action.subjectSlug || action.subjectSlug === activeSubjectSlug)
+                      .slice(0, 2)
+                      .map((action) => (
+                      <button
+                        key={action.id}
+                        type="button"
+                        onClick={() =>
+                          onQuickAction({
+                            topic: action.topic,
+                            prompt: action.prompt,
+                            subjectSlug: action.subjectSlug,
+                            sessionMode: sessionContract.mode,
+                            sessionInputKind: action.subjectSlug ? "selected_subject" : sessionContract.entryKind,
+                          })
+                        }
+                        className="w-full rounded-lg bg-slate-50 px-3 py-2 text-left text-xs hover:bg-slate-100"
+                      >
+                        <div className="font-semibold text-slate-900">{action.label}</div>
+                        <div className="text-slate-600">{action.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {sessionModeOptions.length > 0 ? (
+                <div className="rounded-lg bg-white p-3">
+                  <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-600">Cambiar modo de sesión</div>
+                  <div className="space-y-2">
+                    {sessionModeOptions.slice(0, 3).map((option) => (
+                      <button
+                        key={option.mode}
+                        type="button"
+                        onClick={() => onSelectSessionMode?.(option)}
+                        className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${option.mode === sessionContract.mode ? "bg-emerald-50 text-emerald-900" : "bg-slate-50 text-slate-700 hover:bg-slate-100"}`}
+                      >
+                        <div className="font-semibold">{option.label}</div>
+                        <div className="mt-1 leading-5">{option.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {memorySummary ? (
+                <div className="rounded-lg bg-white p-3">
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-600">Recuerda esto</div>
+                  <div className="text-sm text-slate-700">{memorySummary}</div>
+                </div>
+              ) : null}
+
+              {primaryHook ? (
+                <div className="rounded-lg bg-white p-3">
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-600">Señal importante</div>
+                  <div className="text-xs font-semibold text-slate-900">{primaryHook.title}</div>
+                  <div className="mt-1 text-xs text-slate-600">{primaryHook.summary}</div>
+                </div>
+              ) : null}
+
+              {motivationMessage && !primaryNextAction && !currentTask ? (
+                <div className="rounded-lg bg-white p-3">
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-600">Motivación</div>
+                  <div className="text-sm leading-relaxed text-slate-900">{motivationMessage}</div>
+                </div>
+              ) : null}
+            </div>
+          </details>
         ) : null}
-
-        {entry && entry.quickActions.length > 0 && !dynamicNextAction && (
-          <div className="rounded-xl border border-slate-200 bg-white/85 p-4">
-            <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-700">
-              Atajos útiles
-            </div>
-            <div className="space-y-2">
-              {entry.quickActions
-                .filter((action) => !activeSubjectSlug || !action.subjectSlug || action.subjectSlug === activeSubjectSlug)
-                .slice(0, 2)
-                .map((action) => (
-                <button
-                  key={action.id}
-                  type="button"
-                  onClick={() =>
-                    onQuickAction({
-                      topic: action.topic,
-                      prompt: action.prompt,
-                      subjectSlug: action.subjectSlug,
-                    })
-                  }
-                  className="w-full rounded-lg bg-slate-50/90 px-3 py-2 text-left text-xs hover:bg-slate-100"
-                >
-                  <div className="font-semibold text-slate-900">{action.label}</div>
-                  <div className="text-slate-600">{action.description}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {memorySummary && (
-          <div className="rounded-xl border border-slate-200 bg-white/85 p-4">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-700">Recuerda esto</div>
-            <div className="text-sm text-slate-700">{memorySummary}</div>
-          </div>
-        )}
-
-        {primaryHook && (
-          <div className="rounded-xl border border-slate-200 bg-white/85 p-4">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-700">Señal importante</div>
-            <div className="rounded-lg bg-slate-50 p-3">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <div className="text-xs font-semibold text-slate-900">{primaryHook.title}</div>
-                <div className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-700">{primaryHook.category}</div>
-              </div>
-              <div className="text-xs text-slate-600">{primaryHook.summary}</div>
-            </div>
-          </div>
-        )}
-
-        {motivationMessage && !primaryNextAction && !currentTask ? (
-          <div className="rounded-xl border border-purple-100 bg-gradient-to-br from-purple-50/80 to-pink-50/80 p-4">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-purple-700">Motivación</div>
-            <div className="text-sm leading-relaxed text-slate-900">{motivationMessage}</div>
-          </div>
-        ) : null}
-
-        {!primaryNextAction && !currentTask && !memorySummary && !primaryHook && !motivationMessage && (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white/70 p-6 text-center">
-            <div className="mb-2 text-2xl">🤖</div>
-            <div className="text-xs text-slate-500">
-              Este panel solo aparece para reforzar la sesión cuando haga falta
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
