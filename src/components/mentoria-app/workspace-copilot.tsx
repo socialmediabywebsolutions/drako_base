@@ -35,6 +35,7 @@ type WorkspaceCopilotProps = {
   student?: StudentProfile | null;
   activeSubjectSlug?: string | null;
   selectedSubjectName?: string | null;
+  sessionSignalSummary?: string | null;
   sessionContract: MentoriaSessionContract;
   sessionModeOptions?: MentoriaSessionModeOption[];
   tutorMessages?: Array<{ role: "student" | "tutor"; content: string; kind?: "message" | "explanation" | "steps" | "question" | "feedback" }>;
@@ -76,6 +77,7 @@ export function WorkspaceCopilot({
   student,
   activeSubjectSlug,
   selectedSubjectName,
+  sessionSignalSummary = null,
   sessionContract,
   sessionModeOptions = [],
   tutorMessages = [],
@@ -434,6 +436,13 @@ export function WorkspaceCopilot({
                 <div className="mt-2 text-sm font-semibold text-slate-900">{sessionContract.headline}</div>
                 <div className="mt-1 text-xs leading-5 text-slate-600">{sessionContract.chatBehavior}</div>
               </div>
+
+              {sessionSignalSummary ? (
+                <div className="rounded-lg bg-white p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-600">Estado diario detectado</div>
+                  <div className="mt-2 text-sm leading-6 text-slate-900">{sessionSignalSummary}</div>
+                </div>
+              ) : null}
 
               {activeGuidedStep ? (
                 <div className="rounded-lg bg-white p-3">

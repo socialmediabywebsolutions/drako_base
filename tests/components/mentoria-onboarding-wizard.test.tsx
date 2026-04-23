@@ -45,21 +45,24 @@ describe("MentoriaOnboardingWizard", () => {
     window.localStorage.clear();
   });
 
-  it("shows actionable validation in the blocked student-data step and advances once the contract is complete", async () => {
+  it("blocks each step until the canonical contract is complete", async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
         ok: true,
         primaryGuardian: null,
         student: null,
         profile: null,
+        familyStudents: [],
         subjects: onboardingSubjects,
         studentSubjects: [],
+        secondaryGuardians: [],
+        guardianStudentAccess: [],
       }),
     );
 
     render(React.createElement(MentoriaOnboardingWizard));
 
-    await screen.findByText("Quienes sois");
+    await screen.findByText("Quienes forman el espacio");
 
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.getByText("Escribe el nombre del tutor principal.")).toBeInTheDocument();
@@ -75,7 +78,7 @@ describe("MentoriaOnboardingWizard", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
-    await screen.findByText("Donde esta hoy");
+    await screen.findByText("Perfil academico real");
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.getByText("Selecciona el curso real del alumno.")).toBeInTheDocument();
 
@@ -83,17 +86,19 @@ describe("MentoriaOnboardingWizard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.getByText("Indica si ha repetido curso.")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "No ha repetido" }));
+    fireEvent.click(screen.getByRole("button", { name: /No ha repetido/i }));
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
-    expect(screen.getByText("Selecciona la materia o foco principal.")).toBeInTheDocument();
+    expect(screen.getByText("Selecciona al menos una materia real.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Matematicas" }));
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
-    await screen.findByText("Con que arrancamos");
+    await screen.findByText("Base de arranque");
+    fireEvent.click(screen.getByRole("button", { name: "Preparar espacio" }));
+    expect(screen.getByText("Selecciona al menos una necesidad de apoyo real.")).toBeInTheDocument();
   });
 
-  it("submits the canonical three-step onboarding payload and renders the activation result", async () => {
+  it("submits the canonical onboarding payload and redirects into the workspace", async () => {
     fetchMock
       .mockResolvedValueOnce(
         jsonResponse({
@@ -101,40 +106,18 @@ describe("MentoriaOnboardingWizard", () => {
           primaryGuardian: null,
           student: null,
           profile: null,
+          familyStudents: [],
           subjects: onboardingSubjects,
           studentSubjects: [],
+          secondaryGuardians: [],
+          guardianStudentAccess: [],
         }),
       )
       .mockResolvedValueOnce(
         jsonResponse({
           ok: true,
           activation: {
-            reply: "Primera ayuda guiada",
-            subjectName: "Matematicas",
-            nextActions: ["Resolver un primer ejercicio"],
-            dailyPlan: {
-              id: "daily_1",
-              tenantId: "tenant_mentoria",
-              studentId: "student_1",
-              planDate: "2026-04-03",
-              recommendedDuration: 30,
-              tasks: [
-                {
-                  id: "task_1",
-                  subject: "Matematicas",
-                  type: "practice",
-                  difficulty: 2,
-                  completed: false,
-                },
-              ],
-              priority: "medium",
-              adaptationReason: "Inicio",
-              generatedAt: "2026-04-03T00:00:00.000Z",
-              createdAt: "2026-04-03T00:00:00.000Z",
-              updatedAt: "2026-04-03T00:00:00.000Z",
-              completedTaskIds: [],
-              completionRate: 0,
-            },
+            reply: "Tu estructura ya esta lista.",
           },
           progress: [],
         }),
@@ -142,17 +125,17 @@ describe("MentoriaOnboardingWizard", () => {
 
     render(React.createElement(MentoriaOnboardingWizard));
 
-    await screen.findByText("Quienes sois");
+    await screen.findByText("Quienes forman el espacio");
 
     fireEvent.change(screen.getByPlaceholderText("Nombre del tutor principal"), {
       target: { value: "Marta" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Madre" }));
-    fireEvent.click(screen.getByRole("button", { name: /Padres separados/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Padres separados/i }));
     fireEvent.change(screen.getByPlaceholderText("Nombre del segundo tutor"), {
       target: { value: "Carlos" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Email del segundo tutor (opcional)"), {
+    fireEvent.change(screen.getByPlaceholderText("Email del segundo tutor \(opcional\)"), {
       target: { value: "carlos@example.com" },
     });
     fireEvent.change(screen.getByPlaceholderText("Nombre del alumno/a"), {
@@ -160,14 +143,19 @@ describe("MentoriaOnboardingWizard", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
-    await screen.findByText("Donde esta hoy");
+    await screen.findByText("Perfil academico real");
     fireEvent.click(screen.getByRole("button", { name: "2 ESO" }));
-    fireEvent.click(screen.getByRole("button", { name: "Si, ha repetido" }));
+    fireEvent.change(screen.getByPlaceholderText("Edad real del alumno"), {
+      target: { value: "13" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Ha repetido antes/i }));
     fireEvent.click(screen.getByRole("button", { name: "Matematicas" }));
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
-    await screen.findByText("Con que arrancamos");
-    fireEvent.click(screen.getByRole("button", { name: /Examen cerca/ }));
+    await screen.findByText("Base de arranque");
+    fireEvent.click(screen.getByRole("button", { name: /Falta de base/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Se frustra rapido/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Paso a paso/i }));
     fireEvent.click(screen.getByRole("button", { name: "Preparar espacio" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
@@ -194,16 +182,17 @@ describe("MentoriaOnboardingWizard", () => {
         fullName: "Alex",
         stage: "eso",
         schoolYear: "2 ESO",
-        hasRepeatedCourse: true,
+        age: 13,
+        repeatedCourseStatus: "before",
+        repeatedCourseYears: [],
+        subjects: [{ subjectSlug: "matematicas", initialLevel: "me_cuesta_mucho" }],
+        supportNeeds: ["base_gap", "frustration"],
+        supportStyle: "step_by_step",
       },
-      subjects: [{ subjectSlug: "matematicas", initialLevel: "me_cuesta_mucho" }],
-      goal: "pass_subject",
-      confidenceLevel: "medium",
-      initialPriority: "exam",
-      primaryConcern: "Examen cerca",
+      additionalStudents: [],
+      referralCode: undefined,
+      inviteToken: undefined,
     });
 
-    await screen.findByRole("button", { name: "Entrar a Mentoria" });
-    expect(screen.getByText("Tu espacio ya esta preparado.")).toBeInTheDocument();
   });
 });

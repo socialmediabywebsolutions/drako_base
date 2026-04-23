@@ -1,195 +1,177 @@
-"use client";
-
-import React from "react";
-import { motion } from "framer-motion";
 import Link from "next/link";
-import {
-    Zap,
-    ShieldCheck,
-    MessageSquare,
-    BrainCircuit,
-    LayoutDashboard,
-    ArrowRight,
-    Sparkles,
-    BarChart3
-} from "lucide-react";
+import { ArrowRight, BarChart3, BrainCircuit, MessageSquare, ShieldCheck, Sparkles } from "lucide-react";
+
+const valueBlocks = [
+  {
+    title: "Tutor real por WhatsApp",
+    description: "El alumno entra por el canal que ya usa. La IA responde con contexto, continuidad y foco académico real.",
+    icon: MessageSquare,
+  },
+  {
+    title: "Confianza para la familia",
+    description: "No es una caja negra. Hay señales, memoria, resumen de avance y una experiencia pensada para reducir fricción, no para aumentarla.",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Producto con criterio de negocio",
+    description: "Mentoría no vende solo chat. Vende continuidad, retención, percepción de acompañamiento y operación escalable.",
+    icon: BarChart3,
+  },
+];
+
+const promiseBlocks = [
+  "Onboarding estructural para tutores y alumno",
+  "Entrada diaria del alumno para adaptar la sesión real",
+  "Workspace operativo con pizarra, copilot y continuidad",
+  "Memoria académica y señales de progreso",
+  "Canal WhatsApp como ventaja de uso y recurrencia",
+  "Lectura clara para familias y equipos educativos",
+];
 
 export default function MentoriaLandingPage() {
-    return (
-        <div className="relative isolate">
-            {/* Background Decor - Scanline & Grid */}
-            <div className="cyber-scanline" />
-            <div className="fixed inset-0 -z-10 overflow-hidden bg-slate-950">
-                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-brand/10 blur-[120px] rounded-full opacity-50" />
-                <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-brand-strong/5 blur-[100px] rounded-full" />
+  return (
+    <div className="min-h-screen bg-slate-950 text-white">
+      <section className="border-b border-white/10 bg-[radial-gradient(circle_at_top,#1e293b_0%,#020617_55%)] px-6 py-24 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-200">
+              <Sparkles className="h-4 w-4" />
+              IA educativa con uso real
             </div>
 
-            {/* Hero Section */}
-            <section className="relative px-6 pt-24 pb-32 sm:pt-32 lg:px-8 flex flex-col items-center overflow-hidden">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8 }}
-                    className="text-center max-w-4xl"
-                >
-                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-quiet border border-brand/20 mb-8 backdrop-blur-md">
-                        <Sparkles className="w-4 h-4 text-brand" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-strong">Nueva Era en Educación Digital</span>
-                    </div>
+            <h1 className="mt-6 max-w-4xl text-5xl font-black tracking-tight text-white sm:text-7xl">
+              Mentoría que entra por WhatsApp,
+              <span className="block text-emerald-300">entiende cómo llega hoy el alumno</span>
+              y acompaña con criterio.
+            </h1>
 
-                    <h1 className="text-6xl sm:text-8xl font-black tracking-tighter text-white uppercase italic leading-[0.8] mb-8">
-                        MentorIA <br />
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand via-white to-brand-strong">Escolar</span>
-                    </h1>
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300 sm:text-xl">
+              Mentoría separa identidad, contexto familiar y estado diario del alumno para que cada sesión nazca mejor.
+              Más continuidad para la familia. Más valor percibido para el negocio. Menos fricción para empezar a usarlo de verdad.
+            </p>
 
-                    <p className="text-lg sm:text-xl text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed mb-12">
-                        La primera IA que no solo enseña, sino que entiende. 24/7 en WhatsApp, integrada con psicólogos IA y dashboards de control total para tu institución.
-                    </p>
+            <div className="mt-10 flex flex-wrap gap-4">
+              <Link
+                href="/mentorias/auths/registrations?__drako_host=mentoria.drako.systems"
+                className="inline-flex items-center gap-2 rounded-2xl bg-emerald-400 px-6 py-4 text-sm font-bold text-slate-950 transition hover:bg-emerald-300"
+              >
+                Crear espacio de Mentoría
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/mentorias/auths/logins?__drako_host=mentoria.drako.systems"
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/15 px-6 py-4 text-sm font-semibold text-white transition hover:bg-white/5"
+              >
+                Entrar al workspace
+              </Link>
+            </div>
 
-                    <div className="flex flex-wrap justify-center gap-6">
-                        <Link
-                            href="/mentorias/auths/registrations?__drako_host=mentoria.drako.systems"
-                            className="px-10 py-5 bg-white text-slate-950 font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-brand transition-all hover:scale-105 shadow-[0_0_40px_rgba(255,255,255,0.15)] italic flex items-center gap-3"
-                        >
-                            Comenzar Ahora <ArrowRight className="w-4 h-4" />
-                        </Link>
-                        <Link
-                            href="/mentorias/auths/logins?__drako_host=mentoria.drako.systems"
-                            className="px-10 py-5 border-2 border-white/10 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-white/5 transition-all"
-                        >
-                            Ver Módulos
-                        </Link>
-                    </div>
-                </motion.div>
+            <div className="mt-10 grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
+                <div className="text-2xl font-black text-white">24/7</div>
+                <div className="mt-1">acompañamiento accesible por WhatsApp</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
+                <div className="text-2xl font-black text-white">1 entrada diaria</div>
+                <div className="mt-1">para calibrar el modo real de la sesión</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
+                <div className="text-2xl font-black text-white">3 superficies</div>
+                <div className="mt-1">familia, workspace y tutor IA alineados</div>
+              </div>
+            </div>
+          </div>
 
-                {/* Floating Mockup Preview */}
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.9, y: 50 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ delay: 0.5, duration: 1 }}
-                    aria-hidden="true"
-                    className="mt-20 relative w-full max-w-5xl aspect-video rounded-3xl border border-white/10 bg-slate-900/40 backdrop-blur-3xl overflow-hidden shadow-2xl pointer-events-none select-none"
-                >
-                    <div className="absolute inset-0 bg-gradient-to-tr from-brand/5 via-transparent to-brand-strong/5" />
-                    <div className="p-4 border-b border-white/5 flex items-center gap-2">
-                        <div className="flex gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full bg-rose-500/50" />
-                            <div className="w-2.5 h-2.5 rounded-full bg-amber-500/50" />
-                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/50" />
-                        </div>
-                        <div className="mx-auto text-[10px] font-black text-slate-500 tracking-widest uppercase italic">Neural Dashboard • mentor-ia.drako.systems</div>
-                    </div>
-                    <div className="flex h-full items-center justify-center">
-                        <div className="text-center space-y-4">
-                            <BrainCircuit className="w-16 h-16 text-brand/30 mx-auto animate-pulse" />
-                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Sincronizando Core Cognitivo...</p>
-                        </div>
-                    </div>
-                </motion.div>
-            </section>
-
-            {/* Features Grid */}
-            <section id="features" className="px-6 py-32 lg:px-8 max-w-7xl mx-auto">
-                <div className="mb-20">
-                    <span className="text-brand text-xs font-black uppercase tracking-[0.5em]">Módulos de Élite</span>
-                    <h2 className="text-4xl sm:text-6xl font-black text-white mt-4 italic tracking-tight">Capacidades del Sistema</h2>
+          <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur">
+            <div className="rounded-[28px] border border-emerald-300/20 bg-slate-950/90 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">Sesion real</div>
+                  <div className="mt-2 text-2xl font-bold">Hoy el alumno entra con estado diario explícito</div>
                 </div>
+                <BrainCircuit className="h-10 w-10 text-emerald-300" />
+              </div>
 
-                <div className="grid md:grid-cols-3 gap-8">
-                    {[
-                        {
-                            icon: MessageSquare,
-                            title: "Tutoría WhatsApp 24/7",
-                            desc: "Atención inmediata para los alumnos. Adaptación del tono y nivel académico automáticamente.",
-                            color: "text-brand"
-                        },
-                        {
-                            icon: ShieldCheck,
-                            title: "Escalación Psicólogo IA",
-                            desc: "Detección de estados emocionales. Derivación automática y segura ante alertas de bienestar.",
-                            color: "text-rose-400"
-                        },
-                        {
-                            icon: BarChart3,
-                            title: "Action Dashboard",
-                            desc: "Análisis en tiempo real de dudas recurrentes y progreso por curso. Decisiones basadas en datos.",
-                            color: "text-amber-400"
-                        }
-                    ].map((feature, i) => (
-                        <motion.div
-                            key={i}
-                            whileHover={{ y: -10 }}
-                            className="p-10 card flex flex-col gap-6"
-                        >
-                            <div className={`p-4 rounded-2xl bg-white/5 w-fit ${feature.color}`}>
-                                <feature.icon className="w-8 h-8" />
-                            </div>
-                            <h3 className="text-2xl font-black text-white italic">{feature.title}</h3>
-                            <p className="text-slate-400 font-medium leading-relaxed">{feature.desc}</p>
-                        </motion.div>
-                    ))}
+              <div className="mt-6 space-y-3 rounded-3xl bg-slate-900 p-5 text-sm text-slate-200">
+                <div className="rounded-2xl bg-white/5 px-4 py-3">Prioridad: preparar examen de Matemáticas</div>
+                <div className="rounded-2xl bg-white/5 px-4 py-3">Cómo viene hoy: cansado pero disponible</div>
+                <div className="rounded-2xl bg-white/5 px-4 py-3">Tipo de ayuda: paso a paso con práctica guiada</div>
+                <div className="rounded-2xl bg-emerald-400/10 px-4 py-3 text-emerald-100">
+                  Resultado: la IA ajusta el tono, el modo de sesión y el primer paso antes de responder.
                 </div>
-            </section>
-
-            {/* Pricing Section */}
-            <section className="px-6 py-32 lg:px-8 bg-slate-900/50">
-                <div className="max-w-4xl mx-auto text-center space-y-12">
-                    <div className="space-y-4">
-                        <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter">Plan de Lanzamiento</h2>
-                        <p className="text-slate-400 font-medium italic uppercase tracking-widest text-[10px]">Materialización en 24 horas</p>
-                    </div>
-
-                    <div className="glass-panel-elite p-12 relative overflow-hidden">
-                        <div className="absolute -top-10 -right-10 w-40 h-40 bg-brand/20 blur-[50px] rounded-full" />
-
-                        <div className="relative z-10 space-y-8">
-                            <div className="flex flex-col items-center gap-2">
-                                <span className="text-7xl font-black text-white italic leading-none">49€<span className="text-xl text-slate-500">/mes</span></span>
-                                <span className="text-xs font-bold text-brand uppercase tracking-[0.3em]">Todo Incluido</span>
-                            </div>
-
-                            <ul className="grid sm:grid-cols-2 gap-6 text-left max-w-lg mx-auto">
-                                {["SaaS Personalizado", "WhatsApp Unlimited", "Soporte 24/7", "Dominio .drako.systems", "Metrics Dashboard", "Growth Autopilot"].map((item, i) => (
-                                    <li key={i} className="flex items-center gap-3 text-slate-300 font-semibold text-sm">
-                                        <Zap className="w-4 h-4 text-brand fill-brand/20" />
-                                        {item}
-                                    </li>
-                                ))}
-                            </ul>
-
-                            <div className="pt-8">
-                                <Link
-                                    href="/mentorias/auths/registrations?__drako_host=mentoria.drako.systems"
-                                    className="inline-block px-16 py-6 bg-brand text-slate-950 font-black text-sm uppercase tracking-[0.2em] rounded-2xl hover:scale-105 hover:bg-white transition-all shadow-[0_0_50px_var(--brand-glow)] italic"
-                                >
-                                    Contratar MentorIA Ahora
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
-
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
-                        Sin permanencia • Setup automático • Soporte Premium
-                    </p>
-                </div>
-            </section>
-
-            {/* Footer CTA */}
-            <footer className="px-6 py-20 border-t border-white/5">
-                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center text-slate-950 font-black text-lg italic">M.</div>
-                        <span className="text-xl font-black text-white tracking-tighter uppercase italic">MentorIA Escolar</span>
-                    </div>
-
-                    <div className="flex gap-12 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                        <Link href="/site" className="hover:text-brand transition-colors">Drako Base</Link>
-                        <Link href="/site/legal" className="hover:text-brand transition-colors">Términos</Link>
-                        <Link href="/mentorias/auths/logins?__drako_host=mentoria.drako.systems" className="hover:text-brand transition-colors">Acceso Cliente</Link>
-                    </div>
-                </div>
-            </footer>
+              </div>
+            </div>
+          </div>
         </div>
-    );
+      </section>
+
+      <section className="px-6 py-20 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="max-w-3xl">
+            <div className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-300">Por qué ahora tiene sentido</div>
+            <h2 className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
+              Un producto de IA educativa que suena humano,
+              <span className="block text-slate-300">pero opera como sistema serio.</span>
+            </h2>
+          </div>
+
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            {valueBlocks.map((block) => (
+              <div key={block.title} className="rounded-3xl border border-white/10 bg-white/5 p-6">
+                <block.icon className="h-8 w-8 text-emerald-300" />
+                <h3 className="mt-5 text-xl font-bold text-white">{block.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-300">{block.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-white/10 bg-slate-900/60 px-6 py-20 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-300">Arquitectura de valor</div>
+            <h2 className="mt-4 text-4xl font-black tracking-tight text-white">Mentoría no es solo onboarding, ni solo chat.</h2>
+            <p className="mt-4 text-base leading-8 text-slate-300">
+              Primero se registra la estructura familiar y académica. Después, cada día, el alumno entra indicando prioridad, energía y tipo de ayuda.
+              Ese corte hace que la identidad no se mezcle con el estado del momento y mejora la adaptación real de la sesión.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {promiseBlocks.map((item) => (
+              <div key={item} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm font-medium text-slate-200">
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-6 py-20 lg:px-8">
+        <div className="mx-auto max-w-5xl rounded-[32px] border border-emerald-300/20 bg-gradient-to-br from-emerald-400/15 to-slate-900 p-10 text-center">
+          <div className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-200">Listo para probar</div>
+          <h2 className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">La ventaja no es solo la IA. Es que se usa donde ya vive el alumno.</h2>
+          <p className="mx-auto mt-5 max-w-3xl text-base leading-8 text-slate-200">
+            WhatsApp baja la fricción. El workspace ordena la experiencia. La familia entiende qué está pasando.
+            Esa combinación convierte Mentoría en un producto más creíble, más útil y más fácil de sostener.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-4">
+            <Link
+              href="/mentorias/auths/registrations?__drako_host=mentoria.drako.systems"
+              className="rounded-2xl bg-white px-6 py-4 text-sm font-bold text-slate-950 transition hover:bg-emerald-100"
+            >
+              Empezar onboarding
+            </Link>
+            <Link
+              href="/mentorias/auths/logins?__drako_host=mentoria.drako.systems"
+              className="rounded-2xl border border-white/20 px-6 py-4 text-sm font-semibold text-white transition hover:bg-white/5"
+            >
+              Ya tengo acceso
+            </Link>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
 }

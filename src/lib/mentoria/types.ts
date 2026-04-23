@@ -10,10 +10,11 @@ export type MentoriaEmotionalLevel = "low" | "medium" | "high";
 export type MentoriaLearningPreference = "practical_examples" | "step_by_step" | "quick_summaries";
 export type MentoriaInitialLevel = "me_cuesta_mucho" | "voy_normal" | "se_me_da_bien";
 export type MentoriaSupervisionLevel = "light" | "balanced" | "close";
-export type MentoriaOnboardingGoal = "improve_understanding" | "pass_subject" | "build_habit" | "gain_confidence";
 export type MentoriaFamilyStructure = "single_guardian" | "two_guardians" | "separated_parents" | "legal_guardian";
 export type MentoriaLearningStage = "primary" | "eso" | "bachillerato";
-export type MentoriaInitialPriority = "homework" | "exam" | "reinforcement" | "organization" | "frustration" | "other";
+export type MentoriaRepeatedCourseStatus = "never" | "current" | "before";
+export type MentoriaStudentSupportNeed = "base_gap" | "frustration" | "organization" | "study_habit" | "attention" | "exam_anxiety";
+export type MentoriaStudentAgeCourseFit = "expected" | "ahead" | "behind";
 export type InterventionType = "high_frustration" | "low_consistency" | "rapid_progress" | "stagnation" | "risk_student";
 export type MentoriaInterventionSeverity = "low" | "medium" | "high" | "critical";
 export type MentoriaInterventionStatus = "active" | "resolved";
@@ -65,25 +66,48 @@ export type MentoriaOnboardingSubjectInput = {
   initialLevel: MentoriaInitialLevel;
 };
 
+export type MentoriaOnboardingStudentInput = {
+  fullName: string;
+  stage?: MentoriaLearningStage;
+  schoolYear: string;
+  age: number;
+  repeatedCourseStatus: MentoriaRepeatedCourseStatus;
+  repeatedCourseYears?: string[];
+  subjects: MentoriaOnboardingSubjectInput[];
+  supportNeeds: MentoriaStudentSupportNeed[];
+  supportStyle: MentoriaSupportStyle;
+};
+
+export type MentoriaOnboardingAdditionalStudentInput = {
+  fullName: string;
+  stage?: MentoriaLearningStage;
+  schoolYear: string;
+  age: number;
+};
+
 export type MentoriaOnboardingPayload = {
   primaryGuardian: MentoriaOnboardingPrimaryGuardian;
   secondaryGuardian?: MentoriaOnboardingSecondaryGuardian | null;
   familyStructure?: MentoriaFamilyStructure;
-  student: {
-    fullName: string;
-    stage?: MentoriaLearningStage;
-    schoolYear: string;
-    approximateAge?: number;
-    schoolName?: string;
-    hasRepeatedCourse?: boolean;
-  };
-  subjects: MentoriaOnboardingSubjectInput[];
-  goal: MentoriaOnboardingGoal;
-  confidenceLevel: "low" | "medium" | "high";
-  initialPriority?: MentoriaInitialPriority;
-  primaryConcern?: string;
+  student: MentoriaOnboardingStudentInput;
+  additionalStudents?: MentoriaOnboardingAdditionalStudentInput[];
   referralCode?: string;
   inviteToken?: string;
+};
+
+export type MentoriaStudentSessionPriority = "homework" | "exam" | "reinforcement" | "organization" | "free_question";
+
+export type MentoriaStudentSessionEmotion = "blocked" | "tired" | "steady" | "motivated";
+
+export type MentoriaStudentSessionHelpType = "step_by_step" | "explain_from_zero" | "guided_practice" | "quick_check";
+
+export type MentoriaStudentSessionEntry = "homework" | "exam" | "reinforcement" | "study_block" | "question";
+
+export type MentoriaStudentSessionSignal = {
+  priority: MentoriaStudentSessionPriority;
+  emotion: MentoriaStudentSessionEmotion;
+  helpType: MentoriaStudentSessionHelpType;
+  entry: MentoriaStudentSessionEntry;
 };
 
 export type MentoriaSessionActorType = "guardian" | "student" | "unknown";
@@ -155,6 +179,7 @@ export type MentoriaOnboardingState = {
   primaryGuardian: MentoriaOnboardingPrimaryGuardian | null;
   student: StudentProfile | null;
   profile: StudentProfile | null;
+  familyStudents: StudentProfile[];
   subjects: MentoriaSubject[];
   studentSubjects: MentoriaStudentSubject[];
   family: MentoriaFamily | null;

@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { requireCurrentMentoriaSession } from "@/lib/mentoria/auth/request";
 import { MentoriaBillingError } from "@/lib/mentoria/plans";
 import { MentoriaService } from "@/lib/mentoria/service";
-import type { MentoriaSessionInputKind, MentoriaSessionMode } from "@/lib/mentoria/types";
+import type { MentoriaSessionInputKind, MentoriaSessionMode, MentoriaStudentSessionSignal } from "@/lib/mentoria/types";
 
 export async function POST(request: Request) {
   try {
@@ -17,6 +17,7 @@ export async function POST(request: Request) {
       entryMode?: "resume_session" | "gentle_restart" | "momentum_push" | "plan_task" | "entry";
       sessionMode?: MentoriaSessionMode;
       sessionInputKind?: MentoriaSessionInputKind;
+      sessionSignal?: MentoriaStudentSessionSignal;
     };
     const result = await service.startGuidedSession(actor, body);
     return NextResponse.json({ ok: true, ...result });

@@ -39,6 +39,7 @@ import type {
   MentoriaSessionInputKind,
   MentoriaSessionMode,
   MentoriaSessionModeOption,
+  MentoriaStudentSessionSignal,
   MentoriaStudentMemorySummary,
   MentoriaStudentSubjectMemory,
   MentoriaStudentSubject,
@@ -56,6 +57,13 @@ type GuidedFeedbackStatus = "correct" | "almost" | "incorrect";
 type GuidedResponseLevel = "short" | "superficial" | "explained" | "incorrect";
 type GuidedSupportTone = "guided" | "direct" | "paced";
 type GuidedSessionState = "idle" | "answering" | "checking" | "retry" | "completed";
+const DEFAULT_SESSION_SIGNAL: MentoriaStudentSessionSignal = {
+  priority: "reinforcement",
+  emotion: "steady",
+  helpType: "step_by_step",
+  entry: "reinforcement",
+};
+
 type TutorResult = {
   reply: string;
   explanation: string;
@@ -190,6 +198,96 @@ function formatBehavioralTaskType(type?: string | null) {
   return type ?? "tarea";
 }
 
+function buildSessionSignalSummary(signal: MentoriaStudentSessionSignal, subjectName?: string | null) {
+  const priority = signal.priority === "exam"
+    ? "preparar un examen"
+    : signal.priority === "homework"
+      ? "resolver una tarea concreta"
+      : signal.priority === "organization"
+        ? "ordenar el bloque de estudio"
+        : signal.priority === "free_question"
+          ? "abrir una duda libre"
+          : `reforzar ${subjectName ?? "la materia"}`;
+  const emotion = signal.emotion === "blocked"
+    ? "vienes bloqueado"
+    : signal.emotion === "tired"
+      ? "vienes con poca energia"
+      : signal.emotion === "motivated"
+        ? "vienes con ganas"
+        : "vienes estable";
+  const help = signal.helpType === "explain_from_zero"
+    ? "explicacion desde cero"
+    : signal.helpType === "guided_practice"
+      ? "practica guiada"
+      : signal.helpType === "quick_check"
+        ? "comprobacion rapida"
+        : "paso a paso";
+  return `Hoy toca ${priority}, ${emotion} y te conviene ${help}.`;
+}
+
+function resolveSessionModeFromSignal(signal: MentoriaStudentSessionSignal): MentoriaSessionMode {
+  if (signal.emotion === "blocked" || signal.emotion === "tired") return "soft_reentry";
+  if (signal.priority === "exam" || signal.entry === "exam") return "exam_preparation";
+  if (signal.priority === "homework" || signal.entry === "homework") return "task_resolution";
+  if (signal.priority === "organization" || signal.entry === "study_block") return "study_routine";
+  return "subject_reinforcement";
+}
+
+function resolveSessionInputKindFromSignal(signal: MentoriaStudentSessionSignal, hasSubject: boolean): MentoriaSessionInputKind {
+  if (signal.priority === "exam" || signal.entry === "exam") return "exam_photo";
+  if (signal.priority === "organization" || signal.entry === "study_block") return "family_routine";
+  if (signal.priority === "homework" || signal.entry === "homework") return hasSubject ? "selected_subject" : "task_photo";
+  if (hasSubject && signal.entry !== "question") return "selected_subject";
+  return "student_state_signal";
+}
+
+function buildSessionLaunchFromSignal(signal: MentoriaStudentSessionSignal, subjectName?: string | null) {
+  const resolvedSubject = subjectName ?? "la materia";
+  const emotionMessage = signal.emotion === "blocked"
+    ? "Hoy vengo bloqueado y necesito una entrada muy facil."
+    : signal.emotion === "tired"
+      ? "Hoy vengo cansado y necesito bajar friccion para arrancar."
+      : signal.emotion === "motivated"
+        ? "Hoy vengo con ganas y puedo sostener un poco mas de ritmo."
+        : "Hoy vengo normal y quiero entrar con claridad.";
+  const helpMessage = signal.helpType === "explain_from_zero"
+    ? "Explicamelo desde cero y con ejemplos claros."
+    : signal.helpType === "guided_practice"
+      ? "Quiero practicar conmigo, no solo que me lo expliques."
+      : signal.helpType === "quick_check"
+        ? "Hazme una comprobacion corta y directa."
+        : "Llevalo paso a paso y sin saltos.";
+
+  if (signal.priority === "exam") {
+    return {
+      topic: `Examen de ${resolvedSubject}`,
+      prompt: `Quiero preparar un examen de ${resolvedSubject}. ${emotionMessage} ${helpMessage}`,
+    };
+  }
+  if (signal.priority === "homework") {
+    return {
+      topic: `Tarea de ${resolvedSubject}`,
+      prompt: `Quiero resolver una tarea de ${resolvedSubject}. ${emotionMessage} ${helpMessage}`,
+    };
+  }
+  if (signal.priority === "organization") {
+    return {
+      topic: `Bloque de estudio de ${resolvedSubject}`,
+      prompt: `Quiero organizar mi bloque de estudio de ${resolvedSubject}. ${emotionMessage} ${helpMessage}`,
+    };
+  }
+  if (signal.priority === "free_question") {
+    return {
+      topic: `Duda en ${resolvedSubject}`,
+      prompt: `Tengo una duda concreta sobre ${resolvedSubject}. ${emotionMessage} ${helpMessage}`,
+    };
+  }
+  return {
+    topic: `Refuerzo de ${resolvedSubject}`,
+    prompt: `Quiero reforzar ${resolvedSubject}. ${emotionMessage} ${helpMessage}`,
+  };
+}
+
 function actionNeedsTask(action: BehavioralNextBestAction) {
   return action.strategy === "gentle_restart" || action.strategy === "momentum_push" || action.strategy === "plan_task";
 }
@@ -307,6 +405,7 @@ export function MentoriaWorkspace() {
   const [guardianViewModel, setGuardianViewModel] = useState<GuardianViewModel | null>(null);
   const [sessionModeOverride, setSessionModeOverride] = useState<MentoriaSessionMode | null>(null);
   const [sessionInputKindOverride, setSessionInputKindOverride] = useState<MentoriaSessionInputKind | null>(null);
+  const [sessionSignal, setSessionSignal] = useState<MentoriaStudentSessionSignal>(DEFAULT_SESSION_SIGNAL);
 
   const selectedSubject = useMemo(
     () => state.studentSubjects.find((item: MentoriaStudentSubject) => item.subject?.slug === subjectSlug) ?? null,
@@ -405,6 +504,11 @@ export function MentoriaWorkspace() {
       if (workspaceBody.entry?.recommendedPrompt && message === initialUi.defaultMessage) {
         setMessage(workspaceBody.entry.recommendedPrompt);
       }
+      setSessionSignal((current: MentoriaStudentSessionSignal) => ({
+        ...current,
+        priority: workspaceBody.dailyPlan?.tasks.length ? "organization" : current.priority,
+        entry: workspaceBody.dailyPlan?.tasks.length ? "study_block" : current.entry,
+      }));
       if ((workspaceBody.recentSessions?.length ?? 0) > 0) {
         const transcript = workspaceBody.recentSessions?.[0]?.transcript ?? [];
         if (transcript.length > 0) {
@@ -486,6 +590,11 @@ export function MentoriaWorkspace() {
     ?? actionableDailyPlan?.tasks.find((task: DailyPlan["tasks"][number]) => !task.completed)
     ?? null;
   const activeSubjectSlugForUi = subjectSlug || tutorResult?.subjectSlug || state.entry?.recommendedSubjectSlug || null;
+  const selectedSubjectNameForUi = selectedSubject?.subject?.name ?? state.entry?.recommendedTopic ?? activeDailyTask?.subject ?? null;
+  const sessionSignalSummary = useMemo(
+    () => buildSessionSignalSummary(sessionSignal, selectedSubjectNameForUi),
+    [selectedSubjectNameForUi, sessionSignal],
+  );
   const recentActivityLabel = useMemo(() => {
     const activityIso = latestSession?.updatedAt ?? state.motivation?.lastActivityAt ?? null;
     if (!activityIso) return null;
@@ -565,6 +674,7 @@ export function MentoriaWorkspace() {
           sessionId?: string;
           sessionMode?: MentoriaSessionMode;
           sessionInputKind?: MentoriaSessionInputKind;
+          sessionSignal?: MentoriaStudentSessionSignal;
         },
   ) {
     setError(null);
@@ -581,6 +691,9 @@ export function MentoriaWorkspace() {
     }
     if (normalizedInput?.sessionInputKind) {
       setSessionInputKindOverride(normalizedInput.sessionInputKind);
+    }
+    if (normalizedInput?.sessionSignal) {
+      setSessionSignal(normalizedInput.sessionSignal);
     }
     setTopic(resolvedTopic);
     setMessage(resolvedMessage);
@@ -603,6 +716,7 @@ export function MentoriaWorkspace() {
           sessionId: normalizedInput?.sessionId ?? latestSession?.id,
           sessionMode: normalizedInput?.sessionMode,
           sessionInputKind: normalizedInput?.sessionInputKind,
+          sessionSignal: normalizedInput?.sessionSignal,
         }),
       });
     } catch {
@@ -901,6 +1015,7 @@ export function MentoriaWorkspace() {
       entryMode: "entry",
       sessionMode: action.sessionMode,
       sessionInputKind: action.sessionInputKind,
+      sessionSignal,
     });
   }
 
@@ -931,6 +1046,18 @@ export function MentoriaWorkspace() {
       subjectSlug: option.subjectSlug,
       sessionMode: option.mode,
       sessionInputKind: option.inputKind,
+    });
+  }
+
+  async function handleApplySessionSignal() {
+    const launch = buildSessionLaunchFromSignal(sessionSignal, selectedSubjectNameForUi);
+    const hasSubject = Boolean(activeSubjectSlugForUi);
+    await handleQuickAction({
+      topic: launch.topic,
+      prompt: launch.prompt,
+      subjectSlug: activeSubjectSlugForUi ?? undefined,
+      sessionMode: resolveSessionModeFromSignal(sessionSignal),
+      sessionInputKind: resolveSessionInputKindFromSignal(sessionSignal, hasSubject),
     });
   }
 
@@ -1292,7 +1419,7 @@ export function MentoriaWorkspace() {
 
     if (nextAction.kind === "task") {
       const strategyTask = selectedBehavioralAction.task?.id
-        ? actionableDailyPlan?.tasks.find((task) => task.id === selectedBehavioralAction.task?.id)
+        ? actionableDailyPlan?.tasks.find((task: DailyPlan["tasks"][number]) => task.id === selectedBehavioralAction.task?.id)
         : null;
       const resolvedTask = strategyTask ?? activeDailyTask;
       if (!resolvedTask) return;
@@ -1404,6 +1531,8 @@ export function MentoriaWorkspace() {
           selectedSubject={selectedSubject}
           currentTopic={topic}
           currentMessage={message}
+          sessionSignal={sessionSignal}
+          sessionSignalSummary={sessionSignalSummary}
           sessionContract={sessionContract}
           sessionModeOptions={sessionModeOptions}
           tutorResult={tutorResult}
@@ -1430,6 +1559,8 @@ export function MentoriaWorkspace() {
           onResumeSession={handleResumeSession}
           onResumeDailyClosure={handleResumeDailyClosure}
           onQuickAction={handleQuickAction}
+          onSessionSignalChange={setSessionSignal}
+          onApplySessionSignal={handleApplySessionSignal}
           onSelectSessionMode={handleSelectSessionMode}
           onRunNextAction={handleRunNextAction}
         />
@@ -1456,6 +1587,7 @@ export function MentoriaWorkspace() {
           student={state.student}
           activeSubjectSlug={activeSubjectSlugForUi}
           selectedSubjectName={selectedSubject?.subject?.name ?? selectedSubject?.subject?.slug ?? null}
+          sessionSignalSummary={sessionSignalSummary}
           sessionContract={sessionContract}
           sessionModeOptions={sessionModeOptions}
           tutorMessages={tutorMessages}

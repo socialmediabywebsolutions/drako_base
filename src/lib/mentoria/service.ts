@@ -100,18 +100,22 @@ import type {
   MentoriaGuardian,
   MentoriaGuardianStudentAccess,
   MentoriaGrowthSummary,
-  MentoriaInitialPriority,
   MentoriaIntervention,
   MentoriaFamilyStructure,
   MentoriaLearningPreference,
   MentoriaLearningStage,
+  MentoriaOnboardingAdditionalStudentInput,
   MentoriaSessionContext,
+  MentoriaSupportStyle,
   MentoriaSupervisionLevel,
-  MentoriaOnboardingGoal,
   MentoriaOnboardingPayload,
   MentoriaOnboardingPrimaryGuardian,
   MentoriaOnboardingState,
+  MentoriaRepeatedCourseStatus,
+  MentoriaStudentAgeCourseFit,
+  MentoriaStudentSessionSignal,
   MentoriaOnboardingSubjectInput,
+  MentoriaStudentSupportNeed,
   MentoriaProgressShare,
   MentoriaReferral,
   MentoriaReferralProfile,
@@ -146,15 +150,64 @@ function getTutorModeInstruction(mode: MentoriaSessionMode, contractHeadline: st
   return `${contractHeadline}. Protege la vuelta suave, baja carga y busca una primera victoria rápida antes de exigir más.`;
 }
 
+function buildSessionSignalInstruction(signal?: MentoriaStudentSessionSignal | null) {
+  if (!signal) return "";
+  const priority = signal.priority === "exam"
+    ? "prioridad de hoy: examen cercano"
+    : signal.priority === "homework"
+      ? "prioridad de hoy: deber o tarea concreta"
+      : signal.priority === "organization"
+        ? "prioridad de hoy: ordenar la rutina"
+        : signal.priority === "reinforcement"
+          ? "prioridad de hoy: reforzar comprension"
+          : "prioridad de hoy: duda libre";
+  const emotion = signal.emotion === "blocked"
+    ? "estado del alumno: bloqueado"
+    : signal.emotion === "tired"
+      ? "estado del alumno: cansado"
+      : signal.emotion === "motivated"
+        ? "estado del alumno: con ganas"
+        : "estado del alumno: estable";
+  const helpType = signal.helpType === "explain_from_zero"
+    ? "tipo de ayuda: explicar desde cero"
+    : signal.helpType === "guided_practice"
+      ? "tipo de ayuda: practica guiada"
+      : signal.helpType === "quick_check"
+        ? "tipo de ayuda: comprobacion rapida"
+        : "tipo de ayuda: paso a paso";
+  return `${priority}. ${emotion}. ${helpType}.`;
+}
+
+function resolveSessionModeFromSignal(
+  signal: MentoriaStudentSessionSignal,
+  input: { hasActiveTask: boolean; recentActivityLabel?: string | null },
+): MentoriaSessionMode {
+  if (signal.emotion === "blocked" || signal.emotion === "tired") return "soft_reentry";
+  if (signal.entry === "exam" || signal.priority === "exam") return "exam_preparation";
+  if (signal.entry === "homework" || signal.priority === "homework") return "task_resolution";
+  if (signal.entry === "study_block" || signal.priority === "organization") return "study_routine";
+  if (input.hasActiveTask && input.recentActivityLabel === "ayer") return "soft_reentry";
+  return "subject_reinforcement";
+}
+
+function resolveSessionInputKindFromSignal(signal: MentoriaStudentSessionSignal): MentoriaSessionInputKind {
+  if (signal.entry === "exam" || signal.priority === "exam") return "exam_photo";
+  if (signal.entry === "study_block" || signal.priority === "organization") return "family_routine";
+  if (signal.entry === "homework") return "task_photo";
+  return "student_state_signal";
+}
+
 type MentoriaOnboardingAttributes = {
   schoolYear: string;
   stage?: MentoriaLearningStage;
-  goal: MentoriaOnboardingGoal;
-  confidenceLevel: "low" | "medium" | "high";
+  age: number;
+  ageCourseFit: MentoriaStudentAgeCourseFit;
   learningPreference: MentoriaLearningPreference;
+  supportNeeds: MentoriaStudentSupportNeed[];
+  supportStyle: MentoriaSupportStyle;
   familyStructure?: MentoriaFamilyStructure;
-  hasRepeatedCourse?: boolean;
-  initialPriority?: MentoriaInitialPriority;
+  repeatedCourseStatus: MentoriaRepeatedCourseStatus;
+  repeatedCourseYears: string[];
 };
 
 function getTutorEntryModeAdjustments(entryMode?: MentoriaEntryMode) {
@@ -240,14 +293,13 @@ function getExerciseEntryModeAdjustments(entryMode?: MentoriaEntryMode) {
   };
 }
 
-function deriveEmotionalBaselineFromConfidence(confidenceLevel: "low" | "medium" | "high"): MentoriaEmotionalBaseline {
-  if (confidenceLevel === "low") {
-    return { frustration: "high", motivation: "medium", concentration: "low" };
-  }
-  if (confidenceLevel === "high") {
-    return { frustration: "low", motivation: "high", concentration: "high" };
-  }
-  return { frustration: "medium", motivation: "medium", concentration: "medium" };
+function deriveEmotionalBaselineFromSupportNeeds(supportNeeds: MentoriaStudentSupportNeed[]): MentoriaEmotionalBaseline {
+  const needs = new Set(supportNeeds);
+  return {
+    frustration: needs.has("frustration") || needs.has("exam_anxiety") ? "high" : needs.has("base_gap") ? "medium" : "low",
+    motivation: needs.has("study_habit") || needs.has("organization") ? "medium" : needs.has("frustration") ? "low" : "high",
+    concentration: needs.has("attention") || needs.has("organization") ? "low" : "medium",
+  };
 }
 
 function getAgeFromSchoolYear(schoolYear: string): number {
@@ -267,63 +319,43 @@ function getAgeFromSchoolYear(schoolYear: string): number {
   return 16;
 }
 
-function deriveLearningPreferenceFromGoal(
-  goal: MentoriaOnboardingGoal,
-  schoolYear: string,
-): MentoriaLearningPreference {
-  if (goal === "build_habit" || goal === "pass_subject") {
-    return "step_by_step";
-  }
-  if (goal === "gain_confidence") {
-    return "practical_examples";
-  }
-  return schoolYear.toLowerCase().includes("bachillerato") ? "quick_summaries" : "practical_examples";
+function deriveLearningPreferenceFromSupportStyle(style: MentoriaSupportStyle): MentoriaLearningPreference {
+  if (style === "guided_practice" || style === "step_by_step") return "step_by_step";
+  if (style === "retrieval_check") return "quick_summaries";
+  return "practical_examples";
 }
 
-function deriveLearningGoalsFromGoal(subjects: Array<{ name: string }>, goal: MentoriaOnboardingGoal): string[] {
-  if (goal === "pass_subject") {
-    return subjects.map((subject) => `Aprobar ${subject.name} con una base mas segura`);
-  }
-  if (goal === "build_habit") {
-    return subjects.map((subject) => `Crear una rutina estable en ${subject.name}`);
-  }
-  if (goal === "gain_confidence") {
-    return subjects.map((subject) => `Recuperar confianza al trabajar ${subject.name}`);
-  }
-  return subjects.map((subject) => `Comprender mejor ${subject.name} con ayuda guiada`);
+function deriveLearningGoalsFromSupportNeeds(
+  subjects: Array<{ name: string }>,
+  supportNeeds: MentoriaStudentSupportNeed[],
+): string[] {
+  const needs = new Set(supportNeeds);
+  return subjects.map((subject) => {
+    if (needs.has("organization") || needs.has("study_habit")) {
+      return `Construir una rutina clara para avanzar en ${subject.name}`;
+    }
+    if (needs.has("frustration") || needs.has("exam_anxiety")) {
+      return `Recuperar seguridad al trabajar ${subject.name}`;
+    }
+    if (needs.has("base_gap")) {
+      return `Reconstruir la base de ${subject.name} sin lagunas`;
+    }
+    return `Avanzar con mas claridad en ${subject.name}`;
+  });
 }
 
-function derivePreferredStudyMinutesFromConfidence(schoolYear: string, confidenceLevel: "low" | "medium" | "high"): number {
+function derivePreferredStudyMinutesFromProfile(schoolYear: string, supportNeeds: MentoriaStudentSupportNeed[]): number {
   const stageBoost = schoolYear.toLowerCase().includes("bachillerato") ? 10 : schoolYear.toLowerCase().includes("eso") ? 5 : 0;
-  const base = confidenceLevel === "low" ? 25 : confidenceLevel === "high" ? 40 : 30;
+  const needs = new Set(supportNeeds);
+  const base = needs.has("attention") || needs.has("frustration") ? 25 : needs.has("study_habit") ? 30 : 35;
   return Math.max(20, base + stageBoost);
 }
 
-function buildActivationPrompt(input: {
-  student: StudentProfile;
-  goal: MentoriaOnboardingGoal;
-  confidenceLevel: "low" | "medium" | "high";
-  weakestSubjectName: string;
-}) {
-  const confidenceMessage =
-    input.confidenceLevel === "low"
-      ? "Me cuesta arrancar con confianza."
-      : input.confidenceLevel === "high"
-        ? "Quiero avanzar con buen ritmo desde ya."
-        : "Quiero empezar con claridad y sin liarme.";
-  const objectiveMessage =
-    input.goal === "pass_subject"
-      ? `Quiero aprobar ${input.weakestSubjectName}.`
-      : input.goal === "build_habit"
-        ? `Quiero coger habito en ${input.weakestSubjectName}.`
-        : input.goal === "gain_confidence"
-          ? `Quiero sentirme mas seguro con ${input.weakestSubjectName}.`
-          : `Quiero entender mejor ${input.weakestSubjectName}.`;
-
-  return {
-    topic: input.weakestSubjectName,
-    message: `${objectiveMessage} ${confidenceMessage} Ayudame a empezar por una primera idea facil de seguir.`,
-  };
+function resolveAgeCourseFit(age: number, schoolYear: string): MentoriaStudentAgeCourseFit {
+  const expectedAge = getAgeFromSchoolYear(schoolYear);
+  if (age <= expectedAge - 1) return "ahead";
+  if (age >= expectedAge + 1) return "behind";
+  return "expected";
 }
 
 function deriveBaseEmotionalState(baseline: MentoriaEmotionalBaseline): StudentProfile["baseEmotionalState"] {
@@ -340,6 +372,35 @@ function deriveStrengths(input: MentoriaOnboardingSubjectInput[], subjects: Arra
     .map((item) => subjects.find((subject) => subject.id === item.subjectSlug || subject.name === item.subjectSlug)?.name ?? item.subjectSlug);
 }
 
+function formatAgeCourseFit(value: MentoriaStudentAgeCourseFit) {
+  if (value === "ahead") return "adelantado para el curso";
+  if (value === "behind") return "edad superior al curso";
+  return "edad alineada con el curso";
+}
+
+function formatRepeatedCourseStatus(value: MentoriaRepeatedCourseStatus) {
+  if (value === "current") return "repite actualmente";
+  if (value === "before") return "ha repetido antes";
+  return "no ha repetido";
+}
+
+function formatSupportNeed(value: MentoriaStudentSupportNeed) {
+  if (value === "base_gap") return "falta de base";
+  if (value === "frustration") return "frustracion";
+  if (value === "organization") return "organizacion";
+  if (value === "study_habit") return "habito de estudio";
+  if (value === "attention") return "atencion";
+  return "ansiedad ante examenes";
+}
+
+function formatSupportStyle(style: MentoriaSupportStyle) {
+  if (style === "step_by_step") return "paso a paso";
+  if (style === "visual_steps") return "visual y por bloques";
+  if (style === "concrete_example") return "con ejemplos concretos";
+  if (style === "guided_practice") return "practica guiada";
+  return "comprobaciones cortas";
+}
+
 function formatGuardianRoleForSupportNotes(guardian: MentoriaOnboardingPrimaryGuardian): string {
   if (guardian.relation === "father") return "Padre";
   if (guardian.relation === "mother") return "Madre";
@@ -353,22 +414,13 @@ function formatFamilyStructureForSupportNotes(value: MentoriaFamilyStructure): s
   return "un tutor";
 }
 
-function formatInitialPriorityForSupportNotes(value: MentoriaInitialPriority): string {
-  if (value === "homework") return "deberes";
-  if (value === "exam") return "examen";
-  if (value === "reinforcement") return "refuerzo";
-  if (value === "organization") return "organizacion";
-  if (value === "frustration") return "bloqueo/frustracion";
-  return "otra necesidad";
-}
-
 function toOnboardingInput(
   payload: MentoriaOnboardingPayload,
   learningGoals: string[],
   age: number,
   learningPreference: MentoriaLearningPreference,
-  confidenceLevel: "low" | "medium" | "high",
 ): OnboardingInput<MentoriaOnboardingAttributes, MentoriaOnboardingSubjectInput> {
+  const ageCourseFit = resolveAgeCourseFit(age, payload.student.schoolYear);
   return {
     fullName: payload.student.fullName,
     age,
@@ -376,20 +428,32 @@ function toOnboardingInput(
     attributes: {
       schoolYear: payload.student.schoolYear,
       stage: payload.student.stage,
-      goal: payload.goal,
-      confidenceLevel,
+      age,
+      ageCourseFit,
       learningPreference,
+      supportNeeds: payload.student.supportNeeds,
+      supportStyle: payload.student.supportStyle,
       familyStructure: payload.familyStructure,
-      hasRepeatedCourse: payload.student.hasRepeatedCourse,
-      initialPriority: payload.initialPriority,
+      repeatedCourseStatus: payload.student.repeatedCourseStatus,
+      repeatedCourseYears: payload.student.repeatedCourseYears ?? [],
     },
-    selections: payload.subjects,
+    selections: payload.student.subjects,
     metadata: {
       referralCode: payload.referralCode ?? null,
       inviteToken: payload.inviteToken ?? null,
-      primaryConcern: payload.primaryConcern ?? null,
     },
   };
+}
+
+function normalizeAdditionalStudents(input: MentoriaOnboardingAdditionalStudentInput[] | undefined): MentoriaOnboardingAdditionalStudentInput[] {
+  return (input ?? [])
+    .map((student) => ({
+      ...student,
+      fullName: student.fullName.trim(),
+      schoolYear: student.schoolYear.trim(),
+      age: Number(student.age ?? 0),
+    }))
+    .filter((student) => student.fullName && student.schoolYear && Number.isFinite(student.age) && student.age > 0);
 }
 
 function buildLegacyParentsProjection(input: {
@@ -637,14 +701,33 @@ export class MentoriaService {
     };
   }
 
-  private async resolveStudentForActor(actor: MentoriaSessionActor): Promise<StudentProfile | null> {
+  private async resolveStudentForActor(
+    actor: MentoriaSessionActor,
+    options?: { studentProfileId?: string | null; fallbackToFirstAccessible?: boolean },
+  ): Promise<StudentProfile | null> {
+    const requestedStudentProfileId = options?.studentProfileId?.trim() || "";
     const directStudent = await this.repository.getStudentProfileByUser(actor.tenantId, actor.userId);
     if (directStudent) {
+      if (requestedStudentProfileId && directStudent.id !== requestedStudentProfileId) {
+        throw new Error("STUDENT_ACCESS_DENIED");
+      }
       return directStudent;
     }
 
     const accessibleStudents = await this.repository.listGuardianAccessibleStudents(actor.tenantId, actor.userId).catch(() => []);
     if (accessibleStudents.length === 0) {
+      return null;
+    }
+
+    if (requestedStudentProfileId) {
+      const explicitAccess = accessibleStudents.find((item) => item.studentProfileId === requestedStudentProfileId || item.studentId === requestedStudentProfileId) ?? null;
+      if (!explicitAccess) {
+        throw new Error("STUDENT_ACCESS_DENIED");
+      }
+      return this.repository.getStudentProfileById(actor.tenantId, explicitAccess.studentProfileId);
+    }
+
+    if (options?.fallbackToFirstAccessible === false) {
       return null;
     }
 
@@ -1212,9 +1295,9 @@ export class MentoriaService {
     });
   }
 
-  async getProfile(actor: MentoriaSessionActor): Promise<StudentProfile | null> {
+  async getProfile(actor: MentoriaSessionActor, studentProfileId?: string): Promise<StudentProfile | null> {
     await this.repository.seedSubjects(actor.tenantId);
-    return this.resolveStudentForActor(actor);
+    return this.resolveStudentForActor(actor, { studentProfileId });
   }
 
   async createReferralInvite(actor: MentoriaSessionActor, input: { invitedEmail?: string }) {
@@ -1302,6 +1385,11 @@ export class MentoriaService {
       ? await this.familyRepository.getGuardianByFamilyAndEmail(actor.tenantId, actor.email)
       : null;
     const student = await this.resolveStudentForActor(actor);
+    const familyStudents = typeof this.repository.listStudentsForTenant === "function"
+      ? await this.repository.listStudentsForTenant(actor.tenantId)
+      : student
+        ? [student]
+        : [];
     const subjects = await this.repository.listSubjects(actor.tenantId);
     const canonical = student ? await this.getCanonicalFamilyContract(actor, student) : {
       family: await this.familyRepository.getFamilyById(actor.tenantId),
@@ -1320,6 +1408,7 @@ export class MentoriaService {
           : null,
         student: null,
         profile: null,
+        familyStudents,
         subjects,
         studentSubjects: [],
         family: canonical.family,
@@ -1339,6 +1428,7 @@ export class MentoriaService {
         : null,
       student,
       profile: student,
+      familyStudents,
       subjects,
       studentSubjects,
       family: canonical.family,
@@ -1348,8 +1438,8 @@ export class MentoriaService {
     };
   }
 
-  async requireOnboardedStudent(actor: MentoriaSessionActor): Promise<StudentProfile> {
-    const student = await this.getProfile(actor);
+  async requireOnboardedStudent(actor: MentoriaSessionActor, studentProfileId?: string): Promise<StudentProfile> {
+    const student = await this.getProfile(actor, studentProfileId);
     if (!student || !student.onboardingCompleted) {
       throw new Error("ONBOARDING_REQUIRED");
     }
@@ -1378,7 +1468,9 @@ export class MentoriaService {
     if (!payload.primaryGuardian.relation) throw new Error("INVALID_PRIMARY_GUARDIAN_RELATION");
     if (!payload.student.fullName.trim()) throw new Error("INVALID_STUDENT_NAME");
     if (!payload.student.schoolYear.trim()) throw new Error("INVALID_SCHOOL_YEAR");
-    if (payload.subjects.length === 0) throw new Error("SUBJECTS_REQUIRED");
+    if (!Number.isFinite(payload.student.age) || payload.student.age < 5 || payload.student.age > 21) throw new Error("INVALID_STUDENT_AGE");
+    if (payload.student.subjects.length === 0) throw new Error("SUBJECTS_REQUIRED");
+    if ((payload.student.supportNeeds ?? []).length === 0) throw new Error("SUPPORT_NEEDS_REQUIRED");
 
     const familyStructure = payload.familyStructure ?? "single_guardian";
     const secondaryGuardian =
@@ -1405,62 +1497,67 @@ export class MentoriaService {
 
     const allSubjects = await this.repository.listSubjects(actor.tenantId);
     const subjectsBySlug = new Map(allSubjects.map((subject) => [subject.slug, subject]));
-    const selectedSubjects = payload.subjects.map((item) => {
+    const selectedSubjects = payload.student.subjects.map((item: MentoriaOnboardingSubjectInput) => {
       const subject = subjectsBySlug.get(item.subjectSlug);
       if (!subject) throw new Error(`SUBJECT_NOT_FOUND:${item.subjectSlug}`);
       return { selection: item, subject };
     });
 
-    const confidenceLevel = payload.confidenceLevel ?? "medium";
-    const studentAge = getAgeFromSchoolYear(payload.student.schoolYear);
-    if (studentAge < 5 || studentAge > 18) throw new Error("INVALID_SCHOOL_YEAR");
-    const emotionalBaseline = deriveEmotionalBaselineFromConfidence(confidenceLevel);
-    const learningPreference = deriveLearningPreferenceFromGoal(payload.goal, payload.student.schoolYear);
-    const preferredStudyMinutes = derivePreferredStudyMinutesFromConfidence(payload.student.schoolYear, confidenceLevel);
+    const studentAge = payload.student.age;
+    const emotionalBaseline = deriveEmotionalBaselineFromSupportNeeds(payload.student.supportNeeds);
+    const learningPreference = deriveLearningPreferenceFromSupportStyle(payload.student.supportStyle);
+    const preferredStudyMinutes = derivePreferredStudyMinutesFromProfile(payload.student.schoolYear, payload.student.supportNeeds);
     const baseEmotionalState = deriveBaseEmotionalState(emotionalBaseline);
-    const learningGoals = deriveLearningGoalsFromGoal(selectedSubjects.map((item) => ({ name: item.subject.name })), payload.goal);
+    const learningGoals = deriveLearningGoalsFromSupportNeeds(
+      selectedSubjects.map((item) => ({ name: item.subject.name })),
+      payload.student.supportNeeds,
+    );
     const strengths = deriveStrengths(
-      payload.subjects.map((item) => ({ ...item, subjectSlug: item.subjectSlug })),
+      payload.student.subjects.map((item: MentoriaOnboardingSubjectInput) => ({ ...item, subjectSlug: item.subjectSlug })),
       selectedSubjects.map((item) => ({ id: item.subject.slug, name: item.subject.name })),
     );
+    const ageCourseFit = resolveAgeCourseFit(studentAge, payload.student.schoolYear);
     const supportNotesParts = [
       `${formatGuardianRoleForSupportNotes(payload.primaryGuardian)} principal ${payload.primaryGuardian.fullName.trim()}`,
       `estructura familiar ${formatFamilyStructureForSupportNotes(familyStructure)}`,
       `etapa ${payload.student.stage ?? "sin especificar"}`,
       `curso ${payload.student.schoolYear}`,
-      `repeticion ${payload.student.hasRepeatedCourse === true ? "si" : payload.student.hasRepeatedCourse === false ? "no" : "sin confirmar"}`,
-      `Objetivo inicial ${payload.goal}`,
-      `confianza ${confidenceLevel}`,
+      `edad ${studentAge}`,
+      `encaje edad-curso ${formatAgeCourseFit(ageCourseFit)}`,
+      `repeticion ${formatRepeatedCourseStatus(payload.student.repeatedCourseStatus)}`,
+      `apoyos ${payload.student.supportNeeds.map((item) => formatSupportNeed(item)).join(", ")}`,
+      `estilo ${formatSupportStyle(payload.student.supportStyle)}`,
     ];
-    if (payload.initialPriority) {
-      supportNotesParts.push(`prioridad inicial ${formatInitialPriorityForSupportNotes(payload.initialPriority)}`);
+    if ((payload.student.repeatedCourseYears ?? []).length > 0) {
+      supportNotesParts.push(`cursos repetidos ${(payload.student.repeatedCourseYears ?? []).join(", ")}`);
     }
     if (secondaryGuardian?.fullName) {
       supportNotesParts.push(`${formatGuardianRoleForSupportNotes(secondaryGuardian)} secundario ${secondaryGuardian.fullName}`);
     }
-    if (payload.primaryConcern?.trim()) {
-      supportNotesParts.push(`preocupacion ${payload.primaryConcern.trim()}`);
-    }
-    if (payload.student.schoolName?.trim()) {
-      supportNotesParts.push(`centro ${payload.student.schoolName.trim()}`);
+    const additionalStudents = normalizeAdditionalStudents(payload.additionalStudents);
+    if (additionalStudents.length > 0) {
+      supportNotesParts.push(`familia con ${1 + additionalStudents.length} alumnos`);
     }
 
-    const onboardingInput = toOnboardingInput(payload, learningGoals, studentAge, learningPreference, confidenceLevel);
+    const onboardingInput = toOnboardingInput(payload, learningGoals, studentAge, learningPreference);
     const onboardingContext = buildOnboardingUserContext({
       actor,
       onboarding: onboardingInput,
       tags: ["mentoria", "onboarding"],
       traits: {
         schoolYear: payload.student.schoolYear,
-        objective: payload.goal,
+        supportStyle: payload.student.supportStyle,
+        ageCourseFit,
       },
       preferences: {
-        learningPreference: learningPreference,
-        confidenceLevel,
+        learningPreference,
+        supportStyle: payload.student.supportStyle,
       },
     });
 
-    const existingStudent = await this.resolveStudentForActor(actor);
+    const existingStudent = actor.actorType === "student"
+      ? await this.resolveStudentForActor(actor, { studentProfileId: actor.studentProfileId ?? undefined })
+      : null;
 
     const student = await this.repository.upsertStudentProfile({
       studentId: existingStudent?.id,
@@ -1478,7 +1575,6 @@ export class MentoriaService {
       onboardingCompleted: true,
       supportNotes: supportNotesParts.join(" | "),
     });
-    // Ensure a family exists for the tenant before linking student records (foreign key safety in local dev)
     await this.familyRepository.createFamily(actor.tenantId);
     const canonical = actor.email
       ? await this.syncCanonicalGuardiansFromProfile(actor, student, {
@@ -1524,6 +1620,14 @@ export class MentoriaService {
       age: student.age,
       level: student.schoolYear,
     });
+    for (const additionalStudent of additionalStudents) {
+      await this.familyRepository.createStudent({
+        familyId: actor.tenantId,
+        name: additionalStudent.fullName,
+        age: additionalStudent.age,
+        level: additionalStudent.schoolYear,
+      });
+    }
 
     await this.repository.replaceStudentSubjects({
       tenantId: actor.tenantId,
@@ -1594,54 +1698,43 @@ export class MentoriaService {
     });
     const weakestSubjectSelection =
       selectedSubjects.find((item) => item.selection.initialLevel === "me_cuesta_mucho") ?? selectedSubjects[0];
-    const activationPrompt = buildActivationPrompt({
-      student,
-      goal: payload.goal,
-      confidenceLevel,
-      weakestSubjectName: weakestSubjectSelection.subject.name,
-    });
     const activationTask = createAgentTask({
       kind: "user_activation",
       channel: "mentoria_onboarding",
-      objective: `Arrancar la primera accion guiada para ${weakestSubjectSelection.subject.name}`,
+      objective: `Dejar listo el espacio estructural de ${student.fullName}`,
       context: persistedOnboardingContext,
       input: {
         subjectSlug: weakestSubjectSelection.subject.slug,
-        topic: activationPrompt.topic,
-        message: activationPrompt.message,
+        topic: weakestSubjectSelection.subject.name,
+        message: "Onboarding estructural completado. El siguiente paso se decide al entrar en el workspace.",
       },
       metadata: {
         product: "mentoria",
-        objective: payload.goal,
-        confidenceLevel,
+        supportStyle: payload.student.supportStyle,
+        onboardingOnly: true,
       },
-    });
-    const firstSession = await this.startGuidedSession(actor, {
-      subjectSlug: weakestSubjectSelection.subject.slug,
-      topic: activationPrompt.topic,
-      message: activationPrompt.message,
     });
     const refreshedProgress = await this.getProgress(actor);
     const refreshedDailyPlan = (await this.getDashboard(actor)).dailyPlan;
     const activationResponse = createAgentResponse({
       task: activationTask,
-      reply: firstSession.reply,
+      reply: "Tu estructura ya esta lista. A partir de aqui, el alumno entra en su workspace y define como viene hoy para que la IA adapte la sesion real.",
       output: {
         subjectSlug: weakestSubjectSelection.subject.slug,
         subjectName: weakestSubjectSelection.subject.name,
-        recommendedNextStep: firstSession.session.recommendedNextStep,
+        recommendedNextStep: "Entrar al workspace y elegir la prioridad de hoy.",
       },
       recommendations: refreshedProgress.analysis.nextActions,
       metadata: {
-        emotionalState: firstSession.adaptation.emotionalState,
         product: "mentoria",
+        onboardingOnly: true,
       },
     });
     const activationInsights = [
       createInsight({
         category: "activation",
         title: "Primer valor entregado",
-        summary: `Se ha activado una primera ayuda en ${weakestSubjectSelection.subject.name}.`,
+        summary: `Se ha dejado listo el workspace estructural de ${student.fullName}.`,
         actions: refreshedProgress.analysis.nextActions,
         metadata: {
           subjectSlug: weakestSubjectSelection.subject.slug,
@@ -1970,6 +2063,7 @@ export class MentoriaService {
     entryMode?: MentoriaEntryMode;
     sessionMode?: MentoriaSessionMode;
     sessionInputKind?: MentoriaSessionInputKind;
+    sessionSignal?: MentoriaStudentSessionSignal;
   }): Promise<{
     session: Awaited<ReturnType<MentoriaRepository["createLearningSession"]>>;
     subject: MentoriaSubject;
@@ -2065,10 +2159,12 @@ export class MentoriaService {
     const dailyPlan = await this.ensureDailyPlan(actor.tenantId, student, { evolution, interventions, motivation, progress, learningMemory });
     const enabledSubjectIds = new Set(studentSubjects.map((item) => item.subjectId));
     const availableSubjects = subjects.filter((subject) => enabledSubjectIds.has(subject.id));
+    const signalInstruction = buildSessionSignalInstruction(payload.sessionSignal);
+    const effectiveStudentMessage = [signalInstruction, payload.message].filter(Boolean).join(" ").trim();
     const subjectSelection = inferSubjectAndTopic({
       requestedSubjectSlug: payload.subjectSlug,
       topic: payload.topic,
-      message: payload.message,
+      message: effectiveStudentMessage,
       subjects: availableSubjects,
       dailyPlan,
       evolution,
@@ -2105,7 +2201,7 @@ export class MentoriaService {
         profile: student,
         subject,
         topic: resolvedTopic,
-        studentMessage: payload.message,
+        studentMessage: effectiveStudentMessage,
         adaptation: {
           tone: "calm",
           explanationDepth: "guided",
@@ -2148,7 +2244,7 @@ export class MentoriaService {
 
     const adaptiveContext = this.getAdaptiveContext(billing, interventions, motivation);
     const adaptation = evaluateStudentEmotion({
-      message: payload.message,
+      message: effectiveStudentMessage,
       profile: student,
       evolution,
       subjectName: subject.name,
@@ -2156,6 +2252,12 @@ export class MentoriaService {
       motivation: adaptiveContext.motivation,
     });
     const entryModeAdjustments = getTutorEntryModeAdjustments(payload.entryMode);
+    const signalBaseSessionMode = payload.sessionSignal
+      ? resolveSessionModeFromSignal(payload.sessionSignal, {
+          hasActiveTask: dailyPlan.tasks.some((task) => !task.completed),
+          recentActivityLabel: recentSessions[0]?.updatedAt ? "hoy" : null,
+        })
+      : null;
     const baseSessionMode = resolveMentoriaSessionMode({
       student,
       dailyPlan,
@@ -2163,11 +2265,11 @@ export class MentoriaService {
       selectedSubject: studentSubjects.find((item) => item.subjectId === subject.id) ?? null,
       activeTask: dailyPlan.tasks.find((task) => task.subjectId === subject.id && !task.completed) ?? dailyPlan.tasks.find((task) => !task.completed) ?? null,
       currentTopic: payload.topic ?? subjectSelection.topic,
-      currentMessage: payload.message,
+      currentMessage: effectiveStudentMessage,
       stateLabel: adaptiveContext.interventions[0]?.summary ?? motivation.motivationProfile ?? null,
-      suggestedInputKind: payload.sessionInputKind ?? null,
+      suggestedInputKind: payload.sessionInputKind ?? (payload.sessionSignal ? resolveSessionInputKindFromSignal(payload.sessionSignal) : null),
     });
-    const resolvedSessionMode = payload.sessionMode ?? resolveSessionModeFromProfile(dynamicProfile, baseSessionMode);
+    const resolvedSessionMode = payload.sessionMode ?? resolveSessionModeFromProfile(dynamicProfile, signalBaseSessionMode ?? baseSessionMode);
     const fallbackInputKind: MentoriaSessionInputKind = resolvedSessionMode === "exam_preparation"
       ? "exam_photo"
       : resolvedSessionMode === "study_routine"
@@ -2179,7 +2281,7 @@ export class MentoriaService {
             : payload.entryMode === "plan_task"
               ? "family_routine"
               : "free_message";
-    const resolvedSessionInputKind = payload.sessionInputKind ?? fallbackInputKind;
+    const resolvedSessionInputKind = payload.sessionInputKind ?? (payload.sessionSignal ? resolveSessionInputKindFromSignal(payload.sessionSignal) : fallbackInputKind);
     const sessionContract = buildMentoriaSessionContract(resolvedSessionMode, resolvedSessionInputKind);
     const profileAdaptation = applyTutorBehaviorPolicy(adaptation, tutorPolicy);
     const adaptedEntry = {
@@ -2305,7 +2407,7 @@ export class MentoriaService {
       updateEvolutionFromSession(evolution, {
         session,
         subject,
-        studentMessage: payload.message,
+        studentMessage: effectiveStudentMessage,
         tutorReply: tutorResponse.reply,
         progress: current,
       }),
@@ -2341,7 +2443,7 @@ export class MentoriaService {
         kind: "guided_session",
         subject,
         session,
-        studentMessage: payload.message,
+        studentMessage: effectiveStudentMessage,
         tutorReply: tutorResponse.reply,
         progress: updatedSubjectProgress,
         allProgress: updatedProgress,
@@ -2354,7 +2456,7 @@ export class MentoriaService {
     const sessionConceptKey = buildStudentSubjectMemoryEventConcept({
       subject,
       topic: resolvedTopic,
-      studentText: payload.message,
+      studentText: effectiveStudentMessage,
     });
     const currentSubjectMemory = await this.repository.getStudentSubjectMemory(actor.tenantId, student.id, subject.slug, sessionConceptKey);
     const updatedSubjectMemory = await this.repository.saveStudentSubjectMemory(
@@ -2365,7 +2467,7 @@ export class MentoriaService {
         tenantId: actor.tenantId,
         subject,
         topic: resolvedTopic,
-        studentText: payload.message,
+        studentText: effectiveStudentMessage,
         tutorReply: tutorResponse.reply,
         tutorPolicy,
         dynamicProfile: updatedDynamicProfile,
@@ -3119,3 +3221,4 @@ export class MentoriaService {
     return dashboard;
   }
 }
+

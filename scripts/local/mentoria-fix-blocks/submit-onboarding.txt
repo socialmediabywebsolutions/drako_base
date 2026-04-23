@@ -1,0 +1,354 @@
+  async submitOnboarding(actor: MentoriaSessionActor, payload: MentoriaOnboardingPayload): Promise<{
+    student: StudentProfile;
+    family: MentoriaFamily | null;
+    primaryGuardian: MentoriaGuardian | null;
+    secondaryGuardians: MentoriaGuardian[];
+    guardianStudentAccess: MentoriaGuardianStudentAccess[];
+    sessionContext: MentoriaSessionContext;
+    plan: StudyPlan;
+    progress: MentoriaProgress[];
+    activation: ActivationEvent & {
+      subjectSlug: string;
+      subjectName: string;
+      reply: string;
+      dailyPlan: DailyPlan;
+    };
+  }> {
+    await this.repository.seedSubjects(actor.tenantId);
+
+    if (!payload.primaryGuardian.fullName.trim()) throw new Error("INVALID_PRIMARY_GUARDIAN_NAME");
+    if (!payload.primaryGuardian.relation) throw new Error("INVALID_PRIMARY_GUARDIAN_RELATION");
+    if (!payload.student.fullName.trim()) throw new Error("INVALID_STUDENT_NAME");
+    if (!payload.student.schoolYear.trim()) throw new Error("INVALID_SCHOOL_YEAR");
+    if (!Number.isFinite(payload.student.age) || payload.student.age < 5 || payload.student.age > 21) throw new Error("INVALID_STUDENT_AGE");
+    if (payload.student.subjects.length === 0) throw new Error("SUBJECTS_REQUIRED");
+    if ((payload.student.supportNeeds ?? []).length === 0) throw new Error("SUPPORT_NEEDS_REQUIRED");
+
+    const familyStructure = payload.familyStructure ?? "single_guardian";
+    const secondaryGuardian =
+      payload.secondaryGuardian && (payload.secondaryGuardian.fullName.trim() || payload.secondaryGuardian.email?.trim())
+        ? {
+            fullName: payload.secondaryGuardian.fullName.trim(),
+            relation: payload.secondaryGuardian.relation,
+            email: payload.secondaryGuardian.email?.trim().toLowerCase() ?? "",
+          }
+        : null;
+
+    if (familyStructure === "two_guardians" && !secondaryGuardian?.fullName) {
+      throw new Error("INVALID_SECONDARY_GUARDIAN_NAME");
+    }
+    if (familyStructure === "two_guardians" && !secondaryGuardian?.email) {
+      throw new Error("INVALID_SECONDARY_GUARDIAN_EMAIL");
+    }
+    if (secondaryGuardian && !secondaryGuardian.fullName) {
+      throw new Error("INVALID_SECONDARY_GUARDIAN_NAME");
+    }
+    if (secondaryGuardian && secondaryGuardian.email && !secondaryGuardian.email.includes("@")) {
+      throw new Error("INVALID_SECONDARY_GUARDIAN_EMAIL");
+    }
+
+    const allSubjects = await this.repository.listSubjects(actor.tenantId);
+    const subjectsBySlug = new Map(allSubjects.map((subject) => [subject.slug, subject]));
+    const selectedSubjects = payload.student.subjects.map((item: MentoriaOnboardingSubjectInput) => {
+      const subject = subjectsBySlug.get(item.subjectSlug);
+      if (!subject) throw new Error(`SUBJECT_NOT_FOUND:${item.subjectSlug}`);
+      return { selection: item, subject };
+    });
+
+    const studentAge = payload.student.age;
+    const emotionalBaseline = deriveEmotionalBaselineFromSupportNeeds(payload.student.supportNeeds);
+    const learningPreference = deriveLearningPreferenceFromSupportStyle(payload.student.supportStyle);
+    const preferredStudyMinutes = derivePreferredStudyMinutesFromProfile(payload.student.schoolYear, payload.student.supportNeeds);
+    const baseEmotionalState = deriveBaseEmotionalState(emotionalBaseline);
+    const learningGoals = deriveLearningGoalsFromSupportNeeds(
+      selectedSubjects.map((item) => ({ name: item.subject.name })),
+      payload.student.supportNeeds,
+    );
+    const strengths = deriveStrengths(
+      payload.student.subjects.map((item: MentoriaOnboardingSubjectInput) => ({ ...item, subjectSlug: item.subjectSlug })),
+      selectedSubjects.map((item) => ({ id: item.subject.slug, name: item.subject.name })),
+    );
+    const ageCourseFit = resolveAgeCourseFit(studentAge, payload.student.schoolYear);
+    const supportNotesParts = [
+      `${formatGuardianRoleForSupportNotes(payload.primaryGuardian)} principal ${payload.primaryGuardian.fullName.trim()}`,
+      `estructura familiar ${formatFamilyStructureForSupportNotes(familyStructure)}`,
+      `etapa ${payload.student.stage ?? "sin especificar"}`,
+      `curso ${payload.student.schoolYear}`,
+      `edad ${studentAge}`,
+      `encaje edad-curso ${formatAgeCourseFit(ageCourseFit)}`,
+      `repeticion ${formatRepeatedCourseStatus(payload.student.repeatedCourseStatus)}`,
+      `apoyos ${payload.student.supportNeeds.map((item) => formatSupportNeed(item)).join(", ")}`,
+      `estilo ${formatSupportStyle(payload.student.supportStyle)}`,
+    ];
+    if ((payload.student.repeatedCourseYears ?? []).length > 0) {
+      supportNotesParts.push(`cursos repetidos ${(payload.student.repeatedCourseYears ?? []).join(", ")}`);
+    }
+    if (secondaryGuardian?.fullName) {
+      supportNotesParts.push(`${formatGuardianRoleForSupportNotes(secondaryGuardian)} secundario ${secondaryGuardian.fullName}`);
+    }
+    const additionalStudents = normalizeAdditionalStudents(payload.additionalStudents);
+    if (additionalStudents.length > 0) {
+      supportNotesParts.push(`familia con ${1 + additionalStudents.length} alumnos`);
+    }
+
+    const onboardingInput = toOnboardingInput(payload, learningGoals, studentAge, learningPreference);
+    const onboardingContext = buildOnboardingUserContext({
+      actor,
+      onboarding: onboardingInput,
+      tags: ["mentoria", "onboarding"],
+      traits: {
+        schoolYear: payload.student.schoolYear,
+        supportStyle: payload.student.supportStyle,
+        ageCourseFit,
+      },
+      preferences: {
+        learningPreference,
+        supportStyle: payload.student.supportStyle,
+      },
+    });
+
+    const existingStudent = actor.actorType === "student"
+      ? await this.resolveStudentForActor(actor, { studentProfileId: actor.studentProfileId ?? undefined })
+      : null;
+
+    const student = await this.repository.upsertStudentProfile({
+      studentId: existingStudent?.id,
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      fullName: payload.student.fullName.trim(),
+      age: studentAge,
+      schoolYear: payload.student.schoolYear,
+      learningGoals,
+      baseEmotionalState,
+      emotionalBaseline,
+      learningPreference,
+      preferredStudyMinutes,
+      strengths,
+      onboardingCompleted: true,
+      supportNotes: supportNotesParts.join(" | "),
+    });
+    await this.familyRepository.createFamily(actor.tenantId);
+    const canonical = actor.email
+      ? await this.syncCanonicalGuardiansFromProfile(actor, student, {
+          primaryGuardian: {
+            fullName: payload.primaryGuardian.fullName.trim(),
+            email: actor.email,
+            familyRelation: payload.primaryGuardian.relation,
+            systemRole: "primary_guardian",
+            access: {
+              dailyStudyMinutes: preferredStudyMinutes,
+              supervisionLevel: "balanced",
+              canViewFullProgress: true,
+              canManageSchedule: true,
+              notificationPreferences: ["progress", "alerts", "planner"],
+              isPrimaryContact: true,
+            },
+          },
+          secondaryGuardians: secondaryGuardian?.email
+            ? [
+                {
+                  fullName: secondaryGuardian.fullName,
+                  email: secondaryGuardian.email,
+                  familyRelation: secondaryGuardian.relation,
+                  systemRole: "secondary_guardian",
+                  access: {
+                    dailyStudyMinutes: preferredStudyMinutes,
+                    supervisionLevel: familyStructure === "separated_parents" ? "light" : "balanced",
+                    canViewFullProgress: true,
+                    canManageSchedule: familyStructure !== "separated_parents",
+                    notificationPreferences: ["progress", "planner"],
+                    isPrimaryContact: false,
+                  },
+                },
+              ]
+            : [],
+        })
+      : await this.getCanonicalFamilyContract(actor, student);
+
+    await this.familyRepository.upsertStudent({
+      id: student.id,
+      familyId: actor.tenantId,
+      name: student.fullName,
+      age: student.age,
+      level: student.schoolYear,
+    });
+    for (const additionalStudent of additionalStudents) {
+      await this.familyRepository.createStudent({
+        familyId: actor.tenantId,
+        name: additionalStudent.fullName,
+        age: additionalStudent.age,
+        level: additionalStudent.schoolYear,
+      });
+    }
+
+    await this.repository.replaceStudentSubjects({
+      tenantId: actor.tenantId,
+      studentProfileId: student.id,
+      subjects: selectedSubjects.map((item) => ({
+        subjectId: item.subject.id,
+        initialLevel: item.selection.initialLevel,
+      })),
+    });
+
+    await this.repository.deleteProgressForStudent(actor.tenantId, student.id);
+    for (const item of selectedSubjects) {
+      const initialProgress = buildInitialProgressFromOnboarding({
+        subjectId: item.subject.id,
+        initialLevel: item.selection.initialLevel,
+        schoolYear: student.schoolYear,
+        age: student.age,
+      });
+      await this.repository.upsertProgress({
+        tenantId: actor.tenantId,
+        studentProfileId: student.id,
+        subjectId: item.subject.id,
+        masteryScore: initialProgress.masteryScore,
+        confidenceScore: initialProgress.confidenceScore,
+        streakDays: initialProgress.streakDays,
+        sessionsCompleted: initialProgress.sessionsCompleted,
+        exercisesCompleted: initialProgress.exercisesCompleted,
+        weakTopics: initialProgress.weakTopics,
+        strongTopics: initialProgress.strongTopics,
+      });
+    }
+
+    const progress = await this.repository.listProgress(actor.tenantId, student.id);
+    await this.repository.saveStudentEvolutionProfile(
+      actor.tenantId,
+      createInitialEvolutionProfile({
+        student,
+        progress,
+        subjects: allSubjects,
+      }),
+    );
+    const syncedEvolution = await this.ensureEvolutionProfile(actor.tenantId, student);
+    const syncedInterventions = await this.syncInterventions(actor.tenantId, student.id, syncedEvolution);
+    await this.repository.saveMotivationState(
+      actor.tenantId,
+      createInitialMotivationState(student.id, new Date().toISOString()),
+    );
+    let syncedMotivation = await this.ensureMotivationState(actor.tenantId, student, syncedEvolution, syncedInterventions);
+    if (payload.referralCode) {
+      syncedMotivation = await this.applyReferralAttribution(actor, student, syncedMotivation, {
+        referralCode: payload.referralCode,
+        inviteToken: payload.inviteToken,
+      });
+    }
+    const plan = await this.buildPlanForStudent(actor.tenantId, student, canonical.guardianStudentAccess);
+    const dailyPlan = await this.ensureDailyPlan(actor.tenantId, student, {
+      force: true,
+      progress,
+      evolution: syncedEvolution,
+      interventions: syncedInterventions,
+      motivation: syncedMotivation,
+    });
+    const persistedOnboardingContext = await this.syncUserContext(actor, student, {
+      progress,
+      evolution: syncedEvolution,
+      motivation: syncedMotivation,
+      dailyPlan,
+    });
+    const weakestSubjectSelection =
+      selectedSubjects.find((item) => item.selection.initialLevel === "me_cuesta_mucho") ?? selectedSubjects[0];
+    const activationTask = createAgentTask({
+      kind: "user_activation",
+      channel: "mentoria_onboarding",
+      objective: `Dejar listo el espacio estructural de ${student.fullName}`,
+      context: persistedOnboardingContext,
+      input: {
+        subjectSlug: weakestSubjectSelection.subject.slug,
+        topic: weakestSubjectSelection.subject.name,
+        message: "Onboarding estructural completado. El siguiente paso se decide al entrar en el workspace.",
+      },
+      metadata: {
+        product: "mentoria",
+        supportStyle: payload.student.supportStyle,
+        onboardingOnly: true,
+      },
+    });
+    const refreshedProgress = await this.getProgress(actor);
+    const refreshedDailyPlan = (await this.getDashboard(actor)).dailyPlan;
+    const activationResponse = createAgentResponse({
+      task: activationTask,
+      reply: "Tu estructura ya esta lista. A partir de aqui, el alumno entra en su workspace y define como viene hoy para que la IA adapte la sesion real.",
+      output: {
+        subjectSlug: weakestSubjectSelection.subject.slug,
+        subjectName: weakestSubjectSelection.subject.name,
+        recommendedNextStep: "Entrar al workspace y elegir la prioridad de hoy.",
+      },
+      recommendations: refreshedProgress.analysis.nextActions,
+      metadata: {
+        product: "mentoria",
+        onboardingOnly: true,
+      },
+    });
+    const activationInsights = [
+      createInsight({
+        category: "activation",
+        title: "Primer valor entregado",
+        summary: `Se ha dejado listo el workspace estructural de ${student.fullName}.`,
+        actions: refreshedProgress.analysis.nextActions,
+        metadata: {
+          subjectSlug: weakestSubjectSelection.subject.slug,
+          planDate: refreshedDailyPlan.planDate,
+        },
+      }),
+      createInsight({
+        category: "planner",
+        title: "Plan diario inicial",
+        summary: refreshedDailyPlan.adaptationReason,
+        severity: refreshedDailyPlan.priority === "high" ? "warning" : "info",
+        actions: refreshedDailyPlan.tasks.slice(0, 3).map((task) => `${task.subject}: ${task.type}`),
+        metadata: {
+          completionRate: refreshedDailyPlan.completionRate,
+          recommendedDuration: refreshedDailyPlan.recommendedDuration,
+        },
+      }),
+    ];
+    const activation = createActivationEvent({
+      context: persistedOnboardingContext,
+      type: "onboarding_completed",
+      channel: "onboarding",
+      task: activationTask,
+      response: activationResponse,
+      insights: activationInsights,
+      nextActions: refreshedProgress.analysis.nextActions,
+      metadata: {
+        subjectSlug: weakestSubjectSelection.subject.slug,
+        subjectName: weakestSubjectSelection.subject.name,
+      },
+    });
+    await trackEvent(activation);
+
+    await recordCampamentoEvent({
+      tenantId: actor.tenantId,
+      type: "mentoria.onboarding.completed",
+      severity: "INFO",
+      source: "mentoria.onboarding",
+      message: "Onboarding completed",
+      correlationId: student.id,
+      metadata: {
+        studentId: student.id,
+        firstSubjectId: weakestSubjectSelection.subject.slug ?? weakestSubjectSelection.subject.id,
+      },
+    });
+
+    return {
+      student,
+      family: canonical.family,
+      primaryGuardian: canonical.primaryGuardian,
+      secondaryGuardians: canonical.secondaryGuardians,
+      guardianStudentAccess: canonical.guardianStudentAccess,
+      sessionContext: this.buildSessionContext(actor, student, canonical),
+      plan,
+      progress: refreshedProgress.progress,
+      activation: {
+        ...activation,
+        subjectSlug: weakestSubjectSelection.subject.slug,
+        subjectName: weakestSubjectSelection.subject.name,
+        reply: activationResponse.reply,
+        dailyPlan: refreshedDailyPlan,
+      },
+    };
+  }
+

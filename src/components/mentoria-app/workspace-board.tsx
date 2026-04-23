@@ -17,6 +17,7 @@ import type {
   MentoriaWorkspaceEntry,
   MentoriaProgress,
   MentoriaStudentMemorySummary,
+  MentoriaStudentSessionSignal,
   MentoriaStudentSubject,
   MentoriaGuardianHookEvent,
 } from "@/lib/mentoria/types";
@@ -51,6 +52,8 @@ type WorkspaceBoardProps = {
   selectedSubject?: MentoriaStudentSubject | null;
   currentTopic?: string;
   currentMessage?: string;
+  sessionSignal: MentoriaStudentSessionSignal;
+  sessionSignalSummary: string;
   sessionContract: MentoriaSessionContract;
   sessionModeOptions?: MentoriaSessionModeOption[];
   tutorResult: {
@@ -96,6 +99,8 @@ type WorkspaceBoardProps = {
   onResumeSession: (session: LearningSession) => void;
   onResumeDailyClosure?: (closure: MentoriaDailyClosureSummary) => void;
   onQuickAction: (action: { topic: string; prompt: string; subjectSlug?: string | null; sessionMode?: MentoriaSessionMode; sessionInputKind?: MentoriaSessionModeOption["inputKind"] }) => void;
+  onSessionSignalChange: (signal: MentoriaStudentSessionSignal) => void;
+  onApplySessionSignal: () => void;
   onSelectSessionMode?: (option: MentoriaSessionModeOption) => void;
   onRunNextAction?: () => void;
 };
@@ -105,6 +110,30 @@ function formatBoardTaskType(type?: string | null) {
   if (type === "review") return "repaso guiado";
   if (type === "challenge") return "reto corto";
   return type ?? "tarea";
+}
+
+function ChoiceButton({
+  selected,
+  onClick,
+  title,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  title: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors ${
+        selected
+          ? "border-violet-600 bg-violet-50 text-violet-950"
+          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+      }`}
+    >
+      {title}
+    </button>
+  );
 }
 
 export function WorkspaceBoard({
@@ -134,6 +163,8 @@ export function WorkspaceBoard({
   selectedSubject = null,
   currentTopic = "",
   currentMessage = "",
+  sessionSignal,
+  sessionSignalSummary,
   sessionContract,
   sessionModeOptions = [],
   tutorResult,
@@ -160,6 +191,8 @@ export function WorkspaceBoard({
   onResumeSession,
   onResumeDailyClosure,
   onQuickAction,
+  onSessionSignalChange,
+  onApplySessionSignal,
   onSelectSessionMode,
   onRunNextAction,
 }: WorkspaceBoardProps) {
@@ -788,6 +821,7 @@ export function WorkspaceBoard({
   const showResumeSession = !showTutorBoard && !showExerciseBoard && !showDailyClosure && latestSession;
   const showQuickActions = !showTutorBoard && !showExerciseBoard && !showResumeSession && !showDailyClosure && entry && (!nextAction || nextAction.kind === "quick_action");
   const shouldKeepBoardSurfaceMinimal = Boolean(showTutorBoard || showExerciseBoard || showResumeSession || showDailyClosure);
+  const showEntrySignalPanel = !showTutorBoard && !showExerciseBoard;
 
   return (
     <div className={`flex h-full flex-col ${resolvedBoardModeUi.shell}`}>
@@ -859,6 +893,86 @@ export function WorkspaceBoard({
                 <p className="mt-1 text-sm leading-6 text-slate-600">{orchestratorPlan.message}</p>
               </div>
               {orchestratorPlan.progressLabel ? <div className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">{orchestratorPlan.progressLabel}</div> : null}
+            </div>
+          </div>
+        ) : null}
+
+        {showEntrySignalPanel ? (
+          <div className="mx-auto mb-4 max-w-4xl rounded-2xl border border-violet-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-2xl">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">Antes de entrar</div>
+                <h2 className="mt-2 text-xl font-bold text-slate-900">Como viene hoy el alumno</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Esto ya no forma parte del onboarding. Se decide aqui, justo antes de arrancar, para que el tutor y el modo de sesion nazcan bien calibrados.</p>
+                <p className="mt-3 rounded-2xl bg-violet-50 px-4 py-3 text-sm font-medium text-violet-950">{sessionSignalSummary}</p>
+              </div>
+              <button
+                type="button"
+                onClick={onApplySessionSignal}
+                className="rounded-full bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-700"
+              >
+                Entrar con este estado de hoy
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-5 lg:grid-cols-3">
+              <div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Prioridad de hoy</div>
+                <div className="grid gap-2">
+                  {[
+                    { value: "homework" as const, label: "Tarea o deber" },
+                    { value: "exam" as const, label: "Examen cerca" },
+                    { value: "reinforcement" as const, label: "Reforzar materia" },
+                    { value: "organization" as const, label: "Ordenar estudio" },
+                    { value: "free_question" as const, label: "Duda libre" },
+                  ].map((option) => (
+                    <ChoiceButton
+                      key={option.value}
+                      title={option.label}
+                      selected={sessionSignal.priority === option.value}
+                      onClick={() => onSessionSignalChange({ ...sessionSignal, priority: option.value })}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Energia o disposicion</div>
+                <div className="grid gap-2">
+                  {[
+                    { value: "blocked" as const, label: "Bloqueado" },
+                    { value: "tired" as const, label: "Cansado" },
+                    { value: "steady" as const, label: "Normal" },
+                    { value: "motivated" as const, label: "Con ganas" },
+                  ].map((option) => (
+                    <ChoiceButton
+                      key={option.value}
+                      title={option.label}
+                      selected={sessionSignal.emotion === option.value}
+                      onClick={() => onSessionSignalChange({ ...sessionSignal, emotion: option.value })}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Tipo de ayuda</div>
+                <div className="grid gap-2">
+                  {[
+                    { value: "step_by_step" as const, label: "Paso a paso" },
+                    { value: "explain_from_zero" as const, label: "Desde cero" },
+                    { value: "guided_practice" as const, label: "Practica guiada" },
+                    { value: "quick_check" as const, label: "Chequeo rapido" },
+                  ].map((option) => (
+                    <ChoiceButton
+                      key={option.value}
+                      title={option.label}
+                      selected={sessionSignal.helpType === option.value}
+                      onClick={() => onSessionSignalChange({ ...sessionSignal, helpType: option.value })}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         ) : null}
