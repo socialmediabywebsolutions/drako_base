@@ -11,6 +11,7 @@ export async function POST(request: Request) {
     const actor = await requireCurrentMentoriaSession(request);
     const service = new MentoriaService();
     const body = (await request.json()) as {
+      studentId?: string;
       subjectSlug?: string;
       topic?: string;
       message: string;
@@ -19,7 +20,10 @@ export async function POST(request: Request) {
       sessionInputKind?: MentoriaSessionInputKind;
       sessionSignal?: MentoriaStudentSessionSignal;
     };
-    const result = await service.startGuidedSession(actor, body);
+    const result = await service.startGuidedSession(actor, {
+      ...body,
+      studentProfileId: body.studentId,
+    });
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     if (error instanceof MentoriaBillingError) {
@@ -27,7 +31,7 @@ export async function POST(request: Request) {
     }
     const message = error instanceof Error ? error.message : "SESSION_CREATE_FAILED";
     const status =
-      message === "SESSION_REQUIRED" ? 401 : message === "ONBOARDING_REQUIRED" ? 409 : 500;
+      message === "SESSION_REQUIRED" ? 401 : message === "ONBOARDING_REQUIRED" ? 409 : message === "STUDENT_ACCESS_DENIED" ? 403 : 500;
     console.error("[SessionAPI] Error:", message);
     return NextResponse.json({ ok: false, error: message }, { status });
   }

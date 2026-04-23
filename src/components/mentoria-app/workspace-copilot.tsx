@@ -273,9 +273,9 @@ export function WorkspaceCopilot({
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
       <header className="border-b border-slate-200 p-5">
-        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Chat orquestador</div>
-        <h2 className="mt-1 text-base font-semibold text-slate-900">El tutor dirige la sesión</h2>
-        <p className="mt-1 text-xs text-slate-500">{orchestratorPlan?.intentLabel ?? resolvedStateUi?.subheader ?? "Aquí decides, preguntas o sigues la siguiente indicación."}</p>
+        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Tutor contigo</div>
+        <h2 className="mt-1 text-base font-semibold text-slate-900">Habla con tu tutor</h2>
+        <p className="mt-1 text-xs text-slate-500">{orchestratorPlan?.intentLabel ?? resolvedStateUi?.subheader ?? "Pregunta, responde o deja que te lleve al siguiente paso sin quitarle sitio a la pizarra."}</p>
         <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-700">
           <span className={`rounded-full px-2.5 py-1 ${modeBadgeTone}`}>{sessionContract.label}</span>
           <span className="rounded-full bg-slate-100 px-2.5 py-1">{sessionContract.entryLabel}</span>
@@ -366,7 +366,7 @@ export function WorkspaceCopilot({
       <div ref={chatScrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50/70 p-4">
         {tutorMessages.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-500">
-            {orchestratorPlan?.message ?? "Empieza una materia o una tarea y el chat irá siguiendo el hilo real de la sesión."}
+            {orchestratorPlan?.message ?? "Haz una pregunta, abre una materia o trae una tarea y el tutor seguirá el hilo real de la sesión."}
           </div>
         ) : (
           tutorMessages.map((msg, idx) => (
@@ -426,10 +426,11 @@ export function WorkspaceCopilot({
             Enviar
           </button>
         </div>
-        <div className="mt-2 text-xs text-slate-500">Pregunta, responde o pide una pista corta. La pizarra ejecuta el trabajo.</div>
+        <div className="mt-2 text-xs text-slate-500">Pregunta, responde o pide una pista corta. La pizarra lleva el trabajo y el tutor te acompaña.</div>
+        <div className="mt-1 text-xs text-slate-400">Si quieres traer una foto, una tarea o un examen reales, el canal activo hoy es WhatsApp.</div>
         {showSecondaryContext ? (
           <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <summary className="cursor-pointer text-xs font-semibold text-slate-700">Ver apoyo extra</summary>
+            <summary className="cursor-pointer text-xs font-semibold text-slate-700">Ver apoyo de la sesión</summary>
             <div className="mt-3 space-y-3">
               <div className="rounded-lg bg-white p-3">
                 <div className="text-xs font-semibold uppercase tracking-wider text-slate-600">Modo de esta sesión</div>

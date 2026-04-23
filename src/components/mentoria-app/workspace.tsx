@@ -382,6 +382,7 @@ export function MentoriaWorkspace() {
   });
 
   const searchParams = useSearchParams();
+  const selectedStudentId = searchParams.get("studentId")?.trim() || null;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<WorkspaceSection>("board");
@@ -418,11 +419,18 @@ export function MentoriaWorkspace() {
     [state.primaryGuardian, state.secondaryGuardians],
   );
 
+  function buildStudentScopedUrl(path: string) {
+    if (!selectedStudentId) return path;
+    const target = new URL(path, window.location.origin);
+    target.searchParams.set("studentId", selectedStudentId);
+    return `${target.pathname}${target.search}`;
+  }
+
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const workspaceRes = await fetch("/api/mentoria/workspace", { cache: "no-store" });
+      const workspaceRes = await fetch(buildStudentScopedUrl("/api/mentoria/workspace"), { cache: "no-store" });
       if (!workspaceRes || typeof workspaceRes.json !== "function") {
         setError("MENTORIA_WORKSPACE_LOAD_FAILED");
         return;
@@ -531,7 +539,7 @@ export function MentoriaWorkspace() {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [selectedStudentId]);
 
   useEffect(() => {
     if (billingState !== "success" || !billingSessionId) return;
@@ -542,9 +550,9 @@ export function MentoriaWorkspace() {
         body: JSON.stringify({ sessionId: billingSessionId }),
       });
       void load();
-      window.history.replaceState({}, "", "/mentoria/app");
+      window.history.replaceState({}, "", selectedStudentId ? `/mentoria/app?studentId=${selectedStudentId}` : "/mentoria/app");
     })();
-  }, [billingSessionId, billingState]);
+  }, [billingSessionId, billingState, selectedStudentId]);
 
   function resolveSubjectSlugFromSubjectId(subjectId?: string) {
     if (!subjectId) return "";
@@ -709,6 +717,7 @@ export function MentoriaWorkspace() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          studentId: selectedStudentId ?? undefined,
           subjectSlug: resolvedSubjectSlug,
           topic: resolvedTopic,
           message: resolvedMessage,
@@ -848,7 +857,7 @@ export function MentoriaWorkspace() {
       response = await fetch("/api/mentoria/exercises", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "correct", exerciseId: latestExercise.id, studentAnswer: exerciseAnswer }),
+        body: JSON.stringify({ action: "correct", studentId: selectedStudentId ?? undefined, exerciseId: latestExercise.id, studentAnswer: exerciseAnswer }),
       });
     } catch {
       return;
@@ -1481,6 +1490,8 @@ export function MentoriaWorkspace() {
 
   return (
     <WorkspaceShell
+      copilotMode="floating"
+      copilotLabel="Tutor"
       leftNav={
         <WorkspaceNav
           student={state.student}

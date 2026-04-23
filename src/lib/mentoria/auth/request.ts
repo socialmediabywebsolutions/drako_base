@@ -16,17 +16,6 @@ async function resolveMentoriaSessionContext(input: Pick<MentoriaRequestSession,
   const repository = new MentoriaRepository(db);
   const familyRepository = new MentoriaFamilyRepository(db);
 
-  const student = await repository.getStudentProfileByUser(input.tenantId, input.userId).catch(() => null);
-  if (student) {
-    return {
-      actorType: "student",
-      familyId: input.tenantId,
-      guardianId: null,
-      studentProfileId: student.id,
-      systemRole: "student",
-    };
-  }
-
   if (input.email) {
     const guardian = await familyRepository.getGuardianByFamilyAndEmail(input.tenantId, input.email).catch(() => null);
     if (guardian) {
@@ -42,6 +31,17 @@ async function resolveMentoriaSessionContext(input: Pick<MentoriaRequestSession,
         systemRole: guardian.systemRole,
       };
     }
+  }
+
+  const student = await repository.getStudentProfileByUser(input.tenantId, input.userId).catch(() => null);
+  if (student) {
+    return {
+      actorType: "student",
+      familyId: input.tenantId,
+      guardianId: null,
+      studentProfileId: student.id,
+      systemRole: "student",
+    };
   }
 
   return {

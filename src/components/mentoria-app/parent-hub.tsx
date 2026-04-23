@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { WorkspaceShell } from "@/components/mentoria-app/workspace-shell";
 import { getMicrocopy, getParentHubUiCopy, MENTORIA_PARENT_SLOT_A, MENTORIA_PARENT_SLOT_B } from "@/lib/mentoria/microcopy";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
@@ -15,7 +16,7 @@ import { deriveStateActions } from "@/lib/mentoria/state/intervention-engine";
 import { collectStudentSignals, evaluateStudentState } from "@/lib/mentoria/state/student-state-engine";
 import type { GuardianViewModel } from "@/lib/mentoria/state/state-types";
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
-import type { DailyPlan, Insight, MentoriaBillingSummary, MentoriaGrowthSummary, MentoriaGuardian, MentoriaGuardianStudentAccess, MentoriaIntervention, MentoriaProgress, MentoriaSessionContract, MentoriaSessionModeOption, StudentProfile, StudyPlan } from "@/lib/mentoria/types";
+import type { DailyPlan, Insight, MentoriaBillingSummary, MentoriaFamilyStudent, MentoriaGrowthSummary, MentoriaGuardian, MentoriaGuardianStudentAccess, MentoriaIntervention, MentoriaProgress, MentoriaSessionContract, MentoriaSessionModeOption, StudentProfile, StudyPlan } from "@/lib/mentoria/types";
 
 type ConnectedGuardianView = {
   id: string;
@@ -63,7 +64,10 @@ function buildConnectedGuardians(input: {
 }
 
 export function MentoriaParentHub() {
+  const searchParams = useSearchParams();
+  const selectedStudentId = searchParams.get("studentId")?.trim() || null;
   const [student, setStudent] = useState<StudentProfile | null>(null);
+  const [familyStudents, setFamilyStudents] = useState<MentoriaFamilyStudent[]>([]);
   const [primaryGuardian, setPrimaryGuardian] = useState<MentoriaGuardian | null>(null);
   const [secondaryGuardians, setSecondaryGuardians] = useState<MentoriaGuardian[]>([]);
   const [guardianStudentAccess, setGuardianStudentAccess] = useState<MentoriaGuardianStudentAccess[]>([]);
@@ -111,21 +115,28 @@ export function MentoriaParentHub() {
 
   useEffect(() => {
     void (async () => {
-      const [profileRes, progressRes, plannerRes] = await Promise.all([
-        fetch("/api/mentoria/profile", { cache: "no-store" }),
-        fetch("/api/mentoria/progress", { cache: "no-store" }),
-        fetch("/api/mentoria/planner", { cache: "no-store" }),
+      const scopedQuery = selectedStudentId ? `?studentId=${encodeURIComponent(selectedStudentId)}` : "";
+      const [profileRes, progressRes, plannerRes, familyRes] = await Promise.all([
+        fetch(`/api/mentoria/profile${scopedQuery}`, { cache: "no-store" }),
+        fetch(`/api/mentoria/progress${scopedQuery}`, { cache: "no-store" }),
+        fetch(`/api/mentoria/planner${scopedQuery}`, { cache: "no-store" }),
+        fetch("/api/mentoria/family", { cache: "no-store" }),
       ]);
-      if ([profileRes, progressRes, plannerRes].some((response) => response.status === 401)) {
+      if ([profileRes, progressRes, plannerRes, familyRes].some((response) => response.status === 401)) {
         window.location.href = "/mentorias/auths/logins?callbackUrl=/mentoria/app/parents";
         return;
       }
-      if ([profileRes, progressRes, plannerRes].some((response) => response.status === 409)) {
+      if ([profileRes, progressRes, plannerRes, familyRes].some((response) => response.status === 409)) {
         window.location.href = "/mentoria/onboarding";
+        return;
+      }
+      if ([profileRes, progressRes, plannerRes].some((response) => response.status === 403)) {
+        window.location.href = "/mentoria/app/parents";
         return;
       }
       const profileBody = (await profileRes.json()) as {
         student?: StudentProfile;
+        familyStudents?: MentoriaFamilyStudent[];
         primaryGuardian?: MentoriaGuardian | null;
         secondaryGuardians?: MentoriaGuardian[];
         guardianStudentAccess?: MentoriaGuardianStudentAccess[];
@@ -139,7 +150,9 @@ export function MentoriaParentHub() {
       };
       const progressBody = (await progressRes.json()) as { progress?: MentoriaProgress[] };
       const plannerBody = (await plannerRes.json()) as { plan?: StudyPlan | null };
+      const familyBody = (await familyRes.json()) as { students?: MentoriaFamilyStudent[] };
       setStudent(profileBody.student ?? null);
+      setFamilyStudents(profileBody.familyStudents ?? familyBody.students ?? []);
       setPrimaryGuardian(profileBody.primaryGuardian ?? null);
       setSecondaryGuardians(profileBody.secondaryGuardians ?? []);
       setGuardianStudentAccess(profileBody.guardianStudentAccess ?? []);
@@ -180,7 +193,7 @@ export function MentoriaParentHub() {
         familyRelation: profileBody.secondaryGuardians?.[0]?.familyRelation ?? current.familyRelation,
       }));
     })();
-  }, []);
+  }, [selectedStudentId]);
 
   async function saveGuardiansProfile() {
     if (!student) return;
@@ -363,19 +376,42 @@ export function MentoriaParentHub() {
   }
 
   return (
-    <WorkspaceShell
+      <WorkspaceShell
+      copilotMode="rail"
+      copilotLabel="Guia familiar"
       leftNav={
         <div className="flex h-full flex-col bg-white">
           <div className="border-b border-slate-200 p-5">
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">{ui.badge}</div>
-            <h1 className="mt-2 text-xl font-black text-slate-900">{student.fullName}</h1>
-            <p className="mt-1 text-sm text-slate-600">{student.schoolYear}</p>
-            <Link href="/mentoria/app" className="mt-4 inline-flex rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-              {ui.backAction}
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Espacio familiar</div>
+            <h1 className="mt-2 text-xl font-black text-slate-900">Familia</h1>
+            <p className="mt-1 text-sm text-slate-600">{student.fullName} · {student.schoolYear}</p>
+            <Link href={`/mentoria/app?studentId=${student.id}&viewer=guardian`} className="mt-4 inline-flex rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              Abrir la pizarra
             </Link>
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto p-4">
+            {familyStudents.length > 0 ? (
+              <section>
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Alumnos vinculados</div>
+                <div className="mt-3 space-y-2">
+                  {familyStudents.map((familyStudent) => {
+                    const isActiveStudent = familyStudent.id === student.id;
+                    return (
+                      <Link
+                        key={familyStudent.id}
+                        href={`/mentoria/app/parents?studentId=${familyStudent.id}`}
+                        className={`block rounded-lg border px-3 py-3 transition ${isActiveStudent ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}
+                      >
+                        <div className="text-sm font-semibold text-slate-900">{familyStudent.name}</div>
+                        <div className="mt-1 text-xs text-slate-500">{familyStudent.level ?? "Curso pendiente"}</div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+
             <section>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Personas conectadas</div>
               <div className="mt-3 space-y-2">
@@ -418,6 +454,44 @@ export function MentoriaParentHub() {
               <h2 className="mt-2 text-2xl font-black text-slate-900">{`${ui.headingPrefix} ${student.fullName}`}</h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{parentMessage}</p>
             </header>
+
+            {familyStudents.length > 0 ? (
+              <section className="rounded-xl border border-slate-200 bg-white p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Alumno en foco</div>
+                    <h3 className="mt-2 text-xl font-bold text-slate-900">{student.fullName}</h3>
+                    <p className="mt-1 text-sm text-slate-600">{student.schoolYear}</p>
+                  </div>
+                  <Link href={`/mentoria/app?studentId=${student.id}&viewer=guardian`} className="inline-flex rounded-lg bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-black">
+                    Abrir su pizarra
+                  </Link>
+                </div>
+                {familyStudents.length > 1 ? (
+                  <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {familyStudents.map((familyStudent) => {
+                      const isActiveStudent = familyStudent.id === student.id;
+                      return (
+                        <div key={familyStudent.id} className={`rounded-lg border p-4 ${isActiveStudent ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-slate-50"}`}>
+                          <div className="text-sm font-semibold text-slate-900">{familyStudent.name}</div>
+                          <div className="mt-1 text-xs text-slate-500">{familyStudent.level ?? "Curso pendiente"}</div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {!isActiveStudent ? (
+                              <Link href={`/mentoria/app/parents?studentId=${familyStudent.id}`} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-white">
+                                Ver este alumno
+                              </Link>
+                            ) : null}
+                            <Link href={`/mentoria/app?studentId=${familyStudent.id}&viewer=guardian`} className="rounded-lg border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-white">
+                              Abrir pizarra
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
 
             <section className="rounded-xl border border-slate-200 bg-white p-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -581,12 +655,12 @@ export function MentoriaParentHub() {
               <h3 className="text-sm font-semibold text-slate-900">{ui.configureTitle}</h3>
               <div className="mt-4 space-y-4">
                 <div>
-                  <div className="text-xs font-semibold text-slate-600">{ui.parentSlotA}</div>
+                  <div className="text-xs font-semibold text-slate-600">Tutor principal</div>
                   <input value={primaryGuardianDraft.fullName} onChange={(event) => setPrimaryGuardianDraft((current) => ({ ...current, fullName: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder={ui.fullNamePlaceholder} />
                   <input value={primaryGuardianDraft.email} onChange={(event) => setPrimaryGuardianDraft((current) => ({ ...current, email: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder={ui.emailPlaceholder} />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-slate-600">{ui.parentSlotB}</div>
+                  <div className="text-xs font-semibold text-slate-600">Segundo tutor</div>
                   <input value={secondaryGuardianDraft.fullName} onChange={(event) => setSecondaryGuardianDraft((current) => ({ ...current, fullName: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder={ui.fullNamePlaceholder} />
                   <input value={secondaryGuardianDraft.email} onChange={(event) => setSecondaryGuardianDraft((current) => ({ ...current, email: event.target.value }))} className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder={ui.emailPlaceholder} />
                 </div>

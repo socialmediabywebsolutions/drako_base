@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { BookOpen, ChevronDown, ChevronRight, MessageCircle, PanelLeft, Users } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronRight, LayoutPanelLeft, MessageCircleMore } from "lucide-react";
 import type { StudentProfile, MentoriaStudentSubject, MentoriaProgress, LearningSession, FocusSession, MentoriaGuardian } from "@/lib/mentoria/types";
 
 type WorkspaceNavProps = {
@@ -31,146 +30,120 @@ export function WorkspaceNav({
   onSubjectSelect,
 }: WorkspaceNavProps) {
   const [subjectsExpanded, setSubjectsExpanded] = useState(true);
-  const activeSubject = studentSubjects.find((subject) => subject.subject?.slug === activeSubjectSlug) ?? null;
-  const navItems = [
-    { id: "board", label: "Pizarra", icon: PanelLeft, count: null },
-    { id: "sessions", label: "Sesiones", icon: MessageCircle, count: recentSessions.length },
-  ];
   const progressBySubjectId = useMemo(() => new Map(progress.map((item) => [item.subjectId, item])), [progress]);
+  const familyLabel = connectedGuardians.length > 0
+    ? `${connectedGuardians.length} tutor${connectedGuardians.length === 1 ? "" : "es"} vinculado${connectedGuardians.length === 1 ? "" : "s"}`
+    : "Espacio individual";
+
+  const navItems = [
+    { id: "board", label: "Pizarra", icon: LayoutPanelLeft, count: null },
+    { id: "sessions", label: "Sesiones", icon: MessageCircleMore, count: recentSessions.length + focusSessions.length },
+  ];
 
   return (
     <div className="flex h-full flex-col bg-white">
-      <div className="border-b border-slate-200 p-5">
+      <div className="border-b border-slate-200 px-4 py-5 lg:px-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-sm font-bold text-emerald-700">
             {student?.fullName?.charAt(0) ?? "M"}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="truncate text-sm font-semibold text-slate-900">
-              {student?.fullName ?? "Alumno"}
-            </div>
-            <div className="truncate text-xs text-slate-500">
-              {student?.schoolYear ?? "Mentoría"}
-            </div>
+          <div className="min-w-0 flex-1 lg:block">
+            <div className="truncate text-sm font-semibold text-slate-950">{student?.fullName ?? "Alumno"}</div>
+            <div className="truncate text-xs text-slate-500">{student?.schoolYear ?? "Mentoria"}</div>
+            <div className="mt-1 hidden text-[11px] text-slate-400 lg:block">{familyLabel}</div>
           </div>
         </div>
-        {activeSubject?.subject?.name ? (
-          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">Materia activa</div>
-            <div className="mt-1 text-sm font-semibold text-emerald-950">{activeSubject.subject.name}</div>
-          </div>
-        ) : null}
       </div>
 
-      <nav className="space-y-1 p-3">
+      <nav className="space-y-1 px-3 py-3">
         {navItems.map((item) => {
           const Icon = item.icon;
+          const isActive = activeSection === item.id;
 
           return (
             <button
               key={item.id}
               type="button"
               onClick={() => onSectionChange(item.id)}
-              className={`w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
-                activeSection === item.id
-                  ? "bg-emerald-50 text-emerald-900"
-                  : "text-slate-700 hover:bg-slate-50"
+              className={`flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm font-medium transition ${
+                isActive ? "bg-emerald-50 text-emerald-950" : "text-slate-700 hover:bg-slate-50"
               }`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                  <span>{item.label}</span>
-                </div>
-                {item.count !== null && item.count > 0 && (
-                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
-                    {item.count}
-                  </span>
-                )}
-              </div>
+              <span className="flex items-center gap-3">
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden lg:inline">{item.label}</span>
+              </span>
+              {item.count !== null && item.count > 0 ? (
+                <span className="hidden rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 lg:inline">
+                  {item.count}
+                </span>
+              ) : null}
             </button>
           );
         })}
       </nav>
 
-      <div className="flex-1 overflow-y-auto border-t border-slate-100 p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto border-t border-slate-100 px-3 py-3">
         <button
           type="button"
           onClick={() => {
             setSubjectsExpanded((current) => !current);
             onSectionChange("subjects");
           }}
-          className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold text-slate-900 hover:bg-slate-50"
+          className="mb-3 flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm font-semibold text-slate-900 hover:bg-slate-50"
         >
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-3">
             <BookOpen className="h-4 w-4 text-emerald-700" aria-hidden="true" />
-            Materias
+            <span className="hidden lg:inline">Materias</span>
           </span>
-          <span className="flex items-center gap-2 text-xs text-slate-500">
+          <span className="hidden items-center gap-2 text-xs text-slate-500 lg:flex">
             {studentSubjects.length}
             {subjectsExpanded ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
           </span>
         </button>
 
-        {subjectsExpanded && (
+        {subjectsExpanded ? (
           <div className="space-y-2">
             {studentSubjects.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-500">
-                Aún no hay materias configuradas.
+              <div className="hidden rounded-2xl border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-500 lg:block">
+                Todavía no hay materias configuradas.
               </div>
             ) : (
               studentSubjects.map((subject) => {
-                const subjectName = subject.subject?.name ?? "Materia";
                 const subjectSlug = subject.subject?.slug ?? "";
-                const subjectProgress = progressBySubjectId.get(subject.subjectId);
+                const subjectName = subject.subject?.name ?? "Materia";
                 const isActive = Boolean(subjectSlug) && activeSubjectSlug === subjectSlug;
+                const mastery = progressBySubjectId.get(subject.subjectId)?.masteryScore ?? null;
 
                 return (
                   <button
                     key={subject.id}
                     type="button"
                     onClick={() => {
-                      if (!subjectSlug) return;
-                      onSubjectSelect(subjectSlug);
+                      if (subjectSlug) onSubjectSelect(subjectSlug);
                     }}
-                    className={`w-full rounded-lg border px-3 py-3 text-left transition-colors ${
+                    className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
                       isActive
                         ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-                        : "border-slate-100 bg-slate-50/70 text-slate-700 hover:border-slate-200 hover:bg-white"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-semibold">{subjectName}</span>
-                      {subjectProgress ? (
-                        <span className="text-[11px] font-semibold text-slate-500">{subjectProgress.masteryScore}%</span>
+                      {mastery !== null ? (
+                        <span className="hidden text-[11px] font-semibold text-slate-500 lg:inline">{mastery}%</span>
                       ) : null}
                     </div>
-                    <div className="mt-2 text-[11px] text-slate-500">
-                      {subjectProgress
-                        ? (isActive ? "Trabajando aquí ahora" : "Lista para retomar")
-                        : "Lista para empezar"}
+                    <div className="mt-1 hidden text-[11px] text-slate-500 lg:block">
+                      {isActive ? "Materia abierta ahora" : "Lista para estudiar"}
                     </div>
                   </button>
                 );
               })
             )}
           </div>
-        )}
+        ) : null}
       </div>
-
-      {connectedGuardians.length > 0 && (
-        <div className="border-t border-slate-200 p-3">
-          <Link
-            href="/mentoria/app/parents"
-            className="block rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4" aria-hidden="true" />
-              <span>Familia acompaña</span>
-            </div>
-          </Link>
-        </div>
-      )}
     </div>
   );
 }

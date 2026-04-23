@@ -1562,7 +1562,7 @@ export class MentoriaService {
     const student = await this.repository.upsertStudentProfile({
       studentId: existingStudent?.id,
       tenantId: actor.tenantId,
-      userId: actor.userId,
+      userId: actor.actorType === "student" ? actor.userId : null,
       fullName: payload.student.fullName.trim(),
       age: studentAge,
       schoolYear: payload.student.schoolYear,
@@ -1800,8 +1800,8 @@ export class MentoriaService {
     };
   }
 
-  async getDashboard(actor: MentoriaSessionActor): Promise<MentoriaDashboard & { evolution: StudentEvolutionProfile; interventions: MentoriaIntervention[]; motivation: MotivationState; dailyPlan: DailyPlan; billing: MentoriaBillingSummary; growth: MentoriaGrowthSummary; insights: Insight[] }> {
-    const student = await this.requireOnboardedStudent(actor);
+  async getDashboard(actor: MentoriaSessionActor, studentProfileId?: string): Promise<MentoriaDashboard & { evolution: StudentEvolutionProfile; interventions: MentoriaIntervention[]; motivation: MotivationState; dailyPlan: DailyPlan; billing: MentoriaBillingSummary; growth: MentoriaGrowthSummary; insights: Insight[] }> {
+    const student = await this.requireOnboardedStudent(actor, studentProfileId);
     const evolution = await this.ensureEvolutionProfile(actor.tenantId, student);
     const interventions = await this.syncInterventions(actor.tenantId, student.id, evolution);
     const motivation = await this.ensureMotivationState(actor.tenantId, student, evolution, interventions);
@@ -1840,7 +1840,7 @@ export class MentoriaService {
     };
   }
 
-  async getWorkspaceExperience(actor: MentoriaSessionActor): Promise<
+  async getWorkspaceExperience(actor: MentoriaSessionActor, studentProfileId?: string): Promise<
     MentoriaDashboard & {
       evolution: StudentEvolutionProfile;
       interventions: MentoriaIntervention[];
@@ -1861,7 +1861,7 @@ export class MentoriaService {
       behavioralShadow: BehavioralShadowComparison;
     }
   > {
-    const dashboard = await this.getDashboard(actor);
+    const dashboard = await this.getDashboard(actor, studentProfileId);
     const analysis = await this.buildProgressAnalysis({
       actor,
       student: dashboard.student,
@@ -2014,8 +2014,9 @@ export class MentoriaService {
   async saveFamilyGuardiansProfile(
     actor: MentoriaSessionActor,
     profile: MentoriaFamilyProfileInput,
+    studentProfileId?: string,
   ) {
-    const student = await this.requireOnboardedStudent(actor);
+    const student = await this.requireOnboardedStudent(actor, studentProfileId);
     return this.syncCanonicalGuardiansFromProfile(actor, student, profile);
   }
 
@@ -2059,6 +2060,7 @@ export class MentoriaService {
     subjectSlug?: string;
     topic?: string;
     message: string;
+    studentProfileId?: string;
     sessionId?: string;
     entryMode?: MentoriaEntryMode;
     sessionMode?: MentoriaSessionMode;
@@ -2086,7 +2088,7 @@ export class MentoriaService {
       completionMessage: string;
     };
   }> {
-    const student = await this.requireOnboardedStudent(actor);
+    const student = await this.requireOnboardedStudent(actor, payload.studentProfileId);
     
     // TRIAL AUTO-START: Begin 7-day free trial on first session
     const existingTrial = await this.trialManager.getTrial(actor.tenantId, student.id);
@@ -2708,9 +2710,10 @@ export class MentoriaService {
     subjectSlug: string;
     topic: string;
     difficultyLevel?: string;
+    studentProfileId?: string;
     entryMode?: MentoriaEntryMode;
   }): Promise<MentoriaExercise> {
-    const student = await this.requireOnboardedStudent(actor);
+    const student = await this.requireOnboardedStudent(actor, payload.studentProfileId);
     const billing = await this.getBillingSummary({ tenantId: actor.tenantId, canManageBilling: this.canManageBilling(actor) }, student);
     assertMentoriaLimit(
       billing,
@@ -2812,8 +2815,8 @@ export class MentoriaService {
     });
   }
 
-  async correctExercise(actor: MentoriaSessionActor, payload: { exerciseId: string; studentAnswer: string }): Promise<MentoriaExercise> {
-    const student = await this.requireOnboardedStudent(actor);
+  async correctExercise(actor: MentoriaSessionActor, payload: { exerciseId: string; studentAnswer: string; studentProfileId?: string }): Promise<MentoriaExercise> {
+    const student = await this.requireOnboardedStudent(actor, payload.studentProfileId);
     const exercises = await this.repository.listExercises(actor.tenantId, student.id);
     const exercise = exercises.find((item) => item.id === payload.exerciseId);
     if (!exercise) throw new Error("EXERCISE_NOT_FOUND");
@@ -3047,11 +3050,11 @@ export class MentoriaService {
     return saved;
   }
 
-  async getProgress(actor: MentoriaSessionActor): Promise<{
+  async getProgress(actor: MentoriaSessionActor, studentProfileId?: string): Promise<{
     progress: MentoriaProgress[];
     analysis: { weakSubjects: string[]; strongSubjects: string[]; nextActions: string[] };
   }> {
-    const student = await this.requireOnboardedStudent(actor);
+    const student = await this.requireOnboardedStudent(actor, studentProfileId);
     const [progress, studentSubjects] = await Promise.all([
       this.repository.listProgress(actor.tenantId, student.id),
       this.repository.listStudentSubjects(actor.tenantId, student.id),
@@ -3077,10 +3080,7 @@ export class MentoriaService {
   }
 
   async generatePlan(actor: MentoriaSessionActor, studentProfileId?: string): Promise<StudyPlan> {
-    const student = await this.requireOnboardedStudent(actor);
-    const targetStudent = studentProfileId
-      ? ((await this.repository.getStudentProfileById(actor.tenantId, studentProfileId)) as StudentProfile)
-      : student;
+    const targetStudent = await this.requireOnboardedStudent(actor, studentProfileId);
     const billing = await this.getBillingSummary({ tenantId: actor.tenantId, canManageBilling: this.canManageBilling(actor) }, targetStudent);
     assertMentoriaLimit(
       billing,
@@ -3101,8 +3101,9 @@ export class MentoriaService {
     studyPlanId?: string;
     durationMinutes: number;
     notes?: string;
+    studentProfileId?: string;
   }) {
-    const student = await this.requireOnboardedStudent(actor);
+    const student = await this.requireOnboardedStudent(actor, payload.studentProfileId);
     return this.repository.startFocusSession({
       tenantId: actor.tenantId,
       studentProfileId: student.id,
@@ -3117,8 +3118,9 @@ export class MentoriaService {
     focusSessionId: string;
     distractionsCount: number;
     notes?: string;
+    studentProfileId?: string;
   }) {
-    const student = await this.requireOnboardedStudent(actor);
+    const student = await this.requireOnboardedStudent(actor, payload.studentProfileId);
     const [focusSession, evolution] = await Promise.all([
       this.repository.completeFocusSession({
         tenantId: actor.tenantId,
@@ -3203,13 +3205,13 @@ export class MentoriaService {
     return focusSession;
   }
 
-  async listExercises(actor: MentoriaSessionActor) {
-    const student = await this.requireOnboardedStudent(actor);
+  async listExercises(actor: MentoriaSessionActor, studentProfileId?: string) {
+    const student = await this.requireOnboardedStudent(actor, studentProfileId);
     return this.repository.listExercises(actor.tenantId, student.id);
   }
 
-  async getParentDashboard(actor: MentoriaSessionActor) {
-    const dashboard = await this.getDashboard(actor);
+  async getParentDashboard(actor: MentoriaSessionActor, studentProfileId?: string) {
+    const dashboard = await this.getDashboard(actor, studentProfileId);
     const billing = dashboard.billing;
     if (!billing.features.advancedParentInsights) {
       return {
@@ -3221,4 +3223,3 @@ export class MentoriaService {
     return dashboard;
   }
 }
-

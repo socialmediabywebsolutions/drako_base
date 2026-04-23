@@ -31,8 +31,7 @@ describe("mentoria workspace route", () => {
       tenantId: "tenant_1",
       role: "user",
     });
-    mocks.createMentoriaServiceInstance.mockReturnValue({
-      getWorkspaceExperience: vi.fn().mockResolvedValue({
+    const getWorkspaceExperience = vi.fn().mockResolvedValue({
         student: { id: "student_1", fullName: "Alex" },
         studentSubjects: [],
         progress: [],
@@ -59,7 +58,9 @@ describe("mentoria workspace route", () => {
         guardianHooks: [],
         exercises: [],
         motivation: null,
-      }),
+      });
+    mocks.createMentoriaServiceInstance.mockReturnValue({
+      getWorkspaceExperience,
     });
 
     const response = await GET(new Request("https://mentoria.drako.systems/api/mentoria/workspace"));
@@ -71,6 +72,66 @@ describe("mentoria workspace route", () => {
       entry: { recommendedSubjectSlug: "matematicas" },
       memory: { suggestedDifficulty: "guided" },
     });
+    expect(getWorkspaceExperience).toHaveBeenCalledWith({
+      userId: "user_1",
+      email: "family@example.com",
+      tenantId: "tenant_1",
+      role: "user",
+    }, undefined);
+  });
+
+  it("forwards the selected student id when the family opens a linked student workspace", async () => {
+    mocks.requireCurrentMentoriaSession.mockResolvedValue({
+      userId: "user_1",
+      email: "family@example.com",
+      tenantId: "tenant_1",
+      role: "user",
+    });
+    const getWorkspaceExperience = vi.fn().mockResolvedValue({
+      student: { id: "student_2", fullName: "Vera" },
+      studentSubjects: [],
+      progress: [],
+      currentPlan: null,
+      dailyPlan: null,
+      billing: null,
+      focusSessions: [],
+      recentSessions: [],
+      analysis: { weakSubjects: [], strongSubjects: [], nextActions: [] },
+      entry: {
+        headline: "Empieza por una duda concreta",
+        subheadline: "El tutor te guiara sin darte la respuesta final.",
+        recommendedSubjectSlug: "matematicas",
+        recommendedTopic: "Fracciones",
+        recommendedPrompt: "Quiero repasar fracciones paso a paso.",
+        quickActions: [],
+      },
+      memory: {
+        commonMistakes: [],
+        watchouts: [],
+        strengths: [],
+        suggestedDifficulty: "guided",
+      },
+      guardianHooks: [],
+      exercises: [],
+      motivation: null,
+    });
+    mocks.createMentoriaServiceInstance.mockReturnValue({
+      getWorkspaceExperience,
+    });
+
+    const response = await GET(new Request("https://mentoria.drako.systems/api/mentoria/workspace?studentId=student_2"));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      student: { id: "student_2", fullName: "Vera" },
+    });
+    expect(getWorkspaceExperience).toHaveBeenCalledWith({
+      userId: "user_1",
+      email: "family@example.com",
+      tenantId: "tenant_1",
+      role: "user",
+    }, "student_2");
   });
 
   it("fails closed when there is no authenticated session", async () => {

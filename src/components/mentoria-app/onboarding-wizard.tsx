@@ -57,7 +57,7 @@ type SearchParamReader = {
   get(name: string): string | null;
 };
 
-const STORAGE_KEY = "mentoria-onboarding-activation-v4";
+const STORAGE_KEY = "mentoria-onboarding-activation-v5";
 const TOTAL_STEPS = 3;
 const DEFAULT_STAGE: MentoriaLearningStage = "eso";
 
@@ -179,7 +179,7 @@ function getFallbackSubjects(stage: MentoriaLearningStage): MentoriaSubject[] {
 }
 
 function buildMentoriaWorkspaceUrl(searchParams: SearchParamReader): string {
-  const target = new URL("/mentoria/app", window.location.origin);
+  const target = new URL("/mentoria/app/parents", window.location.origin);
   const localOverrideHost = searchParams.get("__drako_host")?.trim();
   const hostname = window.location.hostname.toLowerCase();
   if (localOverrideHost) {
@@ -243,15 +243,14 @@ function getStepValidation(step: number, draft: OnboardingDraft): OnboardingVali
       return { valid: false, message: "Revisa el email del segundo tutor." };
     }
     if (!draft.student.fullName.trim()) return { valid: false, message: "Escribe el nombre del alumno." };
-    if (draft.additionalStudents.some((student) => student.fullName.trim() && (!student.schoolYear.trim() || !student.age.trim()))) {
-      return { valid: false, message: "Completa curso y edad de cada alumno adicional o elimínalo antes de seguir." };
+    if (draft.additionalStudents.some((student) => student.fullName.trim() && !student.schoolYear.trim())) {
+      return { valid: false, message: "Completa el curso de cada alumno adicional o elimínalo antes de seguir." };
     }
     return { valid: true, message: null };
   }
 
   if (step === 2) {
     if (!draft.student.schoolYear.trim()) return { valid: false, message: "Selecciona el curso real del alumno." };
-    if (!draft.student.age.trim()) return { valid: false, message: "Indica la edad real del alumno." };
     if (draft.student.repeatedCourseStatus === null) return { valid: false, message: "Indica si ha repetido curso." };
     if (draft.student.subjects.length === 0) return { valid: false, message: "Selecciona al menos una materia real." };
     return { valid: true, message: null };
@@ -292,7 +291,7 @@ function buildOnboardingPayload(draft: OnboardingDraft, subjects: MentoriaSubjec
       fullName: draft.student.fullName.trim(),
       stage: draft.student.stage,
       schoolYear: draft.student.schoolYear,
-      age: Number(draft.student.age),
+      age: Number(draft.student.age || inferAgeFromSchoolYear(draft.student.schoolYear)),
       repeatedCourseStatus: draft.student.repeatedCourseStatus ?? "never",
       repeatedCourseYears: draft.student.repeatedCourseYears
         .split(",")
@@ -308,7 +307,7 @@ function buildOnboardingPayload(draft: OnboardingDraft, subjects: MentoriaSubjec
         fullName: student.fullName.trim(),
         stage: student.stage,
         schoolYear: student.schoolYear.trim(),
-        age: Number(student.age),
+        age: Number(student.age || inferAgeFromSchoolYear(student.schoolYear)),
       })),
     referralCode: searchParams.get("ref") ?? undefined,
     inviteToken: searchParams.get("invite") ?? undefined,
@@ -519,8 +518,8 @@ export function MentoriaOnboardingWizard() {
           {step === 1 ? (
             <div className="space-y-6">
               <div>
-                <h2 className="text-2xl font-bold">Quienes forman el espacio</h2>
-                <p className="mt-1 text-sm text-slate-600">Definimos tutor principal, estructura familiar y alumno base. Si hay hermanos, los dejamos preparados desde ahora.</p>
+                <h2 className="text-2xl font-bold">Quienes sois</h2>
+                <p className="mt-1 text-sm text-slate-600">Dejamos clara la familia y con qué alumno vais a empezar.</p>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
@@ -588,7 +587,7 @@ export function MentoriaOnboardingWizard() {
               ) : null}
 
               <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Alumno principal</label>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Alumno con el que empezais</label>
                 <input
                   value={draft.student.fullName}
                   onChange={(event: ChangeEvent<HTMLInputElement>) => setDraft((current) => ({ ...current, student: { ...current.student, fullName: event.target.value } }))}
@@ -600,8 +599,8 @@ export function MentoriaOnboardingWizard() {
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">Otros alumnos de la familia</div>
-                    <p className="mt-1 text-sm text-slate-600">Si la familia tiene mas hijos, puedes dejarlos preparados ya.</p>
+                    <div className="text-sm font-semibold text-slate-900">Otros alumnos vinculados</div>
+                    <p className="mt-1 text-sm text-slate-600">Si hay más hijos en Mentoria, puedes dejarlos preparados ya.</p>
                   </div>
                   <button type="button" onClick={() => setDraft((current) => ({ ...current, additionalStudents: [...current.additionalStudents, { fullName: "", stage: DEFAULT_STAGE, schoolYear: "", age: "" }] }))} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white">
                     <Plus className="h-4 w-4" aria-hidden="true" />
@@ -613,7 +612,7 @@ export function MentoriaOnboardingWizard() {
                     <div key={`${index}-${student.fullName}`} className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-[1.2fr_0.8fr_0.8fr_auto]">
                       <input value={student.fullName} onChange={(event: ChangeEvent<HTMLInputElement>) => setDraft((current) => ({ ...current, additionalStudents: current.additionalStudents.map((item, itemIndex) => itemIndex === index ? { ...item, fullName: event.target.value } : item) }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Nombre del alumno" />
                       <input value={student.schoolYear} onChange={(event: ChangeEvent<HTMLInputElement>) => setDraft((current) => ({ ...current, additionalStudents: current.additionalStudents.map((item, itemIndex) => itemIndex === index ? { ...item, schoolYear: event.target.value, stage: deriveStageFromSchoolYear(event.target.value) } : item) }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Curso" />
-                      <input value={student.age} onChange={(event: ChangeEvent<HTMLInputElement>) => setDraft((current) => ({ ...current, additionalStudents: current.additionalStudents.map((item, itemIndex) => itemIndex === index ? { ...item, age: event.target.value } : item) }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Edad" />
+                      <input value={student.age} onChange={(event: ChangeEvent<HTMLInputElement>) => setDraft((current) => ({ ...current, additionalStudents: current.additionalStudents.map((item, itemIndex) => itemIndex === index ? { ...item, age: event.target.value } : item) }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Edad (opcional)" />
                       <button type="button" onClick={() => setDraft((current) => ({ ...current, additionalStudents: current.additionalStudents.filter((_item, itemIndex) => itemIndex !== index) }))} className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-2 text-slate-500 hover:bg-slate-50">
                         <X className="h-4 w-4" aria-hidden="true" />
                       </button>
@@ -627,8 +626,8 @@ export function MentoriaOnboardingWizard() {
           {step === 2 ? (
             <div className="space-y-6">
               <div>
-                <h2 className="text-2xl font-bold">Perfil academico real</h2>
-                <p className="mt-1 text-sm text-slate-600">Curso real, edad, repeticion y varias materias. Aqui cerramos el mapa academico del alumno.</p>
+                <h2 className="text-2xl font-bold">Donde esta hoy</h2>
+                <p className="mt-1 text-sm text-slate-600">Etapa, curso real, repeticion y materias con las que vamos a trabajar.</p>
               </div>
 
               <div>
@@ -660,7 +659,7 @@ export function MentoriaOnboardingWizard() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Edad real</label>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Edad real (opcional)</label>
                   <input
                     value={draft.student.age}
                     onChange={(event: ChangeEvent<HTMLInputElement>) => setDraft((current) => ({ ...current, student: { ...current.student, age: event.target.value } }))}
@@ -668,6 +667,7 @@ export function MentoriaOnboardingWizard() {
                     placeholder="Edad real del alumno"
                     inputMode="numeric"
                   />
+                  <p className="mt-2 text-xs text-slate-500">Si no la escribes ahora, la estimamos desde el curso para no frenarte.</p>
                 </div>
               </div>
 

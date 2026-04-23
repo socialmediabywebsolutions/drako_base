@@ -12,25 +12,57 @@ type RegisterSelectField = {
   options: Array<{ value: string; label: string }>;
 };
 
+type ProductAuthCopy = {
+  loginTab: string;
+  registerTab: string;
+  nameLabel: string;
+  emailLabel: string;
+  passwordLabel: string;
+  namePlaceholder: string;
+  emailPlaceholder: string;
+  passwordPlaceholder: string;
+  loadingLabel: string;
+  loginSubmit: string;
+  registerSubmit: string;
+};
+
+const DEFAULT_COPY: ProductAuthCopy = {
+  loginTab: "Login",
+  registerTab: "Register",
+  nameLabel: "Name",
+  emailLabel: "Email",
+  passwordLabel: "Password",
+  namePlaceholder: "Ada Lovelace",
+  emailPlaceholder: "operator@company.com",
+  passwordPlaceholder: "********",
+  loadingLabel: "Processing...",
+  loginSubmit: "Enter workspace",
+  registerSubmit: "Create workspace",
+};
+
 export function ProductAuthForm({
   authApiBase,
   postLoginRedirect,
   defaultMode = "login",
+  allowRegister = true,
   title,
   description,
   registerSelectField,
+  copy = DEFAULT_COPY,
 }: {
   authApiBase: string;
   postLoginRedirect: string;
   defaultMode?: ProductAuthMode;
+  allowRegister?: boolean;
   title: string;
   description: string;
   registerSelectField?: RegisterSelectField;
+  copy?: ProductAuthCopy;
 }) {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
   const redirectTarget = callbackUrl || postLoginRedirect;
-  const [mode, setMode] = useState<ProductAuthMode>(defaultMode);
+  const [mode, setMode] = useState<ProductAuthMode>(allowRegister ? defaultMode : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -90,30 +122,32 @@ export function ProductAuthForm({
             mode === "login" ? "bg-white text-slate-950" : "text-slate-400"
           }`}
         >
-          Login
+          {copy.loginTab}
         </button>
-        <button
-          type="button"
-          onClick={() => setMode("register")}
-          className={`flex-1 rounded-xl px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] ${
-            mode === "register" ? "bg-white text-slate-950" : "text-slate-400"
-          }`}
-        >
-          Register
-        </button>
+        {allowRegister ? (
+          <button
+            type="button"
+            onClick={() => setMode("register")}
+            className={`flex-1 rounded-xl px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] ${
+              mode === "register" ? "bg-white text-slate-950" : "text-slate-400"
+            }`}
+          >
+            {copy.registerTab}
+          </button>
+        ) : null}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {mode === "register" ? (
           <div>
-            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Name</label>
+            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">{copy.nameLabel}</label>
             <input
               type="text"
               required
               value={name}
               onChange={(event: ChangeEvent<HTMLInputElement>) => setName(event.target.value)}
               className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-sky-500"
-              placeholder="Ada Lovelace"
+              placeholder={copy.namePlaceholder}
             />
           </div>
         ) : null}
@@ -136,19 +170,19 @@ export function ProductAuthForm({
         ) : null}
 
         <div>
-          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Email</label>
+          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">{copy.emailLabel}</label>
           <input
             type="email"
             required
             value={email}
             onChange={(event: ChangeEvent<HTMLInputElement>) => setEmail(event.target.value)}
             className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-sky-500"
-            placeholder="operator@company.com"
+            placeholder={copy.emailPlaceholder}
           />
         </div>
 
         <div>
-          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Password</label>
+          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">{copy.passwordLabel}</label>
           <input
             type="password"
             required
@@ -156,7 +190,7 @@ export function ProductAuthForm({
             value={password}
             onChange={(event: ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)}
             className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-sky-500"
-            placeholder="********"
+            placeholder={copy.passwordPlaceholder}
           />
         </div>
 
@@ -171,7 +205,7 @@ export function ProductAuthForm({
           disabled={loading}
           className="w-full rounded-2xl bg-sky-500 px-5 py-3.5 text-sm font-bold text-slate-950 transition hover:bg-sky-400 disabled:opacity-60"
         >
-          {loading ? "Processing..." : mode === "login" ? "Enter workspace" : "Create workspace"}
+          {loading ? copy.loadingLabel : mode === "login" ? copy.loginSubmit : copy.registerSubmit}
         </button>
       </form>
     </div>

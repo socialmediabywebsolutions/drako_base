@@ -62,7 +62,7 @@ describe("MentoriaOnboardingWizard", () => {
 
     render(React.createElement(MentoriaOnboardingWizard));
 
-    await screen.findByText("Quienes forman el espacio");
+    await screen.findByText("Quienes sois");
 
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.getByText("Escribe el nombre del tutor principal.")).toBeInTheDocument();
@@ -78,7 +78,7 @@ describe("MentoriaOnboardingWizard", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
-    await screen.findByText("Perfil academico real");
+    await screen.findByText("Donde esta hoy");
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.getByText("Selecciona el curso real del alumno.")).toBeInTheDocument();
 
@@ -125,7 +125,7 @@ describe("MentoriaOnboardingWizard", () => {
 
     render(React.createElement(MentoriaOnboardingWizard));
 
-    await screen.findByText("Quienes forman el espacio");
+    await screen.findByText("Quienes sois");
 
     fireEvent.change(screen.getByPlaceholderText("Nombre del tutor principal"), {
       target: { value: "Marta" },
@@ -143,7 +143,7 @@ describe("MentoriaOnboardingWizard", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
-    await screen.findByText("Perfil academico real");
+    await screen.findByText("Donde esta hoy");
     fireEvent.click(screen.getByRole("button", { name: "2 ESO" }));
     fireEvent.change(screen.getByPlaceholderText("Edad real del alumno"), {
       target: { value: "13" },

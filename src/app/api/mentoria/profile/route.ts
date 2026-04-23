@@ -88,7 +88,9 @@ export async function GET(request: Request) {
   try {
     const actor = await requireCurrentMentoriaSession(request);
     const service = new MentoriaService();
-    const dashboard = await service.getDashboard(actor);
+    const studentId = new URL(request.url).searchParams.get("studentId")?.trim() || undefined;
+    const dashboard = await service.getDashboard(actor, studentId);
+    const familyBundle = await service.getOnboardingState(actor);
     return NextResponse.json({
       ok: true,
       student: dashboard.student,
@@ -105,10 +107,11 @@ export async function GET(request: Request) {
       billing: dashboard.billing,
       growth: dashboard.growth,
       insights: dashboard.insights,
+      familyStudents: familyBundle.familyStudents,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "PROFILE_LOAD_FAILED";
-    const status = message === "SESSION_REQUIRED" ? 401 : message === "ONBOARDING_REQUIRED" ? 409 : 500;
+    const status = message === "SESSION_REQUIRED" ? 401 : message === "ONBOARDING_REQUIRED" ? 409 : message === "STUDENT_ACCESS_DENIED" ? 403 : 500;
     return NextResponse.json({ ok: false, error: message }, { status });
   }
 }
@@ -118,8 +121,9 @@ export async function POST(request: Request) {
     const actor = await requireCurrentMentoriaSession(request);
     const service = new MentoriaService();
     const body = (await request.json()) as CanonicalFamilyProfilePayload & LegacyParentsPayload;
-    await service.saveFamilyGuardiansProfile(actor, normalizeProfilePayload(body));
-    const dashboard = await service.getDashboard(actor);
+    const studentId = new URL(request.url).searchParams.get("studentId")?.trim() || undefined;
+    await service.saveFamilyGuardiansProfile(actor, normalizeProfilePayload(body), studentId);
+    const dashboard = await service.getDashboard(actor, studentId);
     return NextResponse.json({
       ok: true,
       family: dashboard.family,
@@ -130,7 +134,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "PROFILE_SAVE_FAILED";
-    const status = message === "SESSION_REQUIRED" ? 401 : message === "ONBOARDING_REQUIRED" ? 409 : 500;
+    const status = message === "SESSION_REQUIRED" ? 401 : message === "ONBOARDING_REQUIRED" ? 409 : message === "STUDENT_ACCESS_DENIED" ? 403 : 500;
     return NextResponse.json({ ok: false, error: message }, { status });
   }
 }

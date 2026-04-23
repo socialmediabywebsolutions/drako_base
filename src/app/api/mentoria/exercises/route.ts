@@ -9,7 +9,8 @@ export async function GET(request: Request) {
   try {
     const actor = await requireCurrentMentoriaSession(request);
     const service = new MentoriaService();
-    const exercises = await service.listExercises(actor);
+    const studentId = new URL(request.url).searchParams.get("studentId")?.trim() || undefined;
+    const exercises = await service.listExercises(actor, studentId);
     return NextResponse.json({ ok: true, exercises });
   } catch (error) {
     const message = error instanceof Error ? error.message : "EXERCISE_LOAD_FAILED";
@@ -25,17 +26,19 @@ export async function POST(request: Request) {
     const body = (await request.json()) as
       | {
           action?: "generate";
+          studentId?: string;
           subjectSlug: string;
           topic: string;
           difficultyLevel?: string;
           entryMode?: "resume_session" | "gentle_restart" | "momentum_push" | "plan_task" | "entry";
         }
-      | { action: "correct"; exerciseId: string; studentAnswer: string };
+      | { action: "correct"; exerciseId: string; studentAnswer: string; studentId?: string };
 
     if (body.action === "correct") {
       const exercise = await service.correctExercise(actor, {
         exerciseId: body.exerciseId,
         studentAnswer: body.studentAnswer,
+        studentProfileId: body.studentId,
       });
       return NextResponse.json({ ok: true, exercise });
     }
@@ -44,6 +47,7 @@ export async function POST(request: Request) {
       subjectSlug: body.subjectSlug,
       topic: body.topic,
       difficultyLevel: body.difficultyLevel,
+      studentProfileId: body.studentId,
       entryMode: body.entryMode,
     });
     return NextResponse.json({ ok: true, exercise }, { status: 201 });
@@ -53,7 +57,7 @@ export async function POST(request: Request) {
     }
     const message = error instanceof Error ? error.message : "EXERCISE_ACTION_FAILED";
     const status =
-      message === "SESSION_REQUIRED" ? 401 : message === "ONBOARDING_REQUIRED" ? 409 : 500;
+      message === "SESSION_REQUIRED" ? 401 : message === "ONBOARDING_REQUIRED" ? 409 : message === "STUDENT_ACCESS_DENIED" ? 403 : 500;
     console.error("[ExerciseAPI] Error:", message);
     return NextResponse.json({ ok: false, error: message }, { status });
   }

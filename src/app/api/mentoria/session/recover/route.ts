@@ -8,6 +8,7 @@ import { SessionPersistenceManager } from "@/lib/mentoria/session-persistence";
 function statusFor(message: string) {
   if (message === "SESSION_REQUIRED") return 401;
   if (message === "ONBOARDING_REQUIRED") return 409;
+  if (message === "STUDENT_ACCESS_DENIED") return 403;
   if (message === "INVALID_SESSION_ID") return 400;
   return 500;
 }
@@ -17,8 +18,9 @@ export async function GET(request: Request) {
     const actor = await requireCurrentMentoriaSession(request);
     const service = new MentoriaService();
     const persistence = new SessionPersistenceManager();
+    const studentId = new URL(request.url).searchParams.get("studentId")?.trim() || undefined;
 
-    const student = await service.getProfile(actor);
+    const student = await service.getProfile(actor, studentId);
     if (!student || !student.onboardingCompleted) {
       return NextResponse.json({ ok: true, activeSession: null });
     }
@@ -42,13 +44,13 @@ export async function POST(request: Request) {
   try {
     const actor = await requireCurrentMentoriaSession(request);
     const service = new MentoriaService();
-    const body = (await request.json()) as { sessionId: string };
+    const body = (await request.json()) as { sessionId: string; studentId?: string };
     const sessionId = body.sessionId?.trim();
     if (!sessionId) {
       throw new Error("INVALID_SESSION_ID");
     }
 
-    const student = await service.getProfile(actor);
+    const student = await service.getProfile(actor, body.studentId?.trim() || undefined);
     if (!student || !student.onboardingCompleted) {
       throw new Error("ONBOARDING_REQUIRED");
     }
