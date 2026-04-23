@@ -244,7 +244,7 @@ function getStepValidation(step: number, draft: OnboardingDraft): OnboardingVali
     }
     if (!draft.student.fullName.trim()) return { valid: false, message: "Escribe el nombre del alumno." };
     if (draft.additionalStudents.some((student) => student.fullName.trim() && (!student.schoolYear.trim() || !student.age.trim()))) {
-      return { valid: false, message: "Completa curso y edad de cada alumno adicional o elimínalo antes de seguir." };
+      return { valid: false, message: "Completa curso y edad de cada alumno adicional o elimÃ­nalo antes de seguir." };
     }
     return { valid: true, message: null };
   }
