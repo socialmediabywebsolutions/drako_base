@@ -1,5 +1,6 @@
 import { env } from "@/lib/cf";
 import { queryOne } from "@/lib/db";
+import { MentoriaAcademicService } from "@/lib/mentoria/academic-service";
 import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
 import { MentoriaRepository } from "@/lib/mentoria/repository";
 import { recordObservabilityActivity } from "@/lib/observability-core";
@@ -599,6 +600,24 @@ async function handleStudentMediaIntake(params: {
       originalText: body ?? null,
     });
 
+    const academicService = new MentoriaAcademicService();
+    const academicResult = await academicService.ingestWhatsappMaterial({
+      actor: {
+        userId: actorId,
+        email: "",
+        tenantId,
+        role: "user",
+        actorType: "student",
+        familyId: tenantId,
+        guardianId: null,
+        studentProfileId: student.id,
+        systemRole: "student",
+      },
+      intake: persisted.intake,
+      sourceMessageId,
+      notesText: body ?? media.caption ?? media.fileName ?? null,
+    });
+
     await recordMentoriaWhatsappActivity({
       tenantId,
       saasId,
@@ -615,6 +634,8 @@ async function handleStudentMediaIntake(params: {
         studentProfileId: student.id,
         sourceMessageId,
         intakeId: persisted.intake.id,
+        academicDocumentId: academicResult.document.id,
+        academicRecordId: academicResult.record?.id ?? null,
         replayed: persisted.replayed,
       },
     });

@@ -366,12 +366,17 @@ describe("Mentoria WhatsApp integration", () => {
     };
 
     const result = await routeConversation(route);
+    const snapshot = (globalThis as any).__TEST_DB__.__debug();
 
     expect(result.handler).toBe("mentoria");
     expect(result.handled).toBe(true);
     expect(result.intent).toBe("MENTORIA_STUDENT_MATERIAL_RECEIVED");
     expect(result.error).toBeUndefined();
     expect(result.reply).toContain("He recibido tu imagen, Alex.");
+    expect(snapshot.academicDocumentInsertCount).toBeGreaterThan(0);
+    expect(snapshot.academicRecordInsertCount).toBeGreaterThan(0);
+    expect(snapshot.latestAcademicDocumentClassification).toBe("homework");
+    expect(snapshot.latestAcademicRecordType).toBe("homework");
   });
 
   it("handles duplicate image retries idempotently by source message id", async () => {
@@ -811,12 +816,15 @@ describe("Mentoria WhatsApp integration", () => {
     };
 
     const result = await routeConversation(route);
+    const snapshot = (globalThis as any).__TEST_DB__.__debug();
 
     expect(result.handler).toBe("mentoria");
     expect(result.handled).toBe(true);
     expect(result.intent).toBe("MENTORIA_STUDENT_MATERIAL_RECEIVED");
     expect(result.error).toBeUndefined();
     expect(result.reply).toContain("He recibido tu PDF, Alex.");
+    expect(snapshot.academicDocumentInsertCount).toBeGreaterThan(0);
+    expect(snapshot.latestAcademicDocumentClassification).toBe("notebook");
   });
 
   it("rejects student document intake when mime type is not pdf", async () => {
@@ -853,6 +861,8 @@ describe("Mentoria WhatsApp integration", () => {
 function createMentoriaTestDb(): TestD1Database {
   let materialIntakeInsertCount = 0;
   let materialContextNoteInsertCount = 0;
+  let academicDocumentInsertCount = 0;
+  let academicRecordInsertCount = 0;
   let saasInstanceRow: { id: string; tenant_id: string; platform_type: string } | null = null;
   let studentProfileRow: {
     id: string;
@@ -1062,6 +1072,48 @@ function createMentoriaTestDb(): TestD1Database {
     body: string;
     created_at: string;
   } | null = null;
+  let academicDocumentRows: Array<{
+    id: string;
+    tenant_id: string;
+    student_profile_id: string;
+    academic_record_id: string | null;
+    material_intake_id: string | null;
+    subject_slug: string | null;
+    document_kind: string;
+    classification: string;
+    source_channel: string;
+    source_message_id: string | null;
+    storage_key: string;
+    mime_type: string;
+    file_name: string | null;
+    sha256: string | null;
+    captured_at: string;
+    notes_text: string | null;
+    analysis_status: string;
+    created_at: string;
+    updated_at: string;
+  }> = [];
+  let academicRecordRows: Array<{
+    id: string;
+    tenant_id: string;
+    student_profile_id: string;
+    subject_slug: string | null;
+    record_type: string;
+    source_channel: string;
+    source_ref_id: string;
+    title: string;
+    score_value: number | null;
+    score_scale: number | null;
+    score_label: string | null;
+    recorded_at: string;
+    teacher_comment: string | null;
+    status: string;
+    created_by_actor_type: string;
+    created_by_actor_id: string | null;
+    metadata_json: string;
+    created_at: string;
+    updated_at: string;
+  }> = [];
   let parentAccountRow: {
     id: string;
     tenant_id: string;
@@ -1204,6 +1256,137 @@ function createMentoriaTestDb(): TestD1Database {
           updated_at: updatedAt,
         };
         materialIntakeInsertCount += 1;
+        return { success: true, changes: 1 };
+      }
+
+      if (normalized.startsWith("INSERT INTO MENTORIA_ACADEMIC_DOCUMENTS")) {
+        const [
+          id,
+          tenantId,
+          studentProfileId,
+          academicRecordId,
+          materialIntakeId,
+          subjectSlug,
+          documentKind,
+          classification,
+          sourceChannel,
+          sourceMessageId,
+          storageKey,
+          mimeType,
+          fileName,
+          sha256,
+          capturedAt,
+          notesText,
+          analysisStatus,
+          createdAt,
+          updatedAt,
+        ] = this.params as [
+          string,
+          string,
+          string,
+          string | null,
+          string | null,
+          string | null,
+          string,
+          string,
+          string,
+          string | null,
+          string,
+          string,
+          string | null,
+          string | null,
+          string,
+          string | null,
+          string,
+          string,
+          string,
+        ];
+        if (sourceMessageId && academicDocumentRows.some((row) => row.tenant_id === tenantId && row.source_message_id === sourceMessageId)) {
+          throw new Error("UNIQUE constraint failed: mentoria_academic_documents.tenant_id, mentoria_academic_documents.source_message_id");
+        }
+        academicDocumentRows.push({
+          id,
+          tenant_id: tenantId,
+          student_profile_id: studentProfileId,
+          academic_record_id: academicRecordId,
+          material_intake_id: materialIntakeId,
+          subject_slug: subjectSlug,
+          document_kind: documentKind,
+          classification,
+          source_channel: sourceChannel,
+          source_message_id: sourceMessageId,
+          storage_key: storageKey,
+          mime_type: mimeType,
+          file_name: fileName,
+          sha256,
+          captured_at: capturedAt,
+          notes_text: notesText,
+          analysis_status: analysisStatus,
+          created_at: createdAt,
+          updated_at: updatedAt,
+        });
+        academicDocumentInsertCount += 1;
+        return { success: true, changes: 1 };
+      }
+
+      if (normalized.startsWith("UPDATE MENTORIA_ACADEMIC_DOCUMENTS")) {
+        const [academicRecordId, updatedAt, tenantId, id] = this.params as [string, string, string, string];
+        academicDocumentRows = academicDocumentRows.map((row) => (
+          row.tenant_id === tenantId && row.id === id
+            ? { ...row, academic_record_id: academicRecordId, updated_at: updatedAt }
+            : row
+        ));
+        return { success: true, changes: 1 };
+      }
+
+      if (normalized.startsWith("INSERT INTO MENTORIA_ACADEMIC_RECORDS")) {
+        const isManualInsert = normalized.includes("'MANUAL_WEB'") && normalized.includes("'CONFIRMED'");
+        const [
+          id,
+          tenantId,
+          studentProfileId,
+          subjectSlug,
+          recordType,
+          sourceRefOrChannel,
+          maybeSourceRefId,
+          maybeTitle,
+          maybeScoreValue,
+          maybeScoreScale,
+          maybeScoreLabel,
+          maybeRecordedAt,
+          maybeTeacherComment,
+          maybeActorTypeOrMetadata,
+          maybeActorIdOrCreatedAt,
+          maybeCreatedAt,
+          maybeUpdatedAt,
+        ] = this.params as Array<string | number | null | undefined>;
+        const sourceRefId = isManualInsert ? String(sourceRefOrChannel) : String(maybeSourceRefId);
+        if (academicRecordRows.some((row) => row.tenant_id === tenantId && row.source_ref_id === sourceRefId)) {
+          throw new Error("UNIQUE constraint failed: mentoria_academic_records.tenant_id, mentoria_academic_records.source_ref_id");
+        }
+
+        academicRecordRows.push({
+          id: String(id),
+          tenant_id: String(tenantId),
+          student_profile_id: String(studentProfileId),
+          subject_slug: subjectSlug ? String(subjectSlug) : null,
+          record_type: String(recordType),
+          source_channel: isManualInsert ? "manual_web" : String(sourceRefOrChannel),
+          source_ref_id: sourceRefId,
+          title: String(isManualInsert ? maybeSourceRefId : maybeTitle),
+          score_value: typeof (isManualInsert ? maybeTitle : maybeScoreValue) === "number" ? Number(isManualInsert ? maybeTitle : maybeScoreValue) : null,
+          score_scale: typeof (isManualInsert ? maybeScoreValue : maybeScoreScale) === "number" ? Number(isManualInsert ? maybeScoreValue : maybeScoreScale) : null,
+          score_label: (isManualInsert ? maybeScoreScale : maybeScoreLabel) ? String(isManualInsert ? maybeScoreScale : maybeScoreLabel) : null,
+          recorded_at: String(isManualInsert ? maybeScoreLabel : maybeRecordedAt),
+          teacher_comment: (isManualInsert ? maybeRecordedAt : maybeTeacherComment) ? String(isManualInsert ? maybeRecordedAt : maybeTeacherComment) : null,
+          status: isManualInsert ? "confirmed" : "provisional",
+          created_by_actor_type: isManualInsert ? String(maybeTeacherComment) : "system",
+          created_by_actor_id: isManualInsert && maybeActorTypeOrMetadata ? String(maybeActorTypeOrMetadata) : null,
+          metadata_json: String(isManualInsert ? maybeActorIdOrCreatedAt ?? "{}" : maybeActorTypeOrMetadata ?? "{}"),
+          created_at: String(isManualInsert ? maybeCreatedAt : maybeActorIdOrCreatedAt),
+          updated_at: String(isManualInsert ? maybeUpdatedAt : maybeCreatedAt),
+        });
+        academicRecordInsertCount += 1;
         return { success: true, changes: 1 };
       }
 
@@ -1436,6 +1619,38 @@ function createMentoriaTestDb(): TestD1Database {
         return { results: match ? ([match] as unknown as T[]) : [] };
       }
 
+      if (normalized.includes("FROM MENTORIA_ACADEMIC_DOCUMENTS")) {
+        if (normalized.includes("SOURCE_MESSAGE_ID = ?")) {
+          const [tenantId, sourceMessageId] = this.params as [string, string];
+          const match = academicDocumentRows.find((row) => row.tenant_id === tenantId && row.source_message_id === sourceMessageId) ?? null;
+          return { results: match ? ([match] as unknown as T[]) : [] };
+        }
+
+        if (normalized.includes("ACADEMIC_RECORD_ID = ?")) {
+          const [tenantId, academicRecordId] = this.params as [string, string];
+          const match = [...academicDocumentRows]
+            .reverse()
+            .find((row) => row.tenant_id === tenantId && row.academic_record_id === academicRecordId) ?? null;
+          return { results: match ? ([match] as unknown as T[]) : [] };
+        }
+
+        const [tenantId, id] = this.params as [string, string];
+        const match = academicDocumentRows.find((row) => row.tenant_id === tenantId && row.id === id) ?? null;
+        return { results: match ? ([match] as unknown as T[]) : [] };
+      }
+
+      if (normalized.includes("FROM MENTORIA_ACADEMIC_RECORDS")) {
+        if (normalized.includes("SOURCE_REF_ID = ?")) {
+          const [tenantId, sourceRefId] = this.params as [string, string];
+          const match = academicRecordRows.find((row) => row.tenant_id === tenantId && row.source_ref_id === sourceRefId) ?? null;
+          return { results: match ? ([match] as unknown as T[]) : [] };
+        }
+
+        const [tenantId, id] = this.params as [string, string];
+        const match = academicRecordRows.find((row) => row.tenant_id === tenantId && row.id === id) ?? null;
+        return { results: match ? ([match] as unknown as T[]) : [] };
+      }
+
       if (normalized.includes("FROM STUDENT_PROFILES")) {
         const [tenantOrId, maybeValue] = this.params as [string, string | undefined];
         const studentRows = [studentProfileRow, secondStudentProfileRow].filter(Boolean);
@@ -1492,6 +1707,10 @@ function createMentoriaTestDb(): TestD1Database {
     materialIntakeInsertCount,
     materialContextNoteInsertCount,
     materialIntakeKind: materialIntakeRow?.intake_kind ?? null,
+    academicDocumentInsertCount,
+    academicRecordInsertCount,
+    latestAcademicDocumentClassification: academicDocumentRows.at(-1)?.classification ?? null,
+    latestAcademicRecordType: academicRecordRows.at(-1)?.record_type ?? null,
   });
 
   return fakeDb;

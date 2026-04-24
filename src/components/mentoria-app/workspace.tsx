@@ -781,6 +781,31 @@ export function MentoriaWorkspace() {
     ensureBoardForSubject(activeSubjectSlugForUi, topic);
   }, [activeSubjectSlugForUi, topic, state.student?.id, state.studentSubjects]);
 
+  useEffect(() => {
+    if (!state.student || !latestExercise || latestExercise.status !== "pending") return;
+    const pendingExerciseSubjectSlug = resolveSubjectSlugFromSubjectId(latestExercise.subjectId);
+    if (!pendingExerciseSubjectSlug) return;
+    const pendingExerciseSubject = resolveSubjectBySlug(pendingExerciseSubjectSlug);
+    if (!pendingExerciseSubject) return;
+    const scopeKey = buildBoardScopeKey(state.student.id, pendingExerciseSubjectSlug);
+    const currentScopeHistory = scopeKey ? boardHistoryByScope[scopeKey] ?? [] : [];
+    const currentBoardUpdate = currentScopeHistory[currentScopeHistory.length - 1] ?? null;
+    if (
+      currentBoardUpdate?.exercise?.prompt === latestExercise.prompt
+      && currentBoardUpdate.updatedAt === latestExercise.updatedAt
+    ) {
+      return;
+    }
+    pushBoardUpdate(
+      buildBoardUpdateFromExercise({
+        student: state.student,
+        subject: pendingExerciseSubject,
+        topic: activeBoardUpdate?.topic ?? pendingExerciseSubject.name,
+        exercise: latestExercise,
+      }),
+    );
+  }, [activeBoardUpdate?.topic, boardHistoryByScope, latestExercise, state.student, state.studentSubjects]);
+
   const recentActivityLabel = useMemo(() => {
     const activityIso = latestSession?.updatedAt ?? state.motivation?.lastActivityAt ?? null;
     if (!activityIso) return null;

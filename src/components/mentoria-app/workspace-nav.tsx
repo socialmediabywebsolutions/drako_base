@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import { BookOpen, ChevronDown, ChevronRight, LayoutPanelLeft, MessageCircleMore } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { AppWindow, BarChart3, BookOpen, ChevronDown, ChevronRight, LayoutPanelLeft, MessageCircleMore } from "lucide-react";
 import type { StudentProfile, MentoriaStudentSubject, MentoriaProgress, LearningSession, FocusSession, MentoriaGuardian } from "@/lib/mentoria/types";
 
 type WorkspaceNavProps = {
@@ -30,10 +32,19 @@ export function WorkspaceNav({
   onSubjectSelect,
 }: WorkspaceNavProps) {
   const [subjectsExpanded, setSubjectsExpanded] = useState(true);
+  const searchParams = useSearchParams();
   const progressBySubjectId = useMemo(() => new Map(progress.map((item) => [item.subjectId, item])), [progress]);
   const familyLabel = connectedGuardians.length > 0
     ? `${connectedGuardians.length} tutor${connectedGuardians.length === 1 ? "" : "es"} vinculado${connectedGuardians.length === 1 ? "" : "s"}`
     : "Espacio individual";
+
+  function buildHref(path: string) {
+    const selectedStudentId = searchParams.get("studentId")?.trim();
+    if (!selectedStudentId) return path;
+    const url = new URL(path, "https://mentoria.drako.systems");
+    url.searchParams.set("studentId", selectedStudentId);
+    return `${url.pathname}${url.search}`;
+  }
 
   const navItems = [
     { id: "board", label: "Pizarra", icon: LayoutPanelLeft, count: null },
@@ -82,6 +93,28 @@ export function WorkspaceNav({
           );
         })}
       </nav>
+
+      <div className="px-3 pb-3">
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
+          <div className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Fuera del aula</div>
+          <div className="space-y-2">
+            <Link
+              href={buildHref("/mentoria/app/academic")}
+              className="flex items-center gap-3 rounded-2xl bg-white px-3 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              <AppWindow className="h-4 w-4 text-slate-500" aria-hidden="true" />
+              <span className="hidden lg:inline">Vida académica</span>
+            </Link>
+            <Link
+              href={buildHref("/mentoria/app/progress")}
+              className="flex items-center gap-3 rounded-2xl bg-white px-3 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              <BarChart3 className="h-4 w-4 text-slate-500" aria-hidden="true" />
+              <span className="hidden lg:inline">Mi progreso</span>
+            </Link>
+          </div>
+        </div>
+      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto border-t border-slate-100 px-3 py-3">
         <button

@@ -134,6 +134,56 @@ describe("mentoria workspace route", () => {
     }, "student_2");
   });
 
+  it("does not leak raw academic records or documents into the aula payload", async () => {
+    mocks.requireCurrentMentoriaSession.mockResolvedValue({
+      userId: "user_1",
+      email: "family@example.com",
+      tenantId: "tenant_1",
+      role: "user",
+    });
+    const getWorkspaceExperience = vi.fn().mockResolvedValue({
+      student: { id: "student_1", fullName: "Alex" },
+      studentSubjects: [],
+      progress: [],
+      currentPlan: null,
+      dailyPlan: null,
+      billing: null,
+      focusSessions: [],
+      recentSessions: [],
+      analysis: { weakSubjects: [], strongSubjects: [], nextActions: [] },
+      entry: {
+        headline: "Empieza por una duda concreta",
+        subheadline: "El tutor te guiara sin darte la respuesta final.",
+        recommendedSubjectSlug: "matematicas",
+        recommendedTopic: "Fracciones",
+        recommendedPrompt: "Quiero repasar fracciones paso a paso.",
+        quickActions: [],
+      },
+      memory: {
+        commonMistakes: [],
+        watchouts: [],
+        strengths: [],
+        suggestedDifficulty: "guided",
+      },
+      guardianHooks: [],
+      exercises: [],
+      motivation: null,
+      records: [{ id: "record_should_not_leave_workspace" }],
+      documents: [{ id: "document_should_not_leave_workspace" }],
+    });
+    mocks.createMentoriaServiceInstance.mockReturnValue({
+      getWorkspaceExperience,
+    });
+
+    const response = await GET(new Request("https://mentoria.drako.systems/api/mentoria/workspace"));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.records).toBeUndefined();
+    expect(payload.documents).toBeUndefined();
+  });
+
   it("fails closed when there is no authenticated session", async () => {
     mocks.requireCurrentMentoriaSession.mockRejectedValue(new Error("SESSION_REQUIRED"));
 
