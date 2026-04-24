@@ -820,8 +820,6 @@ export function WorkspaceBoard({
   const showDailyClosure = Boolean(!showTutorBoard && !showExerciseBoard && !latestSession && dailyClosure?.carryOverPrompt);
   const showResumeSession = !showTutorBoard && !showExerciseBoard && !showDailyClosure && latestSession;
   const showQuickActions = !showTutorBoard && !showExerciseBoard && !showResumeSession && !showDailyClosure && entry && (!nextAction || nextAction.kind === "quick_action");
-  const shouldKeepBoardSurfaceMinimal = Boolean(showTutorBoard || showExerciseBoard || showResumeSession || showDailyClosure);
-  const showEntrySignalPanel = !showTutorBoard && !showExerciseBoard;
 
   return (
     <div className={`flex h-full flex-col ${resolvedBoardModeUi.shell}`}>
@@ -830,50 +828,35 @@ export function WorkspaceBoard({
         <input readOnly value={currentMessage} />
       </div>
       <header className="border-b border-slate-200 bg-white px-6 py-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="sr-only">{student?.fullName ? `Hola, ${student.fullName.split(" ")[0]}` : "Hola"}</h1>
-            <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-              <span className="font-semibold text-emerald-700">Pizarra viva</span>
-              <span>·</span>
-              <span>{resolvedBoardModeUi.title}</span>
-              <span>·</span>
-              <span>{schoolYearLabel ?? stageLabel}</span>
-              {activeSubject?.name ? (
-                <>
-                  <span>·</span>
-                  <span className="font-semibold text-slate-900">{activeSubject.name}</span>
-                </>
-              ) : null}
+        <div className="mx-auto max-w-4xl">
+          <h1 className="sr-only">{student?.fullName ? `Hola, ${student.fullName.split(" ")[0]}` : "Hola"}</h1>
+          {activeSubject?.name ? (
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">{activeSubject.name}</div>
+          ) : null}
+          <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+            {showTutorBoard
+              ? (tutorResult?.topic ?? activeSubject?.name ?? "Pizarra activa")
+              : showExerciseBoard
+                ? "Ejercicio activo"
+                : showResumeSession
+                  ? "Retoma tu punto"
+                  : showDailyClosure
+                    ? "Vuelve por donde lo dejaste"
+                    : (entry?.headline ?? nextAction?.title ?? "Empieza por una duda concreta")}
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-slate-600">
+            {showTutorBoard
+              ? "La pizarra ensena lo que estas trabajando ahora. Si algo no te cuadra, escribeselo al tutor."
+              : "Entra, pregunta y trabaja una sola cosa cada vez."}
+          </p>
+          {showTaskLauncher && activeDailyTask ? (
+            <div className="mt-4 inline-flex rounded-full bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900">
+              Tarea activa: {activeDailyTask.subject}
             </div>
-            <h2 className="text-sm font-semibold text-slate-500">Tutor IA · pizarra guiada</h2>
-            <h1 className="text-2xl font-black tracking-tight text-slate-900">{showTutorBoard ? (tutorResult?.topic ?? sessionContract.headline) : sessionContract.headline}</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-700">
-              {student?.fullName ? `Hola ${student.fullName.split(" ")[0]}, aquí trabajas una sola cosa cada vez con el tutor marcando el siguiente paso.` : "Espacio de trabajo"}
-            </p>
-            <p className="mt-1 text-xs font-medium text-slate-500">{supportTone}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
-              <span className={`rounded-full border px-3 py-1 ${sessionModeTone}`}>Modo de hoy: {sessionContract.label}</span>
-              <span className="rounded-full bg-slate-100 px-3 py-1">Objetivo: {sessionContract.objective}</span>
-            </div>
-            {latestSession && (
-              <p className="mt-2 text-xs text-slate-500">
-                Sigues donde lo dejaste. Vamos a continuar.
-              </p>
-            )}
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            {showTaskLauncher && (
-              <div className="rounded-lg bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900">
-                Tarea activa: {activeDailyTask.subject}
-              </div>
-            )}
-            {activeProgressMetrics && (
-              <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700">
-                {activeProgressMetrics.masteryScore}% dominio · {activeProgressMetrics.confidenceScore}% confianza
-              </div>
-            )}
-          </div>
+          ) : null}
+          {latestSession && !showTutorBoard ? (
+            <p className="mt-3 text-sm text-slate-500">Sigues donde lo dejaste.</p>
+          ) : null}
         </div>
       </header>
 
@@ -884,221 +867,12 @@ export function WorkspaceBoard({
           </div>
         )}
 
-        {orchestratorPlan ? (
-          <div className="mx-auto mb-4 max-w-4xl rounded-xl border border-emerald-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Ahora manda el tutor</div>
-                <div className="mt-1 text-sm font-semibold text-slate-900">{orchestratorPlan.microObjective}</div>
-                <p className="mt-1 text-sm leading-6 text-slate-600">{orchestratorPlan.message}</p>
-              </div>
-              {orchestratorPlan.progressLabel ? <div className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">{orchestratorPlan.progressLabel}</div> : null}
-            </div>
-          </div>
-        ) : null}
-
-        {showEntrySignalPanel ? (
-          <div className="mx-auto mb-4 max-w-4xl rounded-2xl border border-violet-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="max-w-2xl">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-700">Antes de entrar</div>
-                <h2 className="mt-2 text-xl font-bold text-slate-900">Como viene hoy el alumno</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">Esto ya no forma parte del onboarding. Se decide aqui, justo antes de arrancar, para que el tutor y el modo de sesion nazcan bien calibrados.</p>
-                <p className="mt-3 rounded-2xl bg-violet-50 px-4 py-3 text-sm font-medium text-violet-950">{sessionSignalSummary}</p>
-              </div>
-              <button
-                type="button"
-                onClick={onApplySessionSignal}
-                className="rounded-full bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-700"
-              >
-                Entrar con este estado de hoy
-              </button>
-            </div>
-
-            <div className="mt-5 grid gap-5 lg:grid-cols-3">
-              <div>
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Prioridad de hoy</div>
-                <div className="grid gap-2">
-                  {[
-                    { value: "homework" as const, label: "Tarea o deber" },
-                    { value: "exam" as const, label: "Examen cerca" },
-                    { value: "reinforcement" as const, label: "Reforzar materia" },
-                    { value: "organization" as const, label: "Ordenar estudio" },
-                    { value: "free_question" as const, label: "Duda libre" },
-                  ].map((option) => (
-                    <ChoiceButton
-                      key={option.value}
-                      title={option.label}
-                      selected={sessionSignal.priority === option.value}
-                      onClick={() => onSessionSignalChange({ ...sessionSignal, priority: option.value })}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Energia o disposicion</div>
-                <div className="grid gap-2">
-                  {[
-                    { value: "blocked" as const, label: "Bloqueado" },
-                    { value: "tired" as const, label: "Cansado" },
-                    { value: "steady" as const, label: "Normal" },
-                    { value: "motivated" as const, label: "Con ganas" },
-                  ].map((option) => (
-                    <ChoiceButton
-                      key={option.value}
-                      title={option.label}
-                      selected={sessionSignal.emotion === option.value}
-                      onClick={() => onSessionSignalChange({ ...sessionSignal, emotion: option.value })}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Tipo de ayuda</div>
-                <div className="grid gap-2">
-                  {[
-                    { value: "step_by_step" as const, label: "Paso a paso" },
-                    { value: "explain_from_zero" as const, label: "Desde cero" },
-                    { value: "guided_practice" as const, label: "Practica guiada" },
-                    { value: "quick_check" as const, label: "Chequeo rapido" },
-                  ].map((option) => (
-                    <ChoiceButton
-                      key={option.value}
-                      title={option.label}
-                      selected={sessionSignal.helpType === option.value}
-                      onClick={() => onSessionSignalChange({ ...sessionSignal, helpType: option.value })}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {shouldKeepBoardSurfaceMinimal ? (
-          <div className="mx-auto mb-4 max-w-4xl rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Modo de sesión</div>
-                <div className="mt-1 text-sm font-semibold text-slate-900">{sessionContract.headline}</div>
-                <div className="mt-1 text-sm text-slate-600">{sessionContract.boardBehavior}</div>
-              </div>
-              <div className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">{sessionContract.primaryCta}</div>
-            </div>
-          </div>
-        ) : (
-          <div className="mx-auto mb-4 max-w-4xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="max-w-2xl">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Modo de sesión activo</div>
-                <h2 className="mt-2 text-xl font-bold text-slate-900">{sessionContract.headline}</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{sessionContract.subheadline}</p>
-                <div className="mt-3 grid gap-2 text-sm text-slate-700 md:grid-cols-2">
-                  <div className="rounded-xl bg-slate-50 px-3 py-3"><span className="font-semibold text-slate-900">Chat</span>: {sessionContract.chatBehavior}</div>
-                  <div className="rounded-xl bg-slate-50 px-3 py-3"><span className="font-semibold text-slate-900">Pizarra</span>: {sessionContract.boardBehavior}</div>
-                </div>
-              </div>
-              <div className="min-w-0 lg:w-[320px]">
-                <div className="rounded-2xl bg-slate-50 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Cómo progresa</div>
-                  <div className="mt-3 space-y-2 text-sm text-slate-700">
-                    {sessionContract.progression.map((step, index) => (
-                      <div key={`${step}-${index}`} className="rounded-lg bg-white px-3 py-2">
-                        {index + 1}. {step}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-3 text-xs text-slate-500">Cierre: {sessionContract.completionRule}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {completedDailyTasks.length > 0 && dailyPlan && !shouldKeepBoardSurfaceMinimal ? (
-          <div className="mx-auto mb-4 max-w-4xl rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">
-                  Has completado {completedDailyTasks.length} tarea{completedDailyTasks.length === 1 ? "" : "s"} del plan de hoy.
-                  {nextPendingDailyTask ? ` Siguiente paso: ${nextPendingDailyTask.subject} - ${formatBoardTaskType(nextPendingDailyTask.type)}.` : ""}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">{dailyCompletionPercent}%</span>
-                  {dailyPlan.tasks.map((task) => (
-                    <span
-                      key={task.id}
-                      className={`rounded-full px-3 py-1 ${
-                        task.completed || dailyPlan.completedTaskIds.includes(task.id)
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {task.completed || dailyPlan.completedTaskIds.includes(task.id) ? "Hecha" : formatBoardTaskType(task.type)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              {nextPendingDailyTask ? (
-                <button
-                  type="button"
-                  onClick={() => onStartDailyTask(nextPendingDailyTask)}
-                  className="rounded-full bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
-                >
-                  Crear practica ahora
-                </button>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {shouldShowGrowthNarrative && !shouldKeepBoardSurfaceMinimal ? (
-          <div className="mx-auto mb-4 max-w-4xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Lo que ya esta cambiando</div>
-            <h2 className="mt-1 text-lg font-bold text-slate-900">Ya estas construyendo un ritmo propio</h2>
-            <div className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
-              <p>Desde que empezaste llevas {totalSessionsCompleted} sesiones y {totalPracticesCompleted} practicas.</p>
-              {progress[0]?.streakDays ? (
-                <p>Tu racha actual es de {progress[0].streakDays} dias, que ya habla de constancia y no de un intento aislado.</p>
-              ) : null}
-              <p>Tu perfil ya empieza a apoyarse en {identitySubject}, y eso se nota en como vuelves a estudiar.</p>
-              <p>Tu avance ya se parece mas a una mejora sostenida que a un buen dia suelto.</p>
-            </div>
-            <div className="mt-5 border-t border-slate-100 pt-4">
-              <div className="text-xs font-semibold uppercase tracking-wider text-sky-700">Lo que puede pasar si sigues asi</div>
-              <h3 className="mt-1 text-base font-bold text-slate-900">Tu siguiente nivel ya se empieza a ver</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-700">
-                Si mantienes este ritmo unas cuantas sesiones mas, es realista pensar que podras trabajar {identitySubject} con menos ayuda y sostener retos un poco mas largos sin perder claridad.
-              </p>
-              <p className="mt-3 text-sm font-semibold text-slate-900">Puente hacia ese nivel: {bridgeAction}</p>
-            </div>
-          </div>
-        ) : null}
-
-        {(stateDecision || guardianViewModel) && !shouldKeepBoardSurfaceMinimal && (
-          <div className={`mx-auto mb-4 max-w-4xl rounded-2xl border px-4 py-4 ${resolvedBoardModeUi.banner}`}>
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.2em]">Estado actual</div>
-                <div className="mt-1 text-base font-semibold text-slate-900">{guardianViewModel?.summary ?? "Sesión activa"}</div>
-                <div className="mt-1 text-sm">{stateActions?.primaryStudentAction ?? motivationMessage}</div>
-              </div>
-              <div className="flex flex-wrap gap-2 text-xs">
-                {stateDecision ? <span className="rounded-full bg-white/80 px-3 py-1 font-semibold text-slate-700">Prioridad: {stateDecision.priority}</span> : null}
-                {guardianViewModel?.requiresIntervention ? <span className="rounded-full bg-white/80 px-3 py-1 font-semibold text-slate-700">Pide apoyo</span> : null}
-              </div>
-            </div>
-          </div>
-        )}
-
         {showTutorBoard && (
           <div className="mx-auto max-w-4xl space-y-4">
             <div className={`rounded-[28px] border bg-gradient-to-br from-white via-white to-white/95 p-6 shadow-[0_22px_70px_rgba(15,23,42,0.08)] ${resolvedTheme.border} ${shouldHighlightPrimaryPanel ? "ring-2 ring-emerald-200/70" : ""}`}>
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Sesión guiada</div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Sesion guiada</div>
                   <h2 className="mt-1 text-xl font-bold text-slate-900">{tutorResult?.topic ?? activeSubject?.name ?? "Pizarra activa"}</h2>
                   <p className="mt-1 text-sm text-slate-600">{shouldCompactSecondaryPanels ? "Una cosa cada vez." : "Un paso cada vez."}</p>
                 </div>
@@ -1202,18 +976,9 @@ export function WorkspaceBoard({
 
         {showExerciseBoard && (
           <div className="mx-auto max-w-3xl">
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-lg font-bold text-slate-900">Ejercicio activo</h2>
-              <div className="rounded-xl bg-amber-50 p-4">
-                {nextAction ? (
-                  <div className="mb-4 rounded-2xl border border-amber-200 bg-white/90 p-4">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-700">Siguiente acción</div>
-                    <div className="mt-1 text-base font-semibold text-slate-900">
-                      {nextAction.kind === "resume_session" ? "Continuidad preparada" : nextAction.title}
-                    </div>
-                    <div className="mt-2 text-sm text-slate-700">{nextAction.detail}</div>
-                  </div>
-                ) : null}
+            <div className="rounded-[28px] border border-amber-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">Ejercicio</div>
+              <div className="rounded-3xl bg-amber-50 p-4">
                 <div className="mb-3 text-sm font-semibold text-amber-900">{latestExercise.prompt}</div>
                 <div className="mb-3 text-xs uppercase tracking-wider text-amber-700">
                   {latestExercise.expectedCompetency}
@@ -1251,18 +1016,9 @@ export function WorkspaceBoard({
 
         {showResumeSession && (
           <div className="mx-auto max-w-3xl">
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-lg font-bold text-slate-900">Retoma tu sesion</h2>
-              <div className="rounded-xl bg-sky-50 p-4">
-                {nextAction ? (
-                  <div className="mb-4 rounded-2xl border border-sky-200 bg-white/90 p-4">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-sky-700">Siguiente acción</div>
-                    <div className="mt-1 text-base font-semibold text-slate-900">
-                      {nextAction.kind === "resume_session" ? "Continuidad preparada" : nextAction.title}
-                    </div>
-                    <div className="mt-2 text-sm text-slate-700">{nextAction.detail}</div>
-                  </div>
-                ) : null}
+            <div className="rounded-[28px] border border-sky-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">Retomar</div>
+              <div className="rounded-3xl bg-sky-50 p-4">
                 <div className="mb-2 text-sm font-semibold text-sky-900">
                   {latestSession.topic || "Sesión guiada"}
                 </div>
@@ -1278,24 +1034,6 @@ export function WorkspaceBoard({
                     className="rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white hover:bg-sky-700"
                   >
                     {nextAction?.ctaLabel ?? "Retomar sesión"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (entry) {
-                        onQuickAction({
-                          topic: entry.recommendedTopic,
-                          prompt: entry.recommendedPrompt,
-                          subjectSlug: entry.recommendedSubjectSlug,
-                        });
-                        return;
-                      }
-                      onResumeSession(latestSession);
-                    }}
-                    aria-label="Hablar con el tutor"
-                    className="rounded-full border border-emerald-200 bg-white px-6 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
-                  >
-                    Hablar con el tutor
                   </button>
                   {tutorResult?.recommendedNextStep && !showTutorBoard ? (
                     <button
@@ -1320,14 +1058,10 @@ export function WorkspaceBoard({
 
         {showDailyClosure && dailyClosure ? (
           <div className="mx-auto max-w-3xl">
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-700">Actividad reciente</div>
-              <h2 className="text-xl font-bold text-slate-900">Esto quedo preparado para que hoy vuelvas con ventaja</h2>
+            <div className="rounded-[28px] border border-emerald-200 bg-white p-6 shadow-sm">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Listo para retomar</div>
+              <h2 className="text-xl font-bold text-slate-900">Esto quedo preparado para que vuelvas rapido</h2>
               <p className="mt-3 text-sm leading-6 text-slate-700">{dailyClosure.summary}</p>
-              <div className="mt-5 rounded-xl bg-emerald-50 p-4">
-                <div className="text-sm font-semibold text-slate-900">Por que merece la pena volver</div>
-                <p className="mt-2 text-sm leading-6 text-slate-700">Mañana ya no empiezas calentando: puedes entrar directamente en el siguiente nivel de trabajo.</p>
-              </div>
               <button
                 type="button"
                 onClick={() => onResumeDailyClosure?.(dailyClosure)}
@@ -1341,17 +1075,10 @@ export function WorkspaceBoard({
 
         {showQuickActions && (
           <div className="mx-auto max-w-3xl">
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <div className="mb-6 text-center">
-                <div className="mb-2 text-sm font-semibold text-emerald-700">Tutor IA</div>
-                <h2 className="mb-2 text-2xl font-bold text-slate-900">{entry.headline}</h2>
-                <p className="text-sm text-slate-600">{entry.subheadline}</p>
-              </div>
-              <div className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Actividad reciente</div>
-              <div className="mb-6 rounded-xl bg-emerald-50 p-4">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-700">
-                  Acción recomendada
-                </div>
+            <div className="rounded-[28px] border border-emerald-200 bg-white p-6 shadow-sm">
+              <div className="rounded-3xl bg-emerald-50 p-6 text-center">
+                <h2 className="text-2xl font-bold text-slate-900">{nextAction?.title ?? entry.headline}</h2>
+                <p className="mt-2 text-sm text-slate-600">{nextAction?.detail ?? entry.subheadline}</p>
                 <button
                   type="button"
                   onClick={() =>
@@ -1364,73 +1091,23 @@ export function WorkspaceBoard({
                     })
                   }
                   aria-label="Hablar con el tutor"
-                  className="w-full rounded-xl bg-emerald-600 px-6 py-4 text-left text-sm font-semibold text-white hover:bg-emerald-700"
+                  className="mt-5 w-full rounded-2xl bg-emerald-600 px-6 py-4 text-left text-sm font-semibold text-white hover:bg-emerald-700"
                 >
-                  {sessionContract.primaryCta}
+                  {nextAction?.ctaLabel ?? sessionContract.primaryCta}
                 </button>
+                <p className="mt-4 text-sm text-slate-600">O escríbele al tutor lo que no entendiste y empezamos por ahí.</p>
               </div>
-              {sessionModeOptions.length > 0 ? (
-                <div className="mb-6">
-                  <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Elegir otro modo</div>
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {sessionModeOptions.map((option) => (
-                      <button
-                        key={option.mode}
-                        type="button"
-                        onClick={() => onSelectSessionMode?.(option)}
-                        className={`rounded-xl border p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50 ${option.mode === sessionContract.mode ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white"}`}
-                      >
-                        <div className="text-sm font-semibold text-slate-900">{option.label}</div>
-                        <div className="mt-1 text-xs leading-5 text-slate-600">{option.description}</div>
-                        <div className="mt-3 text-xs font-semibold text-emerald-700">{option.ctaLabel}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {entry.quickActions.length > 0 && !shouldCompactSecondaryPanels && (
-                <div>
-                  <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Otras opciones
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {entry.quickActions.map((action) => (
-                      <button
-                        key={action.id}
-                        type="button"
-                        onClick={() =>
-                          onQuickAction({
-                            topic: action.topic,
-                            prompt: action.prompt,
-                            subjectSlug: action.subjectSlug,
-                            sessionMode: sessionContract.mode,
-                            sessionInputKind: action.subjectSlug ? "selected_subject" : sessionContract.entryKind,
-                          })
-                        }
-                        className="rounded-xl border border-slate-200 bg-white p-4 text-left hover:border-emerald-300 hover:bg-emerald-50"
-                      >
-                        <div className="mb-1 text-sm font-semibold text-slate-900">{action.label}</div>
-                        <div className="text-xs text-slate-600">{action.description}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
 
         {!showTutorBoard && !showExerciseBoard && !showResumeSession && !showDailyClosure && !showQuickActions && (
           <div className="mx-auto max-w-3xl">
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
+            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
               <h1 className="text-xl font-bold text-slate-900">Empieza por aqui</h1>
               <p className="mt-2 text-sm text-slate-600">
-                {nextAction?.detail ?? "Solo verás un siguiente paso claro en cuanto haya una sesión o tarea activa."}
+                {nextAction?.detail ?? "Escríbele al tutor o abre el siguiente paso que ya tienes preparado."}
               </p>
-              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">Siguiente acción</div>
-                <div className="mt-1 text-base font-semibold text-slate-900">{nextAction?.title ?? "Abrir el siguiente paso"}</div>
-              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -1450,15 +1127,6 @@ export function WorkspaceBoard({
               >
                 {nextAction?.ctaLabel ?? "Esperando siguiente acción"}
               </button>
-              {nextAction?.kind === "task" && activeDailyTask ? (
-                <button
-                  type="button"
-                  onClick={() => onRunNextAction?.()}
-                  className="ml-3 mt-4 rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
-                >
-                  Hablar con el tutor
-                </button>
-              ) : null}
             </div>
           </div>
         )}

@@ -213,8 +213,9 @@ describe("MentoriaWorkspace", () => {
 
     expect(await screen.findByRole("heading", { name: "Hola, Alex" })).toBeInTheDocument();
     expect(screen.getByText("Empieza por una duda concreta")).toBeInTheDocument();
-    expect(screen.getByText("Tutor IA")).toBeInTheDocument();
-    expect(screen.getByText("Actividad reciente")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enviar" })).toBeInTheDocument();
+    expect(screen.queryByText("Tutor IA")).not.toBeInTheDocument();
   });
 
   it("uses the engine-selected reentry strategy when the rollout enables engine strategy", async () => {
@@ -309,10 +310,9 @@ describe("MentoriaWorkspace", () => {
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByText("Vienes con buena inercia. Hoy toca subir un paso sin perder claridad.")).toBeInTheDocument();
-    expect(screen.getByText("Modo de hoy: subir un paso")).toBeInTheDocument();
-    expect(screen.getByText("Arranque recomendado: Matematicas - reto corto")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Subir un paso hoy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Abrir siguiente paso" })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste")).toBeInTheDocument();
+    expect(screen.queryByText("Modo de hoy: subir un paso")).not.toBeInTheDocument();
   });
 
   it("falls back to the live reentry strategy when engine strategy payload is invalid", async () => {
@@ -392,9 +392,9 @@ describe("MentoriaWorkspace", () => {
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByText("Hoy te conviene volver con una victoria rapida para recuperar ritmo.")).toBeInTheDocument();
-    expect(screen.getByText("Modo de hoy: vuelta suave")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Volver con algo facil" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Abrir siguiente paso" })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste")).toBeInTheDocument();
+    expect(screen.queryByText("Modo de hoy: vuelta suave")).not.toBeInTheDocument();
   });
 
   it("uses engine explanation only when the rollout enables strategy and explanation together", async () => {
@@ -465,11 +465,9 @@ describe("MentoriaWorkspace", () => {
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByText("La continuidad natural hoy viene del plan del dia.")).toBeInTheDocument();
-    expect(screen.getByText("La siguiente tarea util es Matematicas - review.")).toBeInTheDocument();
-    expect(
-      screen.getByText("Si haces clic, entraras directamente en la siguiente tarea natural del plan."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Revisa la recomendacion y entra con un solo clic.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Abrir siguiente paso" })).toBeInTheDocument();
+    expect(screen.queryByText("La continuidad natural hoy viene del plan del dia.")).not.toBeInTheDocument();
   });
 
   it("turns accumulated signals into an identity-focused progress narrative", async () => {
@@ -528,16 +526,10 @@ describe("MentoriaWorkspace", () => {
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByText("Lo que ya esta cambiando")).toBeInTheDocument();
-    expect(screen.getByText("Ya estas construyendo un ritmo propio")).toBeInTheDocument();
-    expect(screen.getByText("Desde que empezaste llevas 7 sesiones y 18 practicas.")).toBeInTheDocument();
-    expect(screen.getByText("Tu racha actual es de 5 dias, que ya habla de constancia y no de un intento aislado.")).toBeInTheDocument();
-    expect(screen.getByText("Tu perfil ya empieza a apoyarse en Matematicas, y eso se nota en como vuelves a estudiar.")).toBeInTheDocument();
-    expect(screen.getByText("Tu avance ya se parece mas a una mejora sostenida que a un buen dia suelto.")).toBeInTheDocument();
-    expect(screen.getByText("Lo que puede pasar si sigues asi")).toBeInTheDocument();
-    expect(screen.getByText("Tu siguiente nivel ya se empieza a ver")).toBeInTheDocument();
-    expect(screen.getByText("Si mantienes este ritmo unas cuantas sesiones mas, es realista pensar que podras trabajar Matematicas con menos ayuda y sostener retos un poco mas largos sin perder claridad.")).toBeInTheDocument();
-    expect(screen.getByText("Puente hacia ese nivel: Resolver un ejercicio guiado")).toBeInTheDocument();
+    expect(screen.queryByText("Lo que ya esta cambiando")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ya estas construyendo un ritmo propio")).not.toBeInTheDocument();
+    expect(screen.getByText("Empieza por una duda concreta")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste")).toBeInTheDocument();
   });
 
   it("shows the previous daily closure and prepares the carry-over for today", async () => {
@@ -566,16 +558,19 @@ describe("MentoriaWorkspace", () => {
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByText("Esto quedo preparado para que hoy vuelvas con ventaja")).toBeInTheDocument();
+    expect(screen.getByText("Esto quedo preparado para que vuelvas rapido")).toBeInTheDocument();
     expect(screen.getByText("Ayer cerraste el dia con avance real y ya quedo listo el primer paso para hoy.")).toBeInTheDocument();
-    expect(screen.getByText("Por que merece la pena volver")).toBeInTheDocument();
-    expect(screen.getByText("Mañana ya no empiezas calentando: puedes entrar directamente en el siguiente nivel de trabajo.")).toBeInTheDocument();
+    expect(screen.queryByText("Por que merece la pena volver")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Volver justo por aqui" }));
 
-    expect(screen.getByDisplayValue("Fracciones equivalentes")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Empieza repasando fracciones equivalentes con un ejemplo corto.")).toBeInTheDocument();
-    expect(screen.getByText("Ayer te dejaste una pista clara y hoy puedes retomarla con ventaja, sin volver a pensar desde cero.")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Fracciones equivalentes")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Empieza repasando fracciones equivalentes con un ejemplo corto.")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText("Ayer te dejaste una pista clara y hoy puedes retomarla con ventaja, sin volver a pensar desde cero."),
+    ).toBeInTheDocument();
   });
 
   it("turns the next daily task into an immediate action from the workspace", async () => {
@@ -733,7 +728,10 @@ describe("MentoriaWorkspace", () => {
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    fireEvent.click(screen.getByRole("button", { name: "Hablar con el tutor" }));
+    fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
+      target: { value: "Seguimos con matematicas" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
     expect(await screen.findByText("Sesion cerrada con avance visible en el plan de hoy.")).toBeInTheDocument();
     expect(screen.getByText("Has consolidado la base de hoy.")).toBeInTheDocument();
@@ -886,9 +884,10 @@ describe("MentoriaWorkspace", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Corregir respuesta" }));
 
-    expect(await screen.findByText("Vamos a aprovechar que te ha salido bien")).toBeInTheDocument();
-    expect(screen.getByText("Siguiente accion: Matematicas - reto corto")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Lanzar siguiente reto" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Siguiente accion: Matematicas - reto corto")).toBeInTheDocument();
+      expect(screen.getByText("Lanzar siguiente reto")).toBeInTheDocument();
+    });
   });
 
   it("recalculates the second action downward when the first exercise shows friction", async () => {
@@ -1037,9 +1036,10 @@ describe("MentoriaWorkspace", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Corregir respuesta" }));
 
-    expect(await screen.findByText("Bajamos un paso para consolidar")).toBeInTheDocument();
-    expect(screen.getByText("Siguiente accion: Matematicas - repaso guiado")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Abrir ayuda guiada" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Siguiente accion: Matematicas - repaso guiado")).toBeInTheDocument();
+      expect(screen.getByText("Abrir ayuda guiada")).toBeInTheDocument();
+    });
   });
 
   it("gives the user a clear reentry point with recent context and a resume CTA", async () => {
@@ -1147,18 +1147,8 @@ describe("MentoriaWorkspace", () => {
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByText("Seguimos donde lo dejaste")).toBeInTheDocument();
-    expect(screen.getAllByText("La ultima vez dejaste clara la base para sumar fracciones.").length).toBeGreaterThan(0);
-    expect(screen.getByText("Ultima actividad: ayer")).toBeInTheDocument();
-    expect(screen.getAllByText("Racha actual: 3 dias").length).toBeGreaterThan(0);
-    expect(
-      screen.getByText("Tu ultima sesion ya dejo una accion concreta y retomar ahora evita volver a pensar desde cero."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Si haces clic, el tutor abre justo el siguiente paso que dejaste preparado en tu ultima sesion."),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Retomar ultimo paso" }));
+    expect(screen.getByText("Retoma tu punto")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retomar esta sesion" }));
 
     await waitFor(() => {
       expect(screen.getByDisplayValue("Fracciones")).toBeInTheDocument();
@@ -1270,17 +1260,7 @@ describe("MentoriaWorkspace", () => {
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByText("Hoy te conviene volver con una victoria rapida para recuperar ritmo.")).toBeInTheDocument();
-    expect(screen.getByText("Modo de hoy: vuelta suave")).toBeInTheDocument();
-    expect(screen.getByText("Arranque recomendado: Matematicas - repaso guiado")).toBeInTheDocument();
-    expect(
-      screen.getByText("Hoy priorizamos un arranque suave porque tu ritmo reciente necesita recuperar confianza antes de exigir mas."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Si haces clic, entraras en una accion facil y guiada para volver a coger ritmo sin friccion."),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Volver con algo facil" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retomar esta sesion" }));
 
     await waitFor(() => {
       expect(screen.getByDisplayValue("Repaso de Matematicas")).toBeInTheDocument();
@@ -1433,17 +1413,9 @@ describe("MentoriaWorkspace", () => {
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByText("Vienes con buena inercia. Hoy toca subir un paso sin perder claridad.")).toBeInTheDocument();
-    expect(screen.getByText("Modo de hoy: subir un paso")).toBeInTheDocument();
-    expect(screen.getByText("Arranque recomendado: Matematicas - reto corto")).toBeInTheDocument();
-    expect(
-      screen.getByText("Hoy te proponemos un paso un poco mas ambicioso porque llevas 5 dias de ritmo y tu inercia esta a favor."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Si haces clic, empezaras por una accion mas potente, pensada para aprovechar tu buen momento de hoy."),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Subir un paso hoy" }));
+    expect(screen.getByRole("button", { name: "Abrir siguiente paso" })).toBeInTheDocument();
+    expect(screen.queryByText("Modo de hoy: subir un paso")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Abrir siguiente paso" }));
 
     await waitFor(() => {
       expect(screen.getByText("Hoy vienes con ritmo: Matematicas - reto corto. Vamos a aprovecharlo con una primera accion un poco mas ambiciosa.")).toBeInTheDocument();
@@ -1577,16 +1549,7 @@ describe("MentoriaWorkspace", () => {
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByText("Tu plan de hoy sigue esperandote con Matematicas.")).toBeInTheDocument();
-    expect(screen.getByText("Llevas 0 tareas cerradas y la siguiente es Matematicas - practica guiada.")).toBeInTheDocument();
-    expect(
-      screen.getByText("Hoy lo mas sensato es seguir el plan: ya llevas 0% del dia encaminado y esta es la siguiente pieza natural."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Si haces clic, entraras directamente en la siguiente tarea util del plan de hoy."),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Volver al plan de hoy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Abrir siguiente paso" }));
 
     await waitFor(() => {
       expect(screen.getByText("Practica lista para Matematicas. Cuando la completes, el plan se actualizara aqui mismo.")).toBeInTheDocument();
@@ -1626,7 +1589,10 @@ describe("MentoriaWorkspace", () => {
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Hablar con el tutor" }));
+    fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
+      target: { value: "No entiendo fracciones" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
     expect(await screen.findByText("Sesion cerrada con una mejora visible en Matematicas.")).toBeInTheDocument();
     expect(screen.getByText("Has mejorado un poco la seguridad en fracciones.")).toBeInTheDocument();

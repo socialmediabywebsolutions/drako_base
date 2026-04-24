@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { MessageCircle, X } from "lucide-react";
+import { MessageCircle, Minus, X } from "lucide-react";
 
 type WorkspaceShellProps = {
   leftNav: ReactNode;
@@ -19,7 +19,8 @@ export function WorkspaceShell({
   copilotMode = "floating",
   copilotLabel = "Tutor",
 }: WorkspaceShellProps) {
-  const [copilotOpen, setCopilotOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(true);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   if (copilotMode === "rail") {
     return (
@@ -54,19 +55,40 @@ export function WorkspaceShell({
         </main>
       </div>
 
-      {copilotOpen ? (
-        <div className="pointer-events-none fixed inset-x-4 bottom-4 top-20 z-40 flex justify-end lg:inset-x-6 lg:top-6">
-          <div className="pointer-events-auto flex h-full w-full max-w-[430px] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.18)]">
+      {isOpen && !isMinimized ? (
+        <div className="fixed bottom-4 right-4 z-40 w-[calc(100vw-1rem)] max-w-[390px] sm:bottom-5 sm:right-5 sm:w-[380px]">
+          <div className="pointer-events-auto flex h-[min(620px,72vh)] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.18)]">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <div className="text-sm font-semibold text-slate-900">{copilotLabel}</div>
-              <button
-                type="button"
-                onClick={() => setCopilotOpen(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-50"
-                aria-label={`Cerrar ${copilotLabel.toLowerCase()}`}
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                  <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-slate-900">{copilotLabel}</div>
+                  <div className="truncate text-xs text-slate-500">Escribe y seguimos paso a paso</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMinimized(true)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-50"
+                  aria-label={`Minimizar ${copilotLabel.toLowerCase()}`}
+                >
+                  <Minus className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMinimized(false);
+                    setIsOpen(false);
+                  }}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-50"
+                  aria-label={`Cerrar ${copilotLabel.toLowerCase()}`}
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
             </div>
             <div className="min-h-0 flex-1">
               {rightCopilot}
@@ -75,10 +97,29 @@ export function WorkspaceShell({
         </div>
       ) : null}
 
-      {!copilotOpen ? (
+      {isOpen && isMinimized ? (
         <button
           type="button"
-          onClick={() => setCopilotOpen(true)}
+          onClick={() => setIsMinimized(false)}
+          className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-900 shadow-[0_16px_40px_rgba(15,23,42,0.18)] transition hover:bg-slate-50"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+            <MessageCircle className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <span className="flex flex-col">
+            <span>{copilotLabel}</span>
+            <span className="text-xs font-normal text-slate-500">Abrir conversación</span>
+          </span>
+        </button>
+      ) : null}
+
+      {!isOpen ? (
+        <button
+          type="button"
+          onClick={() => {
+            setIsOpen(true);
+            setIsMinimized(false);
+          }}
           className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_40px_rgba(15,23,42,0.22)] transition hover:bg-black"
         >
           <MessageCircle className="h-4 w-4" aria-hidden="true" />
