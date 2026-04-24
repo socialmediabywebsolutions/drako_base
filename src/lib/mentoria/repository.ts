@@ -12,6 +12,7 @@ import type {
 } from "@/lib/mentoria/student-learning-memory";
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
 import type {
+  MentoriaBoardUpdate,
   DailyPlan,
   DailyPlanTask,
   FocusSession,
@@ -254,6 +255,7 @@ type LearningSessionRow = {
   emotional_state: string | null;
   tutor_summary: string | null;
   recommended_next_step: string | null;
+  board_update_json: string | null;
   created_at: string;
   updated_at: string | null;
   completed_at: string | null;
@@ -730,6 +732,18 @@ function mapMessages(value: string | null): MentoriaSessionMessage[] {
   }
 }
 
+function mapBoardUpdate(value: string | null): MentoriaBoardUpdate | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as MentoriaBoardUpdate | null;
+    if (!parsed || typeof parsed !== "object") return null;
+    if (typeof parsed.subjectSlug !== "string" || typeof parsed.topic !== "string") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 function mapLearningSession(row: LearningSessionRow): LearningSession {
   return {
     id: row.id,
@@ -746,6 +760,7 @@ function mapLearningSession(row: LearningSessionRow): LearningSession {
     emotionalState: (row.emotional_state ?? "steady") as LearningSession["emotionalState"],
     tutorSummary: row.tutor_summary ?? "",
     recommendedNextStep: row.recommended_next_step ?? "",
+    boardUpdate: mapBoardUpdate(row.board_update_json),
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
     completedAt: row.completed_at ?? undefined,
@@ -3035,6 +3050,7 @@ export class MentoriaRepository {
     emotionalState: string;
     tutorSummary: string;
     recommendedNextStep: string;
+    boardUpdate?: MentoriaBoardUpdate | null;
     aiTokensUsed: number;
   }): Promise<LearningSession> {
     const id = crypto.randomUUID();
@@ -3044,8 +3060,8 @@ export class MentoriaRepository {
         `INSERT INTO mentoria_sessions (
           id, tenant_id, mentor_id, client_id, student_profile_id, subject_id, topic, status,
           duration_minutes, ai_tokens_used, transcript_json, emotional_state, tutor_summary,
-          recommended_next_step, created_at, updated_at
-        ) VALUES (?, ?, 'mentor-orchestrated', ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?)`,
+          recommended_next_step, board_update_json, created_at, updated_at
+        ) VALUES (?, ?, 'mentor-orchestrated', ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         id,
@@ -3060,6 +3076,7 @@ export class MentoriaRepository {
         input.emotionalState,
         input.tutorSummary,
         input.recommendedNextStep,
+        input.boardUpdate ? JSON.stringify(input.boardUpdate) : null,
         now,
         now,
       )

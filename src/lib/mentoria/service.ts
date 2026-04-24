@@ -78,6 +78,7 @@ import { buildDynamicStudentProfile, type DynamicStudentProfile } from "@/lib/me
 import { TrialManager } from "@/lib/mentoria/trial-system";
 import { checkAccessControl, UpgradeFlowError, buildTrialExpiringWarning, buildUpgradePrompt } from "@/lib/mentoria/upgrade-flow";
 import { getMentoriaOrchestrator } from "@/lib/mentoria/resilience/orchestrator";
+import { buildBoardUpdateFromSession } from "@/lib/mentoria/board-update";
 import {
   createInitialEvolutionProfile,
   updateEvolutionFromSession,
@@ -86,6 +87,9 @@ import {
 } from "@/lib/mentoria/student-evolution";
 import type {
   DailyPlan,
+  MentoriaBoardExercise,
+  MentoriaBoardMode,
+  MentoriaBoardUpdate,
   MentoriaCanonicalFamilyContract,
   MentoriaBillingSummary,
   MentoriaFamily,
@@ -2070,7 +2074,16 @@ export class MentoriaService {
     session: Awaited<ReturnType<MentoriaRepository["createLearningSession"]>>;
     subject: MentoriaSubject;
     adaptation: ReturnType<typeof evaluateStudentEmotion>;
+    chatMessage: string;
     reply: string;
+    subjectSlug: string;
+    topic: string;
+    mode: MentoriaBoardMode;
+    steps: string[];
+    example?: string | null;
+    exercise?: MentoriaBoardExercise | null;
+    nextAction: string;
+    boardUpdate: MentoriaBoardUpdate;
     explanation: string;
     suggestedSteps: string[];
     reinforcementQuestion: string;
@@ -2340,6 +2353,25 @@ export class MentoriaService {
     );
     await trackEvent(sessionMetric);
 
+    const resolvedExplanation = String(tutorResponse.output.explanation);
+    const resolvedSuggestedSteps = Array.isArray(tutorResponse.output.suggestedSteps)
+      ? tutorResponse.output.suggestedSteps.map((item) => String(item))
+      : [];
+    const resolvedReinforcementQuestion = String(tutorResponse.output.reinforcementQuestion);
+    const resolvedRecommendedNextStep = String(tutorResponse.output.recommendedNextStep);
+    const boardUpdate = buildBoardUpdateFromSession({
+      student,
+      subject,
+      topic: resolvedTopic,
+      reply: tutorResponse.reply,
+      explanation: resolvedExplanation,
+      suggestedSteps: resolvedSuggestedSteps,
+      reinforcementQuestion: resolvedReinforcementQuestion,
+      recommendedNextStep: resolvedRecommendedNextStep,
+      sessionMode: resolvedSessionMode,
+      createdAt: new Date().toISOString(),
+    });
+
     // ATOMIC TRIAL ENFORCEMENT: Re-verify trial status immediately before session creation
     // This prevents race condition where trial expires between initial check and session creation
     const finalTrialCheck = await this.trialManager.isTrialActive(actor.tenantId, student.id);
@@ -2364,7 +2396,8 @@ export class MentoriaService {
       ],
       emotionalState: adaptation.emotionalState,
       tutorSummary: String(tutorResponse.output.tutorSummary),
-      recommendedNextStep: String(tutorResponse.output.recommendedNextStep),
+      recommendedNextStep: resolvedRecommendedNextStep,
+      boardUpdate,
       aiTokensUsed: tutorResponse.usage?.tokens ?? 0,
     });
 
@@ -2686,10 +2719,19 @@ export class MentoriaService {
       session,
       subject,
       adaptation: adaptedEntry,
+      chatMessage: tutorResponse.reply,
       reply: tutorResponse.reply,
-      explanation: String(tutorResponse.output.explanation),
-      suggestedSteps: Array.isArray(tutorResponse.output.suggestedSteps) ? tutorResponse.output.suggestedSteps.map((item) => String(item)) : [],
-      reinforcementQuestion: String(tutorResponse.output.reinforcementQuestion),
+      subjectSlug: subject.slug,
+      topic: resolvedTopic,
+      mode: boardUpdate.mode,
+      steps: boardUpdate.steps,
+      example: boardUpdate.example ?? null,
+      exercise: boardUpdate.exercise ?? null,
+      nextAction: boardUpdate.nextAction,
+      boardUpdate,
+      explanation: resolvedExplanation,
+      suggestedSteps: resolvedSuggestedSteps,
+      reinforcementQuestion: resolvedReinforcementQuestion,
       sessionMode: resolvedSessionMode,
       sessionInputKind: resolvedSessionInputKind,
       insights,

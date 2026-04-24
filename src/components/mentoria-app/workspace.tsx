@@ -7,6 +7,11 @@ import { WorkspaceShell } from "@/components/mentoria-app/workspace-shell";
 import { WorkspaceNav } from "@/components/mentoria-app/workspace-nav";
 import { WorkspaceBoard } from "@/components/mentoria-app/workspace-board";
 import { WorkspaceCopilot } from "@/components/mentoria-app/workspace-copilot";
+import {
+  buildBoardUpdateFromExercise,
+  buildBoardUpdateFromLearningSession,
+  buildEmptyBoardUpdate,
+} from "@/lib/mentoria/board-update";
 import { getWorkspaceUiCopy } from "@/lib/mentoria/microcopy";
 import { decideNextBestAction } from "@/lib/behavioral-engine/decision";
 import { buildBehavioralExplanationFrame } from "@/lib/behavioral-engine/explanation";
@@ -27,6 +32,7 @@ import type {
   DailyPlan,
   FocusSession,
   LearningSession,
+  MentoriaBoardUpdate,
   MentoriaExercise,
   MentoriaFamily,
   MentoriaDailyClosureSummary,
@@ -158,7 +164,16 @@ type WorkspaceApiResponse = WorkspaceState & {
 type SessionApiResponse = {
   ok?: boolean;
   error?: string;
+  chatMessage?: string;
   reply?: string;
+  subjectSlug?: string;
+  topic?: string;
+  mode?: string;
+  steps?: string[];
+  example?: string | null;
+  exercise?: { prompt: string; answerFormat?: string | null; hints?: string[] } | null;
+  nextAction?: string;
+  boardUpdate?: MentoriaBoardUpdate | null;
   explanation?: string;
   suggestedSteps?: string[];
   reinforcementQuestion?: string;
@@ -391,6 +406,7 @@ export function MentoriaWorkspace() {
   const [message, setMessage] = useState(initialUi.defaultMessage);
   const [tutorResult, setTutorResult] = useState<TutorResult | null>(null);
   const [tutorMessages, setTutorMessages] = useState<TutorMessage[]>([]);
+  const [boardHistoryByScope, setBoardHistoryByScope] = useState<Record<string, MentoriaBoardUpdate[]>>({});
   const [exerciseAnswer, setExerciseAnswer] = useState("");
   const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -522,6 +538,46 @@ export function MentoriaWorkspace() {
         || workspaceBody.entry?.recommendedSubjectSlug
         || workspaceBody.studentSubjects?.[0]?.subject?.slug
         || "";
+      const initialBoardHistoryByScope = (workspaceBody.recentSessions ?? []).reduce<Record<string, MentoriaBoardUpdate[]>>((accumulator, session) => {
+        const subject = (workspaceBody.studentSubjects ?? []).find((item) => item.subjectId === session.subjectId)?.subject ?? null;
+        if (!subject || !workspaceBody.student) return accumulator;
+        const scopeKey = `${workspaceBody.student.id}:${subject.slug}`;
+        const nextUpdate = buildBoardUpdateFromLearningSession({
+          student: workspaceBody.student,
+          subject,
+          session,
+        });
+        return {
+          ...accumulator,
+          [scopeKey]: [...(accumulator[scopeKey] ?? []), nextUpdate].slice(-8),
+        };
+      }, {});
+      const initialSubject = (workspaceBody.studentSubjects ?? []).find((item) => item.subject?.slug === initialSubjectSlug)?.subject ?? null;
+      if (workspaceBody.student && initialSubject) {
+        const initialScopeKey = `${workspaceBody.student.id}:${initialSubject.slug}`;
+        if ((initialBoardHistoryByScope[initialScopeKey]?.length ?? 0) === 0) {
+          initialBoardHistoryByScope[initialScopeKey] = [
+            buildEmptyBoardUpdate({
+              student: workspaceBody.student,
+              subject: initialSubject,
+              topic: workspaceBody.entry?.recommendedTopic ?? initialSubject.name,
+            }),
+          ];
+        }
+      }
+      setBoardHistoryByScope((current) => {
+        const merged: Record<string, MentoriaBoardUpdate[]> = { ...initialBoardHistoryByScope };
+        for (const [scopeKey, updates] of Object.entries(current)) {
+          const deduped = new Map<string, MentoriaBoardUpdate>();
+          for (const item of [...(merged[scopeKey] ?? []), ...updates]) {
+            deduped.set(`${item.updatedAt}:${item.topic}:${item.mode}`, item);
+          }
+          merged[scopeKey] = Array.from(deduped.values())
+            .sort((left, right) => Date.parse(left.updatedAt) - Date.parse(right.updatedAt))
+            .slice(-8);
+        }
+        return merged;
+      });
       const initialRecentSession = (workspaceBody.recentSessions ?? []).find((session) => {
         if (!initialSubjectSlug) return true;
         const sessionSubjectSlug = (workspaceBody.studentSubjects ?? []).find((item) => item.subjectId === session.subjectId)?.subject?.slug ?? "";
@@ -560,6 +616,50 @@ export function MentoriaWorkspace() {
     return state.studentSubjects.find((item: MentoriaStudentSubject) => item.subjectId === subjectId)?.subject?.slug ?? "";
   }
 
+  function resolveSubjectBySlug(nextSubjectSlug?: string | null) {
+    if (!nextSubjectSlug) return null;
+    return state.studentSubjects.find((item: MentoriaStudentSubject) => item.subject?.slug === nextSubjectSlug)?.subject ?? null;
+  }
+
+  function buildBoardScopeKey(nextStudentId?: string | null, nextSubjectSlug?: string | null) {
+    if (!nextStudentId || !nextSubjectSlug) return "";
+    return `${nextStudentId}:${nextSubjectSlug}`;
+  }
+
+  function pushBoardUpdate(nextBoardUpdate: MentoriaBoardUpdate) {
+    const scopeKey = buildBoardScopeKey(nextBoardUpdate.studentId, nextBoardUpdate.subjectSlug);
+    if (!scopeKey) return;
+    setBoardHistoryByScope((current) => {
+      const currentHistory = current[scopeKey] ?? [];
+      const previousUpdate = currentHistory[currentHistory.length - 1] ?? null;
+      const shouldReplace =
+        previousUpdate
+        && previousUpdate.topic === nextBoardUpdate.topic
+        && previousUpdate.mode === nextBoardUpdate.mode
+        && previousUpdate.updatedAt === nextBoardUpdate.updatedAt;
+      const nextHistory = shouldReplace
+        ? [...currentHistory.slice(0, -1), nextBoardUpdate]
+        : [...currentHistory, nextBoardUpdate];
+      return {
+        ...current,
+        [scopeKey]: [...nextHistory]
+          .sort((left, right) => Date.parse(left.updatedAt) - Date.parse(right.updatedAt))
+          .slice(-8),
+      };
+    });
+  }
+
+  function setBoardHistoryForSubject(nextStudentId: string, nextSubjectSlug: string, updates: MentoriaBoardUpdate[]) {
+    const scopeKey = buildBoardScopeKey(nextStudentId, nextSubjectSlug);
+    if (!scopeKey) return;
+    setBoardHistoryByScope((current) => ({
+      ...current,
+      [scopeKey]: [...updates]
+        .sort((left, right) => Date.parse(left.updatedAt) - Date.parse(right.updatedAt))
+        .slice(-8),
+    }));
+  }
+
   function mapTranscriptToTutorMessages(transcript: LearningSession["transcript"] = []): TutorMessage[] {
     return transcript.map((item) => ({
       role: item.role,
@@ -579,6 +679,19 @@ export function MentoriaWorkspace() {
       return sessionSubjectSlug === nextSubjectSlug;
     }) ?? null;
     setTutorMessages(mapTranscriptToTutorMessages(scopedSession?.transcript ?? []));
+  }
+
+  function ensureBoardForSubject(nextSubjectSlug?: string | null, nextTopic?: string | null) {
+    if (!state.student || !nextSubjectSlug) return;
+    const subject = resolveSubjectBySlug(nextSubjectSlug);
+    if (!subject) return;
+    const scopeKey = buildBoardScopeKey(state.student.id, nextSubjectSlug);
+    if (scopeKey && (boardHistoryByScope[scopeKey]?.length ?? 0) > 0) return;
+    setBoardHistoryForSubject(
+      state.student.id,
+      nextSubjectSlug,
+      [buildEmptyBoardUpdate({ student: state.student, subject, topic: nextTopic ?? subject.name })],
+    );
   }
 
   const guidedSteps = useMemo(() => {
@@ -617,6 +730,28 @@ export function MentoriaWorkspace() {
     subjectScopedExercises.find((ex: MentoriaExercise) => ex.id === activeExerciseId)
     ?? subjectScopedExercises.find((ex: MentoriaExercise) => ex.status === "pending")
     ?? null;
+  const activeBoardScopeKey = buildBoardScopeKey(state.student?.id ?? null, activeSubjectSlugForUi);
+  const activeBoardHistory = activeBoardScopeKey ? boardHistoryByScope[activeBoardScopeKey] ?? [] : [];
+  const activeBoardUpdate = useMemo(() => {
+    if (activeBoardHistory.length > 0) {
+      return activeBoardHistory[activeBoardHistory.length - 1] ?? null;
+    }
+    if (state.student && selectedSubject?.subject && latestSession) {
+      return buildBoardUpdateFromLearningSession({
+        student: state.student,
+        subject: selectedSubject.subject,
+        session: latestSession,
+      });
+    }
+    if (state.student && selectedSubject?.subject) {
+      return buildEmptyBoardUpdate({
+        student: state.student,
+        subject: selectedSubject.subject,
+        topic,
+      });
+    }
+    return null;
+  }, [activeBoardHistory, latestSession, selectedSubject?.subject, state.student, topic]);
   const actionableDailyPlan = state.dailyPlan
     ? {
         ...state.dailyPlan,
@@ -641,6 +776,11 @@ export function MentoriaWorkspace() {
     () => buildSessionSignalSummary(sessionSignal, selectedSubjectNameForUi),
     [selectedSubjectNameForUi, sessionSignal],
   );
+
+  useEffect(() => {
+    ensureBoardForSubject(activeSubjectSlugForUi, topic);
+  }, [activeSubjectSlugForUi, topic, state.student?.id, state.studentSubjects]);
+
   const recentActivityLabel = useMemo(() => {
     const activityIso = latestSession?.updatedAt ?? state.motivation?.lastActivityAt ?? null;
     if (!activityIso) return null;
@@ -799,8 +939,9 @@ export function MentoriaWorkspace() {
       return;
     }
 
-    if (body?.reply) {
-      const nextTutorMessages: TutorMessage[] = [{ role: "tutor", content: body.reply ?? "", kind: "message" }];
+    if (body?.reply || body?.chatMessage) {
+      const tutorReply = body.chatMessage ?? body.reply ?? "";
+      const nextTutorMessages: TutorMessage[] = [{ role: "tutor", content: tutorReply, kind: "message" }];
       if (body.explanation) {
         nextTutorMessages.push({ role: "tutor", content: body.explanation, kind: "explanation" });
       }
@@ -819,8 +960,14 @@ export function MentoriaWorkspace() {
       if (body.sessionFeedback?.encouragement) {
         nextTutorMessages.push({ role: "tutor", content: body.sessionFeedback.encouragement, kind: "feedback" });
       }
+      if (body.boardUpdate) {
+        pushBoardUpdate(body.boardUpdate);
+        if (body.boardUpdate.mode !== "practice" && body.boardUpdate.mode !== "correction") {
+          setActiveExerciseId(null);
+        }
+      }
       setTutorResult({
-        reply: body.reply ?? "",
+        reply: tutorReply,
         explanation: body.explanation ?? "",
         suggestedSteps: body.suggestedSteps ?? [],
         reinforcementQuestion: body.reinforcementQuestion ?? "",
@@ -835,9 +982,9 @@ export function MentoriaWorkspace() {
       });
       setSessionModeOverride(body.sessionMode ?? normalizedInput?.sessionMode ?? null);
       setSessionInputKindOverride(body.sessionInputKind ?? normalizedInput?.sessionInputKind ?? null);
-      setSubjectSlug(body.subject?.slug ?? resolvedSubjectSlug ?? "");
-      setTopic(body.session?.topic ?? resolvedTopic);
-      setMessage(body.session?.recommendedNextStep ?? resolvedMessage);
+      setSubjectSlug(body.subject?.slug ?? body.subjectSlug ?? resolvedSubjectSlug ?? "");
+      setTopic(body.session?.topic ?? body.topic ?? resolvedTopic);
+      setMessage(body.boardUpdate?.nextAction ?? body.nextAction ?? body.session?.recommendedNextStep ?? resolvedMessage);
       setTutorMessages((current: TutorMessage[]) => [...current, ...nextTutorMessages]);
       setSessionStatusMessage(null);
       resetGuidedFlow();
@@ -932,6 +1079,116 @@ export function MentoriaWorkspace() {
     }
 
     setExerciseAnswer("");
+    const correctedExercise = body?.exercise ?? null;
+    if (correctedExercise && state.student) {
+      const correctedSubject = state.studentSubjects.find((item: MentoriaStudentSubject) => item.subjectId === correctedExercise.subjectId)?.subject ?? null;
+      if (correctedSubject) {
+        pushBoardUpdate(
+          buildBoardUpdateFromExercise({
+            student: state.student,
+            subject: correctedSubject,
+            topic: activeBoardUpdate?.topic ?? topic,
+            exercise: correctedExercise,
+            correction: correctedExercise.correctionFeedback ?? null,
+          }),
+        );
+      }
+    }
+    setSessionStatusMessage("He corregido el ejercicio en la pizarra para que veas justo donde ajustar.");
+    void load();
+  }
+
+  async function handleAdvanceBoardStep() {
+    if (!activeBoardUpdate) return;
+    if (activeBoardUpdate.mode === "practice" && latestExercise && latestExercise.status !== "corrected") {
+      await handleSubmitExercise();
+      return;
+    }
+    await handleSendMessage({
+      message: activeBoardUpdate.nextAction,
+      topic: activeBoardUpdate.topic,
+      subjectSlug: activeBoardUpdate.subjectSlug,
+      entryMode: "entry",
+      sessionMode: "subject_reinforcement",
+      sessionInputKind: "free_message",
+    });
+  }
+
+  async function handleRequestSimplerExplanation() {
+    if (!activeBoardUpdate) return;
+    await handleSendMessage({
+      message: `No lo entiendo todavia. Explicamelo ${activeBoardUpdate.topic} mas facil, paso a paso y sin saltos.`,
+      topic: activeBoardUpdate.topic,
+      subjectSlug: activeBoardUpdate.subjectSlug,
+      entryMode: "entry",
+      sessionMode: "subject_reinforcement",
+      sessionInputKind: "free_message",
+    });
+  }
+
+  async function handleRequestAnotherExample() {
+    if (!activeBoardUpdate) return;
+    await handleSendMessage({
+      message: `Dame otro ejemplo distinto sobre ${activeBoardUpdate.topic}. Quiero verlo muy claro antes de seguir.`,
+      topic: activeBoardUpdate.topic,
+      subjectSlug: activeBoardUpdate.subjectSlug,
+      entryMode: "entry",
+      sessionMode: "subject_reinforcement",
+      sessionInputKind: "free_message",
+    });
+  }
+
+  async function handleRequestPractice() {
+    if (!state.student || !activeSubjectSlugForUi) return;
+    const activeSubject = resolveSubjectBySlug(activeSubjectSlugForUi);
+    if (!activeSubject) return;
+    setError(null);
+    let response: Response | null = null;
+    try {
+      response = await fetch("/api/mentoria/exercises", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "generate",
+          studentId: selectedStudentId ?? state.student.id,
+          subjectSlug: activeSubjectSlugForUi,
+          topic: activeBoardUpdate?.topic ?? topic,
+          entryMode: "entry",
+        }),
+      });
+    } catch {
+      return;
+    }
+
+    if (!response || typeof response.json !== "function") {
+      return;
+    }
+
+    let body: { error?: string; exercise?: MentoriaExercise } | null = null;
+    try {
+      body = (await response.json()) as { error?: string; exercise?: MentoriaExercise };
+    } catch {
+      body = null;
+    }
+
+    if (!response.ok) {
+      setError(body?.error ?? null);
+      return;
+    }
+
+    if (body?.exercise) {
+      setActiveExerciseId(body.exercise.id);
+      pushBoardUpdate(
+        buildBoardUpdateFromExercise({
+          student: state.student,
+          subject: activeSubject,
+          topic: activeBoardUpdate?.topic ?? topic,
+          exercise: body.exercise,
+        }),
+      );
+      setSessionStatusMessage("Te he dejado una practica corta en la pizarra.");
+    }
+
     void load();
   }
 
@@ -1007,12 +1264,24 @@ export function MentoriaWorkspace() {
 
   function handleOpenExercise(exerciseId: string) {
     setActiveExerciseId(exerciseId);
-    const exerciseSubjectSlug = resolveSubjectSlugFromSubjectId(
-      state.exercises.find((exercise: MentoriaExercise) => exercise.id === exerciseId)?.subjectId,
-    );
+    const selectedExercise = state.exercises.find((exercise: MentoriaExercise) => exercise.id === exerciseId) ?? null;
+    const exerciseSubjectSlug = resolveSubjectSlugFromSubjectId(selectedExercise?.subjectId);
     if (exerciseSubjectSlug) {
       setSubjectSlug(exerciseSubjectSlug);
       seedTutorMessagesForSubject(exerciseSubjectSlug);
+      if (selectedExercise && state.student) {
+        const exerciseSubject = resolveSubjectBySlug(exerciseSubjectSlug);
+        if (exerciseSubject) {
+          pushBoardUpdate(
+            buildBoardUpdateFromExercise({
+              student: state.student,
+              subject: exerciseSubject,
+              topic: activeBoardUpdate?.topic ?? topic,
+              exercise: selectedExercise,
+            }),
+          );
+        }
+      }
     }
     setActiveSection("board");
     setSessionStatusMessage("Vamos a seguir con este ejercicio 👇");
@@ -1052,6 +1321,18 @@ export function MentoriaWorkspace() {
     const resumeSubjectSlug = resolveSubjectSlugFromSubjectId(session.subjectId) || undefined;
     if (resumeSubjectSlug) {
       setSubjectSlug(resumeSubjectSlug);
+      if (state.student) {
+        const resumeSubject = resolveSubjectBySlug(resumeSubjectSlug);
+        if (resumeSubject) {
+          pushBoardUpdate(
+            buildBoardUpdateFromLearningSession({
+              student: state.student,
+              subject: resumeSubject,
+              session,
+            }),
+          );
+        }
+      }
     }
     if (session.topic) {
       setTopic(session.topic);
@@ -1572,6 +1853,7 @@ export function MentoriaWorkspace() {
             setSubjectSlug(slug);
             setTutorResult(null);
             seedTutorMessagesForSubject(slug);
+            ensureBoardForSubject(slug, state.studentSubjects.find((item: MentoriaStudentSubject) => item.subject?.slug === slug)?.subject?.name ?? null);
             setSessionModeOverride("subject_reinforcement");
             setSessionInputKindOverride("selected_subject");
             setSessionStatusMessage(`Materia activa: ${state.studentSubjects.find((item: MentoriaStudentSubject) => item.subject?.slug === slug)?.subject?.name ?? slug}`);
@@ -1607,6 +1889,8 @@ export function MentoriaWorkspace() {
           selectedSubject={selectedSubject}
           currentTopic={topic}
           currentMessage={message}
+          activeBoardUpdate={activeBoardUpdate}
+          activeBoardHistory={activeBoardHistory}
           sessionSignal={sessionSignal}
           sessionSignalSummary={sessionSignalSummary}
           sessionContract={sessionContract}
@@ -1635,6 +1919,10 @@ export function MentoriaWorkspace() {
           onResumeSession={handleResumeSession}
           onResumeDailyClosure={handleResumeDailyClosure}
           onQuickAction={handleQuickAction}
+          onAdvanceBoardStep={handleAdvanceBoardStep}
+          onRequestSimplerExplanation={handleRequestSimplerExplanation}
+          onRequestAnotherExample={handleRequestAnotherExample}
+          onRequestPractice={handleRequestPractice}
           onSessionSignalChange={setSessionSignal}
           onApplySessionSignal={handleApplySessionSignal}
           onSelectSessionMode={handleSelectSessionMode}

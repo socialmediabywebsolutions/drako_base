@@ -287,6 +287,319 @@ describe("MentoriaWorkspace", () => {
     });
   });
 
+  it("renders the board update returned by chat and keeps it isolated by subject", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(
+          buildWorkspaceResponse({
+            studentSubjects: [buildStudentSubject()],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          reply: "Vale, vamos paso a paso.",
+          chatMessage: "Vale, vamos paso a paso.",
+          subjectSlug: "matematicas",
+          topic: "Fracciones",
+          boardUpdate: {
+            studentId: "student_1",
+            subjectSlug: "matematicas",
+            subjectName: "Matematicas",
+            studentName: "Alex",
+            schoolYear: "2 ESO",
+            topic: "Fracciones",
+            mode: "explanation",
+            conceptDefinition: "Primero compara las fracciones desde el denominador.",
+            explanation: ["Mira el denominador antes de operar."],
+            steps: ["Compara denominadores"],
+            example: "Ejemplo guiado con fracciones equivalentes.",
+            formula: null,
+            diagram: null,
+            exercise: null,
+            correction: null,
+            nextAction: "Prueba un ejemplo corto.",
+            updatedAt: "2026-04-24T10:00:00.000Z",
+          },
+          explanation: "Mira el denominador antes de operar.",
+          suggestedSteps: ["Compara denominadores"],
+          reinforcementQuestion: "Que cambia entre ambas fracciones?",
+          subject: { name: "Matematicas", slug: "matematicas" },
+          session: { id: "session_1", topic: "Fracciones", recommendedNextStep: "Prueba un ejemplo corto." },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          buildWorkspaceResponse({
+            studentSubjects: [buildStudentSubject()],
+          }),
+        ),
+      );
+
+    render(React.createElement(MentoriaWorkspace));
+
+    await screen.findByRole("heading", { name: "Hola, Alex" });
+    fireEvent.change(screen.getByPlaceholderText(/Escribe tu duda/i), {
+      target: { value: "No entiendo fracciones" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+
+    expect(await screen.findByText("Primero compara las fracciones desde el denominador.")).toBeInTheDocument();
+    expect(screen.getByText("Ejemplo guiado con fracciones equivalentes.")).toBeInTheDocument();
+  });
+
+  it("lets the student ask for a simpler explanation, another example and the next step from the board", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(
+          buildWorkspaceResponse({
+            studentSubjects: [buildStudentSubject()],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          reply: "Vale, vamos paso a paso.",
+          chatMessage: "Vale, vamos paso a paso.",
+          subjectSlug: "matematicas",
+          topic: "Fracciones",
+          boardUpdate: {
+            studentId: "student_1",
+            subjectSlug: "matematicas",
+            subjectName: "Matematicas",
+            studentName: "Alex",
+            schoolYear: "2 ESO",
+            topic: "Fracciones",
+            mode: "explanation",
+            conceptDefinition: "Primero compara las fracciones desde el denominador.",
+            explanation: ["Mira el denominador antes de operar."],
+            steps: ["Compara denominadores"],
+            example: "Ejemplo guiado con fracciones equivalentes.",
+            formula: null,
+            diagram: null,
+            exercise: null,
+            correction: null,
+            nextAction: "Prueba un ejemplo corto.",
+            updatedAt: "2026-04-24T10:00:00.000Z",
+          },
+          explanation: "Mira el denominador antes de operar.",
+          suggestedSteps: ["Compara denominadores"],
+          reinforcementQuestion: "Que cambia entre ambas fracciones?",
+          subject: { name: "Matematicas", slug: "matematicas" },
+          session: { id: "session_1", topic: "Fracciones", recommendedNextStep: "Prueba un ejemplo corto." },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          buildWorkspaceResponse({
+            studentSubjects: [buildStudentSubject()],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          reply: "Te lo explico mas facil.",
+          chatMessage: "Te lo explico mas facil.",
+          subjectSlug: "matematicas",
+          topic: "Fracciones",
+          boardUpdate: {
+            studentId: "student_1",
+            subjectSlug: "matematicas",
+            subjectName: "Matematicas",
+            studentName: "Alex",
+            schoolYear: "2 ESO",
+            topic: "Fracciones",
+            mode: "explanation",
+            conceptDefinition: "Una fraccion compara partes del mismo tamano.",
+            explanation: ["Primero mira cuantas partes iguales tienes en total."],
+            steps: ["Fijate en el total de partes"],
+            example: "Ejemplo visual con una pizza partida en ocho trozos.",
+            formula: null,
+            diagram: null,
+            exercise: null,
+            correction: null,
+            nextAction: "Ahora compara dos fracciones sencillas.",
+            updatedAt: "2026-04-24T10:05:00.000Z",
+          },
+          explanation: "Primero mira cuantas partes iguales tienes en total.",
+          suggestedSteps: ["Fijate en el total de partes"],
+          reinforcementQuestion: "Que representa el denominador?",
+          subject: { name: "Matematicas", slug: "matematicas" },
+          session: { id: "session_2", topic: "Fracciones", recommendedNextStep: "Ahora compara dos fracciones sencillas." },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          buildWorkspaceResponse({
+            studentSubjects: [buildStudentSubject()],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          reply: "Mira este ejemplo distinto.",
+          chatMessage: "Mira este ejemplo distinto.",
+          subjectSlug: "matematicas",
+          topic: "Fracciones",
+          boardUpdate: {
+            studentId: "student_1",
+            subjectSlug: "matematicas",
+            subjectName: "Matematicas",
+            studentName: "Alex",
+            schoolYear: "2 ESO",
+            topic: "Fracciones",
+            mode: "example",
+            conceptDefinition: "Ahora trabajamos el mismo concepto con otro caso.",
+            explanation: ["Compara dos fracciones usando rectas numericas."],
+            steps: ["Coloca ambas fracciones en la recta"],
+            example: "Ejemplo nuevo con rectas numericas y marcas iguales.",
+            formula: null,
+            diagram: ["fraccion A -> posicion", "fraccion B -> posicion"],
+            exercise: null,
+            correction: null,
+            nextAction: "Haz una comparacion tu solo.",
+            updatedAt: "2026-04-24T10:10:00.000Z",
+          },
+          explanation: "Compara dos fracciones usando rectas numericas.",
+          suggestedSteps: ["Coloca ambas fracciones en la recta"],
+          reinforcementQuestion: "Cual queda mas a la derecha?",
+          subject: { name: "Matematicas", slug: "matematicas" },
+          session: { id: "session_3", topic: "Fracciones", recommendedNextStep: "Haz una comparacion tu solo." },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          buildWorkspaceResponse({
+            studentSubjects: [buildStudentSubject()],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          reply: "Seguimos con un paso mas.",
+          chatMessage: "Seguimos con un paso mas.",
+          subjectSlug: "matematicas",
+          topic: "Fracciones",
+          boardUpdate: {
+            studentId: "student_1",
+            subjectSlug: "matematicas",
+            subjectName: "Matematicas",
+            studentName: "Alex",
+            schoolYear: "2 ESO",
+            topic: "Fracciones equivalentes",
+            mode: "summary",
+            conceptDefinition: "Ahora ya puedes comparar y justificar tu respuesta.",
+            explanation: ["Relaciona el ejemplo con una comparacion real."],
+            steps: ["Justifica por que una es mayor"],
+            example: "Caso guiado con dos fracciones equivalentes y una comparacion final.",
+            formula: null,
+            diagram: null,
+            exercise: null,
+            correction: null,
+            nextAction: "Haz una comparacion tu solo.",
+            updatedAt: "2026-04-24T10:15:00.000Z",
+          },
+          explanation: "Relaciona el ejemplo con una comparacion real.",
+          suggestedSteps: ["Justifica por que una es mayor"],
+          reinforcementQuestion: "Como justificarias la respuesta?",
+          subject: { name: "Matematicas", slug: "matematicas" },
+          session: { id: "session_4", topic: "Fracciones equivalentes", recommendedNextStep: "Haz una comparacion tu solo." },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          buildWorkspaceResponse({
+            studentSubjects: [buildStudentSubject()],
+          }),
+        ),
+      );
+
+    render(React.createElement(MentoriaWorkspace));
+
+    await screen.findByRole("heading", { name: "Hola, Alex" });
+    fireEvent.change(screen.getByPlaceholderText(/Escribe tu duda/i), {
+      target: { value: "No entiendo fracciones" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+
+    expect(await screen.findByText("Primero compara las fracciones desde el denominador.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "No lo entiendo" }));
+    expect(await screen.findByText("Una fraccion compara partes del mismo tamano.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Dame otro ejemplo" }));
+    expect(await screen.findByText("Ejemplo nuevo con rectas numericas y marcas iguales.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente paso" }));
+    expect(await screen.findByText("Ahora ya puedes comparar y justificar tu respuesta.")).toBeInTheDocument();
+  });
+
+  it("turns the board practice button into a real exercise for the active subject", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(
+          buildWorkspaceResponse({
+            studentSubjects: [buildStudentSubject()],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          exercise: {
+            id: "exercise_1",
+            tenantId: "tenant_mentoria",
+            studentProfileId: "student_1",
+            subjectId: "subject_matematicas",
+            prompt: "Resuelve una comparacion corta de fracciones.",
+            expectedCompetency: "Comparar fracciones equivalentes",
+            hints: ["Busca un comun denominador"],
+            answerFormat: "Operacion y respuesta final",
+            difficultyLevel: "medium",
+            status: "pending",
+            createdAt: "2026-04-24T10:20:00.000Z",
+            updatedAt: "2026-04-24T10:20:00.000Z",
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          buildWorkspaceResponse({
+            studentSubjects: [buildStudentSubject()],
+            exercises: [
+              {
+                id: "exercise_1",
+                tenantId: "tenant_mentoria",
+                studentProfileId: "student_1",
+                subjectId: "subject_matematicas",
+                prompt: "Resuelve una comparacion corta de fracciones.",
+                expectedCompetency: "Comparar fracciones equivalentes",
+                hints: ["Busca un comun denominador"],
+                answerFormat: "Operacion y respuesta final",
+                difficultyLevel: "medium",
+                status: "pending",
+                createdAt: "2026-04-24T10:20:00.000Z",
+                updatedAt: "2026-04-24T10:20:00.000Z",
+              },
+            ],
+          }),
+        ),
+      );
+
+    render(React.createElement(MentoriaWorkspace));
+
+    await screen.findByRole("heading", { name: "Hola, Alex" });
+    fireEvent.click(screen.getByRole("button", { name: "Practicar" }));
+
+    expect(await screen.findByText("Resuelve una comparacion corta de fracciones.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Tu respuesta")).toBeInTheDocument();
+  });
+
   it("keeps tutor transcript isolated when the active subject changes", async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(
@@ -1705,6 +2018,28 @@ describe("MentoriaWorkspace", () => {
         jsonResponse({
           ok: true,
           reply: "Vamos a dividir el problema en partes pequenas.",
+          chatMessage: "Vamos a dividir el problema en partes pequenas.",
+          subjectSlug: "matematicas",
+          topic: "Fracciones",
+          boardUpdate: {
+            studentId: "student_1",
+            subjectSlug: "matematicas",
+            subjectName: "Matematicas",
+            studentName: "Alex",
+            schoolYear: "2 ESO",
+            topic: "Fracciones",
+            mode: "summary",
+            conceptDefinition: "Ya tienes una base clara para seguir con un ejemplo real.",
+            explanation: ["Primero mira el denominador comun."],
+            steps: ["Encuentra el comun denominador"],
+            example: "Ejemplo guiado con dos fracciones equivalentes.",
+            formula: null,
+            diagram: null,
+            exercise: null,
+            correction: null,
+            nextAction: "Resuelve ahora un ejemplo con dos fracciones equivalentes.",
+            updatedAt: "2026-04-24T10:30:00.000Z",
+          },
           explanation: "Primero mira el denominador comun.",
           suggestedSteps: ["Encuentra el comun denominador"],
           reinforcementQuestion: "Que parte del denominador te esta frenando?",
@@ -1740,7 +2075,7 @@ describe("MentoriaWorkspace", () => {
     expect(screen.getByText("Has mejorado un poco la seguridad en fracciones.")).toBeInTheDocument();
     expect(screen.getByText("Buen avance: ya tienes una primera base para seguir.")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Continuar con este siguiente paso" }));
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente paso" }));
 
     await waitFor(() => {
       expect(screen.getByDisplayValue("Resuelve ahora un ejemplo con dos fracciones equivalentes.")).toBeInTheDocument();

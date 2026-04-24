@@ -32,6 +32,33 @@ export type MentoriaConversationChannel = "whatsapp";
 export type MentoriaConceptConfidenceLevel = "low" | "medium" | "high";
 export type MentoriaConceptMasteryLevel = "fragile" | "developing" | "secure" | "mastered";
 export type MentoriaSupportStyle = "step_by_step" | "visual_steps" | "concrete_example" | "guided_practice" | "retrieval_check";
+export type MentoriaBoardMode = "explanation" | "example" | "practice" | "correction" | "summary";
+
+export type MentoriaBoardExercise = {
+  prompt: string;
+  answerFormat?: string | null;
+  hints?: string[];
+};
+
+export type MentoriaBoardUpdate = {
+  studentId: string;
+  subjectSlug: string;
+  subjectName: string;
+  studentName: string;
+  schoolYear: string;
+  topic: string;
+  mode: MentoriaBoardMode;
+  conceptDefinition?: string | null;
+  explanation: string[];
+  steps: string[];
+  example?: string | null;
+  formula?: string | null;
+  diagram?: string[] | null;
+  exercise?: MentoriaBoardExercise | null;
+  correction?: string | null;
+  nextAction: string;
+  updatedAt: string;
+};
 
 export type MentoriaFamily = {
   id: string;
@@ -338,6 +365,7 @@ export type LearningSession = {
   explanation?: string;
   suggestedSteps?: string[];
   reinforcementQuestion?: string;
+  boardUpdate?: MentoriaBoardUpdate | null;
   transcript: MentoriaSessionMessage[];
   createdAt: string;
   completedAt?: string;
