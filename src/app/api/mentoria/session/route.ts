@@ -31,7 +31,13 @@ export async function POST(request: Request) {
     }
     const message = error instanceof Error ? error.message : "SESSION_CREATE_FAILED";
     const status =
-      message === "SESSION_REQUIRED" ? 401 : message === "ONBOARDING_REQUIRED" ? 409 : message === "STUDENT_ACCESS_DENIED" ? 403 : 500;
+      message === "SESSION_REQUIRED"
+        ? 401
+        : message === "ONBOARDING_REQUIRED"
+          ? 409
+          : message === "STUDENT_ACCESS_DENIED" || message === "SUBJECT_ACCESS_DENIED"
+            ? 403
+            : 500;
     console.error("[SessionAPI] Error:", message);
     return NextResponse.json({ ok: false, error: message }, { status });
   }

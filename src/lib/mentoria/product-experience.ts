@@ -125,11 +125,12 @@ function scoreSubject(subject: MentoriaSubject, input: InferSubjectInput): numbe
 }
 
 export function inferSubjectAndTopic(input: InferSubjectInput): InferSubjectResult {
-  const requested = input.requestedSubjectSlug
-    ? input.subjects.find((subject) => normalize(subject.slug) === normalize(input.requestedSubjectSlug ?? ""))
-    : null;
-
-  if (requested) {
+  const requestedSubjectSlug = input.requestedSubjectSlug?.trim() ?? "";
+  if (requestedSubjectSlug) {
+    const requested = input.subjects.find((subject) => normalize(subject.slug) === normalize(requestedSubjectSlug)) ?? null;
+    if (!requested) {
+      throw new Error("SUBJECT_ACCESS_DENIED");
+    }
     return {
       subject: requested,
       topic: (input.topic ?? "").trim() || extractTopic(input.message, requested.name),

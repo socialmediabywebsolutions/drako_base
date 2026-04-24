@@ -112,6 +112,29 @@ function buildStudentSubject() {
   };
 }
 
+function buildHistorySubject() {
+  return {
+    id: "student_subject_2",
+    tenantId: "tenant_mentoria",
+    studentProfileId: "student_1",
+    subjectId: "subject_historia",
+    initialLevel: "voy_normal",
+    currentLevel: "voy_normal",
+    createdAt: "2026-04-03T00:00:00.000Z",
+    updatedAt: "2026-04-03T00:00:00.000Z",
+    subject: {
+      id: "subject_historia",
+      tenantId: "tenant_mentoria",
+      slug: "historia",
+      name: "Historia",
+      description: "Contexto y pensamiento critico",
+      difficultyBand: "growth",
+      createdAt: "2026-04-03T00:00:00.000Z",
+      updatedAt: "2026-04-03T00:00:00.000Z",
+    },
+  };
+}
+
 function buildBehavioralShadow(overrides?: Record<string, unknown>) {
   return {
     currentStrategy: "plan_task",
@@ -216,6 +239,125 @@ describe("MentoriaWorkspace", () => {
     expect(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Enviar" })).toBeInTheDocument();
     expect(screen.queryByText("Tutor IA")).not.toBeInTheDocument();
+  });
+
+  it("sends direct chat messages through the real chat endpoint with the active subject", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(
+          buildWorkspaceResponse({
+            studentSubjects: [buildStudentSubject()],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          reply: "Vale, vamos paso a paso.",
+          explanation: "Primero mira el denominador.",
+          suggestedSteps: ["Compara denominadores"],
+          reinforcementQuestion: "¿Qué cambia entre ambas fracciones?",
+          subject: { name: "Matematicas", slug: "matematicas" },
+          session: { id: "session_1", topic: "Fracciones", recommendedNextStep: "Prueba un ejemplo corto." },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          buildWorkspaceResponse({
+            studentSubjects: [buildStudentSubject()],
+          }),
+        ),
+      );
+
+    render(React.createElement(MentoriaWorkspace));
+
+    await screen.findByRole("heading", { name: "Hola, Alex" });
+    fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
+      target: { value: "No entiendo fracciones" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+
+    await screen.findByText("Vale, vamos paso a paso.");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/mentoria/chat");
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+      studentId: "student_1",
+      subjectSlug: "matematicas",
+      message: "No entiendo fracciones",
+    });
+  });
+
+  it("keeps tutor transcript isolated when the active subject changes", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        buildWorkspaceResponse({
+          studentSubjects: [buildStudentSubject(), buildHistorySubject()],
+          recentSessions: [
+            {
+              id: "session_historia",
+              tenantId: "tenant_mentoria",
+              studentProfileId: "student_1",
+              subjectId: "subject_historia",
+              mentorId: "mentor_1",
+              clientId: "student_1",
+              topic: "Revolucion francesa",
+              status: "completed",
+              durationMinutes: 18,
+              aiTokensUsed: 240,
+              emotionalState: "steady",
+              tutorSummary: "Has conectado causas y consecuencias.",
+              recommendedNextStep: "Explica el contexto previo.",
+              transcript: [
+                { role: "student", content: "No entiendo la Revolucion francesa", createdAt: "2026-04-03T00:00:00.000Z" },
+                { role: "tutor", content: "Primero situamos el contexto historico.", createdAt: "2026-04-03T00:01:00.000Z" },
+              ],
+              createdAt: "2026-04-03T00:00:00.000Z",
+              updatedAt: "2026-04-03T00:20:00.000Z",
+            },
+            {
+              id: "session_mates",
+              tenantId: "tenant_mentoria",
+              studentProfileId: "student_1",
+              subjectId: "subject_matematicas",
+              mentorId: "mentor_1",
+              clientId: "student_1",
+              topic: "Fracciones",
+              status: "completed",
+              durationMinutes: 20,
+              aiTokensUsed: 280,
+              emotionalState: "steady",
+              tutorSummary: "Has entendido mejor como comparar fracciones equivalentes.",
+              recommendedNextStep: "Resuelve un ejemplo corto de suma de fracciones.",
+              transcript: [
+                { role: "student", content: "No entiendo las fracciones", createdAt: "2026-04-03T00:00:00.000Z" },
+                { role: "tutor", content: "Vamos paso a paso con fracciones.", createdAt: "2026-04-03T00:01:00.000Z" },
+              ],
+              createdAt: "2026-04-02T00:00:00.000Z",
+              updatedAt: "2026-04-02T00:20:00.000Z",
+            },
+          ],
+          entry: {
+            headline: "Empieza por una duda concreta",
+            subheadline: "El tutor te guiara sin darte la respuesta final.",
+            recommendedSubjectSlug: "matematicas",
+            recommendedTopic: "Fracciones",
+            recommendedPrompt: "Quiero repasar fracciones paso a paso.",
+            quickActions: [],
+          },
+        }),
+      ),
+    );
+
+    render(React.createElement(MentoriaWorkspace));
+
+    await screen.findByRole("heading", { name: "Hola, Alex" });
+    expect(screen.getByText("Vamos paso a paso con fracciones.")).toBeInTheDocument();
+    expect(screen.queryByText("Primero situamos el contexto historico.")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Historia/ })[0]);
+
+    expect(await screen.findByText("Primero situamos el contexto historico.")).toBeInTheDocument();
+    expect(screen.queryByText("Vamos paso a paso con fracciones.")).not.toBeInTheDocument();
   });
 
   it("uses the engine-selected reentry strategy when the rollout enables engine strategy", async () => {

@@ -248,18 +248,8 @@ export function WorkspaceBoard({
     const byActiveSlug = studentSubjects.find((item) => item.subject?.slug === activeSubjectSlug) ?? null;
     if (byActiveSlug?.subject) return byActiveSlug.subject;
     if (selectedSubject?.subject) return selectedSubject.subject;
-    const resultSubjectSlug = tutorResult?.subjectSlug ?? latestSession?.subjectId ?? activeDailyTask?.subjectId ?? null;
-    const bySlug = studentSubjects.find((item) => item.subject?.slug === tutorResult?.subjectSlug) ?? null;
-    if (bySlug) return bySlug.subject ?? null;
-    const byTaskSubject = studentSubjects.find((item) => item.subjectId === activeDailyTask?.subjectId) ?? null;
-    if (byTaskSubject?.subject) return byTaskSubject.subject;
-    const byRecentSession = studentSubjects.find((item) => item.subjectId === latestSession?.subjectId) ?? null;
-    if (byRecentSession?.subject) return byRecentSession.subject;
-    if (resultSubjectSlug && typeof resultSubjectSlug === "string") {
-      return { id: "", tenantId: "", slug: resultSubjectSlug, name: tutorResult?.subjectName ?? activeDailyTask?.subject ?? "Materia", description: "", difficultyBand: "core", createdAt: "", updatedAt: "" };
-    }
     return studentSubjects[0]?.subject ?? null;
-  }, [activeDailyTask?.subject, activeDailyTask?.subjectId, activeSubjectSlug, latestSession?.subjectId, selectedSubject?.subject, studentSubjects, tutorResult?.subjectName, tutorResult?.subjectSlug]);
+  }, [activeSubjectSlug, selectedSubject?.subject, studentSubjects]);
   const activeSubjectProgress = activeSubject ? studentSubjects.find((item) => item.subject?.slug === activeSubject.slug) : null;
   const activeProgressMetrics = activeSubjectProgress ? progressBySubjectId.get(activeSubjectProgress.subjectId) : null;
   const subjectThemeMap = {
