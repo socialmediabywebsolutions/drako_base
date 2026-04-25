@@ -27,7 +27,7 @@ type LegacyMentoriaOnboardingPayload = {
 function statusFor(message: string) {
   if (message === "SESSION_REQUIRED") return 401;
   if (message === "ONBOARDING_REQUIRED") return 409;
-  if (message === "MENTORIA_AI_NOT_AVAILABLE") return 503;
+  if (message === "AI_BINDING_MISSING" || message === "AI_PROVIDER_UNAVAILABLE" || message === "MENTORIA_AI_NOT_AVAILABLE") return 503;
   if (
     message.startsWith("INVALID_")
     || message === "SUBJECTS_REQUIRED"

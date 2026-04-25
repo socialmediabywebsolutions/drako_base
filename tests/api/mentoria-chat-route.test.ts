@@ -137,8 +137,8 @@ describe("mentoria chat route", () => {
     );
   });
 
-  it("returns a clear 503 when Workers AI is not available", async () => {
-    const startGuidedSession = vi.fn().mockRejectedValue(new Error("MENTORIA_AI_NOT_AVAILABLE"));
+  it("returns a clear 503 when the Workers AI binding is missing", async () => {
+    const startGuidedSession = vi.fn().mockRejectedValue(new Error("AI_BINDING_MISSING"));
     mocks.createMentoriaServiceInstance.mockReturnValue({
       startGuidedSession,
     });
@@ -158,7 +158,32 @@ describe("mentoria chat route", () => {
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toMatchObject({
       ok: false,
-      error: "MENTORIA_AI_NOT_AVAILABLE",
+      error: "AI_BINDING_MISSING",
+    });
+  });
+
+  it("returns a clear 503 when Workers AI is unavailable because of quota or billing", async () => {
+    const startGuidedSession = vi.fn().mockRejectedValue(new Error("AI_PROVIDER_UNAVAILABLE"));
+    mocks.createMentoriaServiceInstance.mockReturnValue({
+      startGuidedSession,
+    });
+
+    const response = await POST(
+      new Request("https://mentoria.drako.systems/api/mentoria/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          studentId: "student_1",
+          subjectSlug: "matematicas",
+          message: "No entiendo fracciones",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "AI_PROVIDER_UNAVAILABLE",
     });
   });
 

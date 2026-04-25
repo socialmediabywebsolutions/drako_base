@@ -82,6 +82,6 @@ describe("mentoria subject agents", () => {
   it("fails closed when Workers AI is not available", async () => {
     envMock.mockReturnValue({});
     const { runMentoriaLlm } = await import("@/lib/agents/mentoria/llm-client");
-    await expect(runMentoriaLlm([{ role: "user", content: "Hola" }])).rejects.toThrow("MENTORIA_AI_NOT_AVAILABLE");
+    await expect(runMentoriaLlm([{ role: "user", content: "Hola" }])).rejects.toThrow("AI_BINDING_MISSING");
   });
 });

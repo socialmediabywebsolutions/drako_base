@@ -17,7 +17,40 @@ export type MentoriaLlmResult = {
 
 const AI_TIMEOUT_MS = 15000;
 
-const DEFAULT_MODEL = "@cf/meta/llama-3-8b-instruct";
+const DEFAULT_FAST_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
+const DEFAULT_SMART_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+
+type MentoriaLlmMode = "fast" | "smart";
+
+function resolveMentoriaModel(mode: MentoriaLlmMode = "fast") {
+  const bindings = env();
+  const configuredFastModel =
+    (typeof process !== "undefined" ? process.env?.MENTORIA_AI_MODEL_FAST : undefined)
+    || ((bindings as Record<string, string | undefined> | null)?.MENTORIA_AI_MODEL_FAST);
+  const configuredSmartModel =
+    (typeof process !== "undefined" ? process.env?.MENTORIA_AI_MODEL_SMART : undefined)
+    || ((bindings as Record<string, string | undefined> | null)?.MENTORIA_AI_MODEL_SMART);
+
+  if (mode === "smart") {
+    return configuredSmartModel?.trim() || DEFAULT_SMART_MODEL;
+  }
+  return configuredFastModel?.trim() || DEFAULT_FAST_MODEL;
+}
+
+function isProviderUnavailableMessage(message: string) {
+  const normalized = message.toLowerCase();
+  return [
+    "trial expired",
+    "upgrade to continue",
+    "quota",
+    "billing",
+    "credit",
+    "insufficient balance",
+    "payment required",
+    "account disabled",
+    "account not in good standing",
+  ].some((fragment) => normalized.includes(fragment));
+}
 
 function parseWorkersAiResponse(response: unknown): { text: string; totalTokens: number } {
   const body = response as
@@ -66,14 +99,15 @@ export async function runMentoriaLlm(messages: MentoriaLlmMessage[]): Promise<Me
     throw new Error("MENTORIA_AI_NOT_AVAILABLE");
   }
   const ai = bindings?.AI;
+  const model = resolveMentoriaModel("fast");
 
   if (!ai?.run) {
-    throw new Error("MENTORIA_AI_NOT_AVAILABLE");
+    throw new Error("AI_BINDING_MISSING");
   }
 
   try {
     const response = await Promise.race([
-      ai.run(DEFAULT_MODEL, { messages }),
+      ai.run(model, { messages }),
       createTimeoutPromise(AI_TIMEOUT_MS),
     ]);
     
@@ -83,17 +117,24 @@ export async function runMentoriaLlm(messages: MentoriaLlmMessage[]): Promise<Me
       provider: "workers-ai",
       text: parsed.text,
       totalTokens: parsed.totalTokens,
-      model: DEFAULT_MODEL,
+      model,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[MentoriaLLM] AI call failed:", errorMessage);
+    console.error("[MentoriaLLM] AI call failed:", {
+      provider: "workers-ai",
+      model,
+      error: errorMessage,
+    });
     
     if (errorMessage === "MENTORIA_AI_TIMEOUT") {
       throw new Error("MENTORIA_AI_TIMEOUT");
     }
     if (errorMessage === "MENTORIA_AI_EMPTY_RESPONSE") {
       throw new Error("MENTORIA_AI_EMPTY_RESPONSE");
+    }
+    if (isProviderUnavailableMessage(errorMessage)) {
+      throw new Error("AI_PROVIDER_UNAVAILABLE");
     }
     
     throw new Error("MENTORIA_AI_PROVIDER_ERROR");
@@ -166,11 +207,7 @@ export async function runMentoriaLlmStructured(input: {
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    if (errorMessage === "MENTORIA_AI_NOT_AVAILABLE") {
-      console.warn("[MentoriaLLM] AI not available (local/off). Structured call will degrade upstream.");
-    } else {
-      console.error("[MentoriaLLM] Structured call failed:", errorMessage);
-    }
+    console.error("[MentoriaLLM] Structured call failed:", errorMessage);
     throw error;
   }
 }

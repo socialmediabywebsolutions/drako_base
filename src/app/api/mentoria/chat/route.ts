@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireCurrentMentoriaSession } from "@/lib/mentoria/auth/request";
 import { MentoriaBillingError } from "@/lib/mentoria/plans";
 import { MentoriaService } from "@/lib/mentoria/service";
+import { UpgradeFlowError } from "@/lib/mentoria/upgrade-flow";
 import type { MentoriaClassroomIntent } from "@/lib/mentoria/types";
 
 export async function POST(request: Request) {
@@ -45,6 +46,12 @@ export async function POST(request: Request) {
     if (error instanceof MentoriaBillingError) {
       return NextResponse.json({ ok: false, error: error.message, code: error.code, billing: error.billing }, { status: error.status });
     }
+    if (error instanceof UpgradeFlowError) {
+      return NextResponse.json(
+        { ok: false, error: error.code, message: error.message, upgradePrompt: error.upgradePrompt ?? null },
+        { status: 402 },
+      );
+    }
 
     const message = error instanceof Error ? error.message : "MENTORIA_CHAT_FAILED";
     const status =
@@ -56,7 +63,9 @@ export async function POST(request: Request) {
             ? 403
             : message === "SUBJECT_CONTEXT_MISMATCH"
               ? 409
-            : message === "MENTORIA_AI_NOT_AVAILABLE" || message === "MENTORIA_AI_TIMEOUT" || message === "MENTORIA_AI_EMPTY_RESPONSE"
+            : message === "AI_BINDING_MISSING" || message === "MENTORIA_AI_NOT_AVAILABLE" || message === "MENTORIA_AI_TIMEOUT" || message === "MENTORIA_AI_EMPTY_RESPONSE"
+              ? 503
+            : message === "AI_PROVIDER_UNAVAILABLE"
               ? 503
             : message === "MENTORIA_AI_PROVIDER_ERROR"
               ? 502

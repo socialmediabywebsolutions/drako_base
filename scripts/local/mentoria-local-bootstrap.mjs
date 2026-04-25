@@ -4,6 +4,13 @@ import process from "node:process";
 const rootConfig = "wrangler.jsonc";
 const rootDb = "drako_db_local";
 const workerDir = "workers/mentorias";
+const academicMigrations = [
+  "migrations/0176_mentoria_academic_records.sql",
+  "migrations/0177_mentoria_academic_documents.sql",
+  "migrations/0178_mentoria_academic_extractions.sql",
+  "migrations/0179_mentoria_academic_analyses.sql",
+  "migrations/0180_mentoria_subject_performance_snapshots.sql",
+];
 const localMigrations = [
   "workers/mentorias/migrations/0001_local_mentoria_schema_bootstrap.sql",
   "workers/mentorias/migrations/0002_local_runtime_metrics.sql",
@@ -285,17 +292,45 @@ function assertSchema() {
     "--json",
   ]);
   const columns = studyPlan?.[0]?.results ?? [];
+  const requiredAcademicTables = [
+    "mentoria_academic_records",
+    "mentoria_academic_documents",
+    "mentoria_academic_extractions",
+    "mentoria_academic_analyses",
+    "mentoria_subject_performance_snapshots",
+  ];
+  const existingAcademicTables = queryJson("pnpm", [
+    "wrangler",
+    "d1",
+    "execute",
+    rootDb,
+    "--local",
+    "--config",
+    rootConfig,
+    "--command",
+    `SELECT name FROM sqlite_master WHERE type='table' AND name IN (${requiredAcademicTables.map((table) => `'${table}'`).join(", ")});`,
+    "--json",
+  ]);
   const hasTrials = (trials?.[0]?.results ?? []).some((row) => row.name === "student_trials");
   const hasWeekEnd = columns.some((column) => column.name === "week_end");
+  const academicTableNames = new Set((existingAcademicTables?.[0]?.results ?? []).map((row) => row.name));
   if (!hasTrials) {
     throw new Error("BOOTSTRAP_FAILED: student_trials missing in drako_db_local");
   }
   if (!hasWeekEnd) {
     throw new Error("BOOTSTRAP_FAILED: mentoria_study_plans.week_end missing in drako_db_local");
   }
+  for (const tableName of requiredAcademicTables) {
+    if (!academicTableNames.has(tableName)) {
+      throw new Error(`BOOTSTRAP_FAILED: ${tableName} missing in drako_db_local`);
+    }
+  }
 }
 if (applyRootMigrations) {
   run("pnpm", ["wrangler", "d1", "migrations", "apply", "DRACO_DB", "--local", "--config", rootConfig]);
+}
+for (const file of academicMigrations) {
+  run("pnpm", ["wrangler", "d1", "execute", rootDb, "--local", "--config", rootConfig, "--file", file]);
 }
 for (const file of localMigrations) {
   run("pnpm", ["wrangler", "d1", "execute", rootDb, "--local", "--config", rootConfig, "--file", file]);

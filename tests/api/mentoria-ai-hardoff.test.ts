@@ -44,7 +44,7 @@ describe("AI_HARD_OFF kill-switch validation", () => {
     ).rejects.toThrow("MENTORIA_AI_NOT_AVAILABLE");
   });
 
-  it("runMentoriaLlm proceeds to AI check when AI_HARD_OFF=false", async () => {
+  it("runMentoriaLlm fails with AI_BINDING_MISSING when AI_HARD_OFF=false and no binding exists", async () => {
     process.env.AI_HARD_OFF = "false";
     delete (process.env as any).AI;
     
@@ -54,10 +54,10 @@ describe("AI_HARD_OFF kill-switch validation", () => {
       runMentoriaLlm([
         { role: "user", content: "test" }
       ])
-    ).rejects.toThrow("MENTORIA_AI_NOT_AVAILABLE");
+    ).rejects.toThrow("AI_BINDING_MISSING");
   });
 
-  it("runMentoriaLlm proceeds to AI check when AI_HARD_OFF is absent", async () => {
+  it("runMentoriaLlm fails with AI_BINDING_MISSING when AI_HARD_OFF is absent and no binding exists", async () => {
     delete process.env.AI_HARD_OFF;
     delete (process.env as any).AI;
     
@@ -67,7 +67,7 @@ describe("AI_HARD_OFF kill-switch validation", () => {
       runMentoriaLlm([
         { role: "user", content: "test" }
       ])
-    ).rejects.toThrow("MENTORIA_AI_NOT_AVAILABLE");
+    ).rejects.toThrow("AI_BINDING_MISSING");
   });
 
   it("executeContentRequest throws DRAKO_CONTENT_PROVIDER_DISABLED when AI_HARD_OFF=true", async () => {

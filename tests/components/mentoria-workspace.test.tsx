@@ -575,7 +575,7 @@ describe("MentoriaWorkspace", () => {
     setSearchParams({ subjectSlug: "matematicas" });
     fetchMock
       .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse()))
-      .mockResolvedValueOnce(jsonResponse({ ok: false, error: "MENTORIA_AI_NOT_AVAILABLE" }, 503));
+      .mockResolvedValueOnce(jsonResponse({ ok: false, error: "AI_BINDING_MISSING" }, 503));
 
     render(React.createElement(MentoriaWorkspace));
 
@@ -585,6 +585,6 @@ describe("MentoriaWorkspace", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
-    expect(await screen.findByText("Tutor IA no disponible. Revisa el binding de Cloudflare Workers AI en el entorno de desarrollo.")).toBeInTheDocument();
+    expect(await screen.findByText("Tutor IA no disponible. Falta el binding AI de Cloudflare Workers AI en este entorno.")).toBeInTheDocument();
   });
 });

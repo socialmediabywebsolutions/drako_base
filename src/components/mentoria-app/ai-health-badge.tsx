@@ -40,7 +40,7 @@ export default function MentoriaAiHealthBadge() {
   }, []);
 
   if (!health || health.status === "healthy") return null;
-  if (health.error !== "MENTORIA_AI_NOT_AVAILABLE") return null;
+  if (health.error !== "MENTORIA_AI_NOT_AVAILABLE" && health.error !== "AI_BINDING_MISSING") return null;
 
   const title = health.hint || "Workers AI no disponible en local";
 

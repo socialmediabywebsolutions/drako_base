@@ -198,6 +198,12 @@ type SessionApiResponse = {
 };
 
 function formatTutorApiError(errorCode?: string | null) {
+  if (errorCode === "AI_BINDING_MISSING") {
+    return "Tutor IA no disponible. Falta el binding AI de Cloudflare Workers AI en este entorno.";
+  }
+  if (errorCode === "AI_PROVIDER_UNAVAILABLE") {
+    return "Workers AI no puede responder ahora mismo por cuota, trial o billing del proveedor. Revisa Cloudflare.";
+  }
   if (errorCode === "MENTORIA_AI_NOT_AVAILABLE") {
     return "Tutor IA no disponible. Revisa el binding de Cloudflare Workers AI en el entorno de desarrollo.";
   }
@@ -215,6 +221,12 @@ function formatTutorApiError(errorCode?: string | null) {
   }
   if (errorCode === "SUBJECT_REQUIRED") {
     return "Elige una materia para que el tutor y la pizarra trabajen sobre la misma base.";
+  }
+  if (errorCode === "trial_expired") {
+    return "El acceso del aula está bloqueado porque el trial de Mentoría ha expirado.";
+  }
+  if (errorCode === "usage_limit_reached") {
+    return "El aula ha alcanzado el límite diario permitido para este plan.";
   }
   return errorCode ?? "MENTORIA_CHAT_FAILED";
 }
