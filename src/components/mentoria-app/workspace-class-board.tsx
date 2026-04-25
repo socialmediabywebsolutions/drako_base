@@ -98,6 +98,47 @@ export function WorkspaceClassBoard({
                   </section>
                 ) : null}
 
+                {boardUpdate?.learningState ? (
+                  <section className="grid gap-3 md:grid-cols-4">
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Paso actual</div>
+                      <div className="mt-3 text-2xl font-black text-slate-950">{boardUpdate.learningState.stepIndex + 1}</div>
+                    </div>
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Dominio</div>
+                      <div className="mt-3 text-2xl font-black text-slate-950">
+                        {boardUpdate.learningState.masteryScore}%
+                      </div>
+                    </div>
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Frustracion</div>
+                      <div className="mt-3 text-2xl font-black text-slate-950">
+                        {boardUpdate.learningState.frustrationLevel}
+                      </div>
+                    </div>
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Actividad</div>
+                      <div className="mt-3 text-2xl font-black capitalize text-slate-950">
+                        {boardUpdate.learningState.mode}
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+
+                {boardUpdate?.progressSummary ? (
+                  <section className="rounded-3xl border border-sky-200 bg-sky-50 p-5">
+                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">Evolucion</div>
+                    <p className="mt-3 text-base leading-8 text-sky-950">{boardUpdate.progressSummary}</p>
+                  </section>
+                ) : null}
+
+                {boardUpdate?.feedback ? (
+                  <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
+                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Feedback</div>
+                    <p className="mt-3 text-base leading-8 text-emerald-950">{boardUpdate.feedback}</p>
+                  </section>
+                ) : null}
+
                 {boardUpdate?.mode === "document_feedback" && boardUpdate.documentFeedback ? (
                   <section className="space-y-4">
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
@@ -264,6 +305,13 @@ export function WorkspaceClassBoard({
                   <section className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                     <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Pregunta guiada</div>
                     <p className="mt-3 text-base font-semibold leading-8 text-slate-950">{boardUpdate.guidedQuestion}</p>
+                  </section>
+                ) : null}
+
+                {boardUpdate?.nextAction ? (
+                  <section className="rounded-3xl border border-sky-200 bg-sky-50 p-5">
+                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">Siguiente accion</div>
+                    <p className="mt-3 text-base font-semibold leading-8 text-sky-950">{boardUpdate.nextAction}</p>
                   </section>
                 ) : null}
               </div>

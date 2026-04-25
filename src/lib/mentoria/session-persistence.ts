@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/db";
-import type { MentoriaSessionMessage } from "@/lib/mentoria/types";
+import type { MentoriaBoardUpdate, MentoriaLearningState, MentoriaSessionMessage } from "@/lib/mentoria/types";
 
 export type SessionSnapshot = {
   sessionId: string;
@@ -13,6 +13,8 @@ export type SessionSnapshot = {
   lastActivityAt: string;
   aiTokensUsed: number;
   durationMinutes: number;
+  boardUpdate?: MentoriaBoardUpdate | null;
+  learningState?: MentoriaLearningState | null;
 };
 
 export type SessionRecoveryData = {
@@ -27,6 +29,8 @@ export type SessionRecoveryData = {
   lastActivityAt: string;
   aiTokensUsed: number;
   durationMinutes: number;
+  boardUpdate?: MentoriaBoardUpdate | null;
+  learningState?: MentoriaLearningState | null;
 };
 
 type SessionStateRow = {
@@ -42,6 +46,8 @@ type SessionStateRow = {
   last_activity_at: string;
   ai_tokens_used: number;
   duration_minutes: number;
+  board_update_json?: string | null;
+  learning_state_json?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -65,7 +71,7 @@ export class SessionPersistenceManager {
         .prepare(
           `UPDATE mentoria_session_state
            SET transcript_json = ?, emotional_state = ?, last_activity_at = ?,
-               ai_tokens_used = ?, duration_minutes = ?, status = ?, updated_at = ?
+               ai_tokens_used = ?, duration_minutes = ?, status = ?, board_update_json = ?, learning_state_json = ?, updated_at = ?
            WHERE tenant_id = ? AND session_id = ?`
         )
         .bind(
@@ -75,6 +81,8 @@ export class SessionPersistenceManager {
           snapshot.aiTokensUsed,
           snapshot.durationMinutes,
           snapshot.status,
+          snapshot.boardUpdate ? JSON.stringify(snapshot.boardUpdate) : null,
+          snapshot.learningState ? JSON.stringify(snapshot.learningState) : null,
           now,
           snapshot.tenantId,
           snapshot.sessionId
@@ -86,8 +94,8 @@ export class SessionPersistenceManager {
           `INSERT INTO mentoria_session_state (
             id, tenant_id, student_profile_id, session_id, subject_id, topic,
             status, transcript_json, emotional_state, last_activity_at,
-            ai_tokens_used, duration_minutes, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ai_tokens_used, duration_minutes, board_update_json, learning_state_json, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .bind(
           crypto.randomUUID(),
@@ -102,6 +110,8 @@ export class SessionPersistenceManager {
           snapshot.lastActivityAt,
           snapshot.aiTokensUsed,
           snapshot.durationMinutes,
+          snapshot.boardUpdate ? JSON.stringify(snapshot.boardUpdate) : null,
+          snapshot.learningState ? JSON.stringify(snapshot.learningState) : null,
           now,
           now
         )
@@ -111,16 +121,21 @@ export class SessionPersistenceManager {
 
   async getActiveSession(
     tenantId: string,
-    studentProfileId: string
+    studentProfileId: string,
+    subjectId?: string | null,
   ): Promise<SessionRecoveryData | null> {
-    const row = await this.db
-      .prepare(
-        `SELECT * FROM mentoria_session_state
-         WHERE tenant_id = ? AND student_profile_id = ? AND status = 'active'
+    const query = subjectId
+      ? `SELECT * FROM mentoria_session_state
+         WHERE tenant_id = ? AND student_profile_id = ? AND subject_id = ? AND status = 'active'
          ORDER BY last_activity_at DESC
          LIMIT 1`
-      )
-      .bind(tenantId, studentProfileId)
+      : `SELECT * FROM mentoria_session_state
+         WHERE tenant_id = ? AND student_profile_id = ? AND status = 'active'
+         ORDER BY last_activity_at DESC
+         LIMIT 1`;
+    const row = await this.db
+      .prepare(query)
+      .bind(...(subjectId ? [tenantId, studentProfileId, subjectId] : [tenantId, studentProfileId]))
       .first<SessionStateRow>();
 
     if (!row) return null;
@@ -137,6 +152,8 @@ export class SessionPersistenceManager {
       lastActivityAt: row.last_activity_at,
       aiTokensUsed: row.ai_tokens_used,
       durationMinutes: row.duration_minutes,
+      boardUpdate: this.parseJsonObject<MentoriaBoardUpdate>(row.board_update_json),
+      learningState: this.parseJsonObject<MentoriaLearningState>(row.learning_state_json),
     };
   }
 
@@ -167,6 +184,8 @@ export class SessionPersistenceManager {
       lastActivityAt: row.last_activity_at,
       aiTokensUsed: row.ai_tokens_used,
       durationMinutes: row.duration_minutes,
+      boardUpdate: this.parseJsonObject<MentoriaBoardUpdate>(row.board_update_json),
+      learningState: this.parseJsonObject<MentoriaLearningState>(row.learning_state_json),
     };
   }
 
@@ -228,6 +247,15 @@ export class SessionPersistenceManager {
         jsonPreview: json?.substring(0, 100) ?? "null",
       });
       return [];
+    }
+  }
+
+  private parseJsonObject<T>(json?: string | null): T | null {
+    if (!json) return null;
+    try {
+      return JSON.parse(json) as T;
+    } catch {
+      return null;
     }
   }
 }

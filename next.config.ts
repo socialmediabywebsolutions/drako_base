@@ -2,7 +2,18 @@ import { execSync } from "child_process";
 import type { NextConfig } from "next";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
-void initOpenNextCloudflareForDev();
+function isNextDevCommand(): boolean {
+  const lifecycle = process.env.npm_lifecycle_event ?? "";
+  if (lifecycle === "dev") {
+    return true;
+  }
+
+  return process.argv.some((arg) => arg === "dev" || arg.endsWith("/next-dev.js"));
+}
+
+if (isNextDevCommand()) {
+  void initOpenNextCloudflareForDev();
+}
 
 let gitSha = "unknown";
 try { gitSha = execSync("git rev-parse --short HEAD").toString().trim(); } catch { /* ignore */ }

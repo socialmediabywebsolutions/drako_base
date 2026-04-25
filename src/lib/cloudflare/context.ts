@@ -4,8 +4,7 @@
  * Provides unified access to Cloudflare bindings (D1, KV, R2, etc.)
  * using OpenNext's getCloudflareContext() instead of @cloudflare/next-on-pages
  */
-
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContextSafeSync, isBuildPhase } from "@/lib/cloudflare/runtime";
 
 export type CloudflareEnv = {
     DB: D1Database | null;
@@ -20,7 +19,7 @@ export type CloudflareEnv = {
  * Returns object with null bindings when not available (e.g., Vercel)
  */
 export function getCloudflareEnv(): CloudflareEnv {
-    if (typeof process !== "undefined" && process.env?.NEXT_PHASE === "phase-production-build") {
+    if (isBuildPhase()) {
         return {
             DB: null,
             KV: null,
@@ -28,13 +27,9 @@ export function getCloudflareEnv(): CloudflareEnv {
         };
     }
 
-    try {
-        const context = getCloudflareContext();
-        if (context && context.env && typeof context.env === "object") {
-            return context.env as CloudflareEnv;
-        }
-    } catch {
-        // Cloudflare context not available (e.g., Vercel)
+    const context = getCloudflareContextSafeSync() as { env?: unknown } | null;
+    if (context && context.env && typeof context.env === "object") {
+        return context.env as CloudflareEnv;
     }
 
     // Return object with null bindings for graceful degradation
@@ -50,13 +45,9 @@ export function getCloudflareEnv(): CloudflareEnv {
  * Returns null when not available
  */
 export function getFullCloudflareContext() {
-    if (typeof process !== "undefined" && process.env?.NEXT_PHASE === "phase-production-build") {
+    if (isBuildPhase()) {
         return null;
     }
 
-    try {
-        return getCloudflareContext();
-    } catch {
-        return null;
-    }
+    return getCloudflareContextSafeSync();
 }

@@ -54,6 +54,30 @@ export type MentoriaBoardMode =
   | "document_feedback"
   | "summary";
 
+export type MentoriaLearningDifficulty = 1 | 2 | 3 | 4 | 5;
+export type MentoriaLearningLoopMode = "explain" | "exercise" | "exam" | "correction";
+export type MentoriaFrustrationLevel = "low" | "medium" | "high";
+export type MentoriaLearningStrategy = "step_by_step" | "visual" | "analogy" | "micro_step" | "challenge";
+
+export type MentoriaLearningState = {
+  studentId: string;
+  subjectSlug: string;
+  currentTopic: string;
+  difficultyLevel: MentoriaLearningDifficulty;
+  detectedGaps: string[];
+  frustrationLevel: MentoriaFrustrationLevel;
+  lastUserAnswer: string | null;
+  lastTutorAction: string | null;
+  masteryScore: number;
+  stepIndex: number;
+  mode: MentoriaLearningLoopMode;
+  strategy: MentoriaLearningStrategy;
+  awaitingStudentAnswer: boolean;
+  repeatedBlockCount: number;
+  feedback: string | null;
+  updatedAt: string;
+};
+
 export type MentoriaBoardExercise = {
   prompt: string;
   answerFormat?: string | null;
@@ -105,6 +129,9 @@ export type MentoriaBoardUpdate = {
   documentFeedback?: MentoriaBoardDocumentFeedback | null;
   note?: string | null;
   guidedQuestion?: string | null;
+  feedback?: string | null;
+  progressSummary?: string | null;
+  learningState?: MentoriaLearningState | null;
   nextAction: string;
   updatedAt: string;
 };
@@ -415,6 +442,7 @@ export type LearningSession = {
   suggestedSteps?: string[];
   reinforcementQuestion?: string;
   boardUpdate?: MentoriaBoardUpdate | null;
+  learningState?: MentoriaLearningState | null;
   transcript: MentoriaSessionMessage[];
   createdAt: string;
   completedAt?: string;

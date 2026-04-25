@@ -5,7 +5,12 @@ import { requireCurrentMentoriaSession } from "@/lib/mentoria/auth/request";
 import { MentoriaBillingError } from "@/lib/mentoria/plans";
 import { MentoriaService } from "@/lib/mentoria/service";
 import { UpgradeFlowError } from "@/lib/mentoria/upgrade-flow";
-import type { MentoriaClassroomIntent } from "@/lib/mentoria/types";
+import type {
+  MentoriaClassroomIntent,
+  MentoriaSessionInputKind,
+  MentoriaSessionMode,
+  MentoriaStudentSessionSignal,
+} from "@/lib/mentoria/types";
 
 export async function POST(request: Request) {
   try {
@@ -17,6 +22,11 @@ export async function POST(request: Request) {
       subjectSlug?: string;
       topic?: string;
       intent?: MentoriaClassroomIntent;
+      entryMode?: "resume_session" | "gentle_restart" | "momentum_push" | "plan_task" | "entry";
+      sessionId?: string;
+      sessionMode?: MentoriaSessionMode;
+      sessionInputKind?: MentoriaSessionInputKind;
+      sessionSignal?: MentoriaStudentSessionSignal;
     };
 
     const message = body.message?.trim() ?? "";
@@ -39,6 +49,11 @@ export async function POST(request: Request) {
       topic: body.topic?.trim() || undefined,
       message,
       intent: body.intent,
+      entryMode: body.entryMode,
+      sessionId: body.sessionId,
+      sessionMode: body.sessionMode,
+      sessionInputKind: body.sessionInputKind,
+      sessionSignal: body.sessionSignal,
     });
 
     return NextResponse.json({ ok: true, ...result });

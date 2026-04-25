@@ -89,6 +89,24 @@ describe("mentoria chat route", () => {
       reinforcementQuestion: "Que ves primero en cada fraccion?",
       sessionMode: "subject_reinforcement",
       sessionInputKind: "selected_subject",
+      learningStateUpdated: {
+        studentId: "student_1",
+        subjectSlug: "matematicas",
+        currentTopic: "Fracciones",
+        difficultyLevel: 1,
+        detectedGaps: ["Base fragil en Fracciones"],
+        frustrationLevel: "medium",
+        lastUserAnswer: null,
+        lastTutorAction: "introduce_concept",
+        masteryScore: 24,
+        stepIndex: 0,
+        mode: "explain",
+        strategy: "step_by_step",
+        awaitingStudentAnswer: true,
+        repeatedBlockCount: 0,
+        feedback: null,
+        updatedAt: "2026-04-24T10:00:00.000Z",
+      },
       insights: [],
     });
     mocks.createMentoriaServiceInstance.mockReturnValue({
@@ -120,6 +138,12 @@ describe("mentoria chat route", () => {
         topic: "Fracciones",
       },
       nextAction: "Haz una suma corta.",
+      learningStateUpdated: {
+        studentId: "student_1",
+        subjectSlug: "matematicas",
+        currentTopic: "Fracciones",
+        stepIndex: 0,
+      },
     });
     expect(startGuidedSession).toHaveBeenCalledWith(
       {
@@ -134,6 +158,94 @@ describe("mentoria chat route", () => {
         topic: undefined,
         message: "No entiendo fracciones",
       },
+    );
+  });
+
+  it("forwards the classroom session options through the chat endpoint", async () => {
+    const startGuidedSession = vi.fn().mockResolvedValue({
+      session: { id: "session_1", topic: "Revolucion francesa", recommendedNextStep: "Responde la primera pregunta." },
+      subject: { id: "subject_1", slug: "historia", name: "Historia" },
+      adaptation: { emotionalState: "steady" },
+      tutorMessage: "Vamos con un simulacro corto de Historia.",
+      chatMessage: "Vamos con un simulacro corto de Historia.",
+      reply: "Vamos con un simulacro corto de Historia.",
+      intent: "exam",
+      provider: "workers-ai",
+      model: "@cf/meta/llama-3.1-8b-instruct-fast",
+      subjectSlug: "historia",
+      topic: "Revolucion francesa",
+      mode: "exam",
+      steps: ["Situa el contexto", "Explica una causa", "Explica una consecuencia"],
+      example: null,
+      exercise: null,
+      nextAction: "Responde el simulacro y luego pide la correccion.",
+      boardUpdate: {
+        studentId: "student_1",
+        subjectSlug: "historia",
+        subjectName: "Historia",
+        studentName: "Alex",
+        schoolYear: "2 ESO",
+        topic: "Revolucion francesa",
+        intent: "exam",
+        mode: "exam",
+        conceptDefinition: "Vamos a simular un examen corto de Historia.",
+        explanation: ["Responde con contexto, causa y consecuencia."],
+        steps: ["Situa el contexto", "Explica una causa", "Explica una consecuencia"],
+        example: null,
+        formula: null,
+        diagram: null,
+        exercise: null,
+        task: null,
+        exam: {
+          title: "Simulacro corto de Historia",
+          questions: ["1. Situa el contexto", "2. Explica una causa", "3. Explica una consecuencia"],
+        },
+        correction: null,
+        documentFeedback: null,
+        note: "Nota orientativa: primero completa el simulacro y luego pide correccion.",
+        guidedQuestion: "Que hecho situas primero?",
+        nextAction: "Responde el simulacro y luego pide la correccion.",
+        updatedAt: "2026-04-24T10:00:00.000Z",
+      },
+      explanation: "Responde con contexto, causa y consecuencia.",
+      suggestedSteps: ["Situa el contexto", "Explica una causa", "Explica una consecuencia"],
+      reinforcementQuestion: "Que hecho situas primero?",
+      sessionMode: "exam_preparation",
+      sessionInputKind: "free_message",
+      insights: [],
+    });
+    mocks.createMentoriaServiceInstance.mockReturnValue({
+      startGuidedSession,
+    });
+
+    const response = await POST(
+      new Request("https://mentoria.drako.systems/api/mentoria/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          studentId: "student_1",
+          subjectSlug: "historia",
+          topic: "Revolucion francesa",
+          message: "Hazme un examen de Historia",
+          sessionMode: "exam_preparation",
+          sessionInputKind: "free_message",
+          entryMode: "entry",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(startGuidedSession).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        studentProfileId: "student_1",
+        subjectSlug: "historia",
+        topic: "Revolucion francesa",
+        message: "Hazme un examen de Historia",
+        sessionMode: "exam_preparation",
+        sessionInputKind: "free_message",
+        entryMode: "entry",
+      }),
     );
   });
 

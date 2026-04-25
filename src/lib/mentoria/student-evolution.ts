@@ -2,6 +2,7 @@ import type { LearningSession, MentoriaExercise, MentoriaProgress, MentoriaSubje
 
 export interface StudentEvolutionProfile {
   studentId: string;
+  subjectSlug: string;
   strengths: string[];
   weaknesses: string[];
   frustrationLevel: number;
@@ -166,6 +167,9 @@ export function updateEvolutionProfileFromExercise(
   profile: StudentEvolutionProfile,
   input: ExerciseEvolutionInput,
 ): StudentEvolutionProfile {
+  if (profile.subjectSlug !== input.subject.slug && profile.subjectSlug !== "general") {
+    throw new Error("EVOLUTION_SCOPE_MISMATCH");
+  }
   const responseMinutes = Math.max(
     1,
     Math.round((new Date(input.exercise.updatedAt || input.exercise.createdAt).getTime() - new Date(input.exercise.createdAt).getTime()) / 60000) || 1,
@@ -194,6 +198,7 @@ export function updateEvolutionProfileFromExercise(
 
   return {
     studentId: profile.studentId,
+    subjectSlug: profile.subjectSlug || input.subject.slug,
     strengths,
     weaknesses,
     frustrationLevel: blend(profile.frustrationLevel, frustrationSignal, 0.4),
@@ -210,6 +215,9 @@ export function updateEvolutionFromSession(
   profile: StudentEvolutionProfile,
   input: SessionEvolutionInput,
 ): StudentEvolutionProfile {
+  if (profile.subjectSlug !== input.subject.slug && profile.subjectSlug !== "general") {
+    throw new Error("EVOLUTION_SCOPE_MISMATCH");
+  }
   const frustrationSignal = detectFrustration({
     message: input.studentMessage,
     emotionalState: input.session.emotionalState,
@@ -239,6 +247,7 @@ export function updateEvolutionFromSession(
 
   return {
     studentId: profile.studentId,
+    subjectSlug: profile.subjectSlug || input.subject.slug,
     strengths,
     weaknesses:
       input.session.emotionalState === "frustrated" || input.session.emotionalState === "blocked"
@@ -260,15 +269,15 @@ export function updateEvolutionFromSession(
 export function createInitialEvolutionProfile(input: {
   student: StudentProfile;
   progress: MentoriaProgress[];
-  subjects: MentoriaSubject[];
+  subject: MentoriaSubject;
 }): StudentEvolutionProfile {
-  const subjectNames = new Map(input.subjects.map((subject) => [subject.id, subject.name]));
-  const strengths = input.progress
+  const subjectProgress = input.progress.filter((item) => item.subjectId === input.subject.id);
+  const strengths = subjectProgress
     .filter((item) => item.masteryScore >= 70 || item.confidenceScore >= 68)
-    .flatMap((item) => [subjectNames.get(item.subjectId), ...item.strongTopics]);
-  const weaknesses = input.progress
+    .flatMap((item) => [input.subject.name, ...item.strongTopics]);
+  const weaknesses = subjectProgress
     .filter((item) => item.masteryScore < 65 || item.confidenceScore < 60)
-    .flatMap((item) => [subjectNames.get(item.subjectId), ...item.weakTopics]);
+    .flatMap((item) => [input.subject.name, ...item.weakTopics]);
 
   const baselineFrustration =
     input.student.emotionalBaseline.frustration === "high"
@@ -285,6 +294,7 @@ export function createInitialEvolutionProfile(input: {
 
   return {
     studentId: input.student.id,
+    subjectSlug: input.subject.slug || "general",
     strengths: takeRecent([...input.student.strengths, ...strengths], 8),
     weaknesses: takeRecent(weaknesses, 8),
     frustrationLevel: baselineFrustration,

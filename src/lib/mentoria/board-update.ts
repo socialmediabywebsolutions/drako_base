@@ -31,7 +31,6 @@ function splitBoardText(value: string): string[] {
 function inferBoardMode(input: {
   intent?: MentoriaClassroomIntent;
   sessionMode?: MentoriaSessionMode;
-  wantsExample?: boolean;
   exercise?: MentoriaBoardExercise | null;
   task?: MentoriaBoardTask | null;
   exam?: MentoriaBoardExam | null;
@@ -43,64 +42,34 @@ function inferBoardMode(input: {
   if (input.intent === "exam" || input.exam) return "exam";
   if (input.intent === "task" || input.task) return "task";
   if (input.exercise) return "practice";
-  if (input.wantsExample || input.sessionMode === "task_resolution") return "example";
-  if (input.sessionMode === "exam_preparation") return "summary";
   return "explanation";
 }
 
-function buildFallbackSteps(topic: string, subjectSlug: string): string[] {
-  const slug = subjectSlug.toLowerCase();
-  if (slug.includes("matematic")) {
-    return [
-      "Mira primero que datos tienes delante.",
-      "Aplica un paso corto sin saltar nada.",
-      "Comprueba el resultado con un caso sencillo.",
-    ];
-  }
-  if (slug.includes("historia")) {
-    return [
-      "Situa el tema en su contexto.",
-      "Separa causa, hecho y consecuencia.",
-      "Explicalo con tus palabras.",
-    ];
-  }
-  if (slug.includes("lengua") || slug.includes("ingles")) {
-    return [
-      "Identifica la idea principal.",
-      "Fijate en la palabra o estructura clave.",
-      "Reescribelo de forma mas clara.",
-    ];
-  }
-  if (slug.includes("ciencia")) {
-    return [
-      "Observa que esta pasando.",
-      "Relaciona causa y efecto.",
-      "Cierra con una conclusion corta.",
-    ];
-  }
-  return [
-    `Ubica bien ${topic}.`,
-    "Separa la idea principal en pasos cortos.",
-    "Comprueba que puedes explicarlo sin ayuda.",
-  ];
+function deriveStepsFromExplanation(explanation: string[]): string[] {
+  return explanation
+    .flatMap((line) => line.split(/(?<=[.!?])\s+/))
+    .map((line) => line.trim().replace(/[.!?]+$/, ""))
+    .filter(Boolean)
+    .slice(0, 4);
 }
 
-function buildWorkedExample(subject: MentoriaSubject, topic: string, steps: string[]): string {
-  const slug = subject.slug.toLowerCase();
-  const firstStep = steps[0] ?? "empieza por la idea principal";
-  if (slug.includes("matematic")) {
-    return `Ejemplo guiado: toma un caso muy simple de ${topic}, ${firstStep.toLowerCase()} y comprueba el resultado antes de seguir.`;
-  }
-  if (slug.includes("historia")) {
-    return `Ejemplo guiado: en ${topic}, coloca primero el contexto, despues una causa clara y termina con la consecuencia principal.`;
-  }
-  if (slug.includes("lengua") || slug.includes("ingles")) {
-    return `Ejemplo guiado: lee una frase corta de ${topic}, detecta la pista importante y reformulala con palabras mas faciles.`;
-  }
-  if (slug.includes("ciencia")) {
-    return `Ejemplo guiado: en ${topic}, observa un caso sencillo, explica que cambia y cierra con la relacion causa-efecto.`;
-  }
-  return `Ejemplo guiado: usa ${topic} en una situacion simple, ${firstStep.toLowerCase()} y explica por que funciona.`;
+function resolveBoardSteps(input: { suggestedSteps?: string[]; explanation: string[] }) {
+  const explicitSteps = (input.suggestedSteps ?? [])
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+  if (explicitSteps.length > 0) return explicitSteps;
+  return deriveStepsFromExplanation(input.explanation);
+}
+
+function buildWorkedExample(topic: string, steps: string[]): string | null {
+  const firstStep = steps[0]?.replace(/[.!?]+$/, "");
+  if (!firstStep) return null;
+  const secondStep = steps[1]?.replace(/[.!?]+$/, "");
+  return [
+    `Ejemplo guiado sobre ${topic}: ${firstStep}.`,
+    secondStep ? `Despues ${secondStep.toLowerCase()}.` : null,
+  ].filter(Boolean).join(" ");
 }
 
 function buildDiagram(subjectSlug: string, topic: string): string[] | null {
@@ -146,7 +115,7 @@ function buildExercisePrompt(subject: MentoriaSubject, topic: string, steps: str
 function buildTaskPrompt(subject: MentoriaSubject, topic: string, steps: string[]): MentoriaBoardTask {
   return {
     title: `Tarea guiada de ${subject.name}`,
-    prompt: `Resuelve una tarea corta sobre ${topic} y deja visible tu razonamiento.`,
+    prompt: `Resuelve una tarea corta sobre ${topic} y deja visible tu razonamiento antes de pedir la correccion.`,
     allowedSteps: steps.slice(0, 3),
     answerFormat: subject.slug.toLowerCase().includes("matematic")
       ? "Operacion, razonamiento y respuesta final"
@@ -199,12 +168,14 @@ export function buildBoardUpdateFromSession(input: {
   recommendedNextStep?: string | null;
   sessionMode?: MentoriaSessionMode;
   includePractice?: boolean;
+  nextActionLabel?: string | null;
   createdAt?: string;
 }): MentoriaBoardUpdate {
   const explanation = splitBoardText(input.explanation?.trim() || input.reply?.trim() || `Vamos a trabajar ${input.topic} paso a paso.`);
-  const steps = (input.suggestedSteps ?? []).map((item) => item.trim()).filter(Boolean).slice(0, 4);
-  const resolvedSteps = steps.length > 0 ? steps : buildFallbackSteps(input.topic, input.subject.slug);
-  const wantsExample = /ejemplo/i.test(input.reply ?? "") || /ejemplo/i.test(input.explanation ?? "");
+  const resolvedSteps = resolveBoardSteps({
+    suggestedSteps: input.suggestedSteps,
+    explanation,
+  });
   const resolvedIntent = input.intent ?? "explanation";
   const exercise = input.includePractice || resolvedIntent === "practice"
     ? buildExercisePrompt(input.subject, input.topic, resolvedSteps, input.reinforcementQuestion)
@@ -219,9 +190,15 @@ export function buildBoardUpdateFromSession(input: {
         steps: resolvedSteps,
       })
     : null;
+  const correctionText = resolvedIntent === "correction"
+    ? [
+        input.explanation?.trim(),
+        input.reply?.trim(),
+      ].filter(Boolean).join(" ").trim() || null
+    : null;
   const note =
     resolvedIntent === "correction"
-      ? "Nota orientativa: revisa el error principal antes de volver a intentarlo."
+      ? "Correccion activa: reescribe la respuesta con el ajuste principal antes de seguir."
       : resolvedIntent === "exam"
         ? "Nota orientativa: primero completa el simulacro y luego pide correccion."
         : null;
@@ -247,11 +224,10 @@ export function buildBoardUpdateFromSession(input: {
     mode: inferBoardMode({
       intent: resolvedIntent,
       sessionMode: input.sessionMode,
-      wantsExample,
       exercise,
       task,
       exam,
-      correction: null,
+      correction: correctionText,
       documentFeedback,
     }),
     conceptDefinition,
@@ -259,18 +235,19 @@ export function buildBoardUpdateFromSession(input: {
     steps: resolvedSteps,
     example: resolvedIntent === "exam" || resolvedIntent === "task" || resolvedIntent === "document"
       ? null
-      : buildWorkedExample(input.subject, input.topic, resolvedSteps),
+      : buildWorkedExample(input.topic, resolvedSteps),
     formula: buildFormula(input.subject.slug, input.topic),
     diagram: resolvedIntent === "document" ? null : buildDiagram(input.subject.slug, input.topic),
     exercise,
     task,
     exam,
-    correction: null,
+    correction: correctionText,
     documentFeedback,
     note,
     guidedQuestion: input.reinforcementQuestion?.trim() || null,
     nextAction:
-      input.recommendedNextStep?.trim()
+      input.nextActionLabel?.trim()
+      || input.recommendedNextStep?.trim()
       || input.reinforcementQuestion?.trim()
       || resolvedSteps[0]
       || `Da un paso corto mas sobre ${input.topic}.`,
@@ -311,7 +288,12 @@ export function buildBoardUpdateFromExercise(input: {
           input.exercise.expectedCompetency || `Practica guiada de ${input.topic}.`,
           "Resuelvelo con calma y deja visible el razonamiento.",
         ],
-    steps: input.exercise.hints.length > 0 ? input.exercise.hints.slice(0, 3) : buildFallbackSteps(input.topic, input.subject.slug),
+    steps: input.exercise.hints.length > 0
+      ? input.exercise.hints.slice(0, 3)
+      : deriveStepsFromExplanation([
+          input.exercise.expectedCompetency || `Practica guiada de ${input.topic}.`,
+          "Resuelvelo con calma y deja visible el razonamiento.",
+        ]),
     example: null,
     formula: buildFormula(input.subject.slug, input.topic),
     diagram: buildDiagram(input.subject.slug, input.topic),

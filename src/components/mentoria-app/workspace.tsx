@@ -1072,7 +1072,6 @@ export function MentoriaWorkspace() {
   ) {
     setError(null);
     const normalizedInput = typeof input === "string" ? { message: input } : input;
-    const isDirectChatMessage = typeof input === "string";
     const resolvedSubjectSlug = (normalizedInput?.subjectSlug ?? activeSubjectSlugForUi) || undefined;
     const resolvedTopic = (normalizedInput?.topic ?? topic)?.trim() || resolveTopicForSubject(resolvedSubjectSlug, selectedSubject?.subject?.name ?? null);
     const resolvedMessage = normalizedInput?.message ?? message;
@@ -1102,29 +1101,22 @@ export function MentoriaWorkspace() {
 
     let response: Response | null = null;
     try {
-      response = await fetch(isDirectChatMessage ? "/api/mentoria/chat" : "/api/mentoria/session", {
+      response = await fetch("/api/mentoria/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          isDirectChatMessage
-            ? {
-                studentId: selectedStudentId ?? state.student?.id ?? undefined,
-                subjectSlug: resolvedSubjectSlug,
-                message: resolvedMessage,
-                intent: normalizedInput?.intent,
-              }
-            : {
-                studentId: selectedStudentId ?? state.student?.id ?? undefined,
-                subjectSlug: resolvedSubjectSlug,
-                topic: resolvedTopic,
-                message: resolvedMessage,
-                intent: normalizedInput?.intent,
-                entryMode: normalizedInput?.entryMode,
-                sessionId: normalizedInput?.sessionId,
-                sessionMode: normalizedInput?.sessionMode,
-                sessionInputKind: normalizedInput?.sessionInputKind,
-                sessionSignal: normalizedInput?.sessionSignal,
-              },
+          {
+            studentId: selectedStudentId ?? state.student?.id ?? undefined,
+            subjectSlug: resolvedSubjectSlug,
+            topic: resolvedTopic,
+            message: resolvedMessage,
+            intent: normalizedInput?.intent,
+            entryMode: normalizedInput?.entryMode,
+            sessionId: normalizedInput?.sessionId,
+            sessionMode: normalizedInput?.sessionMode,
+            sessionInputKind: normalizedInput?.sessionInputKind,
+            sessionSignal: normalizedInput?.sessionSignal,
+          },
         ),
       });
     } catch {
@@ -1159,29 +1151,25 @@ export function MentoriaWorkspace() {
       return;
     }
 
-    if (body?.reply || body?.chatMessage) {
+    if (body?.reply || body?.chatMessage || body?.tutorMessage) {
       const responseSubjectSlug = body.subject?.slug ?? body.subjectSlug ?? null;
       if (responseSubjectSlug !== resolvedSubjectSlug) {
         setError("SUBJECT_CONTEXT_MISMATCH");
         setSessionStatusMessage(formatTutorApiError("SUBJECT_CONTEXT_MISMATCH"));
         return;
       }
-      if (body.boardUpdate && body.boardUpdate.subjectSlug !== resolvedSubjectSlug) {
+      if (!body.boardUpdate || !body.tutorMessage?.trim()) {
+        setError("MENTORIA_AI_EMPTY_RESPONSE");
+        setSessionStatusMessage(formatTutorApiError("MENTORIA_AI_EMPTY_RESPONSE"));
+        return;
+      }
+      if (body.boardUpdate.subjectSlug !== resolvedSubjectSlug) {
         setError("SUBJECT_CONTEXT_MISMATCH");
         setSessionStatusMessage("La pizarra ha rechazado una actualizacion de otra materia.");
         return;
       }
       const tutorReply = body.tutorMessage ?? body.chatMessage ?? body.reply ?? "";
       const nextTutorMessages: TutorMessage[] = [{ role: "tutor", content: tutorReply, kind: "message" }];
-      if (body.explanation) {
-        nextTutorMessages.push({ role: "tutor", content: body.explanation, kind: "explanation" });
-      }
-      if ((body.suggestedSteps ?? []).length > 0) {
-        nextTutorMessages.push({ role: "tutor", content: (body.suggestedSteps ?? []).join("\n"), kind: "steps" });
-      }
-      if (body.reinforcementQuestion) {
-        nextTutorMessages.push({ role: "tutor", content: body.reinforcementQuestion, kind: "question" });
-      }
       if (body.sessionFeedback?.completionMessage) {
         nextTutorMessages.push({ role: "tutor", content: body.sessionFeedback.completionMessage, kind: "feedback" });
       }
@@ -1191,11 +1179,9 @@ export function MentoriaWorkspace() {
       if (body.sessionFeedback?.encouragement) {
         nextTutorMessages.push({ role: "tutor", content: body.sessionFeedback.encouragement, kind: "feedback" });
       }
-      if (body.boardUpdate) {
-        pushBoardUpdate(body.boardUpdate);
-        if (body.boardUpdate.mode !== "practice" && body.boardUpdate.mode !== "correction") {
-          setActiveExerciseId(null);
-        }
+      pushBoardUpdate(body.boardUpdate);
+      if (body.boardUpdate.mode !== "practice" && body.boardUpdate.mode !== "correction" && body.boardUpdate.mode !== "task" && body.boardUpdate.mode !== "exam") {
+        setActiveExerciseId(null);
       }
       setTutorResult({
         reply: tutorReply,
@@ -1215,7 +1201,7 @@ export function MentoriaWorkspace() {
       setSessionInputKindOverride(body.sessionInputKind ?? normalizedInput?.sessionInputKind ?? null);
       setSubjectSlug(resolvedSubjectSlug);
       setTopic(body.session?.topic ?? body.topic ?? resolvedTopic);
-      setMessage(body.boardUpdate?.nextAction ?? body.nextAction ?? body.session?.recommendedNextStep ?? resolvedMessage);
+      setMessage(body.boardUpdate.nextAction ?? body.nextAction ?? body.session?.recommendedNextStep ?? resolvedMessage);
       setTutorMessages((current: TutorMessage[]) => [...current, ...nextTutorMessages]);
       setSessionStatusMessage(null);
       resetGuidedFlow();

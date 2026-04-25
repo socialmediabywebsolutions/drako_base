@@ -1,4 +1,4 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContextSafeSync, isBuildPhase } from "@/lib/cloudflare/runtime";
 
 /**
  * Drako Knowledge System - Global Environment Type
@@ -76,18 +76,6 @@ export function setGlobalEnv(e: DracoEnv) {
   globalEnv = e;
 }
 
-function isBuildPhase(): boolean {
-  if (typeof process === "undefined" || !process.env) {
-    return false;
-  }
-
-  return (
-    process.env.NEXT_PHASE === "phase-production-build" ||
-    process.env.npm_lifecycle_event === "build" ||
-    process.env.OPENNEXT_PHASE === "build"
-  );
-}
-
 function canUseProcessEnvFallback(): boolean {
   if (typeof process === "undefined" || !process.env) {
     return false;
@@ -110,7 +98,7 @@ export function env(): DracoEnv | null {
 
   try {
     // 1. Try OpenNext Cloudflare context (Workers Runtime)
-    const ctx = getCloudflareContext();
+    const ctx = getCloudflareContextSafeSync() as { env?: unknown } | null;
     if (ctx && ctx.env && typeof ctx.env === "object") {
       return ctx.env as unknown as DracoEnv;
     }

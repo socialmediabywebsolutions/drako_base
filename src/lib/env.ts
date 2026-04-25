@@ -1,4 +1,4 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContextSafeSync, isBuildPhase } from "@/lib/cloudflare/runtime";
 
 /**
  * Drako Systems - Strict Environment Validation
@@ -30,14 +30,12 @@ export interface DrakoStrictEnv {
 
 // Helper to get raw env from either Cloudflare or Node
 function getRawEnv(): Record<string, unknown> {
-    if (typeof process !== "undefined" && process.env?.NEXT_PHASE === "phase-production-build") {
+    if (isBuildPhase()) {
         return process.env;
     }
 
-    try {
-        const ctx = getCloudflareContext();
-        if (ctx?.env) return ctx.env as Record<string, unknown>;
-    } catch { }
+    const ctx = getCloudflareContextSafeSync() as { env?: unknown } | null;
+    if (ctx?.env) return ctx.env as Record<string, unknown>;
 
     if (typeof process !== "undefined" && process.env) {
         return process.env;

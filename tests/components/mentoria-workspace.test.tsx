@@ -261,18 +261,18 @@ describe("MentoriaWorkspace", () => {
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
+    fireEvent.change((await screen.findAllByRole("textbox"))[0], {
       target: { value: "No entiendo fracciones" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
     expect(await screen.findByText("Vale, vamos paso a paso.")).toBeInTheDocument();
     expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/mentoria/chat");
-    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toMatchObject({
       studentId: "student_1",
       subjectSlug: "matematicas",
       message: "No entiendo fracciones",
-      intent: undefined,
+      topic: "Matematicas",
     });
   });
 
@@ -306,7 +306,7 @@ describe("MentoriaWorkspace", () => {
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
+    fireEvent.change((await screen.findAllByRole("textbox"))[0], {
       target: { value: "No entiendo fracciones" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
@@ -361,11 +361,11 @@ describe("MentoriaWorkspace", () => {
     expect(await screen.findByText("Simulacro corto de Historia")).toBeInTheDocument();
     expect(screen.getByText("1. Que pasaba antes de 1789?")).toBeInTheDocument();
     expect(screen.queryByText("Ejemplo guiado con fracciones equivalentes.")).not.toBeInTheDocument();
-    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toMatchObject({
       studentId: "student_1",
       subjectSlug: "historia",
       message: "Hazme un examen de Historia",
-      intent: undefined,
+      topic: "Historia",
     });
   });
 
@@ -564,6 +564,7 @@ describe("MentoriaWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Corregir respuesta" }));
 
     expect(await screen.findByText("Voy a corregirte la tarea de Ingles.")).toBeInTheDocument();
+    expect(fetchMock.mock.calls[3]?.[0]).toBe("/api/mentoria/chat");
     expect(JSON.parse(String(fetchMock.mock.calls[3]?.[1]?.body))).toMatchObject({
       studentId: "student_1",
       subjectSlug: "ingles",
@@ -586,5 +587,154 @@ describe("MentoriaWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
     expect(await screen.findByText("Tutor IA no disponible. Falta el binding AI de Cloudflare Workers AI en este entorno.")).toBeInTheDocument();
+  });
+
+  it("keeps the learning loop alive across turns without resetting the class", async () => {
+    setSearchParams({ subjectSlug: "matematicas" });
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse()))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          tutorMessage: "Vamos con fracciones desde la base.",
+          reply: "Vamos con fracciones desde la base.",
+          subject: { name: "Matematicas", slug: "matematicas" },
+          learningStateUpdated: {
+            studentId: "student_1",
+            subjectSlug: "matematicas",
+            currentTopic: "Fracciones",
+            difficultyLevel: 1,
+            detectedGaps: ["Base fragil en Fracciones"],
+            frustrationLevel: "high",
+            lastUserAnswer: null,
+            lastTutorAction: "introduce_concept",
+            masteryScore: 24,
+            stepIndex: 0,
+            mode: "explain",
+            strategy: "step_by_step",
+            awaitingStudentAnswer: true,
+            repeatedBlockCount: 0,
+            feedback: null,
+            updatedAt: "2026-04-25T10:00:00.000Z",
+          },
+          boardUpdate: {
+            ...buildBoardUpdate({
+              subjectSlug: "matematicas",
+              subjectName: "Matematicas",
+              topic: "Fracciones",
+              intent: "explanation",
+              mode: "explanation",
+              conceptDefinition: "Una fraccion compara partes del mismo tamano.",
+              explanation: ["Primero compara el denominador."],
+              steps: ["Mira el denominador"],
+              example: "Ejemplo guiado con dos fracciones.",
+              guidedQuestion: "Que miras primero en cada fraccion?",
+            }),
+            progressSummary: "Paso 1 · dominio 24% · frustracion high",
+            learningState: {
+              studentId: "student_1",
+              subjectSlug: "matematicas",
+              currentTopic: "Fracciones",
+              difficultyLevel: 1,
+              detectedGaps: ["Base fragil en Fracciones"],
+              frustrationLevel: "high",
+              lastUserAnswer: null,
+              lastTutorAction: "introduce_concept",
+              masteryScore: 24,
+              stepIndex: 0,
+              mode: "explain",
+              strategy: "step_by_step",
+              awaitingStudentAnswer: true,
+              repeatedBlockCount: 0,
+              feedback: null,
+              updatedAt: "2026-04-25T10:00:00.000Z",
+            },
+          },
+          session: { id: "session_loop_1", topic: "Fracciones", recommendedNextStep: "Responde la pregunta guiada." },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse()))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          tutorMessage: "Bien, ahora subimos un paso mas.",
+          reply: "Bien, ahora subimos un paso mas.",
+          subject: { name: "Matematicas", slug: "matematicas" },
+          learningStateUpdated: {
+            studentId: "student_1",
+            subjectSlug: "matematicas",
+            currentTopic: "Fracciones",
+            difficultyLevel: 2,
+            detectedGaps: ["Base fragil en Fracciones"],
+            frustrationLevel: "low",
+            lastUserAnswer: "Primero miro el denominador",
+            lastTutorAction: "raise_difficulty",
+            masteryScore: 42,
+            stepIndex: 1,
+            mode: "exercise",
+            strategy: "step_by_step",
+            awaitingStudentAnswer: true,
+            repeatedBlockCount: 0,
+            feedback: "Bien. Esa respuesta ya permite avanzar un paso mas.",
+            updatedAt: "2026-04-25T10:01:00.000Z",
+          },
+          boardUpdate: {
+            ...buildBoardUpdate({
+              subjectSlug: "matematicas",
+              subjectName: "Matematicas",
+              topic: "Fracciones",
+              intent: "explanation",
+              mode: "explanation",
+              conceptDefinition: "Ahora compara tambien el numerador.",
+              explanation: ["Ya sabes por donde empezar; ahora añade el numerador."],
+              steps: ["Mira el denominador", "Compara el numerador"],
+              example: "Ejemplo nuevo con numeradores distintos.",
+              guidedQuestion: "Que cambia cuando el denominador ya es el mismo?",
+            }),
+            feedback: "Bien. Esa respuesta ya permite avanzar un paso mas.",
+            progressSummary: "Paso 2 · dominio 42% · frustracion low",
+            learningState: {
+              studentId: "student_1",
+              subjectSlug: "matematicas",
+              currentTopic: "Fracciones",
+              difficultyLevel: 2,
+              detectedGaps: ["Base fragil en Fracciones"],
+              frustrationLevel: "low",
+              lastUserAnswer: "Primero miro el denominador",
+              lastTutorAction: "raise_difficulty",
+              masteryScore: 42,
+              stepIndex: 1,
+              mode: "exercise",
+              strategy: "step_by_step",
+              awaitingStudentAnswer: true,
+              repeatedBlockCount: 0,
+              feedback: "Bien. Esa respuesta ya permite avanzar un paso mas.",
+              updatedAt: "2026-04-25T10:01:00.000Z",
+            },
+          },
+          session: { id: "session_loop_2", topic: "Fracciones", recommendedNextStep: "Responde el siguiente paso." },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse()));
+
+    render(React.createElement(MentoriaWorkspace));
+
+    await screen.findByRole("heading", { name: "Hola, Alex" });
+    fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
+      target: { value: "No entiendo fracciones" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+
+    expect(await screen.findByText("Paso 1 · dominio 24% · frustracion high")).toBeInTheDocument();
+    expect(screen.getAllByText("Que miras primero en cada fraccion?").length).toBeGreaterThan(0);
+
+    fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
+      target: { value: "Primero miro el denominador" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+
+    expect(await screen.findByText("Paso 2 · dominio 42% · frustracion low")).toBeInTheDocument();
+    expect(screen.getByText("Bien. Esa respuesta ya permite avanzar un paso mas.")).toBeInTheDocument();
+    expect(screen.getAllByText("Que cambia cuando el denominador ya es el mismo?").length).toBeGreaterThan(0);
   });
 });

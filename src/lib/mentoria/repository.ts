@@ -284,6 +284,7 @@ type StudentEvolutionRow = {
   id: string;
   tenant_id: string;
   student_profile_id: string;
+  subject_slug: string;
   strengths_json: string;
   weaknesses_json: string;
   frustration_level: number;
@@ -770,6 +771,7 @@ function mapLearningSession(row: LearningSessionRow): LearningSession {
 function mapStudentEvolution(row: StudentEvolutionRow): StudentEvolutionProfile {
   return {
     studentId: row.student_profile_id,
+    subjectSlug: row.subject_slug,
     strengths: parseJsonArray<string>(row.strengths_json),
     weaknesses: parseJsonArray<string>(row.weaknesses_json),
     frustrationLevel: row.frustration_level,
@@ -1279,14 +1281,21 @@ export class MentoriaRepository {
     return (result.results ?? []).map(mapStudent);
   }
 
-  async getStudentEvolutionProfile(tenantId: string, studentId: string): Promise<StudentEvolutionProfile | null> {
+  async getStudentEvolutionProfile(
+    tenantId: string,
+    studentId: string,
+    subjectSlug: string,
+  ): Promise<StudentEvolutionProfile | null> {
+    if (!subjectSlug?.trim()) {
+      throw new Error("SUBJECT_REQUIRED");
+    }
     const row = await this.db
       .prepare(
         `SELECT * FROM mentoria_student_evolution
-         WHERE tenant_id = ? AND student_profile_id = ?
+         WHERE tenant_id = ? AND student_profile_id = ? AND subject_slug = ?
          LIMIT 1`,
       )
-      .bind(tenantId, studentId)
+      .bind(tenantId, studentId, subjectSlug.trim())
       .first<StudentEvolutionRow>();
     return row ? mapStudentEvolution(row) : null;
   }
@@ -1295,13 +1304,17 @@ export class MentoriaRepository {
     tenantId: string,
     profile: StudentEvolutionProfile,
   ): Promise<StudentEvolutionProfile> {
+    const subjectSlug = profile.subjectSlug?.trim();
+    if (!subjectSlug) {
+      throw new Error("SUBJECT_REQUIRED");
+    }
     const existing = await this.db
       .prepare(
         `SELECT id FROM mentoria_student_evolution
-         WHERE tenant_id = ? AND student_profile_id = ?
+         WHERE tenant_id = ? AND student_profile_id = ? AND subject_slug = ?
          LIMIT 1`,
       )
-      .bind(tenantId, profile.studentId)
+      .bind(tenantId, profile.studentId, subjectSlug)
       .first<{ id: string }>();
     const now = profile.updatedAt || new Date().toISOString();
 
@@ -1309,11 +1322,12 @@ export class MentoriaRepository {
       await this.db
         .prepare(
           `UPDATE mentoria_student_evolution
-           SET strengths_json = ?, weaknesses_json = ?, frustration_level = ?, consistency_score = ?,
+           SET subject_slug = ?, strengths_json = ?, weaknesses_json = ?, frustration_level = ?, consistency_score = ?,
                average_response_time = ?, last_sessions = ?, common_mistakes_json = ?, progression_velocity = ?, updated_at = ?
            WHERE tenant_id = ? AND id = ?`,
         )
         .bind(
+          subjectSlug,
           JSON.stringify(profile.strengths),
           JSON.stringify(profile.weaknesses),
           profile.frustrationLevel,
@@ -1331,15 +1345,16 @@ export class MentoriaRepository {
       await this.db
         .prepare(
           `INSERT INTO mentoria_student_evolution (
-            id, tenant_id, student_profile_id, strengths_json, weaknesses_json, frustration_level,
+            id, tenant_id, student_profile_id, subject_slug, strengths_json, weaknesses_json, frustration_level,
             consistency_score, average_response_time, last_sessions, common_mistakes_json,
             progression_velocity, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           crypto.randomUUID(),
           tenantId,
           profile.studentId,
+          subjectSlug,
           JSON.stringify(profile.strengths),
           JSON.stringify(profile.weaknesses),
           profile.frustrationLevel,
@@ -1354,9 +1369,12 @@ export class MentoriaRepository {
         .run();
     }
 
-    const saved = await this.getStudentEvolutionProfile(tenantId, profile.studentId);
+    const saved = await this.getStudentEvolutionProfile(tenantId, profile.studentId, subjectSlug);
     if (!saved) {
       throw new Error("MENTORIA_EVOLUTION_PROFILE_PERSIST_FAILED");
+    }
+    if (saved.subjectSlug !== subjectSlug) {
+      throw new Error("EVOLUTION_SCOPE_MISMATCH");
     }
     return saved;
   }

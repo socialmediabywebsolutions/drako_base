@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 
 import { NextResponse } from "next/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContextSafeSync } from "@/lib/cloudflare/runtime";
 import { safeEnv, type DrakoStrictEnv } from "@/lib/env";
 
 export const runtime = "nodejs"; // Strict Requirement: Node runtime for secure env access
@@ -71,9 +71,5 @@ export async function GET(req: Request) {
 }
 
 function getCloudflareContextSafe(): { env?: unknown } | null {
-    try {
-        return getCloudflareContext() as { env?: unknown };
-    } catch {
-        return null;
-    }
+    return getCloudflareContextSafeSync() as { env?: unknown } | null;
 }

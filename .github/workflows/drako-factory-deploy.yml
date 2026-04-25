@@ -34,7 +34,7 @@ jobs:
       - name: Setup Node.js (LTS) + pnpm cache
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: "22.22.1"
           cache: pnpm
 
       - name: Verify pnpm lockfile
@@ -75,7 +75,7 @@ jobs:
       - name: Setup Node.js (LTS) + pnpm cache
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: "22.22.1"
           cache: pnpm
 
       - name: Verify pnpm lockfile
@@ -183,7 +183,7 @@ jobs:
       - name: Setup Node.js (LTS) + pnpm cache
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: "22.22.1"
           cache: pnpm
 
       - name: Verify pnpm lockfile

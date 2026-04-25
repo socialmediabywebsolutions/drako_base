@@ -15,6 +15,7 @@ import type { MentoriaRequestSession } from "@/lib/mentoria/auth/request";
 import { ensureMentoriaAgentHandlersRegistered } from "@/lib/mentoria/drako-agent-handlers";
 import { detectInterventions, materializeInterventions } from "@/lib/mentoria/intervention-engine";
 import { completeDailyPlanTask, generateDailyPlan } from "@/lib/mentoria/learning-loop-engine";
+import { resolveLearningLoopDecision } from "@/lib/mentoria/learning-loop";
 import {
   createInitialMotivationState,
   detectMotivationProfile,
@@ -80,7 +81,10 @@ import { TrialManager } from "@/lib/mentoria/trial-system";
 import { checkAccessControl, UpgradeFlowError, buildTrialExpiringWarning, buildUpgradePrompt } from "@/lib/mentoria/upgrade-flow";
 import { getMentoriaOrchestrator } from "@/lib/mentoria/resilience/orchestrator";
 import { buildBoardUpdateFromSession } from "@/lib/mentoria/board-update";
-import { detectMentoriaClassroomIntent } from "@/lib/mentoria/classroom-intent";
+import {
+  assertSubjectMessageConsistency,
+  resolveMentoriaIntentEngine,
+} from "@/lib/mentoria/intent-engine";
 import {
   createInitialEvolutionProfile,
   updateEvolutionFromSession,
@@ -109,6 +113,7 @@ import type {
   MentoriaGrowthSummary,
   MentoriaIntervention,
   MentoriaFamilyStructure,
+  MentoriaLearningState,
   MentoriaLearningPreference,
   MentoriaLearningStage,
   MentoriaOnboardingAdditionalStudentInput,
@@ -827,7 +832,7 @@ export class MentoriaService {
       existing = undefined;
     }
     const progress = options?.progress ?? (await this.repository.listProgress(actor.tenantId, student.id));
-    const evolution = options?.evolution ?? (await this.ensureEvolutionProfile(actor.tenantId, student));
+    const evolution = options?.evolution ?? (await this.ensureEvolutionProfile(actor.tenantId, student, "general"));
     const interventions = await this.syncInterventions(actor.tenantId, student.id, evolution);
     const motivation = options?.motivation ?? (await this.ensureMotivationState(actor.tenantId, student, evolution, interventions));
     const dailyPlan = options?.dailyPlan ?? (await this.ensureDailyPlan(actor.tenantId, student, { progress, evolution, interventions, motivation }));
@@ -943,8 +948,16 @@ export class MentoriaService {
     return analysis.output;
   }
 
-  private async ensureEvolutionProfile(tenantId: string, student: StudentProfile): Promise<StudentEvolutionProfile> {
-    const existing = await this.repository.getStudentEvolutionProfile(tenantId, student.id);
+  private async ensureEvolutionProfile(
+    tenantId: string,
+    student: StudentProfile,
+    subjectSlug: string,
+  ): Promise<StudentEvolutionProfile> {
+    const normalizedSubjectSlug = subjectSlug?.trim();
+    if (!normalizedSubjectSlug) {
+      throw new Error("SUBJECT_REQUIRED");
+    }
+    const existing = await this.repository.getStudentEvolutionProfile(tenantId, student.id, normalizedSubjectSlug);
     if (existing) {
       return existing;
     }
@@ -953,10 +966,39 @@ export class MentoriaService {
       this.repository.listProgress(tenantId, student.id),
       this.repository.listSubjects(tenantId),
     ]);
+    const subject = subjects.find((item) => item.slug === normalizedSubjectSlug);
+    if (!subject) {
+      if (normalizedSubjectSlug === "general") {
+        return this.repository.saveStudentEvolutionProfile(tenantId, {
+          studentId: student.id,
+          subjectSlug: "general",
+          strengths: student.strengths.slice(0, 8),
+          weaknesses: [],
+          frustrationLevel:
+            student.emotionalBaseline.frustration === "high"
+              ? 0.72
+              : student.emotionalBaseline.frustration === "low"
+                ? 0.2
+                : 0.46,
+          consistencyScore:
+            student.emotionalBaseline.concentration === "high"
+              ? 0.76
+              : student.emotionalBaseline.concentration === "low"
+                ? 0.32
+                : 0.54,
+          averageResponseTime: Math.max(8, student.preferredStudyMinutes),
+          lastSessions: 0,
+          commonMistakes: [],
+          progressionVelocity: 0.42,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+      throw new Error("SUBJECT_REQUIRED");
+    }
     const initial = createInitialEvolutionProfile({
       student,
       progress,
-      subjects,
+      subject,
     });
     return this.repository.saveStudentEvolutionProfile(tenantId, initial);
   }
@@ -978,7 +1020,7 @@ export class MentoriaService {
     }
 
     const [evolution, progress, subjects, studentSubjects, recentSessions] = await Promise.all([
-      options?.evolution ? Promise.resolve(options.evolution) : this.ensureEvolutionProfile(tenantId, student),
+      options?.evolution ? Promise.resolve(options.evolution) : this.ensureEvolutionProfile(tenantId, student, "general"),
       options?.progress ? Promise.resolve(options.progress) : this.repository.listProgress(tenantId, student.id),
       options?.subjects ? Promise.resolve(options.subjects) : this.repository.listSubjects(tenantId),
       options?.studentSubjects ? Promise.resolve(options.studentSubjects) : this.repository.listStudentSubjects(tenantId, student.id),
@@ -1065,14 +1107,14 @@ export class MentoriaService {
       this.repository.listReferralsByInviter(actor.tenantId, student.id),
       this.repository.getLatestProgressShare(actor.tenantId, student.id),
       options?.progress ? Promise.resolve(options.progress) : this.repository.listProgress(actor.tenantId, student.id),
-      options?.evolution ? Promise.resolve(options.evolution) : this.ensureEvolutionProfile(actor.tenantId, student),
+      options?.evolution ? Promise.resolve(options.evolution) : this.ensureEvolutionProfile(actor.tenantId, student, "general"),
       options?.interventions ? Promise.resolve(options.interventions) : this.repository.listInterventions(actor.tenantId, student.id),
       options?.motivation
         ? Promise.resolve(options.motivation)
         : this.ensureMotivationState(
             actor.tenantId,
             student,
-            options?.evolution ?? (await this.ensureEvolutionProfile(actor.tenantId, student)),
+            options?.evolution ?? (await this.ensureEvolutionProfile(actor.tenantId, student, "general")),
             options?.interventions ?? (await this.repository.listInterventions(actor.tenantId, student.id)),
           ),
       options?.dailyPlan
@@ -1123,7 +1165,7 @@ export class MentoriaService {
     const selectedSubjects = await this.repository.listStudentSubjects(tenantId, student.id);
     const subjectIds = new Set(selectedSubjects.map((item) => item.subjectId));
     const subjects = (await this.repository.listSubjects(tenantId)).filter((subject) => subjectIds.has(subject.id));
-    const evolution = await this.ensureEvolutionProfile(tenantId, student);
+    const evolution = await this.ensureEvolutionProfile(tenantId, student, "general");
     const interventions = await this.syncInterventions(tenantId, student.id, evolution);
     const motivation = await this.ensureMotivationState(tenantId, student, evolution, interventions);
     const dailyPlan = await this.ensureDailyPlan(tenantId, student, { subjects, progress, evolution, interventions, motivation });
@@ -1177,7 +1219,10 @@ export class MentoriaService {
     const subjectIds = new Set(selectedSubjects.map((item) => item.subjectId));
     const subjects = allSubjects.filter((subject) => subjectIds.has(subject.id));
     const progress = options?.progress ?? (await this.repository.listProgress(tenantId, student.id));
-    const evolution = options?.evolution ?? (await this.ensureEvolutionProfile(tenantId, student));
+    const subjectEvolutions = await Promise.all(
+      subjects.map((subject) => this.ensureEvolutionProfile(tenantId, student, subject.slug)),
+    );
+    const evolution = options?.evolution ?? subjectEvolutions[0] ?? (await this.ensureEvolutionProfile(tenantId, student, "general"));
     const interventions = options?.interventions ?? (await this.syncInterventions(tenantId, student.id, evolution));
     const motivation = options?.motivation ?? (await this.ensureMotivationState(tenantId, student, evolution, interventions));
     const learningMemory = options?.learningMemory ?? (await this.ensureLearningMemoryProfile(tenantId, student, {
@@ -1194,6 +1239,7 @@ export class MentoriaService {
         subjects,
         progress,
         evolution,
+        subjectEvolutions,
         motivation,
         interventions,
         existingPlan: existing,
@@ -1713,15 +1759,21 @@ export class MentoriaService {
     }
 
     const progress = await this.repository.listProgress(actor.tenantId, student.id);
-    await this.repository.saveStudentEvolutionProfile(
+    for (const item of selectedSubjects) {
+      await this.repository.saveStudentEvolutionProfile(
+        actor.tenantId,
+        createInitialEvolutionProfile({
+          student,
+          progress,
+          subject: item.subject,
+        }),
+      );
+    }
+    const syncedEvolution = await this.ensureEvolutionProfile(
       actor.tenantId,
-      createInitialEvolutionProfile({
-        student,
-        progress,
-        subjects: allSubjects,
-      }),
+      student,
+      selectedSubjects[0]?.subject.slug ?? "general",
     );
-    const syncedEvolution = await this.ensureEvolutionProfile(actor.tenantId, student);
     const syncedInterventions = await this.syncInterventions(actor.tenantId, student.id, syncedEvolution);
     await this.repository.saveMotivationState(
       actor.tenantId,
@@ -1854,7 +1906,7 @@ export class MentoriaService {
 
   async getDashboard(actor: MentoriaSessionActor, studentProfileId?: string): Promise<MentoriaDashboard & { evolution: StudentEvolutionProfile; interventions: MentoriaIntervention[]; motivation: MotivationState; dailyPlan: DailyPlan; billing: MentoriaBillingSummary; growth: MentoriaGrowthSummary; insights: Insight[] }> {
     const student = await this.requireOnboardedStudent(actor, studentProfileId);
-    const evolution = await this.ensureEvolutionProfile(actor.tenantId, student);
+    const evolution = await this.ensureEvolutionProfile(actor.tenantId, student, "general");
     const interventions = await this.syncInterventions(actor.tenantId, student.id, evolution);
     const motivation = await this.ensureMotivationState(actor.tenantId, student, evolution, interventions);
     const dailyPlan = await this.ensureDailyPlan(actor.tenantId, student, { evolution, interventions, motivation });
@@ -2180,6 +2232,7 @@ export class MentoriaService {
     model?: string;
     sessionMode: MentoriaSessionMode;
     sessionInputKind: MentoriaSessionInputKind;
+    learningStateUpdated: MentoriaLearningState;
     insights: Insight[];
     isRecovered?: boolean;
     sessionFeedback?: {
@@ -2212,14 +2265,6 @@ export class MentoriaService {
       this.trialManager.getTrialDaysRemaining(actor.tenantId, student.id),
     ]);
     
-    // SESSION RECOVERY: Check for active session to resume
-    let recoveredSession: SessionRecoveryData | null = null;
-    if (payload.sessionId) {
-      recoveredSession = await this.persistence.getSessionSnapshot(actor.tenantId, payload.sessionId);
-    } else {
-      recoveredSession = await this.persistence.getActiveSession(actor.tenantId, student.id);
-    }
-
     // ACCESS CONTROL: Check if user can start session (trial or paid plan)
     try {
       checkAccessControl({
@@ -2245,24 +2290,13 @@ export class MentoriaService {
       "Has llegado al limite diario de sesiones guiadas de tu plan actual.",
       "MENTORIA_GUIDED_SESSIONS_LIMIT_REACHED",
     );
-    const [evolution, progress, recentSessions, studentSubjects, subjects, canonicalFamily] = await Promise.all([
-      this.ensureEvolutionProfile(actor.tenantId, student),
+    const [progress, recentSessions, studentSubjects, subjects, canonicalFamily] = await Promise.all([
       this.repository.listProgress(actor.tenantId, student.id),
       this.repository.listLearningSessions(actor.tenantId, student.id),
       this.repository.listStudentSubjects(actor.tenantId, student.id),
       this.repository.listSubjects(actor.tenantId),
       this.getCanonicalFamilyContract(actor, student).catch(() => null),
     ]);
-    const interventions = await this.syncInterventions(actor.tenantId, student.id, evolution);
-    const motivation = await this.ensureMotivationState(actor.tenantId, student, evolution, interventions);
-    const learningMemory = await this.ensureLearningMemoryProfile(actor.tenantId, student, {
-      evolution,
-      progress,
-      subjects,
-      studentSubjects,
-      recentSessions,
-    });
-    const dailyPlan = await this.ensureDailyPlan(actor.tenantId, student, { evolution, interventions, motivation, progress, learningMemory });
     const enabledSubjectIds = new Set(studentSubjects.map((item) => item.subjectId));
     const availableSubjects = subjects.filter((subject) => enabledSubjectIds.has(subject.id));
     const requestedSubject = requireAccessibleSubject({
@@ -2272,6 +2306,23 @@ export class MentoriaService {
     });
     if (!requestedSubject) {
       throw new Error("SUBJECT_REQUIRED");
+    }
+    const evolution = await this.ensureEvolutionProfile(actor.tenantId, student, requestedSubject.slug);
+    const interventions = await this.syncInterventions(actor.tenantId, student.id, evolution);
+    const motivation = await this.ensureMotivationState(actor.tenantId, student, evolution, interventions);
+    const learningMemory = await this.ensureLearningMemoryProfile(actor.tenantId, student, {
+      evolution,
+      progress,
+      subjects: [requestedSubject],
+      studentSubjects,
+      recentSessions,
+    });
+    const dailyPlan = await this.ensureDailyPlan(actor.tenantId, student, { evolution, interventions, motivation, progress, learningMemory });
+    let recoveredSession: SessionRecoveryData | null = null;
+    if (payload.sessionId) {
+      recoveredSession = await this.persistence.getSessionSnapshot(actor.tenantId, payload.sessionId);
+    } else {
+      recoveredSession = await this.persistence.getActiveSession(actor.tenantId, student.id, requestedSubject.id);
     }
     const currentRecoveredSession = recoveredSession;
     if (currentRecoveredSession) {
@@ -2294,6 +2345,11 @@ export class MentoriaService {
     }
     const signalInstruction = buildSessionSignalInstruction(payload.sessionSignal);
     const effectiveStudentMessage = [signalInstruction, payload.message].filter(Boolean).join(" ").trim();
+    assertSubjectMessageConsistency({
+      message: effectiveStudentMessage,
+      activeSubject: requestedSubject,
+      availableSubjects,
+    });
     const subjectSelection = inferSubjectAndTopic({
       requestedSubjectSlug: requestedSubject.slug,
       topic: payload.topic,
@@ -2304,11 +2360,12 @@ export class MentoriaService {
     });
     const subject = requestedSubject;
     const resolvedTopic = subjectSelection.topic;
-    const classroomIntent = detectMentoriaClassroomIntent({
+    const classroomTurn = resolveMentoriaIntentEngine({
       message: effectiveStudentMessage,
       subject,
       explicitIntent: payload.intent,
     });
+    const classroomIntent = classroomTurn.intent;
     const subjectRecentSessions = recentSessions.filter((session) => session.subjectId === subject.id);
     const current = progress.find((item) => item.subjectId === subject.id);
     const subjectMemories = await this.repository.listStudentSubjectMemories(
@@ -2458,6 +2515,7 @@ export class MentoriaService {
         profileAdaptation.tutorInstruction,
         entryModeAdjustments.tutorInstruction,
         getTutorModeInstruction(resolvedSessionMode, sessionContract.headline),
+        classroomTurn.tutorInstruction,
       ].filter(Boolean).join(" ").trim(),
     };
     const history: MentoriaAgentHistoryTurn[] = subjectRecentSessions
@@ -2504,6 +2562,17 @@ export class MentoriaService {
     );
     await trackEvent(sessionMetric);
 
+    const learningLoopDecision = resolveLearningLoopDecision({
+      studentId: student.id,
+      subjectSlug: subject.slug,
+      message: effectiveStudentMessage,
+      topic: resolvedTopic,
+      intent: classroomIntent,
+      previousState: recoveredSession?.learningState ?? null,
+      previousBoardUpdate: recoveredSession?.boardUpdate ?? null,
+      studentEvolution: evolution,
+      now: new Date().toISOString(),
+    });
     const resolvedExplanation = String(tutorResponse.output.explanation);
     const resolvedSuggestedSteps = Array.isArray(tutorResponse.output.suggestedSteps)
       ? tutorResponse.output.suggestedSteps.map((item) => String(item))
@@ -2521,8 +2590,19 @@ export class MentoriaService {
       recommendedNextStep: resolvedRecommendedNextStep,
       intent: classroomIntent,
       sessionMode: resolvedSessionMode,
-      createdAt: new Date().toISOString(),
+      nextActionLabel: learningLoopDecision.nextAction || classroomTurn.nextActionLabel,
+      createdAt: learningLoopDecision.learningStateUpdated.updatedAt,
     });
+    boardUpdate.learningState = learningLoopDecision.learningStateUpdated;
+    boardUpdate.feedback = learningLoopDecision.feedback;
+    if (learningLoopDecision.evolutionSignals.length > 0) {
+      const evolutionNote = `Memoria activa de ${subject.name}: ${learningLoopDecision.evolutionSignals.join(", ")}.`;
+      boardUpdate.note = [boardUpdate.note, evolutionNote].filter(Boolean).join(" ");
+    }
+    boardUpdate.progressSummary = `Paso ${learningLoopDecision.learningStateUpdated.stepIndex + 1} · dominio ${learningLoopDecision.learningStateUpdated.masteryScore}% · frustracion ${learningLoopDecision.learningStateUpdated.frustrationLevel}`;
+    if (!tutorResponse.reply.trim() || !boardUpdate.nextAction.trim() || boardUpdate.subjectSlug !== subject.slug) {
+      throw new Error("MENTORIA_AI_EMPTY_RESPONSE");
+    }
 
     // ATOMIC TRIAL ENFORCEMENT: Re-verify trial status immediately before session creation
     // This prevents race condition where trial expires between initial check and session creation
@@ -2554,17 +2634,19 @@ export class MentoriaService {
     });
 
     await this.persistence.saveSessionSnapshot({
-      sessionId: session.id,
+      sessionId: recoveredSession?.sessionId ?? session.id,
       tenantId: actor.tenantId,
       studentProfileId: student.id,
       subjectId: subject.id,
       topic: resolvedTopic,
       status: "active",
-      transcript: session.transcript,
+      transcript: recoveredSession ? [...recoveredSession.transcript, ...session.transcript] : session.transcript,
       emotionalState: adaptation.emotionalState,
       lastActivityAt: new Date().toISOString(),
       aiTokensUsed: tutorResponse.usage?.tokens ?? 0,
       durationMinutes: session.durationMinutes,
+      boardUpdate,
+      learningState: learningLoopDecision.learningStateUpdated,
     });
 
     await this.repository.upsertProgress({
@@ -2607,7 +2689,7 @@ export class MentoriaService {
       abandoned: false,
       responseSpeed: session.durationMinutes <= 10 ? "fast" : session.durationMinutes >= 24 ? "slow" : "medium",
     });
-    const syncedEvolution = await this.ensureEvolutionProfile(actor.tenantId, student);
+    const syncedEvolution = await this.ensureEvolutionProfile(actor.tenantId, student, subject.slug);
     const syncedInterventions = await this.syncInterventions(actor.tenantId, student.id, syncedEvolution);
     const savedMotivation = await this.repository.saveMotivationState(
       actor.tenantId,
@@ -2771,9 +2853,6 @@ export class MentoriaService {
         }),
       );
     }
-    // MARK SESSION AS COMPLETED
-    await this.persistence.completeSession(actor.tenantId, session.id);
-
     await recordCampamentoEvent({
       tenantId: actor.tenantId,
       type: "mentoria.session.completed",
@@ -2890,6 +2969,7 @@ export class MentoriaService {
       model: typeof tutorResponse.metadata?.model === "string" ? tutorResponse.metadata.model : undefined,
       sessionMode: resolvedSessionMode,
       sessionInputKind: resolvedSessionInputKind,
+      learningStateUpdated: learningLoopDecision.learningStateUpdated,
       insights,
       isRecovered: !!recoveredSession,
       sessionFeedback: {
@@ -2922,7 +3002,7 @@ export class MentoriaService {
     const subject = await this.repository.getSubjectBySlug(actor.tenantId, payload.subjectSlug);
     if (!subject) throw new Error("SUBJECT_NOT_FOUND");
     const [evolution, progress, studentSubjects] = await Promise.all([
-      this.ensureEvolutionProfile(actor.tenantId, student),
+      this.ensureEvolutionProfile(actor.tenantId, student, subject.slug),
       this.repository.listProgress(actor.tenantId, student.id),
       this.repository.listStudentSubjects(actor.tenantId, student.id),
     ]);
@@ -3021,7 +3101,7 @@ export class MentoriaService {
     const subject = await this.repository.getSubjectById(actor.tenantId, exercise.subjectId);
     if (!subject) throw new Error("SUBJECT_NOT_FOUND");
     const [evolution, progress] = await Promise.all([
-      this.ensureEvolutionProfile(actor.tenantId, student),
+      this.ensureEvolutionProfile(actor.tenantId, student, subject.slug),
       this.repository.listProgress(actor.tenantId, student.id),
     ]);
     const studentSubjects = await this.repository.listStudentSubjects(actor.tenantId, student.id);
@@ -3094,7 +3174,7 @@ export class MentoriaService {
         progress: current,
       }),
     );
-    const syncedEvolution = await this.ensureEvolutionProfile(actor.tenantId, student);
+    const syncedEvolution = await this.ensureEvolutionProfile(actor.tenantId, student, subject.slug);
     const syncedInterventions = await this.syncInterventions(actor.tenantId, student.id, syncedEvolution);
     const savedMotivation = await this.repository.saveMotivationState(
       actor.tenantId,
@@ -3261,7 +3341,7 @@ export class MentoriaService {
       this.repository.listProgress(actor.tenantId, student.id),
       this.repository.listStudentSubjects(actor.tenantId, student.id),
     ]);
-    const evolution = await this.ensureEvolutionProfile(actor.tenantId, student);
+    const evolution = await this.ensureEvolutionProfile(actor.tenantId, student, "general");
     const interventions = await this.syncInterventions(actor.tenantId, student.id, evolution);
     const motivation = await this.ensureMotivationState(actor.tenantId, student, evolution, interventions);
     const dailyPlan = await this.ensureDailyPlan(actor.tenantId, student, { progress, evolution, interventions, motivation });
@@ -3291,7 +3371,7 @@ export class MentoriaService {
       "MENTORIA_PLANNER_LIMIT_REACHED",
     );
     const canonical = await this.getCanonicalFamilyContract(actor, targetStudent);
-    const evolution = await this.ensureEvolutionProfile(actor.tenantId, targetStudent);
+    const evolution = await this.ensureEvolutionProfile(actor.tenantId, targetStudent, "general");
     const interventions = await this.syncInterventions(actor.tenantId, targetStudent.id, evolution);
     const motivation = await this.ensureMotivationState(actor.tenantId, targetStudent, evolution, interventions);
     await this.ensureDailyPlan(actor.tenantId, targetStudent, { force: true, evolution, interventions, motivation });
@@ -3323,17 +3403,22 @@ export class MentoriaService {
     studentProfileId?: string;
   }) {
     const student = await this.requireOnboardedStudent(actor, payload.studentProfileId);
-    const [focusSession, evolution] = await Promise.all([
-      this.repository.completeFocusSession({
-        tenantId: actor.tenantId,
-        focusSessionId: payload.focusSessionId,
-        studentProfileId: student.id,
-        distractionsCount: payload.distractionsCount,
-        notes: payload.notes,
-      }),
-      this.ensureEvolutionProfile(actor.tenantId, student),
-    ]);
+    const focusSession = await this.repository.completeFocusSession({
+      tenantId: actor.tenantId,
+      focusSessionId: payload.focusSessionId,
+      studentProfileId: student.id,
+      distractionsCount: payload.distractionsCount,
+      notes: payload.notes,
+    });
     if (focusSession) {
+      const focusSubject = focusSession.subjectId
+        ? await this.repository.getSubjectById(actor.tenantId, focusSession.subjectId)
+        : null;
+      const evolution = await this.ensureEvolutionProfile(
+        actor.tenantId,
+        student,
+        focusSubject?.slug ?? "general",
+      );
       const updatedEvolution = await this.repository.saveStudentEvolutionProfile(actor.tenantId, {
         ...evolution,
         consistencyScore: Math.max(0, Math.min(1, evolution.consistencyScore + (payload.distractionsCount <= 1 ? 0.06 : -0.04))),
