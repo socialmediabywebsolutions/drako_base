@@ -80,6 +80,7 @@ import { TrialManager } from "@/lib/mentoria/trial-system";
 import { checkAccessControl, UpgradeFlowError, buildTrialExpiringWarning, buildUpgradePrompt } from "@/lib/mentoria/upgrade-flow";
 import { getMentoriaOrchestrator } from "@/lib/mentoria/resilience/orchestrator";
 import { buildBoardUpdateFromSession } from "@/lib/mentoria/board-update";
+import { detectMentoriaClassroomIntent } from "@/lib/mentoria/classroom-intent";
 import {
   createInitialEvolutionProfile,
   updateEvolutionFromSession,
@@ -89,6 +90,7 @@ import {
 import type {
   DailyPlan,
   MentoriaBoardExercise,
+  MentoriaClassroomIntent,
   MentoriaBoardMode,
   MentoriaBoardUpdate,
   MentoriaCanonicalFamilyContract,
@@ -2148,6 +2150,7 @@ export class MentoriaService {
     subjectSlug?: string;
     topic?: string;
     message: string;
+    intent?: MentoriaClassroomIntent;
     studentProfileId?: string;
     sessionId?: string;
     entryMode?: MentoriaEntryMode;
@@ -2171,6 +2174,10 @@ export class MentoriaService {
     explanation: string;
     suggestedSteps: string[];
     reinforcementQuestion: string;
+    intent: MentoriaClassroomIntent;
+    tutorMessage: string;
+    provider?: string;
+    model?: string;
     sessionMode: MentoriaSessionMode;
     sessionInputKind: MentoriaSessionInputKind;
     insights: Insight[];
@@ -2297,6 +2304,11 @@ export class MentoriaService {
     });
     const subject = requestedSubject;
     const resolvedTopic = subjectSelection.topic;
+    const classroomIntent = detectMentoriaClassroomIntent({
+      message: effectiveStudentMessage,
+      subject,
+      explicitIntent: payload.intent,
+    });
     const subjectRecentSessions = recentSessions.filter((session) => session.subjectId === subject.id);
     const current = progress.find((item) => item.subjectId === subject.id);
     const subjectMemories = await this.repository.listStudentSubjectMemories(
@@ -2333,6 +2345,7 @@ export class MentoriaService {
         subject,
         topic: resolvedTopic,
         studentMessage: effectiveStudentMessage,
+        intent: classroomIntent,
         adaptation: {
           tone: "calm",
           explanationDepth: "guided",
@@ -2400,7 +2413,26 @@ export class MentoriaService {
       stateLabel: adaptiveContext.interventions[0]?.summary ?? motivation.motivationProfile ?? null,
       suggestedInputKind: payload.sessionInputKind ?? (payload.sessionSignal ? resolveSessionInputKindFromSignal(payload.sessionSignal) : null),
     });
-    const resolvedSessionMode = payload.sessionMode ?? resolveSessionModeFromProfile(dynamicProfile, signalBaseSessionMode ?? baseSessionMode);
+    const intentSessionMode: MentoriaSessionMode | null =
+      classroomIntent === "exam"
+        ? "exam_preparation"
+        : classroomIntent === "task"
+          ? "task_resolution"
+          : classroomIntent === "frustration"
+            ? "soft_reentry"
+            : null;
+    const resolvedSessionMode =
+      payload.sessionMode
+      ?? intentSessionMode
+      ?? resolveSessionModeFromProfile(dynamicProfile, signalBaseSessionMode ?? baseSessionMode);
+    const intentInputKind: MentoriaSessionInputKind | null =
+      classroomIntent === "exam"
+        ? "exam_photo"
+        : classroomIntent === "task" || classroomIntent === "document" || classroomIntent === "correction"
+          ? "task_photo"
+          : classroomIntent === "frustration"
+            ? "student_state_signal"
+            : null;
     const fallbackInputKind: MentoriaSessionInputKind = resolvedSessionMode === "exam_preparation"
       ? "exam_photo"
       : resolvedSessionMode === "study_routine"
@@ -2412,7 +2444,10 @@ export class MentoriaService {
             : payload.entryMode === "plan_task"
               ? "family_routine"
               : "free_message";
-    const resolvedSessionInputKind = payload.sessionInputKind ?? (payload.sessionSignal ? resolveSessionInputKindFromSignal(payload.sessionSignal) : fallbackInputKind);
+    const resolvedSessionInputKind =
+      payload.sessionInputKind
+      ?? intentInputKind
+      ?? (payload.sessionSignal ? resolveSessionInputKindFromSignal(payload.sessionSignal) : fallbackInputKind);
     const sessionContract = buildMentoriaSessionContract(resolvedSessionMode, resolvedSessionInputKind);
     const profileAdaptation = applyTutorBehaviorPolicy(adaptation, tutorPolicy);
     const adaptedEntry = {
@@ -2435,6 +2470,7 @@ export class MentoriaService {
       subject: MentoriaSubject;
       topic: string;
       studentMessage: string;
+      intent?: MentoriaClassroomIntent;
       adaptation: typeof adaptation;
       evolution: StudentEvolutionProfile;
       interventions: MentoriaIntervention[];
@@ -2483,6 +2519,7 @@ export class MentoriaService {
       suggestedSteps: resolvedSuggestedSteps,
       reinforcementQuestion: resolvedReinforcementQuestion,
       recommendedNextStep: resolvedRecommendedNextStep,
+      intent: classroomIntent,
       sessionMode: resolvedSessionMode,
       createdAt: new Date().toISOString(),
     });
@@ -2836,6 +2873,7 @@ export class MentoriaService {
       adaptation: adaptedEntry,
       chatMessage: tutorResponse.reply,
       reply: tutorResponse.reply,
+      tutorMessage: tutorResponse.reply,
       subjectSlug: subject.slug,
       topic: resolvedTopic,
       mode: boardUpdate.mode,
@@ -2847,6 +2885,9 @@ export class MentoriaService {
       explanation: resolvedExplanation,
       suggestedSteps: resolvedSuggestedSteps,
       reinforcementQuestion: resolvedReinforcementQuestion,
+      intent: classroomIntent,
+      provider: typeof tutorResponse.metadata?.provider === "string" ? tutorResponse.metadata.provider : undefined,
+      model: typeof tutorResponse.metadata?.model === "string" ? tutorResponse.metadata.model : undefined,
       sessionMode: resolvedSessionMode,
       sessionInputKind: resolvedSessionInputKind,
       insights,

@@ -32,12 +32,55 @@ export type MentoriaConversationChannel = "whatsapp";
 export type MentoriaConceptConfidenceLevel = "low" | "medium" | "high";
 export type MentoriaConceptMasteryLevel = "fragile" | "developing" | "secure" | "mastered";
 export type MentoriaSupportStyle = "step_by_step" | "visual_steps" | "concrete_example" | "guided_practice" | "retrieval_check";
-export type MentoriaBoardMode = "explanation" | "example" | "practice" | "correction" | "summary";
+export type MentoriaClassroomIntent =
+  | "idle"
+  | "question"
+  | "explanation"
+  | "task"
+  | "exam"
+  | "practice"
+  | "correction"
+  | "review"
+  | "frustration"
+  | "document";
+
+export type MentoriaBoardMode =
+  | "explanation"
+  | "example"
+  | "practice"
+  | "task"
+  | "exam"
+  | "correction"
+  | "document_feedback"
+  | "summary";
 
 export type MentoriaBoardExercise = {
   prompt: string;
   answerFormat?: string | null;
   hints?: string[];
+};
+
+export type MentoriaBoardTask = {
+  title: string;
+  prompt: string;
+  allowedSteps: string[];
+  answerFormat?: string | null;
+};
+
+export type MentoriaBoardExam = {
+  title: string;
+  questions: string[];
+  timeLimitMinutes?: number | null;
+  scoring?: string | null;
+  score?: number | null;
+  maxScore?: number | null;
+  recommendations?: string[];
+};
+
+export type MentoriaBoardDocumentFeedback = {
+  summary: string;
+  detectedErrors: string[];
+  reviewTopics: string[];
 };
 
 export type MentoriaBoardUpdate = {
@@ -47,6 +90,7 @@ export type MentoriaBoardUpdate = {
   studentName: string;
   schoolYear: string;
   topic: string;
+  intent: MentoriaClassroomIntent;
   mode: MentoriaBoardMode;
   conceptDefinition?: string | null;
   explanation: string[];
@@ -55,7 +99,12 @@ export type MentoriaBoardUpdate = {
   formula?: string | null;
   diagram?: string[] | null;
   exercise?: MentoriaBoardExercise | null;
+  task?: MentoriaBoardTask | null;
+  exam?: MentoriaBoardExam | null;
   correction?: string | null;
+  documentFeedback?: MentoriaBoardDocumentFeedback | null;
+  note?: string | null;
+  guidedQuestion?: string | null;
   nextAction: string;
   updatedAt: string;
 };

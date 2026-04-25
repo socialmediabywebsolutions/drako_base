@@ -1,8 +1,12 @@
 import type {
   LearningSession,
+  MentoriaBoardDocumentFeedback,
+  MentoriaBoardExam,
   MentoriaBoardExercise,
   MentoriaBoardMode,
+  MentoriaBoardTask,
   MentoriaBoardUpdate,
+  MentoriaClassroomIntent,
   MentoriaExercise,
   MentoriaSessionMode,
   MentoriaSubject,
@@ -25,12 +29,19 @@ function splitBoardText(value: string): string[] {
 }
 
 function inferBoardMode(input: {
+  intent?: MentoriaClassroomIntent;
   sessionMode?: MentoriaSessionMode;
   wantsExample?: boolean;
   exercise?: MentoriaBoardExercise | null;
+  task?: MentoriaBoardTask | null;
+  exam?: MentoriaBoardExam | null;
   correction?: string | null;
+  documentFeedback?: MentoriaBoardDocumentFeedback | null;
 }): MentoriaBoardMode {
+  if (input.intent === "document" || input.documentFeedback) return "document_feedback";
   if (input.correction) return "correction";
+  if (input.intent === "exam" || input.exam) return "exam";
+  if (input.intent === "task" || input.task) return "task";
   if (input.exercise) return "practice";
   if (input.wantsExample || input.sessionMode === "task_resolution") return "example";
   if (input.sessionMode === "exam_preparation") return "summary";
@@ -132,10 +143,55 @@ function buildExercisePrompt(subject: MentoriaSubject, topic: string, steps: str
   };
 }
 
+function buildTaskPrompt(subject: MentoriaSubject, topic: string, steps: string[]): MentoriaBoardTask {
+  return {
+    title: `Tarea guiada de ${subject.name}`,
+    prompt: `Resuelve una tarea corta sobre ${topic} y deja visible tu razonamiento.`,
+    allowedSteps: steps.slice(0, 3),
+    answerFormat: subject.slug.toLowerCase().includes("matematic")
+      ? "Operacion, razonamiento y respuesta final"
+      : "Respuesta breve con idea principal y justificacion",
+  };
+}
+
+function buildExamPrompt(subject: MentoriaSubject, topic: string, steps: string[]): MentoriaBoardExam {
+  const firstStep = steps[0] ?? `Explica ${topic} con tus palabras.`;
+  const secondStep = steps[1] ?? `Aplica ${topic} a un ejemplo concreto de ${subject.name}.`;
+  const thirdStep = steps[2] ?? `Justifica por que esa respuesta es correcta.`;
+
+  return {
+    title: `Simulacro corto de ${subject.name}`,
+    questions: [
+      `1. ${firstStep}`,
+      `2. ${secondStep}`,
+      `3. ${thirdStep}`,
+    ],
+    timeLimitMinutes: 12,
+    scoring: "Se valora claridad, procedimiento y precision.",
+    score: null,
+    maxScore: 10,
+    recommendations: [],
+  };
+}
+
+function buildDocumentFeedback(input: {
+  subject: MentoriaSubject;
+  topic: string;
+  explanation: string[];
+  steps: string[];
+}): MentoriaBoardDocumentFeedback {
+  return {
+    summary: input.explanation[0] ?? `Resumen inicial del documento de ${input.subject.name}.`,
+    detectedErrors: input.steps.slice(0, 3),
+    reviewTopics: [input.topic, input.subject.name].filter(Boolean),
+  };
+}
+
 export function buildBoardUpdateFromSession(input: {
   student: StudentProfile;
   subject: MentoriaSubject;
   topic: string;
+  intent?: MentoriaClassroomIntent;
   reply?: string | null;
   explanation?: string | null;
   suggestedSteps?: string[];
@@ -149,9 +205,36 @@ export function buildBoardUpdateFromSession(input: {
   const steps = (input.suggestedSteps ?? []).map((item) => item.trim()).filter(Boolean).slice(0, 4);
   const resolvedSteps = steps.length > 0 ? steps : buildFallbackSteps(input.topic, input.subject.slug);
   const wantsExample = /ejemplo/i.test(input.reply ?? "") || /ejemplo/i.test(input.explanation ?? "");
-  const exercise = input.includePractice
+  const resolvedIntent = input.intent ?? "explanation";
+  const exercise = input.includePractice || resolvedIntent === "practice"
     ? buildExercisePrompt(input.subject, input.topic, resolvedSteps, input.reinforcementQuestion)
     : null;
+  const task = resolvedIntent === "task" ? buildTaskPrompt(input.subject, input.topic, resolvedSteps) : null;
+  const exam = resolvedIntent === "exam" ? buildExamPrompt(input.subject, input.topic, resolvedSteps) : null;
+  const documentFeedback = resolvedIntent === "document"
+    ? buildDocumentFeedback({
+        subject: input.subject,
+        topic: input.topic,
+        explanation,
+        steps: resolvedSteps,
+      })
+    : null;
+  const note =
+    resolvedIntent === "correction"
+      ? "Nota orientativa: revisa el error principal antes de volver a intentarlo."
+      : resolvedIntent === "exam"
+        ? "Nota orientativa: primero completa el simulacro y luego pide correccion."
+        : null;
+  const conceptDefinition =
+    resolvedIntent === "idle"
+      ? null
+      : resolvedIntent === "task"
+        ? `Hoy vamos a resolver una tarea real de ${input.subject.name}.`
+        : resolvedIntent === "exam"
+          ? `Vamos a simular un examen corto de ${input.subject.name}.`
+          : resolvedIntent === "document"
+            ? `Voy a revisar el material de ${input.subject.name} sin mezclarlo con otras materias.`
+            : explanation[0] ?? `Vamos a trabajar ${input.topic}.`;
 
   return {
     studentId: input.student.id,
@@ -160,20 +243,32 @@ export function buildBoardUpdateFromSession(input: {
     studentName: input.student.fullName,
     schoolYear: input.student.schoolYear,
     topic: input.topic,
+    intent: resolvedIntent,
     mode: inferBoardMode({
+      intent: resolvedIntent,
       sessionMode: input.sessionMode,
       wantsExample,
       exercise,
+      task,
+      exam,
       correction: null,
+      documentFeedback,
     }),
-    conceptDefinition: explanation[0] ?? `Vamos a trabajar ${input.topic}.`,
+    conceptDefinition,
     explanation,
     steps: resolvedSteps,
-    example: buildWorkedExample(input.subject, input.topic, resolvedSteps),
+    example: resolvedIntent === "exam" || resolvedIntent === "task" || resolvedIntent === "document"
+      ? null
+      : buildWorkedExample(input.subject, input.topic, resolvedSteps),
     formula: buildFormula(input.subject.slug, input.topic),
-    diagram: buildDiagram(input.subject.slug, input.topic),
+    diagram: resolvedIntent === "document" ? null : buildDiagram(input.subject.slug, input.topic),
     exercise,
+    task,
+    exam,
     correction: null,
+    documentFeedback,
+    note,
+    guidedQuestion: input.reinforcementQuestion?.trim() || null,
     nextAction:
       input.recommendedNextStep?.trim()
       || input.reinforcementQuestion?.trim()
@@ -199,7 +294,9 @@ export function buildBoardUpdateFromExercise(input: {
     studentName: input.student.fullName,
     schoolYear: input.student.schoolYear,
     topic: input.topic,
+    intent: resolvedCorrection ? "correction" : "practice",
     mode: inferBoardMode({
+      intent: resolvedCorrection ? "correction" : "practice",
       exercise: {
         prompt: input.exercise.prompt,
         answerFormat: input.exercise.answerFormat,
@@ -223,7 +320,12 @@ export function buildBoardUpdateFromExercise(input: {
       answerFormat: input.exercise.answerFormat,
       hints: input.exercise.hints,
     },
+    task: null,
+    exam: null,
     correction: resolvedCorrection,
+    documentFeedback: null,
+    note: resolvedCorrection && typeof input.exercise.score === "number" ? `Nota orientativa: ${input.exercise.score}/10` : null,
+    guidedQuestion: null,
     nextAction: resolvedCorrection ? "Corrige el paso fragil y vuelve a intentarlo." : "Resuelve el ejercicio y luego lo revisamos juntos.",
     updatedAt: input.createdAt ?? input.exercise.updatedAt ?? new Date().toISOString(),
   };
@@ -268,15 +370,21 @@ export function buildEmptyBoardUpdate(input: {
     studentName: input.student.fullName,
     schoolYear: input.student.schoolYear,
     topic,
+    intent: "idle",
     mode: "explanation",
-    conceptDefinition: `La pizarra de ${input.subject.name} esta lista.`,
-    explanation: ["Escribe tu duda al tutor y la explicacion importante aparecera aqui, paso a paso."],
-    steps: ["Cuenta que no entendiste.", "Mira la explicacion en la pizarra.", "Da el siguiente paso guiado."],
+    conceptDefinition: null,
+    explanation: [],
+    steps: [],
     example: null,
-    formula: buildFormula(input.subject.slug, topic),
-    diagram: buildDiagram(input.subject.slug, topic),
+    formula: null,
+    diagram: null,
     exercise: null,
+    task: null,
+    exam: null,
     correction: null,
+    documentFeedback: null,
+    note: null,
+    guidedQuestion: null,
     nextAction: `Cuenta que no entendiste sobre ${topic}.`,
     updatedAt: "1970-01-01T00:00:00.000Z",
   };

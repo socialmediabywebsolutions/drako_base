@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
-import { Paperclip, SendHorizontal } from "lucide-react";
+import { SendHorizontal } from "lucide-react";
 import type { BehavioralExplanationFrame } from "@/lib/behavioral-engine/explanation";
 import type { NextBestAction as BehavioralNextBestAction } from "@/lib/behavioral-engine/contracts";
 import type {
@@ -185,16 +185,6 @@ export function WorkspaceCopilot({
 
       <div className="border-t border-slate-200 bg-white px-3 py-3">
         <div className="flex items-end gap-2">
-          <button
-            type="button"
-            disabled
-            title="Las fotos y exámenes siguen entrando por WhatsApp por ahora."
-            aria-label="Adjuntar imagen próximamente"
-            className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-dashed border-slate-300 text-slate-400"
-          >
-            <Paperclip className="h-4 w-4" aria-hidden="true" />
-          </button>
-
           <div className="min-w-0 flex-1">
             <label htmlFor="mentoria-tutor-input" className="sr-only">
               Escribe tu duda o cuéntame qué no entendiste

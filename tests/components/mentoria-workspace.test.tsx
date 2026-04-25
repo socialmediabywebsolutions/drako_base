@@ -33,6 +33,53 @@ function setSearchParams(params: Record<string, string | null | undefined>) {
   navigationMock.searchParams.get.mockImplementation((name: string) => params[name] ?? null);
 }
 
+function buildStudentSubject(input: { id: string; subjectId: string; slug: string; name: string; description: string }) {
+  return {
+    id: input.id,
+    tenantId: "tenant_mentoria",
+    studentProfileId: "student_1",
+    subjectId: input.subjectId,
+    initialLevel: "voy_normal",
+    currentLevel: "voy_normal",
+    createdAt: "2026-04-03T00:00:00.000Z",
+    updatedAt: "2026-04-03T00:00:00.000Z",
+    subject: {
+      id: input.subjectId,
+      tenantId: "tenant_mentoria",
+      slug: input.slug,
+      name: input.name,
+      description: input.description,
+      difficultyBand: "core",
+      createdAt: "2026-04-03T00:00:00.000Z",
+      updatedAt: "2026-04-03T00:00:00.000Z",
+    },
+  };
+}
+
+const mathSubject = buildStudentSubject({
+  id: "student_subject_math",
+  subjectId: "subject_matematicas",
+  slug: "matematicas",
+  name: "Matematicas",
+  description: "Refuerzo guiado",
+});
+
+const historySubject = buildStudentSubject({
+  id: "student_subject_history",
+  subjectId: "subject_historia",
+  slug: "historia",
+  name: "Historia",
+  description: "Contexto y pensamiento critico",
+});
+
+const englishSubject = buildStudentSubject({
+  id: "student_subject_english",
+  subjectId: "subject_ingles",
+  slug: "ingles",
+  name: "Ingles",
+  description: "Comprension y expresion",
+});
+
 function buildWorkspaceResponse(overrides?: Record<string, unknown>) {
   return {
     ok: true,
@@ -56,7 +103,7 @@ function buildWorkspaceResponse(overrides?: Record<string, unknown>) {
       createdAt: "2026-04-03T00:00:00.000Z",
       updatedAt: "2026-04-03T00:00:00.000Z",
     },
-    studentSubjects: [],
+    studentSubjects: [mathSubject],
     progress: [],
     analysis: {
       weakSubjects: [],
@@ -96,114 +143,45 @@ function buildWorkspaceResponse(overrides?: Record<string, unknown>) {
   };
 }
 
-function buildStudentSubject() {
+function buildBoardUpdate(input: {
+  subjectSlug: string;
+  subjectName: string;
+  topic: string;
+  intent: "explanation" | "exam" | "task" | "correction";
+  mode: "explanation" | "exam" | "task" | "correction";
+  conceptDefinition?: string | null;
+  explanation?: string[];
+  steps?: string[];
+  example?: string | null;
+  correction?: string | null;
+  guidedQuestion?: string | null;
+  task?: { title: string; prompt: string; allowedSteps: string[]; answerFormat?: string | null } | null;
+  exam?: { title: string; questions: string[]; timeLimitMinutes?: number | null; scoring?: string | null; score?: number | null; maxScore?: number | null; recommendations?: string[] } | null;
+}) {
   return {
-    id: "student_subject_1",
-    tenantId: "tenant_mentoria",
-    studentProfileId: "student_1",
-    subjectId: "subject_matematicas",
-    initialLevel: "me_cuesta_mucho",
-    currentLevel: "voy_normal",
-    createdAt: "2026-04-03T00:00:00.000Z",
-    updatedAt: "2026-04-03T00:00:00.000Z",
-    subject: {
-      id: "subject_matematicas",
-      tenantId: "tenant_mentoria",
-      slug: "matematicas",
-      name: "Matematicas",
-      description: "Refuerzo guiado",
-      difficultyBand: "core",
-      createdAt: "2026-04-03T00:00:00.000Z",
-      updatedAt: "2026-04-03T00:00:00.000Z",
-    },
-  };
-}
-
-function buildHistorySubject() {
-  return {
-    id: "student_subject_2",
-    tenantId: "tenant_mentoria",
-    studentProfileId: "student_1",
-    subjectId: "subject_historia",
-    initialLevel: "voy_normal",
-    currentLevel: "voy_normal",
-    createdAt: "2026-04-03T00:00:00.000Z",
-    updatedAt: "2026-04-03T00:00:00.000Z",
-    subject: {
-      id: "subject_historia",
-      tenantId: "tenant_mentoria",
-      slug: "historia",
-      name: "Historia",
-      description: "Contexto y pensamiento critico",
-      difficultyBand: "growth",
-      createdAt: "2026-04-03T00:00:00.000Z",
-      updatedAt: "2026-04-03T00:00:00.000Z",
-    },
-  };
-}
-
-function buildEnglishSubject() {
-  return {
-    id: "student_subject_3",
-    tenantId: "tenant_mentoria",
-    studentProfileId: "student_1",
-    subjectId: "subject_ingles",
-    initialLevel: "voy_normal",
-    currentLevel: "voy_normal",
-    createdAt: "2026-04-03T00:00:00.000Z",
-    updatedAt: "2026-04-03T00:00:00.000Z",
-    subject: {
-      id: "subject_ingles",
-      tenantId: "tenant_mentoria",
-      slug: "ingles",
-      name: "Ingles",
-      description: "Comprension y expresion",
-      difficultyBand: "growth",
-      createdAt: "2026-04-03T00:00:00.000Z",
-      updatedAt: "2026-04-03T00:00:00.000Z",
-    },
-  };
-}
-
-function buildBehavioralShadow(overrides?: Record<string, unknown>) {
-  return {
-    currentStrategy: "plan_task",
-    shadowStrategy: "plan_task",
-    diverged: false,
-    currentAction: {
-      strategy: "plan_task",
-      title: "Volver al plan de hoy",
-      description: "La continuidad natural viene de la siguiente tarea pendiente del plan.",
-      rationale: ["Hay tarea pendiente."],
-      confidence: 0.86,
-      task: {
-        id: "task_practice",
-        subject: "Matematicas",
-        subjectId: "subject_matematicas",
-        type: "practice",
-        difficulty: 3,
-        completed: false,
-      },
-      prompt: null,
-    },
-    shadowAction: {
-      strategy: "plan_task",
-      title: "Volver al plan de hoy",
-      description: "La continuidad natural viene de la siguiente tarea pendiente del plan.",
-      rationale: ["Hay tarea pendiente."],
-      confidence: 0.86,
-      task: {
-        id: "task_practice",
-        subject: "Matematicas",
-        subjectId: "subject_matematicas",
-        type: "practice",
-        difficulty: 3,
-        completed: false,
-      },
-      prompt: null,
-    },
-    loggedAt: "2026-04-04T09:00:00.000Z",
-    ...overrides,
+    studentId: "student_1",
+    subjectSlug: input.subjectSlug,
+    subjectName: input.subjectName,
+    studentName: "Alex",
+    schoolYear: "2 ESO",
+    topic: input.topic,
+    intent: input.intent,
+    mode: input.mode,
+    conceptDefinition: input.conceptDefinition ?? null,
+    explanation: input.explanation ?? [],
+    steps: input.steps ?? [],
+    example: input.example ?? null,
+    formula: null,
+    diagram: null,
+    exercise: null,
+    task: input.task ?? null,
+    exam: input.exam ?? null,
+    correction: input.correction ?? null,
+    documentFeedback: null,
+    note: null,
+    guidedQuestion: input.guidedQuestion ?? null,
+    nextAction: input.guidedQuestion ?? "Sigue con la siguiente pregunta.",
+    updatedAt: "2026-04-25T10:00:00.000Z",
   };
 }
 
@@ -213,7 +191,7 @@ describe("MentoriaWorkspace", () => {
     navigationMock.searchParams.get.mockImplementation((_name: string) => null);
   });
 
-  it("shows a loading shell during the first workspace fetch instead of an ambiguous empty state", async () => {
+  it("shows a loading shell during the first workspace fetch", async () => {
     let resolveFetch: ((value: Response) => void) | null = null;
     fetchMock.mockReturnValueOnce(
       new Promise<Response>((resolve) => {
@@ -225,70 +203,19 @@ describe("MentoriaWorkspace", () => {
 
     expect(await screen.findByText("Workspace del alumno")).toBeInTheDocument();
     expect(screen.getByText("Cargando Mentoria...")).toBeInTheDocument();
-    expect(screen.queryByText("No pudimos preparar tu espacio")).not.toBeInTheDocument();
 
     resolveFetch?.(jsonResponse(buildWorkspaceResponse()));
 
     expect(await screen.findByRole("heading", { name: "Hola, Alex" })).toBeInTheDocument();
   });
 
-  it("renders an explicit recovery state when workspace loading fails", async () => {
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse({ ok: false, error: "WORKSPACE_LOAD_FAILED" }, 500),
-    );
-
-    render(React.createElement(MentoriaWorkspace));
-
-    expect(await screen.findByText("No pudimos preparar tu espacio")).toBeInTheDocument();
-    expect(screen.getByText("WORKSPACE_LOAD_FAILED")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Volver al onboarding" })).toHaveAttribute("href", "/mentoria/onboarding");
-  });
-
-  it("fails closed with an explicit incomplete-state message when the API returns no student", async () => {
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        ok: true,
-        student: null,
-        studentSubjects: [],
-      }),
-    );
-
-    render(React.createElement(MentoriaWorkspace));
-
-    expect(await screen.findByText("No pudimos preparar tu espacio")).toBeInTheDocument();
-    expect(screen.getByText("MENTORIA_WORKSPACE_INCOMPLETE")).toBeInTheDocument();
-  });
-
-  it("renders the continuous study workspace when the payload is complete", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse()));
-
-    render(React.createElement(MentoriaWorkspace));
-
-    expect(await screen.findByRole("heading", { name: "Hola, Alex" })).toBeInTheDocument();
-    expect(screen.getByText("Empieza por una duda concreta")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Enviar" })).toBeInTheDocument();
-    expect(screen.queryByText("Tutor IA")).not.toBeInTheDocument();
-  });
-
-  it("keeps Vida académica and Mi progreso outside the board and ignores raw academic payloads", async () => {
+  it("renders a clean classroom, keeps academic life outside the board and removes the dead attach button", async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(
         buildWorkspaceResponse({
-          records: [
-            {
-              id: "record_raw_1",
-              title: "Examen crudo del colegio",
-            },
-          ],
-          documents: [
-            {
-              id: "document_raw_1",
-              fileName: "examen-final.pdf",
-              notesText: "nota cruda del colegio",
-            },
-          ],
+          studentSubjects: [mathSubject, historySubject],
+          records: [{ id: "record_1", title: "Examen real del colegio" }],
+          documents: [{ id: "document_1", fileName: "nota.pdf", notesText: "nota cruda" }],
         }),
       ),
     );
@@ -296,41 +223,40 @@ describe("MentoriaWorkspace", () => {
     render(React.createElement(MentoriaWorkspace));
 
     expect(await screen.findByRole("heading", { name: "Hola, Alex" })).toBeInTheDocument();
+    expect(screen.getByText("Escribe al tutor qué quieres trabajar.")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Adjuntar/i)).not.toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Vida académica" })[0]).toHaveAttribute("href", "/mentoria/app/academic");
-    expect(screen.getAllByRole("link", { name: "Mi progreso" })[0]).toHaveAttribute("href", "/mentoria/app/progress");
-    expect(screen.queryByText("Examen crudo del colegio")).not.toBeInTheDocument();
-    expect(screen.queryByText("examen-final.pdf")).not.toBeInTheDocument();
-    expect(screen.queryByText("nota cruda del colegio")).not.toBeInTheDocument();
+    expect(screen.queryByText("Examen real del colegio")).not.toBeInTheDocument();
+    expect(screen.queryByText("nota.pdf")).not.toBeInTheDocument();
   });
 
-  it("sends direct chat messages through the real chat endpoint with the active subject", async () => {
+  it("sends direct chat messages through /api/mentoria/chat with the active subject", async () => {
     setSearchParams({ subjectSlug: "matematicas" });
     fetchMock
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-          }),
-        ),
-      )
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse()))
       .mockResolvedValueOnce(
         jsonResponse({
           ok: true,
+          tutorMessage: "Vale, vamos paso a paso.",
           reply: "Vale, vamos paso a paso.",
-          explanation: "Primero mira el denominador.",
-          suggestedSteps: ["Compara denominadores"],
-          reinforcementQuestion: "¿Qué cambia entre ambas fracciones?",
           subject: { name: "Matematicas", slug: "matematicas" },
+          boardUpdate: buildBoardUpdate({
+            subjectSlug: "matematicas",
+            subjectName: "Matematicas",
+            topic: "Fracciones",
+            intent: "explanation",
+            mode: "explanation",
+            conceptDefinition: "Primero compara denominadores.",
+            explanation: ["Mira el denominador antes de operar."],
+            steps: ["Compara denominadores"],
+            example: "Ejemplo guiado con fracciones equivalentes.",
+            guidedQuestion: "Que cambia entre ambas fracciones?",
+          }),
           session: { id: "session_1", topic: "Fracciones", recommendedNextStep: "Prueba un ejemplo corto." },
         }),
       )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-          }),
-        ),
-      );
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse()));
 
     render(React.createElement(MentoriaWorkspace));
 
@@ -340,527 +266,196 @@ describe("MentoriaWorkspace", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
-    await screen.findByText("Vale, vamos paso a paso.");
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(await screen.findByText("Vale, vamos paso a paso.")).toBeInTheDocument();
     expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/mentoria/chat");
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
       studentId: "student_1",
       subjectSlug: "matematicas",
       message: "No entiendo fracciones",
+      intent: undefined,
     });
   });
 
-  it("keeps the floating chat isolated for Historia and sends the Historia subjectSlug", async () => {
-    setSearchParams({ subjectSlug: "historia" });
+  it("renders a matematicas explanation board for 'No entiendo fracciones'", async () => {
+    setSearchParams({ subjectSlug: "matematicas" });
     fetchMock
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject(), buildHistorySubject()],
-            entry: {
-              headline: "Empieza por una duda concreta",
-              subheadline: "El tutor te guiara sin darte la respuesta final.",
-              recommendedSubjectSlug: "historia",
-              recommendedTopic: "Revolucion francesa",
-              recommendedPrompt: "Quiero repasar la Revolucion francesa paso a paso.",
-              quickActions: [],
-            },
-          }),
-        ),
-      )
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse()))
       .mockResolvedValueOnce(
         jsonResponse({
           ok: true,
-          reply: "Vamos a ordenar las causas de la Revolucion francesa.",
-          explanation: "Empieza por la crisis economica y social.",
-          suggestedSteps: ["Ubica el contexto previo"],
-          reinforcementQuestion: "Que estaba pasando antes de 1789?",
-          subject: { name: "Historia", slug: "historia" },
-          subjectSlug: "historia",
-          boardUpdate: {
-            studentId: "student_1",
-            subjectSlug: "historia",
-            subjectName: "Historia",
-            studentName: "Alex",
-            schoolYear: "2 ESO",
-            topic: "Revolucion francesa",
+          tutorMessage: "Vamos a verlo con calma.",
+          reply: "Vamos a verlo con calma.",
+          subject: { name: "Matematicas", slug: "matematicas" },
+          boardUpdate: buildBoardUpdate({
+            subjectSlug: "matematicas",
+            subjectName: "Matematicas",
+            topic: "Fracciones",
+            intent: "explanation",
             mode: "explanation",
-            conceptDefinition: "Primero sitúa el contexto social y economico.",
-            explanation: ["Mira las causas antes del estallido."],
-            steps: ["Ubica el contexto previo"],
-            example: "Ejemplo guiado con causas y consecuencias.",
-            formula: null,
-            diagram: null,
-            exercise: null,
-            correction: null,
-            nextAction: "Explica el contexto previo.",
-            updatedAt: "2026-04-24T10:00:00.000Z",
-          },
-          session: { id: "session_historia", topic: "Revolucion francesa", recommendedNextStep: "Explica el contexto previo." },
+            conceptDefinition: "Una fraccion compara partes del mismo tamaño.",
+            explanation: ["Primero compara el denominador y luego el numerador."],
+            steps: ["Mira el denominador", "Mira el numerador"],
+            example: "Ejemplo guiado con dos fracciones equivalentes.",
+            guidedQuestion: "Cual es la parte que mas te cuesta?",
+          }),
+          session: { id: "session_math", topic: "Fracciones", recommendedNextStep: "Prueba una comparacion corta." },
         }),
       )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject(), buildHistorySubject()],
-            recentSessions: [
-              {
-                id: "session_historia",
-                tenantId: "tenant_mentoria",
-                studentProfileId: "student_1",
-                subjectId: "subject_historia",
-                mentorId: "mentor_1",
-                clientId: "student_1",
-                topic: "Revolucion francesa",
-                status: "completed",
-                durationMinutes: 18,
-                aiTokensUsed: 240,
-                emotionalState: "steady",
-                tutorSummary: "Has ordenado el contexto historico.",
-                recommendedNextStep: "Explica el contexto previo.",
-                transcript: [
-                  { role: "student", content: "No entiendo la Revolucion francesa", createdAt: "2026-04-03T00:00:00.000Z" },
-                  { role: "tutor", content: "Vamos a ordenar las causas de la Revolucion francesa.", createdAt: "2026-04-03T00:01:00.000Z" },
-                ],
-                createdAt: "2026-04-03T00:00:00.000Z",
-                updatedAt: "2026-04-03T00:20:00.000Z",
-              },
-            ],
-            entry: {
-              headline: "Empieza por una duda concreta",
-              subheadline: "El tutor te guiara sin darte la respuesta final.",
-              recommendedSubjectSlug: "historia",
-              recommendedTopic: "Revolucion francesa",
-              recommendedPrompt: "Quiero repasar la Revolucion francesa paso a paso.",
-              quickActions: [],
-            },
-          }),
-        ),
-      );
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse()));
 
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    fireEvent.change(screen.getByPlaceholderText(/Escribe tu duda/i), {
-      target: { value: "No entiendo la Revolucion francesa" },
+    fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
+      target: { value: "No entiendo fracciones" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
-    expect(await screen.findByText("Vamos a ordenar las causas de la Revolucion francesa.")).toBeInTheDocument();
-    expect(screen.queryByText("Vamos paso a paso con fracciones.")).not.toBeInTheDocument();
+    expect(await screen.findByText("Una fraccion compara partes del mismo tamaño.")).toBeInTheDocument();
+    expect(screen.getByText("Ejemplo guiado con dos fracciones equivalentes.")).toBeInTheDocument();
+    expect(screen.queryByText("Historia")).not.toBeInTheDocument();
+  });
+
+  it("renders a Historia exam board and keeps the context in Historia", async () => {
+    setSearchParams({ subjectSlug: "historia" });
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse({ studentSubjects: [mathSubject, historySubject] })))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          tutorMessage: "Vamos con un simulacro corto de Historia.",
+          reply: "Vamos con un simulacro corto de Historia.",
+          subject: { name: "Historia", slug: "historia" },
+          boardUpdate: buildBoardUpdate({
+            subjectSlug: "historia",
+            subjectName: "Historia",
+            topic: "Revolucion francesa",
+            intent: "exam",
+            mode: "exam",
+            conceptDefinition: "Vamos a simular un examen corto de Historia.",
+            explanation: ["Responde con contexto, causa y consecuencia."],
+            steps: ["Situa el contexto", "Explica una causa", "Explica una consecuencia"],
+            exam: {
+              title: "Simulacro corto de Historia",
+              questions: ["1. Que pasaba antes de 1789?", "2. Cual fue una causa clave?", "3. Que consecuencia destacas?"],
+              timeLimitMinutes: 12,
+              scoring: "Se valora claridad, procedimiento y precision.",
+              score: null,
+              maxScore: 10,
+              recommendations: [],
+            },
+          }),
+          session: { id: "session_historia", topic: "Revolucion francesa", recommendedNextStep: "Responde la primera pregunta." },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse({ studentSubjects: [mathSubject, historySubject] })));
+
+    render(React.createElement(MentoriaWorkspace));
+
+    await screen.findByRole("heading", { name: "Hola, Alex" });
+    fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
+      target: { value: "Hazme un examen de Historia" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+
+    expect(await screen.findByText("Simulacro corto de Historia")).toBeInTheDocument();
+    expect(screen.getByText("1. Que pasaba antes de 1789?")).toBeInTheDocument();
+    expect(screen.queryByText("Ejemplo guiado con fracciones equivalentes.")).not.toBeInTheDocument();
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
       studentId: "student_1",
       subjectSlug: "historia",
-      message: "No entiendo la Revolucion francesa",
+      message: "Hazme un examen de Historia",
+      intent: undefined,
     });
   });
 
-  it("renders the board update returned by chat and keeps it isolated by subject", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
+  it("renders an Ingles task board and keeps the context in Ingles", async () => {
+    setSearchParams({ subjectSlug: "ingles" });
     fetchMock
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-          }),
-        ),
-      )
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse({ studentSubjects: [mathSubject, englishSubject] })))
       .mockResolvedValueOnce(
         jsonResponse({
           ok: true,
-          reply: "Vale, vamos paso a paso.",
-          chatMessage: "Vale, vamos paso a paso.",
-          subjectSlug: "matematicas",
-          topic: "Fracciones",
-          boardUpdate: {
-            studentId: "student_1",
-            subjectSlug: "matematicas",
-            subjectName: "Matematicas",
-            studentName: "Alex",
-            schoolYear: "2 ESO",
-            topic: "Fracciones",
-            mode: "explanation",
-            conceptDefinition: "Primero compara las fracciones desde el denominador.",
-            explanation: ["Mira el denominador antes de operar."],
-            steps: ["Compara denominadores"],
-            example: "Ejemplo guiado con fracciones equivalentes.",
-            formula: null,
-            diagram: null,
-            exercise: null,
-            correction: null,
-            nextAction: "Prueba un ejemplo corto.",
-            updatedAt: "2026-04-24T10:00:00.000Z",
-          },
-          explanation: "Mira el denominador antes de operar.",
-          suggestedSteps: ["Compara denominadores"],
-          reinforcementQuestion: "Que cambia entre ambas fracciones?",
-          subject: { name: "Matematicas", slug: "matematicas" },
-          session: { id: "session_1", topic: "Fracciones", recommendedNextStep: "Prueba un ejemplo corto." },
+          tutorMessage: "Te preparo una tarea corta de Ingles.",
+          reply: "Te preparo una tarea corta de Ingles.",
+          subject: { name: "Ingles", slug: "ingles" },
+          boardUpdate: buildBoardUpdate({
+            subjectSlug: "ingles",
+            subjectName: "Ingles",
+            topic: "Present simple",
+            intent: "task",
+            mode: "task",
+            conceptDefinition: "Hoy vamos a resolver una tarea real de Ingles.",
+            explanation: ["Usa frases cortas y fíjate en la estructura."],
+            steps: ["Lee el enunciado", "Escribe en present simple", "Revisa el verbo"],
+            task: {
+              title: "Tarea guiada de Ingles",
+              prompt: "Escribe tres frases en present simple sobre tu rutina.",
+              allowedSteps: ["Piensa el sujeto", "Elige el verbo", "Revisa la forma correcta"],
+              answerFormat: "Respuesta breve con idea principal y justificacion",
+            },
+          }),
+          session: { id: "session_english", topic: "Present simple", recommendedNextStep: "Escribe tu primera frase." },
         }),
       )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-          }),
-        ),
-      );
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse({ studentSubjects: [mathSubject, englishSubject] })));
 
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    fireEvent.change(screen.getByPlaceholderText(/Escribe tu duda/i), {
-      target: { value: "No entiendo fracciones" },
+    fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
+      target: { value: "Quiero una tarea de Inglés" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
-    expect(await screen.findByText("Primero compara las fracciones desde el denominador.")).toBeInTheDocument();
-    expect(screen.queryByText("La pizarra de Historia esta lista.")).not.toBeInTheDocument();
-  });
-
-  it("lets the student ask for a simpler explanation, another example and the next step from the board", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
-    fetchMock
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          ok: true,
-          reply: "Vale, vamos paso a paso.",
-          chatMessage: "Vale, vamos paso a paso.",
-          subjectSlug: "matematicas",
-          topic: "Fracciones",
-          boardUpdate: {
-            studentId: "student_1",
-            subjectSlug: "matematicas",
-            subjectName: "Matematicas",
-            studentName: "Alex",
-            schoolYear: "2 ESO",
-            topic: "Fracciones",
-            mode: "explanation",
-            conceptDefinition: "Primero compara las fracciones desde el denominador.",
-            explanation: ["Mira el denominador antes de operar."],
-            steps: ["Compara denominadores"],
-            example: "Ejemplo guiado con fracciones equivalentes.",
-            formula: null,
-            diagram: null,
-            exercise: null,
-            correction: null,
-            nextAction: "Prueba un ejemplo corto.",
-            updatedAt: "2026-04-24T10:00:00.000Z",
-          },
-          explanation: "Mira el denominador antes de operar.",
-          suggestedSteps: ["Compara denominadores"],
-          reinforcementQuestion: "Que cambia entre ambas fracciones?",
-          subject: { name: "Matematicas", slug: "matematicas" },
-          session: { id: "session_1", topic: "Fracciones", recommendedNextStep: "Prueba un ejemplo corto." },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          ok: true,
-          reply: "Te lo explico mas facil.",
-          chatMessage: "Te lo explico mas facil.",
-          subjectSlug: "matematicas",
-          topic: "Fracciones",
-          boardUpdate: {
-            studentId: "student_1",
-            subjectSlug: "matematicas",
-            subjectName: "Matematicas",
-            studentName: "Alex",
-            schoolYear: "2 ESO",
-            topic: "Fracciones",
-            mode: "explanation",
-            conceptDefinition: "Una fraccion compara partes del mismo tamano.",
-            explanation: ["Primero mira cuantas partes iguales tienes en total."],
-            steps: ["Fijate en el total de partes"],
-            example: "Ejemplo visual con una pizza partida en ocho trozos.",
-            formula: null,
-            diagram: null,
-            exercise: null,
-            correction: null,
-            nextAction: "Ahora compara dos fracciones sencillas.",
-            updatedAt: "2026-04-24T10:05:00.000Z",
-          },
-          explanation: "Primero mira cuantas partes iguales tienes en total.",
-          suggestedSteps: ["Fijate en el total de partes"],
-          reinforcementQuestion: "Que representa el denominador?",
-          subject: { name: "Matematicas", slug: "matematicas" },
-          session: { id: "session_2", topic: "Fracciones", recommendedNextStep: "Ahora compara dos fracciones sencillas." },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          ok: true,
-          reply: "Mira este ejemplo distinto.",
-          chatMessage: "Mira este ejemplo distinto.",
-          subjectSlug: "matematicas",
-          topic: "Fracciones",
-          boardUpdate: {
-            studentId: "student_1",
-            subjectSlug: "matematicas",
-            subjectName: "Matematicas",
-            studentName: "Alex",
-            schoolYear: "2 ESO",
-            topic: "Fracciones",
-            mode: "example",
-            conceptDefinition: "Ahora trabajamos el mismo concepto con otro caso.",
-            explanation: ["Compara dos fracciones usando rectas numericas."],
-            steps: ["Coloca ambas fracciones en la recta"],
-            example: "Ejemplo nuevo con rectas numericas y marcas iguales.",
-            formula: null,
-            diagram: ["fraccion A -> posicion", "fraccion B -> posicion"],
-            exercise: null,
-            correction: null,
-            nextAction: "Haz una comparacion tu solo.",
-            updatedAt: "2026-04-24T10:10:00.000Z",
-          },
-          explanation: "Compara dos fracciones usando rectas numericas.",
-          suggestedSteps: ["Coloca ambas fracciones en la recta"],
-          reinforcementQuestion: "Cual queda mas a la derecha?",
-          subject: { name: "Matematicas", slug: "matematicas" },
-          session: { id: "session_3", topic: "Fracciones", recommendedNextStep: "Haz una comparacion tu solo." },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          ok: true,
-          reply: "Seguimos con un paso mas.",
-          chatMessage: "Seguimos con un paso mas.",
-          subjectSlug: "matematicas",
-          topic: "Fracciones",
-          boardUpdate: {
-            studentId: "student_1",
-            subjectSlug: "matematicas",
-            subjectName: "Matematicas",
-            studentName: "Alex",
-            schoolYear: "2 ESO",
-            topic: "Fracciones equivalentes",
-            mode: "summary",
-            conceptDefinition: "Ahora ya puedes comparar y justificar tu respuesta.",
-            explanation: ["Relaciona el ejemplo con una comparacion real."],
-            steps: ["Justifica por que una es mayor"],
-            example: "Caso guiado con dos fracciones equivalentes y una comparacion final.",
-            formula: null,
-            diagram: null,
-            exercise: null,
-            correction: null,
-            nextAction: "Haz una comparacion tu solo.",
-            updatedAt: "2026-04-24T10:15:00.000Z",
-          },
-          explanation: "Relaciona el ejemplo con una comparacion real.",
-          suggestedSteps: ["Justifica por que una es mayor"],
-          reinforcementQuestion: "Como justificarias la respuesta?",
-          subject: { name: "Matematicas", slug: "matematicas" },
-          session: { id: "session_4", topic: "Fracciones equivalentes", recommendedNextStep: "Haz una comparacion tu solo." },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-          }),
-        ),
-      );
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-    fireEvent.change(screen.getByPlaceholderText(/Escribe tu duda/i), {
-      target: { value: "No entiendo fracciones" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
-
-    expect(await screen.findByText("Primero compara las fracciones desde el denominador.")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "No lo entiendo" }));
-    expect(await screen.findByText("Una fraccion compara partes del mismo tamano.")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Dame otro ejemplo" }));
-    expect(await screen.findByText("Ahora trabajamos el mismo concepto con otro caso.")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Siguiente paso" }));
-    expect(await screen.findByText("Ahora ya puedes comparar y justificar tu respuesta.")).toBeInTheDocument();
-  });
-
-  it("turns the board practice button into a real exercise for the active subject", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
-    fetchMock
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          ok: true,
-          exercise: {
-            id: "exercise_1",
-            tenantId: "tenant_mentoria",
-            studentProfileId: "student_1",
-            subjectId: "subject_matematicas",
-            prompt: "Resuelve una comparacion corta de fracciones.",
-            expectedCompetency: "Comparar fracciones equivalentes",
-            hints: ["Busca un comun denominador"],
-            answerFormat: "Operacion y respuesta final",
-            difficultyLevel: "medium",
-            status: "pending",
-            createdAt: "2026-04-24T10:20:00.000Z",
-            updatedAt: "2026-04-24T10:20:00.000Z",
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-            exercises: [
-              {
-                id: "exercise_1",
-                tenantId: "tenant_mentoria",
-                studentProfileId: "student_1",
-                subjectId: "subject_matematicas",
-                prompt: "Resuelve una comparacion corta de fracciones.",
-                expectedCompetency: "Comparar fracciones equivalentes",
-                hints: ["Busca un comun denominador"],
-                answerFormat: "Operacion y respuesta final",
-                difficultyLevel: "medium",
-                status: "pending",
-                createdAt: "2026-04-24T10:20:00.000Z",
-                updatedAt: "2026-04-24T10:20:00.000Z",
-              },
-            ],
-          }),
-        ),
-      );
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-    fireEvent.click(screen.getByRole("button", { name: "Practicar" }));
-
-    expect(await screen.findByLabelText("Tu respuesta")).toBeInTheDocument();
+    expect(await screen.findByText("Tarea guiada de Ingles")).toBeInTheDocument();
+    expect(screen.getByText("Escribe tres frases en present simple sobre tu rutina.")).toBeInTheDocument();
+    expect(screen.queryByText("Historia")).not.toBeInTheDocument();
   });
 
   it("clears the previous classroom when the student switches from Historia to Matematicas", async () => {
     setSearchParams({ subjectSlug: "historia" });
     fetchMock
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse({ studentSubjects: [mathSubject, historySubject] })))
       .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject(), buildHistorySubject()],
-            recentSessions: [
-              {
-                id: "session_historia",
-                tenantId: "tenant_mentoria",
-                studentProfileId: "student_1",
-                subjectId: "subject_historia",
-                mentorId: "mentor_1",
-                clientId: "student_1",
-                topic: "Revolucion francesa",
-                status: "completed",
-                durationMinutes: 18,
-                aiTokensUsed: 240,
-                emotionalState: "steady",
-                tutorSummary: "Has conectado causas y consecuencias.",
-                recommendedNextStep: "Explica el contexto previo.",
-                transcript: [
-                  { role: "student", content: "No entiendo la Revolucion francesa", createdAt: "2026-04-03T00:00:00.000Z" },
-                  { role: "tutor", content: "Primero situamos el contexto historico.", createdAt: "2026-04-03T00:01:00.000Z" },
-                ],
-                createdAt: "2026-04-03T00:00:00.000Z",
-                updatedAt: "2026-04-03T00:20:00.000Z",
-              },
-            ],
-            entry: {
-              headline: "Empieza por una duda concreta",
-              subheadline: "El tutor te guiara sin darte la respuesta final.",
-              recommendedSubjectSlug: "historia",
-              recommendedTopic: "Revolucion francesa",
-              recommendedPrompt: "Quiero repasar la Revolucion francesa paso a paso.",
-              quickActions: [],
-            },
+        jsonResponse({
+          ok: true,
+          tutorMessage: "Primero situamos el contexto historico.",
+          reply: "Primero situamos el contexto historico.",
+          subject: { name: "Historia", slug: "historia" },
+          boardUpdate: buildBoardUpdate({
+            subjectSlug: "historia",
+            subjectName: "Historia",
+            topic: "Revolucion francesa",
+            intent: "explanation",
+            mode: "explanation",
+            conceptDefinition: "Primero situamos el contexto historico.",
+            explanation: ["Mira la crisis economica y social previa."],
+            steps: ["Ubica el contexto previo"],
+            example: "Ejemplo guiado con causas y consecuencias.",
           }),
-        ),
+          session: { id: "session_historia", topic: "Revolucion francesa", recommendedNextStep: "Explica el contexto." },
+        }),
       )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject(), buildHistorySubject()],
-            recentSessions: [
-              {
-                id: "session_mates",
-                tenantId: "tenant_mentoria",
-                studentProfileId: "student_1",
-                subjectId: "subject_matematicas",
-                mentorId: "mentor_1",
-                clientId: "student_1",
-                topic: "Fracciones",
-                status: "completed",
-                durationMinutes: 20,
-                aiTokensUsed: 280,
-                emotionalState: "steady",
-                tutorSummary: "Has entendido mejor como comparar fracciones equivalentes.",
-                recommendedNextStep: "Resuelve un ejemplo corto de suma de fracciones.",
-                transcript: [
-                  { role: "student", content: "No entiendo las fracciones", createdAt: "2026-04-03T00:00:00.000Z" },
-                  { role: "tutor", content: "Vamos paso a paso con fracciones.", createdAt: "2026-04-03T00:01:00.000Z" },
-                ],
-                createdAt: "2026-04-02T00:00:00.000Z",
-                updatedAt: "2026-04-02T00:20:00.000Z",
-              },
-            ],
-            entry: {
-              headline: "Empieza por una duda concreta",
-              subheadline: "El tutor te guiara sin darte la respuesta final.",
-              recommendedSubjectSlug: "matematicas",
-              recommendedTopic: "Fracciones",
-              recommendedPrompt: "Quiero repasar fracciones paso a paso.",
-              quickActions: [],
-            },
-          }),
-        ),
-      );
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse({ studentSubjects: [mathSubject, historySubject] })))
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse({ studentSubjects: [mathSubject, historySubject] })));
 
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByText("Primero situamos el contexto historico.")).toBeInTheDocument();
-    expect(screen.queryByText("Vamos paso a paso con fracciones.")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
+      target: { value: "No entiendo la Revolucion francesa" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+    expect((await screen.findAllByText("Primero situamos el contexto historico.")).length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getAllByRole("button", { name: /Matematicas/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Matematicas/i })[0]);
 
-    expect(await screen.findByText("Vamos paso a paso con fracciones.")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Escribe al tutor qué quieres trabajar.")).toBeInTheDocument();
+    });
     expect(screen.queryByText("Primero situamos el contexto historico.")).not.toBeInTheDocument();
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("subjectSlug=matematicas");
+    expect(screen.queryByText("No entiendo la Revolucion francesa")).not.toBeInTheDocument();
   });
 
   it("does not use an Ingles latest session fallback when the active classroom is Historia", async () => {
@@ -868,31 +463,7 @@ describe("MentoriaWorkspace", () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(
         buildWorkspaceResponse({
-          studentSubjects: [buildHistorySubject(), buildEnglishSubject()],
-          dailyPlan: {
-            id: "plan_ingles",
-            tenantId: "tenant_mentoria",
-            studentId: "student_1",
-            planDate: "2026-04-04",
-            recommendedDuration: 25,
-            tasks: [
-              {
-                id: "task_ingles",
-                subject: "Ingles",
-                subjectId: "subject_ingles",
-                type: "practice",
-                difficulty: 2,
-                completed: false,
-              },
-            ],
-            priority: "medium",
-            adaptationReason: "Repasar ingles.",
-            generatedAt: "2026-04-04T08:00:00.000Z",
-            createdAt: "2026-04-04T08:00:00.000Z",
-            updatedAt: "2026-04-04T08:00:00.000Z",
-            completedTaskIds: [],
-            completionRate: 0,
-          },
+          studentSubjects: [historySubject, englishSubject],
           recentSessions: [
             {
               id: "session_ingles",
@@ -901,29 +472,21 @@ describe("MentoriaWorkspace", () => {
               subjectId: "subject_ingles",
               mentorId: "mentor_1",
               clientId: "student_1",
-              topic: "Present simple",
+              topic: "Reported speech",
               status: "completed",
-              durationMinutes: 16,
-              aiTokensUsed: 210,
+              durationMinutes: 18,
+              aiTokensUsed: 240,
               emotionalState: "steady",
-              tutorSummary: "Has practicado verbos basicos.",
-              recommendedNextStep: "Escribe tres frases en presente.",
+              tutorSummary: "Has repasado Ingles.",
+              recommendedNextStep: "Haz una frase mas.",
               transcript: [
-                { role: "student", content: "No entiendo el Present simple", createdAt: "2026-04-03T00:00:00.000Z" },
-                { role: "tutor", content: "Vamos con el Present simple.", createdAt: "2026-04-03T00:01:00.000Z" },
+                { role: "student", content: "Quiero Ingles", createdAt: "2026-04-03T00:00:00.000Z" },
+                { role: "tutor", content: "Seguimos con Ingles.", createdAt: "2026-04-03T00:01:00.000Z" },
               ],
               createdAt: "2026-04-03T00:00:00.000Z",
               updatedAt: "2026-04-03T00:20:00.000Z",
             },
           ],
-          entry: {
-            headline: "Empieza por una duda concreta",
-            subheadline: "El tutor te guiara sin darte la respuesta final.",
-            recommendedSubjectSlug: "ingles",
-            recommendedTopic: "Present simple",
-            recommendedPrompt: "Quiero repasar el Present simple.",
-            quickActions: [],
-          },
         }),
       ),
     );
@@ -931,1449 +494,97 @@ describe("MentoriaWorkspace", () => {
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByText("La pizarra de Historia esta lista.")).toBeInTheDocument();
-    expect(screen.queryByText("Vamos con el Present simple.")).not.toBeInTheDocument();
-    expect(screen.queryByText("Escribe tres frases en presente.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Has repasado Ingles.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Haz una frase mas.")).not.toBeInTheDocument();
   });
 
-  it("uses the engine-selected reentry strategy when the rollout enables engine strategy", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(
-        buildWorkspaceResponse({
-          studentSubjects: [buildStudentSubject()],
-          motivation: {
-            studentId: "student_1",
-            streak: 1,
-            lastActivityAt: "2026-04-01T08:00:00.000Z",
-            effortScore: 0.4,
-            rewardPoints: 10,
-            level: 1,
-            achievements: [],
-            motivationProfile: "fragile",
-          },
-          dailyPlan: {
-            id: "plan_1",
-            tenantId: "tenant_mentoria",
-            studentId: "student_1",
-            planDate: "2026-04-04",
-            recommendedDuration: 30,
-            tasks: [
-              {
-                id: "task_review",
-                subject: "Matematicas",
-                subjectId: "subject_matematicas",
-                type: "review",
-                difficulty: 2,
-                completed: false,
-              },
-              {
-                id: "task_challenge",
-                subject: "Matematicas",
-                subjectId: "subject_matematicas",
-                type: "challenge",
-                difficulty: 4,
-                completed: false,
-              },
-            ],
-            priority: "medium",
-            adaptationReason: "Hoy conviene reforzar base antes de subir dificultad.",
-            generatedAt: "2026-04-04T08:00:00.000Z",
-            createdAt: "2026-04-04T08:00:00.000Z",
-            updatedAt: "2026-04-04T08:00:00.000Z",
-            completedTaskIds: [],
-            completionRate: 0,
-          },
-          behavioralRollout: "engine_strategy",
-          behavioralShadow: buildBehavioralShadow({
-            currentStrategy: "gentle_restart",
-            shadowStrategy: "momentum_push",
-            diverged: true,
-            currentAction: {
-              strategy: "gentle_restart",
-              title: "Volver con algo facil",
-              description: "La mejor primera accion del dia debe recuperar traccion sin friccion.",
-              rationale: ["Perfil fragile."],
-              confidence: 0.9,
-              task: {
-                id: "task_review",
-                subject: "Matematicas",
-                subjectId: "subject_matematicas",
-                type: "review",
-                difficulty: 2,
-                completed: false,
-              },
-              prompt: null,
-            },
-            shadowAction: {
-              strategy: "momentum_push",
-              title: "Subir un paso hoy",
-              description: "La mejor primera accion del dia puede ser un poco mas exigente.",
-              rationale: ["Momentum."],
-              confidence: 0.92,
-              task: {
-                id: "task_challenge",
-                subject: "Matematicas",
-                subjectId: "subject_matematicas",
-                type: "challenge",
-                difficulty: 4,
-                completed: false,
-              },
-              prompt: null,
-            },
-          }),
-        }),
-      ),
-    );
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByRole("button", { name: "Abrir siguiente paso" })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste")).toBeInTheDocument();
-    expect(screen.queryByText("Modo de hoy: subir un paso")).not.toBeInTheDocument();
-  });
-
-  it("falls back to the live reentry strategy when engine strategy payload is invalid", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(
-        buildWorkspaceResponse({
-          studentSubjects: [buildStudentSubject()],
-          motivation: {
-            studentId: "student_1",
-            streak: 1,
-            lastActivityAt: "2026-04-01T08:00:00.000Z",
-            effortScore: 0.4,
-            rewardPoints: 10,
-            level: 1,
-            achievements: [],
-            motivationProfile: "fragile",
-          },
-          dailyPlan: {
-            id: "plan_1",
-            tenantId: "tenant_mentoria",
-            studentId: "student_1",
-            planDate: "2026-04-04",
-            recommendedDuration: 30,
-            tasks: [
-              {
-                id: "task_review",
-                subject: "Matematicas",
-                subjectId: "subject_matematicas",
-                type: "review",
-                difficulty: 2,
-                completed: false,
-              },
-            ],
-            priority: "medium",
-            adaptationReason: "Hoy conviene reforzar base antes de subir dificultad.",
-            generatedAt: "2026-04-04T08:00:00.000Z",
-            createdAt: "2026-04-04T08:00:00.000Z",
-            updatedAt: "2026-04-04T08:00:00.000Z",
-            completedTaskIds: [],
-            completionRate: 0,
-          },
-          behavioralRollout: "engine_strategy",
-          behavioralShadow: buildBehavioralShadow({
-            currentStrategy: "gentle_restart",
-            shadowStrategy: "momentum_push",
-            diverged: true,
-            currentAction: {
-              strategy: "gentle_restart",
-              title: "Volver con algo facil",
-              description: "La mejor primera accion del dia debe recuperar traccion sin friccion.",
-              rationale: ["Perfil fragile."],
-              confidence: 0.9,
-              task: {
-                id: "task_review",
-                subject: "Matematicas",
-                subjectId: "subject_matematicas",
-                type: "review",
-                difficulty: 2,
-                completed: false,
-              },
-              prompt: null,
-            },
-            shadowAction: {
-              strategy: "momentum_push",
-              title: "Subir un paso hoy",
-              description: "La mejor primera accion del dia puede ser un poco mas exigente.",
-              rationale: ["Momentum."],
-              confidence: 0.92,
-              task: null,
-              prompt: null,
-            },
-          }),
-        }),
-      ),
-    );
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByRole("button", { name: "Abrir siguiente paso" })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste")).toBeInTheDocument();
-    expect(screen.queryByText("Modo de hoy: vuelta suave")).not.toBeInTheDocument();
-  });
-
-  it("uses engine explanation only when the rollout enables strategy and explanation together", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(
-        buildWorkspaceResponse({
-          studentSubjects: [buildStudentSubject()],
-          motivation: {
-            studentId: "student_1",
-            streak: 2,
-            lastActivityAt: "2026-04-04T07:00:00.000Z",
-            effortScore: 0.68,
-            rewardPoints: 90,
-            level: 2,
-            achievements: [],
-            motivationProfile: "stable",
-          },
-          dailyPlan: {
-            id: "plan_1",
-            tenantId: "tenant_mentoria",
-            studentId: "student_1",
-            planDate: "2026-04-04",
-            recommendedDuration: 30,
-            tasks: [
-              {
-                id: "task_review",
-                subject: "Matematicas",
-                subjectId: "subject_matematicas",
-                type: "review",
-                difficulty: 2,
-                completed: false,
-              },
-            ],
-            priority: "medium",
-            adaptationReason: "Hoy conviene reforzar base antes de subir dificultad.",
-            generatedAt: "2026-04-04T08:00:00.000Z",
-            createdAt: "2026-04-04T08:00:00.000Z",
-            updatedAt: "2026-04-04T08:00:00.000Z",
-            completedTaskIds: [],
-            completionRate: 0,
-          },
-          behavioralRollout: "engine_strategy_and_explanation",
-          behavioralShadow: buildBehavioralShadow({
-            currentStrategy: "plan_task",
-            shadowStrategy: "plan_task",
-            diverged: false,
-            shadowAction: {
-              strategy: "plan_task",
-              title: "Volver al plan de hoy",
-              description: "La continuidad natural viene de la siguiente tarea pendiente del plan.",
-              rationale: ["Plan task."],
-              confidence: 0.9,
-              task: {
-                id: "task_review",
-                subject: "Matematicas",
-                subjectId: "subject_matematicas",
-                type: "review",
-                difficulty: 2,
-                completed: false,
-              },
-              prompt: null,
-            },
-          }),
-        }),
-      ),
-    );
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByText("Revisa la recomendacion y entra con un solo clic.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Abrir siguiente paso" })).toBeInTheDocument();
-    expect(screen.queryByText("La continuidad natural hoy viene del plan del dia.")).not.toBeInTheDocument();
-  });
-
-  it("turns accumulated signals into an identity-focused progress narrative", async () => {
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(
-        buildWorkspaceResponse({
-          progress: [
-            {
-              id: "progress_math",
-              tenantId: "tenant_mentoria",
-              studentProfileId: "student_1",
-              subjectId: "subject_matematicas",
-              subject: buildStudentSubject().subject,
-              masteryScore: 68,
-              confidenceScore: 61,
-              streakDays: 5,
-              sessionsCompleted: 7,
-              exercisesCompleted: 18,
-              strongTopics: ["Fracciones equivalentes"],
-              weakTopics: ["Problemas largos"],
-              lastActivityAt: "2026-04-04T08:00:00.000Z",
-              createdAt: "2026-04-03T00:00:00.000Z",
-              updatedAt: "2026-04-04T08:00:00.000Z",
-            },
-          ],
-          motivation: {
-            studentId: "student_1",
-            streak: 5,
-            lastActivityAt: "2026-04-04T08:00:00.000Z",
-            effortScore: 0.74,
-            confidenceTrend: "up",
-            emotionalState: "steady",
-            recentRewards: [],
-            rewardPoints: 80,
-            level: 3,
-            achievements: ["racha_5"],
-            motivationProfile: "steady",
-            updatedAt: "2026-04-04T08:00:00.000Z",
-          },
-          evolution: {
-            studentId: "student_1",
-            strengths: ["Matematicas"],
-            weaknesses: ["Problemas largos"],
-            frustrationLevel: 0.28,
-            consistencyScore: 0.76,
-            averageResponseTime: 9,
-            lastSessions: 7,
-            commonMistakes: ["Confunde el ultimo paso"],
-            progressionVelocity: 0.67,
-            updatedAt: "2026-04-04T08:00:00.000Z",
-          },
-        }),
-      ),
-    );
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.queryByText("Lo que ya esta cambiando")).not.toBeInTheDocument();
-    expect(screen.queryByText("Ya estas construyendo un ritmo propio")).not.toBeInTheDocument();
-    expect(screen.getByText("Empieza por una duda concreta")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste")).toBeInTheDocument();
-  });
-
-  it("shows the previous daily closure and prepares the carry-over for today", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(
-        buildWorkspaceResponse({
-          studentSubjects: [buildStudentSubject()],
-          dailyClosure: {
-            closureDate: "2026-04-03",
-            source: "event",
-            status: "completed",
-            title: "Hoy has cerrado algo importante",
-            summary: "Ayer cerraste el dia con avance real y ya quedo listo el primer paso para hoy.",
-            carryOverPrompt: "Empieza repasando fracciones equivalentes con un ejemplo corto.",
-            carryOverTopic: "Fracciones equivalentes",
-            carryOverSubjectId: "subject_matematicas",
-            completionRate: 1,
-            completedTasks: 2,
-            totalTasks: 2,
-            lastActivityAt: "2026-04-03T20:30:00.000Z",
-          },
-        }),
-      ),
-    );
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByText("Esto quedo preparado para que vuelvas rapido")).toBeInTheDocument();
-    expect(screen.getByText("Ayer cerraste el dia con avance real y ya quedo listo el primer paso para hoy.")).toBeInTheDocument();
-    expect(screen.queryByText("Por que merece la pena volver")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Volver justo por aqui" }));
-
-    expect(
-      screen.getByText("Ayer dejaste una pista clara y hoy puedes retomarla sin empezar desde cero."),
-    ).toBeInTheDocument();
-  });
-
-  it("turns the next daily task into an immediate action from the workspace", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(
-        buildWorkspaceResponse({
-          studentSubjects: [buildStudentSubject()],
-          dailyPlan: {
-            id: "plan_1",
-            tenantId: "tenant_mentoria",
-            studentId: "student_1",
-            planDate: "2026-04-04",
-            recommendedDuration: 30,
-            tasks: [
-              {
-                id: "task_1",
-                subject: "Matematicas",
-                subjectId: "subject_matematicas",
-                type: "review",
-                difficulty: 2,
-                completed: false,
-              },
-            ],
-            priority: "medium",
-            adaptationReason: "Hoy conviene reforzar base antes de subir dificultad.",
-            generatedAt: "2026-04-04T08:00:00.000Z",
-            createdAt: "2026-04-04T08:00:00.000Z",
-            updatedAt: "2026-04-04T08:00:00.000Z",
-            completedTaskIds: [],
-            completionRate: 0,
-          },
-        }),
-      ),
-    );
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-    fireEvent.click(screen.getAllByRole("button", { name: /Preparar con el tutor|Volver al plan de hoy/ })[0]);
-    expect(screen.getByText("Tarea lista: Matematicas - repaso guiado. Ya puedes avanzar desde el tutor.")).toBeInTheDocument();
-  });
-
-  it("shows visible daily plan progress after a guided session completes a task and updates the next step", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
+  it("uses the visible correction button to send a subject-scoped correction request", async () => {
+    setSearchParams({ subjectSlug: "ingles" });
     fetchMock
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-            dailyPlan: {
-              id: "plan_1",
-              tenantId: "tenant_mentoria",
-              studentId: "student_1",
-              planDate: "2026-04-04",
-              recommendedDuration: 30,
-              tasks: [
-                {
-                  id: "task_review",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "review",
-                  difficulty: 2,
-                  completed: false,
-                },
-                {
-                  id: "task_practice",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "practice",
-                  difficulty: 3,
-                  completed: false,
-                },
-              ],
-              priority: "medium",
-              adaptationReason: "Hoy conviene reforzar base antes de subir dificultad.",
-              generatedAt: "2026-04-04T08:00:00.000Z",
-              createdAt: "2026-04-04T08:00:00.000Z",
-              updatedAt: "2026-04-04T08:00:00.000Z",
-              completedTaskIds: [],
-              completionRate: 0,
-            },
-          }),
-        ),
-      )
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse({ studentSubjects: [englishSubject] })))
       .mockResolvedValueOnce(
         jsonResponse({
           ok: true,
-          reply: "Vamos a repasar fracciones de forma guiada.",
-          explanation: "Primero revisa como encontrar el comun denominador.",
-          suggestedSteps: ["Busca el comun denominador"],
-          reinforcementQuestion: "Que paso te cuesta mas?",
-          subject: { name: "Matematicas", slug: "matematicas" },
-          session: {
-            id: "session_1",
-            topic: "Repaso de Matematicas",
-            recommendedNextStep: "Pasa ahora a una practica corta de fracciones.",
-          },
-          sessionFeedback: {
-            progressMessage: "Has consolidado la base de hoy.",
-            scoreChange: 3,
-            masteryLevel: "en progreso",
-            confidenceLevel: "subiendo",
-            nextSteps: ["Pasa ahora a una practica corta de fracciones."],
-            encouragement: "Buen trabajo: ya puedes subir un paso mas.",
-            completionMessage: "Sesion cerrada con avance visible en el plan de hoy.",
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-            dailyPlan: {
-              id: "plan_1",
-              tenantId: "tenant_mentoria",
-              studentId: "student_1",
-              planDate: "2026-04-04",
-              recommendedDuration: 30,
-              tasks: [
-                {
-                  id: "task_review",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "review",
-                  difficulty: 2,
-                  completed: true,
-                },
-                {
-                  id: "task_practice",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "practice",
-                  difficulty: 3,
-                  completed: false,
-                },
-              ],
-              priority: "medium",
-              adaptationReason: "Hoy conviene reforzar base antes de subir dificultad.",
-              generatedAt: "2026-04-04T08:00:00.000Z",
-              createdAt: "2026-04-04T08:00:00.000Z",
-              updatedAt: "2026-04-04T08:30:00.000Z",
-              completedTaskIds: ["task_review"],
-              completionRate: 0.5,
+          tutorMessage: "Te preparo una tarea corta de Ingles.",
+          reply: "Te preparo una tarea corta de Ingles.",
+          subject: { name: "Ingles", slug: "ingles" },
+          boardUpdate: buildBoardUpdate({
+            subjectSlug: "ingles",
+            subjectName: "Ingles",
+            topic: "Present simple",
+            intent: "task",
+            mode: "task",
+            conceptDefinition: "Hoy vamos a resolver una tarea real de Ingles.",
+            explanation: ["Usa frases cortas."],
+            steps: ["Piensa el sujeto", "Elige el verbo"],
+            task: {
+              title: "Tarea guiada de Ingles",
+              prompt: "Escribe tres frases en present simple sobre tu rutina.",
+              allowedSteps: ["Piensa el sujeto", "Elige el verbo"],
             },
           }),
-        ),
-      );
+          session: { id: "session_task", topic: "Present simple", recommendedNextStep: "Escribe tu primera frase." },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse({ studentSubjects: [englishSubject] })))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: true,
+          tutorMessage: "Voy a corregirte la tarea de Ingles.",
+          reply: "Voy a corregirte la tarea de Ingles.",
+          subject: { name: "Ingles", slug: "ingles" },
+          boardUpdate: buildBoardUpdate({
+            subjectSlug: "ingles",
+            subjectName: "Ingles",
+            topic: "Present simple",
+            intent: "correction",
+            mode: "correction",
+            conceptDefinition: "Correccion de Ingles.",
+            explanation: ["Has usado bien el sujeto, pero revisa la forma del verbo."],
+            steps: ["Corrige la tercera persona"],
+            correction: "Falta ajustar el verbo con he/she/it.",
+          }),
+          session: { id: "session_correction", topic: "Present simple", recommendedNextStep: "Reescribe la frase corregida." },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse({ studentSubjects: [englishSubject] })));
 
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
     fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
-      target: { value: "Seguimos con matematicas" },
+      target: { value: "Quiero una tarea de Inglés" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+    expect(await screen.findByText("Tarea guiada de Ingles")).toBeInTheDocument();
 
-    expect(await screen.findByText("Sesion cerrada con avance visible en el plan de hoy.")).toBeInTheDocument();
-    expect(screen.getByText("Has consolidado la base de hoy.")).toBeInTheDocument();
-    expect(screen.getByText("Buen trabajo: ya puedes subir un paso mas.")).toBeInTheDocument();
-  });
-
-  it("recalculates the second action upward after a strong exercise result", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
-    fetchMock
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-            exercises: [
-              {
-                id: "exercise_1",
-                tenantId: "tenant_mentoria",
-                studentProfileId: "student_1",
-                subjectId: "subject_matematicas",
-                prompt: "Resuelve una suma de fracciones equivalentes.",
-                expectedCompetency: "Sumas de fracciones",
-                difficultyLevel: "medium",
-                hints: ["Busca el comun denominador"],
-                answerFormat: "text",
-                status: "pending",
-                createdAt: "2026-04-04T09:00:00.000Z",
-                updatedAt: "2026-04-04T09:00:00.000Z",
-              },
-            ],
-            dailyPlan: {
-              id: "plan_1",
-              tenantId: "tenant_mentoria",
-              studentId: "student_1",
-              planDate: "2026-04-04",
-              recommendedDuration: 30,
-              tasks: [
-                {
-                  id: "task_practice",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "practice",
-                  difficulty: 3,
-                  completed: false,
-                },
-                {
-                  id: "task_challenge",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "challenge",
-                  difficulty: 4,
-                  completed: false,
-                },
-              ],
-              priority: "medium",
-              adaptationReason: "Hoy puedes consolidar y luego subir un paso.",
-              generatedAt: "2026-04-04T08:00:00.000Z",
-              createdAt: "2026-04-04T08:00:00.000Z",
-              updatedAt: "2026-04-04T08:00:00.000Z",
-              completedTaskIds: [],
-              completionRate: 0,
-            },
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          ok: true,
-          exercise: {
-            id: "exercise_1",
-            tenantId: "tenant_mentoria",
-            studentProfileId: "student_1",
-            subjectId: "subject_matematicas",
-            prompt: "Resuelve una suma de fracciones equivalentes.",
-            expectedCompetency: "Sumas de fracciones",
-            difficultyLevel: "medium",
-            hints: ["Busca el comun denominador"],
-            answerFormat: "text",
-            studentAnswer: "5/6",
-            correctionFeedback: "Muy bien resuelto.",
-            status: "corrected",
-            score: 92,
-            createdAt: "2026-04-04T09:00:00.000Z",
-            updatedAt: "2026-04-04T09:10:00.000Z",
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-            exercises: [
-              {
-                id: "exercise_1",
-                tenantId: "tenant_mentoria",
-                studentProfileId: "student_1",
-                subjectId: "subject_matematicas",
-                prompt: "Resuelve una suma de fracciones equivalentes.",
-                expectedCompetency: "Sumas de fracciones",
-                difficultyLevel: "medium",
-                hints: ["Busca el comun denominador"],
-                answerFormat: "text",
-                studentAnswer: "5/6",
-                correctionFeedback: "Muy bien resuelto.",
-                status: "corrected",
-                score: 92,
-                createdAt: "2026-04-04T09:00:00.000Z",
-                updatedAt: "2026-04-04T09:10:00.000Z",
-              },
-            ],
-            dailyPlan: {
-              id: "plan_1",
-              tenantId: "tenant_mentoria",
-              studentId: "student_1",
-              planDate: "2026-04-04",
-              recommendedDuration: 30,
-              tasks: [
-                {
-                  id: "task_practice",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "practice",
-                  difficulty: 3,
-                  completed: true,
-                },
-                {
-                  id: "task_challenge",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "challenge",
-                  difficulty: 4,
-                  completed: false,
-                },
-              ],
-              priority: "medium",
-              adaptationReason: "Hoy puedes consolidar y luego subir un paso.",
-              generatedAt: "2026-04-04T08:00:00.000Z",
-              createdAt: "2026-04-04T08:00:00.000Z",
-              updatedAt: "2026-04-04T09:10:00.000Z",
-              completedTaskIds: ["task_practice"],
-              completionRate: 0.5,
-            },
-          }),
-        ),
-      );
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-    fireEvent.change(screen.getByPlaceholderText("Escribe aqui tu respuesta"), {
-      target: { value: "5/6" },
+    fireEvent.change(screen.getByPlaceholderText("Escribe aquí cómo la resolverías"), {
+      target: { value: "He play football every day." },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Enviar respuesta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Corregir respuesta" }));
 
-    await waitFor(() => {
-      expect(screen.getByText("Lanzar siguiente reto")).toBeInTheDocument();
+    expect(await screen.findByText("Voy a corregirte la tarea de Ingles.")).toBeInTheDocument();
+    expect(JSON.parse(String(fetchMock.mock.calls[3]?.[1]?.body))).toMatchObject({
+      studentId: "student_1",
+      subjectSlug: "ingles",
+      intent: "correction",
     });
   });
 
-  it("recalculates the second action downward when the first exercise shows friction", async () => {
+  it("shows a clear dev-facing error when the tutor IA fails", async () => {
     setSearchParams({ subjectSlug: "matematicas" });
     fetchMock
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-            exercises: [
-              {
-                id: "exercise_1",
-                tenantId: "tenant_mentoria",
-                studentProfileId: "student_1",
-                subjectId: "subject_matematicas",
-                prompt: "Resuelve una resta de fracciones.",
-                expectedCompetency: "Restas de fracciones",
-                difficultyLevel: "medium",
-                hints: ["Busca el comun denominador"],
-                answerFormat: "text",
-                status: "pending",
-                createdAt: "2026-04-04T09:00:00.000Z",
-                updatedAt: "2026-04-04T09:00:00.000Z",
-              },
-            ],
-            dailyPlan: {
-              id: "plan_1",
-              tenantId: "tenant_mentoria",
-              studentId: "student_1",
-              planDate: "2026-04-04",
-              recommendedDuration: 30,
-              tasks: [
-                {
-                  id: "task_practice",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "practice",
-                  difficulty: 3,
-                  completed: false,
-                },
-                {
-                  id: "task_review",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "review",
-                  difficulty: 1,
-                  completed: false,
-                },
-              ],
-              priority: "medium",
-              adaptationReason: "Hoy conviene consolidar antes de subir dificultad.",
-              generatedAt: "2026-04-04T08:00:00.000Z",
-              createdAt: "2026-04-04T08:00:00.000Z",
-              updatedAt: "2026-04-04T08:00:00.000Z",
-              completedTaskIds: [],
-              completionRate: 0,
-            },
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          ok: true,
-          exercise: {
-            id: "exercise_1",
-            tenantId: "tenant_mentoria",
-            studentProfileId: "student_1",
-            subjectId: "subject_matematicas",
-            prompt: "Resuelve una resta de fracciones.",
-            expectedCompetency: "Restas de fracciones",
-            difficultyLevel: "medium",
-            hints: ["Busca el comun denominador"],
-            answerFormat: "text",
-            studentAnswer: "1/8",
-            correctionFeedback: "Necesitas reforzar la base antes de seguir.",
-            status: "corrected",
-            score: 42,
-            createdAt: "2026-04-04T09:00:00.000Z",
-            updatedAt: "2026-04-04T09:10:00.000Z",
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-            exercises: [
-              {
-                id: "exercise_1",
-                tenantId: "tenant_mentoria",
-                studentProfileId: "student_1",
-                subjectId: "subject_matematicas",
-                prompt: "Resuelve una resta de fracciones.",
-                expectedCompetency: "Restas de fracciones",
-                difficultyLevel: "medium",
-                hints: ["Busca el comun denominador"],
-                answerFormat: "text",
-                studentAnswer: "1/8",
-                correctionFeedback: "Necesitas reforzar la base antes de seguir.",
-                status: "corrected",
-                score: 42,
-                createdAt: "2026-04-04T09:00:00.000Z",
-                updatedAt: "2026-04-04T09:10:00.000Z",
-              },
-            ],
-            dailyPlan: {
-              id: "plan_1",
-              tenantId: "tenant_mentoria",
-              studentId: "student_1",
-              planDate: "2026-04-04",
-              recommendedDuration: 30,
-              tasks: [
-                {
-                  id: "task_practice",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "practice",
-                  difficulty: 3,
-                  completed: true,
-                },
-                {
-                  id: "task_review",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "review",
-                  difficulty: 1,
-                  completed: false,
-                },
-              ],
-              priority: "medium",
-              adaptationReason: "Hoy conviene consolidar antes de subir dificultad.",
-              generatedAt: "2026-04-04T08:00:00.000Z",
-              createdAt: "2026-04-04T08:00:00.000Z",
-              updatedAt: "2026-04-04T09:10:00.000Z",
-              completedTaskIds: ["task_practice"],
-              completionRate: 0.5,
-            },
-          }),
-        ),
-      );
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse()))
+      .mockResolvedValueOnce(jsonResponse({ ok: false, error: "MENTORIA_AI_NOT_AVAILABLE" }, 503));
 
     render(React.createElement(MentoriaWorkspace));
 
     await screen.findByRole("heading", { name: "Hola, Alex" });
-    fireEvent.change(screen.getByPlaceholderText("Escribe aqui tu respuesta"), {
-      target: { value: "1/8" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Enviar respuesta" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Abrir ayuda guiada")).toBeInTheDocument();
-    });
-  });
-
-  it("gives the user a clear reentry point with recent context and a resume CTA", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
-    const recentActivityAt = new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString();
-
-    fetchMock
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-            motivation: {
-              studentId: "student_1",
-              streak: 3,
-              lastActivityAt: recentActivityAt,
-              effortScore: 0.72,
-              rewardPoints: 120,
-              level: 2,
-              achievements: ["constancia_inicial"],
-              motivationProfile: "stable",
-            },
-            dailyPlan: {
-              id: "plan_1",
-              tenantId: "tenant_mentoria",
-              studentId: "student_1",
-              planDate: "2026-04-04",
-              recommendedDuration: 30,
-              tasks: [
-                {
-                  id: "task_review",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "review",
-                  difficulty: 2,
-                  completed: true,
-                },
-                {
-                  id: "task_practice",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "practice",
-                  difficulty: 3,
-                  completed: false,
-                },
-              ],
-              priority: "medium",
-              adaptationReason: "Hoy conviene reforzar base antes de subir dificultad.",
-              generatedAt: "2026-04-04T08:00:00.000Z",
-              createdAt: "2026-04-04T08:00:00.000Z",
-              updatedAt: "2026-04-04T08:30:00.000Z",
-              completedTaskIds: ["task_review"],
-              completionRate: 0.5,
-            },
-            recentSessions: [
-              {
-                id: "session_1",
-                tenantId: "tenant_mentoria",
-                studentProfileId: "student_1",
-                subjectId: "subject_matematicas",
-                mentorId: "mentor_1",
-                clientId: "student_1",
-                topic: "Fracciones",
-                status: "completed",
-                durationMinutes: 20,
-                aiTokensUsed: 300,
-                emotionalState: "steady",
-                tutorSummary: "La ultima vez dejaste clara la base para sumar fracciones.",
-                recommendedNextStep: "Retoma ahora con una practica corta de suma de fracciones.",
-                transcript: [
-                  { role: "student", content: "No entiendo las fracciones", createdAt: "2026-04-03T00:00:00.000Z" },
-                  { role: "tutor", content: "Vamos paso a paso", createdAt: "2026-04-03T00:01:00.000Z" },
-                ],
-                createdAt: "2026-04-03T00:00:00.000Z",
-                updatedAt: recentActivityAt,
-              },
-            ],
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          ok: true,
-          reply: "Vamos a seguir justo desde la practica que quedo pendiente.",
-          explanation: "Primero retomamos el ejemplo corto que dejaste preparado.",
-          suggestedSteps: ["Recuerda el comun denominador", "Haz una suma corta antes del reto"],
-          reinforcementQuestion: "Que parte del ultimo paso recuerdas mejor?",
-          subject: { name: "Matematicas", slug: "matematicas" },
-          session: {
-            id: "session_2",
-            topic: "Fracciones",
-            recommendedNextStep: "Haz ahora una suma guiada de fracciones equivalentes.",
-          },
-          sessionFeedback: {
-            progressMessage: "Has retomado el hilo sin empezar desde cero.",
-            scoreChange: 2,
-            masteryLevel: "en progreso",
-            confidenceLevel: "estable",
-            nextSteps: ["Haz ahora una suma guiada de fracciones equivalentes."],
-            encouragement: "Buen regreso: ya estas otra vez dentro del problema correcto.",
-            completionMessage: "Retomaste exactamente el punto que habias dejado preparado.",
-          },
-        }),
-      )
-      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse()));
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-    fireEvent.click(screen.getByRole("button", { name: /Retomar esta sesion|Retomar ultimo paso|Retomar sesión/ }));
-
-    expect(await screen.findByText("Retomaste exactamente el punto que habias dejado preparado.")).toBeInTheDocument();
-    expect(screen.getByText("Has retomado el hilo sin empezar desde cero.")).toBeInTheDocument();
-  });
-
-  it("switches to a gentle restart when the user returns after days away or with a fragile profile", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
-    const recentActivityAt = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString();
-
-    fetchMock
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-            motivation: {
-              studentId: "student_1",
-              streak: 1,
-              lastActivityAt: recentActivityAt,
-              effortScore: 0.35,
-              rewardPoints: 40,
-              level: 1,
-              achievements: [],
-              motivationProfile: "fragile",
-            },
-            dailyPlan: {
-              id: "plan_1",
-              tenantId: "tenant_mentoria",
-              studentId: "student_1",
-              planDate: "2026-04-04",
-              recommendedDuration: 30,
-              tasks: [
-                {
-                  id: "task_challenge",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "challenge",
-                  difficulty: 4,
-                  completed: false,
-                },
-                {
-                  id: "task_review",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "review",
-                  difficulty: 1,
-                  completed: false,
-                },
-              ],
-              priority: "medium",
-              adaptationReason: "Hoy conviene recuperar ritmo con una base guiada.",
-              generatedAt: "2026-04-04T08:00:00.000Z",
-              createdAt: "2026-04-04T08:00:00.000Z",
-              updatedAt: "2026-04-04T08:30:00.000Z",
-              completedTaskIds: [],
-              completionRate: 0,
-            },
-            recentSessions: [
-              {
-                id: "session_1",
-                tenantId: "tenant_mentoria",
-                studentProfileId: "student_1",
-                subjectId: "subject_matematicas",
-                mentorId: "mentor_1",
-                clientId: "student_1",
-                topic: "Fracciones",
-                status: "completed",
-                durationMinutes: 20,
-                aiTokensUsed: 300,
-                emotionalState: "steady",
-                tutorSummary: "La ultima sesion quedo bien cerrada, pero hoy conviene reenganchar con algo sencillo.",
-                recommendedNextStep: "Resuelve una practica larga de fracciones.",
-                transcript: [],
-                createdAt: "2026-04-01T00:00:00.000Z",
-                updatedAt: recentActivityAt,
-              },
-            ],
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          ok: true,
-          reply: "Vamos a volver con un paso pequeno y muy guiado.",
-          explanation: "Solo haremos una suma corta para recuperar la base sin presion.",
-          suggestedSteps: ["Recuerda que significa cada fraccion", "Haz una comprobacion muy corta"],
-          reinforcementQuestion: "Que parte te parece mas facil retomar ahora mismo?",
-          subject: { name: "Matematicas", slug: "matematicas" },
-          session: {
-            id: "session_2",
-            topic: "Repaso de Matematicas",
-            recommendedNextStep: "Haz una suma guiada de fracciones muy corta.",
-          },
-          sessionFeedback: {
-            progressMessage: "Hoy has vuelto con una accion facil y clara.",
-            scoreChange: 1,
-            masteryLevel: "reinicio guiado",
-            confidenceLevel: "recuperando",
-            nextSteps: ["Haz una suma guiada de fracciones muy corta."],
-            encouragement: "Buen comienzo: ya has recuperado el hilo sin sobrecargarte.",
-            completionMessage: "Primer paso del reenganche completado con una ayuda suave.",
-          },
-        }),
-      )
-      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse()));
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-    fireEvent.click(screen.getByRole("button", { name: /Retomar esta sesion|Volver con algo facil|Abrir siguiente paso/ }));
-
-    expect(await screen.findByText("Primer paso del reenganche completado con una ayuda suave.")).toBeInTheDocument();
-    expect(screen.getByText("Hoy has vuelto con una accion facil y clara.")).toBeInTheDocument();
-  });
-
-  it("uses a stronger first action when the student returns with momentum and a high streak", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
-    const recentActivityAt = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-
-    fetchMock
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-            motivation: {
-              studentId: "student_1",
-              streak: 5,
-              lastActivityAt: recentActivityAt,
-              effortScore: 0.91,
-              rewardPoints: 210,
-              level: 3,
-              achievements: ["Constancia sostenida"],
-              motivationProfile: "high_performer",
-            },
-            dailyPlan: {
-              id: "plan_1",
-              tenantId: "tenant_mentoria",
-              studentId: "student_1",
-              planDate: "2026-04-04",
-              recommendedDuration: 35,
-              tasks: [
-                {
-                  id: "task_review",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "review",
-                  difficulty: 2,
-                  completed: false,
-                },
-                {
-                  id: "task_challenge",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "challenge",
-                  difficulty: 4,
-                  completed: false,
-                },
-              ],
-              priority: "high",
-              adaptationReason: "Hoy puede subir un paso de dificultad.",
-              generatedAt: "2026-04-04T08:00:00.000Z",
-              createdAt: "2026-04-04T08:00:00.000Z",
-              updatedAt: "2026-04-04T08:30:00.000Z",
-              completedTaskIds: [],
-              completionRate: 0,
-            },
-            recentSessions: [],
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          ok: true,
-          exercise: {
-            id: "exercise_1",
-            tenantId: "tenant_mentoria",
-            studentProfileId: "student_1",
-            subjectId: "subject_matematicas",
-            prompt: "Resuelve un reto corto de fracciones.",
-            answerFormat: "text",
-            expectedAnswer: "7/9",
-            hints: ["Piensa en el comun denominador antes de operar"],
-            difficultyLevel: "hard",
-            status: "pending",
-            createdAt: "2026-04-04T09:00:00.000Z",
-            updatedAt: "2026-04-04T09:00:00.000Z",
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-            motivation: {
-              studentId: "student_1",
-              streak: 5,
-              lastActivityAt: recentActivityAt,
-              effortScore: 0.91,
-              rewardPoints: 210,
-              level: 3,
-              achievements: ["Constancia sostenida"],
-              motivationProfile: "high_performer",
-            },
-            dailyPlan: {
-              id: "plan_1",
-              tenantId: "tenant_mentoria",
-              studentId: "student_1",
-              planDate: "2026-04-04",
-              recommendedDuration: 35,
-              tasks: [
-                {
-                  id: "task_review",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "review",
-                  difficulty: 2,
-                  completed: false,
-                },
-                {
-                  id: "task_challenge",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "challenge",
-                  difficulty: 4,
-                  completed: false,
-                },
-              ],
-              priority: "high",
-              adaptationReason: "Hoy puede subir un paso de dificultad.",
-              generatedAt: "2026-04-04T08:00:00.000Z",
-              createdAt: "2026-04-04T08:00:00.000Z",
-              updatedAt: "2026-04-04T08:30:00.000Z",
-              completedTaskIds: [],
-              completionRate: 0,
-            },
-            recentSessions: [],
-            exercises: [
-              {
-                id: "exercise_1",
-                tenantId: "tenant_mentoria",
-                studentProfileId: "student_1",
-                subjectId: "subject_matematicas",
-                prompt: "Resuelve un reto corto de fracciones.",
-                answerFormat: "text",
-                expectedAnswer: "7/9",
-                hints: ["Piensa en el comun denominador antes de operar"],
-                difficultyLevel: "hard",
-                status: "pending",
-                createdAt: "2026-04-04T09:00:00.000Z",
-                updatedAt: "2026-04-04T09:00:00.000Z",
-              },
-            ],
-          }),
-        ),
-      );
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getByRole("button", { name: "Abrir siguiente paso" })).toBeInTheDocument();
-    expect(screen.queryByText("Modo de hoy: subir un paso")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Abrir siguiente paso" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Hoy vienes con ritmo: Matematicas - reto corto. Vamos a aprovecharlo con una primera accion un poco mas ambiciosa.")).toBeInTheDocument();
-    });
-  });
-
-  it("falls back to the daily plan as the reentry hook when there is no recent session", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
-    const recentActivityAt = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
-
-    fetchMock
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-            motivation: {
-              studentId: "student_1",
-              streak: 2,
-              lastActivityAt: recentActivityAt,
-              effortScore: 0.68,
-              rewardPoints: 90,
-              level: 2,
-              achievements: [],
-              motivationProfile: "stable",
-            },
-            dailyPlan: {
-              id: "plan_1",
-              tenantId: "tenant_mentoria",
-              studentId: "student_1",
-              planDate: "2026-04-04",
-              recommendedDuration: 30,
-              tasks: [
-                {
-                  id: "task_practice",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "practice",
-                  difficulty: 3,
-                  completed: false,
-                },
-              ],
-              priority: "medium",
-              adaptationReason: "Hoy conviene reforzar base antes de subir dificultad.",
-              generatedAt: "2026-04-04T08:00:00.000Z",
-              createdAt: "2026-04-04T08:00:00.000Z",
-              updatedAt: "2026-04-04T08:30:00.000Z",
-              completedTaskIds: [],
-              completionRate: 0,
-            },
-            recentSessions: [],
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          ok: true,
-          exercise: {
-            id: "exercise_1",
-            tenantId: "tenant_mentoria",
-            studentProfileId: "student_1",
-            subjectId: "subject_matematicas",
-            prompt: "Resuelve una suma de fracciones equivalentes.",
-            answerFormat: "text",
-            expectedAnswer: "5/6",
-            hints: ["Busca el comun denominador"],
-            difficultyLevel: "medium",
-            status: "pending",
-            createdAt: "2026-04-04T09:00:00.000Z",
-            updatedAt: "2026-04-04T09:00:00.000Z",
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse(
-          buildWorkspaceResponse({
-            studentSubjects: [buildStudentSubject()],
-            motivation: {
-              studentId: "student_1",
-              streak: 2,
-              lastActivityAt: recentActivityAt,
-              effortScore: 0.68,
-              rewardPoints: 90,
-              level: 2,
-              achievements: [],
-              motivationProfile: "stable",
-            },
-            dailyPlan: {
-              id: "plan_1",
-              tenantId: "tenant_mentoria",
-              studentId: "student_1",
-              planDate: "2026-04-04",
-              recommendedDuration: 30,
-              tasks: [
-                {
-                  id: "task_practice",
-                  subject: "Matematicas",
-                  subjectId: "subject_matematicas",
-                  type: "practice",
-                  difficulty: 3,
-                  completed: false,
-                },
-              ],
-              priority: "medium",
-              adaptationReason: "Hoy conviene reforzar base antes de subir dificultad.",
-              generatedAt: "2026-04-04T08:00:00.000Z",
-              createdAt: "2026-04-04T08:00:00.000Z",
-              updatedAt: "2026-04-04T08:30:00.000Z",
-              completedTaskIds: [],
-              completionRate: 0,
-            },
-            recentSessions: [],
-            exercises: [
-              {
-                id: "exercise_1",
-                tenantId: "tenant_mentoria",
-                studentProfileId: "student_1",
-                subjectId: "subject_matematicas",
-                prompt: "Resuelve una suma de fracciones equivalentes.",
-                answerFormat: "text",
-                expectedAnswer: "5/6",
-                hints: ["Busca el comun denominador"],
-                difficultyLevel: "medium",
-                status: "pending",
-                createdAt: "2026-04-04T09:00:00.000Z",
-                updatedAt: "2026-04-04T09:00:00.000Z",
-              },
-            ],
-          }),
-        ),
-      );
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-    fireEvent.click(screen.getByRole("button", { name: "Abrir siguiente paso" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Practica lista para Matematicas. Cuando la completes, el plan se actualizara aqui mismo.")).toBeInTheDocument();
-    });
-  });
-
-  it("uses session feedback to make the next guided step explicit after a tutor reply", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
-    fetchMock
-      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse({ studentSubjects: [buildStudentSubject()] })))
-      .mockResolvedValueOnce(
-        jsonResponse({
-          ok: true,
-          reply: "Vamos a dividir el problema en partes pequenas.",
-          chatMessage: "Vamos a dividir el problema en partes pequenas.",
-          subjectSlug: "matematicas",
-          topic: "Fracciones",
-          boardUpdate: {
-            studentId: "student_1",
-            subjectSlug: "matematicas",
-            subjectName: "Matematicas",
-            studentName: "Alex",
-            schoolYear: "2 ESO",
-            topic: "Fracciones",
-            mode: "summary",
-            conceptDefinition: "Ya tienes una base clara para seguir con un ejemplo real.",
-            explanation: ["Primero mira el denominador comun."],
-            steps: ["Encuentra el comun denominador"],
-            example: "Ejemplo guiado con dos fracciones equivalentes.",
-            formula: null,
-            diagram: null,
-            exercise: null,
-            correction: null,
-            nextAction: "Resuelve ahora un ejemplo con dos fracciones equivalentes.",
-            updatedAt: "2026-04-24T10:30:00.000Z",
-          },
-          explanation: "Primero mira el denominador comun.",
-          suggestedSteps: ["Encuentra el comun denominador"],
-          reinforcementQuestion: "Que parte del denominador te esta frenando?",
-          subject: { name: "Matematicas", slug: "matematicas" },
-          session: {
-            id: "session_1",
-            topic: "Fracciones",
-            recommendedNextStep: "Resuelve ahora un ejemplo con dos fracciones equivalentes.",
-          },
-          sessionFeedback: {
-            progressMessage: "Has mejorado un poco la seguridad en fracciones.",
-            scoreChange: 3,
-            masteryLevel: "en progreso",
-            confidenceLevel: "subiendo",
-            nextSteps: ["Resuelve ahora un ejemplo con dos fracciones equivalentes."],
-            encouragement: "Buen avance: ya tienes una primera base para seguir.",
-            completionMessage: "Sesion cerrada con una mejora visible en Matematicas.",
-          },
-        }),
-      )
-      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse({ studentSubjects: [buildStudentSubject()] })));
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-
     fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
       target: { value: "No entiendo fracciones" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
-    expect(await screen.findByText("Sesion cerrada con una mejora visible en Matematicas.")).toBeInTheDocument();
-    expect(screen.getByText("Has mejorado un poco la seguridad en fracciones.")).toBeInTheDocument();
-    expect(screen.getByText("Buen avance: ya tienes una primera base para seguir.")).toBeInTheDocument();
-    expect(screen.getByText("Ya tienes una base clara para seguir con un ejemplo real.")).toBeInTheDocument();
-  });
-
-  it("lets the user resume the latest persisted session after returning to the workspace", async () => {
-    setSearchParams({ subjectSlug: "matematicas" });
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(
-        buildWorkspaceResponse({
-          studentSubjects: [buildStudentSubject()],
-          recentSessions: [
-            {
-              id: "session_1",
-              tenantId: "tenant_mentoria",
-              studentProfileId: "student_1",
-              subjectId: "subject_matematicas",
-              mentorId: "mentor_1",
-              clientId: "student_1",
-              topic: "Fracciones",
-              status: "completed",
-              durationMinutes: 20,
-              aiTokensUsed: 300,
-              emotionalState: "steady",
-              tutorSummary: "Has entendido mejor como comparar fracciones equivalentes.",
-              recommendedNextStep: "Resuelve un ejemplo corto de suma de fracciones.",
-              transcript: [
-                { role: "student", content: "No entiendo las fracciones", createdAt: "2026-04-03T00:00:00.000Z" },
-                { role: "tutor", content: "Vamos paso a paso", createdAt: "2026-04-03T00:01:00.000Z" },
-              ],
-              createdAt: "2026-04-03T00:00:00.000Z",
-              updatedAt: "2026-04-03T00:20:00.000Z",
-            },
-          ],
-        }),
-      ),
-    );
-
-    render(React.createElement(MentoriaWorkspace));
-
-    await screen.findByRole("heading", { name: "Hola, Alex" });
-    expect(screen.getAllByText("Has entendido mejor como comparar fracciones equivalentes.").length).toBeGreaterThan(0);
-
-    fireEvent.click(screen.getByRole("button", { name: /Retomar esta sesion|Retomar sesión/ }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Fracciones" })).toBeInTheDocument();
-      expect(screen.getAllByText("Resuelve un ejemplo corto de suma de fracciones.").length).toBeGreaterThan(0);
-    });
+    expect(await screen.findByText("Tutor IA no disponible. Revisa el binding de Cloudflare Workers AI en el entorno de desarrollo.")).toBeInTheDocument();
   });
 });

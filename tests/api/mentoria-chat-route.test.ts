@@ -51,8 +51,12 @@ describe("mentoria chat route", () => {
       session: { id: "session_1", topic: "Fracciones", recommendedNextStep: "Haz una suma corta." },
       subject: { id: "subject_1", slug: "matematicas", name: "Matematicas" },
       adaptation: { emotionalState: "steady" },
+      tutorMessage: "Vale, vamos paso a paso.",
       chatMessage: "Vale, vamos paso a paso.",
       reply: "Vale, vamos paso a paso.",
+      intent: "explanation",
+      provider: "workers-ai",
+      model: "@cf/meta/llama-3-8b-instruct",
       subjectSlug: "matematicas",
       topic: "Fracciones",
       mode: "explanation",
@@ -67,6 +71,7 @@ describe("mentoria chat route", () => {
         studentName: "Alex",
         schoolYear: "2 ESO",
         topic: "Fracciones",
+        intent: "explanation",
         mode: "explanation",
         conceptDefinition: "Primero compara las fracciones desde el denominador.",
         explanation: ["Primero compara denominadores."],
@@ -105,7 +110,10 @@ describe("mentoria chat route", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       ok: true,
+      tutorMessage: "Vale, vamos paso a paso.",
       reply: "Vale, vamos paso a paso.",
+      provider: "workers-ai",
+      model: "@cf/meta/llama-3-8b-instruct",
       subject: { slug: "matematicas", name: "Matematicas" },
       boardUpdate: {
         subjectSlug: "matematicas",
@@ -127,6 +135,31 @@ describe("mentoria chat route", () => {
         message: "No entiendo fracciones",
       },
     );
+  });
+
+  it("returns a clear 503 when Workers AI is not available", async () => {
+    const startGuidedSession = vi.fn().mockRejectedValue(new Error("MENTORIA_AI_NOT_AVAILABLE"));
+    mocks.createMentoriaServiceInstance.mockReturnValue({
+      startGuidedSession,
+    });
+
+    const response = await POST(
+      new Request("https://mentoria.drako.systems/api/mentoria/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          studentId: "student_1",
+          subjectSlug: "matematicas",
+          message: "No entiendo fracciones",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "MENTORIA_AI_NOT_AVAILABLE",
+    });
   });
 
   it("returns SUBJECT_CONTEXT_MISMATCH instead of answering from another subject", async () => {

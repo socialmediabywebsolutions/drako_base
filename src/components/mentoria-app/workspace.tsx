@@ -33,6 +33,7 @@ import type {
   FocusSession,
   LearningSession,
   MentoriaBoardUpdate,
+  MentoriaClassroomIntent,
   MentoriaExercise,
   MentoriaFamily,
   MentoriaDailyClosureSummary,
@@ -164,8 +165,12 @@ type WorkspaceApiResponse = WorkspaceState & {
 type SessionApiResponse = {
   ok?: boolean;
   error?: string;
+  tutorMessage?: string;
   chatMessage?: string;
   reply?: string;
+  intent?: MentoriaClassroomIntent;
+  provider?: string;
+  model?: string;
   subjectSlug?: string;
   topic?: string;
   mode?: string;
@@ -191,6 +196,28 @@ type SessionApiResponse = {
     completionMessage?: string;
   };
 };
+
+function formatTutorApiError(errorCode?: string | null) {
+  if (errorCode === "MENTORIA_AI_NOT_AVAILABLE") {
+    return "Tutor IA no disponible. Revisa el binding de Cloudflare Workers AI en el entorno de desarrollo.";
+  }
+  if (errorCode === "MENTORIA_AI_PROVIDER_ERROR") {
+    return "Tutor IA ha fallado al hablar con Workers AI. Revisa proveedor, gateway y logs.";
+  }
+  if (errorCode === "MENTORIA_AI_TIMEOUT") {
+    return "Tutor IA agotó el tiempo de respuesta. Revisa latencia y logs del proveedor.";
+  }
+  if (errorCode === "MENTORIA_AI_EMPTY_RESPONSE") {
+    return "Tutor IA devolvió una respuesta vacía. Revisa el modelo y el parser de salida.";
+  }
+  if (errorCode === "SUBJECT_CONTEXT_MISMATCH") {
+    return "La respuesta recibida no coincide con la materia activa.";
+  }
+  if (errorCode === "SUBJECT_REQUIRED") {
+    return "Elige una materia para que el tutor y la pizarra trabajen sobre la misma base.";
+  }
+  return errorCode ?? "MENTORIA_CHAT_FAILED";
+}
 
 function normalizeGuidedTokens(value: string) {
   return value
@@ -1023,6 +1050,7 @@ export function MentoriaWorkspace() {
           message?: string;
           subjectSlug?: string;
           topic?: string;
+          intent?: MentoriaClassroomIntent;
           entryMode?: ReentryMode;
           sessionId?: string;
           sessionMode?: MentoriaSessionMode;
@@ -1071,12 +1099,14 @@ export function MentoriaWorkspace() {
                 studentId: selectedStudentId ?? state.student?.id ?? undefined,
                 subjectSlug: resolvedSubjectSlug,
                 message: resolvedMessage,
+                intent: normalizedInput?.intent,
               }
             : {
                 studentId: selectedStudentId ?? state.student?.id ?? undefined,
                 subjectSlug: resolvedSubjectSlug,
                 topic: resolvedTopic,
                 message: resolvedMessage,
+                intent: normalizedInput?.intent,
                 entryMode: normalizedInput?.entryMode,
                 sessionId: normalizedInput?.sessionId,
                 sessionMode: normalizedInput?.sessionMode,
@@ -1086,6 +1116,10 @@ export function MentoriaWorkspace() {
         ),
       });
     } catch {
+      if (activeSubjectSlugRef.current === resolvedSubjectSlug) {
+        setError("MENTORIA_CHAT_FAILED");
+        setSessionStatusMessage("No se pudo conectar con el aula IA. Revisa la red o el servidor local.");
+      }
       return;
     }
 
@@ -1105,6 +1139,7 @@ export function MentoriaWorkspace() {
         return;
       }
       setError(body?.error ?? null);
+      setSessionStatusMessage(formatTutorApiError(body?.error ?? null));
       return;
     }
 
@@ -1116,7 +1151,7 @@ export function MentoriaWorkspace() {
       const responseSubjectSlug = body.subject?.slug ?? body.subjectSlug ?? null;
       if (responseSubjectSlug !== resolvedSubjectSlug) {
         setError("SUBJECT_CONTEXT_MISMATCH");
-        setSessionStatusMessage("La respuesta recibida no coincide con la materia activa.");
+        setSessionStatusMessage(formatTutorApiError("SUBJECT_CONTEXT_MISMATCH"));
         return;
       }
       if (body.boardUpdate && body.boardUpdate.subjectSlug !== resolvedSubjectSlug) {
@@ -1124,7 +1159,7 @@ export function MentoriaWorkspace() {
         setSessionStatusMessage("La pizarra ha rechazado una actualizacion de otra materia.");
         return;
       }
-      const tutorReply = body.chatMessage ?? body.reply ?? "";
+      const tutorReply = body.tutorMessage ?? body.chatMessage ?? body.reply ?? "";
       const nextTutorMessages: TutorMessage[] = [{ role: "tutor", content: tutorReply, kind: "message" }];
       if (body.explanation) {
         nextTutorMessages.push({ role: "tutor", content: body.explanation, kind: "explanation" });
@@ -1282,98 +1317,66 @@ export function MentoriaWorkspace() {
     void load(activeSubjectSlugForUi ?? null);
   }
 
-  async function handleAdvanceBoardStep() {
+  async function handleSubmitBoardResponse() {
     if (!activeBoardUpdate) return;
-    if (activeBoardUpdate.mode === "practice" && latestExercise && latestExercise.status !== "corrected") {
+    if (activeBoardUpdate.exercise && latestExercise && latestExercise.status !== "corrected") {
       await handleSubmitExercise();
       return;
     }
+    if (!exerciseAnswer.trim()) {
+      setSessionStatusMessage("Escribe tu respuesta antes de pedir la corrección.");
+      return;
+    }
     await handleSendMessage({
-      message: activeBoardUpdate.nextAction,
+      message:
+        activeBoardUpdate.mode === "exam"
+          ? `Corrigeme este simulacro de ${activeBoardUpdate.topic}. Mis respuestas son: ${exerciseAnswer}`
+          : `Corrigeme esta respuesta sobre ${activeBoardUpdate.topic}. Mi trabajo es: ${exerciseAnswer}`,
       topic: activeBoardUpdate.topic,
       subjectSlug: activeBoardUpdate.subjectSlug,
+      intent: "correction",
       entryMode: "entry",
-      sessionMode: "subject_reinforcement",
+      sessionMode: activeBoardUpdate.mode === "exam" ? "exam_preparation" : "task_resolution",
       sessionInputKind: "free_message",
     });
+    setExerciseAnswer("");
   }
 
-  async function handleRequestSimplerExplanation() {
+  async function handleGenerateAnotherQuestion() {
     if (!activeBoardUpdate) return;
     await handleSendMessage({
-      message: `No lo entiendo todavia. Explicamelo ${activeBoardUpdate.topic} mas facil, paso a paso y sin saltos.`,
+      message:
+        activeBoardUpdate.mode === "exam"
+          ? `Hazme otra pregunta de examen de ${activeBoardUpdate.topic}.`
+          : activeBoardUpdate.mode === "task"
+            ? `Ponme otra tarea corta sobre ${activeBoardUpdate.topic}.`
+            : `Hazme otra pregunta guiada sobre ${activeBoardUpdate.topic}.`,
       topic: activeBoardUpdate.topic,
       subjectSlug: activeBoardUpdate.subjectSlug,
+      intent:
+        activeBoardUpdate.mode === "exam"
+          ? "exam"
+          : activeBoardUpdate.mode === "task"
+            ? "task"
+            : activeBoardUpdate.mode === "practice" || activeBoardUpdate.mode === "correction"
+              ? "practice"
+              : "question",
       entryMode: "entry",
-      sessionMode: "subject_reinforcement",
+      sessionMode:
+        activeBoardUpdate.mode === "exam"
+          ? "exam_preparation"
+          : activeBoardUpdate.mode === "task"
+            ? "task_resolution"
+            : "subject_reinforcement",
       sessionInputKind: "free_message",
     });
   }
 
-  async function handleRequestAnotherExample() {
-    if (!activeBoardUpdate) return;
-    await handleSendMessage({
-      message: `Dame otro ejemplo distinto sobre ${activeBoardUpdate.topic}. Quiero verlo muy claro antes de seguir.`,
-      topic: activeBoardUpdate.topic,
-      subjectSlug: activeBoardUpdate.subjectSlug,
-      entryMode: "entry",
-      sessionMode: "subject_reinforcement",
-      sessionInputKind: "free_message",
+  function handleEndSession() {
+    if (!activeSubjectSlugForUi) return;
+    resetSubjectWorkspace(activeSubjectSlugForUi, {
+      statusMessage: "Clase terminada. La pizarra queda limpia para empezar otra sesión en esta materia.",
     });
-  }
-
-  async function handleRequestPractice() {
-    if (!state.student || !activeSubjectSlugForUi) return;
-    const activeSubject = resolveSubjectBySlug(activeSubjectSlugForUi);
-    if (!activeSubject) return;
-    setError(null);
-    let response: Response | null = null;
-    try {
-      response = await fetch("/api/mentoria/exercises", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "generate",
-          studentId: selectedStudentId ?? state.student.id,
-          subjectSlug: activeSubjectSlugForUi,
-          topic: resolveTopicForSubject(activeSubjectSlugForUi, activeSubject?.name ?? topic),
-          entryMode: "entry",
-        }),
-      });
-    } catch {
-      return;
-    }
-
-    if (!response || typeof response.json !== "function") {
-      return;
-    }
-
-    let body: { error?: string; exercise?: MentoriaExercise } | null = null;
-    try {
-      body = (await response.json()) as { error?: string; exercise?: MentoriaExercise };
-    } catch {
-      body = null;
-    }
-
-    if (!response.ok) {
-      setError(body?.error ?? null);
-      return;
-    }
-
-    if (body?.exercise) {
-      setActiveExerciseId(body.exercise.id);
-      pushBoardUpdate(
-        buildBoardUpdateFromExercise({
-          student: state.student,
-          subject: activeSubject,
-          topic: resolveTopicForSubject(activeSubjectSlugForUi, activeSubject.name),
-          exercise: body.exercise,
-        }),
-      );
-      setSessionStatusMessage("Te he dejado una practica corta en la pizarra.");
-    }
-
-    void load(activeSubjectSlugForUi);
   }
 
   function buildTaskStarterCopy(task: DailyPlan["tasks"][number]) {
@@ -2098,7 +2101,6 @@ export function MentoriaWorkspace() {
           currentTopic={topic}
           currentMessage={message}
           activeBoardUpdate={activeBoardUpdate}
-          activeBoardHistory={activeBoardHistory}
           sessionSignal={sessionSignal}
           sessionSignalSummary={sessionSignalSummary}
           sessionContract={sessionContract}
@@ -2127,10 +2129,9 @@ export function MentoriaWorkspace() {
           onResumeSession={handleResumeSession}
           onResumeDailyClosure={handleResumeDailyClosure}
           onQuickAction={handleQuickAction}
-          onAdvanceBoardStep={handleAdvanceBoardStep}
-          onRequestSimplerExplanation={handleRequestSimplerExplanation}
-          onRequestAnotherExample={handleRequestAnotherExample}
-          onRequestPractice={handleRequestPractice}
+          onSubmitBoardResponse={handleSubmitBoardResponse}
+          onGenerateAnotherQuestion={handleGenerateAnotherQuestion}
+          onEndSession={handleEndSession}
           onSessionSignalChange={setSessionSignal}
           onApplySessionSignal={handleApplySessionSignal}
           onSelectSessionMode={handleSelectSessionMode}

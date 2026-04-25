@@ -13,13 +13,22 @@ import type { StudentLearningMemory } from "@/lib/mentoria/student-learning-memo
 import type { DynamicStudentProfile } from "@/lib/mentoria/student-profile";
 import { buildEvolutionAdaptiveSignals } from "@/lib/mentoria/student-evolution";
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
-import type { DailyPlan, MentoriaBillingSummary, MentoriaIntervention, MentoriaProgress, MentoriaSubject, StudentProfile } from "@/lib/mentoria/types";
+import type {
+  DailyPlan,
+  MentoriaBillingSummary,
+  MentoriaClassroomIntent,
+  MentoriaIntervention,
+  MentoriaProgress,
+  MentoriaSubject,
+  StudentProfile,
+} from "@/lib/mentoria/types";
 
 type TutorTaskInput = {
   profile: StudentProfile;
   subject: MentoriaSubject;
   topic: string;
   studentMessage: string;
+  intent?: MentoriaClassroomIntent;
   adaptation: EmotionalAdaptation;
   evolution: StudentEvolutionProfile;
   interventions: MentoriaIntervention[];

@@ -53,7 +53,6 @@ type WorkspaceBoardProps = {
   currentTopic?: string;
   currentMessage?: string;
   activeBoardUpdate?: MentoriaBoardUpdate | null;
-  activeBoardHistory?: MentoriaBoardUpdate[];
   sessionSignal: MentoriaStudentSessionSignal;
   sessionSignalSummary: string;
   sessionContract: MentoriaSessionContract;
@@ -101,10 +100,9 @@ type WorkspaceBoardProps = {
   onResumeSession: (session: LearningSession) => void;
   onResumeDailyClosure?: (closure: MentoriaDailyClosureSummary) => void;
   onQuickAction: (action: { topic: string; prompt: string; subjectSlug?: string | null; sessionMode?: MentoriaSessionMode; sessionInputKind?: MentoriaSessionModeOption["inputKind"] }) => void;
-  onAdvanceBoardStep: () => void;
-  onRequestSimplerExplanation: () => void;
-  onRequestAnotherExample: () => void;
-  onRequestPractice: () => void;
+  onSubmitBoardResponse: () => void;
+  onGenerateAnotherQuestion: () => void;
+  onEndSession: () => void;
   onSessionSignalChange: (signal: MentoriaStudentSessionSignal) => void;
   onApplySessionSignal: () => void;
   onSelectSessionMode?: (option: MentoriaSessionModeOption) => void;
@@ -268,69 +266,16 @@ export function WorkspaceBoard(props: WorkspaceBoardProps) {
     );
   }
 
-  const isPlaceholderBoard = Boolean(props.activeBoardUpdate?.conceptDefinition?.startsWith("La pizarra de"));
-  const launchPanel =
-    props.dailyClosure?.carryOverPrompt
-      ? {
-          title: "Esto quedo preparado para que vuelvas rapido",
-          detail: props.dailyClosure.summary,
-          ctaLabel: "Volver justo por aqui",
-        }
-      : props.latestSession && isPlaceholderBoard
-        ? {
-            title: props.latestSession.topic || "Sesion guiada",
-            detail: props.latestSession.tutorSummary || props.latestSession.recommendedNextStep,
-            ctaLabel: "Retomar esta sesion",
-          }
-        : props.nextAction
-          ? {
-              title: props.nextAction.title,
-              detail: props.nextAction.detail,
-              ctaLabel: props.nextAction.ctaLabel,
-            }
-          : props.entry
-            ? {
-                title: props.entry.headline,
-                detail: props.entry.subheadline,
-                ctaLabel: props.sessionContract.primaryCta,
-              }
-            : null;
-
   return (
     <WorkspaceClassBoard
       studentName={props.student?.fullName ?? props.student?.name ?? null}
       boardUpdate={props.activeBoardUpdate ?? null}
-      boardHistory={props.activeBoardHistory ?? []}
       sessionStatusMessage={props.sessionStatusMessage ?? null}
-      launchPanel={launchPanel}
-      onLaunchPanel={() => {
-        if (props.dailyClosure?.carryOverPrompt) {
-          props.onResumeDailyClosure?.(props.dailyClosure);
-          return;
-        }
-        if (props.latestSession && !props.activeBoardUpdate) {
-          props.onResumeSession(props.latestSession);
-          return;
-        }
-        if (props.nextAction?.kind === "quick_action" && props.entry) {
-          props.onQuickAction({
-            topic: props.currentTopic ?? props.entry.recommendedTopic,
-            prompt: props.currentMessage ?? props.entry.recommendedPrompt,
-            subjectSlug: props.activeSubjectSlug ?? undefined,
-            sessionMode: props.sessionContract.mode,
-            sessionInputKind: props.sessionContract.entryKind,
-          });
-          return;
-        }
-        props.onRunNextAction?.();
-      }}
       exerciseAnswer={props.exerciseAnswer}
       onExerciseAnswerChange={props.onExerciseAnswerChange}
-      onSubmitExercise={props.onSubmitExercise}
-      onAdvanceBoardStep={props.onAdvanceBoardStep}
-      onRequestSimplerExplanation={props.onRequestSimplerExplanation}
-      onRequestAnotherExample={props.onRequestAnotherExample}
-      onRequestPractice={props.onRequestPractice}
+      onSubmitBoardResponse={props.onSubmitBoardResponse}
+      onGenerateAnotherQuestion={props.onGenerateAnotherQuestion}
+      onEndSession={props.onEndSession}
     />
   );
 }

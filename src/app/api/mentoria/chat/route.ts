@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireCurrentMentoriaSession } from "@/lib/mentoria/auth/request";
 import { MentoriaBillingError } from "@/lib/mentoria/plans";
 import { MentoriaService } from "@/lib/mentoria/service";
+import type { MentoriaClassroomIntent } from "@/lib/mentoria/types";
 
 export async function POST(request: Request) {
   try {
@@ -14,6 +15,7 @@ export async function POST(request: Request) {
       studentId?: string;
       subjectSlug?: string;
       topic?: string;
+      intent?: MentoriaClassroomIntent;
     };
 
     const message = body.message?.trim() ?? "";
@@ -35,6 +37,7 @@ export async function POST(request: Request) {
       subjectSlug,
       topic: body.topic?.trim() || undefined,
       message,
+      intent: body.intent,
     });
 
     return NextResponse.json({ ok: true, ...result });
@@ -53,6 +56,10 @@ export async function POST(request: Request) {
             ? 403
             : message === "SUBJECT_CONTEXT_MISMATCH"
               ? 409
+            : message === "MENTORIA_AI_NOT_AVAILABLE" || message === "MENTORIA_AI_TIMEOUT" || message === "MENTORIA_AI_EMPTY_RESPONSE"
+              ? 503
+            : message === "MENTORIA_AI_PROVIDER_ERROR"
+              ? 502
             : message === "SUBJECT_REQUIRED" || message === "STUDENT_REQUIRED" || message === "MESSAGE_REQUIRED"
               ? 400
               : message === "SUBJECT_NOT_FOUND"
