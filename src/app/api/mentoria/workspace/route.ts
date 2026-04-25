@@ -8,8 +8,13 @@ export async function GET(request: Request) {
   try {
     const actor = await requireCurrentMentoriaSession(request);
     const service = new MentoriaService();
-    const studentId = new URL(request.url).searchParams.get("studentId")?.trim() || undefined;
-    const workspace = await service.getWorkspaceExperience(actor, studentId);
+    const url = new URL(request.url);
+    const studentId = url.searchParams.get("studentId")?.trim() || undefined;
+    const subjectSlug = url.searchParams.get("subjectSlug")?.trim() || undefined;
+    const workspace = await service.getWorkspaceExperience(actor, {
+      studentProfileId: studentId,
+      subjectSlug,
+    });
     return NextResponse.json({
       ok: true,
       student: workspace.student,
@@ -39,7 +44,18 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "WORKSPACE_LOAD_FAILED";
-    const status = message === "SESSION_REQUIRED" ? 401 : message === "ONBOARDING_REQUIRED" ? 409 : message === "STUDENT_ACCESS_DENIED" ? 403 : 500;
+    const status =
+      message === "SESSION_REQUIRED"
+        ? 401
+        : message === "ONBOARDING_REQUIRED"
+          ? 409
+          : message === "SUBJECT_REQUIRED"
+            ? 400
+            : message === "STUDENT_ACCESS_DENIED" || message === "SUBJECT_ACCESS_DENIED"
+              ? 403
+              : message === "SUBJECT_CONTEXT_MISMATCH"
+                ? 409
+                : 500;
     return NextResponse.json({ ok: false, error: message }, { status });
   }
 }

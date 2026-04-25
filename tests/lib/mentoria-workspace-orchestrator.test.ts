@@ -95,4 +95,26 @@ describe("buildWorkspaceOrchestratorPlan", () => {
     expect(summary.primaryAction.kind).toBe("send_message");
     expect(summary.primaryAction.label).toBe("Preparar siguiente paso");
   });
+
+  it("does not fall back to the entry recommended subject when there is no active classroom", () => {
+    const plan = buildWorkspaceOrchestratorPlan({
+      nextAction: null,
+      sessionState: "idle",
+      selectedSubjectName: null,
+      activeSubjectSlug: null,
+      currentTopic: "Fracciones",
+      currentMessage: "Quiero repasar fracciones.",
+      entry: {
+        headline: "Empieza por una duda concreta",
+        subheadline: "El tutor te guiara sin darte la respuesta final.",
+        recommendedSubjectSlug: "matematicas",
+        recommendedTopic: "Fracciones",
+        recommendedPrompt: "Quiero repasar fracciones paso a paso.",
+        quickActions: [],
+      },
+    });
+
+    expect(plan.primaryAction.kind).toBe("send_message");
+    expect(plan.secondaryActions.every((action) => action.subjectSlug !== "matematicas")).toBe(true);
+  });
 });

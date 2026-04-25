@@ -20,8 +20,13 @@ export async function POST(request: Request) {
       sessionInputKind?: MentoriaSessionInputKind;
       sessionSignal?: MentoriaStudentSessionSignal;
     };
+    const subjectSlug = body.subjectSlug?.trim() ?? "";
+    if (!subjectSlug) {
+      return NextResponse.json({ ok: false, error: "SUBJECT_REQUIRED" }, { status: 400 });
+    }
     const result = await service.startGuidedSession(actor, {
       ...body,
+      subjectSlug,
       studentProfileId: body.studentId,
     });
     return NextResponse.json({ ok: true, ...result });
@@ -35,8 +40,12 @@ export async function POST(request: Request) {
         ? 401
         : message === "ONBOARDING_REQUIRED"
           ? 409
+          : message === "SUBJECT_REQUIRED"
+            ? 400
           : message === "STUDENT_ACCESS_DENIED" || message === "SUBJECT_ACCESS_DENIED"
             ? 403
+            : message === "SUBJECT_CONTEXT_MISMATCH"
+              ? 409
             : 500;
     console.error("[SessionAPI] Error:", message);
     return NextResponse.json({ ok: false, error: message }, { status });

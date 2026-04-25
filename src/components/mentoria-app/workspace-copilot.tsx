@@ -84,40 +84,45 @@ export function WorkspaceCopilot({
   dailyPlan,
   behavioralAction = null,
   latestSessionSummary = null,
+  activeSubjectSlug = null,
+  selectedSubjectName = null,
   tutorMessages = [],
   tutorResult = null,
   onSendMessage,
 }: WorkspaceCopilotProps) {
   const [chatInput, setChatInput] = useState("");
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
-  const currentTask = dailyPlan?.tasks.find((task) => !task.completed) ?? null;
+  const currentTask = activeSubjectSlug ? dailyPlan?.tasks.find((task) => !task.completed) ?? null : null;
 
   const starterMessages = useMemo<TutorChatMessage[]>(() => {
     const messages: TutorChatMessage[] = [];
     if (behavioralAction?.strategy === "resume_session" && latestSessionSummary) {
       messages.push({ role: "tutor", content: "Vale, retomamos desde donde lo dejaste y lo cerramos juntos.", kind: "message" });
       messages.push({ role: "tutor", content: latestSessionSummary, kind: "message" });
+    } else if (selectedSubjectName) {
+      messages.push({ role: "tutor", content: `Estamos en ${selectedSubjectName}. Cuéntame qué no entendiste y lo vemos paso a paso.`, kind: "message" });
     } else {
-      messages.push({ role: "tutor", content: "Cuéntame qué no entendiste y lo vemos paso a paso.", kind: "message" });
+      messages.push({ role: "tutor", content: "Elige una materia para que el tutor y la pizarra trabajen sobre la misma base.", kind: "message" });
     }
 
     if (tutorResult?.recommendedNextStep) {
       messages.push({ role: "tutor", content: `Si te viene bien, seguimos por ${tutorResult.recommendedNextStep}.`, kind: "message" });
-    } else if (entry?.recommendedTopic) {
-      messages.push({ role: "tutor", content: `Podemos empezar por ${entry.recommendedTopic} y lo bajo a algo más claro.`, kind: "message" });
     } else if (currentTask) {
       messages.push({ role: "tutor", content: `Si quieres, empezamos por ${currentTask.subject} con un ejemplo fácil.`, kind: "message" });
+    } else if (selectedSubjectName) {
+      messages.push({ role: "tutor", content: `Si quieres, empezamos por ${selectedSubjectName} con una explicación corta y clara.`, kind: "message" });
     } else if (entry?.headline) {
-      messages.push({ role: "tutor", content: "Escríbeme la duda tal como te salió en clase y te ayudo a ordenarla.", kind: "message" });
+      messages.push({ role: "tutor", content: "Cuando elijas una materia, te ayudo a ordenar la duda paso a paso.", kind: "message" });
     }
 
     return messages.slice(0, 2);
   }, [
+    activeSubjectSlug,
     behavioralAction,
     currentTask,
     entry?.headline,
-    entry?.recommendedTopic,
     latestSessionSummary,
+    selectedSubjectName,
     tutorResult?.recommendedNextStep,
   ]);
 

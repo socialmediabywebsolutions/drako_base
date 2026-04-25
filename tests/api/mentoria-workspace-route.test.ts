@@ -77,10 +77,10 @@ describe("mentoria workspace route", () => {
       email: "family@example.com",
       tenantId: "tenant_1",
       role: "user",
-    }, undefined);
+    }, { studentProfileId: undefined, subjectSlug: undefined });
   });
 
-  it("forwards the selected student id when the family opens a linked student workspace", async () => {
+  it("forwards the selected student id and subject slug when the family opens a linked student workspace", async () => {
     mocks.requireCurrentMentoriaSession.mockResolvedValue({
       userId: "user_1",
       email: "family@example.com",
@@ -119,7 +119,7 @@ describe("mentoria workspace route", () => {
       getWorkspaceExperience,
     });
 
-    const response = await GET(new Request("https://mentoria.drako.systems/api/mentoria/workspace?studentId=student_2"));
+    const response = await GET(new Request("https://mentoria.drako.systems/api/mentoria/workspace?studentId=student_2&subjectSlug=historia"));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -131,7 +131,7 @@ describe("mentoria workspace route", () => {
       email: "family@example.com",
       tenantId: "tenant_1",
       role: "user",
-    }, "student_2");
+    }, { studentProfileId: "student_2", subjectSlug: "historia" });
   });
 
   it("does not leak raw academic records or documents into the aula payload", async () => {
@@ -193,6 +193,27 @@ describe("mentoria workspace route", () => {
     await expect(response.json()).resolves.toMatchObject({
       ok: false,
       error: "SESSION_REQUIRED",
+    });
+  });
+
+  it("returns a subject access error instead of falling back to another classroom", async () => {
+    mocks.requireCurrentMentoriaSession.mockResolvedValue({
+      userId: "user_1",
+      email: "family@example.com",
+      tenantId: "tenant_1",
+      role: "user",
+    });
+    const getWorkspaceExperience = vi.fn().mockRejectedValue(new Error("SUBJECT_ACCESS_DENIED"));
+    mocks.createMentoriaServiceInstance.mockReturnValue({
+      getWorkspaceExperience,
+    });
+
+    const response = await GET(new Request("https://mentoria.drako.systems/api/mentoria/workspace?studentId=student_1&subjectSlug=ingles"));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "SUBJECT_ACCESS_DENIED",
     });
   });
 });

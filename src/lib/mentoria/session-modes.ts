@@ -112,7 +112,6 @@ function inferInputKind(input: ResolveMentoriaSessionModeInput): MentoriaSession
   if (input.activeTask) return "family_routine";
   if (input.selectedSubject) return "selected_subject";
   if (input.latestSession?.recommendedNextStep) return "recent_session";
-  if (input.entry?.recommendedPrompt) return "orchestrator_recommendation";
   return "free_message";
 }
 
@@ -140,7 +139,7 @@ export function resolveMentoriaSessionMode(input: ResolveMentoriaSessionModeInpu
     return "study_routine";
   }
 
-  if (input.selectedSubject || input.entry?.recommendedSubjectSlug) {
+  if (input.selectedSubject) {
     return "subject_reinforcement";
   }
 
@@ -179,8 +178,8 @@ export function buildMentoriaSessionContract(mode: MentoriaSessionMode, inputKin
 }
 
 export function buildMentoriaSessionModeOptions(input: ResolveMentoriaSessionModeInput): MentoriaSessionModeOption[] {
-  const subjectName = input.selectedSubject?.subject?.name ?? input.entry?.recommendedTopic ?? input.currentTopic ?? "la materia";
-  const subjectSlug = input.selectedSubject?.subject?.slug ?? input.entry?.recommendedSubjectSlug ?? null;
+  const subjectName = input.selectedSubject?.subject?.name ?? input.currentTopic ?? "la materia";
+  const subjectSlug = input.selectedSubject?.subject?.slug ?? null;
   const taskSubject = input.activeTask?.subject ?? subjectName;
   const examTopic = input.currentTopic?.trim() || `Preparar ${subjectName}`;
 

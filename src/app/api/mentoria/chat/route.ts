@@ -51,6 +51,8 @@ export async function POST(request: Request) {
           ? 409
           : message === "STUDENT_ACCESS_DENIED" || message === "SUBJECT_ACCESS_DENIED"
             ? 403
+            : message === "SUBJECT_CONTEXT_MISMATCH"
+              ? 409
             : message === "SUBJECT_REQUIRED" || message === "STUDENT_REQUIRED" || message === "MESSAGE_REQUIRED"
               ? 400
               : message === "SUBJECT_NOT_FOUND"

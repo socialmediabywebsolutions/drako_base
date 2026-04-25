@@ -314,9 +314,9 @@ export function WorkspaceBoard(props: WorkspaceBoardProps) {
         }
         if (props.nextAction?.kind === "quick_action" && props.entry) {
           props.onQuickAction({
-            topic: props.entry.recommendedTopic,
-            prompt: props.entry.recommendedPrompt,
-            subjectSlug: props.entry.recommendedSubjectSlug,
+            topic: props.currentTopic ?? props.entry.recommendedTopic,
+            prompt: props.currentMessage ?? props.entry.recommendedPrompt,
+            subjectSlug: props.activeSubjectSlug ?? undefined,
             sessionMode: props.sessionContract.mode,
             sessionInputKind: props.sessionContract.entryKind,
           });

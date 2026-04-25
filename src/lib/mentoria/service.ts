@@ -72,6 +72,7 @@ import {
   type TutorBehaviorPolicy,
 } from "@/lib/mentoria/profile-engine";
 import { SessionPersistenceManager } from "@/lib/mentoria/session-persistence";
+import type { SessionRecoveryData } from "@/lib/mentoria/session-persistence";
 import { generateSessionSummary } from "@/lib/mentoria/session-summary";
 import { generateSessionFeedback, buildSessionCompletionMessage } from "@/lib/mentoria/session-feedback";
 import { buildDynamicStudentProfile, type DynamicStudentProfile } from "@/lib/mentoria/student-profile";
@@ -126,6 +127,7 @@ import type {
   MentoriaSessionInputKind,
   MentoriaSessionMode,
   MentoriaStudentMemorySummary,
+  MentoriaStudentSubject,
   MentoriaStudentSubjectMemory,
   MentoriaSubject,
   MentoriaWorkspaceEntry,
@@ -484,6 +486,50 @@ function buildLegacyParentsProjection(input: {
       updatedAt: access.updatedAt,
     };
   });
+}
+
+function normalizeSubjectSlug(value?: string | null) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function requireAccessibleSubject(input: {
+  requestedSubjectSlug?: string | null;
+  subjects: MentoriaSubject[];
+  studentSubjects: MentoriaStudentSubject[];
+}): MentoriaSubject | null {
+  const requestedSubjectSlug = normalizeSubjectSlug(input.requestedSubjectSlug);
+  if (!requestedSubjectSlug) return null;
+  const enabledSubjectIds = new Set(input.studentSubjects.map((item) => item.subjectId));
+  const subject = input.subjects.find((candidate) => (
+    enabledSubjectIds.has(candidate.id)
+    && normalizeSubjectSlug(candidate.slug) === requestedSubjectSlug
+  )) ?? null;
+
+  if (!subject) {
+    throw new Error("SUBJECT_ACCESS_DENIED");
+  }
+
+  return subject;
+}
+
+function filterDailyPlanBySubject(dailyPlan: DailyPlan | null, subjectId: string): DailyPlan | null {
+  if (!dailyPlan) return null;
+  const tasks = dailyPlan.tasks
+    .filter((task) => task.subjectId === subjectId)
+    .map((task) => ({
+      ...task,
+      completed: task.completed || dailyPlan.completedTaskIds.includes(task.id),
+    }));
+  const taskIds = new Set(tasks.map((task) => task.id));
+  const completedTaskIds = dailyPlan.completedTaskIds.filter((taskId) => taskIds.has(taskId));
+  const completedTasks = tasks.filter((task) => task.completed).length;
+
+  return {
+    ...dailyPlan,
+    tasks,
+    completedTaskIds,
+    completionRate: tasks.length > 0 ? completedTasks / tasks.length : 0,
+  };
 }
 
 type MentoriaLegacyParentInput = {
@@ -1844,7 +1890,10 @@ export class MentoriaService {
     };
   }
 
-  async getWorkspaceExperience(actor: MentoriaSessionActor, studentProfileId?: string): Promise<
+  async getWorkspaceExperience(
+    actor: MentoriaSessionActor,
+    input?: string | { studentProfileId?: string; subjectSlug?: string | null },
+  ): Promise<
     MentoriaDashboard & {
       evolution: StudentEvolutionProfile;
       interventions: MentoriaIntervention[];
@@ -1865,22 +1914,47 @@ export class MentoriaService {
       behavioralShadow: BehavioralShadowComparison;
     }
   > {
-    const dashboard = await this.getDashboard(actor, studentProfileId);
+    const workspaceInput = typeof input === "string" ? { studentProfileId: input } : (input ?? {});
+    const dashboard = await this.getDashboard(actor, workspaceInput.studentProfileId);
+    const scopedSubject = requireAccessibleSubject({
+      requestedSubjectSlug: workspaceInput.subjectSlug,
+      subjects: dashboard.subjects,
+      studentSubjects: dashboard.studentSubjects,
+    });
+    const scopedStudentSubjects = scopedSubject
+      ? dashboard.studentSubjects.filter((item) => item.subjectId === scopedSubject.id)
+      : dashboard.studentSubjects;
+    const scopedProgress = scopedSubject
+      ? dashboard.progress.filter((item) => item.subjectId === scopedSubject.id)
+      : dashboard.progress;
+    const scopedDailyPlan = scopedSubject
+      ? filterDailyPlanBySubject(dashboard.dailyPlan, scopedSubject.id)
+      : dashboard.dailyPlan;
+    const scopedRecentSessions = scopedSubject
+      ? dashboard.recentSessions.filter((session) => session.subjectId === scopedSubject.id)
+      : dashboard.recentSessions;
+    const scopedFocusSessions = scopedSubject
+      ? dashboard.focusSessions.filter((session) => session.subjectId === scopedSubject.id)
+      : dashboard.focusSessions;
     const analysis = await this.buildProgressAnalysis({
       actor,
       student: dashboard.student,
-      progress: dashboard.progress,
-      studentSubjects: dashboard.studentSubjects,
+      progress: scopedProgress,
+      studentSubjects: scopedStudentSubjects,
       evolution: dashboard.evolution,
       interventions: dashboard.interventions,
       motivation: dashboard.motivation,
-      dailyPlan: dashboard.dailyPlan,
+      dailyPlan: scopedDailyPlan ?? dashboard.dailyPlan,
     });
-    const subjectMemories = await this.repository.listStudentSubjectMemories(actor.tenantId, dashboard.student.id);
+    const subjectMemories = await this.repository.listStudentSubjectMemories(
+      actor.tenantId,
+      dashboard.student.id,
+      scopedSubject ? { subjectSlug: scopedSubject.slug } : undefined,
+    );
     const memory = buildStudentMemorySummary({
       evolution: dashboard.evolution,
-      progress: dashboard.progress,
-      dailyPlan: dashboard.dailyPlan,
+      progress: scopedProgress,
+      dailyPlan: scopedDailyPlan,
       subjectMemories,
     });
     const learningMemory = await this.ensureLearningMemoryProfile(actor.tenantId, dashboard.student, {
@@ -1892,9 +1966,11 @@ export class MentoriaService {
     });
     const entry = buildWorkspaceEntry({
       student: dashboard.student,
-      subjects: dashboard.subjects.filter((subject) => dashboard.studentSubjects.some((item) => item.subjectId === subject.id)),
-      progress: dashboard.progress,
-      dailyPlan: dashboard.dailyPlan,
+      subjects: scopedSubject
+        ? [scopedSubject]
+        : dashboard.subjects.filter((subject) => dashboard.studentSubjects.some((item) => item.subjectId === subject.id)),
+      progress: scopedProgress,
+      dailyPlan: scopedDailyPlan,
       memory,
       subjectMemories,
       analysis,
@@ -1902,23 +1978,27 @@ export class MentoriaService {
     const events = await listEventsForUser(actor.userId, 50);
     const dailyClosure = buildDailyClosureSummary({
       student: dashboard.student,
-      progress: dashboard.progress,
-      dailyPlan: dashboard.dailyPlan,
+      progress: scopedProgress,
+      dailyPlan: scopedDailyPlan,
       motivation: dashboard.motivation,
-      recentSessions: dashboard.recentSessions,
-      focusSessions: dashboard.focusSessions,
+      recentSessions: scopedRecentSessions,
+      focusSessions: scopedFocusSessions,
       events,
       todayIso: new Date().toISOString().slice(0, 10),
     });
     const guardianHooks = buildGuardianHookEvents({
       student: dashboard.student,
-      progress: dashboard.progress,
-      recentSessions: dashboard.recentSessions,
-      focusSessions: dashboard.focusSessions,
+      progress: scopedProgress,
+      recentSessions: scopedRecentSessions,
+      focusSessions: scopedFocusSessions,
       interventions: dashboard.interventions,
       events,
     });
-    const exercises = await this.repository.listExercises(actor.tenantId, dashboard.student.id);
+    const exercises = await this.repository.listExercises(
+      actor.tenantId,
+      dashboard.student.id,
+      scopedSubject?.id,
+    );
     const behavioralRollout = getMentoriaBehavioralEngineRollout();
     let behavioralShadow: BehavioralShadowComparison = {
       currentStrategy: "entry",
@@ -1952,9 +2032,9 @@ export class MentoriaService {
           tenantId: actor.tenantId,
         },
         student: dashboard.student,
-        dailyPlan: dashboard.dailyPlan,
+        dailyPlan: scopedDailyPlan ?? dashboard.dailyPlan,
         motivation: dashboard.motivation,
-        recentSessions: dashboard.recentSessions,
+        recentSessions: scopedRecentSessions,
         entry,
         dailyClosure,
         evolution: dashboard.evolution,
@@ -2002,6 +2082,10 @@ export class MentoriaService {
 
     return {
       ...dashboard,
+      progress: scopedProgress,
+      dailyPlan: scopedDailyPlan ?? dashboard.dailyPlan,
+      focusSessions: scopedFocusSessions,
+      recentSessions: scopedRecentSessions,
       analysis,
       entry,
       memory,
@@ -2102,7 +2186,11 @@ export class MentoriaService {
     };
   }> {
     const student = await this.requireOnboardedStudent(actor, payload.studentProfileId);
-    
+    const requestedSubjectSlug = payload.subjectSlug?.trim() ?? "";
+    if (!requestedSubjectSlug) {
+      throw new Error("SUBJECT_REQUIRED");
+    }
+
     // TRIAL AUTO-START: Begin 7-day free trial on first session
     const existingTrial = await this.trialManager.getTrial(actor.tenantId, student.id);
     if (!existingTrial) {
@@ -2118,17 +2206,13 @@ export class MentoriaService {
     ]);
     
     // SESSION RECOVERY: Check for active session to resume
-    let recoveredSession = null;
+    let recoveredSession: SessionRecoveryData | null = null;
     if (payload.sessionId) {
       recoveredSession = await this.persistence.getSessionSnapshot(actor.tenantId, payload.sessionId);
     } else {
       recoveredSession = await this.persistence.getActiveSession(actor.tenantId, student.id);
     }
-    
-    if (recoveredSession && recoveredSession.status === "active") {
-      await this.persistence.resumeSession(actor.tenantId, recoveredSession.sessionId);
-    }
-    
+
     // ACCESS CONTROL: Check if user can start session (trial or paid plan)
     try {
       checkAccessControl({
@@ -2174,20 +2258,52 @@ export class MentoriaService {
     const dailyPlan = await this.ensureDailyPlan(actor.tenantId, student, { evolution, interventions, motivation, progress, learningMemory });
     const enabledSubjectIds = new Set(studentSubjects.map((item) => item.subjectId));
     const availableSubjects = subjects.filter((subject) => enabledSubjectIds.has(subject.id));
+    const requestedSubject = requireAccessibleSubject({
+      requestedSubjectSlug,
+      subjects: availableSubjects,
+      studentSubjects,
+    });
+    if (!requestedSubject) {
+      throw new Error("SUBJECT_REQUIRED");
+    }
+    const currentRecoveredSession = recoveredSession;
+    if (currentRecoveredSession) {
+      if (currentRecoveredSession.studentProfileId !== student.id) {
+        throw new Error("SUBJECT_CONTEXT_MISMATCH");
+      }
+      const recoveredSubject = availableSubjects.find((item) => item.id === currentRecoveredSession.subjectId) ?? null;
+      if (!recoveredSubject) {
+        throw new Error("SUBJECT_CONTEXT_MISMATCH");
+      }
+      if (normalizeSubjectSlug(recoveredSubject.slug) !== normalizeSubjectSlug(requestedSubject.slug)) {
+        if (payload.sessionId) {
+          throw new Error("SUBJECT_CONTEXT_MISMATCH");
+        }
+        recoveredSession = null;
+      }
+    }
+    if (recoveredSession && recoveredSession.status === "active") {
+      await this.persistence.resumeSession(actor.tenantId, recoveredSession.sessionId);
+    }
     const signalInstruction = buildSessionSignalInstruction(payload.sessionSignal);
     const effectiveStudentMessage = [signalInstruction, payload.message].filter(Boolean).join(" ").trim();
     const subjectSelection = inferSubjectAndTopic({
-      requestedSubjectSlug: payload.subjectSlug,
+      requestedSubjectSlug: requestedSubject.slug,
       topic: payload.topic,
       message: effectiveStudentMessage,
       subjects: availableSubjects,
       dailyPlan,
       evolution,
     });
-    const subject = subjectSelection.subject;
+    const subject = requestedSubject;
     const resolvedTopic = subjectSelection.topic;
+    const subjectRecentSessions = recentSessions.filter((session) => session.subjectId === subject.id);
     const current = progress.find((item) => item.subjectId === subject.id);
-    const subjectMemories = await this.repository.listStudentSubjectMemories(actor.tenantId, student.id);
+    const subjectMemories = await this.repository.listStudentSubjectMemories(
+      actor.tenantId,
+      student.id,
+      { subjectSlug: subject.slug },
+    );
     const dynamicProfile = buildDynamicStudentProfile({
       student,
       studentSubjects,
@@ -2270,15 +2386,15 @@ export class MentoriaService {
     const signalBaseSessionMode = payload.sessionSignal
       ? resolveSessionModeFromSignal(payload.sessionSignal, {
           hasActiveTask: dailyPlan.tasks.some((task) => !task.completed),
-          recentActivityLabel: recentSessions[0]?.updatedAt ? "hoy" : null,
+          recentActivityLabel: subjectRecentSessions[0]?.updatedAt ? "hoy" : null,
         })
       : null;
     const baseSessionMode = resolveMentoriaSessionMode({
       student,
       dailyPlan,
-      latestSession: recentSessions[0] ?? null,
+      latestSession: subjectRecentSessions[0] ?? null,
       selectedSubject: studentSubjects.find((item) => item.subjectId === subject.id) ?? null,
-      activeTask: dailyPlan.tasks.find((task) => task.subjectId === subject.id && !task.completed) ?? dailyPlan.tasks.find((task) => !task.completed) ?? null,
+      activeTask: dailyPlan.tasks.find((task) => task.subjectId === subject.id && !task.completed) ?? null,
       currentTopic: payload.topic ?? subjectSelection.topic,
       currentMessage: effectiveStudentMessage,
       stateLabel: adaptiveContext.interventions[0]?.summary ?? motivation.motivationProfile ?? null,
@@ -2309,8 +2425,7 @@ export class MentoriaService {
         getTutorModeInstruction(resolvedSessionMode, sessionContract.headline),
       ].filter(Boolean).join(" ").trim(),
     };
-    const history: MentoriaAgentHistoryTurn[] = recentSessions
-      .filter((item) => item.subjectId === subject.id)
+    const history: MentoriaAgentHistoryTurn[] = subjectRecentSessions
       .slice(0, 3)
       .flatMap((item) => item.transcript)
       .slice(-6);
@@ -2877,7 +2992,11 @@ export class MentoriaService {
       subjects: [subject],
       studentSubjects,
     });
-    const subjectMemories = await this.repository.listStudentSubjectMemories(actor.tenantId, student.id);
+    const subjectMemories = await this.repository.listStudentSubjectMemories(
+      actor.tenantId,
+      student.id,
+      { subjectSlug: subject.slug },
+    );
     const current = progress.find((item) => item.subjectId === subject.id);
     await this.ensureDailyPlan(actor.tenantId, student, { evolution, interventions, motivation, progress, learningMemory });
     const billing = await this.getBillingSummary({ tenantId: actor.tenantId, canManageBilling: this.canManageBilling(actor) }, student);

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { WorkspaceShell } from "@/components/mentoria-app/workspace-shell";
 import { WorkspaceNav } from "@/components/mentoria-app/workspace-nav";
@@ -398,15 +398,17 @@ export function MentoriaWorkspace() {
 
   const searchParams = useSearchParams();
   const selectedStudentId = searchParams.get("studentId")?.trim() || null;
+  const selectedSubjectParam = searchParams.get("subjectSlug")?.trim() || "";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<WorkspaceSection>("board");
-  const [subjectSlug, setSubjectSlug] = useState("");
+  const [subjectSlug, setSubjectSlug] = useState(selectedSubjectParam);
   const [topic, setTopic] = useState(initialUi.defaultTopic);
   const [message, setMessage] = useState(initialUi.defaultMessage);
   const [tutorResult, setTutorResult] = useState<TutorResult | null>(null);
   const [tutorMessages, setTutorMessages] = useState<TutorMessage[]>([]);
   const [boardHistoryByScope, setBoardHistoryByScope] = useState<Record<string, MentoriaBoardUpdate[]>>({});
+  const boardHistoryByScopeRef = useRef<Record<string, MentoriaBoardUpdate[]>>({});
   const [exerciseAnswer, setExerciseAnswer] = useState("");
   const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -423,6 +425,8 @@ export function MentoriaWorkspace() {
   const [sessionModeOverride, setSessionModeOverride] = useState<MentoriaSessionMode | null>(null);
   const [sessionInputKindOverride, setSessionInputKindOverride] = useState<MentoriaSessionInputKind | null>(null);
   const [sessionSignal, setSessionSignal] = useState<MentoriaStudentSessionSignal>(DEFAULT_SESSION_SIGNAL);
+  const activeSubjectSlugRef = useRef<string | null>(selectedSubjectParam || null);
+  const workspaceLoadRequestRef = useRef(0);
 
   const selectedSubject = useMemo(
     () => state.studentSubjects.find((item: MentoriaStudentSubject) => item.subject?.slug === subjectSlug) ?? null,
@@ -435,31 +439,54 @@ export function MentoriaWorkspace() {
     [state.primaryGuardian, state.secondaryGuardians],
   );
 
-  function buildStudentScopedUrl(path: string) {
-    if (!selectedStudentId) return path;
+  useEffect(() => {
+    activeSubjectSlugRef.current = subjectSlug.trim() ? subjectSlug : null;
+  }, [subjectSlug]);
+
+  function buildStudentScopedUrl(path: string, options?: { subjectSlug?: string | null }) {
     const target = new URL(path, window.location.origin);
-    target.searchParams.set("studentId", selectedStudentId);
+    if (selectedStudentId) {
+      target.searchParams.set("studentId", selectedStudentId);
+    }
+    if (options?.subjectSlug) {
+      target.searchParams.set("subjectSlug", options.subjectSlug);
+    }
     return `${target.pathname}${target.search}`;
   }
 
-  async function load() {
+  async function load(requestedSubjectSlug?: string | null) {
+    const normalizedSubjectSlug = requestedSubjectSlug?.trim() || null;
+    const requestId = workspaceLoadRequestRef.current + 1;
+    workspaceLoadRequestRef.current = requestId;
     setLoading(true);
     setError(null);
     try {
-      const workspaceRes = await fetch(buildStudentScopedUrl("/api/mentoria/workspace"), { cache: "no-store" });
+      const workspaceRes = await fetch(
+        buildStudentScopedUrl("/api/mentoria/workspace", { subjectSlug: normalizedSubjectSlug }),
+        { cache: "no-store" },
+      );
       if (!workspaceRes || typeof workspaceRes.json !== "function") {
-        setError("MENTORIA_WORKSPACE_LOAD_FAILED");
+        if (workspaceLoadRequestRef.current === requestId) {
+          setError("MENTORIA_WORKSPACE_LOAD_FAILED");
+        }
         return;
       }
       if (workspaceRes.status === 401) {
         window.location.href = "/mentorias/auths/logins?callbackUrl=/mentoria/app";
         return;
       }
-      if (workspaceRes.status === 409) {
+      if (workspaceRes.status === 409 && normalizedSubjectSlug === null) {
         window.location.href = "/mentoria/onboarding";
         return;
       }
       const workspaceBody = (await workspaceRes.json().catch(() => null)) as WorkspaceApiResponse | null;
+
+      if (workspaceLoadRequestRef.current !== requestId) {
+        return;
+      }
+      if (normalizedSubjectSlug !== null && activeSubjectSlugRef.current !== normalizedSubjectSlug) {
+        return;
+      }
 
       if (!workspaceRes.ok) {
         setError(workspaceBody?.error ?? "MENTORIA_WORKSPACE_LOAD_FAILED");
@@ -472,6 +499,13 @@ export function MentoriaWorkspace() {
       }
 
       const signals = await collectStudentSignals(workspaceBody.student.id);
+      if (workspaceLoadRequestRef.current !== requestId) {
+        return;
+      }
+      if (normalizedSubjectSlug !== null && activeSubjectSlugRef.current !== normalizedSubjectSlug) {
+        return;
+      }
+
       const nextStateDecision = evaluateStudentState(signals);
       const nextStateActions = deriveStateActions(nextStateDecision);
       const nextOrchestratorContextStudent = buildOrchestratorContext({
@@ -483,119 +517,161 @@ export function MentoriaWorkspace() {
         decision: nextStateDecision,
         actions: nextStateActions,
       });
+      const scopedSubject = normalizedSubjectSlug
+        ? (workspaceBody.studentSubjects ?? []).find((item) => item.subject?.slug === normalizedSubjectSlug)?.subject ?? null
+        : null;
+      if (normalizedSubjectSlug && !scopedSubject) {
+        setError("SUBJECT_ACCESS_DENIED");
+        return;
+      }
+      const scopedProgress = scopedSubject
+        ? (workspaceBody.progress ?? []).filter((item) => item.subjectId === scopedSubject.id)
+        : workspaceBody.progress ?? [];
+      const scopedExercises = scopedSubject
+        ? (workspaceBody.exercises ?? []).filter((exercise) => exercise.subjectId === scopedSubject.id)
+        : workspaceBody.exercises ?? [];
+      const scopedRecentSessions = scopedSubject
+        ? (workspaceBody.recentSessions ?? []).filter((session) => session.subjectId === scopedSubject.id)
+        : workspaceBody.recentSessions ?? [];
+      const scopedFocusSessions = scopedSubject
+        ? (workspaceBody.focusSessions ?? []).filter((session) => session.subjectId === scopedSubject.id)
+        : workspaceBody.focusSessions ?? [];
+      const scopedDailyPlan = workspaceBody.dailyPlan
+        ? {
+            ...workspaceBody.dailyPlan,
+            tasks: scopedSubject
+              ? workspaceBody.dailyPlan.tasks.filter((task) => task.subjectId === scopedSubject.id)
+              : workspaceBody.dailyPlan.tasks,
+          }
+        : null;
+      const scopedTaskIds = new Set((scopedDailyPlan?.tasks ?? []).map((task) => task.id));
+      const normalizedDailyPlan = scopedDailyPlan
+        ? {
+            ...scopedDailyPlan,
+            completedTaskIds: (workspaceBody.dailyPlan?.completedTaskIds ?? []).filter((taskId) => scopedTaskIds.has(taskId)),
+            completionRate:
+              (scopedDailyPlan.tasks ?? []).length > 0
+                ? scopedDailyPlan.tasks.filter((task) => task.completed || (workspaceBody.dailyPlan?.completedTaskIds ?? []).includes(task.id)).length / scopedDailyPlan.tasks.length
+                : 0,
+          }
+        : null;
+      const normalizedEntry = scopedSubject && workspaceBody.entry?.recommendedSubjectSlug !== scopedSubject.slug
+        ? null
+        : workspaceBody.entry ?? null;
+      const normalizedDailyClosure = scopedSubject && workspaceBody.dailyClosure?.carryOverSubjectId !== scopedSubject.id
+        ? null
+        : workspaceBody.dailyClosure ?? null;
+      const workspaceView = {
+        ...workspaceBody,
+        progress: scopedProgress,
+        exercises: scopedExercises,
+        dailyPlan: normalizedDailyPlan,
+        recentSessions: scopedRecentSessions,
+        focusSessions: scopedFocusSessions,
+        entry: normalizedEntry,
+        dailyClosure: normalizedDailyClosure,
+      };
 
       setState({
-        student: workspaceBody.student ?? null,
-        family: workspaceBody.family ?? null,
-        primaryGuardian: workspaceBody.primaryGuardian ?? null,
-        secondaryGuardians: workspaceBody.secondaryGuardians ?? [],
-        guardianStudentAccess: workspaceBody.guardianStudentAccess ?? [],
-        studentSubjects: workspaceBody.studentSubjects ?? [],
-        progress: workspaceBody.progress ?? [],
-        analysis: workspaceBody.analysis ?? null,
-        exercises: workspaceBody.exercises ?? [],
-        motivation: workspaceBody.motivation ?? null,
-        dailyPlan: workspaceBody.dailyPlan ?? null,
-        recentSessions: workspaceBody.recentSessions ?? [],
-        focusSessions: workspaceBody.focusSessions ?? [],
-        entry: workspaceBody.entry ?? null,
-        memory: workspaceBody.memory ?? null,
-        learningMemory: workspaceBody.learningMemory ?? null,
-        subjectMemories: workspaceBody.subjectMemories ?? [],
-        evolution: workspaceBody.evolution ?? null,
-        growth: workspaceBody.growth ?? null,
-        dailyClosure: workspaceBody.dailyClosure ?? null,
-        guardianHooks: workspaceBody.guardianHooks ?? [],
-        behavioralRollout: workspaceBody.behavioralRollout ?? null,
-        behavioralShadow: workspaceBody.behavioralShadow ?? null,
+        student: workspaceView.student ?? null,
+        family: workspaceView.family ?? null,
+        primaryGuardian: workspaceView.primaryGuardian ?? null,
+        secondaryGuardians: workspaceView.secondaryGuardians ?? [],
+        guardianStudentAccess: workspaceView.guardianStudentAccess ?? [],
+        studentSubjects: workspaceView.studentSubjects ?? [],
+        progress: workspaceView.progress ?? [],
+        analysis: workspaceView.analysis ?? null,
+        exercises: workspaceView.exercises ?? [],
+        motivation: workspaceView.motivation ?? null,
+        dailyPlan: workspaceView.dailyPlan ?? null,
+        recentSessions: workspaceView.recentSessions ?? [],
+        focusSessions: workspaceView.focusSessions ?? [],
+        entry: workspaceView.entry ?? null,
+        memory: workspaceView.memory ?? null,
+        learningMemory: workspaceView.learningMemory ?? null,
+        subjectMemories: workspaceView.subjectMemories ?? [],
+        evolution: workspaceView.evolution ?? null,
+        growth: workspaceView.growth ?? null,
+        dailyClosure: workspaceView.dailyClosure ?? null,
+        guardianHooks: workspaceView.guardianHooks ?? [],
+        behavioralRollout: workspaceView.behavioralRollout ?? null,
+        behavioralShadow: workspaceView.behavioralShadow ?? null,
       });
       setStateDecision(nextStateDecision);
       setStateActions(nextStateActions);
       setOrchestratorContextStudent(nextOrchestratorContextStudent);
       setGuardianViewModel(nextGuardianViewModel);
-      setActiveExerciseId(
-        workspaceBody.exercises?.find((exercise) => exercise.status === "pending")?.id
-          ?? activeExerciseId
-          ?? workspaceBody.exercises?.[0]?.id
-          ?? null,
-      );
-      if (!subjectSlug && workspaceBody.entry?.recommendedSubjectSlug) {
-        setSubjectSlug(workspaceBody.entry.recommendedSubjectSlug);
-      }
-      if (workspaceBody.entry?.recommendedTopic && topic === initialUi.defaultTopic) {
-        setTopic(workspaceBody.entry.recommendedTopic);
-      }
-      if (workspaceBody.entry?.recommendedPrompt && message === initialUi.defaultMessage) {
-        setMessage(workspaceBody.entry.recommendedPrompt);
-      }
+      setActiveExerciseId((current: string | null) => {
+        const pendingExerciseId = workspaceView.exercises?.find((exercise) => exercise.status === "pending")?.id ?? null;
+        if (pendingExerciseId) return pendingExerciseId;
+        if (current && workspaceView.exercises?.some((exercise) => exercise.id === current)) {
+          return current;
+        }
+        return null;
+      });
       setSessionSignal((current: MentoriaStudentSessionSignal) => ({
         ...current,
-        priority: workspaceBody.dailyPlan?.tasks.length ? "organization" : current.priority,
-        entry: workspaceBody.dailyPlan?.tasks.length ? "study_block" : current.entry,
+        priority: workspaceView.dailyPlan?.tasks.length ? "organization" : current.priority,
+        entry: workspaceView.dailyPlan?.tasks.length ? "study_block" : current.entry,
       }));
-      const initialSubjectSlug =
-        subjectSlug
-        || workspaceBody.entry?.recommendedSubjectSlug
-        || workspaceBody.studentSubjects?.[0]?.subject?.slug
-        || "";
-      const initialBoardHistoryByScope = (workspaceBody.recentSessions ?? []).reduce<Record<string, MentoriaBoardUpdate[]>>((accumulator, session) => {
-        const subject = (workspaceBody.studentSubjects ?? []).find((item) => item.subjectId === session.subjectId)?.subject ?? null;
-        if (!subject || !workspaceBody.student) return accumulator;
-        const scopeKey = `${workspaceBody.student.id}:${subject.slug}`;
-        const nextUpdate = buildBoardUpdateFromLearningSession({
-          student: workspaceBody.student,
-          subject,
-          session,
-        });
-        return {
+      setCompletedTaskIds(workspaceView.dailyPlan?.completedTaskIds ?? []);
+
+      if (!normalizedSubjectSlug) {
+        setTutorMessages([]);
+        return;
+      }
+      if (!scopedSubject) {
+        setError("SUBJECT_ACCESS_DENIED");
+        return;
+      }
+
+      const scopedBoardHistory = (workspaceView.recentSessions ?? []).reduce<MentoriaBoardUpdate[]>((accumulator, session) => {
+        if (!workspaceBody.student) return accumulator;
+        return [
           ...accumulator,
-          [scopeKey]: [...(accumulator[scopeKey] ?? []), nextUpdate].slice(-8),
-        };
-      }, {});
-      const initialSubject = (workspaceBody.studentSubjects ?? []).find((item) => item.subject?.slug === initialSubjectSlug)?.subject ?? null;
-      if (workspaceBody.student && initialSubject) {
-        const initialScopeKey = `${workspaceBody.student.id}:${initialSubject.slug}`;
-        if ((initialBoardHistoryByScope[initialScopeKey]?.length ?? 0) === 0) {
-          initialBoardHistoryByScope[initialScopeKey] = [
-            buildEmptyBoardUpdate({
-              student: workspaceBody.student,
-              subject: initialSubject,
-              topic: workspaceBody.entry?.recommendedTopic ?? initialSubject.name,
-            }),
-          ];
-        }
+          buildBoardUpdateFromLearningSession({
+            student: workspaceBody.student,
+            subject: scopedSubject,
+            session,
+          }),
+        ];
+      }, []);
+      const existingBoardHistory = workspaceBody.student
+        ? boardHistoryByScopeRef.current[buildBoardScopeKey(workspaceBody.student.id, normalizedSubjectSlug) ?? ""] ?? []
+        : [];
+      const nextBoardHistory = scopedBoardHistory.length > 0
+        ? scopedBoardHistory
+        : existingBoardHistory.length > 0
+          ? existingBoardHistory
+        : [buildEmptyBoardUpdate({
+          student: workspaceBody.student,
+          subject: scopedSubject,
+          topic: scopedSubject.name,
+        })];
+      setBoardHistoryForSubject(workspaceBody.student.id, normalizedSubjectSlug, nextBoardHistory);
+      const scopedRecentSession = workspaceView.recentSessions?.[0] ?? null;
+      if (scopedRecentSession) {
+        setTutorMessages(mapTranscriptToTutorMessages(scopedRecentSession.transcript ?? []));
+        setTopic(scopedRecentSession.topic ?? scopedSubject.name);
+        setMessage(scopedRecentSession.recommendedNextStep ?? initialUi.defaultMessage);
+      } else if (existingBoardHistory.length === 0) {
+        setTutorMessages([]);
+        setTopic(scopedSubject.name);
+        setMessage(initialUi.defaultMessage);
       }
-      setBoardHistoryByScope((current) => {
-        const merged: Record<string, MentoriaBoardUpdate[]> = { ...initialBoardHistoryByScope };
-        for (const [scopeKey, updates] of Object.entries(current)) {
-          const deduped = new Map<string, MentoriaBoardUpdate>();
-          for (const item of [...(merged[scopeKey] ?? []), ...updates]) {
-            deduped.set(`${item.updatedAt}:${item.topic}:${item.mode}`, item);
-          }
-          merged[scopeKey] = Array.from(deduped.values())
-            .sort((left, right) => Date.parse(left.updatedAt) - Date.parse(right.updatedAt))
-            .slice(-8);
-        }
-        return merged;
-      });
-      const initialRecentSession = (workspaceBody.recentSessions ?? []).find((session) => {
-        if (!initialSubjectSlug) return true;
-        const sessionSubjectSlug = (workspaceBody.studentSubjects ?? []).find((item) => item.subjectId === session.subjectId)?.subject?.slug ?? "";
-        return sessionSubjectSlug === initialSubjectSlug;
-      }) ?? null;
-      if ((initialRecentSession?.transcript?.length ?? 0) > 0) {
-        setTutorMessages(mapTranscriptToTutorMessages(initialRecentSession?.transcript ?? []));
-      }
-      setCompletedTaskIds(workspaceBody.dailyPlan?.completedTaskIds ?? []);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "MENTORIA_WORKSPACE_LOAD_FAILED");
+      if (workspaceLoadRequestRef.current === requestId) {
+        setError(loadError instanceof Error ? loadError.message : "MENTORIA_WORKSPACE_LOAD_FAILED");
+      }
     } finally {
-      setLoading(false);
+      if (workspaceLoadRequestRef.current === requestId) {
+        setLoading(false);
+      }
     }
   }
 
   useEffect(() => {
-    void load();
+    void load(subjectSlug || null);
   }, [selectedStudentId]);
 
   useEffect(() => {
@@ -606,10 +682,10 @@ export function MentoriaWorkspace() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: billingSessionId }),
       });
-      void load();
+      void load(subjectSlug || null);
       window.history.replaceState({}, "", selectedStudentId ? `/mentoria/app?studentId=${selectedStudentId}` : "/mentoria/app");
     })();
-  }, [billingSessionId, billingState, selectedStudentId]);
+  }, [billingSessionId, billingState, selectedStudentId, subjectSlug]);
 
   function resolveSubjectSlugFromSubjectId(subjectId?: string) {
     if (!subjectId) return "";
@@ -626,6 +702,20 @@ export function MentoriaWorkspace() {
     return `${nextStudentId}:${nextSubjectSlug}`;
   }
 
+  function getLatestBoardUpdateForSubject(nextSubjectSlug?: string | null) {
+    const scopeKey = buildBoardScopeKey(state.student?.id ?? null, nextSubjectSlug);
+    if (!scopeKey) return null;
+    const scopedHistory = boardHistoryByScopeRef.current[scopeKey] ?? [];
+    return scopedHistory[scopedHistory.length - 1] ?? null;
+  }
+
+  function resolveTopicForSubject(nextSubjectSlug?: string | null, fallbackTopic?: string | null) {
+    const scopedBoardUpdate = getLatestBoardUpdateForSubject(nextSubjectSlug);
+    if (scopedBoardUpdate?.topic) return scopedBoardUpdate.topic;
+    if (fallbackTopic?.trim()) return fallbackTopic.trim();
+    return resolveSubjectBySlug(nextSubjectSlug)?.name ?? initialUi.defaultTopic;
+  }
+
   function pushBoardUpdate(nextBoardUpdate: MentoriaBoardUpdate) {
     const scopeKey = buildBoardScopeKey(nextBoardUpdate.studentId, nextBoardUpdate.subjectSlug);
     if (!scopeKey) return;
@@ -640,24 +730,30 @@ export function MentoriaWorkspace() {
       const nextHistory = shouldReplace
         ? [...currentHistory.slice(0, -1), nextBoardUpdate]
         : [...currentHistory, nextBoardUpdate];
-      return {
+      const nextState = {
         ...current,
         [scopeKey]: [...nextHistory]
           .sort((left, right) => Date.parse(left.updatedAt) - Date.parse(right.updatedAt))
           .slice(-8),
       };
+      boardHistoryByScopeRef.current = nextState;
+      return nextState;
     });
   }
 
   function setBoardHistoryForSubject(nextStudentId: string, nextSubjectSlug: string, updates: MentoriaBoardUpdate[]) {
     const scopeKey = buildBoardScopeKey(nextStudentId, nextSubjectSlug);
     if (!scopeKey) return;
-    setBoardHistoryByScope((current) => ({
-      ...current,
-      [scopeKey]: [...updates]
-        .sort((left, right) => Date.parse(left.updatedAt) - Date.parse(right.updatedAt))
-        .slice(-8),
-    }));
+    setBoardHistoryByScope((current) => {
+      const nextState = {
+        ...current,
+        [scopeKey]: [...updates]
+          .sort((left, right) => Date.parse(left.updatedAt) - Date.parse(right.updatedAt))
+          .slice(-8),
+      };
+      boardHistoryByScopeRef.current = nextState;
+      return nextState;
+    });
   }
 
   function mapTranscriptToTutorMessages(transcript: LearningSession["transcript"] = []): TutorMessage[] {
@@ -668,30 +764,54 @@ export function MentoriaWorkspace() {
     }));
   }
 
-  function seedTutorMessagesForSubject(
-    nextSubjectSlug?: string | null,
-    recentSessions: LearningSession[] = state.recentSessions,
-    availableSubjects: MentoriaStudentSubject[] = state.studentSubjects,
-  ) {
-    const scopedSession = recentSessions.find((session) => {
-      if (!nextSubjectSlug) return true;
-      const sessionSubjectSlug = availableSubjects.find((item) => item.subjectId === session.subjectId)?.subject?.slug ?? "";
-      return sessionSubjectSlug === nextSubjectSlug;
-    }) ?? null;
-    setTutorMessages(mapTranscriptToTutorMessages(scopedSession?.transcript ?? []));
-  }
-
   function ensureBoardForSubject(nextSubjectSlug?: string | null, nextTopic?: string | null) {
     if (!state.student || !nextSubjectSlug) return;
     const subject = resolveSubjectBySlug(nextSubjectSlug);
     if (!subject) return;
     const scopeKey = buildBoardScopeKey(state.student.id, nextSubjectSlug);
-    if (scopeKey && (boardHistoryByScope[scopeKey]?.length ?? 0) > 0) return;
+    if (scopeKey && (boardHistoryByScopeRef.current[scopeKey]?.length ?? 0) > 0) return;
     setBoardHistoryForSubject(
       state.student.id,
       nextSubjectSlug,
       [buildEmptyBoardUpdate({ student: state.student, subject, topic: nextTopic ?? subject.name })],
     );
+  }
+
+  function resetSubjectWorkspace(nextSubjectSlug?: string | null, options?: { statusMessage?: string | null }) {
+    setError(null);
+    setTutorResult(null);
+    setTutorMessages([]);
+    setActiveExerciseId(null);
+    setActiveTaskId(null);
+    setSessionStatusMessage(options?.statusMessage ?? null);
+    setSessionModeOverride(nextSubjectSlug ? "subject_reinforcement" : null);
+    setSessionInputKindOverride(nextSubjectSlug ? "selected_subject" : null);
+    resetGuidedFlow();
+
+    if (!nextSubjectSlug) {
+      setTopic(initialUi.defaultTopic);
+      setMessage(initialUi.defaultMessage);
+      return;
+    }
+
+    const subject = resolveSubjectBySlug(nextSubjectSlug);
+    if (state.student && subject) {
+      setBoardHistoryForSubject(
+        state.student.id,
+        nextSubjectSlug,
+        [buildEmptyBoardUpdate({
+          student: state.student,
+          subject,
+          topic: subject.name,
+        })],
+      );
+      setTopic(subject.name);
+      setMessage(initialUi.defaultMessage);
+      return;
+    }
+
+    setTopic(initialUi.defaultTopic);
+    setMessage(initialUi.defaultMessage);
   }
 
   const guidedSteps = useMemo(() => {
@@ -712,18 +832,39 @@ export function MentoriaWorkspace() {
     return "idle";
   }, [guidedFeedback?.status, guidedStepInput, guidedSteps.length, sessionState]);
 
-  const activeSubjectSlugForUi = subjectSlug || state.entry?.recommendedSubjectSlug || state.studentSubjects[0]?.subject?.slug || null;
+  const activeSubjectSlugForUi = subjectSlug || null;
+  const activeEntry = useMemo(() => {
+    if (!state.entry || !activeSubjectSlugForUi) return null;
+    return state.entry.recommendedSubjectSlug === activeSubjectSlugForUi ? state.entry : null;
+  }, [activeSubjectSlugForUi, state.entry]);
+  const activeDailyClosure = useMemo(() => {
+    if (!state.dailyClosure || !activeSubjectSlugForUi) return null;
+    const closureSubjectSlug = resolveSubjectSlugFromSubjectId(state.dailyClosure.carryOverSubjectId ?? undefined);
+    return closureSubjectSlug === activeSubjectSlugForUi ? state.dailyClosure : null;
+  }, [activeSubjectSlugForUi, state.dailyClosure, state.studentSubjects]);
+  const subjectScopedProgress = useMemo(
+    () => activeSubjectSlugForUi
+      ? state.progress.filter((item: MentoriaProgress) => resolveSubjectSlugFromSubjectId(item.subjectId) === activeSubjectSlugForUi)
+      : [],
+    [activeSubjectSlugForUi, state.progress, state.studentSubjects],
+  );
   const subjectScopedRecentSessions = useMemo(
     () => activeSubjectSlugForUi
       ? state.recentSessions.filter((session: LearningSession) => resolveSubjectSlugFromSubjectId(session.subjectId) === activeSubjectSlugForUi)
-      : state.recentSessions,
+      : [],
     [activeSubjectSlugForUi, state.recentSessions, state.studentSubjects],
   );
   const latestSession = subjectScopedRecentSessions[0] ?? null;
+  const subjectScopedFocusSessions = useMemo(
+    () => activeSubjectSlugForUi
+      ? state.focusSessions.filter((session: FocusSession) => resolveSubjectSlugFromSubjectId(session.subjectId) === activeSubjectSlugForUi)
+      : [],
+    [activeSubjectSlugForUi, state.focusSessions, state.studentSubjects],
+  );
   const subjectScopedExercises = useMemo(
     () => activeSubjectSlugForUi
       ? state.exercises.filter((exercise: MentoriaExercise) => resolveSubjectSlugFromSubjectId(exercise.subjectId) === activeSubjectSlugForUi)
-      : state.exercises,
+      : [],
     [activeSubjectSlugForUi, state.exercises, state.studentSubjects],
   );
   const latestExercise =
@@ -736,42 +877,44 @@ export function MentoriaWorkspace() {
     if (activeBoardHistory.length > 0) {
       return activeBoardHistory[activeBoardHistory.length - 1] ?? null;
     }
-    if (state.student && selectedSubject?.subject && latestSession) {
-      return buildBoardUpdateFromLearningSession({
-        student: state.student,
-        subject: selectedSubject.subject,
-        session: latestSession,
-      });
-    }
     if (state.student && selectedSubject?.subject) {
       return buildEmptyBoardUpdate({
         student: state.student,
         subject: selectedSubject.subject,
-        topic,
+        topic: resolveTopicForSubject(selectedSubject.subject.slug, topic),
       });
     }
     return null;
-  }, [activeBoardHistory, latestSession, selectedSubject?.subject, state.student, topic]);
-  const actionableDailyPlan = state.dailyPlan
-    ? {
-        ...state.dailyPlan,
-        completedTaskIds: Array.from(new Set([...state.dailyPlan.completedTaskIds, ...completedTaskIds])),
-        tasks: state.dailyPlan.tasks.map((task: DailyPlan["tasks"][number]) => ({
-          ...task,
-          completed: task.completed || completedTaskIds.includes(task.id),
-        })),
-      }
-    : null;
+  }, [activeBoardHistory, selectedSubject?.subject, state.student, topic]);
+  const actionableDailyPlan = useMemo(() => {
+    if (!state.dailyPlan || !activeSubjectSlugForUi) {
+      return null;
+    }
+    const tasks = state.dailyPlan.tasks
+      .map((task: DailyPlan["tasks"][number]) => ({
+        ...task,
+        completed: task.completed || completedTaskIds.includes(task.id),
+      }))
+      .filter((task: DailyPlan["tasks"][number]) => resolveSubjectSlugFromSubjectId(task.subjectId) === activeSubjectSlugForUi);
+    const taskIds = new Set(tasks.map((task: DailyPlan["tasks"][number]) => task.id));
+    const nextCompletedTaskIds = Array.from(
+      new Set([...state.dailyPlan.completedTaskIds, ...completedTaskIds].filter((taskId) => taskIds.has(taskId))),
+    );
+    const completedTasks = tasks.filter((task: DailyPlan["tasks"][number]) => task.completed).length;
+
+    return {
+      ...state.dailyPlan,
+      tasks,
+      completedTaskIds: nextCompletedTaskIds,
+      completionRate: tasks.length > 0 ? completedTasks / tasks.length : 0,
+    };
+  }, [activeSubjectSlugForUi, completedTaskIds, state.dailyPlan, state.studentSubjects]);
   const activeDailyTask = (activeTaskId
     ? actionableDailyPlan?.tasks.find((task: DailyPlan["tasks"][number]) => task.id === activeTaskId && !task.completed)
     : null)
-    ?? actionableDailyPlan?.tasks.find((task: DailyPlan["tasks"][number]) => {
-      if (task.completed) return false;
-      if (!activeSubjectSlugForUi) return true;
-      return resolveSubjectSlugFromSubjectId(task.subjectId) === activeSubjectSlugForUi;
-    })
+    ?? actionableDailyPlan?.tasks.find((task: DailyPlan["tasks"][number]) => !task.completed)
     ?? null;
-  const selectedSubjectNameForUi = selectedSubject?.subject?.name ?? state.entry?.recommendedTopic ?? activeDailyTask?.subject ?? null;
+  const selectedSubjectNameForUi = selectedSubject?.subject?.name ?? null;
   const sessionSignalSummary = useMemo(
     () => buildSessionSignalSummary(sessionSignal, selectedSubjectNameForUi),
     [selectedSubjectNameForUi, sessionSignal],
@@ -800,20 +943,20 @@ export function MentoriaWorkspace() {
       buildBoardUpdateFromExercise({
         student: state.student,
         subject: pendingExerciseSubject,
-        topic: activeBoardUpdate?.topic ?? pendingExerciseSubject.name,
+        topic: resolveTopicForSubject(pendingExerciseSubjectSlug, latestExercise.expectedCompetency ?? pendingExerciseSubject.name),
         exercise: latestExercise,
       }),
     );
   }, [activeBoardUpdate?.topic, boardHistoryByScope, latestExercise, state.student, state.studentSubjects]);
 
   const recentActivityLabel = useMemo(() => {
-    const activityIso = latestSession?.updatedAt ?? state.motivation?.lastActivityAt ?? null;
+    const activityIso = latestSession?.updatedAt ?? null;
     if (!activityIso) return null;
     const hours = (Date.now() - new Date(activityIso).getTime()) / (1000 * 60 * 60);
     if (hours >= 24 && hours < 48) return "ayer";
     if (hours < 24) return "hoy";
     return null;
-  }, [latestSession?.updatedAt, state.motivation?.lastActivityAt]);
+  }, [latestSession?.updatedAt]);
 
   function resetGuidedFlow() {
     setActiveStepIndex(0);
@@ -831,15 +974,14 @@ export function MentoriaWorkspace() {
     if (activeDailyTask) return "family_routine";
     if (selectedSubject) return "selected_subject";
     if (latestSession?.recommendedNextStep) return "recent_session";
-    if (state.entry?.recommendedPrompt) return "orchestrator_recommendation";
     return "free_message";
-  }, [activeDailyTask, latestSession?.recommendedNextStep, message, selectedSubject, sessionInputKindOverride, state.entry?.recommendedPrompt, topic, tutorResult?.topic]);
+  }, [activeDailyTask, latestSession?.recommendedNextStep, message, selectedSubject, sessionInputKindOverride, topic, tutorResult?.topic]);
 
   const sessionMode = useMemo<MentoriaSessionMode>(() => {
     if (sessionModeOverride) return sessionModeOverride;
     return resolveMentoriaSessionMode({
       student: state.student,
-      entry: state.entry,
+      entry: activeEntry,
       dailyPlan: actionableDailyPlan,
       latestSession,
       selectedSubject,
@@ -850,7 +992,7 @@ export function MentoriaWorkspace() {
       suggestedInputKind: resolvedSessionInputKind,
       recentActivityLabel,
     });
-  }, [actionableDailyPlan, activeDailyTask, latestSession, message, recentActivityLabel, resolvedSessionInputKind, selectedSubject, sessionModeOverride, state.entry, state.student, stateDecision?.state, topic]);
+  }, [actionableDailyPlan, activeDailyTask, activeEntry, latestSession, message, recentActivityLabel, resolvedSessionInputKind, selectedSubject, sessionModeOverride, state.student, stateDecision?.state, topic]);
 
   const sessionContract = useMemo<MentoriaSessionContract>(
     () => buildMentoriaSessionContract(sessionMode, resolvedSessionInputKind),
@@ -860,7 +1002,7 @@ export function MentoriaWorkspace() {
   const sessionModeOptions = useMemo<MentoriaSessionModeOption[]>(
     () => buildMentoriaSessionModeOptions({
       student: state.student,
-      entry: state.entry,
+      entry: activeEntry,
       dailyPlan: actionableDailyPlan,
       latestSession,
       selectedSubject,
@@ -871,7 +1013,7 @@ export function MentoriaWorkspace() {
       suggestedInputKind: resolvedSessionInputKind,
       recentActivityLabel,
     }),
-    [actionableDailyPlan, activeDailyTask, latestSession, message, recentActivityLabel, resolvedSessionInputKind, selectedSubject, state.entry, state.student, stateDecision?.state, topic],
+    [actionableDailyPlan, activeDailyTask, activeEntry, latestSession, message, recentActivityLabel, resolvedSessionInputKind, selectedSubject, state.student, stateDecision?.state, topic],
   );
 
   async function handleSendMessage(
@@ -892,16 +1034,15 @@ export function MentoriaWorkspace() {
     const normalizedInput = typeof input === "string" ? { message: input } : input;
     const isDirectChatMessage = typeof input === "string";
     const resolvedSubjectSlug = (normalizedInput?.subjectSlug ?? activeSubjectSlugForUi) || undefined;
-    const resolvedTopic = (normalizedInput?.topic ?? topic) || latestSession?.topic || activeDailyTask?.subject || initialUi.defaultTopic;
+    const resolvedTopic = (normalizedInput?.topic ?? topic)?.trim() || resolveTopicForSubject(resolvedSubjectSlug, selectedSubject?.subject?.name ?? null);
     const resolvedMessage = normalizedInput?.message ?? message;
-    if (isDirectChatMessage && !resolvedSubjectSlug) {
+    if (!resolvedSubjectSlug) {
       setError("SUBJECT_REQUIRED");
       setSessionStatusMessage("Elige una materia para que el tutor y la pizarra trabajen sobre la misma base.");
       return;
     }
-    if (resolvedSubjectSlug !== undefined) {
-      setSubjectSlug(resolvedSubjectSlug);
-    }
+    setSubjectSlug(resolvedSubjectSlug);
+    activeSubjectSlugRef.current = resolvedSubjectSlug;
     if (normalizedInput?.sessionMode) {
       setSessionModeOverride(normalizedInput.sessionMode);
     }
@@ -932,12 +1073,12 @@ export function MentoriaWorkspace() {
                 message: resolvedMessage,
               }
             : {
-                studentId: selectedStudentId ?? undefined,
+                studentId: selectedStudentId ?? state.student?.id ?? undefined,
                 subjectSlug: resolvedSubjectSlug,
                 topic: resolvedTopic,
                 message: resolvedMessage,
                 entryMode: normalizedInput?.entryMode,
-                sessionId: normalizedInput?.sessionId ?? latestSession?.id,
+                sessionId: normalizedInput?.sessionId,
                 sessionMode: normalizedInput?.sessionMode,
                 sessionInputKind: normalizedInput?.sessionInputKind,
                 sessionSignal: normalizedInput?.sessionSignal,
@@ -960,11 +1101,29 @@ export function MentoriaWorkspace() {
     }
 
     if (!response.ok) {
+      if (activeSubjectSlugRef.current !== resolvedSubjectSlug) {
+        return;
+      }
       setError(body?.error ?? null);
       return;
     }
 
+    if (activeSubjectSlugRef.current !== resolvedSubjectSlug) {
+      return;
+    }
+
     if (body?.reply || body?.chatMessage) {
+      const responseSubjectSlug = body.subject?.slug ?? body.subjectSlug ?? null;
+      if (responseSubjectSlug !== resolvedSubjectSlug) {
+        setError("SUBJECT_CONTEXT_MISMATCH");
+        setSessionStatusMessage("La respuesta recibida no coincide con la materia activa.");
+        return;
+      }
+      if (body.boardUpdate && body.boardUpdate.subjectSlug !== resolvedSubjectSlug) {
+        setError("SUBJECT_CONTEXT_MISMATCH");
+        setSessionStatusMessage("La pizarra ha rechazado una actualizacion de otra materia.");
+        return;
+      }
       const tutorReply = body.chatMessage ?? body.reply ?? "";
       const nextTutorMessages: TutorMessage[] = [{ role: "tutor", content: tutorReply, kind: "message" }];
       if (body.explanation) {
@@ -997,7 +1156,7 @@ export function MentoriaWorkspace() {
         suggestedSteps: body.suggestedSteps ?? [],
         reinforcementQuestion: body.reinforcementQuestion ?? "",
         subjectName: body.subject?.name,
-        subjectSlug: body.subject?.slug,
+        subjectSlug: resolvedSubjectSlug,
         topic: body.session?.topic ?? resolvedTopic,
         progressMessage: body.sessionFeedback?.progressMessage,
         completionMessage: body.sessionFeedback?.completionMessage,
@@ -1007,7 +1166,7 @@ export function MentoriaWorkspace() {
       });
       setSessionModeOverride(body.sessionMode ?? normalizedInput?.sessionMode ?? null);
       setSessionInputKindOverride(body.sessionInputKind ?? normalizedInput?.sessionInputKind ?? null);
-      setSubjectSlug(body.subject?.slug ?? body.subjectSlug ?? resolvedSubjectSlug ?? "");
+      setSubjectSlug(resolvedSubjectSlug);
       setTopic(body.session?.topic ?? body.topic ?? resolvedTopic);
       setMessage(body.boardUpdate?.nextAction ?? body.nextAction ?? body.session?.recommendedNextStep ?? resolvedMessage);
       setTutorMessages((current: TutorMessage[]) => [...current, ...nextTutorMessages]);
@@ -1015,7 +1174,7 @@ export function MentoriaWorkspace() {
       resetGuidedFlow();
     }
 
-    void load();
+    void load(resolvedSubjectSlug);
   }
 
   function handleGuidedStepSubmit() {
@@ -1112,7 +1271,7 @@ export function MentoriaWorkspace() {
           buildBoardUpdateFromExercise({
             student: state.student,
             subject: correctedSubject,
-            topic: activeBoardUpdate?.topic ?? topic,
+            topic: resolveTopicForSubject(correctedSubject.slug, correctedExercise.expectedCompetency ?? correctedSubject.name),
             exercise: correctedExercise,
             correction: correctedExercise.correctionFeedback ?? null,
           }),
@@ -1120,7 +1279,7 @@ export function MentoriaWorkspace() {
       }
     }
     setSessionStatusMessage("He corregido el ejercicio en la pizarra para que veas justo donde ajustar.");
-    void load();
+    void load(activeSubjectSlugForUi ?? null);
   }
 
   async function handleAdvanceBoardStep() {
@@ -1177,7 +1336,7 @@ export function MentoriaWorkspace() {
           action: "generate",
           studentId: selectedStudentId ?? state.student.id,
           subjectSlug: activeSubjectSlugForUi,
-          topic: activeBoardUpdate?.topic ?? topic,
+          topic: resolveTopicForSubject(activeSubjectSlugForUi, activeSubject?.name ?? topic),
           entryMode: "entry",
         }),
       });
@@ -1207,14 +1366,14 @@ export function MentoriaWorkspace() {
         buildBoardUpdateFromExercise({
           student: state.student,
           subject: activeSubject,
-          topic: activeBoardUpdate?.topic ?? topic,
+          topic: resolveTopicForSubject(activeSubjectSlugForUi, activeSubject.name),
           exercise: body.exercise,
         }),
       );
       setSessionStatusMessage("Te he dejado una practica corta en la pizarra.");
     }
 
-    void load();
+    void load(activeSubjectSlugForUi);
   }
 
   function buildTaskStarterCopy(task: DailyPlan["tasks"][number]) {
@@ -1244,18 +1403,19 @@ export function MentoriaWorkspace() {
     statusMessageOverride?: string | null,
     entryModeOverride?: ReentryMode,
   ) {
-    setActiveTaskId(task.id);
-    resetGuidedFlow();
     const taskSubjectSlug = resolveSubjectSlugFromSubjectId(task.subjectId) || undefined;
     const starterCopy = buildTaskStarterCopy(task);
     if (taskSubjectSlug) {
       setSubjectSlug(taskSubjectSlug);
-      seedTutorMessagesForSubject(taskSubjectSlug);
+      activeSubjectSlugRef.current = taskSubjectSlug;
     }
+    resetSubjectWorkspace(taskSubjectSlug ?? null, {
+      statusMessage: statusMessageOverride ?? starterCopy.status,
+    });
+    setActiveTaskId(task.id);
     setTopic(starterCopy.topic);
     setMessage(starterCopy.message);
     setActiveSection("board");
-    setSessionStatusMessage(statusMessageOverride ?? starterCopy.status);
     await handleSendMessage({
       message: starterCopy.message,
       subjectSlug: taskSubjectSlug,
@@ -1269,14 +1429,19 @@ export function MentoriaWorkspace() {
   async function handleStartSubjectSession(subject: MentoriaStudentSubject | MentoriaProgress) {
     const subjectName = subject.subject?.name ?? "esta materia";
     const slug = (subject.subject?.slug ?? resolveSubjectSlugFromSubjectId(subject.subjectId)) || undefined;
-    setActiveTaskId(null);
-    resetGuidedFlow();
-    if (slug) {
-      setSubjectSlug(slug);
-      seedTutorMessagesForSubject(slug);
+    if (!slug) {
+      setError("SUBJECT_REQUIRED");
+      setSessionStatusMessage("No hemos podido abrir esa materia porque falta su identificador.");
+      return;
     }
+    setSubjectSlug(slug);
+    activeSubjectSlugRef.current = slug;
+    resetSubjectWorkspace(slug, {
+      statusMessage: `Vamos con ${subjectName}.`,
+    });
+    setTopic(subjectName);
+    setMessage(`Quiero avanzar en ${subjectName}`);
     setActiveSection("board");
-    setSessionStatusMessage(`Vamos con ${subjectName} 👇`);
     await handleSendMessage({
       message: `Quiero avanzar en ${subjectName}`,
       topic: subjectName,
@@ -1288,83 +1453,88 @@ export function MentoriaWorkspace() {
   }
 
   function handleOpenExercise(exerciseId: string) {
-    setActiveExerciseId(exerciseId);
     const selectedExercise = state.exercises.find((exercise: MentoriaExercise) => exercise.id === exerciseId) ?? null;
     const exerciseSubjectSlug = resolveSubjectSlugFromSubjectId(selectedExercise?.subjectId);
-    if (exerciseSubjectSlug) {
-      setSubjectSlug(exerciseSubjectSlug);
-      seedTutorMessagesForSubject(exerciseSubjectSlug);
-      if (selectedExercise && state.student) {
-        const exerciseSubject = resolveSubjectBySlug(exerciseSubjectSlug);
-        if (exerciseSubject) {
-          pushBoardUpdate(
-            buildBoardUpdateFromExercise({
-              student: state.student,
-              subject: exerciseSubject,
-              topic: activeBoardUpdate?.topic ?? topic,
-              exercise: selectedExercise,
-            }),
-          );
-        }
-      }
+    if (!selectedExercise || !exerciseSubjectSlug || !state.student) {
+      setError("SUBJECT_CONTEXT_MISMATCH");
+      setSessionStatusMessage("Este ejercicio no pertenece a una materia valida del alumno.");
+      return;
     }
+    const exerciseSubject = resolveSubjectBySlug(exerciseSubjectSlug);
+    if (!exerciseSubject) {
+      setError("SUBJECT_CONTEXT_MISMATCH");
+      setSessionStatusMessage("Este ejercicio apunta a una materia que el alumno no tiene activa.");
+      return;
+    }
+    setSubjectSlug(exerciseSubjectSlug);
+    activeSubjectSlugRef.current = exerciseSubjectSlug;
+    resetSubjectWorkspace(exerciseSubjectSlug, {
+      statusMessage: "Vamos a seguir con este ejercicio.",
+    });
+    setActiveExerciseId(exerciseId);
+    pushBoardUpdate(
+      buildBoardUpdateFromExercise({
+        student: state.student,
+        subject: exerciseSubject,
+        topic: resolveTopicForSubject(exerciseSubjectSlug, selectedExercise.expectedCompetency ?? exerciseSubject.name),
+        exercise: selectedExercise,
+      }),
+    );
     setActiveSection("board");
-    setSessionStatusMessage("Vamos a seguir con este ejercicio 👇");
   }
 
   async function handleStartFocusSession() {
-    resetGuidedFlow();
     const focusSubjectSlug = activeSubjectSlugForUi || undefined;
-    if (focusSubjectSlug) {
-      setSubjectSlug(focusSubjectSlug);
-      seedTutorMessagesForSubject(focusSubjectSlug);
+    if (!focusSubjectSlug) {
+      setError("SUBJECT_REQUIRED");
+      setSessionStatusMessage("Elige una materia antes de abrir un bloque de foco.");
+      return;
     }
+    setSubjectSlug(focusSubjectSlug);
+    activeSubjectSlugRef.current = focusSubjectSlug;
+    resetSubjectWorkspace(focusSubjectSlug, {
+      statusMessage: `Entrando en modo concentracion para ${selectedSubject?.subject?.name ?? focusSubjectSlug}.`,
+    });
     setActiveSection("board");
-    setSessionStatusMessage(`Entrando en modo concentración${focusSubjectSlug ? ` para ${selectedSubject?.subject?.name ?? focusSubjectSlug}` : ""}...`);
     await handleSendMessage({
-      message: "Quiero empezar una sesión de concentración",
+      message: "Quiero empezar una sesion de concentracion",
       subjectSlug: focusSubjectSlug,
-      topic: selectedSubject?.subject?.name ?? topic,
+      topic: resolveTopicForSubject(focusSubjectSlug, selectedSubject?.subject?.name ?? null),
       entryMode: "entry",
       sessionMode: "study_routine",
-      sessionInputKind: focusSubjectSlug ? "selected_subject" : "orchestrator_recommendation",
+      sessionInputKind: "selected_subject",
     });
   }
 
   async function handleResumeSession(session: LearningSession) {
-    setTutorResult(null);
-    setActiveTaskId(null);
-    resetGuidedFlow();
-    setActiveSection("board");
-    setTutorMessages(
-      session.transcript?.map((item) => ({
-        role: item.role,
-        content: item.content,
-        kind: "message" as const,
-      })) ?? [],
-    );
     const resumeSubjectSlug = resolveSubjectSlugFromSubjectId(session.subjectId) || undefined;
-    if (resumeSubjectSlug) {
-      setSubjectSlug(resumeSubjectSlug);
-      if (state.student) {
-        const resumeSubject = resolveSubjectBySlug(resumeSubjectSlug);
-        if (resumeSubject) {
-          pushBoardUpdate(
-            buildBoardUpdateFromLearningSession({
-              student: state.student,
-              subject: resumeSubject,
-              session,
-            }),
-          );
-        }
-      }
+    if (!resumeSubjectSlug || !state.student) {
+      setError("SUBJECT_CONTEXT_MISMATCH");
+      setSessionStatusMessage("La sesion no tiene una materia valida para retomarla.");
+      return;
     }
-    if (session.topic) {
-      setTopic(session.topic);
+    const resumeSubject = resolveSubjectBySlug(resumeSubjectSlug);
+    if (!resumeSubject) {
+      setError("SUBJECT_CONTEXT_MISMATCH");
+      setSessionStatusMessage("La sesion pertenece a una materia que el alumno no tiene disponible.");
+      return;
     }
-    if (session.recommendedNextStep) {
-      setMessage(session.recommendedNextStep);
-    }
+    setSubjectSlug(resumeSubjectSlug);
+    activeSubjectSlugRef.current = resumeSubjectSlug;
+    resetSubjectWorkspace(resumeSubjectSlug, {
+      statusMessage: `Retomamos ${resumeSubject.name}.`,
+    });
+    setActiveSection("board");
+    setTutorMessages(mapTranscriptToTutorMessages(session.transcript ?? []));
+    pushBoardUpdate(
+      buildBoardUpdateFromLearningSession({
+        student: state.student,
+        subject: resumeSubject,
+        session,
+      }),
+    );
+    setTopic(session.topic ?? resumeSubject.name);
+    setMessage(session.recommendedNextStep ?? initialUi.defaultMessage);
     if (session.recommendedNextStep) {
       await handleSendMessage({
         message: session.recommendedNextStep,
@@ -1379,17 +1549,23 @@ export function MentoriaWorkspace() {
   }
 
   async function handleQuickAction(action: { topic: string; prompt: string; subjectSlug?: string | null; sessionMode?: MentoriaSessionMode; sessionInputKind?: MentoriaSessionInputKind }) {
-    setTutorResult(null);
-    setActiveTaskId(null);
-    resetGuidedFlow();
-    if (action.subjectSlug) {
-      setSubjectSlug(action.subjectSlug);
-      seedTutorMessagesForSubject(action.subjectSlug);
+    const targetSubjectSlug = action.subjectSlug?.trim() || activeSubjectSlugForUi || null;
+    if (!targetSubjectSlug) {
+      setError("SUBJECT_REQUIRED");
+      setSessionStatusMessage("Elige una materia antes de lanzar esta accion.");
+      return;
     }
+    setSubjectSlug(targetSubjectSlug);
+    activeSubjectSlugRef.current = targetSubjectSlug;
+    resetSubjectWorkspace(targetSubjectSlug, {
+      statusMessage: "Preparando esta clase.",
+    });
+    setTopic(action.topic);
+    setMessage(action.prompt);
     await handleSendMessage({
       message: action.prompt,
       topic: action.topic,
-      subjectSlug: action.subjectSlug ?? undefined,
+      subjectSlug: targetSubjectSlug,
       entryMode: "entry",
       sessionMode: action.sessionMode,
       sessionInputKind: action.sessionInputKind,
@@ -1398,24 +1574,30 @@ export function MentoriaWorkspace() {
   }
 
   function handleResumeDailyClosure(closure: MentoriaDailyClosureSummary) {
-    const carryOverTopic = closure.carryOverTopic ?? state.entry?.recommendedTopic ?? initialUi.defaultTopic;
-    const carryOverPrompt = closure.carryOverPrompt ?? state.entry?.recommendedPrompt ?? initialUi.defaultMessage;
-    const carryOverSubjectSlug = resolveSubjectSlugFromSubjectId(closure.carryOverSubjectId ?? undefined)
-      || state.entry?.recommendedSubjectSlug
-      || undefined;
-    setTutorResult(null);
-    setActiveTaskId(null);
-    resetGuidedFlow();
-    if (carryOverSubjectSlug) {
-      setSubjectSlug(carryOverSubjectSlug);
-      seedTutorMessagesForSubject(carryOverSubjectSlug);
+    const carryOverSubjectSlug = resolveSubjectSlugFromSubjectId(closure.carryOverSubjectId ?? undefined) || undefined;
+    if (!carryOverSubjectSlug) {
+      setError("SUBJECT_CONTEXT_MISMATCH");
+      setSessionStatusMessage("No podemos retomar ese cierre porque falta la materia.");
+      return;
     }
+    const carryOverSubject = resolveSubjectBySlug(carryOverSubjectSlug);
+    if (!carryOverSubject) {
+      setError("SUBJECT_ACCESS_DENIED");
+      setSessionStatusMessage("No tienes acceso a la materia asociada a ese cierre.");
+      return;
+    }
+    const carryOverTopic = closure.carryOverTopic ?? carryOverSubject.name;
+    const carryOverPrompt = closure.carryOverPrompt ?? initialUi.defaultMessage;
+    setSubjectSlug(carryOverSubjectSlug);
+    activeSubjectSlugRef.current = carryOverSubjectSlug;
+    resetSubjectWorkspace(carryOverSubjectSlug, {
+      statusMessage: "Ayer dejaste una pista clara y hoy puedes retomarla sin empezar desde cero.",
+    });
     setTopic(carryOverTopic);
     setMessage(carryOverPrompt);
     setSessionModeOverride("soft_reentry");
     setSessionInputKindOverride("recent_session");
     setActiveSection("board");
-    setSessionStatusMessage("Ayer te dejaste una pista clara y hoy puedes retomarla con ventaja, sin volver a pensar desde cero.");
   }
 
   async function handleSelectSessionMode(option: MentoriaSessionModeOption) {
@@ -1443,10 +1625,10 @@ export function MentoriaWorkspace() {
   const behavioralContext = useMemo<BehavioralContext>(() => {
     const normalizedCompletionRate = state.dailyPlan?.completionRate ?? 0;
     const completionRate = normalizedCompletionRate > 1 ? normalizedCompletionRate / 100 : normalizedCompletionRate;
-    const lastActivityAt = state.motivation?.lastActivityAt ?? latestSession?.updatedAt ?? null;
+    const lastActivityAt = latestSession?.updatedAt ?? null;
     const hoursSinceActivity = lastActivityAt ? Math.max(0, (Date.now() - new Date(lastActivityAt).getTime()) / (1000 * 60 * 60)) : null;
     const pendingTasks = (actionableDailyPlan?.tasks ?? [])
-      .filter((task: DailyPlan["tasks"][number]) => !task.completed)
+      .filter((task: DailyPlan["tasks"][number]) => !task.completed && Boolean(activeSubjectSlugForUi))
       .map((task: DailyPlan["tasks"][number]) => ({
         id: task.id,
         subject: task.subject,
@@ -1477,7 +1659,7 @@ export function MentoriaWorkspace() {
         recentSessionTopic: latestSession?.topic ?? null,
         recentSessionRecommendedNextStep: latestSession?.recommendedNextStep ?? null,
         pendingTasks,
-        entryPromptAvailable: Boolean(state.entry?.recommendedPrompt),
+        entryPromptAvailable: Boolean(activeEntry?.recommendedPrompt),
         carryOverPromptAvailable: false,
       },
       product: "mentoria",
@@ -1486,10 +1668,10 @@ export function MentoriaWorkspace() {
       availableActions: {
         canResumeSession: Boolean(latestSession?.recommendedNextStep),
         canStartPendingTask: pendingTasks.length > 0,
-        canUseEntryPrompt: Boolean(state.entry?.recommendedPrompt),
+        canUseEntryPrompt: Boolean(activeEntry?.recommendedPrompt),
       },
     };
-  }, [actionableDailyPlan?.completedTaskIds.length, actionableDailyPlan?.tasks, activeSubjectSlugForUi, latestSession?.id, latestSession?.recommendedNextStep, latestSession?.topic, latestSession?.updatedAt, state.dailyPlan?.completionRate, state.entry?.recommendedPrompt, state.motivation?.lastActivityAt, state.motivation?.motivationProfile, state.motivation?.streak, state.student?.tenantId, state.student?.userId]);
+  }, [actionableDailyPlan?.completedTaskIds.length, actionableDailyPlan?.tasks, activeEntry?.recommendedPrompt, activeSubjectSlugForUi, latestSession?.id, latestSession?.recommendedNextStep, latestSession?.topic, latestSession?.updatedAt, state.dailyPlan?.completionRate, state.motivation?.motivationProfile, state.motivation?.streak, state.student?.tenantId, state.student?.userId]);
   const liveBehavioralAction = useMemo(() => decideNextBestAction(behavioralContext), [behavioralContext]);
   const selectedBehavioralAction = useMemo(() => {
     const rollout = state.behavioralRollout;
@@ -1504,11 +1686,14 @@ export function MentoriaWorkspace() {
     [behavioralContext, selectedBehavioralAction],
   );
   const shouldUseBehavioralReentry = useMemo(() => {
+    if (!activeSubjectSlugForUi) {
+      return false;
+    }
     if (state.behavioralRollout === "engine_strategy" || state.behavioralRollout === "engine_strategy_and_explanation") {
       return true;
     }
     return Boolean(state.motivation || latestSession);
-  }, [latestSession, state.behavioralRollout, state.motivation]);
+  }, [activeSubjectSlugForUi, latestSession, state.behavioralRollout, state.motivation]);
   const motivationMessage =
     stateActions?.primaryStudentAction
       ?? (stateDecision?.state === "demotivated" || stateDecision?.state === "recovering"
@@ -1648,17 +1833,17 @@ export function MentoriaWorkspace() {
       };
     }
 
-    if (state.entry?.recommendedPrompt && state.entry?.recommendedTopic) {
+    if (selectedSubject && activeEntry?.recommendedPrompt && activeEntry?.recommendedTopic) {
       return {
         kind: "quick_action",
         title: "Empezar por la recomendación principal",
         detail: "Esta es la entrada más clara para arrancar la sesión sin decidir entre varias opciones.",
-        ctaLabel: state.entry.recommendedTopic,
+        ctaLabel: activeEntry.recommendedTopic,
         sessionState: derivedSessionState,
       };
     }
 
-    if (state.focusSessions.length > 0) {
+    if (selectedSubject && subjectScopedFocusSessions.length > 0) {
       return {
         kind: "focus_session",
         title: "Entrar en bloque de foco",
@@ -1669,7 +1854,7 @@ export function MentoriaWorkspace() {
     }
 
     return null;
-  }, [actionableDailyPlan?.tasks, activeDailyTask, activeGuidedStep, behavioralFrame.primaryLabel, behavioralFrame.title, behavioralFrame.whyToday, derivedSessionState, guidedFeedback?.level, latestExercise, latestSession, selectedBehavioralAction.strategy, selectedBehavioralAction.task, selectedSubject, shouldUseBehavioralReentry, state.entry, state.focusSessions.length]);
+  }, [actionableDailyPlan?.tasks, activeDailyTask, activeEntry, activeGuidedStep, behavioralFrame.primaryLabel, behavioralFrame.title, behavioralFrame.whyToday, derivedSessionState, guidedFeedback?.level, latestExercise, latestSession, selectedBehavioralAction.strategy, selectedBehavioralAction.task, selectedSubject, shouldUseBehavioralReentry, subjectScopedFocusSessions.length]);
 
   const copilotPrimaryActionLabel = useMemo(() => {
     if (!nextAction) return null;
@@ -1691,11 +1876,11 @@ export function MentoriaWorkspace() {
           learningMemory: state.learningMemory,
           subjectMemories: state.subjectMemories,
           guardianStudentAccess: state.guardianStudentAccess,
-          activeSubjectSlug: selectedSubject?.subject?.slug ?? subjectSlug,
+          activeSubjectSlug: activeSubjectSlugForUi,
           activeTopic: topic,
         })
       : null,
-    [selectedSubject?.subject?.slug, state.evolution, state.guardianStudentAccess, state.learningMemory, state.progress, state.student, state.studentSubjects, state.subjectMemories, subjectSlug, topic],
+    [activeSubjectSlugForUi, state.evolution, state.guardianStudentAccess, state.learningMemory, state.progress, state.student, state.studentSubjects, state.subjectMemories, topic],
   );
 
   const orchestratorPlan = useMemo(
@@ -1713,7 +1898,7 @@ export function MentoriaWorkspace() {
       sessionProgressPercent,
       guidedFeedback,
       tutorResult,
-      entry: state.entry,
+      entry: activeEntry,
       activeDailyTask,
       latestExercise,
       latestSession,
@@ -1737,7 +1922,7 @@ export function MentoriaWorkspace() {
       selectedSubject?.subject?.name,
       selectedSubject?.subject?.slug,
       sessionProgressPercent,
-      state.entry,
+      activeEntry,
       dynamicStudentProfile,
       topic,
       tutorResult,
@@ -1768,7 +1953,7 @@ export function MentoriaWorkspace() {
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => void load()}
+              onClick={() => void load(subjectSlug || null)}
               className="rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white"
             >
               Reintentar
@@ -1819,11 +2004,11 @@ export function MentoriaWorkspace() {
       return;
     }
 
-    if (nextAction.kind === "quick_action" && state.entry) {
+    if (nextAction.kind === "quick_action" && activeEntry) {
       void handleQuickAction({
-        topic: state.entry.recommendedTopic,
-        prompt: state.entry.recommendedPrompt,
-        subjectSlug: state.entry.recommendedSubjectSlug,
+        topic: activeEntry.recommendedTopic,
+        prompt: activeEntry.recommendedPrompt,
+        subjectSlug: activeSubjectSlugForUi ?? undefined,
       });
       return;
     }
@@ -1841,7 +2026,7 @@ export function MentoriaWorkspace() {
 
     if (action.kind === "quick_action" && action.prompt) {
       void handleQuickAction({
-        topic: action.topic ?? state.entry?.recommendedTopic ?? topic,
+        topic: action.topic ?? activeEntry?.recommendedTopic ?? topic,
         prompt: action.prompt,
         subjectSlug: action.subjectSlug,
       });
@@ -1866,23 +2051,21 @@ export function MentoriaWorkspace() {
         <WorkspaceNav
           student={state.student}
           studentSubjects={state.studentSubjects}
-          progress={state.progress}
-          recentSessions={state.recentSessions}
-          focusSessions={state.focusSessions}
+          progress={subjectScopedProgress}
+          recentSessions={subjectScopedRecentSessions}
+          focusSessions={subjectScopedFocusSessions}
           connectedGuardians={connectedGuardians}
           activeSection={activeSection}
           activeSubjectSlug={activeSubjectSlugForUi}
           onSectionChange={(section) => setActiveSection(section as WorkspaceSection)}
           onSubjectSelect={(slug) => {
-            setActiveTaskId(null);
             setSubjectSlug(slug);
-            setTutorResult(null);
-            seedTutorMessagesForSubject(slug);
-            ensureBoardForSubject(slug, state.studentSubjects.find((item: MentoriaStudentSubject) => item.subject?.slug === slug)?.subject?.name ?? null);
-            setSessionModeOverride("subject_reinforcement");
-            setSessionInputKindOverride("selected_subject");
-            setSessionStatusMessage(`Materia activa: ${state.studentSubjects.find((item: MentoriaStudentSubject) => item.subject?.slug === slug)?.subject?.name ?? slug}`);
+            activeSubjectSlugRef.current = slug;
+            resetSubjectWorkspace(slug, {
+              statusMessage: `Materia activa: ${state.studentSubjects.find((item: MentoriaStudentSubject) => item.subject?.slug === slug)?.subject?.name ?? slug}`,
+            });
             setActiveSection("board");
+            void load(slug);
           }}
         />
       }
@@ -1891,17 +2074,17 @@ export function MentoriaWorkspace() {
           activeSection={activeSection}
           student={state.student}
           studentSubjects={state.studentSubjects}
-          progress={state.progress}
+          progress={subjectScopedProgress}
           dailyPlan={actionableDailyPlan}
-          focusSessions={state.focusSessions}
-          entry={state.entry}
+          focusSessions={subjectScopedFocusSessions}
+          entry={activeEntry}
           evolution={state.evolution}
           growth={state.growth}
-          dailyClosure={state.dailyClosure}
+          dailyClosure={activeDailyClosure}
           latestSession={latestSession}
-          recentSessions={state.recentSessions}
+          recentSessions={subjectScopedRecentSessions}
           latestExercise={latestExercise}
-          exercises={state.exercises}
+          exercises={subjectScopedExercises}
           activeDailyTask={activeDailyTask}
           memory={state.memory}
           analysis={state.analysis}
@@ -1956,7 +2139,7 @@ export function MentoriaWorkspace() {
       }
       rightCopilot={
         <WorkspaceCopilot
-          entry={state.entry}
+          entry={activeEntry}
           dailyPlan={actionableDailyPlan}
           memory={state.memory}
           guardianHooks={state.guardianHooks}

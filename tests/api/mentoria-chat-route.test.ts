@@ -128,4 +128,29 @@ describe("mentoria chat route", () => {
       },
     );
   });
+
+  it("returns SUBJECT_CONTEXT_MISMATCH instead of answering from another subject", async () => {
+    const startGuidedSession = vi.fn().mockRejectedValue(new Error("SUBJECT_CONTEXT_MISMATCH"));
+    mocks.createMentoriaServiceInstance.mockReturnValue({
+      startGuidedSession,
+    });
+
+    const response = await POST(
+      new Request("https://mentoria.drako.systems/api/mentoria/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          studentId: "student_1",
+          subjectSlug: "historia",
+          message: "Retoma la clase",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "SUBJECT_CONTEXT_MISMATCH",
+    });
+  });
 });

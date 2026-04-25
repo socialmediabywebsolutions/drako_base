@@ -177,7 +177,7 @@ function buildPrimaryAction(input: BuildWorkspaceOrchestratorPlanInput): Workspa
       description: "Convierte el cierre de la sesion en continuidad concreta.",
       topic,
       prompt,
-      subjectSlug: input.activeSubjectSlug ?? input.entry?.recommendedSubjectSlug ?? null,
+      subjectSlug: input.activeSubjectSlug ?? null,
     });
   }
 
@@ -195,7 +195,7 @@ function buildPrimaryAction(input: BuildWorkspaceOrchestratorPlanInput): Workspa
     };
   }
 
-  if (input.entry?.recommendedPrompt) {
+  if (input.entry?.recommendedPrompt && input.activeSubjectSlug) {
     return {
       id: "primary_entry",
       label: input.entry.recommendedTopic,
@@ -203,7 +203,7 @@ function buildPrimaryAction(input: BuildWorkspaceOrchestratorPlanInput): Workspa
       kind: "quick_action",
       topic: input.entry.recommendedTopic,
       prompt: input.entry.recommendedPrompt,
-      subjectSlug: input.entry.recommendedSubjectSlug,
+      subjectSlug: input.activeSubjectSlug,
     };
   }
 
@@ -386,7 +386,7 @@ function buildSecondaryActions(input: BuildWorkspaceOrchestratorPlanInput): Work
   const subject = fallbackSubject(input);
   const concept = activeConceptLabel(input);
   const topic = input.tutorResult?.topic ?? input.currentTopic ?? subject;
-  const subjectSlug = input.activeSubjectSlug ?? input.entry?.recommendedSubjectSlug ?? null;
+  const subjectSlug = input.activeSubjectSlug ?? null;
   const actions: WorkspaceOrchestratorAction[] = [];
 
   if (input.activeGuidedStep) {
@@ -439,7 +439,7 @@ function buildSecondaryActions(input: BuildWorkspaceOrchestratorPlanInput): Work
       kind: "quick_action",
       topic: input.entry.recommendedTopic,
       prompt: input.entry.recommendedPrompt,
-      subjectSlug: input.entry.recommendedSubjectSlug,
+      subjectSlug,
     });
   }
 
