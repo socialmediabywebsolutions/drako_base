@@ -20,6 +20,14 @@ export type CloudflareEnv = {
  * Returns object with null bindings when not available (e.g., Vercel)
  */
 export function getCloudflareEnv(): CloudflareEnv {
+    if (typeof process !== "undefined" && process.env?.NEXT_PHASE === "phase-production-build") {
+        return {
+            DB: null,
+            KV: null,
+            R2: null,
+        };
+    }
+
     try {
         const context = getCloudflareContext();
         if (context && context.env && typeof context.env === "object") {
@@ -42,6 +50,10 @@ export function getCloudflareEnv(): CloudflareEnv {
  * Returns null when not available
  */
 export function getFullCloudflareContext() {
+    if (typeof process !== "undefined" && process.env?.NEXT_PHASE === "phase-production-build") {
+        return null;
+    }
+
     try {
         return getCloudflareContext();
     } catch {

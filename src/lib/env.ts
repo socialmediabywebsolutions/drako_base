@@ -30,6 +30,10 @@ export interface DrakoStrictEnv {
 
 // Helper to get raw env from either Cloudflare or Node
 function getRawEnv(): Record<string, unknown> {
+    if (typeof process !== "undefined" && process.env?.NEXT_PHASE === "phase-production-build") {
+        return process.env;
+    }
+
     try {
         const ctx = getCloudflareContext();
         if (ctx?.env) return ctx.env as Record<string, unknown>;

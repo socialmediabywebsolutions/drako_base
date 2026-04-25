@@ -76,6 +76,26 @@ export function setGlobalEnv(e: DracoEnv) {
   globalEnv = e;
 }
 
+function isBuildPhase(): boolean {
+  if (typeof process === "undefined" || !process.env) {
+    return false;
+  }
+
+  return (
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    process.env.npm_lifecycle_event === "build" ||
+    process.env.OPENNEXT_PHASE === "build"
+  );
+}
+
+function canUseProcessEnvFallback(): boolean {
+  if (typeof process === "undefined" || !process.env) {
+    return false;
+  }
+
+  return Boolean(process.env.DRACO_DB || process.env.AI || process.env.SESSION_SECRET);
+}
+
 /**
  * OLIMPO RULE: 
  * env() NEVER throws. Returns null when Cloudflare context is unavailable.
@@ -83,6 +103,11 @@ export function setGlobalEnv(e: DracoEnv) {
  */
 export function env(): DracoEnv | null {
   if (globalEnv) return globalEnv;
+
+  if (isBuildPhase()) {
+    return canUseProcessEnvFallback() ? (process.env as unknown as DracoEnv) : null;
+  }
+
   try {
     // 1. Try OpenNext Cloudflare context (Workers Runtime)
     const ctx = getCloudflareContext();
@@ -95,9 +120,9 @@ export function env(): DracoEnv | null {
 
   // 2. Fallback to process.env in Development
   const isDev = typeof process !== "undefined" && process.env.NODE_ENV === "development";
-  if (isDev && typeof process !== "undefined" && process.env) {
+  if ((isDev || isBuildPhase()) && typeof process !== "undefined" && process.env) {
     // If we have key env vars, treat process.env as DracoEnv for local dev
-    if (process.env.DRACO_DB || process.env.AI || process.env.SESSION_SECRET) {
+    if (canUseProcessEnvFallback()) {
       return process.env as unknown as DracoEnv;
     }
   }
