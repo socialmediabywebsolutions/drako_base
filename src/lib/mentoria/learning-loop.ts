@@ -15,6 +15,7 @@ export type LearningLoopDecision = {
   feedback: string | null;
   tutorInstruction: string;
   evolutionSignals: string[];
+  classroomPhase: "explain" | "ask" | "evaluate" | "correct";
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -77,6 +78,12 @@ function resolveEscalatedStrategy(current: MentoriaLearningStrategy): MentoriaLe
   if (current === "visual") return "analogy";
   if (current === "analogy") return "micro_step";
   return "micro_step";
+}
+
+function actionFromState(state: MentoriaLearningState) {
+  if (state.lastTutorAction === "raise_difficulty") return "ask";
+  if (state.lastTutorAction === "correct_mistake" || state.lastTutorAction === "switch_strategy") return "correct";
+  return state.mode === "correction" ? "correct" : "explain";
 }
 
 function detectInitialGap(message: string, topic: string) {
@@ -187,13 +194,14 @@ export function resolveLearningLoopDecision(input: {
       learningStateUpdated,
       feedback: learningStateUpdated.feedback,
       nextAction: "Responde a la pregunta guiada para adaptar el siguiente paso.",
+      classroomPhase: "explain",
       tutorInstruction: [
         "Estas abriendo una clase nueva.",
         `Tema activo: ${input.topic}.`,
         `Dificultad inicial: ${learningStateUpdated.difficultyLevel}/5.`,
         `Frustracion detectada: ${learningStateUpdated.frustrationLevel}.`,
         evolutionSignals.length > 0 ? `Memoria pedagogica activa: ${evolutionSignals.join(", ")}.` : null,
-        "Explica una sola idea clave, deja 2-3 pasos y termina con una pregunta muy concreta que permita medir si el alumno entendio el primer paso.",
+        "Empieza con una intencion docente explicita: explicar. Explica una sola idea clave, deja 2-3 pasos, muestra un ejemplo y termina con una pregunta muy concreta que obligue al alumno a actuar.",
       ].filter(Boolean).join(" "),
       evolutionSignals,
     };
@@ -215,6 +223,7 @@ export function resolveLearningLoopDecision(input: {
         learningStateUpdated: updated,
         feedback: updated.feedback,
         nextAction: "Continua con el siguiente paso guiado.",
+        classroomPhase: actionFromState(updated),
         tutorInstruction: "Ya habia una explicacion en marcha. Continuala sin reiniciar el tema ni cambiar la materia.",
         evolutionSignals,
       };
@@ -234,12 +243,13 @@ export function resolveLearningLoopDecision(input: {
       learningStateUpdated: updated,
       feedback: updated.feedback,
       nextAction: "Responde al siguiente paso para seguir avanzando.",
+      classroomPhase: "evaluate",
       tutorInstruction: [
         "El alumno ha respondido suficientemente bien al paso anterior.",
         `Dominio actual: ${updated.masteryScore}/100.`,
         `Sube la dificultad a ${updated.difficultyLevel}/5.`,
         evolutionSignals.length > 0 ? `Ten en cuenta la memoria activa: ${evolutionSignals.join(", ")}.` : null,
-        "Reconoce el acierto, conecta con el siguiente paso y exige un poco mas de autonomia sin dar la respuesta final.",
+        "Empieza con una intencion docente explicita: evaluar. Reconoce el acierto, conecta con el siguiente paso y exige un poco mas de autonomia sin dar la respuesta final.",
       ].filter(Boolean).join(" "),
       evolutionSignals,
     };
@@ -278,12 +288,13 @@ export function resolveLearningLoopDecision(input: {
     nextAction: updated.repeatedBlockCount >= 2
       ? "Responde a la nueva version simplificada antes de volver a subir nivel."
       : "Corrige el error principal y vuelve a intentarlo con un ejemplo nuevo.",
+    classroomPhase: updated.repeatedBlockCount >= 2 ? "correct" : "evaluate",
     tutorInstruction: [
       "La respuesta del alumno no es suficiente para avanzar.",
       `Frustracion actual: ${updated.frustrationLevel}.`,
       `Estrategia obligatoria ahora: ${updated.strategy}.`,
       evolutionSignals.length > 0 ? `Memoria activa: ${evolutionSignals.join(", ")}.` : null,
-      "No repitas la misma explicacion. Corrige el error principal, da un ejemplo nuevo y cierra con una pregunta mas simple o mas visual.",
+      "Empieza con una intencion docente explicita: corregir. No repitas la misma explicacion. Corrige el error principal, da un ejemplo nuevo y cierra con una pregunta mas simple o mas visual.",
     ].filter(Boolean).join(" "),
     evolutionSignals,
   };

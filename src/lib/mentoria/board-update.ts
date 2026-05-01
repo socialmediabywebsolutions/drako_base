@@ -7,6 +7,7 @@ import type {
   MentoriaBoardTask,
   MentoriaBoardUpdate,
   MentoriaClassroomIntent,
+  MentoriaLearningState,
   MentoriaExercise,
   MentoriaSessionMode,
   MentoriaSubject,
@@ -72,6 +73,41 @@ function buildWorkedExample(topic: string, steps: string[]): string | null {
   ].filter(Boolean).join(" ");
 }
 
+function formatDifficultyLabel(level?: number | null) {
+  if (!level || level <= 1) return "base guiada";
+  if (level === 2) return "comparacion corta";
+  if (level === 3) return "ejercicio mixto";
+  if (level === 4) return "reto con justificacion";
+  return "reto autonomo";
+}
+
+function resolveClassroomPhase(input: {
+  intent: MentoriaClassroomIntent;
+  learningState?: MentoriaLearningState | null;
+}): MentoriaBoardUpdate["classroomPhase"] {
+  const action = input.learningState?.lastTutorAction;
+  if (action === "raise_difficulty") return "evaluate";
+  if (action === "correct_mistake" || action === "switch_strategy") return "correct";
+  if (input.intent === "correction") return "correct";
+  if (input.intent === "practice" || input.intent === "task" || input.intent === "exam") return "ask";
+  return "explain";
+}
+
+function buildDifficultyAwareQuestion(input: {
+  topic: string;
+  fallback?: string | null;
+  learningState?: MentoriaLearningState | null;
+}) {
+  const level = input.learningState?.difficultyLevel ?? 1;
+  const fallback = input.fallback?.trim();
+  if (fallback) return fallback;
+  if (level <= 1) return `Mira el ejemplo y dime cual es el primer paso en ${input.topic}.`;
+  if (level === 2) return `Resuelve una version corta de ${input.topic} y explica solo el paso clave.`;
+  if (level === 3) return `Resuelve ${input.topic} y justifica por que tu respuesta encaja.`;
+  if (level === 4) return `Resuelve el reto de ${input.topic} sin pista inicial y comprueba tu resultado.`;
+  return `Crea y resuelve un ejemplo propio de ${input.topic}, con comprobacion final.`;
+}
+
 function buildDiagram(subjectSlug: string, topic: string): string[] | null {
   const slug = subjectSlug.toLowerCase();
   if (slug.includes("matematic")) {
@@ -108,6 +144,37 @@ function buildExercisePrompt(subject: MentoriaSubject, topic: string, steps: str
     answerFormat: subject.slug.toLowerCase().includes("matematic")
       ? "Operacion y respuesta final"
       : "Respuesta corta con la idea principal",
+    hints,
+  };
+}
+
+function buildLearningLoopExercise(input: {
+  subject: MentoriaSubject;
+  topic: string;
+  steps: string[];
+  question?: string | null;
+  learningState?: MentoriaLearningState | null;
+}): MentoriaBoardExercise {
+  const state = input.learningState ?? null;
+  const hints = state?.frustrationLevel === "high"
+    ? input.steps.filter(Boolean).slice(0, 1)
+    : state?.difficultyLevel && state.difficultyLevel >= 4
+      ? []
+      : input.steps.filter(Boolean).slice(0, 2);
+  const prompt = buildDifficultyAwareQuestion({
+    topic: input.topic,
+    fallback: input.question,
+    learningState: state,
+  });
+  return {
+    prompt,
+    answerFormat: input.subject.slug.toLowerCase().includes("matematic")
+      ? state?.difficultyLevel && state.difficultyLevel >= 3
+        ? "Operacion, comparacion y comprobacion"
+        : "Un paso y respuesta corta"
+      : state?.difficultyLevel && state.difficultyLevel >= 3
+        ? "Respuesta con justificacion"
+        : "Respuesta corta",
     hints,
   };
 }
@@ -169,6 +236,8 @@ export function buildBoardUpdateFromSession(input: {
   sessionMode?: MentoriaSessionMode;
   includePractice?: boolean;
   nextActionLabel?: string | null;
+  learningState?: MentoriaLearningState | null;
+  classroomPhase?: MentoriaBoardUpdate["classroomPhase"];
   createdAt?: string;
 }): MentoriaBoardUpdate {
   const explanation = splitBoardText(input.explanation?.trim() || input.reply?.trim() || `Vamos a trabajar ${input.topic} paso a paso.`);
@@ -177,8 +246,31 @@ export function buildBoardUpdateFromSession(input: {
     explanation,
   });
   const resolvedIntent = input.intent ?? "explanation";
-  const exercise = input.includePractice || resolvedIntent === "practice"
-    ? buildExercisePrompt(input.subject, input.topic, resolvedSteps, input.reinforcementQuestion)
+  const classroomPhase = input.classroomPhase ?? resolveClassroomPhase({
+    intent: resolvedIntent,
+    learningState: input.learningState,
+  });
+  const activeQuestion = buildDifficultyAwareQuestion({
+    topic: input.topic,
+    fallback: input.reinforcementQuestion,
+    learningState: input.learningState,
+  });
+  const shouldAskForStudentAction =
+    input.includePractice
+    || resolvedIntent === "practice"
+    || resolvedIntent === "question"
+    || Boolean(input.learningState?.awaitingStudentAnswer)
+    || classroomPhase === "ask"
+    || classroomPhase === "evaluate"
+    || classroomPhase === "correct";
+  const exercise = shouldAskForStudentAction && resolvedIntent !== "exam" && resolvedIntent !== "task" && resolvedIntent !== "document"
+    ? buildLearningLoopExercise({
+        subject: input.subject,
+        topic: input.topic,
+        steps: resolvedSteps,
+        question: activeQuestion,
+        learningState: input.learningState,
+      })
     : null;
   const task = resolvedIntent === "task" ? buildTaskPrompt(input.subject, input.topic, resolvedSteps) : null;
   const exam = resolvedIntent === "exam" ? buildExamPrompt(input.subject, input.topic, resolvedSteps) : null;
@@ -230,6 +322,7 @@ export function buildBoardUpdateFromSession(input: {
       correction: correctionText,
       documentFeedback,
     }),
+    classroomPhase,
     conceptDefinition,
     explanation,
     steps: resolvedSteps,
@@ -244,11 +337,13 @@ export function buildBoardUpdateFromSession(input: {
     correction: correctionText,
     documentFeedback,
     note,
-    guidedQuestion: input.reinforcementQuestion?.trim() || null,
+    guidedQuestion: activeQuestion,
+    activeQuestion,
+    learningState: input.learningState ?? null,
     nextAction:
       input.nextActionLabel?.trim()
       || input.recommendedNextStep?.trim()
-      || input.reinforcementQuestion?.trim()
+      || activeQuestion
       || resolvedSteps[0]
       || `Da un paso corto mas sobre ${input.topic}.`,
     updatedAt: input.createdAt ?? new Date().toISOString(),
@@ -281,6 +376,7 @@ export function buildBoardUpdateFromExercise(input: {
       },
       correction: resolvedCorrection,
     }),
+    classroomPhase: resolvedCorrection ? "correct" : "ask",
     conceptDefinition: resolvedCorrection ? "Ahora toca revisar el razonamiento y corregir justo el punto fragil." : `Practica de ${input.topic}.`,
     explanation: resolvedCorrection
       ? splitBoardText(resolvedCorrection)
@@ -308,6 +404,7 @@ export function buildBoardUpdateFromExercise(input: {
     documentFeedback: null,
     note: resolvedCorrection && typeof input.exercise.score === "number" ? `Nota orientativa: ${input.exercise.score}/10` : null,
     guidedQuestion: null,
+    activeQuestion: resolvedCorrection ? "Corrige el paso fragil y vuelve a intentarlo." : input.exercise.prompt,
     nextAction: resolvedCorrection ? "Corrige el paso fragil y vuelve a intentarlo." : "Resuelve el ejercicio y luego lo revisamos juntos.",
     updatedAt: input.createdAt ?? input.exercise.updatedAt ?? new Date().toISOString(),
   };
@@ -354,6 +451,7 @@ export function buildEmptyBoardUpdate(input: {
     topic,
     intent: "idle",
     mode: "explanation",
+    classroomPhase: "explain",
     conceptDefinition: null,
     explanation: [],
     steps: [],
@@ -367,6 +465,7 @@ export function buildEmptyBoardUpdate(input: {
     documentFeedback: null,
     note: null,
     guidedQuestion: null,
+    activeQuestion: null,
     nextAction: `Cuenta que no entendiste sobre ${topic}.`,
     updatedAt: "1970-01-01T00:00:00.000Z",
   };

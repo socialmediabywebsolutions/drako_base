@@ -2591,6 +2591,8 @@ export class MentoriaService {
       intent: classroomIntent,
       sessionMode: resolvedSessionMode,
       nextActionLabel: learningLoopDecision.nextAction || classroomTurn.nextActionLabel,
+      learningState: learningLoopDecision.learningStateUpdated,
+      classroomPhase: learningLoopDecision.classroomPhase,
       createdAt: learningLoopDecision.learningStateUpdated.updatedAt,
     });
     boardUpdate.learningState = learningLoopDecision.learningStateUpdated;
@@ -2600,7 +2602,19 @@ export class MentoriaService {
       boardUpdate.note = [boardUpdate.note, evolutionNote].filter(Boolean).join(" ");
     }
     boardUpdate.progressSummary = `Paso ${learningLoopDecision.learningStateUpdated.stepIndex + 1} · dominio ${learningLoopDecision.learningStateUpdated.masteryScore}% · frustracion ${learningLoopDecision.learningStateUpdated.frustrationLevel}`;
-    if (!tutorResponse.reply.trim() || !boardUpdate.nextAction.trim() || boardUpdate.subjectSlug !== subject.slug) {
+    const hasClassCycle =
+      Boolean(tutorResponse.reply.trim())
+      && Boolean(boardUpdate.nextAction.trim())
+      && Boolean(
+        boardUpdate.activeQuestion?.trim()
+        || boardUpdate.guidedQuestion?.trim()
+        || boardUpdate.exercise?.prompt.trim()
+        || boardUpdate.task?.prompt.trim()
+        || boardUpdate.exam?.questions.length,
+      )
+      && Boolean(boardUpdate.learningState?.awaitingStudentAnswer)
+      && boardUpdate.subjectSlug === subject.slug;
+    if (!hasClassCycle) {
       throw new Error("MENTORIA_AI_EMPTY_RESPONSE");
     }
 

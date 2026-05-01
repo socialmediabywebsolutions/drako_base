@@ -68,8 +68,10 @@ export function composeAdaptiveTutorReply(
   const conceptCue = policy?.memorySummary
     ? `Hoy afinamos un concepto concreto: ${policy.memorySummary}`
     : null;
+  const actionOpening = "Mira esto y responde al final: primero lo explico, luego te toca actuar.";
 
   return [
+    actionOpening,
     emotionalOpening,
     introCopy,
     conceptCue,
@@ -81,7 +83,7 @@ export function composeAdaptiveTutorReply(
       ? `Pasos sugeridos: ${visibleSteps.map((step, index) => `${index + 1}. ${step}`).join(" ")}`
       : null,
     reinforcementCue,
-    `Pregunta de refuerzo: ${teaching.reinforcementQuestion}`,
+    `Ahora tu turno: ${teaching.reinforcementQuestion}`,
   ].filter(Boolean).join("\n\n");
 }
 

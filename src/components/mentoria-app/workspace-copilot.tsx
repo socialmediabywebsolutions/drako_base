@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
+import Link from "next/link";
 import { SendHorizontal } from "lucide-react";
 import type { BehavioralExplanationFrame } from "@/lib/behavioral-engine/explanation";
 import type { NextBestAction as BehavioralNextBestAction } from "@/lib/behavioral-engine/contracts";
@@ -79,6 +80,13 @@ function splitMessageLines(content: string) {
     .filter(Boolean);
 }
 
+function tutorIntentLabel(kind?: TutorChatMessage["kind"]) {
+  if (kind === "feedback") return "Evaluo";
+  if (kind === "question") return "Pregunto";
+  if (kind === "explanation" || kind === "steps") return "Explico";
+  return "Profesor";
+}
+
 export function WorkspaceCopilot({
   entry,
   dailyPlan,
@@ -97,22 +105,22 @@ export function WorkspaceCopilot({
   const starterMessages = useMemo<TutorChatMessage[]>(() => {
     const messages: TutorChatMessage[] = [];
     if (behavioralAction?.strategy === "resume_session" && latestSessionSummary) {
-      messages.push({ role: "tutor", content: "Vale, retomamos desde donde lo dejaste y lo cerramos juntos.", kind: "message" });
+      messages.push({ role: "tutor", content: "Mira la pizarra y responde el siguiente paso. Retomamos donde lo dejaste.", kind: "question" });
       messages.push({ role: "tutor", content: latestSessionSummary, kind: "message" });
     } else if (selectedSubjectName) {
-      messages.push({ role: "tutor", content: `Estamos en ${selectedSubjectName}. Cuéntame qué no entendiste y lo vemos paso a paso.`, kind: "message" });
+      messages.push({ role: "tutor", content: `Estamos en ${selectedSubjectName}. Dime que no entiendes y lo convierto en ejemplo, pregunta y correccion.`, kind: "question" });
     } else {
-      messages.push({ role: "tutor", content: "Elige una materia para que el tutor y la pizarra trabajen sobre la misma base.", kind: "message" });
+      messages.push({ role: "tutor", content: "Elige una materia y empezamos una clase real: explico en la pizarra y tu respondes.", kind: "question" });
     }
 
     if (tutorResult?.recommendedNextStep) {
-      messages.push({ role: "tutor", content: `Si te viene bien, seguimos por ${tutorResult.recommendedNextStep}.`, kind: "message" });
+      messages.push({ role: "tutor", content: `Siguiente accion: ${tutorResult.recommendedNextStep}.`, kind: "question" });
     } else if (currentTask) {
-      messages.push({ role: "tutor", content: `Si quieres, empezamos por ${currentTask.subject} con un ejemplo fácil.`, kind: "message" });
+      messages.push({ role: "tutor", content: `Mira la pizarra: empezamos por ${currentTask.subject} con un ejemplo facil y una respuesta corta.`, kind: "question" });
     } else if (selectedSubjectName) {
-      messages.push({ role: "tutor", content: `Si quieres, empezamos por ${selectedSubjectName} con una explicación corta y clara.`, kind: "message" });
+      messages.push({ role: "tutor", content: `Primera accion: escribe una duda concreta de ${selectedSubjectName}.`, kind: "question" });
     } else if (entry?.headline) {
-      messages.push({ role: "tutor", content: "Cuando elijas una materia, te ayudo a ordenar la duda paso a paso.", kind: "message" });
+      messages.push({ role: "tutor", content: "Cuando elijas una materia, te ayudo a ordenar la duda paso a paso.", kind: "question" });
     }
 
     return messages.slice(0, 2);
@@ -147,26 +155,35 @@ export function WorkspaceCopilot({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-transparent">
-      <div ref={chatScrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50/70 px-3 py-4">
+    <div className="flex h-full min-h-0 flex-col bg-white">
+      <div className="border-b border-slate-200 px-4 py-4">
+        <div className="text-xs font-bold uppercase text-emerald-700">Profesor</div>
+        <div className="mt-1 text-xl font-black text-slate-950">Chat de clase</div>
+        <div className="sr-only">
+          <Link href="/mentoria/app/academic">Vida académica</Link>
+          <Link href="/mentoria/app/progress">Mi progreso</Link>
+        </div>
+      </div>
+
+      <div ref={chatScrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-white px-3 py-4">
         {visibleMessages.map((message, index) => (
           <div
             key={`${message.role}-${index}-${message.content}`}
-            className={`max-w-[88%] rounded-[24px] px-4 py-3 shadow-sm ${
+            className={`max-w-[88%] px-4 py-3 shadow-sm ${
               message.role === "student"
                 ? "ml-auto bg-emerald-600 text-white"
                 : "mr-auto border border-slate-200 bg-white text-slate-900"
             }`}
           >
             <div className={`mb-1 text-[11px] font-semibold ${message.role === "student" ? "text-emerald-100" : "text-slate-400"}`}>
-              {message.role === "student" ? "Tu" : "Tutor"}
+              {message.role === "student" ? "Alumno" : tutorIntentLabel(message.kind)}
             </div>
             {message.kind === "steps" ? (
               <div className="space-y-2">
                 {splitMessageLines(message.content).map((line, lineIndex) => (
                   <div
                     key={`${line}-${lineIndex}`}
-                    className={`rounded-2xl px-3 py-2 text-sm leading-6 ${
+                    className={`px-3 py-2 text-sm leading-6 ${
                       message.role === "student" ? "bg-emerald-500/60 text-white" : "bg-slate-50 text-slate-700"
                     }`}
                   >
@@ -195,14 +212,14 @@ export function WorkspaceCopilot({
               onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setChatInput(event.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Escribe tu duda o cuéntame qué no entendiste"
-              className="min-h-[96px] w-full resize-none rounded-[24px] border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              className="min-h-[96px] w-full resize-none border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
             />
           </div>
 
           <button
             type="button"
             onClick={handleSubmitMessage}
-            className="inline-flex h-12 shrink-0 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-black"
+            className="inline-flex h-12 shrink-0 items-center gap-2 bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-black"
           >
             <SendHorizontal className="h-4 w-4" aria-hidden="true" />
             Enviar

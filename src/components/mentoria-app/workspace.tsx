@@ -2122,6 +2122,15 @@ export function MentoriaWorkspace() {
           onStartDailyTask={handleStartDailyTask}
           onStartFocusSession={handleStartFocusSession}
           onStartSubjectSession={handleStartSubjectSession}
+          onSubjectSelect={(slug) => {
+            setSubjectSlug(slug);
+            activeSubjectSlugRef.current = slug;
+            resetSubjectWorkspace(slug, {
+              statusMessage: `Materia activa: ${state.studentSubjects.find((item: MentoriaStudentSubject) => item.subject?.slug === slug)?.subject?.name ?? slug}`,
+            });
+            setActiveSection("board");
+            void load(slug);
+          }}
           onOpenExercise={handleOpenExercise}
           onSectionChange={(section) => setActiveSection(section as WorkspaceSection)}
           onResumeSession={handleResumeSession}

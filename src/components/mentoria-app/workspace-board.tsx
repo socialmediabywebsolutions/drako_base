@@ -95,6 +95,7 @@ type WorkspaceBoardProps = {
   onStartDailyTask: (task: DailyPlanTask) => void;
   onStartFocusSession?: () => void;
   onStartSubjectSession: (subject: MentoriaStudentSubject | MentoriaProgress) => void;
+  onSubjectSelect?: (subjectSlug: string) => void;
   onOpenExercise: (exerciseId: string) => void;
   onSectionChange?: (section: string) => void;
   onResumeSession: (session: LearningSession) => void;
@@ -276,6 +277,8 @@ export function WorkspaceBoard(props: WorkspaceBoardProps) {
       onSubmitBoardResponse={props.onSubmitBoardResponse}
       onGenerateAnotherQuestion={props.onGenerateAnotherQuestion}
       onEndSession={props.onEndSession}
+      studentSubjects={props.studentSubjects ?? []}
+      onSubjectSelect={props.onSubjectSelect}
     />
   );
 }

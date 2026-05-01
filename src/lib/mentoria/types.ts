@@ -58,6 +58,7 @@ export type MentoriaLearningDifficulty = 1 | 2 | 3 | 4 | 5;
 export type MentoriaLearningLoopMode = "explain" | "exercise" | "exam" | "correction";
 export type MentoriaFrustrationLevel = "low" | "medium" | "high";
 export type MentoriaLearningStrategy = "step_by_step" | "visual" | "analogy" | "micro_step" | "challenge";
+export type MentoriaClassroomPhase = "explain" | "ask" | "evaluate" | "correct";
 
 export type MentoriaLearningState = {
   studentId: string;
@@ -132,6 +133,8 @@ export type MentoriaBoardUpdate = {
   feedback?: string | null;
   progressSummary?: string | null;
   learningState?: MentoriaLearningState | null;
+  classroomPhase?: MentoriaClassroomPhase;
+  activeQuestion?: string | null;
   nextAction: string;
   updatedAt: string;
 };
