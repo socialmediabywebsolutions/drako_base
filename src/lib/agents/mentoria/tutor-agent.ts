@@ -208,7 +208,11 @@ export async function runTutorAgent(input: {
   );
 
   const reply = composeAdaptiveTutorReply(teaching, introCopy, tutorPolicy);
-  const tutorSummary = `Explicacion guiada de ${input.subject.name} sobre ${input.topic}, adaptada a ${input.profile.schoolYear} con tono ${input.adaptation.tone}${tutorPolicy ? `, ritmo ${tutorPolicy.pace} y dificultad ${tutorPolicy.difficulty}` : ""}.`;
+  const tutorSummary = teaching.explanation
+    .split(/(?<=[.!?])\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean)[0]
+    ?? `Clase de ${input.subject.name}: siguiente paso pendiente.`;
   const recommendedNextStep =
     tutorPolicy?.sessionStage === "reinforcement"
       ? "Repetir el patron clave con un ejemplo corto antes de avanzar."

@@ -138,6 +138,12 @@ describe("mentoria chat route", () => {
         topic: "Fracciones",
       },
       nextAction: "Haz una suma corta.",
+      learningState: {
+        studentId: "student_1",
+        subjectSlug: "matematicas",
+        currentTopic: "Fracciones",
+        stepIndex: 0,
+      },
       learningStateUpdated: {
         studentId: "student_1",
         subjectSlug: "matematicas",

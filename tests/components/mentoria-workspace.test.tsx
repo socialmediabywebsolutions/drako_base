@@ -225,6 +225,7 @@ describe("MentoriaWorkspace", () => {
     expect(await screen.findByRole("heading", { name: "Hola, Alex" })).toBeInTheDocument();
     expect(screen.getByText("Escribe al tutor qué quieres trabajar.")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste")).toBeInTheDocument();
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
     expect(screen.queryByLabelText(/Adjuntar/i)).not.toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Vida académica" })[0]).toHaveAttribute("href", "/mentoria/app/academic");
     expect(screen.queryByText("Examen real del colegio")).not.toBeInTheDocument();
@@ -558,17 +559,17 @@ describe("MentoriaWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
     expect(await screen.findByText("Tarea guiada de Ingles")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText("Escribe aquí cómo la resolverías"), {
+    fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
       target: { value: "He play football every day." },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Corregir respuesta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
     expect(await screen.findByText("Voy a corregirte la tarea de Ingles.")).toBeInTheDocument();
     expect(fetchMock.mock.calls[3]?.[0]).toBe("/api/mentoria/chat");
     expect(JSON.parse(String(fetchMock.mock.calls[3]?.[1]?.body))).toMatchObject({
       studentId: "student_1",
       subjectSlug: "ingles",
-      intent: "correction",
+      message: "He play football every day.",
     });
   });
 
@@ -586,7 +587,7 @@ describe("MentoriaWorkspace", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
-    expect(await screen.findByText("Tutor IA no disponible. Falta el binding AI de Cloudflare Workers AI en este entorno.")).toBeInTheDocument();
+    expect((await screen.findAllByText("Tutor IA no disponible. Falta el binding AI de Cloudflare Workers AI en este entorno.")).length).toBeGreaterThan(0);
   });
 
   it("keeps the learning loop alive across turns without resetting the class", async () => {
@@ -725,7 +726,7 @@ describe("MentoriaWorkspace", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
-    expect(await screen.findByText("Paso 1 · dominio 24% · frustracion high")).toBeInTheDocument();
+    expect(await screen.findByText("Una fraccion compara partes del mismo tamano.")).toBeInTheDocument();
     expect(screen.getAllByText("Que miras primero en cada fraccion?").length).toBeGreaterThan(0);
 
     fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
@@ -733,7 +734,7 @@ describe("MentoriaWorkspace", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
-    expect(await screen.findByText("Paso 2 · dominio 42% · frustracion low")).toBeInTheDocument();
+    expect(await screen.findByText("Ahora compara tambien el numerador.")).toBeInTheDocument();
     expect(screen.getByText("Bien. Esa respuesta ya permite avanzar un paso mas.")).toBeInTheDocument();
     expect(screen.getAllByText("Que cambia cuando el denominador ya es el mismo?").length).toBeGreaterThan(0);
   });

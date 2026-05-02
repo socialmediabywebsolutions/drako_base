@@ -60,6 +60,7 @@ type WorkspaceCopilotProps = {
   guidedFeedback?: { status: "correct" | "almost" | "incorrect"; level: "short" | "superficial" | "explained" | "incorrect"; tone: "guided" | "direct" | "paced"; message: string; rationale: string } | null;
   sessionProgressPercent?: number;
   orchestratorPlan?: WorkspaceOrchestratorPlan | null;
+  isSending?: boolean;
   onSendMessage: (message: string) => void;
   onQuickAction: (action: { topic: string; prompt: string; subjectSlug?: string | null; sessionMode?: MentoriaSessionMode; sessionInputKind?: MentoriaSessionModeOption["inputKind"] }) => void;
   onSelectSessionMode?: (option: MentoriaSessionModeOption) => void;
@@ -96,6 +97,7 @@ export function WorkspaceCopilot({
   selectedSubjectName = null,
   tutorMessages = [],
   tutorResult = null,
+  isSending = false,
   onSendMessage,
 }: WorkspaceCopilotProps) {
   const [chatInput, setChatInput] = useState("");
@@ -143,6 +145,7 @@ export function WorkspaceCopilot({
 
   function handleSubmitMessage() {
     const trimmedMessage = chatInput.trim();
+    if (isSending) return;
     if (!trimmedMessage) return;
     onSendMessage(trimmedMessage);
     setChatInput("");
@@ -158,7 +161,7 @@ export function WorkspaceCopilot({
     <div className="flex h-full min-h-0 flex-col bg-white">
       <div className="border-b border-slate-200 px-4 py-4">
         <div className="text-xs font-bold uppercase text-emerald-700">Profesor</div>
-        <div className="mt-1 text-xl font-black text-slate-950">Chat de clase</div>
+        <div className="mt-1 text-xl font-black text-slate-950">{isSending ? "Pensando..." : "Chat de clase"}</div>
         <div className="sr-only">
           <Link href="/mentoria/app/academic">Vida académica</Link>
           <Link href="/mentoria/app/progress">Mi progreso</Link>
@@ -211,18 +214,21 @@ export function WorkspaceCopilot({
               value={chatInput}
               onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setChatInput(event.target.value)}
               onKeyDown={handleKeyDown}
+              disabled={isSending}
               placeholder="Escribe tu duda o cuéntame qué no entendiste"
-              className="min-h-[96px] w-full resize-none border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              className="min-h-[96px] w-full resize-none border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-50"
             />
           </div>
 
           <button
             type="button"
             onClick={handleSubmitMessage}
-            className="inline-flex h-12 shrink-0 items-center gap-2 bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-black"
+            disabled={isSending || !chatInput.trim()}
+            aria-busy={isSending}
+            className="inline-flex h-12 shrink-0 items-center gap-2 bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             <SendHorizontal className="h-4 w-4" aria-hidden="true" />
-            Enviar
+            {isSending ? "Enviando" : "Enviar"}
           </button>
         </div>
       </div>

@@ -446,6 +446,7 @@ export function MentoriaWorkspace() {
   const [message, setMessage] = useState(initialUi.defaultMessage);
   const [tutorResult, setTutorResult] = useState<TutorResult | null>(null);
   const [tutorMessages, setTutorMessages] = useState<TutorMessage[]>([]);
+  const [isTutorLoading, setIsTutorLoading] = useState(false);
   const [boardHistoryByScope, setBoardHistoryByScope] = useState<Record<string, MentoriaBoardUpdate[]>>({});
   const boardHistoryByScopeRef = useRef<Record<string, MentoriaBoardUpdate[]>>({});
   const [exerciseAnswer, setExerciseAnswer] = useState("");
@@ -657,6 +658,15 @@ export function MentoriaWorkspace() {
 
       if (!normalizedSubjectSlug) {
         setTutorMessages([]);
+        const firstAvailableSubjectSlug = (workspaceView.studentSubjects ?? [])
+          .map((item) => item.subject?.slug?.trim() ?? "")
+          .find(Boolean);
+        if (firstAvailableSubjectSlug) {
+          setSubjectSlug(firstAvailableSubjectSlug);
+          activeSubjectSlugRef.current = firstAvailableSubjectSlug;
+          setActiveSection("board");
+          void load(firstAvailableSubjectSlug);
+        }
         return;
       }
       if (!scopedSubject) {
@@ -1070,6 +1080,7 @@ export function MentoriaWorkspace() {
           sessionSignal?: MentoriaStudentSessionSignal;
         },
   ) {
+    if (isTutorLoading) return;
     setError(null);
     const normalizedInput = typeof input === "string" ? { message: input } : input;
     const resolvedSubjectSlug = (normalizedInput?.subjectSlug ?? activeSubjectSlugForUi) || undefined;
@@ -1098,6 +1109,7 @@ export function MentoriaWorkspace() {
       ...current,
       { role: "student", content: resolvedMessage, kind: "message" },
     ]);
+    setIsTutorLoading(true);
 
     let response: Response | null = null;
     try {
@@ -1123,11 +1135,17 @@ export function MentoriaWorkspace() {
       if (activeSubjectSlugRef.current === resolvedSubjectSlug) {
         setError("MENTORIA_CHAT_FAILED");
         setSessionStatusMessage("No se pudo conectar con el aula IA. Revisa la red o el servidor local.");
+        setTutorMessages((current: TutorMessage[]) => [
+          ...current,
+          { role: "tutor", content: formatTutorApiError("MENTORIA_CHAT_FAILED"), kind: "feedback" },
+        ]);
       }
+      setIsTutorLoading(false);
       return;
     }
 
     if (!response || typeof response.json !== "function") {
+      setIsTutorLoading(false);
       return;
     }
 
@@ -1143,11 +1161,18 @@ export function MentoriaWorkspace() {
         return;
       }
       setError(body?.error ?? null);
-      setSessionStatusMessage(formatTutorApiError(body?.error ?? null));
+      const visibleError = formatTutorApiError(body?.error ?? null);
+      setSessionStatusMessage(visibleError);
+      setTutorMessages((current: TutorMessage[]) => [
+        ...current,
+        { role: "tutor", content: visibleError, kind: "feedback" },
+      ]);
+      setIsTutorLoading(false);
       return;
     }
 
     if (activeSubjectSlugRef.current !== resolvedSubjectSlug) {
+      setIsTutorLoading(false);
       return;
     }
 
@@ -1156,16 +1181,19 @@ export function MentoriaWorkspace() {
       if (responseSubjectSlug !== resolvedSubjectSlug) {
         setError("SUBJECT_CONTEXT_MISMATCH");
         setSessionStatusMessage(formatTutorApiError("SUBJECT_CONTEXT_MISMATCH"));
+        setIsTutorLoading(false);
         return;
       }
       if (!body.boardUpdate || !body.tutorMessage?.trim()) {
         setError("MENTORIA_AI_EMPTY_RESPONSE");
         setSessionStatusMessage(formatTutorApiError("MENTORIA_AI_EMPTY_RESPONSE"));
+        setIsTutorLoading(false);
         return;
       }
       if (body.boardUpdate.subjectSlug !== resolvedSubjectSlug) {
         setError("SUBJECT_CONTEXT_MISMATCH");
         setSessionStatusMessage("La pizarra ha rechazado una actualizacion de otra materia.");
+        setIsTutorLoading(false);
         return;
       }
       const tutorReply = body.tutorMessage ?? body.chatMessage ?? body.reply ?? "";
@@ -1207,7 +1235,8 @@ export function MentoriaWorkspace() {
       resetGuidedFlow();
     }
 
-    void load(resolvedSubjectSlug);
+    await load(resolvedSubjectSlug);
+    setIsTutorLoading(false);
   }
 
   function handleGuidedStepSubmit() {
@@ -2177,6 +2206,7 @@ export function MentoriaWorkspace() {
           sessionProgressPercent={sessionProgressPercent}
           orchestratorPlan={orchestratorPlan}
           onSendMessage={handleSendMessage}
+          isSending={isTutorLoading}
           onQuickAction={handleQuickAction}
           onSelectSessionMode={handleSelectSessionMode}
           onRunNextAction={handleRunNextAction}

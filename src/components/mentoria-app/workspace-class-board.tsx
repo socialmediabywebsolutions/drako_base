@@ -1,7 +1,6 @@
 "use client";
 
-import type { ChangeEvent } from "react";
-import { CheckCircle2, PencilLine } from "lucide-react";
+import { PencilLine } from "lucide-react";
 import type { MentoriaBoardUpdate, MentoriaStudentSubject } from "@/lib/mentoria/types";
 
 type WorkspaceClassBoardProps = {
@@ -67,28 +66,16 @@ export function WorkspaceClassBoard({
   studentName = null,
   boardUpdate,
   sessionStatusMessage = null,
-  exerciseAnswer,
-  onExerciseAnswerChange,
-  onSubmitBoardResponse,
+  exerciseAnswer: _exerciseAnswer,
+  onExerciseAnswerChange: _onExerciseAnswerChange,
+  onSubmitBoardResponse: _onSubmitBoardResponse,
   studentSubjects = [],
   onSubjectSelect,
 }: WorkspaceClassBoardProps) {
   const visibleBoard = hasVisibleBoardContent(boardUpdate);
   const currentQuestion = activePrompt(boardUpdate);
-  const canSubmitResponse = Boolean(currentQuestion);
   const learningState = boardUpdate?.learningState ?? null;
   const firstName = studentName?.split(" ")[0] ?? "Alumno";
-  const mathSubjectSwitch = studentSubjects.find((item) =>
-    item.subject?.slug
-    && item.subject.slug !== boardUpdate?.subjectSlug
-    && item.subject.slug.toLowerCase().includes("matematic"),
-  );
-  const responsePlaceholder =
-    boardUpdate?.mode === "exam"
-      ? "Escribe aquí tus respuestas antes de pedir la corrección"
-      : boardUpdate?.mode === "task"
-        ? "Escribe aquí cómo la resolverías"
-        : "Responde al profesor con tu razonamiento";
 
   return (
     <div className="flex h-full flex-col bg-[#f8faf7] text-slate-950">
@@ -109,21 +96,37 @@ export function WorkspaceClassBoard({
                 <span>{difficultyLabel(learningState.difficultyLevel)}</span>
               </>
             ) : null}
-            {mathSubjectSwitch?.subject?.slug && onSubjectSelect ? (
-              <button
-                type="button"
-                onClick={() => onSubjectSelect(mathSubjectSwitch.subject!.slug)}
-                className="ml-2 bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700"
-              >
-                {mathSubjectSwitch.subject.name}
-              </button>
-            ) : null}
           </div>
         </div>
+        {studentSubjects.length > 0 && onSubjectSelect ? (
+          <div className="mx-auto mt-3 flex max-w-6xl gap-2 overflow-x-auto pb-1">
+            {studentSubjects.map((item) => {
+              const slug = item.subject?.slug ?? "";
+              const isActive = Boolean(slug) && slug === boardUpdate?.subjectSlug;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    if (slug) onSubjectSelect(slug);
+                  }}
+                  disabled={!slug}
+                  className={`shrink-0 border px-3 py-2 text-xs font-bold transition ${
+                    isActive
+                      ? "border-slate-950 bg-slate-950 text-white"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                  }`}
+                >
+                  {item.subject?.name ?? "Materia"}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6">
-        <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="mx-auto max-w-6xl">
           <main className="space-y-6">
             {sessionStatusMessage ? (
               <div className="border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-950">
@@ -153,10 +156,10 @@ export function WorkspaceClassBoard({
                   ) : null}
                 </section>
 
-                <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+                <section className="space-y-5">
                   <div className="bg-white px-6 py-6 shadow-sm">
                     <div className="text-sm font-bold uppercase text-slate-500">Explicacion visual</div>
-                    <div className="mt-5 space-y-4">
+                    <div className="mt-5 grid gap-4 md:grid-cols-2">
                       {(boardUpdate?.exam?.questions.length
                         ? boardUpdate.exam.questions
                         : boardUpdate?.steps.length
@@ -167,7 +170,7 @@ export function WorkspaceClassBoard({
                           <div className="flex h-9 w-9 items-center justify-center bg-slate-950 text-sm font-black text-white">
                             {index + 1}
                           </div>
-                          <p className="pt-1 text-lg font-semibold leading-7 text-slate-800">{step}</p>
+                          <p className="min-w-0 pt-1 text-lg font-semibold leading-7 text-slate-800">{step}</p>
                         </div>
                       ))}
                     </div>
@@ -218,44 +221,20 @@ export function WorkspaceClassBoard({
                   <p className="mt-4 text-2xl font-black leading-tight text-sky-950">
                     {currentQuestion ?? "Responde al tutor para seguir."}
                   </p>
+                  <p className="mt-4 text-sm font-semibold leading-6 text-sky-900">
+                    Responde en el chat de clase para que el profesor corrija y actualice esta pizarra.
+                  </p>
                 </section>
+
+                {boardUpdate?.nextAction ? (
+                  <section className="bg-white px-6 py-5 shadow-sm">
+                    <div className="text-sm font-bold uppercase text-slate-500">Siguiente paso</div>
+                    <p className="mt-3 text-lg font-bold leading-7 text-slate-900">{boardUpdate.nextAction}</p>
+                  </section>
+                ) : null}
               </>
             )}
           </main>
-
-          {visibleBoard ? (
-          <aside className="bg-white px-5 py-5 shadow-sm lg:sticky lg:top-6 lg:self-start">
-            <div className="flex items-center gap-2 text-sm font-bold uppercase text-slate-500">
-              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-              Tu accion
-            </div>
-            <label htmlFor="mentoria-board-answer" className="mt-4 block text-sm font-semibold text-slate-900">
-              Respuesta del alumno
-            </label>
-            <textarea
-              id="mentoria-board-answer"
-              value={exerciseAnswer}
-              onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onExerciseAnswerChange(event.target.value)}
-              placeholder={responsePlaceholder}
-              className="mt-3 min-h-[180px] w-full resize-none border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
-            />
-            <button
-              type="button"
-              onClick={onSubmitBoardResponse}
-              disabled={!canSubmitResponse}
-              aria-label="Corregir respuesta"
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 bg-slate-950 px-4 py-4 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              Responder y seguir
-            </button>
-            {boardUpdate?.nextAction ? (
-              <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">{boardUpdate.nextAction}</p>
-            ) : null}
-            {boardUpdate?.progressSummary ? (
-              <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{boardUpdate.progressSummary}</p>
-            ) : null}
-          </aside>
-          ) : null}
         </div>
       </div>
     </div>

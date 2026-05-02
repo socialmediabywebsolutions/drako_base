@@ -56,7 +56,15 @@ export async function POST(request: Request) {
       sessionSignal: body.sessionSignal,
     });
 
-    return NextResponse.json({ ok: true, ...result });
+    if (!result.tutorMessage?.trim() || !result.boardUpdate) {
+      throw new Error("MENTORIA_AI_EMPTY_RESPONSE");
+    }
+
+    return NextResponse.json({
+      ok: true,
+      ...result,
+      learningState: result.learningStateUpdated ?? result.boardUpdate.learningState ?? null,
+    });
   } catch (error) {
     if (error instanceof MentoriaBillingError) {
       return NextResponse.json({ ok: false, error: error.message, code: error.code, billing: error.billing }, { status: error.status });
