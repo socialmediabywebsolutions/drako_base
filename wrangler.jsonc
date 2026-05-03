@@ -35,6 +35,11 @@
 			"binding": "BASES_AUTHS_DB",
 			"database_name": "drako_db_local",
 			"database_id": "local-dev"
+		},
+		{
+			"binding": "SOCIAL_DB",
+			"database_name": "drako_db_local",
+			"database_id": "local-dev"
 		}
 	],
 	"services": [
