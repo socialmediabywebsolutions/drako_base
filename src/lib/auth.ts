@@ -88,6 +88,18 @@ export const authOptions: NextAuthOptions = {
     signIn: "/bases/login",
   },
   callbacks: {
+    async jwt({ token, user }) {
+      if (user?.id) {
+        token.sub = user.id;
+      }
+      if (user?.email) {
+        token.email = user.email;
+      }
+      if (user?.name !== undefined) {
+        token.name = user.name;
+      }
+      return token;
+    },
     async signIn({ user }) {
       if (!user?.id || !user.email) return false;
       await ensureUserHasWorkspace({
@@ -102,11 +114,11 @@ export const authOptions: NextAuthOptions = {
       if (new URL(url).origin === baseUrl) return url;
       return `${baseUrl}/bases`;
     },
-    async session({ session }) {
+    async session({ session, token }) {
       if (!session.user) return session;
       const resolved = await resolveSessionUser({
-        id: session.user.id,
-        email: session.user.email,
+        id: session.user.id ?? token?.sub,
+        email: session.user.email ?? (typeof token?.email === "string" ? token.email : null),
         name: session.user.name ?? null,
       });
       if (!resolved) return session;
@@ -119,7 +131,7 @@ export const authOptions: NextAuthOptions = {
     },
   },
   session: {
-    strategy: "database",
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,
   },
   secret: process.env.NEXTAUTH_SECRET ?? process.env.SESSION_SECRET,
