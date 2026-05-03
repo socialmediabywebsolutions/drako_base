@@ -16,6 +16,38 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
 ```
 
+## [2026-05-03 15:18 UTC+02:00] SOCIALFLOW-P8-OPERATOR-SAFE-ACTIONS
+- Contexto:
+  - P7 dejo visible la salud de SocialFlow en `/operator/socialflow`; P8 agrega acciones operator controladas sin importar motores internos ni reabrir rutas legacy.
+- Cambio realizado:
+  - Se crea `src/lib/socialflow/contracts/operator-actions.ts` como contrato publico para recuperar posts atascados en `PUBLISHING` y reintentar posts `FAILED` elegibles, reprogramandolos sin publicar directamente.
+  - `src/lib/campobase/socialflow-service.ts` expone la accion operator mediante contrato publico.
+  - `/api/operator/socialflow` acepta `recover_stale_publishing`, `retry_failed_posts`, `linkedin_health_check` y `refresh_observability`, devolviendo `observability` actualizada.
+  - `/operator/socialflow` muestra botones seguros para refrescar salud, ejecutar health check LinkedIn, recuperar `PUBLISHING` y reintentar fallidos.
+  - Se agregan tests de contrato, API, UI y frontera arquitectonica.
+- Archivos tocados:
+  - `src/lib/socialflow/contracts/operator-actions.ts`
+  - `src/lib/campobase/socialflow-service.ts`
+  - `src/app/api/operator/socialflow/route.ts`
+  - `src/components/campobase/CampoBaseSocialAutomationControl.tsx`
+  - `tests/lib/socialflow-operator-actions.test.ts`
+  - `tests/api/campobase-socialflow-route.test.ts`
+  - `tests/components/operator-socialflow-health-panel.test.tsx`
+  - `tests/architecture/socialflow-vertical-boundaries.test.ts`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm exec vitest run tests/lib/socialflow-operator-actions.test.ts tests/api/campobase-socialflow-route.test.ts tests/components/operator-socialflow-health-panel.test.tsx tests/architecture/socialflow-vertical-boundaries.test.ts`
+  - `pnpm test`
+  - `pnpm build`
+- Resultado:
+  - Acciones operator disponibles por contrato con validacion verde; no se tocaron Mentoria, `apps/*`, `workers/*`, middleware ni rutas legacy peligrosas.
+- Riesgo residual:
+  - `pause-scheduler` y `resume-scheduler` no se implementan porque no existe soporte real confirmado.
+- Siguiente accion:
+  - Validar visualmente `/operator/socialflow` en runtime local si se quiere ajustar ergonomia operator antes de P9.
+
 ## [2026-05-03 14:40 UTC+02:00] SOCIALFLOW-P7-OPERATOR-HEALTH-PANEL
 - Contexto:
   - P6 dejo disponible el contrato `src/lib/socialflow/contracts/observability.ts` para que Campamento Base observe SocialFlow sin importar motores internos.

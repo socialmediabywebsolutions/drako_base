@@ -18,6 +18,11 @@ import {
   getSocialFlowOperatorObservability,
   type SocialFlowOperatorObservability,
 } from "@/lib/socialflow/contracts/observability";
+import {
+  runSocialFlowOperatorAction,
+  type SocialFlowOperatorAction,
+  type SocialFlowOperatorActionResult,
+} from "@/lib/socialflow/contracts/operator-actions";
 
 export const SOCIALFLOW_CONTENT_GENERATION_KEY = "socialflow.content_generation";
 export const SOCIALFLOW_HEALTH_CHECK_KEY = "socialflow.health_check";
@@ -142,6 +147,8 @@ export type CampoBaseSocialAutomationRun = {
 };
 
 export type CampoBaseSocialFlowObservability = SocialFlowOperatorObservability;
+export type CampoBaseSocialFlowOperatorAction = SocialFlowOperatorAction;
+export type CampoBaseSocialFlowOperatorActionResult = SocialFlowOperatorActionResult;
 
 type SocialFlowContentGenerationConfig = {
   niche: string;
@@ -564,6 +571,14 @@ export async function getCampoBaseSocialFlowObservability(
   saasId: string,
 ): Promise<CampoBaseSocialFlowObservability> {
   return getSocialFlowOperatorObservability({ tenantId, saasId });
+}
+
+export async function runCampoBaseSocialFlowOperatorAction(input: {
+  action: CampoBaseSocialFlowOperatorAction;
+  tenantId: string;
+  saasId: string;
+}): Promise<CampoBaseSocialFlowOperatorActionResult> {
+  return runSocialFlowOperatorAction(input);
 }
 
 export async function enableCampoBaseSocialAutomationForSaas(

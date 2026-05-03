@@ -86,6 +86,7 @@ describe("SocialFlow vertical boundaries", () => {
 
   it("exposes SocialFlow observability through an operator contract", () => {
     const contract = read("src/lib/socialflow/contracts/observability.ts");
+    const operatorActions = read("src/lib/socialflow/contracts/operator-actions.ts");
     const campobaseService = read("src/lib/campobase/socialflow-service.ts");
 
     expect(contract).toContain("getSocialFlowOperatorObservability");
@@ -93,7 +94,13 @@ describe("SocialFlow vertical boundaries", () => {
     expect(contract).toContain("@/lib/observability-core");
     expect(contract).not.toMatch(/@\/lib\/socialflow\/(live-publishing|scheduler|linkedin\/publishing)/);
 
+    expect(operatorActions).toContain("runSocialFlowOperatorAction");
+    expect(operatorActions).toContain("@/lib/socialflow/repository");
+    expect(operatorActions).toContain("@/lib/observability-core");
+    expect(operatorActions).not.toMatch(/@\/lib\/socialflow\/(live-publishing|scheduler|linkedin\/publishing)/);
+
     expect(campobaseService).toContain("@/lib/socialflow/contracts/observability");
+    expect(campobaseService).toContain("@/lib/socialflow/contracts/operator-actions");
     expect(campobaseService).not.toMatch(/@\/lib\/socialflow\/(repository|live-publishing|scheduler|linkedin\/publishing)/);
   });
 

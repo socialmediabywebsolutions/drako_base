@@ -1,6 +1,6 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 import OperatorSocialFlowPage from "@/app/operator/socialflow/page";
@@ -217,5 +217,57 @@ describe("/operator/socialflow health panel", () => {
     expect(screen.getByText("Falló LinkedIn")).toBeInTheDocument();
     expect(screen.getByText("Published successfully")).toBeInTheDocument();
     expect(screen.getByText("Publishing stale")).toBeInTheDocument();
+  });
+
+  it("runs safe operator actions through /api/operator/socialflow", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ status: statusPayload, history: [], summary: {}, observability: null }))
+      .mockResolvedValueOnce(jsonResponse({
+        status: statusPayload,
+        history: [],
+        summary: {},
+        observability: observabilityPayload,
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        status: statusPayload,
+        result: {
+          action: "recover_stale_publishing",
+          tenantId: "tenant-1",
+          saasId: "socialflow-main",
+          scanned: 1,
+          affected: 1,
+          skipped: 0,
+          items: [],
+          message: "Recovered 1 stale PUBLISHING post(s).",
+        },
+        observability: {
+          ...observabilityPayload,
+          scheduler: {
+            ...observabilityPayload.scheduler,
+            stalePublishingPosts: 0,
+          },
+          posts: {
+            ...observabilityPayload.posts,
+            stalePublishing: [],
+          },
+        },
+      }));
+
+    render(React.createElement(OperatorSocialFlowPage));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    fireEvent.click(await screen.findByRole("button", { name: "Recuperar PUBLISHING" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock.mock.calls[2][0]).toBe("/api/operator/socialflow");
+    expect(fetchMock.mock.calls[2][1]).toEqual(expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({
+        action: "recover_stale_publishing",
+        tenantId: "tenant-1",
+        saasId: "socialflow-main",
+      }),
+    }));
+    expect(await screen.findByText("Recovered 1 stale PUBLISHING post(s).")).toBeInTheDocument();
   });
 });

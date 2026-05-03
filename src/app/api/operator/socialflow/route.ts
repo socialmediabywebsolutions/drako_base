@@ -14,6 +14,8 @@ import {
   runCampoBaseSocialAutomationForAllRegisteredSaas,
   runCampoBaseSocialHealthCheckForRegisteredSaas,
   runCampoBaseSocialAutomationForRegisteredSaas,
+  runCampoBaseSocialFlowOperatorAction,
+  type CampoBaseSocialFlowOperatorAction,
   type SocialFlowAutomationKey,
 } from "@/lib/campobase/socialflow-service";
 
@@ -23,7 +25,10 @@ type SocialFlowRouteAction =
   | { action: "register"; tenantId: string; saasId: string; niche: string; tone: string; frequencyPerWeek: number; enabled?: boolean; automationKey?: SocialFlowAutomationKey }
   | { action: "register_health"; tenantId: string; saasId: string; tone?: string; enabled?: boolean; automationKey?: SocialFlowAutomationKey }
   | { action: "enable"; tenantId: string; saasId: string; automationKey?: SocialFlowAutomationKey }
-  | { action: "disable"; tenantId: string; saasId: string; automationKey?: SocialFlowAutomationKey };
+  | { action: "disable"; tenantId: string; saasId: string; automationKey?: SocialFlowAutomationKey }
+  | { action: "linkedin_health_check"; tenantId: string; saasId: string }
+  | { action: "refresh_observability"; tenantId: string; saasId: string }
+  | { action: CampoBaseSocialFlowOperatorAction; tenantId: string; saasId: string };
 
 function validateAction(body: unknown): SocialFlowRouteAction | null {
   if (!body || typeof body !== "object") {
@@ -87,6 +92,19 @@ function validateAction(body: unknown): SocialFlowRouteAction | null {
     && typeof saasId === "string"
   ) {
     return { action, tenantId, saasId, automationKey };
+  }
+
+  if (
+    (
+      action === "linkedin_health_check"
+      || action === "refresh_observability"
+      || action === "recover_stale_publishing"
+      || action === "retry_failed_posts"
+    )
+    && typeof tenantId === "string"
+    && typeof saasId === "string"
+  ) {
+    return { action, tenantId, saasId };
   }
 
   return null;
@@ -360,17 +378,72 @@ export async function POST(request: Request) {
       });
     }
 
-    const result = action.action === "enable"
-      ? await enableCampoBaseSocialAutomationForSaas(action.tenantId, action.saasId, action.automationKey)
-      : await disableCampoBaseSocialAutomationForSaas(action.tenantId, action.saasId, action.automationKey);
+    if (action.action === "refresh_observability") {
+      const [status, observability] = await Promise.all([
+        getCampoBaseSocialAutomationStatus(),
+        getCampoBaseSocialFlowObservability(action.tenantId, action.saasId),
+      ]);
 
-    const status = await getCampoBaseSocialAutomationStatus();
+      return NextResponse.json({
+        action: action.action,
+        result: { refreshed: true, tenantId: action.tenantId, saasId: action.saasId },
+        status,
+        observability,
+      });
+    }
 
-    return NextResponse.json({
-      action: action.action,
-      result,
-      status,
-    });
+    if (action.action === "linkedin_health_check") {
+      const result = await runCampoBaseSocialHealthCheckForRegisteredSaas(action.tenantId, action.saasId);
+      const [status, observability] = await Promise.all([
+        getCampoBaseSocialAutomationStatus(),
+        getCampoBaseSocialFlowObservability(action.tenantId, action.saasId),
+      ]);
+
+      return NextResponse.json({
+        action: action.action,
+        result,
+        status,
+        observability,
+      });
+    }
+
+    if (action.action === "recover_stale_publishing" || action.action === "retry_failed_posts") {
+      const result = await runCampoBaseSocialFlowOperatorAction({
+        action: action.action,
+        tenantId: action.tenantId,
+        saasId: action.saasId,
+      });
+      const [status, observability] = await Promise.all([
+        getCampoBaseSocialAutomationStatus(),
+        getCampoBaseSocialFlowObservability(action.tenantId, action.saasId),
+      ]);
+
+      return NextResponse.json({
+        action: action.action,
+        result,
+        status,
+        observability,
+      });
+    }
+
+    if (action.action === "enable" || action.action === "disable") {
+      const result = action.action === "enable"
+        ? await enableCampoBaseSocialAutomationForSaas(action.tenantId, action.saasId, action.automationKey)
+        : await disableCampoBaseSocialAutomationForSaas(action.tenantId, action.saasId, action.automationKey);
+
+      const status = await getCampoBaseSocialAutomationStatus();
+
+      return NextResponse.json({
+        action: action.action,
+        result,
+        status,
+      });
+    }
+
+    return NextResponse.json(
+      { code: "CAMPOBASE_SOCIALFLOW_INVALID_ACTION", message: "Invalid action payload" },
+      { status: 400 },
+    );
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ code: "UNAUTHORIZED", message: error.message }, { status: error.status });

@@ -5,7 +5,9 @@ const {
   requireOwnerAccess,
   getCampoBaseSocialAutomationStatus,
   getCampoBaseSocialFlowObservability,
+  runCampoBaseSocialFlowOperatorAction,
   registerCampoBaseSocialAutomation,
+  runCampoBaseSocialHealthCheckForRegisteredSaas,
   runCampoBaseSocialAutomationForAllRegisteredSaas,
   runCampoBaseSocialAutomationForRegisteredSaas,
   enableCampoBaseSocialAutomationForSaas,
@@ -28,7 +30,9 @@ const {
     requireOwnerAccess: vi.fn(),
     getCampoBaseSocialAutomationStatus: vi.fn(),
     getCampoBaseSocialFlowObservability: vi.fn(),
+    runCampoBaseSocialFlowOperatorAction: vi.fn(),
     registerCampoBaseSocialAutomation: vi.fn(),
+    runCampoBaseSocialHealthCheckForRegisteredSaas: vi.fn(),
     runCampoBaseSocialAutomationForAllRegisteredSaas: vi.fn(),
     runCampoBaseSocialAutomationForRegisteredSaas: vi.fn(),
     enableCampoBaseSocialAutomationForSaas: vi.fn(),
@@ -46,7 +50,9 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("@/lib/campobase/socialflow-service", () => ({
   getCampoBaseSocialAutomationStatus,
   getCampoBaseSocialFlowObservability,
+  runCampoBaseSocialFlowOperatorAction,
   registerCampoBaseSocialAutomation,
+  runCampoBaseSocialHealthCheckForRegisteredSaas,
   runCampoBaseSocialAutomationForAllRegisteredSaas,
   runCampoBaseSocialAutomationForRegisteredSaas,
   enableCampoBaseSocialAutomationForSaas,
@@ -442,6 +448,103 @@ describe("/api/campobase/socialflow", () => {
     expect(payload.result).toEqual(expect.objectContaining({ enabled: false }));
     expect(payload.status).toEqual(baseStatus);
     expect(disableCampoBaseSocialAutomationForSaas).toHaveBeenCalledWith("tenant-1", "saas-1", undefined);
+  });
+
+  it("POST recover_stale_publishing runs the public operator action contract", async () => {
+    runCampoBaseSocialFlowOperatorAction.mockResolvedValue({
+      action: "recover_stale_publishing",
+      tenantId: "tenant-1",
+      saasId: "saas-1",
+      scanned: 1,
+      affected: 1,
+      skipped: 0,
+      items: [],
+      message: "Recovered 1 stale PUBLISHING post(s).",
+    });
+
+    const response = await POST(buildRequest({
+      action: "recover_stale_publishing",
+      tenantId: "tenant-1",
+      saasId: "saas-1",
+    }) as any);
+
+    expect(response.status).toBe(200);
+    const payload = await response.json() as { action: string; result: unknown; status: StatusPayload; observability: typeof baseObservability };
+    expect(payload.action).toBe("recover_stale_publishing");
+    expect(payload.result).toEqual(expect.objectContaining({ affected: 1 }));
+    expect(payload.status).toEqual(baseStatus);
+    expect(payload.observability).toEqual(baseObservability);
+    expect(runCampoBaseSocialFlowOperatorAction).toHaveBeenCalledWith({
+      action: "recover_stale_publishing",
+      tenantId: "tenant-1",
+      saasId: "saas-1",
+    });
+  });
+
+  it("POST retry_failed_posts runs the public operator action contract", async () => {
+    runCampoBaseSocialFlowOperatorAction.mockResolvedValue({
+      action: "retry_failed_posts",
+      tenantId: "tenant-1",
+      saasId: "saas-1",
+      scanned: 2,
+      affected: 2,
+      skipped: 0,
+      items: [],
+      message: "Queued 2 failed post(s) for retry.",
+    });
+
+    const response = await POST(buildRequest({
+      action: "retry_failed_posts",
+      tenantId: "tenant-1",
+      saasId: "saas-1",
+    }) as any);
+
+    expect(response.status).toBe(200);
+    const payload = await response.json() as { action: string; result: unknown; observability: typeof baseObservability };
+    expect(payload.action).toBe("retry_failed_posts");
+    expect(payload.result).toEqual(expect.objectContaining({ affected: 2 }));
+    expect(payload.observability).toEqual(baseObservability);
+    expect(runCampoBaseSocialFlowOperatorAction).toHaveBeenCalledWith({
+      action: "retry_failed_posts",
+      tenantId: "tenant-1",
+      saasId: "saas-1",
+    });
+  });
+
+  it("POST refresh_observability returns a fresh observability snapshot", async () => {
+    const response = await POST(buildRequest({
+      action: "refresh_observability",
+      tenantId: "tenant-1",
+      saasId: "saas-1",
+    }) as any);
+
+    expect(response.status).toBe(200);
+    const payload = await response.json() as { action: string; result: unknown; observability: typeof baseObservability };
+    expect(payload.action).toBe("refresh_observability");
+    expect(payload.result).toEqual({ refreshed: true, tenantId: "tenant-1", saasId: "saas-1" });
+    expect(payload.observability).toEqual(baseObservability);
+    expect(getCampoBaseSocialFlowObservability).toHaveBeenCalledWith("tenant-1", "saas-1");
+  });
+
+  it("POST linkedin_health_check runs the registered health check and returns observability", async () => {
+    runCampoBaseSocialHealthCheckForRegisteredSaas.mockResolvedValue({
+      checksPassed: 3,
+      checksFailed: 0,
+      recommendedAction: "Automation is ready.",
+    });
+
+    const response = await POST(buildRequest({
+      action: "linkedin_health_check",
+      tenantId: "tenant-1",
+      saasId: "saas-1",
+    }) as any);
+
+    expect(response.status).toBe(200);
+    const payload = await response.json() as { action: string; result: unknown; observability: typeof baseObservability };
+    expect(payload.action).toBe("linkedin_health_check");
+    expect(payload.result).toEqual(expect.objectContaining({ checksPassed: 3, checksFailed: 0 }));
+    expect(payload.observability).toEqual(baseObservability);
+    expect(runCampoBaseSocialHealthCheckForRegisteredSaas).toHaveBeenCalledWith("tenant-1", "saas-1");
   });
 
   it("POST returns 400 on invalid payload", async () => {

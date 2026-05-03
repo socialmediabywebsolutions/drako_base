@@ -12,11 +12,19 @@ import type {
   CampoBaseSocialAutomationStatusOutput,
   CampoBaseSocialAutomationToggleOutput,
   CampoBaseSocialFlowObservability,
+  CampoBaseSocialFlowOperatorAction,
+  CampoBaseSocialFlowOperatorActionResult,
 } from "@/lib/campobase/socialflow-service";
 
 type ControlResponse = {
   status?: CampoBaseSocialAutomationStatusOutput;
-  result?: CampoBaseSocialAutomationBatchOutput | CampoBaseSocialAutomationOutput | CampoBaseSocialAutomationToggleOutput;
+  result?:
+    | CampoBaseSocialAutomationBatchOutput
+    | CampoBaseSocialAutomationOutput
+    | CampoBaseSocialAutomationToggleOutput
+    | CampoBaseSocialFlowOperatorActionResult
+    | { refreshed: boolean; tenantId: string; saasId: string }
+    | { checksPassed: number; checksFailed: number; recommendedAction: string };
   observability?: CampoBaseSocialFlowObservability | null;
   message?: string;
   code?: string;
@@ -164,6 +172,46 @@ export default function CampoBaseSocialAutomationControl() {
       }
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "No se pudo completar la acción.");
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function runOperatorAction(
+    action: CampoBaseSocialFlowOperatorAction | "refresh_observability" | "linkedin_health_check",
+    payload: { tenantId: string; saasId: string },
+  ) {
+    const key = `${action}:${payload.tenantId}:${payload.saasId}`;
+    setBusyKey(key);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...payload }),
+      });
+      const data = (await response.json().catch(() => null)) as ControlResponse | null;
+
+      if (!response.ok || !data?.status) {
+        throw new Error(data?.message ?? "No se pudo completar la acción segura.");
+      }
+
+      setStatus(data.status);
+      setObservability(data.observability ?? null);
+
+      if (action === "refresh_observability") {
+        setMessage(`Observabilidad actualizada para ${payload.saasId}.`);
+      } else if (action === "linkedin_health_check" && data.result && "checksPassed" in data.result) {
+        setMessage(`LinkedIn health check: ${data.result.checksPassed} checks ok, ${data.result.checksFailed} fallos.`);
+      } else if (data.result && "message" in data.result) {
+        setMessage(data.result.message);
+      } else {
+        setMessage(`Acción segura ejecutada para ${payload.saasId}.`);
+      }
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "No se pudo completar la acción segura.");
     } finally {
       setBusyKey(null);
     }
@@ -318,6 +366,43 @@ export default function CampoBaseSocialAutomationControl() {
           />
         ) : (
           <div className="space-y-6">
+            <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white/80 p-4">
+              <Button
+                size="sm"
+                variant="outline"
+                loading={busyKey === `refresh_observability:${selectedScope.tenantId}:${selectedScope.saasId}`}
+                onClick={() => void runOperatorAction("refresh_observability", selectedScope)}
+              >
+                Refrescar salud
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                loading={busyKey === `linkedin_health_check:${selectedScope.tenantId}:${selectedScope.saasId}`}
+                onClick={() => void runOperatorAction("linkedin_health_check", selectedScope)}
+              >
+                Check LinkedIn
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                loading={busyKey === `recover_stale_publishing:${selectedScope.tenantId}:${selectedScope.saasId}`}
+                disabled={observability.scheduler.stalePublishingPosts === 0}
+                onClick={() => void runOperatorAction("recover_stale_publishing", selectedScope)}
+              >
+                Recuperar PUBLISHING
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                loading={busyKey === `retry_failed_posts:${selectedScope.tenantId}:${selectedScope.saasId}`}
+                disabled={observability.posts.recentFailed.length === 0}
+                onClick={() => void runOperatorAction("retry_failed_posts", selectedScope)}
+              >
+                Reintentar fallidos
+              </Button>
+            </div>
+
             <div className="grid gap-4 md:grid-cols-4">
               <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Health</p>
