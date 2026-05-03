@@ -16,6 +16,27 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
 ```
 
+## [2026-05-03 14:40 UTC+02:00] SOCIALFLOW-P7-OPERATOR-HEALTH-PANEL
+- Contexto:
+  - P6 dejo disponible el contrato `src/lib/socialflow/contracts/observability.ts` para que Campamento Base observe SocialFlow sin importar motores internos.
+- Cambio realizado:
+  - `/operator/socialflow` ahora muestra salud operativa real consumiendo `GET /api/operator/socialflow?tenantId=...&saasId=...`.
+  - El panel muestra health general, scheduler, LinkedIn, publishing 30 dias, posts atascados en `PUBLISHING`, ultimos fallos, ultimos publicados, eventos e incidentes.
+  - Se agrego test de UI para asegurar que el panel consulta el contrato operator y pinta el `observability` recibido.
+- Archivos tocados:
+  - `src/components/campobase/CampoBaseSocialAutomationControl.tsx`
+  - `tests/components/operator-socialflow-health-panel.test.tsx`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - `pnpm typecheck`
+  - `pnpm exec vitest run tests/components/operator-socialflow-health-panel.test.tsx tests/lib/socialflow-operator-observability.test.ts tests/api/campobase-socialflow-route.test.ts tests/architecture/socialflow-vertical-boundaries.test.ts`
+- Resultado:
+  - Campamento Base visualiza la observabilidad de SocialFlow por contrato publico, sin tocar Mentoria, `apps/*`, workers, middleware ni motores internos de publishing/scheduler.
+- Riesgo residual:
+  - Queda pendiente validacion visual en navegador real si se quiere ajustar densidad/jerarquia del panel operator.
+- Siguiente accion:
+  - Ejecutar validacion completa final y, si producto lo requiere, abrir `/operator/socialflow` en runtime local.
+
 ## [2026-05-03 09:55 UTC+02:00] SOCIALFLOW-P5-1-PUBLISHING-RELIABILITY-NATIVE
 - Contexto:
   - P5 habia endurecido la fiabilidad de publicacion, pero la implementacion real seguia en `src/lib/social/*`, una capa ya marcada como legacy.
