@@ -1,4 +1,4 @@
-import type { SocialOwnerSummary } from "@/lib/social/repository";
+import type { SocialOwnerSummary } from "@/lib/socialflow/repository";
 import type { SaasTaxSummaryForSaas } from "@/lib/tax/types";
 import type { BusinessType, BlueprintPrimaryGoal, BlueprintMaturityStage, SaasModuleCode } from "@/lib/blueprints/types";
 import type { SaasFeature, SaasFeatureKey } from "@/lib/features/types";

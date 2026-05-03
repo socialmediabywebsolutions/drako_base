@@ -1,5 +1,5 @@
 import SocialFlowWorkspaceClient from "@/components/saas/socialflow/SocialFlowWorkspaceClient";
-import { hasLivePostAnalytics } from "@/lib/social/analytics-window";
+import { hasLivePostAnalytics } from "@/lib/socialflow/analytics-window";
 import {
   getSocialAnalyticsSnapshot,
   getSocialCalendarSnapshot,
@@ -9,9 +9,9 @@ import {
   listSaasSocialChannels,
   listSaasSocialPosts,
   resolveSocialContext,
-} from "@/lib/social/repository";
+} from "@/lib/socialflow/repository";
 import { listTasks, resolveTasksContext } from "@/lib/tasks/repository";
-import type { SaasSocialAccount, SaasSocialPost } from "@/lib/social/types";
+import type { SaasSocialAccount, SaasSocialPost } from "@/lib/social-core/types";
 
 type SocialFlowDashboardProps = {
   tenantId: string;

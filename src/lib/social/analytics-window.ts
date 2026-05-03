@@ -1,4 +1,7 @@
-import type { AnalyticsMeta, SaasSocialPost } from "@/lib/social/types";
+/**
+ * @deprecated Import from "@/lib/socialflow/analytics-window" instead.
+ */
+import type { AnalyticsMeta, SaasSocialPost } from "@/lib/social-core/types";
 
 export function getPostAnalyticsMetadata(post: SaasSocialPost): AnalyticsMeta {
   const meta = (post as unknown as { analyticsMeta?: Partial<AnalyticsMeta> }).analyticsMeta;

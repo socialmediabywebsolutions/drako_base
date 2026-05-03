@@ -8,7 +8,7 @@ import {
   LinkedInIntegrationError,
   publishLinkedInMemberPost,
   verifyLinkedInAccess,
-} from "@/lib/social/linkedin";
+} from "@/lib/socialflow/linkedin/core";
 
 export const LINKEDIN_INTEGRATION_KEY = "linkedin";
 

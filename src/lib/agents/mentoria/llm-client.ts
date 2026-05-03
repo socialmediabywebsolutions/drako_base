@@ -22,7 +22,7 @@ const DEFAULT_SMART_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
 type MentoriaLlmMode = "fast" | "smart";
 
-function resolveMentoriaModel(mode: MentoriaLlmMode = "fast") {
+export function resolveMentoriaModel(mode: MentoriaLlmMode = "fast") {
   const bindings = env();
   const configuredFastModel =
     (typeof process !== "undefined" ? process.env?.MENTORIA_AI_MODEL_FAST : undefined)
@@ -35,6 +35,22 @@ function resolveMentoriaModel(mode: MentoriaLlmMode = "fast") {
     return configuredSmartModel?.trim() || DEFAULT_SMART_MODEL;
   }
   return configuredFastModel?.trim() || DEFAULT_FAST_MODEL;
+}
+
+export function getMentoriaAiRuntimeInfo(mode: MentoriaLlmMode = "fast") {
+  const bindings = env();
+  const hardOff = (
+    (typeof process !== "undefined" ? process.env?.AI_HARD_OFF : undefined) ||
+    ((bindings as unknown as Record<string, string | undefined>)?.AI_HARD_OFF)
+  );
+  return {
+    provider: "workers-ai" as const,
+    model: resolveMentoriaModel(mode),
+    bindingName: "AI",
+    hasBinding: Boolean(bindings?.AI?.run),
+    hardOff: hardOff?.toLowerCase() === "true",
+    runtime: typeof process !== "undefined" && process.env?.NODE_ENV ? process.env.NODE_ENV : "worker",
+  };
 }
 
 function isProviderUnavailableMessage(message: string) {
@@ -180,6 +196,40 @@ function parseStructuredResponse(text: string): MentoriaTeachingResponse | null 
   return null;
 }
 
+async function repairStructuredResponse(input: {
+  rawText: string;
+  responseSchemaHint: Record<string, unknown>;
+}): Promise<MentoriaTeachingResponse & { provider: string; totalTokens: number; model?: string } | null> {
+  const llm = await runMentoriaLlm([
+    {
+      role: "system",
+      content: [
+        "Convierte la respuesta docente recibida en JSON valido.",
+        "No inventes contenido nuevo: conserva la explicacion, los pasos y la pregunta final del texto original.",
+        "Devuelve exclusivamente JSON valido sin markdown ni texto adicional.",
+      ].join(" "),
+    },
+    {
+      role: "user",
+      content: [
+        `Esquema obligatorio: ${JSON.stringify(input.responseSchemaHint)}.`,
+        "Texto original:",
+        input.rawText,
+      ].join("\n"),
+    },
+  ]);
+
+  const parsed = parseStructuredResponse(llm.text);
+  if (!parsed) return null;
+
+  return {
+    ...parsed,
+    provider: llm.provider,
+    totalTokens: llm.totalTokens,
+    model: llm.model,
+  };
+}
+
 export async function runMentoriaLlmStructured(input: {
   messages: MentoriaLlmMessage[];
   responseSchemaHint: Record<string, unknown>;
@@ -195,6 +245,16 @@ export async function runMentoriaLlmStructured(input: {
 
     const parsed = parseStructuredResponse(llm.text);
     if (!parsed) {
+      const repaired = await repairStructuredResponse({
+        rawText: llm.text,
+        responseSchemaHint: input.responseSchemaHint,
+      });
+      if (repaired) {
+        return {
+          ...repaired,
+          totalTokens: llm.totalTokens + repaired.totalTokens,
+        };
+      }
       console.error("[MentoriaLLM] Failed to parse structured response");
       throw new Error("MENTORIA_AGENT_INVALID_JSON_RESPONSE");
     }

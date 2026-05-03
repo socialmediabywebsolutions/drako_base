@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-28T15:24:56.663Z",
+  "timestamp": "2026-05-02T09:34:13.785Z",
   "mode": "real",
   "sourceOfTruthPath": "docs/config/workers-expected-state.json",
   "fixturesDir": null,
@@ -10,231 +10,23 @@
     "reranAfterRemediation": false
   },
   "summary": {
-    "workersTotal": 5,
+    "workersTotal": 0,
     "workersWithFailures": 0,
-    "checksTotal": 17,
+    "checksTotal": 0,
     "checksFailed": 0,
     "violationsTotal": 0,
-    "blockersTotal": 0,
+    "blockersTotal": 1,
     "warningsTotal": 0
   },
-  "workers": [
+  "workers": [],
+  "violations": [
     {
-      "workerName": "drako-base-3",
+      "workerName": "global",
       "workerStatus": "ARCHIVED",
       "severity": "BLOCKER",
-      "expected": {
-        "subdomain": {
-          "enabled": false,
-          "previews_enabled": false
-        },
-        "schedulesCount": 0,
-        "domainsCount": 0,
-        "routesCount": 0
-      },
-      "actual": {
-        "subdomain": {
-          "enabled": false,
-          "previews_enabled": false
-        },
-        "schedulesCount": 0,
-        "routesCount": 0,
-        "domainsCount": 0
-      },
-      "checks": [
-        {
-          "checkName": "subdomain.enabled",
-          "expected": false,
-          "actual": false,
-          "status": "PASS"
-        },
-        {
-          "checkName": "subdomain.previews_enabled",
-          "expected": false,
-          "actual": false,
-          "status": "PASS"
-        },
-        {
-          "checkName": "schedulesCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        },
-        {
-          "checkName": "domainsCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        },
-        {
-          "checkName": "routesCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        }
-      ],
-      "hasFailures": false
-    },
-    {
-      "workerName": "drako-core-worker",
-      "workerStatus": "ACTIVE",
-      "severity": "WARN",
-      "expected": {
-        "domainsCount": 0,
-        "routesCount": 0,
-        "schedulesCount": 0
-      },
-      "actual": {
-        "subdomain": {
-          "enabled": true,
-          "previews_enabled": true
-        },
-        "schedulesCount": 0,
-        "routesCount": 0,
-        "domainsCount": 0
-      },
-      "checks": [
-        {
-          "checkName": "schedulesCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        },
-        {
-          "checkName": "domainsCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        },
-        {
-          "checkName": "routesCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        }
-      ],
-      "hasFailures": false
-    },
-    {
-      "workerName": "drako-billing-worker",
-      "workerStatus": "ACTIVE",
-      "severity": "WARN",
-      "expected": {
-        "domainsCount": 0,
-        "routesCount": 0,
-        "schedulesCount": 0
-      },
-      "actual": {
-        "subdomain": {
-          "enabled": true,
-          "previews_enabled": true
-        },
-        "schedulesCount": 0,
-        "routesCount": 0,
-        "domainsCount": 0
-      },
-      "checks": [
-        {
-          "checkName": "schedulesCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        },
-        {
-          "checkName": "domainsCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        },
-        {
-          "checkName": "routesCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        }
-      ],
-      "hasFailures": false
-    },
-    {
-      "workerName": "drako-observability-worker",
-      "workerStatus": "ACTIVE",
-      "severity": "WARN",
-      "expected": {
-        "domainsCount": 0,
-        "routesCount": 0,
-        "schedulesCount": 0
-      },
-      "actual": {
-        "subdomain": {
-          "enabled": true,
-          "previews_enabled": true
-        },
-        "schedulesCount": 0,
-        "routesCount": 0,
-        "domainsCount": 0
-      },
-      "checks": [
-        {
-          "checkName": "schedulesCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        },
-        {
-          "checkName": "domainsCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        },
-        {
-          "checkName": "routesCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        }
-      ],
-      "hasFailures": false
-    },
-    {
-      "workerName": "drako-ai-orchestrator-worker",
-      "workerStatus": "ACTIVE",
-      "severity": "WARN",
-      "expected": {
-        "domainsCount": 0,
-        "routesCount": 0,
-        "schedulesCount": 0
-      },
-      "actual": {
-        "subdomain": {
-          "enabled": true,
-          "previews_enabled": true
-        },
-        "schedulesCount": 0,
-        "routesCount": 0,
-        "domainsCount": 0
-      },
-      "checks": [
-        {
-          "checkName": "schedulesCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        },
-        {
-          "checkName": "domainsCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        },
-        {
-          "checkName": "routesCount",
-          "expected": 0,
-          "actual": 0,
-          "status": "PASS"
-        }
-      ],
-      "hasFailures": false
+      "checkName": "execution",
+      "expected": "successful drift evaluation",
+      "actual": "Missing required env: CLOUDFLARE_API_TOKEN"
     }
-  ],
-  "violations": []
+  ]
 }

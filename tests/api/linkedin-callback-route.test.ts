@@ -1,302 +1,87 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getSession = vi.hoisted(() => vi.fn());
-const exchangeLinkedInCodeForAccessToken = vi.hoisted(() => vi.fn());
-const fetchLinkedInUserProfile = vi.hoisted(() => vi.fn());
-const parseLinkedInOAuthState = vi.hoisted(() => vi.fn());
-const resolveLinkedInIdentity = vi.hoisted(() => vi.fn());
-const resolveLinkedInTokenExchangeDiagnostics = vi.hoisted(() => vi.fn());
-const persistLinkedInConnection = vi.hoisted(() => vi.fn());
-const recordObservabilityActivity = vi.hoisted(() => vi.fn());
-const env = vi.hoisted(() => vi.fn());
-const TestLinkedInIntegrationError = vi.hoisted(() => class TestLinkedInIntegrationError extends Error {
-  code: string;
-  accountStatus: string;
-  details: Record<string, unknown> | null;
+const handleSocialFlowLinkedInCallback = vi.hoisted(() => vi.fn());
+const resolveSocialFlowLinkedInCallbackSession = vi.hoisted(() => vi.fn());
 
-  constructor(message: string, opts: { code: string; accountStatus: string; details?: Record<string, unknown> | null }) {
-    super(message);
-    this.code = opts.code;
-    this.accountStatus = opts.accountStatus;
-    this.details = opts.details ?? null;
-  }
-});
-
-vi.mock("@/lib/auth/session", () => ({
-  getSession,
+vi.mock("@/lib/socialflow/linkedin/oauth", () => ({
+  handleSocialFlowLinkedInCallback,
+  resolveSocialFlowLinkedInCallbackSession,
 }));
 
-vi.mock("@/lib/social/linkedin", () => ({
-  LinkedInIntegrationError: TestLinkedInIntegrationError,
-  exchangeLinkedInCodeForAccessToken,
-  fetchLinkedInUserProfile,
-  parseLinkedInOAuthState,
-  resolveLinkedInIdentity,
-  resolveLinkedInTokenExchangeDiagnostics,
-}));
+import { GET as canonicalGET } from "@/app/api/socialflow/linkedin/callback/route";
+import { GET as legacyGET } from "@/app/api/social/linkedin/callback/route";
+import { GET as authBridgeGET } from "@/app/auth/linkedin/callback/route";
 
-vi.mock("@/lib/social/linkedin-connection", () => ({
-  persistLinkedInConnection,
-}));
-
-vi.mock("@/lib/observability-core", () => ({
-  recordObservabilityActivity,
-}));
-
-vi.mock("@/lib/cf", () => ({
-  env,
-}));
-
-import { GET } from "@/app/auth/linkedin/callback/route";
-
-describe("/auth/linkedin/callback", () => {
+describe("LinkedIn callback routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    env.mockReturnValue({ DRACO_DB: {}, SOCIAL_DB: {} });
-    getSession.mockResolvedValue({ tenantId: "tenant-session" });
-    parseLinkedInOAuthState.mockReturnValue({ tenantId: "tenant-state", saasId: "saas-state", format: "compact" });
-    exchangeLinkedInCodeForAccessToken.mockResolvedValue({
-      access_token: "token-123",
-      expires_in: 3600,
-      scope: "openid profile email w_member_social",
-      id_token: "id-token-123",
-    });
-    fetchLinkedInUserProfile.mockResolvedValue({
-      sub: "member-123",
-      name: "Ada Lovelace",
-      email: "ada@example.com",
-      email_verified: true,
-    });
-    resolveLinkedInIdentity.mockReturnValue({
-      profileId: "member-123",
-      authorUrn: "urn:li:person:member-123",
-      displayName: "Ada Lovelace",
-      email: "ada@example.com",
-      emailVerified: true,
-      picture: null,
-      locale: null,
-    });
-    persistLinkedInConnection.mockResolvedValue({
-      status: "persisted",
-      account: {
-        id: "account-1",
-        status: "CONNECTED_REAL",
-      },
-    });
-    resolveLinkedInTokenExchangeDiagnostics.mockReturnValue({
-      clientId: "linkedin-client-id",
-      clientIdSource: "process.env.LINKEDIN_CLIENT_ID",
-      clientSecretSource: "process.env.LINKEDIN_CLIENT_SECRET",
-      callbackUrl: "http://localhost:8787/auth/linkedin/callback",
-      origin: "http://localhost:8787",
-      originSource: "request.url",
-      runtime: "worker-local",
-      pkceUsed: false,
-    });
+    resolveSocialFlowLinkedInCallbackSession.mockResolvedValue({ tenantId: "tenant-query" });
   });
 
-  it("returns 400 when code is missing", async () => {
-    const response = await GET(new Request("https://drako.local/auth/linkedin/callback") as any);
-
-    expect(response.status).toBe(400);
-    const payload = await response.json() as { tokenExchange: { error: { code: string } } };
-    expect(payload.tokenExchange.error.code).toBe("LINKEDIN_CODE_MISSING");
-  });
-
-  it("exchanges the code, fetches profile and persists when tenant and saas are available", async () => {
-    const response = await GET(
-      new Request("https://drako.local/auth/linkedin/callback?code=abc&saasId=saas-query&tenantId=tenant-query&state=opaque") as any,
-    );
-
-    expect(response.status).toBe(200);
-    expect(exchangeLinkedInCodeForAccessToken).toHaveBeenCalledWith(
-      "abc",
-      expect.any(Request),
-    );
-    expect(fetchLinkedInUserProfile).toHaveBeenCalledWith("token-123");
-    expect(persistLinkedInConnection).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tenantId: "tenant-query",
-        saasId: "saas-query",
-      }),
-    );
-
-    const payload = await response.json() as {
-      ok: boolean;
-      tokenExchange: { status: string };
-      persistence: { status: string; accountId?: string };
-      observability: { status: string };
-    };
-    expect(payload.ok).toBe(true);
-    expect(payload.tokenExchange.status).toBe("succeeded");
-    expect(payload.persistence.status).toBe("persisted");
-    expect(payload.persistence.accountId).toBe("account-1");
-    expect(payload.observability.status).toBe("available");
-    expect(payload.debug).toEqual(
-      expect.objectContaining({
-        effectiveClientId: "linkedin-client-id",
-        effectiveRedirectUri: "http://localhost:8787/auth/linkedin/callback",
-        effectiveRuntime: "worker-local",
-      }),
-    );
-  });
-
-  it("resolves tenant and saas from state when query params are missing", async () => {
-    persistLinkedInConnection.mockResolvedValue({
-      status: "updated",
-      account: {
-        id: "account-1",
-        status: "CONNECTED_REAL",
+  it("redirects the canonical callback to the SocialFlow workspace on success", async () => {
+    handleSocialFlowLinkedInCallback.mockResolvedValue({
+      ok: true,
+      tenantId: "tenant-query",
+      saasId: "saas-query",
+      redirectTo: "/socialflow/settings/account",
+      persistence: {
+        status: "persisted",
+        accountId: "account-1",
+        accountStatus: "CONNECTED_REAL",
       },
     });
 
-    const response = await GET(
-      new Request("https://drako.local/auth/linkedin/callback?code=abc&state=tenant_socialflow__socialflow") as any,
+    const response = await canonicalGET(
+      new Request("https://drako.local/api/socialflow/linkedin/callback?code=abc&state=opaque") as any,
     );
 
-    expect(response.status).toBe(200);
-    expect(persistLinkedInConnection).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tenantId: "tenant-state",
-        saasId: "saas-state",
-      }),
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(
+      "https://drako.local/socialflow/settings/account?linkedin=connected&provider=linkedin&status=persisted&saasId=saas-query&accountId=account-1",
     );
-
-    const payload = await response.json() as {
-      tenantId: string;
-      saasId: string;
-      context: { tenantId: string; saasId: string };
-      persistence: { status: string };
-    };
-    expect(payload.tenantId).toBe("tenant-state");
-    expect(payload.saasId).toBe("saas-state");
-    expect(payload.context.tenantId).toBe("state:compact");
-    expect(payload.context.saasId).toBe("state:compact");
-    expect(payload.persistence.status).toBe("updated");
   });
 
-  it("returns success without persistence when tenant or saas are missing", async () => {
-    getSession.mockResolvedValue(null);
-    parseLinkedInOAuthState.mockReturnValue(null);
-
-    const response = await GET(
-      new Request("https://drako.local/auth/linkedin/callback?code=abc") as any,
-    );
-
-    expect(response.status).toBe(200);
-    expect(persistLinkedInConnection).not.toHaveBeenCalled();
-    const payload = await response.json() as {
-      persistence: { status: string; reason?: string };
-      context: { tenantId: string; saasId: string };
-    };
-    expect(payload.persistence.status).toBe("skipped");
-    expect(payload.persistence.reason).toContain("could not be resolved");
-    expect(payload.context.tenantId).toBe("missing");
-    expect(payload.context.saasId).toBe("missing");
-  });
-
-  it("returns success without persistence when db bindings are unavailable", async () => {
-    env.mockReturnValue(null);
-
-    const response = await GET(
-      new Request("https://drako.local/auth/linkedin/callback?code=abc&tenantId=tenant-query&saasId=saas-query") as any,
-    );
-
-    expect(response.status).toBe(200);
-    expect(persistLinkedInConnection).not.toHaveBeenCalled();
-    const payload = await response.json() as {
-      ok: boolean;
-      persistence: { status: string; reason?: string };
-      observability: { status: string; missingBindings?: string[] };
-    };
-    expect(payload.ok).toBe(true);
-    expect(payload.persistence.status).toBe("skipped");
-    expect(payload.persistence.reason).toContain("missing DRACO_DB, SOCIAL_DB");
-    expect(payload.observability.status).toBe("unavailable");
-    expect(payload.observability.missingBindings).toEqual(["DRACO_DB", "SOCIAL_DB"]);
-  });
-
-  it("returns failed persistence when context exists but persistence fails", async () => {
-    persistLinkedInConnection.mockRejectedValue(new Error("SOCIAL_DB offline"));
-
-    const response = await GET(
-      new Request("https://drako.local/auth/linkedin/callback?code=abc&tenantId=tenant-query&saasId=saas-query") as any,
-    );
-
-    expect(response.status).toBe(200);
-    const payload = await response.json() as {
-      ok: boolean;
-      persistence: { status: string; code: string; message: string };
-    };
-    expect(payload.ok).toBe(true);
-    expect(payload.persistence.status).toBe("failed");
-    expect(payload.persistence.code).toBe("LINKEDIN_PERSISTENCE_FAILED");
-    expect(payload.persistence.message).toBe("SOCIAL_DB offline");
-  });
-
-  it("normalizes LinkedIn API errors", async () => {
-    exchangeLinkedInCodeForAccessToken.mockRejectedValue(
-      new TestLinkedInIntegrationError("invalid code", {
+  it("redirects the canonical callback with a controlled error payload on failure", async () => {
+    handleSocialFlowLinkedInCallback.mockResolvedValue({
+      ok: false,
+      tenantId: "tenant-query",
+      saasId: "saas-query",
+      redirectTo: "/socialflow/settings/account",
+      error: {
         code: "LINKEDIN_AUTHORIZATION_CODE_INVALID",
-        accountStatus: "INVALID_CREDENTIALS",
-        details: { status: 401, normalizedReason: "authorization_code_expired_or_reused_or_redirect_mismatch" },
-      }),
+        message: "invalid code",
+      },
+    });
+
+    const response = await canonicalGET(
+      new Request("https://drako.local/api/socialflow/linkedin/callback?code=bad&state=opaque") as any,
     );
 
-    const response = await GET(
-      new Request("https://drako.local/auth/linkedin/callback?code=bad") as any,
-    );
-
-    expect(response.status).toBe(400);
-    const payload = await response.json() as {
-      tokenExchange: {
-        status: string;
-        error: { code: string; message: string; details: { normalizedReason: string } };
-      };
-      persistence: { status: string };
-    };
-    expect(payload.tokenExchange.status).toBe("failed");
-    expect(payload.tokenExchange.error.code).toBe("LINKEDIN_AUTHORIZATION_CODE_INVALID");
-    expect(payload.tokenExchange.error.message).toBe("invalid code");
-    expect(payload.tokenExchange.error.details.normalizedReason).toBe("authorization_code_expired_or_reused_or_redirect_mismatch");
-    expect(payload.persistence.status).toBe("skipped");
-    expect(payload.debug).toEqual(
-      expect.objectContaining({
-        effectiveRedirectUri: "http://localhost:8787/auth/linkedin/callback",
-      }),
-    );
-    expect(recordObservabilityActivity).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sourceKey: "linkedin",
-        activityType: "linkedin_oauth_callback",
-        status: "error",
-      }),
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(
+      "https://drako.local/socialflow/settings/account?linkedin=error&provider=linkedin&code=LINKEDIN_AUTHORIZATION_CODE_INVALID&message=invalid+code&saasId=saas-query",
     );
   });
 
-  it("keeps returning stable json when observability logging fails during invalid code handling", async () => {
-    recordObservabilityActivity.mockRejectedValue(new Error("DRACO_DB binding is missing in environment."));
-    exchangeLinkedInCodeForAccessToken.mockRejectedValue(
-      new TestLinkedInIntegrationError("invalid code", {
-        code: "LINKEDIN_AUTHORIZATION_CODE_INVALID",
-        accountStatus: "INVALID_CREDENTIALS",
-        details: { normalizedReason: "authorization_code_expired_or_reused_or_redirect_mismatch" },
-      }),
+  it("redirects the legacy api callback to the canonical route preserving query params", async () => {
+    const response = await legacyGET(
+      new Request("https://drako.local/api/social/linkedin/callback?code=abc&state=opaque") as any,
     );
 
-    const response = await GET(
-      new Request("https://drako.local/auth/linkedin/callback?code=bad&tenantId=tenant-query&saasId=saas-query") as any,
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(
+      "https://drako.local/api/socialflow/linkedin/callback?code=abc&state=opaque",
+    );
+  });
+
+  it("redirects the /auth callback bridge to the canonical route preserving query params", async () => {
+    const response = await authBridgeGET(
+      new Request("https://drako.local/auth/linkedin/callback?code=abc&state=opaque") as any,
     );
 
-    expect(response.status).toBe(400);
-    const payload = await response.json() as {
-      ok: boolean;
-      observability: { status: string };
-      tokenExchange: { status: string; error: { code: string } };
-    };
-    expect(payload.ok).toBe(false);
-    expect(payload.tokenExchange.status).toBe("failed");
-    expect(payload.tokenExchange.error.code).toBe("LINKEDIN_AUTHORIZATION_CODE_INVALID");
-    expect(payload.observability.status).toBe("skipped");
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(
+      "https://drako.local/api/socialflow/linkedin/callback?code=abc&state=opaque",
+    );
   });
 });

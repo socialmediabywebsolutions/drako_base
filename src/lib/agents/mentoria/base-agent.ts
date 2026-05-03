@@ -74,6 +74,7 @@ export function buildTeachingGuardrails(): string {
     "Obliga a que el alumno piense con una pregunta de refuerzo al final.",
     "Explica por pasos y usa andamiaje progresivo.",
     "Si detectas confusion, simplifica el lenguaje antes de aumentar dificultad.",
-    "La salida debe ser JSON con explanation, suggestedSteps y reinforcementQuestion.",
+    "La salida debe ser exclusivamente JSON valido, sin markdown, sin texto antes ni despues.",
+    "El JSON debe tener exactamente estas claves: explanation, suggestedSteps y reinforcementQuestion.",
   ].join(" ");
 }

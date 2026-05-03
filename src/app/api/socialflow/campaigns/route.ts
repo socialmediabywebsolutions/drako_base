@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
-import { listSaasSocialCampaigns, resolveSocialContext, SocialContextError, upsertSaasSocialCampaign } from "@/lib/social/repository";
+import { listSaasSocialCampaigns, resolveSocialContext, SocialContextError, upsertSaasSocialCampaign } from "@/lib/socialflow/repository";
 
 const ALLOWED_CAMPAIGN_STATUSES = ["ACTIVE", "PAUSED"] as const;
 

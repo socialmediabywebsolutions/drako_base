@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { CronAuthError, verifyCronAuth } from "@/lib/security/cron-auth";
-import { processScheduledPosts } from "@/lib/social/scheduler";
+import { processScheduledPosts } from "@/lib/socialflow/scheduler";
 
 const SOCIAL_DB_LOCAL_HINT = "Run `npm run build:worker && npx wrangler dev --config wrangler.workers.toml` to load D1 bindings in local.";
 
@@ -21,11 +21,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const results = await processScheduledPosts();
+    const batch = await processScheduledPosts();
     return NextResponse.json({
       success: true,
-      processed: results.length,
-      results,
+      processed: batch.results.length,
+      recovered: batch.recovered,
+      results: batch.results,
     });
   } catch (error) {
     console.error("SOCIAL_CRON_PUBLISH_ERROR", error);

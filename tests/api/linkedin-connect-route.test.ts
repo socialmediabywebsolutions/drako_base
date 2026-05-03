@@ -1,56 +1,60 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const requireTenantAccess = vi.hoisted(() => vi.fn());
-const UnauthorizedError = vi.hoisted(() => class UnauthorizedError extends Error {
-  status: number;
-
-  constructor(message = "Unauthorized", status = 401) {
-    super(message);
-    this.status = status;
-  }
-});
+const buildSocialFlowLinkedInConnectUrl = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/session", () => ({
   requireTenantAccess,
-  UnauthorizedError,
 }));
 
-import { GET } from "@/app/api/social/linkedin/connect/route";
+vi.mock("@/lib/socialflow/linkedin/oauth", () => ({
+  buildSocialFlowLinkedInConnectUrl,
+}));
 
-describe("/api/social/linkedin/connect", () => {
+import { GET as canonicalGET } from "@/app/api/socialflow/linkedin/connect/route";
+import { GET as legacyGET } from "@/app/api/social/linkedin/connect/route";
+
+describe("LinkedIn connect routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     requireTenantAccess.mockResolvedValue({ tenantId: "tenant_socialflow" });
-    process.env.LINKEDIN_CLIENT_ID = "linkedin-client-id";
+    buildSocialFlowLinkedInConnectUrl.mockReturnValue({
+      authorizationUrl: "https://www.linkedin.com/oauth/v2/authorization?client_id=linkedin-client-id&redirect_uri=http%3A%2F%2Flocalhost%3A8787%2Fapi%2Fsocialflow%2Flinkedin%2Fcallback&state=encoded-state",
+    });
   });
 
-  it("redirects to linkedin authorization with tenant and saas state", async () => {
-    const response = await GET(new Request("https://drako.local/api/social/linkedin/connect?saasId=socialflow") as any);
+  it("redirects from the canonical route to linkedin authorization", async () => {
+    const response = await canonicalGET(new Request("https://drako.local/api/socialflow/linkedin/connect?saasId=socialflow") as any);
 
     expect(response.status).toBe(307);
     const location = response.headers.get("location") ?? "";
     expect(location).toContain("https://www.linkedin.com/oauth/v2/authorization");
     expect(location).toContain("client_id=linkedin-client-id");
-    expect(location).toContain("state=tenant_socialflow__socialflow");
+    expect(location).toContain("state=encoded-state");
+    expect(requireTenantAccess).toHaveBeenCalledTimes(1);
+    expect(buildSocialFlowLinkedInConnectUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: "tenant_socialflow",
+        saasId: "socialflow",
+      }),
+    );
   });
 
-  it("uses localhost:8787 callback for wrangler dev even when NEXTAUTH_URL points elsewhere", async () => {
-    process.env.NEXTAUTH_URL = "https://drako.systems";
-
-    const response = await GET(new Request("http://localhost:8787/api/social/linkedin/connect?saasId=socialflow") as any);
+  it("keeps the canonical callback path for wrangler-local auth urls", async () => {
+    const response = await canonicalGET(new Request("http://localhost:8787/api/socialflow/linkedin/connect?saasId=socialflow") as any);
 
     expect(response.status).toBe(307);
     const location = response.headers.get("location") ?? "";
-    expect(decodeURIComponent(location)).toContain("redirect_uri=http://localhost:8787/auth/linkedin/callback");
+    expect(decodeURIComponent(location)).toContain("redirect_uri=http://localhost:8787/api/socialflow/linkedin/callback");
   });
 
-  it("keeps localhost:3000 callback for next dev when request originates there", async () => {
-    process.env.NEXTAUTH_URL = "https://drako.systems";
+  it("redirects the legacy route to the canonical route without executing oauth logic", async () => {
+    const response = await legacyGET(new Request("https://drako.local/api/social/linkedin/connect?saasId=socialflow&redirectTo=%2Fsocialflow%2Fsettings%2Faccount") as any);
 
-    const response = await GET(new Request("http://localhost:3000/api/social/linkedin/connect?saasId=socialflow") as any);
-
-    expect(response.status).toBe(307);
+    expect(response.status).toBe(308);
     const location = response.headers.get("location") ?? "";
-    expect(decodeURIComponent(location)).toContain("redirect_uri=http://localhost:3000/auth/linkedin/callback");
+    expect(location).toBe("https://drako.local/api/socialflow/linkedin/connect?saasId=socialflow&redirectTo=%2Fsocialflow%2Fsettings%2Faccount");
+    expect(requireTenantAccess).not.toHaveBeenCalled();
+    expect(buildSocialFlowLinkedInConnectUrl).not.toHaveBeenCalled();
   });
 });

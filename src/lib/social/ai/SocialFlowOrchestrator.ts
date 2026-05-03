@@ -1,3 +1,7 @@
+/**
+ * @deprecated SocialFlow AI orchestration is being verticalized under socialflow/ai.
+ * This file remains as legacy backing code during verticalization.
+ */
 import { MarketResearchAgent } from "./agents/MarketResearchAgent";
 import { KeywordAgent } from "./agents/KeywordAgent";
 import { CompetitorAgent } from "./agents/CompetitorAgent";

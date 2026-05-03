@@ -4,6 +4,7 @@ const {
   UnauthorizedError,
   requireOwnerAccess,
   getCampoBaseSocialAutomationStatus,
+  getCampoBaseSocialFlowObservability,
   registerCampoBaseSocialAutomation,
   runCampoBaseSocialAutomationForAllRegisteredSaas,
   runCampoBaseSocialAutomationForRegisteredSaas,
@@ -26,6 +27,7 @@ const {
     UnauthorizedError: HoistedUnauthorizedError,
     requireOwnerAccess: vi.fn(),
     getCampoBaseSocialAutomationStatus: vi.fn(),
+    getCampoBaseSocialFlowObservability: vi.fn(),
     registerCampoBaseSocialAutomation: vi.fn(),
     runCampoBaseSocialAutomationForAllRegisteredSaas: vi.fn(),
     runCampoBaseSocialAutomationForRegisteredSaas: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock("@/lib/auth/session", () => ({
 
 vi.mock("@/lib/campobase/socialflow-service", () => ({
   getCampoBaseSocialAutomationStatus,
+  getCampoBaseSocialFlowObservability,
   registerCampoBaseSocialAutomation,
   runCampoBaseSocialAutomationForAllRegisteredSaas,
   runCampoBaseSocialAutomationForRegisteredSaas,
@@ -157,6 +160,21 @@ const baseSummary: SummaryPayload = {
   latestFailedRunAt: "2024-02-01T00:00:00.000Z",
 };
 
+const baseObservability = {
+  tenantId: "tenant-1",
+  saasId: "saas-1",
+  capturedAt: "2024-02-01T00:00:00.000Z",
+  health: {
+    status: "healthy",
+    freshnessStatus: "fresh",
+    schedulerStatus: "idle",
+    recommendation: "Operational activity looks recent.",
+    openIncidentsCount: 0,
+    latestActivityAt: "2024-02-01T00:00:00.000Z",
+    latestSnapshotAt: null,
+  },
+};
+
 function buildRequest(body?: unknown) {
   return new Request("https://drako.systems/api/campobase/socialflow", {
     method: "POST",
@@ -170,6 +188,7 @@ describe("/api/campobase/socialflow", () => {
     vi.clearAllMocks();
     requireOwnerAccess.mockResolvedValue({ tenantId: "owner" });
     getCampoBaseSocialAutomationStatus.mockResolvedValue(baseStatus);
+    getCampoBaseSocialFlowObservability.mockResolvedValue(baseObservability);
     listCampoBaseSocialAutomationRuns.mockResolvedValue(baseHistory);
     listCampoBaseSocialAutomationRunsForSaas.mockResolvedValue(baseHistory);
   });
@@ -181,6 +200,7 @@ describe("/api/campobase/socialflow", () => {
     const payload = await response.json() as { status: StatusPayload; history: HistoryPayload };
     expect(payload.status).toEqual(baseStatus);
     expect(payload.history).toEqual(baseHistory);
+    expect(payload).toHaveProperty("observability", null);
     expect(listCampoBaseSocialAutomationRuns).toHaveBeenCalledWith(25, undefined);
   });
 
@@ -205,6 +225,9 @@ describe("/api/campobase/socialflow", () => {
 
     expect(response.status).toBe(200);
     expect(listCampoBaseSocialAutomationRunsForSaas).toHaveBeenCalledWith("tenant-1", "saas-1", 25, undefined);
+    expect(getCampoBaseSocialFlowObservability).toHaveBeenCalledWith("tenant-1", "saas-1");
+    const payload = await response.json() as { observability: typeof baseObservability };
+    expect(payload.observability).toEqual(baseObservability);
   });
 
   it("GET forwards automationKey filter to history", async () => {

@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
-import { SocialFlowOrchestrator } from "@/lib/social/ai/SocialFlowOrchestrator";
-import { getSaasSocialPostById, resolveSocialContext, upsertSaasSocialPost } from "@/lib/social/repository";
+import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
+import { getSaasSocialPostById, resolveSocialContext, upsertSaasSocialPost } from "@/lib/socialflow/repository";
 
 export async function POST(request: Request) {
   try {

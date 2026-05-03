@@ -7,7 +7,7 @@ import {
   upsertDemoSaasDomain,
 } from "@/lib/admin/demo-data";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
-import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/social/repository";
+import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
 import type { SaasDomain, SaasDomainStatus, SaasPublicProfile } from "@/lib/saas/types";
 
 export type SaasContextMode = "d1" | "demo";

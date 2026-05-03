@@ -1,5 +1,3 @@
-import { requireTenantAccess } from "@/lib/auth/session";
-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const saasId = searchParams.get("saasId");
@@ -11,24 +9,8 @@ export async function GET(request: Request) {
     });
   }
 
-  const session = await requireTenantAccess(request);
-  const tenantId = session.tenantId;
+  const redirectUrl = new URL("/api/socialflow/linkedin/connect", request.url);
+  redirectUrl.search = searchParams.toString();
 
-  const clientId = process.env.LINKEDIN_CLIENT_ID || "test-client-id";
-  const requestUrl = new URL(request.url);
-  const origin = requestUrl.origin;
-  
-  const callbackPath = "/auth/linkedin/callback";
-  const redirectUri = `${origin}${callbackPath}`;
-  
-  const state = `${tenantId}__${saasId}`;
-
-  const authUrl = new URL("https://www.linkedin.com/oauth/v2/authorization");
-  authUrl.searchParams.set("client_id", clientId);
-  authUrl.searchParams.set("redirect_uri", redirectUri);
-  authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("scope", "r_liteprofile r_emailaddress");
-  authUrl.searchParams.set("state", state);
-
-  return Response.redirect(authUrl.toString(), 307);
+  return Response.redirect(redirectUrl.toString(), 308);
 }

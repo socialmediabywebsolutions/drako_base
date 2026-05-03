@@ -17,7 +17,7 @@ vi.mock("@/lib/integration-core/providers", async () => {
   };
 });
 
-vi.mock("@/lib/social/linkedin", () => ({
+vi.mock("@/lib/socialflow/linkedin/core", () => ({
   LinkedInIntegrationError: class LinkedInIntegrationError extends Error {
     code: string;
     accountStatus: string;

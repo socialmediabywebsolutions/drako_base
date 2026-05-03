@@ -13,8 +13,8 @@ import {
   schedulePost,
   SocialContextError,
   upsertSaasSocialPost,
-} from "@/lib/social/repository";
-import { publishSocialPostLive } from "@/lib/social/live-publishing";
+} from "@/lib/socialflow/repository";
+import { publishSocialPostLive } from "@/lib/socialflow/live-publishing";
 
 const ALLOWED_PROVIDERS = ["LINKEDIN"] as const;
 const ALLOWED_CREATION_STATUSES = ["DRAFT", "SCHEDULED"] as const;
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
     });
 
     if (usingSimplifiedContract && !scheduledAt) {
-      const liveResult = await publishSocialPostLive(ctx, post.id);
+      const liveResult = await publishSocialPostLive(ctx, post.id, { skipClaim: true });
       if (!liveResult.ok) {
         return NextResponse.json({
           post: liveResult.post ?? (await getSaasSocialPostById(ctx, post.id)) ?? post,

@@ -54,6 +54,10 @@ Matriz técnica de rutas globales y entrypoints para operación diaria, QA y aud
 
 ### Operator social
 - `/operator/socialflow`
+- API operator: `/api/operator/socialflow`
+- Compat Campamento Base: `/api/campobase/socialflow` reexporta la ruta operator.
+- Si se consulta con `tenantId` + `saasId`, la respuesta incluye `observability` desde
+  `src/lib/socialflow/contracts/observability.ts`.
 
 ## 3) Campamento Base — rutas operator
 - Superficies operator/admin bajo prefijos de control (`/operator/*`, admin prefixes en middleware).

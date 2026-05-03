@@ -60,6 +60,12 @@ export class UpgradeFlowError extends Error {
   }
 }
 
+function allowLocalExpiredTrialBypass() {
+  const nodeEnv = typeof process !== "undefined" ? process.env?.NODE_ENV : undefined;
+  const flag = typeof process !== "undefined" ? process.env?.MENTORIA_ALLOW_EXPIRED_TRIAL_LOCAL : undefined;
+  return nodeEnv !== "production" && flag?.toLowerCase() === "true";
+}
+
 export function checkAccessControl(input: {
   isTrialActive: boolean;
   planCode: string;
@@ -76,6 +82,9 @@ export function checkAccessControl(input: {
 
   // If not on trial and on free plan, block access
   if (input.planCode === "free") {
+    if (allowLocalExpiredTrialBypass()) {
+      return;
+    }
     const prompt = buildUpgradePrompt({
       reason: "trial_expired",
       upgradeUrl: input.upgradeUrl,

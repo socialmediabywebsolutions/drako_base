@@ -1,10 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { runMentoriaLlm } from "@/lib/agents/mentoria/llm-client";
+import { getMentoriaAiRuntimeInfo, runMentoriaLlm } from "@/lib/agents/mentoria/llm-client";
 
 export async function GET() {
   const timestamp = new Date().toISOString();
+  const runtime = getMentoriaAiRuntimeInfo("fast");
 
   try {
     const result = await runMentoriaLlm([
@@ -22,6 +23,12 @@ export async function GET() {
     return NextResponse.json({
       status: "healthy",
       timestamp,
+      binding: {
+        name: runtime.bindingName,
+        exists: runtime.hasBinding,
+        hardOff: runtime.hardOff,
+      },
+      runtime: runtime.runtime,
       provider: result.provider,
       model: result.model,
       totalTokens: result.totalTokens,
@@ -38,6 +45,15 @@ export async function GET() {
       {
         status: "unhealthy",
         timestamp,
+        binding: {
+          name: runtime.bindingName,
+          exists: runtime.hasBinding,
+          hardOff: runtime.hardOff,
+        },
+        runtime: runtime.runtime,
+        provider: runtime.provider,
+        model: runtime.model,
+        canCall: false,
         error: message,
         hint:
           message === "AI_BINDING_MISSING"

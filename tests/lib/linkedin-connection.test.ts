@@ -20,7 +20,7 @@ vi.mock("@/lib/integration-core/providers/linkedin", () => ({
   ensureLinkedInIntegrationAvailable,
 }));
 
-vi.mock("@/lib/social/repository", () => ({
+vi.mock("@/lib/socialflow/repository", () => ({
   resolveSocialContext,
   listSaasSocialAccounts,
   upsertSaasSocialAccount,

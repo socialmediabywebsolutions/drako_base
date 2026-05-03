@@ -16,7 +16,7 @@ vi.mock("@/lib/security/cron-auth", () => ({
   verifyCronAuth,
 }));
 
-vi.mock("@/lib/social/scheduler", () => ({
+vi.mock("@/lib/socialflow/scheduler", () => ({
   processScheduledPosts,
 }));
 

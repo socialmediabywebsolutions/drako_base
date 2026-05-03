@@ -12,6 +12,33 @@ import type {
   MentoriaStudentSessionSignal,
 } from "@/lib/mentoria/types";
 
+function buildMentoriaAccessResponse(error: UpgradeFlowError) {
+  const upgradeUrl = "/mentoria/upgrade";
+  if (error.code === "trial_expired") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "MENTORIA_ACCESS_EXPIRED",
+        reason: "TRIAL_EXPIRED",
+        upgradeUrl,
+        upgradePrompt: error.upgradePrompt ?? null,
+      },
+      { status: 402 },
+    );
+  }
+
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "MENTORIA_ACCESS_LIMIT_REACHED",
+      reason: error.code === "usage_limit_reached" ? "USAGE_LIMIT_REACHED" : "UPGRADE_REQUIRED",
+      upgradeUrl,
+      upgradePrompt: error.upgradePrompt ?? null,
+    },
+    { status: 402 },
+  );
+}
+
 export async function POST(request: Request) {
   try {
     const actor = await requireCurrentMentoriaSession(request);
@@ -27,6 +54,8 @@ export async function POST(request: Request) {
       sessionMode?: MentoriaSessionMode;
       sessionInputKind?: MentoriaSessionInputKind;
       sessionSignal?: MentoriaStudentSessionSignal;
+      learningState?: unknown;
+      boardContext?: unknown;
     };
 
     const message = body.message?.trim() ?? "";
@@ -70,10 +99,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: error.message, code: error.code, billing: error.billing }, { status: error.status });
     }
     if (error instanceof UpgradeFlowError) {
-      return NextResponse.json(
-        { ok: false, error: error.code, message: error.message, upgradePrompt: error.upgradePrompt ?? null },
-        { status: 402 },
-      );
+      return buildMentoriaAccessResponse(error);
     }
 
     const message = error instanceof Error ? error.message : "MENTORIA_CHAT_FAILED";

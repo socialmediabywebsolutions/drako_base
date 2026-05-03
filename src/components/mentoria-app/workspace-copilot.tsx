@@ -61,6 +61,13 @@ type WorkspaceCopilotProps = {
   sessionProgressPercent?: number;
   orchestratorPlan?: WorkspaceOrchestratorPlan | null;
   isSending?: boolean;
+  accessGate?: {
+    blocked: boolean;
+    title: string;
+    message: string;
+    ctaText: string;
+    upgradeUrl: string;
+  } | null;
   onSendMessage: (message: string) => void;
   onQuickAction: (action: { topic: string; prompt: string; subjectSlug?: string | null; sessionMode?: MentoriaSessionMode; sessionInputKind?: MentoriaSessionModeOption["inputKind"] }) => void;
   onSelectSessionMode?: (option: MentoriaSessionModeOption) => void;
@@ -98,6 +105,7 @@ export function WorkspaceCopilot({
   tutorMessages = [],
   tutorResult = null,
   isSending = false,
+  accessGate = null,
   onSendMessage,
 }: WorkspaceCopilotProps) {
   const [chatInput, setChatInput] = useState("");
@@ -145,6 +153,7 @@ export function WorkspaceCopilot({
 
   function handleSubmitMessage() {
     const trimmedMessage = chatInput.trim();
+    if (accessGate?.blocked) return;
     if (isSending) return;
     if (!trimmedMessage) return;
     onSendMessage(trimmedMessage);
@@ -204,6 +213,18 @@ export function WorkspaceCopilot({
       </div>
 
       <div className="border-t border-slate-200 bg-white px-3 py-3">
+        {accessGate?.blocked ? (
+          <div className="mb-3 border border-amber-300 bg-amber-50 px-4 py-4 text-amber-950">
+            <div className="text-sm font-black">{accessGate.title}</div>
+            <p className="mt-2 text-sm font-semibold leading-6">{accessGate.message}</p>
+            <Link
+              href={accessGate.upgradeUrl}
+              className="mt-3 inline-flex bg-slate-950 px-4 py-2 text-sm font-bold text-white"
+            >
+              {accessGate.ctaText}
+            </Link>
+          </div>
+        ) : null}
         <div className="flex items-end gap-2">
           <div className="min-w-0 flex-1">
             <label htmlFor="mentoria-tutor-input" className="sr-only">
@@ -214,7 +235,7 @@ export function WorkspaceCopilot({
               value={chatInput}
               onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setChatInput(event.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={isSending}
+              disabled={isSending || Boolean(accessGate?.blocked)}
               placeholder="Escribe tu duda o cuéntame qué no entendiste"
               className="min-h-[96px] w-full resize-none border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-50"
             />
@@ -223,7 +244,7 @@ export function WorkspaceCopilot({
           <button
             type="button"
             onClick={handleSubmitMessage}
-            disabled={isSending || !chatInput.trim()}
+            disabled={isSending || Boolean(accessGate?.blocked) || !chatInput.trim()}
             aria-busy={isSending}
             className="inline-flex h-12 shrink-0 items-center gap-2 bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:bg-slate-300"
           >

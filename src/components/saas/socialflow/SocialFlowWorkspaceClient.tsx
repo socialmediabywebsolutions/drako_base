@@ -8,7 +8,7 @@ import Card from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
 import Select from "@/components/ui/select";
 import { Field, Help, TextArea, TextInput } from "@/components/ui/input";
-import { getPostAnalyticsMetadata } from "@/lib/social/analytics-window";
+import { getPostAnalyticsMetadata } from "@/lib/socialflow/analytics-window";
 import type {
   SaasSocialAccount,
   SaasSocialCampaign,
@@ -21,7 +21,7 @@ import type {
   SocialAutomationRuleSummary,
   SocialCalendarSnapshot,
   SocialProductSummary,
-} from "@/lib/social/types";
+} from "@/lib/social-core/types";
 import type { SaasTask } from "@/lib/tasks/types";
 
 type SocialFlowWorkspaceData = {
@@ -886,7 +886,7 @@ export default function SocialFlowWorkspaceClient({
   }
 
   function handleLinkedInOAuthConnect() {
-    window.location.href = `/api/social/linkedin/connect?saasId=${encodeURIComponent(saasId)}`;
+    window.location.href = `/api/socialflow/linkedin/connect?saasId=${encodeURIComponent(saasId)}`;
   }
 
   async function handlePrimaryAccount(accountId: string) {

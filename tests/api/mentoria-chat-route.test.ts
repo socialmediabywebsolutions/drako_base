@@ -18,6 +18,7 @@ vi.mock("@/lib/mentoria/service", () => ({
 }));
 
 import { POST } from "@/app/api/mentoria/chat/route";
+import { UpgradeFlowError } from "@/lib/mentoria/upgrade-flow";
 
 describe("mentoria chat route", () => {
   beforeEach(() => {
@@ -278,6 +279,45 @@ describe("mentoria chat route", () => {
       ok: false,
       error: "AI_BINDING_MISSING",
     });
+  });
+
+  it("returns the classroom access contract when the trial is expired before Workers AI runs", async () => {
+    const startGuidedSession = vi.fn().mockRejectedValue(
+      new UpgradeFlowError("trial_expired", "Trial expired. Please upgrade to continue.", {
+        title: "Tu prueba gratuita ha expirado",
+        message: "Renueva Mentoría para continuar con clases personalizadas.",
+        reason: "trial_expired",
+        upgradeUrl: "tenant_1/upgrade",
+        ctaText: "Suscribirse ahora",
+      }),
+    );
+    mocks.createMentoriaServiceInstance.mockReturnValue({
+      startGuidedSession,
+    });
+
+    const response = await POST(
+      new Request("https://mentoria.drako.systems/api/mentoria/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          studentId: "student_1",
+          subjectSlug: "historia",
+          message: "Quiero aprender sobre la Revolucion Francesa",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(402);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "MENTORIA_ACCESS_EXPIRED",
+      reason: "TRIAL_EXPIRED",
+      upgradeUrl: "/mentoria/upgrade",
+      upgradePrompt: {
+        title: "Tu prueba gratuita ha expirado",
+      },
+    });
+    expect(startGuidedSession).toHaveBeenCalledTimes(1);
   });
 
   it("returns a clear 503 when Workers AI is unavailable because of quota or billing", async () => {

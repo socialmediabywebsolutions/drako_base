@@ -1,3 +1,7 @@
+/**
+ * @deprecated SocialFlow profile types will move to socialflow/profile/types.
+ * This file remains as legacy backing during verticalization.
+ */
 export type ChannelCompetitor = {
   id: string;
   channelId: string;

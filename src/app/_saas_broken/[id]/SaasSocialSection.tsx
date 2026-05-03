@@ -16,7 +16,7 @@ import type {
   SocialPostPerformance,
   SocialCampaignIdea,
   SocialPostSuggestion,
-} from "@/lib/social/types";
+} from "@/lib/social-core/types";
 
 type Props = {
   saasId: string | null;

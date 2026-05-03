@@ -13,7 +13,7 @@ import { analyzeSupplierOffer } from "@/lib/email-intake/classifier";
 import { getEmailIntakeSnapshot, listEmailMessages, resolveEmailIntakeContext } from "@/lib/email-intake/repository";
 import type { OwnerControlSnapshot, OwnerPortfolioSnapshot, OwnerPortfolioSaasItem, CanHireAdvice, CanHireStatus } from "@/lib/owner/types";
 import { buildOwnerAutopilotActions } from "@/lib/owner/autopilot";
-import { getSocialConversionSnapshot, getSocialOwnerSummary, resolveSocialContext } from "@/lib/social/repository";
+import { getSocialConversionSnapshot, getSocialOwnerSummary, resolveSocialContext } from "@/lib/socialflow/repository";
 import { getSaasBlueprint, listSaasModules, resolveBlueprintsContext } from "@/lib/blueprints/repository";
 import type { BusinessType, BlueprintPrimaryGoal, SaasModuleCode } from "@/lib/blueprints/types";
 import { resolveFeaturesContext, listSaasFeatures, getCompanyFeatures } from "@/lib/features/repository";

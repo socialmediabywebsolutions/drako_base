@@ -1,9 +1,13 @@
+/**
+ * @deprecated This module has no external consumers.
+ * Retained during SocialFlow verticalization as legacy backing code.
+ */
 import { resolveAppointmentsContext, listAppointmentsForSaas } from "@/lib/appointments/repository";
 import { resolveCustomersContext, listSaasCustomers } from "@/lib/customers/repository";
 import { resolveEconomyContext, listSaasServices, getServiceInventoryStatus } from "@/lib/economy/repository";
 import { getPricingSuggestions } from "@/lib/economy/pricing";
-import type { SocialCampaignIdea, SocialPostSuggestion } from "@/lib/social/types";
-import type { SocialContext } from "@/lib/social/repository";
+import type { SocialCampaignIdea, SocialPostSuggestion } from "@/lib/social-core/types";
+import type { SocialContext } from "@/lib/socialflow/repository";
 
 type ServiceInsight = {
   serviceId: string;

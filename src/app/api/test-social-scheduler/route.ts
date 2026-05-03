@@ -1,7 +1,7 @@
 
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { processScheduledPosts } from "@/lib/social/scheduler";
+import { processScheduledPosts } from "@/lib/socialflow/scheduler";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,8 @@ export async function GET() {
     ).run();
 
     // 2. Run Scheduler
-    const logs = await processScheduledPosts();
+    const batch = await processScheduledPosts();
+    const logs = batch.results;
 
     // 3. Verify
     const post = await db.prepare("SELECT status, posted_at FROM saas_social_posts WHERE id = ?").bind(testId).first<{ status: string; posted_at: string }>();

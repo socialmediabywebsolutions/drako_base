@@ -13,7 +13,11 @@ import {
   type AutomationExecutionResult,
   type AutomationRegistration,
 } from "@/lib/automation-core";
-import { runSocialFlowEngine } from "@/lib/social/ai/socialflow-engine";
+import { runSocialFlowAutomationContract } from "@/lib/socialflow/contracts/automation";
+import {
+  getSocialFlowOperatorObservability,
+  type SocialFlowOperatorObservability,
+} from "@/lib/socialflow/contracts/observability";
 
 export const SOCIALFLOW_CONTENT_GENERATION_KEY = "socialflow.content_generation";
 export const SOCIALFLOW_HEALTH_CHECK_KEY = "socialflow.health_check";
@@ -136,6 +140,8 @@ export type CampoBaseSocialAutomationRun = {
   finishedAt: string;
   createdAt: string;
 };
+
+export type CampoBaseSocialFlowObservability = SocialFlowOperatorObservability;
 
 type SocialFlowContentGenerationConfig = {
   niche: string;
@@ -270,7 +276,7 @@ function mapTriggerError(error: unknown): never {
 
 registerAutomationHandler(SOCIALFLOW_CONTENT_GENERATION_KEY, async ({ tenantId, saasId, config }) => {
   const normalized = normalizeContentGenerationConfig(config as Record<string, unknown> | null);
-  const result = await runSocialFlowEngine({
+  const result = await runSocialFlowAutomationContract({
     tenantId,
     saasId,
     niche: normalized.niche,
@@ -368,7 +374,7 @@ export async function registerCampoBaseSocialHealthCheck(
 export async function runCampoBaseSocialAutomation(
   input: CampoBaseSocialAutomationInput,
 ): Promise<CampoBaseSocialAutomationOutput> {
-  const result = await runSocialFlowEngine({
+  const result = await runSocialFlowAutomationContract({
     tenantId: input.tenantId,
     saasId: input.saasId,
     niche: input.niche,
@@ -551,6 +557,13 @@ export async function getCampoBaseSocialAutomationStatusForSaas(
 ): Promise<CampoBaseSocialAutomationStatusItem | null> {
   const item = await getAutomation(tenantId, saasId, automationKey);
   return item ? mapRegistrationToStatusItem(item) : null;
+}
+
+export async function getCampoBaseSocialFlowObservability(
+  tenantId: string,
+  saasId: string,
+): Promise<CampoBaseSocialFlowObservability> {
+  return getSocialFlowOperatorObservability({ tenantId, saasId });
 }
 
 export async function enableCampoBaseSocialAutomationForSaas(

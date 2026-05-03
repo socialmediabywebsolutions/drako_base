@@ -6,6 +6,7 @@ import {
   disableCampoBaseSocialAutomationForSaas,
   enableCampoBaseSocialAutomationForSaas,
   getCampoBaseSocialAutomationStatus,
+  getCampoBaseSocialFlowObservability,
   listCampoBaseSocialAutomationRuns,
   listCampoBaseSocialAutomationRunsForSaas,
   registerCampoBaseSocialAutomation,
@@ -278,7 +279,10 @@ export async function GET(request: Request) {
       limit,
     });
     const summary = buildHistorySummary(filteredHistory);
-    return NextResponse.json({ status, history: filteredHistory, summary });
+    const observability = tenantId && saasId
+      ? await getCampoBaseSocialFlowObservability(tenantId, saasId)
+      : null;
+    return NextResponse.json({ status, history: filteredHistory, summary, observability });
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ code: "UNAUTHORIZED", message: error.message }, { status: error.status });

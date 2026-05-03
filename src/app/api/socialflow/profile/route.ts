@@ -6,7 +6,7 @@ import {
   getChannelKnowledge,
   upsertChannelCompetitor,
   upsertChannelProfile,
-} from "@/lib/social/profile/repository";
+} from "@/lib/socialflow/profile/repository";
 
 export async function GET(request: Request) {
   try {

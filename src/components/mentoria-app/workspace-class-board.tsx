@@ -181,12 +181,6 @@ export function WorkspaceClassBoard({
                     <p className="mt-4 text-base font-semibold leading-7 text-amber-950">
                       {boardUpdate?.example ?? boardUpdate?.formula ?? boardUpdate?.diagram?.[0] ?? "Mira el orden: idea, ejemplo, respuesta."}
                     </p>
-                    {learningState ? (
-                      <div className="mt-5 space-y-1 text-sm font-semibold text-amber-950">
-                        <div>Dominio {learningState.masteryScore}%</div>
-                        <div>Frustracion {learningState.frustrationLevel}</div>
-                      </div>
-                    ) : null}
                   </div>
                 </section>
 

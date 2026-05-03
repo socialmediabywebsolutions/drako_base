@@ -22,13 +22,16 @@ custom_domain = true
 binding = "DRACO_DB"
 database_name = "drako_db_prod"
 database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
-migrations_dir = "migrations"
+# Production Mentoría shares the canonical Drako D1 schema. Keep migrations
+# pointed at the repo root so changes such as 0181/0182/0183 are visible to
+# the same config used by saas-mentorias-prod deploys.
+migrations_dir = "../../migrations"
 
 [[d1_databases]]
 binding = "MENTORIAS_AUTHS_DB"
 database_name = "drako_db_prod"
 database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
-migrations_dir = "migrations"
+migrations_dir = "../../migrations"
 
 [[queues.producers]]
 queue = "drako-billing-queue"

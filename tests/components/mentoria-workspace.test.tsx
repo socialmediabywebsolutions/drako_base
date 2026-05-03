@@ -274,6 +274,11 @@ describe("MentoriaWorkspace", () => {
       subjectSlug: "matematicas",
       message: "No entiendo fracciones",
       topic: "Matematicas",
+      learningState: null,
+      boardContext: expect.objectContaining({
+        subjectSlug: "matematicas",
+        topic: "Matematicas",
+      }),
     });
   });
 
@@ -588,6 +593,41 @@ describe("MentoriaWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
     expect((await screen.findAllByText("Tutor IA no disponible. Falta el binding AI de Cloudflare Workers AI en este entorno.")).length).toBeGreaterThan(0);
+  });
+
+  it("blocks the classroom cleanly when the trial is expired without adding a fake tutor reply", async () => {
+    setSearchParams({ subjectSlug: "historia" });
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(buildWorkspaceResponse({ studentSubjects: [historySubject] })))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ok: false,
+          error: "MENTORIA_ACCESS_EXPIRED",
+          reason: "TRIAL_EXPIRED",
+          upgradeUrl: "/mentoria/upgrade",
+          upgradePrompt: {
+            title: "Tu prueba gratuita ha expirado",
+            message: "Renueva Mentoría para continuar con clases personalizadas.",
+            ctaText: "Suscribirse ahora",
+          },
+        }, 402),
+      );
+
+    render(React.createElement(MentoriaWorkspace));
+
+    await screen.findByRole("heading", { name: "Hola, Alex" });
+    fireEvent.change(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste"), {
+      target: { value: "Quiero aprender sobre la Revolucion Francesa" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+
+    expect(await screen.findByText("Tu prueba gratuita ha expirado")).toBeInTheDocument();
+    expect(screen.getByText("Renueva Mentoría para continuar con clases personalizadas.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Suscribirse ahora" })).toHaveAttribute("href", "/mentoria/upgrade");
+    expect(screen.getByPlaceholderText("Escribe tu duda o cuéntame qué no entendiste")).toBeDisabled();
+    expect(screen.queryByText("El acceso del aula está bloqueado porque el trial de Mentoría ha expirado.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Explicación guiada de Historia sobre Historia")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tema: Revolución Francesa")).not.toBeInTheDocument();
   });
 
   it("keeps the learning loop alive across turns without resetting the class", async () => {

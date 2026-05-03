@@ -1,3 +1,7 @@
+/**
+ * @deprecated Import from "@/lib/socialflow/profile/repository" instead.
+ * This file remains as backing implementation during SocialFlow verticalization.
+ */
 import { exportDemoTenantState, replaceDemoTenantState } from "@/lib/admin/demo-data";
 import type { ChannelAsset, ChannelCompetitor, ChannelKnowledgeSnapshot, ChannelProfile } from "./types";
 import type { CompetitorInsights } from "../ai/types";

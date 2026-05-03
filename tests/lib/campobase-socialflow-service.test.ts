@@ -47,8 +47,8 @@ vi.mock("@/lib/automation-core", () => ({
   AutomationCoreError,
 }));
 
-vi.mock("@/lib/social/ai/socialflow-engine", () => ({
-  runSocialFlowEngine: vi.fn(),
+vi.mock("@/lib/socialflow/contracts/automation", () => ({
+  runSocialFlowAutomationContract: vi.fn(),
 }));
 
 import {

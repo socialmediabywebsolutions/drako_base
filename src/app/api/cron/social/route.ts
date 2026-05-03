@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronAuth, CronAuthError } from "@/lib/security/cron-auth";
-import { processScheduledPosts } from "@/lib/social/scheduler";
+import { processScheduledPosts } from "@/lib/socialflow/scheduler";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +16,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const results = await processScheduledPosts();
+    const batch = await processScheduledPosts();
     return NextResponse.json({ 
       success: true, 
-      processed: results.length,
-      results 
+      processed: batch.results.length,
+      recovered: batch.recovered,
+      results: batch.results,
     });
   } catch (error) {
     console.error("[SocialCron] Scheduler failed", error);

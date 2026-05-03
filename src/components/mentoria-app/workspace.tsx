@@ -165,6 +165,14 @@ type WorkspaceApiResponse = WorkspaceState & {
 type SessionApiResponse = {
   ok?: boolean;
   error?: string;
+  reason?: string;
+  upgradeUrl?: string;
+  upgradePrompt?: {
+    title?: string;
+    message?: string;
+    ctaText?: string;
+    upgradeUrl?: string;
+  } | null;
   tutorMessage?: string;
   chatMessage?: string;
   reply?: string;
@@ -222,13 +230,43 @@ function formatTutorApiError(errorCode?: string | null) {
   if (errorCode === "SUBJECT_REQUIRED") {
     return "Elige una materia para que el tutor y la pizarra trabajen sobre la misma base.";
   }
-  if (errorCode === "trial_expired") {
-    return "El acceso del aula está bloqueado porque el trial de Mentoría ha expirado.";
+  if (errorCode === "MENTORIA_ACCESS_EXPIRED" || errorCode === "trial_expired") {
+    return "El acceso del aula necesita renovarse para continuar.";
   }
-  if (errorCode === "usage_limit_reached") {
+  if (errorCode === "MENTORIA_ACCESS_LIMIT_REACHED" || errorCode === "usage_limit_reached") {
     return "El aula ha alcanzado el límite diario permitido para este plan.";
   }
   return errorCode ?? "MENTORIA_CHAT_FAILED";
+}
+
+type ClassroomAccessGate = {
+  blocked: boolean;
+  reason: "TRIAL_EXPIRED" | "USAGE_LIMIT_REACHED" | "UPGRADE_REQUIRED";
+  title: string;
+  message: string;
+  ctaText: string;
+  upgradeUrl: string;
+};
+
+function buildClassroomAccessGate(body: SessionApiResponse | null): ClassroomAccessGate | null {
+  if (!body || (body.error !== "MENTORIA_ACCESS_EXPIRED" && body.error !== "MENTORIA_ACCESS_LIMIT_REACHED")) {
+    return null;
+  }
+  const reason = body.reason === "USAGE_LIMIT_REACHED" || body.reason === "UPGRADE_REQUIRED"
+    ? body.reason
+    : "TRIAL_EXPIRED";
+  return {
+    blocked: true,
+    reason,
+    title: body.upgradePrompt?.title ?? (reason === "TRIAL_EXPIRED" ? "Acceso de aula pausado" : "Límite de aula alcanzado"),
+    message: body.upgradePrompt?.message ?? (
+      reason === "TRIAL_EXPIRED"
+        ? "La prueba de Mentoría ha terminado. La clase queda pausada hasta renovar el acceso."
+        : "El plan actual ha alcanzado el uso permitido para hoy."
+    ),
+    ctaText: body.upgradePrompt?.ctaText ?? "Renovar acceso",
+    upgradeUrl: body.upgradeUrl ?? body.upgradePrompt?.upgradeUrl ?? "/mentoria/upgrade",
+  };
 }
 
 function normalizeGuidedTokens(value: string) {
@@ -447,6 +485,7 @@ export function MentoriaWorkspace() {
   const [tutorResult, setTutorResult] = useState<TutorResult | null>(null);
   const [tutorMessages, setTutorMessages] = useState<TutorMessage[]>([]);
   const [isTutorLoading, setIsTutorLoading] = useState(false);
+  const [classroomAccessGate, setClassroomAccessGate] = useState<ClassroomAccessGate | null>(null);
   const [boardHistoryByScope, setBoardHistoryByScope] = useState<Record<string, MentoriaBoardUpdate[]>>({});
   const boardHistoryByScopeRef = useRef<Record<string, MentoriaBoardUpdate[]>>({});
   const [exerciseAnswer, setExerciseAnswer] = useState("");
@@ -1080,6 +1119,7 @@ export function MentoriaWorkspace() {
           sessionSignal?: MentoriaStudentSessionSignal;
         },
   ) {
+    if (classroomAccessGate?.blocked) return;
     if (isTutorLoading) return;
     setError(null);
     const normalizedInput = typeof input === "string" ? { message: input } : input;
@@ -1128,6 +1168,16 @@ export function MentoriaWorkspace() {
             sessionMode: normalizedInput?.sessionMode,
             sessionInputKind: normalizedInput?.sessionInputKind,
             sessionSignal: normalizedInput?.sessionSignal,
+            learningState: activeBoardUpdate?.learningState ?? state.evolution ?? null,
+            boardContext: activeBoardUpdate
+              ? {
+                  subjectSlug: activeBoardUpdate.subjectSlug,
+                  topic: activeBoardUpdate.topic,
+                  mode: activeBoardUpdate.mode,
+                  nextAction: activeBoardUpdate.nextAction,
+                  guidedQuestion: activeBoardUpdate.guidedQuestion,
+                }
+              : null,
           },
         ),
       });
@@ -1158,6 +1208,15 @@ export function MentoriaWorkspace() {
 
     if (!response.ok) {
       if (activeSubjectSlugRef.current !== resolvedSubjectSlug) {
+        setIsTutorLoading(false);
+        return;
+      }
+      const accessGate = buildClassroomAccessGate(body);
+      if (accessGate) {
+        setClassroomAccessGate(accessGate);
+        setError(body?.error ?? null);
+        setSessionStatusMessage(null);
+        setIsTutorLoading(false);
         return;
       }
       setError(body?.error ?? null);
@@ -1197,6 +1256,7 @@ export function MentoriaWorkspace() {
         return;
       }
       const tutorReply = body.tutorMessage ?? body.chatMessage ?? body.reply ?? "";
+      setClassroomAccessGate(null);
       const nextTutorMessages: TutorMessage[] = [{ role: "tutor", content: tutorReply, kind: "message" }];
       if (body.sessionFeedback?.completionMessage) {
         nextTutorMessages.push({ role: "tutor", content: body.sessionFeedback.completionMessage, kind: "feedback" });
@@ -2207,6 +2267,7 @@ export function MentoriaWorkspace() {
           orchestratorPlan={orchestratorPlan}
           onSendMessage={handleSendMessage}
           isSending={isTutorLoading}
+          accessGate={classroomAccessGate}
           onQuickAction={handleQuickAction}
           onSelectSessionMode={handleSelectSessionMode}
           onRunNextAction={handleRunNextAction}

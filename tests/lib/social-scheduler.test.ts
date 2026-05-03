@@ -2,21 +2,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const env = vi.hoisted(() => vi.fn());
 const resolveSocialContext = vi.hoisted(() => vi.fn());
+const recoverStalePublishingPosts = vi.hoisted(() => vi.fn());
 const publishSocialPostLive = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/cf", () => ({
   env,
 }));
 
-vi.mock("@/lib/social/repository", () => ({
+vi.mock("@/lib/socialflow/repository", () => ({
   resolveSocialContext,
+  recoverStalePublishingPosts,
 }));
 
-vi.mock("@/lib/social/live-publishing", () => ({
+vi.mock("@/lib/socialflow/live-publishing", () => ({
   publishSocialPostLive,
 }));
 
-import { processScheduledPosts } from "@/lib/social/scheduler";
+import { processScheduledPosts } from "@/lib/socialflow/scheduler";
 
 describe("processScheduledPosts", () => {
   beforeEach(() => {
@@ -33,7 +35,8 @@ describe("processScheduledPosts", () => {
       },
     });
     resolveSocialContext.mockResolvedValue({ tenantId: "tenant_socialflow", saasId: "socialflow", mode: "d1", socialDb: {} });
-    publishSocialPostLive.mockResolvedValue({ ok: true, message: "Published" });
+    recoverStalePublishingPosts.mockResolvedValue(0);
+    publishSocialPostLive.mockResolvedValue({ ok: true, code: "PUBLISHED_LIVE_LINKEDIN", message: "Published" });
   });
 
   it("publishes due scheduled posts from SOCIAL_DB", async () => {
@@ -47,7 +50,8 @@ describe("processScheduledPosts", () => {
       expect.objectContaining({ saasId: "socialflow" }),
       "post-1",
     );
-    expect(results).toEqual([
+    expect(results.recovered).toBe(0);
+    expect(results.results).toEqual([
       expect.objectContaining({
         id: "post-1",
         status: "PUBLISHED",
