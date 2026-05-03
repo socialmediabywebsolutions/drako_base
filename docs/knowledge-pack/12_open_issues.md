@@ -33,6 +33,18 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
 
 ## Issues abiertos
 
+### ISSUE-010 - `apps/*` legacy puede confundirse con runtime canonico
+- Severidad: `P2`
+- Estado: `OPEN`
+- Area: Arquitectura / Factory templates / Separacion vertical
+- Riesgo:
+  - Un operador podria tratar `apps/base`, `apps/bases`, `apps/drako`, `apps/drakos`, `apps/mentorias` o `apps/socialflows` como fuente de runtime vendible aunque hoy solo sean starters/manifests legacy.
+- Estado actual:
+  - El mapa canonico queda documentado en `10_matriz_global_de_rutas_y_entrypoints.md`.
+  - `tests/architecture/canonical-product-map.test.ts` impide que `apps/*` crezca con `package.json`, wrangler config, `src/*`, API o UI runtime sin decision explicita.
+- Criterio de cierre:
+  - Mover `apps/*` a templates/archivo controlado o documentar formalmente su rol dentro de Factory sin ambiguedad con productos activos.
+
 ### ISSUE-005 - Observabilidad insuficiente en fallos de finalizeRegistration
 - Severidad: `P1`
 - Estado: `OPEN`
@@ -73,7 +85,8 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
 1. `ISSUE-006`
 2. `ISSUE-005`
 3. `ISSUE-009`
-4. `ISSUE-008`
+4. `ISSUE-010`
+5. `ISSUE-008`
 
 ## Regla de continuidad
 - Ningun issue pasa a `CLOSED` sin evidencia concreta en `13_progress_log.md`.

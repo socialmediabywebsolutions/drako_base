@@ -38,6 +38,33 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Siguiente accion:
   - Reducir los modulos legacy restantes bajo `src/lib/social/*`, especialmente AI/profile/content-engine, sin cambiar comportamiento productivo.
 
+## [2026-05-03 16:55 UTC+02:00] PLATFORM-P6-5-CANONICAL-PRODUCT-MAP
+- Contexto:
+  - La auditoria de `apps/*` confirmo que esas carpetas no contienen runtime activo: no tienen `package.json`, wrangler config, UI real ni APIs.
+  - El runtime vendible vive en `src/app/*`, `src/app/api/*`, `src/lib/*` y `workers/*`.
+- Cambio realizado:
+  - Se documento el mapa canonico de producto en `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`.
+  - Se marco `apps/*` como starter/manifest legacy, no runtime canonico.
+  - Se agrego `tests/architecture/canonical-product-map.test.ts` para impedir que `apps/*` crezca con package, wrangler config, `src/*` o APIs sin decision explicita.
+  - Se agrego `ISSUE-010` para cerrar a futuro la ubicacion definitiva de `apps/*` como templates/archivo controlado.
+- Archivos tocados:
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+  - `tests/architecture/canonical-product-map.test.ts`
+- Verificacion ejecutada:
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm build`
+- Resultado:
+  - Queda fijado que `apps/*` no es fuente canonica de runtime y que los productos activos se desarrollan en sus superficies reales.
+- Riesgo residual:
+  - `apps/*` sigue fisicamente en el repo hasta decidir si se mueve a templates o archivo controlado.
+- Siguiente accion:
+  - Resolver `ISSUE-010` cuando se prepare la plantilla formal de futuros SaaS.
+  - No renombrar workers plurales productivos sin plan de deploy.
+
 ## [2026-05-02 12:20 UTC+02:00] SOCIALFLOW-P1-VERTICAL-BOUNDARY
 - Contexto:
   - P1 de separacion vertical: SocialFlow debe funcionar como SaaS independiente y Campamento Base solo como capa operator/contrato.

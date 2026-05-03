@@ -15,6 +15,26 @@ Matriz técnica de rutas globales y entrypoints para operación diaria, QA y aud
 
 ## Cómo se comporta
 
+## 0) Mapa canonico de producto
+
+El runtime vendible del ecosistema no vive en `apps/*`. Las carpetas `apps/*`
+son starters/manifests legacy para la vieja iniciativa multi-SaaS y no deben
+tratarse como fuente canonica de UI, API, auth, D1 ni deploy.
+
+| Capa/producto | Runtime canonico | Compat/legacy permitido | Nota operativa |
+|---|---|---|---|
+| Drako marca | raiz publica, marketing y `src/app/site/*` | `drakos` como auth/worker context | Drako es marca/casa central, no SaaS hijo vendible. |
+| Campamento Base | `src/app/operator/*`, `src/app/api/operator/*`, `src/lib/campobase/*` | `/bases/*`, `/api/bases/*`, `/campobase/*`, `/api/campobase/*` | Holding/operator; no debe ejecutar motores internos de SaaS hijos. |
+| Mentoria | `src/app/mentoria/*`, `src/app/api/mentoria/*`, `src/lib/mentoria/*` | `/mentorias/auths/*`, `/api/mentorias/auths/*`, workers plurales existentes | SaaS educativo independiente; no tocar aula/chat/pizarra sin evidencia critica. |
+| SocialFlow | `src/app/socialflow/*`, `src/app/api/socialflow/*`, `src/lib/socialflow/*`, `src/lib/social-core/*` | `/socialflows`, workers plurales existentes, `/api/social/*` bloqueado/bridgeado | SaaS social independiente; Campamento Base consume contratos publicos. |
+| Factory | `src/app/api/factory/*`, `src/app/api/owner/factory/*`, workers de provisioning | runbooks/templates legacy | Capacidad futura/provisioning, no home publica de Drako. |
+
+### `apps/*` no es runtime canonico
+- No debe contener `package.json`, `wrangler.toml`, `wrangler.jsonc`, `src/*`, APIs ni UI real.
+- No debe importarse desde `src/*`, `workers/*` ni rutas productivas.
+- Si un SaaS nuevo necesita plantilla, usar `apps/*` solo como referencia legacy o moverlo en una fase futura a templates controlados.
+- Los workers plurales productivos (`workers/drakos`, `workers/mentorias`, `workers/bases`, `workers/socialflows`) no se renombran sin plan de deploy y redirects.
+
 ## 1) Mentoría — rutas canónicas
 ### Público (landing)
 - `/site/mentoria`
