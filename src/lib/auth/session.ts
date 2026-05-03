@@ -6,6 +6,9 @@ import { verifyAuthsSessionToken } from "@/lib/auths/tokens";
 import { isAuthsIsolationEnabled, isAuthsLegacyCompatEnabled } from "@/lib/auths/flags";
 import { isTenantWorkspaceApiPath, isTenantWorkspacePath } from "@/lib/platform/surfaces";
 import { getWorkspaceSessionByToken } from "@/lib/auth/campamento-core";
+import { getWorkspaceUserById, resolveActiveMembershipForUser } from "@/lib/auth/campamento-core";
+import { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -280,6 +283,50 @@ async function getNextAuthDatabaseSession(request: Request): Promise<SessionData
   };
 }
 
+async function getNextAuthJwtSession(request: Request): Promise<SessionData | null> {
+  if (!shouldAcceptNextAuthDatabaseSession(request)) {
+    return null;
+  }
+
+  const secret = process.env.NEXTAUTH_SECRET ?? process.env.SESSION_SECRET;
+  if (!secret) {
+    return null;
+  }
+
+  const nextRequest = new NextRequest(request.url, {
+    method: request.method,
+    headers: request.headers,
+  });
+  const token = await getToken({
+    req: nextRequest,
+    secret,
+  });
+
+  const userId = typeof token?.sub === "string" ? token.sub : null;
+  if (!userId) {
+    return null;
+  }
+
+  const user = await getWorkspaceUserById(userId);
+  if (!user) {
+    return null;
+  }
+
+  const membership = await resolveActiveMembershipForUser(user.id);
+  if (!membership) {
+    return null;
+  }
+
+  return {
+    userId: user.id,
+    email: user.email,
+    tenantId: membership.tenantId,
+    role: normalizeRole(membership.role),
+    issuedAt: Date.now(),
+    authMode: "nextauth_database",
+  };
+}
+
 export async function requireSession(request: Request): Promise<SessionData> {
   const testSession = (globalThis as { __TEST_SESSION__?: any }).__TEST_SESSION__;
   if (testSession?.user) {
@@ -293,7 +340,10 @@ export async function requireSession(request: Request): Promise<SessionData> {
     };
   }
 
-  const session = (await getSession(request)) ?? (await getNextAuthDatabaseSession(request));
+  const session =
+    (await getSession(request))
+    ?? (await getNextAuthDatabaseSession(request))
+    ?? (await getNextAuthJwtSession(request));
   if (session) {
     return session;
   }
@@ -328,7 +378,10 @@ export async function requireTenantAccess(
 export async function requireOwnerAccess(
   request: Request
 ): Promise<{ tenantId: string; session: SessionData }> {
-  const session = (await getSession(request)) ?? (await getNextAuthDatabaseSession(request));
+  const session =
+    (await getSession(request))
+    ?? (await getNextAuthDatabaseSession(request))
+    ?? (await getNextAuthJwtSession(request));
 
   if (!session) {
     throw SESSION_REQUIRED_ERROR;
