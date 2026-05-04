@@ -46,4 +46,15 @@ describe("Mentoria vertical boundaries", () => {
       expect(source).not.toMatch(/@\/lib\/mentoria\/(?!contracts\/)/);
     }
   });
+
+  it("keeps Mentoria away from SocialFlow product internals", () => {
+    const files = listFiles(path.join(repoRoot, "src/lib/mentoria"));
+    expect(files.length).toBeGreaterThan(0);
+
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      expect(source).not.toMatch(/@\/lib\/socialflow/);
+      expect(source).not.toMatch(/@\/lib\/social\/(ai|repository|live-publishing|scheduler|linkedin-service)/);
+    }
+  });
 });

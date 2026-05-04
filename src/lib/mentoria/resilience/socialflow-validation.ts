@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/db";
-import { publishPost } from "@/lib/socialflow/client";
+import { publishSocialPost } from "@/lib/social-core/publishing";
 
 export type PublishJobStatus = "pending_publish" | "publishing" | "pending_confirmation" | "confirmed" | "failed" | "abandoned";
 
@@ -92,8 +92,7 @@ export class SocialFlowValidation {
           .bind(job.id, job.tenant_id)
           .run();
 
-        // Call SocialFlow API
-        const result = await publishPost(job.channel as "linkedin" | "instagram" | "tiktok", job.content);
+        const result = await publishSocialPost(job.channel as "linkedin" | "instagram" | "tiktok", job.content);
 
         if (!result.success) {
           throw new Error(result.error || "Unknown error");
