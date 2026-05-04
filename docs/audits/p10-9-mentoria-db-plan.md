@@ -153,6 +153,7 @@ Safe rollback requires keeping `DRACO_DB` as the historical source during the mi
 
 ## Future Guardrails
 
+- Implemented in P10.10 (readiness/tests/doc only): `MENTORIA_DB` now has non-blocking missing-binding debt warnings plus fail-closed checks for shared identity reuse and preview/prod collisions when configured.
 - `MENTORIA_DB` must not share physical identity with `DRACO_DB`.
 - Preview `MENTORIA_DB` must not point to production physical identity.
 - `workers/mentorias` must declare `MENTORIA_DB` when the active phase requires it.

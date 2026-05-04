@@ -26,6 +26,11 @@ Owner scope: Holding (Campamento Base)
   - no shared identity reuse with `DRACO_DB` / `SOCIAL_DB` / auth holding bindings
   - naming policy for dedicated auth ownership
   - preview vs production collision detection
+- Mentoria future binding guardrails (`MENTORIA_DB`):
+  - no shared identity reuse with `DRACO_DB` / `SOCIAL_DB` / `MENTORIAS_AUTHS_DB` / `BASES_AUTHS_DB` / `SOCIALFLOW_AUTHS_DB`
+  - preview identity must stay isolated from production identities and be fail-closed or preview-marked
+  - if `MENTORIA_DB` is still absent, readiness stays non-blocking but emits transitional debt warning
+  - transitional fallback (`get-mentoria-db.ts` -> `DRACO_DB`) is tracked as explicit readiness debt warning
 
 ## Severity Rules
 

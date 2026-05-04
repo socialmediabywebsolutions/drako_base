@@ -16,6 +16,34 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
 ```
 
+## [2026-05-04 18:43 UTC+02:00] MENTORIA-P10-10-DB-GUARDRAILS
+- Contexto:
+  - P10.9 documento el plan futuro para `MENTORIA_DB`.
+- Cambio realizado:
+  - Se agregaron guardrails de readiness para `MENTORIA_DB`: no compartir identidad fisica con `DRACO_DB`/`SOCIAL_DB`/`MENTORIAS_AUTHS_DB`/`BASES_AUTHS_DB`/`SOCIALFLOW_AUTHS_DB`, deteccion de colision preview->prod y warning no bloqueante cuando `MENTORIA_DB` aun no existe.
+  - Se agrego warning de deuda transicional para el fallback actual a `DRACO_DB` en `get-mentoria-db.ts`, sin cambiar runtime.
+  - Se ampliaron tests de `production-readiness` y fixtures de `mentoria-db-guards`.
+- Archivos tocados:
+  - `scripts/check-production-readiness.ts`
+  - `tests/production-readiness.test.ts`
+  - `tests/fixtures/production-audits/mentoria-db-guards/*`
+  - `docs/policies/production-readiness-audits.md`
+  - `docs/audits/p10-9-mentoria-db-plan.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - `git status --short`
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm build`
+  - focalizados: `tests/production-readiness.test.ts`, `tests/lib/mentoria-family-db-binding.test.ts`, `tests/architecture/canonical-product-map.test.ts`, `tests/architecture/mentoria-vertical-boundaries.test.ts`
+- Resultado:
+  - La separacion futura de Mentoria queda protegida sin crear DB remota ni migrar datos.
+- Riesgo residual:
+  - Mentoria sigue usando fallback transicional hasta ejecutar fases futuras de split/cutover.
+- Siguiente accion:
+  - Auditar dominios/deploy canonicos por producto antes de activar fases de split fisico.
+
 ## [2026-05-03 15:18 UTC+02:00] SOCIALFLOW-P8-OPERATOR-SAFE-ACTIONS
 - Contexto:
   - P7 dejo visible la salud de SocialFlow en `/operator/socialflow`; P8 agrega acciones operator controladas sin importar motores internos ni reabrir rutas legacy.

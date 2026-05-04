@@ -1,0 +1,6 @@
+name = "test-mentoria-db-missing"
+
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"

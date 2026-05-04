@@ -1,0 +1,14 @@
+name = "test-mentoria-db-shared-social"
+
+[[d1_databases]]
+binding = "SOCIAL_DB"
+database_name = "saas_socialflows_prod_db"
+database_id = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+
+[env.production]
+name = "test-mentoria-db-prod"
+
+[[env.production.d1_databases]]
+binding = "MENTORIA_DB"
+database_name = "mentoria_db_prod"
+database_id = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"

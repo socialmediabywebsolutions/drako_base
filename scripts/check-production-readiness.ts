@@ -122,7 +122,11 @@ type CheckCode =
   | "legacyProductionGuardMissing"
   | "socialflowAuthsBindingSharedIdentity"
   | "socialflowAuthsBindingNamingViolation"
-  | "socialflowAuthsBindingPreviewProdCollision";
+  | "socialflowAuthsBindingPreviewProdCollision"
+  | "mentoriaBindingMissingTransitionalDebt"
+  | "mentoriaBindingSharedIdentity"
+  | "mentoriaBindingPreviewProdCollision"
+  | "mentoriaDbFallbackTransitionalDebt";
 
 type CheckRecord = {
   checkCode: CheckCode;
@@ -194,6 +198,7 @@ type ProductionAuditsRunOptions = {
   reportMarkdownPath?: string;
   legacyGuardsOverride?: LegacyProductionGuard[];
   socialflowAuthsGuardOverride?: SocialflowAuthsBindingGuard;
+  mentoriaBindingGuardOverride?: MentoriaBindingGuard;
 };
 
 type LegacyProductionGuard = {
@@ -209,6 +214,15 @@ type SocialflowAuthsBindingGuard = {
   reservedBindings: string[];
 };
 
+type MentoriaBindingGuard = {
+  targetName: string;
+  configPaths: string[];
+  mentoriaBinding: string;
+  reservedBindings: string[];
+  fallbackFilePath: string;
+  fallbackToken: string;
+};
+
 type D1BindingRecord = {
   binding: string;
   databaseName: string | null;
@@ -222,6 +236,8 @@ const DEFAULT_REPORT_JSON_PATH = "docs/audits/production-readiness-latest.json";
 const DEFAULT_REPORT_MARKDOWN_PATH = "docs/audits/production-readiness-latest.md";
 const LEGACY_GUARD_DEFAULT_SEVERITY: SeverityLevel = "BLOCKER";
 const SOCIALFLOW_AUTHS_GUARD_SEVERITY: SeverityLevel = "BLOCKER";
+const MENTORIA_GUARD_BLOCKER_SEVERITY: SeverityLevel = "BLOCKER";
+const MENTORIA_GUARD_DEBT_SEVERITY: SeverityLevel = "WARN";
 const LOCAL_OR_FAIL_CLOSED_DATABASE_IDS = new Set(["local-dev", "00000000-0000-0000-0000-000000000000"]);
 const LOCAL_COLLAPSED_DATABASE_NAMES = new Set(["drako_db_local"]);
 
@@ -234,6 +250,15 @@ const DEFAULT_SOCIALFLOW_AUTHS_BINDING_GUARD: SocialflowAuthsBindingGuard = {
   ],
   socialflowBinding: "SOCIALFLOW_AUTHS_DB",
   reservedBindings: ["DRACO_DB", "SOCIAL_DB", "MENTORIAS_AUTHS_DB", "BASES_AUTHS_DB"],
+};
+
+const DEFAULT_MENTORIA_BINDING_GUARD: MentoriaBindingGuard = {
+  targetName: "mentoria:db-binding-dedicated",
+  configPaths: ["wrangler.jsonc", "wrangler.workers.toml", "workers/mentorias/wrangler.workers.toml"],
+  mentoriaBinding: "MENTORIA_DB",
+  reservedBindings: ["DRACO_DB", "SOCIAL_DB", "MENTORIAS_AUTHS_DB", "BASES_AUTHS_DB", "SOCIALFLOW_AUTHS_DB"],
+  fallbackFilePath: "src/lib/mentoria/get-mentoria-db.ts",
+  fallbackToken: "env?.DRACO_DB",
 };
 const DEFAULT_LEGACY_PRODUCTION_GUARDS: LegacyProductionGuard[] = [
   {
@@ -1246,7 +1271,9 @@ function isLocalCollapsedName(value: string | null): boolean {
 }
 
 function isPreviewRecord(record: D1BindingRecord): boolean {
-  return record.section.toLowerCase().includes("preview") || record.filePath.toLowerCase().includes("preview");
+  const section = record.section.toLowerCase();
+  if (section.includes("production")) return false;
+  return section.includes("preview") || record.filePath.toLowerCase().includes("preview");
 }
 
 function isProductionRecord(record: D1BindingRecord): boolean {
@@ -1415,6 +1442,195 @@ async function buildSocialflowAuthsBindingGuardChecks(guard: SocialflowAuthsBind
   return checks;
 }
 
+async function buildMentoriaBindingGuardChecks(guard: MentoriaBindingGuard): Promise<CheckRecord[]> {
+  const checks: CheckRecord[] = [];
+  const allRecords: D1BindingRecord[] = [];
+
+  for (const filePath of guard.configPaths) {
+    let content = "";
+    try {
+      content = await fs.readFile(resolveAbsolutePath(filePath), "utf8");
+    } catch {
+      continue;
+    }
+    allRecords.push(...parseD1BindingsFromContent(content, filePath));
+  }
+
+  const mentoriaRecords = allRecords.filter((record) => record.binding === guard.mentoriaBinding);
+  const reservedRecords = allRecords.filter((record) => guard.reservedBindings.includes(record.binding));
+
+  if (mentoriaRecords.length === 0) {
+    checks.push({
+      checkCode: "mentoriaBindingMissingTransitionalDebt",
+      severity: MENTORIA_GUARD_DEBT_SEVERITY,
+      status: "FAIL",
+      targetType: "code_guard",
+      targetName: `${guard.targetName}:missing_binding_transitional_debt`,
+      expected: `${guard.mentoriaBinding} configured before final cutover`,
+      actual: "binding_not_present_yet",
+      details: `${guard.mentoriaBinding} is still absent. Transitional debt remains open and runtime fallback is still expected.`,
+    });
+    checks.push({
+      checkCode: "mentoriaBindingSharedIdentity",
+      severity: MENTORIA_GUARD_BLOCKER_SEVERITY,
+      status: "N/A",
+      targetType: "code_guard",
+      targetName: `${guard.targetName}:shared_identity`,
+      expected: `${guard.mentoriaBinding} configured`,
+      actual: "binding_not_present_yet",
+      details: `Shared-identity guard is armed for future cutover: ${guard.mentoriaBinding} is not configured yet.`,
+    });
+    checks.push({
+      checkCode: "mentoriaBindingPreviewProdCollision",
+      severity: MENTORIA_GUARD_BLOCKER_SEVERITY,
+      status: "N/A",
+      targetType: "code_guard",
+      targetName: `${guard.targetName}:preview_prod_collision`,
+      expected: "preview and production use distinct physical identities",
+      actual: "binding_not_present_yet",
+      details: `Preview/prod collision check is deferred until ${guard.mentoriaBinding} exists.`,
+    });
+    return checks;
+  }
+
+  checks.push({
+    checkCode: "mentoriaBindingMissingTransitionalDebt",
+    severity: MENTORIA_GUARD_DEBT_SEVERITY,
+    status: "PASS",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:missing_binding_transitional_debt`,
+    expected: `${guard.mentoriaBinding} configured before final cutover`,
+    actual: "binding_present",
+    details: `${guard.mentoriaBinding} is present in config. Missing-binding transitional debt is closed.`,
+  });
+
+  const sharedIdentityViolations: string[] = [];
+  for (const mentoriaRecord of mentoriaRecords) {
+    for (const reserved of reservedRecords) {
+      const sameId =
+        mentoriaRecord.databaseId &&
+        reserved.databaseId &&
+        mentoriaRecord.databaseId === reserved.databaseId &&
+        !isLocalOrFailClosedId(mentoriaRecord.databaseId);
+      const sameName =
+        mentoriaRecord.databaseName &&
+        reserved.databaseName &&
+        mentoriaRecord.databaseName === reserved.databaseName &&
+        !isLocalCollapsedName(mentoriaRecord.databaseName);
+      if (sameId || sameName) {
+        sharedIdentityViolations.push(
+          `${mentoriaRecord.filePath} (${mentoriaRecord.section}) shares identity with ${reserved.binding} in ${reserved.filePath} (${reserved.section})`,
+        );
+      }
+    }
+  }
+
+  checks.push({
+    checkCode: "mentoriaBindingSharedIdentity",
+    severity: MENTORIA_GUARD_BLOCKER_SEVERITY,
+    status: sharedIdentityViolations.length === 0 ? "PASS" : "FAIL",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:shared_identity`,
+    expected: `no identity overlap with [${guard.reservedBindings.join(", ")}]`,
+    actual: sharedIdentityViolations.length === 0 ? "no_overlap_detected" : sharedIdentityViolations,
+    details:
+      sharedIdentityViolations.length === 0
+        ? `${guard.mentoriaBinding} uses a dedicated physical identity in scanned configs.`
+        : `${guard.mentoriaBinding} overlaps with reserved bindings.`,
+  });
+
+  const previewRecords = mentoriaRecords.filter(isPreviewRecord);
+  const nonPreviewMentoriaRecords = mentoriaRecords.filter((record) => !isPreviewRecord(record));
+  const reservedProductionRecords = reservedRecords.filter((record) => !isPreviewRecord(record));
+  const previewProdCollisions: string[] = [];
+
+  for (const previewRecord of previewRecords) {
+    const previewHasMarker =
+      (previewRecord.databaseName?.toLowerCase().includes("preview") ?? false) ||
+      isLocalOrFailClosedId(previewRecord.databaseId);
+    if (!previewHasMarker) {
+      previewProdCollisions.push(
+        `${previewRecord.filePath} (${previewRecord.section}) is neither fail-closed nor explicitly preview-marked`,
+      );
+    }
+
+    for (const candidate of [...nonPreviewMentoriaRecords, ...reservedProductionRecords]) {
+      const sameId =
+        previewRecord.databaseId &&
+        candidate.databaseId &&
+        previewRecord.databaseId === candidate.databaseId &&
+        !isLocalOrFailClosedId(previewRecord.databaseId);
+      const sameName =
+        previewRecord.databaseName &&
+        candidate.databaseName &&
+        previewRecord.databaseName === candidate.databaseName &&
+        !isLocalCollapsedName(previewRecord.databaseName);
+      if (sameId || sameName) {
+        previewProdCollisions.push(
+          `${previewRecord.filePath} (${previewRecord.section}) collides with ${candidate.binding} in ${candidate.filePath} (${candidate.section})`,
+        );
+      }
+    }
+  }
+
+  checks.push({
+    checkCode: "mentoriaBindingPreviewProdCollision",
+    severity: MENTORIA_GUARD_BLOCKER_SEVERITY,
+    status:
+      previewRecords.length > 0
+        ? previewProdCollisions.length === 0
+          ? "PASS"
+          : "FAIL"
+        : "N/A",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:preview_prod_collision`,
+    expected: "preview must be isolated from production identities and be fail-closed or preview-marked",
+    actual:
+      previewRecords.length > 0
+        ? previewProdCollisions.length === 0
+          ? "isolated_and_marked"
+          : previewProdCollisions
+        : "preview_not_configured",
+    details:
+      previewRecords.length > 0
+        ? previewProdCollisions.length === 0
+          ? "Preview identity is isolated and clearly marked."
+          : "Preview identity collides with production or is not clearly marked."
+        : "Preview collision check skipped because no preview binding evidence exists.",
+  });
+
+  return checks;
+}
+
+async function buildMentoriaFallbackDebtChecks(guard: MentoriaBindingGuard): Promise<CheckRecord[]> {
+  let content = "";
+  let readError: string | null = null;
+
+  try {
+    content = await fs.readFile(resolveAbsolutePath(guard.fallbackFilePath), "utf8");
+  } catch (error) {
+    readError = error instanceof Error ? error.message : String(error);
+  }
+
+  const fallbackStillPresent = readError ? true : content.includes(guard.fallbackToken);
+  return [
+    {
+      checkCode: "mentoriaDbFallbackTransitionalDebt",
+      severity: MENTORIA_GUARD_DEBT_SEVERITY,
+      status: fallbackStillPresent ? "FAIL" : "PASS",
+      targetType: "code_guard",
+      targetName: `${guard.targetName}:fallback_transitional_debt`,
+      expected: `${guard.fallbackToken} removed after final cutover`,
+      actual: readError ? `READ_ERROR:${readError}` : fallbackStillPresent ? "fallback_present" : "fallback_removed",
+      details: readError
+        ? `Unable to verify transitional fallback debt in ${guard.fallbackFilePath}.`
+        : fallbackStillPresent
+          ? `Transitional fallback to DRACO_DB is still present in ${guard.fallbackFilePath}.`
+          : `Transitional fallback token is no longer present in ${guard.fallbackFilePath}.`,
+    },
+  ];
+}
+
 function buildReport(params: {
   mode: "real" | "fixtures";
   sourceOfTruthPath: string;
@@ -1545,6 +1761,11 @@ export async function runProductionReadinessAudits(
   const socialflowAuthsGuard = options.socialflowAuthsGuardOverride ?? DEFAULT_SOCIALFLOW_AUTHS_BINDING_GUARD;
   const socialflowAuthsChecks = await buildSocialflowAuthsBindingGuardChecks(socialflowAuthsGuard);
   checks.push(...socialflowAuthsChecks);
+  const mentoriaBindingGuard = options.mentoriaBindingGuardOverride ?? DEFAULT_MENTORIA_BINDING_GUARD;
+  const mentoriaBindingChecks = await buildMentoriaBindingGuardChecks(mentoriaBindingGuard);
+  checks.push(...mentoriaBindingChecks);
+  const mentoriaFallbackDebtChecks = await buildMentoriaFallbackDebtChecks(mentoriaBindingGuard);
+  checks.push(...mentoriaFallbackDebtChecks);
   const report = buildReport({
     mode,
     sourceOfTruthPath,
