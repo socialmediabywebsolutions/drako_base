@@ -1,6 +1,6 @@
 {
   "meta": {
-    "updatedAt": "2026-05-04T19:10:00Z",
+    "updatedAt": "2026-05-04T19:40:00Z",
     "owner": "holding",
     "notes": "P0 production readiness audits source of truth; includes phase-gated SocialFlow canonical domain expected-state"
   },
@@ -11,12 +11,18 @@
       "expectedWorker": "saas-socialflows-prod",
       "compatibilityHostname": "socialflows.drako.systems",
       "smokeEvidencePaths": [
-        ".github/workflows/drako-factory-deploy.yml"
+        "scripts/smoke/socialflow-canonical-domain-smoke.mjs",
+        "docs/runbooks/socialflow-canonical-domain-smoke.md"
       ],
       "smokeEvidenceTokens": [
         "socialflow.drako.systems",
         "/socialflow",
-        "/api/socialflow"
+        "/socialflow/auth",
+        "/api/socialflow/profile",
+        "/api/social/posts",
+        "/api/social/linkedin/publish",
+        "/api/socialflow/linkedin/connect",
+        "socialflows.drako.systems"
       ]
     }
   },

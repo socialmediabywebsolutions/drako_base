@@ -49,6 +49,7 @@
     "test:projects-factory": "npm run test:projects && npm run test:project-domains && npm run test:project-entitlements && npm run test:project-entitlements-context && npm run test:agents-catalog",
     "test:mapping": "node scripts/check-mapping.js",
     "smoke:cloudflare": "node scripts/smokes-cloudflare.js",
+    "smoke:socialflow:canonical:manual": "node scripts/smoke/socialflow-canonical-domain-smoke.mjs",
     "check:workers": "cross-env TMPDIR=/tmp tsx scripts/check-workers-drift.ts",
     "check:workers:fixtures": "cross-env TMPDIR=/tmp FIXTURES_DIR=tests/fixtures/workers-drifts/pass tsx scripts/check-workers-drift.ts",
     "check:hostnames": "cross-env TMPDIR=/tmp tsx scripts/check-hostnames-drift.ts",

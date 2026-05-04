@@ -117,6 +117,16 @@ Prepare a safe future implementation plan for `socialflow.drako.systems` as the 
 - When switched to `active: true`, missing canonical hostname, wrong worker ownership, and missing canonical smoke evidence become blockers.
 - Compatibility hostname `socialflows.drako.systems` is tracked as a warning if it appears to remain primary before canonical health is established.
 
+### P10.15 Follow-up (Prepared Canonical Smoke, Not Activated)
+
+- Added safe manual smoke script: `scripts/smoke/socialflow-canonical-domain-smoke.mjs`.
+- Added runbook: `docs/runbooks/socialflow-canonical-domain-smoke.md`.
+- Script is no-op by default and only runs HTTP checks when:
+  - `SOCIALFLOW_CANONICAL_SMOKE_ENABLED=1`
+  - `SOCIALFLOW_CANONICAL_HOST` is explicitly provided.
+- Expected-state smoke evidence now points to the script/runbook, without activating phase gate.
+- No Cloudflare, worker, middleware, runtime, OAuth code, or production mutation is performed in this preparation.
+
 ## Phased Implementation Plan
 
 ### Phase A - Readiness Expected-State

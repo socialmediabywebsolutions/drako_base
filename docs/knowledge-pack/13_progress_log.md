@@ -16,6 +16,34 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
 ```
 
+## [2026-05-04 21:40 UTC+02:00] SOCIALFLOW-P10-15-CANONICAL-SMOKE-PREP
+- Contexto:
+  - P10.14 anadio readiness phase-gated para `socialflow.drako.systems`.
+- Cambio realizado:
+  - Se preparo smoke canonico manual y seguro para SocialFlow con script no-op por defecto y runbook operativo.
+  - Se anadio script `scripts/smoke/socialflow-canonical-domain-smoke.mjs` con activacion explicita por variable y host obligatorio.
+  - Se actualizo expected-state para que la evidencia de smoke canonico apunte al script/runbook, sin activar fase.
+- Archivos tocados:
+  - `scripts/smoke/socialflow-canonical-domain-smoke.mjs`
+  - `docs/runbooks/socialflow-canonical-domain-smoke.md`
+  - `docs/config/production-audits-expected-state.json`
+  - `docs/audits/p10-13-socialflow-domain-implementation-plan.md`
+  - `package.json`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: grep de smokes/dominios/rutas y revision de workflows/scripts/readiness.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Smoke no-op: `node scripts/smoke/socialflow-canonical-domain-smoke.mjs`.
+- Resultado:
+  - Smoke preparado sin tocar Cloudflare ni activar produccion.
+- Riesgo residual:
+  - El dominio singular aun no existe; la ejecucion real del smoke queda pendiente para fase futura.
+- Siguiente accion:
+  - Preparar checklist operativo de Cloudflare custom domain antes de activar `phaseGates.socialflowCanonicalDomain.active`.
+- Relacion con issues:
+  - `ISSUE-015`
+
 ## [2026-05-04 22:05 UTC+02:00] SOCIALFLOW-P10-14-DOMAIN-READINESS-GUARDRAILS
 - Contexto:
   - P10.13 documento el plan tecnico para `socialflow.drako.systems`.
