@@ -21,6 +21,7 @@ Owner scope: Holding (Campamento Base)
   - durable object classes (if declared)
 - critical D1 tables and critical columns
 - onboarding consistency (`users.onboarding_completed`)
+- legacy fail-closed guards for decommissioned configs (including `wrangler.workers.toml` preview `SOCIAL_DB`)
 
 ## Severity Rules
 

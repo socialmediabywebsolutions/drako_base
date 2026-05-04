@@ -161,8 +161,10 @@ database_id = "874636a0-ae0d-490f-830b-a14241729b49"
 
 [[env.preview.d1_databases]]
 binding = "SOCIAL_DB"
-database_name = "saas_socialflows_prod_db"
-database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
+# LEGACY_PREVIEW_SOCIAL_DB_FAIL_CLOSED:
+# drako-base-3 is archived; preview must never target SocialFlow production D1.
+database_name = "saas_socialflows_preview_db"
+database_id = "00000000-0000-0000-0000-000000000000"
 
 [env.preview.ai]
 binding = "AI"

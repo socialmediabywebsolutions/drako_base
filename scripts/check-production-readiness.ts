@@ -223,6 +223,16 @@ const DEFAULT_LEGACY_PRODUCTION_GUARDS: LegacyProductionGuard[] = [
     filePath: "src/workers/saas-factory-consumer.ts",
     mustInclude: ["LEGACY_SAAS_FACTORY_QUEUE_BLOCKED", "legacy.saas_factory_queue.blocked", "message.ack"],
   },
+  {
+    targetName: "legacy:drako-base-3-preview-social-db-fail-closed",
+    filePath: "wrangler.workers.toml",
+    mustInclude: [
+      "LEGACY_PREVIEW_SOCIAL_DB_FAIL_CLOSED",
+      "binding = \"SOCIAL_DB\"",
+      "database_name = \"saas_socialflows_preview_db\"",
+      "database_id = \"00000000-0000-0000-0000-000000000000\"",
+    ],
+  },
 ];
 
 function stripQuotes(value: string): string {
