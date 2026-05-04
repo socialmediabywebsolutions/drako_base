@@ -1,5 +1,5 @@
 import { queryOne } from "@/lib/db";
-import { generateWipeoutPackage } from "@/lib/campamento-base/export-engine/wipeout";
+import { generateWipeoutPackage } from "@/lib/export/wipeout-package";
 
 const SOCIALFLOW_EXPORT_SLUGS = ["socialflow", "socialflows"];
 

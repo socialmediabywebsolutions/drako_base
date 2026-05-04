@@ -129,6 +129,21 @@ describe("SocialFlow vertical boundaries", () => {
     expect(campobaseService).not.toMatch(/@\/lib\/socialflow\/(repository|live-publishing|scheduler|linkedin\/publishing)/);
   });
 
+  it("keeps socialflow export independent from Campamento Base internals", () => {
+    const socialFlowExport = read("src/lib/socialflow/export.ts");
+    const neutralWipeout = read("src/lib/export/wipeout-package.ts");
+    const campamentoBaseWipeout = read("src/lib/campamento-base/export-engine/wipeout.ts");
+
+    expect(socialFlowExport).toContain("generateSocialFlowExportForTenant");
+    expect(socialFlowExport).toContain("@/lib/export/wipeout-package");
+    expect(socialFlowExport).not.toMatch(/@\/lib\/campamento-base\/export-engine\/wipeout/);
+
+    expect(neutralWipeout).toContain("export async function generateWipeoutPackage");
+    expect(neutralWipeout).not.toMatch(/@\/lib\/campamento-base/);
+
+    expect(campamentoBaseWipeout).toContain('export { generateWipeoutPackage } from "@/lib/export/wipeout-package"');
+  });
+
   it("keeps dangerous legacy social routes disabled", () => {
     const legacyPosts = read("src/app/api/social/posts/route.ts");
     const legacyLinkedInPublish = read("src/app/api/social/linkedin/publish/route.ts");
