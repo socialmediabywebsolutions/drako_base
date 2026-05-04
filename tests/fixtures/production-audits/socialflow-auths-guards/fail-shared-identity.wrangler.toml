@@ -1,0 +1,14 @@
+name = "test-socialflow-auths-shared"
+
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+
+[env.production]
+name = "test-socialflow-auths-prod"
+
+[[env.production.d1_databases]]
+binding = "SOCIALFLOW_AUTHS_DB"
+database_name = "saas_socialflows_auths_prod_db"
+database_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"

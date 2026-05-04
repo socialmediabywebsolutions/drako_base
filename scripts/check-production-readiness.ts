@@ -119,7 +119,10 @@ type CheckCode =
   | "criticalTableMissing"
   | "criticalColumnMissing"
   | "onboardingColumnsMismatch"
-  | "legacyProductionGuardMissing";
+  | "legacyProductionGuardMissing"
+  | "socialflowAuthsBindingSharedIdentity"
+  | "socialflowAuthsBindingNamingViolation"
+  | "socialflowAuthsBindingPreviewProdCollision";
 
 type CheckRecord = {
   checkCode: CheckCode;
@@ -190,6 +193,7 @@ type ProductionAuditsRunOptions = {
   reportJsonPath?: string;
   reportMarkdownPath?: string;
   legacyGuardsOverride?: LegacyProductionGuard[];
+  socialflowAuthsGuardOverride?: SocialflowAuthsBindingGuard;
 };
 
 type LegacyProductionGuard = {
@@ -198,10 +202,39 @@ type LegacyProductionGuard = {
   mustInclude: string[];
 };
 
+type SocialflowAuthsBindingGuard = {
+  targetName: string;
+  configPaths: string[];
+  socialflowBinding: string;
+  reservedBindings: string[];
+};
+
+type D1BindingRecord = {
+  binding: string;
+  databaseName: string | null;
+  databaseId: string | null;
+  filePath: string;
+  section: string;
+};
+
 const DEFAULT_SOURCE_OF_TRUTH_PATH = "docs/config/production-audits-expected-state.json";
 const DEFAULT_REPORT_JSON_PATH = "docs/audits/production-readiness-latest.json";
 const DEFAULT_REPORT_MARKDOWN_PATH = "docs/audits/production-readiness-latest.md";
 const LEGACY_GUARD_DEFAULT_SEVERITY: SeverityLevel = "BLOCKER";
+const SOCIALFLOW_AUTHS_GUARD_SEVERITY: SeverityLevel = "BLOCKER";
+const LOCAL_OR_FAIL_CLOSED_DATABASE_IDS = new Set(["local-dev", "00000000-0000-0000-0000-000000000000"]);
+const LOCAL_COLLAPSED_DATABASE_NAMES = new Set(["drako_db_local"]);
+
+const DEFAULT_SOCIALFLOW_AUTHS_BINDING_GUARD: SocialflowAuthsBindingGuard = {
+  targetName: "socialflow:auths-binding-dedicated",
+  configPaths: [
+    "wrangler.jsonc",
+    "wrangler.workers.toml",
+    "workers/socialflows/wrangler.workers.toml",
+  ],
+  socialflowBinding: "SOCIALFLOW_AUTHS_DB",
+  reservedBindings: ["DRACO_DB", "SOCIAL_DB", "MENTORIAS_AUTHS_DB", "BASES_AUTHS_DB"],
+};
 const DEFAULT_LEGACY_PRODUCTION_GUARDS: LegacyProductionGuard[] = [
   {
     targetName: "legacy:create-saas-route",
@@ -1054,6 +1087,334 @@ async function buildLegacyProductionGuardChecks(guards: LegacyProductionGuard[])
   return checks;
 }
 
+function parseTomlSection(line: string): string | null {
+  const match = line.match(/^\s*\[([^\]]+)\]\s*$/);
+  return match ? match[1] : null;
+}
+
+function parseBindingValue(line: string): string | null {
+  const tomlMatch = line.match(/^\s*binding\s*=\s*"([^"]+)"/);
+  if (tomlMatch) return tomlMatch[1];
+  const jsoncMatch = line.match(/^\s*"binding"\s*:\s*"([^"]+)"/);
+  return jsoncMatch ? jsoncMatch[1] : null;
+}
+
+function parseDatabaseNameValue(line: string): string | null {
+  const tomlMatch = line.match(/^\s*database_name\s*=\s*"([^"]+)"/);
+  if (tomlMatch) return tomlMatch[1];
+  const jsoncMatch = line.match(/^\s*"database_name"\s*:\s*"([^"]+)"/);
+  return jsoncMatch ? jsoncMatch[1] : null;
+}
+
+function parseDatabaseIdValue(line: string): string | null {
+  const tomlMatch = line.match(/^\s*database_id\s*=\s*"([^"]+)"/);
+  if (tomlMatch) return tomlMatch[1];
+  const jsoncMatch = line.match(/^\s*"database_id"\s*:\s*"([^"]+)"/);
+  return jsoncMatch ? jsoncMatch[1] : null;
+}
+
+function parseD1BindingsFromContent(content: string, filePath: string): D1BindingRecord[] {
+  if (filePath.endsWith(".toml")) {
+    return parseD1BindingsFromToml(content, filePath);
+  }
+  return parseD1BindingsFromJsonc(content, filePath);
+}
+
+function parseD1BindingsFromToml(content: string, filePath: string): D1BindingRecord[] {
+  const lines = content.split(/\r?\n/);
+  const records: D1BindingRecord[] = [];
+  let currentSection = "root";
+  let currentBlock:
+    | {
+        section: string;
+        binding: string | null;
+        databaseName: string | null;
+        databaseId: string | null;
+      }
+    | null = null;
+
+  const flushCurrentBlock = () => {
+    if (!currentBlock?.binding) return;
+    records.push({
+      binding: currentBlock.binding,
+      databaseName: currentBlock.databaseName,
+      databaseId: currentBlock.databaseId,
+      filePath,
+      section: currentBlock.section,
+    });
+  };
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const section = parseTomlSection(line);
+    if (section) {
+      currentSection = section;
+      continue;
+    }
+
+    const d1BlockMatch = line.match(/^\s*\[\[([^\]]*d1_databases)\]\]\s*$/);
+    if (d1BlockMatch) {
+      flushCurrentBlock();
+      currentBlock = {
+        section: d1BlockMatch[1],
+        binding: null,
+        databaseName: null,
+        databaseId: null,
+      };
+      continue;
+    }
+
+    if (!currentBlock) {
+      continue;
+    }
+
+    if (/^\s*\[\[/.test(line) && !d1BlockMatch) {
+      flushCurrentBlock();
+      currentBlock = null;
+      continue;
+    }
+
+    const binding = parseBindingValue(line);
+    if (binding) {
+      currentBlock.binding = binding;
+      continue;
+    }
+
+    const databaseName = parseDatabaseNameValue(line);
+    if (databaseName) {
+      currentBlock.databaseName = databaseName;
+      continue;
+    }
+
+    const databaseId = parseDatabaseIdValue(line);
+    if (databaseId) {
+      currentBlock.databaseId = databaseId;
+    }
+  }
+
+  flushCurrentBlock();
+  return records;
+}
+
+function parseD1BindingsFromJsonc(content: string, filePath: string): D1BindingRecord[] {
+  const lines = content.split(/\r?\n/);
+  const records: D1BindingRecord[] = [];
+  let currentSection = "root";
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const section = parseTomlSection(line);
+    if (section) {
+      currentSection = section;
+    }
+
+    const binding = parseBindingValue(line);
+    if (!binding) continue;
+
+    let databaseName: string | null = null;
+    let databaseId: string | null = null;
+
+    for (let scan = Math.max(0, index - 8); scan <= Math.min(lines.length - 1, index + 8); scan += 1) {
+      const scanLine = lines[scan];
+      if (!databaseName) {
+        databaseName = parseDatabaseNameValue(scanLine);
+      }
+      if (!databaseId) {
+        databaseId = parseDatabaseIdValue(scanLine);
+      }
+      if (databaseName && databaseId) break;
+    }
+
+    records.push({
+      binding,
+      databaseName,
+      databaseId,
+      filePath,
+      section: currentSection,
+    });
+  }
+
+  return records;
+}
+
+function isLocalOrFailClosedId(value: string | null): boolean {
+  return value ? LOCAL_OR_FAIL_CLOSED_DATABASE_IDS.has(value) : false;
+}
+
+function isLocalCollapsedName(value: string | null): boolean {
+  return value ? LOCAL_COLLAPSED_DATABASE_NAMES.has(value) : false;
+}
+
+function isPreviewRecord(record: D1BindingRecord): boolean {
+  return record.section.toLowerCase().includes("preview") || record.filePath.toLowerCase().includes("preview");
+}
+
+function isProductionRecord(record: D1BindingRecord): boolean {
+  return record.section.toLowerCase().includes("production");
+}
+
+async function buildSocialflowAuthsBindingGuardChecks(guard: SocialflowAuthsBindingGuard): Promise<CheckRecord[]> {
+  const checks: CheckRecord[] = [];
+  const allRecords: D1BindingRecord[] = [];
+
+  for (const filePath of guard.configPaths) {
+    let content = "";
+    try {
+      content = await fs.readFile(resolveAbsolutePath(filePath), "utf8");
+    } catch {
+      continue;
+    }
+    allRecords.push(...parseD1BindingsFromContent(content, filePath));
+  }
+
+  const socialflowAuthsRecords = allRecords.filter((record) => record.binding === guard.socialflowBinding);
+  const reservedRecords = allRecords.filter((record) => guard.reservedBindings.includes(record.binding));
+
+  if (socialflowAuthsRecords.length === 0) {
+    checks.push({
+      checkCode: "socialflowAuthsBindingSharedIdentity",
+      severity: SOCIALFLOW_AUTHS_GUARD_SEVERITY,
+      status: "N/A",
+      targetType: "code_guard",
+      targetName: `${guard.targetName}:shared_identity`,
+      expected: `${guard.socialflowBinding} configured`,
+      actual: "binding_not_present_yet",
+      details: `Guard armed for future cutover: ${guard.socialflowBinding} is not configured yet.`,
+    });
+    checks.push({
+      checkCode: "socialflowAuthsBindingNamingViolation",
+      severity: SOCIALFLOW_AUTHS_GUARD_SEVERITY,
+      status: "N/A",
+      targetType: "code_guard",
+      targetName: `${guard.targetName}:naming`,
+      expected: "database_name includes socialflow + auth",
+      actual: "binding_not_present_yet",
+      details: `Naming policy deferred until ${guard.socialflowBinding} exists in config.`,
+    });
+    checks.push({
+      checkCode: "socialflowAuthsBindingPreviewProdCollision",
+      severity: SOCIALFLOW_AUTHS_GUARD_SEVERITY,
+      status: "N/A",
+      targetType: "code_guard",
+      targetName: `${guard.targetName}:preview_prod_collision`,
+      expected: "preview and production use distinct physical identities",
+      actual: "binding_not_present_yet",
+      details: `Preview/prod collision check deferred until ${guard.socialflowBinding} is configured.`,
+    });
+    return checks;
+  }
+
+  const sharedIdentityViolations: string[] = [];
+  for (const socialflowRecord of socialflowAuthsRecords) {
+    for (const reserved of reservedRecords) {
+      const sameId =
+        socialflowRecord.databaseId &&
+        reserved.databaseId &&
+        socialflowRecord.databaseId === reserved.databaseId &&
+        !isLocalOrFailClosedId(socialflowRecord.databaseId);
+      const sameName =
+        socialflowRecord.databaseName &&
+        reserved.databaseName &&
+        socialflowRecord.databaseName === reserved.databaseName &&
+        !isLocalCollapsedName(socialflowRecord.databaseName);
+      if (sameId || sameName) {
+        sharedIdentityViolations.push(
+          `${socialflowRecord.filePath} (${socialflowRecord.section}) shares identity with ${reserved.binding} in ${reserved.filePath} (${reserved.section})`,
+        );
+      }
+    }
+  }
+
+  checks.push({
+    checkCode: "socialflowAuthsBindingSharedIdentity",
+    severity: SOCIALFLOW_AUTHS_GUARD_SEVERITY,
+    status: sharedIdentityViolations.length === 0 ? "PASS" : "FAIL",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:shared_identity`,
+    expected: `no identity overlap with [${guard.reservedBindings.join(", ")}]`,
+    actual: sharedIdentityViolations.length === 0 ? "no_overlap_detected" : sharedIdentityViolations,
+    details:
+      sharedIdentityViolations.length === 0
+        ? `${guard.socialflowBinding} uses a dedicated physical identity in scanned configs.`
+        : `${guard.socialflowBinding} overlaps with reserved bindings.`,
+  });
+
+  const namingViolations = socialflowAuthsRecords
+    .filter((record) => {
+      if (!record.databaseName || isLocalCollapsedName(record.databaseName)) return false;
+      const lower = record.databaseName.toLowerCase();
+      return !lower.includes("socialflow") || !lower.includes("auth");
+    })
+    .map((record) => `${record.filePath} (${record.section}) => ${record.databaseName}`);
+
+  checks.push({
+    checkCode: "socialflowAuthsBindingNamingViolation",
+    severity: SOCIALFLOW_AUTHS_GUARD_SEVERITY,
+    status: namingViolations.length === 0 ? "PASS" : "FAIL",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:naming`,
+    expected: "database_name includes socialflow + auth (except local collapsed dev)",
+    actual: namingViolations.length === 0 ? "naming_valid" : namingViolations,
+    details:
+      namingViolations.length === 0
+        ? `${guard.socialflowBinding} naming matches dedicated auth policy.`
+        : `${guard.socialflowBinding} naming violates dedicated auth policy.`,
+  });
+
+  const previewRecords = socialflowAuthsRecords.filter(isPreviewRecord);
+  const productionRecords = socialflowAuthsRecords.filter(isProductionRecord);
+  const previewProdCollisions: string[] = [];
+  if (previewRecords.length > 0 && productionRecords.length > 0) {
+    for (const previewRecord of previewRecords) {
+      for (const productionRecord of productionRecords) {
+        const sameId =
+          previewRecord.databaseId &&
+          productionRecord.databaseId &&
+          previewRecord.databaseId === productionRecord.databaseId &&
+          !isLocalOrFailClosedId(previewRecord.databaseId);
+        const sameName =
+          previewRecord.databaseName &&
+          productionRecord.databaseName &&
+          previewRecord.databaseName === productionRecord.databaseName &&
+          !isLocalCollapsedName(previewRecord.databaseName);
+        if (sameId || sameName) {
+          previewProdCollisions.push(
+            `${previewRecord.filePath} (${previewRecord.section}) collides with ${productionRecord.filePath} (${productionRecord.section})`,
+          );
+        }
+      }
+    }
+  }
+
+  checks.push({
+    checkCode: "socialflowAuthsBindingPreviewProdCollision",
+    severity: SOCIALFLOW_AUTHS_GUARD_SEVERITY,
+    status:
+      previewRecords.length > 0 && productionRecords.length > 0
+        ? previewProdCollisions.length === 0
+          ? "PASS"
+          : "FAIL"
+        : "N/A",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:preview_prod_collision`,
+    expected: "preview and production use distinct physical identities",
+    actual:
+      previewRecords.length > 0 && productionRecords.length > 0
+        ? previewProdCollisions.length === 0
+          ? "distinct"
+          : previewProdCollisions
+        : "not_enough_context",
+    details:
+      previewRecords.length > 0 && productionRecords.length > 0
+        ? previewProdCollisions.length === 0
+          ? "Preview/production identities are isolated."
+          : "Preview/production identities collide."
+        : "Preview/production collision check skipped (missing preview or production binding evidence).",
+  });
+
+  return checks;
+}
+
 function buildReport(params: {
   mode: "real" | "fixtures";
   sourceOfTruthPath: string;
@@ -1181,6 +1542,9 @@ export async function runProductionReadinessAudits(
   const legacyGuards = options.legacyGuardsOverride ?? DEFAULT_LEGACY_PRODUCTION_GUARDS;
   const legacyGuardChecks = await buildLegacyProductionGuardChecks(legacyGuards);
   checks.push(...legacyGuardChecks);
+  const socialflowAuthsGuard = options.socialflowAuthsGuardOverride ?? DEFAULT_SOCIALFLOW_AUTHS_BINDING_GUARD;
+  const socialflowAuthsChecks = await buildSocialflowAuthsBindingGuardChecks(socialflowAuthsGuard);
+  checks.push(...socialflowAuthsChecks);
   const report = buildReport({
     mode,
     sourceOfTruthPath,

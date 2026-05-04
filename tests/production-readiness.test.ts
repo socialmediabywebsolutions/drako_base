@@ -54,4 +54,68 @@ describe("production readiness audits", () => {
     expect(result.exitCode).toBe(1);
     expect(result.report.violations.some((item) => item.checkCode === "legacyProductionGuardMissing")).toBe(true);
   });
+
+  it("passes socialflow auths guard when binding is dedicated and preview/prod are isolated", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowAuthsGuardOverride: {
+        targetName: "test:socialflow-auths-guard",
+        configPaths: ["tests/fixtures/production-audits/socialflow-auths-guards/pass.wrangler.toml"],
+        socialflowBinding: "SOCIALFLOW_AUTHS_DB",
+        reservedBindings: ["DRACO_DB", "SOCIAL_DB", "MENTORIAS_AUTHS_DB", "BASES_AUTHS_DB"],
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(
+      result.report.checks.some(
+        (check) => check.checkCode === "socialflowAuthsBindingSharedIdentity" && check.status === "PASS",
+      ),
+    ).toBe(true);
+    expect(
+      result.report.checks.some(
+        (check) => check.checkCode === "socialflowAuthsBindingPreviewProdCollision" && check.status === "PASS",
+      ),
+    ).toBe(true);
+  });
+
+  it("fails socialflow auths guard when binding reuses shared DRACO identity", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowAuthsGuardOverride: {
+        targetName: "test:socialflow-auths-guard",
+        configPaths: ["tests/fixtures/production-audits/socialflow-auths-guards/fail-shared-identity.wrangler.toml"],
+        socialflowBinding: "SOCIALFLOW_AUTHS_DB",
+        reservedBindings: ["DRACO_DB", "SOCIAL_DB", "MENTORIAS_AUTHS_DB", "BASES_AUTHS_DB"],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(
+      result.report.violations.some((item) => item.checkCode === "socialflowAuthsBindingSharedIdentity"),
+    ).toBe(true);
+  });
+
+  it("fails socialflow auths guard when preview and production collide", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowAuthsGuardOverride: {
+        targetName: "test:socialflow-auths-guard",
+        configPaths: ["tests/fixtures/production-audits/socialflow-auths-guards/fail-preview-prod-collision.wrangler.toml"],
+        socialflowBinding: "SOCIALFLOW_AUTHS_DB",
+        reservedBindings: ["DRACO_DB", "SOCIAL_DB", "MENTORIAS_AUTHS_DB", "BASES_AUTHS_DB"],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(
+      result.report.violations.some((item) => item.checkCode === "socialflowAuthsBindingPreviewProdCollision"),
+    ).toBe(true);
+  });
 });

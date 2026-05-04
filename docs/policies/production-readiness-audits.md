@@ -22,6 +22,10 @@ Owner scope: Holding (Campamento Base)
 - critical D1 tables and critical columns
 - onboarding consistency (`users.onboarding_completed`)
 - legacy fail-closed guards for decommissioned configs (including `wrangler.workers.toml` preview `SOCIAL_DB`)
+- SocialFlow auth future binding guardrails (`SOCIALFLOW_AUTHS_DB`):
+  - no shared identity reuse with `DRACO_DB` / `SOCIAL_DB` / auth holding bindings
+  - naming policy for dedicated auth ownership
+  - preview vs production collision detection
 
 ## Severity Rules
 
