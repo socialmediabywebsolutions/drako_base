@@ -106,9 +106,30 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
   - Campamento Base: `base.drako.systems`/`bases.drako.systems -> saas-bases-prod`.
   - Mentoria: `mentoria.drako.systems`/`mentorias.drako.systems -> saas-mentorias-prod`, pero sigue sin `MENTORIA_DB` fisicamente dedicado.
   - SocialFlow: `socialflows.drako.systems -> saas-socialflows-prod`; no hay evidencia local de `socialflow.drako.systems` singular y no aparece en el workflow canonico de deploy/smoke.
+  - P10.12 decide formalmente `socialflow.drako.systems` como dominio canonico futuro, sin implementarlo todavia.
   - `.github/workflows/drako-factory-deploy.yml` despliega scheduler, Drako, Mentoria y Base, pero no SocialFlow; ademas aplica un hotfix de migracion Mentoria sobre `DRACO_DB`.
 - Criterio de cierre:
   - SocialFlow y Mentoria tienen dominio canonico decidido, workflow reproducible por producto, smoke por dominio, expected-state/readiness alineado y bloqueos DB/auth cerrados o aceptados explicitamente para una fase controlada.
+
+### ISSUE-015 - Implementar dominio canonico SocialFlow
+- Severidad: `P1`
+- Estado: `OPEN`
+- Area: Dominios / Cloudflare / Workflows / SocialFlow SaaS readiness
+- Riesgo:
+  - SocialFlow queda con dominio plural operativo (`socialflows.drako.systems`) mientras la marca, rutas y namespace canonicos son singulares.
+- Estado actual:
+  - ADR aceptada en `docs/decisions/adr-socialflow-canonical-domain.md`.
+  - Dominio canonico decidido: `socialflow.drako.systems`.
+  - Dominio actual confirmado: `socialflows.drako.systems`.
+  - Worker esperado: `saas-socialflows-prod`.
+  - No se ha creado dominio, no se ha tocado Cloudflare, no se han cambiado workers, workflows, middleware ni runtime.
+- Criterio de cierre:
+  - `socialflow.drako.systems` existe y apunta a `saas-socialflows-prod`.
+  - `/socialflow` y `/api/socialflow/*` responden bajo dominio canonico.
+  - OAuth LinkedIn/callbacks quedan auditados para dominio canonico si aplica.
+  - `socialflows.drako.systems` queda compat/legacy mediante redirect o bridge controlado.
+  - Readiness/hostname checks y smoke tests cubren el dominio singular.
+  - No se rompe compatibilidad existente.
 
 ## Orden de ataque recomendado
 1. `ISSUE-006`
@@ -117,7 +138,8 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
 4. `ISSUE-010`
 5. `ISSUE-011`
 6. `ISSUE-012`
-7. `ISSUE-008`
+7. `ISSUE-015`
+8. `ISSUE-008`
 
 ## Regla de continuidad
 - Ningun issue pasa a `CLOSED` sin evidencia concreta en `13_progress_log.md`.

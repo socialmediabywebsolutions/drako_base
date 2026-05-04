@@ -31,18 +31,23 @@ tratarse como fuente canonica de UI, API, auth, D1 ni deploy.
 
 ## 0.1) Mapa canonico de dominios y workers (P10.11)
 
-| Producto | Dominio canonico actual | Compat/alias | Worker canonico | Estado operativo |
+| Producto | Dominio canonico/decidido | Compat/alias | Worker canonico | Estado operativo |
 |---|---|---|---|---|
 | Drako marca | `drako.systems` | `drakos.drako.systems` | `saas-drakos-prod` | Marca/marketing activo; `drako-base-3` queda legacy/archived. |
 | Campamento Base | `base.drako.systems` | `bases.drako.systems`, `admin.drako.systems` en codigo worker | `saas-bases-prod` | Operator/control plane; no producto publico vendible. |
 | Mentoria | `mentoria.drako.systems` | `mentorias.drako.systems` | `saas-mentorias-prod` | SaaS activo, pero no fisicamente independiente hasta completar `MENTORIA_DB`. |
-| SocialFlow | `socialflows.drako.systems` confirmado | `socialflow.drako.systems` no aparece en config local | `saas-socialflows-prod` | SaaS activo con dominio plural; falta canon de deploy/smoke para venta bajo dominio propio. |
+| SocialFlow | `socialflow.drako.systems` decidido por ADR P10.12, no creado todavia | `socialflows.drako.systems` confirmado hoy y futuro compat/legacy | `saas-socialflows-prod` | SaaS activo con dominio plural actual; falta implementar dominio, deploy/smoke y readiness canonicos. |
 | Factory | rutas `/api/factory/*`, `/api/owner/factory/*` | `/api/owner/saas-factory/*` | OpenNext + `saas-factory-worker`/provisioner | Capacidad interna/futura, no producto publico final. |
 
 Nota P10.11: el workflow canonico `.github/workflows/drako-factory-deploy.yml`
 despliega scheduler, `saas-drakos-prod`, `saas-mentorias-prod` y
 `saas-bases-prod`. `saas-socialflows-prod` tiene configuracion de worker, pero
 no aparece en ese deploy canonico ni en los smokes de dominio del workflow.
+
+Nota P10.12: `docs/decisions/adr-socialflow-canonical-domain.md` acepta
+`socialflow.drako.systems` como dominio canonico futuro de SocialFlow.
+`socialflows.drako.systems` queda como dominio actual confirmado y compat/legacy
+futuro. Esta decision no crea dominios ni cambia runtime.
 
 ### `apps/*` no es runtime canonico
 - No debe contener `package.json`, `wrangler.toml`, `wrangler.jsonc`, `src/*`, APIs ni UI real.

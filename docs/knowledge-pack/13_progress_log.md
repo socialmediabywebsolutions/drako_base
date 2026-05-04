@@ -16,6 +16,29 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
 ```
 
+## [2026-05-04 20:00 UTC+02:00] SOCIALFLOW-P10-12-CANONICAL-DOMAIN-DECISION
+- Contexto:
+  - P10.11 detecto que SocialFlow usa dominio plural actual y no tiene dominio singular canonico confirmado.
+- Cambio realizado:
+  - Se documento decision formal: `socialflow.drako.systems` sera dominio canonico; `socialflows.drako.systems` queda compat/legacy.
+- Archivos tocados:
+  - `docs/decisions/adr-socialflow-canonical-domain.md`
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: lectura de P10.11, matriz de rutas/entrypoints, issues abiertos, progress log y evidencia local de `workers/socialflows`.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+- Resultado:
+  - Decision lista sin tocar Cloudflare ni runtime.
+- Riesgo residual:
+  - Falta implementacion futura de dominio, workflow y smoke canonico.
+- Siguiente accion:
+  - Preparar plan de implementacion de dominio sin aplicarlo todavia.
+- Relacion con issues:
+  - `ISSUE-012`, `ISSUE-015`
+
 ## [2026-05-04 19:26 UTC+02:00] PLATFORM-P10-11-DOMAIN-DEPLOY-AUDIT
 - Contexto:
   - Tras cerrar separacion de imports/contratos y guardrails DB, falta auditar dominios y deploy por producto.
