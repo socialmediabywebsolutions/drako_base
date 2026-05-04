@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "result": [
+    { "name": "drako_holding_db" },
+    { "name": "drako_billing_db" },
+    { "name": "drako_observability_db" },
+    { "name": "drako_ai_orchestrator_db" },
+    { "name": "drako_db_prod" }
+  ]
+}

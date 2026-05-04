@@ -1,8 +1,24 @@
 {
   "meta": {
-    "updatedAt": "2026-02-26T20:40:00Z",
+    "updatedAt": "2026-05-04T19:10:00Z",
     "owner": "holding",
-    "notes": "P0 production readiness audits source of truth"
+    "notes": "P0 production readiness audits source of truth; includes phase-gated SocialFlow canonical domain expected-state"
+  },
+  "phaseGates": {
+    "socialflowCanonicalDomain": {
+      "active": false,
+      "canonicalHostname": "socialflow.drako.systems",
+      "expectedWorker": "saas-socialflows-prod",
+      "compatibilityHostname": "socialflows.drako.systems",
+      "smokeEvidencePaths": [
+        ".github/workflows/drako-factory-deploy.yml"
+      ],
+      "smokeEvidenceTokens": [
+        "socialflow.drako.systems",
+        "/socialflow",
+        "/api/socialflow"
+      ]
+    }
   },
   "criticalWorkers": [
     {

@@ -31,6 +31,13 @@ Owner scope: Holding (Campamento Base)
   - preview identity must stay isolated from production identities and be fail-closed or preview-marked
   - if `MENTORIA_DB` is still absent, readiness stays non-blocking but emits transitional debt warning
   - transitional fallback (`get-mentoria-db.ts` -> `DRACO_DB`) is tracked as explicit readiness debt warning
+- SocialFlow canonical domain expected-state (phase-gated):
+  - phase gate is declared in `docs/config/production-audits-expected-state.json` under `phaseGates.socialflowCanonicalDomain`
+  - while phase is inactive, missing `socialflow.drako.systems` is warning debt (non-blocking)
+  - when phase is active, missing `socialflow.drako.systems` is a blocker
+  - `socialflow.drako.systems` must point to `saas-socialflows-prod` when present
+  - `socialflows.drako.systems` remains compatibility-only and raises warning if it appears primary
+  - canonical smoke evidence must exist once the phase is active
 
 ## Severity Rules
 

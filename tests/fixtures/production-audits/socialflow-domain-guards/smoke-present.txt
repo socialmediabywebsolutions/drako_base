@@ -1,0 +1,3 @@
+# canonical smoke evidence fixture
+https://socialflow.drako.systems/socialflow
+https://socialflow.drako.systems/api/socialflow/health

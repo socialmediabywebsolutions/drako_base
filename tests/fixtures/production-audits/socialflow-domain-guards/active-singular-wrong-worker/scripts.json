@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "result": [
+    { "id": "drako-core-worker" },
+    { "id": "drako-billing-worker" },
+    { "id": "drako-observability-worker" },
+    { "id": "drako-ai-orchestrator-worker" },
+    { "id": "drako-base-3" }
+  ]
+}

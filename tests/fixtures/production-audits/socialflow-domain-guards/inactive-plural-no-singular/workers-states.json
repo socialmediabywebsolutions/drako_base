@@ -1,0 +1,44 @@
+{
+  "result": [
+    {
+      "workerName": "drako-core-worker",
+      "scriptExists": true,
+      "subdomain": { "enabled": true, "previewsEnabled": true },
+      "schedulesCount": 0,
+      "domainsCount": 0,
+      "routesCount": 0
+    },
+    {
+      "workerName": "drako-billing-worker",
+      "scriptExists": true,
+      "subdomain": { "enabled": true, "previewsEnabled": true },
+      "schedulesCount": 0,
+      "domainsCount": 0,
+      "routesCount": 0
+    },
+    {
+      "workerName": "drako-observability-worker",
+      "scriptExists": true,
+      "subdomain": { "enabled": true, "previewsEnabled": true },
+      "schedulesCount": 0,
+      "domainsCount": 0,
+      "routesCount": 0
+    },
+    {
+      "workerName": "drako-ai-orchestrator-worker",
+      "scriptExists": true,
+      "subdomain": { "enabled": true, "previewsEnabled": true },
+      "schedulesCount": 0,
+      "domainsCount": 0,
+      "routesCount": 0
+    },
+    {
+      "workerName": "drako-base-3",
+      "scriptExists": true,
+      "subdomain": { "enabled": false, "previewsEnabled": false },
+      "schedulesCount": 0,
+      "domainsCount": 0,
+      "routesCount": 0
+    }
+  ]
+}

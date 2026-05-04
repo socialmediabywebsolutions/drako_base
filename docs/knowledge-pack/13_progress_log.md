@@ -16,6 +16,34 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
 ```
 
+## [2026-05-04 22:05 UTC+02:00] SOCIALFLOW-P10-14-DOMAIN-READINESS-GUARDRAILS
+- Contexto:
+  - P10.13 documento el plan tecnico para `socialflow.drako.systems`.
+- Cambio realizado:
+  - Se anadieron checks de readiness expected-state phase-gated para dominio canonico SocialFlow (hostname missing, worker ownership, plural primary warning y canonical smoke evidence).
+  - Se documento el phase gate en `docs/config/production-audits-expected-state.json` con `active: false` por defecto.
+  - Se ampliaron tests y fixtures de `production-readiness` para escenarios inactive/active, worker correcto/incorrecto y warning plural.
+- Archivos tocados:
+  - `scripts/check-production-readiness.ts`
+  - `docs/config/production-audits-expected-state.json`
+  - `tests/production-readiness.test.ts`
+  - `tests/fixtures/production-audits/socialflow-domain-guards/*`
+  - `docs/policies/production-readiness-audits.md`
+  - `docs/audits/p10-13-socialflow-domain-implementation-plan.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: `grep` de dominios/expected/readiness + revision de script/policies/tests/ADR/P10.13.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build` + tests focalizados readiness/domain guards/canonical map/mentoria boundaries.
+- Resultado:
+  - El sistema ahora puede advertir hoy y bloquear en fase activa si el dominio singular falta, apunta mal o no existe evidencia de smoke canonico.
+- Riesgo residual:
+  - Cloudflare todavia no se modifica; la activacion de fase depende de una implementacion futura.
+- Siguiente accion:
+  - Preparar workflow/smoke canonico SocialFlow para activar la fase sin riesgo.
+- Relacion con issues:
+  - `ISSUE-015`
+
 ## [2026-05-04 20:28 UTC+02:00] SOCIALFLOW-P10-13-DOMAIN-IMPLEMENTATION-PLAN
 - Contexto:
   - P10.12 decidio `socialflow.drako.systems` como dominio canonico futuro.

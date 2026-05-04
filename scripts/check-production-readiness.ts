@@ -13,6 +13,16 @@ type ProductionAuditsExpectedState = {
     owner: string;
     notes?: string;
   };
+  phaseGates?: {
+    socialflowCanonicalDomain?: {
+      active?: boolean;
+      canonicalHostname?: string;
+      expectedWorker?: string;
+      compatibilityHostname?: string;
+      smokeEvidencePaths?: string[];
+      smokeEvidenceTokens?: string[];
+    };
+  };
   criticalWorkers: Array<{
     workerName: string;
     expectedStatus: WorkerStatus;
@@ -123,6 +133,10 @@ type CheckCode =
   | "socialflowAuthsBindingSharedIdentity"
   | "socialflowAuthsBindingNamingViolation"
   | "socialflowAuthsBindingPreviewProdCollision"
+  | "socialflowCanonicalHostnameMissing"
+  | "socialflowCanonicalHostnameWrongWorker"
+  | "socialflowPluralPrimaryWarning"
+  | "socialflowCanonicalSmokeMissing"
   | "mentoriaBindingMissingTransitionalDebt"
   | "mentoriaBindingSharedIdentity"
   | "mentoriaBindingPreviewProdCollision"
@@ -198,6 +212,7 @@ type ProductionAuditsRunOptions = {
   reportMarkdownPath?: string;
   legacyGuardsOverride?: LegacyProductionGuard[];
   socialflowAuthsGuardOverride?: SocialflowAuthsBindingGuard;
+  socialflowDomainGuardOverride?: SocialflowDomainGuard;
   mentoriaBindingGuardOverride?: MentoriaBindingGuard;
 };
 
@@ -221,6 +236,16 @@ type MentoriaBindingGuard = {
   reservedBindings: string[];
   fallbackFilePath: string;
   fallbackToken: string;
+};
+
+type SocialflowDomainGuard = {
+  targetName: string;
+  phase: "inactive" | "active";
+  canonicalHostname: string;
+  expectedWorker: string;
+  compatibilityHostname: string;
+  smokeEvidencePaths: string[];
+  smokeEvidenceTokens: string[];
 };
 
 type D1BindingRecord = {
@@ -250,6 +275,16 @@ const DEFAULT_SOCIALFLOW_AUTHS_BINDING_GUARD: SocialflowAuthsBindingGuard = {
   ],
   socialflowBinding: "SOCIALFLOW_AUTHS_DB",
   reservedBindings: ["DRACO_DB", "SOCIAL_DB", "MENTORIAS_AUTHS_DB", "BASES_AUTHS_DB"],
+};
+
+const DEFAULT_SOCIALFLOW_DOMAIN_GUARD: SocialflowDomainGuard = {
+  targetName: "socialflow:canonical-domain-expected-state",
+  phase: "inactive",
+  canonicalHostname: "socialflow.drako.systems",
+  expectedWorker: "saas-socialflows-prod",
+  compatibilityHostname: "socialflows.drako.systems",
+  smokeEvidencePaths: [".github/workflows/drako-factory-deploy.yml"],
+  smokeEvidenceTokens: ["socialflow.drako.systems", "/socialflow", "/api/socialflow"],
 };
 
 const DEFAULT_MENTORIA_BINDING_GUARD: MentoriaBindingGuard = {
@@ -292,6 +327,26 @@ const DEFAULT_LEGACY_PRODUCTION_GUARDS: LegacyProductionGuard[] = [
     ],
   },
 ];
+
+function resolveSocialflowDomainGuard(
+  config: ProductionAuditsExpectedState,
+  override?: SocialflowDomainGuard,
+): SocialflowDomainGuard {
+  if (override) {
+    return override;
+  }
+
+  const phaseGate = config.phaseGates?.socialflowCanonicalDomain;
+  return {
+    ...DEFAULT_SOCIALFLOW_DOMAIN_GUARD,
+    phase: phaseGate?.active ? "active" : "inactive",
+    canonicalHostname: phaseGate?.canonicalHostname ?? DEFAULT_SOCIALFLOW_DOMAIN_GUARD.canonicalHostname,
+    expectedWorker: phaseGate?.expectedWorker ?? DEFAULT_SOCIALFLOW_DOMAIN_GUARD.expectedWorker,
+    compatibilityHostname: phaseGate?.compatibilityHostname ?? DEFAULT_SOCIALFLOW_DOMAIN_GUARD.compatibilityHostname,
+    smokeEvidencePaths: phaseGate?.smokeEvidencePaths ?? DEFAULT_SOCIALFLOW_DOMAIN_GUARD.smokeEvidencePaths,
+    smokeEvidenceTokens: phaseGate?.smokeEvidenceTokens ?? DEFAULT_SOCIALFLOW_DOMAIN_GUARD.smokeEvidenceTokens,
+  };
+}
 
 function stripQuotes(value: string): string {
   return value.replace(/^"+|"+$/g, "");
@@ -1442,6 +1497,127 @@ async function buildSocialflowAuthsBindingGuardChecks(guard: SocialflowAuthsBind
   return checks;
 }
 
+async function buildSocialflowDomainGuardChecks(
+  guard: SocialflowDomainGuard,
+  snapshots: ProductionReadinessReport["snapshots"],
+): Promise<CheckRecord[]> {
+  const checks: CheckRecord[] = [];
+  const domainsByHostnames = new Map(snapshots.domains.map((item) => [item.hostname.toLowerCase(), item]));
+  const canonicalDomain = domainsByHostnames.get(guard.canonicalHostname.toLowerCase());
+  const compatibilityDomain = domainsByHostnames.get(guard.compatibilityHostname.toLowerCase());
+  const phaseIsActive = guard.phase === "active";
+  const canonicalPresent = Boolean(canonicalDomain);
+  const canonicalMatchesWorker = canonicalDomain?.service === guard.expectedWorker;
+  const canonicalHealthy = canonicalPresent && canonicalMatchesWorker;
+
+  checks.push({
+    checkCode: "socialflowCanonicalHostnameMissing",
+    severity: phaseIsActive ? "BLOCKER" : "WARN",
+    status: canonicalPresent ? "PASS" : "FAIL",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:canonical_hostname`,
+    expected: `${guard.canonicalHostname} present`,
+    actual: canonicalPresent ? "present" : "missing",
+    details: canonicalPresent
+      ? `Canonical SocialFlow hostname ${guard.canonicalHostname} is present in domain snapshots.`
+      : phaseIsActive
+        ? `Canonical SocialFlow hostname ${guard.canonicalHostname} is missing while phase gate is active.`
+        : `Canonical SocialFlow hostname ${guard.canonicalHostname} is still pending; phase gate is inactive so this remains transitional debt.`,
+  });
+
+  checks.push({
+    checkCode: "socialflowCanonicalHostnameWrongWorker",
+    severity: "BLOCKER",
+    status: !canonicalPresent ? "N/A" : canonicalMatchesWorker ? "PASS" : "FAIL",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:canonical_worker`,
+    expected: `${guard.canonicalHostname} -> ${guard.expectedWorker}`,
+    actual: !canonicalPresent ? "hostname_missing" : canonicalDomain?.service ?? "unknown",
+    details: !canonicalPresent
+      ? `Worker ownership check skipped because ${guard.canonicalHostname} is missing.`
+      : canonicalMatchesWorker
+        ? `Canonical SocialFlow hostname points to ${guard.expectedWorker}.`
+        : `Canonical SocialFlow hostname points to ${canonicalDomain?.service}, expected ${guard.expectedWorker}.`,
+  });
+
+  const pluralLooksPrimary =
+    compatibilityDomain && (!canonicalHealthy || compatibilityDomain.service !== guard.expectedWorker);
+  checks.push({
+    checkCode: "socialflowPluralPrimaryWarning",
+    severity: "WARN",
+    status: !compatibilityDomain ? "PASS" : pluralLooksPrimary ? "FAIL" : "PASS",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:plural_compatibility`,
+    expected: canonicalHealthy
+      ? `${guard.compatibilityHostname} remains compatibility host, not primary`
+      : `${guard.compatibilityHostname} may exist as transitional compatibility host`,
+    actual: !compatibilityDomain ? "not_present" : `${guard.compatibilityHostname} -> ${compatibilityDomain.service}`,
+    details: !compatibilityDomain
+      ? `Compatibility hostname ${guard.compatibilityHostname} is not configured in snapshots.`
+      : pluralLooksPrimary
+        ? `Compatibility hostname ${guard.compatibilityHostname} appears to remain primary because canonical hostname is missing/misaligned or plural points outside expected worker.`
+        : `Compatibility hostname ${guard.compatibilityHostname} is present while canonical hostname is healthy; treated as compatibility state.`,
+  });
+
+  if (!phaseIsActive) {
+    checks.push({
+      checkCode: "socialflowCanonicalSmokeMissing",
+      severity: "WARN",
+      status: "N/A",
+      targetType: "code_guard",
+      targetName: `${guard.targetName}:canonical_smoke`,
+      expected: "canonical smoke evidence configured",
+      actual: "phase_inactive",
+      details: "Canonical smoke evidence check is deferred until socialflow canonical domain phase is active.",
+    });
+    return checks;
+  }
+
+  const missingPaths: string[] = [];
+  const contents: Array<{ filePath: string; content: string }> = [];
+  for (const evidencePath of guard.smokeEvidencePaths) {
+    try {
+      const absolutePath = resolveAbsolutePath(evidencePath);
+      const stat = await fs.stat(absolutePath);
+      if (!stat.isFile()) {
+        missingPaths.push(`${evidencePath} (not a file)`);
+        continue;
+      }
+      const content = await fs.readFile(absolutePath, "utf8");
+      contents.push({ filePath: evidencePath, content });
+    } catch {
+      missingPaths.push(evidencePath);
+    }
+  }
+
+  const missingTokens = guard.smokeEvidenceTokens.filter(
+    (token) => !contents.some((item) => item.content.includes(token)),
+  );
+  const smokeEvidencePass = missingPaths.length === 0 && missingTokens.length === 0;
+  checks.push({
+    checkCode: "socialflowCanonicalSmokeMissing",
+    severity: "BLOCKER",
+    status: smokeEvidencePass ? "PASS" : "FAIL",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:canonical_smoke`,
+    expected: {
+      files: guard.smokeEvidencePaths,
+      mustInclude: guard.smokeEvidenceTokens,
+    },
+    actual: smokeEvidencePass
+      ? "evidence_present"
+      : {
+          missingPaths,
+          missingTokens,
+        },
+    details: smokeEvidencePass
+      ? "Canonical smoke evidence is present for active domain phase."
+      : "Canonical smoke evidence is missing while socialflow canonical domain phase is active.",
+  });
+
+  return checks;
+}
+
 async function buildMentoriaBindingGuardChecks(guard: MentoriaBindingGuard): Promise<CheckRecord[]> {
   const checks: CheckRecord[] = [];
   const allRecords: D1BindingRecord[] = [];
@@ -1761,6 +1937,9 @@ export async function runProductionReadinessAudits(
   const socialflowAuthsGuard = options.socialflowAuthsGuardOverride ?? DEFAULT_SOCIALFLOW_AUTHS_BINDING_GUARD;
   const socialflowAuthsChecks = await buildSocialflowAuthsBindingGuardChecks(socialflowAuthsGuard);
   checks.push(...socialflowAuthsChecks);
+  const socialflowDomainGuard = resolveSocialflowDomainGuard(config, options.socialflowDomainGuardOverride);
+  const socialflowDomainChecks = await buildSocialflowDomainGuardChecks(socialflowDomainGuard, snapshots);
+  checks.push(...socialflowDomainChecks);
   const mentoriaBindingGuard = options.mentoriaBindingGuardOverride ?? DEFAULT_MENTORIA_BINDING_GUARD;
   const mentoriaBindingChecks = await buildMentoriaBindingGuardChecks(mentoriaBindingGuard);
   checks.push(...mentoriaBindingChecks);

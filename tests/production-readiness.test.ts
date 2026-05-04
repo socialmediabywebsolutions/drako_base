@@ -11,6 +11,15 @@ describe("production readiness audits", () => {
     fallbackFilePath: "src/lib/mentoria/get-mentoria-db.ts",
     fallbackToken: "env?.DRACO_DB",
   } as const;
+  const socialflowDomainGuardBase = {
+    targetName: "test:socialflow-canonical-domain",
+    phase: "inactive",
+    canonicalHostname: "socialflow.drako.systems",
+    expectedWorker: "saas-socialflows-prod",
+    compatibilityHostname: "socialflows.drako.systems",
+    smokeEvidencePaths: ["tests/fixtures/production-audits/socialflow-domain-guards/smoke-present.txt"],
+    smokeEvidenceTokens: ["socialflow.drako.systems", "/socialflow", "/api/socialflow"],
+  } as const;
 
   it("passes when fixtures match expected", async () => {
     const result = await runProductionReadinessAudits({
@@ -125,6 +134,85 @@ describe("production readiness audits", () => {
     expect(
       result.report.violations.some((item) => item.checkCode === "socialflowAuthsBindingPreviewProdCollision"),
     ).toBe(true);
+  });
+
+  it("keeps socialflow canonical hostname missing as non-blocking debt when phase is inactive", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowDomainGuardOverride: socialflowDomainGuardBase,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(
+      result.report.violations.some(
+        (item) => item.checkCode === "socialflowCanonicalHostnameMissing" && item.severity === "WARN",
+      ),
+    ).toBe(true);
+  });
+
+  it("fails when socialflow canonical hostname is missing and phase is active", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/socialflow-domain-guards/active-missing-singular",
+      writeReports: false,
+      socialflowDomainGuardOverride: {
+        ...socialflowDomainGuardBase,
+        phase: "active",
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowCanonicalHostnameMissing")).toBe(true);
+  });
+
+  it("passes when socialflow canonical hostname exists with expected worker during active phase", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/socialflow-domain-guards/active-singular-correct",
+      writeReports: false,
+      socialflowDomainGuardOverride: {
+        ...socialflowDomainGuardBase,
+        phase: "active",
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(
+      result.report.checks.some(
+        (check) => check.checkCode === "socialflowCanonicalHostnameWrongWorker" && check.status === "PASS",
+      ),
+    ).toBe(true);
+  });
+
+  it("fails when socialflow canonical hostname points to an unexpected worker", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/socialflow-domain-guards/active-singular-wrong-worker",
+      writeReports: false,
+      socialflowDomainGuardOverride: {
+        ...socialflowDomainGuardBase,
+        phase: "active",
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(
+      result.report.violations.some((item) => item.checkCode === "socialflowCanonicalHostnameWrongWorker"),
+    ).toBe(true);
+  });
+
+  it("warns when plural socialflow hostname exists but canonical singular is not active", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/socialflow-domain-guards/inactive-plural-no-singular",
+      writeReports: false,
+      socialflowDomainGuardOverride: socialflowDomainGuardBase,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowPluralPrimaryWarning")).toBe(true);
   });
 
   it("passes mentoria db guard when binding is dedicated and preview/prod are isolated", async () => {

@@ -109,6 +109,14 @@ Prepare a safe future implementation plan for `socialflow.drako.systems` as the 
 - Add smoke workflow for canonical host before declaring independent SaaS readiness.
 - Keep P10.8 `SOCIALFLOW_AUTHS_DB` guardrails separate from domain activation; domain readiness does not prove auth DB physical split.
 
+### P10.14 Follow-up (Implemented Guardrails)
+
+- Production readiness now includes phase-gated checks for canonical SocialFlow domain expected-state.
+- Phase gate source of truth is `docs/config/production-audits-expected-state.json` under `phaseGates.socialflowCanonicalDomain`.
+- Current default remains `active: false`, so missing `socialflow.drako.systems` is warning debt and does not block readiness.
+- When switched to `active: true`, missing canonical hostname, wrong worker ownership, and missing canonical smoke evidence become blockers.
+- Compatibility hostname `socialflows.drako.systems` is tracked as a warning if it appears to remain primary before canonical health is established.
+
 ## Phased Implementation Plan
 
 ### Phase A - Readiness Expected-State
