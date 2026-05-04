@@ -81,12 +81,27 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
   - Existe flujo root canonico (`pnpm mentoria:local:bootstrap`, `pnpm mentoria:local:qa`) y alineacion opcional del worker (`:align-worker`).
   - Permanece como riesgo operativo mientras existan dos estados fisicos de D1 separados.
 
+### ISSUE-011 - Mentoria depende fisicamente de `DRACO_DB`
+- Severidad: `P1`
+- Estado: `OPEN`
+- Area: DB ownership / Separacion vertical / Produccion
+- Riesgo:
+  - Mentoria no puede venderse como SaaS fisicamente independiente mientras su DB educativa/productiva siga viviendo en `DRACO_DB`.
+- Estado actual:
+  - `getMentoriaDb()` prefiere `MENTORIA_DB`, pero cae a `DRACO_DB`.
+  - `workers/mentorias/wrangler.workers.toml` no declara `MENTORIA_DB` y usa `DRACO_DB = drako_db_prod`.
+  - `MENTORIAS_AUTHS_DB` existe como binding logico, pero en la configuracion revisada comparte la misma D1 fisica que `DRACO_DB`.
+  - Las migraciones Mentoria siguen dentro del stream global `migrations/*`.
+- Criterio de cierre:
+  - `MENTORIA_DB` existe como binding fisicamente dedicado, con preview/prod aislados, schema Mentoria aplicado por dominio, backfill validado, cutover completado y fallback a `DRACO_DB` eliminado del runtime productivo.
+
 ## Orden de ataque recomendado
 1. `ISSUE-006`
 2. `ISSUE-005`
 3. `ISSUE-009`
 4. `ISSUE-010`
-5. `ISSUE-008`
+5. `ISSUE-011`
+6. `ISSUE-008`
 
 ## Regla de continuidad
 - Ningun issue pasa a `CLOSED` sin evidencia concreta en `13_progress_log.md`.

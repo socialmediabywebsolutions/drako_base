@@ -341,6 +341,29 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
   - `ISSUE-006`
 
+## [2026-05-04 15:11 UTC+02:00] MENTORIA-P10-9-DB-PLAN
+- Contexto:
+  - P10.5 detecto que Mentoria sigue dependiendo fisicamente de `DRACO_DB`.
+- Cambio realizado:
+  - Se documento el plan de separacion fisica para `MENTORIA_DB` sin crear DB remota, migrar datos, tocar produccion ni cambiar runtime.
+  - Se registro `ISSUE-011` para mantener visible el riesgo residual hasta el cutover futuro.
+- Archivos tocados:
+  - `docs/audits/p10-9-mentoria-db-plan.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: `grep -R 'MENTORIA_DB\|MENTORIAS_AUTHS_DB\|DRACO_DB\|mentoria_' ...`, inspeccion de configs, rutas, migraciones, scripts locales y workflow de deploy.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+- Resultado:
+  - Plan listo sin crear DB ni migrar datos.
+- Riesgo residual:
+  - Mentoria sigue fisicamente dependiente de `DRACO_DB` hasta ejecutar fases futuras.
+- Siguiente accion:
+  - Anadir guardrails futuros para `MENTORIA_DB`.
+- Relacion con issues:
+  - `ISSUE-011`, `ISSUE-009`
+
 ## Checklist al cerrar cada sesion
 - [ ] Actualizar `11_current_state.md` si cambio el baseline tecnico.
 - [ ] Actualizar el estado de issues en `12_open_issues.md`.
