@@ -2,13 +2,12 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
-import { getMentoriaOrchestrator } from "@/lib/mentoria/resilience/orchestrator";
+import { getMentoriaOperatorSystemHealth } from "@/lib/mentoria/contracts/observability";
 
 export async function GET(request: Request) {
   try {
     const { tenantId } = await requireOwnerAccess(request);
-    const orchestrator = getMentoriaOrchestrator();
-    const health = await orchestrator.getHealthStatus(tenantId);
+    const health = await getMentoriaOperatorSystemHealth({ tenantId });
 
     return NextResponse.json({ ok: true, tenantId, generatedAt: new Date().toISOString(), health });
   } catch (error) {
