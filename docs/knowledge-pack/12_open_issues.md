@@ -119,6 +119,7 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
   - SocialFlow queda con dominio plural operativo (`socialflows.drako.systems`) mientras la marca, rutas y namespace canonicos son singulares.
 - Estado actual:
   - ADR aceptada en `docs/decisions/adr-socialflow-canonical-domain.md`.
+  - Plan tecnico documentado en `docs/audits/p10-13-socialflow-domain-implementation-plan.md`.
   - Dominio canonico decidido: `socialflow.drako.systems`.
   - Dominio actual confirmado: `socialflows.drako.systems`.
   - Worker esperado: `saas-socialflows-prod`.

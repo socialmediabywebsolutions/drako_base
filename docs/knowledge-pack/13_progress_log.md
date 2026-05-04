@@ -16,6 +16,28 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
 ```
 
+## [2026-05-04 20:28 UTC+02:00] SOCIALFLOW-P10-13-DOMAIN-IMPLEMENTATION-PLAN
+- Contexto:
+  - P10.12 decidio `socialflow.drako.systems` como dominio canonico futuro.
+- Cambio realizado:
+  - Se documento plan tecnico de implementacion de dominio, Cloudflare, OAuth, smokes y compat.
+- Archivos tocados:
+  - `docs/audits/p10-13-socialflow-domain-implementation-plan.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: ADR P10.12, P10.11, `workers/socialflows/wrangler.workers.toml`, configs root, workflows, readiness, tests y rutas OAuth LinkedIn.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+- Resultado:
+  - Plan listo sin tocar Cloudflare ni runtime.
+- Riesgo residual:
+  - Falta ejecucion futura de dominio y smokes.
+- Siguiente accion:
+  - Anadir readiness expected-state para `socialflow.drako.systems`.
+- Relacion con issues:
+  - `ISSUE-015`
+
 ## [2026-05-04 20:00 UTC+02:00] SOCIALFLOW-P10-12-CANONICAL-DOMAIN-DECISION
 - Contexto:
   - P10.11 detecto que SocialFlow usa dominio plural actual y no tiene dominio singular canonico confirmado.
