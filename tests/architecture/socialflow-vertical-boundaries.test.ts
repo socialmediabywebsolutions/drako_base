@@ -84,6 +84,31 @@ describe("SocialFlow vertical boundaries", () => {
     }
   });
 
+  it("keeps analytics window and profile repository canonical in SocialFlow", () => {
+    const socialFlowAnalyticsWindow = read("src/lib/socialflow/analytics-window.ts");
+    const socialFlowProfileRepository = read("src/lib/socialflow/profile/repository.ts");
+    const socialFlowProfileTypes = read("src/lib/socialflow/profile/types.ts");
+
+    expect(socialFlowAnalyticsWindow).toContain("getPostAnalyticsMetadata");
+    expect(socialFlowAnalyticsWindow).not.toMatch(/@\/lib\/social\/analytics-window/);
+
+    expect(socialFlowProfileRepository).toContain("getChannelKnowledge");
+    expect(socialFlowProfileRepository).toContain("upsertChannelProfile");
+    expect(socialFlowProfileRepository).not.toMatch(/@\/lib\/social\/profile\/repository/);
+
+    expect(socialFlowProfileTypes).toContain("export type ChannelProfile");
+    expect(socialFlowProfileTypes).not.toMatch(/@\/lib\/social\/profile\/types/);
+
+    const legacyAnalyticsWindow = read("src/lib/social/analytics-window.ts");
+    const legacyProfileRepository = read("src/lib/social/profile/repository.ts");
+    const legacyProfileTypes = read("src/lib/social/profile/types.ts");
+
+    for (const source of [legacyAnalyticsWindow, legacyProfileRepository, legacyProfileTypes]) {
+      expect(source).toContain("@deprecated");
+      expect(source).toMatch(/export \* from "@\/lib\/socialflow\//);
+    }
+  });
+
   it("exposes SocialFlow observability through an operator contract", () => {
     const contract = read("src/lib/socialflow/contracts/observability.ts");
     const operatorActions = read("src/lib/socialflow/contracts/operator-actions.ts");
