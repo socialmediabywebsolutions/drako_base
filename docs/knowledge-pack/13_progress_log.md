@@ -16,6 +16,29 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
 ```
 
+## [2026-05-04 22:16 UTC+02:00] SOCIALFLOW-P10-16-CLOUDFLARE-DOMAIN-RUNBOOK
+- Contexto:
+  - P10.15 dejo preparado el smoke manual para `socialflow.drako.systems`.
+- Cambio realizado:
+  - Se creo runbook operativo Cloudflare para anadir y validar el custom domain sin ejecutar cambios.
+  - Se documento checklist manual, validacion HTTP, smoke, advertencias OAuth, rollback y criterios de exito/no avance.
+- Archivos tocados:
+  - `docs/runbooks/socialflow-canonical-domain-cloudflare-checklist.md`
+  - `docs/audits/p10-13-socialflow-domain-implementation-plan.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: grep de dominios, worker esperado, smoke manual y phase gate; revision de ADR, P10.13, smoke runbook, expected-state, script, worker config y workflows.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+- Resultado:
+  - Checklist manual lista para fase operativa.
+- Riesgo residual:
+  - Custom domain aun no creado; phase gate sigue inactivo.
+- Siguiente accion:
+  - Ejecutar manualmente la checklist en Cloudflare cuando se apruebe la fase operativa.
+- Relacion con issues:
+  - `ISSUE-015`
+
 ## [2026-05-04 21:40 UTC+02:00] SOCIALFLOW-P10-15-CANONICAL-SMOKE-PREP
 - Contexto:
   - P10.14 anadio readiness phase-gated para `socialflow.drako.systems`.

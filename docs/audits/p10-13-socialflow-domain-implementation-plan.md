@@ -127,6 +127,13 @@ Prepare a safe future implementation plan for `socialflow.drako.systems` as the 
 - Expected-state smoke evidence now points to the script/runbook, without activating phase gate.
 - No Cloudflare, worker, middleware, runtime, OAuth code, or production mutation is performed in this preparation.
 
+### P10.16 Follow-up (Cloudflare Operation Runbook, Not Executed)
+
+- Added manual Cloudflare checklist: `docs/runbooks/socialflow-canonical-domain-cloudflare-checklist.md`.
+- The checklist defines preconditions, custom domain steps, HTTP validation, smoke execution, OAuth warnings, rollback, success criteria and stop criteria.
+- It explicitly keeps `phaseGates.socialflowCanonicalDomain.active: false` until a later readiness activation phase.
+- No Cloudflare, DNS, worker, middleware, runtime, OAuth code, LinkedIn callback, data or deploy action is performed by this documentation step.
+
 ## Phased Implementation Plan
 
 ### Phase A - Readiness Expected-State
