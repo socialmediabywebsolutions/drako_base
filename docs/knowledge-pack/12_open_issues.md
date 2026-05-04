@@ -95,13 +95,29 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
 - Criterio de cierre:
   - `MENTORIA_DB` existe como binding fisicamente dedicado, con preview/prod aislados, schema Mentoria aplicado por dominio, backfill validado, cutover completado y fallback a `DRACO_DB` eliminado del runtime productivo.
 
+### ISSUE-012 - Dominios y deploys por producto aun no son todos vendibles
+- Severidad: `P1`
+- Estado: `OPEN`
+- Area: Dominios / Workers / Workflows / SaaS readiness
+- Riesgo:
+  - SocialFlow y Mentoria pueden parecer vendibles como SaaS independientes antes de tener dominio, deploy, smoke y DB/auth ownership completamente canonicos.
+- Estado actual:
+  - Drako marca: `drako.systems -> saas-drakos-prod`.
+  - Campamento Base: `base.drako.systems`/`bases.drako.systems -> saas-bases-prod`.
+  - Mentoria: `mentoria.drako.systems`/`mentorias.drako.systems -> saas-mentorias-prod`, pero sigue sin `MENTORIA_DB` fisicamente dedicado.
+  - SocialFlow: `socialflows.drako.systems -> saas-socialflows-prod`; no hay evidencia local de `socialflow.drako.systems` singular y no aparece en el workflow canonico de deploy/smoke.
+  - `.github/workflows/drako-factory-deploy.yml` despliega scheduler, Drako, Mentoria y Base, pero no SocialFlow; ademas aplica un hotfix de migracion Mentoria sobre `DRACO_DB`.
+- Criterio de cierre:
+  - SocialFlow y Mentoria tienen dominio canonico decidido, workflow reproducible por producto, smoke por dominio, expected-state/readiness alineado y bloqueos DB/auth cerrados o aceptados explicitamente para una fase controlada.
+
 ## Orden de ataque recomendado
 1. `ISSUE-006`
 2. `ISSUE-005`
 3. `ISSUE-009`
 4. `ISSUE-010`
 5. `ISSUE-011`
-6. `ISSUE-008`
+6. `ISSUE-012`
+7. `ISSUE-008`
 
 ## Regla de continuidad
 - Ningun issue pasa a `CLOSED` sin evidencia concreta en `13_progress_log.md`.

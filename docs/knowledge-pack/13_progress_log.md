@@ -16,6 +16,29 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
 ```
 
+## [2026-05-04 19:26 UTC+02:00] PLATFORM-P10-11-DOMAIN-DEPLOY-AUDIT
+- Contexto:
+  - Tras cerrar separacion de imports/contratos y guardrails DB, falta auditar dominios y deploy por producto.
+- Cambio realizado:
+  - Auditoria documental de dominios, workers, workflows y rutas canonicas.
+- Archivos tocados:
+  - `docs/audits/p10-11-domain-deploy-canonical-audit.md`
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: grep de dominios/rutas/workers, inspeccion de `wrangler*.toml`, workflows, expected-state, hostnames drift, package scripts y knowledge pack.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+- Resultado:
+  - Queda documentado el mapa real dominio -> worker y producto -> rutas; SocialFlow y Mentoria no quedan declarados vendibles bajo dominio propio todavia.
+- Riesgo residual:
+  - SocialFlow no esta en el workflow canonico de deploy/smoke; Mentoria sigue sin independencia fisica DB y el workflow canonico aun aplica un hotfix sobre `DRACO_DB`.
+- Siguiente accion:
+  - Preparar fase de correccion documental/estado actual y decidir dominio canonico SocialFlow singular/plural antes de tocar Cloudflare.
+- Relacion con issues:
+  - `ISSUE-011`, `ISSUE-012`
+
 ## [2026-05-04 18:43 UTC+02:00] MENTORIA-P10-10-DB-GUARDRAILS
 - Contexto:
   - P10.9 documento el plan futuro para `MENTORIA_DB`.
