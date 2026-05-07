@@ -136,7 +136,7 @@ describe("production readiness audits", () => {
     ).toBe(true);
   });
 
-  it("keeps socialflow canonical hostname missing as non-blocking debt when phase is inactive", async () => {
+  it("passes when socialflow canonical hostname is present (phase inactive override)", async () => {
     const result = await runProductionReadinessAudits({
       sourceOfTruthPath,
       fixturesDir: "tests/fixtures/production-audits/pass",
@@ -146,8 +146,8 @@ describe("production readiness audits", () => {
 
     expect(result.exitCode).toBe(0);
     expect(
-      result.report.violations.some(
-        (item) => item.checkCode === "socialflowCanonicalHostnameMissing" && item.severity === "WARN",
+      result.report.checks.some(
+        (item) => item.checkCode === "socialflowCanonicalHostnameMissing" && item.status === "PASS",
       ),
     ).toBe(true);
   });

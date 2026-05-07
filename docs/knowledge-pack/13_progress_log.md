@@ -641,6 +641,33 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Siguiente acción:
   - Commit/push → esperar workflow PASS en CI con SocialFlow integrado.
 
+## [2026-05-07 16:24 UTC+02:00] SOCIALFLOW-P10-24-CANONICAL-DOMAIN-PHASE-GATE-ACTIVE
+
+- Contexto:
+  - P10.20/21/22/23 completaron config, deploy, smoke y workflow integration.
+  - `socialflow.drako.systems` está conectado, desplegado por workflow canónico y validado con smoke real.
+- Cambio realizado:
+  - Activado `phaseGates.socialflowCanonicalDomain.active` en `docs/config/production-audits-expected-state.json`.
+  - Actualizado fixture de production-audits para incluir ambos dominios SocialFlow.
+- Archivos tocados:
+  - `docs/config/production-audits-expected-state.json`
+  - `tests/fixtures/production-audits/pass/domains.json`
+  - `docs/audits/p10-13-socialflow-domain-implementation-plan.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificación ejecutada:
+  - typecheck ✓, lint 0 errors ✓, 861/861 tests ✓, build ✓.
+  - Readiness con fixtures ✓ (solo warnings de Mentoría transitional debt).
+- Resultado:
+  - El dominio canónico `socialflow.drako.systems` es ahora requisito de production readiness.
+  - Missing hostname → **BLOCKER** (antes WARN).
+  - Worker ownership incorrecto → **BLOCKER**.
+  - Smoke evidence ausente → **BLOCKER**.
+- Riesgo residual:
+  - `socialflows.drako.systems` sigue como compat hasta definir redirect/deprecación.
+  - `WORKERS_ONLY_MODE=true` mantiene navegación directa con 403 esperado.
+- Siguiente acción:
+  - Definir estrategia de UX pública/landing o mantener worker-only según roadmap.
+
 ## Checklist al cerrar cada sesion
 - [ ] Actualizar `11_current_state.md` si cambio el baseline tecnico.
 - [ ] Actualizar el estado de issues en `12_open_issues.md`.

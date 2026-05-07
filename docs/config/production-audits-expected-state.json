@@ -1,12 +1,12 @@
 {
   "meta": {
-    "updatedAt": "2026-05-04T19:40:00Z",
+    "updatedAt": "2026-05-07T14:24:00Z",
     "owner": "holding",
     "notes": "P0 production readiness audits source of truth; includes phase-gated SocialFlow canonical domain expected-state"
   },
   "phaseGates": {
     "socialflowCanonicalDomain": {
-      "active": false,
+      "active": true,
       "canonicalHostname": "socialflow.drako.systems",
       "expectedWorker": "saas-socialflows-prod",
       "compatibilityHostname": "socialflows.drako.systems",

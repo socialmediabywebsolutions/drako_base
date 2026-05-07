@@ -1,50 +1,1871 @@
 {
-  "timestamp": "2026-03-29T15:27:42.247Z",
-  "mode": "real",
+  "timestamp": "2026-05-07T16:33:30.769Z",
+  "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
-  "fixturesDir": null,
-  "productionReady": false,
+  "fixturesDir": "tests/fixtures/production-audits/pass",
+  "productionReady": true,
   "summary": {
-    "checksTotal": 1,
-    "checksPass": 0,
-    "checksFail": 1,
-    "checksNa": 0,
-    "violationsTotal": 1,
-    "blockersTotal": 1,
-    "warningsTotal": 0
+    "checksTotal": 150,
+    "checksPass": 141,
+    "checksFail": 2,
+    "checksNa": 7,
+    "violationsTotal": 2,
+    "blockersTotal": 0,
+    "warningsTotal": 2
   },
   "checks": [
     {
       "checkCode": "criticalWorkerMissing",
       "severity": "BLOCKER",
-      "status": "FAIL",
+      "status": "PASS",
       "targetType": "worker",
-      "targetName": "global",
-      "expected": "successful production readiness execution",
-      "actual": "Missing required env: CLOUDFLARE_API_TOKEN",
-      "details": "Fatal error in production readiness checker execution."
+      "targetName": "drako-core-worker",
+      "expected": "script exists",
+      "actual": "script exists",
+      "details": "Worker drako-core-worker exists in scripts inventory."
+    },
+    {
+      "checkCode": "criticalWorkerSubdomainMismatch",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-core-worker",
+      "expected": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "actual": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "details": "Worker drako-core-worker subdomain matches expected state."
+    },
+    {
+      "checkCode": "criticalWorkerSchedulesMismatch",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-core-worker",
+      "expected": 0,
+      "actual": 0,
+      "details": "Worker drako-core-worker schedules count matches expected."
+    },
+    {
+      "checkCode": "criticalWorkerMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-billing-worker",
+      "expected": "script exists",
+      "actual": "script exists",
+      "details": "Worker drako-billing-worker exists in scripts inventory."
+    },
+    {
+      "checkCode": "criticalWorkerSubdomainMismatch",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-billing-worker",
+      "expected": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "actual": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "details": "Worker drako-billing-worker subdomain matches expected state."
+    },
+    {
+      "checkCode": "criticalWorkerSchedulesMismatch",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-billing-worker",
+      "expected": 0,
+      "actual": 0,
+      "details": "Worker drako-billing-worker schedules count matches expected."
+    },
+    {
+      "checkCode": "criticalWorkerMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-observability-worker",
+      "expected": "script exists",
+      "actual": "script exists",
+      "details": "Worker drako-observability-worker exists in scripts inventory."
+    },
+    {
+      "checkCode": "criticalWorkerSubdomainMismatch",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-observability-worker",
+      "expected": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "actual": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "details": "Worker drako-observability-worker subdomain matches expected state."
+    },
+    {
+      "checkCode": "criticalWorkerSchedulesMismatch",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-observability-worker",
+      "expected": 0,
+      "actual": 0,
+      "details": "Worker drako-observability-worker schedules count matches expected."
+    },
+    {
+      "checkCode": "criticalWorkerMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-ai-orchestrator-worker",
+      "expected": "script exists",
+      "actual": "script exists",
+      "details": "Worker drako-ai-orchestrator-worker exists in scripts inventory."
+    },
+    {
+      "checkCode": "criticalWorkerSubdomainMismatch",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-ai-orchestrator-worker",
+      "expected": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "actual": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "details": "Worker drako-ai-orchestrator-worker subdomain matches expected state."
+    },
+    {
+      "checkCode": "criticalWorkerSchedulesMismatch",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-ai-orchestrator-worker",
+      "expected": 0,
+      "actual": 0,
+      "details": "Worker drako-ai-orchestrator-worker schedules count matches expected."
+    },
+    {
+      "checkCode": "criticalWorkerMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-base-3",
+      "expected": "archived script optional",
+      "actual": "script exists",
+      "details": "Worker drako-base-3 exists in scripts inventory."
+    },
+    {
+      "checkCode": "criticalWorkerArchivedMismatch",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-base-3",
+      "expected": {
+        "domainsCount": 0,
+        "routesCount": 0,
+        "schedulesCount": 0,
+        "subdomain": {
+          "enabled": false,
+          "previewsEnabled": false
+        }
+      },
+      "actual": {
+        "domainsCount": 0,
+        "routesCount": 0,
+        "schedulesCount": 0,
+        "subdomain": {
+          "enabled": false,
+          "previewsEnabled": false
+        }
+      },
+      "details": "Archived worker drako-base-3 remains fenced."
+    },
+    {
+      "checkCode": "criticalWorkerSubdomainMismatch",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-base-3",
+      "expected": {
+        "enabled": false,
+        "previewsEnabled": false
+      },
+      "actual": {
+        "enabled": false,
+        "previewsEnabled": false
+      },
+      "details": "Worker drako-base-3 subdomain matches expected state."
+    },
+    {
+      "checkCode": "criticalWorkerSchedulesMismatch",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "worker",
+      "targetName": "drako-base-3",
+      "expected": 0,
+      "actual": 0,
+      "details": "Worker drako-base-3 schedules count matches expected."
+    },
+    {
+      "checkCode": "criticalHostnameMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "hostname",
+      "targetName": "drako.systems",
+      "expected": "present",
+      "actual": "present",
+      "details": "Critical hostname drako.systems exists."
+    },
+    {
+      "checkCode": "criticalHostnameMismatch",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "hostname",
+      "targetName": "drako.systems",
+      "expected": "saas-drakos-prod",
+      "actual": "saas-drakos-prod",
+      "details": "Hostname drako.systems points to expected service."
+    },
+    {
+      "checkCode": "criticalHostnameMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "hostname",
+      "targetName": "drakos.drako.systems",
+      "expected": "present",
+      "actual": "present",
+      "details": "Critical hostname drakos.drako.systems exists."
+    },
+    {
+      "checkCode": "criticalHostnameMismatch",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "hostname",
+      "targetName": "drakos.drako.systems",
+      "expected": "saas-drakos-prod",
+      "actual": "saas-drakos-prod",
+      "details": "Hostname drakos.drako.systems points to expected service."
+    },
+    {
+      "checkCode": "criticalHostnameMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "hostname",
+      "targetName": "base.drako.systems",
+      "expected": "present",
+      "actual": "present",
+      "details": "Critical hostname base.drako.systems exists."
+    },
+    {
+      "checkCode": "criticalHostnameMismatch",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "hostname",
+      "targetName": "base.drako.systems",
+      "expected": "saas-bases-prod",
+      "actual": "saas-bases-prod",
+      "details": "Hostname base.drako.systems points to expected service."
+    },
+    {
+      "checkCode": "criticalHostnameMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "hostname",
+      "targetName": "bases.drako.systems",
+      "expected": "present",
+      "actual": "present",
+      "details": "Critical hostname bases.drako.systems exists."
+    },
+    {
+      "checkCode": "criticalHostnameMismatch",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "hostname",
+      "targetName": "bases.drako.systems",
+      "expected": "saas-bases-prod",
+      "actual": "saas-bases-prod",
+      "details": "Hostname bases.drako.systems points to expected service."
+    },
+    {
+      "checkCode": "criticalHostnameMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "hostname",
+      "targetName": "mentoria.drako.systems",
+      "expected": "present",
+      "actual": "present",
+      "details": "Critical hostname mentoria.drako.systems exists."
+    },
+    {
+      "checkCode": "criticalHostnameMismatch",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "hostname",
+      "targetName": "mentoria.drako.systems",
+      "expected": "saas-mentorias-prod",
+      "actual": "saas-mentorias-prod",
+      "details": "Hostname mentoria.drako.systems points to expected service."
+    },
+    {
+      "checkCode": "criticalHostnameMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "hostname",
+      "targetName": "mentorias.drako.systems",
+      "expected": "present",
+      "actual": "present",
+      "details": "Critical hostname mentorias.drako.systems exists."
+    },
+    {
+      "checkCode": "criticalHostnameMismatch",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "hostname",
+      "targetName": "mentorias.drako.systems",
+      "expected": "saas-mentorias-prod",
+      "actual": "saas-mentorias-prod",
+      "details": "Hostname mentorias.drako.systems points to expected service."
+    },
+    {
+      "checkCode": "criticalRouteMissing",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "route",
+      "targetName": "drako.systems/*",
+      "expected": "present",
+      "actual": "present",
+      "details": "Critical route drako.systems/* exists."
+    },
+    {
+      "checkCode": "criticalRouteMismatch",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "route",
+      "targetName": "drako.systems/*",
+      "expected": "saas-drakos-prod",
+      "actual": "saas-drakos-prod",
+      "details": "Critical route drako.systems/* points to expected script."
+    },
+    {
+      "checkCode": "blockedServiceHit",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "domain",
+      "targetName": "drako.systems",
+      "expected": "service NOT IN [drako-base-3]",
+      "actual": "saas-drakos-prod",
+      "details": "Domain drako.systems is not attached to blocked services."
+    },
+    {
+      "checkCode": "blockedServiceHit",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "domain",
+      "targetName": "drakos.drako.systems",
+      "expected": "service NOT IN [drako-base-3]",
+      "actual": "saas-drakos-prod",
+      "details": "Domain drakos.drako.systems is not attached to blocked services."
+    },
+    {
+      "checkCode": "blockedServiceHit",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "domain",
+      "targetName": "base.drako.systems",
+      "expected": "service NOT IN [drako-base-3]",
+      "actual": "saas-bases-prod",
+      "details": "Domain base.drako.systems is not attached to blocked services."
+    },
+    {
+      "checkCode": "blockedServiceHit",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "domain",
+      "targetName": "bases.drako.systems",
+      "expected": "service NOT IN [drako-base-3]",
+      "actual": "saas-bases-prod",
+      "details": "Domain bases.drako.systems is not attached to blocked services."
+    },
+    {
+      "checkCode": "blockedServiceHit",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "domain",
+      "targetName": "mentoria.drako.systems",
+      "expected": "service NOT IN [drako-base-3]",
+      "actual": "saas-mentorias-prod",
+      "details": "Domain mentoria.drako.systems is not attached to blocked services."
+    },
+    {
+      "checkCode": "blockedServiceHit",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "domain",
+      "targetName": "mentorias.drako.systems",
+      "expected": "service NOT IN [drako-base-3]",
+      "actual": "saas-mentorias-prod",
+      "details": "Domain mentorias.drako.systems is not attached to blocked services."
+    },
+    {
+      "checkCode": "blockedServiceHit",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "domain",
+      "targetName": "socialflow.drako.systems",
+      "expected": "service NOT IN [drako-base-3]",
+      "actual": "saas-socialflows-prod",
+      "details": "Domain socialflow.drako.systems is not attached to blocked services."
+    },
+    {
+      "checkCode": "blockedServiceHit",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "domain",
+      "targetName": "socialflows.drako.systems",
+      "expected": "service NOT IN [drako-base-3]",
+      "actual": "saas-socialflows-prod",
+      "details": "Domain socialflows.drako.systems is not attached to blocked services."
+    },
+    {
+      "checkCode": "blockedScriptHit",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "route_global",
+      "targetName": "drako.systems/*",
+      "expected": "script NOT IN [drako-base-3]",
+      "actual": "saas-drakos-prod",
+      "details": "Route drako.systems/* is not attached to blocked scripts."
+    },
+    {
+      "checkCode": "criticalD1Missing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "datastore_d1",
+      "targetName": "drako_holding_db",
+      "expected": "present",
+      "actual": "present",
+      "details": "D1 database drako_holding_db exists."
+    },
+    {
+      "checkCode": "criticalD1Missing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "datastore_d1",
+      "targetName": "drako_billing_db",
+      "expected": "present",
+      "actual": "present",
+      "details": "D1 database drako_billing_db exists."
+    },
+    {
+      "checkCode": "criticalD1Missing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "datastore_d1",
+      "targetName": "drako_observability_db",
+      "expected": "present",
+      "actual": "present",
+      "details": "D1 database drako_observability_db exists."
+    },
+    {
+      "checkCode": "criticalD1Missing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "datastore_d1",
+      "targetName": "drako_ai_orchestrator_db",
+      "expected": "present",
+      "actual": "present",
+      "details": "D1 database drako_ai_orchestrator_db exists."
+    },
+    {
+      "checkCode": "criticalD1Missing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "datastore_d1",
+      "targetName": "drako_db_prod",
+      "expected": "present",
+      "actual": "present",
+      "details": "D1 database drako_db_prod exists."
+    },
+    {
+      "checkCode": "criticalR2Missing",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "datastore_r2",
+      "targetName": "saas-drakos-prod-storage",
+      "expected": "present",
+      "actual": "present",
+      "details": "R2 bucket saas-drakos-prod-storage exists."
+    },
+    {
+      "checkCode": "criticalR2Missing",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "datastore_r2",
+      "targetName": "saas-bases-prod-storage",
+      "expected": "present",
+      "actual": "present",
+      "details": "R2 bucket saas-bases-prod-storage exists."
+    },
+    {
+      "checkCode": "criticalR2Missing",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "datastore_r2",
+      "targetName": "saas-mentorias-prod-storage",
+      "expected": "present",
+      "actual": "present",
+      "details": "R2 bucket saas-mentorias-prod-storage exists."
+    },
+    {
+      "checkCode": "criticalKvMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "datastore_kv",
+      "targetName": "DRKO_GLOBAL_CONFIG",
+      "expected": "present",
+      "actual": "present",
+      "details": "KV namespace DRKO_GLOBAL_CONFIG exists."
+    },
+    {
+      "checkCode": "criticalKvMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "datastore_kv",
+      "targetName": "saas_drakos_prod_cache",
+      "expected": "present",
+      "actual": "present",
+      "details": "KV namespace saas_drakos_prod_cache exists."
+    },
+    {
+      "checkCode": "criticalQueueMissing",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "datastore_queue",
+      "targetName": "drako-global-events",
+      "expected": "present",
+      "actual": "present",
+      "details": "Queue drako-global-events exists."
+    },
+    {
+      "checkCode": "criticalQueueMissing",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "datastore_queue",
+      "targetName": "drako-billing-queue",
+      "expected": "present",
+      "actual": "present",
+      "details": "Queue drako-billing-queue exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_holding_db.saases_registry",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_holding_db.saases_registry exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.saases_registry.saas_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.saases_registry.saas_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.saases_registry.saas_slug",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.saases_registry.saas_slug exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_holding_db.agents_registry",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_holding_db.agents_registry exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.agents_registry.agent_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.agents_registry.agent_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.agents_registry.role_name",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.agents_registry.role_name exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_holding_db.governance_events",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_holding_db.governance_events exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.governance_events.event_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.governance_events.event_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.governance_events.event_type",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.governance_events.event_type exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.governance_events.schema_version",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.governance_events.schema_version exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_holding_db.audit_logs",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_holding_db.audit_logs exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.audit_logs.action",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.audit_logs.action exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.audit_logs.created_at",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.audit_logs.created_at exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_holding_db.analyze_optimize_scale_runs",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_holding_db.analyze_optimize_scale_runs exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.analyze_optimize_scale_runs.run_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.analyze_optimize_scale_runs.run_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.analyze_optimize_scale_runs.status_name",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.analyze_optimize_scale_runs.status_name exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_holding_db.holding_saases",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_holding_db.holding_saases exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_saases.id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_saases.id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_saases.saas_slug",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_saases.saas_slug exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_saases.worker_name",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_saases.worker_name exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_saases.domain",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_saases.domain exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_saases.status_name",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_saases.status_name exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_holding_db.holding_billing_rollups",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_holding_db.holding_billing_rollups exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_billing_rollups.saas_slug",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_billing_rollups.saas_slug exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_billing_rollups.mrr",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_billing_rollups.mrr exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_billing_rollups.churn",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_billing_rollups.churn exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_billing_rollups.refunds",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_billing_rollups.refunds exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_holding_db.holding_ops_tickets",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_holding_db.holding_ops_tickets exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_ops_tickets.id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_ops_tickets.id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_ops_tickets.saas_slug",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_ops_tickets.saas_slug exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_ops_tickets.severity",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_ops_tickets.severity exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_ops_tickets.status_name",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_ops_tickets.status_name exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_holding_db.holding_event_logs",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_holding_db.holding_event_logs exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_event_logs.id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_event_logs.id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_event_logs.source",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_event_logs.source exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_event_logs.type",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_event_logs.type exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.holding_event_logs.payload_json",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_holding_db.holding_event_logs.payload_json exists."
+    },
+    {
+      "checkCode": "onboardingColumnsMismatch",
+      "severity": "BLOCKER",
+      "status": "N/A",
+      "targetType": "d1_column",
+      "targetName": "drako_holding_db.users.onboarding_completed",
+      "expected": "present",
+      "actual": "table missing",
+      "details": "Onboarding column check skipped because users table is missing in drako_holding_db."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_db_prod.tenants",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_db_prod.tenants exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenants.id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenants.id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenants.owner_user_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenants.owner_user_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenants.saas_slug",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenants.saas_slug exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenants.status",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenants.status exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenants.created_at",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenants.created_at exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_db_prod.tenant_profiles",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_db_prod.tenant_profiles exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_profiles.tenant_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_profiles.tenant_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_profiles.business_name",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_profiles.business_name exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_profiles.industry",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_profiles.industry exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_profiles.locale",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_profiles.locale exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_profiles.timezone",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_profiles.timezone exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_db_prod.tenant_domains",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_db_prod.tenant_domains exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_domains.tenant_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_domains.tenant_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_domains.requested_domain",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_domains.requested_domain exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_domains.status_name",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_domains.status_name exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_domains.cf_zone_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_domains.cf_zone_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_domains.created_at",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_domains.created_at exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_db_prod.tenant_integrations",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_db_prod.tenant_integrations exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_integrations.tenant_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_integrations.tenant_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_integrations.provider",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_integrations.provider exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_integrations.status_name",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_integrations.status_name exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_integrations.metadata_json",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_integrations.metadata_json exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_db_prod.tenant_stripe_connect",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_db_prod.tenant_stripe_connect exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_stripe_connect.tenant_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_stripe_connect.tenant_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_stripe_connect.connect_account_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_stripe_connect.connect_account_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_stripe_connect.onboarding_status",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_stripe_connect.onboarding_status exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_stripe_connect.fees_config",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_stripe_connect.fees_config exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_db_prod.tenant_knowledge_bases",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_db_prod.tenant_knowledge_bases exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_knowledge_bases.tenant_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_knowledge_bases.tenant_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_knowledge_bases.kb_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_knowledge_bases.kb_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_knowledge_bases.status_name",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_knowledge_bases.status_name exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_db_prod.tenant_jobs",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_db_prod.tenant_jobs exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_jobs.tenant_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_jobs.tenant_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_jobs.type_name",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_jobs.type_name exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_jobs.status_name",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_jobs.status_name exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_jobs.payload_json",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_jobs.payload_json exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_jobs.created_at",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_jobs.created_at exists."
+    },
+    {
+      "checkCode": "criticalTableMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_table",
+      "targetName": "drako_db_prod.tenant_audit_logs",
+      "expected": "present",
+      "actual": "present",
+      "details": "Table drako_db_prod.tenant_audit_logs exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_audit_logs.tenant_id",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_audit_logs.tenant_id exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_audit_logs.action",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_audit_logs.action exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_audit_logs.actor",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_audit_logs.actor exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_audit_logs.metadata_json",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_audit_logs.metadata_json exists."
+    },
+    {
+      "checkCode": "criticalColumnMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.tenant_audit_logs.created_at",
+      "expected": "present",
+      "actual": "present",
+      "details": "Column drako_db_prod.tenant_audit_logs.created_at exists."
+    },
+    {
+      "checkCode": "onboardingColumnsMismatch",
+      "severity": "BLOCKER",
+      "status": "N/A",
+      "targetType": "d1_column",
+      "targetName": "drako_db_prod.users.onboarding_completed",
+      "expected": "present",
+      "actual": "table missing",
+      "details": "Onboarding column check skipped because users table is missing in drako_db_prod."
+    },
+    {
+      "checkCode": "legacyProductionGuardMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "legacy:create-saas-route",
+      "expected": [
+        "LEGACY_SAAS_CREATE_BLOCKED",
+        "/api/owner/saas-factory/create-saas",
+        "status: 410"
+      ],
+      "actual": "all_tokens_present",
+      "details": "Legacy production guard verified in src/app/api/saas/route.ts."
+    },
+    {
+      "checkCode": "legacyProductionGuardMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "legacy:provision-commit-route",
+      "expected": [
+        "LEGACY_PROVISION_COMMIT_BLOCKED",
+        "/api/owner/saas-factory/create-saas",
+        "status: 410"
+      ],
+      "actual": "all_tokens_present",
+      "details": "Legacy production guard verified in src/app/api/provision/commit/route.ts."
+    },
+    {
+      "checkCode": "legacyProductionGuardMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "legacy:saas-domain-route",
+      "expected": [
+        "LEGACY_SAAS_DOMAIN_ROUTE_BLOCKED",
+        "/api/domains/request",
+        "status: 410"
+      ],
+      "actual": "all_tokens_present",
+      "details": "Legacy production guard verified in src/app/api/saas/domain/route.ts."
+    },
+    {
+      "checkCode": "legacyProductionGuardMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "legacy:saas-factory-queue-consumer",
+      "expected": [
+        "LEGACY_SAAS_FACTORY_QUEUE_BLOCKED",
+        "legacy.saas_factory_queue.blocked",
+        "message.ack"
+      ],
+      "actual": "all_tokens_present",
+      "details": "Legacy production guard verified in src/workers/saas-factory-consumer.ts."
+    },
+    {
+      "checkCode": "legacyProductionGuardMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "legacy:drako-base-3-preview-social-db-fail-closed",
+      "expected": [
+        "LEGACY_PREVIEW_SOCIAL_DB_FAIL_CLOSED",
+        "binding = \"SOCIAL_DB\"",
+        "database_name = \"saas_socialflows_preview_db\"",
+        "database_id = \"00000000-0000-0000-0000-000000000000\""
+      ],
+      "actual": "all_tokens_present",
+      "details": "Legacy production guard verified in wrangler.workers.toml."
+    },
+    {
+      "checkCode": "socialflowAuthsBindingSharedIdentity",
+      "severity": "BLOCKER",
+      "status": "N/A",
+      "targetType": "code_guard",
+      "targetName": "socialflow:auths-binding-dedicated:shared_identity",
+      "expected": "SOCIALFLOW_AUTHS_DB configured",
+      "actual": "binding_not_present_yet",
+      "details": "Guard armed for future cutover: SOCIALFLOW_AUTHS_DB is not configured yet."
+    },
+    {
+      "checkCode": "socialflowAuthsBindingNamingViolation",
+      "severity": "BLOCKER",
+      "status": "N/A",
+      "targetType": "code_guard",
+      "targetName": "socialflow:auths-binding-dedicated:naming",
+      "expected": "database_name includes socialflow + auth",
+      "actual": "binding_not_present_yet",
+      "details": "Naming policy deferred until SOCIALFLOW_AUTHS_DB exists in config."
+    },
+    {
+      "checkCode": "socialflowAuthsBindingPreviewProdCollision",
+      "severity": "BLOCKER",
+      "status": "N/A",
+      "targetType": "code_guard",
+      "targetName": "socialflow:auths-binding-dedicated:preview_prod_collision",
+      "expected": "preview and production use distinct physical identities",
+      "actual": "binding_not_present_yet",
+      "details": "Preview/prod collision check deferred until SOCIALFLOW_AUTHS_DB is configured."
+    },
+    {
+      "checkCode": "socialflowCanonicalHostnameMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:canonical-domain-expected-state:canonical_hostname",
+      "expected": "socialflow.drako.systems present",
+      "actual": "present",
+      "details": "Canonical SocialFlow hostname socialflow.drako.systems is present in domain snapshots."
+    },
+    {
+      "checkCode": "socialflowCanonicalHostnameWrongWorker",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:canonical-domain-expected-state:canonical_worker",
+      "expected": "socialflow.drako.systems -> saas-socialflows-prod",
+      "actual": "saas-socialflows-prod",
+      "details": "Canonical SocialFlow hostname points to saas-socialflows-prod."
+    },
+    {
+      "checkCode": "socialflowPluralPrimaryWarning",
+      "severity": "WARN",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:canonical-domain-expected-state:plural_compatibility",
+      "expected": "socialflows.drako.systems remains compatibility host, not primary",
+      "actual": "socialflows.drako.systems -> saas-socialflows-prod",
+      "details": "Compatibility hostname socialflows.drako.systems is present while canonical hostname is healthy; treated as compatibility state."
+    },
+    {
+      "checkCode": "socialflowCanonicalSmokeMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:canonical-domain-expected-state:canonical_smoke",
+      "expected": {
+        "files": [
+          "scripts/smoke/socialflow-canonical-domain-smoke.mjs",
+          "docs/runbooks/socialflow-canonical-domain-smoke.md"
+        ],
+        "mustInclude": [
+          "socialflow.drako.systems",
+          "/socialflow",
+          "/socialflow/auth",
+          "/api/socialflow/profile",
+          "/api/social/posts",
+          "/api/social/linkedin/publish",
+          "/api/socialflow/linkedin/connect",
+          "socialflows.drako.systems"
+        ]
+      },
+      "actual": "evidence_present",
+      "details": "Canonical smoke evidence is present for active domain phase."
+    },
+    {
+      "checkCode": "mentoriaBindingMissingTransitionalDebt",
+      "severity": "WARN",
+      "status": "FAIL",
+      "targetType": "code_guard",
+      "targetName": "mentoria:db-binding-dedicated:missing_binding_transitional_debt",
+      "expected": "MENTORIA_DB configured before final cutover",
+      "actual": "binding_not_present_yet",
+      "details": "MENTORIA_DB is still absent. Transitional debt remains open and runtime fallback is still expected."
+    },
+    {
+      "checkCode": "mentoriaBindingSharedIdentity",
+      "severity": "BLOCKER",
+      "status": "N/A",
+      "targetType": "code_guard",
+      "targetName": "mentoria:db-binding-dedicated:shared_identity",
+      "expected": "MENTORIA_DB configured",
+      "actual": "binding_not_present_yet",
+      "details": "Shared-identity guard is armed for future cutover: MENTORIA_DB is not configured yet."
+    },
+    {
+      "checkCode": "mentoriaBindingPreviewProdCollision",
+      "severity": "BLOCKER",
+      "status": "N/A",
+      "targetType": "code_guard",
+      "targetName": "mentoria:db-binding-dedicated:preview_prod_collision",
+      "expected": "preview and production use distinct physical identities",
+      "actual": "binding_not_present_yet",
+      "details": "Preview/prod collision check is deferred until MENTORIA_DB exists."
+    },
+    {
+      "checkCode": "mentoriaDbFallbackTransitionalDebt",
+      "severity": "WARN",
+      "status": "FAIL",
+      "targetType": "code_guard",
+      "targetName": "mentoria:db-binding-dedicated:fallback_transitional_debt",
+      "expected": "env?.DRACO_DB removed after final cutover",
+      "actual": "fallback_present",
+      "details": "Transitional fallback to DRACO_DB is still present in src/lib/mentoria/get-mentoria-db.ts."
     }
   ],
   "violations": [
     {
-      "checkCode": "criticalWorkerMissing",
-      "severity": "BLOCKER",
-      "targetType": "worker",
-      "targetName": "global",
-      "expected": "successful production readiness execution",
-      "actual": "Missing required env: CLOUDFLARE_API_TOKEN",
-      "details": "Fatal error in production readiness checker execution."
+      "checkCode": "mentoriaBindingMissingTransitionalDebt",
+      "severity": "WARN",
+      "targetType": "code_guard",
+      "targetName": "mentoria:db-binding-dedicated:missing_binding_transitional_debt",
+      "expected": "MENTORIA_DB configured before final cutover",
+      "actual": "binding_not_present_yet",
+      "details": "MENTORIA_DB is still absent. Transitional debt remains open and runtime fallback is still expected."
+    },
+    {
+      "checkCode": "mentoriaDbFallbackTransitionalDebt",
+      "severity": "WARN",
+      "targetType": "code_guard",
+      "targetName": "mentoria:db-binding-dedicated:fallback_transitional_debt",
+      "expected": "env?.DRACO_DB removed after final cutover",
+      "actual": "fallback_present",
+      "details": "Transitional fallback to DRACO_DB is still present in src/lib/mentoria/get-mentoria-db.ts."
     }
   ],
   "snapshots": {
-    "workers": [],
-    "domains": [],
-    "routes": [],
-    "d1DatabaseNames": [],
-    "r2BucketNames": [],
-    "kvNamespaceNames": [],
-    "queueNames": [],
+    "workers": [
+      {
+        "workerName": "drako-core-worker",
+        "scriptExists": true,
+        "subdomain": {
+          "enabled": true,
+          "previewsEnabled": true
+        },
+        "schedulesCount": 0,
+        "domainsCount": 0,
+        "routesCount": 0
+      },
+      {
+        "workerName": "drako-billing-worker",
+        "scriptExists": true,
+        "subdomain": {
+          "enabled": true,
+          "previewsEnabled": true
+        },
+        "schedulesCount": 0,
+        "domainsCount": 0,
+        "routesCount": 0
+      },
+      {
+        "workerName": "drako-observability-worker",
+        "scriptExists": true,
+        "subdomain": {
+          "enabled": true,
+          "previewsEnabled": true
+        },
+        "schedulesCount": 0,
+        "domainsCount": 0,
+        "routesCount": 0
+      },
+      {
+        "workerName": "drako-ai-orchestrator-worker",
+        "scriptExists": true,
+        "subdomain": {
+          "enabled": true,
+          "previewsEnabled": true
+        },
+        "schedulesCount": 0,
+        "domainsCount": 0,
+        "routesCount": 0
+      },
+      {
+        "workerName": "drako-base-3",
+        "scriptExists": true,
+        "subdomain": {
+          "enabled": false,
+          "previewsEnabled": false
+        },
+        "schedulesCount": 0,
+        "domainsCount": 0,
+        "routesCount": 0
+      }
+    ],
+    "domains": [
+      {
+        "hostname": "drako.systems",
+        "service": "saas-drakos-prod"
+      },
+      {
+        "hostname": "drakos.drako.systems",
+        "service": "saas-drakos-prod"
+      },
+      {
+        "hostname": "base.drako.systems",
+        "service": "saas-bases-prod"
+      },
+      {
+        "hostname": "bases.drako.systems",
+        "service": "saas-bases-prod"
+      },
+      {
+        "hostname": "mentoria.drako.systems",
+        "service": "saas-mentorias-prod"
+      },
+      {
+        "hostname": "mentorias.drako.systems",
+        "service": "saas-mentorias-prod"
+      },
+      {
+        "hostname": "socialflow.drako.systems",
+        "service": "saas-socialflows-prod"
+      },
+      {
+        "hostname": "socialflows.drako.systems",
+        "service": "saas-socialflows-prod"
+      }
+    ],
+    "routes": [
+      {
+        "pattern": "drako.systems/*",
+        "script": "saas-drakos-prod"
+      }
+    ],
+    "d1DatabaseNames": [
+      "drako_holding_db",
+      "drako_billing_db",
+      "drako_observability_db",
+      "drako_ai_orchestrator_db",
+      "drako_db_prod"
+    ],
+    "r2BucketNames": [
+      "saas-drakos-prod-storage",
+      "saas-bases-prod-storage",
+      "saas-mentorias-prod-storage"
+    ],
+    "kvNamespaceNames": [
+      "DRKO_GLOBAL_CONFIG",
+      "saas_drakos_prod_cache"
+    ],
+    "queueNames": [
+      "drako-global-events",
+      "drako-billing-queue"
+    ],
     "durableObjectClassNames": [],
-    "d1TablesByDatabases": []
+    "d1TablesByDatabases": [
+      {
+        "databaseName": "drako_holding_db",
+        "tables": [
+          "saases_registry",
+          "agents_registry",
+          "governance_events",
+          "audit_logs",
+          "analyze_optimize_scale_runs",
+          "holding_saases",
+          "holding_billing_rollups",
+          "holding_ops_tickets",
+          "holding_event_logs"
+        ],
+        "columnsByTables": {
+          "saases_registry": [
+            "saas_id",
+            "saas_slug"
+          ],
+          "agents_registry": [
+            "agent_id",
+            "role_name"
+          ],
+          "governance_events": [
+            "event_id",
+            "event_type",
+            "schema_version"
+          ],
+          "audit_logs": [
+            "action",
+            "created_at"
+          ],
+          "analyze_optimize_scale_runs": [
+            "run_id",
+            "status_name"
+          ],
+          "holding_saases": [
+            "id",
+            "saas_slug",
+            "worker_name",
+            "domain",
+            "status_name"
+          ],
+          "holding_billing_rollups": [
+            "saas_slug",
+            "mrr",
+            "churn",
+            "refunds"
+          ],
+          "holding_ops_tickets": [
+            "id",
+            "saas_slug",
+            "severity",
+            "status_name"
+          ],
+          "holding_event_logs": [
+            "id",
+            "source",
+            "type",
+            "payload_json"
+          ]
+        }
+      },
+      {
+        "databaseName": "drako_db_prod",
+        "tables": [
+          "tenants",
+          "tenant_profiles",
+          "tenant_domains",
+          "tenant_integrations",
+          "tenant_stripe_connect",
+          "tenant_knowledge_bases",
+          "tenant_jobs",
+          "tenant_audit_logs"
+        ],
+        "columnsByTables": {
+          "tenants": [
+            "id",
+            "owner_user_id",
+            "saas_slug",
+            "status",
+            "created_at"
+          ],
+          "tenant_profiles": [
+            "tenant_id",
+            "business_name",
+            "industry",
+            "locale",
+            "timezone"
+          ],
+          "tenant_domains": [
+            "tenant_id",
+            "requested_domain",
+            "status_name",
+            "cf_zone_id",
+            "created_at"
+          ],
+          "tenant_integrations": [
+            "tenant_id",
+            "provider",
+            "status_name",
+            "metadata_json"
+          ],
+          "tenant_stripe_connect": [
+            "tenant_id",
+            "connect_account_id",
+            "onboarding_status",
+            "fees_config"
+          ],
+          "tenant_knowledge_bases": [
+            "tenant_id",
+            "kb_id",
+            "status_name"
+          ],
+          "tenant_jobs": [
+            "tenant_id",
+            "type_name",
+            "status_name",
+            "payload_json",
+            "created_at"
+          ],
+          "tenant_audit_logs": [
+            "tenant_id",
+            "action",
+            "actor",
+            "metadata_json",
+            "created_at"
+          ]
+        }
+      }
+    ]
   }
 }

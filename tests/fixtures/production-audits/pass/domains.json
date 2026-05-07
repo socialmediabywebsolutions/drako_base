@@ -6,6 +6,8 @@
     { "hostname": "base.drako.systems", "service": "saas-bases-prod" },
     { "hostname": "bases.drako.systems", "service": "saas-bases-prod" },
     { "hostname": "mentoria.drako.systems", "service": "saas-mentorias-prod" },
-    { "hostname": "mentorias.drako.systems", "service": "saas-mentorias-prod" }
+    { "hostname": "mentorias.drako.systems", "service": "saas-mentorias-prod" },
+    { "hostname": "socialflow.drako.systems", "service": "saas-socialflows-prod" },
+    { "hostname": "socialflows.drako.systems", "service": "saas-socialflows-prod" }
   ]
 }

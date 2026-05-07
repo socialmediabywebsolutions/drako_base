@@ -230,3 +230,19 @@ This prevents Wrangler from stripping the canonical custom domain on deploy (iss
 Host fencing logic (`parseAllowedHostNames`) was already correct and requires no code changes. The `SAASES_DOMAIN` var already contains both hosts comma-separated.
 
 Next: deploy with corrected config (P10.21).
+
+---
+
+## P10.24 Update (2026-05-07)
+
+**Status:** Phase gate activated. Production readiness now enforces canonical domain.
+
+After completing P10.20 (config fix), P10.21 (controlled deploy), P10.22 (smoke with Origin header), and P10.23 (workflow integration), the `socialflowCanonicalDomain` phase gate has been activated:
+
+- `docs/config/production-audits-expected-state.json`: `phaseGates.socialflowCanonicalDomain.active` changed from `false` to `true`.
+- Production readiness checks now treat missing `socialflow.drako.systems` as **BLOCKER** (previously WARN).
+- Worker ownership validation enforces `saas-socialflows-prod` as **BLOCKER**.
+- Smoke evidence validation enforces presence of canonical smoke script/runbook as **BLOCKER**.
+- Fixture updated to include both `socialflow.drako.systems` and `socialflows.drako.systems` pointing to `saas-socialflows-prod`.
+
+The canonical domain is now a production readiness requirement. The compatibility domain `socialflows.drako.systems` remains operational with controlled warning for plural-as-primary state.
