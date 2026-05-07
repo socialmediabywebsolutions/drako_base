@@ -614,6 +614,33 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Siguiente acción:
   - Ejecutar smoke real completo y preparar P10.23 para workflow canónico.
 
+## [2026-05-07 16:14 UTC+02:00] SOCIALFLOW-P10-23-INTEGRAR-EN-WORKFLOW-CANONICO
+
+- Contexto:
+  - P10.20/21/22 resolvieron host fencing, config drift y smoke.
+  - El workflow canónico `.github/workflows/drako-factory-deploy.yml` desplegaba scheduler, drakos, mentorias, bases — pero NO socialflows.
+  - Esto creaba drift: workflow verde no garantizaba SocialFlow actualizado.
+- Cambio realizado:
+  - Añadido guard pre-deploy que valida ambos custom domains en `workers/socialflows/wrangler.workers.toml`.
+  - Añadido deploy de `workers/socialflows` después de bases en orden estricto.
+  - Añadido smoke post-deploy que ejecuta `pnpm smoke:socialflow:canonical:manual` con env vars correctas.
+  - Smoke job ahora hace checkout + pnpm setup para ejecutar el script.
+- Archivos tocados:
+  - `.github/workflows/drako-factory-deploy.yml`
+  - `docs/runbooks/socialflow-canonical-domain-cloudflare-checklist.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificación ejecutada:
+  - typecheck ✓, lint 0 errors ✓, 861/861 tests ✓, build ✓.
+  - Workflow YAML válido (sintaxis).
+- Resultado:
+  - SocialFlow integrado en workflow canónico con guardrails.
+  - Deploy automático preserva ambos custom domains.
+  - Smoke post-deploy valida canonical + compat.
+- Riesgo residual:
+  - Falta ejecutar workflow real en CI para confirmar que guard + deploy + smoke pasan.
+- Siguiente acción:
+  - Commit/push → esperar workflow PASS en CI con SocialFlow integrado.
+
 ## Checklist al cerrar cada sesion
 - [ ] Actualizar `11_current_state.md` si cambio el baseline tecnico.
 - [ ] Actualizar el estado de issues en `12_open_issues.md`.

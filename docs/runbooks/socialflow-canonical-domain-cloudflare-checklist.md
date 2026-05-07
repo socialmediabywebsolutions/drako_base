@@ -181,3 +181,38 @@ custom_domain = true
 ### Siguiente acción
 
 Commit/push → esperar CI PASS → deploy controlado de `workers/socialflows` → smoke real.
+
+---
+
+## [2026-05-07 16:14 UTC+02:00] P10.23 — INTEGRAR SOCIALFLOW EN WORKFLOW CANÓNICO
+
+### Problema detectado
+
+El workflow canónico `.github/workflows/drako-factory-deploy.yml` desplegaba scheduler, drakos, mentorias y bases, pero NO desplegaba `workers/socialflows`. Esto creaba drift: workflow verde no garantizaba que SocialFlow estuviera actualizado.
+
+### Cambios realizados
+
+1. **Guard pre-deploy** (nuevo step antes del deploy):
+   - Valida que `workers/socialflows/wrangler.workers.toml` contiene ambos custom domains.
+   - Falla si falta `pattern = "socialflows.drako.systems"` o `pattern = "socialflow.drako.systems"`.
+   - Falla si hay menos de 2 `custom_domain = true`.
+
+2. **Deploy SocialFlow** (añadido al step de deploy):
+   - Orden: scheduler → drakos → mentorias → bases → **socialflows**.
+   - Usa `pushd workers/socialflows && wrangler deploy -c wrangler.workers.toml && popd`.
+
+3. **Smoke post-deploy** (nuevo step en smoke job):
+   - Ejecuta `pnpm smoke:socialflow:canonical:manual`.
+   - Env vars: `SOCIALFLOW_CANONICAL_SMOKE_ENABLED=1`, `SOCIALFLOW_CANONICAL_HOST=socialflow.drako.systems`, `SOCIALFLOW_COMPAT_HOST=socialflows.drako.systems`.
+   - Valida 9 checks (canonical routes, compat, legacy 410s, operator no-public).
+
+### Verificación
+
+- Guard valida config antes de deploy.
+- Deploy usa mismo patrón que otros workers.
+- Smoke valida ambos dominios post-deploy.
+- No se relaja seguridad (`isValidOrigin` intacto).
+
+### Siguiente acción
+
+Commit/push → esperar workflow PASS con SocialFlow integrado.

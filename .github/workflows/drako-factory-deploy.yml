@@ -280,7 +280,35 @@ jobs:
             exit 1
           }
 
-      - name: Deploy in strict order (scheduler -> drakos -> mentorias -> bases)
+      - name: Guard SocialFlow custom domains before deploy
+        run: |
+          set -euo pipefail
+          TOML="workers/socialflows/wrangler.workers.toml"
+          
+          if [ ! -f "$TOML" ]; then
+            echo "BLOCKED: $TOML not found."
+            exit 1
+          fi
+          
+          if ! grep -q 'pattern = "socialflows.drako.systems"' "$TOML"; then
+            echo "BLOCKED: $TOML missing plural domain route."
+            exit 1
+          fi
+          
+          if ! grep -q 'pattern = "socialflow.drako.systems"' "$TOML"; then
+            echo "BLOCKED: $TOML missing canonical domain route."
+            exit 1
+          fi
+          
+          CUSTOM_DOMAIN_COUNT=$(grep -c 'custom_domain = true' "$TOML" || true)
+          if [ "$CUSTOM_DOMAIN_COUNT" -lt 2 ]; then
+            echo "BLOCKED: $TOML must have at least 2 custom_domain = true entries (found: $CUSTOM_DOMAIN_COUNT)."
+            exit 1
+          fi
+          
+          echo "SocialFlow custom domains guard passed (plural + canonical routes present)."
+
+      - name: Deploy in strict order (scheduler -> drakos -> mentorias -> bases -> socialflows)
         run: |
           set -euo pipefail
           command -v wrangler >/dev/null
@@ -305,12 +333,33 @@ jobs:
           wrangler deploy -c wrangler.workers.toml
           popd
 
+          pushd workers/socialflows
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
   smoke:
     name: Smoke Tests (anti-loop / anti-cross)
     runs-on: ubuntu-latest
     needs: deploy
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.25.0"
+
+      - name: Setup Node.js (LTS) + pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.1"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Wait for route propagation
         run: sleep 20
 
@@ -374,3 +423,12 @@ jobs:
           check_url "bases-admin" "https://bases.drako.systems/admin" "bases.drako.systems" "drako.systems,mentorias.drako.systems"
 
           echo "SMOKE_OK"
+
+      - name: Validate SocialFlow canonical domain
+        env:
+          SOCIALFLOW_CANONICAL_SMOKE_ENABLED: "1"
+          SOCIALFLOW_CANONICAL_HOST: "socialflow.drako.systems"
+          SOCIALFLOW_COMPAT_HOST: "socialflows.drako.systems"
+        run: |
+          set -euo pipefail
+          pnpm smoke:socialflow:canonical:manual
