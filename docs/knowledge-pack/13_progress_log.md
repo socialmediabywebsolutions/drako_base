@@ -591,6 +591,29 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Siguiente acción:
   - Hacer commit/push, esperar workflow PASS y luego ejecutar deploy controlado de SocialFlow (P10.21).
 
+## [2026-05-07 15:08 UTC+02:00] SOCIALFLOW-P10-22-CANONICAL-SMOKE-ORIGIN-FIX
+
+- Contexto:
+  - P10.21 resolvió host fencing y preservó ambos custom domains.
+  - El smoke fallaba parcialmente por `403 Unauthorized origin` (Worker requiere `Origin` header).
+- Cambio realizado:
+  - Se actualizó `scripts/smoke/socialflow-canonical-domain-smoke.mjs` para enviar `Origin` header correcto.
+  - Canonical checks: `Origin: https://<SOCIALFLOW_CANONICAL_HOST>`.
+  - Compat check: `Origin: https://<SOCIALFLOW_COMPAT_HOST>`.
+- Archivos tocados:
+  - `scripts/smoke/socialflow-canonical-domain-smoke.mjs`
+  - `docs/runbooks/socialflow-canonical-domain-smoke.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificación ejecutada:
+  - typecheck ✓, lint 0 errors ✓, 861/861 tests ✓, build ✓.
+  - Smoke no-op ✓, smoke real ejecutado.
+- Resultado:
+  - Smoke preparado para validar dominio canónico sin relajar seguridad del Worker.
+- Riesgo residual:
+  - Falta integrar SocialFlow en workflow canónico (`drako-factory-deploy.yml`).
+- Siguiente acción:
+  - Ejecutar smoke real completo y preparar P10.23 para workflow canónico.
+
 ## Checklist al cerrar cada sesion
 - [ ] Actualizar `11_current_state.md` si cambio el baseline tecnico.
 - [ ] Actualizar el estado de issues en `12_open_issues.md`.

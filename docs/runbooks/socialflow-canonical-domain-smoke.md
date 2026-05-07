@@ -64,6 +64,15 @@ node scripts/smoke/socialflow-canonical-domain-smoke.mjs
 8. `GET https://socialflow.drako.systems/operator/socialflow` must not be public without auth
 9. `GET https://socialflows.drako.systems/socialflow` kept as compatibility evidence
 
+## Origin Header
+
+The Worker validates the `Origin` header via `isValidOrigin`. The smoke script automatically sends:
+
+- `Origin: https://<SOCIALFLOW_CANONICAL_HOST>` for canonical checks.
+- `Origin: https://<SOCIALFLOW_COMPAT_HOST>` for compatibility checks.
+
+Without `Origin`, the Worker returns `403 Unauthorized origin` (not a host fencing issue).
+
 ## Notes
 
 - This runbook prepares smoke evidence for readiness phase activation later.

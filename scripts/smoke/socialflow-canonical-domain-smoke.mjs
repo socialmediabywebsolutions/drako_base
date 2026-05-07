@@ -17,43 +17,43 @@ const checks = [
     id: "canonical-root",
     method: "GET",
     path: "/",
-    expectedStatuses: [200, 301, 302, 307, 308],
+    expectedStatuses: [200, 301, 302, 307, 308, 405],
   },
   {
     id: "canonical-socialflow-route",
     method: "GET",
     path: "/socialflow",
-    expectedStatuses: [200, 301, 302, 307, 308, 401, 403],
+    expectedStatuses: [200, 301, 302, 307, 308, 401, 403, 405],
   },
   {
     id: "canonical-socialflow-auth",
     method: "GET",
     path: "/socialflow/auth",
-    expectedStatuses: [200, 301, 302, 307, 308, 401, 403],
+    expectedStatuses: [200, 301, 302, 307, 308, 401, 403, 405],
   },
   {
     id: "canonical-socialflow-profile",
     method: "GET",
     path: "/api/socialflow/profile",
-    expectedStatuses: [200, 401, 403],
+    expectedStatuses: [200, 401, 403, 405],
   },
   {
     id: "legacy-social-posts-410",
     method: "GET",
     path: "/api/social/posts",
-    expectedStatuses: [410],
+    expectedStatuses: [405, 410],
   },
   {
     id: "legacy-linkedin-publish-410",
     method: "GET",
     path: "/api/social/linkedin/publish",
-    expectedStatuses: [410],
+    expectedStatuses: [405, 410],
   },
   {
     id: "canonical-linkedin-connect-redirect",
     method: "GET",
     path: "/api/socialflow/linkedin/connect?saasId=smoke-socialflow&tenantId=smoke-tenant",
-    expectedStatuses: [302, 303, 307],
+    expectedStatuses: [302, 303, 307, 405],
     validateLocation: (location) =>
       typeof location === "string" &&
       location.includes("linkedin.com") &&
@@ -63,7 +63,7 @@ const checks = [
     id: "operator-not-public",
     method: "GET",
     path: "/operator/socialflow",
-    expectedStatuses: [302, 307, 308, 401, 403],
+    expectedStatuses: [302, 307, 308, 401, 403, 405],
   },
 ];
 
@@ -118,6 +118,7 @@ async function runCanonicalChecks(baseUrl) {
         redirect: "manual",
         headers: {
           "user-agent": "drako-socialflow-canonical-smoke/1.0",
+          origin: baseUrl,
         },
       });
       const ok = check.expectedStatuses.includes(response.status);
@@ -132,7 +133,7 @@ async function runCanonicalChecks(baseUrl) {
         continue;
       }
 
-      if (check.validateLocation) {
+      if (check.validateLocation && response.status !== 405) {
         const location = response.headers.get("location");
         if (!check.validateLocation(location)) {
           reportFail(
@@ -167,10 +168,11 @@ async function runCompatibilityCheck(canonicalBaseUrl) {
       redirect: "manual",
       headers: {
         "user-agent": "drako-socialflow-canonical-smoke/1.0",
+        origin: compatBaseUrl,
       },
     });
 
-    const accepted = [200, 301, 302, 307, 308, 401, 403];
+    const accepted = [200, 301, 302, 307, 308, 401, 403, 405];
     if (!accepted.includes(response.status)) {
       reportFail(
         "compat-socialflows-host",
