@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { createWorkersHandlers, parseAllowedHostNames } from "../packages/shared/workers-handlers";
 
 function buildRequest(hostName: string): Request {
-  return new Request("https://example.test/socialflow", {
+  return new Request("https://example.test/api/socialflow/test", {
     method: "GET",
     headers: {
       host: hostName,

@@ -668,6 +668,42 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Siguiente acción:
   - Definir estrategia de UX pública/landing o mantener worker-only según roadmap.
 
+## [2026-05-07 19:30 UTC+02:00] SOCIALFLOW-P10-25-PUBLIC-PRODUCT-EXPERIENCE
+
+- Contexto:
+  - SocialFlow ya tiene dominio canónico, workflow, smoke y readiness.
+  - El navegador directo devolvía `{"error":"Unauthorized origin"}` por `WORKERS_ONLY_MODE=true`.
+  - El worker requería `Origin` header para todas las rutas, bloqueando navegación directa.
+- Cambio realizado:
+  - Se añadió experiencia pública mínima segura para `socialflow.drako.systems`.
+  - Modificado `packages/shared/workers-handlers/index.ts` para permitir GET sin Origin solo en rutas públicas específicas: `/`, `/socialflow`, `/socialflow/auth`.
+  - Añadida función `isPublicRouteForWorker` que valida worker + método + pathname.
+  - Añadida función `generateSocialFlowPublicHTML` que sirve landing page inline sin dependencias externas.
+  - Modificado `handleSocialflowsRequest` para servir HTML en rutas públicas y mantener APIs protegidas.
+- Archivos tocados:
+  - `packages/shared/workers-handlers/index.ts`
+  - `tests/workers-socialflow-public-routes.test.ts` (nuevo, 15 tests)
+  - `tests/workers-socialflow-host-fencing.test.ts` (actualizado path de test)
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificación ejecutada:
+  - typecheck ✓, lint 0 errors ✓, 876/876 tests ✓ (15 nuevos), build ✓.
+  - Tests validan: GET público sin Origin devuelve 200 HTML, APIs siguen protegidas, host fencing activo, POST sin body devuelve 400, wildcard rechazado.
+- Resultado:
+  - El dominio canónico ya presenta una experiencia de producto controlada sin relajar APIs.
+  - `GET https://socialflow.drako.systems/` devuelve landing page HTML premium.
+  - `GET https://socialflow.drako.systems/socialflow` devuelve landing page HTML.
+  - `GET https://socialflow.drako.systems/socialflow/auth` devuelve landing page con "Acceso cliente: próximamente".
+  - APIs `/api/*` siguen requiriendo Origin header.
+  - Host desconocido sigue devolviendo `HOSTS_FENCING_REJECTED`.
+  - No se exponen datos, no se accede a DB, no se toca OAuth.
+- Riesgo residual:
+  - Falta decidir onboarding completo, login cliente y venta/piloto.
+  - Landing page es HTML inline en worker, no usa Next.js.
+  - `WORKERS_ONLY_MODE=true` se mantiene.
+- Siguiente acción:
+  - Definir SocialFlow MVP comercial y panel cliente real.
+  - Considerar si landing page debe migrar a Next.js en drako.systems o mantenerse en worker.
+
 ## Checklist al cerrar cada sesion
 - [ ] Actualizar `11_current_state.md` si cambio el baseline tecnico.
 - [ ] Actualizar el estado de issues en `12_open_issues.md`.
