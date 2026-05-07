@@ -36,7 +36,7 @@ tratarse como fuente canonica de UI, API, auth, D1 ni deploy.
 | Drako marca | `drako.systems` | `drakos.drako.systems` | `saas-drakos-prod` | Marca/marketing activo; `drako-base-3` queda legacy/archived. |
 | Campamento Base | `base.drako.systems` | `bases.drako.systems`, `admin.drako.systems` en codigo worker | `saas-bases-prod` | Operator/control plane; no producto publico vendible. |
 | Mentoria | `mentoria.drako.systems` | `mentorias.drako.systems` | `saas-mentorias-prod` | SaaS activo, pero no fisicamente independiente hasta completar `MENTORIA_DB`. |
-| SocialFlow | `socialflow.drako.systems` decidido por ADR P10.12, no creado todavia | `socialflows.drako.systems` confirmado hoy y futuro compat/legacy | `saas-socialflows-prod` | SaaS activo con dominio plural actual; falta implementar dominio, deploy/smoke y readiness canonicos. |
+| SocialFlow | `socialflow.drako.systems` | `socialflows.drako.systems` compat/legacy | `saas-socialflows-prod` | SaaS piloto con dominio canonico, workflow/smoke/readiness activos y landing publica controlada desde Worker para `/`, `/socialflow` y `/socialflow/auth`; APIs siguen protegidas por Origin. |
 | Factory | rutas `/api/factory/*`, `/api/owner/factory/*` | `/api/owner/saas-factory/*` | OpenNext + `saas-factory-worker`/provisioner | Capacidad interna/futura, no producto publico final. |
 
 Nota P10.11: el workflow canonico `.github/workflows/drako-factory-deploy.yml`
@@ -48,6 +48,10 @@ Nota P10.12: `docs/decisions/adr-socialflow-canonical-domain.md` acepta
 `socialflow.drako.systems` como dominio canonico futuro de SocialFlow.
 `socialflows.drako.systems` queda como dominio actual confirmado y compat/legacy
 futuro. Esta decision no crea dominios ni cambia runtime.
+
+Nota P10.26: SocialFlow ya presenta experiencia publica comercial piloto en
+`socialflow.drako.systems` desde `saas-socialflows-prod` con `WORKERS_ONLY_MODE=true`.
+La pagina publica no llama DB, no usa OAuth, no carga JS externo y no abre `/api/*`.
 
 ### `apps/*` no es runtime canonico
 - No debe contener `package.json`, `wrangler.toml`, `wrangler.jsonc`, `src/*`, APIs ni UI real.

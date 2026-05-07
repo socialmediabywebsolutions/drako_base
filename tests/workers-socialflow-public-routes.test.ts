@@ -161,7 +161,18 @@ describe("socialflow public routes", () => {
       expect(text).toContain("Solicitar piloto");
       expect(text).toContain("https://drako.systems/contact");
       expect(text).toContain("Acceso cliente: próximamente");
-      expect(text).toContain("Programa Piloto Abierto");
+      expect(text).toContain("Piloto controlado");
+      expect(text).toContain("Para quién es");
+      expect(text).toContain("Qué automatiza");
+      expect(text).toContain("Estado real del producto");
+      expect(text).toContain("Disponible ahora");
+      expect(text).toContain("En validación");
+      expect(text).toContain("No prometemos todavía");
+      expect(text).toContain("Cloudflare-first");
+      expect(text).toContain("Sin trackers");
+      expect(text).toContain("APIs protegidas");
+      expect(text).toContain("Control humano");
+      expect(text).toContain("Publicación automática sin revisión");
     });
 
     it("public HTML is responsive and has proper meta tags", async () => {

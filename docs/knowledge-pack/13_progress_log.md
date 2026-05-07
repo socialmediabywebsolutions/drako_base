@@ -704,6 +704,32 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
   - Definir SocialFlow MVP comercial y panel cliente real.
   - Considerar si landing page debe migrar a Next.js en drako.systems o mantenerse en worker.
 
+## [2026-05-07 20:25 UTC+02:00] SOCIALFLOW-P10-26-MVP-COMERCIAL
+
+- Contexto:
+  - P10.25 dejo una landing publica minima en el Worker `saas-socialflows-prod`.
+  - SocialFlow necesitaba una primera presentacion comercial seria sin prometer capacidades no verificadas.
+- Cambio realizado:
+  - Se amplio `generateSocialFlowPublicHTML` con navegacion, hero comercial, panel operativo, segmentos objetivo, capacidades, estado real del piloto, limites explicitos, confianza operativa y pasos de solicitud.
+  - Se mantuvieron las unicas rutas publicas: `/`, `/socialflow`, `/socialflow/auth`.
+  - Se mantuvieron host fencing, `isValidOrigin`, APIs protegidas, `WORKERS_ONLY_MODE=true` y ausencia de JS externo/cookies/trackers.
+- Archivos tocados:
+  - `packages/shared/workers-handlers/index.ts`
+  - `tests/workers-socialflow-public-routes.test.ts`
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: git limpio, typecheck, lint 0 errors, 876/876 tests, build.
+  - Focalizada: `npx vitest run tests/workers-socialflow-public-routes.test.ts tests/workers-socialflow-host-fencing.test.ts` -> 25/25 tests.
+- Resultado:
+  - SocialFlow queda presentado como SaaS piloto comercial con valor, casos de uso, alcance, limites y CTA de piloto.
+  - No se abrieron APIs ni se tocaron DB/OAuth/Mentoria/Cloudflare/workflows.
+- Riesgo residual:
+  - Falta onboarding self-serve, panel cliente definitivo y decision de dominio compat redirect/bridge.
+- Siguiente accion:
+  - Definir paquete piloto comercial, flujo de intake y criterio para migrar landing a runtime Next.js si se necesita CMS/iteracion frecuente.
+
 ## Checklist al cerrar cada sesion
 - [ ] Actualizar `11_current_state.md` si cambio el baseline tecnico.
 - [ ] Actualizar el estado de issues en `12_open_issues.md`.

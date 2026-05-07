@@ -105,15 +105,15 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
   - Drako marca: `drako.systems -> saas-drakos-prod`.
   - Campamento Base: `base.drako.systems`/`bases.drako.systems -> saas-bases-prod`.
   - Mentoria: `mentoria.drako.systems`/`mentorias.drako.systems -> saas-mentorias-prod`, pero sigue sin `MENTORIA_DB` fisicamente dedicado.
-  - SocialFlow: `socialflows.drako.systems -> saas-socialflows-prod`; no hay evidencia local de `socialflow.drako.systems` singular y no aparece en el workflow canonico de deploy/smoke.
-  - P10.12 decide formalmente `socialflow.drako.systems` como dominio canonico futuro, sin implementarlo todavia.
+  - SocialFlow: `socialflow.drako.systems` y `socialflows.drako.systems -> saas-socialflows-prod`; dominio canonico, workflow/smoke/readiness y landing publica piloto ya estan activos.
+  - P10.26 deja pendiente convertir el piloto en onboarding/panel comercial completo sin abrir APIs ni tocar DB/OAuth.
   - `.github/workflows/drako-factory-deploy.yml` despliega scheduler, Drako, Mentoria y Base, pero no SocialFlow; ademas aplica un hotfix de migracion Mentoria sobre `DRACO_DB`.
 - Criterio de cierre:
   - SocialFlow y Mentoria tienen dominio canonico decidido, workflow reproducible por producto, smoke por dominio, expected-state/readiness alineado y bloqueos DB/auth cerrados o aceptados explicitamente para una fase controlada.
 
 ### ISSUE-015 - Implementar dominio canonico SocialFlow
 - Severidad: `P1`
-- Estado: `OPEN`
+- Estado: `PARTIAL`
 - Area: Dominios / Cloudflare / Workflows / SocialFlow SaaS readiness
 - Riesgo:
   - SocialFlow queda con dominio plural operativo (`socialflows.drako.systems`) mientras la marca, rutas y namespace canonicos son singulares.
@@ -123,7 +123,9 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
   - Dominio canonico decidido: `socialflow.drako.systems`.
   - Dominio actual confirmado: `socialflows.drako.systems`.
   - Worker esperado: `saas-socialflows-prod`.
-  - No se ha creado dominio, no se ha tocado Cloudflare, no se han cambiado workers, workflows, middleware ni runtime.
+  - Dominio canonico creado y validado; phase gate activo; smoke/readiness cubren dominio singular.
+  - Worker `saas-socialflows-prod` sirve landing publica controlada para `/`, `/socialflow` y `/socialflow/auth`.
+  - APIs e internas siguen protegidas por Origin; `socialflows.drako.systems` permanece compat.
 - Criterio de cierre:
   - `socialflow.drako.systems` existe y apunta a `saas-socialflows-prod`.
   - `/socialflow` y `/api/socialflow/*` responden bajo dominio canonico.
@@ -131,6 +133,7 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
   - `socialflows.drako.systems` queda compat/legacy mediante redirect o bridge controlado.
   - Readiness/hostname checks y smoke tests cubren el dominio singular.
   - No se rompe compatibilidad existente.
+  - Falta decidir redirect/bridge final del dominio compat y completar onboarding/panel cliente real.
 
 ## Orden de ataque recomendado
 1. `ISSUE-006`
