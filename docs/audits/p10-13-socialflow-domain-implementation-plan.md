@@ -206,3 +206,27 @@ Prepare a safe future implementation plan for `socialflow.drako.systems` as the 
 ## Result
 
 The future implementation path for `socialflow.drako.systems` is defined with Cloudflare, routing, OAuth, smoke, readiness and compatibility controls. Execution remains deferred.
+
+---
+
+## P10.20 Update (2026-05-07)
+
+**Status:** Config fix applied in repo. Deploy pending.
+
+The `wrangler.workers.toml` for `workers/socialflows` now declares both custom domains:
+
+```toml
+[[routes]]
+pattern = "socialflows.drako.systems"
+custom_domain = true
+
+[[routes]]
+pattern = "socialflow.drako.systems"
+custom_domain = true
+```
+
+This prevents Wrangler from stripping the canonical custom domain on deploy (issue discovered in P10.19 where the deploy caused NXDOMAIN for `socialflow.drako.systems`).
+
+Host fencing logic (`parseAllowedHostNames`) was already correct and requires no code changes. The `SAASES_DOMAIN` var already contains both hosts comma-separated.
+
+Next: deploy with corrected config (P10.21).

@@ -146,3 +146,38 @@ Si el custom domain falla:
 - Salida completa del smoke manual.
 - Confirmacion de `socialflows.drako.systems` como compat.
 - Confirmacion de `phaseGates.socialflowCanonicalDomain.active: false`.
+
+---
+
+## [2026-05-07 12:00 UTC+02:00] P10.20 — SAFE DOMAIN CONFIG + HOST FENCING FIX
+
+### Problema detectado
+
+El deploy manual de P10.19 reveló que `workers/socialflows/wrangler.workers.toml` sólo declaraba un bloque `[[routes]]` para `socialflows.drako.systems`. Al desplegar, Wrangler sobrescribió la configuración remota y eliminó el custom domain `socialflow.drako.systems` (NXDOMAIN). Se ejecutó rollback a `2f12f60e`.
+
+Después de recuperar manualmente el custom domain en Cloudflare, el Worker estable seguía rechazando `socialflow.drako.systems` con `HOSTS_FENCING_REJECTED` porque la versión productiva no incluía la config de doble host.
+
+### Causa raíz
+
+La config local de Wrangler no reflejaba ambos custom domains. Otros workers (`bases`, `mentorias`, `drakos`) ya usan dos bloques `[[routes]]` con `custom_domain = true`.
+
+### Fix aplicado
+
+Se añadió segundo bloque `[[routes]]` en `workers/socialflows/wrangler.workers.toml`:
+
+```toml
+[[routes]]
+pattern = "socialflow.drako.systems"
+custom_domain = true
+```
+
+### Verificación
+
+- `parseAllowedHostNames` ya soporta lista comma-separated (sin cambios de código necesarios).
+- `SAASES_DOMAIN = "socialflows.drako.systems,socialflow.drako.systems"` ya estaba correcto en `[vars]`.
+- Tests ampliados a 10 casos (spaces, protocol normalization, wildcard rejection, config validation).
+- typecheck/lint/test/build pasan.
+
+### Siguiente acción
+
+Commit/push → esperar CI PASS → deploy controlado de `workers/socialflows` → smoke real.

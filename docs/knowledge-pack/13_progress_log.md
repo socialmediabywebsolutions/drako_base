@@ -567,6 +567,30 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
   - `ISSUE-011`, `ISSUE-009`
 
+## [2026-05-07 12:00 UTC+02:00] SOCIALFLOW-P10-20-SAFE-DOMAIN-CONFIG-HOST-FENCING
+
+- Contexto:
+  - Cloudflare ya enruta `socialflow.drako.systems` a `saas-socialflows-prod`, pero el Worker estable lo rechaza por host fencing.
+  - El deploy manual de P10.19 perdió el custom domain singular por drift entre config local y remota (wrangler.workers.toml sólo declaraba un `[[routes]]`).
+- Cambio realizado:
+  - Se añadió segundo bloque `[[routes]]` con `pattern = "socialflow.drako.systems"` y `custom_domain = true` en `workers/socialflows/wrangler.workers.toml`.
+  - Se ampliaron tests de host fencing de 5 a 10 (spaces, protocol normalization, fallback, wildcard rejection, config file validation).
+- Archivos tocados:
+  - `workers/socialflows/wrangler.workers.toml`
+  - `tests/workers-socialflow-host-fencing.test.ts`
+  - `docs/runbooks/socialflow-canonical-domain-cloudflare-checklist.md`
+  - `docs/audits/p10-13-socialflow-domain-implementation-plan.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificación ejecutada:
+  - typecheck ✓, lint 0 errors ✓, 10/10 host fencing tests ✓, build ✓.
+- Resultado:
+  - Repo preparado para deploy seguro posterior. Config local ahora refleja la config remota de Cloudflare.
+- Riesgo residual:
+  - Falta desplegar nuevamente con config corregida y validar smoke real.
+  - `workers/socialflows` aún no está en `drako-factory-deploy.yml`.
+- Siguiente acción:
+  - Hacer commit/push, esperar workflow PASS y luego ejecutar deploy controlado de SocialFlow (P10.21).
+
 ## Checklist al cerrar cada sesion
 - [ ] Actualizar `11_current_state.md` si cambio el baseline tecnico.
 - [ ] Actualizar el estado de issues en `12_open_issues.md`.
