@@ -730,6 +730,36 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Siguiente accion:
   - Definir paquete piloto comercial, flujo de intake y criterio para migrar landing a runtime Next.js si se necesita CMS/iteracion frecuente.
 
+## [2026-05-07 21:10 UTC+02:00] SOCIALFLOW-P10-27-PREMIUM-SAAS-LANDING
+
+- Contexto:
+  - P10.26 dejo una landing comercial piloto funcional, pero el objetivo evoluciono a una presentacion mas premium, visual y SaaS-like.
+  - La restriccion se mantiene: no abrir APIs, no cambiar host fencing, no tocar DB/OAuth/Cloudflare/workflows.
+- Cambio realizado:
+  - Se redisenó `generateSocialFlowPublicHTML` hacia tema claro premium con gradientes suaves, nav glass, hero comercial, CTAs y mensajes orientados a empresas, marcas, agencias y emprendedores.
+  - Se agregaron mockups visuales CSS inline de `SocialFlow Workspace` y `SocialFlow Control Room` con calendario editorial, borradores asistidos, revision humana, canales y operacion trazable.
+  - Se reestructuro la pagina en secciones de problema, como funciona, para quien es, plataforma, capacidades, piloto y CTA final.
+  - Se mantuvo HTML inline sin JS externo, cookies, trackers ni dependencias.
+- Archivos tocados:
+  - `packages/shared/workers-handlers/index.ts`
+  - `tests/workers-socialflow-public-routes.test.ts`
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Baseline previo: git limpio, typecheck, lint 0 errors/208 warnings, 876/876 tests, build.
+  - Focalizada: `pnpm exec vitest run tests/workers-socialflow-public-routes.test.ts tests/workers-socialflow-host-fencing.test.ts` -> 25/25 tests.
+  - Final: typecheck OK, lint 0 errors/208 warnings, 876/876 tests, build OK.
+- Resultado:
+  - SocialFlow queda presentado como plataforma SaaS piloto de automatizacion social asistida por IA con presencia visual de producto y copy comercial mas claro.
+  - Las rutas publicas siguen limitadas a `GET /`, `GET /socialflow` y `GET /socialflow/auth`.
+  - APIs, rutas internas, host fencing y Origin validation siguen protegidos.
+- Riesgo residual:
+  - Landing sigue inline en Worker; para iteracion comercial frecuente podria convenir migrarla a UI versionada o CMS controlado en una fase futura.
+  - Falta onboarding self-serve, panel cliente definitivo y decision final de redirect/bridge para `socialflows.drako.systems`.
+- Siguiente accion:
+  - Definir el flujo de intake/piloto comercial y criterios para abrir acceso cliente real sin relajar seguridad.
+
 ## Checklist al cerrar cada sesion
 - [ ] Actualizar `11_current_state.md` si cambio el baseline tecnico.
 - [ ] Actualizar el estado de issues en `12_open_issues.md`.

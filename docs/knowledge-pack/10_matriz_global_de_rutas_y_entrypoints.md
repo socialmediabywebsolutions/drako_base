@@ -53,6 +53,10 @@ Nota P10.26: SocialFlow ya presenta experiencia publica comercial piloto en
 `socialflow.drako.systems` desde `saas-socialflows-prod` con `WORKERS_ONLY_MODE=true`.
 La pagina publica no llama DB, no usa OAuth, no carga JS externo y no abre `/api/*`.
 
+Nota P10.27: la landing publica de SocialFlow fue redisenada como experiencia SaaS
+premium de tema claro, con hero visual, mockups CSS inline de workspace/control room,
+secciones de problema, workflow, targets, capacidades y estado de piloto controlado.
+
 ### `apps/*` no es runtime canonico
 - No debe contener `package.json`, `wrangler.toml`, `wrangler.jsonc`, `src/*`, APIs ni UI real.
 - No debe importarse desde `src/*`, `workers/*` ni rutas productivas.
