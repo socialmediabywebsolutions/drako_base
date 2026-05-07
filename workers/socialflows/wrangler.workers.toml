@@ -33,6 +33,6 @@ queue = "saas-socialflows-prod-events"
 
 [vars]
 SAASES_SLUG = "socialflows"
-SAASES_DOMAIN = "socialflows.drako.systems"
+SAASES_DOMAIN = "socialflows.drako.systems,socialflow.drako.systems"
 AUTHS_SECRETS_NAME = "SOCIALFLOWS_AUTHS_SECRET"
 WORKERS_ONLY_MODE = "true"

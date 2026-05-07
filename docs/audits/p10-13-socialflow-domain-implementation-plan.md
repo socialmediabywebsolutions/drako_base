@@ -134,6 +134,13 @@ Prepare a safe future implementation plan for `socialflow.drako.systems` as the 
 - It explicitly keeps `phaseGates.socialflowCanonicalDomain.active: false` until a later readiness activation phase.
 - No Cloudflare, DNS, worker, middleware, runtime, OAuth code, LinkedIn callback, data or deploy action is performed by this documentation step.
 
+### P10.17 Follow-up (Host Fencing Canonical Fix)
+
+- Host fencing now reads `SAASES_DOMAIN` as an explicit allowed-host list (comma/space/newline separators).
+- Canonical `socialflow.drako.systems` is accepted together with compatibility `socialflows.drako.systems` when both are configured.
+- Host normalization now handles protocol, trailing slash and spacing noise safely.
+- Wildcards are explicitly ignored (fail-closed).
+
 ## Phased Implementation Plan
 
 ### Phase A - Readiness Expected-State

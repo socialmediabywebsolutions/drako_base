@@ -8,6 +8,12 @@ Change class: no Cloudflare, DNS, worker, runtime, OAuth, data, or phase-gate mu
 
 Crear y validar `socialflow.drako.systems` como dominio canonico de SocialFlow, apuntando a `saas-socialflows-prod`.
 
+## P10.17 update
+
+- Runtime host fencing now accepts both `socialflows.drako.systems` (compat) and `socialflow.drako.systems` (canonical) from explicit `SAASES_DOMAIN` configuration.
+- Use list format in worker vars: `SAASES_DOMAIN=socialflows.drako.systems,socialflow.drako.systems`.
+- Wildcards are not accepted as allowed hosts.
+
 ## Precondiciones
 
 - Workflow `main` verde.

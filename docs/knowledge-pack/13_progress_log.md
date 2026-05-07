@@ -16,6 +16,34 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
 ```
 
+## [2026-05-06 12:40 UTC+02:00] SOCIALFLOW-P10-17-HOST-FENCING-CANONICAL-DOMAIN
+- Contexto:
+  - Cloudflare ya enruta `socialflow.drako.systems` a `saas-socialflows-prod`, pero el Worker lo rechazaba por host fencing.
+- Cambio realizado:
+  - Se ajusto el host fencing para aceptar `SAASES_DOMAIN` como lista explicita con dominio plural compat y dominio singular canonico.
+  - Se agrego normalizacion segura (trim/lowercase, sin protocolo, sin slash final) y rechazo fail-closed de wildcards.
+- Archivos tocados:
+  - `packages/shared/workers-handlers/index.ts`
+  - `workers/socialflows/src/workers.ts`
+  - `workers/socialflows/wrangler.workers.toml`
+  - `tests/workers-socialflow-host-fencing.test.ts`
+  - `docs/runbooks/socialflow-canonical-domain-cloudflare-checklist.md`
+  - `docs/audits/p10-13-socialflow-domain-implementation-plan.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: grep de `HOSTS_FENCING_REJECTED`/`allowedHostNames`/`SAASES_DOMAIN` y revision de worker SocialFlow + helper compartido.
+  - Focalizados: `pnpm exec vitest run tests/workers-socialflow-host-fencing.test.ts`.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+- Resultado:
+  - `socialflow.drako.systems` queda permitido por configuracion explicita, sin wildcard.
+- Riesgo residual:
+  - Falta smoke real post-deploy en Cloudflare.
+- Siguiente accion:
+  - Commit/push, esperar workflow PASS y ejecutar smoke manual contra `socialflow.drako.systems`.
+- Relacion con issues:
+  - `ISSUE-015`
+
 ## [2026-05-04 22:16 UTC+02:00] SOCIALFLOW-P10-16-CLOUDFLARE-DOMAIN-RUNBOOK
 - Contexto:
   - P10.15 dejo preparado el smoke manual para `socialflow.drako.systems`.
