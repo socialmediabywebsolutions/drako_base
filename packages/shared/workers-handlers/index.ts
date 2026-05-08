@@ -263,8 +263,8 @@ function generateSocialFlowPublicHTML(): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="SocialFlow es una plataforma SaaS de automatización social asistida por IA para planificar, preparar, organizar y coordinar contenido multicanal con revisión humana.">
-  <title>SocialFlow - Plataforma SaaS de automatización social asistida por IA</title>
+  <meta name="description" content="SocialFlow ayuda a planificar, preparar, revisar y coordinar contenido social con IA, calendario editorial, canales temáticos y control humano.">
+  <title>SocialFlow - IA, calendario editorial y revisión humana para redes sociales</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
@@ -400,9 +400,9 @@ function generateSocialFlowPublicHTML(): string {
       box-shadow: 0 10px 30px rgba(6, 182, 212, 0.12);
     }
     h1 {
-      font-size: clamp(3rem, 6vw, 5.7rem);
-      line-height: 0.92;
-      letter-spacing: -0.075em;
+      font-size: 4.9rem;
+      line-height: 0.96;
+      letter-spacing: 0;
       font-weight: 850;
       margin-bottom: 1.25rem;
       color: #071827;
@@ -414,7 +414,7 @@ function generateSocialFlowPublicHTML(): string {
       background-clip: text;
     }
     .subtitle {
-      font-size: clamp(1.12rem, 2vw, 1.35rem);
+      font-size: 1.25rem;
       color: #475569;
       margin-bottom: 1.5rem;
       max-width: 700px;
@@ -608,6 +608,107 @@ function generateSocialFlowPublicHTML(): string {
       grid-template-columns: 0.92fr 1.08fr;
       gap: 0.9rem;
     }
+    .network-map {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 0.9rem;
+    }
+    .ai-hub {
+      min-height: 188px;
+      display: grid;
+      place-items: center;
+      border-radius: 1.25rem;
+      background:
+        radial-gradient(circle at center, rgba(6, 182, 212, 0.28), transparent 58%),
+        linear-gradient(135deg, #f8fafc, #ecfeff);
+      border: 1px solid rgba(6, 182, 212, 0.22);
+      text-align: center;
+      color: #0f172a;
+      position: relative;
+      overflow: hidden;
+    }
+    .ai-hub::before,
+    .ai-hub::after {
+      content: "";
+      position: absolute;
+      width: 74%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.55), transparent);
+    }
+    .ai-hub::before { transform: rotate(28deg); }
+    .ai-hub::after { transform: rotate(-28deg); }
+    .ai-core {
+      width: 92px;
+      height: 92px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: #ffffff;
+      border: 1px solid rgba(6, 182, 212, 0.28);
+      box-shadow: 0 18px 46px rgba(6, 182, 212, 0.2);
+      font-weight: 900;
+      color: #0f766e;
+      z-index: 1;
+    }
+    .channel-stack {
+      display: grid;
+      gap: 0.55rem;
+    }
+    .social-channel {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 1rem;
+      padding: 0.72rem;
+      background: rgba(255, 255, 255, 0.9);
+      color: #475569;
+      font-size: 0.86rem;
+    }
+    .channel-token {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 0.85rem;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-weight: 900;
+    }
+    .social-channel:nth-child(2) .channel-token { background: #fdf2f8; color: #be185d; }
+    .social-channel:nth-child(3) .channel-token { background: #f8fafc; color: #0f172a; }
+    .status-lane {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.6rem;
+    }
+    .status-pill {
+      border: 1px solid #e2e8f0;
+      border-radius: 1rem;
+      padding: 0.7rem;
+      background: #ffffff;
+      color: #475569;
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+    .human-check {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      border: 1px solid rgba(15, 118, 110, 0.22);
+      border-radius: 1.1rem;
+      padding: 0.85rem;
+      background: #ecfdf5;
+      color: #0f766e;
+      font-size: 0.88rem;
+      font-weight: 800;
+    }
     .calendar-card,
     .draft-card,
     .approval-card,
@@ -756,11 +857,11 @@ function generateSocialFlowPublicHTML(): string {
       margin-bottom: 0.75rem;
     }
     .section h2 {
-      font-size: clamp(1.85rem, 4vw, 3rem);
+      font-size: 2.75rem;
       line-height: 1.05;
       margin-bottom: 1rem;
       color: #0f172a;
-      letter-spacing: -0.045em;
+      letter-spacing: 0;
     }
     .section-lead {
       max-width: 780px;
@@ -811,6 +912,13 @@ function generateSocialFlowPublicHTML(): string {
       display: grid;
       gap: 1rem;
     }
+    .state-card ul {
+      display: grid;
+      gap: 0.45rem;
+      padding-left: 1.05rem;
+      color: #64748b;
+      font-size: 0.95rem;
+    }
     .state-card {
       border-radius: 1.5rem;
       padding: 1.25rem;
@@ -832,7 +940,7 @@ function generateSocialFlowPublicHTML(): string {
     }
     .steps-flow {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 0.8rem;
       margin-top: 2.25rem;
     }
@@ -1164,6 +1272,7 @@ function generateSocialFlowPublicHTML(): string {
       .platform-showcase {
         grid-template-columns: 1fr;
       }
+      .network-map { grid-template-columns: 1fr; }
       .product-visual { min-height: auto; }
       .dashboard-mockup { transform: none; }
       .floating-card { position: static; margin-top: 1rem; max-width: none; }
@@ -1178,12 +1287,14 @@ function generateSocialFlowPublicHTML(): string {
       .nav { align-items: flex-start; flex-direction: column; }
       .nav-links { width: 100%; }
       header { padding: 4rem 0 2.5rem; }
-      h1 { font-size: 3rem; }
+      h1 { font-size: 3.15rem; }
+      .section h2 { font-size: 2.1rem; }
       .subtitle { font-size: 1.125rem; }
       .hero-proof,
       .metric-row,
       .workflow-board,
       .approval-card,
+      .status-lane,
       .steps-flow,
       .features,
       .targets,
@@ -1201,7 +1312,7 @@ function generateSocialFlowPublicHTML(): string {
     <nav class="nav">
       <div class="brand"><span class="brand-mark" aria-hidden="true"></span>SocialFlow</div>
       <div class="nav-links">
-        <a href="#problema">Qué resuelve</a>
+        <a href="#problema">Antes / después</a>
         <a href="#como-funciona">Cómo funciona</a>
         <a href="#plataforma">Plataforma</a>
         <a href="#capacidades">Capacidades</a>
@@ -1213,20 +1324,20 @@ function generateSocialFlowPublicHTML(): string {
     <header>
       <div class="hero-grid">
         <div>
-          <div class="logo">SocialFlow · Plataforma SaaS piloto</div>
-          <h1>Automatización social asistida por IA para <span class="accent-text">equipos que publican en serio.</span></h1>
-          <p class="subtitle">Planifica, prepara, organiza y coordina contenido social multicanal con IA conectada al trabajo real y revisión humana antes de publicar.</p>
-          <p class="description">SocialFlow convierte ideas, campañas y activos de marca en un sistema operativo social: canales claros, calendario editorial, borradores asistidos, coordinación de equipo y trazabilidad operativa.</p>
-          <p class="description">Diseñado para empresas, marcas, agencias pequeñas, equipos de marketing y emprendedores que necesitan consistencia sin depender de improvisar cada publicación.</p>
+          <div class="logo">SocialFlow · Piloto controlado</div>
+          <h1 aria-label="Convierte tu operación social en un sistema asistido por IA.">Convierte tu operación social en un <span class="accent-text">sistema asistido por IA.</span></h1>
+          <p class="subtitle">SocialFlow ayuda a planificar, preparar, revisar y coordinar contenido social para empresas, emprendedores y equipos de marketing.</p>
+          <p class="description">Una plataforma seria para transformar ideas, campañas y activos de marca en canales temáticos, calendario editorial, borradores asistidos y revisión humana antes de publicar.</p>
+          <p class="description">Pensado para empresas, marcas personales, agencias pequeñas, negocios locales y equipos que necesitan constancia sin vender humo ni automatización ciega.</p>
           <span class="pilot-badge">Piloto controlado · acceso por invitación</span>
           <div class="hero-actions">
             <a href="https://drako.systems/contact" class="cta-button">Solicitar piloto</a>
-            <a href="#plataforma" class="cta-button secondary">Ver la plataforma</a>
+            <a href="#como-funciona" class="cta-button secondary">Ver cómo funciona</a>
           </div>
           <div class="hero-proof" aria-label="Resumen de valor">
-            <div class="proof-card"><strong>Plan editorial</strong><span>Semanas de contenido con estructura</span></div>
-            <div class="proof-card"><strong>IA + revisión</strong><span>Borradores útiles, control humano</span></div>
-            <div class="proof-card"><strong>Multicanal</strong><span>Campañas, marcas y redes ordenadas</span></div>
+            <div class="proof-card"><strong>IA + redes sociales</strong><span>Ideas conectadas a canales reales</span></div>
+            <div class="proof-card"><strong>Calendario editorial</strong><span>Semanas revisables y trazables</span></div>
+            <div class="proof-card"><strong>Control humano</strong><span>Aprobación antes de publicar</span></div>
           </div>
         </div>
         <aside class="product-visual" aria-label="Mockup visual de plataforma SocialFlow">
@@ -1252,6 +1363,16 @@ function generateSocialFlowPublicHTML(): string {
                   <div class="metric"><span>Pendientes de revisión</span><strong>6</strong></div>
                 </div>
                 <div class="workflow-board">
+                  <div class="network-map" aria-label="IA conectada a redes sociales">
+                    <div class="ai-hub">
+                      <div class="ai-core">IA</div>
+                    </div>
+                    <div class="channel-stack">
+                      <div class="social-channel"><span><span class="channel-token">IN</span></span><strong>Canal profesional</strong><span>LinkedIn</span></div>
+                      <div class="social-channel"><span><span class="channel-token">IG</span></span><strong>Canal visual</strong><span>Instagram</span></div>
+                      <div class="social-channel"><span><span class="channel-token">X</span></span><strong>Canal conversación</strong><span>X</span></div>
+                    </div>
+                  </div>
                   <div class="calendar-card">
                     <div class="mini-title"><span>Calendario editorial</span><span>Semana</span></div>
                     <div class="week-grid">
@@ -1276,9 +1397,16 @@ function generateSocialFlowPublicHTML(): string {
                   </div>
                   <div class="approval-card">
                     <div class="approval-step"><strong>Idea</strong>Brief y campaña</div>
-                    <div class="approval-step"><strong>IA</strong>Estructura y variantes</div>
-                    <div class="approval-step"><strong>Equipo</strong>Revisión antes de publicar</div>
+                    <div class="approval-step"><strong>Borrador</strong>Estructura y variantes</div>
+                    <div class="approval-step"><strong>Revisión</strong>Equipo valida tono y precisión</div>
                   </div>
+                  <div class="status-lane" aria-label="Estados de publicación">
+                    <div class="status-pill">Idea</div>
+                    <div class="status-pill">Borrador</div>
+                    <div class="status-pill">Revisión</div>
+                    <div class="status-pill">Programado</div>
+                  </div>
+                  <div class="human-check"><span>Aprobación humana</span><span>Requerida antes de publicar</span></div>
                 </div>
               </div>
             </div>
@@ -1298,9 +1426,9 @@ function generateSocialFlowPublicHTML(): string {
 
     <section id="problema" class="section">
       <div class="section-card">
-        <p class="section-kicker">Qué resuelve</p>
-        <h2>El problema no es tener ideas. Es convertirlas en una operación social constante.</h2>
-        <p class="section-lead">Muchas empresas publican a golpes de urgencia: contenido disperso, calendarios invisibles, redes abandonadas y demasiada dependencia de la inspiración del día.</p>
+        <p class="section-kicker">Antes / después</p>
+        <h2>De publicar cuando hay tiempo a operar contenido con método.</h2>
+        <p class="section-lead">SocialFlow no promete magia: convierte la operación social diaria en un flujo visible, revisable y asistido por IA para que el equipo sepa qué hacer, cuándo y con qué criterio.</p>
         <div class="problem-grid">
           <div class="problem-list">
             <div class="problem-item"><span class="problem-icon">!</span><div><strong>Caos editorial</strong><span>Ideas, campañas y mensajes viven en chats, documentos y notas sin prioridad clara.</span></div></div>
@@ -1311,11 +1439,23 @@ function generateSocialFlowPublicHTML(): string {
           <div class="before-after">
             <div class="state-card">
               <strong>Antes</strong>
-              <p>Publicaciones sueltas, calendario incompleto, decisiones urgentes y poca trazabilidad sobre qué se preparó, revisó o quedó pendiente.</p>
+              <ul>
+                <li>Ideas dispersas.</li>
+                <li>Publicaciones improvisadas.</li>
+                <li>Calendario invisible.</li>
+                <li>Revisión por mensajes sueltos.</li>
+                <li>Falta de constancia.</li>
+              </ul>
             </div>
             <div class="state-card after">
               <strong>Con SocialFlow</strong>
-              <p>Canales definidos, campañas ordenadas, borradores asistidos por IA y un flujo claro para revisar antes de distribuir contenido.</p>
+              <ul>
+                <li>Canales organizados.</li>
+                <li>Calendario revisable.</li>
+                <li>Borradores asistidos por IA.</li>
+                <li>Trazabilidad.</li>
+                <li>Control humano antes de publicar.</li>
+              </ul>
             </div>
           </div>
         </div>
@@ -1324,15 +1464,13 @@ function generateSocialFlowPublicHTML(): string {
 
     <section id="como-funciona" class="section">
       <p class="section-kicker">Cómo funciona</p>
-      <h2>De la idea dispersa al calendario revisable.</h2>
-      <p class="section-lead">SocialFlow acompaña el ciclo operativo completo: ordenar canales, definir línea editorial, preparar calendario, generar borradores asistidos, revisar y coordinar distribución con control humano.</p>
+      <h2>Cuatro pasos para pasar de ideas sueltas a calendario listo para operar.</h2>
+      <p class="section-lead">El piloto se centra en una promesa concreta: ordenar el trabajo social, preparar mejores borradores y mantener la aprobación humana dentro del flujo.</p>
       <div class="steps-flow">
-        <div class="step-card"><div class="step-number">1</div><h3>Organizas canales</h3><p>Separas líneas de negocio, marcas, audiencias o campañas.</p></div>
-        <div class="step-card"><div class="step-number">2</div><h3>Defines estrategia</h3><p>Clarificas tono, temas recurrentes y objetivos por canal.</p></div>
-        <div class="step-card"><div class="step-number">3</div><h3>Preparas calendario</h3><p>Construyes una vista semanal o mensual con prioridades reales.</p></div>
-        <div class="step-card"><div class="step-number">4</div><h3>Generas borradores</h3><p>La IA propone estructuras, posts y variantes editables.</p></div>
-        <div class="step-card"><div class="step-number">5</div><h3>Revisas</h3><p>El equipo valida tono, precisión y oportunidad antes de publicar.</p></div>
-        <div class="step-card"><div class="step-number">6</div><h3>Distribuyes</h3><p>Coordinas presencia digital sin perder control editorial.</p></div>
+        <div class="step-card"><div class="step-number">1</div><h3>Define canales y objetivos</h3><p>Separa audiencias, temas, marcas y metas para no mezclar toda la operación en una lista.</p></div>
+        <div class="step-card"><div class="step-number">2</div><h3>La IA prepara estructura y borradores</h3><p>Convierte briefs e ideas en propuestas editables, variantes y próximos pasos.</p></div>
+        <div class="step-card"><div class="step-number">3</div><h3>El equipo revisa y aprueba</h3><p>Marketing, founders o clientes validan tono, precisión, prioridad y oportunidad.</p></div>
+        <div class="step-card"><div class="step-number">4</div><h3>Calendario listo para operar</h3><p>SocialFlow deja una vista clara de piezas, estados, fechas y preparación para publicación.</p></div>
       </div>
     </section>
 
@@ -1345,7 +1483,7 @@ function generateSocialFlowPublicHTML(): string {
         <div class="target-card"><div class="target-icon">MK</div><h3>Equipos de marketing</h3><p>Plan editorial, revisión interna y coordinación entre mensajes, campañas y canales.</p></div>
         <div class="target-card"><div class="target-icon">AG</div><h3>Agencias pequeñas</h3><p>Operación multicliente con estructuras reutilizables y entregables más claros.</p></div>
         <div class="target-card"><div class="target-icon">EM</div><h3>Emprendedores</h3><p>Una forma práctica de sostener presencia digital sin vivir improvisando publicaciones.</p></div>
-        <div class="target-card"><div class="target-icon">BR</div><h3>Marcas</h3><p>Campañas, lanzamientos, líneas editoriales y series de contenido con consistencia.</p></div>
+        <div class="target-card"><div class="target-icon">BR</div><h3>Marcas personales</h3><p>Campañas, lanzamientos, líneas editoriales y series de contenido con consistencia.</p></div>
         <div class="target-card"><div class="target-icon">LC</div><h3>Negocios locales</h3><p>Promociones, novedades, agenda comercial y contenido útil para comunidad cercana.</p></div>
       </div>
     </section>
@@ -1410,7 +1548,7 @@ function generateSocialFlowPublicHTML(): string {
       <div class="features">
         <div class="feature">
           <div class="feature-icon">01</div>
-          <h3>Canales temáticos</h3>
+          <h3>Organización temática</h3>
           <p>Organiza tu contenido por temas, marcas o proyectos. Cada canal con su propia identidad y calendario.</p>
         </div>
         <div class="feature">
@@ -1425,7 +1563,7 @@ function generateSocialFlowPublicHTML(): string {
         </div>
         <div class="feature">
           <div class="feature-icon">04</div>
-          <h3>Organización multicanal</h3>
+          <h3>Priorización de canales</h3>
           <p>Coordina mensajes por audiencia, canal, objetivo y momento sin duplicar trabajo.</p>
         </div>
         <div class="feature">
@@ -1450,8 +1588,8 @@ function generateSocialFlowPublicHTML(): string {
         </div>
         <div class="feature">
           <div class="feature-icon">09</div>
-          <h3>Campañas y series</h3>
-          <p>Planifica secuencias de contenido con intención comercial, educativa o de comunidad.</p>
+          <h3>Preparación para publicación</h3>
+          <p>Deja piezas, fechas, revisión y siguientes acciones listas para que el equipo opere con control.</p>
         </div>
       </div>
     </section>
@@ -1481,9 +1619,10 @@ function generateSocialFlowPublicHTML(): string {
         <div class="card status limit">
           <h3>No prometemos todavía</h3>
           <ul>
-            <li>Publicación automática sin revisión.</li>
-            <li>Integraciones no verificadas como producción.</li>
-            <li>Resultados virales garantizados.</li>
+            <li>No publicación automática sin revisión.</li>
+            <li>No integraciones no verificadas como producción.</li>
+            <li>No resultados virales garantizados.</li>
+            <li>No sustituye estrategia humana.</li>
           </ul>
         </div>
       </div>

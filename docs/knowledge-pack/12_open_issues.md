@@ -105,7 +105,7 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
   - Drako marca: `drako.systems -> saas-drakos-prod`.
   - Campamento Base: `base.drako.systems`/`bases.drako.systems -> saas-bases-prod`.
   - Mentoria: `mentoria.drako.systems`/`mentorias.drako.systems -> saas-mentorias-prod`, pero sigue sin `MENTORIA_DB` fisicamente dedicado.
-  - SocialFlow: `socialflow.drako.systems` y `socialflows.drako.systems -> saas-socialflows-prod`; dominio canonico, workflow/smoke/readiness y landing publica piloto premium ya estan activos.
+  - SocialFlow: `socialflow.drako.systems` y `socialflows.drako.systems -> saas-socialflows-prod`; dominio canonico, workflow/smoke/readiness y landing publica piloto premium ya estan activos. P10.28 pulio la landing a nivel visual/comercial sin cambiar arquitectura ni abrir APIs.
   - P10.26 deja pendiente convertir el piloto en onboarding/panel comercial completo sin abrir APIs ni tocar DB/OAuth.
   - `.github/workflows/drako-factory-deploy.yml` despliega scheduler, Drako, Mentoria y Base, pero no SocialFlow; ademas aplica un hotfix de migracion Mentoria sobre `DRACO_DB`.
 - Criterio de cierre:
@@ -125,6 +125,7 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
   - Worker esperado: `saas-socialflows-prod`.
   - Dominio canonico creado y validado; phase gate activo; smoke/readiness cubren dominio singular.
   - Worker `saas-socialflows-prod` sirve landing publica controlada premium para `/`, `/socialflow` y `/socialflow/auth`.
+  - P10.28 refuerza el posicionamiento comercial con IA + redes, calendario editorial, canales tematicos, revision humana, piloto controlado y limites explicitos.
   - APIs e internas siguen protegidas por Origin; `socialflows.drako.systems` permanece compat.
 - Criterio de cierre:
   - `socialflow.drako.systems` existe y apunta a `saas-socialflows-prod`.

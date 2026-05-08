@@ -45,7 +45,7 @@ describe("socialflow public routes", () => {
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toContain("text/html");
       expect(text).toContain("SocialFlow");
-      expect(text).toContain("Automatización social");
+      expect(text).toContain("Convierte tu operación social en un sistema asistido por IA.");
     });
 
     it("GET /socialflow returns 200 HTML without Origin header", async () => {
@@ -93,6 +93,14 @@ describe("socialflow public routes", () => {
 
     it("POST /api/socialflow/posts without Origin returns 403", async () => {
       const response = await handler.handleRequest(buildRequest("/api/socialflow/posts", "POST", false), env);
+      const { json } = await readResponse(response);
+
+      expect(response.status).toBe(403);
+      expect(json?.error).toBe("Unauthorized origin");
+    });
+
+    it("GET /api/* without Origin remains protected", async () => {
+      const response = await handler.handleRequest(buildRequest("/api/health", "GET", false), env);
       const { json } = await readResponse(response);
 
       expect(response.status).toBe(403);
@@ -153,27 +161,43 @@ describe("socialflow public routes", () => {
 
       expect(text).toContain("<!DOCTYPE html>");
       expect(text).toContain("SocialFlow");
-      expect(text).toContain("Automatización social asistida por IA");
-      expect(text).toContain("equipos que publican en serio");
+      expect(text).toContain("Convierte tu operación social en un sistema asistido por IA.");
+      expect(text).toContain("IA + redes sociales");
+      expect(text).toContain("planificar, preparar, revisar y coordinar contenido social");
       expect(text).toContain("SocialFlow Workspace");
-      expect(text).toContain("Qué resuelve");
+      expect(text).toContain("Antes / después");
       expect(text).toContain("Cómo funciona");
       expect(text).toContain("Bloque visual plataforma");
       expect(text).toContain("SocialFlow Control Room");
       expect(text).toContain("Borradores asistidos por IA");
-      expect(text).toContain("Canales temáticos");
-      expect(text).toContain("Calendario y programación");
-      expect(text).toContain("LinkedIn y redes sociales");
+      expect(text).toContain("canales temáticos");
+      expect(text).toContain("Calendario editorial");
+      expect(text).toContain("LinkedIn");
+      expect(text).toContain("Instagram");
+      expect(text).toContain("Canal conversación");
+      expect(text).toContain("Idea");
+      expect(text).toContain("Borrador");
+      expect(text).toContain("Revisión");
+      expect(text).toContain("Programado");
+      expect(text).toContain("Aprobación humana");
+      expect(text).toContain("Control humano antes de publicar");
       expect(text).toContain("Operación asistida por IA");
       expect(text).toContain("Empresas");
+      expect(text).toContain("Equipos de marketing");
       expect(text).toContain("Agencias pequeñas");
       expect(text).toContain("Emprendedores");
+      expect(text).toContain("Marcas personales");
+      expect(text).toContain("Negocios locales");
       expect(text).toContain("Solicitar piloto");
+      expect(text).toContain("Ver cómo funciona");
       expect(text).toContain("https://drako.systems/contact");
       expect(text).toContain("Acceso cliente: próximamente");
       expect(text).toContain("Piloto controlado");
       expect(text).toContain("Para quién es");
       expect(text).toContain("Qué automatiza");
+      expect(text).toContain("Organización temática");
+      expect(text).toContain("Priorización de canales");
+      expect(text).toContain("Preparación para publicación");
       expect(text).toContain("Estado real del producto");
       expect(text).toContain("Disponible ahora");
       expect(text).toContain("En validación");
@@ -182,7 +206,10 @@ describe("socialflow public routes", () => {
       expect(text).toContain("Sin trackers");
       expect(text).toContain("APIs protegidas");
       expect(text).toContain("Control humano");
-      expect(text).toContain("Publicación automática sin revisión");
+      expect(text).toContain("No publicación automática sin revisión");
+      expect(text).toContain("No integraciones no verificadas como producción");
+      expect(text).toContain("No resultados virales garantizados");
+      expect(text).toContain("No sustituye estrategia humana");
     });
 
     it("public HTML is responsive and has proper meta tags", async () => {
@@ -199,9 +226,14 @@ describe("socialflow public routes", () => {
       const { text } = await readResponse(response);
 
       expect(text).not.toContain("<script src=");
+      expect(text).not.toContain("<script");
       expect(text).not.toContain("<link rel=\"stylesheet\" href=");
       expect(text).not.toContain("google-analytics");
       expect(text).not.toContain("gtag");
+      expect(text).not.toContain("googletagmanager");
+      expect(text).not.toContain("facebook.net");
+      expect(text).not.toContain("analytics.js");
+      expect(text).not.toContain("plausible.io");
     });
   });
 });

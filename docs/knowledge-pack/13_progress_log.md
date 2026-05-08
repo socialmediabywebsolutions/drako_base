@@ -760,6 +760,37 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Siguiente accion:
   - Definir el flujo de intake/piloto comercial y criterios para abrir acceso cliente real sin relajar seguridad.
 
+## [2026-05-08 10:32 UTC+02:00] SOCIALFLOW-P10-28-LANDING-FINAL-PRODUCT-POLISH
+
+- Contexto:
+  - SocialFlow ya tenia landing publica premium servida por `saas-socialflows-prod` en `/`, `/socialflow` y `/socialflow/auth`.
+  - El objetivo fue elevar claridad comercial y percepcion SaaS sin tocar arquitectura sensible.
+- Cambio realizado:
+  - Se pulio solo el HTML/CSS inline de `generateSocialFlowPublicHTML`.
+  - Hero reescrito alrededor de "Convierte tu operacion social en un sistema asistido por IA".
+  - Mockup CSS-only reforzado con IA central, canales genericos LinkedIn/Instagram/X, calendario editorial, estados `Idea/Borrador/Revision/Programado` y aprobacion humana.
+  - Se agrego antes/despues explicito, flujo de 4 pasos, targets comerciales, capacidades realistas y limites honestos del piloto.
+  - Tests publicos actualizados para validar copy nuevo, ausencia de JS/tracking y proteccion de `/api/*`, Origin validation y host fencing.
+- Archivos tocados:
+  - `packages/shared/workers-handlers/index.ts`
+  - `tests/workers-socialflow-public-routes.test.ts`
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Baseline previo: git limpio, typecheck OK, lint 0 errors/208 warnings, test OK, build OK.
+  - Focalizada: `pnpm exec vitest run tests/workers-socialflow-public-routes.test.ts tests/workers-socialflow-host-fencing.test.ts` -> 26/26 tests OK.
+  - Final: typecheck OK, lint 0 errors/208 warnings, test OK, build OK.
+  - Nota: un primer `pnpm test` en paralelo con `pnpm build` provoco timeout en `tests/components/mentoria-onboarding-wizard.test.tsx`; el test aislado y el rerun completo de `pnpm test` pasaron.
+- Resultado:
+  - Landing mas directa, luminosa y vendible como SaaS piloto serio.
+  - No se abrieron rutas nuevas, no se tocaron Cloudflare/workflows/DB/OAuth/Mentoria/Campamento Base/middleware ni `WORKERS_ONLY_MODE`.
+- Riesgo residual:
+  - Sigue siendo HTML inline en Worker; para iteracion comercial frecuente convendra valorar una superficie versionada dedicada.
+  - Falta onboarding self-serve, panel cliente definitivo e intake comercial formal.
+- Siguiente accion:
+  - Validar visualmente en navegador cuando exista entorno local/preview del Worker y cerrar flujo de intake del piloto.
+
 ## Checklist al cerrar cada sesion
 - [ ] Actualizar `11_current_state.md` si cambio el baseline tecnico.
 - [ ] Actualizar el estado de issues en `12_open_issues.md`.

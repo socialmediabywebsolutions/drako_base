@@ -57,6 +57,12 @@ Nota P10.27: la landing publica de SocialFlow fue redisenada como experiencia Sa
 premium de tema claro, con hero visual, mockups CSS inline de workspace/control room,
 secciones de problema, workflow, targets, capacidades y estado de piloto controlado.
 
+Nota P10.28: la landing publica de SocialFlow recibió una pasada final de polish
+visual/comercial en el HTML inline del Worker: hero mas directo, mockup CSS-only
+con IA + redes + calendario + estados + aprobacion humana, antes/despues, flujo
+de 4 pasos y limites honestos del piloto. Sin cambios de arquitectura, rutas,
+Origin validation, host fencing, Cloudflare, DB, OAuth ni workflows.
+
 ### `apps/*` no es runtime canonico
 - No debe contener `package.json`, `wrangler.toml`, `wrangler.jsonc`, `src/*`, APIs ni UI real.
 - No debe importarse desde `src/*`, `workers/*` ni rutas productivas.
