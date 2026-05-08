@@ -136,15 +136,38 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
   - No se rompe compatibilidad existente.
   - Falta decidir redirect/bridge final del dominio compat y completar onboarding/panel cliente real.
 
+### ISSUE-016 - SocialFlow no esta listo aun como SaaS comercial self-serve
+- Severidad: `P0`
+- Estado: `OPEN`
+- Area: SocialFlow / SaaS comercial / Stripe / Onboarding / Workspace / Seguridad
+- Riesgo:
+  - SocialFlow puede venderse prematuramente como SaaS production-ready cuando el runtime actual sigue siendo un piloto avanzado con landing premium, APIs protegidas y piezas tecnicas parciales.
+- Evidencia:
+  - Auditoria P10.29: `docs/audits/p10-29-socialflow-production-saas-readiness-audit.md`.
+  - Billing visible usa tenant workspace y `DRAKO_BASE_*_PRICE_ID`, no planes SocialFlow propios.
+  - El workspace mantiene copy y acciones genericas de Campamento/Factory, con plan/onboarding hardcoded.
+  - El registro SocialFlow acepta `tenantId` desde body; requiere tenant provisioning/invite ownership claro antes de self-serve.
+  - El flujo de posts tiene un contrato simplificado capaz de publicar en vivo sin `scheduledAt`; debe cerrarse contra la promesa de revision humana.
+  - `SOCIAL_DB` se asegura desde runtime code; falta ownership/migracion canonica de producto.
+  - LinkedIn/OAuth/publishing existe parcialmente, pero faltan UX, token lifecycle/reconnect y boundary consistente con auth SocialFlow.
+- Criterio de cierre:
+  - Planes Stripe SocialFlow propios definidos y conectados a checkout/webhook/entitlements.
+  - Onboarding cliente product-native crea o vincula tenant/workspace sin autoasignacion arbitraria.
+  - Workspace cliente SocialFlow real reemplaza copy/acciones genericas de Campamento/Factory.
+  - Publicacion automatica exige aprobacion humana auditable antes de schedule/publish.
+  - `SOCIAL_DB` tiene migraciones canonicas y ownership claro.
+  - RBAC/team invites, account connection UX, metricas/reporting y contrato Campamento Base quedan especificados e implementados por fases.
+
 ## Orden de ataque recomendado
-1. `ISSUE-006`
-2. `ISSUE-005`
-3. `ISSUE-009`
-4. `ISSUE-010`
-5. `ISSUE-011`
-6. `ISSUE-012`
-7. `ISSUE-015`
-8. `ISSUE-008`
+1. `ISSUE-016`
+2. `ISSUE-006`
+3. `ISSUE-005`
+4. `ISSUE-009`
+5. `ISSUE-010`
+6. `ISSUE-011`
+7. `ISSUE-012`
+8. `ISSUE-015`
+9. `ISSUE-008`
 
 ## Regla de continuidad
 - Ningun issue pasa a `CLOSED` sin evidencia concreta en `13_progress_log.md`.

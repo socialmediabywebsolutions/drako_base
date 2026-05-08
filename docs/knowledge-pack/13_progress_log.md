@@ -791,6 +791,33 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Siguiente accion:
   - Validar visualmente en navegador cuando exista entorno local/preview del Worker y cerrar flujo de intake del piloto.
 
+## [2026-05-08 11:35 UTC+02:00] SOCIALFLOW-P10-29-PRODUCTION-SAAS-READINESS-AUDIT
+
+- Contexto:
+  - SocialFlow ya tiene dominio canonico, landing premium, APIs protegidas, auth aislado parcial, SOCIAL_DB, LinkedIn/OAuth/publishing parcial, IA/orquestador y observabilidad/operator contracts.
+  - El objetivo cambio de "solicitar piloto" a evaluar si SocialFlow puede venderse como SaaS comercial independiente con Stripe, onboarding, workspace real y conexion gobernada con Campamento Base.
+- Cambio realizado:
+  - Se ejecuto auditoria read-only de readiness comercial y tecnica.
+  - Se documento el estado real en `docs/audits/p10-29-socialflow-production-saas-readiness-audit.md`.
+  - Se registro `ISSUE-016` como bloqueo P0 para SocialFlow self-serve production-ready.
+  - No se implemento Stripe, no se crearon tablas, no se tocaron DB/OAuth/Cloudflare/workflows/middleware/APIs ni se abrieron rutas.
+- Hallazgo principal:
+  - SocialFlow esta listo para piloto controlado/beta privada, pero no para SaaS self-serve production-ready.
+  - Faltan planes Stripe SocialFlow, onboarding product-native, entitlements, workspace cliente real, RBAC/team invites, migraciones canonicas de `SOCIAL_DB`, UX completa de cuentas sociales, metricas productivas y contrato estable con Campamento Base.
+  - Riesgos P0: publicacion en vivo desde contrato simplificado sin revision humana explicita, query by-id de posts sin `saas_id`, registro con `tenantId` desde body, endpoint test scheduler en arbol Next y billing generico de workspace presentado en SocialFlow.
+- Archivos tocados:
+  - `docs/audits/p10-29-socialflow-production-saas-readiness-audit.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short` limpio, `pnpm typecheck` OK, `pnpm lint` OK con 0 errores/208 warnings, `pnpm test` OK, `pnpm build` OK.
+  - Final tras documentacion: `git diff --check` OK, `pnpm typecheck` OK, `pnpm lint` OK con 0 errores/208 warnings, `pnpm test` OK, `pnpm build` OK.
+  - Focalizada SocialFlow Worker: `pnpm exec vitest run tests/workers-socialflow-public-routes.test.ts tests/workers-socialflow-host-fencing.test.ts` -> 26/26 tests OK.
+- Resultado:
+  - Queda una hoja de ruta P0/P1 para convertir SocialFlow de piloto avanzado a SaaS comercial production-ready sin inventar capacidades como si ya existieran.
+- Siguiente accion:
+  - Atacar `ISSUE-016` fase A: contrato comercial/entitlements, cerrar publish sin revision, cerrar isolation by `saas_id`, cerrar endpoint test y definir tenant provisioning seguro.
+
 ## Checklist al cerrar cada sesion
 - [ ] Actualizar `11_current_state.md` si cambio el baseline tecnico.
 - [ ] Actualizar el estado de issues en `12_open_issues.md`.
