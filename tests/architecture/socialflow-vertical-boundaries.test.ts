@@ -155,6 +155,22 @@ describe("SocialFlow vertical boundaries", () => {
     }
   });
 
+  it("keeps the isolated SocialFlow app routes detached from cross-product modules", () => {
+    const socialFlowLayout = read("src/app/socialflow/(workspace)/layout.tsx");
+    const billingPage = read("src/app/socialflow/(workspace)/settings/billing/page.tsx");
+    const sessionsPage = read("src/app/socialflow/(workspace)/sessions/page.tsx");
+    const analysisPage = read("src/app/socialflow/(workspace)/analysis/page.tsx");
+    const planPage = read("src/app/socialflow/(workspace)/plan/page.tsx");
+    const setupPage = read("src/app/socialflow/(workspace)/setup/page.tsx");
+
+    expect(socialFlowLayout).not.toMatch(/@\/modules\/socialflow-app\/layout|DRACO_DB|tenant_strategic_dossiers/);
+    expect(billingPage).not.toMatch(/@\/modules\/socialflow-app\/settings\/billing-page|@\/lib\/auth\/campamento-core/);
+    expect(sessionsPage).not.toMatch(/@\/modules\/socialflow-app\/pages\/sessions-page|@\/components\/mentoria|\/api\/mentoria\//);
+    expect(analysisPage).not.toMatch(/@\/modules\/socialflow-app\/pages\/analysis-page/);
+    expect(planPage).not.toMatch(/@\/modules\/socialflow-app\/pages\/plan-page/);
+    expect(setupPage).not.toMatch(/@\/modules\/socialflow-app\/pages\/setup-page/);
+  });
+
   it("keeps legacy linkedin connect and callback routes as redirect-only bridges", () => {
     const legacyConnect = read("src/app/api/social/linkedin/connect/route.ts");
     const legacyCallback = read("src/app/api/social/linkedin/callback/route.ts");

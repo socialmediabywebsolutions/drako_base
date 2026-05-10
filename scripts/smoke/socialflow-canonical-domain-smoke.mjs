@@ -10,6 +10,8 @@
 const ENABLED = process.env.SOCIALFLOW_CANONICAL_SMOKE_ENABLED === "1";
 const CANONICAL_HOST = (process.env.SOCIALFLOW_CANONICAL_HOST ?? "").trim();
 const COMPAT_HOST = (process.env.SOCIALFLOW_COMPAT_HOST ?? "socialflows.drako.systems").trim();
+const CANONICAL_HOST_HEADER = (process.env.SOCIALFLOW_CANONICAL_HOST_HEADER ?? "").trim();
+const COMPAT_HOST_HEADER = (process.env.SOCIALFLOW_COMPAT_HOST_HEADER ?? "").trim();
 const TIMEOUT_MS = Number(process.env.SOCIALFLOW_CANONICAL_SMOKE_TIMEOUT_MS ?? "8000");
 
 const checks = [
@@ -17,54 +19,77 @@ const checks = [
     id: "canonical-root",
     method: "GET",
     path: "/",
-    expectedStatuses: [200, 301, 302, 307, 308, 405],
+    expectedStatuses: [301, 302, 307, 308],
+    validateLocation: (location) =>
+      typeof location === "string" && (location.endsWith("/socialflow") || location.includes("/socialflow?")),
   },
   {
     id: "canonical-socialflow-route",
     method: "GET",
     path: "/socialflow",
-    expectedStatuses: [200, 301, 302, 307, 308, 401, 403, 405],
+    expectedStatuses: [200, 301, 302, 307, 308, 401, 403],
   },
   {
     id: "canonical-socialflow-auth",
     method: "GET",
     path: "/socialflow/auth",
-    expectedStatuses: [200, 301, 302, 307, 308, 401, 403, 405],
+    expectedStatuses: [200, 301, 302, 307, 308, 401, 403],
   },
   {
     id: "canonical-socialflow-profile",
     method: "GET",
     path: "/api/socialflow/profile",
-    expectedStatuses: [200, 401, 403, 405],
+    expectedStatuses: [200, 401, 403],
+  },
+  {
+    id: "canonical-socialflow-campaigns",
+    method: "GET",
+    path: "/api/socialflow/campaigns?saasId=socialflow",
+    expectedStatuses: [200, 401, 403],
+  },
+  {
+    id: "canonical-socialflow-posts",
+    method: "GET",
+    path: "/api/socialflow/posts?saasId=socialflow",
+    expectedStatuses: [200, 401, 403],
   },
   {
     id: "legacy-social-posts-410",
     method: "GET",
     path: "/api/social/posts",
-    expectedStatuses: [405, 410],
+    expectedStatuses: [410],
   },
   {
     id: "legacy-linkedin-publish-410",
     method: "GET",
     path: "/api/social/linkedin/publish",
-    expectedStatuses: [405, 410],
+    expectedStatuses: [410],
   },
   {
     id: "canonical-linkedin-connect-redirect",
     method: "GET",
     path: "/api/socialflow/linkedin/connect?saasId=smoke-socialflow&tenantId=smoke-tenant",
-    expectedStatuses: [302, 303, 307, 405],
+    expectedStatuses: [302, 303, 307, 401, 403],
     validateLocation: (location) =>
-      typeof location === "string" &&
-      location.includes("linkedin.com") &&
-      location.includes(encodeURIComponent("/api/socialflow/linkedin/callback")),
+      location == null ||
+      (typeof location === "string" &&
+        location.includes("linkedin.com") &&
+        location.includes(encodeURIComponent("/api/socialflow/linkedin/callback"))),
   },
   {
     id: "operator-not-public",
     method: "GET",
     path: "/operator/socialflow",
-    expectedStatuses: [302, 307, 308, 401, 403, 405],
+    expectedStatuses: [302, 307, 308, 401, 403],
   },
+];
+
+const forbiddenPlaceholderTokens = [
+  "Solicitar piloto",
+  "Acceso cliente: pr",
+  "Convierte tu operaci",
+  "SocialFlow ayuda a planificar",
+  "SocialFlow Control Room",
 ];
 
 function normalizeHostToBaseUrl(host) {
@@ -108,6 +133,43 @@ function reportFail(id, status, url, reason) {
   console.error(`[FAIL] ${id} ${status} ${url} ${reason}`);
 }
 
+function buildRequestHeaders(baseUrl, hostHeader = "") {
+  const headers = {
+    "user-agent": "drako-socialflow-canonical-smoke/1.0",
+    origin: hostHeader ? `https://${hostHeader}` : baseUrl,
+  };
+
+  if (!hostHeader) {
+    return headers;
+  }
+
+  return {
+    ...headers,
+    host: hostHeader,
+    "x-forwarded-host": hostHeader,
+  };
+}
+
+async function assertNoPlaceholderHtml(check, response, url) {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("text/html")) {
+    return null;
+  }
+
+  const body = await response.text();
+  for (const token of forbiddenPlaceholderTokens) {
+    if (body.includes(token)) {
+      return `placeholder token detected: ${token}`;
+    }
+  }
+
+  if (check.id === "canonical-socialflow-auth" && !body.includes("SocialFlow Auth")) {
+    return "auth route did not render the SocialFlow auth page";
+  }
+
+  return null;
+}
+
 async function runCanonicalChecks(baseUrl) {
   let failed = false;
   for (const check of checks) {
@@ -116,10 +178,7 @@ async function runCanonicalChecks(baseUrl) {
       const response = await fetchWithTimeout(url, {
         method: check.method,
         redirect: "manual",
-        headers: {
-          "user-agent": "drako-socialflow-canonical-smoke/1.0",
-          origin: baseUrl,
-        },
+        headers: buildRequestHeaders(baseUrl, CANONICAL_HOST_HEADER),
       });
       const ok = check.expectedStatuses.includes(response.status);
       if (!ok) {
@@ -133,7 +192,7 @@ async function runCanonicalChecks(baseUrl) {
         continue;
       }
 
-      if (check.validateLocation && response.status !== 405) {
+      if (check.validateLocation) {
         const location = response.headers.get("location");
         if (!check.validateLocation(location)) {
           reportFail(
@@ -145,6 +204,13 @@ async function runCanonicalChecks(baseUrl) {
           failed = true;
           continue;
         }
+      }
+
+      const placeholderViolation = await assertNoPlaceholderHtml(check, response, url);
+      if (placeholderViolation) {
+        reportFail(check.id, response.status, url, placeholderViolation);
+        failed = true;
+        continue;
       }
 
       reportPass(check.id, response.status, url);
@@ -166,13 +232,10 @@ async function runCompatibilityCheck(canonicalBaseUrl) {
     const response = await fetchWithTimeout(compatUrl, {
       method: "GET",
       redirect: "manual",
-      headers: {
-        "user-agent": "drako-socialflow-canonical-smoke/1.0",
-        origin: compatBaseUrl,
-      },
+      headers: buildRequestHeaders(compatBaseUrl, COMPAT_HOST_HEADER || COMPAT_HOST.replace(/^https?:\/\//, "")),
     });
 
-    const accepted = [200, 301, 302, 307, 308, 401, 403, 405];
+    const accepted = [200, 301, 302, 307, 308, 401, 403];
     if (!accepted.includes(response.status)) {
       reportFail(
         "compat-socialflows-host",
@@ -180,6 +243,16 @@ async function runCompatibilityCheck(canonicalBaseUrl) {
         compatUrl,
         `expected one of [${accepted.join(", ")}]`,
       );
+      return true;
+    }
+
+    const placeholderViolation = await assertNoPlaceholderHtml(
+      { id: "compat-socialflows-host" },
+      response,
+      compatUrl,
+    );
+    if (placeholderViolation) {
+      reportFail("compat-socialflows-host", response.status, compatUrl, placeholderViolation);
       return true;
     }
 

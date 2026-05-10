@@ -175,6 +175,16 @@ function rewriteMentoriaHostPath(req: NextRequest, pathname: string) {
   return null;
 }
 
+function rewriteSocialFlowHostPath(req: NextRequest, pathname: string) {
+  if (pathname !== "/") {
+    return null;
+  }
+
+  const url = new URL(req.url);
+  url.pathname = "/socialflow";
+  return NextResponse.redirect(url, 308);
+}
+
 /**
  * OLIMPO MIDDLEWARE - ULTRA MINIMAL & FAIL-SAFE
  *
@@ -264,11 +274,20 @@ export async function middleware(req: NextRequest) {
       host === "mentorias.drako.systems" ||
       host.startsWith("mentoria.") ||
       host.startsWith("mentorias.");
+    const isSocialFlowHost =
+      host === "socialflow.drako.systems" ||
+      host === "socialflows.drako.systems" ||
+      host.startsWith("socialflow.") ||
+      host.startsWith("socialflows.");
 
     if (!requestBindings) {
       if (isMentoriasHost && !isApi) {
         const mentoriaRewrite = rewriteMentoriaHostPath(req, pathname);
         if (mentoriaRewrite) return mentoriaRewrite;
+      }
+      if (isSocialFlowHost && !isApi) {
+        const socialFlowRewrite = rewriteSocialFlowHostPath(req, pathname);
+        if (socialFlowRewrite) return socialFlowRewrite;
       }
 
       const headers = new Headers(req.headers);
@@ -301,6 +320,10 @@ export async function middleware(req: NextRequest) {
     if (isMentoriasHost && !isApi) {
       const mentoriaRewrite = rewriteMentoriaHostPath(req, pathname);
       if (mentoriaRewrite) return mentoriaRewrite;
+    }
+    if (isSocialFlowHost && !isApi) {
+      const socialFlowRewrite = rewriteSocialFlowHostPath(req, pathname);
+      if (socialFlowRewrite) return socialFlowRewrite;
     }
 
     const adminPrefixes = [

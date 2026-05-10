@@ -1,13 +1,24 @@
-import { createWorkersHandlers } from "../../../packages/shared/workers-handlers";
-import { SAAS_SLUGS } from "../../../packages/shared/saases-catalogs";
+const responseHeaders = {
+  "Content-Type": "application/json",
+  "Cache-Control": "no-store",
+} as const;
 
-const handlers = createWorkersHandlers({
-  saasSlug: "socialflows",
-  workerName: "saas-socialflows-prod",
-  domainName: "socialflows.drako.systems",
-  aliasDomainNames: ["socialflow.drako.systems"],
-  authsSecretName: "SOCIALFLOWS_AUTHS_SECRET",
-  allSaasesSlugs: [...SAAS_SLUGS],
-});
-
-export default handlers;
+export default {
+  async fetch() {
+    return new Response(
+      JSON.stringify(
+        {
+          ok: false,
+          code: "SOCIALFLOW_RUNTIME_MISWIRED",
+          message: "saas-socialflows-prod must run ../../.open-next/worker.js to serve the real SocialFlow runtime.",
+        },
+        null,
+        2,
+      ),
+      {
+        status: 500,
+        headers: responseHeaders,
+      },
+    );
+  },
+};
