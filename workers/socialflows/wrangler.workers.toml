@@ -23,6 +23,13 @@ binding = "SOCIAL_DB"
 database_name = "saas_socialflows_prod_db"
 database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
 
+# FAIL-CLOSED placeholder until isolated SocialFlow auth D1 is provisioned.
+# Do not point this binding at DRACO_DB, SOCIAL_DB, or any shared auth database.
+[[d1_databases]]
+binding = "SOCIALFLOW_AUTHS_DB"
+database_name = "saas_socialflow_auths_prod_db"
+database_id = "00000000-0000-0000-0000-000000000000"
+
 [[kv_namespaces]]
 binding = "SAASES_CACHE"
 id = "2962b3ef53fe4433a253551c83a2df72"

@@ -1,3 +1,4 @@
+import { promises as fs } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runProductionReadinessAudits } from "../scripts/check-production-readiness";
 
@@ -7,7 +8,14 @@ describe("production readiness audits", () => {
   const mentoriaGuardBase = {
     targetName: "test:mentoria-db-guard",
     mentoriaBinding: "MENTORIA_DB",
-    reservedBindings: ["DRACO_DB", "SOCIAL_DB", "MENTORIAS_AUTHS_DB", "BASES_AUTHS_DB", "SOCIALFLOW_AUTHS_DB"],
+    reservedBindings: [
+      "DRACO_DB",
+      "SOCIAL_DB",
+      "DRAKOS_AUTHS_DB",
+      "MENTORIAS_AUTHS_DB",
+      "BASES_AUTHS_DB",
+      "SOCIALFLOW_AUTHS_DB",
+    ],
     fallbackFilePath: "src/lib/mentoria/get-mentoria-db.ts",
     fallbackToken: "env?.DRACO_DB",
   } as const;
@@ -81,7 +89,15 @@ describe("production readiness audits", () => {
         targetName: "test:socialflow-auths-guard",
         configPaths: ["tests/fixtures/production-audits/socialflow-auths-guards/pass.wrangler.toml"],
         socialflowBinding: "SOCIALFLOW_AUTHS_DB",
-        reservedBindings: ["DRACO_DB", "SOCIAL_DB", "MENTORIAS_AUTHS_DB", "BASES_AUTHS_DB"],
+        reservedBindings: [
+          "DRACO_DB",
+          "SAASES_DB",
+          "SOCIAL_DB",
+          "DRAKOS_AUTHS_DB",
+          "MENTORIAS_AUTHS_DB",
+          "BASES_AUTHS_DB",
+          "MENTORIA_DB",
+        ],
       },
     });
 
@@ -107,7 +123,15 @@ describe("production readiness audits", () => {
         targetName: "test:socialflow-auths-guard",
         configPaths: ["tests/fixtures/production-audits/socialflow-auths-guards/fail-shared-identity.wrangler.toml"],
         socialflowBinding: "SOCIALFLOW_AUTHS_DB",
-        reservedBindings: ["DRACO_DB", "SOCIAL_DB", "MENTORIAS_AUTHS_DB", "BASES_AUTHS_DB"],
+        reservedBindings: [
+          "DRACO_DB",
+          "SAASES_DB",
+          "SOCIAL_DB",
+          "DRAKOS_AUTHS_DB",
+          "MENTORIAS_AUTHS_DB",
+          "BASES_AUTHS_DB",
+          "MENTORIA_DB",
+        ],
       },
     });
 
@@ -126,7 +150,15 @@ describe("production readiness audits", () => {
         targetName: "test:socialflow-auths-guard",
         configPaths: ["tests/fixtures/production-audits/socialflow-auths-guards/fail-preview-prod-collision.wrangler.toml"],
         socialflowBinding: "SOCIALFLOW_AUTHS_DB",
-        reservedBindings: ["DRACO_DB", "SOCIAL_DB", "MENTORIAS_AUTHS_DB", "BASES_AUTHS_DB"],
+        reservedBindings: [
+          "DRACO_DB",
+          "SAASES_DB",
+          "SOCIAL_DB",
+          "DRAKOS_AUTHS_DB",
+          "MENTORIAS_AUTHS_DB",
+          "BASES_AUTHS_DB",
+          "MENTORIA_DB",
+        ],
       },
     });
 
@@ -134,6 +166,31 @@ describe("production readiness audits", () => {
     expect(
       result.report.violations.some((item) => item.checkCode === "socialflowAuthsBindingPreviewProdCollision"),
     ).toBe(true);
+  });
+
+  it("fails socialflow auths guard when SOCIALFLOW_AUTHS_DB is missing", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowAuthsGuardOverride: {
+        targetName: "test:socialflow-auths-guard",
+        configPaths: ["tests/fixtures/production-audits/socialflow-auths-guards/missing-binding.wrangler.toml"],
+        socialflowBinding: "SOCIALFLOW_AUTHS_DB",
+        reservedBindings: [
+          "DRACO_DB",
+          "SAASES_DB",
+          "SOCIAL_DB",
+          "DRAKOS_AUTHS_DB",
+          "MENTORIAS_AUTHS_DB",
+          "BASES_AUTHS_DB",
+          "MENTORIA_DB",
+        ],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowAuthsBindingMissing")).toBe(true);
   });
 
   it("passes when socialflow canonical hostname is present (phase inactive override)", async () => {
@@ -282,7 +339,7 @@ describe("production readiness audits", () => {
     expect(result.report.violations.some((item) => item.checkCode === "mentoriaBindingSharedIdentity")).toBe(true);
   });
 
-  it("keeps readiness non-blocking when MENTORIA_DB is not configured yet", async () => {
+  it("fails mentoria db guard when MENTORIA_DB is not configured", async () => {
     const result = await runProductionReadinessAudits({
       sourceOfTruthPath,
       fixturesDir: "tests/fixtures/production-audits/pass",
@@ -293,10 +350,10 @@ describe("production readiness audits", () => {
       },
     });
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(
       result.report.violations.some(
-        (item) => item.checkCode === "mentoriaBindingMissingTransitionalDebt" && item.severity === "WARN",
+        (item) => item.checkCode === "mentoriaBindingMissingTransitionalDebt" && item.severity === "BLOCKER",
       ),
     ).toBe(true);
   });
@@ -316,5 +373,34 @@ describe("production readiness audits", () => {
     expect(
       result.report.violations.some((item) => item.checkCode === "mentoriaBindingPreviewProdCollision"),
     ).toBe(true);
+  });
+
+  it("fails readiness when legacy auth DB fallback flag is enabled", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      legacyAuthDbFallbackFlagGuardOverride: {
+        targetName: "test:legacy-auth-db-fallback-flag",
+        configPaths: ["tests/fixtures/production-audits/auth-db-fallback-flag/enabled.wrangler.toml"],
+        flagName: "ALLOW_LEGACY_AUTH_DB_FALLBACK",
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "legacyAuthDbFallbackFlagEnabled")).toBe(true);
+  });
+
+  it("requires explicit auth/product bindings in current wrangler configs", async () => {
+    const [rootWrangler, socialflowWrangler, mentoriasWrangler] = await Promise.all([
+      fs.readFile("wrangler.workers.toml", "utf8"),
+      fs.readFile("workers/socialflows/wrangler.workers.toml", "utf8"),
+      fs.readFile("workers/mentorias/wrangler.workers.toml", "utf8"),
+    ]);
+
+    expect(rootWrangler).toContain('binding = "SOCIALFLOW_AUTHS_DB"');
+    expect(rootWrangler).toContain('binding = "MENTORIA_DB"');
+    expect(socialflowWrangler).toContain('binding = "SOCIALFLOW_AUTHS_DB"');
+    expect(mentoriasWrangler).toContain('binding = "MENTORIA_DB"');
   });
 });

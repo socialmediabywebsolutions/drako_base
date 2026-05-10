@@ -1,0 +1,4 @@
+name = "test-auth-db-fallback-flag-enabled"
+
+[vars]
+ALLOW_LEGACY_AUTH_DB_FALLBACK = "1"

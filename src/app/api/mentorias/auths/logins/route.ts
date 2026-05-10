@@ -38,8 +38,8 @@ export async function POST(request: Request) {
   }
 
   const bindings = env?.();
-  if (!bindings?.MENTORIA_DB && !bindings?.DRACO_DB) {
-    return jsonError("DB_UNAVAILABLE", "Database bindings not available. Please try again later.", 503);
+  if (!bindings?.MENTORIA_DB) {
+    return jsonError("DB_UNAVAILABLE", "MENTORIA_DB binding is required for Mentoria product runtime.", 503);
   }
 
   const db = getMentoriaDb(bindings);

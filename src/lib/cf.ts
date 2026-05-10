@@ -67,6 +67,7 @@ export type DracoEnv = {
     | "CUSTOM_DOMAIN_CONSISTENCY_BREAK";
   ENVIRONMENT?: string;
   AUTHS_REQUIRE_CONTEXT_DB?: string;
+  ALLOW_LEGACY_AUTH_DB_FALLBACK?: string;
 };
 
 

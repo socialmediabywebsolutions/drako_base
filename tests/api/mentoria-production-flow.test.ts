@@ -98,6 +98,12 @@ vi.mock("@/lib/http/base-url", () => ({
   getRequestBaseUrl: mocks.getRequestBaseUrl,
 }));
 
+vi.mock("@/lib/cf", () => ({
+  env: () => ({
+    MENTORIA_DB: { label: "mentoria-db-test" },
+  }),
+}));
+
 import { POST as registrationPost } from "@/app/api/mentorias/auths/registrations/route";
 import { POST as onboardingPost } from "@/app/api/mentoria/onboarding/route";
 import { POST as sessionPost } from "@/app/api/mentoria/session/route";

@@ -130,6 +130,8 @@ type CheckCode =
   | "criticalColumnMissing"
   | "onboardingColumnsMismatch"
   | "legacyProductionGuardMissing"
+  | "legacyAuthDbFallbackFlagEnabled"
+  | "socialflowAuthsBindingMissing"
   | "socialflowAuthsBindingSharedIdentity"
   | "socialflowAuthsBindingNamingViolation"
   | "socialflowAuthsBindingPreviewProdCollision"
@@ -211,6 +213,7 @@ type ProductionAuditsRunOptions = {
   reportJsonPath?: string;
   reportMarkdownPath?: string;
   legacyGuardsOverride?: LegacyProductionGuard[];
+  legacyAuthDbFallbackFlagGuardOverride?: LegacyAuthDbFallbackFlagGuard;
   socialflowAuthsGuardOverride?: SocialflowAuthsBindingGuard;
   socialflowDomainGuardOverride?: SocialflowDomainGuard;
   mentoriaBindingGuardOverride?: MentoriaBindingGuard;
@@ -220,6 +223,12 @@ type LegacyProductionGuard = {
   targetName: string;
   filePath: string;
   mustInclude: string[];
+};
+
+type LegacyAuthDbFallbackFlagGuard = {
+  targetName: string;
+  configPaths: string[];
+  flagName: string;
 };
 
 type SocialflowAuthsBindingGuard = {
@@ -262,9 +271,18 @@ const DEFAULT_REPORT_MARKDOWN_PATH = "docs/audits/production-readiness-latest.md
 const LEGACY_GUARD_DEFAULT_SEVERITY: SeverityLevel = "BLOCKER";
 const SOCIALFLOW_AUTHS_GUARD_SEVERITY: SeverityLevel = "BLOCKER";
 const MENTORIA_GUARD_BLOCKER_SEVERITY: SeverityLevel = "BLOCKER";
-const MENTORIA_GUARD_DEBT_SEVERITY: SeverityLevel = "WARN";
 const LOCAL_OR_FAIL_CLOSED_DATABASE_IDS = new Set(["local-dev", "00000000-0000-0000-0000-000000000000"]);
 const LOCAL_COLLAPSED_DATABASE_NAMES = new Set(["drako_db_local"]);
+
+const DEFAULT_LEGACY_AUTH_DB_FALLBACK_FLAG_GUARD: LegacyAuthDbFallbackFlagGuard = {
+  targetName: "auth-db-fallback:legacy-flag",
+  configPaths: [
+    "wrangler.workers.toml",
+    "workers/mentorias/wrangler.workers.toml",
+    "workers/socialflows/wrangler.workers.toml",
+  ],
+  flagName: "ALLOW_LEGACY_AUTH_DB_FALLBACK",
+};
 
 const DEFAULT_SOCIALFLOW_AUTHS_BINDING_GUARD: SocialflowAuthsBindingGuard = {
   targetName: "socialflow:auths-binding-dedicated",
@@ -274,7 +292,15 @@ const DEFAULT_SOCIALFLOW_AUTHS_BINDING_GUARD: SocialflowAuthsBindingGuard = {
     "workers/socialflows/wrangler.workers.toml",
   ],
   socialflowBinding: "SOCIALFLOW_AUTHS_DB",
-  reservedBindings: ["DRACO_DB", "SOCIAL_DB", "MENTORIAS_AUTHS_DB", "BASES_AUTHS_DB"],
+  reservedBindings: [
+    "DRACO_DB",
+    "SAASES_DB",
+    "SOCIAL_DB",
+    "DRAKOS_AUTHS_DB",
+    "MENTORIAS_AUTHS_DB",
+    "BASES_AUTHS_DB",
+    "MENTORIA_DB",
+  ],
 };
 
 const DEFAULT_SOCIALFLOW_DOMAIN_GUARD: SocialflowDomainGuard = {
@@ -291,7 +317,14 @@ const DEFAULT_MENTORIA_BINDING_GUARD: MentoriaBindingGuard = {
   targetName: "mentoria:db-binding-dedicated",
   configPaths: ["wrangler.jsonc", "wrangler.workers.toml", "workers/mentorias/wrangler.workers.toml"],
   mentoriaBinding: "MENTORIA_DB",
-  reservedBindings: ["DRACO_DB", "SOCIAL_DB", "MENTORIAS_AUTHS_DB", "BASES_AUTHS_DB", "SOCIALFLOW_AUTHS_DB"],
+  reservedBindings: [
+    "DRACO_DB",
+    "SOCIAL_DB",
+    "DRAKOS_AUTHS_DB",
+    "MENTORIAS_AUTHS_DB",
+    "BASES_AUTHS_DB",
+    "SOCIALFLOW_AUTHS_DB",
+  ],
   fallbackFilePath: "src/lib/mentoria/get-mentoria-db.ts",
   fallbackToken: "env?.DRACO_DB",
 };
@@ -1167,6 +1200,47 @@ async function buildLegacyProductionGuardChecks(guards: LegacyProductionGuard[])
   return checks;
 }
 
+async function buildLegacyAuthDbFallbackFlagChecks(
+  guard: LegacyAuthDbFallbackFlagGuard,
+): Promise<CheckRecord[]> {
+  const detections: string[] = [];
+
+  for (const filePath of guard.configPaths) {
+    let content = "";
+    try {
+      content = await fs.readFile(resolveAbsolutePath(filePath), "utf8");
+    } catch {
+      continue;
+    }
+
+    const lines = content.split(/\r?\n/);
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index];
+      if (!line.includes(guard.flagName)) continue;
+      if (line.trimStart().startsWith("#")) continue;
+      if (line.includes('"1"') || line.includes("'1'") || /\b1\b/.test(line)) {
+        detections.push(`${filePath}:${index + 1}`);
+      }
+    }
+  }
+
+  return [
+    {
+      checkCode: "legacyAuthDbFallbackFlagEnabled",
+      severity: "BLOCKER",
+      status: detections.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: `${guard.flagName} disabled in production configs`,
+      actual: detections.length === 0 ? "not_enabled" : detections,
+      details:
+        detections.length === 0
+          ? `${guard.flagName} is not enabled in scanned configs.`
+          : `${guard.flagName} is enabled in production-facing config and must be removed before production.`,
+    },
+  ];
+}
+
 function parseTomlSection(line: string): string | null {
   const match = line.match(/^\s*\[([^\]]+)\]\s*$/);
   return match ? match[1] : null;
@@ -1353,6 +1427,16 @@ async function buildSocialflowAuthsBindingGuardChecks(guard: SocialflowAuthsBind
   const reservedRecords = allRecords.filter((record) => guard.reservedBindings.includes(record.binding));
 
   if (socialflowAuthsRecords.length === 0) {
+    checks.push({
+      checkCode: "socialflowAuthsBindingMissing",
+      severity: SOCIALFLOW_AUTHS_GUARD_SEVERITY,
+      status: "FAIL",
+      targetType: "code_guard",
+      targetName: `${guard.targetName}:missing_binding`,
+      expected: `${guard.socialflowBinding} configured`,
+      actual: "binding_not_present",
+      details: `${guard.socialflowBinding} binding is required for socialflow auth and is missing from scanned configs.`,
+    });
     checks.push({
       checkCode: "socialflowAuthsBindingSharedIdentity",
       severity: SOCIALFLOW_AUTHS_GUARD_SEVERITY,
@@ -1638,13 +1722,13 @@ async function buildMentoriaBindingGuardChecks(guard: MentoriaBindingGuard): Pro
   if (mentoriaRecords.length === 0) {
     checks.push({
       checkCode: "mentoriaBindingMissingTransitionalDebt",
-      severity: MENTORIA_GUARD_DEBT_SEVERITY,
+      severity: MENTORIA_GUARD_BLOCKER_SEVERITY,
       status: "FAIL",
       targetType: "code_guard",
-      targetName: `${guard.targetName}:missing_binding_transitional_debt`,
-      expected: `${guard.mentoriaBinding} configured before final cutover`,
-      actual: "binding_not_present_yet",
-      details: `${guard.mentoriaBinding} is still absent. Transitional debt remains open and runtime fallback is still expected.`,
+      targetName: `${guard.targetName}:missing_binding`,
+      expected: `${guard.mentoriaBinding} configured`,
+      actual: "binding_not_present",
+      details: `${guard.mentoriaBinding} binding is required for Mentoria product runtime and is missing from scanned configs.`,
     });
     checks.push({
       checkCode: "mentoriaBindingSharedIdentity",
@@ -1671,13 +1755,13 @@ async function buildMentoriaBindingGuardChecks(guard: MentoriaBindingGuard): Pro
 
   checks.push({
     checkCode: "mentoriaBindingMissingTransitionalDebt",
-    severity: MENTORIA_GUARD_DEBT_SEVERITY,
+    severity: MENTORIA_GUARD_BLOCKER_SEVERITY,
     status: "PASS",
     targetType: "code_guard",
-    targetName: `${guard.targetName}:missing_binding_transitional_debt`,
-    expected: `${guard.mentoriaBinding} configured before final cutover`,
+    targetName: `${guard.targetName}:missing_binding`,
+    expected: `${guard.mentoriaBinding} configured`,
     actual: "binding_present",
-    details: `${guard.mentoriaBinding} is present in config. Missing-binding transitional debt is closed.`,
+    details: `${guard.mentoriaBinding} is present in config.`,
   });
 
   const sharedIdentityViolations: string[] = [];
@@ -1792,17 +1876,17 @@ async function buildMentoriaFallbackDebtChecks(guard: MentoriaBindingGuard): Pro
   return [
     {
       checkCode: "mentoriaDbFallbackTransitionalDebt",
-      severity: MENTORIA_GUARD_DEBT_SEVERITY,
+      severity: MENTORIA_GUARD_BLOCKER_SEVERITY,
       status: fallbackStillPresent ? "FAIL" : "PASS",
       targetType: "code_guard",
       targetName: `${guard.targetName}:fallback_transitional_debt`,
-      expected: `${guard.fallbackToken} removed after final cutover`,
+      expected: `${guard.fallbackToken} removed`,
       actual: readError ? `READ_ERROR:${readError}` : fallbackStillPresent ? "fallback_present" : "fallback_removed",
       details: readError
-        ? `Unable to verify transitional fallback debt in ${guard.fallbackFilePath}.`
+        ? `Unable to verify DRACO_DB fallback removal in ${guard.fallbackFilePath}.`
         : fallbackStillPresent
-          ? `Transitional fallback to DRACO_DB is still present in ${guard.fallbackFilePath}.`
-          : `Transitional fallback token is no longer present in ${guard.fallbackFilePath}.`,
+          ? `Fallback to DRACO_DB is still present in ${guard.fallbackFilePath}.`
+          : `DRACO_DB fallback token is no longer present in ${guard.fallbackFilePath}.`,
     },
   ];
 }
@@ -1934,6 +2018,10 @@ export async function runProductionReadinessAudits(
   const legacyGuards = options.legacyGuardsOverride ?? DEFAULT_LEGACY_PRODUCTION_GUARDS;
   const legacyGuardChecks = await buildLegacyProductionGuardChecks(legacyGuards);
   checks.push(...legacyGuardChecks);
+  const legacyAuthDbFallbackFlagGuard =
+    options.legacyAuthDbFallbackFlagGuardOverride ?? DEFAULT_LEGACY_AUTH_DB_FALLBACK_FLAG_GUARD;
+  const legacyAuthDbFallbackFlagChecks = await buildLegacyAuthDbFallbackFlagChecks(legacyAuthDbFallbackFlagGuard);
+  checks.push(...legacyAuthDbFallbackFlagChecks);
   const socialflowAuthsGuard = options.socialflowAuthsGuardOverride ?? DEFAULT_SOCIALFLOW_AUTHS_BINDING_GUARD;
   const socialflowAuthsChecks = await buildSocialflowAuthsBindingGuardChecks(socialflowAuthsGuard);
   checks.push(...socialflowAuthsChecks);

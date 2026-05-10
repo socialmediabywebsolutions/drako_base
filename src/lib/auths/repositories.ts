@@ -49,6 +49,13 @@ export function resolveAuthsDbForContext(context: AuthsContext): D1Database | nu
   const bindings = resolveEnv();
   if (!bindings) return null;
 
+  const failClosedMessageByContext: Record<AuthsContext, string> = {
+    drakos: "DRAKOS_AUTHS_DB binding is required for drakos auth",
+    mentorias: "MENTORIAS_AUTHS_DB binding is required for mentorias auth",
+    socialflow: "SOCIALFLOW_AUTHS_DB binding is required for socialflow auth",
+    bases: "BASES_AUTHS_DB binding is required for bases auth",
+  };
+
   if (context === "drakos") {
     if (bindings.DRAKOS_AUTHS_DB) return bindings.DRAKOS_AUTHS_DB;
   } else if (context === "mentorias") {
@@ -57,13 +64,23 @@ export function resolveAuthsDbForContext(context: AuthsContext): D1Database | nu
     if ((bindings as typeof bindings & { SOCIALFLOW_AUTHS_DB?: D1Database }).SOCIALFLOW_AUTHS_DB) {
       return (bindings as typeof bindings & { SOCIALFLOW_AUTHS_DB?: D1Database }).SOCIALFLOW_AUTHS_DB ?? null;
     }
-    return bindings.DRACO_DB ?? null;
   } else if (context === "bases") {
     if (bindings.BASES_AUTHS_DB) return bindings.BASES_AUTHS_DB;
   }
 
+  if (context === "mentorias" || context === "socialflow") {
+    console.error("AUTHS_CONTEXT_DB_MISSING", {
+      context,
+      message: failClosedMessageByContext[context],
+    });
+    return null;
+  }
+
   if (isAuthsContextDbRequired()) {
-    console.error("AUTHS_CONTEXT_DB_MISSING", { context });
+    console.error("AUTHS_CONTEXT_DB_MISSING", {
+      context,
+      message: failClosedMessageByContext[context],
+    });
     return null;
   }
 

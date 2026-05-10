@@ -1,0 +1,11 @@
+name = "test-socialflow-auths-missing"
+
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "aaaaaaaa-1111-1111-1111-111111111111"
+
+[[d1_databases]]
+binding = "SOCIAL_DB"
+database_name = "saas_socialflows_prod_db"
+database_id = "bbbbbbbb-2222-2222-2222-222222222222"
