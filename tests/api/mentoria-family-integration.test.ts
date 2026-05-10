@@ -4,17 +4,15 @@ import { MentoriaFamilyService } from "@/lib/mentoria/family-service";
 import { createTestDB } from "../helpers/test-db";
 
 /**
- * INTEGRATION TEST: Mentoria Family on DRACO_DB
- * 
+ * INTEGRATION TEST: Mentoria Family on a dedicated test D1 surface.
+ *
  * This test validates that:
- * 1. Family tables (families, guardians, students) exist in DRACO_DB
- * 2. Repository operations work against real D1 (not mocked)
- * 3. Service layer enforces tenant isolation and validation
- * 
- * REQUIRES: Pure JavaScript D1 mock (no native dependencies)
+ * 1. Family tables (families, guardians, students) exist in the Mentoria product schema.
+ * 2. Repository operations work against a D1-shaped test database rather than route-level mocks.
+ * 3. Service layer enforces tenant isolation and validation.
  */
 
-describe("mentoria family integration (DRACO_DB real)", () => {
+describe("mentoria family integration (dedicated test D1)", () => {
   let repo: MentoriaFamilyRepository;
   let service: MentoriaFamilyService;
   let db: any;
@@ -37,12 +35,8 @@ describe("mentoria family integration (DRACO_DB real)", () => {
     db = createTestDB();
     
     if (!db) {
-      throw new Error("DRACO_DB not configured");
+      throw new Error("MENTORIA_DB test double not configured");
     }
-
-    // Debug: verify DB instance
-    console.log("DB REAL?", db.prepare.toString());
-    console.log("DB INSTANCE", db);
 
     repo = new MentoriaFamilyRepository(db);
     service = new MentoriaFamilyService(repo);

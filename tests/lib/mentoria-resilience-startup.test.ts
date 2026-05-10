@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   startWorkers: vi.fn(),
 }));
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/mentoria/db", () => ({
   isDatabaseAvailable: mocks.isDatabaseAvailable,
 }));
 

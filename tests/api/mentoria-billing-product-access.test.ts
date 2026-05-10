@@ -18,7 +18,7 @@ vi.mock("@/lib/mentoria/auth/request", () => ({
   requireCurrentMentoriaSession: mocks.requireCurrentMentoriaSession,
 }));
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/mentoria/db", () => ({
   queryOne: mocks.queryOne,
 }));
 

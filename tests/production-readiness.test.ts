@@ -354,6 +354,42 @@ describe("production readiness audits", () => {
     ).toBe(true);
   });
 
+  it("fails mentoria readiness when product code imports the global DB helper", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      mentoriaBindingGuardOverride: {
+        ...mentoriaGuardBase,
+        configPaths: ["tests/fixtures/production-audits/mentoria-db-guards/pass.wrangler.toml"],
+        productSourcePaths: ["tests/fixtures/production-audits/mentoria-db-guards/leaky-src"],
+        forbiddenImportTokens: ['@/lib/db'],
+        workerConfigPath: "tests/fixtures/production-audits/mentoria-db-guards/pass.wrangler.toml",
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "mentoriaGlobalDbImportLeakage")).toBe(true);
+  });
+
+  it("fails mentoria readiness when the worker still exposes forbidden D1 bindings", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      mentoriaBindingGuardOverride: {
+        ...mentoriaGuardBase,
+        configPaths: ["tests/fixtures/production-audits/mentoria-db-guards/pass.wrangler.toml"],
+        productSourcePaths: [],
+        workerConfigPath: "tests/fixtures/production-audits/mentoria-db-guards/fail-worker-binding-leakage.wrangler.toml",
+        forbiddenWorkerBindings: ["DRACO_DB", "DB", "SOCIAL_DB", "DRAKOS_AUTHS_DB", "BASES_AUTHS_DB", "SOCIALFLOW_AUTHS_DB"],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "mentoriaWorkerBindingLeakage")).toBe(true);
+  });
+
   it("fails readiness when legacy auth DB fallback flag is enabled", async () => {
     const result = await runProductionReadinessAudits({
       sourceOfTruthPath,
@@ -431,5 +467,8 @@ describe("production readiness audits", () => {
     expect(localWrangler).not.toContain('"binding": "saas_socialflow_auths_prod_db"');
     expect(rootWrangler).toContain('binding = "MENTORIA_DB"');
     expect(mentoriasWrangler).toContain('binding = "MENTORIA_DB"');
+    expect(mentoriasWrangler).toContain('binding = "MENTORIAS_AUTHS_DB"');
+    expect(mentoriasWrangler).not.toContain('binding = "DRACO_DB"');
+    expect(mentoriasWrangler).not.toContain('binding = "DB"');
   });
 });

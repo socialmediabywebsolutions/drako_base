@@ -1,5 +1,5 @@
 import { getMentoriaOrchestrator } from "@/lib/mentoria/resilience/orchestrator";
-import { isDatabaseAvailable } from "@/lib/db";
+import { isDatabaseAvailable } from "@/lib/mentoria/db";
 
 let workersStarted = false;
 let initializationPromise: Promise<void> | null = null;

@@ -8,7 +8,7 @@ import { IdempotencyManager } from "@/lib/mentoria/resilience/idempotency";
 import { AtomicTrialEnforcement } from "@/lib/mentoria/resilience/trial-enforcement";
 import { sendParentSessionNotification } from "@/lib/mentoria/parent-notifications";
 import type { SessionSummary } from "@/lib/mentoria/session-summary";
-import { getDb } from "@/lib/db";
+import { getDb } from "@/lib/mentoria/db";
 
 type AggregateRow = {
   pending?: number;

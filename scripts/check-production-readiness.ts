@@ -143,7 +143,9 @@ type CheckCode =
   | "mentoriaBindingMissingTransitionalDebt"
   | "mentoriaBindingSharedIdentity"
   | "mentoriaBindingPreviewProdCollision"
-  | "mentoriaDbFallbackTransitionalDebt";
+  | "mentoriaDbFallbackTransitionalDebt"
+  | "mentoriaGlobalDbImportLeakage"
+  | "mentoriaWorkerBindingLeakage";
 
 type CheckRecord = {
   checkCode: CheckCode;
@@ -253,6 +255,10 @@ type MentoriaBindingGuard = {
   reservedBindings: string[];
   fallbackFilePath: string;
   fallbackToken: string;
+  productSourcePaths?: string[];
+  forbiddenImportTokens?: string[];
+  workerConfigPath?: string;
+  forbiddenWorkerBindings?: string[];
 };
 
 type SocialflowDomainGuard = {
@@ -347,6 +353,10 @@ const DEFAULT_MENTORIA_BINDING_GUARD: MentoriaBindingGuard = {
   ],
   fallbackFilePath: "src/lib/mentoria/get-mentoria-db.ts",
   fallbackToken: "env?.DRACO_DB",
+  productSourcePaths: ["src/lib/mentoria", "src/app/api/mentoria"],
+  forbiddenImportTokens: ['@/lib/db'],
+  workerConfigPath: "workers/mentorias/wrangler.workers.toml",
+  forbiddenWorkerBindings: ["DRACO_DB", "DB", "SOCIAL_DB", "DRAKOS_AUTHS_DB", "BASES_AUTHS_DB", "SOCIALFLOW_AUTHS_DB"],
 };
 const DEFAULT_LEGACY_PRODUCTION_GUARDS: LegacyProductionGuard[] = [
   {
@@ -414,6 +424,25 @@ function readRequiredEnv(name: string): string {
 
 function resolveAbsolutePath(relativePath: string): string {
   return path.resolve(process.cwd(), relativePath);
+}
+
+async function listTypeScriptFilesRecursively(relativeDir: string): Promise<string[]> {
+  const absoluteDir = resolveAbsolutePath(relativeDir);
+  try {
+    const entries = await fs.readdir(absoluteDir, { withFileTypes: true });
+    const nested = await Promise.all(
+      entries.map(async (entry) => {
+        const relativeEntryPath = path.join(relativeDir, entry.name);
+        if (entry.isDirectory()) {
+          return listTypeScriptFilesRecursively(relativeEntryPath);
+        }
+        return /\.(ts|tsx)$/.test(entry.name) ? [relativeEntryPath] : [];
+      }),
+    );
+    return nested.flat();
+  } catch {
+    return [];
+  }
 }
 
 async function readJsonFile<T>(absolutePath: string): Promise<T> {
@@ -1947,6 +1976,73 @@ async function buildMentoriaFallbackDebtChecks(guard: MentoriaBindingGuard): Pro
   ];
 }
 
+async function buildMentoriaBoundaryLeakageChecks(guard: MentoriaBindingGuard): Promise<CheckRecord[]> {
+  const checks: CheckRecord[] = [];
+  const forbiddenImportTokens = guard.forbiddenImportTokens ?? [];
+  const productSourcePaths = guard.productSourcePaths ?? [];
+  const offendingImports: string[] = [];
+
+  for (const relativeDir of productSourcePaths) {
+    const files = await listTypeScriptFilesRecursively(relativeDir);
+    for (const filePath of files) {
+      const content = await fs.readFile(resolveAbsolutePath(filePath), "utf8");
+      for (const token of forbiddenImportTokens) {
+        if (content.includes(token)) {
+          offendingImports.push(`${filePath} imports ${token}`);
+        }
+      }
+    }
+  }
+
+  checks.push({
+    checkCode: "mentoriaGlobalDbImportLeakage",
+    severity: MENTORIA_GUARD_BLOCKER_SEVERITY,
+    status: offendingImports.length === 0 ? "PASS" : "FAIL",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:global_db_import_leakage`,
+    expected: "Mentoria product code does not import global DB helpers",
+    actual: offendingImports.length === 0 ? "no_forbidden_imports" : offendingImports,
+    details:
+      offendingImports.length === 0
+        ? "Mentoria product code is isolated from @/lib/db."
+        : "Mentoria product code still imports a global DB helper.",
+  });
+
+  const forbiddenWorkerBindings = guard.forbiddenWorkerBindings ?? [];
+  const workerConfigPath = guard.workerConfigPath;
+  let workerBindingLeakage: string[] = [];
+  let workerReadError: string | null = null;
+
+  if (workerConfigPath) {
+    try {
+      const content = await fs.readFile(resolveAbsolutePath(workerConfigPath), "utf8");
+      const records = parseD1BindingsFromContent(content, workerConfigPath);
+      workerBindingLeakage = records
+        .filter((record) => forbiddenWorkerBindings.includes(record.binding))
+        .map((record) => `${record.binding} present in ${record.filePath} (${record.section})`);
+    } catch (error) {
+      workerReadError = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  checks.push({
+    checkCode: "mentoriaWorkerBindingLeakage",
+    severity: MENTORIA_GUARD_BLOCKER_SEVERITY,
+    status: workerReadError ? "FAIL" : workerBindingLeakage.length === 0 ? "PASS" : "FAIL",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:worker_binding_leakage`,
+    expected: "Mentoria worker binds only MENTORIA_DB + MENTORIAS_AUTHS_DB for D1",
+    actual: workerReadError ? `READ_ERROR:${workerReadError}` : workerBindingLeakage.length === 0 ? "no_forbidden_bindings" : workerBindingLeakage,
+    details: workerReadError
+      ? `Unable to verify worker bindings in ${workerConfigPath}.`
+      : workerBindingLeakage.length === 0
+        ? "Mentoria worker D1 bindings are limited to product/auth surfaces."
+        : "Mentoria worker still exposes forbidden D1 bindings.",
+  });
+
+  return checks;
+}
+
 function buildReport(params: {
   mode: "real" | "fixtures";
   sourceOfTruthPath: string;
@@ -2095,6 +2191,8 @@ export async function runProductionReadinessAudits(
   checks.push(...mentoriaBindingChecks);
   const mentoriaFallbackDebtChecks = await buildMentoriaFallbackDebtChecks(mentoriaBindingGuard);
   checks.push(...mentoriaFallbackDebtChecks);
+  const mentoriaBoundaryLeakageChecks = await buildMentoriaBoundaryLeakageChecks(mentoriaBindingGuard);
+  checks.push(...mentoriaBoundaryLeakageChecks);
   const report = buildReport({
     mode,
     sourceOfTruthPath,

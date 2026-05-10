@@ -1,6 +1,5 @@
 import { getAuthsUserById } from "@/lib/auths/repositories";
-import { env } from "@/lib/cf";
-import { getDb } from "@/lib/db";
+import { getDb } from "@/lib/mentoria/db";
 import type {
   MentoriaFamily,
   MentoriaFamilyStudent,

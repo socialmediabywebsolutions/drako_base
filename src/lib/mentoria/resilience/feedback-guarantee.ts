@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { getDb } from "@/lib/mentoria/db";
 
 export type FeedbackJobStatus = "pending" | "processing" | "stored" | "failed";
 

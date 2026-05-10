@@ -1,5 +1,5 @@
 import { env } from "@/lib/cf";
-import { queryOne } from "@/lib/db";
+import { queryOne } from "@/lib/mentoria/db";
 import { MentoriaAcademicService } from "@/lib/mentoria/academic-service";
 import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
 import { MentoriaRepository } from "@/lib/mentoria/repository";

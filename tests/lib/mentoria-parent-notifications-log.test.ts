@@ -18,7 +18,7 @@ vi.mock("@/connectors/whatsapp/client", () => ({
   sendWhatsAppMessage: mocks.sendWhatsAppMessage,
 }));
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/mentoria/db", () => ({
   getDb: mocks.getDb,
 }));
 

@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { getDb } from "@/lib/mentoria/db";
 import { getLearningProfile } from "@/lib/mentoria/learning-profile";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
 import { createInitialStudentSubjectMemory } from "@/lib/mentoria/student-subject-memory";

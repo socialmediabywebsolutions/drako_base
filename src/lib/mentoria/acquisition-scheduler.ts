@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { getDb } from "@/lib/mentoria/db";
 import { generateDailyContentBatch } from "@/lib/mentoria/acquisition-content";
 
 export type ScheduledPost = {

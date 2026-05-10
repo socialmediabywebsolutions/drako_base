@@ -1,6 +1,6 @@
 import { sendWhatsAppMessage } from "@/connectors/whatsapp/client";
 import type { SessionSummary } from "@/lib/mentoria/session-summary";
-import { getDb } from "@/lib/db";
+import { getDb } from "@/lib/mentoria/db";
 
 export type ParentNotification = {
   sessionId: string;

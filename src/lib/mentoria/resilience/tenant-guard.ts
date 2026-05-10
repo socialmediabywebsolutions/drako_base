@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { getDb } from "@/lib/mentoria/db";
 
 /**
  * TenantGuard: Enforces tenant isolation at data access layer

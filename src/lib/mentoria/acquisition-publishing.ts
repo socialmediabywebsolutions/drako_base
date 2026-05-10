@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { getDb } from "@/lib/mentoria/db";
 import type { AcquisitionPost } from "@/lib/mentoria/acquisition-content";
 import { publishSocialPost } from "@/lib/social-core/publishing";
 

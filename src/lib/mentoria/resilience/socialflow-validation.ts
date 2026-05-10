@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { getDb } from "@/lib/mentoria/db";
 import { publishSocialPost } from "@/lib/social-core/publishing";
 
 export type PublishJobStatus = "pending_publish" | "publishing" | "pending_confirmation" | "confirmed" | "failed" | "abandoned";

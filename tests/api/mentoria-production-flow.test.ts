@@ -82,7 +82,7 @@ vi.mock("@/lib/stripe/rest", () => ({
   createStripeCustomer: mocks.createStripeCustomer,
 }));
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/mentoria/db", () => ({
   queryOne: mocks.queryOne,
 }));
 

@@ -10,7 +10,7 @@
  * - Notifica automáticamente
  */
 
-import { getDb } from "@/lib/db";
+import { getDb } from "@/lib/mentoria/db";
 import { getEventsByStudent } from "@/lib/mentoria/event-system";
 import { randomUUID } from "crypto";
 

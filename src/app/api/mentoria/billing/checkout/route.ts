@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
-import { queryOne } from "@/lib/db";
+import { queryOne } from "@/lib/mentoria/db";
 import { getRequestBaseUrl } from "@/lib/http/base-url";
 import { requireCurrentMentoriaSession } from "@/lib/mentoria/auth/request";
 import { getMentoriaStripePriceId } from "@/lib/mentoria/plans";

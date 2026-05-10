@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { getDb } from "@/lib/mentoria/db";
 import type { MentoriaBoardUpdate, MentoriaLearningState, MentoriaSessionMessage } from "@/lib/mentoria/types";
 
 export type SessionSnapshot = {

@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { getDb } from "@/lib/mentoria/db";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 
 export type SystemEventSeverity = "info" | "warning" | "error" | "critical";

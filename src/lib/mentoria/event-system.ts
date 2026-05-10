@@ -7,7 +7,7 @@
  * - Fail-closed: requiere D1 binding
  */
 
-import { getDb } from "@/lib/db";
+import { getDb } from "@/lib/mentoria/db";
 import { randomUUID } from "crypto";
 
 export type EventType =
