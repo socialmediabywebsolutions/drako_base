@@ -27,16 +27,10 @@ binding = "SOCIAL_DB"
 database_name = "saas_socialflows_prod_db"
 database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
 
-# PROVISION_SOCIALFLOW_AUTHS_DB_REQUIRED:
-# Do not deploy SOCIALFLOW_AUTHS_DB with a placeholder or shared identity.
-# Until a dedicated auth D1 exists, leave this binding intentionally omitted and
-# keep application auth fail-closed.
-# Provisioning procedure:
-#   1. pnpm exec wrangler d1 create saas_socialflow_auths_prod_db
-#   2. pnpm exec wrangler d1 create saas_socialflow_auths_preview_db
-#   3. Copy the returned database_id values into the dedicated SocialFlow auth
-#      bindings in deployable wrangler configs.
-#   4. Re-run pnpm check:production before deploy.
+[[d1_databases]]
+binding = "SOCIALFLOW_AUTHS_DB"
+database_name = "saas_socialflow_auths_prod_db"
+database_id = "f6f46e6a-487f-400a-a2d1-c6d23e88f9cf"
 
 [[kv_namespaces]]
 binding = "SAASES_CACHE"

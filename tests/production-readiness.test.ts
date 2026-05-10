@@ -370,21 +370,24 @@ describe("production readiness audits", () => {
     expect(result.report.violations.some((item) => item.checkCode === "legacyAuthDbFallbackFlagEnabled")).toBe(true);
   });
 
-  it("fails readiness with explicit provisioning guidance when SocialFlow auth D1 is still unprovisioned", async () => {
+  it("passes readiness fixtures with the current real SocialFlow auth D1 bindings", async () => {
     const result = await runProductionReadinessAudits({
       sourceOfTruthPath,
       fixturesDir: "tests/fixtures/production-audits/pass",
       writeReports: false,
     });
 
-    expect(result.exitCode).toBe(1);
-    expect(result.report.violations.some((item) => item.checkCode === "socialflowAuthsBindingMissing")).toBe(true);
+    expect(result.exitCode).toBe(0);
+    expect(result.report.productionReady).toBe(true);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowAuthsBindingMissing")).toBe(false);
     expect(
-      result.report.violations.some(
-        (item) =>
-          item.checkCode === "socialflowAuthsBindingMissing" &&
-          item.details.includes("pnpm exec wrangler d1 create saas_socialflow_auths_prod_db") &&
-          item.details.includes("pnpm exec wrangler d1 create saas_socialflow_auths_preview_db"),
+      result.report.checks.some(
+        (item) => item.checkCode === "socialflowAuthsBindingSharedIdentity" && item.status === "PASS",
+      ),
+    ).toBe(true);
+    expect(
+      result.report.checks.some(
+        (item) => item.checkCode === "socialflowAuthsBindingPreviewProdCollision" && item.status === "PASS",
       ),
     ).toBe(true);
   });
@@ -408,19 +411,24 @@ describe("production readiness audits", () => {
     );
   });
 
-  it("keeps deployable wrangler configs free of placeholder ids and leaves SocialFlow auth unbound until provisioned", async () => {
-    const [rootWrangler, socialflowWrangler, mentoriasWrangler] = await Promise.all([
+  it("keeps deployable wrangler configs free of placeholder ids and binds SocialFlow auth canonically", async () => {
+    const [rootWrangler, socialflowWrangler, mentoriasWrangler, localWrangler] = await Promise.all([
       fs.readFile("wrangler.workers.toml", "utf8"),
       fs.readFile("workers/socialflows/wrangler.workers.toml", "utf8"),
       fs.readFile("workers/mentorias/wrangler.workers.toml", "utf8"),
+      fs.readFile("wrangler.jsonc", "utf8"),
     ]);
 
     expect(rootWrangler).not.toContain('database_id = "00000000-0000-0000-0000-000000000000"');
     expect(socialflowWrangler).not.toContain('database_id = "00000000-0000-0000-0000-000000000000"');
     expect(mentoriasWrangler).not.toContain('database_id = "00000000-0000-0000-0000-000000000000"');
-    expect(rootWrangler).toContain("PROVISION_SOCIALFLOW_AUTHS_DB_REQUIRED");
-    expect(socialflowWrangler).toContain("PROVISION_SOCIALFLOW_AUTHS_DB_REQUIRED");
-    expect(socialflowWrangler).not.toContain('binding = "SOCIALFLOW_AUTHS_DB"');
+    expect(rootWrangler).toContain('binding = "SOCIALFLOW_AUTHS_DB"');
+    expect(rootWrangler).toContain('database_id = "f6f46e6a-487f-400a-a2d1-c6d23e88f9cf"');
+    expect(rootWrangler).toContain('database_id = "8bac57fd-bff1-4f9a-9868-54ff1ad2359e"');
+    expect(socialflowWrangler).toContain('binding = "SOCIALFLOW_AUTHS_DB"');
+    expect(socialflowWrangler).toContain('database_id = "f6f46e6a-487f-400a-a2d1-c6d23e88f9cf"');
+    expect(localWrangler).toContain('"binding": "SOCIALFLOW_AUTHS_DB"');
+    expect(localWrangler).not.toContain('"binding": "saas_socialflow_auths_prod_db"');
     expect(rootWrangler).toContain('binding = "MENTORIA_DB"');
     expect(mentoriasWrangler).toContain('binding = "MENTORIA_DB"');
   });

@@ -40,6 +40,12 @@
 			"binding": "SOCIAL_DB",
 			"database_name": "drako_db_local",
 			"database_id": "local-dev"
+		},
+		{
+			"binding": "SOCIALFLOW_AUTHS_DB",
+			"database_name": "saas_socialflow_auths_prod_db",
+			"database_id": "f6f46e6a-487f-400a-a2d1-c6d23e88f9cf",
+			"remote": true
 		}
 	],
 	"services": [

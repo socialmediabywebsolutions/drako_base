@@ -27,10 +27,10 @@ binding = "MENTORIAS_AUTHS_DB"
 database_name = "drako_db_prod"
 database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 
-# PROVISION_SOCIALFLOW_AUTHS_DB_REQUIRED:
-# drako-base-3 is archived and must not carry a fake SocialFlow auth D1 id.
-# Provision the dedicated SocialFlow auth databases first, then bind them only
-# where the runtime truly needs them.
+[[d1_databases]]
+binding = "SOCIALFLOW_AUTHS_DB"
+database_name = "saas_socialflow_auths_prod_db"
+database_id = "f6f46e6a-487f-400a-a2d1-c6d23e88f9cf"
 
 [[d1_databases]]
 binding = "BASES_AUTHS_DB"
@@ -93,9 +93,10 @@ binding = "MENTORIAS_AUTHS_DB"
 database_name = "drako_db_prod"
 database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 
-# PROVISION_SOCIALFLOW_AUTHS_DB_REQUIRED:
-# Production SocialFlow auth binding intentionally omitted until a dedicated D1
-# is provisioned. Never point SocialFlow auth at DRACO_DB or SOCIAL_DB.
+[[env.production.d1_databases]]
+binding = "SOCIALFLOW_AUTHS_DB"
+database_name = "saas_socialflow_auths_prod_db"
+database_id = "f6f46e6a-487f-400a-a2d1-c6d23e88f9cf"
 
 [[env.production.d1_databases]]
 binding = "BASES_AUTHS_DB"
@@ -168,9 +169,10 @@ binding = "MENTORIAS_AUTHS_DB"
 database_name = "drako_db_preview"
 database_id = "4cfbe4ed-23ae-43a6-b442-367ff2d4ad9c"
 
-# PROVISION_SOCIALFLOW_AUTHS_DB_REQUIRED:
-# Preview SocialFlow auth binding intentionally omitted until a dedicated preview
-# D1 exists. Keep auth fail-closed instead of using any placeholder id.
+[[env.preview.d1_databases]]
+binding = "SOCIALFLOW_AUTHS_DB"
+database_name = "saas_socialflow_auths_preview_db"
+database_id = "8bac57fd-bff1-4f9a-9868-54ff1ad2359e"
 
 [[env.preview.d1_databases]]
 binding = "BASES_AUTHS_DB"
