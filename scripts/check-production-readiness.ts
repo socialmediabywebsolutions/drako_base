@@ -131,6 +131,7 @@ type CheckCode =
   | "onboardingColumnsMismatch"
   | "legacyProductionGuardMissing"
   | "legacyAuthDbFallbackFlagEnabled"
+  | "deployablePlaceholderDatabaseIdPresent"
   | "socialflowAuthsBindingMissing"
   | "socialflowAuthsBindingSharedIdentity"
   | "socialflowAuthsBindingNamingViolation"
@@ -214,6 +215,7 @@ type ProductionAuditsRunOptions = {
   reportMarkdownPath?: string;
   legacyGuardsOverride?: LegacyProductionGuard[];
   legacyAuthDbFallbackFlagGuardOverride?: LegacyAuthDbFallbackFlagGuard;
+  deployablePlaceholderDatabaseIdGuardOverride?: DeployablePlaceholderDatabaseIdGuard;
   socialflowAuthsGuardOverride?: SocialflowAuthsBindingGuard;
   socialflowDomainGuardOverride?: SocialflowDomainGuard;
   mentoriaBindingGuardOverride?: MentoriaBindingGuard;
@@ -229,6 +231,12 @@ type LegacyAuthDbFallbackFlagGuard = {
   targetName: string;
   configPaths: string[];
   flagName: string;
+};
+
+type DeployablePlaceholderDatabaseIdGuard = {
+  targetName: string;
+  configPaths: string[];
+  forbiddenDatabaseIds: string[];
 };
 
 type SocialflowAuthsBindingGuard = {
@@ -271,7 +279,7 @@ const DEFAULT_REPORT_MARKDOWN_PATH = "docs/audits/production-readiness-latest.md
 const LEGACY_GUARD_DEFAULT_SEVERITY: SeverityLevel = "BLOCKER";
 const SOCIALFLOW_AUTHS_GUARD_SEVERITY: SeverityLevel = "BLOCKER";
 const MENTORIA_GUARD_BLOCKER_SEVERITY: SeverityLevel = "BLOCKER";
-const LOCAL_OR_FAIL_CLOSED_DATABASE_IDS = new Set(["local-dev", "00000000-0000-0000-0000-000000000000"]);
+const LOCAL_OR_FAIL_CLOSED_DATABASE_IDS = new Set(["local-dev"]);
 const LOCAL_COLLAPSED_DATABASE_NAMES = new Set(["drako_db_local"]);
 
 const DEFAULT_LEGACY_AUTH_DB_FALLBACK_FLAG_GUARD: LegacyAuthDbFallbackFlagGuard = {
@@ -282,6 +290,18 @@ const DEFAULT_LEGACY_AUTH_DB_FALLBACK_FLAG_GUARD: LegacyAuthDbFallbackFlagGuard 
     "workers/socialflows/wrangler.workers.toml",
   ],
   flagName: "ALLOW_LEGACY_AUTH_DB_FALLBACK",
+};
+
+const DEFAULT_DEPLOYABLE_PLACEHOLDER_DATABASE_ID_GUARD: DeployablePlaceholderDatabaseIdGuard = {
+  targetName: "deployable-configs:no-placeholder-d1-ids",
+  configPaths: [
+    "wrangler.workers.toml",
+    "workers/drakos/wrangler.workers.toml",
+    "workers/bases/wrangler.workers.toml",
+    "workers/mentorias/wrangler.workers.toml",
+    "workers/socialflows/wrangler.workers.toml",
+  ],
+  forbiddenDatabaseIds: ["00000000-0000-0000-0000-000000000000"],
 };
 
 const DEFAULT_SOCIALFLOW_AUTHS_BINDING_GUARD: SocialflowAuthsBindingGuard = {
@@ -354,9 +374,8 @@ const DEFAULT_LEGACY_PRODUCTION_GUARDS: LegacyProductionGuard[] = [
     filePath: "wrangler.workers.toml",
     mustInclude: [
       "LEGACY_PREVIEW_SOCIAL_DB_FAIL_CLOSED",
-      "binding = \"SOCIAL_DB\"",
-      "database_name = \"saas_socialflows_preview_db\"",
-      "database_id = \"00000000-0000-0000-0000-000000000000\"",
+      "drako-base-3 preview stays unbound for SocialFlow data",
+      "Do not add SOCIAL_DB",
     ],
   },
 ];
@@ -1409,6 +1428,43 @@ function isProductionRecord(record: D1BindingRecord): boolean {
   return record.section.toLowerCase().includes("production");
 }
 
+async function buildDeployablePlaceholderDatabaseIdChecks(
+  guard: DeployablePlaceholderDatabaseIdGuard,
+): Promise<CheckRecord[]> {
+  const violations: string[] = [];
+
+  for (const filePath of guard.configPaths) {
+    let content = "";
+    try {
+      content = await fs.readFile(resolveAbsolutePath(filePath), "utf8");
+    } catch {
+      continue;
+    }
+
+    for (const forbiddenDatabaseId of guard.forbiddenDatabaseIds) {
+      if (content.includes(forbiddenDatabaseId)) {
+        violations.push(`${filePath} contains forbidden database_id ${forbiddenDatabaseId}`);
+      }
+    }
+  }
+
+  return [
+    {
+      checkCode: "deployablePlaceholderDatabaseIdPresent",
+      severity: "BLOCKER",
+      status: violations.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: `deployable wrangler configs avoid placeholder database ids [${guard.forbiddenDatabaseIds.join(", ")}]`,
+      actual: violations.length === 0 ? "no_placeholder_ids_detected" : violations,
+      details:
+        violations.length === 0
+          ? "No deployable wrangler config contains a placeholder D1 database_id."
+          : "Deployable wrangler config still contains a placeholder D1 database_id that Cloudflare will reject.",
+    },
+  ];
+}
+
 async function buildSocialflowAuthsBindingGuardChecks(guard: SocialflowAuthsBindingGuard): Promise<CheckRecord[]> {
   const checks: CheckRecord[] = [];
   const allRecords: D1BindingRecord[] = [];
@@ -1435,7 +1491,7 @@ async function buildSocialflowAuthsBindingGuardChecks(guard: SocialflowAuthsBind
       targetName: `${guard.targetName}:missing_binding`,
       expected: `${guard.socialflowBinding} configured`,
       actual: "binding_not_present",
-      details: `${guard.socialflowBinding} binding is required for socialflow auth and is missing from scanned configs.`,
+      details: `${guard.socialflowBinding} binding is required for socialflow auth and is missing from scanned configs. Provision dedicated D1s with "pnpm exec wrangler d1 create saas_socialflow_auths_prod_db" and "pnpm exec wrangler d1 create saas_socialflow_auths_preview_db", then bind the returned ids in deployable SocialFlow wrangler configs. Until then, auth must remain fail-closed and deploy is intentionally blocked by readiness.`,
     });
     checks.push({
       checkCode: "socialflowAuthsBindingSharedIdentity",
@@ -2022,6 +2078,12 @@ export async function runProductionReadinessAudits(
     options.legacyAuthDbFallbackFlagGuardOverride ?? DEFAULT_LEGACY_AUTH_DB_FALLBACK_FLAG_GUARD;
   const legacyAuthDbFallbackFlagChecks = await buildLegacyAuthDbFallbackFlagChecks(legacyAuthDbFallbackFlagGuard);
   checks.push(...legacyAuthDbFallbackFlagChecks);
+  const deployablePlaceholderDatabaseIdGuard =
+    options.deployablePlaceholderDatabaseIdGuardOverride ?? DEFAULT_DEPLOYABLE_PLACEHOLDER_DATABASE_ID_GUARD;
+  const deployablePlaceholderDatabaseIdChecks = await buildDeployablePlaceholderDatabaseIdChecks(
+    deployablePlaceholderDatabaseIdGuard,
+  );
+  checks.push(...deployablePlaceholderDatabaseIdChecks);
   const socialflowAuthsGuard = options.socialflowAuthsGuardOverride ?? DEFAULT_SOCIALFLOW_AUTHS_BINDING_GUARD;
   const socialflowAuthsChecks = await buildSocialflowAuthsBindingGuardChecks(socialflowAuthsGuard);
   checks.push(...socialflowAuthsChecks);

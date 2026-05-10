@@ -27,12 +27,16 @@ binding = "SOCIAL_DB"
 database_name = "saas_socialflows_prod_db"
 database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
 
-# FAIL-CLOSED placeholder until isolated SocialFlow auth D1 is provisioned.
-# Do not point this binding at DRACO_DB, SOCIAL_DB, or any shared auth database.
-[[d1_databases]]
-binding = "SOCIALFLOW_AUTHS_DB"
-database_name = "saas_socialflow_auths_prod_db"
-database_id = "00000000-0000-0000-0000-000000000000"
+# PROVISION_SOCIALFLOW_AUTHS_DB_REQUIRED:
+# Do not deploy SOCIALFLOW_AUTHS_DB with a placeholder or shared identity.
+# Until a dedicated auth D1 exists, leave this binding intentionally omitted and
+# keep application auth fail-closed.
+# Provisioning procedure:
+#   1. pnpm exec wrangler d1 create saas_socialflow_auths_prod_db
+#   2. pnpm exec wrangler d1 create saas_socialflow_auths_preview_db
+#   3. Copy the returned database_id values into the dedicated SocialFlow auth
+#      bindings in deployable wrangler configs.
+#   4. Re-run pnpm check:production before deploy.
 
 [[kv_namespaces]]
 binding = "SAASES_CACHE"

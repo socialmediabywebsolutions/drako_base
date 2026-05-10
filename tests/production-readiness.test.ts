@@ -5,6 +5,23 @@ import { runProductionReadinessAudits } from "../scripts/check-production-readin
 const sourceOfTruthPath = "docs/config/production-audits-expected-state.json";
 
 describe("production readiness audits", () => {
+  const socialflowAuthsGuardBase = {
+    targetName: "test:socialflow-auths-guard",
+    socialflowBinding: "SOCIALFLOW_AUTHS_DB",
+    reservedBindings: [
+      "DRACO_DB",
+      "SAASES_DB",
+      "SOCIAL_DB",
+      "DRAKOS_AUTHS_DB",
+      "MENTORIAS_AUTHS_DB",
+      "BASES_AUTHS_DB",
+      "MENTORIA_DB",
+    ],
+  } as const;
+  const socialflowAuthsGuardPassOverride = {
+    ...socialflowAuthsGuardBase,
+    configPaths: ["tests/fixtures/production-audits/socialflow-auths-guards/pass.wrangler.toml"],
+  } as const;
   const mentoriaGuardBase = {
     targetName: "test:mentoria-db-guard",
     mentoriaBinding: "MENTORIA_DB",
@@ -34,6 +51,7 @@ describe("production readiness audits", () => {
       sourceOfTruthPath,
       fixturesDir: "tests/fixtures/production-audits/pass",
       writeReports: false,
+      socialflowAuthsGuardOverride: socialflowAuthsGuardPassOverride,
     });
 
     expect(result.exitCode).toBe(0);
@@ -85,20 +103,7 @@ describe("production readiness audits", () => {
       sourceOfTruthPath,
       fixturesDir: "tests/fixtures/production-audits/pass",
       writeReports: false,
-      socialflowAuthsGuardOverride: {
-        targetName: "test:socialflow-auths-guard",
-        configPaths: ["tests/fixtures/production-audits/socialflow-auths-guards/pass.wrangler.toml"],
-        socialflowBinding: "SOCIALFLOW_AUTHS_DB",
-        reservedBindings: [
-          "DRACO_DB",
-          "SAASES_DB",
-          "SOCIAL_DB",
-          "DRAKOS_AUTHS_DB",
-          "MENTORIAS_AUTHS_DB",
-          "BASES_AUTHS_DB",
-          "MENTORIA_DB",
-        ],
-      },
+      socialflowAuthsGuardOverride: socialflowAuthsGuardPassOverride,
     });
 
     expect(result.exitCode).toBe(0);
@@ -120,18 +125,8 @@ describe("production readiness audits", () => {
       fixturesDir: "tests/fixtures/production-audits/pass",
       writeReports: false,
       socialflowAuthsGuardOverride: {
-        targetName: "test:socialflow-auths-guard",
+        ...socialflowAuthsGuardBase,
         configPaths: ["tests/fixtures/production-audits/socialflow-auths-guards/fail-shared-identity.wrangler.toml"],
-        socialflowBinding: "SOCIALFLOW_AUTHS_DB",
-        reservedBindings: [
-          "DRACO_DB",
-          "SAASES_DB",
-          "SOCIAL_DB",
-          "DRAKOS_AUTHS_DB",
-          "MENTORIAS_AUTHS_DB",
-          "BASES_AUTHS_DB",
-          "MENTORIA_DB",
-        ],
       },
     });
 
@@ -147,18 +142,8 @@ describe("production readiness audits", () => {
       fixturesDir: "tests/fixtures/production-audits/pass",
       writeReports: false,
       socialflowAuthsGuardOverride: {
-        targetName: "test:socialflow-auths-guard",
+        ...socialflowAuthsGuardBase,
         configPaths: ["tests/fixtures/production-audits/socialflow-auths-guards/fail-preview-prod-collision.wrangler.toml"],
-        socialflowBinding: "SOCIALFLOW_AUTHS_DB",
-        reservedBindings: [
-          "DRACO_DB",
-          "SAASES_DB",
-          "SOCIAL_DB",
-          "DRAKOS_AUTHS_DB",
-          "MENTORIAS_AUTHS_DB",
-          "BASES_AUTHS_DB",
-          "MENTORIA_DB",
-        ],
       },
     });
 
@@ -174,18 +159,8 @@ describe("production readiness audits", () => {
       fixturesDir: "tests/fixtures/production-audits/pass",
       writeReports: false,
       socialflowAuthsGuardOverride: {
-        targetName: "test:socialflow-auths-guard",
+        ...socialflowAuthsGuardBase,
         configPaths: ["tests/fixtures/production-audits/socialflow-auths-guards/missing-binding.wrangler.toml"],
-        socialflowBinding: "SOCIALFLOW_AUTHS_DB",
-        reservedBindings: [
-          "DRACO_DB",
-          "SAASES_DB",
-          "SOCIAL_DB",
-          "DRAKOS_AUTHS_DB",
-          "MENTORIAS_AUTHS_DB",
-          "BASES_AUTHS_DB",
-          "MENTORIA_DB",
-        ],
       },
     });
 
@@ -198,6 +173,7 @@ describe("production readiness audits", () => {
       sourceOfTruthPath,
       fixturesDir: "tests/fixtures/production-audits/pass",
       writeReports: false,
+      socialflowAuthsGuardOverride: socialflowAuthsGuardPassOverride,
       socialflowDomainGuardOverride: socialflowDomainGuardBase,
     });
 
@@ -229,6 +205,7 @@ describe("production readiness audits", () => {
       sourceOfTruthPath,
       fixturesDir: "tests/fixtures/production-audits/socialflow-domain-guards/active-singular-correct",
       writeReports: false,
+      socialflowAuthsGuardOverride: socialflowAuthsGuardPassOverride,
       socialflowDomainGuardOverride: {
         ...socialflowDomainGuardBase,
         phase: "active",
@@ -265,6 +242,7 @@ describe("production readiness audits", () => {
       sourceOfTruthPath,
       fixturesDir: "tests/fixtures/production-audits/socialflow-domain-guards/inactive-plural-no-singular",
       writeReports: false,
+      socialflowAuthsGuardOverride: socialflowAuthsGuardPassOverride,
       socialflowDomainGuardOverride: socialflowDomainGuardBase,
     });
 
@@ -277,6 +255,7 @@ describe("production readiness audits", () => {
       sourceOfTruthPath,
       fixturesDir: "tests/fixtures/production-audits/pass",
       writeReports: false,
+      socialflowAuthsGuardOverride: socialflowAuthsGuardPassOverride,
       mentoriaBindingGuardOverride: {
         ...mentoriaGuardBase,
         configPaths: ["tests/fixtures/production-audits/mentoria-db-guards/pass.wrangler.toml"],
@@ -391,16 +370,58 @@ describe("production readiness audits", () => {
     expect(result.report.violations.some((item) => item.checkCode === "legacyAuthDbFallbackFlagEnabled")).toBe(true);
   });
 
-  it("requires explicit auth/product bindings in current wrangler configs", async () => {
+  it("fails readiness with explicit provisioning guidance when SocialFlow auth D1 is still unprovisioned", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowAuthsBindingMissing")).toBe(true);
+    expect(
+      result.report.violations.some(
+        (item) =>
+          item.checkCode === "socialflowAuthsBindingMissing" &&
+          item.details.includes("pnpm exec wrangler d1 create saas_socialflow_auths_prod_db") &&
+          item.details.includes("pnpm exec wrangler d1 create saas_socialflow_auths_preview_db"),
+      ),
+    ).toBe(true);
+  });
+
+  it("fails placeholder guard when a deployable wrangler config contains an invalid fake database id", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowAuthsGuardOverride: socialflowAuthsGuardPassOverride,
+      deployablePlaceholderDatabaseIdGuardOverride: {
+        targetName: "test:deployable-placeholder-guard",
+        configPaths: ["tests/fixtures/production-audits/socialflow-auths-guards/placeholder-binding.wrangler.toml"],
+        forbiddenDatabaseIds: ["00000000-0000-0000-0000-000000000000"],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "deployablePlaceholderDatabaseIdPresent")).toBe(
+      true,
+    );
+  });
+
+  it("keeps deployable wrangler configs free of placeholder ids and leaves SocialFlow auth unbound until provisioned", async () => {
     const [rootWrangler, socialflowWrangler, mentoriasWrangler] = await Promise.all([
       fs.readFile("wrangler.workers.toml", "utf8"),
       fs.readFile("workers/socialflows/wrangler.workers.toml", "utf8"),
       fs.readFile("workers/mentorias/wrangler.workers.toml", "utf8"),
     ]);
 
-    expect(rootWrangler).toContain('binding = "SOCIALFLOW_AUTHS_DB"');
+    expect(rootWrangler).not.toContain('database_id = "00000000-0000-0000-0000-000000000000"');
+    expect(socialflowWrangler).not.toContain('database_id = "00000000-0000-0000-0000-000000000000"');
+    expect(mentoriasWrangler).not.toContain('database_id = "00000000-0000-0000-0000-000000000000"');
+    expect(rootWrangler).toContain("PROVISION_SOCIALFLOW_AUTHS_DB_REQUIRED");
+    expect(socialflowWrangler).toContain("PROVISION_SOCIALFLOW_AUTHS_DB_REQUIRED");
+    expect(socialflowWrangler).not.toContain('binding = "SOCIALFLOW_AUTHS_DB"');
     expect(rootWrangler).toContain('binding = "MENTORIA_DB"');
-    expect(socialflowWrangler).toContain('binding = "SOCIALFLOW_AUTHS_DB"');
     expect(mentoriasWrangler).toContain('binding = "MENTORIA_DB"');
   });
 });

@@ -1,0 +1,6 @@
+name = "test-socialflow-auths-placeholder"
+
+[[d1_databases]]
+binding = "SOCIALFLOW_AUTHS_DB"
+database_name = "saas_socialflow_auths_prod_db"
+database_id = "00000000-0000-0000-0000-000000000000"
