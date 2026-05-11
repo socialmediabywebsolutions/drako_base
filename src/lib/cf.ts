@@ -83,7 +83,14 @@ function canUseProcessEnvFallback(): boolean {
     return false;
   }
 
-  return Boolean(process.env.DRACO_DB || process.env.AI || process.env.SESSION_SECRET);
+  return Boolean(
+    process.env.DRACO_DB ||
+    process.env.MENTORIA_DB ||
+    process.env.MENTORIAS_AUTHS_DB ||
+    process.env.SOCIALFLOW_AUTHS_DB ||
+    process.env.AI ||
+    process.env.SESSION_SECRET,
+  );
 }
 
 /**

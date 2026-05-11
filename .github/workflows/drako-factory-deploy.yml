@@ -327,18 +327,41 @@ jobs:
       - name: Install Wrangler 4.69.0
         run: npm install -g wrangler@4.69.0
 
-      - name: Hotfix mentoria_session_state in production D1
+      - name: Apply Mentoria auth schema on dedicated auth D1
         run: |
           set -euo pipefail
-          wrangler d1 execute DRACO_DB --remote --config wrangler.workers.toml --file migrations/0160_mentoria_session_persistence.sql
+          wrangler d1 execute MENTORIAS_AUTHS_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0136_auths_isolations.sql
 
-      - name: Verify mentoria_session_state exists in production D1
+      - name: Verify Mentoria auth tables exist on dedicated auth D1
         run: |
           set -euo pipefail
-          OUTPUT="$(wrangler d1 execute DRACO_DB --remote --config wrangler.workers.toml --command "SELECT name FROM sqlite_master WHERE type='table' AND name='mentoria_session_state';")"
+          OUTPUT="$(wrangler d1 execute MENTORIAS_AUTHS_DB --remote --config workers/mentorias/wrangler.workers.toml --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('mentorias_users', 'mentorias_credentials', 'mentorias_sessions');")"
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "mentorias_users" || {
+            echo "BLOCKED: mentorias_users missing in dedicated Mentoria auth D1 after auth migrations."
+            exit 1
+          }
+          echo "$OUTPUT" | grep -q "mentorias_credentials" || {
+            echo "BLOCKED: mentorias_credentials missing in dedicated Mentoria auth D1 after auth migrations."
+            exit 1
+          }
+          echo "$OUTPUT" | grep -q "mentorias_sessions" || {
+            echo "BLOCKED: mentorias_sessions missing in dedicated Mentoria auth D1 after auth migrations."
+            exit 1
+          }
+
+      - name: Apply Mentoria product session persistence schema on dedicated product D1
+        run: |
+          set -euo pipefail
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0160_mentoria_session_persistence.sql
+
+      - name: Verify mentoria_session_state exists in dedicated product D1
+        run: |
+          set -euo pipefail
+          OUTPUT="$(wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "SELECT name FROM sqlite_master WHERE type='table' AND name='mentoria_session_state';")"
           echo "$OUTPUT"
           echo "$OUTPUT" | grep -q "mentoria_session_state" || {
-            echo "BLOCKED: mentoria_session_state missing in production DRACO_DB after migrations."
+            echo "BLOCKED: mentoria_session_state missing in dedicated Mentoria product D1 after migrations."
             exit 1
           }
 

@@ -365,6 +365,7 @@ function assertSchema() {
 }
 
 if (applyRootMigrations) {
+  console.log(`[mentoria-local-bootstrap] applying optional root migrations via ${rootBinding} on ${rootConfig}`);
   run("pnpm", ["wrangler", "d1", "migrations", "apply", rootBinding, "--local", "--config", rootConfig]);
 }
 

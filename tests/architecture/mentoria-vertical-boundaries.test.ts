@@ -80,8 +80,13 @@ describe("Mentoria vertical boundaries", () => {
   it("keeps the Mentoria worker bound only to product/auth D1 identities", () => {
     const workerConfig = read("workers/mentorias/wrangler.workers.toml");
 
+    expect(workerConfig).toContain('main = "../../.open-next/worker.js"');
+    expect(workerConfig).not.toContain('.open-next/mentorias/worker.js');
     expect(workerConfig).toContain('binding = "MENTORIA_DB"');
     expect(workerConfig).toContain('binding = "MENTORIAS_AUTHS_DB"');
+    expect(workerConfig).toContain('database_name = "saas_mentorias_prod_db"');
+    expect(workerConfig).toContain('database_name = "mentorias_auths_prod_db"');
+    expect(workerConfig).not.toContain('database_name = "drako_db_prod"');
     expect(workerConfig).not.toContain('binding = "DRACO_DB"');
     expect(workerConfig).not.toContain('binding = "DB"');
     expect(workerConfig).not.toContain('binding = "SOCIAL_DB"');

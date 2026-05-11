@@ -136,6 +136,35 @@ describe("auth contextual DB selection and fail-closed behavior", () => {
     });
     errorSpy.mockRestore();
   });
+
+  it("never falls back to DRACO_DB for mentorias auth when contextual DB is missing", async () => {
+    vi.resetModules();
+    const fallbackDb = makeFakeDb("fallback-db");
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    vi.doMock("@/lib/cf", () => ({
+      env: () => ({
+        DRACO_DB: fallbackDb,
+      }),
+    }));
+    vi.doMock("@/lib/auths/flags", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/auths/flags")>();
+      return {
+        ...actual,
+        isAuthsContextDbRequired: () => false,
+      };
+    });
+
+    const { resolveAuthsDbForContext } = await import("@/lib/auths/repositories");
+
+    expect(resolveAuthsDbForContext("mentorias")).toBeNull();
+    expect(resolveAuthsDbForContext("drakos")).toBe(fallbackDb);
+    expect(errorSpy).toHaveBeenCalledWith("AUTHS_CONTEXT_DB_MISSING", {
+      context: "mentorias",
+      message: "MENTORIAS_AUTHS_DB binding is required for mentorias auth",
+    });
+    errorSpy.mockRestore();
+  });
 });
 
 describe("mentoria product DB selection", () => {

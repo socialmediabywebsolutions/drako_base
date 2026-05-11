@@ -136,6 +136,10 @@ type CheckCode =
   | "socialflowAuthsBindingSharedIdentity"
   | "socialflowAuthsBindingNamingViolation"
   | "socialflowAuthsBindingPreviewProdCollision"
+  | "mentoriaAuthsBindingMissing"
+  | "mentoriaAuthsBindingSharedIdentity"
+  | "mentoriaAuthsBindingNamingViolation"
+  | "mentoriaAuthsBindingPreviewProdCollision"
   | "socialflowCanonicalHostnameMissing"
   | "socialflowCanonicalHostnameWrongWorker"
   | "socialflowPluralPrimaryWarning"
@@ -154,7 +158,8 @@ type CheckCode =
   | "legacyCompatInventoryDrift"
   | "legacyCompatTelemetryGuardMissing"
   | "artifactMatrixSkeletonDrift"
-  | "artifactSplitPrematureActivation";
+  | "artifactSplitPrematureActivation"
+  | "mentoriaAuthsOperationalDrift";
 
 type CheckRecord = {
   checkCode: CheckCode;
@@ -228,6 +233,7 @@ type ProductionAuditsRunOptions = {
   legacyAuthDbFallbackFlagGuardOverride?: LegacyAuthDbFallbackFlagGuard;
   deployablePlaceholderDatabaseIdGuardOverride?: DeployablePlaceholderDatabaseIdGuard;
   socialflowAuthsGuardOverride?: SocialflowAuthsBindingGuard;
+  mentoriaAuthsGuardOverride?: MentoriaAuthsBindingGuard;
   socialflowDomainGuardOverride?: SocialflowDomainGuard;
   mentoriaBindingGuardOverride?: MentoriaBindingGuard;
   socialflowBoundaryGuardOverride?: SourceBoundaryGuard;
@@ -239,6 +245,7 @@ type ProductionAuditsRunOptions = {
   legacyCompatTelemetryGuardOverride?: FileTokenGuard;
   artifactMatrixSkeletonGuardOverride?: ArtifactMatrixSkeletonGuard;
   artifactMatrixPrematureActivationGuardOverride?: ArtifactMatrixPrematureActivationGuard;
+  mentoriaAuthsOperationalGuardOverride?: FileTokenGuard;
 };
 
 type LegacyProductionGuard = {
@@ -263,6 +270,13 @@ type SocialflowAuthsBindingGuard = {
   targetName: string;
   configPaths: string[];
   socialflowBinding: string;
+  reservedBindings: string[];
+};
+
+type MentoriaAuthsBindingGuard = {
+  targetName: string;
+  configPaths: string[];
+  mentoriasAuthBinding: string;
   reservedBindings: string[];
 };
 
@@ -425,6 +439,24 @@ const DEFAULT_SOCIALFLOW_AUTHS_BINDING_GUARD: SocialflowAuthsBindingGuard = {
     "MENTORIAS_AUTHS_DB",
     "BASES_AUTHS_DB",
     "MENTORIA_DB",
+  ],
+};
+
+const DEFAULT_MENTORIA_AUTHS_BINDING_GUARD: MentoriaAuthsBindingGuard = {
+  targetName: "mentoria:auths-binding-dedicated",
+  configPaths: [
+    "wrangler.jsonc",
+    "wrangler.workers.toml",
+    "workers/mentorias/wrangler.workers.toml",
+  ],
+  mentoriasAuthBinding: "MENTORIAS_AUTHS_DB",
+  reservedBindings: [
+    "DRACO_DB",
+    "MENTORIA_DB",
+    "SOCIAL_DB",
+    "DRAKOS_AUTHS_DB",
+    "BASES_AUTHS_DB",
+    "SOCIALFLOW_AUTHS_DB",
   ],
 };
 
@@ -726,6 +758,38 @@ const DEFAULT_SOCIALFLOW_RUNTIME_GUARD: FileTokenGuard = {
     {
       filePath: "packages/shared/workers-handlers/index.ts",
       forbiddenTokens: ['case "socialflow"', 'case "socialflows"'],
+    },
+  ],
+};
+
+const DEFAULT_MENTORIA_AUTHS_OPERATIONAL_GUARD: FileTokenGuard = {
+  targetName: "mentoria:auth-operational-drift",
+  rules: [
+    {
+      filePath: ".github/workflows/drako-factory-deploy.yml",
+      requiredTokens: [
+        "wrangler d1 execute MENTORIAS_AUTHS_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0136_auths_isolations.sql",
+        "wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0160_mentoria_session_persistence.sql",
+      ],
+      forbiddenTokens: [
+        "wrangler d1 execute DRACO_DB --remote --config wrangler.workers.toml --file migrations/0160_mentoria_session_persistence.sql",
+      ],
+    },
+    {
+      filePath: "scripts/local/mentoria-worker-local-migrate.mjs",
+      requiredTokens: [
+        'const productBinding = "MENTORIA_DB";',
+        'const authBinding = "MENTORIAS_AUTHS_DB";',
+        '"migrations/0136_auths_isolations.sql"',
+      ],
+    },
+    {
+      filePath: "scripts/local/mentoria-local-bootstrap.mjs",
+      requiredTokens: [
+        'const productBinding = "MENTORIA_DB";',
+        'const authBinding = "MENTORIAS_AUTHS_DB";',
+        "MENTORIA_LOCAL_BOOTSTRAP_OK product_binding=${productBinding} auth_binding=${authBinding}",
+      ],
     },
   ],
 };
@@ -2082,6 +2146,178 @@ async function buildSocialflowAuthsBindingGuardChecks(guard: SocialflowAuthsBind
   return checks;
 }
 
+async function buildMentoriaAuthsBindingGuardChecks(guard: MentoriaAuthsBindingGuard): Promise<CheckRecord[]> {
+  const checks: CheckRecord[] = [];
+  const allRecords: D1BindingRecord[] = [];
+
+  for (const filePath of guard.configPaths) {
+    let content = "";
+    try {
+      content = await fs.readFile(resolveAbsolutePath(filePath), "utf8");
+    } catch {
+      continue;
+    }
+    allRecords.push(...parseD1BindingsFromContent(content, filePath));
+  }
+
+  const mentoriasAuthsRecords = allRecords.filter((record) => record.binding === guard.mentoriasAuthBinding);
+  const reservedRecords = allRecords.filter((record) => guard.reservedBindings.includes(record.binding));
+
+  if (mentoriasAuthsRecords.length === 0) {
+    checks.push({
+      checkCode: "mentoriaAuthsBindingMissing",
+      severity: "BLOCKER",
+      status: "FAIL",
+      targetType: "code_guard",
+      targetName: `${guard.targetName}:missing_binding`,
+      expected: `${guard.mentoriasAuthBinding} configured`,
+      actual: "binding_not_present",
+      details: `${guard.mentoriasAuthBinding} binding is required for Mentoría auth. Provision dedicated D1s with "pnpm exec wrangler d1 create mentorias_auths_prod_db" and "pnpm exec wrangler d1 create mentorias_auths_preview_db", then bind the returned ids in deployable Mentoría wrangler configs.`,
+    });
+    checks.push({
+      checkCode: "mentoriaAuthsBindingSharedIdentity",
+      severity: "BLOCKER",
+      status: "N/A",
+      targetType: "code_guard",
+      targetName: `${guard.targetName}:shared_identity`,
+      expected: `${guard.mentoriasAuthBinding} configured`,
+      actual: "binding_not_present_yet",
+      details: `Guard armed for future cutover: ${guard.mentoriasAuthBinding} is not configured yet.`,
+    });
+    checks.push({
+      checkCode: "mentoriaAuthsBindingNamingViolation",
+      severity: "BLOCKER",
+      status: "N/A",
+      targetType: "code_guard",
+      targetName: `${guard.targetName}:naming`,
+      expected: "database_name includes mentoria + auth",
+      actual: "binding_not_present_yet",
+      details: `Naming policy deferred until ${guard.mentoriasAuthBinding} exists in config.`,
+    });
+    checks.push({
+      checkCode: "mentoriaAuthsBindingPreviewProdCollision",
+      severity: "BLOCKER",
+      status: "N/A",
+      targetType: "code_guard",
+      targetName: `${guard.targetName}:preview_prod_collision`,
+      expected: "preview and production use distinct physical identities",
+      actual: "binding_not_present_yet",
+      details: `Preview/prod collision check deferred until ${guard.mentoriasAuthBinding} is configured.`,
+    });
+    return checks;
+  }
+
+  const sharedIdentityViolations: string[] = [];
+  for (const authRecord of mentoriasAuthsRecords) {
+    for (const reserved of reservedRecords) {
+      const sameId =
+        authRecord.databaseId &&
+        reserved.databaseId &&
+        authRecord.databaseId === reserved.databaseId &&
+        !isLocalOrFailClosedId(authRecord.databaseId);
+      const sameName =
+        authRecord.databaseName &&
+        reserved.databaseName &&
+        authRecord.databaseName === reserved.databaseName &&
+        !isLocalCollapsedName(authRecord.databaseName);
+      if (sameId || sameName) {
+        sharedIdentityViolations.push(
+          `${authRecord.filePath} (${authRecord.section}) shares identity with ${reserved.binding} in ${reserved.filePath} (${reserved.section})`,
+        );
+      }
+    }
+  }
+
+  checks.push({
+    checkCode: "mentoriaAuthsBindingSharedIdentity",
+    severity: "BLOCKER",
+    status: sharedIdentityViolations.length === 0 ? "PASS" : "FAIL",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:shared_identity`,
+    expected: `no identity overlap with [${guard.reservedBindings.join(", ")}]`,
+    actual: sharedIdentityViolations.length === 0 ? "no_overlap_detected" : sharedIdentityViolations,
+    details:
+      sharedIdentityViolations.length === 0
+        ? `${guard.mentoriasAuthBinding} uses a dedicated physical identity in scanned configs.`
+        : `${guard.mentoriasAuthBinding} overlaps with reserved bindings.`,
+  });
+
+  const namingViolations = mentoriasAuthsRecords
+    .filter((record) => {
+      if (!record.databaseName || isLocalCollapsedName(record.databaseName)) return false;
+      const lower = record.databaseName.toLowerCase();
+      return !lower.includes("mentoria") || !lower.includes("auth");
+    })
+    .map((record) => `${record.filePath} (${record.section}) => ${record.databaseName}`);
+
+  checks.push({
+    checkCode: "mentoriaAuthsBindingNamingViolation",
+    severity: "BLOCKER",
+    status: namingViolations.length === 0 ? "PASS" : "FAIL",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:naming`,
+    expected: "database_name includes mentoria + auth (except local collapsed dev)",
+    actual: namingViolations.length === 0 ? "naming_valid" : namingViolations,
+    details:
+      namingViolations.length === 0
+        ? `${guard.mentoriasAuthBinding} naming matches dedicated auth policy.`
+        : `${guard.mentoriasAuthBinding} naming violates dedicated auth policy.`,
+  });
+
+  const previewRecords = mentoriasAuthsRecords.filter(isPreviewRecord);
+  const productionRecords = mentoriasAuthsRecords.filter(isProductionRecord);
+  const previewProdCollisions: string[] = [];
+  if (previewRecords.length > 0 && productionRecords.length > 0) {
+    for (const previewRecord of previewRecords) {
+      for (const productionRecord of productionRecords) {
+        const sameId =
+          previewRecord.databaseId &&
+          productionRecord.databaseId &&
+          previewRecord.databaseId === productionRecord.databaseId &&
+          !isLocalOrFailClosedId(previewRecord.databaseId);
+        const sameName =
+          previewRecord.databaseName &&
+          productionRecord.databaseName &&
+          previewRecord.databaseName === productionRecord.databaseName &&
+          !isLocalCollapsedName(previewRecord.databaseName);
+        if (sameId || sameName) {
+          previewProdCollisions.push(
+            `${previewRecord.filePath} (${previewRecord.section}) collides with ${productionRecord.filePath} (${productionRecord.section})`,
+          );
+        }
+      }
+    }
+  }
+
+  checks.push({
+    checkCode: "mentoriaAuthsBindingPreviewProdCollision",
+    severity: "BLOCKER",
+    status:
+      previewRecords.length > 0 && productionRecords.length > 0
+        ? previewProdCollisions.length === 0
+          ? "PASS"
+          : "FAIL"
+        : "N/A",
+    targetType: "code_guard",
+    targetName: `${guard.targetName}:preview_prod_collision`,
+    expected: "preview and production use distinct physical identities",
+    actual:
+      previewRecords.length > 0 && productionRecords.length > 0
+        ? previewProdCollisions.length === 0
+          ? "distinct"
+          : previewProdCollisions
+        : "not_enough_context",
+    details:
+      previewRecords.length > 0 && productionRecords.length > 0
+        ? previewProdCollisions.length === 0
+          ? "Preview/production identities are isolated."
+          : "Preview/production identities collide."
+        : "Preview/production collision check skipped (missing preview or production binding evidence).",
+  });
+
+  return checks;
+}
+
 async function buildSocialflowDomainGuardChecks(
   guard: SocialflowDomainGuard,
   snapshots: ProductionReadinessReport["snapshots"],
@@ -2623,7 +2859,10 @@ async function buildLegacyCompatInventoryChecks(guard: LegacyCompatInventoryGuar
 
 async function buildFileTokenGuardChecks(
   guard: FileTokenGuard,
-  checkCode: "socialflowRuntimeGuardDrift" | "legacyCompatTelemetryGuardMissing",
+  checkCode:
+    | "socialflowRuntimeGuardDrift"
+    | "legacyCompatTelemetryGuardMissing"
+    | "mentoriaAuthsOperationalDrift",
   passDetails: string,
   failDetails: string,
 ): Promise<CheckRecord[]> {
@@ -3065,6 +3304,9 @@ export async function runProductionReadinessAudits(
   const socialflowAuthsGuard = options.socialflowAuthsGuardOverride ?? DEFAULT_SOCIALFLOW_AUTHS_BINDING_GUARD;
   const socialflowAuthsChecks = await buildSocialflowAuthsBindingGuardChecks(socialflowAuthsGuard);
   checks.push(...socialflowAuthsChecks);
+  const mentoriaAuthsGuard = options.mentoriaAuthsGuardOverride ?? DEFAULT_MENTORIA_AUTHS_BINDING_GUARD;
+  const mentoriaAuthsChecks = await buildMentoriaAuthsBindingGuardChecks(mentoriaAuthsGuard);
+  checks.push(...mentoriaAuthsChecks);
   const socialflowDomainGuard = resolveSocialflowDomainGuard(config, options.socialflowDomainGuardOverride);
   const socialflowDomainChecks = await buildSocialflowDomainGuardChecks(socialflowDomainGuard, snapshots);
   checks.push(...socialflowDomainChecks);
@@ -3128,6 +3370,15 @@ export async function runProductionReadinessAudits(
   const socialflowSmokeGuard = options.socialflowSmokeGuardOverride ?? DEFAULT_SOCIALFLOW_SMOKE_GUARD;
   const socialflowSmokeChecks = await buildSocialflowSmokeGuardChecks(socialflowSmokeGuard);
   checks.push(...socialflowSmokeChecks);
+  const mentoriaAuthsOperationalGuard =
+    options.mentoriaAuthsOperationalGuardOverride ?? DEFAULT_MENTORIA_AUTHS_OPERATIONAL_GUARD;
+  const mentoriaAuthsOperationalChecks = await buildFileTokenGuardChecks(
+    mentoriaAuthsOperationalGuard,
+    "mentoriaAuthsOperationalDrift",
+    "Mentoría auth provisioning, CI migration steps and local tooling stay aligned to dedicated auth/product bindings.",
+    "Mentoría auth provisioning, CI migration steps or local tooling drifted back toward shared or ambiguous DB assumptions.",
+  );
+  checks.push(...mentoriaAuthsOperationalChecks);
   const report = buildReport({
     mode,
     sourceOfTruthPath,

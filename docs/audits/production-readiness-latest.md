@@ -1,6 +1,6 @@
 # Production Readiness Audit Report
 
-- Timestamp: `2026-05-11T19:55:56.599Z`
+- Timestamp: `2026-05-11T20:59:46.048Z`
 - Mode: `fixtures`
 - Source of truth: `docs/config/production-audits-expected-state.json`
 - Fixtures dir: `tests/fixtures/production-audits/pass`
@@ -8,8 +8,8 @@
 
 ## Summary
 
-- Checks total: 163
-- Checks pass: 160
+- Checks total: 167
+- Checks pass: 164
 - Checks fail: 0
 - Checks N/A: 3
 - Blockers: 0
@@ -163,6 +163,9 @@
 | socialflowAuthsBindingSharedIdentity | BLOCKER | socialflow:auths-binding-dedicated:shared_identity | PASS | "no identity overlap with [DRACO_DB, SAASES_DB, SOCIAL_DB, DRAKOS_AUTHS_DB, MENTORIAS_AUTHS_DB, BASES_AUTHS_DB, MENTORIA_DB]" | "no_overlap_detected" |
 | socialflowAuthsBindingNamingViolation | BLOCKER | socialflow:auths-binding-dedicated:naming | PASS | "database_name includes socialflow + auth (except local collapsed dev)" | "naming_valid" |
 | socialflowAuthsBindingPreviewProdCollision | BLOCKER | socialflow:auths-binding-dedicated:preview_prod_collision | PASS | "preview and production use distinct physical identities" | "distinct" |
+| mentoriaAuthsBindingSharedIdentity | BLOCKER | mentoria:auths-binding-dedicated:shared_identity | PASS | "no identity overlap with [DRACO_DB, MENTORIA_DB, SOCIAL_DB, DRAKOS_AUTHS_DB, BASES_AUTHS_DB, SOCIALFLOW_AUTHS_DB]" | "no_overlap_detected" |
+| mentoriaAuthsBindingNamingViolation | BLOCKER | mentoria:auths-binding-dedicated:naming | PASS | "database_name includes mentoria + auth (except local collapsed dev)" | "naming_valid" |
+| mentoriaAuthsBindingPreviewProdCollision | BLOCKER | mentoria:auths-binding-dedicated:preview_prod_collision | PASS | "preview and production use distinct physical identities" | "distinct" |
 | socialflowCanonicalHostnameMissing | BLOCKER | socialflow:canonical-domain-expected-state:canonical_hostname | PASS | "socialflow.drako.systems present" | "present" |
 | socialflowCanonicalHostnameWrongWorker | BLOCKER | socialflow:canonical-domain-expected-state:canonical_worker | PASS | "socialflow.drako.systems -> saas-socialflows-prod" | "saas-socialflows-prod" |
 | socialflowPluralPrimaryWarning | WARN | socialflow:canonical-domain-expected-state:plural_compatibility | PASS | "socialflows.drako.systems remains compatibility host, not primary" | "socialflows.drako.systems -> saas-socialflows-prod" |
@@ -182,6 +185,7 @@
 | artifactSplitPrematureActivation | BLOCKER | artifact-matrix:no-premature-worker-switch | PASS | "workers stay on ../../.open-next/worker.js and deploy workflow remains on open-next-build" | "artifact_split_inactive" |
 | socialflowRuntimeGuardDrift | BLOCKER | socialflow:runtime-real-worker-only | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | socialflowCanonicalSmokeGuardDrift | BLOCKER | socialflow:canonical-smoke-strict | PASS | "strict canonical smoke with 410 legacy routes and no canonical 405 acceptance" | "strict_smoke_ok" |
+| mentoriaAuthsOperationalDrift | BLOCKER | mentoria:auth-operational-drift | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 
 ## Violations
 

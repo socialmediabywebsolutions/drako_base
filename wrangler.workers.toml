@@ -24,8 +24,8 @@ database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 
 [[d1_databases]]
 binding = "MENTORIAS_AUTHS_DB"
-database_name = "drako_db_prod"
-database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+database_name = "mentorias_auths_prod_db"
+database_id = "6a6e3b5c-4d5e-4905-850a-b1e205203462"
 
 [[d1_databases]]
 binding = "SOCIALFLOW_AUTHS_DB"
@@ -90,8 +90,8 @@ database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 
 [[env.production.d1_databases]]
 binding = "MENTORIAS_AUTHS_DB"
-database_name = "drako_db_prod"
-database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+database_name = "mentorias_auths_prod_db"
+database_id = "6a6e3b5c-4d5e-4905-850a-b1e205203462"
 
 [[env.production.d1_databases]]
 binding = "SOCIALFLOW_AUTHS_DB"
@@ -166,8 +166,8 @@ database_id = "4cfbe4ed-23ae-43a6-b442-367ff2d4ad9c"
 
 [[env.preview.d1_databases]]
 binding = "MENTORIAS_AUTHS_DB"
-database_name = "drako_db_preview"
-database_id = "4cfbe4ed-23ae-43a6-b442-367ff2d4ad9c"
+database_name = "mentorias_auths_preview_db"
+database_id = "ad27b2c6-d990-4f26-a1c8-cffbf9f78924"
 
 [[env.preview.d1_databases]]
 binding = "SOCIALFLOW_AUTHS_DB"

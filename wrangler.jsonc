@@ -23,7 +23,12 @@
 		},
 		{
 			"binding": "MENTORIAS_AUTHS_DB",
-			"database_name": "drako_db_local",
+			"database_name": "mentorias_auths_local",
+			"database_id": "local-dev"
+		},
+		{
+			"binding": "MENTORIA_DB",
+			"database_name": "mentoria_db_local",
 			"database_id": "local-dev"
 		},
 		{

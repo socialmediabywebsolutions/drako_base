@@ -22,6 +22,22 @@ describe("production readiness audits", () => {
     ...socialflowAuthsGuardBase,
     configPaths: ["tests/fixtures/production-audits/socialflow-auths-guards/pass.wrangler.toml"],
   } as const;
+  const mentoriaAuthsGuardBase = {
+    targetName: "test:mentoria-auths-guard",
+    mentoriasAuthBinding: "MENTORIAS_AUTHS_DB",
+    reservedBindings: [
+      "DRACO_DB",
+      "MENTORIA_DB",
+      "SOCIAL_DB",
+      "DRAKOS_AUTHS_DB",
+      "BASES_AUTHS_DB",
+      "SOCIALFLOW_AUTHS_DB",
+    ],
+  } as const;
+  const mentoriaAuthsGuardPassOverride = {
+    ...mentoriaAuthsGuardBase,
+    configPaths: ["tests/fixtures/production-audits/mentoria-auths-guards/pass.wrangler.toml"],
+  } as const;
   const mentoriaGuardBase = {
     targetName: "test:mentoria-db-guard",
     mentoriaBinding: "MENTORIA_DB",
@@ -288,6 +304,37 @@ describe("production readiness audits", () => {
     ],
     allowedDedicatedProducts: ["socialflows"],
   } as const;
+  const mentoriaAuthsOperationalGuardBase = {
+    targetName: "test:mentoria-auths-operational-guard",
+    rules: [
+      {
+        filePath: ".github/workflows/drako-factory-deploy.yml",
+        requiredTokens: [
+          "wrangler d1 execute MENTORIAS_AUTHS_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0136_auths_isolations.sql",
+          "wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0160_mentoria_session_persistence.sql",
+        ],
+        forbiddenTokens: [
+          "wrangler d1 execute DRACO_DB --remote --config wrangler.workers.toml --file migrations/0160_mentoria_session_persistence.sql",
+        ],
+      },
+      {
+        filePath: "scripts/local/mentoria-worker-local-migrate.mjs",
+        requiredTokens: [
+          'const productBinding = "MENTORIA_DB";',
+          'const authBinding = "MENTORIAS_AUTHS_DB";',
+          '"migrations/0136_auths_isolations.sql"',
+        ],
+      },
+      {
+        filePath: "scripts/local/mentoria-local-bootstrap.mjs",
+        requiredTokens: [
+          'const productBinding = "MENTORIA_DB";',
+          'const authBinding = "MENTORIAS_AUTHS_DB";',
+          "MENTORIA_LOCAL_BOOTSTRAP_OK product_binding=${productBinding} auth_binding=${authBinding}",
+        ],
+      },
+    ],
+  } as const;
 
   it("passes when fixtures match expected", async () => {
     const result = await runProductionReadinessAudits({
@@ -409,6 +456,72 @@ describe("production readiness audits", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.report.violations.some((item) => item.checkCode === "socialflowAuthsBindingMissing")).toBe(true);
+  });
+
+  it("passes mentoria auths guard when binding is dedicated and preview/prod are isolated", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      mentoriaAuthsGuardOverride: mentoriaAuthsGuardPassOverride,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(
+      result.report.checks.some(
+        (check) => check.checkCode === "mentoriaAuthsBindingSharedIdentity" && check.status === "PASS",
+      ),
+    ).toBe(true);
+    expect(
+      result.report.checks.some(
+        (check) => check.checkCode === "mentoriaAuthsBindingPreviewProdCollision" && check.status === "PASS",
+      ),
+    ).toBe(true);
+  });
+
+  it("fails mentoria auths guard when binding reuses shared DRACO identity", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      mentoriaAuthsGuardOverride: {
+        ...mentoriaAuthsGuardBase,
+        configPaths: ["tests/fixtures/production-audits/mentoria-auths-guards/fail-shared-identity.wrangler.toml"],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "mentoriaAuthsBindingSharedIdentity")).toBe(true);
+  });
+
+  it("fails mentoria auths guard when preview and production collide", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      mentoriaAuthsGuardOverride: {
+        ...mentoriaAuthsGuardBase,
+        configPaths: ["tests/fixtures/production-audits/mentoria-auths-guards/fail-preview-prod-collision.wrangler.toml"],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "mentoriaAuthsBindingPreviewProdCollision")).toBe(true);
+  });
+
+  it("fails mentoria auths guard when MENTORIAS_AUTHS_DB is missing", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      mentoriaAuthsGuardOverride: {
+        ...mentoriaAuthsGuardBase,
+        configPaths: ["tests/fixtures/production-audits/mentoria-auths-guards/missing-binding.wrangler.toml"],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "mentoriaAuthsBindingMissing")).toBe(true);
   });
 
   it("passes when socialflow canonical hostname is present (phase inactive override)", async () => {
@@ -708,11 +821,19 @@ describe("production readiness audits", () => {
     expect(socialflowWrangler).toContain('database_id = "f6f46e6a-487f-400a-a2d1-c6d23e88f9cf"');
     expect(localWrangler).toContain('"binding": "SOCIALFLOW_AUTHS_DB"');
     expect(localWrangler).not.toContain('"binding": "saas_socialflow_auths_prod_db"');
+    expect(rootWrangler).toContain('binding = "MENTORIAS_AUTHS_DB"');
+    expect(rootWrangler).toContain('database_id = "6a6e3b5c-4d5e-4905-850a-b1e205203462"');
+    expect(rootWrangler).toContain('database_id = "ad27b2c6-d990-4f26-a1c8-cffbf9f78924"');
     expect(rootWrangler).toContain('binding = "MENTORIA_DB"');
     expect(mentoriasWrangler).toContain('binding = "MENTORIA_DB"');
     expect(mentoriasWrangler).toContain('binding = "MENTORIAS_AUTHS_DB"');
+    expect(mentoriasWrangler).toContain('database_id = "6a6e3b5c-4d5e-4905-850a-b1e205203462"');
     expect(mentoriasWrangler).not.toContain('binding = "DRACO_DB"');
     expect(mentoriasWrangler).not.toContain('binding = "DB"');
+    expect(localWrangler).toContain('"binding": "MENTORIAS_AUTHS_DB"');
+    expect(localWrangler).toContain('"database_name": "mentorias_auths_local"');
+    expect(localWrangler).toContain('"binding": "MENTORIA_DB"');
+    expect(localWrangler).toContain('"database_name": "mentoria_db_local"');
   });
 
   it("fails readiness when SocialFlow source leaks into another product or control plane", async () => {
@@ -836,6 +957,41 @@ describe("production readiness audits", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.report.violations.some((item) => item.checkCode === "socialflowCanonicalSmokeGuardDrift")).toBe(true);
+  });
+
+  it("passes readiness when Mentoria auth CI/local tooling stays aligned to dedicated auth/product bindings", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      mentoriaAuthsOperationalGuardOverride: mentoriaAuthsOperationalGuardBase,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(
+      result.report.checks.some((item) => item.checkCode === "mentoriaAuthsOperationalDrift" && item.status === "PASS"),
+    ).toBe(true);
+  });
+
+  it("fails readiness when Mentoria auth CI/tooling drifts back to DRACO_DB assumptions", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      mentoriaAuthsOperationalGuardOverride: {
+        targetName: "test:mentoria-auths-operational-guard-drift",
+        rules: [
+          {
+            filePath: "tests/fixtures/production-audits/mentoria-auths-guards/fail-operational-drift.yml",
+            requiredTokens: mentoriaAuthsOperationalGuardBase.rules[0].requiredTokens,
+            forbiddenTokens: mentoriaAuthsOperationalGuardBase.rules[0].forbiddenTokens,
+          },
+        ],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "mentoriaAuthsOperationalDrift")).toBe(true);
   });
 
   it("passes readiness when legacy compat inventory stays stable and operator-only", async () => {

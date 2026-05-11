@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-05-11T19:55:56.599Z",
+  "timestamp": "2026-05-11T20:59:46.048Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
   "productionReady": true,
   "summary": {
-    "checksTotal": 163,
-    "checksPass": 160,
+    "checksTotal": 167,
+    "checksPass": 164,
     "checksFail": 0,
     "checksNa": 3,
     "violationsTotal": 0,
@@ -1521,6 +1521,36 @@
       "details": "Preview/production identities are isolated."
     },
     {
+      "checkCode": "mentoriaAuthsBindingSharedIdentity",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "mentoria:auths-binding-dedicated:shared_identity",
+      "expected": "no identity overlap with [DRACO_DB, MENTORIA_DB, SOCIAL_DB, DRAKOS_AUTHS_DB, BASES_AUTHS_DB, SOCIALFLOW_AUTHS_DB]",
+      "actual": "no_overlap_detected",
+      "details": "MENTORIAS_AUTHS_DB uses a dedicated physical identity in scanned configs."
+    },
+    {
+      "checkCode": "mentoriaAuthsBindingNamingViolation",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "mentoria:auths-binding-dedicated:naming",
+      "expected": "database_name includes mentoria + auth (except local collapsed dev)",
+      "actual": "naming_valid",
+      "details": "MENTORIAS_AUTHS_DB naming matches dedicated auth policy."
+    },
+    {
+      "checkCode": "mentoriaAuthsBindingPreviewProdCollision",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "mentoria:auths-binding-dedicated:preview_prod_collision",
+      "expected": "preview and production use distinct physical identities",
+      "actual": "distinct",
+      "details": "Preview/production identities are isolated."
+    },
+    {
       "checkCode": "socialflowCanonicalHostnameMissing",
       "severity": "BLOCKER",
       "status": "PASS",
@@ -1878,6 +1908,16 @@
       "expected": "strict canonical smoke with 410 legacy routes and no canonical 405 acceptance",
       "actual": "strict_smoke_ok",
       "details": "The canonical SocialFlow smoke script stays strict against placeholder HTML, canonical 405s and legacy route drift."
+    },
+    {
+      "checkCode": "mentoriaAuthsOperationalDrift",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "mentoria:auth-operational-drift",
+      "expected": "all runtime guard rules satisfied",
+      "actual": "runtime_guard_ok",
+      "details": "Mentoría auth provisioning, CI migration steps and local tooling stay aligned to dedicated auth/product bindings."
     }
   ],
   "violations": [],
