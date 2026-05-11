@@ -106,6 +106,124 @@ function resolveLegacyOperatorRedirect(pathname: string): string | null {
   return null;
 }
 
+type LegacyCompatKind = "owner-api" | "owner-ui" | "campobase-api" | "campobase-ui";
+
+type LegacyCompatUsage = {
+  kind: LegacyCompatKind;
+  legacyPath: string;
+  canonicalTarget: string;
+};
+
+function resolveLegacyCompatUsage(pathname: string, legacyOperatorRedirect: string | null): LegacyCompatUsage | null {
+  if (pathname === "/api/owner" || pathname.startsWith("/api/owner/")) {
+    const canonicalTarget =
+      pathname.startsWith("/api/owner/factory/") || pathname.startsWith("/api/owner/saas-factory/")
+        ? "factory-api"
+        : "operator-api";
+    return {
+      kind: "owner-api",
+      legacyPath: pathname,
+      canonicalTarget,
+    };
+  }
+
+  if (pathname === "/api/campobase" || pathname.startsWith("/api/campobase/")) {
+    return {
+      kind: "campobase-api",
+      legacyPath: pathname,
+      canonicalTarget: "operator-api",
+    };
+  }
+
+  if (pathname === "/owner" || pathname.startsWith("/owner/")) {
+    return {
+      kind: "owner-ui",
+      legacyPath: pathname,
+      canonicalTarget: legacyOperatorRedirect ?? "/operator",
+    };
+  }
+
+  if (pathname === "/campobase" || pathname.startsWith("/campobase/")) {
+    return {
+      kind: "campobase-ui",
+      legacyPath: pathname,
+      canonicalTarget: legacyOperatorRedirect ?? "/operator",
+    };
+  }
+
+  return null;
+}
+
+function resolveLegacyCompatSampleRate(requestBindings: ReturnType<typeof env>): number {
+  const raw =
+    requestBindings?.DRAKO_LEGACY_COMPAT_SAMPLE_RATE
+    ?? process.env.DRAKO_LEGACY_COMPAT_SAMPLE_RATE
+    ?? "0.25";
+  const parsed = Number.parseFloat(raw);
+  if (Number.isNaN(parsed) || parsed <= 0) return 0;
+  return Math.min(parsed, 1);
+}
+
+function applyLegacyCompatHeaders(
+  response: NextResponse,
+  legacyCompatUsage: LegacyCompatUsage,
+  correlationId: string,
+) {
+  response.headers.set("X-Drako-Legacy-Compat", legacyCompatUsage.kind);
+  response.headers.set("X-Drako-Control-Plane-Only", "true");
+  response.headers.set("X-Drako-Sunset", "planned");
+  response.headers.set("X-Drako-Compat-Canonical", legacyCompatUsage.canonicalTarget);
+  response.headers.set("X-Drako-Compat-Path", legacyCompatUsage.legacyPath);
+  response.headers.set("Deprecation", "true");
+  response.headers.set(CORRELATION_HEADER, correlationId);
+  return response;
+}
+
+async function recordLegacyCompatUsage(params: {
+  requestBindings: ReturnType<typeof env>;
+  legacyCompatUsage: LegacyCompatUsage | null;
+  correlationId: string;
+  host: string;
+  hostMode: string;
+  method: string;
+}) {
+  if (!params.legacyCompatUsage) return;
+
+  const sampleRate = resolveLegacyCompatSampleRate(params.requestBindings);
+  if (sampleRate <= 0 || Math.random() > sampleRate) return;
+
+  const metadata = {
+    compatKind: params.legacyCompatUsage.kind,
+    legacyPath: params.legacyCompatUsage.legacyPath,
+    canonicalTarget: params.legacyCompatUsage.canonicalTarget,
+    host: params.host,
+    hostMode: params.hostMode,
+    method: params.method,
+    sampleRate,
+  };
+
+  console.warn("LEGACY_COMPAT_ROUTE_HIT", metadata);
+
+  if (!params.requestBindings?.DRACO_DB) {
+    return;
+  }
+
+  try {
+    await recordCampamentoEvent({
+      tenantId: DEMO_TENANT_ID,
+      saasId: null,
+      type: "legacy.compat.route.hit",
+      severity: "WARNING",
+      source: "MIDDLEWARE",
+      message: `Legacy compat route hit: ${params.legacyCompatUsage.legacyPath}`,
+      metadata,
+      correlationId: params.correlationId,
+    });
+  } catch (error) {
+    console.warn("LEGACY_COMPAT_ROUTE_EVENT_FALLBACK", error);
+  }
+}
+
 function isMentoriaProductPath(pathname: string): boolean {
   return (
     pathname === "/mentoria" ||
@@ -237,8 +355,34 @@ export async function middleware(req: NextRequest) {
       );
     }
 
+    const requestBindings = env();
+    const hostInfo = resolveEffectiveHost(req);
+    const host = hostInfo.effectiveHost;
+    const pagesEnvironment = requestBindings?.CF_PAGES_ENVIRONMENT ?? process.env.CF_PAGES_ENVIRONMENT ?? null;
+    const hostMode = resolveHostMode(host, pagesEnvironment);
+    const pagesEnvironmentHeader = pagesEnvironment ?? "unknown";
+    const legacyCompatUsage = resolveLegacyCompatUsage(pathname, legacyOperatorRedirect);
+
+    await recordLegacyCompatUsage({
+      requestBindings,
+      legacyCompatUsage,
+      correlationId,
+      host,
+      hostMode,
+      method: req.method,
+    });
+
     if (legacyOperatorRedirect) {
-      return NextResponse.redirect(new URL(legacyOperatorRedirect, req.url), 308);
+      const redirectResponse = NextResponse.redirect(new URL(legacyOperatorRedirect, req.url), 308);
+      if (hostInfo.shouldPersistCookie) {
+        redirectResponse.cookies.set("drako_host", hostInfo.shouldPersistCookie, {
+          path: "/",
+          maxAge: 60 * 60 * 24 * 7,
+        });
+      }
+      return legacyCompatUsage
+        ? applyLegacyCompatHeaders(redirectResponse, legacyCompatUsage, correlationId)
+        : redirectResponse;
     }
 
     if (pathname.startsWith("/site/panel")) {
@@ -263,12 +407,6 @@ export async function middleware(req: NextRequest) {
       }
     }
 
-    const requestBindings = env();
-    const hostInfo = resolveEffectiveHost(req);
-    const host = hostInfo.effectiveHost;
-    const pagesEnvironment = requestBindings?.CF_PAGES_ENVIRONMENT ?? process.env.CF_PAGES_ENVIRONMENT ?? null;
-    const hostMode = resolveHostMode(host, pagesEnvironment);
-    const pagesEnvironmentHeader = pagesEnvironment ?? "unknown";
     const isMentoriasHost =
       host === "mentoria.drako.systems" ||
       host === "mentorias.drako.systems" ||
@@ -302,6 +440,9 @@ export async function middleware(req: NextRequest) {
 
       const res = NextResponse.next({ request: { headers } });
       res.headers.set(CORRELATION_HEADER, correlationId);
+      if (legacyCompatUsage) {
+        applyLegacyCompatHeaders(res, legacyCompatUsage, correlationId);
+      }
 
       if (hostInfo.shouldPersistCookie) {
         res.cookies.set("drako_host", hostInfo.shouldPersistCookie, {
@@ -415,6 +556,9 @@ export async function middleware(req: NextRequest) {
         contextHeaders.set(CORRELATION_HEADER, correlationId);
         const res = persistCookie(NextResponse.next({ request: { headers: contextHeaders } }));
         res.headers.set(CORRELATION_HEADER, correlationId);
+        if (legacyCompatUsage) {
+          applyLegacyCompatHeaders(res, legacyCompatUsage, correlationId);
+        }
         return res;
       }
 
@@ -422,6 +566,9 @@ export async function middleware(req: NextRequest) {
         contextHeaders.set(CORRELATION_HEADER, correlationId);
         const res = persistCookie(NextResponse.next({ request: { headers: contextHeaders } }));
         res.headers.set(CORRELATION_HEADER, correlationId);
+        if (legacyCompatUsage) {
+          applyLegacyCompatHeaders(res, legacyCompatUsage, correlationId);
+        }
         return res;
       }
 
@@ -494,6 +641,9 @@ export async function middleware(req: NextRequest) {
       contextHeaders.set(CORRELATION_HEADER, resolution.correlationId ?? correlationId);
       const res = persistCookie(NextResponse.next({ request: { headers: contextHeaders } }));
       res.headers.set(CORRELATION_HEADER, resolution.correlationId ?? correlationId);
+      if (legacyCompatUsage) {
+        applyLegacyCompatHeaders(res, legacyCompatUsage, resolution.correlationId ?? correlationId);
+      }
       return res;
     }
 
@@ -714,6 +864,9 @@ export async function middleware(req: NextRequest) {
 
       const res = persistCookie(NextResponse.next({ request: { headers } }));
       res.headers.set(CORRELATION_HEADER, finalCorrelationId);
+      if (legacyCompatUsage) {
+        applyLegacyCompatHeaders(res, legacyCompatUsage, finalCorrelationId);
+      }
       return res;
     }
 

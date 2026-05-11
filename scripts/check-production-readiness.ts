@@ -150,7 +150,9 @@ type CheckCode =
   | "operatorFinalUserApiLeakage"
   | "legacyCompatRouteDrift"
   | "socialflowRuntimeGuardDrift"
-  | "socialflowCanonicalSmokeGuardDrift";
+  | "socialflowCanonicalSmokeGuardDrift"
+  | "legacyCompatInventoryDrift"
+  | "legacyCompatTelemetryGuardMissing";
 
 type CheckRecord = {
   checkCode: CheckCode;
@@ -231,6 +233,8 @@ type ProductionAuditsRunOptions = {
   legacyCompatRouteGuardOverride?: CompatRouteGuard;
   socialflowRuntimeGuardOverride?: FileTokenGuard;
   socialflowSmokeGuardOverride?: SocialflowSmokeGuard;
+  legacyCompatInventoryGuardOverride?: LegacyCompatInventoryGuard;
+  legacyCompatTelemetryGuardOverride?: FileTokenGuard;
 };
 
 type LegacyProductionGuard = {
@@ -311,6 +315,16 @@ type SocialflowSmokeGuard = {
   canonicalApiPaths: string[];
   legacyGonePaths: string[];
   placeholderGuardTokens: string[];
+};
+
+type LegacyCompatInventoryGuard = {
+  targetName: string;
+  apiCompatDirs: string[];
+  compatSurfaceDirs: string[];
+  expectedApiCompatPaths: string[];
+  expectedCompatSurfacePaths: string[];
+  redirectPageRules: FileTokenRule[];
+  forbiddenCompatSurfaceTokens: string[];
 };
 
 type D1BindingRecord = {
@@ -435,6 +449,118 @@ const DEFAULT_LEGACY_COMPAT_ROUTE_GUARD: CompatRouteGuard = {
     '@/app/api/socialflow',
     '/api/mentoria/',
     '/api/socialflow/',
+  ],
+};
+
+const DEFAULT_LEGACY_COMPAT_INVENTORY_GUARD: LegacyCompatInventoryGuard = {
+  targetName: "legacy-compat:inventory-locked",
+  apiCompatDirs: ["src/app/api/owner", "src/app/api/campobase"],
+  compatSurfaceDirs: ["src/app/owner", "src/app/campobase"],
+  expectedApiCompatPaths: [
+    "src/app/api/owner/accounting/route.ts",
+    "src/app/api/owner/action-queue/route.ts",
+    "src/app/api/owner/actions/route.ts",
+    "src/app/api/owner/actions/[id]/decision/route.ts",
+    "src/app/api/owner/actions/[id]/dismiss/route.ts",
+    "src/app/api/owner/actions/[id]/execute/route.ts",
+    "src/app/api/owner/actions/[id]/snooze/route.ts",
+    "src/app/api/owner/actions/cleanup/route.ts",
+    "src/app/api/owner/agents/route.ts",
+    "src/app/api/owner/autopilot/route.ts",
+    "src/app/api/owner/control-snapshot/route.ts",
+    "src/app/api/owner/db/health/route.ts",
+    "src/app/api/owner/domains/route.ts",
+    "src/app/api/owner/domains/health/route.ts",
+    "src/app/api/owner/domains/verify/route.ts",
+    "src/app/api/owner/events/route.ts",
+    "src/app/api/owner/events/rollup/route.ts",
+    "src/app/api/owner/factory/actions/route.ts",
+    "src/app/api/owner/factory/auto-recovery/route.ts",
+    "src/app/api/owner/factory/incidents/route.ts",
+    "src/app/api/owner/factory/recovery/retry-domain-verify/route.ts",
+    "src/app/api/owner/factory/recovery/retry-job/route.ts",
+    "src/app/api/owner/factory/status/route.ts",
+    "src/app/api/owner/factory/trends/route.ts",
+    "src/app/api/owner/governance/route.ts",
+    "src/app/api/owner/governance/alerts/route.ts",
+    "src/app/api/owner/marketing/route.ts",
+    "src/app/api/owner/observability/failures/route.ts",
+    "src/app/api/owner/observability/health/route.ts",
+    "src/app/api/owner/orchestrator/route.ts",
+    "src/app/api/owner/portfolio/route.ts",
+    "src/app/api/owner/profile/route.ts",
+    "src/app/api/owner/revenue/route.ts",
+    "src/app/api/owner/saas-factory/create-saas/route.ts",
+    "src/app/api/owner/saas-factory/jobs/[jobId]/route.ts",
+    "src/app/api/owner/saas-pricing/recommendations/route.ts",
+    "src/app/api/owner/support/tech/route.ts",
+    "src/app/api/owner/support/tech/[id]/update/route.ts",
+    "src/app/api/owner/support/tickets/route.ts",
+    "src/app/api/owner/support/tickets/[id]/reply/route.ts",
+    "src/app/api/owner/tasks/route.ts",
+    "src/app/api/owner/tasks/materialize-from-growth-autopilot/route.ts",
+    "src/app/api/owner/tasks/summary/route.ts",
+    "src/app/api/owner/tax/summary/route.ts",
+    "src/app/api/owner/treasury/snapshot/route.ts",
+    "src/app/api/owner/vendor/expenses/route.ts",
+    "src/app/api/owner/vendor/expenses/[id]/route.ts",
+    "src/app/api/owner/vendor/snapshot/route.ts",
+    "src/app/api/campobase/platform/route.ts",
+    "src/app/api/campobase/socialflow/route.ts",
+  ],
+  expectedCompatSurfacePaths: [
+    "src/app/owner/OwnerMarketingSection.tsx",
+    "src/app/owner/OwnerPricingSection.tsx",
+    "src/app/owner/OwnerTasksBoard.tsx",
+    "src/app/owner/OwnerVendorSection.tsx",
+    "src/app/owner/components/CampamentoCenterPanel.tsx",
+    "src/app/owner/components/CampamentoLeftPanel.tsx",
+    "src/app/owner/components/CampamentoProfile.tsx",
+    "src/app/owner/components/CampamentoRightPanel.tsx",
+    "src/app/owner/components/LegacyFiscalForm.tsx",
+    "src/app/owner/catalog/page.tsx",
+    "src/app/owner/domains/page.tsx",
+    "src/app/owner/page.tsx",
+    "src/app/owner/projects/page.tsx",
+    "src/app/owner/projects/[id]/page.tsx",
+    "src/app/owner/projects/create/page.tsx",
+    "src/app/campobase/platform/page.tsx",
+    "src/app/campobase/socialflow/page.tsx",
+  ],
+  redirectPageRules: [
+    { filePath: "src/app/owner/page.tsx", requiredTokens: ['redirect("/operator")'] },
+    { filePath: "src/app/owner/catalog/page.tsx", requiredTokens: ['redirect("/operator/catalog")'] },
+    { filePath: "src/app/owner/domains/page.tsx", requiredTokens: ['redirect("/operator/domains")'] },
+    { filePath: "src/app/owner/projects/page.tsx", requiredTokens: ['redirect("/operator/projects")'] },
+    { filePath: "src/app/owner/projects/create/page.tsx", requiredTokens: ['redirect("/operator/projects/create")'] },
+    { filePath: "src/app/owner/projects/[id]/page.tsx", requiredTokens: ['redirect(`/operator/projects/${resolved.id}`)'] },
+    { filePath: "src/app/campobase/socialflow/page.tsx", requiredTokens: ['redirect("/operator/socialflow")'] },
+    { filePath: "src/app/campobase/platform/page.tsx", requiredTokens: ["/operator/platform"] },
+  ],
+  forbiddenCompatSurfaceTokens: [
+    "/api/mentoria/",
+    "/api/socialflow/",
+    "@/components/mentoria",
+    "@/components/saas/socialflow",
+    "@/lib/mentoria",
+    "@/lib/socialflow",
+  ],
+};
+
+const DEFAULT_LEGACY_COMPAT_TELEMETRY_GUARD: FileTokenGuard = {
+  targetName: "legacy-compat:telemetry-and-sunset-markers",
+  rules: [
+    {
+      filePath: "src/middleware.ts",
+      requiredTokens: [
+        "X-Drako-Legacy-Compat",
+        "X-Drako-Sunset",
+        "X-Drako-Control-Plane-Only",
+        "X-Drako-Compat-Canonical",
+        "legacy.compat.route.hit",
+        "LEGACY_COMPAT_ROUTE_HIT",
+      ],
+    },
   ],
 };
 
@@ -2256,9 +2382,102 @@ async function buildLegacyCompatRouteChecks(guard: CompatRouteGuard): Promise<Ch
   ];
 }
 
+function normalizeRelativeFileList(paths: string[]): string[] {
+  return Array.from(new Set(paths.map((filePath) => filePath.replace(/\\/g, "/")))).sort();
+}
+
+async function buildLegacyCompatInventoryChecks(guard: LegacyCompatInventoryGuard): Promise<CheckRecord[]> {
+  const actualApiCompatPaths = normalizeRelativeFileList(
+    (
+      await Promise.all(guard.apiCompatDirs.map((relativeDir) => listTypeScriptFilesRecursively(relativeDir)))
+    ).flat(),
+  );
+  const expectedApiCompatPaths = normalizeRelativeFileList(guard.expectedApiCompatPaths);
+
+  const actualCompatSurfacePaths = normalizeRelativeFileList(
+    (
+      await Promise.all(guard.compatSurfaceDirs.map((relativeDir) => listTypeScriptFilesRecursively(relativeDir)))
+    ).flat(),
+  );
+  const expectedCompatSurfacePaths = normalizeRelativeFileList(guard.expectedCompatSurfacePaths);
+
+  const missingApiCompatPaths = expectedApiCompatPaths.filter((filePath) => !actualApiCompatPaths.includes(filePath));
+  const extraApiCompatPaths = actualApiCompatPaths.filter((filePath) => !expectedApiCompatPaths.includes(filePath));
+  const missingCompatSurfacePaths = expectedCompatSurfacePaths.filter((filePath) => !actualCompatSurfacePaths.includes(filePath));
+  const extraCompatSurfacePaths = actualCompatSurfacePaths.filter((filePath) => !expectedCompatSurfacePaths.includes(filePath));
+
+  const redirectRuleFailures: string[] = [];
+  for (const rule of guard.redirectPageRules) {
+    let content = "";
+    try {
+      content = await fs.readFile(resolveAbsolutePath(rule.filePath), "utf8");
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      redirectRuleFailures.push(`${rule.filePath} read_error=${reason}`);
+      continue;
+    }
+
+    for (const token of rule.requiredTokens ?? []) {
+      if (!content.includes(token)) {
+        redirectRuleFailures.push(`${rule.filePath} missing ${token}`);
+      }
+    }
+
+    for (const token of rule.forbiddenTokens ?? []) {
+      if (content.includes(token)) {
+        redirectRuleFailures.push(`${rule.filePath} contains forbidden ${token}`);
+      }
+    }
+  }
+
+  const forbiddenCompatSurfaceHits: string[] = [];
+  for (const filePath of actualCompatSurfacePaths) {
+    const content = await fs.readFile(resolveAbsolutePath(filePath), "utf8");
+    for (const token of guard.forbiddenCompatSurfaceTokens) {
+      if (content.includes(token)) {
+        forbiddenCompatSurfaceHits.push(`${filePath} contains ${token}`);
+      }
+    }
+  }
+
+  const failures = [
+    ...missingApiCompatPaths.map((filePath) => `missing api compat path ${filePath}`),
+    ...extraApiCompatPaths.map((filePath) => `unexpected api compat path ${filePath}`),
+    ...missingCompatSurfacePaths.map((filePath) => `missing compat surface ${filePath}`),
+    ...extraCompatSurfacePaths.map((filePath) => `unexpected compat surface ${filePath}`),
+    ...redirectRuleFailures,
+    ...forbiddenCompatSurfaceHits,
+  ];
+
+  return [
+    {
+      checkCode: "legacyCompatInventoryDrift",
+      severity: "BLOCKER",
+      status: failures.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: {
+        apiCompatPaths: expectedApiCompatPaths,
+        compatSurfacePaths: expectedCompatSurfacePaths,
+      },
+      actual:
+        failures.length === 0
+          ? {
+              apiCompatPaths: actualApiCompatPaths,
+              compatSurfacePaths: actualCompatSurfacePaths,
+            }
+          : failures,
+      details:
+        failures.length === 0
+          ? "Legacy compat inventory stays fixed, redirects remain active, and compat UI stays control-plane-only."
+          : "Legacy compat inventory drifted or a compat surface stopped behaving as a controlled bridge.",
+    },
+  ];
+}
+
 async function buildFileTokenGuardChecks(
   guard: FileTokenGuard,
-  checkCode: "socialflowRuntimeGuardDrift",
+  checkCode: "socialflowRuntimeGuardDrift" | "legacyCompatTelemetryGuardMissing",
   passDetails: string,
   failDetails: string,
 ): Promise<CheckRecord[]> {
@@ -2558,6 +2777,19 @@ export async function runProductionReadinessAudits(
   const legacyCompatRouteGuard = options.legacyCompatRouteGuardOverride ?? DEFAULT_LEGACY_COMPAT_ROUTE_GUARD;
   const legacyCompatRouteChecks = await buildLegacyCompatRouteChecks(legacyCompatRouteGuard);
   checks.push(...legacyCompatRouteChecks);
+  const legacyCompatInventoryGuard =
+    options.legacyCompatInventoryGuardOverride ?? DEFAULT_LEGACY_COMPAT_INVENTORY_GUARD;
+  const legacyCompatInventoryChecks = await buildLegacyCompatInventoryChecks(legacyCompatInventoryGuard);
+  checks.push(...legacyCompatInventoryChecks);
+  const legacyCompatTelemetryGuard =
+    options.legacyCompatTelemetryGuardOverride ?? DEFAULT_LEGACY_COMPAT_TELEMETRY_GUARD;
+  const legacyCompatTelemetryChecks = await buildFileTokenGuardChecks(
+    legacyCompatTelemetryGuard,
+    "legacyCompatTelemetryGuardMissing",
+    "Legacy compat telemetry markers and sunset headers remain wired in middleware.",
+    "Legacy compat telemetry or sunset headers drifted out of middleware.",
+  );
+  checks.push(...legacyCompatTelemetryChecks);
   const socialflowRuntimeGuard = options.socialflowRuntimeGuardOverride ?? DEFAULT_SOCIALFLOW_RUNTIME_GUARD;
   const socialflowRuntimeChecks = await buildFileTokenGuardChecks(
     socialflowRuntimeGuard,

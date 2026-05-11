@@ -75,6 +75,116 @@ describe("production readiness audits", () => {
     legacyGonePaths: ["/api/social/posts", "/api/social/linkedin/publish"],
     placeholderGuardTokens: ["placeholder token detected", "auth route did not render the SocialFlow auth page"],
   } as const;
+  const legacyCompatInventoryGuardBase = {
+    targetName: "test:legacy-compat-inventory",
+    apiCompatDirs: ["src/app/api/owner", "src/app/api/campobase"],
+    compatSurfaceDirs: ["src/app/owner", "src/app/campobase"],
+    expectedApiCompatPaths: [
+      "src/app/api/owner/accounting/route.ts",
+      "src/app/api/owner/action-queue/route.ts",
+      "src/app/api/owner/actions/route.ts",
+      "src/app/api/owner/actions/[id]/decision/route.ts",
+      "src/app/api/owner/actions/[id]/dismiss/route.ts",
+      "src/app/api/owner/actions/[id]/execute/route.ts",
+      "src/app/api/owner/actions/[id]/snooze/route.ts",
+      "src/app/api/owner/actions/cleanup/route.ts",
+      "src/app/api/owner/agents/route.ts",
+      "src/app/api/owner/autopilot/route.ts",
+      "src/app/api/owner/control-snapshot/route.ts",
+      "src/app/api/owner/db/health/route.ts",
+      "src/app/api/owner/domains/route.ts",
+      "src/app/api/owner/domains/health/route.ts",
+      "src/app/api/owner/domains/verify/route.ts",
+      "src/app/api/owner/events/route.ts",
+      "src/app/api/owner/events/rollup/route.ts",
+      "src/app/api/owner/factory/actions/route.ts",
+      "src/app/api/owner/factory/auto-recovery/route.ts",
+      "src/app/api/owner/factory/incidents/route.ts",
+      "src/app/api/owner/factory/recovery/retry-domain-verify/route.ts",
+      "src/app/api/owner/factory/recovery/retry-job/route.ts",
+      "src/app/api/owner/factory/status/route.ts",
+      "src/app/api/owner/factory/trends/route.ts",
+      "src/app/api/owner/governance/route.ts",
+      "src/app/api/owner/governance/alerts/route.ts",
+      "src/app/api/owner/marketing/route.ts",
+      "src/app/api/owner/observability/failures/route.ts",
+      "src/app/api/owner/observability/health/route.ts",
+      "src/app/api/owner/orchestrator/route.ts",
+      "src/app/api/owner/portfolio/route.ts",
+      "src/app/api/owner/profile/route.ts",
+      "src/app/api/owner/revenue/route.ts",
+      "src/app/api/owner/saas-factory/create-saas/route.ts",
+      "src/app/api/owner/saas-factory/jobs/[jobId]/route.ts",
+      "src/app/api/owner/saas-pricing/recommendations/route.ts",
+      "src/app/api/owner/support/tech/route.ts",
+      "src/app/api/owner/support/tech/[id]/update/route.ts",
+      "src/app/api/owner/support/tickets/route.ts",
+      "src/app/api/owner/support/tickets/[id]/reply/route.ts",
+      "src/app/api/owner/tasks/route.ts",
+      "src/app/api/owner/tasks/materialize-from-growth-autopilot/route.ts",
+      "src/app/api/owner/tasks/summary/route.ts",
+      "src/app/api/owner/tax/summary/route.ts",
+      "src/app/api/owner/treasury/snapshot/route.ts",
+      "src/app/api/owner/vendor/expenses/route.ts",
+      "src/app/api/owner/vendor/expenses/[id]/route.ts",
+      "src/app/api/owner/vendor/snapshot/route.ts",
+      "src/app/api/campobase/platform/route.ts",
+      "src/app/api/campobase/socialflow/route.ts",
+    ],
+    expectedCompatSurfacePaths: [
+      "src/app/owner/OwnerMarketingSection.tsx",
+      "src/app/owner/OwnerPricingSection.tsx",
+      "src/app/owner/OwnerTasksBoard.tsx",
+      "src/app/owner/OwnerVendorSection.tsx",
+      "src/app/owner/components/CampamentoCenterPanel.tsx",
+      "src/app/owner/components/CampamentoLeftPanel.tsx",
+      "src/app/owner/components/CampamentoProfile.tsx",
+      "src/app/owner/components/CampamentoRightPanel.tsx",
+      "src/app/owner/components/LegacyFiscalForm.tsx",
+      "src/app/owner/catalog/page.tsx",
+      "src/app/owner/domains/page.tsx",
+      "src/app/owner/page.tsx",
+      "src/app/owner/projects/page.tsx",
+      "src/app/owner/projects/[id]/page.tsx",
+      "src/app/owner/projects/create/page.tsx",
+      "src/app/campobase/platform/page.tsx",
+      "src/app/campobase/socialflow/page.tsx",
+    ],
+    redirectPageRules: [
+      { filePath: "src/app/owner/page.tsx", requiredTokens: ['redirect(\"/operator\")'] },
+      { filePath: "src/app/owner/catalog/page.tsx", requiredTokens: ['redirect(\"/operator/catalog\")'] },
+      { filePath: "src/app/owner/domains/page.tsx", requiredTokens: ['redirect(\"/operator/domains\")'] },
+      { filePath: "src/app/owner/projects/page.tsx", requiredTokens: ['redirect(\"/operator/projects\")'] },
+      { filePath: "src/app/owner/projects/create/page.tsx", requiredTokens: ['redirect(\"/operator/projects/create\")'] },
+      { filePath: "src/app/owner/projects/[id]/page.tsx", requiredTokens: ['/operator/projects/'] },
+      { filePath: "src/app/campobase/socialflow/page.tsx", requiredTokens: ['redirect(\"/operator/socialflow\")'] },
+      { filePath: "src/app/campobase/platform/page.tsx", requiredTokens: ["/operator/platform"] },
+    ],
+    forbiddenCompatSurfaceTokens: [
+      "/api/mentoria/",
+      "/api/socialflow/",
+      "@/components/mentoria",
+      "@/components/saas/socialflow",
+      "@/lib/mentoria",
+      "@/lib/socialflow",
+    ],
+  } as const;
+  const legacyCompatTelemetryGuardBase = {
+    targetName: "test:legacy-compat-telemetry",
+    rules: [
+      {
+        filePath: "src/middleware.ts",
+        requiredTokens: [
+          "X-Drako-Legacy-Compat",
+          "X-Drako-Sunset",
+          "X-Drako-Control-Plane-Only",
+          "X-Drako-Compat-Canonical",
+          "legacy.compat.route.hit",
+          "LEGACY_COMPAT_ROUTE_HIT",
+        ],
+      },
+    ],
+  } as const;
 
   it("passes when fixtures match expected", async () => {
     const result = await runProductionReadinessAudits({
@@ -623,5 +733,76 @@ describe("production readiness audits", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.report.violations.some((item) => item.checkCode === "socialflowCanonicalSmokeGuardDrift")).toBe(true);
+  });
+
+  it("passes readiness when legacy compat inventory stays stable and operator-only", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      legacyCompatInventoryGuardOverride: legacyCompatInventoryGuardBase,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.report.checks.some((item) => item.checkCode === "legacyCompatInventoryDrift" && item.status === "PASS")).toBe(true);
+  });
+
+  it("fails readiness when a new legacy compat route appears or a compat surface drifts", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      legacyCompatInventoryGuardOverride: {
+        ...legacyCompatInventoryGuardBase,
+        apiCompatDirs: ["tests/fixtures/production-audits/legacy-compat-inventory/extra-api"],
+        compatSurfaceDirs: ["tests/fixtures/production-audits/legacy-compat-inventory/bad-surface"],
+        expectedApiCompatPaths: [],
+        expectedCompatSurfacePaths: ["tests/fixtures/production-audits/legacy-compat-inventory/bad-surface/page.tsx"],
+        redirectPageRules: [
+          {
+            filePath: "tests/fixtures/production-audits/legacy-compat-inventory/bad-surface/page.tsx",
+            requiredTokens: ['redirect("/operator")'],
+          },
+        ],
+        forbiddenCompatSurfaceTokens: ["/api/socialflow/"],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "legacyCompatInventoryDrift")).toBe(true);
+  });
+
+  it("passes readiness when middleware keeps sunset telemetry markers for legacy compat", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      legacyCompatTelemetryGuardOverride: legacyCompatTelemetryGuardBase,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(
+      result.report.checks.some((item) => item.checkCode === "legacyCompatTelemetryGuardMissing" && item.status === "PASS"),
+    ).toBe(true);
+  });
+
+  it("fails readiness when middleware loses legacy compat sunset telemetry markers", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      legacyCompatTelemetryGuardOverride: {
+        targetName: "test:legacy-compat-telemetry-missing",
+        rules: [
+          {
+            filePath: "tests/fixtures/production-audits/legacy-compat-telemetry/missing-middleware.ts",
+            requiredTokens: legacyCompatTelemetryGuardBase.rules[0].requiredTokens,
+          },
+        ],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "legacyCompatTelemetryGuardMissing")).toBe(true);
   });
 });

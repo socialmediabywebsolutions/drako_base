@@ -68,6 +68,7 @@ export type DracoEnv = {
   ENVIRONMENT?: string;
   AUTHS_REQUIRE_CONTEXT_DB?: string;
   ALLOW_LEGACY_AUTH_DB_FALLBACK?: string;
+  DRAKO_LEGACY_COMPAT_SAMPLE_RATE?: string;
 };
 
 
