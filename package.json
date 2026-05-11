@@ -20,7 +20,7 @@
     "check:no-placeholder-secrets": "node scripts/check-no-placeholder-secrets.mjs",
     "build:artifacts:skeleton": "node scripts/build-artifact-matrix-skeleton.mjs",
     "precf:build": "npm run check:no-pages && npm run check:no-placeholder-secrets",
-    "postbuild:factory": "node scripts/patch-opennext-mentoria-runtime.mjs",
+    "postbuild:factory": "node scripts/patch-opennext-mentoria-runtime.mjs && ARTIFACT_MATRIX_PRODUCT=all ARTIFACT_MATRIX_REQUIRE_GLOBAL_BUILD=1 node scripts/build-artifact-matrix-skeleton.mjs",
     "build:factory": "npm run check:no-pages && npm run check:no-placeholder-secrets && npx opennextjs-cloudflare build && npm run postbuild:factory",
     "archived:cf:build": "node -e \"console.error('ARCHIVED_WORKER_BLOCKED: drako-base-3 is decommissioned. Use pnpm build:factory or .github/workflows/drako-factory-deploy.yml.'); process.exit(1)\"",
     "cf:build": "npm run build:factory",

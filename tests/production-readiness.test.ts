@@ -50,13 +50,20 @@ describe("production readiness audits", () => {
     rules: [
       {
         filePath: "workers/socialflows/wrangler.workers.toml",
-        requiredTokens: ['main = "../../.open-next/worker.js"'],
+        requiredTokens: [
+          'main = "../../.open-next/socialflows/worker.js"',
+          'directory = "../../.open-next/socialflows/assets"',
+        ],
         forbiddenTokens: ['main = "src/workers.ts"'],
       },
       {
         filePath: "workers/socialflows/src/workers.ts",
         requiredTokens: ["SOCIALFLOW_RUNTIME_MISWIRED", "status: 500"],
         forbiddenTokens: ["success: true", "text/html", "status: 200"],
+      },
+      {
+        filePath: "scripts/build-artifact-matrix-skeleton.mjs",
+        requiredTokens: ['export { default } from', "artifact-manifest.json", "dedicated-wrapper"],
       },
       {
         filePath: "packages/shared/workers-handlers/index.ts",
@@ -189,6 +196,7 @@ describe("production readiness audits", () => {
     {
       key: "drakos",
       workerName: "saas-drakos-prod",
+      artifactMode: "global-shared",
       wranglerConfigPath: "workers/drakos/wrangler.workers.toml",
       currentWranglerMain: "../../.open-next/worker.js",
       currentWranglerAssetsDirectory: "../../.open-next/assets",
@@ -198,6 +206,7 @@ describe("production readiness audits", () => {
     {
       key: "bases",
       workerName: "saas-bases-prod",
+      artifactMode: "global-shared",
       wranglerConfigPath: "workers/bases/wrangler.workers.toml",
       currentWranglerMain: "../../.open-next/worker.js",
       currentWranglerAssetsDirectory: "../../.open-next/assets",
@@ -207,6 +216,7 @@ describe("production readiness audits", () => {
     {
       key: "mentorias",
       workerName: "saas-mentorias-prod",
+      artifactMode: "global-shared",
       wranglerConfigPath: "workers/mentorias/wrangler.workers.toml",
       currentWranglerMain: "../../.open-next/worker.js",
       currentWranglerAssetsDirectory: "../../.open-next/assets",
@@ -216,11 +226,13 @@ describe("production readiness audits", () => {
     {
       key: "socialflows",
       workerName: "saas-socialflows-prod",
+      artifactMode: "dedicated-wrapper",
       wranglerConfigPath: "workers/socialflows/wrangler.workers.toml",
-      currentWranglerMain: "../../.open-next/worker.js",
-      currentWranglerAssetsDirectory: "../../.open-next/assets",
+      currentWranglerMain: "../../.open-next/socialflows/worker.js",
+      currentWranglerAssetsDirectory: "../../.open-next/socialflows/assets",
       plannedWorkerPath: ".open-next/socialflows/worker.js",
       plannedAssetsPath: ".open-next/socialflows/assets",
+      dedicatedArtifactName: "open-next-socialflows-build",
     },
   ] as const;
   const artifactMatrixSkeletonGuardBase = {
@@ -228,9 +240,17 @@ describe("production readiness audits", () => {
     manifestPath: "docs/config/open-next-artifact-matrix.json",
     workflowPath: ".github/workflows/drako-factory-deploy.yml",
     buildScriptPath: "scripts/build-artifact-matrix-skeleton.mjs",
-    expectedState: "skeleton",
-    expectedDeployMode: "global-open-next-only",
+    expectedState: "partial-split",
+    expectedDeployMode: "global-open-next-plus-socialflows-dedicated",
     expectedActiveArtifactName: "open-next-build",
+    expectedDedicatedArtifacts: [
+      {
+        key: "socialflows",
+        artifactName: "open-next-socialflows-build",
+        workerPath: ".open-next/socialflows/worker.js",
+        assetsPath: ".open-next/socialflows/assets",
+      },
+    ],
     expectedProducts: artifactMatrixProductsBase,
     workflowRequiredTokens: [
       "artifact_matrix_skeleton:",
@@ -241,12 +261,17 @@ describe("production readiness audits", () => {
       "build/open-next-artifact-matrix/global",
       "name: open-next-build",
       "Download OpenNext build artifact",
+      "name: open-next-socialflows-build",
+      "Download SocialFlow dedicated artifact",
+      "Verify SocialFlow dedicated artifact",
     ],
     buildScriptRequiredTokens: [
       "ARTIFACT_MATRIX_SKELETON_OK",
       "ARTIFACT_MATRIX_SKELETON_INVALID",
       "ARTIFACT_MATRIX_SKELETON_GLOBAL_BUILD_MISSING",
       "build/open-next-artifact-matrix",
+      "export { default } from",
+      "artifact-manifest.json",
     ],
   } as const;
   const artifactMatrixPrematureActivationGuardBase = {
@@ -257,12 +282,11 @@ describe("production readiness audits", () => {
       "name: open-next-artifact-matrix-drakos",
       "name: open-next-artifact-matrix-bases",
       "name: open-next-artifact-matrix-mentorias",
-      "name: open-next-artifact-matrix-socialflows",
       "path: .open-next/drakos",
       "path: .open-next/bases",
       "path: .open-next/mentorias",
-      "path: .open-next/socialflows",
     ],
+    allowedDedicatedProducts: ["socialflows"],
   } as const;
 
   it("passes when fixtures match expected", async () => {

@@ -4,6 +4,7 @@ import path from "node:path";
 const repoRoot = process.cwd();
 const defaultOutputDir = process.env.ARTIFACT_MATRIX_OUTPUT_DIR || "build/open-next-artifact-matrix";
 const configPath = path.resolve(repoRoot, "docs/config/open-next-artifact-matrix.json");
+const artifactWrapperBanner = "// Drako artifact matrix wrapper: generated file, do not edit by hand.\n";
 
 function parseArgs(argv) {
   const values = {};
@@ -23,6 +24,10 @@ async function ensureDir(dirPath) {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
+async function removeDirIfExists(dirPath) {
+  await fs.rm(dirPath, { recursive: true, force: true });
+}
+
 async function fileExists(filePath) {
   try {
     await fs.access(filePath);
@@ -36,6 +41,12 @@ function normalizeRelative(relativePath) {
   return relativePath.replace(/\\/g, "/");
 }
 
+async function copyDir(sourceDir, targetDir) {
+  await removeDirIfExists(targetDir);
+  await ensureDir(path.dirname(targetDir));
+  await fs.cp(sourceDir, targetDir, { recursive: true });
+}
+
 async function readWorkerConfig(relativePath) {
   const absolutePath = path.resolve(repoRoot, relativePath);
   return fs.readFile(absolutePath, "utf8");
@@ -45,6 +56,34 @@ function requireToken(content, token, message) {
   if (!content.includes(token)) {
     throw new Error(message);
   }
+}
+
+async function emitDedicatedWrapperArtifact(config, product) {
+  const plannedWorkerAbsolute = path.resolve(repoRoot, product.plannedWorkerPath);
+  const plannedAssetsAbsolute = path.resolve(repoRoot, product.plannedAssetsPath);
+  const plannedArtifactRoot = path.dirname(plannedWorkerAbsolute);
+  const globalWorkerRelativeFromWrapper = normalizeRelative(path.relative(plannedArtifactRoot, path.resolve(repoRoot, config.activeArtifact.workerPath)));
+  const globalAssetsAbsolute = path.resolve(repoRoot, config.activeArtifact.assetsPath);
+
+  await ensureDir(plannedArtifactRoot);
+  const wrapperSource = `${artifactWrapperBanner}export { default } from "${globalWorkerRelativeFromWrapper}";\nexport * from "${globalWorkerRelativeFromWrapper}";\n`;
+  await fs.writeFile(plannedWorkerAbsolute, wrapperSource, "utf8");
+  await copyDir(globalAssetsAbsolute, plannedAssetsAbsolute);
+  await fs.writeFile(
+    path.join(plannedArtifactRoot, "artifact-manifest.json"),
+    `${JSON.stringify(
+      {
+        productKey: product.key,
+        artifactMode: product.artifactMode,
+        dedicatedArtifactName: product.dedicatedArtifactName ?? null,
+        generatedFrom: normalizeRelative(config.activeArtifact.workerPath),
+        generatedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
 }
 
 async function buildSkeletonRecord(config, product) {
@@ -65,10 +104,20 @@ async function buildSkeletonRecord(config, product) {
   const activeWorkerAbsolute = path.resolve(repoRoot, config.activeArtifact.workerPath);
   const activeAssetsAbsolute = path.resolve(repoRoot, config.activeArtifact.assetsPath);
 
+  const shouldGenerateDedicatedRuntime =
+    product.artifactMode === "dedicated-wrapper" &&
+    (await fileExists(activeWorkerAbsolute)) &&
+    (await fileExists(activeAssetsAbsolute));
+
+  if (shouldGenerateDedicatedRuntime) {
+    await emitDedicatedWrapperArtifact(config, product);
+  }
+
   return {
     state: config.state,
     deployMode: config.deployMode,
     deployActiveArtifactName: config.activeArtifact.artifactName,
+    artifactMode: product.artifactMode,
     productKey: product.key,
     workerName: product.workerName,
     wranglerConfigPath: normalizeRelative(product.wranglerConfigPath),
@@ -88,8 +137,9 @@ async function buildSkeletonRecord(config, product) {
         assets: await fileExists(plannedAssetsAbsolute),
       },
     },
-    splitReady: false,
-    splitActivated: false,
+    splitReady: product.artifactMode === "dedicated-wrapper" ? shouldGenerateDedicatedRuntime : false,
+    splitActivated: product.artifactMode === "dedicated-wrapper",
+    dedicatedArtifactName: product.dedicatedArtifactName ?? null,
     notes: config.notes,
   };
 }
@@ -132,7 +182,9 @@ async function main() {
     state: config.state,
     deployMode: config.deployMode,
     deployActiveArtifactName: config.activeArtifact.artifactName,
+    dedicatedArtifacts: config.dedicatedArtifacts ?? [],
     products: records.map((record) => ({
+      artifactMode: record.artifactMode,
       productKey: record.productKey,
       workerName: record.workerName,
       wranglerConfigPath: record.wranglerConfigPath,
@@ -140,6 +192,7 @@ async function main() {
       plannedArtifact: record.plannedArtifact,
       splitReady: record.splitReady,
       splitActivated: record.splitActivated,
+      dedicatedArtifactName: record.dedicatedArtifactName,
     })),
   };
 

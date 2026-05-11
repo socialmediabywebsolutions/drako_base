@@ -1,11 +1,11 @@
 name = "saas-socialflows-prod"
-main = "../../.open-next/worker.js"
+main = "../../.open-next/socialflows/worker.js"
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = false
 
 [assets]
-directory = "../../.open-next/assets"
+directory = "../../.open-next/socialflows/assets"
 
 [[routes]]
 pattern = "socialflows.drako.systems"

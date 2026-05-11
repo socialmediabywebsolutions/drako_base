@@ -12,10 +12,10 @@ describe("socialflow runtime wiring", () => {
   it("wires saas-socialflows-prod to the OpenNext worker runtime", () => {
     const source = read("workers/socialflows/wrangler.workers.toml");
 
-    expect(source).toContain('main = "../../.open-next/worker.js"');
+    expect(source).toContain('main = "../../.open-next/socialflows/worker.js"');
     expect(source).toContain('compatibility_flags = ["nodejs_compat"]');
     expect(source).toContain("[assets]");
-    expect(source).toContain('directory = "../../.open-next/assets"');
+    expect(source).toContain('directory = "../../.open-next/socialflows/assets"');
     expect(source).toContain('pattern = "socialflow.drako.systems"');
     expect(source).toContain('pattern = "socialflows.drako.systems"');
   });

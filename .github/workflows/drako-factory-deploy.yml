@@ -216,6 +216,14 @@ jobs:
             open-next-build.log
             build/open-next-artifact-matrix/global
 
+      - name: Upload SocialFlow dedicated artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-next-socialflows-build
+          if-no-files-found: error
+          path: .open-next/socialflows
+
   deploy:
     name: Deploy Workers
     runs-on: ubuntu-latest
@@ -256,6 +264,12 @@ jobs:
           name: open-next-build
           path: .
 
+      - name: Download SocialFlow dedicated artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: open-next-socialflows-build
+          path: .
+
       - name: Diagnostic OpenNext artifact layout
         run: |
           set -euo pipefail
@@ -270,6 +284,13 @@ jobs:
           ls -la .open-next
           test -f .open-next/worker.js
           test -d .open-next/assets
+
+      - name: Verify SocialFlow dedicated artifact
+        run: |
+          set -euo pipefail
+          test -f .open-next/socialflows/worker.js
+          test -d .open-next/socialflows/assets
+          grep -q 'export { default } from "../worker.js";' .open-next/socialflows/worker.js
 
       - name: Verify Cloudflare secrets
         run: |
@@ -387,6 +408,8 @@ jobs:
           popd
 
           pushd workers/socialflows
+          test -f ../../.open-next/socialflows/worker.js
+          test -d ../../.open-next/socialflows/assets
           wrangler deploy -c wrangler.workers.toml
           popd
 

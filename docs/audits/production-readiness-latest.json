@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-11T19:20:04.507Z",
+  "timestamp": "2026-05-11T19:55:56.599Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
@@ -1836,8 +1836,8 @@
       "targetType": "code_guard",
       "targetName": "artifact-matrix:skeleton-prepared-global-still-active",
       "expected": {
-        "state": "skeleton",
-        "deployMode": "global-open-next-only",
+        "state": "partial-split",
+        "deployMode": "global-open-next-plus-socialflows-dedicated",
         "activeArtifactName": "open-next-build",
         "products": [
           "drakos",
@@ -1857,7 +1857,7 @@
       "targetName": "artifact-matrix:no-premature-worker-switch",
       "expected": "workers stay on ../../.open-next/worker.js and deploy workflow remains on open-next-build",
       "actual": "artifact_split_inactive",
-      "details": "Artifact split remains inactive until a later commit generates and switches product-specific bundles deliberately."
+      "details": "Only SocialFlow is allowed to run on a dedicated wrapper artifact while all other products remain on the global OpenNext bundle."
     },
     {
       "checkCode": "socialflowRuntimeGuardDrift",

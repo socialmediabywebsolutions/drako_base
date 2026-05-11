@@ -1,15 +1,24 @@
 {
-  "state": "skeleton",
-  "deployMode": "global-open-next-only",
+  "state": "partial-split",
+  "deployMode": "global-open-next-plus-socialflows-dedicated",
   "activeArtifact": {
     "workerPath": ".open-next/worker.js",
     "assetsPath": ".open-next/assets",
     "artifactName": "open-next-build"
   },
+  "dedicatedArtifacts": [
+    {
+      "key": "socialflows",
+      "artifactName": "open-next-socialflows-build",
+      "workerPath": ".open-next/socialflows/worker.js",
+      "assetsPath": ".open-next/socialflows/assets"
+    }
+  ],
   "products": [
     {
       "key": "drakos",
       "workerName": "saas-drakos-prod",
+      "artifactMode": "global-shared",
       "wranglerConfigPath": "workers/drakos/wrangler.workers.toml",
       "currentWranglerMain": "../../.open-next/worker.js",
       "currentWranglerAssetsDirectory": "../../.open-next/assets",
@@ -19,6 +28,7 @@
     {
       "key": "bases",
       "workerName": "saas-bases-prod",
+      "artifactMode": "global-shared",
       "wranglerConfigPath": "workers/bases/wrangler.workers.toml",
       "currentWranglerMain": "../../.open-next/worker.js",
       "currentWranglerAssetsDirectory": "../../.open-next/assets",
@@ -28,6 +38,7 @@
     {
       "key": "mentorias",
       "workerName": "saas-mentorias-prod",
+      "artifactMode": "global-shared",
       "wranglerConfigPath": "workers/mentorias/wrangler.workers.toml",
       "currentWranglerMain": "../../.open-next/worker.js",
       "currentWranglerAssetsDirectory": "../../.open-next/assets",
@@ -37,15 +48,17 @@
     {
       "key": "socialflows",
       "workerName": "saas-socialflows-prod",
+      "artifactMode": "dedicated-wrapper",
       "wranglerConfigPath": "workers/socialflows/wrangler.workers.toml",
-      "currentWranglerMain": "../../.open-next/worker.js",
-      "currentWranglerAssetsDirectory": "../../.open-next/assets",
+      "currentWranglerMain": "../../.open-next/socialflows/worker.js",
+      "currentWranglerAssetsDirectory": "../../.open-next/socialflows/assets",
       "plannedWorkerPath": ".open-next/socialflows/worker.js",
-      "plannedAssetsPath": ".open-next/socialflows/assets"
+      "plannedAssetsPath": ".open-next/socialflows/assets",
+      "dedicatedArtifactName": "open-next-socialflows-build"
     }
   ],
   "notes": [
-    "Skeleton only. Active deploy remains on the shared .open-next artifact until P1 Commit 3 switches SocialFlow deliberately.",
-    "Do not point worker wrangler configs at planned per-product artifact paths before the split commit generates them."
+    "SocialFlow is the first product allowed to run on a dedicated wrapper artifact while Drako, Bases and Mentoria remain on the shared .open-next artifact.",
+    "Do not point non-SocialFlow worker wrangler configs at planned per-product artifact paths before their dedicated split commits land."
   ]
 }

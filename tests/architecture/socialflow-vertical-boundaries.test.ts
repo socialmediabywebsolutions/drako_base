@@ -217,8 +217,10 @@ describe("SocialFlow vertical boundaries", () => {
     const socialFlowMiswireWorker = read("workers/socialflows/src/workers.ts");
     const sharedWorkersHandlers = read("packages/shared/workers-handlers/index.ts");
     const socialFlowSmoke = read("scripts/smoke/socialflow-canonical-domain-smoke.mjs");
+    const artifactBuilder = read("scripts/build-artifact-matrix-skeleton.mjs");
 
-    expect(socialFlowWorkerConfig).toContain('main = "../../.open-next/worker.js"');
+    expect(socialFlowWorkerConfig).toContain('main = "../../.open-next/socialflows/worker.js"');
+    expect(socialFlowWorkerConfig).toContain('directory = "../../.open-next/socialflows/assets"');
     expect(socialFlowWorkerConfig).not.toContain('main = "src/workers.ts"');
 
     expect(socialFlowMiswireWorker).toContain("SOCIALFLOW_RUNTIME_MISWIRED");
@@ -236,6 +238,10 @@ describe("SocialFlow vertical boundaries", () => {
     expect(socialFlowSmoke).toContain('expectedStatuses: [410]');
     expect(socialFlowSmoke).not.toContain("405");
     expect(socialFlowSmoke).toContain("placeholder token detected");
+
+    expect(artifactBuilder).toContain('export { default } from');
+    expect(artifactBuilder).toContain("artifact-manifest.json");
+    expect(artifactBuilder).toContain("dedicated-wrapper");
   });
 
   it("keeps legacy linkedin connect and callback routes as redirect-only bridges", () => {

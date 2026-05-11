@@ -334,11 +334,13 @@ type LegacyCompatInventoryGuard = {
 type ArtifactMatrixProduct = {
   key: string;
   workerName: string;
+  artifactMode?: "global-shared" | "dedicated-wrapper";
   wranglerConfigPath: string;
   currentWranglerMain: string;
   currentWranglerAssetsDirectory: string;
   plannedWorkerPath: string;
   plannedAssetsPath: string;
+  dedicatedArtifactName?: string;
 };
 
 type ArtifactMatrixSkeletonGuard = {
@@ -349,6 +351,12 @@ type ArtifactMatrixSkeletonGuard = {
   expectedState: string;
   expectedDeployMode: string;
   expectedActiveArtifactName: string;
+  expectedDedicatedArtifacts?: Array<{
+    key: string;
+    artifactName: string;
+    workerPath: string;
+    assetsPath: string;
+  }>;
   expectedProducts: ArtifactMatrixProduct[];
   workflowRequiredTokens: string[];
   buildScriptRequiredTokens: string[];
@@ -359,6 +367,7 @@ type ArtifactMatrixPrematureActivationGuard = {
   products: ArtifactMatrixProduct[];
   workflowPath: string;
   forbiddenWorkflowTokens: string[];
+  allowedDedicatedProducts?: string[];
 };
 
 type D1BindingRecord = {
@@ -602,6 +611,7 @@ const DEFAULT_ARTIFACT_MATRIX_PRODUCTS: ArtifactMatrixProduct[] = [
   {
     key: "drakos",
     workerName: "saas-drakos-prod",
+    artifactMode: "global-shared",
     wranglerConfigPath: "workers/drakos/wrangler.workers.toml",
     currentWranglerMain: "../../.open-next/worker.js",
     currentWranglerAssetsDirectory: "../../.open-next/assets",
@@ -611,6 +621,7 @@ const DEFAULT_ARTIFACT_MATRIX_PRODUCTS: ArtifactMatrixProduct[] = [
   {
     key: "bases",
     workerName: "saas-bases-prod",
+    artifactMode: "global-shared",
     wranglerConfigPath: "workers/bases/wrangler.workers.toml",
     currentWranglerMain: "../../.open-next/worker.js",
     currentWranglerAssetsDirectory: "../../.open-next/assets",
@@ -620,6 +631,7 @@ const DEFAULT_ARTIFACT_MATRIX_PRODUCTS: ArtifactMatrixProduct[] = [
   {
     key: "mentorias",
     workerName: "saas-mentorias-prod",
+    artifactMode: "global-shared",
     wranglerConfigPath: "workers/mentorias/wrangler.workers.toml",
     currentWranglerMain: "../../.open-next/worker.js",
     currentWranglerAssetsDirectory: "../../.open-next/assets",
@@ -629,11 +641,13 @@ const DEFAULT_ARTIFACT_MATRIX_PRODUCTS: ArtifactMatrixProduct[] = [
   {
     key: "socialflows",
     workerName: "saas-socialflows-prod",
+    artifactMode: "dedicated-wrapper",
     wranglerConfigPath: "workers/socialflows/wrangler.workers.toml",
-    currentWranglerMain: "../../.open-next/worker.js",
-    currentWranglerAssetsDirectory: "../../.open-next/assets",
+    currentWranglerMain: "../../.open-next/socialflows/worker.js",
+    currentWranglerAssetsDirectory: "../../.open-next/socialflows/assets",
     plannedWorkerPath: ".open-next/socialflows/worker.js",
     plannedAssetsPath: ".open-next/socialflows/assets",
+    dedicatedArtifactName: "open-next-socialflows-build",
   },
 ];
 
@@ -642,9 +656,17 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
   manifestPath: "docs/config/open-next-artifact-matrix.json",
   workflowPath: ".github/workflows/drako-factory-deploy.yml",
   buildScriptPath: "scripts/build-artifact-matrix-skeleton.mjs",
-  expectedState: "skeleton",
-  expectedDeployMode: "global-open-next-only",
+  expectedState: "partial-split",
+  expectedDeployMode: "global-open-next-plus-socialflows-dedicated",
   expectedActiveArtifactName: "open-next-build",
+  expectedDedicatedArtifacts: [
+    {
+      key: "socialflows",
+      artifactName: "open-next-socialflows-build",
+      workerPath: ".open-next/socialflows/worker.js",
+      assetsPath: ".open-next/socialflows/assets",
+    },
+  ],
   expectedProducts: DEFAULT_ARTIFACT_MATRIX_PRODUCTS,
   workflowRequiredTokens: [
     "artifact_matrix_skeleton:",
@@ -655,12 +677,17 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
     "build/open-next-artifact-matrix/global",
     "name: open-next-build",
     "Download OpenNext build artifact",
+    "name: open-next-socialflows-build",
+    "Download SocialFlow dedicated artifact",
+    "Verify SocialFlow dedicated artifact",
   ],
   buildScriptRequiredTokens: [
     "ARTIFACT_MATRIX_SKELETON_OK",
     "ARTIFACT_MATRIX_SKELETON_INVALID",
     "ARTIFACT_MATRIX_SKELETON_GLOBAL_BUILD_MISSING",
     "build/open-next-artifact-matrix",
+    "export { default } from",
+    "artifact-manifest.json",
   ],
 };
 
@@ -672,12 +699,11 @@ const DEFAULT_ARTIFACT_MATRIX_PREMATURE_ACTIVATION_GUARD: ArtifactMatrixPrematur
     "name: open-next-artifact-matrix-drakos",
     "name: open-next-artifact-matrix-bases",
     "name: open-next-artifact-matrix-mentorias",
-    "name: open-next-artifact-matrix-socialflows",
     "path: .open-next/drakos",
     "path: .open-next/bases",
     "path: .open-next/mentorias",
-    "path: .open-next/socialflows",
   ],
+  allowedDedicatedProducts: ["socialflows"],
 };
 
 const DEFAULT_SOCIALFLOW_RUNTIME_GUARD: FileTokenGuard = {
@@ -685,13 +711,17 @@ const DEFAULT_SOCIALFLOW_RUNTIME_GUARD: FileTokenGuard = {
   rules: [
     {
       filePath: "workers/socialflows/wrangler.workers.toml",
-      requiredTokens: ['main = "../../.open-next/worker.js"', 'pattern = "socialflow.drako.systems"'],
+      requiredTokens: ['main = "../../.open-next/socialflows/worker.js"', 'directory = "../../.open-next/socialflows/assets"', 'pattern = "socialflow.drako.systems"'],
       forbiddenTokens: ['main = "src/workers.ts"', 'main = "./src/workers.ts"'],
     },
     {
       filePath: "workers/socialflows/src/workers.ts",
       requiredTokens: ["SOCIALFLOW_RUNTIME_MISWIRED", "status: 500"],
       forbiddenTokens: ["success: true", "text/html", "status: 200"],
+    },
+    {
+      filePath: "scripts/build-artifact-matrix-skeleton.mjs",
+      requiredTokens: ['export { default } from', "artifact-manifest.json", "dedicated-wrapper"],
     },
     {
       filePath: "packages/shared/workers-handlers/index.ts",
@@ -2638,7 +2668,15 @@ async function buildFileTokenGuardChecks(
 
 async function buildArtifactMatrixSkeletonChecks(guard: ArtifactMatrixSkeletonGuard): Promise<CheckRecord[]> {
   const failures: string[] = [];
-  let manifest: { state?: string; deployMode?: string; activeArtifact?: { artifactName?: string }; products?: ArtifactMatrixProduct[] } | null = null;
+  let manifest:
+    | {
+        state?: string;
+        deployMode?: string;
+        activeArtifact?: { artifactName?: string };
+        dedicatedArtifacts?: Array<{ key?: string; artifactName?: string; workerPath?: string; assetsPath?: string }>;
+        products?: ArtifactMatrixProduct[];
+      }
+    | null = null;
 
   try {
     manifest = JSON.parse(await fs.readFile(resolveAbsolutePath(guard.manifestPath), "utf8")) as {
@@ -2663,6 +2701,29 @@ async function buildArtifactMatrixSkeletonChecks(guard: ArtifactMatrixSkeletonGu
       failures.push(
         `${guard.manifestPath} active artifact expected ${guard.expectedActiveArtifactName} got ${String(manifest.activeArtifact?.artifactName)}`,
       );
+    }
+    const expectedDedicatedArtifacts = guard.expectedDedicatedArtifacts ?? [];
+    const manifestDedicatedArtifacts = manifest.dedicatedArtifacts ?? [];
+    for (const expectedDedicatedArtifact of expectedDedicatedArtifacts) {
+      const actualDedicatedArtifact = manifestDedicatedArtifacts.find((artifact) => artifact.key === expectedDedicatedArtifact.key);
+      if (!actualDedicatedArtifact) {
+        failures.push(`${guard.manifestPath} missing dedicated artifact ${expectedDedicatedArtifact.key}`);
+        continue;
+      }
+      for (const [field, expectedValue] of Object.entries(expectedDedicatedArtifact)) {
+        if ((actualDedicatedArtifact as Record<string, unknown>)[field] !== expectedValue) {
+          failures.push(
+            `${guard.manifestPath} dedicated artifact ${expectedDedicatedArtifact.key} field ${field} expected ${expectedValue} got ${String(
+              (actualDedicatedArtifact as Record<string, unknown>)[field],
+            )}`,
+          );
+        }
+      }
+    }
+    for (const actualDedicatedArtifact of manifestDedicatedArtifacts) {
+      if (!expectedDedicatedArtifacts.some((artifact) => artifact.key === actualDedicatedArtifact.key)) {
+        failures.push(`${guard.manifestPath} unexpected dedicated artifact ${String(actualDedicatedArtifact.key)}`);
+      }
     }
 
     const manifestProducts = new Map((manifest.products ?? []).map((product) => [product.key, product]));
@@ -2742,17 +2803,20 @@ async function buildArtifactMatrixPrematureActivationChecks(
 
   for (const product of guard.products) {
     const workerConfigContent = await fs.readFile(resolveAbsolutePath(product.wranglerConfigPath), "utf8");
+    const dedicatedAllowed = (guard.allowedDedicatedProducts ?? []).includes(product.key);
     if (!workerConfigContent.includes(`main = "${product.currentWranglerMain}"`)) {
       failures.push(`${product.wranglerConfigPath} no longer points to ${product.currentWranglerMain}`);
     }
     if (!workerConfigContent.includes(`directory = "${product.currentWranglerAssetsDirectory}"`)) {
       failures.push(`${product.wranglerConfigPath} no longer points assets to ${product.currentWranglerAssetsDirectory}`);
     }
-    if (workerConfigContent.includes(product.plannedWorkerPath)) {
-      failures.push(`${product.wranglerConfigPath} points to planned artifact ${product.plannedWorkerPath}`);
-    }
-    if (workerConfigContent.includes(product.plannedAssetsPath)) {
-      failures.push(`${product.wranglerConfigPath} points assets to planned artifact ${product.plannedAssetsPath}`);
+    if (!dedicatedAllowed) {
+      if (workerConfigContent.includes(product.plannedWorkerPath)) {
+        failures.push(`${product.wranglerConfigPath} points to planned artifact ${product.plannedWorkerPath}`);
+      }
+      if (workerConfigContent.includes(product.plannedAssetsPath)) {
+        failures.push(`${product.wranglerConfigPath} points assets to planned artifact ${product.plannedAssetsPath}`);
+      }
     }
   }
 
@@ -2767,8 +2831,8 @@ async function buildArtifactMatrixPrematureActivationChecks(
       actual: failures.length === 0 ? "artifact_split_inactive" : failures,
       details:
         failures.length === 0
-          ? "Artifact split remains inactive until a later commit generates and switches product-specific bundles deliberately."
-          : "A worker or workflow started acting as if per-product artifacts were active before the split commit landed.",
+          ? "Only SocialFlow is allowed to run on a dedicated wrapper artifact while all other products remain on the global OpenNext bundle."
+          : "A worker or workflow started acting as if per-product artifacts were active outside the allowed SocialFlow split.",
     },
   ];
 }
