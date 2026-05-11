@@ -143,6 +143,7 @@ export async function POST(request: Request) {
     ) as typeof result;
     return NextResponse.json({ ok: true, ...safeResult });
   } catch (error) {
+    console.error("[mentoria onboarding POST] failed", error);
     const message = error instanceof Error ? error.message : "ONBOARDING_SUBMIT_FAILED";
     return NextResponse.json({ ok: false, error: message }, { status: statusFor(message) });
   }

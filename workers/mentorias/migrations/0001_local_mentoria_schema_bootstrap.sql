@@ -23,6 +23,20 @@ CREATE INDEX IF NOT EXISTS idx_student_profiles_tenant
 CREATE INDEX IF NOT EXISTS idx_student_profiles_tenant_user
   ON student_profiles(tenant_id, user_id);
 
+CREATE TABLE IF NOT EXISTS mentoria_subjects (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  slug TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  difficulty_band TEXT NOT NULL DEFAULT 'core',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mentoria_subjects_tenant_slug
+  ON mentoria_subjects(tenant_id, slug);
+
 CREATE TABLE IF NOT EXISTS parent_accounts (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL,
@@ -189,6 +203,7 @@ CREATE TABLE IF NOT EXISTS mentoria_student_evolution (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL,
   student_profile_id TEXT NOT NULL,
+  subject_slug TEXT NOT NULL DEFAULT 'general',
   strengths_json TEXT NOT NULL DEFAULT '[]',
   weaknesses_json TEXT NOT NULL DEFAULT '[]',
   frustration_level REAL NOT NULL DEFAULT 0.35,
@@ -201,8 +216,8 @@ CREATE TABLE IF NOT EXISTS mentoria_student_evolution (
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_mentoria_student_evolution_tenant_student
-  ON mentoria_student_evolution(tenant_id, student_profile_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mentoria_student_evolution_tenant_student_subject
+  ON mentoria_student_evolution(tenant_id, student_profile_id, subject_slug);
 
 CREATE TABLE IF NOT EXISTS mentoria_interventions (
   id TEXT PRIMARY KEY,

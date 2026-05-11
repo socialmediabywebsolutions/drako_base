@@ -5,6 +5,11 @@ const hostQuery = "__drako_host=mentoria.drako.systems";
 const email = `mentoria-local-${Date.now()}@local.dev`;
 const password = "12345678";
 
+function failureWithHint(step, status, text) {
+  const body = text?.trim() ? text : "EMPTY_BODY";
+  return new Error(`${step}:${status}:${body}:hint=run pnpm mentoria:local:bootstrap:align-worker and verify MENTORIA_DB + MENTORIAS_AUTHS_DB local migrations`);
+}
+
 function parseSetCookies(headers) {
   const values = [];
   for (const [key, value] of headers.entries()) {
@@ -40,14 +45,14 @@ const register = await fetchText(`${baseUrl}/api/mentorias/auths/registrations?$
   headers: { "content-type": "application/x-www-form-urlencoded" },
   body: new URLSearchParams({ email, password, name: "Mentoria Local QA" }),
 });
-if (register.res.status !== 201) throw new Error(`REGISTER_FAILED:${register.res.status}:${register.text}`);
+if (register.res.status !== 201) throw failureWithHint("REGISTER_FAILED", register.res.status, register.text);
 
 const login = await fetchText(`${baseUrl}/api/mentorias/auths/logins?${hostQuery}`, {
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ email, password }),
 });
-if (login.res.status !== 200) throw new Error(`LOGIN_FAILED:${login.res.status}:${login.text}`);
+if (login.res.status !== 200) throw failureWithHint("LOGIN_FAILED", login.res.status, login.text);
 
 const sessionCookie = extractCookie(parseSetCookies(login.res.headers), "__Host-mentorias_session")
   || extractCookie(parseSetCookies(register.res.headers), "__Host-mentorias_session")
@@ -58,7 +63,7 @@ if (!sessionCookie) throw new Error("SESSION_COOKIE_MISSING");
 const onboardingGet = await fetchText(`${baseUrl}/api/mentoria/onboarding`, {
   headers: { cookie: sessionCookie },
 });
-if (onboardingGet.res.status !== 200) throw new Error(`ONBOARDING_GET_FAILED:${onboardingGet.res.status}:${onboardingGet.text}`);
+if (onboardingGet.res.status !== 200) throw failureWithHint("ONBOARDING_GET_FAILED", onboardingGet.res.status, onboardingGet.text);
 
 const onboardingPost = await fetchText(`${baseUrl}/api/mentoria/onboarding`, {
   method: "POST",
@@ -80,12 +85,12 @@ const onboardingPost = await fetchText(`${baseUrl}/api/mentoria/onboarding`, {
     learningPreference: "step_by_step",
   }),
 });
-if (onboardingPost.res.status !== 200) throw new Error(`ONBOARDING_POST_FAILED:${onboardingPost.res.status}:${onboardingPost.text}`);
+if (onboardingPost.res.status !== 200) throw failureWithHint("ONBOARDING_POST_FAILED", onboardingPost.res.status, onboardingPost.text);
 
 const workspace = await fetchText(`${baseUrl}/api/mentoria/workspace`, {
   headers: { cookie: sessionCookie },
 });
-if (workspace.res.status !== 200) throw new Error(`WORKSPACE_FAILED:${workspace.res.status}:${workspace.text}`);
+if (workspace.res.status !== 200) throw failureWithHint("WORKSPACE_FAILED", workspace.res.status, workspace.text);
 
 console.log(`MENTORIA_SMOKE_OK base_url=${baseUrl}`);
 console.log(`SIGNUP=PASS LOGIN=PASS ONBOARDING=PASS WORKSPACE=PASS`);

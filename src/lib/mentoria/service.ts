@@ -474,13 +474,17 @@ function buildLegacyParentsProjection(input: {
   studentId: string;
   guardians: MentoriaGuardian[];
   accesses: MentoriaGuardianStudentAccess[];
+  actorUserId?: string | null;
+  actorEmail?: string | null;
 }): ParentAccount[] {
+  const normalizedActorEmail = input.actorEmail?.trim().toLowerCase() ?? "";
   return input.accesses.map((access) => {
     const guardian = input.guardians.find((item) => item.id === access.guardianId) ?? null;
+    const guardianEmail = guardian?.email?.trim().toLowerCase() ?? "";
     return {
       id: `legacy:${access.guardianId}:${access.studentProfileId}`,
       tenantId: input.tenantId,
-      userId: guardian?.id,
+      userId: normalizedActorEmail && guardianEmail === normalizedActorEmail ? (input.actorUserId ?? undefined) : undefined,
       studentProfileId: input.studentId,
       fullName: guardian?.name?.trim() || guardian?.email || access.guardianId,
       email: guardian?.email ?? "",
@@ -582,6 +586,45 @@ export class MentoriaService {
 
   private canManageBilling(actor: MentoriaSessionActor): boolean {
     return Boolean(actor.userId && actor.tenantId);
+  }
+
+  private async safeListEventsForUser(userId: string, limit: number, source: string) {
+    try {
+      return await listEventsForUser(userId, limit);
+    } catch (error) {
+      console.warn("[MentoriaService] Shared events unavailable", {
+        source,
+        userId,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
+
+  private async safeTrackEvent(source: string, event: Parameters<typeof trackEvent>[0]) {
+    try {
+      await trackEvent(event);
+    } catch (error) {
+      console.warn("[MentoriaService] Shared event tracking unavailable", {
+        source,
+        type: event.type,
+        userId: event.userId,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private async safeRecordCampamentoEvent(source: string, input: Parameters<typeof recordCampamentoEvent>[0]) {
+    try {
+      await recordCampamentoEvent(input);
+    } catch (error) {
+      console.warn("[MentoriaService] Campamento event unavailable", {
+        source,
+        tenantId: input.tenantId,
+        type: input.type,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   private async getCanonicalFamilyContract(actor: MentoriaSessionActor, student: StudentProfile): Promise<MentoriaCanonicalFamilyContract> {
@@ -698,6 +741,8 @@ export class MentoriaService {
       studentId: student.id,
       guardians: syncedGuardians,
       accesses: syncedAccess,
+      actorUserId: actor.userId,
+      actorEmail: actor.email ?? null,
     });
     for (const legacyParent of legacyParentsProjection) {
       await this.repository.upsertParentAccount({
@@ -889,7 +934,7 @@ export class MentoriaService {
   }
 
   private async buildUserInsights(actor: MentoriaSessionActor, context: UserContext): Promise<Insight[]> {
-    const events = await listEventsForUser(actor.userId, 100);
+    const events = await this.safeListEventsForUser(actor.userId, 100, "buildUserInsights");
     return generateInsights({
       context,
       events,
@@ -1278,8 +1323,16 @@ export class MentoriaService {
     student: StudentProfile,
   ): Promise<MentoriaBillingSummary> {
     const isoDay = new Date().toISOString().slice(0, 10);
+    const subscriptionPromise = getCanonicalSubscriptionState({ tenantId: context.tenantId, saasSlug: "mentoria" }).catch((error) => {
+      console.warn("[MentoriaService] Billing subscription state unavailable", {
+        tenantId: context.tenantId,
+        studentId: student.id,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    });
     const [subscription, guidedSessionsToday, exercisesToday, plannerRegenerationsToday, referralProfile] = await Promise.all([
-      getCanonicalSubscriptionState({ tenantId: context.tenantId, saasSlug: "mentoria" }),
+      subscriptionPromise,
       this.repository.countLearningSessionsForDay(context.tenantId, student.id, isoDay),
       this.repository.countExercisesForDay(context.tenantId, student.id, isoDay),
       this.repository.countPlannerRegenerationsForDay(context.tenantId, student.id, isoDay),
@@ -1818,8 +1871,21 @@ export class MentoriaService {
         onboardingOnly: true,
       },
     });
-    const refreshedProgress = await this.getProgress(actor);
-    const refreshedDailyPlan = (await this.getDashboard(actor)).dailyPlan;
+    const studentSubjects = await this.repository.listStudentSubjects(actor.tenantId, student.id);
+    const refreshedProgress = {
+      progress,
+      analysis: await this.buildProgressAnalysis({
+        actor,
+        student,
+        progress,
+        studentSubjects,
+        evolution: syncedEvolution,
+        interventions: syncedInterventions,
+        motivation: syncedMotivation,
+        dailyPlan,
+      }),
+    };
+    const refreshedDailyPlan = dailyPlan;
     const activationResponse = createAgentResponse({
       task: activationTask,
       reply: "Tu estructura ya esta lista. A partir de aqui, el alumno entra en su workspace y define como viene hoy para que la IA adapte la sesion real.",
@@ -1870,9 +1936,9 @@ export class MentoriaService {
         subjectName: weakestSubjectSelection.subject.name,
       },
     });
-    await trackEvent(activation);
+    await this.safeTrackEvent("submitOnboarding", activation);
 
-    await recordCampamentoEvent({
+    await this.safeRecordCampamentoEvent("submitOnboarding", {
       tenantId: actor.tenantId,
       type: "mentoria.onboarding.completed",
       severity: "INFO",
@@ -2029,7 +2095,7 @@ export class MentoriaService {
       subjectMemories,
       analysis,
     });
-    const events = await listEventsForUser(actor.userId, 50);
+    const events = await this.safeListEventsForUser(actor.userId, 50, "getWorkspaceExperience");
     const dailyClosure = buildDailyClosureSummary({
       student: dashboard.student,
       progress: scopedProgress,
@@ -2113,24 +2179,33 @@ export class MentoriaService {
         shadowTask: behavioralShadow.shadowAction.task,
       });
 
-      const shadowContext = await getUserContext(actor.userId);
-      if (shadowContext) {
-        await trackEvent(
-          createMetricEvent({
-            context: shadowContext,
-            name: "behavioral_engine_shadow_divergence",
-            type: "behavioral_engine_shadow_divergence",
-            source: "mentoria.service.getWorkspaceExperience",
-            metadata: {
-              currentStrategy: behavioralShadow.currentStrategy,
-              shadowStrategy: behavioralShadow.shadowStrategy,
-              currentTaskType: behavioralShadow.currentAction.task?.type ?? null,
-              shadowTaskType: behavioralShadow.shadowAction.task?.type ?? null,
-              currentTaskSubjectId: behavioralShadow.currentAction.task?.subjectId ?? null,
-              shadowTaskSubjectId: behavioralShadow.shadowAction.task?.subjectId ?? null,
-            },
-          }),
-        );
+      try {
+        const shadowContext = await getUserContext(actor.userId);
+        if (shadowContext) {
+          await this.safeTrackEvent(
+            "getWorkspaceExperience.behavioralShadow",
+            createMetricEvent({
+              context: shadowContext,
+              name: "behavioral_engine_shadow_divergence",
+              type: "behavioral_engine_shadow_divergence",
+              source: "mentoria.service.getWorkspaceExperience",
+              metadata: {
+                currentStrategy: behavioralShadow.currentStrategy,
+                shadowStrategy: behavioralShadow.shadowStrategy,
+                currentTaskType: behavioralShadow.currentAction.task?.type ?? null,
+                shadowTaskType: behavioralShadow.shadowAction.task?.type ?? null,
+                currentTaskSubjectId: behavioralShadow.currentAction.task?.subjectId ?? null,
+                shadowTaskSubjectId: behavioralShadow.shadowAction.task?.subjectId ?? null,
+              },
+            }),
+          );
+        }
+      } catch (error) {
+        console.warn("[MentoriaService] Behavioral shadow telemetry skipped", {
+          userId: actor.userId,
+          tenantId: actor.tenantId,
+          reason: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
@@ -2186,7 +2261,8 @@ export class MentoriaService {
     if (!summary) {
       return null;
     }
-    await trackEvent(
+    await this.safeTrackEvent(
+      "trackDailyClosureSnapshot",
       createMetricEvent({
         context: input.context,
         name: "mentoria_daily_closure",

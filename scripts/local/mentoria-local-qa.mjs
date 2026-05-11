@@ -17,7 +17,22 @@ function run(command, args, options = {}) {
 
 run("node", bootstrapArgs);
 
-const server = spawn("pnpm", ["dev:wrangler"], {
+const baseUrl = (process.env.BASE_URL ?? "http://127.0.0.1:8787").trim().replace(/\/$/, "");
+const base = new URL(baseUrl);
+const port = base.port || (base.protocol === "https:" ? "443" : "80");
+const host = process.env.MENTORIA_LOCAL_HOST ?? "127.0.0.1";
+
+const server = spawn("pnpm", [
+  "exec",
+  "wrangler",
+  "dev",
+  "--config",
+  "workers/mentorias/wrangler.workers.toml",
+  "--port",
+  port,
+  "--host",
+  host,
+], {
   cwd: process.cwd(),
   env: process.env,
   stdio: "inherit",
@@ -31,7 +46,6 @@ function cleanup(code = 0) {
 process.on("SIGINT", () => cleanup(130));
 process.on("SIGTERM", () => cleanup(143));
 
-const baseUrl = (process.env.BASE_URL ?? "http://localhost:8787").trim().replace(/\/$/, "");
 const readyUrl = `${baseUrl}/site/mentoria`;
 const READY_TIMEOUT_MS = Number(process.env.MENTORIA_READY_TIMEOUT_MS ?? 180000);
 const READY_INTERVAL_MS = 1000;
