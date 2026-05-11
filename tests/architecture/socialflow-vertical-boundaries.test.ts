@@ -212,6 +212,32 @@ describe("SocialFlow vertical boundaries", () => {
     expect(operatorPage).not.toContain("/api/mentoria/health/system");
   });
 
+  it("keeps the SocialFlow runtime and smoke checks fail-closed", () => {
+    const socialFlowWorkerConfig = read("workers/socialflows/wrangler.workers.toml");
+    const socialFlowMiswireWorker = read("workers/socialflows/src/workers.ts");
+    const sharedWorkersHandlers = read("packages/shared/workers-handlers/index.ts");
+    const socialFlowSmoke = read("scripts/smoke/socialflow-canonical-domain-smoke.mjs");
+
+    expect(socialFlowWorkerConfig).toContain('main = "../../.open-next/worker.js"');
+    expect(socialFlowWorkerConfig).not.toContain('main = "src/workers.ts"');
+
+    expect(socialFlowMiswireWorker).toContain("SOCIALFLOW_RUNTIME_MISWIRED");
+    expect(socialFlowMiswireWorker).toContain("status: 500");
+    expect(socialFlowMiswireWorker).not.toContain("success: true");
+    expect(socialFlowMiswireWorker).not.toContain("text/html");
+
+    expect(sharedWorkersHandlers).not.toMatch(/case\s+"socialflow"/);
+    expect(sharedWorkersHandlers).not.toMatch(/case\s+"socialflows"/);
+
+    expect(socialFlowSmoke).toContain('path: "/api/socialflow/profile"');
+    expect(socialFlowSmoke).toContain('path: "/api/socialflow/campaigns?saasId=socialflow"');
+    expect(socialFlowSmoke).toContain('path: "/api/socialflow/posts?saasId=socialflow"');
+    expect(socialFlowSmoke).toContain('path: "/api/social/posts"');
+    expect(socialFlowSmoke).toContain('expectedStatuses: [410]');
+    expect(socialFlowSmoke).not.toContain("405");
+    expect(socialFlowSmoke).toContain("placeholder token detected");
+  });
+
   it("keeps legacy linkedin connect and callback routes as redirect-only bridges", () => {
     const legacyConnect = read("src/app/api/social/linkedin/connect/route.ts");
     const legacyCallback = read("src/app/api/social/linkedin/callback/route.ts");

@@ -148,7 +148,9 @@ type CheckCode =
   | "mentoriaWorkerBindingLeakage"
   | "socialflowCrossSaasLeakage"
   | "operatorFinalUserApiLeakage"
-  | "legacyCompatRouteDrift";
+  | "legacyCompatRouteDrift"
+  | "socialflowRuntimeGuardDrift"
+  | "socialflowCanonicalSmokeGuardDrift";
 
 type CheckRecord = {
   checkCode: CheckCode;
@@ -227,6 +229,8 @@ type ProductionAuditsRunOptions = {
   socialflowBoundaryGuardOverride?: SourceBoundaryGuard;
   operatorBoundaryGuardOverride?: SourceBoundaryGuard;
   legacyCompatRouteGuardOverride?: CompatRouteGuard;
+  socialflowRuntimeGuardOverride?: FileTokenGuard;
+  socialflowSmokeGuardOverride?: SocialflowSmokeGuard;
 };
 
 type LegacyProductionGuard = {
@@ -288,6 +292,25 @@ type CompatRouteGuard = {
   routeDirs: string[];
   requiredAnyTokens: string[];
   forbiddenTokens: string[];
+};
+
+type FileTokenRule = {
+  filePath: string;
+  requiredTokens?: string[];
+  forbiddenTokens?: string[];
+};
+
+type FileTokenGuard = {
+  targetName: string;
+  rules: FileTokenRule[];
+};
+
+type SocialflowSmokeGuard = {
+  targetName: string;
+  scriptPath: string;
+  canonicalApiPaths: string[];
+  legacyGonePaths: string[];
+  placeholderGuardTokens: string[];
 };
 
 type D1BindingRecord = {
@@ -413,6 +436,38 @@ const DEFAULT_LEGACY_COMPAT_ROUTE_GUARD: CompatRouteGuard = {
     '/api/mentoria/',
     '/api/socialflow/',
   ],
+};
+
+const DEFAULT_SOCIALFLOW_RUNTIME_GUARD: FileTokenGuard = {
+  targetName: "socialflow:runtime-real-worker-only",
+  rules: [
+    {
+      filePath: "workers/socialflows/wrangler.workers.toml",
+      requiredTokens: ['main = "../../.open-next/worker.js"', 'pattern = "socialflow.drako.systems"'],
+      forbiddenTokens: ['main = "src/workers.ts"', 'main = "./src/workers.ts"'],
+    },
+    {
+      filePath: "workers/socialflows/src/workers.ts",
+      requiredTokens: ["SOCIALFLOW_RUNTIME_MISWIRED", "status: 500"],
+      forbiddenTokens: ["success: true", "text/html", "status: 200"],
+    },
+    {
+      filePath: "packages/shared/workers-handlers/index.ts",
+      forbiddenTokens: ['case "socialflow"', 'case "socialflows"'],
+    },
+  ],
+};
+
+const DEFAULT_SOCIALFLOW_SMOKE_GUARD: SocialflowSmokeGuard = {
+  targetName: "socialflow:canonical-smoke-strict",
+  scriptPath: "scripts/smoke/socialflow-canonical-domain-smoke.mjs",
+  canonicalApiPaths: [
+    "/api/socialflow/profile",
+    "/api/socialflow/campaigns?saasId=socialflow",
+    "/api/socialflow/posts?saasId=socialflow",
+  ],
+  legacyGonePaths: ["/api/social/posts", "/api/social/linkedin/publish"],
+  placeholderGuardTokens: ["placeholder token detected", "auth route did not render the SocialFlow auth page"],
 };
 
 const DEFAULT_MENTORIA_BINDING_GUARD: MentoriaBindingGuard = {
@@ -2201,6 +2256,139 @@ async function buildLegacyCompatRouteChecks(guard: CompatRouteGuard): Promise<Ch
   ];
 }
 
+async function buildFileTokenGuardChecks(
+  guard: FileTokenGuard,
+  checkCode: "socialflowRuntimeGuardDrift",
+  passDetails: string,
+  failDetails: string,
+): Promise<CheckRecord[]> {
+  const failures: string[] = [];
+
+  for (const rule of guard.rules) {
+    let content = "";
+    try {
+      content = await fs.readFile(resolveAbsolutePath(rule.filePath), "utf8");
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      failures.push(`${rule.filePath} read_error=${reason}`);
+      continue;
+    }
+
+    for (const token of rule.requiredTokens ?? []) {
+      if (!content.includes(token)) {
+        failures.push(`${rule.filePath} missing ${token}`);
+      }
+    }
+
+    for (const token of rule.forbiddenTokens ?? []) {
+      if (content.includes(token)) {
+        failures.push(`${rule.filePath} contains forbidden ${token}`);
+      }
+    }
+  }
+
+  return [
+    {
+      checkCode,
+      severity: "BLOCKER",
+      status: failures.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: "all runtime guard rules satisfied",
+      actual: failures.length === 0 ? "runtime_guard_ok" : failures,
+      details: failures.length === 0 ? passDetails : failDetails,
+    },
+  ];
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function parseExpectedStatusesForPath(scriptContent: string, routePath: string): number[] | null {
+  const escapedPath = escapeRegExp(routePath);
+  const blockPattern = new RegExp(
+    `path:\\s*"${escapedPath}"[\\s\\S]*?expectedStatuses:\\s*\\[([^\\]]+)\\]`,
+    "m",
+  );
+  const match = scriptContent.match(blockPattern);
+  if (!match) {
+    return null;
+  }
+
+  return match[1]
+    .split(",")
+    .map((value) => Number.parseInt(value.trim(), 10))
+    .filter((value) => Number.isFinite(value));
+}
+
+async function buildSocialflowSmokeGuardChecks(guard: SocialflowSmokeGuard): Promise<CheckRecord[]> {
+  let content = "";
+  try {
+    content = await fs.readFile(resolveAbsolutePath(guard.scriptPath), "utf8");
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return [
+      {
+        checkCode: "socialflowCanonicalSmokeGuardDrift",
+        severity: "BLOCKER",
+        status: "FAIL",
+        targetType: "code_guard",
+        targetName: guard.targetName,
+        expected: `readable smoke script at ${guard.scriptPath}`,
+        actual: `READ_ERROR:${reason}`,
+        details: "Unable to verify the canonical SocialFlow smoke script.",
+      },
+    ];
+  }
+
+  const violations: string[] = [];
+
+  for (const token of guard.placeholderGuardTokens) {
+    if (!content.includes(token)) {
+      violations.push(`missing placeholder guard token ${token}`);
+    }
+  }
+
+  for (const routePath of guard.canonicalApiPaths) {
+    const statuses = parseExpectedStatusesForPath(content, routePath);
+    if (!statuses) {
+      violations.push(`missing canonical API check for ${routePath}`);
+      continue;
+    }
+    if (statuses.includes(405)) {
+      violations.push(`canonical API ${routePath} accepts 405`);
+    }
+  }
+
+  for (const routePath of guard.legacyGonePaths) {
+    const statuses = parseExpectedStatusesForPath(content, routePath);
+    if (!statuses) {
+      violations.push(`missing legacy gone check for ${routePath}`);
+      continue;
+    }
+    if (statuses.length !== 1 || statuses[0] !== 410) {
+      violations.push(`legacy route ${routePath} is not pinned to 410`);
+    }
+  }
+
+  return [
+    {
+      checkCode: "socialflowCanonicalSmokeGuardDrift",
+      severity: "BLOCKER",
+      status: violations.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: "strict canonical smoke with 410 legacy routes and no canonical 405 acceptance",
+      actual: violations.length === 0 ? "strict_smoke_ok" : violations,
+      details:
+        violations.length === 0
+          ? "The canonical SocialFlow smoke script stays strict against placeholder HTML, canonical 405s and legacy route drift."
+          : "The canonical SocialFlow smoke script became permissive or lost required checks.",
+    },
+  ];
+}
+
 function buildReport(params: {
   mode: "real" | "fixtures";
   sourceOfTruthPath: string;
@@ -2370,6 +2558,17 @@ export async function runProductionReadinessAudits(
   const legacyCompatRouteGuard = options.legacyCompatRouteGuardOverride ?? DEFAULT_LEGACY_COMPAT_ROUTE_GUARD;
   const legacyCompatRouteChecks = await buildLegacyCompatRouteChecks(legacyCompatRouteGuard);
   checks.push(...legacyCompatRouteChecks);
+  const socialflowRuntimeGuard = options.socialflowRuntimeGuardOverride ?? DEFAULT_SOCIALFLOW_RUNTIME_GUARD;
+  const socialflowRuntimeChecks = await buildFileTokenGuardChecks(
+    socialflowRuntimeGuard,
+    "socialflowRuntimeGuardDrift",
+    "SocialFlow stays wired to the real OpenNext runtime and its legacy fallback remains fail-closed.",
+    "SocialFlow runtime wiring drifted toward a fake handler, placeholder runtime or shared handler routing.",
+  );
+  checks.push(...socialflowRuntimeChecks);
+  const socialflowSmokeGuard = options.socialflowSmokeGuardOverride ?? DEFAULT_SOCIALFLOW_SMOKE_GUARD;
+  const socialflowSmokeChecks = await buildSocialflowSmokeGuardChecks(socialflowSmokeGuard);
+  checks.push(...socialflowSmokeChecks);
   const report = buildReport({
     mode,
     sourceOfTruthPath,

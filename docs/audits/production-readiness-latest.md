@@ -1,6 +1,6 @@
 # Production Readiness Audit Report
 
-- Timestamp: `2026-05-11T07:23:26.031Z`
+- Timestamp: `2026-05-11T08:00:03.589Z`
 - Mode: `fixtures`
 - Source of truth: `docs/config/production-audits-expected-state.json`
 - Fixtures dir: `tests/fixtures/production-audits/pass`
@@ -8,8 +8,8 @@
 
 ## Summary
 
-- Checks total: 157
-- Checks pass: 154
+- Checks total: 159
+- Checks pass: 156
 - Checks fail: 0
 - Checks N/A: 3
 - Blockers: 0
@@ -176,6 +176,8 @@
 | socialflowCrossSaasLeakage | BLOCKER | socialflow:no-cross-saas-leakage | PASS | "no forbidden tokens [@/components/mentoria, @/lib/mentoria, /api/mentoria/, @/lib/campobase, @/lib/campamento-base, @/lib/auth/campamento-core, @/components/operator, @/components/owner, /api/operator/, /api/owner/, /api/campobase/, /api/campamento-base/]" | "no_forbidden_tokens" |
 | operatorFinalUserApiLeakage | BLOCKER | operator:no-final-user-product-api-leakage | PASS | "no forbidden tokens [/api/mentoria/, /api/socialflow/, @/components/mentoria, @/components/saas/socialflow]" | "no_forbidden_tokens" |
 | legacyCompatRouteDrift | BLOCKER | legacy-compat:owner-campobase-control-plane-only | PASS | "owner/campobase compat routes stay pinned to control-plane bridges" | "control_plane_compat" |
+| socialflowRuntimeGuardDrift | BLOCKER | socialflow:runtime-real-worker-only | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
+| socialflowCanonicalSmokeGuardDrift | BLOCKER | socialflow:canonical-smoke-strict | PASS | "strict canonical smoke with 410 legacy routes and no canonical 405 acceptance" | "strict_smoke_ok" |
 
 ## Violations
 

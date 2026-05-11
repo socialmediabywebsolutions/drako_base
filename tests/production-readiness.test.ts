@@ -45,6 +45,36 @@ describe("production readiness audits", () => {
     smokeEvidencePaths: ["tests/fixtures/production-audits/socialflow-domain-guards/smoke-present.txt"],
     smokeEvidenceTokens: ["socialflow.drako.systems", "/socialflow", "/api/socialflow"],
   } as const;
+  const socialflowRuntimeGuardBase = {
+    targetName: "test:socialflow-runtime-guard",
+    rules: [
+      {
+        filePath: "workers/socialflows/wrangler.workers.toml",
+        requiredTokens: ['main = "../../.open-next/worker.js"'],
+        forbiddenTokens: ['main = "src/workers.ts"'],
+      },
+      {
+        filePath: "workers/socialflows/src/workers.ts",
+        requiredTokens: ["SOCIALFLOW_RUNTIME_MISWIRED", "status: 500"],
+        forbiddenTokens: ["success: true", "text/html", "status: 200"],
+      },
+      {
+        filePath: "packages/shared/workers-handlers/index.ts",
+        forbiddenTokens: ['case "socialflow"', 'case "socialflows"'],
+      },
+    ],
+  } as const;
+  const socialflowSmokeGuardBase = {
+    targetName: "test:socialflow-smoke-guard",
+    scriptPath: "scripts/smoke/socialflow-canonical-domain-smoke.mjs",
+    canonicalApiPaths: [
+      "/api/socialflow/profile",
+      "/api/socialflow/campaigns?saasId=socialflow",
+      "/api/socialflow/posts?saasId=socialflow",
+    ],
+    legacyGonePaths: ["/api/social/posts", "/api/social/linkedin/publish"],
+    placeholderGuardTokens: ["placeholder token detected", "auth route did not render the SocialFlow auth page"],
+  } as const;
 
   it("passes when fixtures match expected", async () => {
     const result = await runProductionReadinessAudits({
@@ -519,5 +549,79 @@ describe("production readiness audits", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.report.violations.some((item) => item.checkCode === "legacyCompatRouteDrift")).toBe(true);
+  });
+
+  it("passes readiness when SocialFlow runtime stays on the real OpenNext worker and its fallback is fail-closed", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowRuntimeGuardOverride: socialflowRuntimeGuardBase,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.report.checks.some((item) => item.checkCode === "socialflowRuntimeGuardDrift" && item.status === "PASS")).toBe(true);
+  });
+
+  it("fails readiness when SocialFlow runtime drifts back to a fake worker or shared handler route", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowRuntimeGuardOverride: {
+        targetName: "test:socialflow-runtime-guard-fake",
+        rules: [
+          {
+            filePath: "tests/fixtures/production-audits/fake-runtime-guards/fake-worker.wrangler.toml",
+            requiredTokens: ['main = "../../.open-next/worker.js"'],
+            forbiddenTokens: ['main = "src/workers.ts"'],
+          },
+          {
+            filePath: "tests/fixtures/production-audits/fake-runtime-guards/fake-worker.ts",
+            requiredTokens: ["SOCIALFLOW_RUNTIME_MISWIRED", "status: 500"],
+            forbiddenTokens: ["success: true", "text/html", "status: 200"],
+          },
+          {
+            filePath: "tests/fixtures/production-audits/fake-runtime-guards/fake-shared-handlers.ts",
+            forbiddenTokens: ['case "socialflow"', 'case "socialflows"'],
+          },
+        ],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowRuntimeGuardDrift")).toBe(true);
+  });
+
+  it("passes readiness when the SocialFlow canonical smoke stays strict", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowSmokeGuardOverride: socialflowSmokeGuardBase,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(
+      result.report.checks.some((item) => item.checkCode === "socialflowCanonicalSmokeGuardDrift" && item.status === "PASS"),
+    ).toBe(true);
+  });
+
+  it("fails readiness when the SocialFlow canonical smoke becomes permissive", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowSmokeGuardOverride: {
+        targetName: "test:socialflow-smoke-guard-permissive",
+        scriptPath: "tests/fixtures/production-audits/smoke-guards/permissive-socialflow-smoke.mjs",
+        canonicalApiPaths: socialflowSmokeGuardBase.canonicalApiPaths,
+        legacyGonePaths: socialflowSmokeGuardBase.legacyGonePaths,
+        placeholderGuardTokens: socialflowSmokeGuardBase.placeholderGuardTokens,
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowCanonicalSmokeGuardDrift")).toBe(true);
   });
 });

@@ -55,13 +55,15 @@ describe("Mentoria vertical boundaries", () => {
   });
 
   it("keeps Mentoria away from SocialFlow product internals", () => {
-    const files = listFiles(path.join(repoRoot, "src/lib/mentoria"));
+    const files = listMentoriaProductFiles();
     expect(files.length).toBeGreaterThan(0);
 
     for (const file of files) {
       const source = readFileSync(file, "utf8");
       expect(source).not.toMatch(/@\/lib\/socialflow/);
       expect(source).not.toMatch(/@\/lib\/social\/(ai|repository|live-publishing|scheduler|linkedin-service)/);
+      expect(source).not.toMatch(/@\/components\/saas\/socialflow/);
+      expect(source).not.toMatch(/\/api\/socialflow\//);
     }
   });
 
