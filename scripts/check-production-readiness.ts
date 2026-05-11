@@ -145,7 +145,10 @@ type CheckCode =
   | "mentoriaBindingPreviewProdCollision"
   | "mentoriaDbFallbackTransitionalDebt"
   | "mentoriaGlobalDbImportLeakage"
-  | "mentoriaWorkerBindingLeakage";
+  | "mentoriaWorkerBindingLeakage"
+  | "socialflowCrossSaasLeakage"
+  | "operatorFinalUserApiLeakage"
+  | "legacyCompatRouteDrift";
 
 type CheckRecord = {
   checkCode: CheckCode;
@@ -221,6 +224,9 @@ type ProductionAuditsRunOptions = {
   socialflowAuthsGuardOverride?: SocialflowAuthsBindingGuard;
   socialflowDomainGuardOverride?: SocialflowDomainGuard;
   mentoriaBindingGuardOverride?: MentoriaBindingGuard;
+  socialflowBoundaryGuardOverride?: SourceBoundaryGuard;
+  operatorBoundaryGuardOverride?: SourceBoundaryGuard;
+  legacyCompatRouteGuardOverride?: CompatRouteGuard;
 };
 
 type LegacyProductionGuard = {
@@ -269,6 +275,19 @@ type SocialflowDomainGuard = {
   compatibilityHostname: string;
   smokeEvidencePaths: string[];
   smokeEvidenceTokens: string[];
+};
+
+type SourceBoundaryGuard = {
+  targetName: string;
+  sourcePaths: string[];
+  forbiddenTokens: string[];
+};
+
+type CompatRouteGuard = {
+  targetName: string;
+  routeDirs: string[];
+  requiredAnyTokens: string[];
+  forbiddenTokens: string[];
 };
 
 type D1BindingRecord = {
@@ -337,6 +356,63 @@ const DEFAULT_SOCIALFLOW_DOMAIN_GUARD: SocialflowDomainGuard = {
   compatibilityHostname: "socialflows.drako.systems",
   smokeEvidencePaths: [".github/workflows/drako-factory-deploy.yml"],
   smokeEvidenceTokens: ["socialflow.drako.systems", "/socialflow", "/api/socialflow"],
+};
+
+const DEFAULT_SOCIALFLOW_BOUNDARY_GUARD: SourceBoundaryGuard = {
+  targetName: "socialflow:no-cross-saas-leakage",
+  sourcePaths: [
+    "src/modules/socialflow-app",
+    "src/components/layouts/socialflow-shell.tsx",
+    "src/app/socialflow",
+  ],
+  forbiddenTokens: [
+    "@/components/mentoria",
+    "@/lib/mentoria",
+    "/api/mentoria/",
+    "@/lib/campobase",
+    "@/lib/campamento-base",
+    "@/lib/auth/campamento-core",
+    "@/components/operator",
+    "@/components/owner",
+    "/api/operator/",
+    "/api/owner/",
+    "/api/campobase/",
+    "/api/campamento-base/",
+  ],
+};
+
+const DEFAULT_OPERATOR_BOUNDARY_GUARD: SourceBoundaryGuard = {
+  targetName: "operator:no-final-user-product-api-leakage",
+  sourcePaths: [
+    "src/app/operator",
+    "src/app/api/operator",
+    "src/lib/campobase",
+    "src/lib/campamento-base",
+  ],
+  forbiddenTokens: [
+    "/api/mentoria/",
+    "/api/socialflow/",
+    "@/components/mentoria",
+    "@/components/saas/socialflow",
+  ],
+};
+
+const DEFAULT_LEGACY_COMPAT_ROUTE_GUARD: CompatRouteGuard = {
+  targetName: "legacy-compat:owner-campobase-control-plane-only",
+  routeDirs: [
+    "src/app/api/owner",
+    "src/app/api/campobase",
+  ],
+  requiredAnyTokens: [
+    '@/app/api/operator/',
+    '@/app/api/factory/',
+  ],
+  forbiddenTokens: [
+    '@/app/api/mentoria',
+    '@/app/api/socialflow',
+    '/api/mentoria/',
+    '/api/socialflow/',
+  ],
 };
 
 const DEFAULT_MENTORIA_BINDING_GUARD: MentoriaBindingGuard = {
@@ -440,6 +516,19 @@ async function listTypeScriptFilesRecursively(relativeDir: string): Promise<stri
       }),
     );
     return nested.flat();
+  } catch {
+    return [];
+  }
+}
+
+async function listTypeScriptSources(relativePath: string): Promise<string[]> {
+  const absolutePath = resolveAbsolutePath(relativePath);
+  try {
+    const stat = await fs.stat(absolutePath);
+    if (stat.isDirectory()) {
+      return listTypeScriptFilesRecursively(relativePath);
+    }
+    return /\.(ts|tsx)$/.test(relativePath) ? [relativePath] : [];
   } catch {
     return [];
   }
@@ -2043,6 +2132,75 @@ async function buildMentoriaBoundaryLeakageChecks(guard: MentoriaBindingGuard): 
   return checks;
 }
 
+async function buildSourceBoundaryChecks(
+  guard: SourceBoundaryGuard,
+  checkCode: "socialflowCrossSaasLeakage" | "operatorFinalUserApiLeakage",
+  detailsWhenPass: string,
+  detailsWhenFail: string,
+): Promise<CheckRecord[]> {
+  const offendingTokens: string[] = [];
+
+  for (const sourcePath of guard.sourcePaths) {
+    const files = await listTypeScriptSources(sourcePath);
+    for (const filePath of files) {
+      const content = await fs.readFile(resolveAbsolutePath(filePath), "utf8");
+      for (const token of guard.forbiddenTokens) {
+        if (content.includes(token)) {
+          offendingTokens.push(`${filePath} contains ${token}`);
+        }
+      }
+    }
+  }
+
+  return [
+    {
+      checkCode,
+      severity: "BLOCKER",
+      status: offendingTokens.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: `no forbidden tokens [${guard.forbiddenTokens.join(", ")}]`,
+      actual: offendingTokens.length === 0 ? "no_forbidden_tokens" : offendingTokens,
+      details: offendingTokens.length === 0 ? detailsWhenPass : detailsWhenFail,
+    },
+  ];
+}
+
+async function buildLegacyCompatRouteChecks(guard: CompatRouteGuard): Promise<CheckRecord[]> {
+  const offendingRoutes: string[] = [];
+
+  for (const routeDir of guard.routeDirs) {
+    const files = await listTypeScriptFilesRecursively(routeDir);
+    for (const filePath of files) {
+      const content = await fs.readFile(resolveAbsolutePath(filePath), "utf8");
+      const hasRequiredBridge = guard.requiredAnyTokens.some((token) => content.includes(token));
+      const presentForbidden = guard.forbiddenTokens.filter((token) => content.includes(token));
+
+      if (!hasRequiredBridge || presentForbidden.length > 0) {
+        offendingRoutes.push(
+          `${filePath} bridge=${hasRequiredBridge ? "ok" : "missing"} forbidden=[${presentForbidden.join(", ") || "none"}]`,
+        );
+      }
+    }
+  }
+
+  return [
+    {
+      checkCode: "legacyCompatRouteDrift",
+      severity: "BLOCKER",
+      status: offendingRoutes.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: "owner/campobase compat routes stay pinned to control-plane bridges",
+      actual: offendingRoutes.length === 0 ? "control_plane_compat" : offendingRoutes,
+      details:
+        offendingRoutes.length === 0
+          ? "Legacy owner/campobase routes remain explicit control-plane compatibility bridges."
+          : "A legacy owner/campobase route drifted away from the control-plane compatibility contract.",
+    },
+  ];
+}
+
 function buildReport(params: {
   mode: "real" | "fixtures";
   sourceOfTruthPath: string;
@@ -2193,6 +2351,25 @@ export async function runProductionReadinessAudits(
   checks.push(...mentoriaFallbackDebtChecks);
   const mentoriaBoundaryLeakageChecks = await buildMentoriaBoundaryLeakageChecks(mentoriaBindingGuard);
   checks.push(...mentoriaBoundaryLeakageChecks);
+  const socialflowBoundaryGuard = options.socialflowBoundaryGuardOverride ?? DEFAULT_SOCIALFLOW_BOUNDARY_GUARD;
+  const socialflowBoundaryChecks = await buildSourceBoundaryChecks(
+    socialflowBoundaryGuard,
+    "socialflowCrossSaasLeakage",
+    "SocialFlow sources stay isolated from Mentoría, Campamento Base and operator surfaces.",
+    "SocialFlow source still crosses into another product or control-plane surface.",
+  );
+  checks.push(...socialflowBoundaryChecks);
+  const operatorBoundaryGuard = options.operatorBoundaryGuardOverride ?? DEFAULT_OPERATOR_BOUNDARY_GUARD;
+  const operatorBoundaryChecks = await buildSourceBoundaryChecks(
+    operatorBoundaryGuard,
+    "operatorFinalUserApiLeakage",
+    "Operator and Campamento Base sources do not call final-user product APIs directly.",
+    "Operator or Campamento Base source still calls a final-user product API or imports product UI directly.",
+  );
+  checks.push(...operatorBoundaryChecks);
+  const legacyCompatRouteGuard = options.legacyCompatRouteGuardOverride ?? DEFAULT_LEGACY_COMPAT_ROUTE_GUARD;
+  const legacyCompatRouteChecks = await buildLegacyCompatRouteChecks(legacyCompatRouteGuard);
+  checks.push(...legacyCompatRouteChecks);
   const report = buildReport({
     mode,
     sourceOfTruthPath,

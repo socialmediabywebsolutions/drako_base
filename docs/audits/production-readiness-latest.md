@@ -1,6 +1,6 @@
 # Production Readiness Audit Report
 
-- Timestamp: `2026-05-07T16:33:30.769Z`
+- Timestamp: `2026-05-11T07:23:26.031Z`
 - Mode: `fixtures`
 - Source of truth: `docs/config/production-audits-expected-state.json`
 - Fixtures dir: `tests/fixtures/production-audits/pass`
@@ -8,12 +8,12 @@
 
 ## Summary
 
-- Checks total: 150
-- Checks pass: 141
-- Checks fail: 2
-- Checks N/A: 7
+- Checks total: 157
+- Checks pass: 154
+- Checks fail: 0
+- Checks N/A: 3
 - Blockers: 0
-- Warnings: 2
+- Warnings: 0
 
 ## Checks
 
@@ -157,20 +157,26 @@
 | legacyProductionGuardMissing | BLOCKER | legacy:provision-commit-route | PASS | ["LEGACY_PROVISION_COMMIT_BLOCKED","/api/owner/saas-factory/create-saas","status: 410"] | "all_tokens_present" |
 | legacyProductionGuardMissing | BLOCKER | legacy:saas-domain-route | PASS | ["LEGACY_SAAS_DOMAIN_ROUTE_BLOCKED","/api/domains/request","status: 410"] | "all_tokens_present" |
 | legacyProductionGuardMissing | BLOCKER | legacy:saas-factory-queue-consumer | PASS | ["LEGACY_SAAS_FACTORY_QUEUE_BLOCKED","legacy.saas_factory_queue.blocked","message.ack"] | "all_tokens_present" |
-| legacyProductionGuardMissing | BLOCKER | legacy:drako-base-3-preview-social-db-fail-closed | PASS | ["LEGACY_PREVIEW_SOCIAL_DB_FAIL_CLOSED","binding = \"SOCIAL_DB\"","database_name = \"saas_socialflows_preview_db\"","database_id = \"00000000-0000-0000-0000-000000000000\""] | "all_tokens_present" |
-| socialflowAuthsBindingSharedIdentity | BLOCKER | socialflow:auths-binding-dedicated:shared_identity | N/A | "SOCIALFLOW_AUTHS_DB configured" | "binding_not_present_yet" |
-| socialflowAuthsBindingNamingViolation | BLOCKER | socialflow:auths-binding-dedicated:naming | N/A | "database_name includes socialflow + auth" | "binding_not_present_yet" |
-| socialflowAuthsBindingPreviewProdCollision | BLOCKER | socialflow:auths-binding-dedicated:preview_prod_collision | N/A | "preview and production use distinct physical identities" | "binding_not_present_yet" |
+| legacyProductionGuardMissing | BLOCKER | legacy:drako-base-3-preview-social-db-fail-closed | PASS | ["LEGACY_PREVIEW_SOCIAL_DB_FAIL_CLOSED","drako-base-3 preview stays unbound for SocialFlow data","Do not add SOCIAL_DB"] | "all_tokens_present" |
+| legacyAuthDbFallbackFlagEnabled | BLOCKER | auth-db-fallback:legacy-flag | PASS | "ALLOW_LEGACY_AUTH_DB_FALLBACK disabled in production configs" | "not_enabled" |
+| deployablePlaceholderDatabaseIdPresent | BLOCKER | deployable-configs:no-placeholder-d1-ids | PASS | "deployable wrangler configs avoid placeholder database ids [00000000-0000-0000-0000-000000000000]" | "no_placeholder_ids_detected" |
+| socialflowAuthsBindingSharedIdentity | BLOCKER | socialflow:auths-binding-dedicated:shared_identity | PASS | "no identity overlap with [DRACO_DB, SAASES_DB, SOCIAL_DB, DRAKOS_AUTHS_DB, MENTORIAS_AUTHS_DB, BASES_AUTHS_DB, MENTORIA_DB]" | "no_overlap_detected" |
+| socialflowAuthsBindingNamingViolation | BLOCKER | socialflow:auths-binding-dedicated:naming | PASS | "database_name includes socialflow + auth (except local collapsed dev)" | "naming_valid" |
+| socialflowAuthsBindingPreviewProdCollision | BLOCKER | socialflow:auths-binding-dedicated:preview_prod_collision | PASS | "preview and production use distinct physical identities" | "distinct" |
 | socialflowCanonicalHostnameMissing | BLOCKER | socialflow:canonical-domain-expected-state:canonical_hostname | PASS | "socialflow.drako.systems present" | "present" |
 | socialflowCanonicalHostnameWrongWorker | BLOCKER | socialflow:canonical-domain-expected-state:canonical_worker | PASS | "socialflow.drako.systems -> saas-socialflows-prod" | "saas-socialflows-prod" |
 | socialflowPluralPrimaryWarning | WARN | socialflow:canonical-domain-expected-state:plural_compatibility | PASS | "socialflows.drako.systems remains compatibility host, not primary" | "socialflows.drako.systems -> saas-socialflows-prod" |
 | socialflowCanonicalSmokeMissing | BLOCKER | socialflow:canonical-domain-expected-state:canonical_smoke | PASS | {"files":["scripts/smoke/socialflow-canonical-domain-smoke.mjs","docs/runbooks/socialflow-canonical-domain-smoke.md"],"mustInclude":["socialflow.drako.systems","/socialflow","/socialflow/auth","/api/socialflow/profile","/api/social/posts","/api/social/linkedin/publish","/api/socialflow/linkedin/connect","socialflows.drako.systems"]} | "evidence_present" |
-| mentoriaBindingMissingTransitionalDebt | WARN | mentoria:db-binding-dedicated:missing_binding_transitional_debt | FAIL | "MENTORIA_DB configured before final cutover" | "binding_not_present_yet" |
-| mentoriaBindingSharedIdentity | BLOCKER | mentoria:db-binding-dedicated:shared_identity | N/A | "MENTORIA_DB configured" | "binding_not_present_yet" |
-| mentoriaBindingPreviewProdCollision | BLOCKER | mentoria:db-binding-dedicated:preview_prod_collision | N/A | "preview and production use distinct physical identities" | "binding_not_present_yet" |
-| mentoriaDbFallbackTransitionalDebt | WARN | mentoria:db-binding-dedicated:fallback_transitional_debt | FAIL | "env?.DRACO_DB removed after final cutover" | "fallback_present" |
+| mentoriaBindingMissingTransitionalDebt | BLOCKER | mentoria:db-binding-dedicated:missing_binding | PASS | "MENTORIA_DB configured" | "binding_present" |
+| mentoriaBindingSharedIdentity | BLOCKER | mentoria:db-binding-dedicated:shared_identity | PASS | "no identity overlap with [DRACO_DB, SOCIAL_DB, DRAKOS_AUTHS_DB, MENTORIAS_AUTHS_DB, BASES_AUTHS_DB, SOCIALFLOW_AUTHS_DB]" | "no_overlap_detected" |
+| mentoriaBindingPreviewProdCollision | BLOCKER | mentoria:db-binding-dedicated:preview_prod_collision | N/A | "preview must be isolated from production identities and be fail-closed or preview-marked" | "preview_not_configured" |
+| mentoriaDbFallbackTransitionalDebt | BLOCKER | mentoria:db-binding-dedicated:fallback_transitional_debt | PASS | "env?.DRACO_DB removed" | "fallback_removed" |
+| mentoriaGlobalDbImportLeakage | BLOCKER | mentoria:db-binding-dedicated:global_db_import_leakage | PASS | "Mentoria product code does not import global DB helpers" | "no_forbidden_imports" |
+| mentoriaWorkerBindingLeakage | BLOCKER | mentoria:db-binding-dedicated:worker_binding_leakage | PASS | "Mentoria worker binds only MENTORIA_DB + MENTORIAS_AUTHS_DB for D1" | "no_forbidden_bindings" |
+| socialflowCrossSaasLeakage | BLOCKER | socialflow:no-cross-saas-leakage | PASS | "no forbidden tokens [@/components/mentoria, @/lib/mentoria, /api/mentoria/, @/lib/campobase, @/lib/campamento-base, @/lib/auth/campamento-core, @/components/operator, @/components/owner, /api/operator/, /api/owner/, /api/campobase/, /api/campamento-base/]" | "no_forbidden_tokens" |
+| operatorFinalUserApiLeakage | BLOCKER | operator:no-final-user-product-api-leakage | PASS | "no forbidden tokens [/api/mentoria/, /api/socialflow/, @/components/mentoria, @/components/saas/socialflow]" | "no_forbidden_tokens" |
+| legacyCompatRouteDrift | BLOCKER | legacy-compat:owner-campobase-control-plane-only | PASS | "owner/campobase compat routes stay pinned to control-plane bridges" | "control_plane_compat" |
 
 ## Violations
 
-- WARN mentoriaBindingMissingTransitionalDebt @ mentoria:db-binding-dedicated:missing_binding_transitional_debt: expected="MENTORIA_DB configured before final cutover" actual="binding_not_present_yet"
-- WARN mentoriaDbFallbackTransitionalDebt @ mentoria:db-binding-dedicated:fallback_transitional_debt: expected="env?.DRACO_DB removed after final cutover" actual="fallback_present"
+- None

@@ -1,6 +1,4 @@
 import { redirect } from "next/navigation";
-import BillingSettings from "@/components/settings/billing-settings";
-import { getDefaultTenantBillingRecord, getTenantBilling } from "@/lib/auth/campamento-core";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 
 export default async function SocialFlowBillingSettingsPage() {
@@ -9,23 +7,24 @@ export default async function SocialFlowBillingSettingsPage() {
     redirect("/socialflow/auth");
   }
 
-  const billing = (await getTenantBilling(session.tenantId)) ?? getDefaultTenantBillingRecord(session.tenantId);
-
   return (
     <div className="space-y-6">
       <div>
         <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">SocialFlow billing</div>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Plan, subscription status and Stripe access</h1>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Billing boundary pending product-native wiring</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          Billing remains scoped by tenant, but access now enters from the SocialFlow auth boundary instead of Campo Base auth.
+          Billing can no longer read Campamento Base helpers from the SocialFlow runtime. This page now
+          remains explicit about that boundary instead of silently traversing another product surface.
         </p>
       </div>
-      <BillingSettings
-        plan={billing?.plan ?? "STARTER"}
-        status={billing?.status ?? "inactive"}
-        currentPeriodEnd={billing?.currentPeriodEnd ?? null}
-        stripeConfigured={Boolean(process.env.STRIPE_SECRET_KEY)}
-      />
+
+      <section className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 shadow-sm">
+        <div className="text-xs font-bold uppercase tracking-[0.18em] text-amber-700">Unavailable in isolated runtime</div>
+        <p className="mt-3 leading-6">
+          Product billing for tenant <strong>{session.tenantId}</strong> still needs a SocialFlow-native portal and
+          read model. This route fails closed until that wiring exists behind the product boundary.
+        </p>
+      </section>
     </div>
   );
 }

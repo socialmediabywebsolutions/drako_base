@@ -171,6 +171,47 @@ describe("SocialFlow vertical boundaries", () => {
     expect(setupPage).not.toMatch(/@\/modules\/socialflow-app\/pages\/setup-page/);
   });
 
+  it("keeps legacy SocialFlow modules detached from Mentoría, Campamento Base and operator surfaces", () => {
+    const files = [
+      ...listFiles(path.join(repoRoot, "src/modules/socialflow-app")),
+      path.join(repoRoot, "src/components/layouts/socialflow-shell.tsx"),
+    ];
+
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      expect(source).not.toMatch(/@\/components\/mentoria/);
+      expect(source).not.toMatch(/@\/lib\/mentoria/);
+      expect(source).not.toMatch(/\/api\/mentoria\//);
+      expect(source).not.toMatch(/@\/lib\/campobase|@\/lib\/campamento-base/);
+      expect(source).not.toMatch(/@\/lib\/auth\/campamento-core/);
+      expect(source).not.toMatch(/@\/components\/operator|@\/components\/owner/);
+      expect(source).not.toMatch(/\/api\/operator\/|\/api\/owner\/|\/api\/campobase\/|\/api\/campamento-base\//);
+    }
+  });
+
+  it("keeps owner and campobase compatibility routes pinned to operator-only reexports", () => {
+    const compatFiles = [
+      ...listFiles(path.join(repoRoot, "src/app/api/owner")),
+      ...listFiles(path.join(repoRoot, "src/app/api/campobase")),
+    ];
+
+    expect(compatFiles.length).toBeGreaterThan(0);
+
+    for (const file of compatFiles) {
+      const source = readFileSync(file, "utf8");
+      expect(source).toMatch(/export\s+\{[^}]+\}\s+from\s+"@\/app\/api\/(operator|factory)\//);
+      expect(source).not.toMatch(/@\/app\/api\/mentoria|@\/app\/api\/socialflow/);
+      expect(source).not.toMatch(/\/api\/mentoria\/|\/api\/socialflow\//);
+    }
+  });
+
+  it("keeps operator UI reading Mentoria health through operator contracts only", () => {
+    const operatorPage = read("src/app/operator/page.tsx");
+
+    expect(operatorPage).toContain("/api/operator/mentoria/health/system");
+    expect(operatorPage).not.toContain("/api/mentoria/health/system");
+  });
+
   it("keeps legacy linkedin connect and callback routes as redirect-only bridges", () => {
     const legacyConnect = read("src/app/api/social/linkedin/connect/route.ts");
     const legacyCallback = read("src/app/api/social/linkedin/callback/route.ts");

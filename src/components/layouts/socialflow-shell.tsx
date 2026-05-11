@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import React, { useMemo } from 'react';
 import type { StrategicDossier } from '@/lib/orchestrator/types';
-import RightPanel from '@/components/right-panel';
 
 interface SocialFlowShellProps {
   children: React.ReactNode;
@@ -43,7 +42,6 @@ export default function SocialFlowShell({
   contentWidth = "standard",
   workspaceSummary,
 }: SocialFlowShellProps) {
-  const isHoldingMode = entryMode === "holding_operator";
   const layoutWidthClass = contentWidth === "wide" ? "max-w-[88rem]" : "max-w-6xl";
   const trialSummary = useMemo(() => {
     if (!instance?.trial_started_at) {
@@ -67,10 +65,10 @@ export default function SocialFlowShell({
   }, [instance]);
 
   const navItems = [
-    { href: "/socialflow", label: "Workspace", description: isHoldingMode ? "Factory output, provisioning, and active SaaS" : "Product dashboard and operator flow" },
+    { href: "/socialflow", label: "Workspace", description: "Product dashboard and publishing surface" },
     { href: "/socialflow/settings/account", label: "Account", description: "Identity, session and workspace switching" },
     { href: "/socialflow/settings/team", label: "Team", description: "Members, roles and pending invites" },
-    { href: "/socialflow/settings/billing", label: "Billing", description: "Plan, subscription and Stripe portal" },
+    { href: "/socialflow/settings/billing", label: "Billing", description: "Product-native billing boundary and status" },
   ];
 
   return (
@@ -82,14 +80,13 @@ export default function SocialFlowShell({
     >
       <aside className="hidden w-[292px] flex-shrink-0 border-r border-slate-200 bg-white/90 p-6 backdrop-blur xl:flex xl:flex-col">
         <div>
-          <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">Campamento Base</div>
+          <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">SocialFlow</div>
           <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">
-            {isHoldingMode ? "Owner control center" : "Tenant workspace"}
+            Product workspace shell
           </h2>
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            {isHoldingMode
-              ? "Holding-side shell for owner auth, factory oversight, billing context and child SaaS registry visibility."
-              : "Shared SaaS core for auth, team access, billing, onboarding and child product entry."}
+            This shell stays inside the SocialFlow product boundary for auth, team access, billing status
+            and workspace navigation.
           </p>
         </div>
 
@@ -121,16 +118,15 @@ export default function SocialFlowShell({
           <div className={`mx-auto flex ${layoutWidthClass} flex-col gap-4`}>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">Workspace control center</div>
+                <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">Product workspace</div>
                 <div className="mt-2 flex flex-wrap items-center gap-3">
                   <h1 className="text-3xl font-black tracking-tight text-slate-950">
                     {workspaceSummary?.tenantName ?? instance?.name ?? "Tenant workspace"}
                   </h1>
                 </div>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                  {isHoldingMode
-                    ? "Campamento Base authenticates owner operators only. Child SaaS users sign in on their product hosts while Drako provisions and tracks the factory output here."
-                    : "Auth, team operations, billing and child SaaS entry now live inside one canonical workspace shell."}
+                  SocialFlow signs users in on the product host and keeps product navigation inside the
+                  canonical `/socialflow/*` surface.
                 </p>
               </div>
             </div>
@@ -143,7 +139,6 @@ export default function SocialFlowShell({
               {children}
             </div>
           </main>
-          <RightPanel />
         </div>
       </div>
     </div>

@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-05-07T16:33:30.769Z",
+  "timestamp": "2026-05-11T07:23:26.031Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
   "productionReady": true,
   "summary": {
-    "checksTotal": 150,
-    "checksPass": 141,
-    "checksFail": 2,
-    "checksNa": 7,
-    "violationsTotal": 2,
+    "checksTotal": 157,
+    "checksPass": 154,
+    "checksFail": 0,
+    "checksNa": 3,
+    "violationsTotal": 0,
     "blockersTotal": 0,
-    "warningsTotal": 2
+    "warningsTotal": 0
   },
   "checks": [
     {
@@ -1464,42 +1464,61 @@
       "targetName": "legacy:drako-base-3-preview-social-db-fail-closed",
       "expected": [
         "LEGACY_PREVIEW_SOCIAL_DB_FAIL_CLOSED",
-        "binding = \"SOCIAL_DB\"",
-        "database_name = \"saas_socialflows_preview_db\"",
-        "database_id = \"00000000-0000-0000-0000-000000000000\""
+        "drako-base-3 preview stays unbound for SocialFlow data",
+        "Do not add SOCIAL_DB"
       ],
       "actual": "all_tokens_present",
       "details": "Legacy production guard verified in wrangler.workers.toml."
     },
     {
+      "checkCode": "legacyAuthDbFallbackFlagEnabled",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "auth-db-fallback:legacy-flag",
+      "expected": "ALLOW_LEGACY_AUTH_DB_FALLBACK disabled in production configs",
+      "actual": "not_enabled",
+      "details": "ALLOW_LEGACY_AUTH_DB_FALLBACK is not enabled in scanned configs."
+    },
+    {
+      "checkCode": "deployablePlaceholderDatabaseIdPresent",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "deployable-configs:no-placeholder-d1-ids",
+      "expected": "deployable wrangler configs avoid placeholder database ids [00000000-0000-0000-0000-000000000000]",
+      "actual": "no_placeholder_ids_detected",
+      "details": "No deployable wrangler config contains a placeholder D1 database_id."
+    },
+    {
       "checkCode": "socialflowAuthsBindingSharedIdentity",
       "severity": "BLOCKER",
-      "status": "N/A",
+      "status": "PASS",
       "targetType": "code_guard",
       "targetName": "socialflow:auths-binding-dedicated:shared_identity",
-      "expected": "SOCIALFLOW_AUTHS_DB configured",
-      "actual": "binding_not_present_yet",
-      "details": "Guard armed for future cutover: SOCIALFLOW_AUTHS_DB is not configured yet."
+      "expected": "no identity overlap with [DRACO_DB, SAASES_DB, SOCIAL_DB, DRAKOS_AUTHS_DB, MENTORIAS_AUTHS_DB, BASES_AUTHS_DB, MENTORIA_DB]",
+      "actual": "no_overlap_detected",
+      "details": "SOCIALFLOW_AUTHS_DB uses a dedicated physical identity in scanned configs."
     },
     {
       "checkCode": "socialflowAuthsBindingNamingViolation",
       "severity": "BLOCKER",
-      "status": "N/A",
+      "status": "PASS",
       "targetType": "code_guard",
       "targetName": "socialflow:auths-binding-dedicated:naming",
-      "expected": "database_name includes socialflow + auth",
-      "actual": "binding_not_present_yet",
-      "details": "Naming policy deferred until SOCIALFLOW_AUTHS_DB exists in config."
+      "expected": "database_name includes socialflow + auth (except local collapsed dev)",
+      "actual": "naming_valid",
+      "details": "SOCIALFLOW_AUTHS_DB naming matches dedicated auth policy."
     },
     {
       "checkCode": "socialflowAuthsBindingPreviewProdCollision",
       "severity": "BLOCKER",
-      "status": "N/A",
+      "status": "PASS",
       "targetType": "code_guard",
       "targetName": "socialflow:auths-binding-dedicated:preview_prod_collision",
       "expected": "preview and production use distinct physical identities",
-      "actual": "binding_not_present_yet",
-      "details": "Preview/prod collision check deferred until SOCIALFLOW_AUTHS_DB is configured."
+      "actual": "distinct",
+      "details": "Preview/production identities are isolated."
     },
     {
       "checkCode": "socialflowCanonicalHostnameMissing",
@@ -1558,23 +1577,23 @@
     },
     {
       "checkCode": "mentoriaBindingMissingTransitionalDebt",
-      "severity": "WARN",
-      "status": "FAIL",
+      "severity": "BLOCKER",
+      "status": "PASS",
       "targetType": "code_guard",
-      "targetName": "mentoria:db-binding-dedicated:missing_binding_transitional_debt",
-      "expected": "MENTORIA_DB configured before final cutover",
-      "actual": "binding_not_present_yet",
-      "details": "MENTORIA_DB is still absent. Transitional debt remains open and runtime fallback is still expected."
+      "targetName": "mentoria:db-binding-dedicated:missing_binding",
+      "expected": "MENTORIA_DB configured",
+      "actual": "binding_present",
+      "details": "MENTORIA_DB is present in config."
     },
     {
       "checkCode": "mentoriaBindingSharedIdentity",
       "severity": "BLOCKER",
-      "status": "N/A",
+      "status": "PASS",
       "targetType": "code_guard",
       "targetName": "mentoria:db-binding-dedicated:shared_identity",
-      "expected": "MENTORIA_DB configured",
-      "actual": "binding_not_present_yet",
-      "details": "Shared-identity guard is armed for future cutover: MENTORIA_DB is not configured yet."
+      "expected": "no identity overlap with [DRACO_DB, SOCIAL_DB, DRAKOS_AUTHS_DB, MENTORIAS_AUTHS_DB, BASES_AUTHS_DB, SOCIALFLOW_AUTHS_DB]",
+      "actual": "no_overlap_detected",
+      "details": "MENTORIA_DB uses a dedicated physical identity in scanned configs."
     },
     {
       "checkCode": "mentoriaBindingPreviewProdCollision",
@@ -1582,41 +1601,72 @@
       "status": "N/A",
       "targetType": "code_guard",
       "targetName": "mentoria:db-binding-dedicated:preview_prod_collision",
-      "expected": "preview and production use distinct physical identities",
-      "actual": "binding_not_present_yet",
-      "details": "Preview/prod collision check is deferred until MENTORIA_DB exists."
+      "expected": "preview must be isolated from production identities and be fail-closed or preview-marked",
+      "actual": "preview_not_configured",
+      "details": "Preview collision check skipped because no preview binding evidence exists."
     },
     {
       "checkCode": "mentoriaDbFallbackTransitionalDebt",
-      "severity": "WARN",
-      "status": "FAIL",
+      "severity": "BLOCKER",
+      "status": "PASS",
       "targetType": "code_guard",
       "targetName": "mentoria:db-binding-dedicated:fallback_transitional_debt",
-      "expected": "env?.DRACO_DB removed after final cutover",
-      "actual": "fallback_present",
-      "details": "Transitional fallback to DRACO_DB is still present in src/lib/mentoria/get-mentoria-db.ts."
-    }
-  ],
-  "violations": [
-    {
-      "checkCode": "mentoriaBindingMissingTransitionalDebt",
-      "severity": "WARN",
-      "targetType": "code_guard",
-      "targetName": "mentoria:db-binding-dedicated:missing_binding_transitional_debt",
-      "expected": "MENTORIA_DB configured before final cutover",
-      "actual": "binding_not_present_yet",
-      "details": "MENTORIA_DB is still absent. Transitional debt remains open and runtime fallback is still expected."
+      "expected": "env?.DRACO_DB removed",
+      "actual": "fallback_removed",
+      "details": "DRACO_DB fallback token is no longer present in src/lib/mentoria/get-mentoria-db.ts."
     },
     {
-      "checkCode": "mentoriaDbFallbackTransitionalDebt",
-      "severity": "WARN",
+      "checkCode": "mentoriaGlobalDbImportLeakage",
+      "severity": "BLOCKER",
+      "status": "PASS",
       "targetType": "code_guard",
-      "targetName": "mentoria:db-binding-dedicated:fallback_transitional_debt",
-      "expected": "env?.DRACO_DB removed after final cutover",
-      "actual": "fallback_present",
-      "details": "Transitional fallback to DRACO_DB is still present in src/lib/mentoria/get-mentoria-db.ts."
+      "targetName": "mentoria:db-binding-dedicated:global_db_import_leakage",
+      "expected": "Mentoria product code does not import global DB helpers",
+      "actual": "no_forbidden_imports",
+      "details": "Mentoria product code is isolated from @/lib/db."
+    },
+    {
+      "checkCode": "mentoriaWorkerBindingLeakage",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "mentoria:db-binding-dedicated:worker_binding_leakage",
+      "expected": "Mentoria worker binds only MENTORIA_DB + MENTORIAS_AUTHS_DB for D1",
+      "actual": "no_forbidden_bindings",
+      "details": "Mentoria worker D1 bindings are limited to product/auth surfaces."
+    },
+    {
+      "checkCode": "socialflowCrossSaasLeakage",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:no-cross-saas-leakage",
+      "expected": "no forbidden tokens [@/components/mentoria, @/lib/mentoria, /api/mentoria/, @/lib/campobase, @/lib/campamento-base, @/lib/auth/campamento-core, @/components/operator, @/components/owner, /api/operator/, /api/owner/, /api/campobase/, /api/campamento-base/]",
+      "actual": "no_forbidden_tokens",
+      "details": "SocialFlow sources stay isolated from Mentoría, Campamento Base and operator surfaces."
+    },
+    {
+      "checkCode": "operatorFinalUserApiLeakage",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "operator:no-final-user-product-api-leakage",
+      "expected": "no forbidden tokens [/api/mentoria/, /api/socialflow/, @/components/mentoria, @/components/saas/socialflow]",
+      "actual": "no_forbidden_tokens",
+      "details": "Operator and Campamento Base sources do not call final-user product APIs directly."
+    },
+    {
+      "checkCode": "legacyCompatRouteDrift",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "legacy-compat:owner-campobase-control-plane-only",
+      "expected": "owner/campobase compat routes stay pinned to control-plane bridges",
+      "actual": "control_plane_compat",
+      "details": "Legacy owner/campobase routes remain explicit control-plane compatibility bridges."
     }
   ],
+  "violations": [],
   "snapshots": {
     "workers": [
       {

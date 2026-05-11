@@ -503,28 +503,18 @@ export default function OwnerPage() {
     setMentoriaSystemHealthLoading(true);
     setMentoriaSystemHealthError(null);
     try {
-      const parseBody = async (response: Response) => {
-        return (await response.json().catch(() => null)) as {
-          ok?: boolean;
-          error?: string;
-          health?: MentoriaSystemHealth;
-        } | null;
-      };
+      const response = await fetch("/api/operator/mentoria/health/system", { cache: "no-store" });
+      const body = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        health?: MentoriaSystemHealth;
+      } | null;
 
-      const directRes = await fetch("/api/mentoria/health/system", { cache: "no-store" });
-      const directBody = await parseBody(directRes);
-      if (directRes.ok && directBody?.ok && directBody.health) {
-        setMentoriaSystemHealth(directBody.health);
-        return;
+      if (!response.ok || !body?.ok || !body.health) {
+        throw new Error(body?.error ?? "No se pudo cargar Mentoria system health.");
       }
 
-      const fallbackRes = await fetch("/api/operator/mentoria/health/system", { cache: "no-store" });
-      const fallbackBody = await parseBody(fallbackRes);
-      if (!fallbackRes.ok || !fallbackBody?.ok || !fallbackBody.health) {
-        throw new Error(fallbackBody?.error ?? directBody?.error ?? "No se pudo cargar Mentoria system health.");
-      }
-
-      setMentoriaSystemHealth(fallbackBody.health);
+      setMentoriaSystemHealth(body.health);
     } catch (error) {
       setMentoriaSystemHealth(null);
       setMentoriaSystemHealthError(error instanceof Error ? error.message : "No se pudo cargar Mentoria system health.");

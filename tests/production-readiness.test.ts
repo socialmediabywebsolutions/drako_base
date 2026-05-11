@@ -471,4 +471,53 @@ describe("production readiness audits", () => {
     expect(mentoriasWrangler).not.toContain('binding = "DRACO_DB"');
     expect(mentoriasWrangler).not.toContain('binding = "DB"');
   });
+
+  it("fails readiness when SocialFlow source leaks into another product or control plane", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowBoundaryGuardOverride: {
+        targetName: "test:socialflow-boundary-guard",
+        sourcePaths: ["tests/fixtures/production-audits/cross-saas-guards/socialflow-leak"],
+        forbiddenTokens: ["/api/mentoria/"],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowCrossSaasLeakage")).toBe(true);
+  });
+
+  it("fails readiness when operator source calls a final-user product API directly", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      operatorBoundaryGuardOverride: {
+        targetName: "test:operator-boundary-guard",
+        sourcePaths: ["tests/fixtures/production-audits/cross-saas-guards/operator-leak"],
+        forbiddenTokens: ["/api/mentoria/health/system"],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "operatorFinalUserApiLeakage")).toBe(true);
+  });
+
+  it("fails readiness when owner/campobase compat routes drift away from operator-only bridges", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      legacyCompatRouteGuardOverride: {
+        targetName: "test:legacy-compat-route-guard",
+        routeDirs: ["tests/fixtures/production-audits/legacy-compat-guards/drift"],
+        requiredAnyTokens: ['@/app/api/operator/', '@/app/api/factory/'],
+        forbiddenTokens: ['/api/mentoria/'],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "legacyCompatRouteDrift")).toBe(true);
+  });
 });
