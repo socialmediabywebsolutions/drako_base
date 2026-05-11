@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-05-11T18:55:57.905Z",
+  "timestamp": "2026-05-11T19:20:04.507Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
   "productionReady": true,
   "summary": {
-    "checksTotal": 161,
-    "checksPass": 158,
+    "checksTotal": 163,
+    "checksPass": 160,
     "checksFail": 0,
     "checksNa": 3,
     "violationsTotal": 0,
@@ -1828,6 +1828,36 @@
       "expected": "all runtime guard rules satisfied",
       "actual": "runtime_guard_ok",
       "details": "Legacy compat telemetry markers and sunset headers remain wired in middleware."
+    },
+    {
+      "checkCode": "artifactMatrixSkeletonDrift",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "artifact-matrix:skeleton-prepared-global-still-active",
+      "expected": {
+        "state": "skeleton",
+        "deployMode": "global-open-next-only",
+        "activeArtifactName": "open-next-build",
+        "products": [
+          "drakos",
+          "bases",
+          "mentorias",
+          "socialflows"
+        ]
+      },
+      "actual": "artifact_matrix_skeleton_ok",
+      "details": "Artifact matrix skeleton stays documented, CI keeps generating metadata, and the active deploy artifact remains global."
+    },
+    {
+      "checkCode": "artifactSplitPrematureActivation",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "artifact-matrix:no-premature-worker-switch",
+      "expected": "workers stay on ../../.open-next/worker.js and deploy workflow remains on open-next-build",
+      "actual": "artifact_split_inactive",
+      "details": "Artifact split remains inactive until a later commit generates and switches product-specific bundles deliberately."
     },
     {
       "checkCode": "socialflowRuntimeGuardDrift",

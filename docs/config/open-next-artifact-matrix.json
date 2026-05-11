@@ -1,0 +1,51 @@
+{
+  "state": "skeleton",
+  "deployMode": "global-open-next-only",
+  "activeArtifact": {
+    "workerPath": ".open-next/worker.js",
+    "assetsPath": ".open-next/assets",
+    "artifactName": "open-next-build"
+  },
+  "products": [
+    {
+      "key": "drakos",
+      "workerName": "saas-drakos-prod",
+      "wranglerConfigPath": "workers/drakos/wrangler.workers.toml",
+      "currentWranglerMain": "../../.open-next/worker.js",
+      "currentWranglerAssetsDirectory": "../../.open-next/assets",
+      "plannedWorkerPath": ".open-next/drakos/worker.js",
+      "plannedAssetsPath": ".open-next/drakos/assets"
+    },
+    {
+      "key": "bases",
+      "workerName": "saas-bases-prod",
+      "wranglerConfigPath": "workers/bases/wrangler.workers.toml",
+      "currentWranglerMain": "../../.open-next/worker.js",
+      "currentWranglerAssetsDirectory": "../../.open-next/assets",
+      "plannedWorkerPath": ".open-next/bases/worker.js",
+      "plannedAssetsPath": ".open-next/bases/assets"
+    },
+    {
+      "key": "mentorias",
+      "workerName": "saas-mentorias-prod",
+      "wranglerConfigPath": "workers/mentorias/wrangler.workers.toml",
+      "currentWranglerMain": "../../.open-next/worker.js",
+      "currentWranglerAssetsDirectory": "../../.open-next/assets",
+      "plannedWorkerPath": ".open-next/mentorias/worker.js",
+      "plannedAssetsPath": ".open-next/mentorias/assets"
+    },
+    {
+      "key": "socialflows",
+      "workerName": "saas-socialflows-prod",
+      "wranglerConfigPath": "workers/socialflows/wrangler.workers.toml",
+      "currentWranglerMain": "../../.open-next/worker.js",
+      "currentWranglerAssetsDirectory": "../../.open-next/assets",
+      "plannedWorkerPath": ".open-next/socialflows/worker.js",
+      "plannedAssetsPath": ".open-next/socialflows/assets"
+    }
+  ],
+  "notes": [
+    "Skeleton only. Active deploy remains on the shared .open-next artifact until P1 Commit 3 switches SocialFlow deliberately.",
+    "Do not point worker wrangler configs at planned per-product artifact paths before the split commit generates them."
+  ]
+}

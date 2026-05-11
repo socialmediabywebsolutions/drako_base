@@ -185,6 +185,85 @@ describe("production readiness audits", () => {
       },
     ],
   } as const;
+  const artifactMatrixProductsBase = [
+    {
+      key: "drakos",
+      workerName: "saas-drakos-prod",
+      wranglerConfigPath: "workers/drakos/wrangler.workers.toml",
+      currentWranglerMain: "../../.open-next/worker.js",
+      currentWranglerAssetsDirectory: "../../.open-next/assets",
+      plannedWorkerPath: ".open-next/drakos/worker.js",
+      plannedAssetsPath: ".open-next/drakos/assets",
+    },
+    {
+      key: "bases",
+      workerName: "saas-bases-prod",
+      wranglerConfigPath: "workers/bases/wrangler.workers.toml",
+      currentWranglerMain: "../../.open-next/worker.js",
+      currentWranglerAssetsDirectory: "../../.open-next/assets",
+      plannedWorkerPath: ".open-next/bases/worker.js",
+      plannedAssetsPath: ".open-next/bases/assets",
+    },
+    {
+      key: "mentorias",
+      workerName: "saas-mentorias-prod",
+      wranglerConfigPath: "workers/mentorias/wrangler.workers.toml",
+      currentWranglerMain: "../../.open-next/worker.js",
+      currentWranglerAssetsDirectory: "../../.open-next/assets",
+      plannedWorkerPath: ".open-next/mentorias/worker.js",
+      plannedAssetsPath: ".open-next/mentorias/assets",
+    },
+    {
+      key: "socialflows",
+      workerName: "saas-socialflows-prod",
+      wranglerConfigPath: "workers/socialflows/wrangler.workers.toml",
+      currentWranglerMain: "../../.open-next/worker.js",
+      currentWranglerAssetsDirectory: "../../.open-next/assets",
+      plannedWorkerPath: ".open-next/socialflows/worker.js",
+      plannedAssetsPath: ".open-next/socialflows/assets",
+    },
+  ] as const;
+  const artifactMatrixSkeletonGuardBase = {
+    targetName: "test:artifact-matrix-skeleton",
+    manifestPath: "docs/config/open-next-artifact-matrix.json",
+    workflowPath: ".github/workflows/drako-factory-deploy.yml",
+    buildScriptPath: "scripts/build-artifact-matrix-skeleton.mjs",
+    expectedState: "skeleton",
+    expectedDeployMode: "global-open-next-only",
+    expectedActiveArtifactName: "open-next-build",
+    expectedProducts: artifactMatrixProductsBase,
+    workflowRequiredTokens: [
+      "artifact_matrix_skeleton:",
+      "Artifact Matrix Skeleton (${{ matrix.product }})",
+      "pnpm build:artifacts:skeleton",
+      "open-next-artifact-matrix-${{ matrix.product }}",
+      "ARTIFACT_MATRIX_REQUIRE_GLOBAL_BUILD: \"1\"",
+      "build/open-next-artifact-matrix/global",
+      "name: open-next-build",
+      "Download OpenNext build artifact",
+    ],
+    buildScriptRequiredTokens: [
+      "ARTIFACT_MATRIX_SKELETON_OK",
+      "ARTIFACT_MATRIX_SKELETON_INVALID",
+      "ARTIFACT_MATRIX_SKELETON_GLOBAL_BUILD_MISSING",
+      "build/open-next-artifact-matrix",
+    ],
+  } as const;
+  const artifactMatrixPrematureActivationGuardBase = {
+    targetName: "test:artifact-matrix-premature-activation",
+    products: artifactMatrixProductsBase,
+    workflowPath: ".github/workflows/drako-factory-deploy.yml",
+    forbiddenWorkflowTokens: [
+      "name: open-next-artifact-matrix-drakos",
+      "name: open-next-artifact-matrix-bases",
+      "name: open-next-artifact-matrix-mentorias",
+      "name: open-next-artifact-matrix-socialflows",
+      "path: .open-next/drakos",
+      "path: .open-next/bases",
+      "path: .open-next/mentorias",
+      "path: .open-next/socialflows",
+    ],
+  } as const;
 
   it("passes when fixtures match expected", async () => {
     const result = await runProductionReadinessAudits({
@@ -804,5 +883,58 @@ describe("production readiness audits", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.report.violations.some((item) => item.checkCode === "legacyCompatTelemetryGuardMissing")).toBe(true);
+  });
+
+  it("passes readiness when artifact matrix skeleton is present and deploy remains global", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      artifactMatrixSkeletonGuardOverride: artifactMatrixSkeletonGuardBase,
+      artifactMatrixPrematureActivationGuardOverride: artifactMatrixPrematureActivationGuardBase,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(
+      result.report.checks.some((item) => item.checkCode === "artifactMatrixSkeletonDrift" && item.status === "PASS"),
+    ).toBe(true);
+    expect(
+      result.report.checks.some((item) => item.checkCode === "artifactSplitPrematureActivation" && item.status === "PASS"),
+    ).toBe(true);
+  });
+
+  it("fails readiness when the artifact matrix skeleton source of truth drifts", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      artifactMatrixSkeletonGuardOverride: {
+        ...artifactMatrixSkeletonGuardBase,
+        manifestPath: "tests/fixtures/production-audits/artifact-matrix-guards/drift-manifest.json",
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "artifactMatrixSkeletonDrift")).toBe(true);
+  });
+
+  it("fails readiness when a worker or workflow acts like per-product artifacts are already active", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      artifactMatrixPrematureActivationGuardOverride: {
+        ...artifactMatrixPrematureActivationGuardBase,
+        products: [
+          {
+            ...artifactMatrixPrematureActivationGuardBase.products[0],
+            wranglerConfigPath: "tests/fixtures/production-audits/artifact-matrix-guards/premature-worker.wrangler.toml",
+          },
+        ],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "artifactSplitPrematureActivation")).toBe(true);
   });
 });

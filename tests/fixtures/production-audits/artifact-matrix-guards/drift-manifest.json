@@ -1,0 +1,23 @@
+{
+  "state": "active",
+  "deployMode": "per-product-active",
+  "activeArtifact": {
+    "workerPath": ".open-next/socialflows/worker.js",
+    "assetsPath": ".open-next/socialflows/assets",
+    "artifactName": "open-next-artifact-matrix-socialflows"
+  },
+  "products": [
+    {
+      "key": "socialflows",
+      "workerName": "saas-socialflows-prod",
+      "wranglerConfigPath": "workers/socialflows/wrangler.workers.toml",
+      "currentWranglerMain": "../../.open-next/socialflows/worker.js",
+      "currentWranglerAssetsDirectory": "../../.open-next/socialflows/assets",
+      "plannedWorkerPath": ".open-next/socialflows/worker.js",
+      "plannedAssetsPath": ".open-next/socialflows/assets"
+    }
+  ],
+  "notes": [
+    "Negative fixture: this pretends the split is active before Commit 3."
+  ]
+}

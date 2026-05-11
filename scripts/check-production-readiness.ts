@@ -152,7 +152,9 @@ type CheckCode =
   | "socialflowRuntimeGuardDrift"
   | "socialflowCanonicalSmokeGuardDrift"
   | "legacyCompatInventoryDrift"
-  | "legacyCompatTelemetryGuardMissing";
+  | "legacyCompatTelemetryGuardMissing"
+  | "artifactMatrixSkeletonDrift"
+  | "artifactSplitPrematureActivation";
 
 type CheckRecord = {
   checkCode: CheckCode;
@@ -235,6 +237,8 @@ type ProductionAuditsRunOptions = {
   socialflowSmokeGuardOverride?: SocialflowSmokeGuard;
   legacyCompatInventoryGuardOverride?: LegacyCompatInventoryGuard;
   legacyCompatTelemetryGuardOverride?: FileTokenGuard;
+  artifactMatrixSkeletonGuardOverride?: ArtifactMatrixSkeletonGuard;
+  artifactMatrixPrematureActivationGuardOverride?: ArtifactMatrixPrematureActivationGuard;
 };
 
 type LegacyProductionGuard = {
@@ -325,6 +329,36 @@ type LegacyCompatInventoryGuard = {
   expectedCompatSurfacePaths: string[];
   redirectPageRules: FileTokenRule[];
   forbiddenCompatSurfaceTokens: string[];
+};
+
+type ArtifactMatrixProduct = {
+  key: string;
+  workerName: string;
+  wranglerConfigPath: string;
+  currentWranglerMain: string;
+  currentWranglerAssetsDirectory: string;
+  plannedWorkerPath: string;
+  plannedAssetsPath: string;
+};
+
+type ArtifactMatrixSkeletonGuard = {
+  targetName: string;
+  manifestPath: string;
+  workflowPath: string;
+  buildScriptPath: string;
+  expectedState: string;
+  expectedDeployMode: string;
+  expectedActiveArtifactName: string;
+  expectedProducts: ArtifactMatrixProduct[];
+  workflowRequiredTokens: string[];
+  buildScriptRequiredTokens: string[];
+};
+
+type ArtifactMatrixPrematureActivationGuard = {
+  targetName: string;
+  products: ArtifactMatrixProduct[];
+  workflowPath: string;
+  forbiddenWorkflowTokens: string[];
 };
 
 type D1BindingRecord = {
@@ -561,6 +595,88 @@ const DEFAULT_LEGACY_COMPAT_TELEMETRY_GUARD: FileTokenGuard = {
         "LEGACY_COMPAT_ROUTE_HIT",
       ],
     },
+  ],
+};
+
+const DEFAULT_ARTIFACT_MATRIX_PRODUCTS: ArtifactMatrixProduct[] = [
+  {
+    key: "drakos",
+    workerName: "saas-drakos-prod",
+    wranglerConfigPath: "workers/drakos/wrangler.workers.toml",
+    currentWranglerMain: "../../.open-next/worker.js",
+    currentWranglerAssetsDirectory: "../../.open-next/assets",
+    plannedWorkerPath: ".open-next/drakos/worker.js",
+    plannedAssetsPath: ".open-next/drakos/assets",
+  },
+  {
+    key: "bases",
+    workerName: "saas-bases-prod",
+    wranglerConfigPath: "workers/bases/wrangler.workers.toml",
+    currentWranglerMain: "../../.open-next/worker.js",
+    currentWranglerAssetsDirectory: "../../.open-next/assets",
+    plannedWorkerPath: ".open-next/bases/worker.js",
+    plannedAssetsPath: ".open-next/bases/assets",
+  },
+  {
+    key: "mentorias",
+    workerName: "saas-mentorias-prod",
+    wranglerConfigPath: "workers/mentorias/wrangler.workers.toml",
+    currentWranglerMain: "../../.open-next/worker.js",
+    currentWranglerAssetsDirectory: "../../.open-next/assets",
+    plannedWorkerPath: ".open-next/mentorias/worker.js",
+    plannedAssetsPath: ".open-next/mentorias/assets",
+  },
+  {
+    key: "socialflows",
+    workerName: "saas-socialflows-prod",
+    wranglerConfigPath: "workers/socialflows/wrangler.workers.toml",
+    currentWranglerMain: "../../.open-next/worker.js",
+    currentWranglerAssetsDirectory: "../../.open-next/assets",
+    plannedWorkerPath: ".open-next/socialflows/worker.js",
+    plannedAssetsPath: ".open-next/socialflows/assets",
+  },
+];
+
+const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
+  targetName: "artifact-matrix:skeleton-prepared-global-still-active",
+  manifestPath: "docs/config/open-next-artifact-matrix.json",
+  workflowPath: ".github/workflows/drako-factory-deploy.yml",
+  buildScriptPath: "scripts/build-artifact-matrix-skeleton.mjs",
+  expectedState: "skeleton",
+  expectedDeployMode: "global-open-next-only",
+  expectedActiveArtifactName: "open-next-build",
+  expectedProducts: DEFAULT_ARTIFACT_MATRIX_PRODUCTS,
+  workflowRequiredTokens: [
+    "artifact_matrix_skeleton:",
+    "Artifact Matrix Skeleton (${{ matrix.product }})",
+    "pnpm build:artifacts:skeleton",
+    "open-next-artifact-matrix-${{ matrix.product }}",
+    "ARTIFACT_MATRIX_REQUIRE_GLOBAL_BUILD: \"1\"",
+    "build/open-next-artifact-matrix/global",
+    "name: open-next-build",
+    "Download OpenNext build artifact",
+  ],
+  buildScriptRequiredTokens: [
+    "ARTIFACT_MATRIX_SKELETON_OK",
+    "ARTIFACT_MATRIX_SKELETON_INVALID",
+    "ARTIFACT_MATRIX_SKELETON_GLOBAL_BUILD_MISSING",
+    "build/open-next-artifact-matrix",
+  ],
+};
+
+const DEFAULT_ARTIFACT_MATRIX_PREMATURE_ACTIVATION_GUARD: ArtifactMatrixPrematureActivationGuard = {
+  targetName: "artifact-matrix:no-premature-worker-switch",
+  products: DEFAULT_ARTIFACT_MATRIX_PRODUCTS,
+  workflowPath: ".github/workflows/drako-factory-deploy.yml",
+  forbiddenWorkflowTokens: [
+    "name: open-next-artifact-matrix-drakos",
+    "name: open-next-artifact-matrix-bases",
+    "name: open-next-artifact-matrix-mentorias",
+    "name: open-next-artifact-matrix-socialflows",
+    "path: .open-next/drakos",
+    "path: .open-next/bases",
+    "path: .open-next/mentorias",
+    "path: .open-next/socialflows",
   ],
 };
 
@@ -2520,6 +2636,143 @@ async function buildFileTokenGuardChecks(
   ];
 }
 
+async function buildArtifactMatrixSkeletonChecks(guard: ArtifactMatrixSkeletonGuard): Promise<CheckRecord[]> {
+  const failures: string[] = [];
+  let manifest: { state?: string; deployMode?: string; activeArtifact?: { artifactName?: string }; products?: ArtifactMatrixProduct[] } | null = null;
+
+  try {
+    manifest = JSON.parse(await fs.readFile(resolveAbsolutePath(guard.manifestPath), "utf8")) as {
+      state?: string;
+      deployMode?: string;
+      activeArtifact?: { artifactName?: string };
+      products?: ArtifactMatrixProduct[];
+    };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    failures.push(`${guard.manifestPath} read_error=${reason}`);
+  }
+
+  if (manifest) {
+    if (manifest.state !== guard.expectedState) {
+      failures.push(`${guard.manifestPath} state expected ${guard.expectedState} got ${String(manifest.state)}`);
+    }
+    if (manifest.deployMode !== guard.expectedDeployMode) {
+      failures.push(`${guard.manifestPath} deployMode expected ${guard.expectedDeployMode} got ${String(manifest.deployMode)}`);
+    }
+    if (manifest.activeArtifact?.artifactName !== guard.expectedActiveArtifactName) {
+      failures.push(
+        `${guard.manifestPath} active artifact expected ${guard.expectedActiveArtifactName} got ${String(manifest.activeArtifact?.artifactName)}`,
+      );
+    }
+
+    const manifestProducts = new Map((manifest.products ?? []).map((product) => [product.key, product]));
+    for (const expectedProduct of guard.expectedProducts) {
+      const actualProduct = manifestProducts.get(expectedProduct.key);
+      if (!actualProduct) {
+        failures.push(`${guard.manifestPath} missing product ${expectedProduct.key}`);
+        continue;
+      }
+
+      for (const [field, expectedValue] of Object.entries(expectedProduct)) {
+        if ((actualProduct as Record<string, unknown>)[field] !== expectedValue) {
+          failures.push(
+            `${guard.manifestPath} product ${expectedProduct.key} field ${field} expected ${expectedValue} got ${String(
+              (actualProduct as Record<string, unknown>)[field],
+            )}`,
+          );
+        }
+      }
+    }
+
+    const manifestProductKeys = new Set((manifest.products ?? []).map((product) => product.key));
+    for (const productKey of manifestProductKeys) {
+      if (!guard.expectedProducts.some((product) => product.key === productKey)) {
+        failures.push(`${guard.manifestPath} unexpected product ${productKey}`);
+      }
+    }
+  }
+
+  for (const token of guard.workflowRequiredTokens) {
+    const workflowContent = await fs.readFile(resolveAbsolutePath(guard.workflowPath), "utf8");
+    if (!workflowContent.includes(token)) {
+      failures.push(`${guard.workflowPath} missing ${token}`);
+    }
+  }
+
+  const buildScriptContent = await fs.readFile(resolveAbsolutePath(guard.buildScriptPath), "utf8");
+  for (const token of guard.buildScriptRequiredTokens) {
+    if (!buildScriptContent.includes(token)) {
+      failures.push(`${guard.buildScriptPath} missing ${token}`);
+    }
+  }
+
+  return [
+    {
+      checkCode: "artifactMatrixSkeletonDrift",
+      severity: "BLOCKER",
+      status: failures.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: {
+        state: guard.expectedState,
+        deployMode: guard.expectedDeployMode,
+        activeArtifactName: guard.expectedActiveArtifactName,
+        products: guard.expectedProducts.map((product) => product.key),
+      },
+      actual: failures.length === 0 ? "artifact_matrix_skeleton_ok" : failures,
+      details:
+        failures.length === 0
+          ? "Artifact matrix skeleton stays documented, CI keeps generating metadata, and the active deploy artifact remains global."
+          : "Artifact matrix skeleton drifted, lost its shared source of truth, or CI stopped advertising the planned per-product split safely.",
+    },
+  ];
+}
+
+async function buildArtifactMatrixPrematureActivationChecks(
+  guard: ArtifactMatrixPrematureActivationGuard,
+): Promise<CheckRecord[]> {
+  const failures: string[] = [];
+  const workflowContent = await fs.readFile(resolveAbsolutePath(guard.workflowPath), "utf8");
+
+  for (const token of guard.forbiddenWorkflowTokens) {
+    if (workflowContent.includes(token)) {
+      failures.push(`${guard.workflowPath} contains forbidden ${token}`);
+    }
+  }
+
+  for (const product of guard.products) {
+    const workerConfigContent = await fs.readFile(resolveAbsolutePath(product.wranglerConfigPath), "utf8");
+    if (!workerConfigContent.includes(`main = "${product.currentWranglerMain}"`)) {
+      failures.push(`${product.wranglerConfigPath} no longer points to ${product.currentWranglerMain}`);
+    }
+    if (!workerConfigContent.includes(`directory = "${product.currentWranglerAssetsDirectory}"`)) {
+      failures.push(`${product.wranglerConfigPath} no longer points assets to ${product.currentWranglerAssetsDirectory}`);
+    }
+    if (workerConfigContent.includes(product.plannedWorkerPath)) {
+      failures.push(`${product.wranglerConfigPath} points to planned artifact ${product.plannedWorkerPath}`);
+    }
+    if (workerConfigContent.includes(product.plannedAssetsPath)) {
+      failures.push(`${product.wranglerConfigPath} points assets to planned artifact ${product.plannedAssetsPath}`);
+    }
+  }
+
+  return [
+    {
+      checkCode: "artifactSplitPrematureActivation",
+      severity: "BLOCKER",
+      status: failures.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: "workers stay on ../../.open-next/worker.js and deploy workflow remains on open-next-build",
+      actual: failures.length === 0 ? "artifact_split_inactive" : failures,
+      details:
+        failures.length === 0
+          ? "Artifact split remains inactive until a later commit generates and switches product-specific bundles deliberately."
+          : "A worker or workflow started acting as if per-product artifacts were active before the split commit landed.",
+    },
+  ];
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -2790,6 +3043,16 @@ export async function runProductionReadinessAudits(
     "Legacy compat telemetry or sunset headers drifted out of middleware.",
   );
   checks.push(...legacyCompatTelemetryChecks);
+  const artifactMatrixSkeletonGuard =
+    options.artifactMatrixSkeletonGuardOverride ?? DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD;
+  const artifactMatrixSkeletonChecks = await buildArtifactMatrixSkeletonChecks(artifactMatrixSkeletonGuard);
+  checks.push(...artifactMatrixSkeletonChecks);
+  const artifactMatrixPrematureActivationGuard =
+    options.artifactMatrixPrematureActivationGuardOverride ?? DEFAULT_ARTIFACT_MATRIX_PREMATURE_ACTIVATION_GUARD;
+  const artifactMatrixPrematureActivationChecks = await buildArtifactMatrixPrematureActivationChecks(
+    artifactMatrixPrematureActivationGuard,
+  );
+  checks.push(...artifactMatrixPrematureActivationChecks);
   const socialflowRuntimeGuard = options.socialflowRuntimeGuardOverride ?? DEFAULT_SOCIALFLOW_RUNTIME_GUARD;
   const socialflowRuntimeChecks = await buildFileTokenGuardChecks(
     socialflowRuntimeGuard,

@@ -59,10 +59,53 @@ jobs:
           npx vitest run tests/lib/auth-origin-resolution.test.ts
           npx vitest run tests/lib/auth-session-cookie-e2e.test.ts
 
+  artifact_matrix_skeleton:
+    name: Artifact Matrix Skeleton (${{ matrix.product }})
+    runs-on: ubuntu-latest
+    needs: gates
+    strategy:
+      fail-fast: false
+      matrix:
+        product:
+          - drakos
+          - bases
+          - mentorias
+          - socialflows
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.25.0"
+
+      - name: Setup Node.js (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.1"
+
+      - name: Generate artifact matrix skeleton manifest
+        env:
+          ARTIFACT_MATRIX_PRODUCT: ${{ matrix.product }}
+          ARTIFACT_MATRIX_OUTPUT_DIR: build/open-next-artifact-matrix/${{ matrix.product }}
+        run: |
+          set -euo pipefail
+          pnpm build:artifacts:skeleton
+
+      - name: Upload artifact matrix skeleton manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-next-artifact-matrix-${{ matrix.product }}
+          if-no-files-found: error
+          path: build/open-next-artifact-matrix/${{ matrix.product }}
+
   build:
     name: Build Real OpenNext
     runs-on: ubuntu-latest
-    needs: gates
+    needs:
+      - gates
+      - artifact_matrix_skeleton
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -119,6 +162,15 @@ jobs:
           # Cleanup always
           rm -f wrangler.toml
 
+      - name: Emit global artifact matrix skeleton index
+        env:
+          ARTIFACT_MATRIX_PRODUCT: all
+          ARTIFACT_MATRIX_OUTPUT_DIR: build/open-next-artifact-matrix/global
+          ARTIFACT_MATRIX_REQUIRE_GLOBAL_BUILD: "1"
+        run: |
+          set -euo pipefail
+          pnpm build:artifacts:skeleton
+
       - name: Guardrail (real worker only, no dry-run/stub)
         run: |
           set -euo pipefail
@@ -162,6 +214,7 @@ jobs:
           path: |
             .open-next
             open-next-build.log
+            build/open-next-artifact-matrix/global
 
   deploy:
     name: Deploy Workers
