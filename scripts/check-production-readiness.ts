@@ -164,6 +164,7 @@ type CheckCode =
   | "drakosPreparedArtifactGuardDrift"
   | "basesPreparedArtifactGuardDrift"
   | "globalDeployDrift"
+  | "socialflowStandalonePreparedGuardDrift"
   | "mentoriaAuthsOperationalDrift";
 
 type CheckRecord = {
@@ -255,6 +256,7 @@ type ProductionAuditsRunOptions = {
   drakosPreparedArtifactGuardOverride?: FileTokenGuard;
   basesPreparedArtifactGuardOverride?: FileTokenGuard;
   globalDeployDriftGuardOverride?: FileTokenGuard;
+  socialflowStandalonePreparedGuardOverride?: FileTokenGuard;
   mentoriaAuthsOperationalGuardOverride?: FileTokenGuard;
 };
 
@@ -702,6 +704,7 @@ const DEFAULT_ARTIFACT_MATRIX_PRODUCTS: ArtifactMatrixProduct[] = [
     plannedWorkerPath: ".open-next/socialflows/worker.js",
     plannedAssetsPath: ".open-next/socialflows/assets",
     dedicatedArtifactName: "open-next-socialflows-build",
+    preparedArtifactName: "open-next-socialflows-standalone-prepared",
   },
 ];
 
@@ -739,7 +742,15 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
       assetsPath: ".open-next/socialflows/assets",
     },
   ],
-  expectedPreparedArtifacts: [],
+  expectedPreparedArtifacts: [
+    {
+      key: "socialflows",
+      state: "prepared",
+      artifactName: "open-next-socialflows-standalone-prepared",
+      workerPath: ".open-next/socialflows-standalone/worker.js",
+      assetsPath: ".open-next/socialflows-standalone/assets",
+    },
+  ],
   expectedProducts: DEFAULT_ARTIFACT_MATRIX_PRODUCTS,
   workflowRequiredTokens: [
     "artifact_matrix_skeleton:",
@@ -764,6 +775,8 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
     "name: open-next-socialflows-build",
     "Download SocialFlow dedicated artifact",
     "Verify SocialFlow dedicated artifact",
+    "Verify SocialFlow standalone prepared artifact (inactive)",
+    "Verify SocialFlow standalone remains inactive",
   ],
   buildScriptRequiredTokens: [
     "ARTIFACT_MATRIX_SKELETON_OK",
@@ -772,6 +785,9 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
     "build/open-next-artifact-matrix",
     "export { default } from",
     "prepared-wrapper",
+    "standalone-prepared",
+    "copyOpenNextRuntimeSubset",
+    "emitPreparedStandaloneArtifact",
     "preparedArtifacts",
     "artifact-manifest.json",
   ],
@@ -972,6 +988,74 @@ const DEFAULT_SOCIALFLOW_RUNTIME_GUARD: FileTokenGuard = {
     {
       filePath: "packages/shared/workers-handlers/index.ts",
       forbiddenTokens: ['case "socialflow"', 'case "socialflows"'],
+    },
+  ],
+};
+
+const DEFAULT_SOCIALFLOW_STANDALONE_PREPARED_GUARD: FileTokenGuard = {
+  targetName: "socialflow:standalone-prepared-inactive",
+  rules: [
+    {
+      filePath: "docs/config/open-next-artifact-matrix.json",
+      requiredTokens: [
+        '"preparedArtifacts"',
+        '"key": "socialflows"',
+        '"artifactName": "open-next-socialflows-standalone-prepared"',
+        '"artifactMode": "standalone-prepared"',
+        '"state": "prepared"',
+        '"activationState": "inactive"',
+        '"deployMode": "not-deployed"',
+        '"workerPath": ".open-next/socialflows-standalone/worker.js"',
+        '"assetsPath": ".open-next/socialflows-standalone/assets"',
+        '"generatedFrom": ".open-next/worker.js"',
+        '"artifactMode": "dedicated-wrapper"',
+        '"currentWranglerMain": "../../.open-next/socialflows/worker.js"',
+        '"currentWranglerAssetsDirectory": "../../.open-next/socialflows/assets"',
+        '"preparedArtifactName": "open-next-socialflows-standalone-prepared"',
+      ],
+    },
+    {
+      filePath: "scripts/build-artifact-matrix-skeleton.mjs",
+      requiredTokens: [
+        "copyOpenNextRuntimeSubset",
+        "emitPreparedStandaloneArtifact",
+        'preparedArtifact?.artifactMode === "standalone-prepared"',
+        'preparedArtifact?.activationState === "inactive"',
+        'preparedArtifact?.deployMode === "not-deployed"',
+        "preparedStandaloneArtifact",
+        "artifact-manifest.json",
+      ],
+      forbiddenTokens: ["dummy worker", "placeholder HTML"],
+    },
+    {
+      filePath: ".github/workflows/drako-factory-deploy.yml",
+      requiredTokens: [
+        "Verify SocialFlow standalone prepared artifact (inactive)",
+        "Verify SocialFlow standalone remains inactive",
+        "test -f .open-next/socialflows-standalone/worker.js",
+        "test -d .open-next/socialflows-standalone/assets",
+        "test -d .open-next/socialflows-standalone/server-functions",
+        '"artifactMode": "standalone-prepared"',
+        '"artifactState": "prepared"',
+        '"activationState": "inactive"',
+        '"deployMode": "not-deployed"',
+        '"generatedFrom": ".open-next/worker.js"',
+        "SOCIALFLOW_STANDALONE_PREPARED_IS_WRAPPER",
+        "SOCIALFLOW_STANDALONE_PREPARED_FAKE",
+        "SOCIALFLOW_STANDALONE_PREMATURE_ACTIVATION",
+        'grep -q \'main = "../../.open-next/socialflows/worker.js"\' workers/socialflows/wrangler.workers.toml',
+        'grep -q \'directory = "../../.open-next/socialflows/assets"\' workers/socialflows/wrangler.workers.toml',
+      ],
+      forbiddenTokens: [
+        "Download SocialFlow standalone prepared artifact",
+        "Deploy SocialFlow standalone",
+        "name: open-next-socialflows-standalone-build",
+      ],
+    },
+    {
+      filePath: "workers/socialflows/wrangler.workers.toml",
+      requiredTokens: ['main = "../../.open-next/socialflows/worker.js"', 'directory = "../../.open-next/socialflows/assets"'],
+      forbiddenTokens: ["socialflows-standalone", "open-next-socialflows-standalone"],
     },
   ],
 };
@@ -3172,6 +3256,7 @@ async function buildFileTokenGuardChecks(
     | "drakosPreparedArtifactGuardDrift"
     | "basesPreparedArtifactGuardDrift"
     | "globalDeployDrift"
+    | "socialflowStandalonePreparedGuardDrift"
     | "mentoriaAuthsOperationalDrift",
   passDetails: string,
   failDetails: string,
@@ -3729,6 +3814,15 @@ export async function runProductionReadinessAudits(
     "SocialFlow runtime wiring drifted toward a fake handler, placeholder runtime or shared handler routing.",
   );
   checks.push(...socialflowRuntimeChecks);
+  const socialflowStandalonePreparedGuard =
+    options.socialflowStandalonePreparedGuardOverride ?? DEFAULT_SOCIALFLOW_STANDALONE_PREPARED_GUARD;
+  const socialflowStandalonePreparedChecks = await buildFileTokenGuardChecks(
+    socialflowStandalonePreparedGuard,
+    "socialflowStandalonePreparedGuardDrift",
+    "SocialFlow standalone artifact is prepared, inactive, non-wrapper, and blocked from premature deployment.",
+    "SocialFlow standalone artifact preparation is missing, fake, or prematurely active/deployable.",
+  );
+  checks.push(...socialflowStandalonePreparedChecks);
   const mentoriaRuntimeGuard = options.mentoriaRuntimeGuardOverride ?? DEFAULT_MENTORIA_RUNTIME_GUARD;
   const mentoriaRuntimeChecks = await buildFileTokenGuardChecks(
     mentoriaRuntimeGuard,

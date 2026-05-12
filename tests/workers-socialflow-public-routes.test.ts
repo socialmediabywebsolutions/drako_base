@@ -95,4 +95,28 @@ describe("socialflow runtime wiring", () => {
     expect(source).toContain("SOCIALFLOW_DEDICATED_ARTIFACT_NOT_ACTIVATED");
     expect(source).toContain("SOCIALFLOW_DEDICATED_ARTIFACT_FAKE");
   });
+
+  it("prepares SocialFlow standalone without activating it", () => {
+    const matrix = read("docs/config/open-next-artifact-matrix.json");
+    const workflow = read(".github/workflows/drako-factory-deploy.yml");
+    const wrangler = read("workers/socialflows/wrangler.workers.toml");
+
+    expect(matrix).toContain('"artifactName": "open-next-socialflows-standalone-prepared"');
+    expect(matrix).toContain('"artifactMode": "standalone-prepared"');
+    expect(matrix).toContain('"activationState": "inactive"');
+    expect(matrix).toContain('"deployMode": "not-deployed"');
+    expect(matrix).toContain('"workerPath": ".open-next/socialflows-standalone/worker.js"');
+
+    expect(workflow).toContain("Verify SocialFlow standalone prepared artifact (inactive)");
+    expect(workflow).toContain("Verify SocialFlow standalone remains inactive");
+    expect(workflow).toContain("SOCIALFLOW_STANDALONE_PREPARED_IS_WRAPPER");
+    expect(workflow).toContain("SOCIALFLOW_STANDALONE_PREPARED_FAKE");
+    expect(workflow).toContain("SOCIALFLOW_STANDALONE_PREMATURE_ACTIVATION");
+    expect(workflow).not.toContain("Download SocialFlow standalone prepared artifact");
+    expect(workflow).not.toContain("name: open-next-socialflows-standalone-build");
+
+    expect(wrangler).toContain('main = "../../.open-next/socialflows/worker.js"');
+    expect(wrangler).toContain('directory = "../../.open-next/socialflows/assets"');
+    expect(wrangler).not.toContain("socialflows-standalone");
+  });
 });

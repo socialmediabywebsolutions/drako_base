@@ -243,12 +243,18 @@ describe("SocialFlow vertical boundaries", () => {
     expect(artifactBuilder).toContain('export { default } from');
     expect(artifactBuilder).toContain("artifact-manifest.json");
     expect(artifactBuilder).toContain("dedicated-wrapper");
+    expect(artifactBuilder).toContain("emitPreparedStandaloneArtifact");
+    expect(artifactBuilder).toContain("copyOpenNextRuntimeSubset");
+    expect(artifactBuilder).toContain("standalone-prepared");
 
     expect(deployWorkflow).toContain("Verify SocialFlow dedicated artifact");
     expect(deployWorkflow).toContain('grep -q \'export \\* from "../worker.js";\' .open-next/socialflows/worker.js');
     expect(deployWorkflow).toContain('"productKey": "socialflows"');
     expect(deployWorkflow).toContain('"artifactMode": "dedicated-wrapper"');
     expect(deployWorkflow).toContain("SOCIALFLOW_DEDICATED_ARTIFACT_FAKE");
+    expect(deployWorkflow).toContain("Verify SocialFlow standalone prepared artifact (inactive)");
+    expect(deployWorkflow).toContain("Verify SocialFlow standalone remains inactive");
+    expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_PREMATURE_ACTIVATION");
   });
 
   it("keeps legacy linkedin connect and callback routes as redirect-only bridges", () => {

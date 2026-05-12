@@ -110,6 +110,76 @@ describe("production readiness audits", () => {
       },
     ],
   } as const;
+  const socialflowStandalonePreparedGuardBase = {
+    targetName: "test:socialflow-standalone-prepared",
+    rules: [
+      {
+        filePath: "docs/config/open-next-artifact-matrix.json",
+        requiredTokens: [
+          '"preparedArtifacts"',
+          '"key": "socialflows"',
+          '"artifactName": "open-next-socialflows-standalone-prepared"',
+          '"artifactMode": "standalone-prepared"',
+          '"state": "prepared"',
+          '"activationState": "inactive"',
+          '"deployMode": "not-deployed"',
+          '"workerPath": ".open-next/socialflows-standalone/worker.js"',
+          '"assetsPath": ".open-next/socialflows-standalone/assets"',
+          '"generatedFrom": ".open-next/worker.js"',
+          '"artifactMode": "dedicated-wrapper"',
+          '"currentWranglerMain": "../../.open-next/socialflows/worker.js"',
+          '"currentWranglerAssetsDirectory": "../../.open-next/socialflows/assets"',
+          '"preparedArtifactName": "open-next-socialflows-standalone-prepared"',
+        ],
+      },
+      {
+        filePath: "scripts/build-artifact-matrix-skeleton.mjs",
+        requiredTokens: [
+          "copyOpenNextRuntimeSubset",
+          "emitPreparedStandaloneArtifact",
+          'preparedArtifact?.artifactMode === "standalone-prepared"',
+          'preparedArtifact?.activationState === "inactive"',
+          'preparedArtifact?.deployMode === "not-deployed"',
+          "preparedStandaloneArtifact",
+          "artifact-manifest.json",
+        ],
+        forbiddenTokens: ["dummy worker", "placeholder HTML"],
+      },
+      {
+        filePath: ".github/workflows/drako-factory-deploy.yml",
+        requiredTokens: [
+          "Verify SocialFlow standalone prepared artifact (inactive)",
+          "Verify SocialFlow standalone remains inactive",
+          "test -f .open-next/socialflows-standalone/worker.js",
+          "test -d .open-next/socialflows-standalone/assets",
+          "test -d .open-next/socialflows-standalone/server-functions",
+          '"artifactMode": "standalone-prepared"',
+          '"artifactState": "prepared"',
+          '"activationState": "inactive"',
+          '"deployMode": "not-deployed"',
+          '"generatedFrom": ".open-next/worker.js"',
+          "SOCIALFLOW_STANDALONE_PREPARED_IS_WRAPPER",
+          "SOCIALFLOW_STANDALONE_PREPARED_FAKE",
+          "SOCIALFLOW_STANDALONE_PREMATURE_ACTIVATION",
+          'grep -q \'main = "../../.open-next/socialflows/worker.js"\' workers/socialflows/wrangler.workers.toml',
+          'grep -q \'directory = "../../.open-next/socialflows/assets"\' workers/socialflows/wrangler.workers.toml',
+        ],
+        forbiddenTokens: [
+          "Download SocialFlow standalone prepared artifact",
+          "Deploy SocialFlow standalone",
+          "name: open-next-socialflows-standalone-build",
+        ],
+      },
+      {
+        filePath: "workers/socialflows/wrangler.workers.toml",
+        requiredTokens: [
+          'main = "../../.open-next/socialflows/worker.js"',
+          'directory = "../../.open-next/socialflows/assets"',
+        ],
+        forbiddenTokens: ["socialflows-standalone", "open-next-socialflows-standalone"],
+      },
+    ],
+  } as const;
   const mentoriaRuntimeGuardBase = {
     targetName: "test:mentoria-runtime-guard",
     rules: [
@@ -362,6 +432,7 @@ describe("production readiness audits", () => {
       plannedWorkerPath: ".open-next/socialflows/worker.js",
       plannedAssetsPath: ".open-next/socialflows/assets",
       dedicatedArtifactName: "open-next-socialflows-build",
+      preparedArtifactName: "open-next-socialflows-standalone-prepared",
     },
   ] as const;
   const artifactMatrixSkeletonGuardBase = {
@@ -398,7 +469,15 @@ describe("production readiness audits", () => {
         assetsPath: ".open-next/socialflows/assets",
       },
     ],
-    expectedPreparedArtifacts: [],
+    expectedPreparedArtifacts: [
+      {
+        key: "socialflows",
+        state: "prepared",
+        artifactName: "open-next-socialflows-standalone-prepared",
+        workerPath: ".open-next/socialflows-standalone/worker.js",
+        assetsPath: ".open-next/socialflows-standalone/assets",
+      },
+    ],
     expectedProducts: artifactMatrixProductsBase,
     workflowRequiredTokens: [
       "artifact_matrix_skeleton:",
@@ -423,6 +502,8 @@ describe("production readiness audits", () => {
       "name: open-next-socialflows-build",
       "Download SocialFlow dedicated artifact",
       "Verify SocialFlow dedicated artifact",
+      "Verify SocialFlow standalone prepared artifact (inactive)",
+      "Verify SocialFlow standalone remains inactive",
     ],
     buildScriptRequiredTokens: [
       "ARTIFACT_MATRIX_SKELETON_OK",
@@ -431,6 +512,9 @@ describe("production readiness audits", () => {
       "build/open-next-artifact-matrix",
       "export { default } from",
       "prepared-wrapper",
+      "standalone-prepared",
+      "copyOpenNextRuntimeSubset",
+      "emitPreparedStandaloneArtifact",
       "preparedArtifacts",
       "artifact-manifest.json",
     ],
@@ -1423,6 +1507,7 @@ describe("production readiness audits", () => {
       artifactMatrixSkeletonGuardOverride: artifactMatrixSkeletonGuardBase,
       artifactMatrixPrematureActivationGuardOverride: artifactMatrixPrematureActivationGuardBase,
       globalDeployDriftGuardOverride: globalDeployDriftGuardBase,
+      socialflowStandalonePreparedGuardOverride: socialflowStandalonePreparedGuardBase,
       drakosPreparedArtifactGuardOverride: drakosPreparedArtifactGuardBase,
       basesPreparedArtifactGuardOverride: basesPreparedArtifactGuardBase,
     });
@@ -1442,6 +1527,9 @@ describe("production readiness audits", () => {
     ).toBe(true);
     expect(
       result.report.checks.some((item) => item.checkCode === "basesPreparedArtifactGuardDrift" && item.status === "PASS"),
+    ).toBe(true);
+    expect(
+      result.report.checks.some((item) => item.checkCode === "socialflowStandalonePreparedGuardDrift" && item.status === "PASS"),
     ).toBe(true);
   });
 
@@ -1483,6 +1571,48 @@ describe("production readiness audits", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.report.violations.some((item) => item.checkCode === "socialflowRuntimeGuardDrift")).toBe(true);
+  });
+
+  it("fails readiness when SocialFlow standalone is activated before the activation commit", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowStandalonePreparedGuardOverride: {
+        ...socialflowStandalonePreparedGuardBase,
+        rules: [
+          {
+            filePath: "tests/fixtures/production-audits/socialflow-standalone-guards/premature-standalone.wrangler.toml",
+            requiredTokens: socialflowStandalonePreparedGuardBase.rules[3].requiredTokens,
+            forbiddenTokens: socialflowStandalonePreparedGuardBase.rules[3].forbiddenTokens,
+          },
+        ],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowStandalonePreparedGuardDrift")).toBe(true);
+  });
+
+  it("fails readiness when CI tries to make SocialFlow standalone deployable", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowStandalonePreparedGuardOverride: {
+        ...socialflowStandalonePreparedGuardBase,
+        rules: [
+          {
+            filePath: "tests/fixtures/production-audits/socialflow-standalone-guards/deployable-standalone-workflow.yml",
+            requiredTokens: socialflowStandalonePreparedGuardBase.rules[2].requiredTokens,
+            forbiddenTokens: socialflowStandalonePreparedGuardBase.rules[2].forbiddenTokens,
+          },
+        ],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowStandalonePreparedGuardDrift")).toBe(true);
   });
 
   it("fails readiness when Drakos dedicated wrapper regresses to global runtime or becomes fake", async () => {

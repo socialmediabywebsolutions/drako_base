@@ -32,7 +32,20 @@
       "assetsPath": ".open-next/socialflows/assets"
     }
   ],
-  "preparedArtifacts": [],
+  "preparedArtifacts": [
+    {
+      "key": "socialflows",
+      "artifactName": "open-next-socialflows-standalone-prepared",
+      "artifactMode": "standalone-prepared",
+      "state": "prepared",
+      "activationState": "inactive",
+      "deployMode": "not-deployed",
+      "workerPath": ".open-next/socialflows-standalone/worker.js",
+      "assetsPath": ".open-next/socialflows-standalone/assets",
+      "sourceArtifactName": "open-next-build",
+      "generatedFrom": ".open-next/worker.js"
+    }
+  ],
   "products": [
     {
       "key": "drakos",
@@ -76,13 +89,15 @@
       "currentWranglerAssetsDirectory": "../../.open-next/socialflows/assets",
       "plannedWorkerPath": ".open-next/socialflows/worker.js",
       "plannedAssetsPath": ".open-next/socialflows/assets",
-      "dedicatedArtifactName": "open-next-socialflows-build"
+      "dedicatedArtifactName": "open-next-socialflows-build",
+      "preparedArtifactName": "open-next-socialflows-standalone-prepared"
     }
   ],
   "notes": [
     "Drako, SocialFlow, Mentoria and Bases run on dedicated wrapper artifacts.",
     "Drako is activated on .open-next/drakos/worker.js and .open-next/drakos/assets; do not regress workers/drakos/wrangler.workers.toml back to the shared .open-next runtime.",
     "Bases is activated on .open-next/bases/worker.js and .open-next/bases/assets; do not regress workers/bases/wrangler.workers.toml back to the shared .open-next runtime.",
+    "SocialFlow standalone is prepared at .open-next/socialflows-standalone/worker.js but remains inactive and not deployed; workers/socialflows/wrangler.workers.toml must keep using .open-next/socialflows/worker.js until the activation commit.",
     "The global OpenNext artifact .open-next/worker.js remains the generation source for transparent per-product wrappers."
   ]
 }

@@ -1,0 +1,11 @@
+name = "saas-socialflows-prod"
+main = "../../.open-next/socialflows-standalone/worker.js"
+compatibility_date = "2025-02-11"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "../../.open-next/socialflows-standalone/assets"
+
+[[routes]]
+pattern = "socialflow.drako.systems"
+custom_domain = true

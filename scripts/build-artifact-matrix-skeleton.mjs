@@ -47,6 +47,31 @@ async function copyDir(sourceDir, targetDir) {
   await fs.cp(sourceDir, targetDir, { recursive: true });
 }
 
+async function copyOpenNextRuntimeSubset(sourceRoot, targetRoot) {
+  await removeDirIfExists(targetRoot);
+  await ensureDir(targetRoot);
+
+  const excludedEntries = new Set([
+    "bases",
+    "drakos",
+    "mentorias",
+    "socialflows",
+    "socialflows-standalone",
+  ]);
+
+  for (const entry of await fs.readdir(sourceRoot, { withFileTypes: true })) {
+    if (excludedEntries.has(entry.name)) continue;
+
+    const sourcePath = path.join(sourceRoot, entry.name);
+    const targetPath = path.join(targetRoot, entry.name);
+    if (entry.isDirectory()) {
+      await fs.cp(sourcePath, targetPath, { recursive: true });
+    } else if (entry.isFile()) {
+      await fs.copyFile(sourcePath, targetPath);
+    }
+  }
+}
+
 async function readWorkerConfig(relativePath) {
   const absolutePath = path.resolve(repoRoot, relativePath);
   return fs.readFile(absolutePath, "utf8");
@@ -88,6 +113,34 @@ async function emitDedicatedWrapperArtifact(config, product) {
   );
 }
 
+async function emitPreparedStandaloneArtifact(config, artifact) {
+  const preparedWorkerAbsolute = path.resolve(repoRoot, artifact.workerPath);
+  const preparedArtifactRoot = path.dirname(preparedWorkerAbsolute);
+  const activeArtifactRoot = path.dirname(path.resolve(repoRoot, config.activeArtifact.workerPath));
+
+  await copyOpenNextRuntimeSubset(activeArtifactRoot, preparedArtifactRoot);
+
+  await fs.writeFile(
+    path.join(preparedArtifactRoot, "artifact-manifest.json"),
+    `${JSON.stringify(
+      {
+        productKey: artifact.key,
+        artifactMode: artifact.artifactMode,
+        artifactState: artifact.state,
+        activationState: artifact.activationState,
+        deployMode: artifact.deployMode,
+        preparedArtifactName: artifact.artifactName,
+        sourceArtifactName: artifact.sourceArtifactName ?? config.activeArtifact.artifactName,
+        generatedFrom: normalizeRelative(artifact.generatedFrom ?? config.activeArtifact.workerPath),
+        generatedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+}
+
 async function buildSkeletonRecord(config, product) {
   const workerConfigContent = await readWorkerConfig(product.wranglerConfigPath);
   requireToken(
@@ -105,6 +158,13 @@ async function buildSkeletonRecord(config, product) {
   const plannedAssetsAbsolute = path.resolve(repoRoot, product.plannedAssetsPath);
   const activeWorkerAbsolute = path.resolve(repoRoot, config.activeArtifact.workerPath);
   const activeAssetsAbsolute = path.resolve(repoRoot, config.activeArtifact.assetsPath);
+  const preparedArtifact = (config.preparedArtifacts ?? []).find((artifact) => artifact.key === product.key);
+  const preparedWorkerAbsolute = preparedArtifact?.workerPath
+    ? path.resolve(repoRoot, preparedArtifact.workerPath)
+    : null;
+  const preparedAssetsAbsolute = preparedArtifact?.assetsPath
+    ? path.resolve(repoRoot, preparedArtifact.assetsPath)
+    : null;
 
   const shouldGenerateDedicatedRuntime =
     (product.artifactMode === "dedicated-wrapper" || product.artifactMode === "prepared-wrapper") &&
@@ -113,6 +173,17 @@ async function buildSkeletonRecord(config, product) {
 
   if (shouldGenerateDedicatedRuntime) {
     await emitDedicatedWrapperArtifact(config, product);
+  }
+
+  const shouldGeneratePreparedStandaloneRuntime =
+    preparedArtifact?.artifactMode === "standalone-prepared" &&
+    preparedArtifact?.activationState === "inactive" &&
+    preparedArtifact?.deployMode === "not-deployed" &&
+    (await fileExists(activeWorkerAbsolute)) &&
+    (await fileExists(activeAssetsAbsolute));
+
+  if (shouldGeneratePreparedStandaloneRuntime) {
+    await emitPreparedStandaloneArtifact(config, preparedArtifact);
   }
 
   return {
@@ -140,6 +211,21 @@ async function buildSkeletonRecord(config, product) {
         assets: await fileExists(plannedAssetsAbsolute),
       },
     },
+    preparedStandaloneArtifact: preparedArtifact
+      ? {
+          artifactMode: preparedArtifact.artifactMode,
+          artifactState: preparedArtifact.state,
+          activationState: preparedArtifact.activationState,
+          deployMode: preparedArtifact.deployMode,
+          artifactName: preparedArtifact.artifactName,
+          workerPath: normalizeRelative(preparedArtifact.workerPath),
+          assetsPath: normalizeRelative(preparedArtifact.assetsPath),
+          exists: {
+            worker: preparedWorkerAbsolute ? await fileExists(preparedWorkerAbsolute) : false,
+            assets: preparedAssetsAbsolute ? await fileExists(preparedAssetsAbsolute) : false,
+          },
+        }
+      : null,
     splitReady:
       product.artifactMode === "dedicated-wrapper" || product.artifactMode === "prepared-wrapper"
         ? shouldGenerateDedicatedRuntime
@@ -199,6 +285,7 @@ async function main() {
       wranglerConfigPath: record.wranglerConfigPath,
       currentArtifact: record.currentArtifact,
       plannedArtifact: record.plannedArtifact,
+      preparedStandaloneArtifact: record.preparedStandaloneArtifact,
       splitReady: record.splitReady,
       splitActivated: record.splitActivated,
       dedicatedArtifactName: record.dedicatedArtifactName,

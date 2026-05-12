@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-05-12T15:11:53.145Z",
+  "timestamp": "2026-05-12T15:47:15.054Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
   "productionReady": true,
   "summary": {
-    "checksTotal": 172,
-    "checksPass": 169,
+    "checksTotal": 173,
+    "checksPass": 170,
     "checksFail": 0,
     "checksNa": 3,
     "violationsTotal": 0,
@@ -1928,6 +1928,16 @@
       "expected": "all runtime guard rules satisfied",
       "actual": "runtime_guard_ok",
       "details": "SocialFlow stays wired to the real OpenNext runtime and its legacy fallback remains fail-closed."
+    },
+    {
+      "checkCode": "socialflowStandalonePreparedGuardDrift",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:standalone-prepared-inactive",
+      "expected": "all runtime guard rules satisfied",
+      "actual": "runtime_guard_ok",
+      "details": "SocialFlow standalone artifact is prepared, inactive, non-wrapper, and blocked from premature deployment."
     },
     {
       "checkCode": "mentoriaRuntimeGuardDrift",
