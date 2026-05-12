@@ -133,7 +133,7 @@ describe("production readiness audits", () => {
           '"generatedFrom": ".open-next/worker.js"',
           "MENTORIA_DEDICATED_ARTIFACT_FAKE",
         ],
-        forbiddenTokens: ["path: .open-next/drakos"],
+        forbiddenTokens: [],
       },
     ],
   } as const;
@@ -299,14 +299,13 @@ describe("production readiness audits", () => {
     {
       key: "drakos",
       workerName: "saas-drakos-prod",
-      artifactMode: "prepared-wrapper",
-      artifactState: "skeleton/prepared",
+      artifactMode: "dedicated-wrapper",
       wranglerConfigPath: "workers/drakos/wrangler.workers.toml",
-      currentWranglerMain: "../../.open-next/worker.js",
-      currentWranglerAssetsDirectory: "../../.open-next/assets",
+      currentWranglerMain: "../../.open-next/drakos/worker.js",
+      currentWranglerAssetsDirectory: "../../.open-next/drakos/assets",
       plannedWorkerPath: ".open-next/drakos/worker.js",
       plannedAssetsPath: ".open-next/drakos/assets",
-      preparedArtifactName: "open-next-drakos-build",
+      dedicatedArtifactName: "open-next-drakos-build",
     },
     {
       key: "bases",
@@ -348,9 +347,15 @@ describe("production readiness audits", () => {
     workflowPath: ".github/workflows/drako-factory-deploy.yml",
     buildScriptPath: "scripts/build-artifact-matrix-skeleton.mjs",
     expectedState: "partial-split",
-    expectedDeployMode: "global-open-next-plus-bases-socialflows-and-mentorias-dedicated",
+    expectedDeployMode: "global-open-next-plus-drakos-bases-socialflows-and-mentorias-dedicated",
     expectedActiveArtifactName: "open-next-build",
     expectedDedicatedArtifacts: [
+      {
+        key: "drakos",
+        artifactName: "open-next-drakos-build",
+        workerPath: ".open-next/drakos/worker.js",
+        assetsPath: ".open-next/drakos/assets",
+      },
       {
         key: "bases",
         artifactName: "open-next-bases-build",
@@ -370,15 +375,7 @@ describe("production readiness audits", () => {
         assetsPath: ".open-next/socialflows/assets",
       },
     ],
-    expectedPreparedArtifacts: [
-      {
-        key: "drakos",
-        state: "skeleton/prepared",
-        artifactName: "open-next-drakos-build",
-        workerPath: ".open-next/drakos/worker.js",
-        assetsPath: ".open-next/drakos/assets",
-      },
-    ],
+    expectedPreparedArtifacts: [],
     expectedProducts: artifactMatrixProductsBase,
     workflowRequiredTokens: [
       "artifact_matrix_skeleton:",
@@ -389,7 +386,10 @@ describe("production readiness audits", () => {
       "build/open-next-artifact-matrix/global",
       "name: open-next-build",
       "Download OpenNext build artifact",
-      "Verify Drakos prepared artifact remains inactive",
+      "Verify Drakos dedicated artifact",
+      "name: open-next-drakos-build",
+      "Upload Drakos dedicated artifact",
+      "Download Drakos dedicated artifact",
       "Verify Bases dedicated artifact",
       "name: open-next-bases-build",
       "Upload Bases dedicated artifact",
@@ -417,31 +417,25 @@ describe("production readiness audits", () => {
     products: artifactMatrixProductsBase,
     workflowPath: ".github/workflows/drako-factory-deploy.yml",
     forbiddenWorkflowTokens: [
-      "name: open-next-artifact-matrix-drakos",
       "name: open-next-artifact-matrix-bases",
-      "name: open-next-drakos-build",
-      "Upload Drakos dedicated artifact",
-      "Download Drakos dedicated artifact",
-      "path: .open-next/drakos",
     ],
-    allowedDedicatedProducts: ["bases", "socialflows", "mentorias"],
+    allowedDedicatedProducts: ["drakos", "bases", "socialflows", "mentorias"],
   } as const;
   const drakosPreparedArtifactGuardBase = {
-    targetName: "test:drakos-prepared-artifact-not-activated",
+    targetName: "test:drakos-dedicated-artifact-activated",
     rules: [
       {
         filePath: "docs/config/open-next-artifact-matrix.json",
         requiredTokens: [
-          '"preparedArtifacts"',
+          '"dedicatedArtifacts"',
           '"key": "drakos"',
-          '"state": "skeleton/prepared"',
           '"artifactName": "open-next-drakos-build"',
           '"workerPath": ".open-next/drakos/worker.js"',
           '"assetsPath": ".open-next/drakos/assets"',
-          '"artifactMode": "prepared-wrapper"',
-          '"currentWranglerMain": "../../.open-next/worker.js"',
-          '"currentWranglerAssetsDirectory": "../../.open-next/assets"',
-          '"preparedArtifactName": "open-next-drakos-build"',
+          '"artifactMode": "dedicated-wrapper"',
+          '"currentWranglerMain": "../../.open-next/drakos/worker.js"',
+          '"currentWranglerAssetsDirectory": "../../.open-next/drakos/assets"',
+          '"dedicatedArtifactName": "open-next-drakos-build"',
         ],
       },
       {
@@ -460,22 +454,20 @@ describe("production readiness audits", () => {
       {
         filePath: ".github/workflows/drako-factory-deploy.yml",
         requiredTokens: [
-          "Verify Drakos prepared artifact remains inactive",
-          "DRAKOS_PREPARED_ARTIFACT_PREMATURELY_ACTIVATED",
-          "DRAKOS_PREPARED_ARTIFACT_FAKE",
-          'grep -q \'main = "../../.open-next/worker.js"\' workers/drakos/wrangler.workers.toml',
-        ],
-        forbiddenTokens: [
+          "Verify Drakos dedicated artifact",
           "name: open-next-drakos-build",
           "Upload Drakos dedicated artifact",
           "Download Drakos dedicated artifact",
-          "path: .open-next/drakos",
+          "DRAKOS_DEDICATED_ARTIFACT_NOT_ACTIVATED",
+          "DRAKOS_DEDICATED_ARTIFACT_FAKE",
+          'grep -q \'main = "../../.open-next/drakos/worker.js"\' workers/drakos/wrangler.workers.toml',
         ],
+        forbiddenTokens: [],
       },
       {
         filePath: "workers/drakos/wrangler.workers.toml",
-        requiredTokens: ['main = "../../.open-next/worker.js"', 'directory = "../../.open-next/assets"'],
-        forbiddenTokens: ['main = "../../.open-next/drakos/worker.js"', 'directory = "../../.open-next/drakos/assets"'],
+        requiredTokens: ['main = "../../.open-next/drakos/worker.js"', 'directory = "../../.open-next/drakos/assets"'],
+        forbiddenTokens: ['main = "../../.open-next/worker.js"', 'directory = "../../.open-next/assets"'],
       },
     ],
   } as const;
@@ -1365,7 +1357,7 @@ describe("production readiness audits", () => {
     expect(result.report.violations.some((item) => item.checkCode === "legacyCompatTelemetryGuardMissing")).toBe(true);
   });
 
-  it("passes readiness when artifact matrix skeleton is present and deploy remains global", async () => {
+  it("passes readiness when artifact matrix skeleton is present and dedicated artifacts are active for all public products", async () => {
     const result = await runProductionReadinessAudits({
       sourceOfTruthPath,
       fixturesDir: "tests/fixtures/production-audits/pass",
@@ -1391,18 +1383,18 @@ describe("production readiness audits", () => {
     ).toBe(true);
   });
 
-  it("fails readiness when Drakos prepared wrapper is activated or becomes fake", async () => {
+  it("fails readiness when Drakos dedicated wrapper regresses to global runtime or becomes fake", async () => {
     const result = await runProductionReadinessAudits({
       sourceOfTruthPath,
       fixturesDir: "tests/fixtures/production-audits/pass",
       writeReports: false,
       drakosPreparedArtifactGuardOverride: {
-        targetName: "test:drakos-prepared-artifact-activated-or-fake",
+        targetName: "test:drakos-dedicated-artifact-regression-or-fake",
         rules: [
           {
-            filePath: "tests/fixtures/production-audits/artifact-matrix-guards/premature-drakos-worker.wrangler.toml",
-            requiredTokens: ['main = "../../.open-next/worker.js"', 'directory = "../../.open-next/assets"'],
-            forbiddenTokens: ['main = "../../.open-next/drakos/worker.js"', 'directory = "../../.open-next/drakos/assets"'],
+            filePath: "tests/fixtures/production-audits/artifact-matrix-guards/regressed-drakos-global-worker.wrangler.toml",
+            requiredTokens: ['main = "../../.open-next/drakos/worker.js"', 'directory = "../../.open-next/drakos/assets"'],
+            forbiddenTokens: ['main = "../../.open-next/worker.js"', 'directory = "../../.open-next/assets"'],
           },
           {
             filePath: "tests/fixtures/production-audits/fake-runtime-guards/fake-worker.ts",
@@ -1465,6 +1457,7 @@ describe("production readiness audits", () => {
       writeReports: false,
       artifactMatrixPrematureActivationGuardOverride: {
         ...artifactMatrixPrematureActivationGuardBase,
+        allowedDedicatedProducts: [],
         products: [
           {
             ...artifactMatrixPrematureActivationGuardBase.products[0],

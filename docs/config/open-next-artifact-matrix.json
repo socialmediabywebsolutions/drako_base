@@ -1,12 +1,18 @@
 {
   "state": "partial-split",
-  "deployMode": "global-open-next-plus-bases-socialflows-and-mentorias-dedicated",
+  "deployMode": "global-open-next-plus-drakos-bases-socialflows-and-mentorias-dedicated",
   "activeArtifact": {
     "workerPath": ".open-next/worker.js",
     "assetsPath": ".open-next/assets",
     "artifactName": "open-next-build"
   },
   "dedicatedArtifacts": [
+    {
+      "key": "drakos",
+      "artifactName": "open-next-drakos-build",
+      "workerPath": ".open-next/drakos/worker.js",
+      "assetsPath": ".open-next/drakos/assets"
+    },
     {
       "key": "bases",
       "artifactName": "open-next-bases-build",
@@ -26,27 +32,18 @@
       "assetsPath": ".open-next/socialflows/assets"
     }
   ],
-  "preparedArtifacts": [
-    {
-      "key": "drakos",
-      "state": "skeleton/prepared",
-      "artifactName": "open-next-drakos-build",
-      "workerPath": ".open-next/drakos/worker.js",
-      "assetsPath": ".open-next/drakos/assets"
-    }
-  ],
+  "preparedArtifacts": [],
   "products": [
     {
       "key": "drakos",
       "workerName": "saas-drakos-prod",
-      "artifactMode": "prepared-wrapper",
-      "artifactState": "skeleton/prepared",
+      "artifactMode": "dedicated-wrapper",
       "wranglerConfigPath": "workers/drakos/wrangler.workers.toml",
-      "currentWranglerMain": "../../.open-next/worker.js",
-      "currentWranglerAssetsDirectory": "../../.open-next/assets",
+      "currentWranglerMain": "../../.open-next/drakos/worker.js",
+      "currentWranglerAssetsDirectory": "../../.open-next/drakos/assets",
       "plannedWorkerPath": ".open-next/drakos/worker.js",
       "plannedAssetsPath": ".open-next/drakos/assets",
-      "preparedArtifactName": "open-next-drakos-build"
+      "dedicatedArtifactName": "open-next-drakos-build"
     },
     {
       "key": "bases",
@@ -83,9 +80,9 @@
     }
   ],
   "notes": [
-    "SocialFlow, Mentoria and Bases run on dedicated wrapper artifacts while Drako remains on the shared .open-next artifact.",
-    "Drako has a skeleton/prepared wrapper artifact generated at .open-next/drakos/worker.js, but workers/drakos/wrangler.workers.toml must keep using the shared .open-next worker until the activation commit.",
+    "Drako, SocialFlow, Mentoria and Bases run on dedicated wrapper artifacts.",
+    "Drako is activated on .open-next/drakos/worker.js and .open-next/drakos/assets; do not regress workers/drakos/wrangler.workers.toml back to the shared .open-next runtime.",
     "Bases is activated on .open-next/bases/worker.js and .open-next/bases/assets; do not regress workers/bases/wrangler.workers.toml back to the shared .open-next runtime.",
-    "Do not point Drako worker wrangler config at planned per-product artifact paths before its dedicated split commit lands."
+    "The global OpenNext artifact .open-next/worker.js remains the generation source for transparent per-product wrappers."
   ]
 }

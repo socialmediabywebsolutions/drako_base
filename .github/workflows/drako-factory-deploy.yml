@@ -217,6 +217,14 @@ jobs:
             open-next-build.log
             build/open-next-artifact-matrix/global
 
+      - name: Upload Drakos dedicated artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-next-drakos-build
+          if-no-files-found: error
+          path: .open-next/drakos
+
       - name: Upload SocialFlow dedicated artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -281,6 +289,12 @@ jobs:
           name: open-next-build
           path: .
 
+      - name: Download Drakos dedicated artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: open-next-drakos-build
+          path: .
+
       - name: Download SocialFlow dedicated artifact
         uses: actions/download-artifact@v4
         with:
@@ -314,7 +328,7 @@ jobs:
           test -f .open-next/worker.js
           test -d .open-next/assets
 
-      - name: Verify Drakos prepared artifact remains inactive
+      - name: Verify Drakos dedicated artifact
         run: |
           set -euo pipefail
           test -f .open-next/drakos/worker.js
@@ -323,16 +337,16 @@ jobs:
           grep -q 'export \* from "../worker.js";' .open-next/drakos/worker.js
           test -f .open-next/drakos/artifact-manifest.json
           grep -q '"productKey": "drakos"' .open-next/drakos/artifact-manifest.json
-          grep -q '"artifactState": "skeleton/prepared"' .open-next/drakos/artifact-manifest.json
+          grep -q '"artifactMode": "dedicated-wrapper"' .open-next/drakos/artifact-manifest.json
           grep -q '"generatedFrom": ".open-next/worker.js"' .open-next/drakos/artifact-manifest.json
-          grep -q 'main = "../../.open-next/worker.js"' workers/drakos/wrangler.workers.toml
-          grep -q 'directory = "../../.open-next/assets"' workers/drakos/wrangler.workers.toml
-          if grep -q 'main = "../../.open-next/drakos/worker.js"' workers/drakos/wrangler.workers.toml; then
-            echo "DRAKOS_PREPARED_ARTIFACT_PREMATURELY_ACTIVATED"
+          grep -q 'main = "../../.open-next/drakos/worker.js"' workers/drakos/wrangler.workers.toml
+          grep -q 'directory = "../../.open-next/drakos/assets"' workers/drakos/wrangler.workers.toml
+          if grep -q 'main = "../../.open-next/worker.js"' workers/drakos/wrangler.workers.toml; then
+            echo "DRAKOS_DEDICATED_ARTIFACT_NOT_ACTIVATED"
             exit 1
           fi
           if grep -Ein 'dry-run|stub|dummy|placeholder|success: true|text/html' .open-next/drakos/worker.js; then
-            echo "DRAKOS_PREPARED_ARTIFACT_FAKE"
+            echo "DRAKOS_DEDICATED_ARTIFACT_FAKE"
             exit 1
           fi
 
@@ -507,10 +521,10 @@ jobs:
           popd
 
           pushd workers/drakos
-          test -f ../../.open-next/worker.js
-          test -d ../../.open-next/assets
-          grep -q 'main = "../../.open-next/worker.js"' wrangler.workers.toml
-          grep -q 'directory = "../../.open-next/assets"' wrangler.workers.toml
+          test -f ../../.open-next/drakos/worker.js
+          test -d ../../.open-next/drakos/assets
+          grep -q 'main = "../../.open-next/drakos/worker.js"' wrangler.workers.toml
+          grep -q 'directory = "../../.open-next/drakos/assets"' wrangler.workers.toml
           wrangler deploy -c wrangler.workers.toml
           popd
 
