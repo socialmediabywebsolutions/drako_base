@@ -220,8 +220,9 @@ describe("SocialFlow vertical boundaries", () => {
     const artifactBuilder = read("scripts/build-artifact-matrix-skeleton.mjs");
     const deployWorkflow = read(".github/workflows/drako-factory-deploy.yml");
 
-    expect(socialFlowWorkerConfig).toContain('main = "../../.open-next/socialflows/worker.js"');
-    expect(socialFlowWorkerConfig).toContain('directory = "../../.open-next/socialflows/assets"');
+    expect(socialFlowWorkerConfig).toContain('main = "../../.open-next/socialflows-standalone/worker.js"');
+    expect(socialFlowWorkerConfig).toContain('directory = "../../.open-next/socialflows-standalone/assets"');
+    expect(socialFlowWorkerConfig).not.toContain('main = "../../.open-next/socialflows/worker.js"');
     expect(socialFlowWorkerConfig).not.toContain('main = "src/workers.ts"');
 
     expect(socialFlowMiswireWorker).toContain("SOCIALFLOW_RUNTIME_MISWIRED");
@@ -240,21 +241,21 @@ describe("SocialFlow vertical boundaries", () => {
     expect(socialFlowSmoke).not.toContain("405");
     expect(socialFlowSmoke).toContain("placeholder token detected");
 
-    expect(artifactBuilder).toContain('export { default } from');
     expect(artifactBuilder).toContain("artifact-manifest.json");
-    expect(artifactBuilder).toContain("dedicated-wrapper");
-    expect(artifactBuilder).toContain("emitPreparedStandaloneArtifact");
+    expect(artifactBuilder).toContain("standalone-runtime");
+    expect(artifactBuilder).toContain("emitStandaloneArtifact");
     expect(artifactBuilder).toContain("copyOpenNextRuntimeSubset");
-    expect(artifactBuilder).toContain("standalone-prepared");
+    expect(artifactBuilder).toContain("sourceRuntime");
 
-    expect(deployWorkflow).toContain("Verify SocialFlow dedicated artifact");
-    expect(deployWorkflow).toContain('grep -q \'export \\* from "../worker.js";\' .open-next/socialflows/worker.js');
+    expect(deployWorkflow).toContain("Verify SocialFlow standalone active artifact");
+    expect(deployWorkflow).toContain("Verify SocialFlow standalone runtime active");
     expect(deployWorkflow).toContain('"productKey": "socialflows"');
-    expect(deployWorkflow).toContain('"artifactMode": "dedicated-wrapper"');
-    expect(deployWorkflow).toContain("SOCIALFLOW_DEDICATED_ARTIFACT_FAKE");
-    expect(deployWorkflow).toContain("Verify SocialFlow standalone prepared artifact (inactive)");
-    expect(deployWorkflow).toContain("Verify SocialFlow standalone remains inactive");
-    expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_PREMATURE_ACTIVATION");
+    expect(deployWorkflow).toContain('"artifactMode": "standalone"');
+    expect(deployWorkflow).toContain('"artifactState": "active"');
+    expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_ARTIFACT_FAKE");
+    expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION");
+    expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_GENERATED_FROM_GLOBAL");
+    expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_NOT_ACTIVATED");
   });
 
   it("keeps legacy linkedin connect and callback routes as redirect-only bridges", () => {

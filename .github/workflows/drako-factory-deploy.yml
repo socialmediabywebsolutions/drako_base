@@ -172,32 +172,35 @@ jobs:
           set -euo pipefail
           pnpm build:artifacts:skeleton
 
-      - name: Verify SocialFlow standalone prepared artifact (inactive)
+      - name: Verify SocialFlow standalone active artifact
         run: |
           set -euo pipefail
           test -f .open-next/socialflows-standalone/worker.js
           test -d .open-next/socialflows-standalone/assets
           test -d .open-next/socialflows-standalone/server-functions
+          test -d .open-next/socialflows-standalone/.build
           test -f .open-next/socialflows-standalone/artifact-manifest.json
           grep -q '"productKey": "socialflows"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"artifactMode": "standalone-prepared"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"artifactState": "prepared"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"activationState": "inactive"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"deployMode": "not-deployed"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"generatedFrom": ".open-next/worker.js"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"artifactMode": "standalone"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"artifactState": "active"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"standaloneArtifactName": "open-next-socialflows-standalone-build"' .open-next/socialflows-standalone/artifact-manifest.json
           grep -q './server-functions/default/handler.mjs' .open-next/socialflows-standalone/worker.js
-          if grep -q 'export { default } from "../worker.js";' .open-next/socialflows-standalone/worker.js; then
-            echo "SOCIALFLOW_STANDALONE_PREPARED_IS_WRAPPER"
+          if grep -Eq 'export \{ default \} from|export \* from' .open-next/socialflows-standalone/worker.js; then
+            echo "SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION"
+            exit 1
+          fi
+          if grep -q '"generatedFrom": ".open-next/worker.js"' .open-next/socialflows-standalone/artifact-manifest.json; then
+            echo "SOCIALFLOW_STANDALONE_GENERATED_FROM_GLOBAL"
             exit 1
           fi
           if grep -Ein 'dry-run|stub|dummy|placeholder|success: true|text/html' .open-next/socialflows-standalone/worker.js; then
-            echo "SOCIALFLOW_STANDALONE_PREPARED_FAKE"
+            echo "SOCIALFLOW_STANDALONE_ARTIFACT_FAKE"
             exit 1
           fi
-          grep -q 'main = "../../.open-next/socialflows/worker.js"' workers/socialflows/wrangler.workers.toml
-          grep -q 'directory = "../../.open-next/socialflows/assets"' workers/socialflows/wrangler.workers.toml
-          if grep -q 'socialflows-standalone' workers/socialflows/wrangler.workers.toml; then
-            echo "SOCIALFLOW_STANDALONE_PREMATURE_ACTIVATION"
+          grep -q 'main = "../../.open-next/socialflows-standalone/worker.js"' workers/socialflows/wrangler.workers.toml
+          grep -q 'directory = "../../.open-next/socialflows-standalone/assets"' workers/socialflows/wrangler.workers.toml
+          if grep -q 'main = "../../.open-next/socialflows/worker.js"' workers/socialflows/wrangler.workers.toml; then
+            echo "SOCIALFLOW_STANDALONE_NOT_ACTIVATED"
             exit 1
           fi
 
@@ -254,13 +257,13 @@ jobs:
           if-no-files-found: error
           path: .open-next/drakos
 
-      - name: Upload SocialFlow dedicated artifact
+      - name: Upload SocialFlow standalone artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: open-next-socialflows-build
+          name: open-next-socialflows-standalone-build
           if-no-files-found: error
-          path: .open-next/socialflows
+          path: .open-next/socialflows-standalone
 
       - name: Upload Bases dedicated artifact
         if: always()
@@ -324,10 +327,10 @@ jobs:
           name: open-next-drakos-build
           path: .
 
-      - name: Download SocialFlow dedicated artifact
+      - name: Download SocialFlow standalone artifact
         uses: actions/download-artifact@v4
         with:
-          name: open-next-socialflows-build
+          name: open-next-socialflows-standalone-build
           path: .
 
       - name: Download Bases dedicated artifact
@@ -401,45 +404,43 @@ jobs:
             exit 1
           fi
 
-      - name: Verify SocialFlow dedicated artifact
-        run: |
-          set -euo pipefail
-          test -f .open-next/socialflows/worker.js
-          test -d .open-next/socialflows/assets
-          grep -q 'export { default } from "../worker.js";' .open-next/socialflows/worker.js
-          grep -q 'export \* from "../worker.js";' .open-next/socialflows/worker.js
-          test -f .open-next/socialflows/artifact-manifest.json
-          grep -q '"productKey": "socialflows"' .open-next/socialflows/artifact-manifest.json
-          grep -q '"artifactMode": "dedicated-wrapper"' .open-next/socialflows/artifact-manifest.json
-          grep -q '"generatedFrom": ".open-next/worker.js"' .open-next/socialflows/artifact-manifest.json
-          grep -q 'main = "../../.open-next/socialflows/worker.js"' workers/socialflows/wrangler.workers.toml
-          grep -q 'directory = "../../.open-next/socialflows/assets"' workers/socialflows/wrangler.workers.toml
-          if grep -q 'main = "../../.open-next/worker.js"' workers/socialflows/wrangler.workers.toml; then
-            echo "SOCIALFLOW_DEDICATED_ARTIFACT_NOT_ACTIVATED"
-            exit 1
-          fi
-          if grep -q 'directory = "../../.open-next/assets"' workers/socialflows/wrangler.workers.toml; then
-            echo "SOCIALFLOW_DEDICATED_ARTIFACT_NOT_ACTIVATED"
-            exit 1
-          fi
-          if grep -Ein 'dry-run|stub|dummy|placeholder|success: true|text/html' .open-next/socialflows/worker.js; then
-            echo "SOCIALFLOW_DEDICATED_ARTIFACT_FAKE"
-            exit 1
-          fi
-
-      - name: Verify SocialFlow standalone remains inactive
+      - name: Verify SocialFlow standalone runtime active
         run: |
           set -euo pipefail
           test -f .open-next/socialflows-standalone/worker.js
           test -d .open-next/socialflows-standalone/assets
+          test -d .open-next/socialflows-standalone/server-functions
+          test -d .open-next/socialflows-standalone/.build
           test -f .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"artifactMode": "standalone-prepared"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"activationState": "inactive"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"deployMode": "not-deployed"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q 'main = "../../.open-next/socialflows/worker.js"' workers/socialflows/wrangler.workers.toml
-          grep -q 'directory = "../../.open-next/socialflows/assets"' workers/socialflows/wrangler.workers.toml
-          if grep -q 'socialflows-standalone' workers/socialflows/wrangler.workers.toml; then
-            echo "SOCIALFLOW_STANDALONE_PREMATURE_ACTIVATION"
+          grep -q '"productKey": "socialflows"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"artifactMode": "standalone"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"artifactState": "active"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"standaloneArtifactName": "open-next-socialflows-standalone-build"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q './server-functions/default/handler.mjs' .open-next/socialflows-standalone/worker.js
+          grep -q 'main = "../../.open-next/socialflows-standalone/worker.js"' workers/socialflows/wrangler.workers.toml
+          grep -q 'directory = "../../.open-next/socialflows-standalone/assets"' workers/socialflows/wrangler.workers.toml
+          if grep -Eq 'export \{ default \} from|export \* from' .open-next/socialflows-standalone/worker.js; then
+            echo "SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION"
+            exit 1
+          fi
+          if grep -q '"generatedFrom": ".open-next/worker.js"' .open-next/socialflows-standalone/artifact-manifest.json; then
+            echo "SOCIALFLOW_STANDALONE_GENERATED_FROM_GLOBAL"
+            exit 1
+          fi
+          if grep -q 'main = "../../.open-next/socialflows/worker.js"' workers/socialflows/wrangler.workers.toml; then
+            echo "SOCIALFLOW_STANDALONE_NOT_ACTIVATED"
+            exit 1
+          fi
+          if grep -q 'directory = "../../.open-next/socialflows/assets"' workers/socialflows/wrangler.workers.toml; then
+            echo "SOCIALFLOW_STANDALONE_ASSETS_NOT_ACTIVATED"
+            exit 1
+          fi
+          if grep -q 'main = "../../.open-next/worker.js"' workers/socialflows/wrangler.workers.toml; then
+            echo "SOCIALFLOW_STANDALONE_GLOBAL_REGRESSION"
+            exit 1
+          fi
+          if grep -Ein 'dry-run|stub|dummy|placeholder|success: true|text/html' .open-next/socialflows-standalone/worker.js; then
+            echo "SOCIALFLOW_STANDALONE_ARTIFACT_FAKE"
             exit 1
           fi
 
@@ -607,8 +608,8 @@ jobs:
           popd
 
           pushd workers/socialflows
-          test -f ../../.open-next/socialflows/worker.js
-          test -d ../../.open-next/socialflows/assets
+          test -f ../../.open-next/socialflows-standalone/worker.js
+          test -d ../../.open-next/socialflows-standalone/assets
           max_attempts=3
           for attempt in $(seq 1 "$max_attempts"); do
             log_file="../../wrangler-socialflow-deploy-attempt-${attempt}.log"

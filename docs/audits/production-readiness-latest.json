@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-12T16:20:53.865Z",
+  "timestamp": "2026-05-12T17:07:59.380Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
@@ -1864,10 +1864,10 @@
       "severity": "BLOCKER",
       "status": "PASS",
       "targetType": "code_guard",
-      "targetName": "artifact-matrix:skeleton-prepared-global-still-active",
+      "targetName": "artifact-matrix:socialflow-standalone-global-still-active",
       "expected": {
         "state": "partial-split",
-        "deployMode": "global-open-next-plus-drakos-bases-socialflows-and-mentorias-dedicated",
+        "deployMode": "global-open-next-plus-drakos-bases-mentorias-dedicated-and-socialflows-standalone",
         "activeArtifactName": "open-next-build",
         "products": [
           "drakos",
@@ -1940,14 +1940,14 @@
       "details": "SocialFlow deploy lane retries transient Cloudflare assets-upload-session/code 10013 failures without masking real errors."
     },
     {
-      "checkCode": "socialflowStandalonePreparedGuardDrift",
+      "checkCode": "socialflowStandaloneRuntimeActive",
       "severity": "BLOCKER",
       "status": "PASS",
       "targetType": "code_guard",
-      "targetName": "socialflow:standalone-prepared-inactive",
+      "targetName": "socialflow:standalone-runtime-active",
       "expected": "all runtime guard rules satisfied",
       "actual": "runtime_guard_ok",
-      "details": "SocialFlow standalone artifact is prepared, inactive, non-wrapper, and blocked from premature deployment."
+      "details": "SocialFlow standalone artifact is active, non-wrapper, structurally complete, and deployed through the dedicated standalone lane."
     },
     {
       "checkCode": "mentoriaRuntimeGuardDrift",

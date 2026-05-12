@@ -1,0 +1,5 @@
+name = "saas-socialflows-prod"
+main = "../../.open-next/socialflows/worker.js"
+
+[assets]
+directory = "../../.open-next/socialflows/assets"

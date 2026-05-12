@@ -113,32 +113,30 @@ async function emitDedicatedWrapperArtifact(config, product) {
   );
 }
 
-async function emitPreparedStandaloneArtifact(config, artifact) {
-  const preparedWorkerAbsolute = path.resolve(repoRoot, artifact.workerPath);
-  const preparedArtifactRoot = path.dirname(preparedWorkerAbsolute);
+async function emitStandaloneArtifact(config, artifact) {
+  const standaloneWorkerAbsolute = path.resolve(repoRoot, artifact.workerPath);
+  const standaloneArtifactRoot = path.dirname(standaloneWorkerAbsolute);
   const activeArtifactRoot = path.dirname(path.resolve(repoRoot, config.activeArtifact.workerPath));
+  const artifactState = artifact.artifactState ?? artifact.state ?? null;
 
-  await copyOpenNextRuntimeSubset(activeArtifactRoot, preparedArtifactRoot);
+  await copyOpenNextRuntimeSubset(activeArtifactRoot, standaloneArtifactRoot);
 
-  await fs.writeFile(
-    path.join(preparedArtifactRoot, "artifact-manifest.json"),
-    `${JSON.stringify(
-      {
-        productKey: artifact.key,
-        artifactMode: artifact.artifactMode,
-        artifactState: artifact.state,
-        activationState: artifact.activationState,
-        deployMode: artifact.deployMode,
-        preparedArtifactName: artifact.artifactName,
-        sourceArtifactName: artifact.sourceArtifactName ?? config.activeArtifact.artifactName,
-        generatedFrom: normalizeRelative(artifact.generatedFrom ?? config.activeArtifact.workerPath),
-        generatedAt: new Date().toISOString(),
-      },
-      null,
-      2,
-    )}\n`,
-    "utf8",
-  );
+  const manifest = {
+    productKey: artifact.key,
+    artifactMode: artifact.artifactMode,
+    artifactState,
+    standaloneArtifactName:
+      artifact.artifactMode === "standalone" ? artifact.artifactName : artifact.standaloneArtifactName ?? null,
+    preparedArtifactName:
+      artifact.artifactMode === "standalone-prepared" ? artifact.artifactName : artifact.preparedArtifactName ?? null,
+    activationState: artifact.activationState ?? null,
+    deployMode: artifact.deployMode ?? null,
+    sourceArtifactName: artifact.sourceArtifactName ?? config.activeArtifact.artifactName,
+    sourceRuntime: artifact.sourceRuntime ?? "open-next-runtime-copy",
+    generatedAt: new Date().toISOString(),
+  };
+
+  await fs.writeFile(path.join(standaloneArtifactRoot, "artifact-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 }
 
 async function buildSkeletonRecord(config, product) {
@@ -158,12 +156,14 @@ async function buildSkeletonRecord(config, product) {
   const plannedAssetsAbsolute = path.resolve(repoRoot, product.plannedAssetsPath);
   const activeWorkerAbsolute = path.resolve(repoRoot, config.activeArtifact.workerPath);
   const activeAssetsAbsolute = path.resolve(repoRoot, config.activeArtifact.assetsPath);
-  const preparedArtifact = (config.preparedArtifacts ?? []).find((artifact) => artifact.key === product.key);
-  const preparedWorkerAbsolute = preparedArtifact?.workerPath
-    ? path.resolve(repoRoot, preparedArtifact.workerPath)
+  const standaloneArtifact = [...(config.standaloneArtifacts ?? []), ...(config.preparedArtifacts ?? [])].find(
+    (artifact) => artifact.key === product.key,
+  );
+  const standaloneWorkerAbsolute = standaloneArtifact?.workerPath
+    ? path.resolve(repoRoot, standaloneArtifact.workerPath)
     : null;
-  const preparedAssetsAbsolute = preparedArtifact?.assetsPath
-    ? path.resolve(repoRoot, preparedArtifact.assetsPath)
+  const standaloneAssetsAbsolute = standaloneArtifact?.assetsPath
+    ? path.resolve(repoRoot, standaloneArtifact.assetsPath)
     : null;
 
   const shouldGenerateDedicatedRuntime =
@@ -175,15 +175,13 @@ async function buildSkeletonRecord(config, product) {
     await emitDedicatedWrapperArtifact(config, product);
   }
 
-  const shouldGeneratePreparedStandaloneRuntime =
-    preparedArtifact?.artifactMode === "standalone-prepared" &&
-    preparedArtifact?.activationState === "inactive" &&
-    preparedArtifact?.deployMode === "not-deployed" &&
+  const shouldGenerateStandaloneRuntime =
+    (standaloneArtifact?.artifactMode === "standalone" || standaloneArtifact?.artifactMode === "standalone-prepared") &&
     (await fileExists(activeWorkerAbsolute)) &&
     (await fileExists(activeAssetsAbsolute));
 
-  if (shouldGeneratePreparedStandaloneRuntime) {
-    await emitPreparedStandaloneArtifact(config, preparedArtifact);
+  if (shouldGenerateStandaloneRuntime) {
+    await emitStandaloneArtifact(config, standaloneArtifact);
   }
 
   return {
@@ -211,28 +209,31 @@ async function buildSkeletonRecord(config, product) {
         assets: await fileExists(plannedAssetsAbsolute),
       },
     },
-    preparedStandaloneArtifact: preparedArtifact
+    standaloneArtifact: standaloneArtifact
       ? {
-          artifactMode: preparedArtifact.artifactMode,
-          artifactState: preparedArtifact.state,
-          activationState: preparedArtifact.activationState,
-          deployMode: preparedArtifact.deployMode,
-          artifactName: preparedArtifact.artifactName,
-          workerPath: normalizeRelative(preparedArtifact.workerPath),
-          assetsPath: normalizeRelative(preparedArtifact.assetsPath),
+          artifactMode: standaloneArtifact.artifactMode,
+          artifactState: standaloneArtifact.artifactState ?? standaloneArtifact.state ?? null,
+          activationState: standaloneArtifact.activationState ?? null,
+          deployMode: standaloneArtifact.deployMode ?? null,
+          artifactName: standaloneArtifact.artifactName,
+          workerPath: normalizeRelative(standaloneArtifact.workerPath),
+          assetsPath: normalizeRelative(standaloneArtifact.assetsPath),
           exists: {
-            worker: preparedWorkerAbsolute ? await fileExists(preparedWorkerAbsolute) : false,
-            assets: preparedAssetsAbsolute ? await fileExists(preparedAssetsAbsolute) : false,
+            worker: standaloneWorkerAbsolute ? await fileExists(standaloneWorkerAbsolute) : false,
+            assets: standaloneAssetsAbsolute ? await fileExists(standaloneAssetsAbsolute) : false,
           },
         }
       : null,
     splitReady:
       product.artifactMode === "dedicated-wrapper" || product.artifactMode === "prepared-wrapper"
         ? shouldGenerateDedicatedRuntime
-        : false,
-    splitActivated: product.artifactMode === "dedicated-wrapper",
+        : product.artifactMode === "standalone-runtime"
+          ? shouldGenerateStandaloneRuntime
+          : false,
+    splitActivated: product.artifactMode === "dedicated-wrapper" || product.artifactMode === "standalone-runtime",
     dedicatedArtifactName: product.dedicatedArtifactName ?? null,
     preparedArtifactName: product.preparedArtifactName ?? null,
+    standaloneArtifactName: product.standaloneArtifactName ?? null,
     notes: config.notes,
   };
 }
@@ -277,6 +278,7 @@ async function main() {
     deployActiveArtifactName: config.activeArtifact.artifactName,
     dedicatedArtifacts: config.dedicatedArtifacts ?? [],
     preparedArtifacts: config.preparedArtifacts ?? [],
+    standaloneArtifacts: config.standaloneArtifacts ?? [],
     products: records.map((record) => ({
       artifactMode: record.artifactMode,
       artifactState: record.artifactState,
@@ -285,11 +287,12 @@ async function main() {
       wranglerConfigPath: record.wranglerConfigPath,
       currentArtifact: record.currentArtifact,
       plannedArtifact: record.plannedArtifact,
-      preparedStandaloneArtifact: record.preparedStandaloneArtifact,
+      standaloneArtifact: record.standaloneArtifact,
       splitReady: record.splitReady,
       splitActivated: record.splitActivated,
       dedicatedArtifactName: record.dedicatedArtifactName,
       preparedArtifactName: record.preparedArtifactName,
+      standaloneArtifactName: record.standaloneArtifactName,
     })),
   };
 
