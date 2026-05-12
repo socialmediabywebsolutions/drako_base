@@ -598,6 +598,7 @@ describe("production readiness audits", () => {
       "Download SocialFlow standalone artifact",
       "Verify SocialFlow standalone active artifact",
       "Verify SocialFlow standalone runtime active",
+      "Production readiness after generated artifacts",
       "SocialFlow scope audit summary",
       "scope-audit.json",
       "SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING",
@@ -1722,6 +1723,24 @@ describe("production readiness audits", () => {
     expect(result.report.violations.some((item) => item.checkCode === "socialflowStandaloneRuntimeActive")).toBe(true);
   });
 
+  it("keeps production readiness after generated artifact skeletons in the canonical workflow", async () => {
+    const workflow = await fs.readFile(".github/workflows/drako-factory-deploy.yml", "utf8");
+    const packageJson = JSON.parse(await fs.readFile("package.json", "utf8")) as { scripts: Record<string, string> };
+
+    const skeletonIndex = workflow.indexOf("Emit global artifact matrix skeleton index");
+    const readinessIndex = workflow.indexOf("Production readiness after generated artifacts");
+    expect(skeletonIndex).toBeGreaterThan(-1);
+    expect(readinessIndex).toBeGreaterThan(skeletonIndex);
+
+    const gatesBlockStart = workflow.indexOf("name: Gates");
+    const artifactMatrixStart = workflow.indexOf("artifact_matrix_skeleton:");
+    const gatesBlock = workflow.slice(gatesBlockStart, artifactMatrixStart);
+    expect(gatesBlock).not.toContain("pnpm check:production");
+
+    expect(workflow).toContain("FIXTURES_DIR=tests/fixtures/production-audits/pass pnpm check:production");
+    expect(packageJson.scripts["check:production:with-artifacts"]).toBe("pnpm build:artifacts:skeleton && pnpm check:production:fixtures");
+  });
+
   it("keeps SocialFlow standalone scope audit as warning-only while runtime-copy foreign routes remain", async () => {
     const result = await runProductionReadinessAudits({
       sourceOfTruthPath,
@@ -1740,6 +1759,25 @@ describe("production readiness audits", () => {
       ),
     ).toBe(true);
     expect(result.report.productionReady).toBe(true);
+  });
+
+  it("fails clearly when generated SocialFlow scope audit artifacts are missing", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowStandaloneScopeAuditGuardOverride: {
+        ...socialflowStandaloneScopeAuditGuardBase,
+        manifestPath: "tests/fixtures/production-audits/socialflow-scope-audit-guards/missing-artifact-manifest.json",
+        scopeAuditPath: "tests/fixtures/production-audits/socialflow-scope-audit-guards/missing-scope-audit.json",
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    const violation = result.report.violations.find((item) => item.checkCode === "socialflowStandaloneScopeAuditMissing");
+    expect(violation).toBeTruthy();
+    expect(JSON.stringify(violation?.actual)).toContain("GENERATED_ARTIFACT_PRECONDITION");
+    expect(JSON.stringify(violation?.actual)).toContain("pnpm build:artifacts:skeleton");
   });
 
   it("fails readiness when SocialFlow claims product-scoped while foreign routes remain", async () => {

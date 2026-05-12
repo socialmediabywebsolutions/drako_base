@@ -57,6 +57,7 @@
     "check:hostnames:fixtures": "cross-env TMPDIR=/tmp FIXTURES_DIR=tests/fixtures/hostnames-drifts/pass tsx scripts/check-hostnames-drift.ts",
     "check:production": "cross-env TMPDIR=/tmp tsx scripts/check-production-readiness.ts",
     "check:production:fixtures": "cross-env TMPDIR=/tmp FIXTURES_DIR=tests/fixtures/production-audits/pass tsx scripts/check-production-readiness.ts",
+    "check:production:with-artifacts": "pnpm build:artifacts:skeleton && pnpm check:production:fixtures",
     "backfill:provisioning": "cross-env TMPDIR=/tmp tsx scripts/backfill-provisioning-success.ts",
     "bootstrap:observability": "cross-env TMPDIR=/tmp tsx scripts/bootstrap-observability-fallback.ts",
     "replay:observability": "cross-env TMPDIR=/tmp tsx scripts/replay-observability-fallbacks.ts",

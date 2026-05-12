@@ -805,6 +805,7 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
     "Download SocialFlow standalone artifact",
     "Verify SocialFlow standalone active artifact",
     "Verify SocialFlow standalone runtime active",
+    "Production readiness after generated artifacts",
     "SocialFlow scope audit summary",
     "scope-audit.json",
     "SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING",
@@ -3452,7 +3453,10 @@ async function readJsonGuardFile(filePath: string): Promise<{ value: Record<stri
     };
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    return { value: null, error: reason };
+    return {
+      value: null,
+      error: `${reason}; GENERATED_ARTIFACT_PRECONDITION: run pnpm build:artifacts:skeleton after the OpenNext artifact exists before pnpm check:production`,
+    };
   }
 }
 

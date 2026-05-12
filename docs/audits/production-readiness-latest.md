@@ -1,6 +1,6 @@
 # Production Readiness Audit Report
 
-- Timestamp: `2026-05-12T20:03:00.142Z`
+- Timestamp: `2026-05-12T20:31:19.563Z`
 - Mode: `fixtures`
 - Source of truth: `docs/config/production-audits-expected-state.json`
 - Fixtures dir: `tests/fixtures/production-audits/pass`

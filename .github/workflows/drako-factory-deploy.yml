@@ -54,7 +54,6 @@ jobs:
           pnpm verify:auth-ssot
           npx vitest run tests/api/auth-cross-redirects.test.ts
           pnpm typecheck
-          FIXTURES_DIR=tests/fixtures/production-audits/pass pnpm check:production
           npx vitest run tests/lib/auth-db-selection-failclosed.test.ts
           npx vitest run tests/lib/auth-origin-resolution.test.ts
           npx vitest run tests/lib/auth-session-cookie-e2e.test.ts
@@ -171,6 +170,11 @@ jobs:
         run: |
           set -euo pipefail
           pnpm build:artifacts:skeleton
+
+      - name: Production readiness after generated artifacts
+        run: |
+          set -euo pipefail
+          FIXTURES_DIR=tests/fixtures/production-audits/pass pnpm check:production
 
       - name: Verify SocialFlow standalone active artifact
         run: |
