@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-05-12T15:47:15.054Z",
+  "timestamp": "2026-05-12T16:20:53.865Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
   "productionReady": true,
   "summary": {
-    "checksTotal": 173,
-    "checksPass": 170,
+    "checksTotal": 174,
+    "checksPass": 171,
     "checksFail": 0,
     "checksNa": 3,
     "violationsTotal": 0,
@@ -1928,6 +1928,16 @@
       "expected": "all runtime guard rules satisfied",
       "actual": "runtime_guard_ok",
       "details": "SocialFlow stays wired to the real OpenNext runtime and its legacy fallback remains fail-closed."
+    },
+    {
+      "checkCode": "socialflowAssetsUploadRetryGuardDrift",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:deploy-assets-upload-session-retry",
+      "expected": "all runtime guard rules satisfied",
+      "actual": "runtime_guard_ok",
+      "details": "SocialFlow deploy lane retries transient Cloudflare assets-upload-session/code 10013 failures without masking real errors."
     },
     {
       "checkCode": "socialflowStandalonePreparedGuardDrift",

@@ -94,6 +94,13 @@ describe("socialflow runtime wiring", () => {
     expect(source).toContain('grep -q \'main = "../../.open-next/socialflows/worker.js"\' workers/socialflows/wrangler.workers.toml');
     expect(source).toContain("SOCIALFLOW_DEDICATED_ARTIFACT_NOT_ACTIVATED");
     expect(source).toContain("SOCIALFLOW_DEDICATED_ARTIFACT_FAKE");
+    expect(source).toContain("max_attempts=3");
+    expect(source).toContain("wrangler-socialflow-deploy-attempt-${attempt}.log");
+    expect(source).toContain("assets-upload-session");
+    expect(source).toContain("code:[[:space:]]*10013");
+    expect(source).toContain("TRANSIENT_SOCIALFLOW_ASSETS_UPLOAD_SESSION_FAILURE");
+    expect(source).toContain("SocialFlow deploy failed with non-retryable error on attempt ${attempt}/${max_attempts}.");
+    expect(source).not.toContain("wrangler deploy -c wrangler.workers.toml || true");
   });
 
   it("prepares SocialFlow standalone without activating it", () => {

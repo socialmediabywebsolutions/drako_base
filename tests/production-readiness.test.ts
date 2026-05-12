@@ -180,6 +180,33 @@ describe("production readiness audits", () => {
       },
     ],
   } as const;
+  const socialflowAssetsUploadRetryGuardBase = {
+    targetName: "test:socialflow-assets-upload-retry-guard",
+    rules: [
+      {
+        filePath: ".github/workflows/drako-factory-deploy.yml",
+        requiredTokens: [
+          "Deploy in strict order (scheduler -> drakos -> mentorias -> bases -> socialflows)",
+          "max_attempts=3",
+          'log_file="../../wrangler-socialflow-deploy-attempt-${attempt}.log"',
+          "SocialFlow deploy attempt ${attempt}/${max_attempts}",
+          'wrangler deploy -c wrangler.workers.toml 2>&1 | tee "$log_file"',
+          "assets-upload-session",
+          "code:[[:space:]]*10013",
+          "unknown error",
+          "TRANSIENT_SOCIALFLOW_ASSETS_UPLOAD_SESSION_FAILURE",
+          'sleep "$backoff_seconds"',
+          "SocialFlow deploy failed after ${max_attempts} attempts due to repeated assets-upload-session/code 10013 failures.",
+          "SocialFlow deploy failed with non-retryable error on attempt ${attempt}/${max_attempts}.",
+        ],
+        forbiddenTokens: [
+          "wrangler deploy -c wrangler.workers.toml || true",
+          "SOCIALFLOW_DEPLOY_FORCE_SUCCESS",
+          "continue-on-error: true",
+        ],
+      },
+    ],
+  } as const;
   const mentoriaRuntimeGuardBase = {
     targetName: "test:mentoria-runtime-guard",
     rules: [
@@ -1508,6 +1535,7 @@ describe("production readiness audits", () => {
       artifactMatrixPrematureActivationGuardOverride: artifactMatrixPrematureActivationGuardBase,
       globalDeployDriftGuardOverride: globalDeployDriftGuardBase,
       socialflowStandalonePreparedGuardOverride: socialflowStandalonePreparedGuardBase,
+      socialflowAssetsUploadRetryGuardOverride: socialflowAssetsUploadRetryGuardBase,
       drakosPreparedArtifactGuardOverride: drakosPreparedArtifactGuardBase,
       basesPreparedArtifactGuardOverride: basesPreparedArtifactGuardBase,
     });
@@ -1530,6 +1558,9 @@ describe("production readiness audits", () => {
     ).toBe(true);
     expect(
       result.report.checks.some((item) => item.checkCode === "socialflowStandalonePreparedGuardDrift" && item.status === "PASS"),
+    ).toBe(true);
+    expect(
+      result.report.checks.some((item) => item.checkCode === "socialflowAssetsUploadRetryGuardDrift" && item.status === "PASS"),
     ).toBe(true);
   });
 
@@ -1613,6 +1644,27 @@ describe("production readiness audits", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.report.violations.some((item) => item.checkCode === "socialflowStandalonePreparedGuardDrift")).toBe(true);
+  });
+
+  it("fails readiness when SocialFlow deploy lane loses assets upload session retry", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowAssetsUploadRetryGuardOverride: {
+        ...socialflowAssetsUploadRetryGuardBase,
+        rules: [
+          {
+            filePath: "tests/fixtures/production-audits/socialflow-deploy-retry-guards/fragile-socialflow-deploy-workflow.yml",
+            requiredTokens: socialflowAssetsUploadRetryGuardBase.rules[0].requiredTokens,
+            forbiddenTokens: socialflowAssetsUploadRetryGuardBase.rules[0].forbiddenTokens,
+          },
+        ],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowAssetsUploadRetryGuardDrift")).toBe(true);
   });
 
   it("fails readiness when Drakos dedicated wrapper regresses to global runtime or becomes fake", async () => {

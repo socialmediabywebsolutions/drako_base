@@ -609,7 +609,30 @@ jobs:
           pushd workers/socialflows
           test -f ../../.open-next/socialflows/worker.js
           test -d ../../.open-next/socialflows/assets
-          wrangler deploy -c wrangler.workers.toml
+          max_attempts=3
+          for attempt in $(seq 1 "$max_attempts"); do
+            log_file="../../wrangler-socialflow-deploy-attempt-${attempt}.log"
+            echo "SocialFlow deploy attempt ${attempt}/${max_attempts}"
+            if wrangler deploy -c wrangler.workers.toml 2>&1 | tee "$log_file"; then
+              echo "SocialFlow deploy succeeded on attempt ${attempt}/${max_attempts}"
+              break
+            fi
+
+            if grep -Eiq 'assets-upload-session|code:[[:space:]]*10013|unknown error' "$log_file"; then
+              transient_error_detected=1
+              if [ "$attempt" -lt "$max_attempts" ]; then
+                backoff_seconds=$((attempt * 10))
+                echo "TRANSIENT_SOCIALFLOW_ASSETS_UPLOAD_SESSION_FAILURE: retrying in ${backoff_seconds}s"
+                sleep "$backoff_seconds"
+                continue
+              fi
+              echo "SocialFlow deploy failed after ${max_attempts} attempts due to repeated assets-upload-session/code 10013 failures."
+              exit 1
+            fi
+
+            echo "SocialFlow deploy failed with non-retryable error on attempt ${attempt}/${max_attempts}."
+            exit 1
+          done
           popd
 
   smoke:

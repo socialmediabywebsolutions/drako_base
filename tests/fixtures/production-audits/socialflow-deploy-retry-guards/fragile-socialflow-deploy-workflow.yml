@@ -1,0 +1,12 @@
+name: Fragile SocialFlow Deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy in strict order (scheduler -> drakos -> mentorias -> bases -> socialflows)
+        run: |
+          set -euo pipefail
+          pushd workers/socialflows
+          wrangler deploy -c wrangler.workers.toml || true
+          popd

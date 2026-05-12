@@ -165,6 +165,7 @@ type CheckCode =
   | "basesPreparedArtifactGuardDrift"
   | "globalDeployDrift"
   | "socialflowStandalonePreparedGuardDrift"
+  | "socialflowAssetsUploadRetryGuardDrift"
   | "mentoriaAuthsOperationalDrift";
 
 type CheckRecord = {
@@ -257,6 +258,7 @@ type ProductionAuditsRunOptions = {
   basesPreparedArtifactGuardOverride?: FileTokenGuard;
   globalDeployDriftGuardOverride?: FileTokenGuard;
   socialflowStandalonePreparedGuardOverride?: FileTokenGuard;
+  socialflowAssetsUploadRetryGuardOverride?: FileTokenGuard;
   mentoriaAuthsOperationalGuardOverride?: FileTokenGuard;
 };
 
@@ -1056,6 +1058,34 @@ const DEFAULT_SOCIALFLOW_STANDALONE_PREPARED_GUARD: FileTokenGuard = {
       filePath: "workers/socialflows/wrangler.workers.toml",
       requiredTokens: ['main = "../../.open-next/socialflows/worker.js"', 'directory = "../../.open-next/socialflows/assets"'],
       forbiddenTokens: ["socialflows-standalone", "open-next-socialflows-standalone"],
+    },
+  ],
+};
+
+const DEFAULT_SOCIALFLOW_ASSETS_UPLOAD_RETRY_GUARD: FileTokenGuard = {
+  targetName: "socialflow:deploy-assets-upload-session-retry",
+  rules: [
+    {
+      filePath: ".github/workflows/drako-factory-deploy.yml",
+      requiredTokens: [
+        "Deploy in strict order (scheduler -> drakos -> mentorias -> bases -> socialflows)",
+        "max_attempts=3",
+        'log_file="../../wrangler-socialflow-deploy-attempt-${attempt}.log"',
+        "SocialFlow deploy attempt ${attempt}/${max_attempts}",
+        "wrangler deploy -c wrangler.workers.toml 2>&1 | tee \"$log_file\"",
+        "assets-upload-session",
+        "code:[[:space:]]*10013",
+        "unknown error",
+        "TRANSIENT_SOCIALFLOW_ASSETS_UPLOAD_SESSION_FAILURE",
+        "sleep \"$backoff_seconds\"",
+        "SocialFlow deploy failed after ${max_attempts} attempts due to repeated assets-upload-session/code 10013 failures.",
+        "SocialFlow deploy failed with non-retryable error on attempt ${attempt}/${max_attempts}.",
+      ],
+      forbiddenTokens: [
+        "wrangler deploy -c wrangler.workers.toml || true",
+        "SOCIALFLOW_DEPLOY_FORCE_SUCCESS",
+        "continue-on-error: true",
+      ],
     },
   ],
 };
@@ -3257,6 +3287,7 @@ async function buildFileTokenGuardChecks(
     | "basesPreparedArtifactGuardDrift"
     | "globalDeployDrift"
     | "socialflowStandalonePreparedGuardDrift"
+    | "socialflowAssetsUploadRetryGuardDrift"
     | "mentoriaAuthsOperationalDrift",
   passDetails: string,
   failDetails: string,
@@ -3814,6 +3845,15 @@ export async function runProductionReadinessAudits(
     "SocialFlow runtime wiring drifted toward a fake handler, placeholder runtime or shared handler routing.",
   );
   checks.push(...socialflowRuntimeChecks);
+  const socialflowAssetsUploadRetryGuard =
+    options.socialflowAssetsUploadRetryGuardOverride ?? DEFAULT_SOCIALFLOW_ASSETS_UPLOAD_RETRY_GUARD;
+  const socialflowAssetsUploadRetryChecks = await buildFileTokenGuardChecks(
+    socialflowAssetsUploadRetryGuard,
+    "socialflowAssetsUploadRetryGuardDrift",
+    "SocialFlow deploy lane retries transient Cloudflare assets-upload-session/code 10013 failures without masking real errors.",
+    "SocialFlow deploy lane can fail on transient assets-upload-session/code 10013 errors or masks failures unsafely.",
+  );
+  checks.push(...socialflowAssetsUploadRetryChecks);
   const socialflowStandalonePreparedGuard =
     options.socialflowStandalonePreparedGuardOverride ?? DEFAULT_SOCIALFLOW_STANDALONE_PREPARED_GUARD;
   const socialflowStandalonePreparedChecks = await buildFileTokenGuardChecks(

@@ -1,6 +1,6 @@
 # Production Readiness Audit Report
 
-- Timestamp: `2026-05-12T15:47:15.054Z`
+- Timestamp: `2026-05-12T16:20:53.865Z`
 - Mode: `fixtures`
 - Source of truth: `docs/config/production-audits-expected-state.json`
 - Fixtures dir: `tests/fixtures/production-audits/pass`
@@ -8,8 +8,8 @@
 
 ## Summary
 
-- Checks total: 173
-- Checks pass: 170
+- Checks total: 174
+- Checks pass: 171
 - Checks fail: 0
 - Checks N/A: 3
 - Blockers: 0
@@ -187,6 +187,7 @@
 | drakosPreparedArtifactGuardDrift | BLOCKER | drakos:dedicated-artifact-activated | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | basesPreparedArtifactGuardDrift | BLOCKER | bases:dedicated-artifact-activated | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | socialflowRuntimeGuardDrift | BLOCKER | socialflow:runtime-real-worker-only | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
+| socialflowAssetsUploadRetryGuardDrift | BLOCKER | socialflow:deploy-assets-upload-session-retry | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | socialflowStandalonePreparedGuardDrift | BLOCKER | socialflow:standalone-prepared-inactive | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | mentoriaRuntimeGuardDrift | BLOCKER | mentoria:runtime-real-wrapper-only | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | socialflowCanonicalSmokeGuardDrift | BLOCKER | socialflow:canonical-smoke-strict | PASS | "strict canonical smoke with 410 legacy routes and no canonical 405 acceptance" | "strict_smoke_ok" |
