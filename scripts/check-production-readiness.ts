@@ -672,14 +672,13 @@ const DEFAULT_ARTIFACT_MATRIX_PRODUCTS: ArtifactMatrixProduct[] = [
   {
     key: "bases",
     workerName: "saas-bases-prod",
-    artifactMode: "prepared-wrapper",
-    artifactState: "skeleton/prepared",
+    artifactMode: "dedicated-wrapper",
     wranglerConfigPath: "workers/bases/wrangler.workers.toml",
-    currentWranglerMain: "../../.open-next/worker.js",
-    currentWranglerAssetsDirectory: "../../.open-next/assets",
+    currentWranglerMain: "../../.open-next/bases/worker.js",
+    currentWranglerAssetsDirectory: "../../.open-next/bases/assets",
     plannedWorkerPath: ".open-next/bases/worker.js",
     plannedAssetsPath: ".open-next/bases/assets",
-    preparedArtifactName: "open-next-bases-build",
+    dedicatedArtifactName: "open-next-bases-build",
   },
   {
     key: "mentorias",
@@ -711,9 +710,15 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
   workflowPath: ".github/workflows/drako-factory-deploy.yml",
   buildScriptPath: "scripts/build-artifact-matrix-skeleton.mjs",
   expectedState: "partial-split",
-  expectedDeployMode: "global-open-next-plus-socialflows-and-mentorias-dedicated",
+  expectedDeployMode: "global-open-next-plus-bases-socialflows-and-mentorias-dedicated",
   expectedActiveArtifactName: "open-next-build",
   expectedDedicatedArtifacts: [
+    {
+      key: "bases",
+      artifactName: "open-next-bases-build",
+      workerPath: ".open-next/bases/worker.js",
+      assetsPath: ".open-next/bases/assets",
+    },
     {
       key: "mentorias",
       artifactName: "open-next-mentorias-build",
@@ -735,13 +740,6 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
       workerPath: ".open-next/drakos/worker.js",
       assetsPath: ".open-next/drakos/assets",
     },
-    {
-      key: "bases",
-      state: "skeleton/prepared",
-      artifactName: "open-next-bases-build",
-      workerPath: ".open-next/bases/worker.js",
-      assetsPath: ".open-next/bases/assets",
-    },
   ],
   expectedProducts: DEFAULT_ARTIFACT_MATRIX_PRODUCTS,
   workflowRequiredTokens: [
@@ -754,7 +752,10 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
     "name: open-next-build",
     "Download OpenNext build artifact",
     "Verify Drakos prepared artifact remains inactive",
-    "Verify Bases prepared artifact remains inactive",
+    "Verify Bases dedicated artifact",
+    "name: open-next-bases-build",
+    "Upload Bases dedicated artifact",
+    "Download Bases dedicated artifact",
     "name: open-next-mentorias-build",
     "Download Mentoria dedicated artifact",
     "Verify Mentoria dedicated artifact",
@@ -784,13 +785,9 @@ const DEFAULT_ARTIFACT_MATRIX_PREMATURE_ACTIVATION_GUARD: ArtifactMatrixPrematur
     "name: open-next-drakos-build",
     "Upload Drakos dedicated artifact",
     "Download Drakos dedicated artifact",
-    "name: open-next-bases-build",
-    "Upload Bases dedicated artifact",
-    "Download Bases dedicated artifact",
     "path: .open-next/drakos",
-    "path: .open-next/bases",
   ],
-  allowedDedicatedProducts: ["socialflows", "mentorias"],
+  allowedDedicatedProducts: ["bases", "socialflows", "mentorias"],
 };
 
 const DEFAULT_DRAKOS_PREPARED_ARTIFACT_GUARD: FileTokenGuard = {
@@ -849,21 +846,20 @@ const DEFAULT_DRAKOS_PREPARED_ARTIFACT_GUARD: FileTokenGuard = {
 };
 
 const DEFAULT_BASES_PREPARED_ARTIFACT_GUARD: FileTokenGuard = {
-  targetName: "bases:prepared-artifact-not-activated",
+  targetName: "bases:dedicated-artifact-activated",
   rules: [
     {
       filePath: "docs/config/open-next-artifact-matrix.json",
       requiredTokens: [
-        '"preparedArtifacts"',
+        '"dedicatedArtifacts"',
         '"key": "bases"',
-        '"state": "skeleton/prepared"',
         '"artifactName": "open-next-bases-build"',
         '"workerPath": ".open-next/bases/worker.js"',
         '"assetsPath": ".open-next/bases/assets"',
-        '"artifactMode": "prepared-wrapper"',
-        '"currentWranglerMain": "../../.open-next/worker.js"',
-        '"currentWranglerAssetsDirectory": "../../.open-next/assets"',
-        '"preparedArtifactName": "open-next-bases-build"',
+        '"artifactMode": "dedicated-wrapper"',
+        '"currentWranglerMain": "../../.open-next/bases/worker.js"',
+        '"currentWranglerAssetsDirectory": "../../.open-next/bases/assets"',
+        '"dedicatedArtifactName": "open-next-bases-build"',
       ],
     },
     {
@@ -882,23 +878,21 @@ const DEFAULT_BASES_PREPARED_ARTIFACT_GUARD: FileTokenGuard = {
     {
       filePath: ".github/workflows/drako-factory-deploy.yml",
       requiredTokens: [
-        "Verify Bases prepared artifact remains inactive",
-        'test -f .open-next/bases/worker.js',
-        'grep -q \'main = "../../.open-next/worker.js"\' workers/bases/wrangler.workers.toml',
-        "BASES_PREPARED_ARTIFACT_PREMATURELY_ACTIVATED",
-        "BASES_PREPARED_ARTIFACT_FAKE",
-      ],
-      forbiddenTokens: [
+        "Verify Bases dedicated artifact",
         "name: open-next-bases-build",
         "Upload Bases dedicated artifact",
         "Download Bases dedicated artifact",
-        "path: .open-next/bases",
+        'test -f .open-next/bases/worker.js',
+        'grep -q \'main = "../../.open-next/bases/worker.js"\' workers/bases/wrangler.workers.toml',
+        "BASES_DEDICATED_ARTIFACT_NOT_ACTIVATED",
+        "BASES_DEDICATED_ARTIFACT_FAKE",
       ],
+      forbiddenTokens: [],
     },
     {
       filePath: "workers/bases/wrangler.workers.toml",
-      requiredTokens: ['main = "../../.open-next/worker.js"', 'directory = "../../.open-next/assets"'],
-      forbiddenTokens: ['main = "../../.open-next/bases/worker.js"', 'directory = "../../.open-next/bases/assets"'],
+      requiredTokens: ['main = "../../.open-next/bases/worker.js"', 'directory = "../../.open-next/bases/assets"'],
+      forbiddenTokens: ['main = "../../.open-next/worker.js"', 'directory = "../../.open-next/assets"'],
     },
   ],
 };
@@ -975,7 +969,7 @@ const DEFAULT_MENTORIA_RUNTIME_GUARD: FileTokenGuard = {
         '"generatedFrom": ".open-next/worker.js"',
         "MENTORIA_DEDICATED_ARTIFACT_FAKE",
       ],
-      forbiddenTokens: ["path: .open-next/drakos", "path: .open-next/bases"],
+      forbiddenTokens: ["path: .open-next/drakos"],
     },
   ],
 };
@@ -3355,8 +3349,8 @@ async function buildArtifactMatrixPrematureActivationChecks(
       actual: failures.length === 0 ? "artifact_split_inactive" : failures,
       details:
         failures.length === 0
-          ? "Only SocialFlow and Mentoria are allowed to run on dedicated wrapper artifacts while Drako and Bases remain on the global OpenNext bundle."
-          : "A worker or workflow started acting as if per-product artifacts were active outside the allowed SocialFlow and Mentoria splits.",
+          ? "Only Bases, SocialFlow and Mentoria are allowed to run on dedicated wrapper artifacts while Drako remains on the global OpenNext bundle."
+          : "A worker or workflow started acting as if per-product artifacts were active outside the allowed Bases, SocialFlow and Mentoria splits.",
     },
   ];
 }
@@ -3658,8 +3652,8 @@ export async function runProductionReadinessAudits(
   const basesPreparedArtifactChecks = await buildFileTokenGuardChecks(
     basesPreparedArtifactGuard,
     "basesPreparedArtifactGuardDrift",
-    "Bases has a generated prepared wrapper artifact while its worker deploy remains pinned to the global OpenNext artifact.",
-    "Bases prepared artifact wiring drifted toward activation, a fake wrapper, or a standalone deploy artifact.",
+    "Bases runs on its dedicated wrapper artifact and keeps the real OpenNext re-export contract.",
+    "Bases dedicated artifact wiring drifted back to global runtime or toward a fake wrapper.",
   );
   checks.push(...basesPreparedArtifactChecks);
   const socialflowRuntimeGuard = options.socialflowRuntimeGuardOverride ?? DEFAULT_SOCIALFLOW_RUNTIME_GUARD;
