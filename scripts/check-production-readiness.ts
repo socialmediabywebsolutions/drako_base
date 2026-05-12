@@ -161,6 +161,7 @@ type CheckCode =
   | "legacyCompatTelemetryGuardMissing"
   | "artifactMatrixSkeletonDrift"
   | "artifactSplitPrematureActivation"
+  | "drakosPreparedArtifactGuardDrift"
   | "basesPreparedArtifactGuardDrift"
   | "mentoriaAuthsOperationalDrift";
 
@@ -250,6 +251,7 @@ type ProductionAuditsRunOptions = {
   legacyCompatTelemetryGuardOverride?: FileTokenGuard;
   artifactMatrixSkeletonGuardOverride?: ArtifactMatrixSkeletonGuard;
   artifactMatrixPrematureActivationGuardOverride?: ArtifactMatrixPrematureActivationGuard;
+  drakosPreparedArtifactGuardOverride?: FileTokenGuard;
   basesPreparedArtifactGuardOverride?: FileTokenGuard;
   mentoriaAuthsOperationalGuardOverride?: FileTokenGuard;
 };
@@ -658,12 +660,14 @@ const DEFAULT_ARTIFACT_MATRIX_PRODUCTS: ArtifactMatrixProduct[] = [
   {
     key: "drakos",
     workerName: "saas-drakos-prod",
-    artifactMode: "global-shared",
+    artifactMode: "prepared-wrapper",
+    artifactState: "skeleton/prepared",
     wranglerConfigPath: "workers/drakos/wrangler.workers.toml",
     currentWranglerMain: "../../.open-next/worker.js",
     currentWranglerAssetsDirectory: "../../.open-next/assets",
     plannedWorkerPath: ".open-next/drakos/worker.js",
     plannedAssetsPath: ".open-next/drakos/assets",
+    preparedArtifactName: "open-next-drakos-build",
   },
   {
     key: "bases",
@@ -725,6 +729,13 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
   ],
   expectedPreparedArtifacts: [
     {
+      key: "drakos",
+      state: "skeleton/prepared",
+      artifactName: "open-next-drakos-build",
+      workerPath: ".open-next/drakos/worker.js",
+      assetsPath: ".open-next/drakos/assets",
+    },
+    {
       key: "bases",
       state: "skeleton/prepared",
       artifactName: "open-next-bases-build",
@@ -742,6 +753,7 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
     "build/open-next-artifact-matrix/global",
     "name: open-next-build",
     "Download OpenNext build artifact",
+    "Verify Drakos prepared artifact remains inactive",
     "Verify Bases prepared artifact remains inactive",
     "name: open-next-mentorias-build",
     "Download Mentoria dedicated artifact",
@@ -769,6 +781,9 @@ const DEFAULT_ARTIFACT_MATRIX_PREMATURE_ACTIVATION_GUARD: ArtifactMatrixPrematur
   forbiddenWorkflowTokens: [
     "name: open-next-artifact-matrix-drakos",
     "name: open-next-artifact-matrix-bases",
+    "name: open-next-drakos-build",
+    "Upload Drakos dedicated artifact",
+    "Download Drakos dedicated artifact",
     "name: open-next-bases-build",
     "Upload Bases dedicated artifact",
     "Download Bases dedicated artifact",
@@ -776,6 +791,61 @@ const DEFAULT_ARTIFACT_MATRIX_PREMATURE_ACTIVATION_GUARD: ArtifactMatrixPrematur
     "path: .open-next/bases",
   ],
   allowedDedicatedProducts: ["socialflows", "mentorias"],
+};
+
+const DEFAULT_DRAKOS_PREPARED_ARTIFACT_GUARD: FileTokenGuard = {
+  targetName: "drakos:prepared-artifact-not-activated",
+  rules: [
+    {
+      filePath: "docs/config/open-next-artifact-matrix.json",
+      requiredTokens: [
+        '"preparedArtifacts"',
+        '"key": "drakos"',
+        '"state": "skeleton/prepared"',
+        '"artifactName": "open-next-drakos-build"',
+        '"workerPath": ".open-next/drakos/worker.js"',
+        '"assetsPath": ".open-next/drakos/assets"',
+        '"artifactMode": "prepared-wrapper"',
+        '"currentWranglerMain": "../../.open-next/worker.js"',
+        '"currentWranglerAssetsDirectory": "../../.open-next/assets"',
+        '"preparedArtifactName": "open-next-drakos-build"',
+      ],
+    },
+    {
+      filePath: "scripts/build-artifact-matrix-skeleton.mjs",
+      requiredTokens: [
+        'product.artifactMode === "prepared-wrapper"',
+        "preparedArtifacts",
+        "preparedArtifactName",
+        "artifactState",
+        'splitActivated: product.artifactMode === "dedicated-wrapper"',
+        'export { default } from',
+        'export * from',
+      ],
+      forbiddenTokens: ["dummy worker", "placeholder HTML"],
+    },
+    {
+      filePath: ".github/workflows/drako-factory-deploy.yml",
+      requiredTokens: [
+        "Verify Drakos prepared artifact remains inactive",
+        'test -f .open-next/drakos/worker.js',
+        'grep -q \'main = "../../.open-next/worker.js"\' workers/drakos/wrangler.workers.toml',
+        "DRAKOS_PREPARED_ARTIFACT_PREMATURELY_ACTIVATED",
+        "DRAKOS_PREPARED_ARTIFACT_FAKE",
+      ],
+      forbiddenTokens: [
+        "name: open-next-drakos-build",
+        "Upload Drakos dedicated artifact",
+        "Download Drakos dedicated artifact",
+        "path: .open-next/drakos",
+      ],
+    },
+    {
+      filePath: "workers/drakos/wrangler.workers.toml",
+      requiredTokens: ['main = "../../.open-next/worker.js"', 'directory = "../../.open-next/assets"'],
+      forbiddenTokens: ['main = "../../.open-next/drakos/worker.js"', 'directory = "../../.open-next/drakos/assets"'],
+    },
+  ],
 };
 
 const DEFAULT_BASES_PREPARED_ARTIFACT_GUARD: FileTokenGuard = {
@@ -3050,6 +3120,7 @@ async function buildFileTokenGuardChecks(
     | "mentoriaRuntimeGuardDrift"
     | "mentoriaStrictSmokeGuardDrift"
     | "legacyCompatTelemetryGuardMissing"
+    | "drakosPreparedArtifactGuardDrift"
     | "basesPreparedArtifactGuardDrift"
     | "mentoriaAuthsOperationalDrift",
   passDetails: string,
@@ -3573,6 +3644,15 @@ export async function runProductionReadinessAudits(
     artifactMatrixPrematureActivationGuard,
   );
   checks.push(...artifactMatrixPrematureActivationChecks);
+  const drakosPreparedArtifactGuard =
+    options.drakosPreparedArtifactGuardOverride ?? DEFAULT_DRAKOS_PREPARED_ARTIFACT_GUARD;
+  const drakosPreparedArtifactChecks = await buildFileTokenGuardChecks(
+    drakosPreparedArtifactGuard,
+    "drakosPreparedArtifactGuardDrift",
+    "Drako has a generated prepared wrapper artifact while its worker deploy remains pinned to the global OpenNext artifact.",
+    "Drako prepared artifact wiring drifted toward activation, a fake wrapper, or a standalone deploy artifact.",
+  );
+  checks.push(...drakosPreparedArtifactChecks);
   const basesPreparedArtifactGuard =
     options.basesPreparedArtifactGuardOverride ?? DEFAULT_BASES_PREPARED_ARTIFACT_GUARD;
   const basesPreparedArtifactChecks = await buildFileTokenGuardChecks(

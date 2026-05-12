@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-05-12T08:07:59.150Z",
+  "timestamp": "2026-05-12T08:41:39.368Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
   "productionReady": true,
   "summary": {
-    "checksTotal": 170,
-    "checksPass": 167,
+    "checksTotal": 171,
+    "checksPass": 168,
     "checksFail": 0,
     "checksNa": 3,
     "violationsTotal": 0,
@@ -1888,6 +1888,16 @@
       "expected": "only approved products use dedicated wrapper artifacts while the global deploy artifact remains open-next-build",
       "actual": "artifact_split_inactive",
       "details": "Only SocialFlow and Mentoria are allowed to run on dedicated wrapper artifacts while Drako and Bases remain on the global OpenNext bundle."
+    },
+    {
+      "checkCode": "drakosPreparedArtifactGuardDrift",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "drakos:prepared-artifact-not-activated",
+      "expected": "all runtime guard rules satisfied",
+      "actual": "runtime_guard_ok",
+      "details": "Drako has a generated prepared wrapper artifact while its worker deploy remains pinned to the global OpenNext artifact."
     },
     {
       "checkCode": "basesPreparedArtifactGuardDrift",
