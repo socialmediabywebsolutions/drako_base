@@ -1,12 +1,18 @@
 {
   "state": "partial-split",
-  "deployMode": "global-open-next-plus-socialflows-dedicated",
+  "deployMode": "global-open-next-plus-socialflows-and-mentorias-dedicated",
   "activeArtifact": {
     "workerPath": ".open-next/worker.js",
     "assetsPath": ".open-next/assets",
     "artifactName": "open-next-build"
   },
   "dedicatedArtifacts": [
+    {
+      "key": "mentorias",
+      "artifactName": "open-next-mentorias-build",
+      "workerPath": ".open-next/mentorias/worker.js",
+      "assetsPath": ".open-next/mentorias/assets"
+    },
     {
       "key": "socialflows",
       "artifactName": "open-next-socialflows-build",
@@ -38,12 +44,13 @@
     {
       "key": "mentorias",
       "workerName": "saas-mentorias-prod",
-      "artifactMode": "global-shared",
+      "artifactMode": "dedicated-wrapper",
       "wranglerConfigPath": "workers/mentorias/wrangler.workers.toml",
-      "currentWranglerMain": "../../.open-next/worker.js",
-      "currentWranglerAssetsDirectory": "../../.open-next/assets",
+      "currentWranglerMain": "../../.open-next/mentorias/worker.js",
+      "currentWranglerAssetsDirectory": "../../.open-next/mentorias/assets",
       "plannedWorkerPath": ".open-next/mentorias/worker.js",
-      "plannedAssetsPath": ".open-next/mentorias/assets"
+      "plannedAssetsPath": ".open-next/mentorias/assets",
+      "dedicatedArtifactName": "open-next-mentorias-build"
     },
     {
       "key": "socialflows",
@@ -58,7 +65,7 @@
     }
   ],
   "notes": [
-    "SocialFlow is the first product allowed to run on a dedicated wrapper artifact while Drako, Bases and Mentoria remain on the shared .open-next artifact.",
-    "Do not point non-SocialFlow worker wrangler configs at planned per-product artifact paths before their dedicated split commits land."
+    "SocialFlow and Mentoria are allowed to run on dedicated wrapper artifacts while Drako and Bases remain on the shared .open-next artifact.",
+    "Do not point Drako or Bases worker wrangler configs at planned per-product artifact paths before their dedicated split commits land."
   ]
 }

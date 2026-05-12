@@ -154,7 +154,9 @@ type CheckCode =
   | "operatorFinalUserApiLeakage"
   | "legacyCompatRouteDrift"
   | "socialflowRuntimeGuardDrift"
+  | "mentoriaRuntimeGuardDrift"
   | "socialflowCanonicalSmokeGuardDrift"
+  | "mentoriaStrictSmokeGuardDrift"
   | "legacyCompatInventoryDrift"
   | "legacyCompatTelemetryGuardMissing"
   | "artifactMatrixSkeletonDrift"
@@ -240,7 +242,9 @@ type ProductionAuditsRunOptions = {
   operatorBoundaryGuardOverride?: SourceBoundaryGuard;
   legacyCompatRouteGuardOverride?: CompatRouteGuard;
   socialflowRuntimeGuardOverride?: FileTokenGuard;
+  mentoriaRuntimeGuardOverride?: FileTokenGuard;
   socialflowSmokeGuardOverride?: SocialflowSmokeGuard;
+  mentoriaSmokeGuardOverride?: FileTokenGuard;
   legacyCompatInventoryGuardOverride?: LegacyCompatInventoryGuard;
   legacyCompatTelemetryGuardOverride?: FileTokenGuard;
   artifactMatrixSkeletonGuardOverride?: ArtifactMatrixSkeletonGuard;
@@ -663,12 +667,13 @@ const DEFAULT_ARTIFACT_MATRIX_PRODUCTS: ArtifactMatrixProduct[] = [
   {
     key: "mentorias",
     workerName: "saas-mentorias-prod",
-    artifactMode: "global-shared",
+    artifactMode: "dedicated-wrapper",
     wranglerConfigPath: "workers/mentorias/wrangler.workers.toml",
-    currentWranglerMain: "../../.open-next/worker.js",
-    currentWranglerAssetsDirectory: "../../.open-next/assets",
+    currentWranglerMain: "../../.open-next/mentorias/worker.js",
+    currentWranglerAssetsDirectory: "../../.open-next/mentorias/assets",
     plannedWorkerPath: ".open-next/mentorias/worker.js",
     plannedAssetsPath: ".open-next/mentorias/assets",
+    dedicatedArtifactName: "open-next-mentorias-build",
   },
   {
     key: "socialflows",
@@ -689,9 +694,15 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
   workflowPath: ".github/workflows/drako-factory-deploy.yml",
   buildScriptPath: "scripts/build-artifact-matrix-skeleton.mjs",
   expectedState: "partial-split",
-  expectedDeployMode: "global-open-next-plus-socialflows-dedicated",
+  expectedDeployMode: "global-open-next-plus-socialflows-and-mentorias-dedicated",
   expectedActiveArtifactName: "open-next-build",
   expectedDedicatedArtifacts: [
+    {
+      key: "mentorias",
+      artifactName: "open-next-mentorias-build",
+      workerPath: ".open-next/mentorias/worker.js",
+      assetsPath: ".open-next/mentorias/assets",
+    },
     {
       key: "socialflows",
       artifactName: "open-next-socialflows-build",
@@ -709,6 +720,9 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
     "build/open-next-artifact-matrix/global",
     "name: open-next-build",
     "Download OpenNext build artifact",
+    "name: open-next-mentorias-build",
+    "Download Mentoria dedicated artifact",
+    "Verify Mentoria dedicated artifact",
     "name: open-next-socialflows-build",
     "Download SocialFlow dedicated artifact",
     "Verify SocialFlow dedicated artifact",
@@ -730,12 +744,10 @@ const DEFAULT_ARTIFACT_MATRIX_PREMATURE_ACTIVATION_GUARD: ArtifactMatrixPrematur
   forbiddenWorkflowTokens: [
     "name: open-next-artifact-matrix-drakos",
     "name: open-next-artifact-matrix-bases",
-    "name: open-next-artifact-matrix-mentorias",
     "path: .open-next/drakos",
     "path: .open-next/bases",
-    "path: .open-next/mentorias",
   ],
-  allowedDedicatedProducts: ["socialflows"],
+  allowedDedicatedProducts: ["socialflows", "mentorias"],
 };
 
 const DEFAULT_SOCIALFLOW_RUNTIME_GUARD: FileTokenGuard = {
@@ -758,6 +770,59 @@ const DEFAULT_SOCIALFLOW_RUNTIME_GUARD: FileTokenGuard = {
     {
       filePath: "packages/shared/workers-handlers/index.ts",
       forbiddenTokens: ['case "socialflow"', 'case "socialflows"'],
+    },
+  ],
+};
+
+const DEFAULT_MENTORIA_RUNTIME_GUARD: FileTokenGuard = {
+  targetName: "mentoria:runtime-real-wrapper-only",
+  rules: [
+    {
+      filePath: "workers/mentorias/wrangler.workers.toml",
+      requiredTokens: [
+        'main = "../../.open-next/mentorias/worker.js"',
+        'directory = "../../.open-next/mentorias/assets"',
+        'pattern = "mentoria.drako.systems"',
+        'binding = "MENTORIA_DB"',
+        'binding = "MENTORIAS_AUTHS_DB"',
+      ],
+      forbiddenTokens: [
+        'main = "../../.open-next/worker.js"',
+        'directory = "../../.open-next/assets"',
+        'main = "src/workers.ts"',
+        'main = "./src/workers.ts"',
+        'binding = "DRACO_DB"',
+        'binding = "DB"',
+        'binding = "SOCIAL_DB"',
+      ],
+    },
+    {
+      filePath: "scripts/build-artifact-matrix-skeleton.mjs",
+      requiredTokens: [
+        "emitDedicatedWrapperArtifact",
+        'export { default } from',
+        'export * from',
+        "copyDir(globalAssetsAbsolute",
+        "artifact-manifest.json",
+        "generatedFrom",
+        "dedicated-wrapper",
+      ],
+      forbiddenTokens: ["success: true", "text/html", "dummy worker", "placeholder HTML"],
+    },
+    {
+      filePath: ".github/workflows/drako-factory-deploy.yml",
+      requiredTokens: [
+        "node scripts/patch-opennext-mentoria-runtime.mjs",
+        "name: open-next-mentorias-build",
+        "Download Mentoria dedicated artifact",
+        "Verify Mentoria dedicated artifact",
+        'grep -q \'export { default } from "../worker.js";\' .open-next/mentorias/worker.js',
+        'grep -q \'export \\* from "../worker.js";\' .open-next/mentorias/worker.js',
+        '"productKey": "mentorias"',
+        '"generatedFrom": ".open-next/worker.js"',
+        "MENTORIA_DEDICATED_ARTIFACT_FAKE",
+      ],
+      forbiddenTokens: ["path: .open-next/drakos", "path: .open-next/bases"],
     },
   ],
 };
@@ -804,6 +869,44 @@ const DEFAULT_SOCIALFLOW_SMOKE_GUARD: SocialflowSmokeGuard = {
   ],
   legacyGonePaths: ["/api/social/posts", "/api/social/linkedin/publish"],
   placeholderGuardTokens: ["placeholder token detected", "auth route did not render the SocialFlow auth page"],
+};
+
+const DEFAULT_MENTORIA_SMOKE_GUARD: FileTokenGuard = {
+  targetName: "mentoria:local-smoke-strict",
+  rules: [
+    {
+      filePath: "scripts/local/mentoria-local-smoke.mjs",
+      requiredTokens: [
+        "/site/mentoria",
+        "/api/mentorias/auths/registrations",
+        "/api/mentorias/auths/logins",
+        "/api/mentoria/onboarding",
+        "/api/mentoria/workspace",
+        "/api/mentoria/profile",
+        "LANDING_PLACEHOLDER_HTML_DETECTED",
+        "DUMMY_SUCCESS_RESPONSE_DETECTED",
+        "CANONICAL_405_NOT_ALLOWED",
+        'assertNot405("REGISTER"',
+        'assertNot405("LOGIN"',
+        'assertNot405("ONBOARDING_GET"',
+        'assertNot405("ONBOARDING_POST"',
+        'assertNot405("WORKSPACE"',
+        'assertNot405("PROFILE"',
+        "MENTORIA_SMOKE_OK",
+      ],
+      forbiddenTokens: ["expectedStatuses: [200, 401, 403, 405]", "405 accepted", "dummy success accepted"],
+    },
+    {
+      filePath: "scripts/local/mentoria-local-qa.mjs",
+      requiredTokens: [
+        "wrangler",
+        "workers/mentorias/wrangler.workers.toml",
+        "ensureDedicatedArtifactWrapper",
+        "MENTORIA_DEDICATED_ARTIFACT_MISSING",
+        "scripts/local/mentoria-local-smoke.mjs",
+      ],
+    },
+  ],
 };
 
 const DEFAULT_MENTORIA_BINDING_GUARD: MentoriaBindingGuard = {
@@ -2861,6 +2964,8 @@ async function buildFileTokenGuardChecks(
   guard: FileTokenGuard,
   checkCode:
     | "socialflowRuntimeGuardDrift"
+    | "mentoriaRuntimeGuardDrift"
+    | "mentoriaStrictSmokeGuardDrift"
     | "legacyCompatTelemetryGuardMissing"
     | "mentoriaAuthsOperationalDrift",
   passDetails: string,
@@ -3022,7 +3127,7 @@ async function buildArtifactMatrixSkeletonChecks(guard: ArtifactMatrixSkeletonGu
       actual: failures.length === 0 ? "artifact_matrix_skeleton_ok" : failures,
       details:
         failures.length === 0
-          ? "Artifact matrix skeleton stays documented, CI keeps generating metadata, and the active deploy artifact remains global."
+          ? "Artifact matrix skeleton stays documented, CI keeps generating metadata, and the active deploy artifact remains global while approved dedicated wrappers stay explicit."
           : "Artifact matrix skeleton drifted, lost its shared source of truth, or CI stopped advertising the planned per-product split safely.",
     },
   ];
@@ -3066,12 +3171,12 @@ async function buildArtifactMatrixPrematureActivationChecks(
       status: failures.length === 0 ? "PASS" : "FAIL",
       targetType: "code_guard",
       targetName: guard.targetName,
-      expected: "workers stay on ../../.open-next/worker.js and deploy workflow remains on open-next-build",
+      expected: "only approved products use dedicated wrapper artifacts while the global deploy artifact remains open-next-build",
       actual: failures.length === 0 ? "artifact_split_inactive" : failures,
       details:
         failures.length === 0
-          ? "Only SocialFlow is allowed to run on a dedicated wrapper artifact while all other products remain on the global OpenNext bundle."
-          : "A worker or workflow started acting as if per-product artifacts were active outside the allowed SocialFlow split.",
+          ? "Only SocialFlow and Mentoria are allowed to run on dedicated wrapper artifacts while Drako and Bases remain on the global OpenNext bundle."
+          : "A worker or workflow started acting as if per-product artifacts were active outside the allowed SocialFlow and Mentoria splits.",
     },
   ];
 }
@@ -3367,9 +3472,25 @@ export async function runProductionReadinessAudits(
     "SocialFlow runtime wiring drifted toward a fake handler, placeholder runtime or shared handler routing.",
   );
   checks.push(...socialflowRuntimeChecks);
+  const mentoriaRuntimeGuard = options.mentoriaRuntimeGuardOverride ?? DEFAULT_MENTORIA_RUNTIME_GUARD;
+  const mentoriaRuntimeChecks = await buildFileTokenGuardChecks(
+    mentoriaRuntimeGuard,
+    "mentoriaRuntimeGuardDrift",
+    "Mentoría runs through its dedicated transparent OpenNext wrapper artifact without fake worker fallbacks.",
+    "Mentoría runtime wiring drifted toward the global wrangler entrypoint, a fake handler or an unverified dedicated artifact.",
+  );
+  checks.push(...mentoriaRuntimeChecks);
   const socialflowSmokeGuard = options.socialflowSmokeGuardOverride ?? DEFAULT_SOCIALFLOW_SMOKE_GUARD;
   const socialflowSmokeChecks = await buildSocialflowSmokeGuardChecks(socialflowSmokeGuard);
   checks.push(...socialflowSmokeChecks);
+  const mentoriaSmokeGuard = options.mentoriaSmokeGuardOverride ?? DEFAULT_MENTORIA_SMOKE_GUARD;
+  const mentoriaSmokeChecks = await buildFileTokenGuardChecks(
+    mentoriaSmokeGuard,
+    "mentoriaStrictSmokeGuardDrift",
+    "Mentoría local QA keeps exercising landing, auth, onboarding, workspace and product API routes without accepting 405 or dummy responses.",
+    "Mentoría local QA became permissive, lost canonical route coverage, or stopped rejecting dummy responses.",
+  );
+  checks.push(...mentoriaSmokeChecks);
   const mentoriaAuthsOperationalGuard =
     options.mentoriaAuthsOperationalGuardOverride ?? DEFAULT_MENTORIA_AUTHS_OPERATIONAL_GUARD;
   const mentoriaAuthsOperationalChecks = await buildFileTokenGuardChecks(

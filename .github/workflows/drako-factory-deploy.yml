@@ -155,6 +155,7 @@ jobs:
           # Temporary wrangler.toml for opennext build
           cp wrangler.workers.toml wrangler.toml
           npx opennextjs-cloudflare build 2>&1 | tee open-next-build.log
+          node scripts/patch-opennext-mentoria-runtime.mjs
 
           echo "=== BUILD: listing .open-next ==="
           ls -R .open-next || true
@@ -224,6 +225,14 @@ jobs:
           if-no-files-found: error
           path: .open-next/socialflows
 
+      - name: Upload Mentoria dedicated artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-next-mentorias-build
+          if-no-files-found: error
+          path: .open-next/mentorias
+
   deploy:
     name: Deploy Workers
     runs-on: ubuntu-latest
@@ -270,6 +279,12 @@ jobs:
           name: open-next-socialflows-build
           path: .
 
+      - name: Download Mentoria dedicated artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: open-next-mentorias-build
+          path: .
+
       - name: Diagnostic OpenNext artifact layout
         run: |
           set -euo pipefail
@@ -291,6 +306,21 @@ jobs:
           test -f .open-next/socialflows/worker.js
           test -d .open-next/socialflows/assets
           grep -q 'export { default } from "../worker.js";' .open-next/socialflows/worker.js
+
+      - name: Verify Mentoria dedicated artifact
+        run: |
+          set -euo pipefail
+          test -f .open-next/mentorias/worker.js
+          test -d .open-next/mentorias/assets
+          grep -q 'export { default } from "../worker.js";' .open-next/mentorias/worker.js
+          grep -q 'export \* from "../worker.js";' .open-next/mentorias/worker.js
+          test -f .open-next/mentorias/artifact-manifest.json
+          grep -q '"productKey": "mentorias"' .open-next/mentorias/artifact-manifest.json
+          grep -q '"generatedFrom": ".open-next/worker.js"' .open-next/mentorias/artifact-manifest.json
+          if grep -Ein 'dry-run|stub|dummy|placeholder|success: true|text/html' .open-next/mentorias/worker.js; then
+            echo "MENTORIA_DEDICATED_ARTIFACT_FAKE"
+            exit 1
+          fi
 
       - name: Verify Cloudflare secrets
         run: |
@@ -423,6 +453,8 @@ jobs:
           popd
 
           pushd workers/mentorias
+          test -f ../../.open-next/mentorias/worker.js
+          test -d ../../.open-next/mentorias/assets
           wrangler deploy -c wrangler.workers.toml
           popd
 

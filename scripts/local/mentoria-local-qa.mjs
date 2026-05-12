@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import process from "node:process";
 import { setTimeout as sleep } from "node:timers/promises";
 
@@ -15,7 +16,28 @@ function run(command, args, options = {}) {
   });
 }
 
+function ensureDedicatedArtifactWrapper() {
+  const dedicatedWorker = ".open-next/mentorias/worker.js";
+  const dedicatedAssets = ".open-next/mentorias/assets";
+  const globalWorker = ".open-next/worker.js";
+  const globalAssets = ".open-next/assets";
+
+  if (existsSync(dedicatedWorker) && existsSync(dedicatedAssets)) return;
+
+  if (existsSync(globalWorker) && existsSync(globalAssets)) {
+    console.log("[mentoria-local-qa] generating Mentoria dedicated wrapper artifact from current global OpenNext build");
+    run("pnpm", ["build:artifacts:skeleton"]);
+  }
+
+  if (!existsSync(dedicatedWorker) || !existsSync(dedicatedAssets)) {
+    throw new Error(
+      "MENTORIA_DEDICATED_ARTIFACT_MISSING: expected .open-next/mentorias/worker.js and assets. Run pnpm build or pnpm build:factory before qa:align-worker.",
+    );
+  }
+}
+
 run("node", bootstrapArgs);
+ensureDedicatedArtifactWrapper();
 
 const baseUrl = (process.env.BASE_URL ?? "http://127.0.0.1:8787").trim().replace(/\/$/, "");
 const base = new URL(baseUrl);

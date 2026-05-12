@@ -80,8 +80,8 @@ describe("Mentoria vertical boundaries", () => {
   it("keeps the Mentoria worker bound only to product/auth D1 identities", () => {
     const workerConfig = read("workers/mentorias/wrangler.workers.toml");
 
-    expect(workerConfig).toContain('main = "../../.open-next/worker.js"');
-    expect(workerConfig).not.toContain('.open-next/mentorias/worker.js');
+    expect(workerConfig).toContain('main = "../../.open-next/mentorias/worker.js"');
+    expect(workerConfig).toContain('directory = "../../.open-next/mentorias/assets"');
     expect(workerConfig).toContain('binding = "MENTORIA_DB"');
     expect(workerConfig).toContain('binding = "MENTORIAS_AUTHS_DB"');
     expect(workerConfig).toContain('database_name = "saas_mentorias_prod_db"');
@@ -90,5 +90,25 @@ describe("Mentoria vertical boundaries", () => {
     expect(workerConfig).not.toContain('binding = "DRACO_DB"');
     expect(workerConfig).not.toContain('binding = "DB"');
     expect(workerConfig).not.toContain('binding = "SOCIAL_DB"');
+  });
+
+  it("keeps the Mentoria dedicated artifact and smoke strict", () => {
+    const builder = read("scripts/build-artifact-matrix-skeleton.mjs");
+    const smoke = read("scripts/local/mentoria-local-smoke.mjs");
+
+    expect(builder).toContain('export { default } from');
+    expect(builder).toContain("artifact-manifest.json");
+    expect(builder).toContain("dedicated-wrapper");
+
+    expect(smoke).toContain("/api/mentorias/auths/registrations");
+    expect(smoke).toContain("/api/mentorias/auths/logins");
+    expect(smoke).toContain("/api/mentoria/onboarding");
+    expect(smoke).toContain("/api/mentoria/workspace");
+    expect(smoke).toContain("/api/mentoria/profile");
+    expect(smoke).toContain("LANDING_PLACEHOLDER_HTML_DETECTED");
+    expect(smoke).toContain("DUMMY_SUCCESS_RESPONSE_DETECTED");
+    expect(smoke).toContain("CANONICAL_405_NOT_ALLOWED");
+    expect(smoke).toContain('assertNot405("REGISTER"');
+    expect(smoke).toContain('assertNot405("WORKSPACE"');
   });
 });

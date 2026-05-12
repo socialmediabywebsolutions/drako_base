@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-05-11T20:59:46.048Z",
+  "timestamp": "2026-05-12T07:10:17.858Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
   "productionReady": true,
   "summary": {
-    "checksTotal": 167,
-    "checksPass": 164,
+    "checksTotal": 169,
+    "checksPass": 166,
     "checksFail": 0,
     "checksNa": 3,
     "violationsTotal": 0,
@@ -1867,7 +1867,7 @@
       "targetName": "artifact-matrix:skeleton-prepared-global-still-active",
       "expected": {
         "state": "partial-split",
-        "deployMode": "global-open-next-plus-socialflows-dedicated",
+        "deployMode": "global-open-next-plus-socialflows-and-mentorias-dedicated",
         "activeArtifactName": "open-next-build",
         "products": [
           "drakos",
@@ -1877,7 +1877,7 @@
         ]
       },
       "actual": "artifact_matrix_skeleton_ok",
-      "details": "Artifact matrix skeleton stays documented, CI keeps generating metadata, and the active deploy artifact remains global."
+      "details": "Artifact matrix skeleton stays documented, CI keeps generating metadata, and the active deploy artifact remains global while approved dedicated wrappers stay explicit."
     },
     {
       "checkCode": "artifactSplitPrematureActivation",
@@ -1885,9 +1885,9 @@
       "status": "PASS",
       "targetType": "code_guard",
       "targetName": "artifact-matrix:no-premature-worker-switch",
-      "expected": "workers stay on ../../.open-next/worker.js and deploy workflow remains on open-next-build",
+      "expected": "only approved products use dedicated wrapper artifacts while the global deploy artifact remains open-next-build",
       "actual": "artifact_split_inactive",
-      "details": "Only SocialFlow is allowed to run on a dedicated wrapper artifact while all other products remain on the global OpenNext bundle."
+      "details": "Only SocialFlow and Mentoria are allowed to run on dedicated wrapper artifacts while Drako and Bases remain on the global OpenNext bundle."
     },
     {
       "checkCode": "socialflowRuntimeGuardDrift",
@@ -1900,6 +1900,16 @@
       "details": "SocialFlow stays wired to the real OpenNext runtime and its legacy fallback remains fail-closed."
     },
     {
+      "checkCode": "mentoriaRuntimeGuardDrift",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "mentoria:runtime-real-wrapper-only",
+      "expected": "all runtime guard rules satisfied",
+      "actual": "runtime_guard_ok",
+      "details": "Mentoría runs through its dedicated transparent OpenNext wrapper artifact without fake worker fallbacks."
+    },
+    {
       "checkCode": "socialflowCanonicalSmokeGuardDrift",
       "severity": "BLOCKER",
       "status": "PASS",
@@ -1908,6 +1918,16 @@
       "expected": "strict canonical smoke with 410 legacy routes and no canonical 405 acceptance",
       "actual": "strict_smoke_ok",
       "details": "The canonical SocialFlow smoke script stays strict against placeholder HTML, canonical 405s and legacy route drift."
+    },
+    {
+      "checkCode": "mentoriaStrictSmokeGuardDrift",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "mentoria:local-smoke-strict",
+      "expected": "all runtime guard rules satisfied",
+      "actual": "runtime_guard_ok",
+      "details": "Mentoría local QA keeps exercising landing, auth, onboarding, workspace and product API routes without accepting 405 or dummy responses."
     },
     {
       "checkCode": "mentoriaAuthsOperationalDrift",
