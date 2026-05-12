@@ -70,7 +70,11 @@ describe("production readiness audits", () => {
           'main = "../../.open-next/socialflows/worker.js"',
           'directory = "../../.open-next/socialflows/assets"',
         ],
-        forbiddenTokens: ['main = "src/workers.ts"'],
+        forbiddenTokens: [
+          'main = "../../.open-next/worker.js"',
+          'directory = "../../.open-next/assets"',
+          'main = "src/workers.ts"',
+        ],
       },
       {
         filePath: "workers/socialflows/src/workers.ts",
@@ -79,7 +83,26 @@ describe("production readiness audits", () => {
       },
       {
         filePath: "scripts/build-artifact-matrix-skeleton.mjs",
-        requiredTokens: ['export { default } from', "artifact-manifest.json", "dedicated-wrapper"],
+        requiredTokens: ['export { default } from', 'export * from', "artifact-manifest.json", "dedicated-wrapper"],
+        forbiddenTokens: ["success: true", "text/html", "dummy worker", "placeholder HTML"],
+      },
+      {
+        filePath: ".github/workflows/drako-factory-deploy.yml",
+        requiredTokens: [
+          "Verify SocialFlow dedicated artifact",
+          "name: open-next-socialflows-build",
+          "Upload SocialFlow dedicated artifact",
+          "Download SocialFlow dedicated artifact",
+          'grep -q \'export { default } from "../worker.js";\' .open-next/socialflows/worker.js',
+          'grep -q \'export \\* from "../worker.js";\' .open-next/socialflows/worker.js',
+          '"productKey": "socialflows"',
+          '"artifactMode": "dedicated-wrapper"',
+          '"generatedFrom": ".open-next/worker.js"',
+          'grep -q \'main = "../../.open-next/socialflows/worker.js"\' workers/socialflows/wrangler.workers.toml',
+          'grep -q \'directory = "../../.open-next/socialflows/assets"\' workers/socialflows/wrangler.workers.toml',
+          "SOCIALFLOW_DEDICATED_ARTIFACT_NOT_ACTIVATED",
+          "SOCIALFLOW_DEDICATED_ARTIFACT_FAKE",
+        ],
       },
       {
         filePath: "packages/shared/workers-handlers/index.ts",
@@ -420,6 +443,41 @@ describe("production readiness audits", () => {
       "name: open-next-artifact-matrix-bases",
     ],
     allowedDedicatedProducts: ["drakos", "bases", "socialflows", "mentorias"],
+  } as const;
+  const globalDeployDriftGuardBase = {
+    targetName: "test:global-deploy-drift",
+    rules: [
+      {
+        filePath: ".github/workflows/build-worker.yml",
+        requiredTokens: [
+          "Archived Global Worker Deploy",
+          "GLOBAL_WORKER_DEPLOY_ARCHIVED",
+          ".github/workflows/drako-factory-deploy.yml",
+          "only valid artifact matrix deploy lane",
+          "exit 1",
+        ],
+        forbiddenTokens: [
+          "worker-build",
+          "npm run cf:build",
+          "cloudflare/wrangler-action@v3",
+          "deploy --config wrangler.workers.toml",
+          "wrangler.workers.toml --env production",
+          "path: .open-next/",
+        ],
+      },
+      {
+        filePath: ".github/workflows/drako-factory-deploy.yml",
+        requiredTokens: [
+          "artifact_matrix_skeleton:",
+          "Download OpenNext build artifact",
+          "Download Drakos dedicated artifact",
+          "Download Bases dedicated artifact",
+          "Download Mentoria dedicated artifact",
+          "Download SocialFlow dedicated artifact",
+          "Deploy in strict order (scheduler -> drakos -> mentorias -> bases -> socialflows)",
+        ],
+      },
+    ],
   } as const;
   const drakosPreparedArtifactGuardBase = {
     targetName: "test:drakos-dedicated-artifact-activated",
@@ -1364,6 +1422,7 @@ describe("production readiness audits", () => {
       writeReports: false,
       artifactMatrixSkeletonGuardOverride: artifactMatrixSkeletonGuardBase,
       artifactMatrixPrematureActivationGuardOverride: artifactMatrixPrematureActivationGuardBase,
+      globalDeployDriftGuardOverride: globalDeployDriftGuardBase,
       drakosPreparedArtifactGuardOverride: drakosPreparedArtifactGuardBase,
       basesPreparedArtifactGuardOverride: basesPreparedArtifactGuardBase,
     });
@@ -1376,11 +1435,54 @@ describe("production readiness audits", () => {
       result.report.checks.some((item) => item.checkCode === "artifactSplitPrematureActivation" && item.status === "PASS"),
     ).toBe(true);
     expect(
+      result.report.checks.some((item) => item.checkCode === "globalDeployDrift" && item.status === "PASS"),
+    ).toBe(true);
+    expect(
       result.report.checks.some((item) => item.checkCode === "drakosPreparedArtifactGuardDrift" && item.status === "PASS"),
     ).toBe(true);
     expect(
       result.report.checks.some((item) => item.checkCode === "basesPreparedArtifactGuardDrift" && item.status === "PASS"),
     ).toBe(true);
+  });
+
+  it("fails readiness when a manual workflow can deploy the global OpenNext worker", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      globalDeployDriftGuardOverride: {
+        ...globalDeployDriftGuardBase,
+        rules: [
+          {
+            ...globalDeployDriftGuardBase.rules[0],
+            filePath: "tests/fixtures/production-audits/global-deploy-drift/build-worker-global-deploy.yml",
+          },
+        ],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "globalDeployDrift")).toBe(true);
+  });
+
+  it("fails readiness when SocialFlow dedicated artifact verification becomes weak", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowRuntimeGuardOverride: {
+        ...socialflowRuntimeGuardBase,
+        rules: [
+          {
+            filePath: "tests/fixtures/production-audits/artifact-matrix-guards/weak-socialflow-artifact-workflow.yml",
+            requiredTokens: socialflowRuntimeGuardBase.rules[3].requiredTokens,
+          },
+        ],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowRuntimeGuardDrift")).toBe(true);
   });
 
   it("fails readiness when Drakos dedicated wrapper regresses to global runtime or becomes fake", async () => {

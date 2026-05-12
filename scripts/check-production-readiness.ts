@@ -163,6 +163,7 @@ type CheckCode =
   | "artifactSplitPrematureActivation"
   | "drakosPreparedArtifactGuardDrift"
   | "basesPreparedArtifactGuardDrift"
+  | "globalDeployDrift"
   | "mentoriaAuthsOperationalDrift";
 
 type CheckRecord = {
@@ -253,6 +254,7 @@ type ProductionAuditsRunOptions = {
   artifactMatrixPrematureActivationGuardOverride?: ArtifactMatrixPrematureActivationGuard;
   drakosPreparedArtifactGuardOverride?: FileTokenGuard;
   basesPreparedArtifactGuardOverride?: FileTokenGuard;
+  globalDeployDriftGuardOverride?: FileTokenGuard;
   mentoriaAuthsOperationalGuardOverride?: FileTokenGuard;
 };
 
@@ -785,6 +787,42 @@ const DEFAULT_ARTIFACT_MATRIX_PREMATURE_ACTIVATION_GUARD: ArtifactMatrixPrematur
   allowedDedicatedProducts: ["drakos", "bases", "socialflows", "mentorias"],
 };
 
+const DEFAULT_GLOBAL_DEPLOY_DRIFT_GUARD: FileTokenGuard = {
+  targetName: "deploy-lane:global-worker-archived",
+  rules: [
+    {
+      filePath: ".github/workflows/build-worker.yml",
+      requiredTokens: [
+        "Archived Global Worker Deploy",
+        "GLOBAL_WORKER_DEPLOY_ARCHIVED",
+        ".github/workflows/drako-factory-deploy.yml",
+        "only valid artifact matrix deploy lane",
+        "exit 1",
+      ],
+      forbiddenTokens: [
+        "worker-build",
+        "npm run cf:build",
+        "cloudflare/wrangler-action@v3",
+        "deploy --config wrangler.workers.toml",
+        "wrangler.workers.toml --env production",
+        "path: .open-next/",
+      ],
+    },
+    {
+      filePath: ".github/workflows/drako-factory-deploy.yml",
+      requiredTokens: [
+        "artifact_matrix_skeleton:",
+        "Download OpenNext build artifact",
+        "Download Drakos dedicated artifact",
+        "Download Bases dedicated artifact",
+        "Download Mentoria dedicated artifact",
+        "Download SocialFlow dedicated artifact",
+        "Deploy in strict order (scheduler -> drakos -> mentorias -> bases -> socialflows)",
+      ],
+    },
+  ],
+};
+
 const DEFAULT_DRAKOS_PREPARED_ARTIFACT_GUARD: FileTokenGuard = {
   targetName: "drakos:dedicated-artifact-activated",
   rules: [
@@ -895,7 +933,12 @@ const DEFAULT_SOCIALFLOW_RUNTIME_GUARD: FileTokenGuard = {
     {
       filePath: "workers/socialflows/wrangler.workers.toml",
       requiredTokens: ['main = "../../.open-next/socialflows/worker.js"', 'directory = "../../.open-next/socialflows/assets"', 'pattern = "socialflow.drako.systems"'],
-      forbiddenTokens: ['main = "src/workers.ts"', 'main = "./src/workers.ts"'],
+      forbiddenTokens: [
+        'main = "../../.open-next/worker.js"',
+        'directory = "../../.open-next/assets"',
+        'main = "src/workers.ts"',
+        'main = "./src/workers.ts"',
+      ],
     },
     {
       filePath: "workers/socialflows/src/workers.ts",
@@ -904,7 +947,27 @@ const DEFAULT_SOCIALFLOW_RUNTIME_GUARD: FileTokenGuard = {
     },
     {
       filePath: "scripts/build-artifact-matrix-skeleton.mjs",
-      requiredTokens: ['export { default } from', "artifact-manifest.json", "dedicated-wrapper"],
+      requiredTokens: ['export { default } from', 'export * from', "artifact-manifest.json", "dedicated-wrapper"],
+      forbiddenTokens: ["success: true", "text/html", "dummy worker", "placeholder HTML"],
+    },
+    {
+      filePath: ".github/workflows/drako-factory-deploy.yml",
+      requiredTokens: [
+        "Verify SocialFlow dedicated artifact",
+        "name: open-next-socialflows-build",
+        "Upload SocialFlow dedicated artifact",
+        "Download SocialFlow dedicated artifact",
+        'grep -q \'export { default } from "../worker.js";\' .open-next/socialflows/worker.js',
+        'grep -q \'export \\* from "../worker.js";\' .open-next/socialflows/worker.js',
+        '"productKey": "socialflows"',
+        '"artifactMode": "dedicated-wrapper"',
+        '"generatedFrom": ".open-next/worker.js"',
+        'grep -q \'main = "../../.open-next/socialflows/worker.js"\' workers/socialflows/wrangler.workers.toml',
+        'grep -q \'directory = "../../.open-next/socialflows/assets"\' workers/socialflows/wrangler.workers.toml',
+        "SOCIALFLOW_DEDICATED_ARTIFACT_NOT_ACTIVATED",
+        "SOCIALFLOW_DEDICATED_ARTIFACT_FAKE",
+      ],
+      forbiddenTokens: [],
     },
     {
       filePath: "packages/shared/workers-handlers/index.ts",
@@ -3108,6 +3171,7 @@ async function buildFileTokenGuardChecks(
     | "legacyCompatTelemetryGuardMissing"
     | "drakosPreparedArtifactGuardDrift"
     | "basesPreparedArtifactGuardDrift"
+    | "globalDeployDrift"
     | "mentoriaAuthsOperationalDrift",
   passDetails: string,
   failDetails: string,
@@ -3630,6 +3694,15 @@ export async function runProductionReadinessAudits(
     artifactMatrixPrematureActivationGuard,
   );
   checks.push(...artifactMatrixPrematureActivationChecks);
+  const globalDeployDriftGuard =
+    options.globalDeployDriftGuardOverride ?? DEFAULT_GLOBAL_DEPLOY_DRIFT_GUARD;
+  const globalDeployDriftChecks = await buildFileTokenGuardChecks(
+    globalDeployDriftGuard,
+    "globalDeployDrift",
+    "The archived global worker workflow cannot deploy the root OpenNext artifact and the canonical artifact matrix lane remains present.",
+    "A workflow can still deploy the root OpenNext worker or bypass the artifact matrix deploy lane.",
+  );
+  checks.push(...globalDeployDriftChecks);
   const drakosPreparedArtifactGuard =
     options.drakosPreparedArtifactGuardOverride ?? DEFAULT_DRAKOS_PREPARED_ARTIFACT_GUARD;
   const drakosPreparedArtifactChecks = await buildFileTokenGuardChecks(

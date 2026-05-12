@@ -81,4 +81,18 @@ describe("socialflow runtime wiring", () => {
     expect(source).toContain("placeholder token detected");
     expect(source).not.toContain("405");
   });
+
+  it("keeps the CI artifact lane strict for SocialFlow", () => {
+    const source = read(".github/workflows/drako-factory-deploy.yml");
+
+    expect(source).toContain("Verify SocialFlow dedicated artifact");
+    expect(source).toContain('grep -q \'export { default } from "../worker.js";\' .open-next/socialflows/worker.js');
+    expect(source).toContain('grep -q \'export \\* from "../worker.js";\' .open-next/socialflows/worker.js');
+    expect(source).toContain('grep -q \'"productKey": "socialflows"\' .open-next/socialflows/artifact-manifest.json');
+    expect(source).toContain('grep -q \'"artifactMode": "dedicated-wrapper"\' .open-next/socialflows/artifact-manifest.json');
+    expect(source).toContain('grep -q \'"generatedFrom": ".open-next/worker.js"\' .open-next/socialflows/artifact-manifest.json');
+    expect(source).toContain('grep -q \'main = "../../.open-next/socialflows/worker.js"\' workers/socialflows/wrangler.workers.toml');
+    expect(source).toContain("SOCIALFLOW_DEDICATED_ARTIFACT_NOT_ACTIVATED");
+    expect(source).toContain("SOCIALFLOW_DEDICATED_ARTIFACT_FAKE");
+  });
 });

@@ -218,6 +218,7 @@ describe("SocialFlow vertical boundaries", () => {
     const sharedWorkersHandlers = read("packages/shared/workers-handlers/index.ts");
     const socialFlowSmoke = read("scripts/smoke/socialflow-canonical-domain-smoke.mjs");
     const artifactBuilder = read("scripts/build-artifact-matrix-skeleton.mjs");
+    const deployWorkflow = read(".github/workflows/drako-factory-deploy.yml");
 
     expect(socialFlowWorkerConfig).toContain('main = "../../.open-next/socialflows/worker.js"');
     expect(socialFlowWorkerConfig).toContain('directory = "../../.open-next/socialflows/assets"');
@@ -242,6 +243,12 @@ describe("SocialFlow vertical boundaries", () => {
     expect(artifactBuilder).toContain('export { default } from');
     expect(artifactBuilder).toContain("artifact-manifest.json");
     expect(artifactBuilder).toContain("dedicated-wrapper");
+
+    expect(deployWorkflow).toContain("Verify SocialFlow dedicated artifact");
+    expect(deployWorkflow).toContain('grep -q \'export \\* from "../worker.js";\' .open-next/socialflows/worker.js');
+    expect(deployWorkflow).toContain('"productKey": "socialflows"');
+    expect(deployWorkflow).toContain('"artifactMode": "dedicated-wrapper"');
+    expect(deployWorkflow).toContain("SOCIALFLOW_DEDICATED_ARTIFACT_FAKE");
   });
 
   it("keeps legacy linkedin connect and callback routes as redirect-only bridges", () => {

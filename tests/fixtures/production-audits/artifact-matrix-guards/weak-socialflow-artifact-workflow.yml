@@ -1,0 +1,12 @@
+name: Weak SocialFlow Artifact Verification
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify SocialFlow dedicated artifact
+        run: |
+          set -euo pipefail
+          test -f .open-next/socialflows/worker.js
+          test -d .open-next/socialflows/assets
+          grep -q 'export { default } from "../worker.js";' .open-next/socialflows/worker.js

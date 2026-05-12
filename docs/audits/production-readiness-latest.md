@@ -1,6 +1,6 @@
 # Production Readiness Audit Report
 
-- Timestamp: `2026-05-12T14:09:48.877Z`
+- Timestamp: `2026-05-12T15:11:53.145Z`
 - Mode: `fixtures`
 - Source of truth: `docs/config/production-audits-expected-state.json`
 - Fixtures dir: `tests/fixtures/production-audits/pass`
@@ -8,8 +8,8 @@
 
 ## Summary
 
-- Checks total: 171
-- Checks pass: 168
+- Checks total: 172
+- Checks pass: 169
 - Checks fail: 0
 - Checks N/A: 3
 - Blockers: 0
@@ -183,6 +183,7 @@
 | legacyCompatTelemetryGuardMissing | BLOCKER | legacy-compat:telemetry-and-sunset-markers | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | artifactMatrixSkeletonDrift | BLOCKER | artifact-matrix:skeleton-prepared-global-still-active | PASS | {"state":"partial-split","deployMode":"global-open-next-plus-drakos-bases-socialflows-and-mentorias-dedicated","activeArtifactName":"open-next-build","products":["drakos","bases","mentorias","socialflows"]} | "artifact_matrix_skeleton_ok" |
 | artifactSplitPrematureActivation | BLOCKER | artifact-matrix:no-premature-worker-switch | PASS | "only approved products use dedicated wrapper artifacts while the global deploy artifact remains open-next-build" | "artifact_split_inactive" |
+| globalDeployDrift | BLOCKER | deploy-lane:global-worker-archived | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | drakosPreparedArtifactGuardDrift | BLOCKER | drakos:dedicated-artifact-activated | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | basesPreparedArtifactGuardDrift | BLOCKER | bases:dedicated-artifact-activated | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | socialflowRuntimeGuardDrift | BLOCKER | socialflow:runtime-real-worker-only | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
