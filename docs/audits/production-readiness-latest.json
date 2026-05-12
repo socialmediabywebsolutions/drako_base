@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-05-12T20:31:19.563Z",
+  "timestamp": "2026-05-12T22:07:31.969Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
   "productionReady": true,
   "summary": {
-    "checksTotal": 178,
-    "checksPass": 174,
+    "checksTotal": 182,
+    "checksPass": 178,
     "checksFail": 1,
     "checksNa": 3,
     "violationsTotal": 1,
@@ -2027,6 +2027,58 @@
       "expected": "builder and CI keep generating and verifying SocialFlow scope audit metadata",
       "actual": "scope_audit_guard_ok",
       "details": "Builder and CI keep the SocialFlow standalone scope audit lane wired."
+    },
+    {
+      "checkCode": "socialflowProductScopedPreviewMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:product-scoped-preview",
+      "expected": "SocialFlow product-scoped preview manifest, scope audit and filter report exist with complete metadata",
+      "actual": {
+        "removedCount": 180,
+        "remainingCount": 297,
+        "runtimeIntegrity": true
+      },
+      "details": "SocialFlow product-scoped preview metadata is present and internally consistent."
+    },
+    {
+      "checkCode": "socialflowProductScopedPreviewFake",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:product-scoped-preview",
+      "expected": "preview is inactive, derived from socialflows-standalone and contains real filtered/remaining routes",
+      "actual": {
+        "artifactMode": "product-scoped-preview",
+        "artifactState": "inactive-preview",
+        "removedCount": 180,
+        "remainingCount": 297
+      },
+      "details": "SocialFlow product-scoped preview is a real inactive preview, not a fake or empty artifact."
+    },
+    {
+      "checkCode": "socialflowProductScopedPreviewIntegrityFailure",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:product-scoped-preview",
+      "expected": "runtimeIntegrity=true and no unresolved dependencies",
+      "actual": {
+        "runtimeIntegrity": true,
+        "unresolvedDependencies": []
+      },
+      "details": "SocialFlow product-scoped preview has no detected broken runtime references."
+    },
+    {
+      "checkCode": "socialflowProductScopedPreviewDrift",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:product-scoped-preview",
+      "expected": "matrix, builder and CI keep the inactive product-scoped preview lane wired",
+      "actual": "product_scoped_preview_guard_ok",
+      "details": "Builder, matrix and CI keep generating and verifying the SocialFlow product-scoped preview."
     },
     {
       "checkCode": "mentoriaRuntimeGuardDrift",

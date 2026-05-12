@@ -1,6 +1,6 @@
 # Production Readiness Audit Report
 
-- Timestamp: `2026-05-12T20:31:19.563Z`
+- Timestamp: `2026-05-12T22:07:31.969Z`
 - Mode: `fixtures`
 - Source of truth: `docs/config/production-audits-expected-state.json`
 - Fixtures dir: `tests/fixtures/production-audits/pass`
@@ -8,8 +8,8 @@
 
 ## Summary
 
-- Checks total: 178
-- Checks pass: 174
+- Checks total: 182
+- Checks pass: 178
 - Checks fail: 1
 - Checks N/A: 3
 - Blockers: 0
@@ -193,6 +193,10 @@
 | socialflowStandaloneForeignRouteLeak | WARN | socialflow:standalone-scope-audit | FAIL | "0 foreign routes before product-scoped activation" | {"scopeMode":"standalone-runtime-copy","foreignRouteCount":180,"foreignRouteHits":["api/bases","api/campamento-base","api/campobase","api/mentoria","api/mentorias","api/operator","api/owner","bases","campobase","mentoria","mentorias","operator","owner","site/panel"],"foreignRouteExamples":["api/bases/auths/logins","api/bases/auths/logouts","api/bases/auths/registrations","api/bases/telemetries/events","api/campamento-base/contracts","api/campamento-base/operator/whatsapp/daily-summary","api/campamento-base/operator/whatsapp/realtime-alert","api/campamento-base/orchestrator","api/campamento-base/provisioning/ai","api/campamento-base/provisioning/branding"]} |
 | socialflowStandaloneFakeScopedClaim | BLOCKER | socialflow:standalone-scope-audit | PASS | "product-scoped claim only when no foreign routes remain" | {"scopeMode":"standalone-runtime-copy","foreignRouteCount":180,"scopedReady":false} |
 | socialflowStandaloneScopeAuditDrift | BLOCKER | socialflow:standalone-scope-audit | PASS | "builder and CI keep generating and verifying SocialFlow scope audit metadata" | "scope_audit_guard_ok" |
+| socialflowProductScopedPreviewMissing | BLOCKER | socialflow:product-scoped-preview | PASS | "SocialFlow product-scoped preview manifest, scope audit and filter report exist with complete metadata" | {"removedCount":180,"remainingCount":297,"runtimeIntegrity":true} |
+| socialflowProductScopedPreviewFake | BLOCKER | socialflow:product-scoped-preview | PASS | "preview is inactive, derived from socialflows-standalone and contains real filtered/remaining routes" | {"artifactMode":"product-scoped-preview","artifactState":"inactive-preview","removedCount":180,"remainingCount":297} |
+| socialflowProductScopedPreviewIntegrityFailure | BLOCKER | socialflow:product-scoped-preview | PASS | "runtimeIntegrity=true and no unresolved dependencies" | {"runtimeIntegrity":true,"unresolvedDependencies":[]} |
+| socialflowProductScopedPreviewDrift | BLOCKER | socialflow:product-scoped-preview | PASS | "matrix, builder and CI keep the inactive product-scoped preview lane wired" | "product_scoped_preview_guard_ok" |
 | mentoriaRuntimeGuardDrift | BLOCKER | mentoria:runtime-real-wrapper-only | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | socialflowCanonicalSmokeGuardDrift | BLOCKER | socialflow:canonical-smoke-strict | PASS | "strict canonical smoke with 410 legacy routes and no canonical 405 acceptance" | "strict_smoke_ok" |
 | mentoriaStrictSmokeGuardDrift | BLOCKER | mentoria:local-smoke-strict | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |

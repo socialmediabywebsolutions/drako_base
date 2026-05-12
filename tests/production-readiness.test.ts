@@ -277,6 +277,99 @@ describe("production readiness audits", () => {
       "standalone-runtime-copy",
     ],
   } as const;
+  const socialflowProductScopedPreviewGuardBase = {
+    targetName: "test:socialflow-product-scoped-preview",
+    manifestPath: ".open-next/socialflows-product-scoped-preview/artifact-manifest.json",
+    scopeAuditPath: ".open-next/socialflows-product-scoped-preview/scope-audit.json",
+    filterReportPath: ".open-next/socialflows-product-scoped-preview/filter-report.json",
+    workflowPath: ".github/workflows/drako-factory-deploy.yml",
+    buildScriptPath: "scripts/build-artifact-matrix-skeleton.mjs",
+    matrixPath: "docs/config/open-next-artifact-matrix.json",
+    expectedProduct: "socialflows",
+    expectedArtifactMode: "product-scoped-preview",
+    expectedArtifactState: "inactive-preview",
+    expectedDerivedFrom: "socialflows-standalone",
+    requiredManifestFields: [
+      "productKey",
+      "artifactMode",
+      "artifactState",
+      "derivedFrom",
+      "sourceArtifactPath",
+      "workerPath",
+      "assetsPath",
+      "filterVersion",
+      "filterGeneratedAt",
+      "runtimeIntegrity",
+      "unresolvedDependencyCount",
+      "removedCount",
+      "remainingCount",
+      "scopeMode",
+      "foreignRouteCount",
+      "scopedReady",
+    ],
+    requiredScopeAuditFields: [
+      "product",
+      "runtimeMode",
+      "scopeMode",
+      "serverFunctionsPath",
+      "routeCount",
+      "allowedRouteCount",
+      "containsForeignRoutes",
+      "foreignRouteHits",
+      "foreignRouteCount",
+      "scopeAuditVersion",
+      "scopeAuditGeneratedAt",
+      "scopedReady",
+    ],
+    requiredFilterReportFields: [
+      "product",
+      "artifactMode",
+      "artifactState",
+      "derivedFrom",
+      "sourceArtifactPath",
+      "previewArtifactPath",
+      "filterVersion",
+      "filterGeneratedAt",
+      "removedRoutePrefixes",
+      "removedRoutes",
+      "removedCount",
+      "remainingRoutes",
+      "remainingCount",
+      "runtimeIntegrity",
+      "unresolvedDependencies",
+      "filteringWarnings",
+    ],
+    workflowRequiredTokens: [
+      "Verify SocialFlow product-scoped preview artifact",
+      ".open-next/socialflows-product-scoped-preview/artifact-manifest.json",
+      ".open-next/socialflows-product-scoped-preview/scope-audit.json",
+      ".open-next/socialflows-product-scoped-preview/filter-report.json",
+      "SocialFlow product-scoped preview summary",
+      "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_MISSING",
+      "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE",
+      "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_INTEGRITY_FAILURE",
+      "!.open-next/socialflows-product-scoped-preview",
+    ],
+    buildScriptRequiredTokens: [
+      "emitSocialflowProductScopedPreviewArtifact",
+      "productScopedPreviewFilterVersion",
+      "product-scoped-preview",
+      "filter-report.json",
+      "removedRoutes",
+      "runtimeIntegrity",
+      "unresolvedDependencies",
+      "validateProductScopedPreviewRuntime",
+    ],
+    matrixRequiredTokens: [
+      '"productScopedPreviews"',
+      '"artifactMode": "product-scoped-preview"',
+      '"artifactState": "inactive-preview"',
+      '"derivedFrom": "socialflows-standalone"',
+      '"deployable": false',
+      '"workerPath": ".open-next/socialflows-product-scoped-preview/worker.js"',
+      '"assetsPath": ".open-next/socialflows-product-scoped-preview/assets"',
+    ],
+  } as const;
   const mentoriaRuntimeGuardBase = {
     targetName: "test:mentoria-runtime-guard",
     rules: [
@@ -572,6 +665,18 @@ describe("production readiness audits", () => {
         assetsPath: ".open-next/socialflows-standalone/assets",
       },
     ],
+    expectedProductScopedPreviews: [
+      {
+        key: "socialflows",
+        artifactName: "open-next-socialflows-product-scoped-preview",
+        artifactMode: "product-scoped-preview",
+        artifactState: "inactive-preview",
+        workerPath: ".open-next/socialflows-product-scoped-preview/worker.js",
+        assetsPath: ".open-next/socialflows-product-scoped-preview/assets",
+        derivedFrom: "socialflows-standalone",
+        deployable: false,
+      },
+    ],
     expectedProducts: artifactMatrixProductsBase,
     workflowRequiredTokens: [
       "artifact_matrix_skeleton:",
@@ -603,6 +708,8 @@ describe("production readiness audits", () => {
       "scope-audit.json",
       "SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING",
       "SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM",
+      "Verify SocialFlow product-scoped preview artifact",
+      "SocialFlow product-scoped preview summary",
     ],
     buildScriptRequiredTokens: [
       "ARTIFACT_MATRIX_SKELETON_OK",
@@ -621,6 +728,10 @@ describe("production readiness audits", () => {
       "scopedReady",
       "preparedArtifacts",
       "artifact-manifest.json",
+      "productScopedPreviews",
+      "emitSocialflowProductScopedPreviewArtifact",
+      "filter-report.json",
+      "product-scoped-preview",
     ],
   } as const;
   const artifactMatrixPrematureActivationGuardBase = {
@@ -1841,6 +1952,136 @@ describe("production readiness audits", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.report.violations.some((item) => item.checkCode === "socialflowStandaloneScopeAuditDrift")).toBe(true);
+  });
+
+  it("passes readiness for a real inactive SocialFlow product-scoped preview", async () => {
+    const fixtureRoot = "tests/fixtures/production-audits/socialflow-product-scoped-preview-guards";
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowProductScopedPreviewGuardOverride: {
+        ...socialflowProductScopedPreviewGuardBase,
+        manifestPath: `${fixtureRoot}/preview-ok-manifest.json`,
+        scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
+        filterReportPath: `${fixtureRoot}/preview-ok-filter-report.json`,
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.report.checks.some((item) => item.checkCode === "socialflowProductScopedPreviewMissing" && item.status === "PASS")).toBe(true);
+    expect(result.report.checks.some((item) => item.checkCode === "socialflowProductScopedPreviewFake" && item.status === "PASS")).toBe(true);
+    expect(
+      result.report.checks.some((item) => item.checkCode === "socialflowProductScopedPreviewIntegrityFailure" && item.status === "PASS"),
+    ).toBe(true);
+  });
+
+  it("fails readiness when the product-scoped preview is fake or activated", async () => {
+    const fixtureRoot = "tests/fixtures/production-audits/socialflow-product-scoped-preview-guards";
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowProductScopedPreviewGuardOverride: {
+        ...socialflowProductScopedPreviewGuardBase,
+        manifestPath: `${fixtureRoot}/fake-preview-manifest.json`,
+        scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
+        filterReportPath: `${fixtureRoot}/preview-ok-filter-report.json`,
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowProductScopedPreviewFake")).toBe(true);
+  });
+
+  it("fails readiness when the product-scoped preview is empty", async () => {
+    const fixtureRoot = "tests/fixtures/production-audits/socialflow-product-scoped-preview-guards";
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowProductScopedPreviewGuardOverride: {
+        ...socialflowProductScopedPreviewGuardBase,
+        manifestPath: `${fixtureRoot}/preview-ok-manifest.json`,
+        scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
+        filterReportPath: `${fixtureRoot}/empty-preview-filter-report.json`,
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowProductScopedPreviewFake")).toBe(true);
+  });
+
+  it("fails readiness when the product-scoped preview still points to wrapper/active runtime paths", async () => {
+    const fixtureRoot = "tests/fixtures/production-audits/socialflow-product-scoped-preview-guards";
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowProductScopedPreviewGuardOverride: {
+        ...socialflowProductScopedPreviewGuardBase,
+        manifestPath: `${fixtureRoot}/wrapper-preview-manifest.json`,
+        scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
+        filterReportPath: `${fixtureRoot}/preview-ok-filter-report.json`,
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowProductScopedPreviewFake")).toBe(true);
+  });
+
+  it("fails readiness when product-scoped preview filter-report is missing", async () => {
+    const fixtureRoot = "tests/fixtures/production-audits/socialflow-product-scoped-preview-guards";
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowProductScopedPreviewGuardOverride: {
+        ...socialflowProductScopedPreviewGuardBase,
+        manifestPath: `${fixtureRoot}/preview-ok-manifest.json`,
+        scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
+        filterReportPath: `${fixtureRoot}/missing-filter-report.json`,
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowProductScopedPreviewMissing")).toBe(true);
+  });
+
+  it("fails readiness when product-scoped preview runtime integrity is false", async () => {
+    const fixtureRoot = "tests/fixtures/production-audits/socialflow-product-scoped-preview-guards";
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowProductScopedPreviewGuardOverride: {
+        ...socialflowProductScopedPreviewGuardBase,
+        manifestPath: `${fixtureRoot}/integrity-false-manifest.json`,
+        scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
+        filterReportPath: `${fixtureRoot}/integrity-false-filter-report.json`,
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowProductScopedPreviewIntegrityFailure")).toBe(true);
+  });
+
+  it("fails readiness when product-scoped preview hides unresolved dependencies", async () => {
+    const fixtureRoot = "tests/fixtures/production-audits/socialflow-product-scoped-preview-guards";
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowProductScopedPreviewGuardOverride: {
+        ...socialflowProductScopedPreviewGuardBase,
+        manifestPath: `${fixtureRoot}/preview-ok-manifest.json`,
+        scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
+        filterReportPath: `${fixtureRoot}/hidden-unresolved-filter-report.json`,
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowProductScopedPreviewIntegrityFailure")).toBe(true);
   });
 
   it("fails readiness when SocialFlow deploy lane loses assets upload session retry", async () => {

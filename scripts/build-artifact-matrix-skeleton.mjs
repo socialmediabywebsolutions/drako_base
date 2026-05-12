@@ -6,6 +6,7 @@ const defaultOutputDir = process.env.ARTIFACT_MATRIX_OUTPUT_DIR || "build/open-n
 const configPath = path.resolve(repoRoot, "docs/config/open-next-artifact-matrix.json");
 const artifactWrapperBanner = "// Drako artifact matrix wrapper: generated file, do not edit by hand.\n";
 const scopeAuditVersion = 1;
+const productScopedPreviewFilterVersion = 1;
 const defaultSocialflowScopeAudit = {
   scopeMode: "standalone-runtime-copy",
   allowedRoutePrefixes: [
@@ -17,6 +18,26 @@ const defaultSocialflowScopeAudit = {
     "auth/linkedin",
   ],
   suspiciousRoutePrefixes: [
+    "operator",
+    "owner",
+    "bases",
+    "mentoria",
+    "mentorias",
+    "campobase",
+    "campamento-base",
+    "site/panel",
+    "api/operator",
+    "api/owner",
+    "api/bases",
+    "api/mentoria",
+    "api/mentorias",
+    "api/campobase",
+    "api/campamento-base",
+  ],
+};
+const defaultSocialflowProductScopedPreviewFilter = {
+  scopeMode: "product-scoped-preview",
+  removedRoutePrefixes: [
     "operator",
     "owner",
     "bases",
@@ -105,16 +126,11 @@ function routeMatchesPrefix(routePath, prefix) {
   return routePath === prefix || routePath.startsWith(`${prefix}/`);
 }
 
-async function buildServerFunctionsScopeAudit(standaloneArtifactRoot, artifact, generatedAt) {
-  const scopeAuditConfig = {
-    ...defaultSocialflowScopeAudit,
-    ...(artifact.scopeAudit ?? {}),
-  };
-  const serverFunctionsRoot = path.join(standaloneArtifactRoot, "server-functions");
+async function listServerFunctionAppRoutes(serverFunctionsRoot) {
   const appRouteFiles = (await listFilesRecursive(serverFunctionsRoot)).filter((filePath) =>
     normalizeRelative(filePath).includes("/.next/server/app/"),
   );
-  const routePaths = Array.from(
+  return Array.from(
     new Set(
       appRouteFiles
         .map((filePath) => {
@@ -130,6 +146,16 @@ async function buildServerFunctionsScopeAudit(standaloneArtifactRoot, artifact, 
         .filter(Boolean),
     ),
   ).sort();
+}
+
+async function buildServerFunctionsScopeAudit(standaloneArtifactRoot, artifact, generatedAt, overrides = {}) {
+  const scopeAuditConfig = {
+    ...defaultSocialflowScopeAudit,
+    ...(artifact.scopeAudit ?? {}),
+    ...overrides,
+  };
+  const serverFunctionsRoot = path.join(standaloneArtifactRoot, "server-functions");
+  const routePaths = await listServerFunctionAppRoutes(serverFunctionsRoot);
 
   const suspiciousRoutePrefixes = scopeAuditConfig.suspiciousRoutePrefixes ?? [];
   const allowedRoutePrefixes = scopeAuditConfig.allowedRoutePrefixes ?? [];
@@ -162,6 +188,293 @@ async function buildServerFunctionsScopeAudit(standaloneArtifactRoot, artifact, 
     foreignRouteExamples: foreignRoutes.slice(0, 50),
     scopedReady: foreignRoutes.length === 0,
   };
+}
+
+function routeFromManifestKey(manifestKey) {
+  return String(manifestKey)
+    .replace(/^\//, "")
+    .replace(/\/(page|layout|route)$/, "");
+}
+
+function manifestKeyMatchesRoutePrefixes(manifestKey, prefixes) {
+  const routePath = routeFromManifestKey(manifestKey);
+  return prefixes.some((prefix) => routeMatchesPrefix(routePath, prefix));
+}
+
+async function pruneJsonObjectManifest(filePath, shouldRemoveKey) {
+  if (!(await fileExists(filePath))) {
+    return { removed: 0, remaining: 0 };
+  }
+  const manifest = await readJson(filePath);
+  let removed = 0;
+  for (const key of Object.keys(manifest)) {
+    if (shouldRemoveKey(key)) {
+      delete manifest[key];
+      removed += 1;
+    }
+  }
+  await fs.writeFile(filePath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  return { removed, remaining: Object.keys(manifest).length };
+}
+
+async function pruneFunctionsConfigManifest(filePath, shouldRemoveKey) {
+  if (!(await fileExists(filePath))) {
+    return { removed: 0, remaining: 0 };
+  }
+  const manifest = await readJson(filePath);
+  const functions = manifest.functions && typeof manifest.functions === "object" ? manifest.functions : {};
+  let removed = 0;
+  for (const key of Object.keys(functions)) {
+    if (shouldRemoveKey(key)) {
+      delete functions[key];
+      removed += 1;
+    }
+  }
+  manifest.functions = functions;
+  await fs.writeFile(filePath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  return { removed, remaining: Object.keys(functions).length };
+}
+
+async function pruneServerReferenceManifestJson(filePath, removedPrefixes) {
+  if (!(await fileExists(filePath))) {
+    return { removed: 0, remaining: 0 };
+  }
+  const manifest = await readJson(filePath);
+  let removed = 0;
+  for (const runtimeKey of ["node", "edge"]) {
+    const runtime = manifest[runtimeKey];
+    if (!runtime || typeof runtime !== "object") continue;
+    for (const actionId of Object.keys(runtime)) {
+      const action = runtime[actionId];
+      for (const sectionName of ["workers", "layer"]) {
+        const section = action?.[sectionName];
+        if (!section || typeof section !== "object") continue;
+        for (const key of Object.keys(section)) {
+          const appRoute = key.replace(/^app\//, "").replace(/\/(page|layout|route)$/, "");
+          if (removedPrefixes.some((prefix) => routeMatchesPrefix(appRoute, prefix))) {
+            delete section[key];
+            removed += 1;
+          }
+        }
+      }
+      const workers = action?.workers && typeof action.workers === "object" ? action.workers : {};
+      const layer = action?.layer && typeof action.layer === "object" ? action.layer : {};
+      if (Object.keys(workers).length === 0 && Object.keys(layer).length === 0) {
+        delete runtime[actionId];
+      }
+    }
+  }
+  await fs.writeFile(filePath, `${JSON.stringify(manifest)}\n`, "utf8");
+  const remaining = Object.values(manifest.node ?? {}).length + Object.values(manifest.edge ?? {}).length;
+  return { removed, remaining };
+}
+
+async function pruneServerReferenceManifestJs(filePath, removedPrefixes) {
+  if (!(await fileExists(filePath))) {
+    return { removed: 0, remaining: 0 };
+  }
+  const content = await fs.readFile(filePath, "utf8");
+  const prefix = 'self.__RSC_SERVER_MANIFEST="';
+  if (!content.startsWith(prefix) || !content.endsWith('"\n') && !content.endsWith('"')) {
+    return { removed: 0, remaining: 0, warning: "server-reference-manifest.js format not recognized" };
+  }
+  const rawJsonString = content.slice(prefix.length).replace(/";?\s*$/, "");
+  const manifest = JSON.parse(JSON.parse(`"${rawJsonString}"`));
+  const before = JSON.stringify(manifest);
+  const jsonPath = filePath.replace(/\.js$/, ".json");
+  await fs.writeFile(jsonPath, `${JSON.stringify(manifest)}\n`, "utf8");
+  const result = await pruneServerReferenceManifestJson(jsonPath, removedPrefixes);
+  const prunedManifest = await readJson(jsonPath);
+  const serialized = JSON.stringify(JSON.stringify(prunedManifest));
+  await fs.writeFile(filePath, `self.__RSC_SERVER_MANIFEST=${serialized}\n`, "utf8");
+  return { ...result, changed: before !== JSON.stringify(prunedManifest) };
+}
+
+async function readTextIfExists(filePath) {
+  if (!(await fileExists(filePath))) return "";
+  return fs.readFile(filePath, "utf8");
+}
+
+async function validateProductScopedPreviewRuntime(previewRoot, removedPrefixes) {
+  const unresolvedDependencies = [];
+  const filteringWarnings = [];
+  const workerPath = path.join(previewRoot, "worker.js");
+  const assetsPath = path.join(previewRoot, "assets");
+  const serverFunctionsRoot = path.join(previewRoot, "server-functions");
+  const buildPath = path.join(previewRoot, ".build");
+  const serverRoot = path.join(serverFunctionsRoot, "default/.next/server");
+  const appRoot = path.join(serverRoot, "app");
+
+  for (const [label, targetPath] of [
+    ["worker.js", workerPath],
+    ["assets", assetsPath],
+    ["server-functions", serverFunctionsRoot],
+    [".build", buildPath],
+  ]) {
+    if (!(await fileExists(targetPath))) {
+      unresolvedDependencies.push(`missing ${label} at ${normalizeRelative(path.relative(repoRoot, targetPath))}`);
+    }
+  }
+
+  const workerSource = await readTextIfExists(workerPath);
+  if (workerSource.includes('export { default } from') || workerSource.includes("export * from")) {
+    unresolvedDependencies.push("worker.js still looks like a wrapper/reexport");
+  }
+  if (workerSource.includes("../worker.js") || workerSource.includes(".open-next/worker.js")) {
+    unresolvedDependencies.push("worker.js references the global OpenNext worker");
+  }
+  if (!workerSource.includes("./server-functions/default/handler.mjs")) {
+    unresolvedDependencies.push("worker.js does not reference the local server-functions/default handler");
+  }
+
+  const appPathsManifestPath = path.join(serverRoot, "app-paths-manifest.json");
+  const appPathsManifest = (await fileExists(appPathsManifestPath)) ? await readJson(appPathsManifestPath) : {};
+  for (const [key, relativeFile] of Object.entries(appPathsManifest)) {
+    if (manifestKeyMatchesRoutePrefixes(key, removedPrefixes)) {
+      unresolvedDependencies.push(`app-paths-manifest still references removed route ${key}`);
+    }
+    const absoluteFile = path.join(serverRoot, String(relativeFile));
+    if (!(await fileExists(absoluteFile))) {
+      unresolvedDependencies.push(`app-paths-manifest missing file ${key} -> ${String(relativeFile)}`);
+    }
+  }
+
+  const remainingRoutes = await listServerFunctionAppRoutes(serverFunctionsRoot);
+  for (const routePath of remainingRoutes) {
+    if (removedPrefixes.some((prefix) => routeMatchesPrefix(routePath, prefix))) {
+      unresolvedDependencies.push(`removed route file still exists ${routePath}`);
+    }
+  }
+
+  const middlewareManifestPath = path.join(serverRoot, "middleware-manifest.json");
+  if (await fileExists(middlewareManifestPath)) {
+    const middlewareManifest = await readJson(middlewareManifestPath);
+    for (const middleware of Object.values(middlewareManifest.middleware ?? {})) {
+      for (const filePath of middleware.files ?? []) {
+        const absoluteFile = path.join(path.dirname(serverRoot), String(filePath));
+        if (!(await fileExists(absoluteFile))) {
+          filteringWarnings.push(`middleware-manifest references ${String(filePath)}; file is absent in the source standalone runtime too`);
+        }
+      }
+    }
+  } else {
+    filteringWarnings.push("middleware-manifest.json not found in preview");
+  }
+
+  if (!(await fileExists(appRoot))) {
+    unresolvedDependencies.push("preview app server directory is missing");
+  }
+
+  return {
+    runtimeIntegrity: unresolvedDependencies.length === 0,
+    unresolvedDependencies,
+    filteringWarnings,
+  };
+}
+
+async function emitSocialflowProductScopedPreviewArtifact(standaloneArtifact, previewArtifact) {
+  const sourceRoot = path.dirname(path.resolve(repoRoot, standaloneArtifact.workerPath));
+  const previewRoot = path.dirname(path.resolve(repoRoot, previewArtifact.workerPath));
+  const generatedAt = new Date().toISOString();
+  const filterConfig = {
+    ...defaultSocialflowProductScopedPreviewFilter,
+    ...(previewArtifact.filter ?? {}),
+  };
+  const removedRoutePrefixes = filterConfig.removedRoutePrefixes;
+
+  await copyDir(sourceRoot, previewRoot);
+
+  const serverFunctionsRoot = path.join(previewRoot, "server-functions");
+  const serverRoot = path.join(serverFunctionsRoot, "default/.next/server");
+  const appRoot = path.join(serverRoot, "app");
+  const originalRoutes = await listServerFunctionAppRoutes(serverFunctionsRoot);
+  const removedRoutes = originalRoutes.filter((routePath) =>
+    removedRoutePrefixes.some((prefix) => routeMatchesPrefix(routePath, prefix)),
+  );
+
+  for (const routePath of removedRoutes) {
+    await fs.rm(path.join(appRoot, routePath), { recursive: true, force: true });
+  }
+
+  const manifestPruneResults = {
+    appPathsManifest: await pruneJsonObjectManifest(path.join(serverRoot, "app-paths-manifest.json"), (key) =>
+      manifestKeyMatchesRoutePrefixes(key, removedRoutePrefixes),
+    ),
+    functionsConfigManifest: await pruneFunctionsConfigManifest(path.join(serverRoot, "functions-config-manifest.json"), (key) =>
+      manifestKeyMatchesRoutePrefixes(key, removedRoutePrefixes),
+    ),
+    serverReferenceManifestJson: await pruneServerReferenceManifestJson(
+      path.join(serverRoot, "server-reference-manifest.json"),
+      removedRoutePrefixes,
+    ),
+    serverReferenceManifestJs: await pruneServerReferenceManifestJs(
+      path.join(serverRoot, "server-reference-manifest.js"),
+      removedRoutePrefixes,
+    ),
+  };
+
+  const remainingRoutes = await listServerFunctionAppRoutes(serverFunctionsRoot);
+  const integrity = await validateProductScopedPreviewRuntime(previewRoot, removedRoutePrefixes);
+  const filterReport = {
+    product: previewArtifact.key,
+    artifactMode: previewArtifact.artifactMode,
+    artifactState: previewArtifact.artifactState,
+    derivedFrom: previewArtifact.derivedFrom,
+    sourceArtifactPath: normalizeRelative(path.relative(repoRoot, sourceRoot)),
+    previewArtifactPath: normalizeRelative(path.relative(repoRoot, previewRoot)),
+    filterVersion: productScopedPreviewFilterVersion,
+    filterGeneratedAt: generatedAt,
+    removedRoutePrefixes,
+    removedRoutes,
+    removedCount: removedRoutes.length,
+    remainingRoutes,
+    remainingCount: remainingRoutes.length,
+    manifestPruneResults,
+    runtimeIntegrity: integrity.runtimeIntegrity,
+    unresolvedDependencies: integrity.unresolvedDependencies,
+    filteringWarnings: integrity.filteringWarnings,
+  };
+
+  const scopeAudit = await buildServerFunctionsScopeAudit(
+    previewRoot,
+    {
+      key: previewArtifact.key,
+      sourceRuntime: previewArtifact.sourceRuntime ?? "product-scoped-preview-copy",
+      scopeAudit: {
+        ...(standaloneArtifact.scopeAudit ?? {}),
+        scopeMode: filterConfig.scopeMode,
+      },
+    },
+    generatedAt,
+  );
+
+  const manifest = {
+    productKey: previewArtifact.key,
+    artifactMode: previewArtifact.artifactMode,
+    artifactState: previewArtifact.artifactState,
+    derivedFrom: previewArtifact.derivedFrom,
+    sourceArtifactName: standaloneArtifact.artifactName,
+    sourceArtifactPath: normalizeRelative(path.relative(repoRoot, sourceRoot)),
+    workerPath: normalizeRelative(previewArtifact.workerPath),
+    assetsPath: normalizeRelative(previewArtifact.assetsPath),
+    filterVersion: productScopedPreviewFilterVersion,
+    filterGeneratedAt: generatedAt,
+    runtimeIntegrity: filterReport.runtimeIntegrity,
+    unresolvedDependencyCount: filterReport.unresolvedDependencies.length,
+    removedCount: filterReport.removedCount,
+    remainingCount: filterReport.remainingCount,
+    scopeMode: scopeAudit.scopeMode,
+    containsForeignRoutes: scopeAudit.containsForeignRoutes,
+    foreignRouteHits: scopeAudit.foreignRouteHits,
+    foreignRouteCount: scopeAudit.foreignRouteCount,
+    scopeAuditVersion: scopeAudit.scopeAuditVersion,
+    scopeAuditGeneratedAt: scopeAudit.scopeAuditGeneratedAt,
+    scopedReady: scopeAudit.scopedReady,
+  };
+
+  await fs.writeFile(path.join(previewRoot, "artifact-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  await fs.writeFile(path.join(previewRoot, "scope-audit.json"), `${JSON.stringify(scopeAudit, null, 2)}\n`, "utf8");
+  await fs.writeFile(path.join(previewRoot, "filter-report.json"), `${JSON.stringify(filterReport, null, 2)}\n`, "utf8");
 }
 
 async function copyDir(sourceDir, targetDir) {
@@ -297,11 +610,18 @@ async function buildSkeletonRecord(config, product) {
   const standaloneArtifact = [...(config.standaloneArtifacts ?? []), ...(config.preparedArtifacts ?? [])].find(
     (artifact) => artifact.key === product.key,
   );
+  const productScopedPreviewArtifact = (config.productScopedPreviews ?? []).find((artifact) => artifact.key === product.key);
   const standaloneWorkerAbsolute = standaloneArtifact?.workerPath
     ? path.resolve(repoRoot, standaloneArtifact.workerPath)
     : null;
   const standaloneAssetsAbsolute = standaloneArtifact?.assetsPath
     ? path.resolve(repoRoot, standaloneArtifact.assetsPath)
+    : null;
+  const productScopedPreviewWorkerAbsolute = productScopedPreviewArtifact?.workerPath
+    ? path.resolve(repoRoot, productScopedPreviewArtifact.workerPath)
+    : null;
+  const productScopedPreviewAssetsAbsolute = productScopedPreviewArtifact?.assetsPath
+    ? path.resolve(repoRoot, productScopedPreviewArtifact.assetsPath)
     : null;
 
   const shouldGenerateDedicatedRuntime =
@@ -320,6 +640,16 @@ async function buildSkeletonRecord(config, product) {
 
   if (shouldGenerateStandaloneRuntime) {
     await emitStandaloneArtifact(config, standaloneArtifact);
+  }
+
+  const shouldGenerateProductScopedPreview =
+    productScopedPreviewArtifact?.artifactMode === "product-scoped-preview" &&
+    standaloneArtifact?.key === product.key &&
+    (await fileExists(path.resolve(repoRoot, standaloneArtifact.workerPath))) &&
+    (await fileExists(path.resolve(repoRoot, standaloneArtifact.assetsPath)));
+
+  if (shouldGenerateProductScopedPreview) {
+    await emitSocialflowProductScopedPreviewArtifact(standaloneArtifact, productScopedPreviewArtifact);
   }
 
   return {
@@ -362,6 +692,21 @@ async function buildSkeletonRecord(config, product) {
           },
         }
       : null,
+    productScopedPreviewArtifact: productScopedPreviewArtifact
+      ? {
+          artifactMode: productScopedPreviewArtifact.artifactMode,
+          artifactState: productScopedPreviewArtifact.artifactState ?? null,
+          derivedFrom: productScopedPreviewArtifact.derivedFrom ?? null,
+          artifactName: productScopedPreviewArtifact.artifactName,
+          workerPath: normalizeRelative(productScopedPreviewArtifact.workerPath),
+          assetsPath: normalizeRelative(productScopedPreviewArtifact.assetsPath),
+          exists: {
+            worker: productScopedPreviewWorkerAbsolute ? await fileExists(productScopedPreviewWorkerAbsolute) : false,
+            assets: productScopedPreviewAssetsAbsolute ? await fileExists(productScopedPreviewAssetsAbsolute) : false,
+          },
+          deployable: productScopedPreviewArtifact.deployable ?? false,
+        }
+      : null,
     splitReady:
       product.artifactMode === "dedicated-wrapper" || product.artifactMode === "prepared-wrapper"
         ? shouldGenerateDedicatedRuntime
@@ -372,6 +717,7 @@ async function buildSkeletonRecord(config, product) {
     dedicatedArtifactName: product.dedicatedArtifactName ?? null,
     preparedArtifactName: product.preparedArtifactName ?? null,
     standaloneArtifactName: product.standaloneArtifactName ?? null,
+    productScopedPreviewArtifactName: productScopedPreviewArtifact?.artifactName ?? null,
     notes: config.notes,
   };
 }
@@ -417,6 +763,7 @@ async function main() {
     dedicatedArtifacts: config.dedicatedArtifacts ?? [],
     preparedArtifacts: config.preparedArtifacts ?? [],
     standaloneArtifacts: config.standaloneArtifacts ?? [],
+    productScopedPreviews: config.productScopedPreviews ?? [],
     products: records.map((record) => ({
       artifactMode: record.artifactMode,
       artifactState: record.artifactState,
@@ -426,11 +773,13 @@ async function main() {
       currentArtifact: record.currentArtifact,
       plannedArtifact: record.plannedArtifact,
       standaloneArtifact: record.standaloneArtifact,
+      productScopedPreviewArtifact: record.productScopedPreviewArtifact,
       splitReady: record.splitReady,
       splitActivated: record.splitActivated,
       dedicatedArtifactName: record.dedicatedArtifactName,
       preparedArtifactName: record.preparedArtifactName,
       standaloneArtifactName: record.standaloneArtifactName,
+      productScopedPreviewArtifactName: record.productScopedPreviewArtifactName,
     })),
   };
 

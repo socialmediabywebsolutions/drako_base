@@ -1,0 +1,15 @@
+{
+  "product": "socialflows",
+  "runtimeMode": "product-scoped-preview-copy",
+  "scopeMode": "product-scoped-preview",
+  "scopeAuditVersion": 1,
+  "scopeAuditGeneratedAt": "2026-05-12T00:00:00.000Z",
+  "serverFunctionsPath": ".open-next/socialflows-product-scoped-preview/server-functions",
+  "routeCount": 2,
+  "allowedRouteCount": 2,
+  "containsForeignRoutes": false,
+  "foreignRouteHits": [],
+  "foreignRouteCount": 0,
+  "foreignRouteExamples": [],
+  "scopedReady": true
+}

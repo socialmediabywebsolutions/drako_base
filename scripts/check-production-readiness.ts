@@ -170,6 +170,10 @@ type CheckCode =
   | "socialflowStandaloneForeignRouteLeak"
   | "socialflowStandaloneFakeScopedClaim"
   | "socialflowStandaloneScopeAuditDrift"
+  | "socialflowProductScopedPreviewMissing"
+  | "socialflowProductScopedPreviewFake"
+  | "socialflowProductScopedPreviewIntegrityFailure"
+  | "socialflowProductScopedPreviewDrift"
   | "mentoriaAuthsOperationalDrift";
 
 type CheckRecord = {
@@ -264,6 +268,7 @@ type ProductionAuditsRunOptions = {
   socialflowStandaloneRuntimeGuardOverride?: FileTokenGuard;
   socialflowAssetsUploadRetryGuardOverride?: FileTokenGuard;
   socialflowStandaloneScopeAuditGuardOverride?: SocialflowStandaloneScopeAuditGuard;
+  socialflowProductScopedPreviewGuardOverride?: SocialflowProductScopedPreviewGuard;
   mentoriaAuthsOperationalGuardOverride?: FileTokenGuard;
 };
 
@@ -408,6 +413,16 @@ type ArtifactMatrixSkeletonGuard = {
     workerPath: string;
     assetsPath: string;
   }>;
+  expectedProductScopedPreviews?: Array<{
+    key: string;
+    artifactName: string;
+    artifactMode: string;
+    artifactState: string;
+    workerPath: string;
+    assetsPath: string;
+    derivedFrom: string;
+    deployable: boolean;
+  }>;
   expectedProducts: ArtifactMatrixProduct[];
   workflowRequiredTokens: string[];
   buildScriptRequiredTokens: string[];
@@ -434,6 +449,26 @@ type SocialflowStandaloneScopeAuditGuard = {
   requiredScopeAuditFields: string[];
   workflowRequiredTokens: string[];
   buildScriptRequiredTokens: string[];
+};
+
+type SocialflowProductScopedPreviewGuard = {
+  targetName: string;
+  manifestPath: string;
+  scopeAuditPath: string;
+  filterReportPath: string;
+  workflowPath: string;
+  buildScriptPath: string;
+  matrixPath: string;
+  expectedProduct: string;
+  expectedArtifactMode: string;
+  expectedArtifactState: string;
+  expectedDerivedFrom: string;
+  requiredManifestFields: string[];
+  requiredScopeAuditFields: string[];
+  requiredFilterReportFields: string[];
+  workflowRequiredTokens: string[];
+  buildScriptRequiredTokens: string[];
+  matrixRequiredTokens: string[];
 };
 
 type D1BindingRecord = {
@@ -779,6 +814,18 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
       assetsPath: ".open-next/socialflows-standalone/assets",
     },
   ],
+  expectedProductScopedPreviews: [
+    {
+      key: "socialflows",
+      artifactName: "open-next-socialflows-product-scoped-preview",
+      artifactMode: "product-scoped-preview",
+      artifactState: "inactive-preview",
+      workerPath: ".open-next/socialflows-product-scoped-preview/worker.js",
+      assetsPath: ".open-next/socialflows-product-scoped-preview/assets",
+      derivedFrom: "socialflows-standalone",
+      deployable: false,
+    },
+  ],
   expectedProducts: DEFAULT_ARTIFACT_MATRIX_PRODUCTS,
   workflowRequiredTokens: [
     "artifact_matrix_skeleton:",
@@ -810,6 +857,8 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
     "scope-audit.json",
     "SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING",
     "SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM",
+    "Verify SocialFlow product-scoped preview artifact",
+    "SocialFlow product-scoped preview summary",
   ],
   buildScriptRequiredTokens: [
     "ARTIFACT_MATRIX_SKELETON_OK",
@@ -828,6 +877,10 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
     "scopedReady",
     "preparedArtifacts",
     "artifact-manifest.json",
+    "productScopedPreviews",
+    "emitSocialflowProductScopedPreviewArtifact",
+    "filter-report.json",
+    "product-scoped-preview",
   ],
 };
 
@@ -1171,6 +1224,100 @@ const DEFAULT_SOCIALFLOW_STANDALONE_SCOPE_AUDIT_GUARD: SocialflowStandaloneScope
     "foreignRouteCount",
     "scopedReady",
     "standalone-runtime-copy",
+  ],
+};
+
+const DEFAULT_SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_GUARD: SocialflowProductScopedPreviewGuard = {
+  targetName: "socialflow:product-scoped-preview",
+  manifestPath: ".open-next/socialflows-product-scoped-preview/artifact-manifest.json",
+  scopeAuditPath: ".open-next/socialflows-product-scoped-preview/scope-audit.json",
+  filterReportPath: ".open-next/socialflows-product-scoped-preview/filter-report.json",
+  workflowPath: ".github/workflows/drako-factory-deploy.yml",
+  buildScriptPath: "scripts/build-artifact-matrix-skeleton.mjs",
+  matrixPath: "docs/config/open-next-artifact-matrix.json",
+  expectedProduct: "socialflows",
+  expectedArtifactMode: "product-scoped-preview",
+  expectedArtifactState: "inactive-preview",
+  expectedDerivedFrom: "socialflows-standalone",
+  requiredManifestFields: [
+    "productKey",
+    "artifactMode",
+    "artifactState",
+    "derivedFrom",
+    "sourceArtifactPath",
+    "workerPath",
+    "assetsPath",
+    "filterVersion",
+    "filterGeneratedAt",
+    "runtimeIntegrity",
+    "unresolvedDependencyCount",
+    "removedCount",
+    "remainingCount",
+    "scopeMode",
+    "foreignRouteCount",
+    "scopedReady",
+  ],
+  requiredScopeAuditFields: [
+    "product",
+    "runtimeMode",
+    "scopeMode",
+    "serverFunctionsPath",
+    "routeCount",
+    "allowedRouteCount",
+    "containsForeignRoutes",
+    "foreignRouteHits",
+    "foreignRouteCount",
+    "scopeAuditVersion",
+    "scopeAuditGeneratedAt",
+    "scopedReady",
+  ],
+  requiredFilterReportFields: [
+    "product",
+    "artifactMode",
+    "artifactState",
+    "derivedFrom",
+    "sourceArtifactPath",
+    "previewArtifactPath",
+    "filterVersion",
+    "filterGeneratedAt",
+    "removedRoutePrefixes",
+    "removedRoutes",
+    "removedCount",
+    "remainingRoutes",
+    "remainingCount",
+    "runtimeIntegrity",
+    "unresolvedDependencies",
+    "filteringWarnings",
+  ],
+  workflowRequiredTokens: [
+    "Verify SocialFlow product-scoped preview artifact",
+    ".open-next/socialflows-product-scoped-preview/artifact-manifest.json",
+    ".open-next/socialflows-product-scoped-preview/scope-audit.json",
+    ".open-next/socialflows-product-scoped-preview/filter-report.json",
+    "SocialFlow product-scoped preview summary",
+    "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_MISSING",
+    "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE",
+    "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_INTEGRITY_FAILURE",
+    "!.open-next/socialflows-product-scoped-preview",
+  ],
+  buildScriptRequiredTokens: [
+    "emitSocialflowProductScopedPreviewArtifact",
+    "productScopedPreviewFilterVersion",
+    "product-scoped-preview",
+    "filter-report.json",
+    "removedRoutes",
+    "runtimeIntegrity",
+    "unresolvedDependencies",
+    "validateProductScopedPreviewRuntime",
+  ],
+  matrixRequiredTokens: [
+    "\"productScopedPreviews\"",
+    "\"artifactMode\": \"product-scoped-preview\"",
+    "\"artifactState\": \"inactive-preview\"",
+    "\"derivedFrom\": \"socialflows-standalone\"",
+    "\"deployable\": false",
+    "\"workerPath\": \".open-next/socialflows-product-scoped-preview/worker.js\"",
+    "\"assetsPath\": \".open-next/socialflows-product-scoped-preview/assets\"",
   ],
 };
 
@@ -3637,6 +3784,198 @@ async function buildSocialflowStandaloneScopeAuditChecks(
   ];
 }
 
+async function buildSocialflowProductScopedPreviewChecks(
+  guard: SocialflowProductScopedPreviewGuard,
+): Promise<CheckRecord[]> {
+  const manifestRead = await readJsonGuardFile(guard.manifestPath);
+  const scopeAuditRead = await readJsonGuardFile(guard.scopeAuditPath);
+  const filterReportRead = await readJsonGuardFile(guard.filterReportPath);
+  const missingFailures: string[] = [];
+  const fakeFailures: string[] = [];
+  const integrityFailures: string[] = [];
+  const driftFailures: string[] = [];
+
+  const manifest = manifestRead.value;
+  const scopeAudit = scopeAuditRead.value;
+  const filterReport = filterReportRead.value;
+
+  if (!manifest) missingFailures.push(`${guard.manifestPath} read_error=${manifestRead.error}`);
+  if (!scopeAudit) missingFailures.push(`${guard.scopeAuditPath} read_error=${scopeAuditRead.error}`);
+  if (!filterReport) missingFailures.push(`${guard.filterReportPath} read_error=${filterReportRead.error}`);
+
+  if (manifest) {
+    for (const field of guard.requiredManifestFields) {
+      if (!(field in manifest)) missingFailures.push(`${guard.manifestPath} missing ${field}`);
+    }
+    if (manifest.productKey !== guard.expectedProduct) {
+      fakeFailures.push(`${guard.manifestPath} productKey expected ${guard.expectedProduct} got ${String(manifest.productKey)}`);
+    }
+    if (manifest.artifactMode !== guard.expectedArtifactMode) {
+      fakeFailures.push(`${guard.manifestPath} artifactMode expected ${guard.expectedArtifactMode} got ${String(manifest.artifactMode)}`);
+    }
+    if (manifest.artifactState !== guard.expectedArtifactState) {
+      fakeFailures.push(`${guard.manifestPath} artifactState expected ${guard.expectedArtifactState} got ${String(manifest.artifactState)}`);
+    }
+    if (manifest.derivedFrom !== guard.expectedDerivedFrom) {
+      fakeFailures.push(`${guard.manifestPath} derivedFrom expected ${guard.expectedDerivedFrom} got ${String(manifest.derivedFrom)}`);
+    }
+  }
+
+  if (scopeAudit) {
+    for (const field of guard.requiredScopeAuditFields) {
+      if (!(field in scopeAudit)) missingFailures.push(`${guard.scopeAuditPath} missing ${field}`);
+    }
+    if (scopeAudit.product !== guard.expectedProduct) {
+      fakeFailures.push(`${guard.scopeAuditPath} product expected ${guard.expectedProduct} got ${String(scopeAudit.product)}`);
+    }
+  }
+
+  if (filterReport) {
+    for (const field of guard.requiredFilterReportFields) {
+      if (!(field in filterReport)) missingFailures.push(`${guard.filterReportPath} missing ${field}`);
+    }
+    if (filterReport.product !== guard.expectedProduct) {
+      fakeFailures.push(`${guard.filterReportPath} product expected ${guard.expectedProduct} got ${String(filterReport.product)}`);
+    }
+    if (filterReport.artifactMode !== guard.expectedArtifactMode) {
+      fakeFailures.push(`${guard.filterReportPath} artifactMode expected ${guard.expectedArtifactMode} got ${String(filterReport.artifactMode)}`);
+    }
+    if (filterReport.artifactState !== guard.expectedArtifactState) {
+      fakeFailures.push(`${guard.filterReportPath} artifactState expected ${guard.expectedArtifactState} got ${String(filterReport.artifactState)}`);
+    }
+    if (filterReport.derivedFrom !== guard.expectedDerivedFrom) {
+      fakeFailures.push(`${guard.filterReportPath} derivedFrom expected ${guard.expectedDerivedFrom} got ${String(filterReport.derivedFrom)}`);
+    }
+  }
+
+  if (manifest && filterReport) {
+    for (const field of ["filterVersion", "filterGeneratedAt", "runtimeIntegrity", "removedCount", "remainingCount"]) {
+      if (manifest[field] !== filterReport[field]) {
+        missingFailures.push(
+          `${guard.manifestPath} ${field} (${String(manifest[field])}) differs from ${guard.filterReportPath} (${String(filterReport[field])})`,
+        );
+      }
+    }
+  }
+  if (manifest && scopeAudit) {
+    for (const field of ["scopeMode", "foreignRouteCount", "scopeAuditVersion", "scopeAuditGeneratedAt", "scopedReady"]) {
+      if (manifest[field] !== scopeAudit[field]) {
+        missingFailures.push(
+          `${guard.manifestPath} ${field} (${String(manifest[field])}) differs from ${guard.scopeAuditPath} (${String(scopeAudit[field])})`,
+        );
+      }
+    }
+  }
+
+  const removedCount = Number(filterReport?.removedCount ?? manifest?.removedCount ?? 0);
+  const remainingCount = Number(filterReport?.remainingCount ?? manifest?.remainingCount ?? 0);
+  const unresolvedDependencies = Array.isArray(filterReport?.unresolvedDependencies)
+    ? filterReport.unresolvedDependencies
+    : [];
+  const runtimeIntegrity = Boolean(filterReport?.runtimeIntegrity ?? manifest?.runtimeIntegrity ?? false);
+
+  if (removedCount <= 0) {
+    fakeFailures.push(`${guard.filterReportPath} removedCount must be greater than 0 for a real preview filter`);
+  }
+  if (remainingCount <= 0) {
+    fakeFailures.push(`${guard.filterReportPath} remainingCount must be greater than 0; empty preview is not valid`);
+  }
+  if (!Array.isArray(filterReport?.removedRoutes) || filterReport.removedRoutes.length !== removedCount) {
+    fakeFailures.push(`${guard.filterReportPath} removedRoutes length must match removedCount`);
+  }
+  if (!Array.isArray(filterReport?.remainingRoutes) || filterReport.remainingRoutes.length !== remainingCount) {
+    fakeFailures.push(`${guard.filterReportPath} remainingRoutes length must match remainingCount`);
+  }
+  if (String(manifest?.workerPath ?? "").includes("socialflows-standalone/worker.js")) {
+    fakeFailures.push(`${guard.manifestPath} workerPath still points at the active standalone artifact`);
+  }
+
+  if (!runtimeIntegrity) {
+    integrityFailures.push(`${guard.filterReportPath} runtimeIntegrity=false`);
+  }
+  if (unresolvedDependencies.length > 0) {
+    integrityFailures.push(`${guard.filterReportPath} unresolvedDependencies=${JSON.stringify(unresolvedDependencies.slice(0, 10))}`);
+  }
+  if (Number(manifest?.unresolvedDependencyCount ?? 0) !== unresolvedDependencies.length) {
+    integrityFailures.push(`${guard.manifestPath} unresolvedDependencyCount differs from filter-report unresolvedDependencies length`);
+  }
+
+  for (const [filePath, tokens] of [
+    [guard.workflowPath, guard.workflowRequiredTokens],
+    [guard.buildScriptPath, guard.buildScriptRequiredTokens],
+    [guard.matrixPath, guard.matrixRequiredTokens],
+  ] as const) {
+    let content = "";
+    try {
+      content = await fs.readFile(resolveAbsolutePath(filePath), "utf8");
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      driftFailures.push(`${filePath} read_error=${reason}`);
+      continue;
+    }
+    for (const token of tokens) {
+      if (!content.includes(token)) {
+        driftFailures.push(`${filePath} missing ${token}`);
+      }
+    }
+  }
+
+  return [
+    {
+      checkCode: "socialflowProductScopedPreviewMissing",
+      severity: "BLOCKER",
+      status: missingFailures.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: "SocialFlow product-scoped preview manifest, scope audit and filter report exist with complete metadata",
+      actual: missingFailures.length === 0 ? { removedCount, remainingCount, runtimeIntegrity } : missingFailures,
+      details:
+        missingFailures.length === 0
+          ? "SocialFlow product-scoped preview metadata is present and internally consistent."
+          : "SocialFlow product-scoped preview metadata is missing, unreadable or inconsistent.",
+    },
+    {
+      checkCode: "socialflowProductScopedPreviewFake",
+      severity: "BLOCKER",
+      status: fakeFailures.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: "preview is inactive, derived from socialflows-standalone and contains real filtered/remaining routes",
+      actual: fakeFailures.length === 0 ? { artifactMode: manifest?.artifactMode, artifactState: manifest?.artifactState, removedCount, remainingCount } : fakeFailures,
+      details:
+        fakeFailures.length === 0
+          ? "SocialFlow product-scoped preview is a real inactive preview, not a fake or empty artifact."
+          : "SocialFlow product-scoped preview metadata looks fake, empty or incorrectly activated.",
+    },
+    {
+      checkCode: "socialflowProductScopedPreviewIntegrityFailure",
+      severity: "BLOCKER",
+      status: integrityFailures.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: "runtimeIntegrity=true and no unresolved dependencies",
+      actual: integrityFailures.length === 0 ? { runtimeIntegrity, unresolvedDependencies } : integrityFailures,
+      details:
+        integrityFailures.length === 0
+          ? "SocialFlow product-scoped preview has no detected broken runtime references."
+          : "SocialFlow product-scoped preview detected unresolved runtime dependencies.",
+    },
+    {
+      checkCode: "socialflowProductScopedPreviewDrift",
+      severity: "BLOCKER",
+      status: driftFailures.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: "matrix, builder and CI keep the inactive product-scoped preview lane wired",
+      actual: driftFailures.length === 0 ? "product_scoped_preview_guard_ok" : driftFailures,
+      details:
+        driftFailures.length === 0
+          ? "Builder, matrix and CI keep generating and verifying the SocialFlow product-scoped preview."
+          : "Builder, matrix or CI drifted away from the SocialFlow product-scoped preview lane.",
+    },
+  ];
+}
+
 async function buildArtifactMatrixSkeletonChecks(guard: ArtifactMatrixSkeletonGuard): Promise<CheckRecord[]> {
   const failures: string[] = [];
   let manifest:
@@ -3653,6 +3992,16 @@ async function buildArtifactMatrixSkeletonChecks(guard: ArtifactMatrixSkeletonGu
           artifactState?: string;
           workerPath?: string;
           assetsPath?: string;
+        }>;
+        productScopedPreviews?: Array<{
+          key?: string;
+          artifactName?: string;
+          artifactMode?: string;
+          artifactState?: string;
+          workerPath?: string;
+          assetsPath?: string;
+          derivedFrom?: string;
+          deployable?: boolean;
         }>;
         products?: ArtifactMatrixProduct[];
       }
@@ -3672,6 +4021,16 @@ async function buildArtifactMatrixSkeletonChecks(guard: ArtifactMatrixSkeletonGu
         artifactState?: string;
         workerPath?: string;
         assetsPath?: string;
+      }>;
+      productScopedPreviews?: Array<{
+        key?: string;
+        artifactName?: string;
+        artifactMode?: string;
+        artifactState?: string;
+        workerPath?: string;
+        assetsPath?: string;
+        derivedFrom?: string;
+        deployable?: boolean;
       }>;
     };
   } catch (error) {
@@ -3758,6 +4117,29 @@ async function buildArtifactMatrixSkeletonChecks(guard: ArtifactMatrixSkeletonGu
     for (const actualStandaloneArtifact of manifestStandaloneArtifacts) {
       if (!expectedStandaloneArtifacts.some((artifact) => artifact.key === actualStandaloneArtifact.key)) {
         failures.push(`${guard.manifestPath} unexpected standalone artifact ${String(actualStandaloneArtifact.key)}`);
+      }
+    }
+    const expectedProductScopedPreviews = guard.expectedProductScopedPreviews ?? [];
+    const manifestProductScopedPreviews = manifest.productScopedPreviews ?? [];
+    for (const expectedPreviewArtifact of expectedProductScopedPreviews) {
+      const actualPreviewArtifact = manifestProductScopedPreviews.find((artifact) => artifact.key === expectedPreviewArtifact.key);
+      if (!actualPreviewArtifact) {
+        failures.push(`${guard.manifestPath} missing product-scoped preview ${expectedPreviewArtifact.key}`);
+        continue;
+      }
+      for (const [field, expectedValue] of Object.entries(expectedPreviewArtifact)) {
+        if ((actualPreviewArtifact as Record<string, unknown>)[field] !== expectedValue) {
+          failures.push(
+            `${guard.manifestPath} product-scoped preview ${expectedPreviewArtifact.key} field ${field} expected ${String(
+              expectedValue,
+            )} got ${String((actualPreviewArtifact as Record<string, unknown>)[field])}`,
+          );
+        }
+      }
+    }
+    for (const actualPreviewArtifact of manifestProductScopedPreviews) {
+      if (!expectedProductScopedPreviews.some((artifact) => artifact.key === actualPreviewArtifact.key)) {
+        failures.push(`${guard.manifestPath} unexpected product-scoped preview ${String(actualPreviewArtifact.key)}`);
       }
     }
 
@@ -4214,6 +4596,12 @@ export async function runProductionReadinessAudits(
     socialflowStandaloneScopeAuditGuard,
   );
   checks.push(...socialflowStandaloneScopeAuditChecks);
+  const socialflowProductScopedPreviewGuard =
+    options.socialflowProductScopedPreviewGuardOverride ?? DEFAULT_SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_GUARD;
+  const socialflowProductScopedPreviewChecks = await buildSocialflowProductScopedPreviewChecks(
+    socialflowProductScopedPreviewGuard,
+  );
+  checks.push(...socialflowProductScopedPreviewChecks);
   const mentoriaRuntimeGuard = options.mentoriaRuntimeGuardOverride ?? DEFAULT_MENTORIA_RUNTIME_GUARD;
   const mentoriaRuntimeChecks = await buildFileTokenGuardChecks(
     mentoriaRuntimeGuard,

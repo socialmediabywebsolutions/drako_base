@@ -171,6 +171,57 @@ jobs:
           set -euo pipefail
           pnpm build:artifacts:skeleton
 
+      - name: Verify SocialFlow product-scoped preview artifact
+        run: |
+          set -euo pipefail
+          test -f .open-next/socialflows-product-scoped-preview/worker.js
+          test -d .open-next/socialflows-product-scoped-preview/assets
+          test -d .open-next/socialflows-product-scoped-preview/server-functions
+          test -d .open-next/socialflows-product-scoped-preview/.build
+          test -f .open-next/socialflows-product-scoped-preview/artifact-manifest.json
+          test -f .open-next/socialflows-product-scoped-preview/scope-audit.json
+          test -f .open-next/socialflows-product-scoped-preview/filter-report.json
+          grep -q '"productKey": "socialflows"' .open-next/socialflows-product-scoped-preview/artifact-manifest.json
+          grep -q '"artifactMode": "product-scoped-preview"' .open-next/socialflows-product-scoped-preview/artifact-manifest.json
+          grep -q '"artifactState": "inactive-preview"' .open-next/socialflows-product-scoped-preview/artifact-manifest.json
+          grep -q '"derivedFrom": "socialflows-standalone"' .open-next/socialflows-product-scoped-preview/artifact-manifest.json
+          grep -q '"runtimeIntegrity": true' .open-next/socialflows-product-scoped-preview/artifact-manifest.json
+          grep -q '"runtimeIntegrity": true' .open-next/socialflows-product-scoped-preview/filter-report.json
+          node <<'NODE'
+          const fs = require("node:fs");
+          const manifest = JSON.parse(fs.readFileSync(".open-next/socialflows-product-scoped-preview/artifact-manifest.json", "utf8"));
+          const audit = JSON.parse(fs.readFileSync(".open-next/socialflows-product-scoped-preview/scope-audit.json", "utf8"));
+          const report = JSON.parse(fs.readFileSync(".open-next/socialflows-product-scoped-preview/filter-report.json", "utf8"));
+          const missing = [];
+          for (const field of ["filterVersion", "filterGeneratedAt", "runtimeIntegrity", "removedCount", "remainingCount", "unresolvedDependencyCount"]) {
+            if (!(field in manifest)) missing.push(`manifest:${field}`);
+          }
+          for (const field of ["removedRoutes", "remainingRoutes", "unresolvedDependencies", "filteringWarnings"]) {
+            if (!(field in report)) missing.push(`report:${field}`);
+          }
+          if (missing.length > 0) {
+            console.error(`SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_MISSING ${missing.join(",")}`);
+            process.exit(1);
+          }
+          if (manifest.artifactMode !== "product-scoped-preview" || manifest.artifactState !== "inactive-preview" || manifest.derivedFrom !== "socialflows-standalone") {
+            console.error("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE");
+            process.exit(1);
+          }
+          if (manifest.runtimeIntegrity !== true || report.runtimeIntegrity !== true || manifest.unresolvedDependencyCount !== 0 || report.unresolvedDependencies.length > 0) {
+            console.error("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_INTEGRITY_FAILURE");
+            process.exit(1);
+          }
+          if (manifest.removedCount <= 0 || report.removedRoutes.length !== manifest.removedCount || report.remainingRoutes.length !== manifest.remainingCount) {
+            console.error("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE");
+            process.exit(1);
+          }
+          console.log(`SocialFlow product-scoped preview summary: removedCount=${report.removedCount} remainingCount=${report.remainingCount} runtimeIntegrity=${report.runtimeIntegrity} unresolvedDependencies=${report.unresolvedDependencies.length} scopedReady=${audit.scopedReady}`);
+          NODE
+          if grep -Eq 'export \{ default \} from|export \* from|../worker.js|.open-next/worker.js' .open-next/socialflows-product-scoped-preview/worker.js; then
+            echo "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE"
+            exit 1
+          fi
+
       - name: Production readiness after generated artifacts
         run: |
           set -euo pipefail
@@ -274,6 +325,7 @@ jobs:
           if-no-files-found: ignore
           path: |
             .open-next
+            !.open-next/socialflows-product-scoped-preview
             open-next-build.log
             build/open-next-artifact-matrix/global
 

@@ -250,6 +250,10 @@ describe("SocialFlow vertical boundaries", () => {
     expect(artifactBuilder).toContain("scope-audit.json");
     expect(artifactBuilder).toContain("foreignRouteHits");
     expect(artifactBuilder).toContain("standalone-runtime-copy");
+    expect(artifactBuilder).toContain("emitSocialflowProductScopedPreviewArtifact");
+    expect(artifactBuilder).toContain("filter-report.json");
+    expect(artifactBuilder).toContain("product-scoped-preview");
+    expect(artifactBuilder).toContain("validateProductScopedPreviewRuntime");
 
     expect(deployWorkflow).toContain("Verify SocialFlow standalone active artifact");
     expect(deployWorkflow).toContain("Verify SocialFlow standalone runtime active");
@@ -263,6 +267,11 @@ describe("SocialFlow vertical boundaries", () => {
     expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION");
     expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_GENERATED_FROM_GLOBAL");
     expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_NOT_ACTIVATED");
+    expect(deployWorkflow).toContain("Verify SocialFlow product-scoped preview artifact");
+    expect(deployWorkflow).toContain("SocialFlow product-scoped preview summary");
+    expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_MISSING");
+    expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE");
+    expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_INTEGRITY_FAILURE");
   });
 
   it("keeps legacy linkedin connect and callback routes as redirect-only bridges", () => {

@@ -67,6 +67,38 @@
       }
     }
   ],
+  "productScopedPreviews": [
+    {
+      "key": "socialflows",
+      "artifactName": "open-next-socialflows-product-scoped-preview",
+      "artifactMode": "product-scoped-preview",
+      "artifactState": "inactive-preview",
+      "workerPath": ".open-next/socialflows-product-scoped-preview/worker.js",
+      "assetsPath": ".open-next/socialflows-product-scoped-preview/assets",
+      "derivedFrom": "socialflows-standalone",
+      "deployable": false,
+      "sourceRuntime": "product-scoped-preview-copy",
+      "filter": {
+        "removedRoutePrefixes": [
+          "operator",
+          "owner",
+          "bases",
+          "mentoria",
+          "mentorias",
+          "campobase",
+          "campamento-base",
+          "site/panel",
+          "api/operator",
+          "api/owner",
+          "api/bases",
+          "api/mentoria",
+          "api/mentorias",
+          "api/campobase",
+          "api/campamento-base"
+        ]
+      }
+    }
+  ],
   "products": [
     {
       "key": "drakos",
