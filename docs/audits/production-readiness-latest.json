@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-12T08:41:39.368Z",
+  "timestamp": "2026-05-12T14:09:48.877Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
@@ -1867,7 +1867,7 @@
       "targetName": "artifact-matrix:skeleton-prepared-global-still-active",
       "expected": {
         "state": "partial-split",
-        "deployMode": "global-open-next-plus-socialflows-and-mentorias-dedicated",
+        "deployMode": "global-open-next-plus-drakos-bases-socialflows-and-mentorias-dedicated",
         "activeArtifactName": "open-next-build",
         "products": [
           "drakos",
@@ -1887,27 +1887,27 @@
       "targetName": "artifact-matrix:no-premature-worker-switch",
       "expected": "only approved products use dedicated wrapper artifacts while the global deploy artifact remains open-next-build",
       "actual": "artifact_split_inactive",
-      "details": "Only SocialFlow and Mentoria are allowed to run on dedicated wrapper artifacts while Drako and Bases remain on the global OpenNext bundle."
+      "details": "Drako, Bases, SocialFlow and Mentoria are allowed to run on dedicated wrapper artifacts while the global OpenNext bundle remains the wrapper source artifact."
     },
     {
       "checkCode": "drakosPreparedArtifactGuardDrift",
       "severity": "BLOCKER",
       "status": "PASS",
       "targetType": "code_guard",
-      "targetName": "drakos:prepared-artifact-not-activated",
+      "targetName": "drakos:dedicated-artifact-activated",
       "expected": "all runtime guard rules satisfied",
       "actual": "runtime_guard_ok",
-      "details": "Drako has a generated prepared wrapper artifact while its worker deploy remains pinned to the global OpenNext artifact."
+      "details": "Drako runs on its dedicated wrapper artifact and keeps the real OpenNext re-export contract."
     },
     {
       "checkCode": "basesPreparedArtifactGuardDrift",
       "severity": "BLOCKER",
       "status": "PASS",
       "targetType": "code_guard",
-      "targetName": "bases:prepared-artifact-not-activated",
+      "targetName": "bases:dedicated-artifact-activated",
       "expected": "all runtime guard rules satisfied",
       "actual": "runtime_guard_ok",
-      "details": "Bases has a generated prepared wrapper artifact while its worker deploy remains pinned to the global OpenNext artifact."
+      "details": "Bases runs on its dedicated wrapper artifact and keeps the real OpenNext re-export contract."
     },
     {
       "checkCode": "socialflowRuntimeGuardDrift",
