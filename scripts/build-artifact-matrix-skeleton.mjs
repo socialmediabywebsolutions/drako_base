@@ -75,7 +75,9 @@ async function emitDedicatedWrapperArtifact(config, product) {
       {
         productKey: product.key,
         artifactMode: product.artifactMode,
+        artifactState: product.artifactState ?? null,
         dedicatedArtifactName: product.dedicatedArtifactName ?? null,
+        preparedArtifactName: product.preparedArtifactName ?? null,
         generatedFrom: normalizeRelative(config.activeArtifact.workerPath),
         generatedAt: new Date().toISOString(),
       },
@@ -105,7 +107,7 @@ async function buildSkeletonRecord(config, product) {
   const activeAssetsAbsolute = path.resolve(repoRoot, config.activeArtifact.assetsPath);
 
   const shouldGenerateDedicatedRuntime =
-    product.artifactMode === "dedicated-wrapper" &&
+    (product.artifactMode === "dedicated-wrapper" || product.artifactMode === "prepared-wrapper") &&
     (await fileExists(activeWorkerAbsolute)) &&
     (await fileExists(activeAssetsAbsolute));
 
@@ -118,6 +120,7 @@ async function buildSkeletonRecord(config, product) {
     deployMode: config.deployMode,
     deployActiveArtifactName: config.activeArtifact.artifactName,
     artifactMode: product.artifactMode,
+    artifactState: product.artifactState ?? null,
     productKey: product.key,
     workerName: product.workerName,
     wranglerConfigPath: normalizeRelative(product.wranglerConfigPath),
@@ -137,9 +140,13 @@ async function buildSkeletonRecord(config, product) {
         assets: await fileExists(plannedAssetsAbsolute),
       },
     },
-    splitReady: product.artifactMode === "dedicated-wrapper" ? shouldGenerateDedicatedRuntime : false,
+    splitReady:
+      product.artifactMode === "dedicated-wrapper" || product.artifactMode === "prepared-wrapper"
+        ? shouldGenerateDedicatedRuntime
+        : false,
     splitActivated: product.artifactMode === "dedicated-wrapper",
     dedicatedArtifactName: product.dedicatedArtifactName ?? null,
+    preparedArtifactName: product.preparedArtifactName ?? null,
     notes: config.notes,
   };
 }
@@ -183,8 +190,10 @@ async function main() {
     deployMode: config.deployMode,
     deployActiveArtifactName: config.activeArtifact.artifactName,
     dedicatedArtifacts: config.dedicatedArtifacts ?? [],
+    preparedArtifacts: config.preparedArtifacts ?? [],
     products: records.map((record) => ({
       artifactMode: record.artifactMode,
+      artifactState: record.artifactState,
       productKey: record.productKey,
       workerName: record.workerName,
       wranglerConfigPath: record.wranglerConfigPath,
@@ -193,6 +202,7 @@ async function main() {
       splitReady: record.splitReady,
       splitActivated: record.splitActivated,
       dedicatedArtifactName: record.dedicatedArtifactName,
+      preparedArtifactName: record.preparedArtifactName,
     })),
   };
 

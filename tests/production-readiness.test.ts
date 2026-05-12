@@ -309,12 +309,14 @@ describe("production readiness audits", () => {
     {
       key: "bases",
       workerName: "saas-bases-prod",
-      artifactMode: "global-shared",
+      artifactMode: "prepared-wrapper",
+      artifactState: "skeleton/prepared",
       wranglerConfigPath: "workers/bases/wrangler.workers.toml",
       currentWranglerMain: "../../.open-next/worker.js",
       currentWranglerAssetsDirectory: "../../.open-next/assets",
       plannedWorkerPath: ".open-next/bases/worker.js",
       plannedAssetsPath: ".open-next/bases/assets",
+      preparedArtifactName: "open-next-bases-build",
     },
     {
       key: "mentorias",
@@ -361,6 +363,15 @@ describe("production readiness audits", () => {
         assetsPath: ".open-next/socialflows/assets",
       },
     ],
+    expectedPreparedArtifacts: [
+      {
+        key: "bases",
+        state: "skeleton/prepared",
+        artifactName: "open-next-bases-build",
+        workerPath: ".open-next/bases/worker.js",
+        assetsPath: ".open-next/bases/assets",
+      },
+    ],
     expectedProducts: artifactMatrixProductsBase,
     workflowRequiredTokens: [
       "artifact_matrix_skeleton:",
@@ -371,6 +382,7 @@ describe("production readiness audits", () => {
       "build/open-next-artifact-matrix/global",
       "name: open-next-build",
       "Download OpenNext build artifact",
+      "Verify Bases prepared artifact remains inactive",
       "name: open-next-mentorias-build",
       "Download Mentoria dedicated artifact",
       "Verify Mentoria dedicated artifact",
@@ -384,6 +396,8 @@ describe("production readiness audits", () => {
       "ARTIFACT_MATRIX_SKELETON_GLOBAL_BUILD_MISSING",
       "build/open-next-artifact-matrix",
       "export { default } from",
+      "prepared-wrapper",
+      "preparedArtifacts",
       "artifact-manifest.json",
     ],
   } as const;
@@ -394,10 +408,66 @@ describe("production readiness audits", () => {
     forbiddenWorkflowTokens: [
       "name: open-next-artifact-matrix-drakos",
       "name: open-next-artifact-matrix-bases",
+      "name: open-next-bases-build",
+      "Upload Bases dedicated artifact",
+      "Download Bases dedicated artifact",
       "path: .open-next/drakos",
       "path: .open-next/bases",
     ],
     allowedDedicatedProducts: ["socialflows", "mentorias"],
+  } as const;
+  const basesPreparedArtifactGuardBase = {
+    targetName: "test:bases-prepared-artifact-not-activated",
+    rules: [
+      {
+        filePath: "docs/config/open-next-artifact-matrix.json",
+        requiredTokens: [
+          '"preparedArtifacts"',
+          '"key": "bases"',
+          '"state": "skeleton/prepared"',
+          '"artifactName": "open-next-bases-build"',
+          '"workerPath": ".open-next/bases/worker.js"',
+          '"assetsPath": ".open-next/bases/assets"',
+          '"artifactMode": "prepared-wrapper"',
+          '"currentWranglerMain": "../../.open-next/worker.js"',
+          '"currentWranglerAssetsDirectory": "../../.open-next/assets"',
+          '"preparedArtifactName": "open-next-bases-build"',
+        ],
+      },
+      {
+        filePath: "scripts/build-artifact-matrix-skeleton.mjs",
+        requiredTokens: [
+          'product.artifactMode === "prepared-wrapper"',
+          "preparedArtifacts",
+          "preparedArtifactName",
+          "artifactState",
+          'splitActivated: product.artifactMode === "dedicated-wrapper"',
+          'export { default } from',
+          'export * from',
+        ],
+        forbiddenTokens: ["dummy worker", "placeholder HTML"],
+      },
+      {
+        filePath: ".github/workflows/drako-factory-deploy.yml",
+        requiredTokens: [
+          "Verify Bases prepared artifact remains inactive",
+          "BASES_PREPARED_ARTIFACT_PREMATURELY_ACTIVATED",
+          "BASES_PREPARED_ARTIFACT_FAKE",
+          'grep -q \'main = "../../.open-next/worker.js"\' workers/bases/wrangler.workers.toml',
+        ],
+        forbiddenTokens: [
+          "name: open-next-bases-build",
+          "Upload Bases dedicated artifact",
+          "Download Bases dedicated artifact",
+          "path: .open-next/bases",
+        ],
+      },
+      {
+        filePath: "workers/bases/wrangler.workers.toml",
+        requiredTokens: ['main = "../../.open-next/worker.js"', 'directory = "../../.open-next/assets"'],
+        forbiddenTokens: ['main = "../../.open-next/bases/worker.js"', 'directory = "../../.open-next/bases/assets"'],
+      },
+    ],
   } as const;
   const mentoriaAuthsOperationalGuardBase = {
     targetName: "test:mentoria-auths-operational-guard",
@@ -1242,6 +1312,7 @@ describe("production readiness audits", () => {
       writeReports: false,
       artifactMatrixSkeletonGuardOverride: artifactMatrixSkeletonGuardBase,
       artifactMatrixPrematureActivationGuardOverride: artifactMatrixPrematureActivationGuardBase,
+      basesPreparedArtifactGuardOverride: basesPreparedArtifactGuardBase,
     });
 
     expect(result.exitCode).toBe(0);
@@ -1251,6 +1322,35 @@ describe("production readiness audits", () => {
     expect(
       result.report.checks.some((item) => item.checkCode === "artifactSplitPrematureActivation" && item.status === "PASS"),
     ).toBe(true);
+    expect(
+      result.report.checks.some((item) => item.checkCode === "basesPreparedArtifactGuardDrift" && item.status === "PASS"),
+    ).toBe(true);
+  });
+
+  it("fails readiness when Bases prepared wrapper is activated or becomes fake", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      basesPreparedArtifactGuardOverride: {
+        targetName: "test:bases-prepared-artifact-activated-or-fake",
+        rules: [
+          {
+            filePath: "tests/fixtures/production-audits/artifact-matrix-guards/premature-bases-worker.wrangler.toml",
+            requiredTokens: ['main = "../../.open-next/worker.js"', 'directory = "../../.open-next/assets"'],
+            forbiddenTokens: ['main = "../../.open-next/bases/worker.js"', 'directory = "../../.open-next/bases/assets"'],
+          },
+          {
+            filePath: "tests/fixtures/production-audits/fake-runtime-guards/fake-worker.ts",
+            requiredTokens: ['export { default } from', 'export * from'],
+            forbiddenTokens: ["success: true", "text/html"],
+          },
+        ],
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "basesPreparedArtifactGuardDrift")).toBe(true);
   });
 
   it("fails readiness when the artifact matrix skeleton source of truth drifts", async () => {

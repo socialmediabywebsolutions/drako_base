@@ -20,6 +20,15 @@
       "assetsPath": ".open-next/socialflows/assets"
     }
   ],
+  "preparedArtifacts": [
+    {
+      "key": "bases",
+      "state": "skeleton/prepared",
+      "artifactName": "open-next-bases-build",
+      "workerPath": ".open-next/bases/worker.js",
+      "assetsPath": ".open-next/bases/assets"
+    }
+  ],
   "products": [
     {
       "key": "drakos",
@@ -34,12 +43,14 @@
     {
       "key": "bases",
       "workerName": "saas-bases-prod",
-      "artifactMode": "global-shared",
+      "artifactMode": "prepared-wrapper",
+      "artifactState": "skeleton/prepared",
       "wranglerConfigPath": "workers/bases/wrangler.workers.toml",
       "currentWranglerMain": "../../.open-next/worker.js",
       "currentWranglerAssetsDirectory": "../../.open-next/assets",
       "plannedWorkerPath": ".open-next/bases/worker.js",
-      "plannedAssetsPath": ".open-next/bases/assets"
+      "plannedAssetsPath": ".open-next/bases/assets",
+      "preparedArtifactName": "open-next-bases-build"
     },
     {
       "key": "mentorias",
@@ -66,6 +77,7 @@
   ],
   "notes": [
     "SocialFlow and Mentoria are allowed to run on dedicated wrapper artifacts while Drako and Bases remain on the shared .open-next artifact.",
+    "Bases has a skeleton/prepared wrapper artifact generated at .open-next/bases/worker.js, but workers/bases/wrangler.workers.toml must keep using the shared .open-next worker until the activation commit.",
     "Do not point Drako or Bases worker wrangler configs at planned per-product artifact paths before their dedicated split commits land."
   ]
 }

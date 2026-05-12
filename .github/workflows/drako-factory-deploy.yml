@@ -300,6 +300,28 @@ jobs:
           test -f .open-next/worker.js
           test -d .open-next/assets
 
+      - name: Verify Bases prepared artifact remains inactive
+        run: |
+          set -euo pipefail
+          test -f .open-next/bases/worker.js
+          test -d .open-next/bases/assets
+          grep -q 'export { default } from "../worker.js";' .open-next/bases/worker.js
+          grep -q 'export \* from "../worker.js";' .open-next/bases/worker.js
+          test -f .open-next/bases/artifact-manifest.json
+          grep -q '"productKey": "bases"' .open-next/bases/artifact-manifest.json
+          grep -q '"artifactState": "skeleton/prepared"' .open-next/bases/artifact-manifest.json
+          grep -q '"generatedFrom": ".open-next/worker.js"' .open-next/bases/artifact-manifest.json
+          grep -q 'main = "../../.open-next/worker.js"' workers/bases/wrangler.workers.toml
+          grep -q 'directory = "../../.open-next/assets"' workers/bases/wrangler.workers.toml
+          if grep -q 'main = "../../.open-next/bases/worker.js"' workers/bases/wrangler.workers.toml; then
+            echo "BASES_PREPARED_ARTIFACT_PREMATURELY_ACTIVATED"
+            exit 1
+          fi
+          if grep -Ein 'dry-run|stub|dummy|placeholder|success: true|text/html' .open-next/bases/worker.js; then
+            echo "BASES_PREPARED_ARTIFACT_FAKE"
+            exit 1
+          fi
+
       - name: Verify SocialFlow dedicated artifact
         run: |
           set -euo pipefail
@@ -459,6 +481,10 @@ jobs:
           popd
 
           pushd workers/bases
+          test -f ../../.open-next/worker.js
+          test -d ../../.open-next/assets
+          grep -q 'main = "../../.open-next/worker.js"' wrangler.workers.toml
+          grep -q 'directory = "../../.open-next/assets"' wrangler.workers.toml
           wrangler deploy -c wrangler.workers.toml
           popd
 

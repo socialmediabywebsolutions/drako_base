@@ -161,6 +161,7 @@ type CheckCode =
   | "legacyCompatTelemetryGuardMissing"
   | "artifactMatrixSkeletonDrift"
   | "artifactSplitPrematureActivation"
+  | "basesPreparedArtifactGuardDrift"
   | "mentoriaAuthsOperationalDrift";
 
 type CheckRecord = {
@@ -249,6 +250,7 @@ type ProductionAuditsRunOptions = {
   legacyCompatTelemetryGuardOverride?: FileTokenGuard;
   artifactMatrixSkeletonGuardOverride?: ArtifactMatrixSkeletonGuard;
   artifactMatrixPrematureActivationGuardOverride?: ArtifactMatrixPrematureActivationGuard;
+  basesPreparedArtifactGuardOverride?: FileTokenGuard;
   mentoriaAuthsOperationalGuardOverride?: FileTokenGuard;
 };
 
@@ -352,13 +354,15 @@ type LegacyCompatInventoryGuard = {
 type ArtifactMatrixProduct = {
   key: string;
   workerName: string;
-  artifactMode?: "global-shared" | "dedicated-wrapper";
+  artifactMode?: "global-shared" | "dedicated-wrapper" | "prepared-wrapper";
+  artifactState?: string;
   wranglerConfigPath: string;
   currentWranglerMain: string;
   currentWranglerAssetsDirectory: string;
   plannedWorkerPath: string;
   plannedAssetsPath: string;
   dedicatedArtifactName?: string;
+  preparedArtifactName?: string;
 };
 
 type ArtifactMatrixSkeletonGuard = {
@@ -371,6 +375,13 @@ type ArtifactMatrixSkeletonGuard = {
   expectedActiveArtifactName: string;
   expectedDedicatedArtifacts?: Array<{
     key: string;
+    artifactName: string;
+    workerPath: string;
+    assetsPath: string;
+  }>;
+  expectedPreparedArtifacts?: Array<{
+    key: string;
+    state: string;
     artifactName: string;
     workerPath: string;
     assetsPath: string;
@@ -657,12 +668,14 @@ const DEFAULT_ARTIFACT_MATRIX_PRODUCTS: ArtifactMatrixProduct[] = [
   {
     key: "bases",
     workerName: "saas-bases-prod",
-    artifactMode: "global-shared",
+    artifactMode: "prepared-wrapper",
+    artifactState: "skeleton/prepared",
     wranglerConfigPath: "workers/bases/wrangler.workers.toml",
     currentWranglerMain: "../../.open-next/worker.js",
     currentWranglerAssetsDirectory: "../../.open-next/assets",
     plannedWorkerPath: ".open-next/bases/worker.js",
     plannedAssetsPath: ".open-next/bases/assets",
+    preparedArtifactName: "open-next-bases-build",
   },
   {
     key: "mentorias",
@@ -710,6 +723,15 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
       assetsPath: ".open-next/socialflows/assets",
     },
   ],
+  expectedPreparedArtifacts: [
+    {
+      key: "bases",
+      state: "skeleton/prepared",
+      artifactName: "open-next-bases-build",
+      workerPath: ".open-next/bases/worker.js",
+      assetsPath: ".open-next/bases/assets",
+    },
+  ],
   expectedProducts: DEFAULT_ARTIFACT_MATRIX_PRODUCTS,
   workflowRequiredTokens: [
     "artifact_matrix_skeleton:",
@@ -720,6 +742,7 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
     "build/open-next-artifact-matrix/global",
     "name: open-next-build",
     "Download OpenNext build artifact",
+    "Verify Bases prepared artifact remains inactive",
     "name: open-next-mentorias-build",
     "Download Mentoria dedicated artifact",
     "Verify Mentoria dedicated artifact",
@@ -733,6 +756,8 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
     "ARTIFACT_MATRIX_SKELETON_GLOBAL_BUILD_MISSING",
     "build/open-next-artifact-matrix",
     "export { default } from",
+    "prepared-wrapper",
+    "preparedArtifacts",
     "artifact-manifest.json",
   ],
 };
@@ -744,10 +769,68 @@ const DEFAULT_ARTIFACT_MATRIX_PREMATURE_ACTIVATION_GUARD: ArtifactMatrixPrematur
   forbiddenWorkflowTokens: [
     "name: open-next-artifact-matrix-drakos",
     "name: open-next-artifact-matrix-bases",
+    "name: open-next-bases-build",
+    "Upload Bases dedicated artifact",
+    "Download Bases dedicated artifact",
     "path: .open-next/drakos",
     "path: .open-next/bases",
   ],
   allowedDedicatedProducts: ["socialflows", "mentorias"],
+};
+
+const DEFAULT_BASES_PREPARED_ARTIFACT_GUARD: FileTokenGuard = {
+  targetName: "bases:prepared-artifact-not-activated",
+  rules: [
+    {
+      filePath: "docs/config/open-next-artifact-matrix.json",
+      requiredTokens: [
+        '"preparedArtifacts"',
+        '"key": "bases"',
+        '"state": "skeleton/prepared"',
+        '"artifactName": "open-next-bases-build"',
+        '"workerPath": ".open-next/bases/worker.js"',
+        '"assetsPath": ".open-next/bases/assets"',
+        '"artifactMode": "prepared-wrapper"',
+        '"currentWranglerMain": "../../.open-next/worker.js"',
+        '"currentWranglerAssetsDirectory": "../../.open-next/assets"',
+        '"preparedArtifactName": "open-next-bases-build"',
+      ],
+    },
+    {
+      filePath: "scripts/build-artifact-matrix-skeleton.mjs",
+      requiredTokens: [
+        'product.artifactMode === "prepared-wrapper"',
+        "preparedArtifacts",
+        "preparedArtifactName",
+        "artifactState",
+        'splitActivated: product.artifactMode === "dedicated-wrapper"',
+        'export { default } from',
+        'export * from',
+      ],
+      forbiddenTokens: ["dummy worker", "placeholder HTML"],
+    },
+    {
+      filePath: ".github/workflows/drako-factory-deploy.yml",
+      requiredTokens: [
+        "Verify Bases prepared artifact remains inactive",
+        'test -f .open-next/bases/worker.js',
+        'grep -q \'main = "../../.open-next/worker.js"\' workers/bases/wrangler.workers.toml',
+        "BASES_PREPARED_ARTIFACT_PREMATURELY_ACTIVATED",
+        "BASES_PREPARED_ARTIFACT_FAKE",
+      ],
+      forbiddenTokens: [
+        "name: open-next-bases-build",
+        "Upload Bases dedicated artifact",
+        "Download Bases dedicated artifact",
+        "path: .open-next/bases",
+      ],
+    },
+    {
+      filePath: "workers/bases/wrangler.workers.toml",
+      requiredTokens: ['main = "../../.open-next/worker.js"', 'directory = "../../.open-next/assets"'],
+      forbiddenTokens: ['main = "../../.open-next/bases/worker.js"', 'directory = "../../.open-next/bases/assets"'],
+    },
+  ],
 };
 
 const DEFAULT_SOCIALFLOW_RUNTIME_GUARD: FileTokenGuard = {
@@ -2967,6 +3050,7 @@ async function buildFileTokenGuardChecks(
     | "mentoriaRuntimeGuardDrift"
     | "mentoriaStrictSmokeGuardDrift"
     | "legacyCompatTelemetryGuardMissing"
+    | "basesPreparedArtifactGuardDrift"
     | "mentoriaAuthsOperationalDrift",
   passDetails: string,
   failDetails: string,
@@ -3018,6 +3102,7 @@ async function buildArtifactMatrixSkeletonChecks(guard: ArtifactMatrixSkeletonGu
         deployMode?: string;
         activeArtifact?: { artifactName?: string };
         dedicatedArtifacts?: Array<{ key?: string; artifactName?: string; workerPath?: string; assetsPath?: string }>;
+        preparedArtifacts?: Array<{ key?: string; state?: string; artifactName?: string; workerPath?: string; assetsPath?: string }>;
         products?: ArtifactMatrixProduct[];
       }
     | null = null;
@@ -3028,6 +3113,7 @@ async function buildArtifactMatrixSkeletonChecks(guard: ArtifactMatrixSkeletonGu
       deployMode?: string;
       activeArtifact?: { artifactName?: string };
       products?: ArtifactMatrixProduct[];
+      preparedArtifacts?: Array<{ key?: string; state?: string; artifactName?: string; workerPath?: string; assetsPath?: string }>;
     };
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
@@ -3067,6 +3153,29 @@ async function buildArtifactMatrixSkeletonChecks(guard: ArtifactMatrixSkeletonGu
     for (const actualDedicatedArtifact of manifestDedicatedArtifacts) {
       if (!expectedDedicatedArtifacts.some((artifact) => artifact.key === actualDedicatedArtifact.key)) {
         failures.push(`${guard.manifestPath} unexpected dedicated artifact ${String(actualDedicatedArtifact.key)}`);
+      }
+    }
+    const expectedPreparedArtifacts = guard.expectedPreparedArtifacts ?? [];
+    const manifestPreparedArtifacts = manifest.preparedArtifacts ?? [];
+    for (const expectedPreparedArtifact of expectedPreparedArtifacts) {
+      const actualPreparedArtifact = manifestPreparedArtifacts.find((artifact) => artifact.key === expectedPreparedArtifact.key);
+      if (!actualPreparedArtifact) {
+        failures.push(`${guard.manifestPath} missing prepared artifact ${expectedPreparedArtifact.key}`);
+        continue;
+      }
+      for (const [field, expectedValue] of Object.entries(expectedPreparedArtifact)) {
+        if ((actualPreparedArtifact as Record<string, unknown>)[field] !== expectedValue) {
+          failures.push(
+            `${guard.manifestPath} prepared artifact ${expectedPreparedArtifact.key} field ${field} expected ${expectedValue} got ${String(
+              (actualPreparedArtifact as Record<string, unknown>)[field],
+            )}`,
+          );
+        }
+      }
+    }
+    for (const actualPreparedArtifact of manifestPreparedArtifacts) {
+      if (!expectedPreparedArtifacts.some((artifact) => artifact.key === actualPreparedArtifact.key)) {
+        failures.push(`${guard.manifestPath} unexpected prepared artifact ${String(actualPreparedArtifact.key)}`);
       }
     }
 
@@ -3464,6 +3573,15 @@ export async function runProductionReadinessAudits(
     artifactMatrixPrematureActivationGuard,
   );
   checks.push(...artifactMatrixPrematureActivationChecks);
+  const basesPreparedArtifactGuard =
+    options.basesPreparedArtifactGuardOverride ?? DEFAULT_BASES_PREPARED_ARTIFACT_GUARD;
+  const basesPreparedArtifactChecks = await buildFileTokenGuardChecks(
+    basesPreparedArtifactGuard,
+    "basesPreparedArtifactGuardDrift",
+    "Bases has a generated prepared wrapper artifact while its worker deploy remains pinned to the global OpenNext artifact.",
+    "Bases prepared artifact wiring drifted toward activation, a fake wrapper, or a standalone deploy artifact.",
+  );
+  checks.push(...basesPreparedArtifactChecks);
   const socialflowRuntimeGuard = options.socialflowRuntimeGuardOverride ?? DEFAULT_SOCIALFLOW_RUNTIME_GUARD;
   const socialflowRuntimeChecks = await buildFileTokenGuardChecks(
     socialflowRuntimeGuard,
