@@ -180,10 +180,34 @@ jobs:
           test -d .open-next/socialflows-standalone/server-functions
           test -d .open-next/socialflows-standalone/.build
           test -f .open-next/socialflows-standalone/artifact-manifest.json
+          test -f .open-next/socialflows-standalone/scope-audit.json
           grep -q '"productKey": "socialflows"' .open-next/socialflows-standalone/artifact-manifest.json
           grep -q '"artifactMode": "standalone"' .open-next/socialflows-standalone/artifact-manifest.json
           grep -q '"artifactState": "active"' .open-next/socialflows-standalone/artifact-manifest.json
           grep -q '"standaloneArtifactName": "open-next-socialflows-standalone-build"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"scopeMode": "standalone-runtime-copy"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"foreignRouteCount"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"scopedReady": false' .open-next/socialflows-standalone/artifact-manifest.json
+          node <<'NODE'
+          const fs = require("node:fs");
+          const manifest = JSON.parse(fs.readFileSync(".open-next/socialflows-standalone/artifact-manifest.json", "utf8"));
+          const audit = JSON.parse(fs.readFileSync(".open-next/socialflows-standalone/scope-audit.json", "utf8"));
+          const requiredManifestFields = ["scopeMode", "foreignRouteHits", "foreignRouteCount", "scopeAuditVersion", "scopeAuditGeneratedAt", "scopedReady"];
+          const requiredAuditFields = ["product", "runtimeMode", "scopeMode", "serverFunctionsPath", "routeCount", "allowedRouteCount", "containsForeignRoutes", "foreignRouteHits", "foreignRouteCount", "foreignRouteExamples", "scopeAuditVersion", "scopeAuditGeneratedAt", "scopedReady"];
+          const missing = [
+            ...requiredManifestFields.filter((field) => !(field in manifest)).map((field) => `manifest:${field}`),
+            ...requiredAuditFields.filter((field) => !(field in audit)).map((field) => `audit:${field}`),
+          ];
+          if (missing.length > 0) {
+            console.error(`SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING ${missing.join(",")}`);
+            process.exit(1);
+          }
+          console.log(`SocialFlow scope audit summary: scopeMode=${manifest.scopeMode} foreignRouteCount=${manifest.foreignRouteCount} scopedReady=${manifest.scopedReady}`);
+          if (manifest.scopeMode === "product-scoped" && (manifest.foreignRouteCount > 0 || audit.foreignRouteCount > 0 || manifest.scopedReady !== true)) {
+            console.error("SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM");
+            process.exit(1);
+          }
+          NODE
           grep -q './server-functions/default/handler.mjs' .open-next/socialflows-standalone/worker.js
           if grep -Eq 'export \{ default \} from|export \* from' .open-next/socialflows-standalone/worker.js; then
             echo "SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION"
@@ -412,10 +436,34 @@ jobs:
           test -d .open-next/socialflows-standalone/server-functions
           test -d .open-next/socialflows-standalone/.build
           test -f .open-next/socialflows-standalone/artifact-manifest.json
+          test -f .open-next/socialflows-standalone/scope-audit.json
           grep -q '"productKey": "socialflows"' .open-next/socialflows-standalone/artifact-manifest.json
           grep -q '"artifactMode": "standalone"' .open-next/socialflows-standalone/artifact-manifest.json
           grep -q '"artifactState": "active"' .open-next/socialflows-standalone/artifact-manifest.json
           grep -q '"standaloneArtifactName": "open-next-socialflows-standalone-build"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"scopeMode": "standalone-runtime-copy"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"foreignRouteCount"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"scopedReady": false' .open-next/socialflows-standalone/artifact-manifest.json
+          node <<'NODE'
+          const fs = require("node:fs");
+          const manifest = JSON.parse(fs.readFileSync(".open-next/socialflows-standalone/artifact-manifest.json", "utf8"));
+          const audit = JSON.parse(fs.readFileSync(".open-next/socialflows-standalone/scope-audit.json", "utf8"));
+          const requiredManifestFields = ["scopeMode", "foreignRouteHits", "foreignRouteCount", "scopeAuditVersion", "scopeAuditGeneratedAt", "scopedReady"];
+          const requiredAuditFields = ["product", "runtimeMode", "scopeMode", "serverFunctionsPath", "routeCount", "allowedRouteCount", "containsForeignRoutes", "foreignRouteHits", "foreignRouteCount", "foreignRouteExamples", "scopeAuditVersion", "scopeAuditGeneratedAt", "scopedReady"];
+          const missing = [
+            ...requiredManifestFields.filter((field) => !(field in manifest)).map((field) => `manifest:${field}`),
+            ...requiredAuditFields.filter((field) => !(field in audit)).map((field) => `audit:${field}`),
+          ];
+          if (missing.length > 0) {
+            console.error(`SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING ${missing.join(",")}`);
+            process.exit(1);
+          }
+          console.log(`SocialFlow scope audit summary: scopeMode=${manifest.scopeMode} foreignRouteCount=${manifest.foreignRouteCount} scopedReady=${manifest.scopedReady}`);
+          if (manifest.scopeMode === "product-scoped" && (manifest.foreignRouteCount > 0 || audit.foreignRouteCount > 0 || manifest.scopedReady !== true)) {
+            console.error("SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM");
+            process.exit(1);
+          }
+          NODE
           grep -q './server-functions/default/handler.mjs' .open-next/socialflows-standalone/worker.js
           grep -q 'main = "../../.open-next/socialflows-standalone/worker.js"' workers/socialflows/wrangler.workers.toml
           grep -q 'directory = "../../.open-next/socialflows-standalone/assets"' workers/socialflows/wrangler.workers.toml

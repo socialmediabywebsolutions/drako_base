@@ -5,6 +5,35 @@ const repoRoot = process.cwd();
 const defaultOutputDir = process.env.ARTIFACT_MATRIX_OUTPUT_DIR || "build/open-next-artifact-matrix";
 const configPath = path.resolve(repoRoot, "docs/config/open-next-artifact-matrix.json");
 const artifactWrapperBanner = "// Drako artifact matrix wrapper: generated file, do not edit by hand.\n";
+const scopeAuditVersion = 1;
+const defaultSocialflowScopeAudit = {
+  scopeMode: "standalone-runtime-copy",
+  allowedRoutePrefixes: [
+    "socialflow",
+    "socialflows",
+    "api/socialflow",
+    "api/socialflows",
+    "api/social",
+    "auth/linkedin",
+  ],
+  suspiciousRoutePrefixes: [
+    "operator",
+    "owner",
+    "bases",
+    "mentoria",
+    "mentorias",
+    "campobase",
+    "campamento-base",
+    "site/panel",
+    "api/operator",
+    "api/owner",
+    "api/bases",
+    "api/mentoria",
+    "api/mentorias",
+    "api/campobase",
+    "api/campamento-base",
+  ],
+};
 
 function parseArgs(argv) {
   const values = {};
@@ -39,6 +68,100 @@ async function fileExists(filePath) {
 
 function normalizeRelative(relativePath) {
   return relativePath.replace(/\\/g, "/");
+}
+
+function stripRouteFileSuffix(relativePath) {
+  return relativePath
+    .replace(/\/page_client-reference-manifest\.js$/, "")
+    .replace(/\/layout_client-reference-manifest\.js$/, "")
+    .replace(/\/route_client-reference-manifest\.js$/, "")
+    .replace(/\/page\.js$/, "")
+    .replace(/\/layout\.js$/, "")
+    .replace(/\/route\.js$/, "");
+}
+
+async function listFilesRecursive(dirPath) {
+  const files = [];
+  let entries = [];
+  try {
+    entries = await fs.readdir(dirPath, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return files;
+    throw error;
+  }
+
+  for (const entry of entries) {
+    const absolutePath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listFilesRecursive(absolutePath)));
+    } else if (entry.isFile()) {
+      files.push(absolutePath);
+    }
+  }
+  return files;
+}
+
+function routeMatchesPrefix(routePath, prefix) {
+  return routePath === prefix || routePath.startsWith(`${prefix}/`);
+}
+
+async function buildServerFunctionsScopeAudit(standaloneArtifactRoot, artifact, generatedAt) {
+  const scopeAuditConfig = {
+    ...defaultSocialflowScopeAudit,
+    ...(artifact.scopeAudit ?? {}),
+  };
+  const serverFunctionsRoot = path.join(standaloneArtifactRoot, "server-functions");
+  const appRouteFiles = (await listFilesRecursive(serverFunctionsRoot)).filter((filePath) =>
+    normalizeRelative(filePath).includes("/.next/server/app/"),
+  );
+  const routePaths = Array.from(
+    new Set(
+      appRouteFiles
+        .map((filePath) => {
+          const normalized = normalizeRelative(path.relative(serverFunctionsRoot, filePath));
+          const appMarker = "/.next/server/app/";
+          const markerIndex = normalized.indexOf(appMarker);
+          if (markerIndex === -1) return null;
+          const routeFilePath = normalized.slice(markerIndex + appMarker.length);
+          const routePath = stripRouteFileSuffix(routeFilePath);
+          if (!routePath || routePath.startsWith("chunks/") || routePath.includes("/chunks/")) return null;
+          return routePath;
+        })
+        .filter(Boolean),
+    ),
+  ).sort();
+
+  const suspiciousRoutePrefixes = scopeAuditConfig.suspiciousRoutePrefixes ?? [];
+  const allowedRoutePrefixes = scopeAuditConfig.allowedRoutePrefixes ?? [];
+  const foreignRoutes = routePaths.filter((routePath) =>
+    suspiciousRoutePrefixes.some((prefix) => routeMatchesPrefix(routePath, prefix)),
+  );
+  const allowedRoutes = routePaths.filter((routePath) =>
+    allowedRoutePrefixes.some((prefix) => routeMatchesPrefix(routePath, prefix)),
+  );
+  const foreignRouteHits = Array.from(
+    new Set(
+      foreignRoutes.flatMap((routePath) =>
+        suspiciousRoutePrefixes.filter((prefix) => routeMatchesPrefix(routePath, prefix)),
+      ),
+    ),
+  ).sort();
+
+  return {
+    product: artifact.key,
+    runtimeMode: artifact.sourceRuntime ?? "open-next-runtime-copy",
+    scopeMode: scopeAuditConfig.scopeMode,
+    scopeAuditVersion,
+    scopeAuditGeneratedAt: generatedAt,
+    serverFunctionsPath: normalizeRelative(path.relative(repoRoot, serverFunctionsRoot)),
+    routeCount: routePaths.length,
+    allowedRouteCount: allowedRoutes.length,
+    containsForeignRoutes: foreignRoutes.length > 0,
+    foreignRouteHits,
+    foreignRouteCount: foreignRoutes.length,
+    foreignRouteExamples: foreignRoutes.slice(0, 50),
+    scopedReady: foreignRoutes.length === 0,
+  };
 }
 
 async function copyDir(sourceDir, targetDir) {
@@ -118,6 +241,7 @@ async function emitStandaloneArtifact(config, artifact) {
   const standaloneArtifactRoot = path.dirname(standaloneWorkerAbsolute);
   const activeArtifactRoot = path.dirname(path.resolve(repoRoot, config.activeArtifact.workerPath));
   const artifactState = artifact.artifactState ?? artifact.state ?? null;
+  const generatedAt = new Date().toISOString();
 
   await copyOpenNextRuntimeSubset(activeArtifactRoot, standaloneArtifactRoot);
 
@@ -133,8 +257,22 @@ async function emitStandaloneArtifact(config, artifact) {
     deployMode: artifact.deployMode ?? null,
     sourceArtifactName: artifact.sourceArtifactName ?? config.activeArtifact.artifactName,
     sourceRuntime: artifact.sourceRuntime ?? "open-next-runtime-copy",
-    generatedAt: new Date().toISOString(),
+    generatedAt,
   };
+
+  if (artifact.key === "socialflows") {
+    const scopeAudit = await buildServerFunctionsScopeAudit(standaloneArtifactRoot, artifact, generatedAt);
+    Object.assign(manifest, {
+      scopeMode: scopeAudit.scopeMode,
+      containsForeignRoutes: scopeAudit.containsForeignRoutes,
+      foreignRouteHits: scopeAudit.foreignRouteHits,
+      foreignRouteCount: scopeAudit.foreignRouteCount,
+      scopeAuditVersion: scopeAudit.scopeAuditVersion,
+      scopeAuditGeneratedAt: scopeAudit.scopeAuditGeneratedAt,
+      scopedReady: scopeAudit.scopedReady,
+    });
+    await fs.writeFile(path.join(standaloneArtifactRoot, "scope-audit.json"), `${JSON.stringify(scopeAudit, null, 2)}\n`, "utf8");
+  }
 
   await fs.writeFile(path.join(standaloneArtifactRoot, "artifact-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 }

@@ -1,0 +1,14 @@
+{
+  "productKey": "socialflows",
+  "artifactMode": "standalone",
+  "artifactState": "active",
+  "standaloneArtifactName": "open-next-socialflows-standalone-build",
+  "sourceRuntime": "open-next-runtime-copy",
+  "scopeMode": "standalone-runtime-copy",
+  "containsForeignRoutes": false,
+  "foreignRouteHits": [],
+  "foreignRouteCount": 0,
+  "scopeAuditVersion": 1,
+  "scopeAuditGeneratedAt": "2026-05-12T00:00:00.000Z",
+  "scopedReady": true
+}

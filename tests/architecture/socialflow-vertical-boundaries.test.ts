@@ -246,12 +246,19 @@ describe("SocialFlow vertical boundaries", () => {
     expect(artifactBuilder).toContain("emitStandaloneArtifact");
     expect(artifactBuilder).toContain("copyOpenNextRuntimeSubset");
     expect(artifactBuilder).toContain("sourceRuntime");
+    expect(artifactBuilder).toContain("buildServerFunctionsScopeAudit");
+    expect(artifactBuilder).toContain("scope-audit.json");
+    expect(artifactBuilder).toContain("foreignRouteHits");
+    expect(artifactBuilder).toContain("standalone-runtime-copy");
 
     expect(deployWorkflow).toContain("Verify SocialFlow standalone active artifact");
     expect(deployWorkflow).toContain("Verify SocialFlow standalone runtime active");
     expect(deployWorkflow).toContain('"productKey": "socialflows"');
     expect(deployWorkflow).toContain('"artifactMode": "standalone"');
     expect(deployWorkflow).toContain('"artifactState": "active"');
+    expect(deployWorkflow).toContain("SocialFlow scope audit summary");
+    expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING");
+    expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM");
     expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_ARTIFACT_FAKE");
     expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION");
     expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_GENERATED_FROM_GLOBAL");

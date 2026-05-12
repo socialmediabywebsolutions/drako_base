@@ -131,6 +131,8 @@ describe("production readiness audits", () => {
           '"currentWranglerMain": "../../.open-next/socialflows-standalone/worker.js"',
           '"currentWranglerAssetsDirectory": "../../.open-next/socialflows-standalone/assets"',
           '"standaloneArtifactName": "open-next-socialflows-standalone-build"',
+          '"sourceRuntime": "open-next-runtime-copy"',
+          '"scopeMode": "standalone-runtime-copy"',
         ],
         forbiddenTokens: ['"generatedFrom": ".open-next/worker.js"', '"artifactMode": "standalone-prepared"'],
       },
@@ -144,6 +146,10 @@ describe("production readiness audits", () => {
           "standaloneArtifact",
           "artifact-manifest.json",
           "sourceRuntime",
+          "buildServerFunctionsScopeAudit",
+          "scope-audit.json",
+          "foreignRouteHits",
+          "scopedReady",
         ],
         forbiddenTokens: ["dummy worker", "placeholder HTML"],
       },
@@ -156,9 +162,16 @@ describe("production readiness audits", () => {
           "test -d .open-next/socialflows-standalone/assets",
           "test -d .open-next/socialflows-standalone/server-functions",
           "test -d .open-next/socialflows-standalone/.build",
+          "test -f .open-next/socialflows-standalone/scope-audit.json",
           '"artifactMode": "standalone"',
           '"artifactState": "active"',
           '"standaloneArtifactName": "open-next-socialflows-standalone-build"',
+          '"scopeMode": "standalone-runtime-copy"',
+          '"foreignRouteCount"',
+          '"scopedReady": false',
+          "SocialFlow scope audit summary",
+          "SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING",
+          "SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM",
           "SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION",
           "SOCIALFLOW_STANDALONE_GENERATED_FROM_GLOBAL",
           "SOCIALFLOW_STANDALONE_ARTIFACT_FAKE",
@@ -212,6 +225,56 @@ describe("production readiness audits", () => {
           "continue-on-error: true",
         ],
       },
+    ],
+  } as const;
+  const socialflowStandaloneScopeAuditGuardBase = {
+    targetName: "test:socialflow-standalone-scope-audit",
+    manifestPath: ".open-next/socialflows-standalone/artifact-manifest.json",
+    scopeAuditPath: ".open-next/socialflows-standalone/scope-audit.json",
+    workflowPath: ".github/workflows/drako-factory-deploy.yml",
+    buildScriptPath: "scripts/build-artifact-matrix-skeleton.mjs",
+    expectedProduct: "socialflows",
+    runtimeCopyScopeMode: "standalone-runtime-copy",
+    productScopedScopeMode: "product-scoped",
+    requiredManifestFields: [
+      "scopeMode",
+      "foreignRouteHits",
+      "foreignRouteCount",
+      "scopeAuditVersion",
+      "scopeAuditGeneratedAt",
+      "scopedReady",
+    ],
+    requiredScopeAuditFields: [
+      "product",
+      "runtimeMode",
+      "scopeMode",
+      "serverFunctionsPath",
+      "routeCount",
+      "allowedRouteCount",
+      "containsForeignRoutes",
+      "foreignRouteHits",
+      "foreignRouteCount",
+      "foreignRouteExamples",
+      "scopeAuditVersion",
+      "scopeAuditGeneratedAt",
+      "scopedReady",
+    ],
+    workflowRequiredTokens: [
+      "SocialFlow scope audit summary",
+      "scope-audit.json",
+      "foreignRouteCount",
+      "scopedReady",
+      "SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING",
+      "SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM",
+    ],
+    buildScriptRequiredTokens: [
+      "buildServerFunctionsScopeAudit",
+      "scopeAuditVersion",
+      "scope-audit.json",
+      "foreignRouteHits",
+      "foreignRouteCount",
+      "scopedReady",
+      "standalone-runtime-copy",
     ],
   } as const;
   const mentoriaRuntimeGuardBase = {
@@ -535,6 +598,10 @@ describe("production readiness audits", () => {
       "Download SocialFlow standalone artifact",
       "Verify SocialFlow standalone active artifact",
       "Verify SocialFlow standalone runtime active",
+      "SocialFlow scope audit summary",
+      "scope-audit.json",
+      "SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING",
+      "SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM",
     ],
     buildScriptRequiredTokens: [
       "ARTIFACT_MATRIX_SKELETON_OK",
@@ -547,6 +614,10 @@ describe("production readiness audits", () => {
       "standaloneArtifacts",
       "copyOpenNextRuntimeSubset",
       "emitStandaloneArtifact",
+      "buildServerFunctionsScopeAudit",
+      "scope-audit.json",
+      "foreignRouteHits",
+      "scopedReady",
       "preparedArtifacts",
       "artifact-manifest.json",
     ],
@@ -1649,6 +1720,89 @@ describe("production readiness audits", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.report.violations.some((item) => item.checkCode === "socialflowStandaloneRuntimeActive")).toBe(true);
+  });
+
+  it("keeps SocialFlow standalone scope audit as warning-only while runtime-copy foreign routes remain", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowStandaloneScopeAuditGuardOverride: socialflowStandaloneScopeAuditGuardBase,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(
+      result.report.checks.some((item) => item.checkCode === "socialflowStandaloneScopeAuditMissing" && item.status === "PASS"),
+    ).toBe(true);
+    expect(
+      result.report.checks.some(
+        (item) => item.checkCode === "socialflowStandaloneForeignRouteLeak" && item.severity === "WARN" && item.status === "FAIL",
+      ),
+    ).toBe(true);
+    expect(result.report.productionReady).toBe(true);
+  });
+
+  it("fails readiness when SocialFlow claims product-scoped while foreign routes remain", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowStandaloneScopeAuditGuardOverride: {
+        ...socialflowStandaloneScopeAuditGuardBase,
+        manifestPath: "tests/fixtures/production-audits/socialflow-scope-audit-guards/fake-product-scoped-manifest.json",
+        scopeAuditPath: "tests/fixtures/production-audits/socialflow-scope-audit-guards/fake-product-scoped-scope-audit.json",
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowStandaloneFakeScopedClaim")).toBe(true);
+  });
+
+  it("fails readiness when SocialFlow scope audit metadata is missing", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowStandaloneScopeAuditGuardOverride: {
+        ...socialflowStandaloneScopeAuditGuardBase,
+        manifestPath: "tests/fixtures/production-audits/socialflow-scope-audit-guards/missing-metadata-manifest.json",
+        scopeAuditPath: "tests/fixtures/production-audits/socialflow-scope-audit-guards/scope-audit-ok.json",
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowStandaloneScopeAuditMissing")).toBe(true);
+  });
+
+  it("fails readiness when SocialFlow manifest hides foreign routes detected by the scope audit", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowStandaloneScopeAuditGuardOverride: {
+        ...socialflowStandaloneScopeAuditGuardBase,
+        manifestPath: "tests/fixtures/production-audits/socialflow-scope-audit-guards/hidden-foreign-routes-manifest.json",
+        scopeAuditPath: "tests/fixtures/production-audits/socialflow-scope-audit-guards/hidden-foreign-routes-scope-audit.json",
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowStandaloneScopeAuditMissing")).toBe(true);
+  });
+
+  it("fails readiness when the SocialFlow scope audit builder wiring disappears", async () => {
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowStandaloneScopeAuditGuardOverride: {
+        ...socialflowStandaloneScopeAuditGuardBase,
+        buildScriptPath: "tests/fixtures/production-audits/socialflow-scope-audit-guards/audit-builder-missing.mjs",
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowStandaloneScopeAuditDrift")).toBe(true);
   });
 
   it("fails readiness when SocialFlow deploy lane loses assets upload session retry", async () => {

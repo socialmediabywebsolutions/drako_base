@@ -35,7 +35,36 @@
       "artifactState": "active",
       "workerPath": ".open-next/socialflows-standalone/worker.js",
       "assetsPath": ".open-next/socialflows-standalone/assets",
-      "sourceArtifactName": "open-next-build"
+      "sourceArtifactName": "open-next-build",
+      "sourceRuntime": "open-next-runtime-copy",
+      "scopeMode": "standalone-runtime-copy",
+      "scopeAudit": {
+        "allowedRoutePrefixes": [
+          "socialflow",
+          "socialflows",
+          "api/socialflow",
+          "api/socialflows",
+          "api/social",
+          "auth/linkedin"
+        ],
+        "suspiciousRoutePrefixes": [
+          "operator",
+          "owner",
+          "bases",
+          "mentoria",
+          "mentorias",
+          "campobase",
+          "campamento-base",
+          "site/panel",
+          "api/operator",
+          "api/owner",
+          "api/bases",
+          "api/mentoria",
+          "api/mentorias",
+          "api/campobase",
+          "api/campamento-base"
+        ]
+      }
     }
   ],
   "products": [

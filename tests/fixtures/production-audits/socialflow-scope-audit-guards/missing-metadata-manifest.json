@@ -1,0 +1,7 @@
+{
+  "productKey": "socialflows",
+  "artifactMode": "standalone",
+  "artifactState": "active",
+  "standaloneArtifactName": "open-next-socialflows-standalone-build",
+  "sourceRuntime": "open-next-runtime-copy"
+}

@@ -1,6 +1,6 @@
 # Production Readiness Audit Report
 
-- Timestamp: `2026-05-12T19:06:40.919Z`
+- Timestamp: `2026-05-12T20:03:00.142Z`
 - Mode: `fixtures`
 - Source of truth: `docs/config/production-audits-expected-state.json`
 - Fixtures dir: `tests/fixtures/production-audits/pass`
@@ -8,12 +8,12 @@
 
 ## Summary
 
-- Checks total: 174
-- Checks pass: 171
-- Checks fail: 0
+- Checks total: 178
+- Checks pass: 174
+- Checks fail: 1
 - Checks N/A: 3
 - Blockers: 0
-- Warnings: 0
+- Warnings: 1
 
 ## Checks
 
@@ -189,6 +189,10 @@
 | socialflowRuntimeGuardDrift | BLOCKER | socialflow:runtime-real-worker-only | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | socialflowAssetsUploadRetryGuardDrift | BLOCKER | socialflow:deploy-assets-upload-session-retry | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | socialflowStandaloneRuntimeActive | BLOCKER | socialflow:standalone-runtime-active | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
+| socialflowStandaloneScopeAuditMissing | BLOCKER | socialflow:standalone-scope-audit | PASS | "SocialFlow standalone manifest and scope-audit.json include complete scope audit metadata" | {"scopeMode":"standalone-runtime-copy","foreignRouteCount":180,"scopedReady":false} |
+| socialflowStandaloneForeignRouteLeak | WARN | socialflow:standalone-scope-audit | FAIL | "0 foreign routes before product-scoped activation" | {"scopeMode":"standalone-runtime-copy","foreignRouteCount":180,"foreignRouteHits":["api/bases","api/campamento-base","api/campobase","api/mentoria","api/mentorias","api/operator","api/owner","bases","campobase","mentoria","mentorias","operator","owner","site/panel"],"foreignRouteExamples":["api/bases/auths/logins","api/bases/auths/logouts","api/bases/auths/registrations","api/bases/telemetries/events","api/campamento-base/contracts","api/campamento-base/operator/whatsapp/daily-summary","api/campamento-base/operator/whatsapp/realtime-alert","api/campamento-base/orchestrator","api/campamento-base/provisioning/ai","api/campamento-base/provisioning/branding"]} |
+| socialflowStandaloneFakeScopedClaim | BLOCKER | socialflow:standalone-scope-audit | PASS | "product-scoped claim only when no foreign routes remain" | {"scopeMode":"standalone-runtime-copy","foreignRouteCount":180,"scopedReady":false} |
+| socialflowStandaloneScopeAuditDrift | BLOCKER | socialflow:standalone-scope-audit | PASS | "builder and CI keep generating and verifying SocialFlow scope audit metadata" | "scope_audit_guard_ok" |
 | mentoriaRuntimeGuardDrift | BLOCKER | mentoria:runtime-real-wrapper-only | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | socialflowCanonicalSmokeGuardDrift | BLOCKER | socialflow:canonical-smoke-strict | PASS | "strict canonical smoke with 410 legacy routes and no canonical 405 acceptance" | "strict_smoke_ok" |
 | mentoriaStrictSmokeGuardDrift | BLOCKER | mentoria:local-smoke-strict | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
@@ -196,4 +200,4 @@
 
 ## Violations
 
-- None
+- WARN socialflowStandaloneForeignRouteLeak @ socialflow:standalone-scope-audit: expected="0 foreign routes before product-scoped activation" actual={"scopeMode":"standalone-runtime-copy","foreignRouteCount":180,"foreignRouteHits":["api/bases","api/campamento-base","api/campobase","api/mentoria","api/mentorias","api/operator","api/owner","bases","campobase","mentoria","mentorias","operator","owner","site/panel"],"foreignRouteExamples":["api/bases/auths/logins","api/bases/auths/logouts","api/bases/auths/registrations","api/bases/telemetries/events","api/campamento-base/contracts","api/campamento-base/operator/whatsapp/daily-summary","api/campamento-base/operator/whatsapp/realtime-alert","api/campamento-base/orchestrator","api/campamento-base/provisioning/ai","api/campamento-base/provisioning/branding"]}

@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-05-12T19:06:40.919Z",
+  "timestamp": "2026-05-12T20:03:00.142Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
   "productionReady": true,
   "summary": {
-    "checksTotal": 174,
-    "checksPass": 171,
-    "checksFail": 0,
+    "checksTotal": 178,
+    "checksPass": 174,
+    "checksFail": 1,
     "checksNa": 3,
-    "violationsTotal": 0,
+    "violationsTotal": 1,
     "blockersTotal": 0,
-    "warningsTotal": 0
+    "warningsTotal": 1
   },
   "checks": [
     {
@@ -1950,6 +1950,85 @@
       "details": "SocialFlow standalone artifact is active, non-wrapper, structurally complete, and deployed through the dedicated standalone lane."
     },
     {
+      "checkCode": "socialflowStandaloneScopeAuditMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:standalone-scope-audit",
+      "expected": "SocialFlow standalone manifest and scope-audit.json include complete scope audit metadata",
+      "actual": {
+        "scopeMode": "standalone-runtime-copy",
+        "foreignRouteCount": 180,
+        "scopedReady": false
+      },
+      "details": "SocialFlow standalone scope audit metadata is present and internally consistent."
+    },
+    {
+      "checkCode": "socialflowStandaloneForeignRouteLeak",
+      "severity": "WARN",
+      "status": "FAIL",
+      "targetType": "code_guard",
+      "targetName": "socialflow:standalone-scope-audit",
+      "expected": "0 foreign routes before product-scoped activation",
+      "actual": {
+        "scopeMode": "standalone-runtime-copy",
+        "foreignRouteCount": 180,
+        "foreignRouteHits": [
+          "api/bases",
+          "api/campamento-base",
+          "api/campobase",
+          "api/mentoria",
+          "api/mentorias",
+          "api/operator",
+          "api/owner",
+          "bases",
+          "campobase",
+          "mentoria",
+          "mentorias",
+          "operator",
+          "owner",
+          "site/panel"
+        ],
+        "foreignRouteExamples": [
+          "api/bases/auths/logins",
+          "api/bases/auths/logouts",
+          "api/bases/auths/registrations",
+          "api/bases/telemetries/events",
+          "api/campamento-base/contracts",
+          "api/campamento-base/operator/whatsapp/daily-summary",
+          "api/campamento-base/operator/whatsapp/realtime-alert",
+          "api/campamento-base/orchestrator",
+          "api/campamento-base/provisioning/ai",
+          "api/campamento-base/provisioning/branding"
+        ]
+      },
+      "details": "SocialFlow standalone is still a runtime copy with foreign routes; this is warning-only until product-scoped filtering is activated."
+    },
+    {
+      "checkCode": "socialflowStandaloneFakeScopedClaim",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:standalone-scope-audit",
+      "expected": "product-scoped claim only when no foreign routes remain",
+      "actual": {
+        "scopeMode": "standalone-runtime-copy",
+        "foreignRouteCount": 180,
+        "scopedReady": false
+      },
+      "details": "SocialFlow does not claim product-scoped isolation while foreign routes remain."
+    },
+    {
+      "checkCode": "socialflowStandaloneScopeAuditDrift",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:standalone-scope-audit",
+      "expected": "builder and CI keep generating and verifying SocialFlow scope audit metadata",
+      "actual": "scope_audit_guard_ok",
+      "details": "Builder and CI keep the SocialFlow standalone scope audit lane wired."
+    },
+    {
       "checkCode": "mentoriaRuntimeGuardDrift",
       "severity": "BLOCKER",
       "status": "PASS",
@@ -1990,7 +2069,48 @@
       "details": "Mentoría auth provisioning, CI migration steps and local tooling stay aligned to dedicated auth/product bindings."
     }
   ],
-  "violations": [],
+  "violations": [
+    {
+      "checkCode": "socialflowStandaloneForeignRouteLeak",
+      "severity": "WARN",
+      "targetType": "code_guard",
+      "targetName": "socialflow:standalone-scope-audit",
+      "expected": "0 foreign routes before product-scoped activation",
+      "actual": {
+        "scopeMode": "standalone-runtime-copy",
+        "foreignRouteCount": 180,
+        "foreignRouteHits": [
+          "api/bases",
+          "api/campamento-base",
+          "api/campobase",
+          "api/mentoria",
+          "api/mentorias",
+          "api/operator",
+          "api/owner",
+          "bases",
+          "campobase",
+          "mentoria",
+          "mentorias",
+          "operator",
+          "owner",
+          "site/panel"
+        ],
+        "foreignRouteExamples": [
+          "api/bases/auths/logins",
+          "api/bases/auths/logouts",
+          "api/bases/auths/registrations",
+          "api/bases/telemetries/events",
+          "api/campamento-base/contracts",
+          "api/campamento-base/operator/whatsapp/daily-summary",
+          "api/campamento-base/operator/whatsapp/realtime-alert",
+          "api/campamento-base/orchestrator",
+          "api/campamento-base/provisioning/ai",
+          "api/campamento-base/provisioning/branding"
+        ]
+      },
+      "details": "SocialFlow standalone is still a runtime copy with foreign routes; this is warning-only until product-scoped filtering is activated."
+    }
+  ],
   "snapshots": {
     "workers": [
       {

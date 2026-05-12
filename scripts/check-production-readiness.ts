@@ -166,6 +166,10 @@ type CheckCode =
   | "globalDeployDrift"
   | "socialflowStandaloneRuntimeActive"
   | "socialflowAssetsUploadRetryGuardDrift"
+  | "socialflowStandaloneScopeAuditMissing"
+  | "socialflowStandaloneForeignRouteLeak"
+  | "socialflowStandaloneFakeScopedClaim"
+  | "socialflowStandaloneScopeAuditDrift"
   | "mentoriaAuthsOperationalDrift";
 
 type CheckRecord = {
@@ -259,6 +263,7 @@ type ProductionAuditsRunOptions = {
   globalDeployDriftGuardOverride?: FileTokenGuard;
   socialflowStandaloneRuntimeGuardOverride?: FileTokenGuard;
   socialflowAssetsUploadRetryGuardOverride?: FileTokenGuard;
+  socialflowStandaloneScopeAuditGuardOverride?: SocialflowStandaloneScopeAuditGuard;
   mentoriaAuthsOperationalGuardOverride?: FileTokenGuard;
 };
 
@@ -414,6 +419,21 @@ type ArtifactMatrixPrematureActivationGuard = {
   workflowPath: string;
   forbiddenWorkflowTokens: string[];
   allowedDedicatedProducts?: string[];
+};
+
+type SocialflowStandaloneScopeAuditGuard = {
+  targetName: string;
+  manifestPath: string;
+  scopeAuditPath: string;
+  workflowPath: string;
+  buildScriptPath: string;
+  expectedProduct: string;
+  runtimeCopyScopeMode: string;
+  productScopedScopeMode: string;
+  requiredManifestFields: string[];
+  requiredScopeAuditFields: string[];
+  workflowRequiredTokens: string[];
+  buildScriptRequiredTokens: string[];
 };
 
 type D1BindingRecord = {
@@ -785,6 +805,10 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
     "Download SocialFlow standalone artifact",
     "Verify SocialFlow standalone active artifact",
     "Verify SocialFlow standalone runtime active",
+    "SocialFlow scope audit summary",
+    "scope-audit.json",
+    "SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING",
+    "SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM",
   ],
   buildScriptRequiredTokens: [
     "ARTIFACT_MATRIX_SKELETON_OK",
@@ -797,6 +821,10 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
     "standaloneArtifacts",
     "copyOpenNextRuntimeSubset",
     "emitStandaloneArtifact",
+    "buildServerFunctionsScopeAudit",
+    "scope-audit.json",
+    "foreignRouteHits",
+    "scopedReady",
     "preparedArtifacts",
     "artifact-manifest.json",
   ],
@@ -1026,6 +1054,8 @@ const DEFAULT_SOCIALFLOW_STANDALONE_RUNTIME_GUARD: FileTokenGuard = {
         '"currentWranglerMain": "../../.open-next/socialflows-standalone/worker.js"',
         '"currentWranglerAssetsDirectory": "../../.open-next/socialflows-standalone/assets"',
         '"standaloneArtifactName": "open-next-socialflows-standalone-build"',
+        '"sourceRuntime": "open-next-runtime-copy"',
+        '"scopeMode": "standalone-runtime-copy"',
       ],
       forbiddenTokens: ['"generatedFrom": ".open-next/worker.js"', '"artifactMode": "standalone-prepared"'],
     },
@@ -1039,6 +1069,10 @@ const DEFAULT_SOCIALFLOW_STANDALONE_RUNTIME_GUARD: FileTokenGuard = {
         "standaloneArtifact",
         "artifact-manifest.json",
         "sourceRuntime",
+        "buildServerFunctionsScopeAudit",
+        "scope-audit.json",
+        "foreignRouteHits",
+        "scopedReady",
       ],
       forbiddenTokens: ["dummy worker", "placeholder HTML"],
     },
@@ -1051,9 +1085,16 @@ const DEFAULT_SOCIALFLOW_STANDALONE_RUNTIME_GUARD: FileTokenGuard = {
         "test -d .open-next/socialflows-standalone/assets",
         "test -d .open-next/socialflows-standalone/server-functions",
         "test -d .open-next/socialflows-standalone/.build",
+        "test -f .open-next/socialflows-standalone/scope-audit.json",
         '"artifactMode": "standalone"',
         '"artifactState": "active"',
         '"standaloneArtifactName": "open-next-socialflows-standalone-build"',
+        '"scopeMode": "standalone-runtime-copy"',
+        '"foreignRouteCount"',
+        '"scopedReady": false',
+        "SocialFlow scope audit summary",
+        "SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING",
+        "SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM",
         "SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION",
         "SOCIALFLOW_STANDALONE_GENERATED_FROM_GLOBAL",
         "SOCIALFLOW_STANDALONE_ARTIFACT_FAKE",
@@ -1078,6 +1119,57 @@ const DEFAULT_SOCIALFLOW_STANDALONE_RUNTIME_GUARD: FileTokenGuard = {
         'main = "../../.open-next/worker.js"',
       ],
     },
+  ],
+};
+
+const DEFAULT_SOCIALFLOW_STANDALONE_SCOPE_AUDIT_GUARD: SocialflowStandaloneScopeAuditGuard = {
+  targetName: "socialflow:standalone-scope-audit",
+  manifestPath: ".open-next/socialflows-standalone/artifact-manifest.json",
+  scopeAuditPath: ".open-next/socialflows-standalone/scope-audit.json",
+  workflowPath: ".github/workflows/drako-factory-deploy.yml",
+  buildScriptPath: "scripts/build-artifact-matrix-skeleton.mjs",
+  expectedProduct: "socialflows",
+  runtimeCopyScopeMode: "standalone-runtime-copy",
+  productScopedScopeMode: "product-scoped",
+  requiredManifestFields: [
+    "scopeMode",
+    "foreignRouteHits",
+    "foreignRouteCount",
+    "scopeAuditVersion",
+    "scopeAuditGeneratedAt",
+    "scopedReady",
+  ],
+  requiredScopeAuditFields: [
+    "product",
+    "runtimeMode",
+    "scopeMode",
+    "serverFunctionsPath",
+    "routeCount",
+    "allowedRouteCount",
+    "containsForeignRoutes",
+    "foreignRouteHits",
+    "foreignRouteCount",
+    "foreignRouteExamples",
+    "scopeAuditVersion",
+    "scopeAuditGeneratedAt",
+    "scopedReady",
+  ],
+  workflowRequiredTokens: [
+    "SocialFlow scope audit summary",
+    "scope-audit.json",
+    "foreignRouteCount",
+    "scopedReady",
+    "SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING",
+    "SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM",
+  ],
+  buildScriptRequiredTokens: [
+    "buildServerFunctionsScopeAudit",
+    "scopeAuditVersion",
+    "scope-audit.json",
+    "foreignRouteHits",
+    "foreignRouteCount",
+    "scopedReady",
+    "standalone-runtime-copy",
   ],
 };
 
@@ -3352,6 +3444,195 @@ async function buildFileTokenGuardChecks(
   ];
 }
 
+async function readJsonGuardFile(filePath: string): Promise<{ value: Record<string, unknown> | null; error: string | null }> {
+  try {
+    return {
+      value: JSON.parse(await fs.readFile(resolveAbsolutePath(filePath), "utf8")) as Record<string, unknown>,
+      error: null,
+    };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return { value: null, error: reason };
+  }
+}
+
+async function buildSocialflowStandaloneScopeAuditChecks(
+  guard: SocialflowStandaloneScopeAuditGuard,
+): Promise<CheckRecord[]> {
+  const manifestRead = await readJsonGuardFile(guard.manifestPath);
+  const scopeAuditRead = await readJsonGuardFile(guard.scopeAuditPath);
+  const missingFailures: string[] = [];
+  const driftFailures: string[] = [];
+  const fakeScopedFailures: string[] = [];
+
+  const manifest = manifestRead.value;
+  const scopeAudit = scopeAuditRead.value;
+
+  if (!manifest) {
+    missingFailures.push(`${guard.manifestPath} read_error=${manifestRead.error}`);
+  }
+  if (!scopeAudit) {
+    missingFailures.push(`${guard.scopeAuditPath} read_error=${scopeAuditRead.error}`);
+  }
+
+  if (manifest) {
+    for (const field of guard.requiredManifestFields) {
+      if (!(field in manifest)) {
+        missingFailures.push(`${guard.manifestPath} missing ${field}`);
+      }
+    }
+    if (manifest.productKey !== guard.expectedProduct) {
+      missingFailures.push(`${guard.manifestPath} productKey expected ${guard.expectedProduct} got ${String(manifest.productKey)}`);
+    }
+  }
+
+  if (scopeAudit) {
+    for (const field of guard.requiredScopeAuditFields) {
+      if (!(field in scopeAudit)) {
+        missingFailures.push(`${guard.scopeAuditPath} missing ${field}`);
+      }
+    }
+    if (scopeAudit.product !== guard.expectedProduct) {
+      missingFailures.push(`${guard.scopeAuditPath} product expected ${guard.expectedProduct} got ${String(scopeAudit.product)}`);
+    }
+  }
+
+  if (manifest && scopeAudit) {
+    for (const field of ["scopeMode", "foreignRouteCount", "scopeAuditVersion", "scopeAuditGeneratedAt", "scopedReady"]) {
+      if (manifest[field] !== scopeAudit[field]) {
+        missingFailures.push(
+          `${guard.manifestPath} ${field} (${String(manifest[field])}) differs from ${guard.scopeAuditPath} (${String(scopeAudit[field])})`,
+        );
+      }
+    }
+    if (JSON.stringify(manifest.foreignRouteHits) !== JSON.stringify(scopeAudit.foreignRouteHits)) {
+      missingFailures.push(`${guard.manifestPath} foreignRouteHits differ from ${guard.scopeAuditPath}`);
+    }
+  }
+
+  let workflowContent = "";
+  let buildScriptContent = "";
+  try {
+    workflowContent = await fs.readFile(resolveAbsolutePath(guard.workflowPath), "utf8");
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    driftFailures.push(`${guard.workflowPath} read_error=${reason}`);
+  }
+  try {
+    buildScriptContent = await fs.readFile(resolveAbsolutePath(guard.buildScriptPath), "utf8");
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    driftFailures.push(`${guard.buildScriptPath} read_error=${reason}`);
+  }
+
+  for (const token of guard.workflowRequiredTokens) {
+    if (!workflowContent.includes(token)) {
+      driftFailures.push(`${guard.workflowPath} missing ${token}`);
+    }
+  }
+  for (const token of guard.buildScriptRequiredTokens) {
+    if (!buildScriptContent.includes(token)) {
+      driftFailures.push(`${guard.buildScriptPath} missing ${token}`);
+    }
+  }
+
+  const scopeMode = String(manifest?.scopeMode ?? scopeAudit?.scopeMode ?? "");
+  const foreignRouteCount = Number(manifest?.foreignRouteCount ?? scopeAudit?.foreignRouteCount ?? 0);
+  const containsForeignRoutes = Boolean(manifest?.containsForeignRoutes ?? scopeAudit?.containsForeignRoutes ?? foreignRouteCount > 0);
+  const scopedReady = Boolean(manifest?.scopedReady ?? scopeAudit?.scopedReady ?? false);
+  const foreignRouteHits = Array.isArray(manifest?.foreignRouteHits)
+    ? manifest?.foreignRouteHits
+    : Array.isArray(scopeAudit?.foreignRouteHits)
+      ? scopeAudit?.foreignRouteHits
+      : [];
+  const foreignRouteExamples = Array.isArray(scopeAudit?.foreignRouteExamples) ? scopeAudit.foreignRouteExamples : [];
+
+  if (
+    scopeMode &&
+    scopeMode !== guard.runtimeCopyScopeMode &&
+    scopeMode !== guard.productScopedScopeMode
+  ) {
+    missingFailures.push(
+      `${guard.manifestPath} scopeMode expected ${guard.runtimeCopyScopeMode} or ${guard.productScopedScopeMode} got ${scopeMode}`,
+    );
+  }
+
+  if (scopeMode === guard.productScopedScopeMode && (containsForeignRoutes || foreignRouteCount > 0 || !scopedReady)) {
+    fakeScopedFailures.push(
+      `${guard.manifestPath} claims ${guard.productScopedScopeMode} but foreignRouteCount=${foreignRouteCount} scopedReady=${String(scopedReady)}`,
+    );
+  }
+
+  const foreignRouteLeakStatus = foreignRouteCount > 0 || containsForeignRoutes ? "FAIL" : "PASS";
+
+  return [
+    {
+      checkCode: "socialflowStandaloneScopeAuditMissing",
+      severity: "BLOCKER",
+      status: missingFailures.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: "SocialFlow standalone manifest and scope-audit.json include complete scope audit metadata",
+      actual:
+        missingFailures.length === 0
+          ? {
+              scopeMode,
+              foreignRouteCount,
+              scopedReady,
+            }
+          : missingFailures,
+      details:
+        missingFailures.length === 0
+          ? "SocialFlow standalone scope audit metadata is present and internally consistent."
+          : "SocialFlow standalone scope audit metadata is missing, unreadable or inconsistent.",
+    },
+    {
+      checkCode: "socialflowStandaloneForeignRouteLeak",
+      severity: "WARN",
+      status: foreignRouteLeakStatus,
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: "0 foreign routes before product-scoped activation",
+      actual: {
+        scopeMode,
+        foreignRouteCount,
+        foreignRouteHits,
+        foreignRouteExamples: foreignRouteExamples.slice(0, 10),
+      },
+      details:
+        foreignRouteLeakStatus === "PASS"
+          ? "SocialFlow standalone server-functions are clean for product-scoped activation."
+          : "SocialFlow standalone is still a runtime copy with foreign routes; this is warning-only until product-scoped filtering is activated.",
+    },
+    {
+      checkCode: "socialflowStandaloneFakeScopedClaim",
+      severity: "BLOCKER",
+      status: fakeScopedFailures.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: `${guard.productScopedScopeMode} claim only when no foreign routes remain`,
+      actual: fakeScopedFailures.length === 0 ? { scopeMode, foreignRouteCount, scopedReady } : fakeScopedFailures,
+      details:
+        fakeScopedFailures.length === 0
+          ? "SocialFlow does not claim product-scoped isolation while foreign routes remain."
+          : "SocialFlow claims product-scoped isolation while scope audit still detects foreign routes.",
+    },
+    {
+      checkCode: "socialflowStandaloneScopeAuditDrift",
+      severity: "BLOCKER",
+      status: driftFailures.length === 0 ? "PASS" : "FAIL",
+      targetType: "code_guard",
+      targetName: guard.targetName,
+      expected: "builder and CI keep generating and verifying SocialFlow scope audit metadata",
+      actual: driftFailures.length === 0 ? "scope_audit_guard_ok" : driftFailures,
+      details:
+        driftFailures.length === 0
+          ? "Builder and CI keep the SocialFlow standalone scope audit lane wired."
+          : "Builder or CI stopped generating/verifying SocialFlow standalone scope audit metadata.",
+    },
+  ];
+}
+
 async function buildArtifactMatrixSkeletonChecks(guard: ArtifactMatrixSkeletonGuard): Promise<CheckRecord[]> {
   const failures: string[] = [];
   let manifest:
@@ -3923,6 +4204,12 @@ export async function runProductionReadinessAudits(
     "SocialFlow standalone runtime is missing, fake, wrapper-based, or drifted back to the wrapper/global runtime.",
   );
   checks.push(...socialflowStandaloneRuntimeChecks);
+  const socialflowStandaloneScopeAuditGuard =
+    options.socialflowStandaloneScopeAuditGuardOverride ?? DEFAULT_SOCIALFLOW_STANDALONE_SCOPE_AUDIT_GUARD;
+  const socialflowStandaloneScopeAuditChecks = await buildSocialflowStandaloneScopeAuditChecks(
+    socialflowStandaloneScopeAuditGuard,
+  );
+  checks.push(...socialflowStandaloneScopeAuditChecks);
   const mentoriaRuntimeGuard = options.mentoriaRuntimeGuardOverride ?? DEFAULT_MENTORIA_RUNTIME_GUARD;
   const mentoriaRuntimeChecks = await buildFileTokenGuardChecks(
     mentoriaRuntimeGuard,
