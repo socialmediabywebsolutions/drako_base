@@ -282,6 +282,7 @@ describe("production readiness audits", () => {
     manifestPath: ".open-next/socialflows-product-scoped-preview/artifact-manifest.json",
     scopeAuditPath: ".open-next/socialflows-product-scoped-preview/scope-audit.json",
     filterReportPath: ".open-next/socialflows-product-scoped-preview/filter-report.json",
+    runtimeAuditPath: ".open-next/socialflows-product-scoped-preview/runtime-audit.json",
     workflowPath: ".github/workflows/drako-factory-deploy.yml",
     buildScriptPath: "scripts/build-artifact-matrix-skeleton.mjs",
     matrixPath: "docs/config/open-next-artifact-matrix.json",
@@ -306,6 +307,12 @@ describe("production readiness audits", () => {
       "scopeMode",
       "foreignRouteCount",
       "scopedReady",
+      "runtimeAuditVersion",
+      "runtimeRiskScore",
+      "scopedActivationReady",
+      "suspiciousRoutes",
+      "crossProductLeaks",
+      "unknownRoutes",
     ],
     requiredScopeAuditFields: [
       "product",
@@ -339,24 +346,65 @@ describe("production readiness audits", () => {
       "unresolvedDependencies",
       "filteringWarnings",
     ],
+    requiredRuntimeAuditFields: [
+      "product",
+      "artifactMode",
+      "artifactState",
+      "derivedFrom",
+      "previewArtifactPath",
+      "runtimeAuditVersion",
+      "runtimeAuditGeneratedAt",
+      "totalRoutes",
+      "allowedRoutes",
+      "suspiciousRoutes",
+      "crossProductLeaks",
+      "unknownRoutes",
+      "sharedInfraRoutes",
+      "runtimeRiskScore",
+      "scopedActivationReady",
+      "blockingFindings",
+      "warnings",
+      "categoryCounts",
+      "inventory",
+      "importGraph",
+      "crossProductLeakRoutes",
+      "suspiciousRouteDetails",
+      "unknownRouteDetails",
+      "routeClassifications",
+    ],
     workflowRequiredTokens: [
       "Verify SocialFlow product-scoped preview artifact",
       ".open-next/socialflows-product-scoped-preview/artifact-manifest.json",
       ".open-next/socialflows-product-scoped-preview/scope-audit.json",
       ".open-next/socialflows-product-scoped-preview/filter-report.json",
+      ".open-next/socialflows-product-scoped-preview/runtime-audit.json",
       "SocialFlow product-scoped preview summary",
+      "runtimeRiskScore",
+      "suspiciousRoutes",
+      "crossProductLeaks",
+      "scopedActivationReady",
       "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_MISSING",
       "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE",
       "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_INTEGRITY_FAILURE",
+      "SOCIALFLOW_PRODUCT_SCOPED_RUNTIME_AUDIT_MISSING",
+      "SOCIALFLOW_PRODUCT_SCOPED_UNSAFE_ACTIVATION_CLAIM",
       "!.open-next/socialflows-product-scoped-preview",
     ],
     buildScriptRequiredTokens: [
       "emitSocialflowProductScopedPreviewArtifact",
       "productScopedPreviewFilterVersion",
+      "productScopedRuntimeAuditVersion",
       "product-scoped-preview",
       "filter-report.json",
+      "runtime-audit.json",
       "removedRoutes",
       "runtimeIntegrity",
+      "runtimeRiskScore",
+      "scopedActivationReady",
+      "buildSocialflowProductScopedRuntimeAudit",
+      "routeClassifications",
+      "CROSS_PRODUCT_LEAK",
+      "SUSPICIOUS_SHARED_SURFACE",
       "unresolvedDependencies",
       "validateProductScopedPreviewRuntime",
     ],
@@ -710,6 +758,11 @@ describe("production readiness audits", () => {
       "SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM",
       "Verify SocialFlow product-scoped preview artifact",
       "SocialFlow product-scoped preview summary",
+      "runtime-audit.json",
+      "runtimeRiskScore",
+      "suspiciousRoutes",
+      "crossProductLeaks",
+      "scopedActivationReady",
     ],
     buildScriptRequiredTokens: [
       "ARTIFACT_MATRIX_SKELETON_OK",
@@ -731,6 +784,8 @@ describe("production readiness audits", () => {
       "productScopedPreviews",
       "emitSocialflowProductScopedPreviewArtifact",
       "filter-report.json",
+      "runtime-audit.json",
+      "buildSocialflowProductScopedRuntimeAudit",
       "product-scoped-preview",
     ],
   } as const;
@@ -1965,6 +2020,7 @@ describe("production readiness audits", () => {
         manifestPath: `${fixtureRoot}/preview-ok-manifest.json`,
         scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
         filterReportPath: `${fixtureRoot}/preview-ok-filter-report.json`,
+        runtimeAuditPath: `${fixtureRoot}/preview-ok-runtime-audit.json`,
       },
     });
 
@@ -1987,6 +2043,7 @@ describe("production readiness audits", () => {
         manifestPath: `${fixtureRoot}/fake-preview-manifest.json`,
         scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
         filterReportPath: `${fixtureRoot}/preview-ok-filter-report.json`,
+        runtimeAuditPath: `${fixtureRoot}/preview-ok-runtime-audit.json`,
       },
     });
 
@@ -2005,6 +2062,7 @@ describe("production readiness audits", () => {
         manifestPath: `${fixtureRoot}/preview-ok-manifest.json`,
         scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
         filterReportPath: `${fixtureRoot}/empty-preview-filter-report.json`,
+        runtimeAuditPath: `${fixtureRoot}/preview-ok-runtime-audit.json`,
       },
     });
 
@@ -2023,6 +2081,7 @@ describe("production readiness audits", () => {
         manifestPath: `${fixtureRoot}/wrapper-preview-manifest.json`,
         scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
         filterReportPath: `${fixtureRoot}/preview-ok-filter-report.json`,
+        runtimeAuditPath: `${fixtureRoot}/preview-ok-runtime-audit.json`,
       },
     });
 
@@ -2041,6 +2100,7 @@ describe("production readiness audits", () => {
         manifestPath: `${fixtureRoot}/preview-ok-manifest.json`,
         scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
         filterReportPath: `${fixtureRoot}/missing-filter-report.json`,
+        runtimeAuditPath: `${fixtureRoot}/preview-ok-runtime-audit.json`,
       },
     });
 
@@ -2059,6 +2119,7 @@ describe("production readiness audits", () => {
         manifestPath: `${fixtureRoot}/integrity-false-manifest.json`,
         scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
         filterReportPath: `${fixtureRoot}/integrity-false-filter-report.json`,
+        runtimeAuditPath: `${fixtureRoot}/preview-ok-runtime-audit.json`,
       },
     });
 
@@ -2077,11 +2138,131 @@ describe("production readiness audits", () => {
         manifestPath: `${fixtureRoot}/preview-ok-manifest.json`,
         scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
         filterReportPath: `${fixtureRoot}/hidden-unresolved-filter-report.json`,
+        runtimeAuditPath: `${fixtureRoot}/preview-ok-runtime-audit.json`,
       },
     });
 
     expect(result.exitCode).toBe(1);
     expect(result.report.violations.some((item) => item.checkCode === "socialflowProductScopedPreviewIntegrityFailure")).toBe(true);
+  });
+
+  it("fails readiness when product-scoped runtime audit is missing", async () => {
+    const fixtureRoot = "tests/fixtures/production-audits/socialflow-product-scoped-preview-guards";
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowProductScopedPreviewGuardOverride: {
+        ...socialflowProductScopedPreviewGuardBase,
+        manifestPath: `${fixtureRoot}/preview-ok-manifest.json`,
+        scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
+        filterReportPath: `${fixtureRoot}/preview-ok-filter-report.json`,
+        runtimeAuditPath: `${fixtureRoot}/missing-runtime-audit.json`,
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowProductScopedRuntimeAuditMissing")).toBe(true);
+  });
+
+  it("fails readiness when a fake clean runtime audit hides cross-product evidence", async () => {
+    const fixtureRoot = "tests/fixtures/production-audits/socialflow-product-scoped-preview-guards";
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowProductScopedPreviewGuardOverride: {
+        ...socialflowProductScopedPreviewGuardBase,
+        manifestPath: `${fixtureRoot}/hidden-cross-product-manifest.json`,
+        scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
+        filterReportPath: `${fixtureRoot}/preview-ok-filter-report.json`,
+        runtimeAuditPath: `${fixtureRoot}/fake-clean-runtime-audit.json`,
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowProductScopedRuntimeAuditDrift")).toBe(true);
+  });
+
+  it("blocks unsafe activation claims when runtime audit still has leaks", async () => {
+    const fixtureRoot = "tests/fixtures/production-audits/socialflow-product-scoped-preview-guards";
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowProductScopedPreviewGuardOverride: {
+        ...socialflowProductScopedPreviewGuardBase,
+        manifestPath: `${fixtureRoot}/unsafe-activation-manifest.json`,
+        scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
+        filterReportPath: `${fixtureRoot}/preview-ok-filter-report.json`,
+        runtimeAuditPath: `${fixtureRoot}/unsafe-activation-runtime-audit.json`,
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowProductScopedUnsafeActivationClaim")).toBe(true);
+  });
+
+  it("keeps hidden cross-product leaks warning-only before activation", async () => {
+    const fixtureRoot = "tests/fixtures/production-audits/socialflow-product-scoped-preview-guards";
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowProductScopedPreviewGuardOverride: {
+        ...socialflowProductScopedPreviewGuardBase,
+        manifestPath: `${fixtureRoot}/hidden-cross-product-manifest.json`,
+        scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
+        filterReportPath: `${fixtureRoot}/preview-ok-filter-report.json`,
+        runtimeAuditPath: `${fixtureRoot}/hidden-cross-product-runtime-audit.json`,
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(
+      result.report.checks.some(
+        (item) => item.checkCode === "socialflowProductScopedCrossProductLeak" && item.severity === "WARN" && item.status === "FAIL",
+      ),
+    ).toBe(true);
+    expect(result.report.productionReady).toBe(true);
+  });
+
+  it("fails readiness when suspicious routes are omitted from runtime audit", async () => {
+    const fixtureRoot = "tests/fixtures/production-audits/socialflow-product-scoped-preview-guards";
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowProductScopedPreviewGuardOverride: {
+        ...socialflowProductScopedPreviewGuardBase,
+        manifestPath: `${fixtureRoot}/suspicious-routes-manifest.json`,
+        scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
+        filterReportPath: `${fixtureRoot}/suspicious-filter-report.json`,
+        runtimeAuditPath: `${fixtureRoot}/suspicious-routes-omitted-runtime-audit.json`,
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowProductScopedRuntimeAuditDrift")).toBe(true);
+  });
+
+  it("fails readiness when product-scoped runtime audit summary drifts", async () => {
+    const fixtureRoot = "tests/fixtures/production-audits/socialflow-product-scoped-preview-guards";
+    const result = await runProductionReadinessAudits({
+      sourceOfTruthPath,
+      fixturesDir: "tests/fixtures/production-audits/pass",
+      writeReports: false,
+      socialflowProductScopedPreviewGuardOverride: {
+        ...socialflowProductScopedPreviewGuardBase,
+        manifestPath: `${fixtureRoot}/preview-ok-manifest.json`,
+        scopeAuditPath: `${fixtureRoot}/preview-ok-scope-audit.json`,
+        filterReportPath: `${fixtureRoot}/preview-ok-filter-report.json`,
+        runtimeAuditPath: `${fixtureRoot}/runtime-audit-drift.json`,
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.report.violations.some((item) => item.checkCode === "socialflowProductScopedRuntimeAuditDrift")).toBe(true);
   });
 
   it("fails readiness when SocialFlow deploy lane loses assets upload session retry", async () => {

@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import * as fsSync from "node:fs";
 import path from "node:path";
 
 const repoRoot = process.cwd();
@@ -7,6 +8,7 @@ const configPath = path.resolve(repoRoot, "docs/config/open-next-artifact-matrix
 const artifactWrapperBanner = "// Drako artifact matrix wrapper: generated file, do not edit by hand.\n";
 const scopeAuditVersion = 1;
 const productScopedPreviewFilterVersion = 1;
+const productScopedRuntimeAuditVersion = 1;
 const defaultSocialflowScopeAudit = {
   scopeMode: "standalone-runtime-copy",
   allowedRoutePrefixes: [
@@ -55,6 +57,192 @@ const defaultSocialflowProductScopedPreviewFilter = {
     "api/campamento-base",
   ],
 };
+const socialflowRuntimeAuditAllowedSocialflowPrefixes = [
+  "socialflow",
+  "socialflows",
+  "products/socialflow",
+  "api/socialflow",
+  "api/socialflows",
+  "api/social",
+  "auth/linkedin",
+];
+const socialflowRuntimeAuditAllowedRuntimeRoutes = [
+  "_not-found",
+  "favicon.ico",
+  "page.js",
+  "page_client-reference-manifest.js",
+];
+const socialflowRuntimeAuditAllowedInfraPrefixes = [
+  "api/health",
+  "api/stripe",
+  "api/webhooks/stripe",
+  "billing/success",
+  "billing/cancel",
+];
+const socialflowRuntimeAuditForbiddenRoutePrefixes = [
+  "operator",
+  "owner",
+  "bases",
+  "campobase",
+  "campamento-base",
+  "mentoria",
+  "mentorias",
+  "drakos",
+  "parent",
+  "api/operator",
+  "api/owner",
+  "api/bases",
+  "api/campobase",
+  "api/campamento-base",
+  "api/mentoria",
+  "api/mentorias",
+  "api/drakos",
+  "api/parent",
+  "site/mentoria",
+  "site/mentoria-ar",
+  "site/mentoria-cl",
+  "site/mentoria-co",
+  "site/mentoria-es",
+  "site/mentoria-mx",
+  "(dashboard)/campamento-base",
+  "(dashboard)/campobase",
+  "(dashboard)/parent",
+];
+const socialflowRuntimeAuditSuspiciousRoutePrefixes = [
+  "(dashboard)",
+  "[locale]",
+  "about",
+  "admin",
+  "agents",
+  "alerts",
+  "api/agents",
+  "api/ai",
+  "api/analysis",
+  "api/analytics",
+  "api/appointments",
+  "api/auth",
+  "api/bi",
+  "api/billing",
+  "api/blueprints",
+  "api/branding",
+  "api/catalog",
+  "api/checkout",
+  "api/client-saas",
+  "api/clients",
+  "api/clinic",
+  "api/companies",
+  "api/company",
+  "api/contact",
+  "api/conversation",
+  "api/core",
+  "api/cron",
+  "api/customer",
+  "api/customers",
+  "api/departments",
+  "api/dev-architects",
+  "api/domains",
+  "api/economy",
+  "api/email-intake",
+  "api/employees",
+  "api/events",
+  "api/factory",
+  "api/families",
+  "api/features",
+  "api/grants",
+  "api/inbox",
+  "api/internal",
+  "api/invites",
+  "api/invoices",
+  "api/knowledge",
+  "api/metrics",
+  "api/notifications",
+  "api/onboarding",
+  "api/orchestrator",
+  "api/owners",
+  "api/packs",
+  "api/projects",
+  "api/provision",
+  "api/provisioning",
+  "api/reports",
+  "api/research",
+  "api/saas",
+  "api/saas-agents",
+  "api/site",
+  "api/students",
+  "api/summaries",
+  "api/tasks",
+  "api/templates",
+  "api/tenants",
+  "api/tickets",
+  "api/whatsapp",
+  "auth",
+  "billing",
+  "clients",
+  "clinic",
+  "companies",
+  "contact",
+  "dashboard",
+  "departments",
+  "dev-architects",
+  "grants",
+  "inbox",
+  "journal",
+  "metrics",
+  "preview",
+  "products",
+  "profile",
+  "public",
+  "site",
+  "staff",
+  "system",
+  "vision",
+];
+const socialflowRuntimeAuditForbiddenReferenceRules = [
+  {
+    product: "operator",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?operator(?:\/|\.|$)|\/api\/operator(?:\/|\b)|["']\/operator(?:\/|["'])|@\/(?:components|lib)\/operator)/i,
+  },
+  {
+    product: "owner",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?owner(?:\/|\.|$)|\/api\/owner(?:\/|\b)|["']\/owner(?:\/|["'])|@\/(?:components|lib)\/owner)/i,
+  },
+  {
+    product: "mentoria",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?mentoria(?:\/|\.|$)|\/api\/mentoria(?:\/|\b)|["']\/(?:site\/)?mentoria(?:\/|["'])|@\/(?:components|lib)\/mentoria|MENTORIA_DB|MENTORIA_LEGACY)/i,
+  },
+  {
+    product: "mentorias",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?mentorias(?:\/|\.|$)|\/api\/mentorias(?:\/|\b)|["']\/mentorias(?:\/|["'])|MENTORIAS_AUTHS_DB)/i,
+  },
+  {
+    product: "bases",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?bases(?:\/|\.|$)|\/api\/bases(?:\/|\b)|["']\/bases(?:\/|["'])|BASES_AUTHS_DB|BASE_OPERATOR_AUTH_ONLY)/i,
+  },
+  {
+    product: "campobase",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?campobase(?:\/|\.|$)|\/api\/campobase(?:\/|\b)|["']\/campobase(?:\/|["'])|@\/lib\/campobase)/i,
+  },
+  {
+    product: "campamento-base",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?campamento-base(?:\/|\.|$)|\/api\/campamento-base(?:\/|\b)|["']\/campamento-base(?:\/|["'])|@\/lib\/campamento-base)/i,
+  },
+  {
+    product: "drakos",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?drakos(?:\/|\.|$)|\/api\/drakos(?:\/|\b)|["']\/drakos(?:\/|["'])|DRAKOS_AUTHS_DB)/i,
+  },
+  {
+    product: "parent",
+    pattern: /(?:\/src\/app\/\(dashboard\)\/parent(?:\/|\.|$)|\/api\/parent(?:\/|\b)|["']\/parent(?:\/|["']))/i,
+  },
+];
+const socialflowRuntimeAuditSharedInfraReferenceRules = [
+  { token: "DRACO_DB", pattern: /\bDRACO_DB\b/ },
+  { token: "SAASES_DB", pattern: /\bSAASES_DB\b/ },
+  { token: "SOCIAL_DB", pattern: /\bSOCIAL_DB\b/ },
+  { token: "NEXTAUTH", pattern: /\bNEXTAUTH(?:_SECRET|_URL)?\b/ },
+  { token: "STRIPE", pattern: /\bSTRIPE_(?:SECRET_KEY|WEBHOOK_SECRET)\b/ },
+  { token: "GLOBAL_LAYOUT", pattern: /\/src\/app\/layout\.(?:ts|tsx|js|jsx)/ },
+];
 
 function parseArgs(argv) {
   const values = {};
@@ -372,6 +560,509 @@ async function validateProductScopedPreviewRuntime(previewRoot, removedPrefixes)
   };
 }
 
+function routeMatchesAnyPrefix(routePath, prefixes) {
+  return prefixes.some((prefix) => routeMatchesPrefix(routePath, prefix));
+}
+
+function uniqueSorted(values) {
+  return Array.from(new Set(values.filter(Boolean))).sort();
+}
+
+function extractChunkIds(content) {
+  const chunkIds = new Set();
+  for (const match of content.matchAll(/\.X\(0,\[([^\]]*)\]/g)) {
+    for (const rawChunkId of match[1].split(",")) {
+      const chunkId = rawChunkId.trim();
+      if (/^\d+$/.test(chunkId)) {
+        chunkIds.add(chunkId);
+      }
+    }
+  }
+  return Array.from(chunkIds).sort((a, b) => Number(a) - Number(b));
+}
+
+function extractSourcePaths(content) {
+  const sourcePaths = new Set();
+  for (const match of content.matchAll(/"([^"]*\/src\/[^"]+\.(?:ts|tsx|js|jsx))"/g)) {
+    sourcePaths.add(normalizeRelative(match[1]));
+  }
+  for (const match of content.matchAll(/resolvedPagePath:"([^"]+)"/g)) {
+    sourcePaths.add(normalizeRelative(match[1]));
+  }
+  return Array.from(sourcePaths).sort();
+}
+
+function extractImportReferences(content) {
+  const imports = new Set();
+  for (const match of content.matchAll(/\b(?:require|import)\((["'`])([^"'`]+)\1\)/g)) {
+    imports.add(match[2]);
+  }
+  for (const match of content.matchAll(/\bfrom\s+(["'])([^"']+)\1/g)) {
+    imports.add(match[2]);
+  }
+  return Array.from(imports).sort();
+}
+
+function extractDynamicImportExpressions(content) {
+  const expressions = new Set();
+  for (const match of content.matchAll(/\bimport\(([^)]{1,180})\)/g)) {
+    expressions.add(match[1].trim());
+  }
+  return Array.from(expressions).sort();
+}
+
+function detectForbiddenProducts(content, sourcePaths = []) {
+  const haystack = `${sourcePaths.join("\n")}\n${content}`;
+  return socialflowRuntimeAuditForbiddenReferenceRules
+    .filter((rule) => rule.pattern.test(haystack))
+    .map((rule) => rule.product)
+    .sort();
+}
+
+function detectSharedInfraTokens(content, sourcePaths = []) {
+  const haystack = `${sourcePaths.join("\n")}\n${content}`;
+  return socialflowRuntimeAuditSharedInfraReferenceRules
+    .filter((rule) => rule.pattern.test(haystack))
+    .map((rule) => rule.token)
+    .sort();
+}
+
+function detectForbiddenProductsInRoutePath(routePath) {
+  return socialflowRuntimeAuditForbiddenRoutePrefixes
+    .filter((prefix) => routeMatchesPrefix(routePath, prefix))
+    .map((prefix) => prefix.split("/")[1] ?? prefix.split("/")[0])
+    .map((product) => product.replace(/^\(dashboard\)$/, "dashboard"))
+    .sort();
+}
+
+function splitRouteFilesForRuntimeAudit(routePath, appRoot, serverRoot, appPathEntries) {
+  const executableFiles = new Set(appPathEntries.map((entry) => path.join(serverRoot, entry.relativeFile)));
+  const manifestFiles = new Set();
+  const routeRoot = path.join(appRoot, routePath);
+
+  if (fileExistsSync(routeRoot)) {
+    const stat = fsSyncStat(routeRoot);
+    if (stat.isDirectory()) {
+      for (const filePath of listFilesRecursiveSync(routeRoot)) {
+        const relative = normalizeRelative(path.relative(routeRoot, filePath));
+        if (/^(page|layout|route)\.js$/.test(relative)) {
+          executableFiles.add(filePath);
+        } else if (/^(page|layout|route)_client-reference-manifest\.js$/.test(relative)) {
+          manifestFiles.add(filePath);
+        }
+      }
+    } else if (/_client-reference-manifest\.js$/.test(routeRoot)) {
+      manifestFiles.add(routeRoot);
+    } else {
+      executableFiles.add(routeRoot);
+    }
+  }
+
+  for (const executableFile of Array.from(executableFiles)) {
+    const clientReferenceManifest = executableFile.replace(/\.js$/, "_client-reference-manifest.js");
+    if (fileExistsSync(clientReferenceManifest)) {
+      manifestFiles.add(clientReferenceManifest);
+    }
+  }
+
+  return {
+    executableFiles: Array.from(executableFiles).filter(fileExistsSync).sort(),
+    manifestFiles: Array.from(manifestFiles).filter(fileExistsSync).sort(),
+  };
+}
+
+function fileExistsSync(filePath) {
+  try {
+    return fsSyncStat(filePath).isFile() || fsSyncStat(filePath).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function fsSyncStat(filePath) {
+  return fsSync.statSync(filePath);
+}
+
+function listFilesRecursiveSync(dirPath) {
+  const stat = fsSyncStat(dirPath);
+  if (stat.isFile()) return [dirPath];
+
+  const files = [];
+  for (const entry of fsSync.readdirSync(dirPath, { withFileTypes: true })) {
+    const absolutePath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listFilesRecursiveSync(absolutePath));
+    } else if (entry.isFile()) {
+      files.push(absolutePath);
+    }
+  }
+  return files;
+}
+
+function classifyRuntimeAuditRoute(params) {
+  const routePathProducts = detectForbiddenProductsInRoutePath(params.routePath);
+  const executableProducts = uniqueSorted([
+    ...detectForbiddenProducts(params.executableContent, params.executableSourcePaths),
+  ]);
+  const manifestProducts = uniqueSorted([
+    ...detectForbiddenProducts(params.manifestContent, params.manifestSourcePaths),
+  ]);
+  const sharedChunkProducts = uniqueSorted([
+    ...detectForbiddenProducts(params.sharedChunkContent, params.sharedChunkSourcePaths),
+  ]);
+  const sharedInfraTokens = uniqueSorted([
+    ...detectSharedInfraTokens(params.executableContent, params.executableSourcePaths),
+    ...detectSharedInfraTokens(params.manifestContent, params.manifestSourcePaths),
+    ...detectSharedInfraTokens(params.sharedChunkContent, params.sharedChunkSourcePaths),
+  ]);
+  const reasons = [];
+
+  if (routePathProducts.length > 0) {
+    reasons.push(`route path matches forbidden product surface: ${routePathProducts.join(",")}`);
+  }
+  if (executableProducts.length > 0) {
+    reasons.push(`executable bundle references foreign product tokens: ${executableProducts.join(",")}`);
+  }
+  if (manifestProducts.length > 0) {
+    reasons.push(`client/server manifests retain foreign product references: ${manifestProducts.join(",")}`);
+  }
+  if (sharedChunkProducts.length > 0) {
+    reasons.push(`shared chunks carry foreign product references: ${sharedChunkProducts.join(",")}`);
+  }
+  if (sharedInfraTokens.length > 0) {
+    reasons.push(`shared infra tokens observed: ${sharedInfraTokens.join(",")}`);
+  }
+
+  let category = "UNKNOWN";
+  if (socialflowRuntimeAuditAllowedRuntimeRoutes.includes(params.routePath)) {
+    category = "ALLOWED_SHARED_RUNTIME";
+  } else if (routePathProducts.length > 0 || executableProducts.length > 0) {
+    category = "CROSS_PRODUCT_LEAK";
+  } else if (routeMatchesAnyPrefix(params.routePath, socialflowRuntimeAuditAllowedSocialflowPrefixes)) {
+    category = "ALLOWED_SOCIALFLOW";
+  } else if (routeMatchesAnyPrefix(params.routePath, socialflowRuntimeAuditAllowedInfraPrefixes)) {
+    category = "ALLOWED_SHARED_INFRA";
+  } else if (
+    routeMatchesAnyPrefix(params.routePath, socialflowRuntimeAuditSuspiciousRoutePrefixes) ||
+    manifestProducts.length > 0 ||
+    sharedChunkProducts.length > 0
+  ) {
+    category = "SUSPICIOUS_SHARED_SURFACE";
+  }
+
+  if (category === "UNKNOWN") {
+    reasons.push("no deterministic SocialFlow, shared-runtime, shared-infra or monolith rule matched");
+  }
+
+  return {
+    category,
+    routePathProducts,
+    executableProducts,
+    manifestProducts,
+    sharedChunkProducts,
+    sharedInfraTokens,
+    reasons,
+  };
+}
+
+function countByCategory(routeClassifications) {
+  const counts = {
+    ALLOWED_SHARED_RUNTIME: 0,
+    ALLOWED_SHARED_INFRA: 0,
+    ALLOWED_SOCIALFLOW: 0,
+    SUSPICIOUS_SHARED_SURFACE: 0,
+    CROSS_PRODUCT_LEAK: 0,
+    UNKNOWN: 0,
+  };
+
+  for (const route of routeClassifications) {
+    counts[route.category] = (counts[route.category] ?? 0) + 1;
+  }
+
+  return counts;
+}
+
+function buildRuntimeRiskScore(params) {
+  return Math.min(
+    100,
+    params.crossProductLeaks * 4 +
+      params.suspiciousRoutes +
+      params.unknownRoutes * 2 +
+      params.dangerousSharedDependencies * 2 +
+      params.manifestCrossProductReferences +
+      params.middlewareWarnings * 2 +
+      (params.runtimeIntegrity ? 0 : 25) +
+      params.driftFindings * 10,
+  );
+}
+
+async function buildSocialflowProductScopedRuntimeAudit(previewRoot, previewArtifact, filterReport, scopeAudit, generatedAt) {
+  const serverFunctionsRoot = path.join(previewRoot, "server-functions");
+  const serverRoot = path.join(serverFunctionsRoot, "default/.next/server");
+  const appRoot = path.join(serverRoot, "app");
+  const chunksRoot = path.join(serverRoot, "chunks");
+  const routePaths = await listServerFunctionAppRoutes(serverFunctionsRoot);
+  const appPathsManifestPath = path.join(serverRoot, "app-paths-manifest.json");
+  const appPathsManifest = (await fileExists(appPathsManifestPath)) ? await readJson(appPathsManifestPath) : {};
+  const appPathEntriesByRoute = new Map();
+
+  for (const [manifestKey, relativeFile] of Object.entries(appPathsManifest)) {
+    const routePath = routeFromManifestKey(manifestKey);
+    if (!appPathEntriesByRoute.has(routePath)) {
+      appPathEntriesByRoute.set(routePath, []);
+    }
+    appPathEntriesByRoute.get(routePath).push({
+      manifestKey,
+      relativeFile: normalizeRelative(String(relativeFile)),
+    });
+  }
+
+  const routeClassifications = [];
+  const dangerousSharedDependencyMap = new Map();
+  const dynamicImportReferences = new Set();
+  const relativeImportReferences = new Set();
+
+  for (const routePath of routePaths) {
+    const appPathEntries = appPathEntriesByRoute.get(routePath) ?? [];
+    const routeFiles = splitRouteFilesForRuntimeAudit(routePath, appRoot, serverRoot, appPathEntries);
+    const executableContents = [];
+    const manifestContents = [];
+    const chunkContents = [];
+    const chunkIds = new Set();
+
+    for (const filePath of routeFiles.executableFiles) {
+      const content = await readTextIfExists(filePath);
+      executableContents.push(content);
+      for (const chunkId of extractChunkIds(content)) {
+        chunkIds.add(chunkId);
+      }
+      for (const reference of extractImportReferences(content)) {
+        if (reference.startsWith(".")) relativeImportReferences.add(reference);
+      }
+      for (const reference of extractDynamicImportExpressions(content)) {
+        dynamicImportReferences.add(reference);
+      }
+    }
+
+    for (const filePath of routeFiles.manifestFiles) {
+      manifestContents.push(await readTextIfExists(filePath));
+    }
+
+    for (const chunkId of Array.from(chunkIds).sort((a, b) => Number(a) - Number(b))) {
+      const chunkPath = path.join(chunksRoot, `${chunkId}.js`);
+      const content = await readTextIfExists(chunkPath);
+      if (!content) continue;
+      chunkContents.push(content);
+      const products = detectForbiddenProducts(content, extractSourcePaths(content));
+      const sharedInfraTokens = detectSharedInfraTokens(content, extractSourcePaths(content));
+      if (products.length > 0 || sharedInfraTokens.length > 0) {
+        const existing = dangerousSharedDependencyMap.get(chunkId) ?? {
+          chunkId,
+          filePath: normalizeRelative(path.relative(previewRoot, chunkPath)),
+          products: new Set(),
+          sharedInfraTokens: new Set(),
+          referencedBy: new Set(),
+        };
+        for (const product of products) existing.products.add(product);
+        for (const token of sharedInfraTokens) existing.sharedInfraTokens.add(token);
+        existing.referencedBy.add(routePath);
+        dangerousSharedDependencyMap.set(chunkId, existing);
+      }
+      for (const reference of extractDynamicImportExpressions(content)) {
+        dynamicImportReferences.add(reference);
+      }
+    }
+
+    const executableContent = executableContents.join("\n");
+    const manifestContent = manifestContents.join("\n");
+    const sharedChunkContent = chunkContents.join("\n");
+    const executableSourcePaths = extractSourcePaths(executableContent);
+    const manifestSourcePaths = extractSourcePaths(manifestContent);
+    const sharedChunkSourcePaths = extractSourcePaths(sharedChunkContent);
+    const classification = classifyRuntimeAuditRoute({
+      routePath,
+      executableContent,
+      manifestContent,
+      sharedChunkContent,
+      executableSourcePaths,
+      manifestSourcePaths,
+      sharedChunkSourcePaths,
+    });
+
+    routeClassifications.push({
+      routePath,
+      category: classification.category,
+      reasons: classification.reasons,
+      routeType: routePath.startsWith("api/") ? "api_route" : routePath.includes("route") ? "route_artifact" : "app_route",
+      files: {
+        executable: routeFiles.executableFiles.map((filePath) => normalizeRelative(path.relative(previewRoot, filePath))),
+        manifests: routeFiles.manifestFiles.map((filePath) => normalizeRelative(path.relative(previewRoot, filePath))),
+      },
+      appPathManifestKeys: appPathEntries.map((entry) => entry.manifestKey).sort(),
+      sourcePaths: {
+        executable: executableSourcePaths.slice(0, 25),
+        manifests: manifestSourcePaths.slice(0, 25),
+        sharedChunks: sharedChunkSourcePaths.slice(0, 25),
+      },
+      chunkIds: Array.from(chunkIds).sort((a, b) => Number(a) - Number(b)),
+      referenceHits: {
+        routePathProducts: classification.routePathProducts,
+        executableProducts: classification.executableProducts,
+        manifestProducts: classification.manifestProducts,
+        sharedChunkProducts: classification.sharedChunkProducts,
+        sharedInfraTokens: classification.sharedInfraTokens,
+      },
+    });
+  }
+
+  const categoryCounts = countByCategory(routeClassifications);
+  const allowedRoutes =
+    categoryCounts.ALLOWED_SHARED_RUNTIME + categoryCounts.ALLOWED_SHARED_INFRA + categoryCounts.ALLOWED_SOCIALFLOW;
+  const suspiciousRoutes = categoryCounts.SUSPICIOUS_SHARED_SURFACE;
+  const crossProductLeaks = categoryCounts.CROSS_PRODUCT_LEAK;
+  const unknownRoutes = categoryCounts.UNKNOWN;
+  const sharedInfraRoutes = categoryCounts.ALLOWED_SHARED_INFRA;
+  const routeSet = new Set(routePaths);
+  const filterReportRoutes = Array.isArray(filterReport.remainingRoutes) ? filterReport.remainingRoutes : [];
+  const filterReportRouteSet = new Set(filterReportRoutes);
+  const routesMissingFromFilterReport = routePaths.filter((routePath) => !filterReportRouteSet.has(routePath));
+  const filterReportRoutesMissingFromFilesystem = filterReportRoutes.filter((routePath) => !routeSet.has(routePath));
+  const appPathRouteSet = new Set(Array.from(appPathEntriesByRoute.keys()));
+  const filesystemRoutesMissingFromAppPathsManifest = routePaths.filter((routePath) => !appPathRouteSet.has(routePath));
+  const appPathRoutesMissingFromFilesystem = Array.from(appPathRouteSet)
+    .filter((routePath) => !routeSet.has(routePath))
+    .filter((routePath) => !(routePath === "page" && routeSet.has("page.js")))
+    .sort();
+  const middlewareManifestPath = path.join(serverRoot, "middleware-manifest.json");
+  const middlewareReferences = [];
+  const middlewareWarnings = [];
+
+  if (await fileExists(middlewareManifestPath)) {
+    const middlewareManifest = await readJson(middlewareManifestPath);
+    for (const middleware of Object.values(middlewareManifest.middleware ?? {})) {
+      for (const filePath of middleware.files ?? []) {
+        const absoluteFile = path.join(path.dirname(serverRoot), String(filePath));
+        const exists = await fileExists(absoluteFile);
+        middlewareReferences.push({
+          filePath: String(filePath),
+          exists,
+        });
+        if (!exists) {
+          middlewareWarnings.push(`middleware-manifest references missing ${String(filePath)}`);
+        }
+      }
+    }
+  } else {
+    middlewareWarnings.push("middleware-manifest.json not found in preview");
+  }
+
+  const dangerousSharedDependencies = Array.from(dangerousSharedDependencyMap.values())
+    .map((dependency) => ({
+      chunkId: dependency.chunkId,
+      filePath: dependency.filePath,
+      products: Array.from(dependency.products).sort(),
+      sharedInfraTokens: Array.from(dependency.sharedInfraTokens).sort(),
+      referencedByCount: dependency.referencedBy.size,
+      referencedByExamples: Array.from(dependency.referencedBy).sort().slice(0, 20),
+    }))
+    .sort((a, b) => b.referencedByCount - a.referencedByCount || Number(a.chunkId) - Number(b.chunkId));
+
+  const manifestCrossProductReferences = routeClassifications.filter(
+    (route) => route.referenceHits.manifestProducts.length > 0,
+  ).length;
+  const driftFindings = [
+    ...routesMissingFromFilterReport.map((routePath) => `filesystem route missing from filter-report: ${routePath}`),
+    ...filterReportRoutesMissingFromFilesystem.map((routePath) => `filter-report route missing from filesystem: ${routePath}`),
+    ...appPathRoutesMissingFromFilesystem.map((routePath) => `app-paths-manifest route missing from filesystem: ${routePath}`),
+  ];
+  const blockingFindings = [];
+  const warnings = [
+    ...middlewareWarnings,
+    ...(Array.isArray(filterReport.filteringWarnings) ? filterReport.filteringWarnings : []),
+  ];
+
+  if (crossProductLeaks > 0) {
+    blockingFindings.push(`${crossProductLeaks} routes classified as CROSS_PRODUCT_LEAK`);
+  }
+  if (suspiciousRoutes > 0) {
+    blockingFindings.push(`${suspiciousRoutes} routes classified as SUSPICIOUS_SHARED_SURFACE`);
+  }
+  if (unknownRoutes > 0) {
+    blockingFindings.push(`${unknownRoutes} routes classified as UNKNOWN`);
+  }
+  if (driftFindings.length > 0) {
+    blockingFindings.push(`${driftFindings.length} route inventory drift findings`);
+  }
+  if (filterReport.runtimeIntegrity !== true) {
+    blockingFindings.push("filter-report runtimeIntegrity is not true");
+  }
+  if (dangerousSharedDependencies.length > 0) {
+    warnings.push(`${dangerousSharedDependencies.length} shared chunks carry cross-product or shared-infra references`);
+  }
+  if (manifestCrossProductReferences > 0) {
+    warnings.push(`${manifestCrossProductReferences} route client-reference manifests retain cross-product source references`);
+  }
+
+  const runtimeRiskScore = buildRuntimeRiskScore({
+    crossProductLeaks,
+    suspiciousRoutes,
+    unknownRoutes,
+    dangerousSharedDependencies: dangerousSharedDependencies.length,
+    manifestCrossProductReferences,
+    middlewareWarnings: middlewareWarnings.length,
+    runtimeIntegrity: filterReport.runtimeIntegrity === true,
+    driftFindings: driftFindings.length,
+  });
+  const scopedActivationReady =
+    filterReport.runtimeIntegrity === true &&
+    runtimeRiskScore === 0 &&
+    blockingFindings.length === 0 &&
+    dangerousSharedDependencies.length === 0;
+
+  return {
+    product: previewArtifact.key,
+    artifactMode: previewArtifact.artifactMode,
+    artifactState: previewArtifact.artifactState,
+    derivedFrom: previewArtifact.derivedFrom,
+    previewArtifactPath: normalizeRelative(path.relative(repoRoot, previewRoot)),
+    runtimeAuditVersion: productScopedRuntimeAuditVersion,
+    runtimeAuditGeneratedAt: generatedAt,
+    totalRoutes: routeClassifications.length,
+    allowedRoutes,
+    suspiciousRoutes,
+    crossProductLeaks,
+    unknownRoutes,
+    sharedInfraRoutes,
+    runtimeRiskScore,
+    scopedActivationReady,
+    blockingFindings,
+    warnings: uniqueSorted(warnings),
+    categoryCounts,
+    inventory: {
+      serverFunctionsPath: normalizeRelative(path.relative(repoRoot, serverFunctionsRoot)),
+      appPathManifestRouteCount: appPathEntriesByRoute.size,
+      filterReportRemainingCount: filterReport.remainingCount,
+      scopeAuditRouteCount: scopeAudit.routeCount,
+      routeHandlers: routeClassifications.filter((route) => route.routeType === "api_route").length,
+      appRoutes: routeClassifications.filter((route) => route.routeType === "app_route").length,
+      routesMissingFromFilterReport,
+      filterReportRoutesMissingFromFilesystem,
+      filesystemRoutesMissingFromAppPathsManifest,
+      appPathRoutesMissingFromFilesystem,
+    },
+    importGraph: {
+      dynamicImportReferences: Array.from(dynamicImportReferences).sort().slice(0, 100),
+      relativeImportReferences: Array.from(relativeImportReferences).sort().slice(0, 100),
+      middlewareReferences,
+      dangerousSharedDependencies,
+    },
+    crossProductLeakRoutes: routeClassifications.filter((route) => route.category === "CROSS_PRODUCT_LEAK"),
+    suspiciousRouteDetails: routeClassifications.filter((route) => route.category === "SUSPICIOUS_SHARED_SURFACE"),
+    unknownRouteDetails: routeClassifications.filter((route) => route.category === "UNKNOWN"),
+    routeClassifications,
+  };
+}
+
 async function emitSocialflowProductScopedPreviewArtifact(standaloneArtifact, previewArtifact) {
   const sourceRoot = path.dirname(path.resolve(repoRoot, standaloneArtifact.workerPath));
   const previewRoot = path.dirname(path.resolve(repoRoot, previewArtifact.workerPath));
@@ -447,6 +1138,13 @@ async function emitSocialflowProductScopedPreviewArtifact(standaloneArtifact, pr
     },
     generatedAt,
   );
+  const runtimeAudit = await buildSocialflowProductScopedRuntimeAudit(
+    previewRoot,
+    previewArtifact,
+    filterReport,
+    scopeAudit,
+    generatedAt,
+  );
 
   const manifest = {
     productKey: previewArtifact.key,
@@ -470,11 +1168,19 @@ async function emitSocialflowProductScopedPreviewArtifact(standaloneArtifact, pr
     scopeAuditVersion: scopeAudit.scopeAuditVersion,
     scopeAuditGeneratedAt: scopeAudit.scopeAuditGeneratedAt,
     scopedReady: scopeAudit.scopedReady,
+    runtimeAuditVersion: runtimeAudit.runtimeAuditVersion,
+    runtimeAuditGeneratedAt: runtimeAudit.runtimeAuditGeneratedAt,
+    runtimeRiskScore: runtimeAudit.runtimeRiskScore,
+    scopedActivationReady: runtimeAudit.scopedActivationReady,
+    suspiciousRoutes: runtimeAudit.suspiciousRoutes,
+    crossProductLeaks: runtimeAudit.crossProductLeaks,
+    unknownRoutes: runtimeAudit.unknownRoutes,
   };
 
   await fs.writeFile(path.join(previewRoot, "artifact-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   await fs.writeFile(path.join(previewRoot, "scope-audit.json"), `${JSON.stringify(scopeAudit, null, 2)}\n`, "utf8");
   await fs.writeFile(path.join(previewRoot, "filter-report.json"), `${JSON.stringify(filterReport, null, 2)}\n`, "utf8");
+  await fs.writeFile(path.join(previewRoot, "runtime-audit.json"), `${JSON.stringify(runtimeAudit, null, 2)}\n`, "utf8");
 }
 
 async function copyDir(sourceDir, targetDir) {

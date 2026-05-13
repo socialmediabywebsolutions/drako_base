@@ -252,6 +252,12 @@ describe("SocialFlow vertical boundaries", () => {
     expect(artifactBuilder).toContain("standalone-runtime-copy");
     expect(artifactBuilder).toContain("emitSocialflowProductScopedPreviewArtifact");
     expect(artifactBuilder).toContain("filter-report.json");
+    expect(artifactBuilder).toContain("runtime-audit.json");
+    expect(artifactBuilder).toContain("buildSocialflowProductScopedRuntimeAudit");
+    expect(artifactBuilder).toContain("runtimeRiskScore");
+    expect(artifactBuilder).toContain("scopedActivationReady");
+    expect(artifactBuilder).toContain("CROSS_PRODUCT_LEAK");
+    expect(artifactBuilder).toContain("SUSPICIOUS_SHARED_SURFACE");
     expect(artifactBuilder).toContain("product-scoped-preview");
     expect(artifactBuilder).toContain("validateProductScopedPreviewRuntime");
 
@@ -269,9 +275,16 @@ describe("SocialFlow vertical boundaries", () => {
     expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_NOT_ACTIVATED");
     expect(deployWorkflow).toContain("Verify SocialFlow product-scoped preview artifact");
     expect(deployWorkflow).toContain("SocialFlow product-scoped preview summary");
+    expect(deployWorkflow).toContain("runtime-audit.json");
+    expect(deployWorkflow).toContain("runtimeRiskScore");
+    expect(deployWorkflow).toContain("suspiciousRoutes");
+    expect(deployWorkflow).toContain("crossProductLeaks");
+    expect(deployWorkflow).toContain("scopedActivationReady");
     expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_MISSING");
     expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE");
     expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_INTEGRITY_FAILURE");
+    expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_RUNTIME_AUDIT_MISSING");
+    expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_UNSAFE_ACTIVATION_CLAIM");
   });
 
   it("keeps legacy linkedin connect and callback routes as redirect-only bridges", () => {

@@ -181,6 +181,7 @@ jobs:
           test -f .open-next/socialflows-product-scoped-preview/artifact-manifest.json
           test -f .open-next/socialflows-product-scoped-preview/scope-audit.json
           test -f .open-next/socialflows-product-scoped-preview/filter-report.json
+          test -f .open-next/socialflows-product-scoped-preview/runtime-audit.json
           grep -q '"productKey": "socialflows"' .open-next/socialflows-product-scoped-preview/artifact-manifest.json
           grep -q '"artifactMode": "product-scoped-preview"' .open-next/socialflows-product-scoped-preview/artifact-manifest.json
           grep -q '"artifactState": "inactive-preview"' .open-next/socialflows-product-scoped-preview/artifact-manifest.json
@@ -192,15 +193,20 @@ jobs:
           const manifest = JSON.parse(fs.readFileSync(".open-next/socialflows-product-scoped-preview/artifact-manifest.json", "utf8"));
           const audit = JSON.parse(fs.readFileSync(".open-next/socialflows-product-scoped-preview/scope-audit.json", "utf8"));
           const report = JSON.parse(fs.readFileSync(".open-next/socialflows-product-scoped-preview/filter-report.json", "utf8"));
+          const runtimeAudit = JSON.parse(fs.readFileSync(".open-next/socialflows-product-scoped-preview/runtime-audit.json", "utf8"));
           const missing = [];
-          for (const field of ["filterVersion", "filterGeneratedAt", "runtimeIntegrity", "removedCount", "remainingCount", "unresolvedDependencyCount"]) {
+          for (const field of ["filterVersion", "filterGeneratedAt", "runtimeIntegrity", "removedCount", "remainingCount", "unresolvedDependencyCount", "runtimeAuditVersion", "runtimeRiskScore", "scopedActivationReady", "suspiciousRoutes", "crossProductLeaks"]) {
             if (!(field in manifest)) missing.push(`manifest:${field}`);
           }
           for (const field of ["removedRoutes", "remainingRoutes", "unresolvedDependencies", "filteringWarnings"]) {
             if (!(field in report)) missing.push(`report:${field}`);
           }
+          for (const field of ["totalRoutes", "allowedRoutes", "suspiciousRoutes", "crossProductLeaks", "unknownRoutes", "sharedInfraRoutes", "runtimeRiskScore", "scopedActivationReady", "blockingFindings", "warnings", "routeClassifications"]) {
+            if (!(field in runtimeAudit)) missing.push(`runtimeAudit:${field}`);
+          }
           if (missing.length > 0) {
             console.error(`SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_MISSING ${missing.join(",")}`);
+            console.error(`SOCIALFLOW_PRODUCT_SCOPED_RUNTIME_AUDIT_MISSING ${missing.join(",")}`);
             process.exit(1);
           }
           if (manifest.artifactMode !== "product-scoped-preview" || manifest.artifactState !== "inactive-preview" || manifest.derivedFrom !== "socialflows-standalone") {
@@ -215,7 +221,16 @@ jobs:
             console.error("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE");
             process.exit(1);
           }
+          if (runtimeAudit.totalRoutes !== report.remainingCount || runtimeAudit.routeClassifications.length !== runtimeAudit.totalRoutes) {
+            console.error("SOCIALFLOW_PRODUCT_SCOPED_RUNTIME_AUDIT_MISSING");
+            process.exit(1);
+          }
+          if (runtimeAudit.scopedActivationReady === true && runtimeAudit.crossProductLeaks > 0) {
+            console.error("SOCIALFLOW_PRODUCT_SCOPED_UNSAFE_ACTIVATION_CLAIM");
+            process.exit(1);
+          }
           console.log(`SocialFlow product-scoped preview summary: removedCount=${report.removedCount} remainingCount=${report.remainingCount} runtimeIntegrity=${report.runtimeIntegrity} unresolvedDependencies=${report.unresolvedDependencies.length} scopedReady=${audit.scopedReady}`);
+          console.log(`SocialFlow product-scoped runtime audit summary: runtimeRiskScore=${runtimeAudit.runtimeRiskScore} suspiciousRoutes=${runtimeAudit.suspiciousRoutes} crossProductLeaks=${runtimeAudit.crossProductLeaks} scopedActivationReady=${runtimeAudit.scopedActivationReady}`);
           NODE
           if grep -Eq 'export \{ default \} from|export \* from|../worker.js|.open-next/worker.js' .open-next/socialflows-product-scoped-preview/worker.js; then
             echo "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE"

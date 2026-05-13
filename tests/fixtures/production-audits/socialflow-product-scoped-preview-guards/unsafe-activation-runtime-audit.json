@@ -1,0 +1,123 @@
+{
+  "product": "socialflows",
+  "artifactMode": "product-scoped-preview",
+  "artifactState": "inactive-preview",
+  "derivedFrom": "socialflows-standalone",
+  "previewArtifactPath": ".open-next/socialflows-product-scoped-preview",
+  "runtimeAuditVersion": 1,
+  "runtimeAuditGeneratedAt": "2026-05-12T00:00:00.000Z",
+  "totalRoutes": 2,
+  "allowedRoutes": 1,
+  "suspiciousRoutes": 0,
+  "crossProductLeaks": 1,
+  "unknownRoutes": 0,
+  "sharedInfraRoutes": 0,
+  "runtimeRiskScore": 4,
+  "scopedActivationReady": true,
+  "blockingFindings": [],
+  "warnings": [],
+  "categoryCounts": {
+    "ALLOWED_SHARED_RUNTIME": 0,
+    "ALLOWED_SHARED_INFRA": 0,
+    "ALLOWED_SOCIALFLOW": 1,
+    "SUSPICIOUS_SHARED_SURFACE": 0,
+    "CROSS_PRODUCT_LEAK": 1,
+    "UNKNOWN": 0
+  },
+  "inventory": {
+    "serverFunctionsPath": ".open-next/socialflows-product-scoped-preview/server-functions",
+    "appPathManifestRouteCount": 2,
+    "filterReportRemainingCount": 2,
+    "scopeAuditRouteCount": 2,
+    "routeHandlers": 1,
+    "appRoutes": 1,
+    "routesMissingFromFilterReport": [],
+    "filterReportRoutesMissingFromFilesystem": [],
+    "filesystemRoutesMissingFromAppPathsManifest": [],
+    "appPathRoutesMissingFromFilesystem": []
+  },
+  "importGraph": {
+    "dynamicImportReferences": [],
+    "relativeImportReferences": [],
+    "middlewareReferences": [],
+    "dangerousSharedDependencies": []
+  },
+  "crossProductLeakRoutes": [
+    {
+      "routePath": "api/socialflow/profile",
+      "category": "CROSS_PRODUCT_LEAK",
+      "reasons": ["executable bundle references foreign product tokens: mentoria"],
+      "routeType": "api_route",
+      "files": {
+        "executable": ["server-functions/default/.next/server/app/api/socialflow/profile/route.js"],
+        "manifests": []
+      },
+      "appPathManifestKeys": ["/api/socialflow/profile/route"],
+      "sourcePaths": {
+        "executable": ["src/app/api/socialflow/profile/route.ts"],
+        "manifests": [],
+        "sharedChunks": []
+      },
+      "chunkIds": [],
+      "referenceHits": {
+        "routePathProducts": [],
+        "executableProducts": ["mentoria"],
+        "manifestProducts": [],
+        "sharedChunkProducts": [],
+        "sharedInfraTokens": []
+      }
+    }
+  ],
+  "suspiciousRouteDetails": [],
+  "unknownRouteDetails": [],
+  "routeClassifications": [
+    {
+      "routePath": "api/socialflow/profile",
+      "category": "CROSS_PRODUCT_LEAK",
+      "reasons": ["executable bundle references foreign product tokens: mentoria"],
+      "routeType": "api_route",
+      "files": {
+        "executable": ["server-functions/default/.next/server/app/api/socialflow/profile/route.js"],
+        "manifests": []
+      },
+      "appPathManifestKeys": ["/api/socialflow/profile/route"],
+      "sourcePaths": {
+        "executable": ["src/app/api/socialflow/profile/route.ts"],
+        "manifests": [],
+        "sharedChunks": []
+      },
+      "chunkIds": [],
+      "referenceHits": {
+        "routePathProducts": [],
+        "executableProducts": ["mentoria"],
+        "manifestProducts": [],
+        "sharedChunkProducts": [],
+        "sharedInfraTokens": []
+      }
+    },
+    {
+      "routePath": "socialflow",
+      "category": "ALLOWED_SOCIALFLOW",
+      "reasons": ["route path matches SocialFlow page prefix"],
+      "routeType": "app_route",
+      "files": {
+        "executable": ["server-functions/default/.next/server/app/socialflow/page.js"],
+        "manifests": []
+      },
+      "appPathManifestKeys": ["/socialflow/page"],
+      "sourcePaths": {
+        "executable": ["src/app/socialflow/page.tsx"],
+        "manifests": [],
+        "sharedChunks": []
+      },
+      "chunkIds": [],
+      "referenceHits": {
+        "routePathProducts": [],
+        "executableProducts": [],
+        "manifestProducts": [],
+        "sharedChunkProducts": [],
+        "sharedInfraTokens": []
+      }
+    }
+  ]
+}

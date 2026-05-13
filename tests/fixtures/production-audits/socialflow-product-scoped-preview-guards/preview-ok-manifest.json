@@ -16,5 +16,12 @@
   "foreignRouteCount": 0,
   "scopeAuditVersion": 1,
   "scopeAuditGeneratedAt": "2026-05-12T00:00:00.000Z",
-  "scopedReady": true
+  "scopedReady": true,
+  "runtimeAuditVersion": 1,
+  "runtimeAuditGeneratedAt": "2026-05-12T00:00:00.000Z",
+  "runtimeRiskScore": 0,
+  "scopedActivationReady": true,
+  "suspiciousRoutes": 0,
+  "crossProductLeaks": 0,
+  "unknownRoutes": 0
 }

@@ -1,6 +1,6 @@
 # Production Readiness Audit Report
 
-- Timestamp: `2026-05-12T22:07:31.969Z`
+- Timestamp: `2026-05-13T06:40:35.031Z`
 - Mode: `fixtures`
 - Source of truth: `docs/config/production-audits-expected-state.json`
 - Fixtures dir: `tests/fixtures/production-audits/pass`
@@ -8,12 +8,12 @@
 
 ## Summary
 
-- Checks total: 182
-- Checks pass: 178
-- Checks fail: 1
+- Checks total: 186
+- Checks pass: 181
+- Checks fail: 2
 - Checks N/A: 3
 - Blockers: 0
-- Warnings: 1
+- Warnings: 2
 
 ## Checks
 
@@ -197,6 +197,10 @@
 | socialflowProductScopedPreviewFake | BLOCKER | socialflow:product-scoped-preview | PASS | "preview is inactive, derived from socialflows-standalone and contains real filtered/remaining routes" | {"artifactMode":"product-scoped-preview","artifactState":"inactive-preview","removedCount":180,"remainingCount":297} |
 | socialflowProductScopedPreviewIntegrityFailure | BLOCKER | socialflow:product-scoped-preview | PASS | "runtimeIntegrity=true and no unresolved dependencies" | {"runtimeIntegrity":true,"unresolvedDependencies":[]} |
 | socialflowProductScopedPreviewDrift | BLOCKER | socialflow:product-scoped-preview | PASS | "matrix, builder and CI keep the inactive product-scoped preview lane wired" | "product_scoped_preview_guard_ok" |
+| socialflowProductScopedRuntimeAuditMissing | BLOCKER | socialflow:product-scoped-preview | PASS | "runtime-audit.json exists with complete route classification and risk metadata" | {"totalRoutes":297,"runtimeRiskScore":100,"scopedActivationReady":false} |
+| socialflowProductScopedCrossProductLeak | WARN | socialflow:product-scoped-preview | FAIL | "0 real cross-product leaks before product-scoped activation" | {"crossProductLeaks":67,"examples":["(dashboard)/campamento-base/orchestrator","(dashboard)/campamento-base/panel","(dashboard)/campobase/social","(dashboard)/parent","(dashboard)/socialflow","(dashboard)/socialflow/ai","(dashboard)/socialflow/profile","admin","api/analysis/client-social","api/analysis/competitor-social"]} |
+| socialflowProductScopedRuntimeAuditDrift | BLOCKER | socialflow:product-scoped-preview | PASS | "runtime audit matches manifest, filter-report and CI/builder wiring" | "runtime_audit_guard_ok" |
+| socialflowProductScopedUnsafeActivationClaim | BLOCKER | socialflow:product-scoped-preview | PASS | "scopedActivationReady=true only when no cross-product leaks are present" | {"scopedActivationReady":false,"crossProductLeaks":67} |
 | mentoriaRuntimeGuardDrift | BLOCKER | mentoria:runtime-real-wrapper-only | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | socialflowCanonicalSmokeGuardDrift | BLOCKER | socialflow:canonical-smoke-strict | PASS | "strict canonical smoke with 410 legacy routes and no canonical 405 acceptance" | "strict_smoke_ok" |
 | mentoriaStrictSmokeGuardDrift | BLOCKER | mentoria:local-smoke-strict | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
@@ -205,3 +209,4 @@
 ## Violations
 
 - WARN socialflowStandaloneForeignRouteLeak @ socialflow:standalone-scope-audit: expected="0 foreign routes before product-scoped activation" actual={"scopeMode":"standalone-runtime-copy","foreignRouteCount":180,"foreignRouteHits":["api/bases","api/campamento-base","api/campobase","api/mentoria","api/mentorias","api/operator","api/owner","bases","campobase","mentoria","mentorias","operator","owner","site/panel"],"foreignRouteExamples":["api/bases/auths/logins","api/bases/auths/logouts","api/bases/auths/registrations","api/bases/telemetries/events","api/campamento-base/contracts","api/campamento-base/operator/whatsapp/daily-summary","api/campamento-base/operator/whatsapp/realtime-alert","api/campamento-base/orchestrator","api/campamento-base/provisioning/ai","api/campamento-base/provisioning/branding"]}
+- WARN socialflowProductScopedCrossProductLeak @ socialflow:product-scoped-preview: expected="0 real cross-product leaks before product-scoped activation" actual={"crossProductLeaks":67,"examples":["(dashboard)/campamento-base/orchestrator","(dashboard)/campamento-base/panel","(dashboard)/campobase/social","(dashboard)/parent","(dashboard)/socialflow","(dashboard)/socialflow/ai","(dashboard)/socialflow/profile","admin","api/analysis/client-social","api/analysis/competitor-social"]}

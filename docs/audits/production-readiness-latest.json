@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-05-12T22:07:31.969Z",
+  "timestamp": "2026-05-13T06:40:35.031Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
   "productionReady": true,
   "summary": {
-    "checksTotal": 182,
-    "checksPass": 178,
-    "checksFail": 1,
+    "checksTotal": 186,
+    "checksPass": 181,
+    "checksFail": 2,
     "checksNa": 3,
-    "violationsTotal": 1,
+    "violationsTotal": 2,
     "blockersTotal": 0,
-    "warningsTotal": 1
+    "warningsTotal": 2
   },
   "checks": [
     {
@@ -2081,6 +2081,67 @@
       "details": "Builder, matrix and CI keep generating and verifying the SocialFlow product-scoped preview."
     },
     {
+      "checkCode": "socialflowProductScopedRuntimeAuditMissing",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:product-scoped-preview",
+      "expected": "runtime-audit.json exists with complete route classification and risk metadata",
+      "actual": {
+        "totalRoutes": 297,
+        "runtimeRiskScore": 100,
+        "scopedActivationReady": false
+      },
+      "details": "SocialFlow product-scoped preview runtime audit metadata is present."
+    },
+    {
+      "checkCode": "socialflowProductScopedCrossProductLeak",
+      "severity": "WARN",
+      "status": "FAIL",
+      "targetType": "code_guard",
+      "targetName": "socialflow:product-scoped-preview",
+      "expected": "0 real cross-product leaks before product-scoped activation",
+      "actual": {
+        "crossProductLeaks": 67,
+        "examples": [
+          "(dashboard)/campamento-base/orchestrator",
+          "(dashboard)/campamento-base/panel",
+          "(dashboard)/campobase/social",
+          "(dashboard)/parent",
+          "(dashboard)/socialflow",
+          "(dashboard)/socialflow/ai",
+          "(dashboard)/socialflow/profile",
+          "admin",
+          "api/analysis/client-social",
+          "api/analysis/competitor-social"
+        ]
+      },
+      "details": "Runtime audit still detects cross-product leak routes; warning-only until the product-scoped preview is activated."
+    },
+    {
+      "checkCode": "socialflowProductScopedRuntimeAuditDrift",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:product-scoped-preview",
+      "expected": "runtime audit matches manifest, filter-report and CI/builder wiring",
+      "actual": "runtime_audit_guard_ok",
+      "details": "Runtime audit route inventory and summary stay aligned with generated preview artifacts."
+    },
+    {
+      "checkCode": "socialflowProductScopedUnsafeActivationClaim",
+      "severity": "BLOCKER",
+      "status": "PASS",
+      "targetType": "code_guard",
+      "targetName": "socialflow:product-scoped-preview",
+      "expected": "scopedActivationReady=true only when no cross-product leaks are present",
+      "actual": {
+        "scopedActivationReady": false,
+        "crossProductLeaks": 67
+      },
+      "details": "Runtime audit does not claim safe activation while cross-product leaks remain."
+    },
+    {
       "checkCode": "mentoriaRuntimeGuardDrift",
       "severity": "BLOCKER",
       "status": "PASS",
@@ -2161,6 +2222,29 @@
         ]
       },
       "details": "SocialFlow standalone is still a runtime copy with foreign routes; this is warning-only until product-scoped filtering is activated."
+    },
+    {
+      "checkCode": "socialflowProductScopedCrossProductLeak",
+      "severity": "WARN",
+      "targetType": "code_guard",
+      "targetName": "socialflow:product-scoped-preview",
+      "expected": "0 real cross-product leaks before product-scoped activation",
+      "actual": {
+        "crossProductLeaks": 67,
+        "examples": [
+          "(dashboard)/campamento-base/orchestrator",
+          "(dashboard)/campamento-base/panel",
+          "(dashboard)/campobase/social",
+          "(dashboard)/parent",
+          "(dashboard)/socialflow",
+          "(dashboard)/socialflow/ai",
+          "(dashboard)/socialflow/profile",
+          "admin",
+          "api/analysis/client-social",
+          "api/analysis/competitor-social"
+        ]
+      },
+      "details": "Runtime audit still detects cross-product leak routes; warning-only until the product-scoped preview is activated."
     }
   ],
   "snapshots": {
