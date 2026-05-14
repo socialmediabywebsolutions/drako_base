@@ -700,11 +700,8 @@ function routeClassificationMatchesCriticalLeak(route) {
   if (!["CROSS_PRODUCT_LEAK", "SUSPICIOUS_SHARED_SURFACE"].includes(route.category)) {
     return false;
   }
-  const productHits = routeClassificationCriticalProducts(route);
-  return (
-    routeMatchesAnyPrefix(route.routePath, socialflowRuntimeAuditCriticalLeakPrefixes) ||
-    productHits.some((product) => socialflowRuntimeAuditCriticalLeakProducts.includes(product))
-  );
+
+  return route.leakSeverity === "HIGH_RISK";
 }
 
 function routePrefixForRemovedRoute(routePath, removedRoutePrefixes) {
@@ -887,6 +884,38 @@ function listFilesRecursiveSync(dirPath) {
   return files;
 }
 
+function classifyLeakSeverity(params) {
+  const { routePathProducts, executableProducts, manifestProducts, sharedChunkProducts, sharedInfraTokens } = params;
+
+  const hasRoutePathLeak = routePathProducts.length > 0;
+  const hasExecutableLeak = executableProducts.length > 0;
+  const hasManifestLeak = manifestProducts.length > 0;
+  const hasSharedChunkLeak = sharedChunkProducts.length > 0;
+  const hasOnlySharedInfra = sharedInfraTokens.length > 0 && !hasManifestLeak && !hasSharedChunkLeak;
+
+  if (hasRoutePathLeak || hasExecutableLeak) {
+    return "HIGH_RISK";
+  }
+
+  if (hasSharedChunkLeak && !hasManifestLeak) {
+    return "MEDIUM_RISK";
+  }
+
+  if (hasManifestLeak && !hasSharedChunkLeak) {
+    return "FRAMEWORK_METADATA";
+  }
+
+  if (hasManifestLeak && hasSharedChunkLeak) {
+    return "MEDIUM_RISK";
+  }
+
+  if (hasOnlySharedInfra) {
+    return "LOW_RISK";
+  }
+
+  return "SAFE";
+}
+
 function classifyRuntimeAuditRoute(params) {
   const routePathProducts = detectForbiddenProductsInRoutePath(params.routePath);
   const executableProducts = uniqueSorted([
@@ -942,8 +971,17 @@ function classifyRuntimeAuditRoute(params) {
     reasons.push("no deterministic SocialFlow, shared-runtime, shared-infra or monolith rule matched");
   }
 
+  const leakSeverity = classifyLeakSeverity({
+    routePathProducts,
+    executableProducts,
+    manifestProducts,
+    sharedChunkProducts,
+    sharedInfraTokens,
+  });
+
   return {
     category,
+    leakSeverity,
     routePathProducts,
     executableProducts,
     manifestProducts,
@@ -971,16 +1009,29 @@ function countByCategory(routeClassifications) {
 }
 
 function buildRuntimeRiskScore(params) {
+  const highRiskLeaks = params.highRiskLeaks ?? 0;
+  const mediumRiskLeaks = params.mediumRiskLeaks ?? 0;
+  const lowRiskLeaks = params.lowRiskLeaks ?? 0;
+  const frameworkMetadata = params.frameworkMetadata ?? 0;
+
+  const legacyCrossProductLeaks = params.crossProductLeaks ?? 0;
+  const legacySuspiciousRoutes = params.suspiciousRoutes ?? 0;
+
+  const severityBasedScore = highRiskLeaks * 5 + mediumRiskLeaks * 2 + lowRiskLeaks * 0.5;
+
+  const legacyScore = legacyCrossProductLeaks * 4 + legacySuspiciousRoutes;
+
+  const baseScore = Math.max(severityBasedScore, legacyScore);
+
   return Math.min(
     100,
-    params.crossProductLeaks * 4 +
-      params.suspiciousRoutes +
-      params.unknownRoutes * 2 +
-      params.dangerousSharedDependencies * 2 +
-      params.manifestCrossProductReferences +
-      params.middlewareWarnings * 2 +
+    baseScore +
+      (params.unknownRoutes ?? 0) * 2 +
+      (params.dangerousSharedDependencies ?? 0) * 2 +
+      (params.manifestCrossProductReferences ?? 0) +
+      (params.middlewareWarnings ?? 0) * 2 +
       (params.runtimeIntegrity ? 0 : 25) +
-      params.driftFindings * 10,
+      (params.driftFindings ?? 0) * 10,
   );
 }
 
@@ -1080,6 +1131,7 @@ async function buildSocialflowProductScopedRuntimeAudit(previewRoot, previewArti
     routeClassifications.push({
       routePath,
       category: classification.category,
+      leakSeverity: classification.leakSeverity,
       reasons: classification.reasons,
       routeType: routePath.startsWith("api/") ? "api_route" : routePath.includes("route") ? "route_artifact" : "app_route",
       files: {
@@ -1110,6 +1162,14 @@ async function buildSocialflowProductScopedRuntimeAudit(previewRoot, previewArti
   const crossProductLeaks = categoryCounts.CROSS_PRODUCT_LEAK;
   const unknownRoutes = categoryCounts.UNKNOWN;
   const sharedInfraRoutes = categoryCounts.ALLOWED_SHARED_INFRA;
+
+  const severityCounts = {
+    HIGH_RISK: routeClassifications.filter((r) => r.leakSeverity === "HIGH_RISK").length,
+    MEDIUM_RISK: routeClassifications.filter((r) => r.leakSeverity === "MEDIUM_RISK").length,
+    LOW_RISK: routeClassifications.filter((r) => r.leakSeverity === "LOW_RISK").length,
+    FRAMEWORK_METADATA: routeClassifications.filter((r) => r.leakSeverity === "FRAMEWORK_METADATA").length,
+    SAFE: routeClassifications.filter((r) => r.leakSeverity === "SAFE").length,
+  };
   const routeSet = new Set(routePaths);
   const filterReportRoutes = Array.isArray(filterReport.remainingRoutes) ? filterReport.remainingRoutes : [];
   const filterReportRouteSet = new Set(filterReportRoutes);
@@ -1192,6 +1252,10 @@ async function buildSocialflowProductScopedRuntimeAudit(previewRoot, previewArti
   }
 
   const runtimeRiskScore = buildRuntimeRiskScore({
+    highRiskLeaks: severityCounts.HIGH_RISK,
+    mediumRiskLeaks: severityCounts.MEDIUM_RISK,
+    lowRiskLeaks: severityCounts.LOW_RISK,
+    frameworkMetadata: severityCounts.FRAMEWORK_METADATA,
     crossProductLeaks,
     suspiciousRoutes,
     unknownRoutes,
@@ -1226,6 +1290,13 @@ async function buildSocialflowProductScopedRuntimeAudit(previewRoot, previewArti
     blockingFindings,
     warnings: uniqueSorted(warnings),
     categoryCounts,
+    severityCounts,
+    leaksBySeverity: {
+      highRisk: routeClassifications.filter((r) => r.leakSeverity === "HIGH_RISK").map((r) => r.routePath).sort(),
+      mediumRisk: routeClassifications.filter((r) => r.leakSeverity === "MEDIUM_RISK").map((r) => r.routePath).sort().slice(0, 50),
+      lowRisk: routeClassifications.filter((r) => r.leakSeverity === "LOW_RISK").map((r) => r.routePath).sort().slice(0, 50),
+      frameworkMetadata: routeClassifications.filter((r) => r.leakSeverity === "FRAMEWORK_METADATA").map((r) => r.routePath).sort().slice(0, 50),
+    },
     inventory: {
       serverFunctionsPath: normalizeRelative(path.relative(repoRoot, serverFunctionsRoot)),
       appPathManifestRouteCount: appPathEntriesByRoute.size,

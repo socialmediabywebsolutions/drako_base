@@ -53,6 +53,19 @@
     "CROSS_PRODUCT_LEAK": 1,
     "UNKNOWN": 0
   },
+  "severityCounts": {
+    "HIGH_RISK": 1,
+    "MEDIUM_RISK": 0,
+    "LOW_RISK": 0,
+    "FRAMEWORK_METADATA": 0,
+    "SAFE": 1
+  },
+  "leaksBySeverity": {
+    "highRisk": ["api/socialflow/profile"],
+    "mediumRisk": [],
+    "lowRisk": [],
+    "frameworkMetadata": []
+  },
   "inventory": {
     "serverFunctionsPath": ".open-next/socialflows-product-scoped-preview/server-functions",
     "appPathManifestRouteCount": 2,
@@ -75,6 +88,7 @@
     {
       "routePath": "api/socialflow/profile",
       "category": "CROSS_PRODUCT_LEAK",
+      "leakSeverity": "HIGH_RISK",
       "reasons": ["executable bundle references foreign product tokens: mentoria"],
       "routeType": "api_route",
       "files": {
@@ -103,6 +117,7 @@
     {
       "routePath": "api/socialflow/profile",
       "category": "CROSS_PRODUCT_LEAK",
+      "leakSeverity": "HIGH_RISK",
       "reasons": ["executable bundle references foreign product tokens: mentoria"],
       "routeType": "api_route",
       "files": {
@@ -126,6 +141,7 @@
     },
     {
       "routePath": "socialflow",
+      "leakSeverity": "SAFE",
       "category": "ALLOWED_SOCIALFLOW",
       "reasons": ["route path matches SocialFlow page prefix"],
       "routeType": "app_route",

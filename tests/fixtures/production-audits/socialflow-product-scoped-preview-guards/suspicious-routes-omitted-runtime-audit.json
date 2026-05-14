@@ -19,7 +19,10 @@
   "scopedActivationReady": true,
   "previousLeakCount": 2,
   "newLeakCount": 0,
-  "removedLeakPrefixes": ["api/operator", "operator"],
+  "removedLeakPrefixes": [
+    "api/operator",
+    "operator"
+  ],
   "remainingCriticalLeaks": [],
   "leakReduction": {
     "previousLeakCount": 2,
@@ -34,13 +37,24 @@
   },
   "removedSurfaces": {
     "routeCount": 2,
-    "routePrefixes": ["api/operator", "operator"],
-    "routes": ["operator", "api/operator/actions"],
-    "criticalLeakRoutes": ["api/operator/actions", "operator"]
+    "routePrefixes": [
+      "api/operator",
+      "operator"
+    ],
+    "routes": [
+      "operator",
+      "api/operator/actions"
+    ],
+    "criticalLeakRoutes": [
+      "api/operator/actions",
+      "operator"
+    ]
   },
   "retainedSurfaces": {
     "routeCount": 2,
-    "routes": ["socialflow"],
+    "routes": [
+      "socialflow"
+    ],
     "criticalLeaks": []
   },
   "blockingFindings": [],
@@ -78,15 +92,23 @@
     {
       "routePath": "socialflow",
       "category": "ALLOWED_SOCIALFLOW",
-      "reasons": ["route path matches SocialFlow page prefix"],
+      "reasons": [
+        "route path matches SocialFlow page prefix"
+      ],
       "routeType": "app_route",
       "files": {
-        "executable": ["server-functions/default/.next/server/app/socialflow/page.js"],
+        "executable": [
+          "server-functions/default/.next/server/app/socialflow/page.js"
+        ],
         "manifests": []
       },
-      "appPathManifestKeys": ["/socialflow/page"],
+      "appPathManifestKeys": [
+        "/socialflow/page"
+      ],
       "sourcePaths": {
-        "executable": ["src/app/socialflow/page.tsx"],
+        "executable": [
+          "src/app/socialflow/page.tsx"
+        ],
         "manifests": [],
         "sharedChunks": []
       },
@@ -97,7 +119,21 @@
         "manifestProducts": [],
         "sharedChunkProducts": [],
         "sharedInfraTokens": []
-      }
+      },
+      "leakSeverity": "SAFE"
     }
-  ]
+  ],
+  "severityCounts": {
+    "HIGH_RISK": 0,
+    "MEDIUM_RISK": 0,
+    "LOW_RISK": 0,
+    "FRAMEWORK_METADATA": 0,
+    "SAFE": 1
+  },
+  "leaksBySeverity": {
+    "highRisk": [],
+    "mediumRisk": [],
+    "lowRisk": [],
+    "frameworkMetadata": []
+  }
 }

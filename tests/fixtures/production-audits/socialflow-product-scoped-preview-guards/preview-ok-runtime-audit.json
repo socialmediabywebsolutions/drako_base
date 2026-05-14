@@ -53,6 +53,19 @@
     "CROSS_PRODUCT_LEAK": 0,
     "UNKNOWN": 0
   },
+  "severityCounts": {
+    "HIGH_RISK": 0,
+    "MEDIUM_RISK": 0,
+    "LOW_RISK": 0,
+    "FRAMEWORK_METADATA": 0,
+    "SAFE": 2
+  },
+  "leaksBySeverity": {
+    "highRisk": [],
+    "mediumRisk": [],
+    "lowRisk": [],
+    "frameworkMetadata": []
+  },
   "inventory": {
     "serverFunctionsPath": ".open-next/socialflows-product-scoped-preview/server-functions",
     "appPathManifestRouteCount": 2,
@@ -78,6 +91,7 @@
     {
       "routePath": "api/socialflow/profile",
       "category": "ALLOWED_SOCIALFLOW",
+      "leakSeverity": "SAFE",
       "reasons": ["route path matches SocialFlow API prefix"],
       "routeType": "api_route",
       "files": {
@@ -102,6 +116,7 @@
     {
       "routePath": "socialflow",
       "category": "ALLOWED_SOCIALFLOW",
+      "leakSeverity": "SAFE",
       "reasons": ["route path matches SocialFlow page prefix"],
       "routeType": "app_route",
       "files": {

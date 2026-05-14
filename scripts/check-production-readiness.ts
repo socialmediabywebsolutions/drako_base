@@ -1335,6 +1335,8 @@ const DEFAULT_SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_GUARD: SocialflowProductScopedPr
     "blockingFindings",
     "warnings",
     "categoryCounts",
+    "severityCounts",
+    "leaksBySeverity",
     "inventory",
     "importGraph",
     "crossProductLeakRoutes",
@@ -1385,6 +1387,12 @@ const DEFAULT_SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_GUARD: SocialflowProductScopedPr
     "routeClassifications",
     "CROSS_PRODUCT_LEAK",
     "SUSPICIOUS_SHARED_SURFACE",
+    "HIGH_RISK",
+    "MEDIUM_RISK",
+    "FRAMEWORK_METADATA",
+    "leakSeverity",
+    "severityCounts",
+    "leaksBySeverity",
     "unresolvedDependencies",
     "validateProductScopedPreviewRuntime",
   ],
@@ -4251,26 +4259,15 @@ async function buildSocialflowProductScopedPreviewChecks(
       "site/mentoria-cl",
       "site/mentoria-co",
       "site/mentoria-es",
-      "site/mentoria-mx",
     ];
-    const criticalLeakProducts = ["auth", "billing", "operator", "campobase", "campamento-base", "mentoria", "mentorias", "drakos"];
+    const criticalLeakProducts = ["mentoria", "bases", "campobase", "operator", "drakos"];
     const computedRemainingCriticalLeaks = routeClassifications
-      .filter((item) => item && typeof item === "object")
-      .map((item) => item as Record<string, unknown>)
       .filter((item) => {
-        const routePath = String(item.routePath ?? "");
         const category = String(item.category ?? "");
-        const referenceHits = item.referenceHits && typeof item.referenceHits === "object" ? (item.referenceHits as Record<string, unknown>) : {};
-        const productHits = [
-          ...(Array.isArray(referenceHits.routePathProducts) ? referenceHits.routePathProducts.map(String) : []),
-          ...(Array.isArray(referenceHits.executableProducts) ? referenceHits.executableProducts.map(String) : []),
-          ...(Array.isArray(referenceHits.manifestProducts) ? referenceHits.manifestProducts.map(String) : []),
-          ...(Array.isArray(referenceHits.sharedChunkProducts) ? referenceHits.sharedChunkProducts.map(String) : []),
-        ];
+        const leakSeverity = String(item.leakSeverity ?? "");
         return (
           ["CROSS_PRODUCT_LEAK", "SUSPICIOUS_SHARED_SURFACE"].includes(category) &&
-          (criticalLeakPrefixes.some((prefix) => routeMatchesPrefix(routePath, prefix)) ||
-            productHits.some((product) => criticalLeakProducts.includes(product)))
+          leakSeverity === "HIGH_RISK"
         );
       })
       .map((item) => String(item.routePath))

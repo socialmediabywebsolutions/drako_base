@@ -201,7 +201,7 @@ jobs:
           for (const field of ["removedRoutes", "remainingRoutes", "unresolvedDependencies", "filteringWarnings"]) {
             if (!(field in report)) missing.push(`report:${field}`);
           }
-          for (const field of ["totalRoutes", "allowedRoutes", "suspiciousRoutes", "crossProductLeaks", "unknownRoutes", "sharedInfraRoutes", "runtimeIntegrity", "unresolvedDependencies", "unresolvedDependencyCount", "runtimeRiskScore", "scopedActivationReady", "previousLeakCount", "newLeakCount", "removedLeakPrefixes", "remainingCriticalLeaks", "leakReduction", "removedSurfaces", "retainedSurfaces", "blockingFindings", "warnings", "routeClassifications"]) {
+          for (const field of ["totalRoutes", "allowedRoutes", "suspiciousRoutes", "crossProductLeaks", "unknownRoutes", "sharedInfraRoutes", "runtimeIntegrity", "unresolvedDependencies", "unresolvedDependencyCount", "runtimeRiskScore", "scopedActivationReady", "previousLeakCount", "newLeakCount", "removedLeakPrefixes", "remainingCriticalLeaks", "leakReduction", "removedSurfaces", "retainedSurfaces", "blockingFindings", "warnings", "severityCounts", "leaksBySeverity", "routeClassifications"]) {
             if (!(field in runtimeAudit)) missing.push(`runtimeAudit:${field}`);
           }
           if (missing.length > 0) {
