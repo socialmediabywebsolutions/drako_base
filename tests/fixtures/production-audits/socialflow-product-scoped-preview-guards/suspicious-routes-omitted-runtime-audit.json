@@ -12,8 +12,37 @@
   "crossProductLeaks": 0,
   "unknownRoutes": 0,
   "sharedInfraRoutes": 0,
+  "runtimeIntegrity": true,
+  "unresolvedDependencies": [],
+  "unresolvedDependencyCount": 0,
   "runtimeRiskScore": 0,
   "scopedActivationReady": true,
+  "previousLeakCount": 2,
+  "newLeakCount": 0,
+  "removedLeakPrefixes": ["api/operator", "operator"],
+  "remainingCriticalLeaks": [],
+  "leakReduction": {
+    "previousLeakCount": 2,
+    "newLeakCount": 0,
+    "removedLeakCount": 2,
+    "previousCrossProductLeaks": 2,
+    "newCrossProductLeaks": 0,
+    "previousSuspiciousRoutes": 0,
+    "newSuspiciousRoutes": 0,
+    "removedCriticalLeakCount": 2,
+    "remainingCriticalLeakCount": 0
+  },
+  "removedSurfaces": {
+    "routeCount": 2,
+    "routePrefixes": ["api/operator", "operator"],
+    "routes": ["operator", "api/operator/actions"],
+    "criticalLeakRoutes": ["api/operator/actions", "operator"]
+  },
+  "retainedSurfaces": {
+    "routeCount": 2,
+    "routes": ["socialflow"],
+    "criticalLeaks": []
+  },
   "blockingFindings": [],
   "warnings": [],
   "categoryCounts": {

@@ -12,8 +12,37 @@
   "crossProductLeaks": 1,
   "unknownRoutes": 0,
   "sharedInfraRoutes": 0,
+  "runtimeIntegrity": true,
+  "unresolvedDependencies": [],
+  "unresolvedDependencyCount": 0,
   "runtimeRiskScore": 4,
   "scopedActivationReady": false,
+  "previousLeakCount": 3,
+  "newLeakCount": 1,
+  "removedLeakPrefixes": ["api/operator", "operator"],
+  "remainingCriticalLeaks": ["api/socialflow/profile"],
+  "leakReduction": {
+    "previousLeakCount": 3,
+    "newLeakCount": 1,
+    "removedLeakCount": 2,
+    "previousCrossProductLeaks": 3,
+    "newCrossProductLeaks": 1,
+    "previousSuspiciousRoutes": 0,
+    "newSuspiciousRoutes": 0,
+    "removedCriticalLeakCount": 2,
+    "remainingCriticalLeakCount": 1
+  },
+  "removedSurfaces": {
+    "routeCount": 2,
+    "routePrefixes": ["api/operator", "operator"],
+    "routes": ["operator", "api/operator/actions"],
+    "criticalLeakRoutes": ["api/operator/actions", "operator"]
+  },
+  "retainedSurfaces": {
+    "routeCount": 2,
+    "routes": ["socialflow", "api/socialflow/profile"],
+    "criticalLeaks": ["api/socialflow/profile"]
+  },
   "blockingFindings": ["1 routes classified as CROSS_PRODUCT_LEAK"],
   "warnings": [],
   "categoryCounts": {

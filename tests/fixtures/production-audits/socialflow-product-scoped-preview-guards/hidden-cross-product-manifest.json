@@ -23,5 +23,9 @@
   "scopedActivationReady": false,
   "suspiciousRoutes": 0,
   "crossProductLeaks": 1,
-  "unknownRoutes": 0
+  "unknownRoutes": 0,
+  "previousLeakCount": 3,
+  "newLeakCount": 1,
+  "removedLeakPrefixes": ["api/operator", "operator"],
+  "remainingCriticalLeaks": ["api/socialflow/profile"]
 }

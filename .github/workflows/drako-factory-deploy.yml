@@ -195,13 +195,13 @@ jobs:
           const report = JSON.parse(fs.readFileSync(".open-next/socialflows-product-scoped-preview/filter-report.json", "utf8"));
           const runtimeAudit = JSON.parse(fs.readFileSync(".open-next/socialflows-product-scoped-preview/runtime-audit.json", "utf8"));
           const missing = [];
-          for (const field of ["filterVersion", "filterGeneratedAt", "runtimeIntegrity", "removedCount", "remainingCount", "unresolvedDependencyCount", "runtimeAuditVersion", "runtimeRiskScore", "scopedActivationReady", "suspiciousRoutes", "crossProductLeaks"]) {
+          for (const field of ["filterVersion", "filterGeneratedAt", "runtimeIntegrity", "removedCount", "remainingCount", "unresolvedDependencyCount", "runtimeAuditVersion", "runtimeRiskScore", "scopedActivationReady", "suspiciousRoutes", "crossProductLeaks", "previousLeakCount", "newLeakCount", "removedLeakPrefixes", "remainingCriticalLeaks"]) {
             if (!(field in manifest)) missing.push(`manifest:${field}`);
           }
           for (const field of ["removedRoutes", "remainingRoutes", "unresolvedDependencies", "filteringWarnings"]) {
             if (!(field in report)) missing.push(`report:${field}`);
           }
-          for (const field of ["totalRoutes", "allowedRoutes", "suspiciousRoutes", "crossProductLeaks", "unknownRoutes", "sharedInfraRoutes", "runtimeRiskScore", "scopedActivationReady", "blockingFindings", "warnings", "routeClassifications"]) {
+          for (const field of ["totalRoutes", "allowedRoutes", "suspiciousRoutes", "crossProductLeaks", "unknownRoutes", "sharedInfraRoutes", "runtimeIntegrity", "unresolvedDependencies", "unresolvedDependencyCount", "runtimeRiskScore", "scopedActivationReady", "previousLeakCount", "newLeakCount", "removedLeakPrefixes", "remainingCriticalLeaks", "leakReduction", "removedSurfaces", "retainedSurfaces", "blockingFindings", "warnings", "routeClassifications"]) {
             if (!(field in runtimeAudit)) missing.push(`runtimeAudit:${field}`);
           }
           if (missing.length > 0) {
@@ -225,12 +225,12 @@ jobs:
             console.error("SOCIALFLOW_PRODUCT_SCOPED_RUNTIME_AUDIT_MISSING");
             process.exit(1);
           }
-          if (runtimeAudit.scopedActivationReady === true && runtimeAudit.crossProductLeaks > 0) {
+          if (runtimeAudit.scopedActivationReady === true && (runtimeAudit.crossProductLeaks > 0 || runtimeAudit.suspiciousRoutes > 0 || runtimeAudit.unknownRoutes > 0 || runtimeAudit.runtimeRiskScore > 0 || runtimeAudit.remainingCriticalLeaks.length > 0)) {
             console.error("SOCIALFLOW_PRODUCT_SCOPED_UNSAFE_ACTIVATION_CLAIM");
             process.exit(1);
           }
           console.log(`SocialFlow product-scoped preview summary: removedCount=${report.removedCount} remainingCount=${report.remainingCount} runtimeIntegrity=${report.runtimeIntegrity} unresolvedDependencies=${report.unresolvedDependencies.length} scopedReady=${audit.scopedReady}`);
-          console.log(`SocialFlow product-scoped runtime audit summary: runtimeRiskScore=${runtimeAudit.runtimeRiskScore} suspiciousRoutes=${runtimeAudit.suspiciousRoutes} crossProductLeaks=${runtimeAudit.crossProductLeaks} scopedActivationReady=${runtimeAudit.scopedActivationReady}`);
+          console.log(`SocialFlow product-scoped runtime audit summary: runtimeRiskScore=${runtimeAudit.runtimeRiskScore} suspiciousRoutes=${runtimeAudit.suspiciousRoutes} crossProductLeaks=${runtimeAudit.crossProductLeaks} previousLeakCount=${runtimeAudit.previousLeakCount} newLeakCount=${runtimeAudit.newLeakCount} removedLeakPrefixes=${runtimeAudit.removedLeakPrefixes.length} remainingCriticalLeaks=${runtimeAudit.remainingCriticalLeaks.length} scopedActivationReady=${runtimeAudit.scopedActivationReady}`);
           NODE
           if grep -Eq 'export \{ default \} from|export \* from|../worker.js|.open-next/worker.js' .open-next/socialflows-product-scoped-preview/worker.js; then
             echo "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE"

@@ -40,6 +40,13 @@ const defaultSocialflowScopeAudit = {
 const defaultSocialflowProductScopedPreviewFilter = {
   scopeMode: "product-scoped-preview",
   removedRoutePrefixes: [
+    "auth",
+    "billing",
+    "clinic",
+    "clients",
+    "employees",
+    "tasks",
+    "projects",
     "operator",
     "owner",
     "bases",
@@ -48,6 +55,26 @@ const defaultSocialflowProductScopedPreviewFilter = {
     "campobase",
     "campamento-base",
     "site/panel",
+    "(dashboard)/campobase",
+    "(dashboard)/campamento-base",
+    "(dashboard)/operator",
+    "(dashboard)",
+    "dashboard",
+    "parent",
+    "drakos/auths",
+    "site/mentoria",
+    "site/mentoria-ar",
+    "site/mentoria-cl",
+    "site/mentoria-co",
+    "site/mentoria-es",
+    "site/mentoria-mx",
+    "api/auth",
+    "api/billing",
+    "api/clinic",
+    "api/clients",
+    "api/employees",
+    "api/tasks",
+    "api/projects",
     "api/operator",
     "api/owner",
     "api/bases",
@@ -55,6 +82,8 @@ const defaultSocialflowProductScopedPreviewFilter = {
     "api/mentorias",
     "api/campobase",
     "api/campamento-base",
+    "api/parent",
+    "api/drakos/auths",
   ],
 };
 const socialflowRuntimeAuditAllowedSocialflowPrefixes = [
@@ -80,6 +109,13 @@ const socialflowRuntimeAuditAllowedInfraPrefixes = [
   "billing/cancel",
 ];
 const socialflowRuntimeAuditForbiddenRoutePrefixes = [
+  "auth",
+  "billing",
+  "clinic",
+  "clients",
+  "employees",
+  "tasks",
+  "projects",
   "operator",
   "owner",
   "bases",
@@ -88,7 +124,15 @@ const socialflowRuntimeAuditForbiddenRoutePrefixes = [
   "mentoria",
   "mentorias",
   "drakos",
+  "drakos/auths",
   "parent",
+  "api/auth",
+  "api/billing",
+  "api/clinic",
+  "api/clients",
+  "api/employees",
+  "api/tasks",
+  "api/projects",
   "api/operator",
   "api/owner",
   "api/bases",
@@ -97,6 +141,7 @@ const socialflowRuntimeAuditForbiddenRoutePrefixes = [
   "api/mentoria",
   "api/mentorias",
   "api/drakos",
+  "api/drakos/auths",
   "api/parent",
   "site/mentoria",
   "site/mentoria-ar",
@@ -106,7 +151,47 @@ const socialflowRuntimeAuditForbiddenRoutePrefixes = [
   "site/mentoria-mx",
   "(dashboard)/campamento-base",
   "(dashboard)/campobase",
+  "(dashboard)/operator",
   "(dashboard)/parent",
+];
+const socialflowRuntimeAuditCriticalLeakPrefixes = [
+  "auth",
+  "api/auth",
+  "billing",
+  "api/billing",
+  "operator",
+  "api/operator",
+  "campobase",
+  "api/campobase",
+  "campamento-base",
+  "api/campamento-base",
+  "mentoria",
+  "mentorias",
+  "api/mentoria",
+  "api/mentorias",
+  "drakos/auths",
+  "api/drakos/auths",
+  "dashboard",
+  "(dashboard)",
+  "(dashboard)/campamento-base",
+  "(dashboard)/campobase",
+  "(dashboard)/operator",
+  "site/mentoria",
+  "site/mentoria-ar",
+  "site/mentoria-cl",
+  "site/mentoria-co",
+  "site/mentoria-es",
+  "site/mentoria-mx",
+];
+const socialflowRuntimeAuditCriticalLeakProducts = [
+  "auth",
+  "billing",
+  "operator",
+  "campobase",
+  "campamento-base",
+  "mentoria",
+  "mentorias",
+  "drakos",
 ];
 const socialflowRuntimeAuditSuspiciousRoutePrefixes = [
   "(dashboard)",
@@ -120,16 +205,12 @@ const socialflowRuntimeAuditSuspiciousRoutePrefixes = [
   "api/analysis",
   "api/analytics",
   "api/appointments",
-  "api/auth",
   "api/bi",
-  "api/billing",
   "api/blueprints",
   "api/branding",
   "api/catalog",
   "api/checkout",
   "api/client-saas",
-  "api/clients",
-  "api/clinic",
   "api/companies",
   "api/company",
   "api/contact",
@@ -143,7 +224,6 @@ const socialflowRuntimeAuditSuspiciousRoutePrefixes = [
   "api/domains",
   "api/economy",
   "api/email-intake",
-  "api/employees",
   "api/events",
   "api/factory",
   "api/families",
@@ -160,7 +240,6 @@ const socialflowRuntimeAuditSuspiciousRoutePrefixes = [
   "api/orchestrator",
   "api/owners",
   "api/packs",
-  "api/projects",
   "api/provision",
   "api/provisioning",
   "api/reports",
@@ -170,15 +249,10 @@ const socialflowRuntimeAuditSuspiciousRoutePrefixes = [
   "api/site",
   "api/students",
   "api/summaries",
-  "api/tasks",
   "api/templates",
   "api/tenants",
   "api/tickets",
   "api/whatsapp",
-  "auth",
-  "billing",
-  "clients",
-  "clinic",
   "companies",
   "contact",
   "dashboard",
@@ -198,6 +272,34 @@ const socialflowRuntimeAuditSuspiciousRoutePrefixes = [
   "vision",
 ];
 const socialflowRuntimeAuditForbiddenReferenceRules = [
+  {
+    product: "auth",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?auth(?:\/|\.|$)|\/api\/auth(?:\/|\b)|["']\/auth(?:\/|["'])|@\/(?:components|lib)\/auth|NEXTAUTH_|AUTH_SECRET)/i,
+  },
+  {
+    product: "billing",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?billing(?:\/|\.|$)|\/api\/billing(?:\/|\b)|["']\/billing(?:\/|["'])|@\/(?:components|lib)\/billing)/i,
+  },
+  {
+    product: "clinic",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?clinic(?:\/|\.|$)|\/api\/clinic(?:\/|\b)|["']\/clinic(?:\/|["'])|@\/(?:components|lib)\/clinic)/i,
+  },
+  {
+    product: "clients",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?clients(?:\/|\.|$)|\/api\/clients(?:\/|\b)|["']\/clients(?:\/|["'])|@\/(?:components|lib)\/clients)/i,
+  },
+  {
+    product: "employees",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?employees(?:\/|\.|$)|\/api\/employees(?:\/|\b)|["']\/employees(?:\/|["'])|@\/(?:components|lib)\/employees)/i,
+  },
+  {
+    product: "tasks",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?tasks(?:\/|\.|$)|\/api\/tasks(?:\/|\b)|["']\/tasks(?:\/|["'])|@\/(?:components|lib)\/tasks)/i,
+  },
+  {
+    product: "projects",
+    pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?projects(?:\/|\.|$)|\/api\/projects(?:\/|\b)|["']\/projects(?:\/|["'])|@\/(?:components|lib)\/projects)/i,
+  },
   {
     product: "operator",
     pattern: /(?:\/src\/(?:app|lib|modules|components)\/(?:api\/)?operator(?:\/|\.|$)|\/api\/operator(?:\/|\b)|["']\/operator(?:\/|["'])|@\/(?:components|lib)\/operator)/i,
@@ -566,6 +668,92 @@ function routeMatchesAnyPrefix(routePath, prefixes) {
 
 function uniqueSorted(values) {
   return Array.from(new Set(values.filter(Boolean))).sort();
+}
+
+function buildProductScopedPreviewFilterConfig(previewArtifact) {
+  const overrideFilter = previewArtifact.filter ?? {};
+  return {
+    ...defaultSocialflowProductScopedPreviewFilter,
+    ...overrideFilter,
+    removedRoutePrefixes: uniqueSorted([
+      ...(defaultSocialflowProductScopedPreviewFilter.removedRoutePrefixes ?? []),
+      ...(overrideFilter.removedRoutePrefixes ?? []),
+    ]),
+  };
+}
+
+function routeClassificationLeakCount(runtimeAudit) {
+  return Number(runtimeAudit.crossProductLeaks ?? 0) + Number(runtimeAudit.suspiciousRoutes ?? 0);
+}
+
+function routeClassificationCriticalProducts(route) {
+  const referenceHits = route.referenceHits ?? {};
+  return uniqueSorted([
+    ...(referenceHits.routePathProducts ?? []),
+    ...(referenceHits.executableProducts ?? []),
+    ...(referenceHits.manifestProducts ?? []),
+    ...(referenceHits.sharedChunkProducts ?? []),
+  ]);
+}
+
+function routeClassificationMatchesCriticalLeak(route) {
+  if (!["CROSS_PRODUCT_LEAK", "SUSPICIOUS_SHARED_SURFACE"].includes(route.category)) {
+    return false;
+  }
+  const productHits = routeClassificationCriticalProducts(route);
+  return (
+    routeMatchesAnyPrefix(route.routePath, socialflowRuntimeAuditCriticalLeakPrefixes) ||
+    productHits.some((product) => socialflowRuntimeAuditCriticalLeakProducts.includes(product))
+  );
+}
+
+function routePrefixForRemovedRoute(routePath, removedRoutePrefixes) {
+  return removedRoutePrefixes.find((prefix) => routeMatchesPrefix(routePath, prefix)) ?? routePath.split("/")[0];
+}
+
+function buildRuntimeAuditComparison(previousRuntimeAudit, runtimeAudit, filterReport) {
+  const removedRouteSet = new Set(filterReport.removedRoutes ?? []);
+  const previousLeakRoutes = (previousRuntimeAudit.routeClassifications ?? []).filter((route) =>
+    ["CROSS_PRODUCT_LEAK", "SUSPICIOUS_SHARED_SURFACE"].includes(route.category),
+  );
+  const removedLeakRoutes = previousLeakRoutes.filter((route) => removedRouteSet.has(route.routePath));
+  const removedCriticalLeakRoutes = removedLeakRoutes.filter(routeClassificationMatchesCriticalLeak);
+  const remainingCriticalLeakRoutes = (runtimeAudit.routeClassifications ?? []).filter(routeClassificationMatchesCriticalLeak);
+  const removedLeakPrefixes = uniqueSorted(
+    removedLeakRoutes.map((route) => routePrefixForRemovedRoute(route.routePath, filterReport.removedRoutePrefixes ?? [])),
+  );
+
+  return {
+    runtimeIntegrity: filterReport.runtimeIntegrity === true,
+    unresolvedDependencies: filterReport.unresolvedDependencies ?? [],
+    unresolvedDependencyCount: Array.isArray(filterReport.unresolvedDependencies) ? filterReport.unresolvedDependencies.length : 0,
+    previousLeakCount: routeClassificationLeakCount(previousRuntimeAudit),
+    newLeakCount: routeClassificationLeakCount(runtimeAudit),
+    removedLeakPrefixes,
+    remainingCriticalLeaks: remainingCriticalLeakRoutes.map((route) => route.routePath).sort(),
+    leakReduction: {
+      previousLeakCount: routeClassificationLeakCount(previousRuntimeAudit),
+      newLeakCount: routeClassificationLeakCount(runtimeAudit),
+      removedLeakCount: Math.max(0, routeClassificationLeakCount(previousRuntimeAudit) - routeClassificationLeakCount(runtimeAudit)),
+      previousCrossProductLeaks: previousRuntimeAudit.crossProductLeaks,
+      newCrossProductLeaks: runtimeAudit.crossProductLeaks,
+      previousSuspiciousRoutes: previousRuntimeAudit.suspiciousRoutes,
+      newSuspiciousRoutes: runtimeAudit.suspiciousRoutes,
+      removedCriticalLeakCount: removedCriticalLeakRoutes.length,
+      remainingCriticalLeakCount: remainingCriticalLeakRoutes.length,
+    },
+    removedSurfaces: {
+      routeCount: filterReport.removedCount,
+      routePrefixes: filterReport.removedRoutePrefixes ?? [],
+      routes: filterReport.removedRoutes ?? [],
+      criticalLeakRoutes: removedCriticalLeakRoutes.map((route) => route.routePath).sort(),
+    },
+    retainedSurfaces: {
+      routeCount: filterReport.remainingCount,
+      routes: filterReport.remainingRoutes ?? [],
+      criticalLeaks: remainingCriticalLeakRoutes.map((route) => route.routePath).sort(),
+    },
+  };
 }
 
 function extractChunkIds(content) {
@@ -1067,10 +1255,7 @@ async function emitSocialflowProductScopedPreviewArtifact(standaloneArtifact, pr
   const sourceRoot = path.dirname(path.resolve(repoRoot, standaloneArtifact.workerPath));
   const previewRoot = path.dirname(path.resolve(repoRoot, previewArtifact.workerPath));
   const generatedAt = new Date().toISOString();
-  const filterConfig = {
-    ...defaultSocialflowProductScopedPreviewFilter,
-    ...(previewArtifact.filter ?? {}),
-  };
+  const filterConfig = buildProductScopedPreviewFilterConfig(previewArtifact);
   const removedRoutePrefixes = filterConfig.removedRoutePrefixes;
 
   await copyDir(sourceRoot, previewRoot);
@@ -1079,6 +1264,21 @@ async function emitSocialflowProductScopedPreviewArtifact(standaloneArtifact, pr
   const serverRoot = path.join(serverFunctionsRoot, "default/.next/server");
   const appRoot = path.join(serverRoot, "app");
   const originalRoutes = await listServerFunctionAppRoutes(serverFunctionsRoot);
+  const previousRuntimeAudit = await buildSocialflowProductScopedRuntimeAudit(
+    previewRoot,
+    previewArtifact,
+    {
+      remainingRoutes: originalRoutes,
+      remainingCount: originalRoutes.length,
+      runtimeIntegrity: true,
+      unresolvedDependencies: [],
+      filteringWarnings: [],
+    },
+    {
+      routeCount: originalRoutes.length,
+    },
+    generatedAt,
+  );
   const removedRoutes = originalRoutes.filter((routePath) =>
     removedRoutePrefixes.some((prefix) => routeMatchesPrefix(routePath, prefix)),
   );
@@ -1145,6 +1345,7 @@ async function emitSocialflowProductScopedPreviewArtifact(standaloneArtifact, pr
     scopeAudit,
     generatedAt,
   );
+  Object.assign(runtimeAudit, buildRuntimeAuditComparison(previousRuntimeAudit, runtimeAudit, filterReport));
 
   const manifest = {
     productKey: previewArtifact.key,
@@ -1175,6 +1376,10 @@ async function emitSocialflowProductScopedPreviewArtifact(standaloneArtifact, pr
     suspiciousRoutes: runtimeAudit.suspiciousRoutes,
     crossProductLeaks: runtimeAudit.crossProductLeaks,
     unknownRoutes: runtimeAudit.unknownRoutes,
+    previousLeakCount: runtimeAudit.previousLeakCount,
+    newLeakCount: runtimeAudit.newLeakCount,
+    removedLeakPrefixes: runtimeAudit.removedLeakPrefixes,
+    remainingCriticalLeaks: runtimeAudit.remainingCriticalLeaks,
   };
 
   await fs.writeFile(path.join(previewRoot, "artifact-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
@@ -1199,6 +1404,7 @@ async function copyOpenNextRuntimeSubset(sourceRoot, targetRoot) {
     "mentorias",
     "socialflows",
     "socialflows-standalone",
+    "socialflows-product-scoped-preview",
   ]);
 
   for (const entry of await fs.readdir(sourceRoot, { withFileTypes: true })) {

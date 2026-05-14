@@ -279,46 +279,46 @@ type ProductionAuditsRunOptions = {
 type LegacyProductionGuard = {
   targetName: string;
   filePath: string;
-  mustInclude: string[];
+  mustInclude: readonly string[];
 };
 
 type LegacyAuthDbFallbackFlagGuard = {
   targetName: string;
-  configPaths: string[];
+  configPaths: readonly string[];
   flagName: string;
 };
 
 type DeployablePlaceholderDatabaseIdGuard = {
   targetName: string;
-  configPaths: string[];
-  forbiddenDatabaseIds: string[];
+  configPaths: readonly string[];
+  forbiddenDatabaseIds: readonly string[];
 };
 
 type SocialflowAuthsBindingGuard = {
   targetName: string;
-  configPaths: string[];
+  configPaths: readonly string[];
   socialflowBinding: string;
-  reservedBindings: string[];
+  reservedBindings: readonly string[];
 };
 
 type MentoriaAuthsBindingGuard = {
   targetName: string;
-  configPaths: string[];
+  configPaths: readonly string[];
   mentoriasAuthBinding: string;
-  reservedBindings: string[];
+  reservedBindings: readonly string[];
 };
 
 type MentoriaBindingGuard = {
   targetName: string;
-  configPaths: string[];
+  configPaths: readonly string[];
   mentoriaBinding: string;
-  reservedBindings: string[];
+  reservedBindings: readonly string[];
   fallbackFilePath: string;
   fallbackToken: string;
-  productSourcePaths?: string[];
-  forbiddenImportTokens?: string[];
+  productSourcePaths?: readonly string[];
+  forbiddenImportTokens?: readonly string[];
   workerConfigPath?: string;
-  forbiddenWorkerBindings?: string[];
+  forbiddenWorkerBindings?: readonly string[];
 };
 
 type SocialflowDomainGuard = {
@@ -327,50 +327,50 @@ type SocialflowDomainGuard = {
   canonicalHostname: string;
   expectedWorker: string;
   compatibilityHostname: string;
-  smokeEvidencePaths: string[];
-  smokeEvidenceTokens: string[];
+  smokeEvidencePaths: readonly string[];
+  smokeEvidenceTokens: readonly string[];
 };
 
 type SourceBoundaryGuard = {
   targetName: string;
-  sourcePaths: string[];
-  forbiddenTokens: string[];
+  sourcePaths: readonly string[];
+  forbiddenTokens: readonly string[];
 };
 
 type CompatRouteGuard = {
   targetName: string;
-  routeDirs: string[];
-  requiredAnyTokens: string[];
-  forbiddenTokens: string[];
+  routeDirs: readonly string[];
+  requiredAnyTokens: readonly string[];
+  forbiddenTokens: readonly string[];
 };
 
 type FileTokenRule = {
   filePath: string;
-  requiredTokens?: string[];
-  forbiddenTokens?: string[];
+  requiredTokens?: readonly string[];
+  forbiddenTokens?: readonly string[];
 };
 
 type FileTokenGuard = {
   targetName: string;
-  rules: FileTokenRule[];
+  rules: readonly FileTokenRule[];
 };
 
 type SocialflowSmokeGuard = {
   targetName: string;
   scriptPath: string;
-  canonicalApiPaths: string[];
-  legacyGonePaths: string[];
-  placeholderGuardTokens: string[];
+  canonicalApiPaths: readonly string[];
+  legacyGonePaths: readonly string[];
+  placeholderGuardTokens: readonly string[];
 };
 
 type LegacyCompatInventoryGuard = {
   targetName: string;
-  apiCompatDirs: string[];
-  compatSurfaceDirs: string[];
-  expectedApiCompatPaths: string[];
-  expectedCompatSurfacePaths: string[];
-  redirectPageRules: FileTokenRule[];
-  forbiddenCompatSurfaceTokens: string[];
+  apiCompatDirs: readonly string[];
+  compatSurfaceDirs: readonly string[];
+  expectedApiCompatPaths: readonly string[];
+  expectedCompatSurfacePaths: readonly string[];
+  redirectPageRules: readonly FileTokenRule[];
+  forbiddenCompatSurfaceTokens: readonly string[];
 };
 
 type ArtifactMatrixProduct = {
@@ -427,17 +427,17 @@ type ArtifactMatrixSkeletonGuard = {
     derivedFrom: string;
     deployable: boolean;
   }>;
-  expectedProducts: ArtifactMatrixProduct[];
-  workflowRequiredTokens: string[];
-  buildScriptRequiredTokens: string[];
+  expectedProducts: readonly ArtifactMatrixProduct[];
+  workflowRequiredTokens: readonly string[];
+  buildScriptRequiredTokens: readonly string[];
 };
 
 type ArtifactMatrixPrematureActivationGuard = {
   targetName: string;
-  products: ArtifactMatrixProduct[];
+  products: readonly ArtifactMatrixProduct[];
   workflowPath: string;
-  forbiddenWorkflowTokens: string[];
-  allowedDedicatedProducts?: string[];
+  forbiddenWorkflowTokens: readonly string[];
+  allowedDedicatedProducts?: readonly string[];
 };
 
 type SocialflowStandaloneScopeAuditGuard = {
@@ -449,10 +449,10 @@ type SocialflowStandaloneScopeAuditGuard = {
   expectedProduct: string;
   runtimeCopyScopeMode: string;
   productScopedScopeMode: string;
-  requiredManifestFields: string[];
-  requiredScopeAuditFields: string[];
-  workflowRequiredTokens: string[];
-  buildScriptRequiredTokens: string[];
+  requiredManifestFields: readonly string[];
+  requiredScopeAuditFields: readonly string[];
+  workflowRequiredTokens: readonly string[];
+  buildScriptRequiredTokens: readonly string[];
 };
 
 type SocialflowProductScopedPreviewGuard = {
@@ -468,13 +468,13 @@ type SocialflowProductScopedPreviewGuard = {
   expectedArtifactMode: string;
   expectedArtifactState: string;
   expectedDerivedFrom: string;
-  requiredManifestFields: string[];
-  requiredScopeAuditFields: string[];
-  requiredFilterReportFields: string[];
-  requiredRuntimeAuditFields: string[];
-  workflowRequiredTokens: string[];
-  buildScriptRequiredTokens: string[];
-  matrixRequiredTokens: string[];
+  requiredManifestFields: readonly string[];
+  requiredScopeAuditFields: readonly string[];
+  requiredFilterReportFields: readonly string[];
+  requiredRuntimeAuditFields: readonly string[];
+  workflowRequiredTokens: readonly string[];
+  buildScriptRequiredTokens: readonly string[];
+  matrixRequiredTokens: readonly string[];
 };
 
 type D1BindingRecord = {
@@ -1269,6 +1269,10 @@ const DEFAULT_SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_GUARD: SocialflowProductScopedPr
     "suspiciousRoutes",
     "crossProductLeaks",
     "unknownRoutes",
+    "previousLeakCount",
+    "newLeakCount",
+    "removedLeakPrefixes",
+    "remainingCriticalLeaks",
   ],
   requiredScopeAuditFields: [
     "product",
@@ -1316,8 +1320,18 @@ const DEFAULT_SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_GUARD: SocialflowProductScopedPr
     "crossProductLeaks",
     "unknownRoutes",
     "sharedInfraRoutes",
+    "runtimeIntegrity",
+    "unresolvedDependencies",
+    "unresolvedDependencyCount",
     "runtimeRiskScore",
     "scopedActivationReady",
+    "previousLeakCount",
+    "newLeakCount",
+    "removedLeakPrefixes",
+    "remainingCriticalLeaks",
+    "leakReduction",
+    "removedSurfaces",
+    "retainedSurfaces",
     "blockingFindings",
     "warnings",
     "categoryCounts",
@@ -1338,6 +1352,10 @@ const DEFAULT_SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_GUARD: SocialflowProductScopedPr
     "runtimeRiskScore",
     "suspiciousRoutes",
     "crossProductLeaks",
+    "previousLeakCount",
+    "newLeakCount",
+    "removedLeakPrefixes",
+    "remainingCriticalLeaks",
     "scopedActivationReady",
     "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_MISSING",
     "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE",
@@ -1357,7 +1375,13 @@ const DEFAULT_SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_GUARD: SocialflowProductScopedPr
     "runtimeIntegrity",
     "runtimeRiskScore",
     "scopedActivationReady",
+    "previousLeakCount",
+    "newLeakCount",
+    "removedLeakPrefixes",
+    "remainingCriticalLeaks",
     "buildSocialflowProductScopedRuntimeAudit",
+    "buildProductScopedPreviewFilterConfig",
+    "buildRuntimeAuditComparison",
     "routeClassifications",
     "CROSS_PRODUCT_LEAK",
     "SUSPICIOUS_SHARED_SURFACE",
@@ -1372,6 +1396,10 @@ const DEFAULT_SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_GUARD: SocialflowProductScopedPr
     "\"deployable\": false",
     "\"workerPath\": \".open-next/socialflows-product-scoped-preview/worker.js\"",
     "\"assetsPath\": \".open-next/socialflows-product-scoped-preview/assets\"",
+    "\"api/auth\"",
+    "\"api/billing\"",
+    "\"api/drakos/auths\"",
+    "\"(dashboard)\"",
   ],
 };
 
@@ -3498,7 +3526,7 @@ async function buildLegacyCompatRouteChecks(guard: CompatRouteGuard): Promise<Ch
   ];
 }
 
-function normalizeRelativeFileList(paths: string[]): string[] {
+function normalizeRelativeFileList(paths: readonly string[]): string[] {
   return Array.from(new Set(paths.map((filePath) => filePath.replace(/\\/g, "/")))).sort();
 }
 
@@ -3945,6 +3973,17 @@ async function buildSocialflowProductScopedPreviewChecks(
   const runtimeAuditSharedInfraRoutes = Number(runtimeAudit?.sharedInfraRoutes ?? 0);
   const runtimeRiskScore = Number(runtimeAudit?.runtimeRiskScore ?? 0);
   const scopedActivationReady = Boolean(runtimeAudit?.scopedActivationReady ?? false);
+  const runtimeAuditUnresolvedDependencies = Array.isArray(runtimeAudit?.unresolvedDependencies)
+    ? runtimeAudit.unresolvedDependencies.map(String)
+    : [];
+  const previousLeakCount = Number(runtimeAudit?.previousLeakCount ?? 0);
+  const newLeakCount = Number(runtimeAudit?.newLeakCount ?? 0);
+  const removedLeakPrefixes = Array.isArray(runtimeAudit?.removedLeakPrefixes)
+    ? runtimeAudit.removedLeakPrefixes.map(String).sort()
+    : [];
+  const remainingCriticalLeaks = Array.isArray(runtimeAudit?.remainingCriticalLeaks)
+    ? runtimeAudit.remainingCriticalLeaks.map(String).sort()
+    : [];
   const routeClassifications = Array.isArray(runtimeAudit?.routeClassifications)
     ? runtimeAudit.routeClassifications
     : [];
@@ -4022,6 +4061,24 @@ async function buildSocialflowProductScopedPreviewChecks(
     if (!Array.isArray(runtimeAudit.unknownRouteDetails)) {
       runtimeAuditMissingFailures.push(`${guard.runtimeAuditPath} unknownRouteDetails must be an array`);
     }
+    if (!Array.isArray(runtimeAudit.unresolvedDependencies)) {
+      runtimeAuditMissingFailures.push(`${guard.runtimeAuditPath} unresolvedDependencies must be an array`);
+    }
+    if (!Array.isArray(runtimeAudit.removedLeakPrefixes)) {
+      runtimeAuditMissingFailures.push(`${guard.runtimeAuditPath} removedLeakPrefixes must be an array`);
+    }
+    if (!Array.isArray(runtimeAudit.remainingCriticalLeaks)) {
+      runtimeAuditMissingFailures.push(`${guard.runtimeAuditPath} remainingCriticalLeaks must be an array`);
+    }
+    if (!runtimeAudit.leakReduction || typeof runtimeAudit.leakReduction !== "object") {
+      runtimeAuditMissingFailures.push(`${guard.runtimeAuditPath} leakReduction must be an object`);
+    }
+    if (!runtimeAudit.removedSurfaces || typeof runtimeAudit.removedSurfaces !== "object") {
+      runtimeAuditMissingFailures.push(`${guard.runtimeAuditPath} removedSurfaces must be an object`);
+    }
+    if (!runtimeAudit.retainedSurfaces || typeof runtimeAudit.retainedSurfaces !== "object") {
+      runtimeAuditMissingFailures.push(`${guard.runtimeAuditPath} retainedSurfaces must be an object`);
+    }
 
     const categoryCounts =
       runtimeAudit.categoryCounts && typeof runtimeAudit.categoryCounts === "object"
@@ -4077,6 +4134,33 @@ async function buildSocialflowProductScopedPreviewChecks(
     if (manifest && Number(manifest.suspiciousRoutes ?? runtimeAuditSuspiciousRoutes) !== runtimeAuditSuspiciousRoutes) {
       runtimeAuditDriftFailures.push(`${guard.manifestPath} suspiciousRoutes differs from ${guard.runtimeAuditPath}`);
     }
+    if (manifest && Number(manifest.previousLeakCount ?? previousLeakCount) !== previousLeakCount) {
+      runtimeAuditDriftFailures.push(`${guard.manifestPath} previousLeakCount differs from ${guard.runtimeAuditPath}`);
+    }
+    if (manifest && Number(manifest.newLeakCount ?? newLeakCount) !== newLeakCount) {
+      runtimeAuditDriftFailures.push(`${guard.manifestPath} newLeakCount differs from ${guard.runtimeAuditPath}`);
+    }
+    if (manifest && JSON.stringify(Array.isArray(manifest.removedLeakPrefixes) ? manifest.removedLeakPrefixes.map(String).sort() : []) !== JSON.stringify(removedLeakPrefixes)) {
+      runtimeAuditDriftFailures.push(`${guard.manifestPath} removedLeakPrefixes differs from ${guard.runtimeAuditPath}`);
+    }
+    if (manifest && JSON.stringify(Array.isArray(manifest.remainingCriticalLeaks) ? manifest.remainingCriticalLeaks.map(String).sort() : []) !== JSON.stringify(remainingCriticalLeaks)) {
+      runtimeAuditDriftFailures.push(`${guard.manifestPath} remainingCriticalLeaks differs from ${guard.runtimeAuditPath}`);
+    }
+    if (runtimeAudit.runtimeIntegrity !== runtimeIntegrity) {
+      runtimeAuditDriftFailures.push(`${guard.runtimeAuditPath} runtimeIntegrity differs from filter-report`);
+    }
+    if (Number(runtimeAudit.unresolvedDependencyCount ?? runtimeAuditUnresolvedDependencies.length) !== unresolvedDependencies.length) {
+      runtimeAuditDriftFailures.push(`${guard.runtimeAuditPath} unresolvedDependencyCount differs from filter-report`);
+    }
+    if (JSON.stringify(runtimeAuditUnresolvedDependencies.sort()) !== JSON.stringify(unresolvedDependencies.map(String).sort())) {
+      runtimeAuditDriftFailures.push(`${guard.runtimeAuditPath} unresolvedDependencies differ from filter-report`);
+    }
+    if (newLeakCount !== runtimeAuditCrossProductLeaks + runtimeAuditSuspiciousRoutes) {
+      runtimeAuditDriftFailures.push(`${guard.runtimeAuditPath} newLeakCount must equal crossProductLeaks + suspiciousRoutes`);
+    }
+    if (previousLeakCount < newLeakCount) {
+      runtimeAuditDriftFailures.push(`${guard.runtimeAuditPath} previousLeakCount cannot be lower than newLeakCount`);
+    }
 
     const remainingRoutes = Array.isArray(filterReport?.remainingRoutes) ? filterReport.remainingRoutes.map(String).sort() : [];
     const classifiedRoutes = routeClassifications
@@ -4109,7 +4193,24 @@ async function buildSocialflowProductScopedPreviewChecks(
       "site/mentoria",
       "(dashboard)/campamento-base",
       "(dashboard)/campobase",
+      "(dashboard)/operator",
       "(dashboard)/parent",
+      "auth",
+      "api/auth",
+      "billing",
+      "api/billing",
+      "clinic",
+      "api/clinic",
+      "clients",
+      "api/clients",
+      "employees",
+      "api/employees",
+      "tasks",
+      "api/tasks",
+      "projects",
+      "api/projects",
+      "drakos/auths",
+      "api/drakos/auths",
     ];
     const misclassifiedForeignRoutes = routeClassifications
       .filter((item) => item && typeof item === "object")
@@ -4126,6 +4227,58 @@ async function buildSocialflowProductScopedPreviewChecks(
       );
     }
 
+    const criticalLeakPrefixes = [
+      "auth",
+      "api/auth",
+      "billing",
+      "api/billing",
+      "operator",
+      "api/operator",
+      "campobase",
+      "api/campobase",
+      "campamento-base",
+      "api/campamento-base",
+      "mentoria",
+      "mentorias",
+      "api/mentoria",
+      "api/mentorias",
+      "drakos/auths",
+      "api/drakos/auths",
+      "dashboard",
+      "(dashboard)",
+      "site/mentoria",
+      "site/mentoria-ar",
+      "site/mentoria-cl",
+      "site/mentoria-co",
+      "site/mentoria-es",
+      "site/mentoria-mx",
+    ];
+    const criticalLeakProducts = ["auth", "billing", "operator", "campobase", "campamento-base", "mentoria", "mentorias", "drakos"];
+    const computedRemainingCriticalLeaks = routeClassifications
+      .filter((item) => item && typeof item === "object")
+      .map((item) => item as Record<string, unknown>)
+      .filter((item) => {
+        const routePath = String(item.routePath ?? "");
+        const category = String(item.category ?? "");
+        const referenceHits = item.referenceHits && typeof item.referenceHits === "object" ? (item.referenceHits as Record<string, unknown>) : {};
+        const productHits = [
+          ...(Array.isArray(referenceHits.routePathProducts) ? referenceHits.routePathProducts.map(String) : []),
+          ...(Array.isArray(referenceHits.executableProducts) ? referenceHits.executableProducts.map(String) : []),
+          ...(Array.isArray(referenceHits.manifestProducts) ? referenceHits.manifestProducts.map(String) : []),
+          ...(Array.isArray(referenceHits.sharedChunkProducts) ? referenceHits.sharedChunkProducts.map(String) : []),
+        ];
+        return (
+          ["CROSS_PRODUCT_LEAK", "SUSPICIOUS_SHARED_SURFACE"].includes(category) &&
+          (criticalLeakPrefixes.some((prefix) => routeMatchesPrefix(routePath, prefix)) ||
+            productHits.some((product) => criticalLeakProducts.includes(product)))
+        );
+      })
+      .map((item) => String(item.routePath))
+      .sort();
+    if (JSON.stringify(computedRemainingCriticalLeaks) !== JSON.stringify(remainingCriticalLeaks)) {
+      runtimeAuditDriftFailures.push(`${guard.runtimeAuditPath} remainingCriticalLeaks do not match route classifications`);
+    }
+
     if (runtimeAuditAllowedRoutes + runtimeAuditSuspiciousRoutes + runtimeAuditCrossProductLeaks + runtimeAuditUnknownRoutes !== runtimeAuditTotalRoutes) {
       runtimeAuditDriftFailures.push(`${guard.runtimeAuditPath} route summary counts do not add up to totalRoutes`);
     }
@@ -4135,9 +4288,18 @@ async function buildSocialflowProductScopedPreviewChecks(
     if (!Number.isFinite(runtimeRiskScore) || runtimeRiskScore < 0 || runtimeRiskScore > 100) {
       runtimeAuditMissingFailures.push(`${guard.runtimeAuditPath} runtimeRiskScore must be a finite 0-100 number`);
     }
-    if (scopedActivationReady && runtimeAuditCrossProductLeaks > 0) {
+    if (
+      scopedActivationReady &&
+      (runtimeAuditCrossProductLeaks > 0 ||
+        runtimeAuditSuspiciousRoutes > 0 ||
+        runtimeAuditUnknownRoutes > 0 ||
+        runtimeRiskScore > 0 ||
+        !runtimeIntegrity ||
+        unresolvedDependencies.length > 0 ||
+        remainingCriticalLeaks.length > 0)
+    ) {
       unsafeActivationFailures.push(
-        `${guard.runtimeAuditPath} scopedActivationReady=true while crossProductLeaks=${runtimeAuditCrossProductLeaks}`,
+        `${guard.runtimeAuditPath} scopedActivationReady=true while risk remains crossProductLeaks=${runtimeAuditCrossProductLeaks} suspiciousRoutes=${runtimeAuditSuspiciousRoutes} unknownRoutes=${runtimeAuditUnknownRoutes} remainingCriticalLeaks=${remainingCriticalLeaks.length}`,
       );
     }
   }
