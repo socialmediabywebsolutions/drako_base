@@ -14,7 +14,9 @@ export default function SiteLayout({
 }) {
   return (
     <SiteProviders>
-      {children}
+      <div className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]" data-shell="public">
+        <div className="relative z-10 flex min-h-screen flex-col">{children}</div>
+      </div>
     </SiteProviders>
   );
 }

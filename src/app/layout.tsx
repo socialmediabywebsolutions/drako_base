@@ -1,14 +1,7 @@
 import React from "react";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { normalizeHost } from "@/lib/hosts";
-import ShellLayout from "@/components/layouts/shell-layout";
-import HostSwitcher from "@/components/dev/HostSwitcher";
-import { Providers } from "./providers";
-import { NextAuthProviders } from "./nextauth-providers";
-import { shouldEnableNextAuthClient } from "@/lib/platform/surfaces";
 import { defaultMarketingLocale, resolveLocaleFromRequest } from "@/lib/i18n/marketing";
-import { initializeMentoriaWorkers } from "@/lib/mentoria/resilience/startup";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,94 +15,23 @@ export const metadata: Metadata = {
   },
 };
 
-const AdminShell = ({ children }: { children: React.ReactNode }) => <ShellLayout>{children}</ShellLayout>;
-
-function PublicShell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]" data-shell="public">
-      <div className="relative z-10 flex min-h-screen flex-col">{children}</div>
-    </div>
-  );
-}
-
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Initialize Mentoria resilience workers on app startup
-  try {
-    await initializeMentoriaWorkers();
-  } catch (error) {
-    console.error("[RootLayout] Failed to initialize Mentoria workers:", error);
-  }
-
   const headersList = await headers();
-  const hostMode = headersList.get("x-drako-host-mode") ?? "";
-  const effectiveHost = normalizeHost(headersList.get("x-drako-effective-host") ?? headersList.get("host") ?? "");
-
-  // En local, x-invoke-path o referer pueden ayudar si x-matched-path falla
   const matchedPath =
     headersList.get("x-matched-path") ||
     headersList.get("x-invoke-path") ||
     headersList.get("next-url") ||
-    "";
-
-  const referer = headersList.get("referer") || "";
-  let refererPath = "";
-  try {
-    refererPath = referer ? new URL(referer).pathname : "";
-  } catch {
-    refererPath = "";
-  }
-
-  const { locale: localeFromPath, pathWithoutLocale: normalizedPath } = resolveLocaleFromRequest(matchedPath || "/", null);
-  const { pathWithoutLocale: normalizedRefererPath } = resolveLocaleFromRequest(refererPath || "", null);
-
-  // Public routes that should NEVER show the admin sidebar
-  const publicPrefixes = [
-    "/site",
-    "/auth",
-    "/system",
-    "/products",
-    "/journal",
-    "/vision",
-    "/about",
-    "/contact",
-  ];
-
-  const isHomeRoute = normalizedPath === "/" || normalizedPath === "";
-  const isMentoriasHost =
-    effectiveHost === "mentoria.drako.systems"
-    || effectiveHost === "mentorias.drako.systems"
-    || effectiveHost.startsWith("mentoria.")
-    || effectiveHost.startsWith("mentorias.");
-  const isPublicRoute =
-    isHomeRoute ||
-    publicPrefixes.some((prefix) => normalizedPath.startsWith(prefix) || normalizedRefererPath.startsWith(prefix)) ||
-    referer.includes("/site/") ||
-    referer.includes("/auth/");
-
-  const usePublicShell = isMentoriasHost
-    ? true
-    : hostMode === "PUBLIC_SAAS" || hostMode === "PREVIEW" || isPublicRoute;
-  const enableNextAuth = shouldEnableNextAuthClient(matchedPath || normalizedRefererPath || "/");
-  const showHostSwitcher = !isMentoriasHost;
-
+    "/";
+  const { locale: localeFromPath } = resolveLocaleFromRequest(matchedPath || "/", null);
   const htmlLang = localeFromPath || defaultMarketingLocale;
 
   return (
     <html lang={htmlLang} className="light" suppressHydrationWarning>
-      <body className="antialiased bg-white text-slate-900">
-        <Providers enableNextAuth={enableNextAuth}>
-          {enableNextAuth ? (
-            <NextAuthProviders>
-              {usePublicShell ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
-            </NextAuthProviders>
-          ) : usePublicShell ? <PublicShell>{children}</PublicShell> : <AdminShell>{children}</AdminShell>}
-          {showHostSwitcher ? <HostSwitcher /> : null}
-        </Providers>
-      </body>
+      <body className="antialiased bg-white text-slate-900">{children}</body>
     </html>
   );
 }

@@ -912,7 +912,7 @@ async function loadTenantIsolationEvidenceSources() {
     "src/app/socialflow/(workspace)/settings/billing/page.tsx",
     "src/app/socialflow/(workspace)/settings/ownership/page.tsx",
     "src/app/socialflow/(workspace)/settings/team/page.tsx",
-    "src/components/settings/account-settings.tsx",
+    "src/components/settings/socialflow-account-settings.tsx",
     "src/lib/auths/repositories.ts",
     "src/lib/export/wipeout-package.ts",
     "src/lib/socialflow/auth/request.ts",
@@ -1070,7 +1070,7 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
           "src/app/socialflow/(workspace)/settings/account/page.tsx",
           "src/modules/socialflow-app/settings/account-page.tsx",
         ],
-        services: ["src/components/settings/account-settings.tsx"],
+        services: ["src/components/settings/socialflow-account-settings.tsx"],
         repositories: ["src/lib/auths/repositories.ts"],
         dbWrappers: ["src/lib/auths/repositories.ts"],
         sql: [],
@@ -1242,10 +1242,11 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
       },
       evidence: [
         "The source not-found page is static and performs no direct DRACO_DB query.",
+        "The shared root layout is now shell-neutral and no longer boots Mentoria workers or the NextAuth client provider before generic route rendering.",
       ],
       gaps: [
-        "The shared root layout still initializes Mentoria workers and NextAuth client providers before rendering generic routes.",
         "Compiled _not-found output still carries shared manifest/chunk references, so tenant-bound execution cannot be fully proven for this route.",
+        "The monolithic Next/OpenNext bundle still retains shared root graph references for generic routes outside the SocialFlow workspace tree.",
       ],
     },
   ].map((route) => ({

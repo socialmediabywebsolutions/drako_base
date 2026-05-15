@@ -1,120 +1,47 @@
-import { describe, it, expect, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import React from "react";
 import RootLayout from "../app/layout";
 import { headers } from "next/headers";
-import React from "react";
 
-// Mock implementation of headers
 vi.mock("next/headers", () => ({
-    headers: vi.fn(),
+  headers: vi.fn(),
 }));
 
-// Mock Providers to avoid SessionProvider context issues
-vi.mock("../app/providers", () => ({
-    Providers: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
-
-// Mock Shell Components to avoid heavy rendering
-vi.mock("@/components/layouts/shell-layout", () => ({
-    default: ({ children }: { children: React.ReactNode }) => (
-        <div data-testid="admin-shell" data-shell="admin">{children}</div>
-    )
-}));
-
-vi.mock("@/components/dev/HostSwitcher", () => ({
-    default: () => <div data-testid="host-switcher" />
-}));
+function getBodyChild(result: React.ReactElement) {
+  const body = result.props.children as React.ReactElement;
+  expect(body.type).toBe("body");
+  return body.props.children as React.ReactElement;
+}
 
 describe("UI Shell Isolation (Steel Anti-Leak)", () => {
-    it("should render PublicShell for /site routes", async () => {
-        (headers as any).mockResolvedValue(new Map([
-            ["x-drako-host-mode", "CAMPAMENTO_BASE"],
-            ["x-matched-path", "/site/panel"]
-        ]));
+  it("keeps the root layout neutral for site routes", async () => {
+    (headers as any).mockResolvedValue(new Map([["x-matched-path", "/site/panel"]]));
 
-        const result = await RootLayout({ children: <div data-testid="content">Content</div> });
-        render(result as any);
+    const result = await RootLayout({ children: <div data-testid="content">Content</div> }) as React.ReactElement;
+    const child = getBodyChild(result);
 
-        const publicShell = document.querySelector('[data-shell="public"]');
-        expect(publicShell).toBeInTheDocument();
-    });
+    expect(result.type).toBe("html");
+    expect(result.props.lang).toBe("es");
+    expect(child.props["data-testid"]).toBe("content");
+  });
 
-    it("should render AdminShell for root admin routes", async () => {
-        (headers as any).mockResolvedValue(new Map([
-            ["x-drako-host-mode", "CAMPAMENTO_BASE"],
-            ["x-matched-path", "/admin"]
-        ]));
+  it("derives the locale from localized public paths without injecting shells", async () => {
+    (headers as any).mockResolvedValue(new Map([["x-matched-path", "/en/products"]]));
 
-        const result = await RootLayout({ children: <div data-testid="content">Content</div> });
-        render(result as any);
+    const result = await RootLayout({ children: <div data-testid="localized-content">Content</div> }) as React.ReactElement;
+    const child = getBodyChild(result);
 
-        const adminShell = document.querySelector('[data-shell="admin"]');
-        expect(adminShell).toBeInTheDocument();
-    });
+    expect(result.props.lang).toBe("en");
+    expect(child.props["data-testid"]).toBe("localized-content");
+  });
 
-    it("should render PublicShell when hostMode is PUBLIC_SAAS", async () => {
-        (headers as any).mockResolvedValue(new Map([
-            ["x-drako-host-mode", "PUBLIC_SAAS"],
-            ["x-matched-path", "/dashboard"]
-        ]));
+  it("stays neutral for mentoria workspace routes", async () => {
+    (headers as any).mockResolvedValue(new Map([["x-matched-path", "/mentoria/app"]]));
 
-        const result = await RootLayout({ children: <div data-testid="content">Content</div> });
-        render(result as any);
+    const result = await RootLayout({ children: <div data-testid="mentoria-content">Content</div> }) as React.ReactElement;
+    const child = getBodyChild(result);
 
-        const publicShell = document.querySelector('[data-shell="public"]');
-        expect(publicShell).toBeInTheDocument();
-    });
-
-    it("should render PublicShell for /mentoria/app on Mentoria host", async () => {
-        (headers as any).mockResolvedValue(new Map([
-            ["x-drako-host-mode", "PUBLIC_SAAS"],
-            ["x-drako-effective-host", "mentoria.drako.systems"],
-            ["x-matched-path", "/mentoria/app"]
-        ]));
-
-        const result = await RootLayout({ children: <div data-testid="content">Content</div> });
-        render(result as any);
-
-        const publicShell = document.querySelector('[data-shell="public"]');
-        const adminShell = document.querySelector('[data-shell="admin"]');
-        expect(publicShell).toBeInTheDocument();
-        expect(adminShell).not.toBeInTheDocument();
-        expect(document.querySelector('[data-testid="host-switcher"]')).not.toBeInTheDocument();
-    });
-
-    it("should render PublicShell for /mentorias/auths/logins on Mentoria host", async () => {
-        (headers as any).mockResolvedValue(new Map([
-            ["x-drako-host-mode", "PUBLIC_SAAS"],
-            ["x-drako-effective-host", "mentoria.drako.systems"],
-            ["x-matched-path", "/mentorias/auths/logins"]
-        ]));
-
-        const result = await RootLayout({ children: <div data-testid="content">Content</div> });
-        render(result as any);
-
-        const publicShell = document.querySelector('[data-shell="public"]');
-        const adminShell = document.querySelector('[data-shell="admin"]');
-        expect(publicShell).toBeInTheDocument();
-        expect(adminShell).not.toBeInTheDocument();
-        expect(document.querySelector('[data-testid="host-switcher"]')).not.toBeInTheDocument();
-    });
-
-    it("should render PublicShell for /mentorias/auths/registrations on Mentoria host", async () => {
-        (headers as any).mockResolvedValue(new Map([
-            ["x-drako-host-mode", "PUBLIC_SAAS"],
-            ["x-drako-effective-host", "mentoria.drako.systems"],
-            ["x-matched-path", "/mentorias/auths/registrations"]
-        ]));
-
-        const result = await RootLayout({ children: <div data-testid="content">Content</div> });
-        render(result as any);
-
-        const publicShell = document.querySelector('[data-shell="public"]');
-        const adminShell = document.querySelector('[data-shell="admin"]');
-        expect(publicShell).toBeInTheDocument();
-        expect(adminShell).not.toBeInTheDocument();
-        expect(document.querySelector('[data-testid="host-switcher"]')).not.toBeInTheDocument();
-    });
+    expect(result.props.lang).toBe("es");
+    expect(child.props["data-testid"]).toBe("mentoria-content");
+  });
 });
-
-import "@testing-library/jest-dom";

@@ -1,4 +1,4 @@
-import AccountSettings from "@/components/settings/account-settings";
+import SocialFlowAccountSettings from "@/components/settings/socialflow-account-settings";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { redirect } from "next/navigation";
 
@@ -21,7 +21,7 @@ export default async function SocialFlowAccountSettingsPage() {
           SocialFlow now resolves this workspace from the product auth boundary only, without using Campo Base session state.
         </p>
       </div>
-      <AccountSettings
+      <SocialFlowAccountSettings
         user={{
           name: session.name,
           email: session.email,
@@ -42,7 +42,6 @@ export default async function SocialFlowAccountSettingsPage() {
           role: mapRole(session.role),
         }]}
         allowWorkspaceSwitch={false}
-        logoutMode="auths"
         logoutEndpoint="/api/socialflow/auths/logouts"
         logoutRedirectTo="/socialflow/auth"
         sessionLabel="isolated socialflow session"

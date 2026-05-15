@@ -293,6 +293,8 @@ describe("SocialFlow vertical boundaries", () => {
   });
 
   it("keeps shared-db SocialFlow routes guarded by tenant isolation evidence", () => {
+    const rootLayout = read("src/app/layout.tsx");
+    const mentoriaLayout = read("src/app/mentoria/layout.tsx");
     const middleware = read("src/middleware.ts");
     const tenantIsolation = read("src/lib/socialflow/auth/tenant-isolation.ts");
     const authServer = read("src/lib/socialflow/auth/server.ts");
@@ -304,8 +306,15 @@ describe("SocialFlow vertical boundaries", () => {
     const workspaceLayout = read("src/app/socialflow/(workspace)/layout.tsx");
     const billingPage = read("src/app/socialflow/(workspace)/settings/billing/page.tsx");
     const accountPage = read("src/modules/socialflow-app/settings/account-page.tsx");
+    const socialFlowAccountSettings = read("src/components/settings/socialflow-account-settings.tsx");
     const ownershipPage = read("src/modules/socialflow-app/settings/ownership-page.tsx");
     const teamPage = read("src/modules/socialflow-app/settings/team-page.tsx");
+
+    expect(rootLayout).not.toContain("ShellLayout");
+    expect(rootLayout).not.toContain("HostSwitcher");
+    expect(rootLayout).not.toContain("NextAuthProviders");
+    expect(rootLayout).not.toContain("initializeMentoriaWorkers");
+    expect(mentoriaLayout).toContain("initializeMentoriaWorkers()");
 
     expect(middleware).toContain("CROSS_TENANT_ACCESS_FORBIDDEN");
     expect(middleware).toContain("TenantMismatch");
@@ -334,8 +343,11 @@ describe("SocialFlow vertical boundaries", () => {
 
     expect(workspaceLayout).toContain("getCurrentSocialFlowSession()");
     expect(workspaceLayout).toContain('redirect("/socialflow/auth")');
+    expect(accountPage).toContain("SocialFlowAccountSettings");
     expect(accountPage).toContain("currentTenantId: session.tenantId");
     expect(accountPage).toContain("tenantId: session.tenantId");
+    expect(socialFlowAccountSettings).not.toContain("next-auth/react");
+    expect(socialFlowAccountSettings).toContain('fetch(logoutEndpoint, { method: "POST" })');
     expect(billingPage).toContain("fails closed until that wiring exists behind the product boundary");
     expect(ownershipPage).toContain('link.href = "/api/socialflow/exports/current"');
     expect(teamPage).toContain("tenantId: session.tenantId");
