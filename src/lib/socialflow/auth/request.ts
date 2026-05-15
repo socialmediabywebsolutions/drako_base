@@ -1,5 +1,10 @@
 import { getAuthsCookieName } from "@/lib/auths/cookies";
+import { getAuthsUserById } from "@/lib/auths/repositories";
 import { verifyAuthsSessionToken } from "@/lib/auths/tokens";
+import {
+  readTenantIdFromHeaderGetter,
+  validateSocialFlowTenantIsolation,
+} from "@/lib/socialflow/auth/tenant-isolation";
 
 export type SocialFlowRequestSession = {
   userId: string;
@@ -24,6 +29,26 @@ export async function getCurrentSocialFlowSessionFromRequest(request: Request): 
 
   const claims = await verifyAuthsSessionToken(token, "socialflow");
   if (!claims) return null;
+
+  const user = await getAuthsUserById({
+    context: "socialflow",
+    userId: claims.sub,
+  });
+  const tenantIsolation = validateSocialFlowTenantIsolation({
+    sessionTenantId: claims.tenantId,
+    headerTenantId: readTenantIdFromHeaderGetter((name) => request.headers.get(name)),
+    authUserTenantId: user?.tenant_id ?? null,
+    requireAuthUser: true,
+  });
+
+  if (!tenantIsolation.ok) {
+    console.error("SOCIALFLOW_REQUEST_TENANT_ISOLATION_FAILED", {
+      userId: claims.sub,
+      reason: tenantIsolation.reason,
+      ...tenantIsolation.details,
+    });
+    return null;
+  }
 
   return {
     userId: claims.sub,

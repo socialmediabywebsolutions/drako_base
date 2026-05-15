@@ -25,6 +25,8 @@ interface StrategicDossier {
 
 interface AgentWorkLog {
   id: string;
+  tenant_id: string;
+  saas_id: string;
   agent_name: string;
   action_type: string;
   status: string;
@@ -35,6 +37,8 @@ interface AgentWorkLog {
 
 interface EconomicEvent {
   id: string;
+  tenant_id: string;
+  saas_id: string | null;
   type: string;
   severity: string;
   payload_json: string;
@@ -42,9 +46,55 @@ interface EconomicEvent {
 }
 
 interface DomainRecord {
+  tenant_id: string;
+  saas_id: string;
   domain: string;
   is_primary: number | boolean;
   status: string;
+}
+
+interface OrchestratorMessage {
+  tenant_id: string;
+  role: string;
+  content: string;
+  created_at: string;
+}
+
+export type TenantScopedRow = {
+  tenant_id?: string | null;
+  saas_id?: string | null;
+};
+
+function assertScopeField(row: TenantScopedRow, field: "tenant_id" | "saas_id", entity: string) {
+  if (!(field in row)) {
+    throw new Error(`${entity} row missing ${field} verification field`);
+  }
+}
+
+export function assertTenantScopedRows<T extends TenantScopedRow>(
+  rows: T[],
+  params: {
+    entity: string;
+    tenantId: string;
+    saasId?: string;
+    requireSaasId?: boolean;
+  },
+): T[] {
+  for (const row of rows) {
+    assertScopeField(row, "tenant_id", params.entity);
+    if (row.tenant_id !== params.tenantId) {
+      throw new Error(`${params.entity} row escaped tenant isolation for tenant ${params.tenantId}`);
+    }
+
+    if (params.requireSaasId) {
+      assertScopeField(row, "saas_id", params.entity);
+      if (row.saas_id !== params.saasId) {
+        throw new Error(`${params.entity} row escaped SaaS isolation for saas ${params.saasId}`);
+      }
+    }
+  }
+
+  return rows;
 }
 
 export async function generateWipeoutPackage(saasId: string, tenantId: string): Promise<{ buffer: Buffer; filename: string }> {
@@ -70,6 +120,12 @@ export async function generateWipeoutPackage(saasId: string, tenantId: string): 
     "SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status IN ('active', 'analyzed') ORDER BY created_at DESC LIMIT 1",
     tenantId,
   );
+  if (dossier) {
+    assertTenantScopedRows([dossier], {
+      entity: "tenant_strategic_dossiers",
+      tenantId,
+    });
+  }
 
   if (dossier) {
     zip.folder("dossier")?.file("dossier.json", JSON.stringify(dossier, null, 2));
@@ -92,9 +148,16 @@ export async function generateWipeoutPackage(saasId: string, tenantId: string): 
   }
 
   const workLogs = await queryAll<AgentWorkLog>(
-    "SELECT id, agent_name, action_type, status, output_json, cost_eur, created_at FROM agent_work_logs WHERE saas_id = ? ORDER BY created_at DESC LIMIT 5000",
+    "SELECT id, tenant_id, saas_id, agent_name, action_type, status, output_json, cost_eur, created_at FROM agent_work_logs WHERE tenant_id = ? AND saas_id = ? ORDER BY created_at DESC LIMIT 5000",
+    tenantId,
     saasId,
   );
+  assertTenantScopedRows(workLogs, {
+    entity: "agent_work_logs",
+    tenantId,
+    saasId,
+    requireSaasId: true,
+  });
   counts.logs = workLogs.length;
 
   if (workLogs.length > 0) {
@@ -112,22 +175,24 @@ export async function generateWipeoutPackage(saasId: string, tenantId: string): 
     zip.folder("execution")?.file("work_logs.csv", "id,agent_name,action_type,status,cost_eur,created_at,output_snippet\n");
   }
 
-  try {
-    const msgs = await queryAll<{ role: string; content: string; created_at: string }>(
-      "SELECT role, content, created_at FROM orchestrator_messages WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1000",
-      tenantId,
-    );
-    if (msgs && msgs.length > 0) {
-      const msgHeader = "role,created_at,content\n";
-      const msgRows = msgs
-        .map((m) => {
-          const content = m.content ? m.content.replace(/"/g, '""') : "";
-          return `${m.role},${m.created_at},"${content}"`;
-        })
-        .join("\n");
-      zip.folder("execution")?.file("orchestrator_messages.csv", msgHeader + msgRows);
-    }
-  } catch {}
+  const msgs = await queryAll<OrchestratorMessage>(
+    "SELECT tenant_id, role, content, created_at FROM orchestrator_messages WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1000",
+    tenantId,
+  );
+  assertTenantScopedRows(msgs, {
+    entity: "orchestrator_messages",
+    tenantId,
+  });
+  if (msgs.length > 0) {
+    const msgHeader = "role,created_at,content\n";
+    const msgRows = msgs
+      .map((m) => {
+        const content = m.content ? m.content.replace(/"/g, '""') : "";
+        return `${m.role},${m.created_at},"${content}"`;
+      })
+      .join("\n");
+    zip.folder("execution")?.file("orchestrator_messages.csv", msgHeader + msgRows);
+  }
 
   const financialsHeader = "metric,value,unit\n";
   const financialsRows = [
@@ -139,9 +204,16 @@ export async function generateWipeoutPackage(saasId: string, tenantId: string): 
   zip.folder("economics")?.file("financials.csv", financialsHeader + financialsRows);
 
   const ecoEvents = await queryAll<EconomicEvent>(
-    "SELECT id, type, severity, payload_json, created_at FROM economic_events WHERE saas_id = ? ORDER BY created_at DESC LIMIT 2000",
+    "SELECT id, tenant_id, saas_id, type, severity, payload_json, created_at FROM economic_events WHERE tenant_id = ? AND saas_id = ? ORDER BY created_at DESC LIMIT 2000",
+    tenantId,
     saasId,
   );
+  assertTenantScopedRows(ecoEvents, {
+    entity: "economic_events",
+    tenantId,
+    saasId,
+    requireSaasId: true,
+  });
   counts.economic_events = ecoEvents.length;
 
   if (ecoEvents.length > 0) {
@@ -156,9 +228,16 @@ export async function generateWipeoutPackage(saasId: string, tenantId: string): 
   }
 
   const domains = await queryAll<DomainRecord>(
-    "SELECT domain, is_primary, status FROM saas_domains WHERE saas_id = ?",
+    "SELECT tenant_id, saas_id, domain, is_primary, status FROM saas_domains WHERE tenant_id = ? AND saas_id = ?",
+    tenantId,
     saasId,
   );
+  assertTenantScopedRows(domains, {
+    entity: "saas_domains",
+    tenantId,
+    saasId,
+    requireSaasId: true,
+  });
   counts.domains = domains.length;
   if (domains.length > 0) {
     zip.folder("domains")?.file("domain_status.json", JSON.stringify(domains, null, 2));

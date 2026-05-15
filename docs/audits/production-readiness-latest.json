@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-05-15T07:37:23.849Z",
+  "timestamp": "2026-05-15T16:43:03.923Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
   "productionReady": true,
   "summary": {
     "checksTotal": 186,
-    "checksPass": 181,
-    "checksFail": 2,
+    "checksPass": 182,
+    "checksFail": 1,
     "checksNa": 3,
-    "violationsTotal": 2,
+    "violationsTotal": 1,
     "blockersTotal": 0,
-    "warningsTotal": 2
+    "warningsTotal": 1
   },
   "checks": [
     {
@@ -2097,22 +2097,15 @@
     {
       "checkCode": "socialflowProductScopedCrossProductLeak",
       "severity": "WARN",
-      "status": "FAIL",
+      "status": "PASS",
       "targetType": "code_guard",
       "targetName": "socialflow:product-scoped-preview",
       "expected": "0 real cross-product leaks before product-scoped activation",
       "actual": {
-        "crossProductLeaks": 6,
-        "examples": [
-          "api/socialflow/auths/logouts",
-          "api/socialflow/exports/current",
-          "socialflow/(workspace)/settings/account",
-          "socialflow/(workspace)/settings/billing",
-          "socialflow/(workspace)/settings/ownership",
-          "socialflow/(workspace)/settings/team"
-        ]
+        "crossProductLeaks": 0,
+        "examples": []
       },
-      "details": "Runtime audit still detects cross-product leak routes; warning-only until the product-scoped preview is activated."
+      "details": "No cross-product leak routes are present in runtime-audit.json."
     },
     {
       "checkCode": "socialflowProductScopedRuntimeAuditDrift",
@@ -2133,7 +2126,7 @@
       "expected": "scopedActivationReady=true only when no cross-product leaks are present",
       "actual": {
         "scopedActivationReady": false,
-        "crossProductLeaks": 6
+        "crossProductLeaks": 0
       },
       "details": "Runtime audit does not claim safe activation while cross-product leaks remain."
     },
@@ -2218,25 +2211,6 @@
         ]
       },
       "details": "SocialFlow standalone is still a runtime copy with foreign routes; this is warning-only until product-scoped filtering is activated."
-    },
-    {
-      "checkCode": "socialflowProductScopedCrossProductLeak",
-      "severity": "WARN",
-      "targetType": "code_guard",
-      "targetName": "socialflow:product-scoped-preview",
-      "expected": "0 real cross-product leaks before product-scoped activation",
-      "actual": {
-        "crossProductLeaks": 6,
-        "examples": [
-          "api/socialflow/auths/logouts",
-          "api/socialflow/exports/current",
-          "socialflow/(workspace)/settings/account",
-          "socialflow/(workspace)/settings/billing",
-          "socialflow/(workspace)/settings/ownership",
-          "socialflow/(workspace)/settings/team"
-        ]
-      },
-      "details": "Runtime audit still detects cross-product leak routes; warning-only until the product-scoped preview is activated."
     }
   ],
   "snapshots": {

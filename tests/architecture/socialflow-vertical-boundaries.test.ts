@@ -258,6 +258,11 @@ describe("SocialFlow vertical boundaries", () => {
     expect(artifactBuilder).toContain("scopedActivationReady");
     expect(artifactBuilder).toContain("CROSS_PRODUCT_LEAK");
     expect(artifactBuilder).toContain("SUSPICIOUS_SHARED_SURFACE");
+    expect(artifactBuilder).toContain("tenantIsolationVerificationVersion");
+    expect(artifactBuilder).toContain("VERIFIED_TENANT_ISOLATED");
+    expect(artifactBuilder).toContain("PARTIALLY_ISOLATED");
+    expect(artifactBuilder).toContain("UNVERIFIED");
+    expect(artifactBuilder).toContain("UNSAFE");
     expect(artifactBuilder).toContain("product-scoped-preview");
     expect(artifactBuilder).toContain("validateProductScopedPreviewRuntime");
 
@@ -285,6 +290,56 @@ describe("SocialFlow vertical boundaries", () => {
     expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_INTEGRITY_FAILURE");
     expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_RUNTIME_AUDIT_MISSING");
     expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_UNSAFE_ACTIVATION_CLAIM");
+  });
+
+  it("keeps shared-db SocialFlow routes guarded by tenant isolation evidence", () => {
+    const middleware = read("src/middleware.ts");
+    const tenantIsolation = read("src/lib/socialflow/auth/tenant-isolation.ts");
+    const authServer = read("src/lib/socialflow/auth/server.ts");
+    const authRequest = read("src/lib/socialflow/auth/request.ts");
+    const authRepositories = read("src/lib/auths/repositories.ts");
+    const exportRoute = read("src/app/api/socialflow/exports/current/route.ts");
+    const exportService = read("src/lib/socialflow/export.ts");
+    const wipeout = read("src/lib/export/wipeout-package.ts");
+    const workspaceLayout = read("src/app/socialflow/(workspace)/layout.tsx");
+    const billingPage = read("src/app/socialflow/(workspace)/settings/billing/page.tsx");
+    const accountPage = read("src/modules/socialflow-app/settings/account-page.tsx");
+    const ownershipPage = read("src/modules/socialflow-app/settings/ownership-page.tsx");
+    const teamPage = read("src/modules/socialflow-app/settings/team-page.tsx");
+
+    expect(middleware).toContain("CROSS_TENANT_ACCESS_FORBIDDEN");
+    expect(middleware).toContain("TenantMismatch");
+    expect(middleware).toContain('contextHeaders.set("x-drako-tenant-id", resolution.tenantId)');
+    expect(middleware).toContain('contextHeaders.set("x-tenant-id", resolution.tenantId)');
+
+    expect(tenantIsolation).toContain("HEADER_TENANT_MISMATCH");
+    expect(tenantIsolation).toContain("AUTH_USER_MISSING");
+    expect(tenantIsolation).toContain("AUTH_USER_TENANT_MISMATCH");
+
+    expect(authServer).toContain("SOCIALFLOW_SESSION_TENANT_ISOLATION_FAILED");
+    expect(authServer).toContain("requireAuthUser: true");
+    expect(authRequest).toContain("SOCIALFLOW_REQUEST_TENANT_ISOLATION_FAILED");
+    expect(authRequest).toContain("requireAuthUser: true");
+
+    expect(authRepositories).toContain("listAuthsUsersByTenant");
+    expect(authRepositories).toContain("WHERE tenant_id = ?");
+
+    expect(exportRoute).toContain("generateSocialFlowExportForTenant(session.tenantId)");
+    expect(exportService).toContain("WHERE tenant_id = ?");
+    expect(wipeout).toContain("agent_work_logs WHERE tenant_id = ? AND saas_id = ?");
+    expect(wipeout).toContain("orchestrator_messages WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1000");
+    expect(wipeout).toContain("economic_events WHERE tenant_id = ? AND saas_id = ?");
+    expect(wipeout).toContain("saas_domains WHERE tenant_id = ? AND saas_id = ?");
+    expect(wipeout).toContain("assertTenantScopedRows(");
+
+    expect(workspaceLayout).toContain("getCurrentSocialFlowSession()");
+    expect(workspaceLayout).toContain('redirect("/socialflow/auth")');
+    expect(accountPage).toContain("currentTenantId: session.tenantId");
+    expect(accountPage).toContain("tenantId: session.tenantId");
+    expect(billingPage).toContain("fails closed until that wiring exists behind the product boundary");
+    expect(ownershipPage).toContain('link.href = "/api/socialflow/exports/current"');
+    expect(teamPage).toContain("tenantId: session.tenantId");
+    expect(teamPage).toContain('context: "socialflow"');
   });
 
   it("keeps legacy linkedin connect and callback routes as redirect-only bridges", () => {

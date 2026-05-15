@@ -1,6 +1,6 @@
 # Production Readiness Audit Report
 
-- Timestamp: `2026-05-15T07:37:23.849Z`
+- Timestamp: `2026-05-15T16:43:03.923Z`
 - Mode: `fixtures`
 - Source of truth: `docs/config/production-audits-expected-state.json`
 - Fixtures dir: `tests/fixtures/production-audits/pass`
@@ -9,11 +9,11 @@
 ## Summary
 
 - Checks total: 186
-- Checks pass: 181
-- Checks fail: 2
+- Checks pass: 182
+- Checks fail: 1
 - Checks N/A: 3
 - Blockers: 0
-- Warnings: 2
+- Warnings: 1
 
 ## Checks
 
@@ -198,9 +198,9 @@
 | socialflowProductScopedPreviewIntegrityFailure | BLOCKER | socialflow:product-scoped-preview | PASS | "runtimeIntegrity=true and no unresolved dependencies" | {"runtimeIntegrity":true,"unresolvedDependencies":[]} |
 | socialflowProductScopedPreviewDrift | BLOCKER | socialflow:product-scoped-preview | PASS | "matrix, builder and CI keep the inactive product-scoped preview lane wired" | "product_scoped_preview_guard_ok" |
 | socialflowProductScopedRuntimeAuditMissing | BLOCKER | socialflow:product-scoped-preview | PASS | "runtime-audit.json exists with complete route classification and risk metadata" | {"totalRoutes":26,"runtimeRiskScore":100,"scopedActivationReady":false} |
-| socialflowProductScopedCrossProductLeak | WARN | socialflow:product-scoped-preview | FAIL | "0 real cross-product leaks before product-scoped activation" | {"crossProductLeaks":6,"examples":["api/socialflow/auths/logouts","api/socialflow/exports/current","socialflow/(workspace)/settings/account","socialflow/(workspace)/settings/billing","socialflow/(workspace)/settings/ownership","socialflow/(workspace)/settings/team"]} |
+| socialflowProductScopedCrossProductLeak | WARN | socialflow:product-scoped-preview | PASS | "0 real cross-product leaks before product-scoped activation" | {"crossProductLeaks":0,"examples":[]} |
 | socialflowProductScopedRuntimeAuditDrift | BLOCKER | socialflow:product-scoped-preview | PASS | "runtime audit matches manifest, filter-report and CI/builder wiring" | "runtime_audit_guard_ok" |
-| socialflowProductScopedUnsafeActivationClaim | BLOCKER | socialflow:product-scoped-preview | PASS | "scopedActivationReady=true only when no cross-product leaks are present" | {"scopedActivationReady":false,"crossProductLeaks":6} |
+| socialflowProductScopedUnsafeActivationClaim | BLOCKER | socialflow:product-scoped-preview | PASS | "scopedActivationReady=true only when no cross-product leaks are present" | {"scopedActivationReady":false,"crossProductLeaks":0} |
 | mentoriaRuntimeGuardDrift | BLOCKER | mentoria:runtime-real-wrapper-only | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
 | socialflowCanonicalSmokeGuardDrift | BLOCKER | socialflow:canonical-smoke-strict | PASS | "strict canonical smoke with 410 legacy routes and no canonical 405 acceptance" | "strict_smoke_ok" |
 | mentoriaStrictSmokeGuardDrift | BLOCKER | mentoria:local-smoke-strict | PASS | "all runtime guard rules satisfied" | "runtime_guard_ok" |
@@ -209,4 +209,3 @@
 ## Violations
 
 - WARN socialflowStandaloneForeignRouteLeak @ socialflow:standalone-scope-audit: expected="0 foreign routes before product-scoped activation" actual={"scopeMode":"standalone-runtime-copy","foreignRouteCount":180,"foreignRouteHits":["api/bases","api/campamento-base","api/campobase","api/mentoria","api/mentorias","api/operator","api/owner","bases","campobase","mentoria","mentorias","operator","owner","site/panel"],"foreignRouteExamples":["api/bases/auths/logins","api/bases/auths/logouts","api/bases/auths/registrations","api/bases/telemetries/events","api/campamento-base/contracts","api/campamento-base/operator/whatsapp/daily-summary","api/campamento-base/operator/whatsapp/realtime-alert","api/campamento-base/orchestrator","api/campamento-base/provisioning/ai","api/campamento-base/provisioning/branding"]}
-- WARN socialflowProductScopedCrossProductLeak @ socialflow:product-scoped-preview: expected="0 real cross-product leaks before product-scoped activation" actual={"crossProductLeaks":6,"examples":["api/socialflow/auths/logouts","api/socialflow/exports/current","socialflow/(workspace)/settings/account","socialflow/(workspace)/settings/billing","socialflow/(workspace)/settings/ownership","socialflow/(workspace)/settings/team"]}

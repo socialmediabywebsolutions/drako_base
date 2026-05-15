@@ -3,6 +3,10 @@ import { getAuthsCookieName, readCookieFromHeader } from "@/lib/auths/cookies";
 import { verifyAuthsSessionToken } from "@/lib/auths/tokens";
 import { getAuthsUserById } from "@/lib/auths/repositories";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
+import {
+  readTenantIdFromHeaderGetter,
+  validateSocialFlowTenantIsolation,
+} from "@/lib/socialflow/auth/tenant-isolation";
 
 export type SocialFlowSession = {
   userId: string;
@@ -16,7 +20,7 @@ export type SocialFlowSession = {
 export async function getCurrentSocialFlowSession(): Promise<SocialFlowSession | null> {
   const headerStore = await headers();
   const entryMode = headerStore.get("x-drako-client-entry-mode");
-  const tenantIdFromHeader = headerStore.get("x-drako-tenant-id") ?? headerStore.get("x-tenant-id");
+  const tenantIdFromHeader = readTenantIdFromHeaderGetter((name) => headerStore.get(name));
 
   if (entryMode === "local_demo") {
     return {
@@ -44,6 +48,22 @@ export async function getCurrentSocialFlowSession(): Promise<SocialFlowSession |
     context: "socialflow",
     userId: claims.sub,
   });
+
+  const tenantIsolation = validateSocialFlowTenantIsolation({
+    sessionTenantId: claims.tenantId,
+    headerTenantId: tenantIdFromHeader,
+    authUserTenantId: user?.tenant_id ?? null,
+    requireAuthUser: true,
+  });
+
+  if (!tenantIsolation.ok) {
+    console.error("SOCIALFLOW_SESSION_TENANT_ISOLATION_FAILED", {
+      userId: claims.sub,
+      reason: tenantIsolation.reason,
+      ...tenantIsolation.details,
+    });
+    return null;
+  }
 
   return {
     userId: claims.sub,

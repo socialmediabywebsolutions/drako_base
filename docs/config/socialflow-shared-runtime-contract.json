@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "product": "socialflows",
+  "contractVersion": "1.0.0",
+  "description": "Shared runtime dependency contract for SocialFlow product-scoped preview. Defines which cross-product modules are allowed and under what constraints.",
+  "sharedRuntimeDependencies": [
+    {
+      "modulePattern": "@/lib/auths/cookies",
+      "classification": "SHARED_AUTH_CONFIG",
+      "allowed": true,
+      "allowedWithWarning": true,
+      "reason": "Contains cookie configurations for ALL products (drakos, mentorias, socialflow, bases). SocialFlow only uses socialflow config at runtime.",
+      "riskLevel": "MEDIUM",
+      "foreignTokens": [
+        "drakos cookie config",
+        "mentorias cookie config",
+        "bases cookie config"
+      ],
+      "forbiddenBehaviors": [
+        "Must not issue Drako/Bases/Mentoria cookies from SocialFlow routes",
+        "Must not resolve foreign tenant sessions",
+        "Must not access foreign auth state"
+      ],
+      "requiredEvidence": [
+        "Route uses SocialFlow auth context only",
+        "Cookie name resolved to __Host-socialflow_session",
+        "No foreign context resolution in execution path"
+      ],
+      "mitigations": [
+        "Auth boundary enforcement via enforceAuthBoundary()",
+        "Context validation in getCurrentSocialFlowSession()",
+        "Cookie config lookup scoped to 'socialflow' context"
+      ]
+    },
+    {
+      "modulePattern": "@/lib/auths/http",
+      "classification": "SHARED_AUTH_HELPER",
+      "allowed": true,
+      "allowedWithWarning": true,
+      "reason": "Provides clearAuthsSessionCookie() and jsonError() helpers. Scoped by context parameter.",
+      "riskLevel": "MEDIUM",
+      "foreignTokens": [
+        "Generic auth helpers used by all products"
+      ],
+      "forbiddenBehaviors": [
+        "Must not clear foreign product cookies",
+        "Must not leak session tokens across products"
+      ],
+      "requiredEvidence": [
+        "clearAuthsSessionCookie() called with context='socialflow'",
+        "No foreign context passed to helpers"
+      ],
+      "mitigations": [
+        "Context parameter enforces product isolation",
+        "Cookie config lookup scoped by context"
+      ]
+    },
+    {
+      "modulePattern": "@/lib/auths/ssot",
+      "classification": "SHARED_AUTH_BOUNDARY",
+      "allowed": true,
+      "allowedWithWarning": false,
+      "reason": "Provides enforceAuthBoundary() which validates product isolation. Critical for security.",
+      "riskLevel": "LOW",
+      "foreignTokens": [
+        "Auth context definitions for all products"
+      ],
+      "forbiddenBehaviors": [
+        "Must not bypass boundary checks",
+        "Must not allow cross-product access"
+      ],
+      "requiredEvidence": [
+        "enforceAuthBoundary() called with expectedContext='socialflow'",
+        "Boundary violations return 403 response"
+      ],
+      "mitigations": [
+        "Explicit context validation",
+        "Fails closed on mismatch"
+      ]
+    },
+    {
+      "modulePattern": "@/lib/auths/contexts",
+      "classification": "SHARED_AUTH_RESOLUTION",
+      "allowed": true,
+      "allowedWithWarning": true,
+      "reason": "Resolves auth context from request. Contains logic for all products.",
+      "riskLevel": "MEDIUM",
+      "foreignTokens": [
+        "Context resolution for drakos, mentorias, bases"
+      ],
+      "forbiddenBehaviors": [
+        "Must not resolve to foreign context from SocialFlow routes",
+        "Must not leak foreign routing logic"
+      ],
+      "requiredEvidence": [
+        "Routes under /socialflow or /api/socialflow",
+        "Context resolves to 'socialflow' only"
+      ],
+      "mitigations": [
+        "Path-based context resolution",
+        "Explicit boundary enforcement"
+      ]
+    },
+    {
+      "modulePattern": "@/lib/db",
+      "classification": "SHARED_DB_ACCESS",
+      "allowed": true,
+      "allowedWithWarning": true,
+      "reason": "Unified DRACO_DB access layer. All products share same D1 database with tenant_id isolation.",
+      "riskLevel": "HIGH",
+      "foreignTokens": [
+        "Database access used by all products",
+        "Shared schema with tenant_id isolation"
+      ],
+      "forbiddenBehaviors": [
+        "Must not query foreign tenant data",
+        "Must not bypass tenant_id filters",
+        "Must not access cross-product tables without tenant_id"
+      ],
+      "requiredEvidence": [
+        "All queries include tenant_id filter",
+        "Session provides valid SocialFlow tenant_id",
+        "No cross-tenant data leakage"
+      ],
+      "mitigations": [
+        "Tenant isolation via session.tenantId",
+        "SQL queries include WHERE tenant_id = ?",
+        "Multi-tenant architecture by design"
+      ]
+    },
+    {
+      "modulePattern": "@/lib/http/errors",
+      "classification": "SHARED_HTTP_HELPER",
+      "allowed": true,
+      "allowedWithWarning": false,
+      "reason": "Generic HTTP error response helpers. No product-specific logic.",
+      "riskLevel": "LOW",
+      "foreignTokens": [],
+      "forbiddenBehaviors": [],
+      "requiredEvidence": [
+        "Pure utility functions",
+        "No state access"
+      ],
+      "mitigations": [
+        "Stateless helpers only"
+      ]
+    },
+    {
+      "modulePattern": "@/components/settings/*",
+      "classification": "SHARED_UI_COMPONENT",
+      "allowed": true,
+      "allowedWithWarning": true,
+      "reason": "Reusable settings UI components. May contain references to other products in shared chunks.",
+      "riskLevel": "MEDIUM",
+      "foreignTokens": [
+        "UI component code shared across products"
+      ],
+      "forbiddenBehaviors": [
+        "Must not execute foreign product logic",
+        "Must not access foreign product state"
+      ],
+      "requiredEvidence": [
+        "Props scoped to SocialFlow data only",
+        "No foreign API calls from component"
+      ],
+      "mitigations": [
+        "Props validation",
+        "Component receives SocialFlow session only"
+      ]
+    }
+  ],
+  "undeclaredDependencies": {
+    "policy": "BLOCK",
+    "reason": "Any shared dependency not in this contract must be explicitly reviewed and approved."
+  },
+  "activationRequirements": {
+    "maxHighRiskSharedDependencies": 0,
+    "maxMediumRiskSharedDependencies": 10,
+    "requiresExplicitMitigations": true,
+    "requiresRuntimeValidation": true
+  },
+  "auditMetadata": {
+    "createdAt": "2026-05-15T10:21:00Z",
+    "createdBy": "P2-10A",
+    "lastReviewed": "2026-05-15T10:21:00Z",
+    "nextReviewDue": "2026-06-15T00:00:00Z"
+  }
+}

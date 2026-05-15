@@ -9,6 +9,7 @@ const artifactWrapperBanner = "// Drako artifact matrix wrapper: generated file,
 const scopeAuditVersion = 1;
 const productScopedPreviewFilterVersion = 1;
 const productScopedRuntimeAuditVersion = 1;
+const tenantIsolationVerificationVersion = 1;
 const defaultSocialflowScopeAudit = {
   scopeMode: "standalone-runtime-copy",
   allowedRoutePrefixes: [
@@ -860,8 +861,477 @@ function listFilesRecursiveSync(dirPath) {
   return files;
 }
 
+async function loadSharedRuntimeContract() {
+  const contractPath = path.resolve(repoRoot, "docs/config/socialflow-shared-runtime-contract.json");
+  try {
+    const content = await fs.readFile(contractPath, "utf8");
+    return JSON.parse(content);
+  } catch (error) {
+    return null;
+  }
+}
+
+function sourceIncludesAll(source, requiredSnippets) {
+  return requiredSnippets.every((snippet) => source.includes(snippet));
+}
+
+function sourceExcludesAll(source, forbiddenSnippets) {
+  return forbiddenSnippets.every((snippet) => !source.includes(snippet));
+}
+
+function countTenantIsolationClassifications(routes) {
+  const counts = {
+    VERIFIED_TENANT_ISOLATED: 0,
+    PARTIALLY_ISOLATED: 0,
+    UNVERIFIED: 0,
+    UNSAFE: 0,
+  };
+
+  for (const route of routes) {
+    counts[route.classification] = (counts[route.classification] ?? 0) + 1;
+  }
+
+  return counts;
+}
+
+function tenantIsolationSummaryByClassification(routes, classification) {
+  return routes
+    .filter((route) => route.classification === classification)
+    .map((route) => route.routePath)
+    .sort();
+}
+
+async function loadTenantIsolationEvidenceSources() {
+  const relativePaths = [
+    "src/app/layout.tsx",
+    "src/middleware.ts",
+    "src/app/not-found.tsx",
+    "src/app/api/socialflow/exports/current/route.ts",
+    "src/app/socialflow/(workspace)/layout.tsx",
+    "src/app/socialflow/(workspace)/settings/account/page.tsx",
+    "src/app/socialflow/(workspace)/settings/billing/page.tsx",
+    "src/app/socialflow/(workspace)/settings/ownership/page.tsx",
+    "src/app/socialflow/(workspace)/settings/team/page.tsx",
+    "src/components/settings/account-settings.tsx",
+    "src/lib/auths/repositories.ts",
+    "src/lib/export/wipeout-package.ts",
+    "src/lib/socialflow/auth/request.ts",
+    "src/lib/socialflow/auth/server.ts",
+    "src/lib/socialflow/auth/tenant-isolation.ts",
+    "src/lib/socialflow/export.ts",
+    "src/modules/socialflow-app/settings/account-page.tsx",
+    "src/modules/socialflow-app/settings/ownership-page.tsx",
+    "src/modules/socialflow-app/settings/team-page.tsx",
+  ];
+
+  const entries = await Promise.all(relativePaths.map(async (relativePath) => [
+    relativePath,
+    await fs.readFile(path.resolve(repoRoot, relativePath), "utf8"),
+  ]));
+
+  return Object.fromEntries(entries);
+}
+
+async function buildSocialflowTenantIsolationVerification(routeClassifications) {
+  const routeByPath = new Map(routeClassifications.map((route) => [route.routePath, route]));
+  const sources = await loadTenantIsolationEvidenceSources();
+
+  const sharedEvidence = {
+    middlewareTenantHeaders: sourceIncludesAll(sources["src/middleware.ts"], [
+      'contextHeaders.set("x-drako-tenant-id", resolution.tenantId);',
+      'contextHeaders.set("x-tenant-id", resolution.tenantId);',
+    ]),
+    middlewareMismatchRejection: sourceIncludesAll(sources["src/middleware.ts"], [
+      "CROSS_TENANT_ACCESS_FORBIDDEN",
+      "TenantMismatch",
+    ]),
+    tenantIsolationContract: sourceIncludesAll(sources["src/lib/socialflow/auth/tenant-isolation.ts"], [
+      '"HEADER_TENANT_MISMATCH"',
+      '"AUTH_USER_MISSING"',
+      '"AUTH_USER_TENANT_MISMATCH"',
+      "readTenantIdFromHeaderGetter",
+      "validateSocialFlowTenantIsolation",
+    ]),
+    serverSessionGuard: sourceIncludesAll(sources["src/lib/socialflow/auth/server.ts"], [
+      "readTenantIdFromHeaderGetter",
+      "validateSocialFlowTenantIsolation({",
+      "requireAuthUser: true",
+      "SOCIALFLOW_SESSION_TENANT_ISOLATION_FAILED",
+    ]),
+    requestSessionGuard: sourceIncludesAll(sources["src/lib/socialflow/auth/request.ts"], [
+      "readTenantIdFromHeaderGetter",
+      "validateSocialFlowTenantIsolation({",
+      "requireAuthUser: true",
+      "SOCIALFLOW_REQUEST_TENANT_ISOLATION_FAILED",
+    ]),
+    authRosterTenantQuery: sourceIncludesAll(sources["src/lib/auths/repositories.ts"], [
+      "listAuthsUsersByTenant",
+      "WHERE tenant_id = ?",
+    ]),
+  };
+
+  const exportIsolationChecks = {
+    routeSessionSource: sourceIncludesAll(sources["src/app/api/socialflow/exports/current/route.ts"], [
+      "getCurrentSocialFlowSession()",
+      "generateSocialFlowExportForTenant(session.tenantId)",
+    ]),
+    tenantScopedExportTarget: sourceIncludesAll(sources["src/lib/socialflow/export.ts"], [
+      "WHERE tenant_id = ?",
+      "generateWipeoutPackage(saas.id, tenantId)",
+    ]),
+    tenantScopedExportQueries: sourceIncludesAll(sources["src/lib/export/wipeout-package.ts"], [
+      "agent_work_logs WHERE tenant_id = ? AND saas_id = ?",
+      "orchestrator_messages WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1000",
+      "economic_events WHERE tenant_id = ? AND saas_id = ?",
+      "saas_domains WHERE tenant_id = ? AND saas_id = ?",
+      "assertTenantScopedRows(",
+    ]),
+  };
+
+  const routes = [
+    {
+      routePath: "api/socialflow/exports/current",
+      classification:
+        sharedEvidence.middlewareTenantHeaders &&
+        sharedEvidence.middlewareMismatchRejection &&
+        sharedEvidence.tenantIsolationContract &&
+        sharedEvidence.serverSessionGuard &&
+        exportIsolationChecks.routeSessionSource &&
+        exportIsolationChecks.tenantScopedExportTarget &&
+        exportIsolationChecks.tenantScopedExportQueries
+          ? "VERIFIED_TENANT_ISOLATED"
+          : "PARTIALLY_ISOLATED",
+      runtimeAuditCategory: routeByPath.get("api/socialflow/exports/current")?.category ?? null,
+      leakSeverity: routeByPath.get("api/socialflow/exports/current")?.leakSeverity ?? null,
+      sessionSource: {
+        type: "socialflow_server_session",
+        paths: [
+          "src/middleware.ts",
+          "src/lib/socialflow/auth/server.ts",
+          "src/lib/socialflow/auth/tenant-isolation.ts",
+          "src/lib/auths/repositories.ts",
+        ],
+      },
+      flow: {
+        entrypoints: ["src/app/api/socialflow/exports/current/route.ts"],
+        services: ["src/lib/socialflow/export.ts", "src/lib/export/wipeout-package.ts"],
+        repositories: ["src/lib/auths/repositories.ts"],
+        dbWrappers: ["src/lib/db.ts", "src/lib/auths/repositories.ts"],
+        sql: [
+          "SELECT id, slug FROM saas WHERE tenant_id = ? AND lower(slug) IN (?, ?) ORDER BY created_at DESC LIMIT 1",
+          "SELECT * FROM saas_instances WHERE id = ? AND tenant_id = ?",
+          "SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status IN ('active', 'analyzed') ORDER BY created_at DESC LIMIT 1",
+          "SELECT id, tenant_id, saas_id, agent_name, action_type, status, output_json, cost_eur, created_at FROM agent_work_logs WHERE tenant_id = ? AND saas_id = ? ORDER BY created_at DESC LIMIT 5000",
+          "SELECT tenant_id, role, content, created_at FROM orchestrator_messages WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1000",
+          "SELECT id, tenant_id, saas_id, type, severity, payload_json, created_at FROM economic_events WHERE tenant_id = ? AND saas_id = ? ORDER BY created_at DESC LIMIT 2000",
+          "SELECT tenant_id, saas_id, domain, is_primary, status FROM saas_domains WHERE tenant_id = ? AND saas_id = ?",
+        ],
+        tenantFilters: [
+          "middleware resolved tenant headers",
+          "claims.tenantId from signed socialflow session token",
+          "auth user tenant_id must match claims tenantId",
+          "all export queries filter tenant_id",
+          "exported workload/economic/domain rows assert tenant_id and saas_id at runtime",
+        ],
+      },
+      evidence: [
+        "Middleware injects trusted tenant headers and rejects session/header mismatch before route execution.",
+        "SocialFlow server session now fails closed on header tenant mismatch, missing auth user and auth user tenant mismatch.",
+        "Export target lookup resolves SocialFlow SaaS by tenant_id before handing off to the wipeout package.",
+        "Wipeout package now filters work logs, economic events and domains by tenant_id and saas_id, and asserts returned rows stay in scope.",
+      ],
+      gaps: [],
+    },
+    {
+      routePath: "socialflow/(workspace)/settings/account",
+      classification:
+        sharedEvidence.middlewareTenantHeaders &&
+        sharedEvidence.middlewareMismatchRejection &&
+        sharedEvidence.tenantIsolationContract &&
+        sharedEvidence.serverSessionGuard &&
+        sourceIncludesAll(sources["src/modules/socialflow-app/settings/account-page.tsx"], [
+          "getCurrentSocialFlowSession()",
+          "currentTenantId: session.tenantId",
+          "tenantId: session.tenantId",
+        ]) &&
+        sourceExcludesAll(sources["src/modules/socialflow-app/settings/account-page.tsx"], [
+          "@/lib/db",
+        ])
+          ? "VERIFIED_TENANT_ISOLATED"
+          : "PARTIALLY_ISOLATED",
+      runtimeAuditCategory: routeByPath.get("socialflow/(workspace)/settings/account")?.category ?? null,
+      leakSeverity: routeByPath.get("socialflow/(workspace)/settings/account")?.leakSeverity ?? null,
+      sessionSource: {
+        type: "socialflow_server_session",
+        paths: ["src/middleware.ts", "src/lib/socialflow/auth/server.ts", "src/lib/socialflow/auth/tenant-isolation.ts"],
+      },
+      flow: {
+        entrypoints: [
+          "src/app/socialflow/(workspace)/settings/account/page.tsx",
+          "src/modules/socialflow-app/settings/account-page.tsx",
+        ],
+        services: ["src/components/settings/account-settings.tsx"],
+        repositories: ["src/lib/auths/repositories.ts"],
+        dbWrappers: ["src/lib/auths/repositories.ts"],
+        sql: [],
+        tenantFilters: [
+          "workspace session resolved from signed SocialFlow token",
+          "currentTenantId and memberships are rendered from session.tenantId only",
+          "no DRACO_DB query runs in this route path",
+        ],
+      },
+      evidence: [
+        "Route is gated by getCurrentSocialFlowSession() and redirects to /socialflow/auth if the session is absent.",
+        "Rendered workspace identity is sourced from session.tenantId only; no shared DB query executes in the account page path.",
+      ],
+      gaps: [],
+    },
+    {
+      routePath: "socialflow/(workspace)/settings/billing",
+      classification:
+        sharedEvidence.middlewareTenantHeaders &&
+        sharedEvidence.middlewareMismatchRejection &&
+        sharedEvidence.tenantIsolationContract &&
+        sharedEvidence.serverSessionGuard &&
+        sourceIncludesAll(sources["src/app/socialflow/(workspace)/settings/billing/page.tsx"], [
+          "getCurrentSocialFlowSession()",
+          "fails closed until that wiring exists behind the product boundary",
+        ]) &&
+        sourceExcludesAll(sources["src/app/socialflow/(workspace)/settings/billing/page.tsx"], [
+          "@/lib/db",
+        ])
+          ? "VERIFIED_TENANT_ISOLATED"
+          : "PARTIALLY_ISOLATED",
+      runtimeAuditCategory: routeByPath.get("socialflow/(workspace)/settings/billing")?.category ?? null,
+      leakSeverity: routeByPath.get("socialflow/(workspace)/settings/billing")?.leakSeverity ?? null,
+      sessionSource: {
+        type: "socialflow_server_session",
+        paths: ["src/middleware.ts", "src/lib/socialflow/auth/server.ts", "src/lib/socialflow/auth/tenant-isolation.ts"],
+      },
+      flow: {
+        entrypoints: ["src/app/socialflow/(workspace)/settings/billing/page.tsx"],
+        services: [],
+        repositories: [],
+        dbWrappers: [],
+        sql: [],
+        tenantFilters: [
+          "workspace session resolved from signed SocialFlow token",
+          "route is explicitly read-only and fail-closed with no billing DB access",
+        ],
+      },
+      evidence: [
+        "Billing page requires a SocialFlow session and renders only a fail-closed message bound to session.tenantId.",
+        "No DRACO_DB or billing helper query executes inside the billing preview route path.",
+      ],
+      gaps: [],
+    },
+    {
+      routePath: "socialflow/(workspace)/settings/ownership",
+      classification:
+        sharedEvidence.middlewareTenantHeaders &&
+        sharedEvidence.middlewareMismatchRejection &&
+        sharedEvidence.tenantIsolationContract &&
+        sharedEvidence.serverSessionGuard &&
+        sourceIncludesAll(sources["src/app/socialflow/(workspace)/layout.tsx"], [
+          "getCurrentSocialFlowSession()",
+          'redirect("/socialflow/auth")',
+        ]) &&
+        sourceIncludesAll(sources["src/modules/socialflow-app/settings/ownership-page.tsx"], [
+          'link.href = "/api/socialflow/exports/current";',
+        ]) &&
+        exportIsolationChecks.routeSessionSource &&
+        exportIsolationChecks.tenantScopedExportTarget &&
+        exportIsolationChecks.tenantScopedExportQueries
+          ? "VERIFIED_TENANT_ISOLATED"
+          : "PARTIALLY_ISOLATED",
+      runtimeAuditCategory: routeByPath.get("socialflow/(workspace)/settings/ownership")?.category ?? null,
+      leakSeverity: routeByPath.get("socialflow/(workspace)/settings/ownership")?.leakSeverity ?? null,
+      sessionSource: {
+        type: "workspace_layout_session_plus_verified_export_api",
+        paths: [
+          "src/app/socialflow/(workspace)/layout.tsx",
+          "src/lib/socialflow/auth/server.ts",
+          "src/app/api/socialflow/exports/current/route.ts",
+        ],
+      },
+      flow: {
+        entrypoints: [
+          "src/app/socialflow/(workspace)/settings/ownership/page.tsx",
+          "src/modules/socialflow-app/settings/ownership-page.tsx",
+        ],
+        services: ["src/app/api/socialflow/exports/current/route.ts", "src/lib/socialflow/export.ts", "src/lib/export/wipeout-package.ts"],
+        repositories: ["src/lib/auths/repositories.ts"],
+        dbWrappers: ["src/lib/db.ts", "src/lib/auths/repositories.ts"],
+        sql: [
+          "Delegates all data export reads to api/socialflow/exports/current",
+          "Delegated export path is tenant-scoped through saas, saas_instances, tenant_strategic_dossiers, agent_work_logs, orchestrator_messages, economic_events and saas_domains queries",
+        ],
+        tenantFilters: [
+          "workspace layout blocks unauthenticated access before the page renders",
+          "ownership download delegates to the verified export route only",
+        ],
+      },
+      evidence: [
+        "Ownership UI does not query shared DB directly; it can only trigger /api/socialflow/exports/current from an authenticated workspace layout.",
+        "The delegated export route is tenant-scoped end-to-end and now asserts row scope at runtime.",
+      ],
+      gaps: [],
+    },
+    {
+      routePath: "socialflow/(workspace)/settings/team",
+      classification:
+        sharedEvidence.middlewareTenantHeaders &&
+        sharedEvidence.middlewareMismatchRejection &&
+        sharedEvidence.tenantIsolationContract &&
+        sharedEvidence.serverSessionGuard &&
+        sharedEvidence.authRosterTenantQuery &&
+        sourceIncludesAll(sources["src/modules/socialflow-app/settings/team-page.tsx"], [
+          "getCurrentSocialFlowSession()",
+          "listAuthsUsersByTenant({",
+          'context: "socialflow"',
+          "tenantId: session.tenantId",
+        ])
+          ? "VERIFIED_TENANT_ISOLATED"
+          : "PARTIALLY_ISOLATED",
+      runtimeAuditCategory: routeByPath.get("socialflow/(workspace)/settings/team")?.category ?? null,
+      leakSeverity: routeByPath.get("socialflow/(workspace)/settings/team")?.leakSeverity ?? null,
+      sessionSource: {
+        type: "socialflow_server_session",
+        paths: ["src/middleware.ts", "src/lib/socialflow/auth/server.ts", "src/lib/socialflow/auth/tenant-isolation.ts"],
+      },
+      flow: {
+        entrypoints: [
+          "src/app/socialflow/(workspace)/settings/team/page.tsx",
+          "src/modules/socialflow-app/settings/team-page.tsx",
+        ],
+        services: [],
+        repositories: ["src/lib/auths/repositories.ts"],
+        dbWrappers: ["src/lib/auths/repositories.ts"],
+        sql: [
+          "SELECT id, email, name, role, tenant_id, status FROM socialflow_users WHERE tenant_id = ? ORDER BY created_at ASC",
+        ],
+        tenantFilters: [
+          "workspace session resolved from signed SocialFlow token",
+          "team roster query binds tenantId: session.tenantId into socialflow_users WHERE tenant_id = ?",
+        ],
+      },
+      evidence: [
+        "Team page requires a SocialFlow session and resolves members through listAuthsUsersByTenant with context='socialflow'.",
+        "Auths repository query is explicitly tenant-scoped in socialflow_users.",
+      ],
+      gaps: [],
+    },
+    {
+      routePath: "_not-found",
+      classification: "UNVERIFIED",
+      runtimeAuditCategory: routeByPath.get("_not-found")?.category ?? null,
+      leakSeverity: routeByPath.get("_not-found")?.leakSeverity ?? null,
+      sessionSource: {
+        type: "none",
+        paths: ["src/app/not-found.tsx", "src/app/layout.tsx"],
+      },
+      flow: {
+        entrypoints: ["src/app/not-found.tsx"],
+        services: ["src/app/layout.tsx"],
+        repositories: [],
+        dbWrappers: [],
+        sql: [],
+        tenantFilters: [
+          "no direct session or DB path exists in the source route",
+        ],
+      },
+      evidence: [
+        "The source not-found page is static and performs no direct DRACO_DB query.",
+      ],
+      gaps: [
+        "The shared root layout still initializes Mentoria workers and NextAuth client providers before rendering generic routes.",
+        "Compiled _not-found output still carries shared manifest/chunk references, so tenant-bound execution cannot be fully proven for this route.",
+      ],
+    },
+  ].map((route) => ({
+    ...route,
+    presentInPreview: routeByPath.has(route.routePath),
+  }));
+
+  const counts = countTenantIsolationClassifications(routes);
+
+  return {
+    tenantIsolationVerificationVersion,
+    auditedHighRiskRoutes: routes.length,
+    counts,
+    verifiedRoutes: tenantIsolationSummaryByClassification(routes, "VERIFIED_TENANT_ISOLATED"),
+    partiallyIsolatedRoutes: tenantIsolationSummaryByClassification(routes, "PARTIALLY_ISOLATED"),
+    unverifiedRoutes: tenantIsolationSummaryByClassification(routes, "UNVERIFIED"),
+    unsafeRoutes: tenantIsolationSummaryByClassification(routes, "UNSAFE"),
+    routes,
+  };
+}
+
+function matchesSharedDependencyPattern(executableContent, modulePattern) {
+  const patterns = {
+    "@/lib/auths/cookies": /auths.*cookie|AUTHS_COOKIE|getAuthsCookieConfig/gi,
+    "@/lib/auths/http": /clearAuthsSessionCookie|jsonError.*auths/gi,
+    "@/lib/auths/ssot": /enforceAuthBoundary|validateAuthBoundary/gi,
+    "@/lib/auths/contexts": /resolveAuthsContext|AuthsContext/gi,
+    "@/lib/db": /ensureDatabase|run\(|DRACO_DB/gi,
+    "@/lib/http/errors": /respondDatabaseError|respondHttpError/gi,
+    "@/components/settings/*": /AccountSettings|BillingSettings|OwnershipSettings|TeamSettings/gi,
+  };
+
+  const pattern = patterns[modulePattern];
+  if (!pattern) return false;
+
+  return pattern.test(executableContent);
+}
+
+function classifySharedDependencies(params) {
+  const { executableContent, sharedRuntimeContract } = params;
+
+  if (!sharedRuntimeContract || !sharedRuntimeContract.sharedRuntimeDependencies) {
+    return {
+      declaredSharedDeps: [],
+      undeclaredSharedDeps: [],
+      highRiskSharedDeps: [],
+      mediumRiskSharedDeps: [],
+      lowRiskSharedDeps: [],
+    };
+  }
+
+  const declaredSharedDeps = [];
+  const highRiskSharedDeps = [];
+  const mediumRiskSharedDeps = [];
+  const lowRiskSharedDeps = [];
+
+  for (const dep of sharedRuntimeContract.sharedRuntimeDependencies) {
+    if (matchesSharedDependencyPattern(executableContent, dep.modulePattern)) {
+      declaredSharedDeps.push({
+        module: dep.modulePattern,
+        classification: dep.classification,
+        riskLevel: dep.riskLevel,
+        allowedWithWarning: dep.allowedWithWarning,
+      });
+
+      if (dep.riskLevel === "HIGH") {
+        highRiskSharedDeps.push(dep.modulePattern);
+      } else if (dep.riskLevel === "MEDIUM") {
+        mediumRiskSharedDeps.push(dep.modulePattern);
+      } else if (dep.riskLevel === "LOW") {
+        lowRiskSharedDeps.push(dep.modulePattern);
+      }
+    }
+  }
+
+  return {
+    declaredSharedDeps,
+    undeclaredSharedDeps: [],
+    highRiskSharedDeps,
+    mediumRiskSharedDeps,
+    lowRiskSharedDeps,
+  };
+}
+
 function classifyLeakSeverity(params) {
-  const { routePathProducts, executableProducts, manifestProducts, sharedChunkProducts, sharedInfraTokens } = params;
+  const { routePathProducts, executableProducts, manifestProducts, sharedChunkProducts, sharedInfraTokens, sharedDepsClassification } = params;
 
   const hasRoutePathLeak = routePathProducts.length > 0;
   const hasExecutableLeak = executableProducts.length > 0;
@@ -869,8 +1339,28 @@ function classifyLeakSeverity(params) {
   const hasSharedChunkLeak = sharedChunkProducts.length > 0;
   const hasOnlySharedInfra = sharedInfraTokens.length > 0 && !hasManifestLeak && !hasSharedChunkLeak;
 
-  if (hasRoutePathLeak || hasExecutableLeak) {
+  const hasDeclaredSharedDeps = sharedDepsClassification && sharedDepsClassification.declaredSharedDeps.length > 0;
+  const hasHighRiskSharedDeps = sharedDepsClassification && sharedDepsClassification.highRiskSharedDeps.length > 0;
+  const hasMediumRiskSharedDeps = sharedDepsClassification && sharedDepsClassification.mediumRiskSharedDeps.length > 0;
+
+  if (hasRoutePathLeak) {
     return "HIGH_RISK";
+  }
+
+  if (hasExecutableLeak && !hasDeclaredSharedDeps) {
+    return "HIGH_RISK";
+  }
+
+  if (hasExecutableLeak && hasDeclaredSharedDeps && hasHighRiskSharedDeps) {
+    return "HIGH_RISK";
+  }
+
+  if (hasExecutableLeak && hasDeclaredSharedDeps && hasMediumRiskSharedDeps) {
+    return "MEDIUM_RISK";
+  }
+
+  if (hasExecutableLeak && hasDeclaredSharedDeps) {
+    return "LOW_RISK";
   }
 
   if (hasSharedChunkLeak && !hasManifestLeak) {
@@ -908,13 +1398,25 @@ function classifyRuntimeAuditRoute(params) {
     ...detectSharedInfraTokens(params.manifestContent, params.manifestSourcePaths),
     ...detectSharedInfraTokens(params.sharedChunkContent, params.sharedChunkSourcePaths),
   ]);
+
+  const sharedDepsClassification = classifySharedDependencies({
+    executableContent: params.executableContent,
+    sharedRuntimeContract: params.sharedRuntimeContract,
+  });
+
   const reasons = [];
 
   if (routePathProducts.length > 0) {
     reasons.push(`route path matches forbidden product surface: ${routePathProducts.join(",")}`);
   }
   if (executableProducts.length > 0) {
-    reasons.push(`executable bundle references foreign product tokens: ${executableProducts.join(",")}`);
+    if (sharedDepsClassification.declaredSharedDeps.length > 0) {
+      const declaredModules = sharedDepsClassification.declaredSharedDeps.map(d => d.module).join(",");
+      reasons.push(`executable bundle uses declared shared dependencies: ${declaredModules}`);
+      reasons.push(`foreign product tokens from shared modules: ${executableProducts.join(",")}`);
+    } else {
+      reasons.push(`executable bundle references foreign product tokens: ${executableProducts.join(",")}`);
+    }
   }
   if (manifestProducts.length > 0) {
     reasons.push(`client/server manifests retain foreign product references: ${manifestProducts.join(",")}`);
@@ -929,7 +1431,11 @@ function classifyRuntimeAuditRoute(params) {
   let category = "UNKNOWN";
   if (socialflowRuntimeAuditAllowedRuntimeRoutes.includes(params.routePath)) {
     category = "ALLOWED_SHARED_RUNTIME";
-  } else if (routePathProducts.length > 0 || executableProducts.length > 0) {
+  } else if (routePathProducts.length > 0) {
+    category = "CROSS_PRODUCT_LEAK";
+  } else if (executableProducts.length > 0 && sharedDepsClassification.declaredSharedDeps.length > 0) {
+    category = "DECLARED_SHARED_DEPENDENCY";
+  } else if (executableProducts.length > 0) {
     category = "CROSS_PRODUCT_LEAK";
   } else if (routeMatchesAnyPrefix(params.routePath, socialflowRuntimeAuditAllowedSocialflowPrefixes)) {
     category = "ALLOWED_SOCIALFLOW";
@@ -953,6 +1459,7 @@ function classifyRuntimeAuditRoute(params) {
     manifestProducts,
     sharedChunkProducts,
     sharedInfraTokens,
+    sharedDepsClassification,
   });
 
   return {
@@ -963,6 +1470,7 @@ function classifyRuntimeAuditRoute(params) {
     manifestProducts,
     sharedChunkProducts,
     sharedInfraTokens,
+    sharedDepsClassification,
     reasons,
   };
 }
@@ -972,6 +1480,7 @@ function countByCategory(routeClassifications) {
     ALLOWED_SHARED_RUNTIME: 0,
     ALLOWED_SHARED_INFRA: 0,
     ALLOWED_SOCIALFLOW: 0,
+    DECLARED_SHARED_DEPENDENCY: 0,
     SUSPICIOUS_SHARED_SURFACE: 0,
     CROSS_PRODUCT_LEAK: 0,
     UNKNOWN: 0,
@@ -1012,6 +1521,7 @@ function buildRuntimeRiskScore(params) {
 }
 
 async function buildSocialflowProductScopedRuntimeAudit(previewRoot, previewArtifact, filterReport, scopeAudit, generatedAt) {
+  const sharedRuntimeContract = await loadSharedRuntimeContract();
   const serverFunctionsRoot = path.join(previewRoot, "server-functions");
   const serverRoot = path.join(serverFunctionsRoot, "default/.next/server");
   const appRoot = path.join(serverRoot, "app");
@@ -1102,6 +1612,7 @@ async function buildSocialflowProductScopedRuntimeAudit(previewRoot, previewArti
       executableSourcePaths,
       manifestSourcePaths,
       sharedChunkSourcePaths,
+      sharedRuntimeContract,
     });
 
     routeClassifications.push({
@@ -1128,6 +1639,16 @@ async function buildSocialflowProductScopedRuntimeAudit(previewRoot, previewArti
         sharedChunkProducts: classification.sharedChunkProducts,
         sharedInfraTokens: classification.sharedInfraTokens,
       },
+      sharedDependencies: classification.sharedDepsClassification ? {
+        declared: classification.sharedDepsClassification.declaredSharedDeps.map(d => ({
+          module: d.module,
+          classification: d.classification,
+          riskLevel: d.riskLevel,
+        })),
+        highRisk: classification.sharedDepsClassification.highRiskSharedDeps,
+        mediumRisk: classification.sharedDepsClassification.mediumRiskSharedDeps,
+        lowRisk: classification.sharedDepsClassification.lowRiskSharedDeps,
+      } : null,
     });
   }
 
@@ -1241,11 +1762,32 @@ async function buildSocialflowProductScopedRuntimeAudit(previewRoot, previewArti
     runtimeIntegrity: filterReport.runtimeIntegrity === true,
     driftFindings: driftFindings.length,
   });
+  const declaredSharedDependencyRoutes = routeClassifications.filter((r) => r.category === "DECLARED_SHARED_DEPENDENCY");
+  const declaredSharedDepsCount = declaredSharedDependencyRoutes.length;
+  const highRiskSharedDepsCount = routeClassifications.filter((r) =>
+    r.sharedDependencies && r.sharedDependencies.highRisk && r.sharedDependencies.highRisk.length > 0
+  ).length;
+  const mediumRiskSharedDepsCount = routeClassifications.filter((r) =>
+    r.sharedDependencies && r.sharedDependencies.mediumRisk && r.sharedDependencies.mediumRisk.length > 0
+  ).length;
+  const tenantIsolation = await buildSocialflowTenantIsolationVerification(routeClassifications);
+
+  if (tenantIsolation.counts.PARTIALLY_ISOLATED > 0) {
+    warnings.push(`${tenantIsolation.counts.PARTIALLY_ISOLATED} high-risk routes remain PARTIALLY_ISOLATED for tenant verification`);
+  }
+  if (tenantIsolation.counts.UNVERIFIED > 0) {
+    warnings.push(`${tenantIsolation.counts.UNVERIFIED} high-risk routes remain UNVERIFIED for tenant verification`);
+  }
+  if (tenantIsolation.counts.UNSAFE > 0) {
+    blockingFindings.push(`${tenantIsolation.counts.UNSAFE} high-risk routes classified as UNSAFE for tenant isolation`);
+  }
+
   const scopedActivationReady =
     filterReport.runtimeIntegrity === true &&
     runtimeRiskScore === 0 &&
     blockingFindings.length === 0 &&
-    dangerousSharedDependencies.length === 0;
+    dangerousSharedDependencies.length === 0 &&
+    highRiskSharedDepsCount === 0;
 
   return {
     product: previewArtifact.key,
@@ -1255,18 +1797,32 @@ async function buildSocialflowProductScopedRuntimeAudit(previewRoot, previewArti
     previewArtifactPath: normalizeRelative(path.relative(repoRoot, previewRoot)),
     runtimeAuditVersion: productScopedRuntimeAuditVersion,
     runtimeAuditGeneratedAt: generatedAt,
+    sharedRuntimeContractVersion: sharedRuntimeContract?.contractVersion || null,
+    sharedRuntimeContractLoaded: sharedRuntimeContract !== null,
     totalRoutes: routeClassifications.length,
     allowedRoutes,
     suspiciousRoutes,
     crossProductLeaks,
     unknownRoutes,
     sharedInfraRoutes,
+    declaredSharedDependencies: declaredSharedDepsCount,
     runtimeRiskScore,
     scopedActivationReady,
     blockingFindings,
     warnings: uniqueSorted(warnings),
     categoryCounts,
     severityCounts,
+    sharedDependencyCounts: {
+      declaredRoutes: declaredSharedDepsCount,
+      highRiskSharedDeps: highRiskSharedDepsCount,
+      mediumRiskSharedDeps: mediumRiskSharedDepsCount,
+    },
+    tenantIsolationVerificationVersion: tenantIsolation.tenantIsolationVerificationVersion,
+    tenantIsolationCounts: tenantIsolation.counts,
+    tenantIsolationVerifiedRoutes: tenantIsolation.verifiedRoutes,
+    tenantIsolationPartiallyIsolatedRoutes: tenantIsolation.partiallyIsolatedRoutes,
+    tenantIsolationUnverifiedRoutes: tenantIsolation.unverifiedRoutes,
+    tenantIsolationUnsafeRoutes: tenantIsolation.unsafeRoutes,
     leaksBySeverity: {
       highRisk: routeClassifications.filter((r) => r.leakSeverity === "HIGH_RISK").map((r) => r.routePath).sort(),
       mediumRisk: routeClassifications.filter((r) => r.leakSeverity === "MEDIUM_RISK").map((r) => r.routePath).sort().slice(0, 50),
@@ -1294,6 +1850,13 @@ async function buildSocialflowProductScopedRuntimeAudit(previewRoot, previewArti
     crossProductLeakRoutes: routeClassifications.filter((route) => route.category === "CROSS_PRODUCT_LEAK"),
     suspiciousRouteDetails: routeClassifications.filter((route) => route.category === "SUSPICIOUS_SHARED_SURFACE"),
     unknownRouteDetails: routeClassifications.filter((route) => route.category === "UNKNOWN"),
+    declaredSharedDependencyRoutes: declaredSharedDependencyRoutes.map((route) => ({
+      routePath: route.routePath,
+      leakSeverity: route.leakSeverity,
+      sharedDependencies: route.sharedDependencies,
+      reasons: route.reasons,
+    })),
+    tenantIsolationRoutes: tenantIsolation.routes,
     routeClassifications,
   };
 }

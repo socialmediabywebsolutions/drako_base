@@ -1342,6 +1342,11 @@ const DEFAULT_SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_GUARD: SocialflowProductScopedPr
     "crossProductLeakRoutes",
     "suspiciousRouteDetails",
     "unknownRouteDetails",
+    "declaredSharedDependencyRoutes",
+    "sharedRuntimeContractVersion",
+    "sharedRuntimeContractLoaded",
+    "declaredSharedDependencies",
+    "sharedDependencyCounts",
     "routeClassifications",
   ],
   workflowRequiredTokens: [
@@ -4096,6 +4101,7 @@ async function buildSocialflowProductScopedPreviewChecks(
       "ALLOWED_SHARED_RUNTIME",
       "ALLOWED_SHARED_INFRA",
       "ALLOWED_SOCIALFLOW",
+      "DECLARED_SHARED_DEPENDENCY",
       "SUSPICIOUS_SHARED_SURFACE",
       "CROSS_PRODUCT_LEAK",
       "UNKNOWN",
@@ -4276,7 +4282,8 @@ async function buildSocialflowProductScopedPreviewChecks(
       runtimeAuditDriftFailures.push(`${guard.runtimeAuditPath} remainingCriticalLeaks do not match route classifications`);
     }
 
-    if (runtimeAuditAllowedRoutes + runtimeAuditSuspiciousRoutes + runtimeAuditCrossProductLeaks + runtimeAuditUnknownRoutes !== runtimeAuditTotalRoutes) {
+    const runtimeAuditDeclaredSharedDeps = Number(runtimeAudit.declaredSharedDependencies ?? 0);
+    if (runtimeAuditAllowedRoutes + runtimeAuditSuspiciousRoutes + runtimeAuditCrossProductLeaks + runtimeAuditUnknownRoutes + runtimeAuditDeclaredSharedDeps !== runtimeAuditTotalRoutes) {
       runtimeAuditDriftFailures.push(`${guard.runtimeAuditPath} route summary counts do not add up to totalRoutes`);
     }
     if (runtimeAuditSharedInfraRoutes > runtimeAuditAllowedRoutes) {
