@@ -19,6 +19,7 @@
     "check:no-pages": "tsx scripts/check-no-pages.ts",
     "check:no-placeholder-secrets": "node scripts/check-no-placeholder-secrets.mjs",
     "build:artifacts:skeleton": "node scripts/build-artifact-matrix-skeleton.mjs",
+    "socialflow-runtime:build": "node scripts/build-socialflow-runtime-scaffold.mjs && tsc -p apps/socialflow-runtime/tsconfig.json --noEmit",
     "precf:build": "npm run check:no-pages && npm run check:no-placeholder-secrets",
     "postbuild:factory": "node scripts/patch-opennext-mentoria-runtime.mjs && ARTIFACT_MATRIX_PRODUCT=all ARTIFACT_MATRIX_REQUIRE_GLOBAL_BUILD=1 node scripts/build-artifact-matrix-skeleton.mjs",
     "build:factory": "npm run check:no-pages && npm run check:no-placeholder-secrets && npx opennextjs-cloudflare build && npm run postbuild:factory",

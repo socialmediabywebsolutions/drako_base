@@ -1,10 +1,3 @@
 "use client";
 
-export function Providers({
-    children,
-}: {
-    children: React.ReactNode;
-    enableNextAuth: boolean;
-}) {
-    return <>{children}</>;
-}
+export { AppProviders as Providers } from "@shared-ui-neutral/app-providers";

@@ -18,6 +18,9 @@ export default defineConfig({
         globals: true,
         alias: {
             "@": path.resolve(__dirname, "./src"),
+            "@shared-neutral": path.resolve(__dirname, "./packages/shared-neutral/src"),
+            "@shared-cloudflare": path.resolve(__dirname, "./packages/shared-cloudflare/src"),
+            "@shared-ui-neutral": path.resolve(__dirname, "./packages/shared-ui-neutral/src"),
             "server-only": path.resolve(__dirname, "src/__tests__/mocks/empty.ts"),
         },
         exclude: [

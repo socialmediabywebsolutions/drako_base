@@ -21,6 +21,11 @@ El runtime vendible del ecosistema no vive en `apps/*`. Las carpetas `apps/*`
 son starters/manifests legacy para la vieja iniciativa multi-SaaS y no deben
 tratarse como fuente canonica de UI, API, auth, D1 ni deploy.
 
+`apps/socialflow-runtime/*` solo existe como scaffold inactivo del futuro split
+parcial de SocialFlow. No es runtime activo, no tiene worker desplegado, no
+recibe trafico y no reemplaza `src/app/socialflow/*` ni
+`workers/socialflows/wrangler.workers.toml`.
+
 | Capa/producto | Runtime canonico | Compat/legacy permitido | Nota operativa |
 |---|---|---|---|
 | Drako marca | raiz publica, marketing y `src/app/site/*` | `drakos` como auth/worker context | Drako es marca/casa central, no SaaS hijo vendible. |

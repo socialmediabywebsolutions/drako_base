@@ -321,6 +321,27 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
   - Resolver `ISSUE-010` cuando se prepare la plantilla formal de futuros SaaS.
   - No renombrar workers plurales productivos sin plan de deploy.
 
+## [2026-05-15 23:25 UTC+02:00] SOCIALFLOW-P2-15-RUNTIME-SPLIT-SCAFFOLD
+- Contexto:
+  - P2-14 aprobo un split parcial real para SocialFlow, pero sin activar todavia el runtime nuevo.
+  - Hacia falta preparar una base fisica reversible sin tocar workers activos ni trafico productivo.
+- Cambio realizado:
+  - Se creo `apps/socialflow-runtime/*` como scaffold inactivo del futuro runtime aislado.
+  - Se agregaron packages neutrales (`shared-neutral`, `shared-cloudflare`, `shared-ui-neutral`) y un canary worker sin routes en `workers/socialflows-runtime-canary/*`.
+  - Se documento la excepcion explicita en el mapa canonico: `apps/socialflow-runtime/*` no es runtime vendible ni activo; solo scaffold controlado.
+  - Se agrego `tests/architecture/socialflow-runtime-split-scaffold.test.ts` y se ajusto `tests/architecture/canonical-product-map.test.ts` para permitir solo esta excepcion inactiva.
+- Archivos tocados:
+  - `apps/socialflow-runtime/*`
+  - `packages/shared-neutral/*`
+  - `packages/shared-cloudflare/*`
+  - `packages/shared-ui-neutral/*`
+  - `workers/socialflows-runtime-canary/*`
+  - `tests/architecture/socialflow-runtime-split-scaffold.test.ts`
+  - `tests/architecture/canonical-product-map.test.ts`
+  - `docs/audits/P2-15-RUNTIME-SPLIT-SCAFFOLD.md`
+- Resultado:
+  - El scaffold del split parcial existe en el repo sin activar runtime nuevo y sin relajar el guardrail de `apps/*` mas alla de una excepcion concreta y no desplegable.
+
 ## [2026-05-02 12:20 UTC+02:00] SOCIALFLOW-P1-VERTICAL-BOUNDARY
 - Contexto:
   - P1 de separacion vertical: SocialFlow debe funcionar como SaaS independiente y Campamento Base solo como capa operator/contrato.

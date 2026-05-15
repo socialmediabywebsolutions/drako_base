@@ -20,14 +20,27 @@ function read(relativePath: string): string {
 }
 
 describe("canonical product map", () => {
-  it("keeps apps as legacy manifests instead of runtime products", () => {
+  it("keeps apps as legacy manifests except the explicit inactive SocialFlow runtime scaffold", () => {
     const appsDir = path.join(repoRoot, "apps");
     const files = listFiles(appsDir);
+    const allowedSocialFlowRuntimeFiles = new Set([
+      "socialflow-runtime/package.json",
+      "socialflow-runtime/tsconfig.json",
+      "socialflow-runtime/next.config.ts",
+      "socialflow-runtime/open-next.config.ts",
+      "socialflow-runtime/runtime-boundaries.json",
+      "socialflow-runtime/src/app/layout.tsx",
+      "socialflow-runtime/src/app/page.tsx",
+      "socialflow-runtime/src/middleware.ts",
+    ]);
 
     expect(files.length).toBeGreaterThan(0);
 
     const forbiddenRuntimeFiles = files.filter((file) => {
       const relative = path.relative(appsDir, file).replace(/\\/g, "/");
+      if (allowedSocialFlowRuntimeFiles.has(relative)) {
+        return false;
+      }
       const baseName = path.basename(file);
       return (
         baseName === "package.json" ||
@@ -48,6 +61,7 @@ describe("canonical product map", () => {
 
     expect(matrix).toContain("## 0) Mapa canonico de producto");
     expect(matrix).toContain("`apps/*` no es runtime canonico");
+    expect(matrix).toContain("`apps/socialflow-runtime/*` solo existe como scaffold inactivo");
     expect(matrix).toContain("`src/app/mentoria/*`, `src/app/api/mentoria/*`, `src/lib/mentoria/*`");
     expect(matrix).toContain(
       "`src/app/socialflow/*`, `src/app/api/socialflow/*`, `src/lib/socialflow/*`, `src/lib/social-core/*`",

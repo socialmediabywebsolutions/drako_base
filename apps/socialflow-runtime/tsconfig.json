@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@shared-neutral/*": ["../../packages/shared-neutral/src/*"],
+      "@shared-cloudflare/*": ["../../packages/shared-cloudflare/src/*"],
+      "@shared-ui-neutral/*": ["../../packages/shared-ui-neutral/src/*"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "next.config.ts",
+    "open-next.config.ts"
+  ],
+  "exclude": [
+    ".next",
+    ".open-next",
+    "node_modules"
+  ]
+}

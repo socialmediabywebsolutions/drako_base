@@ -42,6 +42,7 @@ Backlog tecnico vivo para continuidad entre chats, con foco en Mentoria y riesgo
 - Estado actual:
   - El mapa canonico queda documentado en `10_matriz_global_de_rutas_y_entrypoints.md`.
   - `tests/architecture/canonical-product-map.test.ts` impide que `apps/*` crezca con `package.json`, wrangler config, `src/*`, API o UI runtime sin decision explicita.
+  - Excepcion explicita: `apps/socialflow-runtime/*` queda permitido solo como scaffold inactivo/canary sin routes, sin deploy y sin activar runtime.
 - Criterio de cierre:
   - Mover `apps/*` a templates/archivo controlado o documentar formalmente su rol dentro de Factory sin ambiguedad con productos activos.
 

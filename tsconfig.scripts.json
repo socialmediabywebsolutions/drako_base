@@ -10,7 +10,10 @@
     "baseUrl": ".",
     "paths": {
       "@cloudflare/next-on-pages": ["scripts/shims/next-on-pages"],
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@shared-neutral/*": ["packages/shared-neutral/src/*"],
+      "@shared-cloudflare/*": ["packages/shared-cloudflare/src/*"],
+      "@shared-ui-neutral/*": ["packages/shared-ui-neutral/src/*"]
     }
   },
   "include": [

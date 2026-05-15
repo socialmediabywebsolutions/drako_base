@@ -31,6 +31,15 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@shared-neutral/*": [
+        "./packages/shared-neutral/src/*"
+      ],
+      "@shared-cloudflare/*": [
+        "./packages/shared-cloudflare/src/*"
+      ],
+      "@shared-ui-neutral/*": [
+        "./packages/shared-ui-neutral/src/*"
       ]
     }
   },
