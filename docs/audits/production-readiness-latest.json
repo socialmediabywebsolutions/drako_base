@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-14T17:45:33.847Z",
+  "timestamp": "2026-05-15T07:37:23.849Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
@@ -2036,8 +2036,8 @@
       "targetName": "socialflow:product-scoped-preview",
       "expected": "SocialFlow product-scoped preview manifest, scope audit and filter report exist with complete metadata",
       "actual": {
-        "removedCount": 255,
-        "remainingCount": 222,
+        "removedCount": 451,
+        "remainingCount": 26,
         "runtimeIntegrity": true
       },
       "details": "SocialFlow product-scoped preview metadata is present and internally consistent."
@@ -2052,8 +2052,8 @@
       "actual": {
         "artifactMode": "product-scoped-preview",
         "artifactState": "inactive-preview",
-        "removedCount": 255,
-        "remainingCount": 222
+        "removedCount": 451,
+        "remainingCount": 26
       },
       "details": "SocialFlow product-scoped preview is a real inactive preview, not a fake or empty artifact."
     },
@@ -2088,7 +2088,7 @@
       "targetName": "socialflow:product-scoped-preview",
       "expected": "runtime-audit.json exists with complete route classification and risk metadata",
       "actual": {
-        "totalRoutes": 222,
+        "totalRoutes": 26,
         "runtimeRiskScore": 100,
         "scopedActivationReady": false
       },
@@ -2102,18 +2102,14 @@
       "targetName": "socialflow:product-scoped-preview",
       "expected": "0 real cross-product leaks before product-scoped activation",
       "actual": {
-        "crossProductLeaks": 102,
+        "crossProductLeaks": 6,
         "examples": [
-          "admin",
-          "api/agents",
-          "api/alerts",
-          "api/analysis/client-social",
-          "api/analysis/competitor-social",
-          "api/analysis/consolidate",
-          "api/analysis/generate-pdf",
-          "api/analysis/geo",
-          "api/analysis/status",
-          "api/analysis/web"
+          "api/socialflow/auths/logouts",
+          "api/socialflow/exports/current",
+          "socialflow/(workspace)/settings/account",
+          "socialflow/(workspace)/settings/billing",
+          "socialflow/(workspace)/settings/ownership",
+          "socialflow/(workspace)/settings/team"
         ]
       },
       "details": "Runtime audit still detects cross-product leak routes; warning-only until the product-scoped preview is activated."
@@ -2137,7 +2133,7 @@
       "expected": "scopedActivationReady=true only when no cross-product leaks are present",
       "actual": {
         "scopedActivationReady": false,
-        "crossProductLeaks": 102
+        "crossProductLeaks": 6
       },
       "details": "Runtime audit does not claim safe activation while cross-product leaks remain."
     },
@@ -2230,18 +2226,14 @@
       "targetName": "socialflow:product-scoped-preview",
       "expected": "0 real cross-product leaks before product-scoped activation",
       "actual": {
-        "crossProductLeaks": 102,
+        "crossProductLeaks": 6,
         "examples": [
-          "admin",
-          "api/agents",
-          "api/alerts",
-          "api/analysis/client-social",
-          "api/analysis/competitor-social",
-          "api/analysis/consolidate",
-          "api/analysis/generate-pdf",
-          "api/analysis/geo",
-          "api/analysis/status",
-          "api/analysis/web"
+          "api/socialflow/auths/logouts",
+          "api/socialflow/exports/current",
+          "socialflow/(workspace)/settings/account",
+          "socialflow/(workspace)/settings/billing",
+          "socialflow/(workspace)/settings/ownership",
+          "socialflow/(workspace)/settings/team"
         ]
       },
       "details": "Runtime audit still detects cross-product leak routes; warning-only until the product-scoped preview is activated."

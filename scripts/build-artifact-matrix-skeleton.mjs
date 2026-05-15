@@ -39,51 +39,15 @@ const defaultSocialflowScopeAudit = {
 };
 const defaultSocialflowProductScopedPreviewFilter = {
   scopeMode: "product-scoped-preview",
-  removedRoutePrefixes: [
-    "auth",
-    "billing",
-    "clinic",
-    "clients",
-    "employees",
-    "tasks",
-    "projects",
-    "operator",
-    "owner",
-    "bases",
-    "mentoria",
-    "mentorias",
-    "campobase",
-    "campamento-base",
-    "site/panel",
-    "(dashboard)/campobase",
-    "(dashboard)/campamento-base",
-    "(dashboard)/operator",
-    "(dashboard)",
-    "dashboard",
-    "parent",
-    "drakos/auths",
-    "site/mentoria",
-    "site/mentoria-ar",
-    "site/mentoria-cl",
-    "site/mentoria-co",
-    "site/mentoria-es",
-    "site/mentoria-mx",
-    "api/auth",
-    "api/billing",
-    "api/clinic",
-    "api/clients",
-    "api/employees",
-    "api/tasks",
-    "api/projects",
-    "api/operator",
-    "api/owner",
-    "api/bases",
-    "api/mentoria",
-    "api/mentorias",
-    "api/campobase",
-    "api/campamento-base",
-    "api/parent",
-    "api/drakos/auths",
+  allowedRoutePrefixes: [
+    "api/socialflow",
+    "socialflow",
+    "products",
+    "products/socialflow",
+    "_not-found",
+    "favicon.ico",
+    "page.js",
+    "page_client-reference-manifest.js",
   ],
 };
 const socialflowRuntimeAuditAllowedSocialflowPrefixes = [
@@ -491,6 +455,11 @@ function manifestKeyMatchesRoutePrefixes(manifestKey, prefixes) {
   return prefixes.some((prefix) => routeMatchesPrefix(routePath, prefix));
 }
 
+function manifestKeyMatchesAllowedPrefixes(manifestKey, allowedPrefixes) {
+  const routePath = routeFromManifestKey(manifestKey);
+  return allowedPrefixes.some((prefix) => routeMatchesPrefix(routePath, prefix));
+}
+
 async function pruneJsonObjectManifest(filePath, shouldRemoveKey) {
   if (!(await fileExists(filePath))) {
     return { removed: 0, remaining: 0 };
@@ -525,7 +494,7 @@ async function pruneFunctionsConfigManifest(filePath, shouldRemoveKey) {
   return { removed, remaining: Object.keys(functions).length };
 }
 
-async function pruneServerReferenceManifestJson(filePath, removedPrefixes) {
+async function pruneServerReferenceManifestJson(filePath, prefixes, isWhitelist = false) {
   if (!(await fileExists(filePath))) {
     return { removed: 0, remaining: 0 };
   }
@@ -541,7 +510,9 @@ async function pruneServerReferenceManifestJson(filePath, removedPrefixes) {
         if (!section || typeof section !== "object") continue;
         for (const key of Object.keys(section)) {
           const appRoute = key.replace(/^app\//, "").replace(/\/(page|layout|route)$/, "");
-          if (removedPrefixes.some((prefix) => routeMatchesPrefix(appRoute, prefix))) {
+          const matches = prefixes.some((prefix) => routeMatchesPrefix(appRoute, prefix));
+          const shouldRemove = isWhitelist ? !matches : matches;
+          if (shouldRemove) {
             delete section[key];
             removed += 1;
           }
@@ -559,7 +530,7 @@ async function pruneServerReferenceManifestJson(filePath, removedPrefixes) {
   return { removed, remaining };
 }
 
-async function pruneServerReferenceManifestJs(filePath, removedPrefixes) {
+async function pruneServerReferenceManifestJs(filePath, prefixes, isWhitelist = false) {
   if (!(await fileExists(filePath))) {
     return { removed: 0, remaining: 0 };
   }
@@ -573,7 +544,7 @@ async function pruneServerReferenceManifestJs(filePath, removedPrefixes) {
   const before = JSON.stringify(manifest);
   const jsonPath = filePath.replace(/\.js$/, ".json");
   await fs.writeFile(jsonPath, `${JSON.stringify(manifest)}\n`, "utf8");
-  const result = await pruneServerReferenceManifestJson(jsonPath, removedPrefixes);
+  const result = await pruneServerReferenceManifestJson(jsonPath, prefixes, isWhitelist);
   const prunedManifest = await readJson(jsonPath);
   const serialized = JSON.stringify(JSON.stringify(prunedManifest));
   await fs.writeFile(filePath, `self.__RSC_SERVER_MANIFEST=${serialized}\n`, "utf8");
@@ -585,7 +556,7 @@ async function readTextIfExists(filePath) {
   return fs.readFile(filePath, "utf8");
 }
 
-async function validateProductScopedPreviewRuntime(previewRoot, removedPrefixes) {
+async function validateProductScopedPreviewRuntime(previewRoot, prefixes, isWhitelist = false) {
   const unresolvedDependencies = [];
   const filteringWarnings = [];
   const workerPath = path.join(previewRoot, "worker.js");
@@ -620,7 +591,9 @@ async function validateProductScopedPreviewRuntime(previewRoot, removedPrefixes)
   const appPathsManifestPath = path.join(serverRoot, "app-paths-manifest.json");
   const appPathsManifest = (await fileExists(appPathsManifestPath)) ? await readJson(appPathsManifestPath) : {};
   for (const [key, relativeFile] of Object.entries(appPathsManifest)) {
-    if (manifestKeyMatchesRoutePrefixes(key, removedPrefixes)) {
+    const matches = manifestKeyMatchesRoutePrefixes(key, prefixes);
+    const shouldBeRemoved = isWhitelist ? !matches : matches;
+    if (shouldBeRemoved) {
       unresolvedDependencies.push(`app-paths-manifest still references removed route ${key}`);
     }
     const absoluteFile = path.join(serverRoot, String(relativeFile));
@@ -631,7 +604,9 @@ async function validateProductScopedPreviewRuntime(previewRoot, removedPrefixes)
 
   const remainingRoutes = await listServerFunctionAppRoutes(serverFunctionsRoot);
   for (const routePath of remainingRoutes) {
-    if (removedPrefixes.some((prefix) => routeMatchesPrefix(routePath, prefix))) {
+    const matches = prefixes.some((prefix) => routeMatchesPrefix(routePath, prefix));
+    const shouldBeRemoved = isWhitelist ? !matches : matches;
+    if (shouldBeRemoved) {
       unresolvedDependencies.push(`removed route file still exists ${routePath}`);
     }
   }
@@ -675,9 +650,9 @@ function buildProductScopedPreviewFilterConfig(previewArtifact) {
   return {
     ...defaultSocialflowProductScopedPreviewFilter,
     ...overrideFilter,
-    removedRoutePrefixes: uniqueSorted([
-      ...(defaultSocialflowProductScopedPreviewFilter.removedRoutePrefixes ?? []),
-      ...(overrideFilter.removedRoutePrefixes ?? []),
+    allowedRoutePrefixes: uniqueSorted([
+      ...(defaultSocialflowProductScopedPreviewFilter.allowedRoutePrefixes ?? []),
+      ...(overrideFilter.allowedRoutePrefixes ?? []),
     ]),
   };
 }
@@ -704,8 +679,9 @@ function routeClassificationMatchesCriticalLeak(route) {
   return route.leakSeverity === "HIGH_RISK";
 }
 
-function routePrefixForRemovedRoute(routePath, removedRoutePrefixes) {
-  return removedRoutePrefixes.find((prefix) => routeMatchesPrefix(routePath, prefix)) ?? routePath.split("/")[0];
+function routePrefixForRemovedRoute(routePath, allowedRoutePrefixes) {
+  const firstSegment = routePath.split("/")[0];
+  return allowedRoutePrefixes.find((prefix) => routeMatchesPrefix(routePath, prefix)) ? null : firstSegment;
 }
 
 function buildRuntimeAuditComparison(previousRuntimeAudit, runtimeAudit, filterReport) {
@@ -717,7 +693,7 @@ function buildRuntimeAuditComparison(previousRuntimeAudit, runtimeAudit, filterR
   const removedCriticalLeakRoutes = removedLeakRoutes.filter(routeClassificationMatchesCriticalLeak);
   const remainingCriticalLeakRoutes = (runtimeAudit.routeClassifications ?? []).filter(routeClassificationMatchesCriticalLeak);
   const removedLeakPrefixes = uniqueSorted(
-    removedLeakRoutes.map((route) => routePrefixForRemovedRoute(route.routePath, filterReport.removedRoutePrefixes ?? [])),
+    removedLeakRoutes.map((route) => routePrefixForRemovedRoute(route.routePath, filterReport.allowedRoutePrefixes ?? [])).filter(Boolean),
   );
 
   return {
@@ -741,7 +717,7 @@ function buildRuntimeAuditComparison(previousRuntimeAudit, runtimeAudit, filterR
     },
     removedSurfaces: {
       routeCount: filterReport.removedCount,
-      routePrefixes: filterReport.removedRoutePrefixes ?? [],
+      allowedRoutePrefixes: filterReport.allowedRoutePrefixes ?? [],
       routes: filterReport.removedRoutes ?? [],
       criticalLeakRoutes: removedCriticalLeakRoutes.map((route) => route.routePath).sort(),
     },
@@ -1327,7 +1303,7 @@ async function emitSocialflowProductScopedPreviewArtifact(standaloneArtifact, pr
   const previewRoot = path.dirname(path.resolve(repoRoot, previewArtifact.workerPath));
   const generatedAt = new Date().toISOString();
   const filterConfig = buildProductScopedPreviewFilterConfig(previewArtifact);
-  const removedRoutePrefixes = filterConfig.removedRoutePrefixes;
+  const allowedRoutePrefixes = filterConfig.allowedRoutePrefixes;
 
   await copyDir(sourceRoot, previewRoot);
 
@@ -1351,7 +1327,7 @@ async function emitSocialflowProductScopedPreviewArtifact(standaloneArtifact, pr
     generatedAt,
   );
   const removedRoutes = originalRoutes.filter((routePath) =>
-    removedRoutePrefixes.some((prefix) => routeMatchesPrefix(routePath, prefix)),
+    !allowedRoutePrefixes.some((prefix) => routeMatchesPrefix(routePath, prefix)),
   );
 
   for (const routePath of removedRoutes) {
@@ -1360,23 +1336,25 @@ async function emitSocialflowProductScopedPreviewArtifact(standaloneArtifact, pr
 
   const manifestPruneResults = {
     appPathsManifest: await pruneJsonObjectManifest(path.join(serverRoot, "app-paths-manifest.json"), (key) =>
-      manifestKeyMatchesRoutePrefixes(key, removedRoutePrefixes),
+      !manifestKeyMatchesAllowedPrefixes(key, allowedRoutePrefixes),
     ),
     functionsConfigManifest: await pruneFunctionsConfigManifest(path.join(serverRoot, "functions-config-manifest.json"), (key) =>
-      manifestKeyMatchesRoutePrefixes(key, removedRoutePrefixes),
+      !manifestKeyMatchesAllowedPrefixes(key, allowedRoutePrefixes),
     ),
     serverReferenceManifestJson: await pruneServerReferenceManifestJson(
       path.join(serverRoot, "server-reference-manifest.json"),
-      removedRoutePrefixes,
+      allowedRoutePrefixes,
+      true,
     ),
     serverReferenceManifestJs: await pruneServerReferenceManifestJs(
       path.join(serverRoot, "server-reference-manifest.js"),
-      removedRoutePrefixes,
+      allowedRoutePrefixes,
+      true,
     ),
   };
 
   const remainingRoutes = await listServerFunctionAppRoutes(serverFunctionsRoot);
-  const integrity = await validateProductScopedPreviewRuntime(previewRoot, removedRoutePrefixes);
+  const integrity = await validateProductScopedPreviewRuntime(previewRoot, allowedRoutePrefixes, true);
   const filterReport = {
     product: previewArtifact.key,
     artifactMode: previewArtifact.artifactMode,
@@ -1386,7 +1364,7 @@ async function emitSocialflowProductScopedPreviewArtifact(standaloneArtifact, pr
     previewArtifactPath: normalizeRelative(path.relative(repoRoot, previewRoot)),
     filterVersion: productScopedPreviewFilterVersion,
     filterGeneratedAt: generatedAt,
-    removedRoutePrefixes,
+    allowedRoutePrefixes,
     removedRoutes,
     removedCount: removedRoutes.length,
     remainingRoutes,

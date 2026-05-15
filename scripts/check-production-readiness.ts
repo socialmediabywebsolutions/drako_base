@@ -1297,7 +1297,7 @@ const DEFAULT_SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_GUARD: SocialflowProductScopedPr
     "previewArtifactPath",
     "filterVersion",
     "filterGeneratedAt",
-    "removedRoutePrefixes",
+    "allowedRoutePrefixes",
     "removedRoutes",
     "removedCount",
     "remainingRoutes",
