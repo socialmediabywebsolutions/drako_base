@@ -16,6 +16,92 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
 ```
 
+## [2026-05-16 00:53 UTC+02:00] SOCIALFLOW-P2-17-TEMP-SHARED-REDUCTION
+- Contexto:
+  - P2-16 dejo el runtime parcial de SocialFlow compilable con OpenNext propio, pero aun con acoplamiento `TEMP_SHARED` relevante hacia auth, DB, UI y logica de negocio del monolito.
+- Cambio realizado:
+  - Se redujo el contrato `TEMP_SHARED` de `13` entradas a `5` entradas efectivas y se movio ownership real de auth, DB y parte del business plane al app `apps/socialflow-runtime/*`.
+  - Se creo boundary local de DB en `apps/socialflow-runtime/src/lib/db/runtime-db.ts`.
+  - Se creo boundary local de auth en `apps/socialflow-runtime/src/lib/auth/*` para cookies, tokens, sesion, tenant isolation, repositorio auth y handlers de login/logout/register.
+  - Se porto implementacion local de exports y se reemplazaron reexports de rutas API por handlers propios del runtime nuevo.
+  - Se eliminaron imports runtime hacia `@/lib/auths/*`, `@/modules/socialflow-app/*`, `@/components/auth/*`, `@/components/ui/*`, `@/lib/db`, `@/lib/http/errors`, `@/lib/cf`, `@/lib/correlation`, `@/lib/tenants/services` y `@/app/api/socialflow/*`.
+  - La logica de campaigns/posts/profile/AI/LinkedIn queda temporalmente detras de adapters explicitos a `@/lib/socialflow/*`.
+- Archivos tocados:
+  - `apps/socialflow-runtime/runtime-boundaries.json`
+  - `apps/socialflow-runtime/src/middleware.ts`
+  - `apps/socialflow-runtime/src/lib/runtime-env.ts`
+  - `apps/socialflow-runtime/src/lib/db/runtime-db.ts`
+  - `apps/socialflow-runtime/src/lib/auth/*`
+  - `apps/socialflow-runtime/src/lib/socialflow/*`
+  - `apps/socialflow-runtime/src/app/socialflow/auth/_components/socialflow-auth-form.tsx`
+  - `apps/socialflow-runtime/src/app/socialflow/(workspace)/settings/account/_components/account-settings-client.tsx`
+  - `apps/socialflow-runtime/src/app/socialflow/(workspace)/settings/{account,team,ownership}/page.tsx`
+  - `apps/socialflow-runtime/src/app/api/socialflow/*`
+  - `scripts/build-socialflow-runtime.mjs`
+  - `tests/architecture/socialflow-runtime-split-scaffold.test.ts`
+  - `docs/audits/P2-17-TEMP-SHARED-REDUCTION.md`
+- Verificacion ejecutada:
+  - `pnpm socialflow-runtime:build`
+  - `pnpm exec vitest run tests/architecture/socialflow-runtime-split-scaffold.test.ts tests/architecture/canonical-product-map.test.ts`
+  - `pnpm typecheck`
+  - `pnpm build`
+  - `pnpm test`
+  - `git diff --check`
+- Resultado:
+  - El runtime nuevo queda mas aislado del monolito: `TEMP_SHARED=5`, `forbiddenHitsTotal=0`, `buildGraph.contaminatedFileCount=0` y `crossRuntimeReferenceCount=10` concentrado en adapters de negocio explicitados.
+- Riesgo residual:
+  - Siguen compartidos `@/lib/socialflow/repository`, `@/lib/socialflow/live-publishing`, `@/lib/socialflow/profile/repository`, `@/lib/socialflow/ai/*` y `@/lib/socialflow/linkedin/*`.
+  - El canary sigue inactivo y no existe cutover.
+- Siguiente accion:
+  - Mover adapters de negocio hacia ownership local progresivo, empezando por campaigns/posts/profile antes de tocar AI y LinkedIn.
+- Relacion con issues:
+  - `ISSUE-010`, `ISSUE-012`, `ISSUE-016`
+
+## [2026-05-16 00:31 UTC+02:00] SOCIALFLOW-P2-16-RUNTIME-PORT-INACTIVE-CANARY
+- Contexto:
+  - P2-15 dejo creado el scaffold fisico para el split parcial de SocialFlow, pero todavia sin runtime real portado dentro de `apps/socialflow-runtime/*`.
+- Cambio realizado:
+  - Se porto runtime real de SocialFlow al app inactivo `apps/socialflow-runtime/*` sin tocar el worker activo ni el trafico productivo.
+  - Se anadieron rutas UI reales para `socialflow/auth`, `socialflow/(workspace)`, `profile`, `ai`, `analysis`, `plan`, `sessions`, `setup` y `settings/*`.
+  - Se anadieron rutas API reales para `api/socialflow/auths/*`, `campaigns`, `exports/current`, `posts`, `profile`, `ai/*` y LinkedIn `connect/callback`.
+  - Se creo middleware propio fail-closed con resolucion de host SocialFlow, rechazo de host control-plane e inyeccion de headers aislados de tenant/runtime.
+  - `pnpm socialflow-runtime:build` ahora ejecuta preflight del scaffold + build OpenNext real del app nuevo + auditoria local de routes/manifests/chunks en `build/socialflow-runtime-scaffold/runtime-port-audit.json`.
+  - Se actualizo knowledge pack y se documento el estado real en `docs/audits/P2-16-SOCIALFLOW-RUNTIME-PORT.md`.
+- Archivos tocados:
+  - `apps/socialflow-runtime/package.json`
+  - `apps/socialflow-runtime/tsconfig.json`
+  - `apps/socialflow-runtime/next.config.ts`
+  - `apps/socialflow-runtime/wrangler.toml`
+  - `apps/socialflow-runtime/runtime-boundaries.json`
+  - `apps/socialflow-runtime/src/middleware.ts`
+  - `apps/socialflow-runtime/src/lib/runtime-session.ts`
+  - `apps/socialflow-runtime/src/app/socialflow/*`
+  - `apps/socialflow-runtime/src/app/api/socialflow/*`
+  - `scripts/build-socialflow-runtime.mjs`
+  - `tests/architecture/socialflow-runtime-split-scaffold.test.ts`
+  - `tests/architecture/canonical-product-map.test.ts`
+  - `docs/audits/P2-16-SOCIALFLOW-RUNTIME-PORT.md`
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - `pnpm socialflow-runtime:build`
+  - `pnpm typecheck`
+  - `pnpm exec vitest run tests/architecture/socialflow-runtime-split-scaffold.test.ts tests/architecture/canonical-product-map.test.ts`
+  - `pnpm build`
+  - `pnpm test`
+  - `git diff --check`
+- Resultado:
+  - El runtime nuevo queda compilable y auditable localmente con `25` rutas (`11` API, `12` UI) y `contaminatedFileCount=0` contra tokens prohibidos del control-plane/monolito.
+  - El monolito mantiene `pnpm build` y `pnpm test` en PASS sin cambiar el worker activo ni el trafico real.
+- Riesgo residual:
+  - El runtime nuevo sigue `TEMP_SHARED` con `@/lib/db`, `@/lib/auths/*`, `@/lib/socialflow/*` y `@/modules/socialflow-app/*`.
+  - El canary sigue inactivo y no existe cutover ni deploy.
+- Siguiente accion:
+  - Reducir `TEMP_SHARED` y preparar la siguiente fase de desacople de auth/db/business logic sin activar el runtime canary.
+- Relacion con issues:
+  - `ISSUE-010`, `ISSUE-012`, `ISSUE-016`
+
 ## [2026-05-06 12:40 UTC+02:00] SOCIALFLOW-P10-17-HOST-FENCING-CANONICAL-DOMAIN
 - Contexto:
   - Cloudflare ya enruta `socialflow.drako.systems` a `saas-socialflows-prod`, pero el Worker lo rechazaba por host fencing.

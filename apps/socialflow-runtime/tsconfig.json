@@ -3,17 +3,29 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@shared-neutral/*": ["../../packages/shared-neutral/src/*"],
-      "@shared-cloudflare/*": ["../../packages/shared-cloudflare/src/*"],
-      "@shared-ui-neutral/*": ["../../packages/shared-ui-neutral/src/*"]
+      "@/*": [
+        "../../src/*"
+      ],
+      "@runtime/*": [
+        "./src/*"
+      ],
+      "@shared-neutral/*": [
+        "../../packages/shared-neutral/src/*"
+      ],
+      "@shared-cloudflare/*": [
+        "../../packages/shared-cloudflare/src/*"
+      ],
+      "@shared-ui-neutral/*": [
+        "../../packages/shared-ui-neutral/src/*"
+      ]
     }
   },
   "include": [
+    "next.config.ts",
+    "open-next.config.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
-    "next.config.ts",
-    "open-next.config.ts"
+    ".next/types/**/*.ts"
   ],
   "exclude": [
     ".next",

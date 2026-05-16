@@ -21,10 +21,10 @@ El runtime vendible del ecosistema no vive en `apps/*`. Las carpetas `apps/*`
 son starters/manifests legacy para la vieja iniciativa multi-SaaS y no deben
 tratarse como fuente canonica de UI, API, auth, D1 ni deploy.
 
-`apps/socialflow-runtime/*` solo existe como scaffold inactivo del futuro split
-parcial de SocialFlow. No es runtime activo, no tiene worker desplegado, no
-recibe trafico y no reemplaza `src/app/socialflow/*` ni
-`workers/socialflows/wrangler.workers.toml`.
+`apps/socialflow-runtime/*` ya contiene el canary inactivo del split parcial de
+SocialFlow con runtime real portado para build local independiente. Aun no es
+runtime activo, no tiene worker desplegado, no recibe trafico y no reemplaza
+`src/app/socialflow/*` ni `workers/socialflows/wrangler.workers.toml`.
 
 | Capa/producto | Runtime canonico | Compat/legacy permitido | Nota operativa |
 |---|---|---|---|
@@ -69,8 +69,9 @@ de 4 pasos y limites honestos del piloto. Sin cambios de arquitectura, rutas,
 Origin validation, host fencing, Cloudflare, DB, OAuth ni workflows.
 
 ### `apps/*` no es runtime canonico
-- No debe contener `package.json`, `wrangler.toml`, `wrangler.jsonc`, `src/*`, APIs ni UI real.
+- No debe contener `package.json`, `wrangler.toml`, `wrangler.jsonc`, `src/*`, APIs ni UI real, salvo la excepcion documentada `apps/socialflow-runtime/*` como canary inactivo del split parcial.
 - No debe importarse desde `src/*`, `workers/*` ni rutas productivas.
+- `apps/socialflow-runtime/*` puede compilar y generar artifact local independiente, pero sigue sin deploy, sin routes y sin cutover.
 - Si un SaaS nuevo necesita plantilla, usar `apps/*` solo como referencia legacy o moverlo en una fase futura a templates controlados.
 - Los workers plurales productivos (`workers/drakos`, `workers/mentorias`, `workers/bases`, `workers/socialflows`) no se renombran sin plan de deploy y redirects.
 
