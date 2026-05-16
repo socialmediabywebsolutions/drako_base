@@ -7,11 +7,14 @@ import { getRuntimeCorrelationId, logRuntimeEvent } from "./lib/runtime-observab
 import { verifyLinkedInCanaryGateState } from "./lib/socialflow/linkedin/canary-gate-state";
 
 const CANARY_GATE_HEADER = "x-socialflow-canary-gate";
+const CANARY_GATE_QUERY = "canaryGate";
+const CANARY_GATE_COOKIE = "__Host-socialflow_canary_gate";
 const LINKEDIN_CALLBACK_PREFIX = "/api/socialflow/linkedin/callback";
 
 function isPublicSocialFlowPath(pathname: string) {
   return (
     pathname === "/socialflow/auth" ||
+    pathname.startsWith("/_next/") ||
     pathname.startsWith("/api/socialflow/auths/") ||
     pathname.startsWith(LINKEDIN_CALLBACK_PREFIX) ||
     pathname === "/api/socialflow/runtime/health" ||
@@ -44,6 +47,17 @@ function shouldEnforceCanaryGate(host: string): boolean {
 
 function isLinkedInCallbackPath(pathname: string) {
   return pathname === LINKEDIN_CALLBACK_PREFIX || pathname.startsWith(`${LINKEDIN_CALLBACK_PREFIX}/`);
+}
+
+function setCanaryGateCookie(response: NextResponse, gateToken: string) {
+  response.cookies.set({
+    name: CANARY_GATE_COOKIE,
+    value: gateToken,
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+  });
 }
 
 async function allowLinkedInCallbackWithoutGateHeader(request: NextRequest, gateToken: string) {
@@ -207,7 +221,27 @@ export async function middleware(request: NextRequest) {
     }
 
     const provided = request.headers.get(CANARY_GATE_HEADER)?.trim() ?? "";
-    if (!provided || provided !== gateToken) {
+    const gateCookie = request.cookies.get(CANARY_GATE_COOKIE)?.value?.trim() ?? "";
+    const queryGate = request.nextUrl.searchParams.get(CANARY_GATE_QUERY)?.trim() ?? "";
+    const hasValidHeader = provided.length > 0 && provided === gateToken;
+    const hasValidCookie = gateCookie.length > 0 && gateCookie === gateToken;
+    const hasValidQuery = queryGate.length > 0 && queryGate === gateToken;
+
+    if (hasValidQuery && request.method === "GET" && !hasValidHeader && !hasValidCookie) {
+      const redirectUrl = new URL(request.url);
+      redirectUrl.searchParams.delete(CANARY_GATE_QUERY);
+      const response = NextResponse.redirect(redirectUrl, 307);
+      setCanaryGateCookie(response, gateToken);
+      logRuntimeEvent("log", "middleware_canary_gate_cookie_bootstrapped", {
+        pathname,
+        method: request.method,
+        host,
+        correlationId: getRuntimeCorrelationId(request),
+      });
+      return response;
+    }
+
+    if (!hasValidHeader && !hasValidCookie) {
       const callbackBypass = await allowLinkedInCallbackWithoutGateHeader(request, gateToken);
       if (callbackBypass.ok) {
         logRuntimeEvent("log", "middleware_canary_gate_callback_state_accepted", {
@@ -225,13 +259,15 @@ export async function middleware(request: NextRequest) {
           !provided
             ? isLikelyCrawlerUserAgent(userAgent)
               ? "missing_gate_header_bot_or_crawler"
-              : `missing_gate_header:${callbackBypass.reason}`
+              : queryGate
+                ? `invalid_gate_query:${callbackBypass.reason}`
+                : `missing_gate_header:${callbackBypass.reason}`
             : `invalid_gate_header:${callbackBypass.reason}`,
         );
       }
     }
 
-    if (provided && provided !== gateToken) {
+    if (provided && !hasValidHeader) {
       return canaryGateDeniedResponse(
         request,
         host,

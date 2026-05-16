@@ -194,6 +194,7 @@ describe("SocialFlow runtime split scaffold", () => {
     const wrangler = read("workers/socialflows-runtime-canary/wrangler.workers.toml");
     const workerSource = read("workers/socialflows-runtime-canary/src/workers.ts");
     const runtimeWrangler = read("apps/socialflow-runtime/wrangler.toml");
+    const runtimeMiddleware = read("apps/socialflow-runtime/src/middleware.ts");
 
     expect(wrangler).toContain('name = "saas-socialflows-runtime-scaffold"');
     expect(wrangler).toContain('main = "src/workers.ts"');
@@ -216,6 +217,11 @@ describe("SocialFlow runtime split scaffold", () => {
     expect(runtimeWrangler).toContain('binding = "SOCIALFLOW_AUTHS_DB"');
     expect(runtimeWrangler).not.toContain("[[routes]]");
     expect(runtimeWrangler).not.toContain("custom_domain = true");
+
+    expect(runtimeMiddleware).toContain('const CANARY_GATE_QUERY = "canaryGate"');
+    expect(runtimeMiddleware).toContain('const CANARY_GATE_COOKIE = "__Host-socialflow_canary_gate"');
+    expect(runtimeMiddleware).toContain('pathname.startsWith("/_next/")');
+    expect(runtimeMiddleware).toContain("middleware_canary_gate_cookie_bootstrapped");
   });
 
   it("keeps the scaffold build command additive and non-activating", () => {
