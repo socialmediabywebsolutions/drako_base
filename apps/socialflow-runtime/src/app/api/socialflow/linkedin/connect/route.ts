@@ -26,7 +26,10 @@ export async function GET(request: Request) {
       redirectTo,
     });
 
-    return addRuntimeHeaders(Response.redirect(oauth.authorizationUrl, 307), { request, correlationId });
+    return addRuntimeHeaders(new Response(null, {
+      status: 307,
+      headers: { location: oauth.authorizationUrl },
+    }), { request, correlationId });
   } catch (error) {
     if (error instanceof Error && error.message === "SESSION_REQUIRED") {
       logRuntimeEvent("warn", "linkedin_connect_session_required", { correlationId });

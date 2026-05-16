@@ -4,6 +4,7 @@ import { getSocialFlowAuthUserById } from "./repository";
 import { readTenantIdFromHeaderGetter, validateSocialFlowTenantIsolation } from "./tenant-isolation";
 import { verifySocialFlowSessionToken } from "./tokens";
 import type { SocialFlowRequestSession, SocialFlowSession } from "./types";
+import { getRuntimeCorrelationId, logRuntimeEvent } from "../runtime-observability";
 
 function readCookieValue(cookieHeader: string | null, candidateNames: string[]): string | null {
   for (const name of candidateNames) {
@@ -52,6 +53,12 @@ export async function getCurrentSocialFlowSessionFromRequest(request: Request): 
     });
     return null;
   }
+
+  logRuntimeEvent("log", "session_resolved", {
+    correlationId: getRuntimeCorrelationId(request),
+    tenantId: session.tenantId,
+    role: session.role,
+  });
 
   return session;
 }

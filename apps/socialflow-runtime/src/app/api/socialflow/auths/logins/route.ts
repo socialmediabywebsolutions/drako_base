@@ -29,6 +29,12 @@ export async function POST(request: Request) {
       return jsonError(login.code, login.message, 401, request);
     }
 
+    logRuntimeEvent("log", "auth_login_success", {
+      correlationId,
+      tenantId: login.tenantId,
+      role: login.role,
+    });
+
     const response = addRuntimeHeaders(NextResponse.json({
       ok: true,
       role: login.role,
