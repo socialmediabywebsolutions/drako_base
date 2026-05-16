@@ -336,17 +336,25 @@ export async function resolveRuntimeSocialSaasSeed(tenantId: string): Promise<Sa
     return null;
   }
 
-  return queryOne<SaasSeedRow>(
-    db,
-    `SELECT id, slug, name, blueprint_snapshot
-     FROM saas
-     WHERE tenant_id = ? AND lower(slug) IN (?, ?)
-     ORDER BY datetime(created_at) DESC
-     LIMIT 1`,
-    tenantId,
-    SOCIALFLOW_EXPORT_SLUGS[0],
-    SOCIALFLOW_EXPORT_SLUGS[1],
-  );
+  try {
+    return await queryOne<SaasSeedRow>(
+      db,
+      `SELECT id, slug, name, blueprint_snapshot
+       FROM saas
+       WHERE tenant_id = ? AND lower(slug) IN (?, ?)
+       ORDER BY datetime(created_at) DESC
+       LIMIT 1`,
+      tenantId,
+      SOCIALFLOW_EXPORT_SLUGS[0],
+      SOCIALFLOW_EXPORT_SLUGS[1],
+    );
+  } catch (error) {
+    console.warn("SOCIALFLOW_RUNTIME_SAAS_SEED_UNAVAILABLE", {
+      tenantId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 export async function listRuntimeProfileStoreRows(context: RuntimeSocialContext, tableName: typeof CHANNEL_COMPETITORS_TABLE | typeof CHANNEL_ASSETS_TABLE) {
