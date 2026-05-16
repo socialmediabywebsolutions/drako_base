@@ -1,4 +1,4 @@
-import { getSocialFlowRuntimeEnv } from "../runtime-env";
+import { requireSocialFlowRuntimeString } from "../runtime-env";
 import type { SocialFlowRole, SocialFlowSessionClaims } from "./types";
 
 type JwtHeader = {
@@ -75,12 +75,7 @@ async function verifyHmac(input: string, signature: string, secret: string): Pro
 }
 
 function readSecret(): string {
-  const runtimeEnv = getSocialFlowRuntimeEnv();
-  const secret = runtimeEnv?.SOCIALFLOW_AUTHS_SECRET?.trim() || runtimeEnv?.SESSION_SECRET?.trim() || "";
-  if (!secret) {
-    throw new Error("SOCIALFLOW_AUTHS_SECRET is not configured");
-  }
-  return secret;
+  return requireSocialFlowRuntimeString("SOCIALFLOW_AUTHS_SECRET");
 }
 
 export async function createSocialFlowSessionToken(input: {

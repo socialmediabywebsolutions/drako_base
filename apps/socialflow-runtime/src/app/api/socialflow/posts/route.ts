@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "../../../../lib/auth/session";
+import { addRuntimeHeaders, getRuntimeCorrelationId, logRuntimeEvent } from "../../../../lib/runtime-observability";
 import {
   approveRuntimePost,
   getRuntimePostById,
@@ -17,11 +18,15 @@ import {
 const ALLOWED_PROVIDERS = ["LINKEDIN"] as const;
 const ALLOWED_CREATION_STATUSES = ["DRAFT", "SCHEDULED"] as const;
 
-function unauthorizedResponse() {
-  return NextResponse.json({ code: "UNAUTHORIZED", message: "SESSION_REQUIRED" }, { status: 401 });
+function unauthorizedResponse(request?: Request, correlationId?: string) {
+  return addRuntimeHeaders(NextResponse.json({ code: "UNAUTHORIZED", message: "SESSION_REQUIRED" }, { status: 401 }), {
+    request,
+    correlationId,
+  });
 }
 
 export async function GET(request: Request) {
+  const correlationId = getRuntimeCorrelationId(request);
   try {
     const url = new URL(request.url);
     const saasId = url.searchParams.get("saasId");
@@ -50,14 +55,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ code: "INVALID_SOCIAL_CONTEXT", message: error.message }, { status: 400 });
     }
     if (error instanceof Error && error.message === "SESSION_REQUIRED") {
-      return unauthorizedResponse();
+      return unauthorizedResponse(request, correlationId);
     }
-    console.error("SOCIALFLOW_RUNTIME_POSTS_LIST_ERROR", error);
+    logRuntimeEvent("error", "posts_list_failed", {
+      correlationId,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ code: "SOCIALFLOW_ERROR", message: "Unable to load posts" }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
+  const correlationId = getRuntimeCorrelationId(request);
   try {
     const body = (await request.json().catch(() => null)) as {
       id?: string;
@@ -130,6 +139,14 @@ export async function POST(request: Request) {
         postId: post.id,
       });
       if (!liveResult.ok) {
+        logRuntimeEvent("error", "live_publish_failed", {
+          correlationId,
+          code: liveResult.code ?? "LIVE_PUBLISH_FAILED",
+          message: liveResult.message ?? "Live publish failed.",
+          postId: post.id,
+          saasId,
+          tenantId: session.tenantId,
+        });
         return NextResponse.json({
           post: liveResult.post ?? (await getRuntimePostById({ tenantId: session.tenantId, saasId, postId: post.id })) ?? post,
           livePublish: {
@@ -157,14 +174,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ code: "INVALID_SOCIAL_CONTEXT", message: error.message }, { status: 400 });
     }
     if (error instanceof Error && error.message === "SESSION_REQUIRED") {
-      return unauthorizedResponse();
+      return unauthorizedResponse(request, correlationId);
     }
-    console.error("SOCIALFLOW_RUNTIME_POSTS_UPSERT_ERROR", error);
+    logRuntimeEvent("error", "posts_upsert_failed", {
+      correlationId,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ code: "SOCIALFLOW_ERROR", message: "Unable to save post" }, { status: 500 });
   }
 }
 
 export async function PATCH(request: Request) {
+  const correlationId = getRuntimeCorrelationId(request);
   try {
     const body = (await request.json().catch(() => null)) as {
       id?: string;
@@ -249,9 +270,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ code: "INVALID_SOCIAL_CONTEXT", message: error.message }, { status: 400 });
     }
     if (error instanceof Error && error.message === "SESSION_REQUIRED") {
-      return unauthorizedResponse();
+      return unauthorizedResponse(request, correlationId);
     }
-    console.error("SOCIALFLOW_RUNTIME_POSTS_PATCH_ERROR", error);
+    logRuntimeEvent("error", "posts_patch_failed", {
+      correlationId,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ code: "SOCIALFLOW_ERROR", message: "Unable to update post" }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
 import { getSocialFlowRuntimeEnv } from "../runtime-env";
+import { logRuntimeEvent, runtimeJson } from "../runtime-observability";
 
 export type DatabaseUnavailableReason = "binding-missing" | "migrations-missing" | "table-missing";
 
@@ -85,10 +86,16 @@ export async function runDetailed(
   }
 }
 
-export function respondDatabaseError(error: unknown): Response | null {
+export function respondDatabaseError(error: unknown, request?: Request | Headers | null): Response | null {
   if (!(error instanceof DatabaseUnavailableError)) {
     return null;
   }
+
+  logRuntimeEvent("error", "db_unavailable", {
+    correlationId: request instanceof Request ? request.headers.get("x-correlation-id") : request?.get("x-correlation-id") ?? null,
+    reason: error.reason,
+    message: error.message,
+  });
 
   const message =
     error.reason === "binding-missing"
@@ -97,7 +104,7 @@ export function respondDatabaseError(error: unknown): Response | null {
         ? "SocialFlow runtime database migrations are missing."
         : "Required SocialFlow runtime table is missing.";
 
-  return Response.json(
+  return runtimeJson(
     {
       ok: false,
       error: "SOCIALFLOW_RUNTIME_DB_UNAVAILABLE",
@@ -105,5 +112,6 @@ export function respondDatabaseError(error: unknown): Response | null {
       message,
     },
     { status: 503 },
+    { request },
   );
 }

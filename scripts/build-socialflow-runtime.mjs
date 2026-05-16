@@ -5,6 +5,7 @@ import path from "node:path";
 const repoRoot = process.cwd();
 const runtimeRoot = path.join(repoRoot, "apps", "socialflow-runtime");
 const outputDir = path.join(repoRoot, "build", "socialflow-runtime-scaffold");
+const runtimeContractPath = path.join(runtimeRoot, "runtime-deploy-contract.json");
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -63,6 +64,99 @@ function extractModuleSpecifiers(source) {
   return Array.from(matches, (match) => match[1] ?? match[2]).filter(Boolean);
 }
 
+function sumValues(record) {
+  return Object.values(record).reduce((total, value) => total + value, 0);
+}
+
+function parseWranglerBindingBlocks(source, sectionName) {
+  const blocks = source.match(new RegExp(`\\[\\[${escapeRegex(sectionName)}\\]\\][\\s\\S]*?(?=\\n\\[\\[|\\n\\[|$)`, "g")) ?? [];
+  return blocks.map((block) => {
+    const binding = block.match(/binding\s*=\s*"([^"]+)"/)?.[1] ?? null;
+    const queue = block.match(/queue\s*=\s*"([^"]+)"/)?.[1] ?? null;
+    const service = block.match(/service\s*=\s*"([^"]+)"/)?.[1] ?? null;
+    return { binding, queue, service, block };
+  });
+}
+
+function parseWranglerVars(source) {
+  const block = source.match(/\[vars\]([\s\S]*?)(?=\n\[|$)/)?.[1] ?? "";
+  const matches = block.matchAll(/^([A-Z0-9_]+)\s*=\s*/gm);
+  return Array.from(matches, (match) => match[1]);
+}
+
+function parseWranglerState(source) {
+  return {
+    workerName: source.match(/^name\s*=\s*"([^"]+)"/m)?.[1] ?? null,
+    main: source.match(/^main\s*=\s*"([^"]+)"/m)?.[1] ?? null,
+    workersDev: source.match(/^workers_dev\s*=\s*(true|false)/m)?.[1] ?? null,
+    hasAssets: /\[assets\]/.test(source),
+    hasRoutes: /\[\[routes\]\]/.test(source),
+    hasCustomDomain: /custom_domain\s*=\s*true/.test(source),
+    d1Bindings: parseWranglerBindingBlocks(source, "d1_databases").map((entry) => entry.binding).filter(Boolean),
+    kvBindings: parseWranglerBindingBlocks(source, "kv_namespaces").map((entry) => entry.binding).filter(Boolean),
+    r2Bindings: parseWranglerBindingBlocks(source, "r2_buckets").map((entry) => entry.binding).filter(Boolean),
+    queueBindings: parseWranglerBindingBlocks(source, "queues.producers").map((entry) => entry.binding).filter(Boolean),
+    serviceBindings: parseWranglerBindingBlocks(source, "services").map((entry) => entry.binding).filter(Boolean),
+    vars: parseWranglerVars(source),
+  };
+}
+
+function parseNamedJsonExport(source, name) {
+  const match = source.match(new RegExp(`export const ${name} = (\\{[\\s\\S]*?\\});`));
+  if (!match) {
+    throw new Error(`SOCIALFLOW_RUNTIME_NEXT_ENV_INVALID: missing export ${name}`);
+  }
+  return JSON.parse(match[1]);
+}
+
+function pickAllowedEnvSurface(input, allowedKeys) {
+  const filtered = {};
+  for (const key of allowedKeys) {
+    if (Object.prototype.hasOwnProperty.call(input, key)) {
+      filtered[key] = input[key];
+    }
+  }
+  return filtered;
+}
+
+async function sanitizeOpenNextEnvSurface(buildRoot, contract) {
+  const nextEnvPath = path.join(buildRoot, "cloudflare", "next-env.mjs");
+  const source = await fs.readFile(nextEnvPath, "utf8").catch(() => null);
+  if (!source) {
+    return {
+      file: null,
+      beforeKeyCount: 0,
+      afterKeyCount: 0,
+      removedKeys: [],
+      allowedKeys: contract.buildEnvAllowlist,
+    };
+  }
+
+  const production = parseNamedJsonExport(source, "production");
+  const development = parseNamedJsonExport(source, "development");
+  const beforeKeys = Array.from(new Set([...Object.keys(production), ...Object.keys(development)])).sort();
+  const filteredProduction = pickAllowedEnvSurface(production, contract.buildEnvAllowlist);
+  const filteredDevelopment = pickAllowedEnvSurface(development, contract.buildEnvAllowlist);
+  const afterKeys = Array.from(new Set([...Object.keys(filteredProduction), ...Object.keys(filteredDevelopment)])).sort();
+  const removedKeys = beforeKeys.filter((key) => !afterKeys.includes(key));
+
+  const sanitizedSource = [
+    `export const production = ${JSON.stringify(filteredProduction)};`,
+    `export const development = ${JSON.stringify(filteredDevelopment)};`,
+    "",
+  ].join("\n");
+
+  await fs.writeFile(nextEnvPath, sanitizedSource, "utf8");
+
+  return {
+    file: path.relative(repoRoot, nextEnvPath).replace(/\\/g, "/"),
+    beforeKeyCount: beforeKeys.length,
+    afterKeyCount: afterKeys.length,
+    removedKeys,
+    allowedKeys: contract.buildEnvAllowlist,
+  };
+}
+
 async function analyzeSourceGraph() {
   const boundariesPath = path.join(runtimeRoot, "runtime-boundaries.json");
   const boundaries = await readJson(boundariesPath);
@@ -85,6 +179,7 @@ async function analyzeSourceGraph() {
   const safeSharedHitsByPattern = Object.fromEntries(boundaries.SAFE_SHARED_PACKAGE.map((pattern) => [pattern, 0]));
   const forbiddenHitsByPattern = Object.fromEntries(boundaries.FORBIDDEN_SHARED.map((pattern) => [pattern, 0]));
   const crossRuntimeReferences = [];
+  const processEnvReferences = [];
 
   for (const file of sourceFiles) {
     const relative = path.relative(runtimeRoot, file).replace(/\\/g, "/");
@@ -113,23 +208,138 @@ async function analyzeSourceGraph() {
         }
       }
     }
+
+    const processEnvHits = Array.from(source.matchAll(/process\.env\.([A-Z0-9_]+)/g), (match) => match[1]);
+    if (processEnvHits.length > 0) {
+      processEnvReferences.push({ file: relative, keys: processEnvHits });
+    }
   }
 
   return {
     filesScanned: sourceFiles.length,
     importsScanned,
-    safeSharedHitsTotal: Object.values(safeSharedHitsByPattern).reduce((total, value) => total + value, 0),
+    safeSharedHitsTotal: sumValues(safeSharedHitsByPattern),
     safeSharedHitsByPattern,
-    tempSharedHitsTotal: Object.values(tempSharedHitsByPattern).reduce((total, value) => total + value, 0),
+    tempSharedHitsTotal: sumValues(tempSharedHitsByPattern),
     tempSharedHitsByPattern,
-    forbiddenHitsTotal: Object.values(forbiddenHitsByPattern).reduce((total, value) => total + value, 0),
+    forbiddenHitsTotal: sumValues(forbiddenHitsByPattern),
     forbiddenHitsByPattern,
     crossRuntimeReferenceCount: crossRuntimeReferences.length,
     crossRuntimeReferences,
+    processEnvReferenceCount: processEnvReferences.length,
+    processEnvReferences,
   };
 }
 
+function buildBindingCoverage(contract, runtimeWrangler) {
+  const requiredVars = contract.runtimeVars.required;
+  const coverageByType = {
+    d1: {
+      required: contract.bindings.d1,
+      declared: runtimeWrangler.d1Bindings,
+      missing: contract.bindings.d1.filter((binding) => !runtimeWrangler.d1Bindings.includes(binding)),
+    },
+    kv: {
+      required: contract.bindings.kv,
+      declared: runtimeWrangler.kvBindings,
+      missing: contract.bindings.kv.filter((binding) => !runtimeWrangler.kvBindings.includes(binding)),
+    },
+    r2: {
+      required: contract.bindings.r2,
+      declared: runtimeWrangler.r2Bindings,
+      missing: contract.bindings.r2.filter((binding) => !runtimeWrangler.r2Bindings.includes(binding)),
+    },
+    queues: {
+      required: contract.bindings.queues,
+      declared: runtimeWrangler.queueBindings,
+      missing: contract.bindings.queues.filter((binding) => !runtimeWrangler.queueBindings.includes(binding)),
+    },
+    services: {
+      required: contract.bindings.services,
+      declared: runtimeWrangler.serviceBindings,
+      missing: contract.bindings.services.filter((binding) => !runtimeWrangler.serviceBindings.includes(binding)),
+    },
+    vars: {
+      required: requiredVars,
+      declared: runtimeWrangler.vars,
+      missing: requiredVars.filter((binding) => !runtimeWrangler.vars.includes(binding)),
+    },
+  };
+
+  return {
+    coverageByType,
+    requiredBindingSlots:
+      contract.bindings.d1.length
+      + contract.bindings.kv.length
+      + contract.bindings.r2.length
+      + contract.bindings.queues.length
+      + contract.bindings.services.length
+      + requiredVars.length,
+    declaredBindingSlots:
+      runtimeWrangler.d1Bindings.filter((binding) => contract.bindings.d1.includes(binding)).length
+      + runtimeWrangler.kvBindings.filter((binding) => contract.bindings.kv.includes(binding)).length
+      + runtimeWrangler.r2Bindings.filter((binding) => contract.bindings.r2.includes(binding)).length
+      + runtimeWrangler.queueBindings.filter((binding) => contract.bindings.queues.includes(binding)).length
+      + runtimeWrangler.serviceBindings.filter((binding) => contract.bindings.services.includes(binding)).length
+      + runtimeWrangler.vars.filter((binding) => requiredVars.includes(binding)).length,
+  };
+}
+
+function buildWorkerIdentityAudit(contract, scaffoldWrangler, runtimeWrangler) {
+  return {
+    distinctNames: scaffoldWrangler.workerName !== runtimeWrangler.workerName,
+    scaffoldWorker: scaffoldWrangler,
+    deployableWorker: runtimeWrangler,
+    expected: contract.workerIdentities,
+  };
+}
+
+function buildDeployBlockers(params) {
+  const blockers = [];
+
+  if (!params.workerIdentity.distinctNames) {
+    blockers.push("worker-name-collision");
+  }
+  if (params.bindingCoverage.coverageByType.d1.missing.length > 0) {
+    blockers.push("missing-d1-bindings");
+  }
+  if (params.bindingCoverage.coverageByType.vars.missing.length > 0) {
+    blockers.push("missing-runtime-vars");
+  }
+  if (!params.workerIdentity.deployableWorker.hasAssets) {
+    blockers.push("missing-assets-binding");
+  }
+  if (params.envSurface.afterKeyCount > params.envSurface.allowedKeys.length) {
+    blockers.push("env-surface-exceeds-allowlist");
+  }
+  if (params.sourceGraph.processEnvReferences.some((entry) => !entry.file.endsWith("runtime-env.ts"))) {
+    blockers.push("unexpected-process-env-usage");
+  }
+  if (params.workerIdentity.deployableWorker.hasRoutes || params.workerIdentity.deployableWorker.hasCustomDomain) {
+    blockers.push("deployable-runtime-exposes-traffic-surface");
+  }
+
+  return blockers;
+}
+
+function buildRollbackBlockers(params) {
+  const blockers = [];
+
+  if (!params.workerIdentity.distinctNames) {
+    blockers.push("rollback-target-ambiguous");
+  }
+  if (params.workerIdentity.scaffoldWorker.hasRoutes || params.workerIdentity.scaffoldWorker.hasCustomDomain) {
+    blockers.push("scaffold-not-inert");
+  }
+  if (params.workerIdentity.deployableWorker.workerName !== params.contract.workerIdentities.deployable.workerName) {
+    blockers.push("deployable-worker-identity-drift");
+  }
+
+  return blockers;
+}
+
 async function analyzeRuntimeBuild() {
+  const contract = await readJson(runtimeContractPath);
   const buildRoot = path.join(runtimeRoot, ".open-next");
   const nestedNextRoot = path.join(buildRoot, "server-functions", "default", "apps", "socialflow-runtime", ".next");
   const standaloneNextRoot = path.join(runtimeRoot, ".next");
@@ -181,11 +391,22 @@ async function analyzeRuntimeBuild() {
     }
   }
 
+  const scaffoldWranglerSource = await fs.readFile(path.join(repoRoot, "workers", "socialflows-runtime-canary", "wrangler.workers.toml"), "utf8");
+  const runtimeWranglerSource = await fs.readFile(path.join(runtimeRoot, "wrangler.toml"), "utf8");
+  const scaffoldWrangler = parseWranglerState(scaffoldWranglerSource);
+  const runtimeWrangler = parseWranglerState(runtimeWranglerSource);
+  const envSurface = await sanitizeOpenNextEnvSurface(buildRoot, contract);
+  const bindingCoverage = buildBindingCoverage(contract, runtimeWrangler);
+  const workerIdentity = buildWorkerIdentityAudit(contract, scaffoldWrangler, runtimeWrangler);
+  const deployBlockers = buildDeployBlockers({ workerIdentity, bindingCoverage, envSurface, sourceGraph });
+  const rollbackBlockers = buildRollbackBlockers({ workerIdentity, contract });
+
   const audit = {
     generatedAt: new Date().toISOString(),
     runtimeRoot: "apps/socialflow-runtime",
     buildRoot: "apps/socialflow-runtime/.open-next",
     nextRoot: path.relative(repoRoot, nextRoot).replace(/\\/g, "/"),
+    contractVersion: contract.contractVersion,
     routes: {
       total: routePaths.length,
       api: routePaths.filter((routePath) => routePath.startsWith("/api/socialflow/")).length,
@@ -203,6 +424,11 @@ async function analyzeRuntimeBuild() {
       contaminatedFileCount: contaminatedFiles.length,
       contaminatedFiles,
     },
+    workerIdentity,
+    bindingCoverage,
+    envSurface,
+    deployBlockers,
+    rollbackBlockers,
   };
 
   await fs.mkdir(outputDir, { recursive: true });
@@ -211,9 +437,22 @@ async function analyzeRuntimeBuild() {
     `${JSON.stringify(audit, null, 2)}\n`,
     "utf8",
   );
+  await fs.writeFile(
+    path.join(outputDir, "deploy-readiness-audit.json"),
+    `${JSON.stringify({
+      generatedAt: audit.generatedAt,
+      contractVersion: audit.contractVersion,
+      workerIdentity: audit.workerIdentity,
+      bindingCoverage: audit.bindingCoverage,
+      envSurface: audit.envSurface,
+      deployBlockers: audit.deployBlockers,
+      rollbackBlockers: audit.rollbackBlockers,
+    }, null, 2)}\n`,
+    "utf8",
+  );
 
   console.log(
-    `SOCIALFLOW_RUNTIME_OPENNEXT_BUILD_OK routes=${audit.routes.total} api=${audit.routes.api} ui=${audit.routes.ui} tempSharedHits=${audit.sourceGraph.tempSharedHitsTotal} contaminatedFiles=${audit.buildGraph.contaminatedFileCount}`,
+    `SOCIALFLOW_RUNTIME_OPENNEXT_BUILD_OK routes=${audit.routes.total} api=${audit.routes.api} ui=${audit.routes.ui} tempSharedHits=${audit.sourceGraph.tempSharedHitsTotal} contaminatedFiles=${audit.buildGraph.contaminatedFileCount} deployBlockers=${audit.deployBlockers.length} rollbackBlockers=${audit.rollbackBlockers.length} envSurface=${audit.envSurface.afterKeyCount}`,
   );
 }
 

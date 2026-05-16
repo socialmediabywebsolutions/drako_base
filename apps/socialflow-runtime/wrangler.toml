@@ -4,5 +4,27 @@ compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = false
 
+[assets]
+directory = ".open-next/assets"
+
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+
+[[d1_databases]]
+binding = "SOCIAL_DB"
+database_name = "saas_socialflows_prod_db"
+database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
+
+[[d1_databases]]
+binding = "SOCIALFLOW_AUTHS_DB"
+database_name = "saas_socialflow_auths_prod_db"
+database_id = "f6f46e6a-487f-400a-a2d1-c6d23e88f9cf"
+
 [vars]
-SOCIALFLOW_RUNTIME_CANARY = "inactive-scaffold"
+SOCIALFLOW_RUNTIME_TARGET = "canary"
+SOCIALFLOW_RUNTIME_STATE = "inactive-deployable"
+SOCIALFLOW_RUNTIME_CONTRACT_VERSION = "p2-21"
+SOCIALFLOW_RUNTIME_COOKIE_NAMESPACE = "socialflow_canary"
+AUTHS_SECRETS_NAME = "SOCIALFLOWS_AUTHS_SECRET"

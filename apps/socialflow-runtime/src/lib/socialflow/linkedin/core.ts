@@ -226,11 +226,6 @@ function resolveLinkedInDisplayName(profile: LinkedInUserProfile): string {
 }
 
 function resolveLinkedInEnvValue(key: LinkedInEnvKey): LinkedInResolvedValue | null {
-  const processValue = process.env[key];
-  if (typeof processValue === "string" && processValue.trim()) {
-    return { value: processValue.trim(), source: `process.env.${key}` };
-  }
-
   const runtimeEnv = getSocialFlowRuntimeEnv() as Record<string, unknown> | null;
   const runtimeValue = runtimeEnv?.[key];
   if (typeof runtimeValue === "string" && runtimeValue.trim()) {
@@ -246,7 +241,7 @@ function getLinkedInClientIdWithSource(): LinkedInResolvedValue {
   throw new LinkedInIntegrationError("LINKEDIN_CLIENT_ID is not configured.", {
     code: "LINKEDIN_ENV_MISSING",
     accountStatus: "PENDING",
-    details: { key: "LINKEDIN_CLIENT_ID", attemptedSources: ["process.env", "socialflow.runtime"] },
+    details: { key: "LINKEDIN_CLIENT_ID", attemptedSources: ["socialflow.runtime"] },
   });
 }
 
@@ -256,7 +251,7 @@ function getLinkedInClientSecretWithSource(): LinkedInResolvedValue {
   throw new LinkedInIntegrationError("LINKEDIN_CLIENT_SECRET is not configured.", {
     code: "LINKEDIN_ENV_MISSING",
     accountStatus: "PENDING",
-    details: { key: "LINKEDIN_CLIENT_SECRET", attemptedSources: ["process.env", "socialflow.runtime"] },
+    details: { key: "LINKEDIN_CLIENT_SECRET", attemptedSources: ["socialflow.runtime"] },
   });
 }
 

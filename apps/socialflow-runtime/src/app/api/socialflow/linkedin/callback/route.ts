@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentSocialFlowSessionFromRequest } from "../../../../../lib/auth/session";
+import { addRuntimeHeaders, getRuntimeCorrelationId, logRuntimeEvent } from "../../../../../lib/runtime-observability";
 import { handleRuntimeLinkedInCallback } from "../../../../../lib/socialflow/linkedin-service";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ function buildCallbackRedirect(request: Request, targetPath: string, params: Rec
 }
 
 export async function GET(request: Request) {
+  const correlationId = getRuntimeCorrelationId(request);
   const socialflowSession = await getCurrentSocialFlowSessionFromRequest(request).catch(() => null);
   const callbackSession = socialflowSession
     ? {
@@ -30,6 +32,13 @@ export async function GET(request: Request) {
   const result = await handleRuntimeLinkedInCallback(request, callbackSession);
 
   if (!result.ok) {
+    logRuntimeEvent("warn", "linkedin_callback_failed", {
+      correlationId,
+      code: result.error.code,
+      status: result.error.status,
+      tenantId: result.tenantId,
+      saasId: result.saasId,
+    });
     const url = buildCallbackRedirect(request, result.redirectTo, {
       linkedin: "error",
       provider: "linkedin",
@@ -37,7 +46,7 @@ export async function GET(request: Request) {
       message: result.error.message,
       saasId: result.saasId,
     });
-    return NextResponse.redirect(url, 308);
+    return addRuntimeHeaders(NextResponse.redirect(url, 308), { request, correlationId });
   }
 
   const url = buildCallbackRedirect(request, result.redirectTo, {
@@ -47,5 +56,5 @@ export async function GET(request: Request) {
     saasId: result.saasId,
     accountId: "accountId" in result.persistence ? result.persistence.accountId : null,
   });
-  return NextResponse.redirect(url, 308);
+  return addRuntimeHeaders(NextResponse.redirect(url, 308), { request, correlationId });
 }

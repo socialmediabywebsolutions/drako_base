@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSocialFlowCookieConfig } from "./cookies";
+import { addRuntimeHeaders } from "../runtime-observability";
 
-export function jsonError(code: string, message: string, status = 400) {
-  return NextResponse.json({ ok: false, code, message }, { status });
+export function jsonError(code: string, message: string, status = 400, request?: Request | Headers | null) {
+  return addRuntimeHeaders(NextResponse.json({ ok: false, code, message }, { status }), { request });
 }
 
 export function setSocialFlowSessionCookie(params: {

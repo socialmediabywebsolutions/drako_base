@@ -1,8 +1,9 @@
 import { normalizeHost } from "@shared-neutral/hosts";
+import { getSocialFlowRuntimeCookieNames } from "../runtime-contract";
 
 export const SOCIALFLOW_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 8;
 
-const CANONICAL_COOKIE_NAME = "__Host-socialflow_session";
+const { canonical: CANONICAL_COOKIE_NAME } = getSocialFlowRuntimeCookieNames();
 const LOCAL_COOKIE_HOSTS = new Set(["127.0.0.1", "localhost"]);
 
 type CookieConfig = {

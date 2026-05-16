@@ -2,12 +2,16 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { normalizeHost, resolveHostMode } from "@shared-neutral/hosts";
 import { readSocialFlowRuntimeTokenSession } from "./lib/auth/session";
+import { getSocialFlowRuntimeEnv } from "./lib/runtime-env";
+import { getRuntimeCorrelationId, logRuntimeEvent } from "./lib/runtime-observability";
 
 function isPublicSocialFlowPath(pathname: string) {
   return (
     pathname === "/socialflow/auth" ||
     pathname.startsWith("/api/socialflow/auths/") ||
-    pathname === "/api/socialflow/linkedin/callback"
+    pathname === "/api/socialflow/linkedin/callback" ||
+    pathname === "/api/socialflow/runtime/health" ||
+    pathname === "/api/socialflow/runtime/readiness"
   );
 }
 
@@ -24,6 +28,7 @@ function buildRuntimeHeaders(
   },
 ) {
   const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-correlation-id", getRuntimeCorrelationId(request));
   requestHeaders.set("x-socialflow-runtime-root", "socialflow-runtime-canary");
   requestHeaders.set("x-socialflow-runtime-host", params.host || "unknown");
   requestHeaders.set("x-socialflow-runtime-host-mode", params.hostMode);
@@ -38,6 +43,7 @@ function buildRuntimeHeaders(
 }
 
 function forbiddenHostModeResponse(pathname: string) {
+  logRuntimeEvent("warn", "middleware_forbidden_host_mode", { pathname });
   if (isApiPath(pathname)) {
     return NextResponse.json(
       {
@@ -59,6 +65,10 @@ function forbiddenHostModeResponse(pathname: string) {
 }
 
 function unauthorizedResponse(request: NextRequest) {
+  logRuntimeEvent("warn", "middleware_session_required", {
+    pathname: request.nextUrl.pathname,
+    method: request.method,
+  });
   if (isApiPath(request.nextUrl.pathname)) {
     return NextResponse.json(
       {
@@ -77,7 +87,7 @@ function unauthorizedResponse(request: NextRequest) {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const host = normalizeHost(request.headers.get("x-forwarded-host") || request.headers.get("host") || "");
-  const hostMode = resolveHostMode(host, process.env.CF_PAGES_ENVIRONMENT ?? null);
+  const hostMode = resolveHostMode(host, getSocialFlowRuntimeEnv()?.CF_PAGES_ENVIRONMENT ?? null);
 
   if (hostMode === "CAMPAMENTO_BASE") {
     return forbiddenHostModeResponse(pathname);

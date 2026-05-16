@@ -31,11 +31,17 @@ describe("SocialFlow runtime split scaffold", () => {
       "apps/socialflow-runtime/next.config.ts",
       "apps/socialflow-runtime/open-next.config.ts",
       "apps/socialflow-runtime/wrangler.toml",
+      "apps/socialflow-runtime/runtime-deploy-contract.json",
       "apps/socialflow-runtime/runtime-boundaries.json",
       "apps/socialflow-runtime/src/app/layout.tsx",
       "apps/socialflow-runtime/src/app/page.tsx",
       "apps/socialflow-runtime/src/middleware.ts",
+      "apps/socialflow-runtime/src/app/api/socialflow/runtime/health/route.ts",
+      "apps/socialflow-runtime/src/app/api/socialflow/runtime/readiness/route.ts",
       "apps/socialflow-runtime/src/lib/runtime-env.ts",
+      "apps/socialflow-runtime/src/lib/runtime-contract.ts",
+      "apps/socialflow-runtime/src/lib/runtime-observability.ts",
+      "apps/socialflow-runtime/src/lib/runtime-readiness.ts",
       "apps/socialflow-runtime/src/lib/db/runtime-db.ts",
       "apps/socialflow-runtime/src/lib/auth/session.ts",
       "apps/socialflow-runtime/src/lib/auth/service.ts",
@@ -110,6 +116,38 @@ describe("SocialFlow runtime split scaffold", () => {
     );
   });
 
+  it("defines an explicit deploy contract for worker identity, bindings, env and observability", () => {
+    const contract = JSON.parse(read("apps/socialflow-runtime/runtime-deploy-contract.json")) as {
+      contractVersion: string;
+      workerIdentities: {
+        scaffold: { workerName: string; main: string };
+        deployable: { workerName: string; main: string; assetsDirectory: string };
+      };
+      bindings: { d1: string[]; kv: string[]; r2: string[]; queues: string[] };
+      runtimeSecrets: { required: string[] };
+      auth: { cookieName: string; allowGenericSessionFallback: boolean };
+      observability: { healthEndpoint: string; readinessEndpoint: string };
+    };
+
+    expect(contract.contractVersion).toBe("p2-21");
+    expect(contract.workerIdentities.scaffold.workerName).toBe("saas-socialflows-runtime-scaffold");
+    expect(contract.workerIdentities.deployable.workerName).toBe("saas-socialflows-runtime-canary");
+    expect(contract.workerIdentities.scaffold.main).toBe("src/workers.ts");
+    expect(contract.workerIdentities.deployable.main).toBe(".open-next/worker.js");
+    expect(contract.workerIdentities.deployable.assetsDirectory).toBe(".open-next/assets");
+    expect(contract.bindings.d1).toEqual(["DRACO_DB", "SOCIAL_DB", "SOCIALFLOW_AUTHS_DB"]);
+    expect(contract.bindings.kv).toEqual([]);
+    expect(contract.bindings.r2).toEqual([]);
+    expect(contract.bindings.queues).toEqual([]);
+    expect(contract.runtimeSecrets.required).toEqual(
+      expect.arrayContaining(["SOCIALFLOW_AUTHS_SECRET", "LINKEDIN_CLIENT_ID", "LINKEDIN_CLIENT_SECRET"]),
+    );
+    expect(contract.auth.cookieName).toBe("__Host-socialflow_canary_session");
+    expect(contract.auth.allowGenericSessionFallback).toBe(false);
+    expect(contract.observability.healthEndpoint).toBe("/api/socialflow/runtime/health");
+    expect(contract.observability.readinessEndpoint).toBe("/api/socialflow/runtime/readiness");
+  });
+
   it("keeps the future runtime scaffold and shared packages away from forbidden imports", () => {
     const boundaries = JSON.parse(read("apps/socialflow-runtime/runtime-boundaries.json")) as {
       FORBIDDEN_SHARED: string[];
@@ -155,16 +193,29 @@ describe("SocialFlow runtime split scaffold", () => {
   it("keeps the canary worker scaffold inert and route-free", () => {
     const wrangler = read("workers/socialflows-runtime-canary/wrangler.workers.toml");
     const workerSource = read("workers/socialflows-runtime-canary/src/workers.ts");
+    const runtimeWrangler = read("apps/socialflow-runtime/wrangler.toml");
 
-    expect(wrangler).toContain('name = "saas-socialflows-runtime-canary"');
+    expect(wrangler).toContain('name = "saas-socialflows-runtime-scaffold"');
     expect(wrangler).toContain('main = "src/workers.ts"');
     expect(wrangler).toContain("workers_dev = false");
     expect(wrangler).not.toContain("[[routes]]");
     expect(wrangler).not.toContain("custom_domain = true");
+    expect(wrangler).toContain('SOCIALFLOW_RUNTIME_TARGET = "scaffold"');
+    expect(wrangler).toContain('SOCIALFLOW_RUNTIME_STATE = "inactive-scaffold"');
 
     expect(workerSource).toContain("SOCIALFLOW_RUNTIME_CANARY_INACTIVE");
+    expect(workerSource).toContain('runtimeTarget: "scaffold"');
     expect(workerSource).toContain("status: 503");
     expect(workerSource).not.toContain(".open-next/socialflows-standalone");
+
+    expect(runtimeWrangler).toContain('name = "saas-socialflows-runtime-canary"');
+    expect(runtimeWrangler).toContain('main = ".open-next/worker.js"');
+    expect(runtimeWrangler).toContain("[assets]");
+    expect(runtimeWrangler).toContain('binding = "DRACO_DB"');
+    expect(runtimeWrangler).toContain('binding = "SOCIAL_DB"');
+    expect(runtimeWrangler).toContain('binding = "SOCIALFLOW_AUTHS_DB"');
+    expect(runtimeWrangler).not.toContain("[[routes]]");
+    expect(runtimeWrangler).not.toContain("custom_domain = true");
   });
 
   it("keeps the scaffold build command additive and non-activating", () => {
@@ -180,9 +231,14 @@ describe("SocialFlow runtime split scaffold", () => {
     expect(buildScript).toContain("SOCIALFLOW_RUNTIME_SCAFFOLD_BUILD_OK");
     expect(buildScript).toContain('runtimeRoot: "apps/socialflow-runtime"');
     expect(buildScript).toContain('canaryWorkerRoot: "workers/socialflows-runtime-canary"');
+    expect(buildScript).toContain("runtimeContract");
     expect(buildScript).toContain("inactive-scaffold");
     expect(runtimeBuildScript).toContain("SOCIALFLOW_RUNTIME_OPENNEXT_BUILD_OK");
     expect(runtimeBuildScript).toContain("forbiddenBuildTokens");
+    expect(runtimeBuildScript).toContain("deploy-readiness-audit.json");
+    expect(runtimeBuildScript).toContain("sanitizeOpenNextEnvSurface");
+    expect(runtimeBuildScript).toContain("buildDeployBlockers");
+    expect(runtimeBuildScript).toContain("buildRollbackBlockers");
     expect(scaffoldDoc).toContain("SAFE_SHARED_PACKAGE");
     expect(scaffoldDoc).toContain("TEMP_SHARED");
     expect(scaffoldDoc).toContain("FORBIDDEN_SHARED");
@@ -192,6 +248,8 @@ describe("SocialFlow runtime split scaffold", () => {
 
   it("ports real SocialFlow UI and API routes into the inactive runtime root", () => {
     const requiredPaths = [
+      "apps/socialflow-runtime/src/app/api/socialflow/runtime/health/route.ts",
+      "apps/socialflow-runtime/src/app/api/socialflow/runtime/readiness/route.ts",
       "apps/socialflow-runtime/src/app/socialflow/auth/page.tsx",
       "apps/socialflow-runtime/src/app/socialflow/(workspace)/layout.tsx",
       "apps/socialflow-runtime/src/app/socialflow/(workspace)/page.tsx",
@@ -221,5 +279,29 @@ describe("SocialFlow runtime split scaffold", () => {
     for (const relativePath of requiredPaths) {
       expect(existsSync(path.join(repoRoot, relativePath)), relativePath).toBe(true);
     }
+  });
+
+  it("keeps the deployable runtime strict about env isolation, cookie namespace and readiness metadata", () => {
+    const runtimeEnv = read("apps/socialflow-runtime/src/lib/runtime-env.ts");
+    const tokens = read("apps/socialflow-runtime/src/lib/auth/tokens.ts");
+    const cookies = read("apps/socialflow-runtime/src/lib/auth/cookies.ts");
+    const middleware = read("apps/socialflow-runtime/src/middleware.ts");
+    const observability = read("apps/socialflow-runtime/src/lib/runtime-observability.ts");
+    const healthRoute = read("apps/socialflow-runtime/src/app/api/socialflow/runtime/health/route.ts");
+    const readinessRoute = read("apps/socialflow-runtime/src/app/api/socialflow/runtime/readiness/route.ts");
+
+    expect(runtimeEnv).toContain("sanitizeRuntimeEnv");
+    expect(runtimeEnv).toContain("resolveNodeEnvFallback");
+    expect(runtimeEnv).not.toContain("SESSION_SECRET?: string");
+    expect(tokens).toContain('requireSocialFlowRuntimeString("SOCIALFLOW_AUTHS_SECRET")');
+    expect(tokens).not.toContain("SESSION_SECRET");
+    expect(cookies).toContain("getSocialFlowRuntimeCookieNames");
+    expect(middleware).toContain("/api/socialflow/runtime/health");
+    expect(middleware).toContain("/api/socialflow/runtime/readiness");
+    expect(observability).toContain("correlationHeader");
+    expect(observability).toContain("runtimeTargetHeader");
+    expect(healthRoute).toContain("getSocialFlowRuntimeHealthSnapshot");
+    expect(readinessRoute).toContain("getSocialFlowRuntimeReadinessReport");
+    expect(readinessRoute).toContain("readiness_blocked");
   });
 });

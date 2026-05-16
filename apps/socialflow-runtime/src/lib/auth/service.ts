@@ -14,9 +14,9 @@ async function digestToken(token: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-function resolveDefaultTenantId(): string {
+function resolveDefaultTenantId(): string | null {
   const runtimeEnv = getSocialFlowRuntimeEnv();
-  return process.env.SOCIALFLOW_DEFAULT_TENANT_ID ?? runtimeEnv?.DEFAULT_TENANT_ID ?? "socialflow-core";
+  return runtimeEnv?.DEFAULT_TENANT_ID?.trim() || null;
 }
 
 function resolveRole(_email: string): SocialFlowRole {
@@ -48,6 +48,9 @@ export async function registerSocialFlowAuthUser(params: {
   const secure = await hashPassword(params.password);
   const role = resolveRole(email);
   const tenantId = params.tenantId?.trim() || resolveDefaultTenantId();
+  if (!tenantId) {
+    return { ok: false, code: "TENANT_REQUIRED", message: "tenantId is required until DEFAULT_TENANT_ID is configured." };
+  }
   const userId = crypto.randomUUID();
   const credentialId = crypto.randomUUID();
 

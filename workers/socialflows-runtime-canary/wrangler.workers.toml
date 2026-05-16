@@ -1,8 +1,10 @@
-name = "saas-socialflows-runtime-canary"
+name = "saas-socialflows-runtime-scaffold"
 main = "src/workers.ts"
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = false
 
 [vars]
-SOCIALFLOW_RUNTIME_CANARY = "inactive-scaffold"
+SOCIALFLOW_RUNTIME_TARGET = "scaffold"
+SOCIALFLOW_RUNTIME_STATE = "inactive-scaffold"
+SOCIALFLOW_RUNTIME_CONTRACT_VERSION = "p2-21"

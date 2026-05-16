@@ -9,6 +9,7 @@ const requiredFiles = [
   "apps/socialflow-runtime/tsconfig.json",
   "apps/socialflow-runtime/next.config.ts",
   "apps/socialflow-runtime/open-next.config.ts",
+  "apps/socialflow-runtime/runtime-deploy-contract.json",
   "apps/socialflow-runtime/runtime-boundaries.json",
   "apps/socialflow-runtime/src/app/layout.tsx",
   "apps/socialflow-runtime/src/app/page.tsx",
@@ -36,8 +37,13 @@ async function main() {
   await Promise.all(requiredFiles.map(assertFile));
 
   const boundaries = await readJson("apps/socialflow-runtime/runtime-boundaries.json");
+  const runtimeContract = await readJson("apps/socialflow-runtime/runtime-deploy-contract.json");
   const wrangler = await fs.readFile(
     path.join(repoRoot, "workers/socialflows-runtime-canary/wrangler.workers.toml"),
+    "utf8",
+  );
+  const runtimeWrangler = await fs.readFile(
+    path.join(repoRoot, "apps/socialflow-runtime/wrangler.toml"),
     "utf8",
   );
 
@@ -56,6 +62,21 @@ async function main() {
   if (!wrangler.includes('main = "src/workers.ts"')) {
     throw new Error("SOCIALFLOW_RUNTIME_SCAFFOLD_INVALID: canary wrangler must stay pointed at src/workers.ts.");
   }
+  if (runtimeContract.workerIdentities.scaffold.workerName === runtimeContract.workerIdentities.deployable.workerName) {
+    throw new Error("SOCIALFLOW_RUNTIME_SCAFFOLD_INVALID: scaffold and deployable worker names must be distinct.");
+  }
+  if (!wrangler.includes(`name = "${runtimeContract.workerIdentities.scaffold.workerName}"`)) {
+    throw new Error("SOCIALFLOW_RUNTIME_SCAFFOLD_INVALID: scaffold worker name drift detected.");
+  }
+  if (!runtimeWrangler.includes(`name = "${runtimeContract.workerIdentities.deployable.workerName}"`)) {
+    throw new Error("SOCIALFLOW_RUNTIME_SCAFFOLD_INVALID: deployable worker name drift detected.");
+  }
+  if (!runtimeWrangler.includes('main = ".open-next/worker.js"')) {
+    throw new Error("SOCIALFLOW_RUNTIME_SCAFFOLD_INVALID: deployable runtime must point to .open-next/worker.js.");
+  }
+  if (!runtimeWrangler.includes("[assets]")) {
+    throw new Error("SOCIALFLOW_RUNTIME_SCAFFOLD_INVALID: deployable runtime must declare an assets directory.");
+  }
 
   await fs.mkdir(outputDir, { recursive: true });
   const manifest = {
@@ -64,6 +85,7 @@ async function main() {
     canaryWorkerRoot: "workers/socialflows-runtime-canary",
     requiredFiles,
     packageClassifications: boundaries,
+    runtimeContract,
     activationState: "inactive-scaffold",
   };
 

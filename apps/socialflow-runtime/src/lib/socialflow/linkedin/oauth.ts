@@ -21,8 +21,6 @@ import {
 
 function getLinkedInClientId() {
   const runtimeEnv = getSocialFlowRuntimeEnv() as Record<string, unknown> | null;
-  const processValue = typeof process.env.LINKEDIN_CLIENT_ID === "string" ? process.env.LINKEDIN_CLIENT_ID.trim() : "";
-  if (processValue) return processValue;
   const runtimeValue = typeof runtimeEnv?.LINKEDIN_CLIENT_ID === "string" ? runtimeEnv.LINKEDIN_CLIENT_ID.trim() : "";
   if (runtimeValue) return runtimeValue;
   throw new LinkedInIntegrationError("LINKEDIN_CLIENT_ID is not configured.", {
@@ -30,7 +28,7 @@ function getLinkedInClientId() {
     accountStatus: "PENDING",
     details: {
       key: "LINKEDIN_CLIENT_ID",
-      attemptedSources: ["process.env", "socialflow.runtime"],
+      attemptedSources: ["socialflow.runtime"],
     },
   });
 }
