@@ -44,8 +44,8 @@ async function main() {
   if (!Array.isArray(boundaries.SAFE_SHARED_PACKAGE) || boundaries.SAFE_SHARED_PACKAGE.length === 0) {
     throw new Error("SOCIALFLOW_RUNTIME_SCAFFOLD_INVALID: SAFE_SHARED_PACKAGE must declare at least one package.");
   }
-  if (!Array.isArray(boundaries.TEMP_SHARED) || boundaries.TEMP_SHARED.length === 0) {
-    throw new Error("SOCIALFLOW_RUNTIME_SCAFFOLD_INVALID: TEMP_SHARED must declare transitional imports.");
+  if (!Array.isArray(boundaries.TEMP_SHARED)) {
+    throw new Error("SOCIALFLOW_RUNTIME_SCAFFOLD_INVALID: TEMP_SHARED must be declared as an array.");
   }
   if (!Array.isArray(boundaries.FORBIDDEN_SHARED) || boundaries.FORBIDDEN_SHARED.length === 0) {
     throw new Error("SOCIALFLOW_RUNTIME_SCAFFOLD_INVALID: FORBIDDEN_SHARED must declare blocked imports.");

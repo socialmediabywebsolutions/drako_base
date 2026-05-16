@@ -7,10 +7,7 @@
     "@/lib/auth/crypto",
     "@/lib/cloudflare/runtime"
   ],
-  "TEMP_SHARED": [
-    "@/lib/socialflow/ai/*",
-    "@/lib/socialflow/linkedin/*"
-  ],
+  "TEMP_SHARED": [],
   "FORBIDDEN_SHARED": [
     "@/components/layouts/control-plane-layout",
     "@/components/sidebar",

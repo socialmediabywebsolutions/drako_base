@@ -1,4 +1,4 @@
-import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
+import { SocialFlowRuntimeOrchestrator } from "./ai/orchestrator";
 import { SocialContextError } from "./posts-repository";
 import { getRuntimePostByIdFromDb, upsertRuntimePostInDb } from "./posts-repository";
 
@@ -11,7 +11,7 @@ export async function generateRuntimeCampaign(input: {
   tone: string;
   frequencyPerWeek: number;
 }) {
-  const orchestrator = new SocialFlowOrchestrator();
+  const orchestrator = new SocialFlowRuntimeOrchestrator();
   return orchestrator.generateFullCampaign(input);
 }
 
@@ -32,7 +32,7 @@ export async function regenerateRuntimePost(input: {
     return null;
   }
 
-  const orchestrator = new SocialFlowOrchestrator();
+  const orchestrator = new SocialFlowRuntimeOrchestrator();
   const regenerated = await orchestrator.generateSinglePost({
     tenantId: input.tenantId,
     saasId: input.saasId,

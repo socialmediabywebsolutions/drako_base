@@ -1,4 +1,3 @@
-import { LinkedInIntegrationError } from "@/lib/socialflow/linkedin/core";
 import {
   findPrimaryRuntimeLinkedInAccount,
   getRuntimePostByIdFromDb,
@@ -10,6 +9,7 @@ import {
 } from "./posts-repository";
 import type { RuntimeSocialPost } from "./contracts";
 import { buildRuntimeLinkedInPublishResult } from "./linkedin-service";
+import { LinkedInIntegrationError } from "./linkedin/core";
 import { mergeJsonRecord, nowIso } from "./runtime-repository-core";
 
 const LIVE_PUBLISH_MAX_ATTEMPTS = 3;

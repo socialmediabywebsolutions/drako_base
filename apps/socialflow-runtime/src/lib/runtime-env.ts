@@ -8,6 +8,13 @@ export type SocialFlowRuntimeEnv = {
   SOCIALFLOW_AUTHS_SECRET?: string;
   DEFAULT_TENANT_ID?: string;
   LINKEDIN_CLIENT_ID?: string;
+  LINKEDIN_CLIENT_SECRET?: string;
+  APP_URL?: string;
+  NEXT_PUBLIC_APP_URL?: string;
+  BASE_URL?: string;
+  SITE_URL?: string;
+  NEXTAUTH_URL?: string;
+  CF_PAGES_URL?: string;
   CF_PAGES_ENVIRONMENT?: string;
 };
 

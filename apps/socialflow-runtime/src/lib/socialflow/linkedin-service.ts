@@ -1,9 +1,9 @@
-import {
-  buildSocialFlowLinkedInConnectUrl,
-  handleSocialFlowLinkedInCallback,
-} from "@/lib/socialflow/linkedin/oauth";
-import { publishPost } from "@/lib/socialflow/linkedin/publishing";
 import type { RuntimeSocialAccount } from "./contracts";
+import {
+  buildRuntimeLinkedInConnectUrl as buildRuntimeLinkedInConnectUrlLocal,
+  handleRuntimeLinkedInCallback as handleRuntimeLinkedInCallbackLocal,
+} from "./linkedin/oauth";
+import { publishRuntimeLinkedInPost } from "./linkedin/publishing";
 
 export function buildRuntimeLinkedInConnectUrl(input: {
   request: Request;
@@ -11,7 +11,7 @@ export function buildRuntimeLinkedInConnectUrl(input: {
   saasId: string;
   redirectTo?: string | null;
 }) {
-  return buildSocialFlowLinkedInConnectUrl(input);
+  return buildRuntimeLinkedInConnectUrlLocal(input);
 }
 
 export async function handleRuntimeLinkedInCallback(
@@ -25,9 +25,9 @@ export async function handleRuntimeLinkedInCallback(
     authMode: "isolated";
   } | null,
 ) {
-  return handleSocialFlowLinkedInCallback(request, session);
+  return handleRuntimeLinkedInCallbackLocal(request, session);
 }
 
 export async function buildRuntimeLinkedInPublishResult(account: RuntimeSocialAccount, content: string) {
-  return publishPost(account as never, content);
+  return publishRuntimeLinkedInPost(account, content);
 }

@@ -47,6 +47,15 @@ describe("SocialFlow runtime split scaffold", () => {
       "apps/socialflow-runtime/src/lib/socialflow/profile-repository.ts",
       "apps/socialflow-runtime/src/lib/socialflow/live-publishing-service.ts",
       "apps/socialflow-runtime/src/lib/socialflow/exports-service.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/ai/contracts.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/ai/provider.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/ai/orchestrator.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/linkedin/types.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/linkedin/core.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/linkedin/client.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/linkedin/oauth.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/linkedin/publishing.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/linkedin/repository.ts",
       "packages/shared-neutral/src/hosts.ts",
       "packages/shared-neutral/src/marketing-locales.ts",
       "packages/shared-cloudflare/src/opennext-cloudflare-config.ts",
@@ -81,12 +90,7 @@ describe("SocialFlow runtime split scaffold", () => {
         "@/lib/cloudflare/runtime",
       ]),
     );
-    expect(boundaries.TEMP_SHARED).toEqual(
-      expect.arrayContaining([
-        "@/lib/socialflow/ai/*",
-        "@/lib/socialflow/linkedin/*",
-      ]),
-    );
+    expect(boundaries.TEMP_SHARED).toEqual([]);
     expect(boundaries.FORBIDDEN_SHARED).toEqual(
       expect.arrayContaining([
         "@/components/layouts/control-plane-layout",
@@ -143,6 +147,8 @@ describe("SocialFlow runtime split scaffold", () => {
       expect(source).not.toMatch(/@\/lib\/socialflow\/repository\b/);
       expect(source).not.toMatch(/@\/lib\/socialflow\/profile\/repository\b/);
       expect(source).not.toMatch(/@\/lib\/socialflow\/live-publishing\b/);
+      expect(source).not.toMatch(/@\/lib\/socialflow\/ai\//);
+      expect(source).not.toMatch(/@\/lib\/socialflow\/linkedin\//);
     }
   });
 
