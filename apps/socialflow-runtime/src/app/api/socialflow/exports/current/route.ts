@@ -19,6 +19,12 @@ export async function GET(request: Request) {
     }
 
     const { buffer, filename } = await generateRuntimeSocialFlowExportForTenant(session.tenantId);
+    logRuntimeEvent("log", "export_generated_success", {
+      correlationId,
+      tenantId: session.tenantId,
+      filename,
+      sizeBytes: buffer.byteLength,
+    });
 
     return addRuntimeHeaders(new NextResponse(buffer as any, {
       status: 200,

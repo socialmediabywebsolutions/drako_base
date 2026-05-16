@@ -92,11 +92,44 @@ function assertTenantScopedRows<T extends TenantScopedRow>(
 
 const SOCIALFLOW_EXPORT_SLUGS = ["socialflow", "socialflows"] as const;
 
+async function getTableColumns(db: D1Database, tableName: string) {
+  const rows = await queryAll<{ name: string }>(db, `PRAGMA table_info('${tableName}')`);
+  return new Set(rows.map((row) => row.name));
+}
+
+function selectColumn(columns: Set<string>, name: string, fallbackSql: string) {
+  return columns.has(name) ? name : `${fallbackSql} AS ${name}`;
+}
+
+function buildFallbackSaasRecord(tenantId: string): SaasRecord {
+  return {
+    id: "socialflow",
+    tenant_id: tenantId,
+    slug: "socialflow",
+    name: "SocialFlow",
+    blueprint_snapshot: null,
+    plan_tier: null,
+    mrr_eur: 0,
+    cost_eur: 0,
+    risk_level: "unknown",
+  };
+}
+
 export async function generateRuntimeSocialFlowExportForTenant(tenantId: string): Promise<{ buffer: Buffer; filename: string }> {
   const dracoDb = ensureDracoDb();
+  const saasColumns = await getTableColumns(dracoDb, "saas");
   const saas = await queryOne<SaasRecord>(
     dracoDb,
-    `SELECT id, tenant_id, slug, name, blueprint_snapshot, plan_tier, mrr_eur, cost_eur, risk_level
+    `SELECT
+       id,
+       tenant_id,
+       slug,
+       name,
+       ${selectColumn(saasColumns, "blueprint_snapshot", "NULL")},
+       ${selectColumn(saasColumns, "plan_tier", "NULL")},
+       ${selectColumn(saasColumns, "mrr_eur", "0")},
+       ${selectColumn(saasColumns, "cost_eur", "0")},
+       ${selectColumn(saasColumns, "risk_level", "'unknown'")}
      FROM saas
      WHERE tenant_id = ? AND lower(slug) IN (?, ?)
      ORDER BY created_at DESC
@@ -106,12 +139,17 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
     SOCIALFLOW_EXPORT_SLUGS[1],
   );
 
-  if (!saas) {
-    throw new Error("SocialFlow export target not found for tenant");
-  }
-
   const zip = new JSZip();
   const warnings: string[] = [];
+  const exportTarget = saas ?? buildFallbackSaasRecord(tenantId);
+  if (!saas) {
+    warnings.push("No SocialFlow SaaS seed found in DRACO_DB; generated tenant-scoped runtime export with fallback SocialFlow identity.");
+  }
+  for (const column of ["blueprint_snapshot", "plan_tier", "mrr_eur", "cost_eur", "risk_level"]) {
+    if (!saasColumns.has(column)) {
+      warnings.push(`DRACO_DB.saas column ${column} is missing; export used a safe default for this field.`);
+    }
+  }
   const counts: Record<string, number> = {
     logs: 0,
     economic_events: 0,
@@ -131,11 +169,11 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
     warnings.push("No active Strategic Dossier found for tenant");
   }
 
-  if (saas.blueprint_snapshot) {
+  if (exportTarget.blueprint_snapshot) {
     try {
-      zip.folder("blueprint")?.file("blueprint.json", JSON.stringify(JSON.parse(saas.blueprint_snapshot), null, 2));
+      zip.folder("blueprint")?.file("blueprint.json", JSON.stringify(JSON.parse(exportTarget.blueprint_snapshot), null, 2));
     } catch {
-      zip.folder("blueprint")?.file("blueprint.json", saas.blueprint_snapshot);
+      zip.folder("blueprint")?.file("blueprint.json", exportTarget.blueprint_snapshot);
       warnings.push("Blueprint snapshot was invalid JSON");
     }
   } else {
@@ -147,12 +185,12 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
     dracoDb,
     "SELECT id, tenant_id, saas_id, agent_name, action_type, status, output_json, cost_eur, created_at FROM agent_work_logs WHERE tenant_id = ? AND saas_id = ? ORDER BY created_at DESC LIMIT 5000",
     tenantId,
-    saas.id,
+    exportTarget.id,
   );
   assertTenantScopedRows(workLogs, {
     entity: "agent_work_logs",
     tenantId,
-    saasId: saas.id,
+    saasId: exportTarget.id,
     requireSaasId: true,
   });
   counts.logs = workLogs.length;
@@ -183,10 +221,10 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
 
   const financialsRows = [
     "metric,value,unit",
-    `mrr,${saas.mrr_eur},EUR`,
-    `total_cost,${saas.cost_eur},EUR`,
-    `risk_level,${saas.risk_level},ENUM`,
-    `plan_tier,${saas.plan_tier},ENUM`,
+    `mrr,${exportTarget.mrr_eur},EUR`,
+    `total_cost,${exportTarget.cost_eur},EUR`,
+    `risk_level,${exportTarget.risk_level},ENUM`,
+    `plan_tier,${exportTarget.plan_tier},ENUM`,
   ].join("\n");
   zip.folder("economics")?.file("financials.csv", `${financialsRows}\n`);
 
@@ -194,12 +232,12 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
     dracoDb,
     "SELECT id, tenant_id, saas_id, type, severity, payload_json, created_at FROM economic_events WHERE tenant_id = ? AND saas_id = ? ORDER BY created_at DESC LIMIT 2000",
     tenantId,
-    saas.id,
+    exportTarget.id,
   );
   assertTenantScopedRows(economicEvents, {
     entity: "economic_events",
     tenantId,
-    saasId: saas.id,
+    saasId: exportTarget.id,
     requireSaasId: true,
   });
   counts.economic_events = economicEvents.length;
@@ -216,43 +254,49 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
     dracoDb,
     "SELECT tenant_id, saas_id, domain, is_primary, status FROM saas_domains WHERE tenant_id = ? AND saas_id = ?",
     tenantId,
-    saas.id,
+    exportTarget.id,
   );
   assertTenantScopedRows(domains, {
     entity: "saas_domains",
     tenantId,
-    saasId: saas.id,
+    saasId: exportTarget.id,
     requireSaasId: true,
   });
   counts.domains = domains.length;
   zip.folder("domains")?.file("domain_status.json", JSON.stringify(domains, null, 2));
 
+  if (!saas) {
+    warnings.push("EXPORT_GENERATED economic event was not recorded because no real SocialFlow SaaS seed exists for this tenant.");
+  }
+
   const meta = {
-    saasId: saas.id,
-    tenantId: saas.tenant_id,
-    slug: saas.slug,
+    saasId: exportTarget.id,
+    tenantId: exportTarget.tenant_id,
+    slug: exportTarget.slug,
     generatedAt: new Date().toISOString(),
-    planTag: saas.plan_tier,
+    planTag: exportTarget.plan_tier,
     counts,
     warnings,
   };
   zip.file("meta.json", JSON.stringify(meta, null, 2));
 
   const buffer = await zip.generateAsync({ type: "nodebuffer" });
-  const filename = `drako-export-${saas.slug}-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.zip`;
+  const filename = `drako-export-${exportTarget.slug}-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.zip`;
 
-  await run(
-    dracoDb,
-    "INSERT INTO economic_events (id, tenant_id, saas_id, type, severity, payload_json, created_at) VALUES (?, ?, ?, 'EXPORT_GENERATED', 'info', ?, datetime('now'))",
-    crypto.randomUUID(),
-    tenantId,
-    saas.id,
-    JSON.stringify({
-      filename,
-      size_bytes: buffer.byteLength,
-      source: "socialflow-runtime.exports.current",
-    }),
-  );
+  if (saas) {
+    await run(
+      dracoDb,
+      "INSERT INTO economic_events (id, tenant_id, saas_id, type, severity, payload_json, created_at) VALUES (?, ?, ?, 'EXPORT_GENERATED', 'info', ?, datetime('now'))",
+      crypto.randomUUID(),
+      tenantId,
+      exportTarget.id,
+      JSON.stringify({
+        filename,
+        size_bytes: buffer.byteLength,
+        source: "socialflow-runtime.exports.current",
+      }),
+    );
+  }
 
   return { buffer, filename };
 }
