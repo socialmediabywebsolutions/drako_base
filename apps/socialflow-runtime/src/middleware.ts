@@ -5,6 +5,8 @@ import { readSocialFlowRuntimeTokenSession } from "./lib/auth/session";
 import { getSocialFlowRuntimeEnv } from "./lib/runtime-env";
 import { getRuntimeCorrelationId, logRuntimeEvent } from "./lib/runtime-observability";
 
+const CANARY_GATE_HEADER = "x-socialflow-canary-gate";
+
 function isPublicSocialFlowPath(pathname: string) {
   return (
     pathname === "/socialflow/auth" ||
@@ -17,6 +19,83 @@ function isPublicSocialFlowPath(pathname: string) {
 
 function isApiPath(pathname: string) {
   return pathname.startsWith("/api/");
+}
+
+function isLikelyCrawlerUserAgent(userAgent: string): boolean {
+  return /(bot|crawler|spider|preview|scraper|headless|monitor)/i.test(userAgent);
+}
+
+function resolveCanaryGatedHosts(): Set<string> {
+  const configured = getSocialFlowRuntimeEnv()?.SOCIALFLOW_CANARY_GATED_HOSTS ?? "";
+  const hosts = configured
+    .split(",")
+    .map((value) => normalizeHost(value))
+    .filter(Boolean);
+
+  return new Set(hosts.length > 0 ? hosts : ["socialflow-canary.drako.systems"]);
+}
+
+function shouldEnforceCanaryGate(host: string): boolean {
+  const normalized = normalizeHost(host);
+  return normalized.length > 0 && resolveCanaryGatedHosts().has(normalized);
+}
+
+function canaryGateDeniedResponse(request: NextRequest, host: string, reason: string) {
+  const details = {
+    pathname: request.nextUrl.pathname,
+    method: request.method,
+    host,
+    reason,
+    correlationId: getRuntimeCorrelationId(request),
+    userAgent: request.headers.get("user-agent") ?? "unknown",
+  };
+  logRuntimeEvent("warn", "middleware_canary_gate_denied", details);
+
+  if (isApiPath(request.nextUrl.pathname)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "SOCIALFLOW_CANARY_GATE_DENIED",
+        reason,
+      },
+      { status: 403 },
+    );
+  }
+
+  return new NextResponse(
+    "<!doctype html><html><body><h1>SocialFlow gated canary</h1><p>Access denied.</p></body></html>",
+    {
+      status: 403,
+      headers: { "content-type": "text/html; charset=utf-8" },
+    },
+  );
+}
+
+function canaryGateMisconfiguredResponse(request: NextRequest, host: string) {
+  logRuntimeEvent("error", "middleware_canary_gate_misconfigured", {
+    pathname: request.nextUrl.pathname,
+    method: request.method,
+    host,
+    correlationId: getRuntimeCorrelationId(request),
+  });
+
+  if (isApiPath(request.nextUrl.pathname)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "SOCIALFLOW_CANARY_GATE_MISCONFIGURED",
+      },
+      { status: 503 },
+    );
+  }
+
+  return new NextResponse(
+    "<!doctype html><html><body><h1>SocialFlow gated canary unavailable</h1><p>Access gate is not configured.</p></body></html>",
+    {
+      status: 503,
+      headers: { "content-type": "text/html; charset=utf-8" },
+    },
+  );
 }
 
 function buildRuntimeHeaders(
@@ -88,9 +167,30 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const host = normalizeHost(request.headers.get("x-forwarded-host") || request.headers.get("host") || "");
   const hostMode = resolveHostMode(host, getSocialFlowRuntimeEnv()?.CF_PAGES_ENVIRONMENT ?? null);
+  const userAgent = request.headers.get("user-agent") ?? "";
 
   if (hostMode === "CAMPAMENTO_BASE") {
     return forbiddenHostModeResponse(pathname);
+  }
+
+  if (shouldEnforceCanaryGate(host)) {
+    const gateToken = getSocialFlowRuntimeEnv()?.SOCIALFLOW_CANARY_GATE_TOKEN?.trim() ?? "";
+    if (!gateToken) {
+      return canaryGateMisconfiguredResponse(request, host);
+    }
+
+    const provided = request.headers.get(CANARY_GATE_HEADER)?.trim() ?? "";
+    if (!provided || provided !== gateToken) {
+      return canaryGateDeniedResponse(
+        request,
+        host,
+        !provided
+          ? isLikelyCrawlerUserAgent(userAgent)
+            ? "missing_gate_header_bot_or_crawler"
+            : "missing_gate_header"
+          : "invalid_gate_header",
+      );
+    }
   }
 
   const tokenSession = await readSocialFlowRuntimeTokenSession(request);

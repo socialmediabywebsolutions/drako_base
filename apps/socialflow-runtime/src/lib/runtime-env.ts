@@ -27,6 +27,8 @@ export type SocialFlowRuntimeEnv = {
   SOCIALFLOW_RUNTIME_CONTRACT_VERSION?: string;
   SOCIALFLOW_RUNTIME_COOKIE_NAMESPACE?: string;
   AUTHS_SECRETS_NAME?: string;
+  SOCIALFLOW_CANARY_GATED_HOSTS?: string;
+  SOCIALFLOW_CANARY_GATE_TOKEN?: string;
 };
 
 let runtimeEnvOverride: SocialFlowRuntimeEnv | null = null;
