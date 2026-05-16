@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     }
 
     const session = await requireCurrentSocialFlowSession(request);
-    const oauth = buildRuntimeLinkedInConnectUrl({
+    const oauth = await buildRuntimeLinkedInConnectUrl({
       request,
       tenantId: session.tenantId,
       saasId,

@@ -1,3 +1,5 @@
+import { getSocialFlowRuntimeEnv } from "../../runtime-env";
+import { encodeLinkedInCanaryGateState } from "./canary-gate-state";
 import { resolveLinkedInOAuthDiagnostics } from "./core";
 import {
   SOCIALFLOW_LINKEDIN_CALLBACK_PATH,
@@ -10,21 +12,36 @@ function encodeSocialFlowLinkedInState(input: SocialFlowLinkedInState) {
   return Buffer.from(JSON.stringify(input), "utf8").toString("base64url");
 }
 
-export function buildRuntimeLinkedInAuthorizationUrl(input: {
+function resolveCanaryGateSecret() {
+  const env = getSocialFlowRuntimeEnv();
+  const value = env?.SOCIALFLOW_CANARY_GATE_TOKEN?.trim() ?? "";
+  return value || null;
+}
+
+export async function buildRuntimeLinkedInAuthorizationUrl(input: {
   request: Request;
   clientId: string;
   tenantId: string;
   saasId: string;
   redirectTo?: string | null;
-}): SocialFlowLinkedInConnectResult {
+}): Promise<SocialFlowLinkedInConnectResult> {
   const diagnostics = resolveLinkedInOAuthDiagnostics(input.request, {
     callbackPath: SOCIALFLOW_LINKEDIN_CALLBACK_PATH,
   });
-  const state = encodeSocialFlowLinkedInState({
+  const baseState = {
     tenantId: input.tenantId,
     saasId: input.saasId,
     redirectTo: input.redirectTo ?? null,
-  });
+  };
+  const gateSecret = resolveCanaryGateSecret();
+  const state = gateSecret
+    ? await encodeLinkedInCanaryGateState({
+        tenantId: input.tenantId,
+        saasId: input.saasId,
+        redirectTo: input.redirectTo ?? null,
+        gateSecret,
+      })
+    : encodeSocialFlowLinkedInState(baseState);
 
   const authUrl = new URL("https://www.linkedin.com/oauth/v2/authorization");
   authUrl.searchParams.set("client_id", input.clientId);

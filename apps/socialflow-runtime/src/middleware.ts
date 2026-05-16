@@ -4,14 +4,16 @@ import { normalizeHost, resolveHostMode } from "@shared-neutral/hosts";
 import { readSocialFlowRuntimeTokenSession } from "./lib/auth/session";
 import { getSocialFlowRuntimeEnv } from "./lib/runtime-env";
 import { getRuntimeCorrelationId, logRuntimeEvent } from "./lib/runtime-observability";
+import { verifyLinkedInCanaryGateState } from "./lib/socialflow/linkedin/canary-gate-state";
 
 const CANARY_GATE_HEADER = "x-socialflow-canary-gate";
+const LINKEDIN_CALLBACK_PREFIX = "/api/socialflow/linkedin/callback";
 
 function isPublicSocialFlowPath(pathname: string) {
   return (
     pathname === "/socialflow/auth" ||
     pathname.startsWith("/api/socialflow/auths/") ||
-    pathname === "/api/socialflow/linkedin/callback" ||
+    pathname.startsWith(LINKEDIN_CALLBACK_PREFIX) ||
     pathname === "/api/socialflow/runtime/health" ||
     pathname === "/api/socialflow/runtime/readiness"
   );
@@ -38,6 +40,31 @@ function resolveCanaryGatedHosts(): Set<string> {
 function shouldEnforceCanaryGate(host: string): boolean {
   const normalized = normalizeHost(host);
   return normalized.length > 0 && resolveCanaryGatedHosts().has(normalized);
+}
+
+function isLinkedInCallbackPath(pathname: string) {
+  return pathname === LINKEDIN_CALLBACK_PREFIX || pathname.startsWith(`${LINKEDIN_CALLBACK_PREFIX}/`);
+}
+
+async function allowLinkedInCallbackWithoutGateHeader(request: NextRequest, gateToken: string) {
+  if (request.method !== "GET" || !isLinkedInCallbackPath(request.nextUrl.pathname)) {
+    return { ok: false as const, reason: "not_callback_request" };
+  }
+
+  const state = request.nextUrl.searchParams.get("state");
+  const result = await verifyLinkedInCanaryGateState(state, gateToken);
+  if (!result.ok) {
+    return { ok: false as const, reason: result.reason };
+  }
+
+  const hasOAuthPayload =
+    request.nextUrl.searchParams.has("code")
+    || request.nextUrl.searchParams.has("error");
+  if (!hasOAuthPayload) {
+    return { ok: false as const, reason: "callback_missing_code_or_error" };
+  }
+
+  return { ok: true as const, tenantId: result.tenantId, saasId: result.saasId };
 }
 
 function canaryGateDeniedResponse(request: NextRequest, host: string, reason: string) {
@@ -181,14 +208,34 @@ export async function middleware(request: NextRequest) {
 
     const provided = request.headers.get(CANARY_GATE_HEADER)?.trim() ?? "";
     if (!provided || provided !== gateToken) {
+      const callbackBypass = await allowLinkedInCallbackWithoutGateHeader(request, gateToken);
+      if (callbackBypass.ok) {
+        logRuntimeEvent("log", "middleware_canary_gate_callback_state_accepted", {
+          pathname,
+          method: request.method,
+          host,
+          tenantId: callbackBypass.tenantId,
+          saasId: callbackBypass.saasId,
+          correlationId: getRuntimeCorrelationId(request),
+        });
+      } else {
+        return canaryGateDeniedResponse(
+          request,
+          host,
+          !provided
+            ? isLikelyCrawlerUserAgent(userAgent)
+              ? "missing_gate_header_bot_or_crawler"
+              : `missing_gate_header:${callbackBypass.reason}`
+            : `invalid_gate_header:${callbackBypass.reason}`,
+        );
+      }
+    }
+
+    if (provided && provided !== gateToken) {
       return canaryGateDeniedResponse(
         request,
         host,
-        !provided
-          ? isLikelyCrawlerUserAgent(userAgent)
-            ? "missing_gate_header_bot_or_crawler"
-            : "missing_gate_header"
-          : "invalid_gate_header",
+        "invalid_gate_header",
       );
     }
   }

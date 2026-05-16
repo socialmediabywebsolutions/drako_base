@@ -159,12 +159,12 @@ function resolveStorageAvailability() {
   };
 }
 
-export function buildRuntimeLinkedInConnectUrl(input: {
+export async function buildRuntimeLinkedInConnectUrl(input: {
   request: Request;
   tenantId: string;
   saasId: string;
   redirectTo?: string | null;
-}): SocialFlowLinkedInConnectResult {
+}): Promise<SocialFlowLinkedInConnectResult> {
   return buildRuntimeLinkedInAuthorizationUrl({
     request: input.request,
     clientId: getLinkedInClientId(),
