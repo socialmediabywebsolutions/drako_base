@@ -2,6 +2,8 @@ import {
   buildSocialFlowLinkedInConnectUrl,
   handleSocialFlowLinkedInCallback,
 } from "@/lib/socialflow/linkedin/oauth";
+import { publishPost } from "@/lib/socialflow/linkedin/publishing";
+import type { RuntimeSocialAccount } from "./contracts";
 
 export function buildRuntimeLinkedInConnectUrl(input: {
   request: Request;
@@ -24,4 +26,8 @@ export async function handleRuntimeLinkedInCallback(
   } | null,
 ) {
   return handleSocialFlowLinkedInCallback(request, session);
+}
+
+export async function buildRuntimeLinkedInPublishResult(account: RuntimeSocialAccount, content: string) {
+  return publishPost(account as never, content);
 }

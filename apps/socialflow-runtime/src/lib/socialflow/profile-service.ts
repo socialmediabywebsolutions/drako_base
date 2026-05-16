@@ -1,17 +1,20 @@
 import {
-  getChannelKnowledge,
-  upsertChannelCompetitor,
-  upsertChannelProfile,
-} from "@/lib/socialflow/profile/repository";
+  getRuntimeChannelKnowledgeFromDb,
+  saveRuntimeChannelCompetitorInDb,
+  saveRuntimeChannelProfileInDb,
+  SocialContextError,
+} from "./profile-repository";
+
+export { SocialContextError };
 
 export function getRuntimeChannelKnowledge(tenantId: string) {
-  return getChannelKnowledge(tenantId);
+  return getRuntimeChannelKnowledgeFromDb(tenantId);
 }
 
 export function saveRuntimeChannelProfile(tenantId: string, profile: unknown) {
-  return upsertChannelProfile(tenantId, profile as Record<string, unknown>);
+  return saveRuntimeChannelProfileInDb(tenantId, profile);
 }
 
 export function saveRuntimeChannelCompetitor(tenantId: string, competitor: unknown) {
-  return upsertChannelCompetitor(tenantId, competitor as Record<string, unknown>);
+  return saveRuntimeChannelCompetitorInDb(tenantId, competitor);
 }

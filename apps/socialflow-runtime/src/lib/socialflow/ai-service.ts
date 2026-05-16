@@ -1,6 +1,6 @@
 import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
-import { getSaasSocialPostById, resolveSocialContext, upsertSaasSocialPost } from "@/lib/socialflow/repository";
-import { SocialContextError } from "@/lib/socialflow/repository";
+import { SocialContextError } from "./posts-repository";
+import { getRuntimePostByIdFromDb, upsertRuntimePostInDb } from "./posts-repository";
 
 export { SocialContextError };
 
@@ -23,11 +23,11 @@ export async function regenerateRuntimePost(input: {
   tone: string;
   frequencyPerWeek: number;
 }) {
-  const context = await resolveSocialContext({
+  const current = await getRuntimePostByIdFromDb({
     tenantId: input.tenantId,
     saasId: input.saasId,
+    postId: input.postId,
   });
-  const current = await getSaasSocialPostById(context, input.postId);
   if (!current) {
     return null;
   }
@@ -46,25 +46,28 @@ export async function regenerateRuntimePost(input: {
   const hashtags = regenerated.optimized.hashtags ?? [];
   const primaryVariant = regenerated.generated.variants[0];
 
-  return upsertSaasSocialPost(context, {
-    id: current.id,
-    saasId: current.saasId,
-    campaignId: current.campaignId,
-    channelId: current.channelId ?? null,
-    provider: current.provider,
-    contentType: current.contentType,
-    title: nextTitle,
-    body: nextBody,
-    imageHint: current.imageHint,
-    status: current.status,
-    scheduledAt: current.scheduledAt,
-    postedAt: current.postedAt,
-    externalPostId: current.externalPostId,
-    metadata: {
-      ...(current.metadata ?? {}),
-      hook: primaryVariant?.hook,
-      cta: primaryVariant?.callToAction,
-      hashtags,
+  return upsertRuntimePostInDb({
+    tenantId: input.tenantId,
+    post: {
+      id: current.id,
+      saasId: current.saasId,
+      campaignId: current.campaignId,
+      channelId: current.channelId ?? null,
+      provider: current.provider,
+      contentType: current.contentType,
+      title: nextTitle,
+      body: nextBody,
+      imageHint: current.imageHint,
+      status: current.status,
+      scheduledAt: current.scheduledAt,
+      postedAt: current.postedAt,
+      externalPostId: current.externalPostId,
+      metadata: {
+        ...(current.metadata ?? {}),
+        hook: primaryVariant?.hook,
+        cta: primaryVariant?.callToAction,
+        hashtags,
+      },
     },
   });
 }

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "../../../../lib/auth/session";
 import {
   getRuntimeChannelKnowledge,
+  SocialContextError,
   saveRuntimeChannelCompetitor,
   saveRuntimeChannelProfile,
 } from "../../../../lib/socialflow/profile-service";
@@ -11,7 +12,7 @@ import {
 export async function GET(request: Request) {
   try {
     const session = await requireCurrentSocialFlowSession(request);
-    const snapshot = getRuntimeChannelKnowledge(session.tenantId);
+    const snapshot = await getRuntimeChannelKnowledge(session.tenantId);
     return NextResponse.json({
       ok: true,
       profile: snapshot.profile,
@@ -19,6 +20,9 @@ export async function GET(request: Request) {
       assets: snapshot.assets,
     });
   } catch (error) {
+    if (error instanceof SocialContextError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+    }
     if (error instanceof Error && error.message === "SESSION_REQUIRED") {
       return NextResponse.json({ ok: false, error: "SESSION_REQUIRED" }, { status: 401 });
     }
@@ -36,16 +40,19 @@ export async function POST(request: Request) {
     }
 
     if (body.profile) {
-      const updated = saveRuntimeChannelProfile(session.tenantId, body.profile);
+      const updated = await saveRuntimeChannelProfile(session.tenantId, body.profile);
       return NextResponse.json({ ok: true, profile: updated });
     }
     if (body.competitor) {
-      const competitor = saveRuntimeChannelCompetitor(session.tenantId, body.competitor);
+      const competitor = await saveRuntimeChannelCompetitor(session.tenantId, body.competitor);
       return NextResponse.json({ ok: true, competitor });
     }
 
     return NextResponse.json({ ok: false, error: "Nothing to update" }, { status: 400 });
   } catch (error) {
+    if (error instanceof SocialContextError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+    }
     if (error instanceof Error && error.message === "SESSION_REQUIRED") {
       return NextResponse.json({ ok: false, error: "SESSION_REQUIRED" }, { status: 401 });
     }

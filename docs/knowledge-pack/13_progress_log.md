@@ -57,6 +57,40 @@ Bitacora tecnica incremental para continuidad entre chats. Registrar hechos veri
 - Relacion con issues:
   - `ISSUE-010`, `ISSUE-012`, `ISSUE-016`
 
+## [2026-05-16 01:25 UTC+02:00] SOCIALFLOW-P2-18-BUSINESS-PLANE-OWNERSHIP
+- Contexto:
+  - P2-17 dejo el runtime nuevo con boundaries locales de auth y DB, pero `campaigns`, `posts` y `profile` seguian delegando negocio/estado al monolito.
+- Cambio realizado:
+  - Se movio ownership real de `campaigns`, `posts` y `profile` a repositorios y servicios locales dentro de `apps/socialflow-runtime/src/lib/socialflow/*`.
+  - Se anadieron `contracts.ts`, `validators.ts`, `runtime-repository-core.ts`, `campaigns-repository.ts`, `posts-repository.ts`, `profile-repository.ts` y `live-publishing-service.ts`.
+  - `profile` dejo el store demo del monolito y ahora persiste en tablas runtime-local de `SOCIAL_DB`.
+  - `posts` dejo de depender de `@/lib/socialflow/repository` y `@/lib/socialflow/live-publishing`; mantiene solo ejecucion compartida de LinkedIn.
+  - `campaigns` dejo de depender de `@/lib/socialflow/repository`.
+  - `ai-service` dejo de depender del repositorio social del monolito; AI sigue compartida solo via `@/lib/socialflow/ai/*`.
+  - El contrato `TEMP_SHARED` se redujo de `5` entradas a `2`: `@/lib/socialflow/ai/*` y `@/lib/socialflow/linkedin/*`.
+- Archivos tocados:
+  - `apps/socialflow-runtime/runtime-boundaries.json`
+  - `apps/socialflow-runtime/src/lib/db/runtime-db.ts`
+  - `apps/socialflow-runtime/src/lib/socialflow/*`
+  - `apps/socialflow-runtime/src/app/api/socialflow/profile/route.ts`
+  - `tests/architecture/socialflow-runtime-split-scaffold.test.ts`
+  - `docs/audits/P2-18-SOCIALFLOW-BUSINESS-PLANE-OWNERSHIP.md`
+- Verificacion ejecutada:
+  - `pnpm socialflow-runtime:build`
+  - `pnpm typecheck`
+  - `pnpm build`
+  - `pnpm test`
+  - `git diff --check`
+- Resultado:
+  - El audit local del runtime nuevo pasa a `tempSharedHitsTotal=4`, `crossRuntimeReferenceCount=6`, `forbiddenHitsTotal=0` y `contaminatedFileCount=0`.
+- Riesgo residual:
+  - AI y LinkedIn siguen temporales compartidos.
+  - El canary sigue inactivo y no existe cutover.
+- Siguiente accion:
+  - Decidir si el siguiente paso es mover AI o preparar el canary para verificacion funcional controlada sin activarlo todavia.
+- Relacion con issues:
+  - `ISSUE-010`, `ISSUE-012`, `ISSUE-016`
+
 ## [2026-05-16 00:31 UTC+02:00] SOCIALFLOW-P2-16-RUNTIME-PORT-INACTIVE-CANARY
 - Contexto:
   - P2-15 dejo creado el scaffold fisico para el split parcial de SocialFlow, pero todavia sin runtime real portado dentro de `apps/socialflow-runtime/*`.

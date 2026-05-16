@@ -1,19 +1,13 @@
 import {
-  listSaasSocialCampaigns,
-  resolveSocialContext,
+  listRuntimeCampaignsFromDb,
   SocialContextError,
-  upsertSaasSocialCampaign,
-} from "@/lib/socialflow/repository";
+  upsertRuntimeCampaignInDb,
+} from "./campaigns-repository";
 
 export { SocialContextError };
 
 export async function listRuntimeCampaigns(params: { tenantId: string; saasId: string }) {
-  const context = await resolveSocialContext({
-    tenantId: params.tenantId,
-    saasId: params.saasId,
-  });
-
-  return listSaasSocialCampaigns(context);
+  return listRuntimeCampaignsFromDb(params);
 }
 
 export async function saveRuntimeCampaign(params: {
@@ -31,21 +25,19 @@ export async function saveRuntimeCampaign(params: {
     notes: string | null;
   };
 }) {
-  const context = await resolveSocialContext({
+  return upsertRuntimeCampaignInDb({
     tenantId: params.tenantId,
-    saasId: params.saasId,
-  });
-
-  return upsertSaasSocialCampaign(context, {
-    id: params.campaign.id,
-    saasId: params.saasId,
-    name: params.campaign.name,
-    objective: params.campaign.objective,
-    status: params.campaign.status,
-    targetSegment: params.campaign.targetSegment,
-    startDate: params.campaign.startDate,
-    endDate: params.campaign.endDate,
-    budgetEstimate: params.campaign.budgetEstimate,
-    notes: params.campaign.notes,
+    campaign: {
+      id: params.campaign.id,
+      saasId: params.saasId,
+      name: params.campaign.name,
+      objective: params.campaign.objective,
+      status: params.campaign.status,
+      targetSegment: params.campaign.targetSegment,
+      startDate: params.campaign.startDate,
+      endDate: params.campaign.endDate,
+      budgetEstimate: params.campaign.budgetEstimate,
+      notes: params.campaign.notes,
+    },
   });
 }

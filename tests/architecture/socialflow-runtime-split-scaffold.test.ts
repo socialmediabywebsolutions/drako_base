@@ -39,6 +39,13 @@ describe("SocialFlow runtime split scaffold", () => {
       "apps/socialflow-runtime/src/lib/db/runtime-db.ts",
       "apps/socialflow-runtime/src/lib/auth/session.ts",
       "apps/socialflow-runtime/src/lib/auth/service.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/contracts.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/validators.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/runtime-repository-core.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/campaigns-repository.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/posts-repository.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/profile-repository.ts",
+      "apps/socialflow-runtime/src/lib/socialflow/live-publishing-service.ts",
       "apps/socialflow-runtime/src/lib/socialflow/exports-service.ts",
       "packages/shared-neutral/src/hosts.ts",
       "packages/shared-neutral/src/marketing-locales.ts",
@@ -76,9 +83,6 @@ describe("SocialFlow runtime split scaffold", () => {
     );
     expect(boundaries.TEMP_SHARED).toEqual(
       expect.arrayContaining([
-        "@/lib/socialflow/repository",
-        "@/lib/socialflow/live-publishing",
-        "@/lib/socialflow/profile/repository",
         "@/lib/socialflow/ai/*",
         "@/lib/socialflow/linkedin/*",
       ]),
@@ -136,6 +140,9 @@ describe("SocialFlow runtime split scaffold", () => {
       expect(source).not.toMatch(/@\/lib\/correlation\b/);
       expect(source).not.toMatch(/@\/lib\/tenants\/services/);
       expect(source).not.toMatch(/@\/app\/api\/socialflow\//);
+      expect(source).not.toMatch(/@\/lib\/socialflow\/repository\b/);
+      expect(source).not.toMatch(/@\/lib\/socialflow\/profile\/repository\b/);
+      expect(source).not.toMatch(/@\/lib\/socialflow\/live-publishing\b/);
     }
   });
 

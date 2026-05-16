@@ -1,16 +1,15 @@
 import {
-  approvePost,
-  getSaasSocialPostById,
-  listSaasSocialPosts,
-  markAsPosted,
-  rejectPost,
-  resolveSocialContext,
-  runSocialSchedulerSimulation,
-  schedulePost,
+  approveRuntimePostInDb,
+  getRuntimePostByIdFromDb,
+  listRuntimePostsFromDb,
+  markRuntimePostAsPostedInDb,
+  runRuntimeSocialSchedulerSimulation,
+  scheduleRuntimePostInDb,
   SocialContextError,
-  upsertSaasSocialPost,
-} from "@/lib/socialflow/repository";
-import { publishSocialPostLive } from "@/lib/socialflow/live-publishing";
+  upsertRuntimePostInDb,
+  rejectRuntimePostInDb,
+} from "./posts-repository";
+import { publishRuntimePostLive as publishRuntimePostLiveInDb } from "./live-publishing-service";
 
 export { SocialContextError };
 
@@ -19,22 +18,12 @@ export async function listRuntimePosts(params: {
   saasId: string;
   filters?: { campaignId?: string | null; status?: string | null; provider?: "LINKEDIN" | null };
 }) {
-  const context = await resolveSocialContext({
-    tenantId: params.tenantId,
-    saasId: params.saasId,
-  });
-
-  await runSocialSchedulerSimulation(context);
-  return listSaasSocialPosts(context, params.filters);
+  await runRuntimeSocialSchedulerSimulation();
+  return listRuntimePostsFromDb(params);
 }
 
 export async function getRuntimePostById(params: { tenantId: string; saasId: string; postId: string }) {
-  const context = await resolveSocialContext({
-    tenantId: params.tenantId,
-    saasId: params.saasId,
-  });
-
-  return getSaasSocialPostById(context, params.postId);
+  return getRuntimePostByIdFromDb(params);
 }
 
 export async function saveRuntimePost(params: {
@@ -56,52 +45,42 @@ export async function saveRuntimePost(params: {
     metadata?: Record<string, unknown> | null;
   };
 }) {
-  const context = await resolveSocialContext({
+  return upsertRuntimePostInDb({
     tenantId: params.tenantId,
-    saasId: params.saasId,
-  });
-
-  return upsertSaasSocialPost(context, {
-    id: params.post.id,
-    saasId: params.saasId,
-    campaignId: params.post.campaignId ?? null,
-    channelId: params.post.channelId ?? null,
-    provider: params.post.provider,
-    contentType: params.post.contentType as any,
-    title: params.post.title,
-    body: params.post.body,
-    imageHint: params.post.imageHint ?? null,
-    status: params.post.status as any,
-    scheduledAt: params.post.scheduledAt ?? null,
-    postedAt: params.post.postedAt ?? null,
-    externalPostId: params.post.externalPostId ?? null,
-    metadata: params.post.metadata ?? null,
+    post: {
+      id: params.post.id,
+      saasId: params.saasId,
+      campaignId: params.post.campaignId ?? null,
+      channelId: params.post.channelId ?? null,
+      provider: params.post.provider,
+      contentType: params.post.contentType as any,
+      title: params.post.title,
+      body: params.post.body,
+      imageHint: params.post.imageHint ?? null,
+      status: params.post.status as any,
+      scheduledAt: params.post.scheduledAt ?? null,
+      postedAt: params.post.postedAt ?? null,
+      externalPostId: params.post.externalPostId ?? null,
+      metadata: params.post.metadata ?? null,
+    },
   });
 }
 
 export async function publishRuntimePostLive(params: { tenantId: string; saasId: string; postId: string }) {
-  const context = await resolveSocialContext({
+  return publishRuntimePostLiveInDb({
     tenantId: params.tenantId,
     saasId: params.saasId,
+    postId: params.postId,
+    skipClaim: true,
   });
-
-  return publishSocialPostLive(context, params.postId, { skipClaim: true });
 }
 
 export async function approveRuntimePost(params: { tenantId: string; saasId: string; postId: string }) {
-  const context = await resolveSocialContext({
-    tenantId: params.tenantId,
-    saasId: params.saasId,
-  });
-  return approvePost(context, params.postId);
+  return approveRuntimePostInDb(params);
 }
 
 export async function rejectRuntimePost(params: { tenantId: string; saasId: string; postId: string }) {
-  const context = await resolveSocialContext({
-    tenantId: params.tenantId,
-    saasId: params.saasId,
-  });
-  return rejectPost(context, params.postId);
+  return rejectRuntimePostInDb(params);
 }
 
 export async function scheduleRuntimePost(params: {
@@ -110,11 +89,7 @@ export async function scheduleRuntimePost(params: {
   postId: string;
   scheduledAt: string | null;
 }) {
-  const context = await resolveSocialContext({
-    tenantId: params.tenantId,
-    saasId: params.saasId,
-  });
-  return schedulePost(context, { id: params.postId, scheduledAt: params.scheduledAt });
+  return scheduleRuntimePostInDb(params);
 }
 
 export async function markRuntimePostAsPosted(params: {
@@ -124,13 +99,10 @@ export async function markRuntimePostAsPosted(params: {
   externalPostId: string | null;
   postedAt: string | null;
 }) {
-  const context = await resolveSocialContext({
+  return markRuntimePostAsPostedInDb({
     tenantId: params.tenantId,
     saasId: params.saasId,
-  });
-
-  return markAsPosted(context, {
-    id: params.postId,
+    postId: params.postId,
     externalPostId: params.externalPostId,
     postedAt: params.postedAt,
   });

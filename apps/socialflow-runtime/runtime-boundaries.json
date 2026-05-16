@@ -8,9 +8,6 @@
     "@/lib/cloudflare/runtime"
   ],
   "TEMP_SHARED": [
-    "@/lib/socialflow/repository",
-    "@/lib/socialflow/live-publishing",
-    "@/lib/socialflow/profile/repository",
     "@/lib/socialflow/ai/*",
     "@/lib/socialflow/linkedin/*"
   ],

@@ -71,6 +71,20 @@ export async function run(db: D1Database, sql: string, ...params: unknown[]): Pr
   }
 }
 
+export async function runDetailed(
+  db: D1Database,
+  sql: string,
+  ...params: unknown[]
+): Promise<{ success?: boolean; meta?: Record<string, unknown> | undefined }> {
+  try {
+    const stmt = db.prepare(sql);
+    const bound = params.length > 0 ? stmt.bind(...params) : stmt;
+    return await bound.run() as { success?: boolean; meta?: Record<string, unknown> | undefined };
+  } catch (error) {
+    normalizeDbError(error);
+  }
+}
+
 export function respondDatabaseError(error: unknown): Response | null {
   if (!(error instanceof DatabaseUnavailableError)) {
     return null;
