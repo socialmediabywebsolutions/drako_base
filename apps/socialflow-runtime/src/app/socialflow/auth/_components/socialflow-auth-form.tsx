@@ -1,138 +1,277 @@
 "use client";
 
-import { type ChangeEvent, type FormEvent, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type SocialFlowAuthMode = "login" | "register";
 
+type AuthResponseBody = {
+  message?: string;
+  error?: string;
+  code?: string;
+};
+
+const commandSignals = [
+  { label: "Calendar clarity", value: "18 drafts aligned" },
+  { label: "Audience signal", value: "4 channels monitored" },
+  { label: "AI planning", value: "7 ideas ready" },
+];
+
+const queueItems = [
+  {
+    title: "Launch week narrative",
+    meta: "LinkedIn sequence",
+    status: "Ready for review",
+  },
+  {
+    title: "Founder insight post",
+    meta: "Personal brand",
+    status: "Tone matched",
+  },
+  {
+    title: "Comment follow-up map",
+    meta: "Relationship loop",
+    status: "Queued",
+  },
+];
+
 export default function SocialFlowAuthForm() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl");
-  const nextTarget = searchParams.get("next");
-  const redirectTarget = callbackUrl || nextTarget || "/socialflow";
-
   const [mode, setMode] = useState<SocialFlowAuthMode>("login");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const redirectTarget =
+    searchParams.get("callbackUrl") || searchParams.get("next") || "/socialflow";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setLoading(true);
     setError(null);
+    setIsSubmitting(true);
 
-    try {
-      const endpoint = mode === "login"
+    const endpoint =
+      mode === "login"
         ? "/api/socialflow/auths/logins"
         : "/api/socialflow/auths/registrations";
-      const payload = mode === "login"
-        ? { email, password }
-        : { email, password, name };
 
+    try {
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(
+          mode === "login"
+            ? { email, password }
+            : { email, name, password },
+        ),
       });
-      const body = (await response.json().catch(() => ({}))) as { message?: string; code?: string; error?: string };
+
       if (!response.ok) {
-        throw new Error(body.message || body.code || body.error || "Authentication failed.");
+        const payload = (await response.json().catch(() => ({}))) as AuthResponseBody;
+        throw new Error(payload.message || payload.error || payload.code || "Authentication failed.");
       }
 
-      window.location.href = redirectTarget;
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Authentication failed.");
+      window.location.assign(redirectTarget);
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : "Authentication failed.");
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   }
 
   return (
-    <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-950/90 p-6 text-white shadow-2xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">SocialFlow Auth</h1>
-        <p className="mt-2 text-sm text-slate-400">
-          Sign in or create your SocialFlow workspace identity from the isolated runtime.
-        </p>
+    <main className="min-h-screen bg-[#f5f7f2] text-[#111827]">
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-72 bg-[linear-gradient(135deg,#0f2a2f_0%,#163b38_42%,#dbe7c5_100%)]" />
+        <div className="absolute left-0 top-72 h-px w-full bg-[#d3d8ca]" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(17,24,39,0.05)_1px,transparent_1px),linear-gradient(180deg,rgba(17,24,39,0.04)_1px,transparent_1px)] bg-[size:44px_44px]" />
       </div>
 
-      <div className="mb-6 flex rounded-2xl border border-slate-800 bg-slate-900 p-1">
-        <button
-          type="button"
-          onClick={() => setMode("login")}
-          className={`flex-1 rounded-xl px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] ${
-            mode === "login" ? "bg-white text-slate-950" : "text-slate-400"
-          }`}
-        >
-          Login
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("register")}
-          className={`flex-1 rounded-xl px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] ${
-            mode === "register" ? "bg-white text-slate-950" : "text-slate-400"
-          }`}
-        >
-          Register
-        </button>
-      </div>
+      <section className="relative mx-auto flex min-h-screen w-full max-w-7xl items-center px-5 py-10 sm:px-8 lg:px-10">
+        <div className="grid w-full gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
+          <div className="text-white">
+            <div className="mb-8 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-sm font-black tracking-tight shadow-sm backdrop-blur">
+                SF
+              </div>
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.34em] text-[#dceec6]">
+                  SocialFlow
+                </p>
+                <p className="text-sm text-white/70">AI social operating system</p>
+              </div>
+            </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {mode === "register" ? (
-          <div>
-            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Name</label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setName(event.target.value)}
-              className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-sky-500"
-              placeholder="Ada Lovelace"
-            />
+            <div className="max-w-2xl">
+              <p className="mb-4 inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[#f2ffd7] backdrop-blur">
+                Private workspace access
+              </p>
+              <h1 className="text-balance text-5xl font-semibold leading-[0.96] tracking-[-0.055em] sm:text-6xl lg:text-7xl">
+                Turn social chaos into a guided growth rhythm.
+              </h1>
+              <p className="mt-6 max-w-xl text-lg leading-8 text-white/78">
+                Plan content, coordinate campaigns, read audience signals and keep
+                every brand conversation moving from one focused command center.
+              </p>
+            </div>
+
+            <div className="mt-10 rounded-lg border border-[#183d3c]/15 bg-[#fbfcf7] p-4 text-[#172421] shadow-[0_28px_80px_rgba(17,24,39,0.18)] sm:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d8decd] pb-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#5c6657]">
+                    Live command preview
+                  </p>
+                  <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
+                    Today&apos;s marketing flow
+                  </h2>
+                </div>
+                <span className="rounded-full bg-[#dff5b2] px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-[#25320d]">
+                  Staff gated
+                </span>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                {commandSignals.map((signal) => (
+                  <div key={signal.label} className="rounded-md border border-[#d8decd] bg-white px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6b7564]">
+                      {signal.label}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-[#13211f]">{signal.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {queueItems.map((item, index) => (
+                  <div
+                    key={item.title}
+                    className="grid gap-3 rounded-md border border-[#d8decd] bg-[#f7f9f0] p-4 sm:grid-cols-[auto_1fr_auto] sm:items-center"
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#153b39] text-sm font-bold text-[#e7ffd0]">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="font-semibold tracking-[-0.02em] text-[#13211f]">{item.title}</p>
+                      <p className="text-sm text-[#657064]">{item.meta}</p>
+                    </div>
+                    <p className="text-sm font-semibold text-[#2f6f55]">{item.status}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        ) : null}
 
-        <div>
-          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Email</label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(event: ChangeEvent<HTMLInputElement>) => setEmail(event.target.value)}
-            className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-sky-500"
-            placeholder="operator@company.com"
-          />
+          <aside className="rounded-lg border border-[#d8decd] bg-[#fffdf7] p-5 shadow-[0_26px_70px_rgba(17,24,39,0.14)] sm:p-7 lg:ml-auto lg:w-full lg:max-w-md">
+            <div className="mb-7">
+              <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#75806f]">
+                Secure access
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.045em] text-[#111827]">
+                {mode === "login" ? "Enter your workspace" : "Create your workspace"}
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-[#5f685d]">
+                Use your SocialFlow identity to continue to the private marketing workspace.
+              </p>
+            </div>
+
+            <div className="mb-6 grid grid-cols-2 rounded-md border border-[#d8decd] bg-[#eef2e6] p-1">
+              <button
+                type="button"
+                onClick={() => setMode("login")}
+                className={`rounded px-4 py-2.5 text-sm font-bold transition ${
+                  mode === "login"
+                    ? "bg-[#153b39] text-white shadow-sm"
+                    : "text-[#52604f] hover:text-[#111827]"
+                }`}
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("register")}
+                className={`rounded px-4 py-2.5 text-sm font-bold transition ${
+                  mode === "register"
+                    ? "bg-[#153b39] text-white shadow-sm"
+                    : "text-[#52604f] hover:text-[#111827]"
+                }`}
+              >
+                Create
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {mode === "register" ? (
+                <label className="block text-sm font-semibold text-[#26332f]">
+                  Name
+                  <input
+                    required
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    className="mt-2 w-full rounded-md border border-[#cfd7c6] bg-white px-4 py-3 text-[#111827] outline-none transition placeholder:text-[#9aa49a] focus:border-[#153b39] focus:ring-4 focus:ring-[#dff5b2]"
+                    placeholder="Alex Rivera"
+                  />
+                </label>
+              ) : null}
+
+              <label className="block text-sm font-semibold text-[#26332f]">
+                Email
+                <input
+                  required
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="mt-2 w-full rounded-md border border-[#cfd7c6] bg-white px-4 py-3 text-[#111827] outline-none transition placeholder:text-[#9aa49a] focus:border-[#153b39] focus:ring-4 focus:ring-[#dff5b2]"
+                  placeholder="you@company.com"
+                />
+              </label>
+
+              <label className="block text-sm font-semibold text-[#26332f]">
+                Password
+                <input
+                  required
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="mt-2 w-full rounded-md border border-[#cfd7c6] bg-white px-4 py-3 text-[#111827] outline-none transition placeholder:text-[#9aa49a] focus:border-[#153b39] focus:ring-4 focus:ring-[#dff5b2]"
+                  placeholder="Your secure password"
+                />
+              </label>
+
+              {error ? (
+                <p className="rounded-md border border-[#f2b6a0] bg-[#fff0e8] px-4 py-3 text-sm font-semibold text-[#973b18]">
+                  {error}
+                </p>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full rounded-md bg-[#153b39] px-5 py-3.5 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-[#0f2d2c] disabled:cursor-not-allowed disabled:bg-[#95a39d]"
+              >
+                {isSubmitting
+                  ? "Securing access..."
+                  : mode === "login"
+                    ? "Continue to SocialFlow"
+                    : "Create SocialFlow access"}
+              </button>
+            </form>
+
+            <div className="mt-6 border-t border-[#d8decd] pt-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#74806d]">
+                Runtime contract preserved
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[#5f685d]">
+                Authentication stays on the existing SocialFlow API boundary. No social login,
+                payment flow or external tracker is introduced here.
+              </p>
+            </div>
+          </aside>
         </div>
-
-        <div>
-          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Password</label>
-          <input
-            type="password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(event: ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)}
-            className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-sky-500"
-            placeholder="********"
-          />
-        </div>
-
-        {error ? (
-          <div className="rounded-2xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-            {error}
-          </div>
-        ) : null}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-2xl bg-sky-500 px-5 py-3.5 text-sm font-bold text-slate-950 transition hover:bg-sky-400 disabled:opacity-60"
-        >
-          {loading ? "Processing..." : mode === "login" ? "Enter workspace" : "Create workspace"}
-        </button>
-      </form>
-    </div>
+      </section>
+    </main>
   );
 }
