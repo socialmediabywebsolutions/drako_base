@@ -6,23 +6,7 @@ import { PostForm } from "@/app/components/socialflow/PostForm";
 import { PostList } from "@/app/components/socialflow/PostList";
 import { Calendar } from "@/app/components/socialflow/Calendar";
 import { CampaignForm } from "@/app/components/socialflow/CampaignForm";
-
-export type SocialCampaign = {
-  id: string;
-  name: string;
-  status: string;
-};
-
-export type SocialPost = {
-  id: string;
-  title: string;
-  body: string;
-  status: string;
-  campaignId: string | null;
-  campaignName?: string | null;
-  scheduledAt: string | null;
-  postedAt: string | null;
-};
+import type { SocialCampaign, SocialPost } from "@/app/components/socialflow/types";
 
 export default function SocialflowPage() {
   const searchParams = useSearchParams();
@@ -115,7 +99,7 @@ export default function SocialflowPage() {
               Planifica y automatiza tu contenido en redes
             </h1>
             <p className="max-w-3xl text-sm text-slate-600">
-              Organiza campañas, programa publicaciones y deja que SocialFlow las publique por ti.
+              Organiza campanas, programa publicaciones y deja que SocialFlow las publique por ti.
             </p>
           </div>
           <button
@@ -132,7 +116,7 @@ export default function SocialflowPage() {
       </section>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <SummaryCard label="Campañas activas" value={summary.totalCampaigns} />
+        <SummaryCard label="Campanas activas" value={summary.totalCampaigns} />
         <SummaryCard label="Publicaciones programadas" value={summary.scheduledPosts} />
         <SummaryCard label="Publicaciones publicadas" value={summary.publishedPosts} />
       </div>
@@ -150,7 +134,7 @@ export default function SocialflowPage() {
           <section className="rounded-xl border border-slate-200/70 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center justify-between gap-2">
               <div>
-                <h2 className="text-sm font-semibold tracking-tight text-slate-900">Campañas</h2>
+                <h2 className="text-sm font-semibold tracking-tight text-slate-900">Campanas</h2>
                 <p className="text-xs text-slate-500">Agrupa tus publicaciones por objetivos</p>
               </div>
               <span className="text-xs text-slate-400">{campaigns.length} en total</span>
@@ -168,8 +152,8 @@ export default function SocialflowPage() {
           <section className="rounded-xl border border-slate-200/70 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between gap-2">
               <div>
-                <h2 className="text-sm font-semibold tracking-tight text-slate-900">Próximas publicaciones</h2>
-                <p className="text-xs text-slate-500">Programa tu contenido y deja que se publique automáticamente</p>
+                <h2 className="text-sm font-semibold tracking-tight text-slate-900">Proximas publicaciones</h2>
+                <p className="text-xs text-slate-500">Programa tu contenido y deja que se publique automaticamente</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-[11px]">
                 <select
@@ -180,7 +164,7 @@ export default function SocialflowPage() {
                   <option value="ALL">Todos los estados</option>
                   <option value="IDEA">Idea</option>
                   <option value="DRAFT">Borrador</option>
-                  <option value="IN_REVIEW">En revisión</option>
+                  <option value="IN_REVIEW">En revision</option>
                   <option value="APPROVED">Aprobado</option>
                   <option value="SCHEDULED">Programado</option>
                   <option value="POSTED">Publicado</option>
@@ -190,7 +174,7 @@ export default function SocialflowPage() {
                   value={campaignFilter}
                   onChange={(e) => setCampaignFilter(e.target.value)}
                 >
-                  <option value="ALL">Todas las campañas</option>
+                  <option value="ALL">Todas las campanas</option>
                   {campaigns.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -199,7 +183,7 @@ export default function SocialflowPage() {
                 </select>
                 <input
                   className="rounded border border-slate-200 px-2 py-1"
-                  placeholder="Buscar por título o texto"
+                  placeholder="Buscar por titulo o texto"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -247,13 +231,13 @@ export default function SocialflowPage() {
         </div>
 
         <section className="rounded-xl border border-slate-200/70 bg-white p-5 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold tracking-tight text-gray-900">Nueva campaña</h2>
+          <h2 className="mb-3 text-sm font-semibold tracking-tight text-gray-900">Nueva campana</h2>
           <div id="socialflow-campaign-form" className="mb-6">
             <CampaignForm
               saasId={saasId}
               onCreated={async (campaignId) => {
                 if (campaignId) setSelectedCampaignId(campaignId);
-                setToast("Campaña creada");
+                setToast("Campana creada");
                 await loadData();
               }}
             />
@@ -285,21 +269,21 @@ function EditorialPipeline(props: { posts: SocialPost[]; onStatusChange?: (id: s
   const columns: { key: string; label: string }[] = [
     { key: "IDEA", label: "Ideas" },
     { key: "DRAFT", label: "Borradores" },
-    { key: "IN_REVIEW", label: "En revisión" },
+    { key: "IN_REVIEW", label: "En revision" },
     { key: "APPROVED", label: "Aprobados" },
     { key: "SCHEDULED", label: "Programados" },
     { key: "POSTED", label: "Publicados" },
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6 text-xs">
+    <div className="grid gap-4 text-xs md:grid-cols-3 lg:grid-cols-6">
       {columns.map((col) => {
         const bucket = props.posts.filter((post) => post.status === col.key);
         return (
-          <div key={col.key} className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 flex flex-col gap-2">
+          <div key={col.key} className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">{col.label}</p>
-              <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-slate-500 border border-slate-200">
+              <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-500">
                 {bucket.length}
               </span>
             </div>
@@ -310,7 +294,7 @@ function EditorialPipeline(props: { posts: SocialPost[]; onStatusChange?: (id: s
                 {bucket.slice(0, 50).map((post) => (
                   <li
                     key={post.id}
-                    className="rounded-md bg-white px-2 py-1 shadow-sm border border-slate-200/80 cursor-pointer hover:bg-slate-50"
+                    className="cursor-pointer rounded-md border border-slate-200/80 bg-white px-2 py-1 shadow-sm hover:bg-slate-50"
                     onClick={() => {
                       if (!props.onStatusChange) return;
                       const order = ["IDEA", "DRAFT", "IN_REVIEW", "APPROVED", "SCHEDULED", "POSTED"];
@@ -351,14 +335,14 @@ function CampaignList(props: { campaigns: SocialCampaign[]; posts: SocialPost[];
   if (props.campaigns.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm">
-        <p className="font-medium text-slate-700">Crea tu primera campaña</p>
-        <p className="mt-1 text-xs text-slate-500">Define un objetivo y agrupa allí tus próximas publicaciones.</p>
+        <p className="font-medium text-slate-700">Crea tu primera campana</p>
+        <p className="mt-1 text-xs text-slate-500">Define un objetivo y agrupa ahi tus proximas publicaciones.</p>
         <button
           type="button"
           onClick={props.onEmptyCta}
           className="mt-3 inline-flex rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black"
         >
-          Nueva campaña
+          Nueva campana
         </button>
       </div>
     );

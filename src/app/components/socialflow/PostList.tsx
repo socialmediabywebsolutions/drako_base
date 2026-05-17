@@ -1,6 +1,6 @@
 "use client";
 
-import type { SocialCampaign, SocialPost } from "@/app/(dashboard)/socialflow/page";
+import type { SocialCampaign, SocialPost } from "@/app/components/socialflow/types";
 
 export function PostList(props: { posts: SocialPost[]; campaigns: SocialCampaign[] }) {
   const campaignName = (id: string | null) =>

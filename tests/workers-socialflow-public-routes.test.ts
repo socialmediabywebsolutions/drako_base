@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -38,14 +38,16 @@ describe("socialflow runtime wiring", () => {
   });
 
   it("serves the authenticated workspace from real app routes", () => {
-    const workspaceRuntime = read("src/app/(dashboard)/socialflow/page.tsx");
+    const workspaceRuntime = read("src/app/socialflow/(workspace)/page.tsx");
     const profileRuntime = read("src/app/(dashboard)/socialflow/profile/page.tsx");
+    const legacyWorkspacePageExists = existsSync(path.join(repoRoot, "src/app/(dashboard)/socialflow/page.tsx"));
 
     expect(workspaceRuntime).toContain("/api/socialflow/campaigns");
     expect(workspaceRuntime).toContain("/api/socialflow/posts");
     expect(workspaceRuntime).not.toContain("/api/social/");
     expect(profileRuntime).toContain("/api/socialflow/profile");
     expect(profileRuntime).not.toContain("/api/social/");
+    expect(legacyWorkspacePageExists).toBe(false);
   });
 
   it("keeps the socialflow layout detached from DRACO_DB and legacy shells", () => {

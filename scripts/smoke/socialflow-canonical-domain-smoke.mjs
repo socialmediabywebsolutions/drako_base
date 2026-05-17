@@ -163,7 +163,8 @@ async function assertNoPlaceholderHtml(check, response, url) {
     }
   }
 
-  if (check.id === "canonical-socialflow-auth" && !body.includes("SocialFlow Auth")) {
+  const authMarkers = ["SocialFlow secure access", "Secure access", "Continue to SocialFlow"];
+  if (check.id === "canonical-socialflow-auth" && !authMarkers.some((marker) => body.includes(marker))) {
     return "auth route did not render the SocialFlow auth page";
   }
 

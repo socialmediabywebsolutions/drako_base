@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { SocialCampaign } from "@/app/(dashboard)/socialflow/page";
+import type { SocialCampaign } from "@/app/components/socialflow/types";
 
 export function PostForm(props: {
   saasId: string;

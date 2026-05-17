@@ -1,6 +1,6 @@
 "use client";
 
-import type { SocialCampaign, SocialPost } from "@/app/(dashboard)/socialflow/page";
+import type { SocialCampaign, SocialPost } from "@/app/components/socialflow/types";
 
 function startOfWeek(date: Date) {
   const d = new Date(date);
