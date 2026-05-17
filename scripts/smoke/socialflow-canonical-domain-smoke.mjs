@@ -36,6 +36,18 @@ const checks = [
     expectedStatuses: [200, 301, 302, 307, 308, 401, 403],
   },
   {
+    id: "canonical-socialflow-profile-ui",
+    method: "GET",
+    path: "/socialflow/profile",
+    expectedStatuses: [200, 301, 302, 307, 308, 401, 403],
+  },
+  {
+    id: "canonical-socialflow-ai-ui",
+    method: "GET",
+    path: "/socialflow/ai",
+    expectedStatuses: [200, 301, 302, 307, 308, 401, 403],
+  },
+  {
     id: "canonical-socialflow-profile",
     method: "GET",
     path: "/api/socialflow/profile",
@@ -107,6 +119,8 @@ function printNoopPlan() {
   console.log("- GET https://socialflow.drako.systems/");
   console.log("- GET https://socialflow.drako.systems/socialflow");
   console.log("- GET https://socialflow.drako.systems/socialflow/auth");
+  console.log("- GET https://socialflow.drako.systems/socialflow/profile");
+  console.log("- GET https://socialflow.drako.systems/socialflow/ai");
   console.log("- GET https://socialflow.drako.systems/api/socialflow/profile");
   console.log("- GET https://socialflow.drako.systems/api/social/posts (expect 410)");
   console.log("- GET https://socialflow.drako.systems/api/social/linkedin/publish (expect 410)");

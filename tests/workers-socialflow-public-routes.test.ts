@@ -39,15 +39,23 @@ describe("socialflow runtime wiring", () => {
 
   it("serves the authenticated workspace from real app routes", () => {
     const workspaceRuntime = read("src/app/socialflow/(workspace)/page.tsx");
-    const profileRuntime = read("src/app/(dashboard)/socialflow/profile/page.tsx");
+    const profileRuntime = read("src/app/socialflow/(workspace)/profile/page.tsx");
+    const aiRuntime = read("src/app/socialflow/(workspace)/ai/page.tsx");
     const legacyWorkspacePageExists = existsSync(path.join(repoRoot, "src/app/(dashboard)/socialflow/page.tsx"));
+    const legacyProfilePageExists = existsSync(path.join(repoRoot, "src/app/(dashboard)/socialflow/profile/page.tsx"));
+    const legacyAiPageExists = existsSync(path.join(repoRoot, "src/app/(dashboard)/socialflow/ai/page.tsx"));
 
     expect(workspaceRuntime).toContain("/api/socialflow/campaigns");
     expect(workspaceRuntime).toContain("/api/socialflow/posts");
     expect(workspaceRuntime).not.toContain("/api/social/");
     expect(profileRuntime).toContain("/api/socialflow/profile");
     expect(profileRuntime).not.toContain("/api/social/");
+    expect(aiRuntime).toContain("/api/socialflow/ai/generate");
+    expect(aiRuntime).toContain("/api/socialflow/ai/regenerate");
+    expect(aiRuntime).not.toContain("/api/social/");
     expect(legacyWorkspacePageExists).toBe(false);
+    expect(legacyProfilePageExists).toBe(false);
+    expect(legacyAiPageExists).toBe(false);
   });
 
   it("keeps the socialflow layout detached from DRACO_DB and legacy shells", () => {

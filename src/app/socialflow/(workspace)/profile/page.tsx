@@ -81,8 +81,8 @@ export default function SocialFlowProfilePage() {
   return (
     <div className="space-y-8">
       <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-semibold mb-2">SocialFlow Channel Profile</h1>
-        <p className="text-sm text-gray-600 mb-4">
+        <h1 className="mb-2 text-2xl font-semibold">SocialFlow Channel Profile</h1>
+        <p className="mb-4 text-sm text-gray-600">
           This profile trains the SocialFlow AI agents. Fill it with real, strategic information about your brand, audience
           and offers. The AI strategy and content pipeline will use this as its primary knowledge base.
         </p>
@@ -99,30 +99,21 @@ export default function SocialFlowProfilePage() {
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
       </div>
 
-      {/* Brand identity */}
-      <section className="rounded-lg border bg-white p-4 shadow-sm space-y-3">
+      <section className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Brand identity</h2>
           <span className="text-xs text-gray-500">Who you are and how you sound.</span>
         </div>
-        <div className="grid gap-4 md:grid-cols-3 text-sm">
-          <Field
-            label="Brand name"
-            value={p.brandName}
-            onChange={(v) => setProfile({ ...p, brandName: v })}
-          />
-          <Field
-            label="Channel handle"
-            value={p.channelName}
-            onChange={(v) => setProfile({ ...p, channelName: v })}
-          />
+        <div className="grid gap-4 text-sm md:grid-cols-3">
+          <Field label="Brand name" value={p.brandName} onChange={(v) => setProfile({ ...p, brandName: v })} />
+          <Field label="Channel handle" value={p.channelName} onChange={(v) => setProfile({ ...p, channelName: v })} />
           <Field
             label="Primary language"
             value={p.primaryLanguage}
             onChange={(v) => setProfile({ ...p, primaryLanguage: v })}
           />
         </div>
-        <div className="grid gap-4 md:grid-cols-2 text-sm">
+        <div className="grid gap-4 text-sm md:grid-cols-2">
           <TextareaField
             label="Short description"
             placeholder="One sentence that explains what this channel is about."
@@ -136,19 +127,15 @@ export default function SocialFlowProfilePage() {
             onChange={(v) => setProfile({ ...p, longDescription: v })}
           />
         </div>
-        <div className="grid gap-4 md:grid-cols-2 text-sm">
-          <TextareaField
-            label="Mission"
-            value={p.mission}
-            onChange={(v) => setProfile({ ...p, mission: v })}
-          />
+        <div className="grid gap-4 text-sm md:grid-cols-2">
+          <TextareaField label="Mission" value={p.mission} onChange={(v) => setProfile({ ...p, mission: v })} />
           <TextareaField
             label="Value proposition"
             value={p.valueProposition}
             onChange={(v) => setProfile({ ...p, valueProposition: v })}
           />
         </div>
-        <div className="grid gap-4 md:grid-cols-3 text-sm">
+        <div className="grid gap-4 text-sm md:grid-cols-3">
           <TextareaField
             label="Tone of voice"
             placeholder="e.g. Friendly, expert, concrete, pragmatic."
@@ -170,18 +157,13 @@ export default function SocialFlowProfilePage() {
         </div>
       </section>
 
-      {/* Niche & topics */}
-      <section className="rounded-lg border bg-white p-4 shadow-sm space-y-3">
+      <section className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Niche & topics</h2>
           <span className="text-xs text-gray-500">What your channel talks about, and what it avoids.</span>
         </div>
-        <div className="grid gap-4 md:grid-cols-3 text-sm">
-          <Field
-            label="Primary niche"
-            value={p.niche}
-            onChange={(v) => setProfile({ ...p, niche: v })}
-          />
+        <div className="grid gap-4 text-sm md:grid-cols-3">
+          <Field label="Primary niche" value={p.niche} onChange={(v) => setProfile({ ...p, niche: v })} />
           <TagField
             label="Subniches"
             value={p.subniches}
@@ -195,24 +177,20 @@ export default function SocialFlowProfilePage() {
             placeholder="client acquisition, retention, automation"
           />
         </div>
-        <div className="grid gap-4 md:grid-cols-3 text-sm">
+        <div className="grid gap-4 text-sm md:grid-cols-3">
           <TagField
             label="Secondary topics"
             value={p.secondaryTopics}
             onChange={(v) => setProfile({ ...p, secondaryTopics: v })}
           />
-          <TagField
-            label="Viral themes"
-            value={p.viralThemes}
-            onChange={(v) => setProfile({ ...p, viralThemes: v })}
-          />
+          <TagField label="Viral themes" value={p.viralThemes} onChange={(v) => setProfile({ ...p, viralThemes: v })} />
           <TagField
             label="Trending topics"
             value={p.trendingTopics}
             onChange={(v) => setProfile({ ...p, trendingTopics: v })}
           />
         </div>
-        <div className="grid gap-4 md:grid-cols-3 text-sm">
+        <div className="grid gap-4 text-sm md:grid-cols-3">
           <TagField
             label="Seasonal topics"
             value={p.seasonalTopics}
@@ -231,13 +209,12 @@ export default function SocialFlowProfilePage() {
         </div>
       </section>
 
-      {/* Audience */}
-      <section className="rounded-lg border bg-white p-4 shadow-sm space-y-3">
+      <section className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Audience</h2>
           <span className="text-xs text-gray-500">Who you are speaking to and what they care about.</span>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 text-sm">
+        <div className="grid gap-4 text-sm md:grid-cols-2">
           <TextareaField
             label="Audience description"
             value={p.audienceDescription}
@@ -249,49 +226,24 @@ export default function SocialFlowProfilePage() {
             onChange={(v) => setProfile({ ...p, buyerPersona: v })}
           />
         </div>
-        <div className="grid gap-4 md:grid-cols-3 text-sm">
-          <TagField
-            label="Pain points"
-            value={p.painPoints}
-            onChange={(v) => setProfile({ ...p, painPoints: v })}
-          />
-          <TagField
-            label="Desires"
-            value={p.desires}
-            onChange={(v) => setProfile({ ...p, desires: v })}
-          />
-          <TagField
-            label="Objections"
-            value={p.objections}
-            onChange={(v) => setProfile({ ...p, objections: v })}
-          />
+        <div className="grid gap-4 text-sm md:grid-cols-3">
+          <TagField label="Pain points" value={p.painPoints} onChange={(v) => setProfile({ ...p, painPoints: v })} />
+          <TagField label="Desires" value={p.desires} onChange={(v) => setProfile({ ...p, desires: v })} />
+          <TagField label="Objections" value={p.objections} onChange={(v) => setProfile({ ...p, objections: v })} />
         </div>
       </section>
 
-      {/* Offers */}
-      <section className="rounded-lg border bg-white p-4 shadow-sm space-y-3">
+      <section className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Business & offers</h2>
           <span className="text-xs text-gray-500">How you actually make money.</span>
         </div>
-        <div className="grid gap-4 md:grid-cols-3 text-sm">
-          <TagField
-            label="Products"
-            value={p.products}
-            onChange={(v) => setProfile({ ...p, products: v })}
-          />
-          <TagField
-            label="Services"
-            value={p.services}
-            onChange={(v) => setProfile({ ...p, services: v })}
-          />
-          <TagField
-            label="Offers"
-            value={p.offers}
-            onChange={(v) => setProfile({ ...p, offers: v })}
-          />
+        <div className="grid gap-4 text-sm md:grid-cols-3">
+          <TagField label="Products" value={p.products} onChange={(v) => setProfile({ ...p, products: v })} />
+          <TagField label="Services" value={p.services} onChange={(v) => setProfile({ ...p, services: v })} />
+          <TagField label="Offers" value={p.offers} onChange={(v) => setProfile({ ...p, offers: v })} />
         </div>
-        <div className="grid gap-4 md:grid-cols-3 text-sm">
+        <div className="grid gap-4 text-sm md:grid-cols-3">
           <Field
             label="Average price (optional)"
             value={p.avgPrice ?? ""}
@@ -310,18 +262,13 @@ export default function SocialFlowProfilePage() {
         </div>
       </section>
 
-      {/* Keywords & hashtags */}
-      <section className="rounded-lg border bg-white p-4 shadow-sm space-y-3">
+      <section className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Keywords & hashtags</h2>
           <span className="text-xs text-gray-500">What you want to rank and be found for.</span>
         </div>
-        <div className="grid gap-4 md:grid-cols-3 text-sm">
-          <TagField
-            label="Base keywords"
-            value={p.baseKeywords}
-            onChange={(v) => setProfile({ ...p, baseKeywords: v })}
-          />
+        <div className="grid gap-4 text-sm md:grid-cols-3">
+          <TagField label="Base keywords" value={p.baseKeywords} onChange={(v) => setProfile({ ...p, baseKeywords: v })} />
           <TagField
             label="Priority keywords"
             value={p.priorityKeywords}
@@ -333,12 +280,8 @@ export default function SocialFlowProfilePage() {
             onChange={(v) => setProfile({ ...p, longTailKeywords: v })}
           />
         </div>
-        <div className="grid gap-4 md:grid-cols-3 text-sm">
-          <TagField
-            label="Base hashtags"
-            value={p.baseHashtags}
-            onChange={(v) => setProfile({ ...p, baseHashtags: v })}
-          />
+        <div className="grid gap-4 text-sm md:grid-cols-3">
+          <TagField label="Base hashtags" value={p.baseHashtags} onChange={(v) => setProfile({ ...p, baseHashtags: v })} />
           <TagField
             label="Priority hashtags"
             value={p.priorityHashtags}
@@ -352,21 +295,22 @@ export default function SocialFlowProfilePage() {
         </div>
       </section>
 
-      {/* Competitors */}
-      <section className="rounded-lg border bg-white p-4 shadow-sm space-y-3">
+      <section className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Competitors</h2>
           <span className="text-xs text-gray-500">Who you learn from and differentiate against.</span>
         </div>
         <div className="space-y-3 text-sm">
           {competitors.length === 0 && (
-            <p className="text-xs text-gray-500">No competitors added yet. You can still generate AI campaigns, but analysis will be generic.</p>
+            <p className="text-xs text-gray-500">
+              No competitors added yet. You can still generate AI campaigns, but analysis will be generic.
+            </p>
           )}
           <div className="grid gap-3 md:grid-cols-2">
             {competitors.map((c) => (
-              <div key={c.id} className="border rounded p-3 flex flex-col gap-1">
+              <div key={c.id} className="flex flex-col gap-1 rounded border p-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{c.name}</span>
+                  <span className="text-sm font-medium">{c.name}</span>
                   <span className="text-xs uppercase text-gray-500">{c.platform}</span>
                 </div>
                 <p className="text-xs text-gray-600">Handle: {c.handle || "-"}</p>
@@ -388,13 +332,12 @@ export default function SocialFlowProfilePage() {
         </div>
       </section>
 
-      {/* Intelligence center */}
-      <section className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
+      <section className="space-y-4 rounded-lg border bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Channel intelligence</h2>
           <span className="text-xs text-gray-500">Snapshot of how the AI sees your market.</span>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 text-sm">
+        <div className="grid gap-4 text-sm md:grid-cols-2">
           <div className="space-y-2">
             <h3 className="text-sm font-medium">Trend & market signals</h3>
             <p className="text-xs text-gray-500">These signals guide the TrendAgent and KeywordAgent.</p>
@@ -407,7 +350,9 @@ export default function SocialFlowProfilePage() {
           </div>
           <div className="space-y-2">
             <h3 className="text-sm font-medium">Keywords & hashtags (AI engine)</h3>
-            <p className="text-xs text-gray-500">Base data for the keyword engine. Clusters are computed when you run the AI pipeline.</p>
+            <p className="text-xs text-gray-500">
+              Base data for the keyword engine. Clusters are computed when you run the AI pipeline.
+            </p>
             <div className="grid gap-2 md:grid-cols-2">
               <MiniList title="Base keywords" items={p.baseKeywords} />
               <MiniList title="Priority keywords" items={p.priorityKeywords} />
@@ -425,11 +370,7 @@ function Field(props: { label: string; value: any; onChange: (v: string) => void
   return (
     <label className="flex flex-col gap-1 text-sm">
       <span className="font-medium">{props.label}</span>
-      <input
-        className="rounded border px-3 py-2 text-sm"
-        value={props.value ?? ""}
-        onChange={(e) => props.onChange(e.target.value)}
-      />
+      <input className="rounded border px-3 py-2 text-sm" value={props.value ?? ""} onChange={(e) => props.onChange(e.target.value)} />
     </label>
   );
 }
@@ -441,8 +382,8 @@ function MiniList(props: { title: string; items: string[] | undefined }) {
   }
   return (
     <div>
-      <h4 className="text-xs font-semibold text-gray-700 mb-1">{props.title}</h4>
-      <ul className="text-xs text-gray-600 list-disc pl-4 space-y-0.5">
+      <h4 className="mb-1 text-xs font-semibold text-gray-700">{props.title}</h4>
+      <ul className="list-disc space-y-0.5 pl-4 text-xs text-gray-600">
         {items.map((item) => (
           <li key={item}>{item}</li>
         ))}
@@ -456,7 +397,7 @@ function TextareaField(props: { label: string; value: any; onChange: (v: string)
     <label className="flex flex-col gap-1 text-sm">
       <span className="font-medium">{props.label}</span>
       <textarea
-        className="rounded border px-3 py-2 text-sm min-h-[80px]"
+        className="min-h-[80px] rounded border px-3 py-2 text-sm"
         placeholder={props.placeholder}
         value={props.value ?? ""}
         onChange={(e) => props.onChange(e.target.value)}

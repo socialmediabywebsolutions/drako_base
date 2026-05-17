@@ -119,8 +119,8 @@ export default function SocialFlowAIPage() {
   return (
     <div className="space-y-8">
       <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-semibold mb-2">SocialFlow AI</h1>
-        <p className="text-sm text-gray-600 mb-4">
+        <h1 className="mb-2 text-2xl font-semibold">SocialFlow AI</h1>
+        <p className="mb-4 text-sm text-gray-600">
           Generate an AI-powered campaign for your SocialFlow demo. This runs locally using a deterministic stub model,
           and persists a demo campaign and scheduled posts.
         </p>
@@ -128,19 +128,11 @@ export default function SocialFlowAIPage() {
         <div className="grid gap-4 md:grid-cols-3">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium">Niche</label>
-            <input
-              className="rounded border px-3 py-2 text-sm"
-              value={niche}
-              onChange={(e) => setNiche(e.target.value)}
-            />
+            <input className="rounded border px-3 py-2 text-sm" value={niche} onChange={(e) => setNiche(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1 md:col-span-2">
             <label className="text-sm font-medium">Tone of voice</label>
-            <input
-              className="rounded border px-3 py-2 text-sm"
-              value={tone}
-              onChange={(e) => setTone(e.target.value)}
-            />
+            <input className="rounded border px-3 py-2 text-sm" value={tone} onChange={(e) => setTone(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium">Posts per week</label>
@@ -169,10 +161,9 @@ export default function SocialFlowAIPage() {
 
       {result && (
         <div className="space-y-6">
-          {/* Trend & keyword engine */}
           <section className="rounded-lg border bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-semibold mb-2">Trend & Keyword Engine</h2>
-            <div className="grid gap-4 md:grid-cols-3 text-sm">
+            <h2 className="mb-2 text-lg font-semibold">Trend & Keyword Engine</h2>
+            <div className="grid gap-4 text-sm md:grid-cols-3">
               <div>
                 <h3 className="font-medium">Trend signals</h3>
                 <ul className="list-disc pl-4 text-gray-700">
@@ -197,7 +188,7 @@ export default function SocialFlowAIPage() {
                 <ul className="list-disc pl-4 text-gray-700">
                   {(result.keywords?.clusters ?? []).map((c: any) => (
                     <li key={c.cluster}>
-                      <span className="font-medium">{c.cluster}</span> – {c.intent} · {c.difficulty} · score {c.trendScore}
+                      <span className="font-medium">{c.cluster}</span> - {c.intent} - {c.difficulty} - score {c.trendScore}
                     </li>
                   ))}
                 </ul>
@@ -205,13 +196,12 @@ export default function SocialFlowAIPage() {
             </div>
           </section>
 
-          {/* Competitor intelligence */}
           <section className="rounded-lg border bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-semibold mb-2">Competitor intelligence</h2>
-            <div className="grid gap-4 md:grid-cols-2 text-sm">
+            <h2 className="mb-2 text-lg font-semibold">Competitor intelligence</h2>
+            <div className="grid gap-4 text-sm md:grid-cols-2">
               {result.competitors?.map((c: any) => (
-                <div key={c.name} className="border rounded p-3 flex flex-col gap-1">
-                  <div className="flex items-center justify-between mb-1">
+                <div key={c.name} className="flex flex-col gap-1 rounded border p-3">
+                  <div className="mb-1 flex items-center justify-between">
                     <span className="font-medium">{c.name}</span>
                     <span className="text-xs uppercase text-gray-500">{c.platform}</span>
                   </div>
@@ -220,55 +210,51 @@ export default function SocialFlowAIPage() {
                   <p className="text-xs text-gray-600">Hook styles: {c.hookStyles?.join(" | ")}</p>
                   <p className="text-xs text-gray-600">Hashtags: {c.hashtagsUsed?.join(" ")}</p>
                   <p className="text-xs text-gray-600">Strengths: {c.strengths?.join(", ")}</p>
-                  <p className="text-xs text-gray-600">Opportunities: {c.opportunities?.join(", ") || c.differentiationOpportunities?.join(", ")}</p>
+                  <p className="text-xs text-gray-600">
+                    Opportunities: {c.opportunities?.join(", ") || c.differentiationOpportunities?.join(", ")}
+                  </p>
                 </div>
               ))}
             </div>
           </section>
 
-          {/* Strategy timeline */}
           <section className="rounded-lg border bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-semibold mb-2">Strategy (Timeline)</h2>
-            <div className="grid gap-3 md:grid-cols-2 text-sm">
+            <h2 className="mb-2 text-lg font-semibold">Strategy (Timeline)</h2>
+            <div className="grid gap-3 text-sm md:grid-cols-2">
               {result.strategy?.items?.map((item: any) => (
-                <div key={item.id} className="border rounded p-3">
-                  <div className="flex items-center justify-between mb-1">
+                <div key={item.id} className="rounded border p-3">
+                  <div className="mb-1 flex items-center justify-between">
                     <span className="font-medium">Day {item.dayOffset + 1}</span>
                     <span className="text-xs uppercase text-gray-500">{item.format}</span>
                   </div>
-                  <p className="text-xs text-gray-700 mb-1">Theme: {item.theme}</p>
-                  <p className="text-xs text-gray-700 mb-1">Angle: {item.angle}</p>
+                  <p className="mb-1 text-xs text-gray-700">Theme: {item.theme}</p>
+                  <p className="mb-1 text-xs text-gray-700">Angle: {item.angle}</p>
                   <p className="text-xs text-gray-700">CTA: {item.callToAction}</p>
                 </div>
               ))}
             </div>
           </section>
 
-          {/* Generated posts & schedule */}
           <section className="rounded-lg border bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-semibold mb-2">Generated posts & schedule</h2>
-            <div className="grid gap-3 md:grid-cols-2 text-sm">
+            <h2 className="mb-2 text-lg font-semibold">Generated posts & schedule</h2>
+            <div className="grid gap-3 text-sm md:grid-cols-2">
               {result.optimizedPosts?.map((post: any) => {
                 const sched = result.schedule?.find((s: any) => s.postId === post.id.replace(/^gen_/, "day_"));
                 const postCoreId = post.id.replace(/^gen_/, "");
                 const persistedId = `ai_post_${result?.scheduleCampaignId ?? "socialflow"}_${postCoreId}`;
                 return (
-                  <div key={post.id} className="border rounded p-3 flex flex-col gap-2">
+                  <div key={post.id} className="flex flex-col gap-2 rounded border p-3">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-xs">Post {post.id}</span>
-                      {sched && (
-                        <span className="text-xs text-gray-500">
-                          {new Date(sched.scheduledAt).toLocaleString()}
-                        </span>
-                      )}
+                      <span className="text-xs font-medium">Post {post.id}</span>
+                      {sched && <span className="text-xs text-gray-500">{new Date(sched.scheduledAt).toLocaleString()}</span>}
                     </div>
                     {editingPostId === persistedId ? (
-                      <div className="space-y-2 mt-1">
+                      <div className="mt-1 space-y-2">
                         <input
                           className="w-full rounded border px-2 py-1 text-xs"
                           value={editDraft?.title ?? ""}
                           onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, title: e.target.value } : prev))}
-                          placeholder="Título"
+                          placeholder="Titulo"
                         />
                         <textarea
                           className="w-full rounded border px-2 py-1 text-xs"
@@ -304,7 +290,7 @@ export default function SocialFlowAIPage() {
                       </div>
                     ) : (
                       <>
-                        <p className="text-xs whitespace-pre-wrap text-gray-800">{post.improvedText}</p>
+                        <p className="whitespace-pre-wrap text-xs text-gray-800">{post.improvedText}</p>
                         <p className="text-xs text-gray-600">Hashtags: {post.hashtags?.join(" ")}</p>
                       </>
                     )}
@@ -312,18 +298,14 @@ export default function SocialFlowAIPage() {
                       <button
                         type="button"
                         className="rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700"
-                        onClick={() =>
-                          updatePost("approve", { id: persistedId })
-                        }
+                        onClick={() => updatePost("approve", { id: persistedId })}
                       >
                         Approve
                       </button>
                       <button
                         type="button"
                         className="rounded border border-rose-300 bg-rose-50 px-2 py-0.5 text-[11px] text-rose-700"
-                        onClick={() =>
-                          updatePost("reject", { id: persistedId })
-                        }
+                        onClick={() => updatePost("reject", { id: persistedId })}
                       >
                         Reject
                       </button>
@@ -331,9 +313,7 @@ export default function SocialFlowAIPage() {
                         <button
                           type="button"
                           className="rounded border border-sky-300 bg-sky-50 px-2 py-0.5 text-[11px] text-sky-700"
-                          onClick={() =>
-                            updatePost("schedule", { id: persistedId, scheduledAt: sched.scheduledAt })
-                          }
+                          onClick={() => updatePost("schedule", { id: persistedId, scheduledAt: sched.scheduledAt })}
                         >
                           Re-schedule
                         </button>
