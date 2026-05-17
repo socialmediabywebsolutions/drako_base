@@ -35,6 +35,19 @@ const queueItems = [
   },
 ];
 
+function resolveSafeRedirectTarget(rawTarget: string | null, fallback = "/socialflow") {
+  if (!rawTarget) return fallback;
+
+  try {
+    const target = new URL(rawTarget, window.location.origin);
+    if (target.origin !== window.location.origin) return fallback;
+
+    return `${target.pathname}${target.search}${target.hash}` || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function SocialFlowAuthForm() {
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<SocialFlowAuthMode>("login");
@@ -43,9 +56,6 @@ export default function SocialFlowAuthForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const redirectTarget =
-    searchParams.get("callbackUrl") || searchParams.get("next") || "/socialflow";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,6 +85,9 @@ export default function SocialFlowAuthForm() {
         throw new Error(payload.message || payload.error || payload.code || "Authentication failed.");
       }
 
+      const redirectTarget = resolveSafeRedirectTarget(
+        searchParams.get("callbackUrl") || searchParams.get("next"),
+      );
       window.location.assign(redirectTarget);
     } catch (authError) {
       setError(authError instanceof Error ? authError.message : "Authentication failed.");
