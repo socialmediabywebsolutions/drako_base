@@ -1,8 +1,6 @@
 name: 🔁 DKS Cron Runbook
 
 on:
-  schedule:
-    - cron: "0 */2 * * *"
   workflow_dispatch:
 
 env:
@@ -19,29 +17,13 @@ jobs:
       - name: 🔧 Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: 📦 Instalar dependencias
         run: npm ci
 
       - name: 🔍 Ejecutar Auditor Local
         run: npx tsx scripts/alerts-check.ts
-
-  snapshot-status:
-    name: 📤 Snapshot de Infraestructura
-    runs-on: ubuntu-latest
-    steps:
-      - name: 📦 Descargar snapshot
-        run: curl -s https://drako.group/api/status.json -o snapshot-status.json
-
-      - name: 📁 Subir como artifact
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: snapshot-status
-          if-no-files-found: ignore
-          retention-days: 1
-          path: snapshot-status.json
 
   cleanup-drafts:
     name: 🧹 Limpieza de Drafts y Logs
@@ -53,7 +35,7 @@ jobs:
       - name: 🔧 Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: 📦 Instalar dependencias
         run: npm ci
