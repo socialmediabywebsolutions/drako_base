@@ -8,16 +8,26 @@ import { AcquisitionScheduler } from "@/lib/mentoria/acquisition-scheduler";
 export async function GET(request: Request) {
   try {
     const actor = await requireCurrentMentoriaSession(request);
-    
+
     // Only admins can access acquisition metrics
     if (actor.role !== "admin") {
       return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 403 });
     }
 
+    // FEATURE FLAG: Acquisition not yet deployed (fail-closed)
+    const ACQUISITION_ENABLED = process.env.ACQUISITION_ENABLED === "true";
+    if (!ACQUISITION_ENABLED) {
+      return NextResponse.json({
+        ok: false,
+        error: "FEATURE_NOT_AVAILABLE",
+        message: "Acquisition tracking feature is not yet deployed. Migration 0186 required."
+      }, { status: 501 });
+    }
+
     const publisher = new AcquisitionPublisher();
     const scheduler = new AcquisitionScheduler({ tenantId: actor.tenantId });
 
-    const metrics = await publisher.getPerformanceMetrics();
+    const metrics = await publisher.getPerformanceMetrics(actor.tenantId);
     const scheduledPosts = await scheduler.getScheduledPostsForNextDays(7);
 
     return NextResponse.json({
@@ -35,10 +45,20 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const actor = await requireCurrentMentoriaSession(request);
-    
+
     // Only admins can manage acquisition
     if (actor.role !== "admin") {
       return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 403 });
+    }
+
+    // FEATURE FLAG: Acquisition not yet deployed (fail-closed)
+    const ACQUISITION_ENABLED = process.env.ACQUISITION_ENABLED === "true";
+    if (!ACQUISITION_ENABLED) {
+      return NextResponse.json({
+        ok: false,
+        error: "FEATURE_NOT_AVAILABLE",
+        message: "Acquisition tracking feature is not yet deployed. Migration 0186 required."
+      }, { status: 501 });
     }
 
     const body = (await request.json()) as {

@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     }
 
     const optimizationEngine = new OptimizationEngine();
-    const report = await optimizationEngine.generateOptimizationReport();
+    const report = await optimizationEngine.generateOptimizationReport(actor.tenantId);
 
     return NextResponse.json({
       ok: true,

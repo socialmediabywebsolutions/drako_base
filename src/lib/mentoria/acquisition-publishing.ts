@@ -4,6 +4,7 @@ import { publishSocialPost } from "@/lib/social-core/publishing";
 
 export type PublishedPost = {
   id: string;
+  tenantId: string;
   postId: string;
   channel: "linkedin" | "instagram" | "tiktok";
   content: string;
@@ -16,6 +17,7 @@ export type PublishedPost = {
 
 type PublishedPostRow = {
   id: string;
+  tenant_id: string;
   post_id: string;
   channel: string;
   content: string;
@@ -69,6 +71,7 @@ export class AcquisitionPublisher {
 
     return {
       id,
+      tenantId,
       postId: post.id,
       channel: post.channel,
       content: post.content,
@@ -116,16 +119,17 @@ export class AcquisitionPublisher {
       .run();
   }
 
-  async getPublishedPost(id: string): Promise<PublishedPost | null> {
+  async getPublishedPost(tenantId: string, id: string): Promise<PublishedPost | null> {
     const row = await this.db
-      .prepare(`SELECT * FROM acquisition_posts WHERE id = ? LIMIT 1`)
-      .bind(id)
+      .prepare(`SELECT * FROM acquisition_posts WHERE tenant_id = ? AND id = ? LIMIT 1`)
+      .bind(tenantId, id)
       .first<PublishedPostRow>();
 
     if (!row) return null;
 
     return {
       id: row.id,
+      tenantId: row.tenant_id,
       postId: row.post_id,
       channel: row.channel as "linkedin" | "instagram" | "tiktok",
       content: row.content,
@@ -137,19 +141,20 @@ export class AcquisitionPublisher {
     };
   }
 
-  async getPublishedPostsByChannel(channel: "linkedin" | "instagram" | "tiktok"): Promise<PublishedPost[]> {
+  async getPublishedPostsByChannel(tenantId: string, channel: "linkedin" | "instagram" | "tiktok"): Promise<PublishedPost[]> {
     const rows = await this.db
       .prepare(
         `SELECT * FROM acquisition_posts
-         WHERE channel = ?
+         WHERE tenant_id = ? AND channel = ?
          ORDER BY published_at DESC
          LIMIT 100`
       )
-      .bind(channel)
+      .bind(tenantId, channel)
       .all<PublishedPostRow>();
 
     return rows.results.map((row) => ({
       id: row.id,
+      tenantId: row.tenant_id,
       postId: row.post_id,
       channel: row.channel as "linkedin" | "instagram" | "tiktok",
       content: row.content,
@@ -161,7 +166,7 @@ export class AcquisitionPublisher {
     }));
   }
 
-  async getPerformanceMetrics(): Promise<{
+  async getPerformanceMetrics(tenantId: string): Promise<{
     totalPosts: number;
     totalClicks: number;
     totalSignups: number;
@@ -175,8 +180,10 @@ export class AcquisitionPublisher {
           COALESCE(SUM(clicks), 0) as total_clicks,
           COALESCE(SUM(signups), 0) as total_signups,
           COALESCE(SUM(trial_starts), 0) as total_trial_starts
-         FROM acquisition_posts`
+         FROM acquisition_posts
+         WHERE tenant_id = ?`
       )
+      .bind(tenantId)
       .first<{
         total_posts: number;
         total_clicks: number;

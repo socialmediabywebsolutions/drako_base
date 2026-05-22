@@ -44,13 +44,13 @@ export class OptimizationEngine {
     private acquisitionPublisher = new AcquisitionPublisher()
   ) {}
 
-  async generateOptimizationReport(): Promise<OptimizationReport> {
+  async generateOptimizationReport(tenantId: string): Promise<OptimizationReport> {
     const now = new Date().toISOString();
 
     const conversionMetrics = await this.userAnalytics.getConversionMetrics();
     const dropoffAnalysis = await this.userAnalytics.getDropoffAnalysis();
     const feedbackSummary = await this.feedbackSystem.getFeedbackSummary();
-    const contentPerformance = await this.analyzeContentPerformance();
+    const contentPerformance = await this.analyzeContentPerformance(tenantId);
     const recommendations = this.generateRecommendations(
       conversionMetrics,
       dropoffAnalysis,
@@ -68,16 +68,16 @@ export class OptimizationEngine {
     };
   }
 
-  private async analyzeContentPerformance(): Promise<{
+  private async analyzeContentPerformance(tenantId: string): Promise<{
     topPerformingPosts: Array<{ postId: string; clicks: number; conversionRate: number }>;
     underperformingPosts: Array<{ postId: string; clicks: number; conversionRate: number }>;
   }> {
-    const metrics = await this.acquisitionPublisher.getPerformanceMetrics();
+    const metrics = await this.acquisitionPublisher.getPerformanceMetrics(tenantId);
 
     // Get all published posts
-    const linkedinPosts = await this.acquisitionPublisher.getPublishedPostsByChannel("linkedin");
-    const instagramPosts = await this.acquisitionPublisher.getPublishedPostsByChannel("instagram");
-    const tiktokPosts = await this.acquisitionPublisher.getPublishedPostsByChannel("tiktok");
+    const linkedinPosts = await this.acquisitionPublisher.getPublishedPostsByChannel(tenantId, "linkedin");
+    const instagramPosts = await this.acquisitionPublisher.getPublishedPostsByChannel(tenantId, "instagram");
+    const tiktokPosts = await this.acquisitionPublisher.getPublishedPostsByChannel(tenantId, "tiktok");
 
     const allPosts = [...linkedinPosts, ...instagramPosts, ...tiktokPosts];
 
