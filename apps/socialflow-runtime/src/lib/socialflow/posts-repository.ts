@@ -133,7 +133,9 @@ export async function upsertRuntimePostInDb(params: { tenantId: string; post: Ru
        posted_at = excluded.posted_at,
        external_post_id = excluded.external_post_id,
        metadata = excluded.metadata,
-       updated_at = excluded.updated_at`,
+       updated_at = excluded.updated_at
+     WHERE saas_social_posts.tenant_id = excluded.tenant_id
+       AND saas_social_posts.saas_id = excluded.saas_id`,
     id,
     context.tenantId,
     context.saasId,

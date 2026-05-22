@@ -7,7 +7,7 @@ import type {
 
 export const SOCIALFLOW_LINKEDIN_CALLBACK_PATH = "/api/socialflow/linkedin/callback";
 export const SOCIALFLOW_LINKEDIN_SETTINGS_PATH = "/socialflow/settings/account";
-export const SOCIALFLOW_LINKEDIN_SCOPES = "r_liteprofile r_emailaddress";
+export const SOCIALFLOW_LINKEDIN_SCOPES = "openid profile email w_member_social";
 
 export type SocialFlowLinkedInState = {
   tenantId: string;

@@ -14,6 +14,11 @@ import {
   scheduleRuntimePost,
   SocialContextError,
 } from "../../../../lib/socialflow/posts-service";
+import { listRuntimeSocialAccountsFromDb } from "../../../../lib/socialflow/posts-repository";
+import { validateRuntimeLinkedInAccount } from "../../../../lib/socialflow/linkedin/publishing";
+import { LinkedInIntegrationError } from "../../../../lib/socialflow/linkedin/core";
+import { isEncryptedToken } from "../../../../lib/socialflow/token-encryption";
+import { isRuntimeTenantAllowedInPrivatePilot } from "../../../../lib/socialflow/private-pilot";
 
 const ALLOWED_PROVIDERS = ["LINKEDIN"] as const;
 const ALLOWED_CREATION_STATUSES = ["DRAFT", "SCHEDULED"] as const;
@@ -23,6 +28,14 @@ function unauthorizedResponse(request?: Request, correlationId?: string) {
     request,
     correlationId,
   });
+}
+
+function isLinkedInTokenStatePublishSafe(authMeta: Record<string, unknown> | null | undefined) {
+  const accessToken = typeof authMeta?.accessToken === "string" ? authMeta.accessToken : null;
+  const idToken = typeof authMeta?.idToken === "string" ? authMeta.idToken : null;
+  if (!isEncryptedToken(accessToken)) return false;
+  if (idToken && !isEncryptedToken(idToken)) return false;
+  return true;
 }
 
 export async function GET(request: Request) {
@@ -84,6 +97,7 @@ export async function POST(request: Request) {
       postedAt?: string | null;
       externalPostId?: string | null;
       metadata?: Record<string, unknown> | null;
+      confirmPublish?: boolean | null;
     } | null;
 
     if (!body) {
@@ -132,7 +146,128 @@ export async function POST(request: Request) {
       },
     });
 
+    if (post.tenantId !== session.tenantId || post.saasId !== saasId) {
+      logRuntimeEvent("warn", "post_scope_mismatch_after_upsert", {
+        correlationId,
+        sessionTenantId: session.tenantId,
+        requestSaasId: saasId,
+      });
+      return NextResponse.json({
+        post,
+        livePublish: {
+          ok: false,
+          code: "POST_SCOPE_MISMATCH",
+          message: "Post scope mismatch detected. Publish was blocked.",
+        },
+      }, { status: 409 });
+    }
+
     if (usingSimplifiedContract && !scheduledAt) {
+      if (body.confirmPublish !== true) {
+        return NextResponse.json({
+          post,
+          livePublish: {
+            ok: false,
+            code: "PUBLISH_CONFIRMATION_REQUIRED",
+            message: "Post stored without live publish. Send confirmPublish=true to publish.",
+            dryRun: true,
+          },
+        });
+      }
+
+      if (session.role !== "admin") {
+        return NextResponse.json({
+          post,
+          livePublish: {
+            ok: false,
+            code: "PUBLISH_ROLE_NOT_AUTHORIZED",
+            message: "Only admin role can execute confirmPublish=true.",
+          },
+        }, { status: 403 });
+      }
+
+      if (!isRuntimeTenantAllowedInPrivatePilot(session.tenantId)) {
+        return NextResponse.json({
+          post,
+          livePublish: {
+            ok: false,
+            code: "PRIVATE_PILOT_TENANT_NOT_ALLOWED",
+            message: "Tenant is not allowlisted for SocialFlow private pilot publishing.",
+          },
+        }, { status: 403 });
+      }
+
+      const socialAccounts = await listRuntimeSocialAccountsFromDb({
+        tenantId: session.tenantId,
+        saasId,
+      });
+      const primaryLinkedInAccount = socialAccounts
+        .find((account) => account.provider === "LINKEDIN" && account.isPrimary)
+        ?? socialAccounts.find((account) => account.provider === "LINKEDIN")
+        ?? null;
+
+      if (!primaryLinkedInAccount || primaryLinkedInAccount.status !== "CONNECTED_REAL") {
+        return NextResponse.json({
+          post,
+          livePublish: {
+            ok: false,
+            code: "LINKEDIN_ACCOUNT_NOT_CONNECTED_REAL",
+            message: "Primary LinkedIn account must be CONNECTED_REAL before live publish.",
+          },
+        }, { status: 409 });
+      }
+
+      if (primaryLinkedInAccount.tenantId !== session.tenantId || primaryLinkedInAccount.saasId !== saasId) {
+        return NextResponse.json({
+          post,
+          livePublish: {
+            ok: false,
+            code: "LINKEDIN_ACCOUNT_SCOPE_MISMATCH",
+            message: "LinkedIn account scope mismatch detected. Publish was blocked.",
+          },
+        }, { status: 409 });
+      }
+
+      const linkedInAuthMeta = (primaryLinkedInAccount.authMeta ?? {}) as Record<string, unknown>;
+      const lastErrorCode = typeof linkedInAuthMeta.lastErrorCode === "string" ? linkedInAuthMeta.lastErrorCode.trim() : "";
+      if (lastErrorCode) {
+        return NextResponse.json({
+          post,
+          livePublish: {
+            ok: false,
+            code: "LINKEDIN_LAST_VALIDATION_ERROR",
+            message: "LinkedIn account has unresolved validation error. Run validate-connection before publishing.",
+          },
+        }, { status: 409 });
+      }
+
+      if (!isLinkedInTokenStatePublishSafe(linkedInAuthMeta)) {
+        return NextResponse.json({
+          post,
+          livePublish: {
+            ok: false,
+            code: "LINKEDIN_TOKENS_NOT_ENCRYPTED",
+            message: "LinkedIn tokens are not in encrypted format required for publishing.",
+          },
+        }, { status: 409 });
+      }
+
+      try {
+        await validateRuntimeLinkedInAccount(primaryLinkedInAccount);
+      } catch (error) {
+        if (error instanceof LinkedInIntegrationError) {
+          return NextResponse.json({
+            post,
+            livePublish: {
+              ok: false,
+              code: error.code,
+              message: "LinkedIn validation failed before live publish.",
+            },
+          }, { status: 409 });
+        }
+        throw error;
+      }
+
       const liveResult = await publishRuntimePostLive({
         tenantId: session.tenantId,
         saasId,

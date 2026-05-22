@@ -1,6 +1,7 @@
 import { env } from "@/lib/cf";
 import { publishSocialPostLive } from "@/lib/socialflow/live-publishing";
 import { recoverStalePublishingPosts, resolveSocialContext } from "@/lib/socialflow/repository";
+import { isAutoPublishBlockedByPrivatePilotMode } from "@/lib/socialflow/private-pilot";
 
 type DuePostRow = {
   id: string;
@@ -38,10 +39,23 @@ export async function processScheduledPosts(): Promise<{ results: SchedulerPostR
   }
 
   console.log(`[SocialFlow Scheduler] Found ${posts.length} due post(s) to publish.`);
+  const autoPublishBlocked = isAutoPublishBlockedByPrivatePilotMode(bindings);
 
   const results: SchedulerPostResult[] = [];
 
   for (const post of posts) {
+    if (autoPublishBlocked) {
+      results.push({
+        id: post.id,
+        tenantId: post.tenant_id,
+        saasId: post.saas_id,
+        status: "SKIPPED",
+        code: "PRIVATE_PILOT_AUTOPUBLISH_BLOCKED",
+        message: "Auto-publish is blocked while SOCIALFLOW_PRIVATE_PILOT_MODE is enabled.",
+      });
+      continue;
+    }
+
     try {
       const ctx = await resolveSocialContext({
         tenantId: post.tenant_id,

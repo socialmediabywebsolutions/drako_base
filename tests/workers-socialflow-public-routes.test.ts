@@ -93,6 +93,12 @@ describe("socialflow runtime wiring", () => {
     expect(source).not.toContain("405");
   });
 
+  it("keeps rehardening route public in middleware to avoid false SESSION_REQUIRED", () => {
+    const source = read("apps/socialflow-runtime/src/middleware.ts");
+    expect(source).toContain('pathname === "/api/socialflow/runtime/reharden"');
+    expect(source).toContain('pathname.startsWith("/api/socialflow/runtime/reharden/")');
+  });
+
   it("keeps the CI artifact lane strict for SocialFlow", () => {
     const source = read(".github/workflows/drako-factory-deploy.yml");
 

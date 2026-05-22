@@ -85,7 +85,9 @@ export async function upsertRuntimeCampaignInDb(params: { tenantId: string; camp
        end_date = excluded.end_date,
        budget_estimate = excluded.budget_estimate,
        notes = excluded.notes,
-       updated_at = excluded.updated_at`,
+       updated_at = excluded.updated_at
+     WHERE saas_social_campaigns.tenant_id = excluded.tenant_id
+       AND saas_social_campaigns.saas_id = excluded.saas_id`,
     id,
     context.tenantId,
     context.saasId,

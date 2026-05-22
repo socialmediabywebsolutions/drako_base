@@ -17,12 +17,30 @@ export type SocialFlowSession = {
   authMode: "isolated" | "local_demo";
 };
 
+function isTruthyFlag(value: string | undefined) {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+function isLocalDemoModeAllowed() {
+  const env = typeof process !== "undefined" ? process.env : undefined;
+  if (!env) return false;
+  if (isTruthyFlag(env.SOCIALFLOW_ALLOW_LOCAL_DEMO_AUTH)) return true;
+  return env.NODE_ENV !== "production";
+}
+
 export async function getCurrentSocialFlowSession(): Promise<SocialFlowSession | null> {
   const headerStore = await headers();
   const entryMode = headerStore.get("x-drako-client-entry-mode");
   const tenantIdFromHeader = readTenantIdFromHeaderGetter((name) => headerStore.get(name));
 
   if (entryMode === "local_demo") {
+    if (!isLocalDemoModeAllowed()) {
+      console.warn("SOCIALFLOW_LOCAL_DEMO_BLOCKED_IN_PRODUCTION");
+      return null;
+    }
+
     return {
       userId: "local-demo-user",
       email: "demo@drako.systems",

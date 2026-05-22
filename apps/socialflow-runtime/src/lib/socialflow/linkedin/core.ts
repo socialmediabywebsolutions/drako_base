@@ -172,6 +172,49 @@ function normalizeLinkedInApiMessage(payload: Record<string, unknown> | null, fa
   return message?.trim() || fallback;
 }
 
+function safeLinkedInString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized || null;
+}
+
+function safeLinkedInNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value.trim(), 10);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function sanitizeLinkedInPublishErrorPayload(payload: Record<string, unknown> | null) {
+  const safe: Record<string, unknown> = {};
+
+  const message = safeLinkedInString(payload?.message)
+    ?? safeLinkedInString(payload?.error_description)
+    ?? safeLinkedInString(payload?.error);
+  const serviceErrorCode = safeLinkedInNumber(payload?.serviceErrorCode);
+  const errorCode = safeLinkedInString(payload?.errorCode)
+    ?? safeLinkedInString(payload?.code)
+    ?? safeLinkedInString(payload?.error);
+
+  if (message) safe.providerMessage = message;
+  if (serviceErrorCode !== null) safe.serviceErrorCode = serviceErrorCode;
+  if (errorCode) safe.errorCode = errorCode;
+
+  return safe;
+}
+
+function resolveLinkedInRequestId(headers: Headers): string | null {
+  for (const key of ["x-li-request-id", "x-linkedin-request-id", "x-restli-id", "x-li-uuid"]) {
+    const value = headers.get(key);
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
 function inferTokenExchangeFailureReason(payload: Record<string, unknown> | null, status: number): string {
   const description = `${typeof payload?.error === "string" ? payload.error : ""} ${typeof payload?.error_description === "string" ? payload.error_description : ""}`
     .toLowerCase()
@@ -585,12 +628,22 @@ export async function publishLinkedInMemberPost(input: LinkedInPublishPostInput)
               ? "LINKEDIN_PUBLISH_INVALID_REQUEST"
               : "LINKEDIN_PUBLISH_FAILED";
 
+    const safePayload = sanitizeLinkedInPublishErrorPayload(body);
+    const requestId = resolveLinkedInRequestId(response.headers);
+
     throw buildLinkedInApiError(
       normalizedCode,
       normalizeLinkedInApiMessage(body, "LinkedIn publish failed."),
       {
         status: response.status,
-        payload: body,
+        payload: {
+          ...safePayload,
+          ...(requestId ? { requestId } : {}),
+          endpoint: "/v2/ugcPosts",
+          authorType: authorUrn.startsWith("urn:li:organization:") ? "organization" : "member",
+          hasLinkedInVersionHeader: false,
+          restliProtocolVersion: "2.0.0",
+        },
         accountStatus: response.status === 401 || response.status === 403 ? "INVALID_CREDENTIALS" : "PENDING",
       },
     );

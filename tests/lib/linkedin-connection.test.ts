@@ -8,6 +8,7 @@ const resolveSocialContext = vi.hoisted(() => vi.fn());
 const listSaasSocialAccounts = vi.hoisted(() => vi.fn());
 const upsertSaasSocialAccount = vi.hoisted(() => vi.fn());
 const recordObservabilityActivity = vi.hoisted(() => vi.fn());
+const encryptToken = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/integration-core", () => ({
   connectIntegration,
@@ -30,6 +31,10 @@ vi.mock("@/lib/observability-core", () => ({
   recordObservabilityActivity,
 }));
 
+vi.mock("@/lib/socialflow/token-encryption", () => ({
+  encryptToken,
+}));
+
 import { persistLinkedInConnection } from "@/lib/social/linkedin-connection";
 
 describe("persistLinkedInConnection", () => {
@@ -49,6 +54,9 @@ describe("persistLinkedInConnection", () => {
       id: "account-1",
       status: "CONNECTED_REAL",
     });
+    encryptToken.mockImplementation(async (value: string | null | undefined) => (
+      value ? `encrypted:v1:aes-gcm:test:${value}` : null
+    ));
   });
 
   it("returns persisted when there is no existing integration or account", async () => {
@@ -80,6 +88,9 @@ describe("persistLinkedInConnection", () => {
       expect.objectContaining({
         provider: "LINKEDIN",
         status: "CONNECTED_REAL",
+        authMeta: expect.objectContaining({
+          accessToken: expect.stringMatching(/^encrypted:v1:aes-gcm:/),
+        }),
       }),
     );
   });

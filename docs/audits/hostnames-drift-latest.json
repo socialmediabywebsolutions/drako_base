@@ -1,329 +1,44 @@
 {
-  "timestamp": "2026-03-28T15:24:50.009Z",
+  "timestamp": "2026-05-18T08:29:09.427Z",
   "mode": "real",
   "sourceOfTruthPath": "docs/config/workers-hostnames-expected-state.json",
   "fixturesDir": null,
   "summary": {
-    "domainsTotal": 11,
+    "domainsTotal": 0,
     "routesTotal": 0,
-    "checksTotal": 25,
-    "checksPass": 23,
+    "checksTotal": 1,
+    "checksPass": 0,
     "checksFail": 1,
-    "checksNa": 1,
+    "checksNa": 0,
     "violationsTotal": 1,
-    "blockersTotal": 0,
-    "warningsTotal": 1
+    "blockersTotal": 1,
+    "warningsTotal": 0
   },
   "checks": [
     {
-      "checkCode": "unexpectedCriticalHostnameMissing",
-      "severity": "BLOCKER",
-      "targetType": "hostname",
-      "targetName": "drako.systems",
-      "status": "PASS",
-      "expected": "present",
-      "actual": "present",
-      "details": "Critical hostname drako.systems exists."
-    },
-    {
       "checkCode": "hostnameMismatch",
       "severity": "BLOCKER",
       "targetType": "hostname",
-      "targetName": "drako.systems",
-      "status": "PASS",
-      "expected": "saas-drakos-prod",
-      "actual": "saas-drakos-prod",
-      "details": "Hostname drako.systems points to expected service saas-drakos-prod."
-    },
-    {
-      "checkCode": "unexpectedCriticalHostnameMissing",
-      "severity": "BLOCKER",
-      "targetType": "hostname",
-      "targetName": "base.drako.systems",
-      "status": "PASS",
-      "expected": "present",
-      "actual": "present",
-      "details": "Critical hostname base.drako.systems exists."
-    },
-    {
-      "checkCode": "hostnameMismatch",
-      "severity": "BLOCKER",
-      "targetType": "hostname",
-      "targetName": "base.drako.systems",
-      "status": "PASS",
-      "expected": "saas-bases-prod",
-      "actual": "saas-bases-prod",
-      "details": "Hostname base.drako.systems points to expected service saas-bases-prod."
-    },
-    {
-      "checkCode": "unexpectedCriticalHostnameMissing",
-      "severity": "BLOCKER",
-      "targetType": "hostname",
-      "targetName": "bases.drako.systems",
-      "status": "PASS",
-      "expected": "present",
-      "actual": "present",
-      "details": "Critical hostname bases.drako.systems exists."
-    },
-    {
-      "checkCode": "hostnameMismatch",
-      "severity": "BLOCKER",
-      "targetType": "hostname",
-      "targetName": "bases.drako.systems",
-      "status": "PASS",
-      "expected": "saas-bases-prod",
-      "actual": "saas-bases-prod",
-      "details": "Hostname bases.drako.systems points to expected service saas-bases-prod."
-    },
-    {
-      "checkCode": "unexpectedCriticalHostnameMissing",
-      "severity": "BLOCKER",
-      "targetType": "hostname",
-      "targetName": "mentoria.drako.systems",
-      "status": "PASS",
-      "expected": "present",
-      "actual": "present",
-      "details": "Critical hostname mentoria.drako.systems exists."
-    },
-    {
-      "checkCode": "hostnameMismatch",
-      "severity": "BLOCKER",
-      "targetType": "hostname",
-      "targetName": "mentoria.drako.systems",
-      "status": "PASS",
-      "expected": "saas-mentorias-prod",
-      "actual": "saas-mentorias-prod",
-      "details": "Hostname mentoria.drako.systems points to expected service saas-mentorias-prod."
-    },
-    {
-      "checkCode": "unexpectedCriticalHostnameMissing",
-      "severity": "BLOCKER",
-      "targetType": "hostname",
-      "targetName": "mentorias.drako.systems",
-      "status": "PASS",
-      "expected": "present",
-      "actual": "present",
-      "details": "Critical hostname mentorias.drako.systems exists."
-    },
-    {
-      "checkCode": "hostnameMismatch",
-      "severity": "BLOCKER",
-      "targetType": "hostname",
-      "targetName": "mentorias.drako.systems",
-      "status": "PASS",
-      "expected": "saas-mentorias-prod",
-      "actual": "saas-mentorias-prod",
-      "details": "Hostname mentorias.drako.systems points to expected service saas-mentorias-prod."
-    },
-    {
-      "checkCode": "unexpectedCriticalHostnameMissing",
-      "severity": "BLOCKER",
-      "targetType": "hostname",
-      "targetName": "drakos.drako.systems",
-      "status": "PASS",
-      "expected": "present",
-      "actual": "present",
-      "details": "Critical hostname drakos.drako.systems exists."
-    },
-    {
-      "checkCode": "hostnameMismatch",
-      "severity": "BLOCKER",
-      "targetType": "hostname",
-      "targetName": "drakos.drako.systems",
-      "status": "PASS",
-      "expected": "saas-drakos-prod",
-      "actual": "saas-drakos-prod",
-      "details": "Hostname drakos.drako.systems points to expected service saas-drakos-prod."
-    },
-    {
-      "checkCode": "blockedServiceHit",
-      "severity": "BLOCKER",
-      "targetType": "domain",
-      "targetName": "analytics.drako.systems",
-      "status": "PASS",
-      "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-analytics-prod",
-      "details": "Domain analytics.drako.systems does not use blocked services."
-    },
-    {
-      "checkCode": "blockedServiceHit",
-      "severity": "BLOCKER",
-      "targetType": "domain",
-      "targetName": "automations.drako.systems",
-      "status": "PASS",
-      "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-automations-prod",
-      "details": "Domain automations.drako.systems does not use blocked services."
-    },
-    {
-      "checkCode": "blockedServiceHit",
-      "severity": "BLOCKER",
-      "targetType": "domain",
-      "targetName": "invoices.drako.systems",
-      "status": "PASS",
-      "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-invoices-prod",
-      "details": "Domain invoices.drako.systems does not use blocked services."
-    },
-    {
-      "checkCode": "blockedServiceHit",
-      "severity": "BLOCKER",
-      "targetType": "domain",
-      "targetName": "socialflows.drako.systems",
-      "status": "PASS",
-      "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-socialflows-prod",
-      "details": "Domain socialflows.drako.systems does not use blocked services."
-    },
-    {
-      "checkCode": "blockedServiceHit",
-      "severity": "BLOCKER",
-      "targetType": "domain",
-      "targetName": "cryptos.drako.systems",
-      "status": "PASS",
-      "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-cryptos-prod",
-      "details": "Domain cryptos.drako.systems does not use blocked services."
-    },
-    {
-      "checkCode": "blockedServiceHit",
-      "severity": "BLOCKER",
-      "targetType": "domain",
-      "targetName": "drako.systems",
-      "status": "PASS",
-      "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-drakos-prod",
-      "details": "Domain drako.systems does not use blocked services."
-    },
-    {
-      "checkCode": "blockedServiceHit",
-      "severity": "BLOCKER",
-      "targetType": "domain",
-      "targetName": "drakos.drako.systems",
-      "status": "PASS",
-      "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-drakos-prod",
-      "details": "Domain drakos.drako.systems does not use blocked services."
-    },
-    {
-      "checkCode": "blockedServiceHit",
-      "severity": "BLOCKER",
-      "targetType": "domain",
-      "targetName": "bases.drako.systems",
-      "status": "PASS",
-      "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-bases-prod",
-      "details": "Domain bases.drako.systems does not use blocked services."
-    },
-    {
-      "checkCode": "blockedServiceHit",
-      "severity": "BLOCKER",
-      "targetType": "domain",
-      "targetName": "base.drako.systems",
-      "status": "PASS",
-      "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-bases-prod",
-      "details": "Domain base.drako.systems does not use blocked services."
-    },
-    {
-      "checkCode": "blockedServiceHit",
-      "severity": "BLOCKER",
-      "targetType": "domain",
-      "targetName": "mentorias.drako.systems",
-      "status": "PASS",
-      "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-mentorias-prod",
-      "details": "Domain mentorias.drako.systems does not use blocked services."
-    },
-    {
-      "checkCode": "blockedServiceHit",
-      "severity": "BLOCKER",
-      "targetType": "domain",
-      "targetName": "mentoria.drako.systems",
-      "status": "PASS",
-      "expected": "service NOT IN [drako-base-3]",
-      "actual": "saas-mentorias-prod",
-      "details": "Domain mentoria.drako.systems does not use blocked services."
-    },
-    {
-      "checkCode": "unexpectedCriticalRouteMissing",
-      "severity": "WARN",
-      "targetType": "route",
-      "targetName": "drako.systems/*",
+      "targetName": "global",
       "status": "FAIL",
-      "expected": "present",
-      "actual": "missing",
-      "details": "Critical route drako.systems/* is missing from workers routes."
-    },
-    {
-      "checkCode": "routeMismatch",
-      "severity": "BLOCKER",
-      "targetType": "route",
-      "targetName": "drako.systems/*",
-      "status": "N/A",
-      "expected": "saas-drakos-prod",
-      "actual": null,
-      "details": "Route ownership check skipped because route drako.systems/* is missing."
+      "expected": "successful hostnames drift execution",
+      "actual": "Missing required env: CLOUDFLARE_API_TOKEN",
+      "details": "Fatal error in checker execution."
     }
   ],
   "violations": [
     {
-      "checkCode": "unexpectedCriticalRouteMissing",
-      "severity": "WARN",
-      "targetType": "route",
-      "targetName": "drako.systems/*",
-      "expected": "present",
-      "actual": "missing",
-      "details": "Critical route drako.systems/* is missing from workers routes."
+      "checkCode": "hostnameMismatch",
+      "severity": "BLOCKER",
+      "targetType": "hostname",
+      "targetName": "global",
+      "expected": "successful hostnames drift execution",
+      "actual": "Missing required env: CLOUDFLARE_API_TOKEN",
+      "details": "Fatal error in checker execution."
     }
   ],
   "snapshots": {
-    "domains": [
-      {
-        "hostname": "analytics.drako.systems",
-        "service": "saas-analytics-prod"
-      },
-      {
-        "hostname": "automations.drako.systems",
-        "service": "saas-automations-prod"
-      },
-      {
-        "hostname": "invoices.drako.systems",
-        "service": "saas-invoices-prod"
-      },
-      {
-        "hostname": "socialflows.drako.systems",
-        "service": "saas-socialflows-prod"
-      },
-      {
-        "hostname": "cryptos.drako.systems",
-        "service": "saas-cryptos-prod"
-      },
-      {
-        "hostname": "drako.systems",
-        "service": "saas-drakos-prod"
-      },
-      {
-        "hostname": "drakos.drako.systems",
-        "service": "saas-drakos-prod"
-      },
-      {
-        "hostname": "bases.drako.systems",
-        "service": "saas-bases-prod"
-      },
-      {
-        "hostname": "base.drako.systems",
-        "service": "saas-bases-prod"
-      },
-      {
-        "hostname": "mentorias.drako.systems",
-        "service": "saas-mentorias-prod"
-      },
-      {
-        "hostname": "mentoria.drako.systems",
-        "service": "saas-mentorias-prod"
-      }
-    ],
+    "domains": [],
     "routes": []
   }
 }

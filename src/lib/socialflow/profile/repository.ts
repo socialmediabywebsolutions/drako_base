@@ -1,155 +1,549 @@
-import { exportDemoTenantState, replaceDemoTenantState } from "@/lib/admin/demo-data";
 import type { CompetitorInsights } from "@/lib/socialflow/ai/types";
+import { resolveSocialContext, SocialContextError } from "@/lib/socialflow/repository";
 import type { ChannelAsset, ChannelCompetitor, ChannelKnowledgeSnapshot, ChannelProfile } from "@/lib/socialflow/profile/types";
 
-const DEMO_CHANNEL_ID = "default_socialflow_channel";
+const SOCIALFLOW_PROFILE_TABLE = "socialflow_profiles";
+const DEFAULT_SAAS_ID = "socialflow";
+const DEFAULT_CHANNEL_ID = "socialflow_primary_channel";
+
+const PROFILE_COLUMNS = [
+  "id",
+  "tenant_id",
+  "saas_id",
+  "display_name",
+  "brand_name",
+  "business_type",
+  "website_url",
+  "description",
+  "tone",
+  "audience",
+  "goals_json",
+  "metadata_json",
+  "created_at",
+  "updated_at",
+].join(", ");
+
+type ProfileRow = {
+  id: string;
+  tenant_id: string;
+  saas_id: string;
+  display_name: string | null;
+  brand_name: string | null;
+  business_type: string | null;
+  website_url: string | null;
+  description: string | null;
+  tone: string | null;
+  audience: string | null;
+  goals_json: string | null;
+  metadata_json: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ProfileMetadata = {
+  profile?: Partial<ChannelProfile>;
+  competitors?: ChannelCompetitor[];
+  assets?: ChannelAsset[];
+  websiteUrl?: string | null;
+};
+
+const STRING_PROFILE_KEYS: Array<keyof ChannelProfile> = [
+  "brandName",
+  "channelName",
+  "shortDescription",
+  "longDescription",
+  "mission",
+  "valueProposition",
+  "toneOfVoice",
+  "personality",
+  "primaryLanguage",
+  "targetCountry",
+  "niche",
+  "audienceDescription",
+  "buyerPersona",
+  "awarenessLevel",
+  "audienceLanguage",
+  "audienceStyle",
+  "primaryCTA",
+  "postingFrequencyGoal",
+  "complianceNotes",
+  "brandSafetyRules",
+];
+
+const ARRAY_PROFILE_KEYS: Array<keyof ChannelProfile> = [
+  "targetMarkets",
+  "subniches",
+  "mainTopics",
+  "secondaryTopics",
+  "viralThemes",
+  "trendingTopics",
+  "seasonalTopics",
+  "forbiddenTopics",
+  "allowedTopics",
+  "painPoints",
+  "desires",
+  "objections",
+  "products",
+  "services",
+  "offers",
+  "transformations",
+  "differentiators",
+  "secondaryCTAs",
+  "baseKeywords",
+  "priorityKeywords",
+  "longTailKeywords",
+  "baseHashtags",
+  "priorityHashtags",
+  "competitorHashtags",
+  "contentPillars",
+  "preferredFormats",
+  "avoidedFormats",
+  "marketSignals",
+  "opportunitySignals",
+  "demandSignals",
+  "audienceQuestions",
+  "recurringObjections",
+  "industryTrends",
+  "prohibitedClaims",
+  "bannedWords",
+  "forbiddenAngles",
+];
 
 function nowIso() {
   return new Date().toISOString();
 }
 
-function ensureDemoKnowledgeSnapshot(tenantId: string): ChannelKnowledgeSnapshot {
-  const state = exportDemoTenantState(tenantId) as any;
-  const existing: ChannelKnowledgeSnapshot | undefined = state.socialflowKnowledge;
+function normalizeString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
 
-  if (existing && existing.profile) {
-    return existing;
+function normalizeNullableString(value: unknown): string | null {
+  const normalized = normalizeString(value);
+  return normalized ? normalized : null;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+}
+
+function parseJsonRecord(raw: string | null): Record<string, unknown> | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function serializeJsonRecord(value: unknown): string | null {
+  if (value == null) return null;
+  return JSON.stringify(value);
+}
+
+function ensureProfileTable(db: D1Database) {
+  return Promise.all([
+    db.prepare(
+      `CREATE TABLE IF NOT EXISTS ${SOCIALFLOW_PROFILE_TABLE} (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        saas_id TEXT NOT NULL,
+        display_name TEXT,
+        brand_name TEXT,
+        business_type TEXT,
+        website_url TEXT,
+        description TEXT,
+        tone TEXT,
+        audience TEXT,
+        goals_json TEXT,
+        metadata_json TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(tenant_id, saas_id)
+      )`,
+    ).run(),
+    db.prepare(
+      `CREATE INDEX IF NOT EXISTS idx_${SOCIALFLOW_PROFILE_TABLE}_tenant_saas
+       ON ${SOCIALFLOW_PROFILE_TABLE} (tenant_id, saas_id)`,
+    ).run(),
+  ]);
+}
+
+function generateId(prefix: string) {
+  try {
+    if (globalThis.crypto?.randomUUID) return `${prefix}_${globalThis.crypto.randomUUID()}`;
+  } catch {
+    // ignore and fallback
+  }
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function buildEmptyProfile(tenantId: string, saasId: string): ChannelProfile {
+  const now = nowIso();
+  return {
+    id: generateId("sf_profile"),
+    tenantId,
+    saasId,
+    channelId: DEFAULT_CHANNEL_ID,
+    brandName: "",
+    channelName: "",
+    shortDescription: "",
+    longDescription: "",
+    mission: "",
+    valueProposition: "",
+    toneOfVoice: "",
+    personality: "",
+    primaryLanguage: "",
+    targetCountry: "",
+    targetMarkets: [],
+    niche: "",
+    subniches: [],
+    mainTopics: [],
+    secondaryTopics: [],
+    viralThemes: [],
+    trendingTopics: [],
+    seasonalTopics: [],
+    forbiddenTopics: [],
+    allowedTopics: [],
+    audienceDescription: "",
+    buyerPersona: "",
+    painPoints: [],
+    desires: [],
+    objections: [],
+    awarenessLevel: "",
+    audienceLanguage: "",
+    audienceStyle: "",
+    products: [],
+    services: [],
+    offers: [],
+    avgPrice: null,
+    transformations: [],
+    differentiators: [],
+    primaryCTA: "",
+    secondaryCTAs: [],
+    baseKeywords: [],
+    priorityKeywords: [],
+    longTailKeywords: [],
+    baseHashtags: [],
+    priorityHashtags: [],
+    competitorHashtags: [],
+    contentPillars: [],
+    preferredFormats: [],
+    avoidedFormats: [],
+    postingFrequencyGoal: "",
+    marketSignals: [],
+    opportunitySignals: [],
+    demandSignals: [],
+    audienceQuestions: [],
+    recurringObjections: [],
+    industryTrends: [],
+    prohibitedClaims: [],
+    bannedWords: [],
+    forbiddenAngles: [],
+    complianceNotes: "",
+    brandSafetyRules: "",
+    assetSummary: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function mergeProfile(base: ChannelProfile, patch: Partial<ChannelProfile>): ChannelProfile {
+  const next: ChannelProfile = { ...base };
+  const nextRecord = next as unknown as Record<string, unknown>;
+  const patchRecord = patch as unknown as Record<string, unknown>;
+
+  for (const key of STRING_PROFILE_KEYS) {
+    if (key in patch) {
+      nextRecord[key] = normalizeString(patchRecord[key]);
+    }
+  }
+  for (const key of ARRAY_PROFILE_KEYS) {
+    if (key in patch) {
+      nextRecord[key] = normalizeStringArray(patchRecord[key]);
+    }
   }
 
-  const baseProfile: ChannelProfile = {
-    id: DEMO_CHANNEL_ID,
-    tenantId,
-    saasId: "socialflow",
-    channelId: DEMO_CHANNEL_ID,
+  if ("avgPrice" in patch) {
+    next.avgPrice = typeof patch.avgPrice === "number" && Number.isFinite(patch.avgPrice) ? patch.avgPrice : null;
+  }
+  if ("assetSummary" in patch) {
+    next.assetSummary = normalizeNullableString(patch.assetSummary);
+  }
 
-    brandName: "Demo SocialFlow Brand",
-    channelName: "@demo_socialflow",
-    shortDescription: "AI-assisted social media for salons & clinics.",
-    longDescription:
-      "This is a demo profile for SocialFlow. Configure your real brand profile here to train the AI agents.",
-    mission: "Help owners grow with consistent, high-quality content.",
-    valueProposition: "Done-with-you content planning and publishing.",
-    toneOfVoice: "Friendly, expert, concrete.",
-    personality: "Helpful strategist and operator.",
-    primaryLanguage: "es",
-    targetCountry: "ES",
-    targetMarkets: ["beauty", "health", "aesthetics"],
-
-    niche: "Social media for salons and clinics",
-    subniches: ["aesthetic clinics", "hair salons"],
-    mainTopics: ["client acquisition", "retention", "automation"],
-    secondaryTopics: ["pricing", "packaging"],
-    viralThemes: ["before/after", "behind the scenes"],
-    trendingTopics: ["AI for salons"],
-    seasonalTopics: ["Black Friday", "summer campaigns"],
-    forbiddenTopics: ["politics", "religion"],
-    allowedTopics: ["business", "marketing", "mindset"],
-
-    audienceDescription: "Owners and managers of salons and clinics.",
-    buyerPersona: "Time-poor owner who wants marketing done right.",
-    painPoints: ["no time to post", "no clear strategy"],
-    desires: ["more bookings", "better clients"],
-    objections: ["I've tried agencies before"],
-    awarenessLevel: "problem-aware",
-    audienceLanguage: "es",
-    audienceStyle: "direct, practical",
-
-    products: ["SocialFlow pilot"],
-    services: ["done-with-you content ops"],
-    offers: ["4-week pilot"],
-    avgPrice: null,
-    transformations: ["less time on content", "more consistent posting"],
-    differentiators: ["AI-assisted ops", "integrated with inbox"],
-    primaryCTA: "Book a strategy session",
-    secondaryCTAs: ["Join waitlist"],
-
-    baseKeywords: ["social media", "salons", "clinics"],
-    priorityKeywords: ["social media automation"],
-    longTailKeywords: ["social media for clinics in Spain"],
-    baseHashtags: ["#socialflow", "#salonowner"],
-    priorityHashtags: ["#clinicgrowth"],
-    competitorHashtags: ["#marketingagency"],
-    contentPillars: ["education", "authority", "social proof"],
-    preferredFormats: ["carousel", "reel"],
-    avoidedFormats: ["long-form lives"],
-    postingFrequencyGoal: "3-5 posts/week",
-
-    marketSignals: ["high competition", "owners overwhelmed"],
-    opportunitySignals: ["few players in automation"],
-    demandSignals: ["many questions about marketing"],
-    audienceQuestions: ["how often should I post?"],
-    recurringObjections: ["no time", "no ideas"],
-    industryTrends: ["AI assistants", "short-form video"],
-
-    prohibitedClaims: ["guaranteed medical results"],
-    bannedWords: ["miracle"],
-    forbiddenAngles: ["shaming body image"],
-    complianceNotes: "Follow local advertising rules for medical services.",
-    brandSafetyRules: "No sensitive health promises.",
-
-    assetSummary: null,
-
-    createdAt: nowIso(),
-    updatedAt: nowIso(),
-  };
-
-  const snapshot: ChannelKnowledgeSnapshot = {
-    profile: baseProfile,
-    competitors: [],
-    assets: [],
-  };
-
-  const nextState = {
-    ...state,
-    socialflowKnowledge: snapshot,
-  };
-
-  replaceDemoTenantState(tenantId, nextState);
-  return snapshot;
+  next.updatedAt = nowIso();
+  return next;
 }
 
-export function getChannelKnowledge(tenantId: string): ChannelKnowledgeSnapshot {
-  return ensureDemoKnowledgeSnapshot(tenantId);
+function normalizeCompetitorPatch(
+  patch: Partial<ChannelCompetitor>,
+  channelId: string,
+): ChannelCompetitor {
+  const existingId = normalizeString(patch.id);
+  return {
+    id: existingId || generateId("sf_comp"),
+    channelId,
+    name: normalizeString(patch.name) || "Unnamed competitor",
+    handle: normalizeNullableString(patch.handle),
+    platform: (normalizeString(patch.platform) as ChannelCompetitor["platform"]) || "other",
+    niche: normalizeNullableString(patch.niche),
+    notes: normalizeNullableString(patch.notes),
+    visualStyle: normalizeNullableString(patch.visualStyle),
+    postingFrequency: normalizeNullableString(patch.postingFrequency),
+    engagementNotes: normalizeNullableString(patch.engagementNotes),
+    strengths: normalizeStringArray(patch.strengths),
+    weaknesses: normalizeStringArray(patch.weaknesses),
+    differentiationOpportunities: normalizeStringArray(patch.differentiationOpportunities),
+    views: typeof patch.views === "number" ? patch.views : null,
+    likes: typeof patch.likes === "number" ? patch.likes : null,
+    comments: typeof patch.comments === "number" ? patch.comments : null,
+    shares: typeof patch.shares === "number" ? patch.shares : null,
+    reelPerformance: normalizeNullableString(patch.reelPerformance),
+    videoPerformance: normalizeNullableString(patch.videoPerformance),
+    bestFormats: normalizeStringArray(patch.bestFormats),
+    worstFormats: normalizeStringArray(patch.worstFormats),
+    postingCadence: normalizeNullableString(patch.postingCadence),
+    engagementQuality: normalizeNullableString(patch.engagementQuality),
+    topContentThemes: normalizeStringArray(patch.topContentThemes),
+    avgViews: typeof patch.avgViews === "number" ? patch.avgViews : null,
+    avgLikes: typeof patch.avgLikes === "number" ? patch.avgLikes : null,
+    avgComments: typeof patch.avgComments === "number" ? patch.avgComments : null,
+    avgShares: typeof patch.avgShares === "number" ? patch.avgShares : null,
+    engagementRate: normalizeNullableString(patch.engagementRate),
+    viralitySignals: normalizeStringArray(patch.viralitySignals),
+    contentHooksUsed: normalizeStringArray(patch.contentHooksUsed),
+    ctaPatterns: normalizeStringArray(patch.ctaPatterns),
+  };
 }
 
-export function getChannelProfile(tenantId: string): ChannelProfile {
-  return ensureDemoKnowledgeSnapshot(tenantId).profile;
+function normalizeAssetPatch(
+  patch: Partial<ChannelAsset>,
+  channelId: string,
+): ChannelAsset {
+  const now = nowIso();
+  return {
+    id: normalizeString(patch.id) || generateId("sf_asset"),
+    channelId,
+    kind: (normalizeString(patch.kind) as ChannelAsset["kind"]) || "other",
+    name: normalizeString(patch.name) || "Unnamed asset",
+    description: normalizeNullableString(patch.description),
+    url: normalizeNullableString(patch.url),
+    mimeType: normalizeNullableString(patch.mimeType),
+    createdAt: normalizeString(patch.createdAt) || now,
+  };
 }
 
-export function upsertChannelProfile(tenantId: string, patch: Partial<ChannelProfile>): ChannelProfile {
-  const current = ensureDemoKnowledgeSnapshot(tenantId);
-  const updated: ChannelProfile = {
-    ...current.profile,
-    ...patch,
-    id: current.profile.id,
-    tenantId,
-    saasId: current.profile.saasId,
-    channelId: current.profile.channelId,
-    updatedAt: nowIso(),
+function mapRowToSnapshot(row: ProfileRow): ChannelKnowledgeSnapshot {
+  const metadataRecord = parseJsonRecord(row.metadata_json) as ProfileMetadata | null;
+  const profileFromMetadata = metadataRecord?.profile ?? null;
+
+  const base = buildEmptyProfile(row.tenant_id, row.saas_id);
+  const mergedFromMetadata = profileFromMetadata ? mergeProfile(base, profileFromMetadata) : base;
+
+  const profile: ChannelProfile = {
+    ...mergedFromMetadata,
+    id: normalizeString(mergedFromMetadata.id) || row.id,
+    tenantId: row.tenant_id,
+    saasId: row.saas_id,
+    channelId: normalizeString(mergedFromMetadata.channelId) || DEFAULT_CHANNEL_ID,
+    brandName: normalizeString(row.brand_name) || mergedFromMetadata.brandName,
+    channelName: normalizeString(row.display_name) || mergedFromMetadata.channelName,
+    shortDescription: normalizeString(row.description) || mergedFromMetadata.shortDescription,
+    toneOfVoice: normalizeString(row.tone) || mergedFromMetadata.toneOfVoice,
+    audienceDescription: normalizeString(row.audience) || mergedFromMetadata.audienceDescription,
+    niche: normalizeString(row.business_type) || mergedFromMetadata.niche,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 
-  const next: ChannelKnowledgeSnapshot = {
-    ...current,
-    profile: updated,
-  };
+  const competitors = Array.isArray(metadataRecord?.competitors) ? metadataRecord.competitors : [];
+  const assets = Array.isArray(metadataRecord?.assets) ? metadataRecord.assets : [];
 
-  const state = exportDemoTenantState(tenantId) as any;
-  replaceDemoTenantState(tenantId, { ...state, socialflowKnowledge: next });
-
-  return updated;
+  return { profile, competitors, assets };
 }
 
-export function saveCompetitorInsights(tenantId: string, insights: CompetitorInsights[]): ChannelCompetitor[] {
-  const current = ensureDemoKnowledgeSnapshot(tenantId);
+async function findProfileRow(tenantId: string, saasId: string): Promise<ProfileRow | null> {
+  const context = await resolveSocialContext({ tenantId, saasId });
+  await ensureProfileTable(context.socialDb);
 
-  const saved: ChannelCompetitor[] = insights.map((insight) => {
-    const nameKey = insight.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-    const id = `intel_${nameKey}`;
+  const result = await context.socialDb
+    .prepare(`SELECT ${PROFILE_COLUMNS} FROM ${SOCIALFLOW_PROFILE_TABLE} WHERE tenant_id = ? AND saas_id = ? LIMIT 1`)
+    .bind(context.tenantId, context.saasId ?? saasId)
+    .all<ProfileRow>();
 
-    const competitorPatch: Partial<ChannelCompetitor> = {
+  const row = result.results?.[0] ?? null;
+  return row;
+}
+
+async function upsertProfileRow(snapshot: ChannelKnowledgeSnapshot): Promise<ChannelKnowledgeSnapshot> {
+  const context = await resolveSocialContext({ tenantId: snapshot.profile.tenantId, saasId: snapshot.profile.saasId });
+  await ensureProfileTable(context.socialDb);
+
+  const existing = await findProfileRow(snapshot.profile.tenantId, snapshot.profile.saasId);
+  const rowId = existing?.id ?? snapshot.profile.id ?? generateId("sf_profile");
+  const createdAt = existing?.created_at ?? snapshot.profile.createdAt ?? nowIso();
+  const updatedAt = nowIso();
+
+  const metadata: ProfileMetadata = {
+    profile: snapshot.profile,
+    competitors: snapshot.competitors,
+    assets: snapshot.assets,
+    websiteUrl: null,
+  };
+
+  await context.socialDb.prepare(
+    `INSERT INTO ${SOCIALFLOW_PROFILE_TABLE} (
+      id, tenant_id, saas_id, display_name, brand_name, business_type, website_url, description, tone, audience, goals_json, metadata_json, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(tenant_id, saas_id) DO UPDATE SET
+      id = excluded.id,
+      display_name = excluded.display_name,
+      brand_name = excluded.brand_name,
+      business_type = excluded.business_type,
+      website_url = excluded.website_url,
+      description = excluded.description,
+      tone = excluded.tone,
+      audience = excluded.audience,
+      goals_json = excluded.goals_json,
+      metadata_json = excluded.metadata_json,
+      updated_at = excluded.updated_at`,
+  ).bind(
+    rowId,
+    snapshot.profile.tenantId,
+    snapshot.profile.saasId,
+    normalizeNullableString(snapshot.profile.channelName),
+    normalizeNullableString(snapshot.profile.brandName),
+    normalizeNullableString(snapshot.profile.niche),
+    null,
+    normalizeNullableString(snapshot.profile.shortDescription),
+    normalizeNullableString(snapshot.profile.toneOfVoice),
+    normalizeNullableString(snapshot.profile.audienceDescription),
+    serializeJsonRecord(snapshot.profile.transformations),
+    serializeJsonRecord(metadata),
+    createdAt,
+    updatedAt,
+  ).run();
+
+  const stored = await findProfileRow(snapshot.profile.tenantId, snapshot.profile.saasId);
+  if (!stored) {
+    throw new SocialContextError("Unable to persist SocialFlow profile row.");
+  }
+  return mapRowToSnapshot(stored);
+}
+
+export async function getChannelKnowledge(
+  tenantId: string,
+  saasId = DEFAULT_SAAS_ID,
+): Promise<ChannelKnowledgeSnapshot> {
+  const row = await findProfileRow(tenantId, saasId);
+  if (!row) {
+    return {
+      profile: buildEmptyProfile(tenantId, saasId),
+      competitors: [],
+      assets: [],
+    };
+  }
+  return mapRowToSnapshot(row);
+}
+
+export async function getChannelProfile(tenantId: string, saasId = DEFAULT_SAAS_ID): Promise<ChannelProfile> {
+  return (await getChannelKnowledge(tenantId, saasId)).profile;
+}
+
+export async function upsertChannelProfile(
+  tenantId: string,
+  patch: Partial<ChannelProfile>,
+  saasId = DEFAULT_SAAS_ID,
+): Promise<ChannelProfile> {
+  const current = await getChannelKnowledge(tenantId, saasId);
+  const merged = mergeProfile(current.profile, patch);
+  const stored = await upsertProfileRow({
+    profile: {
+      ...merged,
+      id: current.profile.id,
+      tenantId,
+      saasId,
+      channelId: current.profile.channelId || DEFAULT_CHANNEL_ID,
+      createdAt: current.profile.createdAt,
+      updatedAt: merged.updatedAt,
+    },
+    competitors: current.competitors,
+    assets: current.assets,
+  });
+  return stored.profile;
+}
+
+export async function listChannelCompetitors(tenantId: string, saasId = DEFAULT_SAAS_ID): Promise<ChannelCompetitor[]> {
+  return (await getChannelKnowledge(tenantId, saasId)).competitors;
+}
+
+export async function upsertChannelCompetitor(
+  tenantId: string,
+  competitorPatch: Partial<ChannelCompetitor>,
+  saasId = DEFAULT_SAAS_ID,
+): Promise<ChannelCompetitor> {
+  const current = await getChannelKnowledge(tenantId, saasId);
+  const normalized = normalizeCompetitorPatch(competitorPatch, current.profile.channelId || DEFAULT_CHANNEL_ID);
+  const index = current.competitors.findIndex((item) => item.id === normalized.id);
+  const nextCompetitors = [...current.competitors];
+  if (index >= 0) {
+    nextCompetitors[index] = { ...nextCompetitors[index], ...normalized };
+  } else {
+    nextCompetitors.push(normalized);
+  }
+
+  const stored = await upsertProfileRow({
+    profile: current.profile,
+    competitors: nextCompetitors,
+    assets: current.assets,
+  });
+  return stored.competitors.find((item) => item.id === normalized.id) ?? normalized;
+}
+
+export async function listChannelAssets(tenantId: string, saasId = DEFAULT_SAAS_ID): Promise<ChannelAsset[]> {
+  return (await getChannelKnowledge(tenantId, saasId)).assets;
+}
+
+export async function saveChannelAssetMetadata(
+  tenantId: string,
+  assetPatch: Partial<ChannelAsset>,
+  saasId = DEFAULT_SAAS_ID,
+): Promise<ChannelAsset> {
+  const current = await getChannelKnowledge(tenantId, saasId);
+  const normalized = normalizeAssetPatch(assetPatch, current.profile.channelId || DEFAULT_CHANNEL_ID);
+  const index = current.assets.findIndex((item) => item.id === normalized.id);
+  const nextAssets = [...current.assets];
+  if (index >= 0) {
+    nextAssets[index] = { ...nextAssets[index], ...normalized };
+  } else {
+    nextAssets.push(normalized);
+  }
+
+  const stored = await upsertProfileRow({
+    profile: current.profile,
+    competitors: current.competitors,
+    assets: nextAssets,
+  });
+  return stored.assets.find((item) => item.id === normalized.id) ?? normalized;
+}
+
+export async function saveCompetitorInsights(
+  tenantId: string,
+  insights: CompetitorInsights[],
+  saasId = DEFAULT_SAAS_ID,
+): Promise<ChannelCompetitor[]> {
+  let snapshot = await getChannelKnowledge(tenantId, saasId);
+
+  for (const insight of insights) {
+    const id = `intel_${normalizeString(insight.name).toLowerCase().replace(/[^a-z0-9]+/g, "-") || generateId("comp")}`;
+    const patch: Partial<ChannelCompetitor> = {
       id,
       name: insight.name,
-      platform: insight.platform,
+      platform: insight.platform as ChannelCompetitor["platform"],
       visualStyle: insight.visualStyle,
       postingFrequency: insight.postingFrequency,
       strengths: insight.strengths,
@@ -161,149 +555,14 @@ export function saveCompetitorInsights(tenantId: string, insights: CompetitorIns
       viralitySignals: insight.patterns ?? [],
       contentHooksUsed: insight.hookStyles ?? [],
       ctaPatterns: insight.opportunities ?? [],
-      views: null,
-      likes: null,
-      comments: null,
-      shares: null,
-      reelPerformance: null,
-      videoPerformance: null,
-      worstFormats: [],
-      postingCadence: insight.postingFrequency,
-      engagementQuality: null,
-      avgViews: null,
-      avgLikes: null,
-      avgComments: null,
-      avgShares: null,
-      engagementRate: null,
     };
 
-    return upsertChannelCompetitor(tenantId, competitorPatch);
-  });
-
-  const state = exportDemoTenantState(tenantId) as any;
-  const snapshot: ChannelKnowledgeSnapshot = ensureDemoKnowledgeSnapshot(tenantId);
-  const next: ChannelKnowledgeSnapshot = {
-    ...snapshot,
-    competitors: saved,
-  };
-  replaceDemoTenantState(tenantId, { ...state, socialflowKnowledge: next });
-
-  return saved;
-}
-
-export function listChannelCompetitors(tenantId: string): ChannelCompetitor[] {
-  return ensureDemoKnowledgeSnapshot(tenantId).competitors;
-}
-
-export function upsertChannelCompetitor(tenantId: string, competitor: Partial<ChannelCompetitor>): ChannelCompetitor {
-  const current = ensureDemoKnowledgeSnapshot(tenantId);
-  const id = competitor.id ?? `comp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-
-  const existingIndex = current.competitors.findIndex((c) => c.id === id);
-
-  const base: ChannelCompetitor = existingIndex >= 0
-    ? current.competitors[existingIndex]
-    : {
-        id,
-        channelId: current.profile.channelId,
-        name: competitor.name ?? "New competitor",
-        handle: competitor.handle ?? null,
-        platform: competitor.platform ?? "instagram",
-        niche: competitor.niche ?? null,
-        notes: competitor.notes ?? null,
-        visualStyle: competitor.visualStyle ?? null,
-        postingFrequency: competitor.postingFrequency ?? null,
-        engagementNotes: competitor.engagementNotes ?? null,
-        strengths: competitor.strengths ?? [],
-        weaknesses: competitor.weaknesses ?? [],
-        differentiationOpportunities: competitor.differentiationOpportunities ?? [],
-        views: competitor.views ?? null,
-        likes: competitor.likes ?? null,
-        comments: competitor.comments ?? null,
-        shares: competitor.shares ?? null,
-        reelPerformance: competitor.reelPerformance ?? null,
-        videoPerformance: competitor.videoPerformance ?? null,
-        bestFormats: competitor.bestFormats ?? [],
-        worstFormats: competitor.worstFormats ?? [],
-        postingCadence: competitor.postingCadence ?? null,
-        engagementQuality: competitor.engagementQuality ?? null,
-        topContentThemes: competitor.topContentThemes ?? [],
-        avgViews: competitor.avgViews ?? null,
-        avgLikes: competitor.avgLikes ?? null,
-        avgComments: competitor.avgComments ?? null,
-        avgShares: competitor.avgShares ?? null,
-        engagementRate: competitor.engagementRate ?? null,
-        viralitySignals: competitor.viralitySignals ?? [],
-        contentHooksUsed: competitor.contentHooksUsed ?? [],
-        ctaPatterns: competitor.ctaPatterns ?? [],
-      };
-
-  const updated: ChannelCompetitor = {
-    ...base,
-    ...competitor,
-    id,
-    channelId: base.channelId,
-  };
-
-  const nextCompetitors = [...current.competitors];
-  if (existingIndex >= 0) {
-    nextCompetitors[existingIndex] = updated;
-  } else {
-    nextCompetitors.push(updated);
+    const normalized = normalizeCompetitorPatch(patch, snapshot.profile.channelId || DEFAULT_CHANNEL_ID);
+    const idx = snapshot.competitors.findIndex((item) => item.id === normalized.id);
+    if (idx >= 0) snapshot.competitors[idx] = { ...snapshot.competitors[idx], ...normalized };
+    else snapshot.competitors.push(normalized);
   }
 
-  const next: ChannelKnowledgeSnapshot = {
-    ...current,
-    competitors: nextCompetitors,
-  };
-
-  const state = exportDemoTenantState(tenantId) as any;
-  replaceDemoTenantState(tenantId, { ...state, socialflowKnowledge: next });
-
-  return updated;
-}
-
-export function listChannelAssets(tenantId: string): ChannelAsset[] {
-  return ensureDemoKnowledgeSnapshot(tenantId).assets;
-}
-
-export function saveChannelAssetMetadata(tenantId: string, asset: Partial<ChannelAsset>): ChannelAsset {
-  const current = ensureDemoKnowledgeSnapshot(tenantId);
-  const id = asset.id ?? `asset_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-
-  const base: ChannelAsset = {
-    id,
-    channelId: current.profile.channelId,
-    kind: asset.kind ?? "other",
-    name: asset.name ?? "New asset",
-    description: asset.description ?? null,
-    url: asset.url ?? null,
-    mimeType: asset.mimeType ?? null,
-    createdAt: asset.createdAt ?? nowIso(),
-  };
-
-  const existingIndex = current.assets.findIndex((a) => a.id === id);
-  const updated: ChannelAsset = {
-    ...base,
-    ...asset,
-    id,
-    channelId: base.channelId,
-  };
-
-  const nextAssets = [...current.assets];
-  if (existingIndex >= 0) {
-    nextAssets[existingIndex] = updated;
-  } else {
-    nextAssets.push(updated);
-  }
-
-  const next: ChannelKnowledgeSnapshot = {
-    ...current,
-    assets: nextAssets,
-  };
-
-  const state = exportDemoTenantState(tenantId) as any;
-  replaceDemoTenantState(tenantId, { ...state, socialflowKnowledge: next });
-
-  return updated;
+  snapshot = await upsertProfileRow(snapshot);
+  return snapshot.competitors;
 }

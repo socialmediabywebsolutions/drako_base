@@ -58,7 +58,10 @@
       "LINKEDIN_CLIENT_SECRET",
       "SOCIALFLOW_CANARY_GATE_TOKEN"
     ],
-    "optional": []
+    "optional": [
+      "SOCIALFLOW_TOKEN_ENCRYPTION_SECRET",
+      "SOCIALFLOW_TOKEN_ENCRYPTION_SECRET_NEXT"
+    ]
   },
   "aiProviders": {
     "mode": "runtime-deterministic",

@@ -8,6 +8,7 @@ import {
   resolveRuntimeSocialContext,
   serializeJsonRecord,
 } from "../runtime-repository-core";
+import { encryptToken } from "../token-encryption";
 import {
   type LinkedInResolvedIdentity,
   type LinkedInTokenResponse,
@@ -79,6 +80,10 @@ export async function persistRuntimeLinkedInConnection(
     context.saasId,
   );
 
+  // Encrypt sensitive tokens before persisting
+  const encryptedAccessToken = await encryptToken(input.token.access_token);
+  const encryptedIdToken = await encryptToken(input.token.id_token ?? null);
+
   await run(
     context.socialDb,
     `INSERT INTO saas_social_accounts (id, tenant_id, saas_id, provider, handle, display_name, status, auth_meta, is_primary, created_at, updated_at)
@@ -89,7 +94,9 @@ export async function persistRuntimeLinkedInConnection(
        status = excluded.status,
        auth_meta = excluded.auth_meta,
        is_primary = excluded.is_primary,
-       updated_at = excluded.updated_at`,
+       updated_at = excluded.updated_at
+     WHERE saas_social_accounts.tenant_id = excluded.tenant_id
+       AND saas_social_accounts.saas_id = excluded.saas_id`,
     accountId,
     context.tenantId,
     context.saasId,
@@ -99,8 +106,8 @@ export async function persistRuntimeLinkedInConnection(
     serializeJsonRecord({
       mode: "live",
       provider: "LINKEDIN",
-      accessToken: input.token.access_token,
-      idToken: input.token.id_token ?? null,
+      accessToken: encryptedAccessToken,
+      idToken: encryptedIdToken,
       expiresIn: input.token.expires_in,
       scope: input.token.scope ?? null,
       tokenType: input.token.token_type ?? null,

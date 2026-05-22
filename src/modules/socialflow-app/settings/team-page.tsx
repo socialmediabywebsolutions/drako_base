@@ -1,3 +1,7 @@
+/**
+ * @deprecated Legacy module - moved to src/app/socialflow/(workspace)/settings/team/page.tsx
+ * This file is kept for backward compatibility only.
+ */
 import Card from "@/components/ui/card";
 import { listAuthsUsersByTenant } from "@/lib/auths/repositories";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";

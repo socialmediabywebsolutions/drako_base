@@ -1,4 +1,5 @@
 import { DatabaseUnavailableError, ensureDracoDb, ensureSocialDb, queryAll, queryOne, run, runDetailed } from "../db/runtime-db";
+import { redactAuthMeta } from "./token-encryption";
 import type { RuntimeChannelProfile, RuntimeSocialAccount, RuntimeSocialCampaign, RuntimeSocialPost, RuntimeSocialProvider } from "./contracts";
 
 type SocialAccountRow = {
@@ -219,6 +220,21 @@ export function mapSocialAccountRow(row: SocialAccountRow): RuntimeSocialAccount
     isPrimary: primary === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+/**
+ * Maps a social account row with redacted auth_meta for safe API responses.
+ * Removes sensitive tokens (accessToken, idToken) and replaces with presence indicators.
+ *
+ * @param row - Database row to map
+ * @returns RuntimeSocialAccount with redacted authMeta
+ */
+export function mapSocialAccountRowSafe(row: SocialAccountRow): RuntimeSocialAccount {
+  const account = mapSocialAccountRow(row);
+  return {
+    ...account,
+    authMeta: redactAuthMeta(account.authMeta),
   };
 }
 

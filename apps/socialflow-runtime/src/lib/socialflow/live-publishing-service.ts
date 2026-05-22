@@ -41,6 +41,30 @@ function getProviderErrorCode(error: unknown) {
   return error instanceof LinkedInIntegrationError ? error.code : "LINKEDIN_PUBLISH_FAILED";
 }
 
+function getProviderErrorTelemetry(error: unknown) {
+  if (!(error instanceof LinkedInIntegrationError)) return {};
+
+  const details = (error.details ?? {}) as Record<string, unknown>;
+  const status = typeof details.status === "number" ? details.status : null;
+  const serviceErrorCode =
+    typeof details.serviceErrorCode === "number"
+      ? details.serviceErrorCode
+      : typeof details.serviceErrorCode === "string"
+        ? Number.parseInt(details.serviceErrorCode, 10)
+        : null;
+  const errorCode = typeof details.errorCode === "string" ? details.errorCode.trim() : "";
+  const requestId = typeof details.requestId === "string" ? details.requestId.trim() : "";
+  const endpoint = typeof details.endpoint === "string" ? details.endpoint.trim() : "";
+
+  return {
+    ...(status !== null ? { providerStatus: status } : {}),
+    ...(Number.isFinite(serviceErrorCode ?? Number.NaN) ? { providerServiceErrorCode: serviceErrorCode } : {}),
+    ...(errorCode ? { providerErrorCode: errorCode } : {}),
+    ...(requestId ? { providerRequestId: requestId } : {}),
+    ...(endpoint ? { providerEndpoint: endpoint } : {}),
+  };
+}
+
 async function persistPublicationState(
   tenantId: string,
   post: RuntimeSocialPost,
@@ -219,6 +243,7 @@ export async function publishRuntimePostLive(params: {
       const nextRetryAt = retryDelayMs != null ? new Date(Date.now() + retryDelayMs).toISOString() : null;
       const errorCode = getProviderErrorCode(error);
       const errorMessage = error instanceof Error ? error.message : "LinkedIn publish failed";
+      const errorTelemetry = getProviderErrorTelemetry(error);
 
       post = (await persistPublicationState(params.tenantId, post, {
         mode: "live",
@@ -229,6 +254,7 @@ export async function publishRuntimePostLive(params: {
         lastErrorCode: errorCode,
         lastErrorMessage: errorMessage,
         nextRetryAt,
+        ...errorTelemetry,
       })) ?? post;
 
       if (!canRetry) {

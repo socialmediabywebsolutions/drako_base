@@ -1,3 +1,7 @@
+/**
+ * @deprecated Legacy module - moved to src/app/socialflow/(workspace)/settings/ownership/page.tsx
+ * This file is kept for backward compatibility only.
+ */
 'use client';
 
 import React, { useState } from 'react';

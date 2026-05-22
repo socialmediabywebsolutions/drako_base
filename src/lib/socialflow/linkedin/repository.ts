@@ -6,6 +6,7 @@ import {
 import { recordObservabilityActivity } from "@/lib/observability-core";
 import { listSaasSocialAccounts, resolveSocialContext, upsertSaasSocialAccount } from "@/lib/socialflow/repository";
 import type { SaasSocialAccount } from "@/lib/social-core/types";
+import { encryptToken } from "@/lib/socialflow/token-encryption";
 import type {
   LinkedInResolvedIdentity,
   LinkedInTokenResponse,
@@ -97,6 +98,9 @@ export async function persistSocialFlowLinkedInConnection(
     integrationKey: LINKEDIN_INTEGRATION_KEY,
   });
 
+  const encryptedAccessToken = await encryptToken(input.token.access_token);
+  const encryptedIdToken = await encryptToken(input.token.id_token ?? null);
+
   const account = await upsertSaasSocialAccount(socialContext, {
     id: existingAccount?.id,
     saasId: input.saasId,
@@ -107,8 +111,8 @@ export async function persistSocialFlowLinkedInConnection(
     authMeta: {
       mode: "live",
       provider: "LINKEDIN",
-      accessToken: input.token.access_token,
-      idToken: input.token.id_token ?? null,
+      accessToken: encryptedAccessToken,
+      idToken: encryptedIdToken,
       expiresIn: input.token.expires_in,
       scope: input.token.scope ?? null,
       tokenType: input.token.token_type ?? null,

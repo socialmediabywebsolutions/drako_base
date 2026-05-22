@@ -18,7 +18,11 @@ function isPublicSocialFlowPath(pathname: string) {
     pathname.startsWith("/api/socialflow/auths/") ||
     pathname.startsWith(LINKEDIN_CALLBACK_PREFIX) ||
     pathname === "/api/socialflow/runtime/health" ||
-    pathname === "/api/socialflow/runtime/readiness"
+    pathname === "/api/socialflow/runtime/readiness" ||
+    pathname === "/api/socialflow/runtime/reharden" ||
+    pathname.startsWith("/api/socialflow/runtime/reharden/") ||
+    pathname === "/api/socialflow/runtime/rotate-token-encryption-key" ||
+    pathname.startsWith("/api/socialflow/runtime/rotate-token-encryption-key/")
   );
 }
 

@@ -37,6 +37,13 @@ export async function GET(request: Request) {
   } catch (error) {
     const dbError = respondDatabaseError(error, request);
     if (dbError) return dbError;
+    if (error instanceof Error && error.message === "SOCIALFLOW_EXPORT_SAAS_SEED_NOT_FOUND") {
+      return addRuntimeHeaders(NextResponse.json({
+        ok: false,
+        error: "SOCIALFLOW_EXPORT_SAAS_SEED_NOT_FOUND",
+        message: "SocialFlow SaaS seed is required before generating runtime export.",
+      }, { status: 409 }), { request, correlationId });
+    }
     if (error instanceof Error && error.message.includes("not found")) {
       return addRuntimeHeaders(NextResponse.json({ ok: false, error: error.message }, { status: 404 }), {
         request,
