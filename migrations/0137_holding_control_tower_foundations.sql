@@ -1,5 +1,5 @@
 -- 0137_holding_control_tower_foundations.sql
--- Campo Base (holding) minimal operational tables.
+-- Campamento Base (holding) minimal operational tables.
 
 CREATE TABLE IF NOT EXISTS holding_saases (
   id TEXT PRIMARY KEY,

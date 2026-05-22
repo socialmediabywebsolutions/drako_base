@@ -18,7 +18,7 @@ Used for:
 Path: `src/lib/campobase`
 
 Used for:
-- Campo Base social automation
+- Campamento Base social automation
 - limited social automation services
 - modules not equivalent to the core factory
 

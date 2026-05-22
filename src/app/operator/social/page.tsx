@@ -477,8 +477,8 @@ export default function CampoBaseSocialPage() {
         <section className="rounded-3xl border border-slate-800 bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.18),_transparent_28%),linear-gradient(135deg,#0f172a_0%,#111827_55%,#0b1220_100%)] p-8 shadow-[0_30px_80px_rgba(2,8,23,0.45)]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-sky-300/80">Campo Base</p>
-              <h1 className="text-3xl font-semibold tracking-tight text-white">Campo Base — Social Automation</h1>
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-sky-300/80">Campamento Base</p>
+              <h1 className="text-3xl font-semibold tracking-tight text-white">Campamento Base — Social Automation</h1>
               <p className="max-w-2xl text-sm text-slate-300">Control global de automatización de redes</p>
             </div>
             <button

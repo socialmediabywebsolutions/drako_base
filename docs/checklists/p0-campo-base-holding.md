@@ -1,4 +1,4 @@
-# Checklist P0 - Campo Base (Holding)
+# Checklist P0 - Campamento Base (Holding)
 
 Fecha: 2026-02-27
 
@@ -19,7 +19,7 @@ Fecha: 2026-02-27
 - [x] Scheduler worker sin fallback `dev-secret-unsafe`
 
 ## Estado
-- P0 Campo Base: DONE (con validación por tests unitarios y evidencia en reporte P0)
+- P0 Campamento Base: DONE (con validación por tests unitarios y evidencia en reporte P0)
 
 ## P0.5 Validación estructural final
 - [x] `pnpm lint` ejecutado sin errores (warnings heredados permitidos)

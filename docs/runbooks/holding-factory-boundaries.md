@@ -5,7 +5,7 @@ Scope: Campamento Base (holding), Drako Factory, vertical SaaS platforms
 
 ## Boundary Model
 
-### Campo Base (holding owner console)
+### Campamento Base (holding owner console)
 
 - Runtime: `saas-bases-prod`
 - Domain: `bases.drako.systems` (alias: `base.drako.systems`)

@@ -19,7 +19,7 @@ export default async function BasesLoginPage() {
         <div className="grid w-full gap-10 lg:grid-cols-[1.1fr,0.9fr]">
           <section className="rounded-[36px] border border-slate-200 bg-slate-950 px-8 py-10 text-white shadow-[0_40px_120px_rgba(15,23,42,0.28)]">
             <div className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-sky-200">
-              Campo Base Holding
+              Campamento Base Holding
             </div>
             <h1 className="mt-8 text-4xl font-black tracking-tight text-white lg:text-5xl">
               Operator access only.
@@ -33,7 +33,7 @@ export default async function BasesLoginPage() {
             <div className="w-full max-w-xl rounded-[32px] border border-slate-200 bg-white/95 p-8 shadow-[0_30px_100px_rgba(15,23,42,0.12)] backdrop-blur-xl lg:p-10">
               <div className="mb-8">
                 <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-sky-600">Operator sign in</div>
-                <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">Sign in to Campo Base</h2>
+                <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">Sign in to Campamento Base</h2>
                 <p className="mt-3 text-sm leading-6 text-slate-500">
                   NextAuth + D1 is the only valid authentication layer for the holding operator surface.
                 </p>

@@ -3,7 +3,7 @@
 Fecha: 2026-02-27
 
 ## Alcance de capas
-- Campo Base (holding): `bases.drako.systems`
+- Campamento Base (holding): `bases.drako.systems`
 - Drako Factory: `drako.systems` y frontera `drakos`
 - Vertical Mentorías: `mentoria*.drako.systems` y frontera `mentorias`
 
@@ -42,7 +42,7 @@ Validación obligatoria en verificación de token:
 ## Prohibiciones explícitas
 - Cross-register (`drako -> mentorias` o `mentorias -> drako`) en UI o middleware.
 - Cross-login entre fronteras (`drakos` token/cookie válido en `mentorias`, o viceversa).
-- Campo Base registrando usuarios finales de verticales.
+- Campamento Base registrando usuarios finales de verticales.
 - Uso de endpoints legacy `/api/auth/register` y `/api/auth/login` como flujo activo.
 - Overrides de contexto por query/body/header no confiables.
 

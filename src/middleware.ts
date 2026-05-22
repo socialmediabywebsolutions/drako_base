@@ -518,7 +518,7 @@ export async function middleware(req: NextRequest) {
         return NextResponse.json(
           {
             error: "BASES_CUSTOM_AUTHS_DEPRECATED",
-            message: "Campo Base operator auth uses NextAuth + D1 only. Use /bases/login.",
+            message: "Campamento Base operator auth uses NextAuth + D1 only. Use /bases/login.",
           },
           { status: 410 },
         );

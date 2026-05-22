@@ -18,7 +18,7 @@ export default async function SocialFlowAccountSettingsPage() {
         <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">SocialFlow account</div>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Product identity and active workspace</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          SocialFlow now resolves this workspace from the product auth boundary only, without using Campo Base session state.
+          SocialFlow now resolves this workspace from the product auth boundary only, without using Campamento Base session state.
         </p>
       </div>
 
