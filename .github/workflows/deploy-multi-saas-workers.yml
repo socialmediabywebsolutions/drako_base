@@ -7,13 +7,12 @@ permissions:
   contents: read
 
 jobs:
-  blocked:
+  archived:
     runs-on: ubuntu-latest
     name: Archived Legacy Workflow Notice
     steps:
       - name: Explain canonical replacement
         run: |
-          echo "ARCHIVED: .github/workflows/deploy-multi-saas-workers.yml is kept for historical reference only."
+          echo "BLOCKED: .github/workflows/deploy-multi-saas-workers.yml is archived."
           echo "Use .github/workflows/drako-factory-deploy.yml as the single canonical build/deploy path."
-          echo "No deploy is executed by this archived workflow."
-          exit 0
+          exit 1
