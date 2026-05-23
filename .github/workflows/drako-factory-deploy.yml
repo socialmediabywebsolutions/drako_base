@@ -4,9 +4,48 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - "src/**"
+      - "apps/**"
+      - "workers/**"
+      - "packages/**"
+      - "migrations/**"
+      - "tests/**"
+      - "scripts/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig*.json"
+      - "next.config.*"
+      - "open-next.config.*"
+      - "wrangler*.toml"
+      - "wrangler*.jsonc"
+      - ".github/workflows/drako-factory-deploy.yml"
+      - "!docs/**"
+      - "!reports/**"
+      - "!**/*.md"
   push:
     branches:
       - main
+    paths:
+      - "src/**"
+      - "apps/**"
+      - "workers/**"
+      - "packages/**"
+      - "migrations/**"
+      - "tests/**"
+      - "scripts/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig*.json"
+      - "next.config.*"
+      - "open-next.config.*"
+      - "wrangler*.toml"
+      - "wrangler*.jsonc"
+      - ".github/workflows/drako-factory-deploy.yml"
+      - "!docs/**"
+      - "!reports/**"
+      - "!**/*.md"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -350,6 +389,7 @@ jobs:
 
       - name: Upload Drakos dedicated artifact
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: open-next-drakos-build
@@ -359,6 +399,7 @@ jobs:
 
       - name: Upload SocialFlow standalone artifact
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: open-next-socialflows-standalone-build
@@ -368,6 +409,7 @@ jobs:
 
       - name: Upload Bases dedicated artifact
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: open-next-bases-build
@@ -377,6 +419,7 @@ jobs:
 
       - name: Upload Mentoria dedicated artifact
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: open-next-mentorias-build

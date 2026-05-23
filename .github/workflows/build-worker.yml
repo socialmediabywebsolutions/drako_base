@@ -3,13 +3,18 @@ name: Archived Global Worker Deploy
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   blocked:
     runs-on: ubuntu-latest
-    name: Blocked Global Worker Deploy
+    name: Archived Global Worker Workflow Notice
     steps:
       - name: Explain canonical artifact matrix deploy
         run: |
-          echo "GLOBAL_WORKER_DEPLOY_ARCHIVED: .github/workflows/build-worker.yml no longer deploys the root OpenNext worker."
+          echo "ARCHIVED: .github/workflows/build-worker.yml is kept for historical reference only."
+          echo "GLOBAL_WORKER_DEPLOY_ARCHIVED: This workflow no longer deploys the root OpenNext worker."
           echo "Use .github/workflows/drako-factory-deploy.yml as the only valid artifact matrix deploy lane."
-          exit 1
+          echo "No deploy is executed by this archived workflow."
+          exit 0
