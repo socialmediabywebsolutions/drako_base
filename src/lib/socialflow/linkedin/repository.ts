@@ -1,9 +1,8 @@
-import { connectIntegration, getIntegrationConnection, validateIntegrationConnection } from "@/lib/integration-core";
 import {
-  LINKEDIN_INTEGRATION_KEY,
-  ensureLinkedInIntegrationAvailable,
-} from "@/lib/integration-core/providers/linkedin";
-import { recordObservabilityActivity } from "@/lib/observability-core";
+  emitLinkedInOAuthActivity,
+  saveLinkedInConnection,
+  validateLinkedInConnection,
+} from "@/lib/socialflow/contracts/linkedin-oauth-runtime";
 import { listSaasSocialAccounts, resolveSocialContext, upsertSaasSocialAccount } from "@/lib/socialflow/repository";
 import type { SaasSocialAccount } from "@/lib/social-core/types";
 import { encryptToken } from "@/lib/socialflow/token-encryption";
@@ -34,12 +33,9 @@ async function recordConnectionActivity(input: {
   metadata?: Record<string, unknown> | null;
 }) {
   try {
-    await recordObservabilityActivity({
+    await emitLinkedInOAuthActivity({
       tenantId: input.tenantId,
       saasId: input.saasId,
-      sourceType: "integration",
-      sourceKey: LINKEDIN_INTEGRATION_KEY,
-      activityType: "linkedin_oauth_callback",
       status: input.status,
       summary: input.summary,
       metadata: input.metadata ?? null,
@@ -52,25 +48,10 @@ async function recordConnectionActivity(input: {
 export async function persistSocialFlowLinkedInConnection(
   input: PersistLinkedInConnectionInput,
 ): Promise<PersistLinkedInConnectionResult> {
-  await ensureLinkedInIntegrationAvailable();
-  const existingIntegration = await getIntegrationConnection(
-    input.tenantId,
-    input.saasId,
-    LINKEDIN_INTEGRATION_KEY,
-  );
-  const socialContext = await resolveSocialContext({
+  const saveResult = await saveLinkedInConnection({
     tenantId: input.tenantId,
     saasId: input.saasId,
-  });
-  const existingAccount = (await listSaasSocialAccounts(socialContext)).find((account) => account.provider === "LINKEDIN");
-  const persistenceStatus = existingIntegration || existingAccount ? "updated" : "persisted";
-
-  await connectIntegration({
-    tenantId: input.tenantId,
-    saasId: input.saasId,
-    integrationKey: LINKEDIN_INTEGRATION_KEY,
     connectionLabel: input.identity.displayName,
-    status: "PENDING",
     metadata: {
       provider: "LINKEDIN",
       mode: "live",
@@ -91,11 +72,16 @@ export async function persistSocialFlowLinkedInConnection(
       authorUrn: input.identity.authorUrn,
     },
   });
-
-  const validation = await validateIntegrationConnection({
+  const socialContext = await resolveSocialContext({
     tenantId: input.tenantId,
     saasId: input.saasId,
-    integrationKey: LINKEDIN_INTEGRATION_KEY,
+  });
+  const existingAccount = (await listSaasSocialAccounts(socialContext)).find((account) => account.provider === "LINKEDIN");
+  const persistenceStatus = saveResult.existedBefore || existingAccount ? "updated" : "persisted";
+
+  const validation = await validateLinkedInConnection({
+    tenantId: input.tenantId,
+    saasId: input.saasId,
   });
 
   const encryptedAccessToken = await encryptToken(input.token.access_token);

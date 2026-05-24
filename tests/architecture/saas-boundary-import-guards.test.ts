@@ -187,6 +187,18 @@ const boundaryRules: BoundaryRule[] = [
     ],
   },
   {
+    ruleId: "socialflow-linkedin-no-core-coupling",
+    sourceDirs: ["src/lib/socialflow/linkedin"],
+    forbiddenImports: [
+      {
+        pattern: "@/lib/integration-core/**",
+      },
+      {
+        pattern: "@/lib/observability-core/**",
+      },
+    ],
+  },
+  {
     ruleId: "shared-no-product-runtime-imports",
     sourceDirs: ["packages/shared"],
     forbiddenImports: [

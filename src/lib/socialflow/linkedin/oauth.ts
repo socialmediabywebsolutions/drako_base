@@ -1,6 +1,6 @@
 import { env } from "@/lib/cf";
 import { getSession, type SessionData } from "@/lib/auth/session";
-import { recordObservabilityActivity } from "@/lib/observability-core";
+import { emitLinkedInOAuthActivity } from "@/lib/socialflow/contracts/linkedin-oauth-runtime";
 import {
   LinkedInIntegrationError,
   exchangeLinkedInCodeForAccessToken,
@@ -147,12 +147,9 @@ async function recordCallbackFailure(input: {
   if (!input.tenantId || !input.saasId) return;
 
   try {
-    await recordObservabilityActivity({
+    await emitLinkedInOAuthActivity({
       tenantId: input.tenantId,
       saasId: input.saasId,
-      sourceType: "integration",
-      sourceKey: "linkedin",
-      activityType: "linkedin_oauth_callback",
       status: "error",
       summary: input.message,
       metadata: {

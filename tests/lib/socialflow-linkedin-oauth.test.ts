@@ -7,7 +7,7 @@ const parseLinkedInOAuthState = vi.hoisted(() => vi.fn());
 const resolveLinkedInIdentity = vi.hoisted(() => vi.fn());
 const resolveLinkedInOAuthDiagnostics = vi.hoisted(() => vi.fn());
 const persistSocialFlowLinkedInConnection = vi.hoisted(() => vi.fn());
-const recordObservabilityActivity = vi.hoisted(() => vi.fn());
+const emitLinkedInOAuthActivity = vi.hoisted(() => vi.fn());
 const env = vi.hoisted(() => vi.fn());
 const TestLinkedInIntegrationError = vi.hoisted(() => class TestLinkedInIntegrationError extends Error {
   code: string;
@@ -39,8 +39,8 @@ vi.mock("@/lib/socialflow/linkedin/repository", () => ({
   persistSocialFlowLinkedInConnection,
 }));
 
-vi.mock("@/lib/observability-core", () => ({
-  recordObservabilityActivity,
+vi.mock("@/lib/socialflow/contracts/linkedin-oauth-runtime", () => ({
+  emitLinkedInOAuthActivity,
 }));
 
 vi.mock("@/lib/cf", () => ({
@@ -207,17 +207,15 @@ describe("socialflow linkedin oauth", () => {
     if (result.ok) throw new Error("Expected callback failure");
     expect(result.error.code).toBe("LINKEDIN_AUTHORIZATION_CODE_INVALID");
     expect(result.diagnostics.callbackUrl).toBe("http://localhost:8787/api/socialflow/linkedin/callback");
-    expect(recordObservabilityActivity).toHaveBeenCalledWith(
+    expect(emitLinkedInOAuthActivity).toHaveBeenCalledWith(
       expect.objectContaining({
-        sourceKey: "linkedin",
-        activityType: "linkedin_oauth_callback",
         status: "error",
       }),
     );
   });
 
   it("keeps returning stable failure when observability logging fails", async () => {
-    recordObservabilityActivity.mockRejectedValue(new Error("DRACO_DB binding is missing in environment."));
+    emitLinkedInOAuthActivity.mockRejectedValue(new Error("DRACO_DB binding is missing in environment."));
     exchangeLinkedInCodeForAccessToken.mockRejectedValue(
       new TestLinkedInIntegrationError("invalid code", {
         code: "LINKEDIN_AUTHORIZATION_CODE_INVALID",
