@@ -141,12 +141,15 @@ jobs:
           retention-days: 1
           path: build/open-next-artifact-matrix/${{ matrix.product }}
 
-  build:
-    name: Build Real OpenNext
+  build_and_deploy:
+    name: Build and Deploy Real OpenNext
     runs-on: ubuntu-latest
     needs:
       - gates
       - artifact_matrix_skeleton
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -428,72 +431,8 @@ jobs:
           retention-days: 1
           path: .open-next/mentorias
 
-  deploy:
-    name: Deploy Workers
-    runs-on: ubuntu-latest
-    needs: build
-    # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
-    if: ${{ false }}
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.25.0"
-
-      - name: Setup Node.js (LTS) + pnpm cache
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22.22.1"
-          cache: pnpm
-
-      - name: Verify pnpm lockfile
-        run: |
-          set -euo pipefail
-          if [ ! -f pnpm-lock.yaml ]; then
-            echo "BLOCKED: pnpm-lock.yaml is required for --frozen-lockfile."
-            exit 1
-          fi
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Download OpenNext build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: open-next-build
-          path: .
-
-      - name: Download Drakos dedicated artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: open-next-drakos-build
-          path: .
-
-      - name: Download SocialFlow standalone artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: open-next-socialflows-standalone-build
-          path: .
-
-      - name: Download Bases dedicated artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: open-next-bases-build
-          path: .
-
-      - name: Download Mentoria dedicated artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: open-next-mentorias-build
-          path: .
-
       - name: Diagnostic OpenNext artifact layout
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           echo "=== DEPLOY: listing root ==="
@@ -502,6 +441,7 @@ jobs:
           ls -R .open-next || true
 
       - name: Verify OpenNext build artifacts
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           ls -la .open-next
@@ -509,6 +449,7 @@ jobs:
           test -d .open-next/assets
 
       - name: Verify Drakos dedicated artifact
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           test -f .open-next/drakos/worker.js
@@ -531,6 +472,7 @@ jobs:
           fi
 
       - name: Verify Bases dedicated artifact
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           test -f .open-next/bases/worker.js
@@ -553,6 +495,7 @@ jobs:
           fi
 
       - name: Verify SocialFlow standalone runtime active
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           test -f .open-next/socialflows-standalone/worker.js
@@ -617,6 +560,7 @@ jobs:
           fi
 
       - name: Verify Mentoria dedicated artifact
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           test -f .open-next/mentorias/worker.js
@@ -632,6 +576,7 @@ jobs:
           fi
 
       - name: Verify Cloudflare secrets
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
@@ -644,6 +589,7 @@ jobs:
           fi
 
       - name: Validate Cloudflare account id format
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           if [[ ! "${CLOUDFLARE_ACCOUNT_ID}" =~ ^[a-fA-F0-9]{32}$ ]]; then
@@ -652,6 +598,7 @@ jobs:
           fi
 
       - name: Validate Cloudflare token
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           RESPONSE="$(curl -sS -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
@@ -664,14 +611,17 @@ jobs:
           }
 
       - name: Install Wrangler 4.69.0
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: npm install -g wrangler@4.69.0
 
       - name: Apply Mentoria auth schema on dedicated auth D1
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           wrangler d1 execute MENTORIAS_AUTHS_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0136_auths_isolations.sql
 
       - name: Verify Mentoria auth tables exist on dedicated auth D1
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           OUTPUT="$(wrangler d1 execute MENTORIAS_AUTHS_DB --remote --config workers/mentorias/wrangler.workers.toml --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('mentorias_users', 'mentorias_credentials', 'mentorias_sessions');")"
@@ -690,11 +640,13 @@ jobs:
           }
 
       - name: Apply Mentoria product session persistence schema on dedicated product D1
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0160_mentoria_session_persistence.sql
 
       - name: Verify mentoria_session_state exists in dedicated product D1
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           OUTPUT="$(wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "SELECT name FROM sqlite_master WHERE type='table' AND name='mentoria_session_state';")"
@@ -705,6 +657,7 @@ jobs:
           }
 
       - name: Validate Cloudflare account identifier
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           RESPONSE="$(curl -sS -X GET "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}" \
@@ -717,6 +670,7 @@ jobs:
           }
 
       - name: Guard SocialFlow custom domains before deploy
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           TOML="workers/socialflows/wrangler.workers.toml"
@@ -745,6 +699,7 @@ jobs:
           echo "SocialFlow custom domains guard passed (plural + canonical routes present)."
 
       - name: Deploy in strict order (scheduler -> drakos -> mentorias -> bases -> socialflows)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           set -euo pipefail
           command -v wrangler >/dev/null
@@ -811,9 +766,8 @@ jobs:
   smoke:
     name: Smoke Tests (anti-loop / anti-cross)
     runs-on: ubuntu-latest
-    needs: deploy
-    # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
-    if: ${{ false }}
+    needs: build_and_deploy
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
