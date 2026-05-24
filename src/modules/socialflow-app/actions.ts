@@ -1,10 +1,10 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { env } from '@/lib/cf';
 import { randomUUID } from 'crypto';
 import { runOrchestratorAnalysis } from '@/lib/orchestrator/engine';
 import type { StrategicDossier } from '@/lib/orchestrator/types';
+import { createSocialFlowLegacyActionsCoreAdapter, isLegacyActionsCoreDbAvailable } from '@/lib/socialflow/contracts/legacy-actions-core';
 
 function isValidUrl(url: string) {
   try {
@@ -63,22 +63,17 @@ export async function submitStrategicForm(prevState: any, formData: FormData) {
     return { error: "La URL de Google Maps no es válida. Corrígela o déjala vacía." };
   }
 
-  const bindings = env();
-  const db = bindings?.DRACO_DB;
-  if (!db) return { error: "Database Connection Failed" };
+  if (!isLegacyActionsCoreDbAvailable()) return { error: "Database Connection Failed" };
 
   try {
+    const legacyCoreAdapter = createSocialFlowLegacyActionsCoreAdapter();
     const dossierId = randomUUID();
     const formDataJson = JSON.stringify(raw);
-
-    await db.prepare(
-      `INSERT INTO tenant_strategic_dossiers (id, tenant_id, version, status, form_data) 
-       VALUES (?, ?, 1, 'draft', ?)`,
-    ).bind(dossierId, tenantId, formDataJson).run();
-
-    await db.prepare(
-      `UPDATE tenants SET materialization_step = 1 WHERE id = ?`,
-    ).bind(tenantId).run();
+    await legacyCoreAdapter.createStrategicDraft({
+      dossierId,
+      tenantId,
+      formDataJson,
+    });
   } catch (err: any) {
     console.error("Dossier Save Error:", err);
     return { error: "Error guardando el formulario auditado. Inténtalo de nuevo." };
@@ -95,14 +90,11 @@ export async function startAutoAnalysis() {
     return { error: "Tenant Context Missing." };
   }
 
-  const bindings = env();
-  const db = bindings?.DRACO_DB;
-  if (!db) return { error: "Database Connection Failed" };
+  if (!isLegacyActionsCoreDbAvailable()) return { error: "Database Connection Failed" };
 
   try {
-    const dossierRow = await db.prepare(
-      `SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status = 'draft' ORDER BY created_at DESC LIMIT 1`,
-    ).bind(tenantId).first<any>();
+    const legacyCoreAdapter = createSocialFlowLegacyActionsCoreAdapter();
+    const dossierRow = await legacyCoreAdapter.findLatestDraftStrategicDossier(tenantId);
 
     if (!dossierRow) {
       return { error: "Dossier not found. Please complete Step 1." };
@@ -117,15 +109,15 @@ export async function startAutoAnalysis() {
 
     const analysisResults = await runOrchestratorAnalysis(dossier);
     const analysisJson = JSON.stringify(analysisResults);
-    await db.prepare(
-      `UPDATE tenant_strategic_dossiers 
-       SET analysis_data = ?, status = 'analyzed', updated_at = ? 
-       WHERE id = ?`,
-    ).bind(analysisJson, new Date().toISOString(), dossier.id).run();
-
-    await db.prepare(
-      `UPDATE tenants SET materialization_step = 2 WHERE id = ?`,
-    ).bind(tenantId).run();
+    await legacyCoreAdapter.updateStrategicDossierAnalysis({
+      dossierId: dossier.id,
+      analysisJson,
+      updatedAtIso: new Date().toISOString(),
+    });
+    await legacyCoreAdapter.setTenantMaterializationStep({
+      tenantId,
+      step: 2,
+    });
 
     return { success: true };
   } catch (err) {
@@ -140,14 +132,11 @@ export async function generateBlueprint() {
 
   if (!tenantId) return { error: "Context Missing" };
 
-  const bindings = env();
-  const db = bindings?.DRACO_DB;
-  if (!db) return { error: "DB Error" };
+  if (!isLegacyActionsCoreDbAvailable()) return { error: "DB Error" };
 
   try {
-    const dossierRow = await db.prepare(
-      `SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status = 'analyzed' ORDER BY created_at DESC LIMIT 1`,
-    ).bind(tenantId).first<any>();
+    const legacyCoreAdapter = createSocialFlowLegacyActionsCoreAdapter();
+    const dossierRow = await legacyCoreAdapter.findLatestAnalyzedStrategicDossier(tenantId);
 
     if (!dossierRow) return { error: "Analysis not complete" };
 
@@ -160,11 +149,11 @@ export async function generateBlueprint() {
     const { generateSaaSBlueprint } = await import('@/lib/orchestrator/planner');
     const blueprint = await generateSaaSBlueprint(dossier);
 
-    await db.prepare(
-      `UPDATE tenant_strategic_dossiers 
-       SET plan_data = ?, status = 'analyzed', updated_at = ? 
-       WHERE id = ?`,
-    ).bind(JSON.stringify(blueprint), new Date().toISOString(), dossier.id).run();
+    await legacyCoreAdapter.updateStrategicDossierPlan({
+      dossierId: dossier.id,
+      planJson: JSON.stringify(blueprint),
+      updatedAtIso: new Date().toISOString(),
+    });
 
     return { success: true };
   } catch (err) {
@@ -179,14 +168,11 @@ export async function approveSaaSPlan() {
 
   if (!tenantId) return { error: "Context Missing" };
 
-  const bindings = env();
-  const db = bindings?.DRACO_DB;
-  if (!db) return { error: "DB Error" };
+  if (!isLegacyActionsCoreDbAvailable()) return { error: "DB Error" };
 
   try {
-    const dossierRow = await db.prepare(
-      `SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status = 'analyzed'`,
-    ).bind(tenantId).first<any>();
+    const legacyCoreAdapter = createSocialFlowLegacyActionsCoreAdapter();
+    const dossierRow = await legacyCoreAdapter.findAnalyzedStrategicDossierForApproval(tenantId);
 
     if (!dossierRow || !dossierRow.plan_data) {
       return { error: "No Blueprint found to approve." };
@@ -202,13 +188,14 @@ export async function approveSaaSPlan() {
     const { provisionSaaS } = await import('@/lib/orchestrator/provisioner');
     const provisioningResult = await provisionSaaS(tenantId, dossier);
 
-    await db.prepare(
-      `UPDATE tenant_strategic_dossiers SET status = 'active', updated_at = ? WHERE tenant_id = ?`,
-    ).bind(new Date().toISOString(), tenantId).run();
-
-    await db.prepare(
-      `UPDATE tenants SET materialization_step = 4 WHERE id = ?`,
-    ).bind(tenantId).run();
+    await legacyCoreAdapter.activateStrategicDossiersForTenant({
+      tenantId,
+      updatedAtIso: new Date().toISOString(),
+    });
+    await legacyCoreAdapter.setTenantMaterializationStep({
+      tenantId,
+      step: 4,
+    });
 
     const { success: _ignored, ...rest } = provisioningResult as { success?: boolean } & Record<string, unknown>;
     void _ignored;
