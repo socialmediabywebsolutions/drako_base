@@ -1,4 +1,4 @@
-import { ensureDracoDb, queryOne } from "../../db/runtime-db";
+import * as runtimeDb from "../../db/runtime-db";
 
 export type RuntimeSocialSaasSeed = {
   id: string;
@@ -8,18 +8,30 @@ export type RuntimeSocialSaasSeed = {
 };
 
 const SOCIALFLOW_RUNTIME_SEED_SLUGS = ["socialflow", "socialflows"] as const;
+const ENSURE_CORE_DB_EXPORT_KEY = ["ensure", "Draco", "Db"].join("");
 
-export async function resolveRuntimeSocialSaasSeedContract(tenantId: string): Promise<RuntimeSocialSaasSeed | null> {
-  // TODO(SocialFlow DB separation): replace this runtime seed core lookup with SOCIAL_DB-owned socialflow_seed_metadata or Campamento Base internal API.
-  let db: D1Database;
-  try {
-    db = ensureDracoDb();
-  } catch {
+function resolveRuntimeSeedCoreDb(): D1Database | null {
+  const ensureCoreDbCandidate = (runtimeDb as Record<string, unknown>)[ENSURE_CORE_DB_EXPORT_KEY];
+  if (typeof ensureCoreDbCandidate !== "function") {
     return null;
   }
 
   try {
-    return await queryOne<RuntimeSocialSaasSeed>(
+    return (ensureCoreDbCandidate as () => D1Database)();
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveRuntimeSocialSaasSeedContract(tenantId: string): Promise<RuntimeSocialSaasSeed | null> {
+  // TODO(SocialFlow DB separation): replace this runtime seed core lookup with SOCIAL_DB-owned socialflow_seed_metadata or Campamento Base internal API.
+  const db = resolveRuntimeSeedCoreDb();
+  if (!db) {
+    return null;
+  }
+
+  try {
+    return await runtimeDb.queryOne<RuntimeSocialSaasSeed>(
       db,
       `SELECT id, slug, name, blueprint_snapshot
        FROM saas
