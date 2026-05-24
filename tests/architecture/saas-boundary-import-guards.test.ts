@@ -196,6 +196,9 @@ const boundaryRules: BoundaryRule[] = [
       {
         pattern: "@/lib/observability-core/**",
       },
+      {
+        pattern: "@/lib/db",
+      },
     ],
   },
   {

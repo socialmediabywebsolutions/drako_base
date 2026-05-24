@@ -19,6 +19,7 @@ type DependencyRule = {
   patternDetected: string;
   violatedRule: string;
   matcher: RegExp;
+  appliesToFiles?: string[];
 };
 
 type DependencyHit = {
@@ -37,6 +38,26 @@ type AllowlistEntry = {
 };
 
 const directDependencyRules: DependencyRule[] = [
+  {
+    ruleId: "direct-integration-core-import",
+    patternDetected: "@/lib/integration-core/**",
+    violatedRule: "Direct import from integration-core is forbidden in SocialFlow LinkedIn boundaries.",
+    matcher: /@\/lib\/integration-core(?:\/|["'`]|$)/,
+    appliesToFiles: [
+      "src/lib/socialflow/linkedin/**",
+      "src/lib/socialflow/contracts/linkedin-oauth-runtime.ts",
+    ],
+  },
+  {
+    ruleId: "direct-observability-core-import",
+    patternDetected: "@/lib/observability-core/**",
+    violatedRule: "Direct import from observability-core is forbidden in SocialFlow LinkedIn boundaries.",
+    matcher: /@\/lib\/observability-core(?:\/|["'`]|$)/,
+    appliesToFiles: [
+      "src/lib/socialflow/linkedin/**",
+      "src/lib/socialflow/contracts/linkedin-oauth-runtime.ts",
+    ],
+  },
   {
     ruleId: "direct-lib-db-import",
     patternDetected: "@/lib/db",
@@ -169,6 +190,12 @@ const temporaryAllowlist: AllowlistEntry[] = [
   { file: "src/lib/socialflow/repository.ts", rules: ["direct-core-db-variable", "direct-draco-db-token"], note: ALLOWLIST_TODO_COMMENT },
   // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
   { file: "src/lib/socialflow/linkedin/oauth.ts", rules: ["direct-draco-db-token", "direct-bindings-draco-db", "direct-draco-db-variable"], note: ALLOWLIST_TODO_COMMENT },
+  // TODO(SocialFlow DB separation): remove this allowlist when LinkedIn OAuth is SOCIAL_DB-owned and emits Campamento Base events.
+  {
+    file: "src/lib/socialflow/contracts/linkedin-oauth-runtime.ts",
+    rules: ["direct-integration-core-import", "direct-observability-core-import"],
+    note: "TODO(SocialFlow DB separation): remove this allowlist when LinkedIn OAuth is SOCIAL_DB-owned and emits Campamento Base events.",
+  },
   // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
   { file: "apps/socialflow-runtime/src/lib/runtime-env.ts", rules: ["direct-draco-db-token"], note: ALLOWLIST_TODO_COMMENT },
   // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
@@ -201,6 +228,15 @@ const temporaryAllowlist: AllowlistEntry[] = [
 
 function normalizePath(value: string): string {
   return value.replace(/\\/g, "/");
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function matchesGlob(value: string, pattern: string): boolean {
+  const matcher = `^${escapeRegex(pattern).replace(/\\\*\\\*/g, ".*").replace(/\\\*/g, "[^/]*")}$`;
+  return new RegExp(matcher).test(value);
 }
 
 function toRelativeRepoPath(filePath: string): string {
@@ -248,6 +284,10 @@ function collectDependencyHits(): DependencyHit[] {
 
     lines.forEach((lineContent, lineIndex) => {
       for (const rule of dependencyRules) {
+        if (rule.appliesToFiles?.length) {
+          const applies = rule.appliesToFiles.some((pattern) => matchesGlob(relativePath, pattern));
+          if (!applies) continue;
+        }
         if (!rule.matcher.test(lineContent)) continue;
         hits.push({
           file: relativePath,
