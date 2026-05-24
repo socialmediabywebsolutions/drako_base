@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/mentoria/db";
-import { publishSocialPost } from "@/lib/social-core/publishing";
+import { publishSocialContent } from "@/lib/capabilities/social-publishing/publisher";
 
 export type PublishJobStatus = "pending_publish" | "publishing" | "pending_confirmation" | "confirmed" | "failed" | "abandoned";
 
@@ -33,7 +33,7 @@ type PublishJobRow = {
   confirmed_at: string | null;
 };
 
-export class SocialFlowValidation {
+export class SocialPublishingValidation {
   constructor(private db: D1Database = getDb()) {}
 
   async enqueuePublish(input: {
@@ -92,7 +92,7 @@ export class SocialFlowValidation {
           .bind(job.id, job.tenant_id)
           .run();
 
-        const result = await publishSocialPost(job.channel as "linkedin" | "instagram" | "tiktok", job.content);
+        const result = await publishSocialContent(job.channel as "linkedin" | "instagram" | "tiktok", job.content);
 
         if (!result.success) {
           throw new Error(result.error || "Unknown error");
@@ -190,7 +190,7 @@ export class SocialFlowValidation {
       .first<{ id: string; tenant_id: string }>();
 
     if (!job) {
-      console.warn("[SocialFlowValidation] Webhook received for unknown external_id:", input.externalId);
+      console.warn("[SocialPublishingValidation] Webhook received for unknown external_id:", input.externalId);
       return;
     }
 
@@ -224,7 +224,10 @@ export class SocialFlowValidation {
         .bind(crypto.randomUUID(), input.tenantId, input.eventType, input.severity, JSON.stringify(input.data), new Date().toISOString())
         .run();
     } catch (error) {
-      console.error("[SocialFlowValidation] Failed to log event:", error);
+      console.error("[SocialPublishingValidation] Failed to log event:", error);
     }
   }
 }
+
+// Backward-compatible export while external modules migrate away from the legacy name.
+export class SocialFlowValidation extends SocialPublishingValidation {}

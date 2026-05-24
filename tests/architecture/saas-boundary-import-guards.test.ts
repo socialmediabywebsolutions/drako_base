@@ -216,6 +216,18 @@ const boundaryRules: BoundaryRule[] = [
 ];
 
 describe("SaaS boundary import guards", () => {
+  it("keeps Mentoria publishing flows on a neutral social publishing capability", () => {
+    const acquisitionPublishingPath = path.join(repoRoot, "src/lib/mentoria/acquisition-publishing.ts");
+    const resiliencePublishingPath = path.join(repoRoot, "src/lib/mentoria/resilience/socialflow-validation.ts");
+    const acquisitionSource = readFileSync(acquisitionPublishingPath, "utf8");
+    const resilienceSource = readFileSync(resiliencePublishingPath, "utf8");
+
+    expect(acquisitionSource).toContain('@/lib/capabilities/social-publishing/publisher');
+    expect(resilienceSource).toContain('@/lib/capabilities/social-publishing/publisher');
+    expect(acquisitionSource).not.toContain('@/lib/social-core/publishing');
+    expect(resilienceSource).not.toContain('@/lib/social-core/publishing');
+  });
+
   it("keeps Campamento Base SocialFlow service behind the campobase contract adapter", () => {
     const socialflowServicePath = path.join(repoRoot, "src/lib/campobase/socialflow-service.ts");
     const source = readFileSync(socialflowServicePath, "utf8");

@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/mentoria/db";
 import type { AcquisitionPost } from "@/lib/mentoria/acquisition-content";
-import { publishSocialPost } from "@/lib/social-core/publishing";
+import { publishSocialContent } from "@/lib/capabilities/social-publishing/publisher";
 
 export type PublishedPost = {
   id: string;
@@ -37,7 +37,7 @@ export class AcquisitionPublisher {
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
 
-    const publishResult = await publishSocialPost(post.channel, post.content);
+    const publishResult = await publishSocialContent(post.channel, post.content);
 
     if (!publishResult.success) {
       console.error("[AcquisitionPublisher] Social publish failed:", publishResult.error);
