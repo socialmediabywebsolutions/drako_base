@@ -4,15 +4,30 @@ This runbook is local-only. It does not use remote D1 and does not enable runtim
 
 ## Preconditions
 - `migrations/0187_socialflow_seed_metadata.sql` exists.
+- `migrations/0001_init.sql` and `migrations/0013_tenant_columns.sql` exist for core `saas` compatibility.
+- `migrations/0142_socialflow_auths.sql` exists for local SocialFlow auth tables.
 - Local D1 bindings resolve with `wrangler.workers.toml` (default):
   - `DRACO_DB`
   - `SOCIAL_DB`
+
+## Bootstrap Local DB (Required Before Validation/Smoke)
+Run from repository root:
+
+```bash
+pnpm tsx scripts/bootstrap-socialflow-runtime-seed-smoke-local.ts --config=apps/socialflow-runtime/wrangler.toml
+```
+
+What it ensures (local only, idempotent):
+1. `DRACO_DB.saas` table exists and has `tenant_id` + `blueprint_snapshot`.
+2. `SOCIAL_DB.socialflow_seed_metadata` exists.
+3. `SOCIALFLOW_AUTHS_DB` has `socialflow_users`, `socialflow_credentials`, `socialflow_sessions`.
+4. Minimal seed rows exist for runtime seed smoke bootstrap context.
 
 ## Local Validation Sequence
 Run from repository root:
 
 ```bash
-pnpm tsx scripts/validate-socialflow-runtime-seed-local.ts
+pnpm tsx scripts/validate-socialflow-runtime-seed-local.ts --config=apps/socialflow-runtime/wrangler.toml
 ```
 
 What it executes in order:
@@ -48,6 +63,33 @@ This command is local-only, fail-closed, and does not activate switch defaults i
 This smoke validates runtime HTTP behavior on critical routes with switch enabled:
 - `/api/socialflow/profile`
 - `/api/socialflow/setup/status`
+
+## Recommended Local Order (Exact)
+1. Bootstrap local DB:
+
+```bash
+pnpm tsx scripts/bootstrap-socialflow-runtime-seed-smoke-local.ts --config=apps/socialflow-runtime/wrangler.toml
+```
+
+2. Validation pack:
+
+```bash
+pnpm tsx scripts/validate-socialflow-runtime-seed-local.ts --config=apps/socialflow-runtime/wrangler.toml
+```
+
+3. Start runtime locally with switch ON:
+
+```bash
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH=1 \
+SOCIALFLOW_AUTHS_SECRET=local-socialflow-runtime-secret \
+pnpm wrangler dev --local --config apps/socialflow-runtime/wrangler.toml --ip 127.0.0.1 --port 8787
+```
+
+4. Run smoke in a second terminal:
+
+```bash
+pnpm tsx scripts/smoke-socialflow-runtime-seed-switch-local.ts --base-url=http://127.0.0.1:8787 --config=apps/socialflow-runtime/wrangler.toml
+```
 
 Start local runtime (terminal 1):
 

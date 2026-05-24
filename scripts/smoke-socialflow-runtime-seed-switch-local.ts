@@ -640,6 +640,14 @@ export async function runSmokeSocialflowRuntimeSeedSwitchLocalCli(argv: string[]
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`SOCIALFLOW_RUNTIME_SEED_SWITCH_LOCAL_SMOKE_ERROR ${message}`);
+    if (
+      message.includes("SOCIALFLOW_RUNTIME_SEED_BACKFILL_TABLE_MISSING")
+      || message.includes("SOCIALFLOW_RUNTIME_SEED_SMOKE_TABLE_MISSING")
+    ) {
+      console.error(
+        "SOCIALFLOW_RUNTIME_SEED_SWITCH_LOCAL_SMOKE_HINT run: pnpm tsx scripts/bootstrap-socialflow-runtime-seed-smoke-local.ts --config=apps/socialflow-runtime/wrangler.toml",
+      );
+    }
     return 1;
   }
 }
