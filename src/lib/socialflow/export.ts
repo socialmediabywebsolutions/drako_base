@@ -1,19 +1,9 @@
-import { queryOne } from "@/lib/db";
+import { createGlobalSocialFlowExportCoreReadContract } from "@/lib/socialflow/contracts/export-core-read";
 import { generateWipeoutPackage } from "@/lib/export/wipeout-package";
 
-const SOCIALFLOW_EXPORT_SLUGS = ["socialflow", "socialflows"];
-
 export async function generateSocialFlowExportForTenant(tenantId: string) {
-  const saas = await queryOne<{ id: string; slug: string }>(
-    `SELECT id, slug
-     FROM saas
-     WHERE tenant_id = ? AND lower(slug) IN (?, ?)
-     ORDER BY created_at DESC
-     LIMIT 1`,
-    tenantId,
-    SOCIALFLOW_EXPORT_SLUGS[0],
-    SOCIALFLOW_EXPORT_SLUGS[1],
-  );
+  const coreReadContract = createGlobalSocialFlowExportCoreReadContract();
+  const saas = await coreReadContract.findSocialFlowExportSaasSeed(tenantId);
 
   if (!saas) {
     throw new Error("SocialFlow export target not found for tenant");

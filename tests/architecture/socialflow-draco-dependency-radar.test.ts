@@ -151,10 +151,20 @@ const temporaryAllowlist: AllowlistEntry[] = [
   { file: "src/modules/socialflow-app/actions.ts", rules: ["direct-draco-db-token", "direct-bindings-draco-db", "sql-core-tenant-dossiers"], note: ALLOWLIST_TODO_COMMENT },
   // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
   { file: "src/modules/socialflow-app/agent-actions.ts", rules: ["direct-draco-db-token", "direct-bindings-draco-db", "sql-core-tenant-dossiers", "sql-core-agent-work-logs"], note: ALLOWLIST_TODO_COMMENT },
-  // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
-  { file: "src/lib/socialflow/export.ts", rules: ["direct-lib-db-import", "sql-core-saas"], note: ALLOWLIST_TODO_COMMENT },
-  // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
-  { file: "src/app/api/socialflow/exports/current/route.ts", rules: ["direct-lib-db-import", "sql-core-economic-events"], note: ALLOWLIST_TODO_COMMENT },
+  {
+    file: "src/lib/socialflow/contracts/export-core-read.ts",
+    rules: [
+      "direct-lib-db-import",
+      "sql-core-saas",
+      "sql-core-saas-instances",
+      "sql-core-tenant-dossiers",
+      "sql-core-agent-work-logs",
+      "sql-core-orchestrator-messages",
+      "sql-core-economic-events",
+      "sql-core-saas-domains",
+    ],
+    note: ALLOWLIST_TODO_COMMENT,
+  },
   // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
   { file: "src/lib/socialflow/repository.ts", rules: ["direct-core-db-variable", "direct-draco-db-token"], note: ALLOWLIST_TODO_COMMENT },
   // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.

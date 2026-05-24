@@ -1,64 +1,13 @@
 import JSZip from "jszip";
-import { queryAll, queryOne } from "@/lib/db";
-
-interface SaasInstance {
-  id: string;
-  tenant_id: string;
-  name: string;
-  slug: string;
-  status: string;
-  blueprint_snapshot: string | null;
-  plan_tier: string | null;
-  created_at: string;
-  mrr_eur: number;
-  cost_eur: number;
-  risk_level: string;
-}
-
-interface StrategicDossier {
-  id: string;
-  tenant_id: string;
-  form_data: string;
-  analysis_data: string | null;
-  plan_data: string | null;
-}
-
-interface AgentWorkLog {
-  id: string;
-  tenant_id: string;
-  saas_id: string;
-  agent_name: string;
-  action_type: string;
-  status: string;
-  output_json: string;
-  cost_eur: number;
-  created_at: string;
-}
-
-interface EconomicEvent {
-  id: string;
-  tenant_id: string;
-  saas_id: string | null;
-  type: string;
-  severity: string;
-  payload_json: string;
-  created_at: string;
-}
-
-interface DomainRecord {
-  tenant_id: string;
-  saas_id: string;
-  domain: string;
-  is_primary: number | boolean;
-  status: string;
-}
-
-interface OrchestratorMessage {
-  tenant_id: string;
-  role: string;
-  content: string;
-  created_at: string;
-}
+import {
+  createGlobalSocialFlowExportCoreReadContract,
+  type ExportCoreAgentWorkLog as AgentWorkLog,
+  type ExportCoreDomainRecord as DomainRecord,
+  type ExportCoreEconomicEvent as EconomicEvent,
+  type ExportCoreOrchestratorMessage as OrchestratorMessage,
+  type ExportCoreSaasInstance as SaasInstance,
+  type ExportCoreStrategicDossier as StrategicDossier,
+} from "@/lib/socialflow/contracts/export-core-read";
 
 export type TenantScopedRow = {
   tenant_id?: string | null;
@@ -98,11 +47,8 @@ export function assertTenantScopedRows<T extends TenantScopedRow>(
 }
 
 export async function generateWipeoutPackage(saasId: string, tenantId: string): Promise<{ buffer: Buffer; filename: string }> {
-  const saas = await queryOne<SaasInstance>(
-    "SELECT * FROM saas_instances WHERE id = ? AND tenant_id = ?",
-    saasId,
-    tenantId,
-  );
+  const coreReadContract = createGlobalSocialFlowExportCoreReadContract();
+  const saas = await coreReadContract.getSaasInstanceById(saasId, tenantId);
 
   if (!saas) {
     throw new Error(`SaaS instance not found or acccess denied: ${saasId}`);
@@ -116,10 +62,7 @@ export async function generateWipeoutPackage(saasId: string, tenantId: string): 
     domains: 0,
   };
 
-  const dossier = await queryOne<StrategicDossier>(
-    "SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status IN ('active', 'analyzed') ORDER BY created_at DESC LIMIT 1",
-    tenantId,
-  );
+  const dossier = await coreReadContract.getStrategicDossier(tenantId);
   if (dossier) {
     assertTenantScopedRows([dossier], {
       entity: "tenant_strategic_dossiers",
@@ -147,11 +90,7 @@ export async function generateWipeoutPackage(saasId: string, tenantId: string): 
     warnings.push("No blueprint_snapshot found in saas_instances");
   }
 
-  const workLogs = await queryAll<AgentWorkLog>(
-    "SELECT id, tenant_id, saas_id, agent_name, action_type, status, output_json, cost_eur, created_at FROM agent_work_logs WHERE tenant_id = ? AND saas_id = ? ORDER BY created_at DESC LIMIT 5000",
-    tenantId,
-    saasId,
-  );
+  const workLogs = await coreReadContract.listAgentWorkLogs(tenantId, saasId);
   assertTenantScopedRows(workLogs, {
     entity: "agent_work_logs",
     tenantId,
@@ -175,10 +114,7 @@ export async function generateWipeoutPackage(saasId: string, tenantId: string): 
     zip.folder("execution")?.file("work_logs.csv", "id,agent_name,action_type,status,cost_eur,created_at,output_snippet\n");
   }
 
-  const msgs = await queryAll<OrchestratorMessage>(
-    "SELECT tenant_id, role, content, created_at FROM orchestrator_messages WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1000",
-    tenantId,
-  );
+  const msgs = await coreReadContract.listOrchestratorMessages(tenantId);
   assertTenantScopedRows(msgs, {
     entity: "orchestrator_messages",
     tenantId,
@@ -203,11 +139,7 @@ export async function generateWipeoutPackage(saasId: string, tenantId: string): 
   ].join("\n");
   zip.folder("economics")?.file("financials.csv", financialsHeader + financialsRows);
 
-  const ecoEvents = await queryAll<EconomicEvent>(
-    "SELECT id, tenant_id, saas_id, type, severity, payload_json, created_at FROM economic_events WHERE tenant_id = ? AND saas_id = ? ORDER BY created_at DESC LIMIT 2000",
-    tenantId,
-    saasId,
-  );
+  const ecoEvents = await coreReadContract.listEconomicEvents(tenantId, saasId);
   assertTenantScopedRows(ecoEvents, {
     entity: "economic_events",
     tenantId,
@@ -227,11 +159,7 @@ export async function generateWipeoutPackage(saasId: string, tenantId: string): 
     zip.folder("economics")?.file("economic_events.csv", ecoHeader + ecoRows);
   }
 
-  const domains = await queryAll<DomainRecord>(
-    "SELECT tenant_id, saas_id, domain, is_primary, status FROM saas_domains WHERE tenant_id = ? AND saas_id = ?",
-    tenantId,
-    saasId,
-  );
+  const domains = await coreReadContract.listSaasDomains(tenantId, saasId);
   assertTenantScopedRows(domains, {
     entity: "saas_domains",
     tenantId,

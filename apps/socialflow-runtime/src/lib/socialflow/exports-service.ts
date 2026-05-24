@@ -1,62 +1,11 @@
 import JSZip from "jszip";
-import { ensureDracoDb, queryAll, queryOne, run } from "../db/runtime-db";
-
-type SaasRecord = {
-  id: string;
-  tenant_id: string;
-  slug: string;
-  name: string;
-  blueprint_snapshot: string | null;
-  plan_tier: string | null;
-  mrr_eur: number;
-  cost_eur: number;
-  risk_level: string;
-};
-
-type StrategicDossier = {
-  id: string;
-  tenant_id: string;
-  form_data: string;
-  analysis_data: string | null;
-  plan_data: string | null;
-};
-
-type AgentWorkLog = {
-  id: string;
-  tenant_id: string;
-  saas_id: string;
-  agent_name: string;
-  action_type: string;
-  status: string;
-  output_json: string;
-  cost_eur: number;
-  created_at: string;
-};
-
-type EconomicEvent = {
-  id: string;
-  tenant_id: string;
-  saas_id: string | null;
-  type: string;
-  severity: string;
-  payload_json: string;
-  created_at: string;
-};
-
-type DomainRecord = {
-  tenant_id: string;
-  saas_id: string;
-  domain: string;
-  is_primary: number | boolean;
-  status: string;
-};
-
-type OrchestratorMessage = {
-  tenant_id: string;
-  role: string;
-  content: string;
-  created_at: string;
-};
+import {
+  createSocialFlowExportCoreReadContract,
+  type ExportCoreAgentWorkLog as AgentWorkLog,
+  type ExportCoreEconomicEvent as EconomicEvent,
+  type ExportCoreOrchestratorMessage as OrchestratorMessage,
+} from "@/lib/socialflow/contracts/export-core-read";
+import { ensureDracoDb, queryAll as queryAllOnCoreDb, queryOne as queryOneOnCoreDb, run as runOnCoreDb } from "../db/runtime-db";
 
 type TenantScopedRow = {
   tenant_id?: string | null;
@@ -90,51 +39,22 @@ function assertTenantScopedRows<T extends TenantScopedRow>(
   return rows;
 }
 
-const SOCIALFLOW_EXPORT_SLUGS = ["socialflow", "socialflows"] as const;
-
-async function getTableColumns(db: D1Database, tableName: string) {
-  const rows = await queryAll<{ name: string }>(db, `PRAGMA table_info('${tableName}')`);
-  return new Set(rows.map((row) => row.name));
-}
-
-function selectColumn(columns: Set<string>, name: string, fallbackSql: string) {
-  return columns.has(name) ? name : `${fallbackSql} AS ${name}`;
-}
-
 export async function generateRuntimeSocialFlowExportForTenant(tenantId: string): Promise<{ buffer: Buffer; filename: string }> {
   const dracoDb = ensureDracoDb();
-  const saasColumns = await getTableColumns(dracoDb, "saas");
-  const saas = await queryOne<SaasRecord>(
-    dracoDb,
-    `SELECT
-       id,
-       tenant_id,
-       slug,
-       name,
-       ${selectColumn(saasColumns, "blueprint_snapshot", "NULL")},
-       ${selectColumn(saasColumns, "plan_tier", "NULL")},
-       ${selectColumn(saasColumns, "mrr_eur", "0")},
-       ${selectColumn(saasColumns, "cost_eur", "0")},
-       ${selectColumn(saasColumns, "risk_level", "'unknown'")}
-     FROM saas
-     WHERE tenant_id = ? AND lower(slug) IN (?, ?)
-     ORDER BY created_at DESC
-     LIMIT 1`,
-    tenantId,
-    SOCIALFLOW_EXPORT_SLUGS[0],
-    SOCIALFLOW_EXPORT_SLUGS[1],
-  );
-  if (!saas) {
+  const coreReadContract = createSocialFlowExportCoreReadContract({
+    queryOne: <T>(sql: string, ...params: unknown[]) => queryOneOnCoreDb<T>(dracoDb, sql, ...params),
+    queryAll: <T>(sql: string, ...params: unknown[]) => queryAllOnCoreDb<T>(dracoDb, sql, ...params),
+    run: (sql: string, ...params: unknown[]) => runOnCoreDb(dracoDb, sql, ...params),
+  });
+  const { saas: exportTarget, missingColumns } = await coreReadContract.findRuntimeSocialFlowExportSaasRecord(tenantId);
+  if (!exportTarget) {
     throw new Error("SOCIALFLOW_EXPORT_SAAS_SEED_NOT_FOUND");
   }
 
   const zip = new JSZip();
   const warnings: string[] = [];
-  const exportTarget = saas;
-  for (const column of ["blueprint_snapshot", "plan_tier", "mrr_eur", "cost_eur", "risk_level"]) {
-    if (!saasColumns.has(column)) {
-      warnings.push(`DRACO_DB.saas column ${column} is missing; export used a safe default for this field.`);
-    }
+  for (const column of missingColumns) {
+    warnings.push(`DRACO_DB.saas column ${column} is missing; export used a safe default for this field.`);
   }
   const counts: Record<string, number> = {
     logs: 0,
@@ -142,11 +62,7 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
     domains: 0,
   };
 
-  const dossier = await queryOne<StrategicDossier>(
-    dracoDb,
-    "SELECT id, tenant_id, form_data, analysis_data, plan_data FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status IN ('active', 'analyzed') ORDER BY created_at DESC LIMIT 1",
-    tenantId,
-  );
+  const dossier = await coreReadContract.getStrategicDossier(tenantId);
   if (dossier) {
     assertTenantScopedRows([dossier], { entity: "tenant_strategic_dossiers", tenantId });
     zip.folder("dossier")?.file("dossier.json", JSON.stringify(dossier, null, 2));
@@ -167,12 +83,7 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
     warnings.push("No blueprint_snapshot found in saas");
   }
 
-  const workLogs = await queryAll<AgentWorkLog>(
-    dracoDb,
-    "SELECT id, tenant_id, saas_id, agent_name, action_type, status, output_json, cost_eur, created_at FROM agent_work_logs WHERE tenant_id = ? AND saas_id = ? ORDER BY created_at DESC LIMIT 5000",
-    tenantId,
-    exportTarget.id,
-  );
+  const workLogs = await coreReadContract.listAgentWorkLogs(tenantId, exportTarget.id);
   assertTenantScopedRows(workLogs, {
     entity: "agent_work_logs",
     tenantId,
@@ -190,11 +101,7 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
   ].join("\n");
   zip.folder("execution")?.file("work_logs.csv", `${workLogCsv}\n`);
 
-  const messages = await queryAll<OrchestratorMessage>(
-    dracoDb,
-    "SELECT tenant_id, role, content, created_at FROM orchestrator_messages WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1000",
-    tenantId,
-  );
+  const messages = await coreReadContract.listOrchestratorMessages(tenantId);
   assertTenantScopedRows(messages, { entity: "orchestrator_messages", tenantId });
   const messagesCsv = [
     "role,created_at,content",
@@ -214,12 +121,7 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
   ].join("\n");
   zip.folder("economics")?.file("financials.csv", `${financialsRows}\n`);
 
-  const economicEvents = await queryAll<EconomicEvent>(
-    dracoDb,
-    "SELECT id, tenant_id, saas_id, type, severity, payload_json, created_at FROM economic_events WHERE tenant_id = ? AND saas_id = ? ORDER BY created_at DESC LIMIT 2000",
-    tenantId,
-    exportTarget.id,
-  );
+  const economicEvents = await coreReadContract.listEconomicEvents(tenantId, exportTarget.id);
   assertTenantScopedRows(economicEvents, {
     entity: "economic_events",
     tenantId,
@@ -236,12 +138,7 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
   ].join("\n");
   zip.folder("economics")?.file("economic_events.csv", `${economicRows}\n`);
 
-  const domains = await queryAll<DomainRecord>(
-    dracoDb,
-    "SELECT tenant_id, saas_id, domain, is_primary, status FROM saas_domains WHERE tenant_id = ? AND saas_id = ?",
-    tenantId,
-    exportTarget.id,
-  );
+  const domains = await coreReadContract.listSaasDomains(tenantId, exportTarget.id);
   assertTenantScopedRows(domains, {
     entity: "saas_domains",
     tenantId,
@@ -265,18 +162,15 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
   const buffer = await zip.generateAsync({ type: "nodebuffer" });
   const filename = `drako-export-${exportTarget.slug}-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.zip`;
 
-  await run(
-    dracoDb,
-    "INSERT INTO economic_events (id, tenant_id, saas_id, type, severity, payload_json, created_at) VALUES (?, ?, ?, 'EXPORT_GENERATED', 'info', ?, datetime('now'))",
-    crypto.randomUUID(),
+  await coreReadContract.recordExportGeneratedEvent({
     tenantId,
-    exportTarget.id,
-    JSON.stringify({
+    saasId: exportTarget.id,
+    payloadJson: JSON.stringify({
       filename,
       size_bytes: buffer.byteLength,
       source: "socialflow-runtime.exports.current",
     }),
-  );
+  });
 
   return { buffer, filename };
 }

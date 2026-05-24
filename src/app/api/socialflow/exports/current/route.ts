@@ -1,14 +1,14 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { ensureDatabase, run } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
+import { createGlobalSocialFlowExportCoreReadContract } from "@/lib/socialflow/contracts/export-core-read";
 import { generateSocialFlowExportForTenant } from "@/lib/socialflow/export";
 
 export async function GET() {
   try {
-    ensureDatabase();
+    const coreReadContract = createGlobalSocialFlowExportCoreReadContract();
     const session = await getCurrentSocialFlowSession();
     if (!session) {
       return NextResponse.json({ ok: false, error: "SESSION_REQUIRED" }, { status: 401 });
@@ -16,18 +16,16 @@ export async function GET() {
 
     const { buffer, filename } = await generateSocialFlowExportForTenant(session.tenantId);
 
-    await run(
-      "INSERT INTO economic_events (id, tenant_id, saas_id, type, severity, payload_json, created_at) VALUES (?, ?, ?, 'EXPORT_GENERATED', 'info', ?, datetime('now'))",
-      globalThis.crypto.randomUUID(),
-      session.tenantId,
-      null,
-      JSON.stringify({
+    await coreReadContract.recordExportGeneratedEvent({
+      tenantId: session.tenantId,
+      saasId: null,
+      payloadJson: JSON.stringify({
         actor: session.email,
         filename,
         size_bytes: buffer.byteLength,
         source: "socialflow.exports.current",
       }),
-    );
+    });
 
     return new NextResponse(buffer as any, {
       status: 200,
