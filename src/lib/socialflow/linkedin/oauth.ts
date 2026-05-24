@@ -185,12 +185,10 @@ function resolveStorageAvailability() {
   return {
     hasDracoDb,
     hasSocialDb,
-    persistenceAvailable: hasDracoDb && hasSocialDb,
+    persistenceAvailable: hasSocialDb,
     observabilityAvailable: hasDracoDb,
-    missingBindings: [
-      ...(hasDracoDb ? [] : ["DRACO_DB"]),
-      ...(hasSocialDb ? [] : ["SOCIAL_DB"]),
-    ],
+    persistenceMissingBindings: hasSocialDb ? [] : ["SOCIAL_DB"],
+    observabilityMissingBindings: hasDracoDb ? [] : ["DRACO_DB"],
   };
 }
 
@@ -369,16 +367,16 @@ export async function handleSocialFlowLinkedInCallback(
     };
     let observability: SocialFlowLinkedInCallbackSuccess["observability"] = storage.observabilityAvailable
       ? { status: "available" }
-      : { status: "unavailable", missingBindings: storage.missingBindings };
+      : { status: "unavailable", missingBindings: storage.observabilityMissingBindings };
 
     if (!storage.persistenceAvailable) {
       persistence = {
         status: "skipped",
-        reason: `Local persistence unavailable: missing ${storage.missingBindings.join(", ")}.`,
+        reason: `Local persistence unavailable: missing ${storage.persistenceMissingBindings.join(", ")}.`,
       };
       observability = storage.observabilityAvailable
         ? { status: "skipped", reason: "persistence_not_attempted" }
-        : { status: "unavailable", missingBindings: storage.missingBindings };
+        : { status: "unavailable", missingBindings: storage.observabilityMissingBindings };
     } else {
       try {
         const persisted = await persistSocialFlowLinkedInConnection({

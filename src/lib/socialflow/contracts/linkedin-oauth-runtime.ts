@@ -42,6 +42,7 @@ export type EmitLinkedInOAuthActivityInput = {
 
 async function ensureLinkedInCoreAdapterAvailable() {
   // TODO(SocialFlow DB separation): replace core-backed OAuth/integration adapter with SOCIAL_DB-owned storage and Campamento Base contract.
+  // TODO(SocialFlow DB separation): remove core-backed OAuth projection once Campamento Base event contract is active.
   await ensureLinkedInIntegrationAvailable();
 }
 

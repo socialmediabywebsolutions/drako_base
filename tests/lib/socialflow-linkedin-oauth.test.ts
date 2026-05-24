@@ -174,6 +174,40 @@ describe("socialflow linkedin oauth", () => {
     expect(result.observability.status).toBe("unavailable");
   });
 
+  it("persists when SOCIAL_DB is available even if DRACO_DB is missing", async () => {
+    env.mockReturnValue({ SOCIAL_DB: {} });
+
+    const result = await handleSocialFlowLinkedInCallback(
+      new Request("https://drako.local/api/socialflow/linkedin/callback?code=abc&tenantId=tenant-query&saasId=saas-query") as any,
+      { tenantId: "tenant-query" } as any,
+    );
+
+    expect(persistSocialFlowLinkedInConnection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: "tenant-query",
+        saasId: "saas-query",
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected callback success");
+    expect(result.persistence.status).not.toBe("skipped");
+    expect(result.observability.status).toBe("unavailable");
+  });
+
+  it("keeps callback success when observability core is unavailable but SOCIAL_DB persistence succeeds", async () => {
+    env.mockReturnValue({ SOCIAL_DB: {} });
+
+    const result = await handleSocialFlowLinkedInCallback(
+      new Request("https://drako.local/api/socialflow/linkedin/callback?code=abc&tenantId=tenant-query&saasId=saas-query") as any,
+      { tenantId: "tenant-query" } as any,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("Expected callback success");
+    expect(result.persistence.status).toBe("persisted");
+    expect(result.observability.status).toBe("unavailable");
+  });
+
   it("returns failed persistence when context exists but persistence fails", async () => {
     persistSocialFlowLinkedInConnection.mockRejectedValue(new Error("SOCIAL_DB offline"));
 
