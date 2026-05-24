@@ -13,7 +13,7 @@ import { analyzeSupplierOffer } from "@/lib/email-intake/classifier";
 import { getEmailIntakeSnapshot, listEmailMessages, resolveEmailIntakeContext } from "@/lib/email-intake/repository";
 import type { OwnerControlSnapshot, OwnerPortfolioSnapshot, OwnerPortfolioSaasItem, CanHireAdvice, CanHireStatus } from "@/lib/owner/types";
 import { buildOwnerAutopilotActions } from "@/lib/owner/autopilot";
-import { getSocialConversionSnapshot, getSocialOwnerSummary, resolveSocialContext } from "@/lib/socialflow/repository";
+import { getSocialOwnerDashboardSnapshot } from "@/lib/socialflow/contracts/owner-dashboard";
 import { getSaasBlueprint, listSaasModules, resolveBlueprintsContext } from "@/lib/blueprints/repository";
 import type { BusinessType, BlueprintPrimaryGoal, SaasModuleCode } from "@/lib/blueprints/types";
 import { resolveFeaturesContext, listSaasFeatures, getCompanyFeatures } from "@/lib/features/repository";
@@ -121,11 +121,11 @@ export async function buildOwnerControlSnapshot({ tenantId, saasId, env }: Build
   let socialSummary: OwnerControlSnapshot["social"];
   let socialConversion: OwnerControlSnapshot["socialConversion"];
   try {
-    const socialCtx = await resolveSocialContext({ tenantId, saasId, env });
-    const [ownerSummary, conversionSummary] = await Promise.all([
-      getSocialOwnerSummary(socialCtx),
-      getSocialConversionSnapshot(socialCtx),
-    ]);
+    const { ownerSummary, conversionSummary } = await getSocialOwnerDashboardSnapshot({
+      tenantId,
+      saasId,
+      env: env ?? null,
+    });
     socialSummary = ownerSummary;
     const topCampaign = conversionSummary.topCampaigns[0];
     socialConversion = {
