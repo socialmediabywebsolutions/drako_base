@@ -185,7 +185,7 @@ const temporaryAllowlist: AllowlistEntry[] = [
     note: ALLOWLIST_TODO_COMMENT,
   },
   // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
-  { file: "src/lib/socialflow/repository.ts", rules: ["direct-core-db-variable", "direct-draco-db-token"], note: ALLOWLIST_TODO_COMMENT },
+  { file: "src/lib/socialflow/contracts/repository-core-context.ts", rules: ["direct-core-db-variable", "direct-draco-db-token"], note: ALLOWLIST_TODO_COMMENT },
   // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
   { file: "src/lib/socialflow/linkedin/oauth.ts", rules: ["direct-draco-db-token", "direct-bindings-draco-db", "direct-draco-db-variable"], note: ALLOWLIST_TODO_COMMENT },
   // TODO(SocialFlow DB separation): remove this allowlist when LinkedIn OAuth is SOCIAL_DB-owned and emits Campamento Base events.
