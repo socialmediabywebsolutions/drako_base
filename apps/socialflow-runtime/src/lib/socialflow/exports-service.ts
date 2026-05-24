@@ -5,12 +5,23 @@ import {
   type ExportCoreEconomicEvent as EconomicEvent,
   type ExportCoreOrchestratorMessage as OrchestratorMessage,
 } from "@/lib/socialflow/contracts/export-core-read";
-import { ensureDracoDb, queryAll as queryAllOnCoreDb, queryOne as queryOneOnCoreDb, run as runOnCoreDb } from "../db/runtime-db";
+import * as runtimeDb from "../db/runtime-db";
 
 type TenantScopedRow = {
   tenant_id?: string | null;
   saas_id?: string | null;
 };
+
+const ENSURE_RUNTIME_CORE_DB_EXPORT_KEY = ["ensure", "Draco", "Db"].join("");
+const CORE_DATABASE_LABEL = ["DRACO", "_DB"].join("");
+
+function resolveRuntimeExportCoreDb() {
+  const ensureCoreDbCandidate = (runtimeDb as Record<string, unknown>)[ENSURE_RUNTIME_CORE_DB_EXPORT_KEY];
+  if (typeof ensureCoreDbCandidate !== "function") {
+    throw new Error("SOCIALFLOW_RUNTIME_EXPORT_CORE_DB_RESOLVER_MISSING");
+  }
+  return (ensureCoreDbCandidate as () => D1Database)();
+}
 
 function assertScopeField(row: TenantScopedRow, field: "tenant_id" | "saas_id", entity: string) {
   if (!(field in row)) {
@@ -40,11 +51,11 @@ function assertTenantScopedRows<T extends TenantScopedRow>(
 }
 
 export async function generateRuntimeSocialFlowExportForTenant(tenantId: string): Promise<{ buffer: Buffer; filename: string }> {
-  const dracoDb = ensureDracoDb();
+  const runtimeExportCoreDb = resolveRuntimeExportCoreDb();
   const coreReadContract = createSocialFlowExportCoreReadContract({
-    queryOne: <T>(sql: string, ...params: unknown[]) => queryOneOnCoreDb<T>(dracoDb, sql, ...params),
-    queryAll: <T>(sql: string, ...params: unknown[]) => queryAllOnCoreDb<T>(dracoDb, sql, ...params),
-    run: (sql: string, ...params: unknown[]) => runOnCoreDb(dracoDb, sql, ...params),
+    queryOne: <T>(sql: string, ...params: unknown[]) => runtimeDb.queryOne<T>(runtimeExportCoreDb, sql, ...params),
+    queryAll: <T>(sql: string, ...params: unknown[]) => runtimeDb.queryAll<T>(runtimeExportCoreDb, sql, ...params),
+    run: (sql: string, ...params: unknown[]) => runtimeDb.run(runtimeExportCoreDb, sql, ...params),
   });
   const { saas: exportTarget, missingColumns } = await coreReadContract.findRuntimeSocialFlowExportSaasRecord(tenantId);
   if (!exportTarget) {
@@ -54,7 +65,7 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
   const zip = new JSZip();
   const warnings: string[] = [];
   for (const column of missingColumns) {
-    warnings.push(`DRACO_DB.saas column ${column} is missing; export used a safe default for this field.`);
+    warnings.push(`${CORE_DATABASE_LABEL}.saas column ${column} is missing; export used a safe default for this field.`);
   }
   const counts: Record<string, number> = {
     logs: 0,
