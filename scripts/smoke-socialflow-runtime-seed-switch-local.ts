@@ -48,6 +48,13 @@ type SetupStatusResponse = {
   };
 };
 
+type SaasIdentityAssertionInput = {
+  actualSaasId: string | null | undefined;
+  label: "social-first" | "core-fallback";
+  allowedSaasIds: string[];
+  forbiddenSaasIds?: string[];
+};
+
 const CORE_SLUGS = ["socialflow", "socialflows"] as const;
 const RUNTIME_COOKIE_HINT = "socialflow";
 const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
@@ -236,6 +243,41 @@ function resolveSessionCookie(setCookies: string[]): string {
 
 function resolveOppositeSlug(slug: "socialflow" | "socialflows"): "socialflow" | "socialflows" {
   return slug === "socialflow" ? "socialflows" : "socialflow";
+}
+
+function normalizeSaasIdentitySet(values: string[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const value of values) {
+    const next = value.trim();
+    if (!next || seen.has(next)) continue;
+    seen.add(next);
+    normalized.push(next);
+  }
+  return normalized;
+}
+
+function assertSaasIdentity(input: SaasIdentityAssertionInput): string {
+  const actual = input.actualSaasId?.trim() ?? "";
+  if (!actual) {
+    throw new Error(`SOCIALFLOW_RUNTIME_SEED_SMOKE_${input.label.toUpperCase().replace("-", "_")}_SAAS_ID_MISSING`);
+  }
+
+  const allowed = normalizeSaasIdentitySet(input.allowedSaasIds);
+  if (!allowed.includes(actual)) {
+    throw new Error(
+      `SOCIALFLOW_RUNTIME_SEED_SMOKE_${input.label.toUpperCase().replace("-", "_")}_UNEXPECTED_SAAS_ID:${actual} allowed=[${allowed.join(",")}]`,
+    );
+  }
+
+  const forbidden = normalizeSaasIdentitySet(input.forbiddenSaasIds ?? []);
+  if (forbidden.includes(actual)) {
+    throw new Error(
+      `SOCIALFLOW_RUNTIME_SEED_SMOKE_${input.label.toUpperCase().replace("-", "_")}_FORBIDDEN_SAAS_ID:${actual} forbidden=[${forbidden.join(",")}]`,
+    );
+  }
+
+  return actual;
 }
 
 function buildRuntimeId(prefix: string): string {
@@ -449,13 +491,6 @@ async function readSetupStatus(
   return JSON.parse(body) as SetupStatusResponse;
 }
 
-function assertExpectedProfileSaasId(profile: ProfileResponse, expectedSaasId: string, label: "social-first" | "core-fallback"): void {
-  const actual = profile.profile?.saasId?.trim();
-  if (actual !== expectedSaasId) {
-    throw new Error(`SOCIALFLOW_RUNTIME_SEED_SMOKE_${label.toUpperCase().replace("-", "_")}_UNEXPECTED_SAAS_ID:${actual ?? "null"}!=${expectedSaasId}`);
-  }
-}
-
 function assertSetupStatusShape(setup: SetupStatusResponse, expectedTenantId: string, expectedSaasId: string): void {
   if (!setup.ok || !setup.status) {
     throw new Error("SOCIALFLOW_RUNTIME_SEED_SMOKE_SETUP_STATUS_INVALID_PAYLOAD");
@@ -572,11 +607,16 @@ export async function runSmokeSocialflowRuntimeSeedSwitchLocal(
 
     console.log("\n[SocialFlow Runtime Seed Switch Smoke] 6/8 validate profile route with switch ON (social-first)");
     const socialFirstProfile = await readProfile(options, session, coreFixture.tenantId);
-    assertExpectedProfileSaasId(socialFirstProfile, coreFixture.socialSlug, "social-first");
-    const socialFirstSetup = await readSetupStatus(options, session, coreFixture.tenantId, coreFixture.socialSlug);
-    assertSetupStatusShape(socialFirstSetup, coreFixture.tenantId, coreFixture.socialSlug);
+    const socialFirstSaasId = assertSaasIdentity({
+      actualSaasId: socialFirstProfile.profile?.saasId,
+      label: "social-first",
+      allowedSaasIds: [coreFixture.socialSlug, socialSeed.saasId],
+      forbiddenSaasIds: [coreFixture.coreSlug, coreFixture.coreSaasId],
+    });
+    const socialFirstSetup = await readSetupStatus(options, session, coreFixture.tenantId, socialFirstSaasId);
+    assertSetupStatusShape(socialFirstSetup, coreFixture.tenantId, socialFirstSaasId);
     console.log(
-      `EVIDENCE social-first profileSaasId=${socialFirstProfile.profile?.saasId ?? "null"} expected=${coreFixture.socialSlug} brandName=${socialFirstProfile.profile?.brandName ?? "unknown"}`,
+      `EVIDENCE social-first profileSaasId=${socialFirstSaasId} allowed=[${coreFixture.socialSlug},${socialSeed.saasId}] forbidden=[${coreFixture.coreSlug},${coreFixture.coreSaasId}] brandName=${socialFirstProfile.profile?.brandName ?? "unknown"}`,
     );
 
     console.log("\n[SocialFlow Runtime Seed Switch Smoke] 7/8 validate core fallback when SOCIAL_DB seed is inactive");
@@ -591,11 +631,21 @@ export async function runSmokeSocialflowRuntimeSeedSwitchLocal(
     cleanupRuntimeWorkspace(options, coreFixture.tenantId);
 
     const fallbackProfile = await readProfile(options, session, coreFixture.tenantId);
-    assertExpectedProfileSaasId(fallbackProfile, coreFixture.coreSlug, "core-fallback");
-    const fallbackSetup = await readSetupStatus(options, session, coreFixture.tenantId, coreFixture.coreSlug);
-    assertSetupStatusShape(fallbackSetup, coreFixture.tenantId, coreFixture.coreSlug);
+    const fallbackSaasId = assertSaasIdentity({
+      actualSaasId: fallbackProfile.profile?.saasId,
+      label: "core-fallback",
+      allowedSaasIds: [coreFixture.coreSlug, coreFixture.coreSaasId],
+      forbiddenSaasIds: [coreFixture.socialSlug, socialSeed.saasId],
+    });
+    if (fallbackSaasId === socialFirstSaasId) {
+      throw new Error(
+        `SOCIALFLOW_RUNTIME_SEED_SMOKE_FALLBACK_NOT_EFFECTIVE:same_saas_id=${fallbackSaasId}`,
+      );
+    }
+    const fallbackSetup = await readSetupStatus(options, session, coreFixture.tenantId, fallbackSaasId);
+    assertSetupStatusShape(fallbackSetup, coreFixture.tenantId, fallbackSaasId);
     console.log(
-      `EVIDENCE core-fallback profileSaasId=${fallbackProfile.profile?.saasId ?? "null"} expected=${coreFixture.coreSlug} brandName=${fallbackProfile.profile?.brandName ?? "unknown"}`,
+      `EVIDENCE core-fallback profileSaasId=${fallbackSaasId} allowed=[${coreFixture.coreSlug},${coreFixture.coreSaasId}] forbidden=[${coreFixture.socialSlug},${socialSeed.saasId}] brandName=${fallbackProfile.profile?.brandName ?? "unknown"}`,
     );
   } finally {
     console.log("\n[SocialFlow Runtime Seed Switch Smoke] 8/8 cleanup local smoke fixtures (best effort)");

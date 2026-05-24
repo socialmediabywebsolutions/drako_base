@@ -107,6 +107,10 @@ pnpm tsx scripts/smoke-socialflow-runtime-seed-switch-local.ts --base-url=http:/
 
 Expected smoke evidence:
 - `EVIDENCE social-first ...` when active seed exists in `SOCIAL_DB`.
+: social-first accepts explicit SocialFlow identities (`slug` alias or social seed `saas_id`) and rejects core identities.
 - `EVIDENCE core-fallback ...` when seed is inactive and core fallback is used.
+: core-fallback accepts explicit core identities (`slug` alias or core `saas_id`) and rejects social identities.
+- `SOCIALFLOW_RUNTIME_SEED_SMOKE_FALLBACK_NOT_EFFECTIVE` must NOT appear.
+: if it appears, social-first and fallback resolved to the same identity and switch behavior is not proven.
 
 The smoke is local-only, fail-closed, does not use remote D1, and does not change switch defaults.
