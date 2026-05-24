@@ -1,6 +1,7 @@
 import { env } from "@/lib/cf";
 
 type LegacyStrategicDossierRow = any;
+type LegacyAgentWorkLogRow = any;
 
 function resolveLegacyActionsCoreDb() {
   const bindings = env();
@@ -73,6 +74,13 @@ export function createSocialFlowLegacyActionsCoreAdapter() {
       ).bind(tenantId).first<LegacyStrategicDossierRow>();
     },
 
+    async findLatestActiveStrategicDossier(tenantId: string): Promise<LegacyStrategicDossierRow | null> {
+      const db = requireLegacyActionsCoreDb();
+      return db.prepare(
+        `SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
+      ).bind(tenantId).first<LegacyStrategicDossierRow>();
+    },
+
     async activateStrategicDossiersForTenant(input: { tenantId: string; updatedAtIso: string }) {
       const db = requireLegacyActionsCoreDb();
       await db.prepare(
@@ -85,6 +93,15 @@ export function createSocialFlowLegacyActionsCoreAdapter() {
       await db.prepare(
         `UPDATE tenants SET materialization_step = ? WHERE id = ?`,
       ).bind(input.step, input.tenantId).run();
+    },
+
+    async listLatestAgentWorkLogs(tenantId: string, limit = 10): Promise<LegacyAgentWorkLogRow[]> {
+      const db = requireLegacyActionsCoreDb();
+      const { results } = await db.prepare(
+        `SELECT * FROM agent_work_logs WHERE tenant_id = ? ORDER BY created_at DESC LIMIT ?`,
+      ).bind(tenantId, limit).all<LegacyAgentWorkLogRow>();
+
+      return results ?? [];
     },
   };
 }

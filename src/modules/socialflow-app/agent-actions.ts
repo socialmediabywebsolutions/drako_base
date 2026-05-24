@@ -1,16 +1,13 @@
 'use server';
 
-import { env } from '@/lib/cf';
 import { runMarketingAgent } from '@/lib/agents/marketing';
 import { runSEOAgent } from '@/lib/agents/seo';
+import { createSocialFlowLegacyActionsCoreAdapter, isLegacyActionsCoreDbAvailable } from '@/lib/socialflow/contracts/legacy-actions-core';
 
 async function getContext(tenantId: string) {
-  const bindings = env();
-  if (!bindings?.DRACO_DB) return null;
-
-  const dossierRow = await bindings.DRACO_DB.prepare(
-    `SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
-  ).bind(tenantId).first<any>();
+  if (!isLegacyActionsCoreDbAvailable()) return null;
+  const legacyCoreAdapter = createSocialFlowLegacyActionsCoreAdapter();
+  const dossierRow = await legacyCoreAdapter.findLatestActiveStrategicDossier(tenantId);
 
   if (!dossierRow) return null;
 
@@ -45,12 +42,9 @@ export async function executeAgentCommand(command: string, tenantId: string) {
 }
 
 export async function getAgentWorkLogs(tenantId: string) {
-  const bindings = env();
-  if (!bindings?.DRACO_DB) return [];
-
-  const { results } = await bindings.DRACO_DB.prepare(
-    `SELECT * FROM agent_work_logs WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 10`,
-  ).bind(tenantId).all();
+  if (!isLegacyActionsCoreDbAvailable()) return [];
+  const legacyCoreAdapter = createSocialFlowLegacyActionsCoreAdapter();
+  const results = await legacyCoreAdapter.listLatestAgentWorkLogs(tenantId, 10);
 
   return results.map((row: any) => ({
     ...row,
