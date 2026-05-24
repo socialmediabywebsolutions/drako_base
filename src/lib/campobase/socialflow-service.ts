@@ -13,16 +13,14 @@ import {
   type AutomationExecutionResult,
   type AutomationRegistration,
 } from "@/lib/automation-core";
-import { runSocialFlowAutomationContract } from "@/lib/socialflow/contracts/automation";
 import {
-  getSocialFlowOperatorObservability,
+  getSocialFlowCampobaseOperatorObservabilityContract,
+  runSocialFlowCampobaseAutomationContract,
+  runSocialFlowCampobaseOperatorActionContract,
   type SocialFlowOperatorObservability,
-} from "@/lib/socialflow/contracts/observability";
-import {
-  runSocialFlowOperatorAction,
   type SocialFlowOperatorAction,
   type SocialFlowOperatorActionResult,
-} from "@/lib/socialflow/contracts/operator-actions";
+} from "@/lib/socialflow/contracts/campobase";
 
 export const SOCIALFLOW_CONTENT_GENERATION_KEY = "socialflow.content_generation";
 export const SOCIALFLOW_HEALTH_CHECK_KEY = "socialflow.health_check";
@@ -283,7 +281,7 @@ function mapTriggerError(error: unknown): never {
 
 registerAutomationHandler(SOCIALFLOW_CONTENT_GENERATION_KEY, async ({ tenantId, saasId, config }) => {
   const normalized = normalizeContentGenerationConfig(config as Record<string, unknown> | null);
-  const result = await runSocialFlowAutomationContract({
+  const result = await runSocialFlowCampobaseAutomationContract({
     tenantId,
     saasId,
     niche: normalized.niche,
@@ -381,7 +379,7 @@ export async function registerCampoBaseSocialHealthCheck(
 export async function runCampoBaseSocialAutomation(
   input: CampoBaseSocialAutomationInput,
 ): Promise<CampoBaseSocialAutomationOutput> {
-  const result = await runSocialFlowAutomationContract({
+  const result = await runSocialFlowCampobaseAutomationContract({
     tenantId: input.tenantId,
     saasId: input.saasId,
     niche: input.niche,
@@ -570,7 +568,7 @@ export async function getCampoBaseSocialFlowObservability(
   tenantId: string,
   saasId: string,
 ): Promise<CampoBaseSocialFlowObservability> {
-  return getSocialFlowOperatorObservability({ tenantId, saasId });
+  return getSocialFlowCampobaseOperatorObservabilityContract({ tenantId, saasId });
 }
 
 export async function runCampoBaseSocialFlowOperatorAction(input: {
@@ -578,7 +576,7 @@ export async function runCampoBaseSocialFlowOperatorAction(input: {
   tenantId: string;
   saasId: string;
 }): Promise<CampoBaseSocialFlowOperatorActionResult> {
-  return runSocialFlowOperatorAction(input);
+  return runSocialFlowCampobaseOperatorActionContract(input);
 }
 
 export async function enableCampoBaseSocialAutomationForSaas(

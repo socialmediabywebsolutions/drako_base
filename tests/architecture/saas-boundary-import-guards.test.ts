@@ -216,6 +216,17 @@ const boundaryRules: BoundaryRule[] = [
 ];
 
 describe("SaaS boundary import guards", () => {
+  it("keeps Campamento Base SocialFlow service behind the campobase contract adapter", () => {
+    const socialflowServicePath = path.join(repoRoot, "src/lib/campobase/socialflow-service.ts");
+    const source = readFileSync(socialflowServicePath, "utf8");
+
+    expect(source).toContain('@/lib/socialflow/contracts/campobase');
+    expect(source).not.toContain('@/lib/socialflow/contracts/automation');
+    expect(source).not.toContain('@/lib/socialflow/contracts/observability');
+    expect(source).not.toContain('@/lib/socialflow/contracts/operator-actions');
+    expect(source).not.toContain('@/lib/socialflow/repository');
+  });
+
   it("blocks prohibited imports between Campamento Base, operator, products and shared runtime", () => {
     const violations = collectBoundaryViolations(boundaryRules);
 
