@@ -13,10 +13,9 @@ jobs:
     steps:
       - name: Explain canonical artifact matrix deploy
         run: |
-          echo "ARCHIVED: .github/workflows/build-worker.yml is no longer an active deployment path."
-          echo "Canonical workflow: .github/workflows/drako-factory-deploy.yml"
-          echo "Reason: Drako now uses the artifact matrix deploy lane as the only valid root OpenNext/Workers deployment path."
+          echo "GLOBAL_WORKER_DEPLOY_ARCHIVED: .github/workflows/build-worker.yml is archived and cannot deploy."
+          echo "Use .github/workflows/drako-factory-deploy.yml as the only valid artifact matrix deploy lane."
           echo "No deployment was executed."
           echo "No artifacts were uploaded."
           echo "No production resources were touched."
-          exit 0
+          exit 1

@@ -134,7 +134,6 @@ jobs:
       # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
       - name: Upload artifact matrix skeleton manifest
         if: ${{ false }}
-        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: open-next-artifact-matrix-${{ matrix.product }}
@@ -377,7 +376,6 @@ jobs:
       # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
       - name: Upload worker and build logs (audit)
         if: ${{ false }}
-        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: open-next-build
@@ -393,7 +391,6 @@ jobs:
       # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
       - name: Upload Drakos dedicated artifact
         if: ${{ false }}
-        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: open-next-drakos-build
@@ -404,7 +401,6 @@ jobs:
       # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
       - name: Upload SocialFlow standalone artifact
         if: ${{ false }}
-        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: open-next-socialflows-standalone-build
@@ -415,7 +411,6 @@ jobs:
       # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
       - name: Upload Bases dedicated artifact
         if: ${{ false }}
-        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: open-next-bases-build
@@ -426,7 +421,6 @@ jobs:
       # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
       - name: Upload Mentoria dedicated artifact
         if: ${{ false }}
-        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: open-next-mentorias-build
