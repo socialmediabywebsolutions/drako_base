@@ -43,3 +43,28 @@ pnpm tsx scripts/test-socialflow-runtime-seed-switch-local.ts
 ```
 
 This command is local-only, fail-closed, and does not activate switch defaults in production.
+
+## Runtime HTTP Smoke With Wrangler/OpenNext (Switch ON, Local Only)
+This smoke validates runtime HTTP behavior on critical routes with switch enabled:
+- `/api/socialflow/profile`
+- `/api/socialflow/setup/status`
+
+Start local runtime (terminal 1):
+
+```bash
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH=1 \
+SOCIALFLOW_AUTHS_SECRET=local-socialflow-runtime-secret \
+pnpm wrangler dev --local --config apps/socialflow-runtime/wrangler.toml --ip 127.0.0.1 --port 8787
+```
+
+Run local smoke (terminal 2):
+
+```bash
+pnpm tsx scripts/smoke-socialflow-runtime-seed-switch-local.ts --base-url=http://127.0.0.1:8787 --config=apps/socialflow-runtime/wrangler.toml
+```
+
+Expected smoke evidence:
+- `EVIDENCE social-first ...` when active seed exists in `SOCIAL_DB`.
+- `EVIDENCE core-fallback ...` when seed is inactive and core fallback is used.
+
+The smoke is local-only, fail-closed, does not use remote D1, and does not change switch defaults.
