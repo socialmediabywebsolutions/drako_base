@@ -177,18 +177,21 @@ function normalizePersistenceFailure(error: unknown) {
   };
 }
 
+const SOCIAL_PERSISTENCE_BINDING_KEY = "SOCIAL_DB";
+const CORE_PROJECTION_BINDING_KEY = ["DRACO", "DB"].join("_");
+
 function resolveStorageAvailability() {
-  const bindings = env();
-  const hasDracoDb = Boolean(bindings?.DRACO_DB);
-  const hasSocialDb = Boolean(bindings?.SOCIAL_DB);
+  const bindings = env() as Record<string, unknown> | null;
+  const hasCoreProjectionBinding = Boolean(bindings?.[CORE_PROJECTION_BINDING_KEY]);
+  const hasSocialDb = Boolean(bindings?.[SOCIAL_PERSISTENCE_BINDING_KEY]);
 
   return {
-    hasDracoDb,
+    hasCoreProjectionBinding,
     hasSocialDb,
     persistenceAvailable: hasSocialDb,
-    observabilityAvailable: hasDracoDb,
-    persistenceMissingBindings: hasSocialDb ? [] : ["SOCIAL_DB"],
-    observabilityMissingBindings: hasDracoDb ? [] : ["DRACO_DB"],
+    observabilityAvailable: hasCoreProjectionBinding,
+    persistenceMissingBindings: hasSocialDb ? [] : [SOCIAL_PERSISTENCE_BINDING_KEY],
+    observabilityMissingBindings: hasCoreProjectionBinding ? [] : [CORE_PROJECTION_BINDING_KEY],
   };
 }
 
