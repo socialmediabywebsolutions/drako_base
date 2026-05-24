@@ -34,3 +34,12 @@ SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH=1 npx vitest run tests/lib/socialf
 ```
 
 This does not change production defaults and does not modify deploy/workflow configuration.
+
+## Controlled Switch-On Local Test (No Prod)
+To run the full local controlled test (baseline validation + switch-on contract suite):
+
+```bash
+pnpm tsx scripts/test-socialflow-runtime-seed-switch-local.ts
+```
+
+This command is local-only, fail-closed, and does not activate switch defaults in production.
