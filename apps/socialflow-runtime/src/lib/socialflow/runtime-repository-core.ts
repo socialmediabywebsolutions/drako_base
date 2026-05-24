@@ -1,4 +1,4 @@
-import { DatabaseUnavailableError, ensureDracoDb, ensureSocialDb, queryAll, queryOne, run, runDetailed } from "../db/runtime-db";
+import { ensureSocialDb, queryAll, queryOne, run, runDetailed } from "../db/runtime-db";
 import { redactAuthMeta } from "./token-encryption";
 import type { RuntimeChannelProfile, RuntimeSocialAccount, RuntimeSocialCampaign, RuntimeSocialPost, RuntimeSocialProvider } from "./contracts";
 
@@ -73,17 +73,9 @@ type ProfileStoreRow = {
   updated_at: string;
 };
 
-type SaasSeedRow = {
-  id: string;
-  slug: string;
-  name: string;
-  blueprint_snapshot: string | null;
-};
-
 const CHANNEL_PROFILE_TABLE = "socialflow_runtime_channel_profiles";
 const CHANNEL_COMPETITORS_TABLE = "socialflow_runtime_channel_competitors";
 const CHANNEL_ASSETS_TABLE = "socialflow_runtime_channel_assets";
-const SOCIALFLOW_EXPORT_SLUGS = ["socialflow", "socialflows"] as const;
 const DEFAULT_PROFILE_CHANNEL_NAME = "LinkedIn";
 const schemaInitCache = new WeakMap<D1Database, Promise<void>>();
 
@@ -98,7 +90,6 @@ export type RuntimeSocialContext = {
   tenantId: string;
   saasId: string;
   socialDb: D1Database;
-  dracoDb: D1Database | null;
 };
 
 export function nowIso() {
@@ -189,20 +180,10 @@ export async function resolveRuntimeSocialContext(input: { tenantId: string; saa
   const socialDb = ensureSocialDb();
   await ensureRuntimeSocialSchema(socialDb);
 
-  let dracoDb: D1Database | null = null;
-  try {
-    dracoDb = ensureDracoDb();
-  } catch (error) {
-    if (!(error instanceof DatabaseUnavailableError)) {
-      throw error;
-    }
-  }
-
   return {
     tenantId,
     saasId: normalizeSaasId(input.saasId),
     socialDb,
-    dracoDb,
   } satisfies RuntimeSocialContext;
 }
 
@@ -342,35 +323,6 @@ export async function ensureRuntimeWorkspaceChannel(context: RuntimeSocialContex
   }
 
   return ensureRuntimeChannelForProvider(context, "LINKEDIN");
-}
-
-export async function resolveRuntimeSocialSaasSeed(tenantId: string): Promise<SaasSeedRow | null> {
-  let db: D1Database;
-  try {
-    db = ensureDracoDb();
-  } catch {
-    return null;
-  }
-
-  try {
-    return await queryOne<SaasSeedRow>(
-      db,
-      `SELECT id, slug, name, blueprint_snapshot
-       FROM saas
-       WHERE tenant_id = ? AND lower(slug) IN (?, ?)
-       ORDER BY datetime(created_at) DESC
-       LIMIT 1`,
-      tenantId,
-      SOCIALFLOW_EXPORT_SLUGS[0],
-      SOCIALFLOW_EXPORT_SLUGS[1],
-    );
-  } catch (error) {
-    console.warn("SOCIALFLOW_RUNTIME_SAAS_SEED_UNAVAILABLE", {
-      tenantId,
-      message: error instanceof Error ? error.message : String(error),
-    });
-    return null;
-  }
 }
 
 export async function listRuntimeProfileStoreRows(context: RuntimeSocialContext, tableName: typeof CHANNEL_COMPETITORS_TABLE | typeof CHANNEL_ASSETS_TABLE) {

@@ -190,7 +190,11 @@ const temporaryAllowlist: AllowlistEntry[] = [
     note: ALLOWLIST_TODO_COMMENT,
   },
   // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
-  { file: "apps/socialflow-runtime/src/lib/socialflow/runtime-repository-core.ts", rules: ["direct-ensure-draco-db", "direct-draco-db-variable", "sql-core-saas"], note: ALLOWLIST_TODO_COMMENT },
+  {
+    file: "apps/socialflow-runtime/src/lib/socialflow/contracts/runtime-seed-contract.ts",
+    rules: ["direct-ensure-draco-db", "sql-core-saas"],
+    note: ALLOWLIST_TODO_COMMENT,
+  },
   // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
   { file: "apps/socialflow-runtime/src/lib/socialflow/exports-service.test.ts", rules: ["direct-ensure-draco-db"], note: ALLOWLIST_TODO_COMMENT },
 ];

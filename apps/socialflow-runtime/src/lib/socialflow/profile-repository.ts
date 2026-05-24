@@ -8,11 +8,11 @@ import {
   nowIso,
   parseJsonRecord,
   resolveRuntimeSocialContext,
-  resolveRuntimeSocialSaasSeed,
   SocialContextError,
   upsertRuntimeProfileStoreRow,
   upsertRuntimeStoreEntity,
 } from "./runtime-repository-core";
+import { resolveRuntimeSocialSaasSeedContract } from "./contracts/runtime-seed-contract";
 import { normalizeRuntimeCompetitorPatch, normalizeRuntimeProfilePatch } from "./validators";
 
 type ProfileStoreRow = {
@@ -138,7 +138,7 @@ function buildDefaultCompetitor(channelId: string, patch: Partial<RuntimeChannel
 }
 
 async function resolveProfileContext(tenantId: string) {
-  const seed = await resolveRuntimeSocialSaasSeed(tenantId);
+  const seed = await resolveRuntimeSocialSaasSeedContract(tenantId);
   const saasId = seed?.slug ?? "socialflow";
   const context = await resolveRuntimeSocialContext({ tenantId, saasId });
   const channelId = await ensureRuntimeWorkspaceChannel(context);
