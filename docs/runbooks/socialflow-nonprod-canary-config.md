@@ -47,6 +47,77 @@ After creation:
 5. Do not reuse production database ids.
 6. Do not use database names containing `prod`.
 
+## Manual D1 Nonprod Creation And Placeholder Replacement
+
+Do not run these commands during repository-only prep phases. They are the manual operator commands for a later Cloudflare nonprod provisioning step:
+
+```bash
+wrangler d1 create drako_db_socialflow_canary
+wrangler d1 create saas_socialflows_canary_db
+wrangler d1 create saas_socialflow_auths_canary_db
+wrangler d1 create saas_socialflows_registry_canary_db
+```
+
+Expected binding map:
+
+| Binding | D1 database_name | Purpose |
+| --- | --- | --- |
+| `DRACO_DB` | `drako_db_socialflow_canary` | Core/Campamento Base projection used only for nonprod fallback/parity. |
+| `SOCIAL_DB` | `saas_socialflows_canary_db` | SocialFlow-owned runtime seed, exports, OAuth projections, and legacy read models. |
+| `SOCIALFLOW_AUTHS_DB` | `saas_socialflow_auths_canary_db` | SocialFlow auth/OAuth nonprod state. |
+| `SAASES_DB` | `saas_socialflows_registry_canary_db` | SocialFlow SaaS registry/metadata projection if separated from `SOCIAL_DB`. |
+
+If architecture decides to keep `SAASES_DB` collapsed into `SOCIAL_DB` for nonprod, document that decision in the phase notes and still keep the `SAASES_DB` binding explicit in config.
+
+After each `wrangler d1 create ...` command, Cloudflare prints a `database_id`. Copy only those real non-production ids into:
+
+- `apps/socialflow-runtime/wrangler.toml`
+- `workers/socialflows-runtime-canary/wrangler.workers.toml`
+
+Replace only the `database_id` values that currently start with `00000000-0000-4000-8000-`. Keep the matching `database_name` aligned to the nonprod names above.
+
+Do not touch:
+
+- production config in `workers/socialflows/wrangler.workers.toml`;
+- any `.github/workflows/**` file;
+- any switch value;
+- routes, runtime behavior, payloads, or OAuth logic.
+
+Keep this line unchanged after replacing real nonprod ids:
+
+```toml
+SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"
+```
+
+Keep all switches OFF:
+
+```toml
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "0"
+SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
+SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "0"
+SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
+```
+
+Then run:
+
+```bash
+pnpm tsx scripts/check-socialflow-nonprod-canary-config.ts
+```
+
+Expected status after all placeholders are replaced with real non-production ids:
+
+```text
+NON_DEPLOYABLE_REAL_NONPROD_CONFIG
+```
+
+The guard must not report:
+
+- `NON_DEPLOYABLE_PLACEHOLDER_CONFIG`, because that means placeholder ids remain;
+- `DEPLOYABLE_REAL_NONPROD_CONFIG`, unless a later explicit deployability phase approves it;
+- any error mentioning `prod`, productive ids, switches not OFF, missing bindings, or missing rollback state.
+
+If the guard still reports placeholders, check the `placeholders` array in the JSON output. It lists exactly which bindings still need real non-production `database_id` values.
+
 ## Required Switch Defaults
 
 All switches must stay OFF by default:
@@ -112,12 +183,13 @@ Future nonprod activation should happen in this order:
 1. Create isolated non-production D1 databases.
 2. Replace placeholder ids with real non-production ids.
 3. Run the nonprod canary config guard.
-4. Apply migrations `0187`, `0188`, `0189`, and `0190` to nonprod only.
-5. Run backfill in nonprod.
-6. Run strict parity in nonprod.
-7. Run smoke in nonprod with all switches OFF.
-8. Activate exactly one switch.
-9. Run smoke for that switch.
-10. Roll back to switch OFF.
+4. Confirm status is `NON_DEPLOYABLE_REAL_NONPROD_CONFIG`.
+5. Apply migrations `0187`, `0188`, `0189`, and `0190` to nonprod only in a later remote-approved phase.
+6. Run backfill in nonprod in a later remote-approved phase.
+7. Run strict parity in nonprod in a later remote-approved phase.
+8. Run smoke in nonprod with all switches OFF.
+9. Activate exactly one switch, starting with runtime seed.
+10. Run smoke for that switch.
+11. Roll back to switch OFF.
 
 OAuth should be the last or penultimate switch because it touches connection state, token metadata, and encryption-sensitive data.
