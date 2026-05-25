@@ -1,9 +1,11 @@
 import JSZip from "jszip";
 import {
   createSocialFlowExportCoreReadContract,
+  createSocialFlowExportSocialReadPrepContract,
   type ExportCoreAgentWorkLog as AgentWorkLog,
   type ExportCoreEconomicEvent as EconomicEvent,
   type ExportCoreOrchestratorMessage as OrchestratorMessage,
+  type SocialFlowPreparedExportPayload,
 } from "@/lib/socialflow/contracts/export-core-read";
 import * as runtimeDb from "../db/runtime-db";
 
@@ -13,7 +15,9 @@ type TenantScopedRow = {
 };
 
 const ENSURE_RUNTIME_CORE_DB_EXPORT_KEY = ["ensure", "Draco", "Db"].join("");
+const ENSURE_RUNTIME_SOCIAL_DB_EXPORT_KEY = ["ensure", "Social", "Db"].join("");
 const CORE_DATABASE_LABEL = ["DRACO", "_DB"].join("");
+const RUNTIME_EXPORT_SOCIAL_DB_PREP_WRITE_SWITCH = false;
 
 function resolveRuntimeExportCoreDb() {
   const ensureCoreDbCandidate = (runtimeDb as Record<string, unknown>)[ENSURE_RUNTIME_CORE_DB_EXPORT_KEY];
@@ -21,6 +25,18 @@ function resolveRuntimeExportCoreDb() {
     throw new Error("SOCIALFLOW_RUNTIME_EXPORT_CORE_DB_RESOLVER_MISSING");
   }
   return (ensureCoreDbCandidate as () => D1Database)();
+}
+
+function resolveRuntimeExportSocialDb(): D1Database | null {
+  const ensureSocialDbCandidate = (runtimeDb as Record<string, unknown>)[ENSURE_RUNTIME_SOCIAL_DB_EXPORT_KEY];
+  if (typeof ensureSocialDbCandidate !== "function") {
+    return null;
+  }
+  try {
+    return (ensureSocialDbCandidate as () => D1Database)();
+  } catch {
+    return null;
+  }
 }
 
 function assertScopeField(row: TenantScopedRow, field: "tenant_id" | "saas_id", entity: string) {
@@ -50,6 +66,38 @@ function assertTenantScopedRows<T extends TenantScopedRow>(
   return rows;
 }
 
+async function maybePrepareSocialOwnedExportReadModel(input: {
+  tenantId: string;
+  saasId: string;
+  slug: string;
+  payload: SocialFlowPreparedExportPayload;
+}): Promise<void> {
+  // TODO(SocialFlow DB separation): switch exports reads to SOCIAL_DB once backfill + parity checks pass.
+  if (!RUNTIME_EXPORT_SOCIAL_DB_PREP_WRITE_SWITCH) {
+    return;
+  }
+
+  const socialDb = resolveRuntimeExportSocialDb();
+  if (!socialDb) {
+    return;
+  }
+
+  const socialReadPrepContract = createSocialFlowExportSocialReadPrepContract({
+    queryOne: <T>(sql: string, ...params: unknown[]) => runtimeDb.queryOne<T>(socialDb, sql, ...params),
+    run: (sql: string, ...params: unknown[]) => runtimeDb.run(socialDb, sql, ...params),
+  });
+
+  await socialReadPrepContract.upsertPreparedExportReadModel({
+    id: crypto.randomUUID(),
+    tenantId: input.tenantId,
+    saasId: input.saasId,
+    slug: input.slug,
+    status: "ready",
+    sourceRevision: `${CORE_DATABASE_LABEL}:runtime-export:${new Date().toISOString()}`,
+    payload: input.payload,
+  });
+}
+
 export async function generateRuntimeSocialFlowExportForTenant(tenantId: string): Promise<{ buffer: Buffer; filename: string }> {
   const runtimeExportCoreDb = resolveRuntimeExportCoreDb();
   const coreReadContract = createSocialFlowExportCoreReadContract({
@@ -74,23 +122,27 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
   };
 
   const dossier = await coreReadContract.getStrategicDossier(tenantId);
+  const dossierJson = dossier ? JSON.stringify(dossier, null, 2) : "";
   if (dossier) {
     assertTenantScopedRows([dossier], { entity: "tenant_strategic_dossiers", tenantId });
-    zip.folder("dossier")?.file("dossier.json", JSON.stringify(dossier, null, 2));
+    zip.folder("dossier")?.file("dossier.json", dossierJson);
     warnings.push("dossier.pdf not found (storage not implemented)");
   } else {
     warnings.push("No active Strategic Dossier found for tenant");
   }
 
+  let blueprintJson = "{}";
   if (exportTarget.blueprint_snapshot) {
     try {
-      zip.folder("blueprint")?.file("blueprint.json", JSON.stringify(JSON.parse(exportTarget.blueprint_snapshot), null, 2));
+      blueprintJson = JSON.stringify(JSON.parse(exportTarget.blueprint_snapshot), null, 2);
+      zip.folder("blueprint")?.file("blueprint.json", blueprintJson);
     } catch {
+      blueprintJson = exportTarget.blueprint_snapshot;
       zip.folder("blueprint")?.file("blueprint.json", exportTarget.blueprint_snapshot);
       warnings.push("Blueprint snapshot was invalid JSON");
     }
   } else {
-    zip.folder("blueprint")?.file("blueprint.json", "{}");
+    zip.folder("blueprint")?.file("blueprint.json", blueprintJson);
     warnings.push("No blueprint_snapshot found in saas");
   }
 
@@ -157,7 +209,8 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
     requireSaasId: true,
   });
   counts.domains = domains.length;
-  zip.folder("domains")?.file("domain_status.json", JSON.stringify(domains, null, 2));
+  const domainsJson = JSON.stringify(domains, null, 2);
+  zip.folder("domains")?.file("domain_status.json", domainsJson);
 
   const meta = {
     saasId: exportTarget.id,
@@ -168,10 +221,27 @@ export async function generateRuntimeSocialFlowExportForTenant(tenantId: string)
     counts,
     warnings,
   };
-  zip.file("meta.json", JSON.stringify(meta, null, 2));
+  const metaJson = JSON.stringify(meta, null, 2);
+  zip.file("meta.json", metaJson);
 
   const buffer = await zip.generateAsync({ type: "nodebuffer" });
   const filename = `drako-export-${exportTarget.slug}-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.zip`;
+
+  await maybePrepareSocialOwnedExportReadModel({
+    tenantId,
+    saasId: exportTarget.id,
+    slug: exportTarget.slug,
+    payload: {
+      dossierJson,
+      blueprintJson,
+      workLogsCsv: `${workLogCsv}\n`,
+      orchestratorMessagesCsv: `${messagesCsv}\n`,
+      financialsCsv: `${financialsRows}\n`,
+      economicEventsCsv: `${economicRows}\n`,
+      domainsJson,
+      metaJson,
+    },
+  });
 
   await coreReadContract.recordExportGeneratedEvent({
     tenantId,

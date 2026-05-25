@@ -78,6 +78,38 @@ export type ExportCoreDomainRecord = {
   status: string;
 };
 
+export type SocialFlowExportReadModelStatus = "pending" | "ready" | "stale";
+
+export type SocialFlowExportReadModelRecord = {
+  id: string;
+  tenant_id: string;
+  saas_id: string;
+  slug: string;
+  status: SocialFlowExportReadModelStatus;
+  dossier_json: string;
+  blueprint_json: string;
+  work_logs_csv: string;
+  orchestrator_messages_csv: string;
+  financials_csv: string;
+  economic_events_csv: string;
+  domains_json: string;
+  meta_json: string;
+  source_revision: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SocialFlowPreparedExportPayload = {
+  dossierJson: string;
+  blueprintJson: string;
+  workLogsCsv: string;
+  orchestratorMessagesCsv: string;
+  financialsCsv: string;
+  economicEventsCsv: string;
+  domainsJson: string;
+  metaJson: string;
+};
+
 type CoreReadExecutor = {
   queryOne: <T>(sql: string, ...params: unknown[]) => Promise<T | null>;
   queryAll: <T>(sql: string, ...params: unknown[]) => Promise<T[]>;
@@ -87,6 +119,11 @@ type CoreReadExecutor = {
 type RuntimeColumnProjectionResult = {
   saas: ExportCoreSaasRecord | null;
   missingColumns: string[];
+};
+
+type SocialReadExecutor = {
+  queryOne: <T>(sql: string, ...params: unknown[]) => Promise<T | null>;
+  run: (sql: string, ...params: unknown[]) => Promise<boolean>;
 };
 
 function selectColumn(columns: Set<string>, name: string, fallbackSql: string) {
@@ -198,6 +235,101 @@ export function createSocialFlowExportCoreReadContract(executor: CoreReadExecuto
         input.saasId,
         input.payloadJson,
       );
+    },
+  };
+}
+
+export function createSocialFlowExportSocialReadPrepContract(executor: SocialReadExecutor) {
+  // TODO(SocialFlow DB separation): switch exports reads to SOCIAL_DB once backfill + parity checks pass.
+  return {
+    async getPreparedExportReadModel(tenantId: string, saasId: string): Promise<SocialFlowExportReadModelRecord | null> {
+      return executor.queryOne<SocialFlowExportReadModelRecord>(
+        `SELECT
+           id,
+           tenant_id,
+           saas_id,
+           slug,
+           status,
+           dossier_json,
+           blueprint_json,
+           work_logs_csv,
+           orchestrator_messages_csv,
+           financials_csv,
+           economic_events_csv,
+           domains_json,
+           meta_json,
+           source_revision,
+           created_at,
+           updated_at
+         FROM socialflow_export_read_models
+         WHERE tenant_id = ? AND saas_id = ?
+         ORDER BY datetime(updated_at) DESC, rowid DESC
+         LIMIT 1`,
+        tenantId,
+        saasId,
+      );
+    },
+
+    async upsertPreparedExportReadModel(input: {
+      id: string;
+      tenantId: string;
+      saasId: string;
+      slug: string;
+      status: SocialFlowExportReadModelStatus;
+      sourceRevision: string;
+      payload: SocialFlowPreparedExportPayload;
+    }): Promise<void> {
+      const success = await executor.run(
+        `INSERT INTO socialflow_export_read_models (
+          id,
+          tenant_id,
+          saas_id,
+          slug,
+          status,
+          dossier_json,
+          blueprint_json,
+          work_logs_csv,
+          orchestrator_messages_csv,
+          financials_csv,
+          economic_events_csv,
+          domains_json,
+          meta_json,
+          source_revision,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        ON CONFLICT(tenant_id, saas_id) DO UPDATE SET
+          slug = excluded.slug,
+          status = excluded.status,
+          dossier_json = excluded.dossier_json,
+          blueprint_json = excluded.blueprint_json,
+          work_logs_csv = excluded.work_logs_csv,
+          orchestrator_messages_csv = excluded.orchestrator_messages_csv,
+          financials_csv = excluded.financials_csv,
+          economic_events_csv = excluded.economic_events_csv,
+          domains_json = excluded.domains_json,
+          meta_json = excluded.meta_json,
+          source_revision = excluded.source_revision,
+          updated_at = excluded.updated_at`,
+        input.id,
+        input.tenantId,
+        input.saasId,
+        input.slug,
+        input.status,
+        input.payload.dossierJson,
+        input.payload.blueprintJson,
+        input.payload.workLogsCsv,
+        input.payload.orchestratorMessagesCsv,
+        input.payload.financialsCsv,
+        input.payload.economicEventsCsv,
+        input.payload.domainsJson,
+        input.payload.metaJson,
+        input.sourceRevision,
+      );
+
+      if (!success) {
+        throw new Error("SOCIALFLOW_EXPORT_PREPARED_READ_MODEL_UPSERT_FAILED");
+      }
     },
   };
 }
