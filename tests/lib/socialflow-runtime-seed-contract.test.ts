@@ -60,6 +60,7 @@ vi.mock("../../apps/socialflow-runtime/src/lib/db/runtime-db", () => ({
 }));
 
 import { resolveRuntimeSocialSaasSeedContract } from "../../apps/socialflow-runtime/src/lib/socialflow/contracts/runtime-seed-contract";
+import { setSocialFlowRuntimeEnv } from "../../apps/socialflow-runtime/src/lib/runtime-env";
 
 describe("socialflow runtime seed contract", () => {
   const tenantId = "tenant_socialflow_canary";
@@ -73,6 +74,7 @@ describe("socialflow runtime seed contract", () => {
     state.coreError = null;
     state.socialQueryCount = 0;
     state.coreQueryCount = 0;
+    setSocialFlowRuntimeEnv(null);
     delete process.env.SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH;
     vi.clearAllMocks();
   });
@@ -118,6 +120,56 @@ describe("socialflow runtime seed contract", () => {
     const seed = await resolveRuntimeSocialSaasSeedContract(tenantId);
 
     expect(seed?.id).toBe("saas_social_1");
+    expect(state.socialQueryCount).toBe(1);
+    expect(state.coreQueryCount).toBe(0);
+  });
+
+  it("uses SOCIAL_DB when switch is on via Cloudflare-like env binding", async () => {
+    setSocialFlowRuntimeEnv({
+      SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH: "1",
+    });
+    state.coreSeed = {
+      id: "saas_core_binding_1",
+      slug: "socialflow",
+      name: "Core Seed Binding",
+      blueprint_snapshot: null,
+    };
+    state.socialSeed = {
+      id: "saas_social_binding_1",
+      slug: "socialflow",
+      name: "Social Seed Binding",
+      blueprint_snapshot: null,
+      status: "active",
+    };
+
+    const seed = await resolveRuntimeSocialSaasSeedContract(tenantId);
+
+    expect(seed?.id).toBe("saas_social_binding_1");
+    expect(state.socialQueryCount).toBe(1);
+    expect(state.coreQueryCount).toBe(0);
+  });
+
+  it("uses SOCIAL_DB when switch is on via Cloudflare-like numeric env binding", async () => {
+    setSocialFlowRuntimeEnv({
+      SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH: 1 as unknown as string,
+    });
+    state.coreSeed = {
+      id: "saas_core_binding_num_1",
+      slug: "socialflow",
+      name: "Core Seed Binding Numeric",
+      blueprint_snapshot: null,
+    };
+    state.socialSeed = {
+      id: "saas_social_binding_num_1",
+      slug: "socialflow",
+      name: "Social Seed Binding Numeric",
+      blueprint_snapshot: null,
+      status: "active",
+    };
+
+    const seed = await resolveRuntimeSocialSaasSeedContract(tenantId);
+
+    expect(seed?.id).toBe("saas_social_binding_num_1");
     expect(state.socialQueryCount).toBe(1);
     expect(state.coreQueryCount).toBe(0);
   });

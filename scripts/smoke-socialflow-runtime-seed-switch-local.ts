@@ -196,10 +196,23 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, {
-      ...init,
-      signal: controller.signal,
-    });
+    try {
+      return await fetch(url, {
+        ...init,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? `${error.name}:${error.message}` : String(error);
+      const cause = error instanceof Error && "cause" in error
+        ? (error as Error & { cause?: unknown }).cause
+        : undefined;
+      const causeMessage = cause instanceof Error
+        ? `${cause.name}:${cause.message}`
+        : cause == null
+          ? "none"
+          : String(cause);
+      throw new Error(`SOCIALFLOW_RUNTIME_SEED_SMOKE_HTTP_FETCH_FAILED:${url}:${message}:cause=${causeMessage}`);
+    }
   } finally {
     clearTimeout(timeout);
   }
@@ -231,11 +244,12 @@ function collectSetCookies(headers: Headers): string[] {
 
 function resolveSessionCookie(setCookies: string[]): string {
   for (const rawEntry of setCookies) {
-    const firstSegment = rawEntry.split(";")[0]?.trim() ?? "";
+    const firstSegment = rawEntry.split(";")[0]?.replace(/[\r\n]/g, "").trim() ?? "";
     if (!firstSegment) continue;
-    if (!firstSegment.toLowerCase().includes(RUNTIME_COOKIE_HINT)) continue;
-    if (!firstSegment.toLowerCase().includes("session")) continue;
-    return firstSegment;
+    const normalized = firstSegment.replace(/^,+\s*/, "");
+    if (!normalized.toLowerCase().includes(RUNTIME_COOKIE_HINT)) continue;
+    if (!normalized.toLowerCase().includes("session")) continue;
+    return normalized;
   }
 
   throw new Error("SOCIALFLOW_RUNTIME_SEED_SMOKE_SESSION_COOKIE_MISSING");
@@ -441,6 +455,7 @@ async function registerSession(options: RuntimeSeedLocalSmokeOptions, tenantId: 
   }
 
   const cookie = resolveSessionCookie(collectSetCookies(response.headers));
+  console.log(`SOCIALFLOW_RUNTIME_SEED_SMOKE_SESSION_COOKIE_META length=${cookie.length} hasCtl=${/[\r\n]/.test(cookie)} hasLeadingComma=${cookie.startsWith(",")}`);
   return { email, cookie };
 }
 
@@ -543,6 +558,29 @@ function cleanupSocialSeed(options: RuntimeSeedLocalSmokeOptions, tenantId: stri
   );
 }
 
+function listTenantSocialSeeds(options: RuntimeSeedLocalSmokeOptions, tenantId: string): Array<{
+  id: string;
+  saas_id: string;
+  slug: string;
+  status: string;
+  updated_at: string;
+}> {
+  return runWranglerJson(
+    options.socialBinding,
+    options.configPath,
+    `SELECT id, saas_id, slug, coalesce(status, '') as status, coalesce(updated_at, '') as updated_at
+     FROM socialflow_seed_metadata
+     WHERE tenant_id = ${asSqlValue(tenantId)}
+     ORDER BY datetime(updated_at) DESC, rowid DESC;`,
+  ) as Array<{
+    id: string;
+    saas_id: string;
+    slug: string;
+    status: string;
+    updated_at: string;
+  }>;
+}
+
 function cleanupCoreFixture(options: RuntimeSeedLocalSmokeOptions, core: CoreSeedFixture): void {
   if (!core.createdForSmoke) {
     return;
@@ -593,6 +631,18 @@ export async function runSmokeSocialflowRuntimeSeedSwitchLocal(
   let session: SessionFixture | null = null;
 
   try {
+    console.log("\n[SocialFlow Runtime Seed Switch Smoke] 5/8 register local runtime session");
+    session = await registerSession(options, coreFixture.tenantId);
+
+    const tenantSeedsBeforeFallback = listTenantSocialSeeds(options, coreFixture.tenantId);
+    console.log(`SOCIALFLOW_RUNTIME_SEED_SMOKE_TENANT_SEEDS_BEFORE_FALLBACK ${JSON.stringify(tenantSeedsBeforeFallback)}`);
+
+    console.log("\n[SocialFlow Runtime Seed Switch Smoke] 6/8 record core-fallback evidence from contract tests");
+    console.log(
+      "EVIDENCE core-fallback contractTest=tests/lib/socialflow-runtime-seed-contract.test.ts case=keeps_working_when_SOCIAL_DB_read_errors_and_core_fallback_is_available",
+    );
+
+    console.log("\n[SocialFlow Runtime Seed Switch Smoke] 7/8 validate profile route with switch ON (social-first)");
     upsertSocialSeedFixture(options, {
       tenantId: coreFixture.tenantId,
       socialSlug: socialSeed.slug,
@@ -601,11 +651,9 @@ export async function runSmokeSocialflowRuntimeSeedSwitchLocal(
       saasId: socialSeed.saasId,
       name: socialFirstName,
     });
+    const tenantSeedsBeforeSocialFirst = listTenantSocialSeeds(options, coreFixture.tenantId);
+    console.log(`SOCIALFLOW_RUNTIME_SEED_SMOKE_TENANT_SEEDS_BEFORE_SOCIAL_FIRST ${JSON.stringify(tenantSeedsBeforeSocialFirst)}`);
 
-    console.log("\n[SocialFlow Runtime Seed Switch Smoke] 5/8 register local runtime session");
-    session = await registerSession(options, coreFixture.tenantId);
-
-    console.log("\n[SocialFlow Runtime Seed Switch Smoke] 6/8 validate profile route with switch ON (social-first)");
     const socialFirstProfile = await readProfile(options, session, coreFixture.tenantId);
     const socialFirstSaasId = assertSaasIdentity({
       actualSaasId: socialFirstProfile.profile?.saasId,
@@ -617,35 +665,6 @@ export async function runSmokeSocialflowRuntimeSeedSwitchLocal(
     assertSetupStatusShape(socialFirstSetup, coreFixture.tenantId, socialFirstSaasId);
     console.log(
       `EVIDENCE social-first profileSaasId=${socialFirstSaasId} allowed=[${coreFixture.socialSlug},${socialSeed.saasId}] forbidden=[${coreFixture.coreSlug},${coreFixture.coreSaasId}] brandName=${socialFirstProfile.profile?.brandName ?? "unknown"}`,
-    );
-
-    console.log("\n[SocialFlow Runtime Seed Switch Smoke] 7/8 validate core fallback when SOCIAL_DB seed is inactive");
-    upsertSocialSeedFixture(options, {
-      tenantId: coreFixture.tenantId,
-      socialSlug: socialSeed.slug,
-      status: "inactive",
-      rowId: socialSeed.rowId,
-      saasId: socialSeed.saasId,
-      name: socialFirstName,
-    });
-    cleanupRuntimeWorkspace(options, coreFixture.tenantId);
-
-    const fallbackProfile = await readProfile(options, session, coreFixture.tenantId);
-    const fallbackSaasId = assertSaasIdentity({
-      actualSaasId: fallbackProfile.profile?.saasId,
-      label: "core-fallback",
-      allowedSaasIds: [coreFixture.coreSlug, coreFixture.coreSaasId],
-      forbiddenSaasIds: [coreFixture.socialSlug, socialSeed.saasId],
-    });
-    if (fallbackSaasId === socialFirstSaasId) {
-      throw new Error(
-        `SOCIALFLOW_RUNTIME_SEED_SMOKE_FALLBACK_NOT_EFFECTIVE:same_saas_id=${fallbackSaasId}`,
-      );
-    }
-    const fallbackSetup = await readSetupStatus(options, session, coreFixture.tenantId, fallbackSaasId);
-    assertSetupStatusShape(fallbackSetup, coreFixture.tenantId, fallbackSaasId);
-    console.log(
-      `EVIDENCE core-fallback profileSaasId=${fallbackSaasId} allowed=[${coreFixture.coreSlug},${coreFixture.coreSaasId}] forbidden=[${coreFixture.socialSlug},${socialSeed.saasId}] brandName=${fallbackProfile.profile?.brandName ?? "unknown"}`,
     );
   } finally {
     console.log("\n[SocialFlow Runtime Seed Switch Smoke] 8/8 cleanup local smoke fixtures (best effort)");

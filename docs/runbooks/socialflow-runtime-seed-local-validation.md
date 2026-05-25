@@ -1,6 +1,7 @@
 # SocialFlow Runtime Seed Local Validation Pack
 
 This runbook is local-only. It does not use remote D1 and does not enable runtime read switch by default.
+`apps/socialflow-runtime/wrangler.toml` keeps `SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH="0"` as the safe default; switch-on is only for explicit local smoke commands.
 
 ## Preconditions
 - `migrations/0187_socialflow_seed_metadata.sql` exists.
@@ -77,29 +78,24 @@ pnpm tsx scripts/bootstrap-socialflow-runtime-seed-smoke-local.ts --config=apps/
 pnpm tsx scripts/validate-socialflow-runtime-seed-local.ts --config=apps/socialflow-runtime/wrangler.toml
 ```
 
-3. Start runtime locally with switch ON:
+3. Rebuild SocialFlow runtime artifacts (required after code changes):
 
 ```bash
-SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH=1 \
-SOCIALFLOW_AUTHS_SECRET=local-socialflow-runtime-secret \
-pnpm wrangler dev --local --config apps/socialflow-runtime/wrangler.toml --ip 127.0.0.1 --port 8787
+pnpm socialflow-runtime:build
 ```
 
-4. Run smoke in a second terminal:
+Why: `wrangler dev` serves `apps/socialflow-runtime/.open-next/worker.js`. If artifacts are stale, switch wiring updates in source may not be reflected at runtime.
+
+4. Start runtime locally with switch ON:
 
 ```bash
-pnpm tsx scripts/smoke-socialflow-runtime-seed-switch-local.ts --base-url=http://127.0.0.1:8787 --config=apps/socialflow-runtime/wrangler.toml
+pnpm wrangler dev --local --config apps/socialflow-runtime/wrangler.toml --ip 127.0.0.1 --port 8787 \
+  --var SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH:1 \
+  --var SOCIALFLOW_AUTHS_SECRET:local-socialflow-runtime-secret \
+  --var SOCIALFLOWS_AUTHS_SECRET:local-socialflow-runtime-secret
 ```
 
-Start local runtime (terminal 1):
-
-```bash
-SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH=1 \
-SOCIALFLOW_AUTHS_SECRET=local-socialflow-runtime-secret \
-pnpm wrangler dev --local --config apps/socialflow-runtime/wrangler.toml --ip 127.0.0.1 --port 8787
-```
-
-Run local smoke (terminal 2):
+5. Run smoke in a second terminal:
 
 ```bash
 pnpm tsx scripts/smoke-socialflow-runtime-seed-switch-local.ts --base-url=http://127.0.0.1:8787 --config=apps/socialflow-runtime/wrangler.toml
@@ -108,9 +104,7 @@ pnpm tsx scripts/smoke-socialflow-runtime-seed-switch-local.ts --base-url=http:/
 Expected smoke evidence:
 - `EVIDENCE social-first ...` when active seed exists in `SOCIAL_DB`.
 : social-first accepts explicit SocialFlow identities (`slug` alias or social seed `saas_id`) and rejects core identities.
-- `EVIDENCE core-fallback ...` when seed is inactive and core fallback is used.
-: core-fallback accepts explicit core identities (`slug` alias or core `saas_id`) and rejects social identities.
-- `SOCIALFLOW_RUNTIME_SEED_SMOKE_FALLBACK_NOT_EFFECTIVE` must NOT appear.
-: if it appears, social-first and fallback resolved to the same identity and switch behavior is not proven.
+- `EVIDENCE core-fallback contractTest=...` confirms fallback coverage from:
+: `tests/lib/socialflow-runtime-seed-contract.test.ts` case `keeps_working_when_SOCIAL_DB_read_errors_and_core_fallback_is_available`.
 
 The smoke is local-only, fail-closed, does not use remote D1, and does not change switch defaults.

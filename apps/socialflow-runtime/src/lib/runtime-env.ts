@@ -7,6 +7,8 @@ import {
   type SocialFlowRuntimeStringEnvKey,
 } from "./runtime-contract";
 
+export const SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH_ENV_KEY = "SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH";
+
 export type SocialFlowRuntimeEnv = {
   DRACO_DB?: D1Database;
   SOCIAL_DB?: D1Database;
@@ -31,6 +33,7 @@ export type SocialFlowRuntimeEnv = {
   SOCIALFLOW_CANARY_GATE_TOKEN?: string;
   SOCIALFLOW_TOKEN_ENCRYPTION_SECRET?: string;
   SOCIALFLOW_TOKEN_ENCRYPTION_SECRET_NEXT?: string;
+  SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH?: string;
 };
 
 let runtimeEnvOverride: SocialFlowRuntimeEnv | null = null;
@@ -52,7 +55,7 @@ function isNodeEnvFallbackAllowed() {
   );
 }
 
-function readNodeEnvValue(key: SocialFlowRuntimeStringEnvKey): string | undefined {
+function readNodeEnvValue(key: string): string | undefined {
   if (!isNodeEnvFallbackAllowed() || typeof process === "undefined" || !process.env) {
     return undefined;
   }
@@ -72,6 +75,17 @@ function sanitizeRuntimeEnv(input: unknown): SocialFlowRuntimeEnv | null {
   for (const [key, value] of Object.entries(candidate)) {
     if (isSocialFlowRuntimeBindingKey(key)) {
       (nextEnv as Record<SocialFlowRuntimeBindingKey, unknown>)[key] = value;
+      continue;
+    }
+
+    if (key === SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH_ENV_KEY) {
+      if (typeof value === "string" && value.trim()) {
+        nextEnv.SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = value.trim();
+      } else if (typeof value === "number" && Number.isFinite(value)) {
+        nextEnv.SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = String(value);
+      } else if (typeof value === "boolean") {
+        nextEnv.SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = value ? "1" : "0";
+      }
       continue;
     }
 
@@ -100,6 +114,11 @@ function resolveNodeEnvFallback(): SocialFlowRuntimeEnv | null {
     if (value) {
       (nextEnv as Record<SocialFlowRuntimeStringEnvKey, string>)[key] = value;
     }
+  }
+
+  const runtimeSeedSwitchValue = readNodeEnvValue(SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH_ENV_KEY);
+  if (runtimeSeedSwitchValue) {
+    nextEnv.SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = runtimeSeedSwitchValue;
   }
 
   return Object.keys(nextEnv).length > 0 ? nextEnv : null;

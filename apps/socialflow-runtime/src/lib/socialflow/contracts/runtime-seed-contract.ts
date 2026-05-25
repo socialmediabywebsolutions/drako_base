@@ -1,4 +1,9 @@
 import * as runtimeDb from "../../db/runtime-db";
+import { getCloudflareContextSafeSync } from "@/lib/cloudflare/runtime";
+import {
+  getSocialFlowRuntimeEnv,
+  SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH_ENV_KEY,
+} from "../../runtime-env";
 
 export type RuntimeSocialSaasSeed = {
   id: string;
@@ -15,7 +20,6 @@ const SOCIALFLOW_RUNTIME_SEED_SLUGS = ["socialflow", "socialflows"] as const;
 const ENSURE_CORE_DB_EXPORT_KEY = ["ensure", "Draco", "Db"].join("");
 const ENSURE_SOCIAL_DB_EXPORT_KEY = ["ensure", "Social", "Db"].join("");
 const RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = false;
-const RUNTIME_SEED_SOCIAL_DB_READ_SWITCH_ENV_KEY = "SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH";
 
 function resolveRuntimeSeedCoreDb(): D1Database | null {
   const ensureCoreDbCandidate = (runtimeDb as Record<string, unknown>)[ENSURE_CORE_DB_EXPORT_KEY];
@@ -54,8 +58,10 @@ async function resolveRuntimeSeedFromSocialDb(tenantId: string): Promise<Runtime
       socialDb,
       `SELECT saas_id as id, slug, coalesce(json_extract(metadata_json, '$.name'), slug) as name, NULL as blueprint_snapshot, lower(coalesce(status, '')) as status
        FROM socialflow_seed_metadata
-       WHERE tenant_id = ? AND lower(slug) IN (?, ?)
-       ORDER BY datetime(updated_at) DESC
+       WHERE tenant_id = ?
+         AND lower(slug) IN (?, ?)
+         AND lower(coalesce(status, '')) = 'active'
+       ORDER BY datetime(updated_at) DESC, rowid DESC
        LIMIT 1`,
       tenantId,
       SOCIALFLOW_RUNTIME_SEED_SLUGS[0],
@@ -85,10 +91,37 @@ async function resolveRuntimeSeedFromSocialDb(tenantId: string): Promise<Runtime
 }
 
 function isRuntimeSeedSocialDbReadEnabled(): boolean {
-  const envValue = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[
-    RUNTIME_SEED_SOCIAL_DB_READ_SWITCH_ENV_KEY
+  if (RUNTIME_SEED_SOCIAL_DB_READ_SWITCH) {
+    return true;
+  }
+
+  const directContextEnvValue = (
+    getCloudflareContextSafeSync() as { env?: Record<string, unknown> } | null
+  )?.env?.[SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH_ENV_KEY];
+  const runtimeEnvValue = (getSocialFlowRuntimeEnv() as Record<string, unknown> | null)?.[
+    SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH_ENV_KEY
   ];
-  return RUNTIME_SEED_SOCIAL_DB_READ_SWITCH || envValue === "1";
+  const processEnvValue = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[
+    SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH_ENV_KEY
+  ];
+
+  const rawValue = typeof directContextEnvValue === "string"
+    ? directContextEnvValue
+    : typeof directContextEnvValue === "number"
+      ? String(directContextEnvValue)
+      : typeof directContextEnvValue === "boolean"
+        ? (directContextEnvValue ? "1" : "0")
+        : typeof runtimeEnvValue === "string"
+          ? runtimeEnvValue
+          : typeof runtimeEnvValue === "number"
+            ? String(runtimeEnvValue)
+            : typeof runtimeEnvValue === "boolean"
+              ? (runtimeEnvValue ? "1" : "0")
+              : typeof processEnvValue === "string"
+                ? processEnvValue
+                : "";
+  const normalized = rawValue.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "on" || normalized === "yes";
 }
 
 export async function resolveRuntimeSocialSaasSeedContract(tenantId: string): Promise<RuntimeSocialSaasSeed | null> {
