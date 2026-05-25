@@ -2,6 +2,7 @@
 
 This runbook is local-only. It does not use remote D1, does not deploy, and does not activate any export read switch.
 `apps/socialflow-runtime/src/lib/socialflow/exports-service.ts` keeps `RUNTIME_EXPORT_SOCIAL_DB_PREP_WRITE_SWITCH = false` as the safe default.
+`SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH` remains OFF by default unless explicitly set for local tests.
 
 ## Preconditions
 - `migrations/0188_socialflow_export_read_models.sql` exists.
@@ -39,6 +40,12 @@ pnpm tsx scripts/check-socialflow-export-read-models-parity.ts --config=wrangler
 pnpm tsx scripts/check-socialflow-export-read-models-parity.ts --config=wrangler.workers.toml --allow-drift
 ```
 
+5. Optional local-only probe to force SOCIAL_DB read path in runtime exports:
+
+```bash
+SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH=1 npx vitest run apps/socialflow-runtime/src/lib/socialflow/exports-service.test.ts
+```
+
 ## Validation Pack (Automated Local Sequence)
 Run from repository root:
 
@@ -63,4 +70,5 @@ If any step fails, the script exits non-zero (fail-closed).
 - No remote D1 usage (`--remote` is not used).
 - No deploy/workflow changes.
 - No switch activation for SOCIAL_DB export reads.
+- `SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH` is only for explicit local testing; do not set it in production defaults.
 - No changes to export ZIP format, filenames, or payload contracts.
