@@ -20,6 +20,33 @@ The canary config must use isolated non-production databases:
 
 Placeholder ids beginning with `00000000-0000-4000-8000-` are intentionally not deployable. Replace them only after real non-production D1 databases exist.
 
+## Manual D1 Creation Checklist
+
+This repository phase does not create remote D1 databases. The operator must create non-production D1 databases manually in Cloudflare before replacing placeholders.
+
+Suggested non-production database names:
+
+- Core projection: `drako_db_socialflow_canary`
+- SocialFlow product data: `saas_socialflows_canary_db`
+- SocialFlow auth/OAuth state: `saas_socialflow_auths_canary_db`
+- SocialFlow registry/SaaS metadata if separated from `SOCIAL_DB`: `saas_socialflows_registry_canary_db`
+
+Recommended binding mapping after real D1 creation:
+
+- `DRACO_DB` -> `drako_db_socialflow_canary`
+- `SOCIAL_DB` -> `saas_socialflows_canary_db`
+- `SOCIALFLOW_AUTHS_DB` -> `saas_socialflow_auths_canary_db`
+- `SAASES_DB` -> `saas_socialflows_registry_canary_db` if separate, otherwise the canary SocialFlow registry/product D1 chosen by architecture.
+
+After creation:
+
+1. Copy the real non-production `database_id` values from Cloudflare.
+2. Paste them manually into the canary config.
+3. Keep `SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"` until a dedicated activation phase approves deployment.
+4. Run the guard command before any workflow or deploy preparation.
+5. Do not reuse production database ids.
+6. Do not use database names containing `prod`.
+
 ## Required Switch Defaults
 
 All switches must stay OFF by default:
@@ -37,6 +64,14 @@ Rollback posture must be explicit:
 SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"
 SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE = "all-switches-off"
 ```
+
+Future deployability must remain explicit. A config with real non-production D1 ids is accepted with `SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"`. If a later phase intentionally prepares deployability, it must use real non-production D1 ids and add an explicit future approval flag:
+
+```toml
+SOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1 = "true"
+```
+
+Do not set that flag while placeholder ids remain.
 
 ## Guard Command
 
@@ -59,7 +94,14 @@ The guard fails if:
 - `DRACO_DB`, `SAASES_DB`, `SOCIAL_DB`, or `SOCIALFLOW_AUTHS_DB` is missing;
 - any SocialFlow SOCIAL_DB read switch is ON by default;
 - rollback state is missing;
-- the config is marked deployable.
+- placeholder ids are marked deployable;
+- real non-production ids are marked deployable without `SOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1 = "true"`.
+
+The guard reports one of these states:
+
+- `NON_DEPLOYABLE_PLACEHOLDER_CONFIG`: safe for local validation only; never deploy.
+- `NON_DEPLOYABLE_REAL_NONPROD_CONFIG`: real non-production ids are present, but deployment is still blocked.
+- `DEPLOYABLE_REAL_NONPROD_CONFIG`: real non-production ids plus an explicit future allow-deploy flag are present.
 
 ## Future Activation Order
 

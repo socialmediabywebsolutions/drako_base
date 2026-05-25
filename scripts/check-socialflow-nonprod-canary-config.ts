@@ -23,6 +23,11 @@ type D1Binding = {
   databaseId: string;
 };
 
+type CanaryConfigStatus =
+  | "NON_DEPLOYABLE_PLACEHOLDER_CONFIG"
+  | "NON_DEPLOYABLE_REAL_NONPROD_CONFIG"
+  | "DEPLOYABLE_REAL_NONPROD_CONFIG";
+
 export type SocialflowNonprodCanaryConfigReport = {
   configPath: string;
   workerName: string | null;
@@ -30,6 +35,8 @@ export type SocialflowNonprodCanaryConfigReport = {
   switches: Record<string, string | undefined>;
   placeholders: string[];
   deployable: boolean;
+  allowDeployWithRealD1: boolean;
+  status: CanaryConfigStatus;
 };
 
 type CheckOptions = {
@@ -66,6 +73,14 @@ function hasProductiveToken(value: string): boolean {
   return /(^|[_\-\s])prod($|[_\-\s])/i.test(value);
 }
 
+function resolveStatus(placeholders: string[], deployable: boolean): CanaryConfigStatus {
+  if (placeholders.length > 0) {
+    return "NON_DEPLOYABLE_PLACEHOLDER_CONFIG";
+  }
+
+  return deployable ? "DEPLOYABLE_REAL_NONPROD_CONFIG" : "NON_DEPLOYABLE_REAL_NONPROD_CONFIG";
+}
+
 function assertNonprodConfig(report: SocialflowNonprodCanaryConfigReport): void {
   const workerName = report.workerName ?? "";
   if (hasProductiveToken(workerName)) {
@@ -95,12 +110,12 @@ function assertNonprodConfig(report: SocialflowNonprodCanaryConfigReport): void 
     }
   }
 
-  if (report.deployable) {
-    throw new Error("SOCIALFLOW_NONPROD_CANARY_CONFIG_DEPLOYABLE_NOT_ALLOWED");
-  }
-
   if (report.placeholders.length > 0 && report.deployable) {
     throw new Error(`SOCIALFLOW_NONPROD_CANARY_CONFIG_PLACEHOLDER_DEPLOYABLE:${report.placeholders.join(",")}`);
+  }
+
+  if (report.deployable && !report.allowDeployWithRealD1) {
+    throw new Error("SOCIALFLOW_NONPROD_CANARY_CONFIG_DEPLOYABLE_NOT_ALLOWED");
   }
 
   if (report.switches.SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE !== "all-switches-off") {
@@ -123,13 +138,20 @@ export function checkSocialflowNonprodCanaryConfig(options: CheckOptions): Socia
   }
 
   const deployableValue = parseStringAssignment(source, "SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE");
+  const allowDeployWithRealD1Value = parseStringAssignment(source, "SOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1");
+  const placeholders = bindings
+    .filter((binding) => isPlaceholderDatabaseId(binding.databaseId))
+    .map((binding) => binding.binding);
+  const deployable = isTruthy(deployableValue);
   const report: SocialflowNonprodCanaryConfigReport = {
     configPath: options.configPath,
     workerName: parseStringAssignment(source, "name"),
     bindings,
     switches,
-    placeholders: bindings.filter((binding) => isPlaceholderDatabaseId(binding.databaseId)).map((binding) => binding.binding),
-    deployable: isTruthy(deployableValue),
+    placeholders,
+    deployable,
+    allowDeployWithRealD1: isTruthy(allowDeployWithRealD1Value),
+    status: resolveStatus(placeholders, deployable),
   };
 
   assertNonprodConfig(report);

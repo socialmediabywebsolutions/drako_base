@@ -51,6 +51,8 @@ describe("socialflow nonprod canary config guard", () => {
     expect(report.workerName).toBe("saas-socialflows-runtime-canary-nonprod");
     expect(report.placeholders).toEqual(["DRACO_DB", "SAASES_DB", "SOCIAL_DB", "SOCIALFLOW_AUTHS_DB"]);
     expect(report.deployable).toBe(false);
+    expect(report.allowDeployWithRealD1).toBe(false);
+    expect(report.status).toBe("NON_DEPLOYABLE_PLACEHOLDER_CONFIG");
   });
 
   it("accepts real nonprod ids when names are isolated and switches are off", async () => {
@@ -63,6 +65,22 @@ describe("socialflow nonprod canary config guard", () => {
 
     const report = checkSocialflowNonprodCanaryConfig({ configPath });
     expect(report.placeholders).toEqual([]);
+    expect(report.status).toBe("NON_DEPLOYABLE_REAL_NONPROD_CONFIG");
+  });
+
+  it("accepts deployable real nonprod ids only with explicit future allow-deploy flag", async () => {
+    const configPath = await writeTempConfig(
+      VALID_NONPROD_CONFIG
+        .replace("00000000-0000-4000-8000-000000000187", "11111111-1111-4111-8111-111111111187")
+        .replaceAll("00000000-0000-4000-8000-000000000188", "22222222-2222-4222-8222-222222222188")
+        .replace("00000000-0000-4000-8000-000000000189", "33333333-3333-4333-8333-333333333189")
+        .replace('SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"', 'SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "true"\nSOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1 = "true"'),
+    );
+
+    const report = checkSocialflowNonprodCanaryConfig({ configPath });
+    expect(report.deployable).toBe(true);
+    expect(report.allowDeployWithRealD1).toBe(true);
+    expect(report.status).toBe("DEPLOYABLE_REAL_NONPROD_CONFIG");
   });
 
   it("rejects productive database names", async () => {
@@ -109,13 +127,50 @@ database_id = "00000000-0000-4000-8000-000000000189"
     );
   });
 
-  it("rejects deployable canary config", async () => {
+  it("rejects placeholder config marked deployable", async () => {
     const configPath = await writeTempConfig(
       VALID_NONPROD_CONFIG.replace('SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"', 'SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "true"'),
     );
 
     expect(() => checkSocialflowNonprodCanaryConfig({ configPath })).toThrow(
+      "SOCIALFLOW_NONPROD_CANARY_CONFIG_PLACEHOLDER_DEPLOYABLE",
+    );
+  });
+
+  it("rejects real nonprod deployable config without explicit future allow-deploy flag", async () => {
+    const configPath = await writeTempConfig(
+      VALID_NONPROD_CONFIG
+        .replace("00000000-0000-4000-8000-000000000187", "11111111-1111-4111-8111-111111111187")
+        .replaceAll("00000000-0000-4000-8000-000000000188", "22222222-2222-4222-8222-222222222188")
+        .replace("00000000-0000-4000-8000-000000000189", "33333333-3333-4333-8333-333333333189")
+        .replace('SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"', 'SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "true"'),
+    );
+
+    expect(() => checkSocialflowNonprodCanaryConfig({ configPath })).toThrow(
       "SOCIALFLOW_NONPROD_CANARY_CONFIG_DEPLOYABLE_NOT_ALLOWED",
+    );
+  });
+
+  it("rejects missing rollback state", async () => {
+    const configPath = await writeTempConfig(
+      VALID_NONPROD_CONFIG.replace('SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE = "all-switches-off"\n', ""),
+    );
+
+    expect(() => checkSocialflowNonprodCanaryConfig({ configPath })).toThrow(
+      "SOCIALFLOW_NONPROD_CANARY_CONFIG_ROLLBACK_STATE_MISSING",
+    );
+  });
+
+  it("rejects rollback state different from all-switches-off", async () => {
+    const configPath = await writeTempConfig(
+      VALID_NONPROD_CONFIG.replace(
+        'SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE = "all-switches-off"',
+        'SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE = "runtime-seed-on"',
+      ),
+    );
+
+    expect(() => checkSocialflowNonprodCanaryConfig({ configPath })).toThrow(
+      "SOCIALFLOW_NONPROD_CANARY_CONFIG_ROLLBACK_STATE_MISSING",
     );
   });
 });
