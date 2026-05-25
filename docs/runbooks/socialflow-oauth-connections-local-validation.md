@@ -74,6 +74,26 @@ Expected behavior with switch ON:
 2. Falls back to core-backed projection when SOCIAL_DB row is missing.
 3. Falls back to core-backed projection when SOCIAL_DB read fails.
 
+## Switch-ON Local Smoke (No Prod)
+Run full local smoke with switch ON:
+
+```bash
+pnpm tsx scripts/smoke-socialflow-oauth-connections-switch-local.ts --config=wrangler.workers.toml
+```
+
+Expected smoke evidence:
+- `EVIDENCE social-db-oauth-read`
+- `EVIDENCE core-fallback-oauth-read`
+- `EVIDENCE default-off-core-backed`
+
+Operator bypass only (not final validation):
+
+```bash
+pnpm tsx scripts/smoke-socialflow-oauth-connections-switch-local.ts --config=wrangler.workers.toml --assume-validated
+```
+
+`--assume-validated` is only an operator shortcut and does not replace final strict validation.
+
 ## Safety Notes
 - No remote D1 usage (`--remote` is not used).
 - No deploy/workflow changes.

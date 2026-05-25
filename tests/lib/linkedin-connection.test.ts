@@ -93,7 +93,7 @@ describe("persistLinkedInConnection", () => {
     ));
   });
 
-  it("returns persisted when there is no existing integration or account", async () => {
+  it("keeps core-backed behavior when switch is off", async () => {
     socialOwnershipReadState.row = {
       id: "oauth-social-row",
       tenant_id: "tenant-1",
