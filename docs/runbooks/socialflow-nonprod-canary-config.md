@@ -269,6 +269,78 @@ Next phase after this backfill:
 SocialFlow nonprod ownership parity without OAuth
 ```
 
+## Nonprod Ownership Parity Without OAuth
+
+This step compares non-production `DRACO_DB` source projections against non-production `SOCIAL_DB` ownership read models.
+It is read-only: no deploy, no migrations, no backfill, no switch activation, and no remote writes.
+
+Allowed source and target:
+
+```text
+source DRACO_DB -> drako_db_socialflow_canary
+target SOCIAL_DB -> saas_socialflows_canary_db
+```
+
+Run strict parity first when the source canary DB is expected to contain core source tables:
+
+```bash
+pnpm tsx scripts/check-socialflow-nonprod-ownership-parity.ts
+```
+
+Current canary source may still be empty or not bootstrapped. In that case, use the explicit empty-source acknowledgement:
+
+```bash
+pnpm tsx scripts/check-socialflow-nonprod-ownership-parity.ts --allow-empty-source
+```
+
+JSON output is available for audit artifacts:
+
+```bash
+pnpm tsx scripts/check-socialflow-nonprod-ownership-parity.ts --allow-empty-source --json
+```
+
+If drift is expected during a controlled investigation, it must be acknowledged explicitly:
+
+```bash
+pnpm tsx scripts/check-socialflow-nonprod-ownership-parity.ts --allow-drift
+```
+
+Parity reads these source tables only:
+
+- `DRACO_DB.saas`
+- `DRACO_DB.tenant_strategic_dossiers`
+- `DRACO_DB.agent_work_logs`
+- `DRACO_DB.tenants`
+- `DRACO_DB.saas_domains`
+
+Parity reads these target tables only:
+
+- `SOCIAL_DB.socialflow_seed_metadata`
+- `SOCIAL_DB.socialflow_export_read_models`
+- `SOCIAL_DB.socialflow_legacy_strategic_dossiers`
+- `SOCIAL_DB.socialflow_legacy_tenant_progress`
+- `SOCIAL_DB.socialflow_legacy_agent_work_logs`
+- `SOCIAL_DB.socialflow_legacy_repository_context`
+
+Explicitly not touched:
+
+- `SOCIAL_DB.socialflow_oauth_connections`
+- `DRACO_DB.drako_integration_connections`
+- `DRACO_DB.drako_integration_credentials`
+- tokens
+- credentials
+- `authMeta`
+- OAuth connect/callback behavior
+
+Expected exit codes:
+
+- `0`: parity OK, drift allowed, or empty source accepted explicitly.
+- `1`: operational/config error.
+- `2`: drift detected in strict mode.
+- `3`: empty source detected without `--allow-empty-source`.
+
+The next safe phase is either nonprod smoke with all switches still OFF, or a dedicated bootstrap of DRACO canary source data if product-like nonprod rows are required before smoke.
+
 ## Required Switch Defaults
 
 All switches must stay OFF by default:
