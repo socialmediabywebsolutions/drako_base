@@ -341,6 +341,88 @@ Expected exit codes:
 
 The next safe phase is either nonprod smoke with all switches still OFF, or a dedicated bootstrap of DRACO canary source data if product-like nonprod rows are required before smoke.
 
+## Nonprod Source Data Bootstrap Without OAuth
+
+This step creates a minimal, synthetic, non-sensitive source dataset in `DRACO_DB` canary so nonprod backfill and parity can validate real rows without touching production.
+It writes only to `drako_db_socialflow_canary`; it does not write to `SOCIAL_DB`, `SAASES_DB`, or `SOCIALFLOW_AUTHS_DB`.
+
+Run dry-run first:
+
+```bash
+pnpm tsx scripts/bootstrap-socialflow-nonprod-source-data.ts --dry-run
+```
+
+Verify current canary source state:
+
+```bash
+pnpm tsx scripts/bootstrap-socialflow-nonprod-source-data.ts --verify-only
+```
+
+Apply the minimal synthetic source data only after reviewing dry-run/verify output:
+
+```bash
+pnpm tsx scripts/bootstrap-socialflow-nonprod-source-data.ts --apply
+```
+
+Verify again:
+
+```bash
+pnpm tsx scripts/bootstrap-socialflow-nonprod-source-data.ts --verify-only
+```
+
+Tables touched in `DRACO_DB` canary:
+
+- `saas`
+- `tenants`
+- `saas_domains`
+- `tenant_strategic_dossiers`
+- `agent_work_logs`
+- `orchestrator_messages`
+- `economic_events`
+
+Synthetic canary data inserted or ensured:
+
+- tenant: `tenant_socialflow_canary`
+- SaaS: `saas_socialflow_canary`
+- slug: `socialflow`
+- domain: `socialflow-canary.local`
+- dossier: `dossier_socialflow_canary`
+- work log: `worklog_socialflow_canary`
+- orchestrator message: `message_socialflow_canary`
+- economic event: `event_socialflow_canary`
+
+Explicitly not touched:
+
+- `SOCIAL_DB`
+- `SAASES_DB`
+- `SOCIALFLOW_AUTHS_DB`
+- `socialflow_oauth_connections`
+- `drako_integration_connections`
+- `drako_integration_credentials`
+- tokens
+- credentials
+- `authMeta`
+- secrets
+- real customer or personal data
+
+Safety invariants:
+
+- all SocialFlow switches remain `"0"`;
+- `SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE` remains `"false"`;
+- no deploy;
+- no production database;
+- no OAuth/tokens/credentials;
+- no destructive SQL.
+
+After this bootstrap, rerun:
+
+```bash
+pnpm tsx scripts/backfill-socialflow-nonprod-ownership-read-models.ts --apply
+pnpm tsx scripts/check-socialflow-nonprod-ownership-parity.ts
+```
+
+Strict parity should no longer require `--allow-empty-source` once the source bootstrap and backfill have both completed.
+
 ## Required Switch Defaults
 
 All switches must stay OFF by default:
