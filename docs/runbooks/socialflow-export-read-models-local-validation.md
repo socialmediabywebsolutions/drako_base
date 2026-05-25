@@ -16,31 +16,37 @@ This runbook is local-only. It does not use remote D1, does not deploy, and does
 ## Manual Commands (Local Only)
 Run from repository root.
 
-1. Backfill dry-run:
+1. Bootstrap local core/source tables + seed mínimo (idempotente):
+
+```bash
+pnpm tsx scripts/bootstrap-socialflow-export-read-models-smoke-local.ts --config=wrangler.workers.toml
+```
+
+2. Backfill dry-run:
 
 ```bash
 pnpm tsx scripts/backfill-socialflow-export-read-models.ts --config=wrangler.workers.toml --dry-run
 ```
 
-2. Backfill apply:
+3. Backfill apply:
 
 ```bash
 pnpm tsx scripts/backfill-socialflow-export-read-models.ts --config=wrangler.workers.toml
 ```
 
-3. Parity strict (fails with exit code `2` on drift):
+4. Parity strict (fails with exit code `2` on drift):
 
 ```bash
 pnpm tsx scripts/check-socialflow-export-read-models-parity.ts --config=wrangler.workers.toml
 ```
 
-4. Parity with drift allowed (returns `0` even if drift exists):
+5. Parity with drift allowed (returns `0` even if drift exists):
 
 ```bash
 pnpm tsx scripts/check-socialflow-export-read-models-parity.ts --config=wrangler.workers.toml --allow-drift
 ```
 
-5. Optional local-only probe to force SOCIAL_DB read path in runtime exports:
+6. Optional local-only probe to force SOCIAL_DB read path in runtime exports:
 
 ```bash
 SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH=1 npx vitest run apps/socialflow-runtime/src/lib/socialflow/exports-service.test.ts
@@ -88,6 +94,14 @@ What this smoke verifies:
 Expected smoke evidence markers:
 - `EVIDENCE social-db-export-read`
 - `EVIDENCE core-fallback-export-read`
+
+Strict sequence (recommended final local validation):
+1. `pnpm tsx scripts/bootstrap-socialflow-export-read-models-smoke-local.ts --config=wrangler.workers.toml`
+2. `pnpm tsx scripts/validate-socialflow-export-read-models-local.ts --config=wrangler.workers.toml`
+3. `pnpm tsx scripts/smoke-socialflow-export-read-models-switch-local.ts --config=wrangler.workers.toml`
+
+Operator bypass only (not final validation):
+- `pnpm tsx scripts/smoke-socialflow-export-read-models-switch-local.ts --config=wrangler.workers.toml --assume-validated`
 
 ## Safety Notes
 - No remote D1 usage (`--remote` is not used).
