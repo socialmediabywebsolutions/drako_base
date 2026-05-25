@@ -204,6 +204,71 @@ Do not run:
 
 OAuth remains schema-only at this stage. Keep `SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "0"` until a later nonprod switch phase explicitly approves OAuth validation.
 
+## Nonprod Ownership Backfill Without OAuth
+
+This step backfills non-sensitive SocialFlow ownership read models in real non-production D1 only.
+It does not deploy, does not activate switches, and explicitly excludes OAuth, tokens, credentials, and `socialflow_oauth_connections`.
+
+Allowed source and target:
+
+```text
+source DRACO_DB -> drako_db_socialflow_canary
+target SOCIAL_DB -> saas_socialflows_canary_db
+```
+
+The script refuses to run if either DB name contains `prod`, if placeholders remain, if canary is deployable, or if any switch is not `"0"`.
+
+Dry-run first. It may read nonprod D1 metadata/data to calculate planned operations, but it does not write:
+
+```bash
+pnpm tsx scripts/backfill-socialflow-nonprod-ownership-read-models.ts --dry-run
+```
+
+Verify-only checks source/target availability and target counts without writing:
+
+```bash
+pnpm tsx scripts/backfill-socialflow-nonprod-ownership-read-models.ts --verify-only
+```
+
+Apply writes only non-OAuth read models into `SOCIAL_DB` nonprod:
+
+```bash
+pnpm tsx scripts/backfill-socialflow-nonprod-ownership-read-models.ts --apply
+```
+
+Then verify again:
+
+```bash
+pnpm tsx scripts/backfill-socialflow-nonprod-ownership-read-models.ts --verify-only
+```
+
+Backfill groups included:
+
+| Group | Source DB/table(s) | Target DB/table |
+| --- | --- | --- |
+| Runtime seed | `DRACO_DB.saas` | `SOCIAL_DB.socialflow_seed_metadata` |
+| Exports | `DRACO_DB.saas`, `tenant_strategic_dossiers`, `agent_work_logs`, `orchestrator_messages`, `economic_events`, `saas_domains` | `SOCIAL_DB.socialflow_export_read_models` |
+| Legacy dossiers | `DRACO_DB.tenant_strategic_dossiers` | `SOCIAL_DB.socialflow_legacy_strategic_dossiers` |
+| Legacy progress | `DRACO_DB.tenants` | `SOCIAL_DB.socialflow_legacy_tenant_progress` |
+| Legacy work logs | `DRACO_DB.agent_work_logs` | `SOCIAL_DB.socialflow_legacy_agent_work_logs` |
+| Legacy repository context | `DRACO_DB.saas`, `saas_domains` | `SOCIAL_DB.socialflow_legacy_repository_context` |
+
+Explicitly not touched:
+
+- `SOCIAL_DB.socialflow_oauth_connections`
+- `DRACO_DB.drako_integration_credentials`
+- `DRACO_DB.drako_integration_connections`
+- encrypted access/refresh/id tokens
+- OAuth connect/callback behavior
+
+If `DRACO_DB` nonprod is empty or not yet bootstrapped, the script reports zero rows with warnings such as `SOURCE_TABLE_MISSING` and does not fail. That is safe at this stage; the next phase should run nonprod parity after source projections exist.
+
+Next phase after this backfill:
+
+```text
+SocialFlow nonprod ownership parity without OAuth
+```
+
 ## Required Switch Defaults
 
 All switches must stay OFF by default:
