@@ -83,9 +83,31 @@ Expected behavior with switch ON:
 4. Reads repository context from `socialflow_legacy_repository_context` when row is present.
 5. Falls back to core-backed reads when SOCIAL_DB is missing, row is missing, or read fails.
 
+## Switch-ON Local Smoke (No Prod)
+Run full local smoke with switch ON:
+
+```bash
+pnpm tsx scripts/smoke-socialflow-legacy-read-models-switch-local.ts --config=wrangler.workers.toml
+```
+
+Expected smoke evidence:
+- `EVIDENCE social-db-legacy-read`
+- `EVIDENCE core-fallback-legacy-read`
+- `EVIDENCE payload-compatible`
+- `EVIDENCE default-off-core-backed`
+
+Operator bypass only (not final validation):
+
+```bash
+pnpm tsx scripts/smoke-socialflow-legacy-read-models-switch-local.ts --config=wrangler.workers.toml --assume-validated
+```
+
+`--assume-validated` is only an operator shortcut and does not replace final strict validation.
+
 ## Safety Notes
 - No remote D1 usage (`--remote` is not used).
 - No deploy/workflow changes.
 - No switch activation by default.
 - No behavior or payload changes for legacy actions/repository flows.
 - The switch command above is local-only and must not be used as a production default.
+- No remote D1 (`--remote`) usage is allowed for this validation/smoke flow.

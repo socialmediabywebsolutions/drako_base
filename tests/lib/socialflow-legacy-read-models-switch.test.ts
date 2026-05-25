@@ -116,6 +116,7 @@ describe("socialflow legacy read models switch", () => {
       id: "core_dossier_1",
       tenant_id: "tenant_1",
       status: "active",
+      version: 2,
       form_data: "{}",
       analysis_data: "{}",
       plan_data: "{}",
@@ -145,7 +146,14 @@ describe("socialflow legacy read models switch", () => {
       {
         id: "core_log_1",
         tenant_id: "tenant_1",
+        saas_id: "socialflow",
+        agent_name: "planner",
+        action_type: "build",
+        status: "ok",
         output_json: "{\"source\":\"core\"}",
+        cost_eur: 0,
+        created_at: "2026-05-01T00:00:00.000Z",
+        updated_at: "2026-05-01T00:00:00.000Z",
       },
     ];
     state.socialAgentWorkLogs = [
@@ -341,5 +349,34 @@ describe("socialflow legacy read models switch", () => {
     });
     expect(rowError?.id).toBe("core_repo_2");
     expect(coreRead).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps payload and return shape compatible between social-first and core fallback", async () => {
+    process.env.SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1";
+    const adapter = createSocialFlowLegacyActionsCoreAdapter();
+
+    const socialFirstDossier = await adapter.findLatestActiveStrategicDossier("tenant_1");
+    const socialFirstLogs = await adapter.listLatestAgentWorkLogs("tenant_1", 10);
+
+    state.socialStrategicRow = null;
+    state.socialAgentWorkLogs = [];
+
+    const fallbackDossier = await adapter.findLatestActiveStrategicDossier("tenant_1");
+    const fallbackLogs = await adapter.listLatestAgentWorkLogs("tenant_1", 10);
+
+    expect(socialFirstDossier).toBeTruthy();
+    expect(fallbackDossier).toBeTruthy();
+    expect(socialFirstLogs[0]).toBeTruthy();
+    expect(fallbackLogs[0]).toBeTruthy();
+
+    expect(Object.keys(socialFirstDossier ?? {}).sort()).toEqual(
+      Object.keys(fallbackDossier ?? {}).sort(),
+    );
+    expect(Object.keys(socialFirstLogs[0] ?? {}).sort()).toEqual(
+      Object.keys(fallbackLogs[0] ?? {}).sort(),
+    );
+
+    expect(typeof socialFirstLogs[0]?.output_json).toBe("string");
+    expect(typeof fallbackLogs[0]?.output_json).toBe("string");
   });
 });
