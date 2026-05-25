@@ -4,6 +4,7 @@ import {
   saveLinkedInConnection,
   validateLinkedInConnection,
 } from "@/lib/socialflow/contracts/linkedin-oauth-runtime";
+import { env as resolveCfEnv } from "@/lib/cf";
 import { listSaasSocialAccounts, resolveSocialContext, upsertSaasSocialAccount } from "@/lib/socialflow/repository";
 import type { SaasSocialAccount } from "@/lib/social-core/types";
 import { encryptToken } from "@/lib/socialflow/token-encryption";
@@ -41,6 +42,8 @@ type CoreProjectionResult = {
 
 const RUNTIME_LINKEDIN_OAUTH_SOCIAL_DB_PREP_WRITE_SWITCH = false;
 const SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_PREP_WRITE_SWITCH_ENV_KEY = "SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_PREP_WRITE_SWITCH";
+const RUNTIME_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = false;
+const SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH_ENV_KEY = "SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH";
 
 function normalizeSwitchValue(value: unknown): string {
   if (typeof value === "string") {
@@ -55,18 +58,38 @@ function normalizeSwitchValue(value: unknown): string {
   return "";
 }
 
+function isTruthySwitchValue(value: unknown): boolean {
+  return ["1", "true", "on", "yes"].includes(normalizeSwitchValue(value));
+}
+
 function isLinkedInOAuthSocialOwnershipPrepWriteEnabled(): boolean {
   if (RUNTIME_LINKEDIN_OAUTH_SOCIAL_DB_PREP_WRITE_SWITCH) {
     return true;
   }
 
-  const processEnvValue = normalizeSwitchValue(
+  return isTruthySwitchValue(
     (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[
       SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_PREP_WRITE_SWITCH_ENV_KEY
     ],
   );
+}
 
-  return ["1", "true", "on", "yes"].includes(processEnvValue);
+function isLinkedInOAuthSocialDbReadEnabled(): boolean {
+  if (RUNTIME_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH) {
+    return true;
+  }
+
+  const bindings = resolveCfEnv() as Record<string, unknown> | null;
+  const bindingSwitchValue = bindings?.[SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH_ENV_KEY];
+  if (isTruthySwitchValue(bindingSwitchValue)) {
+    return true;
+  }
+
+  return isTruthySwitchValue(
+    (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[
+      SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH_ENV_KEY
+    ],
+  );
 }
 
 function resolveTokenExpiresAt(expiresInSeconds: number | null | undefined): string | null {
@@ -217,13 +240,88 @@ async function projectLinkedInConnectionToCore(input: PersistLinkedInConnectionI
   }
 }
 
+function normalizeSocialOwnedLinkedInStatus(status: string | null | undefined): string {
+  const normalized = normalizeSwitchValue(status).toUpperCase();
+  if (!normalized) {
+    return "PENDING_REAL";
+  }
+  return normalized;
+}
+
+async function resolveLinkedInConnectionProjectionFromSocialDb(input: {
+  socialDb: D1Database;
+  tenantId: string;
+  saasId: string;
+}): Promise<CoreProjectionResult | null> {
+  try {
+    const ownershipPrepContract = createLinkedInOAuthSocialOwnershipPrepContractForSocialDb(input.socialDb);
+    const prepared = await ownershipPrepContract.getPreparedLinkedInOAuthConnection(
+      input.tenantId,
+      input.saasId,
+      "LINKEDIN",
+    );
+
+    if (!prepared || !normalizeSwitchValue(prepared.encrypted_access_token)) {
+      return null;
+    }
+
+    const status = normalizeSocialOwnedLinkedInStatus(prepared.status);
+    const checkedAt = prepared.last_validated_at ?? prepared.updated_at ?? new Date().toISOString();
+    const errorCode = prepared.last_error_code ?? null;
+    const errorMessage = prepared.last_error_message ?? null;
+
+    return {
+      existedBefore: true,
+      validation: {
+        ok: status === "CONNECTED_REAL",
+        status,
+        checkedAt,
+        error: errorCode || errorMessage
+          ? {
+              code: errorCode ?? undefined,
+              message: errorMessage ?? undefined,
+            }
+          : null,
+      },
+    };
+  } catch (error) {
+    console.warn("LINKEDIN_OAUTH_SOCIAL_DB_READ_FAILED", {
+      tenantId: input.tenantId,
+      saasId: input.saasId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+async function resolveLinkedInConnectionProjection(
+  input: PersistLinkedInConnectionInput & { socialDb: D1Database },
+): Promise<CoreProjectionResult> {
+  // TODO(SocialFlow DB separation): switch OAuth reads/writes to SOCIAL_DB once backfill + parity checks pass.
+  if (isLinkedInOAuthSocialDbReadEnabled()) {
+    const socialProjection = await resolveLinkedInConnectionProjectionFromSocialDb({
+      socialDb: input.socialDb,
+      tenantId: input.tenantId,
+      saasId: input.saasId,
+    });
+    if (socialProjection) {
+      return socialProjection;
+    }
+  }
+
+  return projectLinkedInConnectionToCore(input);
+}
+
 export async function persistSocialFlowLinkedInConnection(
   input: PersistLinkedInConnectionInput,
 ): Promise<PersistLinkedInConnectionResult> {
-  const coreProjection = await projectLinkedInConnectionToCore(input);
   const socialContext = await resolveSocialContext({
     tenantId: input.tenantId,
     saasId: input.saasId,
+  });
+  const coreProjection = await resolveLinkedInConnectionProjection({
+    ...input,
+    socialDb: socialContext.socialDb,
   });
   const existingAccount = (await listSaasSocialAccounts(socialContext)).find((account) => account.provider === "LINKEDIN");
   const persistenceStatus = coreProjection.existedBefore || existingAccount ? "updated" : "persisted";

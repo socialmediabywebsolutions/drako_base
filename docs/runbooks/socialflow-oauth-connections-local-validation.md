@@ -2,6 +2,7 @@
 
 This runbook is local-only. It does not use remote D1, does not deploy, and does not activate OAuth switches by default.
 `src/lib/socialflow/linkedin/repository.ts` keeps `RUNTIME_LINKEDIN_OAUTH_SOCIAL_DB_PREP_WRITE_SWITCH = false` as the safe default.
+`SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH` remains OFF by default unless explicitly set for local tests.
 
 ## Preconditions
 - `migrations/0189_socialflow_oauth_connections.sql` exists.
@@ -60,6 +61,18 @@ The script executes in this exact order:
    - `tests/check-socialflow-oauth-connections-parity.test.ts`
 
 If any step fails, the script exits non-zero (fail-closed).
+
+## Optional Local Switch Probe (No Prod)
+To test social-first OAuth read behavior locally while preserving production defaults:
+
+```bash
+SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH=1 npx vitest run tests/lib/linkedin-connection.test.ts
+```
+
+Expected behavior with switch ON:
+1. Uses `SOCIAL_DB.socialflow_oauth_connections` when a valid prepared row exists.
+2. Falls back to core-backed projection when SOCIAL_DB row is missing.
+3. Falls back to core-backed projection when SOCIAL_DB read fails.
 
 ## Safety Notes
 - No remote D1 usage (`--remote` is not used).
