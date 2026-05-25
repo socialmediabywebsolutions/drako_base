@@ -1,4 +1,7 @@
 import type { DracoEnv } from "@/lib/cf";
+import {
+  isSocialFlowLegacyReadModelsSocialDbReadSwitchEnabled,
+} from "@/lib/socialflow/contracts/legacy-actions-core";
 
 export type SocialRepositoryContext = {
   tenantId: string;
@@ -25,6 +28,31 @@ type SocialFlowLegacyRepositorySocialOwnershipPrepExecutor = {
   queryOne: <T>(sql: string, ...params: unknown[]) => Promise<T | null>;
   run: (sql: string, ...params: unknown[]) => Promise<boolean>;
 };
+
+type ResolveLegacyRepositoryContextReadOptions = {
+  tenantId: string;
+  saasId: string;
+  socialDb?: D1Database | null;
+  coreRead: () => Promise<SocialFlowLegacyRepositoryContextReadModel | null>;
+  runtimeEnv?: Record<string, unknown> | null;
+  switchEnabled?: boolean;
+};
+
+function createD1Executor(db: D1Database): SocialFlowLegacyRepositorySocialOwnershipPrepExecutor {
+  return {
+    async queryOne<T>(sql: string, ...params: unknown[]) {
+      const statement = db.prepare(sql);
+      const bound = params.length > 0 ? statement.bind(...params) : statement;
+      return bound.first<T>();
+    },
+    async run(sql: string, ...params: unknown[]) {
+      const statement = db.prepare(sql);
+      const bound = params.length > 0 ? statement.bind(...params) : statement;
+      const result = await bound.run();
+      return Boolean(result.success);
+    },
+  };
+}
 
 export function createSocialFlowLegacyRepositorySocialOwnershipPrepContract(
   executor: SocialFlowLegacyRepositorySocialOwnershipPrepExecutor,
@@ -95,6 +123,30 @@ export function createSocialFlowLegacyRepositorySocialOwnershipPrepContract(
       }
     },
   };
+}
+
+export async function resolveLegacyRepositoryContextReadModel(
+  options: ResolveLegacyRepositoryContextReadOptions,
+): Promise<SocialFlowLegacyRepositoryContextReadModel | null> {
+  // TODO(SocialFlow DB separation): switch legacy actions/repository reads to SOCIAL_DB once switch smoke passes.
+  const switchEnabled = options.switchEnabled
+    ?? isSocialFlowLegacyReadModelsSocialDbReadSwitchEnabled(options.runtimeEnv);
+
+  if (switchEnabled && options.socialDb) {
+    try {
+      const socialContract = createSocialFlowLegacyRepositorySocialOwnershipPrepContract(
+        createD1Executor(options.socialDb),
+      );
+      const socialRow = await socialContract.getPreparedRepositoryContext(options.tenantId, options.saasId);
+      if (socialRow) {
+        return socialRow;
+      }
+    } catch {
+      // Best-effort SOCIAL_DB read; fallback to core-backed path is required by design.
+    }
+  }
+
+  return options.coreRead();
 }
 
 export function createSocialRepositoryContextWithCoreProjection(input: {

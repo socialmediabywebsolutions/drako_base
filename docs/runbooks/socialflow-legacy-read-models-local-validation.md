@@ -1,7 +1,8 @@
 # SocialFlow Legacy Read Models Local Validation Pack
 
-This runbook is local-only. It does not use remote D1, does not deploy, and does not activate any switch.
+This runbook is local-only. It does not use remote D1, does not deploy, and does not activate any switch by default.
 Legacy runtime behavior and payload contracts remain unchanged.
+`SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH` stays OFF by default unless explicitly set in local test commands.
 
 ## Preconditions
 - `migrations/0190_socialflow_legacy_read_models.sql` exists.
@@ -66,8 +67,25 @@ The script executes in this exact order:
 
 If any step fails, the script exits non-zero (fail-closed).
 
+## Optional Local Switch Probe (No Prod)
+Default behavior keeps the legacy read-model switch OFF.
+
+To probe SOCIAL_DB reads locally while preserving production defaults:
+
+```bash
+SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH=1 npx vitest run tests/lib/socialflow-legacy-read-models-switch.test.ts
+```
+
+Expected behavior with switch ON:
+1. Reads from `socialflow_legacy_strategic_dossiers` when row is present.
+2. Reads from `socialflow_legacy_tenant_progress` when row is present.
+3. Reads from `socialflow_legacy_agent_work_logs` when rows are present.
+4. Reads repository context from `socialflow_legacy_repository_context` when row is present.
+5. Falls back to core-backed reads when SOCIAL_DB is missing, row is missing, or read fails.
+
 ## Safety Notes
 - No remote D1 usage (`--remote` is not used).
 - No deploy/workflow changes.
 - No switch activation by default.
 - No behavior or payload changes for legacy actions/repository flows.
+- The switch command above is local-only and must not be used as a production default.
