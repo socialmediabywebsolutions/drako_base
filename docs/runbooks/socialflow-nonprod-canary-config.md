@@ -1,6 +1,6 @@
 # SocialFlow Nonprod Canary Config
 
-This runbook prepares a non-production SocialFlow canary target only. It does not deploy, does not use remote D1, and does not enable any switch by default.
+This runbook prepares a non-production SocialFlow canary target only. It does not deploy and does not enable any switch by default. Remote D1 usage is limited to explicitly approved non-production provisioning or schema phases documented below.
 
 ## Current State
 
@@ -13,10 +13,10 @@ This runbook prepares a non-production SocialFlow canary target only. It does no
 
 The canary config must use isolated non-production databases:
 
-- `DRACO_DB`: `drako_db_socialflow_canary_nonprod`
-- `SAASES_DB`: `saas_socialflows_canary_nonprod_db`
-- `SOCIAL_DB`: `saas_socialflows_canary_nonprod_db`
-- `SOCIALFLOW_AUTHS_DB`: `saas_socialflow_auths_canary_nonprod_db`
+- `DRACO_DB`: `drako_db_socialflow_canary`
+- `SAASES_DB`: `saas_socialflows_registry_canary_db`
+- `SOCIAL_DB`: `saas_socialflows_canary_db`
+- `SOCIALFLOW_AUTHS_DB`: `saas_socialflow_auths_canary_db`
 
 Placeholder ids beginning with `00000000-0000-4000-8000-` are intentionally not deployable. Replace them only after real non-production D1 databases exist.
 
@@ -136,6 +136,73 @@ NON_DEPLOYABLE_REAL_NONPROD_CONFIG
 ```
 
 This status confirms real non-production D1 ids are present while deployment remains blocked.
+
+## Nonprod Ownership Migrations
+
+This step applies only the preparatory SocialFlow ownership schema to the real non-production `SOCIAL_DB`.
+It does not deploy workers, does not activate switches, does not run backfill, and does not change OAuth/connect/callback behavior.
+
+The migration target must remain:
+
+```text
+SOCIAL_DB -> saas_socialflows_canary_db
+```
+
+The database name must not contain `prod`, all switches must stay OFF, and `SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE` must remain `false`.
+
+Dry-run first. This prints the exact remote commands without executing them:
+
+```bash
+pnpm tsx scripts/apply-socialflow-nonprod-ownership-migrations.ts --dry-run
+```
+
+Verify current remote schema without applying files:
+
+```bash
+pnpm tsx scripts/apply-socialflow-nonprod-ownership-migrations.ts --verify-only
+```
+
+If verification reports missing tables and the guard status is still `NON_DEPLOYABLE_REAL_NONPROD_CONFIG`, apply the schema to nonprod only:
+
+```bash
+pnpm tsx scripts/apply-socialflow-nonprod-ownership-migrations.ts --apply
+```
+
+Then verify again:
+
+```bash
+pnpm tsx scripts/apply-socialflow-nonprod-ownership-migrations.ts --verify-only
+```
+
+Expected migrations:
+
+| Migration | Target binding | Expected table(s) |
+| --- | --- | --- |
+| `0187_socialflow_seed_metadata.sql` | `SOCIAL_DB` | `socialflow_seed_metadata` |
+| `0188_socialflow_export_read_models.sql` | `SOCIAL_DB` | `socialflow_export_read_models` |
+| `0189_socialflow_oauth_connections.sql` | `SOCIAL_DB` | `socialflow_oauth_connections` |
+| `0190_socialflow_legacy_read_models.sql` | `SOCIAL_DB` | `socialflow_legacy_strategic_dossiers`, `socialflow_legacy_tenant_progress`, `socialflow_legacy_agent_work_logs`, `socialflow_legacy_repository_context` |
+
+Remote commands are limited to:
+
+```bash
+wrangler d1 execute saas_socialflows_canary_db --remote --file migrations/0187_socialflow_seed_metadata.sql
+wrangler d1 execute saas_socialflows_canary_db --remote --file migrations/0188_socialflow_export_read_models.sql
+wrangler d1 execute saas_socialflows_canary_db --remote --file migrations/0189_socialflow_oauth_connections.sql
+wrangler d1 execute saas_socialflows_canary_db --remote --file migrations/0190_socialflow_legacy_read_models.sql
+wrangler d1 execute saas_socialflows_canary_db --remote --command "SELECT name FROM sqlite_master WHERE type='table';"
+wrangler d1 execute saas_socialflows_canary_db --remote --command "PRAGMA table_info(<table_name>);"
+```
+
+Do not run:
+
+- `wrangler deploy`
+- `wrangler d1 execute` against any database containing `prod`
+- remote backfill
+- remote OAuth smoke with real credentials
+- any switch activation
+
+OAuth remains schema-only at this stage. Keep `SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "0"` until a later nonprod switch phase explicitly approves OAuth validation.
 
 ## Required Switch Defaults
 
