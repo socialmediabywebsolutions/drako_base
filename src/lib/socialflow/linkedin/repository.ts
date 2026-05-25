@@ -1,4 +1,5 @@
 import {
+  createSocialFlowLinkedInOAuthSocialOwnershipPrepContract,
   emitLinkedInOAuthActivity,
   saveLinkedInConnection,
   validateLinkedInConnection,
@@ -37,6 +38,110 @@ type CoreProjectionResult = {
     } | null;
   };
 };
+
+const RUNTIME_LINKEDIN_OAUTH_SOCIAL_DB_PREP_WRITE_SWITCH = false;
+const SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_PREP_WRITE_SWITCH_ENV_KEY = "SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_PREP_WRITE_SWITCH";
+
+function normalizeSwitchValue(value: unknown): string {
+  if (typeof value === "string") {
+    return value.trim().toLowerCase();
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value).trim().toLowerCase();
+  }
+  if (typeof value === "boolean") {
+    return value ? "1" : "0";
+  }
+  return "";
+}
+
+function isLinkedInOAuthSocialOwnershipPrepWriteEnabled(): boolean {
+  if (RUNTIME_LINKEDIN_OAUTH_SOCIAL_DB_PREP_WRITE_SWITCH) {
+    return true;
+  }
+
+  const processEnvValue = normalizeSwitchValue(
+    (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.[
+      SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_PREP_WRITE_SWITCH_ENV_KEY
+    ],
+  );
+
+  return ["1", "true", "on", "yes"].includes(processEnvValue);
+}
+
+function resolveTokenExpiresAt(expiresInSeconds: number | null | undefined): string | null {
+  if (typeof expiresInSeconds !== "number" || !Number.isFinite(expiresInSeconds) || expiresInSeconds <= 0) {
+    return null;
+  }
+  return new Date(Date.now() + expiresInSeconds * 1000).toISOString();
+}
+
+function createLinkedInOAuthSocialOwnershipPrepContractForSocialDb(socialDb: D1Database) {
+  return createSocialFlowLinkedInOAuthSocialOwnershipPrepContract({
+    queryOne: async <T>(sql: string, ...params: unknown[]) => {
+      const result = await socialDb.prepare(sql).bind(...params).all<T>();
+      const rows = Array.isArray(result.results) ? (result.results as T[]) : [];
+      return rows[0] ?? null;
+    },
+    run: async (sql: string, ...params: unknown[]) => {
+      const result = await socialDb.prepare(sql).bind(...params).run();
+      return Boolean(result.success);
+    },
+  });
+}
+
+async function maybePrepareSocialOwnedLinkedInOAuthConnection(input: {
+  socialDb: D1Database;
+  accountId: string;
+  tenantId: string;
+  saasId: string;
+  token: LinkedInTokenResponse;
+  identity: LinkedInResolvedIdentity;
+  profile: LinkedInUserProfile;
+  encryptedAccessToken: string | null;
+  encryptedIdToken: string | null;
+  status: string;
+  validation: CoreProjectionResult["validation"];
+}) {
+  // TODO(SocialFlow DB separation): switch LinkedIn OAuth reads/writes to SOCIAL_DB once backfill + parity checks pass.
+  if (!isLinkedInOAuthSocialOwnershipPrepWriteEnabled()) {
+    return;
+  }
+
+  try {
+    const ownershipPrepContract = createLinkedInOAuthSocialOwnershipPrepContractForSocialDb(input.socialDb);
+    await ownershipPrepContract.upsertPreparedLinkedInOAuthConnection({
+      id: input.accountId || crypto.randomUUID(),
+      tenantId: input.tenantId,
+      saasId: input.saasId,
+      provider: "LINKEDIN",
+      externalProfileId: input.identity.profileId,
+      authorUrn: input.identity.authorUrn,
+      encryptedAccessToken: input.encryptedAccessToken,
+      encryptedRefreshToken: null,
+      encryptedIdToken: input.encryptedIdToken,
+      scopes: input.token.scope ?? null,
+      expiresAt: resolveTokenExpiresAt(input.token.expires_in),
+      tokenType: input.token.token_type ?? null,
+      status: input.status,
+      metadataJson: JSON.stringify({
+        mode: "live",
+        profileId: input.identity.profileId,
+        authorUrn: input.identity.authorUrn,
+        email: input.identity.email,
+        emailVerified: input.identity.emailVerified,
+        linkedInSub: input.profile.sub,
+        picture: input.identity.picture,
+        locale: input.identity.locale,
+      }),
+      lastValidatedAt: input.validation.checkedAt ?? new Date().toISOString(),
+      lastErrorCode: input.validation.error?.code ?? null,
+      lastErrorMessage: input.validation.error?.message ?? null,
+    });
+  } catch (error) {
+    console.error("LINKEDIN_OAUTH_SOCIAL_OWNERSHIP_PREP_ERROR", error);
+  }
+}
 
 async function recordConnectionActivity(input: {
   tenantId: string;
@@ -125,6 +230,7 @@ export async function persistSocialFlowLinkedInConnection(
 
   const encryptedAccessToken = await encryptToken(input.token.access_token);
   const encryptedIdToken = await encryptToken(input.token.id_token ?? null);
+  const socialAccountStatus = coreProjection.validation.ok ? "CONNECTED_REAL" : "PENDING_REAL";
 
   const account = await upsertSaasSocialAccount(socialContext, {
     id: existingAccount?.id,
@@ -132,7 +238,7 @@ export async function persistSocialFlowLinkedInConnection(
     provider: "LINKEDIN",
     handle: input.identity.email,
     displayName: input.identity.displayName,
-    status: coreProjection.validation.ok ? "CONNECTED_REAL" : "PENDING_REAL",
+    status: socialAccountStatus,
     authMeta: {
       mode: "live",
       provider: "LINKEDIN",
@@ -153,6 +259,20 @@ export async function persistSocialFlowLinkedInConnection(
       lastErrorMessage: coreProjection.validation.error?.message ?? null,
     },
     isPrimary: true,
+  });
+
+  await maybePrepareSocialOwnedLinkedInOAuthConnection({
+    socialDb: socialContext.socialDb,
+    accountId: account.id,
+    tenantId: input.tenantId,
+    saasId: input.saasId,
+    token: input.token,
+    identity: input.identity,
+    profile: input.profile,
+    encryptedAccessToken,
+    encryptedIdToken,
+    status: socialAccountStatus,
+    validation: coreProjection.validation,
   });
 
   await recordConnectionActivity({
