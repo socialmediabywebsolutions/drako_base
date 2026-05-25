@@ -218,6 +218,8 @@ async function unzipEntries(buffer: Buffer) {
   return {
     blueprint: await zip.file("blueprint/blueprint.json")?.async("text"),
     workLogs: await zip.file("execution/work_logs.csv")?.async("text"),
+    financials: await zip.file("economics/financials.csv")?.async("text"),
+    economicEvents: await zip.file("economics/economic_events.csv")?.async("text"),
     meta: await zip.file("meta.json")?.async("text"),
     domains: await zip.file("domains/domain_status.json")?.async("text"),
   };
@@ -281,6 +283,8 @@ describe("runtime exports service hardening", () => {
     expect(result.filename.endsWith(".zip")).toBe(true);
     expect(entries.blueprint).toContain("\"blueprint\": true");
     expect(entries.workLogs).toContain("id,agent_name,action_type,status,cost_eur,created_at,output_snippet");
+    expect(entries.financials).toContain("metric,value,unit");
+    expect(entries.economicEvents).toContain("id,type,severity,created_at,payload");
   });
 
   it("uses SOCIAL_DB read models when switch is on and prepared model is valid", async () => {
@@ -314,6 +318,8 @@ describe("runtime exports service hardening", () => {
     expect(state.runCount).toBe(1);
     expect(entries.blueprint).toBe("{\"from\":\"social\"}");
     expect(entries.workLogs).toBe("id,source\n1,social\n");
+    expect(entries.financials).toBe("metric,value\nmrr,99\n");
+    expect(entries.economicEvents).toBe("id\nevt_social\n");
     expect(entries.meta).toBe("{\"source\":\"social\"}");
     expect(entries.domains).toBe("[{\"domain\":\"social.example\"}]");
     expect(result.filename.startsWith("drako-export-socialflow-")).toBe(true);
@@ -334,6 +340,8 @@ describe("runtime exports service hardening", () => {
     expect(state.runCount).toBe(1);
     expect(entries.blueprint).toContain("\"blueprint\": true");
     expect(entries.workLogs).toContain("id,agent_name,action_type,status,cost_eur,created_at,output_snippet");
+    expect(entries.financials).toContain("metric,value,unit");
+    expect(entries.economicEvents).toContain("id,type,severity,created_at,payload");
   });
 
   it("falls back to core when switch is on and SOCIAL_DB read fails", async () => {
@@ -352,5 +360,7 @@ describe("runtime exports service hardening", () => {
     expect(state.runCount).toBe(1);
     expect(entries.blueprint).toContain("\"blueprint\": true");
     expect(entries.workLogs).toContain("id,agent_name,action_type,status,cost_eur,created_at,output_snippet");
+    expect(entries.financials).toContain("metric,value,unit");
+    expect(entries.economicEvents).toContain("id,type,severity,created_at,payload");
   });
 });

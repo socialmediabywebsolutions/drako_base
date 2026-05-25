@@ -66,6 +66,29 @@ The script executes in this exact order:
 
 If any step fails, the script exits non-zero (fail-closed).
 
+## Switch-ON Local Smoke (No Prod)
+To validate export read models with switch ON while keeping production defaults OFF:
+
+```bash
+pnpm tsx scripts/smoke-socialflow-export-read-models-switch-local.ts --config=wrangler.workers.toml
+```
+
+What this smoke verifies:
+1. Validation pack prerequisites pass (unless explicitly bypassed by operator with `--assume-validated`).
+2. `SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH=1` path can read from `SOCIAL_DB.socialflow_export_read_models`.
+3. Core fallback remains available when SOCIAL_DB read model is missing or failing.
+4. ZIP shape evidence remains intact:
+   - `blueprint/blueprint.json`
+   - `execution/work_logs.csv`
+   - `economics/financials.csv`
+   - `economics/economic_events.csv`
+   - `domains/domain_status.json`
+   - `meta.json`
+
+Expected smoke evidence markers:
+- `EVIDENCE social-db-export-read`
+- `EVIDENCE core-fallback-export-read`
+
 ## Safety Notes
 - No remote D1 usage (`--remote` is not used).
 - No deploy/workflow changes.
