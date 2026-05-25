@@ -159,6 +159,7 @@ export async function runSmokeSocialflowLegacyReadModelsSwitchLocal(options: Smo
   );
   console.log(`EVIDENCE payload-compatible assertion="${evidence.payloadCompatibilityAssertion}"`);
   console.log(`EVIDENCE default-off-core-backed assertion="${evidence.defaultOffAssertion}"`);
+  console.log("SOCIALFLOW_LEGACY_READ_MODELS_SMOKE_LOCAL_SUCCESS");
   console.log("SOCIALFLOW_LEGACY_READ_MODELS_SWITCH_SMOKE_LOCAL_SUCCESS");
 }
 

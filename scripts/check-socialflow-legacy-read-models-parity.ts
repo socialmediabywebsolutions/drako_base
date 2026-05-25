@@ -294,13 +294,20 @@ function runWranglerJson(
     );
     return parseJsonRows(output);
   } catch (error) {
-    const commandError = error as { stderr?: string | Buffer; message?: string };
+    const commandError = error as { stderr?: string | Buffer; stdout?: string | Buffer; message?: string };
     const stderr = typeof commandError.stderr === "string"
       ? commandError.stderr
       : commandError.stderr instanceof Buffer
         ? commandError.stderr.toString("utf8")
-        : commandError.message ?? String(error);
-    throw new Error(`SOCIALFLOW_LEGACY_READ_MODELS_PARITY_WRANGLER_JSON_FAILED:${stderr.trim()}`);
+        : "";
+    const stdout = typeof commandError.stdout === "string"
+      ? commandError.stdout
+      : commandError.stdout instanceof Buffer
+        ? commandError.stdout.toString("utf8")
+        : "";
+    const fallback = commandError.message ?? String(error);
+    const details = stderr.trim() || stdout.trim() || fallback;
+    throw new Error(`SOCIALFLOW_LEGACY_READ_MODELS_PARITY_WRANGLER_JSON_FAILED:${details}`);
   }
 }
 
@@ -308,6 +315,20 @@ function assertTableExists(rows: Array<{ name?: string }>, tableName: string): v
   if (!rows.some((row) => row.name === tableName)) {
     throw new Error(`SOCIALFLOW_LEGACY_READ_MODELS_PARITY_TABLE_MISSING:${tableName}`);
   }
+}
+
+function tableHasColumn(
+  binding: string,
+  tableName: string,
+  columnName: string,
+  options: { configPath: string },
+): boolean {
+  const rows = runWranglerJson(
+    binding,
+    `PRAGMA table_info(${asSqlValue(tableName)});`,
+    { configPath: options.configPath },
+  ) as Array<{ name?: string }>;
+  return rows.some((row) => normalizeText(row.name).toLowerCase() === columnName.toLowerCase());
 }
 
 function toKey(...parts: Array<string | null | undefined>): string {
@@ -737,6 +758,10 @@ function loadCoreSourceFromLocalD1(options: {
     { configPath: options.configPath },
   ) as CoreTenantProgressRow[];
 
+  const hasSaasUpdatedAt = tableHasColumn(options.dracoBinding, "saas", "updated_at", {
+    configPath: options.configPath,
+  });
+  const saasUpdatedAtSelect = hasSaasUpdatedAt ? "updated_at" : "NULL AS updated_at";
   const saas = runWranglerJson(
     options.dracoBinding,
     `SELECT
@@ -745,7 +770,7 @@ function loadCoreSourceFromLocalD1(options: {
        slug,
        status,
        created_at,
-       updated_at
+       ${saasUpdatedAtSelect}
      FROM saas
      WHERE tenant_id IS NOT NULL
        AND lower(slug) IN ('socialflow', 'socialflows')`,

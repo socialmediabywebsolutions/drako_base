@@ -7,6 +7,7 @@ import {
   resolveLegacyParityExitCode,
   runCheckSocialflowLegacyReadModelsParity,
 } from "./check-socialflow-legacy-read-models-parity";
+import { runBootstrapSocialflowLegacyReadModelsSmokeLocal } from "./bootstrap-socialflow-legacy-read-models-smoke-local";
 
 type ValidationOptions = {
   configPath: string;
@@ -48,11 +49,20 @@ function printStep(title: string): void {
 }
 
 export async function runValidateSocialflowLegacyReadModelsLocal(options: ValidationOptions): Promise<void> {
-  printStep("1/5 verify required migration exists");
+  printStep("1/6 verify required migration exists");
   assertRequiredMigrationExists();
   console.log(`migration=${REQUIRED_MIGRATION} status=ok`);
 
-  printStep("2/5 run backfill dry-run (local only)");
+  printStep("2/6 bootstrap local schema for legacy read models");
+  const bootstrapReport = await runBootstrapSocialflowLegacyReadModelsSmokeLocal({
+    configPath: options.configPath,
+    dracoBinding: options.dracoBinding,
+    socialBinding: options.socialBinding,
+    dryRun: false,
+  });
+  console.log(`bootstrapReport=${JSON.stringify(bootstrapReport)}`);
+
+  printStep("3/6 run backfill dry-run (local only)");
   const dryRunReport = await runBackfillSocialflowLegacyReadModels({
     dryRun: true,
     configPath: options.configPath,
@@ -61,7 +71,7 @@ export async function runValidateSocialflowLegacyReadModelsLocal(options: Valida
   });
   console.log(`dryRunReport=${JSON.stringify(dryRunReport)}`);
 
-  printStep("3/5 run backfill apply (local only)");
+  printStep("4/6 run backfill apply (local only)");
   const applyReport = await runBackfillSocialflowLegacyReadModels({
     dryRun: false,
     configPath: options.configPath,
@@ -70,7 +80,7 @@ export async function runValidateSocialflowLegacyReadModelsLocal(options: Valida
   });
   console.log(`applyReport=${JSON.stringify(applyReport)}`);
 
-  printStep("4/5 run strict parity check (no allow-drift)");
+  printStep("5/6 run strict parity check (no allow-drift)");
   const parityReport = await runCheckSocialflowLegacyReadModelsParity({
     configPath: options.configPath,
     dracoBinding: options.dracoBinding,
@@ -82,7 +92,7 @@ export async function runValidateSocialflowLegacyReadModelsLocal(options: Valida
   }
   console.log("parity=strict-ok");
 
-  printStep("5/5 run legacy prep/backfill/parity tests");
+  printStep("6/6 run legacy prep/backfill/parity tests");
   runCommand("npx", [
     "vitest",
     "run",

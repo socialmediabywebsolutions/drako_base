@@ -57,15 +57,32 @@ pnpm tsx scripts/validate-socialflow-legacy-read-models-local.ts --config=wrangl
 
 The script executes in this exact order:
 1. Verify `migrations/0190_socialflow_legacy_read_models.sql` exists.
-2. Run legacy read models backfill in `--dry-run`.
-3. Run legacy read models backfill apply.
-4. Run strict parity check (no `--allow-drift`).
-5. Run legacy prep/backfill/parity tests:
+2. Run local bootstrap for legacy read models schema.
+3. Run legacy read models backfill in `--dry-run`.
+4. Run legacy read models backfill apply.
+5. Run strict parity check (no `--allow-drift`).
+6. Run legacy prep/backfill/parity tests:
    - `tests/lib/socialflow-legacy-social-ownership-prep-contract.test.ts`
    - `tests/backfill-socialflow-legacy-read-models.test.ts`
    - `tests/check-socialflow-legacy-read-models-parity.test.ts`
 
 If any step fails, the script exits non-zero (fail-closed).
+
+## Explicit Local Bootstrap (No Prod)
+Run schema bootstrap directly when preparing a fresh local D1:
+
+```bash
+pnpm tsx scripts/bootstrap-socialflow-legacy-read-models-smoke-local.ts --config=wrangler.workers.toml
+```
+
+This step applies/verifies the local SOCIAL_DB preparatory schema from:
+- `migrations/0190_socialflow_legacy_read_models.sql`
+
+It guarantees these tables exist before backfill/parity:
+- `socialflow_legacy_strategic_dossiers`
+- `socialflow_legacy_tenant_progress`
+- `socialflow_legacy_agent_work_logs`
+- `socialflow_legacy_repository_context`
 
 ## Optional Local Switch Probe (No Prod)
 Default behavior keeps the legacy read-model switch OFF.
@@ -89,6 +106,11 @@ Run full local smoke with switch ON:
 ```bash
 pnpm tsx scripts/smoke-socialflow-legacy-read-models-switch-local.ts --config=wrangler.workers.toml
 ```
+
+Strict recommended order:
+1. `bootstrap-socialflow-legacy-read-models-smoke-local.ts`
+2. `validate-socialflow-legacy-read-models-local.ts`
+3. `smoke-socialflow-legacy-read-models-switch-local.ts`
 
 Expected smoke evidence:
 - `EVIDENCE social-db-legacy-read`

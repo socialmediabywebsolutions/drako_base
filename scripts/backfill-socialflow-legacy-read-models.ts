@@ -273,13 +273,20 @@ function runWranglerJson(
     );
     return parseJsonRows(output);
   } catch (error) {
-    const commandError = error as { stderr?: string | Buffer; message?: string };
+    const commandError = error as { stderr?: string | Buffer; stdout?: string | Buffer; message?: string };
     const stderr = typeof commandError.stderr === "string"
       ? commandError.stderr
       : commandError.stderr instanceof Buffer
         ? commandError.stderr.toString("utf8")
-        : commandError.message ?? String(error);
-    throw new Error(`SOCIALFLOW_LEGACY_READ_MODELS_BACKFILL_WRANGLER_JSON_FAILED:${stderr.trim()}`);
+        : "";
+    const stdout = typeof commandError.stdout === "string"
+      ? commandError.stdout
+      : commandError.stdout instanceof Buffer
+        ? commandError.stdout.toString("utf8")
+        : "";
+    const fallback = commandError.message ?? String(error);
+    const details = stderr.trim() || stdout.trim() || fallback;
+    throw new Error(`SOCIALFLOW_LEGACY_READ_MODELS_BACKFILL_WRANGLER_JSON_FAILED:${details}`);
   }
 }
 
@@ -310,13 +317,20 @@ function runWranglerCommand(
       },
     );
   } catch (error) {
-    const commandError = error as { stderr?: string | Buffer; message?: string };
+    const commandError = error as { stderr?: string | Buffer; stdout?: string | Buffer; message?: string };
     const stderr = typeof commandError.stderr === "string"
       ? commandError.stderr
       : commandError.stderr instanceof Buffer
         ? commandError.stderr.toString("utf8")
-        : commandError.message ?? String(error);
-    throw new Error(`SOCIALFLOW_LEGACY_READ_MODELS_BACKFILL_WRANGLER_COMMAND_FAILED:${stderr.trim()}`);
+        : "";
+    const stdout = typeof commandError.stdout === "string"
+      ? commandError.stdout
+      : commandError.stdout instanceof Buffer
+        ? commandError.stdout.toString("utf8")
+        : "";
+    const fallback = commandError.message ?? String(error);
+    const details = stderr.trim() || stdout.trim() || fallback;
+    throw new Error(`SOCIALFLOW_LEGACY_READ_MODELS_BACKFILL_WRANGLER_COMMAND_FAILED:${details}`);
   }
 }
 
@@ -821,6 +835,20 @@ function assertLocalD1Ready(options: { configPath: string; dracoBinding: string;
   }
 }
 
+function tableHasColumn(
+  binding: string,
+  tableName: string,
+  columnName: string,
+  options: { configPath: string },
+): boolean {
+  const rows = runWranglerJson(
+    binding,
+    `PRAGMA table_info(${asSqlValue(tableName)});`,
+    { configPath: options.configPath },
+  ) as Array<{ name?: string }>;
+  return rows.some((row) => normalizeText(row.name).toLowerCase() === columnName.toLowerCase());
+}
+
 function loadCoreStrategicDossiers(options: { configPath: string; dracoBinding: string }): CoreStrategicDossierRow[] {
   return runWranglerJson(
     options.dracoBinding,
@@ -841,6 +869,10 @@ function loadCoreStrategicDossiers(options: { configPath: string; dracoBinding: 
 }
 
 function loadCoreAgentWorkLogs(options: { configPath: string; dracoBinding: string }): CoreAgentWorkLogRow[] {
+  const hasUpdatedAt = tableHasColumn(options.dracoBinding, "agent_work_logs", "updated_at", {
+    configPath: options.configPath,
+  });
+  const updatedAtSelect = hasUpdatedAt ? "updated_at" : "NULL AS updated_at";
   return runWranglerJson(
     options.dracoBinding,
     `SELECT
@@ -853,7 +885,7 @@ function loadCoreAgentWorkLogs(options: { configPath: string; dracoBinding: stri
        output_json,
        cost_eur,
        created_at,
-       updated_at
+       ${updatedAtSelect}
      FROM agent_work_logs
      WHERE tenant_id IS NOT NULL`,
     { configPath: options.configPath },
@@ -874,6 +906,10 @@ function loadCoreTenantProgress(options: { configPath: string; dracoBinding: str
 }
 
 function loadCoreSaasRows(options: { configPath: string; dracoBinding: string }): CoreSaasRow[] {
+  const hasUpdatedAt = tableHasColumn(options.dracoBinding, "saas", "updated_at", {
+    configPath: options.configPath,
+  });
+  const updatedAtSelect = hasUpdatedAt ? "updated_at" : "NULL AS updated_at";
   return runWranglerJson(
     options.dracoBinding,
     `SELECT
@@ -882,7 +918,7 @@ function loadCoreSaasRows(options: { configPath: string; dracoBinding: string })
        slug,
        status,
        created_at,
-       updated_at
+       ${updatedAtSelect}
      FROM saas
      WHERE tenant_id IS NOT NULL
        AND lower(slug) IN ('socialflow', 'socialflows')`,
