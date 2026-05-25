@@ -118,6 +118,25 @@ The guard must not report:
 
 If the guard still reports placeholders, check the `placeholders` array in the JSON output. It lists exactly which bindings still need real non-production `database_id` values.
 
+## Current Real Nonprod D1 Bindings
+
+Created for the SocialFlow canary nonprod target:
+
+| Binding | D1 database_name | D1 database_id |
+| --- | --- | --- |
+| `DRACO_DB` | `drako_db_socialflow_canary` | `ca873dbd-2c44-49ae-bf14-e1ce7f217fde` |
+| `SAASES_DB` | `saas_socialflows_registry_canary_db` | `6951995a-141f-4338-acc5-f65be3d8c91e` |
+| `SOCIAL_DB` | `saas_socialflows_canary_db` | `349fa685-044e-4292-b6e9-b1cafd35896e` |
+| `SOCIALFLOW_AUTHS_DB` | `saas_socialflow_auths_canary_db` | `213b115b-9363-4a21-82d6-8db58c98d6df` |
+
+Current expected guard status:
+
+```text
+NON_DEPLOYABLE_REAL_NONPROD_CONFIG
+```
+
+This status confirms real non-production D1 ids are present while deployment remains blocked.
+
 ## Required Switch Defaults
 
 All switches must stay OFF by default:
