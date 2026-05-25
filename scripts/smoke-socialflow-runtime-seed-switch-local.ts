@@ -58,6 +58,32 @@ type SaasIdentityAssertionInput = {
 const CORE_SLUGS = ["socialflow", "socialflows"] as const;
 const RUNTIME_COOKIE_HINT = "socialflow";
 const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+const SMOKE_USER_AGENT = "drako-socialflow-runtime-seed-smoke/1.0";
+const HEALTH_WARMUP_ATTEMPTS = 20;
+const ROUTE_WARMUP_ATTEMPTS = 10;
+const SESSION_RETRY_ATTEMPTS = 4;
+const PROFILE_RETRY_ATTEMPTS = 6;
+const SETUP_STATUS_RETRY_ATTEMPTS = 6;
+const RETRY_BASE_DELAY_MS = 250;
+const RETRY_MAX_DELAY_MS = 1_500;
+const RETRYABLE_FETCH_ERROR_MARKERS = [
+  "SOCIALFLOW_RUNTIME_SEED_SMOKE_HTTP_FETCH_FAILED",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "EPIPE",
+  "UND_ERR_SOCKET",
+  "SocketError",
+  "other side closed",
+  "fetch failed",
+] as const;
+
+type RetryRequestOptions = {
+  label: string;
+  timeoutMs: number;
+  maxAttempts: number;
+  retryOnStatuses?: number[];
+};
 
 function parseArgs(argv: string[]): RuntimeSeedLocalSmokeOptions {
   const baseUrlArg = argv.find((value) => value.startsWith("--base-url="));
@@ -194,11 +220,19 @@ function assertTableExists(binding: string, configPath: string, tableName: strin
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = setTimeout(() => controller.abort(new Error(`timeout:${timeoutMs}`)), timeoutMs);
   try {
     try {
+      const headers = new Headers(init.headers);
+      if (!headers.has("user-agent")) {
+        headers.set("user-agent", SMOKE_USER_AGENT);
+      }
+      headers.set("connection", "close");
+      headers.set("cache-control", "no-store");
+
       return await fetch(url, {
         ...init,
+        headers,
         signal: controller.signal,
       });
     } catch (error) {
@@ -211,11 +245,74 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
         : cause == null
           ? "none"
           : String(cause);
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error(`SOCIALFLOW_RUNTIME_SEED_SMOKE_HTTP_TIMEOUT:${url}:timeoutMs=${timeoutMs}`);
+      }
       throw new Error(`SOCIALFLOW_RUNTIME_SEED_SMOKE_HTTP_FETCH_FAILED:${url}:${message}:cause=${causeMessage}`);
     }
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function isRetryableFetchError(message: string): boolean {
+  return RETRYABLE_FETCH_ERROR_MARKERS.some((marker) => message.includes(marker));
+}
+
+function isRetryableStatus(status: number, retryOnStatuses: number[] | undefined): boolean {
+  return retryOnStatuses?.includes(status) ?? false;
+}
+
+function resolveBackoffMs(attempt: number): number {
+  const power = Math.max(0, attempt - 1);
+  return Math.min(RETRY_MAX_DELAY_MS, RETRY_BASE_DELAY_MS * (2 ** power));
+}
+
+function summarizeBody(body: string): string {
+  const normalized = body.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 180) {
+    return normalized;
+  }
+  return `${normalized.slice(0, 180)}...`;
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(url: string, init: RequestInit, options: RetryRequestOptions): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= options.maxAttempts; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(url, init, options.timeoutMs);
+      if (isRetryableStatus(response.status, options.retryOnStatuses) && attempt < options.maxAttempts) {
+        const body = await readResponseBody(response);
+        const delayMs = resolveBackoffMs(attempt);
+        console.warn(
+          `SOCIALFLOW_RUNTIME_SEED_SMOKE_RETRY ${options.label} attempt=${attempt}/${options.maxAttempts} status=${response.status} waitMs=${delayMs} body=${summarizeBody(body) || "<empty>"}`,
+        );
+        await sleep(delayMs);
+        continue;
+      }
+      return response;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const retryable = isRetryableFetchError(message);
+      lastError = error instanceof Error ? error : new Error(message);
+      if (!retryable || attempt >= options.maxAttempts) {
+        throw lastError;
+      }
+
+      const delayMs = resolveBackoffMs(attempt);
+      console.warn(
+        `SOCIALFLOW_RUNTIME_SEED_SMOKE_RETRY ${options.label} attempt=${attempt}/${options.maxAttempts} reason=${message} waitMs=${delayMs}`,
+      );
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError ?? new Error(`SOCIALFLOW_RUNTIME_SEED_SMOKE_RETRY_EXHAUSTED:${options.label}`);
 }
 
 async function readResponseBody(response: Response): Promise<string> {
@@ -410,57 +507,122 @@ function cleanupRuntimeWorkspace(options: RuntimeSeedLocalSmokeOptions, tenantId
 }
 
 async function ensureRuntimeReachable(options: RuntimeSeedLocalSmokeOptions): Promise<void> {
-  const response = await fetchWithTimeout(
+  const healthResponse = await fetchWithRetry(
     `${options.baseUrl}/api/socialflow/runtime/health`,
     {
       method: "GET",
-      headers: {
-        "user-agent": "drako-socialflow-runtime-seed-smoke/1.0",
-      },
     },
-    options.timeoutMs,
+    {
+      label: "health",
+      timeoutMs: options.timeoutMs,
+      maxAttempts: HEALTH_WARMUP_ATTEMPTS,
+      retryOnStatuses: [500, 502, 503, 504],
+    },
   );
 
-  if (!response.ok) {
-    const body = await readResponseBody(response);
-    throw new Error(`SOCIALFLOW_RUNTIME_SEED_SMOKE_RUNTIME_UNREACHABLE:${response.status}:${body}`);
+  if (!healthResponse.ok) {
+    const body = await readResponseBody(healthResponse);
+    throw new Error(`SOCIALFLOW_RUNTIME_SEED_SMOKE_RUNTIME_UNREACHABLE:${healthResponse.status}:${body}`);
   }
+
+  const profileWarmup = await fetchWithRetry(
+    `${options.baseUrl}/api/socialflow/profile`,
+    {
+      method: "GET",
+    },
+    {
+      label: "profile-warmup",
+      timeoutMs: options.timeoutMs,
+      maxAttempts: ROUTE_WARMUP_ATTEMPTS,
+      retryOnStatuses: [500, 502, 503, 504],
+    },
+  );
+
+  if (profileWarmup.status !== 401 && profileWarmup.status !== 200) {
+    const body = await readResponseBody(profileWarmup);
+    throw new Error(`SOCIALFLOW_RUNTIME_SEED_SMOKE_PROFILE_WARMUP_UNEXPECTED_STATUS:${profileWarmup.status}:${body}`);
+  }
+
+  const setupWarmup = await fetchWithRetry(
+    `${options.baseUrl}/api/socialflow/setup/status?saasId=smoke_warmup`,
+    {
+      method: "GET",
+    },
+    {
+      label: "setup-status-warmup",
+      timeoutMs: options.timeoutMs,
+      maxAttempts: ROUTE_WARMUP_ATTEMPTS,
+      retryOnStatuses: [500, 502, 503, 504],
+    },
+  );
+
+  if (setupWarmup.status !== 401 && setupWarmup.status !== 200) {
+    const body = await readResponseBody(setupWarmup);
+    throw new Error(`SOCIALFLOW_RUNTIME_SEED_SMOKE_SETUP_WARMUP_UNEXPECTED_STATUS:${setupWarmup.status}:${body}`);
+  }
+
+  console.log(
+    `SOCIALFLOW_RUNTIME_SEED_SMOKE_WARMUP health=${healthResponse.status} profileWarmup=${profileWarmup.status} setupWarmup=${setupWarmup.status}`,
+  );
 }
 
 async function registerSession(options: RuntimeSeedLocalSmokeOptions, tenantId: string): Promise<SessionFixture> {
-  const email = `${buildRuntimeId("socialflow-runtime-seed-smoke")}@local.dev`;
   const password = "socialflow-runtime-smoke-123";
 
-  const response = await fetchWithTimeout(
-    `${options.baseUrl}/api/socialflow/auths/registrations`,
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-tenant-id": tenantId,
-      },
-      body: JSON.stringify({
-        email,
-        password,
-        name: "SocialFlow Runtime Seed Smoke",
-        tenantId,
-      }),
-    },
-    options.timeoutMs,
-  );
+  for (let attempt = 1; attempt <= SESSION_RETRY_ATTEMPTS; attempt += 1) {
+    const email = `${buildRuntimeId("socialflow-runtime-seed-smoke")}@local.dev`;
+    try {
+      const response = await fetchWithRetry(
+        `${options.baseUrl}/api/socialflow/auths/registrations`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-tenant-id": tenantId,
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            name: "SocialFlow Runtime Seed Smoke",
+            tenantId,
+          }),
+        },
+        {
+          label: `registration-${attempt}`,
+          timeoutMs: options.timeoutMs,
+          maxAttempts: 2,
+          retryOnStatuses: [500, 502, 503, 504],
+        },
+      );
 
-  if (response.status !== 201) {
-    const body = await readResponseBody(response);
-    throw new Error(`SOCIALFLOW_RUNTIME_SEED_SMOKE_REGISTRATION_FAILED:${response.status}:${body}`);
+      if (response.status !== 201) {
+        const body = await readResponseBody(response);
+        throw new Error(`SOCIALFLOW_RUNTIME_SEED_SMOKE_REGISTRATION_FAILED:${response.status}:${body}`);
+      }
+
+      const cookie = resolveSessionCookie(collectSetCookies(response.headers));
+      console.log(
+        `SOCIALFLOW_RUNTIME_SEED_SMOKE_SESSION_COOKIE_META length=${cookie.length} hasCtl=${/[\r\n]/.test(cookie)} hasLeadingComma=${cookie.startsWith(",")}`,
+      );
+      return { email, cookie };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (attempt >= SESSION_RETRY_ATTEMPTS || !isRetryableFetchError(message)) {
+        throw error;
+      }
+      const delayMs = resolveBackoffMs(attempt);
+      console.warn(
+        `SOCIALFLOW_RUNTIME_SEED_SMOKE_RETRY registration attempt=${attempt}/${SESSION_RETRY_ATTEMPTS} reason=${message} waitMs=${delayMs}`,
+      );
+      await sleep(delayMs);
+    }
   }
 
-  const cookie = resolveSessionCookie(collectSetCookies(response.headers));
-  console.log(`SOCIALFLOW_RUNTIME_SEED_SMOKE_SESSION_COOKIE_META length=${cookie.length} hasCtl=${/[\r\n]/.test(cookie)} hasLeadingComma=${cookie.startsWith(",")}`);
-  return { email, cookie };
+  throw new Error("SOCIALFLOW_RUNTIME_SEED_SMOKE_REGISTRATION_EXHAUSTED");
 }
 
 async function readProfile(options: RuntimeSeedLocalSmokeOptions, session: SessionFixture, tenantId: string): Promise<ProfileResponse> {
-  const response = await fetchWithTimeout(
+  const response = await fetchWithRetry(
     `${options.baseUrl}/api/socialflow/profile`,
     {
       method: "GET",
@@ -469,7 +631,12 @@ async function readProfile(options: RuntimeSeedLocalSmokeOptions, session: Sessi
         "x-tenant-id": tenantId,
       },
     },
-    options.timeoutMs,
+    {
+      label: "profile",
+      timeoutMs: options.timeoutMs,
+      maxAttempts: PROFILE_RETRY_ATTEMPTS,
+      retryOnStatuses: [401, 429, 500, 502, 503, 504],
+    },
   );
 
   const body = await readResponseBody(response);
@@ -486,7 +653,7 @@ async function readSetupStatus(
   tenantId: string,
   saasId: string,
 ): Promise<SetupStatusResponse> {
-  const response = await fetchWithTimeout(
+  const response = await fetchWithRetry(
     `${options.baseUrl}/api/socialflow/setup/status?saasId=${encodeURIComponent(saasId)}`,
     {
       method: "GET",
@@ -495,7 +662,12 @@ async function readSetupStatus(
         "x-tenant-id": tenantId,
       },
     },
-    options.timeoutMs,
+    {
+      label: "setup-status",
+      timeoutMs: options.timeoutMs,
+      maxAttempts: SETUP_STATUS_RETRY_ATTEMPTS,
+      retryOnStatuses: [401, 429, 500, 502, 503, 504],
+    },
   );
 
   const body = await readResponseBody(response);

@@ -66,25 +66,25 @@ This smoke validates runtime HTTP behavior on critical routes with switch enable
 - `/api/socialflow/setup/status`
 
 ## Recommended Local Order (Exact)
-1. Bootstrap local DB:
-
-```bash
-pnpm tsx scripts/bootstrap-socialflow-runtime-seed-smoke-local.ts --config=apps/socialflow-runtime/wrangler.toml
-```
-
-2. Validation pack:
-
-```bash
-pnpm tsx scripts/validate-socialflow-runtime-seed-local.ts --config=apps/socialflow-runtime/wrangler.toml
-```
-
-3. Rebuild SocialFlow runtime artifacts (required after code changes):
+1. Rebuild SocialFlow runtime artifacts (required after code changes):
 
 ```bash
 pnpm socialflow-runtime:build
 ```
 
 Why: `wrangler dev` serves `apps/socialflow-runtime/.open-next/worker.js`. If artifacts are stale, switch wiring updates in source may not be reflected at runtime.
+
+2. Bootstrap local DB:
+
+```bash
+pnpm tsx scripts/bootstrap-socialflow-runtime-seed-smoke-local.ts --config=apps/socialflow-runtime/wrangler.toml
+```
+
+3. Validation pack:
+
+```bash
+pnpm tsx scripts/validate-socialflow-runtime-seed-local.ts --config=apps/socialflow-runtime/wrangler.toml
+```
 
 4. Start runtime locally with switch ON:
 
@@ -98,13 +98,15 @@ pnpm wrangler dev --local --config apps/socialflow-runtime/wrangler.toml --ip 12
 5. Run smoke in a second terminal:
 
 ```bash
-pnpm tsx scripts/smoke-socialflow-runtime-seed-switch-local.ts --base-url=http://127.0.0.1:8787 --config=apps/socialflow-runtime/wrangler.toml
+pnpm tsx scripts/smoke-socialflow-runtime-seed-switch-local.ts --base-url=http://127.0.0.1:8787 --config=apps/socialflow-runtime/wrangler.toml --timeout-ms=25000
 ```
 
 Expected smoke evidence:
 - `EVIDENCE social-first ...` when active seed exists in `SOCIAL_DB`.
-: social-first accepts explicit SocialFlow identities (`slug` alias or social seed `saas_id`) and rejects core identities.
+- social-first accepts explicit SocialFlow identities (`slug` alias or social seed `saas_id`) and rejects core identities.
 - `EVIDENCE core-fallback contractTest=...` confirms fallback coverage from:
-: `tests/lib/socialflow-runtime-seed-contract.test.ts` case `keeps_working_when_SOCIAL_DB_read_errors_and_core_fallback_is_available`.
+- `tests/lib/socialflow-runtime-seed-contract.test.ts` case `keeps_working_when_SOCIAL_DB_read_errors_and_core_fallback_is_available`.
+- `SOCIALFLOW_RUNTIME_SEED_SMOKE_WARMUP ...` confirms route warmup completed before critical reads.
+- `SOCIALFLOW_RUNTIME_SEED_SMOKE_RETRY ...` may appear transiently if Wrangler restarts sockets during local dev; smoke still fails closed if retries are exhausted.
 
 The smoke is local-only, fail-closed, does not use remote D1, and does not change switch defaults.
