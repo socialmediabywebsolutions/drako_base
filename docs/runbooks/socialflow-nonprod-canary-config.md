@@ -391,6 +391,13 @@ Synthetic canary data inserted or ensured:
 - orchestrator message: `message_socialflow_canary`
 - economic event: `event_socialflow_canary`
 
+Observed schema posture of the synthetic canary source after bootstrap:
+
+- `tenants` uses `tenant_id` as the primary key in this nonprod seed, not `id`;
+- `saas_domains` is intentionally minimal and does not include `is_primary`;
+- this is sufficient for the nonprod ownership backfill/parity flow documented here;
+- this is not evidence of production drift by itself, but it is a compatibility debt if someone tries to reuse older standalone local backfill/parity scripts that assume richer core schemas.
+
 Explicitly not touched:
 
 - `SOCIAL_DB`
@@ -422,6 +429,13 @@ pnpm tsx scripts/check-socialflow-nonprod-ownership-parity.ts
 ```
 
 Strict parity should no longer require `--allow-empty-source` once the source bootstrap and backfill have both completed.
+
+Strict parity classification for this phase:
+
+- `missingInSocial` before backfill is expected and means `SOCIAL_DB` is still empty for the ownership tables;
+- `emptySources` after bootstrap is not expected and should be treated as incomplete source data;
+- `mismatched` after backfill should be treated as either a mapping bug or a real drift investigation, not hidden with `--allow-drift`;
+- `missingInCore` after backfill usually means residual rows in `SOCIAL_DB` that are not justified by current canary source data and should be audited explicitly.
 
 ## Required Switch Defaults
 

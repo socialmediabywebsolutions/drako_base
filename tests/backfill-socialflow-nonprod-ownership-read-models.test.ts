@@ -80,11 +80,184 @@ function tableNameFromCountSql(sql: string): string | null {
   return match?.[1] ?? null;
 }
 
+function splitSqlList(sql: string): string[] {
+  const values: string[] = [];
+  let current = "";
+  let inString = false;
+
+  for (let index = 0; index < sql.length; index += 1) {
+    const char = sql[index];
+    const next = sql[index + 1];
+
+    if (char === "'") {
+      current += char;
+      if (inString && next === "'") {
+        current += next;
+        index += 1;
+        continue;
+      }
+      inString = !inString;
+      continue;
+    }
+
+    if (char === "," && !inString) {
+      values.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current.trim()) {
+    values.push(current.trim());
+  }
+
+  return values;
+}
+
+function parseSqlValue(token: string): unknown {
+  const trimmed = token.trim();
+  if (/^null$/i.test(trimmed)) return null;
+  if (/^datetime\('now'\)$/i.test(trimmed)) return "now";
+  if (/^-?\d+(?:\.\d+)?$/i.test(trimmed)) return Number(trimmed);
+  if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+    return trimmed.slice(1, -1).replace(/''/g, "'");
+  }
+  return trimmed;
+}
+
+function parseInsertSql(sql: string): { table: string; row: Record<string, unknown> } | null {
+  const match = sql.match(/INSERT INTO\s+([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\)\s*VALUES\s*\(([\s\S]*?)\)\s*ON CONFLICT/i);
+  if (!match) return null;
+
+  const [, table, rawColumns, rawValues] = match;
+  const columns = splitSqlList(rawColumns);
+  const values = splitSqlList(rawValues);
+  if (columns.length !== values.length) {
+    throw new Error(`TEST_SQL_PARSE_MISMATCH:${table}:${columns.length}:${values.length}`);
+  }
+
+  const row: Record<string, unknown> = {};
+  for (let index = 0; index < columns.length; index += 1) {
+    row[columns[index]] = parseSqlValue(values[index]);
+  }
+
+  return { table, row };
+}
+
+function upsertTargetRow(
+  table: string,
+  row: Record<string, unknown>,
+  targetTables: Record<string, Record<string, unknown>[]>,
+): void {
+  const keyFieldsByTable: Record<string, string[]> = {
+    socialflow_seed_metadata: ["tenant_id", "saas_id", "slug"],
+    socialflow_export_read_models: ["tenant_id", "saas_id"],
+    socialflow_legacy_strategic_dossiers: ["tenant_id", "dossier_id"],
+    socialflow_legacy_tenant_progress: ["tenant_id"],
+    socialflow_legacy_agent_work_logs: ["tenant_id", "log_id"],
+    socialflow_legacy_repository_context: ["tenant_id", "saas_id"],
+  };
+  const keyFields = keyFieldsByTable[table];
+  if (!keyFields) {
+    throw new Error(`TEST_TARGET_TABLE_KEY_MISSING:${table}`);
+  }
+
+  const key = keyFields.map((field) => String(row[field] ?? "")).join("::");
+  const rows = targetTables[table] ?? [];
+  const existingIndex = rows.findIndex((candidate) =>
+    keyFields.every((field) => String(candidate[field] ?? "") === String(row[field] ?? "")));
+
+  if (existingIndex >= 0) {
+    rows[existingIndex] = { ...rows[existingIndex], ...row };
+  } else {
+    rows.push(row);
+  }
+
+  targetTables[table] = rows;
+}
+
+function seededOwnershipSourceTables() {
+  return {
+    saas: [{
+      id: "saas_socialflow_canary",
+      tenant_id: "tenant_socialflow_canary",
+      slug: "socialflow",
+      name: "SocialFlow Canary SaaS",
+      domain: "socialflow-canary.local",
+      status: "active",
+      blueprint_snapshot: JSON.stringify({ source: "canary", product: "socialflow", synthetic: true }),
+      mrr_eur: 0,
+      cost_eur: 0,
+      risk_level: "low",
+      plan_tier: "canary",
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    }],
+    tenant_strategic_dossiers: [{
+      id: "dossier_socialflow_canary",
+      tenant_id: "tenant_socialflow_canary",
+      status: "ready",
+      version: 1,
+      form_data: JSON.stringify({ objective: "canary validation", containsPersonalData: false }),
+      analysis_data: JSON.stringify({ summary: "synthetic canary dossier" }),
+      plan_data: JSON.stringify({ nextStep: "nonprod parity" }),
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    }],
+    agent_work_logs: [{
+      id: "worklog_socialflow_canary",
+      tenant_id: "tenant_socialflow_canary",
+      saas_id: "saas_socialflow_canary",
+      agent_name: "canary-agent",
+      action_type: "canary-bootstrap",
+      status: "completed",
+      output_json: JSON.stringify({ synthetic: true, result: "ok" }),
+      cost_eur: 0,
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    }],
+    tenants: [{
+      tenant_id: "tenant_socialflow_canary",
+      materialization_step: 1,
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    }],
+    saas_domains: [{
+      id: "domain_socialflow_canary",
+      tenant_id: "tenant_socialflow_canary",
+      saas_id: "saas_socialflow_canary",
+      domain: "socialflow-canary.local",
+      status: "active",
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    }],
+    orchestrator_messages: [{
+      id: "message_socialflow_canary",
+      tenant_id: "tenant_socialflow_canary",
+      role: "system",
+      content: "Synthetic SocialFlow canary source message.",
+      created_at: "2026-01-01T00:00:00.000Z",
+    }],
+    economic_events: [{
+      id: "event_socialflow_canary",
+      tenant_id: "tenant_socialflow_canary",
+      saas_id: "saas_socialflow_canary",
+      type: "canary",
+      severity: "info",
+      payload_json: JSON.stringify({ synthetic: true, value: 0 }),
+      created_at: "2026-01-01T00:00:00.000Z",
+    }],
+  };
+}
+
 function createMockRunner(state: MockRunnerState) {
   return (command: SocialflowNonprodBackfillRemoteCommand): string => {
     state.commands.push(command);
     const sourceTables = state.sourceTables ?? {};
     const targetTables = state.targetTables ?? Object.fromEntries(TARGET_TABLES.map((table) => [table, []]));
+    state.targetTables = targetTables;
     const sourceDb = command.databaseName === "drako_db_socialflow_canary";
     const tables = sourceDb ? sourceTables : targetTables;
     const existsName = tableNameFromExistenceSql(command.sql);
@@ -102,6 +275,14 @@ function createMockRunner(state: MockRunnerState) {
     const countName = tableNameFromCountSql(command.sql);
     if (countName) {
       return jsonRows([{ count: tables[countName]?.length ?? 0 }]);
+    }
+
+    if (command.kind === "write") {
+      const parsed = parseInsertSql(command.sql);
+      if (parsed) {
+        upsertTargetRow(parsed.table, parsed.row, targetTables);
+      }
+      return jsonRows([]);
     }
 
     return jsonRows([]);
@@ -205,6 +386,36 @@ describe("SocialFlow nonprod ownership read-model backfill", () => {
     expect(writeCommands.length).toBeGreaterThan(0);
     expect(writeCommands.every((command) => command.databaseName === "saas_socialflows_canary_db")).toBe(true);
     expect(writeCommands.some((command) => command.databaseName.includes("prod"))).toBe(false);
+  });
+
+  it("apply with non-empty source materializes all six ownership read models and becomes idempotent", async () => {
+    const configPath = await writeTempConfig(REAL_NONPROD_CONFIG);
+    const state: MockRunnerState = {
+      commands: [],
+      sourceTables: seededOwnershipSourceTables(),
+    };
+
+    const report = await runBackfillSocialflowNonprodOwnershipReadModels({
+      mode: "apply",
+      configPaths: [configPath],
+      runner: createMockRunner(state),
+    });
+
+    expect(report.status).toBe("APPLY_OK");
+    expect(report.remoteWrites).toBe(6);
+    expect(report.idempotent).toBe(true);
+    expect(report.targetCounts.socialflow_seed_metadata).toBe(1);
+    expect(report.targetCounts.socialflow_export_read_models).toBe(1);
+    expect(report.targetCounts.socialflow_legacy_strategic_dossiers).toBe(1);
+    expect(report.targetCounts.socialflow_legacy_tenant_progress).toBe(1);
+    expect(report.targetCounts.socialflow_legacy_agent_work_logs).toBe(1);
+    expect(report.targetCounts.socialflow_legacy_repository_context).toBe(1);
+    expect(report.tables.runtimeSeed.unchanged).toBe(1);
+    expect(report.tables.exports.unchanged).toBe(1);
+    expect(report.tables.legacyDossiers.unchanged).toBe(1);
+    expect(report.tables.legacyProgress.unchanged).toBe(1);
+    expect(report.tables.legacyWorkLogs.unchanged).toBe(1);
+    expect(report.tables.legacyRepositoryContext.unchanged).toBe(1);
   });
 
   it("excludes OAuth tables and credentials from every command", async () => {

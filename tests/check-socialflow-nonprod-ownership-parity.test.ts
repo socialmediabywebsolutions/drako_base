@@ -96,6 +96,172 @@ function createMockRunner(state: MockRunnerState) {
   };
 }
 
+function seededOwnershipSourceTables() {
+  return {
+    saas: [{
+      id: "saas_socialflow_canary",
+      tenant_id: "tenant_socialflow_canary",
+      slug: "socialflow",
+      name: "SocialFlow Canary SaaS",
+      domain: "socialflow-canary.local",
+      status: "active",
+      blueprint_snapshot: JSON.stringify({ source: "canary", product: "socialflow", synthetic: true }),
+      mrr_eur: 0,
+      cost_eur: 0,
+      risk_level: "low",
+      plan_tier: "canary",
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    }],
+    tenant_strategic_dossiers: [{
+      id: "dossier_socialflow_canary",
+      tenant_id: "tenant_socialflow_canary",
+      status: "ready",
+      version: 1,
+      form_data: JSON.stringify({ objective: "canary validation", containsPersonalData: false }),
+      analysis_data: JSON.stringify({ summary: "synthetic canary dossier" }),
+      plan_data: JSON.stringify({ nextStep: "nonprod parity" }),
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    }],
+    agent_work_logs: [{
+      id: "worklog_socialflow_canary",
+      tenant_id: "tenant_socialflow_canary",
+      saas_id: "saas_socialflow_canary",
+      agent_name: "canary-agent",
+      action_type: "canary-bootstrap",
+      status: "completed",
+      output_json: JSON.stringify({ synthetic: true, result: "ok" }),
+      cost_eur: 0,
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    }],
+    tenants: [{
+      tenant_id: "tenant_socialflow_canary",
+      materialization_step: 1,
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    }],
+    saas_domains: [{
+      id: "domain_socialflow_canary",
+      tenant_id: "tenant_socialflow_canary",
+      saas_id: "saas_socialflow_canary",
+      domain: "socialflow-canary.local",
+      status: "active",
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    }],
+    orchestrator_messages: [{
+      id: "message_socialflow_canary",
+      tenant_id: "tenant_socialflow_canary",
+      role: "system",
+      content: "Synthetic SocialFlow canary source message.",
+      created_at: "2026-01-01T00:00:00.000Z",
+    }],
+    economic_events: [{
+      id: "event_socialflow_canary",
+      tenant_id: "tenant_socialflow_canary",
+      saas_id: "saas_socialflow_canary",
+      type: "canary",
+      severity: "info",
+      payload_json: JSON.stringify({ synthetic: true, value: 0 }),
+      created_at: "2026-01-01T00:00:00.000Z",
+    }],
+  };
+}
+
+function matchingOwnershipTargetTables() {
+  return {
+    socialflow_seed_metadata: [{
+      tenant_id: "tenant_socialflow_canary",
+      saas_id: "saas_socialflow_canary",
+      slug: "socialflow",
+      domain: "socialflow-canary.local",
+      status: "active",
+      metadata_json: JSON.stringify({
+        source: "nonprod_core_backfill",
+        name: "SocialFlow Canary SaaS",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      }),
+    }],
+    socialflow_export_read_models: [{
+      tenant_id: "tenant_socialflow_canary",
+      saas_id: "saas_socialflow_canary",
+      slug: "socialflow",
+      status: "ready",
+      dossier_json: JSON.stringify({
+        id: "dossier_socialflow_canary",
+        tenant_id: "tenant_socialflow_canary",
+        status: "ready",
+        version: 1,
+        form_data: JSON.stringify({ objective: "canary validation", containsPersonalData: false }),
+        analysis_data: JSON.stringify({ summary: "synthetic canary dossier" }),
+        plan_data: JSON.stringify({ nextStep: "nonprod parity" }),
+        created_at: "2026-01-01T00:00:00.000Z",
+        updated_at: "2026-01-01T00:00:00.000Z",
+      }),
+      blueprint_json: JSON.stringify({ source: "canary", product: "socialflow", synthetic: true }),
+      work_logs_csv: "id,agent_name,action_type,status,cost_eur,created_at\nworklog_socialflow_canary,canary-agent,canary-bootstrap,completed,0,2026-01-01T00:00:00.000Z\n",
+      orchestrator_messages_csv: "role,created_at,content\nsystem,2026-01-01T00:00:00.000Z,Synthetic SocialFlow canary source message.\n",
+      financials_csv: "metric,value,unit\nmrr,0,EUR\ntotal_cost,0,EUR\nrisk_level,low,ENUM\nplan_tier,canary,ENUM\n",
+      economic_events_csv: "id,type,severity,created_at,payload_json\nevent_socialflow_canary,canary,info,2026-01-01T00:00:00.000Z,\"{\"\"synthetic\"\":true,\"\"value\"\":0}\"\n",
+      domains_json: JSON.stringify([{
+        id: "domain_socialflow_canary",
+        tenant_id: "tenant_socialflow_canary",
+        saas_id: "saas_socialflow_canary",
+        domain: "socialflow-canary.local",
+        status: "active",
+        created_at: "2026-01-01T00:00:00.000Z",
+        updated_at: "2026-01-01T00:00:00.000Z",
+      }]),
+      meta_json: JSON.stringify({
+        saasId: "saas_socialflow_canary",
+        tenantId: "tenant_socialflow_canary",
+        generatedAt: "socialflow_nonprod_ownership_backfill",
+        sourceRevision: "b485706eea65c6f88772627c",
+      }),
+      source_revision: "b485706eea65c6f88772627c",
+    }],
+    socialflow_legacy_strategic_dossiers: [{
+      tenant_id: "tenant_socialflow_canary",
+      dossier_id: "dossier_socialflow_canary",
+      status: "ready",
+      version: 1,
+      form_data_json: JSON.stringify({ objective: "canary validation", containsPersonalData: false }),
+      analysis_data_json: JSON.stringify({ summary: "synthetic canary dossier" }),
+      plan_data_json: JSON.stringify({ nextStep: "nonprod parity" }),
+      source_updated_at: "2026-01-01T00:00:00.000Z",
+    }],
+    socialflow_legacy_tenant_progress: [{
+      tenant_id: "tenant_socialflow_canary",
+      materialization_step: 1,
+    }],
+    socialflow_legacy_agent_work_logs: [{
+      tenant_id: "tenant_socialflow_canary",
+      log_id: "worklog_socialflow_canary",
+      saas_id: "saas_socialflow_canary",
+      agent_name: "canary-agent",
+      action_type: "canary-bootstrap",
+      status: "completed",
+      output_json: JSON.stringify({ synthetic: true, result: "ok" }),
+      cost_eur: 0,
+      created_at: "2026-01-01T00:00:00.000Z",
+    }],
+    socialflow_legacy_repository_context: [{
+      tenant_id: "tenant_socialflow_canary",
+      saas_id: "saas_socialflow_canary",
+      slug: "socialflow",
+      domain: "socialflow-canary.local",
+      status: "active",
+      metadata_json: JSON.stringify({
+        source: "nonprod_core_backfill",
+        coreSlug: "socialflow",
+        sourceUpdatedAt: "2026-01-01T00:00:00.000Z",
+      }),
+    }],
+  };
+}
+
 describe("SocialFlow nonprod ownership parity", () => {
   it("rejects a DB with prod in the name", async () => {
     const configPath = await writeTempConfig(
@@ -183,6 +349,27 @@ describe("SocialFlow nonprod ownership parity", () => {
     expect(report.status).toBe("EMPTY_SOURCE_ACCEPTED");
     expect(report.exitCode).toBe(0);
     expect(report.warnings).toContain("SOCIALFLOW_NONPROD_OWNERSHIP_PARITY_EMPTY_SOURCE_ACCEPTED");
+  });
+
+  it("passes strict parity with non-empty canary source once SOCIAL_DB contains matching ownership rows", async () => {
+    const configPath = await writeTempConfig(REAL_NONPROD_CONFIG);
+    const report = await runCheckSocialflowNonprodOwnershipParity({
+      configPaths: [configPath],
+      runner: createMockRunner({
+        commands: [],
+        sourceTables: seededOwnershipSourceTables(),
+        targetTables: matchingOwnershipTargetTables(),
+      }),
+    });
+
+    expect(report.status).toBe("PARITY_OK");
+    expect(report.exitCode).toBe(0);
+    expect(report.ok).toBe(true);
+    expect(report.totals.matched).toBe(6);
+    expect(report.totals.missingInSocial).toBe(0);
+    expect(report.totals.missingInCore).toBe(0);
+    expect(report.totals.mismatched).toBe(0);
+    expect(report.totals.emptySources).toBe(0);
   });
 
   it("detects drift when source has a SocialFlow seed missing in SOCIAL_DB", async () => {
