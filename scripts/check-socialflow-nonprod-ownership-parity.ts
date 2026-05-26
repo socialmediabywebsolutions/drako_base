@@ -12,8 +12,9 @@ const DEFAULT_CONFIG_PATHS = [
   "workers/socialflows-runtime-canary/wrangler.workers.toml",
 ] as const;
 
+const RUNTIME_SEED_SWITCH = "SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH";
+
 const OFF_SWITCHES = [
-  "SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH",
   "SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH",
   "SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH",
   "SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH",
@@ -295,6 +296,10 @@ function assertSafeConfig(report: SocialflowNonprodCanaryConfigReport): void {
   }
   if (report.switches.SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE !== "all-switches-off") {
     throw new Error(`SOCIALFLOW_NONPROD_PARITY_ROLLBACK_NOT_OFF:${report.configPath}`);
+  }
+  const runtimeSeedSwitchValue = report.switches[RUNTIME_SEED_SWITCH];
+  if (runtimeSeedSwitchValue !== "0" && runtimeSeedSwitchValue !== "1") {
+    throw new Error(`SOCIALFLOW_NONPROD_PARITY_RUNTIME_SEED_SWITCH_INVALID:${report.configPath}:${runtimeSeedSwitchValue ?? "missing"}`);
   }
   for (const switchName of OFF_SWITCHES) {
     if (report.switches[switchName] !== "0") {

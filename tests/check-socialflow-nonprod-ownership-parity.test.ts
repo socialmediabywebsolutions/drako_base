@@ -372,6 +372,46 @@ describe("SocialFlow nonprod ownership parity", () => {
     expect(report.totals.emptySources).toBe(0);
   });
 
+  it("accepts strict parity with runtime seed switch on and the remaining read switches off", async () => {
+    const configPath = await writeTempConfig(
+      REAL_NONPROD_CONFIG.replace(
+        'SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "0"',
+        'SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "1"',
+      ),
+    );
+    const report = await runCheckSocialflowNonprodOwnershipParity({
+      configPaths: [configPath],
+      runner: createMockRunner({
+        commands: [],
+        sourceTables: seededOwnershipSourceTables(),
+        targetTables: matchingOwnershipTargetTables(),
+      }),
+    });
+
+    expect(report.status).toBe("PARITY_OK");
+    expect(report.exitCode).toBe(0);
+    expect(report.totals.matched).toBe(6);
+    expect(report.remoteWrites).toBe(0);
+  });
+
+  it("still rejects exports, OAuth, or legacy read switches on", async () => {
+    const configPath = await writeTempConfig(
+      REAL_NONPROD_CONFIG.replace(
+        'SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"',
+        'SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"',
+      ),
+    );
+
+    await expect(runCheckSocialflowNonprodOwnershipParity({
+      configPaths: [configPath],
+      runner: createMockRunner({
+        commands: [],
+        sourceTables: seededOwnershipSourceTables(),
+        targetTables: matchingOwnershipTargetTables(),
+      }),
+    })).rejects.toThrow("SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH");
+  });
+
   it("detects drift when source has a SocialFlow seed missing in SOCIAL_DB", async () => {
     const configPath = await writeTempConfig(REAL_NONPROD_CONFIG);
     const report = await runCheckSocialflowNonprodOwnershipParity({

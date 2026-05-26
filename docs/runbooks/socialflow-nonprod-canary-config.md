@@ -513,6 +513,57 @@ SOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1 = "true"
 
 Do not set that flag while placeholder ids remain.
 
+## Runtime Seed Switch Separation Validation
+
+S3.11N validates that runtime seed ON improves SocialFlow SaaS separation without activating more switches.
+
+Required baseline:
+
+```bash
+pnpm tsx scripts/check-socialflow-nonprod-canary-config.ts
+pnpm tsx scripts/smoke-socialflow-nonprod-runtime-seed-switch.ts
+pnpm tsx scripts/smoke-socialflow-nonprod-runtime-seed-switch.ts --json
+pnpm tsx scripts/check-socialflow-nonprod-ownership-parity.ts
+```
+
+Expected posture:
+
+- `SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "1"`;
+- exports, OAuth, and legacy read switches remain `"0"`;
+- `SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"`;
+- guard reports `NON_DEPLOYABLE_REAL_NONPROD_CONFIG`;
+- runtime seed smoke reports `RUNTIME_SEED_SWITCH_SMOKE_OK`;
+- strict parity reports `PARITY_OK` without `--allow-empty-source`;
+- smoke and parity report `remoteWrites: 0`;
+- OAuth/tokens/credentials stay excluded.
+
+Boundary validation:
+
+```bash
+npx vitest run tests/architecture/socialflow-draco-dependency-radar.test.ts
+npx vitest run tests/architecture/saas-boundary-import-guards.test.ts
+```
+
+What this proves:
+
+- runtime seed reads can start from `SOCIAL_DB.socialflow_seed_metadata`;
+- `DRACO_DB.saas` is now a fallback path for runtime seed, not the first read path when the switch is ON and `SOCIAL_DB` has an active seed;
+- Campamento Base observes SocialFlow through `src/lib/socialflow/contracts/campobase`, operator routes, and runtime health/readiness surfaces;
+- Campamento Base must not import `apps/socialflow-runtime/src/**`, `src/lib/socialflow/repository`, or SocialFlow OAuth/token internals directly.
+
+Rollback remains a config-only change:
+
+```toml
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "0"
+SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
+SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "0"
+SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
+```
+
+Do not activate exports/OAuth/legacy in this phase. The next recommended phase is export read-model preparation with `SOCIAL_DB`-first contract evidence, strict parity, and explicit fallback observability.
+
+See `docs/architecture/socialflow-runtime-seed-switch-separation-audit.md` for the separation findings and residual dependencies.
+
 ## Guard Command
 
 Run from repository root:
