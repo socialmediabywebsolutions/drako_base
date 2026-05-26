@@ -564,6 +564,67 @@ Do not activate exports/OAuth/legacy in this phase. The next recommended phase i
 
 See `docs/architecture/socialflow-runtime-seed-switch-separation-audit.md` for the separation findings and residual dependencies.
 
+## Exports Switch Preparation
+
+S3.11O prepares the future activation of the exports read switch without activating it.
+
+Required baseline:
+
+```bash
+pnpm tsx scripts/check-socialflow-nonprod-canary-config.ts
+pnpm tsx scripts/smoke-socialflow-nonprod-runtime-seed-switch.ts
+pnpm tsx scripts/check-socialflow-nonprod-ownership-parity.ts
+```
+
+Expected posture:
+
+- `SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "1"`;
+- `SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"` (prepared for activation);
+- OAuth and legacy read switches remain `"0"`;
+- `SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"`;
+- guard reports `NON_DEPLOYABLE_REAL_NONPROD_CONFIG`;
+- runtime seed smoke reports `RUNTIME_SEED_SWITCH_SMOKE_OK`;
+- strict parity reports `PARITY_OK` without `--allow-empty-source`;
+- smoke and parity report `remoteWrites: 0`;
+- OAuth/tokens/credentials stay excluded.
+
+Exports switch prep smoke:
+
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-exports-switch-prep.ts
+pnpm tsx scripts/smoke-socialflow-nonprod-exports-switch-prep.ts --json
+```
+
+What this smoke does:
+
+- Re-runs the canary guard on both `wrangler` configs and requires `NON_DEPLOYABLE_REAL_NONPROD_CONFIG`;
+- Requires runtime seed switch `"1"`, exports switch `"0"`, OAuth switch `"0"`, legacy switch `"0"`;
+- Runs exports contract test suite (`tests/lib/socialflow-export-social-read-prep-contract.test.ts`);
+- Runs exports service test suite (`apps/socialflow-runtime/src/lib/socialflow/exports-service.test.ts`);
+- Runs strict ownership parity without `--allow-empty-source`;
+- Asserts `remoteWrites: 0`, `deploy: false`, `oauthExcluded: true`;
+- Emits `EXPORTS_SWITCH_PREP_OK` if all checks pass.
+
+What this proves:
+
+- Exports contract reads `SOCIAL_DB.socialflow_export_read_models` first when switch is ON.
+- Core fallback is available and tested when SOCIAL_DB is missing or fails.
+- ZIP/payload format is unchanged between SOCIAL_DB-first and core fallback paths.
+- Strict parity is green for export rows.
+- OAuth is excluded.
+- Remote writes are zero.
+- Deploy is blocked.
+
+Rollback remains a config-only change:
+
+```toml
+SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
+```
+
+Do not activate exports in this phase. The next recommended phase is exports switch activation in nonprod only, with export source selection observability and fallback count monitoring.
+
+See `docs/architecture/socialflow-exports-switch-prep-audit.md` for the exports preparation findings and gaps.
+
 ## Guard Command
 
 Run from repository root:
