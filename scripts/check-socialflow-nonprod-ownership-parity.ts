@@ -13,9 +13,9 @@ const DEFAULT_CONFIG_PATHS = [
 ] as const;
 
 const RUNTIME_SEED_SWITCH = "SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH";
+const EXPORTS_SWITCH = "SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH";
 
-const OFF_SWITCHES = [
-  "SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH",
+const REQUIRED_OFF_SWITCHES = [
   "SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH",
   "SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH",
 ] as const;
@@ -301,7 +301,11 @@ function assertSafeConfig(report: SocialflowNonprodCanaryConfigReport): void {
   if (runtimeSeedSwitchValue !== "0" && runtimeSeedSwitchValue !== "1") {
     throw new Error(`SOCIALFLOW_NONPROD_PARITY_RUNTIME_SEED_SWITCH_INVALID:${report.configPath}:${runtimeSeedSwitchValue ?? "missing"}`);
   }
-  for (const switchName of OFF_SWITCHES) {
+  const exportsSwitchValue = report.switches[EXPORTS_SWITCH];
+  if (exportsSwitchValue !== "0" && exportsSwitchValue !== "1") {
+    throw new Error(`SOCIALFLOW_NONPROD_PARITY_EXPORTS_SWITCH_INVALID:${report.configPath}:${exportsSwitchValue ?? "missing"}`);
+  }
+  for (const switchName of REQUIRED_OFF_SWITCHES) {
     if (report.switches[switchName] !== "0") {
       throw new Error(`SOCIALFLOW_NONPROD_PARITY_SWITCH_NOT_OFF:${report.configPath}:${switchName}:${report.switches[switchName] ?? "missing"}`);
     }

@@ -394,11 +394,11 @@ describe("SocialFlow nonprod ownership parity", () => {
     expect(report.remoteWrites).toBe(0);
   });
 
-  it("still rejects exports, OAuth, or legacy read switches on", async () => {
+  it("still rejects OAuth or legacy read switches on", async () => {
     const configPath = await writeTempConfig(
       REAL_NONPROD_CONFIG.replace(
-        'SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"',
-        'SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"',
+        'SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "0"',
+        'SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "1"',
       ),
     );
 
@@ -409,7 +409,7 @@ describe("SocialFlow nonprod ownership parity", () => {
         sourceTables: seededOwnershipSourceTables(),
         targetTables: matchingOwnershipTargetTables(),
       }),
-    })).rejects.toThrow("SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH");
+    })).rejects.toThrow("SOCIALFLOW_NONPROD_CANARY_CONFIG_SWITCH_NOT_OFF");
   });
 
   it("detects drift when source has a SocialFlow seed missing in SOCIAL_DB", async () => {

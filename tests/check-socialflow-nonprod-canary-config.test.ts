@@ -120,9 +120,9 @@ describe("socialflow nonprod canary config guard", () => {
     );
   });
 
-  it("rejects switches enabled by default", async () => {
+  it("rejects OAuth or legacy switches enabled", async () => {
     const configPath = await writeTempConfig(
-      VALID_NONPROD_CONFIG.replace('SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"', 'SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"'),
+      VALID_NONPROD_CONFIG.replace('SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "0"', 'SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "1"'),
     );
 
     expect(() => checkSocialflowNonprodCanaryConfig({ configPath })).toThrow(

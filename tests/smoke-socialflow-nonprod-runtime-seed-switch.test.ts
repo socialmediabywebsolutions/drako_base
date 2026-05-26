@@ -65,8 +65,8 @@ describe("socialflow nonprod runtime seed switch smoke", () => {
 
     expect(report.status).toBe("RUNTIME_SEED_SWITCH_SMOKE_OK");
     expect(report.runtimeSeedSwitch).toBe("1");
-    expect(report.blockedReadSwitches).toEqual({
-      SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH: "0",
+    expect(report.exportsSwitch).toBe("0");
+    expect(report.requiredOffSwitches).toEqual({
       SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH: "0",
       SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH: "0",
     });
@@ -109,7 +109,7 @@ describe("socialflow nonprod runtime seed switch smoke", () => {
     )).rejects.toThrow("SOCIALFLOW_RUNTIME_SEED_SWITCH_SMOKE_RUNTIME_SWITCH_NOT_ON");
   });
 
-  it("rejects exports, OAuth, or legacy switches on", async () => {
+  it("rejects OAuth or legacy switches on", async () => {
     await expect(runSmokeSocialflowNonprodRuntimeSeedSwitch(
       { configPaths: [...CONFIG_PATHS] },
       {

@@ -12,8 +12,8 @@ const DEFAULT_CONFIG_PATHS = [
 ] as const;
 
 const RUNTIME_SEED_SWITCH = "SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH";
-const FORBIDDEN_ON_SWITCHES = [
-  "SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH",
+const EXPORTS_SWITCH = "SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH";
+const REQUIRED_OFF_SWITCHES = [
   "SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH",
   "SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH",
 ] as const;
@@ -41,7 +41,8 @@ export type SocialflowNonprodRuntimeSeedSwitchSmokeReport = {
   status: "RUNTIME_SEED_SWITCH_SMOKE_OK";
   configReports: SocialflowNonprodCanaryConfigReport[];
   runtimeSeedSwitch: "1";
-  blockedReadSwitches: Record<(typeof FORBIDDEN_ON_SWITCHES)[number], "0">;
+  exportsSwitch: "0" | "1";
+  requiredOffSwitches: Record<(typeof REQUIRED_OFF_SWITCHES)[number], "0">;
   deployable: false;
   remoteWrites: 0;
   deploy: false;
@@ -112,7 +113,11 @@ function assertRuntimeSeedSwitchPosture(report: SocialflowNonprodCanaryConfigRep
   if (report.switches.SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE !== "all-switches-off") {
     throw new Error(`SOCIALFLOW_RUNTIME_SEED_SWITCH_SMOKE_ROLLBACK_STATE_UNSAFE:${report.configPath}`);
   }
-  for (const switchName of FORBIDDEN_ON_SWITCHES) {
+  const exportsSwitchValue = report.switches[EXPORTS_SWITCH];
+  if (exportsSwitchValue !== "0" && exportsSwitchValue !== "1") {
+    throw new Error(`SOCIALFLOW_RUNTIME_SEED_SWITCH_SMOKE_EXPORTS_SWITCH_INVALID:${report.configPath}:${exportsSwitchValue ?? "missing"}`);
+  }
+  for (const switchName of REQUIRED_OFF_SWITCHES) {
     if (report.switches[switchName] !== "0") {
       throw new Error(`SOCIALFLOW_RUNTIME_SEED_SWITCH_SMOKE_FORBIDDEN_SWITCH_ON:${report.configPath}:${switchName}:${report.switches[switchName] ?? "missing"}`);
     }
@@ -170,8 +175,8 @@ export async function runSmokeSocialflowNonprodRuntimeSeedSwitch(
     status: "RUNTIME_SEED_SWITCH_SMOKE_OK",
     configReports,
     runtimeSeedSwitch: "1",
-    blockedReadSwitches: {
-      SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH: "0",
+    exportsSwitch: (configReports[0].switches[EXPORTS_SWITCH] ?? "0") as "0" | "1",
+    requiredOffSwitches: {
       SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH: "0",
       SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH: "0",
     },
@@ -205,7 +210,8 @@ export async function runSmokeSocialflowNonprodRuntimeSeedSwitchCli(argv: string
       ok: report.ok,
       status: report.status,
       runtimeSeedSwitch: report.runtimeSeedSwitch,
-      blockedReadSwitches: report.blockedReadSwitches,
+      exportsSwitch: report.exportsSwitch,
+      requiredOffSwitches: report.requiredOffSwitches,
       deployable: report.deployable,
       remoteWrites: report.remoteWrites,
       deploy: report.deploy,
