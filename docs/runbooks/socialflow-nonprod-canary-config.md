@@ -437,6 +437,35 @@ Strict parity classification for this phase:
 - `mismatched` after backfill should be treated as either a mapping bug or a real drift investigation, not hidden with `--allow-drift`;
 - `missingInCore` after backfill usually means residual rows in `SOCIAL_DB` that are not justified by current canary source data and should be audited explicitly.
 
+## Smoke With Switches Off
+
+Once strict parity is green, the pre-activation smoke for S3.11L should stay fully read-only:
+
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-canary-with-switches-off.ts
+```
+
+What this smoke does:
+
+- re-runs the canary guard on both `wrangler` configs and requires `NON_DEPLOYABLE_REAL_NONPROD_CONFIG`;
+- checks read-only D1 accessibility for `DRACO_DB`, `SAASES_DB`, `SOCIAL_DB`, and `SOCIALFLOW_AUTHS_DB` using `SELECT 1 AS ok`;
+- re-runs `bootstrap-socialflow-nonprod-source-data.ts --verify-only`;
+- re-runs `backfill-socialflow-nonprod-ownership-read-models.ts --verify-only`;
+- re-runs strict `check-socialflow-nonprod-ownership-parity.ts` without `--allow-empty-source`;
+- asserts `remoteWrites: 0` end to end;
+- keeps OAuth out of scope and does not read OAuth tables, tokens, credentials, or secrets.
+
+Expected exit criteria:
+
+- all four switches remain `"0"`;
+- `SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE` remains `"false"`;
+- source verify returns `VERIFY_OK`;
+- ownership verify returns `VERIFY_OK` with non-zero `targetCounts` for all six read-model tables;
+- strict parity returns `PARITY_OK` with `matched > 0`, `missingInSocial: 0`, `missingInCore: 0`, `mismatched: 0`, `emptySources: 0`;
+- next phase recommendation is only `SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH`.
+
+This smoke is intentionally not an HTTP canary smoke. For this phase, read-only config plus D1 verification is the safe path because no deploy, auth bypass, or switch activation is allowed.
+
 ## Required Switch Defaults
 
 All switches must stay OFF by default:
