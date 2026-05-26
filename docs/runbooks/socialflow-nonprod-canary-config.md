@@ -736,3 +736,205 @@ Future nonprod activation should happen in this order:
 11. Roll back runtime seed to switch OFF if smoke fails or if the activation window ends.
 
 OAuth should be the last or penultimate switch because it touches connection state, token metadata, and encryption-sensitive data.
+
+## Runtime Seed And Exports Readiness Before Legacy
+
+**Phase:** S3.13
+**Purpose:** Validate combined runtime seed + exports ON stability before activating legacy
+**Prerequisites:** Runtime seed ON, exports ON, OAuth OFF, legacy OFF, parity green
+
+This phase creates a monitoring/readiness layer to confirm that SocialFlow with runtime seed + exports ON is stable and ready for legacy switch activation.
+
+### Required Baseline
+
+Before running readiness smoke, confirm:
+
+```toml
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "1"              # ON
+SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"       # ON
+SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "0"           # OFF
+SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"       # OFF
+SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"                  # NOT DEPLOYABLE
+SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE = "all-switches-off"    # ROLLBACK READY
+```
+
+Databases:
+- `DRACO_DB`: `drako_db_socialflow_canary`
+- `SAASES_DB`: `saas_socialflows_registry_canary_db`
+- `SOCIAL_DB`: `saas_socialflows_canary_db`
+- `SOCIALFLOW_AUTHS_DB`: `saas_socialflow_auths_canary_db`
+
+No database contains `prod` token.
+
+### Expected Posture
+
+- **Runtime seed:** Reads from `SOCIAL_DB.socialflow_seed_metadata` first, falls back to `DRACO_DB.saas` if missing/failed
+- **Exports:** Reads from `SOCIAL_DB.socialflow_export_read_models` first, falls back to core-backed export if missing/failed
+- **OAuth:** OFF, excluded from parity
+- **Legacy:** OFF, not activated yet
+- **Fallback:** Available but **not used** in healthy path
+- **Parity:** Strict OK, no drift
+- **Deploy:** Blocked
+- **Remote writes:** 0
+
+### Smoke Readiness
+
+Run from repository root:
+
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-runtime-and-exports-readiness.ts
+```
+
+JSON mode:
+
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-runtime-and-exports-readiness.ts --json
+```
+
+### Expected JSON Output
+
+```json
+{
+  "ok": true,
+  "status": "SOCIALFLOW_RUNTIME_EXPORTS_READINESS_OK",
+  "runtimeSeedSwitch": "1",
+  "exportsSwitch": "1",
+  "oauthSwitch": "0",
+  "legacySwitch": "0",
+  "deployable": false,
+  "runtimeSeedSource": "SOCIAL_DB",
+  "exportsSource": "SOCIAL_DB",
+  "fallbacksAvailable": true,
+  "fallbacksUsedInHealthyPath": false,
+  "parityReport": {
+    "status": "PARITY_OK",
+    "runtimeSeedGroupMatched": 1,
+    "exportsGroupMatched": 1,
+    "missingInSocial": 0,
+    "missingInCore": 0,
+    "mismatched": 0
+  },
+  "remoteWrites": 0,
+  "deploy": false,
+  "oauthExcluded": true,
+  "configuredDatabases": [
+    "drako_db_socialflow_canary",
+    "saas_socialflows_registry_canary_db",
+    "saas_socialflows_canary_db",
+    "saas_socialflow_auths_canary_db"
+  ],
+  "contractEvidence": {
+    "runtimeSeedTestPath": "tests/lib/socialflow-runtime-seed-contract.test.ts",
+    "runtimeSeedValidatesSocialFirstRead": true,
+    "runtimeSeedValidatesCoreFallback": true,
+    "runtimeSeedValidatesSocialDbFailureFallback": true,
+    "exportsTestPath": "apps/socialflow-runtime/src/lib/socialflow/exports-service.test.ts",
+    "exportsValidatesSocialDbFirstRead": true,
+    "exportsValidatesCoreFallbackOnMissing": true,
+    "exportsValidatesCoreFallbackOnError": true,
+    "exportsValidatesZipPayloadIntact": true,
+    "exportsSocialReadPrepTestPath": "tests/lib/socialflow-export-social-read-prep-contract.test.ts",
+    "exportsSocialReadPrepValidatesSocialDbTable": true,
+    "exportsSocialReadPrepValidatesFailClosed": true
+  },
+  "rollbackReady": true,
+  "rollbackTarget": {
+    "runtimeSeedToOff": true,
+    "exportsToOff": true,
+    "configPaths": [
+      "apps/socialflow-runtime/wrangler.toml",
+      "workers/socialflows-runtime-canary/wrangler.workers.toml"
+    ]
+  },
+  "nextPhaseRecommendation": "PREPARE_LEGACY_SWITCH_NONPROD"
+}
+```
+
+### What The Readiness Smoke Proves
+
+1. **Runtime seed SOCIAL_DB-first:** Reads from `SOCIAL_DB.socialflow_seed_metadata`, contract tests pass
+2. **Exports SOCIAL_DB-first:** Reads from `SOCIAL_DB.socialflow_export_read_models`, contract tests pass
+3. **Core fallback available:** Both have core fallback if SOCIAL_DB missing/failed
+4. **Fallback not used in healthy path:** Expected fallback count = 0 in stable state
+5. **Parity strict OK:** Runtime seed + exports matched, no drift, no missing in SOCIAL_DB
+6. **ZIP integrity preserved:** Export payload format intact
+7. **OAuth excluded:** No OAuth tokens in parity checks
+8. **Legacy OFF:** Not activated yet
+9. **No remote writes:** `remoteWrites: 0`
+10. **No deploy:** `deployable: false`
+11. **Rollback ready:** Config-only rollback available
+
+### Criteria For Legacy Activation
+
+Before activating `SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"`, confirm:
+
+- [ ] Readiness smoke passes consistently (run daily for 3-7 days)
+- [ ] Fallback count = 0 (no fallback warnings in logs)
+- [ ] Parity strict OK (no drift detected)
+- [ ] No missing rows in SOCIAL_DB
+- [ ] No SOCIAL_DB read failures
+- [ ] ZIP payload integrity validated
+- [ ] Campamento Base boundary respected (no internal imports)
+- [ ] OAuth still OFF
+- [ ] Legacy still OFF
+- [ ] No deployment
+- [ ] No production changes
+
+### Rollback If Readiness Fails
+
+**Runtime seed rollback:**
+
+```toml
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "0"
+```
+
+**Exports rollback:**
+
+```toml
+SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
+```
+
+**Combined rollback:**
+
+```toml
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "0"
+SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
+```
+
+Rollback is config-only. No deploy, no migration rollback, no remote D1 writes.
+
+### Guard Usage With Readiness
+
+The guard script `scripts/check-socialflow-nonprod-canary-config.ts` now allows:
+- Runtime seed switch `"0"` or `"1"`
+- Exports switch `"0"` or `"1"`
+- OAuth switch must be `"0"`
+- Legacy switch must be `"0"`
+
+The parity script `scripts/check-socialflow-nonprod-ownership-parity.ts` now allows:
+- Runtime seed switch `"0"` or `"1"`
+- Exports switch `"0"` or `"1"`
+- OAuth switch must be `"0"`
+- Legacy switch must be `"0"`
+
+### Next Phase After Readiness
+
+**Phase:** S3.14 — Prepare Legacy Switch Nonprod
+
+**Prerequisites:**
+- ✅ Runtime seed + exports readiness confirmed
+- ✅ Fallback count = 0
+- ✅ Parity strict OK
+- ✅ No drift for 3-7 days
+
+**Scope:**
+- Activate `SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"`
+- Create legacy switch smoke script
+- Validate legacy SOCIAL_DB-first + core fallback
+- Update guard scripts
+- Update parity checks
+
+**Still forbidden:**
+- ❌ No OAuth activation (OAuth is last)
+- ❌ No deploy
+- ❌ No production
