@@ -4,11 +4,17 @@ import { fileURLToPath } from "node:url";
 
 const REQUIRED_D1_BINDINGS = ["DRACO_DB", "SAASES_DB", "SOCIAL_DB", "SOCIALFLOW_AUTHS_DB"] as const;
 
+const RUNTIME_SEED_SWITCH = "SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH";
+
 const REQUIRED_OFF_SWITCHES = [
-  "SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH",
   "SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH",
   "SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH",
   "SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH",
+] as const;
+
+const REQUIRED_READ_SWITCHES = [
+  RUNTIME_SEED_SWITCH,
+  ...REQUIRED_OFF_SWITCHES,
 ] as const;
 
 const KNOWN_PRODUCTIVE_DATABASE_IDS = new Set([
@@ -103,6 +109,11 @@ function assertNonprodConfig(report: SocialflowNonprodCanaryConfigReport): void 
     }
   }
 
+  const runtimeSeedSwitchValue = report.switches[RUNTIME_SEED_SWITCH];
+  if (runtimeSeedSwitchValue !== "0" && runtimeSeedSwitchValue !== "1") {
+    throw new Error(`SOCIALFLOW_NONPROD_CANARY_CONFIG_RUNTIME_SEED_SWITCH_INVALID:${runtimeSeedSwitchValue ?? "missing"}`);
+  }
+
   for (const switchName of REQUIRED_OFF_SWITCHES) {
     const value = report.switches[switchName];
     if (value !== "0") {
@@ -133,7 +144,7 @@ export function checkSocialflowNonprodCanaryConfig(options: CheckOptions): Socia
   const bindings = parseD1Bindings(source);
   const switches: Record<string, string | undefined> = {};
 
-  for (const switchName of [...REQUIRED_OFF_SWITCHES, "SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE"]) {
+  for (const switchName of [...REQUIRED_READ_SWITCHES, "SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE"]) {
     switches[switchName] = parseStringAssignment(source, switchName) ?? undefined;
   }
 

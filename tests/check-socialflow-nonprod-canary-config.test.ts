@@ -68,6 +68,23 @@ describe("socialflow nonprod canary config guard", () => {
     expect(report.status).toBe("NON_DEPLOYABLE_REAL_NONPROD_CONFIG");
   });
 
+  it("accepts real nonprod ids with only runtime seed read switch on", async () => {
+    const configPath = await writeTempConfig(
+      VALID_NONPROD_CONFIG
+        .replace("00000000-0000-4000-8000-000000000187", "11111111-1111-4111-8111-111111111187")
+        .replaceAll("00000000-0000-4000-8000-000000000188", "22222222-2222-4222-8222-222222222188")
+        .replace("00000000-0000-4000-8000-000000000189", "33333333-3333-4333-8333-333333333189")
+        .replace('SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "0"', 'SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "1"'),
+    );
+
+    const report = checkSocialflowNonprodCanaryConfig({ configPath });
+    expect(report.switches.SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH).toBe("1");
+    expect(report.switches.SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH).toBe("0");
+    expect(report.switches.SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH).toBe("0");
+    expect(report.switches.SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH).toBe("0");
+    expect(report.status).toBe("NON_DEPLOYABLE_REAL_NONPROD_CONFIG");
+  });
+
   it("accepts deployable real nonprod ids only with explicit future allow-deploy flag", async () => {
     const configPath = await writeTempConfig(
       VALID_NONPROD_CONFIG
@@ -110,6 +127,16 @@ describe("socialflow nonprod canary config guard", () => {
 
     expect(() => checkSocialflowNonprodCanaryConfig({ configPath })).toThrow(
       "SOCIALFLOW_NONPROD_CANARY_CONFIG_SWITCH_NOT_OFF",
+    );
+  });
+
+  it("rejects invalid runtime seed switch values", async () => {
+    const configPath = await writeTempConfig(
+      VALID_NONPROD_CONFIG.replace('SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "0"', 'SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "yes"'),
+    );
+
+    expect(() => checkSocialflowNonprodCanaryConfig({ configPath })).toThrow(
+      "SOCIALFLOW_NONPROD_CANARY_CONFIG_RUNTIME_SEED_SWITCH_INVALID",
     );
   });
 

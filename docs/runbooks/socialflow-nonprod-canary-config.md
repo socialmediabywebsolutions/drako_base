@@ -1,6 +1,6 @@
 # SocialFlow Nonprod Canary Config
 
-This runbook prepares a non-production SocialFlow canary target only. It does not deploy and does not enable any switch by default. Remote D1 usage is limited to explicitly approved non-production provisioning or schema phases documented below.
+This runbook prepares and validates a non-production SocialFlow canary target only. It does not deploy. Remote D1 usage is limited to explicitly approved non-production provisioning or schema phases documented below.
 
 ## Current State
 
@@ -89,7 +89,7 @@ Keep this line unchanged after replacing real nonprod ids:
 SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"
 ```
 
-Keep all switches OFF:
+During placeholder replacement, keep all switches OFF until the dedicated runtime seed activation phase:
 
 ```toml
 SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "0"
@@ -339,7 +339,7 @@ Expected exit codes:
 - `2`: drift detected in strict mode.
 - `3`: empty source detected without `--allow-empty-source`.
 
-The next safe phase is either nonprod smoke with all switches still OFF, or a dedicated bootstrap of DRACO canary source data if product-like nonprod rows are required before smoke.
+After strict parity is green, run the switches-off smoke before activating the runtime seed read switch.
 
 ## Nonprod Source Data Bootstrap Without OAuth
 
@@ -466,15 +466,36 @@ Expected exit criteria:
 
 This smoke is intentionally not an HTTP canary smoke. For this phase, read-only config plus D1 verification is the safe path because no deploy, auth bypass, or switch activation is allowed.
 
-## Required Switch Defaults
+## Runtime Seed Switch On Smoke
 
-All switches must stay OFF by default:
+S3.11M activates only the runtime seed read switch in nonprod/canary config:
 
 ```toml
-SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "0"
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "1"
 SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
 SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "0"
 SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
+```
+
+Run the local contract smoke:
+
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-runtime-seed-switch.ts
+```
+
+What this smoke does:
+
+- re-runs the canary guard on both `wrangler` configs and requires `NON_DEPLOYABLE_REAL_NONPROD_CONFIG`;
+- requires only `SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "1"`;
+- requires exports, OAuth, and legacy read switches to remain `"0"`;
+- runs the runtime seed contract test suite with the runtime seed switch enabled;
+- confirms contract coverage for SOCIAL_DB-first read, core fallback, and SOCIAL_DB failure fallback;
+- performs no deploy, no remote D1 command, no backfill, no migration, and no OAuth/token/credential access.
+
+Immediate rollback is a config-only change back to:
+
+```toml
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "0"
 ```
 
 Rollback posture must be explicit:
@@ -511,7 +532,8 @@ The guard fails if:
 - any canary database name contains `prod`;
 - any known productive D1 id is reused;
 - `DRACO_DB`, `SAASES_DB`, `SOCIAL_DB`, or `SOCIALFLOW_AUTHS_DB` is missing;
-- any SocialFlow SOCIAL_DB read switch is ON by default;
+- runtime seed read switch is not `"0"` or `"1"`;
+- exports, OAuth, or legacy SOCIAL_DB read switches are ON;
 - rollback state is missing;
 - placeholder ids are marked deployable;
 - real non-production ids are marked deployable without `SOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1 = "true"`.
@@ -524,7 +546,7 @@ The guard reports one of these states:
 
 ## Future Activation Order
 
-Do not deploy in this phase. Do not use remote D1 in this phase. Do not activate switches in this phase.
+Do not deploy in this phase. Do not use remote D1 in this phase. Do not activate exports, OAuth, or legacy switches in this phase.
 
 Future nonprod activation should happen in this order:
 
@@ -538,6 +560,6 @@ Future nonprod activation should happen in this order:
 8. Run smoke in nonprod with all switches OFF.
 9. Activate exactly one switch, starting with runtime seed.
 10. Run smoke for that switch.
-11. Roll back to switch OFF.
+11. Roll back runtime seed to switch OFF if smoke fails or if the activation window ends.
 
 OAuth should be the last or penultimate switch because it touches connection state, token metadata, and encryption-sensitive data.
