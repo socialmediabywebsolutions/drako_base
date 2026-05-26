@@ -362,7 +362,7 @@ export async function runSmokeSocialflowNonprodCanaryWithSwitchesOff(
   const runSourceVerify = dependencies.runSourceVerify ?? ((runOptions) =>
     runBootstrapSocialflowNonprodSourceData({ ...runOptions, json: false }));
   const runOwnershipVerify = dependencies.runOwnershipVerify ?? ((runOptions) =>
-    runBackfillSocialflowNonprodOwnershipReadModels({ ...runOptions, json: false }));
+    runBackfillSocialflowNonprodOwnershipReadModels(runOptions));
   const runParity = dependencies.runParity ?? ((runOptions) =>
     runCheckSocialflowNonprodOwnershipParity({ ...runOptions, json: false }));
 
