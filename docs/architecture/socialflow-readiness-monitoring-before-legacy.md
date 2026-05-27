@@ -116,12 +116,99 @@ pnpm tsx scripts/smoke-socialflow-nonprod-runtime-and-exports-readiness.ts
 
 ---
 
+### Day 2 — 2026-05-27 07:38 UTC+02:00
+
+**Execution:**
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-runtime-and-exports-readiness.ts
+```
+
+**Results:**
+
+| Metric | Value | Status |
+|--------|-------|--------|
+| `status` | `SOCIALFLOW_RUNTIME_EXPORTS_READINESS_OK` | ✅ PASS |
+| `runtimeSeedSwitch` | `"1"` | ✅ ON |
+| `exportsSwitch` | `"1"` | ✅ ON |
+| `oauthSwitch` | `"0"` | ✅ OFF |
+| `legacySwitch` | `"0"` | ✅ OFF |
+| `deployable` | `false` | ✅ NOT DEPLOYABLE |
+| `runtimeSeedSource` | `"SOCIAL_DB"` | ✅ SOCIAL_DB-FIRST |
+| `exportsSource` | `"SOCIAL_DB"` | ✅ SOCIAL_DB-FIRST |
+| `fallbacksAvailable` | `true` | ✅ AVAILABLE |
+| `fallbacksUsedInHealthyPath` | `false` | ✅ NOT USED |
+| `parityReport.status` | `"PARITY_OK"` | ✅ PASS |
+| `parityReport.runtimeSeedGroupMatched` | `1` | ✅ MATCHED |
+| `parityReport.exportsGroupMatched` | `1` | ✅ MATCHED |
+| `parityReport.missingInSocial` | `0` | ✅ NO DRIFT |
+| `parityReport.missingInCore` | `0` | ✅ NO DRIFT |
+| `parityReport.mismatched` | `0` | ✅ NO DRIFT |
+| `remoteWrites` | `0` | ✅ NO WRITES |
+| `deploy` | `false` | ✅ NO DEPLOY |
+| `oauthExcluded` | `true` | ✅ EXCLUDED |
+
+**Contract Evidence:**
+- ✅ `runtimeSeedValidatesSocialFirstRead: true`
+- ✅ `runtimeSeedValidatesCoreFallback: true`
+- ✅ `runtimeSeedValidatesSocialDbFailureFallback: true`
+- ✅ `exportsValidatesSocialDbFirstRead: true`
+- ✅ `exportsValidatesCoreFallbackOnMissing: true`
+- ✅ `exportsValidatesCoreFallbackOnError: true`
+- ✅ `exportsValidatesZipPayloadIntact: true`
+- ✅ `exportsSocialReadPrepValidatesSocialDbTable: true`
+- ✅ `exportsSocialReadPrepValidatesFailClosed: true`
+
+**Baseline Validations:**
+
+```bash
+✅ pnpm tsx scripts/check-socialflow-nonprod-canary-config.ts
+   → Status: NON_DEPLOYABLE_REAL_NONPROD_CONFIG
+   → Runtime seed: "1", Exports: "1", OAuth: "0", Legacy: "0"
+
+✅ pnpm tsx scripts/smoke-socialflow-nonprod-runtime-seed-switch.ts
+   → Status: RUNTIME_SEED_SWITCH_SMOKE_OK
+   → exportsSwitch: "1", requiredOffSwitches: OAuth "0", Legacy "0"
+
+✅ pnpm tsx scripts/smoke-socialflow-nonprod-exports-switch.ts
+   → Status: EXPORTS_SWITCH_SMOKE_OK
+   → exportsGroupMatched: 1, missing: 0, mismatched: 0
+
+✅ pnpm tsx scripts/check-socialflow-nonprod-ownership-parity.ts
+   → Status: PARITY_OK
+   → Matched: 6, Missing in SOCIAL: 0, Mismatched: 0
+```
+
+**Recommendation:**
+```json
+{
+  "nextPhaseRecommendation": "PREPARE_LEGACY_SWITCH_NONPROD"
+}
+```
+
+**Observations:**
+- All checks passed (Day 2 consecutive)
+- Fallback count: 0 (expected in healthy state)
+- Parity strict OK, no drift detected
+- SOCIAL_DB-first working for runtime seed + exports
+- Core fallback available but not exercised
+- No warnings or errors detected
+- Configuration unchanged from Day 1
+
+**Action Required:**
+- ✅ Continue daily monitoring
+- ⏳ Wait minimum 1-5 more days before legacy activation
+- ⏳ Monitor for parity drift
+- ⏳ Monitor for SOCIAL_DB read failures
+- ⏳ Monitor fallback count (must remain 0)
+
+---
+
 ## Monitoring Schedule
 
 | Day | Date | Time | Status | Notes |
 |-----|------|------|--------|-------|
 | Day 1 | 2026-05-27 | 07:08 UTC+02:00 | ✅ PASS | Initial baseline established |
-| Day 2 | TBD | TBD | ⏳ PENDING | - |
+| Day 2 | 2026-05-27 | 07:38 UTC+02:00 | ✅ PASS | All checks green, parity OK, fallback count 0 |
 | Day 3 | TBD | TBD | ⏳ PENDING | - |
 | Day 4 | TBD | TBD | ⏳ PENDING | - |
 | Day 5 | TBD | TBD | ⏳ PENDING | - |
@@ -129,7 +216,7 @@ pnpm tsx scripts/smoke-socialflow-nonprod-runtime-and-exports-readiness.ts
 | Day 7 | TBD | TBD | ⏳ PENDING | - |
 
 **Minimum days required:** 3-7 days  
-**Days completed:** 1 / 3 (minimum)
+**Days completed:** 2 / 3 (minimum)
 
 ---
 
@@ -138,7 +225,7 @@ pnpm tsx scripts/smoke-socialflow-nonprod-runtime-and-exports-readiness.ts
 Before activating `SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"`:
 
 - [x] Day 1 readiness smoke passes
-- [ ] Day 2 readiness smoke passes
+- [x] Day 2 readiness smoke passes
 - [ ] Day 3 readiness smoke passes
 - [ ] Minimum 3 days of stable monitoring completed
 - [ ] Fallback count = 0 for all monitored days
