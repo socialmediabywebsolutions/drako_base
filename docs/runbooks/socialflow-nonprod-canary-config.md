@@ -1400,6 +1400,219 @@ Actual deployment will occur in a future phase after:
 
 See [Predeploy Gate Architecture](../architecture/socialflow-nonprod-predeploy-gate.md) for complete details.
 
+### Canary Deploy Execution (S3.19)
+
+**Status:** ✅ EXECUTED (2026-05-27)
+
+**Phase:** S3.19 executed the first controlled deployment of SocialFlow nonprod canary.
+
+#### Deploy Dry-Run
+
+**Purpose:** Validate deploy commands without execution.
+
+**Command:**
+```bash
+pnpm tsx scripts/deploy-socialflow-nonprod-canary.ts --dry-run
+```
+
+**JSON Output:**
+```bash
+pnpm tsx scripts/deploy-socialflow-nonprod-canary.ts --dry-run --json
+```
+
+**Expected Output:**
+```json
+{
+  "ok": true,
+  "status": "SOCIALFLOW_CANARY_DEPLOY_DRY_RUN_OK",
+  "mode": "dry-run",
+  "predeployGateOk": true,
+  "deployExecuted": false,
+  "productionTouched": false,
+  "remoteWrites": 0,
+  "plannedCommands": [
+    "cd apps/socialflow-runtime && pnpm build",
+    "cd apps/socialflow-runtime && wrangler deploy --config wrangler.toml",
+    "cd workers/socialflows-runtime-canary && wrangler deploy --config wrangler.workers.toml"
+  ],
+  "nextAction": "RUN_WITH_--execute_TO_DEPLOY"
+}
+```
+
+#### Deploy Execute
+
+**⚠️ CRITICAL:** Only execute after all predeploy gates pass.
+
+**Command:**
+```bash
+pnpm tsx scripts/deploy-socialflow-nonprod-canary.ts --execute
+```
+
+**Deploy Steps:**
+1. Validates predeploy gate internally
+2. Builds `apps/socialflow-runtime` with `pnpm build`
+3. Deploys runtime with `wrangler deploy --config wrangler.toml`
+4. Deploys worker with `wrangler deploy --config wrangler.workers.toml`
+
+**S3.19 Result:**
+```json
+{
+  "ok": true,
+  "status": "SOCIALFLOW_CANARY_DEPLOY_EXECUTED",
+  "timestamp": "2026-05-27T10:16:07.340Z",
+  "deployExecuted": true,
+  "productionTouched": false,
+  "remoteWrites": 0,
+  "deployResults": [
+    "BUILD_SUCCESS",
+    "DEPLOY_RUNTIME_SUCCESS",
+    "DEPLOY_WORKER_SUCCESS"
+  ]
+}
+```
+
+#### Postdeploy Smoke
+
+**Purpose:** Validate deployment health without executing business logic.
+
+**Command:**
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-canary-postdeploy.ts
+```
+
+**JSON Output:**
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-canary-postdeploy.ts --json
+```
+
+**S3.19 Result:**
+```json
+{
+  "ok": true,
+  "status": "POSTDEPLOY_SMOKE_ROUTING_INCOMPLETE",
+  "healthUrl": "https://socialflow-canary.drako.systems/health",
+  "statusUrl": "https://socialflow-canary.drako.systems/api/socialflow/status",
+  "healthResult": "HEALTH_ROUTING_INCOMPLETE_522",
+  "statusResult": "STATUS_ROUTING_INCOMPLETE_522",
+  "dnsBlocked": false,
+  "productionTouched": false,
+  "tokenLeakageDetected": false,
+  "nextAction": "CONFIGURE_CLOUDFLARE_ROUTES_FOR_HEALTH_AND_STATUS"
+}
+```
+
+**Note:** HTTP 522 indicates routes `/health` and `/api/socialflow/status` are not configured in Cloudflare. This is expected postdeploy. Configure routes manually if needed for monitoring.
+
+#### What to Do if DNS/Routing Blocks
+
+**If HTTP 522 (Routing Incomplete):**
+
+Routes are not configured in Cloudflare. This is expected for `/health` and `/api/socialflow/status` endpoints which are optional monitoring endpoints.
+
+**To configure (optional):**
+
+1. Navigate to Cloudflare Dashboard
+2. Select zone: `drako.systems`
+3. Go to Workers & Pages → `saas-socialflows-runtime-canary-nonprod` → Triggers → Routes
+4. Add routes:
+   - `socialflow-canary.drako.systems/health`
+   - `socialflow-canary.drako.systems/api/socialflow/status*`
+
+**Existing routes (already configured manually):**
+- `/socialflow/*` (UI)
+- `/socialflow/profile*`
+- `/socialflow/ai*`
+- `/socialflow/settings/team*`
+- `/socialflow/settings/ownership*`
+- `/api/socialflow/linkedin/callback*`
+- `/api/socialflow/runtime/*`
+
+**If DNS truly blocked:**
+
+This would show DNS resolution errors (not HTTP 522). Check Cloudflare DNS settings for `socialflow-canary.drako.systems`.
+
+#### What to Do if Health Fails
+
+**If health check returns non-200 (excluding 522):**
+
+1. Check worker logs in Cloudflare Dashboard
+2. Verify worker deployment succeeded
+3. Check for initialization errors
+4. Verify D1 bindings are correct
+5. Check switches are ON
+6. Run parity check: `pnpm tsx scripts/check-socialflow-nonprod-ownership-parity.ts`
+
+**If persistent failures:**
+
+Execute rollback (see Rollback section below)
+
+#### Rollback Commands
+
+**Option 1: Disable Deployable**
+```toml
+# apps/socialflow-runtime/wrangler.toml
+# workers/socialflows-runtime-canary/wrangler.workers.toml
+SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"
+```
+
+Re-deploy:
+```bash
+pnpm tsx scripts/deploy-socialflow-nonprod-canary.ts --execute
+```
+
+**Option 2: Switch Flip (Instant)**
+```toml
+# Use rollback state (already configured)
+SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE = "all-switches-off"
+```
+
+All switches flip to "0" instantly without code changes.
+
+**Option 3: Manual Switch OFF**
+```toml
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "0"
+SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
+SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
+SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "0"
+```
+
+Re-deploy.
+
+#### S3.19 Safety Confirmations
+
+**Deploy Execution:**
+- ✅ Deploy executed: 2026-05-27 10:16:07 UTC
+- ✅ Workers deployed: `saas-socialflows-runtime-canary-nonprod`
+- ✅ Production NOT touched
+- ✅ Remote writes: 0
+- ✅ No secrets printed
+- ✅ No token leakage
+- ✅ Rollback ready
+
+**Routing Status:**
+- ⚠️ `/health` - HTTP 522 (route not configured - optional)
+- ⚠️ `/api/socialflow/status` - HTTP 522 (route not configured - optional)
+- ✅ UI routes working (manually configured previously)
+
+**Configuration:**
+```toml
+SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "true"
+SOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1 = "true"
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "1"
+SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"
+SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"
+SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "1"
+SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE = "all-switches-off"
+```
+
+**Next Steps:**
+1. Monitor worker health for 3-7 days
+2. Optionally configure `/health` and `/api/socialflow/status` routes
+3. Run parity checks regularly
+4. Do NOT proceed with DNS cutover without approval
+
+See [Deploy Result (S3.19)](../architecture/socialflow-nonprod-canary-deploy-result.md) for complete details.
+
 ### Production (FUTURE - NOT NOW)
 
 **Prerequisites:**
@@ -1413,6 +1626,6 @@ See [Predeploy Gate Architecture](../architecture/socialflow-nonprod-predeploy-g
 
 ---
 
-**Document Version:** S3.18 complete (Predeploy Gate Active)
+**Document Version:** S3.19 complete (Canary Deploy Executed)
 **Last Updated:** 2026-05-27
-**Next Phase:** Actual Deployment (Future - After Monitoring Period)
+**Next Phase:** Monitoring & Routing Configuration (Optional)
