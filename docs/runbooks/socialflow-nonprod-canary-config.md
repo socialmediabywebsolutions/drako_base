@@ -938,3 +938,154 @@ The parity script `scripts/check-socialflow-nonprod-ownership-parity.ts` now all
 - ❌ No OAuth activation (OAuth is last)
 - ❌ No deploy
 - ❌ No production
+
+## Daily Readiness Monitoring Before Legacy
+
+**Phase:** S3.13B
+**Purpose:** Track daily readiness before legacy activation
+**Minimum recommended:** 3-7 days
+**Monitoring document:** `docs/architecture/socialflow-readiness-monitoring-before-legacy.md`
+
+This phase requires **daily execution** of the readiness smoke to confirm stability before activating legacy switch.
+
+### Daily Command
+
+Run from repository root:
+
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-runtime-and-exports-readiness.ts
+```
+
+JSON mode for detailed report:
+
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-runtime-and-exports-readiness.ts --json
+```
+
+### Expected Output
+
+**Normal mode:**
+```
+{
+  "ok": true,
+  "status": "SOCIALFLOW_RUNTIME_EXPORTS_READINESS_OK",
+  "runtimeSeedSwitch": "1",
+  "exportsSwitch": "1",
+  "oauthSwitch": "0",
+  "legacySwitch": "0",
+  "deployable": false,
+  "runtimeSeedSource": "SOCIAL_DB",
+  "exportsSource": "SOCIAL_DB",
+  "fallbacksAvailable": true,
+  "fallbacksUsedInHealthyPath": false,
+  "parityReport": {
+    "status": "PARITY_OK",
+    "runtimeSeedGroupMatched": 1,
+    "exportsGroupMatched": 1,
+    "missingInSocial": 0,
+    "missingInCore": 0,
+    "mismatched": 0
+  },
+  "remoteWrites": 0,
+  "deploy": false,
+  "oauthExcluded": true,
+  "nextPhaseRecommendation": "PREPARE_LEGACY_SWITCH_NONPROD"
+}
+SOCIALFLOW_RUNTIME_EXPORTS_READINESS_SUCCESS
+```
+
+### Minimum Recommended Monitoring
+
+Before activating legacy switch, monitor daily for **3-7 days** minimum:
+
+| Metric | Required Value | Alert If |
+|--------|----------------|----------|
+| `fallbacksUsedInHealthyPath` | `false` | `true` → investigate |
+| `parityReport.status` | `"PARITY_OK"` | any other → rollback |
+| `parityReport.missingInSocial` | `0` | `> 0` → rollback |
+| `parityReport.mismatched` | `0` | `> 0` → rollback |
+| `remoteWrites` | `0` | `> 0` → investigate |
+| `deployable` | `false` | `true` → blocked |
+| `oauthSwitch` | `"0"` | `"1"` → rollback |
+| `legacySwitch` | `"0"` | `"1"` → rollback |
+
+### Criteria For Preparing Legacy
+
+After minimum 3-7 days of monitoring, confirm:
+
+- [x] Day 1 readiness passes
+- [ ] Day 2 readiness passes
+- [ ] Day 3 readiness passes
+- [ ] Minimum 3 consecutive days stable
+- [ ] Fallback count = 0 for all monitored days
+- [ ] Parity strict OK for all monitored days
+- [ ] No drift detected
+- [ ] No SOCIAL_DB read failures
+- [ ] ZIP integrity validated consistently
+- [ ] remoteWrites = 0 for all monitored days
+- [ ] deployable = false for all monitored days
+
+Once criteria met, proceed to S3.14 (Prepare Legacy Switch Nonprod).
+
+### Rollback Criteria
+
+Rollback runtime seed + exports **immediately** if:
+
+- ❌ Parity drift detected (`missingInSocial > 0`)
+- ❌ Parity mismatch detected (`mismatched > 0`)
+- ❌ Fallback used in healthy path (`fallbacksUsedInHealthyPath: true`)
+- ❌ SOCIAL_DB read failures in logs
+- ❌ ZIP payload corruption
+- ❌ OAuth accidentally activated (`oauthSwitch: "1"`)
+- ❌ Legacy accidentally activated (`legacySwitch: "1"`)
+
+**Rollback commands:**
+
+Runtime seed rollback:
+```toml
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "0"
+```
+
+Exports rollback:
+```toml
+SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
+```
+
+Combined rollback:
+```toml
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "0"
+SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
+```
+
+Rollback is config-only. No deploy required.
+
+### Recording Daily Results
+
+Update monitoring document daily:
+
+```bash
+# Edit this file after each daily run
+docs/architecture/socialflow-readiness-monitoring-before-legacy.md
+```
+
+Record:
+- Date/time
+- Day number
+- All metric values
+- Parity status
+- Fallback count
+- Any warnings or errors
+- Recommendation
+
+### OAuth Activation Timeline
+
+OAuth is the **last** switch to activate:
+
+1. ✅ Runtime seed ON (completed S3.11)
+2. ✅ Exports ON (completed S3.12)
+3. ⏳ Monitor runtime seed + exports (S3.13B, in progress)
+4. ⏳ Legacy ON (S3.14, after monitoring complete)
+5. ⏳ Monitor runtime seed + exports + legacy (S3.14B, after S3.14)
+6. ⏳ OAuth ON (S3.15, after legacy stable)
+
+**Total estimated timeline:** 6-14 days (3-7 days per monitoring phase)
