@@ -274,20 +274,6 @@ describe("SocialFlow nonprod ownership parity", () => {
     })).rejects.toThrow("SOCIALFLOW_NONPROD_CANARY_CONFIG_PRODUCTIVE_DATABASE");
   });
 
-  it("rejects switch ON", async () => {
-    const configPath = await writeTempConfig(
-      REAL_NONPROD_CONFIG.replace(
-        'SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"',
-        'SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"',
-      ),
-    );
-
-    await expect(runCheckSocialflowNonprodOwnershipParity({
-      configPaths: [configPath],
-      runner: createMockRunner({ commands: [] }),
-    })).rejects.toThrow("SOCIALFLOW_NONPROD_CANARY_CONFIG_SWITCH_NOT_OFF");
-  });
-
   it("rejects deployable=true", async () => {
     const configPath = await writeTempConfig(
       REAL_NONPROD_CONFIG.replace(
@@ -394,7 +380,28 @@ describe("SocialFlow nonprod ownership parity", () => {
     expect(report.remoteWrites).toBe(0);
   });
 
-  it("still rejects OAuth or legacy read switches on", async () => {
+  it("accepts legacy read switch on with OAuth off", async () => {
+    const configPath = await writeTempConfig(
+      REAL_NONPROD_CONFIG.replace(
+        'SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"',
+        'SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"',
+      ),
+    );
+
+    const report = await runCheckSocialflowNonprodOwnershipParity({
+      configPaths: [configPath],
+      runner: createMockRunner({
+        commands: [],
+        sourceTables: seededOwnershipSourceTables(),
+        targetTables: matchingOwnershipTargetTables(),
+      }),
+    });
+
+    expect(report.status).toBe("PARITY_OK");
+    expect(report.remoteWrites).toBe(0);
+  });
+
+  it("still rejects OAuth read switch on", async () => {
     const configPath = await writeTempConfig(
       REAL_NONPROD_CONFIG.replace(
         'SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "0"',
