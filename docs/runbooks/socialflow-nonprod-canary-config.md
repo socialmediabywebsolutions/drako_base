@@ -1089,3 +1089,171 @@ OAuth is the **last** switch to activate:
 6. ⏳ OAuth ON (S3.15, after legacy stable)
 
 **Total estimated timeline:** 6-14 days (3-7 days per monitoring phase)
+
+---
+
+## OAuth Switch Preparation And Final Cutover Map
+
+### Current State (S3.15 Complete)
+
+**Switches:**
+```toml
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "1"  # ✅ ON
+SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"  # ✅ ON
+SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"  # ✅ ON
+SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "0"  # ⏸️ OFF (prep complete)
+SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"  # ✅ NOT DEPLOYABLE
+```
+
+**Status:** 3/4 switches ON, OAuth prep complete but NOT activated
+
+### OAuth Preparation Validation
+
+**Smoke Script:**
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-oauth-switch-prep.ts
+pnpm tsx scripts/smoke-socialflow-nonprod-oauth-switch-prep.ts --json
+```
+
+**Expected Output:**
+```json
+{
+  "ok": true,
+  "status": "OAUTH_SWITCH_PREP_OK",
+  "runtimeSeedSwitch": "1",
+  "exportsSwitch": "1",
+  "legacySwitch": "1",
+  "oauthSwitch": "0",
+  "deployable": false,
+  "tokenSafe": true,
+  "oauthExcluded": true,
+  "rollbackReady": true
+}
+```
+
+**What This Proves:**
+- Runtime seed, exports, legacy are ON and stable
+- OAuth is OFF but infrastructure ready
+- Token safety validated (no exposure)
+- AuthMeta safety validated (shape intact)
+- Contract tests pass
+- Parity ready
+- Rollback available
+
+### Final Separation Audit
+
+**Audit Script:**
+```bash
+pnpm tsx scripts/audit-socialflow-final-separation-cutover.ts
+pnpm tsx scripts/audit-socialflow-final-separation-cutover.ts --json
+pnpm tsx scripts/audit-socialflow-final-separation-cutover.ts --markdown
+```
+
+**What This Reports:**
+- Current switch states (3 ON, 1 OFF)
+- Module status (READY, TRANSITIONAL, PENDING)
+- Core-backed residues
+- Import/coupling analysis
+- Database usage (DRACO_DB vs SOCIAL_DB)
+- Risk analysis
+- Blockers before OAuth ON
+- Blockers before deploy independent
+
+### Criteria for OAuth Activation (S3.16)
+
+**Prerequisites (All Met ✅):**
+1. ✅ Runtime seed stable
+2. ✅ Exports stable
+3. ✅ Legacy stable
+4. ✅ Parity OK
+5. ✅ Token safety validated
+6. ✅ AuthMeta safety validated
+7. ✅ OAuth table ready
+8. ✅ Contract tests pass
+9. ✅ Rollback ready
+
+**Activation:**
+```toml
+# Change in S3.16:
+SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "1"
+```
+
+**Then monitor:** 3-7 days stable before deploy preparation
+
+### Criteria for NOT Activating OAuth (Current)
+
+**Why OAuth OFF in S3.15:**
+- Phased approach (last switch)
+- Monitor runtime/exports/legacy first
+- Validate all prerequisites
+- Prepare infrastructure complete
+- Documentation complete
+- Tests complete
+- Rollback confirmed
+
+**Activation phase:** S3.16 (next)
+
+### Rollback Procedures
+
+**Config-Only Rollback (S3.15 State):**
+```toml
+# If any issues with runtime/exports/legacy:
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "0"
+SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
+SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "0"
+```
+
+**Post-S3.16 OAuth Rollback:**
+```toml
+# If OAuth causes issues:
+SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "0"
+```
+
+**Full Rollback (Nuclear):**
+```toml
+SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE = "all-switches-off"
+```
+
+**Execution Time:** < 1 minute (config change only)
+**Data Loss:** None (fallback to DRACO_DB)
+**Deploy Required:** No
+
+### Deploy Future (Post-S3.16 + Monitoring)
+
+**Prerequisites:**
+1. ⏸️ OAuth activated (S3.16)
+2. ⏸️ All switches monitored 3-7 days stable
+3. ⏸️ Parity strict OK
+4. ⏸️ No token leakage
+5. ⏸️ Fallback not needed in healthy path
+6. ⏸️ DNS cutover prepared
+7. ⏸️ Deploy configuration ready
+
+**Then:**
+```toml
+SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "true"
+SOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1 = "true"
+```
+
+**Deploy Command:**
+```bash
+# ONLY after manual approval and checklist complete
+wrangler deploy --config apps/socialflow-runtime/wrangler.toml
+```
+
+### Production (FUTURE - NOT NOW)
+
+**Prerequisites:**
+1. ⏸️ Nonprod deploy stable
+2. ⏸️ Monitoring stable
+3. ⏸️ Performance validated
+4. ⏸️ No regressions
+5. ⏸️ Manual approval
+
+**Status:** NOT READY - Multiple phases pending
+
+---
+
+**Document Version:** S3.15 complete
+**Last Updated:** 2026-05-27
+**Next Phase:** S3.16 OAuth Switch Activation
