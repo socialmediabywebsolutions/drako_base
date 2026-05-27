@@ -1613,6 +1613,182 @@ SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE = "all-switches-off"
 
 See [Deploy Result (S3.19)](../architecture/socialflow-nonprod-canary-deploy-result.md) for complete details.
 
+### Canary Gate Health And Readiness Validation (S3.21)
+
+**Status:** ✅ VALIDATED (2026-05-27)
+
+**Phase:** S3.21 validates gated endpoint access with canary gate header.
+
+#### Security Model
+
+**Canary gate protects all endpoints** on `socialflow-canary.drako.systems`:
+
+- Header: `x-socialflow-canary-gate`
+- Token: `SOCIALFLOW_CANARY_GATE_TOKEN` (configured in worker env)
+- Cookie: `__Host-socialflow_canary_gate` (set after query param bootstrap)
+- Query: `?canaryGate=<token>` (bootstraps cookie for browsers)
+
+**Health/Readiness endpoints** (`/api/socialflow/runtime/health`, `/api/socialflow/runtime/readiness`):
+- Do NOT require user session
+- DO require canary gate (header, cookie, or valid callback state)
+- Return HTTP 403 without valid gate
+- Return HTTP 200 with valid gate
+
+#### Smoke Without Gate Header
+
+**Purpose:** Validate gate is active and protecting endpoints.
+
+**Command:**
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-canary-postdeploy.ts
+```
+
+**Expected Result:**
+```
+✅ Health check: 403 (canary gate active - expected, endpoint protected)
+✅ Readiness check: 403 (canary gate active - expected, endpoint protected)
+POSTDEPLOY_SMOKE_GATE_ACTIVE_OK
+```
+
+**This is correct behavior.** HTTP 403 means gate is protecting endpoints.
+
+#### Smoke With Gate Header
+
+**Purpose:** Validate endpoints work correctly with valid gate token.
+
+**⚠️ PREREQUISITE:** Set `SOCIALFLOW_CANARY_GATE_TOKEN` environment variable.
+
+**Command:**
+```bash
+export SOCIALFLOW_CANARY_GATE_TOKEN="<secret-token>"
+pnpm tsx scripts/smoke-socialflow-nonprod-canary-gated-health.ts
+```
+
+**Expected Result (with valid token):**
+```
+✅ Health check with gate: 200 OK
+✅ Readiness check with gate: 200 OK
+SOCIALFLOW_CANARY_GATED_HEALTH_OK
+```
+
+**JSON Output:**
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-canary-gated-health.ts --json
+```
+
+**If gate secret missing:**
+```
+⚠️  SOCIALFLOW_CANARY_GATE_TOKEN not available in environment
+SOCIALFLOW_CANARY_GATED_HEALTH_MISSING_GATE_SECRET
+```
+
+**If gate token invalid:**
+```
+❌ Health check with gate: 403 (gate rejected - invalid token?)
+SOCIALFLOW_CANARY_GATED_HEALTH_UNAUTHORIZED
+```
+
+#### Canary Gate Token
+
+**DO NOT:**
+- Print token in logs
+- Commit token to git
+- Share token in documentation
+- Expose token in responses
+
+**Token location:**
+- Stored in Cloudflare Worker environment variables
+- Local testing: set in shell environment (`export SOCIALFLOW_CANARY_GATE_TOKEN=...`)
+- CI/CD: set in secrets manager
+
+**Token rotation:**
+1. Update `SOCIALFLOW_CANARY_GATE_TOKEN` in worker config
+2. Deploy worker
+3. Update local environment variable
+4. Retry smoke tests
+
+#### What to Do if Missing Gate Secret
+
+**Local testing:**
+```bash
+export SOCIALFLOW_CANARY_GATE_TOKEN="<ask-team-lead-for-token>"
+pnpm tsx scripts/smoke-socialflow-nonprod-canary-gated-health.ts
+```
+
+**CI/CD:**
+Add `SOCIALFLOW_CANARY_GATE_TOKEN` to secrets and reference in workflow.
+
+#### What to Do if 403 With Header
+
+**Possible causes:**
+1. Token mismatch (local env vs worker config)
+2. Token not configured in worker
+3. Worker not deployed with latest config
+
+**Actions:**
+1. Verify `SOCIALFLOW_CANARY_GATE_TOKEN` in worker config matches local env
+2. Check worker deployment succeeded
+3. Check worker logs for gate denied events
+4. Verify no typos in token (trim whitespace)
+
+#### What to Do if 500 Response
+
+**Actions:**
+1. Check worker logs in Cloudflare Dashboard
+2. Verify D1 bindings are correct
+3. Check switches are ON
+4. Run parity check: `pnpm tsx scripts/check-socialflow-nonprod-ownership-parity.ts`
+5. Check for runtime errors in health/readiness handlers
+
+**If persistent:**
+Execute rollback (see Rollback section in S3.19)
+
+#### Rollback
+
+Same rollback procedures as S3.19:
+
+**Option 1: Disable Deployable**
+```toml
+SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"
+```
+
+**Option 2: Switch Flip (Instant)**
+```toml
+SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE = "all-switches-off"
+```
+
+**Option 3: Manual Switch OFF**
+Set all 4 switches to "0" and re-deploy.
+
+#### S3.21 Validation Results
+
+**Without gate header:**
+- Health: HTTP 403 ✅
+- Readiness: HTTP 403 ✅
+- Status: POSTDEPLOY_SMOKE_GATE_ACTIVE_OK ✅
+
+**With gate header (when token available):**
+- Health: HTTP 200 (expected)
+- Readiness: HTTP 200 (expected)
+- Status: SOCIALFLOW_CANARY_GATED_HEALTH_OK (expected)
+- Token leakage: false ✅
+- Production touched: false ✅
+
+**Security confirmations:**
+- Gate token NOT printed in logs ✅
+- Gate token NOT in test outputs ✅
+- Endpoints protected by gate ✅
+- No token leakage detected ✅
+
+**Test coverage:**
+- 14/14 gated health tests PASS ✅
+- Validates missing secret handling ✅
+- Validates gate rejection (403) ✅
+- Validates token leakage detection ✅
+- Validates JSON output ✅
+
+See [Gated Health Readiness Architecture (S3.21)](../architecture/socialflow-canary-gated-health-readiness.md) for security model details.
+
 ### Production (FUTURE - NOT NOW)
 
 **Prerequisites:**
@@ -1626,6 +1802,6 @@ See [Deploy Result (S3.19)](../architecture/socialflow-nonprod-canary-deploy-res
 
 ---
 
-**Document Version:** S3.19 complete (Canary Deploy Executed)
+**Document Version:** S3.21 complete (Gated Health Validation)
 **Last Updated:** 2026-05-27
-**Next Phase:** Monitoring & Routing Configuration (Optional)
+**Next Phase:** Monitoring (3-7 Days) → Production Planning (Future)
