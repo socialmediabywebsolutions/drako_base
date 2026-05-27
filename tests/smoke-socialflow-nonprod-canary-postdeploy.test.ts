@@ -15,12 +15,12 @@ describe("smoke socialflow nonprod canary postdeploy", () => {
 
   it("validates expected smoke URLs", () => {
     const expectedUrls = [
-      "https://socialflow-canary.drako.systems/health",
-      "https://socialflow-canary.drako.systems/api/socialflow/status",
+      "https://socialflow-canary.drako.systems/api/socialflow/runtime/health",
+      "https://socialflow-canary.drako.systems/api/socialflow/runtime/readiness",
     ];
     expect(expectedUrls.length).toBe(2);
-    expect(expectedUrls[0]).toContain("socialflow-canary.drako.systems");
-    expect(expectedUrls[1]).toContain("/api/socialflow/status");
+    expect(expectedUrls[0]).toContain("/api/socialflow/runtime/health");
+    expect(expectedUrls[1]).toContain("/api/socialflow/runtime/readiness");
   });
 
   it("validates rollback commands structure", () => {
