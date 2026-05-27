@@ -1241,6 +1241,165 @@ SOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1 = "true"
 wrangler deploy --config apps/socialflow-runtime/wrangler.toml
 ```
 
+### Predeploy Gate And Dry Run (S3.18)
+
+**Status:** ✅ ACTIVE (deployable=true, but deployment NOT executed)
+
+**Phase:** S3.18 establishes predeploy validation infrastructure without executing deployment.
+
+#### Predeploy Gate Validation
+
+**Purpose:** Validates all safety conditions before allowing deployment.
+
+**Command:**
+```bash
+pnpm tsx scripts/check-socialflow-predeploy-gate.ts
+```
+
+**JSON Output:**
+```bash
+pnpm tsx scripts/check-socialflow-predeploy-gate.ts --json
+```
+
+**Markdown Report:**
+```bash
+pnpm tsx scripts/check-socialflow-predeploy-gate.ts --markdown
+```
+
+**Expected Success Output:**
+```json
+{
+  "ok": true,
+  "status": "SOCIALFLOW_PREDEPLOY_GATE_READY",
+  "deployable": true,
+  "allowDeployFlag": true,
+  "allSwitchesOn": true,
+  "parityOk": true,
+  "tokenSafe": true,
+  "authMetaSafe": true,
+  "dbsNonprod": true,
+  "canaryConfigReady": true,
+  "rollbackReady": true,
+  "deployNotExecuted": true,
+  "productionTouched": false,
+  "remoteWrites": 0,
+  "nextAction": "EXECUTE_DEPLOY_COMMAND_OR_ROLLBACK"
+}
+```
+
+**Gate Validations:**
+- ✅ Deployable flag is true
+- ✅ Allow deploy flag explicitly set
+- ✅ All 4 switches ON (runtime seed, exports, legacy, oauth)
+- ✅ Ownership parity OK
+- ✅ No production tokens
+- ✅ No production auth metadata
+- ✅ All DBs nonprod
+- ✅ Canary config passes
+- ✅ Rollback configuration present
+- ✅ Deploy not executed
+- ✅ Production not touched
+- ✅ Remote writes = 0
+
+#### Dry Run Simulation
+
+**Purpose:** Simulates deployment commands WITHOUT executing them.
+
+**Command:**
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-predeploy-dry-run.ts
+```
+
+**JSON Output:**
+```bash
+pnpm tsx scripts/smoke-socialflow-nonprod-predeploy-dry-run.ts --json
+```
+
+**Expected Success Output:**
+```json
+{
+  "ok": true,
+  "status": "SOCIALFLOW_PREDEPLOY_DRY_RUN_OK",
+  "predeployGateOk": true,
+  "deployNotExecuted": true,
+  "plannedCommands": [
+    "cd apps/socialflow-runtime && pnpm build",
+    "cd apps/socialflow-runtime && wrangler deploy --config wrangler.toml",
+    "cd workers/socialflows-runtime-canary && wrangler deploy --config wrangler.workers.toml"
+  ],
+  "rollbackCommands": [
+    "Set SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = \"false\" in wrangler.toml files",
+    "Or set all switches to \"0\" via SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE",
+    "Re-deploy with rollback config"
+  ],
+  "smokeUrls": [
+    "https://socialflow-canary.drako.systems/health",
+    "https://socialflow-canary.drako.systems/api/socialflow/status"
+  ]
+}
+```
+
+**Planned Commands (NOT EXECUTED in S3.18):**
+1. `cd apps/socialflow-runtime && pnpm build`
+2. `cd apps/socialflow-runtime && wrangler deploy --config wrangler.toml`
+3. `cd workers/socialflows-runtime-canary && wrangler deploy --config wrangler.workers.toml`
+
+**Rollback Commands:**
+1. Set `SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"` in wrangler.toml files
+2. Or set all switches to `"0"` via `SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE`
+3. Re-deploy with rollback config
+
+**Smoke Test URLs (Post-Deployment):**
+- Health: `https://socialflow-canary.drako.systems/health`
+- Status: `https://socialflow-canary.drako.systems/api/socialflow/status`
+
+#### S3.18 Safety Confirmations
+
+**Deployment Status:**
+- ❌ Deployment NOT executed (preparation only)
+- ❌ Production NOT touched
+- ❌ Remote writes: 0
+- ❌ No secrets printed
+- ✅ Deployable flag: true (ready for future deployment)
+- ✅ Allow flag: true (explicit safety confirmation)
+- ✅ All switches: ON
+- ✅ Rollback: ready
+
+**Configuration Changes:**
+```toml
+# apps/socialflow-runtime/wrangler.toml
+SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "true"
+SOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1 = "true"
+
+# workers/socialflows-runtime-canary/wrangler.workers.toml
+SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "true"
+SOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1 = "true"
+```
+
+**New Scripts:**
+- `scripts/check-socialflow-predeploy-gate.ts` (predeploy validation)
+- `scripts/smoke-socialflow-nonprod-predeploy-dry-run.ts` (dry-run simulation)
+- `tests/check-socialflow-predeploy-gate.test.ts` (gate tests)
+- `tests/smoke-socialflow-nonprod-predeploy-dry-run.test.ts` (dry-run tests)
+
+**Updated Scripts:**
+- `scripts/check-socialflow-nonprod-canary-config.ts` (deployable=true validations)
+- `scripts/check-socialflow-nonprod-ownership-parity.ts` (accept DEPLOYABLE status)
+- `scripts/smoke-socialflow-nonprod-all-switches-readiness.ts` (allow deployable=true)
+- `tests/check-socialflow-nonprod-canary-config.test.ts` (new test cases)
+
+#### Next Phase After S3.18
+
+Actual deployment will occur in a future phase after:
+1. Extended monitoring of switch stability (3-7 days)
+2. Final approval from stakeholders
+3. Confirmation of deployment window
+4. Smoke test readiness
+5. On-call engineer availability
+6. Explicit deployment authorization
+
+See [Predeploy Gate Architecture](../architecture/socialflow-nonprod-predeploy-gate.md) for complete details.
+
 ### Production (FUTURE - NOT NOW)
 
 **Prerequisites:**
@@ -1254,6 +1413,6 @@ wrangler deploy --config apps/socialflow-runtime/wrangler.toml
 
 ---
 
-**Document Version:** S3.15 complete
+**Document Version:** S3.18 complete (Predeploy Gate Active)
 **Last Updated:** 2026-05-27
-**Next Phase:** S3.16 OAuth Switch Activation
+**Next Phase:** Actual Deployment (Future - After Monitoring Period)

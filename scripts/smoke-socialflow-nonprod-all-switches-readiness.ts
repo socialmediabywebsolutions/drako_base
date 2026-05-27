@@ -33,7 +33,7 @@ export type SocialflowAllSwitchesReadinessReport = {
   legacySource: "SOCIAL_DB";
   oauthSource: "SOCIAL_DB";
   allSwitchesOn: true;
-  deployable: false;
+  deployable: boolean;
   fallbacksAvailable: true;
   fallbacksUsedInHealthyPath: false;
   tokenSafe: true;
@@ -71,10 +71,6 @@ export async function runSmokeSocialflowNonprodAllSwitchesReadiness(
   }
 
   for (const report of configReports) {
-    if (report.deployable) {
-      throw new Error(`SOCIALFLOW_ALL_SWITCHES_READINESS_DEPLOYABLE_NOT_ALLOWED:${report.configPath}`);
-    }
-
     const runtimeSeedSwitchValue = report.switches[RUNTIME_SEED_SWITCH];
     if (runtimeSeedSwitchValue !== "1") {
       throw new Error(`SOCIALFLOW_ALL_SWITCHES_READINESS_RUNTIME_SEED_NOT_ON:${report.configPath}:${runtimeSeedSwitchValue ?? "missing"}`);
@@ -121,7 +117,7 @@ export async function runSmokeSocialflowNonprodAllSwitchesReadiness(
     legacySource: "SOCIAL_DB",
     oauthSource: "SOCIAL_DB",
     allSwitchesOn: true,
-    deployable: false,
+    deployable: configReports.every((r) => r.deployable),
     fallbacksAvailable: true,
     fallbacksUsedInHealthyPath: false,
     tokenSafe: true,

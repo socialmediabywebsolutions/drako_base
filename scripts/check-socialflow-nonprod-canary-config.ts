@@ -145,6 +145,21 @@ function assertNonprodConfig(report: SocialflowNonprodCanaryConfigReport): void 
     throw new Error("SOCIALFLOW_NONPROD_CANARY_CONFIG_DEPLOYABLE_NOT_ALLOWED");
   }
 
+  if (report.deployable) {
+    if (report.switches[RUNTIME_SEED_SWITCH] !== "1") {
+      throw new Error(`SOCIALFLOW_NONPROD_CANARY_CONFIG_DEPLOYABLE_REQUIRES_RUNTIME_SEED_ON:${report.switches[RUNTIME_SEED_SWITCH] ?? "missing"}`);
+    }
+    if (report.switches[EXPORTS_SWITCH] !== "1") {
+      throw new Error(`SOCIALFLOW_NONPROD_CANARY_CONFIG_DEPLOYABLE_REQUIRES_EXPORTS_ON:${report.switches[EXPORTS_SWITCH] ?? "missing"}`);
+    }
+    if (report.switches[LEGACY_SWITCH] !== "1") {
+      throw new Error(`SOCIALFLOW_NONPROD_CANARY_CONFIG_DEPLOYABLE_REQUIRES_LEGACY_ON:${report.switches[LEGACY_SWITCH] ?? "missing"}`);
+    }
+    if (report.switches[OAUTH_SWITCH] !== "1") {
+      throw new Error(`SOCIALFLOW_NONPROD_CANARY_CONFIG_DEPLOYABLE_REQUIRES_OAUTH_ON:${report.switches[OAUTH_SWITCH] ?? "missing"}`);
+    }
+  }
+
   if (report.switches.SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE !== "all-switches-off") {
     throw new Error("SOCIALFLOW_NONPROD_CANARY_CONFIG_ROLLBACK_STATE_MISSING");
   }

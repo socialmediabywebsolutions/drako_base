@@ -124,18 +124,19 @@ describe("socialflow all switches readiness", () => {
     ).rejects.toThrow("SOCIALFLOW_ALL_SWITCHES_READINESS_RUNTIME_SEED_NOT_ON");
   });
 
-  it("fails if deployable=true", async () => {
+  it("allows deployable=true (S3.18)", async () => {
     const configPath = await writeTempConfig(VALID_CONFIG_ALL_ON.replace('"false"', '"true"'));
 
-    await expect(
-      runSmokeSocialflowNonprodAllSwitchesReadiness(
-        { configPaths: [configPath] },
-        {
-          checkConfig: () => createMockConfigReport(configPath, { deployable: true }),
-          runParity: async () => createMockParityReport(),
-        },
-      ),
-    ).rejects.toThrow("SOCIALFLOW_ALL_SWITCHES_READINESS_DEPLOYABLE_NOT_ALLOWED");
+    const report = await runSmokeSocialflowNonprodAllSwitchesReadiness(
+      { configPaths: [configPath] },
+      {
+        checkConfig: () => createMockConfigReport(configPath, { deployable: true }),
+        runParity: async () => createMockParityReport(),
+      },
+    );
+
+    expect(report.ok).toBe(true);
+    expect(report.deployable).toBe(true);
   });
 
   it("fails if DB contains prod", async () => {

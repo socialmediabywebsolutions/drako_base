@@ -284,14 +284,11 @@ function getBinding(report: SocialflowNonprodCanaryConfigReport, bindingName: st
 }
 
 function assertSafeConfig(report: SocialflowNonprodCanaryConfigReport): void {
-  if (report.status !== "NON_DEPLOYABLE_REAL_NONPROD_CONFIG") {
+  if (report.status !== "NON_DEPLOYABLE_REAL_NONPROD_CONFIG" && report.status !== "DEPLOYABLE_REAL_NONPROD_CONFIG") {
     throw new Error(`SOCIALFLOW_NONPROD_PARITY_UNSAFE_STATUS:${report.configPath}:${report.status}`);
   }
   if (report.placeholders.length > 0) {
     throw new Error(`SOCIALFLOW_NONPROD_PARITY_PLACEHOLDERS_BLOCKED:${report.configPath}:${report.placeholders.join(",")}`);
-  }
-  if (report.deployable) {
-    throw new Error(`SOCIALFLOW_NONPROD_PARITY_DEPLOYABLE_BLOCKED:${report.configPath}`);
   }
   if (report.switches.SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE !== "all-switches-off") {
     throw new Error(`SOCIALFLOW_NONPROD_PARITY_ROLLBACK_NOT_OFF:${report.configPath}`);
