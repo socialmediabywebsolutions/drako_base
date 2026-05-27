@@ -7,16 +7,15 @@ const REQUIRED_D1_BINDINGS = ["DRACO_DB", "SAASES_DB", "SOCIAL_DB", "SOCIALFLOW_
 const RUNTIME_SEED_SWITCH = "SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH";
 const EXPORTS_SWITCH = "SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH";
 const LEGACY_SWITCH = "SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH";
+const OAUTH_SWITCH = "SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH";
 
-const REQUIRED_OFF_SWITCHES = [
-  "SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH",
-] as const;
+const REQUIRED_OFF_SWITCHES = [] as const;
 
 const REQUIRED_READ_SWITCHES = [
   RUNTIME_SEED_SWITCH,
   EXPORTS_SWITCH,
   LEGACY_SWITCH,
-  ...REQUIRED_OFF_SWITCHES,
+  OAUTH_SWITCH,
 ] as const;
 
 const KNOWN_PRODUCTIVE_DATABASE_IDS = new Set([
@@ -124,6 +123,11 @@ function assertNonprodConfig(report: SocialflowNonprodCanaryConfigReport): void 
   const legacySwitchValue = report.switches[LEGACY_SWITCH];
   if (legacySwitchValue !== "0" && legacySwitchValue !== "1") {
     throw new Error(`SOCIALFLOW_NONPROD_CANARY_CONFIG_LEGACY_SWITCH_INVALID:${legacySwitchValue ?? "missing"}`);
+  }
+
+  const oauthSwitchValue = report.switches[OAUTH_SWITCH];
+  if (oauthSwitchValue !== "0" && oauthSwitchValue !== "1") {
+    throw new Error(`SOCIALFLOW_NONPROD_CANARY_CONFIG_OAUTH_SWITCH_INVALID:${oauthSwitchValue ?? "missing"}`);
   }
 
   for (const switchName of REQUIRED_OFF_SWITCHES) {
