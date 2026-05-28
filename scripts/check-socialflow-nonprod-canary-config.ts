@@ -175,7 +175,7 @@ export function checkSocialflowNonprodCanaryConfig(options: CheckOptions): Socia
   const bindings = parseD1Bindings(source);
   const switches: Record<string, string | undefined> = {};
 
-  for (const switchName of [...REQUIRED_READ_SWITCHES, "SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE"]) {
+  for (const switchName of [...REQUIRED_READ_SWITCHES, "SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE", "SOCIALFLOW_RUNTIME_TARGET"]) {
     switches[switchName] = parseStringAssignment(source, switchName) ?? undefined;
   }
 
