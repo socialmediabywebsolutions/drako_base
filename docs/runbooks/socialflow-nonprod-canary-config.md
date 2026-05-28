@@ -1789,6 +1789,233 @@ Set all 4 switches to "0" and re-deploy.
 
 See [Gated Health Readiness Architecture (S3.21)](../architecture/socialflow-canary-gated-health-readiness.md) for security model details.
 
+### Canary Monitoring Daily Procedure (S3.22)
+
+**Status:** ✅ ACTIVE MONITORING (Day 1 complete - 2026-05-27)
+
+**Phase:** S3.22 establishes daily operational monitoring for 3-7 day observation period.
+
+#### Daily Monitoring Command
+
+**Standard output:**
+```bash
+pnpm tsx scripts/monitor-socialflow-nonprod-canary-day.ts --day=1
+```
+
+**JSON output:**
+```bash
+pnpm tsx scripts/monitor-socialflow-nonprod-canary-day.ts --day=1 --json
+```
+
+**Markdown report:**
+```bash
+pnpm tsx scripts/monitor-socialflow-nonprod-canary-day.ts --day=1 --markdown > monitoring-day-1.md
+```
+
+#### What Gets Checked
+
+1. **Configuration:**
+   - Deployable flag (must be true)
+   - Allow deploy with real D1 flag (must be true)
+   - 4 switches status (all must be ON)
+
+2. **Predeploy Gate:**
+   - Gate configuration status
+
+3. **Baseline (without gate header):**
+   - Health endpoint → expect HTTP 403
+   - Readiness endpoint → expect HTTP 403
+   - Token leakage detection
+   - Production touch detection
+
+4. **Gated (with gate header if available):**
+   - Gate secret availability
+   - Health endpoint → expect HTTP 200 (if token available)
+   - Readiness endpoint → expect HTTP 200 (if token available)
+   - Token leakage detection
+   - Production touch detection
+
+5. **Ownership Parity:**
+   - Matched records (expect 6)
+   - Mismatched records (expect 0)
+   - Missing in SOCIAL
+
+6. **Security:**
+   - Token leakage: must be false
+   - Production touched: must be false
+   - Remote writes: must be 0
+
+#### Expected Status Codes
+
+**GREEN (All OK):**
+```
+SOCIALFLOW_CANARY_MONITORING_DAY_OK
+```
+- All switches ON
+- Deployable true
+- Baseline 403/403
+- Gated 200/200 (if token available)
+- Parity 6/0
+- No security issues
+
+**YELLOW (OK with missing gate token):**
+```
+SOCIALFLOW_CANARY_MONITORING_DAY_OK_WITH_MISSING_GATE_TOKEN
+```
+- All switches ON
+- Deployable true
+- Baseline 403/403
+- Gate token not available locally (acceptable)
+- Parity 6/0
+- No security issues
+
+**RED (Blocked):**
+```
+SOCIALFLOW_CANARY_MONITORING_DAY_BLOCKED
+SOCIALFLOW_CANARY_MONITORING_DAY_TOKEN_LEAKAGE_BLOCKER
+SOCIALFLOW_CANARY_MONITORING_DAY_PRODUCTION_TOUCH_BLOCKER
+SOCIALFLOW_CANARY_MONITORING_DAY_PARITY_BLOCKER
+```
+
+#### Recording Results
+
+**Location:** `docs/architecture/socialflow-canary-monitoring-log.md`
+
+**Manual entry:**
+1. Run daily monitoring command
+2. Copy output to log
+3. Record date, status, blockers, recommendation
+4. Update log with next day template
+
+#### What to Do if Missing Gate Token
+
+**This is acceptable for monitoring.**
+
+Gate token is only required for validating HTTP 200 with header. The critical validation is:
+- **Without header → HTTP 403** (gate protecting correctly) ✅
+
+If gate token missing locally:
+- Status will be `SOCIALFLOW_CANARY_MONITORING_DAY_OK_WITH_MISSING_GATE_TOKEN`
+- This is GREEN status (ok=true)
+- Continue monitoring
+- Optionally configure token later to validate 200 response
+
+**To configure token (optional):**
+```bash
+export SOCIALFLOW_CANARY_GATE_TOKEN="<token-from-team-lead>"
+pnpm tsx scripts/monitor-socialflow-nonprod-canary-day.ts --day=N
+```
+
+#### What to Do if Parity Fails
+
+**Status:** `SOCIALFLOW_CANARY_MONITORING_DAY_PARITY_BLOCKER`
+
+**Actions:**
+1. Check parity details:
+   ```bash
+   pnpm tsx scripts/check-socialflow-nonprod-ownership-parity.ts
+   ```
+2. Investigate mismatched records
+3. Determine if mismatch is expected (data drift) or error
+4. Fix source of drift
+5. Do NOT proceed to production until parity restored
+
+**Common causes:**
+- Manual data changes in one DB but not the other
+- Migration not applied to both DBs
+- Seed data inconsistency
+
+#### What to Do if Health Returns 200 Without Gate
+
+**Status:** `SOCIALFLOW_CANARY_MONITORING_DAY_BLOCKED`
+
+**This is a CRITICAL issue - gate bypass!**
+
+**Immediate actions:**
+1. Stop monitoring
+2. Check middleware gate enforcement:
+   ```bash
+   grep -n "CANARY_GATE_HEADER" apps/socialflow-runtime/src/middleware.ts
+   ```
+3. Check worker configuration:
+   ```bash
+   pnpm tsx scripts/check-socialflow-nonprod-canary-config.ts
+   ```
+4. Check Cloudflare Dashboard for worker deployment status
+5. If gate bypass confirmed, execute rollback:
+   ```bash
+   # Option 1: Disable deployable in wrangler.toml
+   SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"
+   
+   # Option 2: Flip all switches OFF
+   SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE = "all-switches-off"
+   
+   # Then re-deploy
+   ```
+
+#### What to Do if Token Leakage Detected
+
+**Status:** `SOCIALFLOW_CANARY_MONITORING_DAY_TOKEN_LEAKAGE_BLOCKER`
+
+**This is a CRITICAL security issue!**
+
+**Immediate actions:**
+1. STOP ALL ACCESS to canary endpoints
+2. Execute rollback immediately:
+   ```toml
+   SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "false"
+   ```
+3. Deploy rollback
+4. Investigate source of leakage in endpoint code
+5. Rotate all tokens/secrets
+6. Do NOT proceed to production
+7. Report security incident
+
+#### When to Block Production
+
+**BLOCK if any of these occur during 3-7 day period:**
+- ❌ Token leakage detected
+- ❌ Production touched
+- ❌ Health/readiness return 200 without gate (gate bypass)
+- ❌ Parity fails and cannot be restored
+- ❌ Any switch turns OFF unexpectedly
+- ❌ Deployable becomes false unexpectedly
+- ❌ Worker errors in Cloudflare logs
+
+**YELLOW but continue monitoring:**
+- ⚠️ Gate token not available locally
+- ⚠️ Gated 403 with token (token mismatch, fixable)
+
+**GREEN and ready for production consideration (after 7 days):**
+- ✅ All 7 days GREEN or YELLOW
+- ✅ No BLOCKED days
+- ✅ No security issues
+- ✅ Switches stable
+- ✅ Parity maintained
+- ✅ Worker logs clean
+
+#### S3.22 Day 1 Results
+
+**Date:** 2026-05-27 23:44 UTC+02:00
+
+**Status:** ✅ SOCIALFLOW_CANARY_MONITORING_DAY_OK_WITH_MISSING_GATE_TOKEN
+
+**Key metrics:**
+- Deployable: ✅ true
+- Switches: ✅ 4/4 ON
+- Baseline: ✅ 403/403 (gate protecting)
+- Gate token: ⚠️ not available locally (acceptable)
+- Parity: ✅ 6 matched, 0 mismatched
+- Token leakage: ✅ false
+- Production touched: ✅ false
+- Remote writes: ✅ 0
+
+**Recommendation:** CONTINUE_DAILY_MONITORING
+
+**Next:** Day 2 monitoring (2026-05-28 or later)
+
+See [Monitoring Log](../architecture/socialflow-canary-monitoring-log.md) for complete daily results.
+
 ### Production (FUTURE - NOT NOW)
 
 **Prerequisites:**
@@ -1802,6 +2029,6 @@ See [Gated Health Readiness Architecture (S3.21)](../architecture/socialflow-can
 
 ---
 
-**Document Version:** S3.21 complete (Gated Health Validation)
-**Last Updated:** 2026-05-27
-**Next Phase:** Monitoring (3-7 Days) → Production Planning (Future)
+**Document Version:** S3.22 complete (Daily Monitoring Operational)
+**Last Updated:** 2026-05-27 23:59
+**Next Phase:** Continue Daily Monitoring (Day 2-7) → Production Planning (Future)
