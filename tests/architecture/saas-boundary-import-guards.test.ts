@@ -228,6 +228,39 @@ const boundaryRules: BoundaryRule[] = [
       },
     ],
   },
+  {
+    ruleId: "shared-neutral-no-product-or-control-plane-runtime-imports",
+    sourceDirs: ["packages/shared-neutral"],
+    forbiddenImports: [
+      {
+        pattern: "@/lib/mentoria/**",
+      },
+      {
+        pattern: "@/lib/socialflow/**",
+      },
+      {
+        pattern: "@/lib/campobase/**",
+      },
+      {
+        pattern: "@/lib/campamento-base/**",
+      },
+      {
+        pattern: "@/app/**",
+      },
+    ],
+  },
+  {
+    ruleId: "factory-no-campamento-internal-imports",
+    sourceDirs: ["src/app/api/factory", "src/lib/factory"],
+    forbiddenImports: [
+      {
+        pattern: "@/lib/campamento-base/**",
+      },
+      {
+        pattern: "@/lib/campobase/**",
+      },
+    ],
+  },
 ];
 
 describe("SaaS boundary import guards", () => {

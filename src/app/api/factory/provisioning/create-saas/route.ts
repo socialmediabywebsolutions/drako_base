@@ -6,8 +6,8 @@ import { ensureDatabase, queryOne } from "@/lib/db";
 import { extractSessionFromRequest } from "@/lib/edge-auth";
 import { authorizeSaasAccess } from "@/lib/authz/saas-access";
 import { JobRunner } from "@/lib/provisioning/job-runner";
-import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-types";
-import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
+import type { SaasBlueprintDraft } from "@/lib/factory/contracts/blueprints";
+import { withCampamentoBaseProfile } from "@/lib/factory/blueprint-profile";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import { FactoryBillingError, assertFactoryQuota, getFactoryBillingState } from "@/lib/billing/factory-billing";
 

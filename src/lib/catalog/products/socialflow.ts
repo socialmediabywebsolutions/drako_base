@@ -1,4 +1,4 @@
-import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-types";
+import type { SaasBlueprintDraft } from "@/lib/factory/contracts/blueprints";
 
 export const SOCIALFLOW_NAME = "SocialFlow";
 export const SOCIALFLOW_SLUG = "socialflows";

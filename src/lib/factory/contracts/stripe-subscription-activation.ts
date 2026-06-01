@@ -1,6 +1,6 @@
 import { env } from "@/lib/cf";
 import { JobRunner } from "@/lib/provisioning/job-runner";
-import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
+import { withCampamentoBaseProfile } from "@/lib/factory/blueprint-profile";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 
 function cleanJobIdSegment(value: string): string {
