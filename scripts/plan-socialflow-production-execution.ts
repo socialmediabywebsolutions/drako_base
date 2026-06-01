@@ -11,9 +11,23 @@ type MissingArtifactStatus =
   | "NOT_AVAILABLE_YET"
   | "MANUAL_REVIEW_REQUIRED";
 
+type ArtifactInventoryStatus =
+  | MissingArtifactStatus
+  | "PRESENT"
+  | "PRODUCTION_TEMPLATE_PRESENT_MANUAL_CONFIGURATION_REQUIRED";
+
 interface MissingArtifact {
   artifact: string;
   status: MissingArtifactStatus;
+  reason: string;
+  requiredForExecution: boolean;
+  commandReference?: string;
+}
+
+interface ArtifactInventoryItem {
+  artifact: string;
+  present: boolean;
+  status: ArtifactInventoryStatus;
   reason: string;
   requiredForExecution: boolean;
   commandReference?: string;
@@ -24,8 +38,11 @@ interface ProductionExecutionPlan {
   readyForExecution: boolean;
   commandsArePlannedOnly: boolean;
   requiresApproval: boolean;
+  requiresHumanApproval: boolean;
+  manualConfigurationRequired: boolean;
   status: string;
   timestamp: string;
+  artifactInventory: ArtifactInventoryItem[];
   missingArtifacts: MissingArtifact[];
   preExecution: {
     step: string;
@@ -76,20 +93,61 @@ function resolveExists(artifact: string): boolean {
   return existsSync(path.resolve(process.cwd(), artifact));
 }
 
-function detectMissingArtifacts(rules: ArtifactRule[]): MissingArtifact[] {
-  return rules
-    .filter((rule) => !resolveExists(rule.artifact))
-    .map((rule) => ({
+function detectArtifactInventory(rules: ArtifactRule[]): ArtifactInventoryItem[] {
+  return rules.map((rule) => {
+    const present = resolveExists(rule.artifact);
+    if (present) {
+      if (rule.artifact === "apps/socialflow-runtime/wrangler.production.toml") {
+        return {
+          artifact: rule.artifact,
+          present,
+          status: "PRODUCTION_TEMPLATE_PRESENT_MANUAL_CONFIGURATION_REQUIRED",
+          reason:
+            "Production wrangler template exists but requires approved manual configuration before any execution.",
+          requiredForExecution: rule.requiredForExecution,
+          commandReference: rule.commandReference,
+        };
+      }
+
+      return {
+        artifact: rule.artifact,
+        present,
+        status: "PRESENT",
+        reason: "Artifact present in repository.",
+        requiredForExecution: rule.requiredForExecution,
+        commandReference: rule.commandReference,
+      };
+    }
+
+    return {
       artifact: rule.artifact,
+      present,
       status: rule.statusWhenMissing,
       reason: rule.reason,
       requiredForExecution: rule.requiredForExecution,
       commandReference: rule.commandReference,
+    };
+  });
+}
+
+function detectMissingArtifacts(inventory: ArtifactInventoryItem[]): MissingArtifact[] {
+  return inventory
+    .filter((item) => !item.present)
+    .map((item) => ({
+      artifact: item.artifact,
+      status: item.status as MissingArtifactStatus,
+      reason: item.reason,
+      requiredForExecution: item.requiredForExecution,
+      commandReference: item.commandReference,
     }));
 }
 
 function hasMissingArtifact(missingArtifacts: MissingArtifact[], artifactPath: string): boolean {
   return missingArtifacts.some((artifact) => artifact.artifact === artifactPath);
+}
+
+function hasPresentArtifact(artifactInventory: ArtifactInventoryItem[], artifactPath: string): boolean {
+  return artifactInventory.some((artifact) => artifact.artifact === artifactPath && artifact.present);
 }
 
 function plannedOrPlaceholderCommand(
@@ -99,6 +157,17 @@ function plannedOrPlaceholderCommand(
 ): string {
   if (!missing) {
     return `PLANNED: ${plannedCommand}`;
+  }
+  return `PLACEHOLDER_ONLY (${missingStatus}): ${plannedCommand}`;
+}
+
+function plannedTemplateOrPlaceholderCommand(
+  plannedCommand: string,
+  templatePresent: boolean,
+  missingStatus: MissingArtifactStatus,
+): string {
+  if (templatePresent) {
+    return `PLANNED_TEMPLATE_REVIEW_REQUIRED: ${plannedCommand}`;
   }
   return `PLACEHOLDER_ONLY (${missingStatus}): ${plannedCommand}`;
 }
@@ -146,20 +215,27 @@ export async function planSocialflowProductionExecution(
     },
   ];
 
-  const missingArtifacts = detectMissingArtifacts(artifactRules);
+  const artifactInventory = detectArtifactInventory(artifactRules);
+  const missingArtifacts = detectMissingArtifacts(artifactInventory);
   const missingForExecution = missingArtifacts.filter((artifact) => artifact.requiredForExecution);
   const readyForExecution = false;
   const executionAllowed = false;
   const commandsArePlannedOnly = true;
   const requiresApproval = true;
+  const requiresHumanApproval = true;
+  const manualConfigurationRequired = true;
 
   const planStatus =
     missingForExecution.length > 0
       ? "SOCIALFLOW_PRODUCTION_EXECUTION_PLAN_BLOCKED_MISSING_ARTIFACTS"
-      : "SOCIALFLOW_PRODUCTION_EXECUTION_PLAN_READY";
+      : "SOCIALFLOW_PRODUCTION_EXECUTION_PLAN_BLOCKED_PENDING_MANUAL_APPROVAL";
 
   const deployConfigMissing = hasMissingArtifact(
     missingArtifacts,
+    "apps/socialflow-runtime/wrangler.production.toml",
+  );
+  const deployTemplatePresent = hasPresentArtifact(
+    artifactInventory,
     "apps/socialflow-runtime/wrangler.production.toml",
   );
   const smokeHealthMissing = hasMissingArtifact(
@@ -186,6 +262,7 @@ export async function planSocialflowProductionExecution(
     "STAKEHOLDER_APPROVAL_REQUIRED",
     "ON_CALL_ENGINEER_REQUIRED",
     "PRODUCTION_WINDOW_REQUIRED",
+    "MANUAL_CONFIGURATION_REQUIRED",
   ] as const;
   const goNoGoBlockers = [...requiredApprovalBlockers, ...additionalBlockers];
   const goForApproval = missingForExecution.length === 0;
@@ -196,8 +273,11 @@ export async function planSocialflowProductionExecution(
     readyForExecution,
     commandsArePlannedOnly,
     requiresApproval,
+    requiresHumanApproval,
+    manualConfigurationRequired,
     status: planStatus,
     timestamp,
+    artifactInventory,
     missingArtifacts,
     preExecution: [
       {
@@ -229,6 +309,11 @@ export async function planSocialflowProductionExecution(
         step: "Verify Secrets Available",
         required: true,
         description: "Confirm all required secrets are accessible (DO NOT PRINT).",
+      },
+      {
+        step: "Approve Manual Production Configuration",
+        required: true,
+        description: "Manual review and explicit approval required for production wrangler template.",
       },
       {
         step: "Run Preflight Gates",
@@ -269,9 +354,9 @@ export async function planSocialflowProductionExecution(
         steps: [
           {
             step: "Review Production Wrangler Config",
-            command: plannedOrPlaceholderCommand(
+            command: plannedTemplateOrPlaceholderCommand(
               "wrangler deploy --config apps/socialflow-runtime/wrangler.production.toml",
-              deployConfigMissing,
+              deployTemplatePresent,
               "PLANNED_ARTIFACT_REQUIRED",
             ),
             description:
@@ -328,9 +413,9 @@ export async function planSocialflowProductionExecution(
         steps: [
           {
             step: "Deploy to Production",
-            command: plannedOrPlaceholderCommand(
+            command: plannedTemplateOrPlaceholderCommand(
               "wrangler deploy --config apps/socialflow-runtime/wrangler.production.toml",
-              deployConfigMissing,
+              deployTemplatePresent,
               "PLANNED_ARTIFACT_REQUIRED",
             ),
             description:
@@ -381,11 +466,9 @@ export async function planSocialflowProductionExecution(
     ],
     rollbackPlan: [
       {
-        command: plannedOrPlaceholderCommand(
-          "wrangler rollback --config apps/socialflow-runtime/wrangler.production.toml",
-          deployConfigMissing,
-          "PLANNED_ARTIFACT_REQUIRED",
-        ),
+        command: deployConfigMissing
+          ? "PLACEHOLDER_ONLY (PLANNED_ARTIFACT_REQUIRED): wrangler rollback --config apps/socialflow-runtime/wrangler.production.toml"
+          : "PLANNED_TEMPLATE_REVIEW_REQUIRED: wrangler rollback --config apps/socialflow-runtime/wrangler.production.toml",
         description: "Rollback production deployment to previous version.",
         criticalPath: true,
       },
@@ -478,7 +561,16 @@ function printNormal(plan: ProductionExecutionPlan): void {
   console.log(`Execution Allowed: ${plan.executionAllowed ? "YES" : "NO"}`);
   console.log(`Ready for Execution: ${plan.readyForExecution ? "YES" : "NO"}`);
   console.log(`Commands Are Planned Only: ${plan.commandsArePlannedOnly ? "YES" : "NO"}`);
-  console.log(`Requires Approval: ${plan.requiresApproval ? "YES" : "NO"}\n`);
+  console.log(`Requires Approval: ${plan.requiresApproval ? "YES" : "NO"}`);
+  console.log(`Requires Human Approval: ${plan.requiresHumanApproval ? "YES" : "NO"}`);
+  console.log(`Manual Configuration Required: ${plan.manualConfigurationRequired ? "YES" : "NO"}\n`);
+
+  console.log("ARTIFACT INVENTORY");
+  for (const artifact of plan.artifactInventory) {
+    console.log(`- ${artifact.artifact} [${artifact.status}] present=${artifact.present}`);
+    console.log(`  ${artifact.reason}`);
+  }
+  console.log();
 
   console.log("MISSING ARTIFACTS");
   if (plan.missingArtifacts.length === 0) {
@@ -548,7 +640,19 @@ function printMarkdown(plan: ProductionExecutionPlan): void {
   console.log(`**Execution Allowed:** ${plan.executionAllowed ? "YES" : "NO"}`);
   console.log(`**Ready for Execution:** ${plan.readyForExecution ? "YES" : "NO"}`);
   console.log(`**Commands Are Planned Only:** ${plan.commandsArePlannedOnly ? "YES" : "NO"}`);
-  console.log(`**Requires Approval:** ${plan.requiresApproval ? "YES" : "NO"}\n`);
+  console.log(`**Requires Approval:** ${plan.requiresApproval ? "YES" : "NO"}`);
+  console.log(`**Requires Human Approval:** ${plan.requiresHumanApproval ? "YES" : "NO"}`);
+  console.log(`**Manual Configuration Required:** ${plan.manualConfigurationRequired ? "YES" : "NO"}\n`);
+
+  console.log("## Artifact Inventory\n");
+  for (const artifact of plan.artifactInventory) {
+    console.log(`- **${artifact.artifact}** [${artifact.status}] present=${artifact.present}`);
+    console.log(`  - ${artifact.reason}`);
+    if (artifact.commandReference) {
+      console.log(`  - Command reference: \`${artifact.commandReference}\``);
+    }
+  }
+  console.log();
 
   console.log("## Missing Artifacts\n");
   if (plan.missingArtifacts.length === 0) {

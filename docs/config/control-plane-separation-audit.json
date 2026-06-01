@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-01T13:49:38.793Z",
+  "generatedAt": "2026-06-01T17:41:53.557Z",
   "contractsCatalog": [
     "ProductManifest",
     "HealthReport",
@@ -32,16 +32,16 @@
     }
   },
   "topologySummary": {
-    "runtimes": 22,
+    "runtimes": 23,
     "apps": 11,
     "workers": 20,
-    "wranglerConfigs": 22,
-    "dbBindings": 37,
-    "authDbBindings": 10,
+    "wranglerConfigs": 23,
+    "dbBindings": 41,
+    "authDbBindings": 11,
     "queueBindings": 19,
     "serviceBindings": 8,
     "domains": 12,
-    "envVarNames": 91
+    "envVarNames": 99
   },
   "legacyAliases": {
     "total": 50,

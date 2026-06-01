@@ -6,78 +6,81 @@ describe("plan-socialflow-production-execution", () => {
     vi.clearAllMocks();
   });
 
-  it("never executes deploy", async () => {
+  it("never executes deploy and remains blocked", async () => {
     const plan = await planSocialflowProductionExecution();
     expect(plan.executionAllowed).toBe(false);
     expect(plan.readyForExecution).toBe(false);
     expect(plan.commandsArePlannedOnly).toBe(true);
-
-    const deployStep = plan.executionPlannedSteps
-      .find((phase) => phase.phase === "Deploy Execution (PLACEHOLDER - DO NOT RUN)")
-      ?.steps.find((step) => step.step === "Deploy to Production");
-    expect(deployStep).toBeDefined();
-    expect(deployStep?.command).toContain("PLACEHOLDER_ONLY");
+    expect(plan.requiresApproval).toBe(true);
+    expect(plan.requiresHumanApproval).toBe(true);
+    expect(plan.manualConfigurationRequired).toBe(true);
+    expect(plan.status).toBe("SOCIALFLOW_PRODUCTION_EXECUTION_PLAN_BLOCKED_PENDING_MANUAL_APPROVAL");
   });
 
-  it("detects missing wrangler.production.toml", async () => {
+  it("tracks production template as present but manual-review required", async () => {
     const plan = await planSocialflowProductionExecution();
-    const artifact = plan.missingArtifacts.find(
+    const artifact = plan.artifactInventory.find(
       (item) => item.artifact === "apps/socialflow-runtime/wrangler.production.toml",
     );
     expect(artifact).toBeDefined();
-    expect(artifact?.status).toBe("PLANNED_ARTIFACT_REQUIRED");
-    expect(artifact?.requiredForExecution).toBe(true);
+    expect(artifact?.present).toBe(true);
+    expect(artifact?.status).toBe("PRODUCTION_TEMPLATE_PRESENT_MANUAL_CONFIGURATION_REQUIRED");
   });
 
-  it("detects missing production smoke scripts", async () => {
+  it("marks production smoke and monitor artifacts as present", async () => {
     const plan = await planSocialflowProductionExecution();
-    const missingSmoke = plan.missingArtifacts.filter((item) =>
-      item.artifact.startsWith("scripts/smoke-socialflow-production-"),
-    );
-    expect(missingSmoke.length).toBeGreaterThanOrEqual(3);
-    missingSmoke.forEach((item) => {
-      expect(item.status).toBe("NOT_AVAILABLE_YET");
-      expect(item.requiredForExecution).toBe(true);
+    const artifactStatuses = plan.artifactInventory
+      .filter((item) => item.artifact.startsWith("scripts/smoke-socialflow-production-") || item.artifact === "scripts/monitor-socialflow-production-day.ts")
+      .map((item) => item.status);
+
+    expect(artifactStatuses).toHaveLength(4);
+    artifactStatuses.forEach((status) => {
+      expect(status).toBe("PRESENT");
+    });
+    expect(plan.missingArtifacts).toHaveLength(0);
+  });
+
+  it("keeps deploy command as planned template review required", async () => {
+    const plan = await planSocialflowProductionExecution();
+    const deployStep = plan.executionPlannedSteps
+      .find((phase) => phase.phase === "Deploy Execution (PLACEHOLDER - DO NOT RUN)")
+      ?.steps.find((step) => step.step === "Deploy to Production");
+
+    expect(deployStep).toBeDefined();
+    expect(deployStep?.command).toContain("PLANNED_TEMPLATE_REVIEW_REQUIRED");
+    expect(deployStep?.command).toContain("wrangler deploy");
+  });
+
+  it("keeps smoke commands in planned mode when artifacts exist", async () => {
+    const plan = await planSocialflowProductionExecution();
+    const smokeCommands =
+      plan.executionPlannedSteps
+        .find((phase) => phase.phase === "Smoke Testing")
+        ?.steps.map((step) => step.command ?? "") ?? [];
+
+    expect(smokeCommands).toHaveLength(3);
+    smokeCommands.forEach((command) => {
+      expect(command).toContain("PLANNED:");
+      expect(command).not.toContain("PLACEHOLDER_ONLY");
     });
   });
 
-  it("does not mark missing artifacts as available", async () => {
+  it("keeps go/no-go blocked for execution even with artifacts present", async () => {
     const plan = await planSocialflowProductionExecution();
-    const statuses = plan.missingArtifacts.map((item) => item.status);
-    expect(statuses).not.toContain("AVAILABLE");
-  });
-
-  it("builds go/no-go blockers locally without external dependency", async () => {
-    const plan = await planSocialflowProductionExecution();
+    expect(plan.goNoGoGate.goForApproval).toBe(true);
     expect(plan.goNoGoGate.goForExecution).toBe(false);
     expect(plan.goNoGoGate.blockers).toContain("STAKEHOLDER_APPROVAL_REQUIRED");
     expect(plan.goNoGoGate.blockers).toContain("ON_CALL_ENGINEER_REQUIRED");
     expect(plan.goNoGoGate.blockers).toContain("PRODUCTION_WINDOW_REQUIRED");
-    expect(
-      plan.goNoGoGate.blockers.some((blocker) =>
-        blocker.startsWith("MISSING_ARTIFACT:apps/socialflow-runtime/wrangler.production.toml"),
-      ),
-    ).toBe(true);
+    expect(plan.goNoGoGate.blockers).toContain("MANUAL_CONFIGURATION_REQUIRED");
   });
 
-  it("keeps missing smoke commands as placeholders", async () => {
+  it("does not touch production commands directly", async () => {
     const plan = await planSocialflowProductionExecution();
-    const smokeCommands = plan.executionPlannedSteps
-      .find((phase) => phase.phase === "Smoke Testing")
-      ?.steps.map((step) => step.command ?? "") ?? [];
-
-    expect(smokeCommands.some((command) => command.includes("PLACEHOLDER_ONLY (NOT_AVAILABLE_YET)"))).toBe(true);
-  });
-
-  it("does not touch production", async () => {
-    const plan = await planSocialflowProductionExecution();
-    expect(plan.executionAllowed).toBe(false);
-    expect(plan.readyForExecution).toBe(false);
-    expect(plan.requiresApproval).toBe(true);
 
     plan.executionPlannedSteps.forEach((phase) => {
       phase.steps.forEach((step) => {
-        if (step.command && !step.command.includes("PLACEHOLDER") && !step.command.includes("PLANNED:")) {
+        if (step.command && !step.command.includes("PLACEHOLDER") && !step.command.includes("PLANNED")) {
           expect(step.command).not.toContain("wrangler deploy");
           expect(step.command).not.toContain("wrangler rollback");
         }
@@ -89,8 +92,8 @@ describe("plan-socialflow-production-execution", () => {
     const plan = await planSocialflowProductionExecution({ json: true });
     expect(plan).toHaveProperty("executionAllowed");
     expect(plan).toHaveProperty("readyForExecution");
+    expect(plan).toHaveProperty("artifactInventory");
     expect(plan).toHaveProperty("missingArtifacts");
-    expect(plan).toHaveProperty("executionPlannedSteps");
     expect(() => JSON.stringify(plan)).not.toThrow();
   });
 
@@ -100,7 +103,7 @@ describe("plan-socialflow-production-execution", () => {
     const allLogs = consoleLogSpy.mock.calls.flat().join("\n");
 
     expect(allLogs).toContain("# SOCIALFLOW PRODUCTION EXECUTION PLAN");
-    expect(allLogs).toContain("## Missing Artifacts");
+    expect(allLogs).toContain("## Artifact Inventory");
     expect(allLogs).toContain("## Execution Planned Steps");
     consoleLogSpy.mockRestore();
   });

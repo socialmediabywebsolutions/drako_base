@@ -1,6 +1,7 @@
 {
-  "generatedAt": "2026-06-01T13:49:38.208Z",
+  "generatedAt": "2026-06-01T17:41:52.988Z",
   "wranglerConfigs": [
+    "apps/socialflow-runtime/wrangler.production.toml",
     "apps/socialflow-runtime/wrangler.toml",
     "workers/analytics/wrangler.workers.toml",
     "workers/automations/wrangler.workers.toml",
@@ -184,6 +185,53 @@
     }
   ],
   "runtimes": [
+    {
+      "runtimeKey": "saas-socialflows-runtime-production",
+      "sourceConfigPath": "apps/socialflow-runtime/wrangler.production.toml",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "workerName": "saas-socialflows-runtime-production",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "SOCIALFLOW_RUNTIME_TARGET",
+        "SOCIALFLOW_RUNTIME_STATE",
+        "SOCIALFLOW_RUNTIME_CONTRACT_VERSION",
+        "SOCIALFLOW_RUNTIME_COOKIE_NAMESPACE",
+        "AUTHS_SECRETS_NAME",
+        "SOCIALFLOW_PRODUCTION_MANUAL_CONFIGURATION_REQUIRED",
+        "SOCIALFLOW_PRODUCTION_EXECUTION_ALLOWED",
+        "SOCIALFLOW_PRODUCTION_REQUIRES_HUMAN_APPROVAL"
+      ],
+      "authDbBindings": [
+        "SOCIALFLOW_AUTHS_DB"
+      ],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRACO_DB",
+            "databaseName": "REQUIRED_MANUAL_CONFIGURATION"
+          },
+          {
+            "binding": "SAASES_DB",
+            "databaseName": "REQUIRED_MANUAL_CONFIGURATION"
+          },
+          {
+            "binding": "SOCIAL_DB",
+            "databaseName": "REQUIRED_MANUAL_CONFIGURATION"
+          },
+          {
+            "binding": "SOCIALFLOW_AUTHS_DB",
+            "databaseName": "REQUIRED_MANUAL_CONFIGURATION"
+          }
+        ],
+        "kv": [],
+        "r2": [],
+        "queues": [],
+        "services": []
+      },
+      "notes": []
+    },
     {
       "runtimeKey": "saas-socialflows-runtime-canary-nonprod",
       "sourceConfigPath": "apps/socialflow-runtime/wrangler.toml",
