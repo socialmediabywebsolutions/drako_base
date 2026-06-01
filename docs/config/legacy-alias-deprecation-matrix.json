@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-01T13:39:45.746Z",
-  "scope": "P0.5-A legacy alias inventory",
+  "generatedAt": "2026-06-01T16:45:00.000Z",
+  "scope": "P0.6 legacy alias telemetry phase",
   "summary": {
     "counts": {
       "ownerAliases": 48,
@@ -974,9 +974,10 @@
     },
     {
       "phase": "P0.6",
-      "goal": "Measure traffic + migrate callers",
+      "goal": "Measure traffic with safe telemetry + migrate callers",
       "exitCriteria": [
-        "legacy usage measured",
+        "legacy usage measured on /api/owner/** and /api/campobase/**",
+        "sensitive telemetry redaction validated",
         "operator/factory callers migrated"
       ]
     },
@@ -984,13 +985,29 @@
       "phase": "P0.7",
       "goal": "Cut aliases with zero traffic",
       "exitCriteria": [
+        "legacy traffic data reviewed",
+        "migrated callers validated",
+        "rollback drill validated",
         "manual approval",
         "rollback plan ready"
       ]
     }
   ],
+  "telemetryPhase": {
+    "phase": "P0.6",
+    "status": "active",
+    "cutsAllowed": false,
+    "instrumentedAliases": [
+      "/api/owner/**",
+      "/api/campobase/**"
+    ],
+    "notes": [
+      "Compatibility routes remain active during P0.6.",
+      "Telemetry stores only redacted metadata and never request bodies."
+    ]
+  },
   "notes": [
     "Owner/campobase remain compatibility-only surfaces.",
-    "No alias is removed in P0.5-A."
+    "No alias is removed in P0.6."
   ]
 }

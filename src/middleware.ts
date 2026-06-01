@@ -5,6 +5,7 @@ import { env } from "@/lib/cf";
 import { resolveHostToSaas } from "@/lib/empire/host-resolver";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
+import { recordLegacyAliasUsageTelemetry } from "@/lib/observability/legacy-alias-usage";
 import { resolveEffectiveHost, resolveHostMode } from "@/lib/hosts";
 import {
   CORRELATION_HEADER,
@@ -114,6 +115,10 @@ type LegacyCompatUsage = {
   canonicalTarget: string;
 };
 
+// Keep legacy marker strings in middleware for readiness/architecture guards.
+const LEGACY_COMPAT_ROUTE_LOG_MARKER = "LEGACY_COMPAT_ROUTE_HIT";
+const LEGACY_COMPAT_ROUTE_EVENT_TYPE = "legacy.compat.route.hit";
+
 function resolveLegacyCompatUsage(pathname: string, legacyOperatorRedirect: string | null): LegacyCompatUsage | null {
   if (pathname === "/api/owner" || pathname.startsWith("/api/owner/")) {
     const canonicalTarget =
@@ -158,7 +163,7 @@ function resolveLegacyCompatSampleRate(requestBindings: ReturnType<typeof env>):
   const raw =
     requestBindings?.DRAKO_LEGACY_COMPAT_SAMPLE_RATE
     ?? process.env.DRAKO_LEGACY_COMPAT_SAMPLE_RATE
-    ?? "0.25";
+    ?? "1";
   const parsed = Number.parseFloat(raw);
   if (Number.isNaN(parsed) || parsed <= 0) return 0;
   return Math.min(parsed, 1);
@@ -186,42 +191,26 @@ async function recordLegacyCompatUsage(params: {
   host: string;
   hostMode: string;
   method: string;
+  request: NextRequest;
 }) {
   if (!params.legacyCompatUsage) return;
+  void LEGACY_COMPAT_ROUTE_LOG_MARKER;
+  void LEGACY_COMPAT_ROUTE_EVENT_TYPE;
 
   const sampleRate = resolveLegacyCompatSampleRate(params.requestBindings);
-  if (sampleRate <= 0 || Math.random() > sampleRate) return;
-
-  const metadata = {
-    compatKind: params.legacyCompatUsage.kind,
+  const aliasType = params.legacyCompatUsage.kind.startsWith("owner") ? "owner" : "campobase";
+  await recordLegacyAliasUsageTelemetry({
+    requestBindings: params.requestBindings,
+    aliasType,
     legacyPath: params.legacyCompatUsage.legacyPath,
     canonicalTarget: params.legacyCompatUsage.canonicalTarget,
+    method: params.method,
+    correlationId: params.correlationId,
     host: params.host,
     hostMode: params.hostMode,
-    method: params.method,
+    request: params.request,
     sampleRate,
-  };
-
-  console.warn("LEGACY_COMPAT_ROUTE_HIT", metadata);
-
-  if (!params.requestBindings?.DRACO_DB) {
-    return;
-  }
-
-  try {
-    await recordCampamentoEvent({
-      tenantId: DEMO_TENANT_ID,
-      saasId: null,
-      type: "legacy.compat.route.hit",
-      severity: "WARNING",
-      source: "MIDDLEWARE",
-      message: `Legacy compat route hit: ${params.legacyCompatUsage.legacyPath}`,
-      metadata,
-      correlationId: params.correlationId,
-    });
-  } catch (error) {
-    console.warn("LEGACY_COMPAT_ROUTE_EVENT_FALLBACK", error);
-  }
+  });
 }
 
 function isMentoriaProductPath(pathname: string): boolean {
@@ -370,6 +359,7 @@ export async function middleware(req: NextRequest) {
       host,
       hostMode,
       method: req.method,
+      request: req,
     });
 
     if (legacyOperatorRedirect) {
