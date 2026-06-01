@@ -214,6 +214,27 @@ export async function planSocialflowProductionExecution(
       commandReference: "pnpm tsx scripts/monitor-socialflow-production-day.ts --day=1",
     },
     {
+      artifact: "scripts/check-socialflow-production-manual-config.ts",
+      statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
+      reason: "Manual configuration validator is required before any production execution review.",
+      requiredForExecution: true,
+      commandReference: "pnpm tsx scripts/check-socialflow-production-manual-config.ts --json",
+    },
+    {
+      artifact: "scripts/check-socialflow-production-rollback-readiness.ts",
+      statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
+      reason: "Rollback readiness validator is required before any production execution review.",
+      requiredForExecution: true,
+      commandReference: "pnpm tsx scripts/check-socialflow-production-rollback-readiness.ts --json",
+    },
+    {
+      artifact: "scripts/check-socialflow-production-window-readiness.ts",
+      statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
+      reason: "Production window readiness validator is required before any production execution review.",
+      requiredForExecution: true,
+      commandReference: "pnpm tsx scripts/check-socialflow-production-window-readiness.ts --json",
+    },
+    {
       artifact: "docs/runbooks/socialflow-production-controlled-execution.md",
       statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
       reason: "Controlled execution runbook is required before any production execution review.",
@@ -334,6 +355,21 @@ export async function planSocialflowProductionExecution(
         required: true,
         description: "Execute all preflight checks: safety gate, go/no-go, parity.",
       },
+      {
+        step: "Run Manual Config Validator",
+        required: true,
+        description: "Execute manual-config validator and keep values redacted.",
+      },
+      {
+        step: "Run Rollback Readiness Validator",
+        required: true,
+        description: "Execute rollback-readiness validator in planned-only mode.",
+      },
+      {
+        step: "Run Production Window Validator",
+        required: true,
+        description: "Execute window-readiness validator with approval/on-call/window checks.",
+      },
     ],
     executionPlannedSteps: [
       {
@@ -366,6 +402,27 @@ export async function planSocialflowProductionExecution(
       {
         phase: "Production Config Review",
         steps: [
+          {
+            step: "Validate Manual Production Config",
+            command: "pnpm tsx scripts/check-socialflow-production-manual-config.ts --json",
+            description: "Confirm manual configuration evidence is present with values redacted.",
+            requiresManualAction: false,
+            critical: true,
+          },
+          {
+            step: "Validate Rollback Readiness",
+            command: "pnpm tsx scripts/check-socialflow-production-rollback-readiness.ts --json",
+            description: "Confirm rollback remains planned-only and documented before any execution review.",
+            requiresManualAction: false,
+            critical: true,
+          },
+          {
+            step: "Validate Production Window Readiness",
+            command: "pnpm tsx scripts/check-socialflow-production-window-readiness.ts --json",
+            description: "Confirm window/on-call/approval governance is documented before execution review.",
+            requiresManualAction: false,
+            critical: true,
+          },
           {
             step: "Review Production Wrangler Config",
             command: plannedTemplateOrPlaceholderCommand(

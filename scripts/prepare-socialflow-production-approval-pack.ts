@@ -4,6 +4,9 @@ import { checkProductionSafetyGate } from "./check-socialflow-production-safety-
 import { checkRouteDnsReadiness } from "./check-socialflow-route-dns-readiness";
 import { checkProductionCutoverReadiness } from "./check-socialflow-production-cutover-readiness";
 import { runCheckSocialflowNonprodOwnershipParity } from "./check-socialflow-nonprod-ownership-parity";
+import { checkSocialflowProductionManualConfig } from "./check-socialflow-production-manual-config";
+import { checkSocialflowProductionRollbackReadiness } from "./check-socialflow-production-rollback-readiness";
+import { checkSocialflowProductionWindowReadiness } from "./check-socialflow-production-window-readiness";
 
 interface ApprovalPackOptions {
   json?: boolean;
@@ -52,6 +55,41 @@ interface ApprovalPackReport {
   monitorStatus: {
     dayMonitorPresent: boolean;
     status: "PRESENT" | "MISSING";
+  };
+  manualConfigStatus: {
+    status:
+      | "SOCIALFLOW_PRODUCTION_MANUAL_CONFIG_READY_FOR_REVIEW"
+      | "SOCIALFLOW_PRODUCTION_MANUAL_CONFIG_BLOCKED"
+      | "SOCIALFLOW_PRODUCTION_MANUAL_CONFIG_TOKEN_LEAKAGE_BLOCKER";
+    manualConfigurationComplete: boolean;
+    missingVariables: string[];
+    tokenLeakageDetected: boolean;
+  };
+  rollbackReadinessStatus: {
+    status:
+      | "SOCIALFLOW_PRODUCTION_ROLLBACK_READY_FOR_REVIEW"
+      | "SOCIALFLOW_PRODUCTION_ROLLBACK_BLOCKED"
+      | "SOCIALFLOW_PRODUCTION_ROLLBACK_NOT_EXECUTABLE";
+    rollbackPlanDocumented: boolean;
+    rollbackCommandSetPlannedOnly: boolean;
+    restorePathDocumented: boolean;
+    postRollbackSmokeListDocumented: boolean;
+    abortConditionsDocumented: boolean;
+  };
+  productionWindowStatus: {
+    status:
+      | "SOCIALFLOW_PRODUCTION_WINDOW_READY_FOR_REVIEW"
+      | "SOCIALFLOW_PRODUCTION_WINDOW_BLOCKED"
+      | "SOCIALFLOW_PRODUCTION_WINDOW_NOT_APPROVED";
+    monitoringPlanPresent: boolean;
+    smokeSequencePresent: boolean;
+    abortCriteriaPresent: boolean;
+  };
+  monitoringReadinessStatus: {
+    status: "PRODUCTION_MONITORING_READINESS_REQUIRED" | "PRODUCTION_MONITORING_READY_FOR_REVIEW";
+    monitoringPlanPresent: boolean;
+    productionWindowDefined: boolean;
+    onCallDefined: boolean;
   };
   executionPlanStatus: {
     status:
@@ -175,6 +213,12 @@ function printNormal(report: ApprovalPackReport): void {
   report.blockers.forEach((blocker) => console.log(`- ${blocker}`));
   console.log();
 
+  console.log("P1.2 VALIDATOR STATUS");
+  console.log(`- Manual Config: ${report.manualConfigStatus.status}`);
+  console.log(`- Rollback Readiness: ${report.rollbackReadinessStatus.status}`);
+  console.log(`- Production Window: ${report.productionWindowStatus.status}`);
+  console.log(`- Monitoring Readiness: ${report.monitoringReadinessStatus.status}\n`);
+
   console.log("REQUIRED FLAGS");
   console.log(`- manualConfigurationRequired: ${report.manualConfigurationRequired}`);
   console.log(`- dnsRoutingRequired: ${report.dnsRoutingRequired}`);
@@ -228,6 +272,12 @@ function printMarkdown(report: ApprovalPackReport): void {
     `- Missing Artifacts: ${report.missingArtifacts.length > 0 ? report.missingArtifacts.join(", ") : "none"}\n`,
   );
 
+  console.log("## P1.2 Validator Status\n");
+  console.log(`- Manual Config: ${report.manualConfigStatus.status}`);
+  console.log(`- Rollback Readiness: ${report.rollbackReadinessStatus.status}`);
+  console.log(`- Production Window: ${report.productionWindowStatus.status}`);
+  console.log(`- Monitoring Readiness: ${report.monitoringReadinessStatus.status}\n`);
+
   console.log("## Blockers\n");
   report.blockers.forEach((blocker) => console.log(`- ${blocker}`));
   console.log();
@@ -252,6 +302,9 @@ export async function prepareSocialflowProductionApprovalPack(
   const safetyGate = await checkProductionSafetyGate();
   const routeDns = await checkRouteDnsReadiness();
   const cutoverReadiness = await checkProductionCutoverReadiness();
+  const manualConfig = await checkSocialflowProductionManualConfig({ silent: true });
+  const rollbackReadiness = await checkSocialflowProductionRollbackReadiness({ silent: true });
+  const productionWindow = await checkSocialflowProductionWindowReadiness({ silent: true });
 
   let parityResult;
   try {
@@ -324,6 +377,18 @@ export async function prepareSocialflowProductionApprovalPack(
   if (tokenLeakageDetected) blockers.add("TOKEN_LEAKAGE_DETECTED");
   if (!rollbackCommandsAvailable) blockers.add("ROLLBACK_NOT_READY");
   if (!cutoverReadyForPlanning) blockers.add("CUTOVER_NOT_READY_FOR_PLANNING");
+  if (manualConfig.status !== "SOCIALFLOW_PRODUCTION_MANUAL_CONFIG_READY_FOR_REVIEW") {
+    blockers.add("MANUAL_CONFIG_REVIEW_NOT_READY");
+  }
+  if (manualConfig.tokenLeakageDetected) {
+    blockers.add("MANUAL_CONFIG_TOKEN_LEAKAGE_DETECTED");
+  }
+  if (rollbackReadiness.status !== "SOCIALFLOW_PRODUCTION_ROLLBACK_READY_FOR_REVIEW") {
+    blockers.add("ROLLBACK_REVIEW_NOT_READY");
+  }
+  if (productionWindow.status !== "SOCIALFLOW_PRODUCTION_WINDOW_READY_FOR_REVIEW") {
+    blockers.add("PRODUCTION_WINDOW_REVIEW_NOT_READY");
+  }
 
   const technicalPlanningChecksHealthy =
     missingArtifacts.length === 0 &&
@@ -356,6 +421,18 @@ export async function prepareSocialflowProductionApprovalPack(
   }
   if (!onCallEngineerAssigned) blockers.add("ON_CALL_REQUIRED_FOR_EXECUTION");
   if (!productionWindowScheduled) blockers.add("PRODUCTION_WINDOW_REQUIRED_FOR_EXECUTION");
+
+  const monitoringReadinessStatus: ApprovalPackReport["monitoringReadinessStatus"] = {
+    status:
+      productionWindow.monitoringPlanPresent
+      && productionWindow.productionWindowId.presence === "PRESENT"
+      && productionWindow.onCallOwner.presence === "PRESENT"
+        ? "PRODUCTION_MONITORING_READY_FOR_REVIEW"
+        : "PRODUCTION_MONITORING_READINESS_REQUIRED",
+    monitoringPlanPresent: productionWindow.monitoringPlanPresent,
+    productionWindowDefined: productionWindow.productionWindowId.presence === "PRESENT",
+    onCallDefined: productionWindow.onCallOwner.presence === "PRESENT",
+  };
 
   const blockersList = Array.from(blockers);
   const readyForApproval = technicalPlanningChecksHealthy;
@@ -405,6 +482,27 @@ export async function prepareSocialflowProductionApprovalPack(
       dayMonitorPresent: monitorPresent,
       status: monitorPresent ? "PRESENT" : "MISSING",
     },
+    manualConfigStatus: {
+      status: manualConfig.status,
+      manualConfigurationComplete: manualConfig.manualConfigurationComplete,
+      missingVariables: manualConfig.missingVariables,
+      tokenLeakageDetected: manualConfig.tokenLeakageDetected,
+    },
+    rollbackReadinessStatus: {
+      status: rollbackReadiness.status,
+      rollbackPlanDocumented: rollbackReadiness.rollbackPlanDocumented,
+      rollbackCommandSetPlannedOnly: rollbackReadiness.rollbackCommandSetPlannedOnly,
+      restorePathDocumented: rollbackReadiness.restorePathDocumented,
+      postRollbackSmokeListDocumented: rollbackReadiness.postRollbackSmokeListDocumented,
+      abortConditionsDocumented: rollbackReadiness.abortConditionsDocumented,
+    },
+    productionWindowStatus: {
+      status: productionWindow.status,
+      monitoringPlanPresent: productionWindow.monitoringPlanPresent,
+      smokeSequencePresent: productionWindow.smokeSequencePresent,
+      abortCriteriaPresent: productionWindow.abortCriteriaPresent,
+    },
+    monitoringReadinessStatus,
     executionPlanStatus: {
       status:
         missingArtifacts.length > 0

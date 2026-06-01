@@ -61,6 +61,23 @@ describe("plan-socialflow-production-execution", () => {
     expect(decisionPack?.status).toBe("PRESENT");
   });
 
+  it("tracks manual/rollback/window validators as present artifacts", async () => {
+    const plan = await planSocialflowProductionExecution();
+    const validatorArtifacts = [
+      "scripts/check-socialflow-production-manual-config.ts",
+      "scripts/check-socialflow-production-rollback-readiness.ts",
+      "scripts/check-socialflow-production-window-readiness.ts",
+    ];
+
+    validatorArtifacts.forEach((artifactPath) => {
+      const artifact = plan.artifactInventory.find((item) => item.artifact === artifactPath);
+      expect(artifact).toBeDefined();
+      expect(artifact?.present).toBe(true);
+      expect(artifact?.status).toBe("PRESENT");
+      expect(artifact?.requiredForExecution).toBe(true);
+    });
+  });
+
   it("keeps deploy command as planned template review required", async () => {
     const plan = await planSocialflowProductionExecution();
     const deployStep = plan.executionPlannedSteps

@@ -199,6 +199,10 @@ describe("prepare-socialflow-production-approval-pack", () => {
     expect(report.executionPlanStatus.status).toBe(
       "SOCIALFLOW_PRODUCTION_EXECUTION_PLAN_BLOCKED_PENDING_MANUAL_APPROVAL",
     );
+    expect(report.manualConfigStatus.status).toMatch(/SOCIALFLOW_PRODUCTION_MANUAL_CONFIG_/);
+    expect(report.rollbackReadinessStatus.status).toMatch(/SOCIALFLOW_PRODUCTION_ROLLBACK_/);
+    expect(report.productionWindowStatus.status).toMatch(/SOCIALFLOW_PRODUCTION_WINDOW_/);
+    expect(report.monitoringReadinessStatus.status).toMatch(/PRODUCTION_MONITORING_/);
   });
 
   it("confirms runbook and decision pack files exist", () => {
@@ -233,6 +237,10 @@ describe("prepare-socialflow-production-approval-pack", () => {
     expect(report).toHaveProperty("executionPlanStatus");
     expect(report).toHaveProperty("blockers");
     expect(report).toHaveProperty("approvals");
+    expect(report).toHaveProperty("manualConfigStatus");
+    expect(report).toHaveProperty("rollbackReadinessStatus");
+    expect(report).toHaveProperty("productionWindowStatus");
+    expect(report).toHaveProperty("monitoringReadinessStatus");
     expect(report).toHaveProperty("noDeployConfirmation");
     expect(report).toHaveProperty("noProductionTouchConfirmation");
     expect(() => JSON.stringify(report)).not.toThrow();

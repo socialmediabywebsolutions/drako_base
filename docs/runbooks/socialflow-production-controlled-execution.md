@@ -30,6 +30,8 @@ Este runbook define la ejecución controlada hacia producción para SocialFlow s
 - Confirmar secrets reales en Cloudflare (sin exponer valores).
 - Confirmar namespace de cookies/sesiones productivas.
 - Confirmar flags de ejecución manual (sin auto-activación).
+- Ejecutar `pnpm tsx scripts/check-socialflow-production-manual-config.ts --json` y archivar evidencia.
+- Verificar que variables requeridas estén `PRESENT` y valores `REDACTED`.
 
 ## 6. Checklist DNS/routing
 - Confirmar hostname canónico productivo aprobado.
@@ -59,6 +61,7 @@ Este runbook define la ejecución controlada hacia producción para SocialFlow s
 
 ## 10. Checklist de monitoring
 - `pnpm tsx scripts/monitor-socialflow-production-day.ts --day=1 --json`.
+- `pnpm tsx scripts/check-socialflow-production-window-readiness.ts --json`.
 - Confirmar `readyForCutover=false` (hasta aprobación final).
 - Confirmar `requiresHumanApproval=true`.
 - Confirmar dashboards/alertas operativas habilitadas.
@@ -66,6 +69,8 @@ Este runbook define la ejecución controlada hacia producción para SocialFlow s
 ## 11. Checklist de rollback
 - Comando de rollback documentado y revisado.
 - Owner de rollback asignado.
+- `rollback plan id` validado por `check-socialflow-production-rollback-readiness`.
+- `restore path` documentado y revisado (sin ejecutar rollback real).
 - Política DB expand/contract validada.
 - Drill de rollback reciente documentado.
 
@@ -74,8 +79,12 @@ Este runbook define la ejecución controlada hacia producción para SocialFlow s
 - Aprobación technical lead.
 - On-call asignado para la ventana.
 - Ventana productiva confirmada.
+- Approval ID, Window ID y Rollback Plan ID definidos y validados (sin exponer valores).
 
 ## 13. Comandos planned-only
+- `pnpm tsx scripts/check-socialflow-production-manual-config.ts`.
+- `pnpm tsx scripts/check-socialflow-production-rollback-readiness.ts`.
+- `pnpm tsx scripts/check-socialflow-production-window-readiness.ts`.
 - `wrangler deploy --config apps/socialflow-runtime/wrangler.production.toml`.
 - `wrangler rollback --config apps/socialflow-runtime/wrangler.production.toml`.
 - Cualquier comando de cambio DNS/rutas productivas.
@@ -99,6 +108,8 @@ Este runbook define la ejecución controlada hacia producción para SocialFlow s
 - Cualquier evidencia de remote writes inesperadas.
 - Drift de configuración o rutas.
 - Falta de on-call o ventana aprobada.
+- Falla de `check-socialflow-production-window-readiness`.
+- Falla de `check-socialflow-production-rollback-readiness`.
 
 ## 17. Plan de rollback
 - Activar rollback command aprobado.
@@ -116,6 +127,9 @@ Este runbook define la ejecución controlada hacia producción para SocialFlow s
 - Output JSON de approval pack.
 - Output JSON de execution plan.
 - Output JSON de smokes/monitor.
+- Output JSON de `check-socialflow-production-manual-config`.
+- Output JSON de `check-socialflow-production-rollback-readiness`.
+- Output JSON de `check-socialflow-production-window-readiness`.
 - Checklist firmada de aprobaciones/ventana/on-call.
 - Evidencia de rollback readiness.
 
