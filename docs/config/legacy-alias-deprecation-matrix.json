@@ -1,0 +1,996 @@
+{
+  "generatedAt": "2026-06-01T13:39:45.746Z",
+  "scope": "P0.5-A legacy alias inventory",
+  "summary": {
+    "counts": {
+      "ownerAliases": 48,
+      "campobaseAliases": 2,
+      "operatorCanonical": 43,
+      "campamentoBaseCanonical": 14
+    },
+    "classification": {
+      "LEGACY_COMPAT_ACCEPTED": 2,
+      "NEEDS_DEPRECATION": 48,
+      "NEEDS_CUT": 0,
+      "BLOCKER": 0,
+      "UNKNOWN_REVIEW": 0
+    }
+  },
+  "legacyAliases": {
+    "owner": [
+      {
+        "routePath": "/api/owner/accounting",
+        "filePath": "src/app/api/owner/accounting/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/accounting",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/action-queue",
+        "filePath": "src/app/api/owner/action-queue/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/action-queue",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/actions",
+        "filePath": "src/app/api/owner/actions/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/actions",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/actions/[id]/decision",
+        "filePath": "src/app/api/owner/actions/[id]/decision/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/actions/[id]/decision",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/actions/[id]/dismiss",
+        "filePath": "src/app/api/owner/actions/[id]/dismiss/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/actions/[id]/dismiss",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/actions/[id]/execute",
+        "filePath": "src/app/api/owner/actions/[id]/execute/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/actions/[id]/execute",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/actions/[id]/snooze",
+        "filePath": "src/app/api/owner/actions/[id]/snooze/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/actions/[id]/snooze",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/actions/cleanup",
+        "filePath": "src/app/api/owner/actions/cleanup/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/actions/cleanup",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/agents",
+        "filePath": "src/app/api/owner/agents/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/agents",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/autopilot",
+        "filePath": "src/app/api/owner/autopilot/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/autopilot",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/control-snapshot",
+        "filePath": "src/app/api/owner/control-snapshot/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/control-snapshot",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/db/health",
+        "filePath": "src/app/api/owner/db/health/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/db/health",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/domains",
+        "filePath": "src/app/api/owner/domains/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/domains",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/domains/health",
+        "filePath": "src/app/api/owner/domains/health/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/domains/health",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/domains/verify",
+        "filePath": "src/app/api/owner/domains/verify/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/domains/verify",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/events",
+        "filePath": "src/app/api/owner/events/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/events",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/events/rollup",
+        "filePath": "src/app/api/owner/events/rollup/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/events/rollup",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/factory/actions",
+        "filePath": "src/app/api/owner/factory/actions/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/factory/actions",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "medium",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/factory/auto-recovery",
+        "filePath": "src/app/api/owner/factory/auto-recovery/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/factory/recovery/auto",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "medium",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/factory/incidents",
+        "filePath": "src/app/api/owner/factory/incidents/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/factory/incidents",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "medium",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/factory/recovery/retry-domain-verify",
+        "filePath": "src/app/api/owner/factory/recovery/retry-domain-verify/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/factory/recovery/retry-domain-verify",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "medium",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/factory/recovery/retry-job",
+        "filePath": "src/app/api/owner/factory/recovery/retry-job/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/factory/recovery/retry-job",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "medium",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/factory/status",
+        "filePath": "src/app/api/owner/factory/status/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/factory/status",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "medium",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/factory/trends",
+        "filePath": "src/app/api/owner/factory/trends/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/factory/trends",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "medium",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/governance",
+        "filePath": "src/app/api/owner/governance/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/governance",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/governance/alerts",
+        "filePath": "src/app/api/owner/governance/alerts/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/governance/alerts",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/marketing",
+        "filePath": "src/app/api/owner/marketing/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/marketing",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/observability/failures",
+        "filePath": "src/app/api/owner/observability/failures/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/observability/failures",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/observability/health",
+        "filePath": "src/app/api/owner/observability/health/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/observability/health",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/orchestrator",
+        "filePath": "src/app/api/owner/orchestrator/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/orchestrator",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/portfolio",
+        "filePath": "src/app/api/owner/portfolio/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/portfolio",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/profile",
+        "filePath": "src/app/api/owner/profile/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/profile",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/revenue",
+        "filePath": "src/app/api/owner/revenue/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/revenue",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/saas-factory/create-saas",
+        "filePath": "src/app/api/owner/saas-factory/create-saas/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/factory/provisioning/create-saas",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "medium",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/saas-factory/jobs/[jobId]",
+        "filePath": "src/app/api/owner/saas-factory/jobs/[jobId]/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/factory/provisioning/jobs/[jobId]",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "medium",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/saas-pricing/recommendations",
+        "filePath": "src/app/api/owner/saas-pricing/recommendations/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/saas-pricing/recommendations",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/support/tech",
+        "filePath": "src/app/api/owner/support/tech/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/support/tech",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/support/tech/[id]/update",
+        "filePath": "src/app/api/owner/support/tech/[id]/update/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/support/tech/[id]/update",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/support/tickets",
+        "filePath": "src/app/api/owner/support/tickets/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/support/tickets",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/support/tickets/[id]/reply",
+        "filePath": "src/app/api/owner/support/tickets/[id]/reply/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/support/tickets/[id]/reply",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/tasks",
+        "filePath": "src/app/api/owner/tasks/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/tasks",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/tasks/materialize-from-growth-autopilot",
+        "filePath": "src/app/api/owner/tasks/materialize-from-growth-autopilot/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/tasks/materialize-from-growth-autopilot",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/tasks/summary",
+        "filePath": "src/app/api/owner/tasks/summary/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/tasks/summary",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/tax/summary",
+        "filePath": "src/app/api/owner/tax/summary/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/tax/summary",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/treasury/snapshot",
+        "filePath": "src/app/api/owner/treasury/snapshot/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/treasury/snapshot",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/vendor/expenses",
+        "filePath": "src/app/api/owner/vendor/expenses/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/vendor/expenses",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/vendor/expenses/[id]",
+        "filePath": "src/app/api/owner/vendor/expenses/[id]/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/vendor/expenses/[id]",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/owner/vendor/snapshot",
+        "filePath": "src/app/api/owner/vendor/snapshot/route.ts",
+        "currentRole": "LEGACY_OWNER_ALIAS",
+        "canonicalTarget": "/api/operator/vendor/snapshot",
+        "status": "NEEDS_DEPRECATION",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      }
+    ],
+    "campobase": [
+      {
+        "routePath": "/api/campobase/platform",
+        "filePath": "src/app/api/campobase/platform/route.ts",
+        "currentRole": "LEGACY_CAMPOBASE_ALIAS",
+        "canonicalTarget": "/api/operator/platform",
+        "status": "LEGACY_COMPAT_ACCEPTED",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      },
+      {
+        "routePath": "/api/campobase/socialflow",
+        "filePath": "src/app/api/campobase/socialflow/route.ts",
+        "currentRole": "LEGACY_CAMPOBASE_ALIAS",
+        "canonicalTarget": "/api/operator/socialflow",
+        "status": "LEGACY_COMPAT_ACCEPTED",
+        "sunsetRecommendation": "P0.6 observe + migrate, P0.7 cut if traffic=0",
+        "risk": "low",
+        "tests": [
+          "legacy-alias-boundaries",
+          "legacy-compat-sunset"
+        ]
+      }
+    ]
+  },
+  "canonicalSurfaces": {
+    "operator": [
+      {
+        "routePath": "/api/operator/accounting",
+        "filePath": "src/app/api/operator/accounting/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/action-queue",
+        "filePath": "src/app/api/operator/action-queue/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/actions",
+        "filePath": "src/app/api/operator/actions/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/actions/[id]/decision",
+        "filePath": "src/app/api/operator/actions/[id]/decision/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/actions/[id]/dismiss",
+        "filePath": "src/app/api/operator/actions/[id]/dismiss/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/actions/[id]/execute",
+        "filePath": "src/app/api/operator/actions/[id]/execute/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/actions/[id]/snooze",
+        "filePath": "src/app/api/operator/actions/[id]/snooze/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/actions/cleanup",
+        "filePath": "src/app/api/operator/actions/cleanup/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/agents",
+        "filePath": "src/app/api/operator/agents/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/autopilot",
+        "filePath": "src/app/api/operator/autopilot/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/control-snapshot",
+        "filePath": "src/app/api/operator/control-snapshot/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/db/health",
+        "filePath": "src/app/api/operator/db/health/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/domains",
+        "filePath": "src/app/api/operator/domains/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/domains/health",
+        "filePath": "src/app/api/operator/domains/health/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/domains/verify",
+        "filePath": "src/app/api/operator/domains/verify/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/events",
+        "filePath": "src/app/api/operator/events/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/events/rollup",
+        "filePath": "src/app/api/operator/events/rollup/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/governance",
+        "filePath": "src/app/api/operator/governance/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/governance/alerts",
+        "filePath": "src/app/api/operator/governance/alerts/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/marketing",
+        "filePath": "src/app/api/operator/marketing/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/mentoria/health/system",
+        "filePath": "src/app/api/operator/mentoria/health/system/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/observability/failures",
+        "filePath": "src/app/api/operator/observability/failures/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/observability/health",
+        "filePath": "src/app/api/operator/observability/health/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/orchestrator",
+        "filePath": "src/app/api/operator/orchestrator/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/platform",
+        "filePath": "src/app/api/operator/platform/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/portfolio",
+        "filePath": "src/app/api/operator/portfolio/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/profile",
+        "filePath": "src/app/api/operator/profile/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/revenue",
+        "filePath": "src/app/api/operator/revenue/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/saas",
+        "filePath": "src/app/api/operator/saas/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/saas-pricing/recommendations",
+        "filePath": "src/app/api/operator/saas-pricing/recommendations/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/socialflow",
+        "filePath": "src/app/api/operator/socialflow/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/support/tech",
+        "filePath": "src/app/api/operator/support/tech/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/support/tech/[id]/update",
+        "filePath": "src/app/api/operator/support/tech/[id]/update/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/support/tickets",
+        "filePath": "src/app/api/operator/support/tickets/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/support/tickets/[id]/reply",
+        "filePath": "src/app/api/operator/support/tickets/[id]/reply/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/tasks",
+        "filePath": "src/app/api/operator/tasks/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/tasks/materialize-from-growth-autopilot",
+        "filePath": "src/app/api/operator/tasks/materialize-from-growth-autopilot/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/tasks/summary",
+        "filePath": "src/app/api/operator/tasks/summary/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/tax/summary",
+        "filePath": "src/app/api/operator/tax/summary/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/treasury/snapshot",
+        "filePath": "src/app/api/operator/treasury/snapshot/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/vendor/expenses",
+        "filePath": "src/app/api/operator/vendor/expenses/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/vendor/expenses/[id]",
+        "filePath": "src/app/api/operator/vendor/expenses/[id]/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/operator/vendor/snapshot",
+        "filePath": "src/app/api/operator/vendor/snapshot/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      }
+    ],
+    "campamentoBase": [
+      {
+        "routePath": "/api/campamento-base/contracts",
+        "filePath": "src/app/api/campamento-base/contracts/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/campamento-base/operator/whatsapp/daily-summary",
+        "filePath": "src/app/api/campamento-base/operator/whatsapp/daily-summary/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/campamento-base/operator/whatsapp/realtime-alert",
+        "filePath": "src/app/api/campamento-base/operator/whatsapp/realtime-alert/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/campamento-base/orchestrator",
+        "filePath": "src/app/api/campamento-base/orchestrator/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/campamento-base/provisioning/ai",
+        "filePath": "src/app/api/campamento-base/provisioning/ai/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/campamento-base/provisioning/branding",
+        "filePath": "src/app/api/campamento-base/provisioning/branding/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/campamento-base/provisioning/edge",
+        "filePath": "src/app/api/campamento-base/provisioning/edge/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/campamento-base/provisioning/gdpr",
+        "filePath": "src/app/api/campamento-base/provisioning/gdpr/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/campamento-base/provisioning/marketing",
+        "filePath": "src/app/api/campamento-base/provisioning/marketing/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/campamento-base/provisioning/modules",
+        "filePath": "src/app/api/campamento-base/provisioning/modules/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/campamento-base/saas-factory/chat",
+        "filePath": "src/app/api/campamento-base/saas-factory/chat/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/campamento-base/supervisor/critical",
+        "filePath": "src/app/api/campamento-base/supervisor/critical/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/campamento-base/supervisor/incidents",
+        "filePath": "src/app/api/campamento-base/supervisor/incidents/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      },
+      {
+        "routePath": "/api/campamento-base/supervisor/incidents/[id]",
+        "filePath": "src/app/api/campamento-base/supervisor/incidents/[id]/route.ts",
+        "currentRole": "CONTROL_PLANE_CANONICAL"
+      }
+    ]
+  },
+  "sunsetPhases": [
+    {
+      "phase": "P0.5-A",
+      "goal": "Freeze new legacy aliases",
+      "exitCriteria": [
+        "matrix committed",
+        "guards active"
+      ]
+    },
+    {
+      "phase": "P0.6",
+      "goal": "Measure traffic + migrate callers",
+      "exitCriteria": [
+        "legacy usage measured",
+        "operator/factory callers migrated"
+      ]
+    },
+    {
+      "phase": "P0.7",
+      "goal": "Cut aliases with zero traffic",
+      "exitCriteria": [
+        "manual approval",
+        "rollback plan ready"
+      ]
+    }
+  ],
+  "notes": [
+    "Owner/campobase remain compatibility-only surfaces.",
+    "No alias is removed in P0.5-A."
+  ]
+}

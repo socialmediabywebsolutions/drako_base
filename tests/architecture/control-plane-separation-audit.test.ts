@@ -46,6 +46,13 @@ describe("Control-plane separation audit", () => {
     expect(snapshot.contractsCatalog).toEqual(CONTROL_PLANE_CONTRACT_NAMES);
     expect(snapshot.routeSummary.total).toBeGreaterThan(0);
     expect(snapshot.topologySummary.runtimes).toBeGreaterThan(0);
+    expect(snapshot.legacyAliases.total).toBeGreaterThan(0);
+    expect(snapshot.legacyAliases.owner).toBeGreaterThan(0);
+    expect(snapshot.legacyAliases.campobase).toBeGreaterThan(0);
+    expect(snapshot.legacyAliases.needsDeprecation).toBeGreaterThanOrEqual(0);
+    expect(snapshot.legacyAliases.blockers).toBeGreaterThanOrEqual(0);
+    expect(snapshot.canonicalSurfaces.operator).toBeGreaterThan(0);
+    expect(snapshot.canonicalSurfaces.campamentoBase).toBeGreaterThan(0);
   });
 
   it("keeps neutral contracts free from product/control-plane internals and SQL logic", () => {

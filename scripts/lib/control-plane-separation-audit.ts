@@ -69,8 +69,25 @@ export type CrossImportSignal = {
 };
 
 export type LegacyAliasSignal = {
-  alias: "owner" | "campobase" | "campamento-base";
+  alias: "owner" | "campobase";
   sourcePath: string;
+  routePath: string;
+  canonicalTarget: string;
+  status: "LEGACY_COMPAT_ACCEPTED" | "NEEDS_DEPRECATION" | "NEEDS_CUT" | "BLOCKER" | "UNKNOWN_REVIEW";
+};
+
+export type LegacyAliasSummary = {
+  total: number;
+  owner: number;
+  campobase: number;
+  needsDeprecation: number;
+  blockers: number;
+  entries: LegacyAliasSignal[];
+};
+
+export type CanonicalSurfaceSummary = {
+  operator: number;
+  campamentoBase: number;
 };
 
 export type PlaceholderSignal = {
@@ -100,7 +117,8 @@ export type SeparationAuditSnapshot = {
     domains: number;
     envVarNames: number;
   };
-  legacyAliases: LegacyAliasSignal[];
+  legacyAliases: LegacyAliasSummary;
+  canonicalSurfaces: CanonicalSurfaceSummary;
   placeholderSignals: PlaceholderSignal[];
   crossImportSignals: CrossImportSignal[];
   blockers: string[];
@@ -191,12 +209,12 @@ function classifyFromPath(routeOrPath: string): SeparationClass {
   const value = routeOrPath.toLowerCase();
 
   if (value.includes("/factory") || value.includes("factory")) return "FACTORY";
+  if (value.includes("/campobase") || value.includes("/owner")) return "LEGACY_COMPAT";
   if (value.includes("/socialflow") || value.includes("/socialflows") || value.includes("/api/social")) {
     return "SOCIALFLOW_PRODUCT";
   }
   if (value.includes("/mentoria") || value.includes("/mentorias")) return "MENTORIA_PRODUCT";
   if (value.includes("/campamento-base") || value.includes("/operator")) return "CONTROL_PLANE";
-  if (value.includes("/campobase") || value.includes("/owner")) return "LEGACY_COMPAT";
   if (value.includes("packages/shared") || value.includes("/shared/")) return "SHARED_CORE";
   if (value.startsWith("/api")) return "UNKNOWN_REVIEW";
   return "DRAKO_BRAND";
@@ -553,23 +571,68 @@ function collectCrossImportSignals(projectRoot: string): CrossImportSignal[] {
   );
 }
 
-function collectLegacyAliases(routeInventory: RouteInventoryEntry[]): LegacyAliasSignal[] {
-  const aliases: LegacyAliasSignal[] = [];
-  const matchers: Array<{ alias: LegacyAliasSignal["alias"]; token: string }> = [
-    { alias: "owner", token: "/owner" },
-    { alias: "campobase", token: "/campobase" },
-    { alias: "campamento-base", token: "/campamento-base" },
-  ];
+function modulePathToApiRoute(modulePath: string): string {
+  if (!modulePath.startsWith("@/app/api/")) return modulePath;
+  const normalized = modulePath.replace(/^@\/app\/api\//, "");
+  return `/${normalized.replace(/\/route$/, "")}`.replace(/^\/+/, "/api/");
+}
 
-  for (const route of routeInventory) {
+function collectLegacyAliases(projectRoot: string, routeInventory: RouteInventoryEntry[]): LegacyAliasSummary {
+  const entries: LegacyAliasSignal[] = [];
+  const apiRoutes = routeInventory.filter((route) => route.kind === "api");
+  const ownerRoutePattern = /^\/api\/owner(?:\/|$)/;
+  const campobaseRoutePattern = /^\/api\/campobase(?:\/|$)/;
+
+  for (const route of apiRoutes) {
     const routePath = route.route.toLowerCase();
-    for (const matcher of matchers) {
-      if (!routePath.includes(matcher.token)) continue;
-      aliases.push({ alias: matcher.alias, sourcePath: route.filePath });
-    }
+    if (!ownerRoutePattern.test(routePath) && !campobaseRoutePattern.test(routePath)) continue;
+
+    const isOwner = ownerRoutePattern.test(routePath);
+    const alias: LegacyAliasSignal["alias"] = isOwner ? "owner" : "campobase";
+    const absolutePath = path.resolve(projectRoot, route.filePath);
+    const source = fs.existsSync(absolutePath) ? fs.readFileSync(absolutePath, "utf8") : "";
+    const match = source.match(/export\s+\{[^}]+\}\s+from\s+["'`]([^"'`]+)["'`]/);
+    const canonicalTarget = match?.[1] ? modulePathToApiRoute(match[1]) : "UNKNOWN";
+
+    entries.push({
+      alias,
+      sourcePath: route.filePath,
+      routePath: route.route,
+      canonicalTarget,
+      status: isOwner ? "NEEDS_DEPRECATION" : "LEGACY_COMPAT_ACCEPTED",
+    });
   }
 
-  return aliases.sort((left, right) => `${left.alias}:${left.sourcePath}`.localeCompare(`${right.alias}:${right.sourcePath}`));
+  const sortedEntries = entries.sort((left, right) =>
+    `${left.alias}:${left.routePath}:${left.sourcePath}`.localeCompare(
+      `${right.alias}:${right.routePath}:${right.sourcePath}`,
+    ),
+  );
+
+  const owner = sortedEntries.filter((entry) => entry.alias === "owner").length;
+  const campobase = sortedEntries.filter((entry) => entry.alias === "campobase").length;
+  const needsDeprecation = sortedEntries.filter((entry) => entry.status === "NEEDS_DEPRECATION").length;
+  const blockers = sortedEntries.filter((entry) => entry.status === "BLOCKER").length;
+
+  return {
+    total: sortedEntries.length,
+    owner,
+    campobase,
+    needsDeprecation,
+    blockers,
+    entries: sortedEntries,
+  };
+}
+
+function collectCanonicalSurfaces(routeInventory: RouteInventoryEntry[]): CanonicalSurfaceSummary {
+  const operator = routeInventory.filter(
+    (route) => route.kind === "api" && route.route.toLowerCase().startsWith("/api/operator"),
+  ).length;
+  const campamentoBase = routeInventory.filter(
+    (route) => route.kind === "api" && route.route.toLowerCase().startsWith("/api/campamento-base"),
+  ).length;
+
+  return { operator, campamentoBase };
 }
 
 function collectPlaceholderSignals(projectRoot: string): PlaceholderSignal[] {
@@ -684,7 +747,8 @@ function countByClass(entries: RouteInventoryEntry[]): Record<SeparationClass, n
 export function collectSeparationAuditSnapshot(projectRoot = process.cwd()): SeparationAuditSnapshot {
   const routes = collectRouteInventory(projectRoot);
   const topology = collectRuntimeTopology(projectRoot);
-  const legacyAliases = collectLegacyAliases(routes);
+  const legacyAliases = collectLegacyAliases(projectRoot, routes);
+  const canonicalSurfaces = collectCanonicalSurfaces(routes);
   const placeholderSignals = collectPlaceholderSignals(projectRoot);
   const crossImportSignals = collectCrossImportSignals(projectRoot);
 
@@ -727,6 +791,7 @@ export function collectSeparationAuditSnapshot(projectRoot = process.cwd()): Sep
       envVarNames: envVarNames.length,
     },
     legacyAliases,
+    canonicalSurfaces,
     placeholderSignals,
     crossImportSignals,
     blockers,
@@ -801,11 +866,20 @@ export function renderAuditMarkdown(artifacts: SeparationAuditArtifacts): string
   lines.push("");
   lines.push("## Risk Signals");
   lines.push("");
-  lines.push(`- Legacy aliases: ${auditSnapshot.legacyAliases.length}`);
+  lines.push(`- Legacy aliases (total): ${auditSnapshot.legacyAliases.total}`);
+  lines.push(`- Legacy aliases (owner): ${auditSnapshot.legacyAliases.owner}`);
+  lines.push(`- Legacy aliases (campobase): ${auditSnapshot.legacyAliases.campobase}`);
+  lines.push(`- Legacy aliases (needs deprecation): ${auditSnapshot.legacyAliases.needsDeprecation}`);
+  lines.push(`- Legacy aliases (blockers): ${auditSnapshot.legacyAliases.blockers}`);
   lines.push(`- Placeholder/demo/mock/TODO signals: ${auditSnapshot.placeholderSignals.length}`);
   lines.push(`- Cross import signals: ${auditSnapshot.crossImportSignals.length}`);
   lines.push(`- Blockers: ${auditSnapshot.blockers.length}`);
   lines.push(`- Unknown review: ${auditSnapshot.unknownReview.length}`);
+  lines.push("");
+  lines.push("## Canonical Surfaces");
+  lines.push("");
+  lines.push(`- /api/operator routes: ${auditSnapshot.canonicalSurfaces.operator}`);
+  lines.push(`- /api/campamento-base routes: ${auditSnapshot.canonicalSurfaces.campamentoBase}`);
   lines.push("");
   lines.push("## Snapshot Paths");
   lines.push("");

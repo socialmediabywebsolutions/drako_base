@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-01T12:53:42.747Z",
+  "generatedAt": "2026-06-01T13:49:38.157Z",
   "entries": [
     {
       "kind": "api",
@@ -425,8 +425,10 @@
       "kind": "api",
       "route": "/api/campobase/socialflow",
       "filePath": "src/app/api/campobase/socialflow/route.ts",
-      "classification": "SOCIALFLOW_PRODUCT",
-      "notes": []
+      "classification": "LEGACY_COMPAT",
+      "notes": [
+        "legacy-alias-surface"
+      ]
     },
     {
       "kind": "api",
@@ -3211,8 +3213,10 @@
       "kind": "ui",
       "route": "/campobase/socialflow",
       "filePath": "src/app/campobase/socialflow/page.tsx",
-      "classification": "SOCIALFLOW_PRODUCT",
-      "notes": []
+      "classification": "LEGACY_COMPAT",
+      "notes": [
+        "legacy-alias-surface"
+      ]
     },
     {
       "kind": "ui",
@@ -3790,8 +3794,10 @@
       "kind": "ui",
       "route": "/socialflow/settings/ownership",
       "filePath": "src/app/socialflow/(workspace)/settings/ownership/page.tsx",
-      "classification": "SOCIALFLOW_PRODUCT",
-      "notes": []
+      "classification": "LEGACY_COMPAT",
+      "notes": [
+        "legacy-alias-surface"
+      ]
     },
     {
       "kind": "ui",
