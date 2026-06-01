@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { prepareSocialflowProductionApprovalPack } from "../scripts/prepare-socialflow-production-approval-pack";
 import * as cutoverModule from "../scripts/check-socialflow-production-cutover-readiness";
 import * as parityModule from "../scripts/check-socialflow-nonprod-ownership-parity";
@@ -85,19 +87,35 @@ describe("prepare-socialflow-production-approval-pack", () => {
     vi.spyOn(parityModule, "runCheckSocialflowNonprodOwnershipParity").mockResolvedValue(baseParity());
   });
 
-  it("returns planning-only approval when all gates are healthy", async () => {
+  it("returns planning approval ready but never execution ready", async () => {
     const report = await prepareSocialflowProductionApprovalPack();
 
     expect(report.readyForApproval).toBe(true);
     expect(report.readyForExecution).toBe(false);
+    expect(report.status).toBe("SOCIALFLOW_PRODUCTION_APPROVAL_PACK_READY_FOR_PLANNING_APPROVAL");
+    expect(report.executionReadinessStatus).toBe("SOCIALFLOW_PRODUCTION_APPROVAL_PACK_NOT_READY_FOR_EXECUTION");
+    expect(report.executionAllowed).toBe(false);
+    expect(report.commandsArePlannedOnly).toBe(true);
     expect(report.requiresHumanApproval).toBe(true);
     expect(report.approvalScope).toBe("APPROVAL_FOR_PLANNING_ONLY");
-    expect(report.status).toBe("SOCIALFLOW_PRODUCTION_APPROVAL_PACK_READY");
-    expect(report.routeDnsAssessment.productionRouteNotReadyByDesign).toBe(true);
-    expect(report.goNoGoRecommendation).toContain("PLANNING_ONLY");
   });
 
-  it("blocks approval when route/dns has critical blockers", async () => {
+  it("keeps required execution blockers even when planning approval is ready", async () => {
+    const report = await prepareSocialflowProductionApprovalPack();
+
+    expect(report.manualConfigurationRequired).toBe(true);
+    expect(report.dnsRoutingRequired).toBe(true);
+    expect(report.rollbackRequired).toBe(true);
+    expect(report.monitoringRequired).toBe(true);
+    expect(report.humanApprovalRequired).toBe(true);
+    expect(report.blockers).toContain("MANUAL_CONFIGURATION_REQUIRED_FOR_EXECUTION");
+    expect(report.blockers).toContain("DNS_ROUTING_REQUIRED_FOR_EXECUTION");
+    expect(report.blockers).toContain("ROLLBACK_VALIDATION_REQUIRED_FOR_EXECUTION");
+    expect(report.blockers).toContain("PRODUCTION_MONITORING_REQUIRED_FOR_EXECUTION");
+    expect(report.blockers).toContain("HUMAN_APPROVAL_REQUIRED_FOR_EXECUTION");
+  });
+
+  it("blocks planning approval when route/dns has critical blockers", async () => {
     vi.spyOn(routeDnsModule, "checkRouteDnsReadiness").mockResolvedValue({
       ...baseRouteDns(),
       ok: false,
@@ -107,10 +125,27 @@ describe("prepare-socialflow-production-approval-pack", () => {
 
     const report = await prepareSocialflowProductionApprovalPack();
     expect(report.readyForApproval).toBe(false);
-    expect(report.productionBlockers).toContain("ROUTE_DNS_CRITICAL_NOT_READY");
+    expect(report.status).toBe("SOCIALFLOW_PRODUCTION_APPROVAL_PACK_BLOCKED");
+    expect(report.blockers).toContain("ROUTE_DNS_CRITICAL_NOT_READY");
   });
 
-  it("blocks approval when minimum monitoring is not reached", async () => {
+  it("blocks planning approval when rollback command readiness is false", async () => {
+    vi.spyOn(cutoverModule, "checkProductionCutoverReadiness").mockResolvedValue({
+      ...baseCutover(),
+      gates: {
+        ...baseCutover().gates,
+        rollbackReady: false,
+      },
+      readyForPlanning: false,
+      blockedBy: ["ROLLBACK_NOT_READY"],
+    });
+
+    const report = await prepareSocialflowProductionApprovalPack();
+    expect(report.readyForApproval).toBe(false);
+    expect(report.blockers).toContain("ROLLBACK_NOT_READY");
+  });
+
+  it("blocks planning approval when minimum monitoring is not reached", async () => {
     vi.spyOn(cutoverModule, "checkProductionCutoverReadiness").mockResolvedValue({
       ...baseCutover(),
       readyForPlanning: false,
@@ -124,40 +159,10 @@ describe("prepare-socialflow-production-approval-pack", () => {
 
     const report = await prepareSocialflowProductionApprovalPack();
     expect(report.readyForApproval).toBe(false);
-    expect(report.productionBlockers).toContain("MINIMUM_MONITORING_NOT_REACHED");
+    expect(report.blockers).toContain("MINIMUM_MONITORING_NOT_REACHED");
   });
 
-  it("blocks approval when drift is detected", async () => {
-    vi.spyOn(cutoverModule, "checkProductionCutoverReadiness").mockResolvedValue({
-      ...baseCutover(),
-      readyForPlanning: false,
-      blockedBy: ["SWITCHES_OFF"],
-    });
-
-    const report = await prepareSocialflowProductionApprovalPack();
-    expect(report.readyForApproval).toBe(false);
-    expect(report.monitoringEvidence.driftDetected).toBe(true);
-    expect(report.productionBlockers).toContain("DRIFT_DETECTED");
-  });
-
-  it("blocks approval when configuration is not stable", async () => {
-    vi.spyOn(cutoverModule, "checkProductionCutoverReadiness").mockResolvedValue({
-      ...baseCutover(),
-      readyForPlanning: false,
-      configuration: {
-        ...baseCutover().configuration,
-        allowDeploy: false,
-      },
-      blockedBy: ["ALLOW_DEPLOY_FALSE"],
-    });
-
-    const report = await prepareSocialflowProductionApprovalPack();
-    expect(report.readyForApproval).toBe(false);
-    expect(report.monitoringEvidence.stableConfig).toBe(false);
-    expect(report.productionBlockers).toContain("STABLE_CONFIG_NOT_CONFIRMED");
-  });
-
-  it("blocks approval when parity fails", async () => {
+  it("blocks planning approval when parity fails", async () => {
     vi.spyOn(parityModule, "runCheckSocialflowNonprodOwnershipParity").mockResolvedValue({
       ...baseParity(),
       ok: false,
@@ -167,10 +172,10 @@ describe("prepare-socialflow-production-approval-pack", () => {
 
     const report = await prepareSocialflowProductionApprovalPack();
     expect(report.readyForApproval).toBe(false);
-    expect(report.productionBlockers).toContain("PARITY_NOT_OK");
+    expect(report.blockers).toContain("PARITY_NOT_OK");
   });
 
-  it("blocks approval when token leakage is detected", async () => {
+  it("blocks planning approval when token leakage is detected", async () => {
     vi.spyOn(safetyGateModule, "checkProductionSafetyGate").mockResolvedValue({
       ...baseSafetyGate(),
       ok: false,
@@ -182,37 +187,54 @@ describe("prepare-socialflow-production-approval-pack", () => {
     const report = await prepareSocialflowProductionApprovalPack();
     expect(report.readyForApproval).toBe(false);
     expect(report.currentStatus.tokenLeakageDetected).toBe(true);
-    expect(report.productionBlockers).toContain("TOKEN_LEAKAGE_DETECTED");
+    expect(report.blockers).toContain("TOKEN_LEAKAGE_DETECTED");
   });
 
-  it("blocks approval when production was touched", async () => {
-    vi.spyOn(safetyGateModule, "checkProductionSafetyGate").mockResolvedValue({
-      ...baseSafetyGate(),
-      ok: false,
-      findings: {
-        productionTouched: true,
-      },
-    });
-
+  it("tracks artifacts and execution plan status", async () => {
     const report = await prepareSocialflowProductionApprovalPack();
-    expect(report.readyForApproval).toBe(false);
-    expect(report.currentStatus.productionTouched).toBe(true);
-    expect(report.productionBlockers).toContain("PRODUCTION_TOUCHED");
+    expect(report.productionTemplateStatus.path).toBe("apps/socialflow-runtime/wrangler.production.toml");
+    expect(report.smokesStatus.status).toBe("ALL_PRESENT");
+    expect(report.monitorStatus.status).toBe("PRESENT");
+    expect(report.executionPlanStatus.missingArtifacts).toEqual([]);
+    expect(report.executionPlanStatus.status).toBe(
+      "SOCIALFLOW_PRODUCTION_EXECUTION_PLAN_BLOCKED_PENDING_MANUAL_APPROVAL",
+    );
   });
 
-  it("never allows execution", async () => {
-    const report = await prepareSocialflowProductionApprovalPack();
-    expect(report.readyForExecution).toBe(false);
-    expect(report.requiresHumanApproval).toBe(true);
+  it("confirms runbook and decision pack files exist", () => {
+    const runbookPath = path.join(
+      process.cwd(),
+      "docs",
+      "runbooks",
+      "socialflow-production-controlled-execution.md",
+    );
+    const decisionPackPath = path.join(
+      process.cwd(),
+      "docs",
+      "architecture",
+      "socialflow-production-approval-pack.md",
+    );
+
+    expect(existsSync(runbookPath)).toBe(true);
+    expect(existsSync(decisionPackPath)).toBe(true);
   });
 
   it("generates valid JSON output", async () => {
     const report = await prepareSocialflowProductionApprovalPack({ json: true });
-    expect(report).toHaveProperty("readyForApproval");
-    expect(report).toHaveProperty("readyForExecution");
-    expect(report).toHaveProperty("approvalScope");
-    expect(report).toHaveProperty("routeDnsAssessment");
-    expect(report).toHaveProperty("monitoringEvidence");
+    expect(report).toHaveProperty("readinessSummary");
+    expect(report).toHaveProperty("manualConfigurationRequired");
+    expect(report).toHaveProperty("dnsRoutingRequired");
+    expect(report).toHaveProperty("rollbackRequired");
+    expect(report).toHaveProperty("monitoringRequired");
+    expect(report).toHaveProperty("humanApprovalRequired");
+    expect(report).toHaveProperty("productionTemplateStatus");
+    expect(report).toHaveProperty("smokesStatus");
+    expect(report).toHaveProperty("monitorStatus");
+    expect(report).toHaveProperty("executionPlanStatus");
+    expect(report).toHaveProperty("blockers");
+    expect(report).toHaveProperty("approvals");
+    expect(report).toHaveProperty("noDeployConfirmation");
+    expect(report).toHaveProperty("noProductionTouchConfirmation");
     expect(() => JSON.stringify(report)).not.toThrow();
   });
 

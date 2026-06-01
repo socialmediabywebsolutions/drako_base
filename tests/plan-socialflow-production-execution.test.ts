@@ -30,7 +30,11 @@ describe("plan-socialflow-production-execution", () => {
   it("marks production smoke and monitor artifacts as present", async () => {
     const plan = await planSocialflowProductionExecution();
     const artifactStatuses = plan.artifactInventory
-      .filter((item) => item.artifact.startsWith("scripts/smoke-socialflow-production-") || item.artifact === "scripts/monitor-socialflow-production-day.ts")
+      .filter(
+        (item) =>
+          item.artifact.startsWith("scripts/smoke-socialflow-production-")
+          || item.artifact === "scripts/monitor-socialflow-production-day.ts",
+      )
       .map((item) => item.status);
 
     expect(artifactStatuses).toHaveLength(4);
@@ -38,6 +42,23 @@ describe("plan-socialflow-production-execution", () => {
       expect(status).toBe("PRESENT");
     });
     expect(plan.missingArtifacts).toHaveLength(0);
+  });
+
+  it("tracks approval pack and runbook artifacts as present", async () => {
+    const plan = await planSocialflowProductionExecution();
+    const runbook = plan.artifactInventory.find(
+      (item) => item.artifact === "docs/runbooks/socialflow-production-controlled-execution.md",
+    );
+    const decisionPack = plan.artifactInventory.find(
+      (item) => item.artifact === "docs/architecture/socialflow-production-approval-pack.md",
+    );
+
+    expect(runbook).toBeDefined();
+    expect(runbook?.present).toBe(true);
+    expect(runbook?.status).toBe("PRESENT");
+    expect(decisionPack).toBeDefined();
+    expect(decisionPack?.present).toBe(true);
+    expect(decisionPack?.status).toBe("PRESENT");
   });
 
   it("keeps deploy command as planned template review required", async () => {

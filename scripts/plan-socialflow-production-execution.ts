@@ -213,6 +213,20 @@ export async function planSocialflowProductionExecution(
       requiredForExecution: false,
       commandReference: "pnpm tsx scripts/monitor-socialflow-production-day.ts --day=1",
     },
+    {
+      artifact: "docs/runbooks/socialflow-production-controlled-execution.md",
+      statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
+      reason: "Controlled execution runbook is required before any production execution review.",
+      requiredForExecution: true,
+      commandReference: "docs/runbooks/socialflow-production-controlled-execution.md",
+    },
+    {
+      artifact: "docs/architecture/socialflow-production-approval-pack.md",
+      statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
+      reason: "Approval decision pack is required before any production execution review.",
+      requiredForExecution: true,
+      commandReference: "docs/architecture/socialflow-production-approval-pack.md",
+    },
   ];
 
   const artifactInventory = detectArtifactInventory(artifactRules);
