@@ -2,46 +2,82 @@ import fs from "node:fs";
 import path from "node:path";
 import { CONTROL_PLANE_CONTRACT_NAMES } from "../../packages/shared-neutral/src/control-plane-contracts";
 
-export type SeparationDomain = "product" | "control-plane" | "factory" | "legacy";
-export type SurfaceOwner =
-  | "socialflow"
-  | "mentoria"
-  | "campamento-base"
-  | "factory"
-  | "drako-root"
-  | "shared";
+export type SeparationClass =
+  | "DRAKO_BRAND"
+  | "CONTROL_PLANE"
+  | "SOCIALFLOW_PRODUCT"
+  | "MENTORIA_PRODUCT"
+  | "FACTORY"
+  | "SHARED_CORE"
+  | "LEGACY_COMPAT"
+  | "UNKNOWN_REVIEW"
+  | "BLOCKER";
 
-export type ApiSurfaceInventoryRow = {
+export type RouteInventoryEntry = {
+  kind: "api" | "ui";
   route: string;
   filePath: string;
-  namespace: string;
-  domain: SeparationDomain;
-  owner: SurfaceOwner;
-  maturity: "canonical" | "compat" | "legacy";
+  classification: SeparationClass;
   notes: string[];
 };
 
-export type RuntimeTopologyRow = {
-  runtimeKey: string;
-  runtimeRole: "hybrid-root" | "product-runtime" | "product-canary" | "shared-service";
-  workerName: string;
-  sourceConfigPath: string;
-  canonicalForProductProduction: boolean;
-  domains: string[];
-  bindings: {
-    d1: Array<{ binding: string; databaseName: string }>;
-    kv: Array<{ binding: string; id: string }>;
-    r2: Array<{ binding: string; bucketName: string }>;
-    queues: Array<{ binding: string; queue: string }>;
-    services: Array<{ binding: string; service: string }>;
-  };
-  warnings: string[];
+export type BindingInfo = {
+  d1: Array<{ binding: string; databaseName: string }>;
+  kv: Array<{ binding: string; id: string }>;
+  r2: Array<{ binding: string; bucketName: string }>;
+  queues: Array<{ binding: string; queue: string }>;
+  services: Array<{ binding: string; service: string }>;
 };
 
-export type BlockedSignal = {
+export type RuntimeTopologyEntry = {
+  runtimeKey: string;
+  sourceConfigPath: string;
+  classification: SeparationClass;
+  workerName: string;
+  isRootHybridRuntime: boolean;
+  canonicalForProductProduction: boolean;
+  domains: string[];
+  envVarNames: string[];
+  authDbBindings: string[];
+  bindings: BindingInfo;
+  notes: string[];
+};
+
+export type AppRuntimeEntry = {
+  appKey: string;
   sourcePath: string;
+  classification: SeparationClass;
+};
+
+export type WorkerInventoryEntry = {
+  workerKey: string;
+  sourcePath: string;
+  classification: SeparationClass;
+};
+
+export type CrossImportSignal = {
+  ruleId:
+    | "factory-no-campamento-internals"
+    | "campamento-no-product-internals"
+    | "saas-no-campamento-internals"
+    | "shared-neutral-no-runtime-imports"
+    | "shared-neutral-contracts-no-business-logic";
+  filePath: string;
+  importPath?: string;
+  detail: string;
+  classification: "BLOCKER" | "UNKNOWN_REVIEW";
+};
+
+export type LegacyAliasSignal = {
+  alias: "owner" | "campobase" | "campamento-base";
+  sourcePath: string;
+};
+
+export type PlaceholderSignal = {
   token: string;
-  classification: "legacy-block" | "compat-bridge" | "placeholder";
+  sourcePath: string;
+  line: number;
+  snippet: string;
 };
 
 export type SeparationAuditSnapshot = {
@@ -49,176 +85,163 @@ export type SeparationAuditSnapshot = {
   contractsCatalog: readonly string[];
   routeSummary: {
     total: number;
-    byDomain: Record<SeparationDomain, number>;
+    byKind: Record<"api" | "ui", number>;
+    byClass: Record<SeparationClass, number>;
   };
-  blockedSignals: BlockedSignal[];
+  topologySummary: {
+    runtimes: number;
+    apps: number;
+    workers: number;
+    wranglerConfigs: number;
+    dbBindings: number;
+    authDbBindings: number;
+    queueBindings: number;
+    serviceBindings: number;
+    domains: number;
+    envVarNames: number;
+  };
+  legacyAliases: LegacyAliasSignal[];
+  placeholderSignals: PlaceholderSignal[];
+  crossImportSignals: CrossImportSignal[];
+  blockers: string[];
+  unknownReview: string[];
+  routeInventoryPath: string;
+  runtimeTopologyPath: string;
 };
 
-const API_ROOT = path.resolve(process.cwd(), "src/app/api");
-const DEFAULT_ROUTE_OUTPUT = path.resolve(process.cwd(), "docs/config/control-plane-route-inventory.json");
-const DEFAULT_RUNTIME_OUTPUT = path.resolve(process.cwd(), "docs/config/runtime-topology-matrix.json");
-const DEFAULT_AUDIT_OUTPUT = path.resolve(process.cwd(), "docs/config/control-plane-separation-audit.json");
+export type SeparationAuditArtifacts = {
+  routeInventory: {
+    generatedAt: string;
+    entries: RouteInventoryEntry[];
+  };
+  runtimeTopology: {
+    generatedAt: string;
+    wranglerConfigs: string[];
+    apps: AppRuntimeEntry[];
+    workers: WorkerInventoryEntry[];
+    runtimes: RuntimeTopologyEntry[];
+  };
+  auditSnapshot: SeparationAuditSnapshot;
+};
 
-const RUNTIME_SOURCES: Array<{
-  runtimeKey: string;
-  runtimeRole: RuntimeTopologyRow["runtimeRole"];
-  sourceConfigPath: string;
-  canonicalForProductProduction: boolean;
-}> = [
-  {
-    runtimeKey: "drako-root-open-next",
-    runtimeRole: "hybrid-root",
-    sourceConfigPath: "wrangler.jsonc",
-    canonicalForProductProduction: false,
-  },
-  {
-    runtimeKey: "drakos-prod",
-    runtimeRole: "product-runtime",
-    sourceConfigPath: "workers/drakos/wrangler.workers.toml",
-    canonicalForProductProduction: false,
-  },
-  {
-    runtimeKey: "bases-prod",
-    runtimeRole: "product-runtime",
-    sourceConfigPath: "workers/bases/wrangler.workers.toml",
-    canonicalForProductProduction: false,
-  },
-  {
-    runtimeKey: "mentorias-prod",
-    runtimeRole: "product-runtime",
-    sourceConfigPath: "workers/mentorias/wrangler.workers.toml",
-    canonicalForProductProduction: true,
-  },
-  {
-    runtimeKey: "socialflows-prod",
-    runtimeRole: "product-runtime",
-    sourceConfigPath: "workers/socialflows/wrangler.workers.toml",
-    canonicalForProductProduction: true,
-  },
-  {
-    runtimeKey: "socialflow-runtime-app-canary",
-    runtimeRole: "product-canary",
-    sourceConfigPath: "apps/socialflow-runtime/wrangler.toml",
-    canonicalForProductProduction: false,
-  },
-  {
-    runtimeKey: "socialflow-runtime-canary-wrapper",
-    runtimeRole: "product-canary",
-    sourceConfigPath: "workers/socialflows-runtime-canary/wrangler.workers.toml",
-    canonicalForProductProduction: false,
-  },
-  {
-    runtimeKey: "drako-scheduler",
-    runtimeRole: "shared-service",
-    sourceConfigPath: "workers/drako-scheduler/wrangler.workers.toml",
-    canonicalForProductProduction: false,
-  },
-  {
-    runtimeKey: "whatsapp-channel",
-    runtimeRole: "shared-service",
-    sourceConfigPath: "workers/whatsapp-channel/wrangler.workers.toml",
-    canonicalForProductProduction: false,
-  },
+const CATEGORY_VALUES: SeparationClass[] = [
+  "DRAKO_BRAND",
+  "CONTROL_PLANE",
+  "SOCIALFLOW_PRODUCT",
+  "MENTORIA_PRODUCT",
+  "FACTORY",
+  "SHARED_CORE",
+  "LEGACY_COMPAT",
+  "UNKNOWN_REVIEW",
+  "BLOCKER",
 ];
 
-const BLOCKED_SIGNAL_SOURCES = [
-  "package.json",
-  "src/app/api/factory/provisioning/_blocked.ts",
-  "src/workers/saas-factory-consumer.ts",
-  "scripts/plan-socialflow-production-execution.ts",
-];
+const DEFAULT_ROUTE_OUTPUT = "docs/config/control-plane-route-inventory.json";
+const DEFAULT_TOPOLOGY_OUTPUT = "docs/config/runtime-topology-matrix.json";
+const DEFAULT_AUDIT_OUTPUT = "docs/config/control-plane-separation-audit.json";
 
-const BLOCKED_SIGNAL_PATTERNS: Array<{
-  token: string;
-  classification: BlockedSignal["classification"];
-}> = [
-  { token: "ARCHIVED_WORKER_BLOCKED", classification: "legacy-block" },
-  { token: "CANONICAL_DEPLOY_ONLY", classification: "legacy-block" },
-  { token: "FACTORY_PROVISIONING_ROUTE_BLOCKED", classification: "legacy-block" },
-  { token: "LEGACY_SAAS_FACTORY_QUEUE_BLOCKED", classification: "legacy-block" },
-  { token: "PLACEHOLDER_ONLY", classification: "placeholder" },
-  { token: "redirect(\"/operator/", classification: "compat-bridge" },
-];
+const CODE_FILE_PATTERN = /\.(?:[cm]?[jt]sx?)$/;
+const WRANGLER_FILE_PATTERN = /^wrangler(?:\.[^/\\]+)?\.(?:toml|jsonc)$/;
+
+const PLACEHOLDER_TOKENS = ["TODO", "FIXME", "PLACEHOLDER", "fallback", "demo", "mock"] as const;
 
 function toPosix(value: string): string {
   return value.replace(/\\/g, "/");
 }
 
-function walk(dir: string, out: string[]): void {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
+function ensureParentDir(filePath: string): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+}
+
+function listFilesRecursive(dir: string, out: string[], predicate: (fileName: string) => boolean): void {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      walk(fullPath, out);
+      listFilesRecursive(fullPath, out, predicate);
       continue;
     }
-    if (entry.name === "route.ts") {
-      out.push(fullPath);
+    if (predicate(entry.name)) out.push(fullPath);
+  }
+}
+
+function listCodeFiles(root: string): string[] {
+  const out: string[] = [];
+  listFilesRecursive(root, out, (fileName) => CODE_FILE_PATTERN.test(fileName) && !fileName.endsWith(".d.ts"));
+  return out.sort();
+}
+
+function stripRouteGroups(segment: string): string | null {
+  if (!segment) return null;
+  if (segment.startsWith("(") && segment.endsWith(")")) return null;
+  if (segment.startsWith("@")) return null;
+  return segment;
+}
+
+function normalizeNextRouteSegments(relativePath: string): string[] {
+  return toPosix(relativePath)
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .map(stripRouteGroups)
+    .filter((segment): segment is string => Boolean(segment));
+}
+
+function classifyFromPath(routeOrPath: string): SeparationClass {
+  const value = routeOrPath.toLowerCase();
+
+  if (value.includes("/factory") || value.includes("factory")) return "FACTORY";
+  if (value.includes("/socialflow") || value.includes("/socialflows") || value.includes("/api/social")) {
+    return "SOCIALFLOW_PRODUCT";
+  }
+  if (value.includes("/mentoria") || value.includes("/mentorias")) return "MENTORIA_PRODUCT";
+  if (value.includes("/campamento-base") || value.includes("/operator")) return "CONTROL_PLANE";
+  if (value.includes("/campobase") || value.includes("/owner")) return "LEGACY_COMPAT";
+  if (value.includes("packages/shared") || value.includes("/shared/")) return "SHARED_CORE";
+  if (value.startsWith("/api")) return "UNKNOWN_REVIEW";
+  return "DRAKO_BRAND";
+}
+
+function routeFromApiFile(projectRoot: string, filePath: string): string {
+  const rel = path.relative(path.resolve(projectRoot, "src/app/api"), filePath);
+  const routeSegments = normalizeNextRouteSegments(rel.replace(/\/route\.[cm]?[jt]sx?$/, ""));
+  return `/api/${routeSegments.join("/")}`.replace(/\/+/g, "/");
+}
+
+function routeFromUiPage(projectRoot: string, filePath: string): string {
+  const rel = path.relative(path.resolve(projectRoot, "src/app"), filePath);
+  const normalized = rel.replace(/\/page\.[cm]?[jt]sx?$/, "");
+  const segments = normalizeNextRouteSegments(normalized);
+  if (segments.length === 0) return "/";
+  return `/${segments.join("/")}`.replace(/\/+/g, "/");
+}
+
+function extractImportSpecifiers(source: string): string[] {
+  const specifiers = new Set<string>();
+  const patterns = [
+    /\bimport\s+(?:type\s+)?(?:[^"'`]+?\s+from\s+)?["'`]([^"'`]+)["'`]/g,
+    /\bexport\s+(?:type\s+)?(?:\*|\{[^}]*\})\s+from\s+["'`]([^"'`]+)["'`]/g,
+    /\bimport\(\s*["'`]([^"'`]+)["'`]\s*\)/g,
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of source.matchAll(pattern)) {
+      if (match[1]) specifiers.add(match[1].trim());
     }
   }
+
+  return Array.from(specifiers).sort();
 }
 
-function routeFromApiFile(filePath: string): string {
-  const rel = toPosix(path.relative(API_ROOT, filePath));
-  const withoutSuffix = rel.replace(/\/route\.ts$/, "");
-  return `/api/${withoutSuffix}`.replace(/\/+/g, "/");
-}
-
-function classifyApiSurface(route: string): Omit<ApiSurfaceInventoryRow, "route" | "filePath"> {
-  const segments = route.replace(/^\/api\//, "").split("/").filter(Boolean);
-  const namespace = segments[0] ?? "root";
-  const notes: string[] = [];
-
-  if (namespace === "socialflow" || namespace === "social") {
-    return { namespace, domain: "product", owner: "socialflow", maturity: "canonical", notes };
-  }
-  if (namespace === "mentoria" || namespace === "mentorias") {
-    return { namespace, domain: "product", owner: "mentoria", maturity: "canonical", notes };
-  }
-  if (namespace === "factory") {
-    return { namespace, domain: "factory", owner: "factory", maturity: "canonical", notes };
-  }
-  if (namespace === "operator" || namespace === "campamento-base") {
-    return { namespace, domain: "control-plane", owner: "campamento-base", maturity: "canonical", notes };
-  }
-  if (namespace === "campobase" || namespace === "owner") {
-    notes.push("compat-surface");
-    return { namespace, domain: "legacy", owner: "campamento-base", maturity: "compat", notes };
-  }
-
-  notes.push("root-hybrid-surface");
-  return { namespace, domain: "legacy", owner: "drako-root", maturity: "legacy", notes };
-}
-
-export function collectApiSurfaceInventory(projectRoot = process.cwd()): ApiSurfaceInventoryRow[] {
-  const apiRoot = path.resolve(projectRoot, "src/app/api");
-  const files: string[] = [];
-  walk(apiRoot, files);
-
-  return files
-    .map((filePath) => {
-      const route = routeFromApiFile(filePath);
-      const classification = classifyApiSurface(route);
-      return {
-        route,
-        filePath: toPosix(path.relative(projectRoot, filePath)),
-        ...classification,
-      };
-    })
-    .sort((left, right) => left.route.localeCompare(right.route));
-}
-
-function extractAllMatches(source: string, pattern: RegExp): string[] {
-  return Array.from(source.matchAll(pattern), (match) => match[1]).filter(Boolean);
+function stripJsoncComments(source: string): string {
+  return source.replace(/^\s*\/\/.*$/gm, "").replace(/^\s*#.*$/gm, "");
 }
 
 function readKeyValue(block: string, key: string): string | null {
   const tomlMatch = block.match(new RegExp(`^\\s*${key}\\s*=\\s*"([^"]+)"`, "m"));
   if (tomlMatch?.[1]) return tomlMatch[1];
-
   const jsoncMatch = block.match(new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`, "m"));
   if (jsoncMatch?.[1]) return jsoncMatch[1];
-
   return null;
 }
 
@@ -227,30 +250,61 @@ function collectTomlSectionBlocks(source: string, section: string): string[] {
   return Array.from(source.matchAll(pattern), (match) => match[1] ?? "");
 }
 
-function stripJsoncComments(source: string): string {
-  return source
-    .replace(/^\s*\/\/.*$/gm, "")
-    .replace(/^\s*#.*$/gm, "");
-}
-
 function collectJsoncArrayObjects(source: string, key: string): Array<Record<string, unknown>> {
-  const sanitized = stripJsoncComments(source);
   try {
-    const parsed = JSON.parse(sanitized) as Record<string, unknown>;
+    const parsed = JSON.parse(stripJsoncComments(source)) as Record<string, unknown>;
     const values = parsed[key];
-    return Array.isArray(values) ? values.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object") : [];
+    if (!Array.isArray(values)) return [];
+    return values.filter((value): value is Record<string, unknown> => Boolean(value) && typeof value === "object");
   } catch {
     return [];
   }
 }
 
-function parseRuntimeTopologyRow(projectRoot: string, source: (typeof RUNTIME_SOURCES)[number]): RuntimeTopologyRow {
-  const absolutePath = path.resolve(projectRoot, source.sourceConfigPath);
+function parseTomlVars(source: string): string[] {
+  const varsBlock = source.match(/\[vars\]([\s\S]*?)(?=\n\[|$)/);
+  if (!varsBlock?.[1]) return [];
+  return Array.from(
+    varsBlock[1].matchAll(/^\s*([A-Z0-9_]+)\s*=/gm),
+    (match) => match[1],
+  ).filter(Boolean);
+}
+
+function parseJsoncVars(source: string): string[] {
+  try {
+    const parsed = JSON.parse(stripJsoncComments(source)) as Record<string, unknown>;
+    const vars = parsed.vars;
+    if (!vars || typeof vars !== "object") return [];
+    return Object.keys(vars as Record<string, unknown>).sort();
+  } catch {
+    return [];
+  }
+}
+
+function collectWranglerConfigPaths(projectRoot: string): string[] {
+  const out = new Set<string>();
+  const rootWrangler = path.resolve(projectRoot, "wrangler.jsonc");
+  if (fs.existsSync(rootWrangler)) out.add(rootWrangler);
+
+  for (const scope of ["workers", "apps"]) {
+    const absoluteScope = path.resolve(projectRoot, scope);
+    if (!fs.existsSync(absoluteScope)) continue;
+    const discovered: string[] = [];
+    listFilesRecursive(absoluteScope, discovered, (fileName) => WRANGLER_FILE_PATTERN.test(fileName));
+    for (const filePath of discovered) out.add(filePath);
+  }
+
+  return Array.from(out).sort();
+}
+
+function parseWranglerConfig(projectRoot: string, absolutePath: string): RuntimeTopologyEntry {
+  const relativePath = toPosix(path.relative(projectRoot, absolutePath));
   const raw = fs.readFileSync(absolutePath, "utf8");
-  const workerName = readKeyValue(raw, "name") ?? source.runtimeKey;
-  const domains = extractAllMatches(raw, /^\s*pattern\s*=\s*"([^"]+)"/gm).sort();
-  const isJsonc = source.sourceConfigPath.endsWith(".jsonc");
-  const d1Bindings = isJsonc
+  const isJsonc = absolutePath.endsWith(".jsonc");
+  const workerName = readKeyValue(raw, "name") ?? path.basename(path.dirname(absolutePath));
+  const classification = classifyFromPath(relativePath);
+
+  const d1 = isJsonc
     ? collectJsoncArrayObjects(raw, "d1_databases")
       .map((item) => ({
         binding: typeof item.binding === "string" ? item.binding : "",
@@ -263,7 +317,8 @@ function parseRuntimeTopologyRow(projectRoot: string, source: (typeof RUNTIME_SO
         databaseName: readKeyValue(block, "database_name") ?? "",
       }))
       .filter((item) => item.binding && item.databaseName);
-  const kvBindings = isJsonc
+
+  const kv = isJsonc
     ? collectJsoncArrayObjects(raw, "kv_namespaces")
       .map((item) => ({
         binding: typeof item.binding === "string" ? item.binding : "",
@@ -276,7 +331,8 @@ function parseRuntimeTopologyRow(projectRoot: string, source: (typeof RUNTIME_SO
         id: readKeyValue(block, "id") ?? "",
       }))
       .filter((item) => item.binding && item.id);
-  const r2Bindings = isJsonc
+
+  const r2 = isJsonc
     ? collectJsoncArrayObjects(raw, "r2_buckets")
       .map((item) => ({
         binding: typeof item.binding === "string" ? item.binding : "",
@@ -289,7 +345,8 @@ function parseRuntimeTopologyRow(projectRoot: string, source: (typeof RUNTIME_SO
         bucketName: readKeyValue(block, "bucket_name") ?? "",
       }))
       .filter((item) => item.binding && item.bucketName);
-  const queueBindings = isJsonc
+
+  const queues = isJsonc
     ? collectJsoncArrayObjects(raw, "queues")
       .map((item) => ({
         binding: typeof item.binding === "string" ? item.binding : "",
@@ -302,7 +359,8 @@ function parseRuntimeTopologyRow(projectRoot: string, source: (typeof RUNTIME_SO
         queue: readKeyValue(block, "queue") ?? "",
       }))
       .filter((item) => item.binding && item.queue);
-  const serviceBindings = isJsonc
+
+  const services = isJsonc
     ? collectJsoncArrayObjects(raw, "services")
       .map((item) => ({
         binding: typeof item.binding === "string" ? item.binding : "",
@@ -316,110 +374,456 @@ function parseRuntimeTopologyRow(projectRoot: string, source: (typeof RUNTIME_SO
       }))
       .filter((item) => item.binding && item.service);
 
-  const warnings: string[] = [];
-  if (source.runtimeRole === "hybrid-root") {
-    warnings.push("root-runtime-remains-hybrid-and-non-canonical-for-product-production");
+  const domains = Array.from(raw.matchAll(/^\s*pattern\s*=\s*"([^"]+)"/gm), (match) => match[1]).filter(Boolean);
+  const envVarNames = isJsonc ? parseJsoncVars(raw) : parseTomlVars(raw);
+  const authDbBindings = d1
+    .map((binding) => binding.binding)
+    .filter((binding) => binding.toUpperCase().includes("AUTH"))
+    .sort();
+
+  const isRootHybridRuntime = relativePath === "wrangler.jsonc";
+  const canonicalForProductProduction = (
+    relativePath === "workers/socialflows/wrangler.workers.toml"
+    || relativePath === "workers/mentorias/wrangler.workers.toml"
+  );
+
+  const notes: string[] = [];
+  if (isRootHybridRuntime) notes.push("root-runtime-hybrid-shell");
+  if (d1.some((item) => item.binding === "DRACO_DB") && d1.some((item) => item.binding === "MENTORIA_DB")) {
+    notes.push("mixed-root-product-d1-bindings");
   }
-  if (d1Bindings.some((item) => item.binding === "DRACO_DB") && d1Bindings.some((item) => item.binding === "MENTORIA_DB")) {
-    warnings.push("shared-root-runtime-mixes-drako-and-product-d1-bindings");
-  }
-  if (source.runtimeKey === "socialflows-prod" && d1Bindings.some((item) => item.binding === "SAASES_DB")) {
-    warnings.push("socialflow-prod-still-exposes-saases-registry-binding");
-  }
-  if (
-    source.runtimeKey === "mentorias-prod"
-    && (queueBindings.some((item) => item.queue.startsWith("drako-")) || serviceBindings.some((item) => item.service.startsWith("drako-")))
-  ) {
-    warnings.push("mentoria-prod-still-depends-on-drako-shared-queues-or-services");
-  }
-  if (
-    source.runtimeKey === "socialflow-runtime-app-canary"
-    && d1Bindings.some((item) => item.binding === "DRACO_DB")
-  ) {
-    warnings.push("socialflow-canary-runtime-still-reads-drako-db");
+  if (queues.some((item) => item.queue.startsWith("drako-")) && relativePath.includes("workers/mentorias")) {
+    notes.push("mentoria-still-using-drako-queues");
   }
 
   return {
-    runtimeKey: source.runtimeKey,
-    runtimeRole: source.runtimeRole,
+    runtimeKey: workerName || path.basename(path.dirname(absolutePath)),
+    sourceConfigPath: relativePath,
+    classification,
     workerName,
-    sourceConfigPath: source.sourceConfigPath,
-    canonicalForProductProduction: source.canonicalForProductProduction,
-    domains,
-    bindings: {
-      d1: d1Bindings,
-      kv: kvBindings,
-      r2: r2Bindings,
-      queues: queueBindings,
-      services: serviceBindings,
-    },
-    warnings,
+    isRootHybridRuntime,
+    canonicalForProductProduction,
+    domains: domains.sort(),
+    envVarNames,
+    authDbBindings,
+    bindings: { d1, kv, r2, queues, services },
+    notes,
   };
 }
 
-export function collectRuntimeTopologyMatrix(projectRoot = process.cwd()): RuntimeTopologyRow[] {
-  return RUNTIME_SOURCES
-    .map((source) => parseRuntimeTopologyRow(projectRoot, source))
-    .sort((left, right) => left.runtimeKey.localeCompare(right.runtimeKey));
+function classifyAppOrWorkerName(name: string, kind: "apps" | "workers"): SeparationClass {
+  const value = name.toLowerCase();
+  if (value.includes("socialflow") || value.includes("socialflows")) return "SOCIALFLOW_PRODUCT";
+  if (value.includes("mentoria") || value.includes("mentorias")) return "MENTORIA_PRODUCT";
+  if (value.includes("factory")) return "FACTORY";
+  if (value.includes("campamento") || value.includes("operator")) return "CONTROL_PLANE";
+  if (value.includes("campobase") || value.includes("owner")) return "LEGACY_COMPAT";
+  if (kind === "apps" && value.includes("drako")) return "DRAKO_BRAND";
+  return "UNKNOWN_REVIEW";
 }
 
-export function collectBlockedSignals(projectRoot = process.cwd()): BlockedSignal[] {
-  const signals: BlockedSignal[] = [];
+function collectApps(projectRoot: string): AppRuntimeEntry[] {
+  const appsRoot = path.resolve(projectRoot, "apps");
+  if (!fs.existsSync(appsRoot)) return [];
 
-  for (const relativePath of BLOCKED_SIGNAL_SOURCES) {
-    const absolutePath = path.resolve(projectRoot, relativePath);
-    if (!fs.existsSync(absolutePath)) continue;
-    const raw = fs.readFileSync(absolutePath, "utf8");
+  return fs.readdirSync(appsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => ({
+      appKey: entry.name,
+      sourcePath: toPosix(path.join("apps", entry.name)),
+      classification: classifyAppOrWorkerName(entry.name, "apps"),
+    }))
+    .sort((left, right) => left.appKey.localeCompare(right.appKey));
+}
 
-    for (const pattern of BLOCKED_SIGNAL_PATTERNS) {
-      if (!raw.includes(pattern.token)) continue;
+function collectWorkers(projectRoot: string): WorkerInventoryEntry[] {
+  const workersRoot = path.resolve(projectRoot, "workers");
+  if (!fs.existsSync(workersRoot)) return [];
+
+  return fs.readdirSync(workersRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => ({
+      workerKey: entry.name,
+      sourcePath: toPosix(path.join("workers", entry.name)),
+      classification: classifyAppOrWorkerName(entry.name, "workers"),
+    }))
+    .sort((left, right) => left.workerKey.localeCompare(right.workerKey));
+}
+
+function collectCrossImportSignals(projectRoot: string): CrossImportSignal[] {
+  const signals: CrossImportSignal[] = [];
+
+  const evaluateImports = (
+    sourceDirs: string[],
+    push: (filePath: string, importPath: string) => void,
+  ) => {
+    for (const sourceDir of sourceDirs) {
+      const absoluteDir = path.resolve(projectRoot, sourceDir);
+      for (const filePath of listCodeFiles(absoluteDir)) {
+        const source = fs.readFileSync(filePath, "utf8");
+        const imports = extractImportSpecifiers(source);
+        for (const importPath of imports) {
+          push(filePath, importPath);
+        }
+      }
+    }
+  };
+
+  evaluateImports(["src/app/api/factory", "src/lib/factory"], (filePath, importPath) => {
+    if (!importPath.startsWith("@/lib/campamento-base/") && !importPath.startsWith("@/lib/campobase/")) return;
+    signals.push({
+      ruleId: "factory-no-campamento-internals",
+      filePath: toPosix(path.relative(projectRoot, filePath)),
+      importPath,
+      detail: "Factory imports Campamento Base internals.",
+      classification: "BLOCKER",
+    });
+  });
+
+  evaluateImports(["src/lib/campobase", "src/lib/campamento-base", "src/app/api/operator"], (filePath, importPath) => {
+    const socialflowInternal = importPath.startsWith("@/lib/socialflow/") && !importPath.startsWith("@/lib/socialflow/contracts/");
+    const mentoriaInternal = importPath.startsWith("@/lib/mentoria/") && !importPath.startsWith("@/lib/mentoria/contracts/");
+    if (!socialflowInternal && !mentoriaInternal) return;
+    signals.push({
+      ruleId: "campamento-no-product-internals",
+      filePath: toPosix(path.relative(projectRoot, filePath)),
+      importPath,
+      detail: "Control plane imports product internals outside contracts.",
+      classification: "BLOCKER",
+    });
+  });
+
+  evaluateImports(
+    ["src/lib/socialflow", "src/app/api/socialflow", "src/lib/mentoria", "src/app/api/mentoria"],
+    (filePath, importPath) => {
+      if (
+        !importPath.startsWith("@/lib/campamento-base/")
+        && !importPath.startsWith("@/lib/campobase/")
+        && !importPath.startsWith("@/lib/operator/")
+        && !importPath.startsWith("@/lib/owner/")
+      ) {
+        return;
+      }
       signals.push({
-        sourcePath: toPosix(relativePath),
-        token: pattern.token,
-        classification: pattern.classification,
+        ruleId: "saas-no-campamento-internals",
+        filePath: toPosix(path.relative(projectRoot, filePath)),
+        importPath,
+        detail: "SaaS imports control-plane internals.",
+        classification: "BLOCKER",
+      });
+    },
+  );
+
+  evaluateImports(["packages/shared-neutral"], (filePath, importPath) => {
+    if (
+      !importPath.startsWith("@/lib/socialflow/")
+      && !importPath.startsWith("@/lib/mentoria/")
+      && !importPath.startsWith("@/lib/campamento-base/")
+      && !importPath.startsWith("@/lib/campobase/")
+      && !importPath.startsWith("@/app/")
+    ) {
+      return;
+    }
+    signals.push({
+      ruleId: "shared-neutral-no-runtime-imports",
+      filePath: toPosix(path.relative(projectRoot, filePath)),
+      importPath,
+      detail: "Shared-neutral imports runtime internals.",
+      classification: "BLOCKER",
+    });
+  });
+
+  const contractsFile = path.resolve(projectRoot, "packages/shared-neutral/src/control-plane-contracts.ts");
+  if (fs.existsSync(contractsFile)) {
+    const source = fs.readFileSync(contractsFile, "utf8");
+    const forbiddenTokens = ["SELECT ", "INSERT ", "UPDATE ", "DELETE ", "FROM "];
+    for (const token of forbiddenTokens) {
+      if (!source.includes(token)) continue;
+      signals.push({
+        ruleId: "shared-neutral-contracts-no-business-logic",
+        filePath: toPosix(path.relative(projectRoot, contractsFile)),
+        detail: `Neutral contracts include business token: ${token.trim()}`,
+        classification: "BLOCKER",
       });
     }
   }
 
-  return signals.sort((left, right) => `${left.sourcePath}:${left.token}`.localeCompare(`${right.sourcePath}:${right.token}`));
+  return signals.sort((left, right) =>
+    `${left.ruleId}|${left.filePath}|${left.importPath ?? ""}`.localeCompare(`${right.ruleId}|${right.filePath}|${right.importPath ?? ""}`),
+  );
+}
+
+function collectLegacyAliases(routeInventory: RouteInventoryEntry[]): LegacyAliasSignal[] {
+  const aliases: LegacyAliasSignal[] = [];
+  const matchers: Array<{ alias: LegacyAliasSignal["alias"]; token: string }> = [
+    { alias: "owner", token: "/owner" },
+    { alias: "campobase", token: "/campobase" },
+    { alias: "campamento-base", token: "/campamento-base" },
+  ];
+
+  for (const route of routeInventory) {
+    const routePath = route.route.toLowerCase();
+    for (const matcher of matchers) {
+      if (!routePath.includes(matcher.token)) continue;
+      aliases.push({ alias: matcher.alias, sourcePath: route.filePath });
+    }
+  }
+
+  return aliases.sort((left, right) => `${left.alias}:${left.sourcePath}`.localeCompare(`${right.alias}:${right.sourcePath}`));
+}
+
+function collectPlaceholderSignals(projectRoot: string): PlaceholderSignal[] {
+  const sources = ["src/app/api", "src/lib", "scripts"];
+  const signals: PlaceholderSignal[] = [];
+
+  for (const sourceRoot of sources) {
+    const absoluteRoot = path.resolve(projectRoot, sourceRoot);
+    for (const filePath of listCodeFiles(absoluteRoot)) {
+      const source = fs.readFileSync(filePath, "utf8");
+      const lines = source.split(/\r?\n/);
+      for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index] ?? "";
+        for (const token of PLACEHOLDER_TOKENS) {
+          const pattern = new RegExp(`\\b${token}\\b`, "i");
+          if (!pattern.test(line)) continue;
+          signals.push({
+            token,
+            sourcePath: toPosix(path.relative(projectRoot, filePath)),
+            line: index + 1,
+            snippet: line.trim().slice(0, 160),
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  return signals
+    .sort((left, right) => `${left.sourcePath}:${left.line}`.localeCompare(`${right.sourcePath}:${right.line}`))
+    .slice(0, 400);
+}
+
+export function collectApiRouteInventory(projectRoot = process.cwd()): RouteInventoryEntry[] {
+  const apiRoot = path.resolve(projectRoot, "src/app/api");
+  const files: string[] = [];
+  listFilesRecursive(apiRoot, files, (fileName) => /^route\.[cm]?[jt]sx?$/.test(fileName));
+
+  return files
+    .map((filePath) => {
+      const route = routeFromApiFile(projectRoot, filePath);
+      const classification = classifyFromPath(route);
+      const notes: string[] = [];
+      if (classification === "LEGACY_COMPAT") notes.push("legacy-alias-surface");
+      if (classification === "UNKNOWN_REVIEW") notes.push("manual-classification-required");
+      return {
+        kind: "api" as const,
+        route,
+        filePath: toPosix(path.relative(projectRoot, filePath)),
+        classification,
+        notes,
+      };
+    })
+    .sort((left, right) => left.route.localeCompare(right.route));
+}
+
+export function collectUiRouteInventory(projectRoot = process.cwd()): RouteInventoryEntry[] {
+  const appRoot = path.resolve(projectRoot, "src/app");
+  const files: string[] = [];
+  listFilesRecursive(appRoot, files, (fileName) => /^page\.[cm]?[jt]sx?$/.test(fileName));
+
+  return files
+    .map((filePath) => {
+      const route = routeFromUiPage(projectRoot, filePath);
+      const classification = classifyFromPath(route);
+      const notes: string[] = [];
+      if (classification === "LEGACY_COMPAT") notes.push("legacy-alias-surface");
+      if (classification === "UNKNOWN_REVIEW") notes.push("manual-classification-required");
+      return {
+        kind: "ui" as const,
+        route,
+        filePath: toPosix(path.relative(projectRoot, filePath)),
+        classification,
+        notes,
+      };
+    })
+    .sort((left, right) => left.route.localeCompare(right.route));
+}
+
+export function collectRouteInventory(projectRoot = process.cwd()): RouteInventoryEntry[] {
+  return [...collectApiRouteInventory(projectRoot), ...collectUiRouteInventory(projectRoot)]
+    .sort((left, right) => `${left.kind}:${left.route}`.localeCompare(`${right.kind}:${right.route}`));
+}
+
+export function collectRuntimeTopology(projectRoot = process.cwd()): {
+  wranglerConfigs: string[];
+  apps: AppRuntimeEntry[];
+  workers: WorkerInventoryEntry[];
+  runtimes: RuntimeTopologyEntry[];
+} {
+  const wranglerConfigs = collectWranglerConfigPaths(projectRoot).map((absolutePath) => toPosix(path.relative(projectRoot, absolutePath)));
+  const runtimes = collectWranglerConfigPaths(projectRoot)
+    .map((absolutePath) => parseWranglerConfig(projectRoot, absolutePath))
+    .sort((left, right) => left.sourceConfigPath.localeCompare(right.sourceConfigPath));
+
+  return {
+    wranglerConfigs,
+    apps: collectApps(projectRoot),
+    workers: collectWorkers(projectRoot),
+    runtimes,
+  };
+}
+
+function countByClass(entries: RouteInventoryEntry[]): Record<SeparationClass, number> {
+  const record = Object.fromEntries(CATEGORY_VALUES.map((value) => [value, 0])) as Record<SeparationClass, number>;
+  for (const entry of entries) {
+    record[entry.classification] += 1;
+  }
+  return record;
 }
 
 export function collectSeparationAuditSnapshot(projectRoot = process.cwd()): SeparationAuditSnapshot {
-  const routeInventory = collectApiSurfaceInventory(projectRoot);
-  const byDomain: Record<SeparationDomain, number> = {
-    product: 0,
-    "control-plane": 0,
-    factory: 0,
-    legacy: 0,
-  };
+  const routes = collectRouteInventory(projectRoot);
+  const topology = collectRuntimeTopology(projectRoot);
+  const legacyAliases = collectLegacyAliases(routes);
+  const placeholderSignals = collectPlaceholderSignals(projectRoot);
+  const crossImportSignals = collectCrossImportSignals(projectRoot);
 
-  for (const row of routeInventory) {
-    byDomain[row.domain] += 1;
-  }
+  const blockers = crossImportSignals
+    .filter((signal) => signal.classification === "BLOCKER")
+    .map((signal) => `${signal.ruleId}: ${signal.filePath}${signal.importPath ? ` -> ${signal.importPath}` : ""}`);
+
+  const unknownReview = routes
+    .filter((entry) => entry.classification === "UNKNOWN_REVIEW")
+    .map((entry) => `${entry.kind}:${entry.route}`);
+
+  const dbBindings = topology.runtimes.flatMap((runtime) => runtime.bindings.d1);
+  const queueBindings = topology.runtimes.flatMap((runtime) => runtime.bindings.queues);
+  const serviceBindings = topology.runtimes.flatMap((runtime) => runtime.bindings.services);
+  const authDbBindings = topology.runtimes.flatMap((runtime) => runtime.authDbBindings);
+  const domains = topology.runtimes.flatMap((runtime) => runtime.domains);
+  const envVarNames = topology.runtimes.flatMap((runtime) => runtime.envVarNames);
 
   return {
     generatedAt: new Date().toISOString(),
     contractsCatalog: CONTROL_PLANE_CONTRACT_NAMES,
     routeSummary: {
-      total: routeInventory.length,
-      byDomain,
+      total: routes.length,
+      byKind: {
+        api: routes.filter((entry) => entry.kind === "api").length,
+        ui: routes.filter((entry) => entry.kind === "ui").length,
+      },
+      byClass: countByClass(routes),
     },
-    blockedSignals: collectBlockedSignals(projectRoot),
+    topologySummary: {
+      runtimes: topology.runtimes.length,
+      apps: topology.apps.length,
+      workers: topology.workers.length,
+      wranglerConfigs: topology.wranglerConfigs.length,
+      dbBindings: dbBindings.length,
+      authDbBindings: authDbBindings.length,
+      queueBindings: queueBindings.length,
+      serviceBindings: serviceBindings.length,
+      domains: domains.length,
+      envVarNames: envVarNames.length,
+    },
+    legacyAliases,
+    placeholderSignals,
+    crossImportSignals,
+    blockers,
+    unknownReview,
+    routeInventoryPath: DEFAULT_ROUTE_OUTPUT,
+    runtimeTopologyPath: DEFAULT_TOPOLOGY_OUTPUT,
   };
 }
 
-export function writeSeparationAuditArtifacts(projectRoot = process.cwd()): {
-  routeInventory: ApiSurfaceInventoryRow[];
-  runtimeMatrix: RuntimeTopologyRow[];
-  auditSnapshot: SeparationAuditSnapshot;
-} {
-  const routeInventory = collectApiSurfaceInventory(projectRoot);
-  const runtimeMatrix = collectRuntimeTopologyMatrix(projectRoot);
+export function buildSeparationAuditArtifacts(projectRoot = process.cwd()): SeparationAuditArtifacts {
+  const routeInventory = {
+    generatedAt: new Date().toISOString(),
+    entries: collectRouteInventory(projectRoot),
+  };
+
+  const runtimeTopology = {
+    generatedAt: new Date().toISOString(),
+    ...collectRuntimeTopology(projectRoot),
+  };
+
   const auditSnapshot = collectSeparationAuditSnapshot(projectRoot);
+  return { routeInventory, runtimeTopology, auditSnapshot };
+}
 
-  fs.writeFileSync(DEFAULT_ROUTE_OUTPUT, `${JSON.stringify(routeInventory, null, 2)}\n`, "utf8");
-  fs.writeFileSync(DEFAULT_RUNTIME_OUTPUT, `${JSON.stringify(runtimeMatrix, null, 2)}\n`, "utf8");
-  fs.writeFileSync(DEFAULT_AUDIT_OUTPUT, `${JSON.stringify(auditSnapshot, null, 2)}\n`, "utf8");
+export function writeSeparationAuditArtifacts(projectRoot = process.cwd()): SeparationAuditArtifacts {
+  const artifacts = buildSeparationAuditArtifacts(projectRoot);
 
-  return { routeInventory, runtimeMatrix, auditSnapshot };
+  const routeOutput = path.resolve(projectRoot, DEFAULT_ROUTE_OUTPUT);
+  const topologyOutput = path.resolve(projectRoot, DEFAULT_TOPOLOGY_OUTPUT);
+  const auditOutput = path.resolve(projectRoot, DEFAULT_AUDIT_OUTPUT);
+
+  ensureParentDir(routeOutput);
+  ensureParentDir(topologyOutput);
+  ensureParentDir(auditOutput);
+
+  fs.writeFileSync(routeOutput, `${JSON.stringify(artifacts.routeInventory, null, 2)}\n`, "utf8");
+  fs.writeFileSync(topologyOutput, `${JSON.stringify(artifacts.runtimeTopology, null, 2)}\n`, "utf8");
+  fs.writeFileSync(auditOutput, `${JSON.stringify(artifacts.auditSnapshot, null, 2)}\n`, "utf8");
+
+  return artifacts;
+}
+
+export function renderAuditMarkdown(artifacts: SeparationAuditArtifacts): string {
+  const { auditSnapshot, routeInventory, runtimeTopology } = artifacts;
+
+  const lines: string[] = [];
+  lines.push("# Control Plane Separation Audit");
+  lines.push("");
+  lines.push(`Generated at: ${auditSnapshot.generatedAt}`);
+  lines.push("");
+  lines.push("## Route Summary");
+  lines.push("");
+  lines.push(`- Total routes: ${auditSnapshot.routeSummary.total}`);
+  lines.push(`- API routes: ${auditSnapshot.routeSummary.byKind.api}`);
+  lines.push(`- UI routes: ${auditSnapshot.routeSummary.byKind.ui}`);
+  for (const category of CATEGORY_VALUES) {
+    lines.push(`- ${category}: ${auditSnapshot.routeSummary.byClass[category]}`);
+  }
+  lines.push("");
+  lines.push("## Topology Summary");
+  lines.push("");
+  lines.push(`- Runtimes: ${auditSnapshot.topologySummary.runtimes}`);
+  lines.push(`- Apps: ${auditSnapshot.topologySummary.apps}`);
+  lines.push(`- Workers: ${auditSnapshot.topologySummary.workers}`);
+  lines.push(`- Wrangler configs: ${auditSnapshot.topologySummary.wranglerConfigs}`);
+  lines.push(`- D1 bindings: ${auditSnapshot.topologySummary.dbBindings}`);
+  lines.push(`- Auth DB bindings: ${auditSnapshot.topologySummary.authDbBindings}`);
+  lines.push(`- Queue bindings: ${auditSnapshot.topologySummary.queueBindings}`);
+  lines.push(`- Service bindings: ${auditSnapshot.topologySummary.serviceBindings}`);
+  lines.push(`- Domains: ${auditSnapshot.topologySummary.domains}`);
+  lines.push(`- Env var names: ${auditSnapshot.topologySummary.envVarNames}`);
+  lines.push("");
+  lines.push("## Risk Signals");
+  lines.push("");
+  lines.push(`- Legacy aliases: ${auditSnapshot.legacyAliases.length}`);
+  lines.push(`- Placeholder/demo/mock/TODO signals: ${auditSnapshot.placeholderSignals.length}`);
+  lines.push(`- Cross import signals: ${auditSnapshot.crossImportSignals.length}`);
+  lines.push(`- Blockers: ${auditSnapshot.blockers.length}`);
+  lines.push(`- Unknown review: ${auditSnapshot.unknownReview.length}`);
+  lines.push("");
+  lines.push("## Snapshot Paths");
+  lines.push("");
+  lines.push(`- Route inventory: ${auditSnapshot.routeInventoryPath}`);
+  lines.push(`- Runtime topology: ${auditSnapshot.runtimeTopologyPath}`);
+  lines.push(`- Audit snapshot: ${DEFAULT_AUDIT_OUTPUT}`);
+  lines.push("");
+  lines.push("## Sample Routes");
+  lines.push("");
+  for (const row of routeInventory.entries.slice(0, 10)) {
+    lines.push(`- [${row.kind}] ${row.route} -> ${row.classification}`);
+  }
+  lines.push("");
+  lines.push("## Sample Runtimes");
+  lines.push("");
+  for (const row of runtimeTopology.runtimes.slice(0, 10)) {
+    lines.push(`- ${row.sourceConfigPath} -> ${row.classification} (${row.workerName})`);
+  }
+
+  return `${lines.join("\n")}\n`;
 }
