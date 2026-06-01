@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { resolveTenantId } from "@/lib/tenants/services";
-import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-types";
-import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
+import type { SaasBlueprintDraft } from "@/lib/factory/contracts/blueprints";
+import { withCampamentoBaseProfile } from "@/lib/factory/blueprint-profile";
 import { runAi } from "@/lib/ai/client";
-import { getAllTemplates } from "@/lib/campamento-base/templates/marketplace";
+import { getAllTemplates } from "@/lib/factory/templates/marketplace";
 import {
   buildAdvancedSystemPrompt,
   buildDrakoPartnerSystemPrompt,
@@ -12,8 +12,8 @@ import {
   inferVertical,
   analyzeCompetitors,
   type ChatMessage,
-} from "@/lib/campamento-base/ai-blueprint-v2/prompts";
-import { type BusinessIntelligence, saveBusinessKnowledge } from "@/lib/campamento-base/bi/knowledge-base";
+} from "@/lib/factory/ai-blueprint/prompts";
+import { type BusinessIntelligence, saveBusinessKnowledge } from "@/lib/factory/bi/knowledge-base";
 import { InterviewOrchestrator, type InterviewPhase } from "@/lib/interviews/orchestrator";
 
 export const dynamic = "force-dynamic";

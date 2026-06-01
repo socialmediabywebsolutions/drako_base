@@ -1,0 +1,52 @@
+{
+  "generatedAt": "2026-06-01T09:53:00.796Z",
+  "contractsCatalog": [
+    "ProductManifest",
+    "HealthReport",
+    "ReadinessReport",
+    "ObservabilitySnapshot",
+    "CommandRequest",
+    "CommandResult",
+    "BillingEntitlementSnapshot",
+    "AuditEventEnvelope",
+    "ControlPlaneEventEnvelope",
+    "ProvisioningJobContract",
+    "OperatorCapabilityManifest"
+  ],
+  "routeSummary": {
+    "total": 364,
+    "byDomain": {
+      "product": 55,
+      "control-plane": 57,
+      "factory": 18,
+      "legacy": 234
+    }
+  },
+  "blockedSignals": [
+    {
+      "sourcePath": "package.json",
+      "token": "ARCHIVED_WORKER_BLOCKED",
+      "classification": "legacy-block"
+    },
+    {
+      "sourcePath": "package.json",
+      "token": "CANONICAL_DEPLOY_ONLY",
+      "classification": "legacy-block"
+    },
+    {
+      "sourcePath": "scripts/plan-socialflow-production-execution.ts",
+      "token": "PLACEHOLDER_ONLY",
+      "classification": "placeholder"
+    },
+    {
+      "sourcePath": "src/app/api/factory/provisioning/_blocked.ts",
+      "token": "FACTORY_PROVISIONING_ROUTE_BLOCKED",
+      "classification": "legacy-block"
+    },
+    {
+      "sourcePath": "src/workers/saas-factory-consumer.ts",
+      "token": "LEGACY_SAAS_FACTORY_QUEUE_BLOCKED",
+      "classification": "legacy-block"
+    }
+  ]
+}

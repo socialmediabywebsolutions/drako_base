@@ -16,6 +16,7 @@
     "mentoria:local:qa": "node scripts/local/mentoria-local-qa.mjs",
     "mentoria:local:qa:align-worker": "node scripts/local/mentoria-local-qa.mjs --align-worker",
     "test": "vitest run",
+    "audit:control-plane-separation": "tsx scripts/audit-control-plane-separation.ts --write",
     "check:no-pages": "tsx scripts/check-no-pages.ts",
     "check:no-placeholder-secrets": "node scripts/check-no-placeholder-secrets.mjs",
     "build:artifacts:skeleton": "node scripts/build-artifact-matrix-skeleton.mjs",

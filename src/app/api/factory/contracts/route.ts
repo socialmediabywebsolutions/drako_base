@@ -1,9 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { ContractService } from "@/lib/campamento-base/contracts/service";
+import { ContractService } from "@/lib/factory/contracts/service";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
-import type { BlueprintResponse } from "@/lib/campamento-base/ai-blueprint-v2/prompts";
+import type { BlueprintResponse } from "@/lib/factory/ai-blueprint/prompts";
 
 
 export async function POST(req: NextRequest) {

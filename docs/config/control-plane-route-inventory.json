@@ -1,0 +1,3746 @@
+[
+  {
+    "route": "/api/agents",
+    "filePath": "src/app/api/agents/route.ts",
+    "namespace": "agents",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/ai",
+    "filePath": "src/app/api/ai/route.ts",
+    "namespace": "ai",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/ai/chat",
+    "filePath": "src/app/api/ai/chat/route.ts",
+    "namespace": "ai",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/alerts",
+    "filePath": "src/app/api/alerts/route.ts",
+    "namespace": "alerts",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/analysis/client-social",
+    "filePath": "src/app/api/analysis/client-social/route.ts",
+    "namespace": "analysis",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/analysis/competitor-social",
+    "filePath": "src/app/api/analysis/competitor-social/route.ts",
+    "namespace": "analysis",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/analysis/consolidate",
+    "filePath": "src/app/api/analysis/consolidate/route.ts",
+    "namespace": "analysis",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/analysis/generate-pdf",
+    "filePath": "src/app/api/analysis/generate-pdf/route.ts",
+    "namespace": "analysis",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/analysis/geo",
+    "filePath": "src/app/api/analysis/geo/route.ts",
+    "namespace": "analysis",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/analysis/status",
+    "filePath": "src/app/api/analysis/status/route.ts",
+    "namespace": "analysis",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/analysis/web",
+    "filePath": "src/app/api/analysis/web/route.ts",
+    "namespace": "analysis",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/analytics/holding",
+    "filePath": "src/app/api/analytics/holding/route.ts",
+    "namespace": "analytics",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/appointments",
+    "filePath": "src/app/api/appointments/route.ts",
+    "namespace": "appointments",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/appointments/[id]",
+    "filePath": "src/app/api/appointments/[id]/route.ts",
+    "namespace": "appointments",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/auth/[...nextauth]",
+    "filePath": "src/app/api/auth/[...nextauth]/route.ts",
+    "namespace": "auth",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/auth/login",
+    "filePath": "src/app/api/auth/login/route.ts",
+    "namespace": "auth",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/auth/register",
+    "filePath": "src/app/api/auth/register/route.ts",
+    "namespace": "auth",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/auth/workspace/signup",
+    "filePath": "src/app/api/auth/workspace/signup/route.ts",
+    "namespace": "auth",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/bases/auths/logins",
+    "filePath": "src/app/api/bases/auths/logins/route.ts",
+    "namespace": "bases",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/bases/auths/logouts",
+    "filePath": "src/app/api/bases/auths/logouts/route.ts",
+    "namespace": "bases",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/bases/auths/registrations",
+    "filePath": "src/app/api/bases/auths/registrations/route.ts",
+    "namespace": "bases",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/bases/telemetries/events",
+    "filePath": "src/app/api/bases/telemetries/events/route.ts",
+    "namespace": "bases",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/bi/onboarding",
+    "filePath": "src/app/api/bi/onboarding/route.ts",
+    "namespace": "bi",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/billing/create-checkout",
+    "filePath": "src/app/api/billing/create-checkout/route.ts",
+    "namespace": "billing",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/billing/features/sync-from-plan",
+    "filePath": "src/app/api/billing/features/sync-from-plan/route.ts",
+    "namespace": "billing",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/billing/mentoria/run",
+    "filePath": "src/app/api/billing/mentoria/run/route.ts",
+    "namespace": "billing",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/billing/portal",
+    "filePath": "src/app/api/billing/portal/route.ts",
+    "namespace": "billing",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/billing/subscription",
+    "filePath": "src/app/api/billing/subscription/route.ts",
+    "namespace": "billing",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/billing/webhook",
+    "filePath": "src/app/api/billing/webhook/route.ts",
+    "namespace": "billing",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/blueprints/saas",
+    "filePath": "src/app/api/blueprints/saas/route.ts",
+    "namespace": "blueprints",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/blueprints/saas/interview",
+    "filePath": "src/app/api/blueprints/saas/interview/route.ts",
+    "namespace": "blueprints",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/blueprints/saas/modules",
+    "filePath": "src/app/api/blueprints/saas/modules/route.ts",
+    "namespace": "blueprints",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/branding/settings",
+    "filePath": "src/app/api/branding/settings/route.ts",
+    "namespace": "branding",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/branding/theme",
+    "filePath": "src/app/api/branding/theme/route.ts",
+    "namespace": "branding",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/branding/user-preferences",
+    "filePath": "src/app/api/branding/user-preferences/route.ts",
+    "namespace": "branding",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/campamento-base/contracts",
+    "filePath": "src/app/api/campamento-base/contracts/route.ts",
+    "namespace": "campamento-base",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/campamento-base/operator/whatsapp/daily-summary",
+    "filePath": "src/app/api/campamento-base/operator/whatsapp/daily-summary/route.ts",
+    "namespace": "campamento-base",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/campamento-base/operator/whatsapp/realtime-alert",
+    "filePath": "src/app/api/campamento-base/operator/whatsapp/realtime-alert/route.ts",
+    "namespace": "campamento-base",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/campamento-base/orchestrator",
+    "filePath": "src/app/api/campamento-base/orchestrator/route.ts",
+    "namespace": "campamento-base",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/campamento-base/provisioning/ai",
+    "filePath": "src/app/api/campamento-base/provisioning/ai/route.ts",
+    "namespace": "campamento-base",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/campamento-base/provisioning/branding",
+    "filePath": "src/app/api/campamento-base/provisioning/branding/route.ts",
+    "namespace": "campamento-base",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/campamento-base/provisioning/edge",
+    "filePath": "src/app/api/campamento-base/provisioning/edge/route.ts",
+    "namespace": "campamento-base",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/campamento-base/provisioning/gdpr",
+    "filePath": "src/app/api/campamento-base/provisioning/gdpr/route.ts",
+    "namespace": "campamento-base",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/campamento-base/provisioning/marketing",
+    "filePath": "src/app/api/campamento-base/provisioning/marketing/route.ts",
+    "namespace": "campamento-base",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/campamento-base/provisioning/modules",
+    "filePath": "src/app/api/campamento-base/provisioning/modules/route.ts",
+    "namespace": "campamento-base",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/campamento-base/saas-factory/chat",
+    "filePath": "src/app/api/campamento-base/saas-factory/chat/route.ts",
+    "namespace": "campamento-base",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/campamento-base/supervisor/critical",
+    "filePath": "src/app/api/campamento-base/supervisor/critical/route.ts",
+    "namespace": "campamento-base",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/campamento-base/supervisor/incidents",
+    "filePath": "src/app/api/campamento-base/supervisor/incidents/route.ts",
+    "namespace": "campamento-base",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/campamento-base/supervisor/incidents/[id]",
+    "filePath": "src/app/api/campamento-base/supervisor/incidents/[id]/route.ts",
+    "namespace": "campamento-base",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/campobase/platform",
+    "filePath": "src/app/api/campobase/platform/route.ts",
+    "namespace": "campobase",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/campobase/socialflow",
+    "filePath": "src/app/api/campobase/socialflow/route.ts",
+    "namespace": "campobase",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/catalog/saas",
+    "filePath": "src/app/api/catalog/saas/route.ts",
+    "namespace": "catalog",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/checkout/confirm",
+    "filePath": "src/app/api/checkout/confirm/route.ts",
+    "namespace": "checkout",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/checkout/start",
+    "filePath": "src/app/api/checkout/start/route.ts",
+    "namespace": "checkout",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/client-saas",
+    "filePath": "src/app/api/client-saas/route.ts",
+    "namespace": "client-saas",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/clients",
+    "filePath": "src/app/api/clients/route.ts",
+    "namespace": "clients",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/clients/[id]/overview",
+    "filePath": "src/app/api/clients/[id]/overview/route.ts",
+    "namespace": "clients",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/clinic/appointments",
+    "filePath": "src/app/api/clinic/appointments/route.ts",
+    "namespace": "clinic",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/clinic/appointments/[id]",
+    "filePath": "src/app/api/clinic/appointments/[id]/route.ts",
+    "namespace": "clinic",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/clinic/finance",
+    "filePath": "src/app/api/clinic/finance/route.ts",
+    "namespace": "clinic",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/clinic/leads",
+    "filePath": "src/app/api/clinic/leads/route.ts",
+    "namespace": "clinic",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/clinic/leads/[id]",
+    "filePath": "src/app/api/clinic/leads/[id]/route.ts",
+    "namespace": "clinic",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/clinic/metrics",
+    "filePath": "src/app/api/clinic/metrics/route.ts",
+    "namespace": "clinic",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/clinic/profile",
+    "filePath": "src/app/api/clinic/profile/route.ts",
+    "namespace": "clinic",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/clinic/services",
+    "filePath": "src/app/api/clinic/services/route.ts",
+    "namespace": "clinic",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/companies",
+    "filePath": "src/app/api/companies/route.ts",
+    "namespace": "companies",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/companies/[id]/domains",
+    "filePath": "src/app/api/companies/[id]/domains/route.ts",
+    "namespace": "companies",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/company-domains",
+    "filePath": "src/app/api/company-domains/route.ts",
+    "namespace": "company-domains",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/company-profile",
+    "filePath": "src/app/api/company-profile/route.ts",
+    "namespace": "company-profile",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/contact",
+    "filePath": "src/app/api/contact/route.ts",
+    "namespace": "contact",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/conversation-router",
+    "filePath": "src/app/api/conversation-router/route.ts",
+    "namespace": "conversation-router",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/conversations",
+    "filePath": "src/app/api/conversations/route.ts",
+    "namespace": "conversations",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/conversations/[id]/messages",
+    "filePath": "src/app/api/conversations/[id]/messages/route.ts",
+    "namespace": "conversations",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/core-agents",
+    "filePath": "src/app/api/core-agents/route.ts",
+    "namespace": "core-agents",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/core-departments",
+    "filePath": "src/app/api/core-departments/route.ts",
+    "namespace": "core-departments",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/cron/domains",
+    "filePath": "src/app/api/cron/domains/route.ts",
+    "namespace": "cron",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/cron/growth",
+    "filePath": "src/app/api/cron/growth/route.ts",
+    "namespace": "cron",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/cron/overseer",
+    "filePath": "src/app/api/cron/overseer/route.ts",
+    "namespace": "cron",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/cron/social",
+    "filePath": "src/app/api/cron/social/route.ts",
+    "namespace": "cron",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/cron/social/publish",
+    "filePath": "src/app/api/cron/social/publish/route.ts",
+    "namespace": "cron",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/customer-partner/ensure-and-suggestions",
+    "filePath": "src/app/api/customer-partner/ensure-and-suggestions/route.ts",
+    "namespace": "customer-partner",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/customers",
+    "filePath": "src/app/api/customers/route.ts",
+    "namespace": "customers",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/customers/[id]",
+    "filePath": "src/app/api/customers/[id]/route.ts",
+    "namespace": "customers",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/customers/[id]/appointments",
+    "filePath": "src/app/api/customers/[id]/appointments/route.ts",
+    "namespace": "customers",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/customers/[id]/bookings",
+    "filePath": "src/app/api/customers/[id]/bookings/route.ts",
+    "namespace": "customers",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/customers/[id]/partner",
+    "filePath": "src/app/api/customers/[id]/partner/route.ts",
+    "namespace": "customers",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/customers/[id]/style-notes",
+    "filePath": "src/app/api/customers/[id]/style-notes/route.ts",
+    "namespace": "customers",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/customers/[id]/suggestions",
+    "filePath": "src/app/api/customers/[id]/suggestions/route.ts",
+    "namespace": "customers",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/customers/bookings",
+    "filePath": "src/app/api/customers/bookings/route.ts",
+    "namespace": "customers",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/departments",
+    "filePath": "src/app/api/departments/route.ts",
+    "namespace": "departments",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/dev-architects/alerts",
+    "filePath": "src/app/api/dev-architects/alerts/route.ts",
+    "namespace": "dev-architects",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/dev-architects/checklists",
+    "filePath": "src/app/api/dev-architects/checklists/route.ts",
+    "namespace": "dev-architects",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/dev-architects/metrics",
+    "filePath": "src/app/api/dev-architects/metrics/route.ts",
+    "namespace": "dev-architects",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/dev-architects/projects",
+    "filePath": "src/app/api/dev-architects/projects/route.ts",
+    "namespace": "dev-architects",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/dev-architects/sessions",
+    "filePath": "src/app/api/dev-architects/sessions/route.ts",
+    "namespace": "dev-architects",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/diag",
+    "filePath": "src/app/api/diag/route.ts",
+    "namespace": "diag",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/domains/request",
+    "filePath": "src/app/api/domains/request/route.ts",
+    "namespace": "domains",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/domains/status",
+    "filePath": "src/app/api/domains/status/route.ts",
+    "namespace": "domains",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/domains/verify",
+    "filePath": "src/app/api/domains/verify/route.ts",
+    "namespace": "domains",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/drakos/auths/logins",
+    "filePath": "src/app/api/drakos/auths/logins/route.ts",
+    "namespace": "drakos",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/drakos/auths/logouts",
+    "filePath": "src/app/api/drakos/auths/logouts/route.ts",
+    "namespace": "drakos",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/drakos/auths/registrations",
+    "filePath": "src/app/api/drakos/auths/registrations/route.ts",
+    "namespace": "drakos",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/economy/expenses",
+    "filePath": "src/app/api/economy/expenses/route.ts",
+    "namespace": "economy",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/economy/inventory",
+    "filePath": "src/app/api/economy/inventory/route.ts",
+    "namespace": "economy",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/economy/inventory/movements",
+    "filePath": "src/app/api/economy/inventory/movements/route.ts",
+    "namespace": "economy",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/economy/pricing/settings",
+    "filePath": "src/app/api/economy/pricing/settings/route.ts",
+    "namespace": "economy",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/economy/pricing/suggestions",
+    "filePath": "src/app/api/economy/pricing/suggestions/route.ts",
+    "namespace": "economy",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/economy/profitability",
+    "filePath": "src/app/api/economy/profitability/route.ts",
+    "namespace": "economy",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/economy/services",
+    "filePath": "src/app/api/economy/services/route.ts",
+    "namespace": "economy",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/email-intake/messages",
+    "filePath": "src/app/api/email-intake/messages/route.ts",
+    "namespace": "email-intake",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/email-intake/messages/[id]",
+    "filePath": "src/app/api/email-intake/messages/[id]/route.ts",
+    "namespace": "email-intake",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/email-intake/seed",
+    "filePath": "src/app/api/email-intake/seed/route.ts",
+    "namespace": "email-intake",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/email-intake/summary",
+    "filePath": "src/app/api/email-intake/summary/route.ts",
+    "namespace": "email-intake",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/employees",
+    "filePath": "src/app/api/employees/route.ts",
+    "namespace": "employees",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/employees/[id]",
+    "filePath": "src/app/api/employees/[id]/route.ts",
+    "namespace": "employees",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/employees/[id]/appointments",
+    "filePath": "src/app/api/employees/[id]/appointments/route.ts",
+    "namespace": "employees",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/employees/[id]/compliance",
+    "filePath": "src/app/api/employees/[id]/compliance/route.ts",
+    "namespace": "employees",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/employees/[id]/partner",
+    "filePath": "src/app/api/employees/[id]/partner/route.ts",
+    "namespace": "employees",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/employees/[id]/partner/summary",
+    "filePath": "src/app/api/employees/[id]/partner/summary/route.ts",
+    "namespace": "employees",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/employees/[id]/profitability",
+    "filePath": "src/app/api/employees/[id]/profitability/route.ts",
+    "namespace": "employees",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/employees/[id]/skills",
+    "filePath": "src/app/api/employees/[id]/skills/route.ts",
+    "namespace": "employees",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/employees/compliance/summary",
+    "filePath": "src/app/api/employees/compliance/summary/route.ts",
+    "namespace": "employees",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/employees/hr-settings",
+    "filePath": "src/app/api/employees/hr-settings/route.ts",
+    "namespace": "employees",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/employees/profitability",
+    "filePath": "src/app/api/employees/profitability/route.ts",
+    "namespace": "employees",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/events",
+    "filePath": "src/app/api/events/route.ts",
+    "namespace": "events",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/factory",
+    "filePath": "src/app/api/factory/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/actions",
+    "filePath": "src/app/api/factory/actions/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/blueprints/chat",
+    "filePath": "src/app/api/factory/blueprints/chat/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/contracts",
+    "filePath": "src/app/api/factory/contracts/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/incidents",
+    "filePath": "src/app/api/factory/incidents/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/provisioning/ai",
+    "filePath": "src/app/api/factory/provisioning/ai/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/provisioning/branding",
+    "filePath": "src/app/api/factory/provisioning/branding/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/provisioning/create-saas",
+    "filePath": "src/app/api/factory/provisioning/create-saas/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/provisioning/edge",
+    "filePath": "src/app/api/factory/provisioning/edge/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/provisioning/gdpr",
+    "filePath": "src/app/api/factory/provisioning/gdpr/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/provisioning/jobs/[jobId]",
+    "filePath": "src/app/api/factory/provisioning/jobs/[jobId]/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/provisioning/marketing",
+    "filePath": "src/app/api/factory/provisioning/marketing/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/provisioning/modules",
+    "filePath": "src/app/api/factory/provisioning/modules/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/recovery/auto",
+    "filePath": "src/app/api/factory/recovery/auto/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/recovery/retry-domain-verify",
+    "filePath": "src/app/api/factory/recovery/retry-domain-verify/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/recovery/retry-job",
+    "filePath": "src/app/api/factory/recovery/retry-job/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/status",
+    "filePath": "src/app/api/factory/status/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/factory/trends",
+    "filePath": "src/app/api/factory/trends/route.ts",
+    "namespace": "factory",
+    "domain": "factory",
+    "owner": "factory",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/families",
+    "filePath": "src/app/api/families/route.ts",
+    "namespace": "families",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/features",
+    "filePath": "src/app/api/features/route.ts",
+    "namespace": "features",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/features/[key]",
+    "filePath": "src/app/api/features/[key]/route.ts",
+    "namespace": "features",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/features/sync-from-blueprint",
+    "filePath": "src/app/api/features/sync-from-blueprint/route.ts",
+    "namespace": "features",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/grants",
+    "filePath": "src/app/api/grants/route.ts",
+    "namespace": "grants",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/health",
+    "filePath": "src/app/api/health/route.ts",
+    "namespace": "health",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/health/ai",
+    "filePath": "src/app/api/health/ai/route.ts",
+    "namespace": "health",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/health/db",
+    "filePath": "src/app/api/health/db/route.ts",
+    "namespace": "health",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/health/env",
+    "filePath": "src/app/api/health/env/route.ts",
+    "namespace": "health",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/health/release",
+    "filePath": "src/app/api/health/release/route.ts",
+    "namespace": "health",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/inbox",
+    "filePath": "src/app/api/inbox/route.ts",
+    "namespace": "inbox",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/internal/run-alert-detection",
+    "filePath": "src/app/api/internal/run-alert-detection/route.ts",
+    "namespace": "internal",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/internal/run-daily-summaries",
+    "filePath": "src/app/api/internal/run-daily-summaries/route.ts",
+    "namespace": "internal",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/internal/validate-alerts",
+    "filePath": "src/app/api/internal/validate-alerts/route.ts",
+    "namespace": "internal",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/internal/validate-family-system",
+    "filePath": "src/app/api/internal/validate-family-system/route.ts",
+    "namespace": "internal",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/internal/validate-p0-ai-hardoff",
+    "filePath": "src/app/api/internal/validate-p0-ai-hardoff/route.ts",
+    "namespace": "internal",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/internal/validate-p0-family",
+    "filePath": "src/app/api/internal/validate-p0-family/route.ts",
+    "namespace": "internal",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/internal/validate-summaries",
+    "filePath": "src/app/api/internal/validate-summaries/route.ts",
+    "namespace": "internal",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/internal/validate-whatsapp-flow",
+    "filePath": "src/app/api/internal/validate-whatsapp-flow/route.ts",
+    "namespace": "internal",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/invites/accept",
+    "filePath": "src/app/api/invites/accept/route.ts",
+    "namespace": "invites",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/invites/send",
+    "filePath": "src/app/api/invites/send/route.ts",
+    "namespace": "invites",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/invoices",
+    "filePath": "src/app/api/invoices/route.ts",
+    "namespace": "invoices",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/knowledge-bases",
+    "filePath": "src/app/api/knowledge-bases/route.ts",
+    "namespace": "knowledge-bases",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/knowledge/documents",
+    "filePath": "src/app/api/knowledge/documents/route.ts",
+    "namespace": "knowledge",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/knowledge/documents/[id]",
+    "filePath": "src/app/api/knowledge/documents/[id]/route.ts",
+    "namespace": "knowledge",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/knowledge/documents/[id]/links",
+    "filePath": "src/app/api/knowledge/documents/[id]/links/route.ts",
+    "namespace": "knowledge",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/knowledge/links",
+    "filePath": "src/app/api/knowledge/links/route.ts",
+    "namespace": "knowledge",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/knowledge/spaces",
+    "filePath": "src/app/api/knowledge/spaces/route.ts",
+    "namespace": "knowledge",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/mentoria/academic/analyze",
+    "filePath": "src/app/api/mentoria/academic/analyze/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/academic/progress",
+    "filePath": "src/app/api/mentoria/academic/progress/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/academic/records",
+    "filePath": "src/app/api/mentoria/academic/records/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/academic/records/[id]",
+    "filePath": "src/app/api/mentoria/academic/records/[id]/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/academic/upload",
+    "filePath": "src/app/api/mentoria/academic/upload/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/acquisition",
+    "filePath": "src/app/api/mentoria/acquisition/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/analytics",
+    "filePath": "src/app/api/mentoria/analytics/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/billing/checkout",
+    "filePath": "src/app/api/mentoria/billing/checkout/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/billing/confirm",
+    "filePath": "src/app/api/mentoria/billing/confirm/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/billing/portal",
+    "filePath": "src/app/api/mentoria/billing/portal/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/chat",
+    "filePath": "src/app/api/mentoria/chat/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/exercises",
+    "filePath": "src/app/api/mentoria/exercises/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/family",
+    "filePath": "src/app/api/mentoria/family/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/family/create-student",
+    "filePath": "src/app/api/mentoria/family/create-student/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/family/invite-guardian",
+    "filePath": "src/app/api/mentoria/family/invite-guardian/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/focus",
+    "filePath": "src/app/api/mentoria/focus/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/growth/referrals",
+    "filePath": "src/app/api/mentoria/growth/referrals/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/growth/share-progress",
+    "filePath": "src/app/api/mentoria/growth/share-progress/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/health/ai",
+    "filePath": "src/app/api/mentoria/health/ai/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/health/system",
+    "filePath": "src/app/api/mentoria/health/system/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/hooks/events",
+    "filePath": "src/app/api/mentoria/hooks/events/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/onboarding",
+    "filePath": "src/app/api/mentoria/onboarding/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/planner",
+    "filePath": "src/app/api/mentoria/planner/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/profile",
+    "filePath": "src/app/api/mentoria/profile/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/progress",
+    "filePath": "src/app/api/mentoria/progress/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/session",
+    "filePath": "src/app/api/mentoria/session/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/session/image",
+    "filePath": "src/app/api/mentoria/session/image/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/session/recover",
+    "filePath": "src/app/api/mentoria/session/recover/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/sessions",
+    "filePath": "src/app/api/mentoria/sessions/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/sessions/[id]/bill",
+    "filePath": "src/app/api/mentoria/sessions/[id]/bill/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/sessions/[id]/complete",
+    "filePath": "src/app/api/mentoria/sessions/[id]/complete/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/upgrade",
+    "filePath": "src/app/api/mentoria/upgrade/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentoria/workspace",
+    "filePath": "src/app/api/mentoria/workspace/route.ts",
+    "namespace": "mentoria",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentorias/auths/logins",
+    "filePath": "src/app/api/mentorias/auths/logins/route.ts",
+    "namespace": "mentorias",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentorias/auths/logouts",
+    "filePath": "src/app/api/mentorias/auths/logouts/route.ts",
+    "namespace": "mentorias",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/mentorias/auths/registrations",
+    "filePath": "src/app/api/mentorias/auths/registrations/route.ts",
+    "namespace": "mentorias",
+    "domain": "product",
+    "owner": "mentoria",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/metrics",
+    "filePath": "src/app/api/metrics/route.ts",
+    "namespace": "metrics",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/notifications",
+    "filePath": "src/app/api/notifications/route.ts",
+    "namespace": "notifications",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/onboarding",
+    "filePath": "src/app/api/onboarding/route.ts",
+    "namespace": "onboarding",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/onboarding/chat",
+    "filePath": "src/app/api/onboarding/chat/route.ts",
+    "namespace": "onboarding",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/onboarding/session",
+    "filePath": "src/app/api/onboarding/session/route.ts",
+    "namespace": "onboarding",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/operator/accounting",
+    "filePath": "src/app/api/operator/accounting/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/action-queue",
+    "filePath": "src/app/api/operator/action-queue/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/actions",
+    "filePath": "src/app/api/operator/actions/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/actions/[id]/decision",
+    "filePath": "src/app/api/operator/actions/[id]/decision/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/actions/[id]/dismiss",
+    "filePath": "src/app/api/operator/actions/[id]/dismiss/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/actions/[id]/execute",
+    "filePath": "src/app/api/operator/actions/[id]/execute/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/actions/[id]/snooze",
+    "filePath": "src/app/api/operator/actions/[id]/snooze/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/actions/cleanup",
+    "filePath": "src/app/api/operator/actions/cleanup/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/agents",
+    "filePath": "src/app/api/operator/agents/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/autopilot",
+    "filePath": "src/app/api/operator/autopilot/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/control-snapshot",
+    "filePath": "src/app/api/operator/control-snapshot/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/db/health",
+    "filePath": "src/app/api/operator/db/health/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/domains",
+    "filePath": "src/app/api/operator/domains/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/domains/health",
+    "filePath": "src/app/api/operator/domains/health/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/domains/verify",
+    "filePath": "src/app/api/operator/domains/verify/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/events",
+    "filePath": "src/app/api/operator/events/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/events/rollup",
+    "filePath": "src/app/api/operator/events/rollup/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/governance",
+    "filePath": "src/app/api/operator/governance/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/governance/alerts",
+    "filePath": "src/app/api/operator/governance/alerts/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/marketing",
+    "filePath": "src/app/api/operator/marketing/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/mentoria/health/system",
+    "filePath": "src/app/api/operator/mentoria/health/system/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/observability/failures",
+    "filePath": "src/app/api/operator/observability/failures/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/observability/health",
+    "filePath": "src/app/api/operator/observability/health/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/orchestrator",
+    "filePath": "src/app/api/operator/orchestrator/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/platform",
+    "filePath": "src/app/api/operator/platform/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/portfolio",
+    "filePath": "src/app/api/operator/portfolio/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/profile",
+    "filePath": "src/app/api/operator/profile/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/revenue",
+    "filePath": "src/app/api/operator/revenue/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/saas",
+    "filePath": "src/app/api/operator/saas/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/saas-pricing/recommendations",
+    "filePath": "src/app/api/operator/saas-pricing/recommendations/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/socialflow",
+    "filePath": "src/app/api/operator/socialflow/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/support/tech",
+    "filePath": "src/app/api/operator/support/tech/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/support/tech/[id]/update",
+    "filePath": "src/app/api/operator/support/tech/[id]/update/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/support/tickets",
+    "filePath": "src/app/api/operator/support/tickets/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/support/tickets/[id]/reply",
+    "filePath": "src/app/api/operator/support/tickets/[id]/reply/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/tasks",
+    "filePath": "src/app/api/operator/tasks/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/tasks/materialize-from-growth-autopilot",
+    "filePath": "src/app/api/operator/tasks/materialize-from-growth-autopilot/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/tasks/summary",
+    "filePath": "src/app/api/operator/tasks/summary/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/tax/summary",
+    "filePath": "src/app/api/operator/tax/summary/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/treasury/snapshot",
+    "filePath": "src/app/api/operator/treasury/snapshot/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/vendor/expenses",
+    "filePath": "src/app/api/operator/vendor/expenses/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/vendor/expenses/[id]",
+    "filePath": "src/app/api/operator/vendor/expenses/[id]/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/operator/vendor/snapshot",
+    "filePath": "src/app/api/operator/vendor/snapshot/route.ts",
+    "namespace": "operator",
+    "domain": "control-plane",
+    "owner": "campamento-base",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/orchestrator",
+    "filePath": "src/app/api/orchestrator/route.ts",
+    "namespace": "orchestrator",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/accounting",
+    "filePath": "src/app/api/owner/accounting/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/action-queue",
+    "filePath": "src/app/api/owner/action-queue/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/actions",
+    "filePath": "src/app/api/owner/actions/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/actions/[id]/decision",
+    "filePath": "src/app/api/owner/actions/[id]/decision/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/actions/[id]/dismiss",
+    "filePath": "src/app/api/owner/actions/[id]/dismiss/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/actions/[id]/execute",
+    "filePath": "src/app/api/owner/actions/[id]/execute/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/actions/[id]/snooze",
+    "filePath": "src/app/api/owner/actions/[id]/snooze/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/actions/cleanup",
+    "filePath": "src/app/api/owner/actions/cleanup/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/agents",
+    "filePath": "src/app/api/owner/agents/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/autopilot",
+    "filePath": "src/app/api/owner/autopilot/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/control-snapshot",
+    "filePath": "src/app/api/owner/control-snapshot/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/db/health",
+    "filePath": "src/app/api/owner/db/health/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/domains",
+    "filePath": "src/app/api/owner/domains/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/domains/health",
+    "filePath": "src/app/api/owner/domains/health/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/domains/verify",
+    "filePath": "src/app/api/owner/domains/verify/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/events",
+    "filePath": "src/app/api/owner/events/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/events/rollup",
+    "filePath": "src/app/api/owner/events/rollup/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/factory/actions",
+    "filePath": "src/app/api/owner/factory/actions/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/factory/auto-recovery",
+    "filePath": "src/app/api/owner/factory/auto-recovery/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/factory/incidents",
+    "filePath": "src/app/api/owner/factory/incidents/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/factory/recovery/retry-domain-verify",
+    "filePath": "src/app/api/owner/factory/recovery/retry-domain-verify/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/factory/recovery/retry-job",
+    "filePath": "src/app/api/owner/factory/recovery/retry-job/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/factory/status",
+    "filePath": "src/app/api/owner/factory/status/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/factory/trends",
+    "filePath": "src/app/api/owner/factory/trends/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/governance",
+    "filePath": "src/app/api/owner/governance/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/governance/alerts",
+    "filePath": "src/app/api/owner/governance/alerts/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/marketing",
+    "filePath": "src/app/api/owner/marketing/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/observability/failures",
+    "filePath": "src/app/api/owner/observability/failures/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/observability/health",
+    "filePath": "src/app/api/owner/observability/health/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/orchestrator",
+    "filePath": "src/app/api/owner/orchestrator/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/portfolio",
+    "filePath": "src/app/api/owner/portfolio/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/profile",
+    "filePath": "src/app/api/owner/profile/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/revenue",
+    "filePath": "src/app/api/owner/revenue/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/saas-factory/create-saas",
+    "filePath": "src/app/api/owner/saas-factory/create-saas/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/saas-factory/jobs/[jobId]",
+    "filePath": "src/app/api/owner/saas-factory/jobs/[jobId]/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/saas-pricing/recommendations",
+    "filePath": "src/app/api/owner/saas-pricing/recommendations/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/support/tech",
+    "filePath": "src/app/api/owner/support/tech/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/support/tech/[id]/update",
+    "filePath": "src/app/api/owner/support/tech/[id]/update/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/support/tickets",
+    "filePath": "src/app/api/owner/support/tickets/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/support/tickets/[id]/reply",
+    "filePath": "src/app/api/owner/support/tickets/[id]/reply/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/tasks",
+    "filePath": "src/app/api/owner/tasks/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/tasks/materialize-from-growth-autopilot",
+    "filePath": "src/app/api/owner/tasks/materialize-from-growth-autopilot/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/tasks/summary",
+    "filePath": "src/app/api/owner/tasks/summary/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/tax/summary",
+    "filePath": "src/app/api/owner/tax/summary/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/treasury/snapshot",
+    "filePath": "src/app/api/owner/treasury/snapshot/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/vendor/expenses",
+    "filePath": "src/app/api/owner/vendor/expenses/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/vendor/expenses/[id]",
+    "filePath": "src/app/api/owner/vendor/expenses/[id]/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owner/vendor/snapshot",
+    "filePath": "src/app/api/owner/vendor/snapshot/route.ts",
+    "namespace": "owner",
+    "domain": "legacy",
+    "owner": "campamento-base",
+    "maturity": "compat",
+    "notes": [
+      "compat-surface"
+    ]
+  },
+  {
+    "route": "/api/owners",
+    "filePath": "src/app/api/owners/route.ts",
+    "namespace": "owners",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/packs",
+    "filePath": "src/app/api/packs/route.ts",
+    "namespace": "packs",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/packs/apply",
+    "filePath": "src/app/api/packs/apply/route.ts",
+    "namespace": "packs",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/packs/current",
+    "filePath": "src/app/api/packs/current/route.ts",
+    "namespace": "packs",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/parent/overview",
+    "filePath": "src/app/api/parent/overview/route.ts",
+    "namespace": "parent",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/projects",
+    "filePath": "src/app/api/projects/route.ts",
+    "namespace": "projects",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/projects/[id]",
+    "filePath": "src/app/api/projects/[id]/route.ts",
+    "namespace": "projects",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/projects/[id]/domains",
+    "filePath": "src/app/api/projects/[id]/domains/route.ts",
+    "namespace": "projects",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/projects/[id]/domains/verify",
+    "filePath": "src/app/api/projects/[id]/domains/verify/route.ts",
+    "namespace": "projects",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/projects/[id]/entitlements",
+    "filePath": "src/app/api/projects/[id]/entitlements/route.ts",
+    "namespace": "projects",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/projects/[id]/entitlements/context",
+    "filePath": "src/app/api/projects/[id]/entitlements/context/route.ts",
+    "namespace": "projects",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/provision/commit",
+    "filePath": "src/app/api/provision/commit/route.ts",
+    "namespace": "provision",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/provisioning",
+    "filePath": "src/app/api/provisioning/route.ts",
+    "namespace": "provisioning",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/reports/[id]/pdf",
+    "filePath": "src/app/api/reports/[id]/pdf/route.ts",
+    "namespace": "reports",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/reports/generate",
+    "filePath": "src/app/api/reports/generate/route.ts",
+    "namespace": "reports",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/research/jobs",
+    "filePath": "src/app/api/research/jobs/route.ts",
+    "namespace": "research",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/saas",
+    "filePath": "src/app/api/saas/route.ts",
+    "namespace": "saas",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/saas-agents",
+    "filePath": "src/app/api/saas-agents/route.ts",
+    "namespace": "saas-agents",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/saas/[...path]",
+    "filePath": "src/app/api/saas/[...path]/route.ts",
+    "namespace": "saas",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/saas/domain",
+    "filePath": "src/app/api/saas/domain/route.ts",
+    "namespace": "saas",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/site/clinic/leads",
+    "filePath": "src/app/api/site/clinic/leads/route.ts",
+    "namespace": "site",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/social",
+    "filePath": "src/app/api/social/route.ts",
+    "namespace": "social",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/social-accounts",
+    "filePath": "src/app/api/social-accounts/route.ts",
+    "namespace": "social-accounts",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/social/[...path]",
+    "filePath": "src/app/api/social/[...path]/route.ts",
+    "namespace": "social",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/social/linkedin/callback",
+    "filePath": "src/app/api/social/linkedin/callback/route.ts",
+    "namespace": "social",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/social/linkedin/connect",
+    "filePath": "src/app/api/social/linkedin/connect/route.ts",
+    "namespace": "social",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/social/linkedin/publish",
+    "filePath": "src/app/api/social/linkedin/publish/route.ts",
+    "namespace": "social",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/social/posts",
+    "filePath": "src/app/api/social/posts/route.ts",
+    "namespace": "social",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/socialflow/ai/generate",
+    "filePath": "src/app/api/socialflow/ai/generate/route.ts",
+    "namespace": "socialflow",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/socialflow/ai/regenerate",
+    "filePath": "src/app/api/socialflow/ai/regenerate/route.ts",
+    "namespace": "socialflow",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/socialflow/auths/logins",
+    "filePath": "src/app/api/socialflow/auths/logins/route.ts",
+    "namespace": "socialflow",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/socialflow/auths/logouts",
+    "filePath": "src/app/api/socialflow/auths/logouts/route.ts",
+    "namespace": "socialflow",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/socialflow/auths/registrations",
+    "filePath": "src/app/api/socialflow/auths/registrations/route.ts",
+    "namespace": "socialflow",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/socialflow/campaigns",
+    "filePath": "src/app/api/socialflow/campaigns/route.ts",
+    "namespace": "socialflow",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/socialflow/exports/current",
+    "filePath": "src/app/api/socialflow/exports/current/route.ts",
+    "namespace": "socialflow",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/socialflow/linkedin/callback",
+    "filePath": "src/app/api/socialflow/linkedin/callback/route.ts",
+    "namespace": "socialflow",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/socialflow/linkedin/connect",
+    "filePath": "src/app/api/socialflow/linkedin/connect/route.ts",
+    "namespace": "socialflow",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/socialflow/linkedin/validate-connection",
+    "filePath": "src/app/api/socialflow/linkedin/validate-connection/route.ts",
+    "namespace": "socialflow",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/socialflow/posts",
+    "filePath": "src/app/api/socialflow/posts/route.ts",
+    "namespace": "socialflow",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/socialflow/profile",
+    "filePath": "src/app/api/socialflow/profile/route.ts",
+    "namespace": "socialflow",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/socialflow/setup/status",
+    "filePath": "src/app/api/socialflow/setup/status/route.ts",
+    "namespace": "socialflow",
+    "domain": "product",
+    "owner": "socialflow",
+    "maturity": "canonical",
+    "notes": []
+  },
+  {
+    "route": "/api/stripe/checkout",
+    "filePath": "src/app/api/stripe/checkout/route.ts",
+    "namespace": "stripe",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/stripe/checkout-saas",
+    "filePath": "src/app/api/stripe/checkout-saas/route.ts",
+    "namespace": "stripe",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/stripe/webhook",
+    "filePath": "src/app/api/stripe/webhook/route.ts",
+    "namespace": "stripe",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/stripe/wizard/setup",
+    "filePath": "src/app/api/stripe/wizard/setup/route.ts",
+    "namespace": "stripe",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/students",
+    "filePath": "src/app/api/students/route.ts",
+    "namespace": "students",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/summaries",
+    "filePath": "src/app/api/summaries/route.ts",
+    "namespace": "summaries",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/tasks",
+    "filePath": "src/app/api/tasks/route.ts",
+    "namespace": "tasks",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/tasks/[id]",
+    "filePath": "src/app/api/tasks/[id]/route.ts",
+    "namespace": "tasks",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/tasks/autopilot-materialize",
+    "filePath": "src/app/api/tasks/autopilot-materialize/route.ts",
+    "namespace": "tasks",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/templates",
+    "filePath": "src/app/api/templates/route.ts",
+    "namespace": "templates",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/templates/[slug]",
+    "filePath": "src/app/api/templates/[slug]/route.ts",
+    "namespace": "templates",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/tenants/create",
+    "filePath": "src/app/api/tenants/create/route.ts",
+    "namespace": "tenants",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/tenants/members",
+    "filePath": "src/app/api/tenants/members/route.ts",
+    "namespace": "tenants",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/tenants/switch",
+    "filePath": "src/app/api/tenants/switch/route.ts",
+    "namespace": "tenants",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/test-social-scheduler",
+    "filePath": "src/app/api/test-social-scheduler/route.ts",
+    "namespace": "test-social-scheduler",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/tickets",
+    "filePath": "src/app/api/tickets/route.ts",
+    "namespace": "tickets",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/webhooks/stripe",
+    "filePath": "src/app/api/webhooks/stripe/route.ts",
+    "namespace": "webhooks",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/whatsapp/identities",
+    "filePath": "src/app/api/whatsapp/identities/route.ts",
+    "namespace": "whatsapp",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  },
+  {
+    "route": "/api/whatsapp/inbound",
+    "filePath": "src/app/api/whatsapp/inbound/route.ts",
+    "namespace": "whatsapp",
+    "domain": "legacy",
+    "owner": "drako-root",
+    "maturity": "legacy",
+    "notes": [
+      "root-hybrid-surface"
+    ]
+  }
+]
