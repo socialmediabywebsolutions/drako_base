@@ -1,27 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { planSocialflowProductionExecution } from "../scripts/plan-socialflow-production-execution";
-import * as goNoGoModule from "../scripts/check-socialflow-production-go-no-go";
-
-const baseGoNoGo = () =>
-  ({
-    goForApproval: true,
-    goForExecution: false,
-    status: "GO_FOR_APPROVAL",
-    timestamp: new Date().toISOString(),
-    blockers: ["STAKEHOLDER_APPROVAL_REQUIRED"],
-    approvalsRequired: {} as any,
-    technicalReadiness: {} as any,
-    operationalReadiness: {} as any,
-    rollbackReady: true,
-    onCallRequired: true,
-    productionWindowRequired: true,
-    recommendation: "GO",
-  }) as any;
 
 describe("plan-socialflow-production-execution", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(goNoGoModule, "checkSocialflowProductionGoNoGo").mockResolvedValue(baseGoNoGo());
   });
 
   it("never executes deploy", async () => {
@@ -63,6 +45,19 @@ describe("plan-socialflow-production-execution", () => {
     const plan = await planSocialflowProductionExecution();
     const statuses = plan.missingArtifacts.map((item) => item.status);
     expect(statuses).not.toContain("AVAILABLE");
+  });
+
+  it("builds go/no-go blockers locally without external dependency", async () => {
+    const plan = await planSocialflowProductionExecution();
+    expect(plan.goNoGoGate.goForExecution).toBe(false);
+    expect(plan.goNoGoGate.blockers).toContain("STAKEHOLDER_APPROVAL_REQUIRED");
+    expect(plan.goNoGoGate.blockers).toContain("ON_CALL_ENGINEER_REQUIRED");
+    expect(plan.goNoGoGate.blockers).toContain("PRODUCTION_WINDOW_REQUIRED");
+    expect(
+      plan.goNoGoGate.blockers.some((blocker) =>
+        blocker.startsWith("MISSING_ARTIFACT:apps/socialflow-runtime/wrangler.production.toml"),
+      ),
+    ).toBe(true);
   });
 
   it("keeps missing smoke commands as placeholders", async () => {

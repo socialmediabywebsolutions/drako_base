@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { checkSocialflowProductionGoNoGo } from "./check-socialflow-production-go-no-go";
 
 interface ProductionExecutionPlanOptions {
   json?: boolean;
@@ -108,7 +107,6 @@ export async function planSocialflowProductionExecution(
   options: ProductionExecutionPlanOptions = {},
 ): Promise<ProductionExecutionPlan> {
   const timestamp = new Date().toISOString();
-  const goNoGo = await checkSocialflowProductionGoNoGo();
 
   const artifactRules: ArtifactRule[] = [
     {
@@ -184,6 +182,14 @@ export async function planSocialflowProductionExecution(
   const additionalBlockers = [
     ...missingForExecution.map((artifact) => `MISSING_ARTIFACT:${artifact.artifact}`),
   ];
+  const requiredApprovalBlockers = [
+    "STAKEHOLDER_APPROVAL_REQUIRED",
+    "ON_CALL_ENGINEER_REQUIRED",
+    "PRODUCTION_WINDOW_REQUIRED",
+  ] as const;
+  const goNoGoBlockers = [...requiredApprovalBlockers, ...additionalBlockers];
+  const goForApproval = missingForExecution.length === 0;
+  const goForExecution = false;
 
   const plan: ProductionExecutionPlan = {
     executionAllowed,
@@ -448,9 +454,9 @@ export async function planSocialflowProductionExecution(
       },
     ],
     goNoGoGate: {
-      goForApproval: goNoGo.goForApproval,
-      goForExecution: false,
-      blockers: [...goNoGo.blockers, ...additionalBlockers],
+      goForApproval,
+      goForExecution,
+      blockers: goNoGoBlockers,
     },
   };
 
