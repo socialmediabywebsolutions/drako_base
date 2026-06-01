@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-01T17:30:00.000Z",
-  "scope": "P0.7 legacy alias usage reader + cut criteria phase",
+  "generatedAt": "2026-06-01T18:05:00.000Z",
+  "scope": "P0.8 legacy alias sunset decision pack phase",
   "summary": {
     "counts": {
       "ownerAliases": 48,
@@ -994,6 +994,17 @@
     },
     {
       "phase": "P0.8",
+      "goal": "Build sunset decision pack without cutting routes",
+      "exitCriteria": [
+        "decision pack generated",
+        "alias classes assigned",
+        "rollback checklist defined",
+        "approval checklist defined",
+        "readyForCut false by default"
+      ]
+    },
+    {
+      "phase": "P0.9",
       "goal": "Selective cut with explicit approvals",
       "exitCriteria": [
         "legacy traffic data reviewed",
@@ -1050,8 +1061,18 @@
       ]
     }
   },
+  "decisionPackPhase": {
+    "phase": "P0.8",
+    "status": "active",
+    "cutsAllowed": false,
+    "decisionScript": "scripts/prepare-legacy-alias-sunset-decision.ts",
+    "decisionDocument": "docs/architecture/legacy-alias-sunset-decision-pack.md",
+    "defaultClassWhenNoData": "KEEP_COMPAT or READY_FOR_OBSERVATION",
+    "readyForCutDefault": false,
+    "requiresHumanApproval": true
+  },
   "notes": [
     "Owner/campobase remain compatibility-only surfaces.",
-    "No alias is removed in P0.7."
+    "No alias is removed in P0.8."
   ]
 }
