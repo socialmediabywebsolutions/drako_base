@@ -7,7 +7,6 @@ export type SocialRepositoryContext = {
   tenantId: string;
   saasId: string | null;
   mode: "d1";
-  coreDb?: D1Database;
   socialDb: D1Database;
   env?: DracoEnv | null;
 };
@@ -159,7 +158,6 @@ export function createSocialRepositoryContextWithCoreProjection(input: {
     tenantId: input.tenantId,
     saasId: input.saasId,
     mode: "d1",
-    coreDb: input.runtimeEnv.DRACO_DB,
     socialDb: input.runtimeEnv.SOCIAL_DB,
     env: input.runtimeEnv,
   };

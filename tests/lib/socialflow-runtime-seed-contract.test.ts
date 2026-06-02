@@ -9,24 +9,12 @@ type RuntimeSeedRow = {
 };
 
 const state = vi.hoisted(() => ({
-  coreDb: {} as D1Database,
   socialDb: {} as D1Database,
-  coreSeed: null as RuntimeSeedRow | null,
   socialSeed: null as RuntimeSeedRow | null,
   socialError: null as Error | null,
-  coreError: null as Error | null,
   socialQueryCount: 0,
   coreQueryCount: 0,
 }));
-
-const ensureDracoDb = vi.hoisted(() =>
-  vi.fn(() => {
-    if (!state.coreDb) {
-      throw new Error("DRACO_DB_MISSING");
-    }
-    return state.coreDb;
-  }),
-);
 
 const ensureSocialDb = vi.hoisted(() =>
   vi.fn(() => {
@@ -44,17 +32,11 @@ const queryOne = vi.hoisted(() =>
       if (state.socialError) throw state.socialError;
       return state.socialSeed;
     }
-    if (sql.includes("FROM saas")) {
-      state.coreQueryCount += 1;
-      if (state.coreError) throw state.coreError;
-      return state.coreSeed;
-    }
     return null;
   }),
 );
 
 vi.mock("../../apps/socialflow-runtime/src/lib/db/runtime-db", () => ({
-  ensureDracoDb,
   ensureSocialDb,
   queryOne,
 }));
@@ -66,12 +48,9 @@ describe("socialflow runtime seed contract", () => {
   const tenantId = "tenant_socialflow_canary";
 
   beforeEach(() => {
-    state.coreDb = {} as D1Database;
     state.socialDb = {} as D1Database;
-    state.coreSeed = null;
     state.socialSeed = null;
     state.socialError = null;
-    state.coreError = null;
     state.socialQueryCount = 0;
     state.coreQueryCount = 0;
     setSocialFlowRuntimeEnv(null);
@@ -79,13 +58,7 @@ describe("socialflow runtime seed contract", () => {
     vi.clearAllMocks();
   });
 
-  it("uses core fallback when switch is off", async () => {
-    state.coreSeed = {
-      id: "saas_core_1",
-      slug: "socialflow",
-      name: "Core Seed",
-      blueprint_snapshot: null,
-    };
+  it("returns null when switch is off instead of falling back to core", async () => {
     state.socialSeed = {
       id: "saas_social_1",
       slug: "socialflow",
@@ -96,19 +69,13 @@ describe("socialflow runtime seed contract", () => {
 
     const seed = await resolveRuntimeSocialSaasSeedContract(tenantId);
 
-    expect(seed?.id).toBe("saas_core_1");
+    expect(seed).toBeNull();
     expect(state.socialQueryCount).toBe(0);
-    expect(state.coreQueryCount).toBe(1);
+    expect(state.coreQueryCount).toBe(0);
   });
 
   it("uses SOCIAL_DB when switch is on and active seed exists", async () => {
     process.env.SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "1";
-    state.coreSeed = {
-      id: "saas_core_1",
-      slug: "socialflow",
-      name: "Core Seed",
-      blueprint_snapshot: null,
-    };
     state.socialSeed = {
       id: "saas_social_1",
       slug: "socialflow",
@@ -128,12 +95,6 @@ describe("socialflow runtime seed contract", () => {
     setSocialFlowRuntimeEnv({
       SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH: "1",
     });
-    state.coreSeed = {
-      id: "saas_core_binding_1",
-      slug: "socialflow",
-      name: "Core Seed Binding",
-      blueprint_snapshot: null,
-    };
     state.socialSeed = {
       id: "saas_social_binding_1",
       slug: "socialflow",
@@ -153,12 +114,6 @@ describe("socialflow runtime seed contract", () => {
     setSocialFlowRuntimeEnv({
       SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH: 1 as unknown as string,
     });
-    state.coreSeed = {
-      id: "saas_core_binding_num_1",
-      slug: "socialflow",
-      name: "Core Seed Binding Numeric",
-      blueprint_snapshot: null,
-    };
     state.socialSeed = {
       id: "saas_social_binding_num_1",
       slug: "socialflow",
@@ -174,14 +129,18 @@ describe("socialflow runtime seed contract", () => {
     expect(state.coreQueryCount).toBe(0);
   });
 
-  it("falls back to core when switch is on but social seed is missing or inactive", async () => {
+  it("returns null when switch is on but social seed is missing", async () => {
     process.env.SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "1";
-    state.coreSeed = {
-      id: "saas_core_2",
-      slug: "socialflow",
-      name: "Core Seed 2",
-      blueprint_snapshot: null,
-    };
+
+    const seed = await resolveRuntimeSocialSaasSeedContract(tenantId);
+
+    expect(seed).toBeNull();
+    expect(state.socialQueryCount).toBe(1);
+    expect(state.coreQueryCount).toBe(0);
+  });
+
+  it("returns null when switch is on but social seed is inactive", async () => {
+    process.env.SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "1";
     state.socialSeed = {
       id: "saas_social_2",
       slug: "socialflow",
@@ -192,25 +151,19 @@ describe("socialflow runtime seed contract", () => {
 
     const seed = await resolveRuntimeSocialSaasSeedContract(tenantId);
 
-    expect(seed?.id).toBe("saas_core_2");
+    expect(seed).toBeNull();
     expect(state.socialQueryCount).toBe(1);
-    expect(state.coreQueryCount).toBe(1);
+    expect(state.coreQueryCount).toBe(0);
   });
 
-  it("keeps working when SOCIAL_DB read errors and core fallback is available", async () => {
+  it("returns null when SOCIAL_DB read errors instead of falling back to core", async () => {
     process.env.SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "1";
     state.socialError = new Error("SOCIAL_DB_READ_FAILED");
-    state.coreSeed = {
-      id: "saas_core_3",
-      slug: "socialflow",
-      name: "Core Seed 3",
-      blueprint_snapshot: null,
-    };
 
     const seed = await resolveRuntimeSocialSaasSeedContract(tenantId);
 
-    expect(seed?.id).toBe("saas_core_3");
+    expect(seed).toBeNull();
     expect(state.socialQueryCount).toBe(1);
-    expect(state.coreQueryCount).toBe(1);
+    expect(state.coreQueryCount).toBe(0);
   });
 });
