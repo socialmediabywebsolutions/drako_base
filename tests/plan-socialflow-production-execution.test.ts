@@ -81,6 +81,12 @@ describe("plan-socialflow-production-execution", () => {
     const routingReviewPack = plan.artifactInventory.find(
       (item) => item.artifact === "docs/architecture/socialflow-production-routing-review-pack.md",
     );
+    const rollbackDrillScript = plan.artifactInventory.find(
+      (item) => item.artifact === "scripts/simulate-socialflow-production-rollback.ts",
+    );
+    const rollbackDrillPack = plan.artifactInventory.find(
+      (item) => item.artifact === "docs/architecture/socialflow-production-rollback-drill.md",
+    );
 
     expect(runbook).toBeDefined();
     expect(runbook?.present).toBe(true);
@@ -94,6 +100,14 @@ describe("plan-socialflow-production-execution", () => {
     expect(routingReviewPack).toBeDefined();
     expect(routingReviewPack?.present).toBe(true);
     expect(routingReviewPack?.status).toBe("PRESENT");
+    expect(rollbackDrillScript).toBeDefined();
+    expect(rollbackDrillScript?.present).toBe(true);
+    expect(rollbackDrillScript?.status).toBe("PRESENT");
+    expect(rollbackDrillScript?.requiredForExecution).toBe(true);
+    expect(rollbackDrillPack).toBeDefined();
+    expect(rollbackDrillPack?.present).toBe(true);
+    expect(rollbackDrillPack?.status).toBe("PRESENT");
+    expect(rollbackDrillPack?.requiredForExecution).toBe(true);
   });
 
   it("tracks manual/rollback/window validators as present artifacts", async () => {
@@ -130,6 +144,16 @@ describe("plan-socialflow-production-execution", () => {
     expect(routingReviewPack?.present).toBe(true);
     expect(routingReviewPack?.status).toBe("PRESENT");
     expect(routingReviewPack?.requiredForExecution).toBe(true);
+  });
+
+  it("includes rollback drill planning in the pre-execution checklist", async () => {
+    const plan = await planSocialflowProductionExecution();
+    const rollbackDrillStep = plan.preExecution.find((step) => step.step === "Verify Rollback Drill Simulation");
+
+    expect(rollbackDrillStep).toBeDefined();
+    expect(rollbackDrillStep?.required).toBe(true);
+    expect(rollbackDrillStep?.description).toContain("planned-only rollback drill script");
+    expect(rollbackDrillStep?.description).toContain("drill doc");
   });
 
   it("keeps deploy command as planned template review required", async () => {

@@ -117,6 +117,17 @@ describe("prepare-socialflow-production-approval-pack", () => {
     expect(report.routingReviewStatus.manualConfigurationRequired).toBe(true);
     expect(report.routingReviewStatus.dnsRoutingRequired).toBe(true);
     expect(report.routingReviewStatus.productionTouchAllowed).toBe(false);
+    expect(report.rollbackDrillRequired).toBe(true);
+    expect(report.rollbackDrillSatisfiedForReview).toBe(false);
+    expect(report.rollbackDrillStatus.status).toBe("SOCIALFLOW_PRODUCTION_ROLLBACK_DRILL_BLOCKED");
+    expect(report.rollbackDrillStatus.rollbackDrillPackPresent).toBe(true);
+    expect(report.rollbackDrillStatus.rollbackDrillScriptPresent).toBe(true);
+    expect(report.rollbackDrillStatus.readyForPlanning).toBe(false);
+    expect(report.rollbackDrillStatus.readyForExecution).toBe(false);
+    expect(report.rollbackDrillStatus.executionAllowed).toBe(false);
+    expect(report.rollbackDrillStatus.commandsArePlannedOnly).toBe(true);
+    expect(report.rollbackDrillStatus.requiresHumanApproval).toBe(true);
+    expect(report.rollbackDrillStatus.productionTouchAllowed).toBe(false);
   });
 
   it("keeps fixture-mode review readiness planned-only", async () => {
@@ -145,6 +156,17 @@ describe("prepare-socialflow-production-approval-pack", () => {
     expect(report.routingReviewStatus.executionAllowed).toBe(false);
     expect(report.routingReviewStatus.commandsArePlannedOnly).toBe(true);
     expect(report.routingReviewStatus.requiresHumanApproval).toBe(true);
+    expect(report.rollbackDrillRequired).toBe(true);
+    expect(report.rollbackDrillSatisfiedForReview).toBe(true);
+    expect(report.rollbackDrillStatus.status).toBe("SOCIALFLOW_PRODUCTION_ROLLBACK_DRILL_READY_FOR_REVIEW");
+    expect(report.rollbackDrillStatus.rollbackDrillPackPresent).toBe(true);
+    expect(report.rollbackDrillStatus.rollbackDrillScriptPresent).toBe(true);
+    expect(report.rollbackDrillStatus.readyForPlanning).toBe(true);
+    expect(report.rollbackDrillStatus.readyForExecution).toBe(false);
+    expect(report.rollbackDrillStatus.executionAllowed).toBe(false);
+    expect(report.rollbackDrillStatus.commandsArePlannedOnly).toBe(true);
+    expect(report.rollbackDrillStatus.requiresHumanApproval).toBe(true);
+    expect(report.rollbackDrillStatus.productionTouchAllowed).toBe(false);
   });
 
   it("keeps required execution blockers even when planning approval is ready", async () => {
@@ -295,6 +317,9 @@ describe("prepare-socialflow-production-approval-pack", () => {
     expect(report).toHaveProperty("productionTouchAllowed");
     expect(report).toHaveProperty("manualConfigurationSatisfiedForReview");
     expect(report).toHaveProperty("rollbackSatisfiedForReview");
+    expect(report).toHaveProperty("rollbackDrillRequired");
+    expect(report).toHaveProperty("rollbackDrillSatisfiedForReview");
+    expect(report).toHaveProperty("rollbackDrillStatus");
     expect(report).toHaveProperty("monitoringSatisfiedForReview");
     expect(report).toHaveProperty("productionWindowSatisfiedForReview");
     expect(() => JSON.stringify(report)).not.toThrow();

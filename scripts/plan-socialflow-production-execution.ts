@@ -233,6 +233,20 @@ export async function planSocialflowProductionExecution(
       commandReference: "docs/architecture/socialflow-production-routing-review-pack.md",
     },
     {
+      artifact: "scripts/simulate-socialflow-production-rollback.ts",
+      statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
+      reason: "Rollback drill simulation script is required before any production execution review.",
+      requiredForExecution: true,
+      commandReference: "pnpm tsx scripts/simulate-socialflow-production-rollback.ts --json",
+    },
+    {
+      artifact: "docs/architecture/socialflow-production-rollback-drill.md",
+      statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
+      reason: "Rollback drill pack is required before any production execution review.",
+      requiredForExecution: true,
+      commandReference: "docs/architecture/socialflow-production-rollback-drill.md",
+    },
+    {
       artifact: "scripts/check-socialflow-production-manual-config.ts",
       statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
       reason: "Manual configuration validator is required before any production execution review.",
@@ -363,6 +377,12 @@ export async function planSocialflowProductionExecution(
         step: "Verify Rollback Owner",
         required: true,
         description: "Confirm rollback owner is designated and prepared.",
+      },
+      {
+        step: "Verify Rollback Drill Simulation",
+        required: true,
+        description:
+          "Confirm the planned-only rollback drill script and drill doc exist, and that the drill stays fixture-backed.",
       },
       {
         step: "Verify Cloudflare Access",

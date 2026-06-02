@@ -8,6 +8,7 @@ import { checkSocialflowProductionManualConfig } from "./check-socialflow-produc
 import { checkSocialflowProductionRollbackReadiness } from "./check-socialflow-production-rollback-readiness";
 import { checkSocialflowProductionWindowReadiness } from "./check-socialflow-production-window-readiness";
 import { loadSocialflowPlannedApprovalFixture } from "./lib/socialflow-production-planned-approval-fixture";
+import { simulateSocialflowProductionRollback } from "./simulate-socialflow-production-rollback";
 import { reviewSocialflowProductionRouting } from "./review-socialflow-production-routing";
 
 interface ApprovalPackOptions {
@@ -44,6 +45,8 @@ interface ApprovalPackReport {
   dnsRoutingRequired: true;
   rollbackRequired: true;
   rollbackSatisfiedForReview: boolean;
+  rollbackDrillRequired: true;
+  rollbackDrillSatisfiedForReview: boolean;
   monitoringRequired: true;
   monitoringSatisfiedForReview: boolean;
   productionWindowRequired: true;
@@ -143,6 +146,20 @@ interface ApprovalPackReport {
     dnsRoutingRequired: true;
     productionTouchAllowed: false;
   };
+  rollbackDrillStatus: {
+    status:
+      | "SOCIALFLOW_PRODUCTION_ROLLBACK_DRILL_BLOCKED"
+      | "SOCIALFLOW_PRODUCTION_ROLLBACK_DRILL_READY_FOR_REVIEW"
+      | "SOCIALFLOW_PRODUCTION_ROLLBACK_DRILL_TOKEN_LEAKAGE_BLOCKER";
+    rollbackDrillPackPresent: boolean;
+    rollbackDrillScriptPresent: boolean;
+    readyForPlanning: boolean;
+    readyForExecution: false;
+    executionAllowed: false;
+    commandsArePlannedOnly: true;
+    requiresHumanApproval: true;
+    productionTouchAllowed: false;
+  };
   monitoringEvidence: {
     daysMonitored: number;
     minimumDaysReached: boolean;
@@ -195,6 +212,8 @@ const ARTIFACT_PATHS = {
   dayMonitor: "scripts/monitor-socialflow-production-day.ts",
   routingReviewScript: "scripts/review-socialflow-production-routing.ts",
   routingReviewPack: "docs/architecture/socialflow-production-routing-review-pack.md",
+  rollbackDrillScript: "scripts/simulate-socialflow-production-rollback.ts",
+  rollbackDrillPack: "docs/architecture/socialflow-production-rollback-drill.md",
   controlledRunbook: "docs/runbooks/socialflow-production-controlled-execution.md",
   decisionPack: "docs/architecture/socialflow-production-approval-pack.md",
 } as const;
@@ -219,6 +238,7 @@ function printNormal(report: ApprovalPackReport): void {
   console.log(`- Production Touch Allowed: ${report.productionTouchAllowed ? "YES" : "NO"}`);
   console.log(`- Manual Config Satisfied For Review: ${report.manualConfigurationSatisfiedForReview ? "YES" : "NO"}`);
   console.log(`- Rollback Satisfied For Review: ${report.rollbackSatisfiedForReview ? "YES" : "NO"}`);
+  console.log(`- Rollback Drill Satisfied For Review: ${report.rollbackDrillSatisfiedForReview ? "YES" : "NO"}`);
   console.log(`- Monitoring Satisfied For Review: ${report.monitoringSatisfiedForReview ? "YES" : "NO"}`);
   console.log(`- Production Window Satisfied For Review: ${report.productionWindowSatisfiedForReview ? "YES" : "NO"}\n`);
 
@@ -231,6 +251,16 @@ function printNormal(report: ApprovalPackReport): void {
   console.log(`- Routing Execution Allowed: ${report.routingReviewStatus.executionAllowed ? "YES" : "NO"}`);
   console.log(`- Routing Commands Are Planned Only: ${report.routingReviewStatus.commandsArePlannedOnly ? "YES" : "NO"}`);
   console.log(`- Routing Requires Human Approval: ${report.routingReviewStatus.requiresHumanApproval ? "YES" : "NO"}\n`);
+
+  console.log("## P1.6 Rollback Drill\n");
+  console.log(`- Rollback Drill Status: ${report.rollbackDrillStatus.status}`);
+  console.log(`- Rollback Drill Pack Present: ${report.rollbackDrillStatus.rollbackDrillPackPresent ? "YES" : "NO"}`);
+  console.log(`- Rollback Drill Script Present: ${report.rollbackDrillStatus.rollbackDrillScriptPresent ? "YES" : "NO"}`);
+  console.log(`- Rollback Ready For Planning: ${report.rollbackDrillStatus.readyForPlanning ? "YES" : "NO"}`);
+  console.log(`- Rollback Ready For Execution: ${report.rollbackDrillStatus.readyForExecution ? "YES" : "NO"}`);
+  console.log(`- Rollback Execution Allowed: ${report.rollbackDrillStatus.executionAllowed ? "YES" : "NO"}`);
+  console.log(`- Rollback Commands Are Planned Only: ${report.rollbackDrillStatus.commandsArePlannedOnly ? "YES" : "NO"}`);
+  console.log(`- Rollback Requires Human Approval: ${report.rollbackDrillStatus.requiresHumanApproval ? "YES" : "NO"}\n`);
 
   console.log("READINESS SUMMARY");
   console.log(
@@ -269,6 +299,7 @@ function printNormal(report: ApprovalPackReport): void {
   console.log(`- manualConfigurationRequired: ${report.manualConfigurationRequired}`);
   console.log(`- dnsRoutingRequired: ${report.dnsRoutingRequired}`);
   console.log(`- rollbackRequired: ${report.rollbackRequired}`);
+  console.log(`- rollbackDrillRequired: ${report.rollbackDrillRequired}`);
   console.log(`- monitoringRequired: ${report.monitoringRequired}`);
   console.log(`- humanApprovalRequired: ${report.humanApprovalRequired}\n`);
 
@@ -298,6 +329,7 @@ function printMarkdown(report: ApprovalPackReport): void {
   console.log(`- Production Touch Allowed: ${report.productionTouchAllowed ? "YES" : "NO"}`);
   console.log(`- Manual Config Satisfied For Review: ${report.manualConfigurationSatisfiedForReview ? "YES" : "NO"}`);
   console.log(`- Rollback Satisfied For Review: ${report.rollbackSatisfiedForReview ? "YES" : "NO"}`);
+  console.log(`- Rollback Drill Satisfied For Review: ${report.rollbackDrillSatisfiedForReview ? "YES" : "NO"}`);
   console.log(`- Monitoring Satisfied For Review: ${report.monitoringSatisfiedForReview ? "YES" : "NO"}`);
   console.log(`- Production Window Satisfied For Review: ${report.productionWindowSatisfiedForReview ? "YES" : "NO"}\n`);
 
@@ -323,6 +355,7 @@ function printMarkdown(report: ApprovalPackReport): void {
   console.log(`- manualConfigurationRequired: ${report.manualConfigurationRequired}`);
   console.log(`- dnsRoutingRequired: ${report.dnsRoutingRequired}`);
   console.log(`- rollbackRequired: ${report.rollbackRequired}`);
+  console.log(`- rollbackDrillRequired: ${report.rollbackDrillRequired}`);
   console.log(`- monitoringRequired: ${report.monitoringRequired}`);
   console.log(`- humanApprovalRequired: ${report.humanApprovalRequired}\n`);
 
@@ -372,6 +405,7 @@ export async function prepareSocialflowProductionApprovalPack(
   const rollbackReadiness = await checkSocialflowProductionRollbackReadiness({ silent: true, fixture: fixturePath });
   const productionWindow = await checkSocialflowProductionWindowReadiness({ silent: true, fixture: fixturePath });
   const routingReview = await reviewSocialflowProductionRouting({ silent: true, fixture: fixturePath });
+  const rollbackDrill = await simulateSocialflowProductionRollback({ silent: true, fixture: fixturePath });
 
   let parityResult;
   try {
@@ -392,6 +426,8 @@ export async function prepareSocialflowProductionApprovalPack(
   const monitorPresent = artifactExists(ARTIFACT_PATHS.dayMonitor);
   const routingReviewScriptPresent = artifactExists(ARTIFACT_PATHS.routingReviewScript);
   const routingReviewPackPresent = artifactExists(ARTIFACT_PATHS.routingReviewPack);
+  const rollbackDrillScriptPresent = artifactExists(ARTIFACT_PATHS.rollbackDrillScript);
+  const rollbackDrillPackPresent = artifactExists(ARTIFACT_PATHS.rollbackDrillPack);
   const runbookPresent = artifactExists(ARTIFACT_PATHS.controlledRunbook);
   const decisionPackPresent = artifactExists(ARTIFACT_PATHS.decisionPack);
 
@@ -403,6 +439,8 @@ export async function prepareSocialflowProductionApprovalPack(
   if (!monitorPresent) missingArtifacts.push(ARTIFACT_PATHS.dayMonitor);
   if (!routingReviewScriptPresent) missingArtifacts.push(ARTIFACT_PATHS.routingReviewScript);
   if (!routingReviewPackPresent) missingArtifacts.push(ARTIFACT_PATHS.routingReviewPack);
+  if (!rollbackDrillScriptPresent) missingArtifacts.push(ARTIFACT_PATHS.rollbackDrillScript);
+  if (!rollbackDrillPackPresent) missingArtifacts.push(ARTIFACT_PATHS.rollbackDrillPack);
   if (!runbookPresent) missingArtifacts.push(ARTIFACT_PATHS.controlledRunbook);
   if (!decisionPackPresent) missingArtifacts.push(ARTIFACT_PATHS.decisionPack);
 
@@ -441,12 +479,16 @@ export async function prepareSocialflowProductionApprovalPack(
     rollbackReadiness.status === "SOCIALFLOW_PRODUCTION_ROLLBACK_READY_FOR_REVIEW";
   const productionWindowSatisfiedForReview =
     productionWindow.status === "SOCIALFLOW_PRODUCTION_WINDOW_READY_FOR_REVIEW";
+  const rollbackDrillSatisfiedForReview =
+    rollbackDrill.status === "SOCIALFLOW_PRODUCTION_ROLLBACK_DRILL_READY_FOR_REVIEW";
+  const routingReviewReadyForPlanning = routingReview.ok === true;
+  const routingReviewReviewHealthy = !fixtureResolution.fixtureMode || routingReviewReadyForPlanning;
+  const rollbackDrillReviewHealthy = !fixtureResolution.fixtureMode || rollbackDrillSatisfiedForReview;
   const monitoringSatisfiedForReview =
     productionWindowSatisfiedForReview
     && productionWindow.monitoringPlanPresent
     && productionWindow.smokeSequencePresent
     && productionWindow.abortCriteriaPresent;
-  const routingReviewReadyForPlanning = routingReview.ok === true;
 
   if (missingArtifacts.length > 0) blockers.add("MISSING_ARTIFACTS");
   if (!safetyGateOk) blockers.add("SAFETY_GATE_NOT_OK");
@@ -485,7 +527,9 @@ export async function prepareSocialflowProductionApprovalPack(
     remoteWrites === 0 &&
     !tokenLeakageDetected &&
     rollbackCommandsAvailable &&
-    cutoverReadyForPlanning;
+    cutoverReadyForPlanning &&
+    routingReviewReviewHealthy &&
+    rollbackDrillReviewHealthy;
 
   const manualConfigurationApproved = false;
   const rollbackValidatedForExecution = false;
@@ -547,6 +591,8 @@ export async function prepareSocialflowProductionApprovalPack(
     dnsRoutingRequired: true,
     rollbackRequired: true,
     rollbackSatisfiedForReview,
+    rollbackDrillRequired: true,
+    rollbackDrillSatisfiedForReview,
     monitoringRequired: true,
     monitoringSatisfiedForReview,
     productionWindowRequired: true,
@@ -633,6 +679,17 @@ export async function prepareSocialflowProductionApprovalPack(
       dnsRoutingRequired: true,
       productionTouchAllowed: false,
     },
+    rollbackDrillStatus: {
+      status: rollbackDrill.status,
+      rollbackDrillPackPresent,
+      rollbackDrillScriptPresent,
+      readyForPlanning: rollbackDrillSatisfiedForReview,
+      readyForExecution: false,
+      executionAllowed: false,
+      commandsArePlannedOnly: true,
+      requiresHumanApproval: true,
+      productionTouchAllowed: false,
+    },
     monitoringEvidence: {
       daysMonitored,
       minimumDaysReached: minimumMonitoringReached,
@@ -673,10 +730,10 @@ export async function prepareSocialflowProductionApprovalPack(
     noDeployConfirmation: true,
     noProductionTouchConfirmation: !productionTouched,
     goNoGoRecommendation: readyForApproval
-      ? "GO_FOR_PLANNING_APPROVAL_ONLY - Execution remains blocked until DNS/routing, rollback validation, monitoring, and human approvals are complete."
+      ? "GO_FOR_PLANNING_APPROVAL_ONLY - Execution remains blocked until DNS/routing, rollback validation, rollback drill, monitoring, and human approvals are complete."
       : `NO_GO - Resolve blockers first: ${blockersList.join(", ")}`,
     executionAllowedStatement:
-      "EXECUTION NOT ALLOWED - planning artifacts are ready, but manual configuration, DNS/routing, rollback validation, monitoring, and human approvals are still required.",
+      "EXECUTION NOT ALLOWED - planning artifacts are ready, but manual configuration, DNS/routing, rollback validation, rollback drill, monitoring, and human approvals are still required.",
     nextAction: readyForApproval
       ? "COMPLETE_MANUAL_CONFIG_AND_APPROVAL_WINDOW_BEFORE_ANY_EXECUTION"
       : "RESOLVE_TECHNICAL_AND_ARTIFACT_BLOCKERS",

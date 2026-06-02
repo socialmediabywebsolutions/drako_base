@@ -61,3 +61,12 @@ Completar configuración manual, DNS/routing, validación de rollback, monitorin
 - `routingReviewStatus` debe permanecer `READY_FOR_PLANNING` solo cuando el fixture planned-only valide host `.invalid`, paths esperados y template con rutas comentadas.
 - `routingReviewPackPresent` debe ser `true` cuando el pack exista y sea referenciable por el approval pack.
 - Esta fase no autoriza cambios DNS, no toca produccion y no habilita execution.
+
+## P1.6 Rollback drill simulation
+- Nuevo script planned-only: `scripts/simulate-socialflow-production-rollback.ts`.
+- Nuevo pack de referencia: `docs/architecture/socialflow-production-rollback-drill.md`.
+- `rollbackDrillStatus` debe permanecer `READY_FOR_REVIEW` solo cuando el fixture planned-only valide los IDs de rollback, la aprobacion humana, el plan de monitoreo y la secuencia de smokes.
+- `rollbackDrillPackPresent` debe ser `true` cuando el pack exista y sea referenciable por el approval pack.
+- `rollbackDrillReadyForExecution=false` siempre.
+- `rollbackDrillExecutionAllowed=false` siempre.
+- Esta fase no autoriza rollback real, no toca produccion, no toca DNS y no habilita execution.

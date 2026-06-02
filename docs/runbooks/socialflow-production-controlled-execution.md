@@ -151,3 +151,11 @@ No deploy todavía. Este runbook no autoriza producción y mantiene ejecución b
 - Mantener `readyForExecution=false`, `executionAllowed=false`, `commandsArePlannedOnly=true` y `requiresHumanApproval=true`.
 - Confirmar que el host fixture siga siendo `.invalid` y que las rutas sigan comentadas en el template productivo.
 - No tocar DNS, no tocar produccion, no ejecutar deploy y no activar cutover en esta fase.
+
+## 23. Rollback drill simulation P1.6
+- Revisar `scripts/simulate-socialflow-production-rollback.ts` antes de cualquier rollback real.
+- Revisar `docs/architecture/socialflow-production-rollback-drill.md` como checklist humano.
+- Mantener `readyForExecution=false`, `executionAllowed=false`, `commandsArePlannedOnly=true`, `rollbackExecutable=false` y `requiresHumanApproval=true`.
+- Confirmar que el fixture planned-only siga usando un host `.invalid` y que los IDs de rollback esten presentes.
+- Confirmar la secuencia planned-only de restore de routing, worker target, config, smokes y monitoring.
+- No ejecutar rollback real, no tocar DNS, no tocar produccion, no ejecutar deploy y no activar cutover en esta fase.
