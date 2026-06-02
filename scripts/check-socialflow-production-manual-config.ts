@@ -1,7 +1,13 @@
+import {
+  loadSocialflowPlannedApprovalFixture,
+  resolvePlannedApprovalField,
+} from "./lib/socialflow-production-planned-approval-fixture";
+
 interface CheckSocialflowProductionManualConfigOptions {
   json?: boolean;
   markdown?: boolean;
   silent?: boolean;
+  fixture?: string;
 }
 
 type ManualConfigStatus =
@@ -9,7 +15,7 @@ type ManualConfigStatus =
   | "SOCIALFLOW_PRODUCTION_MANUAL_CONFIG_BLOCKED"
   | "SOCIALFLOW_PRODUCTION_MANUAL_CONFIG_TOKEN_LEAKAGE_BLOCKER";
 
-type PresenceStatus = "PRESENT" | "MISSING";
+type PresenceStatus = "PRESENT" | "MISSING" | "FIXTURE";
 type RedactionStatus = "REDACTED" | "MISSING";
 
 interface ManualConfigVariableReport {
@@ -28,6 +34,8 @@ interface CheckSocialflowProductionManualConfigReport {
   executionAllowed: false;
   commandsArePlannedOnly: true;
   requiresHumanApproval: true;
+  fixtureMode: boolean;
+  productionTouchAllowed: false;
   variables: ManualConfigVariableReport[];
   missingVariables: string[];
   tokenLeakageDetected: boolean;
@@ -51,31 +59,12 @@ const REQUIRED_ENV_KEYS = [
   "SOCIALFLOW_PRODUCTION_ABORT_CRITERIA_ID",
 ] as const;
 
-const INVALID_PLACEHOLDER_PATTERNS = [
-  /^required_manual_configuration$/i,
-  /^todo$/i,
-  /^tbd$/i,
-  /^pending$/i,
-  /^changeme$/i,
-] as const;
-
 const TOKEN_LEAKAGE_PATTERNS = [
   /\b(access|refresh)_token\b/i,
   /\bauthorization\s*:\s*bearer\b/i,
   /\bset-cookie\b/i,
   /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/,
 ] as const;
-
-function isConfiguredValue(value: string | undefined): boolean {
-  if (!value) {
-    return false;
-  }
-  const normalized = value.trim();
-  if (normalized.length === 0) {
-    return false;
-  }
-  return !INVALID_PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(normalized));
-}
 
 function detectTokenLeakage(value: string): boolean {
   return TOKEN_LEAKAGE_PATTERNS.some((pattern) => pattern.test(value));
@@ -84,6 +73,8 @@ function detectTokenLeakage(value: string): boolean {
 function printNormal(report: CheckSocialflowProductionManualConfigReport): void {
   console.log("\nSOCIALFLOW PRODUCTION MANUAL CONFIG CHECK");
   console.log(`Status: ${report.status}`);
+  console.log(`Fixture Mode: ${report.fixtureMode ? "YES" : "NO"}`);
+  console.log(`Production Touch Allowed: ${report.productionTouchAllowed ? "YES" : "NO"}`);
   console.log(`Manual Configuration Complete: ${report.manualConfigurationComplete ? "YES" : "NO"}`);
   console.log(`Ready for Execution: ${report.readyForExecution ? "YES" : "NO"}`);
   console.log(`Execution Allowed: ${report.executionAllowed ? "YES" : "NO"}`);
@@ -108,6 +99,8 @@ function printNormal(report: CheckSocialflowProductionManualConfigReport): void 
 function printMarkdown(report: CheckSocialflowProductionManualConfigReport): void {
   console.log("\n# SOCIALFLOW PRODUCTION MANUAL CONFIG CHECK\n");
   console.log(`**Status:** ${report.status}`);
+  console.log(`**Fixture Mode:** ${report.fixtureMode ? "YES" : "NO"}`);
+  console.log(`**Production Touch Allowed:** ${report.productionTouchAllowed ? "YES" : "NO"}`);
   console.log(`**Manual Configuration Complete:** ${report.manualConfigurationComplete ? "YES" : "NO"}`);
   console.log(`**Ready for Execution:** ${report.readyForExecution ? "YES" : "NO"}`);
   console.log(`**Execution Allowed:** ${report.executionAllowed ? "YES" : "NO"}`);
@@ -142,22 +135,43 @@ export async function checkSocialflowProductionManualConfig(
   const missingVariables: string[] = [];
   const blockers = new Set<string>();
   let tokenLeakageDetected = false;
+  const fixtureResolution = loadSocialflowPlannedApprovalFixture(options.fixture);
+  const fixture = fixtureResolution.fixture;
+  const fixtureValues: Record<string, string | undefined> | null = fixture
+    ? {
+        SOCIALFLOW_PRODUCTION_BASE_URL: fixture.productionBaseUrl,
+        SOCIALFLOW_PRODUCTION_HEALTH_PATH: fixture.healthPath,
+        SOCIALFLOW_PRODUCTION_READINESS_PATH: fixture.readinessPath,
+        SOCIALFLOW_PRODUCTION_EXPECTED_HOST: fixture.expectedHost,
+        SOCIALFLOW_PRODUCTION_APPROVAL_ID: fixture.approvalId,
+        SOCIALFLOW_PRODUCTION_ROLLBACK_PLAN_ID: fixture.rollbackPlanId,
+        SOCIALFLOW_PRODUCTION_ON_CALL_OWNER: fixture.onCallOwner,
+        SOCIALFLOW_PRODUCTION_WINDOW_ID: fixture.productionWindowId,
+        SOCIALFLOW_PRODUCTION_MONITORING_PLAN_ID: fixture.monitoringPlanId,
+        SOCIALFLOW_PRODUCTION_SMOKE_SEQUENCE_ID: fixture.smokeSequenceId,
+        SOCIALFLOW_PRODUCTION_ABORT_CRITERIA_ID: fixture.abortCriteriaId,
+      }
+    : null;
 
   for (const key of REQUIRED_ENV_KEYS) {
-    const value = process.env[key];
-    const present = isConfiguredValue(value);
-    if (value && detectTokenLeakage(value)) {
+    const resolved = resolvePlannedApprovalField(
+      process.env[key],
+      fixtureValues?.[key],
+      fixtureResolution.fixtureMode,
+    );
+    const rawValue = fixtureResolution.fixtureMode ? fixtureValues?.[key] : process.env[key];
+    if (rawValue && detectTokenLeakage(rawValue)) {
       tokenLeakageDetected = true;
     }
 
     variables.push({
       key,
       required: true,
-      presence: present ? "PRESENT" : "MISSING",
-      value: present ? "REDACTED" : "MISSING",
+      presence: resolved.presence,
+      value: resolved.value,
     });
 
-    if (!present) {
+    if (resolved.value === "MISSING") {
       missingVariables.push(key);
     }
   }
@@ -185,6 +199,8 @@ export async function checkSocialflowProductionManualConfig(
     executionAllowed: false,
     commandsArePlannedOnly: true,
     requiresHumanApproval: true,
+    fixtureMode: fixtureResolution.fixtureMode,
+    productionTouchAllowed: false,
     variables,
     missingVariables,
     tokenLeakageDetected,
@@ -216,8 +232,15 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const json = args.includes("--json");
   const markdown = args.includes("--markdown");
+  const fixtureIndex = args.findIndex((arg) => arg === "--fixture" || arg.startsWith("--fixture="));
+  const fixture =
+    fixtureIndex >= 0
+      ? args[fixtureIndex] === "--fixture"
+        ? args[fixtureIndex + 1]
+        : args[fixtureIndex].slice("--fixture=".length)
+      : undefined;
 
-  checkSocialflowProductionManualConfig({ json, markdown })
+  checkSocialflowProductionManualConfig({ json, markdown, fixture })
     .then((report) => {
       const shouldFail =
         report.status === "SOCIALFLOW_PRODUCTION_MANUAL_CONFIG_BLOCKED"

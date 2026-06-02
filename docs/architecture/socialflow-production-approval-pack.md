@@ -46,3 +46,11 @@
 
 ## Next action
 Completar configuración manual, DNS/routing, validación de rollback, monitoring real y aprobaciones humanas; mantener no-deploy hasta ventana aprobada separada.
+
+## P1.3 Fixture local planned-only
+- El approval pack admite un fixture local para revisar el flujo sin tocar produccion.
+- Ejecutar con `--fixture=tests/fixtures/socialflow-production-planned-approval.json` o con `SOCIALFLOW_PRODUCTION_PLANNED_APPROVAL_FIXTURE`.
+- El fixture usa `example.invalid` y mantiene `fixtureMode=true` y `productionTouchAllowed=false`.
+- En fixture mode, los campos de review deben mostrarse como `FIXTURE` o `REDACTED`, nunca como valores reales.
+- Este modo solo sirve para auditoria y pruebas locales; no habilita deploy, DNS, D1, rollback real ni monitoring productivo.
+- La siguiente fase solo se habilita cuando el fixture siga pasando y luego se sustituyan por metadatos humanos reales fuera de fixture.

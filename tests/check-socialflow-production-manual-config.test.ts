@@ -1,3 +1,4 @@
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { checkSocialflowProductionManualConfig } from "../scripts/check-socialflow-production-manual-config";
 
@@ -14,6 +15,13 @@ const REQUIRED_ENV_KEYS = [
   "SOCIALFLOW_PRODUCTION_SMOKE_SEQUENCE_ID",
   "SOCIALFLOW_PRODUCTION_ABORT_CRITERIA_ID",
 ] as const;
+
+const FIXTURE_PATH = path.join(
+  process.cwd(),
+  "tests",
+  "fixtures",
+  "socialflow-production-planned-approval.json",
+);
 
 function clearRequiredEnv(): void {
   REQUIRED_ENV_KEYS.forEach((key) => {
@@ -69,6 +77,25 @@ describe("check-socialflow-production-manual-config", () => {
     });
   });
 
+  it("returns ready-for-review when planned-only fixture metadata is provided", async () => {
+    const report = await checkSocialflowProductionManualConfig({ silent: true, fixture: FIXTURE_PATH });
+
+    expect(report.ok).toBe(true);
+    expect(report.status).toBe("SOCIALFLOW_PRODUCTION_MANUAL_CONFIG_READY_FOR_REVIEW");
+    expect(report.fixtureMode).toBe(true);
+    expect(report.productionTouchAllowed).toBe(false);
+    expect(report.manualConfigurationComplete).toBe(true);
+    expect(report.readyForExecution).toBe(false);
+    expect(report.executionAllowed).toBe(false);
+    expect(report.commandsArePlannedOnly).toBe(true);
+    expect(report.requiresHumanApproval).toBe(true);
+    expect(report.missingVariables).toHaveLength(0);
+    report.variables.forEach((entry) => {
+      expect(entry.presence).toBe("FIXTURE");
+      expect(entry.value).toBe("REDACTED");
+    });
+  });
+
   it("returns token-leakage blocker when sensitive token-like values are detected", async () => {
     setRequiredEnv();
     process.env.SOCIALFLOW_PRODUCTION_APPROVAL_ID = "access_token=very-sensitive";
@@ -100,6 +127,17 @@ describe("check-socialflow-production-manual-config", () => {
 
     expect(output).not.toContain(sentinel);
     expect(output).toContain("REDACTED");
+    consoleLogSpy.mockRestore();
+  });
+
+  it("never prints raw fixture values", async () => {
+    const consoleLogSpy = vi.spyOn(console, "log");
+    await checkSocialflowProductionManualConfig({ fixture: FIXTURE_PATH });
+    const output = consoleLogSpy.mock.calls.flat().join(" ");
+
+    expect(output).toContain("FIXTURE");
+    expect(output).not.toContain("fixture-approval-socialflow-planned-only");
+    expect(output).not.toContain("socialflow.example.invalid");
     consoleLogSpy.mockRestore();
   });
 });

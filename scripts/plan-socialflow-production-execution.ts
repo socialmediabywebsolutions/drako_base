@@ -1,9 +1,11 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { loadSocialflowPlannedApprovalFixture } from "./lib/socialflow-production-planned-approval-fixture";
 
 interface ProductionExecutionPlanOptions {
   json?: boolean;
   markdown?: boolean;
+  fixture?: string;
 }
 
 type MissingArtifactStatus =
@@ -40,6 +42,8 @@ interface ProductionExecutionPlan {
   requiresApproval: boolean;
   requiresHumanApproval: boolean;
   manualConfigurationRequired: boolean;
+  fixtureMode: boolean;
+  productionTouchAllowed: false;
   status: string;
   timestamp: string;
   artifactInventory: ArtifactInventoryItem[];
@@ -176,6 +180,7 @@ export async function planSocialflowProductionExecution(
   options: ProductionExecutionPlanOptions = {},
 ): Promise<ProductionExecutionPlan> {
   const timestamp = new Date().toISOString();
+  const fixtureResolution = loadSocialflowPlannedApprovalFixture(options.fixture);
 
   const artifactRules: ArtifactRule[] = [
     {
@@ -310,6 +315,8 @@ export async function planSocialflowProductionExecution(
     requiresApproval,
     requiresHumanApproval,
     manualConfigurationRequired,
+    fixtureMode: fixtureResolution.fixtureMode,
+    productionTouchAllowed: false,
     status: planStatus,
     timestamp,
     artifactInventory,
@@ -629,6 +636,8 @@ export async function planSocialflowProductionExecution(
 function printNormal(plan: ProductionExecutionPlan): void {
   console.log("\nSOCIALFLOW PRODUCTION EXECUTION PLAN");
   console.log(`Status: ${plan.status}`);
+  console.log(`Fixture Mode: ${plan.fixtureMode ? "YES" : "NO"}`);
+  console.log(`Production Touch Allowed: ${plan.productionTouchAllowed ? "YES" : "NO"}`);
   console.log(`Execution Allowed: ${plan.executionAllowed ? "YES" : "NO"}`);
   console.log(`Ready for Execution: ${plan.readyForExecution ? "YES" : "NO"}`);
   console.log(`Commands Are Planned Only: ${plan.commandsArePlannedOnly ? "YES" : "NO"}`);
@@ -708,6 +717,8 @@ function printNormal(plan: ProductionExecutionPlan): void {
 function printMarkdown(plan: ProductionExecutionPlan): void {
   console.log("\n# SOCIALFLOW PRODUCTION EXECUTION PLAN\n");
   console.log(`**Status:** ${plan.status}`);
+  console.log(`**Fixture Mode:** ${plan.fixtureMode ? "YES" : "NO"}`);
+  console.log(`**Production Touch Allowed:** ${plan.productionTouchAllowed ? "YES" : "NO"}`);
   console.log(`**Execution Allowed:** ${plan.executionAllowed ? "YES" : "NO"}`);
   console.log(`**Ready for Execution:** ${plan.readyForExecution ? "YES" : "NO"}`);
   console.log(`**Commands Are Planned Only:** ${plan.commandsArePlannedOnly ? "YES" : "NO"}`);
@@ -795,8 +806,15 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const json = args.includes("--json");
   const markdown = args.includes("--markdown");
+  const fixtureIndex = args.findIndex((arg) => arg === "--fixture" || arg.startsWith("--fixture="));
+  const fixture =
+    fixtureIndex >= 0
+      ? args[fixtureIndex] === "--fixture"
+        ? args[fixtureIndex + 1]
+        : args[fixtureIndex].slice("--fixture=".length)
+      : undefined;
 
-  planSocialflowProductionExecution({ json, markdown })
+  planSocialflowProductionExecution({ json, markdown, fixture })
     .then((plan) => {
       process.exit(!plan.executionAllowed && plan.commandsArePlannedOnly ? 0 : 1);
     })

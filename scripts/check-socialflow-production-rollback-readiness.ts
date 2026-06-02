@@ -1,10 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  loadSocialflowPlannedApprovalFixture,
+  resolvePlannedApprovalField,
+} from "./lib/socialflow-production-planned-approval-fixture";
 
 interface CheckSocialflowProductionRollbackReadinessOptions {
   json?: boolean;
   markdown?: boolean;
   silent?: boolean;
+  fixture?: string;
 }
 
 type RollbackReadinessStatus =
@@ -12,7 +17,7 @@ type RollbackReadinessStatus =
   | "SOCIALFLOW_PRODUCTION_ROLLBACK_BLOCKED"
   | "SOCIALFLOW_PRODUCTION_ROLLBACK_NOT_EXECUTABLE";
 
-type PresenceStatus = "PRESENT" | "MISSING";
+type PresenceStatus = "PRESENT" | "MISSING" | "FIXTURE";
 type RedactionStatus = "REDACTED" | "MISSING";
 
 interface RedactedFieldStatus {
@@ -38,6 +43,8 @@ interface CheckSocialflowProductionRollbackReadinessReport {
   executionAllowed: false;
   commandsArePlannedOnly: true;
   requiresHumanApproval: true;
+  fixtureMode: boolean;
+  productionTouchAllowed: false;
   remoteWrites: 0;
   productionTouched: false;
   blockers: string[];
@@ -51,33 +58,6 @@ const ARTIFACT_PATHS = {
   postdeploySmokeScript: "scripts/smoke-socialflow-production-postdeploy.ts",
 } as const;
 
-const INVALID_PLACEHOLDER_PATTERNS = [
-  /^required_manual_configuration$/i,
-  /^todo$/i,
-  /^tbd$/i,
-  /^pending$/i,
-  /^changeme$/i,
-] as const;
-
-function isConfiguredValue(value: string | undefined): boolean {
-  if (!value) {
-    return false;
-  }
-  const normalized = value.trim();
-  if (normalized.length === 0) {
-    return false;
-  }
-  return !INVALID_PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(normalized));
-}
-
-function toRedactedStatus(value: string | undefined): RedactedFieldStatus {
-  const present = isConfiguredValue(value);
-  return {
-    presence: present ? "PRESENT" : "MISSING",
-    value: present ? "REDACTED" : "MISSING",
-  };
-}
-
 function readTextIfExists(relativePath: string): string {
   const absolutePath = path.resolve(process.cwd(), relativePath);
   if (!existsSync(absolutePath)) {
@@ -89,6 +69,8 @@ function readTextIfExists(relativePath: string): string {
 function printNormal(report: CheckSocialflowProductionRollbackReadinessReport): void {
   console.log("\nSOCIALFLOW PRODUCTION ROLLBACK READINESS");
   console.log(`Status: ${report.status}`);
+  console.log(`Fixture Mode: ${report.fixtureMode ? "YES" : "NO"}`);
+  console.log(`Production Touch Allowed: ${report.productionTouchAllowed ? "YES" : "NO"}`);
   console.log(`Rollback Plan Documented: ${report.rollbackPlanDocumented ? "YES" : "NO"}`);
   console.log(`Rollback Commands Planned-Only: ${report.rollbackCommandSetPlannedOnly ? "YES" : "NO"}`);
   console.log(`Restore Path Documented: ${report.restorePathDocumented ? "YES" : "NO"}`);
@@ -117,6 +99,8 @@ function printNormal(report: CheckSocialflowProductionRollbackReadinessReport): 
 function printMarkdown(report: CheckSocialflowProductionRollbackReadinessReport): void {
   console.log("\n# SOCIALFLOW PRODUCTION ROLLBACK READINESS\n");
   console.log(`**Status:** ${report.status}`);
+  console.log(`**Fixture Mode:** ${report.fixtureMode ? "YES" : "NO"}`);
+  console.log(`**Production Touch Allowed:** ${report.productionTouchAllowed ? "YES" : "NO"}`);
   console.log(`**Rollback Plan Documented:** ${report.rollbackPlanDocumented ? "YES" : "NO"}`);
   console.log(`**Rollback Commands Planned-Only:** ${report.rollbackCommandSetPlannedOnly ? "YES" : "NO"}`);
   console.log(`**Restore Path Documented:** ${report.restorePathDocumented ? "YES" : "NO"}`);
@@ -156,6 +140,16 @@ export async function checkSocialflowProductionRollbackReadiness(
 ): Promise<CheckSocialflowProductionRollbackReadinessReport> {
   const timestamp = new Date().toISOString();
   const blockers = new Set<string>();
+  const fixtureResolution = loadSocialflowPlannedApprovalFixture(options.fixture);
+  const fixture = fixtureResolution.fixture;
+  const fixtureValues = fixture
+    ? {
+        SOCIALFLOW_PRODUCTION_ON_CALL_OWNER: fixture.onCallOwner,
+        SOCIALFLOW_PRODUCTION_ROLLBACK_PLAN_ID: fixture.rollbackPlanId,
+        SOCIALFLOW_PRODUCTION_APPROVAL_ID: fixture.approvalId,
+        SOCIALFLOW_PRODUCTION_WINDOW_ID: fixture.productionWindowId,
+      }
+    : null;
 
   const runbookExists = existsSync(path.resolve(process.cwd(), ARTIFACT_PATHS.runbook));
   const executionPlanScriptExists = existsSync(path.resolve(process.cwd(), ARTIFACT_PATHS.executionPlanScript));
@@ -193,25 +187,41 @@ export async function checkSocialflowProductionRollbackReadiness(
   if (!postRollbackSmokeListDocumented) blockers.add("POST_ROLLBACK_SMOKE_LIST_NOT_DOCUMENTED");
   if (!abortConditionsDocumented) blockers.add("ABORT_CONDITIONS_NOT_DOCUMENTED");
 
-  const rollbackOwner = toRedactedStatus(process.env.SOCIALFLOW_PRODUCTION_ON_CALL_OWNER);
-  const rollbackPlanId = toRedactedStatus(process.env.SOCIALFLOW_PRODUCTION_ROLLBACK_PLAN_ID);
-  const approvalId = toRedactedStatus(process.env.SOCIALFLOW_PRODUCTION_APPROVAL_ID);
-  const windowId = toRedactedStatus(process.env.SOCIALFLOW_PRODUCTION_WINDOW_ID);
+  const rollbackOwner = resolvePlannedApprovalField(
+    process.env.SOCIALFLOW_PRODUCTION_ON_CALL_OWNER,
+    fixtureValues?.SOCIALFLOW_PRODUCTION_ON_CALL_OWNER,
+    fixtureResolution.fixtureMode,
+  );
+  const rollbackPlanId = resolvePlannedApprovalField(
+    process.env.SOCIALFLOW_PRODUCTION_ROLLBACK_PLAN_ID,
+    fixtureValues?.SOCIALFLOW_PRODUCTION_ROLLBACK_PLAN_ID,
+    fixtureResolution.fixtureMode,
+  );
+  const approvalId = resolvePlannedApprovalField(
+    process.env.SOCIALFLOW_PRODUCTION_APPROVAL_ID,
+    fixtureValues?.SOCIALFLOW_PRODUCTION_APPROVAL_ID,
+    fixtureResolution.fixtureMode,
+  );
+  const windowId = resolvePlannedApprovalField(
+    process.env.SOCIALFLOW_PRODUCTION_WINDOW_ID,
+    fixtureValues?.SOCIALFLOW_PRODUCTION_WINDOW_ID,
+    fixtureResolution.fixtureMode,
+  );
 
   const reviewChecksComplete = blockers.size === 0;
-  const executableMetadataComplete =
-    rollbackOwner.presence === "PRESENT"
-    && rollbackPlanId.presence === "PRESENT"
-    && approvalId.presence === "PRESENT"
-    && windowId.presence === "PRESENT";
+  const reviewMetadataComplete =
+    rollbackOwner.presence !== "MISSING"
+    && rollbackPlanId.presence !== "MISSING"
+    && approvalId.presence !== "MISSING"
+    && windowId.presence !== "MISSING";
 
-  if (!executableMetadataComplete) {
+  if (!reviewMetadataComplete) {
     blockers.add("ROLLBACK_EXECUTION_METADATA_INCOMPLETE");
   }
 
   const status: RollbackReadinessStatus = !reviewChecksComplete
     ? "SOCIALFLOW_PRODUCTION_ROLLBACK_BLOCKED"
-    : !executableMetadataComplete
+    : !reviewMetadataComplete
     ? "SOCIALFLOW_PRODUCTION_ROLLBACK_NOT_EXECUTABLE"
     : "SOCIALFLOW_PRODUCTION_ROLLBACK_READY_FOR_REVIEW";
 
@@ -233,6 +243,8 @@ export async function checkSocialflowProductionRollbackReadiness(
     executionAllowed: false,
     commandsArePlannedOnly: true,
     requiresHumanApproval: true,
+    fixtureMode: fixtureResolution.fixtureMode,
+    productionTouchAllowed: false,
     remoteWrites: 0,
     productionTouched: false,
     blockers: Array.from(blockers),
@@ -261,8 +273,15 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const json = args.includes("--json");
   const markdown = args.includes("--markdown");
+  const fixtureIndex = args.findIndex((arg) => arg === "--fixture" || arg.startsWith("--fixture="));
+  const fixture =
+    fixtureIndex >= 0
+      ? args[fixtureIndex] === "--fixture"
+        ? args[fixtureIndex + 1]
+        : args[fixtureIndex].slice("--fixture=".length)
+      : undefined;
 
-  checkSocialflowProductionRollbackReadiness({ json, markdown })
+  checkSocialflowProductionRollbackReadiness({ json, markdown, fixture })
     .then((report) => {
       const shouldFail = report.status !== "SOCIALFLOW_PRODUCTION_ROLLBACK_READY_FOR_REVIEW";
       process.exit(shouldFail ? 1 : 0);

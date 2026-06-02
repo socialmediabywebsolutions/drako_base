@@ -78,6 +78,13 @@ const baseParity = () =>
     remoteWrites: 0,
   }) as any;
 
+const FIXTURE_PATH = path.join(
+  process.cwd(),
+  "tests",
+  "fixtures",
+  "socialflow-production-planned-approval.json",
+);
+
 describe("prepare-socialflow-production-approval-pack", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -98,6 +105,26 @@ describe("prepare-socialflow-production-approval-pack", () => {
     expect(report.commandsArePlannedOnly).toBe(true);
     expect(report.requiresHumanApproval).toBe(true);
     expect(report.approvalScope).toBe("APPROVAL_FOR_PLANNING_ONLY");
+  });
+
+  it("keeps fixture-mode review readiness planned-only", async () => {
+    const report = await prepareSocialflowProductionApprovalPack({ fixture: FIXTURE_PATH });
+
+    expect(report.fixtureMode).toBe(true);
+    expect(report.productionTouchAllowed).toBe(false);
+    expect(report.readyForApproval).toBe(true);
+    expect(report.readyForExecution).toBe(false);
+    expect(report.executionAllowed).toBe(false);
+    expect(report.commandsArePlannedOnly).toBe(true);
+    expect(report.requiresHumanApproval).toBe(true);
+    expect(report.approvalScope).toBe("APPROVAL_FOR_PLANNING_ONLY");
+    expect(report.manualConfigurationSatisfiedForReview).toBe(true);
+    expect(report.rollbackSatisfiedForReview).toBe(true);
+    expect(report.monitoringSatisfiedForReview).toBe(true);
+    expect(report.productionWindowSatisfiedForReview).toBe(true);
+    expect(report.manualConfigStatus.status).toBe("SOCIALFLOW_PRODUCTION_MANUAL_CONFIG_READY_FOR_REVIEW");
+    expect(report.rollbackReadinessStatus.status).toBe("SOCIALFLOW_PRODUCTION_ROLLBACK_READY_FOR_REVIEW");
+    expect(report.productionWindowStatus.status).toBe("SOCIALFLOW_PRODUCTION_WINDOW_READY_FOR_REVIEW");
   });
 
   it("keeps required execution blockers even when planning approval is ready", async () => {
@@ -224,7 +251,7 @@ describe("prepare-socialflow-production-approval-pack", () => {
   });
 
   it("generates valid JSON output", async () => {
-    const report = await prepareSocialflowProductionApprovalPack({ json: true });
+    const report = await prepareSocialflowProductionApprovalPack({ json: true, fixture: FIXTURE_PATH });
     expect(report).toHaveProperty("readinessSummary");
     expect(report).toHaveProperty("manualConfigurationRequired");
     expect(report).toHaveProperty("dnsRoutingRequired");
@@ -243,6 +270,12 @@ describe("prepare-socialflow-production-approval-pack", () => {
     expect(report).toHaveProperty("monitoringReadinessStatus");
     expect(report).toHaveProperty("noDeployConfirmation");
     expect(report).toHaveProperty("noProductionTouchConfirmation");
+    expect(report).toHaveProperty("fixtureMode");
+    expect(report).toHaveProperty("productionTouchAllowed");
+    expect(report).toHaveProperty("manualConfigurationSatisfiedForReview");
+    expect(report).toHaveProperty("rollbackSatisfiedForReview");
+    expect(report).toHaveProperty("monitoringSatisfiedForReview");
+    expect(report).toHaveProperty("productionWindowSatisfiedForReview");
     expect(() => JSON.stringify(report)).not.toThrow();
   });
 

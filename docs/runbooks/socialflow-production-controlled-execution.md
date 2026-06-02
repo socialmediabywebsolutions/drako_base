@@ -135,3 +135,12 @@ Este runbook define la ejecución controlada hacia producción para SocialFlow s
 
 ## 20. Decisión final
 No deploy todavía. Este runbook no autoriza producción y mantiene ejecución bloqueada hasta aprobación humana separada en ventana aprobada.
+
+## 21. Modo fixture local P1.3
+- Este runbook admite un fixture local de aprobacion planificada para revisar el flujo sin tocar produccion.
+- Ejecutar con `--fixture=tests/fixtures/socialflow-production-planned-approval.json` o con `SOCIALFLOW_PRODUCTION_PLANNED_APPROVAL_FIXTURE`.
+- El fixture usa `example.invalid` y debe seguir siendo `planned-only`.
+- En fixture mode, los validadores marcan `fixtureMode=true` y `productionTouchAllowed=false`.
+- La salida debe seguir redacatada: valores de review en `FIXTURE` o `REDACTED`, nunca secretos reales.
+- Este modo solo sirve para auditoria y pruebas locales; no habilita deploy, DNS, D1, rollback real ni monitoring productivo.
+- Para avanzar a una fase siguiente, primero debe mantenerse el resultado planned-only en fixture y luego cargar metadatos humanos reales fuera de fixture.

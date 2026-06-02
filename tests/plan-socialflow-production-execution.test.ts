@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import path from "node:path";
 import { planSocialflowProductionExecution } from "../scripts/plan-socialflow-production-execution";
+
+const FIXTURE_PATH = path.join(
+  process.cwd(),
+  "tests",
+  "fixtures",
+  "socialflow-production-planned-approval.json",
+);
 
 describe("plan-socialflow-production-execution", () => {
   beforeEach(() => {
@@ -8,6 +16,20 @@ describe("plan-socialflow-production-execution", () => {
 
   it("never executes deploy and remains blocked", async () => {
     const plan = await planSocialflowProductionExecution();
+    expect(plan.executionAllowed).toBe(false);
+    expect(plan.readyForExecution).toBe(false);
+    expect(plan.commandsArePlannedOnly).toBe(true);
+    expect(plan.requiresApproval).toBe(true);
+    expect(plan.requiresHumanApproval).toBe(true);
+    expect(plan.manualConfigurationRequired).toBe(true);
+    expect(plan.status).toBe("SOCIALFLOW_PRODUCTION_EXECUTION_PLAN_BLOCKED_PENDING_MANUAL_APPROVAL");
+  });
+
+  it("keeps planned-only execution when fixture mode is enabled", async () => {
+    const plan = await planSocialflowProductionExecution({ fixture: FIXTURE_PATH });
+
+    expect(plan.fixtureMode).toBe(true);
+    expect(plan.productionTouchAllowed).toBe(false);
     expect(plan.executionAllowed).toBe(false);
     expect(plan.readyForExecution).toBe(false);
     expect(plan.commandsArePlannedOnly).toBe(true);
@@ -127,11 +149,13 @@ describe("plan-socialflow-production-execution", () => {
   });
 
   it("generates valid JSON output", async () => {
-    const plan = await planSocialflowProductionExecution({ json: true });
+    const plan = await planSocialflowProductionExecution({ json: true, fixture: FIXTURE_PATH });
     expect(plan).toHaveProperty("executionAllowed");
     expect(plan).toHaveProperty("readyForExecution");
     expect(plan).toHaveProperty("artifactInventory");
     expect(plan).toHaveProperty("missingArtifacts");
+    expect(plan).toHaveProperty("fixtureMode");
+    expect(plan).toHaveProperty("productionTouchAllowed");
     expect(() => JSON.stringify(plan)).not.toThrow();
   });
 

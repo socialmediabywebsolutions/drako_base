@@ -1,10 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  loadSocialflowPlannedApprovalFixture,
+  resolvePlannedApprovalField,
+} from "./lib/socialflow-production-planned-approval-fixture";
 
 interface CheckSocialflowProductionWindowReadinessOptions {
   json?: boolean;
   markdown?: boolean;
   silent?: boolean;
+  fixture?: string;
 }
 
 type ProductionWindowReadinessStatus =
@@ -12,7 +17,7 @@ type ProductionWindowReadinessStatus =
   | "SOCIALFLOW_PRODUCTION_WINDOW_BLOCKED"
   | "SOCIALFLOW_PRODUCTION_WINDOW_NOT_APPROVED";
 
-type PresenceStatus = "PRESENT" | "MISSING";
+type PresenceStatus = "PRESENT" | "MISSING" | "FIXTURE";
 type RedactionStatus = "REDACTED" | "MISSING";
 
 interface RedactedFieldStatus {
@@ -40,6 +45,8 @@ interface CheckSocialflowProductionWindowReadinessReport {
   executionAllowed: false;
   commandsArePlannedOnly: true;
   requiresHumanApproval: true;
+  fixtureMode: boolean;
+  productionTouchAllowed: false;
   remoteWrites: 0;
   productionTouched: false;
   blockers: string[];
@@ -50,33 +57,6 @@ const ARTIFACT_PATHS = {
   runbook: "docs/runbooks/socialflow-production-controlled-execution.md",
   decisionPack: "docs/architecture/socialflow-production-approval-pack.md",
 } as const;
-
-const INVALID_PLACEHOLDER_PATTERNS = [
-  /^required_manual_configuration$/i,
-  /^todo$/i,
-  /^tbd$/i,
-  /^pending$/i,
-  /^changeme$/i,
-] as const;
-
-function isConfiguredValue(value: string | undefined): boolean {
-  if (!value) {
-    return false;
-  }
-  const normalized = value.trim();
-  if (normalized.length === 0) {
-    return false;
-  }
-  return !INVALID_PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(normalized));
-}
-
-function toRedactedStatus(value: string | undefined): RedactedFieldStatus {
-  const present = isConfiguredValue(value);
-  return {
-    presence: present ? "PRESENT" : "MISSING",
-    value: present ? "REDACTED" : "MISSING",
-  };
-}
 
 function readTextIfExists(relativePath: string): string {
   const absolutePath = path.resolve(process.cwd(), relativePath);
@@ -89,6 +69,8 @@ function readTextIfExists(relativePath: string): string {
 function printNormal(report: CheckSocialflowProductionWindowReadinessReport): void {
   console.log("\nSOCIALFLOW PRODUCTION WINDOW READINESS");
   console.log(`Status: ${report.status}`);
+  console.log(`Fixture Mode: ${report.fixtureMode ? "YES" : "NO"}`);
+  console.log(`Production Touch Allowed: ${report.productionTouchAllowed ? "YES" : "NO"}`);
   console.log(`Runbook Present: ${report.runbookPresent ? "YES" : "NO"}`);
   console.log(`Decision Pack Present: ${report.decisionPackPresent ? "YES" : "NO"}`);
   console.log(`Monitoring Plan Present: ${report.monitoringPlanPresent ? "YES" : "NO"}`);
@@ -127,6 +109,8 @@ function printNormal(report: CheckSocialflowProductionWindowReadinessReport): vo
 function printMarkdown(report: CheckSocialflowProductionWindowReadinessReport): void {
   console.log("\n# SOCIALFLOW PRODUCTION WINDOW READINESS\n");
   console.log(`**Status:** ${report.status}`);
+  console.log(`**Fixture Mode:** ${report.fixtureMode ? "YES" : "NO"}`);
+  console.log(`**Production Touch Allowed:** ${report.productionTouchAllowed ? "YES" : "NO"}`);
   console.log(`**Runbook Present:** ${report.runbookPresent ? "YES" : "NO"}`);
   console.log(`**Decision Pack Present:** ${report.decisionPackPresent ? "YES" : "NO"}`);
   console.log(`**Monitoring Plan Present:** ${report.monitoringPlanPresent ? "YES" : "NO"}`);
@@ -174,6 +158,19 @@ export async function checkSocialflowProductionWindowReadiness(
 ): Promise<CheckSocialflowProductionWindowReadinessReport> {
   const timestamp = new Date().toISOString();
   const blockers = new Set<string>();
+  const fixtureResolution = loadSocialflowPlannedApprovalFixture(options.fixture);
+  const fixture = fixtureResolution.fixture;
+  const fixtureValues = fixture
+    ? {
+        SOCIALFLOW_PRODUCTION_WINDOW_ID: fixture.productionWindowId,
+        SOCIALFLOW_PRODUCTION_ON_CALL_OWNER: fixture.onCallOwner,
+        SOCIALFLOW_PRODUCTION_APPROVAL_ID: fixture.approvalId,
+        SOCIALFLOW_PRODUCTION_ROLLBACK_PLAN_ID: fixture.rollbackPlanId,
+        SOCIALFLOW_PRODUCTION_MONITORING_PLAN_ID: fixture.monitoringPlanId,
+        SOCIALFLOW_PRODUCTION_SMOKE_SEQUENCE_ID: fixture.smokeSequenceId,
+        SOCIALFLOW_PRODUCTION_ABORT_CRITERIA_ID: fixture.abortCriteriaId,
+      }
+    : null;
 
   const runbookPresent = existsSync(path.resolve(process.cwd(), ARTIFACT_PATHS.runbook));
   const decisionPackPresent = existsSync(path.resolve(process.cwd(), ARTIFACT_PATHS.decisionPack));
@@ -195,34 +192,62 @@ export async function checkSocialflowProductionWindowReadiness(
   if (!smokeSequencePresent) blockers.add("SMOKE_SEQUENCE_NOT_DOCUMENTED");
   if (!abortCriteriaPresent) blockers.add("ABORT_CRITERIA_NOT_DOCUMENTED");
 
-  const productionWindowId = toRedactedStatus(process.env.SOCIALFLOW_PRODUCTION_WINDOW_ID);
-  const onCallOwner = toRedactedStatus(process.env.SOCIALFLOW_PRODUCTION_ON_CALL_OWNER);
-  const approvalId = toRedactedStatus(process.env.SOCIALFLOW_PRODUCTION_APPROVAL_ID);
-  const rollbackPlanId = toRedactedStatus(process.env.SOCIALFLOW_PRODUCTION_ROLLBACK_PLAN_ID);
-  const monitoringPlanId = toRedactedStatus(process.env.SOCIALFLOW_PRODUCTION_MONITORING_PLAN_ID);
-  const smokeSequenceId = toRedactedStatus(process.env.SOCIALFLOW_PRODUCTION_SMOKE_SEQUENCE_ID);
-  const abortCriteriaId = toRedactedStatus(process.env.SOCIALFLOW_PRODUCTION_ABORT_CRITERIA_ID);
+  const productionWindowId = resolvePlannedApprovalField(
+    process.env.SOCIALFLOW_PRODUCTION_WINDOW_ID,
+    fixtureValues?.SOCIALFLOW_PRODUCTION_WINDOW_ID,
+    fixtureResolution.fixtureMode,
+  );
+  const onCallOwner = resolvePlannedApprovalField(
+    process.env.SOCIALFLOW_PRODUCTION_ON_CALL_OWNER,
+    fixtureValues?.SOCIALFLOW_PRODUCTION_ON_CALL_OWNER,
+    fixtureResolution.fixtureMode,
+  );
+  const approvalId = resolvePlannedApprovalField(
+    process.env.SOCIALFLOW_PRODUCTION_APPROVAL_ID,
+    fixtureValues?.SOCIALFLOW_PRODUCTION_APPROVAL_ID,
+    fixtureResolution.fixtureMode,
+  );
+  const rollbackPlanId = resolvePlannedApprovalField(
+    process.env.SOCIALFLOW_PRODUCTION_ROLLBACK_PLAN_ID,
+    fixtureValues?.SOCIALFLOW_PRODUCTION_ROLLBACK_PLAN_ID,
+    fixtureResolution.fixtureMode,
+  );
+  const monitoringPlanId = resolvePlannedApprovalField(
+    process.env.SOCIALFLOW_PRODUCTION_MONITORING_PLAN_ID,
+    fixtureValues?.SOCIALFLOW_PRODUCTION_MONITORING_PLAN_ID,
+    fixtureResolution.fixtureMode,
+  );
+  const smokeSequenceId = resolvePlannedApprovalField(
+    process.env.SOCIALFLOW_PRODUCTION_SMOKE_SEQUENCE_ID,
+    fixtureValues?.SOCIALFLOW_PRODUCTION_SMOKE_SEQUENCE_ID,
+    fixtureResolution.fixtureMode,
+  );
+  const abortCriteriaId = resolvePlannedApprovalField(
+    process.env.SOCIALFLOW_PRODUCTION_ABORT_CRITERIA_ID,
+    fixtureValues?.SOCIALFLOW_PRODUCTION_ABORT_CRITERIA_ID,
+    fixtureResolution.fixtureMode,
+  );
 
   const structuralChecksComplete = blockers.size === 0;
   const governanceMetadataComplete =
-    productionWindowId.presence === "PRESENT"
-    && onCallOwner.presence === "PRESENT"
-    && approvalId.presence === "PRESENT"
-    && rollbackPlanId.presence === "PRESENT"
-    && monitoringPlanId.presence === "PRESENT"
-    && smokeSequenceId.presence === "PRESENT"
-    && abortCriteriaId.presence === "PRESENT";
+    productionWindowId.presence !== "MISSING"
+    && onCallOwner.presence !== "MISSING"
+    && approvalId.presence !== "MISSING"
+    && rollbackPlanId.presence !== "MISSING"
+    && monitoringPlanId.presence !== "MISSING"
+    && smokeSequenceId.presence !== "MISSING"
+    && abortCriteriaId.presence !== "MISSING";
 
   if (!governanceMetadataComplete) {
     blockers.add("WINDOW_GOVERNANCE_METADATA_INCOMPLETE");
   }
-  if (approvalId.presence !== "PRESENT") {
+  if (approvalId.presence === "MISSING") {
     blockers.add("APPROVAL_ID_REQUIRED");
   }
-  if (onCallOwner.presence !== "PRESENT") {
+  if (onCallOwner.presence === "MISSING") {
     blockers.add("ON_CALL_OWNER_REQUIRED");
   }
-  if (productionWindowId.presence !== "PRESENT") {
+  if (productionWindowId.presence === "MISSING") {
     blockers.add("WINDOW_ID_REQUIRED");
   }
 
@@ -252,6 +277,8 @@ export async function checkSocialflowProductionWindowReadiness(
     executionAllowed: false,
     commandsArePlannedOnly: true,
     requiresHumanApproval: true,
+    fixtureMode: fixtureResolution.fixtureMode,
+    productionTouchAllowed: false,
     remoteWrites: 0,
     productionTouched: false,
     blockers: Array.from(blockers),
@@ -280,8 +307,15 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const json = args.includes("--json");
   const markdown = args.includes("--markdown");
+  const fixtureIndex = args.findIndex((arg) => arg === "--fixture" || arg.startsWith("--fixture="));
+  const fixture =
+    fixtureIndex >= 0
+      ? args[fixtureIndex] === "--fixture"
+        ? args[fixtureIndex + 1]
+        : args[fixtureIndex].slice("--fixture=".length)
+      : undefined;
 
-  checkSocialflowProductionWindowReadiness({ json, markdown })
+  checkSocialflowProductionWindowReadiness({ json, markdown, fixture })
     .then((report) => {
       const shouldFail = report.status !== "SOCIALFLOW_PRODUCTION_WINDOW_READY_FOR_REVIEW";
       process.exit(shouldFail ? 1 : 0);

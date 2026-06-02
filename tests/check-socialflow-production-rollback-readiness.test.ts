@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import path from "node:path";
 import { checkSocialflowProductionRollbackReadiness } from "../scripts/check-socialflow-production-rollback-readiness";
 
 const GOVERNANCE_KEYS = [
@@ -7,6 +8,13 @@ const GOVERNANCE_KEYS = [
   "SOCIALFLOW_PRODUCTION_APPROVAL_ID",
   "SOCIALFLOW_PRODUCTION_WINDOW_ID",
 ] as const;
+
+const FIXTURE_PATH = path.join(
+  process.cwd(),
+  "tests",
+  "fixtures",
+  "socialflow-production-planned-approval.json",
+);
 
 function clearGovernanceEnv(): void {
   GOVERNANCE_KEYS.forEach((key) => {
@@ -53,6 +61,29 @@ describe("check-socialflow-production-rollback-readiness", () => {
     expect(report.executionAllowed).toBe(false);
   });
 
+  it("returns ready-for-review when planned-only fixture metadata is provided", async () => {
+    const report = await checkSocialflowProductionRollbackReadiness({ silent: true, fixture: FIXTURE_PATH });
+
+    expect(report.ok).toBe(true);
+    expect(report.status).toBe("SOCIALFLOW_PRODUCTION_ROLLBACK_READY_FOR_REVIEW");
+    expect(report.fixtureMode).toBe(true);
+    expect(report.productionTouchAllowed).toBe(false);
+    expect(report.rollbackPlanDocumented).toBe(true);
+    expect(report.rollbackCommandSetPlannedOnly).toBe(true);
+    expect(report.restorePathDocumented).toBe(true);
+    expect(report.postRollbackSmokeListDocumented).toBe(true);
+    expect(report.abortConditionsDocumented).toBe(true);
+    expect(report.noRealRollbackExecuted).toBe(true);
+    expect(report.readyForExecution).toBe(false);
+    expect(report.executionAllowed).toBe(false);
+    expect(report.commandsArePlannedOnly).toBe(true);
+    expect(report.requiresHumanApproval).toBe(true);
+    expect(report.rollbackOwner.presence).toBe("FIXTURE");
+    expect(report.rollbackPlanId.presence).toBe("FIXTURE");
+    expect(report.approvalId.presence).toBe("FIXTURE");
+    expect(report.windowId.presence).toBe("FIXTURE");
+  });
+
   it("supports json and markdown output", async () => {
     const consoleLogSpy = vi.spyOn(console, "log");
     await checkSocialflowProductionRollbackReadiness({ json: true });
@@ -75,6 +106,18 @@ describe("check-socialflow-production-rollback-readiness", () => {
 
     expect(output).not.toContain(sentinel);
     expect(output).toContain("REDACTED");
+    consoleLogSpy.mockRestore();
+  });
+
+  it("never prints raw fixture governance values", async () => {
+    const consoleLogSpy = vi.spyOn(console, "log");
+
+    await checkSocialflowProductionRollbackReadiness({ fixture: FIXTURE_PATH });
+    const output = consoleLogSpy.mock.calls.flat().join(" ");
+
+    expect(output).toContain("FIXTURE");
+    expect(output).not.toContain("fixture-rollback-socialflow-planned-only");
+    expect(output).not.toContain("fixture-approval-socialflow-planned-only");
     consoleLogSpy.mockRestore();
   });
 });

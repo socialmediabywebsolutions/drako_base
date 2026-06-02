@@ -1,0 +1,16 @@
+{
+  "approvalId": "fixture-approval-socialflow-planned-only",
+  "rollbackPlanId": "fixture-rollback-socialflow-planned-only",
+  "onCallOwner": "fixture-on-call-owner",
+  "productionWindowId": "fixture-window-socialflow-planned-only",
+  "productionBaseUrl": "https://socialflow.example.invalid",
+  "expectedHost": "socialflow.example.invalid",
+  "healthPath": "/api/socialflow/health",
+  "readinessPath": "/api/socialflow/readiness",
+  "monitoringPlanId": "fixture-monitoring-socialflow-planned-only",
+  "smokeSequenceId": "fixture-smoke-sequence-socialflow-planned-only",
+  "abortCriteriaId": "fixture-abort-criteria-socialflow-planned-only",
+  "humanApprovalRecorded": false,
+  "plannedOnly": true,
+  "productionTouchAllowed": false
+}

@@ -7,10 +7,12 @@ import { runCheckSocialflowNonprodOwnershipParity } from "./check-socialflow-non
 import { checkSocialflowProductionManualConfig } from "./check-socialflow-production-manual-config";
 import { checkSocialflowProductionRollbackReadiness } from "./check-socialflow-production-rollback-readiness";
 import { checkSocialflowProductionWindowReadiness } from "./check-socialflow-production-window-readiness";
+import { loadSocialflowPlannedApprovalFixture } from "./lib/socialflow-production-planned-approval-fixture";
 
 interface ApprovalPackOptions {
   json?: boolean;
   markdown?: boolean;
+  fixture?: string;
 }
 
 type ApprovalPackStatus =
@@ -28,6 +30,8 @@ interface ApprovalPackReport {
   status: ApprovalPackStatus;
   executionReadinessStatus: "SOCIALFLOW_PRODUCTION_APPROVAL_PACK_NOT_READY_FOR_EXECUTION";
   timestamp: string;
+  fixtureMode: boolean;
+  productionTouchAllowed: false;
   readinessSummary: {
     planningApprovalEligible: boolean;
     executionEligible: false;
@@ -35,9 +39,14 @@ interface ApprovalPackReport {
     missingArtifactsCount: number;
   };
   manualConfigurationRequired: true;
+  manualConfigurationSatisfiedForReview: boolean;
   dnsRoutingRequired: true;
   rollbackRequired: true;
+  rollbackSatisfiedForReview: boolean;
   monitoringRequired: true;
+  monitoringSatisfiedForReview: boolean;
+  productionWindowRequired: true;
+  productionWindowSatisfiedForReview: boolean;
   humanApprovalRequired: true;
   productionTemplateStatus: {
     path: string;
@@ -186,6 +195,14 @@ function printNormal(report: ApprovalPackReport): void {
   console.log(`Requires Human Approval: ${report.requiresHumanApproval ? "YES" : "NO"}`);
   console.log(`Approval Scope: ${report.approvalScope}\n`);
 
+  console.log("P1.3 FIXTURE READINESS");
+  console.log(`- Fixture Mode: ${report.fixtureMode ? "YES" : "NO"}`);
+  console.log(`- Production Touch Allowed: ${report.productionTouchAllowed ? "YES" : "NO"}`);
+  console.log(`- Manual Config Satisfied For Review: ${report.manualConfigurationSatisfiedForReview ? "YES" : "NO"}`);
+  console.log(`- Rollback Satisfied For Review: ${report.rollbackSatisfiedForReview ? "YES" : "NO"}`);
+  console.log(`- Monitoring Satisfied For Review: ${report.monitoringSatisfiedForReview ? "YES" : "NO"}`);
+  console.log(`- Production Window Satisfied For Review: ${report.productionWindowSatisfiedForReview ? "YES" : "NO"}\n`);
+
   console.log("READINESS SUMMARY");
   console.log(
     `- Planning Approval Eligible: ${report.readinessSummary.planningApprovalEligible ? "YES" : "NO"}`,
@@ -247,6 +264,14 @@ function printMarkdown(report: ApprovalPackReport): void {
   console.log(`**Requires Human Approval:** ${report.requiresHumanApproval ? "YES" : "NO"}`);
   console.log(`**Approval Scope:** ${report.approvalScope}\n`);
 
+  console.log("## P1.3 Fixture Readiness\n");
+  console.log(`- Fixture Mode: ${report.fixtureMode ? "YES" : "NO"}`);
+  console.log(`- Production Touch Allowed: ${report.productionTouchAllowed ? "YES" : "NO"}`);
+  console.log(`- Manual Config Satisfied For Review: ${report.manualConfigurationSatisfiedForReview ? "YES" : "NO"}`);
+  console.log(`- Rollback Satisfied For Review: ${report.rollbackSatisfiedForReview ? "YES" : "NO"}`);
+  console.log(`- Monitoring Satisfied For Review: ${report.monitoringSatisfiedForReview ? "YES" : "NO"}`);
+  console.log(`- Production Window Satisfied For Review: ${report.productionWindowSatisfiedForReview ? "YES" : "NO"}\n`);
+
   console.log("## Readiness Summary\n");
   console.log(`- Planning Approval Eligible: ${report.readinessSummary.planningApprovalEligible ? "YES" : "NO"}`);
   console.log(`- Execution Eligible: ${report.readinessSummary.executionEligible ? "YES" : "NO"}`);
@@ -298,13 +323,15 @@ export async function prepareSocialflowProductionApprovalPack(
   const timestamp = new Date().toISOString();
   const blockers = new Set<string>();
   const routeDnsNonCriticalBlockers = new Set(["PRODUCTION_HOST_NOT_READY_BY_DESIGN"]);
+  const fixtureResolution = loadSocialflowPlannedApprovalFixture(options.fixture);
+  const fixturePath = fixtureResolution.fixturePath;
 
   const safetyGate = await checkProductionSafetyGate();
   const routeDns = await checkRouteDnsReadiness();
   const cutoverReadiness = await checkProductionCutoverReadiness();
-  const manualConfig = await checkSocialflowProductionManualConfig({ silent: true });
-  const rollbackReadiness = await checkSocialflowProductionRollbackReadiness({ silent: true });
-  const productionWindow = await checkSocialflowProductionWindowReadiness({ silent: true });
+  const manualConfig = await checkSocialflowProductionManualConfig({ silent: true, fixture: fixturePath });
+  const rollbackReadiness = await checkSocialflowProductionRollbackReadiness({ silent: true, fixture: fixturePath });
+  const productionWindow = await checkSocialflowProductionWindowReadiness({ silent: true, fixture: fixturePath });
 
   let parityResult;
   try {
@@ -364,6 +391,17 @@ export async function prepareSocialflowProductionApprovalPack(
   const driftDetected =
     (cutoverReadiness.blockedBy ?? []).some((blocker) => driftSignals.has(blocker)) || !stableConfig;
   const rollbackCommandsAvailable = cutoverReadiness.gates?.rollbackReady === true;
+  const manualConfigurationSatisfiedForReview =
+    manualConfig.status === "SOCIALFLOW_PRODUCTION_MANUAL_CONFIG_READY_FOR_REVIEW";
+  const rollbackSatisfiedForReview =
+    rollbackReadiness.status === "SOCIALFLOW_PRODUCTION_ROLLBACK_READY_FOR_REVIEW";
+  const productionWindowSatisfiedForReview =
+    productionWindow.status === "SOCIALFLOW_PRODUCTION_WINDOW_READY_FOR_REVIEW";
+  const monitoringSatisfiedForReview =
+    productionWindowSatisfiedForReview
+    && productionWindow.monitoringPlanPresent
+    && productionWindow.smokeSequencePresent
+    && productionWindow.abortCriteriaPresent;
 
   if (missingArtifacts.length > 0) blockers.add("MISSING_ARTIFACTS");
   if (!safetyGateOk) blockers.add("SAFETY_GATE_NOT_OK");
@@ -425,13 +463,13 @@ export async function prepareSocialflowProductionApprovalPack(
   const monitoringReadinessStatus: ApprovalPackReport["monitoringReadinessStatus"] = {
     status:
       productionWindow.monitoringPlanPresent
-      && productionWindow.productionWindowId.presence === "PRESENT"
-      && productionWindow.onCallOwner.presence === "PRESENT"
+      && productionWindow.productionWindowId.presence !== "MISSING"
+      && productionWindow.onCallOwner.presence !== "MISSING"
         ? "PRODUCTION_MONITORING_READY_FOR_REVIEW"
         : "PRODUCTION_MONITORING_READINESS_REQUIRED",
     monitoringPlanPresent: productionWindow.monitoringPlanPresent,
-    productionWindowDefined: productionWindow.productionWindowId.presence === "PRESENT",
-    onCallDefined: productionWindow.onCallOwner.presence === "PRESENT",
+    productionWindowDefined: productionWindow.productionWindowId.presence !== "MISSING",
+    onCallDefined: productionWindow.onCallOwner.presence !== "MISSING",
   };
 
   const blockersList = Array.from(blockers);
@@ -451,6 +489,8 @@ export async function prepareSocialflowProductionApprovalPack(
     status,
     executionReadinessStatus: "SOCIALFLOW_PRODUCTION_APPROVAL_PACK_NOT_READY_FOR_EXECUTION",
     timestamp,
+    fixtureMode: fixtureResolution.fixtureMode,
+    productionTouchAllowed: false,
     readinessSummary: {
       planningApprovalEligible: readyForApproval,
       executionEligible: false,
@@ -458,9 +498,14 @@ export async function prepareSocialflowProductionApprovalPack(
       missingArtifactsCount: missingArtifacts.length,
     },
     manualConfigurationRequired: true,
+    manualConfigurationSatisfiedForReview,
     dnsRoutingRequired: true,
     rollbackRequired: true,
+    rollbackSatisfiedForReview,
     monitoringRequired: true,
+    monitoringSatisfiedForReview,
+    productionWindowRequired: true,
+    productionWindowSatisfiedForReview,
     humanApprovalRequired: true,
     productionTemplateStatus: {
       path: ARTIFACT_PATHS.productionTemplate,
@@ -595,8 +640,15 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const json = args.includes("--json");
   const markdown = args.includes("--markdown");
+  const fixtureIndex = args.findIndex((arg) => arg === "--fixture" || arg.startsWith("--fixture="));
+  const fixture =
+    fixtureIndex >= 0
+      ? args[fixtureIndex] === "--fixture"
+        ? args[fixtureIndex + 1]
+        : args[fixtureIndex].slice("--fixture=".length)
+      : undefined;
 
-  prepareSocialflowProductionApprovalPack({ json, markdown })
+  prepareSocialflowProductionApprovalPack({ json, markdown, fixture })
     .then((report) => {
       process.exit(report.status === "SOCIALFLOW_PRODUCTION_APPROVAL_PACK_BLOCKED" ? 1 : 0);
     })

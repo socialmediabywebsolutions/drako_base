@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import path from "node:path";
 import { checkSocialflowProductionWindowReadiness } from "../scripts/check-socialflow-production-window-readiness";
 
 const WINDOW_KEYS = [
@@ -10,6 +11,13 @@ const WINDOW_KEYS = [
   "SOCIALFLOW_PRODUCTION_SMOKE_SEQUENCE_ID",
   "SOCIALFLOW_PRODUCTION_ABORT_CRITERIA_ID",
 ] as const;
+
+const FIXTURE_PATH = path.join(
+  process.cwd(),
+  "tests",
+  "fixtures",
+  "socialflow-production-planned-approval.json",
+);
 
 function clearWindowEnv(): void {
   WINDOW_KEYS.forEach((key) => {
@@ -61,6 +69,31 @@ describe("check-socialflow-production-window-readiness", () => {
     expect(report.executionAllowed).toBe(false);
   });
 
+  it("returns ready-for-review when planned-only fixture metadata is provided", async () => {
+    const report = await checkSocialflowProductionWindowReadiness({ silent: true, fixture: FIXTURE_PATH });
+
+    expect(report.ok).toBe(true);
+    expect(report.status).toBe("SOCIALFLOW_PRODUCTION_WINDOW_READY_FOR_REVIEW");
+    expect(report.fixtureMode).toBe(true);
+    expect(report.productionTouchAllowed).toBe(false);
+    expect(report.monitoringPlanPresent).toBe(true);
+    expect(report.smokeSequencePresent).toBe(true);
+    expect(report.abortCriteriaPresent).toBe(true);
+    expect(report.runbookPresent).toBe(true);
+    expect(report.decisionPackPresent).toBe(true);
+    expect(report.readyForExecution).toBe(false);
+    expect(report.executionAllowed).toBe(false);
+    expect(report.commandsArePlannedOnly).toBe(true);
+    expect(report.requiresHumanApproval).toBe(true);
+    expect(report.productionWindowId.presence).toBe("FIXTURE");
+    expect(report.onCallOwner.presence).toBe("FIXTURE");
+    expect(report.approvalId.presence).toBe("FIXTURE");
+    expect(report.rollbackPlanId.presence).toBe("FIXTURE");
+    expect(report.monitoringPlanId.presence).toBe("FIXTURE");
+    expect(report.smokeSequenceId.presence).toBe("FIXTURE");
+    expect(report.abortCriteriaId.presence).toBe("FIXTURE");
+  });
+
   it("supports json and markdown output", async () => {
     const consoleLogSpy = vi.spyOn(console, "log");
     await checkSocialflowProductionWindowReadiness({ json: true });
@@ -83,6 +116,18 @@ describe("check-socialflow-production-window-readiness", () => {
 
     expect(output).not.toContain(sentinel);
     expect(output).toContain("REDACTED");
+    consoleLogSpy.mockRestore();
+  });
+
+  it("never prints raw fixture governance values", async () => {
+    const consoleLogSpy = vi.spyOn(console, "log");
+
+    await checkSocialflowProductionWindowReadiness({ fixture: FIXTURE_PATH });
+    const output = consoleLogSpy.mock.calls.flat().join(" ");
+
+    expect(output).toContain("FIXTURE");
+    expect(output).not.toContain("fixture-window-socialflow-planned-only");
+    expect(output).not.toContain("fixture-on-call-owner");
     consoleLogSpy.mockRestore();
   });
 });
