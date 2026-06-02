@@ -141,6 +141,18 @@ describe("prepare-socialflow-production-approval-pack", () => {
     expect(report.commandsArePlannedOnly).toBe(true);
     expect(report.requiresHumanApproval).toBe(true);
     expect(report.approvalScope).toBe("APPROVAL_FOR_PLANNING_ONLY");
+    expect(report.dryRunRequired).toBe(true);
+    expect(report.dryRunReadyForPlanning).toBe(true);
+    expect(report.dryRunReadyForExecution).toBe(false);
+    expect(report.dryRunStatus.status).toBe("SOCIALFLOW_PRODUCTION_DRY_RUN_READY_FOR_PLANNING_REVIEW");
+    expect(report.dryRunStatus.dryRunScriptPresent).toBe(true);
+    expect(report.dryRunStatus.dryRunReportPresent).toBe(true);
+    expect(report.dryRunStatus.readyForPlanning).toBe(true);
+    expect(report.dryRunStatus.readyForExecution).toBe(false);
+    expect(report.dryRunStatus.executionAllowed).toBe(false);
+    expect(report.dryRunStatus.commandsArePlannedOnly).toBe(true);
+    expect(report.dryRunStatus.requiresHumanApproval).toBe(true);
+    expect(report.dryRunStatus.productionTouchAllowed).toBe(false);
     expect(report.manualConfigurationSatisfiedForReview).toBe(true);
     expect(report.rollbackSatisfiedForReview).toBe(true);
     expect(report.monitoringSatisfiedForReview).toBe(true);
@@ -167,6 +179,10 @@ describe("prepare-socialflow-production-approval-pack", () => {
     expect(report.rollbackDrillStatus.commandsArePlannedOnly).toBe(true);
     expect(report.rollbackDrillStatus.requiresHumanApproval).toBe(true);
     expect(report.rollbackDrillStatus.productionTouchAllowed).toBe(false);
+    expect(safetyGateModule.checkProductionSafetyGate).not.toHaveBeenCalled();
+    expect(routeDnsModule.checkRouteDnsReadiness).not.toHaveBeenCalled();
+    expect(cutoverModule.checkProductionCutoverReadiness).not.toHaveBeenCalled();
+    expect(parityModule.runCheckSocialflowNonprodOwnershipParity).not.toHaveBeenCalled();
   });
 
   it("keeps required execution blockers even when planning approval is ready", async () => {
@@ -320,6 +336,10 @@ describe("prepare-socialflow-production-approval-pack", () => {
     expect(report).toHaveProperty("rollbackDrillRequired");
     expect(report).toHaveProperty("rollbackDrillSatisfiedForReview");
     expect(report).toHaveProperty("rollbackDrillStatus");
+    expect(report).toHaveProperty("dryRunRequired");
+    expect(report).toHaveProperty("dryRunReadyForPlanning");
+    expect(report).toHaveProperty("dryRunReadyForExecution");
+    expect(report).toHaveProperty("dryRunStatus");
     expect(report).toHaveProperty("monitoringSatisfiedForReview");
     expect(report).toHaveProperty("productionWindowSatisfiedForReview");
     expect(() => JSON.stringify(report)).not.toThrow();

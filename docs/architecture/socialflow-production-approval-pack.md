@@ -70,3 +70,14 @@ Completar configuración manual, DNS/routing, validación de rollback, monitorin
 - `rollbackDrillReadyForExecution=false` siempre.
 - `rollbackDrillExecutionAllowed=false` siempre.
 - Esta fase no autoriza rollback real, no toca produccion, no toca DNS y no habilita execution.
+
+## P1.7 Dry-run master
+- Nuevo script planned-only: `scripts/run-socialflow-production-dry-run.ts`.
+- Nuevo reporte de referencia: `docs/architecture/socialflow-production-dry-run-report.md`.
+- `dryRunRequired` debe permanecer `true`.
+- `dryRunStatus` debe permanecer en `READY_FOR_PLANNING_REVIEW` solo cuando el fixture planned-only valide manual config, window, routing, rollback, rollback drill, approval pack y el dry-run report/script esten presentes.
+- `dryRunStatus` debe bloquearse cuando falte el fixture, falten artefactos, o haya token leakage.
+- `dryRunReadyForExecution=false` siempre.
+- `dryRunStatus.readyForExecution=false` siempre.
+- `dryRunStatus.executionAllowed=false` siempre.
+- Esta fase no autoriza execution, no toca produccion, no toca DNS y no habilita deploy ni rollback real.

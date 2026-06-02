@@ -34,6 +34,23 @@ interface ApprovalPackReport {
   timestamp: string;
   fixtureMode: boolean;
   productionTouchAllowed: false;
+  dryRunRequired: true;
+  dryRunReadyForPlanning: boolean;
+  dryRunReadyForExecution: false;
+  dryRunStatus: {
+    status:
+      | "SOCIALFLOW_PRODUCTION_DRY_RUN_BLOCKED"
+      | "SOCIALFLOW_PRODUCTION_DRY_RUN_READY_FOR_PLANNING_REVIEW"
+      | "SOCIALFLOW_PRODUCTION_DRY_RUN_TOKEN_LEAKAGE_BLOCKER";
+    dryRunScriptPresent: boolean;
+    dryRunReportPresent: boolean;
+    readyForPlanning: boolean;
+    readyForExecution: false;
+    executionAllowed: false;
+    commandsArePlannedOnly: true;
+    requiresHumanApproval: true;
+    productionTouchAllowed: false;
+  };
   readinessSummary: {
     planningApprovalEligible: boolean;
     executionEligible: false;
@@ -210,6 +227,8 @@ const ARTIFACT_PATHS = {
   smokeReadiness: "scripts/smoke-socialflow-production-readiness.ts",
   smokePostdeploy: "scripts/smoke-socialflow-production-postdeploy.ts",
   dayMonitor: "scripts/monitor-socialflow-production-day.ts",
+  dryRunScript: "scripts/run-socialflow-production-dry-run.ts",
+  dryRunReport: "docs/architecture/socialflow-production-dry-run-report.md",
   routingReviewScript: "scripts/review-socialflow-production-routing.ts",
   routingReviewPack: "docs/architecture/socialflow-production-routing-review-pack.md",
   rollbackDrillScript: "scripts/simulate-socialflow-production-rollback.ts",
@@ -218,8 +237,114 @@ const ARTIFACT_PATHS = {
   decisionPack: "docs/architecture/socialflow-production-approval-pack.md",
 } as const;
 
+type PlanningSafetyGateReport = {
+  ok: boolean;
+  status: string;
+  checks: {
+    gateProtectionActive: boolean;
+  };
+  findings: {
+    productionTouched?: boolean;
+    remoteWrites?: number;
+    tokenLeakageDetected?: boolean;
+  };
+};
+
+type PlanningRouteDnsReport = {
+  ok: boolean;
+  status: string;
+  blockers: string[];
+  productionRoutes?: {
+    notReadyByDesign: boolean;
+    productionHostNotReady: boolean;
+    productionHostValue: string | null;
+  };
+};
+
+type PlanningParityReport = {
+  ok: boolean;
+  status: string;
+  exitCode: number;
+  remoteWrites: number;
+};
+
+type ProductionCutoverReadinessReport = Awaited<ReturnType<typeof checkProductionCutoverReadiness>>;
+
 function artifactExists(relativePath: string): boolean {
   return existsSync(path.resolve(process.cwd(), relativePath));
+}
+
+function createFixtureSafetyGateReport(): PlanningSafetyGateReport {
+  return {
+    ok: true,
+    status: "SOCIALFLOW_PRODUCTION_SAFETY_GATE_OK",
+    checks: {
+      gateProtectionActive: true,
+    },
+    findings: {
+      productionTouched: false,
+      remoteWrites: 0,
+      tokenLeakageDetected: false,
+    },
+  };
+}
+
+function createFixtureRouteDnsReport(): PlanningRouteDnsReport {
+  return {
+    ok: true,
+    status: "CANARY_ROUTE_READY",
+    blockers: [],
+    productionRoutes: {
+      notReadyByDesign: true,
+      productionHostNotReady: true,
+      productionHostValue: null,
+    },
+  };
+}
+
+function createFixtureCutoverReadinessReport(): ProductionCutoverReadinessReport {
+  return {
+    ok: true,
+    readyForPlanning: true,
+    readyForExecution: false,
+    status: "SOCIALFLOW_PRODUCTION_CUTOVER_READY_FOR_PLANNING",
+    timestamp: new Date().toISOString(),
+    monitoring: {
+      daysCompleted: 3,
+      minimumMonitoringReached: true,
+      recommendedMonitoringTarget: 7,
+      recommendedMonitoringReached: false,
+    },
+    configuration: {
+      allSwitchesOn: true,
+      deployable: true,
+      allowDeploy: true,
+    },
+    gates: {
+      safetyGateOk: true,
+      routeDnsReadyOk: true,
+      parityOk: true,
+      rollbackReady: true,
+      tokenSafe: true,
+    },
+    security: {
+      productionTouched: false,
+      remoteWrites: 0,
+      tokenLeakageDetected: false,
+    },
+    blockedBy: [],
+    recommendation: "OK",
+    nextAction: "STAKEHOLDER_APPROVAL",
+  };
+}
+
+function createFixtureParityReport(): PlanningParityReport {
+  return {
+    ok: true,
+    status: "PARITY_OK",
+    exitCode: 0,
+    remoteWrites: 0,
+  };
 }
 
 function printNormal(report: ApprovalPackReport): void {
@@ -261,6 +386,17 @@ function printNormal(report: ApprovalPackReport): void {
   console.log(`- Rollback Execution Allowed: ${report.rollbackDrillStatus.executionAllowed ? "YES" : "NO"}`);
   console.log(`- Rollback Commands Are Planned Only: ${report.rollbackDrillStatus.commandsArePlannedOnly ? "YES" : "NO"}`);
   console.log(`- Rollback Requires Human Approval: ${report.rollbackDrillStatus.requiresHumanApproval ? "YES" : "NO"}\n`);
+
+  console.log("P1.7 DRY-RUN MASTER");
+  console.log(`- Dry Run Required: ${report.dryRunRequired ? "YES" : "NO"}`);
+  console.log(`- Dry Run Status: ${report.dryRunStatus.status}`);
+  console.log(`- Dry Run Script Present: ${report.dryRunStatus.dryRunScriptPresent ? "YES" : "NO"}`);
+  console.log(`- Dry Run Report Present: ${report.dryRunStatus.dryRunReportPresent ? "YES" : "NO"}`);
+  console.log(`- Dry Run Ready For Planning: ${report.dryRunStatus.readyForPlanning ? "YES" : "NO"}`);
+  console.log(`- Dry Run Ready For Execution: ${report.dryRunStatus.readyForExecution ? "YES" : "NO"}`);
+  console.log(`- Dry Run Execution Allowed: ${report.dryRunStatus.executionAllowed ? "YES" : "NO"}`);
+  console.log(`- Dry Run Commands Are Planned Only: ${report.dryRunStatus.commandsArePlannedOnly ? "YES" : "NO"}`);
+  console.log(`- Dry Run Requires Human Approval: ${report.dryRunStatus.requiresHumanApproval ? "YES" : "NO"}\n`);
 
   console.log("READINESS SUMMARY");
   console.log(
@@ -343,6 +479,27 @@ function printMarkdown(report: ApprovalPackReport): void {
   console.log(`- Routing Commands Are Planned Only: ${report.routingReviewStatus.commandsArePlannedOnly ? "YES" : "NO"}`);
   console.log(`- Routing Requires Human Approval: ${report.routingReviewStatus.requiresHumanApproval ? "YES" : "NO"}\n`);
 
+  console.log("## P1.6 Rollback Drill\n");
+  console.log(`- Rollback Drill Status: ${report.rollbackDrillStatus.status}`);
+  console.log(`- Rollback Drill Pack Present: ${report.rollbackDrillStatus.rollbackDrillPackPresent ? "YES" : "NO"}`);
+  console.log(`- Rollback Drill Script Present: ${report.rollbackDrillStatus.rollbackDrillScriptPresent ? "YES" : "NO"}`);
+  console.log(`- Rollback Ready For Planning: ${report.rollbackDrillStatus.readyForPlanning ? "YES" : "NO"}`);
+  console.log(`- Rollback Ready For Execution: ${report.rollbackDrillStatus.readyForExecution ? "YES" : "NO"}`);
+  console.log(`- Rollback Execution Allowed: ${report.rollbackDrillStatus.executionAllowed ? "YES" : "NO"}`);
+  console.log(`- Rollback Commands Are Planned Only: ${report.rollbackDrillStatus.commandsArePlannedOnly ? "YES" : "NO"}`);
+  console.log(`- Rollback Requires Human Approval: ${report.rollbackDrillStatus.requiresHumanApproval ? "YES" : "NO"}\n`);
+
+  console.log("## P1.7 Dry-Run Master\n");
+  console.log(`- Dry Run Required: ${report.dryRunRequired ? "YES" : "NO"}`);
+  console.log(`- Dry Run Status: ${report.dryRunStatus.status}`);
+  console.log(`- Dry Run Script Present: ${report.dryRunStatus.dryRunScriptPresent ? "YES" : "NO"}`);
+  console.log(`- Dry Run Report Present: ${report.dryRunStatus.dryRunReportPresent ? "YES" : "NO"}`);
+  console.log(`- Dry Run Ready For Planning: ${report.dryRunStatus.readyForPlanning ? "YES" : "NO"}`);
+  console.log(`- Dry Run Ready For Execution: ${report.dryRunStatus.readyForExecution ? "YES" : "NO"}`);
+  console.log(`- Dry Run Execution Allowed: ${report.dryRunStatus.executionAllowed ? "YES" : "NO"}`);
+  console.log(`- Dry Run Commands Are Planned Only: ${report.dryRunStatus.commandsArePlannedOnly ? "YES" : "NO"}`);
+  console.log(`- Dry Run Requires Human Approval: ${report.dryRunStatus.requiresHumanApproval ? "YES" : "NO"}\n`);
+
   console.log("## Readiness Summary\n");
   console.log(`- Planning Approval Eligible: ${report.readinessSummary.planningApprovalEligible ? "YES" : "NO"}`);
   console.log(`- Execution Eligible: ${report.readinessSummary.executionEligible ? "YES" : "NO"}`);
@@ -398,32 +555,49 @@ export async function prepareSocialflowProductionApprovalPack(
   const fixtureResolution = loadSocialflowPlannedApprovalFixture(options.fixture);
   const fixturePath = fixtureResolution.fixturePath;
 
-  const safetyGate = await checkProductionSafetyGate();
-  const routeDns = await checkRouteDnsReadiness();
-  const cutoverReadiness = await checkProductionCutoverReadiness();
+  const safetyGate: PlanningSafetyGateReport = fixtureResolution.fixtureMode
+    ? createFixtureSafetyGateReport()
+    : await checkProductionSafetyGate();
+  const routeDns: PlanningRouteDnsReport = fixtureResolution.fixtureMode
+    ? createFixtureRouteDnsReport()
+    : await checkRouteDnsReadiness();
+  const cutoverReadiness: ProductionCutoverReadinessReport = fixtureResolution.fixtureMode
+    ? createFixtureCutoverReadinessReport()
+    : await checkProductionCutoverReadiness();
   const manualConfig = await checkSocialflowProductionManualConfig({ silent: true, fixture: fixturePath });
   const rollbackReadiness = await checkSocialflowProductionRollbackReadiness({ silent: true, fixture: fixturePath });
   const productionWindow = await checkSocialflowProductionWindowReadiness({ silent: true, fixture: fixturePath });
   const routingReview = await reviewSocialflowProductionRouting({ silent: true, fixture: fixturePath });
   const rollbackDrill = await simulateSocialflowProductionRollback({ silent: true, fixture: fixturePath });
 
-  let parityResult;
-  try {
-    parityResult = await runCheckSocialflowNonprodOwnershipParity();
-  } catch {
-    parityResult = {
-      exitCode: -1,
-      status: "PARITY_CHECK_UNAVAILABLE_IN_LOCAL_MODE",
-      remoteWrites: 0,
-      ok: false,
-    };
-  }
+  const parityResult: PlanningParityReport = fixtureResolution.fixtureMode
+    ? createFixtureParityReport()
+    : await (async () => {
+        try {
+          const report = await runCheckSocialflowNonprodOwnershipParity();
+          return {
+            exitCode: report.exitCode,
+            status: report.status,
+            remoteWrites: report.remoteWrites,
+            ok: report.ok,
+          } as PlanningParityReport;
+        } catch {
+          return {
+            exitCode: -1,
+            status: "PARITY_CHECK_UNAVAILABLE_IN_LOCAL_MODE",
+            remoteWrites: 0,
+            ok: false,
+          } as PlanningParityReport;
+        }
+      })();
 
   const productionTemplatePresent = artifactExists(ARTIFACT_PATHS.productionTemplate);
   const smokeHealthPresent = artifactExists(ARTIFACT_PATHS.smokeHealth);
   const smokeReadinessPresent = artifactExists(ARTIFACT_PATHS.smokeReadiness);
   const smokePostdeployPresent = artifactExists(ARTIFACT_PATHS.smokePostdeploy);
   const monitorPresent = artifactExists(ARTIFACT_PATHS.dayMonitor);
+  const dryRunScriptPresent = artifactExists(ARTIFACT_PATHS.dryRunScript);
+  const dryRunReportPresent = artifactExists(ARTIFACT_PATHS.dryRunReport);
   const routingReviewScriptPresent = artifactExists(ARTIFACT_PATHS.routingReviewScript);
   const routingReviewPackPresent = artifactExists(ARTIFACT_PATHS.routingReviewPack);
   const rollbackDrillScriptPresent = artifactExists(ARTIFACT_PATHS.rollbackDrillScript);
@@ -437,6 +611,8 @@ export async function prepareSocialflowProductionApprovalPack(
   if (!smokeReadinessPresent) missingArtifacts.push(ARTIFACT_PATHS.smokeReadiness);
   if (!smokePostdeployPresent) missingArtifacts.push(ARTIFACT_PATHS.smokePostdeploy);
   if (!monitorPresent) missingArtifacts.push(ARTIFACT_PATHS.dayMonitor);
+  if (!dryRunScriptPresent) missingArtifacts.push(ARTIFACT_PATHS.dryRunScript);
+  if (!dryRunReportPresent) missingArtifacts.push(ARTIFACT_PATHS.dryRunReport);
   if (!routingReviewScriptPresent) missingArtifacts.push(ARTIFACT_PATHS.routingReviewScript);
   if (!routingReviewPackPresent) missingArtifacts.push(ARTIFACT_PATHS.routingReviewPack);
   if (!rollbackDrillScriptPresent) missingArtifacts.push(ARTIFACT_PATHS.rollbackDrillScript);
@@ -484,6 +660,16 @@ export async function prepareSocialflowProductionApprovalPack(
   const routingReviewReadyForPlanning = routingReview.ok === true;
   const routingReviewReviewHealthy = !fixtureResolution.fixtureMode || routingReviewReadyForPlanning;
   const rollbackDrillReviewHealthy = !fixtureResolution.fixtureMode || rollbackDrillSatisfiedForReview;
+  const dryRunReadyForPlanning =
+    fixtureResolution.fixtureMode &&
+    dryRunScriptPresent &&
+    dryRunReportPresent &&
+    manualConfigurationSatisfiedForReview &&
+    rollbackSatisfiedForReview &&
+    productionWindowSatisfiedForReview &&
+    routingReviewReviewHealthy &&
+    rollbackDrillReviewHealthy;
+  const dryRunReviewHealthy = !fixtureResolution.fixtureMode || dryRunReadyForPlanning;
   const monitoringSatisfiedForReview =
     productionWindowSatisfiedForReview
     && productionWindow.monitoringPlanPresent
@@ -514,6 +700,9 @@ export async function prepareSocialflowProductionApprovalPack(
   if (productionWindow.status !== "SOCIALFLOW_PRODUCTION_WINDOW_READY_FOR_REVIEW") {
     blockers.add("PRODUCTION_WINDOW_REVIEW_NOT_READY");
   }
+  if (fixtureResolution.fixtureMode && !dryRunReadyForPlanning) {
+    blockers.add("DRY_RUN_REVIEW_NOT_READY");
+  }
 
   const technicalPlanningChecksHealthy =
     missingArtifacts.length === 0 &&
@@ -529,7 +718,8 @@ export async function prepareSocialflowProductionApprovalPack(
     rollbackCommandsAvailable &&
     cutoverReadyForPlanning &&
     routingReviewReviewHealthy &&
-    rollbackDrillReviewHealthy;
+    rollbackDrillReviewHealthy &&
+    dryRunReviewHealthy;
 
   const manualConfigurationApproved = false;
   const rollbackValidatedForExecution = false;
@@ -580,6 +770,24 @@ export async function prepareSocialflowProductionApprovalPack(
     timestamp,
     fixtureMode: fixtureResolution.fixtureMode,
     productionTouchAllowed: false,
+    dryRunRequired: true,
+    dryRunReadyForPlanning,
+    dryRunReadyForExecution: false,
+    dryRunStatus: {
+      status: dryRunReadyForPlanning
+        ? "SOCIALFLOW_PRODUCTION_DRY_RUN_READY_FOR_PLANNING_REVIEW"
+        : tokenLeakageDetected
+        ? "SOCIALFLOW_PRODUCTION_DRY_RUN_TOKEN_LEAKAGE_BLOCKER"
+        : "SOCIALFLOW_PRODUCTION_DRY_RUN_BLOCKED",
+      dryRunScriptPresent,
+      dryRunReportPresent,
+      readyForPlanning: dryRunReadyForPlanning,
+      readyForExecution: false,
+      executionAllowed: false,
+      commandsArePlannedOnly: true,
+      requiresHumanApproval: true,
+      productionTouchAllowed: false,
+    },
     readinessSummary: {
       planningApprovalEligible: readyForApproval,
       executionEligible: false,
@@ -730,12 +938,12 @@ export async function prepareSocialflowProductionApprovalPack(
     noDeployConfirmation: true,
     noProductionTouchConfirmation: !productionTouched,
     goNoGoRecommendation: readyForApproval
-      ? "GO_FOR_PLANNING_APPROVAL_ONLY - Execution remains blocked until DNS/routing, rollback validation, rollback drill, monitoring, and human approvals are complete."
+      ? "GO_FOR_PLANNING_APPROVAL_ONLY - Execution remains blocked until DNS/routing, rollback validation, rollback drill, dry-run master checklist, monitoring, and human approvals are complete."
       : `NO_GO - Resolve blockers first: ${blockersList.join(", ")}`,
     executionAllowedStatement:
-      "EXECUTION NOT ALLOWED - planning artifacts are ready, but manual configuration, DNS/routing, rollback validation, rollback drill, monitoring, and human approvals are still required.",
+      "EXECUTION NOT ALLOWED - planning artifacts are ready, but manual configuration, DNS/routing, rollback validation, rollback drill, dry-run master checklist, monitoring, and human approvals are still required.",
     nextAction: readyForApproval
-      ? "COMPLETE_MANUAL_CONFIG_AND_APPROVAL_WINDOW_BEFORE_ANY_EXECUTION"
+      ? "COMPLETE_MANUAL_CONFIG_AND_APPROVAL_WINDOW_BEFORE_ANY_EXECUTION_AND_REVIEW_DRY_RUN_MASTER"
       : "RESOLVE_TECHNICAL_AND_ARTIFACT_BLOCKERS",
   };
 

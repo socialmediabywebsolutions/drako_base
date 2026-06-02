@@ -219,6 +219,20 @@ export async function planSocialflowProductionExecution(
       commandReference: "pnpm tsx scripts/monitor-socialflow-production-day.ts --day=1",
     },
     {
+      artifact: "scripts/run-socialflow-production-dry-run.ts",
+      statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
+      reason: "Production dry-run master checklist is required before any execution review.",
+      requiredForExecution: true,
+      commandReference: "pnpm tsx scripts/run-socialflow-production-dry-run.ts --json",
+    },
+    {
+      artifact: "docs/architecture/socialflow-production-dry-run-report.md",
+      statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
+      reason: "Production dry-run report is required before any execution review.",
+      requiredForExecution: true,
+      commandReference: "docs/architecture/socialflow-production-dry-run-report.md",
+    },
+    {
       artifact: "scripts/review-socialflow-production-routing.ts",
       statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
       reason: "Production routing review script is required before any execution review.",
@@ -383,6 +397,12 @@ export async function planSocialflowProductionExecution(
         required: true,
         description:
           "Confirm the planned-only rollback drill script and drill doc exist, and that the drill stays fixture-backed.",
+      },
+      {
+        step: "Verify Dry Run Master Checklist",
+        required: true,
+        description:
+          "Confirm the planned-only dry-run master script and report exist, and that the dry-run stays fixture-backed.",
       },
       {
         step: "Verify Cloudflare Access",

@@ -159,3 +159,11 @@ No deploy todavía. Este runbook no autoriza producción y mantiene ejecución b
 - Confirmar que el fixture planned-only siga usando un host `.invalid` y que los IDs de rollback esten presentes.
 - Confirmar la secuencia planned-only de restore de routing, worker target, config, smokes y monitoring.
 - No ejecutar rollback real, no tocar DNS, no tocar produccion, no ejecutar deploy y no activar cutover en esta fase.
+
+## 24. Dry-run master P1.7
+- Revisar `scripts/run-socialflow-production-dry-run.ts` antes de cualquier aprobacion de ejecucion.
+- Revisar `docs/architecture/socialflow-production-dry-run-report.md` como checklist humano.
+- Mantener `readyForExecution=false`, `executionAllowed=false`, `commandsArePlannedOnly=true`, `dryRunRequired=true` y `requiresHumanApproval=true`.
+- Confirmar que el fixture planned-only siga usando un host `.invalid` y que el dry-run reporte manual config, window, routing, rollback, rollback drill, approval pack, execution plan, smokes y monitor day.
+- Confirmar que `dryRunStatus` solo pueda quedar en `READY_FOR_PLANNING_REVIEW` cuando el fixture planned-only y los artefactos esten presentes.
+- No ejecutar deploy, no tocar DNS, no tocar produccion, no ejecutar rollback real y no activar cutover en esta fase.

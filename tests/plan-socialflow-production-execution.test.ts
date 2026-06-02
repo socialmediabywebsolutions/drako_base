@@ -87,6 +87,12 @@ describe("plan-socialflow-production-execution", () => {
     const rollbackDrillPack = plan.artifactInventory.find(
       (item) => item.artifact === "docs/architecture/socialflow-production-rollback-drill.md",
     );
+    const dryRunScript = plan.artifactInventory.find(
+      (item) => item.artifact === "scripts/run-socialflow-production-dry-run.ts",
+    );
+    const dryRunReport = plan.artifactInventory.find(
+      (item) => item.artifact === "docs/architecture/socialflow-production-dry-run-report.md",
+    );
 
     expect(runbook).toBeDefined();
     expect(runbook?.present).toBe(true);
@@ -108,6 +114,14 @@ describe("plan-socialflow-production-execution", () => {
     expect(rollbackDrillPack?.present).toBe(true);
     expect(rollbackDrillPack?.status).toBe("PRESENT");
     expect(rollbackDrillPack?.requiredForExecution).toBe(true);
+    expect(dryRunScript).toBeDefined();
+    expect(dryRunScript?.present).toBe(true);
+    expect(dryRunScript?.status).toBe("PRESENT");
+    expect(dryRunScript?.requiredForExecution).toBe(true);
+    expect(dryRunReport).toBeDefined();
+    expect(dryRunReport?.present).toBe(true);
+    expect(dryRunReport?.status).toBe("PRESENT");
+    expect(dryRunReport?.requiredForExecution).toBe(true);
   });
 
   it("tracks manual/rollback/window validators as present artifacts", async () => {
@@ -149,11 +163,16 @@ describe("plan-socialflow-production-execution", () => {
   it("includes rollback drill planning in the pre-execution checklist", async () => {
     const plan = await planSocialflowProductionExecution();
     const rollbackDrillStep = plan.preExecution.find((step) => step.step === "Verify Rollback Drill Simulation");
+    const dryRunStep = plan.preExecution.find((step) => step.step === "Verify Dry Run Master Checklist");
 
     expect(rollbackDrillStep).toBeDefined();
     expect(rollbackDrillStep?.required).toBe(true);
     expect(rollbackDrillStep?.description).toContain("planned-only rollback drill script");
     expect(rollbackDrillStep?.description).toContain("drill doc");
+    expect(dryRunStep).toBeDefined();
+    expect(dryRunStep?.required).toBe(true);
+    expect(dryRunStep?.description).toContain("planned-only dry-run master script");
+    expect(dryRunStep?.description).toContain("report exist");
   });
 
   it("keeps deploy command as planned template review required", async () => {
@@ -224,6 +243,25 @@ describe("plan-socialflow-production-execution", () => {
     expect(plan).toHaveProperty("fixtureMode");
     expect(plan).toHaveProperty("productionTouchAllowed");
     expect(() => JSON.stringify(plan)).not.toThrow();
+  });
+
+  it("tracks dry-run artifacts as present", async () => {
+    const plan = await planSocialflowProductionExecution();
+    const dryRunScript = plan.artifactInventory.find(
+      (item) => item.artifact === "scripts/run-socialflow-production-dry-run.ts",
+    );
+    const dryRunReport = plan.artifactInventory.find(
+      (item) => item.artifact === "docs/architecture/socialflow-production-dry-run-report.md",
+    );
+
+    expect(dryRunScript).toBeDefined();
+    expect(dryRunScript?.present).toBe(true);
+    expect(dryRunScript?.status).toBe("PRESENT");
+    expect(dryRunScript?.requiredForExecution).toBe(true);
+    expect(dryRunReport).toBeDefined();
+    expect(dryRunReport?.present).toBe(true);
+    expect(dryRunReport?.status).toBe("PRESENT");
+    expect(dryRunReport?.requiredForExecution).toBe(true);
   });
 
   it("generates markdown output", async () => {
