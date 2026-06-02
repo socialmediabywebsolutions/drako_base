@@ -1,8 +1,4 @@
 import type { DracoEnv } from "@/lib/cf";
-import {
-  isSocialFlowLegacyReadModelsSocialDbReadSwitchEnabled,
-} from "@/lib/socialflow/contracts/legacy-actions-core";
-
 export type SocialRepositoryContext = {
   tenantId: string;
   saasId: string | null;
@@ -127,25 +123,18 @@ export function createSocialFlowLegacyRepositorySocialOwnershipPrepContract(
 export async function resolveLegacyRepositoryContextReadModel(
   options: ResolveLegacyRepositoryContextReadOptions,
 ): Promise<SocialFlowLegacyRepositoryContextReadModel | null> {
-  // TODO(SocialFlow DB separation): switch legacy actions/repository reads to SOCIAL_DB once switch smoke passes.
-  const switchEnabled = options.switchEnabled
-    ?? isSocialFlowLegacyReadModelsSocialDbReadSwitchEnabled(options.runtimeEnv);
-
-  if (switchEnabled && options.socialDb) {
-    try {
-      const socialContract = createSocialFlowLegacyRepositorySocialOwnershipPrepContract(
-        createD1Executor(options.socialDb),
-      );
-      const socialRow = await socialContract.getPreparedRepositoryContext(options.tenantId, options.saasId);
-      if (socialRow) {
-        return socialRow;
-      }
-    } catch {
-      // Best-effort SOCIAL_DB read; fallback to core-backed path is required by design.
-    }
+  if (!options.socialDb) {
+    return null;
   }
 
-  return options.coreRead();
+  try {
+    const socialContract = createSocialFlowLegacyRepositorySocialOwnershipPrepContract(
+      createD1Executor(options.socialDb),
+    );
+    return await socialContract.getPreparedRepositoryContext(options.tenantId, options.saasId);
+  } catch {
+    return null;
+  }
 }
 
 export function createSocialRepositoryContextWithCoreProjection(input: {

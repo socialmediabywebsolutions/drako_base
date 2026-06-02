@@ -204,13 +204,21 @@ describe("socialflow legacy read models switch", () => {
     vi.clearAllMocks();
   });
 
-  it("keeps core-backed reads when switch is OFF", async () => {
+  it("uses SOCIAL_DB read models when switch is OFF", async () => {
     const adapter = createSocialFlowLegacyActionsCoreAdapter();
     const dossier = await adapter.findLatestActiveStrategicDossier("tenant_1");
+    const step = await adapter.getTenantMaterializationStep("tenant_1");
+    const logs = await adapter.listLatestAgentWorkLogs("tenant_1", 10);
 
     expect(dossier?.id).toBe("core_dossier_1");
-    expect(state.socialQueryCounts.strategic).toBe(0);
-    expect(state.coreQueryCounts.strategic).toBe(1);
+    expect(step).toBe(4);
+    expect(logs[0]?.id).toBe("core_log_1");
+    expect(state.socialQueryCounts.strategic).toBe(1);
+    expect(state.socialQueryCounts.tenantProgress).toBe(1);
+    expect(state.socialQueryCounts.agentWorkLogs).toBe(1);
+    expect(state.coreQueryCounts.strategic).toBe(0);
+    expect(state.coreQueryCounts.tenantProgress).toBe(0);
+    expect(state.coreQueryCounts.agentWorkLogs).toBe(0);
   });
 
   it("uses SOCIAL_DB read models when switch is ON", async () => {
@@ -231,7 +239,7 @@ describe("socialflow legacy read models switch", () => {
     expect(state.coreQueryCounts.agentWorkLogs).toBe(0);
   });
 
-  it("falls back to core when switch is ON and SOCIAL_DB read model is missing", async () => {
+  it("returns fail-closed values when SOCIAL_DB read model is missing", async () => {
     process.env.SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1";
     state.socialStrategicRow = null;
     state.socialTenantProgressRow = null;
@@ -242,18 +250,18 @@ describe("socialflow legacy read models switch", () => {
     const step = await adapter.getTenantMaterializationStep("tenant_1");
     const logs = await adapter.listLatestAgentWorkLogs("tenant_1", 10);
 
-    expect(dossier?.id).toBe("core_dossier_1");
-    expect(step).toBe(3);
-    expect(logs[0]?.id).toBe("core_log_1");
+    expect(dossier).toBeNull();
+    expect(step).toBeNull();
+    expect(logs).toEqual([]);
     expect(state.socialQueryCounts.strategic).toBe(1);
     expect(state.socialQueryCounts.tenantProgress).toBe(1);
     expect(state.socialQueryCounts.agentWorkLogs).toBe(1);
-    expect(state.coreQueryCounts.strategic).toBe(1);
-    expect(state.coreQueryCounts.tenantProgress).toBe(1);
-    expect(state.coreQueryCounts.agentWorkLogs).toBe(1);
+    expect(state.coreQueryCounts.strategic).toBe(0);
+    expect(state.coreQueryCounts.tenantProgress).toBe(0);
+    expect(state.coreQueryCounts.agentWorkLogs).toBe(0);
   });
 
-  it("falls back to core when switch is ON and SOCIAL_DB read fails", async () => {
+  it("returns fail-closed values when SOCIAL_DB read fails", async () => {
     process.env.SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1";
     state.socialStrategicError = new Error("SOCIAL_STRATEGIC_READ_FAILED");
     state.socialTenantProgressError = new Error("SOCIAL_PROGRESS_READ_FAILED");
@@ -264,15 +272,18 @@ describe("socialflow legacy read models switch", () => {
     const step = await adapter.getTenantMaterializationStep("tenant_1");
     const logs = await adapter.listLatestAgentWorkLogs("tenant_1", 10);
 
-    expect(dossier?.id).toBe("core_dossier_1");
-    expect(step).toBe(3);
-    expect(logs[0]?.id).toBe("core_log_1");
-    expect(state.coreQueryCounts.strategic).toBe(1);
-    expect(state.coreQueryCounts.tenantProgress).toBe(1);
-    expect(state.coreQueryCounts.agentWorkLogs).toBe(1);
+    expect(dossier).toBeNull();
+    expect(step).toBeNull();
+    expect(logs).toEqual([]);
+    expect(state.socialQueryCounts.strategic).toBe(1);
+    expect(state.socialQueryCounts.tenantProgress).toBe(1);
+    expect(state.socialQueryCounts.agentWorkLogs).toBe(1);
+    expect(state.coreQueryCounts.strategic).toBe(0);
+    expect(state.coreQueryCounts.tenantProgress).toBe(0);
+    expect(state.coreQueryCounts.agentWorkLogs).toBe(0);
   });
 
-  it("keeps repository context core-backed when switch is OFF", async () => {
+  it("keeps repository context SOCIAL_DB-only when switch is OFF", async () => {
     const coreRead = vi.fn().mockResolvedValue({
       id: "core_repo_1",
       tenant_id: "tenant_1",
@@ -293,9 +304,9 @@ describe("socialflow legacy read models switch", () => {
       coreRead,
     });
 
-    expect(row?.id).toBe("core_repo_1");
-    expect(state.socialQueryCounts.repositoryContext).toBe(0);
-    expect(coreRead).toHaveBeenCalledOnce();
+    expect(row?.id).toBe("legacy_repo_1");
+    expect(state.socialQueryCounts.repositoryContext).toBe(1);
+    expect(coreRead).not.toHaveBeenCalled();
   });
 
   it("uses SOCIAL_DB repository context when switch is ON", async () => {
@@ -315,7 +326,7 @@ describe("socialflow legacy read models switch", () => {
     expect(coreRead).not.toHaveBeenCalled();
   });
 
-  it("falls back to core repository context when SOCIAL_DB row is missing or fails", async () => {
+  it("returns null repository context when SOCIAL_DB row is missing or fails", async () => {
     process.env.SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1";
     state.socialRepositoryContextRow = null;
     const coreRead = vi.fn().mockResolvedValue({
@@ -337,7 +348,7 @@ describe("socialflow legacy read models switch", () => {
       runtimeEnv: state.runtimeEnv,
       coreRead,
     });
-    expect(rowMissing?.id).toBe("core_repo_2");
+    expect(rowMissing).toBeNull();
 
     state.socialRepositoryContextError = new Error("SOCIAL_REPO_READ_FAILED");
     const rowError = await resolveLegacyRepositoryContextReadModel({
@@ -347,36 +358,35 @@ describe("socialflow legacy read models switch", () => {
       runtimeEnv: state.runtimeEnv,
       coreRead,
     });
-    expect(rowError?.id).toBe("core_repo_2");
-    expect(coreRead).toHaveBeenCalledTimes(2);
+    expect(rowError).toBeNull();
+    expect(state.socialQueryCounts.repositoryContext).toBe(2);
+    expect(coreRead).not.toHaveBeenCalled();
   });
 
-  it("keeps payload and return shape compatible between social-first and core fallback", async () => {
+  it("keeps payload and return shape compatible between switch OFF and switch ON social reads", async () => {
+    delete process.env.SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH;
+    const switchOffAdapter = createSocialFlowLegacyActionsCoreAdapter();
+    const switchOffDossier = await switchOffAdapter.findLatestActiveStrategicDossier("tenant_1");
+    const switchOffLogs = await switchOffAdapter.listLatestAgentWorkLogs("tenant_1", 10);
+
     process.env.SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1";
-    const adapter = createSocialFlowLegacyActionsCoreAdapter();
+    const switchOnAdapter = createSocialFlowLegacyActionsCoreAdapter();
+    const switchOnDossier = await switchOnAdapter.findLatestActiveStrategicDossier("tenant_1");
+    const switchOnLogs = await switchOnAdapter.listLatestAgentWorkLogs("tenant_1", 10);
 
-    const socialFirstDossier = await adapter.findLatestActiveStrategicDossier("tenant_1");
-    const socialFirstLogs = await adapter.listLatestAgentWorkLogs("tenant_1", 10);
+    expect(switchOffDossier).toBeTruthy();
+    expect(switchOnDossier).toBeTruthy();
+    expect(switchOffLogs[0]).toBeTruthy();
+    expect(switchOnLogs[0]).toBeTruthy();
 
-    state.socialStrategicRow = null;
-    state.socialAgentWorkLogs = [];
-
-    const fallbackDossier = await adapter.findLatestActiveStrategicDossier("tenant_1");
-    const fallbackLogs = await adapter.listLatestAgentWorkLogs("tenant_1", 10);
-
-    expect(socialFirstDossier).toBeTruthy();
-    expect(fallbackDossier).toBeTruthy();
-    expect(socialFirstLogs[0]).toBeTruthy();
-    expect(fallbackLogs[0]).toBeTruthy();
-
-    expect(Object.keys(socialFirstDossier ?? {}).sort()).toEqual(
-      Object.keys(fallbackDossier ?? {}).sort(),
+    expect(Object.keys(switchOffDossier ?? {}).sort()).toEqual(
+      Object.keys(switchOnDossier ?? {}).sort(),
     );
-    expect(Object.keys(socialFirstLogs[0] ?? {}).sort()).toEqual(
-      Object.keys(fallbackLogs[0] ?? {}).sort(),
+    expect(Object.keys(switchOffLogs[0] ?? {}).sort()).toEqual(
+      Object.keys(switchOnLogs[0] ?? {}).sort(),
     );
 
-    expect(typeof socialFirstLogs[0]?.output_json).toBe("string");
-    expect(typeof fallbackLogs[0]?.output_json).toBe("string");
+    expect(typeof switchOffLogs[0]?.output_json).toBe("string");
+    expect(typeof switchOnLogs[0]?.output_json).toBe("string");
   });
 });

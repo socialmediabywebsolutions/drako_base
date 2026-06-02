@@ -411,11 +411,9 @@ async function readAgentWorkLogsFromSocialReadModels(
 
 export function createSocialFlowLegacyActionsCoreAdapter(options: LegacyActionsCoreAdapterOptions = {}) {
   // TODO(SocialFlow DB separation): replace this legacy core-backed adapter with SOCIAL_DB-owned data or Campamento Base internal API.
-  // TODO(SocialFlow DB separation): switch legacy actions/repository reads to SOCIAL_DB once switch smoke passes.
   const runtimeEnv = resolveLegacyActionsBindings(options.runtimeEnv);
-  const switchEnabled = options.switchEnabled ?? isSocialFlowLegacyReadModelsSocialDbReadSwitchEnabled(runtimeEnv);
   const socialDatabase = options.legacySocialDatabase ?? resolveLegacyActionsSocialDb(runtimeEnv);
-  const socialReadContract = switchEnabled && socialDatabase
+  const socialReadContract = socialDatabase
     ? createSocialFlowLegacyActionsSocialOwnershipPrepContract(createD1Executor(socialDatabase))
     : null;
 
@@ -435,14 +433,8 @@ export function createSocialFlowLegacyActionsCoreAdapter(options: LegacyActionsC
     },
 
     async findLatestDraftStrategicDossier(tenantId: string): Promise<LegacyStrategicDossierRow | null> {
-      if (socialReadContract) {
-        const socialRow = await readStrategicDossierFromSocialReadModels(socialReadContract, tenantId, ["draft"]);
-        if (socialRow) return socialRow;
-      }
-      const db = getLegacyCoreDatabase();
-      return db.prepare(
-        `SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status = 'draft' ORDER BY created_at DESC LIMIT 1`,
-      ).bind(tenantId).first<LegacyStrategicDossierRow>();
+      if (!socialReadContract) return null;
+      return readStrategicDossierFromSocialReadModels(socialReadContract, tenantId, ["draft"]);
     },
 
     async updateStrategicDossierAnalysis(input: { dossierId: string; analysisJson: string; updatedAtIso: string }) {
@@ -455,14 +447,8 @@ export function createSocialFlowLegacyActionsCoreAdapter(options: LegacyActionsC
     },
 
     async findLatestAnalyzedStrategicDossier(tenantId: string): Promise<LegacyStrategicDossierRow | null> {
-      if (socialReadContract) {
-        const socialRow = await readStrategicDossierFromSocialReadModels(socialReadContract, tenantId, ["analyzed"]);
-        if (socialRow) return socialRow;
-      }
-      const db = getLegacyCoreDatabase();
-      return db.prepare(
-        `SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status = 'analyzed' ORDER BY created_at DESC LIMIT 1`,
-      ).bind(tenantId).first<LegacyStrategicDossierRow>();
+      if (!socialReadContract) return null;
+      return readStrategicDossierFromSocialReadModels(socialReadContract, tenantId, ["analyzed"]);
     },
 
     async updateStrategicDossierPlan(input: { dossierId: string; planJson: string; updatedAtIso: string }) {
@@ -475,25 +461,13 @@ export function createSocialFlowLegacyActionsCoreAdapter(options: LegacyActionsC
     },
 
     async findAnalyzedStrategicDossierForApproval(tenantId: string): Promise<LegacyStrategicDossierRow | null> {
-      if (socialReadContract) {
-        const socialRow = await readStrategicDossierFromSocialReadModels(socialReadContract, tenantId, ["analyzed"]);
-        if (socialRow) return socialRow;
-      }
-      const db = getLegacyCoreDatabase();
-      return db.prepare(
-        `SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status = 'analyzed'`,
-      ).bind(tenantId).first<LegacyStrategicDossierRow>();
+      if (!socialReadContract) return null;
+      return readStrategicDossierFromSocialReadModels(socialReadContract, tenantId, ["analyzed"]);
     },
 
     async findLatestActiveStrategicDossier(tenantId: string): Promise<LegacyStrategicDossierRow | null> {
-      if (socialReadContract) {
-        const socialRow = await readStrategicDossierFromSocialReadModels(socialReadContract, tenantId, ["active"]);
-        if (socialRow) return socialRow;
-      }
-      const db = getLegacyCoreDatabase();
-      return db.prepare(
-        `SELECT * FROM tenant_strategic_dossiers WHERE tenant_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
-      ).bind(tenantId).first<LegacyStrategicDossierRow>();
+      if (!socialReadContract) return null;
+      return readStrategicDossierFromSocialReadModels(socialReadContract, tenantId, ["active"]);
     },
 
     async activateStrategicDossiersForTenant(input: { tenantId: string; updatedAtIso: string }) {
@@ -511,32 +485,13 @@ export function createSocialFlowLegacyActionsCoreAdapter(options: LegacyActionsC
     },
 
     async getTenantMaterializationStep(tenantId: string): Promise<number | null> {
-      if (socialReadContract) {
-        const socialStep = await readTenantProgressFromSocialReadModels(socialReadContract, tenantId);
-        if (socialStep != null) return socialStep;
-      }
-
-      const db = getLegacyCoreDatabase();
-      const row = await db.prepare(
-        `SELECT materialization_step FROM tenants WHERE id = ? LIMIT 1`,
-      ).bind(tenantId).first<{ materialization_step: number | null }>();
-      if (!row) return null;
-      const step = Number(row.materialization_step);
-      return Number.isFinite(step) ? step : null;
+      if (!socialReadContract) return null;
+      return readTenantProgressFromSocialReadModels(socialReadContract, tenantId);
     },
 
     async listLatestAgentWorkLogs(tenantId: string, limit = 10): Promise<LegacyAgentWorkLogRow[]> {
-      if (socialReadContract) {
-        const socialRows = await readAgentWorkLogsFromSocialReadModels(socialReadContract, tenantId, limit);
-        if (socialRows && socialRows.length > 0) return socialRows;
-      }
-
-      const db = getLegacyCoreDatabase();
-      const { results } = await db.prepare(
-        `SELECT * FROM agent_work_logs WHERE tenant_id = ? ORDER BY created_at DESC LIMIT ?`,
-      ).bind(tenantId, limit).all<LegacyAgentWorkLogRow>();
-
-      return results ?? [];
+      if (!socialReadContract) return [];
+      return await readAgentWorkLogsFromSocialReadModels(socialReadContract, tenantId, limit) ?? [];
     },
   };
 }
