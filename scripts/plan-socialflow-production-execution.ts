@@ -219,6 +219,20 @@ export async function planSocialflowProductionExecution(
       commandReference: "pnpm tsx scripts/monitor-socialflow-production-day.ts --day=1",
     },
     {
+      artifact: "scripts/review-socialflow-production-routing.ts",
+      statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
+      reason: "Production routing review script is required before any execution review.",
+      requiredForExecution: true,
+      commandReference: "pnpm tsx scripts/review-socialflow-production-routing.ts --json",
+    },
+    {
+      artifact: "docs/architecture/socialflow-production-routing-review-pack.md",
+      statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
+      reason: "Production routing review pack is required before any execution review.",
+      requiredForExecution: true,
+      commandReference: "docs/architecture/socialflow-production-routing-review-pack.md",
+    },
+    {
       artifact: "scripts/check-socialflow-production-manual-config.ts",
       statusWhenMissing: "MANUAL_REVIEW_REQUIRED",
       reason: "Manual configuration validator is required before any production execution review.",
@@ -293,6 +307,14 @@ export async function planSocialflowProductionExecution(
   const monitorDayMissing = hasMissingArtifact(
     missingArtifacts,
     "scripts/monitor-socialflow-production-day.ts",
+  );
+  const routeReviewScriptMissing = hasMissingArtifact(
+    missingArtifacts,
+    "scripts/review-socialflow-production-routing.ts",
+  );
+  const routeReviewPackMissing = hasMissingArtifact(
+    missingArtifacts,
+    "docs/architecture/socialflow-production-routing-review-pack.md",
   );
 
   const additionalBlockers = [
@@ -468,6 +490,26 @@ export async function planSocialflowProductionExecution(
           {
             step: "Review Production Route",
             description: "Confirm production route configuration (for example socialflow.drako.systems).",
+            requiresManualAction: true,
+            critical: true,
+          },
+          {
+            step: "Review Production Routing Pack",
+            command: plannedOrPlaceholderCommand(
+              "pnpm tsx scripts/review-socialflow-production-routing.ts --json",
+              routeReviewScriptMissing,
+              "MANUAL_REVIEW_REQUIRED",
+            ),
+            description:
+              "Review the planned-only routing pack before any DNS or route change is considered.",
+            requiresManualAction: false,
+            critical: true,
+          },
+          {
+            step: "Review Routing Pack Document",
+            description: routeReviewPackMissing
+              ? "Routing review pack document is missing and must be created before route planning."
+              : "Review the routing review pack document and confirm it remains planned-only.",
             requiresManualAction: true,
             critical: true,
           },

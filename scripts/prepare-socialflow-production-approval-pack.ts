@@ -8,6 +8,7 @@ import { checkSocialflowProductionManualConfig } from "./check-socialflow-produc
 import { checkSocialflowProductionRollbackReadiness } from "./check-socialflow-production-rollback-readiness";
 import { checkSocialflowProductionWindowReadiness } from "./check-socialflow-production-window-readiness";
 import { loadSocialflowPlannedApprovalFixture } from "./lib/socialflow-production-planned-approval-fixture";
+import { reviewSocialflowProductionRouting } from "./review-socialflow-production-routing";
 
 interface ApprovalPackOptions {
   json?: boolean;
@@ -126,6 +127,22 @@ interface ApprovalPackReport {
     productionRouteNotReadyByDesign: boolean;
     productionRoutingConfiguredForExecution: boolean;
   };
+  routingReviewStatus: {
+    status:
+      | "SOCIALFLOW_PRODUCTION_ROUTING_REVIEW_BLOCKED"
+      | "SOCIALFLOW_PRODUCTION_ROUTING_REVIEW_READY_FOR_PLANNING"
+      | "SOCIALFLOW_PRODUCTION_ROUTING_REVIEW_TOKEN_LEAKAGE_BLOCKER";
+    routingReviewPackPresent: boolean;
+    routingReviewScriptPresent: boolean;
+    readyForPlanning: boolean;
+    readyForExecution: false;
+    executionAllowed: false;
+    commandsArePlannedOnly: true;
+    requiresHumanApproval: true;
+    manualConfigurationRequired: true;
+    dnsRoutingRequired: true;
+    productionTouchAllowed: false;
+  };
   monitoringEvidence: {
     daysMonitored: number;
     minimumDaysReached: boolean;
@@ -176,6 +193,8 @@ const ARTIFACT_PATHS = {
   smokeReadiness: "scripts/smoke-socialflow-production-readiness.ts",
   smokePostdeploy: "scripts/smoke-socialflow-production-postdeploy.ts",
   dayMonitor: "scripts/monitor-socialflow-production-day.ts",
+  routingReviewScript: "scripts/review-socialflow-production-routing.ts",
+  routingReviewPack: "docs/architecture/socialflow-production-routing-review-pack.md",
   controlledRunbook: "docs/runbooks/socialflow-production-controlled-execution.md",
   decisionPack: "docs/architecture/socialflow-production-approval-pack.md",
 } as const;
@@ -202,6 +221,16 @@ function printNormal(report: ApprovalPackReport): void {
   console.log(`- Rollback Satisfied For Review: ${report.rollbackSatisfiedForReview ? "YES" : "NO"}`);
   console.log(`- Monitoring Satisfied For Review: ${report.monitoringSatisfiedForReview ? "YES" : "NO"}`);
   console.log(`- Production Window Satisfied For Review: ${report.productionWindowSatisfiedForReview ? "YES" : "NO"}\n`);
+
+  console.log("P1.5 ROUTING REVIEW");
+  console.log(`- Routing Review Status: ${report.routingReviewStatus.status}`);
+  console.log(`- Routing Review Pack Present: ${report.routingReviewStatus.routingReviewPackPresent ? "YES" : "NO"}`);
+  console.log(`- Routing Review Script Present: ${report.routingReviewStatus.routingReviewScriptPresent ? "YES" : "NO"}`);
+  console.log(`- Routing Ready For Planning: ${report.routingReviewStatus.readyForPlanning ? "YES" : "NO"}`);
+  console.log(`- Routing Ready For Execution: ${report.routingReviewStatus.readyForExecution ? "YES" : "NO"}`);
+  console.log(`- Routing Execution Allowed: ${report.routingReviewStatus.executionAllowed ? "YES" : "NO"}`);
+  console.log(`- Routing Commands Are Planned Only: ${report.routingReviewStatus.commandsArePlannedOnly ? "YES" : "NO"}`);
+  console.log(`- Routing Requires Human Approval: ${report.routingReviewStatus.requiresHumanApproval ? "YES" : "NO"}\n`);
 
   console.log("READINESS SUMMARY");
   console.log(
@@ -272,6 +301,16 @@ function printMarkdown(report: ApprovalPackReport): void {
   console.log(`- Monitoring Satisfied For Review: ${report.monitoringSatisfiedForReview ? "YES" : "NO"}`);
   console.log(`- Production Window Satisfied For Review: ${report.productionWindowSatisfiedForReview ? "YES" : "NO"}\n`);
 
+  console.log("## P1.5 Routing Review\n");
+  console.log(`- Routing Review Status: ${report.routingReviewStatus.status}`);
+  console.log(`- Routing Review Pack Present: ${report.routingReviewStatus.routingReviewPackPresent ? "YES" : "NO"}`);
+  console.log(`- Routing Review Script Present: ${report.routingReviewStatus.routingReviewScriptPresent ? "YES" : "NO"}`);
+  console.log(`- Routing Ready For Planning: ${report.routingReviewStatus.readyForPlanning ? "YES" : "NO"}`);
+  console.log(`- Routing Ready For Execution: ${report.routingReviewStatus.readyForExecution ? "YES" : "NO"}`);
+  console.log(`- Routing Execution Allowed: ${report.routingReviewStatus.executionAllowed ? "YES" : "NO"}`);
+  console.log(`- Routing Commands Are Planned Only: ${report.routingReviewStatus.commandsArePlannedOnly ? "YES" : "NO"}`);
+  console.log(`- Routing Requires Human Approval: ${report.routingReviewStatus.requiresHumanApproval ? "YES" : "NO"}\n`);
+
   console.log("## Readiness Summary\n");
   console.log(`- Planning Approval Eligible: ${report.readinessSummary.planningApprovalEligible ? "YES" : "NO"}`);
   console.log(`- Execution Eligible: ${report.readinessSummary.executionEligible ? "YES" : "NO"}`);
@@ -332,6 +371,7 @@ export async function prepareSocialflowProductionApprovalPack(
   const manualConfig = await checkSocialflowProductionManualConfig({ silent: true, fixture: fixturePath });
   const rollbackReadiness = await checkSocialflowProductionRollbackReadiness({ silent: true, fixture: fixturePath });
   const productionWindow = await checkSocialflowProductionWindowReadiness({ silent: true, fixture: fixturePath });
+  const routingReview = await reviewSocialflowProductionRouting({ silent: true, fixture: fixturePath });
 
   let parityResult;
   try {
@@ -350,6 +390,8 @@ export async function prepareSocialflowProductionApprovalPack(
   const smokeReadinessPresent = artifactExists(ARTIFACT_PATHS.smokeReadiness);
   const smokePostdeployPresent = artifactExists(ARTIFACT_PATHS.smokePostdeploy);
   const monitorPresent = artifactExists(ARTIFACT_PATHS.dayMonitor);
+  const routingReviewScriptPresent = artifactExists(ARTIFACT_PATHS.routingReviewScript);
+  const routingReviewPackPresent = artifactExists(ARTIFACT_PATHS.routingReviewPack);
   const runbookPresent = artifactExists(ARTIFACT_PATHS.controlledRunbook);
   const decisionPackPresent = artifactExists(ARTIFACT_PATHS.decisionPack);
 
@@ -359,6 +401,8 @@ export async function prepareSocialflowProductionApprovalPack(
   if (!smokeReadinessPresent) missingArtifacts.push(ARTIFACT_PATHS.smokeReadiness);
   if (!smokePostdeployPresent) missingArtifacts.push(ARTIFACT_PATHS.smokePostdeploy);
   if (!monitorPresent) missingArtifacts.push(ARTIFACT_PATHS.dayMonitor);
+  if (!routingReviewScriptPresent) missingArtifacts.push(ARTIFACT_PATHS.routingReviewScript);
+  if (!routingReviewPackPresent) missingArtifacts.push(ARTIFACT_PATHS.routingReviewPack);
   if (!runbookPresent) missingArtifacts.push(ARTIFACT_PATHS.controlledRunbook);
   if (!decisionPackPresent) missingArtifacts.push(ARTIFACT_PATHS.decisionPack);
 
@@ -402,6 +446,7 @@ export async function prepareSocialflowProductionApprovalPack(
     && productionWindow.monitoringPlanPresent
     && productionWindow.smokeSequencePresent
     && productionWindow.abortCriteriaPresent;
+  const routingReviewReadyForPlanning = routingReview.ok === true;
 
   if (missingArtifacts.length > 0) blockers.add("MISSING_ARTIFACTS");
   if (!safetyGateOk) blockers.add("SAFETY_GATE_NOT_OK");
@@ -574,6 +619,19 @@ export async function prepareSocialflowProductionApprovalPack(
       routeDnsCriticalBlockers,
       productionRouteNotReadyByDesign,
       productionRoutingConfiguredForExecution,
+    },
+    routingReviewStatus: {
+      status: routingReview.status,
+      routingReviewPackPresent,
+      routingReviewScriptPresent,
+      readyForPlanning: routingReviewReadyForPlanning,
+      readyForExecution: false,
+      executionAllowed: false,
+      commandsArePlannedOnly: true,
+      requiresHumanApproval: true,
+      manualConfigurationRequired: true,
+      dnsRoutingRequired: true,
+      productionTouchAllowed: false,
     },
     monitoringEvidence: {
       daysMonitored,

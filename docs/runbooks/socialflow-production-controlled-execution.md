@@ -144,3 +144,10 @@ No deploy todavía. Este runbook no autoriza producción y mantiene ejecución b
 - La salida debe seguir redacatada: valores de review en `FIXTURE` o `REDACTED`, nunca secretos reales.
 - Este modo solo sirve para auditoria y pruebas locales; no habilita deploy, DNS, D1, rollback real ni monitoring productivo.
 - Para avanzar a una fase siguiente, primero debe mantenerse el resultado planned-only en fixture y luego cargar metadatos humanos reales fuera de fixture.
+
+## 22. Routing review pack P1.5
+- Revisar `scripts/review-socialflow-production-routing.ts` antes de cualquier cambio DNS.
+- Revisar `docs/architecture/socialflow-production-routing-review-pack.md` como checklist humano.
+- Mantener `readyForExecution=false`, `executionAllowed=false`, `commandsArePlannedOnly=true` y `requiresHumanApproval=true`.
+- Confirmar que el host fixture siga siendo `.invalid` y que las rutas sigan comentadas en el template productivo.
+- No tocar DNS, no tocar produccion, no ejecutar deploy y no activar cutover en esta fase.

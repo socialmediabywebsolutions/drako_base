@@ -54,3 +54,10 @@ Completar configuración manual, DNS/routing, validación de rollback, monitorin
 - En fixture mode, los campos de review deben mostrarse como `FIXTURE` o `REDACTED`, nunca como valores reales.
 - Este modo solo sirve para auditoria y pruebas locales; no habilita deploy, DNS, D1, rollback real ni monitoring productivo.
 - La siguiente fase solo se habilita cuando el fixture siga pasando y luego se sustituyan por metadatos humanos reales fuera de fixture.
+
+## P1.5 Routing review pack
+- Nuevo script planned-only: `scripts/review-socialflow-production-routing.ts`.
+- Nuevo pack de referencia: `docs/architecture/socialflow-production-routing-review-pack.md`.
+- `routingReviewStatus` debe permanecer `READY_FOR_PLANNING` solo cuando el fixture planned-only valide host `.invalid`, paths esperados y template con rutas comentadas.
+- `routingReviewPackPresent` debe ser `true` cuando el pack exista y sea referenciable por el approval pack.
+- Esta fase no autoriza cambios DNS, no toca produccion y no habilita execution.

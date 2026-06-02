@@ -88,6 +88,7 @@ const FIXTURE_PATH = path.join(
 describe("prepare-socialflow-production-approval-pack", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.SOCIALFLOW_PRODUCTION_PLANNED_APPROVAL_FIXTURE;
     vi.spyOn(safetyGateModule, "checkProductionSafetyGate").mockResolvedValue(baseSafetyGate());
     vi.spyOn(routeDnsModule, "checkRouteDnsReadiness").mockResolvedValue(baseRouteDns());
     vi.spyOn(cutoverModule, "checkProductionCutoverReadiness").mockResolvedValue(baseCutover());
@@ -105,6 +106,17 @@ describe("prepare-socialflow-production-approval-pack", () => {
     expect(report.commandsArePlannedOnly).toBe(true);
     expect(report.requiresHumanApproval).toBe(true);
     expect(report.approvalScope).toBe("APPROVAL_FOR_PLANNING_ONLY");
+    expect(report.routingReviewStatus.status).toBe("SOCIALFLOW_PRODUCTION_ROUTING_REVIEW_BLOCKED");
+    expect(report.routingReviewStatus.routingReviewPackPresent).toBe(true);
+    expect(report.routingReviewStatus.routingReviewScriptPresent).toBe(true);
+    expect(report.routingReviewStatus.readyForPlanning).toBe(false);
+    expect(report.routingReviewStatus.readyForExecution).toBe(false);
+    expect(report.routingReviewStatus.executionAllowed).toBe(false);
+    expect(report.routingReviewStatus.commandsArePlannedOnly).toBe(true);
+    expect(report.routingReviewStatus.requiresHumanApproval).toBe(true);
+    expect(report.routingReviewStatus.manualConfigurationRequired).toBe(true);
+    expect(report.routingReviewStatus.dnsRoutingRequired).toBe(true);
+    expect(report.routingReviewStatus.productionTouchAllowed).toBe(false);
   });
 
   it("keeps fixture-mode review readiness planned-only", async () => {
@@ -125,6 +137,14 @@ describe("prepare-socialflow-production-approval-pack", () => {
     expect(report.manualConfigStatus.status).toBe("SOCIALFLOW_PRODUCTION_MANUAL_CONFIG_READY_FOR_REVIEW");
     expect(report.rollbackReadinessStatus.status).toBe("SOCIALFLOW_PRODUCTION_ROLLBACK_READY_FOR_REVIEW");
     expect(report.productionWindowStatus.status).toBe("SOCIALFLOW_PRODUCTION_WINDOW_READY_FOR_REVIEW");
+    expect(report.routingReviewStatus.status).toBe("SOCIALFLOW_PRODUCTION_ROUTING_REVIEW_READY_FOR_PLANNING");
+    expect(report.routingReviewStatus.routingReviewPackPresent).toBe(true);
+    expect(report.routingReviewStatus.routingReviewScriptPresent).toBe(true);
+    expect(report.routingReviewStatus.readyForPlanning).toBe(true);
+    expect(report.routingReviewStatus.readyForExecution).toBe(false);
+    expect(report.routingReviewStatus.executionAllowed).toBe(false);
+    expect(report.routingReviewStatus.commandsArePlannedOnly).toBe(true);
+    expect(report.routingReviewStatus.requiresHumanApproval).toBe(true);
   });
 
   it("keeps required execution blockers even when planning approval is ready", async () => {
@@ -268,6 +288,7 @@ describe("prepare-socialflow-production-approval-pack", () => {
     expect(report).toHaveProperty("rollbackReadinessStatus");
     expect(report).toHaveProperty("productionWindowStatus");
     expect(report).toHaveProperty("monitoringReadinessStatus");
+    expect(report).toHaveProperty("routingReviewStatus");
     expect(report).toHaveProperty("noDeployConfirmation");
     expect(report).toHaveProperty("noProductionTouchConfirmation");
     expect(report).toHaveProperty("fixtureMode");

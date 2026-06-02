@@ -12,6 +12,7 @@ const FIXTURE_PATH = path.join(
 describe("plan-socialflow-production-execution", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.SOCIALFLOW_PRODUCTION_PLANNED_APPROVAL_FIXTURE;
   });
 
   it("never executes deploy and remains blocked", async () => {
@@ -74,6 +75,12 @@ describe("plan-socialflow-production-execution", () => {
     const decisionPack = plan.artifactInventory.find(
       (item) => item.artifact === "docs/architecture/socialflow-production-approval-pack.md",
     );
+    const routingReviewScript = plan.artifactInventory.find(
+      (item) => item.artifact === "scripts/review-socialflow-production-routing.ts",
+    );
+    const routingReviewPack = plan.artifactInventory.find(
+      (item) => item.artifact === "docs/architecture/socialflow-production-routing-review-pack.md",
+    );
 
     expect(runbook).toBeDefined();
     expect(runbook?.present).toBe(true);
@@ -81,6 +88,12 @@ describe("plan-socialflow-production-execution", () => {
     expect(decisionPack).toBeDefined();
     expect(decisionPack?.present).toBe(true);
     expect(decisionPack?.status).toBe("PRESENT");
+    expect(routingReviewScript).toBeDefined();
+    expect(routingReviewScript?.present).toBe(true);
+    expect(routingReviewScript?.status).toBe("PRESENT");
+    expect(routingReviewPack).toBeDefined();
+    expect(routingReviewPack?.present).toBe(true);
+    expect(routingReviewPack?.status).toBe("PRESENT");
   });
 
   it("tracks manual/rollback/window validators as present artifacts", async () => {
@@ -98,6 +111,25 @@ describe("plan-socialflow-production-execution", () => {
       expect(artifact?.status).toBe("PRESENT");
       expect(artifact?.requiredForExecution).toBe(true);
     });
+  });
+
+  it("tracks routing review script and pack as present artifacts", async () => {
+    const plan = await planSocialflowProductionExecution();
+    const routingReviewScript = plan.artifactInventory.find(
+      (item) => item.artifact === "scripts/review-socialflow-production-routing.ts",
+    );
+    const routingReviewPack = plan.artifactInventory.find(
+      (item) => item.artifact === "docs/architecture/socialflow-production-routing-review-pack.md",
+    );
+
+    expect(routingReviewScript).toBeDefined();
+    expect(routingReviewScript?.present).toBe(true);
+    expect(routingReviewScript?.status).toBe("PRESENT");
+    expect(routingReviewScript?.requiredForExecution).toBe(true);
+    expect(routingReviewPack).toBeDefined();
+    expect(routingReviewPack?.present).toBe(true);
+    expect(routingReviewPack?.status).toBe("PRESENT");
+    expect(routingReviewPack?.requiredForExecution).toBe(true);
   });
 
   it("keeps deploy command as planned template review required", async () => {
@@ -123,6 +155,17 @@ describe("plan-socialflow-production-execution", () => {
       expect(command).toContain("PLANNED:");
       expect(command).not.toContain("PLACEHOLDER_ONLY");
     });
+  });
+
+  it("keeps the routing review command planned-only", async () => {
+    const plan = await planSocialflowProductionExecution();
+    const routingReviewStep = plan.executionPlannedSteps
+      .find((phase) => phase.phase === "DNS and Route Planning")
+      ?.steps.find((step) => step.step === "Review Production Routing Pack");
+
+    expect(routingReviewStep).toBeDefined();
+    expect(routingReviewStep?.command).toContain("PLANNED:");
+    expect(routingReviewStep?.command).toContain("scripts/review-socialflow-production-routing.ts");
   });
 
   it("keeps go/no-go blocked for execution even with artifacts present", async () => {
