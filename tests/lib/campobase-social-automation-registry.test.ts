@@ -1,163 +1,140 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 
-class FakeD1Database {
-  rows: Array<{
-    tenant_id: string;
-    saas_id: string;
-    niche: string;
-    tone: string;
-    frequency_per_week: number;
-    enabled: number;
-    created_at: string;
-    updated_at: string;
-  }> = [];
+const {
+  registrations,
+  registerAutomation,
+  getAutomation,
+  listAutomations,
+  enableAutomation,
+  disableAutomation,
+  AutomationCoreError,
+} = vi.hoisted(() => {
+  type Registration = {
+    id: string;
+    tenantId: string;
+    saasId: string;
+    automationKey: string;
+    displayName: string;
+    description: string | null;
+    enabled: boolean;
+    scheduleMode: "manual" | "scheduled";
+    frequencyUnit: "hour" | "day" | "week" | null;
+    frequencyValue: number | null;
+    config: Record<string, unknown> | null;
+    ownerScope: "OWNER";
+    createdAt: string;
+    updatedAt: string;
+  };
 
-  prepare(sql: string) {
-    return new FakeStatement(this, sql);
+  class HoistedAutomationCoreError extends Error {
+    code: string;
+
+    constructor(code: string, message?: string) {
+      super(message ?? code);
+      this.name = "AutomationCoreError";
+      this.code = code;
+    }
   }
 
-  reset() {
-    this.rows = [];
-  }
-}
+  const rows: Registration[] = [];
 
-class FakeStatement {
-  constructor(
-    private db: FakeD1Database,
-    private sql: string,
-    private params: unknown[] = [],
-  ) {}
-
-  bind(...values: unknown[]) {
-    return new FakeStatement(this.db, this.sql, values);
+  function findRegistration(tenantId: string, saasId: string, automationKey: string) {
+    return rows.find(
+      (item) => item.tenantId === tenantId && item.saasId === saasId && item.automationKey === automationKey,
+    ) ?? null;
   }
 
-  async all<T>() {
-    return { results: this.executeSelect() as T[] };
-  }
+  return {
+    registrations: rows,
+    AutomationCoreError: HoistedAutomationCoreError,
+    getAutomation: vi.fn(async (tenantId: string, saasId: string, automationKey: string) =>
+      findRegistration(tenantId, saasId, automationKey),
+    ),
+    registerAutomation: vi.fn(async (input: {
+      tenantId: string;
+      saasId: string;
+      automationKey: string;
+      displayName: string;
+      description?: string | null;
+      enabled?: boolean;
+      scheduleMode?: "manual" | "scheduled";
+      frequencyUnit?: "hour" | "day" | "week" | null;
+      frequencyValue?: number | null;
+      config?: Record<string, unknown> | null;
+      ownerScope?: "OWNER";
+    }) => {
+      const existing = findRegistration(input.tenantId, input.saasId, input.automationKey);
+      const now = new Date().toISOString();
 
-  async run() {
-    this.executeRun();
-    return { success: true };
-  }
-
-  private executeSelect() {
-    const normalized = this.sql.toLowerCase();
-
-    if (normalized.startsWith("select")) {
-      if (normalized.includes("where tenant_id = ? and saas_id = ?")) {
-        const [tenantId, saasId] = this.params as [string, string];
-        const row = this.db.rows.find(
-          (item) => item.tenant_id === tenantId && item.saas_id === saasId,
-        );
-        if (!row) {
-          return [];
-        }
-        if (normalized.includes("niche") || normalized.includes("frequency_per_week")) {
-          return [row];
-        }
-        return [{ tenant_id: row.tenant_id }];
+      if (existing) {
+        existing.displayName = input.displayName;
+        existing.description = input.description ?? null;
+        existing.enabled = input.enabled ?? existing.enabled;
+        existing.scheduleMode = input.scheduleMode ?? existing.scheduleMode;
+        existing.frequencyUnit = typeof input.frequencyUnit === "undefined" ? existing.frequencyUnit : input.frequencyUnit;
+        existing.frequencyValue = typeof input.frequencyValue === "undefined" ? existing.frequencyValue : input.frequencyValue;
+        existing.config = typeof input.config === "undefined" ? existing.config : input.config;
+        existing.ownerScope = input.ownerScope ?? existing.ownerScope;
+        existing.updatedAt = now;
+        return existing;
       }
 
-      if (normalized.includes("from campobase_social_automation_registry")) {
-        let rows = [...this.db.rows];
-        if (normalized.includes("where enabled = 1")) {
-          rows = rows.filter((row) => row.enabled === 1);
-        }
-        rows.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-        return rows;
-      }
-    }
+      const created = {
+        id: `automation-${rows.length + 1}`,
+        tenantId: input.tenantId,
+        saasId: input.saasId,
+        automationKey: input.automationKey,
+        displayName: input.displayName,
+        description: input.description ?? null,
+        enabled: input.enabled ?? true,
+        scheduleMode: input.scheduleMode ?? "manual",
+        frequencyUnit: input.frequencyUnit ?? null,
+        frequencyValue: input.frequencyValue ?? null,
+        config: input.config ?? null,
+        ownerScope: input.ownerScope ?? "OWNER",
+        createdAt: now,
+        updatedAt: now,
+      } satisfies Registration;
+      rows.push(created);
+      return created;
+    }),
+    listAutomations: vi.fn(async (filters?: {
+      tenantId?: string | null;
+      saasId?: string | null;
+      automationKey?: string | null;
+      enabled?: boolean | null;
+    }) => rows.filter((item) => {
+      if (filters?.tenantId && item.tenantId !== filters.tenantId) return false;
+      if (filters?.saasId && item.saasId !== filters.saasId) return false;
+      if (filters?.automationKey && item.automationKey !== filters.automationKey) return false;
+      if (typeof filters?.enabled === "boolean" && item.enabled !== filters.enabled) return false;
+      return true;
+    })),
+    enableAutomation: vi.fn(async (tenantId: string, saasId: string, automationKey: string) => {
+      const existing = findRegistration(tenantId, saasId, automationKey);
+      if (!existing) throw new HoistedAutomationCoreError("AUTOMATION_NOT_REGISTERED");
+      existing.enabled = true;
+      existing.updatedAt = new Date().toISOString();
+      return existing;
+    }),
+    disableAutomation: vi.fn(async (tenantId: string, saasId: string, automationKey: string) => {
+      const existing = findRegistration(tenantId, saasId, automationKey);
+      if (!existing) throw new HoistedAutomationCoreError("AUTOMATION_NOT_REGISTERED");
+      existing.enabled = false;
+      existing.updatedAt = new Date().toISOString();
+      return existing;
+    }),
+  };
+});
 
-    throw new Error(`Unsupported SQL: ${this.sql}`);
-  }
-
-  private executeRun() {
-    const normalized = this.sql.toLowerCase();
-
-    if (normalized.startsWith("create table") || normalized.startsWith("create index") || normalized.startsWith("create unique index")) {
-      return;
-    }
-
-    if (normalized.startsWith("insert into campobase_social_automation_registry")) {
-      const [
-        tenantId,
-        saasId,
-        niche,
-        tone,
-        frequencyPerWeek,
-        enabled,
-        createdAt,
-        updatedAt,
-      ] = this.params as [
-        string,
-        string,
-        string,
-        string,
-        number,
-        number,
-        string,
-        string,
-      ];
-      const existingIndex = this.db.rows.findIndex(
-        (item) => item.tenant_id === tenantId && item.saas_id === saasId,
-      );
-      if (existingIndex >= 0) {
-        const existing = this.db.rows[existingIndex];
-        this.db.rows[existingIndex] = {
-          ...existing,
-          niche,
-          tone,
-          frequency_per_week: frequencyPerWeek,
-          enabled,
-          updated_at: updatedAt,
-        };
-        return;
-      }
-      this.db.rows.push({
-        tenant_id: tenantId,
-        saas_id: saasId,
-        niche,
-        tone,
-        frequency_per_week: frequencyPerWeek,
-        enabled,
-        created_at: createdAt,
-        updated_at: updatedAt,
-      });
-      return;
-    }
-
-    if (normalized.startsWith("update campobase_social_automation_registry")) {
-      const [enabled, updatedAt, tenantId, saasId] = this.params as [number, string, string, string];
-      const index = this.db.rows.findIndex(
-        (item) => item.tenant_id === tenantId && item.saas_id === saasId,
-      );
-      if (index >= 0) {
-        this.db.rows[index] = {
-          ...this.db.rows[index],
-          enabled,
-          updated_at: updatedAt,
-        };
-      }
-      return;
-    }
-
-    if (normalized.startsWith("delete from campobase_social_automation_registry")) {
-      const [tenantId, saasId] = this.params as [string, string];
-      this.db.rows = this.db.rows.filter(
-        (item) => !(item.tenant_id === tenantId && item.saas_id === saasId),
-      );
-      return;
-    }
-
-    throw new Error(`Unsupported SQL: ${this.sql}`);
-  }
-}
-
-const db = new FakeD1Database();
-
-vi.mock("@/lib/db", () => ({
-  getDb: () => db as unknown as D1Database,
+vi.mock("@/lib/automation-core", () => ({
+  AutomationCoreError,
+  registerAutomation,
+  getAutomation,
+  listAutomations,
+  enableAutomation,
+  disableAutomation,
 }));
 
 import {
@@ -171,7 +148,30 @@ import {
 
 describe("campobase social automation registry", () => {
   beforeEach(() => {
-    db.reset();
+    registrations.length = 0;
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("delegates legacy adapter to canonical module", () => {
+    const source = readFileSync(
+      "src/lib/campobase/social-automation-registry.ts",
+      "utf8",
+    );
+
+    expect(source).toContain("@/lib/campamento-base/social-automation-registry");
+    expect(source).toContain("temporary compatibility adapter");
+    expect(source).not.toContain("@/lib/db");
+    expect(source).not.toContain("campobase_social_automation_registry");
+  });
+
+  it("keeps legacy public exports available", () => {
+    expect(typeof upsertCampoBaseSocialAutomationRegistry).toBe("function");
+    expect(typeof getCampoBaseSocialAutomationRegistryItem).toBe("function");
+    expect(typeof listCampoBaseSocialAutomationRegistryItems).toBe("function");
+    expect(typeof listEnabledCampoBaseSocialAutomationRegistryItems).toBe("function");
+    expect(typeof setCampoBaseSocialAutomationEnabled).toBe("function");
+    expect(typeof removeCampoBaseSocialAutomationRegistryItem).toBe("function");
   });
 
   it("upsert inserts new record with createdAt and updatedAt", async () => {
@@ -186,13 +186,21 @@ describe("campobase social automation registry", () => {
       frequencyPerWeek: 3,
     });
 
+    expect(registerAutomation).toHaveBeenCalledWith(expect.objectContaining({
+      automationKey: "socialflow.content_generation",
+      frequencyUnit: "week",
+      frequencyValue: 3,
+      config: {
+        niche: "fitness",
+        tone: "direct",
+        frequencyPerWeek: 3,
+      },
+    }));
     expect(item.tenantId).toBe("tenant-a");
     expect(item.saasId).toBe("saas-a");
     expect(item.enabled).toBe(true);
     expect(item.createdAt).toBe("2024-01-01T00:00:00.000Z");
     expect(item.updatedAt).toBe("2024-01-01T00:00:00.000Z");
-
-    vi.useRealTimers();
   });
 
   it("upsert preserves createdAt and updates updatedAt", async () => {
@@ -223,8 +231,6 @@ describe("campobase social automation registry", () => {
     expect(updated.tone).toBe("calm");
     expect(updated.frequencyPerWeek).toBe(5);
     expect(updated.enabled).toBe(false);
-
-    vi.useRealTimers();
   });
 
   it("get returns item or null", async () => {
@@ -243,9 +249,7 @@ describe("campobase social automation registry", () => {
     expect(found?.saasId).toBe("saas-a");
   });
 
-  it("list returns items ordered by updatedAt desc", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-01T00:00:00Z"));
+  it("list returns items from canonical automation registrations", async () => {
     await upsertCampoBaseSocialAutomationRegistry({
       tenantId: "tenant-a",
       saasId: "saas-a",
@@ -254,7 +258,6 @@ describe("campobase social automation registry", () => {
       frequencyPerWeek: 1,
     });
 
-    vi.setSystemTime(new Date("2024-01-03T00:00:00Z"));
     await upsertCampoBaseSocialAutomationRegistry({
       tenantId: "tenant-b",
       saasId: "saas-b",
@@ -264,10 +267,10 @@ describe("campobase social automation registry", () => {
     });
 
     const list = await listCampoBaseSocialAutomationRegistryItems();
-    expect(list[0].saasId).toBe("saas-b");
-    expect(list[1].saasId).toBe("saas-a");
-
-    vi.useRealTimers();
+    expect(list.map((item) => item.saasId)).toEqual(["saas-a", "saas-b"]);
+    expect(listAutomations).toHaveBeenCalledWith({
+      automationKey: "socialflow.content_generation",
+    });
   });
 
   it("listEnabled returns only enabled items", async () => {
@@ -295,9 +298,6 @@ describe("campobase social automation registry", () => {
   });
 
   it("setCampoBaseSocialAutomationEnabled updates enabled and updatedAt", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-01T00:00:00Z"));
-
     await upsertCampoBaseSocialAutomationRegistry({
       tenantId: "tenant-a",
       saasId: "saas-a",
@@ -307,19 +307,15 @@ describe("campobase social automation registry", () => {
       enabled: true,
     });
 
-    vi.setSystemTime(new Date("2024-01-05T00:00:00Z"));
     const updated = await setCampoBaseSocialAutomationEnabled("tenant-a", "saas-a", false);
+    const missing = await setCampoBaseSocialAutomationEnabled("tenant-x", "saas-x", true);
 
     expect(updated?.enabled).toBe(false);
-    expect(updated?.updatedAt).toBe("2024-01-05T00:00:00.000Z");
-
-    const missing = await setCampoBaseSocialAutomationEnabled("tenant-x", "saas-x", true);
     expect(missing).toBeNull();
-
-    vi.useRealTimers();
+    expect(disableAutomation).toHaveBeenCalledWith("tenant-a", "saas-a", "socialflow.content_generation");
   });
 
-  it("removeCampoBaseSocialAutomationRegistryItem returns true when removed and false when missing", async () => {
+  it("removeCampoBaseSocialAutomationRegistryItem follows canonical controlled behavior", async () => {
     await upsertCampoBaseSocialAutomationRegistry({
       tenantId: "tenant-a",
       saasId: "saas-a",
@@ -328,10 +324,9 @@ describe("campobase social automation registry", () => {
       frequencyPerWeek: 1,
     });
 
-    const removed = await removeCampoBaseSocialAutomationRegistryItem("tenant-a", "saas-a");
-    expect(removed).toBe(true);
-
-    const missing = await removeCampoBaseSocialAutomationRegistryItem("tenant-a", "saas-a");
-    expect(missing).toBe(false);
+    await expect(removeCampoBaseSocialAutomationRegistryItem("tenant-a", "saas-a")).rejects.toMatchObject({
+      code: "SOCIAL_AUTOMATION_REGISTRY_REMOVE_UNSUPPORTED",
+    });
+    await expect(removeCampoBaseSocialAutomationRegistryItem("tenant-x", "saas-x")).resolves.toBe(false);
   });
 });
