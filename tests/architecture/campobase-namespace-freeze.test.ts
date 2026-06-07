@@ -10,22 +10,11 @@ const SEARCH_DIRS = ["src", "tests", "scripts"];
 // Policy: it should shrink over time as migration advances, and must never grow
 // without explicit architecture justification/checkpoint.
 const FROZEN_CAMPOBASE_IMPORT_ALLOWLIST = new Set<string>([
-  "src/app/api/operator/platform/route.ts::@/lib/campobase/platform-operator-service",
-  "src/app/api/operator/socialflow/route.ts::@/lib/campobase/socialflow-service",
-  "src/components/campobase/CampoBaseSocialAutomationControl.tsx::@/lib/campobase/socialflow-service",
-  "src/components/campobase/PlatformOperatorControlSurface.tsx::@/lib/campobase/platform-operator-service",
-  "src/lib/campamento-base/orchestrator/snapshot-db.ts::@/lib/campobase/socialflow-service",
   "src/lib/campobase/clinic-platform.ts::@/lib/campobase/clinic-platform-service",
   "src/lib/campobase/platform-bootstrap.ts::@/lib/campobase/clinic-platform",
-  "src/lib/campobase/platform-bootstrap.ts::@/lib/campobase/socialflow-platform",
   "src/lib/campobase/platform-bootstrap.ts::@/lib/campobase/taskops-platform",
-  "src/lib/campobase/platform-operator-service.ts::@/lib/campobase/platform-bootstrap",
-  "src/lib/campobase/socialflow-platform.ts::@/lib/campobase/socialflow-service",
   "src/lib/campobase/taskops-platform.ts::@/lib/campobase/taskops-platform-service",
   "src/lib/operator/social-automation-history.ts::@/lib/campobase/social-automation-history",
-  "src/lib/operator/socialflow-service.ts::@/lib/campobase/socialflow-service",
-  "tests/api/campobase-platform-route.test.ts::@/lib/campobase/platform-operator-service",
-  "tests/api/campobase-socialflow-route.test.ts::@/lib/campobase/socialflow-service",
   "tests/components/campobase-social-page.test.tsx::@/lib/campobase/social-automation-history",
   "tests/components/campobase-social-page.test.tsx::@/lib/campobase/socialflow-service",
   "tests/components/operator-socialflow-health-panel.test.tsx::@/lib/campobase/socialflow-service",
@@ -116,6 +105,6 @@ describe("campobase namespace freeze", () => {
   });
 
   it("keeps the allowlist pinned for controlled shrink-only migrations", () => {
-    expect(FROZEN_CAMPOBASE_IMPORT_ALLOWLIST.size).toBe(30);
+    expect(FROZEN_CAMPOBASE_IMPORT_ALLOWLIST.size).toBe(19);
   });
 });
