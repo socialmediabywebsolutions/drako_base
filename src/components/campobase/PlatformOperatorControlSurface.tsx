@@ -7,7 +7,7 @@ import Button from "@/components/ui/button";
 import Card from "@/components/ui/card";
 import EmptyState from "@/components/ui/empty-state";
 import { Table, TableWrap, TBody, TD, TH, THead } from "@/components/ui/table";
-import type { PlatformOperatorSurface } from "@/lib/campobase/platform-operator-service";
+import type { PlatformOperatorSurface } from "@/lib/campamento-base/platform-operator-service";
 
 const endpoint = "/api/operator/platform";
 
