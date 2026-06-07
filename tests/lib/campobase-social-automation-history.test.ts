@@ -62,6 +62,9 @@ class FakeStatement {
         const [tenantId, saasId, automationKey] = this.params as [string, string, string, number];
         rows = rows.filter((row) => row.tenant_id === tenantId && row.saas_id === saasId);
         rows = rows.filter((row) => row.automation_key === automationKey);
+      } else if (normalized.includes("where tenant_id = ? and saas_id = ?")) {
+        const [tenantId, saasId] = this.params as [string, string, number];
+        rows = rows.filter((row) => row.tenant_id === tenantId && row.saas_id === saasId);
       } else if (normalized.includes("where automation_key = ?")) {
         const [automationKey] = this.params as [string, number];
         rows = rows.filter((row) => row.automation_key === automationKey);
@@ -161,11 +164,13 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import {
-  listCampoBaseSocialAutomationRuns,
-  listCampoBaseSocialAutomationRunsForSaas,
-  recordCampoBaseSocialAutomationRun,
-  type CampoBaseSocialAutomationRunStatus,
-} from "@/lib/campobase/social-automation-history";
+  listSocialAutomationRuns,
+  listSocialAutomationRunsForSaas,
+  recordSocialAutomationRun,
+  type SocialAutomationHistoryStatus,
+} from "@/lib/campamento-base/social-automation-history";
+
+const SOCIALFLOW_AUTOMATION_KEY = "socialflow.content_generation";
 
 describe("campobase social automation history", () => {
   beforeEach(() => {
@@ -173,16 +178,19 @@ describe("campobase social automation history", () => {
   });
 
   it("creates schema with status CHECK constraint", async () => {
-    await recordCampoBaseSocialAutomationRun({
+    await recordSocialAutomationRun({
       tenantId: "tenant-check",
       saasId: "saas-check",
+      automationKey: SOCIALFLOW_AUTOMATION_KEY,
       status: "SUCCESS",
-      campaignId: null,
-      postsCount: 0,
-      scheduledCount: 0,
-      error: null,
       startedAt: "2024-01-01T00:00:00.000Z",
-      finishedAt: "2024-01-01T00:01:00.000Z",
+      completedAt: "2024-01-01T00:01:00.000Z",
+      result: {
+        campaignId: null,
+        postsCount: 0,
+        scheduledCount: 0,
+      },
+      error: null,
       createdAt: "2024-01-01T00:00:00.000Z",
     });
 
@@ -194,40 +202,40 @@ describe("campobase social automation history", () => {
 
   it("rejects invalid status", async () => {
     await expect(
-      recordCampoBaseSocialAutomationRun({
+      recordSocialAutomationRun({
         tenantId: "tenant-invalid",
         saasId: "saas-invalid",
-        status: "PENDING" as unknown as CampoBaseSocialAutomationRunStatus,
-        campaignId: null,
-        postsCount: 0,
-        scheduledCount: 0,
-        error: null,
+        automationKey: SOCIALFLOW_AUTOMATION_KEY,
+        status: "INVALID" as unknown as SocialAutomationHistoryStatus,
         startedAt: "2024-01-01T00:00:00.000Z",
-        finishedAt: "2024-01-01T00:01:00.000Z",
+        completedAt: "2024-01-01T00:01:00.000Z",
         createdAt: "2024-01-01T00:00:00.000Z",
       }),
-    ).rejects.toThrow("INVALID_CAMPOBASE_SOCIAL_AUTOMATION_STATUS");
+    ).rejects.toThrow("INVALID_SOCIAL_AUTOMATION_HISTORY_STATUS");
   });
 
   it("records success run", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2024-01-01T00:00:00Z"));
 
-    const run = await recordCampoBaseSocialAutomationRun({
+    const run = await recordSocialAutomationRun({
       tenantId: "tenant-a",
       saasId: "saas-a",
+      automationKey: SOCIALFLOW_AUTOMATION_KEY,
       status: "SUCCESS",
-      campaignId: "campaign-1",
-      postsCount: 3,
-      scheduledCount: 2,
-      error: null,
       startedAt: "2024-01-01T00:00:00.000Z",
-      finishedAt: "2024-01-01T00:05:00.000Z",
+      completedAt: "2024-01-01T00:05:00.000Z",
+      result: {
+        campaignId: "campaign-1",
+        postsCount: 3,
+        scheduledCount: 2,
+      },
+      error: null,
     });
 
     expect(run.id).toBeTruthy();
     expect(run.status).toBe("SUCCESS");
-    expect(run.campaignId).toBe("campaign-1");
+    expect(run.result?.campaignId).toBe("campaign-1");
     expect(run.error).toBeNull();
     expect(run.createdAt).toBe("2024-01-01T00:00:00.000Z");
     expect(db.runRows[0].id).toBe(run.id);
@@ -236,35 +244,44 @@ describe("campobase social automation history", () => {
   });
 
   it("records failed run", async () => {
-    const run = await recordCampoBaseSocialAutomationRun({
+    const run = await recordSocialAutomationRun({
       tenantId: "tenant-b",
       saasId: "saas-b",
+      automationKey: SOCIALFLOW_AUTOMATION_KEY,
       status: "FAILED",
-      campaignId: null,
-      postsCount: 0,
-      scheduledCount: 0,
-      error: "ENGINE_FAIL",
       startedAt: "2024-01-02T00:00:00.000Z",
-      finishedAt: "2024-01-02T00:01:00.000Z",
+      completedAt: "2024-01-02T00:01:00.000Z",
+      result: {
+        campaignId: null,
+        postsCount: 0,
+        scheduledCount: 0,
+      },
+      error: {
+        code: "SOCIAL_AUTOMATION_ENGINE_FAIL",
+        message: "ENGINE_FAIL",
+      },
       createdAt: "2024-01-02T00:00:00.000Z",
     });
 
     expect(run.status).toBe("FAILED");
-    expect(run.campaignId).toBeNull();
-    expect(run.error).toBe("ENGINE_FAIL");
+    expect(run.result?.campaignId).toBeNull();
+    expect(run.error?.message).toBe("ENGINE_FAIL");
   });
 
   it("stores null campaignId and error as real nulls", async () => {
-    await recordCampoBaseSocialAutomationRun({
+    await recordSocialAutomationRun({
       tenantId: "tenant-null",
       saasId: "saas-null",
+      automationKey: SOCIALFLOW_AUTOMATION_KEY,
       status: "SUCCESS",
-      campaignId: null,
-      postsCount: 0,
-      scheduledCount: 0,
-      error: null,
       startedAt: "2024-01-04T00:00:00.000Z",
-      finishedAt: "2024-01-04T00:01:00.000Z",
+      completedAt: "2024-01-04T00:01:00.000Z",
+      result: {
+        campaignId: null,
+        postsCount: 0,
+        scheduledCount: 0,
+      },
+      error: null,
       createdAt: "2024-01-04T00:00:00.000Z",
     });
 
@@ -276,65 +293,83 @@ describe("campobase social automation history", () => {
   });
 
   it("lists runs ordered by created_at desc", async () => {
-    await recordCampoBaseSocialAutomationRun({
+    await recordSocialAutomationRun({
       tenantId: "tenant-a",
       saasId: "saas-a",
+      automationKey: SOCIALFLOW_AUTOMATION_KEY,
       status: "SUCCESS",
-      campaignId: "campaign-1",
-      postsCount: 1,
-      scheduledCount: 1,
-      error: null,
       startedAt: "2024-01-01T00:00:00.000Z",
-      finishedAt: "2024-01-01T00:05:00.000Z",
+      completedAt: "2024-01-01T00:05:00.000Z",
+      result: {
+        campaignId: "campaign-1",
+        postsCount: 1,
+        scheduledCount: 1,
+      },
+      error: null,
       createdAt: "2024-01-01T00:00:00.000Z",
     });
 
-    await recordCampoBaseSocialAutomationRun({
+    await recordSocialAutomationRun({
       tenantId: "tenant-b",
       saasId: "saas-b",
+      automationKey: SOCIALFLOW_AUTOMATION_KEY,
       status: "SUCCESS",
-      campaignId: "campaign-2",
-      postsCount: 2,
-      scheduledCount: 2,
-      error: null,
       startedAt: "2024-01-03T00:00:00.000Z",
-      finishedAt: "2024-01-03T00:06:00.000Z",
+      completedAt: "2024-01-03T00:06:00.000Z",
+      result: {
+        campaignId: "campaign-2",
+        postsCount: 2,
+        scheduledCount: 2,
+      },
+      error: null,
       createdAt: "2024-01-03T00:00:00.000Z",
     });
 
-    const list = await listCampoBaseSocialAutomationRuns();
+    const list = await listSocialAutomationRuns();
     expect(list[0].saasId).toBe("saas-b");
     expect(list[1].saasId).toBe("saas-a");
   });
 
   it("lists runs by tenant + saas", async () => {
-    await recordCampoBaseSocialAutomationRun({
+    await recordSocialAutomationRun({
       tenantId: "tenant-a",
       saasId: "saas-a",
+      automationKey: SOCIALFLOW_AUTOMATION_KEY,
       status: "SUCCESS",
-      campaignId: "campaign-1",
-      postsCount: 1,
-      scheduledCount: 1,
-      error: null,
       startedAt: "2024-01-01T00:00:00.000Z",
-      finishedAt: "2024-01-01T00:05:00.000Z",
+      completedAt: "2024-01-01T00:05:00.000Z",
+      result: {
+        campaignId: "campaign-1",
+        postsCount: 1,
+        scheduledCount: 1,
+      },
+      error: null,
       createdAt: "2024-01-01T00:00:00.000Z",
     });
 
-    await recordCampoBaseSocialAutomationRun({
+    await recordSocialAutomationRun({
       tenantId: "tenant-b",
       saasId: "saas-b",
+      automationKey: SOCIALFLOW_AUTOMATION_KEY,
       status: "FAILED",
-      campaignId: null,
-      postsCount: 0,
-      scheduledCount: 0,
-      error: "ENGINE_FAIL",
       startedAt: "2024-01-02T00:00:00.000Z",
-      finishedAt: "2024-01-02T00:05:00.000Z",
+      completedAt: "2024-01-02T00:05:00.000Z",
+      result: {
+        campaignId: null,
+        postsCount: 0,
+        scheduledCount: 0,
+      },
+      error: {
+        code: "SOCIAL_AUTOMATION_ENGINE_FAIL",
+        message: "ENGINE_FAIL",
+      },
       createdAt: "2024-01-02T00:00:00.000Z",
     });
 
-    const list = await listCampoBaseSocialAutomationRunsForSaas("tenant-a", "saas-a");
+    const list = await listSocialAutomationRunsForSaas({
+      tenantId: "tenant-a",
+      saasId: "saas-a",
+    });
     expect(list).toHaveLength(1);
     expect(list[0].tenantId).toBe("tenant-a");
     expect(list[0].saasId).toBe("saas-a");

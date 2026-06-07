@@ -65,7 +65,7 @@ import {
   registerCampoBaseSocialHealthCheck,
   runCampoBaseSocialHealthCheckForRegisteredSaas,
   runCampoBaseSocialAutomationForRegisteredSaas,
-} from "@/lib/campobase/socialflow-service";
+} from "@/lib/campamento-base/socialflow-control-plane-service";
 
 describe("campobase socialflow service", () => {
   beforeEach(() => {
@@ -349,8 +349,8 @@ describe("campobase socialflow service", () => {
     expect(source).toContain("temporary adapter");
   });
 
-  it("keeps legacy public exports available through adapter path", async () => {
-    const service = await import("@/lib/campobase/socialflow-service");
+  it("keeps public exports available through canonical path", async () => {
+    const service = await import("@/lib/campamento-base/socialflow-control-plane-service");
 
     expect(typeof service.registerCampoBaseSocialAutomation).toBe("function");
     expect(typeof service.registerCampoBaseSocialHealthCheck).toBe("function");
