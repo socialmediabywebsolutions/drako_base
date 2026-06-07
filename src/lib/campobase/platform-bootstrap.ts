@@ -13,7 +13,7 @@ async function ensureDefaultPlatformDefinitionsRegistered() {
     return;
   }
 
-  const socialflowModule = await import("@/lib/campobase/socialflow-platform");
+  const socialflowModule = await import("@/lib/campamento-base/socialflow-platform");
   const clinicModule = await import("@/lib/campobase/clinic-platform");
   const taskOpsModule = await import("@/lib/campobase/taskops-platform");
 

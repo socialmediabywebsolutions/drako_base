@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const socialflowBootstrap = vi.hoisted(() => vi.fn());
 const clinicBootstrap = vi.hoisted(() => vi.fn());
 const taskopsBootstrap = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/campobase/socialflow-platform", () => ({
+vi.mock("@/lib/campamento-base/socialflow-platform", () => ({
   socialFlowPlatformDefinition: {
     saasId: "socialflow",
     displayName: "SocialFlow",
@@ -50,9 +52,29 @@ vi.mock("@/lib/campobase/taskops-platform", () => ({
 }));
 
 describe("platform bootstrap contract", () => {
+  const bootstrapPath = join(process.cwd(), "src", "lib", "campobase", "platform-bootstrap.ts");
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
+  });
+
+  it("uses canonical SocialFlow import while keeping Clinic and TaskOps legacy imports", () => {
+    const source = readFileSync(bootstrapPath, "utf8");
+    const legacyPrefix = "@/lib/" + "campobase/";
+
+    expect(source).toContain('import("@/lib/campamento-base/socialflow-platform")');
+    expect(source.includes(`${legacyPrefix}socialflow-platform`)).toBe(false);
+
+    const legacyDynamicImports = source
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.includes("await import(\"") && line.includes(legacyPrefix));
+
+    expect(legacyDynamicImports).toHaveLength(2);
+    expect(legacyDynamicImports.some((line) => line.includes("clinic-platform"))).toBe(true);
+    expect(legacyDynamicImports.some((line) => line.includes("taskops-platform"))).toBe(true);
+    expect(legacyDynamicImports.some((line) => line.includes("socialflow-platform"))).toBe(false);
   });
 
   it("loads SocialFlow through the shared SaaS contract loader", async () => {
