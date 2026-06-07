@@ -14,7 +14,7 @@ import type {
   CampoBaseSocialFlowObservability,
   CampoBaseSocialFlowOperatorAction,
   CampoBaseSocialFlowOperatorActionResult,
-} from "@/lib/campobase/socialflow-service";
+} from "@/lib/campamento-base/socialflow-control-plane-service";
 
 type ControlResponse = {
   status?: CampoBaseSocialAutomationStatusOutput;
