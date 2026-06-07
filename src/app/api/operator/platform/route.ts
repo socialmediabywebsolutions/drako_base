@@ -10,7 +10,7 @@ import {
   runPlatformAutomationAction,
   setPlatformAutomationEnabled,
   validatePlatformIntegration,
-} from "@/lib/campobase/platform-operator-service";
+} from "@/lib/campamento-base/platform-operator-service";
 
 type PlatformOperatorAction =
   | { action: "refresh"; tenantId: string; saasId: string }

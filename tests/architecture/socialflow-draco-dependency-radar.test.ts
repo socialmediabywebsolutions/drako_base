@@ -196,24 +196,6 @@ const temporaryAllowlist: AllowlistEntry[] = [
   { file: "apps/socialflow-runtime/src/lib/runtime-env.ts", rules: ["direct-draco-db-token"], note: ALLOWLIST_TODO_COMMENT },
   // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
   { file: "apps/socialflow-runtime/src/lib/db/runtime-db.ts", rules: ["direct-ensure-draco-db", "direct-draco-db-token", "direct-draco-db-variable"], note: ALLOWLIST_TODO_COMMENT },
-  // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
-  {
-    file: "apps/socialflow-runtime/src/lib/socialflow/exports-service.ts",
-    rules: [
-      "direct-ensure-draco-db",
-      "direct-draco-db-token",
-      "direct-draco-db-variable",
-      "sql-core-saas",
-      "sql-core-tenant-dossiers",
-      "sql-core-agent-work-logs",
-      "sql-core-orchestrator-messages",
-      "sql-core-economic-events",
-      "sql-core-saas-domains",
-    ],
-    note: ALLOWLIST_TODO_COMMENT,
-  },
-  // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
-  { file: "apps/socialflow-runtime/src/lib/socialflow/exports-service.test.ts", rules: ["direct-ensure-draco-db"], note: ALLOWLIST_TODO_COMMENT },
 ];
 
 function normalizePath(value: string): string {

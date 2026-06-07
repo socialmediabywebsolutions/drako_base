@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 
 const {
   registerAutomation,
@@ -335,5 +336,27 @@ describe("campobase socialflow service", () => {
     expect(allRuns[0].campaignId).toBe("campaign-1");
     expect(allRuns[1].automationKey).toBe(SOCIALFLOW_HEALTH_CHECK_KEY);
     expect(saasRuns[1].error).toBe("BOOM");
+  });
+
+  it("removes legacy socialflow contract import and delegates to canonical service", () => {
+    const source = readFileSync(
+      "src/lib/campobase/socialflow-service.ts",
+      "utf8",
+    );
+
+    expect(source).not.toContain("@/lib/socialflow/contracts/campobase");
+    expect(source).toContain("@/lib/campamento-base/socialflow-control-plane-service");
+    expect(source).toContain("temporary adapter");
+  });
+
+  it("keeps legacy public exports available through adapter path", async () => {
+    const service = await import("@/lib/campobase/socialflow-service");
+
+    expect(typeof service.registerCampoBaseSocialAutomation).toBe("function");
+    expect(typeof service.registerCampoBaseSocialHealthCheck).toBe("function");
+    expect(typeof service.runCampoBaseSocialAutomationForRegisteredSaas).toBe("function");
+    expect(typeof service.getCampoBaseSocialFlowObservability).toBe("function");
+    expect(typeof service.runCampoBaseSocialFlowOperatorAction).toBe("function");
+    expect(service.SOCIALFLOW_AUTOMATION_KEY).toBe("socialflow.content_generation");
   });
 });

@@ -1,1 +1,1 @@
-export * from "@/lib/campobase/socialflow-service";
+export * from "@/lib/campamento-base/socialflow-control-plane-service";

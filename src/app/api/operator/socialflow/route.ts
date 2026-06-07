@@ -17,7 +17,7 @@ import {
   runCampoBaseSocialFlowOperatorAction,
   type CampoBaseSocialFlowOperatorAction,
   type SocialFlowAutomationKey,
-} from "@/lib/campobase/socialflow-service";
+} from "@/lib/campamento-base/socialflow-control-plane-service";
 
 type SocialFlowRouteAction =
   | { action: "run_all" }

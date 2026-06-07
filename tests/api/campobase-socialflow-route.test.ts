@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 
 const {
   UnauthorizedError,
@@ -47,7 +48,7 @@ vi.mock("@/lib/auth/session", () => ({
   UnauthorizedError,
 }));
 
-vi.mock("@/lib/campobase/socialflow-service", () => ({
+vi.mock("@/lib/campamento-base/socialflow-control-plane-service", () => ({
   getCampoBaseSocialAutomationStatus,
   getCampoBaseSocialFlowObservability,
   runCampoBaseSocialFlowOperatorAction,
@@ -190,6 +191,22 @@ function buildRequest(body?: unknown) {
 }
 
 describe("/api/campobase/socialflow", () => {
+  it("uses canonical service dependency and keeps legacy adapter intact", () => {
+    const routeSource = readFileSync(
+      "src/app/api/operator/socialflow/route.ts",
+      "utf8",
+    );
+    const legacySource = readFileSync(
+      "src/lib/campobase/socialflow-service.ts",
+      "utf8",
+    );
+
+    expect(routeSource).toContain("@/lib/campamento-base/socialflow-control-plane-service");
+    expect(routeSource).not.toContain("@/lib/campobase/socialflow-service");
+    expect(routeSource).not.toContain("@/lib/campobase/");
+    expect(legacySource).toContain("temporary adapter");
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     requireOwnerAccess.mockResolvedValue({ tenantId: "owner" });

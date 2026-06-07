@@ -13,7 +13,7 @@
  */
 import { queryAll, queryOne } from "@/lib/db";
 import { buildOwnerAccountingSnapshot } from "@/lib/owner/accounting";
-import { getCampoBaseSocialAutomationStatus } from "@/lib/campobase/socialflow-service";
+import { getCampoBaseSocialAutomationStatus } from "@/lib/campamento-base/socialflow-control-plane-service";
 import { listOperatorGovernanceView } from "@/lib/ops/operator-governance-view";
 import { getDemoOwner } from "@/lib/admin/demo-data";
 import type {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 
 const {
   UnauthorizedError,
@@ -39,7 +40,7 @@ vi.mock("@/lib/auth/session", () => ({
   UnauthorizedError,
 }));
 
-vi.mock("@/lib/campobase/platform-operator-service", () => ({
+vi.mock("@/lib/campamento-base/platform-operator-service", () => ({
   getPlatformOperatorSurface,
   refreshPlatformOperatorSurface,
   runPlatformAutomationAction,
@@ -92,6 +93,23 @@ function buildRequest(body?: unknown) {
 }
 
 describe("/api/campobase/platform", () => {
+  it("uses canonical platform operator service dependency and keeps legacy adapter intact", () => {
+    const routeSource = readFileSync(
+      "src/app/api/operator/platform/route.ts",
+      "utf8",
+    );
+    const legacySource = readFileSync(
+      "src/lib/campobase/platform-operator-service.ts",
+      "utf8",
+    );
+
+    expect(routeSource).toContain("@/lib/campamento-base/platform-operator-service");
+    expect(routeSource).not.toContain("@/lib/campobase/platform-operator-service");
+    expect(routeSource).not.toContain("from \"@/lib/campobase/");
+    expect(legacySource).toContain("temporary adapter");
+    expect(legacySource).toContain("@/lib/campamento-base/platform-operator-service");
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     requireOwnerAccess.mockResolvedValue({ tenantId: "owner" });
