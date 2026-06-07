@@ -1,1 +1,1 @@
-export * from "@/lib/campobase/social-automation-history";
+export * from "@/lib/campamento-base/social-automation-history";
