@@ -6,13 +6,19 @@ class FakeD1Database {
     id: string;
     tenant_id: string;
     saas_id: string;
+    automation_key: string;
     status: string;
-    campaign_id: string | null;
-    posts_count: number;
-    scheduled_count: number;
-    error: string | null;
     started_at: string;
-    finished_at: string;
+    completed_at: string | null;
+    duration_ms: number | null;
+    result_json: string | null;
+    error_code: string | null;
+    error_message: string | null;
+    error_details_json: string | null;
+    error_retryable: number | null;
+    triggered_by_actor_type: string;
+    triggered_by_actor_id: string | null;
+    request_id: string | null;
     created_at: string;
   }> = [];
 
@@ -49,12 +55,16 @@ class FakeStatement {
   private executeSelect() {
     const normalized = this.sql.toLowerCase();
 
-    if (normalized.startsWith("select") && normalized.includes("from campobase_social_automation_runs")) {
+    if (normalized.startsWith("select") && normalized.includes("from campamento_base_social_automation_history_runs")) {
       let rows = [...this.db.runRows];
 
-      if (normalized.includes("where tenant_id = ? and saas_id = ?")) {
-        const [tenantId, saasId] = this.params as [string, string];
+      if (normalized.includes("where tenant_id = ? and saas_id = ? and automation_key = ?")) {
+        const [tenantId, saasId, automationKey] = this.params as [string, string, string, number];
         rows = rows.filter((row) => row.tenant_id === tenantId && row.saas_id === saasId);
+        rows = rows.filter((row) => row.automation_key === automationKey);
+      } else if (normalized.includes("where automation_key = ?")) {
+        const [automationKey] = this.params as [string, number];
+        rows = rows.filter((row) => row.automation_key === automationKey);
       }
 
       rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -80,43 +90,61 @@ class FakeStatement {
       return;
     }
 
-    if (normalized.startsWith("insert into campobase_social_automation_runs")) {
+    if (normalized.startsWith("insert into campamento_base_social_automation_history_runs")) {
       const [
         id,
         tenantId,
         saasId,
+        automationKey,
         status,
-        campaignId,
-        postsCount,
-        scheduledCount,
-        error,
         startedAt,
-        finishedAt,
+        completedAt,
+        durationMs,
+        resultJson,
+        errorCode,
+        errorMessage,
+        errorDetailsJson,
+        errorRetryable,
+        triggeredByActorType,
+        triggeredByActorId,
+        requestId,
         createdAt,
       ] = this.params as [
         string,
         string,
         string,
         string,
-        string | null,
-        number,
-        number,
-        string | null,
         string,
         string,
+        string | null,
+        number | null,
+        string | null,
+        string | null,
+        string | null,
+        string | null,
+        number | null,
+        string,
+        string | null,
+        string | null,
         string,
       ];
       this.db.runRows.push({
         id,
         tenant_id: tenantId,
         saas_id: saasId,
+        automation_key: automationKey,
         status,
-        campaign_id: campaignId,
-        posts_count: postsCount,
-        scheduled_count: scheduledCount,
-        error,
         started_at: startedAt,
-        finished_at: finishedAt,
+        completed_at: completedAt,
+        duration_ms: durationMs,
+        result_json: resultJson,
+        error_code: errorCode,
+        error_message: errorMessage,
+        error_details_json: errorDetailsJson,
+        error_retryable: errorRetryable,
+        triggered_by_actor_type: triggeredByActorType,
+        triggered_by_actor_id: triggeredByActorId,
+        request_id: requestId,
         created_at: createdAt,
       });
       return;
@@ -159,7 +187,9 @@ describe("campobase social automation history", () => {
     });
 
     const sql = (db.lastCreateTableSql ?? "").toLowerCase();
-    expect(sql).toContain("check (status in ('success', 'failed'))");
+    expect(sql).toContain("check (status in");
+    expect(sql).toContain("'success'");
+    expect(sql).toContain("'failed'");
   });
 
   it("rejects invalid status", async () => {
@@ -238,8 +268,11 @@ describe("campobase social automation history", () => {
       createdAt: "2024-01-04T00:00:00.000Z",
     });
 
-    expect(db.runRows[0].campaign_id).toBeNull();
-    expect(db.runRows[0].error).toBeNull();
+    const persistedResult = JSON.parse(db.runRows[0].result_json ?? "{}") as {
+      campaignId?: string | null;
+    };
+    expect(persistedResult.campaignId ?? null).toBeNull();
+    expect(db.runRows[0].error_message).toBeNull();
   });
 
   it("lists runs ordered by created_at desc", async () => {
