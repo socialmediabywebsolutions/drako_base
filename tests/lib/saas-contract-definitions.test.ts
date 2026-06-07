@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { clinicPlatformBootstrap, clinicPlatformDefinition } from "@/lib/campobase/clinic-platform";
-import { socialFlowPlatformBootstrap, socialFlowPlatformDefinition } from "@/lib/campobase/socialflow-platform";
+import { socialFlowPlatformBootstrap, socialFlowPlatformDefinition } from "@/lib/campamento-base/socialflow-platform";
 import { taskOpsPlatformBootstrap, taskOpsPlatformDefinition } from "@/lib/campobase/taskops-platform";
 
 describe("saas contract definitions", () => {

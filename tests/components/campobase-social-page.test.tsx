@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import "@testing-library/jest-dom";
 
 import CampoBaseSocialPage from "@/app/(dashboard)/campobase/social/page";
-import type { CampoBaseSocialAutomationStatusOutput } from "@/lib/campobase/socialflow-service";
+import type { CampoBaseSocialAutomationStatusOutput } from "@/lib/operator/socialflow-service";
 import type { CampoBaseSocialAutomationRun } from "@/lib/operator/social-automation-history";
 
 const fetchMock = vi.spyOn(global, "fetch");

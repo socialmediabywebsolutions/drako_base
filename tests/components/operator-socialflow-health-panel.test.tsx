@@ -7,7 +7,7 @@ import OperatorSocialFlowPage from "@/app/operator/socialflow/page";
 import type {
   CampoBaseSocialAutomationStatusOutput,
   CampoBaseSocialFlowObservability,
-} from "@/lib/campobase/socialflow-service";
+} from "@/lib/operator/socialflow-service";
 
 const fetchMock = vi.spyOn(global, "fetch");
 

@@ -14,8 +14,6 @@ const FROZEN_CAMPOBASE_IMPORT_ALLOWLIST = new Set<string>([
   "src/lib/campobase/platform-bootstrap.ts::@/lib/campobase/clinic-platform",
   "src/lib/campobase/platform-bootstrap.ts::@/lib/campobase/taskops-platform",
   "src/lib/campobase/taskops-platform.ts::@/lib/campobase/taskops-platform-service",
-  "tests/components/campobase-social-page.test.tsx::@/lib/campobase/socialflow-service",
-  "tests/components/operator-socialflow-health-panel.test.tsx::@/lib/campobase/socialflow-service",
   "tests/lib/campobase-clinic-platform-service.test.ts::@/lib/campobase/clinic-platform-service",
   "tests/lib/campobase-platform-bootstrap.test.ts::@/lib/campobase/platform-bootstrap",
   "tests/lib/campobase-social-automation-history.test.ts::@/lib/campobase/social-automation-history",
@@ -25,7 +23,6 @@ const FROZEN_CAMPOBASE_IMPORT_ALLOWLIST = new Set<string>([
   "tests/lib/cross-saas-taskops-flow.test.ts::@/lib/campobase/taskops-platform",
   "tests/lib/factory-orchestrator.test.ts::@/lib/campobase/platform-bootstrap",
   "tests/lib/saas-contract-definitions.test.ts::@/lib/campobase/clinic-platform",
-  "tests/lib/saas-contract-definitions.test.ts::@/lib/campobase/socialflow-platform",
   "tests/lib/saas-contract-definitions.test.ts::@/lib/campobase/taskops-platform",
 ]);
 
@@ -103,6 +100,6 @@ describe("campobase namespace freeze", () => {
   });
 
   it("keeps the allowlist pinned for controlled shrink-only migrations", () => {
-    expect(FROZEN_CAMPOBASE_IMPORT_ALLOWLIST.size).toBe(17);
+    expect(FROZEN_CAMPOBASE_IMPORT_ALLOWLIST.size).toBe(14);
   });
 });
