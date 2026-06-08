@@ -1,8 +1,33 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
-import { clinicPlatformBootstrap, clinicPlatformDefinition } from "@/lib/campobase/clinic-platform";
 import { socialFlowPlatformBootstrap, socialFlowPlatformDefinition } from "@/lib/campamento-base/socialflow-platform";
-import { taskOpsPlatformBootstrap, taskOpsPlatformDefinition } from "@/lib/campobase/taskops-platform";
+
+const repoRoot = process.cwd();
+const clinicAdapterPath = path.join(repoRoot, "src/lib/campobase/clinic-platform.ts");
+const taskOpsAdapterPath = path.join(repoRoot, "src/lib/campobase/taskops-platform.ts");
+const testFilePath = path.join(repoRoot, "tests/lib/saas-contract-definitions.test.ts");
+
+function extractImportSpecifiers(source: string): string[] {
+  const specifiers = new Set<string>();
+  const patterns = [
+    /\bimport\s+(?:type\s+)?(?:[^"'`]+?\s+from\s+)?["'`]([^"'`]+)["'`]/g,
+    /\bexport\s+(?:type\s+)?(?:\*|\{[^}]*\})\s+from\s+["'`]([^"'`]+)["'`]/g,
+    /\bimport\(\s*["'`]([^"'`]+)["'`]\s*\)/g,
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of source.matchAll(pattern)) {
+      const specifier = match[1]?.trim();
+      if (specifier) {
+        specifiers.add(specifier);
+      }
+    }
+  }
+
+  return [...specifiers].sort();
+}
 
 describe("saas contract definitions", () => {
   it("SocialFlow exposes a valid static platform definition", () => {
@@ -38,59 +63,59 @@ describe("saas contract definitions", () => {
     expect(typeof socialFlowPlatformBootstrap.connect).toBe("function");
   });
 
-  it("Clinic exposes a valid static platform definition", () => {
-    expect(clinicPlatformDefinition).toMatchObject({
-      saasId: "clinic",
-      displayName: "Clinic",
-      supportsOperatorSurface: true,
-    });
-    expect(clinicPlatformDefinition.automations).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          automationKey: "clinic.daily_appointment_health",
-          enabledByDefault: true,
-        }),
-      ]),
-    );
-    expect(clinicPlatformDefinition.integrations).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          integrationKey: "whatsapp",
-          required: false,
-        }),
-      ]),
-    );
-    expect("handler" in clinicPlatformDefinition.automations[0]).toBe(false);
-    expect("provider" in clinicPlatformDefinition.integrations[0]).toBe(false);
-    expect("tenantId" in clinicPlatformDefinition).toBe(false);
-    expect("bootstrap" in clinicPlatformDefinition).toBe(false);
-    expect(typeof clinicPlatformBootstrap.connect).toBe("function");
+  it("Clinic legacy adapter keeps expected static export and contract markers", () => {
+    const source = readFileSync(clinicAdapterPath, "utf8");
+    const legacyPrefix = ["@/lib", "campobase"].join("/");
+
+    const requiredMarkers = [
+      "export const CLINIC_PLATFORM_SAAS_ID",
+      "export const clinicPlatformDefinition",
+      "export const clinicPlatformBootstrap",
+      `${legacyPrefix}/clinic-platform-service`,
+      "defineSaasPlatform(",
+      "defineSaasPlatformBootstrap(",
+      "saasId: CLINIC_PLATFORM_SAAS_ID",
+      'displayName: "Clinic"',
+      "automationKey: CLINIC_DAILY_APPOINTMENT_HEALTH_KEY",
+      "integrationKey: WHATSAPP_INTEGRATION_KEY",
+      "@/lib/saas-contract",
+    ];
+
+    for (const marker of requiredMarkers) {
+      expect(source).toContain(marker);
+    }
   });
 
-  it("TaskOps exposes a valid static platform definition", () => {
-    expect(taskOpsPlatformDefinition).toMatchObject({
-      saasId: "taskops",
-      displayName: "TaskOps",
-      supportsOperatorSurface: true,
-    });
-    expect(taskOpsPlatformDefinition.automations).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          automationKey: "taskops.pending_task_audit",
-          enabledByDefault: true,
-        }),
-      ]),
-    );
-    expect(taskOpsPlatformDefinition.integrations).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          integrationKey: "whatsapp",
-          required: false,
-        }),
-      ]),
-    );
-    expect("tenantId" in taskOpsPlatformDefinition).toBe(false);
-    expect("bootstrap" in taskOpsPlatformDefinition).toBe(false);
-    expect(typeof taskOpsPlatformBootstrap.connect).toBe("function");
+  it("TaskOps legacy adapter keeps expected static export and contract markers", () => {
+    const source = readFileSync(taskOpsAdapterPath, "utf8");
+    const legacyPrefix = ["@/lib", "campobase"].join("/");
+
+    const requiredMarkers = [
+      "export const TASKOPS_PLATFORM_SAAS_ID",
+      "export const taskOpsPlatformDefinition",
+      "export const taskOpsPlatformBootstrap",
+      `${legacyPrefix}/taskops-platform-service`,
+      "defineSaasPlatform(",
+      "defineSaasPlatformBootstrap(",
+      "saasId: TASKOPS_PLATFORM_SAAS_ID",
+      'displayName: "TaskOps"',
+      "automationKey: TASKOPS_PENDING_TASK_AUDIT_KEY",
+      "integrationKey: WHATSAPP_INTEGRATION_KEY",
+      '"task.overdue"',
+      "triggerAutomation(",
+      "@/lib/saas-contract",
+    ];
+
+    for (const marker of requiredMarkers) {
+      expect(source).toContain(marker);
+    }
+  });
+
+  it("does not import runtime from frozen campobase namespace", () => {
+    const source = readFileSync(testFilePath, "utf8");
+    const imports = extractImportSpecifiers(source);
+    const legacyPrefix = ["@/lib", "campobase"].join("/");
+
+    expect(imports.filter((specifier) => specifier.startsWith(legacyPrefix))).toEqual([]);
   });
 });

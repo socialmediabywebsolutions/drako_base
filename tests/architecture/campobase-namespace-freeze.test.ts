@@ -18,8 +18,6 @@ const FROZEN_CAMPOBASE_IMPORT_ALLOWLIST = new Set<string>([
   "tests/lib/campobase-taskops-platform-service.test.ts::@/lib/campobase/taskops-platform-service",
   "tests/lib/cross-saas-taskops-flow.test.ts::@/lib/campobase/taskops-platform",
   "tests/lib/factory-orchestrator.test.ts::@/lib/campobase/platform-bootstrap",
-  "tests/lib/saas-contract-definitions.test.ts::@/lib/campobase/clinic-platform",
-  "tests/lib/saas-contract-definitions.test.ts::@/lib/campobase/taskops-platform",
 ]);
 
 function listCodeFiles(directoryPath: string): string[] {
@@ -96,6 +94,6 @@ describe("campobase namespace freeze", () => {
   });
 
   it("keeps the allowlist pinned for controlled shrink-only migrations", () => {
-    expect(FROZEN_CAMPOBASE_IMPORT_ALLOWLIST.size).toBe(10);
+    expect(FROZEN_CAMPOBASE_IMPORT_ALLOWLIST.size).toBe(8);
   });
 });
