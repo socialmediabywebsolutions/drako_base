@@ -14,7 +14,6 @@ const FROZEN_CAMPOBASE_IMPORT_ALLOWLIST = new Set<string>([
   "src/lib/campobase/platform-bootstrap.ts::@/lib/campobase/clinic-platform",
   "src/lib/campobase/platform-bootstrap.ts::@/lib/campobase/taskops-platform",
   "src/lib/campobase/taskops-platform.ts::@/lib/campobase/taskops-platform-service",
-  "tests/lib/campobase-platform-bootstrap.test.ts::@/lib/campobase/platform-bootstrap",
   "tests/lib/campobase-taskops-platform-service.test.ts::@/lib/campobase/taskops-platform-service",
   "tests/lib/cross-saas-taskops-flow.test.ts::@/lib/campobase/taskops-platform",
   "tests/lib/factory-orchestrator.test.ts::@/lib/campobase/platform-bootstrap",
@@ -94,6 +93,6 @@ describe("campobase namespace freeze", () => {
   });
 
   it("keeps the allowlist pinned for controlled shrink-only migrations", () => {
-    expect(FROZEN_CAMPOBASE_IMPORT_ALLOWLIST.size).toBe(8);
+    expect(FROZEN_CAMPOBASE_IMPORT_ALLOWLIST.size).toBe(7);
   });
 });
