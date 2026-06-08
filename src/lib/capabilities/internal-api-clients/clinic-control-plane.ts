@@ -148,6 +148,14 @@ export async function registerClinicControlPlaneAutomation(
   return registration;
 }
 
+export async function getClinicControlPlaneAutomationRegistration(
+  tenantId: string,
+  saasId: string,
+): Promise<ClinicControlPlaneAutomationRegistration | null> {
+  assertIdentity(tenantId, saasId);
+  return automationRegistrations.get(keyFor(tenantId, saasId)) ?? null;
+}
+
 export async function ensureClinicControlPlaneIntegration(
   tenantId: string,
   saasId: string,

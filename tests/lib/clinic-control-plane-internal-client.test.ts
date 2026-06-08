@@ -6,6 +6,7 @@ import {
   buildClinicAppointmentHealthAuditResult,
   ensureClinicControlPlaneIntegration,
   fetchClinicControlPlaneHealth,
+  getClinicControlPlaneAutomationRegistration,
   registerClinicControlPlaneAutomation,
   triggerClinicAppointmentHealthAudit,
   ClinicControlPlaneClientError,
@@ -64,6 +65,7 @@ describe("clinic control-plane internal client", () => {
     expect(integration.integrationKey).toBe("whatsapp");
     expect(result.ok).toBe(true);
     expect(fetchClinicControlPlaneHealth).toBeTypeOf("function");
+    expect(getClinicControlPlaneAutomationRegistration).toBeTypeOf("function");
     expect(registerClinicControlPlaneAutomation).toBeTypeOf("function");
     expect(ensureClinicControlPlaneIntegration).toBeTypeOf("function");
     expect(triggerClinicAppointmentHealthAudit).toBeTypeOf("function");
@@ -96,6 +98,46 @@ describe("clinic control-plane internal client", () => {
         overdueFollowupHours: 24,
       },
     });
+  });
+
+  it("overwrites the neutral automation registration without duplicating state", async () => {
+    await registerClinicControlPlaneAutomation({
+      tenantId: "tenant_overwrite",
+      saasId: "clinic",
+      automationKey: "clinic.daily_appointment_health",
+      displayName: "Clinic daily appointment health",
+      enabled: true,
+      scheduleMode: "scheduled",
+      config: {
+        lookaheadDays: 7,
+        overdueFollowupHours: 24,
+      },
+    });
+
+    const updated = await registerClinicControlPlaneAutomation({
+      tenantId: "tenant_overwrite",
+      saasId: "clinic",
+      automationKey: "clinic.daily_appointment_health",
+      displayName: "Clinic appointment health override",
+      enabled: false,
+      scheduleMode: "manual",
+      config: {
+        lookaheadDays: 14,
+        overdueFollowupHours: 48,
+      },
+    });
+    const stored = await getClinicControlPlaneAutomationRegistration("tenant_overwrite", "clinic");
+
+    expect(updated).toMatchObject({
+      displayName: "Clinic appointment health override",
+      enabled: false,
+      scheduleMode: "manual",
+      config: {
+        lookaheadDays: 14,
+        overdueFollowupHours: 48,
+      },
+    });
+    expect(stored).toEqual(updated);
   });
 
   it("represents WhatsApp integration states and primary identity presence", async () => {
@@ -150,6 +192,12 @@ describe("clinic control-plane internal client", () => {
       overdueFollowups: 1,
     });
     expect(result.summary).toContain("3 upcoming");
+    expect(result.summary).toContain("2 unconfirmed");
+    expect(result.summary).toContain("1 overdue followups");
+    expect(result.output).toEqual({
+      lookaheadDays: 7,
+      overdueFollowupHours: 24,
+    });
     expect(health).toMatchObject({
       tenantId: "tenant_health",
       saasId: "clinic",
