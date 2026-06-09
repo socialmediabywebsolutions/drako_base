@@ -10,8 +10,6 @@ const SEARCH_DIRS = ["src", "tests", "scripts"];
 // Policy: it should shrink over time as migration advances, and must never grow
 // without explicit architecture justification/checkpoint.
 const FROZEN_CAMPOBASE_IMPORT_ALLOWLIST = new Set<string>([
-  "src/lib/campobase/clinic-platform.ts::@/lib/campobase/clinic-platform-service",
-  "src/lib/campobase/platform-bootstrap.ts::@/lib/campobase/clinic-platform",
   "src/lib/campobase/platform-bootstrap.ts::@/lib/campobase/taskops-platform",
   "src/lib/campobase/taskops-platform.ts::@/lib/campobase/taskops-platform-service",
   "tests/lib/campobase-taskops-platform-service.test.ts::@/lib/campobase/taskops-platform-service",
@@ -92,6 +90,6 @@ describe("campobase namespace freeze", () => {
   });
 
   it("keeps the allowlist pinned for controlled shrink-only migrations", () => {
-    expect(FROZEN_CAMPOBASE_IMPORT_ALLOWLIST.size).toBe(6);
+    expect(FROZEN_CAMPOBASE_IMPORT_ALLOWLIST.size).toBe(4);
   });
 });

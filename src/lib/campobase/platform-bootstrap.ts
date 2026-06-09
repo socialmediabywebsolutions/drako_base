@@ -14,7 +14,7 @@ async function ensureDefaultPlatformDefinitionsRegistered() {
   }
 
   const socialflowModule = await import("@/lib/campamento-base/socialflow-platform");
-  const clinicModule = await import("@/lib/campobase/clinic-platform");
+  const clinicModule = await import("@/lib/clinic/platform-wrapper");
   const taskOpsModule = await import("@/lib/campobase/taskops-platform");
 
   registerSaasPlatformDefinition(socialflowModule.socialFlowPlatformDefinition);

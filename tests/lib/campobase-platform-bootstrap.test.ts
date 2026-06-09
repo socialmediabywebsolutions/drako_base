@@ -11,6 +11,7 @@ describe("platform bootstrap contract", () => {
   const bootstrapPath = join(process.cwd(), "src", "lib", "campobase", "platform-bootstrap.ts");
   const legacyPrefix = ["@/lib", "campobase"].join("/") + "/";
   const canonicalPrefix = ["@/lib", "campamento-base"].join("/") + "/";
+  const clinicNeutralPrefix = ["@/lib", "clinic"].join("/") + "/";
 
   it("exposes neutral loader definitions for SocialFlow, Clinic and TaskOps", () => {
     const definitions = listPlatformBootstrapDefinitions();
@@ -48,18 +49,19 @@ describe("platform bootstrap contract", () => {
     );
   });
 
-  it("keeps static legacy adapter signals for canonical SocialFlow and legacy Clinic/TaskOps", () => {
+  it("keeps static adapter signals for canonical SocialFlow, neutral Clinic and legacy TaskOps", () => {
     expect(existsSync(bootstrapPath)).toBe(true);
     const source = readFileSync(bootstrapPath, "utf8");
 
     expect(source).toContain(`import("${canonicalPrefix}socialflow-platform")`);
-    expect(source).toContain(`import("${legacyPrefix}clinic-platform")`);
+    expect(source).toContain(`import("${clinicNeutralPrefix}platform-wrapper")`);
     expect(source).toContain(`import("${legacyPrefix}taskops-platform")`);
 
     expect(source).toContain("socialflow-platform");
-    expect(source).toContain("clinic-platform");
+    expect(source).toContain("platform-wrapper");
     expect(source).toContain("taskops-platform");
     expect(source.includes(`${legacyPrefix}socialflow-platform`)).toBe(false);
+    expect(source.includes(`${legacyPrefix}clinic-platform`)).toBe(false);
   });
 
   it("keeps static legacy adapter registration and public export signals", () => {
