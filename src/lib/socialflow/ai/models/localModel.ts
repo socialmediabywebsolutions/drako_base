@@ -43,7 +43,7 @@ export class DeterministicLocalModel implements LocalModelClient {
   }
 }
 
-const WORKERS_AI_MODEL = "@cf/meta/llama-3-8b-instruct";
+const WORKERS_AI_MODEL = "@cf/mistralai/mistral-small-3.1-24b-instruct";
 
 const WORKERS_AI_SYSTEM_PROMPT =
   "You are SocialFlow's content generation engine. Respond ONLY with valid JSON matching the requested shape exactly. No markdown fences, no commentary.";
