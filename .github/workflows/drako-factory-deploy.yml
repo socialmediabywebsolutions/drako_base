@@ -131,9 +131,7 @@ jobs:
           set -euo pipefail
           pnpm build:artifacts:skeleton
 
-      # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
       - name: Upload artifact matrix skeleton manifest
-        if: ${{ false }}
         uses: actions/upload-artifact@v4
         with:
           name: open-next-artifact-matrix-${{ matrix.product }}
@@ -373,9 +371,7 @@ jobs:
 
           echo "Worker guardrail passed (${BYTES} bytes, assets + server-functions present)."
 
-      # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
       - name: Upload worker and build logs (audit)
-        if: ${{ false }}
         uses: actions/upload-artifact@v4
         with:
           name: open-next-build
@@ -388,9 +384,7 @@ jobs:
             open-next-build.log
             build/open-next-artifact-matrix/global
 
-      # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
       - name: Upload Drakos dedicated artifact
-        if: ${{ false }}
         uses: actions/upload-artifact@v4
         with:
           name: open-next-drakos-build
@@ -398,9 +392,7 @@ jobs:
           retention-days: 1
           path: .open-next/drakos
 
-      # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
       - name: Upload SocialFlow standalone artifact
-        if: ${{ false }}
         uses: actions/upload-artifact@v4
         with:
           name: open-next-socialflows-standalone-build
@@ -408,9 +400,7 @@ jobs:
           retention-days: 1
           path: .open-next/socialflows-standalone
 
-      # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
       - name: Upload Bases dedicated artifact
-        if: ${{ false }}
         uses: actions/upload-artifact@v4
         with:
           name: open-next-bases-build
@@ -418,9 +408,7 @@ jobs:
           retention-days: 1
           path: .open-next/bases
 
-      # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
       - name: Upload Mentoria dedicated artifact
-        if: ${{ false }}
         uses: actions/upload-artifact@v4
         with:
           name: open-next-mentorias-build
@@ -432,8 +420,6 @@ jobs:
     name: Deploy Workers
     runs-on: ubuntu-latest
     needs: build
-    # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
-    if: ${{ false }}
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -812,8 +798,6 @@ jobs:
     name: Smoke Tests (anti-loop / anti-cross)
     runs-on: ubuntu-latest
     needs: deploy
-    # TEMPORARY: disabled until GitHub artifact storage quota is recovered and deploy no longer depends on artifacts.
-    if: ${{ false }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
