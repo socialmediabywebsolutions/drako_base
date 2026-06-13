@@ -284,9 +284,28 @@ async function generatePostPayloads(
     ],
   };
 
+  const generatedPrompt = [
+    `Write a LinkedIn post for the brand "${profile.brandIdentity}" (${profile.channelHandle || "no handle"}).`,
+    `Brand description: ${profile.shortDescription || profile.longDescription || "N/A"}.`,
+    `Niche: ${profile.niche}. Audience: ${profile.audience}. Tone of voice: ${profile.toneOfVoice}.`,
+    profile.painPoints.length ? `Audience pain points: ${profile.painPoints.join(", ")}.` : "",
+    profile.desires.length ? `Audience desires: ${profile.desires.join(", ")}.` : "",
+    (profile.services.length || profile.offers.length)
+      ? `Services/offers to reference when relevant: ${[...profile.services, ...profile.offers].join(", ")}.`
+      : "",
+    profile.differentiators.length ? `Key differentiators: ${profile.differentiators.join(", ")}.` : "",
+    `Today's content angle: "${strategyItem.theme}" - ${strategyItem.angle} (format: ${strategyItem.format}).`,
+    trends.hookIdeas.length ? `Hook ideas to consider: ${trends.hookIdeas.join(" | ")}.` : "",
+    `Primary call to action: ${strategyItem.callToAction || profile.primaryCTA}.`,
+    (profile.forbiddenTopics.length || profile.bannedWords.length)
+      ? `Avoid these topics/words entirely: ${[...profile.forbiddenTopics, ...profile.bannedWords].join(", ")}.`
+      : "",
+    "Produce a strong scroll-stopping hook, a body text (2-4 short paragraphs) and a clear call to action.",
+  ].filter(Boolean).join("\n");
+
   const generated = (
     await provider.generateStructured({
-      prompt: `Generate SocialFlow post copy for ${profile.brandIdentity} about ${strategyItem.theme}.`,
+      prompt: generatedPrompt,
       seed: () => generatedBase,
     })
   ).data;
@@ -305,9 +324,19 @@ async function generatePostPayloads(
     tone: profile.toneOfVoice,
   };
 
+  const optimizedPrompt = [
+    `Refine the following LinkedIn post copy for audience "${profile.audience}" and tone "${profile.toneOfVoice}".`,
+    `Keep it on-brand for "${profile.brandIdentity}" and do not invent claims beyond what's given.`,
+    (profile.forbiddenTopics.length || profile.bannedWords.length)
+      ? `Avoid these topics/words entirely: ${[...profile.forbiddenTopics, ...profile.bannedWords].join(", ")}.`
+      : "",
+    hashtagPool.length ? `Pick the most relevant hashtags from this set: ${hashtagPool.join(" ")}.` : "",
+    `Post copy to refine:\n${optimizedBase.baseText}`,
+  ].filter(Boolean).join("\n");
+
   const optimized = (
     await provider.generateStructured({
-      prompt: `Optimize SocialFlow post tone for ${profile.audience}.`,
+      prompt: optimizedPrompt,
       seed: () => optimizedBase,
     })
   ).data;

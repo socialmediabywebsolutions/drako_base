@@ -9,10 +9,15 @@ import {
 
 export const SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH_ENV_KEY = "SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH";
 
+export type SocialFlowRuntimeAiBinding = {
+  run: (model: string, inputs: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown>;
+};
+
 export type SocialFlowRuntimeEnv = {
   DRACO_DB?: D1Database;
   SOCIAL_DB?: D1Database;
   SOCIALFLOW_AUTHS_DB?: D1Database;
+  AI?: SocialFlowRuntimeAiBinding;
   SOCIALFLOW_AUTHS_SECRET?: string;
   DEFAULT_TENANT_ID?: string;
   LINKEDIN_CLIENT_ID?: string;

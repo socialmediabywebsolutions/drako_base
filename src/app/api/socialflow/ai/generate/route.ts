@@ -10,20 +10,19 @@ function isTruthyFlag(value: string | undefined) {
   return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 }
 
-function isDemoAiAllowed() {
+function isAiGenerationDisabled() {
   const env = typeof process !== "undefined" ? process.env : undefined;
   if (!env) return false;
-  if (isTruthyFlag(env.SOCIALFLOW_ENABLE_DEMO_AI)) return true;
-  return env.NODE_ENV !== "production";
+  return isTruthyFlag(env.SOCIALFLOW_DISABLE_AI);
 }
 
 export async function POST(request: Request) {
   try {
-    if (!isDemoAiAllowed()) {
+    if (isAiGenerationDisabled()) {
       return NextResponse.json({
         ok: false,
-        error: "SOCIALFLOW_AI_DEMO_DISABLED_IN_PRODUCTION",
-        message: "Deterministic demo AI is disabled in production. Enable a real provider before activation.",
+        error: "SOCIALFLOW_AI_GENERATION_DISABLED",
+        message: "AI generation is disabled via operator kill switch.",
       }, { status: 503 });
     }
 

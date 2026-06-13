@@ -15,7 +15,8 @@ export type SocialFlowRuntimeBindingKey =
   | (typeof socialFlowRuntimeDeployContract.bindings.kv)[number]
   | (typeof socialFlowRuntimeDeployContract.bindings.r2)[number]
   | (typeof socialFlowRuntimeDeployContract.bindings.queues)[number]
-  | (typeof socialFlowRuntimeDeployContract.bindings.services)[number];
+  | (typeof socialFlowRuntimeDeployContract.bindings.services)[number]
+  | (typeof socialFlowRuntimeDeployContract.bindings.ai)[number];
 
 export function getSocialFlowRuntimeContractVersion() {
   return socialFlowRuntimeDeployContract.contractVersion;
@@ -53,6 +54,7 @@ export function isSocialFlowRuntimeBindingKey(value: string): value is SocialFlo
     ...socialFlowRuntimeDeployContract.bindings.r2,
     ...socialFlowRuntimeDeployContract.bindings.queues,
     ...socialFlowRuntimeDeployContract.bindings.services,
+    ...socialFlowRuntimeDeployContract.bindings.ai,
   ]);
   return allKeys.has(value);
 }

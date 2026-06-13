@@ -44,6 +44,9 @@ bucket_name = "saas-socialflows-prod-storage"
 binding = "SAASES_EVENTS"
 queue = "saas-socialflows-prod-events"
 
+[ai]
+binding = "AI"
+
 [vars]
 SAASES_SLUG = "socialflows"
 SAASES_DOMAIN = "socialflows.drako.systems,socialflow.drako.systems"

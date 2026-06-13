@@ -29,7 +29,10 @@
     "kv": [],
     "r2": [],
     "queues": [],
-    "services": []
+    "services": [],
+    "ai": [
+      "AI"
+    ]
   },
   "runtimeVars": {
     "required": [
@@ -64,9 +67,11 @@
     ]
   },
   "aiProviders": {
-    "mode": "runtime-deterministic",
+    "mode": "workers-ai-with-deterministic-fallback",
     "requiredKeys": [],
-    "optionalKeys": []
+    "optionalKeys": [],
+    "bindingKey": "AI",
+    "model": "@cf/meta/llama-3-8b-instruct"
   },
   "auth": {
     "cookieName": "__Host-socialflow_canary_session",
