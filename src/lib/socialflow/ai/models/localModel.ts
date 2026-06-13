@@ -106,10 +106,16 @@ export class WorkersAiLocalModel implements LocalModelClient {
             content: `${req.prompt}\n\nRespond with JSON matching this shape exactly:\n${JSON.stringify(base)}`,
           },
         ],
-      })) as { response?: string };
+        max_tokens: 4096,
+      })) as { response?: unknown };
 
-      const text = response?.response;
-      if (!text) {
+      const raw = response?.response;
+      let text: string;
+      if (typeof raw === "string") {
+        text = raw;
+      } else if (raw && typeof raw === "object") {
+        text = JSON.stringify(raw);
+      } else {
         throw new Error("SOCIALFLOW_AI_EMPTY_RESPONSE");
       }
 
