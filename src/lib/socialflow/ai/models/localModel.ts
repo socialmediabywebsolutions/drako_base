@@ -14,20 +14,27 @@ export interface LocalModelClient {
   generateStructured<T>(req: LocalModelRequest, schemaFactory: () => T): Promise<LocalModelResponse<T>>;
 }
 
+// Attaches _meta without losing array-ness: object-spreading an array would
+// turn it into a plain object ({0: ..., 1: ..., _meta: ...}), breaking
+// downstream callers that expect an array (e.g. CompetitorAgent).
+function attachMeta<T>(base: T, meta: Record<string, unknown>): T & { _meta: unknown } {
+  if (Array.isArray(base)) {
+    return Object.assign([...base], { _meta: meta }) as unknown as T & { _meta: unknown };
+  }
+  return { ...base, _meta: meta } as T & { _meta: unknown };
+}
+
 // Deterministic stub model for demo: no external calls, no randomness critical for tests
 export class DeterministicLocalModel implements LocalModelClient {
   async generateStructured<T>(req: LocalModelRequest, schemaFactory: () => T): Promise<LocalModelResponse<T>> {
     const base = schemaFactory();
     const now = new Date().toISOString();
-    const decorated = {
-      ...base,
-      _meta: {
-        generatedAt: now,
-        promptPreview: req.prompt.slice(0, 120),
-        system: req.system ?? null,
-        engine: "local-deterministic-stub",
-      },
-    } as T & { _meta: unknown };
+    const decorated = attachMeta(base, {
+      generatedAt: now,
+      promptPreview: req.prompt.slice(0, 120),
+      system: req.system ?? null,
+      engine: "local-deterministic-stub",
+    });
 
     return {
       data: decorated as unknown as T,
@@ -109,16 +116,13 @@ export class WorkersAiLocalModel implements LocalModelClient {
       const cleaned = stripJsonFences(text);
       const parsed = JSON.parse(cleaned);
       const merged = mergeAiStructuredOutput(base, parsed);
-      const decorated = {
-        ...merged,
-        _meta: {
-          generatedAt: new Date().toISOString(),
-          promptPreview: req.prompt.slice(0, 120),
-          system: req.system ?? null,
-          engine: "workers-ai",
-          model: WORKERS_AI_MODEL,
-        },
-      } as T & { _meta: unknown };
+      const decorated = attachMeta(merged, {
+        generatedAt: new Date().toISOString(),
+        promptPreview: req.prompt.slice(0, 120),
+        system: req.system ?? null,
+        engine: "workers-ai",
+        model: WORKERS_AI_MODEL,
+      });
 
       return {
         data: decorated as unknown as T,
