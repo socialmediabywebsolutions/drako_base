@@ -940,11 +940,13 @@ export default function SocialFlowWorkspaceClient({
   }
 
   function handleCampaignEdit(campaign: SaasSocialCampaign) {
+    const formStatus: CampaignFormState["status"] =
+      campaign.status === "GENERATING" || campaign.status === "FAILED" ? "DRAFT" : campaign.status;
     setCampaignForm({
       id: campaign.id,
       name: campaign.name,
       objective: campaign.objective,
-      status: campaign.status,
+      status: formStatus,
       targetSegment: campaign.targetSegment,
       budgetEstimate: campaign.budgetEstimate == null ? "" : String(campaign.budgetEstimate),
       notes: campaign.notes ?? "",

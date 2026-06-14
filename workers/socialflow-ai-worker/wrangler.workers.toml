@@ -1,0 +1,21 @@
+name = "saas-socialflow-ai-worker-prod"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+logpush = true
+
+# D1 Database (SocialFlow social data)
+[[d1_databases]]
+binding = "SOCIAL_DB"
+database_name = "saas_socialflows_prod_db"
+database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
+
+# Cloudflare Queues Consumer (SocialFlow AI campaign generation)
+[[queues.consumers]]
+queue = "saas-socialflow-ai-generation-queue"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 2
+
+[ai]
+binding = "AI"

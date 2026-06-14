@@ -60,6 +60,7 @@ export type DracoEnv = {
   CRON_SECRET?: string;
   AI?: { run: (model: string, inputs: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown> };
   SAAS_FACTORY_QUEUE?: { send: (msg: any) => Promise<void> };
+  SOCIALFLOW_AI_QUEUE?: { send: (msg: any) => Promise<void> }; // Cloudflare Queue Producer for async AI campaign generation
   SCHEDULER?: Fetcher; // Service Binding to drako-scheduler
   PROVISIONING_QUEUE?: { send: (msg: any) => Promise<void> }; // Cloudflare Queue Producer
   INTERNAL_API_SECRET?: string; // Phase 3.1 Hardening

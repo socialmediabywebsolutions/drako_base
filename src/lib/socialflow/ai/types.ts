@@ -162,4 +162,5 @@ export type SocialAIPipelineInput = {
   niche: string;
   tone: string;
   frequencyPerWeek: number;
+  campaignId?: string;
 };

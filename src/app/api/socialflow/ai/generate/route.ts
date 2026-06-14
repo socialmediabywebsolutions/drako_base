@@ -1,8 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { env } from "@/lib/cf";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
-import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
+import { resolveSocialContext, SocialContextError, upsertSaasSocialCampaign } from "@/lib/socialflow/repository";
 
 function isTruthyFlag(value: string | undefined) {
   if (!value) return false;
@@ -38,17 +39,38 @@ export async function POST(request: Request) {
     }
 
     const session = await requireCurrentSocialFlowSession(request);
-    const orchestrator = new SocialFlowOrchestrator();
-    const result = await orchestrator.generateFullCampaign({
-      tenantId: session.tenantId,
-      saasId: body.saasId ?? "socialflow",
-      niche: body.niche,
-      tone: body.tone,
-      frequencyPerWeek: body.frequencyPerWeek,
+    const saasId = body.saasId ?? "socialflow";
+    const niche = body.niche;
+    const tone = body.tone;
+    const frequencyPerWeek = body.frequencyPerWeek;
+
+    const queue = env()?.SOCIALFLOW_AI_QUEUE;
+    if (!queue) {
+      return NextResponse.json({ ok: false, error: "SOCIALFLOW_AI_QUEUE_UNAVAILABLE" }, { status: 503 });
+    }
+
+    const campaignId = `ai_campaign_${Date.now()}`;
+    const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId });
+    await upsertSaasSocialCampaign(ctx, {
+      id: campaignId,
+      saasId,
+      name: `AI Campaign: ${niche}`,
+      objective: "AWARENESS",
+      status: "GENERATING",
+      targetSegment: "DEFAULT",
+      startDate: null,
+      endDate: null,
+      budgetEstimate: null,
+      notes: null,
     });
 
-    return NextResponse.json({ ok: true, result });
+    await queue.send({ tenantId: session.tenantId, saasId, niche, tone, frequencyPerWeek, campaignId });
+
+    return NextResponse.json({ ok: true, campaignId, status: "GENERATING" }, { status: 202 });
   } catch (error) {
+    if (error instanceof SocialContextError) {
+      return NextResponse.json({ ok: false, error: "INVALID_SOCIAL_CONTEXT", message: error.message }, { status: 400 });
+    }
     if (error instanceof Error && error.message === "SESSION_REQUIRED") {
       return NextResponse.json({ ok: false, error: "SESSION_REQUIRED" }, { status: 401 });
     }

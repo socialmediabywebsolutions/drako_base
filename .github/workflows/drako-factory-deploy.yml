@@ -730,6 +730,18 @@ jobs:
           
           echo "SocialFlow custom domains guard passed (plural + canonical routes present)."
 
+      - name: Ensure SocialFlow AI generation queue exists
+        run: |
+          set -euo pipefail
+          if wrangler queues create saas-socialflow-ai-generation-queue 2>&1 | tee /tmp/socialflow-ai-queue-create.log; then
+            echo "Queue saas-socialflow-ai-generation-queue created."
+          elif grep -Eiq 'already exists' /tmp/socialflow-ai-queue-create.log; then
+            echo "Queue saas-socialflow-ai-generation-queue already exists - continuing."
+          else
+            echo "BLOCKED: failed to create saas-socialflow-ai-generation-queue."
+            exit 1
+          fi
+
       - name: Deploy in strict order (scheduler -> drakos -> mentorias -> bases -> socialflows)
         run: |
           set -euo pipefail
@@ -792,6 +804,10 @@ jobs:
             echo "SocialFlow deploy failed with non-retryable error on attempt ${attempt}/${max_attempts}."
             exit 1
           done
+          popd
+
+          pushd workers/socialflow-ai-worker
+          wrangler deploy -c wrangler.workers.toml
           popd
 
   smoke:

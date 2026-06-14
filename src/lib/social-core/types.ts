@@ -78,7 +78,7 @@ export type SaasSocialChannelSignals = {
   updatedAt: string;
 };
 
-export type SaasSocialCampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "FINISHED" | "ARCHIVED";
+export type SaasSocialCampaignStatus = "DRAFT" | "GENERATING" | "ACTIVE" | "PAUSED" | "FINISHED" | "ARCHIVED" | "FAILED";
 
 export type SaasSocialCampaign = {
   id: string;

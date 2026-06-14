@@ -49,6 +49,10 @@ bucket_name = "saas-socialflows-prod-storage"
 binding = "SAASES_EVENTS"
 queue = "saas-socialflows-prod-events"
 
+[[queues.producers]]
+binding = "SOCIALFLOW_AI_QUEUE"
+queue = "saas-socialflow-ai-generation-queue"
+
 [ai]
 binding = "AI"
 
