@@ -305,6 +305,8 @@ describe("SocialFlow vertical boundaries", () => {
     const wipeout = read("src/lib/export/wipeout-package.ts");
     const workspaceLayout = read("src/app/socialflow/(workspace)/layout.tsx");
     const billingPage = read("src/app/socialflow/(workspace)/settings/billing/page.tsx");
+    const billingCheckoutRoute = read("src/app/api/socialflow/billing/checkout/route.ts");
+    const billingPortalRoute = read("src/app/api/socialflow/billing/portal/route.ts");
     const accountPage = read("src/modules/socialflow-app/settings/account-page.tsx");
     const socialFlowAccountSettings = read("src/components/settings/socialflow-account-settings.tsx");
     const ownershipPage = read("src/modules/socialflow-app/settings/ownership-page.tsx");
@@ -348,7 +350,18 @@ describe("SocialFlow vertical boundaries", () => {
     expect(accountPage).toContain("tenantId: session.tenantId");
     expect(socialFlowAccountSettings).not.toContain("next-auth/react");
     expect(socialFlowAccountSettings).toContain('fetch(logoutEndpoint, { method: "POST" })');
-    expect(billingPage).toContain("fails closed until that wiring exists behind the product boundary");
+    expect(billingPage).toContain('getCurrentSocialFlowSession()');
+    expect(billingPage).toContain('getCanonicalBillingSnapshot({ tenantId: session.tenantId, saasSlug: "socialflow" })');
+    expect(billingPage).toContain("SocialFlowBillingSettings");
+    expect(billingPage).not.toMatch(/@\/lib\/campobase|@\/lib\/campamento-base|@\/lib\/auth\/campamento-core/);
+
+    expect(billingCheckoutRoute).toContain("requireCurrentSocialFlowSession(request)");
+    expect(billingCheckoutRoute).toContain('saasSlug: "socialflow"');
+    expect(billingCheckoutRoute).not.toMatch(/@\/lib\/campobase|@\/lib\/campamento-base|@\/lib\/auth\/campamento-core/);
+
+    expect(billingPortalRoute).toContain("requireCurrentSocialFlowSession(request)");
+    expect(billingPortalRoute).toContain('saasSlug: "socialflow"');
+    expect(billingPortalRoute).not.toMatch(/@\/lib\/campobase|@\/lib\/campamento-base|@\/lib\/auth\/campamento-core/);
     expect(ownershipPage).toContain('link.href = "/api/socialflow/exports/current"');
     expect(teamPage).toContain("tenantId: session.tenantId");
     expect(teamPage).toContain('context: "socialflow"');

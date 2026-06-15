@@ -15,6 +15,11 @@
 	"ai": {
 		"binding": "AI"
 	},
+	"vars": {
+		// Test-mode Stripe price IDs; replace with live-mode IDs before enabling real payments
+		"SOCIALFLOW_STRIPE_PRICE_PRO": "price_1TiSu1BflYSFyTbP1gQOsicz",
+		"SOCIALFLOW_STRIPE_PRICE_CREATOR": "price_1TiSvUBflYSFyTbP0SnF7VAj"
+	},
 	"d1_databases": [
 		{
 			"binding": "DRACO_DB",
