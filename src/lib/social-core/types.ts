@@ -225,6 +225,7 @@ export type SocialAnalyticsWindow = {
   shares: number;
   clicks: number;
   engagement: number;
+  leadsGenerated: number;
   publishedPosts: number;
   topProvider: SaasSocialProvider | null;
   averageEngagementPerPublishedPost: number;

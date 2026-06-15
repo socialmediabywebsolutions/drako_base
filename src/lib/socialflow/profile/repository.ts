@@ -44,12 +44,12 @@ type ProfileMetadata = {
   profile?: Partial<ChannelProfile>;
   competitors?: ChannelCompetitor[];
   assets?: ChannelAsset[];
-  websiteUrl?: string | null;
 };
 
 const STRING_PROFILE_KEYS: Array<keyof ChannelProfile> = [
   "brandName",
   "channelName",
+  "websiteUrl",
   "shortDescription",
   "longDescription",
   "mission",
@@ -71,6 +71,7 @@ const STRING_PROFILE_KEYS: Array<keyof ChannelProfile> = [
 ];
 
 const ARRAY_PROFILE_KEYS: Array<keyof ChannelProfile> = [
+  "activeSocialNetworks",
   "targetMarkets",
   "subniches",
   "mainTopics",
@@ -191,6 +192,9 @@ function buildEmptyProfile(tenantId: string, saasId: string): ChannelProfile {
     channelId: DEFAULT_CHANNEL_ID,
     brandName: "",
     channelName: "",
+    websiteUrl: "",
+    activeSocialNetworks: [],
+    onboardingCompletedAt: null,
     shortDescription: "",
     longDescription: "",
     mission: "",
@@ -274,6 +278,9 @@ function mergeProfile(base: ChannelProfile, patch: Partial<ChannelProfile>): Cha
   if ("assetSummary" in patch) {
     next.assetSummary = normalizeNullableString(patch.assetSummary);
   }
+  if ("onboardingCompletedAt" in patch) {
+    next.onboardingCompletedAt = normalizeNullableString(patch.onboardingCompletedAt);
+  }
 
   next.updatedAt = nowIso();
   return next;
@@ -352,6 +359,7 @@ function mapRowToSnapshot(row: ProfileRow): ChannelKnowledgeSnapshot {
     channelId: normalizeString(mergedFromMetadata.channelId) || DEFAULT_CHANNEL_ID,
     brandName: normalizeString(row.brand_name) || mergedFromMetadata.brandName,
     channelName: normalizeString(row.display_name) || mergedFromMetadata.channelName,
+    websiteUrl: normalizeString(row.website_url) || mergedFromMetadata.websiteUrl,
     shortDescription: normalizeString(row.description) || mergedFromMetadata.shortDescription,
     toneOfVoice: normalizeString(row.tone) || mergedFromMetadata.toneOfVoice,
     audienceDescription: normalizeString(row.audience) || mergedFromMetadata.audienceDescription,
@@ -392,7 +400,6 @@ async function upsertProfileRow(snapshot: ChannelKnowledgeSnapshot): Promise<Cha
     profile: snapshot.profile,
     competitors: snapshot.competitors,
     assets: snapshot.assets,
-    websiteUrl: null,
   };
 
   await context.socialDb.prepare(
@@ -418,7 +425,7 @@ async function upsertProfileRow(snapshot: ChannelKnowledgeSnapshot): Promise<Cha
     normalizeNullableString(snapshot.profile.channelName),
     normalizeNullableString(snapshot.profile.brandName),
     normalizeNullableString(snapshot.profile.niche),
-    null,
+    normalizeNullableString(snapshot.profile.websiteUrl),
     normalizeNullableString(snapshot.profile.shortDescription),
     normalizeNullableString(snapshot.profile.toneOfVoice),
     normalizeNullableString(snapshot.profile.audienceDescription),

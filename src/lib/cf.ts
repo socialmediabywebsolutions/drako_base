@@ -57,6 +57,7 @@ export type DracoEnv = {
   CLOUDFLARE_ZONE_ID?: string;
   CLOUDFLARE_PROVISIONING_MODE?: string;
   AI_GATEWAY_ID?: string;
+  ANTHROPIC_API_KEY?: string;
   CRON_SECRET?: string;
   AI?: { run: (model: string, inputs: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown> };
   SAAS_FACTORY_QUEUE?: { send: (msg: any) => Promise<void> };

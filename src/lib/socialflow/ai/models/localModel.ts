@@ -17,7 +17,7 @@ export interface LocalModelClient {
 // Attaches _meta without losing array-ness: object-spreading an array would
 // turn it into a plain object ({0: ..., 1: ..., _meta: ...}), breaking
 // downstream callers that expect an array (e.g. CompetitorAgent).
-function attachMeta<T>(base: T, meta: Record<string, unknown>): T & { _meta: unknown } {
+export function attachMeta<T>(base: T, meta: Record<string, unknown>): T & { _meta: unknown } {
   if (Array.isArray(base)) {
     return Object.assign([...base], { _meta: meta }) as unknown as T & { _meta: unknown };
   }
@@ -48,12 +48,12 @@ const WORKERS_AI_MODEL = "@cf/mistralai/mistral-small-3.1-24b-instruct";
 const WORKERS_AI_SYSTEM_PROMPT =
   "You are SocialFlow's content generation engine. Respond ONLY with valid JSON matching the requested shape exactly. No markdown fences, no commentary.";
 
-function stripJsonFences(text: string): string {
+export function stripJsonFences(text: string): string {
   return text.replace(/```json/gi, "").replace(/```/g, "").trim();
 }
 
 // Overlays AI-provided values onto the deterministic seed, preserving its shape and ids.
-function mergeAiStructuredOutput<T>(base: T, candidate: unknown): T {
+export function mergeAiStructuredOutput<T>(base: T, candidate: unknown): T {
   if (candidate === null || candidate === undefined) return base;
 
   if (Array.isArray(base)) {

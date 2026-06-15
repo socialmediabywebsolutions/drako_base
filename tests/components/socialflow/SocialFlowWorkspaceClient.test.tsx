@@ -63,8 +63,8 @@ const baseSummary: SocialProductSummary = {
   overview: { connectedAccounts: 2, activeCampaigns: 1, scheduledPostsThisWeek: 1, publishedPostsLast30Days: 1, engagementLast30Days: 1 },
   highlights: { draftPosts: 0, upcomingPosts: 1, archivedCampaigns: 0 },
   analytics: {
-    last7Days: { impressions: 0, likes: 0, comments: 0, shares: 0, clicks: 0, engagement: 0, publishedPosts: 0, topProvider: "LINKEDIN", averageEngagementPerPublishedPost: 0 },
-    last30Days: { impressions: 0, likes: 0, comments: 0, shares: 0, clicks: 0, engagement: 0, publishedPosts: 0, topProvider: "LINKEDIN", averageEngagementPerPublishedPost: 0 },
+    last7Days: { impressions: 0, likes: 0, comments: 0, shares: 0, clicks: 0, engagement: 0, leadsGenerated: 0, publishedPosts: 0, topProvider: "LINKEDIN", averageEngagementPerPublishedPost: 0 },
+    last30Days: { impressions: 0, likes: 0, comments: 0, shares: 0, clicks: 0, engagement: 0, leadsGenerated: 0, publishedPosts: 0, topProvider: "LINKEDIN", averageEngagementPerPublishedPost: 0 },
   },
   analyticsHealth: {
     totalEligibleLivePosts: 0,

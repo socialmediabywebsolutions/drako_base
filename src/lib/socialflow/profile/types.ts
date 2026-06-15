@@ -51,6 +51,9 @@ export type ChannelProfile = {
   channelId: string;
   brandName: string;
   channelName: string;
+  websiteUrl: string;
+  activeSocialNetworks: string[];
+  onboardingCompletedAt: string | null;
   shortDescription: string;
   longDescription: string;
   mission: string;
