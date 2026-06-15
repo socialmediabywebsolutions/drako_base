@@ -16,6 +16,7 @@ const navItems = [
   { href: "/socialflow", label: "Workspace" },
   { href: "/socialflow/profile", label: "Profile" },
   { href: "/socialflow/settings/account", label: "Account" },
+  { href: "/socialflow/settings/accounts", label: "Accounts" },
   { href: "/socialflow/settings/team", label: "Team" },
   { href: "/socialflow/settings/billing", label: "Billing" },
   { href: "/socialflow/settings/ownership", label: "Ownership" },
