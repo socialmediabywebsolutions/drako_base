@@ -11,7 +11,6 @@ type RegistrationBody = {
   email?: string;
   password?: string;
   name?: string;
-  tenantId?: string;
 };
 
 export async function POST(request: Request) {
@@ -31,7 +30,7 @@ export async function POST(request: Request) {
     email: body.email,
     password: body.password,
     name: body.name ?? null,
-    tenantId: body.tenantId ?? null,
+    tenantId: null,
   });
   if (!registration.ok) {
     return jsonError(registration.code, registration.message, registration.code === "EMAIL_EXISTS" ? 409 : 400);
