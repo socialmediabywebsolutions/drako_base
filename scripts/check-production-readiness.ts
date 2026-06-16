@@ -837,7 +837,6 @@ const DEFAULT_ARTIFACT_MATRIX_SKELETON_GUARD: ArtifactMatrixSkeletonGuard = {
     "artifact_matrix_skeleton:",
     "Artifact Matrix Skeleton (${{ matrix.product }})",
     "pnpm build:artifacts:skeleton",
-    "open-next-artifact-matrix-${{ matrix.product }}",
     "ARTIFACT_MATRIX_REQUIRE_GLOBAL_BUILD: \"1\"",
     "build/open-next-artifact-matrix/global",
     "build_and_deploy:",
