@@ -139,13 +139,19 @@ jobs:
           retention-days: 1
           path: build/open-next-artifact-matrix/${{ matrix.product }}
 
-  build:
-    name: Build Real OpenNext
+  build_and_deploy:
+    name: Build and Deploy
     runs-on: ubuntu-latest
+    # Run even when skeleton upload fails (quota exhausted) as long as gates passed
     if: ${{ always() && needs.gates.result == 'success' && (needs.artifact_matrix_skeleton.result == 'success' || needs.artifact_matrix_skeleton.result == 'failure') }}
     needs:
       - gates
       - artifact_matrix_skeleton
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -372,123 +378,12 @@ jobs:
 
           echo "Worker guardrail passed (${BYTES} bytes, assets + server-functions present)."
 
-      - name: Upload worker and build logs (audit)
-        uses: actions/upload-artifact@v4
-        with:
-          name: open-next-build
-          include-hidden-files: true
-          if-no-files-found: ignore
-          retention-days: 1
-          path: |
-            .open-next
-            !.open-next/socialflows-product-scoped-preview
-            open-next-build.log
-            build/open-next-artifact-matrix/global
-
-      - name: Upload Drakos dedicated artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: open-next-drakos-build
-          if-no-files-found: error
-          retention-days: 1
-          path: .open-next/drakos
-
-      - name: Upload SocialFlow standalone artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: open-next-socialflows-standalone-build
-          if-no-files-found: error
-          retention-days: 1
-          path: .open-next/socialflows-standalone
-
-      - name: Upload Bases dedicated artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: open-next-bases-build
-          if-no-files-found: error
-          retention-days: 1
-          path: .open-next/bases
-
-      - name: Upload Mentoria dedicated artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: open-next-mentorias-build
-          if-no-files-found: error
-          retention-days: 1
-          path: .open-next/mentorias
-
-  deploy:
-    name: Deploy Workers
-    runs-on: ubuntu-latest
-    needs: build
-    permissions:
-      contents: read
-      actions: write
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.25.0"
-
-      - name: Setup Node.js (LTS) + pnpm cache
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22.22.1"
-          cache: pnpm
-
-      - name: Verify pnpm lockfile
-        run: |
-          set -euo pipefail
-          if [ ! -f pnpm-lock.yaml ]; then
-            echo "BLOCKED: pnpm-lock.yaml is required for --frozen-lockfile."
-            exit 1
-          fi
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Download OpenNext build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: open-next-build
-          path: .
-
-      - name: Download Drakos dedicated artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: open-next-drakos-build
-          path: .
-
-      - name: Download SocialFlow standalone artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: open-next-socialflows-standalone-build
-          path: .
-
-      - name: Download Bases dedicated artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: open-next-bases-build
-          path: .
-
-      - name: Download Mentoria dedicated artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: open-next-mentorias-build
-          path: .
-
       - name: Diagnostic OpenNext artifact layout
         run: |
           set -euo pipefail
-          echo "=== DEPLOY: listing root ==="
+          echo "=== listing root ==="
           ls -la
-          echo "=== DEPLOY: listing .open-next ==="
+          echo "=== listing .open-next ==="
           ls -R .open-next || true
 
       - name: Verify OpenNext build artifacts
@@ -710,28 +605,28 @@ jobs:
         run: |
           set -euo pipefail
           TOML="workers/socialflows/wrangler.workers.toml"
-          
+
           if [ ! -f "$TOML" ]; then
             echo "BLOCKED: $TOML not found."
             exit 1
           fi
-          
+
           if ! grep -q 'pattern = "socialflows.drako.systems"' "$TOML"; then
             echo "BLOCKED: $TOML missing plural domain route."
             exit 1
           fi
-          
+
           if ! grep -q 'pattern = "socialflow.drako.systems"' "$TOML"; then
             echo "BLOCKED: $TOML missing canonical domain route."
             exit 1
           fi
-          
+
           CUSTOM_DOMAIN_COUNT=$(grep -c 'custom_domain = true' "$TOML" || true)
           if [ "$CUSTOM_DOMAIN_COUNT" -lt 2 ]; then
             echo "BLOCKED: $TOML must have at least 2 custom_domain = true entries (found: $CUSTOM_DOMAIN_COUNT)."
             exit 1
           fi
-          
+
           echo "SocialFlow custom domains guard passed (plural + canonical routes present)."
 
       - name: Ensure SocialFlow AI generation queue exists
@@ -814,22 +709,10 @@ jobs:
           wrangler deploy -c wrangler.workers.toml
           popd
 
-      - name: Delete consumed build artifacts (free Actions storage quota)
-        if: always()
-        uses: geekyeggo/delete-artifact@v5
-        with:
-          name: |
-            open-next-build
-            open-next-drakos-build
-            open-next-socialflows-standalone-build
-            open-next-bases-build
-            open-next-mentorias-build
-          failOnError: false
-
   smoke:
     name: Smoke Tests (anti-loop / anti-cross)
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: build_and_deploy
     steps:
       - name: Checkout
         uses: actions/checkout@v4

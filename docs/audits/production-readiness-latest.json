@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-15T20:38:16.076Z",
+  "timestamp": "2026-06-16T06:48:15.329Z",
   "mode": "fixtures",
   "sourceOfTruthPath": "docs/config/production-audits-expected-state.json",
   "fixturesDir": "tests/fixtures/production-audits/pass",
@@ -2036,8 +2036,8 @@
       "targetName": "socialflow:product-scoped-preview",
       "expected": "SocialFlow product-scoped preview manifest, scope audit and filter report exist with complete metadata",
       "actual": {
-        "removedCount": 451,
-        "remainingCount": 26,
+        "removedCount": 448,
+        "remainingCount": 31,
         "runtimeIntegrity": true
       },
       "details": "SocialFlow product-scoped preview metadata is present and internally consistent."
@@ -2052,8 +2052,8 @@
       "actual": {
         "artifactMode": "product-scoped-preview",
         "artifactState": "inactive-preview",
-        "removedCount": 451,
-        "remainingCount": 26
+        "removedCount": 448,
+        "remainingCount": 31
       },
       "details": "SocialFlow product-scoped preview is a real inactive preview, not a fake or empty artifact."
     },
@@ -2088,7 +2088,7 @@
       "targetName": "socialflow:product-scoped-preview",
       "expected": "runtime-audit.json exists with complete route classification and risk metadata",
       "actual": {
-        "totalRoutes": 26,
+        "totalRoutes": 31,
         "runtimeRiskScore": 100,
         "scopedActivationReady": false
       },
