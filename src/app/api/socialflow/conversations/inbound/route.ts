@@ -10,7 +10,29 @@ import type { ConversationThreadType } from "@/lib/socialflow/conversational/typ
 
 export const dynamic = "force-dynamic";
 
-function verifyToken(request: Request): boolean {
+// Bug 2 fix: verify real Meta webhook POST events via HMAC-SHA256 (X-Hub-Signature-256).
+// crypto.subtle.verify is constant-time, preventing timing attacks.
+async function verifyMetaSignature(rawBody: string, request: Request): Promise<boolean> {
+  const appSecret = env()?.META_APP_SECRET;
+  if (!appSecret) return false;
+  const signature = request.headers.get("x-hub-signature-256");
+  if (!signature?.startsWith("sha256=")) return false;
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(appSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["verify"],
+  );
+  const sigHex = signature.slice(7);
+  const sigBytes = new Uint8Array(sigHex.match(/.{2}/g)?.map((b) => parseInt(b, 16)) ?? []);
+  if (sigBytes.length === 0) return false;
+  return crypto.subtle.verify("HMAC", key, sigBytes, encoder.encode(rawBody));
+}
+
+// Internal relay mode: caller supplies ?verifyToken= in the URL.
+function verifyRelayToken(request: Request): boolean {
   const url = new URL(request.url);
   const provided = url.searchParams.get("verifyToken");
   const expected = env()?.SOCIALFLOW_WEBHOOK_VERIFY_TOKEN;
@@ -18,7 +40,7 @@ function verifyToken(request: Request): boolean {
   return provided === expected;
 }
 
-// Meta webhook verification challenge
+// Meta webhook verification challenge (GET)
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const mode = url.searchParams.get("hub.mode");
@@ -26,7 +48,8 @@ export async function GET(request: Request) {
   const verifyToken = url.searchParams.get("hub.verify_token");
   const expected = env()?.SOCIALFLOW_WEBHOOK_VERIFY_TOKEN;
 
-  if (mode === "subscribe" && verifyToken === expected && challenge) {
+  // Bug 3 fix: guard against empty/unset expected token before comparing.
+  if (expected && mode === "subscribe" && verifyToken === expected && challenge) {
     return new Response(challenge, { status: 200, headers: { "content-type": "text/plain" } });
   }
   return new Response(JSON.stringify({ error: "FORBIDDEN" }), {
@@ -35,17 +58,35 @@ export async function GET(request: Request) {
   });
 }
 
-// Inbound webhook event
+// Inbound webhook event (POST)
+// Supports two auth modes:
+//   1. Direct Meta events  — X-Hub-Signature-256 HMAC header present → verifyMetaSignature()
+//   2. Internal relay      — ?verifyToken= query param               → verifyRelayToken()
+// Bug 1 fix: tenantId is read from the URL query param (operator-controlled at webhook
+// registration time), never from the request body, so a caller cannot escalate to another
+// tenant by supplying a different tenantId in the POST body.
 export async function POST(request: Request) {
   try {
-    if (!verifyToken(request)) {
+    // Read raw body first so HMAC can verify the exact bytes Meta signed.
+    const rawBody = await request.text().catch(() => "");
+
+    const hasHmacHeader = request.headers.has("x-hub-signature-256");
+    const authenticated = hasHmacHeader
+      ? await verifyMetaSignature(rawBody, request)
+      : verifyRelayToken(request);
+
+    if (!authenticated) {
       return new Response(JSON.stringify({ error: "FORBIDDEN" }), {
         status: 403,
         headers: { "content-type": "application/json" },
       });
     }
 
-    const body = (await request.json().catch(() => null)) as {
+    // Bug 1 fix: tenantId comes from URL, not body.
+    const url = new URL(request.url);
+    const tenantId = url.searchParams.get("tenantId")?.trim();
+
+    type InboundBody = {
       provider?: string;
       thread_type?: string;
       incoming_message?: string;
@@ -53,11 +94,15 @@ export async function POST(request: Request) {
       sender_handle?: string;
       platform_thread_id?: string;
       context_post_id?: string;
-      tenantId?: string;
       saasId?: string;
-    } | null;
+    };
+    let body: InboundBody | null = null;
+    try {
+      body = rawBody ? (JSON.parse(rawBody) as InboundBody) : null;
+    } catch {
+      // leave null
+    }
 
-    const tenantId = body?.tenantId?.trim();
     const saasId = body?.saasId?.trim() || "socialflow";
     const provider = body?.provider?.trim();
     const incomingMessage = body?.incoming_message?.trim();

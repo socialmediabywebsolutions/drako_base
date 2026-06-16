@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     const status = url.searchParams.get("status")?.trim() as ConversationThreadStatus | null;
     const provider = url.searchParams.get("provider")?.trim();
     const limitRaw = url.searchParams.get("limit");
-    const limit = limitRaw ? Math.min(parseInt(limitRaw, 10) || 50, 200) : 50;
+    const limit = limitRaw ? Math.min(Math.max(parseInt(limitRaw, 10) || 50, 1), 200) : 50;
 
     const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId });
     const threads = await listConversationThreads(ctx, { status, provider, limit });
