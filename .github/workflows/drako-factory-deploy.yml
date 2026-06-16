@@ -634,10 +634,11 @@ jobs:
           set -euo pipefail
           if wrangler queues create saas-socialflow-ai-generation-queue 2>&1 | tee /tmp/socialflow-ai-queue-create.log; then
             echo "Queue saas-socialflow-ai-generation-queue created."
-          elif grep -Eiq 'already exists' /tmp/socialflow-ai-queue-create.log; then
+          elif grep -Eiq 'already exists|11009' /tmp/socialflow-ai-queue-create.log; then
             echo "Queue saas-socialflow-ai-generation-queue already exists - continuing."
           else
             echo "BLOCKED: failed to create saas-socialflow-ai-generation-queue."
+            cat /tmp/socialflow-ai-queue-create.log
             exit 1
           fi
 
