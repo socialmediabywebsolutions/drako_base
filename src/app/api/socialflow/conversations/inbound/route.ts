@@ -7,6 +7,8 @@ import {
 } from "@/lib/socialflow/conversational/repository";
 import { getChannelKnowledge } from "@/lib/socialflow/profile/repository";
 import type { ConversationThreadType } from "@/lib/socialflow/conversational/types";
+import { detectLeadSignals } from "@/lib/socialflow/leads/detector";
+import { createLead } from "@/lib/socialflow/leads/repository";
 
 export const dynamic = "force-dynamic";
 
@@ -144,10 +146,38 @@ export async function POST(request: Request) {
       aiMetadata,
     });
 
-    return new Response(JSON.stringify({ ok: true, threadId: thread.id, status: thread.status }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+    // Lead detection: score the message and persist a lead record if signals found.
+    const leadSignals = detectLeadSignals(incomingMessage);
+    let leadId: string | null = null;
+    if (leadSignals.isLead && leadSignals.temperature) {
+      try {
+        const lead = await createLead(ctx, {
+          threadId: thread.id,
+          provider,
+          senderName: body?.sender_name ?? null,
+          senderHandle: body?.sender_handle ?? null,
+          incomingMessage,
+          intentScore: leadSignals.intentScore,
+          temperature: leadSignals.temperature,
+        });
+        leadId = lead.id;
+      } catch (err) {
+        console.warn("SOCIALFLOW_LEAD_CREATE_WARN", err instanceof Error ? err.message : "unknown");
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        threadId: thread.id,
+        status: thread.status,
+        lead: leadId ? { id: leadId, temperature: leadSignals.temperature, score: leadSignals.intentScore } : null,
+      }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    );
   } catch (error) {
     console.error("SOCIALFLOW_INBOUND_ERROR", error instanceof Error ? error.message : "unknown");
     return new Response(JSON.stringify({ error: "INBOUND_FAILED" }), {

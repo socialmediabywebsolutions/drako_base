@@ -5,6 +5,7 @@ import {
   listConversationThreads,
   resolveSocialContext,
 } from "@/lib/socialflow/conversational/repository";
+import { listHotLeadThreadIds } from "@/lib/socialflow/leads/repository";
 import ConversationInbox from "@/components/socialflow/conversation-inbox";
 
 const SAAS_ID = "socialflow";
@@ -16,9 +17,10 @@ export default async function SocialFlowConversationsPage() {
   }
 
   const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId: SAAS_ID });
-  const [threads, settings] = await Promise.all([
+  const [threads, settings, hotLeadThreadIds] = await Promise.all([
     listConversationThreads(ctx, { limit: 50 }),
     getConversationSettings(ctx),
+    listHotLeadThreadIds(ctx).catch(() => new Set<string>()),
   ]);
 
   return (
@@ -36,7 +38,7 @@ export default async function SocialFlowConversationsPage() {
         </p>
       </div>
 
-      <ConversationInbox threads={threads} settings={settings} saasId={SAAS_ID} />
+      <ConversationInbox threads={threads} settings={settings} saasId={SAAS_ID} hotLeadThreadIds={[...hotLeadThreadIds]} />
     </div>
   );
 }

@@ -15,6 +15,7 @@ export const metadata: Metadata = {
 const navItems = [
   { href: "/socialflow", label: "Workspace" },
   { href: "/socialflow/conversations", label: "Conversations" },
+  { href: "/socialflow/leads", label: "Leads" },
   { href: "/socialflow/profile", label: "Profile" },
   { href: "/socialflow/settings/account", label: "Account" },
   { href: "/socialflow/settings/accounts", label: "Accounts" },

@@ -8,6 +8,7 @@ type Props = {
   threads: ConversationThread[];
   settings: ConversationSettings;
   saasId: string;
+  hotLeadThreadIds?: string[];
 };
 
 const AUTO_SEND_PROVIDERS = ["INSTAGRAM", "FACEBOOK_PAGE", "LINKEDIN"] as const;
@@ -34,7 +35,8 @@ const STATUS_COLORS: Record<string, string> = {
   DISMISSED: "bg-rose-100 text-rose-600",
 };
 
-export default function ConversationInbox({ threads: initialThreads, settings: initialSettings, saasId }: Props) {
+export default function ConversationInbox({ threads: initialThreads, settings: initialSettings, saasId, hotLeadThreadIds = [] }: Props) {
+  const hotLeadSet = new Set(hotLeadThreadIds);
   const router = useRouter();
   const [settings, setSettings] = useState(initialSettings);
   const [threads, setThreads] = useState(initialThreads);
@@ -339,6 +341,11 @@ export default function ConversationInbox({ threads: initialThreads, settings: i
                       {STATUS_LABELS[thread.status] ?? thread.status}
                     </span>
                   </span>
+                  {hotLeadSet.has(thread.id) && (
+                    <span className="rounded-full border border-rose-200 bg-rose-100 px-2.5 py-0.5 text-xs font-bold tracking-wide text-rose-700">
+                      HOT LEAD
+                    </span>
+                  )}
                 </div>
 
                 <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
