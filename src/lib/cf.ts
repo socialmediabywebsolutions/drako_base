@@ -19,6 +19,7 @@ export type DracoEnv = {
   SOCIALFLOW_PRIVATE_PILOT_TENANT_ALLOWLIST?: string;
   BASES_AUTHS_DB?: D1Database;
   SESSION_SECRET: string;
+  SOCIALFLOW_WEBHOOK_VERIFY_TOKEN?: string;
   DEFAULT_TENANT_ID?: string;
   ADMIN_EMAIL?: string;
   ADMIN_PASSWORD?: string;
