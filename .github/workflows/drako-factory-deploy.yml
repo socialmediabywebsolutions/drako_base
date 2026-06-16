@@ -132,7 +132,6 @@ jobs:
           pnpm build:artifacts:skeleton
 
       - name: Upload artifact matrix skeleton manifest
-        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: open-next-artifact-matrix-${{ matrix.product }}
@@ -143,6 +142,7 @@ jobs:
   build:
     name: Build Real OpenNext
     runs-on: ubuntu-latest
+    if: ${{ always() && needs.gates.result == 'success' && (needs.artifact_matrix_skeleton.result == 'success' || needs.artifact_matrix_skeleton.result == 'failure') }}
     needs:
       - gates
       - artifact_matrix_skeleton
