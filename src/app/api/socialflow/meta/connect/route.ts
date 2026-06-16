@@ -1,4 +1,4 @@
-import { requireTenantAccess } from "@/lib/auth/session";
+import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { buildSocialFlowMetaConnectUrl } from "@/lib/socialflow/meta/oauth";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const session = await requireTenantAccess(request);
+    const session = await requireCurrentSocialFlowSession(request);
     const oauth = buildSocialFlowMetaConnectUrl({
       request,
       tenantId: session.tenantId,
@@ -29,12 +29,6 @@ export async function GET(request: Request) {
     if (error instanceof Error && error.message === "SESSION_REQUIRED") {
       return new Response(JSON.stringify({ error: "SESSION_REQUIRED" }), {
         status: 401,
-        headers: { "content-type": "application/json" },
-      });
-    }
-    if (error instanceof Error && error.message === "TENANT_MISMATCH") {
-      return new Response(JSON.stringify({ error: "TENANT_MISMATCH" }), {
-        status: 403,
         headers: { "content-type": "application/json" },
       });
     }
