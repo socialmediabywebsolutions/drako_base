@@ -5,13 +5,49 @@ import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { getChannelKnowledge } from "@/lib/socialflow/profile/repository";
 import { getLatestAudit, upsertAudit } from "@/lib/socialflow/audit/repository";
 import { generateSocialAudit } from "@/lib/socialflow/audit/engine";
-import { SocialContextError } from "@/lib/socialflow/repository";
+import {
+  SocialContextError,
+  getSocialAnalyticsSnapshot,
+  listSaasSocialAccounts,
+  resolveSocialContext,
+} from "@/lib/socialflow/repository";
 
 const DEFAULT_SAAS_ID = "socialflow";
 
 function resolveSaasId(request: Request): string {
   const requestUrl = new URL(request.url);
   return requestUrl.searchParams.get("saasId")?.trim() || DEFAULT_SAAS_ID;
+}
+
+async function resolveAuditMetrics(tenantId: string, saasId: string) {
+  try {
+    const ctx = await resolveSocialContext({ tenantId, saasId });
+    const [snapshot, accounts] = await Promise.all([
+      getSocialAnalyticsSnapshot(ctx),
+      listSaasSocialAccounts(ctx),
+    ]);
+
+    const igAccount = accounts.find((a) => a.provider === "INSTAGRAM" && a.status === "CONNECTED_REAL");
+    const followersCount =
+      typeof igAccount?.authMeta?.followersCount === "number"
+        ? igAccount.authMeta.followersCount
+        : undefined;
+
+    const w = snapshot.last7Days;
+    if (w.impressions === 0 && w.publishedPosts === 0) return null;
+
+    return {
+      impressions: w.impressions,
+      likes: w.likes,
+      comments: w.comments,
+      shares: w.shares,
+      engagement: w.engagement,
+      publishedPosts: w.publishedPosts,
+      followersCount,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(request: Request) {
@@ -21,8 +57,15 @@ export async function GET(request: Request) {
 
     let audit = await getLatestAudit(session.tenantId, saasId);
     if (!audit) {
-      const snapshot = await getChannelKnowledge(session.tenantId, saasId);
-      const generated = await generateSocialAudit({ profile: snapshot.profile, competitors: snapshot.competitors });
+      const [snapshot, metrics] = await Promise.all([
+        getChannelKnowledge(session.tenantId, saasId),
+        resolveAuditMetrics(session.tenantId, saasId),
+      ]);
+      const generated = await generateSocialAudit({
+        profile: snapshot.profile,
+        competitors: snapshot.competitors,
+        metrics,
+      });
       audit = await upsertAudit(session.tenantId, generated, saasId);
     }
 
@@ -44,8 +87,15 @@ export async function POST(request: Request) {
     const session = await requireCurrentSocialFlowSession(request);
     const saasId = resolveSaasId(request);
 
-    const snapshot = await getChannelKnowledge(session.tenantId, saasId);
-    const generated = await generateSocialAudit({ profile: snapshot.profile, competitors: snapshot.competitors });
+    const [snapshot, metrics] = await Promise.all([
+      getChannelKnowledge(session.tenantId, saasId),
+      resolveAuditMetrics(session.tenantId, saasId),
+    ]);
+    const generated = await generateSocialAudit({
+      profile: snapshot.profile,
+      competitors: snapshot.competitors,
+      metrics,
+    });
     const audit = await upsertAudit(session.tenantId, generated, saasId);
 
     return NextResponse.json({ ok: true, audit });

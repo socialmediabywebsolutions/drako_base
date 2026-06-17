@@ -511,6 +511,147 @@ export async function fetchMetaPages(accessToken: string): Promise<MetaPage[]> {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Public API — Instagram Insights
+// ---------------------------------------------------------------------------
+
+export type InstagramAccountInsights = {
+  followersCount: number;
+  impressions: number;
+  reach: number;
+  capturedAt: string;
+};
+
+export type InstagramMediaItem = {
+  id: string;
+  timestamp: string;
+  likeCount: number;
+  commentsCount: number;
+};
+
+export type InstagramMediaInsights = {
+  impressions: number;
+  reach: number;
+  saved: number;
+  shares: number;
+};
+
+function sumInsightMetric(data: unknown[], metricName: string): number {
+  if (!Array.isArray(data)) return 0;
+  const metric = data.find((d) => toMetaRecord(d)?.name === metricName);
+  const values = toMetaRecord(metric)?.values;
+  if (!Array.isArray(values)) return 0;
+  return values.reduce((sum, v) => {
+    const val = toMetaRecord(v)?.value;
+    return sum + (typeof val === "number" ? val : 0);
+  }, 0);
+}
+
+export async function fetchInstagramAccountInsights(
+  pageToken: string,
+  igUserId: string,
+): Promise<InstagramAccountInsights> {
+  const normalizedToken = pageToken.trim();
+  const normalizedId = igUserId.trim();
+  if (!normalizedToken || !normalizedId) {
+    throw buildMetaApiError("META_ACCESS_TOKEN_MISSING", "Page token and IG user ID are required.", { accountStatus: "INVALID_CREDENTIALS" });
+  }
+
+  const since = Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000);
+  const until = Math.floor(Date.now() / 1000);
+
+  const [insightsResponse, profileResponse] = await Promise.all([
+    fetch(
+      `${META_GRAPH_BASE_URL}/${normalizedId}/insights?metric=impressions,reach&period=day&since=${since}&until=${until}&access_token=${normalizedToken}`,
+      { method: "GET", cache: "no-store" },
+    ),
+    fetch(
+      `${META_GRAPH_BASE_URL}/${normalizedId}?fields=followers_count&access_token=${normalizedToken}`,
+      { method: "GET", cache: "no-store" },
+    ),
+  ]);
+
+  const insightsPayload = await parseMetaJson(insightsResponse);
+  const profilePayload = await parseMetaJson(profileResponse);
+
+  const data = Array.isArray(insightsPayload?.data) ? insightsPayload.data : [];
+  const followersCount = typeof profilePayload?.followers_count === "number" ? profilePayload.followers_count : 0;
+
+  return {
+    followersCount,
+    impressions: sumInsightMetric(data, "impressions"),
+    reach: sumInsightMetric(data, "reach"),
+    capturedAt: new Date().toISOString(),
+  };
+}
+
+export async function fetchInstagramRecentMedia(
+  pageToken: string,
+  igUserId: string,
+): Promise<InstagramMediaItem[]> {
+  const normalizedToken = pageToken.trim();
+  const normalizedId = igUserId.trim();
+  if (!normalizedToken || !normalizedId) {
+    throw buildMetaApiError("META_ACCESS_TOKEN_MISSING", "Page token and IG user ID are required.", { accountStatus: "INVALID_CREDENTIALS" });
+  }
+
+  const url = new URL(`${META_GRAPH_BASE_URL}/${normalizedId}/media`);
+  url.searchParams.set("fields", "id,timestamp,like_count,comments_count");
+  url.searchParams.set("limit", "25");
+  url.searchParams.set("access_token", normalizedToken);
+
+  const response = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+  const payload = await parseMetaJson(response);
+  if (!response.ok) {
+    throw buildMetaApiError("META_MEDIA_FETCH_FAILED", normalizeMetaApiMessage(payload, "Instagram media fetch failed."), { status: response.status, payload });
+  }
+
+  const data = Array.isArray(payload?.data) ? payload.data : [];
+  return data.flatMap((entry) => {
+    const record = toMetaRecord(entry);
+    if (!record || typeof record.id !== "string" || typeof record.timestamp !== "string") return [];
+    return [{
+      id: record.id,
+      timestamp: record.timestamp,
+      likeCount: typeof record.like_count === "number" ? record.like_count : 0,
+      commentsCount: typeof record.comments_count === "number" ? record.comments_count : 0,
+    }];
+  });
+}
+
+export async function fetchInstagramMediaInsights(
+  pageToken: string,
+  mediaId: string,
+): Promise<InstagramMediaInsights> {
+  const normalizedToken = pageToken.trim();
+  const normalizedMediaId = mediaId.trim();
+  if (!normalizedToken || !normalizedMediaId) {
+    throw buildMetaApiError("META_ACCESS_TOKEN_MISSING", "Page token and media ID are required.", { accountStatus: "INVALID_CREDENTIALS" });
+  }
+
+  const url = new URL(`${META_GRAPH_BASE_URL}/${normalizedMediaId}/insights`);
+  url.searchParams.set("metric", "impressions,reach,saved,shares");
+  url.searchParams.set("access_token", normalizedToken);
+
+  const response = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+  const payload = await parseMetaJson(response);
+  if (!response.ok) {
+    throw buildMetaApiError("META_MEDIA_INSIGHTS_FAILED", normalizeMetaApiMessage(payload, "Instagram media insights fetch failed."), { status: response.status, payload });
+  }
+
+  const data = Array.isArray(payload?.data) ? payload.data : [];
+  return {
+    impressions: sumInsightMetric(data, "impressions"),
+    reach: sumInsightMetric(data, "reach"),
+    saved: sumInsightMetric(data, "saved"),
+    shares: sumInsightMetric(data, "shares"),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public API — Pages & Instagram Business Account
+// ---------------------------------------------------------------------------
+
 export async function fetchInstagramBusinessAccount(pageId: string, pageAccessToken: string): Promise<MetaInstagramAccount | null> {
   const normalizedPageId = pageId.trim();
   const normalizedToken = pageAccessToken.trim();

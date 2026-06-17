@@ -2,9 +2,20 @@ import { intelligenceModel } from "@/lib/socialflow/ai/models/anthropicModel";
 import type { ChannelCompetitor, ChannelProfile } from "@/lib/socialflow/profile/types";
 import type { AuditAreaScore, AuditCompetitorComparison, AuditRecommendation } from "@/lib/socialflow/audit/types";
 
+type AuditMetrics = {
+  impressions: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  engagement: number;
+  publishedPosts: number;
+  followersCount?: number;
+};
+
 type AuditEngineInput = {
   profile: ChannelProfile;
   competitors: ChannelCompetitor[];
+  metrics?: AuditMetrics | null;
 };
 
 type AuditBase = {
@@ -93,15 +104,41 @@ function scoreCompetitivePositioning(profile: ChannelProfile, competitors: Chann
   return { area: "Posicionamiento competitivo", score, notes };
 }
 
-function buildHeuristicBase(input: AuditEngineInput): AuditBase {
-  const { profile, competitors } = input;
+function scoreEngagementMetrics(metrics: AuditMetrics | null | undefined): AuditAreaScore | null {
+  if (!metrics) return null;
+  const { impressions, engagement, publishedPosts, followersCount } = metrics;
+  const hasData = impressions > 0 || publishedPosts > 0;
+  if (!hasData) return null;
 
+  const engagementRate = followersCount && followersCount > 0
+    ? (engagement / followersCount) * 100
+    : null;
+
+  const checks = [
+    publishedPosts >= 1,
+    publishedPosts >= 4,
+    impressions >= 500,
+    engagementRate != null ? engagementRate >= 1 : engagement > 0,
+  ];
+  const score = Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  const rateLabel = engagementRate != null ? ` (${engagementRate.toFixed(2)}% engagement rate)` : "";
+  const notes = score >= 70
+    ? `Actividad real detectada: ${publishedPosts} post(s), ${impressions} impresiones${rateLabel}.`
+    : `Actividad real baja: ${publishedPosts} post(s), ${impressions} impresiones${rateLabel}. Publicar con mas frecuencia.`;
+  return { area: "Rendimiento real en redes", score, notes };
+}
+
+function buildHeuristicBase(input: AuditEngineInput): AuditBase {
+  const { profile, competitors, metrics } = input;
+
+  const engagementArea = scoreEngagementMetrics(metrics);
   const areaScores = [
     scoreBrandIdentity(profile),
     scoreAudienceClarity(profile),
     scoreContentStrategy(profile),
     scoreSocialPresence(profile),
     scoreCompetitivePositioning(profile, competitors),
+    ...(engagementArea ? [engagementArea] : []),
   ];
 
   const score = Math.round(areaScores.reduce((sum, area) => sum + area.score, 0) / areaScores.length);
@@ -156,7 +193,18 @@ function buildHeuristicBase(input: AuditEngineInput): AuditBase {
 
 export async function generateSocialAudit(input: AuditEngineInput): Promise<AuditBase> {
   const base = buildHeuristicBase(input);
-  const { profile, competitors } = input;
+  const { profile, competitors, metrics } = input;
+
+  const metricsSection = metrics
+    ? `
+Metricas reales (ultimos 7 dias):
+- Impresiones totales: ${metrics.impressions}
+- Engagement total (likes + comentarios + shares): ${metrics.engagement}
+- Posts publicados: ${metrics.publishedPosts}
+- Seguidores (Instagram): ${metrics.followersCount ?? "(no disponible)"}
+- Tasa de engagement: ${metrics.followersCount && metrics.followersCount > 0 ? `${((metrics.engagement / metrics.followersCount) * 100).toFixed(2)}%` : "(no calculable)"}
+`
+    : "\nMetricas reales: no disponibles aun — el cron de metricas no ha corrido o no hay cuentas conectadas.\n";
 
   const prompt = `Analiza el siguiente perfil de marca y genera una auditoria social estrategica.
 
@@ -169,14 +217,15 @@ Perfil de marca:
 - Redes activas: ${profile.activeSocialNetworks?.join(", ") || "(ninguna)"}
 - Palabras clave: ${profile.baseKeywords?.join(", ") || "(ninguna)"}
 - Temas principales: ${profile.mainTopics?.join(", ") || "(ninguno)"}
-
+${metricsSection}
 Competidores (${competitors.length}):
 ${competitors.map((c) => `- ${c.name} (${c.platform}${c.handle ? `, ${c.handle}` : ""})`).join("\n") || "(sin competidores)"}
 
 Devuelve un JSON con: score global (0-100), desglose por area (areaScores con area/score/notes), fortalezas (strengths),
 debilidades (weaknesses), oportunidades (opportunities), top 5 recomendaciones priorizadas (recommendations con
 title/description/impact), y comparativa con competidores (competitorComparison con competitor/comparison), y un
-resumen ejecutivo (summary). Se especifico y orientado a acciones concretas.`;
+resumen ejecutivo (summary). Se especifico y orientado a acciones concretas. Si hay metricas reales, basate en ellas
+para calibrar el score y las recomendaciones.`;
 
   const system =
     "Eres el motor de auditoria social estrategica de SocialFlow. Analiza perfiles de marca y devuelve diagnosticos " +
