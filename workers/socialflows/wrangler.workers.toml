@@ -45,6 +45,10 @@ id = "2962b3ef53fe4433a253551c83a2df72"
 binding = "SAASES_STORAGE"
 bucket_name = "saas-socialflows-prod-storage"
 
+[[r2_buckets]]
+binding = "SOCIAL_MEDIA_BUCKET"
+bucket_name = "socialflow-media"
+
 [[queues.producers]]
 binding = "SAASES_EVENTS"
 queue = "saas-socialflows-prod-events"
