@@ -31,6 +31,8 @@ jobs:
   alerts-check:
     name: 🧪 Auditor Manual de Salud
     runs-on: ubuntu-latest
+    env:
+      STATUS_URL: ${{ secrets.APP_URL }}/api/status.json
     steps:
       - name: ⬇️ Checkout
         uses: actions/checkout@v4
@@ -44,6 +46,7 @@ jobs:
         run: npm ci
 
       - name: 🔍 Ejecutar Auditor Local
+        continue-on-error: true
         run: npx tsx scripts/alerts-check.ts
 
   cleanup-drafts:

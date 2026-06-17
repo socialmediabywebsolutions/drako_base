@@ -13,7 +13,7 @@ interface StatusData {
 }
 
 async function run() {
-    const PROD_URL = "https://drako.group/api/status.json";
+    const PROD_URL = process.env.STATUS_URL?.trim() || "https://drako.group/api/status.json";
     const LOCAL_URL = "http://localhost:3000/api/status.json";
 
     let data: StatusData | null = null;
