@@ -1,39 +1,53 @@
 import { LinkedInIntegrationError } from "@/lib/socialflow/linkedin/core";
 import { publishPost } from "@/lib/socialflow/linkedin/publishing";
+import { InstagramPublishingError, publishInstagramPost, requireInstagramPageToken } from "@/lib/socialflow/meta/publishing";
 import { claimScheduledPostForPublishing, getSaasSocialPostById, listSaasSocialAccounts, markAsPosted, updateSaasSocialPostStatus, upsertSaasSocialPost } from "@/lib/socialflow/repository";
 import type { SocialContext } from "@/lib/socialflow/repository";
-import type { SaasSocialPost, SaasSocialProvider } from "@/lib/social-core/types";
+import type { SaasSocialAccount, SaasSocialPost, SaasSocialProvider } from "@/lib/social-core/types";
 import { recordObservabilityActivity } from "@/lib/observability-core";
 
 const LIVE_PUBLISH_MAX_ATTEMPTS = 3;
 const LIVE_PUBLISH_BASE_DELAY_MS = 1000;
 const LIVE_PUBLISH_MAX_DELAY_MS = 5000;
 
+const SUPPORTED_PROVIDERS = new Set<SaasSocialProvider>(["LINKEDIN", "INSTAGRAM"]);
+
 async function findPrimaryLinkedInAccount(ctx: SocialContext) {
   const accounts = await listSaasSocialAccounts(ctx);
   return accounts.find((account) => account.provider === "LINKEDIN" && account.isPrimary) ?? null;
 }
 
+async function findPrimaryInstagramAccount(ctx: SocialContext) {
+  const accounts = await listSaasSocialAccounts(ctx);
+  return (
+    accounts.find((a) => a.provider === "INSTAGRAM" && a.isPrimary && a.status === "CONNECTED_REAL") ??
+    accounts.find((a) => a.provider === "INSTAGRAM" && a.status === "CONNECTED_REAL") ??
+    null
+  );
+}
+
 async function publishToLinkedIn(input: {
-  provider: SaasSocialProvider;
-  account: Awaited<ReturnType<typeof findPrimaryLinkedInAccount>>;
+  account: SaasSocialAccount;
   post: SaasSocialPost;
 }): Promise<{ externalPostId?: string | null }> {
-  if (input.provider !== "LINKEDIN") {
-    throw new Error("UNSUPPORTED_PROVIDER_FOR_LIVE_PUBLISHING");
-  }
-  if (!input.account) {
-    throw new Error("LINKEDIN_ACCOUNT_MISSING");
-  }
-
   const operation = await publishPost(
     input.account,
     input.post.body?.trim() || input.post.title,
   );
+  return { externalPostId: operation.externalPostId };
+}
 
-  return {
-    externalPostId: operation.externalPostId,
-  };
+async function publishToInstagram(input: {
+  account: SaasSocialAccount;
+  post: SaasSocialPost;
+}): Promise<{ externalPostId?: string | null }> {
+  const { pageToken, igUserId } = await requireInstagramPageToken(input.account);
+  const caption = input.post.body?.trim() || input.post.title;
+  const imageUrl = input.post.imageHint?.trim().startsWith("http")
+    ? input.post.imageHint.trim()
+    : null;
+  const result = await publishInstagramPost({ pageToken, igUserId, caption, imageUrl });
+  return { externalPostId: result.externalPostId };
 }
 
 function delay(ms: number): Promise<void> {
@@ -80,10 +94,9 @@ async function persistPublicationState(
 }
 
 function getProviderErrorCode(error: unknown): string {
-  if (error instanceof LinkedInIntegrationError) {
-    return error.code;
-  }
-  return "LINKEDIN_PUBLISH_FAILED";
+  if (error instanceof LinkedInIntegrationError) return error.code;
+  if (error instanceof InstagramPublishingError) return error.code;
+  return "PUBLISH_FAILED";
 }
 
 function isRetryablePublishError(error: unknown): boolean {
@@ -94,7 +107,13 @@ function isRetryablePublishError(error: unknown): boolean {
       || status === 429
       || (status !== null && status >= 500);
   }
-
+  if (error instanceof InstagramPublishingError) {
+    const status = typeof error.details?.status === "number" ? error.details.status : null;
+    return error.code === "INSTAGRAM_PUBLISH_RATE_LIMITED"
+      || error.code === "INSTAGRAM_PUBLISH_FAILED"
+      || status === 429
+      || (status !== null && status >= 500);
+  }
   return error instanceof Error;
 }
 
@@ -155,7 +174,7 @@ export async function publishSocialPostLive(
     console.log(`[SocialFlow] Live publish started for post ${postId} (Provider: ${post.provider})`);
     safeRecordActivity(ctx, postId, "publish_started", "info", `Live publish started for ${post.provider} post.`, { provider: post.provider });
 
-    if (post.provider !== "LINKEDIN") {
+    if (!SUPPORTED_PROVIDERS.has(post.provider)) {
       console.error(`[SocialFlow] Unsupported provider for live publishing: ${post.provider}`);
       post = (await persistPublicationState(ctx, post, {
         mode: "live",
@@ -178,25 +197,35 @@ export async function publishSocialPostLive(
       };
     }
 
-    const account = await findPrimaryLinkedInAccount(ctx);
+    const account = post.provider === "INSTAGRAM"
+      ? await findPrimaryInstagramAccount(ctx)
+      : await findPrimaryLinkedInAccount(ctx);
+
+    const accountMissingCode = post.provider === "INSTAGRAM"
+      ? "INSTAGRAM_ACCOUNT_MISSING"
+      : "LINKEDIN_ACCOUNT_MISSING";
+    const accountMissingMessage = post.provider === "INSTAGRAM"
+      ? "No connected Instagram account found for this workspace."
+      : "No primary LinkedIn account configured for this workspace.";
+
     if (!account) {
-      console.error("[SocialFlow] No primary LinkedIn account configured for live publishing.");
+      console.error(`[SocialFlow] No ${post.provider} account found for live publishing.`);
       post = (await persistPublicationState(ctx, post, {
         mode: "live",
         state: "failed",
         attempts: 1,
         maxAttempts: LIVE_PUBLISH_MAX_ATTEMPTS,
         lastAttemptAt: new Date().toISOString(),
-        lastErrorCode: "LINKEDIN_ACCOUNT_MISSING",
-        lastErrorMessage: "No primary LinkedIn account configured for this workspace.",
+        lastErrorCode: accountMissingCode,
+        lastErrorMessage: accountMissingMessage,
         nextRetryAt: null,
       })) ?? post;
       await updateSaasSocialPostStatus(ctx, { id: postId, status: "FAILED" });
-      safeRecordActivity(ctx, postId, "publish_failed", "error", "No primary LinkedIn account configured.", { errorCode: "LINKEDIN_ACCOUNT_MISSING" });
+      safeRecordActivity(ctx, postId, "publish_failed", "error", accountMissingMessage, { errorCode: accountMissingCode });
       return {
         ok: false,
-        code: "LINKEDIN_ACCOUNT_MISSING",
-        message: "No primary LinkedIn account configured for this workspace.",
+        code: accountMissingCode,
+        message: accountMissingMessage,
         externalPostId: null,
         post: await getSaasSocialPostById(ctx, postId),
       };
@@ -218,11 +247,9 @@ export async function publishSocialPostLive(
           nextRetryAt: null,
         })) ?? post;
 
-        const result = await publishToLinkedIn({
-          provider: post.provider,
-          account,
-          post,
-        });
+        const result: { externalPostId?: string | null } = post.provider === "INSTAGRAM"
+          ? await publishToInstagram({ account, post })
+          : await publishToLinkedIn({ account, post });
         externalPostId = result.externalPostId ?? null;
         post = (await persistPublicationState(ctx, post, {
           mode: "live",
@@ -241,9 +268,9 @@ export async function publishSocialPostLive(
         const retryDelayMs = canRetry ? getRetryDelayMs(attempt) : null;
         const nextRetryAt = retryDelayMs != null ? new Date(Date.now() + retryDelayMs).toISOString() : null;
         const errorCode = getProviderErrorCode(providerError);
-        const errorMessage = providerError instanceof Error ? providerError.message : "LinkedIn publish failed";
+        const errorMessage: string = providerError instanceof Error ? providerError.message : `${post.provider} publish failed`;
 
-        console.error(`[SocialFlow] LinkedIn publish failed for post ${postId} on attempt ${attempt}`, providerError);
+        console.error(`[SocialFlow] ${post.provider} publish failed for post ${postId} on attempt ${attempt}`, providerError);
         safeRecordActivity(ctx, postId, "publish_attempt_failed", "error", `Attempt ${attempt}/${LIVE_PUBLISH_MAX_ATTEMPTS} failed: ${errorCode}`, { attempt, errorCode, errorMessage, canRetry });
 
         post = (await persistPublicationState(ctx, post, {
@@ -291,13 +318,13 @@ export async function publishSocialPostLive(
     });
 
     const durationMs = Date.now() - startedAt;
-    console.log(`[SocialFlow] Live publish succeeded for post ${postId} (externalPostId=${externalPostId ?? "null"}, ${durationMs}ms)`);
-    safeRecordActivity(ctx, postId, "publish_succeeded", "success", `Post published to LinkedIn in ${durationMs}ms.`, { externalPostId, durationMs });
+    console.log(`[SocialFlow] Live publish succeeded for post ${postId} via ${post.provider} (externalPostId=${externalPostId ?? "null"}, ${durationMs}ms)`);
+    safeRecordActivity(ctx, postId, "publish_succeeded", "success", `Post published to ${post.provider} in ${durationMs}ms.`, { externalPostId, durationMs, provider: post.provider });
 
     return {
       ok: true,
-      code: "PUBLISHED_LIVE_LINKEDIN",
-      message: "Post published successfully to LinkedIn",
+      code: `PUBLISHED_LIVE_${post.provider}`,
+      message: `Post published successfully to ${post.provider === "INSTAGRAM" ? "Instagram" : "LinkedIn"}`,
       externalPostId,
       post: updatedPost,
     };
