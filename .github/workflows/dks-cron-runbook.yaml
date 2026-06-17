@@ -2,11 +2,32 @@ name: 🔁 DKS Cron Runbook
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC diario — social metrics sync
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  social-metrics-cron:
+    name: 📊 Social Metrics — Instagram Insights Sync
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: 🔗 Llamar endpoint de métricas
+        run: |
+          STATUS=$(curl -s -o /tmp/metrics_response.json -w "%{http_code}" \
+            -X GET "${{ secrets.APP_URL }}/api/cron/social/metrics" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/metrics_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Metrics cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Metrics cron completed successfully"
+
   alerts-check:
     name: 🧪 Auditor Manual de Salud
     runs-on: ubuntu-latest
