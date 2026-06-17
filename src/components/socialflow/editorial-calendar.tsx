@@ -185,6 +185,14 @@ function PostCard({ post, campaigns, isPending, onAction }: PostCardProps) {
           {/* Content */}
           <p className="text-sm font-semibold text-slate-800 line-clamp-1">{post.title}</p>
           <p className="mt-0.5 text-sm text-slate-500 line-clamp-2">{post.body}</p>
+          {post.imageHint?.startsWith("http") && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={post.imageHint}
+              alt=""
+              className="mt-2 h-32 w-full rounded-xl border border-slate-100 object-cover"
+            />
+          )}
         </div>
       </div>
 
@@ -289,6 +297,8 @@ type CreateModalProps = {
   time: string;
   content: string;
   provider: string;
+  imageUrl: string;
+  imageUploading: boolean;
   schedule: boolean;
   error: string | null;
   saving: boolean;
@@ -296,6 +306,8 @@ type CreateModalProps = {
   onTimeChange: (v: string) => void;
   onContentChange: (v: string) => void;
   onProviderChange: (v: string) => void;
+  onImageUrlChange: (v: string) => void;
+  onFileSelect: (file: File) => void;
   onScheduleChange: (v: boolean) => void;
   onSubmit: () => void;
   onClose: () => void;
@@ -321,7 +333,7 @@ function CreatePostModal(p: CreateModalProps) {
           </button>
         </div>
 
-        <div className="space-y-4 px-6 py-5">
+        <div className="max-h-[70vh] overflow-y-auto space-y-4 px-6 py-5">
           {/* Provider */}
           <div>
             <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -333,7 +345,7 @@ function CreatePostModal(p: CreateModalProps) {
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500"
             >
               <option value="LINKEDIN">LinkedIn</option>
-              <option value="INSTAGRAM" disabled>Instagram (próximamente)</option>
+              <option value="INSTAGRAM">Instagram</option>
             </select>
           </div>
 
@@ -353,6 +365,60 @@ function CreatePostModal(p: CreateModalProps) {
             <div className="mt-1 text-right text-[10px] text-slate-400">
               {p.content.length}/{MAX}
             </div>
+          </div>
+
+          {/* Image */}
+          <div>
+            <label className="mb-1.5 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+              Imagen
+              {p.provider === "INSTAGRAM" && <span className="text-rose-500">*</span>}
+              {p.provider !== "INSTAGRAM" && <span className="font-normal normal-case text-slate-400">(opcional)</span>}
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={p.imageUrl}
+                onChange={e => p.onImageUrlChange(e.target.value)}
+                placeholder="https://ejemplo.com/imagen.jpg"
+                className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+              <label className={[
+                "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-semibold transition",
+                p.imageUploading
+                  ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-600",
+              ].join(" ")}>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                {p.imageUploading ? "Subiendo…" : "Subir"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  disabled={p.imageUploading}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) p.onFileSelect(f); e.target.value = ""; }}
+                />
+              </label>
+            </div>
+            {p.imageUrl.startsWith("http") && (
+              <div className="mt-2 flex items-start gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.imageUrl} alt="Preview" className="h-20 w-20 rounded-xl border border-slate-200 object-cover" />
+                <button
+                  type="button"
+                  onClick={() => p.onImageUrlChange("")}
+                  className="rounded-lg border border-slate-200 p-1 text-slate-400 transition hover:border-rose-200 hover:text-rose-500"
+                >
+                  <IconX />
+                </button>
+              </div>
+            )}
+            {p.provider === "INSTAGRAM" && !p.imageUrl.startsWith("http") && (
+              <p className="mt-1.5 text-xs text-amber-600">
+                Instagram requiere una imagen pública. Pega una URL o sube un archivo.
+              </p>
+            )}
           </div>
 
           {/* Schedule toggle */}
@@ -435,7 +501,7 @@ function CreatePostModal(p: CreateModalProps) {
           </button>
           <button
             onClick={p.onSubmit}
-            disabled={p.saving || !p.content.trim()}
+            disabled={p.saving || !p.content.trim() || (p.provider === "INSTAGRAM" && !p.imageUrl.startsWith("http"))}
             className={[
               "flex-1 rounded-xl py-2.5 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0",
               p.schedule ? "bg-sky-500 shadow-sky-500/25 hover:bg-sky-600" : "bg-slate-900 shadow-slate-900/20 hover:bg-slate-800",
@@ -470,6 +536,8 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
   const [fDate, setFDate] = useState(today);
   const [fTime, setFTime] = useState("09:00");
   const [fSchedule, setFSchedule] = useState(false);
+  const [fImageUrl, setFImageUrl] = useState("");
+  const [fImageUploading, setFImageUploading] = useState(false);
   const [fError, setFError] = useState<string | null>(null);
   const [fSaving, setFSaving] = useState(false);
 
@@ -502,12 +570,37 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
     const d = date ?? today;
     setFDate(d); setFContent(""); setFTime("09:00");
     setFSchedule(!!date); setFError(null);
+    setFImageUrl(""); setFImageUploading(false);
     setShowCreate(true);
+  }
+
+  async function handleImageFileSelect(file: File) {
+    setFImageUploading(true);
+    setFError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/socialflow/media/upload", { method: "POST", body: form });
+      const data = (await res.json()) as { url?: string; error?: string; message?: string };
+      if (!res.ok || !data.url) {
+        setFError(data.message ?? data.error ?? "Error al subir la imagen.");
+        return;
+      }
+      setFImageUrl(data.url);
+    } catch {
+      setFError("No se pudo subir la imagen. Pega la URL directamente.");
+    } finally {
+      setFImageUploading(false);
+    }
   }
 
   // Submit new post
   async function submitCreate() {
     if (!fContent.trim()) { setFError("El contenido es requerido."); return; }
+    if (fProvider === "INSTAGRAM" && !fImageUrl.trim().startsWith("http")) {
+      setFError("Instagram requiere una URL de imagen pública válida.");
+      return;
+    }
     if (fSchedule && !fDate) { setFError("Selecciona una fecha para programar."); return; }
     setFSaving(true); setFError(null);
     try {
@@ -520,6 +613,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
           provider: fProvider,
           status: fSchedule ? "SCHEDULED" : "DRAFT",
           scheduledAt: fSchedule ? toScheduledAt(fDate, fTime) : null,
+          imageHint: fImageUrl.trim() || null,
         }),
       });
       const data = (await res.json()) as { post?: SaasSocialPost; code?: string };
@@ -782,6 +876,8 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
           time={fTime}
           content={fContent}
           provider={fProvider}
+          imageUrl={fImageUrl}
+          imageUploading={fImageUploading}
           schedule={fSchedule}
           error={fError}
           saving={fSaving}
@@ -789,6 +885,8 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
           onTimeChange={setFTime}
           onContentChange={setFContent}
           onProviderChange={setFProvider}
+          onImageUrlChange={setFImageUrl}
+          onFileSelect={handleImageFileSelect}
           onScheduleChange={setFSchedule}
           onSubmit={submitCreate}
           onClose={() => setShowCreate(false)}

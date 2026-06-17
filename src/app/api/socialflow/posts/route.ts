@@ -14,7 +14,7 @@ import {
   upsertSaasSocialPost,
 } from "@/lib/socialflow/repository";
 
-const ALLOWED_PROVIDERS = ["LINKEDIN"] as const;
+const ALLOWED_PROVIDERS = ["LINKEDIN", "INSTAGRAM"] as const;
 const ALLOWED_CREATION_STATUSES = ["DRAFT", "SCHEDULED"] as const;
 
 function unauthorizedResponse() {

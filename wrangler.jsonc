@@ -75,6 +75,18 @@
 			// You can change the bucket name if you want
 			// See https://developers.cloudflare.com/workers/wrangler/commands/#r2-bucket-create
 			"bucket_name": "drakosystems-opennext-cache"
+		},
+		// SocialFlow media uploads (images for Instagram posts)
+		// Create with: wrangler r2 bucket create socialflow-media
+		// Enable public access in Cloudflare dashboard, then set SOCIAL_MEDIA_R2_PUBLIC_URL secret
+		{
+			"binding": "SOCIAL_MEDIA_BUCKET",
+			"bucket_name": "socialflow-media"
+		},
+		{
+			"bucket_name": "socialflow-media",
+			"binding": "socialflow_media",
+			"remote": true
 		}
 	],
 	"images": {
