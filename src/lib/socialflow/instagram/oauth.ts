@@ -92,24 +92,27 @@ export function getInstagramAppSecret(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Callback URL resolution (derives from request, same pattern as Meta flow)
+// Callback URL resolution
 // ---------------------------------------------------------------------------
 
+// APP_URL is the authoritative source — avoids redirect_uri mismatches when
+// x-forwarded-host carries a different domain (e.g. info.drako.systems) and
+// the registered URI in Meta is socialflows.drako.systems.
 export function resolveInstagramCallbackUrl(request: Request): string {
+  const appUrl = readEnvString("APP_URL");
+  if (appUrl) {
+    try {
+      const { origin } = new URL(appUrl);
+      return `${origin}${INSTAGRAM_OAUTH_CALLBACK_PATH}`;
+    } catch { /* fall through */ }
+  }
+
+  // Fallback: derive from request (only reliable in local dev)
   const forwardedHost = request.headers.get("x-forwarded-host")?.trim();
   const forwardedProto = request.headers.get("x-forwarded-proto")?.trim();
-
   if (forwardedHost) {
     const proto = forwardedProto || (forwardedHost.startsWith("localhost") ? "http" : "https");
     return `${proto}://${forwardedHost}${INSTAGRAM_OAUTH_CALLBACK_PATH}`;
-  }
-
-  const originHeader = request.headers.get("origin")?.trim();
-  if (originHeader) {
-    try {
-      const { origin } = new URL(originHeader);
-      return `${origin}${INSTAGRAM_OAUTH_CALLBACK_PATH}`;
-    } catch { /* fall through */ }
   }
 
   try {
