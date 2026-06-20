@@ -31,8 +31,8 @@ const PROVIDERS: ProviderDefinition[] = [
   {
     provider: "INSTAGRAM",
     label: "Instagram",
-    description: "Connect an Instagram Business account through your linked Facebook Page.",
-    connectPath: "/api/socialflow/meta/connect",
+    description: "Connect an Instagram Business account directly via Instagram Business Login.",
+    connectPath: "/api/socialflow/oauth/instagram/connect",
   },
   {
     provider: "FACEBOOK_PAGE",
@@ -174,10 +174,11 @@ export default function SocialFlowConnectedAccounts({ accounts, saasId }: Social
 function resolveCallbackBanner(searchParams: URLSearchParams): { tone: "error" | "warning" | "success"; message: string } | null {
   const meta = searchParams.get("meta");
   const linkedin = searchParams.get("linkedin");
-  const status = meta ?? linkedin;
+  const instagram = searchParams.get("instagram");
+  const status = meta ?? linkedin ?? instagram;
   if (!status) return null;
 
-  const provider = searchParams.get("provider") ?? (meta ? "meta" : "linkedin");
+  const provider = searchParams.get("provider") ?? (meta ? "meta" : instagram ? "Instagram" : "linkedin");
   const code = searchParams.get("code");
   const message = searchParams.get("message");
 
