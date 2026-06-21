@@ -81,13 +81,14 @@ export function getInstagramAppId(): string {
 }
 
 export function getInstagramAppSecret(): string {
-  // META_APP_SECRET is the shared secret for the Instagram app
-  const secret = readEnvString("META_APP_SECRET");
+  // INSTAGRAM_APP_SECRET is the secret for the Instagram Business app (1534853271675778).
+  // META_APP_SECRET is the Facebook Pages app secret — different apps, different secrets.
+  const secret = readEnvString("INSTAGRAM_APP_SECRET") ?? readEnvString("META_APP_SECRET");
   if (!secret) {
-    throw new InstagramOAuthError("META_APP_SECRET is not configured.", {
-      code: "INSTAGRAM_ENV_MISSING",
-      details: { key: "META_APP_SECRET" },
-    });
+    throw new InstagramOAuthError(
+      "Neither INSTAGRAM_APP_SECRET nor META_APP_SECRET is configured.",
+      { code: "INSTAGRAM_ENV_MISSING", details: { key: "INSTAGRAM_APP_SECRET" } },
+    );
   }
   return secret;
 }

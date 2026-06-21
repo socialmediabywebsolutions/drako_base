@@ -8,7 +8,6 @@ import {
   parseInstagramOAuthState,
   persistInstagramOAuthConnection,
   resolveInstagramCallbackUrl,
-  INSTAGRAM_OAUTH_CALLBACK_PATH,
 } from "@/lib/socialflow/instagram/oauth";
 
 const DEFAULT_REDIRECT = "/socialflow/settings/accounts";
@@ -22,6 +21,9 @@ function buildRedirect(request: Request, targetPath: string, params: Record<stri
 }
 
 export async function GET(request: Request) {
+  // Log entry immediately — if this line appears twice in logs, Next.js is invoking the handler twice.
+  console.log("INSTAGRAM_OAUTH_CALLBACK_ENTRY", { url: request.url.split("?")[0] });
+
   const { searchParams } = new URL(request.url);
   const rawState = searchParams.get("state");
   const oauthError = searchParams.get("error")?.trim();
@@ -31,7 +33,6 @@ export async function GET(request: Request) {
   const redirectTo = state?.redirectTo || DEFAULT_REDIRECT;
   const saasId = state?.saasId || null;
 
-  // User denied / Meta returned an error
   if (oauthError) {
     console.warn("INSTAGRAM_OAUTH_CALLBACK_DENIED", { error: oauthError, saasId });
     return Response.redirect(
@@ -56,22 +57,16 @@ export async function GET(request: Request) {
     );
   }
 
-  try {
-    // Use the callbackUrl stored in state during /connect — guarantees both
-    // steps send the identical redirect_uri Instagram validated in the auth dialog.
-    // Fall back to resolveInstagramCallbackUrl only for legacy states without it.
-    const callbackUrl = state.callbackUrl || resolveInstagramCallbackUrl(request);
-    console.log("INSTAGRAM_OAUTH_CALLBACK_START", {
-      saasId: state.saasId,
-      tenantId: state.tenantId,
-      callbackUrl,
-      callbackUrlSource: state.callbackUrl ? "state" : "derived",
-      code_length: code.length,
-      callbackPath: INSTAGRAM_OAUTH_CALLBACK_PATH,
-    });
+  // Resolve callbackUrl from state (set during /connect) — guarantees exact match with what
+  // Instagram saw in the auth dialog. Falls back to header-derived URL only for old states.
+  const callbackUrl = state.callbackUrl || resolveInstagramCallbackUrl(request);
 
-    // Step 1 — exchange code for short-lived token
+  try {
+    // Step 1 — exchange code immediately, before any other async work.
+    // Instagram codes are single-use and short-lived; any extra await before this
+    // increases the risk of "code already used or expired" errors.
     const shortLived = await exchangeInstagramCode({ code, callbackUrl });
+    console.log("INSTAGRAM_TOKEN_EXCHANGE_OK", { saasId: state.saasId, callbackUrl });
 
     // Step 2 — exchange for long-lived token (60 days)
     const longLived = await exchangeForLongLivedInstagramToken(shortLived.access_token);
@@ -87,7 +82,12 @@ export async function GET(request: Request) {
       user,
     });
 
-    console.log(`INSTAGRAM_OAUTH_SUCCESS tenantId=${state.tenantId} saasId=${state.saasId} igUserId=${user.id} status=${status}`);
+    console.log("INSTAGRAM_OAUTH_SUCCESS", {
+      tenantId: state.tenantId,
+      saasId: state.saasId,
+      igUserId: user.id,
+      status,
+    });
 
     return Response.redirect(
       buildRedirect(request, state.redirectTo, {
@@ -106,6 +106,8 @@ export async function GET(request: Request) {
       code: errorCode,
       message,
       details,
+      callbackUrl,
+      saasId: state.saasId,
     }));
 
     return Response.redirect(
