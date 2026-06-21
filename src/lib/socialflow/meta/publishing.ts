@@ -1,8 +1,17 @@
 import { decryptToken } from "@/lib/socialflow/token-encryption";
 import type { SaasSocialAccount } from "@/lib/social-core/types";
 
-const META_GRAPH_VERSION = "v19.0";
-const META_GRAPH_BASE_URL = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
+// ---------------------------------------------------------------------------
+// API bases — instagram_business_login uses graph.instagram.com,
+// classic Facebook-Pages flow uses graph.facebook.com
+// ---------------------------------------------------------------------------
+
+const IG_GRAPH_BASE = "https://graph.instagram.com/v22.0";
+const FB_GRAPH_BASE = "https://graph.facebook.com/v19.0";
+
+// Video container processing can take up to 30 s; poll every 3 s.
+const VIDEO_POLL_INTERVAL_MS = 3_000;
+const VIDEO_POLL_MAX_MS = 25_000; // stay under Cloudflare Workers 30 s CPU limit
 
 // ---------------------------------------------------------------------------
 // Error class
@@ -22,6 +31,34 @@ export class InstagramPublishingError extends Error {
     this.details = opts.details ?? null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type InstagramPostContentType = "FEED" | "REEL" | "SHORT" | "STORY";
+
+export type InstagramPublishInput = {
+  accessToken: string;
+  igUserId: string;
+  apiBase: string;
+  caption: string;
+  contentType: InstagramPostContentType;
+  mediaUrl: string;
+};
+
+export type InstagramPublishResult = {
+  externalPostId: string;
+  containerId: string;
+  mediaType: string;
+};
+
+export type InstagramCredentials = {
+  accessToken: string;
+  igUserId: string;
+  authType: string;
+  apiBase: string;
+};
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -54,40 +91,95 @@ function classifyInstagramError(status: number, defaultCode: string): string {
   return defaultCode;
 }
 
+function isVideoUrl(url: string): boolean {
+  return /\.(mp4|mov|avi|mkv|webm)(\?|$)/i.test(url);
+}
+
 // ---------------------------------------------------------------------------
-// Public API — Instagram Content Publishing (two-step: container → publish)
+// Video container status polling
 // ---------------------------------------------------------------------------
 
-export type InstagramPublishInput = {
-  pageToken: string;
-  igUserId: string;
-  caption: string;
-  imageUrl?: string | null;
-};
+async function waitForVideoContainer(
+  apiBase: string,
+  containerId: string,
+  accessToken: string,
+): Promise<void> {
+  const deadline = Date.now() + VIDEO_POLL_MAX_MS;
+  while (Date.now() < deadline) {
+    await new Promise<void>((resolve) => setTimeout(resolve, VIDEO_POLL_INTERVAL_MS));
 
-export type InstagramPublishResult = {
-  externalPostId: string;
-  containerId: string;
-};
+    const url = new URL(`${apiBase}/${containerId}`);
+    url.searchParams.set("fields", "status_code");
+    url.searchParams.set("access_token", accessToken);
 
-export async function publishInstagramPost(
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    const payload = await parseJson(res);
+    const statusCode = typeof payload?.status_code === "string" ? payload.status_code : "";
+
+    console.log("INSTAGRAM_CONTAINER_STATUS", { containerId, statusCode });
+
+    if (statusCode === "FINISHED") return;
+    if (statusCode === "ERROR" || statusCode === "EXPIRED") {
+      throw new InstagramPublishingError(
+        `Video container failed with status: ${statusCode}`,
+        { code: "INSTAGRAM_CONTAINER_FAILED", details: { statusCode, ...payload } },
+      );
+    }
+    // IN_PROGRESS or PUBLISHED_WITH_PENDING_REVIEW → keep polling
+  }
+
+  throw new InstagramPublishingError(
+    `Video container processing timed out after ${VIDEO_POLL_MAX_MS}ms.`,
+    { code: "INSTAGRAM_CONTAINER_TIMEOUT", details: { containerId, maxWaitMs: VIDEO_POLL_MAX_MS } },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Public API — unified content publisher (Feed / Reel / Story)
+// ---------------------------------------------------------------------------
+
+export async function publishInstagramContent(
   input: InstagramPublishInput,
 ): Promise<InstagramPublishResult> {
-  const { pageToken, igUserId, caption } = input;
-  const imageUrl = input.imageUrl?.trim() || null;
+  const { accessToken, igUserId, apiBase, caption, contentType, mediaUrl } = input;
 
-  if (!imageUrl || !imageUrl.startsWith("http")) {
+  if (!mediaUrl.startsWith("http")) {
     throw new InstagramPublishingError(
-      "Instagram publishing requires a public image URL. Set the imageHint field to a publicly accessible HTTPS URL.",
-      { code: "INSTAGRAM_IMAGE_REQUIRED" },
+      "A public HTTPS media URL is required (set imageHint on the post).",
+      { code: "INSTAGRAM_MEDIA_REQUIRED" },
     );
   }
 
-  // Step 1 — Create media container
-  const containerUrl = new URL(`${META_GRAPH_BASE_URL}/${igUserId}/media`);
-  containerUrl.searchParams.set("image_url", imageUrl);
-  containerUrl.searchParams.set("caption", caption.trim());
-  containerUrl.searchParams.set("access_token", pageToken);
+  const isReel = contentType === "REEL" || contentType === "SHORT";
+  const isStory = contentType === "STORY";
+  const isVideoStory = isStory && isVideoUrl(mediaUrl);
+  const needsVideoPolling = isReel || isVideoStory;
+
+  // Step 1 — Build and POST the media container
+  const containerUrl = new URL(`${apiBase}/${igUserId}/media`);
+  containerUrl.searchParams.set("access_token", accessToken);
+
+  if (isReel) {
+    containerUrl.searchParams.set("media_type", "REELS");
+    containerUrl.searchParams.set("video_url", mediaUrl);
+    containerUrl.searchParams.set("caption", caption.trim());
+    containerUrl.searchParams.set("share_to_feed", "true");
+  } else if (isStory) {
+    containerUrl.searchParams.set("media_type", "STORIES");
+    if (isVideoStory) {
+      containerUrl.searchParams.set("video_url", mediaUrl);
+    } else {
+      containerUrl.searchParams.set("image_url", mediaUrl);
+    }
+    // Stories do not support captions via the API
+  } else {
+    // FEED — image post
+    containerUrl.searchParams.set("image_url", mediaUrl);
+    containerUrl.searchParams.set("caption", caption.trim());
+  }
+
+  const mediaType = isReel ? "REELS" : isStory ? "STORIES" : "IMAGE";
+  console.log("INSTAGRAM_CONTAINER_CREATE", { igUserId, mediaType, apiBase });
 
   const containerRes = await fetch(containerUrl.toString(), {
     method: "POST",
@@ -114,10 +206,17 @@ export async function publishInstagramPost(
     );
   }
 
+  console.log("INSTAGRAM_CONTAINER_CREATED", { containerId, needsVideoPolling });
+
+  // Step 1.5 — For video content, wait until Instagram finishes processing
+  if (needsVideoPolling) {
+    await waitForVideoContainer(apiBase, containerId, accessToken);
+  }
+
   // Step 2 — Publish the container
-  const publishUrl = new URL(`${META_GRAPH_BASE_URL}/${igUserId}/media_publish`);
+  const publishUrl = new URL(`${apiBase}/${igUserId}/media_publish`);
   publishUrl.searchParams.set("creation_id", containerId);
-  publishUrl.searchParams.set("access_token", pageToken);
+  publishUrl.searchParams.set("access_token", accessToken);
 
   const publishRes = await fetch(publishUrl.toString(), {
     method: "POST",
@@ -144,25 +243,28 @@ export async function publishInstagramPost(
     );
   }
 
-  return { externalPostId: mediaId, containerId };
+  console.log("INSTAGRAM_PUBLISH_OK", { mediaId, mediaType, containerId });
+  return { externalPostId: mediaId, containerId, mediaType };
 }
 
 // ---------------------------------------------------------------------------
-// Public API — Token extraction helper
+// Public API — credential resolution
 // ---------------------------------------------------------------------------
 
-export async function requireInstagramPageToken(
+export async function requireInstagramCredentials(
   account: SaasSocialAccount,
-): Promise<{ pageToken: string; igUserId: string }> {
+): Promise<InstagramCredentials> {
   const authMeta = (account.authMeta ?? {}) as Record<string, unknown>;
   const encryptedToken =
     typeof authMeta.accessToken === "string" ? authMeta.accessToken.trim() : "";
   const igUserId =
     typeof authMeta.igUserId === "string" ? authMeta.igUserId.trim() : "";
+  const authType =
+    typeof authMeta.authType === "string" ? authMeta.authType : "";
 
   if (!encryptedToken) {
     throw new InstagramPublishingError(
-      "Instagram page access token is missing from account credentials.",
+      "Instagram access token is missing from account credentials.",
       { code: "INSTAGRAM_ACCESS_TOKEN_MISSING" },
     );
   }
@@ -173,13 +275,46 @@ export async function requireInstagramPageToken(
     );
   }
 
-  const pageToken = await decryptToken(encryptedToken);
-  if (!pageToken) {
+  const accessToken = await decryptToken(encryptedToken);
+  if (!accessToken) {
     throw new InstagramPublishingError(
       "Instagram access token decryption failed.",
       { code: "INSTAGRAM_ACCESS_TOKEN_DECRYPTION_FAILED" },
     );
   }
 
-  return { pageToken, igUserId };
+  // instagram_business_login tokens use graph.instagram.com;
+  // classic Facebook-Pages tokens use graph.facebook.com.
+  const apiBase = authType === "instagram_business_login" ? IG_GRAPH_BASE : FB_GRAPH_BASE;
+
+  return { accessToken, igUserId, authType, apiBase };
+}
+
+// ---------------------------------------------------------------------------
+// Legacy alias — kept for any callers that predate requireInstagramCredentials
+// ---------------------------------------------------------------------------
+
+/** @deprecated Use requireInstagramCredentials instead. */
+export async function requireInstagramPageToken(
+  account: SaasSocialAccount,
+): Promise<{ pageToken: string; igUserId: string }> {
+  const creds = await requireInstagramCredentials(account);
+  return { pageToken: creds.accessToken, igUserId: creds.igUserId };
+}
+
+/** @deprecated Use publishInstagramContent instead. */
+export async function publishInstagramPost(input: {
+  pageToken: string;
+  igUserId: string;
+  caption: string;
+  imageUrl?: string | null;
+}): Promise<InstagramPublishResult> {
+  return publishInstagramContent({
+    accessToken: input.pageToken,
+    igUserId: input.igUserId,
+    apiBase: FB_GRAPH_BASE,
+    caption: input.caption,
+    contentType: "FEED",
+    mediaUrl: input.imageUrl ?? "",
+  });
 }

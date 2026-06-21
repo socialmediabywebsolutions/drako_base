@@ -1,9 +1,14 @@
 import { LinkedInIntegrationError } from "@/lib/socialflow/linkedin/core";
 import { publishPost } from "@/lib/socialflow/linkedin/publishing";
-import { InstagramPublishingError, publishInstagramPost, requireInstagramPageToken } from "@/lib/socialflow/meta/publishing";
+import {
+  InstagramPublishingError,
+  publishInstagramContent,
+  requireInstagramCredentials,
+  type InstagramPostContentType,
+} from "@/lib/socialflow/meta/publishing";
 import { claimScheduledPostForPublishing, getSaasSocialPostById, listSaasSocialAccounts, markAsPosted, updateSaasSocialPostStatus, upsertSaasSocialPost } from "@/lib/socialflow/repository";
 import type { SocialContext } from "@/lib/socialflow/repository";
-import type { SaasSocialAccount, SaasSocialPost, SaasSocialProvider } from "@/lib/social-core/types";
+import type { SaasSocialAccount, SaasSocialContentType, SaasSocialPost, SaasSocialProvider } from "@/lib/social-core/types";
 import { recordObservabilityActivity } from "@/lib/observability-core";
 
 const LIVE_PUBLISH_MAX_ATTEMPTS = 3;
@@ -37,16 +42,35 @@ async function publishToLinkedIn(input: {
   return { externalPostId: operation.externalPostId };
 }
 
+function mapToInstagramContentType(ct: SaasSocialContentType): InstagramPostContentType {
+  if (ct === "REEL" || ct === "SHORT" || ct === "STORY") return ct;
+  return "FEED"; // FEED, CAROUSEL, unknown → image feed post
+}
+
 async function publishToInstagram(input: {
   account: SaasSocialAccount;
   post: SaasSocialPost;
 }): Promise<{ externalPostId?: string | null }> {
-  const { pageToken, igUserId } = await requireInstagramPageToken(input.account);
+  const creds = await requireInstagramCredentials(input.account);
   const caption = input.post.body?.trim() || input.post.title;
-  const imageUrl = input.post.imageHint?.trim().startsWith("http")
-    ? input.post.imageHint.trim()
-    : null;
-  const result = await publishInstagramPost({ pageToken, igUserId, caption, imageUrl });
+  const mediaUrl = input.post.imageHint?.trim() ?? "";
+
+  if (!mediaUrl.startsWith("http")) {
+    throw new InstagramPublishingError(
+      "A public HTTPS media URL is required. Set the imageHint field on the post.",
+      { code: "INSTAGRAM_MEDIA_REQUIRED" },
+    );
+  }
+
+  const contentType = mapToInstagramContentType(input.post.contentType);
+  const result = await publishInstagramContent({
+    accessToken: creds.accessToken,
+    igUserId: creds.igUserId,
+    apiBase: creds.apiBase,
+    caption,
+    contentType,
+    mediaUrl,
+  });
   return { externalPostId: result.externalPostId };
 }
 
