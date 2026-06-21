@@ -206,7 +206,7 @@ export async function exchangeInstagramCode(input: {
   const appId = getInstagramAppId();
   const appSecret = getInstagramAppSecret();
 
-  const body = new URLSearchParams({
+  const params = new URLSearchParams({
     client_id: appId,
     client_secret: appSecret,
     grant_type: "authorization_code",
@@ -214,23 +214,45 @@ export async function exchangeInstagramCode(input: {
     code: input.code.trim(),
   });
 
+  console.log("INSTAGRAM_TOKEN_EXCHANGE_REQUEST", {
+    url: INSTAGRAM_TOKEN_URL,
+    client_id: appId,
+    redirect_uri: input.callbackUrl,
+    code_length: input.code.trim().length,
+  });
+
   const res = await fetch(INSTAGRAM_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
+    body: params.toString(),
     cache: "no-store",
   });
 
-  const payload = await parseJson(res);
+  const rawBody = await res.text();
+  let payload: Record<string, unknown> | null = null;
+  try {
+    const parsed = JSON.parse(rawBody);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      payload = parsed as Record<string, unknown>;
+    }
+  } catch { /* not JSON */ }
+
+  console.log("INSTAGRAM_TOKEN_EXCHANGE_RESPONSE", {
+    status: res.status,
+    ok: res.ok,
+    rawBody,
+    payload,
+  });
+
   if (!res.ok || typeof payload?.access_token !== "string") {
     throw new InstagramOAuthError(
       apiErrorMessage(payload, "Instagram short-lived token exchange failed."),
-      { code: "INSTAGRAM_TOKEN_EXCHANGE_FAILED", details: { status: res.status, ...(payload ?? {}) } },
+      { code: "INSTAGRAM_TOKEN_EXCHANGE_FAILED", details: { status: res.status, rawBody, ...(payload ?? {}) } },
     );
   }
 
   return {
-    access_token: payload.access_token.trim(),
+    access_token: (payload.access_token as string).trim(),
     token_type: typeof payload.token_type === "string" ? payload.token_type : "bearer",
     expires_in: typeof payload.expires_in === "number" ? payload.expires_in : 3600,
   };

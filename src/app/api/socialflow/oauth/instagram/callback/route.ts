@@ -57,6 +57,12 @@ export async function GET(request: Request) {
 
   try {
     const callbackUrl = resolveInstagramCallbackUrl(request);
+    console.log("INSTAGRAM_OAUTH_CALLBACK_START", {
+      saasId: state.saasId,
+      tenantId: state.tenantId,
+      callbackUrl,
+      code_length: code.length,
+    });
 
     // Step 1 — exchange code for short-lived token
     const shortLived = await exchangeInstagramCode({ code, callbackUrl });
@@ -87,12 +93,17 @@ export async function GET(request: Request) {
       308,
     );
   } catch (error) {
-    const code = error instanceof InstagramOAuthError ? error.code : "INSTAGRAM_CALLBACK_FAILED";
+    const errorCode = error instanceof InstagramOAuthError ? error.code : "INSTAGRAM_CALLBACK_FAILED";
     const message = error instanceof Error ? error.message : "Unexpected error during Instagram OAuth callback.";
-    console.error("INSTAGRAM_OAUTH_CALLBACK_ERROR", code, message, error);
+    const details = error instanceof InstagramOAuthError ? error.details : null;
+    console.error("INSTAGRAM_OAUTH_CALLBACK_ERROR", JSON.stringify({
+      code: errorCode,
+      message,
+      details,
+    }));
 
     return Response.redirect(
-      buildRedirect(request, redirectTo, { instagram: "error", code, saasId }),
+      buildRedirect(request, redirectTo, { instagram: "error", code: errorCode, saasId }),
       308,
     );
   }
