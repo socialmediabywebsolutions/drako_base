@@ -37,7 +37,7 @@ jobs:
       - name: 🔗 Llamar endpoint de métricas
         run: |
           STATUS=$(curl -s -o /tmp/metrics_response.json -w "%{http_code}" \
-            -X GET "${{ secrets.APP_URL }}/api/cron/social/metrics" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/metrics" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -52,7 +52,7 @@ jobs:
     name: 🧪 Auditor Manual de Salud
     runs-on: ubuntu-latest
     env:
-      STATUS_URL: ${{ secrets.APP_URL }}/api/status.json
+      STATUS_URL: https://socialflows.drako.systems/api/status.json
     steps:
       - name: ⬇️ Checkout
         uses: actions/checkout@v4
