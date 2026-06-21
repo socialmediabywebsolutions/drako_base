@@ -1,3 +1,4 @@
+import { env } from "@/lib/cf";
 import { LinkedInIntegrationError } from "@/lib/socialflow/linkedin/core";
 import { publishPost } from "@/lib/socialflow/linkedin/publishing";
 import {
@@ -42,6 +43,87 @@ async function publishToLinkedIn(input: {
   return { externalPostId: operation.externalPostId };
 }
 
+// ---------------------------------------------------------------------------
+// R2 media re-hosting
+// Instagram requires the media URL to be publicly reachable from Meta's servers.
+// We download the original file and re-upload it to our R2 bucket so the URL
+// is guaranteed to be accessible. If R2 is not configured or the upload fails
+// we fall back to the original URL.
+// ---------------------------------------------------------------------------
+
+const R2_PUBLIC_DOMAIN = "pub-04c73ba67921499bac35a1f62402cc17.r2.dev";
+const R2_PUBLIC_BASE = `https://${R2_PUBLIC_DOMAIN}`;
+
+const ALLOWED_EXTENSIONS: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  mp4: "video/mp4",
+  mov: "video/quicktime",
+};
+
+function detectExtension(url: string, contentType: string | null): string {
+  const pathname = new URL(url).pathname;
+  const fromPath = pathname.split(".").pop()?.toLowerCase() ?? "";
+  if (fromPath in ALLOWED_EXTENSIONS) return fromPath;
+  if (contentType?.includes("mp4") || contentType?.includes("video")) return "mp4";
+  if (contentType?.includes("png")) return "png";
+  if (contentType?.includes("webp")) return "webp";
+  return "jpg";
+}
+
+async function uploadMediaToR2(mediaUrl: string, postId: string): Promise<string> {
+  // Already an R2 URL → no re-upload needed
+  if (!mediaUrl || mediaUrl.includes(R2_PUBLIC_DOMAIN)) return mediaUrl;
+  // Non-HTTP URL → return as-is; validation will catch it later
+  if (!mediaUrl.startsWith("http")) return mediaUrl;
+
+  // Binding is SOCIAL_MEDIA_BUCKET (wrangler.workers.toml [[r2_buckets]] binding)
+  const bucket = env()?.SOCIAL_MEDIA_BUCKET;
+  if (!bucket) {
+    console.warn("INSTAGRAM_R2_UPLOAD_SKIPPED: SOCIAL_MEDIA_BUCKET not configured, using original URL");
+    return mediaUrl;
+  }
+
+  try {
+    const response = await fetch(mediaUrl, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} fetching media`);
+    }
+
+    const contentType = response.headers.get("content-type");
+    const ext = detectExtension(mediaUrl, contentType);
+    const mimeType = ALLOWED_EXTENSIONS[ext] ?? "application/octet-stream";
+    const timestamp = Date.now();
+    const key = `posts/${postId}/${timestamp}.${ext}`;
+
+    const body = await response.arrayBuffer();
+    await bucket.put(key, body, { httpMetadata: { contentType: mimeType } });
+
+    const publicUrl = `${R2_PUBLIC_BASE}/${key}`;
+    console.log("INSTAGRAM_MEDIA_UPLOADED_TO_R2", {
+      postId,
+      key,
+      bytes: body.byteLength,
+      originalUrl: mediaUrl,
+      publicUrl,
+    });
+    return publicUrl;
+  } catch (err) {
+    // Non-fatal: fall back to original URL and let Instagram attempt to fetch it directly
+    console.error("INSTAGRAM_R2_UPLOAD_FAILED", {
+      postId,
+      mediaUrl,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return mediaUrl;
+  }
+}
+
+// ---------------------------------------------------------------------------
+
 function mapToInstagramContentType(ct: SaasSocialContentType): InstagramPostContentType {
   if (ct === "REEL" || ct === "SHORT" || ct === "STORY") return ct;
   return "FEED"; // FEED, CAROUSEL, unknown → image feed post
@@ -53,14 +135,17 @@ async function publishToInstagram(input: {
 }): Promise<{ externalPostId?: string | null }> {
   const creds = await requireInstagramCredentials(input.account);
   const caption = input.post.body?.trim() || input.post.title;
-  const mediaUrl = input.post.imageHint?.trim() ?? "";
+  const rawMediaUrl = input.post.imageHint?.trim() ?? "";
 
-  if (!mediaUrl.startsWith("http")) {
+  if (!rawMediaUrl.startsWith("http")) {
     throw new InstagramPublishingError(
       "A public HTTPS media URL is required. Set the imageHint field on the post.",
       { code: "INSTAGRAM_MEDIA_REQUIRED" },
     );
   }
+
+  // Re-host via R2 so Instagram can always fetch the media
+  const mediaUrl = await uploadMediaToR2(rawMediaUrl, input.post.id);
 
   const contentType = mapToInstagramContentType(input.post.contentType);
   const result = await publishInstagramContent({
