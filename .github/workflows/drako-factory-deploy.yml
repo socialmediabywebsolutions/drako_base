@@ -330,8 +330,12 @@ jobs:
             echo "SOCIALFLOW_STANDALONE_ARTIFACT_FAKE"
             exit 1
           fi
-          grep -q 'main = "../../.open-next/socialflows-standalone/worker.js"' workers/socialflows/wrangler.workers.toml
+          grep -q 'main = "src/cron-worker.ts"' workers/socialflows/wrangler.workers.toml
           grep -q 'directory = "../../.open-next/socialflows-standalone/assets"' workers/socialflows/wrangler.workers.toml
+          if grep -q 'main = "../../.open-next/socialflows-standalone/worker.js"' workers/socialflows/wrangler.workers.toml; then
+            echo "SOCIALFLOW_STANDALONE_REGRESSED_MAIN"
+            exit 1
+          fi
           if grep -q 'main = "../../.open-next/socialflows/worker.js"' workers/socialflows/wrangler.workers.toml; then
             echo "SOCIALFLOW_STANDALONE_NOT_ACTIVATED"
             exit 1
