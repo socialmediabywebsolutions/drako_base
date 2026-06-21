@@ -153,7 +153,9 @@ export async function publishInstagramContent(
   const isReel = contentType === "REEL" || contentType === "SHORT";
   const isStory = contentType === "STORY";
   const isVideoStory = isStory && isVideoUrl(mediaUrl);
-  const needsVideoPolling = isReel || isVideoStory;
+  // Poll container status for all content types: videos need it for FINISHED,
+  // images can also return IN_PROGRESS briefly after container creation.
+  const needsVideoPolling = true;
 
   // Step 1 — Build and POST the media container
   const containerUrl = new URL(`${apiBase}/${igUserId}/media`);
