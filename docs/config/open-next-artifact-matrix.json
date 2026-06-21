@@ -168,7 +168,7 @@
       "artifactMode": "standalone-runtime",
       "artifactState": "active",
       "wranglerConfigPath": "workers/socialflows/wrangler.workers.toml",
-      "currentWranglerMain": "src/cron-worker.ts",
+      "currentWranglerMain": "../../.open-next/socialflows-standalone/worker.js",
       "currentWranglerAssetsDirectory": "../../.open-next/socialflows-standalone/assets",
       "plannedWorkerPath": ".open-next/socialflows-standalone/worker.js",
       "plannedAssetsPath": ".open-next/socialflows-standalone/assets",
@@ -180,7 +180,7 @@
     "Drako, Mentoria and Bases run on dedicated wrapper artifacts; SocialFlow runs on a standalone runtime artifact.",
     "Drako is activated on .open-next/drakos/worker.js and .open-next/drakos/assets; do not regress workers/drakos/wrangler.workers.toml back to the shared .open-next runtime.",
     "Bases is activated on .open-next/bases/worker.js and .open-next/bases/assets; do not regress workers/bases/wrangler.workers.toml back to the shared .open-next runtime.",
-    "SocialFlow standalone uses src/cron-worker.ts as wrangler main (thin wrapper that delegates fetch to .open-next/socialflows-standalone/worker.js and adds a cron scheduled handler); do not regress wrangler.workers.toml main back to the bare .open-next path.",
+    "SocialFlow standalone is active at .open-next/socialflows-standalone/worker.js and .open-next/socialflows-standalone/assets; do not regress workers/socialflows/wrangler.workers.toml back to .open-next/socialflows/worker.js or .open-next/worker.js.",
     "The global OpenNext artifact .open-next/worker.js remains the generation source for transparent per-product wrappers."
   ]
 }
