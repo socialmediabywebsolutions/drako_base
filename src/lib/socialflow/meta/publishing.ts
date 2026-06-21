@@ -9,9 +9,9 @@ import type { SaasSocialAccount } from "@/lib/social-core/types";
 const IG_GRAPH_BASE = "https://graph.instagram.com/v22.0";
 const FB_GRAPH_BASE = "https://graph.facebook.com/v19.0";
 
-// Video container processing can take up to 30 s; poll every 3 s.
-const VIDEO_POLL_INTERVAL_MS = 3_000;
-const VIDEO_POLL_MAX_MS = 25_000; // stay under Cloudflare Workers 30 s CPU limit
+// fetch() awaits don't count toward Workers CPU time — use wall-clock budget.
+const VIDEO_POLL_INTERVAL_MS = 2_000;
+const VIDEO_POLL_MAX_MS = 90_000;
 
 // ---------------------------------------------------------------------------
 // Error class
