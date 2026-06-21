@@ -51,7 +51,7 @@ async function publishToLinkedIn(input: {
 // we fall back to the original URL.
 // ---------------------------------------------------------------------------
 
-const R2_PUBLIC_DOMAIN = "pub-04c73ba67921499bac35a1f62402cc17.r2.dev";
+const R2_PUBLIC_DOMAIN = "pub-04c730a67921499bac35a1f62402cc17.r2.dev";
 const R2_PUBLIC_BASE = `https://${R2_PUBLIC_DOMAIN}`;
 
 const ALLOWED_EXTENSIONS: Record<string, string> = {
