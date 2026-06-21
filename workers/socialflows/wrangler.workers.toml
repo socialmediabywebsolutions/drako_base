@@ -1,8 +1,11 @@
 name = "saas-socialflows-prod"
-main = "../../.open-next/socialflows-standalone/worker.js"
+main = "src/cron-worker.ts"
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = false
+
+[triggers]
+crons = ["*/5 * * * *"]
 
 [assets]
 directory = "../../.open-next/socialflows-standalone/assets"
