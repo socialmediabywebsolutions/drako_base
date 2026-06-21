@@ -74,7 +74,7 @@ function detectExtension(url: string, contentType: string | null): string {
   return "jpg";
 }
 
-async function uploadMediaToR2(mediaUrl: string, postId: string): Promise<string> {
+export async function uploadMediaToR2(mediaUrl: string, postId: string): Promise<string> {
   // Already an R2 URL → no re-upload needed
   if (!mediaUrl || mediaUrl.includes(R2_PUBLIC_DOMAIN)) return mediaUrl;
   // Non-HTTP URL → return as-is; validation will catch it later

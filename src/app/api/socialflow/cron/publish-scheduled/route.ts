@@ -28,6 +28,7 @@ import {
   InstagramPublishingError,
   type InstagramPostContentType,
 } from "@/lib/socialflow/meta/publishing";
+import { uploadMediaToR2 } from "@/lib/socialflow/live-publishing";
 
 function verifyCronSecret(request: Request): boolean {
   const cronSecret = env()?.CRON_SECRET;
@@ -140,13 +141,16 @@ export async function POST(request: Request) {
   });
 
   try {
+    // Re-host via R2 so Instagram can always fetch the media
+    const mediaUrl = await uploadMediaToR2(imageHint, accountId);
+
     const result = await publishInstagramContent({
       accessToken: creds.accessToken,
       igUserId: creds.igUserId,
       apiBase: creds.apiBase,
       caption,
       contentType,
-      mediaUrl: imageHint,
+      mediaUrl,
     });
 
     console.log("CRON_PUBLISH_SCHEDULED_OK", {
