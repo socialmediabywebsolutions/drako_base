@@ -16,6 +16,8 @@ type AuditEngineInput = {
   profile: ChannelProfile;
   competitors: ChannelCompetitor[];
   metrics?: AuditMetrics | null;
+  tenantId?: string;
+  saasId?: string;
 };
 
 type AuditBase = {
@@ -231,6 +233,6 @@ para calibrar el score y las recomendaciones.`;
     "Eres el motor de auditoria social estrategica de SocialFlow. Analiza perfiles de marca y devuelve diagnosticos " +
     "honestos, especificos y orientados a accion. Responde SOLO con JSON valido que coincida exactamente con la forma solicitada.";
 
-  const { data } = await intelligenceModel.generateStructured({ prompt, system }, () => base);
+  const { data } = await intelligenceModel.generateStructured({ prompt, system, tenantId: input.tenantId, saasId: input.saasId }, () => base);
   return data;
 }

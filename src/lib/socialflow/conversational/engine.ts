@@ -38,7 +38,7 @@ export async function generateConversationalReply(
   const prompt = buildPrompt(input);
 
   const result = await intelligenceModel.generateStructured(
-    { prompt, system },
+    { prompt, system, tenantId: input.tenantId, saasId: input.saasId },
     () => ({ suggestedReply: "" }),
   );
 

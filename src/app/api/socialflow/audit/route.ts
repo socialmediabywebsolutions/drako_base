@@ -65,6 +65,8 @@ export async function GET(request: Request) {
         profile: snapshot.profile,
         competitors: snapshot.competitors,
         metrics,
+        tenantId: session.tenantId,
+        saasId,
       });
       audit = await upsertAudit(session.tenantId, generated, saasId);
     }
@@ -95,6 +97,8 @@ export async function POST(request: Request) {
       profile: snapshot.profile,
       competitors: snapshot.competitors,
       metrics,
+      tenantId: session.tenantId,
+      saasId,
     });
     const audit = await upsertAudit(session.tenantId, generated, saasId);
 

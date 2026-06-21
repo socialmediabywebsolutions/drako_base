@@ -29,7 +29,7 @@ export async function GET(request: Request) {
       let audit = await getLatestAudit(session.tenantId, saasId);
       if (!audit) {
         const snapshot = await getChannelKnowledge(session.tenantId, saasId);
-        const generated = await generateSocialAudit({ profile: snapshot.profile, competitors: snapshot.competitors });
+        const generated = await generateSocialAudit({ profile: snapshot.profile, competitors: snapshot.competitors, tenantId: session.tenantId, saasId });
         audit = await upsertAudit(session.tenantId, generated, saasId);
       }
       await seedFeedItems(session.tenantId, buildFeedItemsFromAudit(audit), saasId);

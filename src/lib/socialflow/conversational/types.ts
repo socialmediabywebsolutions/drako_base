@@ -41,6 +41,8 @@ export type ConversationalReplyInput = {
   senderName?: string | null;
   profile: ChannelProfile;
   knowledge: ChannelKnowledgeSnapshot;
+  tenantId?: string;
+  saasId?: string;
 };
 
 export type ConversationalReplyOutput = {

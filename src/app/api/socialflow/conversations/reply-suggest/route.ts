@@ -31,6 +31,8 @@ export async function POST(request: Request) {
       threadType,
       profile: knowledge.profile,
       knowledge,
+      tenantId: session.tenantId,
+      saasId,
     });
 
     return new Response(JSON.stringify({ ok: true, suggestedReply, aiMetadata }), {

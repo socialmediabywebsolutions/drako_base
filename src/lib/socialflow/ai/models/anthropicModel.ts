@@ -1,4 +1,5 @@
 import { env } from "@/lib/cf";
+import { reportAiUsage } from "@/lib/ai/usage";
 import {
   attachMeta,
   defaultLocalModel,
@@ -61,7 +62,10 @@ export class AnthropicLocalModel implements LocalModelClient {
         throw new Error(`SOCIALFLOW_ANTHROPIC_HTTP_${response.status}`);
       }
 
-      const payload = (await response.json()) as { content?: Array<{ type: string; text?: string }> };
+      const payload = (await response.json()) as {
+        content?: Array<{ type: string; text?: string }>;
+        usage?: { input_tokens?: number; output_tokens?: number };
+      };
       const text = payload.content?.find((block) => block.type === "text")?.text;
       if (!text) {
         throw new Error("SOCIALFLOW_ANTHROPIC_EMPTY_RESPONSE");
@@ -77,6 +81,17 @@ export class AnthropicLocalModel implements LocalModelClient {
         engine: "anthropic",
         model: ANTHROPIC_MODEL,
       });
+
+      // Report exact token usage from Anthropic's response
+      if (req.tenantId && req.saasId) {
+        void reportAiUsage({
+          tenantId: req.tenantId,
+          saasId: req.saasId,
+          model: ANTHROPIC_MODEL,
+          tokensIn: payload.usage?.input_tokens ?? 0,
+          tokensOut: payload.usage?.output_tokens ?? 0,
+        });
+      }
 
       return {
         data: decorated as unknown as T,

@@ -1,8 +1,12 @@
 import { env } from "@/lib/cf";
+import { reportAiUsage } from "@/lib/ai/usage";
 
 export type LocalModelRequest = {
   prompt: string;
   system?: string;
+  // Optional context for AI cost tracking
+  tenantId?: string;
+  saasId?: string;
 };
 
 export type LocalModelResponse<T> = {
@@ -129,6 +133,14 @@ export class WorkersAiLocalModel implements LocalModelClient {
         engine: "workers-ai",
         model: WORKERS_AI_MODEL,
       });
+
+      // Estimate token counts from prompt/output length (Workers AI doesn't report them)
+      if (req.tenantId && req.saasId) {
+        const promptText = `${req.system ?? ""} ${req.prompt}`;
+        const estimatedIn = Math.ceil(promptText.length / 4);
+        const estimatedOut = Math.ceil(cleaned.length / 4);
+        void reportAiUsage({ tenantId: req.tenantId, saasId: req.saasId, model: WORKERS_AI_MODEL, tokensIn: estimatedIn, tokensOut: estimatedOut });
+      }
 
       return {
         data: decorated as unknown as T,
