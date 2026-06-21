@@ -41,6 +41,7 @@ export type InstagramOAuthState = {
   tenantId: string;
   saasId: string;
   redirectTo: string;
+  callbackUrl: string;
 };
 
 export type InstagramTokenResponse = {
@@ -139,8 +140,9 @@ export function parseInstagramOAuthState(raw: string | null | undefined): Instag
     const tenantId = typeof parsed.tenantId === "string" ? parsed.tenantId.trim() : "";
     const saasId = typeof parsed.saasId === "string" ? parsed.saasId.trim() : "";
     const redirectTo = typeof parsed.redirectTo === "string" ? parsed.redirectTo.trim() : SETTINGS_REDIRECT;
+    const callbackUrl = typeof parsed.callbackUrl === "string" ? parsed.callbackUrl.trim() : "";
     if (!tenantId || !saasId) return null;
-    return { tenantId, saasId, redirectTo: redirectTo || SETTINGS_REDIRECT };
+    return { tenantId, saasId, redirectTo: redirectTo || SETTINGS_REDIRECT, callbackUrl };
   } catch {
     return null;
   }
@@ -162,7 +164,9 @@ export function buildInstagramAuthorizationUrl(input: {
     tenantId: input.tenantId,
     saasId: input.saasId,
     redirectTo: input.redirectTo?.trim() || `${SETTINGS_REDIRECT}?saasId=${encodeURIComponent(input.saasId)}`,
+    callbackUrl,
   });
+  console.log("INSTAGRAM_BUILD_AUTH_URL", { appId, callbackUrl });
 
   const url = new URL(INSTAGRAM_AUTHORIZE_URL);
   url.searchParams.set("force_reauth", "true");

@@ -8,6 +8,7 @@ import {
   parseInstagramOAuthState,
   persistInstagramOAuthConnection,
   resolveInstagramCallbackUrl,
+  INSTAGRAM_OAUTH_CALLBACK_PATH,
 } from "@/lib/socialflow/instagram/oauth";
 
 const DEFAULT_REDIRECT = "/socialflow/settings/accounts";
@@ -56,12 +57,17 @@ export async function GET(request: Request) {
   }
 
   try {
-    const callbackUrl = resolveInstagramCallbackUrl(request);
+    // Use the callbackUrl stored in state during /connect — guarantees both
+    // steps send the identical redirect_uri Instagram validated in the auth dialog.
+    // Fall back to resolveInstagramCallbackUrl only for legacy states without it.
+    const callbackUrl = state.callbackUrl || resolveInstagramCallbackUrl(request);
     console.log("INSTAGRAM_OAUTH_CALLBACK_START", {
       saasId: state.saasId,
       tenantId: state.tenantId,
       callbackUrl,
+      callbackUrlSource: state.callbackUrl ? "state" : "derived",
       code_length: code.length,
+      callbackPath: INSTAGRAM_OAUTH_CALLBACK_PATH,
     });
 
     // Step 1 — exchange code for short-lived token
