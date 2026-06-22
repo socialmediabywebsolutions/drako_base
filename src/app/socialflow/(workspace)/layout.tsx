@@ -17,6 +17,7 @@ const navItems = [
   { href: "/socialflow/conversations", label: "Conversations" },
   { href: "/socialflow/leads", label: "Leads" },
   { href: "/socialflow/plan", label: "Plan editorial" },
+  { href: "/socialflow/knowledge", label: "Knowledge Base" },
   { href: "/socialflow/profile", label: "Profile" },
   { href: "/socialflow/settings/account", label: "Account" },
   { href: "/socialflow/settings/accounts", label: "Accounts" },
