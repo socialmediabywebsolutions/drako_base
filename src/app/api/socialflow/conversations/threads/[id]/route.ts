@@ -14,6 +14,7 @@ const VALID_STATUSES: ConversationThreadStatus[] = [
   "APPROVED",
   "SENT",
   "DISMISSED",
+  "NEEDS_HUMAN",
 ];
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
