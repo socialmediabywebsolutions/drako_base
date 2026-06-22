@@ -4,12 +4,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { env } from "@/lib/cf";
 
-const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-const ALLOWED_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"]);
+const MAX_BYTES = 200 * 1024 * 1024; // 200 MB (covers video)
+const ALLOWED_TYPES = new Set([
+  "image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif",
+  "video/mp4", "video/quicktime",
+]);
 
 function ext(mimeType: string): string {
   const sub = mimeType.split("/")[1] ?? "jpg";
-  return sub === "jpeg" ? "jpg" : sub;
+  if (sub === "jpeg") return "jpg";
+  if (sub === "quicktime") return "mov";
+  return sub;
 }
 
 export async function POST(req: NextRequest) {
@@ -42,10 +47,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "FILE_REQUIRED", message: "file field is required" }, { status: 400 });
   }
   if (!ALLOWED_TYPES.has(file.type)) {
-    return NextResponse.json({ error: "INVALID_TYPE", message: "Only JPEG, PNG, WebP and GIF are supported" }, { status: 400 });
+    return NextResponse.json({ error: "INVALID_TYPE", message: "Only JPEG, PNG, WebP, GIF, MP4 and MOV are supported" }, { status: 400 });
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "FILE_TOO_LARGE", message: "File exceeds 10 MB limit" }, { status: 400 });
+    return NextResponse.json({ error: "FILE_TOO_LARGE", message: "File exceeds 200 MB limit" }, { status: 400 });
   }
 
   try {
@@ -57,6 +62,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url, key, size: file.size, type: file.type });
   } catch (error) {
     console.error("[MediaUpload] R2 put failed", error);
-    return NextResponse.json({ error: "UPLOAD_FAILED", message: "Failed to store image" }, { status: 500 });
+    return NextResponse.json({ error: "UPLOAD_FAILED", message: "Failed to store file" }, { status: 500 });
   }
 }

@@ -367,10 +367,10 @@ function CreatePostModal(p: CreateModalProps) {
             </div>
           </div>
 
-          {/* Image */}
+          {/* Media */}
           <div>
             <label className="mb-1.5 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-slate-500">
-              Imagen
+              Imagen / Vídeo
               {p.provider === "INSTAGRAM" && <span className="text-rose-500">*</span>}
               {p.provider !== "INSTAGRAM" && <span className="font-normal normal-case text-slate-400">(opcional)</span>}
             </label>
@@ -379,7 +379,7 @@ function CreatePostModal(p: CreateModalProps) {
                 type="url"
                 value={p.imageUrl}
                 onChange={e => p.onImageUrlChange(e.target.value)}
-                placeholder="https://ejemplo.com/imagen.jpg"
+                placeholder="https://ejemplo.com/media.jpg"
                 className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
               <label className={[
@@ -394,7 +394,7 @@ function CreatePostModal(p: CreateModalProps) {
                 {p.imageUploading ? "Subiendo…" : "Subir"}
                 <input
                   type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime"
                   className="hidden"
                   disabled={p.imageUploading}
                   onChange={e => { const f = e.target.files?.[0]; if (f) p.onFileSelect(f); e.target.value = ""; }}
@@ -403,8 +403,12 @@ function CreatePostModal(p: CreateModalProps) {
             </div>
             {p.imageUrl.startsWith("http") && (
               <div className="mt-2 flex items-start gap-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.imageUrl} alt="Preview" className="h-20 w-20 rounded-xl border border-slate-200 object-cover" />
+                {/\.(mp4|mov)(\?|$)/i.test(p.imageUrl) ? (
+                  <video src={p.imageUrl} className="h-20 w-20 rounded-xl border border-slate-200 object-cover" muted playsInline />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.imageUrl} alt="Preview" className="h-20 w-20 rounded-xl border border-slate-200 object-cover" />
+                )}
                 <button
                   type="button"
                   onClick={() => p.onImageUrlChange("")}
@@ -416,7 +420,7 @@ function CreatePostModal(p: CreateModalProps) {
             )}
             {p.provider === "INSTAGRAM" && !p.imageUrl.startsWith("http") && (
               <p className="mt-1.5 text-xs text-amber-600">
-                Instagram requiere una imagen pública. Pega una URL o sube un archivo.
+                Instagram requiere una imagen o vídeo público. Pega una URL o sube un archivo.
               </p>
             )}
           </div>
@@ -583,12 +587,12 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
       const res = await fetch("/api/socialflow/media/upload", { method: "POST", body: form });
       const data = (await res.json()) as { url?: string; error?: string; message?: string };
       if (!res.ok || !data.url) {
-        setFError(data.message ?? data.error ?? "Error al subir la imagen.");
+        setFError(data.message ?? data.error ?? "Error al subir el archivo.");
         return;
       }
       setFImageUrl(data.url);
     } catch {
-      setFError("No se pudo subir la imagen. Pega la URL directamente.");
+      setFError("No se pudo subir el archivo. Pega la URL directamente.");
     } finally {
       setFImageUploading(false);
     }
@@ -598,7 +602,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
   async function submitCreate() {
     if (!fContent.trim()) { setFError("El contenido es requerido."); return; }
     if (fProvider === "INSTAGRAM" && !fImageUrl.trim().startsWith("http")) {
-      setFError("Instagram requiere una URL de imagen pública válida.");
+      setFError("Instagram requiere una URL de imagen o vídeo pública válida.");
       return;
     }
     if (fSchedule && !fDate) { setFError("Selecciona una fecha para programar."); return; }
