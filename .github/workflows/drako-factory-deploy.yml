@@ -581,6 +581,87 @@ jobs:
             exit 1
           }
 
+      - name: Apply SocialFlow auth schema on dedicated auth D1
+        run: |
+          set -euo pipefail
+          wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config workers/socialflows/wrangler.workers.toml \
+            --file migrations/0142_socialflow_auths.sql
+          wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config workers/socialflows/wrangler.workers.toml \
+            --file migrations/0196_socialflow_password_reset_tokens.sql
+
+      - name: Verify SocialFlow auth tables exist on dedicated auth D1
+        run: |
+          set -euo pipefail
+          OUTPUT="$(wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config workers/socialflows/wrangler.workers.toml \
+            --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('socialflow_users','socialflow_credentials','socialflow_sessions','socialflow_password_reset_tokens');")"
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "socialflow_users" || {
+            echo "BLOCKED: socialflow_users missing in SocialFlow auth D1 after migrations."
+            exit 1
+          }
+          echo "$OUTPUT" | grep -q "socialflow_sessions" || {
+            echo "BLOCKED: socialflow_sessions missing in SocialFlow auth D1 after migrations."
+            exit 1
+          }
+
+      - name: Apply SocialFlow product schema on SOCIAL_DB
+        run: |
+          set -euo pipefail
+          for migration in \
+            migrations/0184_socialflow_runtime_social_db.sql \
+            migrations/0185_socialflow_profiles.sql \
+            migrations/0187_socialflow_seed_metadata.sql \
+            migrations/0188_socialflow_export_read_models.sql \
+            migrations/0189_socialflow_oauth_connections.sql \
+            migrations/0190_socialflow_legacy_read_models.sql \
+            migrations/0191_socialflow_intelligence_core.sql \
+            migrations/0192_socialflow_social_metrics_snapshots.sql \
+            migrations/0193_socialflow_conversation_engine.sql \
+            migrations/0197_socialflow_knowledge_documents.sql; do
+            echo "Applying ${migration}..."
+            wrangler d1 execute SOCIAL_DB --remote --config workers/socialflows/wrangler.workers.toml \
+              --file "${migration}"
+          done
+
+      - name: Verify SocialFlow product tables exist in SOCIAL_DB
+        run: |
+          set -euo pipefail
+          OUTPUT="$(wrangler d1 execute SOCIAL_DB --remote --config workers/socialflows/wrangler.workers.toml \
+            --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('saas_social_accounts','saas_social_posts','saas_social_metrics','socialflow_conversation_threads','socialflow_knowledge_documents');")"
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "saas_social_accounts" || {
+            echo "BLOCKED: saas_social_accounts missing in SOCIAL_DB after migrations."
+            exit 1
+          }
+          echo "$OUTPUT" | grep -q "saas_social_posts" || {
+            echo "BLOCKED: saas_social_posts missing in SOCIAL_DB after migrations."
+            exit 1
+          }
+          echo "$OUTPUT" | grep -q "socialflow_conversation_threads" || {
+            echo "BLOCKED: socialflow_conversation_threads missing in SOCIAL_DB after migrations."
+            exit 1
+          }
+          echo "$OUTPUT" | grep -q "socialflow_knowledge_documents" || {
+            echo "BLOCKED: socialflow_knowledge_documents missing in SOCIAL_DB after migrations."
+            exit 1
+          }
+
+      - name: Apply global schema additions on DRACO_DB (idempotent)
+        run: |
+          set -euo pipefail
+          # 0194: ALTER TABLE ADD COLUMN — skip if columns already exist
+          if ! wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
+            --command "SELECT saas_id FROM ai_usage_counters LIMIT 1;" > /dev/null 2>&1; then
+            echo "Applying 0194_ai_usage_counters_saas_id.sql (columns not yet present)..."
+            wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
+              --file migrations/0194_ai_usage_counters_saas_id.sql
+          else
+            echo "0194 already applied — skipping."
+          fi
+          # 0195: CREATE TABLE IF NOT EXISTS — always idempotent
+          wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
+            --file migrations/0195_sso_tokens.sql
+
       - name: Validate Cloudflare account identifier
         run: |
           set -euo pipefail
