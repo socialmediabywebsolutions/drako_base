@@ -7,7 +7,8 @@ import { OptimizationAgent } from "./agents/OptimizationAgent";
 import { SchedulerAgent } from "./agents/SchedulerAgent";
 import { TrendAgent } from "./agents/TrendAgent";
 import type { BrandProfile, SocialAIPipelineInput, SocialAIPipelineResult, StrategyItem } from "./types";
-import { getSaasSocialChannelKnowledge, getSaasSocialChannelSignals, listSaasSocialChannels, resolveSocialContext, upsertSaasSocialCampaign, upsertSaasSocialChannelKnowledge, upsertSaasSocialChannelSignals, upsertSaasSocialPost } from "../repository";
+import { listSaasSocialChannels, resolveSocialContext, upsertSaasSocialCampaign, upsertSaasSocialPost } from "../repository";
+import { getChannelKnowledge, saveCompetitorInsights } from "../profile/repository";
 
 export class SocialFlowOrchestrator {
   private marketResearch = new MarketResearchAgent();
@@ -20,67 +21,62 @@ export class SocialFlowOrchestrator {
   private trendAgent = new TrendAgent();
 
   private async buildProfile(input: SocialAIPipelineInput): Promise<BrandProfile> {
-    const ctx = await resolveSocialContext({ tenantId: input.tenantId, saasId: input.saasId });
-    const channels = await listSaasSocialChannels(ctx);
-    const channel = channels[0];
-    const knowledge = channel ? await getSaasSocialChannelKnowledge(ctx, channel.id) : null;
-    const signals = channel ? await getSaasSocialChannelSignals(ctx, channel.id) : null;
-    const brandIdentity = input.saasId.replace(/[-_]/g, " ");
+    const { profile, competitors } = await getChannelKnowledge(input.tenantId, input.saasId);
+
+    const niche = profile.niche || input.niche || input.saasId;
+    const tone = profile.toneOfVoice || input.tone || "professional";
+    const brandName = profile.brandName || input.saasId.replace(/[-_]/g, " ");
+
     return {
-      brandIdentity,
-      channelHandle: `@${input.saasId}`,
-      shortDescription: knowledge?.objective ?? `${input.niche} social automation`,
-      longDescription: knowledge?.audience ?? `${input.niche} content pipeline stored in SOCIAL_DB.`,
-      mission: knowledge?.objective ?? `Grow ${input.saasId} with consistent social execution.`,
-      valueProposition: knowledge?.objective ?? `Operational social content for ${input.niche}.`,
-      toneOfVoice: knowledge?.tone ?? input.tone,
-      personality: input.tone,
-      niche: knowledge?.objective ?? input.niche,
-      audience: knowledge?.audience ?? `${input.niche} buyers`,
-      buyerPersona: knowledge?.audience ?? `${input.niche} operator`,
-      painPoints: signals?.topics.length ? signals.topics : [input.niche],
-      desires: signals?.activeKeywords.length ? signals.activeKeywords : ["growth"],
-      objections: signals?.watchedCompetitors.length ? signals.watchedCompetitors : ["time"],
-      services: [],
-      products: [],
-      offers: [],
-      differentiators: signals?.watchedSources.length ? signals.watchedSources : ["SOCIAL_DB persistence"],
-      primaryCTA: "Book now",
-      secondaryCTAs: [],
-      baseKeywords: knowledge?.keywords.length ? knowledge.keywords : [input.niche],
-      priorityKeywords: knowledge?.keywords.length ? knowledge.keywords : [input.niche],
-      longTailKeywords: knowledge?.keywords.map((keyword) => `${keyword} ${input.saasId}`) ?? [`${input.niche} ${input.saasId}`],
-      baseHashtags: ["#socialflow", `#${input.saasId.replace(/[^a-z0-9]/gi, "")}`],
-      priorityHashtags: knowledge?.keywords.map((keyword) => `#${keyword.replace(/\s+/g, "")}`) ?? ["#growth"],
-      competitorHashtags: knowledge?.competitors.map((item) => `#${item.replace(/\s+/g, "")}`) ?? [],
-      contentPillars: signals?.topics.length ? signals.topics : [input.niche],
-      preferredFormats: ["carousel", "single"],
-      avoidedFormats: [],
-      viralThemes: signals?.topics ?? [],
-      trendingTopics: signals?.activeKeywords ?? [],
-      seasonalTopics: [],
-      marketSignals: signals?.topics ?? [],
-      opportunitySignals: signals?.activeKeywords ?? [],
-      demandSignals: knowledge?.keywords ?? [input.niche],
-      forbiddenTopics: [],
-      prohibitedClaims: [],
-      bannedWords: [],
-      forbiddenAngles: [],
+      brandIdentity: brandName,
+      channelHandle: profile.channelName ? `@${profile.channelName}` : `@${input.saasId}`,
+      shortDescription: profile.shortDescription || `${niche} social automation`,
+      longDescription: profile.longDescription || profile.shortDescription || `${niche} content pipeline`,
+      mission: profile.mission || `Grow ${brandName} with consistent social execution.`,
+      valueProposition: profile.valueProposition || `${niche} content for ${profile.audienceDescription || "your audience"}.`,
+      toneOfVoice: tone,
+      personality: profile.personality || tone,
+      niche,
+      audience: profile.audienceDescription || `${niche} buyers`,
+      buyerPersona: profile.buyerPersona || `${niche} operator`,
+      painPoints: profile.painPoints.length ? profile.painPoints : [niche],
+      desires: profile.desires.length ? profile.desires : ["growth"],
+      objections: profile.objections.length ? profile.objections : ["time"],
+      services: profile.services,
+      products: profile.products,
+      offers: profile.offers,
+      differentiators: profile.differentiators,
+      primaryCTA: profile.primaryCTA || "Book now",
+      secondaryCTAs: profile.secondaryCTAs,
+      baseKeywords: profile.baseKeywords.length ? profile.baseKeywords : [niche],
+      priorityKeywords: profile.priorityKeywords.length ? profile.priorityKeywords : [niche],
+      longTailKeywords: profile.longTailKeywords.length ? profile.longTailKeywords : [`${niche} ${brandName}`],
+      baseHashtags: profile.baseHashtags.length ? profile.baseHashtags : [`#${brandName.replace(/\s+/g, "").toLowerCase()}`],
+      priorityHashtags: profile.priorityHashtags.length ? profile.priorityHashtags : profile.baseKeywords.map((k) => `#${k.replace(/\s+/g, "")}`),
+      competitorHashtags: profile.competitorHashtags.length ? profile.competitorHashtags : competitors.map((c) => `#${c.name.replace(/\s+/g, "")}`),
+      contentPillars: profile.contentPillars.length ? profile.contentPillars : [niche],
+      preferredFormats: profile.preferredFormats.length ? profile.preferredFormats : ["carousel", "single"],
+      avoidedFormats: profile.avoidedFormats,
+      viralThemes: profile.viralThemes,
+      trendingTopics: profile.trendingTopics,
+      seasonalTopics: profile.seasonalTopics,
+      marketSignals: profile.marketSignals,
+      opportunitySignals: profile.opportunitySignals,
+      demandSignals: profile.demandSignals.length ? profile.demandSignals : [niche],
+      forbiddenTopics: profile.forbiddenTopics,
+      prohibitedClaims: profile.prohibitedClaims,
+      bannedWords: profile.bannedWords,
+      forbiddenAngles: profile.forbiddenAngles,
     };
   }
 
   async generateFullCampaign(input: SocialAIPipelineInput): Promise<SocialAIPipelineResult> {
     const profile = await this.buildProfile(input);
     const competitors = await this.competitorAgent.run({ niche: profile.niche });
+    // Persist AI-discovered competitor insights back into socialflow_profiles
+    await saveCompetitorInsights(input.tenantId, competitors, input.saasId).catch(() => {});
     const ctx = await resolveSocialContext({ tenantId: input.tenantId, saasId: input.saasId });
     const channels = await listSaasSocialChannels(ctx);
-    const channel = channels[0];
-    if (channel) {
-      const knowledge = await getSaasSocialChannelKnowledge(ctx, channel.id);
-      await upsertSaasSocialChannelKnowledge(ctx, { channelId: channel.id, objective: knowledge?.objective ?? input.niche, audience: knowledge?.audience ?? input.niche, tone: knowledge?.tone ?? input.tone, keywords: Array.from(new Set([...(knowledge?.keywords ?? []), input.niche])), competitors: Array.from(new Set([...(knowledge?.competitors ?? []), ...competitors.map((item) => item.name)])), sources: knowledge?.sources ?? [], updatedAt: new Date().toISOString() });
-      const signals = await getSaasSocialChannelSignals(ctx, channel.id);
-      await upsertSaasSocialChannelSignals(ctx, { channelId: channel.id, topics: Array.from(new Set([...(signals.topics ?? []), ...competitors.flatMap((item) => item.contentPatterns.slice(0, 2))])), activeKeywords: Array.from(new Set([...(signals.activeKeywords ?? []), input.niche])), trendNotes: signals.trendNotes ?? null, watchedCompetitors: Array.from(new Set([...(signals.watchedCompetitors ?? []), ...competitors.map((item) => item.name)])), watchedSources: Array.from(new Set([...(signals.watchedSources ?? []), ...competitors.map((item) => item.platform)])), updatedAt: new Date().toISOString() });
-    }
     const trends = await this.trendAgent.run({ profile });
     const { research, engine: keywordEngine } = await this.keywordAgent.run({ profile, trends });
     const horizonDays = Math.max(7, Math.min(30, Math.round((input.frequencyPerWeek / 7) * 30) || 7));
