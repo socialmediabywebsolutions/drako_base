@@ -112,10 +112,10 @@ export default function KnowledgeBasePage() {
       </div>
 
       {/* Panels */}
-      {panel === "upload" && <UploadPanel onSuccess={onSaved} onError={setError} />}
-      {panel === "url" && <UrlPanel onSuccess={onSaved} onError={setError} />}
-      {panel === "competitor" && <CompetitorPanel onSuccess={onSaved} onError={setError} />}
-      {panel === "market" && <MarketPanel onSuccess={onSaved} onError={setError} />}
+      {panel === "upload" && <UploadPanel onSuccess={onSaved} />}
+      {panel === "url" && <UrlPanel onSuccess={onSaved} />}
+      {panel === "competitor" && <CompetitorPanel onSuccess={onSaved} />}
+      {panel === "market" && <MarketPanel onSuccess={onSaved} />}
 
       {/* Market analysis */}
       {(marketDocs.length > 0 || !loading) && (
@@ -246,7 +246,7 @@ function DocRow({ doc, onDelete }: { doc: Doc; onDelete: (id: string) => void })
 
 /* ── Panel: Upload ───────────────────────────────────────────────────────── */
 
-function UploadPanel({ onSuccess, onError }: { onSuccess: (doc: Doc) => void; onError: (m: string) => void }) {
+function UploadPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
   const [uploading, setUploading] = useState(false);
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -301,7 +301,7 @@ function UploadPanel({ onSuccess, onError }: { onSuccess: (doc: Doc) => void; on
 
 /* ── Panel: URL ──────────────────────────────────────────────────────────── */
 
-function UrlPanel({ onSuccess, onError }: { onSuccess: (doc: Doc) => void; onError: (m: string) => void }) {
+function UrlPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
@@ -338,7 +338,7 @@ function UrlPanel({ onSuccess, onError }: { onSuccess: (doc: Doc) => void; onErr
 
 /* ── Panel: Competitor ───────────────────────────────────────────────────── */
 
-function CompetitorPanel({ onSuccess, onError }: { onSuccess: (doc: Doc) => void; onError: (m: string) => void }) {
+function CompetitorPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
@@ -378,7 +378,7 @@ function CompetitorPanel({ onSuccess, onError }: { onSuccess: (doc: Doc) => void
 
 /* ── Panel: Market ───────────────────────────────────────────────────────── */
 
-function MarketPanel({ onSuccess, onError }: { onSuccess: (doc: Doc) => void; onError: (m: string) => void }) {
+function MarketPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
