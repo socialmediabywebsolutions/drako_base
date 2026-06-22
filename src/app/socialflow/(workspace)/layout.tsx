@@ -39,29 +39,26 @@ export default async function SocialFlowWorkspaceLayout({
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col lg:flex-row">
-        <aside className="border-b border-slate-200 bg-white lg:min-h-screen lg:w-72 lg:border-b-0 lg:border-r">
-          <div className="space-y-8 p-6">
-            <div>
-              <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">SocialFlow</div>
-              <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-950">Isolated product runtime</h1>
-              <p className="mt-3 text-sm leading-6 text-slate-500">
-                This workspace is served from the SocialFlow product boundary and only uses canonical
-                `/socialflow/*` and `/api/socialflow/*` routes.
-              </p>
+        <aside className="border-b border-slate-200 bg-white lg:min-h-screen lg:w-64 lg:border-b-0 lg:border-r">
+          <div className="flex flex-col gap-6 p-5">
+            {/* Brand */}
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-[11px] font-black uppercase tracking-[0.22em] text-sky-600">SocialFlow</span>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-slate-950 p-5 text-white shadow-[0_20px_60px_rgba(15,23,42,0.20)]">
-              <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-200">Current workspace</div>
-              <div className="mt-3 text-lg font-black">{session.name ?? "SocialFlow workspace"}</div>
-              <div className="mt-2 text-sm text-slate-300">{session.email}</div>
+            {/* User card */}
+            <div className="rounded-2xl bg-slate-950 px-4 py-3 text-white">
+              <p className="truncate text-sm font-semibold leading-tight">{session.name ?? session.email}</p>
+              <p className="truncate text-xs text-slate-400">{session.email}</p>
             </div>
 
-            <nav className="space-y-2">
+            {/* Navigation */}
+            <nav className="flex flex-col gap-0.5">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="block rounded-2xl border border-transparent px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-200 hover:bg-slate-50 hover:text-slate-950"
+                  className="rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                 >
                   {item.label}
                 </Link>
