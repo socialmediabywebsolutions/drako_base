@@ -5,7 +5,8 @@ export type ConversationThreadStatus =
   | "AUTO_APPROVED"
   | "APPROVED"
   | "SENT"
-  | "DISMISSED";
+  | "DISMISSED"
+  | "NEEDS_HUMAN";
 
 export type ConversationThreadType = "DM" | "COMMENT";
 
@@ -41,6 +42,7 @@ export type ConversationalReplyInput = {
   senderName?: string | null;
   profile: ChannelProfile;
   knowledge: ChannelKnowledgeSnapshot;
+  knowledgeContext?: string;
   tenantId?: string;
   saasId?: string;
 };

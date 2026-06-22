@@ -3,8 +3,9 @@ name: 🔁 DKS Cron Runbook
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/5 * * * *"  # cada 5 minutos — auto-publish scheduled posts
-    - cron: "0 6 * * *"    # 06:00 UTC diario — social metrics sync
+    - cron: "*/5 * * * *"   # cada 5 minutos — auto-publish scheduled posts
+    - cron: "*/15 * * * *"  # cada 15 minutos — procesar comentarios de Instagram
+    - cron: "0 6 * * *"     # 06:00 UTC diario — social metrics sync
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -28,6 +29,25 @@ jobs:
             exit 1
           fi
           echo "✅ Publish cron completed successfully"
+
+  socialflow-process-comments:
+    name: 💬 SocialFlow — Procesar Comentarios Instagram
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '*/15 * * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: 🔗 Procesar comentarios con IA
+        run: |
+          STATUS=$(curl -s -o /tmp/comments_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/comments" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/comments_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Comments cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Comments cron completed successfully"
 
   social-metrics-cron:
     name: 📊 Social Metrics — Instagram Insights Sync

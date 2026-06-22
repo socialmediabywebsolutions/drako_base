@@ -358,4 +358,20 @@ export async function upsertConversationSettings(
   return getConversationSettings(ctx);
 }
 
+export async function threadExistsByPlatformId(
+  ctx: SocialContext,
+  platformThreadId: string,
+): Promise<boolean> {
+  await ensureConversationSchema(ctx.socialDb);
+  const saasId = ctx.saasId ?? "socialflow";
+  const row = await queryFirst<{ id: string }>(
+    ctx.socialDb,
+    `SELECT id FROM socialflow_conversation_threads WHERE tenant_id = ? AND saas_id = ? AND platform_thread_id = ? LIMIT 1`,
+    ctx.tenantId,
+    saasId,
+    platformThreadId,
+  );
+  return row !== null;
+}
+
 export { resolveSocialContext };

@@ -18,6 +18,7 @@ function buildSystemPrompt(input: ConversationalReplyInput): string {
     profile.primaryCTA ? `CTA principal: ${profile.primaryCTA}.` : "",
     `Palabras prohibidas: ${bannedWords}.`,
     `Temas prohibidos: ${forbiddenTopics}.`,
+    input.knowledgeContext ? `Base de conocimiento de la marca:\n${input.knowledgeContext}` : "",
     "Responde de forma concisa, en el mismo idioma del mensaje entrante, sin inventar datos.",
     "Responde ÚNICAMENTE con JSON válido con la clave 'suggestedReply'. Sin markdown ni comentarios.",
   ]
