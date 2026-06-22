@@ -289,7 +289,7 @@ function rewriteSocialFlowHostPath(req: NextRequest, pathname: string) {
 
   const url = new URL(req.url);
   url.pathname = "/socialflows";
-  return NextResponse.redirect(url, 308);
+  return NextResponse.rewrite(url);
 }
 
 /**
