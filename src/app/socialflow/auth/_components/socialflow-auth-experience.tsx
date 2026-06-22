@@ -12,37 +12,11 @@ type AuthResponseBody = {
   code?: string;
 };
 
-const commandSignals = [
-  { label: "Calendar clarity", value: "18 drafts aligned" },
-  { label: "Audience signal", value: "4 channels monitored" },
-  { label: "AI planning", value: "7 ideas ready" },
-];
-
-const queueItems = [
-  {
-    title: "Launch week narrative",
-    meta: "LinkedIn sequence",
-    status: "Ready for review",
-  },
-  {
-    title: "Founder insight post",
-    meta: "Personal brand",
-    status: "Tone matched",
-  },
-  {
-    title: "Comment follow-up map",
-    meta: "Relationship loop",
-    status: "Queued",
-  },
-];
-
 function resolveSafeRedirectTarget(rawTarget: string | null, fallback = "/socialflow") {
   if (!rawTarget) return fallback;
-
   try {
     const target = new URL(rawTarget, window.location.origin);
     if (target.origin !== window.location.origin) return fallback;
-
     return `${target.pathname}${target.search}${target.hash}` || fallback;
   } catch {
     return fallback;
@@ -71,19 +45,15 @@ export default function SocialFlowAuthExperience() {
     try {
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(
-          mode === "login"
-            ? { email, password }
-            : { email, name, password },
+          mode === "login" ? { email, password } : { email, name, password },
         ),
       });
 
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as AuthResponseBody;
-        throw new Error(payload.message || payload.error || payload.code || "Authentication failed.");
+        throw new Error(payload.message || payload.error || payload.code || "Error de autenticación.");
       }
 
       const redirectTarget = resolveSafeRedirectTarget(
@@ -91,213 +61,222 @@ export default function SocialFlowAuthExperience() {
       );
       window.location.assign(redirectTarget);
     } catch (authError) {
-      setError(authError instanceof Error ? authError.message : "Authentication failed.");
+      setError(authError instanceof Error ? authError.message : "Error de autenticación.");
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f7f2] text-[#111827]">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-72 bg-[linear-gradient(135deg,#0f2a2f_0%,#163b38_42%,#dbe7c5_100%)]" />
-        <div className="absolute left-0 top-72 h-px w-full bg-[#d3d8ca]" />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(17,24,39,0.05)_1px,transparent_1px),linear-gradient(180deg,rgba(17,24,39,0.04)_1px,transparent_1px)] bg-[size:44px_44px]" />
+    <main className="relative min-h-screen overflow-hidden bg-[#030312] text-white">
+
+      {/* Gradient orbs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="sf-orb-1 absolute left-[-15%] top-[-10%] h-[500px] w-[500px] rounded-full bg-violet-600/25 blur-[120px]" />
+        <div className="sf-orb-2 absolute right-[-10%] bottom-[-10%] h-[400px] w-[400px] rounded-full bg-fuchsia-600/20 blur-[100px]" />
+        <div className="sf-orb-3 absolute left-[40%] top-[50%] h-[300px] w-[300px] rounded-full bg-blue-600/15 blur-[90px]" />
       </div>
 
-      <section className="relative mx-auto flex min-h-screen w-full max-w-7xl items-center px-5 py-10 sm:px-8 lg:px-10">
-        <div className="grid w-full gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
-          <div className="text-white">
-            <div className="mb-8 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-sm font-black tracking-tight shadow-sm backdrop-blur">
-                SF
-              </div>
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.34em] text-[#dceec6]">
-                  SocialFlow
-                </p>
-                <p className="text-sm text-white/70">AI social operating system</p>
-              </div>
+      {/* Dot grid */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-15"
+        style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.15) 1px, transparent 1px)", backgroundSize: "32px 32px" }}
+      />
+
+      <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col items-center justify-center px-5 py-16 sm:px-8 lg:flex-row lg:items-center lg:gap-16 lg:py-10">
+
+        {/* Left — brand + preview */}
+        <div className="mb-10 w-full max-w-xl lg:mb-0 lg:flex-1">
+          {/* Logo */}
+          <Link href="/" className="mb-8 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-black shadow-lg shadow-violet-500/30">
+              SF
             </div>
+            <span className="text-xl font-black tracking-tight">
+              Social<span className="sf-shimmer-text">Flow</span>
+            </span>
+          </Link>
 
-            <div className="max-w-2xl">
-              <p className="mb-4 inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[#f2ffd7] backdrop-blur">
-                Private workspace access
-              </p>
-              <h1 className="text-balance text-5xl font-semibold leading-[0.96] tracking-[-0.055em] sm:text-6xl lg:text-7xl">
-                Turn social chaos into a guided growth rhythm.
-              </h1>
-              <p className="mt-6 max-w-xl text-lg leading-8 text-white/78">
-                Plan content, coordinate campaigns, read audience signals and keep
-                every brand conversation moving from one focused command center.
-              </p>
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-4 py-1.5">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-violet-300">
+              Sistema operativo de marketing con IA
+            </span>
+          </div>
+
+          <h1 className="mt-4 text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
+            La IA que gestiona tu marketing{" "}
+            <span className="sf-shimmer-text">mientras tú te dedicas a tu negocio.</span>
+          </h1>
+
+          <p className="mt-5 text-base leading-relaxed text-white/55">
+            Crea campañas completas, publica automáticamente, responde con tu voz y detecta leads — desde un único panel.
+          </p>
+
+          {/* Mini dashboard mockup */}
+          <div className="sf-float mt-10 overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d1a] shadow-2xl shadow-violet-900/20">
+            <div className="flex items-center gap-2 border-b border-white/5 bg-white/5 px-4 py-3">
+              <span className="h-2 w-2 rounded-full bg-red-500/70" />
+              <span className="h-2 w-2 rounded-full bg-yellow-500/70" />
+              <span className="h-2 w-2 rounded-full bg-green-500/70" />
+              <span className="ml-3 text-xs text-white/25">SocialFlow — Dashboard</span>
             </div>
-
-            <div className="mt-10 rounded-lg border border-[#183d3c]/15 bg-[#fbfcf7] p-4 text-[#172421] shadow-[0_28px_80px_rgba(17,24,39,0.18)] sm:p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d8decd] pb-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#5c6657]">
-                    Live command preview
-                  </p>
-                  <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
-                    Today&apos;s marketing flow
-                  </h2>
-                </div>
-                <span className="rounded-full bg-[#dff5b2] px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-[#25320d]">
-                  Staff gated
-                </span>
-              </div>
-
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                {commandSignals.map((signal) => (
-                  <div key={signal.label} className="rounded-md border border-[#d8decd] bg-white px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6b7564]">
-                      {signal.label}
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-[#13211f]">{signal.value}</p>
+            <div className="p-5">
+              <div className="mb-4 grid grid-cols-3 gap-2">
+                {[
+                  { l: "Publicaciones hoy", v: "12", c: "text-violet-400" },
+                  { l: "Leads detectados", v: "3", c: "text-fuchsia-400" },
+                  { l: "Engagement", v: "↑ 4.2%", c: "text-blue-400" },
+                ].map((stat) => (
+                  <div key={stat.l} className="rounded-lg border border-white/5 bg-white/5 p-3">
+                    <p className="text-[9px] text-white/35 mb-1">{stat.l}</p>
+                    <p className={`text-base font-black ${stat.c}`}>{stat.v}</p>
                   </div>
                 ))}
               </div>
-
-              <div className="mt-5 space-y-3">
-                {queueItems.map((item, index) => (
-                  <div
-                    key={item.title}
-                    className="grid gap-3 rounded-md border border-[#d8decd] bg-[#f7f9f0] p-4 sm:grid-cols-[auto_1fr_auto] sm:items-center"
-                  >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#153b39] text-sm font-bold text-[#e7ffd0]">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <p className="font-semibold tracking-[-0.02em] text-[#13211f]">{item.title}</p>
-                      <p className="text-sm text-[#657064]">{item.meta}</p>
-                    </div>
-                    <p className="text-sm font-semibold text-[#2f6f55]">{item.status}</p>
+              <div className="space-y-2">
+                {[
+                  { t: "10:00", net: "IG", msg: "Nuevo lanzamiento de producto", s: "✓ publicado", sc: "text-emerald-400" },
+                  { t: "14:30", net: "LK", msg: "Artículo de tendencias IA", s: "⏱ programado", sc: "text-white/30" },
+                  { t: "18:00", net: "TK", msg: "Behind the scenes del equipo", s: "⚡ generando…", sc: "text-fuchsia-400 animate-pulse" },
+                ].map((item) => (
+                  <div key={item.t} className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/3 px-3 py-2">
+                    <span className="w-9 shrink-0 text-[10px] text-white/25">{item.t}</span>
+                    <span className="rounded bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-bold text-violet-300">{item.net}</span>
+                    <span className="flex-1 truncate text-xs text-white/55">{item.msg}</span>
+                    <span className={`text-[10px] ${item.sc}`}>{item.s}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
+        </div>
 
-          <aside className="rounded-lg border border-[#d8decd] bg-[#fffdf7] p-5 shadow-[0_26px_70px_rgba(17,24,39,0.14)] sm:p-7 lg:ml-auto lg:w-full lg:max-w-md">
-            <div className="mb-7">
-              <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#75806f]">
-                Secure access
-              </p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.045em] text-[#111827]">
-                {mode === "login" ? "Enter your workspace" : "Create your workspace"}
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-[#5f685d]">
-                Use your SocialFlow identity to continue to the private marketing workspace.
-              </p>
+        {/* Right — auth form */}
+        <aside className="w-full max-w-md lg:flex-shrink-0">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-7 shadow-2xl shadow-violet-900/20 backdrop-blur-sm sm:p-9">
+
+            {/* Mode tabs */}
+            <div className="mb-7 grid grid-cols-2 overflow-hidden rounded-xl border border-white/10 bg-white/5 p-1">
+              {(["login", "register"] as SocialFlowAuthMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => { setMode(m); setError(null); }}
+                  className={`rounded-lg px-4 py-2.5 text-sm font-bold transition ${
+                    mode === m
+                      ? "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-md shadow-violet-500/20"
+                      : "text-white/40 hover:text-white/70"
+                  }`}
+                >
+                  {m === "login" ? "Iniciar sesión" : "Crear cuenta"}
+                </button>
+              ))}
             </div>
 
-            <div className="mb-6 grid grid-cols-2 rounded-md border border-[#d8decd] bg-[#eef2e6] p-1">
-              <button
-                type="button"
-                onClick={() => setMode("login")}
-                className={`rounded px-4 py-2.5 text-sm font-bold transition ${
-                  mode === "login"
-                    ? "bg-[#153b39] text-white shadow-sm"
-                    : "text-[#52604f] hover:text-[#111827]"
-                }`}
-              >
-                Sign in
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("register")}
-                className={`rounded px-4 py-2.5 text-sm font-bold transition ${
-                  mode === "register"
-                    ? "bg-[#153b39] text-white shadow-sm"
-                    : "text-[#52604f] hover:text-[#111827]"
-                }`}
-              >
-                Create
-              </button>
-            </div>
+            <h2 className="mb-1 text-2xl font-black tracking-tight text-white">
+              {mode === "login" ? "Bienvenido de vuelta" : "Empieza hoy"}
+            </h2>
+            <p className="mb-7 text-sm text-white/45">
+              {mode === "login"
+                ? "Accede a tu panel de marketing."
+                : "14 días gratis. Sin tarjeta de crédito."}
+            </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {mode === "register" ? (
-                <label className="block text-sm font-semibold text-[#26332f]">
-                  Name
+              {mode === "register" && (
+                <FieldLabel label="Tu nombre">
                   <input
                     required
                     value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    className="mt-2 w-full rounded-md border border-[#cfd7c6] bg-white px-4 py-3 text-[#111827] outline-none transition placeholder:text-[#9aa49a] focus:border-[#153b39] focus:ring-4 focus:ring-[#dff5b2]"
+                    onChange={(e) => setName(e.target.value)}
                     placeholder="Alex Rivera"
+                    className="auth-input"
                   />
-                </label>
-              ) : null}
+                </FieldLabel>
+              )}
 
-              <label className="block text-sm font-semibold text-[#26332f]">
-                Email
+              <FieldLabel label="Correo electrónico">
                 <input
                   required
                   type="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="mt-2 w-full rounded-md border border-[#cfd7c6] bg-white px-4 py-3 text-[#111827] outline-none transition placeholder:text-[#9aa49a] focus:border-[#153b39] focus:ring-4 focus:ring-[#dff5b2]"
-                  placeholder="you@company.com"
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tu@empresa.com"
+                  className="auth-input"
                 />
-              </label>
+              </FieldLabel>
 
-              <div>
-                <label className="block text-sm font-semibold text-[#26332f]">
-                  Password
-                  <input
-                    required
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    className="mt-2 w-full rounded-md border border-[#cfd7c6] bg-white px-4 py-3 text-[#111827] outline-none transition placeholder:text-[#9aa49a] focus:border-[#153b39] focus:ring-4 focus:ring-[#dff5b2]"
-                    placeholder="Your secure password"
-                  />
-                </label>
-                {mode === "login" && (
-                  <div className="mt-1.5 text-right">
+              <FieldLabel
+                label="Contraseña"
+                right={
+                  mode === "login" ? (
                     <Link
                       href="/socialflow/auth/reset-password"
-                      className="text-xs font-semibold text-[#153b39] hover:underline"
+                      className="text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors"
                     >
                       ¿Olvidaste tu contraseña?
                     </Link>
-                  </div>
-                )}
-              </div>
+                  ) : undefined
+                }
+              >
+                <input
+                  required
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Tu contraseña segura"
+                  className="auth-input"
+                />
+              </FieldLabel>
 
-              {error ? (
-                <p className="rounded-md border border-[#f2b6a0] bg-[#fff0e8] px-4 py-3 text-sm font-semibold text-[#973b18]">
+              {error && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-300">
                   {error}
-                </p>
-              ) : null}
+                </div>
+              )}
 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full rounded-md bg-[#153b39] px-5 py-3.5 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-[#0f2d2c] disabled:cursor-not-allowed disabled:bg-[#95a39d]"
+                className="mt-2 w-full rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-3.5 text-sm font-black tracking-wide text-white shadow-lg shadow-violet-500/25 transition hover:brightness-110 hover:shadow-violet-500/40 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting
-                  ? "Securing access..."
+                  ? "Un momento…"
                   : mode === "login"
-                    ? "Continue to SocialFlow"
-                    : "Create SocialFlow access"}
+                    ? "Entrar a SocialFlow"
+                    : "Crear mi cuenta"}
               </button>
             </form>
 
-            <div className="mt-6 border-t border-[#d8decd] pt-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#74806d]">
-                Runtime contract preserved
-              </p>
-              <p className="mt-2 text-sm leading-6 text-[#5f685d]">
-                Authentication stays on the existing SocialFlow API boundary. No social login,
-                payment flow or external tracker is introduced here.
-              </p>
-            </div>
-          </aside>
-        </div>
-      </section>
+            <p className="mt-6 text-center text-xs text-white/25">
+              Al continuar aceptas los{" "}
+              <span className="text-white/40">Términos de servicio</span> y la{" "}
+              <span className="text-white/40">Política de privacidad</span>.
+            </p>
+          </div>
+        </aside>
+      </div>
     </main>
+  );
+}
+
+function FieldLabel({
+  label,
+  right,
+  children,
+}: {
+  label: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-sm font-semibold text-white/70">{label}</span>
+        {right}
+      </div>
+      {children}
+    </label>
   );
 }

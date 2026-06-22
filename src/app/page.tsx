@@ -4,6 +4,7 @@ import { HostMode, resolveHostMode } from "@/lib/hosts";
 import { SiteLayout } from "@/components/marketing/SiteLayout";
 import { getMarketingCopy, resolveMarketingLocale, defaultMarketingLocale, type MarketingLocale } from "@/lib/i18n/marketing";
 import Link from "next/link";
+import SocialFlowLanding from "@/app/socialflows/_components/landing-client";
 
 const isHostMode = (value: string | null): value is HostMode =>
   value === "CAMPAMENTO_BASE" || value === "PREVIEW" || value === "PUBLIC_SAAS";
@@ -17,6 +18,9 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
 
   if (mode === "CAMPAMENTO_BASE") redirect("/admin");
   if (mode === "PREVIEW") redirect("/preview");
+
+  // Serve SocialFlow landing directly at socialflows.drako.systems/ — no redirect/rewrite needed
+  if (host.includes("socialflow")) return <SocialFlowLanding />;
 
   const matchedPath = headersList.get("x-matched-path") || headersList.get("x-invoke-path") || headersList.get("next-url") || "/";
   const pathParts = matchedPath.split("/");
