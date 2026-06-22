@@ -279,3 +279,40 @@ body::before {
     linear-gradient(to right, rgba(15, 23, 42, 0.03) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
 }
+
+/* ── SocialFlow Landing Animations ──────────────────────────────────────── */
+@keyframes sf-orb {
+  0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.5; }
+  33%       { transform: scale(1.15) translate(30px, -25px); opacity: 0.75; }
+  66%       { transform: scale(0.9) translate(-20px, 15px); opacity: 0.4; }
+}
+@keyframes sf-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-14px); }
+}
+@keyframes sf-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes sf-ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.sf-orb-1 { animation: sf-orb 9s ease-in-out infinite; }
+.sf-orb-2 { animation: sf-orb 11s ease-in-out infinite 3s; }
+.sf-orb-3 { animation: sf-orb 13s ease-in-out infinite 6s; }
+
+.sf-float  { animation: sf-float 6s ease-in-out infinite; }
+.sf-float-d { animation: sf-float 6s ease-in-out infinite 2s; }
+
+.sf-shimmer-text {
+  background: linear-gradient(90deg, #c084fc, #f472b6, #60a5fa, #c084fc, #f472b6);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: sf-shimmer 5s linear infinite;
+}
+
+.sf-ticker-track { animation: sf-ticker 28s linear infinite; }
