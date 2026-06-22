@@ -5,12 +5,14 @@ const MAX_CONTENT_CHARS = 50_000;
 const CONTEXT_DOCS = 5;
 const CONTEXT_SNIPPET = 800;
 
+export type KnowledgeDocType = "pdf" | "url" | "text" | "competitor" | "market_analysis";
+
 export type KnowledgeDoc = {
   id: string;
   tenant_id: string;
   saas_id: string;
   name: string;
-  type: "pdf" | "url" | "text";
+  type: KnowledgeDocType;
   content_text: string;
   source_url: string | null;
   created_at: string;
@@ -83,7 +85,8 @@ export async function deleteKnowledgeDoc(
   return ((result?.meta as { changes?: number })?.changes ?? 0) > 0;
 }
 
-// Returns a concise context string for injection into AI prompts.
+// Returns a structured context string for injection into AI prompts.
+// Sections: market analysis → competitor intelligence → brand knowledge base.
 export async function getKnowledgeContext(
   tenantId: string,
   saasId: string,
@@ -91,18 +94,42 @@ export async function getKnowledgeContext(
   const db = await getDb(tenantId, saasId);
   const { results } = await db
     .prepare(
-      `SELECT name, content_text
+      `SELECT name, type, content_text
        FROM ${TABLE}
        WHERE tenant_id = ? AND saas_id = ?
        ORDER BY created_at DESC
-       LIMIT ?`,
+       LIMIT 20`,
     )
-    .bind(tenantId, saasId, CONTEXT_DOCS)
-    .all<{ name: string; content_text: string }>();
+    .bind(tenantId, saasId)
+    .all<{ name: string; type: string; content_text: string }>();
 
   if (!results?.length) return "";
 
-  return results
-    .map((doc) => `[${doc.name}]\n${doc.content_text.slice(0, CONTEXT_SNIPPET)}`)
-    .join("\n\n---\n\n");
+  const marketDocs = results.filter((d) => d.type === "market_analysis").slice(0, 1);
+  const competitorDocs = results.filter((d) => d.type === "competitor").slice(0, 5);
+  const knowledgeDocs = results
+    .filter((d) => d.type !== "market_analysis" && d.type !== "competitor")
+    .slice(0, CONTEXT_DOCS);
+
+  const parts: string[] = [];
+
+  if (marketDocs.length) {
+    parts.push(`## MARKET INTELLIGENCE\n${marketDocs[0].content_text.slice(0, 2000)}`);
+  }
+
+  if (competitorDocs.length) {
+    const section = competitorDocs
+      .map((d) => `[${d.name}]\n${d.content_text.slice(0, CONTEXT_SNIPPET)}`)
+      .join("\n\n");
+    parts.push(`## COMPETITOR INTELLIGENCE\n${section}`);
+  }
+
+  if (knowledgeDocs.length) {
+    const section = knowledgeDocs
+      .map((d) => `[${d.name}]\n${d.content_text.slice(0, CONTEXT_SNIPPET)}`)
+      .join("\n\n---\n\n");
+    parts.push(`## BRAND KNOWLEDGE BASE\n${section}`);
+  }
+
+  return parts.join("\n\n===\n\n");
 }
