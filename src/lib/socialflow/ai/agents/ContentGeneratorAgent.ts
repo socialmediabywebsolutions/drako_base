@@ -26,7 +26,8 @@ Strategy theme: ${strategyItem.theme}.
 Strategy angle: ${strategyItem.angle}.
 Trend hooks: ${trends.hookIdeas.join(" | \n")}.
 Keyword clusters: ${keywordEngine.clusters.map((c) => c.cluster).join(", ")}.
-Use hashtags from evergreen + campaign + viral sets, avoiding forbidden topics.`;
+Use hashtags from evergreen + campaign + viral sets, avoiding forbidden topics.
+Brand context and knowledge base: ${profile.longDescription}`;
 
     const base: GeneratedPost = {
       id: `gen_${strategyItem.id}`,

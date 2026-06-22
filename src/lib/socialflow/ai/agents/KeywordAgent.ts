@@ -9,7 +9,8 @@ export class KeywordAgent {
   }): Promise<{ research: KeywordResearch; engine: KeywordEngineOutput }> {
     const { profile, trends } = input;
     const mainTopic = profile.niche;
-    const prompt = `Generate advanced keyword clusters and hashtag strategy for niche ${profile.niche} using base/priority keywords, hashtags and trend insights.`;
+    const prompt = `Generate advanced keyword clusters and hashtag strategy for niche ${profile.niche} using base/priority keywords, hashtags and trend insights.
+Brand context: ${profile.longDescription}`;
 
     const awarenessCluster: KeywordCluster = {
       cluster: `${mainTopic} awareness`,

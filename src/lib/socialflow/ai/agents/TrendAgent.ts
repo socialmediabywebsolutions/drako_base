@@ -12,7 +12,8 @@ export type TrendInsights = {
 export class TrendAgent {
   async run(input: { profile: BrandProfile }): Promise<TrendInsights> {
     const { profile } = input;
-    const prompt = `Analyze trends for niche ${profile.niche} and audience ${profile.audience} using market signals, viral themes and trending topics.`;
+    const prompt = `Analyze trends for niche ${profile.niche} and audience ${profile.audience} using market signals, viral themes and trending topics.
+Brand context: ${profile.longDescription}`;
 
     const base: TrendInsights = {
       trendingTopics: [

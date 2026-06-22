@@ -1,5 +1,5 @@
 import { defaultLocalModel } from "../models/localModel";
-import type { ContentStrategy, StrategyItem } from "../types";
+import type { BrandProfile, ContentStrategy, StrategyItem } from "../types";
 
 function buildBaseStrategy(horizonDays: number, niche: string, tone: string): ContentStrategy {
   const items: StrategyItem[] = [];
@@ -26,15 +26,26 @@ function buildBaseStrategy(horizonDays: number, niche: string, tone: string): Co
 
 export class StrategyAgent {
   async run(input: {
-    profileNiche: string;
-    tone: string;
+    profile: BrandProfile;
     horizonDays: number;
   }): Promise<ContentStrategy> {
-    const prompt = `Design a ${input.horizonDays}-day content strategy for niche: ${
-      input.profileNiche
-    } with tone: ${input.tone}.`;
+    const { profile, horizonDays } = input;
+    const prompt = `Design a ${horizonDays}-day content strategy for brand "${profile.brandIdentity}".
+Niche: ${profile.niche}.
+Tone: ${profile.toneOfVoice}.
+Audience: ${profile.audience} (persona: ${profile.buyerPersona}).
+Mission: ${profile.mission}.
+Value proposition: ${profile.valueProposition}.
+Content pillars: ${profile.contentPillars.join(", ")}.
+Services: ${profile.services.join(", ")}.
+Offers: ${profile.offers.join(", ")}.
+Pain points to address: ${profile.painPoints.join(", ")}.
+Desires to tap into: ${profile.desires.join(", ")}.
+Preferred formats: ${profile.preferredFormats.join(", ")}.
+Forbidden topics: ${profile.forbiddenTopics.join(", ")}.
+Brand context: ${profile.longDescription}`;
 
-    const base = buildBaseStrategy(input.horizonDays, input.profileNiche, input.tone);
+    const base = buildBaseStrategy(horizonDays, profile.niche, profile.toneOfVoice);
 
     const { data } = await defaultLocalModel.generateStructured<ContentStrategy>(
       { prompt },

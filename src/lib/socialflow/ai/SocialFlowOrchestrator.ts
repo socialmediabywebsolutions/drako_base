@@ -89,7 +89,7 @@ export class SocialFlowOrchestrator {
     const trends = await this.trendAgent.run({ profile });
     const { research, engine: keywordEngine } = await this.keywordAgent.run({ profile, trends });
     const horizonDays = Math.max(7, Math.min(30, Math.round((input.frequencyPerWeek / 7) * 30) || 7));
-    const strategy = await this.strategyAgent.run({ profileNiche: profile.niche, tone: profile.toneOfVoice, horizonDays });
+    const strategy = await this.strategyAgent.run({ profile, horizonDays });
     const generatedPosts = [];
     const optimizedPosts = [];
     for (const item of strategy.items) {
@@ -103,8 +103,8 @@ export class SocialFlowOrchestrator {
     return { profile, research, keywords: research, competitors, strategy, generatedPosts, optimizedPosts, schedule, campaignId };
   }
 
-  async generateStrategyOnly(input: SocialAIPipelineInput) { const profile = await this.buildProfile(input); const competitors = await this.competitorAgent.run({ niche: profile.niche }); const trends = await this.trendAgent.run({ profile }); const { research } = await this.keywordAgent.run({ profile, trends }); const strategy = await this.strategyAgent.run({ profileNiche: profile.niche, tone: profile.toneOfVoice, horizonDays: 7 }); return { profile, research, keywords: research, competitors, strategy }; }
-  async generateSinglePost(input: SocialAIPipelineInput) { const profile = await this.buildProfile(input); const trends = await this.trendAgent.run({ profile }); const { engine: keywordEngine } = await this.keywordAgent.run({ profile, trends }); const strategy = await this.strategyAgent.run({ profileNiche: profile.niche, tone: profile.toneOfVoice, horizonDays: 1 }); const item = strategy.items[0]; const generated = await this.contentGenerator.run({ profile, strategyItem: item, keywordEngine, trends }); const optimized = await this.optimizationAgent.run({ profile, variant: generated.variants[0], keywordEngine }); return { profile, strategyItem: item, generated, optimized }; }
+  async generateStrategyOnly(input: SocialAIPipelineInput) { const profile = await this.buildProfile(input); const competitors = await this.competitorAgent.run({ niche: profile.niche }); const trends = await this.trendAgent.run({ profile }); const { research } = await this.keywordAgent.run({ profile, trends }); const strategy = await this.strategyAgent.run({ profile, horizonDays: 7 }); return { profile, research, keywords: research, competitors, strategy }; }
+  async generateSinglePost(input: SocialAIPipelineInput) { const profile = await this.buildProfile(input); const trends = await this.trendAgent.run({ profile }); const { engine: keywordEngine } = await this.keywordAgent.run({ profile, trends }); const strategy = await this.strategyAgent.run({ profile, horizonDays: 1 }); const item = strategy.items[0]; const generated = await this.contentGenerator.run({ profile, strategyItem: item, keywordEngine, trends }); const optimized = await this.optimizationAgent.run({ profile, variant: generated.variants[0], keywordEngine }); return { profile, strategyItem: item, generated, optimized }; }
 
   private async persistToDb(input: SocialAIPipelineInput, strategyItems: StrategyItem[], optimizedPosts: { id: string; improvedText: string; hashtags?: string[] }[], schedule: { id: string; postId: string; scheduledAt: string }[]): Promise<string> {
     const ctx = await resolveSocialContext({ tenantId: input.tenantId, saasId: input.saasId });
