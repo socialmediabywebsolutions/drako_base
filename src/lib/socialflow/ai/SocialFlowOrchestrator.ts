@@ -9,6 +9,7 @@ import { TrendAgent } from "./agents/TrendAgent";
 import type { BrandProfile, SocialAIPipelineInput, SocialAIPipelineResult, StrategyItem } from "./types";
 import { listSaasSocialChannels, resolveSocialContext, upsertSaasSocialCampaign, upsertSaasSocialPost } from "../repository";
 import { getChannelKnowledge, saveCompetitorInsights } from "../profile/repository";
+import { getKnowledgeContext } from "../knowledge/repository";
 
 export class SocialFlowOrchestrator {
   private marketResearch = new MarketResearchAgent();
@@ -21,17 +22,25 @@ export class SocialFlowOrchestrator {
   private trendAgent = new TrendAgent();
 
   private async buildProfile(input: SocialAIPipelineInput): Promise<BrandProfile> {
-    const { profile, competitors } = await getChannelKnowledge(input.tenantId, input.saasId);
+    const [{ profile, competitors }, knowledgeContext] = await Promise.all([
+      getChannelKnowledge(input.tenantId, input.saasId),
+      getKnowledgeContext(input.tenantId, input.saasId).catch(() => ""),
+    ]);
 
     const niche = profile.niche || input.niche || input.saasId;
     const tone = profile.toneOfVoice || input.tone || "professional";
     const brandName = profile.brandName || input.saasId.replace(/[-_]/g, " ");
 
+    const baseLongDescription = profile.longDescription || profile.shortDescription || `${niche} content pipeline`;
+    const longDescription = knowledgeContext
+      ? `${baseLongDescription}\n\n--- Knowledge Base ---\n${knowledgeContext}`
+      : baseLongDescription;
+
     return {
       brandIdentity: brandName,
       channelHandle: profile.channelName ? `@${profile.channelName}` : `@${input.saasId}`,
       shortDescription: profile.shortDescription || `${niche} social automation`,
-      longDescription: profile.longDescription || profile.shortDescription || `${niche} content pipeline`,
+      longDescription,
       mission: profile.mission || `Grow ${brandName} with consistent social execution.`,
       valueProposition: profile.valueProposition || `${niche} content for ${profile.audienceDescription || "your audience"}.`,
       toneOfVoice: tone,
