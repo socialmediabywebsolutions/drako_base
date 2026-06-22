@@ -7,6 +7,11 @@ import { extractTextFromPdf } from "@/lib/socialflow/knowledge/pdf-extract";
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_TYPES = new Set(["application/pdf", "text/plain"]);
+const DEFAULT_SAAS_ID = "socialflow";
+
+function resolveSaasId(request: Request): string {
+  return new URL(request.url).searchParams.get("saasId")?.trim() || DEFAULT_SAAS_ID;
+}
 
 export async function POST(req: Request) {
   let session: Awaited<ReturnType<typeof requireCurrentSocialFlowSession>>;
@@ -66,7 +71,7 @@ export async function POST(req: Request) {
     const name = formData.get("name")?.toString().trim() || file.name.replace(/\.[^.]+$/, "");
     const doc = await saveKnowledgeDoc({
       tenantId: session.tenantId,
-      saasId: session.saasId,
+      saasId: resolveSaasId(req),
       name,
       type: "pdf",
       contentText,

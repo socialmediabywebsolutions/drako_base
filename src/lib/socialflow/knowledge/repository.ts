@@ -76,11 +76,11 @@ export async function deleteKnowledgeDoc(
   saasId: string,
 ): Promise<boolean> {
   const db = await getDb(tenantId, saasId);
-  const { meta } = await db
+  const result = await db
     .prepare(`DELETE FROM ${TABLE} WHERE id = ? AND tenant_id = ? AND saas_id = ?`)
     .bind(id, tenantId, saasId)
     .run();
-  return (meta.changes ?? 0) > 0;
+  return ((result?.meta as { changes?: number })?.changes ?? 0) > 0;
 }
 
 // Returns a concise context string for injection into AI prompts.

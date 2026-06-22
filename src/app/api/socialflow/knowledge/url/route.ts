@@ -4,7 +4,12 @@ import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { saveKnowledgeDoc } from "@/lib/socialflow/knowledge/repository";
 
+const DEFAULT_SAAS_ID = "socialflow";
 const USER_AGENT = "SocialFlowKnowledgeBot/1.0 (+https://socialflows.drako.systems)";
+
+function resolveSaasId(request: Request): string {
+  return new URL(request.url).searchParams.get("saasId")?.trim() || DEFAULT_SAAS_ID;
+}
 const TIMEOUT_MS = 10_000;
 const MAX_CONTENT_CHARS = 50_000;
 
@@ -113,7 +118,7 @@ export async function POST(req: Request) {
     const name = body.name?.trim() || pageTitle || normalizedUrl;
     const doc = await saveKnowledgeDoc({
       tenantId: session.tenantId,
-      saasId: session.saasId,
+      saasId: resolveSaasId(req),
       name,
       type: "url",
       contentText,

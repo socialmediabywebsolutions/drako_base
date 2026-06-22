@@ -4,6 +4,12 @@ import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { deleteKnowledgeDoc } from "@/lib/socialflow/knowledge/repository";
 
+const DEFAULT_SAAS_ID = "socialflow";
+
+function resolveSaasId(request: Request): string {
+  return new URL(request.url).searchParams.get("saasId")?.trim() || DEFAULT_SAAS_ID;
+}
+
 export async function DELETE(
   req: Request,
   { params }: { params: { id: string } },
@@ -21,7 +27,7 @@ export async function DELETE(
   }
 
   try {
-    const deleted = await deleteKnowledgeDoc(id, session.tenantId, session.saasId);
+    const deleted = await deleteKnowledgeDoc(id, session.tenantId, resolveSaasId(req));
     if (!deleted) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }

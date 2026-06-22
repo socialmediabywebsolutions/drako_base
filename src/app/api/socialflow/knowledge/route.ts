@@ -4,6 +4,12 @@ import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { listKnowledgeDocs } from "@/lib/socialflow/knowledge/repository";
 
+const DEFAULT_SAAS_ID = "socialflow";
+
+function resolveSaasId(request: Request): string {
+  return new URL(request.url).searchParams.get("saasId")?.trim() || DEFAULT_SAAS_ID;
+}
+
 export async function GET(req: Request) {
   let session: Awaited<ReturnType<typeof requireCurrentSocialFlowSession>>;
   try {
@@ -13,7 +19,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const docs = await listKnowledgeDocs(session.tenantId, session.saasId);
+    const docs = await listKnowledgeDocs(session.tenantId, resolveSaasId(req));
     return NextResponse.json({ ok: true, docs });
   } catch (err) {
     console.error("[Knowledge] list failed", err instanceof Error ? err.message : String(err));

@@ -59,7 +59,7 @@ export async function POST(req: Request) {
   }
 
   // Mark token as used before updating the password (prevents race conditions).
-  const { meta: markResult } = await db
+  const markRaw = await db
     .prepare(
       `UPDATE socialflow_password_reset_tokens
        SET used_at = ?
@@ -67,8 +67,9 @@ export async function POST(req: Request) {
     )
     .bind(now, tokenRow.id)
     .run();
+  const markResult = markRaw?.meta as { changes?: number } | undefined;
 
-  if (!markResult.changes) {
+  if (!markResult?.changes) {
     // Another request consumed the token first.
     return NextResponse.json(
       { error: "INVALID_OR_EXPIRED_TOKEN", message: "El enlace ya fue utilizado. Solicita uno nuevo." },
