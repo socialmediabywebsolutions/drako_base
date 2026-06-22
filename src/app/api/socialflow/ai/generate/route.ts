@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/cf";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
+import { guardAiAccess } from "@/lib/socialflow/billing/enforce";
 import { resolveSocialContext, SocialContextError, upsertSaasSocialCampaign } from "@/lib/socialflow/repository";
 
 function isTruthyFlag(value: string | undefined) {
@@ -39,6 +40,15 @@ export async function POST(request: Request) {
     }
 
     const session = await requireCurrentSocialFlowSession(request);
+
+    const aiGuard = await guardAiAccess(session.tenantId);
+    if (!aiGuard.ok) {
+      return NextResponse.json(
+        { ok: false, error: aiGuard.code, message: aiGuard.message, planCode: aiGuard.planCode },
+        { status: 403 },
+      );
+    }
+
     const saasId = body.saasId ?? "socialflow";
     const niche = body.niche;
     const tone = body.tone;

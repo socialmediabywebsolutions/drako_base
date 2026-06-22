@@ -29,6 +29,8 @@ import {
   type InstagramPostContentType,
 } from "@/lib/socialflow/meta/publishing";
 import { uploadMediaToR2 } from "@/lib/socialflow/live-publishing";
+import { publishPost as publishLinkedInPost } from "@/lib/socialflow/linkedin/publishing";
+import { LinkedInIntegrationError } from "@/lib/socialflow/linkedin/core";
 
 function verifyCronSecret(request: Request): boolean {
   const cronSecret = env()?.CRON_SECRET;
@@ -65,7 +67,7 @@ export async function POST(request: Request) {
   if (!saasId) missing.push("saasId");
   if (!accountId) missing.push("accountId");
   if (!platform) missing.push("platform");
-  if (!imageHint) missing.push("imageHint");
+  if (platform === "instagram" && !imageHint) missing.push("imageHint");
   if (missing.length > 0) {
     return NextResponse.json(
       { ok: false, code: "INVALID_PARAMS", message: `Missing required fields: ${missing.join(", ")}` },
@@ -73,9 +75,9 @@ export async function POST(request: Request) {
     );
   }
 
-  if (platform !== "instagram") {
+  if (platform !== "instagram" && platform !== "linkedin") {
     return NextResponse.json(
-      { ok: false, code: "UNSUPPORTED_PLATFORM", message: `Platform '${platform}' is not supported yet.` },
+      { ok: false, code: "UNSUPPORTED_PLATFORM", message: `Platform '${platform}' is not supported. Supported: instagram, linkedin.` },
       { status: 400 },
     );
   }
@@ -111,6 +113,36 @@ export async function POST(request: Request) {
       { status: 422 },
     );
   }
+
+  // ── LinkedIn branch ───────────────────────────────────────────────────────
+  if (platform === "linkedin") {
+    if (account.provider !== "LINKEDIN") {
+      return NextResponse.json(
+        { ok: false, code: "ACCOUNT_PROVIDER_MISMATCH", message: `Account ${accountId} is not a LinkedIn account (provider=${account.provider}).` },
+        { status: 422 },
+      );
+    }
+
+    console.log("CRON_LINKEDIN_PUBLISH_START", { tenantId, saasId, accountId });
+
+    try {
+      const result = await publishLinkedInPost(account, caption);
+      console.log("CRON_LINKEDIN_PUBLISH_OK", { tenantId, saasId, accountId, externalPostId: result.externalPostId });
+
+      return NextResponse.json({
+        ok: true,
+        platform: "linkedin",
+        externalPostId: result.externalPostId,
+        account: { id: account.id, handle: account.handle, provider: account.provider },
+      });
+    } catch (err) {
+      const code = err instanceof LinkedInIntegrationError ? err.code : "LINKEDIN_PUBLISH_FAILED";
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("CRON_LINKEDIN_PUBLISH_ERROR", JSON.stringify({ code, message, tenantId, saasId, accountId }));
+      return NextResponse.json({ ok: false, code, message }, { status: 422 });
+    }
+  }
+  // ── End LinkedIn branch ───────────────────────────────────────────────────
 
   let creds: Awaited<ReturnType<typeof requireInstagramCredentials>>;
   try {

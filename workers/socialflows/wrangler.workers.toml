@@ -65,8 +65,9 @@ SAASES_SLUG = "socialflows"
 SAASES_DOMAIN = "socialflows.drako.systems,socialflow.drako.systems"
 AUTHS_SECRETS_NAME = "SOCIALFLOWS_AUTHS_SECRET"
 WORKERS_ONLY_MODE = "true"
-# Test-mode Stripe price IDs; replace with live-mode IDs before enabling real payments
-SOCIALFLOW_STRIPE_PRICE_PRO = "price_1TiSu1BflYSFyTbP1gQOsicz"
-SOCIALFLOW_STRIPE_PRICE_CREATOR = "price_1TiSvUBflYSFyTbP0SnF7VAj"
 INSTAGRAM_APP_ID = "1534853271675778"
 APP_URL = "https://socialflows.drako.systems"
+# SOCIALFLOW_STRIPE_PRICE_PRO and SOCIALFLOW_STRIPE_PRICE_CREATOR are NOT stored here.
+# Set them as Wrangler secrets so they never appear in source control:
+#   npx wrangler secret put SOCIALFLOW_STRIPE_PRICE_PRO -c workers/socialflows/wrangler.workers.toml
+#   npx wrangler secret put SOCIALFLOW_STRIPE_PRICE_CREATOR -c workers/socialflows/wrangler.workers.toml

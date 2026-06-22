@@ -1,4 +1,5 @@
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
+import { guardChannelLimit } from "@/lib/socialflow/billing/enforce";
 import { buildSocialFlowLinkedInConnectUrl } from "@/lib/socialflow/linkedin/oauth";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,15 @@ export async function GET(request: Request) {
     }
 
     const session = await requireCurrentSocialFlowSession(request);
+
+    const channelGuard = await guardChannelLimit(session.tenantId, saasId);
+    if (!channelGuard.ok) {
+      const url = new URL(`/socialflow/settings/accounts`, request.url);
+      url.searchParams.set("planError", channelGuard.code);
+      url.searchParams.set("planMessage", channelGuard.message);
+      return Response.redirect(url.toString(), 307);
+    }
+
     const oauth = buildSocialFlowLinkedInConnectUrl({
       request,
       tenantId: session.tenantId,
