@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 type SocialFlowAuthMode = "login" | "register";
 
@@ -242,17 +243,29 @@ export default function SocialFlowAuthExperience() {
                 />
               </label>
 
-              <label className="block text-sm font-semibold text-[#26332f]">
-                Password
-                <input
-                  required
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className="mt-2 w-full rounded-md border border-[#cfd7c6] bg-white px-4 py-3 text-[#111827] outline-none transition placeholder:text-[#9aa49a] focus:border-[#153b39] focus:ring-4 focus:ring-[#dff5b2]"
-                  placeholder="Your secure password"
-                />
-              </label>
+              <div>
+                <label className="block text-sm font-semibold text-[#26332f]">
+                  Password
+                  <input
+                    required
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    className="mt-2 w-full rounded-md border border-[#cfd7c6] bg-white px-4 py-3 text-[#111827] outline-none transition placeholder:text-[#9aa49a] focus:border-[#153b39] focus:ring-4 focus:ring-[#dff5b2]"
+                    placeholder="Your secure password"
+                  />
+                </label>
+                {mode === "login" && (
+                  <div className="mt-1.5 text-right">
+                    <Link
+                      href="/socialflow/auth/reset-password"
+                      className="text-xs font-semibold text-[#153b39] hover:underline"
+                    >
+                      ¿Olvidaste tu contraseña?
+                    </Link>
+                  </div>
+                )}
+              </div>
 
               {error ? (
                 <p className="rounded-md border border-[#f2b6a0] bg-[#fff0e8] px-4 py-3 text-sm font-semibold text-[#973b18]">
