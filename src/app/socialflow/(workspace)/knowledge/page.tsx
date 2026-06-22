@@ -12,6 +12,10 @@ type Doc = {
 
 type Panel = "none" | "upload" | "url";
 
+type ListResponse = { ok: true; docs: Doc[] } | { ok: false; error: string };
+type DeleteResponse = { ok: true } | { ok: false; error: string };
+type SaveResponse = { ok: true; doc: Doc } | { ok: false; error?: string; message?: string };
+
 export default function KnowledgeBasePage() {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,8 +27,8 @@ export default function KnowledgeBasePage() {
     setError(null);
     try {
       const res = await fetch("/api/socialflow/knowledge");
-      const json = await res.json();
-      if (json.ok) setDocs(json.docs ?? []);
+      const json = await res.json() as ListResponse;
+      if (json.ok) setDocs(json.docs);
       else setError(json.error ?? "Failed to load documents");
     } catch {
       setError("Unexpected error");
@@ -43,7 +47,7 @@ export default function KnowledgeBasePage() {
     if (!confirm("¿Eliminar este documento?")) return;
     try {
       const res = await fetch(`/api/socialflow/knowledge/${id}`, { method: "DELETE" });
-      const json = await res.json();
+      const json = await res.json() as DeleteResponse;
       if (json.ok) setDocs((prev) => prev.filter((d) => d.id !== id));
       else setError(json.error ?? "Failed to delete");
     } catch {
@@ -246,7 +250,7 @@ function UploadPanel({
       fd.append("file", file);
       if (name.trim()) fd.append("name", name.trim());
       const res = await fetch("/api/socialflow/knowledge/upload", { method: "POST", body: fd });
-      const json = await res.json();
+      const json = await res.json() as SaveResponse;
       if (json.ok) {
         onSuccess(json.doc);
       } else {
@@ -345,7 +349,7 @@ function UrlPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url.trim(), name: name.trim() || undefined }),
       });
-      const json = await res.json();
+      const json = await res.json() as SaveResponse;
       if (json.ok) {
         onSuccess(json.doc);
       } else {
