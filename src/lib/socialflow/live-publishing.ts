@@ -18,6 +18,17 @@ const LIVE_PUBLISH_MAX_DELAY_MS = 5000;
 
 const SUPPORTED_PROVIDERS = new Set<SaasSocialProvider>(["LINKEDIN", "INSTAGRAM"]);
 
+// Build the full caption/text for a post, appending any hashtags stored in
+// metadata.hashtags that the AI page saves separately from the body text.
+function buildPostCaption(post: SaasSocialPost): string {
+  const body = post.body?.trim() || post.title;
+  const rawHashtags = Array.isArray(post.metadata?.hashtags) ? (post.metadata.hashtags as unknown[]) : [];
+  const tags = rawHashtags
+    .filter((h): h is string => typeof h === "string" && h.trim().length > 0)
+    .map((h) => (h.startsWith("#") ? h : `#${h}`));
+  return tags.length > 0 ? `${body}\n\n${tags.join(" ")}` : body;
+}
+
 async function findPrimaryLinkedInAccount(ctx: SocialContext) {
   const accounts = await listSaasSocialAccounts(ctx);
   return accounts.find((account) => account.provider === "LINKEDIN" && account.isPrimary) ?? null;
@@ -38,7 +49,7 @@ async function publishToLinkedIn(input: {
 }): Promise<{ externalPostId?: string | null }> {
   const operation = await publishPost(
     input.account,
-    input.post.body?.trim() || input.post.title,
+    buildPostCaption(input.post),
   );
   return { externalPostId: operation.externalPostId };
 }
@@ -134,7 +145,7 @@ async function publishToInstagram(input: {
   post: SaasSocialPost;
 }): Promise<{ externalPostId?: string | null }> {
   const creds = await requireInstagramCredentials(input.account);
-  const caption = input.post.body?.trim() || input.post.title;
+  const caption = buildPostCaption(input.post);
   const rawMediaUrl = input.post.imageHint?.trim() ?? "";
 
   if (!rawMediaUrl.startsWith("http")) {
