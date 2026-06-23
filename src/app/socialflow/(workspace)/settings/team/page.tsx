@@ -1,4 +1,3 @@
-import Card from "@/components/ui/card";
 import { listAuthsUsersByTenant } from "@/lib/auths/repositories";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { redirect } from "next/navigation";
@@ -14,58 +13,75 @@ export default async function SocialFlowTeamSettingsPage() {
     tenantId: session.tenantId,
   });
 
+  const admins = members.filter((m) => m.role === "admin");
+  const nonAdmins = members.filter((m) => m.role !== "admin");
+
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">SocialFlow team</div>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Product users inside this workspace</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          This view reads SocialFlow users directly from the product auth boundary. Invite and role orchestration still need a dedicated product workflow before re-enabling write actions here.
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Equipo SocialFlow</div>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Usuarios del workspace</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
+          Esta vista lee los usuarios de SocialFlow directamente desde el perímetro de autenticación del producto. La invitación y gestión de roles requiere un flujo nativo antes de habilitar acciones de escritura aquí.
         </p>
       </div>
 
-      <Card title="Product auth roster" subtitle="Users registered in SocialFlow for this tenant" tone="glass">
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5">
-            <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Users</div>
-            <div className="mt-3 text-2xl font-black tracking-tight text-slate-950">{members.length}</div>
-          </div>
-          <div className="rounded-3xl border border-slate-200 bg-white p-5">
-            <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Admins</div>
-            <div className="mt-3 text-2xl font-black tracking-tight text-slate-950">
-              {members.filter((member) => member.role === "admin").length}
-            </div>
-          </div>
-          <div className="rounded-3xl border border-slate-200 bg-white p-5">
-            <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">Members</div>
-            <div className="mt-3 text-2xl font-black tracking-tight text-slate-950">
-              {members.filter((member) => member.role !== "admin").length}
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <Card title="Registered users" subtitle="Read-only until product-native invite flow lands">
-        <div className="space-y-3">
-          {members.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
-              No SocialFlow users found for this tenant yet.
-            </div>
-          ) : members.map((member) => (
-            <div key={member.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-base font-black tracking-tight text-slate-950">{member.name ?? member.email}</div>
-                  <div className="mt-1 text-sm text-slate-500">{member.email}</div>
-                </div>
-                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] ${member.role === "admin" ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600"}`}>
-                  {member.role}
-                </span>
+      {/* Stats */}
+      <section className="rounded-2xl border border-white/10 bg-white/4">
+        <header className="border-b border-white/8 px-6 py-5">
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Registro de autenticación del producto</p>
+          <h2 className="mt-1 text-lg font-black uppercase italic tracking-tight text-white">Usuarios registrados en SocialFlow para este tenant</h2>
+        </header>
+        <div className="px-6 py-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              { label: "Usuarios", value: members.length },
+              { label: "Admins", value: admins.length },
+              { label: "Miembros", value: nonAdmins.length },
+            ].map((stat) => (
+              <div key={stat.label} className="rounded-xl border border-white/8 bg-white/4 p-5">
+                <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/35">{stat.label}</div>
+                <div className="mt-3 text-2xl font-black tracking-tight text-white">{stat.value}</div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </Card>
+      </section>
+
+      {/* Lista de miembros */}
+      <section className="rounded-2xl border border-white/10 bg-white/4">
+        <header className="border-b border-white/8 px-6 py-5">
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Usuarios registrados</p>
+          <h2 className="mt-1 text-lg font-black uppercase italic tracking-tight text-white">Solo lectura — el flujo de invitación nativo está pendiente</h2>
+        </header>
+        <div className="px-6 py-6">
+          {members.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-white/10 bg-white/3 p-6 text-sm text-white/35">
+              No se encontraron usuarios de SocialFlow para este tenant.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {members.map((member) => (
+                <div key={member.id} className="flex items-start justify-between gap-3 rounded-xl border border-white/8 bg-white/4 p-5">
+                  <div>
+                    <div className="text-base font-black tracking-tight text-white/90">{member.name ?? member.email}</div>
+                    <div className="mt-1 text-sm text-white/40">{member.email}</div>
+                  </div>
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] ${
+                      member.role === "admin"
+                        ? "bg-violet-500/15 text-violet-300 border border-violet-500/25"
+                        : "bg-white/8 text-white/45 border border-white/10"
+                    }`}
+                  >
+                    {member.role}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
