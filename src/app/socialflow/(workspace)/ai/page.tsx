@@ -17,9 +17,12 @@ type SocialPost = {
   } | null;
 };
 
+const inputCls = "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/20";
+const labelCls = "text-sm font-medium text-white/50";
+
 export default function SocialFlowAIPage() {
   const [niche, setNiche] = useState("Beauty salons");
-  const [tone, setTone] = useState("Friendly, expert, concrete");
+  const [tone, setTone] = useState("Cercano, experto, concreto");
   const [frequency, setFrequency] = useState(7);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +56,7 @@ export default function SocialFlowAIPage() {
       const json = (await res.json()) as { items?: SocialPost[] };
       setPosts(json.items ?? []);
     } catch (e: any) {
-      setError(e?.message || "Failed to load generated posts");
+      setError(e?.message || "No se pudieron cargar los posts generados");
     }
   }
 
@@ -63,7 +66,6 @@ export default function SocialFlowAIPage() {
       const json = (await res.json()) as { items?: { id: string; status: string; notes: string | null }[] };
       const campaign = json.items?.find((item) => item.id === id);
       if (!campaign) return;
-
       if (campaign.status === "ACTIVE") {
         stopPolling();
         setCampaignStatus("ACTIVE");
@@ -71,7 +73,7 @@ export default function SocialFlowAIPage() {
       } else if (campaign.status === "FAILED") {
         stopPolling();
         setCampaignStatus("FAILED");
-        setError(campaign.notes || "Campaign generation failed");
+        setError(campaign.notes || "La generación de la campaña falló");
       }
     } catch {
       // transient polling error, retry on next tick
@@ -99,14 +101,14 @@ export default function SocialFlowAIPage() {
       });
       const json = (await res.json()) as { ok: boolean; error?: string; campaignId?: string; status?: string };
       if (!json.ok || !json.campaignId) {
-        setError(json.error || "Failed to start campaign generation");
+        setError(json.error || "No se pudo iniciar la generación de campaña");
         return;
       }
       setCampaignId(json.campaignId);
       setCampaignStatus("GENERATING");
       startPolling(json.campaignId);
     } catch (e: any) {
-      setError(e?.message || "Unexpected error");
+      setError(e?.message || "Error inesperado");
     } finally {
       setLoading(false);
     }
@@ -148,18 +150,10 @@ export default function SocialFlowAIPage() {
       const res = await fetch("/api/socialflow/ai/regenerate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          saasId: "socialflow",
-          postId,
-          niche,
-          tone,
-          frequencyPerWeek: frequency,
-        }),
+        body: JSON.stringify({ saasId: "socialflow", postId, niche, tone, frequencyPerWeek: frequency }),
       });
       const json = (await res.json().catch(() => null)) as { ok?: boolean; message?: string } | null;
-      if (!res.ok || json?.ok === false) {
-        throw new Error(json?.message || "No se pudo regenerar el post");
-      }
+      if (!res.ok || json?.ok === false) throw new Error(json?.message || "No se pudo regenerar el post");
       if (campaignId) await loadPosts(campaignId);
     } catch (e: any) {
       setError(e?.message || "Error al regenerar el post");
@@ -171,12 +165,7 @@ export default function SocialFlowAIPage() {
       const res = await fetch("/api/socialflow/posts", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          saasId: "socialflow",
-          id: payload.id,
-          action,
-          scheduledAt: payload.scheduledAt ?? null,
-        }),
+        body: JSON.stringify({ saasId: "socialflow", id: payload.id, action, scheduledAt: payload.scheduledAt ?? null }),
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as { message?: string } | null;
@@ -190,27 +179,32 @@ export default function SocialFlowAIPage() {
 
   return (
     <div className="space-y-8">
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <h1 className="mb-2 text-2xl font-semibold">SocialFlow AI</h1>
-        <p className="mb-4 text-sm text-gray-600">
-          Generate an AI-powered campaign for your SocialFlow workspace. Generation runs in the
-          background and can take a few minutes for larger campaigns.
+      {/* Header */}
+      <div>
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow · IA</p>
+        <h1 className="mt-1.5 text-2xl font-black tracking-tight text-white">Generador de campañas IA</h1>
+      </div>
+
+      {/* Generator panel */}
+      <div className="rounded-2xl border border-white/10 bg-white/4 p-6">
+        <p className="mb-5 text-sm text-white/45">
+          Genera una campaña impulsada por IA para tu workspace. La generación corre en segundo plano y puede tardar unos minutos para campañas grandes.
         </p>
 
         <div className="grid gap-4 md:grid-cols-3">
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">Niche</label>
-            <input className="rounded border px-3 py-2 text-sm" value={niche} onChange={(e) => setNiche(e.target.value)} />
+            <label className={labelCls}>Nicho</label>
+            <input className={inputCls} value={niche} onChange={(e) => setNiche(e.target.value)} placeholder="Beauty salons" />
           </div>
           <div className="flex flex-col gap-1 md:col-span-2">
-            <label className="text-sm font-medium">Tone of voice</label>
-            <input className="rounded border px-3 py-2 text-sm" value={tone} onChange={(e) => setTone(e.target.value)} />
+            <label className={labelCls}>Tono de comunicación</label>
+            <input className={inputCls} value={tone} onChange={(e) => setTone(e.target.value)} placeholder="Cercano, experto, concreto" />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">Posts per week</label>
+            <label className={labelCls}>Posts por semana</label>
             <input
               type="number"
-              className="rounded border px-3 py-2 text-sm"
+              className={inputCls}
               value={frequency}
               min={1}
               max={21}
@@ -223,106 +217,68 @@ export default function SocialFlowAIPage() {
           type="button"
           onClick={onGenerate}
           disabled={loading || campaignStatus === "GENERATING"}
-          className="mt-4 inline-flex items-center rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loading || campaignStatus === "GENERATING" ? "Generating..." : "Generate AI Campaign"}
+          {(loading || campaignStatus === "GENERATING") && (
+            <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
+          )}
+          {loading || campaignStatus === "GENERATING" ? "Generando..." : "Generar campaña IA"}
         </button>
 
-        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
 
         {campaignStatus === "GENERATING" && (
-          <p className="mt-2 text-sm text-gray-600">
-            Generating your campaign in the background... this can take a few minutes. You can leave
-            this page open; it will update automatically when it&apos;s ready.
+          <p className="mt-3 text-sm text-white/45">
+            Generando tu campaña en segundo plano... puede tardar unos minutos. Puedes dejar esta página abierta; se actualizará automáticamente cuando esté lista.
           </p>
         )}
       </div>
 
+      {/* Generated posts */}
       {campaignStatus === "ACTIVE" && (
-        <section className="rounded-lg border bg-white p-4 shadow-sm">
-          <h2 className="mb-2 text-lg font-semibold">Generated posts & schedule</h2>
+        <section className="rounded-2xl border border-white/10 bg-white/4 p-5">
+          <h2 className="mb-4 text-lg font-black uppercase italic tracking-tight text-white">Posts generados y programación</h2>
           <div className="grid gap-3 text-sm md:grid-cols-2">
             {posts.map((post) => {
               const hashtags = post.metadata?.hashtags ?? [];
               return (
-                <div key={post.id} className="flex flex-col gap-2 rounded border p-3">
+                <div key={post.id} className="flex flex-col gap-2 rounded-xl border border-white/8 bg-white/4 p-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium">{post.title}</span>
-                    {post.scheduledAt && <span className="text-xs text-gray-500">{new Date(post.scheduledAt).toLocaleString()}</span>}
+                    <span className="text-xs font-semibold text-white/85">{post.title}</span>
+                    {post.scheduledAt && (
+                      <span className="text-xs text-white/35">{new Date(post.scheduledAt).toLocaleString()}</span>
+                    )}
                   </div>
                   {editingPostId === post.id ? (
                     <div className="mt-1 space-y-2">
-                      <input
-                        className="w-full rounded border px-2 py-1 text-xs"
-                        value={editDraft?.title ?? ""}
-                        onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, title: e.target.value } : prev))}
-                        placeholder="Titulo"
-                      />
-                      <textarea
-                        className="w-full rounded border px-2 py-1 text-xs"
-                        rows={4}
-                        value={editDraft?.body ?? ""}
-                        onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, body: e.target.value } : prev))}
-                        placeholder="Texto del post"
-                      />
-                      <input
-                        className="w-full rounded border px-2 py-1 text-xs"
-                        value={editDraft?.hook ?? ""}
-                        onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, hook: e.target.value } : prev))}
-                        placeholder="Angulo / Hook"
-                      />
-                      <input
-                        className="w-full rounded border px-2 py-1 text-xs"
-                        value={editDraft?.cta ?? ""}
-                        onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, cta: e.target.value } : prev))}
-                        placeholder="CTA"
-                      />
-                      <input
-                        className="w-full rounded border px-2 py-1 text-xs"
-                        value={editDraft?.hashtags ?? ""}
-                        onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, hashtags: e.target.value } : prev))}
-                        placeholder="Hashtags (separados por coma o #)"
-                      />
-                      <input
-                        type="datetime-local"
-                        className="w-full rounded border px-2 py-1 text-xs"
-                        value={editDraft?.scheduledAt ?? ""}
-                        onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, scheduledAt: e.target.value } : prev))}
-                      />
+                      <input className={inputCls + " text-xs"} value={editDraft?.title ?? ""} onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, title: e.target.value } : prev))} placeholder="Título" />
+                      <textarea className={inputCls + " text-xs"} rows={4} value={editDraft?.body ?? ""} onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, body: e.target.value } : prev))} placeholder="Texto del post" />
+                      <input className={inputCls + " text-xs"} value={editDraft?.hook ?? ""} onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, hook: e.target.value } : prev))} placeholder="Ángulo / Hook" />
+                      <input className={inputCls + " text-xs"} value={editDraft?.cta ?? ""} onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, cta: e.target.value } : prev))} placeholder="CTA" />
+                      <input className={inputCls + " text-xs"} value={editDraft?.hashtags ?? ""} onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, hashtags: e.target.value } : prev))} placeholder="Hashtags (separados por coma o #)" />
+                      <input type="datetime-local" className={inputCls + " text-xs"} value={editDraft?.scheduledAt ?? ""} onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, scheduledAt: e.target.value } : prev))} />
                     </div>
                   ) : (
                     <>
-                      <p className="whitespace-pre-wrap text-xs text-gray-800">{post.body}</p>
-                      {hashtags.length > 0 && <p className="text-xs text-gray-600">Hashtags: {hashtags.join(" ")}</p>}
+                      <p className="whitespace-pre-wrap text-xs text-white/70">{post.body}</p>
+                      {hashtags.length > 0 && <p className="text-xs text-white/40">Hashtags: {hashtags.join(" ")}</p>}
                     </>
                   )}
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700"
-                      onClick={() => updatePost("approve", { id: post.id })}
-                    >
-                      Approve
+                    <button type="button" className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 transition hover:bg-emerald-500/15" onClick={() => updatePost("approve", { id: post.id })}>
+                      Aprobar
                     </button>
-                    <button
-                      type="button"
-                      className="rounded border border-rose-300 bg-rose-50 px-2 py-0.5 text-[11px] text-rose-700"
-                      onClick={() => updatePost("reject", { id: post.id })}
-                    >
-                      Reject
+                    <button type="button" className="rounded-lg border border-rose-500/25 bg-rose-500/10 px-2 py-0.5 text-[11px] text-rose-300 transition hover:bg-rose-500/15" onClick={() => updatePost("reject", { id: post.id })}>
+                      Rechazar
                     </button>
                     {post.scheduledAt && (
-                      <button
-                        type="button"
-                        className="rounded border border-sky-300 bg-sky-50 px-2 py-0.5 text-[11px] text-sky-700"
-                        onClick={() => updatePost("schedule", { id: post.id, scheduledAt: post.scheduledAt ?? undefined })}
-                      >
-                        Re-schedule
+                      <button type="button" className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-2 py-0.5 text-[11px] text-sky-300 transition hover:bg-sky-500/15" onClick={() => updatePost("schedule", { id: post.id, scheduledAt: post.scheduledAt ?? undefined })}>
+                        Reprogramar
                       </button>
                     )}
                     <button
                       type="button"
-                      className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[11px] text-gray-700"
+                      className="rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-white/55 transition hover:border-violet-500/30 hover:bg-violet-500/8 hover:text-violet-300"
                       onClick={() => {
                         if (editingPostId === post.id) {
                           void saveEdits(post.id);
@@ -339,14 +295,10 @@ export default function SocialFlowAIPage() {
                         }
                       }}
                     >
-                      {editingPostId === post.id ? "Save" : "Edit"}
+                      {editingPostId === post.id ? "Guardar" : "Editar"}
                     </button>
-                    <button
-                      type="button"
-                      className="rounded border border-indigo-300 bg-indigo-50 px-2 py-0.5 text-[11px] text-indigo-700"
-                      onClick={() => regeneratePost(post.id)}
-                    >
-                      Regenerate
+                    <button type="button" className="rounded-lg border border-indigo-500/25 bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-300 transition hover:bg-indigo-500/15" onClick={() => regeneratePost(post.id)}>
+                      Regenerar
                     </button>
                   </div>
                 </div>

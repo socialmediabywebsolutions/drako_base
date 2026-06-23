@@ -56,9 +56,7 @@ export default function SocialFlowSessionsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    void loadSessions();
-  }, [loadSessions]);
+  useEffect(() => { void loadSessions(); }, [loadSessions]);
 
   const revokeSession = async (id: string) => {
     setRevoking(id);
@@ -86,40 +84,28 @@ export default function SocialFlowSessionsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
-        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">
-          SocialFlow · Cuenta
-        </p>
-        <h1 className="mt-1.5 text-2xl font-black tracking-tight text-slate-950">
-          Sesiones activas
-        </h1>
-        <p className="mt-1.5 max-w-xl text-sm text-slate-500">
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow · Cuenta</p>
+        <h1 className="mt-1.5 text-2xl font-black tracking-tight text-white">Sesiones activas</h1>
+        <p className="mt-1.5 max-w-xl text-sm text-white/50">
           Sesiones abiertas en tu cuenta. Cierra cualquiera que no reconozcas.
         </p>
       </div>
 
       {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {error}
-        </div>
+        <div className="rounded-lg border border-red-500/20 bg-red-500/8 px-4 py-3 text-sm text-red-300">{error}</div>
       )}
 
       {loading ? (
         <div className="space-y-2">
           {[...Array(3)].map((_, i) => (
-            <div
-              key={i}
-              className="h-16 animate-pulse rounded-xl border border-slate-100 bg-slate-50"
-            />
+            <div key={i} className="h-16 animate-pulse rounded-xl border border-white/8 bg-white/5" />
           ))}
         </div>
       ) : sessions.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white px-6 py-10 text-center">
-          <p className="text-sm font-medium text-slate-500">Sin sesiones activas registradas.</p>
-          <p className="mt-1 text-xs text-slate-400">
-            Las sesiones aparecen aquí cuando inicias sesión.
-          </p>
+        <div className="rounded-xl border border-white/8 bg-white/4 px-6 py-10 text-center">
+          <p className="text-sm font-medium text-white/45">Sin sesiones activas registradas.</p>
+          <p className="mt-1 text-xs text-white/25">Las sesiones aparecen aquí cuando inicias sesión.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -128,37 +114,32 @@ export default function SocialFlowSessionsPage() {
               <button
                 onClick={revokeAll}
                 disabled={revoking !== null}
-                className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-40"
+                className="rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-1.5 text-[11px] font-semibold text-red-300 transition hover:border-red-500/30 hover:bg-red-500/12 disabled:opacity-40"
               >
                 Cerrar todas las demás
               </button>
             </div>
           )}
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
+          <div className="divide-y divide-white/6 overflow-hidden rounded-xl border border-white/8 bg-white/4">
             {sessions.map((s, idx) => (
-              <div
-                key={s.id}
-                className="flex items-center justify-between px-5 py-4"
-              >
-                <div className="flex items-center gap-3 min-w-0">
+              <div key={s.id} className="flex items-center justify-between px-5 py-4">
+                <div className="flex min-w-0 items-center gap-3">
                   <div className="flex-shrink-0">
-                    <div
-                      className={`h-2 w-2 rounded-full ${idx === 0 ? "bg-emerald-500" : "bg-slate-300"}`}
-                    />
+                    <div className={`h-2 w-2 rounded-full ${idx === 0 ? "bg-emerald-400" : "bg-white/20"}`} />
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-800">
+                      <span className="text-sm font-semibold text-white/85">
                         {idx === 0 ? "Esta sesión" : "Otra sesión"}
                       </span>
                       {idx === 0 && (
-                        <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                        <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">
                           ACTUAL
                         </span>
                       )}
                     </div>
-                    <p className="mt-0.5 text-[11px] text-slate-400">
+                    <p className="mt-0.5 text-[11px] text-white/35">
                       Iniciada {relativeTime(s.issued_at)} · {expiresLabel(s.expires_at)}
                     </p>
                   </div>
@@ -169,8 +150,8 @@ export default function SocialFlowSessionsPage() {
                   disabled={revoking !== null}
                   className={`ml-4 flex-shrink-0 rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition disabled:opacity-40 ${
                     idx === 0
-                      ? "border-slate-200 bg-white text-slate-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
-                      : "border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100"
+                      ? "border-white/10 bg-white/5 text-white/55 hover:border-red-500/30 hover:bg-red-500/8 hover:text-red-400"
+                      : "border-red-500/20 bg-red-500/8 text-red-300 hover:bg-red-500/15"
                   }`}
                 >
                   {revoking === s.id ? "Cerrando…" : idx === 0 ? "Cerrar sesión" : "Revocar"}
@@ -179,7 +160,7 @@ export default function SocialFlowSessionsPage() {
             ))}
           </div>
 
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-white/30">
             {sessions.length} sesión{sessions.length !== 1 ? "es" : ""} activa
             {sessions.length > 1 && " — la primera es la sesión actual de este navegador"}.
           </p>
