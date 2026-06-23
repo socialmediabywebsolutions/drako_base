@@ -37,12 +37,8 @@ export default function SocialFlowOperationsPanel() {
         fetch(`/api/socialflow/posts?saasId=${encodeURIComponent(saasId)}${statusParam}${campaignParam}${providerParam}`),
       ]);
 
-      if (!campaignRes.ok) {
-        throw new Error("Failed to load campaigns");
-      }
-      if (!postsRes.ok) {
-        throw new Error("Failed to load posts");
-      }
+      if (!campaignRes.ok) throw new Error("Failed to load campaigns");
+      if (!postsRes.ok) throw new Error("Failed to load posts");
 
       const campaignJson = (await campaignRes.json()) as { items?: SocialCampaign[] };
       const postsJson = (await postsRes.json()) as { items?: SocialPost[] };
@@ -78,94 +74,77 @@ export default function SocialFlowOperationsPanel() {
   }, [posts, statusFilter, campaignFilter, search]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {toast && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">
+        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-300">
           {toast}
         </div>
       )}
+      {error && (
+        <div className="rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {error}
+        </div>
+      )}
 
-      {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+      <div className="grid gap-5 lg:grid-cols-3">
+        {/* Left column – main panels */}
+        <div className="space-y-5 lg:col-span-2">
 
-      <div className="grid gap-8 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <section className="rounded-xl border border-slate-200/70 bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-semibold tracking-tight text-slate-900">Campanas</h2>
-                <p className="text-xs text-slate-500">Agrupa tus publicaciones por objetivos</p>
-              </div>
-              <span className="text-xs text-slate-400">{campaigns.length} en total</span>
-            </div>
+          {/* Campaigns */}
+          <DarkSection
+            title="Campañas"
+            subtitle="Agrupa tus publicaciones por objetivos"
+            right={<span className="text-xs text-white/30">{campaigns.length} en total</span>}
+          >
             <CampaignList
               campaigns={campaigns}
               posts={posts}
               onEmptyCta={() => {
-                const el = document.getElementById("socialflow-campaign-form");
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                document.getElementById("socialflow-campaign-form")?.scrollIntoView({ behavior: "smooth", block: "center" });
               }}
             />
-          </section>
+          </DarkSection>
 
-          <section className="rounded-xl border border-slate-200/70 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-semibold tracking-tight text-slate-900">Proximas publicaciones</h2>
-                <p className="text-xs text-slate-500">Programa tu contenido y deja que se publique automaticamente</p>
-              </div>
+          {/* Posts */}
+          <DarkSection
+            title="Próximas publicaciones"
+            subtitle="Programa tu contenido y deja que se publique automáticamente"
+            right={
               <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                <select
-                  className="rounded border border-slate-200 bg-white px-2 py-1"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
+                <DarkSelect value={statusFilter} onChange={setStatusFilter}>
                   <option value="ALL">Todos los estados</option>
                   <option value="IDEA">Idea</option>
                   <option value="DRAFT">Borrador</option>
-                  <option value="IN_REVIEW">En revision</option>
+                  <option value="IN_REVIEW">En revisión</option>
                   <option value="APPROVED">Aprobado</option>
                   <option value="SCHEDULED">Programado</option>
                   <option value="POSTED">Publicado</option>
-                </select>
-                <select
-                  className="rounded border border-slate-200 bg-white px-2 py-1"
-                  value={campaignFilter}
-                  onChange={(e) => setCampaignFilter(e.target.value)}
-                >
-                  <option value="ALL">Todas las campanas</option>
+                </DarkSelect>
+                <DarkSelect value={campaignFilter} onChange={setCampaignFilter}>
+                  <option value="ALL">Todas las campañas</option>
                   {campaigns.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
+                    <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
-                </select>
+                </DarkSelect>
                 <input
-                  className="rounded border border-slate-200 px-2 py-1"
-                  placeholder="Buscar por titulo o texto"
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/70 placeholder:text-white/25 outline-none focus:border-violet-500/50"
+                  placeholder="Buscar…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-            </div>
+            }
+          >
             <PostList posts={filteredPosts} campaigns={campaigns} />
-          </section>
+          </DarkSection>
 
-          <section className="rounded-xl border border-slate-200/70 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-semibold tracking-tight text-slate-900">Calendario semanal</h2>
-                <p className="text-xs text-slate-500">Visualiza tu contenido semanal</p>
-              </div>
-            </div>
+          {/* Calendar */}
+          <DarkSection title="Calendario semanal" subtitle="Visualiza tu contenido semanal">
             <Calendar posts={posts} campaigns={campaigns} />
-          </section>
-          <section className="rounded-xl border border-slate-200/70 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-semibold tracking-tight text-slate-900">Pipeline editorial</h2>
-                <p className="text-xs text-slate-500">Visualiza tus posts por estado editorial</p>
-              </div>
-            </div>
+          </DarkSection>
+
+          {/* Editorial pipeline */}
+          <DarkSection title="Pipeline editorial" subtitle="Visualiza tus posts por estado editorial">
             <EditorialPipeline
               posts={filteredPosts}
               onStatusChange={async (id, nextStatus) => {
@@ -185,24 +164,23 @@ export default function SocialFlowOperationsPanel() {
                 }
               }}
             />
-          </section>
+          </DarkSection>
         </div>
 
-        <section className="rounded-xl border border-slate-200/70 bg-white p-5 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold tracking-tight text-gray-900">Nueva campana</h2>
-          <div id="socialflow-campaign-form" className="mb-6">
+        {/* Right column – forms */}
+        <DarkSection title="Nueva campaña">
+          <div id="socialflow-campaign-form" className="mb-5">
             <CampaignForm
               saasId={saasId}
               onCreated={async (campaignId) => {
                 if (campaignId) setSelectedCampaignId(campaignId);
-                setToast("Campana creada");
+                setToast("Campaña creada");
                 await loadData();
               }}
             />
           </div>
-
-          <div id="socialflow-post-form" className="mt-2 border-t border-dashed border-gray-100 pt-4">
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Nuevo post</h3>
+          <div id="socialflow-post-form" className="border-t border-white/6 pt-5">
+            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-white/30">Nuevo post</p>
             <PostForm
               saasId={saasId}
               campaigns={campaigns}
@@ -213,60 +191,109 @@ export default function SocialFlowOperationsPanel() {
               }}
             />
           </div>
-        </section>
+        </DarkSection>
       </div>
 
       {loading && (
-        <div className="text-xs text-gray-400">Cargando SocialFlow...</div>
+        <p className="text-xs text-white/25 animate-pulse">Cargando SocialFlow…</p>
       )}
     </div>
   );
 }
 
-function EditorialPipeline(props: { posts: SocialPost[]; onStatusChange?: (id: string, nextStatus: string) => void }) {
-  const columns: { key: string; label: string }[] = [
-    { key: "IDEA", label: "Ideas" },
-    { key: "DRAFT", label: "Borradores" },
-    { key: "IN_REVIEW", label: "En revision" },
-    { key: "APPROVED", label: "Aprobados" },
-    { key: "SCHEDULED", label: "Programados" },
-    { key: "POSTED", label: "Publicados" },
-  ];
-
+// ── Shared dark section wrapper ────────────────────────────────────────────────
+function DarkSection({
+  title,
+  subtitle,
+  right,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="grid gap-4 text-xs md:grid-cols-3 lg:grid-cols-6">
-      {columns.map((col) => {
-        const bucket = props.posts.filter((post) => post.status === col.key);
+    <section className="rounded-2xl border border-white/8 bg-white/4 p-5">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-bold text-white">{title}</h2>
+          {subtitle && <p className="text-xs text-white/35 mt-0.5">{subtitle}</p>}
+        </div>
+        {right}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+// ── Dark select ────────────────────────────────────────────────────────────────
+function DarkSelect({
+  value,
+  onChange,
+  children,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <select
+      className="rounded-lg border border-white/10 bg-[#0d0d1e] px-2.5 py-1.5 text-[11px] text-white/60 outline-none focus:border-violet-500/50"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      {children}
+    </select>
+  );
+}
+
+// ── Editorial pipeline ─────────────────────────────────────────────────────────
+const PIPELINE_COLUMNS = [
+  { key: "IDEA",      label: "Ideas",       color: "text-white/50" },
+  { key: "DRAFT",     label: "Borradores",  color: "text-blue-400" },
+  { key: "IN_REVIEW", label: "En revisión", color: "text-amber-400" },
+  { key: "APPROVED",  label: "Aprobados",   color: "text-emerald-400" },
+  { key: "SCHEDULED", label: "Programados", color: "text-violet-400" },
+  { key: "POSTED",    label: "Publicados",  color: "text-fuchsia-400" },
+];
+
+function EditorialPipeline(props: {
+  posts: SocialPost[];
+  onStatusChange?: (id: string, nextStatus: string) => void;
+}) {
+  return (
+    <div className="grid gap-3 text-xs md:grid-cols-3 lg:grid-cols-6">
+      {PIPELINE_COLUMNS.map((col) => {
+        const bucket = props.posts.filter((p) => p.status === col.key);
         return (
-          <div key={col.key} className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">{col.label}</p>
-              <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-medium text-slate-500">
+          <div key={col.key} className="flex flex-col gap-2 rounded-xl border border-white/6 bg-white/3 p-3">
+            <div className="flex items-center justify-between gap-1">
+              <p className={`text-[10px] font-bold uppercase tracking-wide ${col.color}`}>{col.label}</p>
+              <span className="rounded-full border border-white/8 bg-white/5 px-1.5 py-0.5 text-[10px] text-white/35">
                 {bucket.length}
               </span>
             </div>
             {bucket.length === 0 ? (
-              <p className="text-[11px] text-slate-400">Sin posts en este estado</p>
+              <p className="text-[10px] text-white/20">Vacío</p>
             ) : (
               <ul className="space-y-1">
                 {bucket.slice(0, 50).map((post) => (
                   <li
                     key={post.id}
-                    className="cursor-pointer rounded-md border border-slate-200/80 bg-white px-2 py-1 shadow-sm hover:bg-slate-50"
+                    className="cursor-pointer rounded-lg border border-white/6 bg-white/3 px-2 py-1.5 transition hover:border-white/12 hover:bg-white/6"
                     onClick={() => {
                       if (!props.onStatusChange) return;
                       const order = ["IDEA", "DRAFT", "IN_REVIEW", "APPROVED", "SCHEDULED", "POSTED"];
                       const idx = order.indexOf(post.status);
                       const next = order[Math.min(order.length - 1, Math.max(0, idx + 1))];
-                      if (next && next !== post.status) {
-                        props.onStatusChange(post.id, next);
-                      }
+                      if (next && next !== post.status) props.onStatusChange(post.id, next);
                     }}
                   >
-                    <p className="truncate text-[11px] font-medium text-slate-900">{post.title}</p>
+                    <p className="truncate text-[10px] font-medium text-white/70">{post.title}</p>
                     {post.scheduledAt && (
-                      <p className="mt-0.5 text-[10px] text-slate-500">
-                        {new Date(post.scheduledAt).toLocaleDateString()}
+                      <p className="mt-0.5 text-[9px] text-white/30">
+                        {new Date(post.scheduledAt).toLocaleDateString("es-ES")}
                       </p>
                     )}
                   </li>
@@ -280,18 +307,23 @@ function EditorialPipeline(props: { posts: SocialPost[]; onStatusChange?: (id: s
   );
 }
 
-function CampaignList(props: { campaigns: SocialCampaign[]; posts: SocialPost[]; onEmptyCta: () => void }) {
+// ── Campaign list ──────────────────────────────────────────────────────────────
+function CampaignList(props: {
+  campaigns: SocialCampaign[];
+  posts: SocialPost[];
+  onEmptyCta: () => void;
+}) {
   if (props.campaigns.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm">
-        <p className="font-medium text-slate-700">Crea tu primera campana</p>
-        <p className="mt-1 text-xs text-slate-500">Define un objetivo y agrupa ahi tus proximas publicaciones.</p>
+      <div className="rounded-xl border border-dashed border-white/10 bg-white/3 p-5">
+        <p className="font-semibold text-white/60 text-sm">Crea tu primera campaña</p>
+        <p className="mt-1 text-xs text-white/30">Define un objetivo y agrupa ahí tus próximas publicaciones.</p>
         <button
           type="button"
           onClick={props.onEmptyCta}
-          className="mt-3 inline-flex rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-black"
+          className="mt-4 inline-flex rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
         >
-          Nueva campana
+          Nueva campaña
         </button>
       </div>
     );
@@ -304,18 +336,18 @@ function CampaignList(props: { campaigns: SocialCampaign[]; posts: SocialPost[];
   }
 
   return (
-    <div className="divide-y divide-slate-100">
+    <div className="divide-y divide-white/5">
       {props.campaigns.map((campaign) => (
-        <div key={campaign.id} className="flex items-center justify-between gap-3 py-2">
+        <div key={campaign.id} className="flex items-center justify-between gap-3 py-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-slate-900">{campaign.name}</p>
-            <p className="text-xs text-slate-500">{postsByCampaign.get(campaign.id) ?? 0} publicaciones asociadas</p>
+            <p className="truncate text-sm font-medium text-white/80">{campaign.name}</p>
+            <p className="text-xs text-white/30">{postsByCampaign.get(campaign.id) ?? 0} publicaciones</p>
           </div>
           <span
             className={
               campaign.status === "ACTIVE"
-                ? "rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700"
-                : "rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700"
+                ? "rounded-full bg-emerald-500/15 border border-emerald-500/25 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-400"
+                : "rounded-full bg-amber-500/15 border border-amber-500/25 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-400"
             }
           >
             {campaign.status === "ACTIVE" ? "Activa" : "Pausada"}

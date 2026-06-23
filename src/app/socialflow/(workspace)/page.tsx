@@ -39,18 +39,18 @@ export default async function SocialFlowDashboardPage() {
   const audit = await getLatestAudit(session.tenantId, DEFAULT_SAAS_ID);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">SocialFlow</div>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-violet-400">SocialFlow</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
             {snapshot.profile.brandName ? `Hola, ${snapshot.profile.brandName}` : "Tu workspace de SocialFlow"}
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Tu sistema operativo social: inteligencia accionable, auditorias continuas y gestion de contenido en un solo lugar.
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/45">
+            Tu sistema operativo de marketing: inteligencia accionable, auditorías continuas y gestión de contenido en un solo lugar.
           </p>
         </div>
-        <span className="rounded-full border-2 border-sky-200 bg-sky-50 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-sky-700">
+        <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-violet-300">
           Plan {planDefinition.label}
         </span>
       </div>

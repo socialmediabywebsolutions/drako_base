@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Card from "@/components/ui/card";
 
 type FeedType = "opportunity" | "recommendation" | "alert";
 type FeedPriority = "high" | "medium" | "low";
@@ -18,18 +17,18 @@ type FeedItem = {
   actionHref: string | null;
 };
 
+type FeedResponse = { ok: boolean; items?: FeedItem[]; message?: string; error?: string };
+
 const TYPE_ICON: Record<FeedType, string> = {
   opportunity: "💡",
   recommendation: "🎯",
   alert: "⚠️",
 };
 
-type FeedResponse = { ok: boolean; items?: FeedItem[]; message?: string; error?: string };
-
-const PRIORITY_TONE: Record<FeedPriority, string> = {
-  high: "border-red-200 bg-red-50 text-red-700",
-  medium: "border-amber-200 bg-amber-50 text-amber-700",
-  low: "border-slate-200 bg-slate-50 text-slate-600",
+const PRIORITY_STYLE: Record<FeedPriority, string> = {
+  high:   "border-red-500/30 bg-red-500/10 text-red-300",
+  medium: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+  low:    "border-white/15 bg-white/5 text-white/45",
 };
 
 export default function IntelligenceFeedPanel() {
@@ -44,9 +43,7 @@ export default function IntelligenceFeedPanel() {
         const res = await fetch("/api/socialflow/intelligence-feed");
         const json = (await res.json().catch(() => null)) as FeedResponse | null;
         if (cancelled) return;
-        if (!res.ok || !json?.ok) {
-          throw new Error(json?.message || json?.error || "FEED_LOAD_FAILED");
-        }
+        if (!res.ok || !json?.ok) throw new Error(json?.message || json?.error || "FEED_LOAD_FAILED");
         setItems(json.items ?? []);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "No se pudo cargar el feed");
@@ -55,13 +52,15 @@ export default function IntelligenceFeedPanel() {
       }
     }
     void load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   async function updateStatus(id: string, status: "read" | "dismissed") {
-    setItems((prev) => (status === "dismissed" ? prev.filter((item) => item.id !== id) : prev.map((item) => (item.id === id ? { ...item, status } : item))));
+    setItems((prev) =>
+      status === "dismissed"
+        ? prev.filter((item) => item.id !== id)
+        : prev.map((item) => (item.id === id ? { ...item, status } : item)),
+    );
     try {
       await fetch("/api/socialflow/intelligence-feed", {
         method: "PATCH",
@@ -73,63 +72,82 @@ export default function IntelligenceFeedPanel() {
     }
   }
 
-  if (loading) {
-    return (
-      <Card title="Intelligence Feed" subtitle="Lo que necesitas saber ahora" tone="default">
-        <p className="text-sm text-slate-400">Cargando inteligencia...</p>
-      </Card>
-    );
-  }
+  return (
+    <section className="rounded-2xl border border-white/8 bg-white/4 p-6">
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-bold text-white">Intelligence Feed</h2>
+          <p className="text-xs text-white/35 mt-0.5">Lo que necesitas saber ahora</p>
+        </div>
+        {items.filter((i) => i.status === "new").length > 0 && (
+          <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[10px] font-bold text-violet-300">
+            {items.filter((i) => i.status === "new").length} nuevo{items.filter((i) => i.status === "new").length > 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
 
-  if (error) {
-    return (
-      <Card title="Intelligence Feed" subtitle="Lo que necesitas saber ahora" tone="default">
-        <p className="text-sm text-red-600">{error}</p>
-      </Card>
-    );
-  }
+      {loading && (
+        <p className="text-sm text-white/30 animate-pulse">Cargando inteligencia…</p>
+      )}
 
-  if (items.length === 0) {
-    return (
-      <Card title="Intelligence Feed" subtitle="Lo que necesitas saber ahora" tone="default">
-        <p className="text-sm text-slate-500">
+      {error && (
+        <p className="text-sm text-red-400">{error}</p>
+      )}
+
+      {!loading && !error && items.length === 0 && (
+        <p className="text-sm text-white/35">
           Todo en orden. Vuelve a auditar tu presencia para generar nuevas recomendaciones.
         </p>
-      </Card>
-    );
-  }
+      )}
 
-  return (
-    <Card title="Intelligence Feed" subtitle="Lo que necesitas saber ahora" tone="default" bodyClassName="space-y-3">
-      {items.map((item) => (
-        <div key={item.id} className="flex flex-wrap items-start gap-3 rounded-2xl border-2 border-sky-50 bg-sky-50/30 p-4">
-          <span className="text-xl">{TYPE_ICON[item.type]}</span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-bold text-slate-900">{item.title}</p>
-              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${PRIORITY_TONE[item.priority]}`}>
-                {item.priority}
-              </span>
+      {!loading && !error && items.length > 0 && (
+        <div className="space-y-3">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className={`flex flex-wrap items-start gap-3 rounded-xl border p-4 transition ${
+                item.status === "new"
+                  ? "border-violet-500/20 bg-violet-500/8"
+                  : "border-white/6 bg-white/3"
+              }`}
+            >
+              <span className="text-lg">{TYPE_ICON[item.type]}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <p className="text-sm font-bold text-white">{item.title}</p>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${PRIORITY_STYLE[item.priority]}`}>
+                    {item.priority}
+                  </span>
+                </div>
+                <p className="text-sm leading-relaxed text-white/55">{item.description}</p>
+                <div className="mt-2.5 flex flex-wrap items-center gap-4 text-xs font-semibold">
+                  {item.actionHref && (
+                    <Link href={item.actionHref} className="text-violet-400 hover:text-violet-300 transition-colors">
+                      {item.actionLabel ?? "Ver más"} →
+                    </Link>
+                  )}
+                  {item.status === "new" && (
+                    <button
+                      type="button"
+                      onClick={() => void updateStatus(item.id, "read")}
+                      className="text-white/25 hover:text-white/50 transition-colors"
+                    >
+                      Marcar como leído
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void updateStatus(item.id, "dismissed")}
+                    className="text-white/20 hover:text-red-400 transition-colors"
+                  >
+                    Descartar
+                  </button>
+                </div>
+              </div>
             </div>
-            <p className="mt-1 text-sm leading-6 text-slate-600">{item.description}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs font-semibold">
-              {item.actionHref && (
-                <Link href={item.actionHref} className="text-sky-600 hover:text-sky-700">
-                  {item.actionLabel ?? "Ver mas"} →
-                </Link>
-              )}
-              {item.status === "new" && (
-                <button type="button" onClick={() => void updateStatus(item.id, "read")} className="text-slate-400 hover:text-slate-600">
-                  Marcar como leido
-                </button>
-              )}
-              <button type="button" onClick={() => void updateStatus(item.id, "dismissed")} className="text-slate-400 hover:text-red-500">
-                Descartar
-              </button>
-            </div>
-          </div>
+          ))}
         </div>
-      ))}
-    </Card>
+      )}
+    </section>
   );
 }
