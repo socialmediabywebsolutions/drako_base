@@ -1,5 +1,3 @@
-"use client";
-
 import { Suspense } from "react";
 import SocialFlowAuthExperience from "./_components/socialflow-auth-experience";
 
