@@ -29,21 +29,21 @@ export default async function SocialFlowPlanPage() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
           SocialFlow · Plan editorial
         </div>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
           Calendario
           {scheduled > 0 && (
-            <span className="ml-3 text-xl font-semibold text-slate-400">
+            <span className="ml-3 text-xl font-semibold text-white/40">
               {scheduled} programado{scheduled !== 1 ? "s" : ""}
             </span>
           )}
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
           Crea, aprueba y programa publicaciones desde un solo lugar.
           {backlog > 0 && (
-            <span className="ml-1 font-semibold text-amber-600">
+            <span className="ml-1 font-semibold text-amber-400">
               {backlog} post{backlog !== 1 ? "s" : ""} sin programar.
             </span>
           )}

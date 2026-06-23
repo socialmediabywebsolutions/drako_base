@@ -27,11 +27,11 @@ const TYPE_LABEL: Record<DocType, string> = {
 };
 
 const TYPE_BG: Record<DocType, string> = {
-  pdf: "bg-orange-50 text-orange-700",
-  url: "bg-sky-50 text-sky-700",
-  text: "bg-slate-100 text-slate-600",
-  competitor: "bg-purple-50 text-purple-700",
-  market_analysis: "bg-emerald-50 text-emerald-700",
+  pdf: "bg-orange-500/15 text-orange-300",
+  url: "bg-sky-500/15 text-sky-300",
+  text: "bg-white/8 text-white/60",
+  competitor: "bg-purple-500/15 text-purple-300",
+  market_analysis: "bg-emerald-500/15 text-emerald-300",
 };
 
 export default function KnowledgeBasePage() {
@@ -85,13 +85,18 @@ export default function KnowledgeBasePage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-semibold">Knowledge Base</h1>
-        <p className="mt-1 text-sm text-slate-500">
+      <div>
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
+          SocialFlow · Base de conocimiento
+        </p>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
+          Knowledge Base
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
           Documentos, competidores y análisis de mercado que la IA usa como contexto al generar campañas.
         </p>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-5 flex flex-wrap gap-2">
           <ActionButton active={panel === "upload"} onClick={() => togglePanel("upload")} icon="upload">
             Subir documento
           </ActionButton>
@@ -107,7 +112,7 @@ export default function KnowledgeBasePage() {
         </div>
 
         {error && (
-          <p className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+          <p className="mt-3 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>
         )}
       </div>
 
@@ -171,22 +176,22 @@ function DocSection({
   onDelete: (id: string) => void;
 }) {
   return (
-    <div className="rounded-lg border bg-white shadow-sm">
-      <div className="border-b px-6 py-4">
-        <h2 className="text-base font-semibold text-slate-800">
+    <div className="rounded-2xl border border-white/8 bg-white/4">
+      <div className="border-b border-white/8 px-6 py-4">
+        <h2 className="text-base font-semibold text-white">
           {title}
           {!loading && (
-            <span className="ml-1.5 text-sm font-normal text-slate-400">({docs.length})</span>
+            <span className="ml-1.5 text-sm font-normal text-white/30">({docs.length})</span>
           )}
         </h2>
       </div>
 
       {loading ? (
-        <div className="px-6 py-8 text-center text-sm text-slate-400">Cargando...</div>
+        <div className="px-6 py-8 text-center text-sm text-white/30 animate-pulse">Cargando...</div>
       ) : docs.length === 0 ? (
-        <div className="px-6 py-8 text-center text-sm text-slate-400">{emptyText}</div>
+        <div className="px-6 py-8 text-center text-sm text-white/30">{emptyText}</div>
       ) : (
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-white/5">
           {docs.map((doc) => (
             <DocRow key={doc.id} doc={doc} onDelete={onDelete} />
           ))}
@@ -218,25 +223,25 @@ function DocRow({ doc, onDelete }: { doc: Doc; onDelete: (id: string) => void })
           <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${TYPE_BG[doc.type]}`}>
             {TYPE_LABEL[doc.type]}
           </span>
-          <span className="truncate text-sm font-medium text-slate-800">{doc.name}</span>
+          <span className="truncate text-sm font-medium text-white/80">{doc.name}</span>
         </div>
         {doc.source_url && (
           <a
             href={doc.source_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-0.5 block truncate text-xs text-slate-400 hover:text-sky-600 hover:underline"
+            className="mt-0.5 block truncate text-xs text-white/30 hover:text-violet-400 hover:underline transition-colors"
           >
             {doc.source_url}
           </a>
         )}
-        <p className="mt-0.5 text-xs text-slate-400">{date}</p>
+        <p className="mt-0.5 text-xs text-white/25">{date}</p>
       </div>
       <button
         type="button"
         onClick={handleDelete}
         disabled={deleting}
-        className="flex-shrink-0 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+        className="flex-shrink-0 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-white/35 transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40"
       >
         {deleting ? "Eliminando..." : "Eliminar"}
       </button>
@@ -271,17 +276,17 @@ function UploadPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
   }
 
   return (
-    <Panel title="Subir documento (PDF o texto)">
+    <DarkPanel title="Subir documento (PDF o texto)">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="Nombre personalizado (opcional)">
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Guía de marca 2024" className={inputCls} />
         </Field>
-        <Field label={<>Archivo <span className="text-slate-400">(PDF, .txt — máx. 10 MB)</span></>}>
-          <div onClick={() => inputRef.current?.click()} className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-200 bg-white px-6 py-8 text-center transition hover:border-slate-400">
+        <Field label={<>Archivo <span className="text-white/25">(PDF, .txt — máx. 10 MB)</span></>}>
+          <div onClick={() => inputRef.current?.click()} className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/10 bg-white/3 px-6 py-8 text-center transition hover:border-violet-500/40 hover:bg-white/5">
             {file ? (
-              <div><p className="text-sm font-medium text-slate-700">{file.name}</p><p className="text-xs text-slate-400">{(file.size / 1024).toFixed(0)} KB</p></div>
+              <div><p className="text-sm font-medium text-white/80">{file.name}</p><p className="text-xs text-white/35">{(file.size / 1024).toFixed(0)} KB</p></div>
             ) : (
-              <p className="text-sm text-slate-500">Haz clic para seleccionar un archivo</p>
+              <p className="text-sm text-white/40">Haz clic para seleccionar un archivo</p>
             )}
           </div>
           <input ref={inputRef} type="file" accept=".pdf,.txt,application/pdf,text/plain" className="hidden"
@@ -292,10 +297,10 @@ function UploadPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
             }}
           />
         </Field>
-        {localError && <p className="text-sm text-red-600">{localError}</p>}
+        {localError && <p className="text-sm text-red-400">{localError}</p>}
         <SubmitButton loading={uploading} disabled={!file}>{uploading ? "Subiendo..." : "Subir documento"}</SubmitButton>
       </form>
-    </Panel>
+    </DarkPanel>
   );
 }
 
@@ -325,14 +330,14 @@ function UrlPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
   }
 
   return (
-    <Panel title="Añadir contenido desde URL">
+    <DarkPanel title="Añadir contenido desde URL">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="URL"><input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://tu-web.com/servicios" className={inputCls} autoFocus /></Field>
         <Field label="Nombre personalizado (opcional)"><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Página de servicios" className={inputCls} /></Field>
-        {localError && <p className="text-sm text-red-600">{localError}</p>}
+        {localError && <p className="text-sm text-red-400">{localError}</p>}
         <SubmitButton loading={loading}>{loading ? "Procesando..." : "Guardar contenido"}</SubmitButton>
       </form>
-    </Panel>
+    </DarkPanel>
   );
 }
 
@@ -362,17 +367,17 @@ function CompetitorPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
   }
 
   return (
-    <Panel title="Analizar competidor con IA">
-      <p className="mb-4 text-xs text-slate-500">
+    <DarkPanel title="Analizar competidor con IA">
+      <p className="mb-4 text-xs text-white/40">
         Introduce el nombre y/o la URL del competidor. La IA extraerá sus servicios, fortalezas, patrones de contenido y oportunidades de diferenciación.
       </p>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="Nombre del competidor"><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Agencia XYZ" className={inputCls} autoFocus /></Field>
         <Field label="URL de su web (opcional — mejora el análisis)"><input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://agenciaxyz.com" className={inputCls} /></Field>
-        {localError && <p className="text-sm text-red-600">{localError}</p>}
+        {localError && <p className="text-sm text-red-400">{localError}</p>}
         <SubmitButton loading={loading}>{loading ? "Analizando con IA..." : "Analizar competidor"}</SubmitButton>
       </form>
-    </Panel>
+    </DarkPanel>
   );
 }
 
@@ -395,24 +400,24 @@ function MarketPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
   }
 
   return (
-    <Panel title="Análisis de mercado con IA">
-      <p className="mb-5 text-sm text-slate-600">
+    <DarkPanel title="Análisis de mercado con IA">
+      <p className="mb-5 text-sm text-white/50">
         La IA analizará el nicho de tu marca (configurado en el Perfil) y generará un informe con hashtags en tendencia, palabras clave virales, formatos que funcionan en tu sector y oportunidades de mercado.
       </p>
-      <p className="mb-5 text-xs text-slate-400">
-        El análisis se basa en tu perfil de marca. Si no tienes nicho configurado aún, configúralo primero en <strong>Profile → Primary niche</strong>.
+      <p className="mb-5 text-xs text-white/30">
+        El análisis se basa en tu perfil de marca. Si no tienes nicho configurado aún, configúralo primero en <strong className="text-white/50">Perfil → Nicho principal</strong>.
       </p>
-      {localError && <p className="mb-4 text-sm text-red-600">{localError}</p>}
+      {localError && <p className="mb-4 text-sm text-red-400">{localError}</p>}
       <SubmitButton loading={loading} onClick={handleRun} type="button">
         {loading ? "Generando análisis..." : "Generar análisis de mercado"}
       </SubmitButton>
-    </Panel>
+    </DarkPanel>
   );
 }
 
 /* ── Shared UI primitives ────────────────────────────────────────────────── */
 
-const inputCls = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-slate-400 focus:outline-none";
+const inputCls = "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/20 transition backdrop-blur-sm";
 
 function ActionButton({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: string; children: React.ReactNode }) {
   const icons: Record<string, React.ReactNode> = {
@@ -426,8 +431,10 @@ function ActionButton({ active, onClick, icon, children }: { active: boolean; on
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition ${
-        active ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
+      className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+        active
+          ? "border-violet-500/50 bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 text-white"
+          : "border-white/10 bg-white/5 text-white/60 hover:border-white/20 hover:text-white/80"
       }`}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -438,10 +445,10 @@ function ActionButton({ active, onClick, icon, children }: { active: boolean; on
   );
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function DarkPanel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 shadow-sm">
-      <h3 className="mb-4 text-sm font-semibold text-slate-800">{title}</h3>
+    <div className="rounded-2xl border border-white/10 bg-white/4 p-5">
+      <h3 className="mb-4 text-sm font-semibold text-white">{title}</h3>
       {children}
     </div>
   );
@@ -450,7 +457,7 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 function Field({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-slate-600">{label}</label>
+      <label className="mb-1.5 block text-xs font-medium text-white/45">{label}</label>
       {children}
     </div>
   );
@@ -468,7 +475,7 @@ function SubmitButton({ loading, disabled, onClick, type = "submit", children }:
       type={type}
       disabled={loading || disabled}
       onClick={onClick}
-      className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-50"
+      className="inline-flex rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {children}
     </button>

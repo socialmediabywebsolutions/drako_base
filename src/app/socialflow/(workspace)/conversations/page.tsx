@@ -26,15 +26,15 @@ export default async function SocialFlowConversationsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">
-          SocialFlow conversations
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
+          SocialFlow · Conversaciones
         </div>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-          Conversational AI
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
+          Bandeja de conversaciones
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          Auto-respond to DMs and comments using your brand knowledge base. Approve replies before
-          sending, or enable auto-send for instant responses.
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
+          Responde DMs y comentarios automáticamente usando tu base de conocimiento de marca.
+          Aprueba las respuestas antes de enviar o activa el envío automático para respuestas instantáneas.
         </p>
       </div>
 

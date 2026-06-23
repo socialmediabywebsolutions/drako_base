@@ -19,16 +19,16 @@ export default async function SocialFlowLeadsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
           SocialFlow · Lead Intelligence
         </p>
-        <h1 className="mt-1.5 text-2xl font-black tracking-tight text-slate-950">
+        <h1 className="mt-1.5 text-2xl font-black tracking-tight text-white">
           Leads
         </h1>
-        <p className="mt-1.5 max-w-xl text-sm text-slate-500">
+        <p className="mt-1.5 max-w-xl text-sm text-white/50">
           Detectados automáticamente de comentarios y DMs con señales de intención de compra.
           {hotCount > 0 && (
-            <span className="ml-1 font-semibold text-rose-600">
+            <span className="ml-1 font-semibold text-fuchsia-400">
               {hotCount} HOT{hotCount !== 1 ? "s" : ""} ahora.
             </span>
           )}
