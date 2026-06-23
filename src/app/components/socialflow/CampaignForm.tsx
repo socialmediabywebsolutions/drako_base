@@ -49,12 +49,12 @@ export function CampaignForm(props: {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 text-sm">
-      <p className="text-xs text-gray-500">Agrupa tus publicaciones por objetivos para planificar mejor tu contenido.</p>
+      <p className="text-xs text-white/40">Agrupa tus publicaciones por objetivos para planificar mejor tu contenido.</p>
 
       <div className="space-y-1">
-        <label className="block text-xs font-medium text-gray-700">Nombre de campaña</label>
+        <label className="block text-xs font-medium text-white/50">Nombre de campaña</label>
         <input
-          className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm shadow-sm focus:border-gray-900 focus:outline-none"
+          className="w-full rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/20"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Ej. Lanzamiento de abril"
@@ -62,9 +62,9 @@ export function CampaignForm(props: {
         />
       </div>
       <div className="space-y-1">
-        <label className="block text-xs font-medium text-gray-700">Estado de la campaña</label>
+        <label className="block text-xs font-medium text-white/50">Estado de la campaña</label>
         <select
-          className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm shadow-sm focus:border-gray-900 focus:outline-none"
+          className="w-full rounded-lg border border-white/10 bg-[#0d0d1e] px-2.5 py-1.5 text-sm text-white/70 focus:border-violet-500/50 focus:outline-none"
           value={status}
           onChange={(e) => setStatus(e.target.value as "ACTIVE" | "PAUSED")}
         >
@@ -73,15 +73,17 @@ export function CampaignForm(props: {
         </select>
       </div>
 
-      {error && <div className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700">{error}</div>}
+      {error && (
+        <div className="rounded-lg border border-red-500/20 bg-red-500/8 p-2 text-xs text-red-300">{error}</div>
+      )}
       {message && !error && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-700">{message}</div>
+        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/8 p-2 text-xs text-emerald-300">{message}</div>
       )}
 
       <button
         type="submit"
         disabled={submitting}
-        className="inline-flex w-full items-center justify-center rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {submitting ? "Creando..." : "Crear campaña"}
       </button>

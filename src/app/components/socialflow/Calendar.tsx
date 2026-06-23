@@ -5,7 +5,7 @@ import type { SocialCampaign, SocialPost } from "@/app/components/socialflow/typ
 function startOfWeek(date: Date) {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // lunes como inicio
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   return new Date(d.setDate(diff));
 }
 
@@ -41,31 +41,35 @@ export function Calendar(props: { posts: SocialPost[]; campaigns: SocialCampaign
             key={day.dateIso}
             className={
               "flex min-h-[120px] flex-col rounded-lg border p-2 text-xs " +
-              (isToday ? "border-gray-900 bg-gray-900 text-gray-50" : "border-gray-100 bg-gray-50 text-gray-900")
+              (isToday
+                ? "border-violet-500/40 bg-violet-500/8 text-white"
+                : "border-white/8 bg-white/4 text-white/80")
             }
           >
-            <div className="mb-1 flex items-center justify-between text-[11px] font-medium text-gray-600">
-              <span className={isToday ? "font-semibold" : ""}>{day.label}</span>
-              <span className={"text-[10px] " + (isToday ? "text-gray-200" : "text-gray-400")}>{dayPosts.length}</span>
+            <div className="mb-1 flex items-center justify-between text-[11px] font-medium text-white/40">
+              <span className={isToday ? "font-semibold text-violet-300" : ""}>{day.label}</span>
+              <span className={"text-[10px] " + (isToday ? "text-violet-300/70" : "text-white/25")}>
+                {dayPosts.length}
+              </span>
             </div>
             <div className="space-y-1">
               {dayPosts.slice(0, 3).map((post) => (
                 <div
                   key={post.id}
                   className={
-                    "rounded-md p-1.5 shadow-sm " +
-                    (isToday ? "bg-gray-800 text-gray-50" : "bg-white text-gray-900")
+                    "rounded-md p-1.5 " +
+                    (isToday ? "bg-white/10 text-white" : "bg-white/6 text-white/85")
                   }
                   title={post.body}
                 >
                   <div className="truncate text-[11px] font-medium">{post.title}</div>
-                  <div className="mt-0.5 flex items-center justify-between text-[10px] text-gray-500">
+                  <div className="mt-0.5 flex items-center justify-between text-[10px] text-white/35">
                     <span>{campaignName(post.campaignId)}</span>
                     <span
                       className={
                         post.status === "SCHEDULED"
-                          ? "rounded-full bg-yellow-100 px-1.5 py-0.5 text-[9px] font-medium text-yellow-700"
-                          : "rounded-full bg-green-100 px-1.5 py-0.5 text-[9px] font-medium text-green-700"
+                          ? "rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-300"
+                          : "rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-300"
                       }
                     >
                       {post.status}
@@ -74,12 +78,10 @@ export function Calendar(props: { posts: SocialPost[]; campaigns: SocialCampaign
                 </div>
               ))}
               {dayPosts.length > 3 && (
-                <div className="text-[10px] text-gray-400">
-                  +{dayPosts.length - 3} más
-                </div>
+                <div className="text-[10px] text-white/25">+{dayPosts.length - 3} más</div>
               )}
               {dayPosts.length === 0 && (
-                <div className="mt-2 text-[10px] text-gray-400">
+                <div className="mt-2 text-[10px] text-white/20">
                   {isToday ? "Empieza programando un post" : "Sin posts"}
                 </div>
               )}

@@ -64,30 +64,28 @@ export function PostForm(props: {
     }
   }
 
+  const inputCls = "w-full rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/20";
+  const selectCls = "w-full rounded-lg border border-white/10 bg-[#0d0d1e] px-2.5 py-1.5 text-sm text-white/70 focus:border-violet-500/50 focus:outline-none";
+  const labelCls = "block text-xs font-medium text-white/50";
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-sm">
-      <p className="text-xs text-gray-500">Programa tu contenido y deja que se publique automáticamente.</p>
+      <p className="text-xs text-white/40">Programa tu contenido y deja que se publique automáticamente.</p>
 
       <div className="space-y-1">
-        <label className="block text-xs font-medium text-gray-700">Campaña</label>
-        <select
-          className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm shadow-sm focus:border-gray-900 focus:outline-none"
-          value={campaignId}
-          onChange={(e) => setCampaignId(e.target.value)}
-        >
+        <label className={labelCls}>Campaña</label>
+        <select className={selectCls} value={campaignId} onChange={(e) => setCampaignId(e.target.value)}>
           <option value="">Sin campaña</option>
           {props.campaigns.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
+            <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
       </div>
 
       <div className="space-y-1">
-        <label className="block text-xs font-medium text-gray-700">Título del post</label>
+        <label className={labelCls}>Título del post</label>
         <input
-          className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm shadow-sm focus:border-gray-900 focus:outline-none"
+          className={inputCls}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Ej. 5 ideas para cuidar tu imagen esta semana"
@@ -96,9 +94,9 @@ export function PostForm(props: {
       </div>
 
       <div className="space-y-1">
-        <label className="block text-xs font-medium text-gray-700">Texto del post</label>
+        <label className={labelCls}>Texto del post</label>
         <textarea
-          className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm shadow-sm focus:border-gray-900 focus:outline-none"
+          className={inputCls}
           rows={4}
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -109,33 +107,31 @@ export function PostForm(props: {
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <label className="block text-xs font-medium text-gray-700">Fecha de publicación</label>
+          <label className={labelCls}>Fecha de publicación</label>
           <input
             type="datetime-local"
-            className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm shadow-sm focus:border-gray-900 focus:outline-none"
+            className={inputCls}
             value={scheduledAt}
             onChange={(e) => setScheduledAt(e.target.value)}
           />
         </div>
         <div className="space-y-1">
-          <label className="block text-xs font-medium text-gray-700">Estado del post</label>
-          <select
-            className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm shadow-sm focus:border-gray-900 focus:outline-none"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as "DRAFT" | "SCHEDULED")}
-          >
+          <label className={labelCls}>Estado del post</label>
+          <select className={selectCls} value={status} onChange={(e) => setStatus(e.target.value as "DRAFT" | "SCHEDULED")}>
             <option value="DRAFT">Borrador</option>
             <option value="SCHEDULED">Programado</option>
           </select>
         </div>
       </div>
 
-      {error && <div className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700">{error}</div>}
+      {error && (
+        <div className="rounded-lg border border-red-500/20 bg-red-500/8 p-2 text-xs text-red-300">{error}</div>
+      )}
 
       <button
         type="submit"
         disabled={submitting}
-        className="inline-flex w-full items-center justify-center rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {submitting ? "Guardando..." : "Crear post"}
       </button>
