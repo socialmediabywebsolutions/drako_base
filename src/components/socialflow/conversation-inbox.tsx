@@ -22,40 +22,40 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 const PROVIDER_BG: Record<string, string> = {
-  INSTAGRAM: "bg-pink-100 text-pink-700",
-  FACEBOOK_PAGE: "bg-blue-100 text-blue-700",
-  LINKEDIN: "bg-sky-100 text-sky-700",
+  INSTAGRAM: "bg-pink-500/15 text-pink-300",
+  FACEBOOK_PAGE: "bg-blue-500/15 text-blue-300",
+  LINKEDIN: "bg-sky-500/15 text-sky-300",
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  PENDING: "Pending",
-  AUTO_APPROVED: "Auto-approved",
-  APPROVED: "Approved",
-  SENT: "Sent",
-  DISMISSED: "Dismissed",
-  NEEDS_HUMAN: "Needs review",
+  PENDING: "Pendiente",
+  AUTO_APPROVED: "Auto-aprobado",
+  APPROVED: "Aprobado",
+  SENT: "Enviado",
+  DISMISSED: "Descartado",
+  NEEDS_HUMAN: "Requiere revisión",
 };
 
 const STATUS_BG: Record<string, string> = {
-  PENDING: "bg-amber-100 text-amber-700",
-  AUTO_APPROVED: "bg-sky-100 text-sky-700",
-  APPROVED: "bg-emerald-100 text-emerald-700",
-  SENT: "bg-slate-100 text-slate-600",
-  DISMISSED: "bg-rose-50 text-rose-500",
-  NEEDS_HUMAN: "bg-orange-100 text-orange-700",
+  PENDING: "bg-amber-500/15 text-amber-300",
+  AUTO_APPROVED: "bg-sky-500/15 text-sky-300",
+  APPROVED: "bg-emerald-500/15 text-emerald-300",
+  SENT: "bg-white/8 text-white/50",
+  DISMISSED: "bg-rose-500/10 text-rose-400",
+  NEEDS_HUMAN: "bg-orange-500/15 text-orange-300",
 };
 
 const SENTIMENT_BG: Record<string, string> = {
-  positive: "bg-emerald-100 text-emerald-700",
-  negative: "bg-red-100 text-red-700",
-  neutral: "bg-slate-100 text-slate-600",
-  lead: "bg-violet-100 text-violet-700",
+  positive: "bg-emerald-500/15 text-emerald-300",
+  negative: "bg-red-500/15 text-red-300",
+  neutral: "bg-white/8 text-white/50",
+  lead: "bg-violet-500/15 text-violet-300",
 };
 
 const SENTIMENT_LABEL: Record<string, string> = {
-  positive: "Positive",
-  negative: "Negative",
-  neutral: "Neutral",
+  positive: "Positivo",
+  negative: "Negativo",
+  neutral: "Neutro",
   lead: "Lead",
 };
 
@@ -80,11 +80,11 @@ function getConfidence(meta: Record<string, unknown> | null): number | null {
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return "ahora";
+  if (mins < 60) return `hace ${mins}m`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  if (hrs < 24) return `hace ${hrs}h`;
+  return `hace ${Math.floor(hrs / 24)}d`;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -105,14 +105,12 @@ export default function ConversationInbox({
   const [threads, setThreads] = useState(initialThreads);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
-  // Test panel state
   const [testMessage, setTestMessage] = useState("");
   const [testProvider, setTestProvider] = useState("INSTAGRAM");
   const [testThreadType, setTestThreadType] = useState<"DM" | "COMMENT">("DM");
   const [testResult, setTestResult] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
 
-  // Per-thread editing + override state
   const [editedReplies, setEditedReplies] = useState<Record<string, string>>({});
   const [overriding, setOverriding] = useState<Record<string, boolean>>({});
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
@@ -122,7 +120,6 @@ export default function ConversationInbox({
   const [isPendingTest, startTestTransition] = useTransition();
   const [isPendingAction, startActionTransition] = useTransition();
 
-  // ── Tab bucketing ──────────────────────────────────────────────────────────
   const inboxThreads = threads.filter((t) => t.status === "PENDING" || t.status === "AUTO_APPROVED");
   const needsHumanThreads = threads.filter((t) => t.status === "NEEDS_HUMAN");
   const historyThreads = threads.filter(
@@ -132,7 +129,6 @@ export default function ConversationInbox({
   const activeThreads =
     tab === "inbox" ? inboxThreads : tab === "needs_human" ? needsHumanThreads : historyThreads;
 
-  // ── Settings ───────────────────────────────────────────────────────────────
   function toggleAutoSend() {
     setSettingsError(null);
     startSettingsTransition(async () => {
@@ -154,7 +150,7 @@ export default function ConversationInbox({
         if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to update");
         if (data.settings) setSettings(data.settings);
       } catch (e) {
-        setSettingsError(e instanceof Error ? e.message : "Failed to update settings");
+        setSettingsError(e instanceof Error ? e.message : "Error al actualizar configuración");
       }
     });
   }
@@ -179,12 +175,11 @@ export default function ConversationInbox({
         if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to update providers");
         if (data.settings) setSettings(data.settings);
       } catch (e) {
-        setSettingsError(e instanceof Error ? e.message : "Failed to update providers");
+        setSettingsError(e instanceof Error ? e.message : "Error al actualizar proveedores");
       }
     });
   }
 
-  // ── Test panel ─────────────────────────────────────────────────────────────
   function generateTestReply() {
     if (!testMessage.trim()) return;
     setTestResult(null);
@@ -204,7 +199,7 @@ export default function ConversationInbox({
         if (!res.ok || !data.ok) throw new Error(data.error ?? "Generation failed");
         setTestResult(data.suggestedReply ?? "");
       } catch (e) {
-        setTestError(e instanceof Error ? e.message : "Generation failed");
+        setTestError(e instanceof Error ? e.message : "Error al generar respuesta");
       }
     });
   }
@@ -236,12 +231,11 @@ export default function ConversationInbox({
         setTestMessage("");
         setTestResult(null);
       } catch (e) {
-        setTestError(e instanceof Error ? e.message : "Failed to save");
+        setTestError(e instanceof Error ? e.message : "Error al guardar");
       }
     });
   }
 
-  // ── Thread actions ─────────────────────────────────────────────────────────
   function patchThread(threadId: string, status: ConversationThread["status"], finalReply?: string | null) {
     setPendingThreadId(threadId);
     startActionTransition(async () => {
@@ -291,45 +285,46 @@ export default function ConversationInbox({
     }
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
 
       {/* Stats strip */}
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="In inbox" value={inboxThreads.length} accent="amber" />
-        <StatCard label="Needs review" value={needsHumanThreads.length} accent="orange" />
-        <StatCard label="Sent / approved" value={historyThreads.filter((t) => t.status === "SENT" || t.status === "APPROVED").length} accent="emerald" />
+        <StatCard label="En bandeja" value={inboxThreads.length} accent="amber" />
+        <StatCard label="Requiere revisión" value={needsHumanThreads.length} accent="orange" />
+        <StatCard label="Enviados / aprobados" value={historyThreads.filter((t) => t.status === "SENT" || t.status === "APPROVED").length} accent="emerald" />
       </div>
 
-      {/* Settings card (collapsible) */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      {/* Settings card */}
+      <div className="rounded-xl border border-white/8 bg-white/4">
         <button
           type="button"
           onClick={() => setSettingsOpen((v) => !v)}
           className="flex w-full items-center justify-between px-5 py-4 text-left"
         >
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-slate-800">Auto-send settings</span>
+            <span className="text-sm font-semibold text-white">Envío automático</span>
             <span
               className={[
                 "rounded-full px-2 py-0.5 text-xs font-medium",
-                settings.autoSendEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500",
+                settings.autoSendEnabled
+                  ? "bg-emerald-500/15 text-emerald-300"
+                  : "bg-white/8 text-white/40",
               ].join(" ")}
             >
-              {settings.autoSendEnabled ? "Enabled" : "Disabled"}
+              {settings.autoSendEnabled ? "Activado" : "Desactivado"}
             </span>
           </div>
           <ChevronIcon open={settingsOpen} />
         </button>
 
         {settingsOpen && (
-          <div className="border-t border-slate-100 px-5 pb-5 pt-4 space-y-4">
+          <div className="border-t border-white/8 px-5 pb-5 pt-4 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-800">Auto-send replies</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  When on, AI replies are sent automatically without human approval.
+                <p className="text-sm font-medium text-white">Respuestas automáticas</p>
+                <p className="text-xs text-white/40 mt-0.5">
+                  Si está activo, las respuestas de IA se envían sin aprobación humana.
                 </p>
               </div>
               <Toggle checked={settings.autoSendEnabled} onChange={toggleAutoSend} disabled={isPendingSettings} />
@@ -337,7 +332,7 @@ export default function ConversationInbox({
 
             {settings.autoSendEnabled && (
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Active for</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-white/30">Activo para</p>
                 <div className="flex flex-wrap gap-2">
                   {AUTO_SEND_PROVIDERS.map((p) => {
                     const on = settings.autoSendProviders.includes(p);
@@ -350,8 +345,8 @@ export default function ConversationInbox({
                         className={[
                           "rounded-lg border px-3 py-1.5 text-xs font-medium transition",
                           on
-                            ? "border-sky-300 bg-sky-50 text-sky-700"
-                            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
+                            ? "border-violet-500/50 bg-violet-500/15 text-violet-300"
+                            : "border-white/10 bg-white/4 text-white/45 hover:border-white/20",
                         ].join(" ")}
                       >
                         {PROVIDER_LABELS[p]}
@@ -359,35 +354,35 @@ export default function ConversationInbox({
                     );
                   })}
                 </div>
-                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                  Replies will be sent without approval. Keep your brand profile up to date.
+                <p className="text-xs text-amber-300/80 bg-amber-500/8 border border-amber-500/20 rounded-lg px-3 py-2">
+                  Las respuestas se envían sin aprobación. Mantén actualizado el perfil de marca.
                 </p>
               </div>
             )}
 
-            {settingsError && <p className="text-xs text-red-600">{settingsError}</p>}
+            {settingsError && <p className="text-xs text-red-400">{settingsError}</p>}
           </div>
         )}
       </div>
 
-      {/* Test panel (collapsible) */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      {/* Test panel */}
+      <div className="rounded-xl border border-white/8 bg-white/4">
         <button
           type="button"
           onClick={() => setTestOpen((v) => !v)}
           className="flex w-full items-center justify-between px-5 py-4 text-left"
         >
-          <span className="text-sm font-semibold text-slate-800">Test AI reply generator</span>
+          <span className="text-sm font-semibold text-white">Probar generador de respuestas IA</span>
           <ChevronIcon open={testOpen} />
         </button>
 
         {testOpen && (
-          <div className="border-t border-slate-100 px-5 pb-5 pt-4 space-y-3">
+          <div className="border-t border-white/8 px-5 pb-5 pt-4 space-y-3">
             <div className="flex gap-2">
               <select
                 value={testProvider}
                 onChange={(e) => setTestProvider(e.target.value)}
-                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 focus:outline-none"
+                className="rounded-lg border border-white/10 bg-[#0d0d1e] px-2 py-1.5 text-sm text-white/70 focus:outline-none"
               >
                 {AUTO_SEND_PROVIDERS.map((p) => (
                   <option key={p} value={p}>{PROVIDER_LABELS[p]}</option>
@@ -396,39 +391,35 @@ export default function ConversationInbox({
               <select
                 value={testThreadType}
                 onChange={(e) => setTestThreadType(e.target.value as "DM" | "COMMENT")}
-                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 focus:outline-none"
+                className="rounded-lg border border-white/10 bg-[#0d0d1e] px-2 py-1.5 text-sm text-white/70 focus:outline-none"
               >
                 <option value="DM">DM</option>
-                <option value="COMMENT">Comment</option>
+                <option value="COMMENT">Comentario</option>
               </select>
             </div>
 
             <textarea
               value={testMessage}
               onChange={(e) => setTestMessage(e.target.value)}
-              placeholder="Paste an incoming message…"
+              placeholder="Pega aquí un mensaje entrante…"
               rows={3}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-400"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
             />
 
             {testResult !== null && (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800 whitespace-pre-wrap">
+              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/8 px-3 py-2.5 text-sm text-emerald-300 whitespace-pre-wrap">
                 {testResult}
               </div>
             )}
-            {testError && <p className="text-xs text-red-600">{testError}</p>}
+            {testError && <p className="text-xs text-red-400">{testError}</p>}
 
             <div className="flex gap-2">
-              <Btn
-                onClick={generateTestReply}
-                disabled={isPendingTest || !testMessage.trim()}
-                variant="primary"
-              >
-                {isPendingTest ? "Generating…" : "Generate reply"}
+              <Btn onClick={generateTestReply} disabled={isPendingTest || !testMessage.trim()} variant="primary">
+                {isPendingTest ? "Generando…" : "Generar respuesta"}
               </Btn>
               {testResult !== null && (
                 <Btn onClick={saveTestToInbox} disabled={isPendingTest} variant="secondary">
-                  Save to inbox
+                  Guardar en bandeja
                 </Btn>
               )}
             </div>
@@ -437,12 +428,12 @@ export default function ConversationInbox({
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
+      <div className="flex gap-1 rounded-xl border border-white/8 bg-white/4 p-1">
         {(
           [
-            { id: "inbox" as Tab, label: "Inbox", count: inboxThreads.length },
-            { id: "needs_human" as Tab, label: "Needs review", count: needsHumanThreads.length },
-            { id: "history" as Tab, label: "History", count: historyThreads.length },
+            { id: "inbox" as Tab, label: "Bandeja", count: inboxThreads.length },
+            { id: "needs_human" as Tab, label: "Requiere revisión", count: needsHumanThreads.length },
+            { id: "history" as Tab, label: "Historial", count: historyThreads.length },
           ] as { id: Tab; label: string; count: number }[]
         ).map(({ id, label, count }) => (
           <button
@@ -452,8 +443,8 @@ export default function ConversationInbox({
             className={[
               "flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
               tab === id
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700",
+                ? "bg-white/8 text-white shadow-sm"
+                : "text-white/40 hover:text-white/70",
             ].join(" ")}
           >
             {label}
@@ -461,7 +452,7 @@ export default function ConversationInbox({
               <span
                 className={[
                   "rounded-full px-1.5 py-0.5 text-xs font-bold leading-none",
-                  tab === id ? "bg-slate-900 text-white" : "bg-slate-300 text-slate-600",
+                  tab === id ? "bg-violet-500 text-white" : "bg-white/10 text-white/50",
                 ].join(" ")}
               >
                 {count}
@@ -541,34 +532,34 @@ function ThreadCard({
   return (
     <div
       className={[
-        "rounded-xl border bg-white shadow-sm transition",
+        "rounded-xl border bg-white/4 transition",
         thread.status === "DISMISSED" ? "opacity-60" : "",
-        thread.status === "NEEDS_HUMAN" ? "border-orange-200" : "border-slate-200",
+        thread.status === "NEEDS_HUMAN" ? "border-orange-500/30" : "border-white/8",
       ].join(" ")}
     >
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
-        <span className="text-sm font-semibold text-slate-900">
-          {thread.senderName ?? thread.senderHandle ?? "Anonymous"}
+      <div className="flex flex-wrap items-center gap-2 border-b border-white/8 px-4 py-3">
+        <span className="text-sm font-semibold text-white">
+          {thread.senderName ?? thread.senderHandle ?? "Anónimo"}
         </span>
         {thread.senderHandle && thread.senderHandle !== thread.senderName && (
-          <span className="text-xs text-slate-400">@{thread.senderHandle}</span>
+          <span className="text-xs text-white/35">@{thread.senderHandle}</span>
         )}
         <span
           className={[
             "rounded-full px-2 py-0.5 text-[11px] font-medium",
-            PROVIDER_BG[thread.provider] ?? "bg-slate-100 text-slate-600",
+            PROVIDER_BG[thread.provider] ?? "bg-white/8 text-white/50",
           ].join(" ")}
         >
           {PROVIDER_LABELS[thread.provider] ?? thread.provider}
         </span>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-          {thread.threadType === "COMMENT" ? "Comment" : "DM"}
+        <span className="rounded-full bg-white/8 px-2 py-0.5 text-[11px] font-medium text-white/50">
+          {thread.threadType === "COMMENT" ? "Comentario" : "DM"}
         </span>
         <span
           className={[
             "rounded-full px-2 py-0.5 text-[11px] font-medium",
-            STATUS_BG[thread.status] ?? "bg-slate-100 text-slate-500",
+            STATUS_BG[thread.status] ?? "bg-white/8 text-white/40",
           ].join(" ")}
         >
           {STATUS_LABEL[thread.status] ?? thread.status}
@@ -577,7 +568,7 @@ function ThreadCard({
           <span
             className={[
               "rounded-full px-2 py-0.5 text-[11px] font-medium",
-              SENTIMENT_BG[sentiment] ?? "bg-slate-100 text-slate-600",
+              SENTIMENT_BG[sentiment] ?? "bg-white/8 text-white/50",
             ].join(" ")}
           >
             {SENTIMENT_LABEL[sentiment] ?? sentiment}
@@ -585,22 +576,22 @@ function ThreadCard({
           </span>
         )}
         {isHotLead && (
-          <span className="rounded-full border border-rose-200 bg-rose-100 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-rose-700">
+          <span className="rounded-full border border-rose-500/30 bg-rose-500/15 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-rose-300">
             HOT LEAD
           </span>
         )}
-        <span className="ml-auto text-[11px] text-slate-400">{relativeTime(thread.createdAt)}</span>
+        <span className="ml-auto text-[11px] text-white/25">{relativeTime(thread.createdAt)}</span>
       </div>
 
       <div className="px-4 py-3 space-y-3">
         {/* Incoming message */}
-        <div className="rounded-lg bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+        <div className="rounded-lg bg-white/5 px-3 py-2.5 text-sm text-white/70">
           {thread.incomingMessage}
         </div>
 
         {/* NEEDS_HUMAN reason */}
         {thread.status === "NEEDS_HUMAN" && reason && (
-          <div className="flex items-start gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">
+          <div className="flex items-start gap-2 rounded-lg border border-orange-500/20 bg-orange-500/8 px-3 py-2 text-xs text-orange-300">
             <span className="mt-0.5 shrink-0">⚠</span>
             <span>{reason}</span>
           </div>
@@ -609,14 +600,14 @@ function ThreadCard({
         {/* Reply area */}
         {!isHistory && (thread.suggestedReply || isOverriding) && (
           <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              {thread.status === "NEEDS_HUMAN" && !isOverriding ? "No auto-reply generated" : "AI suggested reply"}
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35">
+              {thread.status === "NEEDS_HUMAN" && !isOverriding ? "Sin respuesta automática generada" : "Respuesta sugerida por IA"}
             </p>
             <textarea
               value={displayReply}
               onChange={(e) => onReplyChange(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-400"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
             />
           </div>
         )}
@@ -624,8 +615,8 @@ function ThreadCard({
         {/* History: final reply */}
         {isHistory && finalReplyText && (
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Reply sent</p>
-            <p className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35">Respuesta enviada</p>
+            <p className="rounded-lg border border-white/8 bg-white/4 px-3 py-2 text-sm text-white/55">
               {finalReplyText}
             </p>
           </div>
@@ -637,30 +628,30 @@ function ThreadCard({
             {thread.status === "NEEDS_HUMAN" && !isOverriding && (
               <>
                 <Btn onClick={onOverride} disabled={isPending || isGenerating} variant="secondary">
-                  {isGenerating ? "Generating…" : "Generate reply"}
+                  {isGenerating ? "Generando…" : "Generar respuesta"}
                 </Btn>
                 <Btn onClick={onDismiss} disabled={isPending} variant="ghost">
-                  Dismiss
+                  Descartar
                 </Btn>
               </>
             )}
             {thread.status === "NEEDS_HUMAN" && isOverriding && (
               <>
                 <Btn onClick={onApproveOverride} disabled={isPending} variant="primary">
-                  {isPending ? "Saving…" : "Approve & save"}
+                  {isPending ? "Guardando…" : "Aprobar y enviar"}
                 </Btn>
                 <Btn onClick={onDismiss} disabled={isPending} variant="ghost">
-                  Dismiss
+                  Descartar
                 </Btn>
               </>
             )}
             {(thread.status === "PENDING" || thread.status === "AUTO_APPROVED") && (
               <>
                 <Btn onClick={onApprove} disabled={isPending} variant="primary">
-                  {isPending ? "Saving…" : "Approve"}
+                  {isPending ? "Guardando…" : "Aprobar"}
                 </Btn>
                 <Btn onClick={onDismiss} disabled={isPending} variant="ghost">
-                  Dismiss
+                  Descartar
                 </Btn>
               </>
             )}
@@ -683,15 +674,15 @@ function StatCard({
   accent: "amber" | "orange" | "emerald";
 }) {
   const accentCls = {
-    amber: "text-amber-600",
-    orange: "text-orange-600",
-    emerald: "text-emerald-600",
+    amber: "text-amber-400",
+    orange: "text-orange-400",
+    emerald: "text-emerald-400",
   }[accent];
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+    <div className="rounded-xl border border-white/8 bg-white/4 px-4 py-3">
       <p className={["text-2xl font-black tabular-nums", accentCls].join(" ")}>{value}</p>
-      <p className="mt-0.5 text-xs text-slate-500">{label}</p>
+      <p className="mt-0.5 text-xs text-white/40">{label}</p>
     </div>
   );
 }
@@ -714,7 +705,7 @@ function Toggle({
       disabled={disabled}
       className={[
         "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none",
-        checked ? "bg-sky-500" : "bg-slate-200",
+        checked ? "bg-violet-500" : "bg-white/15",
         disabled ? "opacity-50" : "",
       ].join(" ")}
     >
@@ -739,7 +730,7 @@ function ChevronIcon({ open }: { open: boolean }) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={["text-slate-400 transition-transform", open ? "rotate-180" : ""].join(" ")}
+      className={["text-white/30 transition-transform", open ? "rotate-180" : ""].join(" ")}
     >
       <polyline points="6 9 12 15 18 9" />
     </svg>
@@ -759,11 +750,11 @@ function Btn({
 }) {
   const cls = {
     primary:
-      "bg-slate-900 text-white hover:bg-slate-800 shadow-sm",
+      "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-md shadow-violet-500/20 hover:brightness-110",
     secondary:
-      "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+      "border border-white/10 bg-white/6 text-white/70 hover:bg-white/10 hover:text-white",
     ghost:
-      "text-slate-500 hover:text-slate-700 hover:bg-slate-100",
+      "text-white/35 hover:text-white/60 hover:bg-white/6",
   }[variant];
 
   return (
@@ -783,13 +774,13 @@ function Btn({
 
 function EmptyState({ tab }: { tab: Tab }) {
   const messages: Record<Tab, string> = {
-    inbox: "No pending replies. Messages will appear here when they arrive via webhook or the test panel.",
-    needs_human: "No escalated threads. The AI handles negative sentiment and low-confidence comments automatically.",
-    history: "No history yet. Approved and dismissed threads appear here.",
+    inbox: "Sin respuestas pendientes. Los mensajes aparecerán aquí cuando lleguen por webhook o desde el panel de prueba.",
+    needs_human: "Sin conversaciones escaladas. La IA gestiona automáticamente los comentarios negativos y de baja confianza.",
+    history: "Sin historial aún. Los hilos aprobados y descartados aparecen aquí.",
   };
   return (
-    <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center">
-      <p className="text-sm text-slate-400">{messages[tab]}</p>
+    <div className="rounded-xl border border-dashed border-white/10 py-12 text-center">
+      <p className="text-sm text-white/35">{messages[tab]}</p>
     </div>
   );
 }

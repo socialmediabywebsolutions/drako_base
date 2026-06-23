@@ -12,16 +12,16 @@ type Props = {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TEMP_META: Record<LeadTemperature, { label: string; bg: string; dot: string; border: string }> = {
-  HOT:  { label: "HOT",  bg: "bg-rose-100 text-rose-700",   dot: "bg-rose-500",   border: "border-rose-200" },
-  WARM: { label: "WARM", bg: "bg-amber-100 text-amber-700", dot: "bg-amber-400",  border: "border-amber-200" },
-  COLD: { label: "COLD", bg: "bg-sky-100 text-sky-700",     dot: "bg-sky-400",    border: "border-sky-200" },
+  HOT:  { label: "HOT",  bg: "bg-rose-500/15 text-rose-300",   dot: "bg-rose-500",   border: "border-rose-500/25" },
+  WARM: { label: "WARM", bg: "bg-amber-500/15 text-amber-300", dot: "bg-amber-400",  border: "border-amber-500/25" },
+  COLD: { label: "COLD", bg: "bg-sky-500/15 text-sky-300",     dot: "bg-sky-400",    border: "border-sky-500/25" },
 };
 
 const STATUS_META: Record<LeadStatus, { label: string; bg: string }> = {
-  NEW:       { label: "Nuevo",      bg: "bg-slate-100 text-slate-600" },
-  CONTACTED: { label: "Contactado", bg: "bg-indigo-100 text-indigo-700" },
-  CONVERTED: { label: "Convertido", bg: "bg-emerald-100 text-emerald-700" },
-  LOST:      { label: "Perdido",    bg: "bg-rose-50 text-rose-500" },
+  NEW:       { label: "Nuevo",      bg: "bg-white/8 text-white/50" },
+  CONTACTED: { label: "Contactado", bg: "bg-indigo-500/15 text-indigo-300" },
+  CONVERTED: { label: "Convertido", bg: "bg-emerald-500/15 text-emerald-300" },
+  LOST:      { label: "Perdido",    bg: "bg-rose-500/10 text-rose-400" },
 };
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -31,9 +31,9 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 const PROVIDER_BG: Record<string, string> = {
-  INSTAGRAM: "bg-pink-100 text-pink-700",
-  FACEBOOK_PAGE: "bg-blue-100 text-blue-700",
-  LINKEDIN: "bg-sky-100 text-sky-700",
+  INSTAGRAM: "bg-pink-500/15 text-pink-300",
+  FACEBOOK_PAGE: "bg-blue-500/15 text-blue-300",
+  LINKEDIN: "bg-sky-500/15 text-sky-300",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -54,10 +54,10 @@ function ScoreBar({ score, temp }: { score: number; temp: LeadTemperature }) {
   const fill = temp === "HOT" ? "bg-rose-500" : temp === "WARM" ? "bg-amber-400" : "bg-sky-400";
   return (
     <div className="flex items-center gap-2.5">
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/8">
         <div className={`h-1.5 rounded-full ${fill} transition-all`} style={{ width: `${score}%` }} />
       </div>
-      <span className="w-6 text-right text-xs font-bold tabular-nums text-slate-500">{score}</span>
+      <span className="w-6 text-right text-xs font-bold tabular-nums text-white/35">{score}</span>
     </div>
   );
 }
@@ -72,7 +72,6 @@ export default function LeadsPanel({ leads: initialLeads, saasId }: Props) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // ── Derived stats ─────────────────────────────────────────────────────────
   const stats = useMemo(() => {
     const hot  = leads.filter((l) => l.temperature === "HOT").length;
     const warm = leads.filter((l) => l.temperature === "WARM").length;
@@ -85,7 +84,6 @@ export default function LeadsPanel({ leads: initialLeads, saasId }: Props) {
     return { hot, warm, cold, converted, lost, convRate, active, total: leads.length };
   }, [leads]);
 
-  // ── Filtered list ─────────────────────────────────────────────────────────
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return leads.filter((l) => {
@@ -99,7 +97,6 @@ export default function LeadsPanel({ leads: initialLeads, saasId }: Props) {
     });
   }, [leads, filterTemp, filterStatus, search]);
 
-  // ── Actions ───────────────────────────────────────────────────────────────
   function changeStatus(leadId: string, status: LeadStatus) {
     setPendingId(leadId);
     startTransition(async () => {
@@ -119,51 +116,22 @@ export default function LeadsPanel({ leads: initialLeads, saasId }: Props) {
     });
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
 
       {/* Pipeline funnel */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <PipelineCard
-          label="Activos"
-          value={stats.active}
-          sub={`de ${stats.total} total`}
-          accent="slate"
-        />
-        <PipelineCard
-          label="HOT"
-          value={stats.hot}
-          sub={stats.warm > 0 ? `+ ${stats.warm} WARM` : "leads calientes"}
-          accent="rose"
-          active={filterTemp === "HOT"}
-          onClick={() => setFilterTemp(filterTemp === "HOT" ? null : "HOT")}
-        />
-        <PipelineCard
-          label="Convertidos"
-          value={stats.converted}
-          sub={stats.convRate !== null ? `${stats.convRate}% tasa` : "sin datos aún"}
-          accent="emerald"
-          active={filterStatus === "CONVERTED"}
-          onClick={() => setFilterStatus(filterStatus === "CONVERTED" ? null : "CONVERTED")}
-        />
-        <PipelineCard
-          label="Perdidos"
-          value={stats.lost}
-          sub="no convertidos"
-          accent="rose"
-          muted
-          active={filterStatus === "LOST"}
-          onClick={() => setFilterStatus(filterStatus === "LOST" ? null : "LOST")}
-        />
+        <PipelineCard label="Activos"     value={stats.active}    sub={`de ${stats.total} total`}                             accent="slate" />
+        <PipelineCard label="HOT"         value={stats.hot}       sub={stats.warm > 0 ? `+ ${stats.warm} WARM` : "leads calientes"} accent="rose"    active={filterTemp === "HOT"}       onClick={() => setFilterTemp(filterTemp === "HOT" ? null : "HOT")} />
+        <PipelineCard label="Convertidos" value={stats.converted} sub={stats.convRate !== null ? `${stats.convRate}% tasa` : "sin datos aún"} accent="emerald" active={filterStatus === "CONVERTED"} onClick={() => setFilterStatus(filterStatus === "CONVERTED" ? null : "CONVERTED")} />
+        <PipelineCard label="Perdidos"    value={stats.lost}      sub="no convertidos"                                        accent="rose"    muted active={filterStatus === "LOST"}     onClick={() => setFilterStatus(filterStatus === "LOST" ? null : "LOST")} />
       </div>
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Search */}
         <div className="relative flex-1 min-w-48">
           <svg
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/30"
             width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
           >
@@ -174,11 +142,10 @@ export default function LeadsPanel({ leads: initialLeads, saasId }: Props) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nombre o mensaje…"
-            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-400"
+            className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-8 pr-3 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
           />
         </div>
 
-        {/* Temperature tabs */}
         <FilterGroup>
           <FilterBtn active={filterTemp === null} onClick={() => setFilterTemp(null)}>Todos</FilterBtn>
           {(["HOT", "WARM", "COLD"] as LeadTemperature[]).map((t) => (
@@ -189,7 +156,6 @@ export default function LeadsPanel({ leads: initialLeads, saasId }: Props) {
           ))}
         </FilterGroup>
 
-        {/* Status tabs */}
         <FilterGroup>
           <FilterBtn active={filterStatus === null} onClick={() => setFilterStatus(null)}>Estado</FilterBtn>
           {(["NEW", "CONTACTED", "CONVERTED", "LOST"] as LeadStatus[]).map((s) => (
@@ -200,15 +166,14 @@ export default function LeadsPanel({ leads: initialLeads, saasId }: Props) {
         </FilterGroup>
       </div>
 
-      {/* Results count */}
       {(filterTemp || filterStatus || search) && (
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-white/30">
           {visible.length} resultado{visible.length !== 1 ? "s" : ""}
           {" · "}
           <button
             type="button"
             onClick={() => { setFilterTemp(null); setFilterStatus(null); setSearch(""); }}
-            className="text-sky-600 hover:underline"
+            className="text-violet-400 hover:underline"
           >
             Limpiar filtros
           </button>
@@ -252,22 +217,22 @@ function LeadCard({
   return (
     <div
       className={[
-        "rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md",
-        lead.temperature === "HOT" ? "border-rose-200" : "border-slate-200",
+        "rounded-xl border bg-white/4 transition hover:bg-white/6",
+        lead.temperature === "HOT" ? "border-rose-500/30" : "border-white/8",
         isDone ? "opacity-70" : "",
       ].join(" ")}
     >
       {/* Card header */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
-        <span className="text-sm font-semibold text-slate-900">
+      <div className="flex flex-wrap items-center gap-2 border-b border-white/8 px-4 py-3">
+        <span className="text-sm font-semibold text-white">
           {lead.senderName ?? lead.senderHandle ?? "Anónimo"}
         </span>
         {lead.senderHandle && lead.senderName && (
-          <span className="text-xs text-slate-400">@{lead.senderHandle}</span>
+          <span className="text-xs text-white/35">@{lead.senderHandle}</span>
         )}
         <span className={[
           "rounded-full px-2 py-0.5 text-[11px] font-medium",
-          PROVIDER_BG[lead.provider] ?? "bg-slate-100 text-slate-600",
+          PROVIDER_BG[lead.provider] ?? "bg-white/8 text-white/50",
         ].join(" ")}>
           {PROVIDER_LABELS[lead.provider] ?? lead.provider}
         </span>
@@ -283,18 +248,18 @@ function LeadCard({
         ].join(" ")}>
           {status.label}
         </span>
-        <span className="ml-auto text-[11px] text-slate-400">{relativeTime(lead.createdAt)}</span>
+        <span className="ml-auto text-[11px] text-white/25">{relativeTime(lead.createdAt)}</span>
       </div>
 
       <div className="px-4 py-3 space-y-3">
         {/* Message */}
-        <p className="rounded-lg bg-slate-50 px-3 py-2.5 text-sm text-slate-700 line-clamp-2">
+        <p className="rounded-lg bg-white/5 px-3 py-2.5 text-sm text-white/65 line-clamp-2">
           {lead.incomingMessage}
         </p>
 
         {/* Intent score */}
         <div>
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/35">
             Score de intención
           </p>
           <ScoreBar score={lead.intentScore} temp={lead.temperature} />
@@ -302,37 +267,25 @@ function LeadCard({
 
         {/* Actions */}
         {!isDone && (
-          <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+          <div className="flex flex-wrap gap-2 border-t border-white/8 pt-3">
             <Link
               href="/socialflow/conversations"
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-slate-800"
+              className="rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-sm font-medium text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
             >
               Ver conversación
             </Link>
             {lead.status === "NEW" && (
-              <ActionBtn
-                onClick={() => onStatusChange("CONTACTED")}
-                disabled={isPending}
-                variant="secondary"
-              >
+              <ActionBtn onClick={() => onStatusChange("CONTACTED")} disabled={isPending} variant="secondary">
                 {isPending ? "…" : "Marcar contactado"}
               </ActionBtn>
             )}
             {(lead.status === "NEW" || lead.status === "CONTACTED") && (
-              <ActionBtn
-                onClick={() => onStatusChange("CONVERTED")}
-                disabled={isPending}
-                variant="success"
-              >
+              <ActionBtn onClick={() => onStatusChange("CONVERTED")} disabled={isPending} variant="success">
                 Convertido
               </ActionBtn>
             )}
             {lead.status !== "LOST" && (
-              <ActionBtn
-                onClick={() => onStatusChange("LOST")}
-                disabled={isPending}
-                variant="ghost"
-              >
+              <ActionBtn onClick={() => onStatusChange("LOST")} disabled={isPending} variant="ghost">
                 Perdido
               </ActionBtn>
             )}
@@ -340,20 +293,14 @@ function LeadCard({
         )}
 
         {isDone && (
-          <div className="flex items-center gap-2 border-t border-slate-100 pt-3">
+          <div className="flex items-center gap-2 border-t border-white/8 pt-3">
             {lead.status === "CONVERTED" && (
-              <span className="text-xs font-medium text-emerald-600">
-                ✓ Convertido
-              </span>
+              <span className="text-xs font-medium text-emerald-400">✓ Convertido</span>
             )}
             {lead.status === "LOST" && (
-              <span className="text-xs text-slate-400">Perdido</span>
+              <span className="text-xs text-white/30">Perdido</span>
             )}
-            <ActionBtn
-              onClick={() => onStatusChange("NEW")}
-              disabled={isPending}
-              variant="ghost"
-            >
+            <ActionBtn onClick={() => onStatusChange("NEW")} disabled={isPending} variant="ghost">
               Reactivar
             </ActionBtn>
           </div>
@@ -383,11 +330,11 @@ function PipelineCard({
   onClick?: () => void;
 }) {
   const valueCls = muted
-    ? "text-slate-400"
-    : { slate: "text-slate-800", rose: "text-rose-600", emerald: "text-emerald-600" }[accent];
+    ? "text-white/30"
+    : { slate: "text-white", rose: "text-rose-400", emerald: "text-emerald-400" }[accent];
   const borderCls = active
-    ? { slate: "border-slate-400", rose: "border-rose-400", emerald: "border-emerald-400" }[accent]
-    : "border-slate-200";
+    ? { slate: "border-white/25", rose: "border-rose-500/40", emerald: "border-emerald-500/40" }[accent]
+    : "border-white/8";
 
   const Tag = onClick ? "button" : "div";
 
@@ -395,21 +342,21 @@ function PipelineCard({
     <Tag
       {...(onClick ? { type: "button" as const, onClick } : {})}
       className={[
-        "rounded-xl border bg-white px-4 py-3 text-left shadow-sm transition",
-        onClick ? "cursor-pointer hover:shadow-md" : "",
+        "rounded-xl border bg-white/4 px-4 py-3 text-left transition",
+        onClick ? "cursor-pointer hover:bg-white/6" : "",
         borderCls,
       ].join(" ")}
     >
       <p className={["text-2xl font-black tabular-nums", valueCls].join(" ")}>{value}</p>
-      <p className="mt-0.5 text-xs font-semibold text-slate-700">{label}</p>
-      <p className="mt-0.5 text-[11px] text-slate-400">{sub}</p>
+      <p className="mt-0.5 text-xs font-semibold text-white/60">{label}</p>
+      <p className="mt-0.5 text-[11px] text-white/30">{sub}</p>
     </Tag>
   );
 }
 
 function FilterGroup({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5">
+    <div className="flex gap-0.5 rounded-lg border border-white/10 bg-white/4 p-0.5">
       {children}
     </div>
   );
@@ -430,7 +377,7 @@ function FilterBtn({
       onClick={onClick}
       className={[
         "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition",
-        active ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-800",
+        active ? "bg-violet-500 text-white" : "text-white/45 hover:text-white",
       ].join(" ")}
     >
       {children}
@@ -450,9 +397,9 @@ function ActionBtn({
   variant: "secondary" | "success" | "ghost";
 }) {
   const cls = {
-    secondary: "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-    success: "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
-    ghost: "text-slate-400 hover:bg-slate-100 hover:text-slate-600",
+    secondary: "border border-white/10 bg-white/6 text-white/65 hover:bg-white/10 hover:text-white",
+    success: "border border-emerald-500/25 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15",
+    ghost: "text-white/30 hover:bg-white/6 hover:text-white/55",
   }[variant];
 
   return (
@@ -472,18 +419,18 @@ function ActionBtn({
 
 function EmptyState({ hasLeads }: { hasLeads: boolean }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-200 py-16 text-center">
+    <div className="rounded-xl border border-dashed border-white/10 py-16 text-center">
       {hasLeads ? (
-        <p className="text-sm text-slate-400">No hay leads con esos filtros.</p>
+        <p className="text-sm text-white/35">No hay leads con esos filtros.</p>
       ) : (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-slate-600">Sin leads aún</p>
-          <p className="mx-auto max-w-xs text-xs text-slate-400">
+          <p className="text-sm font-medium text-white/60">Sin leads aún</p>
+          <p className="mx-auto max-w-xs text-xs text-white/35">
             Los leads se detectan automáticamente cuando llegan mensajes con señales de intención de compra (precio, comprar, interesado…).
           </p>
           <Link
             href="/socialflow/conversations"
-            className="mt-3 inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+            className="mt-3 inline-block rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-medium text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
           >
             Ver conversaciones
           </Link>
