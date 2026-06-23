@@ -10,6 +10,8 @@ import type { BrandProfile, SocialAIPipelineInput, SocialAIPipelineResult, Strat
 import { listSaasSocialChannels, resolveSocialContext, upsertSaasSocialCampaign, upsertSaasSocialPost } from "../repository";
 import { getChannelKnowledge, saveCompetitorInsights } from "../profile/repository";
 import { getKnowledgeContext } from "../knowledge/repository";
+import { generatePostImage } from "./image-generator";
+import { buildImagePrompt } from "./image-prompt-builder";
 
 export class SocialFlowOrchestrator {
   private marketResearch = new MarketResearchAgent();
@@ -99,14 +101,14 @@ export class SocialFlowOrchestrator {
       optimizedPosts.push(optimized);
     }
     const schedule = this.schedulerAgent.run({ strategy: strategy.items as StrategyItem[], frequencyPerWeek: input.frequencyPerWeek });
-    const campaignId = await this.persistToDb(input, strategy.items, optimizedPosts, schedule);
+    const campaignId = await this.persistToDb(input, profile, strategy.items, optimizedPosts, schedule);
     return { profile, research, keywords: research, competitors, strategy, generatedPosts, optimizedPosts, schedule, campaignId };
   }
 
   async generateStrategyOnly(input: SocialAIPipelineInput) { const profile = await this.buildProfile(input); const competitors = await this.competitorAgent.run({ niche: profile.niche }); const trends = await this.trendAgent.run({ profile }); const { research } = await this.keywordAgent.run({ profile, trends }); const strategy = await this.strategyAgent.run({ profile, horizonDays: 7 }); return { profile, research, keywords: research, competitors, strategy }; }
   async generateSinglePost(input: SocialAIPipelineInput) { const profile = await this.buildProfile(input); const trends = await this.trendAgent.run({ profile }); const { engine: keywordEngine } = await this.keywordAgent.run({ profile, trends }); const strategy = await this.strategyAgent.run({ profile, horizonDays: 1 }); const item = strategy.items[0]; const generated = await this.contentGenerator.run({ profile, strategyItem: item, keywordEngine, trends }); const optimized = await this.optimizationAgent.run({ profile, variant: generated.variants[0], keywordEngine }); return { profile, strategyItem: item, generated, optimized }; }
 
-  private async persistToDb(input: SocialAIPipelineInput, strategyItems: StrategyItem[], optimizedPosts: { id: string; improvedText: string; hashtags?: string[] }[], schedule: { id: string; postId: string; scheduledAt: string }[]): Promise<string> {
+  private async persistToDb(input: SocialAIPipelineInput, profile: BrandProfile, strategyItems: StrategyItem[], optimizedPosts: { id: string; improvedText: string; hashtags?: string[] }[], schedule: { id: string; postId: string; scheduledAt: string }[]): Promise<string> {
     const ctx = await resolveSocialContext({ tenantId: input.tenantId, saasId: input.saasId });
     const campaign = await upsertSaasSocialCampaign(ctx, { id: input.campaignId ?? `ai_campaign_${Date.now()}`, saasId: input.saasId, name: `AI Campaign: ${input.niche}`, objective: "AWARENESS", status: "ACTIVE", targetSegment: "DEFAULT", startDate: null, endDate: null, budgetEstimate: null, notes: `Generated for ${input.niche}` });
     const channels = await listSaasSocialChannels(ctx);
@@ -114,7 +116,10 @@ export class SocialFlowOrchestrator {
     for (const item of strategyItems) {
       const sched = schedule.find((entry) => entry.postId === item.id);
       const optimized = optimizedPosts.find((entry) => entry.id === `gen_${item.id}` || entry.id === item.id);
-      await upsertSaasSocialPost(ctx, { id: `ai_post_${campaign.id}_${item.id}`, saasId: input.saasId, channelId, campaignId: campaign.id, provider: "LINKEDIN", contentType: "FEED", title: item.theme, body: optimized?.improvedText ?? item.angle, imageHint: null, status: sched?.scheduledAt ? "SCHEDULED" : "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, metadata: { strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags: optimized?.hashtags ?? [], angle: item.angle, callToAction: item.callToAction } });
+      const postId = `ai_post_${campaign.id}_${item.id}`;
+      const imagePrompt = buildImagePrompt({ theme: item.theme, angle: item.angle, body: optimized?.improvedText }, profile);
+      const imageHint = await generatePostImage(imagePrompt, postId);
+      await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: "LINKEDIN", contentType: "FEED", title: item.theme, body: optimized?.improvedText ?? item.angle, imageHint, status: sched?.scheduledAt ? "SCHEDULED" : "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, metadata: { strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags: optimized?.hashtags ?? [], angle: item.angle, callToAction: item.callToAction } });
     }
     return campaign.id;
   }
