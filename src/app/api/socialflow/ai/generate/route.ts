@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
     const session = await requireCurrentSocialFlowSession(request);
 
-    const aiGuard = await guardAiAccess(session.tenantId);
+    const aiGuard = await guardAiAccess(session.tenantId, session.role);
     if (!aiGuard.ok) {
       return NextResponse.json(
         { ok: false, error: aiGuard.code, message: aiGuard.message, planCode: aiGuard.planCode },

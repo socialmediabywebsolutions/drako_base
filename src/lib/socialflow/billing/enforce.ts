@@ -45,7 +45,19 @@ export async function guardChannelLimit(
   return { ok: true, planCode };
 }
 
-export async function guardAiAccess(tenantId: string): Promise<PlanGuardResult> {
+// Tenants and roles that always get AI access regardless of Stripe plan.
+// Remove once live-mode billing is active for all customers.
+const AI_BYPASS_TENANT_IDS = new Set(["socialflow-core"]);
+const AI_BYPASS_ROLES = new Set(["owner", "admin"]);
+
+export async function guardAiAccess(
+  tenantId: string,
+  role?: string,
+): Promise<PlanGuardResult> {
+  if (AI_BYPASS_TENANT_IDS.has(tenantId) || (role && AI_BYPASS_ROLES.has(role))) {
+    return { ok: true, planCode: "pro" };
+  }
+
   const snapshot = await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" });
   const planCode = resolveSocialFlowPlanCode(snapshot.subscription);
 
