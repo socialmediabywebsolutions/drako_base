@@ -26,11 +26,10 @@ export default async function SocialFlowAccountsSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">SocialFlow accounts</div>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Connected accounts</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          Connect Instagram, Facebook and LinkedIn for tenant <strong>{session.tenantId}</strong> so SocialFlow's
-          intelligence engines can work with real data.
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow · Cuentas</div>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Cuentas conectadas</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
+          Conecta Instagram, Facebook y LinkedIn para que los motores de inteligencia de SocialFlow trabajen con datos reales.
         </p>
       </div>
 
