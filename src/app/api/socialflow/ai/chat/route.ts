@@ -204,7 +204,8 @@ export async function POST(request: Request) {
     if (error instanceof Error && error.message === "SESSION_REQUIRED") {
       return NextResponse.json({ ok: false, error: "SESSION_REQUIRED" }, { status: 401 });
     }
-    console.error("SOCIALFLOW_AI_CHAT_ERROR", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("SOCIALFLOW_AI_CHAT_ERROR", { message: msg, error });
     return NextResponse.json({ ok: false, error: "Internal Error" }, { status: 500 });
   }
 }

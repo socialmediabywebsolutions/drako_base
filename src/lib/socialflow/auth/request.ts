@@ -1,4 +1,4 @@
-import { getAuthsCookieName } from "@/lib/auths/cookies";
+import { getAuthsCookieCandidateNames } from "@/lib/auths/cookies";
 import { getAuthsUserById } from "@/lib/auths/repositories";
 import { verifyAuthsSessionToken } from "@/lib/auths/tokens";
 import {
@@ -23,8 +23,13 @@ function readCookieValue(cookieHeader: string | null, name: string): string | nu
 }
 
 export async function getCurrentSocialFlowSessionFromRequest(request: Request): Promise<SocialFlowRequestSession | null> {
-  const cookieName = getAuthsCookieName("socialflow");
-  const token = readCookieValue(request.headers.get("cookie"), cookieName);
+  const cookieHeader = request.headers.get("cookie");
+  const candidateNames = getAuthsCookieCandidateNames("socialflow", request);
+  let token: string | null = null;
+  for (const name of candidateNames) {
+    token = readCookieValue(cookieHeader, name);
+    if (token) break;
+  }
   if (!token) return null;
 
   const claims = await verifyAuthsSessionToken(token, "socialflow");
