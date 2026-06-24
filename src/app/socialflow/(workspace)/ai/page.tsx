@@ -432,17 +432,16 @@ export default function SocialFlowAIPage() {
       const campaign = campaignJson.items?.find((c) => c.id === campaignId);
       if (!campaign) return;
 
-      if (campaign.status === "ACTIVE") {
+      const posts = postsJson.items ?? [];
+
+      if (campaign.status === "ACTIVE" && posts.length > 0) {
         stopPoll(campaignId);
-        const posts = postsJson.items ?? [];
         updateMessage(messageId, {
-          content:
-            posts.length > 0
-              ? `✅ Campaña lista con ${posts.length} post${posts.length !== 1 ? "s" : ""}. Apruébalos o escribe "cambia el post 1, hazlo más formal".`
-              : "✅ Campaña generada, pero sin posts disponibles. Inténtalo de nuevo.",
+          content: `✅ Campaña lista con ${posts.length} post${posts.length !== 1 ? "s" : ""}. Apruébalos o escribe "cambia el post 1, hazlo más formal".`,
           posts,
           generatingStatus: "done",
         });
+        // If ACTIVE but posts.length === 0, keep polling — campaign is marked ACTIVE before posts are persisted
       } else if (campaign.status === "FAILED") {
         stopPoll(campaignId);
         updateMessage(messageId, {
