@@ -101,7 +101,7 @@ export class SocialFlowOrchestrator {
       optimizedPosts.push(optimized);
     }
     const schedule = this.schedulerAgent.run({ strategy: strategy.items as StrategyItem[], frequencyPerWeek: input.frequencyPerWeek });
-    const campaignId = await this.persistToDb(input, profile, strategy.items, optimizedPosts, schedule);
+    const campaignId = await this.persistToDb(input, profile, strategy.items as StrategyItem[], optimizedPosts, schedule);
     return { profile, research, keywords: research, competitors, strategy, generatedPosts, optimizedPosts, schedule, campaignId };
   }
 
@@ -113,14 +113,24 @@ export class SocialFlowOrchestrator {
     const campaign = await upsertSaasSocialCampaign(ctx, { id: input.campaignId ?? `ai_campaign_${Date.now()}`, saasId: input.saasId, name: `AI Campaign: ${input.niche}`, objective: "AWARENESS", status: "ACTIVE", targetSegment: "DEFAULT", startDate: null, endDate: null, budgetEstimate: null, notes: `Generated for ${input.niche}` });
     const channels = await listSaasSocialChannels(ctx);
     const channelId = channels[0]?.id ?? null;
+    let savedCount = 0;
     for (const item of strategyItems) {
-      const sched = schedule.find((entry) => entry.postId === item.id);
-      const optimized = optimizedPosts.find((entry) => entry.id === `gen_${item.id}` || entry.id === item.id);
-      const postId = `ai_post_${campaign.id}_${item.id}`;
-      const imagePrompt = buildImagePrompt({ theme: item.theme, angle: item.angle, body: optimized?.improvedText }, profile);
-      const imageHint = await generatePostImage(imagePrompt, postId);
-      await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: "LINKEDIN", contentType: "FEED", title: item.theme, body: optimized?.improvedText ?? item.angle, imageHint, status: sched?.scheduledAt ? "SCHEDULED" : "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, metadata: { strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags: optimized?.hashtags ?? [], angle: item.angle, callToAction: item.callToAction } });
+      try {
+        const sched = schedule.find((entry) => entry.postId === item.id);
+        // OptimizationAgent stores id as variant.id ("gen_day_1_v1"); match by prefix to handle that.
+        const optimized = optimizedPosts.find(
+          (entry) => entry.id === `gen_${item.id}` || entry.id === item.id || entry.id.startsWith(`gen_${item.id}_`),
+        );
+        const postId = `ai_post_${campaign.id}_${item.id}`;
+        const imagePrompt = buildImagePrompt({ theme: item.theme, angle: item.angle, body: optimized?.improvedText }, profile);
+        const imageHint = await generatePostImage(imagePrompt, postId);
+        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: "LINKEDIN", contentType: "FEED", title: item.theme, body: optimized?.improvedText ?? item.angle, imageHint, status: sched?.scheduledAt ? "SCHEDULED" : "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, metadata: { strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags: optimized?.hashtags ?? [], angle: item.angle, callToAction: item.callToAction } });
+        savedCount++;
+      } catch (postError) {
+        console.error(`[SocialFlowOrchestrator] Failed to persist post for item ${item.id}`, postError instanceof Error ? postError.message : String(postError));
+      }
     }
+    console.log(`[SocialFlowOrchestrator] Saved ${savedCount}/${strategyItems.length} posts for campaign ${campaign.id}`);
     return campaign.id;
   }
 }
