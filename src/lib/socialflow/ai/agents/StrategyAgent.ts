@@ -7,18 +7,18 @@ function buildBaseStrategy(horizonDays: number, niche: string, tone: string): Co
     items.push({
       id: `day_${i + 1}`,
       dayOffset: i,
-      theme: i % 3 === 0 ? "education" : i % 3 === 1 ? "authority" : "social proof",
+      theme: i % 3 === 0 ? "educación" : i % 3 === 1 ? "autoridad" : "prueba social",
       angle:
         i % 3 === 0
-          ? `Explain a core concept about ${niche}`
+          ? `Explica un concepto clave sobre ${niche}`
           : i % 3 === 1
-          ? `Show expertise and process in ${niche}`
-          : `Share a client story in ${niche}`,
+          ? `Muestra tu experiencia y proceso en ${niche}`
+          : `Comparte un caso de éxito de cliente en ${niche}`,
       format: i % 2 === 0 ? "carousel" : "reel",
       callToAction:
         i % 3 === 2
-          ? "Invite to book a consultation"
-          : "Invite to save the post or share with a friend",
+          ? "Invita a agendar una consulta"
+          : "Invita a guardar el post o compartirlo con un amigo",
     });
   }
   return { horizonDays, items };
@@ -30,20 +30,20 @@ export class StrategyAgent {
     horizonDays: number;
   }): Promise<ContentStrategy> {
     const { profile, horizonDays } = input;
-    const prompt = `Design a ${horizonDays}-day content strategy for brand "${profile.brandIdentity}".
-Niche: ${profile.niche}.
-Tone: ${profile.toneOfVoice}.
-Audience: ${profile.audience} (persona: ${profile.buyerPersona}).
-Mission: ${profile.mission}.
-Value proposition: ${profile.valueProposition}.
-Content pillars: ${profile.contentPillars.join(", ")}.
-Services: ${profile.services.join(", ")}.
-Offers: ${profile.offers.join(", ")}.
-Pain points to address: ${profile.painPoints.join(", ")}.
-Desires to tap into: ${profile.desires.join(", ")}.
-Preferred formats: ${profile.preferredFormats.join(", ")}.
-Forbidden topics: ${profile.forbiddenTopics.join(", ")}.
-Brand context: ${profile.longDescription}`;
+    const prompt = `Diseña una estrategia de contenido de ${horizonDays} posts para la marca "${profile.brandIdentity}". GENERA TODOS LOS TEXTOS EN ESPAÑOL.
+Nicho: ${profile.niche}.
+Tono: ${profile.toneOfVoice}.
+Audiencia: ${profile.audience} (persona: ${profile.buyerPersona}).
+Misión: ${profile.mission}.
+Propuesta de valor: ${profile.valueProposition}.
+Pilares de contenido: ${profile.contentPillars.join(", ")}.
+Servicios: ${profile.services.join(", ")}.
+Ofertas: ${profile.offers.join(", ")}.
+Puntos de dolor a abordar: ${profile.painPoints.join(", ")}.
+Deseos a activar: ${profile.desires.join(", ")}.
+Formatos preferidos: ${profile.preferredFormats.join(", ")}.
+Temas prohibidos: ${profile.forbiddenTopics.join(", ")}.
+Contexto de marca: ${profile.longDescription}`;
 
     const base = buildBaseStrategy(horizonDays, profile.niche, profile.toneOfVoice);
 

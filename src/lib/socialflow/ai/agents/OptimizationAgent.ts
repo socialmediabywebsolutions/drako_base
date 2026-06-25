@@ -8,11 +8,11 @@ export class OptimizationAgent {
     keywordEngine: KeywordEngineOutput;
   }): Promise<OptimizedPost> {
     const { profile, variant, keywordEngine } = input;
-    const prompt = `Optimize this post for tone ${profile.toneOfVoice} for audience ${profile.audience}.
-Avoid forbidden topics (${profile.forbiddenTopics.join(", ")} and angles ${profile.forbiddenAngles.join(", ")}).
-Avoid banned words: ${profile.bannedWords.join(", ")}.
-Use hashtags from base and priority sets plus selected engine hashtags.
-Text: ${variant.text}`;
+    const prompt = `Optimiza este post en ESPAÑOL para el tono "${profile.toneOfVoice}" y la audiencia "${profile.audience}". El texto mejorado debe estar completamente en español, ser persuasivo y tener al menos 3 párrafos.
+Evita temas prohibidos (${profile.forbiddenTopics.join(", ")} y ángulos ${profile.forbiddenAngles.join(", ")}).
+Evita palabras prohibidas: ${profile.bannedWords.join(", ")}.
+Usa hashtags de los conjuntos base y prioritarios más los seleccionados del motor de keywords.
+Texto original: ${variant.text}`;
 
     const hashtagPool = [
       ...(profile.baseHashtags || []),
@@ -24,7 +24,7 @@ Text: ${variant.text}`;
     const base: OptimizedPost = {
       id: variant.id,
       baseText: variant.text,
-      improvedText: `${variant.text}\n\nAdjusted to tone: ${profile.toneOfVoice}.`,
+      improvedText: `${variant.text}\n\nAjustado al tono: ${profile.toneOfVoice}.`,
       hashtags: uniqueHashtags,
       tone: profile.toneOfVoice,
     };

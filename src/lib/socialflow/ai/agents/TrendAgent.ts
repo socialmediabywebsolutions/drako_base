@@ -12,8 +12,8 @@ export type TrendInsights = {
 export class TrendAgent {
   async run(input: { profile: BrandProfile }): Promise<TrendInsights> {
     const { profile } = input;
-    const prompt = `Analyze trends for niche ${profile.niche} and audience ${profile.audience} using market signals, viral themes and trending topics.
-Brand context: ${profile.longDescription}`;
+    const prompt = `Analiza tendencias para el nicho ${profile.niche} y audiencia ${profile.audience} usando señales de mercado, temas virales y tópicos en tendencia. GENERA TODOS LOS TEXTOS EN ESPAÑOL.
+Contexto de marca: ${profile.longDescription}`;
 
     const base: TrendInsights = {
       trendingTopics: [
@@ -21,24 +21,24 @@ Brand context: ${profile.longDescription}`;
         ...profile.marketSignals.slice(0, 2).map((s) => `Signal: ${s}`),
       ],
       viralAngles: [
-        `Before/after focused on ${profile.niche} results`,
-        `Behind-the-scenes of how you deliver ${profile.services[0] ?? "your main service"}`,
-        `Myths vs reality about ${profile.niche}`,
+        `Antes/después enfocado en resultados de ${profile.niche}`,
+        `Detrás de cámaras de cómo entregamos ${profile.services[0] ?? "nuestro servicio principal"}`,
+        `Mitos vs realidad sobre ${profile.niche}`,
       ],
       emergingPatterns: [
-        `More short-form explainers about ${profile.niche} using carousels and reels`,
-        `Audiences respond to concrete outcomes like ${profile.desires[0] ?? "tangible results"}`,
-        `Questions around ${profile.painPoints[0] ?? "core pain points"} keep showing up`,
+        `Más contenido educativo corto sobre ${profile.niche} en formato carrusel y reel`,
+        `Las audiencias responden a resultados concretos como ${profile.desires[0] ?? "resultados tangibles"}`,
+        `Las preguntas sobre ${profile.painPoints[0] ?? "puntos de dolor principales"} siguen apareciendo`,
       ],
       shortFormOpportunities: [
-        `30-60s reels addressing "${profile.painPoints[0] ?? "main pain point"}" with a quick win`,
-        `Carousel series on "${profile.viralThemes[0] ?? "transformation"}" with step-by-step breakdowns`,
-        `POV-style hooks about ${profile.audience.toLowerCase()}`,
+        `Reels de 30-60s abordando "${profile.painPoints[0] ?? "principal punto de dolor"}" con una solución rápida`,
+        `Serie de carruseles sobre "${profile.viralThemes[0] ?? "transformación"}" con pasos concretos`,
+        `Hooks estilo POV para ${profile.audience.toLowerCase()}`,
       ],
       hookIdeas: [
-        `"Nobody tells you this about ${profile.niche}..."`,
-        `"Before you ${profile.primaryCTA.toLowerCase() || "book"}, watch this"`,
-        `"If you are a ${profile.audience.toLowerCase()}, read this before you decide"`,
+        `"Nadie te dice esto sobre ${profile.niche}..."`,
+        `"Antes de ${profile.primaryCTA.toLowerCase() || "reservar"}, mira esto"`,
+        `"Si eres ${profile.audience.toLowerCase()}, lee esto antes de decidir"`,
       ],
     };
 

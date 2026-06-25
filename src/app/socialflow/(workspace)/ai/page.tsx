@@ -180,18 +180,25 @@ function PostCard({
       </div>
 
       {/* Image preview */}
-      {post.imageHint && (
-        <div className="mb-2 overflow-hidden rounded-lg">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+      <div className="mb-2 overflow-hidden rounded-lg">
+        {post.imageHint ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={post.imageHint}
-            alt="AI generated"
-            className="h-32 w-full object-cover"
+            alt="AI generada"
+            className="h-40 w-full object-cover"
             loading="lazy"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+            onError={(e) => {
+              const parent = (e.currentTarget as HTMLImageElement).parentElement;
+              if (parent) parent.innerHTML = `<div class="flex h-40 w-full items-center justify-center bg-white/5 text-white/20 text-xs">Sin imagen</div>`;
+            }}
           />
-        </div>
-      )}
+        ) : (
+          <div className="flex h-40 w-full items-center justify-center bg-white/5 text-white/20 text-xs">
+            Sin imagen
+          </div>
+        )}
+      </div>
 
       {/* Regen overlay */}
       {(isRegenerating || regening) && (
@@ -698,7 +705,7 @@ export default function SocialFlowAIPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col">
+    <div className="flex h-[calc(100vh-5rem)] flex-col">
       {/* Header */}
       <div className="mb-4 shrink-0">
         <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow · Asistente IA</p>
@@ -730,7 +737,11 @@ export default function SocialFlowAIPage() {
 
                 {/* Bubble */}
                 <div
-                  className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                    msg.posts && msg.posts.length > 0
+                      ? "w-full"
+                      : "max-w-[82%]"
+                  } ${
                     msg.role === "user"
                       ? "bg-violet-500/15 text-white/90"
                       : "border border-white/8 bg-white/5 text-white/80"
@@ -757,7 +768,7 @@ export default function SocialFlowAIPage() {
 
                       {/* Posts grid */}
                       {msg.posts && msg.posts.length > 0 && (
-                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                           {msg.posts.map((post) => (
                             <PostCard
                               key={post.id}

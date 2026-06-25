@@ -57,7 +57,7 @@ export class SocialFlowOrchestrator {
       products: profile.products,
       offers: profile.offers,
       differentiators: profile.differentiators,
-      primaryCTA: profile.primaryCTA || "Book now",
+      primaryCTA: profile.primaryCTA || "Reserva ahora",
       secondaryCTAs: profile.secondaryCTAs,
       baseKeywords: profile.baseKeywords.length ? profile.baseKeywords : [niche],
       priorityKeywords: profile.priorityKeywords.length ? profile.priorityKeywords : [niche],
@@ -90,8 +90,8 @@ export class SocialFlowOrchestrator {
     const channels = await listSaasSocialChannels(ctx);
     const trends = await this.trendAgent.run({ profile });
     const { research, engine: keywordEngine } = await this.keywordAgent.run({ profile, trends });
-    const horizonDays = Math.max(7, Math.min(30, Math.round((input.frequencyPerWeek / 7) * 30) || 7));
-    const strategy = await this.strategyAgent.run({ profile, horizonDays });
+    const numPosts = Math.max(1, Math.min(28, input.frequencyPerWeek));
+    const strategy = await this.strategyAgent.run({ profile, horizonDays: numPosts });
     const generatedPosts = [];
     const optimizedPosts = [];
     for (const item of strategy.items) {

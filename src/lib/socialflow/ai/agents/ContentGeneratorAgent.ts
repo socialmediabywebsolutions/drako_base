@@ -10,24 +10,24 @@ export class ContentGeneratorAgent {
     trends: TrendInsights;
   }): Promise<GeneratedPost> {
     const { profile, strategyItem, keywordEngine, trends } = input;
-    const prompt = `Generate high-converting post variations for brand ${profile.brandIdentity} in niche ${profile.niche}.
-Tone: ${profile.toneOfVoice}.
-Audience: ${profile.audience} (buyer persona: ${profile.buyerPersona}).
-Key pain points: ${profile.painPoints.join(", ")}.
-Key desires: ${profile.desires.join(", ")}.
-Services: ${profile.services.join(", ")}.
-Offers: ${profile.offers.join(", ")}.
-Differentiators: ${profile.differentiators.join(", ")}.
-Primary CTA: ${profile.primaryCTA}.
-Secondary CTAs: ${profile.secondaryCTAs.join(", ")}.
-Market signals: ${profile.marketSignals.join(", ")}.
-Forbidden topics: ${profile.forbiddenTopics.join(", ")}.
-Strategy theme: ${strategyItem.theme}.
-Strategy angle: ${strategyItem.angle}.
-Trend hooks: ${trends.hookIdeas.join(" | \n")}.
-Keyword clusters: ${keywordEngine.clusters.map((c) => c.cluster).join(", ")}.
-Use hashtags from evergreen + campaign + viral sets, avoiding forbidden topics.
-Brand context and knowledge base: ${profile.longDescription}`;
+    const prompt = `Genera variaciones de posts de alta conversión para la marca ${profile.brandIdentity} en el nicho ${profile.niche}. GENERA TODOS LOS TEXTOS EN ESPAÑOL, con copy completo de al menos 3-5 párrafos.
+Tono: ${profile.toneOfVoice}.
+Audiencia: ${profile.audience} (buyer persona: ${profile.buyerPersona}).
+Puntos de dolor clave: ${profile.painPoints.join(", ")}.
+Deseos clave: ${profile.desires.join(", ")}.
+Servicios: ${profile.services.join(", ")}.
+Ofertas: ${profile.offers.join(", ")}.
+Diferenciadores: ${profile.differentiators.join(", ")}.
+CTA principal: ${profile.primaryCTA}.
+CTAs secundarios: ${profile.secondaryCTAs.join(", ")}.
+Señales de mercado: ${profile.marketSignals.join(", ")}.
+Temas prohibidos: ${profile.forbiddenTopics.join(", ")}.
+Tema de estrategia: ${strategyItem.theme}.
+Ángulo de estrategia: ${strategyItem.angle}.
+Hooks de tendencia: ${trends.hookIdeas.join(" | \n")}.
+Clusters de keywords: ${keywordEngine.clusters.map((c) => c.cluster).join(", ")}.
+Usa hashtags de sets evergreen + campaña + viral, evitando temas prohibidos.
+Contexto de marca y base de conocimiento: ${profile.longDescription}`;
 
     const base: GeneratedPost = {
       id: `gen_${strategyItem.id}`,
@@ -35,13 +35,15 @@ Brand context and knowledge base: ${profile.longDescription}`;
       variants: [
         {
           id: `gen_${strategyItem.id}_v1`,
-          hook: trends.hookIdeas[0] ?? `What nobody tells you about ${profile.niche}...`,
+          hook: trends.hookIdeas[0] ?? `Lo que nadie te dice sobre ${profile.niche}...`,
           text:
-            `For ${profile.audience.toLowerCase()}, struggling with ${
-              profile.painPoints[0] ?? "the usual challenges"
-            }, here is a concrete way to get closer to "${profile.desires[0] ?? "your desired outcome"}".
+            `Para ${profile.audience.toLowerCase()} que luchan con ${
+              profile.painPoints[0] ?? "los desafíos habituales"
+            }, aquí tienes una forma concreta de acercarte a "${profile.desires[0] ?? "tu resultado deseado"}".
 
 ${strategyItem.angle}.
+
+¿Qué obstáculo te impide llegar ahí? Cuéntanos en los comentarios.
 
 ${profile.primaryCTA}.`,
           callToAction: strategyItem.callToAction || profile.primaryCTA,
