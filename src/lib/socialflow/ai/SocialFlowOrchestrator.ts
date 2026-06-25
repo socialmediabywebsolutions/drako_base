@@ -124,7 +124,7 @@ export class SocialFlowOrchestrator {
         const postId = `ai_post_${campaign.id}_${item.id}`;
         const imagePrompt = buildImagePrompt({ theme: item.theme, angle: item.angle, body: optimized?.improvedText }, profile);
         const imageHint = await generatePostImage(imagePrompt, postId);
-        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: "LINKEDIN", contentType: "FEED", title: item.theme, body: optimized?.improvedText ?? item.angle, imageHint, status: sched?.scheduledAt ? "SCHEDULED" : "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, metadata: { strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags: optimized?.hashtags ?? [], angle: item.angle, callToAction: item.callToAction } });
+        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: "LINKEDIN", contentType: "FEED", title: item.theme, body: optimized?.improvedText ?? item.angle, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, metadata: { strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags: optimized?.hashtags ?? [], angle: item.angle, callToAction: item.callToAction } });
         savedCount++;
       } catch (postError) {
         console.error(`[SocialFlowOrchestrator] Failed to persist post for item ${item.id}`, postError instanceof Error ? postError.message : String(postError));

@@ -511,25 +511,21 @@ export default function SocialFlowAIPage() {
     scheduledAt?: string,
   ) {
     try {
-      await fetch("/api/socialflow/posts", {
+      const res = await fetch("/api/socialflow/posts", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ saasId: "socialflow", id: postId, action, scheduledAt: scheduledAt ?? null }),
       });
+      const json = (await res.json().catch(() => null)) as { post?: { status: string } } | null;
+      const newStatus =
+        json?.post?.status ??
+        (action === "approve" ? "SCHEDULED" : action === "reject" ? "REJECTED" : "SCHEDULED");
       setMessages((prev) =>
         prev.map((m) => {
           if (!m.posts?.some((p) => p.id === postId)) return m;
           return {
             ...m,
-            posts: m.posts.map((p) =>
-              p.id === postId
-                ? {
-                    ...p,
-                    status:
-                      action === "approve" ? "APPROVED" : action === "reject" ? "REJECTED" : "SCHEDULED",
-                  }
-                : p,
-            ),
+            posts: m.posts.map((p) => (p.id === postId ? { ...p, status: newStatus } : p)),
           };
         }),
       );
