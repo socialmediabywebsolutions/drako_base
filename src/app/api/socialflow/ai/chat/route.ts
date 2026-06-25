@@ -47,27 +47,32 @@ async function parseIntentWithAI(
   knowledgeContext: string,
   defaultTone: string,
   defaultNiche: string,
+  regexAction: "generate" | "modify" | "chat",
 ): Promise<ParsedIntent | null> {
   const e = env();
   if (!e?.AI) return null;
 
-  const systemPrompt = `You are a marketing AI assistant parsing requests in Spanish. Extract campaign parameters from the user message and return ONLY valid JSON (no markdown, no explanation).
+  const systemPrompt = `Eres un asistente de marketing que extrae parámetros de campaña de mensajes en español. Devuelve SOLO JSON válido, sin markdown ni explicación.
 
-Brand Knowledge Base:
-${knowledgeContext || `Niche: ${defaultNiche}. Tone: ${defaultTone}.`}
+Contexto de marca:
+${knowledgeContext || `Nicho: ${defaultNiche}. Tono: ${defaultTone}.`}
 
-Return this JSON structure:
+Estructura JSON requerida:
 {
   "action": "generate" | "modify" | "chat",
-  "topic": "<short campaign topic in Spanish, max 80 chars>",
-  "tone": "<communication tone, use brand default if not specified>",
-  "frequencyPerWeek": <integer 1-28, default 7>,
-  "reply": "<your response to user in Spanish, 1-2 sentences, warm and professional>"
+  "topic": "<tema de campaña en español, máx 80 chars>",
+  "tone": "<tono de comunicación, usa el default de marca si no se especifica>",
+  "frequencyPerWeek": <entero 1-28>,
+  "reply": "<respuesta al usuario en español, 1-2 frases, confirma la acción sin hacer preguntas>"
 }
 
-action="generate": user wants to create posts/campaign
-action="modify": user wants to change existing posts
-action="chat": general question or greeting`;
+REGLAS CRÍTICAS:
+- Si el usuario menciona posts, publicaciones, campaña, contenido, crear, generar → action DEBE ser "generate". NUNCA devuelvas "chat" en ese caso.
+- Si el usuario pide cambiar/modificar posts existentes → action="modify".
+- action="chat" SOLO para saludos o preguntas que no pidan contenido.
+- reply NO debe hacer preguntas. Debe confirmar la acción con los datos disponibles y decir que ya está generando.
+- frequencyPerWeek: extrae el número del mensaje. Si dice "3 posts" → 3. Si no se menciona → 7.
+- NUNCA pidas más información. Genera con lo que el usuario ya dio.`;
 
   try {
     const result = await e.AI.run("@cf/meta/llama-3.1-70b-instruct", {
@@ -82,12 +87,21 @@ action="chat": general question or greeting`;
     if (!jsonMatch) return null;
 
     const parsed = JSON.parse(jsonMatch[0]) as Partial<ParsedIntent>;
+
+    // Regex intent is authoritative for action: prevent AI from downgrading a
+    // detected generate/modify to chat (the common failure mode with LLMs).
+    const action = regexAction !== "chat" ? regexAction : (parsed.action ?? "chat");
+
+    const freq = typeof parsed.frequencyPerWeek === "number" && parsed.frequencyPerWeek >= 1
+      ? parsed.frequencyPerWeek
+      : extractFrequency(message);
+
     return {
-      action: parsed.action ?? "generate",
+      action,
       topic: (parsed.topic ?? extractTopic(message)) || defaultNiche,
       tone: parsed.tone ?? defaultTone,
-      frequencyPerWeek: typeof parsed.frequencyPerWeek === "number" ? parsed.frequencyPerWeek : extractFrequency(message),
-      reply: parsed.reply ?? "Entendido, procesando tu solicitud...",
+      frequencyPerWeek: freq,
+      reply: parsed.reply ?? "Entendido, generando tu campaña...",
     };
   } catch {
     return null;
@@ -153,10 +167,11 @@ export async function POST(request: Request) {
     const defaultNiche = profile?.niche || profile?.brandName || saasId;
     const defaultTone = profile?.toneOfVoice || "profesional, cercano, concreto";
 
-    // Parse intent (AI-assisted, regex fallback)
+    // Regex fallback runs first so its action can guard the AI result.
+    const fallbackIntent = parseIntentFallback(userMessage, defaultTone, defaultNiche);
     const intent =
-      (await parseIntentWithAI(userMessage, knowledgeContext, defaultTone, defaultNiche)) ??
-      parseIntentFallback(userMessage, defaultTone, defaultNiche);
+      (await parseIntentWithAI(userMessage, knowledgeContext, defaultTone, defaultNiche, fallbackIntent.action)) ??
+      fallbackIntent;
 
     // Pure conversational — no generation needed
     if (intent.action === "chat") {
