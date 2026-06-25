@@ -89,6 +89,9 @@ function PostCard({
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(post.imageHint ?? null);
+  const [imageLoadError, setImageLoadError] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
 
   const hashtags = post.metadata?.hashtags ?? [];
 
@@ -113,7 +116,7 @@ function PostCard({
     PUBLISHED: "Publicado",
   };
 
-  const isBusy = isRegenerating || regening || saving || changing;
+  const isBusy = isRegenerating || regening || saving || changing || generatingImage;
   const isFinished = ["POSTED", "PUBLISHED"].includes(post.status);
 
   async function saveEdits() {
@@ -169,6 +172,24 @@ function PostCard({
     }
   }
 
+  async function handleGenerateImage() {
+    setGeneratingImage(true);
+    setImageLoadError(false);
+    try {
+      const res = await fetch(`/api/socialflow/posts/${post.id}/generate-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ saasId: "socialflow" }),
+      });
+      const json = (await res.json()) as { ok: boolean; imageUrl?: string };
+      if (json.ok && json.imageUrl) setImageUrl(json.imageUrl);
+    } catch {
+      // non-critical
+    } finally {
+      setGeneratingImage(false);
+    }
+  }
+
   return (
     <div className="rounded-xl border border-white/8 bg-white/4 p-3 text-sm">
       {/* Header */}
@@ -181,21 +202,35 @@ function PostCard({
 
       {/* Image preview */}
       <div className="mb-2 overflow-hidden rounded-lg">
-        {post.imageHint ? (
+        {imageUrl && !imageLoadError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={post.imageHint}
+            src={imageUrl}
             alt="AI generada"
             className="h-40 w-full object-cover"
             loading="lazy"
-            onError={(e) => {
-              const parent = (e.currentTarget as HTMLImageElement).parentElement;
-              if (parent) parent.innerHTML = `<div class="flex h-40 w-full items-center justify-center bg-white/5 text-white/20 text-xs">Sin imagen</div>`;
-            }}
+            onError={() => setImageLoadError(true)}
           />
         ) : (
-          <div className="flex h-40 w-full items-center justify-center bg-white/5 text-white/20 text-xs">
-            Sin imagen
+          <div className="flex h-40 w-full flex-col items-center justify-center gap-2 bg-white/5">
+            {generatingImage ? (
+              <>
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-violet-400" />
+                <span className="text-[11px] text-white/30">Generando imagen…</span>
+              </>
+            ) : (
+              <button
+                type="button"
+                disabled={isRegenerating || regening || saving || changing}
+                onClick={() => void handleGenerateImage()}
+                className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/8 px-3 py-1.5 text-[11px] text-white/40 transition hover:border-violet-500/30 hover:bg-violet-500/10 hover:text-violet-300 disabled:opacity-40"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Generar imagen
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -304,37 +339,28 @@ function PostCard({
       )}
 
       {/* Actions */}
-      <div className="mt-2.5 flex flex-wrap gap-1.5">
-        {editing ? (
-          <>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void saveEdits()}
-              className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] font-semibold text-violet-300 transition hover:bg-violet-500/15 disabled:opacity-50"
-            >
-              {saving ? "Guardando…" : "Guardar"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditing(false)}
-              className="rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-white/40 transition hover:text-white/60"
-            >
-              Cancelar
-            </button>
-          </>
-        ) : (
-          <>
-            {!["APPROVED", "SCHEDULED", "POSTED", "PUBLISHED", "REJECTED"].includes(post.status) && (
-              <button
-                type="button"
-                disabled={isBusy}
-                onClick={() => onAction("approve", post.id)}
-                className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50"
-              >
-                Aprobar
-              </button>
-            )}
+      {editing ? (
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void saveEdits()}
+            className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] font-semibold text-violet-300 transition hover:bg-violet-500/15 disabled:opacity-50"
+          >
+            {saving ? "Guardando…" : "Guardar"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-white/40 transition hover:text-white/60"
+          >
+            Cancelar
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Secondary actions */}
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
             {!["REJECTED", "POSTED", "PUBLISHED"].includes(post.status) && (
               <button
                 type="button"
@@ -377,9 +403,21 @@ function PostCard({
                 </button>
               </>
             )}
-          </>
-        )}
-      </div>
+          </div>
+
+          {/* Primary action: Aprobar */}
+          {!["APPROVED", "SCHEDULED", "POSTED", "PUBLISHED", "REJECTED"].includes(post.status) && (
+            <button
+              type="button"
+              disabled={isBusy}
+              onClick={() => onAction("approve", post.id)}
+              className="mt-2 w-full rounded-xl border border-emerald-500/40 bg-emerald-500/20 py-2 text-xs font-bold text-emerald-300 transition hover:bg-emerald-500/30 active:scale-[0.99] disabled:opacity-50"
+            >
+              ✓ Aprobar
+            </button>
+          )}
+        </>
+      )}
     </div>
   );
 }
