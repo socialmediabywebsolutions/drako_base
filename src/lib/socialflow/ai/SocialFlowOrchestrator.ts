@@ -100,7 +100,12 @@ export class SocialFlowOrchestrator {
       const optimized = await this.optimizationAgent.run({ profile, variant: generated.variants[0], keywordEngine });
       optimizedPosts.push(optimized);
     }
-    const schedule = this.schedulerAgent.run({ strategy: strategy.items as StrategyItem[], frequencyPerWeek: input.frequencyPerWeek });
+    const schedule = this.schedulerAgent.run({
+      strategy: strategy.items as StrategyItem[],
+      frequencyPerWeek: input.frequencyPerWeek,
+      startDate: input.startDate ?? null,
+      endDate: input.endDate ?? null,
+    });
     const campaignId = await this.persistToDb(input, profile, strategy.items as StrategyItem[], optimizedPosts, schedule);
     return { profile, research, keywords: research, competitors, strategy, generatedPosts, optimizedPosts, schedule, campaignId };
   }
@@ -110,9 +115,10 @@ export class SocialFlowOrchestrator {
 
   private async persistToDb(input: SocialAIPipelineInput, profile: BrandProfile, strategyItems: StrategyItem[], optimizedPosts: { id: string; improvedText: string; hashtags?: string[] }[], schedule: { id: string; postId: string; scheduledAt: string }[]): Promise<string> {
     const ctx = await resolveSocialContext({ tenantId: input.tenantId, saasId: input.saasId });
-    const campaign = await upsertSaasSocialCampaign(ctx, { id: input.campaignId ?? `ai_campaign_${Date.now()}`, saasId: input.saasId, name: `AI Campaign: ${input.niche}`, objective: "AWARENESS", status: "ACTIVE", targetSegment: "DEFAULT", startDate: null, endDate: null, budgetEstimate: null, notes: `Generated for ${input.niche}` });
+    const campaign = await upsertSaasSocialCampaign(ctx, { id: input.campaignId ?? `ai_campaign_${Date.now()}`, saasId: input.saasId, name: `IA: ${input.niche}`, objective: "AWARENESS", status: "ACTIVE", targetSegment: "DEFAULT", startDate: input.startDate ?? null, endDate: input.endDate ?? null, budgetEstimate: null, notes: `Generated for ${input.niche}` });
     const channels = await listSaasSocialChannels(ctx);
-    const channelId = channels[0]?.id ?? null;
+    const postProvider = input.provider ?? "INSTAGRAM";
+    const channelId = (channels.find(c => c.provider === postProvider) ?? channels[0])?.id ?? null;
     let savedCount = 0;
     for (const item of strategyItems) {
       try {
@@ -124,7 +130,8 @@ export class SocialFlowOrchestrator {
         const postId = `ai_post_${campaign.id}_${item.id}`;
         const imagePrompt = buildImagePrompt({ theme: item.theme, angle: item.angle, body: optimized?.improvedText }, profile);
         const imageHint = await generatePostImage(imagePrompt, postId);
-        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: "LINKEDIN", contentType: "FEED", title: item.theme, body: optimized?.improvedText ?? item.angle, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, metadata: { strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags: optimized?.hashtags ?? [], angle: item.angle, callToAction: item.callToAction } });
+        const postProvider = input.provider ?? "INSTAGRAM";
+        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: postProvider, contentType: "FEED", title: item.theme, body: optimized?.improvedText ?? item.angle, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, metadata: { strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags: optimized?.hashtags ?? [], angle: item.angle, callToAction: item.callToAction } });
         savedCount++;
       } catch (postError) {
         console.error(`[SocialFlowOrchestrator] Failed to persist post for item ${item.id}`, postError instanceof Error ? postError.message : String(postError));

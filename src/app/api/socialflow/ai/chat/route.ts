@@ -20,8 +20,105 @@ type ParsedIntent = {
   reply: string;
 };
 
+type DateRange = {
+  startDate: string;
+  endDate: string;
+  dateLabel: string;
+};
+
+type ProviderKey = "INSTAGRAM" | "LINKEDIN" | "FACEBOOK_PAGE" | "TIKTOK";
+
 const GENERATE_KEYWORDS_ES = ["genera", "crea", "quiero", "necesito", "haz", "hazme", "prepara", "campaña", "posts", "publicaciones", "contenido"];
 const MODIFY_KEYWORDS_ES = ["cambia", "modifica", "actualiza", "mejora", "regenera", "hazlos", "más formal", "más casual", "más corto", "más largo", "cambia el tono"];
+
+const MONTHS_ES: Record<string, number> = {
+  enero: 0, febrero: 1, marzo: 2, abril: 3, mayo: 4, junio: 5,
+  julio: 6, agosto: 7, septiembre: 8, octubre: 9, noviembre: 10, diciembre: 11,
+};
+
+function toDateStr(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function startOfISOWeek(d: Date): Date {
+  const day = d.getDay(); // 0=Sun
+  const diff = day === 0 ? -6 : 1 - day; // shift to Monday
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + diff);
+}
+
+function extractDateRange(message: string): DateRange {
+  const lower = message.toLowerCase();
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const DAY_MS = 86_400_000;
+
+  // "los próximos N días"
+  const proximosDias = lower.match(/(?:los?\s+)?pr[oó]ximos?\s+(\d+)\s+d[ií]as?/);
+  if (proximosDias) {
+    const days = parseInt(proximosDias[1]);
+    const end = new Date(today.getTime() + (days - 1) * DAY_MS);
+    return { startDate: toDateStr(today), endDate: toDateStr(end), dateLabel: `próximos ${days} días` };
+  }
+
+  // "la próxima semana" before "esta semana" (longer match wins)
+  if (/(?:la\s+)?pr[oó]xima\s+semana/.test(lower)) {
+    const nextMon = startOfISOWeek(new Date(today.getTime() + 7 * DAY_MS));
+    const nextSun = new Date(nextMon.getTime() + 6 * DAY_MS);
+    return { startDate: toDateStr(nextMon), endDate: toDateStr(nextSun), dateLabel: "próxima semana" };
+  }
+
+  // "esta semana"
+  if (/\besta\s+semana\b/.test(lower)) {
+    const mon = startOfISOWeek(today);
+    const sun = new Date(mon.getTime() + 6 * DAY_MS);
+    return { startDate: toDateStr(mon), endDate: toDateStr(sun), dateLabel: "esta semana" };
+  }
+
+  // "del D al D de MES" or "del D de MES al D de MES"
+  const rangeMatch = lower.match(/del?\s+(\d+)\s+(?:de\s+(\w+)\s+)?al?\s+(\d+)\s+de\s+(\w+)/);
+  if (rangeMatch) {
+    const [, d1, m1Raw, d2, m2Raw] = rangeMatch;
+    const month2 = MONTHS_ES[m2Raw];
+    if (month2 !== undefined) {
+      const month1 = m1Raw ? (MONTHS_ES[m1Raw] ?? month2) : month2;
+      const year = now.getFullYear() + (month2 < now.getMonth() ? 1 : 0);
+      const start = new Date(year, month1, parseInt(d1));
+      const end = new Date(year, month2, parseInt(d2));
+      return { startDate: toDateStr(start), endDate: toDateStr(end), dateLabel: `${d1} al ${d2} de ${m2Raw}` };
+    }
+  }
+
+  // "este mes"
+  if (/\beste\s+mes\b/.test(lower)) {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { startDate: toDateStr(start), endDate: toDateStr(end), dateLabel: "este mes" };
+  }
+
+  // Solo nombre de mes: "julio", "agosto", etc.
+  for (const [name, month] of Object.entries(MONTHS_ES)) {
+    if (lower.includes(name)) {
+      const year = now.getFullYear() + (month < now.getMonth() ? 1 : 0);
+      const start = new Date(year, month, 1);
+      const end = new Date(year, month + 1, 0);
+      return { startDate: toDateStr(start), endDate: toDateStr(end), dateLabel: name };
+    }
+  }
+
+  // Default: current week (Mon → Sun)
+  const mon = startOfISOWeek(today);
+  const sun = new Date(mon.getTime() + 6 * DAY_MS);
+  return { startDate: toDateStr(mon), endDate: toDateStr(sun), dateLabel: "esta semana" };
+}
+
+function extractProvider(message: string): ProviderKey {
+  const lower = message.toLowerCase();
+  if (/instagram|ig\b/.test(lower)) return "INSTAGRAM";
+  if (/linkedin|linked\s*in/.test(lower)) return "LINKEDIN";
+  if (/facebook|fb\b/.test(lower)) return "FACEBOOK_PAGE";
+  if (/tiktok/.test(lower)) return "TIKTOK";
+  return "INSTAGRAM";
+}
 
 function extractFrequency(message: string): number {
   const m = message.match(/(\d+)\s*(?:post|publicaci|contenid|por\s*semana|a\s*la\s*semana)/i);
@@ -36,7 +133,7 @@ function extractTopic(message: string): string {
   return message
     .replace(/\b(genera|crea|quiero|necesito|haz|hazme|prepara|una|un|los|las|mi|mis)\b/gi, "")
     .replace(/\b(\d+)\s*(posts?|publicaciones?)\b/gi, "")
-    .replace(/\b(esta semana|este mes|para hoy)\b/gi, "")
+    .replace(/\b(esta semana|este mes|para hoy|la próxima semana|próxima semana)\b/gi, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 120);
@@ -108,10 +205,19 @@ REGLAS CRÍTICAS:
   }
 }
 
+const PROVIDER_LABEL: Record<ProviderKey, string> = {
+  INSTAGRAM: "Instagram",
+  LINKEDIN: "LinkedIn",
+  FACEBOOK_PAGE: "Facebook",
+  TIKTOK: "TikTok",
+};
+
 function parseIntentFallback(
   message: string,
   defaultTone: string,
   defaultNiche: string,
+  provider: ProviderKey,
+  dateLabel: string,
 ): ParsedIntent {
   const lower = message.toLowerCase();
   const isGenerate = GENERATE_KEYWORDS_ES.some((k) => lower.includes(k));
@@ -122,7 +228,7 @@ function parseIntentFallback(
   const topic = extractTopic(message) || defaultNiche;
 
   const replyMap: Record<string, string> = {
-    generate: `Perfecto, voy a generar ${freq} posts${topic ? ` sobre "${topic}"` : ""}. Un momento...`,
+    generate: `Perfecto, voy a generar ${freq} posts sobre "${topic}" para ${PROVIDER_LABEL[provider]} — ${dateLabel}. Dame un momento...`,
     modify: "Entendido. Voy a regenerar los posts con los cambios solicitados.",
     chat: "Puedo ayudarte a generar campañas y posts. Dime qué contenido necesitas y cuántos posts quieres.",
   };
@@ -167,8 +273,12 @@ export async function POST(request: Request) {
     const defaultNiche = profile?.niche || profile?.brandName || saasId;
     const defaultTone = profile?.toneOfVoice || "profesional, cercano, concreto";
 
+    // Extract date range and provider from message (rule-based, always reliable)
+    const dateRange = extractDateRange(userMessage);
+    const provider = extractProvider(userMessage);
+
     // Regex fallback runs first so its action can guard the AI result.
-    const fallbackIntent = parseIntentFallback(userMessage, defaultTone, defaultNiche);
+    const fallbackIntent = parseIntentFallback(userMessage, defaultTone, defaultNiche, provider, dateRange.dateLabel);
     const intent =
       (await parseIntentWithAI(userMessage, knowledgeContext, defaultTone, defaultNiche, fallbackIntent.action)) ??
       fallbackIntent;
@@ -193,8 +303,8 @@ export async function POST(request: Request) {
       objective: "AWARENESS",
       status: "GENERATING",
       targetSegment: "DEFAULT",
-      startDate: null,
-      endDate: null,
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
       budgetEstimate: null,
       notes: null,
     });
@@ -206,14 +316,28 @@ export async function POST(request: Request) {
       tone: intent.tone,
       frequencyPerWeek: intent.frequencyPerWeek,
       campaignId,
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
+      provider,
     });
+
+    // Build a reply that includes date context if AI didn't (AI reply ignores dates)
+    const reply = fallbackIntent.reply;
 
     return NextResponse.json({
       ok: true,
       action: "generating",
       campaignId,
-      reply: intent.reply,
-      params: { topic: intent.topic, tone: intent.tone, frequencyPerWeek: intent.frequencyPerWeek },
+      reply,
+      params: {
+        topic: intent.topic,
+        tone: intent.tone,
+        frequencyPerWeek: intent.frequencyPerWeek,
+        provider,
+        dateLabel: dateRange.dateLabel,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      },
     });
   } catch (error) {
     if (error instanceof Error && error.message === "SESSION_REQUIRED") {

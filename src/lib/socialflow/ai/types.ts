@@ -163,4 +163,7 @@ export type SocialAIPipelineInput = {
   tone: string;
   frequencyPerWeek: number;
   campaignId?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  provider?: "INSTAGRAM" | "LINKEDIN" | "FACEBOOK_PAGE" | "TIKTOK" | "TWITTER_X";
 };

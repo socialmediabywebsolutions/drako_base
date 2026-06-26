@@ -22,6 +22,15 @@ type SocialPost = {
   } | null;
 };
 
+type CampaignParams = {
+  topic?: string;
+  frequencyPerWeek?: number;
+  provider?: string;
+  dateLabel?: string;
+  startDate?: string;
+  endDate?: string;
+};
+
 type Message = {
   id: string;
   role: "user" | "bot";
@@ -29,6 +38,7 @@ type Message = {
   campaignId?: string;
   posts?: SocialPost[];
   generatingStatus?: "polling" | "done" | "error";
+  params?: CampaignParams;
 };
 
 type EditDraft = {
@@ -70,7 +80,21 @@ const PROGRESS_STEPS = [
   { at: 87, label: "Preparando tu campaña…",             dot: "bg-emerald-400"},
 ] as const;
 
-function GeneratingProgress() {
+const PROVIDER_ICON: Record<string, string> = {
+  INSTAGRAM: "IG",
+  LINKEDIN: "LI",
+  FACEBOOK_PAGE: "FB",
+  TIKTOK: "TT",
+};
+
+const PROVIDER_COLOR: Record<string, string> = {
+  INSTAGRAM: "bg-rose-500/20 text-rose-300",
+  LINKEDIN: "bg-sky-500/20 text-sky-300",
+  FACEBOOK_PAGE: "bg-blue-500/20 text-blue-300",
+  TIKTOK: "bg-white/10 text-white/60",
+};
+
+function GeneratingProgress({ params }: { params?: CampaignParams }) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -108,7 +132,22 @@ function GeneratingProgress() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-white/90">{step.label}</p>
-          <p className="text-xs text-white/35">La IA está trabajando en tu campaña personalizada</p>
+          {params?.dateLabel || params?.provider ? (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {params.provider && (
+                <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${PROVIDER_COLOR[params.provider] ?? "bg-white/10 text-white/60"}`}>
+                  {PROVIDER_ICON[params.provider] ?? params.provider} · {params.frequencyPerWeek ?? "?"} posts
+                </span>
+              )}
+              {params.dateLabel && (
+                <span className="rounded-md bg-white/8 px-1.5 py-0.5 text-[10px] text-white/40">
+                  {params.dateLabel}
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-white/35">La IA está trabajando en tu campaña personalizada</p>
+          )}
         </div>
         <span className="shrink-0 font-mono text-lg font-bold text-white/50">{pct}%</span>
       </div>
@@ -789,6 +828,7 @@ export default function SocialFlowAIPage() {
         campaignId?: string;
         error?: string;
         message?: string;
+        params?: CampaignParams;
       };
 
       if (!json.ok) {
@@ -804,6 +844,7 @@ export default function SocialFlowAIPage() {
           content: json.reply ?? "Generando tu campaña… te aviso cuando esté lista.",
           campaignId: json.campaignId,
           generatingStatus: "polling",
+          params: json.params,
         });
         startPoll(json.campaignId, botMsgId);
       } else {
@@ -880,7 +921,7 @@ export default function SocialFlowAIPage() {
                     )}
                     {/* Progress bar — independent condition, key forces fresh mount per campaign */}
                     {msg.generatingStatus === "polling" && msg.content !== "…" && (
-                      <GeneratingProgress key={msg.id} />
+                      <GeneratingProgress key={msg.id} params={msg.params} />
                     )}
                   </div>
                 </div>

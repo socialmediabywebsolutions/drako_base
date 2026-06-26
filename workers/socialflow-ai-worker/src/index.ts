@@ -18,6 +18,9 @@ export interface SocialFlowAiJob {
   tone: string;
   frequencyPerWeek: number;
   campaignId: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  provider?: string;
 }
 
 export default {
@@ -60,6 +63,9 @@ export default {
           tone: job.tone,
           frequencyPerWeek: job.frequencyPerWeek,
           campaignId: job.campaignId,
+          startDate: job.startDate ?? null,
+          endDate: job.endDate ?? null,
+          provider: job.provider as "INSTAGRAM" | "LINKEDIN" | "FACEBOOK_PAGE" | "TIKTOK" | "TWITTER_X" | undefined,
         });
         console.log(`[SocialFlowAiWorker] Campaign ${job.campaignId} completed successfully`);
         message.ack();
