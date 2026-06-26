@@ -739,117 +739,105 @@ export default function SocialFlowAIPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-5rem)] flex-col">
-      {/* Header */}
-      <div className="mb-4 shrink-0">
-        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow · Asistente IA</p>
-        <h1 className="mt-1 text-2xl font-black tracking-tight text-white">Generador de campañas</h1>
+    <div className="flex h-full flex-col">
+      {/* Top bar */}
+      <div className="shrink-0 flex items-center gap-3 border-b border-white/5 px-5 py-3">
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[10px] font-black text-white">
+          SF
+        </div>
+        <span className="text-sm font-medium text-white/50">Asistente IA</span>
       </div>
 
-      {/* Chat area */}
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-white/8 bg-white/3 p-4">
-        <div className="flex flex-col gap-4">
+      {/* Messages — scrollable */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="py-8">
           {messages.map((msg) => {
             const approvedPosts = msg.posts?.filter((p) => p.status === "APPROVED") ?? [];
             const canPublish = approvedPosts.length > 0 && msg.generatingStatus === "done";
 
+            /* User message */
+            if (msg.role === "user") {
+              return (
+                <div key={msg.id} className="mb-6 flex justify-end px-4 md:px-8">
+                  <div className="max-w-[72%] rounded-2xl bg-violet-500/15 px-4 py-3 text-sm leading-relaxed text-white/90">
+                    {msg.content}
+                  </div>
+                </div>
+              );
+            }
+
+            /* Bot message */
             return (
-              <div
-                key={msg.id}
-                className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
-              >
-                {/* Avatar */}
-                <div
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-black ${
-                    msg.role === "bot"
-                      ? "bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white"
-                      : "bg-white/10 text-white/60"
-                  }`}
-                >
-                  {msg.role === "bot" ? "SF" : "Tú"}
+              <div key={msg.id} className="mb-8">
+                {/* Text row */}
+                <div className="flex items-start gap-3 px-4 md:px-8">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[11px] font-black text-white">
+                    SF
+                  </div>
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    {msg.generatingStatus === "polling" && msg.content === "…" ? (
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:0ms]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:150ms]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:300ms]" />
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm leading-relaxed text-white/80 whitespace-pre-wrap">{msg.content}</p>
+                        {msg.generatingStatus === "polling" && msg.content !== "…" && (
+                          <div className="mt-2 flex items-center gap-2 text-xs text-white/30">
+                            <span className="h-3 w-3 animate-spin rounded-full border border-violet-400/30 border-t-violet-400" />
+                            Generando en segundo plano…
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
 
-                {/* Bubble */}
-                <div
-                  className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                    msg.posts && msg.posts.length > 0
-                      ? "w-full"
-                      : "max-w-[82%]"
-                  } ${
-                    msg.role === "user"
-                      ? "bg-violet-500/15 text-white/90"
-                      : "border border-white/8 bg-white/5 text-white/80"
-                  }`}
-                >
-                  {/* Typing indicator */}
-                  {msg.generatingStatus === "polling" && msg.content === "…" ? (
-                    <div className="flex items-center gap-1.5 py-0.5">
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:0ms]" />
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:150ms]" />
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:300ms]" />
+                {/* Posts grid — full width */}
+                {msg.posts && msg.posts.length > 0 && (
+                  <div className="mt-4 px-4 md:px-8">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {msg.posts.map((post) => (
+                        <PostCard
+                          key={post.id}
+                          post={post}
+                          isRegenerating={regenLoading.has(post.id)}
+                          onAction={handlePostAction}
+                          onRegenerate={handleRegenerate}
+                          onRequestChange={handleRequestChange}
+                        />
+                      ))}
                     </div>
-                  ) : (
-                    <>
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                  </div>
+                )}
 
-                      {/* Background generation spinner */}
-                      {msg.generatingStatus === "polling" && msg.content !== "…" && (
-                        <div className="mt-2 flex items-center gap-2 text-xs text-white/40">
-                          <span className="h-3 w-3 animate-spin rounded-full border border-violet-400/40 border-t-violet-400" />
-                          Generando en segundo plano…
-                        </div>
+                {/* Publish approved campaign */}
+                {canPublish && (
+                  <div className="mt-3 px-4 md:px-8">
+                    <button
+                      type="button"
+                      disabled={publishingMsgId === msg.id}
+                      onClick={() => void handlePublishApproved(msg.id, msg.posts ?? [])}
+                      className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {publishingMsgId === msg.id ? (
+                        <>
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border border-emerald-400/40 border-t-emerald-400" />
+                          Programando…
+                        </>
+                      ) : (
+                        <>
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Publicar campaña aprobada ({approvedPosts.length} post{approvedPosts.length !== 1 ? "s" : ""})
+                        </>
                       )}
-
-                      {/* Posts grid */}
-                      {msg.posts && msg.posts.length > 0 && (
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          {msg.posts.map((post) => (
-                            <PostCard
-                              key={post.id}
-                              post={post}
-                              isRegenerating={regenLoading.has(post.id)}
-                              onAction={handlePostAction}
-                              onRegenerate={handleRegenerate}
-                              onRequestChange={handleRequestChange}
-                            />
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Publish approved campaign button */}
-                      {canPublish && (
-                        <div className="mt-3 border-t border-white/8 pt-3">
-                          <button
-                            type="button"
-                            disabled={publishingMsgId === msg.id}
-                            onClick={() => void handlePublishApproved(msg.id, msg.posts ?? [])}
-                            className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {publishingMsgId === msg.id ? (
-                              <>
-                                <span className="h-3.5 w-3.5 animate-spin rounded-full border border-emerald-400/40 border-t-emerald-400" />
-                                Programando…
-                              </>
-                            ) : (
-                              <>
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                  />
-                                </svg>
-                                Publicar campaña aprobada ({approvedPosts.length} post
-                                {approvedPosts.length !== 1 ? "s" : ""})
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -857,14 +845,14 @@ export default function SocialFlowAIPage() {
         </div>
       </div>
 
-      {/* Input area */}
-      <div className="mt-3 shrink-0">
-        <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 focus-within:border-violet-500/40 focus-within:ring-1 focus-within:ring-violet-500/20">
+      {/* Input — pegado al fondo */}
+      <div className="shrink-0 border-t border-white/5 px-4 py-4 md:px-8">
+        <div className="flex items-end gap-3 rounded-2xl border border-white/10 bg-white/4 px-4 py-3 focus-within:border-violet-500/40 focus-within:ring-1 focus-within:ring-violet-500/15">
           <textarea
             ref={inputRef}
             rows={1}
             className="flex-1 resize-none bg-transparent text-sm text-white placeholder-white/25 outline-none"
-            placeholder='Escribe tu solicitud… o "cambia el post 3, hazlo más motivacional"'
+            placeholder='Escribe tu solicitud… ej. "Crea 5 posts sobre fitness esta semana"'
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
@@ -883,7 +871,7 @@ export default function SocialFlowAIPage() {
           </button>
         </div>
         <p className="mt-1.5 text-center text-[10px] text-white/20">
-          El asistente lee tu Knowledge Base automáticamente · Enter para enviar
+          El asistente lee tu Knowledge Base · Enter para enviar
         </p>
       </div>
     </div>
