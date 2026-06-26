@@ -136,7 +136,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ post });
     }
 
-    if (session.role !== "admin" && session.role !== "ADMIN") {
+    if (session.role !== "admin") {
       return NextResponse.json({ post, livePublish: { code: "PUBLISH_ROLE_NOT_AUTHORIZED" } }, { status: 403 });
     }
 
