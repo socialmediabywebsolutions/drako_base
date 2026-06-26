@@ -866,19 +866,21 @@ export default function SocialFlowAIPage() {
                     SF
                   </div>
                   <div className="min-w-0 flex-1 pt-0.5">
-                    {msg.generatingStatus === "polling" && msg.content === "…" ? (
+                    {/* Typing dots — while waiting for chat API to respond */}
+                    {msg.content === "…" && (
                       <div className="flex items-center gap-1.5 pt-1">
                         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:0ms]" />
                         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:150ms]" />
                         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:300ms]" />
                       </div>
-                    ) : (
-                      <>
-                        <p className="text-sm leading-relaxed text-white/80 whitespace-pre-wrap">{msg.content}</p>
-                        {msg.generatingStatus === "polling" && msg.content !== "…" && (
-                          <GeneratingProgress />
-                        )}
-                      </>
+                    )}
+                    {/* Message text */}
+                    {msg.content !== "…" && (
+                      <p className="text-sm leading-relaxed text-white/80 whitespace-pre-wrap">{msg.content}</p>
+                    )}
+                    {/* Progress bar — independent condition, key forces fresh mount per campaign */}
+                    {msg.generatingStatus === "polling" && msg.content !== "…" && (
+                      <GeneratingProgress key={msg.id} />
                     )}
                   </div>
                 </div>
