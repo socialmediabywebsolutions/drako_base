@@ -11,7 +11,7 @@ export class OptimizationAgent {
     const prompt = `Optimiza este post en ESPAÑOL para el tono "${profile.toneOfVoice}" y la audiencia "${profile.audience}". El texto mejorado debe estar completamente en español, ser persuasivo y tener al menos 3 párrafos.
 Evita temas prohibidos (${profile.forbiddenTopics.join(", ")} y ángulos ${profile.forbiddenAngles.join(", ")}).
 Evita palabras prohibidas: ${profile.bannedWords.join(", ")}.
-Usa hashtags de los conjuntos base y prioritarios más los seleccionados del motor de keywords.
+Usa hashtags de los conjuntos base y prioritarios más los seleccionados del motor de keywords. Máximo 15 hashtags en total.
 Texto original: ${variant.text}`;
 
     const hashtagPool = [
@@ -19,7 +19,7 @@ Texto original: ${variant.text}`;
       ...(profile.priorityHashtags || []),
       ...(keywordEngine.campaignHashtags || []),
     ];
-    const uniqueHashtags = Array.from(new Set(hashtagPool)).slice(0, 8);
+    const uniqueHashtags = Array.from(new Set(hashtagPool)).slice(0, 15);
 
     const base: OptimizedPost = {
       id: variant.id,
@@ -33,6 +33,11 @@ Texto original: ${variant.text}`;
       { prompt },
       () => base,
     );
+
+    // Enforce max 15 hashtags regardless of what the LLM returned
+    if (Array.isArray(data.hashtags) && data.hashtags.length > 15) {
+      data.hashtags = data.hashtags.slice(0, 15);
+    }
 
     return data;
   }

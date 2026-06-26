@@ -131,7 +131,8 @@ export class SocialFlowOrchestrator {
         const imagePrompt = buildImagePrompt({ theme: item.theme, angle: item.angle, body: optimized?.improvedText }, profile);
         const imageHint = await generatePostImage(imagePrompt, postId);
         const postProvider = input.provider ?? "INSTAGRAM";
-        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: postProvider, contentType: "FEED", title: item.theme, body: optimized?.improvedText ?? item.angle, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, metadata: { strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags: optimized?.hashtags ?? [], angle: item.angle, callToAction: item.callToAction } });
+        const hashtags = (optimized?.hashtags ?? []).slice(0, 15);
+        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: postProvider, contentType: "FEED", title: item.theme, body: optimized?.improvedText ?? item.angle, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, metadata: { targetProvider: postProvider, strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags, angle: item.angle, callToAction: item.callToAction } });
         savedCount++;
       } catch (postError) {
         console.error(`[SocialFlowOrchestrator] Failed to persist post for item ${item.id}`, postError instanceof Error ? postError.message : String(postError));

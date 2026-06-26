@@ -26,7 +26,7 @@ Tema de estrategia: ${strategyItem.theme}.
 Ángulo de estrategia: ${strategyItem.angle}.
 Hooks de tendencia: ${trends.hookIdeas.join(" | \n")}.
 Clusters de keywords: ${keywordEngine.clusters.map((c) => c.cluster).join(", ")}.
-Usa hashtags de sets evergreen + campaña + viral, evitando temas prohibidos.
+Usa hashtags de sets evergreen + campaña + viral, máximo 15 hashtags en total, evitando temas prohibidos.
 Contexto de marca y base de conocimiento: ${profile.longDescription}`;
 
     const base: GeneratedPost = {
