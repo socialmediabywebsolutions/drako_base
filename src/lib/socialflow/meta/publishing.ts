@@ -33,6 +33,16 @@ export class InstagramPublishingError extends Error {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function truncateCaption(text: string, maxLen = 2200): string {
+  if (text.length <= maxLen) return text;
+  const cut = text.lastIndexOf(" ", maxLen - 3);
+  return (cut > 0 ? text.slice(0, cut) : text.slice(0, maxLen - 3)) + "...";
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -141,7 +151,8 @@ async function waitForVideoContainer(
 export async function publishInstagramContent(
   input: InstagramPublishInput,
 ): Promise<InstagramPublishResult> {
-  const { accessToken, igUserId, apiBase, caption, contentType, mediaUrl } = input;
+  const { accessToken, igUserId, apiBase, contentType, mediaUrl } = input;
+  const caption = truncateCaption(input.caption.trim());
 
   if (!mediaUrl.startsWith("http")) {
     throw new InstagramPublishingError(
