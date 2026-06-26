@@ -298,6 +298,11 @@ body::before {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+@keyframes progress-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+.progress-sweep { animation: progress-sweep 2s ease-in-out infinite; }
 
 .sf-orb-1 { animation: sf-orb 9s ease-in-out infinite; }
 .sf-orb-2 { animation: sf-orb 11s ease-in-out infinite 3s; }

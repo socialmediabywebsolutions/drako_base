@@ -58,6 +58,97 @@ function extractModifyRequest(text: string): { postNumber: number; instruction: 
 }
 
 // ---------------------------------------------------------------------------
+// GeneratingProgress
+// ---------------------------------------------------------------------------
+
+const PROGRESS_STEPS = [
+  { at:  0, label: "Analizando tu Knowledge Base…",      dot: "bg-violet-400" },
+  { at: 17, label: "Creando estrategia de contenido…",   dot: "bg-indigo-400" },
+  { at: 34, label: "Generando posts…",                   dot: "bg-blue-400"   },
+  { at: 52, label: "Optimizando hashtags y CTAs…",       dot: "bg-fuchsia-400"},
+  { at: 70, label: "Generando imágenes con IA…",         dot: "bg-pink-400"   },
+  { at: 87, label: "Preparando tu campaña…",             dot: "bg-emerald-400"},
+] as const;
+
+function GeneratingProgress() {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const start = Date.now();
+    const totalMs = 62_000;
+    const id = setInterval(() => {
+      const t = Math.min((Date.now() - start) / totalMs, 1);
+      // ease-out: fast start, slow finish — caps at 95 to never show "done"
+      setProgress(Math.min((1 - Math.pow(1 - t, 2.4)) * 95, 95));
+    }, 200);
+    return () => clearInterval(id);
+  }, []);
+
+  const step = [...PROGRESS_STEPS].reverse().find((s) => progress >= s.at) ?? PROGRESS_STEPS[0];
+  const pct = Math.round(progress);
+
+  return (
+    <div className="mt-4 overflow-hidden rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/8 to-fuchsia-500/5 p-5">
+      {/* Header */}
+      <div className="mb-4 flex items-center gap-3">
+        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/20">
+          <svg
+            className="h-4.5 h-[18px] w-[18px] w-4.5 animate-spin text-violet-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.75}
+              d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z"
+            />
+          </svg>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-white/90">{step.label}</p>
+          <p className="text-xs text-white/35">La IA está trabajando en tu campaña personalizada</p>
+        </div>
+        <span className="shrink-0 font-mono text-lg font-bold text-white/50">{pct}%</span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="relative h-2.5 overflow-hidden rounded-full bg-white/8">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-violet-600 via-fuchsia-500 to-pink-400 transition-[width] duration-500 ease-out"
+          style={{ width: `${progress}%` }}
+        />
+        {/* Sweep shimmer */}
+        {progress > 0 && (
+          <div className="pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-full" style={{ width: `${progress}%` }}>
+            <div className="progress-sweep h-full w-1/3 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+          </div>
+        )}
+      </div>
+
+      {/* Step dots */}
+      <div className="mt-3 flex items-center justify-between gap-1">
+        {PROGRESS_STEPS.map((s, i) => (
+          <div key={i} className="flex flex-1 flex-col items-center gap-1">
+            <div
+              className={`h-1.5 w-1.5 rounded-full transition-all duration-500 ${
+                progress >= s.at ? s.dot + " shadow-[0_0_4px_1px_currentColor]" : "bg-white/12"
+              }`}
+            />
+            <span className={`hidden text-[9px] leading-none sm:block transition-colors duration-300 ${
+              progress >= s.at ? "text-white/50" : "text-white/15"
+            }`}>
+              {s.label.replace("…", "").split(" ").slice(-1)[0]}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // PostCard
 // ---------------------------------------------------------------------------
 
@@ -785,10 +876,7 @@ export default function SocialFlowAIPage() {
                       <>
                         <p className="text-sm leading-relaxed text-white/80 whitespace-pre-wrap">{msg.content}</p>
                         {msg.generatingStatus === "polling" && msg.content !== "…" && (
-                          <div className="mt-2 flex items-center gap-2 text-xs text-white/30">
-                            <span className="h-3 w-3 animate-spin rounded-full border border-violet-400/30 border-t-violet-400" />
-                            Generando en segundo plano…
-                          </div>
+                          <GeneratingProgress />
                         )}
                       </>
                     )}
