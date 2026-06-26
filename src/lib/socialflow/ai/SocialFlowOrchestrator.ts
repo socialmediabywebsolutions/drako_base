@@ -29,7 +29,7 @@ export class SocialFlowOrchestrator {
       getKnowledgeContext(input.tenantId, input.saasId).catch(() => ""),
     ]);
 
-    const niche = profile.niche || input.niche || input.saasId;
+    const niche = input.niche || profile.niche || input.saasId;
     const tone = profile.toneOfVoice || input.tone || "professional";
     const brandName = profile.brandName || input.saasId.replace(/[-_]/g, " ");
 
@@ -118,7 +118,7 @@ export class SocialFlowOrchestrator {
     const campaign = await upsertSaasSocialCampaign(ctx, { id: input.campaignId ?? `ai_campaign_${Date.now()}`, saasId: input.saasId, name: `IA: ${input.niche}`, objective: "AWARENESS", status: "ACTIVE", targetSegment: "DEFAULT", startDate: input.startDate ?? null, endDate: input.endDate ?? null, budgetEstimate: null, notes: `Generated for ${input.niche}` });
     const channels = await listSaasSocialChannels(ctx);
     const postProvider = input.provider ?? "INSTAGRAM";
-    const channelId = (channels.find(c => c.provider === postProvider) ?? channels[0])?.id ?? null;
+    const channelId = channels.find(c => c.provider === postProvider)?.id ?? null;
     let savedCount = 0;
     for (const item of strategyItems) {
       try {

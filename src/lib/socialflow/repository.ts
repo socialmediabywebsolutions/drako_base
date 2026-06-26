@@ -78,7 +78,15 @@ export async function approvePost(ctx: SocialContext, id: string) {
   const targetStatus: SaasSocialPost["status"] = post.scheduledAt ? "SCHEDULED" : "APPROVED";
   // Correct provider if the orchestrator stored the intended one in metadata.
   // This fixes posts that were persisted before the per-campaign provider fix landed.
-  const intendedProvider = post.metadata?.targetProvider as SaasSocialProvider | undefined;
+  // targetProvider in metadata was added when the per-campaign provider fix landed.
+  // Backward compat: old AI posts (campaignId starts with "ai_campaign_") were erroneously
+  // persisted with provider="LINKEDIN" and no targetProvider — correct them to INSTAGRAM on approval.
+  const explicitTarget = post.metadata?.targetProvider as SaasSocialProvider | undefined;
+  const intendedProvider: SaasSocialProvider | undefined =
+    explicitTarget ??
+    (post.campaignId?.startsWith("ai_campaign_") && post.provider === "LINKEDIN"
+      ? "INSTAGRAM"
+      : undefined);
   if (intendedProvider && intendedProvider !== post.provider) {
     await upsertSaasSocialPost(ctx, { id: post.id, saasId: post.saasId, channelId: post.channelId ?? null, campaignId: post.campaignId, provider: intendedProvider, contentType: post.contentType, title: post.title, body: post.body, imageHint: post.imageHint, status: targetStatus, scheduledAt: post.scheduledAt, postedAt: post.postedAt, externalPostId: post.externalPostId, metadata: post.metadata });
     return getSaasSocialPostById(ctx, id);

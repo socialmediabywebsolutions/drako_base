@@ -180,7 +180,7 @@ function StatusBadge({ status }: { status: PostStatus }) {
 
 function PostThumb({ post, onClick }: { post: SaasSocialPost; onClick: () => void }) {
   const [imageError, setImageError] = useState(false);
-  const hasImage = !!post.imageHint?.startsWith("http") && !imageError;
+  const hasImage = !!post.imageHint && !imageError;
   const gradient = thumbGradient(post.id);
   const ring = STATUS_RING[post.status] ?? "ring-white/8";
   const dot  = STATUS_DOT[post.status]  ?? "bg-white/20";
@@ -266,7 +266,7 @@ function PostDetailModal({ post, campaigns, isPending, onAction, onClose }: Post
         <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
           {/* Left: image */}
           <div className="relative flex h-52 shrink-0 items-center justify-center bg-black/30 md:h-auto md:w-5/12">
-            {post.imageHint?.startsWith("http") ? (
+            {post.imageHint ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={post.imageHint} alt={post.title} className="h-full w-full object-cover" />
             ) : (
