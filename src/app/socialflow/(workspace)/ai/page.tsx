@@ -571,7 +571,34 @@ function PostModal({
                   </button>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2.5">
+                  {/* Primary CTA — always visible */}
+                  {["APPROVED", "SCHEDULED"].includes(post.status) ? (
+                    <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/8 py-2.5 text-sm font-bold text-emerald-400/60">
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {post.status === "SCHEDULED" ? "Programado" : "Aprobado"}
+                    </div>
+                  ) : ["POSTED", "PUBLISHED"].includes(post.status) ? (
+                    <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/25 bg-violet-500/8 py-2.5 text-sm font-bold text-violet-400/60">
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Publicado
+                    </div>
+                  ) : post.status !== "REJECTED" ? (
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => onAction("approve", post.id)}
+                      className="w-full rounded-xl border border-emerald-500/50 bg-emerald-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 active:scale-[0.99] disabled:opacity-50"
+                    >
+                      {isBusy ? "…" : "✓ Aprobar"}
+                    </button>
+                  ) : null}
+
+                  {/* Secondary actions */}
                   <div className="flex flex-wrap gap-2">
                     {!["REJECTED", "POSTED", "PUBLISHED"].includes(post.status) && (
                       <button type="button" disabled={isBusy} onClick={() => onAction("reject", post.id)} className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50">
@@ -597,11 +624,6 @@ function PostModal({
                       </>
                     )}
                   </div>
-                  {!["APPROVED", "SCHEDULED", "POSTED", "PUBLISHED", "REJECTED"].includes(post.status) && (
-                    <button type="button" disabled={isBusy} onClick={() => onAction("approve", post.id)} className="w-full rounded-xl border border-emerald-500/40 bg-emerald-500/20 py-2.5 text-sm font-bold text-emerald-300 transition hover:bg-emerald-500/30 active:scale-[0.99] disabled:opacity-50">
-                      ✓ Aprobar
-                    </button>
-                  )}
                 </div>
               )}
             </div>

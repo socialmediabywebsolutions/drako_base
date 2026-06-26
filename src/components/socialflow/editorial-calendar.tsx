@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { SaasSocialPost, SaasSocialCampaign } from "@/lib/social-core/types";
 
@@ -21,16 +21,42 @@ const MONTHS = [
 const DAYS = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
 
 const STATUS_CFG: Record<PostStatus, { label: string; chipBg: string; dotBg: string }> = {
-  IDEA:       { label: "Idea",       chipBg: "bg-white/6 text-white/45",          dotBg: "bg-white/30" },
-  DRAFT:      { label: "Borrador",   chipBg: "bg-white/8 text-white/55",          dotBg: "bg-white/40" },
-  IN_REVIEW:  { label: "En revisión",chipBg: "bg-amber-500/15 text-amber-300",    dotBg: "bg-amber-500" },
-  APPROVED:   { label: "Aprobado",   chipBg: "bg-indigo-500/15 text-indigo-300",  dotBg: "bg-indigo-500" },
-  REJECTED:   { label: "Rechazado",  chipBg: "bg-rose-500/15 text-rose-300",      dotBg: "bg-rose-400" },
-  SCHEDULED:  { label: "Programado", chipBg: "bg-sky-500/15 text-sky-300",        dotBg: "bg-sky-500" },
-  PUBLISHING: { label: "Publicando", chipBg: "bg-violet-500/15 text-violet-300",  dotBg: "bg-violet-500" },
-  POSTED:     { label: "Publicado",  chipBg: "bg-emerald-500/15 text-emerald-300",dotBg: "bg-emerald-500" },
-  PUBLISHED:  { label: "Publicado",  chipBg: "bg-emerald-500/15 text-emerald-300",dotBg: "bg-emerald-500" },
-  FAILED:     { label: "Error",      chipBg: "bg-rose-500/15 text-rose-400",      dotBg: "bg-rose-500" },
+  IDEA:       { label: "Idea",       chipBg: "bg-white/6 text-white/45",           dotBg: "bg-white/30"    },
+  DRAFT:      { label: "Borrador",   chipBg: "bg-white/8 text-white/55",           dotBg: "bg-white/40"    },
+  IN_REVIEW:  { label: "En revisión",chipBg: "bg-amber-500/15 text-amber-300",     dotBg: "bg-amber-500"   },
+  APPROVED:   { label: "Aprobado",   chipBg: "bg-indigo-500/15 text-indigo-300",   dotBg: "bg-indigo-500"  },
+  REJECTED:   { label: "Rechazado",  chipBg: "bg-rose-500/15 text-rose-300",       dotBg: "bg-rose-400"    },
+  SCHEDULED:  { label: "Programado", chipBg: "bg-sky-500/15 text-sky-300",         dotBg: "bg-sky-500"     },
+  PUBLISHING: { label: "Publicando", chipBg: "bg-violet-500/15 text-violet-300",   dotBg: "bg-violet-500"  },
+  POSTED:     { label: "Publicado",  chipBg: "bg-emerald-500/15 text-emerald-300", dotBg: "bg-emerald-500" },
+  PUBLISHED:  { label: "Publicado",  chipBg: "bg-emerald-500/15 text-emerald-300", dotBg: "bg-emerald-500" },
+  FAILED:     { label: "Error",      chipBg: "bg-rose-500/15 text-rose-400",       dotBg: "bg-rose-500"    },
+};
+
+const STATUS_RING: Record<string, string> = {
+  APPROVED:   "ring-indigo-400/60",
+  SCHEDULED:  "ring-sky-400/60",
+  IN_REVIEW:  "ring-amber-400/50",
+  REJECTED:   "ring-rose-400/60",
+  POSTED:     "ring-emerald-400/70",
+  PUBLISHED:  "ring-emerald-400/70",
+  PUBLISHING: "ring-violet-400/60",
+  IDEA:       "ring-white/8",
+  DRAFT:      "ring-white/8",
+  FAILED:     "ring-rose-500/50",
+};
+
+const STATUS_DOT: Record<string, string> = {
+  APPROVED:   "bg-indigo-400",
+  SCHEDULED:  "bg-sky-400",
+  IN_REVIEW:  "bg-amber-300",
+  REJECTED:   "bg-rose-400",
+  POSTED:     "bg-emerald-400",
+  PUBLISHED:  "bg-emerald-400",
+  PUBLISHING: "bg-violet-400",
+  IDEA:       "bg-white/20",
+  DRAFT:      "bg-white/20",
+  FAILED:     "bg-rose-500",
 };
 
 const PROVIDER_ABBR: Record<string, string> = {
@@ -47,6 +73,21 @@ const PROVIDER_COLOR: Record<string, string> = {
   TWITTER_X: "bg-white/15 text-white",
   TIKTOK: "bg-white/10 text-white",
 };
+
+// Hardcoded so Tailwind's scanner sees the full class names
+const THUMB_GRADIENTS = [
+  "from-violet-900 to-fuchsia-900",
+  "from-blue-900 to-indigo-900",
+  "from-rose-900 to-pink-900",
+  "from-emerald-900 to-teal-900",
+  "from-amber-900 to-orange-900",
+  "from-sky-900 to-cyan-900",
+] as const;
+
+function thumbGradient(postId: string): string {
+  const hash = postId.split("").reduce((s, c) => s + c.charCodeAt(0), 0);
+  return THUMB_GRADIENTS[hash % THUMB_GRADIENTS.length];
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -135,20 +176,61 @@ function StatusBadge({ status }: { status: PostStatus }) {
   );
 }
 
-// ─── PostCard ─────────────────────────────────────────────────────────────────
+// ─── PostThumb — Instagram-style square tile ──────────────────────────────────
 
-type PostCardProps = {
+function PostThumb({ post, onClick }: { post: SaasSocialPost; onClick: () => void }) {
+  const [imageError, setImageError] = useState(false);
+  const hasImage = !!post.imageHint?.startsWith("http") && !imageError;
+  const gradient = thumbGradient(post.id);
+  const ring = STATUS_RING[post.status] ?? "ring-white/8";
+  const dot  = STATUS_DOT[post.status]  ?? "bg-white/20";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group relative aspect-square w-full overflow-hidden rounded-xl ring-2 ${ring} transition-all duration-150 hover:scale-[1.03] hover:ring-white/30 active:scale-[0.98]`}
+    >
+      {hasImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={post.imageHint!}
+          alt={post.title}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <div className={`h-full w-full bg-gradient-to-br ${gradient} flex flex-col items-start justify-end p-2`}>
+          <p className="line-clamp-3 text-left text-[10px] leading-snug text-white/55">{post.title}</p>
+        </div>
+      )}
+      <span className={`absolute bottom-1.5 right-1.5 h-2 w-2 rounded-full ${dot} ring-1 ring-black/40`} />
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 transition-all duration-150 group-hover:bg-black/45">
+        <svg className="h-6 w-6 text-white opacity-0 drop-shadow transition-opacity group-hover:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+      </div>
+    </button>
+  );
+}
+
+// ─── PostDetailModal ──────────────────────────────────────────────────────────
+
+type PostDetailModalProps = {
   post: SaasSocialPost;
   campaigns: SaasSocialCampaign[];
   isPending: boolean;
   onAction: (action: string, extra?: Record<string, string>) => void;
+  onClose: () => void;
 };
 
-function PostCard({ post, campaigns, isPending, onAction }: PostCardProps) {
+function PostDetailModal({ post, campaigns, isPending, onAction, onClose }: PostDetailModalProps) {
   const [scheduling, setScheduling] = useState(false);
   const [schedDate, setSchedDate] = useState(todayStr());
   const [schedTime, setSchedTime] = useState("09:00");
-  const campaign = campaigns.find(c => c.id === post.campaignId);
+  const campaign = campaigns.find((c) => c.id === post.campaignId);
 
   const isEditable = ["IDEA", "DRAFT", "IN_REVIEW"].includes(post.status);
   const isApproved = post.status === "APPROVED";
@@ -156,133 +238,178 @@ function PostCard({ post, campaigns, isPending, onAction }: PostCardProps) {
   const isDone = ["POSTED", "PUBLISHED"].includes(post.status);
   const isFailed = post.status === "FAILED";
   const isRejected = post.status === "REJECTED";
+  const isApprovable = isEditable;
+  const gradient = thumbGradient(post.id);
+
+  useEffect(() => {
+    function handler(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
 
   return (
-    <div className={[
-      "rounded-2xl border p-4 transition",
-      isDone ? "border-emerald-500/20 bg-emerald-500/8" : "border-white/8 bg-white/4",
-    ].join(" ")}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <span className={`rounded-md px-2 py-0.5 text-[10px] font-black ${PROVIDER_COLOR[post.provider] ?? "bg-white/10 text-white/70"}`}>
-              {PROVIDER_LABEL[post.provider] ?? post.provider}
-            </span>
-            <StatusBadge status={post.status} />
-            {campaign && (
-              <span className="rounded-full bg-white/6 px-2 py-0.5 text-[10px] font-medium text-white/40">
-                {campaign.name}
-              </span>
-            )}
-            {post.scheduledAt && (
-              <span className="text-[10px] text-white/30">
-                {formatDateLong(post.scheduledAt.slice(0, 10))} · {formatTime(post.scheduledAt)}
-              </span>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="relative flex h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0d0d14] sm:h-[88vh] sm:rounded-2xl">
+        {/* Close */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/8 text-white/50 transition hover:bg-white/15 hover:text-white/80"
+          aria-label="Cerrar"
+        >
+          <IconX />
+        </button>
+
+        <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
+          {/* Left: image */}
+          <div className="relative flex h-52 shrink-0 items-center justify-center bg-black/30 md:h-auto md:w-5/12">
+            {post.imageHint?.startsWith("http") ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={post.imageHint} alt={post.title} className="h-full w-full object-cover" />
+            ) : (
+              <div className={`h-full w-full bg-gradient-to-br ${gradient} flex flex-col items-start justify-end p-5`}>
+                <p className="text-sm font-semibold leading-snug text-white/60 line-clamp-4">{post.title}</p>
+              </div>
             )}
           </div>
 
-          <p className="text-sm font-semibold text-white/90 line-clamp-1">{post.title}</p>
-          <p className="mt-0.5 text-sm text-white/50 line-clamp-2">{post.body}</p>
-          {post.imageHint?.startsWith("http") && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={post.imageHint}
-              alt=""
-              className="mt-2 h-32 w-full rounded-xl border border-white/8 object-cover"
-            />
-          )}
+          {/* Right: content + footer */}
+          <div className="flex flex-1 flex-col overflow-hidden">
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto p-5 pr-10">
+              {/* Badges */}
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className={`rounded-md px-2 py-0.5 text-[10px] font-black ${PROVIDER_COLOR[post.provider] ?? "bg-white/10 text-white/70"}`}>
+                  {PROVIDER_LABEL[post.provider] ?? post.provider}
+                </span>
+                <StatusBadge status={post.status} />
+                {campaign && (
+                  <span className="rounded-full bg-white/6 px-2 py-0.5 text-[10px] font-medium text-white/40">
+                    {campaign.name}
+                  </span>
+                )}
+              </div>
+
+              {/* Scheduled date */}
+              {post.scheduledAt && (
+                <p className="mb-2 text-xs text-white/35">
+                  {formatDateLong(post.scheduledAt.slice(0, 10))} · {formatTime(post.scheduledAt)}
+                </p>
+              )}
+
+              {/* Title + body */}
+              <h2 className="mb-2 text-base font-semibold leading-snug text-white/90">{post.title}</h2>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/65">{post.body}</p>
+
+              {/* Metadata */}
+              {Array.isArray((post.metadata as Record<string, unknown> | null)?.hashtags) && (
+                <p className="mt-3 text-xs leading-relaxed text-violet-300/65">
+                  {((post.metadata as Record<string, unknown>).hashtags as string[]).map((h) => h.startsWith("#") ? h : `#${h}`).join(" ")}
+                </p>
+              )}
+
+              {isDone && post.externalPostId && (
+                <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-xs text-emerald-400 font-medium">
+                  Publicado · ID externo: {post.externalPostId}
+                </div>
+              )}
+
+              {isFailed && (
+                <div className="mt-3 rounded-lg border border-rose-500/20 bg-rose-500/8 px-3 py-2 text-xs text-rose-400 font-medium">
+                  Publicación fallida — revisa la cuenta conectada.
+                </div>
+              )}
+            </div>
+
+            {/* Action footer */}
+            <div className="shrink-0 border-t border-white/8 px-5 py-4">
+              {isDone || isRejected ? (
+                <p className="text-center text-xs text-white/30 italic">
+                  {isDone ? "Publicado correctamente." : "Post rechazado."}
+                </p>
+              ) : (
+                <div className="space-y-2.5">
+                  {/* Primary CTA */}
+                  {isApprovable && (
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => onAction("approve")}
+                      className="w-full rounded-xl border border-emerald-500/50 bg-emerald-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 active:scale-[0.99] disabled:opacity-50"
+                    >
+                      {isPending ? "…" : "✓ Aprobar"}
+                    </button>
+                  )}
+
+                  {isApproved && !scheduling && (
+                    <button
+                      type="button"
+                      onClick={() => setScheduling(true)}
+                      className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400"
+                    >
+                      Programar fecha
+                    </button>
+                  )}
+
+                  {isApproved && scheduling && (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="date"
+                          value={schedDate}
+                          onChange={(e) => setSchedDate(e.target.value)}
+                          min={todayStr()}
+                          className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
+                        />
+                        <input
+                          type="time"
+                          value={schedTime}
+                          onChange={(e) => setSchedTime(e.target.value)}
+                          className="w-28 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={isPending || !schedDate}
+                          onClick={() => { onAction("schedule", { scheduledAt: toScheduledAt(schedDate, schedTime) }); setScheduling(false); }}
+                          className="flex-1 rounded-xl bg-sky-500 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-sky-400 disabled:opacity-50"
+                        >
+                          {isPending ? "…" : "Confirmar"}
+                        </button>
+                        <button type="button" onClick={() => setScheduling(false)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/40 transition hover:text-white/60">
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {isScheduled && (
+                    <p className="text-center text-xs text-white/35 italic">
+                      Será publicado automáticamente por el scheduler.
+                    </p>
+                  )}
+
+                  {/* Secondary: Rechazar */}
+                  {!isScheduled && (
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => onAction("reject")}
+                      className="w-full rounded-xl border border-rose-500/25 bg-rose-500/10 py-2 text-sm text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50"
+                    >
+                      Rechazar
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-
-      {!isDone && !isRejected && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/8 pt-3">
-          {isEditable && (
-            <>
-              <button
-                onClick={() => onAction("approve")}
-                disabled={isPending}
-                className="rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-600 disabled:opacity-50"
-              >
-                {isPending ? "…" : "Aprobar"}
-              </button>
-              <button
-                onClick={() => onAction("reject")}
-                disabled={isPending}
-                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/50 transition hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-50"
-              >
-                Rechazar
-              </button>
-            </>
-          )}
-
-          {isApproved && !scheduling && (
-            <>
-              <button
-                onClick={() => setScheduling(true)}
-                className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-sky-600"
-              >
-                Programar
-              </button>
-              <button
-                onClick={() => onAction("reject")}
-                disabled={isPending}
-                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/50 transition hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-50"
-              >
-                Rechazar
-              </button>
-            </>
-          )}
-
-          {isApproved && scheduling && (
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="date"
-                value={schedDate}
-                onChange={e => setSchedDate(e.target.value)}
-                min={todayStr()}
-                className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs font-medium text-white/70 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
-              />
-              <input
-                type="time"
-                value={schedTime}
-                onChange={e => setSchedTime(e.target.value)}
-                className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs font-medium text-white/70 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
-              />
-              <button
-                onClick={() => {
-                  onAction("schedule", { scheduledAt: toScheduledAt(schedDate, schedTime) });
-                  setScheduling(false);
-                }}
-                disabled={isPending || !schedDate}
-                className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-sky-600 disabled:opacity-50"
-              >
-                {isPending ? "…" : "Confirmar"}
-              </button>
-              <button onClick={() => setScheduling(false)} className="text-xs text-white/30 hover:text-white/55">
-                Cancelar
-              </button>
-            </div>
-          )}
-
-          {isScheduled && (
-            <span className="text-xs text-white/30 italic">
-              Será publicado automáticamente por el scheduler.
-            </span>
-          )}
-
-          {isFailed && (
-            <span className="text-xs font-medium text-rose-400">
-              Publicación fallida — revisa la cuenta conectada.
-            </span>
-          )}
-        </div>
-      )}
-
-      {isDone && post.externalPostId && (
-        <div className="mt-2 border-t border-emerald-500/15 pt-2 text-xs text-emerald-400 font-medium">
-          Publicado · ID externo: {post.externalPostId}
-        </div>
-      )}
     </div>
   );
 }
@@ -338,7 +465,7 @@ function CreatePostModal(p: CreateModalProps) {
             </label>
             <select
               value={p.provider}
-              onChange={e => p.onProviderChange(e.target.value)}
+              onChange={(e) => p.onProviderChange(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-[#0d0d1e] px-3 py-2.5 text-sm font-semibold text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
             >
               <option value="LINKEDIN">LinkedIn</option>
@@ -353,7 +480,7 @@ function CreatePostModal(p: CreateModalProps) {
             </label>
             <textarea
               value={p.content}
-              onChange={e => p.onContentChange(e.target.value)}
+              onChange={(e) => p.onContentChange(e.target.value)}
               placeholder="Escribe el contenido del post aquí…"
               rows={5}
               maxLength={MAX}
@@ -375,7 +502,7 @@ function CreatePostModal(p: CreateModalProps) {
               <input
                 type="url"
                 value={p.imageUrl}
-                onChange={e => p.onImageUrlChange(e.target.value)}
+                onChange={(e) => p.onImageUrlChange(e.target.value)}
                 placeholder="https://ejemplo.com/media.jpg"
                 className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:bg-white/6 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
               />
@@ -394,7 +521,7 @@ function CreatePostModal(p: CreateModalProps) {
                   accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime"
                   className="hidden"
                   disabled={p.imageUploading}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) p.onFileSelect(f); e.target.value = ""; }}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) p.onFileSelect(f); e.target.value = ""; }}
                 />
               </label>
             </div>
@@ -459,25 +586,21 @@ function CreatePostModal(p: CreateModalProps) {
           {p.schedule && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/40">
-                  Fecha
-                </label>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/40">Fecha</label>
                 <input
                   type="date"
                   value={p.date}
                   min={todayStr()}
-                  onChange={e => p.onDateChange(e.target.value)}
+                  onChange={(e) => p.onDateChange(e.target.value)}
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/40">
-                  Hora (UTC)
-                </label>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/40">Hora (UTC)</label>
                 <input
                   type="time"
                   value={p.time}
-                  onChange={e => p.onTimeChange(e.target.value)}
+                  onChange={(e) => p.onTimeChange(e.target.value)}
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
                 />
               </div>
@@ -529,6 +652,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(today);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -553,16 +677,19 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
 
   const selectedPosts = selectedDate ? (byDate.get(selectedDate) ?? []) : [];
   const backlog = posts.filter(
-    p => !p.scheduledAt && !["POSTED", "PUBLISHED", "FAILED", "REJECTED"].includes(p.status)
+    (p) => !p.scheduledAt && !["POSTED", "PUBLISHED", "FAILED", "REJECTED"].includes(p.status),
   );
 
+  // Derive selected post from current posts state (auto-updates after patchPost)
+  const selectedPost = selectedPostId ? posts.find((p) => p.id === selectedPostId) ?? null : null;
+
   function prevMonth() {
-    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
-    else setViewMonth(m => m - 1);
+    if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); }
+    else setViewMonth((m) => m - 1);
   }
   function nextMonth() {
-    if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }
-    else setViewMonth(m => m + 1);
+    if (viewMonth === 11) { setViewYear((y) => y + 1); setViewMonth(0); }
+    else setViewMonth((m) => m + 1);
   }
 
   function openCreate(date?: string) {
@@ -581,10 +708,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
       form.append("file", file);
       const res = await fetch("/api/socialflow/media/upload", { method: "POST", body: form });
       const data = (await res.json()) as { url?: string; error?: string; message?: string };
-      if (!res.ok || !data.url) {
-        setFError(data.message ?? data.error ?? "Error al subir el archivo.");
-        return;
-      }
+      if (!res.ok || !data.url) { setFError(data.message ?? data.error ?? "Error al subir el archivo."); return; }
       setFImageUrl(data.url);
     } catch {
       setFError("No se pudo subir el archivo. Pega la URL directamente.");
@@ -596,8 +720,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
   async function submitCreate() {
     if (!fContent.trim()) { setFError("El contenido es requerido."); return; }
     if (fProvider === "INSTAGRAM" && !fImageUrl.trim().startsWith("http")) {
-      setFError("Instagram requiere una URL de imagen o vídeo pública válida.");
-      return;
+      setFError("Instagram requiere una URL de imagen o vídeo pública válida."); return;
     }
     if (fSchedule && !fDate) { setFError("Selecciona una fecha para programar."); return; }
     setFSaving(true); setFError(null);
@@ -616,7 +739,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
       });
       const data = (await res.json()) as { post?: SaasSocialPost; code?: string };
       if (!res.ok || !data.post) throw new Error(data.code ?? "Error al guardar");
-      setPosts(prev => [data.post!, ...prev]);
+      setPosts((prev) => [data.post!, ...prev]);
       setShowCreate(false);
       if (fSchedule && fDate) setSelectedDate(fDate);
     } catch (e) {
@@ -637,7 +760,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
         });
         const data = (await res.json()) as { post?: SaasSocialPost };
         if (res.ok && data.post) {
-          setPosts(prev => prev.map(p => p.id === postId ? data.post! : p));
+          setPosts((prev) => prev.map((p) => (p.id === postId ? data.post! : p)));
         }
       } finally {
         setPendingId(null);
@@ -648,22 +771,16 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
 
   return (
     <div className="space-y-6">
-      {/* ── Top bar ─────────────────────────────────────────────────────── */}
+      {/* ── Top bar ──────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <button
-            onClick={prevMonth}
-            className="rounded-xl border border-white/10 bg-white/4 p-2 text-white/50 transition hover:border-white/20 hover:text-white"
-          >
+          <button onClick={prevMonth} className="rounded-xl border border-white/10 bg-white/4 p-2 text-white/50 transition hover:border-white/20 hover:text-white">
             <IconChevronLeft />
           </button>
           <h2 className="min-w-[190px] text-center text-xl font-black text-white">
             {MONTHS[viewMonth]} {viewYear}
           </h2>
-          <button
-            onClick={nextMonth}
-            className="rounded-xl border border-white/10 bg-white/4 p-2 text-white/50 transition hover:border-white/20 hover:text-white"
-          >
+          <button onClick={nextMonth} className="rounded-xl border border-white/10 bg-white/4 p-2 text-white/50 transition hover:border-white/20 hover:text-white">
             <IconChevronRight />
           </button>
           <button
@@ -681,10 +798,10 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
         </button>
       </div>
 
-      {/* ── Calendar grid ───────────────────────────────────────────────── */}
+      {/* ── Calendar grid ────────────────────────────────────────────────── */}
       <div className="overflow-hidden rounded-3xl border border-white/8 bg-white/3">
         <div className="grid grid-cols-7 border-b border-white/8 bg-white/3">
-          {DAYS.map(d => (
+          {DAYS.map((d) => (
             <div key={d} className="py-3 text-center text-[11px] font-bold uppercase tracking-widest text-white/30">
               {d}
             </div>
@@ -731,23 +848,18 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
                 ].filter(Boolean).join(" ")}
               >
                 <div className="mb-1.5 flex items-center justify-between">
-                  <span
-                    className={[
-                      "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
-                      isToday
-                        ? "bg-violet-500 text-white"
-                        : isSelected
-                        ? "bg-violet-500/20 text-violet-300"
-                        : isPast
-                        ? "text-white/20"
-                        : "text-white/60",
-                    ].join(" ")}
-                  >
+                  <span className={[
+                    "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
+                    isToday ? "bg-violet-500 text-white"
+                      : isSelected ? "bg-violet-500/20 text-violet-300"
+                      : isPast ? "text-white/20"
+                      : "text-white/60",
+                  ].join(" ")}>
                     {dayNum}
                   </span>
                   {!isPast && (
                     <button
-                      onClick={e => { e.stopPropagation(); openCreate(dateStr); }}
+                      onClick={(e) => { e.stopPropagation(); openCreate(dateStr); }}
                       className="rounded-md p-0.5 text-white/15 opacity-0 transition hover:text-violet-400 group-hover:opacity-100"
                     >
                       <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -756,13 +868,10 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
                     </button>
                   )}
                 </div>
-
                 <div className="space-y-0.5">
-                  {dayPosts.slice(0, 3).map(p => <PostChip key={p.id} post={p} />)}
+                  {dayPosts.slice(0, 3).map((p) => <PostChip key={p.id} post={p} />)}
                   {dayPosts.length > 3 && (
-                    <div className="pl-1 text-[9px] font-bold text-white/30">
-                      +{dayPosts.length - 3} más
-                    </div>
+                    <div className="pl-1 text-[9px] font-bold text-white/30">+{dayPosts.length - 3} más</div>
                   )}
                 </div>
               </div>
@@ -771,9 +880,9 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
         </div>
       </div>
 
-      {/* ── Status legend ────────────────────────────────────────────────── */}
+      {/* ── Status legend ─────────────────────────────────────────────────── */}
       <div className="flex flex-wrap gap-4">
-        {(["DRAFT","APPROVED","SCHEDULED","PUBLISHED","FAILED"] as PostStatus[]).map(s => {
+        {(["DRAFT","APPROVED","SCHEDULED","PUBLISHED","FAILED"] as PostStatus[]).map((s) => {
           const cfg = STATUS_CFG[s];
           return (
             <div key={s} className="flex items-center gap-1.5">
@@ -784,7 +893,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
         })}
       </div>
 
-      {/* ── Selected day panel ───────────────────────────────────────────── */}
+      {/* ── Selected day panel ────────────────────────────────────────────── */}
       {selectedDate && (
         <div className="rounded-3xl border border-white/8 bg-white/4 p-6">
           <div className="mb-5 flex items-start justify-between">
@@ -792,9 +901,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
               {selectedDate === today && (
                 <div className="mb-0.5 text-[11px] font-black uppercase tracking-widest text-violet-400">Hoy</div>
               )}
-              <h3 className="text-xl font-black capitalize text-white">
-                {formatDateLong(selectedDate)}
-              </h3>
+              <h3 className="text-xl font-black capitalize text-white">{formatDateLong(selectedDate)}</h3>
               <p className="mt-0.5 text-sm text-white/45">
                 {selectedPosts.length === 0
                   ? "Sin posts programados"
@@ -811,7 +918,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
 
           {selectedPosts.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-white/10 py-10 text-center">
-              <div className="text-2xl mb-2">📅</div>
+              <div className="mb-2 text-2xl">📅</div>
               <p className="text-sm text-white/35">Sin publicaciones para este día.</p>
               <button
                 onClick={() => openCreate(selectedDate)}
@@ -821,22 +928,19 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {selectedPosts.map(p => (
-                <PostCard
-                  key={p.id}
-                  post={p}
-                  campaigns={campaigns}
-                  isPending={isPending && pendingId === p.id}
-                  onAction={(action, extra) => patchPost(p.id, action, extra)}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-5 md:gap-2">
+                {selectedPosts.map((p) => (
+                  <PostThumb key={p.id} post={p} onClick={() => setSelectedPostId(p.id)} />
+                ))}
+              </div>
+              <p className="mt-2 text-center text-[10px] text-white/25">Toca un post para ver detalles</p>
+            </>
           )}
         </div>
       )}
 
-      {/* ── Backlog ──────────────────────────────────────────────────────── */}
+      {/* ── Backlog ───────────────────────────────────────────────────────── */}
       {backlog.length > 0 && (
         <div className="rounded-3xl border border-white/8 bg-white/4 p-6">
           <div className="mb-4 flex items-center justify-between">
@@ -846,25 +950,18 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
                 {backlog.length}
               </span>
             </div>
-            <p className="text-xs text-white/30">
-              Aprueba estos posts y asígnales una fecha para publicarlos.
-            </p>
+            <p className="text-xs text-white/30">Aprueba estos posts y asígnales una fecha.</p>
           </div>
-          <div className="space-y-3">
-            {backlog.map(p => (
-              <PostCard
-                key={p.id}
-                post={p}
-                campaigns={campaigns}
-                isPending={isPending && pendingId === p.id}
-                onAction={(action, extra) => patchPost(p.id, action, extra)}
-              />
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-5 md:gap-2">
+            {backlog.map((p) => (
+              <PostThumb key={p.id} post={p} onClick={() => setSelectedPostId(p.id)} />
             ))}
           </div>
+          <p className="mt-2 text-center text-[10px] text-white/25">Toca un post para aprobar o programar</p>
         </div>
       )}
 
-      {/* ── Create post modal ────────────────────────────────────────────── */}
+      {/* ── Create post modal ─────────────────────────────────────────────── */}
       {showCreate && (
         <CreatePostModal
           date={fDate}
@@ -885,6 +982,17 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
           onScheduleChange={setFSchedule}
           onSubmit={submitCreate}
           onClose={() => setShowCreate(false)}
+        />
+      )}
+
+      {/* ── Post detail modal ─────────────────────────────────────────────── */}
+      {selectedPost && (
+        <PostDetailModal
+          post={selectedPost}
+          campaigns={campaigns}
+          isPending={isPending && pendingId === selectedPost.id}
+          onAction={(action, extra) => patchPost(selectedPost.id, action, extra)}
+          onClose={() => setSelectedPostId(null)}
         />
       )}
     </div>
