@@ -20,7 +20,7 @@ describe("factory orchestrator legacy adapter static verification", () => {
     );
 
     expect(adapterSource).toContain("@/lib/campamento-base/socialflow-platform");
-    expect(adapterSource).toContain(legacyPrefix + "clinic-platform");
+    expect(adapterSource).toContain("@/lib/clinic/platform-wrapper");
     expect(adapterSource).toContain(legacyPrefix + "taskops-platform");
   });
 

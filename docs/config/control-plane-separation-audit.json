@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-01T17:41:53.557Z",
+  "generatedAt": "2026-06-26T20:46:58.030Z",
   "contractsCatalog": [
     "ProductManifest",
     "HealthReport",
@@ -14,34 +14,34 @@
     "OperatorCapabilityManifest"
   ],
   "routeSummary": {
-    "total": 482,
+    "total": 532,
     "byKind": {
-      "api": 364,
-      "ui": 118
+      "api": 407,
+      "ui": 125
     },
     "byClass": {
       "DRAKO_BRAND": 66,
-      "CONTROL_PLANE": 66,
-      "SOCIALFLOW_PRODUCT": 35,
+      "CONTROL_PLANE": 67,
+      "SOCIALFLOW_PRODUCT": 82,
       "MENTORIA_PRODUCT": 54,
       "FACTORY": 28,
       "SHARED_CORE": 0,
-      "LEGACY_COMPAT": 52,
-      "UNKNOWN_REVIEW": 181,
+      "LEGACY_COMPAT": 53,
+      "UNKNOWN_REVIEW": 182,
       "BLOCKER": 0
     }
   },
   "topologySummary": {
-    "runtimes": 23,
+    "runtimes": 24,
     "apps": 11,
-    "workers": 20,
-    "wranglerConfigs": 23,
-    "dbBindings": 41,
+    "workers": 21,
+    "wranglerConfigs": 24,
+    "dbBindings": 43,
     "authDbBindings": 11,
-    "queueBindings": 19,
+    "queueBindings": 20,
     "serviceBindings": 8,
     "domains": 12,
-    "envVarNames": 99
+    "envVarNames": 101
   },
   "legacyAliases": {
     "total": 50,
@@ -403,7 +403,7 @@
     ]
   },
   "canonicalSurfaces": {
-    "operator": 43,
+    "operator": 44,
     "campamentoBase": 14
   },
   "placeholderSignals": [
@@ -2720,79 +2720,79 @@
     {
       "token": "PLACEHOLDER",
       "sourcePath": "scripts/check-production-readiness.ts",
-      "line": 1019,
+      "line": 1001,
       "snippet": "forbiddenTokens: [\"dummy worker\", \"placeholder HTML\"],"
     },
     {
       "token": "PLACEHOLDER",
       "sourcePath": "scripts/check-production-readiness.ts",
-      "line": 1070,
+      "line": 1049,
       "snippet": "forbiddenTokens: [\"success: true\", \"text/html\", \"dummy worker\", \"placeholder HTML\"],"
     },
     {
       "token": "PLACEHOLDER",
       "sourcePath": "scripts/check-production-readiness.ts",
-      "line": 1137,
+      "line": 1113,
       "snippet": "forbiddenTokens: [\"dummy worker\", \"placeholder HTML\"],"
     },
     {
       "token": "PLACEHOLDER",
       "sourcePath": "scripts/check-production-readiness.ts",
-      "line": 1482,
+      "line": 1457,
       "snippet": "forbiddenTokens: [\"success: true\", \"text/html\", \"dummy worker\", \"placeholder HTML\"],"
     },
     {
       "token": "PLACEHOLDER",
       "sourcePath": "scripts/check-production-readiness.ts",
-      "line": 1543,
+      "line": 1516,
       "snippet": "placeholderGuardTokens: [\"placeholder token detected\", \"auth route did not render the SocialFlow auth page\"],"
     },
     {
       "token": "PLACEHOLDER",
       "sourcePath": "scripts/check-production-readiness.ts",
-      "line": 2742,
+      "line": 2715,
       "snippet": "expected: `deployable wrangler configs avoid placeholder database ids [${guard.forbiddenDatabaseIds.join(\", \")}]`,"
     },
     {
       "token": "PLACEHOLDER",
       "sourcePath": "scripts/check-production-readiness.ts",
-      "line": 2746,
+      "line": 2719,
       "snippet": "? \"No deployable wrangler config contains a placeholder D1 database_id.\""
     },
     {
       "token": "PLACEHOLDER",
       "sourcePath": "scripts/check-production-readiness.ts",
-      "line": 2747,
+      "line": 2720,
       "snippet": ": \"Deployable wrangler config still contains a placeholder D1 database_id that Cloudflare will reject.\","
     },
     {
       "token": "fallback",
       "sourcePath": "scripts/check-production-readiness.ts",
-      "line": 3398,
+      "line": 3371,
       "snippet": "? `Unable to verify DRACO_DB fallback removal in ${guard.fallbackFilePath}.`"
     },
     {
       "token": "fallback",
       "sourcePath": "scripts/check-production-readiness.ts",
-      "line": 3400,
+      "line": 3373,
       "snippet": "? `Fallback to DRACO_DB is still present in ${guard.fallbackFilePath}.`"
     },
     {
       "token": "fallback",
       "sourcePath": "scripts/check-production-readiness.ts",
-      "line": 3401,
+      "line": 3374,
       "snippet": ": `DRACO_DB fallback token is no longer present in ${guard.fallbackFilePath}.`,"
     },
     {
       "token": "PLACEHOLDER",
       "sourcePath": "scripts/check-production-readiness.ts",
-      "line": 4775,
+      "line": 4748,
       "snippet": "violations.push(`missing placeholder guard token ${token}`);"
     },
     {
       "token": "PLACEHOLDER",
       "sourcePath": "scripts/check-production-readiness.ts",
-      "line": 4812,
+      "line": 4785,
       "snippet": "? \"The canonical SocialFlow smoke script stays strict against placeholder HTML, canonical 405s and legacy route drift.\""
     },
     {
@@ -2804,7 +2804,7 @@
     {
       "token": "fallback",
       "sourcePath": "scripts/check-production-readiness.ts",
-      "line": 5044,
+      "line": 5017,
       "snippet": "\"SocialFlow stays wired to the real OpenNext runtime and its legacy fallback remains fail-closed.\","
     }
   ],
@@ -2873,6 +2873,8 @@
     "api:/api/cron/growth",
     "api:/api/cron/overseer",
     "api:/api/cron/social",
+    "api:/api/cron/social/comments",
+    "api:/api/cron/social/metrics",
     "api:/api/cron/social/publish",
     "api:/api/customer-partner/ensure-and-suggestions",
     "api:/api/customers",
@@ -2987,7 +2989,6 @@
     "api:/api/tenants/create",
     "api:/api/tenants/members",
     "api:/api/tenants/switch",
-    "api:/api/test-social-scheduler",
     "api:/api/tickets",
     "api:/api/webhooks/stripe",
     "api:/api/whatsapp/identities",

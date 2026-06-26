@@ -162,7 +162,7 @@ describe("SocialFlow nonprod source data bootstrap", () => {
     await expect(runBootstrapSocialflowNonprodSourceData({
       configPaths: [configPath],
       runner: createMockRunner({ commands: [] }),
-    })).rejects.toThrow("SOCIALFLOW_NONPROD_CANARY_CONFIG_SWITCH_NOT_OFF");
+    })).rejects.toThrow("SOCIALFLOW_NONPROD_SOURCE_BOOTSTRAP_SWITCH_NOT_OFF");
   });
 
   it("rejects deployable=true", async () => {
@@ -176,7 +176,7 @@ describe("SocialFlow nonprod source data bootstrap", () => {
     await expect(runBootstrapSocialflowNonprodSourceData({
       configPaths: [configPath],
       runner: createMockRunner({ commands: [] }),
-    })).rejects.toThrow("SOCIALFLOW_NONPROD_SOURCE_BOOTSTRAP_UNSAFE_STATUS");
+    })).rejects.toThrow("SOCIALFLOW_NONPROD_CANARY_CONFIG_DEPLOYABLE_REQUIRES_RUNTIME_SEED_ON");
   });
 
   it("dry-run does not write", async () => {

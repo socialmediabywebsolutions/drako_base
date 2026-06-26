@@ -185,10 +185,10 @@ describe("POST /api/internal/socialflow/automation/trigger", () => {
     expect(routeSource).not.toContain("@/lib/owner/control-dashboard");
 
     const campobaseSource = readFileSync(
-      "src/lib/campobase/socialflow-service.ts",
+      "src/lib/campamento-base/socialflow-control-plane-service.ts",
       "utf8",
     );
-    expect(campobaseSource).toContain('} from "@/lib/socialflow/contracts/campobase";');
+    expect(campobaseSource).toContain("@/lib/capabilities/internal-api-clients/socialflow-control-plane");
 
     const ownerControlDashboardSource = readFileSync(
       "src/lib/owner/control-dashboard.ts",

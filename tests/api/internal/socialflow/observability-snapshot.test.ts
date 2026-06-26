@@ -144,19 +144,16 @@ describe("GET /api/internal/socialflow/observability/snapshot", () => {
     expect(routeSource).not.toContain("@/lib/campobase/socialflow-service");
 
     const campobaseSource = readFileSync(
-      "src/lib/campobase/socialflow-service.ts",
+      "src/lib/campamento-base/socialflow-control-plane-service.ts",
       "utf8",
     );
-    expect(campobaseSource).toContain(
-      'import {\n  getSocialFlowCampobaseOperatorObservabilityContract,\n  runSocialFlowCampobaseAutomationContract,\n  runSocialFlowCampobaseOperatorActionContract,',
-    );
+    expect(campobaseSource).toContain("@/lib/capabilities/internal-api-clients/socialflow-control-plane");
 
     const ownerControlDashboardSource = readFileSync(
       "src/lib/owner/control-dashboard.ts",
       "utf8",
     );
-    expect(ownerControlDashboardSource).toContain(
-      'import { getSocialOwnerDashboardSnapshot } from "@/lib/socialflow/contracts/owner-dashboard";',
-    );
+    expect(ownerControlDashboardSource).toContain("@/lib/capabilities/internal-api-clients/socialflow-owner");
+    expect(ownerControlDashboardSource).not.toContain("@/lib/socialflow/contracts/owner-dashboard");
   });
 });

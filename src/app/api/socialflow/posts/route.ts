@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import {
   approvePost,
+  listSaasSocialAccounts,
   listSaasSocialPosts,
   markAsPosted,
   rejectPost,
@@ -13,6 +14,11 @@ import {
   SocialContextError,
   upsertSaasSocialPost,
 } from "@/lib/socialflow/repository";
+import { publishSocialPostLive } from "@/lib/socialflow/live-publishing";
+import { validateAccount } from "@/lib/socialflow/linkedin/publishing";
+import { isEncryptedToken } from "@/lib/socialflow/token-encryption";
+import { isTenantAllowedInPrivatePilot } from "@/lib/socialflow/private-pilot";
+import { LinkedInIntegrationError } from "@/lib/socialflow/linkedin/core";
 
 const ALLOWED_PROVIDERS = ["LINKEDIN", "INSTAGRAM"] as const;
 const ALLOWED_CREATION_STATUSES = ["DRAFT", "SCHEDULED"] as const;
@@ -74,6 +80,7 @@ export async function POST(request: Request) {
       postedAt?: string | null;
       externalPostId?: string | null;
       metadata?: Record<string, unknown> | null;
+      confirmPublish?: boolean;
     } | null;
 
     if (!body) {
@@ -89,6 +96,7 @@ export async function POST(request: Request) {
     const postBody = body.body?.trim() || simplifiedContent;
     const scheduledAt = typeof body.scheduledAt === "undefined" ? null : body.scheduledAt;
     const creationStatus = body.status ?? (usingSimplifiedContract ? (scheduledAt ? "SCHEDULED" : "DRAFT") : null);
+    const confirmPublish = body.confirmPublish === true;
 
     if (!saasId || !provider || !contentType || !title || !postBody || !creationStatus) {
       return NextResponse.json({ code: "INVALID_BODY", message: "saasId, provider, contentType, title, body and status are required" }, { status: 400 });
@@ -120,7 +128,47 @@ export async function POST(request: Request) {
       metadata: body.metadata ?? null,
     });
 
-    return NextResponse.json({ post });
+    if (!confirmPublish) {
+      return NextResponse.json({ post, livePublish: { code: "PUBLISH_CONFIRMATION_REQUIRED" } });
+    }
+
+    if (scheduledAt) {
+      return NextResponse.json({ post });
+    }
+
+    if (session.role !== "admin" && session.role !== "ADMIN") {
+      return NextResponse.json({ post, livePublish: { code: "PUBLISH_ROLE_NOT_AUTHORIZED" } }, { status: 403 });
+    }
+
+    if (!isTenantAllowedInPrivatePilot(ctx.tenantId)) {
+      return NextResponse.json({ post, livePublish: { code: "PRIVATE_PILOT_TENANT_NOT_ALLOWED" } }, { status: 403 });
+    }
+
+    const accounts = await listSaasSocialAccounts(ctx);
+    const linkedInAccount = accounts.find((acc) => acc.provider === "LINKEDIN" && acc.isPrimary);
+
+    const authMeta = linkedInAccount?.authMeta ?? null;
+    if (authMeta?.lastErrorCode) {
+      return NextResponse.json({ post, livePublish: { code: "LINKEDIN_LAST_VALIDATION_ERROR" } }, { status: 409 });
+    }
+
+    const accessToken = (authMeta?.accessToken as string | null) ?? null;
+    const idToken = (authMeta?.idToken as string | null) ?? null;
+    if (!isEncryptedToken(accessToken) || !isEncryptedToken(idToken)) {
+      return NextResponse.json({ post, livePublish: { code: "LINKEDIN_TOKENS_NOT_ENCRYPTED" } }, { status: 409 });
+    }
+
+    try {
+      await validateAccount(linkedInAccount!);
+    } catch (err) {
+      if (err instanceof LinkedInIntegrationError) {
+        return NextResponse.json({ post, livePublish: { code: err.code } }, { status: 409 });
+      }
+      throw err;
+    }
+
+    const livePublish = await publishSocialPostLive(ctx, post.id);
+    return NextResponse.json({ post, livePublish });
   } catch (error) {
     if (error instanceof SocialContextError) {
       return NextResponse.json({ code: "INVALID_SOCIAL_CONTEXT", message: error.message }, { status: 400 });

@@ -1,7 +1,7 @@
 import { env } from "@/lib/cf";
 import { publishSocialPostLive } from "@/lib/socialflow/live-publishing";
 import { recoverStalePublishingPosts, resolveSocialContext } from "@/lib/socialflow/repository";
-import { isPrivatePilotModeEnabled, isTenantAllowedInPrivatePilot } from "@/lib/socialflow/private-pilot";
+import { isAutoPublishBlockedByPrivatePilotMode } from "@/lib/socialflow/private-pilot";
 
 type DuePostRow = {
   id: string;
@@ -39,12 +39,11 @@ export async function processScheduledPosts(): Promise<{ results: SchedulerPostR
   }
 
   console.log(`[SocialFlow Scheduler] Found ${posts.length} due post(s) to publish.`);
-  const pilotModeActive = isPrivatePilotModeEnabled(bindings);
 
   const results: SchedulerPostResult[] = [];
 
   for (const post of posts) {
-    if (pilotModeActive && !isTenantAllowedInPrivatePilot(post.tenant_id, bindings)) {
+    if (isAutoPublishBlockedByPrivatePilotMode(bindings)) {
       results.push({
         id: post.id,
         tenantId: post.tenant_id,

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-01T17:41:52.938Z",
+  "generatedAt": "2026-06-26T20:46:57.475Z",
   "entries": [
     {
       "kind": "api",
@@ -684,6 +684,24 @@
     },
     {
       "kind": "api",
+      "route": "/api/cron/social/comments",
+      "filePath": "src/app/api/cron/social/comments/route.ts",
+      "classification": "UNKNOWN_REVIEW",
+      "notes": [
+        "manual-classification-required"
+      ]
+    },
+    {
+      "kind": "api",
+      "route": "/api/cron/social/metrics",
+      "filePath": "src/app/api/cron/social/metrics/route.ts",
+      "classification": "UNKNOWN_REVIEW",
+      "notes": [
+        "manual-classification-required"
+      ]
+    },
+    {
+      "kind": "api",
       "route": "/api/cron/social/publish",
       "filePath": "src/app/api/cron/social/publish/route.ts",
       "classification": "UNKNOWN_REVIEW",
@@ -1341,6 +1359,50 @@
     },
     {
       "kind": "api",
+      "route": "/api/internal/socialflow/automation/trigger",
+      "filePath": "src/app/api/internal/socialflow/automation/trigger/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/internal/socialflow/events",
+      "filePath": "src/app/api/internal/socialflow/events/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/internal/socialflow/health",
+      "filePath": "src/app/api/internal/socialflow/health/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/internal/socialflow/observability/snapshot",
+      "filePath": "src/app/api/internal/socialflow/observability/snapshot/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/internal/socialflow/operator/actions",
+      "filePath": "src/app/api/internal/socialflow/operator/actions/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/internal/socialflow/owner/snapshot",
+      "filePath": "src/app/api/internal/socialflow/owner/snapshot/route.ts",
+      "classification": "LEGACY_COMPAT",
+      "notes": [
+        "legacy-alias-surface"
+      ]
+    },
+    {
+      "kind": "api",
       "route": "/api/internal/validate-alerts",
       "filePath": "src/app/api/internal/validate-alerts/route.ts",
       "classification": "UNKNOWN_REVIEW",
@@ -1831,6 +1893,13 @@
       "kind": "api",
       "route": "/api/operator/agents",
       "filePath": "src/app/api/operator/agents/route.ts",
+      "classification": "CONTROL_PLANE",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/operator/ai-costs",
+      "filePath": "src/app/api/operator/ai-costs/route.ts",
       "classification": "CONTROL_PLANE",
       "notes": []
     },
@@ -2735,6 +2804,20 @@
     },
     {
       "kind": "api",
+      "route": "/api/socialflow/accounts/disconnect",
+      "filePath": "src/app/api/socialflow/accounts/disconnect/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/ai/chat",
+      "filePath": "src/app/api/socialflow/ai/chat/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
       "route": "/api/socialflow/ai/generate",
       "filePath": "src/app/api/socialflow/ai/generate/route.ts",
       "classification": "SOCIALFLOW_PRODUCT",
@@ -2744,6 +2827,13 @@
       "kind": "api",
       "route": "/api/socialflow/ai/regenerate",
       "filePath": "src/app/api/socialflow/ai/regenerate/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/audit",
+      "filePath": "src/app/api/socialflow/audit/route.ts",
       "classification": "SOCIALFLOW_PRODUCT",
       "notes": []
     },
@@ -2763,8 +2853,43 @@
     },
     {
       "kind": "api",
+      "route": "/api/socialflow/auths/password-resets",
+      "filePath": "src/app/api/socialflow/auths/password-resets/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/auths/password-resets/confirm",
+      "filePath": "src/app/api/socialflow/auths/password-resets/confirm/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
       "route": "/api/socialflow/auths/registrations",
       "filePath": "src/app/api/socialflow/auths/registrations/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/auths/sso-exchange",
+      "filePath": "src/app/api/socialflow/auths/sso-exchange/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/billing/checkout",
+      "filePath": "src/app/api/socialflow/billing/checkout/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/billing/portal",
+      "filePath": "src/app/api/socialflow/billing/portal/route.ts",
       "classification": "SOCIALFLOW_PRODUCT",
       "notes": []
     },
@@ -2777,8 +2902,113 @@
     },
     {
       "kind": "api",
+      "route": "/api/socialflow/conversations/inbound",
+      "filePath": "src/app/api/socialflow/conversations/inbound/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/conversations/reply-suggest",
+      "filePath": "src/app/api/socialflow/conversations/reply-suggest/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/conversations/settings",
+      "filePath": "src/app/api/socialflow/conversations/settings/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/conversations/threads",
+      "filePath": "src/app/api/socialflow/conversations/threads/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/conversations/threads/[id]",
+      "filePath": "src/app/api/socialflow/conversations/threads/[id]/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/cron/publish-scheduled",
+      "filePath": "src/app/api/socialflow/cron/publish-scheduled/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
       "route": "/api/socialflow/exports/current",
       "filePath": "src/app/api/socialflow/exports/current/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/intelligence-feed",
+      "filePath": "src/app/api/socialflow/intelligence-feed/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/knowledge",
+      "filePath": "src/app/api/socialflow/knowledge/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/knowledge/[id]",
+      "filePath": "src/app/api/socialflow/knowledge/[id]/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/knowledge/analyze-competitor",
+      "filePath": "src/app/api/socialflow/knowledge/analyze-competitor/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/knowledge/analyze-market",
+      "filePath": "src/app/api/socialflow/knowledge/analyze-market/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/knowledge/upload",
+      "filePath": "src/app/api/socialflow/knowledge/upload/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/knowledge/url",
+      "filePath": "src/app/api/socialflow/knowledge/url/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/leads",
+      "filePath": "src/app/api/socialflow/leads/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/leads/[id]",
+      "filePath": "src/app/api/socialflow/leads/[id]/route.ts",
       "classification": "SOCIALFLOW_PRODUCT",
       "notes": []
     },
@@ -2805,8 +3035,64 @@
     },
     {
       "kind": "api",
+      "route": "/api/socialflow/media/upload",
+      "filePath": "src/app/api/socialflow/media/upload/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/meta/callback",
+      "filePath": "src/app/api/socialflow/meta/callback/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/meta/connect",
+      "filePath": "src/app/api/socialflow/meta/connect/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/oauth/instagram/callback",
+      "filePath": "src/app/api/socialflow/oauth/instagram/callback/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/oauth/instagram/connect",
+      "filePath": "src/app/api/socialflow/oauth/instagram/connect/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/onboarding",
+      "filePath": "src/app/api/socialflow/onboarding/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
       "route": "/api/socialflow/posts",
       "filePath": "src/app/api/socialflow/posts/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/posts/[id]/generate-image",
+      "filePath": "src/app/api/socialflow/posts/[id]/generate-image/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/posts/[id]/publish",
+      "filePath": "src/app/api/socialflow/posts/[id]/publish/route.ts",
       "classification": "SOCIALFLOW_PRODUCT",
       "notes": []
     },
@@ -2819,8 +3105,36 @@
     },
     {
       "kind": "api",
+      "route": "/api/socialflow/sessions",
+      "filePath": "src/app/api/socialflow/sessions/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/sessions/[id]",
+      "filePath": "src/app/api/socialflow/sessions/[id]/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
       "route": "/api/socialflow/setup/status",
       "filePath": "src/app/api/socialflow/setup/status/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/sso-init",
+      "filePath": "src/app/api/socialflow/sso-init/route.ts",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "api",
+      "route": "/api/socialflow/test/instagram-publish",
+      "filePath": "src/app/api/socialflow/test/instagram-publish/route.ts",
       "classification": "SOCIALFLOW_PRODUCT",
       "notes": []
     },
@@ -2945,15 +3259,6 @@
       "kind": "api",
       "route": "/api/tenants/switch",
       "filePath": "src/app/api/tenants/switch/route.ts",
-      "classification": "UNKNOWN_REVIEW",
-      "notes": [
-        "manual-classification-required"
-      ]
-    },
-    {
-      "kind": "api",
-      "route": "/api/test-social-scheduler",
-      "filePath": "src/app/api/test-social-scheduler/route.ts",
       "classification": "UNKNOWN_REVIEW",
       "notes": [
         "manual-classification-required"
@@ -3750,8 +4055,50 @@
     },
     {
       "kind": "ui",
+      "route": "/socialflow/audit",
+      "filePath": "src/app/socialflow/(workspace)/audit/page.tsx",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "ui",
       "route": "/socialflow/auth",
       "filePath": "src/app/socialflow/auth/page.tsx",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "ui",
+      "route": "/socialflow/auth/reset-password",
+      "filePath": "src/app/socialflow/auth/reset-password/page.tsx",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "ui",
+      "route": "/socialflow/conversations",
+      "filePath": "src/app/socialflow/(workspace)/conversations/page.tsx",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "ui",
+      "route": "/socialflow/knowledge",
+      "filePath": "src/app/socialflow/(workspace)/knowledge/page.tsx",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "ui",
+      "route": "/socialflow/leads",
+      "filePath": "src/app/socialflow/(workspace)/leads/page.tsx",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "ui",
+      "route": "/socialflow/onboarding",
+      "filePath": "src/app/socialflow/(workspace)/onboarding/page.tsx",
       "classification": "SOCIALFLOW_PRODUCT",
       "notes": []
     },
@@ -3780,6 +4127,13 @@
       "kind": "ui",
       "route": "/socialflow/settings/account",
       "filePath": "src/app/socialflow/(workspace)/settings/account/page.tsx",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "notes": []
+    },
+    {
+      "kind": "ui",
+      "route": "/socialflow/settings/accounts",
+      "filePath": "src/app/socialflow/(workspace)/settings/accounts/page.tsx",
       "classification": "SOCIALFLOW_PRODUCT",
       "notes": []
     },

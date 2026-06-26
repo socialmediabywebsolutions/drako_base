@@ -112,7 +112,9 @@ describe("SocialFlow vertical boundaries", () => {
   it("exposes SocialFlow observability through an operator contract", () => {
     const contract = read("src/lib/socialflow/contracts/observability.ts");
     const operatorActions = read("src/lib/socialflow/contracts/operator-actions.ts");
-    const campobaseService = read("src/lib/campobase/socialflow-service.ts");
+    // Canonical service migrated to campamento-base; adapter re-exports
+    const adapterService = read("src/lib/campobase/socialflow-service.ts");
+    const canonicalService = read("src/lib/campamento-base/socialflow-control-plane-service.ts");
 
     expect(contract).toContain("getSocialFlowOperatorObservability");
     expect(contract).toContain("@/lib/socialflow/repository");
@@ -124,9 +126,9 @@ describe("SocialFlow vertical boundaries", () => {
     expect(operatorActions).toContain("@/lib/observability-core");
     expect(operatorActions).not.toMatch(/@\/lib\/socialflow\/(live-publishing|scheduler|linkedin\/publishing)/);
 
-    expect(campobaseService).toContain("@/lib/socialflow/contracts/observability");
-    expect(campobaseService).toContain("@/lib/socialflow/contracts/operator-actions");
-    expect(campobaseService).not.toMatch(/@\/lib\/socialflow\/(repository|live-publishing|scheduler|linkedin\/publishing)/);
+    expect(adapterService).toContain("@/lib/campamento-base/socialflow-control-plane-service");
+    expect(canonicalService).toContain("@/lib/capabilities/internal-api-clients/socialflow-control-plane");
+    expect(canonicalService).not.toMatch(/@\/lib\/socialflow\/(repository|live-publishing|scheduler|linkedin\/publishing)/);
   });
 
   it("keeps socialflow export independent from Campamento Base internals", () => {

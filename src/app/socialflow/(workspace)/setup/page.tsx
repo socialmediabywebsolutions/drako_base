@@ -82,7 +82,7 @@ export default function SocialFlowSetupPage() {
       {/* Header */}
       <section className="rounded-2xl border border-white/10 bg-white/4 p-6">
         <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow Setup</p>
-        <h1 className="mt-2 text-2xl font-black tracking-tight text-white">Checklist mínimo para piloto privado</h1>
+        <h1 className="mt-2 text-2xl font-black tracking-tight text-white">Checklist minimo para piloto privado</h1>
         <p className="mt-2 max-w-3xl text-sm text-white/45">
           Antes de cualquier publicación real, confirma perfil, cuenta social y revisión humana. Este flujo no publica contenido automáticamente.
         </p>
@@ -135,7 +135,7 @@ export default function SocialFlowSetupPage() {
 
       {/* Human review notice */}
       <section className="rounded-xl border border-indigo-500/20 bg-indigo-500/8 p-4">
-        <h3 className="text-sm font-semibold text-indigo-300">Revisión humana obligatoria</h3>
+        <h3 className="text-sm font-semibold text-indigo-300">Human review obligatorio</h3>
         <p className="mt-1 text-xs text-indigo-300/70">
           Publicar en vivo requiere aprobación humana explícita (`confirmPublish=true`) y rol admin.
         </p>

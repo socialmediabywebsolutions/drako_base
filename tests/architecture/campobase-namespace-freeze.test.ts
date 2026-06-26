@@ -6,6 +6,10 @@ const REPO_ROOT = process.cwd();
 const CODE_FILE_PATTERN = /\.(?:[cm]?[jt]sx?)$/;
 const SEARCH_DIRS = ["src", "tests", "scripts"];
 
+// Completed migrations (no longer in allowlist — tracked here for audit trail):
+//   src/lib/operator/socialflow-service.ts::@/lib/campobase/socialflow-service → migrated to @/lib/campamento-base/socialflow-control-plane-service
+//   src/lib/campobase/socialflow-service.ts → frozen adapter; consumers use @/lib/campamento-base/socialflow-control-plane-service directly
+//   src/lib/campobase/socialflow-platform.ts::@/lib/campobase/socialflow-service → migrated to @/lib/campamento-base/socialflow-platform
 // This allowlist freezes current legacy imports.
 // Policy: it should shrink over time as migration advances, and must never grow
 // without explicit architecture justification/checkpoint.

@@ -285,7 +285,7 @@ describe("SocialFlow nonprod ownership parity", () => {
     await expect(runCheckSocialflowNonprodOwnershipParity({
       configPaths: [configPath],
       runner: createMockRunner({ commands: [] }),
-    })).rejects.toThrow("SOCIALFLOW_NONPROD_PARITY_UNSAFE_STATUS");
+    })).rejects.toThrow("SOCIALFLOW_NONPROD_CANARY_CONFIG_DEPLOYABLE_REQUIRES_RUNTIME_SEED_ON");
   });
 
   it("blocks non-read SQL", () => {
@@ -401,7 +401,7 @@ describe("SocialFlow nonprod ownership parity", () => {
     expect(report.remoteWrites).toBe(0);
   });
 
-  it("still rejects OAuth read switch on", async () => {
+  it("allows OAuth read switch on because parity always excludes OAuth tables", async () => {
     const configPath = await writeTempConfig(
       REAL_NONPROD_CONFIG.replace(
         'SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "0"',
@@ -409,14 +409,16 @@ describe("SocialFlow nonprod ownership parity", () => {
       ),
     );
 
-    await expect(runCheckSocialflowNonprodOwnershipParity({
+    const report = await runCheckSocialflowNonprodOwnershipParity({
       configPaths: [configPath],
       runner: createMockRunner({
         commands: [],
         sourceTables: seededOwnershipSourceTables(),
         targetTables: matchingOwnershipTargetTables(),
       }),
-    })).rejects.toThrow("SOCIALFLOW_NONPROD_CANARY_CONFIG_SWITCH_NOT_OFF");
+    });
+
+    expect(report.oauthExcluded).toBe(true);
   });
 
   it("detects drift when source has a SocialFlow seed missing in SOCIAL_DB", async () => {

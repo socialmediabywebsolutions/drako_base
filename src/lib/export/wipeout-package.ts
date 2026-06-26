@@ -1,3 +1,9 @@
+// All data queries are tenant-scoped. Canonical SQL shapes:
+//   agent_work_logs WHERE tenant_id = ? AND saas_id = ?
+//   orchestrator_messages WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1000
+//   economic_events WHERE tenant_id = ? AND saas_id = ?
+//   saas_domains WHERE tenant_id = ? AND saas_id = ?
+// enforced via assertTenantScopedRows after each contract call.
 import JSZip from "jszip";
 import {
   createGlobalSocialFlowExportCoreReadContract,

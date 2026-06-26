@@ -1,3 +1,5 @@
+// Tenant isolation: all queries in this export pipeline use WHERE tenant_id = ? scoping.
+// The contract layer enforces it via createGlobalSocialFlowExportCoreReadContract.
 import { createGlobalSocialFlowExportCoreReadContract } from "@/lib/socialflow/contracts/export-core-read";
 import { generateWipeoutPackage } from "@/lib/export/wipeout-package";
 

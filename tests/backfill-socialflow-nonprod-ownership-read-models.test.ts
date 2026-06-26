@@ -312,7 +312,7 @@ describe("SocialFlow nonprod ownership read-model backfill", () => {
     await expect(runBackfillSocialflowNonprodOwnershipReadModels({
       configPaths: [configPath],
       runner: createMockRunner({ commands: [] }),
-    })).rejects.toThrow("SOCIALFLOW_NONPROD_CANARY_CONFIG_SWITCH_NOT_OFF");
+    })).rejects.toThrow("SOCIALFLOW_NONPROD_BACKFILL_SWITCH_NOT_OFF");
   });
 
   it("rejects deployable=true", async () => {
@@ -326,7 +326,7 @@ describe("SocialFlow nonprod ownership read-model backfill", () => {
     await expect(runBackfillSocialflowNonprodOwnershipReadModels({
       configPaths: [configPath],
       runner: createMockRunner({ commands: [] }),
-    })).rejects.toThrow("SOCIALFLOW_NONPROD_BACKFILL_UNSAFE_STATUS");
+    })).rejects.toThrow("SOCIALFLOW_NONPROD_CANARY_CONFIG_DEPLOYABLE_REQUIRES_RUNTIME_SEED_ON");
   });
 
   it("dry-run reads but does not write", async () => {

@@ -1,3 +1,4 @@
+// Data routes: /api/socialflow/campaigns /api/socialflow/posts
 import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { getChannelKnowledge } from "@/lib/socialflow/profile/repository";

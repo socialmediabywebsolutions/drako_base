@@ -1,4 +1,4 @@
-name = "saas-socialflows-runtime-canary-nonprod"
+name = "saas-socialflows-runtime-canary"
 main = ".open-next/worker.js"
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]

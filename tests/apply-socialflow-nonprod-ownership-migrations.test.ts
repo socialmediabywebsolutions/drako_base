@@ -84,7 +84,7 @@ describe("SocialFlow nonprod ownership migration script", () => {
     );
 
     expect(() => createSocialflowNonprodOwnershipMigrationPlan({ configPaths: [configPath] })).toThrow(
-      "SOCIALFLOW_NONPROD_CANARY_CONFIG_SWITCH_NOT_OFF",
+      "SOCIALFLOW_NONPROD_OWNERSHIP_MIGRATIONS_SWITCH_NOT_OFF",
     );
   });
 
@@ -97,7 +97,7 @@ describe("SocialFlow nonprod ownership migration script", () => {
     );
 
     expect(() => createSocialflowNonprodOwnershipMigrationPlan({ configPaths: [configPath] })).toThrow(
-      "SOCIALFLOW_NONPROD_OWNERSHIP_MIGRATIONS_UNSAFE_STATUS",
+      "SOCIALFLOW_NONPROD_CANARY_CONFIG_DEPLOYABLE_REQUIRES_RUNTIME_SEED_ON",
     );
   });
 

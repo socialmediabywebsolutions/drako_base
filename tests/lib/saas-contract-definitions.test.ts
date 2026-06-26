@@ -5,7 +5,7 @@ import path from "node:path";
 import { socialFlowPlatformBootstrap, socialFlowPlatformDefinition } from "@/lib/campamento-base/socialflow-platform";
 
 const repoRoot = process.cwd();
-const clinicAdapterPath = path.join(repoRoot, "src/lib/campobase/clinic-platform.ts");
+const clinicAdapterPath = path.join(repoRoot, "src/lib/clinic/platform-wrapper.ts");
 const taskOpsAdapterPath = path.join(repoRoot, "src/lib/campobase/taskops-platform.ts");
 const testFilePath = path.join(repoRoot, "tests/lib/saas-contract-definitions.test.ts");
 
@@ -71,14 +71,13 @@ describe("saas contract definitions", () => {
       "export const CLINIC_PLATFORM_SAAS_ID",
       "export const clinicPlatformDefinition",
       "export const clinicPlatformBootstrap",
-      `${legacyPrefix}/clinic-platform-service`,
+      "@/lib/saas-contract",
       "defineSaasPlatform(",
       "defineSaasPlatformBootstrap(",
       "saasId: CLINIC_PLATFORM_SAAS_ID",
       'displayName: "Clinic"',
       "automationKey: CLINIC_DAILY_APPOINTMENT_HEALTH_KEY",
       "integrationKey: WHATSAPP_INTEGRATION_KEY",
-      "@/lib/saas-contract",
     ];
 
     for (const marker of requiredMarkers) {

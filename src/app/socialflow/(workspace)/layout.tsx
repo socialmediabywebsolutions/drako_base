@@ -1,3 +1,4 @@
+// Isolated product runtime — no direct DB access, no legacy shells.
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";

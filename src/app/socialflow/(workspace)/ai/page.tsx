@@ -1,4 +1,5 @@
 "use client";
+// API routes: /api/socialflow/ai/generate /api/socialflow/ai/regenerate
 
 import { useEffect, useRef, useState } from "react";
 

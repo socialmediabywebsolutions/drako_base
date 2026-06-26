@@ -27,12 +27,11 @@ describe("owner control dashboard socialflow internal api wiring", () => {
     expect(ownerControlDashboardSource).toContain("topCampaignRevenue");
   });
 
-  it("leaves Campobase legacy contract import untouched", () => {
-    const campobaseSource = readFileSync(
-      "src/lib/campobase/socialflow-service.ts",
-      "utf8",
-    );
+  it("leaves Campobase legacy adapter intact and canonical service uses internal API client", () => {
+    const adapterSource = readFileSync("src/lib/campobase/socialflow-service.ts", "utf8");
+    const canonicalSource = readFileSync("src/lib/campamento-base/socialflow-control-plane-service.ts", "utf8");
 
-    expect(campobaseSource).toContain("@/lib/socialflow/contracts/campobase");
+    expect(adapterSource).toContain("@/lib/campamento-base/socialflow-control-plane-service");
+    expect(canonicalSource).toContain("@/lib/capabilities/internal-api-clients/socialflow-control-plane");
   });
 });

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-01T17:41:52.988Z",
+  "generatedAt": "2026-06-26T20:46:57.518Z",
   "wranglerConfigs": [
     "apps/socialflow-runtime/wrangler.production.toml",
     "apps/socialflow-runtime/wrangler.toml",
@@ -19,6 +19,7 @@
     "workers/invoices/wrangler.workers.toml",
     "workers/mentorias/wrangler.workers.toml",
     "workers/saas-factory-worker/wrangler.workers.toml",
+    "workers/socialflow-ai-worker/wrangler.workers.toml",
     "workers/socialflows-runtime-canary/wrangler.workers.toml",
     "workers/socialflows/wrangler.workers.toml",
     "workers/stripe-webhook/wrangler.workers.toml",
@@ -164,6 +165,11 @@
       "classification": "FACTORY"
     },
     {
+      "workerKey": "socialflow-ai-worker",
+      "sourcePath": "workers/socialflow-ai-worker",
+      "classification": "SOCIALFLOW_PRODUCT"
+    },
+    {
       "workerKey": "socialflows",
       "sourcePath": "workers/socialflows",
       "classification": "SOCIALFLOW_PRODUCT"
@@ -233,10 +239,10 @@
       "notes": []
     },
     {
-      "runtimeKey": "saas-socialflows-runtime-canary-nonprod",
+      "runtimeKey": "saas-socialflows-runtime-canary",
       "sourceConfigPath": "apps/socialflow-runtime/wrangler.toml",
       "classification": "SOCIALFLOW_PRODUCT",
-      "workerName": "saas-socialflows-runtime-canary-nonprod",
+      "workerName": "saas-socialflows-runtime-canary",
       "isRootHybridRuntime": false,
       "canonicalForProductProduction": false,
       "domains": [],
@@ -959,10 +965,39 @@
       "notes": []
     },
     {
-      "runtimeKey": "saas-socialflows-runtime-canary-nonprod",
+      "runtimeKey": "saas-socialflow-ai-worker-prod",
+      "sourceConfigPath": "workers/socialflow-ai-worker/wrangler.workers.toml",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "workerName": "saas-socialflow-ai-worker-prod",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "SOCIAL_DB",
+            "databaseName": "saas_socialflows_prod_db"
+          }
+        ],
+        "kv": [],
+        "r2": [
+          {
+            "binding": "SOCIAL_MEDIA_BUCKET",
+            "bucketName": "socialflow-media"
+          }
+        ],
+        "queues": [],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "saas-socialflows-runtime-scaffold",
       "sourceConfigPath": "workers/socialflows-runtime-canary/wrangler.workers.toml",
       "classification": "SOCIALFLOW_PRODUCT",
-      "workerName": "saas-socialflows-runtime-canary-nonprod",
+      "workerName": "saas-socialflows-runtime-scaffold",
       "isRootHybridRuntime": false,
       "canonicalForProductProduction": false,
       "domains": [],
@@ -1023,14 +1058,18 @@
         "SAASES_DOMAIN",
         "AUTHS_SECRETS_NAME",
         "WORKERS_ONLY_MODE",
-        "SOCIALFLOW_PRIVATE_PILOT_MODE",
-        "SOCIALFLOW_PRIVATE_PILOT_TENANT_ALLOWLIST"
+        "INSTAGRAM_APP_ID",
+        "APP_URL"
       ],
       "authDbBindings": [
         "SOCIALFLOW_AUTHS_DB"
       ],
       "bindings": {
         "d1": [
+          {
+            "binding": "DRACO_DB",
+            "databaseName": "drako_db_prod"
+          },
           {
             "binding": "SAASES_DB",
             "databaseName": "saas_socialflows_prod_db"
@@ -1054,12 +1093,20 @@
           {
             "binding": "SAASES_STORAGE",
             "bucketName": "saas-socialflows-prod-storage"
+          },
+          {
+            "binding": "SOCIAL_MEDIA_BUCKET",
+            "bucketName": "socialflow-media"
           }
         ],
         "queues": [
           {
             "binding": "SAASES_EVENTS",
             "queue": "saas-socialflows-prod-events"
+          },
+          {
+            "binding": "SOCIALFLOW_AI_QUEUE",
+            "queue": "saas-socialflow-ai-generation-queue"
           }
         ],
         "services": []
@@ -1119,7 +1166,10 @@
       "isRootHybridRuntime": true,
       "canonicalForProductProduction": false,
       "domains": [],
-      "envVarNames": [],
+      "envVarNames": [
+        "SOCIALFLOW_STRIPE_PRICE_CREATOR",
+        "SOCIALFLOW_STRIPE_PRICE_PRO"
+      ],
       "authDbBindings": [
         "BASES_AUTHS_DB",
         "DRAKOS_AUTHS_DB",
@@ -1162,6 +1212,14 @@
           {
             "binding": "NEXT_INC_CACHE_R2_BUCKET",
             "bucketName": "drakosystems-opennext-cache"
+          },
+          {
+            "binding": "SOCIAL_MEDIA_BUCKET",
+            "bucketName": "socialflow-media"
+          },
+          {
+            "binding": "socialflow_media",
+            "bucketName": "socialflow-media"
           }
         ],
         "queues": [],

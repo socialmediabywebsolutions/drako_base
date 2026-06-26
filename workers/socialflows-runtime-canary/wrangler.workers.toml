@@ -1,4 +1,4 @@
-name = "saas-socialflows-runtime-canary-nonprod"
+name = "saas-socialflows-runtime-scaffold"
 main = "src/workers.ts"
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
@@ -25,8 +25,8 @@ database_name = "saas_socialflow_auths_canary_db"
 database_id = "213b115b-9363-4a21-82d6-8db58c98d6df"
 
 [vars]
-SOCIALFLOW_RUNTIME_TARGET = "canary-nonprod"
-SOCIALFLOW_RUNTIME_STATE = "inactive-nonprod-placeholder"
+SOCIALFLOW_RUNTIME_TARGET = "scaffold"
+SOCIALFLOW_RUNTIME_STATE = "inactive-scaffold"
 SOCIALFLOW_RUNTIME_CONTRACT_VERSION = "p2-21"
 SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "true"
 SOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1 = "true"
