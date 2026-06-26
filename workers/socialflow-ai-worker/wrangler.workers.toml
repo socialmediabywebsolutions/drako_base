@@ -19,3 +19,12 @@ max_retries = 2
 
 [ai]
 binding = "AI"
+
+# Cron: publish scheduled posts every minute
+[[triggers]]
+crons = ["* * * * *"]
+
+# R2: needed by publishSocialPostLive → uploadMediaToR2
+[[r2_buckets]]
+binding = "SOCIAL_MEDIA_BUCKET"
+bucket_name = "socialflow-media"

@@ -6,10 +6,11 @@
  * 50-280s+) is not bound by Cloudflare's HTTP response time limit.
  */
 
-import { type MessageBatch } from "@cloudflare/workers-types";
+import { type MessageBatch, type ScheduledEvent } from "@cloudflare/workers-types";
 import { setGlobalEnv, type DracoEnv } from "../../../src/lib/cf";
 import { SocialFlowOrchestrator } from "../../../src/lib/socialflow/ai/SocialFlowOrchestrator";
 import { resolveSocialContext, upsertSaasSocialCampaign } from "../../../src/lib/socialflow/repository";
+import { processScheduledPosts } from "../../../src/lib/socialflow/scheduler";
 
 export interface SocialFlowAiJob {
   tenantId: string;
@@ -91,6 +92,20 @@ export default {
         // Already recorded as a terminal failure - ack to avoid retry storms.
         message.ack();
       }
+    }
+  },
+
+  async scheduled(_event: ScheduledEvent, env: DracoEnv, _ctx: ExecutionContext): Promise<void> {
+    setGlobalEnv(env);
+    try {
+      const result = await processScheduledPosts();
+      console.log("[SocialFlowCron] Batch complete", JSON.stringify({
+        processed: result.results.length,
+        recovered: result.recovered,
+        results: result.results,
+      }));
+    } catch (error) {
+      console.error("[SocialFlowCron] processScheduledPosts failed", error instanceof Error ? error.message : String(error));
     }
   },
 };
