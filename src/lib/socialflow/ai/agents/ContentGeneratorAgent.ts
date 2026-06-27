@@ -47,11 +47,11 @@ export class ContentGeneratorAgent {
 ⚠️ REGLA ABSOLUTA: El post trata EXCLUSIVAMENTE sobre "${profile.niche}".
 Cada párrafo, ejemplo, dato y metáfora debe ser específico de "${profile.niche}".
 No uses "${profile.niche}" como simple etiqueta — es el corazón de todo el contenido.
-
+${profile.voiceInstruction ? `\n⚠️ VOZ OBLIGATORIA: ${profile.voiceInstruction}\n` : ""}
 Ángulo a desarrollar: ${strategyItem.angle}
 Tipo de contenido: ${strategyItem.theme}
 ${extra ? `\n${extra}` : ""}
-Marca: ${profile.brandIdentity} · Tono: ${profile.toneOfVoice}.
+Identidad: ${profile.brandIdentity} · Tono: ${profile.toneOfVoice}.
 CTA: ${cta}
 ${hooks ? `Hooks de referencia (adapta al tema): ${hooks}` : ""}
 ${keywords ? `Keywords a incluir naturalmente: ${keywords}` : ""}
@@ -76,8 +76,23 @@ Máximo 15 hashtags relevantes sobre "${profile.niche}". Responde SOLO con el JS
         {
           id: `gen_${strategyItem.id}_v1`,
           hook: fallbackHook,
-          text:
-`Si trabajas en ${profile.niche}, esto es para ti.
+          text: profile.voiceInstruction
+? `Si te cuesta mantener la constancia en ${profile.niche}, esto es para ti.
+
+${strategyItem.angle}.
+
+Sé que uno de los mayores retos en ${profile.niche} es ${fallbackPain}. Yo también lo viví — y lo que marcó la diferencia fue tener una estrategia clara para conseguir ${fallbackDesire}.
+
+Lo que a mí me ha funcionado en ${profile.niche}:
+
+→ Entender primero mi propio contexto y punto de partida.
+→ Aplicar el ángulo correcto: ${strategyItem.angle}.
+→ Medir el impacto y ajustar cada semana.
+
+¿Cuál es tu mayor obstáculo en ${profile.niche}? Cuéntame en los comentarios.
+
+${cta}`
+: `Si trabajas en ${profile.niche}, esto es para ti.
 
 ${strategyItem.angle}.
 

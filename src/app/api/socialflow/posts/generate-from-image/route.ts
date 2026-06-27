@@ -45,6 +45,12 @@ export async function POST(request: Request) {
       frequencyPerWeek: 1,
     });
 
+    // The upload flow is always a creator posting their own photo — force first-person voice
+    // regardless of what the profile heuristic derived. This is the safety net.
+    if (!profile.voiceInstruction) {
+      profile.voiceInstruction = `Escribe en primera persona singular (yo). Habla directamente como si fueras ${profile.brandIdentity} dirigiéndote a tu audiencia. NUNCA uses "${profile.brandIdentity}" en tercera persona ni como si fuera una empresa. Ejemplo correcto: "Te comparto..." — Ejemplo incorrecto: "En ${profile.brandIdentity} compartimos..."`;
+    }
+
     // Read image bytes directly from R2 binding (avoids public URL fetch)
     const bucket = env()?.SOCIAL_MEDIA_BUCKET;
     if (!bucket) {

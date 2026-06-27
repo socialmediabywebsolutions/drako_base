@@ -8,6 +8,7 @@ export type BrandProfile = {
   valueProposition: string;
   toneOfVoice: string;
   personality: string;
+  voiceInstruction: string; // "" = brand/third-person (default); non-empty = injected into prompts
 
   // Audience & positioning
   niche: string;

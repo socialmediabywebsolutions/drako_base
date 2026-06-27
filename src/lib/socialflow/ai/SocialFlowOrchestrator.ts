@@ -39,6 +39,13 @@ export class SocialFlowOrchestrator {
       ? `${baseLongDescription}\n\n--- Knowledge Base ---\n${knowledgeContext}`
       : baseLongDescription;
 
+    const personalCreatorSignal = /primera persona|influencer|creador|creadora|personal brand|mi marca|mis seguidores/i;
+    const isPersonalCreator = [profile.personality, profile.toneOfVoice, profile.shortDescription, knowledgeContext]
+      .some((f) => personalCreatorSignal.test(f ?? ""));
+    const voiceInstruction = isPersonalCreator
+      ? `Escribe en primera persona singular (yo). Habla directamente como si fueras ${brandName} dirigiéndote a tu audiencia. NUNCA uses "${brandName}" en tercera persona ni como si fuera una empresa. Ejemplo correcto: "Te comparto..." — Ejemplo incorrecto: "En ${brandName} compartimos..."`
+      : "";
+
     return {
       brandIdentity: brandName,
       channelHandle: profile.channelName ? `@${profile.channelName}` : `@${input.saasId}`,
@@ -48,6 +55,7 @@ export class SocialFlowOrchestrator {
       valueProposition: profile.valueProposition || `${niche} content for ${profile.audienceDescription || "your audience"}.`,
       toneOfVoice: tone,
       personality: profile.personality || tone,
+      voiceInstruction,
       niche,
       audience: profile.audienceDescription || `${niche} buyers`,
       buyerPersona: profile.buyerPersona || `${niche} operator`,
