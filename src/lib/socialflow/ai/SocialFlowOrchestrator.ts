@@ -7,6 +7,7 @@ import { OptimizationAgent } from "./agents/OptimizationAgent";
 import { SchedulerAgent } from "./agents/SchedulerAgent";
 import { TrendAgent } from "./agents/TrendAgent";
 import type { BrandProfile, SocialAIPipelineInput, SocialAIPipelineResult, StrategyItem } from "./types";
+import type { SaasSocialContentType } from "@/lib/social-core/types";
 import { listSaasSocialChannels, resolveSocialContext, upsertSaasSocialCampaign, upsertSaasSocialPost } from "../repository";
 import { getChannelKnowledge, saveCompetitorInsights } from "../profile/repository";
 import { getKnowledgeContext } from "../knowledge/repository";
@@ -132,7 +133,9 @@ export class SocialFlowOrchestrator {
         const imageHint = await generatePostImage(imagePrompt, postId);
         const postProvider = input.provider ?? "INSTAGRAM";
         const hashtags = (optimized?.hashtags ?? []).slice(0, 15);
-        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: postProvider, contentType: "FEED", title: item.theme, body: optimized?.improvedText ?? item.angle, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, metadata: { targetProvider: postProvider, strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags, angle: item.angle, callToAction: item.callToAction } });
+        const formatMap: Record<string, SaasSocialContentType> = { single: "FEED", carousel: "FEED", reel: "REEL", story: "STORY", article: "FEED" };
+        const contentType: SaasSocialContentType = formatMap[item.format] ?? "FEED";
+        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: postProvider, contentType, title: item.theme, body: optimized?.improvedText ?? item.angle, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, metadata: { targetProvider: postProvider, strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags, angle: item.angle, callToAction: item.callToAction } });
         savedCount++;
       } catch (postError) {
         console.error(`[SocialFlowOrchestrator] Failed to persist post for item ${item.id}`, postError instanceof Error ? postError.message : String(postError));

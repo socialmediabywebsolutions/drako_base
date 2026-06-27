@@ -59,6 +59,20 @@ const STATUS_DOT: Record<string, string> = {
   FAILED:     "bg-rose-500",
 };
 
+const POST_TYPE_OPTIONS = [
+  { value: "FEED",  label: "Feed",     icon: "🖼️"  },
+  { value: "REEL",  label: "Reel",     icon: "🎬"  },
+  { value: "STORY", label: "Historia", icon: "⭕"  },
+] as const;
+
+const CONTENT_TYPE_CFG: Record<string, { label: string; icon: string; pill: string }> = {
+  FEED:     { label: "Feed",     icon: "🖼️",  pill: "bg-blue-500/15 text-blue-300"     },
+  REEL:     { label: "Reel",     icon: "🎬",  pill: "bg-purple-500/15 text-purple-300"  },
+  STORY:    { label: "Historia", icon: "⭕",  pill: "bg-orange-500/15 text-orange-300"  },
+  SHORT:    { label: "Short",    icon: "▶️",  pill: "bg-red-500/15 text-red-300"        },
+  CAROUSEL: { label: "Carrusel", icon: "🔁",  pill: "bg-teal-500/15 text-teal-300"     },
+};
+
 const PROVIDER_ABBR: Record<string, string> = {
   LINKEDIN: "LI", INSTAGRAM: "IG", FACEBOOK_PAGE: "FB", TWITTER_X: "X", TIKTOK: "TT",
 };
@@ -155,9 +169,11 @@ function IconX() {
 function PostChip({ post }: { post: SaasSocialPost }) {
   const cfg = STATUS_CFG[post.status];
   const abbr = PROVIDER_ABBR[post.provider] ?? "?";
-  const title = post.title.length > 22 ? post.title.slice(0, 22) + "…" : post.title;
+  const typeIcon = CONTENT_TYPE_CFG[post.contentType]?.icon ?? "🖼️";
+  const title = post.title.length > 18 ? post.title.slice(0, 18) + "…" : post.title;
   return (
     <div className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${cfg.chipBg}`}>
+      <span className="shrink-0 text-[9px] leading-none">{typeIcon}</span>
       <span className="font-black opacity-60">{abbr}</span>
       <span className="truncate">{title}</span>
     </div>
@@ -205,6 +221,9 @@ function PostThumb({ post, onClick }: { post: SaasSocialPost; onClick: () => voi
           <p className="line-clamp-3 text-left text-[10px] leading-snug text-white/55">{post.title}</p>
         </div>
       )}
+      <span className="absolute left-1.5 top-1.5 rounded-md bg-black/55 px-1 py-0.5 text-[10px] leading-none backdrop-blur-sm">
+        {CONTENT_TYPE_CFG[post.contentType]?.icon ?? "🖼️"}
+      </span>
       <span className={`absolute bottom-1.5 right-1.5 h-2 w-2 rounded-full ${dot} ring-1 ring-black/40`} />
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 transition-all duration-150 group-hover:bg-black/45">
         <svg className="h-6 w-6 text-white opacity-0 drop-shadow transition-opacity group-hover:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -285,6 +304,11 @@ function PostDetailModal({ post, campaigns, isPending, onAction, onClose }: Post
                 <span className={`rounded-md px-2 py-0.5 text-[10px] font-black ${PROVIDER_COLOR[post.provider] ?? "bg-white/10 text-white/70"}`}>
                   {PROVIDER_LABEL[post.provider] ?? post.provider}
                 </span>
+                {CONTENT_TYPE_CFG[post.contentType] && (
+                  <span className={`rounded-md px-2 py-0.5 text-[10px] font-black ${CONTENT_TYPE_CFG[post.contentType].pill}`}>
+                    {CONTENT_TYPE_CFG[post.contentType].icon} {CONTENT_TYPE_CFG[post.contentType].label}
+                  </span>
+                )}
                 <StatusBadge status={post.status} />
                 {campaign && (
                   <span className="rounded-full bg-white/6 px-2 py-0.5 text-[10px] font-medium text-white/40">
@@ -421,6 +445,7 @@ type CreateModalProps = {
   time: string;
   content: string;
   provider: string;
+  contentType: string;
   imageUrl: string;
   imageUploading: boolean;
   schedule: boolean;
@@ -430,6 +455,7 @@ type CreateModalProps = {
   onTimeChange: (v: string) => void;
   onContentChange: (v: string) => void;
   onProviderChange: (v: string) => void;
+  onContentTypeChange: (v: string) => void;
   onImageUrlChange: (v: string) => void;
   onFileSelect: (file: File) => void;
   onScheduleChange: (v: boolean) => void;
@@ -471,6 +497,31 @@ function CreatePostModal(p: CreateModalProps) {
               <option value="LINKEDIN">LinkedIn</option>
               <option value="INSTAGRAM">Instagram</option>
             </select>
+          </div>
+
+          {/* Content type */}
+          <div>
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/40">
+              Tipo de contenido
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {POST_TYPE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => p.onContentTypeChange(opt.value)}
+                  className={[
+                    "flex flex-col items-center gap-1 rounded-xl border py-3 text-sm font-semibold transition",
+                    p.contentType === opt.value
+                      ? "border-violet-500 bg-violet-500/15 text-white"
+                      : "border-white/10 bg-white/3 text-white/45 hover:border-white/20 hover:text-white/70",
+                  ].join(" ")}
+                >
+                  <span className="text-lg leading-none">{opt.icon}</span>
+                  <span className="text-[11px]">{opt.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Content */}
@@ -659,6 +710,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
 
   const [fContent, setFContent] = useState("");
   const [fProvider, setFProvider] = useState("LINKEDIN");
+  const [fContentType, setFContentType] = useState("FEED");
   const [fDate, setFDate] = useState(today);
   const [fTime, setFTime] = useState("09:00");
   const [fSchedule, setFSchedule] = useState(false);
@@ -695,7 +747,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
   function openCreate(date?: string) {
     const d = date ?? today;
     setFDate(d); setFContent(""); setFTime("09:00");
-    setFSchedule(!!date); setFError(null);
+    setFContentType("FEED"); setFSchedule(!!date); setFError(null);
     setFImageUrl(""); setFImageUploading(false);
     setShowCreate(true);
   }
@@ -732,6 +784,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
           saasId,
           content: fContent.trim(),
           provider: fProvider,
+          contentType: fContentType,
           status: fSchedule ? "SCHEDULED" : "DRAFT",
           scheduledAt: fSchedule ? toScheduledAt(fDate, fTime) : null,
           imageHint: fImageUrl.trim() || null,
@@ -968,6 +1021,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
           time={fTime}
           content={fContent}
           provider={fProvider}
+          contentType={fContentType}
           imageUrl={fImageUrl}
           imageUploading={fImageUploading}
           schedule={fSchedule}
@@ -977,6 +1031,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
           onTimeChange={setFTime}
           onContentChange={setFContent}
           onProviderChange={setFProvider}
+          onContentTypeChange={setFContentType}
           onImageUrlChange={setFImageUrl}
           onFileSelect={handleImageFileSelect}
           onScheduleChange={setFSchedule}

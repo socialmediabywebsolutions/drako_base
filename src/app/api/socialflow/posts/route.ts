@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import type { SaasSocialContentType } from "@/lib/social-core/types";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import {
   approvePost,
@@ -22,6 +23,7 @@ import { LinkedInIntegrationError } from "@/lib/socialflow/linkedin/core";
 
 const ALLOWED_PROVIDERS = ["LINKEDIN", "INSTAGRAM"] as const;
 const ALLOWED_CREATION_STATUSES = ["DRAFT", "SCHEDULED"] as const;
+const ALLOWED_CONTENT_TYPES = ["FEED", "REEL", "STORY", "SHORT", "CAROUSEL"] as const;
 
 function unauthorizedResponse() {
   return NextResponse.json({ code: "UNAUTHORIZED", message: "SESSION_REQUIRED" }, { status: 401 });
@@ -110,6 +112,9 @@ export async function POST(request: Request) {
     if (!ALLOWED_CREATION_STATUSES.includes(creationStatus as (typeof ALLOWED_CREATION_STATUSES)[number])) {
       return NextResponse.json({ code: "INVALID_STATUS", message: "status must be draft or scheduled" }, { status: 400 });
     }
+    if (!ALLOWED_CONTENT_TYPES.includes(contentType as (typeof ALLOWED_CONTENT_TYPES)[number])) {
+      return NextResponse.json({ code: "INVALID_CONTENT_TYPE", message: "contentType must be FEED, REEL, STORY, SHORT or CAROUSEL" }, { status: 400 });
+    }
 
     const post = await upsertSaasSocialPost(ctx, {
       id: body.id,
@@ -117,7 +122,7 @@ export async function POST(request: Request) {
       campaignId: body.campaignId ?? null,
       channelId: body.channelId ?? null,
       provider: provider as (typeof ALLOWED_PROVIDERS)[number],
-      contentType: "FEED",
+      contentType: contentType as SaasSocialContentType,
       title,
       body: postBody,
       imageHint: body.imageHint ?? null,
