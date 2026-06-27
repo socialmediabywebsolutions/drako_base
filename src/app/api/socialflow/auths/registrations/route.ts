@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     email: body.email,
     password: body.password,
     name: body.name ?? null,
-    tenantId: null,
+    tenantId: crypto.randomUUID(),
   });
   if (!registration.ok) {
     return jsonError(registration.code, registration.message, registration.code === "EMAIL_EXISTS" ? 409 : 400);
