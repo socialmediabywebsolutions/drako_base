@@ -24,7 +24,7 @@ export class SocialFlowOrchestrator {
   private schedulerAgent = new SchedulerAgent();
   private trendAgent = new TrendAgent();
 
-  private async buildProfile(input: SocialAIPipelineInput): Promise<BrandProfile> {
+  async buildProfile(input: SocialAIPipelineInput): Promise<BrandProfile> {
     const [{ profile, competitors }, knowledgeContext] = await Promise.all([
       getChannelKnowledge(input.tenantId, input.saasId),
       getKnowledgeContext(input.tenantId, input.saasId).catch(() => ""),

@@ -1,0 +1,172 @@
+export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
+import { SocialContextError } from "@/lib/socialflow/repository";
+import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
+import { ImageAnalysisAgent } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
+import { ContentGeneratorAgent } from "@/lib/socialflow/ai/agents/ContentGeneratorAgent";
+import { OptimizationAgent } from "@/lib/socialflow/ai/agents/OptimizationAgent";
+import { SchedulerAgent } from "@/lib/socialflow/ai/agents/SchedulerAgent";
+import type { KeywordEngineOutput, StrategyItem } from "@/lib/socialflow/ai/types";
+import type { TrendInsights } from "@/lib/socialflow/ai/agents/TrendAgent";
+
+function unauthorizedResponse() {
+  return NextResponse.json({ code: "UNAUTHORIZED", message: "SESSION_REQUIRED" }, { status: 401 });
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = (await request.json().catch(() => null)) as {
+      imageUrl?: string;
+      saasId?: string;
+      provider?: string;
+    } | null;
+
+    if (!body?.imageUrl || !body?.saasId) {
+      return NextResponse.json(
+        { code: "INVALID_BODY", message: "imageUrl and saasId are required" },
+        { status: 400 },
+      );
+    }
+
+    const session = await requireCurrentSocialFlowSession(request);
+
+    // Build full brand profile (includes KB context, same as orchestrator)
+    const orchestrator = new SocialFlowOrchestrator();
+    const profile = await orchestrator.buildProfile({
+      tenantId: session.tenantId,
+      saasId: body.saasId,
+      niche: "",
+      tone: "",
+      frequencyPerWeek: 1,
+    });
+
+    // Fetch image bytes from R2 (or any public URL)
+    const imageResponse = await fetch(body.imageUrl);
+    if (!imageResponse.ok) {
+      return NextResponse.json(
+        { code: "IMAGE_FETCH_FAILED", message: "Could not fetch the image from the provided URL" },
+        { status: 400 },
+      );
+    }
+    const imageBytes = Array.from(new Uint8Array(await imageResponse.arrayBuffer()));
+
+    // Step 1: Analyze image with LLaVA
+    const imageAgent = new ImageAnalysisAgent();
+    const imageAnalysis = await imageAgent.run({ imageBytes, profile });
+
+    // Step 2: Build synthetic StrategyItem from the image analysis (no LLM call)
+    const strategyItem: StrategyItem = {
+      id: `img_${Date.now()}`,
+      dayOffset: 0,
+      theme: imageAnalysis.context,
+      angle: imageAnalysis.suggestedThemes[0] ?? profile.niche,
+      format:
+        imageAnalysis.recommendedPostType === "REEL"
+          ? "reel"
+          : imageAnalysis.recommendedPostType === "STORY"
+          ? "story"
+          : "single",
+      callToAction: profile.primaryCTA || "Conoce más en el enlace de la bio.",
+    };
+
+    // Step 3: Build minimal KeywordEngineOutput from profile (no LLM call)
+    const keywordEngine: KeywordEngineOutput = {
+      clusters: profile.contentPillars.slice(0, 3).map((pillar, i) => ({
+        cluster: pillar,
+        intent: (["awareness", "consideration", "conversion"] as const)[i % 3],
+        difficulty: "medium" as const,
+        trendScore: 70,
+        seasonality: null,
+        contentAngles: imageAnalysis.suggestedThemes,
+        keywords: profile.baseKeywords.slice(0, 3),
+        hashtags: profile.baseHashtags.slice(0, 5),
+      })),
+      evergreenHashtags: profile.baseHashtags,
+      trendingHashtags: profile.priorityHashtags,
+      nicheHashtags: profile.competitorHashtags.slice(0, 5),
+      viralHashtags: [],
+      campaignHashtags: [],
+    };
+
+    // Step 4: Build minimal TrendInsights from image analysis (no LLM call)
+    const emotionCapped = imageAnalysis.emotion.length > 0
+      ? imageAnalysis.emotion.charAt(0).toUpperCase() + imageAnalysis.emotion.slice(1)
+      : "Auténtico";
+    const trends: TrendInsights = {
+      trendingTopics: imageAnalysis.suggestedThemes,
+      viralAngles: [
+        `${emotionCapped} — lo que nos hace diferentes`,
+        ...profile.viralThemes.slice(0, 2),
+      ],
+      emergingPatterns: [`Contenido visual auténtico sobre ${profile.niche}`],
+      shortFormOpportunities: [
+        `${imageAnalysis.recommendedPostType} mostrando ${imageAnalysis.context}`,
+      ],
+      hookIdeas: [
+        `${emotionCapped}: esto es lo que hacemos diferente`,
+        `Detrás de cámaras: ${imageAnalysis.description.slice(0, 60)}`,
+        `¿Sabes qué hace especial a ${profile.brandIdentity}? Mira esto`,
+      ],
+    };
+
+    // Step 5: Generate caption (Mistral via Workers AI)
+    const contentAgent = new ContentGeneratorAgent();
+    const generated = await contentAgent.run({ profile, strategyItem, keywordEngine, trends });
+    const variant = generated.variants[0];
+
+    // Step 6: Optimize caption + enforce hashtag limit (Mistral via Workers AI)
+    const optimizationAgent = new OptimizationAgent();
+    const optimized = await optimizationAgent.run({ profile, variant, keywordEngine });
+
+    // Step 7: Calculate best schedule slot (deterministic, no LLM)
+    const schedulerAgent = new SchedulerAgent();
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const [schedulePlan] = schedulerAgent.run({
+      strategy: [strategyItem],
+      frequencyPerWeek: 1,
+      startDate: tomorrow,
+    });
+
+    const provider = body.provider ?? "INSTAGRAM";
+    const contentTypeMap: Record<string, "FEED" | "REEL" | "STORY"> = {
+      REEL: "REEL",
+      STORY: "STORY",
+      FEED: "FEED",
+    };
+    const contentType = contentTypeMap[imageAnalysis.recommendedPostType] ?? "FEED";
+    const title = optimized.improvedText.split("\n")[0]?.replace(/^#+\s*/, "").slice(0, 72).trim()
+      ?? strategyItem.theme;
+
+    return NextResponse.json({
+      imageUrl: body.imageUrl,
+      imageAnalysis,
+      suggestedPost: {
+        title,
+        body: optimized.improvedText,
+        hashtags: optimized.hashtags,
+        imageHint: body.imageUrl,
+        provider,
+        contentType,
+        scheduledAt: schedulePlan?.scheduledAt ?? new Date(Date.now() + 86_400_000).toISOString(),
+        saasId: body.saasId,
+      },
+    });
+  } catch (error) {
+    if (error instanceof SocialContextError) {
+      return NextResponse.json(
+        { code: "INVALID_SOCIAL_CONTEXT", message: error.message },
+        { status: 400 },
+      );
+    }
+    if (error instanceof Error && error.message === "SESSION_REQUIRED") {
+      return unauthorizedResponse();
+    }
+    console.error("SOCIALFLOW_GENERATE_FROM_IMAGE_ERROR", error);
+    return NextResponse.json(
+      { code: "SOCIALFLOW_ERROR", message: "Unable to generate post from image" },
+      { status: 500 },
+    );
+  }
+}

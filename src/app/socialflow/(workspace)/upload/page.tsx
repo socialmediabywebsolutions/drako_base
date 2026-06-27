@@ -1,0 +1,30 @@
+import { redirect } from "next/navigation";
+import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
+import UploadToPost from "@/components/socialflow/upload-to-post";
+
+const SAAS_ID = "socialflow";
+
+export default async function SocialFlowUploadPage() {
+  const session = await getCurrentSocialFlowSession();
+  if (!session) {
+    redirect("/socialflow/auth");
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
+          SocialFlow · Subir foto
+        </div>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
+          Foto → Post IA
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
+          Sube una foto y la IA genera el caption, hashtags y fecha de publicación optimizados para tu marca.
+        </p>
+      </div>
+
+      <UploadToPost saasId={SAAS_ID} />
+    </div>
+  );
+}
