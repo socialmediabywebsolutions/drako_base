@@ -5,6 +5,7 @@ import type { SaasSocialContentType } from "@/lib/social-core/types";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import {
   approvePost,
+  deleteSaasSocialPost,
   listSaasSocialAccounts,
   listSaasSocialPosts,
   markAsPosted,
@@ -262,5 +263,32 @@ export async function PATCH(request: Request) {
     }
     console.error("SOCIALFLOW_POSTS_PATCH_ERROR", error);
     return NextResponse.json({ code: "SOCIALFLOW_ERROR", message: "Unable to update post" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const url = new URL(request.url);
+    const id = url.searchParams.get("id");
+    const saasId = url.searchParams.get("saasId");
+
+    if (!id || !saasId) {
+      return NextResponse.json({ code: "INVALID_PARAMS", message: "id and saasId are required" }, { status: 400 });
+    }
+
+    const session = await requireCurrentSocialFlowSession(request);
+    const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId });
+
+    await deleteSaasSocialPost(ctx, id);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    if (error instanceof SocialContextError) {
+      return NextResponse.json({ code: "INVALID_SOCIAL_CONTEXT", message: error.message }, { status: 400 });
+    }
+    if (error instanceof Error && error.message === "SESSION_REQUIRED") {
+      return unauthorizedResponse();
+    }
+    console.error("SOCIALFLOW_POSTS_DELETE_ERROR", error);
+    return NextResponse.json({ code: "SOCIALFLOW_ERROR", message: "Unable to delete post" }, { status: 500 });
   }
 }

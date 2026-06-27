@@ -229,9 +229,13 @@ function StatusBadge({ status }: { status: PostStatus }) {
 
 // ─── PostThumb — Instagram-style square tile ──────────────────────────────────
 
+function isMediaUrl(hint: string | null | undefined): hint is string {
+  return !!hint && (hint.startsWith("http://") || hint.startsWith("https://"));
+}
+
 function PostThumb({ post, onClick }: { post: SaasSocialPost; onClick: () => void }) {
   const [imageError, setImageError] = useState(false);
-  const hasImage = !!post.imageHint && !imageError;
+  const hasImage = isMediaUrl(post.imageHint) && !imageError;
   const gradient = thumbGradient(post.id);
   const ring = STATUS_RING[post.status] ?? "ring-white/8";
   const dot  = STATUS_DOT[post.status]  ?? "bg-white/20";
@@ -277,15 +281,21 @@ type PostDetailModalProps = {
   campaigns: SaasSocialCampaign[];
   isPending: boolean;
   isRefreshingMetrics: boolean;
+  onSave: (title: string, body: string) => void;
+  onDelete: () => void;
   onAction: (action: string, extra?: Record<string, string>) => void;
   onRefreshMetrics: () => void;
   onClose: () => void;
 };
 
-function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAction, onRefreshMetrics, onClose }: PostDetailModalProps) {
+function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAction, onRefreshMetrics, onClose, onSave, onDelete }: PostDetailModalProps) {
   const [scheduling, setScheduling] = useState(false);
-  const [schedDate, setSchedDate] = useState(todayStr());
-  const [schedTime, setSchedTime] = useState("09:00");
+  const [schedDate, setSchedDate] = useState(post.scheduledAt?.slice(0, 10) ?? todayStr());
+  const [schedTime, setSchedTime] = useState(post.scheduledAt?.slice(11, 16) ?? "09:00");
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(post.title);
+  const [editBody, setEditBody] = useState(post.body);
+  const [modalImageError, setModalImageError] = useState(false);
   const campaign = campaigns.find((c) => c.id === post.campaignId);
 
   const isEditable = ["IDEA", "DRAFT", "IN_REVIEW"].includes(post.status);
@@ -322,9 +332,9 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
         <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
           {/* Left: image */}
           <div className="relative flex h-52 shrink-0 items-center justify-center bg-black/30 md:h-auto md:w-5/12">
-            {post.imageHint ? (
+            {isMediaUrl(post.imageHint) && !modalImageError ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={post.imageHint} alt={post.title} className="h-full w-full object-cover" />
+              <img src={post.imageHint} alt={post.title} className="h-full w-full object-cover" onError={() => setModalImageError(true)} />
             ) : (
               <div className={`h-full w-full bg-gradient-to-br ${gradient} flex flex-col items-start justify-end p-5`}>
                 <p className="text-sm font-semibold leading-snug text-white/60 line-clamp-4">{post.title}</p>
@@ -470,7 +480,7 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
                     </button>
                   )}
 
-                  {isApproved && scheduling && (
+                  {(isApproved || isScheduled) && scheduling && (
                     <div className="space-y-2">
                       <div className="flex gap-2">
                         <input
@@ -503,13 +513,73 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
                     </div>
                   )}
 
-                  {isScheduled && (
-                    <p className="text-center text-xs text-white/35 italic">
-                      Será publicado automáticamente por el scheduler.
-                    </p>
+                  {/* SCHEDULED: info + Editar / Reprogramar / Eliminar */}
+                  {isScheduled && !scheduling && !editing && (
+                    <>
+                      <p className="text-center text-xs text-white/35 italic">
+                        Será publicado automáticamente por el scheduler.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setEditTitle(post.title); setEditBody(post.body); setEditing(true); }}
+                          className="flex-1 rounded-xl border border-white/15 bg-white/5 py-2 text-sm text-white/60 transition hover:bg-white/10 hover:text-white/80"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setScheduling(true)}
+                          className="flex-1 rounded-xl border border-sky-500/30 bg-sky-500/10 py-2 text-sm text-sky-300 transition hover:bg-sky-500/20"
+                        >
+                          Reprogramar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onClick={onDelete}
+                          className="flex-1 rounded-xl border border-rose-500/25 bg-rose-500/10 py-2 text-sm text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </>
                   )}
 
-                  {/* Secondary: Rechazar */}
+                  {/* Inline edit form for SCHEDULED posts */}
+                  {isScheduled && editing && (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        placeholder="Título"
+                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                      />
+                      <textarea
+                        value={editBody}
+                        onChange={(e) => setEditBody(e.target.value)}
+                        rows={4}
+                        placeholder="Contenido del post"
+                        className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={isPending || !editTitle.trim() || !editBody.trim()}
+                          onClick={() => { onSave(editTitle.trim(), editBody.trim()); setEditing(false); }}
+                          className="flex-1 rounded-xl bg-violet-500 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-violet-400 disabled:opacity-50"
+                        >
+                          {isPending ? "…" : "Guardar"}
+                        </button>
+                        <button type="button" onClick={() => setEditing(false)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/40 transition hover:text-white/60">
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Secondary: Rechazar (non-scheduled only) */}
                   {!isScheduled && (
                     <button
                       type="button"
@@ -934,6 +1004,44 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
     });
   }
 
+  function editPost(postId: string, title: string, body: string) {
+    setPendingId(postId);
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/socialflow/posts", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: postId, saasId, title, body }),
+        });
+        const data = (await res.json()) as { post?: SaasSocialPost };
+        if (res.ok && data.post) {
+          setPosts((prev) => prev.map((p) => (p.id === postId ? data.post! : p)));
+        }
+      } finally {
+        setPendingId(null);
+        router.refresh();
+      }
+    });
+  }
+
+  function deletePost(postId: string) {
+    setPendingId(postId);
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/socialflow/posts?id=${encodeURIComponent(postId)}&saasId=${encodeURIComponent(saasId)}`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          setPosts((prev) => prev.filter((p) => p.id !== postId));
+          setSelectedPostId(null);
+        }
+      } finally {
+        setPendingId(null);
+        router.refresh();
+      }
+    });
+  }
+
   return (
     <div className="space-y-6">
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
@@ -1160,6 +1268,8 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
           isPending={isPending && pendingId === selectedPost.id}
           isRefreshingMetrics={refreshingMetricsId === selectedPost.id}
           onAction={(action, extra) => patchPost(selectedPost.id, action, extra)}
+          onSave={(title, body) => editPost(selectedPost.id, title, body)}
+          onDelete={() => deletePost(selectedPost.id)}
           onRefreshMetrics={() => refreshMetrics(selectedPost.id)}
           onClose={() => setSelectedPostId(null)}
         />
