@@ -97,7 +97,7 @@ export async function POST(request: Request) {
 
     const nextBody = regenerated.optimized.improvedText ?? current.body;
     const nextTitle = regenerated.strategyItem?.theme ?? current.title;
-    const hashtags = regenerated.optimized.hashtags ?? [];
+    const hashtags = (regenerated.optimized.hashtags ?? []).slice(0, 15);
     const primaryVariant = regenerated.generated.variants[0];
 
     const post = await upsertSaasSocialPost(ctx, {

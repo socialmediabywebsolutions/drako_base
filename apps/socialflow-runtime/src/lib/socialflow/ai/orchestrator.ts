@@ -410,7 +410,7 @@ export class SocialFlowRuntimeOrchestrator {
           metadata: {
             strategyItemId: item.id,
             callToAction: item.callToAction,
-            hashtags: optimized?.hashtags ?? [],
+            hashtags: (optimized?.hashtags ?? []).slice(0, 15),
           },
         },
       });
