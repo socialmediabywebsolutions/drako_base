@@ -126,6 +126,7 @@ export type SaasSocialPost = {
   postedAt: string | null;
   externalPostId: string | null;
   metadata: Record<string, unknown> | null;
+  analyticsMeta?: AnalyticsMeta;
   createdAt: string;
   updatedAt: string;
 };
@@ -361,6 +362,8 @@ export type AnalyticsMeta = {
   comments: number;
   shares: number;
   clicks: number;
+  reach: number;
+  saved: number;
   engagement: number;
   lastFetchedAt?: string | null;
   lastRefreshStatus?: "success" | "fallback" | "error" | null;

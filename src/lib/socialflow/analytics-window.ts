@@ -9,6 +9,8 @@ export function getPostAnalyticsMetadata(post: SaasSocialPost): AnalyticsMeta {
     comments: meta?.comments ?? 0,
     shares: meta?.shares ?? 0,
     clicks: meta?.clicks ?? 0,
+    reach: meta?.reach ?? 0,
+    saved: meta?.saved ?? 0,
     engagement: meta?.engagement ?? 0,
     lastFetchedAt: meta?.lastFetchedAt ?? null,
     lastRefreshStatus: meta?.lastRefreshStatus ?? null,

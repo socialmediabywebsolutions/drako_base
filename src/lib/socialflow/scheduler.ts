@@ -2,6 +2,7 @@ import { env } from "@/lib/cf";
 import { publishSocialPostLive } from "@/lib/socialflow/live-publishing";
 import { recoverStalePublishingPosts, resolveSocialContext } from "@/lib/socialflow/repository";
 import { isAutoPublishBlockedByPrivatePilotMode } from "@/lib/socialflow/private-pilot";
+import { processDeferredInstagramMetrics } from "@/lib/socialflow/meta/metrics-collector";
 
 type DuePostRow = {
   id: string;
@@ -84,6 +85,12 @@ export async function processScheduledPosts(): Promise<{ results: SchedulerPostR
   const published = results.filter((r) => r.status === "PUBLISHED").length;
   const failed = results.filter((r) => r.status !== "PUBLISHED").length;
   console.log(`[SocialFlow Scheduler] Batch complete: ${published} published, ${failed} failed, ${recovered} recovered.`);
+
+  // Fetch metrics for Instagram posts published 15 min–2 h ago with no metrics row yet.
+  // Runs every scheduler tick (every 5 min) so the window is always covered.
+  processDeferredInstagramMetrics().catch((err) => {
+    console.warn("[SocialFlow Scheduler] Deferred metrics error:", err instanceof Error ? err.message : String(err));
+  });
 
   return { results, recovered };
 }

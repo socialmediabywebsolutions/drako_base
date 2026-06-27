@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { SaasSocialPost, SaasSocialCampaign } from "@/lib/social-core/types";
+import type { AnalyticsMeta, SaasSocialPost, SaasSocialCampaign } from "@/lib/social-core/types";
 
 type PostStatus = SaasSocialPost["status"];
 
@@ -138,6 +138,31 @@ function toScheduledAt(date: string, time: string) {
   return `${date}T${time || "09:00"}:00.000Z`;
 }
 
+function formatRelativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return `hace ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `hace ${hrs}h`;
+  return `hace ${Math.floor(hrs / 24)}d`;
+}
+
+function formatMetricValue(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+
+function MetricCard({ icon, label, value }: { icon: string; label: string; value: number }) {
+  return (
+    <div className="flex flex-col items-center gap-0.5 rounded-xl bg-white/5 px-2 py-2.5">
+      <span className="text-base leading-none">{icon}</span>
+      <span className="text-sm font-black text-white/90">{formatMetricValue(value)}</span>
+      <span className="text-[9px] font-semibold uppercase tracking-wide text-white/35">{label}</span>
+    </div>
+  );
+}
+
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
 function IconChevronLeft() {
@@ -241,11 +266,13 @@ type PostDetailModalProps = {
   post: SaasSocialPost;
   campaigns: SaasSocialCampaign[];
   isPending: boolean;
+  isRefreshingMetrics: boolean;
   onAction: (action: string, extra?: Record<string, string>) => void;
+  onRefreshMetrics: () => void;
   onClose: () => void;
 };
 
-function PostDetailModal({ post, campaigns, isPending, onAction, onClose }: PostDetailModalProps) {
+function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAction, onRefreshMetrics, onClose }: PostDetailModalProps) {
   const [scheduling, setScheduling] = useState(false);
   const [schedDate, setSchedDate] = useState(todayStr());
   const [schedTime, setSchedTime] = useState("09:00");
@@ -334,6 +361,50 @@ function PostDetailModal({ post, campaigns, isPending, onAction, onClose }: Post
                   {((post.metadata as Record<string, unknown>).hashtags as string[]).map((h) => h.startsWith("#") ? h : `#${h}`).join(" ")}
                 </p>
               )}
+
+              {/* Instagram metrics */}
+              {isDone && post.provider === "INSTAGRAM" && (() => {
+                const meta = post.analyticsMeta as AnalyticsMeta | undefined;
+                const hasData = meta && meta.source === "social_db";
+                return (
+                  <div className="mt-4 rounded-2xl border border-white/8 bg-white/4 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                        Métricas Instagram
+                      </span>
+                      <button
+                        type="button"
+                        onClick={onRefreshMetrics}
+                        disabled={isRefreshingMetrics}
+                        className="rounded-lg border border-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/50 transition hover:border-violet-500/40 hover:text-violet-300 disabled:opacity-40"
+                      >
+                        {isRefreshingMetrics ? "Actualizando…" : "↺ Actualizar"}
+                      </button>
+                    </div>
+                    {hasData ? (
+                      <>
+                        <div className="grid grid-cols-3 gap-2">
+                          <MetricCard icon="❤️" label="Likes" value={meta.likes} />
+                          <MetricCard icon="💬" label="Comentarios" value={meta.comments} />
+                          <MetricCard icon="👁️" label="Impresiones" value={meta.impressions} />
+                          <MetricCard icon="📡" label="Alcance" value={meta.reach} />
+                          <MetricCard icon="🔁" label="Compartidos" value={meta.shares} />
+                          <MetricCard icon="🔖" label="Guardados" value={meta.saved} />
+                        </div>
+                        {meta.lastFetchedAt && (
+                          <p className="mt-2.5 text-center text-[10px] text-white/25">
+                            Actualizado {formatRelativeTime(meta.lastFetchedAt)}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="py-2 text-center text-xs text-white/35">
+                        {isRefreshingMetrics ? "Obteniendo métricas de Instagram…" : "Sin datos aún — pulsa Actualizar."}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {isDone && post.externalPostId && (
                 <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-xs text-emerald-400 font-medium">
@@ -707,6 +778,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
   const [showCreate, setShowCreate] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [refreshingMetricsId, setRefreshingMetricsId] = useState<string | null>(null);
 
   const [fContent, setFContent] = useState("");
   const [fProvider, setFProvider] = useState("LINKEDIN");
@@ -799,6 +871,25 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
       setFError(e instanceof Error ? e.message : "Error al guardar");
     } finally {
       setFSaving(false);
+    }
+  }
+
+  async function refreshMetrics(postId: string) {
+    setRefreshingMetricsId(postId);
+    try {
+      const res = await fetch(`/api/socialflow/posts/${postId}/metrics/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ saasId }),
+      });
+      const data = (await res.json()) as { post?: SaasSocialPost; ok?: boolean };
+      if (res.ok && data.post) {
+        setPosts((prev) => prev.map((p) => (p.id === postId ? data.post! : p)));
+      }
+    } catch {
+      // silent — user can retry
+    } finally {
+      setRefreshingMetricsId(null);
     }
   }
 
@@ -1046,7 +1137,9 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
           post={selectedPost}
           campaigns={campaigns}
           isPending={isPending && pendingId === selectedPost.id}
+          isRefreshingMetrics={refreshingMetricsId === selectedPost.id}
           onAction={(action, extra) => patchPost(selectedPost.id, action, extra)}
+          onRefreshMetrics={() => refreshMetrics(selectedPost.id)}
           onClose={() => setSelectedPostId(null)}
         />
       )}
