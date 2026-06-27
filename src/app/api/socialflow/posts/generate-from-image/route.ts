@@ -129,6 +129,31 @@ export async function POST(request: Request) {
     const optimizationAgent = new OptimizationAgent();
     const optimized = await optimizationAgent.run({ profile, variant, keywordEngine });
 
+    // Enrich hashtags when the LLM returned fewer than 10.
+    // The brand profile may have very few base hashtags configured; supplement
+    // from image themes and profile hashtag pools so we always ship 10–15 tags.
+    if (optimized.hashtags.length < 10) {
+      const themeHashtags = imageAnalysis.suggestedThemes
+        .map((t) =>
+          "#" +
+          t
+            .replace(/\s+/g, "")
+            .replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9]/g, "")
+        )
+        .filter((h) => h.length > 2);
+
+      const supplementPool = [
+        ...optimized.hashtags,
+        ...themeHashtags,
+        ...(profile.competitorHashtags ?? []),
+        ...(profile.priorityHashtags ?? []),
+        ...(profile.baseHashtags ?? []),
+      ];
+      optimized.hashtags = Array.from(new Set(supplementPool))
+        .filter(Boolean)
+        .slice(0, 15);
+    }
+
     // Step 7: Calculate best schedule slot (deterministic, no LLM)
     const schedulerAgent = new SchedulerAgent();
     const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);

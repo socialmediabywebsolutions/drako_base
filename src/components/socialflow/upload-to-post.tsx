@@ -1,31 +1,39 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 
+const MAX_IMAGES = 8;
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type SuggestedPost = {
-  title: string;
-  body: string;
-  hashtags: string[];
-  imageHint: string;
-  provider: string;
-  contentType: string;
-  scheduledAt: string;
-  saasId: string;
-};
+type ItemStep = "uploading" | "analyzing" | "ready" | "saving" | "saved" | "error";
 
-type GenerateResult = {
-  imageUrl: string;
-  imageAnalysis: ImageAnalysis;
-  suggestedPost: SuggestedPost;
+type UploadItem = {
+  id: string;
+  file: File;
+  localPreviewUrl: string;   // blob URL — used for all <img> display
+  r2Url: string | null;      // R2 public URL — only used as imageHint in DB
+  r2Key: string | null;      // R2 object key — used by server to read via binding
+  step: ItemStep;
+  error: string | null;
+  imageAnalysis: ImageAnalysis | null;
+  editBody: string;
+  editHashtags: string[];
+  editDate: string;          // YYYY-MM-DD
+  editTime: string;          // HH:MM
+  editContentType: string;
+  editProvider: string;
+  isEditing: boolean;
+  savedAt: string | null;    // ISO scheduledAt after successful save
 };
-
-type Step = "idle" | "uploading" | "analyzing" | "ready" | "saving" | "saved";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function toIsoString(date: string, time: string): string {
   return `${date}T${time || "09:00"}:00.000Z`;
@@ -39,16 +47,14 @@ function parseTime(iso: string): string {
   return iso.slice(11, 16);
 }
 
-const CONTENT_TYPE_LABELS: Record<string, string> = {
-  FEED: "Feed",
-  REEL: "Reel",
-  STORY: "Story",
-};
+function displayDate(iso: string): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
+}
 
-const PROVIDER_LABELS: Record<string, string> = {
-  INSTAGRAM: "Instagram",
-  LINKEDIN: "LinkedIn",
-};
+const CONTENT_TYPE_LABELS: Record<string, string> = { FEED: "Feed", REEL: "Reel", STORY: "Story" };
+const PROVIDER_LABELS: Record<string, string> = { INSTAGRAM: "Instagram", LINKEDIN: "LinkedIn" };
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -62,15 +68,15 @@ function IcoUpload() {
 
 function IcoSparkles() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-3.5 w-3.5">
       <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
     </svg>
   );
 }
 
-function IcoCheck() {
+function IcoCheck({ sm }: { sm?: boolean }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-4 w-4">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className={sm ? "h-3.5 w-3.5" : "h-4 w-4"}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
     </svg>
   );
@@ -78,8 +84,32 @@ function IcoCheck() {
 
 function IcoPencil() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-3.5 w-3.5">
       <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+    </svg>
+  );
+}
+
+function IcoX() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
+function IcoPlus() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
+  );
+}
+
+function IcoCalendar() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
     </svg>
   );
 }
@@ -92,14 +122,301 @@ function IcoReset() {
   );
 }
 
-// ── Spinner ───────────────────────────────────────────────────────────────────
-
-function Spinner() {
+function Spinner({ sm }: { sm?: boolean }) {
   return (
-    <svg className="h-5 w-5 animate-spin text-violet-400" viewBox="0 0 24 24" fill="none">
+    <svg
+      className={`animate-spin text-violet-400 ${sm ? "h-4 w-4" : "h-5 w-5"}`}
+      viewBox="0 0 24 24"
+      fill="none"
+    >
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
+  );
+}
+
+// ── Item card ─────────────────────────────────────────────────────────────────
+
+function ItemCard({
+  item,
+  onApprove,
+  onRemove,
+  onUpdate,
+}: {
+  item: UploadItem;
+  onApprove: (id: string) => void;
+  onRemove: (id: string) => void;
+  onUpdate: (id: string, patch: Partial<UploadItem>) => void;
+}) {
+  // ── uploading ──────────────────────────────────────────────────────────────
+  if (item.step === "uploading") {
+    return (
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-white/3">
+        <div className="flex h-40 items-center justify-center bg-white/4">
+          <Spinner />
+        </div>
+        <div className="px-4 py-3">
+          <p className="text-sm font-medium text-white/50">Subiendo imagen…</p>
+          <p className="mt-0.5 truncate text-xs text-white/25">{item.file.name}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── analyzing ──────────────────────────────────────────────────────────────
+  if (item.step === "analyzing") {
+    return (
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-white/3">
+        <div className="relative h-40 overflow-hidden bg-black/20">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <Spinner />
+          </div>
+        </div>
+        <div className="px-4 py-3">
+          <p className="text-sm font-medium text-white/50">Analizando con IA…</p>
+          <p className="mt-0.5 text-xs text-white/25">LLaVA · Mistral</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── error ──────────────────────────────────────────────────────────────────
+  if (item.step === "error") {
+    return (
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-rose-500/20 bg-rose-500/5">
+        <div className="relative h-40 overflow-hidden bg-black/20">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover opacity-40" />
+        </div>
+        <div className="flex flex-col gap-3 px-4 py-3">
+          <p className="text-xs leading-relaxed text-rose-300">{item.error}</p>
+          <button
+            type="button"
+            onClick={() => onRemove(item.id)}
+            className="flex items-center gap-1.5 self-start rounded-lg border border-rose-500/25 px-3 py-1.5 text-xs text-rose-400 transition hover:bg-rose-500/10"
+          >
+            <IcoX /> Eliminar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── saved ──────────────────────────────────────────────────────────────────
+  if (item.step === "saved") {
+    return (
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-emerald-500/20 bg-emerald-500/5">
+        <div className="relative h-40 overflow-hidden bg-black/20">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover opacity-60" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/20 text-emerald-400">
+              <IcoCheck />
+            </div>
+          </div>
+        </div>
+        <div className="px-4 py-3">
+          <p className="text-sm font-semibold text-emerald-300">Programado</p>
+          {item.savedAt && (
+            <p className="mt-0.5 text-xs text-white/35">
+              {displayDate(item.savedAt)} · {item.savedAt.slice(11, 16)} UTC
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── saving ─────────────────────────────────────────────────────────────────
+  if (item.step === "saving") {
+    return (
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-white/3">
+        <div className="relative h-40 overflow-hidden bg-black/20">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover opacity-50" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+            <Spinner />
+          </div>
+        </div>
+        <div className="px-4 py-3">
+          <p className="text-sm font-medium text-white/50">Programando…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── ready (compact view) ───────────────────────────────────────────────────
+  if (!item.isEditing) {
+    return (
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-white/3">
+        {/* Thumbnail */}
+        <div className="relative h-40 overflow-hidden bg-black/20">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover" />
+          <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 backdrop-blur-sm">
+            <IcoSparkles />
+            <span className="text-[10px] font-semibold text-white/70">IA</span>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex flex-1 flex-col gap-3 p-4">
+          {item.error && (
+            <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{item.error}</p>
+          )}
+
+          <p className="line-clamp-3 text-sm leading-relaxed text-white/70">{item.editBody}</p>
+
+          <div className="flex flex-wrap gap-1.5">
+            {item.editHashtags.length > 0 && (
+              <span className="rounded-full bg-violet-500/15 px-2.5 py-0.5 text-[11px] font-medium text-violet-300">
+                {item.editHashtags.length} hashtags
+              </span>
+            )}
+            <span className="rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] font-medium text-white/40">
+              {PROVIDER_LABELS[item.editProvider] ?? item.editProvider}
+            </span>
+            <span className="rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] font-medium text-white/40">
+              {CONTENT_TYPE_LABELS[item.editContentType] ?? item.editContentType}
+            </span>
+          </div>
+
+          {item.editDate && (
+            <p className="flex items-center gap-1.5 text-xs text-white/35">
+              <IcoCalendar />
+              {displayDate(item.editDate)} · {item.editTime || "09:00"} UTC
+            </p>
+          )}
+
+          {/* Actions */}
+          <div className="mt-auto flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => onRemove(item.id)}
+              className="flex items-center gap-1 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/35 transition hover:border-rose-500/30 hover:text-rose-400"
+            >
+              <IcoX />
+            </button>
+            <button
+              type="button"
+              onClick={() => onUpdate(item.id, { isEditing: true })}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/45 transition hover:bg-white/5 hover:text-white/70"
+            >
+              <IcoPencil /> Editar
+            </button>
+            <button
+              type="button"
+              onClick={() => onApprove(item.id)}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+            >
+              <IcoCheck sm /> Aprobar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── ready (edit view) ──────────────────────────────────────────────────────
+  return (
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-violet-500/20 bg-white/3">
+      {/* Thumbnail small */}
+      <div className="relative h-24 overflow-hidden bg-black/20">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover opacity-70" />
+        <button
+          type="button"
+          onClick={() => onUpdate(item.id, { isEditing: false })}
+          className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-[11px] text-white/60 backdrop-blur-sm transition hover:bg-white/20"
+        >
+          <IcoX /> Cerrar
+        </button>
+      </div>
+
+      {/* Edit form */}
+      <div className="flex flex-col gap-3 p-4">
+        <div>
+          <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-white/25">Caption</p>
+          <textarea
+            value={item.editBody}
+            onChange={(e) => onUpdate(item.id, { editBody: e.target.value })}
+            rows={5}
+            className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm leading-relaxed text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+          />
+        </div>
+
+        <div>
+          <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-white/25">
+            Hashtags ({item.editHashtags.length}/15)
+          </p>
+          <textarea
+            value={item.editHashtags.join(" ")}
+            onChange={(e) => {
+              const raw = e.target.value.trim();
+              if (!raw) { onUpdate(item.id, { editHashtags: [] }); return; }
+              const tags = raw.split(/\s+/).map((t) => t.startsWith("#") ? t : `#${t}`).slice(0, 15);
+              onUpdate(item.id, { editHashtags: tags });
+            }}
+            rows={2}
+            placeholder="#hashtag1 #hashtag2 …"
+            className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="date"
+            value={item.editDate}
+            min={todayStr()}
+            onChange={(e) => onUpdate(item.id, { editDate: e.target.value })}
+            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+          />
+          <input
+            type="time"
+            value={item.editTime}
+            onChange={(e) => onUpdate(item.id, { editTime: e.target.value })}
+            className="w-28 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+          />
+          <select
+            value={item.editProvider}
+            onChange={(e) => onUpdate(item.id, { editProvider: e.target.value })}
+            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+          >
+            <option value="INSTAGRAM">Instagram</option>
+            <option value="LINKEDIN">LinkedIn</option>
+          </select>
+          <select
+            value={item.editContentType}
+            onChange={(e) => onUpdate(item.id, { editContentType: e.target.value })}
+            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+          >
+            <option value="FEED">Feed</option>
+            <option value="REEL">Reel</option>
+            <option value="STORY">Story</option>
+          </select>
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => onUpdate(item.id, { isEditing: false })}
+            className="flex-1 rounded-lg border border-white/10 py-2 text-xs text-white/40 transition hover:bg-white/5"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={() => { onUpdate(item.id, { isEditing: false }); onApprove(item.id); }}
+            disabled={!item.editDate || !item.editBody.trim()}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <IcoCheck sm /> Aprobar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -108,31 +425,45 @@ function Spinner() {
 export default function UploadToPost({ saasId }: { saasId: string }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const addMoreRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [items, setItems] = useState<UploadItem[]>([]);
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
-  const [step, setStep] = useState<Step>("idle");
-  const [error, setError] = useState<string | null>(null);
+  const updateItem = useCallback((id: string, patch: Partial<UploadItem>) => {
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  }, []);
 
-  // Result state
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageAnalysis, setImageAnalysis] = useState<ImageAnalysis | null>(null);
+  const savedCount = items.filter((i) => i.step === "saved").length;
+  const readyCount = items.filter((i) => i.step === "ready").length;
+  const allDone =
+    items.length > 0 && items.every((i) => i.step === "saved" || i.step === "error");
+  const allSaved = items.length > 0 && items.every((i) => i.step === "saved");
+  const activeCount = items.filter((i) => i.step !== "error").length;
+  const canAddMore = activeCount < MAX_IMAGES;
 
-  // Editable post fields
-  const [editBody, setEditBody] = useState("");
-  const [editHashtags, setEditHashtags] = useState<string[]>([]);
-  const [editDate, setEditDate] = useState("");
-  const [editTime, setEditTime] = useState("");
-  const [editContentType, setEditContentType] = useState("FEED");
-  const [editProvider, setEditProvider] = useState("INSTAGRAM");
-  const [isEditing, setIsEditing] = useState(false);
+  // Redirect when all successfully saved
+  useEffect(() => {
+    if (!allSaved) return;
+    const t = setTimeout(() => router.push("/socialflow/plan"), 2500);
+    return () => clearTimeout(t);
+  }, [allSaved, router]);
 
-  async function handleFile(file: File) {
-    if (!file.type.startsWith("image/")) {
-      setError("Solo se aceptan imágenes (JPEG, PNG, WebP, GIF).");
-      return;
-    }
-    setError(null);
-    setStep("uploading");
+  async function processFile(file: File): Promise<void> {
+    const id = crypto.randomUUID();
+    const localPreviewUrl = URL.createObjectURL(file);
+
+    setItems((prev) => [
+      ...prev,
+      {
+        id, file, localPreviewUrl,
+        r2Url: null, r2Key: null,
+        step: "uploading", error: null, imageAnalysis: null,
+        editBody: "", editHashtags: [], editDate: "", editTime: "",
+        editContentType: "FEED", editProvider: "INSTAGRAM",
+        isEditing: false, savedAt: null,
+      },
+    ]);
 
     try {
       // Phase 1: upload to R2
@@ -143,94 +474,191 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
       if (!uploadRes.ok || !uploadData.url || !uploadData.key) {
         throw new Error(uploadData.message ?? uploadData.error ?? "Error al subir la imagen.");
       }
-      setImageUrl(uploadData.url);
+
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === id ? { ...i, r2Url: uploadData.url!, r2Key: uploadData.key!, step: "analyzing" } : i
+        )
+      );
 
       // Phase 2: generate post from image
-      setStep("analyzing");
       const genRes = await fetch("/api/socialflow/posts/generate-from-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageUrl: uploadData.url, imageKey: uploadData.key, saasId }),
       });
-      const genData = (await genRes.json()) as GenerateResult & { code?: string; message?: string };
+      const genData = (await genRes.json()) as {
+        imageAnalysis?: ImageAnalysis;
+        suggestedPost?: {
+          body: string; hashtags: string[]; scheduledAt: string;
+          contentType: string; provider: string;
+        };
+        code?: string; message?: string;
+      };
       if (!genRes.ok || !genData.suggestedPost) {
         throw new Error(genData.message ?? genData.code ?? "Error al generar el post.");
       }
 
-      // Populate editable fields
-      setImageAnalysis(genData.imageAnalysis);
-      setEditBody(genData.suggestedPost.body);
-      setEditHashtags(genData.suggestedPost.hashtags);
-      setEditDate(parseDate(genData.suggestedPost.scheduledAt));
-      setEditTime(parseTime(genData.suggestedPost.scheduledAt));
-      setEditContentType(genData.suggestedPost.contentType);
-      setEditProvider(genData.suggestedPost.provider);
-      setStep("ready");
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === id
+            ? {
+                ...i,
+                step: "ready",
+                imageAnalysis: genData.imageAnalysis ?? null,
+                editBody: genData.suggestedPost!.body,
+                editHashtags: genData.suggestedPost!.hashtags,
+                editDate: parseDate(genData.suggestedPost!.scheduledAt),
+                editTime: parseTime(genData.suggestedPost!.scheduledAt),
+                editContentType: genData.suggestedPost!.contentType,
+                editProvider: genData.suggestedPost!.provider,
+              }
+            : i
+        )
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Ocurrió un error inesperado.");
-      setStep("idle");
-      setImageUrl(null);
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === id
+            ? { ...i, step: "error", error: e instanceof Error ? e.message : "Error inesperado." }
+            : i
+        )
+      );
     }
   }
 
-  async function handleApprove() {
-    if (!imageUrl) return;
-    setStep("saving");
-    setError(null);
+  function handleFiles(newFiles: FileList | File[]) {
+    setGlobalError(null);
+    const files = Array.from(newFiles);
+    const images = files.filter((f) => f.type.startsWith("image/"));
+    const available = MAX_IMAGES - activeCount;
+
+    if (available <= 0) {
+      setGlobalError(`Límite de ${MAX_IMAGES} fotos alcanzado.`);
+      return;
+    }
+
+    const toProcess = images.slice(0, available);
+    if (files.length > images.length) {
+      setGlobalError("Algunos archivos fueron ignorados (solo se aceptan imágenes).");
+    } else if (images.length > available) {
+      setGlobalError(`Solo se añadieron ${toProcess.length} de ${images.length} fotos (límite: ${MAX_IMAGES}).`);
+    }
+
+    if (toProcess.length > 0) {
+      void Promise.all(toProcess.map((f) => processFile(f)));
+    }
+  }
+
+  async function approveItem(id: string): Promise<void> {
+    const item = items.find((i) => i.id === id);
+    if (!item || item.step !== "ready" || !item.r2Url) return;
+
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, step: "saving" } : i)));
+
     try {
-      const title = editBody.split("\n")[0]?.replace(/^#+\s*/, "").slice(0, 72).trim() ?? "Post";
-      const bodyWithHashtags = editHashtags.length
-        ? `${editBody}\n\n${editHashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")}`
-        : editBody;
+      const title =
+        item.editBody.split("\n")[0]?.replace(/^#+\s*/, "").slice(0, 72).trim() ?? "Post";
+      const bodyWithHashtags = item.editHashtags.length
+        ? `${item.editBody}\n\n${item.editHashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")}`
+        : item.editBody;
+      const scheduledAt = toIsoString(item.editDate, item.editTime);
 
       const res = await fetch("/api/socialflow/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           saasId,
-          provider: editProvider,
-          contentType: editContentType,
+          provider: item.editProvider,
+          contentType: item.editContentType,
           title,
           body: bodyWithHashtags,
-          imageHint: imageUrl,
+          imageHint: item.r2Url,
           status: "SCHEDULED",
-          scheduledAt: toIsoString(editDate, editTime),
+          scheduledAt,
         }),
       });
       const data = (await res.json()) as { post?: { id: string }; code?: string; message?: string };
-      if (!res.ok || !data.post) {
-        throw new Error(data.message ?? data.code ?? "Error al guardar el post.");
-      }
-      setStep("saved");
-      setTimeout(() => router.push("/socialflow/plan"), 1500);
+      if (!res.ok || !data.post) throw new Error(data.message ?? data.code ?? "Error al guardar el post.");
+
+      setItems((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, step: "saved", savedAt: scheduledAt } : i))
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al guardar el post.");
-      setStep("ready");
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === id
+            ? { ...i, step: "ready", error: e instanceof Error ? e.message : "Error al guardar." }
+            : i
+        )
+      );
     }
   }
 
+  async function approveAll(): Promise<void> {
+    const readyIds = items.filter((i) => i.step === "ready").map((i) => i.id);
+    await Promise.all(readyIds.map((id) => approveItem(id)));
+  }
+
+  function removeItem(id: string) {
+    setItems((prev) => {
+      const item = prev.find((i) => i.id === id);
+      if (item) URL.revokeObjectURL(item.localPreviewUrl);
+      return prev.filter((i) => i.id !== id);
+    });
+  }
+
   function handleReset() {
-    setStep("idle");
-    setError(null);
-    setImageUrl(null);
-    setImageAnalysis(null);
-    setEditBody("");
-    setEditHashtags([]);
-    setIsEditing(false);
+    items.forEach((i) => URL.revokeObjectURL(i.localPreviewUrl));
+    setItems([]);
+    setGlobalError(null);
   }
 
-  function todayStr() {
-    return new Date().toISOString().slice(0, 10);
+  // ── All saved screen ────────────────────────────────────────────────────────
+
+  if (allSaved && items.length > 0) {
+    return (
+      <div className="flex flex-col items-center gap-6 rounded-3xl border border-emerald-500/20 bg-emerald-500/5 py-16">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">
+          <IcoCheck />
+        </div>
+        <div className="text-center">
+          <p className="text-xl font-black text-emerald-300">
+            {items.length === 1 ? "Post programado" : `${items.length} posts programados`}
+          </p>
+          <p className="mt-1 text-sm text-white/40">Redirigiendo al calendario…</p>
+        </div>
+        <div className="w-full max-w-sm space-y-2 px-6">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center gap-3 rounded-xl bg-white/6 px-3 py-2.5"
+            >
+              <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-white/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover" />
+              </div>
+              <p className="flex-1 truncate text-xs text-white/50">{item.editBody.slice(0, 50)}…</p>
+              {item.savedAt && (
+                <span className="shrink-0 text-xs font-semibold text-emerald-400">
+                  {displayDate(item.savedAt)}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
-  // ── Drop zone ────────────────────────────────────────────────────────────────
+  // ── Empty: drop zone ────────────────────────────────────────────────────────
 
-  if (step === "idle") {
+  if (items.length === 0) {
     return (
       <div className="space-y-4">
-        {error && (
+        {globalError && (
           <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
-            {error}
+            {globalError}
           </div>
         )}
         <div
@@ -239,8 +667,7 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
           onDrop={(e) => {
             e.preventDefault();
             setIsDragging(false);
-            const file = e.dataTransfer.files[0];
-            if (file) void handleFile(file);
+            handleFiles(e.dataTransfer.files);
           }}
           onClick={() => fileInputRef.current?.click()}
           className={[
@@ -254,19 +681,17 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
             <IcoUpload />
           </div>
           <div>
-            <p className="text-base font-bold text-white/80">Arrastra tu foto aquí</p>
+            <p className="text-base font-bold text-white/80">Arrastra tus fotos aquí</p>
             <p className="mt-1 text-sm text-white/40">o haz click para seleccionar</p>
-            <p className="mt-3 text-xs text-white/25">JPEG, PNG, WebP, GIF · máx. 200 MB</p>
+            <p className="mt-3 text-xs text-white/25">Hasta {MAX_IMAGES} fotos · JPEG, PNG, WebP, GIF · máx. 200 MB</p>
           </div>
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void handleFile(file);
-            }}
+            onChange={(e) => { if (e.target.files) handleFiles(e.target.files); }}
           />
         </div>
 
@@ -274,16 +699,16 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
           <p className="mb-2 text-xs font-black uppercase tracking-widest text-white/25">Cómo funciona</p>
           <ol className="space-y-2">
             {[
-              "Sube una foto de tu trabajo, producto, equipo o espacio.",
-              "La IA analiza la imagen y entiende el contexto visual.",
-              "Genera un caption optimizado, hashtags y fecha/hora ideales para tu nicho.",
-              "Aprueba directamente o edita antes de programar.",
-            ].map((step, i) => (
+              "Sube hasta 8 fotos de tu trabajo, producto, equipo o espacio.",
+              "La IA analiza cada imagen y entiende el contexto visual.",
+              "Genera un caption optimizado, hashtags y fecha/hora para cada una.",
+              "Aprueba todas de un click o edita individualmente antes de programar.",
+            ].map((s, i) => (
               <li key={i} className="flex items-start gap-3 text-sm text-white/45">
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-[10px] font-black text-violet-400">
                   {i + 1}
                 </span>
-                {step}
+                {s}
               </li>
             ))}
           </ol>
@@ -292,246 +717,113 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
     );
   }
 
-  // ── Loading states ────────────────────────────────────────────────────────────
-
-  if (step === "uploading" || step === "analyzing") {
-    return (
-      <div className="flex flex-col items-center justify-center gap-5 rounded-3xl border border-white/8 bg-white/3 py-24">
-        <Spinner />
-        <div className="text-center">
-          <p className="text-base font-bold text-white/80">
-            {step === "uploading" ? "Subiendo imagen…" : "Analizando con IA…"}
-          </p>
-          <p className="mt-1 text-sm text-white/35">
-            {step === "uploading"
-              ? "Guardando en almacenamiento seguro."
-              : "LLaVA analiza la imagen · Mistral genera el caption"}
-          </p>
-        </div>
-        {step === "analyzing" && imageUrl && (
-          <div className="h-24 w-24 overflow-hidden rounded-2xl border border-white/10">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl} alt="Preview" className="h-full w-full object-cover" />
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ── Saved ─────────────────────────────────────────────────────────────────────
-
-  if (step === "saved") {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 rounded-3xl border border-emerald-500/20 bg-emerald-500/5 py-20">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">
-          <IcoCheck />
-        </div>
-        <div className="text-center">
-          <p className="text-base font-bold text-emerald-300">Post programado</p>
-          <p className="mt-1 text-sm text-white/40">Redirigiendo al calendario…</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Ready: show result ────────────────────────────────────────────────────────
+  // ── Items grid ──────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-5">
-      {error && (
-        <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
-          {error}
+      {globalError && (
+        <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+          {globalError}
         </div>
       )}
 
-      <div className="overflow-hidden rounded-3xl border border-white/8 bg-white/3">
-        <div className="flex flex-col gap-0 md:flex-row">
-
-          {/* Left: image + analysis */}
-          <div className="flex shrink-0 flex-col gap-4 border-b border-white/8 p-5 md:w-72 md:border-b-0 md:border-r">
-            {imageUrl && (
-              <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imageUrl} alt="Imagen subida" className="w-full object-cover" style={{ maxHeight: 280 }} />
-              </div>
-            )}
-
-            {imageAnalysis && (
-              <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-white/25">
-                  Análisis IA
-                </p>
-                <div className="space-y-2">
-                  <div className="rounded-xl bg-white/5 px-3 py-2.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30">Contexto</p>
-                    <p className="mt-0.5 text-sm text-white/70">{imageAnalysis.context}</p>
-                  </div>
-                  <div className="rounded-xl bg-white/5 px-3 py-2.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30">Emoción</p>
-                    <p className="mt-0.5 text-sm text-white/70">{imageAnalysis.emotion}</p>
-                  </div>
-                  <div className="rounded-xl bg-white/5 px-3 py-2.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30">Descripción</p>
-                    <p className="mt-0.5 text-sm leading-relaxed text-white/60">{imageAnalysis.description}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {imageAnalysis.suggestedThemes.map((theme) => (
-                      <span
-                        key={theme}
-                        className="rounded-full bg-violet-500/15 px-2.5 py-0.5 text-[11px] font-medium text-violet-300"
-                      >
-                        {theme}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Right: generated post */}
-          <div className="flex flex-1 flex-col gap-5 p-5">
-            {/* Format + Provider badges */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-fuchsia-500/15 px-3 py-1 text-xs font-bold text-fuchsia-300">
-                {PROVIDER_LABELS[editProvider] ?? editProvider}
-              </span>
-              <span className="rounded-full bg-violet-500/15 px-3 py-1 text-xs font-bold text-violet-300">
-                {CONTENT_TYPE_LABELS[editContentType] ?? editContentType}
-              </span>
-              <div className="flex items-center gap-1 rounded-full bg-white/8 px-3 py-1">
-                <IcoSparkles />
-                <span className="text-xs font-semibold text-white/50">Generado por IA</span>
-              </div>
-            </div>
-
-            {/* Caption */}
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-[10px] font-black uppercase tracking-widest text-white/30">Caption</p>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing((v) => !v)}
-                  className="flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-xs text-white/45 transition hover:border-white/20 hover:text-white/70"
-                >
-                  <IcoPencil />
-                  {isEditing ? "Vista previa" : "Editar"}
-                </button>
-              </div>
-              {isEditing ? (
-                <textarea
-                  value={editBody}
-                  onChange={(e) => setEditBody(e.target.value)}
-                  rows={8}
-                  className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-white/80 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-                />
-              ) : (
-                <div className="rounded-xl border border-white/8 bg-white/4 px-4 py-3">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/75">{editBody}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Hashtags */}
-            <div>
-              <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-white/30">
-                Hashtags ({editHashtags.length}/15)
-              </p>
-              {isEditing ? (
-                <textarea
-                  value={editHashtags.join(" ")}
-                  onChange={(e) => {
-                    const raw = e.target.value.trim();
-                    if (!raw) { setEditHashtags([]); return; }
-                    const tags = raw.split(/\s+/).map((t) => t.startsWith("#") ? t : `#${t}`).slice(0, 15);
-                    setEditHashtags(tags);
-                  }}
-                  rows={2}
-                  placeholder="#hashtag1 #hashtag2 …"
-                  className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-                />
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {editHashtags.map((tag) => (
-                    <span key={tag} className="rounded-full bg-white/8 px-2.5 py-1 text-xs font-medium text-violet-300">
-                      {tag.startsWith("#") ? tag : `#${tag}`}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Schedule */}
-            <div>
-              <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-white/30">
-                Fecha y hora de publicación
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <input
-                  type="date"
-                  value={editDate}
-                  min={todayStr()}
-                  onChange={(e) => setEditDate(e.target.value)}
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-                />
-                <input
-                  type="time"
-                  value={editTime}
-                  onChange={(e) => setEditTime(e.target.value)}
-                  className="w-32 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-                />
-                <select
-                  value={editProvider}
-                  onChange={(e) => setEditProvider(e.target.value)}
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-                >
-                  <option value="INSTAGRAM">Instagram</option>
-                  <option value="LINKEDIN">LinkedIn</option>
-                </select>
-                <select
-                  value={editContentType}
-                  onChange={(e) => setEditContentType(e.target.value)}
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-                >
-                  <option value="FEED">Feed</option>
-                  <option value="REEL">Reel</option>
-                  <option value="STORY">Story</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer actions */}
-        <div className="flex items-center justify-between border-t border-white/8 px-5 py-4">
+      {/* Action bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-white/40">
+          {activeCount} foto{activeCount !== 1 ? "s" : ""}
+          {savedCount > 0 && (
+            <span className="ml-2 text-emerald-400">
+              · {savedCount} programada{savedCount !== 1 ? "s" : ""}
+            </span>
+          )}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {canAddMore && (
+            <button
+              type="button"
+              onClick={() => addMoreRef.current?.click()}
+              className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/4 px-3 py-2 text-xs text-white/50 transition hover:bg-white/8 hover:text-white/70"
+            >
+              <IcoPlus />
+              Añadir fotos ({activeCount}/{MAX_IMAGES})
+            </button>
+          )}
+          {readyCount >= 2 && (
+            <button
+              type="button"
+              onClick={() => void approveAll()}
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+            >
+              <IcoCheck sm />
+              Aprobar todo ({readyCount})
+            </button>
+          )}
+          {allDone && savedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => router.push("/socialflow/plan")}
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/15"
+            >
+              <IcoCalendar />
+              Ver en calendario
+            </button>
+          )}
           <button
             type="button"
             onClick={handleReset}
-            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/4 px-4 py-2.5 text-sm text-white/45 transition hover:bg-white/8 hover:text-white/70"
+            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/4 px-3 py-2 text-xs text-white/35 transition hover:bg-white/8"
           >
             <IcoReset />
-            Subir otra foto
-          </button>
-
-          <button
-            type="button"
-            onClick={() => void handleApprove()}
-            disabled={step === "saving" || !editDate || !editBody.trim()}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
-          >
-            {step === "saving" ? (
-              <>
-                <Spinner />
-                Programando…
-              </>
-            ) : (
-              <>
-                <IcoCheck />
-                Aprobar y programar
-              </>
-            )}
           </button>
         </div>
+      </div>
+
+      <input
+        ref={addMoreRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => { if (e.target.files) handleFiles(e.target.files); }}
+      />
+
+      {/* Cards */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {items.map((item) => (
+          <ItemCard
+            key={item.id}
+            item={item}
+            onApprove={approveItem}
+            onRemove={removeItem}
+            onUpdate={updateItem}
+          />
+        ))}
+
+        {/* Mini drop zone to add more */}
+        {canAddMore && items.length > 0 && (
+          <div
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              handleFiles(e.dataTransfer.files);
+            }}
+            onClick={() => addMoreRef.current?.click()}
+            className={[
+              "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-all",
+              isDragging
+                ? "border-violet-500/50 bg-violet-500/8"
+                : "border-white/10 hover:border-violet-500/30 hover:bg-white/3",
+            ].join(" ")}
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/6 text-white/30">
+              <IcoPlus />
+            </div>
+            <p className="text-xs text-white/30">Añadir más fotos</p>
+            <p className="text-[10px] text-white/20">{MAX_IMAGES - activeCount} disponible{MAX_IMAGES - activeCount !== 1 ? "s" : ""}</p>
+          </div>
+        )}
       </div>
     </div>
   );
