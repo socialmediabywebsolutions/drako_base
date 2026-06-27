@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
+import { env } from "@/lib/cf";
 import { SocialContextError } from "@/lib/socialflow/repository";
 import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
 import { ImageAnalysisAgent } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
@@ -19,13 +20,14 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => null)) as {
       imageUrl?: string;
+      imageKey?: string;
       saasId?: string;
       provider?: string;
     } | null;
 
-    if (!body?.imageUrl || !body?.saasId) {
+    if (!body?.imageUrl || !body?.imageKey || !body?.saasId) {
       return NextResponse.json(
-        { code: "INVALID_BODY", message: "imageUrl and saasId are required" },
+        { code: "INVALID_BODY", message: "imageUrl, imageKey and saasId are required" },
         { status: 400 },
       );
     }
@@ -42,15 +44,22 @@ export async function POST(request: Request) {
       frequencyPerWeek: 1,
     });
 
-    // Fetch image bytes from R2 (or any public URL)
-    const imageResponse = await fetch(body.imageUrl);
-    if (!imageResponse.ok) {
+    // Read image bytes directly from R2 binding (avoids public URL fetch)
+    const bucket = env()?.SOCIAL_MEDIA_BUCKET;
+    if (!bucket) {
       return NextResponse.json(
-        { code: "IMAGE_FETCH_FAILED", message: "Could not fetch the image from the provided URL" },
-        { status: 400 },
+        { code: "STORAGE_NOT_CONFIGURED", message: "Media storage is not configured" },
+        { status: 503 },
       );
     }
-    const imageBytes = Array.from(new Uint8Array(await imageResponse.arrayBuffer()));
+    const r2Object = await bucket.get(body.imageKey);
+    if (!r2Object) {
+      return NextResponse.json(
+        { code: "IMAGE_NOT_FOUND", message: "Image not found in storage" },
+        { status: 404 },
+      );
+    }
+    const imageBytes = Array.from(new Uint8Array(await r2Object.arrayBuffer()));
 
     // Step 1: Analyze image with LLaVA
     const imageAgent = new ImageAnalysisAgent();

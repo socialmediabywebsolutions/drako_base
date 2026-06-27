@@ -139,8 +139,8 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
       const form = new FormData();
       form.append("file", file);
       const uploadRes = await fetch("/api/socialflow/media/upload", { method: "POST", body: form });
-      const uploadData = (await uploadRes.json()) as { url?: string; message?: string; error?: string };
-      if (!uploadRes.ok || !uploadData.url) {
+      const uploadData = (await uploadRes.json()) as { url?: string; key?: string; message?: string; error?: string };
+      if (!uploadRes.ok || !uploadData.url || !uploadData.key) {
         throw new Error(uploadData.message ?? uploadData.error ?? "Error al subir la imagen.");
       }
       setImageUrl(uploadData.url);
@@ -150,7 +150,7 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
       const genRes = await fetch("/api/socialflow/posts/generate-from-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl: uploadData.url, saasId }),
+        body: JSON.stringify({ imageUrl: uploadData.url, imageKey: uploadData.key, saasId }),
       });
       const genData = (await genRes.json()) as GenerateResult & { code?: string; message?: string };
       if (!genRes.ok || !genData.suggestedPost) {
