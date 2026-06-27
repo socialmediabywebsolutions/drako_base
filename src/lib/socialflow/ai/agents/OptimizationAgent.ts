@@ -24,7 +24,7 @@ Texto original: ${variant.text}`;
     const base: OptimizedPost = {
       id: variant.id,
       baseText: variant.text,
-      improvedText: `${variant.text}\n\nAjustado al tono: ${profile.toneOfVoice}.`,
+      improvedText: variant.text,
       hashtags: uniqueHashtags,
       tone: profile.toneOfVoice,
     };
@@ -37,6 +37,13 @@ Texto original: ${variant.text}`;
     // Enforce max 15 hashtags regardless of what the LLM returned
     if (Array.isArray(data.hashtags) && data.hashtags.length > 15) {
       data.hashtags = data.hashtags.slice(0, 15);
+    }
+
+    // Strip any tone-metadata lines that may have leaked from the seed fallback
+    if (typeof data.improvedText === "string") {
+      data.improvedText = data.improvedText
+        .replace(/\n\n(Ajustado al tono|Tone adjusted for)[^\n]*/gi, "")
+        .trim();
     }
 
     return data;

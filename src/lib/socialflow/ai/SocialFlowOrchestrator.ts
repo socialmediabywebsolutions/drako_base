@@ -31,7 +31,7 @@ export class SocialFlowOrchestrator {
     ]);
 
     const niche = input.niche || profile.niche || input.saasId;
-    const tone = profile.toneOfVoice || input.tone || "professional";
+    const tone = profile.toneOfVoice || input.tone || "neutro y profesional";
     const brandName = profile.brandName || input.saasId.replace(/[-_]/g, " ");
 
     const baseLongDescription = profile.longDescription || profile.shortDescription || `${niche} content pipeline`;

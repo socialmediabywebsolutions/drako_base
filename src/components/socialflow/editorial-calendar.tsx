@@ -191,13 +191,23 @@ function IconX() {
 
 // ─── PostChip (mini pill inside calendar cells) ────────────────────────────
 
-function PostChip({ post }: { post: SaasSocialPost }) {
+function isOverdue(post: SaasSocialPost, today: string): boolean {
+  return (
+    (post.status === "SCHEDULED" || post.status === "APPROVED") &&
+    !!post.scheduledAt &&
+    post.scheduledAt.slice(0, 10) < today
+  );
+}
+
+function PostChip({ post, today }: { post: SaasSocialPost; today: string }) {
   const cfg = STATUS_CFG[post.status];
   const abbr = PROVIDER_ABBR[post.provider] ?? "?";
   const typeIcon = CONTENT_TYPE_CFG[post.contentType]?.icon ?? "🖼️";
+  const overdue = isOverdue(post, today);
   const title = post.title.length > 18 ? post.title.slice(0, 18) + "…" : post.title;
   return (
-    <div className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${cfg.chipBg}`}>
+    <div className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${overdue ? "bg-amber-500/20 text-amber-200" : cfg.chipBg}`}>
+      {overdue && <span className="shrink-0 font-black text-amber-400">!</span>}
       <span className="shrink-0 text-[9px] leading-none">{typeIcon}</span>
       <span className="font-black opacity-60">{abbr}</span>
       <span className="truncate">{title}</span>
@@ -418,6 +428,17 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
                 </div>
               )}
             </div>
+
+            {/* Overdue warning */}
+            {(post.status === "SCHEDULED" || post.status === "APPROVED") &&
+              post.scheduledAt && post.scheduledAt < new Date().toISOString() && (
+              <div className="mx-5 mb-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-300">
+                <span className="font-black">⚠ Fecha pasada.</span>{" "}
+                {post.status === "APPROVED"
+                  ? "Aprueba y reprograma este post para publicarlo."
+                  : "El scheduler lo publicará en el próximo ciclo. Si persiste, reprograma la fecha."}
+              </div>
+            )}
 
             {/* Action footer */}
             <div className="shrink-0 border-t border-white/8 px-5 py-4">
@@ -1013,7 +1034,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
                   )}
                 </div>
                 <div className="space-y-0.5">
-                  {dayPosts.slice(0, 3).map((p) => <PostChip key={p.id} post={p} />)}
+                  {dayPosts.slice(0, 3).map((p) => <PostChip key={p.id} post={p} today={today} />)}
                   {dayPosts.length > 3 && (
                     <div className="pl-1 text-[9px] font-bold text-white/30">+{dayPosts.length - 3} más</div>
                   )}

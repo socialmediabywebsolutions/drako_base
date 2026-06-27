@@ -28,7 +28,7 @@ export async function processScheduledPosts(): Promise<{ results: SchedulerPostR
   const { results: posts } = await socialDb.prepare(
     `SELECT id, tenant_id, saas_id
      FROM saas_social_posts
-     WHERE status = 'SCHEDULED'
+     WHERE status IN ('SCHEDULED', 'APPROVED')
        AND scheduled_at IS NOT NULL
        AND datetime(scheduled_at) <= datetime(?)
      ORDER BY datetime(scheduled_at) ASC

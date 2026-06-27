@@ -43,8 +43,8 @@ function buildBrandProfile(
     longDescription: profile.longDescription || `${profile.brandName} runs SocialFlow inside an isolated runtime with tenant-scoped execution.`,
     mission: profile.mission || `Grow ${profile.brandName} with consistent social execution.`,
     valueProposition: profile.valueProposition || `Operational content velocity for ${input.niche}.`,
-    toneOfVoice: profile.toneOfVoice || input.tone,
-    personality: profile.personality || input.tone,
+    toneOfVoice: profile.toneOfVoice || input.tone || "neutro y profesional",
+    personality: profile.personality || input.tone || "neutro y profesional",
     niche: profile.niche || input.niche,
     audience: profile.audienceDescription || `${input.niche} buyers`,
     buyerPersona: profile.buyerPersona || `${input.niche} operator`,
@@ -319,7 +319,7 @@ async function generatePostPayloads(
   const optimizedBase: RuntimeOptimizedPost = {
     id: strategyItem.id,
     baseText: generated.variants[0]?.text ?? strategyItem.angle,
-    improvedText: `${generated.variants[0]?.text ?? strategyItem.angle}\n\nTone adjusted for ${profile.toneOfVoice}.`,
+    improvedText: generated.variants[0]?.text ?? strategyItem.angle,
     hashtags: hashtagPool,
     tone: profile.toneOfVoice,
   };
@@ -340,6 +340,12 @@ async function generatePostPayloads(
       seed: () => optimizedBase,
     })
   ).data;
+
+  if (typeof optimized.improvedText === "string") {
+    optimized.improvedText = optimized.improvedText
+      .replace(/\n\n(Ajustado al tono|Tone adjusted for)[^\n]*/gi, "")
+      .trim();
+  }
 
   return { generated, optimized };
 }
