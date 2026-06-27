@@ -23,6 +23,7 @@ export async function POST(request: Request) {
       imageKey?: string;
       saasId?: string;
       provider?: string;
+      startDate?: string;   // YYYY-MM-DD — when set, pins the post to that exact day
     } | null;
 
     if (!body?.imageUrl || !body?.imageKey || !body?.saasId) {
@@ -154,13 +155,17 @@ export async function POST(request: Request) {
         .slice(0, 15);
     }
 
-    // Step 7: Calculate best schedule slot (deterministic, no LLM)
+    // Step 7: Calculate best schedule slot (deterministic, no LLM).
+    // When startDate is provided by the caller (multi-upload batch), use it as
+    // both startDate and endDate so the post is pinned to that exact day.
     const schedulerAgent = new SchedulerAgent();
     const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const targetDate = body.startDate ?? tomorrow;
     const [schedulePlan] = schedulerAgent.run({
       strategy: [strategyItem],
       frequencyPerWeek: 1,
-      startDate: tomorrow,
+      startDate: targetDate,
+      endDate: targetDate,
     });
 
     const provider = body.provider ?? "INSTAGRAM";

@@ -449,7 +449,7 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
     return () => clearTimeout(t);
   }, [allSaved, router]);
 
-  async function processFile(file: File): Promise<void> {
+  async function processFile(file: File, index: number = 0): Promise<void> {
     const id = crypto.randomUUID();
     const localPreviewUrl = URL.createObjectURL(file);
 
@@ -481,11 +481,14 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
         )
       );
 
-      // Phase 2: generate post from image
+      // Phase 2: generate post from image.
+      // startDate pins each photo to a different day (every 2 days from tomorrow).
+      const DAY_MS = 86_400_000;
+      const startDate = new Date(Date.now() + (1 + index * 2) * DAY_MS).toISOString().slice(0, 10);
       const genRes = await fetch("/api/socialflow/posts/generate-from-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl: uploadData.url, imageKey: uploadData.key, saasId }),
+        body: JSON.stringify({ imageUrl: uploadData.url, imageKey: uploadData.key, saasId, startDate }),
       });
       const genData = (await genRes.json()) as {
         imageAnalysis?: ImageAnalysis;
@@ -546,7 +549,8 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
     }
 
     if (toProcess.length > 0) {
-      void Promise.all(toProcess.map((f) => processFile(f)));
+      const startingIndex = activeCount;
+      void Promise.all(toProcess.map((f, i) => processFile(f, startingIndex + i)));
     }
   }
 
