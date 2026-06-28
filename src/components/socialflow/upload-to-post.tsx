@@ -257,7 +257,7 @@ function ItemCard({
         <button
           type="button"
           onClick={() => onPreview(item.id)}
-          className="relative h-40 w-full overflow-hidden bg-black/20 focus:outline-none"
+          className="group relative h-40 w-full overflow-hidden bg-black/20 focus:outline-none"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover" />
@@ -265,13 +265,16 @@ function ItemCard({
             <IcoSparkles />
             <span className="text-[10px] font-semibold text-white/70">IA</span>
           </div>
-          <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all hover:bg-black/30">
-            <span className="rounded-full bg-black/50 px-3 py-1 text-[11px] font-bold text-white opacity-0 backdrop-blur-sm transition-opacity hover:opacity-100">Ver preview</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all group-hover:bg-black/35">
+            <span className="rounded-full bg-black/55 px-3 py-1 text-[11px] font-bold text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">Ver preview</span>
           </div>
         </button>
 
-        {/* Content */}
-        <div className="flex flex-1 flex-col gap-3 p-4">
+        {/* Content — also opens preview when clicked outside the action buttons */}
+        <div
+          className="flex flex-1 cursor-pointer flex-col gap-3 p-4"
+          onClick={() => onPreview(item.id)}
+        >
           {item.error && (
             <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{item.error}</p>
           )}
@@ -300,7 +303,7 @@ function ItemCard({
           )}
 
           {/* Actions */}
-          <div className="mt-auto flex gap-2 pt-1">
+          <div className="mt-auto flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               onClick={() => onRemove(item.id)}
@@ -429,6 +432,94 @@ function ItemCard({
   );
 }
 
+// ── Bulk preview modal ────────────────────────────────────────────────────────
+
+function BulkPreviewModal({
+  items,
+  onConfirmAll,
+  onClose,
+  onPreviewOne,
+}: {
+  items: UploadItem[];
+  onConfirmAll: () => void;
+  onClose: () => void;
+  onPreviewOne: (id: string) => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center p-4 backdrop-blur-sm"
+      style={{ background: "rgba(0,0,0,0.70)" }}
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0d0d1e] shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-white/8 px-6 py-4">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-widest text-violet-400">Confirmación</p>
+            <h3 className="text-lg font-black text-white">Programar {items.length} posts</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white"
+          >
+            <IcoX />
+          </button>
+        </div>
+
+        {/* Thumbnails grid */}
+        <div className="overflow-y-auto p-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {items.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onPreviewOne(item.id)}
+                className="group flex flex-col overflow-hidden rounded-xl border border-white/8 bg-white/3 text-left transition hover:border-violet-500/40 hover:bg-white/6"
+              >
+                <div className="relative aspect-square w-full overflow-hidden bg-black/20">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover:bg-black/30">
+                    <span className="rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-bold text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100">Ver</span>
+                  </div>
+                </div>
+                <div className="px-2 py-1.5">
+                  <p className="text-[10px] font-semibold text-white/60">
+                    {item.editDate ? displayDate(item.editDate) : "—"}
+                  </p>
+                  <p className="text-[10px] text-white/35">{item.editTime || "09:00"} UTC</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 border-t border-white/8 px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-white/45 transition hover:bg-white/5 hover:text-white/70"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirmAll}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+          >
+            <IcoCheck /> Confirmar todos ({items.length})
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Preview modal ─────────────────────────────────────────────────────────────
 
 function PreviewModal({
@@ -533,6 +624,7 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
   const [items, setItems] = useState<UploadItem[]>([]);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [bulkPreviewOpen, setBulkPreviewOpen] = useState(false);
 
   const updateItem = useCallback((id: string, patch: Partial<UploadItem>) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -859,7 +951,7 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
           {readyCount >= 2 && (
             <button
               type="button"
-              onClick={() => void approveAll()}
+              onClick={() => setBulkPreviewOpen(true)}
               className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
             >
               <IcoCheck sm />
@@ -895,7 +987,17 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
         onChange={(e) => { if (e.target.files) handleFiles(e.target.files); }}
       />
 
-      {/* Preview modal */}
+      {/* Bulk preview modal (z-40) */}
+      {bulkPreviewOpen && (
+        <BulkPreviewModal
+          items={items.filter((i) => i.step === "ready")}
+          onConfirmAll={() => { setBulkPreviewOpen(false); void approveAll(); }}
+          onClose={() => setBulkPreviewOpen(false)}
+          onPreviewOne={(id) => setPreviewId(id)}
+        />
+      )}
+
+      {/* Individual preview modal (z-50, overlays bulk modal) */}
       {previewId && (() => {
         const previewItem = items.find((i) => i.id === previewId);
         return previewItem ? (
