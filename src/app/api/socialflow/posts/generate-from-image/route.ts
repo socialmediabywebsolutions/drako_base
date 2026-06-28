@@ -199,10 +199,10 @@ export async function POST(request: Request) {
         .slice(0, 15);
     }
 
-    // Step 7: Calculate best schedule slot — wave-based pass system.
-    // Generates all (date, hour) combinations in wave order: every day at hours[0] first
-    // (Pass 1), then every day at hours[1] (Pass 2), etc. batchIndex picks the Nth
-    // available slot so Pass 2 begins automatically once all Pass 1 days are filled.
+    // Step 7: Calculate best schedule slot — day-based pass system (31-day window).
+    // Pass 1 fills each of the 31 days with 1 post. Pass 2 adds a 2nd post to those
+    // same days. The HOUR is always derived from pickHourFromContent — the pass only
+    // determines which DAY to use.
     const DAY_MS = 86_400_000;
     const todayUtc = new Date().toISOString().slice(0, 10);
 
@@ -215,47 +215,51 @@ export async function POST(request: Request) {
     const aiHours = (trends.optimalHours ?? []).filter((h) => Number.isInteger(h) && h >= 0 && h < 24).slice(0, 3);
     const resolvedHours = aiHours.length >= 2 ? aiHours : nicheHours;
 
-    // Build 62-day window starting tomorrow
+    // Build 31-day window starting tomorrow
     const windowStartMs = new Date(todayUtc + "T00:00:00Z").getTime() + DAY_MS;
     const windowDays: string[] = [];
-    for (let i = 0; i < 62; i++) {
+    for (let i = 0; i < 31; i++) {
       windowDays.push(new Date(windowStartMs + i * DAY_MS).toISOString().slice(0, 10));
     }
+    const windowDaysSet = new Set(windowDays);
 
-    // Wave-by-wave slot pool: every day at hours[0] first (Pass 1),
-    // then every day at hours[1] (Pass 2), then hours[2] (Pass 3).
-    const slotPool: Array<{ dateStr: string; hour: number }> = [];
-    for (const hour of resolvedHours) {
+    // Track occupied hours per day (only within the 31-day window)
+    const occupiedHoursPerDay = new Map<string, Set<number>>();
+    for (const s of futureSlots) {
+      const day = s.slice(0, 10);
+      if (!windowDaysSet.has(day)) continue;
+      if (!occupiedHoursPerDay.has(day)) occupiedHoursPerDay.set(day, new Set());
+      occupiedHoursPerDay.get(day)!.add(parseInt(s.slice(11, 13), 10));
+    }
+
+    // Build day pool ordered by pass tier: days with fewer existing posts come first.
+    // Each pass = one post per day at a different hour. maxPostsPerDay = number of
+    // optimal hours available for this niche.
+    const maxPostsPerDay = resolvedHours.length;
+    const dayPool: string[] = [];
+    for (let pass = 0; pass < maxPostsPerDay; pass++) {
       for (const day of windowDays) {
-        slotPool.push({ dateStr: day, hour });
+        if ((occupiedHoursPerDay.get(day)?.size ?? 0) === pass) {
+          dayPool.push(day);
+        }
       }
     }
 
-    // Remove already-occupied (date, hour) pairs — cross-session collision prevention
-    const occupiedKeys = new Set(futureSlots.map((s) => s.slice(0, 13))); // "YYYY-MM-DDTHH"
-    const available = slotPool.filter(({ dateStr, hour }) =>
-      !occupiedKeys.has(`${dateStr}T${String(hour).padStart(2, "0")}`),
-    );
-
-    // batchIndex picks the Nth available slot — simultaneous batch photos each claim a
-    // unique slot with no DB roundtrip needed between them.
+    // batchIndex selects the Nth day — concurrent batch photos each claim a unique day
     const batchIndex = typeof body.batchIndex === "number" && body.batchIndex >= 0 ? body.batchIndex : 0;
-    const baseSlot = available[batchIndex] ?? available[available.length - 1] ?? { dateStr: windowDays[0], hour: resolvedHours[0] };
-    const targetDate = baseSlot.dateStr;
+    const targetDate = dayPool[batchIndex] ?? dayPool[dayPool.length - 1] ?? windowDays[0];
 
-    // Content-based hour override: prefer the hour that matches the photo's content type
-    // when that hour is free on targetDate; otherwise keep the wave-assigned hour (guaranteed free).
+    // Hour is always from photo content; fallback to resolvedHours rotation only when ambiguous.
+    // If the preferred hour is already taken on targetDate, try alternatives on the same day.
     const contentHour = pickHourFromContent(imageAnalysis);
-    const occupiedHoursOnDay = new Set(
-      futureSlots.filter((s) => s.startsWith(targetDate)).map((s) => parseInt(s.slice(11, 13), 10)),
-    );
-    const finalHour = contentHour !== null && !occupiedHoursOnDay.has(contentHour)
-      ? contentHour
-      : baseSlot.hour;
+    const preferredHour = contentHour ?? resolvedHours[batchIndex % resolvedHours.length];
+    const occupiedHoursOnDay = occupiedHoursPerDay.get(targetDate) ?? new Set<number>();
+    const candidateHours = Array.from(new Set([preferredHour, ...resolvedHours, 7, 12, 18, 21]));
+    const finalHour = candidateHours.find((h) => !occupiedHoursOnDay.has(h)) ?? preferredHour;
 
-    const passNumber = resolvedHours.indexOf(baseSlot.hour) + 1;
+    const passNumber = (occupiedHoursOnDay.size) + 1;
     console.log(
-      `[Scheduler] niche="${profile.niche}" imageCtx="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)} contentHour=${contentHour ?? "null"} batchIndex=${batchIndex} baseSlot=${targetDate}@${baseSlot.hour}h pass=${passNumber} finalHour=${finalHour} slots=${available.length}/${slotPool.length}`,
+      `[Scheduler] niche="${profile.niche}" imageCtx="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)} contentHour=${contentHour ?? "null"} batchIndex=${batchIndex} targetDate=${targetDate} pass=${passNumber} preferredHour=${preferredHour} finalHour=${finalHour} dayPool=${dayPool.length}`,
     );
 
     const scheduledAtDate = new Date(targetDate + "T00:00:00Z");
