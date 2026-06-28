@@ -682,7 +682,7 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
       const genRes = await fetch("/api/socialflow/posts/generate-from-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl: uploadData.url, imageKey: uploadData.key, saasId, startDate }),
+        body: JSON.stringify({ imageUrl: uploadData.url, imageKey: uploadData.key, saasId, startDate, batchIndex: index }),
       });
       const genData = (await genRes.json()) as {
         imageAnalysis?: ImageAnalysis;

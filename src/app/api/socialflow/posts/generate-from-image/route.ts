@@ -9,7 +9,6 @@ import { ImageAnalysisAgent } from "@/lib/socialflow/ai/agents/ImageAnalysisAgen
 import { TrendAgent } from "@/lib/socialflow/ai/agents/TrendAgent";
 import { ContentGeneratorAgent } from "@/lib/socialflow/ai/agents/ContentGeneratorAgent";
 import { OptimizationAgent } from "@/lib/socialflow/ai/agents/OptimizationAgent";
-import { SchedulerAgent } from "@/lib/socialflow/ai/agents/SchedulerAgent";
 import type { KeywordEngineOutput, StrategyItem } from "@/lib/socialflow/ai/types";
 
 function unauthorizedResponse() {
@@ -38,6 +37,7 @@ export async function POST(request: Request) {
       saasId?: string;
       provider?: string;
       startDate?: string;   // YYYY-MM-DD — when set, pins the post to that exact day
+      batchIndex?: number;  // 0-based position of this image in the upload batch
     } | null;
 
     if (!body?.imageUrl || !body?.imageKey || !body?.saasId) {
@@ -171,10 +171,10 @@ export async function POST(request: Request) {
     }
 
     // Step 7: Calculate best schedule slot (deterministic, no LLM).
-    // Query the DB for the tenant's last scheduled post so uploads from different
-    // sessions never overlap. The client sends startDate = today+1+index*2 as a
-    // relative hint; we preserve that inter-photo spacing but shift the anchor
-    // forward past any existing scheduled posts.
+    // Each upload call processes ONE image. The SchedulerAgent wave system is designed
+    // for multi-item batches and always returns wave-1 (hour[0]) for single-item calls,
+    // causing every photo to land at the same hour. Instead we compute the hour directly
+    // from batchIndex so photos spread across all optimal hours in order.
     const DAY_MS = 86_400_000;
     const todayUtc = new Date().toISOString().slice(0, 10);
     const tomorrowMs = new Date(todayUtc + "T00:00:00Z").getTime() + DAY_MS;
@@ -190,23 +190,42 @@ export async function POST(request: Request) {
       ? Math.max(tomorrowMs, new Date(lastScheduledDate + "T00:00:00Z").getTime() + 2 * DAY_MS)
       : tomorrowMs;
 
-    // Client offset: how many days past tomorrow the client proposed (= index * 2)
+    // Client offset: how many days past tomorrow the client proposed (= batchIndex * 2)
     const clientStartMs = body.startDate
       ? new Date(body.startDate + "T00:00:00Z").getTime()
       : tomorrowMs;
     const clientOffsetDays = Math.max(0, Math.round((clientStartMs - tomorrowMs) / DAY_MS));
     const targetDate = new Date(anchorMs + clientOffsetDays * DAY_MS).toISOString().slice(0, 10);
 
-    const schedulerAgent = new SchedulerAgent();
-    const [schedulePlan] = schedulerAgent.run({
-      strategy: [strategyItem],
-      frequencyPerWeek: 1,
-      startDate: targetDate,
-      endDate: targetDate,
-      niche: profile.niche,
-      occupiedSlots: futureSlots,
-      optimalHours: trends.optimalHours,
-    });
+    // Resolve posting hours — prefer AI-provided, fall back to fitness heuristic
+    const FITNESS_RE = /fitness|lifestyle|wellness|salud|health|gym|sport|yoga|pilates|nutrici|coach|entrenami|ejercici/i;
+    const nicheHours = FITNESS_RE.test(profile.niche) ? [7, 12, 18] : [9, 18];
+    const aiHours = (trends.optimalHours ?? []).filter((h) => Number.isInteger(h) && h >= 0 && h < 24).slice(0, 3);
+    const resolvedHours = aiHours.length >= 2 ? aiHours : nicheHours;
+
+    // Pick hour by batch position so photos cycle through all hours (pass 1→h0, pass 2→h1, pass 3→h2)
+    const batchIndex = typeof body.batchIndex === "number" && body.batchIndex >= 0
+      ? body.batchIndex
+      : Math.round(clientOffsetDays / 2);  // fallback: infer from day offset
+    const preferredHour = resolvedHours[batchIndex % resolvedHours.length];
+
+    // Cross-session collision check: if preferredHour is already taken on targetDate, cycle to next free hour
+    const occupiedHoursOnDay = new Set(
+      futureSlots
+        .filter((s) => s.startsWith(targetDate))
+        .map((s) => parseInt(s.slice(11, 13), 10)),
+    );
+    const finalHour = occupiedHoursOnDay.has(preferredHour)
+      ? (resolvedHours.find((h) => !occupiedHoursOnDay.has(h)) ?? preferredHour)
+      : preferredHour;
+
+    console.log(
+      `[SchedulerAgent] niche="${profile.niche}" trends.optimalHours=${JSON.stringify(trends.optimalHours)} resolvedHours=${JSON.stringify(resolvedHours)} batchIndex=${batchIndex} targetDate=${targetDate} preferredHour=${preferredHour} finalHour=${finalHour}`,
+    );
+
+    const scheduledAtDate = new Date(targetDate + "T00:00:00Z");
+    scheduledAtDate.setUTCHours(finalHour, 0, 0, 0);
+    const computedScheduledAt = scheduledAtDate.toISOString();
 
     const provider = body.provider ?? "INSTAGRAM";
     const contentTypeMap: Record<string, "FEED" | "REEL" | "STORY"> = {
@@ -228,7 +247,7 @@ export async function POST(request: Request) {
         imageHint: body.imageUrl,
         provider,
         contentType,
-        scheduledAt: schedulePlan?.scheduledAt ?? new Date(Date.now() + 86_400_000).toISOString(),
+        scheduledAt: computedScheduledAt,
         saasId: body.saasId,
       },
     });
