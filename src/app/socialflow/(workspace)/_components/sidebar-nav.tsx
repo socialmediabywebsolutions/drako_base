@@ -40,7 +40,7 @@ function IcoChevron({ open }: { open: boolean }) {
 const mainNav = [
   { href: "/socialflow",               label: "Dashboard",           icon: <IcoHome /> },
   { href: "/socialflow/upload",        label: "Subir foto",          icon: <IcoCamera /> },
-  { href: "/socialflow/calendar",      label: "Plan editorial",      icon: <IcoCalendar /> },
+  { href: "/socialflow/plan",           label: "Plan editorial",      icon: <IcoCalendar /> },
   { href: "/socialflow/ai",            label: "Asistente IA",        icon: <IcoSparkles /> },
   { href: "/socialflow/conversations", label: "Conversaciones",      icon: <IcoChat /> },
   { href: "/socialflow/leads",         label: "Leads",               icon: <IcoUsers /> },
