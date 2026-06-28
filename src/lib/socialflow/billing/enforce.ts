@@ -9,9 +9,9 @@ const PLAN_MAX_CHANNELS: Record<SocialFlowPlanCode, number> = {
 };
 
 const PLAN_MAX_UPLOADS_PER_BATCH: Record<SocialFlowPlanCode, number> = {
-  free: 3,
-  creator: 8,
-  pro: 20,
+  free: 30,      // sin plan — no se limita para no bloquear onboarding
+  creator: 30,   // Influencer Básico (49€)
+  pro: 60,       // Influencer Pro (99€)
 };
 
 const PLAN_AI_ALLOWED: Record<SocialFlowPlanCode, boolean> = {
