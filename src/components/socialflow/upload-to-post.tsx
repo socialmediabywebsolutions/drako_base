@@ -552,9 +552,9 @@ function PreviewModal({
 
         <div className="flex flex-col overflow-y-auto sm:flex-row">
           {/* Image */}
-          <div className="h-56 shrink-0 overflow-hidden bg-black/30 sm:h-auto sm:w-56">
+          <div className="flex h-56 shrink-0 items-center justify-center overflow-hidden bg-black/40 sm:h-auto sm:w-64">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover" />
+            <img src={item.localPreviewUrl} alt="" className="h-full w-full object-contain" />
           </div>
 
           {/* Content */}
