@@ -38,8 +38,9 @@ const PROVIDER_BG: Record<string, string> = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function relativeTime(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
+function relativeTime(ts: number | string): string {
+  const ms = Number(ts) * 1000;
+  const diffMs = Date.now() - ms;
   const mins = Math.floor(diffMs / 60000);
   if (mins < 1) return "ahora";
   if (mins < 60) return `hace ${mins}m`;
@@ -47,7 +48,7 @@ function relativeTime(iso: string): string {
   if (hrs < 24) return `hace ${hrs}h`;
   const days = Math.floor(hrs / 24);
   if (days < 7) return `hace ${days}d`;
-  return new Date(iso).toLocaleDateString("es", { day: "numeric", month: "short" });
+  return new Date(ms).toLocaleDateString("es", { day: "numeric", month: "short" });
 }
 
 function ScoreBar({ score, temp }: { score: number; temp: LeadTemperature }) {

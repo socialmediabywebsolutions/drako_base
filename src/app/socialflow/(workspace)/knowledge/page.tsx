@@ -90,24 +90,24 @@ export default function KnowledgeBasePage() {
           SocialFlow · Base de conocimiento
         </p>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
-          Knowledge Base
+          Mi Cerebro IA
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
-          Documentos, competidores y análisis de mercado que la IA usa como contexto al generar campañas.
+          Todo lo que la IA sabe sobre ti. Cuanto más le enseñes, mejor contenido genera.
         </p>
 
         <div className="mt-5 flex flex-wrap gap-2">
           <ActionButton active={panel === "upload"} onClick={() => togglePanel("upload")} icon="upload">
-            Subir documento
+            Subir PDF o documento
           </ActionButton>
           <ActionButton active={panel === "url"} onClick={() => togglePanel("url")} icon="globe">
             Añadir URL
           </ActionButton>
           <ActionButton active={panel === "competitor"} onClick={() => togglePanel("competitor")} icon="users">
-            Analizar competidor
+            Analizar competidora
           </ActionButton>
           <ActionButton active={panel === "market"} onClick={() => togglePanel("market")} icon="chart">
-            Análisis de mercado
+            Analizar mi mercado
           </ActionButton>
         </div>
 
@@ -123,26 +123,26 @@ export default function KnowledgeBasePage() {
       {panel === "market" && <MarketPanel onSuccess={onSaved} />}
 
       {/* Market analysis */}
-      {(marketDocs.length > 0 || !loading) && (
+      {marketDocs.length > 0 && (
         <DocSection
-          title="Análisis de mercado"
+          title="Mi mercado"
           badge="Mercado"
           badgeStyle={TYPE_BG.market_analysis}
           docs={marketDocs}
-          emptyText="Sin análisis de mercado todavía. Haz clic en «Análisis de mercado» para generar uno con IA."
+          emptyText="Sin análisis de mercado todavía. Haz clic en «Analizar mi mercado» para generar uno con IA."
           loading={loading}
           onDelete={handleDelete}
         />
       )}
 
       {/* Competitors */}
-      {(competitorDocs.length > 0 || !loading) && (
+      {competitorDocs.length > 0 && (
         <DocSection
-          title="Competidores"
+          title="Mi competencia"
           badge="Competidor"
           badgeStyle={TYPE_BG.competitor}
           docs={competitorDocs}
-          emptyText="Sin competidores analizados. Añade uno con «Analizar competidor»."
+          emptyText="Sin competidores analizados. Añade uno con «Analizar competidora»."
           loading={loading}
           onDelete={handleDelete}
         />
@@ -150,7 +150,7 @@ export default function KnowledgeBasePage() {
 
       {/* Knowledge docs */}
       <DocSection
-        title="Documentos de marca"
+        title="Mi personalidad y estilo"
         badge="Docs"
         badgeStyle=""
         docs={knowledgeDocs}
