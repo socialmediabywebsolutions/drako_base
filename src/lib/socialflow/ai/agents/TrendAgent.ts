@@ -7,13 +7,19 @@ export type TrendInsights = {
   emergingPatterns: string[];
   shortFormOpportunities: string[];
   hookIdeas: string[];
+  optimalHours: number[];  // UTC hours (0-23) for best engagement with this audience
 };
+
+const FITNESS_NICHE_RE = /fitness|lifestyle|wellness|salud|health|gym|sport|yoga|pilates|nutrici|coach|entrenami|ejercici/i;
 
 export class TrendAgent {
   async run(input: { profile: BrandProfile }): Promise<TrendInsights> {
     const { profile } = input;
     const prompt = `Analiza tendencias para el nicho ${profile.niche} y audiencia ${profile.audience} usando señales de mercado, temas virales y tópicos en tendencia. GENERA TODOS LOS TEXTOS EN ESPAÑOL.
-Contexto de marca: ${profile.longDescription}`;
+Contexto de marca: ${profile.longDescription}
+Además, propón entre 2 y 3 horas óptimas (UTC, formato 24h, números enteros) para publicar contenido de ${profile.niche} en Instagram maximizando el engagement de ${profile.audience}.`;
+
+    const optimalHoursBase = FITNESS_NICHE_RE.test(profile.niche) ? [7, 12, 18] : [9, 18];
 
     const base: TrendInsights = {
       trendingTopics: [
@@ -40,12 +46,19 @@ Contexto de marca: ${profile.longDescription}`;
         `"Antes de ${profile.primaryCTA.toLowerCase() || "reservar"}, mira esto"`,
         `"Si eres ${profile.audience.toLowerCase()}, lee esto antes de decidir"`,
       ],
+      optimalHours: optimalHoursBase,
     };
 
     const { data } = await defaultLocalModel.generateStructured<TrendInsights>(
       { prompt },
       () => base,
     );
+
+    // Validate AI-provided hours — must be 2-3 integers in range 0-23
+    const validHours = (data.optimalHours ?? [])
+      .filter((h) => Number.isInteger(h) && h >= 0 && h < 24)
+      .slice(0, 3);
+    data.optimalHours = validHours.length >= 2 ? validHours : optimalHoursBase;
 
     return data;
   }

@@ -8,6 +8,12 @@ const PLAN_MAX_CHANNELS: Record<SocialFlowPlanCode, number> = {
   pro: Infinity,
 };
 
+const PLAN_MAX_UPLOADS_PER_BATCH: Record<SocialFlowPlanCode, number> = {
+  free: 3,
+  creator: 8,
+  pro: 20,
+};
+
 const PLAN_AI_ALLOWED: Record<SocialFlowPlanCode, boolean> = {
   free: false,
   creator: true,
@@ -71,4 +77,13 @@ export async function guardAiAccess(
   }
 
   return { ok: true, planCode };
+}
+
+export async function getUploadBatchLimit(tenantId: string, role?: string): Promise<number> {
+  if (AI_BYPASS_TENANT_IDS.has(tenantId) || (role && AI_BYPASS_ROLES.has(role))) {
+    return PLAN_MAX_UPLOADS_PER_BATCH.pro;
+  }
+  const snapshot = await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" });
+  const planCode = resolveSocialFlowPlanCode(snapshot.subscription);
+  return PLAN_MAX_UPLOADS_PER_BATCH[planCode];
 }

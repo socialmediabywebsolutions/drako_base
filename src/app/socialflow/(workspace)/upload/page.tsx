@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
+import { getUploadBatchLimit } from "@/lib/socialflow/billing/enforce";
 import UploadToPost from "@/components/socialflow/upload-to-post";
 
 const SAAS_ID = "socialflow";
@@ -9,6 +10,8 @@ export default async function SocialFlowUploadPage() {
   if (!session) {
     redirect("/socialflow/auth");
   }
+
+  const maxImages = await getUploadBatchLimit(session.tenantId, session.role).catch(() => 8);
 
   return (
     <div className="space-y-6">
@@ -24,7 +27,7 @@ export default async function SocialFlowUploadPage() {
         </p>
       </div>
 
-      <UploadToPost saasId={SAAS_ID} />
+      <UploadToPost saasId={SAAS_ID} maxImages={maxImages} />
     </div>
   );
 }

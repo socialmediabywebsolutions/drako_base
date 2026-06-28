@@ -4,8 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 
-const MAX_IMAGES = 8;
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type ItemStep = "uploading" | "analyzing" | "ready" | "saving" | "saved" | "error";
@@ -616,7 +614,7 @@ function PreviewModal({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function UploadToPost({ saasId }: { saasId: string }) {
+export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string; maxImages?: number }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addMoreRef = useRef<HTMLInputElement>(null);
@@ -636,7 +634,7 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
     items.length > 0 && items.every((i) => i.step === "saved" || i.step === "error");
   const allSaved = items.length > 0 && items.every((i) => i.step === "saved");
   const activeCount = items.filter((i) => i.step !== "error").length;
-  const canAddMore = activeCount < MAX_IMAGES;
+  const canAddMore = activeCount < maxImages;
 
   // Redirect when all successfully saved
   useEffect(() => {
@@ -730,10 +728,10 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
     setGlobalError(null);
     const files = Array.from(newFiles);
     const images = files.filter((f) => f.type.startsWith("image/"));
-    const available = MAX_IMAGES - activeCount;
+    const available = maxImages - activeCount;
 
     if (available <= 0) {
-      setGlobalError(`Límite de ${MAX_IMAGES} fotos alcanzado.`);
+      setGlobalError(`Límite de ${maxImages} fotos alcanzado.`);
       return;
     }
 
@@ -741,7 +739,7 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
     if (files.length > images.length) {
       setGlobalError("Algunos archivos fueron ignorados (solo se aceptan imágenes).");
     } else if (images.length > available) {
-      setGlobalError(`Solo se añadieron ${toProcess.length} de ${images.length} fotos (límite: ${MAX_IMAGES}).`);
+      setGlobalError(`Solo se añadieron ${toProcess.length} de ${images.length} fotos (límite: ${maxImages}).`);
     }
 
     if (toProcess.length > 0) {
@@ -883,7 +881,7 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
           <div>
             <p className="text-base font-bold text-white/80">Arrastra tus fotos aquí</p>
             <p className="mt-1 text-sm text-white/40">o haz click para seleccionar</p>
-            <p className="mt-3 text-xs text-white/25">Hasta {MAX_IMAGES} fotos · JPEG, PNG, WebP, GIF · máx. 200 MB</p>
+            <p className="mt-3 text-xs text-white/25">Hasta {maxImages} fotos · JPEG, PNG, WebP, GIF · máx. 200 MB</p>
           </div>
           <input
             ref={fileInputRef}
@@ -945,7 +943,7 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
               className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/4 px-3 py-2 text-xs text-white/50 transition hover:bg-white/8 hover:text-white/70"
             >
               <IcoPlus />
-              Añadir fotos ({activeCount}/{MAX_IMAGES})
+              Añadir fotos ({activeCount}/{maxImages})
             </button>
           )}
           {readyCount >= 2 && (
@@ -1044,7 +1042,7 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
               <IcoPlus />
             </div>
             <p className="text-xs text-white/30">Añadir más fotos</p>
-            <p className="text-[10px] text-white/20">{MAX_IMAGES - activeCount} disponible{MAX_IMAGES - activeCount !== 1 ? "s" : ""}</p>
+            <p className="text-[10px] text-white/20">{maxImages - activeCount} disponible{maxImages - activeCount !== 1 ? "s" : ""}</p>
           </div>
         )}
       </div>

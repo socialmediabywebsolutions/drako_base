@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { env } from "@/lib/cf";
-import { SocialContextError, resolveSocialContext, getLastScheduledPostDate } from "@/lib/socialflow/repository";
+import { SocialContextError, resolveSocialContext, getLastScheduledPostDate, getFutureScheduledSlots } from "@/lib/socialflow/repository";
 import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
 import { ImageAnalysisAgent } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import { TrendAgent } from "@/lib/socialflow/ai/agents/TrendAgent";
@@ -180,7 +180,10 @@ export async function POST(request: Request) {
     const tomorrowMs = new Date(todayUtc + "T00:00:00Z").getTime() + DAY_MS;
 
     const socialCtx = await resolveSocialContext({ tenantId: session.tenantId, saasId: body.saasId });
-    const lastScheduledDate = await getLastScheduledPostDate(socialCtx).catch(() => null);
+    const [lastScheduledDate, futureSlots] = await Promise.all([
+      getLastScheduledPostDate(socialCtx).catch(() => null),
+      getFutureScheduledSlots(socialCtx).catch(() => [] as string[]),
+    ]);
 
     // Anchor = max(tomorrow, lastScheduledDate + 2 days)
     const anchorMs = lastScheduledDate
@@ -201,6 +204,8 @@ export async function POST(request: Request) {
       startDate: targetDate,
       endDate: targetDate,
       niche: profile.niche,
+      occupiedSlots: futureSlots,
+      optimalHours: trends.optimalHours,
     });
 
     const provider = body.provider ?? "INSTAGRAM";

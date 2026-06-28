@@ -146,3 +146,16 @@ export async function getLastScheduledPostDate(ctx: SocialContext): Promise<stri
   );
   return row?.last_date ?? null;
 }
+
+export async function getFutureScheduledSlots(ctx: SocialContext): Promise<string[]> {
+  const saasId = requireSaasId(ctx);
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const rows = await queryRows<{ scheduled_at: string }>(
+    ctx.socialDb,
+    `SELECT scheduled_at FROM saas_social_posts WHERE tenant_id = ? AND saas_id = ? AND scheduled_at >= ? AND status IN ('SCHEDULED', 'APPROVED') ORDER BY scheduled_at ASC`,
+    ctx.tenantId,
+    saasId,
+    todayUtc,
+  );
+  return rows.map((r) => r.scheduled_at);
+}

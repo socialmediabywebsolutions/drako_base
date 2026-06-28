@@ -5,11 +5,8 @@ const DEFAULT_HOURS = [9, 18] as const;
 
 const FITNESS_LIFESTYLE_RE = /fitness|lifestyle|wellness|salud\b|health|gym|sport|yoga|pilates|nutrici[oó]n|coach|entrenami|ejercici/i;
 
-function pickHour(niche: string | undefined, dateStr: string, slotIndex?: number): number {
-  const hours = niche && FITNESS_LIFESTYLE_RE.test(niche) ? FITNESS_LIFESTYLE_HOURS : DEFAULT_HOURS;
-  if (slotIndex !== undefined) {
-    return hours[slotIndex % hours.length];
-  }
+function pickHour(hours: number[], dateStr: string, slotIndex?: number): number {
+  if (slotIndex !== undefined) return hours[slotIndex % hours.length];
   const dayOfMonth = parseInt(dateStr.slice(8, 10), 10);
   return hours[dayOfMonth % hours.length];
 }
@@ -18,14 +15,10 @@ function pickHour(niche: string | undefined, dateStr: string, slotIndex?: number
 // first every day at hours[0], then every day at hours[1], then hours[2].
 // This fills all days evenly before any day receives a second slot.
 function buildSlots(
-  niche: string | undefined,
+  hours: number[],
   fromDateStr: string,
   numDays: number,
 ): Array<{ dateStr: string; hour: number }> {
-  const hours = niche && FITNESS_LIFESTYLE_RE.test(niche)
-    ? ([...FITNESS_LIFESTYLE_HOURS] as number[])
-    : ([...DEFAULT_HOURS] as number[]);
-
   const DAY_MS = 86_400_000;
   const dayList: string[] = [];
   let cursor = new Date(fromDateStr + "T00:00:00Z").getTime();
@@ -51,7 +44,8 @@ export class SchedulerAgent {
     startDate?: string | null;
     endDate?: string | null;
     niche?: string;
-    occupiedSlots?: string[];  // ISO date-times already scheduled in DB
+    occupiedSlots?: string[];   // ISO date-times already scheduled in DB
+    optimalHours?: number[];    // AI-provided UTC hours; falls back to niche heuristic
   }): ScheduledPostPlan[] {
     const n = input.strategy.length;
     if (n === 0) return [];
@@ -64,13 +58,22 @@ export class SchedulerAgent {
       : now + DAY_MS;
     const rangeStart = new Date(startMs).toISOString().slice(0, 10);
 
+    // Resolve posting hours: prefer AI-provided, fall back to niche heuristic
+    const nicheHours = input.niche && FITNESS_LIFESTYLE_RE.test(input.niche)
+      ? ([...FITNESS_LIFESTYLE_HOURS] as number[])
+      : ([...DEFAULT_HOURS] as number[]);
+    const validAiHours = (input.optimalHours ?? [])
+      .filter((h) => Number.isInteger(h) && h >= 0 && h < 24)
+      .slice(0, 3);
+    const hours = validAiHours.length >= 2 ? validAiHours : nicheHours;
+
     // Occupied set keyed as "YYYY-MM-DDTHH" for O(1) collision checks
     const occupiedKeys = new Set<string>(
       (input.occupiedSlots ?? []).map((iso) => iso.slice(0, 13)),
     );
 
     // 62 days covers current + next month from startDate
-    const allSlots = buildSlots(input.niche, rangeStart, 62);
+    const allSlots = buildSlots(hours, rangeStart, 62);
     const available = allSlots.filter(({ dateStr, hour }) => {
       const key = `${dateStr}T${String(hour).padStart(2, "0")}`;
       return !occupiedKeys.has(key);
@@ -90,7 +93,7 @@ export class SchedulerAgent {
         const t = n === 1 ? 0.5 : index / (n - 1);
         const postDate = new Date(startMs + t * (endMs - startMs));
         const dateStr = postDate.toISOString().slice(0, 10);
-        postDate.setUTCHours(pickHour(input.niche, dateStr), 0, 0, 0);
+        postDate.setUTCHours(pickHour(hours, dateStr), 0, 0, 0);
         return { id: `sched_${item.id}`, postId: item.id, scheduledAt: postDate.toISOString() };
       }
 
