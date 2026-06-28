@@ -1073,10 +1073,10 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
           </button>
         </div>
         <button
-          onClick={() => openCreate()}
+          onClick={() => router.push("/socialflow/upload")}
           className="rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110"
         >
-          + Nuevo post
+          ✦ Subir foto
         </button>
       </div>
 
@@ -1191,10 +1191,10 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
               </p>
             </div>
             <button
-              onClick={() => openCreate(selectedDate)}
+              onClick={() => router.push("/socialflow/upload")}
               className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-sm font-bold text-violet-300 transition hover:bg-violet-500/15"
             >
-              + Agregar
+              + Subir foto
             </button>
           </div>
 
@@ -1203,10 +1203,10 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
               <div className="mb-2 text-2xl">📅</div>
               <p className="text-sm text-white/35">Sin publicaciones para este día.</p>
               <button
-                onClick={() => openCreate(selectedDate)}
+                onClick={() => router.push("/socialflow/upload")}
                 className="mt-3 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110"
               >
-                Crear el primer post
+                Subir tu primera foto
               </button>
             </div>
           ) : (
