@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { env } from "@/lib/cf";
-import { SocialContextError } from "@/lib/socialflow/repository";
+import { SocialContextError, resolveSocialContext, getLastScheduledPostDate } from "@/lib/socialflow/repository";
 import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
 import { ImageAnalysisAgent } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import { TrendAgent } from "@/lib/socialflow/ai/agents/TrendAgent";
@@ -171,16 +171,36 @@ export async function POST(request: Request) {
     }
 
     // Step 7: Calculate best schedule slot (deterministic, no LLM).
-    // When startDate is provided by the caller (multi-upload batch), use it as
-    // both startDate and endDate so the post is pinned to that exact day.
+    // Query the DB for the tenant's last scheduled post so uploads from different
+    // sessions never overlap. The client sends startDate = today+1+index*2 as a
+    // relative hint; we preserve that inter-photo spacing but shift the anchor
+    // forward past any existing scheduled posts.
+    const DAY_MS = 86_400_000;
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    const tomorrowMs = new Date(todayUtc + "T00:00:00Z").getTime() + DAY_MS;
+
+    const socialCtx = await resolveSocialContext({ tenantId: session.tenantId, saasId: body.saasId });
+    const lastScheduledDate = await getLastScheduledPostDate(socialCtx).catch(() => null);
+
+    // Anchor = max(tomorrow, lastScheduledDate + 2 days)
+    const anchorMs = lastScheduledDate
+      ? Math.max(tomorrowMs, new Date(lastScheduledDate + "T00:00:00Z").getTime() + 2 * DAY_MS)
+      : tomorrowMs;
+
+    // Client offset: how many days past tomorrow the client proposed (= index * 2)
+    const clientStartMs = body.startDate
+      ? new Date(body.startDate + "T00:00:00Z").getTime()
+      : tomorrowMs;
+    const clientOffsetDays = Math.max(0, Math.round((clientStartMs - tomorrowMs) / DAY_MS));
+    const targetDate = new Date(anchorMs + clientOffsetDays * DAY_MS).toISOString().slice(0, 10);
+
     const schedulerAgent = new SchedulerAgent();
-    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
-    const targetDate = body.startDate ?? tomorrow;
     const [schedulePlan] = schedulerAgent.run({
       strategy: [strategyItem],
       frequencyPerWeek: 1,
       startDate: targetDate,
       endDate: targetDate,
+      niche: profile.niche,
     });
 
     const provider = body.provider ?? "INSTAGRAM";

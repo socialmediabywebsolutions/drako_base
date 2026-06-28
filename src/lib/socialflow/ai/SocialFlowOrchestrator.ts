@@ -114,6 +114,7 @@ export class SocialFlowOrchestrator {
       frequencyPerWeek: input.frequencyPerWeek,
       startDate: input.startDate ?? null,
       endDate: input.endDate ?? null,
+      niche: profile.niche,
     });
     const campaignId = await this.persistToDb(input, profile, strategy.items as StrategyItem[], optimizedPosts, schedule);
     return { profile, research, keywords: research, competitors, strategy, generatedPosts, optimizedPosts, schedule, campaignId };

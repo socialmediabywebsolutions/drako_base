@@ -135,3 +135,14 @@ export async function getSocialPostPerformance(ctx: SocialContext): Promise<Soci
 export async function getSocialConversionSnapshot(ctx: SocialContext): Promise<SocialConversionSnapshot> { const [campaigns, posts] = await Promise.all([getSocialCampaignPerformance(ctx), getSocialPostPerformance(ctx)]); return { totalAppointmentsFromSocial: campaigns.reduce((total, campaign) => total + campaign.appointmentsCount, 0), totalRevenueFromSocial: campaigns.reduce((total, campaign) => total + campaign.estimatedRevenue, 0), topCampaigns: [...campaigns].sort((a, b) => b.estimatedRevenue - a.estimatedRevenue).slice(0, 4), topPosts: [...posts].sort((a, b) => b.estimatedRevenue - a.estimatedRevenue).slice(0, 6) }; }
 export type SocialOwnerSummary = { accountsConnected: number; activeCampaigns: number; scheduledPostsThisWeek: number; recentEngagementScore: number };
 export async function getSocialOwnerSummary(ctx: SocialContext): Promise<SocialOwnerSummary> { const [accounts, campaigns, posts, analytics] = await Promise.all([listSaasSocialAccounts(ctx), listSaasSocialCampaigns(ctx), listSaasSocialPosts(ctx), getSocialAnalyticsSnapshot(ctx)]); const now = Date.now(); return { accountsConnected: accounts.filter((account) => account.status !== "DISCONNECTED").length, activeCampaigns: campaigns.filter((campaign) => campaign.status === "ACTIVE").length, scheduledPostsThisWeek: posts.filter((post) => post.status === "SCHEDULED" && post.scheduledAt && new Date(post.scheduledAt).getTime() >= now && new Date(post.scheduledAt).getTime() <= now + 7 * 24 * 60 * 60 * 1000).length, recentEngagementScore: analytics.last30Days.likes + analytics.last30Days.comments + analytics.last30Days.shares }; }
+
+export async function getLastScheduledPostDate(ctx: SocialContext): Promise<string | null> {
+  const saasId = requireSaasId(ctx);
+  const row = await queryFirst<{ last_date: string | null }>(
+    ctx.socialDb,
+    `SELECT DATE(MAX(scheduled_at)) as last_date FROM saas_social_posts WHERE tenant_id = ? AND saas_id = ? AND scheduled_at IS NOT NULL`,
+    ctx.tenantId,
+    saasId,
+  );
+  return row?.last_date ?? null;
+}
