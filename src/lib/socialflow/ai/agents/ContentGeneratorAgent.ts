@@ -56,17 +56,21 @@ CTA: ${cta}
 ${hooks ? `Hooks de referencia (adapta al tema): ${hooks}` : ""}
 ${keywords ? `Keywords a incluir naturalmente: ${keywords}` : ""}
 
-⚠️ APERTURA VARIADA — PROHIBIDO empezar con "Hola", una presentación, o "Soy ${profile.brandIdentity}".
-Elige UN estilo de apertura según el ángulo emocional del contenido:
-• Pregunta directa: "¿Cuántas veces has intentado...?" / "¿Te ha pasado que...?"
-• Confesión personal: "Durante años creí que..." / "Voy a ser honesta contigo:"
-• Dato o afirmación inesperada: "Nadie te dice que..." / "El error más común en ${profile.niche} es..."
-• Imperativo: "Para. Respira. Ahora lee esto." / "Deja de hacer esto."
-• Emoción en bruto: "Hoy fue un día difícil. Y también necesario."
-• Entrada directa al tema: "Llevas semanas intentando ${strategyItem.angle} y no avanzas porque..."
+⚠️ APERTURA — REGLA IRROMPIBLE: NUNCA empieces con "Hola", "Chicas", ni presentándote ("Soy ${profile.brandIdentity}...").
+Elige UNA de estas 10 aperturas y adáptala al tema del post. Rota — no uses siempre la misma:
+1. "¿Alguna vez has sentido que [situación relacionada con el tema]?"
+2. "Seré honesta contigo: [verdad incómoda o revelación sobre el tema]."
+3. "Esto me cambió la vida: [resultado o aprendizaje clave del tema]."
+4. "Lo que nadie te cuenta sobre [tema del post]:"
+5. "Hoy necesito contarte algo sobre [tema]."
+6. "¿Lista para un cambio real en [tema]?"
+7. "Semana difícil. Pero aquí estoy, y tengo algo importante que compartir."
+8. "Años haciendo esto y por fin entendí: [lección sobre el tema]."
+9. "La verdad sobre [tema]:"
+10. "No siempre es fácil, pero [acción o actitud relacionada con el tema]."
 
 Estructura obligatoria:
-1. Apertura con el estilo elegido (sin presentarte, sin "Hola")
+1. Apertura usando UNA de las 10 frases anteriores (adaptada al tema, sin "Hola")
 2. Desarrollo en 3-5 párrafos con información concreta y accionable sobre "${profile.niche}"
 3. Cierre con el CTA
 
