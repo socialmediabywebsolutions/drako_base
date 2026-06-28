@@ -199,31 +199,39 @@ export async function POST(request: Request) {
         .slice(0, 15);
     }
 
-    // Step 7: Calculate best schedule slot — day-based pass system (31-day window).
-    // Pass 1 fills each of the 31 days with 1 post. Pass 2 adds a 2nd post to those
-    // same days. The HOUR is always derived from pickHourFromContent — the pass only
-    // determines which DAY to use.
+    // Step 7: Calculate best schedule slot — sequential pass system within current month.
+    // Pass 1 is active while any day of the month has 0 posts.
+    // Pass 2 activates only when ALL days have ≥1 post; adds a 2nd post per day.
+    // Pass 3 activates only when ALL days have ≥2 posts. Maximum 3 posts per day.
+    // The HOUR is always derived from pickHourFromContent — passes determine the DAY only.
     const DAY_MS = 86_400_000;
     const todayUtc = new Date().toISOString().slice(0, 10);
 
     const socialCtx = await resolveSocialContext({ tenantId: session.tenantId, saasId: body.saasId });
     const futureSlots = await getFutureScheduledSlots(socialCtx).catch(() => [] as string[]);
 
-    // Resolve hour pool — prefer AI-provided hours, fall back to niche heuristic
+    // Resolve niche/AI hour pool (used as fallback when content type is ambiguous)
     const FITNESS_RE = /fitness|lifestyle|wellness|salud|health|gym|sport|yoga|pilates|nutrici|coach|entrenami|ejercici/i;
     const nicheHours = FITNESS_RE.test(profile.niche) ? [7, 12, 18] : [9, 18];
     const aiHours = (trends.optimalHours ?? []).filter((h) => Number.isInteger(h) && h >= 0 && h < 24).slice(0, 3);
     const resolvedHours = aiHours.length >= 2 ? aiHours : nicheHours;
 
-    // Build 31-day window starting tomorrow
-    const windowStartMs = new Date(todayUtc + "T00:00:00Z").getTime() + DAY_MS;
+    // Build window: today through last day of current month (max 31 days)
+    const todayMs = new Date(todayUtc + "T00:00:00Z").getTime();
+    const todayYear = parseInt(todayUtc.slice(0, 4), 10);
+    const todayMonth = parseInt(todayUtc.slice(5, 7), 10);
+    // Date.UTC uses 0-indexed month: passing todayMonth (1-indexed) equals next month,
+    // so day 0 of next month = last day of current month.
+    const lastDayOfMonth = new Date(Date.UTC(todayYear, todayMonth, 0)).toISOString().slice(0, 10);
     const windowDays: string[] = [];
-    for (let i = 0; i < 31; i++) {
-      windowDays.push(new Date(windowStartMs + i * DAY_MS).toISOString().slice(0, 10));
+    for (let cursor = todayMs; windowDays.length < 31; cursor += DAY_MS) {
+      const day = new Date(cursor).toISOString().slice(0, 10);
+      if (day > lastDayOfMonth) break;
+      windowDays.push(day);
     }
     const windowDaysSet = new Set(windowDays);
 
-    // Track occupied hours per day (only within the 31-day window)
+    // Track occupied hours per day (only within the current month window)
     const occupiedHoursPerDay = new Map<string, Set<number>>();
     for (const s of futureSlots) {
       const day = s.slice(0, 10);
@@ -232,34 +240,42 @@ export async function POST(request: Request) {
       occupiedHoursPerDay.get(day)!.add(parseInt(s.slice(11, 13), 10));
     }
 
-    // Build day pool ordered by pass tier: days with fewer existing posts come first.
-    // Each pass = one post per day at a different hour. maxPostsPerDay = number of
-    // optimal hours available for this niche.
-    const maxPostsPerDay = resolvedHours.length;
-    const dayPool: string[] = [];
-    for (let pass = 0; pass < maxPostsPerDay; pass++) {
-      for (const day of windowDays) {
-        if ((occupiedHoursPerDay.get(day)?.size ?? 0) === pass) {
-          dayPool.push(day);
-        }
+    // Determine current pass: advance only when ALL days of the month are filled.
+    // Pass 1 while any day has 0 posts. Pass 2 when all have ≥1. Pass 3 when all have ≥2.
+    const MAX_POSTS_PER_DAY = 3;
+    let currentPass = MAX_POSTS_PER_DAY; // default: month fully saturated at all passes
+    for (let p = 0; p < MAX_POSTS_PER_DAY; p++) {
+      if (windowDays.some((day) => (occupiedHoursPerDay.get(day)?.size ?? 0) === p)) {
+        currentPass = p + 1;
+        break;
       }
     }
 
-    // batchIndex selects the Nth day — concurrent batch photos each claim a unique day
+    // Day pool = only days at the current pass level (exactly currentPass-1 existing posts)
+    const dayPool = windowDays.filter(
+      (day) => (occupiedHoursPerDay.get(day)?.size ?? 0) === currentPass - 1,
+    );
+
+    // batchIndex selects the Nth day; cycles within pool if batch has more photos than days
     const batchIndex = typeof body.batchIndex === "number" && body.batchIndex >= 0 ? body.batchIndex : 0;
-    const targetDate = dayPool[batchIndex] ?? dayPool[dayPool.length - 1] ?? windowDays[0];
+    const targetDate = dayPool.length > 0 ? dayPool[batchIndex % dayPool.length] : windowDays[0];
 
-    // Hour is always from photo content; fallback to resolvedHours rotation only when ambiguous.
-    // If the preferred hour is already taken on targetDate, try alternatives on the same day.
+    // Hour candidates ordered by priority per content type.
+    // Try each in sequence — first one not occupied on targetDate wins.
     const contentHour = pickHourFromContent(imageAnalysis);
-    const preferredHour = contentHour ?? resolvedHours[batchIndex % resolvedHours.length];
-    const occupiedHoursOnDay = occupiedHoursPerDay.get(targetDate) ?? new Set<number>();
-    const candidateHours = Array.from(new Set([preferredHour, ...resolvedHours, 7, 12, 18, 21]));
-    const finalHour = candidateHours.find((h) => !occupiedHoursOnDay.has(h)) ?? preferredHour;
+    const contentHourCandidates: number[] =
+      contentHour === 7  ? [7, 6, 8] :
+      contentHour === 12 ? [12, 13, 11] :
+      contentHour === 18 ? [18, 17, 19] :
+      contentHour === 21 ? [21, 20, 22] :
+      [...resolvedHours]; // null/ambiguous — use niche/AI-derived optimal hours
 
-    const passNumber = (occupiedHoursOnDay.size) + 1;
+    const occupiedHoursOnDay = occupiedHoursPerDay.get(targetDate) ?? new Set<number>();
+    const finalHour = contentHourCandidates.find((h) => !occupiedHoursOnDay.has(h))
+      ?? contentHourCandidates[0];
+
     console.log(
-      `[Scheduler] niche="${profile.niche}" imageCtx="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)} contentHour=${contentHour ?? "null"} batchIndex=${batchIndex} targetDate=${targetDate} pass=${passNumber} preferredHour=${preferredHour} finalHour=${finalHour} dayPool=${dayPool.length}`,
+      `[Scheduler] niche="${profile.niche}" imageCtx="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)} contentHour=${contentHour ?? "null"} batchIndex=${batchIndex} targetDate=${targetDate} pass=${currentPass} finalHour=${finalHour} dayPool=${dayPool.length}/${windowDays.length}`,
     );
 
     const scheduledAtDate = new Date(targetDate + "T00:00:00Z");
