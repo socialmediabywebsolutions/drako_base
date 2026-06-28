@@ -42,7 +42,7 @@ const mainNav = [
   { href: "/socialflow/upload",        label: "Subir foto",          icon: <IcoCamera /> },
   { href: "/socialflow/plan",           label: "Plan editorial",      icon: <IcoCalendar /> },
   { href: "/socialflow/conversations", label: "Comunidad",           icon: <IcoChat /> },
-  { href: "/socialflow/leads",         label: "Leads",               icon: <IcoUsers /> },
+  { href: "/socialflow/leads",         label: "Oportunidades",       icon: <IcoUsers /> },
   { href: "/socialflow/knowledge",     label: "Base de conocimiento",icon: <IcoBook /> },
 ];
 
