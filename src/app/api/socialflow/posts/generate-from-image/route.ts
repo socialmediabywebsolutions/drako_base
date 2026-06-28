@@ -6,6 +6,7 @@ import { env } from "@/lib/cf";
 import { SocialContextError, resolveSocialContext, getLastScheduledPostDate, getFutureScheduledSlots } from "@/lib/socialflow/repository";
 import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
 import { ImageAnalysisAgent } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
+import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import { TrendAgent } from "@/lib/socialflow/ai/agents/TrendAgent";
 import { ContentGeneratorAgent } from "@/lib/socialflow/ai/agents/ContentGeneratorAgent";
 import { OptimizationAgent } from "@/lib/socialflow/ai/agents/OptimizationAgent";
@@ -15,10 +16,38 @@ function unauthorizedResponse() {
   return NextResponse.json({ code: "UNAUTHORIZED", message: "SESSION_REQUIRED" }, { status: 401 });
 }
 
+// Map photo content (from LLaVA analysis) to the best UTC posting hour.
+// Returns null when the content is ambiguous — caller falls back to batchIndex rotation.
+// Hour rationale (fitness/lifestyle niche, Spain+LatAm audience UTC):
+//   7h  — workout content: people check Instagram before/after morning training
+//  12h  — food/nutrition: people browse during lunch break
+//  18h  — motivation/mindset: people decompress after work
+//  21h  — rest/recovery: evening wind-down browsing
+function pickHourFromContent(analysis: ImageAnalysis): number | null {
+  const raw = [analysis.description, analysis.context, ...analysis.suggestedThemes].join(" ");
+  // Normalize: lowercase + strip diacritics so "nutrición" matches "nutrici"
+  const text = raw
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+
+  // Exercise / physical activity → 7h
+  if (/ejercici|entrena|workout|gym\b|cardio|pesas|rutina|correr|running|spinning|crossfit|muscula|atletismo|deporte|actividad fisica|movimiento|fuerza/.test(text)) return 7;
+
+  // Food / nutrition / meal → 12h
+  if (/comida|receta|almuerzo|ensalada|comer|cocin|plato|verdura|fruta|desayuno|snack|merienda|aliment|nutritiv|nutrici|dieta|ingredi|meal|saludable/.test(text)) return 12;
+
+  // Mindset / motivation / transformation → 18h
+  if (/motivaci|inspiraci|mindset|actitud|positiv|superaci|exito|logro|\bmeta\b|objetivo|reflexi|mentalidad|transform|cambio|habito|proposito|bienestar mental/.test(text)) return 18;
+
+  // Rest / recovery / night routine → 21h
+  if (/descanso|recuperaci|dormir|sueno|relajaci|\bspa\b|masaj|meditaci|noche/.test(text)) return 21;
+
+  return null; // ambiguous — use batchIndex rotation
+}
+
 // Strip greeting openings the LLM generates despite prompt instructions.
-// Covers: "Hola, chicas!", "¡Hey!", "Buenos días,", "Buenas tardes —", etc.
-// Two-pass: first removes the greeting word, second removes residual vocatives
-// ("chicas!", "chica,") that survive because they start with a letter.
+// Two-pass: removes the greeting word, then residual vocatives ("chicas!") that survive.
 function cleanOpening(text: string): string {
   return text
     .replace(
@@ -197,30 +226,32 @@ export async function POST(request: Request) {
     const clientOffsetDays = Math.max(0, Math.round((clientStartMs - tomorrowMs) / DAY_MS));
     const targetDate = new Date(anchorMs + clientOffsetDays * DAY_MS).toISOString().slice(0, 10);
 
-    // Resolve posting hours — prefer AI-provided, fall back to fitness heuristic
+    // Resolve fallback hour pool — prefer AI-provided, fall back to niche heuristic
     const FITNESS_RE = /fitness|lifestyle|wellness|salud|health|gym|sport|yoga|pilates|nutrici|coach|entrenami|ejercici/i;
     const nicheHours = FITNESS_RE.test(profile.niche) ? [7, 12, 18] : [9, 18];
     const aiHours = (trends.optimalHours ?? []).filter((h) => Number.isInteger(h) && h >= 0 && h < 24).slice(0, 3);
     const resolvedHours = aiHours.length >= 2 ? aiHours : nicheHours;
 
-    // Pick hour by batch position so photos cycle through all hours (pass 1→h0, pass 2→h1, pass 3→h2)
+    // Primary: pick hour from photo content (LLaVA already analyzed the image — zero extra LLM cost).
+    // Fallback: batchIndex rotation so photos spread across hours when content is ambiguous.
     const batchIndex = typeof body.batchIndex === "number" && body.batchIndex >= 0
       ? body.batchIndex
-      : Math.round(clientOffsetDays / 2);  // fallback: infer from day offset
-    const preferredHour = resolvedHours[batchIndex % resolvedHours.length];
+      : Math.round(clientOffsetDays / 2);
+    const contentHour = pickHourFromContent(imageAnalysis);
+    const preferredHour = contentHour ?? resolvedHours[batchIndex % resolvedHours.length];
 
-    // Cross-session collision check: if preferredHour is already taken on targetDate, cycle to next free hour
+    // Cross-session collision check: if preferredHour is already taken on targetDate, try other hours
     const occupiedHoursOnDay = new Set(
       futureSlots
         .filter((s) => s.startsWith(targetDate))
         .map((s) => parseInt(s.slice(11, 13), 10)),
     );
-    const finalHour = occupiedHoursOnDay.has(preferredHour)
-      ? (resolvedHours.find((h) => !occupiedHoursOnDay.has(h)) ?? preferredHour)
-      : preferredHour;
+    // Candidate pool: content-derived hour first, then resolvedHours, then all known fitness hours
+    const candidatePool = Array.from(new Set([preferredHour, ...resolvedHours, 7, 12, 18, 21]));
+    const finalHour = candidatePool.find((h) => !occupiedHoursOnDay.has(h)) ?? preferredHour;
 
     console.log(
-      `[SchedulerAgent] niche="${profile.niche}" trends.optimalHours=${JSON.stringify(trends.optimalHours)} resolvedHours=${JSON.stringify(resolvedHours)} batchIndex=${batchIndex} targetDate=${targetDate} preferredHour=${preferredHour} finalHour=${finalHour}`,
+      `[Scheduler] niche="${profile.niche}" imageCtx="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)} contentHour=${contentHour ?? "null(→rotation)"} batchIndex=${batchIndex} preferredHour=${preferredHour} finalHour=${finalHour} targetDate=${targetDate}`,
     );
 
     const scheduledAtDate = new Date(targetDate + "T00:00:00Z");
