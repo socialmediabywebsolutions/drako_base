@@ -67,19 +67,12 @@ export default function SocialFlowOperationsPanel() {
         </div>
       )}
 
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5 p-6">
-        <h2 className="text-xl font-black text-white">¿Qué publicamos hoy?</h2>
-        <p className="mt-1.5 text-sm text-white/50">
-          Sube una foto y la IA genera el caption, hashtags y horario óptimo.
-        </p>
-        <button
-          onClick={() => router.push("/socialflow/upload")}
-          className="mt-5 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110"
-        >
-          ✦ Subir foto
-        </button>
-      </section>
+      <button
+        onClick={() => router.push("/socialflow/upload")}
+        className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition"
+      >
+        ✦ Subir foto
+      </button>
 
       {/* ── Weekly calendar ──────────────────────────────────────────────── */}
       <DarkSection title="Calendario semanal" subtitle="Visualiza tu contenido semanal">

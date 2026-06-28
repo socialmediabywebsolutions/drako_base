@@ -58,9 +58,9 @@ export default async function SocialFlowDashboardPage() {
 
       {summary && <DashboardMetrics planCode={planCode} summary={summary} auditScore={audit?.score ?? null} />}
 
-      <IntelligenceFeedPanel />
-
       <SocialFlowOperationsPanel />
+
+      <IntelligenceFeedPanel />
     </div>
   );
 }
