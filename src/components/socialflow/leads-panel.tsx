@@ -201,6 +201,28 @@ export default function LeadsPanel({ leads: initialLeads, saasId }: Props) {
 
 // ── Lead card ─────────────────────────────────────────────────────────────────
 
+const TEMP_BADGE: Record<LeadTemperature, string> = {
+  HOT:  "bg-red-500/20 text-red-400",
+  WARM: "bg-amber-500/20 text-amber-400",
+  COLD: "bg-blue-500/20 text-blue-400",
+};
+
+function detectOpportunityType(message: string): { label: string; cls: string } {
+  const m = message.toLowerCase();
+  if (/colabor|collab|sponsor|patrocinio/.test(m))
+    return { label: "🤝 Colaboración", cls: "bg-purple-500/20 text-purple-400" };
+  if (/coach|entrena|rutina|plan/.test(m))
+    return { label: "💪 Servicio", cls: "bg-green-500/20 text-green-400" };
+  if (/precio|comprar|adquirir|pagar/.test(m))
+    return { label: "🛒 Venta", cls: "bg-blue-500/20 text-blue-400" };
+  return { label: "💬 Consulta", cls: "bg-gray-500/20 text-gray-400" };
+}
+
+function initials(name: string | null, handle: string | null): string {
+  const src = name ?? handle ?? "?";
+  return src.trim().charAt(0).toUpperCase();
+}
+
 function LeadCard({
   lead,
   isPending,
@@ -210,101 +232,103 @@ function LeadCard({
   isPending: boolean;
   onStatusChange: (s: LeadStatus) => void;
 }) {
-  const temp = TEMP_META[lead.temperature];
-  const status = STATUS_META[lead.status];
   const isDone = lead.status === "CONVERTED" || lead.status === "LOST";
+  const opportunity = detectOpportunityType(lead.incomingMessage);
 
   return (
     <div
       className={[
         "rounded-xl border bg-white/4 transition hover:bg-white/6",
         lead.temperature === "HOT" ? "border-rose-500/30" : "border-white/8",
-        isDone ? "opacity-70" : "",
+        isDone ? "opacity-60" : "",
       ].join(" ")}
     >
-      {/* Card header */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/8 px-4 py-3">
-        <span className="text-sm font-semibold text-white">
-          {lead.senderName ?? lead.senderHandle ?? "Anónimo"}
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">
+          {initials(lead.senderName, lead.senderHandle)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-white">
+            {lead.senderName ?? lead.senderHandle ?? "Anónimo"}
+          </p>
+          {lead.senderHandle && (
+            <p className="truncate text-xs text-white/40">@{lead.senderHandle}</p>
+          )}
+        </div>
+        <span className={["rounded-full px-2.5 py-0.5 text-[11px] font-bold", TEMP_BADGE[lead.temperature]].join(" ")}>
+          {lead.temperature}
         </span>
-        {lead.senderHandle && lead.senderName && (
-          <span className="text-xs text-white/35">@{lead.senderHandle}</span>
-        )}
-        <span className={[
-          "rounded-full px-2 py-0.5 text-[11px] font-medium",
-          PROVIDER_BG[lead.provider] ?? "bg-white/8 text-white/50",
-        ].join(" ")}>
-          {PROVIDER_LABELS[lead.provider] ?? lead.provider}
-        </span>
-        <span className={[
-          "rounded-full border px-2.5 py-0.5 text-[11px] font-bold tracking-wide",
-          temp.bg, temp.border,
-        ].join(" ")}>
-          {temp.label}
-        </span>
-        <span className={[
-          "rounded-full px-2 py-0.5 text-[11px] font-medium",
-          status.bg,
-        ].join(" ")}>
-          {status.label}
-        </span>
-        <span className="ml-auto text-[11px] text-white/25">{relativeTime(lead.createdAt)}</span>
       </div>
 
-      <div className="px-4 py-3 space-y-3">
+      <div className="px-4 pb-4 space-y-3">
+        {/* Opportunity type + provider */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={["rounded-full px-2.5 py-0.5 text-[11px] font-medium", opportunity.cls].join(" ")}>
+            {opportunity.label}
+          </span>
+          <span className={["rounded-full px-2 py-0.5 text-[11px] font-medium", PROVIDER_BG[lead.provider] ?? "bg-white/8 text-white/50"].join(" ")}>
+            {PROVIDER_LABELS[lead.provider] ?? lead.provider}
+          </span>
+          <span className="ml-auto text-xs text-white/30">{relativeTime(lead.createdAt)}</span>
+        </div>
+
         {/* Message */}
-        <p className="rounded-lg bg-white/5 px-3 py-2.5 text-sm text-white/65 line-clamp-2">
-          {lead.incomingMessage}
+        <p className="rounded-lg bg-white/5 px-3 py-2.5 text-sm italic text-white/60 line-clamp-3">
+          "{lead.incomingMessage}"
         </p>
 
         {/* Intent score */}
-        <div>
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/35">
-            Score de intención
-          </p>
-          <ScoreBar score={lead.intentScore} temp={lead.temperature} />
+        <ScoreBar score={lead.intentScore} temp={lead.temperature} />
+
+        {/* Footer actions */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-white/8 pt-3">
+          {!isDone ? (
+            <>
+              <button
+                type="button"
+                onClick={() => onStatusChange("CONTACTED")}
+                disabled={isPending}
+                className="rounded-lg bg-violet-600 px-3 py-1 text-xs font-medium text-white transition hover:bg-violet-500 disabled:opacity-40"
+              >
+                Contactar
+              </button>
+              <button
+                type="button"
+                onClick={() => onStatusChange("CONVERTED")}
+                disabled={isPending}
+                className="rounded-lg bg-green-600/20 px-3 py-1 text-xs font-medium text-green-400 transition hover:bg-green-600/30 disabled:opacity-40"
+              >
+                Convertido ✓
+              </button>
+              <button
+                type="button"
+                onClick={() => onStatusChange("LOST")}
+                disabled={isPending}
+                className="px-3 py-1 text-xs text-white/30 transition hover:text-white/55 disabled:opacity-40"
+              >
+                Descartar
+              </button>
+            </>
+          ) : (
+            <>
+              {lead.status === "CONVERTED" && (
+                <span className="text-xs font-medium text-emerald-400">✓ Convertido</span>
+              )}
+              {lead.status === "LOST" && (
+                <span className="text-xs text-white/30">Descartado</span>
+              )}
+              <button
+                type="button"
+                onClick={() => onStatusChange("NEW")}
+                disabled={isPending}
+                className="ml-auto px-3 py-1 text-xs text-white/30 transition hover:text-white/55 disabled:opacity-40"
+              >
+                Reactivar
+              </button>
+            </>
+          )}
         </div>
-
-        {/* Actions */}
-        {!isDone && (
-          <div className="flex flex-wrap gap-2 border-t border-white/8 pt-3">
-            <Link
-              href="/socialflow/conversations"
-              className="rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-sm font-medium text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
-            >
-              Ver conversación
-            </Link>
-            {lead.status === "NEW" && (
-              <ActionBtn onClick={() => onStatusChange("CONTACTED")} disabled={isPending} variant="secondary">
-                {isPending ? "…" : "Marcar contactado"}
-              </ActionBtn>
-            )}
-            {(lead.status === "NEW" || lead.status === "CONTACTED") && (
-              <ActionBtn onClick={() => onStatusChange("CONVERTED")} disabled={isPending} variant="success">
-                Convertido
-              </ActionBtn>
-            )}
-            {lead.status !== "LOST" && (
-              <ActionBtn onClick={() => onStatusChange("LOST")} disabled={isPending} variant="ghost">
-                Perdido
-              </ActionBtn>
-            )}
-          </div>
-        )}
-
-        {isDone && (
-          <div className="flex items-center gap-2 border-t border-white/8 pt-3">
-            {lead.status === "CONVERTED" && (
-              <span className="text-xs font-medium text-emerald-400">✓ Convertido</span>
-            )}
-            {lead.status === "LOST" && (
-              <span className="text-xs text-white/30">Perdido</span>
-            )}
-            <ActionBtn onClick={() => onStatusChange("NEW")} disabled={isPending} variant="ghost">
-              Reactivar
-            </ActionBtn>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -385,37 +409,6 @@ function FilterBtn({
   );
 }
 
-function ActionBtn({
-  children,
-  onClick,
-  disabled,
-  variant,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  disabled: boolean;
-  variant: "secondary" | "success" | "ghost";
-}) {
-  const cls = {
-    secondary: "border border-white/10 bg-white/6 text-white/65 hover:bg-white/10 hover:text-white",
-    success: "border border-emerald-500/25 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15",
-    ghost: "text-white/30 hover:bg-white/6 hover:text-white/55",
-  }[variant];
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={[
-        "rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:opacity-40",
-        cls,
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
-}
 
 function EmptyState({ hasLeads }: { hasLeads: boolean }) {
   return (
