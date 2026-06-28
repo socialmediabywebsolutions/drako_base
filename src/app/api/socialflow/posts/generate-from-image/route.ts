@@ -6,11 +6,12 @@ import { env } from "@/lib/cf";
 import { SocialContextError } from "@/lib/socialflow/repository";
 import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
 import { ImageAnalysisAgent } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
+import { TrendAgent } from "@/lib/socialflow/ai/agents/TrendAgent";
+import { KeywordAgent } from "@/lib/socialflow/ai/agents/KeywordAgent";
 import { ContentGeneratorAgent } from "@/lib/socialflow/ai/agents/ContentGeneratorAgent";
 import { OptimizationAgent } from "@/lib/socialflow/ai/agents/OptimizationAgent";
 import { SchedulerAgent } from "@/lib/socialflow/ai/agents/SchedulerAgent";
-import type { KeywordEngineOutput, StrategyItem } from "@/lib/socialflow/ai/types";
-import type { TrendInsights } from "@/lib/socialflow/ai/agents/TrendAgent";
+import type { StrategyItem } from "@/lib/socialflow/ai/types";
 
 function unauthorizedResponse() {
   return NextResponse.json({ code: "UNAUTHORIZED", message: "SESSION_REQUIRED" }, { status: 401 });
@@ -82,11 +83,13 @@ export async function POST(request: Request) {
     }
     const imageBytes = Array.from(new Uint8Array(await r2Object.arrayBuffer()));
 
-    // Step 1: Analyze image with LLaVA
-    const imageAgent = new ImageAnalysisAgent();
-    const imageAnalysis = await imageAgent.run({ imageBytes, profile });
+    // Step 1: Analyze image (LLaVA) + trends (Mistral) in parallel — no interdependency
+    const [imageAnalysis, trends] = await Promise.all([
+      new ImageAnalysisAgent().run({ imageBytes, profile }),
+      new TrendAgent().run({ profile }),
+    ]);
 
-    // Step 2: Build synthetic StrategyItem from the image analysis (no LLM call)
+    // Step 2: Build StrategyItem from image analysis (no LLM call)
     const strategyItem: StrategyItem = {
       id: `img_${Date.now()}`,
       dayOffset: 0,
@@ -101,45 +104,18 @@ export async function POST(request: Request) {
       callToAction: profile.primaryCTA || "Conoce más en el enlace de la bio.",
     };
 
-    // Step 3: Build minimal KeywordEngineOutput from profile (no LLM call)
-    const keywordEngine: KeywordEngineOutput = {
-      clusters: profile.contentPillars.slice(0, 3).map((pillar, i) => ({
-        cluster: pillar,
-        intent: (["awareness", "consideration", "conversion"] as const)[i % 3],
-        difficulty: "medium" as const,
-        trendScore: 70,
-        seasonality: null,
-        contentAngles: imageAnalysis.suggestedThemes,
-        keywords: profile.baseKeywords.slice(0, 3),
-        hashtags: profile.baseHashtags.slice(0, 5),
-      })),
-      evergreenHashtags: profile.baseHashtags,
-      trendingHashtags: profile.priorityHashtags,
-      nicheHashtags: profile.competitorHashtags.slice(0, 5),
-      viralHashtags: [],
-      campaignHashtags: [],
-    };
+    // Step 3: Real keyword clusters + hashtag strategy (Mistral)
+    const { engine: keywordEngine } = await new KeywordAgent().run({ profile, trends });
 
-    // Step 4: Build minimal TrendInsights from image analysis (no LLM call)
-    const emotionCapped = imageAnalysis.emotion.length > 0
-      ? imageAnalysis.emotion.charAt(0).toUpperCase() + imageAnalysis.emotion.slice(1)
-      : "Auténtico";
-    const trends: TrendInsights = {
-      trendingTopics: imageAnalysis.suggestedThemes,
-      viralAngles: [
-        `${emotionCapped} — lo que nos hace diferentes`,
-        ...profile.viralThemes.slice(0, 2),
-      ],
-      emergingPatterns: [`Contenido visual auténtico sobre ${profile.niche}`],
-      shortFormOpportunities: [
-        `${imageAnalysis.recommendedPostType} mostrando ${imageAnalysis.context}`,
-      ],
-      hookIdeas: [
-        `${emotionCapped}: esto es lo que hacemos diferente`,
-        `Detrás de cámaras: ${imageAnalysis.description.slice(0, 60)}`,
-        `¿Sabes qué hace especial a ${profile.brandIdentity}? Mira esto`,
-      ],
-    };
+    // Enrich trending hashtags with image-specific themes so the caption stays
+    // contextual to the actual photo, not just the general niche.
+    const imageThemeHashtags = imageAnalysis.suggestedThemes
+      .map((t) => `#${t.replace(/\s+/g, "").replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9]/g, "").toLowerCase()}`)
+      .filter((h) => h.length > 2);
+    keywordEngine.trendingHashtags = [
+      ...keywordEngine.trendingHashtags,
+      ...imageThemeHashtags,
+    ].slice(0, 10);
 
     // Step 5: Generate caption (Mistral via Workers AI)
     const contentAgent = new ContentGeneratorAgent();
