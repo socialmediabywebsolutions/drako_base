@@ -140,11 +140,13 @@ function Spinner({ sm }: { sm?: boolean }) {
 function ItemCard({
   item,
   onApprove,
+  onPreview,
   onRemove,
   onUpdate,
 }: {
   item: UploadItem;
   onApprove: (id: string) => void;
+  onPreview: (id: string) => void;
   onRemove: (id: string) => void;
   onUpdate: (id: string, patch: Partial<UploadItem>) => void;
 }) {
@@ -251,15 +253,22 @@ function ItemCard({
   if (!item.isEditing) {
     return (
       <div className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-white/3">
-        {/* Thumbnail */}
-        <div className="relative h-40 overflow-hidden bg-black/20">
+        {/* Thumbnail — click opens preview modal */}
+        <button
+          type="button"
+          onClick={() => onPreview(item.id)}
+          className="relative h-40 w-full overflow-hidden bg-black/20 focus:outline-none"
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover" />
           <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 backdrop-blur-sm">
             <IcoSparkles />
             <span className="text-[10px] font-semibold text-white/70">IA</span>
           </div>
-        </div>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all hover:bg-black/30">
+            <span className="rounded-full bg-black/50 px-3 py-1 text-[11px] font-bold text-white opacity-0 backdrop-blur-sm transition-opacity hover:opacity-100">Ver preview</span>
+          </div>
+        </button>
 
         {/* Content */}
         <div className="flex flex-1 flex-col gap-3 p-4">
@@ -308,7 +317,7 @@ function ItemCard({
             </button>
             <button
               type="button"
-              onClick={() => onApprove(item.id)}
+              onClick={() => onPreview(item.id)}
               className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
             >
               <IcoCheck sm /> Aprobar
@@ -408,11 +417,105 @@ function ItemCard({
           </button>
           <button
             type="button"
-            onClick={() => { onUpdate(item.id, { isEditing: false }); onApprove(item.id); }}
+            onClick={() => { onUpdate(item.id, { isEditing: false }); onPreview(item.id); }}
             disabled={!item.editDate || !item.editBody.trim()}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <IcoCheck sm /> Aprobar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Preview modal ─────────────────────────────────────────────────────────────
+
+function PreviewModal({
+  item,
+  onConfirm,
+  onClose,
+}: {
+  item: UploadItem;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+      style={{ background: "rgba(0,0,0,0.75)" }}
+      onClick={onClose}
+    >
+      <div
+        className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0d0d1e] shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white"
+        >
+          <IcoX />
+        </button>
+
+        <div className="flex flex-col overflow-y-auto sm:flex-row">
+          {/* Image */}
+          <div className="h-56 shrink-0 overflow-hidden bg-black/30 sm:h-auto sm:w-56">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover" />
+          </div>
+
+          {/* Content */}
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
+            {/* Meta pills */}
+            <div className="flex flex-wrap gap-1.5">
+              <span className="rounded-full bg-violet-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-violet-300">
+                {PROVIDER_LABELS[item.editProvider] ?? item.editProvider}
+              </span>
+              <span className="rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] font-medium text-white/50">
+                {CONTENT_TYPE_LABELS[item.editContentType] ?? item.editContentType}
+              </span>
+              {item.editDate && (
+                <span className="rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] font-medium text-white/50">
+                  {displayDate(item.editDate)} · {item.editTime || "09:00"} UTC
+                </span>
+              )}
+            </div>
+
+            {/* Caption completo */}
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/80">
+              {item.editBody}
+            </p>
+
+            {/* Hashtags */}
+            {item.editHashtags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {item.editHashtags.map((h) => (
+                  <span key={h} className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">
+                    {h}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 border-t border-white/8 px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-white/45 transition hover:bg-white/5 hover:text-white/70"
+          >
+            Volver a editar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+          >
+            <IcoCheck /> Confirmar y programar
           </button>
         </div>
       </div>
@@ -429,6 +532,7 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
   const [isDragging, setIsDragging] = useState(false);
   const [items, setItems] = useState<UploadItem[]>([]);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
   const updateItem = useCallback((id: string, patch: Partial<UploadItem>) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -791,6 +895,18 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
         onChange={(e) => { if (e.target.files) handleFiles(e.target.files); }}
       />
 
+      {/* Preview modal */}
+      {previewId && (() => {
+        const previewItem = items.find((i) => i.id === previewId);
+        return previewItem ? (
+          <PreviewModal
+            item={previewItem}
+            onConfirm={() => { setPreviewId(null); void approveItem(previewId); }}
+            onClose={() => setPreviewId(null)}
+          />
+        ) : null;
+      })()}
+
       {/* Cards */}
       <div className="grid gap-4 sm:grid-cols-2">
         {items.map((item) => (
@@ -798,6 +914,7 @@ export default function UploadToPost({ saasId }: { saasId: string }) {
             key={item.id}
             item={item}
             onApprove={approveItem}
+            onPreview={setPreviewId}
             onRemove={removeItem}
             onUpdate={updateItem}
           />

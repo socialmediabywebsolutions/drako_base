@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { AnalyticsMeta, SaasSocialPost, SaasSocialCampaign } from "@/lib/social-core/types";
 
@@ -212,7 +212,7 @@ function PostChip({ post, today }: { post: SaasSocialPost; today: string }) {
       <span className="shrink-0 text-[9px] leading-none">{typeIcon}</span>
       <span className="font-black opacity-60">{abbr}</span>
       <span className="truncate">{title}</span>
-      {time && <span className="ml-auto shrink-0 text-[9px] opacity-40">{time}</span>}
+      {time && <span className="ml-auto shrink-0 text-[10px] font-bold opacity-65">{time}</span>}
     </div>
   );
 }
@@ -872,6 +872,13 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [refreshingMetricsId, setRefreshingMetricsId] = useState<string | null>(null);
+  const selectedDayRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (selectedDate) {
+      selectedDayRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [selectedDate]);
 
   const [fContent, setFContent] = useState("");
   const [fProvider, setFProvider] = useState("LINKEDIN");
@@ -1170,7 +1177,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
 
       {/* ── Selected day panel ────────────────────────────────────────────── */}
       {selectedDate && (
-        <div className="rounded-3xl border border-white/8 bg-white/4 p-6">
+        <div ref={selectedDayRef} className="rounded-3xl border border-white/8 bg-white/4 p-6">
           <div className="mb-5 flex items-start justify-between">
             <div>
               {selectedDate === today && (
