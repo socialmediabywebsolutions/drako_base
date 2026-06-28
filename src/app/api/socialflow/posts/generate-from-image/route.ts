@@ -16,6 +16,17 @@ function unauthorizedResponse() {
   return NextResponse.json({ code: "UNAUTHORIZED", message: "SESSION_REQUIRED" }, { status: 401 });
 }
 
+// Strip greeting openings the LLM generates despite prompt instructions.
+// Covers: "Hola, chicas!", "¡Hey!", "Buenos días,", "Buenas tardes —", etc.
+function cleanOpening(text: string): string {
+  return text
+    .replace(
+      /^[¡!]*\s*(hola|hey|buenas?(?:\s+(?:d[ií]as?|tardes?|noches?))?|buenos\s+d[ií]as?)\b[^a-záéíóúüñ\n]*/i,
+      "",
+    )
+    .trimStart();
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => null)) as {
@@ -135,6 +146,9 @@ export async function POST(request: Request) {
     // Step 6: Optimize caption + enforce hashtag limit (Mistral via Workers AI)
     const optimizationAgent = new OptimizationAgent();
     const optimized = await optimizationAgent.run({ profile, variant, keywordEngine });
+
+    // Strip any greeting the LLM generated despite prompt instructions.
+    optimized.improvedText = cleanOpening(optimized.improvedText);
 
     // Enrich hashtags when the LLM returned fewer than 10.
     // The brand profile may have very few base hashtags configured; supplement
