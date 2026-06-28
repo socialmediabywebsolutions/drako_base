@@ -1,5 +1,6 @@
 // Isolated product runtime — no direct DB access, no legacy shells.
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import SidebarNav from "./_components/sidebar-nav";
@@ -41,6 +42,19 @@ export default async function SocialFlowWorkspaceLayout({
         <main className="min-w-0 flex-1 px-5 py-7 lg:px-10 lg:py-8">
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
+      </div>
+
+      {/* Floating AI button */}
+      <div className="group fixed bottom-6 right-6 z-50">
+        <span className="absolute right-16 top-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+          Estratega IA
+        </span>
+        <Link
+          href="/socialflow/ai"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 shadow-lg shadow-violet-500/30 hover:brightness-110 transition cursor-pointer"
+        >
+          <span className="text-xl text-white">✦</span>
+        </Link>
       </div>
     </div>
   );
