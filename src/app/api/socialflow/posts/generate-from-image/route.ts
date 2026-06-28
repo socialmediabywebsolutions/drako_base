@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { env } from "@/lib/cf";
-import { SocialContextError, resolveSocialContext, getLastScheduledPostDate, getFutureScheduledSlots } from "@/lib/socialflow/repository";
+import { SocialContextError, resolveSocialContext, getFutureScheduledSlots } from "@/lib/socialflow/repository";
 import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
 import { ImageAnalysisAgent } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       imageKey?: string;
       saasId?: string;
       provider?: string;
-      startDate?: string;   // YYYY-MM-DD — when set, pins the post to that exact day
+      startDate?: string;
       batchIndex?: number;  // 0-based position of this image in the upload batch
     } | null;
 
@@ -199,59 +199,63 @@ export async function POST(request: Request) {
         .slice(0, 15);
     }
 
-    // Step 7: Calculate best schedule slot (deterministic, no LLM).
-    // Each upload call processes ONE image. The SchedulerAgent wave system is designed
-    // for multi-item batches and always returns wave-1 (hour[0]) for single-item calls,
-    // causing every photo to land at the same hour. Instead we compute the hour directly
-    // from batchIndex so photos spread across all optimal hours in order.
+    // Step 7: Calculate best schedule slot — wave-based pass system.
+    // Generates all (date, hour) combinations in wave order: every day at hours[0] first
+    // (Pass 1), then every day at hours[1] (Pass 2), etc. batchIndex picks the Nth
+    // available slot so Pass 2 begins automatically once all Pass 1 days are filled.
     const DAY_MS = 86_400_000;
     const todayUtc = new Date().toISOString().slice(0, 10);
-    const tomorrowMs = new Date(todayUtc + "T00:00:00Z").getTime() + DAY_MS;
 
     const socialCtx = await resolveSocialContext({ tenantId: session.tenantId, saasId: body.saasId });
-    const [lastScheduledDate, futureSlots] = await Promise.all([
-      getLastScheduledPostDate(socialCtx).catch(() => null),
-      getFutureScheduledSlots(socialCtx).catch(() => [] as string[]),
-    ]);
+    const futureSlots = await getFutureScheduledSlots(socialCtx).catch(() => [] as string[]);
 
-    // Anchor = max(tomorrow, lastScheduledDate + 2 days)
-    const anchorMs = lastScheduledDate
-      ? Math.max(tomorrowMs, new Date(lastScheduledDate + "T00:00:00Z").getTime() + 2 * DAY_MS)
-      : tomorrowMs;
-
-    // Client offset: how many days past tomorrow the client proposed (= batchIndex * 2)
-    const clientStartMs = body.startDate
-      ? new Date(body.startDate + "T00:00:00Z").getTime()
-      : tomorrowMs;
-    const clientOffsetDays = Math.max(0, Math.round((clientStartMs - tomorrowMs) / DAY_MS));
-    const targetDate = new Date(anchorMs + clientOffsetDays * DAY_MS).toISOString().slice(0, 10);
-
-    // Resolve fallback hour pool — prefer AI-provided, fall back to niche heuristic
+    // Resolve hour pool — prefer AI-provided hours, fall back to niche heuristic
     const FITNESS_RE = /fitness|lifestyle|wellness|salud|health|gym|sport|yoga|pilates|nutrici|coach|entrenami|ejercici/i;
     const nicheHours = FITNESS_RE.test(profile.niche) ? [7, 12, 18] : [9, 18];
     const aiHours = (trends.optimalHours ?? []).filter((h) => Number.isInteger(h) && h >= 0 && h < 24).slice(0, 3);
     const resolvedHours = aiHours.length >= 2 ? aiHours : nicheHours;
 
-    // Primary: pick hour from photo content (LLaVA already analyzed the image — zero extra LLM cost).
-    // Fallback: batchIndex rotation so photos spread across hours when content is ambiguous.
-    const batchIndex = typeof body.batchIndex === "number" && body.batchIndex >= 0
-      ? body.batchIndex
-      : Math.round(clientOffsetDays / 2);
-    const contentHour = pickHourFromContent(imageAnalysis);
-    const preferredHour = contentHour ?? resolvedHours[batchIndex % resolvedHours.length];
+    // Build 62-day window starting tomorrow
+    const windowStartMs = new Date(todayUtc + "T00:00:00Z").getTime() + DAY_MS;
+    const windowDays: string[] = [];
+    for (let i = 0; i < 62; i++) {
+      windowDays.push(new Date(windowStartMs + i * DAY_MS).toISOString().slice(0, 10));
+    }
 
-    // Cross-session collision check: if preferredHour is already taken on targetDate, try other hours
-    const occupiedHoursOnDay = new Set(
-      futureSlots
-        .filter((s) => s.startsWith(targetDate))
-        .map((s) => parseInt(s.slice(11, 13), 10)),
+    // Wave-by-wave slot pool: every day at hours[0] first (Pass 1),
+    // then every day at hours[1] (Pass 2), then hours[2] (Pass 3).
+    const slotPool: Array<{ dateStr: string; hour: number }> = [];
+    for (const hour of resolvedHours) {
+      for (const day of windowDays) {
+        slotPool.push({ dateStr: day, hour });
+      }
+    }
+
+    // Remove already-occupied (date, hour) pairs — cross-session collision prevention
+    const occupiedKeys = new Set(futureSlots.map((s) => s.slice(0, 13))); // "YYYY-MM-DDTHH"
+    const available = slotPool.filter(({ dateStr, hour }) =>
+      !occupiedKeys.has(`${dateStr}T${String(hour).padStart(2, "0")}`),
     );
-    // Candidate pool: content-derived hour first, then resolvedHours, then all known fitness hours
-    const candidatePool = Array.from(new Set([preferredHour, ...resolvedHours, 7, 12, 18, 21]));
-    const finalHour = candidatePool.find((h) => !occupiedHoursOnDay.has(h)) ?? preferredHour;
 
+    // batchIndex picks the Nth available slot — simultaneous batch photos each claim a
+    // unique slot with no DB roundtrip needed between them.
+    const batchIndex = typeof body.batchIndex === "number" && body.batchIndex >= 0 ? body.batchIndex : 0;
+    const baseSlot = available[batchIndex] ?? available[available.length - 1] ?? { dateStr: windowDays[0], hour: resolvedHours[0] };
+    const targetDate = baseSlot.dateStr;
+
+    // Content-based hour override: prefer the hour that matches the photo's content type
+    // when that hour is free on targetDate; otherwise keep the wave-assigned hour (guaranteed free).
+    const contentHour = pickHourFromContent(imageAnalysis);
+    const occupiedHoursOnDay = new Set(
+      futureSlots.filter((s) => s.startsWith(targetDate)).map((s) => parseInt(s.slice(11, 13), 10)),
+    );
+    const finalHour = contentHour !== null && !occupiedHoursOnDay.has(contentHour)
+      ? contentHour
+      : baseSlot.hour;
+
+    const passNumber = resolvedHours.indexOf(baseSlot.hour) + 1;
     console.log(
-      `[Scheduler] niche="${profile.niche}" imageCtx="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)} contentHour=${contentHour ?? "null(→rotation)"} batchIndex=${batchIndex} preferredHour=${preferredHour} finalHour=${finalHour} targetDate=${targetDate}`,
+      `[Scheduler] niche="${profile.niche}" imageCtx="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)} contentHour=${contentHour ?? "null"} batchIndex=${batchIndex} baseSlot=${targetDate}@${baseSlot.hour}h pass=${passNumber} finalHour=${finalHour} slots=${available.length}/${slotPool.length}`,
     );
 
     const scheduledAtDate = new Date(targetDate + "T00:00:00Z");
