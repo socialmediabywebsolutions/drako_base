@@ -18,12 +18,15 @@ function unauthorizedResponse() {
 
 // Strip greeting openings the LLM generates despite prompt instructions.
 // Covers: "Hola, chicas!", "¡Hey!", "Buenos días,", "Buenas tardes —", etc.
+// Two-pass: first removes the greeting word, second removes residual vocatives
+// ("chicas!", "chica,") that survive because they start with a letter.
 function cleanOpening(text: string): string {
   return text
     .replace(
       /^[¡!]*\s*(hola|hey|buenas?(?:\s+(?:d[ií]as?|tardes?|noches?))?|buenos\s+d[ií]as?)\b[^a-záéíóúüñ\n]*/i,
       "",
     )
+    .replace(/^chicas?\s*[!,.\s¡]*/i, "")
     .trimStart();
 }
 
