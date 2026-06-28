@@ -40,7 +40,7 @@ export class ContentGeneratorAgent {
     const extra = richProfileLines(profile);
     const keywords = keywordEngine.clusters.map((c) => c.cluster).filter(Boolean).join(", ");
     const hooks = trends.hookIdeas.filter(Boolean).slice(0, 3).join(" | ");
-    const cta = profile.primaryCTA || `¿Cuál es tu mayor reto con ${profile.niche}? Cuéntame abajo.`;
+    const cta = profile.primaryCTA || `¿Tú también lo sientes así? Cuéntame en los comentarios 👇`;
 
     const prompt = `Escribe un post de redes sociales EN ESPAÑOL sobre el tema: "${profile.niche}".
 
@@ -71,10 +71,10 @@ Elige UNA de estas 10 aperturas y adáptala al tema del post. Rota — no uses s
 
 Estructura obligatoria:
 1. Apertura usando UNA de las 10 frases anteriores (adaptada al tema, sin "Hola")
-2. Desarrollo en 3-5 párrafos con información concreta y accionable sobre "${profile.niche}"
+2. Desarrollo en 2-3 párrafos donde YO (la influencer) hablo desde mi experiencia personal: qué hago, qué siento, qué aprendí, qué me funciona. Uso "yo", "mi", "me", "mis". NO escribo consejos genéricos dirigidos a la audiencia. Hablo de MI vida y MI experiencia relacionada con el tema de la imagen.
 3. Cierre con el CTA
 
-Genera entre 10 y 15 hashtags relevantes: mezcla hashtags de nicho específico (fitness, nutrición, bienestar), hashtags de comunidad hispanohablante, y 2-3 hashtags virales del momento. Formato: #hashtag1 #hashtag2 ...
+Genera entre 10 y 15 hashtags relevantes: mezcla hashtags de nicho específico (fitness, nutrición, bienestar), hashtags de comunidad hispanohablante, y 2-3 hashtags virales del momento. Formato: #hashtag1 #hashtag2 ... IMPORTANTE: genera exactamente entre 10 y 15 hashtags. Nunca menos de 10.
 Responde SOLO con el JSON solicitado.`;
 
     const fallbackHook = trends.hookIdeas[0] ?? `Lo que nadie te dice sobre ${profile.niche}...`;
