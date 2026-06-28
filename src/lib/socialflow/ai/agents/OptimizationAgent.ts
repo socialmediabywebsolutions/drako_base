@@ -11,7 +11,8 @@ export class OptimizationAgent {
     const prompt = `${profile.voiceInstruction ? `⚠️ VOZ OBLIGATORIA: ${profile.voiceInstruction}\n\n` : ""}Optimiza este post en ESPAÑOL para el tono "${profile.toneOfVoice}" y la audiencia "${profile.audience}". El texto mejorado debe estar completamente en español, ser persuasivo y tener al menos 3 párrafos.
 Evita temas prohibidos (${profile.forbiddenTopics.join(", ")} y ángulos ${profile.forbiddenAngles.join(", ")}).
 Evita palabras prohibidas: ${profile.bannedWords.join(", ")}.
-Usa hashtags de los conjuntos base y prioritarios más los seleccionados del motor de keywords. Máximo 15 hashtags en total.
+Mantén entre 10 y 15 hashtags en el post. Si hay menos de 10, añade hashtags relevantes al nicho. Si hay más de 15, elimina los menos relevantes.
+El texto debe estar en primera persona singular (yo, mi, me). Si encuentras "nosotros", "nuestro" o "nuestra", cámbialo a primera persona.
 Texto original: ${variant.text}`;
 
     const hashtagPool = [

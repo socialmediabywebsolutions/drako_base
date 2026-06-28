@@ -40,7 +40,7 @@ export class ContentGeneratorAgent {
     const extra = richProfileLines(profile);
     const keywords = keywordEngine.clusters.map((c) => c.cluster).filter(Boolean).join(", ");
     const hooks = trends.hookIdeas.filter(Boolean).slice(0, 3).join(" | ");
-    const cta = profile.primaryCTA || `¿Cuál es tu mayor reto con ${profile.niche}? Cuéntanos abajo.`;
+    const cta = profile.primaryCTA || `¿Cuál es tu mayor reto con ${profile.niche}? Cuéntame abajo.`;
 
     const prompt = `Escribe un post de redes sociales EN ESPAÑOL sobre el tema: "${profile.niche}".
 
@@ -74,7 +74,8 @@ Estructura obligatoria:
 2. Desarrollo en 3-5 párrafos con información concreta y accionable sobre "${profile.niche}"
 3. Cierre con el CTA
 
-Máximo 15 hashtags relevantes sobre "${profile.niche}". Responde SOLO con el JSON solicitado.`;
+Genera entre 10 y 15 hashtags relevantes: mezcla hashtags de nicho específico (fitness, nutrición, bienestar), hashtags de comunidad hispanohablante, y 2-3 hashtags virales del momento. Formato: #hashtag1 #hashtag2 ...
+Responde SOLO con el JSON solicitado.`;
 
     const fallbackHook = trends.hookIdeas[0] ?? `Lo que nadie te dice sobre ${profile.niche}...`;
     const fallbackPain = profile.painPoints.find(p => p && p !== profile.niche)
@@ -117,7 +118,7 @@ Aquí va lo que realmente funciona en ${profile.niche}:
 → Aplica el ángulo correcto: ${strategyItem.angle}.
 → Mide el impacto y ajusta cada semana.
 
-¿Cuál es tu mayor obstáculo en ${profile.niche}? Cuéntanos en los comentarios.
+¿Cuál es tu mayor obstáculo en ${profile.niche}? Cuéntame en los comentarios.
 
 ${cta}`,
           callToAction: strategyItem.callToAction || cta,
