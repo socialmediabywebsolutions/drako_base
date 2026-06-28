@@ -7,11 +7,10 @@ import { SocialContextError } from "@/lib/socialflow/repository";
 import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
 import { ImageAnalysisAgent } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import { TrendAgent } from "@/lib/socialflow/ai/agents/TrendAgent";
-import { KeywordAgent } from "@/lib/socialflow/ai/agents/KeywordAgent";
 import { ContentGeneratorAgent } from "@/lib/socialflow/ai/agents/ContentGeneratorAgent";
 import { OptimizationAgent } from "@/lib/socialflow/ai/agents/OptimizationAgent";
 import { SchedulerAgent } from "@/lib/socialflow/ai/agents/SchedulerAgent";
-import type { StrategyItem } from "@/lib/socialflow/ai/types";
+import type { KeywordEngineOutput, StrategyItem } from "@/lib/socialflow/ai/types";
 
 function unauthorizedResponse() {
   return NextResponse.json({ code: "UNAUTHORIZED", message: "SESSION_REQUIRED" }, { status: 401 });
@@ -104,18 +103,35 @@ export async function POST(request: Request) {
       callToAction: profile.primaryCTA || "Conoce más en el enlace de la bio.",
     };
 
-    // Step 3: Real keyword clusters + hashtag strategy (Mistral)
-    const { engine: keywordEngine } = await new KeywordAgent().run({ profile, trends });
-
-    // Enrich trending hashtags with image-specific themes so the caption stays
-    // contextual to the actual photo, not just the general niche.
+    // Step 3: Keyword engine — synthetic clusters enriched with real TrendAgent output.
+    // KeywordAgent was removed from this path because it added a sequential Mistral call
+    // that pushed total request time past the Cloudflare Workers 30s limit. TrendAgent
+    // (already running in parallel with LLaVA) provides the most valuable signal: real
+    // trending hashtags and hook ideas for this niche.
     const imageThemeHashtags = imageAnalysis.suggestedThemes
       .map((t) => `#${t.replace(/\s+/g, "").replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9]/g, "").toLowerCase()}`)
       .filter((h) => h.length > 2);
-    keywordEngine.trendingHashtags = [
-      ...keywordEngine.trendingHashtags,
-      ...imageThemeHashtags,
-    ].slice(0, 10);
+    const keywordEngine: KeywordEngineOutput = {
+      clusters: profile.contentPillars.slice(0, 3).map((pillar, i) => ({
+        cluster: pillar,
+        intent: (["awareness", "consideration", "conversion"] as const)[i % 3],
+        difficulty: "medium" as const,
+        trendScore: 70,
+        seasonality: null,
+        contentAngles: imageAnalysis.suggestedThemes,
+        keywords: profile.baseKeywords.slice(0, 3),
+        hashtags: profile.baseHashtags.slice(0, 5),
+      })),
+      evergreenHashtags: profile.baseHashtags,
+      // trendingHashtags now comes from TrendAgent (real Mistral output) + image themes
+      trendingHashtags: [
+        ...trends.trendingTopics.map((t) => `#${t.replace(/\s+/g, "").replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9]/g, "").toLowerCase()}`),
+        ...imageThemeHashtags,
+      ].filter((h) => h.length > 2).slice(0, 10),
+      nicheHashtags: profile.competitorHashtags.slice(0, 5),
+      viralHashtags: profile.viralThemes.map((t) => `#${t.replace(/\s+/g, "").toLowerCase()}`),
+      campaignHashtags: profile.priorityHashtags,
+    };
 
     // Step 5: Generate caption (Mistral via Workers AI)
     const contentAgent = new ContentGeneratorAgent();
