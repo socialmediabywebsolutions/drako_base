@@ -30,11 +30,10 @@ export default async function SocialFlowConversationsPage() {
           SocialFlow · Conversaciones
         </div>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
-          Bandeja de conversaciones
+          Mi Comunidad
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
-          Responde DMs y comentarios automáticamente usando tu base de conocimiento de marca.
-          Aprueba las respuestas antes de enviar o activa el envío automático para respuestas instantáneas.
+          Gestiona comentarios y DMs de tus seguidores. La IA responde con tu voz usando tu base de conocimiento.
         </p>
       </div>
 

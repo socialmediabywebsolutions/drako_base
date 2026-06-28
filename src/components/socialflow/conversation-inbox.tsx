@@ -11,7 +11,7 @@ type Props = {
   hotLeadThreadIds?: string[];
 };
 
-type Tab = "inbox" | "needs_human" | "history";
+type Tab = "inbox" | "needs_human" | "toxic" | "history";
 
 const AUTO_SEND_PROVIDERS = ["INSTAGRAM", "FACEBOOK_PAGE", "LINKEDIN"] as const;
 
@@ -122,12 +122,16 @@ export default function ConversationInbox({
 
   const inboxThreads = threads.filter((t) => t.status === "PENDING" || t.status === "AUTO_APPROVED");
   const needsHumanThreads = threads.filter((t) => t.status === "NEEDS_HUMAN");
+  const toxicThreads = threads.filter((t) => getSentiment(t.aiMetadata) === "negative");
   const historyThreads = threads.filter(
     (t) => t.status === "SENT" || t.status === "APPROVED" || t.status === "DISMISSED",
   );
 
   const activeThreads =
-    tab === "inbox" ? inboxThreads : tab === "needs_human" ? needsHumanThreads : historyThreads;
+    tab === "inbox" ? inboxThreads
+    : tab === "needs_human" ? needsHumanThreads
+    : tab === "toxic" ? toxicThreads
+    : historyThreads;
 
   function toggleAutoSend() {
     setSettingsError(null);
@@ -290,9 +294,9 @@ export default function ConversationInbox({
 
       {/* Stats strip */}
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="En bandeja" value={inboxThreads.length} accent="amber" />
-        <StatCard label="Requiere revisión" value={needsHumanThreads.length} accent="orange" />
-        <StatCard label="Enviados / aprobados" value={historyThreads.filter((t) => t.status === "SENT" || t.status === "APPROVED").length} accent="emerald" />
+        <StatCard label="Comentarios" value={inboxThreads.length} accent="amber" />
+        <StatCard label="DMs" value={needsHumanThreads.length} accent="orange" />
+        <StatCard label="Leads detectados" value={historyThreads.filter((t) => t.status === "SENT" || t.status === "APPROVED").length} accent="emerald" />
       </div>
 
       {/* Settings card */}
@@ -431,9 +435,10 @@ export default function ConversationInbox({
       <div className="flex gap-1 rounded-xl border border-white/8 bg-white/4 p-1">
         {(
           [
-            { id: "inbox" as Tab, label: "Bandeja", count: inboxThreads.length },
-            { id: "needs_human" as Tab, label: "Requiere revisión", count: needsHumanThreads.length },
-            { id: "history" as Tab, label: "Historial", count: historyThreads.length },
+            { id: "inbox" as Tab, label: "Todos", count: inboxThreads.length },
+            { id: "needs_human" as Tab, label: "Leads 🔥", count: needsHumanThreads.length },
+            { id: "toxic" as Tab, label: "Tóxicos ⚠️", count: toxicThreads.length },
+            { id: "history" as Tab, label: "Respondidos", count: historyThreads.length },
           ] as { id: Tab; label: string; count: number }[]
         ).map(({ id, label, count }) => (
           <button
@@ -774,8 +779,9 @@ function Btn({
 
 function EmptyState({ tab }: { tab: Tab }) {
   const messages: Record<Tab, string> = {
-    inbox: "Sin respuestas pendientes. Los mensajes aparecerán aquí cuando lleguen por webhook o desde el panel de prueba.",
+    inbox: "Aún no hay actividad. Cuando tus seguidores comenten o envíen DMs, aparecerán aquí.",
     needs_human: "Sin conversaciones escaladas. La IA gestiona automáticamente los comentarios negativos y de baja confianza.",
+    toxic: "Sin mensajes tóxicos detectados. La IA identifica automáticamente contenido negativo o dañino.",
     history: "Sin historial aún. Los hilos aprobados y descartados aparecen aquí.",
   };
   return (
