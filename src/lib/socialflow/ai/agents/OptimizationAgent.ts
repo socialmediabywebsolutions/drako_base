@@ -40,6 +40,13 @@ Texto original: ${variant.text}`;
       data.hashtags = data.hashtags.slice(0, 15);
     }
 
+    // Enforce min 10 hashtags — pad with fitness defaults if the LLM returned too few
+    if (Array.isArray(data.hashtags) && data.hashtags.length < 10) {
+      const extraFitnessHashtags = ['#FitnessMotivacion', '#VidaSaludable', '#EntrenamientoEnCasa', '#NutricionSaludable', '#MujerFit', '#HabitosSaludables', '#FitnessLatina', '#SaludYBienestar', '#BodyPositive', '#MindfulEating', '#FitnessCommunity', '#ActiveLifestyle'];
+      const needed = 10 - data.hashtags.length;
+      data.hashtags = [...data.hashtags, ...extraFitnessHashtags.slice(0, needed)];
+    }
+
     // Strip any tone-metadata lines that may have leaked from the seed fallback
     if (typeof data.improvedText === "string") {
       data.improvedText = data.improvedText

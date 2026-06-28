@@ -42,6 +42,16 @@ export class ContentGeneratorAgent {
     const hooks = trends.hookIdeas.filter(Boolean).slice(0, 3).join(" | ");
     const cta = profile.primaryCTA || `¿Tú también lo sientes así? Cuéntame en los comentarios 👇`;
 
+    const fitnessNicheKeys = ['fitness', 'nutrici', 'bienestar', 'salud', 'entrenamiento', 'gym', 'yoga', 'pilates', 'deporte', 'fit'];
+    const isFitnessNiche = fitnessNicheKeys.some(k => profile.niche.toLowerCase().includes(k));
+    const hashtagPool = [
+      ...(profile.baseHashtags ?? []),
+      ...(profile.priorityHashtags ?? []),
+      ...(keywordEngine.campaignHashtags ?? []),
+      ...(isFitnessNiche ? ['#FitnessParaMujeres', '#VidaFit', '#SaludYBienestar', '#MujerActiva', '#EntrenamientoFemenino', '#NutricionFit', '#HabitosSaludables', '#FitnessMotivacion', '#CuerpySano', '#BienestarFemenino', '#FitnessLatina', '#MindsetFit'] : []),
+    ];
+    const hashtagSeed = Array.from(new Set(hashtagPool)).slice(0, 15).join(' ');
+
     const prompt = `Escribe un post de redes sociales EN ESPAÑOL sobre el tema: "${profile.niche}".
 
 ⚠️ REGLA ABSOLUTA: El post trata EXCLUSIVAMENTE sobre "${profile.niche}".
@@ -55,6 +65,7 @@ Identidad: ${profile.brandIdentity} · Tono: ${profile.toneOfVoice}.
 CTA: ${cta}
 ${hooks ? `Hooks de referencia (adapta al tema): ${hooks}` : ""}
 ${keywords ? `Keywords a incluir naturalmente: ${keywords}` : ""}
+${hashtagSeed ? `Hashtags de referencia para incluir: ${hashtagSeed}` : ""}
 
 ⚠️ APERTURA — REGLA IRROMPIBLE: NUNCA empieces con "Hola", "Chicas", ni presentándote ("Soy ${profile.brandIdentity}...").
 Elige UNA de estas 10 aperturas y adáptala al tema del post. Rota — no uses siempre la misma:
