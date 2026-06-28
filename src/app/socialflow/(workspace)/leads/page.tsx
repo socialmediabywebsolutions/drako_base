@@ -20,13 +20,13 @@ export default async function SocialFlowLeadsPage() {
     <div className="space-y-6">
       <div>
         <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
-          SocialFlow · Lead Intelligence
+          SocialFlow · Oportunidades
         </p>
         <h1 className="mt-1.5 text-2xl font-black tracking-tight text-white">
-          Leads
+          Oportunidades
         </h1>
         <p className="mt-1.5 max-w-xl text-sm text-white/50">
-          Detectados automáticamente de comentarios y DMs con señales de intención de compra.
+          Seguidores con intención de colaborar o contratarte, detectados automáticamente de comentarios y DMs.
           {hotCount > 0 && (
             <span className="ml-1 font-semibold text-fuchsia-400">
               {hotCount} HOT{hotCount !== 1 ? "s" : ""} ahora.

@@ -424,15 +424,15 @@ function EmptyState({ hasLeads }: { hasLeads: boolean }) {
         <p className="text-sm text-white/35">No hay leads con esos filtros.</p>
       ) : (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-white/60">Sin leads aún</p>
+          <p className="text-sm font-medium text-white/60">Sin oportunidades aún</p>
           <p className="mx-auto max-w-xs text-xs text-white/35">
-            Los leads se detectan automáticamente cuando llegan mensajes con señales de intención de compra (precio, comprar, interesado…).
+            Cuando un seguidor pregunte por colaboraciones, servicios o productos, aparecerá aquí automáticamente.
           </p>
           <Link
             href="/socialflow/conversations"
             className="mt-3 inline-block rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-medium text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
           >
-            Ver conversaciones
+            Ver mi comunidad
           </Link>
         </div>
       )}

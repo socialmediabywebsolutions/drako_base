@@ -13,6 +13,22 @@ const SIGNALS: Array<{ pattern: RegExp; weight: number }> = [
   { pattern: /\bquiero\b/i, weight: 15 },
   { pattern: /\bnecesito\b/i, weight: 15 },
   { pattern: /informaci[oó]n\b|\binfo\b/i, weight: 12 },
+  // Colaboración / monetización influencer
+  { pattern: /\bcolaboraci[oó]n\b|\bcollab\b/i, weight: 45 },
+  { pattern: /\bpatrocinio\b|\bsponsor\b|\bsponsorship\b/i, weight: 45 },
+  { pattern: /\bembajadora\b|\bembajador\b|\bbrand\s+ambassador\b/i, weight: 40 },
+  { pattern: /\brepresentas\b|\brepresentaci[oó]n\b/i, weight: 35 },
+  { pattern: /\bprograma\s+de\s+entrenamiento\b|\bplan\s+de\s+entreno\b/i, weight: 40 },
+  { pattern: /\bentrenamiento\s+personalizado\b|\brutina\s+personalizada\b/i, weight: 38 },
+  { pattern: /\bcoaching\b|\bcoach\b/i, weight: 35 },
+  { pattern: /\bases[oa]r[ií]a\b|\bases[oa]ramiento\b/i, weight: 32 },
+  { pattern: /c[oó]mo\s+te\s+contrato\b|\bcontratar\b/i, weight: 42 },
+  { pattern: /\btrabajar\s+contigo\b|\btrabajar\s+juntos\b/i, weight: 38 },
+  { pattern: /\bpropuesta\b|\bproposal\b/i, weight: 30 },
+  { pattern: /\bpublicidad\b|\bpubli\b|\bpublicitar\b/i, weight: 35 },
+  { pattern: /\bmenci[oó]n\b|\bmencionar\b|\bstory\s+pagada\b/i, weight: 32 },
+  { pattern: /\bgifting\b|\bregalo\b|\benv[ií]o\s+de\s+producto\b/i, weight: 28 },
+  { pattern: /\bdescuento\b|\bc[oó]digo\s+descuento\b|\baffiliate\b/i, weight: 25 },
 ];
 
 function scoreMessage(message: string): number {
