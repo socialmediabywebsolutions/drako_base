@@ -204,13 +204,15 @@ function PostChip({ post, today }: { post: SaasSocialPost; today: string }) {
   const abbr = PROVIDER_ABBR[post.provider] ?? "?";
   const typeIcon = CONTENT_TYPE_CFG[post.contentType]?.icon ?? "🖼️";
   const overdue = isOverdue(post, today);
-  const title = post.title.length > 18 ? post.title.slice(0, 18) + "…" : post.title;
+  const title = post.title.length > 13 ? post.title.slice(0, 13) + "…" : post.title;
+  const time = post.scheduledAt ? formatTime(post.scheduledAt) : null;
   return (
     <div className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${overdue ? "bg-amber-500/20 text-amber-200" : cfg.chipBg}`}>
       {overdue && <span className="shrink-0 font-black text-amber-400">!</span>}
       <span className="shrink-0 text-[9px] leading-none">{typeIcon}</span>
       <span className="font-black opacity-60">{abbr}</span>
       <span className="truncate">{title}</span>
+      {time && <span className="ml-auto shrink-0 text-[9px] opacity-40">{time}</span>}
     </div>
   );
 }
@@ -1114,7 +1116,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
                   !isLastRow && "border-b border-white/6",
                   !isLastCol && "border-r border-white/6",
                   isSelected
-                    ? "bg-violet-500/8 ring-1 ring-inset ring-violet-500/30"
+                    ? "bg-violet-500/20 ring-2 ring-inset ring-violet-500/65"
                     : isPast && !isToday
                     ? "bg-white/2 hover:bg-white/4"
                     : "hover:bg-white/4",
@@ -1124,7 +1126,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
                   <span className={[
                     "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
                     isToday ? "bg-violet-500 text-white"
-                      : isSelected ? "bg-violet-500/20 text-violet-300"
+                      : isSelected ? "bg-violet-500/60 text-white"
                       : isPast ? "text-white/20"
                       : "text-white/60",
                   ].join(" ")}>
