@@ -10,6 +10,7 @@ import { createStripeCheckoutSession, createStripeCustomer } from "@/lib/stripe/
 
 type RequestBody = {
   plan?: "creator" | "pro";
+  context?: "onboarding" | "settings";
 };
 
 export async function POST(request: Request) {
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
     const session = await requireCurrentSocialFlowSession(request);
     const body = (await request.json().catch(() => ({}))) as RequestBody;
     const plan: SocialFlowPlanCode = body.plan === "creator" ? "creator" : "pro";
+    const ctx = body.context === "onboarding" ? "onboarding" : "settings";
 
     const priceId = getSocialFlowStripePriceId(plan);
     if (!priceId) {
@@ -34,12 +36,21 @@ export async function POST(request: Request) {
     }
 
     const baseUrl = getRequestBaseUrl(request);
+    const successUrl =
+      ctx === "onboarding"
+        ? `${baseUrl}/socialflow/onboarding?billing=success&session_id={CHECKOUT_SESSION_ID}`
+        : `${baseUrl}/socialflow/settings/billing?billing=success&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl =
+      ctx === "onboarding"
+        ? `${baseUrl}/socialflow/onboarding/plans?billing=cancelled`
+        : `${baseUrl}/socialflow/settings/billing?billing=cancelled`;
+
     const checkout = await createStripeCheckoutSession({
       customer: customerId,
       priceId,
       metadata: { tenantId: session.tenantId, clientId: session.userId, saasSlug: "socialflow", plan, planCode: plan },
-      successUrl: `${baseUrl}/socialflow/settings/billing?billing=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${baseUrl}/socialflow/settings/billing?billing=cancelled`,
+      successUrl,
+      cancelUrl,
     });
 
     return NextResponse.json({ ok: true, url: checkout.url, sessionId: checkout.id });

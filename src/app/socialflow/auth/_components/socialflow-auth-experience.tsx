@@ -56,6 +56,10 @@ export default function SocialFlowAuthExperience() {
         throw new Error(payload.message || payload.error || payload.code || "Error de autenticación.");
       }
 
+      if (mode === "register") {
+        window.location.assign("/socialflow/onboarding/plans");
+        return;
+      }
       const redirectTarget = resolveSafeRedirectTarget(
         searchParams.get("callbackUrl") || searchParams.get("next"),
       );
@@ -180,7 +184,7 @@ export default function SocialFlowAuthExperience() {
             <p className="mb-7 text-sm text-white/45">
               {mode === "login"
                 ? "Accede a tu panel de marketing."
-                : "14 días gratis. Sin tarjeta de crédito."}
+                : "7 días gratis. Sin tarjeta de crédito."}
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">

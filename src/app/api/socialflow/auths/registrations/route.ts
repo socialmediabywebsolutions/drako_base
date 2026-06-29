@@ -6,6 +6,7 @@ import { jsonError, setAuthsSessionCookie } from "@/lib/auths/http";
 import { isAuthsIsolationEnabled, isTelemetriesHoldingEnabled } from "@/lib/auths/flags";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import { enforceAuthBoundary, resolveSaasSlugForAuthContext } from "@/lib/auths/ssot";
+import { run } from "@/lib/db";
 
 type RegistrationBody = {
   email?: string;
@@ -44,6 +45,22 @@ export async function POST(request: Request) {
   if (!login.ok) {
     return jsonError(login.code, login.message, 401);
   }
+
+  // Activate 7-day free trial in saas_subscriptions (no Stripe required)
+  const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const nowIso = new Date().toISOString();
+  await run(
+    `INSERT INTO saas_subscriptions (id, tenant_id, saas_slug, plan_code, status, current_period_end, created_at, updated_at)
+     VALUES (?, ?, 'socialflow', 'creator', 'trial', ?, ?, ?)
+     ON CONFLICT(tenant_id, saas_slug) DO NOTHING`,
+    `${login.tenantId}:socialflow`,
+    login.tenantId,
+    trialEndsAt,
+    nowIso,
+    nowIso,
+  ).catch((err) => {
+    console.error("SOCIALFLOW_TRIAL_CREATE_ERROR", err);
+  });
 
   const response = NextResponse.json({
     ok: true,

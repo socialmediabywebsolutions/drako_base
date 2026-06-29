@@ -84,6 +84,13 @@ export async function getUploadBatchLimit(tenantId: string, role?: string): Prom
     return PLAN_MAX_UPLOADS_PER_BATCH.pro;
   }
   const snapshot = await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" });
-  const planCode = resolveSocialFlowPlanCode(snapshot.subscription);
+  const sub = snapshot.subscription;
+
+  // Cap at 1 per batch during active trial (lets users taste the product without abusing it)
+  const trialEndsAt = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
+  const isActiveTrial = sub.status === "trial" && trialEndsAt !== null && trialEndsAt > new Date();
+  if (isActiveTrial) return 1;
+
+  const planCode = resolveSocialFlowPlanCode(sub);
   return PLAN_MAX_UPLOADS_PER_BATCH[planCode];
 }

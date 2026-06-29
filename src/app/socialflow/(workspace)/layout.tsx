@@ -3,7 +3,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
+import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
 import SidebarNav from "./_components/sidebar-nav";
+import TrialBanner from "./_components/trial-banner";
+import TrialPaywall from "./_components/trial-paywall";
 
 export const metadata: Metadata = {
   title: "SocialFlow",
@@ -24,6 +27,26 @@ export default async function SocialFlowWorkspaceLayout({
     redirect("/socialflow/auth");
   }
 
+  const snapshot = await getCanonicalBillingSnapshot({ tenantId: session.tenantId, saasSlug: "socialflow" });
+  const sub = snapshot.subscription;
+
+  // Real paid subscription (has actual Stripe customer ID, status active/trialing)
+  const hasPaidAccess =
+    (sub.status === "active" || sub.status === "trialing") && Boolean(sub.stripeCustomerId);
+
+  // Trial window
+  const trialEndsAt = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
+  const isTrialActive = sub.status === "trial" && trialEndsAt !== null && trialEndsAt > new Date();
+  const isTrialExpired = sub.status === "trial" && trialEndsAt !== null && trialEndsAt <= new Date();
+
+  // Days left (shown in banner, max precision = 1 day)
+  const trialDaysLeft = isTrialActive && trialEndsAt
+    ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : null;
+
+  // Paywall: only when trial has actually expired and no paid access
+  const showPaywall = !hasPaidAccess && isTrialExpired;
+
   return (
     <div className="min-h-screen bg-[#030312] text-white">
       {/* Subtle gradient orbs — fixed so they don't scroll */}
@@ -40,6 +63,9 @@ export default async function SocialFlowWorkspaceLayout({
 
         {/* Main content */}
         <main className="min-w-0 flex-1 px-5 py-7 lg:px-10 lg:py-8">
+          {trialDaysLeft !== null && !showPaywall && (
+            <TrialBanner daysLeft={trialDaysLeft} />
+          )}
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
       </div>
@@ -56,6 +82,9 @@ export default async function SocialFlowWorkspaceLayout({
           <span className="text-xl text-white">✦</span>
         </Link>
       </div>
+
+      {/* Paywall overlay — covers entire workspace when trial expires */}
+      {showPaywall && <TrialPaywall />}
     </div>
   );
 }
