@@ -269,8 +269,14 @@ export async function POST(request: Request) {
       })();
 
     const occupiedHoursOnDay = occupiedHoursPerDay.get(targetDate) ?? new Set<number>();
-    const finalHour = contentHourCandidates.find((h) => !occupiedHoursOnDay.has(h))
-      ?? contentHourCandidates[0];
+    const nowHourUtc = new Date().getUTCHours();
+    // Prefer a future hour today; fall back to any non-occupied hour; last resort: first candidate
+    const finalHour =
+      contentHourCandidates.find(
+        (h) => !occupiedHoursOnDay.has(h) && (targetDate !== todayUtc || h > nowHourUtc),
+      ) ??
+      contentHourCandidates.find((h) => !occupiedHoursOnDay.has(h)) ??
+      contentHourCandidates[0];
 
     console.log(
       `[Scheduler] niche="${profile.niche}" imageCtx="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)} contentHour=${contentHour ?? "null"} batchIndex=${batchIndex} targetDate=${targetDate} pass=${currentPass} finalHour=${finalHour} dayPool=${dayPool.length}/${windowDays.length}`,
