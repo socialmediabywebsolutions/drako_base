@@ -34,8 +34,12 @@ export class ContentGeneratorAgent {
     strategyItem: { id: string; theme: string; angle: string; callToAction: string };
     keywordEngine: KeywordEngineOutput;
     trends: TrendInsights;
+    openerIndex?: number;
   }): Promise<GeneratedPost> {
     const { profile, strategyItem, keywordEngine, trends } = input;
+    // Rotate opener so every upload gets a different caption structure.
+    // Falls back to time-based seed when no explicit index is given.
+    const openerIndex = (input.openerIndex ?? Math.floor(Date.now() / 60_000)) % 10;
 
     const extra = richProfileLines(profile);
     const keywords = keywordEngine.clusters.map((c) => c.cluster).filter(Boolean).join(", ");
@@ -68,7 +72,7 @@ ${keywords ? `Keywords a incluir naturalmente: ${keywords}` : ""}
 ${hashtagSeed ? `Hashtags de referencia para incluir: ${hashtagSeed}` : ""}
 
 ⚠️ APERTURA — REGLA IRROMPIBLE: NUNCA empieces con "Hola", "Chicas", ni presentándote ("Soy ${profile.brandIdentity}...").
-Elige UNA de estas 10 aperturas y adáptala al tema del post. Rota — no uses siempre la misma:
+Las 10 aperturas disponibles:
 1. "¿Alguna vez has sentido que [situación relacionada con el tema]?"
 2. "Seré honesta contigo: [verdad incómoda o revelación sobre el tema]."
 3. "Esto me cambió la vida: [resultado o aprendizaje clave del tema]."
@@ -79,6 +83,7 @@ Elige UNA de estas 10 aperturas y adáptala al tema del post. Rota — no uses s
 8. "Años haciendo esto y por fin entendí: [lección sobre el tema]."
 9. "La verdad sobre [tema]:"
 10. "No siempre es fácil, pero [acción o actitud relacionada con el tema]."
+⚠️ DEBES comenzar el post con la apertura número ${openerIndex + 1} de la lista anterior (adaptada al tema concreto del post).
 
 Estructura obligatoria:
 1. Apertura usando UNA de las 10 frases anteriores (adaptada al tema, sin "Hola")

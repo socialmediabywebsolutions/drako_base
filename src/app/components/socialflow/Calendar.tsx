@@ -65,14 +65,24 @@ export function Calendar(props: { posts: SocialPost[]; campaigns: SocialCampaign
                   <div className="truncate text-[11px] font-medium">{post.title}</div>
                   <div className="mt-0.5 flex items-center justify-between text-[10px] text-white/35">
                     <span>{campaignName(post.campaignId)}</span>
-                    <span
-                      className={
-                        post.status === "SCHEDULED"
-                          ? "rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-300"
-                          : "rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-300"
-                      }
-                    >
-                      {post.status}
+                    <span className="flex items-center gap-1">
+                      <span
+                        className={[
+                          "h-1.5 w-1.5 rounded-full",
+                          ["POSTED", "PUBLISHED"].includes(post.status)
+                            ? "bg-emerald-400"
+                            : ["FAILED", "REJECTED"].includes(post.status)
+                            ? "bg-rose-400"
+                            : "bg-sky-400",
+                        ].join(" ")}
+                      />
+                      <span>
+                        {["POSTED", "PUBLISHED"].includes(post.status)
+                          ? "Publicado"
+                          : ["FAILED", "REJECTED"].includes(post.status)
+                          ? "Error"
+                          : "Programado"}
+                      </span>
                     </span>
                   </div>
                 </div>

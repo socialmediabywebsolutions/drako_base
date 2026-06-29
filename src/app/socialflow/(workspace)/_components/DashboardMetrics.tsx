@@ -23,6 +23,10 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("es-ES").format(Math.round(value));
 }
 
+function analyticsValue(value: number): string {
+  return value === 0 ? "—" : formatNumber(value);
+}
+
 function buildMetrics(
   planCode: SocialFlowPlanCode,
   summary: MetricsSource,
@@ -30,17 +34,17 @@ function buildMetrics(
 ): Metric[] {
   if (planCode === "pro") {
     return [
-      { label: "Leads (30 días)",       value: formatNumber(summary.analytics.last30Days.leadsGenerated),              hint: "Generados por tus publicaciones",            accent: "from-violet-500 to-purple-600" },
-      { label: "Impresiones (30 días)", value: formatNumber(summary.analytics.last30Days.impressions),                  hint: "Alcance total de tu contenido",              accent: "from-fuchsia-500 to-pink-600" },
-      { label: "Engagement / post",     value: formatNumber(summary.analytics.last30Days.averageEngagementPerPublishedPost), hint: "Promedio de interacciones por publicación", accent: "from-blue-500 to-indigo-600" },
-      { label: "Reputación online",     value: auditScore !== null ? `${auditScore}/100` : "—",                        hint: "Score de tu última auditoría social",        accent: "from-cyan-400 to-blue-500" },
+      { label: "Leads (30 días)",       value: analyticsValue(summary.analytics.last30Days.leadsGenerated),              hint: "Generados por tus publicaciones",            accent: "from-violet-500 to-purple-600" },
+      { label: "Impresiones (30 días)", value: analyticsValue(summary.analytics.last30Days.impressions),                  hint: "Alcance total de tu contenido",              accent: "from-fuchsia-500 to-pink-600" },
+      { label: "Engagement / post",     value: analyticsValue(summary.analytics.last30Days.averageEngagementPerPublishedPost), hint: "Promedio de interacciones por publicación", accent: "from-blue-500 to-indigo-600" },
+      { label: "Reputación online",     value: auditScore !== null ? `${auditScore}/100` : "—",                          hint: "Score de tu última auditoría social",        accent: "from-cyan-400 to-blue-500" },
     ];
   }
 
   return [
     { label: "Programadas (7 días)",  value: formatNumber(summary.overview.scheduledPostsThisWeek),     hint: "Publicaciones listas para salir",            accent: "from-violet-500 to-purple-600" },
     { label: "Publicadas (30 días)",  value: formatNumber(summary.overview.publishedPostsLast30Days),   hint: "Contenido publicado este mes",               accent: "from-fuchsia-500 to-pink-600" },
-    { label: "Engagement (30 días)",  value: formatNumber(summary.overview.engagementLast30Days),       hint: "Likes, comentarios y shares acumulados",     accent: "from-blue-500 to-indigo-600" },
+    { label: "Engagement (30 días)",  value: analyticsValue(summary.overview.engagementLast30Days),     hint: "Sin datos aún — conecta tus redes para ver métricas reales", accent: "from-blue-500 to-indigo-600" },
     { label: "Score de presencia",    value: auditScore !== null ? `${auditScore}/100` : "—",          hint: "Resultado de tu última auditoría",           accent: "from-cyan-400 to-blue-500" },
   ];
 }

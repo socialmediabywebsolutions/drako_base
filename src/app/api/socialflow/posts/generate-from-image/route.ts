@@ -164,7 +164,7 @@ export async function POST(request: Request) {
 
     // Step 5: Generate caption (Mistral via Workers AI)
     const contentAgent = new ContentGeneratorAgent();
-    const generated = await contentAgent.run({ profile, strategyItem, keywordEngine, trends });
+    const generated = await contentAgent.run({ profile, strategyItem, keywordEngine, trends, openerIndex: (body.batchIndex ?? 0) % 10 });
     const variant = generated.variants[0];
 
     // Step 6: Optimize caption + enforce hashtag limit (Mistral via Workers AI)
