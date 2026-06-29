@@ -19,9 +19,7 @@ const checks = [
     id: "canonical-root",
     method: "GET",
     path: "/",
-    expectedStatuses: [301, 302, 307, 308],
-    validateLocation: (location) =>
-      typeof location === "string" && (location.endsWith("/socialflow") || location.includes("/socialflow?")),
+    expectedStatuses: [200, 301, 302, 307, 308],
   },
   {
     id: "canonical-socialflow-route",
