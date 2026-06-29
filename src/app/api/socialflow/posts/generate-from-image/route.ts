@@ -24,7 +24,9 @@ function unauthorizedResponse() {
 //  18h  — motivation/mindset: people decompress after work
 //  21h  — rest/recovery: evening wind-down browsing
 function pickHourFromContent(analysis: ImageAnalysis): number | null {
-  const raw = [analysis.description, analysis.context, ...analysis.suggestedThemes].join(" ");
+  // Only use description + context (photo-specific). suggestedThemes are niche-generic
+  // and would cause the exercise regex to match on every fitness-niche photo.
+  const raw = [analysis.description, analysis.context].join(" ");
   // Normalize: lowercase + strip diacritics so "nutrición" matches "nutrici"
   const text = raw
     .toLowerCase()
@@ -116,6 +118,9 @@ export async function POST(request: Request) {
       new ImageAnalysisAgent().run({ imageBytes, profile }),
       new TrendAgent().run({ profile }),
     ]);
+    console.log(
+      `[ImageAnalysis] description="${imageAnalysis.description}" context="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)}`,
+    );
 
     // Step 2: Build StrategyItem from image analysis (no LLM call)
     const strategyItem: StrategyItem = {
@@ -216,18 +221,11 @@ export async function POST(request: Request) {
     const aiHours = (trends.optimalHours ?? []).filter((h) => Number.isInteger(h) && h >= 0 && h < 24).slice(0, 3);
     const resolvedHours = aiHours.length >= 2 ? aiHours : nicheHours;
 
-    // Build window: today through last day of current month (max 31 days)
+    // Build window: 30-day rolling window starting today (ignores month boundaries)
     const todayMs = new Date(todayUtc + "T00:00:00Z").getTime();
-    const todayYear = parseInt(todayUtc.slice(0, 4), 10);
-    const todayMonth = parseInt(todayUtc.slice(5, 7), 10);
-    // Date.UTC uses 0-indexed month: passing todayMonth (1-indexed) equals next month,
-    // so day 0 of next month = last day of current month.
-    const lastDayOfMonth = new Date(Date.UTC(todayYear, todayMonth, 0)).toISOString().slice(0, 10);
     const windowDays: string[] = [];
-    for (let cursor = todayMs; windowDays.length < 31; cursor += DAY_MS) {
-      const day = new Date(cursor).toISOString().slice(0, 10);
-      if (day > lastDayOfMonth) break;
-      windowDays.push(day);
+    for (let i = 0; i < 30; i++) {
+      windowDays.push(new Date(todayMs + i * DAY_MS).toISOString().slice(0, 10));
     }
     const windowDaysSet = new Set(windowDays);
 
