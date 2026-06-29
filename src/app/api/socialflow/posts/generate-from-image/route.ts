@@ -33,17 +33,17 @@ function pickHourFromContent(analysis: ImageAnalysis): number | null {
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "");
 
-  // Exercise / physical activity → 7h
-  if (/ejercici|entrena|workout|gym\b|cardio|pesas|rutina|correr|running|spinning|crossfit|muscula|atletismo|deporte|actividad fisica|movimiento|fuerza/.test(text)) return 7;
-
-  // Food / nutrition / meal → 12h
+  // Food / nutrition / meal → 12h (check first: most specific, rarely ambiguous)
   if (/comida|receta|almuerzo|ensalada|comer|cocin|plato|verdura|fruta|desayuno|snack|merienda|aliment|nutritiv|nutrici|dieta|ingredi|meal|saludable/.test(text)) return 12;
 
-  // Mindset / motivation / transformation → 18h
-  if (/motivaci|inspiraci|mindset|actitud|positiv|superaci|exito|logro|\bmeta\b|objetivo|reflexi|mentalidad|transform|cambio|habito|proposito|bienestar mental/.test(text)) return 18;
+  // Rest / recovery / night routine → 21h (specific enough to not overlap with exercise)
+  if (/descanso|recuperaci|dormir|sueno|relajaci|\bspa\b|masaj|meditaci|noche|calma|respiraci/.test(text)) return 21;
 
-  // Rest / recovery / night routine → 21h
-  if (/descanso|recuperaci|dormir|sueno|relajaci|\bspa\b|masaj|meditaci|noche/.test(text)) return 21;
+  // Mindset / motivation / transformation → 18h
+  if (/motivaci|inspiraci|mindset|actitud|positiv|superaci|exito|logro|\bmeta\b|objetivo|reflexi|mentalidad|transform|cambio|habito|proposito|bienestar mental|fuerza mental|poder/.test(text)) return 18;
+
+  // Exercise / physical activity → 7h (last: LLaVA uses exercise terms broadly in fitness niche)
+  if (/ejercici|entrena|workout|gym\b|cardio|pesas|rutina|correr|running|spinning|crossfit|muscula|atletismo|deporte|actividad fisica|movimiento|fuerza/.test(text)) return 7;
 
   return null; // ambiguous — use batchIndex rotation
 }
