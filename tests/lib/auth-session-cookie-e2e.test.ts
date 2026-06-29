@@ -228,6 +228,9 @@ describe("auth cookie/session e2e by context", () => {
     vi.doMock("@/lib/empire/events", () => ({
       recordCampamentoEvent: vi.fn(),
     }));
+    vi.doMock("@/lib/db", () => ({
+      run: vi.fn().mockResolvedValue(undefined),
+    }));
 
     const { POST } = await import("@/app/api/socialflow/auths/registrations/route");
     const response = await POST(new Request("https://app.socialflow.example.com/api/socialflow/auths/registrations", {
