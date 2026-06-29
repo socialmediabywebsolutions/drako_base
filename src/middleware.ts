@@ -282,8 +282,12 @@ function rewriteMentoriaHostPath(req: NextRequest, pathname: string) {
   return null;
 }
 
-function rewriteSocialFlowHostPath(_req: NextRequest, _pathname: string) {
-  // Landing page is served directly from src/app/page.tsx via host detection.
+function rewriteSocialFlowHostPath(req: NextRequest, pathname: string) {
+  if (pathname === "/") {
+    const url = new URL(req.url);
+    url.pathname = "/socialflows";
+    return NextResponse.rewrite(url);
+  }
   return null;
 }
 
