@@ -57,7 +57,7 @@ export default function SocialFlowAuthExperience() {
       }
 
       if (mode === "register") {
-        window.location.assign("/socialflow/onboarding/plans");
+        window.location.assign("/socialflow/onboarding/type");
         return;
       }
       const redirectTarget = resolveSafeRedirectTarget(

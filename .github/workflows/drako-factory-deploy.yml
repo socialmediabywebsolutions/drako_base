@@ -593,6 +593,8 @@ jobs:
             --file migrations/0142_socialflow_auths.sql
           wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config workers/socialflows/wrangler.workers.toml \
             --file migrations/0196_socialflow_password_reset_tokens.sql
+          wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config workers/socialflows/wrangler.workers.toml \
+            --file migrations/0198_socialflow_users_account_type.sql
 
       - name: Verify SocialFlow auth tables exist on dedicated auth D1
         run: |
