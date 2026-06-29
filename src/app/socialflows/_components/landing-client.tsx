@@ -263,7 +263,7 @@ function StatsSection() {
   useEffect(() => {
     fetch("/api/socialflow/public/stats")
       .then((r) => r.json())
-      .then((d: StatsData) => setStats(d))
+      .then((d: unknown) => setStats(d as StatsData))
       .catch(() => setStats({ active_clients: 0, published_posts: 0, scheduled_posts: 0 }));
   }, []);
 
