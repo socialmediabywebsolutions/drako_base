@@ -61,6 +61,9 @@ queue = "saas-socialflow-ai-generation-queue"
 [ai]
 binding = "AI"
 
+[triggers]
+crons = ["*/5 * * * *"]
+
 [vars]
 SAASES_SLUG = "socialflows"
 SAASES_DOMAIN = "socialflows.drako.systems,socialflow.drako.systems"
