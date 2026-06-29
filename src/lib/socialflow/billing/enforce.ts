@@ -79,6 +79,14 @@ export async function guardAiAccess(
   return { ok: true, planCode };
 }
 
+export async function isActiveSocialFlowTrial(tenantId: string, role?: string): Promise<boolean> {
+  if (AI_BYPASS_TENANT_IDS.has(tenantId) || (role && AI_BYPASS_ROLES.has(role))) return false;
+  const snapshot = await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" });
+  const sub = snapshot.subscription;
+  const trialEndsAt = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
+  return sub.status === "trial" && trialEndsAt !== null && trialEndsAt > new Date();
+}
+
 export async function getUploadBatchLimit(tenantId: string, role?: string): Promise<number> {
   if (AI_BYPASS_TENANT_IDS.has(tenantId) || (role && AI_BYPASS_ROLES.has(role))) {
     return PLAN_MAX_UPLOADS_PER_BATCH.pro;

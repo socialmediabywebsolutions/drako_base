@@ -11,6 +11,7 @@ import { TrendAgent } from "@/lib/socialflow/ai/agents/TrendAgent";
 import { ContentGeneratorAgent } from "@/lib/socialflow/ai/agents/ContentGeneratorAgent";
 import { OptimizationAgent } from "@/lib/socialflow/ai/agents/OptimizationAgent";
 import type { KeywordEngineOutput, StrategyItem } from "@/lib/socialflow/ai/types";
+import { isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
 
 function unauthorizedResponse() {
   return NextResponse.json({ code: "UNAUTHORIZED", message: "SESSION_REQUIRED" }, { status: 401 });
@@ -106,10 +107,11 @@ export async function POST(request: Request) {
     }
     const imageBytes = Array.from(new Uint8Array(await r2Object.arrayBuffer()));
 
-    // Step 1: Analyze image (LLaVA) + trends (Mistral) in parallel — no interdependency
-    const [imageAnalysis, trends] = await Promise.all([
+    // Step 1: Analyze image (LLaVA) + trends (Mistral) + trial check in parallel
+    const [imageAnalysis, trends, isTrial] = await Promise.all([
       new ImageAnalysisAgent().run({ imageBytes, profile }),
       new TrendAgent().run({ profile }),
+      isActiveSocialFlowTrial(session.tenantId, session.role),
     ]);
     console.log(
       `[ImageAnalysis] description="${imageAnalysis.description}" context="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)}`,
@@ -233,7 +235,8 @@ export async function POST(request: Request) {
 
     // Determine current pass: advance only when ALL days of the month are filled.
     // Pass 1 while any day has 0 posts. Pass 2 when all have ≥1. Pass 3 when all have ≥2.
-    const MAX_POSTS_PER_DAY = 3;
+    // Trial users are capped at 1 post/day so they don't consume more than Pass 1.
+    const MAX_POSTS_PER_DAY = isTrial ? 1 : 3;
     let currentPass = MAX_POSTS_PER_DAY; // default: month fully saturated at all passes
     for (let p = 0; p < MAX_POSTS_PER_DAY; p++) {
       if (windowDays.some((day) => (occupiedHoursPerDay.get(day)?.size ?? 0) === p)) {

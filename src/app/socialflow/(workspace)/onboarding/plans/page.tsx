@@ -8,7 +8,8 @@ type Plan = {
   name: string;
   badge?: string;
   price: number;
-  postsLabel: string;
+  networks: string;
+  postsPerNetwork: number;
   features: string[];
   stripePlan: "creator" | "pro";
   highlight?: boolean;
@@ -19,13 +20,15 @@ const PLANS: Plan[] = [
     id: "creator",
     name: "Influencer Básico",
     price: 49,
-    postsLabel: "30 posts/mes",
+    networks: "Instagram + TikTok",
+    postsPerNetwork: 30,
     features: [
-      "30 posts programados/mes",
-      "IA para contenido con LLaVA + Mistral",
       "Instagram + TikTok",
-      "Hasta 3 canales",
+      "30 posts/mes por red",
+      "IA para captions y hashtags",
+      "Análisis de imagen con LLaVA",
       "Calendario de contenido",
+      "Publicación automática",
     ],
     stripePlan: "creator",
   },
@@ -34,40 +37,28 @@ const PLANS: Plan[] = [
     name: "Influencer Pro",
     badge: "Más popular",
     price: 99,
-    postsLabel: "60 posts/mes",
+    networks: "Instagram + TikTok + Facebook + YouTube",
+    postsPerNetwork: 60,
     features: [
-      "60 posts programados/mes",
-      "IA avanzada + análisis de imagen",
-      "Todos los canales",
-      "Soporte prioritario",
-      "Analytics avanzados + detección de leads",
+      "Instagram + TikTok + Facebook + YouTube",
+      "60 posts/mes por red",
+      "IA avanzada para contenido",
+      "Análisis de imagen con LLaVA",
+      "Detección de leads y comunidad",
+      "Publicación automática + Analytics",
     ],
     stripePlan: "pro",
     highlight: true,
   },
-  {
-    id: "empresa",
-    name: "Empresa",
-    price: 99,
-    postsLabel: "30 posts + Reels + Stories",
-    features: [
-      "30 posts/mes con Reels + Stories",
-      "IA avanzada + análisis de imagen",
-      "Canales ilimitados",
-      "Gestión de equipo",
-      "Analytics avanzados",
-    ],
-    stripePlan: "pro",
-  },
 ];
 
 export default function OnboardingPlansPage() {
-  const [loading, setLoading] = useState<string | null>(null);
+  const [loadingCheckout, setLoadingCheckout] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubscribe(plan: Plan) {
     setError(null);
-    setLoading(plan.id);
+    setLoadingCheckout(plan.id);
     try {
       const res = await fetch("/api/socialflow/billing/checkout", {
         method: "POST",
@@ -81,98 +72,101 @@ export default function OnboardingPlansPage() {
       window.location.assign(data.url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error inesperado");
-      setLoading(null);
+      setLoadingCheckout(null);
     }
   }
 
+  const isLoading = loadingCheckout !== null;
+
   return (
-    <div className="py-4">
+    <div className="py-6">
       {/* Header */}
-      <div className="mb-2 text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
-        SocialFlow · Onboarding
+      <div className="mb-1 text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
+        SocialFlow · Elige tu plan
       </div>
       <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
-        Elige tu plan
+        Empieza gratis, crece sin límites
       </h1>
-      <p className="mt-3 max-w-xl text-sm leading-6 text-white/50">
-        Empieza gratis 7 días sin tarjeta de crédito, o suscríbete ahora y activa todas las funciones de inmediato.
+      <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/50">
+        7 días gratis sin tarjeta de crédito. O suscríbete ahora y activa todas las funciones de inmediato.
       </p>
 
-      {/* Plan cards */}
-      <div className="mt-10 grid gap-5 sm:grid-cols-3">
+      {/* Plan cards — 2 columns on sm+ */}
+      <div className="mt-10 grid gap-6 sm:grid-cols-2 sm:max-w-3xl">
         {PLANS.map((plan) => (
           <div
             key={plan.id}
-            className={`relative flex flex-col rounded-2xl border p-6 transition ${
+            className={[
+              "group relative flex flex-col rounded-2xl border p-7 transition-all duration-300",
               plan.highlight
-                ? "border-violet-500/60 bg-violet-500/10 ring-1 ring-violet-500/30"
-                : "border-white/10 bg-white/5 hover:border-white/20"
-            }`}
+                ? "border-violet-500/60 bg-violet-500/10 ring-1 ring-violet-500/30 hover:border-violet-400/80 hover:shadow-xl hover:shadow-violet-500/20 hover:-translate-y-1"
+                : "border-white/10 bg-white/5 hover:border-white/25 hover:bg-white/8 hover:shadow-lg hover:shadow-black/40 hover:-translate-y-1",
+            ].join(" ")}
           >
+            {/* Popular badge */}
             {plan.badge && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-0.5 text-[10px] font-black uppercase tracking-widest text-white shadow shadow-violet-500/30">
+              <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-violet-500/40">
                 {plan.badge}
               </span>
             )}
 
             {/* Plan header */}
-            <div className="mb-5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-white/35">{plan.postsLabel}</p>
-              <h2 className="mt-1 text-xl font-black text-white">{plan.name}</h2>
-              <div className="mt-3 flex items-baseline gap-1">
-                <span className="text-4xl font-black text-white">{plan.price}€</span>
+            <div className="mb-6">
+              <h2 className="text-xl font-black text-white">{plan.name}</h2>
+              <p className="mt-1 text-xs font-semibold text-white/40">{plan.networks}</p>
+              <div className="mt-4 flex items-baseline gap-1.5">
+                <span className="text-5xl font-black text-white">{plan.price}€</span>
                 <span className="text-sm text-white/40">/mes</span>
               </div>
+              <p className="mt-1.5 text-sm font-semibold text-violet-300/80">
+                {plan.postsPerNetwork} posts/mes por red
+              </p>
             </div>
 
-            {/* Features */}
-            <ul className="mb-6 flex-1 space-y-2.5">
+            {/* Features list */}
+            <ul className="mb-7 flex-1 space-y-3">
               {plan.features.map((f) => (
-                <li key={f} className="flex items-start gap-2.5 text-sm text-white/60">
-                  <span className="mt-0.5 shrink-0 font-bold text-violet-400">✓</span>
+                <li key={f} className="flex items-start gap-2.5 text-sm text-white/65">
+                  <span className="mt-px shrink-0 text-[13px] font-black text-violet-400">✓</span>
                   {f}
                 </li>
               ))}
             </ul>
 
-            {/* Subscribe CTA */}
+            {/* Primary CTA — Subscribe now */}
             <button
               onClick={() => handleSubscribe(plan)}
-              disabled={loading !== null}
-              className={`w-full rounded-xl py-3 text-sm font-black tracking-wide text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              disabled={isLoading}
+              className={[
+                "w-full rounded-xl py-3.5 text-sm font-black tracking-wide text-white transition-all duration-200",
+                "disabled:cursor-not-allowed disabled:opacity-50",
                 plan.highlight
-                  ? "bg-gradient-to-r from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/25 hover:brightness-110"
-                  : "border border-white/20 bg-white/10 hover:bg-white/15"
-              }`}
+                  ? "bg-gradient-to-r from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/30 hover:brightness-110 hover:shadow-violet-500/50"
+                  : "border border-white/20 bg-white/10 hover:bg-white/18 hover:border-white/30",
+              ].join(" ")}
             >
-              {loading === plan.id ? "Redirigiendo a pago…" : "Suscribirme ahora"}
+              {loadingCheckout === plan.id ? "Redirigiendo…" : "Suscribirme ahora"}
             </button>
+
+            {/* Secondary CTA — Start free trial */}
+            <Link
+              href="/socialflow/onboarding"
+              className="mt-3 block w-full rounded-xl py-3 text-center text-sm font-bold text-white/50 transition-colors hover:text-white/80"
+            >
+              Empezar gratis 7 días →
+            </Link>
           </div>
         ))}
       </div>
 
       {error && (
-        <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="mt-6 max-w-3xl rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
           {error}
         </div>
       )}
 
-      {/* Free trial CTA */}
-      <div className="mt-8 flex flex-col items-center gap-3 rounded-2xl border border-white/8 bg-white/3 px-6 py-6 text-center">
-        <p className="text-sm font-semibold text-white/70">
-          ¿Prefieres probarlo antes de pagar?
-        </p>
-        <Link
-          href="/socialflow/onboarding"
-          className="inline-flex items-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-5 py-2.5 text-sm font-black tracking-wide text-violet-300 transition hover:bg-violet-500/20"
-        >
-          Empezar prueba gratis 7 días →
-        </Link>
-        <p className="text-xs text-white/30">Sin tarjeta de crédito. Cancela cuando quieras.</p>
-      </div>
-
-      <p className="mt-6 text-center text-xs text-white/20">
-        Pago seguro con Stripe · IVA incluido
+      <p className="mt-8 text-xs text-white/20">
+        Pago seguro con Stripe · Cancela en cualquier momento · Sin permanencia
       </p>
     </div>
   );
