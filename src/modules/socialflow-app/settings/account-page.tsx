@@ -6,8 +6,8 @@ import SocialFlowAccountSettings from "@/components/settings/socialflow-account-
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { redirect } from "next/navigation";
 
-function mapRole(role: "admin" | "user"): "ADMIN" | "MEMBER" {
-  return role === "admin" ? "ADMIN" : "MEMBER";
+function mapRole(role: "owner" | "admin" | "user"): "ADMIN" | "MEMBER" {
+  return role === "admin" || role === "owner" ? "ADMIN" : "MEMBER";
 }
 
 export default async function SocialFlowAccountSettingsPage() {

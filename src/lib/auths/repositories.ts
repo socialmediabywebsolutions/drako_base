@@ -12,7 +12,7 @@ type AuthsUserRecord = {
   id: string;
   email: string;
   name: string | null;
-  role: "admin" | "user";
+  role: "owner" | "admin" | "user";
   tenant_id: string;
   status: string;
 };
@@ -164,7 +164,7 @@ export async function createUserWithCredential(params: {
   credentialId: string;
   email: string;
   name: string | null;
-  role: "admin" | "user";
+  role: "owner" | "admin" | "user";
   tenantId: string;
   hash: string;
   salt: string;

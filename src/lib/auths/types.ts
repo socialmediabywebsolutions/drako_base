@@ -11,7 +11,7 @@
  */
 export type AuthsContext = "drakos" | "mentorias" | "socialflow" | "bases";
 
-export type AuthsRole = "admin" | "user";
+export type AuthsRole = "owner" | "admin" | "user";
 
 export type AuthsCookieSameSite = "lax" | "strict" | "none";
 

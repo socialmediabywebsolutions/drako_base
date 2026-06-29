@@ -13,7 +13,7 @@ export type SocialFlowSession = {
   email: string;
   name: string | null;
   tenantId: string;
-  role: "admin" | "user";
+  role: "owner" | "admin" | "user";
   authMode: "isolated" | "local_demo";
 };
 

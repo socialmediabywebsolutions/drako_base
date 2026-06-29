@@ -27,17 +27,21 @@ export default async function SocialFlowWorkspaceLayout({
     redirect("/socialflow/auth");
   }
 
+  // Owners and admins bypass all trial restrictions
+  const isPrivilegedRole = session.role === "owner" || session.role === "admin";
+
   const snapshot = await getCanonicalBillingSnapshot({ tenantId: session.tenantId, saasSlug: "socialflow" });
   const sub = snapshot.subscription;
 
   // Real paid subscription (has actual Stripe customer ID, status active/trialing)
   const hasPaidAccess =
-    (sub.status === "active" || sub.status === "trialing") && Boolean(sub.stripeCustomerId);
+    isPrivilegedRole ||
+    ((sub.status === "active" || sub.status === "trialing") && Boolean(sub.stripeCustomerId));
 
   // Trial window
   const trialEndsAt = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
-  const isTrialActive = sub.status === "trial" && trialEndsAt !== null && trialEndsAt > new Date();
-  const isTrialExpired = sub.status === "trial" && trialEndsAt !== null && trialEndsAt <= new Date();
+  const isTrialActive = !isPrivilegedRole && sub.status === "trial" && trialEndsAt !== null && trialEndsAt > new Date();
+  const isTrialExpired = !isPrivilegedRole && sub.status === "trial" && trialEndsAt !== null && trialEndsAt <= new Date();
 
   // Days left (shown in banner, max precision = 1 day)
   const trialDaysLeft = isTrialActive && trialEndsAt

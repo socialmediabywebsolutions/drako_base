@@ -38,7 +38,7 @@ export async function registerAuthsUser(params: {
   name?: string | null;
   tenantId?: string | null;
 }): Promise<
-  | { ok: true; userId: string; role: "admin" | "user"; tenantId: string }
+  | { ok: true; userId: string; role: "owner" | "admin" | "user"; tenantId: string }
   | { ok: false; code: string; message: string }
 > {
   const email = params.email.trim().toLowerCase();
@@ -85,7 +85,7 @@ export async function loginAuthsUser(params: {
   email: string;
   password: string;
 }): Promise<
-  | { ok: true; token: string; role: "admin" | "user"; tenantId: string; userId: string; expiresAt: string }
+  | { ok: true; token: string; role: "owner" | "admin" | "user"; tenantId: string; userId: string; expiresAt: string }
   | { ok: false; code: string; message: string }
 > {
   const email = params.email.trim().toLowerCase();

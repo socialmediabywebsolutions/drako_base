@@ -10,7 +10,7 @@ export type SocialFlowRequestSession = {
   userId: string;
   email: string;
   tenantId: string;
-  role: "admin" | "user";
+  role: "owner" | "admin" | "user";
 };
 
 function readCookieValue(cookieHeader: string | null, name: string): string | null {

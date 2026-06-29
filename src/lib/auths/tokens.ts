@@ -129,7 +129,7 @@ export async function createAuthsSessionToken(input: {
   sub: string;
   email: string;
   tenantId: string;
-  role: "admin" | "user";
+  role: "owner" | "admin" | "user";
   maxAgeSeconds?: number;
 }): Promise<string> {
   const now = Math.floor(Date.now() / 1000);

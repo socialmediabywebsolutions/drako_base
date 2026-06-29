@@ -8,7 +8,7 @@ import type { MentoriaSessionContext } from "@/lib/mentoria/types";
 import type { UserContext } from "@/lib/drako/memory";
 
 export type MentoriaRequestSession = Pick<UserContext, "userId" | "email" | "tenantId"> & {
-  role: "admin" | "user";
+  role: "owner" | "admin" | "user";
 } & MentoriaSessionContext;
 
 async function resolveMentoriaSessionContext(input: Pick<MentoriaRequestSession, "userId" | "email" | "tenantId">): Promise<MentoriaSessionContext> {
