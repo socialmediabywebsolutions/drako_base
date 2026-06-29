@@ -24,28 +24,21 @@ function unauthorizedResponse() {
 //  18h  — motivation/mindset: people decompress after work
 //  21h  — rest/recovery: evening wind-down browsing
 function pickHourFromContent(analysis: ImageAnalysis): number | null {
-  // Only use description + context (photo-specific). suggestedThemes are niche-generic
-  // and would cause the exercise regex to match on every fitness-niche photo.
   const raw = [analysis.description, analysis.context].join(" ");
-  // Normalize: lowercase + strip diacritics so "nutrición" matches "nutrici"
-  const text = raw
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+  const text = raw.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-  // Food / nutrition / meal → 12h (check first: most specific, rarely ambiguous)
-  if (/comida|receta|almuerzo|ensalada|comer|cocin|plato|verdura|fruta|desayuno|snack|merienda|aliment|nutritiv|nutrici|dieta|ingredi|meal|saludable/.test(text)) return 12;
+  // Food — words exclusive to food content; won't appear in typical exercise descriptions
+  if (/ensalada|receta|cocin|\bplato\b|\bcomer\b|ingredi|bebida|batido|\bjugo\b/.test(text)) return 12;
 
-  // Rest / recovery / night routine → 21h (specific enough to not overlap with exercise)
-  if (/descanso|recuperaci|dormir|sueno|relajaci|\bspa\b|masaj|meditaci|noche|calma|respiraci/.test(text)) return 21;
+  // Rest / sleep — words exclusive to rest content
+  if (/dormir|\bcama\b|meditaci|\byoga\b|respirar|\bnoche\b|\bsueno\b/.test(text)) return 21;
 
-  // Mindset / motivation / transformation → 18h
-  if (/motivaci|inspiraci|mindset|actitud|positiv|superaci|exito|logro|\bmeta\b|objetivo|reflexi|mentalidad|transform|cambio|habito|proposito|bienestar mental|fuerza mental|poder/.test(text)) return 18;
+  // Motivation — only when photo is clearly text/typography based (quote card, etc.)
+  if (/\bfrase|\bcita\b|\btexto\b|\bquote\b|letras|tipografi/.test(text)) return 18;
 
-  // Exercise / physical activity → 7h (last: LLaVA uses exercise terms broadly in fitness niche)
-  if (/ejercici|entrena|workout|gym\b|cardio|pesas|rutina|correr|running|spinning|crossfit|muscula|atletismo|deporte|actividad fisica|movimiento|fuerza/.test(text)) return 7;
-
-  return null; // ambiguous — use batchIndex rotation
+  // Exercise is NOT detected by keyword: LLaVA mentions exercise terms in nearly all
+  // fitness-niche photos regardless of actual content. Caller uses batchIndex rotation.
+  return null;
 }
 
 // Strip greeting openings the LLM generates despite prompt instructions.
@@ -258,15 +251,19 @@ export async function POST(request: Request) {
     const batchIndex = typeof body.batchIndex === "number" && body.batchIndex >= 0 ? body.batchIndex : 0;
     const targetDate = dayPool.length > 0 ? dayPool[batchIndex % dayPool.length] : windowDays[0];
 
-    // Hour candidates ordered by priority per content type.
-    // Try each in sequence — first one not occupied on targetDate wins.
+    // Hour selection: content-specific when LLaVA clearly identifies the type,
+    // otherwise batchIndex picks the starting hour from the optimal pool so each
+    // photo in a batch gets a different hour (0→pool[0], 1→pool[1], etc.).
     const contentHour = pickHourFromContent(imageAnalysis);
     const contentHourCandidates: number[] =
-      contentHour === 7  ? [7, 6, 8] :
       contentHour === 12 ? [12, 13, 11] :
-      contentHour === 18 ? [18, 17, 19] :
       contentHour === 21 ? [21, 20, 22] :
-      [...resolvedHours]; // null/ambiguous — use niche/AI-derived optimal hours
+      contentHour === 18 ? [18, 17, 19] :
+      (() => {
+        // Rotate resolvedHours so batchIndex N starts at resolvedHours[N % length]
+        const idx = batchIndex % resolvedHours.length;
+        return [...resolvedHours.slice(idx), ...resolvedHours.slice(0, idx)];
+      })();
 
     const occupiedHoursOnDay = occupiedHoursPerDay.get(targetDate) ?? new Set<number>();
     const finalHour = contentHourCandidates.find((h) => !occupiedHoursOnDay.has(h))
