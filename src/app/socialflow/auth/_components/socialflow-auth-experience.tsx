@@ -25,6 +25,31 @@ function resolveSafeRedirectTarget(rawTarget: string | null, fallback = "/social
 
 export default function SocialFlowAuthExperience() {
   const searchParams = useSearchParams();
+
+  const rawType = searchParams.get("type");
+  const accountType = rawType === "influencer" || rawType === "empresa" ? rawType : null;
+  const typeConfig = accountType === "influencer"
+    ? {
+        badge: "✓ Plan Influencer · 7 días gratis",
+        badgeCls: "border-violet-500/25 bg-violet-500/10 text-violet-300",
+        registerTitle: "Empieza como Influencer",
+        registerSubtitle: "Conecta Instagram y TikTok. La IA publica por ti.",
+        gradient: "from-violet-600 to-pink-500",
+        btnShadow: "shadow-violet-500/25 hover:shadow-violet-500/40",
+        tabShadow: "shadow-violet-500/20",
+      }
+    : accountType === "empresa"
+    ? {
+        badge: "✓ Plan Empresa · 7 días gratis",
+        badgeCls: "border-blue-500/25 bg-blue-500/10 text-blue-300",
+        registerTitle: "Empieza con tu Empresa",
+        registerSubtitle: "Conecta Instagram, Facebook y LinkedIn. La IA gestiona tu marca.",
+        gradient: "from-blue-600 to-cyan-500",
+        btnShadow: "shadow-blue-500/25 hover:shadow-blue-500/40",
+        tabShadow: "shadow-blue-500/20",
+      }
+    : null;
+
   const [mode, setMode] = useState<SocialFlowAuthMode>("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -183,7 +208,7 @@ export default function SocialFlowAuthExperience() {
                   onClick={() => { setMode(m); setError(null); }}
                   className={`rounded-lg px-4 py-2.5 text-sm font-bold transition ${
                     mode === m
-                      ? "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-md shadow-violet-500/20"
+                      ? `bg-gradient-to-r ${typeConfig?.gradient ?? "from-violet-500 to-fuchsia-500"} text-white shadow-md ${typeConfig?.tabShadow ?? "shadow-violet-500/20"}`
                       : "text-white/40 hover:text-white/70"
                   }`}
                 >
@@ -192,13 +217,19 @@ export default function SocialFlowAuthExperience() {
               ))}
             </div>
 
+            {typeConfig && mode === "register" && (
+              <div className={`mb-4 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold ${typeConfig.badgeCls}`}>
+                {typeConfig.badge}
+              </div>
+            )}
+
             <h2 className="mb-1 text-2xl font-black tracking-tight text-white">
-              {mode === "login" ? "Bienvenido de vuelta" : "Empieza hoy"}
+              {mode === "login" ? "Bienvenido de vuelta" : (typeConfig?.registerTitle ?? "Empieza hoy")}
             </h2>
             <p className="mb-7 text-sm text-white/45">
               {mode === "login"
                 ? "Accede a tu panel de marketing."
-                : "7 días gratis. Sin tarjeta de crédito."}
+                : (typeConfig?.registerSubtitle ?? "7 días gratis. Sin tarjeta de crédito.")}
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -257,7 +288,7 @@ export default function SocialFlowAuthExperience() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="mt-2 w-full rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-3.5 text-sm font-black tracking-wide text-white shadow-lg shadow-violet-500/25 transition hover:brightness-110 hover:shadow-violet-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+                className={`mt-2 w-full rounded-xl bg-gradient-to-r ${typeConfig?.gradient ?? "from-violet-500 to-fuchsia-500"} px-5 py-3.5 text-sm font-black tracking-wide text-white shadow-lg ${typeConfig?.btnShadow ?? "shadow-violet-500/25 hover:shadow-violet-500/40"} transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 {isSubmitting
                   ? "Un momento…"
