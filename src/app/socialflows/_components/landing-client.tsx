@@ -387,13 +387,13 @@ export default function LandingClient() {
           {/* CTAs */}
           <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
             <Link
-              href="/socialflow/auth"
+              href="/socialflow/auth?type=influencer"
               className="rounded-xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 px-8 py-3.5 text-sm font-bold text-white shadow-xl shadow-violet-500/25 transition-all hover:brightness-110 hover:shadow-violet-500/50"
             >
               Soy Influencer →
             </Link>
             <Link
-              href="/socialflow/auth"
+              href="/socialflow/auth?type=empresa"
               className="rounded-xl bg-gradient-to-r from-blue-500 via-cyan-500 to-sky-500 px-8 py-3.5 text-sm font-bold text-white shadow-xl shadow-blue-500/25 transition-all hover:brightness-110 hover:shadow-blue-500/50"
             >
               Soy Empresa →

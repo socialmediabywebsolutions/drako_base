@@ -57,7 +57,21 @@ export default function SocialFlowAuthExperience() {
       }
 
       if (mode === "register") {
-        window.location.assign("/socialflow/onboarding/type");
+        const accountType = searchParams.get("type");
+        if (accountType === "influencer" || accountType === "empresa") {
+          await fetch("/api/socialflow/onboarding/account-type", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ accountType }),
+          }).catch((err) => console.error("ACCOUNT_TYPE_SAVE_ERROR", err));
+          window.location.assign(
+            accountType === "influencer"
+              ? "/socialflow/onboarding/plans"
+              : "/socialflow/onboarding/plans-empresa",
+          );
+        } else {
+          window.location.assign("/socialflow/onboarding/type");
+        }
         return;
       }
       const redirectTarget = resolveSafeRedirectTarget(
