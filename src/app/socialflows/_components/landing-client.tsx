@@ -358,7 +358,7 @@ export default function LandingClient() {
           style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.2) 1px, transparent 1px)", backgroundSize: "28px 28px" }}
         />
 
-        <div className="relative mx-auto max-w-5xl px-6 pb-12 pt-14 text-center md:pb-16 md:pt-20">
+        <div className="relative mx-auto max-w-5xl px-6 pb-10 pt-7 text-center md:pb-12 md:pt-10">
           {/* Eyebrow */}
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-4 py-2">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400" />
@@ -445,22 +445,25 @@ export default function LandingClient() {
         .net-act-2 { animation-delay: 1.4s; animation-duration: 3.5s; }
         .net-act-3 { animation-delay: 2.6s; animation-duration: 3.1s; }
       `}</style>
-      <section className="border-b border-white/5 pb-10 pt-4">
+      <section className="border-b border-white/5 py-8">
         <div className="mx-auto max-w-5xl px-6">
           <p className="text-center text-[10px] font-black uppercase tracking-[0.22em] text-white/30">
             Conecta todas tus redes
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
             {[
-              { name: "Instagram", floatCls: "net-pill-0", activityCls: "net-act-1" },
-              { name: "TikTok",    floatCls: "net-pill-1", activityCls: "net-act-2" },
-              { name: "Facebook",  floatCls: "net-pill-2", activityCls: "" },
-              { name: "LinkedIn",  floatCls: "net-pill-3", activityCls: "" },
-              { name: "Pinterest", floatCls: "net-pill-4", activityCls: "" },
-              { name: "YouTube",   floatCls: "net-pill-5", activityCls: "net-act-3" },
+              { name: "Instagram", floatCls: "net-pill-0", activityCls: "net-act-1", bg: "linear-gradient(135deg,rgba(131,58,180,.13),rgba(253,29,29,.09),rgba(252,176,69,.08))", border: "rgba(188,62,138,.40)" },
+              { name: "TikTok",    floatCls: "net-pill-1", activityCls: "net-act-2", bg: "rgba(18,18,18,.60)",                                                                      border: "rgba(98,234,235,.35)" },
+              { name: "Facebook",  floatCls: "net-pill-2", activityCls: "",           bg: "rgba(24,119,242,.13)",                                                                    border: "rgba(24,119,242,.40)" },
+              { name: "LinkedIn",  floatCls: "net-pill-3", activityCls: "",           bg: "rgba(10,102,194,.13)",                                                                    border: "rgba(10,102,194,.40)" },
+              { name: "Pinterest", floatCls: "net-pill-4", activityCls: "",           bg: "rgba(230,0,35,.13)",                                                                      border: "rgba(230,0,35,.40)"   },
+              { name: "YouTube",   floatCls: "net-pill-5", activityCls: "net-act-3", bg: "rgba(255,0,0,.13)",                                                                       border: "rgba(255,0,0,.40)"    },
             ].map((net) => (
               <div key={net.name} className={`relative ${net.floatCls}`}>
-                <div className="rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-bold text-white/60 transition-colors hover:border-violet-500/30 hover:text-white/80">
+                <div
+                  className="rounded-full px-5 py-2.5 text-sm font-bold text-white transition-all hover:brightness-125"
+                  style={{ background: net.bg, border: `1px solid ${net.border}` }}
+                >
                   {net.name}
                 </div>
                 {net.activityCls && (
@@ -492,7 +495,7 @@ export default function LandingClient() {
           animation: agent-dot-pulse 2s ease-in-out infinite;
         }
       `}</style>
-      <section className="py-16">
+      <section className="py-10">
         <div className="mx-auto max-w-6xl px-6">
           <p className="text-center text-[11px] font-black uppercase tracking-[0.22em] text-violet-400">
             Agentes IA
@@ -532,7 +535,7 @@ export default function LandingClient() {
       </section>
 
       {/* ── DOS CAMINOS ───────────────────────────────────────────────────── */}
-      <section className="border-t border-white/5 py-24">
+      <section className="border-t border-white/5 py-14">
         <div className="mx-auto max-w-6xl px-6">
           <p className="text-center text-[11px] font-black uppercase tracking-[0.22em] text-violet-400">
             Para quién es
@@ -584,7 +587,7 @@ export default function LandingClient() {
       </section>
 
       {/* ── PRICING ───────────────────────────────────────────────────────── */}
-      <section id="pricing" className="border-t border-white/5 py-24">
+      <section id="pricing" className="border-t border-white/5 py-14">
         <div className="mx-auto max-w-5xl px-6">
           <p className="text-center text-[11px] font-black uppercase tracking-[0.22em] text-violet-400">
             Precios
@@ -642,13 +645,13 @@ export default function LandingClient() {
       </section>
 
       {/* ── POR QUÉ SOCIALFLOW ────────────────────────────────────────────── */}
-      <section className="border-t border-white/5 py-24">
+      <section className="border-t border-white/5 py-14">
         <div className="mx-auto max-w-5xl px-6">
           <p className="text-center text-[11px] font-black uppercase tracking-[0.22em] text-violet-400">
             Por qué SocialFlow
           </p>
           <h2 className="mt-3 text-center text-3xl font-black tracking-tight text-white md:text-4xl">
-            No es un programador de publicaciones. Es un sistema operativo.
+            Mientras otros programan posts, SocialFlow hace crecer tu negocio.
           </h2>
 
           <div className="mt-12 grid gap-6 md:grid-cols-2">
@@ -711,7 +714,7 @@ export default function LandingClient() {
       </section>
 
       {/* ── CTA FINAL ─────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden py-28">
+      <section className="relative overflow-hidden py-16">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-violet-900/60 via-fuchsia-900/40 to-blue-900/60" />
         <div className="pointer-events-none absolute inset-0 border-y border-white/5" />
         <div className="relative mx-auto max-w-3xl px-6 text-center">
@@ -726,9 +729,12 @@ export default function LandingClient() {
               </span>
             ))}
           </div>
+          <p className="mt-5 text-sm font-bold text-white/50">
+            8 agentes IA trabajando · 6 redes sociales conectables · Resultados desde el día 1
+          </p>
           <Link
             href="/socialflow/auth"
-            className="mt-10 inline-flex items-center gap-2 rounded-xl bg-white px-12 py-5 text-lg font-black text-violet-700 shadow-2xl shadow-black/30 transition-all hover:-translate-y-0.5 hover:brightness-95"
+            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white px-12 py-5 text-lg font-black text-violet-700 shadow-2xl shadow-black/30 transition-all hover:-translate-y-0.5 hover:brightness-95"
           >
             Crear mi cuenta gratis →
           </Link>
