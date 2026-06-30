@@ -104,7 +104,7 @@ export default function ChatWidget() {
       <button
         onClick={() => setIsOpen((v) => !v)}
         aria-label={isOpen ? "Cerrar chat" : "Abrir chat con Flow"}
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-xl shadow-violet-900/40 transition-transform hover:scale-105 active:scale-95"
+        className="fixed bottom-6 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-xl shadow-violet-900/40 transition-transform hover:scale-105 active:scale-95"
         style={{ background: "linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)" }}
       >
         {isOpen ? (
@@ -121,8 +121,14 @@ export default function ChatWidget() {
       {/* Chat window */}
       {isOpen && (
         <div
-          className="fixed bottom-24 right-6 z-50 flex w-80 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d1a] shadow-2xl shadow-violet-900/30"
-          style={{ maxHeight: "500px", animation: "chat-slide-up 0.22s ease-out" }}
+          className="fixed z-50 flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d1a] shadow-2xl shadow-violet-900/40"
+          style={{
+            bottom: "88px",
+            right: "16px",
+            width: "min(340px, calc(100vw - 32px))",
+            maxHeight: "min(380px, calc(100svh - 458px))",
+            animation: "chat-slide-up 0.22s ease-out",
+          }}
         >
           {/* Header */}
           <div
@@ -146,7 +152,7 @@ export default function ChatWidget() {
           </div>
 
           {/* Messages */}
-          <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4" style={{ maxHeight: "340px" }}>
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
             {messages.map((msg, i) => {
               const cta = msg.role === "assistant" ? detectCta(msg.content) : null;
               return (
