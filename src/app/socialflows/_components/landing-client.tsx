@@ -656,8 +656,8 @@ export default function LandingClient() {
 
           <div className="mt-12 grid gap-6 md:grid-cols-2">
             {/* Tradicional */}
-            <div className="rounded-2xl border border-red-500/20 bg-red-500/[0.06] p-7">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1.5">
+            <div className="rounded-2xl border border-red-500/25 bg-gradient-to-br from-red-950/40 via-red-900/10 to-transparent p-7 shadow-[0_0_30px_rgba(239,68,68,0.08)] transition-all duration-300 hover:-translate-y-1 hover:border-red-500/40 hover:shadow-[0_0_40px_rgba(239,68,68,0.15)]">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-500/15 px-4 py-2 shadow-[0_0_12px_rgba(239,68,68,0.15)]">
                 <span className="text-sm">❌</span>
                 <span className="text-xs font-bold text-red-400">Herramientas tradicionales</span>
               </div>
@@ -679,8 +679,8 @@ export default function LandingClient() {
             </div>
 
             {/* SocialFlow */}
-            <div className="rounded-2xl border border-violet-500/30 bg-violet-500/[0.07] p-7">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1.5">
+            <div className="rounded-2xl border-2 border-violet-500/40 bg-gradient-to-br from-violet-950/40 via-violet-900/15 to-cyan-950/20 p-7 shadow-[0_0_30px_rgba(139,92,246,0.15)] ring-1 ring-violet-500/10 transition-all duration-300 hover:-translate-y-1 hover:border-violet-400/60 hover:shadow-[0_0_50px_rgba(139,92,246,0.25)]">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-violet-500/50 bg-violet-500/20 px-4 py-2 shadow-[0_0_16px_rgba(139,92,246,0.25)]">
                 <span className="text-sm">✅</span>
                 <span className="text-xs font-bold text-violet-400">SocialFlow</span>
               </div>
@@ -717,11 +717,11 @@ export default function LandingClient() {
       <section className="relative overflow-hidden py-16">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-violet-900/60 via-fuchsia-900/40 to-blue-900/60" />
         <div className="pointer-events-none absolute inset-0 border-y border-white/5" />
-        <div className="relative mx-auto max-w-3xl px-6 text-center">
+        <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 text-center">
           <h2 className="text-5xl font-black tracking-tight text-white md:text-6xl">
             Empieza gratis hoy
           </h2>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
             {["7 días gratis", "Sin tarjeta", "Cancela cuando quieras"].map((item) => (
               <span key={item} className="flex items-center gap-1.5 text-sm text-white/70">
                 <span className="font-black text-emerald-400">✓</span>
@@ -729,12 +729,12 @@ export default function LandingClient() {
               </span>
             ))}
           </div>
-          <p className="mt-5 text-sm font-bold text-white/50">
+          <p className="text-sm font-bold text-white/50">
             8 agentes IA trabajando · 6 redes sociales conectables · Resultados desde el día 1
           </p>
           <Link
             href="/socialflow/auth"
-            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white px-12 py-5 text-lg font-black text-violet-700 shadow-2xl shadow-black/30 transition-all hover:-translate-y-0.5 hover:brightness-95"
+            className="inline-flex items-center gap-2 rounded-xl bg-white px-12 py-5 text-lg font-black text-violet-700 shadow-2xl shadow-black/30 transition-all hover:-translate-y-0.5 hover:brightness-95"
           >
             Crear mi cuenta gratis →
           </Link>
