@@ -399,14 +399,78 @@ export default function LandingClient() {
               Soy Empresa →
             </Link>
           </div>
-          <p className="mt-3 text-xs text-white/30">
-            7 días gratis · Sin tarjeta · Cancela cuando quieras
-          </p>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+            {["7 días gratis", "Sin tarjeta", "Cancela cuando quieras"].map((item) => (
+              <span key={item} className="flex items-center gap-1.5 text-sm text-white/60">
+                <span className="font-black text-violet-400">✓</span>
+                {item}
+              </span>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* ── CONTADORES ────────────────────────────────────────────────────── */}
-      <StatsSection />
+      {/* <StatsSection /> */}
+
+      {/* ── REDES SOCIALES ────────────────────────────────────────────────── */}
+      <style>{`
+        @keyframes net-float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
+        @keyframes net-rise {
+          0% { opacity: 0; transform: translateY(0); }
+          20% { opacity: 1; transform: translateY(-6px); }
+          75% { opacity: 0.9; transform: translateY(-16px); }
+          100% { opacity: 0; transform: translateY(-22px); }
+        }
+        .net-pill-0 { animation: net-float 3.2s ease-in-out 0.0s infinite; }
+        .net-pill-1 { animation: net-float 3.5s ease-in-out 0.5s infinite; }
+        .net-pill-2 { animation: net-float 3.8s ease-in-out 1.0s infinite; }
+        .net-pill-3 { animation: net-float 3.4s ease-in-out 0.3s infinite; }
+        .net-pill-4 { animation: net-float 3.6s ease-in-out 0.8s infinite; }
+        .net-pill-5 { animation: net-float 3.3s ease-in-out 1.3s infinite; }
+        .net-activity {
+          position: absolute;
+          top: -10px;
+          right: 4px;
+          font-size: 10px;
+          font-weight: 900;
+          color: #a78bfa;
+          pointer-events: none;
+          animation: net-rise 2.8s ease-out infinite;
+        }
+        .net-act-1 { animation-delay: 0.0s; animation-duration: 2.8s; }
+        .net-act-2 { animation-delay: 1.4s; animation-duration: 3.5s; }
+        .net-act-3 { animation-delay: 2.6s; animation-duration: 3.1s; }
+      `}</style>
+      <section className="border-b border-white/5 pb-10 pt-4">
+        <div className="mx-auto max-w-5xl px-6">
+          <p className="text-center text-[10px] font-black uppercase tracking-[0.22em] text-white/30">
+            Conecta todas tus redes
+          </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+            {[
+              { name: "Instagram", floatCls: "net-pill-0", activityCls: "net-act-1" },
+              { name: "TikTok",    floatCls: "net-pill-1", activityCls: "net-act-2" },
+              { name: "Facebook",  floatCls: "net-pill-2", activityCls: "" },
+              { name: "LinkedIn",  floatCls: "net-pill-3", activityCls: "" },
+              { name: "Pinterest", floatCls: "net-pill-4", activityCls: "" },
+              { name: "YouTube",   floatCls: "net-pill-5", activityCls: "net-act-3" },
+            ].map((net) => (
+              <div key={net.name} className={`relative ${net.floatCls}`}>
+                <div className="rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-bold text-white/60 transition-colors hover:border-violet-500/30 hover:text-white/80">
+                  {net.name}
+                </div>
+                {net.activityCls && (
+                  <span className={`net-activity ${net.activityCls}`}>+1</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* ── AGENTES ───────────────────────────────────────────────────────── */}
       <style>{`
@@ -584,7 +648,7 @@ export default function LandingClient() {
             Por qué SocialFlow
           </p>
           <h2 className="mt-3 text-center text-3xl font-black tracking-tight text-white md:text-4xl">
-            No es un scheduler. Es un sistema operativo.
+            No es un programador de publicaciones. Es un sistema operativo.
           </h2>
 
           <div className="mt-12 grid gap-6 md:grid-cols-2">
@@ -651,15 +715,20 @@ export default function LandingClient() {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-violet-900/60 via-fuchsia-900/40 to-blue-900/60" />
         <div className="pointer-events-none absolute inset-0 border-y border-white/5" />
         <div className="relative mx-auto max-w-3xl px-6 text-center">
-          <h2 className="text-4xl font-black tracking-tight text-white md:text-5xl">
+          <h2 className="text-5xl font-black tracking-tight text-white md:text-6xl">
             Empieza gratis hoy
           </h2>
-          <p className="mx-auto mt-5 max-w-lg text-lg text-white/60">
-            7 días sin tarjeta. Sin permanencia. Sin excusas.
-          </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+            {["7 días gratis", "Sin tarjeta", "Cancela cuando quieras"].map((item) => (
+              <span key={item} className="flex items-center gap-1.5 text-sm text-white/70">
+                <span className="font-black text-emerald-400">✓</span>
+                {item}
+              </span>
+            ))}
+          </div>
           <Link
             href="/socialflow/auth"
-            className="mt-10 inline-flex items-center gap-2 rounded-xl bg-white px-10 py-4 text-base font-black text-violet-700 shadow-2xl shadow-black/30 transition-all hover:-translate-y-0.5 hover:brightness-95"
+            className="mt-10 inline-flex items-center gap-2 rounded-xl bg-white px-12 py-5 text-lg font-black text-violet-700 shadow-2xl shadow-black/30 transition-all hover:-translate-y-0.5 hover:brightness-95"
           >
             Crear mi cuenta gratis →
           </Link>
