@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import ChatWidget from "./chat-widget";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 type PricingTab = "influencer" | "empresa";
@@ -309,6 +310,7 @@ export default function LandingClient() {
   }
 
   return (
+    <>
     <div className="min-h-screen overflow-x-hidden bg-[#030312] font-sans antialiased">
 
       {/* ── NAV ───────────────────────────────────────────────────────────── */}
@@ -773,5 +775,8 @@ export default function LandingClient() {
       </footer>
 
     </div>
+
+    <ChatWidget />
+    </>
   );
 }
