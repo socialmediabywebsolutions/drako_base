@@ -16,19 +16,19 @@ type StatsData = {
 const ROTATING_PHRASES = [
   "mientras tú creces",
   "mientras tú vendes",
-  "mientras tú duermes",
   "mientras tú vives",
+  "mientras tú duermes",
 ];
 
 const AGENTS = [
-  { emoji: "🔍", name: "Trend Agent",       desc: "Detecta tendencias virales en tu nicho" },
-  { emoji: "✍️", name: "Copywriter Agent",  desc: "Genera captions con tu voz única" },
-  { emoji: "📊", name: "Strategy Agent",    desc: "Planifica tu contenido del mes" },
-  { emoji: "🎯", name: "Keyword Agent",     desc: "Optimiza hashtags y palabras clave" },
-  { emoji: "🏆", name: "Competitor Agent",  desc: "Analiza a tu competencia" },
-  { emoji: "📅", name: "Scheduler Agent",   desc: "Publica en el momento óptimo" },
-  { emoji: "💬", name: "Community Agent",   desc: "Responde comentarios y DMs" },
-  { emoji: "🔥", name: "Lead Agent",        desc: "Detecta y clasifica oportunidades" },
+  { num: "01", name: "Agente de Tendencias",    desc: "Detecta tendencias virales en tu nicho" },
+  { num: "02", name: "Agente de Redacción",      desc: "Genera captions con tu voz única" },
+  { num: "03", name: "Agente de Estrategia",     desc: "Planifica tu contenido del mes" },
+  { num: "04", name: "Agente de Palabras Clave", desc: "Optimiza hashtags y SEO social" },
+  { num: "05", name: "Agente de Competencia",    desc: "Analiza a tu competencia en tiempo real" },
+  { num: "06", name: "Agente de Publicación",    desc: "Publica en el momento óptimo" },
+  { num: "07", name: "Agente de Comunidad",      desc: "Responde comentarios y DMs" },
+  { num: "08", name: "Agente de Oportunidades",  desc: "Detecta y clasifica leads" },
 ];
 
 const INFLUENCER_FEATURES = [
@@ -345,7 +345,7 @@ export default function LandingClient() {
       </nav>
 
       {/* ── HERO ──────────────────────────────────────────────────────────── */}
-      <section className="relative min-h-screen overflow-hidden pt-20">
+      <section className="relative overflow-hidden pt-20">
         {/* Orbs */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute left-[-10%] top-[8%] h-[600px] w-[600px] rounded-full bg-violet-600/20 blur-[130px]" />
@@ -358,18 +358,18 @@ export default function LandingClient() {
           style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.2) 1px, transparent 1px)", backgroundSize: "28px 28px" }}
         />
 
-        <div className="relative mx-auto max-w-5xl px-6 pb-20 pt-28 text-center">
+        <div className="relative mx-auto max-w-5xl px-6 pb-12 pt-14 text-center md:pb-16 md:pt-20">
           {/* Eyebrow */}
-          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-4 py-2">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-4 py-2">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400" />
             <span className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-300">
-              Sistema operativo de marketing con IA
+              Para influencers y empresas
             </span>
           </div>
 
           {/* Headline */}
           <h1 className="mx-auto max-w-4xl text-5xl font-black leading-[1.05] tracking-tight text-white md:text-6xl lg:text-7xl">
-            La IA que hace tu marketing
+            Tu marketing en piloto automático
             <br />
             <span
               className="mt-2 inline-block bg-gradient-to-r from-violet-400 via-fuchsia-400 to-cyan-400 bg-clip-text text-transparent transition-opacity duration-300"
@@ -380,12 +380,12 @@ export default function LandingClient() {
           </h1>
 
           {/* Sub */}
-          <p className="mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-white/55">
-            Publica en todas tus redes, responde comentarios, detecta leads y analiza tendencias — de forma autónoma con agentes IA.
+          <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-white/55">
+            Si eres influencer o tienes un negocio, nuestros agentes IA publican, responden y venden por ti — sin que muevas un dedo.
           </p>
 
           {/* CTAs */}
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
             <Link
               href="/socialflow/auth"
               className="rounded-xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 px-8 py-3.5 text-sm font-bold text-white shadow-xl shadow-violet-500/25 transition-all hover:brightness-110 hover:shadow-violet-500/50"
@@ -399,7 +399,7 @@ export default function LandingClient() {
               Soy Empresa →
             </Link>
           </div>
-          <p className="mt-4 text-xs text-white/30">
+          <p className="mt-3 text-xs text-white/30">
             7 días gratis · Sin tarjeta · Cancela cuando quieras
           </p>
         </div>
@@ -409,7 +409,26 @@ export default function LandingClient() {
       <StatsSection />
 
       {/* ── AGENTES ───────────────────────────────────────────────────────── */}
-      <section className="py-24">
+      <style>{`
+        @keyframes agent-shimmer {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        .agent-line {
+          height: 1px;
+          background: linear-gradient(90deg, transparent, #8b5cf6, #06b6d4, transparent);
+          background-size: 200% auto;
+          animation: agent-shimmer 3s linear infinite;
+        }
+        @keyframes agent-dot-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(0.75); }
+        }
+        .agent-dot {
+          animation: agent-dot-pulse 2s ease-in-out infinite;
+        }
+      `}</style>
+      <section className="py-16">
         <div className="mx-auto max-w-6xl px-6">
           <p className="text-center text-[11px] font-black uppercase tracking-[0.22em] text-violet-400">
             Agentes IA
@@ -418,25 +437,29 @@ export default function LandingClient() {
             8 agentes IA trabajando para ti
           </h2>
 
-          <div ref={agentsRef} className="mt-12 grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <div ref={agentsRef} className="mt-10 grid gap-4 grid-cols-2 lg:grid-cols-4">
             {AGENTS.map((agent, i) => (
               <div
                 key={agent.name}
-                className="rounded-2xl border border-white/8 bg-white/[0.04] p-5 transition-all duration-300 hover:border-violet-500/30 hover:bg-white/[0.07]"
                 style={{
                   opacity: agentsInView ? 1 : 0,
                   transform: agentsInView ? "translateY(0)" : "translateY(16px)",
                   transition: `opacity 0.4s ease ${i * 80}ms, transform 0.4s ease ${i * 80}ms`,
                 }}
               >
-                <div className="mb-3 text-2xl">{agent.emoji}</div>
-                <div className="mb-1 flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-white">{agent.name}</h3>
-                </div>
-                <p className="text-xs leading-relaxed text-white/45">{agent.desc}</p>
-                <div className="mt-3 flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-                  <span className="text-[10px] font-semibold text-emerald-400/70">Activo</span>
+                <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/5 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/25 hover:shadow-lg hover:shadow-black/30">
+                  <span className="mb-3 bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-4xl font-black leading-none text-transparent">
+                    {agent.num}
+                  </span>
+                  <h3 className="text-[11px] font-black uppercase tracking-wide text-white">
+                    {agent.name}
+                  </h3>
+                  <div className="agent-line my-2.5" />
+                  <p className="flex-1 text-xs leading-relaxed text-white/45">{agent.desc}</p>
+                  <div className="mt-4 flex items-center gap-1.5">
+                    <span className="agent-dot h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400/70">Activo</span>
+                  </div>
                 </div>
               </div>
             ))}
