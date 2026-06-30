@@ -13,9 +13,15 @@ const WELCOME: ChatMessage = {
   content: "¡Hola! Soy Flow 👋 ¿Eres creador de contenido o tienes un negocio?",
 };
 
+const CTA_TRIGGERS = [
+  "registro", "registrarte", "registra", "crear cuenta",
+  "empezamos", "empieza gratis", "prueba gratis", "7 días gratis",
+];
+
 function detectCta(reply: string): "influencer" | "empresa" | null {
   const lower = reply.toLowerCase();
-  if (!lower.includes("registro")) return null;
+  const hasCta = CTA_TRIGGERS.some((t) => lower.includes(t));
+  if (!hasCta) return null;
   if (lower.includes("influencer") || lower.includes("creador")) return "influencer";
   if (lower.includes("empresa") || lower.includes("negocio") || lower.includes("agencia")) return "empresa";
   return null;

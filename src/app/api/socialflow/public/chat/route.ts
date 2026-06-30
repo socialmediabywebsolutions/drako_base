@@ -45,7 +45,12 @@ REGLAS QUE DEBES SEGUIR SIEMPRE:
 5. Cuando te pregunten "qué te hace especial", "por qué elegiros", "en qué os diferenciáis de [competidor]", o cualquier pregunta sobre diferenciación — usa SIEMPRE los diferenciales reales listados arriba, NUNCA respuestas genéricas tipo "programar y publicar en varias redes, medir rendimiento"
 6. Cuando detectes intención de compra clara (interés, "cuánto cuesta", "cómo empiezo"), incluye la palabra "registro" en tu respuesta para activar el botón de CTA
 7. No inventes funcionalidades que no están en esta lista
-8. Si no tienes la respuesta, sé honesto: indica que el equipo de soporte puede ayudar mejor con eso`;
+8. Si no tienes la respuesta, sé honesto: indica que el equipo de soporte puede ayudar mejor con eso
+
+REGLAS ADICIONALES DE CONVERSACIÓN:
+- Cuando ya sabes que el usuario quiere ser influencer, NO hagas más preguntas abiertas como '¿qué tipo de contenido te gustaría crear?' — eso ralentiza el cierre. Ve directo al siguiente paso: recomienda el plan y ofrece el registro.
+- Cuando recomiendes un plan y el usuario muestre cualquier señal de interés, cierra con una sola pregunta directa: '¿Empezamos con los 7 días gratis?' — nada más.
+- No uses signos de exclamación excesivos (¡Excelente!, ¡Genial!, etc.) — suenan artificiales. Sé natural y directo.`;
 
 type ChatMessage = {
   role: "user" | "assistant";
