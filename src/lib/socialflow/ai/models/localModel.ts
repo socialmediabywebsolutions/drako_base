@@ -61,7 +61,17 @@ export function mergeAiStructuredOutput<T>(base: T, candidate: unknown): T {
   if (candidate === null || candidate === undefined) return base;
 
   if (Array.isArray(base)) {
-    if (!Array.isArray(candidate)) return base;
+    if (!Array.isArray(candidate) || candidate.length === 0) return base;
+
+    // Arrays of primitives (e.g. hashtag lists) have no per-element id to preserve,
+    // so the AI's full list can replace the seed outright. Object arrays (keyword
+    // clusters, post variants, etc.) keep the index-aligned merge below so each
+    // element's seeded id survives — mapping over base here would otherwise cap
+    // the result to base.length, discarding anything the model generated beyond
+    // the seed's size (this is what truncated hashtags down to the seed pool).
+    const isPrimitiveArray = base.every((item) => item === null || typeof item !== "object");
+    if (isPrimitiveArray) return candidate as unknown as T;
+
     return base.map((item, index) => mergeAiStructuredOutput(item, candidate[index])) as unknown as T;
   }
 
