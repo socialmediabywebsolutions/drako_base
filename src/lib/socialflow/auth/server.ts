@@ -1,7 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { getAuthsCookieName, readCookieFromHeader } from "@/lib/auths/cookies";
 import { verifyAuthsSessionToken } from "@/lib/auths/tokens";
-import { getAuthsUserById } from "@/lib/auths/repositories";
+import { getAuthsUserById, resolveAuthsDbForContext } from "@/lib/auths/repositories";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import {
   readTenantIdFromHeaderGetter,
@@ -15,7 +15,18 @@ export type SocialFlowSession = {
   tenantId: string;
   role: "owner" | "admin" | "user";
   authMode: "isolated" | "local_demo";
+  accountType: "influencer" | "empresa" | null;
 };
+
+async function getSocialFlowAccountType(userId: string): Promise<"influencer" | "empresa" | null> {
+  const db = resolveAuthsDbForContext("socialflow");
+  if (!db) return null;
+  const row = await db
+    .prepare(`SELECT account_type FROM socialflow_users WHERE id = ? LIMIT 1`)
+    .bind(userId)
+    .first<{ account_type: string | null }>();
+  return row?.account_type === "influencer" || row?.account_type === "empresa" ? row.account_type : null;
+}
 
 function isTruthyFlag(value: string | undefined) {
   if (!value) return false;
@@ -48,6 +59,7 @@ export async function getCurrentSocialFlowSession(): Promise<SocialFlowSession |
       tenantId: tenantIdFromHeader ?? process.env.DRAKO_CLIENT_DEMO_TENANT_ID ?? DEMO_TENANT_ID,
       role: "admin",
       authMode: "local_demo",
+      accountType: null,
     };
   }
 
@@ -83,6 +95,8 @@ export async function getCurrentSocialFlowSession(): Promise<SocialFlowSession |
     return null;
   }
 
+  const accountType = await getSocialFlowAccountType(claims.sub);
+
   return {
     userId: claims.sub,
     email: claims.email,
@@ -90,5 +104,6 @@ export async function getCurrentSocialFlowSession(): Promise<SocialFlowSession |
     tenantId: claims.tenantId,
     role: claims.role,
     authMode: "isolated",
+    accountType,
   };
 }

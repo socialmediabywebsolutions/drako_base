@@ -11,13 +11,13 @@ type Plan = {
   networks: string;
   postsPerNetwork: number;
   features: string[];
-  stripePlan: "creator" | "pro";
+  stripePlan: "influencer_basico" | "influencer_pro" | "empresa_basica" | "empresa_pro";
   highlight?: boolean;
 };
 
-const PLANS: Plan[] = [
+const INFLUENCER_PLANS: Plan[] = [
   {
-    id: "creator",
+    id: "influencer_basico",
     name: "Influencer Básico",
     price: 49,
     networks: "Instagram + TikTok",
@@ -29,10 +29,10 @@ const PLANS: Plan[] = [
       "Calendario de contenido",
       "Publicación automática",
     ],
-    stripePlan: "creator",
+    stripePlan: "influencer_basico",
   },
   {
-    id: "pro",
+    id: "influencer_pro",
     name: "Influencer Pro",
     badge: "Más popular",
     price: 99,
@@ -45,14 +45,53 @@ const PLANS: Plan[] = [
       "Detección de leads y comunidad",
       "Analytics avanzados",
     ],
-    stripePlan: "pro",
+    stripePlan: "influencer_pro",
     highlight: true,
   },
 ];
 
-export default function TrialPaywall() {
+const EMPRESA_PLANS: Plan[] = [
+  {
+    id: "empresa_basica",
+    name: "Empresa Básica",
+    price: 79,
+    networks: "Instagram + Facebook + LinkedIn",
+    postsPerNetwork: 30,
+    features: [
+      "Base de Conocimiento (web + PDFs + catálogos)",
+      "CRM Social básico",
+      "Respuesta automática comentarios y DMs",
+      "Análisis reseñas Google Business",
+      "Informe mensual PDF",
+      "2 usuarios (dueño + community manager)",
+    ],
+    stripePlan: "empresa_basica",
+  },
+  {
+    id: "empresa_pro",
+    name: "Empresa Pro",
+    badge: "Más popular",
+    price: 149,
+    networks: "Instagram + TikTok + Facebook + LinkedIn + Pinterest",
+    postsPerNetwork: 60,
+    features: [
+      "Todo lo de Empresa Básica",
+      "Gestión de reputación y alertas",
+      "Generación de leads desde DMs",
+      "Usuarios ilimitados con roles y permisos",
+      "WhatsApp orquestador",
+    ],
+    stripePlan: "empresa_pro",
+    highlight: true,
+  },
+];
+
+export default function TrialPaywall({ accountType }: { accountType: "influencer" | "empresa" | null }) {
   const [loadingCheckout, setLoadingCheckout] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const plans = accountType === "empresa" ? EMPRESA_PLANS : INFLUENCER_PLANS;
+  const plansPageHref = accountType === "empresa" ? "/socialflow/onboarding/plans-empresa" : "/socialflow/onboarding/plans";
 
   async function handleSubscribe(plan: Plan) {
     setError(null);
@@ -97,7 +136,7 @@ export default function TrialPaywall() {
 
         {/* Plan cards */}
         <div className="grid gap-5 sm:grid-cols-2">
-          {PLANS.map((plan) => (
+          {plans.map((plan) => (
             <div
               key={plan.id}
               className={[
@@ -148,7 +187,7 @@ export default function TrialPaywall() {
               </button>
 
               <Link
-                href="/socialflow/onboarding/plans"
+                href={plansPageHref}
                 className="mt-3 block text-center text-xs text-white/30 transition hover:text-white/50"
               >
                 Ver todos los planes

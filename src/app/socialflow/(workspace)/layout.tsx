@@ -88,7 +88,7 @@ export default async function SocialFlowWorkspaceLayout({
       </div>
 
       {/* Paywall overlay — covers entire workspace when trial expires */}
-      {showPaywall && <TrialPaywall />}
+      {showPaywall && <TrialPaywall accountType={session.accountType} />}
     </div>
   );
 }

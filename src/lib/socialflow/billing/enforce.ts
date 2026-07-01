@@ -4,20 +4,26 @@ import { resolveSocialFlowPlanCode, type SocialFlowPlanCode } from "./plans";
 
 const PLAN_MAX_CHANNELS: Record<SocialFlowPlanCode, number> = {
   free: 1,
-  creator: 3,
-  pro: Infinity,
+  influencer_basico: 3,
+  influencer_pro: Infinity,
+  empresa_basica: 5,
+  empresa_pro: Infinity,
 };
 
 const PLAN_MAX_UPLOADS_PER_BATCH: Record<SocialFlowPlanCode, number> = {
-  free: 30,      // sin plan — no se limita para no bloquear onboarding
-  creator: 30,   // Influencer Básico (49€)
-  pro: 60,       // Influencer Pro (99€)
+  free: 30,               // sin plan — no se limita para no bloquear onboarding
+  influencer_basico: 30,  // Influencer Básico (49€)
+  influencer_pro: 60,     // Influencer Pro (99€)
+  empresa_basica: 30,     // Empresa Básica (79€)
+  empresa_pro: 60,        // Empresa Pro (149€)
 };
 
 const PLAN_AI_ALLOWED: Record<SocialFlowPlanCode, boolean> = {
   free: false,
-  creator: true,
-  pro: true,
+  influencer_basico: true,
+  influencer_pro: true,
+  empresa_basica: true,
+  empresa_pro: true,
 };
 
 export type PlanGuardResult =
@@ -61,7 +67,7 @@ export async function guardAiAccess(
   role?: string,
 ): Promise<PlanGuardResult> {
   if (AI_BYPASS_TENANT_IDS.has(tenantId) || (role && AI_BYPASS_ROLES.has(role))) {
-    return { ok: true, planCode: "pro" };
+    return { ok: true, planCode: "influencer_pro" };
   }
 
   const snapshot = await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" });
@@ -89,7 +95,7 @@ export async function isActiveSocialFlowTrial(tenantId: string, role?: string): 
 
 export async function getUploadBatchLimit(tenantId: string, role?: string): Promise<number> {
   if (AI_BYPASS_TENANT_IDS.has(tenantId) || (role && AI_BYPASS_ROLES.has(role))) {
-    return PLAN_MAX_UPLOADS_PER_BATCH.pro;
+    return PLAN_MAX_UPLOADS_PER_BATCH.influencer_pro;
   }
   const snapshot = await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" });
   const sub = snapshot.subscription;

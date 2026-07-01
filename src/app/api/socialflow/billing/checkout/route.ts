@@ -9,16 +9,37 @@ import { getSocialFlowStripePriceId, type SocialFlowPlanCode } from "@/lib/socia
 import { createStripeCheckoutSession, createStripeCustomer } from "@/lib/stripe/rest";
 
 type RequestBody = {
-  plan?: "creator" | "pro";
+  plan?: string;
   context?: "onboarding" | "settings";
 };
+
+const VALID_CHECKOUT_PLANS = new Set<Exclude<SocialFlowPlanCode, "free">>([
+  "influencer_basico",
+  "influencer_pro",
+  "empresa_basica",
+  "empresa_pro",
+]);
+
+function resolveCheckoutPlan(rawPlan: string | undefined): Exclude<SocialFlowPlanCode, "free"> | null {
+  // "creator"/"pro" are legacy aliases kept for links/clients built before the influencer/empresa split.
+  if (rawPlan === "creator") return "influencer_basico";
+  if (rawPlan === "pro") return "influencer_pro";
+  if (rawPlan && VALID_CHECKOUT_PLANS.has(rawPlan as Exclude<SocialFlowPlanCode, "free">)) {
+    return rawPlan as Exclude<SocialFlowPlanCode, "free">;
+  }
+  return null;
+}
 
 export async function POST(request: Request) {
   try {
     const session = await requireCurrentSocialFlowSession(request);
     const body = (await request.json().catch(() => ({}))) as RequestBody;
-    const plan: SocialFlowPlanCode = body.plan === "creator" ? "creator" : "pro";
+    const plan = resolveCheckoutPlan(body.plan);
     const ctx = body.context === "onboarding" ? "onboarding" : "settings";
+
+    if (!plan) {
+      return NextResponse.json({ ok: false, code: "SOCIALFLOW_INVALID_PLAN" }, { status: 400 });
+    }
 
     const priceId = getSocialFlowStripePriceId(plan);
     if (!priceId) {
