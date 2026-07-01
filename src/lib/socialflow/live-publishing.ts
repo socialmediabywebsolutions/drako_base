@@ -65,24 +65,29 @@ async function publishToLinkedIn(input: {
 const R2_PUBLIC_DOMAIN = "pub-04c730a67921499bac35a1f62402cc17.r2.dev";
 const R2_PUBLIC_BASE = `https://${R2_PUBLIC_DOMAIN}`;
 
+// Instagram Content Publishing only accepts JPEG/PNG/WebP as photo and MP4/MOV as
+// video via image_url/video_url — GIF is neither, so it's deliberately excluded here.
 const ALLOWED_EXTENSIONS: Record<string, string> = {
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
   png: "image/png",
   webp: "image/webp",
-  gif: "image/gif",
   mp4: "video/mp4",
   mov: "video/quicktime",
 };
 
-function detectExtension(url: string, contentType: string | null): string {
+// Returns null when the media type can't be confidently identified as one of the
+// formats above, instead of guessing "jpg" — a wrong guess re-uploads the file to R2
+// mislabeled as image/jpeg, which Instagram then rejects with a generic media-type error.
+function detectExtension(url: string, contentType: string | null): string | null {
   const pathname = new URL(url).pathname;
   const fromPath = pathname.split(".").pop()?.toLowerCase() ?? "";
   if (fromPath in ALLOWED_EXTENSIONS) return fromPath;
   if (contentType?.includes("mp4") || contentType?.includes("video")) return "mp4";
+  if (contentType?.includes("jpeg") || contentType?.includes("jpg")) return "jpg";
   if (contentType?.includes("png")) return "png";
   if (contentType?.includes("webp")) return "webp";
-  return "jpg";
+  return null;
 }
 
 export async function uploadMediaToR2(mediaUrl: string, postId: string): Promise<string> {
@@ -106,7 +111,13 @@ export async function uploadMediaToR2(mediaUrl: string, postId: string): Promise
 
     const contentType = response.headers.get("content-type");
     const ext = detectExtension(mediaUrl, contentType);
-    const mimeType = ALLOWED_EXTENSIONS[ext] ?? "application/octet-stream";
+    if (!ext) {
+      throw new Error(
+        `Unsupported media type for Instagram (content-type: ${contentType ?? "unknown"}). ` +
+        "Only JPEG/PNG/WebP images or MP4/MOV videos can be re-hosted for publishing.",
+      );
+    }
+    const mimeType = ALLOWED_EXTENSIONS[ext];
     const timestamp = Date.now();
     const key = `posts/${postId}/${timestamp}.${ext}`;
 
