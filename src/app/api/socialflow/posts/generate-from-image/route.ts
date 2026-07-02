@@ -254,12 +254,13 @@ export async function POST(request: Request) {
         .slice(0, 15);
     }
 
-    // Step 7: Calculate best schedule slot — sequential pass system within current month.
+    // Step 7: Calculate best schedule slot — sequential pass system, month by month.
     // Pass 1 is active while any day of the month has 0 posts.
     // Pass 2 activates only when ALL days have ≥1 post; adds a 2nd post per day.
     // Pass 3 activates only when ALL days have ≥2 posts. Maximum 3 posts per day.
+    // When a month is saturated at the max pass on every day, roll over to the next
+    // calendar month (and beyond) instead of stacking posts on day 1.
     // The HOUR is always derived from pickHourFromContent — passes determine the DAY only.
-    const DAY_MS = 86_400_000;
     const todayUtc = new Date().toISOString().slice(0, 10);
 
     const socialCtx = await resolveSocialContext({ tenantId: session.tenantId, saasId: body.saasId });
@@ -271,39 +272,75 @@ export async function POST(request: Request) {
     const aiHours = (trends.optimalHours ?? []).filter((h) => Number.isInteger(h) && h >= 0 && h < 24).slice(0, 3);
     const resolvedHours = aiHours.length >= 2 ? aiHours : nicheHours;
 
-    // Build window: 30-day rolling window starting today (ignores month boundaries)
-    const todayMs = new Date(todayUtc + "T00:00:00Z").getTime();
-    const windowDays: string[] = [];
-    for (let i = 0; i < 30; i++) {
-      windowDays.push(new Date(todayMs + i * DAY_MS).toISOString().slice(0, 10));
-    }
-    const windowDaysSet = new Set(windowDays);
-
-    // Track occupied hours per day (only within the current month window)
-    const occupiedHoursPerDay = new Map<string, Set<number>>();
-    for (const s of futureSlots) {
-      const day = s.slice(0, 10);
-      if (!windowDaysSet.has(day)) continue;
-      if (!occupiedHoursPerDay.has(day)) occupiedHoursPerDay.set(day, new Set());
-      occupiedHoursPerDay.get(day)!.add(parseInt(s.slice(11, 13), 10));
-    }
-
-    // Determine current pass: advance only when ALL days of the month are filled.
-    // Pass 1 while any day has 0 posts. Pass 2 when all have ≥1. Pass 3 when all have ≥2.
     // Trial users are capped at 1 post/day so they don't consume more than Pass 1.
     const MAX_POSTS_PER_DAY = isTrial ? 1 : 3;
-    let currentPass = MAX_POSTS_PER_DAY; // default: month fully saturated at all passes
-    for (let p = 0; p < MAX_POSTS_PER_DAY; p++) {
-      if (windowDays.some((day) => (occupiedHoursPerDay.get(day)?.size ?? 0) === p)) {
-        currentPass = p + 1;
-        break;
+
+    // Every calendar day (UTC, "YYYY-MM-DD") of the month at `monthOffset` from today's
+    // month. monthOffset 0 starts at today (never schedules into the past); monthOffset
+    // > 0 covers the full month (1st through last day).
+    function buildMonthDays(monthOffset: number): string[] {
+      const today = new Date(todayUtc + "T00:00:00Z");
+      const baseYear = today.getUTCFullYear();
+      const baseMonth = today.getUTCMonth();
+      const totalMonth = baseMonth + monthOffset;
+      const targetYear = baseYear + Math.floor(totalMonth / 12);
+      const targetMonth = ((totalMonth % 12) + 12) % 12;
+      const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+      const startDay = monthOffset === 0 ? today.getUTCDate() : 1;
+      const days: string[] = [];
+      for (let d = startDay; d <= lastDay; d++) {
+        days.push(new Date(Date.UTC(targetYear, targetMonth, d)).toISOString().slice(0, 10));
       }
+      return days;
     }
 
-    // Day pool = only days at the current pass level (exactly currentPass-1 existing posts)
-    const dayPool = windowDays.filter(
-      (day) => (occupiedHoursPerDay.get(day)?.size ?? 0) === currentPass - 1,
-    );
+    // Walk real calendar months (not a rolling 30-day window): if the current month is
+    // saturated at MAX_POSTS_PER_DAY on every remaining day, roll over to the next month
+    // (and the next, etc.) instead of stacking new posts on day 1.
+    const MAX_MONTHS_AHEAD = 24;
+    let windowDays: string[] = [];
+    let occupiedHoursPerDay = new Map<string, Set<number>>();
+    let currentPass = MAX_POSTS_PER_DAY;
+    let dayPool: string[] = [];
+    let monthOffsetUsed = 0;
+
+    for (let monthOffset = 0; monthOffset < MAX_MONTHS_AHEAD; monthOffset++) {
+      const monthDays = buildMonthDays(monthOffset);
+      const monthDaysSet = new Set(monthDays);
+
+      const monthOccupied = new Map<string, Set<number>>();
+      for (const s of futureSlots) {
+        const day = s.slice(0, 10);
+        if (!monthDaysSet.has(day)) continue;
+        if (!monthOccupied.has(day)) monthOccupied.set(day, new Set());
+        monthOccupied.get(day)!.add(parseInt(s.slice(11, 13), 10));
+      }
+
+      // Determine current pass within this month: advance only when ALL its days are
+      // filled. Pass 1 while any day has 0 posts. Pass 2 when all have ≥1. Pass 3 when
+      // all have ≥2.
+      let monthPass = MAX_POSTS_PER_DAY; // default: month fully saturated at all passes
+      for (let p = 0; p < MAX_POSTS_PER_DAY; p++) {
+        if (monthDays.some((day) => (monthOccupied.get(day)?.size ?? 0) === p)) {
+          monthPass = p + 1;
+          break;
+        }
+      }
+
+      // Day pool = only days at the current pass level (exactly monthPass-1 existing posts)
+      const monthDayPool = monthDays.filter(
+        (day) => (monthOccupied.get(day)?.size ?? 0) === monthPass - 1,
+      );
+
+      windowDays = monthDays;
+      occupiedHoursPerDay = monthOccupied;
+      currentPass = monthPass;
+      dayPool = monthDayPool;
+      monthOffsetUsed = monthOffset;
+
+      if (monthDayPool.length > 0) break; // found a month with room — stop here
+      // else: this month is fully saturated at MAX_POSTS_PER_DAY every day — try next month
+    }
 
     // scheduleIndex selects the Nth day (and rotates the starting hour). It defaults to
     // batchIndex (raw upload order) when the caller doesn't pass an interleaved index —
@@ -341,7 +378,7 @@ export async function POST(request: Request) {
       contentHourCandidates[0];
 
     console.log(
-      `[Scheduler] niche="${profile.niche}" imageCtx="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)} contentHour=${contentHour ?? "null"} scheduleIndex=${scheduleIndex} targetDate=${targetDate} pass=${currentPass} finalHour=${finalHour} dayPool=${dayPool.length}/${windowDays.length}`,
+      `[Scheduler] niche="${profile.niche}" imageCtx="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)} contentHour=${contentHour ?? "null"} scheduleIndex=${scheduleIndex} targetDate=${targetDate} pass=${currentPass} monthOffset=${monthOffsetUsed} finalHour=${finalHour} dayPool=${dayPool.length}/${windowDays.length}`,
     );
 
     const scheduledAtDate = new Date(targetDate + "T00:00:00Z");
