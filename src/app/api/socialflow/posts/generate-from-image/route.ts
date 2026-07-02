@@ -17,6 +17,19 @@ function unauthorizedResponse() {
   return NextResponse.json({ code: "UNAUTHORIZED", message: "SESSION_REQUIRED" }, { status: 401 });
 }
 
+// Text normalized the same way every classifier below needs it: lowercase, accents stripped.
+function normalizeAnalysisText(analysis: ImageAnalysis): string {
+  const raw = [analysis.description, analysis.context].join(" ");
+  return raw.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+// Quote cards / typography-driven graphics vs. real photos (person, food, exercise, scenery).
+// Reused both for hour selection (motivation slot below) and for content-type-aware batch ordering.
+const GRAPHIC_TEXT_RE = /\bfrase|\bcita\b|\btexto\b|\bquote\b|letras|tipografi/;
+function isGraphicTextContent(analysis: ImageAnalysis): boolean {
+  return GRAPHIC_TEXT_RE.test(normalizeAnalysisText(analysis));
+}
+
 // Map photo content (from LLaVA analysis) to the best UTC posting hour.
 // Returns null when the content is ambiguous — caller falls back to batchIndex rotation.
 // Hour rationale (fitness/lifestyle niche, Spain+LatAm audience UTC):
@@ -25,8 +38,7 @@ function unauthorizedResponse() {
 //  18h  — motivation/mindset: people decompress after work
 //  21h  — rest/recovery: evening wind-down browsing
 function pickHourFromContent(analysis: ImageAnalysis): number | null {
-  const raw = [analysis.description, analysis.context].join(" ");
-  const text = raw.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const text = normalizeAnalysisText(analysis);
 
   // Food — words exclusive to food content; won't appear in typical exercise descriptions
   if (/ensalada|receta|cocin|\bplato\b|\bcomer\b|ingredi|bebida|batido|\bjugo\b/.test(text)) return 12;
@@ -35,7 +47,7 @@ function pickHourFromContent(analysis: ImageAnalysis): number | null {
   if (/dormir|\bcama\b|meditaci|\byoga\b|respirar|\bnoche\b|\bsueno\b/.test(text)) return 21;
 
   // Motivation — only when photo is clearly text/typography based (quote card, etc.)
-  if (/\bfrase|\bcita\b|\btexto\b|\bquote\b|letras|tipografi/.test(text)) return 18;
+  if (isGraphicTextContent(analysis)) return 18;
 
   // Exercise is NOT detected by keyword: LLaVA mentions exercise terms in nearly all
   // fitness-niche photos regardless of actual content. Caller uses batchIndex rotation.
@@ -76,7 +88,10 @@ export async function POST(request: Request) {
       saasId?: string;
       provider?: string;
       startDate?: string;
-      batchIndex?: number;  // 0-based position of this image in the upload batch
+      batchIndex?: number;      // 0-based upload order — drives opener rotation only
+      scheduleIndex?: number;   // 0-based position after content-type interleaving — drives day-pool assignment; falls back to batchIndex
+      mode?: "analyze" | "finalize"; // "analyze" = LLaVA classification only (no caption/schedule); default ("finalize") runs the full pipeline
+      imageAnalysis?: ImageAnalysis; // result of a prior "analyze" call — reused here to skip a duplicate LLaVA call
     } | null;
 
     if (!body?.imageUrl || !body?.imageKey || !body?.saasId) {
@@ -104,32 +119,50 @@ export async function POST(request: Request) {
       profile.voiceInstruction = `Escribe en primera persona singular (yo). Habla directamente como si fueras ${profile.brandIdentity} dirigiéndote a tu audiencia. NUNCA uses "${profile.brandIdentity}" en tercera persona ni como si fuera una empresa. Ejemplo correcto: "Te comparto..." — Ejemplo incorrecto: "En ${profile.brandIdentity} compartimos..."`;
     }
 
-    // Read image bytes directly from R2 binding (avoids public URL fetch)
-    const bucket = env()?.SOCIAL_MEDIA_BUCKET;
-    if (!bucket) {
-      return NextResponse.json(
-        { code: "STORAGE_NOT_CONFIGURED", message: "Media storage is not configured" },
-        { status: 503 },
-      );
+    // Run LLaVA only when the caller hasn't already analyzed this image — the upload UI's
+    // "analyze" pre-pass result is passed back here on the "finalize" call to avoid a
+    // second, redundant vision-model call for the same photo.
+    let imageAnalysis: ImageAnalysis;
+    if (body.imageAnalysis) {
+      imageAnalysis = body.imageAnalysis;
+    } else {
+      // Read image bytes directly from R2 binding (avoids public URL fetch)
+      const bucket = env()?.SOCIAL_MEDIA_BUCKET;
+      if (!bucket) {
+        return NextResponse.json(
+          { code: "STORAGE_NOT_CONFIGURED", message: "Media storage is not configured" },
+          { status: 503 },
+        );
+      }
+      const r2Object = await bucket.get(body.imageKey);
+      if (!r2Object) {
+        return NextResponse.json(
+          { code: "IMAGE_NOT_FOUND", message: "Image not found in storage" },
+          { status: 404 },
+        );
+      }
+      const imageBytes = Array.from(new Uint8Array(await r2Object.arrayBuffer()));
+      imageAnalysis = await new ImageAnalysisAgent().run({ imageBytes, profile });
     }
-    const r2Object = await bucket.get(body.imageKey);
-    if (!r2Object) {
-      return NextResponse.json(
-        { code: "IMAGE_NOT_FOUND", message: "Image not found in storage" },
-        { status: 404 },
-      );
-    }
-    const imageBytes = Array.from(new Uint8Array(await r2Object.arrayBuffer()));
-
-    // Step 1: Analyze image (LLaVA) + trends (Mistral) + trial check in parallel
-    const [imageAnalysis, trends, isTrial] = await Promise.all([
-      new ImageAnalysisAgent().run({ imageBytes, profile }),
-      new TrendAgent().run({ profile }),
-      isActiveSocialFlowTrial(session.tenantId, session.role),
-    ]);
     console.log(
       `[ImageAnalysis] description="${imageAnalysis.description}" context="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)}`,
     );
+
+    // "analyze" mode: classification only. Used by the upload UI to learn every photo's
+    // content type (foto_real vs. grafico_texto) in a batch before deciding the calendar
+    // order — no caption/schedule work needed for this call.
+    if (body.mode === "analyze") {
+      return NextResponse.json({
+        imageAnalysis,
+        contentCategory: isGraphicTextContent(imageAnalysis) ? "grafico_texto" : "foto_real",
+      });
+    }
+
+    // Step 1b: trends (Mistral) + trial check in parallel (image already analyzed above)
+    const [trends, isTrial] = await Promise.all([
+      new TrendAgent().run({ profile }),
+      isActiveSocialFlowTrial(session.tenantId, session.role),
+    ]);
 
     // Step 2: Build StrategyItem from image analysis (no LLM call)
     const strategyItem: StrategyItem = {
@@ -272,12 +305,19 @@ export async function POST(request: Request) {
       (day) => (occupiedHoursPerDay.get(day)?.size ?? 0) === currentPass - 1,
     );
 
-    // batchIndex selects the Nth day; cycles within pool if batch has more photos than days
-    const batchIndex = typeof body.batchIndex === "number" && body.batchIndex >= 0 ? body.batchIndex : 0;
-    const targetDate = dayPool.length > 0 ? dayPool[batchIndex % dayPool.length] : windowDays[0];
+    // scheduleIndex selects the Nth day (and rotates the starting hour). It defaults to
+    // batchIndex (raw upload order) when the caller doesn't pass an interleaved index —
+    // this keeps single-type batches and any caller that hasn't been updated unaffected.
+    const scheduleIndex =
+      typeof body.scheduleIndex === "number" && body.scheduleIndex >= 0
+        ? body.scheduleIndex
+        : typeof body.batchIndex === "number" && body.batchIndex >= 0
+        ? body.batchIndex
+        : 0;
+    const targetDate = dayPool.length > 0 ? dayPool[scheduleIndex % dayPool.length] : windowDays[0];
 
     // Hour selection: content-specific when LLaVA clearly identifies the type,
-    // otherwise batchIndex picks the starting hour from the optimal pool so each
+    // otherwise scheduleIndex picks the starting hour from the optimal pool so each
     // photo in a batch gets a different hour (0→pool[0], 1→pool[1], etc.).
     const contentHour = pickHourFromContent(imageAnalysis);
     const contentHourCandidates: number[] =
@@ -285,8 +325,8 @@ export async function POST(request: Request) {
       contentHour === 21 ? [21, 20, 22] :
       contentHour === 18 ? [18, 17, 19] :
       (() => {
-        // Rotate resolvedHours so batchIndex N starts at resolvedHours[N % length]
-        const idx = batchIndex % resolvedHours.length;
+        // Rotate resolvedHours so scheduleIndex N starts at resolvedHours[N % length]
+        const idx = scheduleIndex % resolvedHours.length;
         return [...resolvedHours.slice(idx), ...resolvedHours.slice(0, idx)];
       })();
 
@@ -301,7 +341,7 @@ export async function POST(request: Request) {
       contentHourCandidates[0];
 
     console.log(
-      `[Scheduler] niche="${profile.niche}" imageCtx="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)} contentHour=${contentHour ?? "null"} batchIndex=${batchIndex} targetDate=${targetDate} pass=${currentPass} finalHour=${finalHour} dayPool=${dayPool.length}/${windowDays.length}`,
+      `[Scheduler] niche="${profile.niche}" imageCtx="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)} contentHour=${contentHour ?? "null"} scheduleIndex=${scheduleIndex} targetDate=${targetDate} pass=${currentPass} finalHour=${finalHour} dayPool=${dayPool.length}/${windowDays.length}`,
     );
 
     const scheduledAtDate = new Date(targetDate + "T00:00:00Z");

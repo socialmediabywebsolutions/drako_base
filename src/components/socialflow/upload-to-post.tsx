@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 
+type ContentCategory = "foto_real" | "grafico_texto";
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type ItemStep = "uploading" | "analyzing" | "ready" | "saving" | "saved" | "error";
@@ -17,6 +19,7 @@ type UploadItem = {
   step: ItemStep;
   error: string | null;
   imageAnalysis: ImageAnalysis | null;
+  contentCategory: ContentCategory | null;
   editBody: string;
   editHashtags: string[];
   editDate: string;          // YYYY-MM-DD
@@ -643,7 +646,15 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
     return () => clearTimeout(t);
   }, [allSaved, router]);
 
-  async function processFile(file: File, index: number = 0): Promise<void> {
+  // Phase 1: upload to R2 + classify the photo (LLaVA) — no caption/schedule yet.
+  // Returns null (and marks the item as errored) if upload or analysis fails.
+  async function analyzeFile(
+    file: File,
+    batchIndex: number,
+  ): Promise<
+    | { id: string; r2Url: string; r2Key: string; imageAnalysis: ImageAnalysis; contentCategory: ContentCategory; batchIndex: number }
+    | null
+  > {
     const id = crypto.randomUUID();
     const localPreviewUrl = URL.createObjectURL(file);
 
@@ -652,7 +663,7 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
       {
         id, file, localPreviewUrl,
         r2Url: null, r2Key: null,
-        step: "uploading", error: null, imageAnalysis: null,
+        step: "uploading", error: null, imageAnalysis: null, contentCategory: null,
         editBody: "", editHashtags: [], editDate: "", editTime: "",
         editContentType: "FEED", editProvider: "INSTAGRAM",
         isEditing: false, savedAt: null,
@@ -660,7 +671,6 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
     ]);
 
     try {
-      // Phase 1: upload to R2
       const form = new FormData();
       form.append("file", file);
       const uploadRes = await fetch("/api/socialflow/media/upload", { method: "POST", body: form });
@@ -675,17 +685,69 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
         )
       );
 
-      // Phase 2: generate post from image.
-      // startDate pins each photo to a different day (every 2 days from tomorrow).
-      const DAY_MS = 86_400_000;
-      const startDate = new Date(Date.now() + (1 + index * 2) * DAY_MS).toISOString().slice(0, 10);
+      const analyzeRes = await fetch("/api/socialflow/posts/generate-from-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: uploadData.url, imageKey: uploadData.key, saasId, mode: "analyze" }),
+      });
+      const analyzeData = (await analyzeRes.json()) as {
+        imageAnalysis?: ImageAnalysis;
+        contentCategory?: ContentCategory;
+        code?: string; message?: string;
+      };
+      if (!analyzeRes.ok || !analyzeData.imageAnalysis || !analyzeData.contentCategory) {
+        throw new Error(analyzeData.message ?? analyzeData.code ?? "Error al analizar la imagen.");
+      }
+
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === id
+            ? { ...i, imageAnalysis: analyzeData.imageAnalysis!, contentCategory: analyzeData.contentCategory! }
+            : i
+        )
+      );
+
+      return {
+        id,
+        r2Url: uploadData.url,
+        r2Key: uploadData.key,
+        imageAnalysis: analyzeData.imageAnalysis,
+        contentCategory: analyzeData.contentCategory,
+        batchIndex,
+      };
+    } catch (e) {
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === id
+            ? { ...i, step: "error", error: e instanceof Error ? e.message : "Error inesperado." }
+            : i
+        )
+      );
+      return null;
+    }
+  }
+
+  // Phase 2: generate caption + hashtags + calendar slot for an already-analyzed photo.
+  // scheduleIndex drives the day assignment (post-interleaving); batchIndex (original
+  // upload order) still drives opener rotation, untouched by the reordering.
+  async function finalizeFile(
+    item: { id: string; r2Url: string; r2Key: string; imageAnalysis: ImageAnalysis; batchIndex: number },
+    scheduleIndex: number,
+  ): Promise<void> {
+    try {
       const genRes = await fetch("/api/socialflow/posts/generate-from-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl: uploadData.url, imageKey: uploadData.key, saasId, startDate, batchIndex: index }),
+        body: JSON.stringify({
+          imageUrl: item.r2Url,
+          imageKey: item.r2Key,
+          saasId,
+          imageAnalysis: item.imageAnalysis,
+          batchIndex: item.batchIndex,
+          scheduleIndex,
+        }),
       });
       const genData = (await genRes.json()) as {
-        imageAnalysis?: ImageAnalysis;
         suggestedPost?: {
           body: string; hashtags: string[]; scheduledAt: string;
           contentType: string; provider: string;
@@ -698,11 +760,10 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
 
       setItems((prev) =>
         prev.map((i) =>
-          i.id === id
+          i.id === item.id
             ? {
                 ...i,
                 step: "ready",
-                imageAnalysis: genData.imageAnalysis ?? null,
                 editBody: genData.suggestedPost!.body,
                 editHashtags: genData.suggestedPost!.hashtags,
                 editDate: parseDate(genData.suggestedPost!.scheduledAt),
@@ -716,7 +777,7 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
     } catch (e) {
       setItems((prev) =>
         prev.map((i) =>
-          i.id === id
+          i.id === item.id
             ? { ...i, step: "error", error: e instanceof Error ? e.message : "Error inesperado." }
             : i
         )
@@ -724,7 +785,24 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
     }
   }
 
-  function handleFiles(newFiles: FileList | File[]) {
+  // Interleave two ordered groups (foto_real / grafico_texto) so the calendar alternates
+  // content types regardless of the order the files were selected in. If one group runs
+  // out, the remainder of the other is appended in its original order — a single-type
+  // batch is therefore untouched (identity order, same result as before this change).
+  function interleaveByCategory<T extends { contentCategory: ContentCategory }>(list: T[]): T[] {
+    const fotos = list.filter((i) => i.contentCategory === "foto_real");
+    const graficos = list.filter((i) => i.contentCategory === "grafico_texto");
+    const merged: T[] = [];
+    let fi = 0;
+    let gi = 0;
+    while (fi < fotos.length || gi < graficos.length) {
+      if (fi < fotos.length) merged.push(fotos[fi++]);
+      if (gi < graficos.length) merged.push(graficos[gi++]);
+    }
+    return merged;
+  }
+
+  async function handleFiles(newFiles: FileList | File[]) {
     setGlobalError(null);
     const files = Array.from(newFiles);
     const images = files.filter((f) => f.type.startsWith("image/"));
@@ -742,10 +820,19 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
       setGlobalError(`Solo se añadieron ${toProcess.length} de ${images.length} fotos (límite: ${maxImages}).`);
     }
 
-    if (toProcess.length > 0) {
-      const startingIndex = activeCount;
-      void Promise.all(toProcess.map((f, i) => processFile(f, startingIndex + i)));
-    }
+    if (toProcess.length === 0) return;
+
+    const startingIndex = activeCount;
+
+    // Phase 1: upload + classify every photo of this wave in parallel (unaffected by
+    // the reordering below — each photo still uploads/analyzes as soon as it can).
+    const analyzed = await Promise.all(toProcess.map((f, i) => analyzeFile(f, startingIndex + i)));
+    const succeeded = analyzed.filter((r): r is NonNullable<typeof r> => r !== null);
+
+    // Phase 2: reorder this wave by content type, then assign calendar slots + generate
+    // captions in that interleaved order (still one request per photo, run in parallel).
+    const interleaved = interleaveByCategory(succeeded);
+    await Promise.all(interleaved.map((item, position) => finalizeFile(item, startingIndex + position)));
   }
 
   async function approveItem(id: string): Promise<void> {
@@ -865,7 +952,7 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
           onDrop={(e) => {
             e.preventDefault();
             setIsDragging(false);
-            handleFiles(e.dataTransfer.files);
+            void handleFiles(e.dataTransfer.files);
           }}
           onClick={() => fileInputRef.current?.click()}
           className={[
@@ -889,7 +976,7 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
             accept="image/*"
             multiple
             className="hidden"
-            onChange={(e) => { if (e.target.files) handleFiles(e.target.files); }}
+            onChange={(e) => { if (e.target.files) void handleFiles(e.target.files); }}
           />
         </div>
 
@@ -982,7 +1069,7 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
         accept="image/*"
         multiple
         className="hidden"
-        onChange={(e) => { if (e.target.files) handleFiles(e.target.files); }}
+        onChange={(e) => { if (e.target.files) void handleFiles(e.target.files); }}
       />
 
       {/* Bulk preview modal (z-40) */}
@@ -1028,7 +1115,7 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
             onDrop={(e) => {
               e.preventDefault();
               setIsDragging(false);
-              handleFiles(e.dataTransfer.files);
+              void handleFiles(e.dataTransfer.files);
             }}
             onClick={() => addMoreRef.current?.click()}
             className={[
