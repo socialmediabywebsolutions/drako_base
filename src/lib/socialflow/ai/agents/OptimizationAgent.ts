@@ -8,7 +8,9 @@ export class OptimizationAgent {
     keywordEngine: KeywordEngineOutput;
   }): Promise<OptimizedPost> {
     const { profile, variant, keywordEngine } = input;
-    const prompt = `${profile.voiceInstruction ? `⚠️ VOZ OBLIGATORIA: ${profile.voiceInstruction}\n\n` : ""}Optimiza este post en ESPAÑOL para el tono "${profile.toneOfVoice}" y la audiencia "${profile.audience}". El texto mejorado debe estar completamente en español, ser persuasivo y tener al menos 3 párrafos.
+    const prompt = `${profile.voiceInstruction ? `⚠️ VOZ OBLIGATORIA: ${profile.voiceInstruction}\n\n` : ""}Optimiza este post en ESPAÑOL para el tono "${profile.toneOfVoice}" y la audiencia "${profile.audience}". El texto mejorado debe estar completamente en español y ser persuasivo.
+Mantén el texto CORTO: máximo 3-4 líneas impactantes, nunca párrafos largos. No alargues el texto original.
+Nunca empieces la primera línea con "A veces", "Hola" ni "Chicas".
 Evita temas prohibidos (${profile.forbiddenTopics.join(", ")} y ángulos ${profile.forbiddenAngles.join(", ")}).
 Evita palabras prohibidas: ${profile.bannedWords.join(", ")}.
 Mantén entre 10 y 15 hashtags en el post. Si hay menos de 10, añade hashtags relevantes al nicho. Si hay más de 15, elimina los menos relevantes.

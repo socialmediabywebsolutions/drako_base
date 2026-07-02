@@ -28,6 +28,41 @@ function richProfileLines(profile: BrandProfile): string {
   return lines.join("\n");
 }
 
+export type OpenerCategory = "gym" | "cocina" | "outdoor" | "lifestyle";
+
+// Openers grouped by image category so the caption's first line actually matches
+// what's in the photo, instead of one generic list shared by every kind of image.
+const OPENERS_BY_CATEGORY: Record<OpenerCategory, string[]> = {
+  gym: [
+    "Otra sesión terminada: [sensación o logro concreto de hoy].",
+    "Esto me costó admitirlo: [verdad incómoda sobre entrenar].",
+    "Hoy el cuerpo pedía parar. No paré. [resultado o lección].",
+    "Lo que nadie te cuenta antes de tomarte en serio el entrenamiento:",
+    "Años entrenando y por fin entendí: [lección clave].",
+  ],
+  cocina: [
+    "Esta receta me salvó una semana entera de [problema real].",
+    "Seré honesta: [verdad incómoda sobre comer bien].",
+    "Lo que aprendí cocinando esto para mí misma:",
+    "Años buscando esto y por fin lo encontré: [resultado].",
+    "La verdad sobre [tema de nutrición o comida]:",
+  ],
+  outdoor: [
+    "Salir hoy casi no pasaba. Me alegra que sí.",
+    "Esto me recordó por qué hago esto: [sensación o logro].",
+    "Lo que nadie te dice sobre moverte al aire libre:",
+    "Cambié la rutina de siempre por esto, y funcionó.",
+    "¿Alguna vez sentiste que necesitabas salir de la rutina?",
+  ],
+  lifestyle: [
+    "¿Alguna vez has sentido que [situación relacionada con el tema]?",
+    "Hoy necesito contarte algo sobre [tema].",
+    "La verdad sobre [tema]:",
+    "Esto me cambió la manera de ver [tema].",
+    "Lo que nadie te cuenta sobre [tema]:",
+  ],
+};
+
 export class ContentGeneratorAgent {
   async run(input: {
     profile: BrandProfile;
@@ -35,11 +70,14 @@ export class ContentGeneratorAgent {
     keywordEngine: KeywordEngineOutput;
     trends: TrendInsights;
     openerIndex?: number;
+    openerCategory?: OpenerCategory;
   }): Promise<GeneratedPost> {
     const { profile, strategyItem, keywordEngine, trends } = input;
+    const openers = OPENERS_BY_CATEGORY[input.openerCategory ?? "lifestyle"];
     // Rotate opener so every upload gets a different caption structure.
     // Falls back to time-based seed when no explicit index is given.
-    const openerIndex = (input.openerIndex ?? Math.floor(Date.now() / 60_000)) % 10;
+    const openerIndex = (input.openerIndex ?? Math.floor(Date.now() / 60_000)) % openers.length;
+    const openerList = openers.map((o, i) => `${i + 1}. "${o}"`).join("\n");
 
     const extra = richProfileLines(profile);
     const keywords = keywordEngine.clusters.map((c) => c.cluster).filter(Boolean).join(", ");
@@ -59,9 +97,11 @@ export class ContentGeneratorAgent {
     const prompt = `Escribe un post de redes sociales EN ESPAÑOL sobre el tema: "${profile.niche}".
 
 ⚠️ REGLA ABSOLUTA: El post trata EXCLUSIVAMENTE sobre "${profile.niche}".
-Cada párrafo, ejemplo, dato y metáfora debe ser específico de "${profile.niche}".
+Cada línea, ejemplo, dato y metáfora debe ser específico de "${profile.niche}".
 No uses "${profile.niche}" como simple etiqueta — es el corazón de todo el contenido.
-${profile.voiceInstruction ? `\n⚠️ VOZ OBLIGATORIA: ${profile.voiceInstruction}\n` : ""}
+
+⚠️ VOZ — REGLA IRROMPIBLE: Escribe SIEMPRE en primera persona singular (yo, mi, me, mis). Nunca hables de "${profile.brandIdentity}" en tercera persona ni como si fuera una empresa.
+${profile.voiceInstruction ? `${profile.voiceInstruction}\n` : ""}
 Ángulo a desarrollar: ${strategyItem.angle}
 Tipo de contenido: ${strategyItem.theme}
 ${extra ? `\n${extra}` : ""}
@@ -71,24 +111,17 @@ ${hooks ? `Hooks de referencia (adapta al tema): ${hooks}` : ""}
 ${keywords ? `Keywords a incluir naturalmente: ${keywords}` : ""}
 ${hashtagSeed ? `Hashtags de referencia para incluir: ${hashtagSeed}` : ""}
 
-⚠️ APERTURA — REGLA IRROMPIBLE: NUNCA empieces con "Hola", "Chicas", ni presentándote ("Soy ${profile.brandIdentity}...").
-Las 10 aperturas disponibles:
-1. "¿Alguna vez has sentido que [situación relacionada con el tema]?"
-2. "Seré honesta contigo: [verdad incómoda o revelación sobre el tema]."
-3. "Esto me cambió la vida: [resultado o aprendizaje clave del tema]."
-4. "Lo que nadie te cuenta sobre [tema del post]:"
-5. "Hoy necesito contarte algo sobre [tema]."
-6. "¿Lista para un cambio real en [tema]?"
-7. "Semana difícil. Pero aquí estoy, y tengo algo importante que compartir."
-8. "Años haciendo esto y por fin entendí: [lección sobre el tema]."
-9. "La verdad sobre [tema]:"
-10. "No siempre es fácil, pero [acción o actitud relacionada con el tema]."
+⚠️ APERTURA — REGLA IRROMPIBLE: NUNCA empieces con "Hola", "Chicas", "A veces", ni presentándote ("Soy ${profile.brandIdentity}...").
+Aperturas disponibles para este tipo de imagen:
+${openerList}
 ⚠️ DEBES comenzar el post con la apertura número ${openerIndex + 1} de la lista anterior (adaptada al tema concreto del post).
 
+⚠️ LONGITUD — REGLA IRROMPIBLE: El post completo debe tener MÁXIMO 3-4 líneas cortas e impactantes. Nada de párrafos largos. Cada línea debe aportar por sí sola.
+
 Estructura obligatoria:
-1. Apertura usando UNA de las 10 frases anteriores (adaptada al tema, sin "Hola")
-2. Desarrollo en 2-3 párrafos donde YO (la influencer) hablo desde mi experiencia personal: qué hago, qué siento, qué aprendí, qué me funciona. Uso "yo", "mi", "me", "mis". NO escribo consejos genéricos dirigidos a la audiencia. Hablo de MI vida y MI experiencia relacionada con el tema de la imagen.
-3. Cierre con el CTA
+1. Línea de apertura usando UNA de las frases anteriores (adaptada al tema, sin "Hola", sin "A veces")
+2. 1-2 líneas donde YO (la influencer) hablo desde mi experiencia personal: qué hago, qué siento, qué aprendí. Uso "yo", "mi", "me", "mis". NO escribo consejos genéricos dirigidos a la audiencia. Hablo de MI vida y MI experiencia relacionada con el tema de la imagen.
+3. Cierre con el CTA en una línea
 
 Genera entre 10 y 15 hashtags relevantes: mezcla hashtags de nicho específico (fitness, nutrición, bienestar), hashtags de comunidad hispanohablante, y 2-3 hashtags virales del momento. Formato: #hashtag1 #hashtag2 ... IMPORTANTE: genera exactamente entre 10 y 15 hashtags. Nunca menos de 10.
 Responde SOLO con el JSON solicitado.`;
