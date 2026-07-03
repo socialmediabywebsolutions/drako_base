@@ -10,6 +10,7 @@ import type { SaasSocialAccount } from "@/lib/social-core/types";
 import { encryptToken } from "@/lib/socialflow/token-encryption";
 import type {
   LinkedInResolvedIdentity,
+  LinkedInResolvedOrganization,
   LinkedInTokenResponse,
   LinkedInUserProfile,
 } from "@/lib/socialflow/linkedin/core";
@@ -20,6 +21,7 @@ type PersistLinkedInConnectionInput = {
   token: LinkedInTokenResponse;
   profile: LinkedInUserProfile;
   identity: LinkedInResolvedIdentity;
+  organization?: LinkedInResolvedOrganization | null;
 };
 
 export type PersistLinkedInConnectionResult = {
@@ -352,6 +354,9 @@ export async function persistSocialFlowLinkedInConnection(
       picture: input.identity.picture,
       locale: input.identity.locale,
       linkedInSub: input.profile.sub,
+      organizationUrn: input.organization?.organizationUrn ?? null,
+      organizationId: input.organization?.organizationId ?? null,
+      organizationName: input.organization?.name ?? null,
       lastValidationAt: coreProjection.validation.checkedAt ?? new Date().toISOString(),
       lastErrorCode: coreProjection.validation.error?.code ?? null,
       lastErrorMessage: coreProjection.validation.error?.message ?? null,

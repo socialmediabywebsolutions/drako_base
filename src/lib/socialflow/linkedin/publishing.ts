@@ -1,6 +1,7 @@
 import {
   LinkedInIntegrationError,
   publishLinkedInMemberPost,
+  publishLinkedInOrganizationPost,
   verifyLinkedInAccess,
 } from "@/lib/socialflow/linkedin/core";
 import type { SaasSocialAccount } from "@/lib/social-core/types";
@@ -10,10 +11,12 @@ type LinkedInAccountAuthMeta = {
   accessToken?: string;
   authorUrn?: string;
   scope?: string;
+  organizationUrn?: string;
   [key: string]: unknown;
 };
 
 const LINKEDIN_MEMBER_SCOPE = "w_member_social";
+const LINKEDIN_ORGANIZATION_SCOPE = "w_organization_social";
 
 function getLinkedInAuthMeta(account: SaasSocialAccount): LinkedInAccountAuthMeta {
   return (account.authMeta ?? {}) as LinkedInAccountAuthMeta;
@@ -67,8 +70,30 @@ function requireLinkedInAuthorUrn(account: SaasSocialAccount): string {
   return authorUrn;
 }
 
+function resolveLinkedInOrganizationUrn(account: SaasSocialAccount): string | null {
+  const organizationUrn = getLinkedInAuthMeta(account).organizationUrn;
+  return typeof organizationUrn === "string" && organizationUrn.trim() ? organizationUrn.trim() : null;
+}
+
 export async function publishPost(account: SaasSocialAccount, content: string) {
   const scopes = parseLinkedInScopes(account);
+  const organizationUrn = resolveLinkedInOrganizationUrn(account);
+
+  if (organizationUrn) {
+    if (!scopes.has(LINKEDIN_ORGANIZATION_SCOPE)) {
+      throw new LinkedInIntegrationError("LinkedIn organization publish scope is missing.", {
+        code: "LINKEDIN_SCOPE_MISSING_W_ORGANIZATION_SOCIAL",
+        accountStatus: "INVALID_CREDENTIALS",
+      });
+    }
+
+    return publishLinkedInOrganizationPost({
+      accessToken: await requireLinkedInAccessToken(account),
+      organizationUrn,
+      content,
+    });
+  }
+
   if (!scopes.has(LINKEDIN_MEMBER_SCOPE)) {
     throw new LinkedInIntegrationError("LinkedIn member publish scope is missing.", {
       code: "LINKEDIN_SCOPE_MISSING_W_MEMBER_SOCIAL",

@@ -8,11 +8,14 @@ import {
   parseLinkedInOAuthState,
   resolveLinkedInIdentity,
   resolveLinkedInOAuthDiagnostics,
+  resolveLinkedInPrimaryOrganization,
+  type LinkedInResolvedOrganization,
 } from "@/lib/socialflow/linkedin/core";
 import { buildSocialFlowLinkedInAuthorizationUrl } from "@/lib/socialflow/linkedin/client";
 import { persistSocialFlowLinkedInConnection } from "@/lib/socialflow/linkedin/repository";
 import {
   SOCIALFLOW_LINKEDIN_CALLBACK_PATH,
+  SOCIALFLOW_LINKEDIN_ORGANIZATION_SCOPE,
   SOCIALFLOW_LINKEDIN_SETTINGS_PATH,
   type SocialFlowLinkedInCallbackContext,
   type SocialFlowLinkedInCallbackFailure,
@@ -20,6 +23,20 @@ import {
   type SocialFlowLinkedInCallbackSuccess,
   type SocialFlowLinkedInConnectResult,
 } from "@/lib/socialflow/linkedin/types";
+
+async function resolveGrantedLinkedInOrganization(token: { scope?: string }, accessToken: string): Promise<LinkedInResolvedOrganization | null> {
+  const grantedScopes = (token.scope ?? "").split(/[\s,]+/).map((value) => value.trim());
+  if (!grantedScopes.includes(SOCIALFLOW_LINKEDIN_ORGANIZATION_SCOPE)) {
+    return null;
+  }
+
+  try {
+    return await resolveLinkedInPrimaryOrganization(accessToken);
+  } catch (error) {
+    console.warn("LINKEDIN_ORGANIZATION_LOOKUP_FAILED", error instanceof Error ? error.message : error);
+    return null;
+  }
+}
 
 function getLinkedInClientId(): string {
   const clientId = process.env.LINKEDIN_CLIENT_ID?.trim() || "";
@@ -363,6 +380,7 @@ export async function handleSocialFlowLinkedInCallback(
 
   try {
     const identity = resolveLinkedInIdentity(profile);
+    const organization = await resolveGrantedLinkedInOrganization(token, token.access_token);
 
     let persistence: SocialFlowLinkedInCallbackSuccess["persistence"] = {
       status: "skipped",
@@ -388,6 +406,7 @@ export async function handleSocialFlowLinkedInCallback(
           token,
           profile,
           identity,
+          organization,
         });
         persistence = {
           status: persisted.status,
@@ -419,6 +438,7 @@ export async function handleSocialFlowLinkedInCallback(
       token,
       profile,
       identity,
+      organization,
       persistence,
       observability,
       diagnostics,

@@ -1,13 +1,20 @@
-import { resolveLinkedInOAuthDiagnostics } from "@/lib/socialflow/linkedin/core";
+import { isLinkedInOrganizationScopeEnabled, resolveLinkedInOAuthDiagnostics } from "@/lib/socialflow/linkedin/core";
 import {
   SOCIALFLOW_LINKEDIN_CALLBACK_PATH,
-  SOCIALFLOW_LINKEDIN_SCOPES,
+  SOCIALFLOW_LINKEDIN_MEMBER_SCOPES,
+  SOCIALFLOW_LINKEDIN_ORGANIZATION_SCOPE,
   type SocialFlowLinkedInConnectResult,
   type SocialFlowLinkedInState,
 } from "@/lib/socialflow/linkedin/types";
 
 function encodeSocialFlowLinkedInState(input: SocialFlowLinkedInState): string {
   return Buffer.from(JSON.stringify(input), "utf8").toString("base64url");
+}
+
+function resolveSocialFlowLinkedInScopes(): string {
+  return isLinkedInOrganizationScopeEnabled()
+    ? `${SOCIALFLOW_LINKEDIN_MEMBER_SCOPES} ${SOCIALFLOW_LINKEDIN_ORGANIZATION_SCOPE}`
+    : SOCIALFLOW_LINKEDIN_MEMBER_SCOPES;
 }
 
 export function buildSocialFlowLinkedInAuthorizationUrl(input: {
@@ -30,7 +37,7 @@ export function buildSocialFlowLinkedInAuthorizationUrl(input: {
   authUrl.searchParams.set("client_id", input.clientId);
   authUrl.searchParams.set("redirect_uri", diagnostics.callbackUrl);
   authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("scope", SOCIALFLOW_LINKEDIN_SCOPES);
+  authUrl.searchParams.set("scope", resolveSocialFlowLinkedInScopes());
   authUrl.searchParams.set("state", state);
 
   return {

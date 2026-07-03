@@ -17,7 +17,9 @@ import { env } from "@/lib/cf";
 
 const LINKEDIN_TOKEN_ENDPOINT = "https://www.linkedin.com/oauth/v2/accessToken";
 const LINKEDIN_USERINFO_ENDPOINT = "https://api.linkedin.com/v2/userinfo";
+const LINKEDIN_ORGANIZATION_ACLS_ENDPOINT = "https://api.linkedin.com/v2/organizationAcls";
 const LINKEDIN_CALLBACK_PATH = "/auth/linkedin/callback";
+const LINKEDIN_ORGANIZATION_SCOPE_ENV_KEY = "SOCIALFLOW_LINKEDIN_ORGANIZATION_SCOPE_ENABLED";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -100,10 +102,29 @@ export type LinkedInPublishPostInput = {
   content: string;
 };
 
+export type LinkedInPublishOrganizationPostInput = {
+  accessToken: string;
+  organizationUrn: string;
+  content: string;
+};
+
 export type LinkedInPublishPostResult = {
   externalPostId: string | null;
   linkedinStatus: number;
   body: Record<string, unknown> | null;
+};
+
+export type LinkedInOrganizationAcl = {
+  organizationUrn: string;
+  organizationId: string;
+  role: string;
+  state: string;
+};
+
+export type LinkedInResolvedOrganization = {
+  organizationUrn: string;
+  organizationId: string;
+  name: string | null;
 };
 
 export type LinkedInOAuthState = {
@@ -326,6 +347,26 @@ function getLinkedInClientSecretWithSource(): LinkedInResolvedValue {
     accountStatus: "PENDING",
     details: { key: "LINKEDIN_CLIENT_SECRET", attemptedSources: ["process.env", "cloudflare.env"] },
   });
+}
+
+function isTruthyLinkedInFlag(value: unknown): boolean {
+  if (typeof value === "string") return ["1", "true", "on", "yes"].includes(value.trim().toLowerCase());
+  if (typeof value === "boolean") return value;
+  return false;
+}
+
+/**
+ * Requesting `w_organization_social` without LinkedIn's Community Management API
+ * approval for this client_id can make LinkedIn reject the entire consent screen,
+ * including the personal-profile scopes that already work in production. Keep this
+ * off until the approval is confirmed.
+ */
+export function isLinkedInOrganizationScopeEnabled(): boolean {
+  if (isTruthyLinkedInFlag(process.env[LINKEDIN_ORGANIZATION_SCOPE_ENV_KEY])) {
+    return true;
+  }
+  const bindings = env() as Record<string, unknown> | null;
+  return isTruthyLinkedInFlag(bindings?.[LINKEDIN_ORGANIZATION_SCOPE_ENV_KEY]);
 }
 
 // ---------------------------------------------------------------------------
@@ -660,9 +701,12 @@ export async function fetchLinkedInUserProfile(accessToken: string): Promise<Lin
 // Public API — Publishing
 // ---------------------------------------------------------------------------
 
-export async function publishLinkedInMemberPost(
-  input: LinkedInPublishPostInput,
-): Promise<LinkedInPublishPostResult> {
+async function postLinkedInUgcContent(input: {
+  accessToken: string;
+  authorUrn: string;
+  content: string;
+  authorUrnMissingCode: string;
+}): Promise<LinkedInPublishPostResult> {
   const accessToken = input.accessToken.trim();
   const authorUrn = input.authorUrn.trim();
   const content = input.content.trim();
@@ -676,7 +720,7 @@ export async function publishLinkedInMemberPost(
   }
   if (!authorUrn) {
     throw buildLinkedInApiError(
-      "LINKEDIN_AUTHOR_URN_MISSING",
+      input.authorUrnMissingCode,
       "LinkedIn author URN is required.",
       { accountStatus: "INVALID_CREDENTIALS" },
     );
@@ -744,6 +788,108 @@ export async function publishLinkedInMemberPost(
     externalPostId: response.headers.get("x-restli-id"),
     linkedinStatus: response.status,
     body,
+  };
+}
+
+export async function publishLinkedInMemberPost(
+  input: LinkedInPublishPostInput,
+): Promise<LinkedInPublishPostResult> {
+  return postLinkedInUgcContent({
+    accessToken: input.accessToken,
+    authorUrn: input.authorUrn,
+    content: input.content,
+    authorUrnMissingCode: "LINKEDIN_AUTHOR_URN_MISSING",
+  });
+}
+
+export async function publishLinkedInOrganizationPost(
+  input: LinkedInPublishOrganizationPostInput,
+): Promise<LinkedInPublishPostResult> {
+  return postLinkedInUgcContent({
+    accessToken: input.accessToken,
+    authorUrn: input.organizationUrn,
+    content: input.content,
+    authorUrnMissingCode: "LINKEDIN_ORGANIZATION_URN_MISSING",
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Public API — Organization lookup (Company Page)
+// ---------------------------------------------------------------------------
+
+/**
+ * Requires the `w_organization_social` scope to have actually been granted
+ * (see isLinkedInOrganizationScopeEnabled). Lists organizations where the
+ * connecting member has an ADMINISTRATOR role in APPROVED state.
+ */
+export async function fetchLinkedInAdministeredOrganizations(
+  accessToken: string,
+): Promise<LinkedInOrganizationAcl[]> {
+  const normalizedToken = accessToken.trim();
+  if (!normalizedToken) {
+    throw buildLinkedInApiError(
+      "LINKEDIN_ACCESS_TOKEN_MISSING",
+      "LinkedIn access token is required.",
+      { accountStatus: "INVALID_CREDENTIALS" },
+    );
+  }
+
+  const url = new URL(LINKEDIN_ORGANIZATION_ACLS_ENDPOINT);
+  url.searchParams.set("q", "roleAssignee");
+  url.searchParams.set("role", "ADMINISTRATOR");
+  url.searchParams.set("state", "APPROVED");
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${normalizedToken}`,
+      "X-Restli-Protocol-Version": "2.0.0",
+    },
+    cache: "no-store",
+  });
+
+  const payload = await parseLinkedInResponseBody(response);
+  if (!response.ok) {
+    throw buildLinkedInApiError(
+      "LINKEDIN_ORGANIZATION_LOOKUP_FAILED",
+      normalizeLinkedInApiMessage(payload, "LinkedIn organization lookup failed."),
+      { status: response.status, payload },
+    );
+  }
+
+  const elements = Array.isArray(payload?.elements) ? payload.elements : [];
+  return elements
+    .map((element) => toLinkedInRecord(element))
+    .filter((element): element is Record<string, unknown> => element !== null)
+    .map((element): LinkedInOrganizationAcl => {
+      const organizationUrn = typeof element.organization === "string" ? element.organization : "";
+      const organizationId = organizationUrn.split(":").pop() ?? "";
+      return {
+        organizationUrn,
+        organizationId,
+        role: typeof element.role === "string" ? element.role : "",
+        state: typeof element.state === "string" ? element.state : "",
+      };
+    })
+    .filter((acl) => acl.organizationUrn.startsWith("urn:li:organization:"));
+}
+
+/**
+ * Auto-selects the first administered organization. If the member administers
+ * several Company Pages, this picks one deterministically (API order) rather
+ * than prompting for a choice — revisit if multi-page selection UI is needed.
+ */
+export async function resolveLinkedInPrimaryOrganization(
+  accessToken: string,
+): Promise<LinkedInResolvedOrganization | null> {
+  const organizations = await fetchLinkedInAdministeredOrganizations(accessToken);
+  const primary = organizations[0];
+  if (!primary) return null;
+
+  return {
+    organizationUrn: primary.organizationUrn,
+    organizationId: primary.organizationId,
+    name: null,
   };
 }
 
