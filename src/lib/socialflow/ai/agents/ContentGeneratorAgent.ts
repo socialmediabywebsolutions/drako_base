@@ -73,6 +73,7 @@ export class ContentGeneratorAgent {
     openerCategory?: OpenerCategory;
   }): Promise<GeneratedPost> {
     const { profile, strategyItem, keywordEngine, trends } = input;
+    const isEmpresa = profile.accountType === "empresa";
     const openers = OPENERS_BY_CATEGORY[input.openerCategory ?? "lifestyle"];
     // Rotate opener so every upload gets a different caption structure.
     // Falls back to time-based seed when no explicit index is given.
@@ -100,7 +101,9 @@ export class ContentGeneratorAgent {
 Cada línea, ejemplo, dato y metáfora debe ser específico de "${profile.niche}".
 No uses "${profile.niche}" como simple etiqueta — es el corazón de todo el contenido.
 
-⚠️ VOZ — REGLA IRROMPIBLE: Escribe SIEMPRE en primera persona singular (yo, mi, me, mis). Nunca hables de "${profile.brandIdentity}" en tercera persona ni como si fuera una empresa.
+${isEmpresa
+  ? `⚠️ VOZ — REGLA IRROMPIBLE: Escribe SIEMPRE en tercera persona hablando de "${profile.brandIdentity}" como marca/entidad. NUNCA uses "yo", "mi", "me" ni "mis". Ejemplos: "${profile.brandIdentity} presenta...", "En ${profile.brandIdentity} encontrarás...", "Nuestro equipo...".`
+  : `⚠️ VOZ — REGLA IRROMPIBLE: Escribe SIEMPRE en primera persona singular (yo, mi, me, mis). Nunca hables de "${profile.brandIdentity}" en tercera persona ni como si fuera una empresa.`}
 ${profile.voiceInstruction ? `${profile.voiceInstruction}\n` : ""}
 Ángulo a desarrollar: ${strategyItem.angle}
 Tipo de contenido: ${strategyItem.theme}
@@ -120,7 +123,9 @@ ${openerList}
 
 Estructura obligatoria:
 1. Línea de apertura usando UNA de las frases anteriores (adaptada al tema, sin "Hola", sin "A veces")
-2. 1-2 líneas donde YO (la influencer) hablo desde mi experiencia personal: qué hago, qué siento, qué aprendí. Uso "yo", "mi", "me", "mis". NO escribo consejos genéricos dirigidos a la audiencia. Hablo de MI vida y MI experiencia relacionada con el tema de la imagen.
+2. ${isEmpresa
+  ? `1-2 líneas hablando de "${profile.brandIdentity}" en tercera persona: qué ofrece, qué resuelve, qué la diferencia. NO uses "yo", "mi", "me" ni "mis". Habla de la marca o del equipo, nunca en primera persona.`
+  : `1-2 líneas donde YO (la influencer) hablo desde mi experiencia personal: qué hago, qué siento, qué aprendí. Uso "yo", "mi", "me", "mis". NO escribo consejos genéricos dirigidos a la audiencia. Hablo de MI vida y MI experiencia relacionada con el tema de la imagen.`}
 3. Cierre con el CTA en una línea
 
 Genera entre 10 y 15 hashtags relevantes: mezcla hashtags de nicho específico (fitness, nutrición, bienestar), hashtags de comunidad hispanohablante, y 2-3 hashtags virales del momento. Formato: #hashtag1 #hashtag2 ... IMPORTANTE: genera exactamente entre 10 y 15 hashtags. Nunca menos de 10.
@@ -139,7 +144,23 @@ Responde SOLO con el JSON solicitado.`;
         {
           id: `gen_${strategyItem.id}_v1`,
           hook: fallbackHook,
-          text: profile.voiceInstruction
+          text: isEmpresa
+? `${profile.brandIdentity} tiene la solución para quienes trabajan en ${profile.niche}.
+
+${strategyItem.angle}.
+
+Uno de los retos más frecuentes en ${profile.niche} es ${fallbackPain}. En ${profile.brandIdentity} lo sabemos bien — por eso ayudamos a conseguir ${fallbackDesire} con una estrategia clara.
+
+Lo que ofrece ${profile.brandIdentity} en ${profile.niche}:
+
+→ Un diagnóstico claro de tu punto de partida.
+→ El ángulo correcto: ${strategyItem.angle}.
+→ Seguimiento y ajuste constante de resultados.
+
+¿Cuál es tu mayor obstáculo en ${profile.niche}? Cuéntanoslo en los comentarios.
+
+${cta}`
+: profile.voiceInstruction
 ? `Si te cuesta mantener la constancia en ${profile.niche}, esto es para ti.
 
 ${strategyItem.angle}.

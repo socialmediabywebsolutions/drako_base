@@ -111,11 +111,15 @@ export async function POST(request: Request) {
       niche: "",
       tone: "",
       frequencyPerWeek: 1,
+      accountType: session.accountType,
     });
 
-    // The upload flow is always a creator posting their own photo — force first-person voice
-    // regardless of what the profile heuristic derived. This is the safety net.
-    if (!profile.voiceInstruction) {
+    if (profile.accountType === "empresa") {
+      // Empresa accounts speak as the brand, never as a personal creator — third person always.
+      profile.voiceInstruction = `Escribe en tercera persona hablando de "${profile.brandIdentity}" como marca/entidad. NUNCA uses "yo", "mi", "me" ni "mis". Ejemplos correctos: "${profile.brandIdentity} presenta...", "En ${profile.brandIdentity} encontrarás...", "Nuestro equipo...". Ejemplo incorrecto: "Te comparto...".`;
+    } else if (!profile.voiceInstruction) {
+      // The upload flow is always a creator posting their own photo — force first-person voice
+      // regardless of what the profile heuristic derived. This is the safety net.
       profile.voiceInstruction = `Escribe en primera persona singular (yo). Habla directamente como si fueras ${profile.brandIdentity} dirigiéndote a tu audiencia. NUNCA uses "${profile.brandIdentity}" en tercera persona ni como si fuera una empresa. Ejemplo correcto: "Te comparto..." — Ejemplo incorrecto: "En ${profile.brandIdentity} compartimos..."`;
     }
 

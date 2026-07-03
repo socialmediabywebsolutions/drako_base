@@ -5,12 +5,14 @@ import {
   readTenantIdFromHeaderGetter,
   validateSocialFlowTenantIsolation,
 } from "@/lib/socialflow/auth/tenant-isolation";
+import { getSocialFlowAccountType } from "@/lib/socialflow/auth/server";
 
 export type SocialFlowRequestSession = {
   userId: string;
   email: string;
   tenantId: string;
   role: "owner" | "admin" | "user";
+  accountType: "influencer" | "empresa" | null;
 };
 
 function readCookieValue(cookieHeader: string | null, name: string): string | null {
@@ -55,11 +57,14 @@ export async function getCurrentSocialFlowSessionFromRequest(request: Request): 
     return null;
   }
 
+  const accountType = await getSocialFlowAccountType(claims.sub);
+
   return {
     userId: claims.sub,
     email: claims.email,
     tenantId: claims.tenantId,
     role: claims.role,
+    accountType,
   };
 }
 

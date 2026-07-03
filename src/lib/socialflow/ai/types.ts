@@ -9,6 +9,7 @@ export type BrandProfile = {
   toneOfVoice: string;
   personality: string;
   voiceInstruction: string; // "" = brand/third-person (default); non-empty = injected into prompts
+  accountType?: "influencer" | "empresa" | null; // drives first- vs third-person voice in ContentGeneratorAgent
 
   // Audience & positioning
   niche: string;
@@ -167,4 +168,5 @@ export type SocialAIPipelineInput = {
   startDate?: string | null;
   endDate?: string | null;
   provider?: "INSTAGRAM" | "LINKEDIN" | "FACEBOOK_PAGE" | "TIKTOK" | "TWITTER_X";
+  accountType?: "influencer" | "empresa" | null;
 };

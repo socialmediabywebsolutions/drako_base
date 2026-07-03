@@ -18,7 +18,7 @@ export type SocialFlowSession = {
   accountType: "influencer" | "empresa" | null;
 };
 
-async function getSocialFlowAccountType(userId: string): Promise<"influencer" | "empresa" | null> {
+export async function getSocialFlowAccountType(userId: string): Promise<"influencer" | "empresa" | null> {
   const db = resolveAuthsDbForContext("socialflow");
   if (!db) return null;
   const row = await db
