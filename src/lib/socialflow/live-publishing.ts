@@ -10,7 +10,7 @@ import {
   requireInstagramCredentials,
   type InstagramPostContentType,
 } from "@/lib/socialflow/meta/publishing";
-import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/server";
+import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
 import { claimScheduledPostForPublishing, getSaasSocialPostById, listSaasSocialAccounts, markAsPosted, updateSaasSocialPostStatus, upsertSaasSocialPost } from "@/lib/socialflow/repository";
 import type { SocialContext } from "@/lib/socialflow/repository";
 import type { SaasSocialAccount, SaasSocialContentType, SaasSocialPost, SaasSocialProvider } from "@/lib/social-core/types";

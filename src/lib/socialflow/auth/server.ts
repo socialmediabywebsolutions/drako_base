@@ -28,19 +28,6 @@ export async function getSocialFlowAccountType(userId: string): Promise<"influen
   return row?.account_type === "influencer" || row?.account_type === "empresa" ? row.account_type : null;
 }
 
-// Used by background/publishing flows that only have a tenantId (no request session),
-// e.g. live-publishing.ts gating Facebook Page to empresa accounts. Safe under today's
-// model where each tenant maps to a single SocialFlow user (no multi-user tenants yet).
-export async function getSocialFlowAccountTypeByTenant(tenantId: string): Promise<"influencer" | "empresa" | null> {
-  const db = resolveAuthsDbForContext("socialflow");
-  if (!db) return null;
-  const row = await db
-    .prepare(`SELECT account_type FROM socialflow_users WHERE tenant_id = ? LIMIT 1`)
-    .bind(tenantId)
-    .first<{ account_type: string | null }>();
-  return row?.account_type === "influencer" || row?.account_type === "empresa" ? row.account_type : null;
-}
-
 function isTruthyFlag(value: string | undefined) {
   if (!value) return false;
   const normalized = value.trim().toLowerCase();
