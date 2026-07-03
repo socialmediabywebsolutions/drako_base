@@ -32,6 +32,21 @@ export class InstagramPublishingError extends Error {
   }
 }
 
+export class FacebookPublishingError extends Error {
+  code: string;
+  details: Record<string, unknown> | null;
+
+  constructor(
+    message: string,
+    opts: { code: string; details?: Record<string, unknown> | null },
+  ) {
+    super(message);
+    this.name = "FacebookPublishingError";
+    this.code = opts.code;
+    this.details = opts.details ?? null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -258,6 +273,121 @@ export async function publishInstagramContent(
 
   console.log("INSTAGRAM_PUBLISH_OK", { mediaId, mediaType, containerId });
   return { externalPostId: mediaId, containerId, mediaType };
+}
+
+// ---------------------------------------------------------------------------
+// Public API — Facebook Page publisher (empresa accounts only, gated in live-publishing.ts)
+// ---------------------------------------------------------------------------
+
+function classifyFacebookError(status: number, defaultCode: string): string {
+  if (status === 401) return "FACEBOOK_TOKEN_INVALID";
+  if (status === 403) return "FACEBOOK_PUBLISH_FORBIDDEN";
+  if (status === 429) return "FACEBOOK_PUBLISH_RATE_LIMITED";
+  if (status === 400) return "FACEBOOK_PUBLISH_INVALID_REQUEST";
+  return defaultCode;
+}
+
+export type FacebookPublishInput = {
+  accessToken: string;
+  pageId: string;
+  caption: string;
+  // Feed posts (FEED/CAROUSEL) only — REEL/STORY on Facebook Page need the
+  // resumable video-upload API and are not implemented here.
+  mediaUrl?: string | null;
+};
+
+export type FacebookPublishResult = {
+  externalPostId: string;
+};
+
+export type FacebookCredentials = {
+  accessToken: string;
+  pageId: string;
+};
+
+export async function publishFacebookPageContent(
+  input: FacebookPublishInput,
+): Promise<FacebookPublishResult> {
+  const { accessToken, pageId } = input;
+  const caption = truncateCaption(input.caption.trim());
+  const mediaUrl = input.mediaUrl?.trim() ?? "";
+
+  // Image caption post via /{pageId}/photos; falls back to a text-only /{pageId}/feed
+  // post when the AI pipeline didn't attach a media URL.
+  const usesPhoto = mediaUrl.startsWith("http");
+  const endpoint = usesPhoto ? `${FB_GRAPH_BASE}/${pageId}/photos` : `${FB_GRAPH_BASE}/${pageId}/feed`;
+  const url = new URL(endpoint);
+  url.searchParams.set("access_token", accessToken);
+  if (usesPhoto) {
+    url.searchParams.set("url", mediaUrl);
+    url.searchParams.set("caption", caption);
+  } else {
+    url.searchParams.set("message", caption);
+  }
+
+  console.log("FACEBOOK_PUBLISH_ATTEMPT", { pageId, usesPhoto });
+
+  const res = await fetch(url.toString(), { method: "POST", cache: "no-store" });
+  const payload = await parseJson(res);
+
+  if (!res.ok) {
+    throw new FacebookPublishingError(
+      getApiErrorMessage(payload, "Facebook Page publish failed."),
+      {
+        code: classifyFacebookError(res.status, "FACEBOOK_PUBLISH_FAILED"),
+        details: { status: res.status, ...(payload ?? {}) },
+      },
+    );
+  }
+
+  // /photos returns { id, post_id }: post_id is the resulting feed post, id is the photo.
+  // /feed returns { id } directly as the post id.
+  const externalPostId =
+    (typeof payload?.post_id === "string" && payload.post_id.trim()) ||
+    (typeof payload?.id === "string" && payload.id.trim()) ||
+    null;
+  if (!externalPostId) {
+    throw new FacebookPublishingError(
+      "Facebook Page publish returned no post ID.",
+      { code: "FACEBOOK_POST_ID_MISSING", details: payload },
+    );
+  }
+
+  console.log("FACEBOOK_PUBLISH_OK", { externalPostId, usesPhoto });
+  return { externalPostId };
+}
+
+export async function requireFacebookPageCredentials(
+  account: SaasSocialAccount,
+): Promise<FacebookCredentials> {
+  const authMeta = (account.authMeta ?? {}) as Record<string, unknown>;
+  const encryptedToken =
+    typeof authMeta.accessToken === "string" ? authMeta.accessToken.trim() : "";
+  const pageId =
+    typeof authMeta.pageId === "string" ? authMeta.pageId.trim() : "";
+
+  if (!encryptedToken) {
+    throw new FacebookPublishingError(
+      "Facebook Page access token is missing from account credentials.",
+      { code: "FACEBOOK_ACCESS_TOKEN_MISSING" },
+    );
+  }
+  if (!pageId) {
+    throw new FacebookPublishingError(
+      "Facebook Page ID is missing from account credentials.",
+      { code: "FACEBOOK_PAGE_ID_MISSING" },
+    );
+  }
+
+  const accessToken = await decryptToken(encryptedToken);
+  if (!accessToken) {
+    throw new FacebookPublishingError(
+      "Facebook Page access token decryption failed.",
+      { code: "FACEBOOK_ACCESS_TOKEN_DECRYPTION_FAILED" },
+    );
+  }
+
+  return { accessToken, pageId };
 }
 
 // ---------------------------------------------------------------------------

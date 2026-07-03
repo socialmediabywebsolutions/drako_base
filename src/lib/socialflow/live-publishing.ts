@@ -2,11 +2,15 @@ import { env } from "@/lib/cf";
 import { LinkedInIntegrationError } from "@/lib/socialflow/linkedin/core";
 import { publishPost } from "@/lib/socialflow/linkedin/publishing";
 import {
+  FacebookPublishingError,
   InstagramPublishingError,
+  publishFacebookPageContent,
   publishInstagramContent,
+  requireFacebookPageCredentials,
   requireInstagramCredentials,
   type InstagramPostContentType,
 } from "@/lib/socialflow/meta/publishing";
+import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/server";
 import { claimScheduledPostForPublishing, getSaasSocialPostById, listSaasSocialAccounts, markAsPosted, updateSaasSocialPostStatus, upsertSaasSocialPost } from "@/lib/socialflow/repository";
 import type { SocialContext } from "@/lib/socialflow/repository";
 import type { SaasSocialAccount, SaasSocialContentType, SaasSocialPost, SaasSocialProvider } from "@/lib/social-core/types";
@@ -16,7 +20,9 @@ const LIVE_PUBLISH_MAX_ATTEMPTS = 3;
 const LIVE_PUBLISH_BASE_DELAY_MS = 1000;
 const LIVE_PUBLISH_MAX_DELAY_MS = 5000;
 
-const SUPPORTED_PROVIDERS = new Set<SaasSocialProvider>(["LINKEDIN", "INSTAGRAM"]);
+// Facebook Page publishing is gated to empresa accounts (see publishSocialPostLive) —
+// the connect UI is shared with influencer, so this set alone doesn't restrict access.
+const SUPPORTED_PROVIDERS = new Set<SaasSocialProvider>(["LINKEDIN", "INSTAGRAM", "FACEBOOK_PAGE"]);
 
 // Build the full caption/text for a post, appending any hashtags stored in
 // metadata.hashtags that the AI page saves separately from the body text.
@@ -39,6 +45,15 @@ async function findPrimaryInstagramAccount(ctx: SocialContext) {
   return (
     accounts.find((a) => a.provider === "INSTAGRAM" && a.isPrimary && a.status === "CONNECTED_REAL") ??
     accounts.find((a) => a.provider === "INSTAGRAM" && a.status === "CONNECTED_REAL") ??
+    null
+  );
+}
+
+async function findPrimaryFacebookAccount(ctx: SocialContext) {
+  const accounts = await listSaasSocialAccounts(ctx);
+  return (
+    accounts.find((a) => a.provider === "FACEBOOK_PAGE" && a.isPrimary && a.status === "CONNECTED_REAL") ??
+    accounts.find((a) => a.provider === "FACEBOOK_PAGE" && a.status === "CONNECTED_REAL") ??
     null
   );
 }
@@ -181,6 +196,28 @@ async function publishToInstagram(input: {
   return { externalPostId: result.externalPostId };
 }
 
+async function publishToFacebookPage(input: {
+  account: SaasSocialAccount;
+  post: SaasSocialPost;
+}): Promise<{ externalPostId?: string | null }> {
+  const creds = await requireFacebookPageCredentials(input.account);
+  const caption = buildPostCaption(input.post);
+  const rawMediaUrl = input.post.imageHint?.trim() ?? "";
+
+  // FEED/CAROUSEL only (image or text post) — REEL/STORY on Facebook Page need the
+  // resumable video-upload API, not implemented here. Text-only posts are allowed
+  // (unlike Instagram, Facebook Pages support message-only feed posts).
+  const mediaUrl = rawMediaUrl.startsWith("http") ? await uploadMediaToR2(rawMediaUrl, input.post.id) : null;
+
+  const result = await publishFacebookPageContent({
+    accessToken: creds.accessToken,
+    pageId: creds.pageId,
+    caption,
+    mediaUrl,
+  });
+  return { externalPostId: result.externalPostId };
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -227,6 +264,7 @@ async function persistPublicationState(
 function getProviderErrorCode(error: unknown): string {
   if (error instanceof LinkedInIntegrationError) return error.code;
   if (error instanceof InstagramPublishingError) return error.code;
+  if (error instanceof FacebookPublishingError) return error.code;
   return "PUBLISH_FAILED";
 }
 
@@ -242,6 +280,13 @@ function isRetryablePublishError(error: unknown): boolean {
     const status = typeof error.details?.status === "number" ? error.details.status : null;
     return error.code === "INSTAGRAM_PUBLISH_RATE_LIMITED"
       || error.code === "INSTAGRAM_PUBLISH_FAILED"
+      || status === 429
+      || (status !== null && status >= 500);
+  }
+  if (error instanceof FacebookPublishingError) {
+    const status = typeof error.details?.status === "number" ? error.details.status : null;
+    return error.code === "FACEBOOK_PUBLISH_RATE_LIMITED"
+      || error.code === "FACEBOOK_PUBLISH_FAILED"
       || status === 429
       || (status !== null && status >= 500);
   }
@@ -328,15 +373,49 @@ export async function publishSocialPostLive(
       };
     }
 
+    if (post.provider === "FACEBOOK_PAGE") {
+      // The Facebook Page connect UI is shared with influencer accounts, so gate the
+      // publish path here instead — empresa is the only segment allowed to go live on it.
+      const accountType = await getSocialFlowAccountTypeByTenant(ctx.tenantId);
+      if (accountType !== "empresa") {
+        console.error(`[SocialFlow] Facebook Page publishing is restricted to empresa accounts (tenant ${ctx.tenantId}).`);
+        post = (await persistPublicationState(ctx, post, {
+          mode: "live",
+          state: "failed",
+          attempts: 1,
+          maxAttempts: LIVE_PUBLISH_MAX_ATTEMPTS,
+          lastAttemptAt: new Date().toISOString(),
+          lastErrorCode: "FACEBOOK_PUBLISH_EMPRESA_ONLY",
+          lastErrorMessage: "Facebook Page live publishing is only available for empresa accounts.",
+          nextRetryAt: null,
+        })) ?? post;
+        await updateSaasSocialPostStatus(ctx, { id: postId, status: "FAILED" });
+        safeRecordActivity(ctx, postId, "publish_failed", "error", "Facebook Page publishing is restricted to empresa accounts.", { errorCode: "FACEBOOK_PUBLISH_EMPRESA_ONLY" });
+        return {
+          ok: false,
+          code: "FACEBOOK_PUBLISH_EMPRESA_ONLY",
+          message: "Facebook Page live publishing is only available for empresa accounts.",
+          externalPostId: null,
+          post: await getSaasSocialPostById(ctx, postId),
+        };
+      }
+    }
+
     const account = post.provider === "INSTAGRAM"
       ? await findPrimaryInstagramAccount(ctx)
+      : post.provider === "FACEBOOK_PAGE"
+      ? await findPrimaryFacebookAccount(ctx)
       : await findPrimaryLinkedInAccount(ctx);
 
     const accountMissingCode = post.provider === "INSTAGRAM"
       ? "INSTAGRAM_ACCOUNT_MISSING"
+      : post.provider === "FACEBOOK_PAGE"
+      ? "FACEBOOK_ACCOUNT_MISSING"
       : "LINKEDIN_ACCOUNT_MISSING";
     const accountMissingMessage = post.provider === "INSTAGRAM"
       ? "No connected Instagram account found for this workspace."
+      : post.provider === "FACEBOOK_PAGE"
+      ? "No connected Facebook Page account found for this workspace."
       : "No primary LinkedIn account configured for this workspace.";
 
     if (!account) {
@@ -380,6 +459,8 @@ export async function publishSocialPostLive(
 
         const result: { externalPostId?: string | null } = post.provider === "INSTAGRAM"
           ? await publishToInstagram({ account, post })
+          : post.provider === "FACEBOOK_PAGE"
+          ? await publishToFacebookPage({ account, post })
           : await publishToLinkedIn({ account, post });
         externalPostId = result.externalPostId ?? null;
         post = (await persistPublicationState(ctx, post, {
@@ -455,7 +536,7 @@ export async function publishSocialPostLive(
     return {
       ok: true,
       code: `PUBLISHED_LIVE_${post.provider}`,
-      message: `Post published successfully to ${post.provider === "INSTAGRAM" ? "Instagram" : "LinkedIn"}`,
+      message: `Post published successfully to ${post.provider === "INSTAGRAM" ? "Instagram" : post.provider === "FACEBOOK_PAGE" ? "Facebook" : "LinkedIn"}`,
       externalPostId,
       post: updatedPost,
     };
