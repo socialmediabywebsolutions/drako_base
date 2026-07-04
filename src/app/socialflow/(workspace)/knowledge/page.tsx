@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type DocType = "pdf" | "url" | "text" | "competitor" | "market_analysis";
+type DocType = "pdf" | "url" | "text" | "competitor" | "market_analysis" | "auto_learned_style";
 
 type Doc = {
   id: string;
@@ -24,6 +24,7 @@ const TYPE_LABEL: Record<DocType, string> = {
   text: "Texto",
   competitor: "Competidor",
   market_analysis: "Mercado",
+  auto_learned_style: "Estilo aprendido",
 };
 
 const TYPE_BG: Record<DocType, string> = {
@@ -32,6 +33,7 @@ const TYPE_BG: Record<DocType, string> = {
   text: "bg-white/8 text-white/60",
   competitor: "bg-purple-500/15 text-purple-300",
   market_analysis: "bg-emerald-500/15 text-emerald-300",
+  auto_learned_style: "bg-fuchsia-500/15 text-fuchsia-300",
 };
 
 export default function KnowledgeBasePage() {

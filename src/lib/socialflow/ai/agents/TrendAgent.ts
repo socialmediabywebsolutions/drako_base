@@ -15,8 +15,13 @@ const FITNESS_NICHE_RE = /fitness|lifestyle|wellness|salud|health|gym|sport|yoga
 export class TrendAgent {
   async run(input: { profile: BrandProfile }): Promise<TrendInsights> {
     const { profile } = input;
+    const creatorProfile = [profile.ageRange ? `rango de edad ${profile.ageRange}` : "", profile.gender ? `género ${profile.gender}` : ""]
+      .filter(Boolean)
+      .join(", ");
+
     const prompt = `Analiza tendencias para el nicho ${profile.niche} y audiencia ${profile.audience} usando señales de mercado, temas virales y tópicos en tendencia. GENERA TODOS LOS TEXTOS EN ESPAÑOL.
 Contexto de marca: ${profile.longDescription}
+${creatorProfile ? `Perfil del creador (${creatorProfile}) — calibra los ángulos virales y hooks para que encajen con este perfil, sin mencionarlo explícitamente.` : ""}
 Además, propón entre 2 y 3 horas óptimas (UTC, formato 24h, números enteros) para publicar contenido de ${profile.niche} en Instagram maximizando el engagement de ${profile.audience}.`;
 
     const optimalHoursBase = FITNESS_NICHE_RE.test(profile.niche) ? [7, 12, 18] : [9, 18];

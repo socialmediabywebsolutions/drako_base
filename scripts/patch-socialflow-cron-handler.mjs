@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
  * Post-build patch: injects a Cloudflare Workers `scheduled` handler into the
- * socialflows-standalone worker.js wrapper so that the [triggers] cron in
- * wrangler.workers.toml actually calls /api/cron/social (scheduled publishing)
- * and /api/cron/social/comments (Instagram comment auto-reply) every 5 minutes.
+ * socialflows-standalone worker.js wrapper so that the [triggers] crons in
+ * wrangler.workers.toml actually fire:
+ *   - every 5 minutes: /api/cron/social (scheduled publishing) and
+ *     /api/cron/social/comments (Instagram comment auto-reply)
+ *   - once a day (0 3 * * *): /api/cron/social/style-learning (StyleLearningAgent)
  *
  * The artifact matrix build generates a thin re-export wrapper:
  *   export { default } from "<path>";
@@ -52,14 +54,22 @@ import __openNextDefault from "${openNextPath}";
 export * from "${openNextPath}";
 export default {
   ...__openNextDefault,
-  async scheduled(_event, env) {
+  async scheduled(event, env) {
     const appUrl = env.APP_URL ?? "https://socialflows.drako.systems";
     const secret = env.CRON_SECRET ?? "";
     if (!secret) {
-      console.error("[Cron] CRON_SECRET not configured — skipping scheduled publish");
+      console.error("[Cron] CRON_SECRET not configured — skipping scheduled tasks");
       return;
     }
     const authHeaders = { headers: { authorization: "Bearer " + secret } };
+
+    if (event.cron === "0 3 * * *") {
+      await fetch(appUrl + "/api/cron/social/style-learning", authHeaders).catch(function(err) {
+        console.error("[Cron] scheduled style-learning failed:", err.message);
+      });
+      return;
+    }
+
     await fetch(appUrl + "/api/cron/social", authHeaders).catch(function(err) {
       console.error("[Cron] scheduled publish failed:", err.message);
     });

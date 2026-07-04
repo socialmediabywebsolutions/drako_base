@@ -109,6 +109,7 @@ ${profile.voiceInstruction ? `${profile.voiceInstruction}\n` : ""}
 Tipo de contenido: ${strategyItem.theme}
 ${extra ? `\n${extra}` : ""}
 Identidad: ${profile.brandIdentity} · Tono: ${profile.toneOfVoice}.
+${(profile.ageRange || profile.gender) ? `Perfil del creador: ${[profile.ageRange ? `rango de edad ${profile.ageRange}` : "", profile.gender ? `género ${profile.gender}` : ""].filter(Boolean).join(", ")} — úsalo solo para calibrar referencias, ejemplos y estilo de voz; NUNCA lo menciones explícitamente en el post.` : ""}
 CTA: ${cta}
 ${hooks ? `Hooks de referencia (adapta al tema): ${hooks}` : ""}
 ${keywords ? `Keywords a incluir naturalmente: ${keywords}` : ""}

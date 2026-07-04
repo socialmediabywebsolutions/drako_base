@@ -19,6 +19,12 @@ const PROFILE_COLUMNS = [
   "audience",
   "goals_json",
   "metadata_json",
+  "age_range",
+  "gender",
+  "growth_goal_followers",
+  "growth_goal_timeline",
+  "content_style",
+  "posting_frequency",
   "created_at",
   "updated_at",
 ].join(", ");
@@ -36,6 +42,12 @@ type ProfileRow = {
   audience: string | null;
   goals_json: string | null;
   metadata_json: string | null;
+  age_range: string | null;
+  gender: string | null;
+  growth_goal_followers: number | null;
+  growth_goal_timeline: string | null;
+  content_style: string | null;
+  posting_frequency: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -123,6 +135,10 @@ function normalizeNullableString(value: unknown): string | null {
   return normalized ? normalized : null;
 }
 
+function normalizeNullableNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function normalizeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -146,8 +162,27 @@ function serializeJsonRecord(value: unknown): string | null {
   return JSON.stringify(value);
 }
 
-function ensureProfileTable(db: D1Database) {
-  return Promise.all([
+const PERSONA_COLUMNS: Array<{ name: string; ddl: string }> = [
+  { name: "age_range", ddl: "TEXT" },
+  { name: "gender", ddl: "TEXT" },
+  { name: "growth_goal_followers", ddl: "INTEGER" },
+  { name: "growth_goal_timeline", ddl: "TEXT" },
+  { name: "content_style", ddl: "TEXT" },
+  { name: "posting_frequency", ddl: "INTEGER" },
+];
+
+async function ensurePersonaColumns(db: D1Database): Promise<void> {
+  const { results } = await db.prepare(`PRAGMA table_info('${SOCIALFLOW_PROFILE_TABLE}')`).all<{ name: string }>();
+  const existing = new Set((results ?? []).map((column) => column.name));
+  for (const column of PERSONA_COLUMNS) {
+    if (!existing.has(column.name)) {
+      await db.prepare(`ALTER TABLE ${SOCIALFLOW_PROFILE_TABLE} ADD COLUMN ${column.name} ${column.ddl}`).run();
+    }
+  }
+}
+
+async function ensureProfileTable(db: D1Database) {
+  await Promise.all([
     db.prepare(
       `CREATE TABLE IF NOT EXISTS ${SOCIALFLOW_PROFILE_TABLE} (
         id TEXT PRIMARY KEY,
@@ -172,6 +207,7 @@ function ensureProfileTable(db: D1Database) {
        ON ${SOCIALFLOW_PROFILE_TABLE} (tenant_id, saas_id)`,
     ).run(),
   ]);
+  await ensurePersonaColumns(db);
 }
 
 function generateId(prefix: string) {
@@ -251,6 +287,12 @@ function buildEmptyProfile(tenantId: string, saasId: string): ChannelProfile {
     complianceNotes: "",
     brandSafetyRules: "",
     assetSummary: null,
+    ageRange: null,
+    gender: null,
+    growthGoalFollowers: null,
+    growthGoalTimeline: null,
+    contentStyle: null,
+    postingFrequency: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -280,6 +322,24 @@ function mergeProfile(base: ChannelProfile, patch: Partial<ChannelProfile>): Cha
   }
   if ("onboardingCompletedAt" in patch) {
     next.onboardingCompletedAt = normalizeNullableString(patch.onboardingCompletedAt);
+  }
+  if ("ageRange" in patch) {
+    next.ageRange = normalizeNullableString(patch.ageRange);
+  }
+  if ("gender" in patch) {
+    next.gender = normalizeNullableString(patch.gender);
+  }
+  if ("growthGoalFollowers" in patch) {
+    next.growthGoalFollowers = normalizeNullableNumber(patch.growthGoalFollowers);
+  }
+  if ("growthGoalTimeline" in patch) {
+    next.growthGoalTimeline = normalizeNullableString(patch.growthGoalTimeline);
+  }
+  if ("contentStyle" in patch) {
+    next.contentStyle = normalizeNullableString(patch.contentStyle);
+  }
+  if ("postingFrequency" in patch) {
+    next.postingFrequency = normalizeNullableNumber(patch.postingFrequency);
   }
 
   next.updatedAt = nowIso();
@@ -364,6 +424,12 @@ function mapRowToSnapshot(row: ProfileRow): ChannelKnowledgeSnapshot {
     toneOfVoice: normalizeString(row.tone) || mergedFromMetadata.toneOfVoice,
     audienceDescription: normalizeString(row.audience) || mergedFromMetadata.audienceDescription,
     niche: normalizeString(row.business_type) || mergedFromMetadata.niche,
+    ageRange: row.age_range ?? mergedFromMetadata.ageRange ?? null,
+    gender: row.gender ?? mergedFromMetadata.gender ?? null,
+    growthGoalFollowers: row.growth_goal_followers ?? mergedFromMetadata.growthGoalFollowers ?? null,
+    growthGoalTimeline: row.growth_goal_timeline ?? mergedFromMetadata.growthGoalTimeline ?? null,
+    contentStyle: row.content_style ?? mergedFromMetadata.contentStyle ?? null,
+    postingFrequency: row.posting_frequency ?? mergedFromMetadata.postingFrequency ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -404,8 +470,9 @@ async function upsertProfileRow(snapshot: ChannelKnowledgeSnapshot): Promise<Cha
 
   await context.socialDb.prepare(
     `INSERT INTO ${SOCIALFLOW_PROFILE_TABLE} (
-      id, tenant_id, saas_id, display_name, brand_name, business_type, website_url, description, tone, audience, goals_json, metadata_json, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      id, tenant_id, saas_id, display_name, brand_name, business_type, website_url, description, tone, audience, goals_json, metadata_json,
+      age_range, gender, growth_goal_followers, growth_goal_timeline, content_style, posting_frequency, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(tenant_id, saas_id) DO UPDATE SET
       id = excluded.id,
       display_name = excluded.display_name,
@@ -417,6 +484,12 @@ async function upsertProfileRow(snapshot: ChannelKnowledgeSnapshot): Promise<Cha
       audience = excluded.audience,
       goals_json = excluded.goals_json,
       metadata_json = excluded.metadata_json,
+      age_range = excluded.age_range,
+      gender = excluded.gender,
+      growth_goal_followers = excluded.growth_goal_followers,
+      growth_goal_timeline = excluded.growth_goal_timeline,
+      content_style = excluded.content_style,
+      posting_frequency = excluded.posting_frequency,
       updated_at = excluded.updated_at`,
   ).bind(
     rowId,
@@ -431,6 +504,12 @@ async function upsertProfileRow(snapshot: ChannelKnowledgeSnapshot): Promise<Cha
     normalizeNullableString(snapshot.profile.audienceDescription),
     serializeJsonRecord(snapshot.profile.transformations),
     serializeJsonRecord(metadata),
+    normalizeNullableString(snapshot.profile.ageRange),
+    normalizeNullableString(snapshot.profile.gender),
+    normalizeNullableNumber(snapshot.profile.growthGoalFollowers),
+    normalizeNullableString(snapshot.profile.growthGoalTimeline),
+    normalizeNullableString(snapshot.profile.contentStyle),
+    normalizeNullableNumber(snapshot.profile.postingFrequency),
     createdAt,
     updatedAt,
   ).run();

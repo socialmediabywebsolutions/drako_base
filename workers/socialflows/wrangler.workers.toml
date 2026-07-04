@@ -62,7 +62,9 @@ queue = "saas-socialflow-ai-generation-queue"
 binding = "AI"
 
 [triggers]
-crons = ["*/5 * * * *"]
+# */5 * * * * -> scheduled publishing + comment auto-reply
+# 0 3 * * *   -> daily StyleLearningAgent run (see scripts/patch-socialflow-cron-handler.mjs)
+crons = ["*/5 * * * *", "0 3 * * *"]
 
 [vars]
 SAASES_SLUG = "socialflows"

@@ -10,6 +10,8 @@ export type BrandProfile = {
   personality: string;
   voiceInstruction: string; // "" = brand/third-person (default); non-empty = injected into prompts
   accountType?: "influencer" | "empresa" | null; // drives first- vs third-person voice in ContentGeneratorAgent
+  ageRange?: string | null; // e.g. "25-35" — from ChannelProfile.ageRange, when set
+  gender?: string | null; // e.g. "female" — from ChannelProfile.gender, when set
 
   // Audience & positioning
   niche: string;

@@ -110,6 +110,12 @@ export type ChannelProfile = {
   complianceNotes: string;
   brandSafetyRules: string;
   assetSummary: string | null;
+  ageRange: string | null;
+  gender: string | null;
+  growthGoalFollowers: number | null;
+  growthGoalTimeline: string | null;
+  contentStyle: string | null;
+  postingFrequency: number | null;
   createdAt: string;
   updatedAt: string;
 };
