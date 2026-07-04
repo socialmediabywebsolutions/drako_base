@@ -614,6 +614,11 @@ jobs:
       - name: Apply SocialFlow product schema on SOCIAL_DB
         run: |
           set -euo pipefail
+          # This list re-runs on every deploy (no migration-tracking table), so it only
+          # works for idempotent DDL: CREATE TABLE/INDEX IF NOT EXISTS, or ALTER TABLE ADD
+          # COLUMN — the latter is made idempotent below by tolerating the "duplicate
+          # column name" error wrangler returns once a column already exists. Any other
+          # failure (typo, wrong table, connectivity) still blocks the deploy.
           for migration in \
             migrations/0184_socialflow_runtime_social_db.sql \
             migrations/0185_socialflow_profiles.sql \
@@ -624,10 +629,21 @@ jobs:
             migrations/0191_socialflow_intelligence_core.sql \
             migrations/0192_socialflow_social_metrics_snapshots.sql \
             migrations/0193_socialflow_conversation_engine.sql \
-            migrations/0197_socialflow_knowledge_documents.sql; do
+            migrations/0197_socialflow_knowledge_documents.sql \
+            migrations/0199_socialflow_profiles_persona_fields.sql; do
             echo "Applying ${migration}..."
-            wrangler d1 execute SOCIAL_DB --remote --config workers/socialflows/wrangler.workers.toml \
-              --file "${migration}"
+            if ! OUTPUT="$(wrangler d1 execute SOCIAL_DB --remote --config workers/socialflows/wrangler.workers.toml \
+              --file "${migration}" 2>&1)"; then
+              echo "$OUTPUT"
+              if echo "$OUTPUT" | grep -qi "duplicate column name"; then
+                echo "Column(s) in ${migration} already exist — skipping (idempotent ALTER TABLE ADD COLUMN re-run)."
+              else
+                echo "BLOCKED: ${migration} failed with an unexpected error."
+                exit 1
+              fi
+            else
+              echo "$OUTPUT"
+            fi
           done
 
       - name: Verify SocialFlow product tables exist in SOCIAL_DB
