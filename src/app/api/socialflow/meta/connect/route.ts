@@ -1,5 +1,6 @@
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { guardChannelLimit } from "@/lib/socialflow/billing/enforce";
+import { guardNetworkEntitlement } from "@/lib/socialflow/billing/network-entitlements";
 import { MetaIntegrationError } from "@/lib/socialflow/meta/core";
 import { buildSocialFlowMetaConnectUrl } from "@/lib/socialflow/meta/oauth";
 
@@ -23,9 +24,17 @@ export async function GET(request: Request) {
 
     const channelGuard = await guardChannelLimit(session.tenantId, saasId);
     if (!channelGuard.ok) {
-      const url = new URL(`/socialflow/settings/accounts`, request.url);
+      const url = new URL(`/socialflow/redes`, request.url);
       url.searchParams.set("planError", channelGuard.code);
       url.searchParams.set("planMessage", channelGuard.message);
+      return Response.redirect(url.toString(), 307);
+    }
+
+    const networkGuard = await guardNetworkEntitlement({ tenantId: session.tenantId, saasId, provider: "FACEBOOK_PAGE" });
+    if (!networkGuard.ok) {
+      const url = new URL(`/socialflow/redes`, request.url);
+      url.searchParams.set("planError", networkGuard.code);
+      url.searchParams.set("planMessage", networkGuard.message);
       return Response.redirect(url.toString(), 307);
     }
 

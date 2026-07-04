@@ -1,4 +1,5 @@
 import { requireTenantAccess } from "@/lib/auth/session";
+import { guardNetworkEntitlement } from "@/lib/socialflow/billing/network-entitlements";
 import { buildSocialFlowLinkedInConnectUrl } from "@/lib/socialflow/linkedin/oauth";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,14 @@ export async function GET(request: Request) {
     }
 
     const { tenantId } = await requireTenantAccess(request);
+
+    const networkGuard = await guardNetworkEntitlement({ tenantId, saasId, provider: "LINKEDIN" });
+    if (!networkGuard.ok) {
+      const url = new URL(`/socialflow/redes`, request.url);
+      url.searchParams.set("planError", networkGuard.code);
+      url.searchParams.set("planMessage", networkGuard.message);
+      return Response.redirect(url.toString(), 307);
+    }
 
     const oauth = buildSocialFlowLinkedInConnectUrl({
       request,

@@ -3,6 +3,12 @@
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { SaasSocialAccountStatus, SaasSocialProvider } from "@/lib/social-core/types";
+import {
+  SOCIAL_PROVIDER_ABBR,
+  SOCIAL_PROVIDER_COLOR,
+  SOCIAL_PROVIDER_LABEL,
+  type SocialFlowNetworkKey,
+} from "@/lib/socialflow/social-providers";
 
 export type ConnectedAccountSummary = {
   provider: SaasSocialProvider;
@@ -13,38 +19,20 @@ export type ConnectedAccountSummary = {
   updatedAt: string;
 };
 
-type SocialFlowConnectedAccountsProps = {
+export type SocialNetworkCardModel = {
+  key: SocialFlowNetworkKey;
+  connectPath: string | null;
+  comingSoon: boolean;
+  entitlement: "included" | "extra";
+  description: string;
+};
+
+type Props = {
+  networks: SocialNetworkCardModel[];
   accounts: ConnectedAccountSummary[];
   saasId: string;
+  redirectTo: string;
 };
-
-type ProviderDefinition = {
-  provider: SaasSocialProvider;
-  label: string;
-  description: string;
-  connectPath: string;
-};
-
-const PROVIDERS: ProviderDefinition[] = [
-  {
-    provider: "INSTAGRAM",
-    label: "Instagram",
-    description: "Conecta una cuenta de Instagram Business para publicar contenido y ver métricas de engagement.",
-    connectPath: "/api/socialflow/oauth/instagram/connect",
-  },
-  {
-    provider: "FACEBOOK_PAGE",
-    label: "Facebook Page",
-    description: "Conecta una Página de Facebook para obtener seguidores, engagement y publicaciones recientes.",
-    connectPath: "/api/socialflow/meta/connect",
-  },
-  {
-    provider: "LINKEDIN",
-    label: "LinkedIn",
-    description: "Conecta un perfil o Página de empresa de LinkedIn.",
-    connectPath: "/api/socialflow/linkedin/connect",
-  },
-];
 
 const STATUS_LABELS: Record<SaasSocialAccountStatus, string> = {
   DISCONNECTED: "Desconectada",
@@ -64,17 +52,16 @@ const STATUS_CLS: Record<SaasSocialAccountStatus, string> = {
   NEEDS_RECONNECTION: "bg-amber-500/15 text-amber-300",
 };
 
-const SETTINGS_PATH = "/socialflow/settings/accounts";
-
-export default function SocialFlowConnectedAccounts({ accounts, saasId }: SocialFlowConnectedAccountsProps) {
+export default function SocialNetworksBoard({ networks, accounts, saasId, redirectTo }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
-  const [pendingProvider, setPendingProvider] = useState<SaasSocialProvider | null>(null);
+  const [pendingProvider, setPendingProvider] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const accountsByProvider = new Map(accounts.map((account) => [account.provider, account]));
+  const accountsByProvider = new Map<string, ConnectedAccountSummary>(accounts.map((account) => [account.provider, account]));
   const callbackBanner = resolveCallbackBanner(searchParams);
+  const planBannerMessage = resolvePlanBannerMessage(searchParams);
 
   function disconnect(provider: SaasSocialProvider) {
     setError(null);
@@ -115,53 +102,94 @@ export default function SocialFlowConnectedAccounts({ accounts, saasId }: Social
         </div>
       )}
 
+      {planBannerMessage && (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/8 p-4 text-sm text-amber-300">
+          {planBannerMessage}
+        </div>
+      )}
+
       {error && (
         <div className="rounded-xl border border-red-500/20 bg-red-500/8 p-4 text-sm text-red-300">{error}</div>
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        {PROVIDERS.map((definition) => {
-          const account = accountsByProvider.get(definition.provider);
+        {networks.map((network) => {
+          const account = accountsByProvider.get(network.key);
           const status = account?.status ?? "DISCONNECTED";
           const isConnected = status === "CONNECTED_REAL" || status === "CONNECTED_DEMO";
-          const connectHref = `${definition.connectPath}?saasId=${encodeURIComponent(saasId)}&redirectTo=${encodeURIComponent(SETTINGS_PATH)}`;
+          const label = SOCIAL_PROVIDER_LABEL[network.key];
+          const abbr = SOCIAL_PROVIDER_ABBR[network.key];
+          const color = SOCIAL_PROVIDER_COLOR[network.key];
+          const connectHref = network.connectPath
+            ? `${network.connectPath}?saasId=${encodeURIComponent(saasId)}&redirectTo=${encodeURIComponent(redirectTo)}`
+            : null;
+          const showExtraBadge = !network.comingSoon && network.entitlement === "extra" && !isConnected;
 
           return (
-            <div key={definition.provider} className="rounded-2xl border border-white/10 bg-white/4">
+            <div key={network.key} className="rounded-2xl border border-white/10 bg-white/4">
               <header className="flex flex-wrap items-start justify-between gap-3 border-b border-white/8 px-5 py-4">
-                <div>
-                  <h3 className="text-base font-black uppercase italic tracking-tight text-white">{definition.label}</h3>
-                  <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] ${STATUS_CLS[status]}`}>
-                    {STATUS_LABELS[status]}
+                <div className="flex items-center gap-3">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black ${color}`}>
+                    {abbr}
                   </span>
+                  <div>
+                    <h3 className="text-base font-black uppercase italic tracking-tight text-white">{label}</h3>
+                    {network.comingSoon ? (
+                      <span className="mt-1 inline-flex rounded-full bg-white/8 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/45">
+                        Próximamente
+                      </span>
+                    ) : (
+                      <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] ${STATUS_CLS[status]}`}>
+                        {STATUS_LABELS[status]}
+                      </span>
+                    )}
+                  </div>
                 </div>
+                {showExtraBadge && (
+                  <span className="inline-flex rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">
+                    Extra
+                  </span>
+                )}
               </header>
               <div className="space-y-3 px-5 py-4">
-                <p className="text-sm text-white/45">{definition.description}</p>
+                <p className="text-sm text-white/45">{network.description}</p>
                 {account && (account.displayName || account.handle) && (
-                  <div className="text-sm font-semibold text-white/80">
-                    {account.displayName ?? account.handle}
-                  </div>
+                  <div className="text-sm font-semibold text-white/80">{account.displayName ?? account.handle}</div>
                 )}
-                {isConnected ? (
+
+                {network.comingSoon ? (
                   <button
-                    onClick={() => disconnect(definition.provider)}
+                    disabled
+                    className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/35"
+                  >
+                    Próximamente
+                  </button>
+                ) : isConnected ? (
+                  <button
+                    onClick={() => disconnect(network.key as SaasSocialProvider)}
                     disabled={isPending}
                     className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/65 transition hover:border-red-500/30 hover:bg-red-500/8 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {pendingProvider === definition.provider && (
+                    {pendingProvider === network.key && (
                       <span className="h-2 w-2 animate-pulse rounded-full bg-current" />
                     )}
                     Desconectar
                   </button>
-                ) : (
+                ) : showExtraBadge ? (
+                  <a
+                    href="/socialflow/settings/billing"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/15"
+                  >
+                    Actualizar plan para conectar
+                  </a>
+                ) : connectHref ? (
                   <a
                     href={connectHref}
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
                   >
                     Conectar
                   </a>
-                )}
+                ) : null}
               </div>
             </div>
           );
@@ -189,4 +217,10 @@ function resolveCallbackBanner(searchParams: URLSearchParams): { tone: "error" |
     return { tone: "warning", message: message || `${provider} conectado, pero no se pudo guardar la conexión${code ? ` (${code})` : ""}.` };
   }
   return { tone: "success", message: `${provider} conectado correctamente.` };
+}
+
+function resolvePlanBannerMessage(searchParams: URLSearchParams): string | null {
+  const planError = searchParams.get("planError");
+  if (!planError) return null;
+  return searchParams.get("planMessage") || "Tu plan actual no permite conectar esta red todavía.";
 }
