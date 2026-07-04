@@ -276,7 +276,7 @@ export async function publishInstagramContent(
 }
 
 // ---------------------------------------------------------------------------
-// Public API — Facebook Page publisher (empresa accounts only, gated in live-publishing.ts)
+// Public API — Facebook Page publisher (influencer + empresa)
 // ---------------------------------------------------------------------------
 
 function classifyFacebookError(status: number, defaultCode: string): string {

@@ -8,7 +8,7 @@ import type {
 export const SOCIALFLOW_META_CALLBACK_PATH = "/api/socialflow/meta/callback";
 export const SOCIALFLOW_META_SETTINGS_PATH = "/socialflow/settings/accounts";
 export const SOCIALFLOW_META_SCOPES =
-  "pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_manage_insights,instagram_content_publish,business_management";
+  "pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_engagement,pages_read_user_content,instagram_basic,instagram_manage_insights,instagram_content_publish,business_management";
 
 export type SocialFlowMetaState = {
   tenantId: string;

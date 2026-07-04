@@ -10,7 +10,6 @@ import {
   requireInstagramCredentials,
   type InstagramPostContentType,
 } from "@/lib/socialflow/meta/publishing";
-import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
 import { claimScheduledPostForPublishing, getSaasSocialPostById, listSaasSocialAccounts, markAsPosted, updateSaasSocialPostStatus, upsertSaasSocialPost } from "@/lib/socialflow/repository";
 import type { SocialContext } from "@/lib/socialflow/repository";
 import type { SaasSocialAccount, SaasSocialContentType, SaasSocialPost, SaasSocialProvider } from "@/lib/social-core/types";
@@ -20,8 +19,6 @@ const LIVE_PUBLISH_MAX_ATTEMPTS = 3;
 const LIVE_PUBLISH_BASE_DELAY_MS = 1000;
 const LIVE_PUBLISH_MAX_DELAY_MS = 5000;
 
-// Facebook Page publishing is gated to empresa accounts (see publishSocialPostLive) —
-// the connect UI is shared with influencer, so this set alone doesn't restrict access.
 const SUPPORTED_PROVIDERS = new Set<SaasSocialProvider>(["LINKEDIN", "INSTAGRAM", "FACEBOOK_PAGE"]);
 
 // Build the full caption/text for a post, appending any hashtags stored in
@@ -371,34 +368,6 @@ export async function publishSocialPostLive(
         externalPostId: null,
         post: await getSaasSocialPostById(ctx, postId),
       };
-    }
-
-    if (post.provider === "FACEBOOK_PAGE") {
-      // The Facebook Page connect UI is shared with influencer accounts, so gate the
-      // publish path here instead — empresa is the only segment allowed to go live on it.
-      const accountType = await getSocialFlowAccountTypeByTenant(ctx.tenantId);
-      if (accountType !== "empresa") {
-        console.error(`[SocialFlow] Facebook Page publishing is restricted to empresa accounts (tenant ${ctx.tenantId}).`);
-        post = (await persistPublicationState(ctx, post, {
-          mode: "live",
-          state: "failed",
-          attempts: 1,
-          maxAttempts: LIVE_PUBLISH_MAX_ATTEMPTS,
-          lastAttemptAt: new Date().toISOString(),
-          lastErrorCode: "FACEBOOK_PUBLISH_EMPRESA_ONLY",
-          lastErrorMessage: "Facebook Page live publishing is only available for empresa accounts.",
-          nextRetryAt: null,
-        })) ?? post;
-        await updateSaasSocialPostStatus(ctx, { id: postId, status: "FAILED" });
-        safeRecordActivity(ctx, postId, "publish_failed", "error", "Facebook Page publishing is restricted to empresa accounts.", { errorCode: "FACEBOOK_PUBLISH_EMPRESA_ONLY" });
-        return {
-          ok: false,
-          code: "FACEBOOK_PUBLISH_EMPRESA_ONLY",
-          message: "Facebook Page live publishing is only available for empresa accounts.",
-          externalPostId: null,
-          post: await getSaasSocialPostById(ctx, postId),
-        };
-      }
     }
 
     const account = post.provider === "INSTAGRAM"
