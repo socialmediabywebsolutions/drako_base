@@ -55,6 +55,20 @@ export default async function SocialFlowRedesPage() {
           entitlement: entitlements.included.has("LINKEDIN") ? "included" : "extra",
           description: "Conecta la Company Page de LinkedIn de tu empresa para publicar como marca.",
         },
+        {
+          key: "TIKTOK",
+          connectPath: null,
+          comingSoon: true,
+          entitlement: entitlements.included.has("TIKTOK") ? "included" : "extra",
+          description: "Publica directamente en TikTok desde SocialFlow.",
+        },
+        {
+          key: "YOUTUBE",
+          connectPath: null,
+          comingSoon: true,
+          entitlement: "extra",
+          description: "Publica Shorts y vídeos directamente en tu canal de YouTube.",
+        },
       ]
     : [
         {

@@ -2,28 +2,36 @@ import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
 import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
 import { resolveSocialFlowPlanCode, type SocialFlowPlanCode } from "./plans";
 
+// Sin extras ni add-ons: el límite de canales coincide exactamente con el número
+// de redes incluidas en cada plan (ver network-entitlements.ts).
 const PLAN_MAX_CHANNELS: Record<SocialFlowPlanCode, number> = {
   free: 1,
-  influencer_basico: 3,
-  influencer_pro: Infinity,
-  empresa_basica: 5,
-  empresa_pro: Infinity,
+  influencer_basico: 1,   // Instagram
+  influencer_pro: 2,      // Instagram + Facebook
+  influencer_elite: 3,    // Instagram + Facebook + LinkedIn
+  empresa_basico: 1,      // Instagram o LinkedIn (a elegir)
+  empresa_pro: 2,         // Instagram + LinkedIn
+  empresa_elite: 3,       // Instagram + LinkedIn + Facebook
 };
 
 const PLAN_MAX_UPLOADS_PER_BATCH: Record<SocialFlowPlanCode, number> = {
   free: 30,               // sin plan — no se limita para no bloquear onboarding
   influencer_basico: 30,  // Influencer Básico (49€)
-  influencer_pro: 60,     // Influencer Pro (99€)
-  empresa_basica: 30,     // Empresa Básica (79€)
+  influencer_pro: 60,     // Influencer Pro (79€)
+  influencer_elite: 90,   // Influencer Elite (99€)
+  empresa_basico: 30,     // Empresa Básico (99€)
   empresa_pro: 60,        // Empresa Pro (149€)
+  empresa_elite: 90,      // Empresa Elite (199€)
 };
 
 const PLAN_AI_ALLOWED: Record<SocialFlowPlanCode, boolean> = {
   free: false,
   influencer_basico: true,
   influencer_pro: true,
-  empresa_basica: true,
+  influencer_elite: true,
+  empresa_basico: true,
   empresa_pro: true,
+  empresa_elite: true,
 };
 
 export type PlanGuardResult =

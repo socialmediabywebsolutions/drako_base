@@ -12,17 +12,17 @@ type Plan = {
   postsPerNetwork: number;
   users: string;
   features: string[];
-  stripePlan: "empresa_basica" | "empresa_pro";
+  stripePlan: "empresa_basico" | "empresa_pro" | "empresa_elite";
   highlight?: boolean;
 };
 
 const PLANS: Plan[] = [
   {
-    id: "empresa_basica",
-    name: "Empresa Básica",
-    price: 79,
-    networks: "Instagram + Facebook + LinkedIn",
-    postsPerNetwork: 30,
+    id: "empresa_basico",
+    name: "Empresa Básico",
+    price: 99,
+    networks: "Instagram o LinkedIn (eliges una en el onboarding)",
+    postsPerNetwork: 90,
     users: "2 usuarios incluidos",
     features: [
       "Base de Conocimiento (web + PDFs + catálogos)",
@@ -34,26 +34,39 @@ const PLANS: Plan[] = [
       "Informe mensual PDF",
       "2 usuarios (dueño + community manager)",
     ],
-    stripePlan: "empresa_basica",
+    stripePlan: "empresa_basico",
   },
   {
     id: "empresa_pro",
     name: "Empresa Pro",
-    badge: "Más popular",
     price: 149,
-    networks: "Instagram + TikTok + Facebook + LinkedIn + Pinterest",
-    postsPerNetwork: 60,
+    networks: "Instagram + LinkedIn",
+    postsPerNetwork: 90,
     users: "Usuarios ilimitados",
     features: [
-      "Todo lo de Empresa Básica",
+      "Todo lo de Empresa Básico",
       "Gestión de reputación y alertas",
       "Generación de leads desde DMs con precios del catálogo",
       "Presupuestos automáticos desde conversaciones",
       "Usuarios ilimitados con roles y permisos",
       "WhatsApp orquestador",
-      "Reportes avanzados con comparativa de competencia",
     ],
     stripePlan: "empresa_pro",
+  },
+  {
+    id: "empresa_elite",
+    name: "Empresa Elite",
+    badge: "Más popular",
+    price: 199,
+    networks: "Instagram + LinkedIn + Facebook",
+    postsPerNetwork: 90,
+    users: "Usuarios ilimitados",
+    features: [
+      "Todo lo de Empresa Pro",
+      "Reportes avanzados con comparativa de competencia",
+      "Soporte prioritario dedicado",
+    ],
+    stripePlan: "empresa_elite",
     highlight: true,
   },
 ];
@@ -98,7 +111,7 @@ export default function OnboardingPlansEmpresaPage() {
       </p>
 
       {/* Plan cards — 2 columns on sm+ */}
-      <div className="mt-10 grid gap-6 sm:grid-cols-2 sm:max-w-3xl">
+      <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:max-w-5xl">
         {PLANS.map((plan) => (
           <div
             key={plan.id}

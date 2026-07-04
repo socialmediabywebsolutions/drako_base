@@ -11,43 +11,59 @@ type Plan = {
   networks: string;
   postsPerNetwork: number;
   features: string[];
-  stripePlan: "creator" | "pro";
+  stripePlan: "influencer_basico" | "influencer_pro" | "influencer_elite";
   highlight?: boolean;
 };
 
 const PLANS: Plan[] = [
   {
-    id: "creator",
+    id: "influencer_basico",
     name: "Influencer Básico",
     price: 49,
-    networks: "Instagram + TikTok",
-    postsPerNetwork: 30,
+    networks: "Instagram",
+    postsPerNetwork: 90,
     features: [
-      "Instagram + TikTok",
-      "30 posts/mes por red",
+      "Instagram",
+      "90 posts/mes por red (3 posts/día)",
       "IA para captions y hashtags",
       "Análisis de imagen con LLaVA",
       "Calendario de contenido",
       "Publicación automática",
     ],
-    stripePlan: "creator",
+    stripePlan: "influencer_basico",
   },
   {
-    id: "pro",
+    id: "influencer_pro",
     name: "Influencer Pro",
-    badge: "Más popular",
-    price: 99,
-    networks: "Instagram + TikTok + Facebook + YouTube",
-    postsPerNetwork: 60,
+    price: 79,
+    networks: "Instagram + Facebook",
+    postsPerNetwork: 90,
     features: [
-      "Instagram + TikTok + Facebook + YouTube",
-      "60 posts/mes por red",
+      "Instagram + Facebook",
+      "90 posts/mes por red (3 posts/día)",
       "IA avanzada para contenido",
       "Análisis de imagen con LLaVA",
-      "Detección de leads y comunidad",
+      "Calendario de contenido",
       "Publicación automática + Analytics",
     ],
-    stripePlan: "pro",
+    stripePlan: "influencer_pro",
+  },
+  {
+    id: "influencer_elite",
+    name: "Influencer Elite",
+    badge: "Más popular",
+    price: 99,
+    networks: "Instagram + Facebook + LinkedIn",
+    postsPerNetwork: 90,
+    features: [
+      "Instagram + Facebook + LinkedIn",
+      "90 posts/mes por red (3 posts/día)",
+      "IA avanzada + análisis de imagen",
+      "Detección de leads y comunidad",
+      "Publicación automática + Analytics avanzados",
+      "Soporte prioritario",
+    ],
+    stripePlan: "influencer_elite",
     highlight: true,
   },
 ];
@@ -91,8 +107,8 @@ export default function OnboardingPlansPage() {
         7 días gratis sin tarjeta de crédito. O suscríbete ahora y activa todas las funciones de inmediato.
       </p>
 
-      {/* Plan cards — 2 columns on sm+ */}
-      <div className="mt-10 grid gap-6 sm:grid-cols-2 sm:max-w-3xl">
+      {/* Plan cards — 3 columns on lg+ */}
+      <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:max-w-5xl">
         {PLANS.map((plan) => (
           <div
             key={plan.id}

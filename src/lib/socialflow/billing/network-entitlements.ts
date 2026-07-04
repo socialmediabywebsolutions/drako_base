@@ -4,15 +4,17 @@ import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/r
 import type { SaasSocialProvider } from "@/lib/social-core/types";
 import { resolveSocialFlowPlanCode, type SocialFlowPlanCode } from "./plans";
 
-// Redes incluidas por defecto para cuentas influencer. TikTok no tiene OAuth implementado
-// todavía, así que su entitlement no desbloquea nada visible hasta que exista el backend.
-const INFLUENCER_INCLUDED: Record<"free" | "influencer_basico" | "influencer_pro", SaasSocialProvider[]> = {
+// Redes incluidas por plan influencer. Sin extras: cada plan trae exactamente las
+// redes anunciadas, nada más. TikTok y YouTube no tienen OAuth implementado todavía,
+// así que no aparecen en ningún plan (se muestran como "Próximamente" en la UI).
+const INFLUENCER_INCLUDED: Record<"free" | "influencer_basico" | "influencer_pro" | "influencer_elite", SaasSocialProvider[]> = {
   free: ["INSTAGRAM"],
   influencer_basico: ["INSTAGRAM"],
-  influencer_pro: ["INSTAGRAM", "TIKTOK"],
+  influencer_pro: ["INSTAGRAM", "FACEBOOK_PAGE"],
+  influencer_elite: ["INSTAGRAM", "FACEBOOK_PAGE", "LINKEDIN"],
 };
 
-// Empresa Básica (y free con accountType empresa) permiten elegir UNA red principal entre
+// Empresa Básico (y free con accountType empresa) permiten elegir UNA red principal entre
 // Instagram/LinkedIn: la que ya esté conectada se considera la elegida; si ninguna lo está
 // aún, ambas se muestran como disponibles hasta que se conecte la primera.
 const EMPRESA_PICK_ONE: SaasSocialProvider[] = ["INSTAGRAM", "LINKEDIN"];
@@ -40,14 +42,20 @@ export async function resolveNetworkEntitlements(input: {
 
   let included: Set<SaasSocialProvider>;
   if (accountType === "empresa") {
-    if (planCode === "empresa_pro") {
+    if (planCode === "empresa_elite") {
+      included = new Set<SaasSocialProvider>(["INSTAGRAM", "LINKEDIN", "FACEBOOK_PAGE"]);
+    } else if (planCode === "empresa_pro") {
       included = new Set<SaasSocialProvider>(["INSTAGRAM", "LINKEDIN"]);
     } else {
       const alreadyPicked = EMPRESA_PICK_ONE.find((provider) => connected.has(provider));
       included = alreadyPicked ? new Set([alreadyPicked]) : new Set(EMPRESA_PICK_ONE);
     }
   } else {
-    const key = planCode === "influencer_pro" ? "influencer_pro" : planCode === "influencer_basico" ? "influencer_basico" : "free";
+    const key =
+      planCode === "influencer_elite" ? "influencer_elite"
+      : planCode === "influencer_pro" ? "influencer_pro"
+      : planCode === "influencer_basico" ? "influencer_basico"
+      : "free";
     included = new Set(INFLUENCER_INCLUDED[key]);
   }
 

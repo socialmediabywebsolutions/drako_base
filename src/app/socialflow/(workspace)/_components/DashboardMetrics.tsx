@@ -32,7 +32,12 @@ function buildMetrics(
   summary: MetricsSource,
   auditScore: number | null,
 ): Metric[] {
-  if (planCode === "influencer_pro" || planCode === "empresa_pro") {
+  if (
+    planCode === "influencer_pro"
+    || planCode === "influencer_elite"
+    || planCode === "empresa_pro"
+    || planCode === "empresa_elite"
+  ) {
     return [
       { label: "Leads (30 días)",       value: analyticsValue(summary.analytics.last30Days.leadsGenerated),              hint: "Generados por tus publicaciones",            accent: "from-violet-500 to-purple-600" },
       { label: "Impresiones (30 días)", value: analyticsValue(summary.analytics.last30Days.impressions),                  hint: "Alcance total de tu contenido",              accent: "from-fuchsia-500 to-pink-600" },

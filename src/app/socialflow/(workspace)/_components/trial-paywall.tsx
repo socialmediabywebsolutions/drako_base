@@ -11,7 +11,7 @@ type Plan = {
   networks: string;
   postsPerNetwork: number;
   features: string[];
-  stripePlan: "influencer_basico" | "influencer_pro" | "empresa_basica" | "empresa_pro";
+  stripePlan: "influencer_basico" | "influencer_pro" | "influencer_elite" | "empresa_basico" | "empresa_pro" | "empresa_elite";
   highlight?: boolean;
 };
 
@@ -20,11 +20,11 @@ const INFLUENCER_PLANS: Plan[] = [
     id: "influencer_basico",
     name: "Influencer Básico",
     price: 49,
-    networks: "Instagram + TikTok",
-    postsPerNetwork: 30,
+    networks: "Instagram",
+    postsPerNetwork: 90,
     features: [
-      "Instagram + TikTok",
-      "30 posts/mes por red",
+      "Instagram",
+      "90 posts/mes por red (3 posts/día)",
       "IA para captions y hashtags",
       "Calendario de contenido",
       "Publicación automática",
@@ -34,29 +34,44 @@ const INFLUENCER_PLANS: Plan[] = [
   {
     id: "influencer_pro",
     name: "Influencer Pro",
+    price: 79,
+    networks: "Instagram + Facebook",
+    postsPerNetwork: 90,
+    features: [
+      "Instagram + Facebook",
+      "90 posts/mes por red (3 posts/día)",
+      "IA avanzada + análisis de imagen",
+      "Calendario de contenido",
+      "Analytics avanzados",
+    ],
+    stripePlan: "influencer_pro",
+  },
+  {
+    id: "influencer_elite",
+    name: "Influencer Elite",
     badge: "Más popular",
     price: 99,
-    networks: "Instagram + TikTok + Facebook + YouTube",
-    postsPerNetwork: 60,
+    networks: "Instagram + Facebook + LinkedIn",
+    postsPerNetwork: 90,
     features: [
-      "Instagram + TikTok + Facebook + YouTube",
-      "60 posts/mes por red",
+      "Instagram + Facebook + LinkedIn",
+      "90 posts/mes por red (3 posts/día)",
       "IA avanzada + análisis de imagen",
       "Detección de leads y comunidad",
       "Analytics avanzados",
     ],
-    stripePlan: "influencer_pro",
+    stripePlan: "influencer_elite",
     highlight: true,
   },
 ];
 
 const EMPRESA_PLANS: Plan[] = [
   {
-    id: "empresa_basica",
-    name: "Empresa Básica",
-    price: 79,
-    networks: "Instagram + Facebook + LinkedIn",
-    postsPerNetwork: 30,
+    id: "empresa_basico",
+    name: "Empresa Básico",
+    price: 99,
+    networks: "Instagram o LinkedIn (a elegir)",
+    postsPerNetwork: 90,
     features: [
       "Base de Conocimiento (web + PDFs + catálogos)",
       "CRM Social básico",
@@ -65,23 +80,36 @@ const EMPRESA_PLANS: Plan[] = [
       "Informe mensual PDF",
       "2 usuarios (dueño + community manager)",
     ],
-    stripePlan: "empresa_basica",
+    stripePlan: "empresa_basico",
   },
   {
     id: "empresa_pro",
     name: "Empresa Pro",
-    badge: "Más popular",
     price: 149,
-    networks: "Instagram + TikTok + Facebook + LinkedIn + Pinterest",
-    postsPerNetwork: 60,
+    networks: "Instagram + LinkedIn",
+    postsPerNetwork: 90,
     features: [
-      "Todo lo de Empresa Básica",
+      "Todo lo de Empresa Básico",
       "Gestión de reputación y alertas",
       "Generación de leads desde DMs",
       "Usuarios ilimitados con roles y permisos",
       "WhatsApp orquestador",
     ],
     stripePlan: "empresa_pro",
+  },
+  {
+    id: "empresa_elite",
+    name: "Empresa Elite",
+    badge: "Más popular",
+    price: 199,
+    networks: "Instagram + LinkedIn + Facebook",
+    postsPerNetwork: 90,
+    features: [
+      "Todo lo de Empresa Pro",
+      "Reportes avanzados con comparativa de competencia",
+      "Soporte prioritario dedicado",
+    ],
+    stripePlan: "empresa_elite",
     highlight: true,
   },
 ];
@@ -117,7 +145,7 @@ export default function TrialPaywall({ accountType }: { accountType: "influencer
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#030312]/92 px-4 py-12 backdrop-blur-sm">
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-5xl">
         {/* Header */}
         <div className="mb-10 text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-4 py-1.5">
@@ -135,7 +163,7 @@ export default function TrialPaywall({ accountType }: { accountType: "influencer
         </div>
 
         {/* Plan cards */}
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => (
             <div
               key={plan.id}

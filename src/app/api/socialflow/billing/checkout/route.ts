@@ -16,14 +16,18 @@ type RequestBody = {
 const VALID_CHECKOUT_PLANS = new Set<Exclude<SocialFlowPlanCode, "free">>([
   "influencer_basico",
   "influencer_pro",
-  "empresa_basica",
+  "influencer_elite",
+  "empresa_basico",
   "empresa_pro",
+  "empresa_elite",
 ]);
 
 function resolveCheckoutPlan(rawPlan: string | undefined): Exclude<SocialFlowPlanCode, "free"> | null {
   // "creator"/"pro" are legacy aliases kept for links/clients built before the influencer/empresa split.
   if (rawPlan === "creator") return "influencer_basico";
   if (rawPlan === "pro") return "influencer_pro";
+  // "empresa_basica" is a legacy alias kept from before the empresa_basica → empresa_basico rename.
+  if (rawPlan === "empresa_basica") return "empresa_basico";
   if (rawPlan && VALID_CHECKOUT_PLANS.has(rawPlan as Exclude<SocialFlowPlanCode, "free">)) {
     return rawPlan as Exclude<SocialFlowPlanCode, "free">;
   }
