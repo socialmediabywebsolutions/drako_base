@@ -28,8 +28,13 @@ export class ImageAnalysisAgent {
     const binding = env()?.AI;
     if (!binding?.run) return fallback;
 
-    const prompt = `Analiza esta imagen para una marca de ${profile.niche} llamada "${profile.brandIdentity}".
+    // profile.longDescription already carries the tenant's Knowledge Base content
+    // (merged in by SocialFlowOrchestrator.buildProfile) when one exists — reuse it
+    // here so LLaVA's read of the image is grounded in the brand, not just the niche.
+    const brandContext = profile.longDescription?.trim().slice(0, 1200) || "";
 
+    const prompt = `Analiza esta imagen para una marca de ${profile.niche} llamada "${profile.brandIdentity}".
+${brandContext ? `\nContexto de la marca (usa esto para que la descripción y los temas sugeridos encajen con su identidad real):\n${brandContext}\n` : ""}
 Responde ÚNICAMENTE con este JSON válido (sin markdown, sin texto extra):
 {
   "description": "descripción detallada de qué hay en la imagen en una oración",

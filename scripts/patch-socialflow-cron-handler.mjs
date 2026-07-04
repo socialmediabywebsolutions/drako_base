@@ -2,7 +2,8 @@
 /**
  * Post-build patch: injects a Cloudflare Workers `scheduled` handler into the
  * socialflows-standalone worker.js wrapper so that the [triggers] cron in
- * wrangler.workers.toml actually calls /api/cron/social every 5 minutes.
+ * wrangler.workers.toml actually calls /api/cron/social (scheduled publishing)
+ * and /api/cron/social/comments (Instagram comment auto-reply) every 5 minutes.
  *
  * The artifact matrix build generates a thin re-export wrapper:
  *   export { default } from "<path>";
@@ -58,10 +59,12 @@ export default {
       console.error("[Cron] CRON_SECRET not configured — skipping scheduled publish");
       return;
     }
-    await fetch(appUrl + "/api/cron/social", {
-      headers: { authorization: "Bearer " + secret },
-    }).catch(function(err) {
+    const authHeaders = { headers: { authorization: "Bearer " + secret } };
+    await fetch(appUrl + "/api/cron/social", authHeaders).catch(function(err) {
       console.error("[Cron] scheduled publish failed:", err.message);
+    });
+    await fetch(appUrl + "/api/cron/social/comments", authHeaders).catch(function(err) {
+      console.error("[Cron] scheduled comment auto-reply failed:", err.message);
     });
   },
 };
