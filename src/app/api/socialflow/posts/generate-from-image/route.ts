@@ -223,6 +223,7 @@ export async function POST(request: Request) {
       trends,
       openerIndex: (body.batchIndex ?? 0) % 10,
       openerCategory,
+      specificContext: imageAnalysis.specificContext,
     });
     const variant = generated.variants[0];
 
