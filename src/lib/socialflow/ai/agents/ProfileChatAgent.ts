@@ -105,6 +105,71 @@ type FieldSeed = ReturnType<typeof buildFieldSeed>;
 const NULLABLE_STRING_KEYS: Array<keyof FieldSeed> = ["ageRange", "gender", "growthGoalTimeline", "contentStyle"];
 const NULLABLE_NUMBER_KEYS: Array<keyof FieldSeed> = ["avgPrice", "growthGoalFollowers", "postingFrequency"];
 
+// The profile UI renders ageRange/contentStyle as <select> dropdowns (ProfileFormFields.tsx /
+// ProfileAiChat.tsx) that only highlight an option on an exact value match. The model is free to
+// describe these in its own words ("30 a 50 años", "profesional con colores oscuros"), so that
+// free text has to be normalized to one of the dropdown's literal values or the select just shows
+// "Sin especificar" even though the field was actually filled.
+const AGE_RANGE_VALUES = ["18-25", "25-35", "35-45", "45+"] as const;
+const CONTENT_STYLE_VALUES = ["minimalista", "colorido", "profesional", "casual", "lifestyle"] as const;
+
+const CONTENT_STYLE_KEYWORDS: Array<{ value: (typeof CONTENT_STYLE_VALUES)[number]; keywords: string[] }> = [
+  { value: "minimalista", keywords: ["minimalista", "minimal", "limpio", "simple", "sobrio"] },
+  { value: "colorido", keywords: ["colorido", "vibrante", "alegre", "vivo", "colores vivos", "llamativo"] },
+  { value: "profesional", keywords: ["profesional", "corporativo", "serio", "elegante", "formal", "oscuro", "sofisticado"] },
+  { value: "casual", keywords: ["casual", "informal", "relajado", "desenfadado"] },
+  { value: "lifestyle", keywords: ["lifestyle", "estilo de vida", "cotidiano", "auténtico"] },
+];
+
+type EnumMatch = { value: string | null; approximate: boolean };
+
+// Picks the bucket whose midpoint is closest to the range the user described, e.g. "30 a 50
+// años" (mid=40) lands on "35-45"; a bare "45+" style mention with no upper bound also resolves
+// correctly since a single number is treated as both ends of the range.
+function normalizeAgeRange(raw: string): EnumMatch {
+  const trimmed = raw.trim();
+  if (!trimmed) return { value: null, approximate: false };
+  if ((AGE_RANGE_VALUES as readonly string[]).includes(trimmed)) return { value: trimmed, approximate: false };
+
+  const numbers = (trimmed.match(/\d+/g) ?? []).map(Number);
+  if (!numbers.length) return { value: null, approximate: false };
+
+  const min = numbers[0];
+  const max = numbers.length > 1 ? numbers[numbers.length - 1] : min;
+  const mid = (min + max) / 2;
+  const bucket = mid < 25 ? "18-25" : mid < 35 ? "25-35" : mid < 45 ? "35-45" : "45+";
+  return { value: bucket, approximate: true };
+}
+
+function normalizeContentStyle(raw: string): EnumMatch {
+  const lower = raw.trim().toLowerCase();
+  if (!lower) return { value: null, approximate: false };
+  if ((CONTENT_STYLE_VALUES as readonly string[]).includes(lower)) return { value: lower, approximate: false };
+
+  for (const { value, keywords } of CONTENT_STYLE_KEYWORDS) {
+    if (keywords.some((kw) => lower.includes(kw))) return { value, approximate: true };
+  }
+  return { value: null, approximate: false };
+}
+
+// Mutates a copy of the seed in place, mapping ageRange/contentStyle free text to the dropdown's
+// literal values, and records a note whenever the mapping was a best-effort guess rather than an
+// exact match — the caller surfaces these notes in assistantMessage so the user can adjust them.
+function applyEnumNormalization(seed: FieldSeed, notes: string[]): FieldSeed {
+  const next = { ...seed };
+  if (next.ageRange) {
+    const { value, approximate } = normalizeAgeRange(next.ageRange);
+    next.ageRange = value ?? "";
+    if (value && approximate) notes.push(`rango de edad → "${value}"`);
+  }
+  if (next.contentStyle) {
+    const { value, approximate } = normalizeContentStyle(next.contentStyle);
+    next.contentStyle = value ?? "";
+    if (value && approximate) notes.push(`estilo visual → "${value}"`);
+  }
+  return next;
+}
+
 function toProfilePatch(seed: FieldSeed): Partial<ChannelProfile> {
   const patch: Record<string, unknown> = { ...seed };
   for (const key of NULLABLE_STRING_KEYS) {
@@ -177,6 +242,11 @@ export class ProfileChatAgent {
         `El usuario acaba de responder al bloque "${answeredBlock}" (${BLOCK_PROMPTS[answeredBlock]}) con:\n"${input.userMessage}"`,
         `Extrae en 'extractedFields' lo que dijo literalmente, y en 'proposedFields' (y 'proposedCompetitors' si el bloque es "competitors") tus sugerencias razonadas si la respuesta fue genérica o incompleta.`,
       );
+      if (answeredBlock === "goals") {
+        promptParts.push(
+          `Para 'ageRange' describe el rango de edad tal como lo dio el usuario (p.ej. "30 a 50 años"); para 'contentStyle' describe el estilo visual con tus propias palabras (p.ej. "profesional con colores oscuros") — no hace falta que uses ninguna lista fija, el mapeo a las opciones del desplegable se hace después.`,
+        );
+      }
     }
 
     if (nextBlock) {
@@ -206,11 +276,19 @@ export class ProfileChatAgent {
       }),
     );
 
+    const approximationNotes: string[] = [];
+    const normalizedExtracted = applyEnumNormalization(data.extractedFields, approximationNotes);
+    const normalizedProposed = applyEnumNormalization(data.proposedFields, approximationNotes);
+
+    const assistantMessage = approximationNotes.length
+      ? `${data.assistantMessage} (He interpretado ${approximationNotes.join(" y ")} como la opción más cercana a lo que describiste — ajústalo en el resumen si no encaja.)`
+      : data.assistantMessage;
+
     return {
-      assistantMessage: data.assistantMessage,
+      assistantMessage,
       blockKey: answeredBlock,
-      extractedFields: answeredBlock ? toProfilePatch(data.extractedFields) : {},
-      proposedFields: answeredBlock ? toProfilePatch(data.proposedFields) : {},
+      extractedFields: answeredBlock ? toProfilePatch(normalizedExtracted) : {},
+      proposedFields: answeredBlock ? toProfilePatch(normalizedProposed) : {},
       proposedCompetitors: answeredBlock === "competitors" ? data.proposedCompetitors ?? [] : [],
       done: !nextBlock,
     };
