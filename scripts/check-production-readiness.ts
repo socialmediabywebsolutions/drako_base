@@ -1513,7 +1513,7 @@ const DEFAULT_SOCIALFLOW_SMOKE_GUARD: SocialflowSmokeGuard = {
     "/api/socialflow/posts?saasId=socialflow",
   ],
   legacyGonePaths: ["/api/social/posts", "/api/social/linkedin/publish"],
-  placeholderGuardTokens: ["placeholder token detected", "auth route did not render the SocialFlow auth page"],
+  placeholderGuardTokens: ["placeholder token detected", "auth route did not render the Socialcors auth page"],
 };
 
 const DEFAULT_MENTORIA_SMOKE_GUARD: FileTokenGuard = {
