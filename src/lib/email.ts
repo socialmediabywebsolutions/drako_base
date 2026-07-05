@@ -15,7 +15,7 @@ function resolveEmailConfig(): { apiKey: string; from: string } | null {
   const from =
     (typeof bindings?.RESEND_FROM_EMAIL === "string" ? bindings.RESEND_FROM_EMAIL : null) ??
     (typeof process !== "undefined" ? process.env.RESEND_FROM_EMAIL : null) ??
-    "SocialFlow <noreply@socialflows.drako.systems>";
+    "Socialcors <noreply@socialflows.drako.systems>";
   return { apiKey, from };
 }
 

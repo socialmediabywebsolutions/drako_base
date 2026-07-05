@@ -18,7 +18,7 @@ describe("campamento-base socialflow platform", () => {
     expect(mod.SOCIALFLOW_PLATFORM_SAAS_ID).toBe("socialflow");
     expect(mod.socialFlowPlatformDefinition).toMatchObject({
       saasId: "socialflow",
-      displayName: "SocialFlow",
+      displayName: "Socialcors",
       supportsOperatorSurface: true,
     });
     expect(mod.socialFlowPlatformDefinition.automations).toEqual(

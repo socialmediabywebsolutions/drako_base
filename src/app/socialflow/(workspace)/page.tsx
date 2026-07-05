@@ -43,9 +43,9 @@ export default async function SocialFlowDashboardPage() {
     <div className="space-y-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-violet-400">SocialFlow</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-violet-400">Socialcors</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
-            {snapshot.profile.brandName ? `Hola, ${snapshot.profile.brandName}` : "Tu workspace de SocialFlow"}
+            {snapshot.profile.brandName ? `Hola, ${snapshot.profile.brandName}` : "Tu workspace de Socialcors"}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-white/45">
             Tu sistema operativo de marketing: inteligencia accionable, auditorías continuas y gestión de contenido en un solo lugar.

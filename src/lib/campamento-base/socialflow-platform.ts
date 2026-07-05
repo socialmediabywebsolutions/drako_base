@@ -12,22 +12,22 @@ function isSocialFlowSaas(saasId: string): boolean {
 
 export const socialFlowPlatformDefinition: SaasPlatformDefinition = defineSaasPlatform({
   saasId: SOCIALFLOW_PLATFORM_SAAS_ID,
-  displayName: "SocialFlow",
+  displayName: "Socialcors",
   category: "social",
   supportsOperatorSurface: true,
   matchesSaasId: isSocialFlowSaas,
   automations: [
     {
       automationKey: "socialflow.content_generation",
-      displayName: "SocialFlow content generation",
+      displayName: "Socialcors content generation",
       enabledByDefault: true,
-      description: "Generates and schedules SocialFlow campaigns for an owned SaaS workspace.",
+      description: "Generates and schedules Socialcors campaigns for an owned SaaS workspace.",
     },
     {
       automationKey: "socialflow.health_check",
-      displayName: "SocialFlow health check",
+      displayName: "Socialcors health check",
       enabledByDefault: true,
-      description: "Checks whether the SocialFlow automation setup is minimally healthy and executable.",
+      description: "Checks whether the Socialcors automation setup is minimally healthy and executable.",
     },
   ],
   integrations: [

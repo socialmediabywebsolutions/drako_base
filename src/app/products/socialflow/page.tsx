@@ -32,7 +32,7 @@ export default async function SocialFlowPage({ params }: { params?: Promise<{ lo
                       {content.hero.subtitle}
                    </p>
                    <div className="flex flex-col sm:flex-row gap-4 mb-12">
-                      <Link href="/contact?interest=Solicitar%20Piloto%20SocialFlow" className="btn-premium bg-cyan-600 text-white hover:bg-cyan-500 shadow-xl shadow-cyan-200/50 px-8 py-4 text-lg border-none">
+                      <Link href="/contact?interest=Solicitar%20Piloto%20Socialcors" className="btn-premium bg-cyan-600 text-white hover:bg-cyan-500 shadow-xl shadow-cyan-200/50 px-8 py-4 text-lg border-none">
                          {content.hero.cta}
                       </Link>
                       <Link href="/contact" className="btn-premium bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 px-8 py-4 text-lg">
@@ -393,7 +393,7 @@ export default async function SocialFlowPage({ params }: { params?: Promise<{ lo
                             <div className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Inversión</div>
                             <div className="text-2xl font-bold text-white mb-2">{content.pilot.price}</div>
                             <p className="text-sm text-slate-400 mb-8 text-center md:text-left">Sin compromiso de permanencia posterior.</p>
-                            <Link href="/contact?interest=Solicitar%20Piloto%20SocialFlow" className="w-full btn-premium bg-cyan-500 text-white hover:bg-cyan-400 border-none justify-center">
+                            <Link href="/contact?interest=Solicitar%20Piloto%20Socialcors" className="w-full btn-premium bg-cyan-500 text-white hover:bg-cyan-400 border-none justify-center">
                                 {content.pilot.cta}
                             </Link>
                         </div>
@@ -434,7 +434,7 @@ export default async function SocialFlowPage({ params }: { params?: Promise<{ lo
                  {content.ctaFinal.subtitle}
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-4">
-                 <Link href="/contact?interest=Solicitar%20Piloto%20SocialFlow" className="btn-premium bg-cyan-500 text-white hover:bg-cyan-400 border-none shadow-lg shadow-cyan-500/25 px-10 py-5 text-lg">
+                 <Link href="/contact?interest=Solicitar%20Piloto%20Socialcors" className="btn-premium bg-cyan-500 text-white hover:bg-cyan-400 border-none shadow-lg shadow-cyan-500/25 px-10 py-5 text-lg">
                     {content.ctaFinal.buttons[0]}
                  </Link>
                  <Link href="/contact" className="btn-premium bg-transparent text-white border border-slate-700 hover:border-white hover:bg-white/5 px-10 py-5 text-lg">

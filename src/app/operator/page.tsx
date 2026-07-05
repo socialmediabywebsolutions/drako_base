@@ -2336,7 +2336,7 @@ export default function OwnerPage() {
               <Button size="sm" variant="outline">Ir a packs/blueprint</Button>
             </Link>
             <Link href="/operator/socialflow">
-              <Button size="sm" variant="outline">Control SocialFlow</Button>
+              <Button size="sm" variant="outline">Control Socialcors</Button>
             </Link>
           </div>
         )}

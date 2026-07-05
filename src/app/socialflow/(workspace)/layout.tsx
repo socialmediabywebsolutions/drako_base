@@ -9,7 +9,7 @@ import TrialBanner from "./_components/trial-banner";
 import TrialPaywall from "./_components/trial-paywall";
 
 export const metadata: Metadata = {
-  title: "SocialFlow",
+  title: "Socialcors",
   description: "Sistema operativo de marketing con IA",
   robots: {
     index: false,

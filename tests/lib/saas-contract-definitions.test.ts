@@ -33,7 +33,7 @@ describe("saas contract definitions", () => {
   it("SocialFlow exposes a valid static platform definition", () => {
     expect(socialFlowPlatformDefinition).toMatchObject({
       saasId: "socialflow",
-      displayName: "SocialFlow",
+      displayName: "Socialcors",
       supportsOperatorSurface: true,
     });
     expect(socialFlowPlatformDefinition.automations).toEqual(

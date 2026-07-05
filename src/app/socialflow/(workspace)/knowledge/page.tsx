@@ -89,7 +89,7 @@ export default function KnowledgeBasePage() {
       {/* Header */}
       <div>
         <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
-          SocialFlow · Base de conocimiento
+          Socialcors · Base de conocimiento
         </p>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
           Mi Cerebro IA

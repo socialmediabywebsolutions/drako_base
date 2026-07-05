@@ -177,7 +177,7 @@ export default function CampamentoBasePanelPage() {
       setSocialflowMap(map);
     } catch (error) {
       setSocialflow(null);
-      setSocialflowError(error instanceof Error ? error.message : "No se pudo cargar SocialFlow.");
+      setSocialflowError(error instanceof Error ? error.message : "No se pudo cargar Socialcors.");
       setSocialflowMap({});
     } finally {
       setSocialflowLoading(false);
@@ -650,13 +650,13 @@ export default function CampamentoBasePanelPage() {
         <Card>
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold">SocialFlow</h2>
+              <h2 className="text-lg font-semibold">Socialcors</h2>
               {socialflowLoading && <span className="text-xs text-gray-500">Cargando…</span>}
             </div>
             {socialflowError ? (
               <div className="text-sm text-red-600">{socialflowError}</div>
             ) : !socialflow || typeof socialflow.total === "undefined" ? (
-              <EmptyState title="Sin datos" subtitle="No hay estado SocialFlow disponible." />
+              <EmptyState title="Sin datos" subtitle="No hay estado Socialcors disponible." />
             ) : (
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div>

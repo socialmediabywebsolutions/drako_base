@@ -5,8 +5,8 @@ import type { ReactNode } from "react";
 import { getCurrentSocialFlowSession } from "../../../lib/auth/session";
 
 export const metadata: Metadata = {
-  title: "SocialFlow Workspace",
-  description: "Canonical authenticated workspace for SocialFlow operators",
+  title: "Socialcors Workspace",
+  description: "Canonical authenticated workspace for Socialcors operators",
   robots: {
     index: false,
     follow: false,

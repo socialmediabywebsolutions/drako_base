@@ -12,7 +12,7 @@ export default function RuntimeBoundaryNotice({
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-violet-400">SocialFlow</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-violet-400">Socialcors</p>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">{title}</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">{description}</p>
       </div>

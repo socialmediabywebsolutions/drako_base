@@ -45,7 +45,7 @@ export default async function ProductsHubPage({ params }: { params?: Promise<{ l
                    <div key={i} className="group fade-in-up" style={{ animationDelay: `${i * 100}ms` }}>
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-cyan-200 transition-all duration-500">
                          <div className="order-2 lg:order-1">
-                            {item.name === 'SocialFlow' ? (
+                            {item.name === 'Socialcors' ? (
                                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-cyan-50 border border-cyan-100 rounded-full text-xs font-bold text-cyan-700 mb-6 uppercase tracking-wider">
                                     <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"/>
                                     Pilot Program Open
@@ -81,7 +81,7 @@ export default async function ProductsHubPage({ params }: { params?: Promise<{ l
                                href="/products/socialflow" 
                                className="inline-flex items-center gap-2 bg-slate-900 text-white hover:bg-cyan-600 px-8 py-4 rounded-lg font-bold transition-all duration-300 shadow-lg hover:shadow-cyan-500/30"
                             >
-                               Explorar SocialFlow
+                               Explorar Socialcors
                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                             </Link>
                          </div>
@@ -91,8 +91,8 @@ export default async function ProductsHubPage({ params }: { params?: Promise<{ l
                                {/* Abstract Product Preview - CSS Only */}
                                <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-slate-100" />
                                
-                               {/* SocialFlow Specific Preview */}
-                               {item.name === 'SocialFlow' && (
+                               {/* Socialcors Specific Preview */}
+                               {item.name === 'Socialcors' && (
                                   <div className="absolute inset-8 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col transform rotate-3 group-hover:rotate-0 transition-all duration-500">
                                      <div className="h-10 border-b border-slate-100 bg-slate-50/50 flex items-center px-4 gap-2">
                                         <div className="w-2.5 h-2.5 rounded-full bg-red-400"/>

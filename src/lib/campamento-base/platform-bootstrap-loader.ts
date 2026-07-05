@@ -157,7 +157,7 @@ export async function runPlatformBootstrap(
       saasId: normalizedSaasId,
       success: true,
       status: "READY",
-      message: "SocialFlow uses canonical Campamento Base platform definition in neutral loader.",
+      message: "Socialcors uses canonical Campamento Base platform definition in neutral loader.",
     };
   }
 

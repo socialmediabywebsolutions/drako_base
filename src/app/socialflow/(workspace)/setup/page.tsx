@@ -81,7 +81,7 @@ export default function SocialFlowSetupPage() {
     <div className="space-y-6">
       {/* Header */}
       <section className="rounded-2xl border border-white/10 bg-white/4 p-6">
-        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow Setup</p>
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Socialcors Setup</p>
         <h1 className="mt-2 text-2xl font-black tracking-tight text-white">Checklist minimo para piloto privado</h1>
         <p className="mt-2 max-w-3xl text-sm text-white/45">
           Antes de cualquier publicación real, confirma perfil, cuenta social y revisión humana. Este flujo no publica contenido automáticamente.

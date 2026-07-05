@@ -206,10 +206,10 @@ export default function SocialFlowOnboardingPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow Onboarding</div>
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Socialcors Onboarding</div>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Configura tu marca en 2 minutos</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
-          Con esta información, SocialFlow construye tu perfil de marca, audita tu presencia social y genera tu primer feed de inteligencia accionable.
+          Con esta información, Socialcors construye tu perfil de marca, audita tu presencia social y genera tu primer feed de inteligencia accionable.
         </p>
       </div>
 
@@ -239,7 +239,7 @@ export default function SocialFlowOnboardingPage() {
             </StepField>
             <StepField label="URL web">
               <input className={inputCls} value={data.websiteUrl} onChange={(e) => update("websiteUrl", e.target.value)} placeholder="https://tumarca.com" />
-              <p className="mt-1 text-xs text-white/30">SocialFlow analiza tu web para extraer descripción, productos y palabras clave automáticamente.</p>
+              <p className="mt-1 text-xs text-white/30">Socialcors analiza tu web para extraer descripción, productos y palabras clave automáticamente.</p>
             </StepField>
             <StepField label="Nicho / sector" required>
               <input className={inputCls} value={data.niche} onChange={(e) => update("niche", e.target.value)} placeholder="Clínicas estéticas, moda sostenible, software B2B..." />
@@ -333,7 +333,7 @@ export default function SocialFlowOnboardingPage() {
             <ReviewRow label="Redes activas" value={data.activeSocialNetworks.length ? data.activeSocialNetworks.join(", ") : "-"} />
             <ReviewRow label="Competidores" value={filledCompetitors.map((c) => c.name).join(", ")} />
             <p className="pt-2 text-xs text-white/35">
-              Al continuar, SocialFlow analizará tu web, guardará tu perfil de marca y generará tu primera auditoría social.
+              Al continuar, Socialcors analizará tu web, guardará tu perfil de marca y generará tu primera auditoría social.
             </p>
           </div>
         </div>

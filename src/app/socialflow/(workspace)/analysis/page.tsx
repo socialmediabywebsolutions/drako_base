@@ -126,7 +126,7 @@ export default async function SocialFlowAnalysisPage() {
   return (
     <div className="space-y-8">
       <div>
-        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow · Analytics</p>
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Socialcors · Analytics</p>
         <h1 className="mt-1.5 text-2xl font-black tracking-tight text-white">Análisis</h1>
         <p className="mt-1.5 max-w-xl text-sm text-white/50">
           Rendimiento de contenido, engagement y conversiones — últimos 30 días vs 7 días.

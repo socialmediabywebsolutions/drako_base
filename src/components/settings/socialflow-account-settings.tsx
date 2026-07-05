@@ -55,7 +55,7 @@ export default function SocialFlowAccountSettings({
   allowWorkspaceSwitch = false,
   logoutEndpoint,
   logoutRedirectTo = "/socialflow/auth",
-  sessionLabel = "sesión aislada SocialFlow",
+  sessionLabel = "sesión aislada Socialcors",
 }: SocialFlowAccountSettingsProps) {
   const router = useRouter();
   const [tenantId, setTenantId] = useState(user.currentTenantId);

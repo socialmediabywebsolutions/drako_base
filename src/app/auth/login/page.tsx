@@ -43,7 +43,7 @@ export default async function LegacyLoginPage({ searchParams }: LegacyAuthPagePr
           <h1 className="mt-4 text-3xl font-black">Local auth no longer falls back to Drakos.</h1>
           <p className="mt-4 text-sm leading-7 text-slate-300">
             Use an explicit host context in local development: `?__drako_host=bases.drako.systems`, `?__drako_host=drako.systems`,
-            `?__drako_host=mentorias.drako.systems` or an explicit SocialFlow host.
+            `?__drako_host=mentorias.drako.systems` or an explicit Socialcors host.
           </p>
         </div>
       </div>

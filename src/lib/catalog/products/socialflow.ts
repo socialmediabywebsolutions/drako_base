@@ -1,6 +1,6 @@
 import type { SaasBlueprintDraft } from "@/lib/factory/contracts/blueprints";
 
-export const SOCIALFLOW_NAME = "SocialFlow";
+export const SOCIALFLOW_NAME = "Socialcors";
 export const SOCIALFLOW_SLUG = "socialflows";
 export const SOCIALFLOW_DEFAULT_CUSTOM_DOMAIN = "app.socialflow.example.com";
 
@@ -36,12 +36,12 @@ export function buildSocialFlowBlueprintDraft(input?: {
     },
     aiProfile: {
       tier: "BALANCED",
-      notes: "SocialFlow pilot profile with lightweight content assistance and operator-safe defaults.",
+      notes: "Socialcors pilot profile with lightweight content assistance and operator-safe defaults.",
     },
     knowledgeSeeds: [
       {
         type: "BUSINESS_INFO",
-        description: "SocialFlow centraliza cuentas, calendario editorial, reglas operativas y analitica inicial para equipos pequenos.",
+        description: "Socialcors centraliza cuentas, calendario editorial, reglas operativas y analitica inicial para equipos pequenos.",
       },
       {
         type: "MARKETING_POSITIONING",

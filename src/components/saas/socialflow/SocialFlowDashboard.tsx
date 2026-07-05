@@ -96,8 +96,8 @@ export default async function SocialFlowDashboard({ tenantId, saasId, instance, 
           pilotNotes: [
             "This workspace can now demonstrate one real published output plus a canonical path to paid billing.",
             liveAnalyticsPosts > 0
-              ? "SocialFlow is ready for a first paying user, with live publishing and live LinkedIn engagement metrics on the same workspace loop."
-              : "SocialFlow is ready for a first paying user, even while broader channel coverage and analytics stay in MVP mode.",
+              ? "Socialcors is ready for a first paying user, with live publishing and live LinkedIn engagement metrics on the same workspace loop."
+              : "Socialcors is ready for a first paying user, even while broader channel coverage and analytics stay in MVP mode.",
           ],
         },
       }

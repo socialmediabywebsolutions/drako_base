@@ -19,10 +19,10 @@ export default async function SocialFlowAccountSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">SocialFlow account</div>
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">Socialcors account</div>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Product identity and active workspace</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          SocialFlow now resolves this workspace from the product auth boundary only, without using Campamento Base session state.
+          Socialcors now resolves this workspace from the product auth boundary only, without using Campamento Base session state.
         </p>
       </div>
       <SocialFlowAccountSettings
@@ -33,7 +33,7 @@ export default async function SocialFlowAccountSettingsPage() {
           role: mapRole(session.role),
         }}
         workspace={{
-          tenantName: session.name ?? "SocialFlow workspace",
+          tenantName: session.name ?? "Socialcors workspace",
           tenantSlug: "socialflow",
           plan: "STARTER",
           billingStatus: "isolated",
@@ -41,7 +41,7 @@ export default async function SocialFlowAccountSettingsPage() {
         }}
         memberships={[{
           tenantId: session.tenantId,
-          tenantName: session.name ?? "SocialFlow workspace",
+          tenantName: session.name ?? "Socialcors workspace",
           tenantSlug: "socialflow",
           role: mapRole(session.role),
         }]}

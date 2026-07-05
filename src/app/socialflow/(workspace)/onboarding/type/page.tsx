@@ -60,7 +60,7 @@ export default function OnboardingTypePage() {
     <div className="py-6">
       {/* Header */}
       <div className="mb-1 text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
-        SocialFlow · Tu perfil
+        Socialcors · Tu perfil
       </div>
       <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
         ¿Quién eres tú?

@@ -139,7 +139,7 @@ export async function getCurrentTenant(): Promise<CurrentWorkspaceTenant | null>
           {
             id: "local_demo_socialflow",
             slug: "socialflow",
-            name: "SocialFlow",
+            name: "Socialcors",
             status: "active",
           },
         ],

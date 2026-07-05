@@ -33,7 +33,7 @@ const SOCIALFLOW_PLANS: Record<SocialFlowPlanCode, SocialFlowPlanDefinition> = {
     code: "free",
     label: "Free",
     priceEur: null,
-    description: "Get started with SocialFlow at no cost.",
+    description: "Get started with Socialcors at no cost.",
     features: ["1 connected channel", "Manual post scheduling", "Basic analytics"],
     accountType: null,
     stripePriceId: null,

@@ -112,10 +112,10 @@ export default function SocialFlowProfilePage() {
     <div className="space-y-8">
       {/* Header */}
       <div className="rounded-2xl border border-white/10 bg-white/4 p-6">
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow · Perfil</div>
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Socialcors · Perfil</div>
         <h1 className="mt-2 text-2xl font-black tracking-tight text-white">Perfil del canal</h1>
         <p className="mb-5 mt-2 text-sm text-white/45">
-          Este perfil entrena a los agentes IA de SocialFlow. Rellénalo con información real y estratégica sobre tu marca, audiencia y ofertas. La IA usará esto como su base de conocimiento principal.
+          Este perfil entrena a los agentes IA de Socialcors. Rellénalo con información real y estratégica sobre tu marca, audiencia y ofertas. La IA usará esto como su base de conocimiento principal.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <button

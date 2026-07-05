@@ -81,7 +81,7 @@ export default function CampoBaseSocialAutomationControl() {
       const data = (await response.json().catch(() => null)) as ControlResponse | null;
 
       if (!response.ok) {
-        throw new Error(data?.message ?? "No se pudo cargar la salud de SocialFlow.");
+        throw new Error(data?.message ?? "No se pudo cargar la salud de Socialcors.");
       }
 
       if (data?.status) {
@@ -90,7 +90,7 @@ export default function CampoBaseSocialAutomationControl() {
       setObservability(data?.observability ?? null);
     } catch (loadError) {
       setObservability(null);
-      setError(loadError instanceof Error ? loadError.message : "No se pudo cargar la salud de SocialFlow.");
+      setError(loadError instanceof Error ? loadError.message : "No se pudo cargar la salud de Socialcors.");
     } finally {
       setObservabilityLoading(false);
     }
@@ -105,7 +105,7 @@ export default function CampoBaseSocialAutomationControl() {
       const data = (await response.json().catch(() => null)) as ControlResponse | null;
 
       if (!response.ok || !data?.status) {
-        throw new Error(data?.message ?? "No se pudo cargar el control de SocialFlow.");
+        throw new Error(data?.message ?? "No se pudo cargar el control de Socialcors.");
       }
 
       setStatus(data.status);
@@ -120,7 +120,7 @@ export default function CampoBaseSocialAutomationControl() {
       setStatus(null);
       setSelectedScope(null);
       setObservability(null);
-      setError(loadError instanceof Error ? loadError.message : "No se pudo cargar el control de SocialFlow.");
+      setError(loadError instanceof Error ? loadError.message : "No se pudo cargar el control de Socialcors.");
     } finally {
       setLoading(false);
     }
@@ -348,7 +348,7 @@ export default function CampoBaseSocialAutomationControl() {
 
       <Card
         tone={observability?.health.status === "healthy" ? "success" : observability ? "danger" : "default"}
-        title="Salud operativa SocialFlow"
+        title="Salud operativa Socialcors"
         subtitle="Contrato operator de observabilidad"
         right={selectedScope ? `${selectedScope.tenantId} / ${selectedScope.saasId}` : "Sin SaaS seleccionado"}
       >
@@ -357,7 +357,7 @@ export default function CampoBaseSocialAutomationControl() {
         ) : !selectedScope ? (
           <EmptyState
             title="Selecciona un SaaS"
-            subtitle="La salud operativa se consulta por tenant y SaaS desde el contrato público de SocialFlow."
+            subtitle="La salud operativa se consulta por tenant y SaaS desde el contrato público de Socialcors."
           />
         ) : !observability ? (
           <EmptyState

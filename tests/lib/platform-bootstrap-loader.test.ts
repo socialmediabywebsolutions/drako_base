@@ -17,7 +17,7 @@ describe("platform bootstrap loader", () => {
     expect(definitions).toEqual(expect.arrayContaining([
       expect.objectContaining({
         saasId: "socialflow",
-        name: "SocialFlow",
+        name: "Socialcors",
         status: "READY",
       }),
       expect.objectContaining({
@@ -45,7 +45,7 @@ describe("platform bootstrap loader", () => {
     expect(freshDefinitions).toHaveLength(3);
     expect(freshRegistry.definitions[0]).toMatchObject({
       saasId: "socialflow",
-      name: "SocialFlow",
+      name: "Socialcors",
       status: "READY",
     });
   });
@@ -56,11 +56,11 @@ describe("platform bootstrap loader", () => {
 
     expect(exact).toMatchObject({
       saasId: "socialflow",
-      name: "SocialFlow",
+      name: "Socialcors",
     });
     expect(matched).toMatchObject({
       saasId: "socialflow",
-      name: "SocialFlow",
+      name: "Socialcors",
     });
   });
 

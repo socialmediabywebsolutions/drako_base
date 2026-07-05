@@ -23,10 +23,10 @@ function resetEmailHtml(resetUrl: string): string {
     <tr><td align="center" style="padding:40px 16px;">
       <table width="480" cellpadding="0" cellspacing="0" style="background:#fffdf7;border:1px solid #d8decd;border-radius:8px;padding:40px;">
         <tr><td>
-          <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:#75806f;">SocialFlow</p>
+          <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:#75806f;">Socialcors</p>
           <h2 style="margin:0 0 20px;font-size:22px;color:#153b39;font-weight:700;">Reset your password</h2>
           <p style="margin:0 0 28px;font-size:15px;line-height:1.6;color:#374151;">
-            We received a request to reset the password for your SocialFlow account.
+            We received a request to reset the password for your Socialcors account.
             Click the button below to choose a new one. This link is valid for <strong>1 hour</strong>.
           </p>
           <a href="${resetUrl}"
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
   const resetUrl = `${SOCIALFLOW_ORIGIN}/socialflow/auth/reset-password?token=${rawToken}`;
   await sendEmail({
     to: user.email,
-    subject: "Reset your SocialFlow password",
+    subject: "Reset your Socialcors password",
     html: resetEmailHtml(resetUrl),
   });
 

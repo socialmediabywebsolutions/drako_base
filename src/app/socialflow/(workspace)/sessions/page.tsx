@@ -85,7 +85,7 @@ export default function SocialFlowSessionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow · Cuenta</p>
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Socialcors · Cuenta</p>
         <h1 className="mt-1.5 text-2xl font-black tracking-tight text-white">Sesiones activas</h1>
         <p className="mt-1.5 max-w-xl text-sm text-white/50">
           Sesiones abiertas en tu cuenta. Cierra cualquiera que no reconozcas.

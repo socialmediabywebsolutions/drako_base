@@ -324,9 +324,9 @@ export default function LandingClient() {
           {/* Logo */}
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 shadow-lg shadow-violet-500/30">
-              <span className="text-xs font-black text-white">SF</span>
+              <span className="text-xs font-black text-white">SC</span>
             </div>
-            <span className="text-lg font-black tracking-tight text-white">SocialFlow</span>
+            <span className="text-lg font-black tracking-tight text-white">Socialcors</span>
           </div>
           {/* Actions */}
           <div className="flex items-center gap-3">
@@ -646,14 +646,14 @@ export default function LandingClient() {
         </div>
       </section>
 
-      {/* ── POR QUÉ SOCIALFLOW ────────────────────────────────────────────── */}
+      {/* ── POR QUÉ SOCIALCORS ────────────────────────────────────────────── */}
       <section className="border-t border-white/5 py-14">
         <div className="mx-auto max-w-5xl px-6">
           <p className="text-center text-[11px] font-black uppercase tracking-[0.22em] text-violet-400">
-            Por qué SocialFlow
+            Por qué Socialcors
           </p>
           <h2 className="mt-3 text-center text-3xl font-black tracking-tight text-white md:text-4xl">
-            Mientras otros programan posts, SocialFlow hace crecer tu negocio.
+            Mientras otros programan posts, Socialcors hace crecer tu negocio.
           </h2>
 
           <div className="mt-12 grid gap-6 md:grid-cols-2">
@@ -680,11 +680,11 @@ export default function LandingClient() {
               </ul>
             </div>
 
-            {/* SocialFlow */}
+            {/* Socialcors */}
             <div className="rounded-2xl border-2 border-violet-500/40 bg-gradient-to-br from-violet-950/40 via-violet-900/15 to-cyan-950/20 p-7 shadow-[0_0_30px_rgba(139,92,246,0.15)] ring-1 ring-violet-500/10 transition-all duration-300 hover:-translate-y-1 hover:border-violet-400/60 hover:shadow-[0_0_50px_rgba(139,92,246,0.25)]">
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-violet-500/50 bg-violet-500/20 px-4 py-2 shadow-[0_0_16px_rgba(139,92,246,0.25)]">
                 <span className="text-sm">✅</span>
-                <span className="text-xs font-bold text-violet-400">SocialFlow</span>
+                <span className="text-xs font-bold text-violet-400">Socialcors</span>
               </div>
               <ul className="space-y-3">
                 {[
@@ -708,7 +708,7 @@ export default function LandingClient() {
             <p className="text-xl font-black text-white md:text-2xl">
               Mientras Hootsuite programa,{" "}
               <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
-                SocialFlow piensa.
+                Socialcors piensa.
               </span>
             </p>
           </div>
@@ -750,9 +750,9 @@ export default function LandingClient() {
             {/* Logo */}
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-violet-500 to-fuchsia-600">
-                <span className="text-[10px] font-black text-white">SF</span>
+                <span className="text-[10px] font-black text-white">SC</span>
               </div>
-              <span className="text-base font-black text-white">SocialFlow</span>
+              <span className="text-base font-black text-white">Socialcors</span>
             </div>
             {/* Links */}
             <div className="flex items-center gap-5">
@@ -768,7 +768,7 @@ export default function LandingClient() {
             </div>
             {/* Copyright */}
             <p className="text-xs text-white/25">
-              © 2025 SocialFlow by Drako. Todos los derechos reservados.
+              © 2025 Socialcors by Drako. Todos los derechos reservados.
             </p>
           </div>
         </div>

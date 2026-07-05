@@ -118,7 +118,7 @@ export default function SocialFlowAuditPage() {
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow Audit</div>
+          <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Socialcors Audit</div>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Auditoría de presencia social</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">{audit.summary}</p>
         </div>

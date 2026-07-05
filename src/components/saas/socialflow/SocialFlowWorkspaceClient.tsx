@@ -381,7 +381,7 @@ function createEmptyRuleForm(): RuleFormState {
   return {
     id: null,
     title: "Auto-publish when scheduled",
-    description: "Publish scheduled SocialFlow content automatically when due.",
+    description: "Publish scheduled Socialcors content automatically when due.",
     providers: ["INSTAGRAM", "TWITTER_X", "LINKEDIN"],
     enabled: true,
   };
@@ -1353,7 +1353,7 @@ export default function SocialFlowWorkspaceClient({
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-3">
               <span className="rounded-full border border-sky-200 bg-white px-3 py-1 text-[11px] font-black uppercase tracking-[0.24em] text-sky-700">
-                SocialFlow
+                Socialcors
               </span>
               <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.24em] text-green-700">
                 {data.summary.presentation.demoStage}
@@ -1912,7 +1912,7 @@ export default function SocialFlowWorkspaceClient({
           <p className="text-sm text-slate-700">
             Store per-channel niche, audience, tone, and references so operators stay consistent while scheduling posts.
           </p>
-          <p className="text-sm text-slate-600">Use this as the single source of editorial context for SocialFlow.</p>
+          <p className="text-sm text-slate-600">Use this as the single source of editorial context for Socialcors.</p>
         </Card>
       </section>
 
@@ -1959,7 +1959,7 @@ export default function SocialFlowWorkspaceClient({
               <div className="text-[11px] font-black uppercase tracking-[0.22em]">Commercial activation</div>
               <div className="mt-2 text-2xl font-black">{commercialHeadline}</div>
               <p className="mt-2 max-w-3xl text-sm leading-6">
-                Billing runs on the canonical workspace subscription path. SocialFlow can now move a qualified pilot into a real commercial step without pretending that every channel capability is already live.
+                Billing runs on the canonical workspace subscription path. Socialcors can now move a qualified pilot into a real commercial step without pretending that every channel capability is already live.
               </p>
             </div>
             <div className="rounded-full border border-current/20 bg-white/70 px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em]">
@@ -2000,7 +2000,7 @@ export default function SocialFlowWorkspaceClient({
               <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">What this proves</div>
               <ul className="mt-3 space-y-2">
                 <li className="flex gap-2"><span className="font-black text-sky-600">•</span><span>The billing route is real and canonical for the tenant workspace.</span></li>
-                <li className="flex gap-2"><span className="font-black text-sky-600">•</span><span>SocialFlow can move a qualified workspace from pilot to paid without leaving the product.</span></li>
+                <li className="flex gap-2"><span className="font-black text-sky-600">•</span><span>Socialcors can move a qualified workspace from pilot to paid without leaving the product.</span></li>
                 <li className="flex gap-2"><span className="font-black text-sky-600">•</span><span>Simulated publishing and placeholder analytics remain explicitly marked instead of being sold as live.</span></li>
               </ul>
             </div>
@@ -2086,7 +2086,7 @@ export default function SocialFlowWorkspaceClient({
                   <TextInput
                     value={accountForm.displayName}
                     onChange={(event) => setAccountForm((current) => ({ ...current, displayName: event.target.value }))}
-                    placeholder="SocialFlow HQ"
+                    placeholder="Socialcors HQ"
                   />
                 </Field>
               </div>
@@ -2212,7 +2212,7 @@ export default function SocialFlowWorkspaceClient({
                   rows={3}
                   value={ruleForm.description}
                   onChange={(event) => setRuleForm((current) => ({ ...current, description: event.target.value }))}
-                  placeholder="Publish scheduled SocialFlow content automatically when due."
+                  placeholder="Publish scheduled Socialcors content automatically when due."
                 />
               </Field>
               <div className="space-y-2">
@@ -2548,7 +2548,7 @@ export default function SocialFlowWorkspaceClient({
                   rows={4}
                   value={postForm.body}
                   onChange={(event) => setPostForm((current) => ({ ...current, body: event.target.value }))}
-                  placeholder="SocialFlow is now running on the canonical Drako pipeline."
+                  placeholder="Socialcors is now running on the canonical Drako pipeline."
                 />
               </Field>
               <div className="grid gap-4 md:grid-cols-2">

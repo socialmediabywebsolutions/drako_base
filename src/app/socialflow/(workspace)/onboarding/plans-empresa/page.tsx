@@ -101,7 +101,7 @@ export default function OnboardingPlansEmpresaPage() {
     <div className="py-6">
       {/* Header */}
       <div className="mb-1 text-[11px] font-black uppercase tracking-[0.24em] text-blue-400">
-        SocialFlow · Elige tu plan
+        Socialcors · Elige tu plan
       </div>
       <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
         Empieza gratis, crece sin límites

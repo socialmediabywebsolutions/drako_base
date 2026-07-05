@@ -144,7 +144,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
                       <div className="p-8 md:p-12 flex flex-col justify-center relative z-10">
                          <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-cyan-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                          
-                         {item.name === 'SocialFlow' ? (
+                         {item.name === 'Socialcors' ? (
                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-bold tracking-widest uppercase mb-6 w-fit">
                                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"/>
                                 Pilot Program Open

@@ -15,10 +15,10 @@ export default async function SocialFlowAccountSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow · Cuenta</div>
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Socialcors · Cuenta</div>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Identidad y workspace activo</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
-          SocialFlow resuelve este workspace directamente desde el perímetro de autenticación del producto, sin depender del estado de sesión de Campamento Base.
+          Socialcors resuelve este workspace directamente desde el perímetro de autenticación del producto, sin depender del estado de sesión de Campamento Base.
         </p>
       </div>
       <SocialFlowAccountSettings
@@ -29,7 +29,7 @@ export default async function SocialFlowAccountSettingsPage() {
           role: mapRole(session.role),
         }}
         workspace={{
-          tenantName: session.name ?? "SocialFlow workspace",
+          tenantName: session.name ?? "Socialcors workspace",
           tenantSlug: "socialflow",
           plan: "STARTER",
           billingStatus: "isolated",
@@ -37,7 +37,7 @@ export default async function SocialFlowAccountSettingsPage() {
         }}
         memberships={[{
           tenantId: session.tenantId,
-          tenantName: session.name ?? "SocialFlow workspace",
+          tenantName: session.name ?? "Socialcors workspace",
           tenantSlug: "socialflow",
           role: mapRole(session.role),
         }]}

@@ -30,7 +30,7 @@ export default async function SocialFlowPlanPage() {
     <div className="space-y-6">
       <div>
         <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
-          SocialFlow · Plan editorial
+          Socialcors · Plan editorial
         </div>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
           Calendario

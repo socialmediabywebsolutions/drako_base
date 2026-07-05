@@ -14,7 +14,7 @@ export default async function SocialFlowWorkspaceLayout({ children }: { children
       workspaceKind="socialflow_workspace"
       contentWidth="standard"
       workspaceSummary={{
-        tenantName: session.name ?? "SocialFlow workspace",
+        tenantName: session.name ?? "Socialcors workspace",
         tenantSlug: "socialflow",
         plan: "STARTER",
         billingStatus: "isolated",

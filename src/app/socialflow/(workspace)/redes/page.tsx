@@ -60,7 +60,7 @@ export default async function SocialFlowRedesPage() {
           connectPath: null,
           comingSoon: true,
           entitlement: entitlements.included.has("TIKTOK") ? "included" : "extra",
-          description: "Publica directamente en TikTok desde SocialFlow.",
+          description: "Publica directamente en TikTok desde Socialcors.",
         },
         {
           key: "YOUTUBE",
@@ -83,7 +83,7 @@ export default async function SocialFlowRedesPage() {
           connectPath: null,
           comingSoon: true,
           entitlement: entitlements.included.has("TIKTOK") ? "included" : "extra",
-          description: "Publica directamente en TikTok desde SocialFlow.",
+          description: "Publica directamente en TikTok desde Socialcors.",
         },
         {
           key: "FACEBOOK_PAGE",
@@ -104,7 +104,7 @@ export default async function SocialFlowRedesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow · Mis Redes</div>
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Socialcors · Mis Redes</div>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Mis Redes</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
           Conecta y gestiona las redes sociales disponibles para tu plan.

@@ -30,14 +30,14 @@ export type SocialFlowAutomationKey =
 
 const SOCIALFLOW_AUTOMATION_DEFINITIONS = {
   [SOCIALFLOW_CONTENT_GENERATION_KEY]: {
-    displayName: "SocialFlow content generation",
-    description: "Generates and schedules SocialFlow campaigns for an owned SaaS workspace.",
+    displayName: "Socialcors content generation",
+    description: "Generates and schedules Socialcors campaigns for an owned SaaS workspace.",
     scheduleMode: "scheduled" as const,
     frequencyUnit: "week" as const,
   },
   [SOCIALFLOW_HEALTH_CHECK_KEY]: {
-    displayName: "SocialFlow health check",
-    description: "Checks whether the SocialFlow automation setup is minimally healthy and executable.",
+    displayName: "Socialcors health check",
+    description: "Checks whether the Socialcors automation setup is minimally healthy and executable.",
     scheduleMode: "manual" as const,
     frequencyUnit: "day" as const,
   },
@@ -812,7 +812,7 @@ export async function getCampoBaseSocialFlowObservability(
         status: "unknown",
         freshnessStatus: "unknown",
         schedulerStatus: "needs_attention",
-        recommendation: "SocialFlow observability snapshot is temporarily unavailable from control-plane API.",
+        recommendation: "Socialcors observability snapshot is temporarily unavailable from control-plane API.",
         openIncidentsCount: 0,
         latestActivityAt: null,
         latestSnapshotAt: null,

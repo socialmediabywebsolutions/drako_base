@@ -17,10 +17,10 @@ export default async function SocialFlowBillingSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">SocialFlow · Facturación</div>
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Socialcors · Facturación</div>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Plan y facturación</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
-          Gestiona tu suscripción de SocialFlow y actualiza tu plan cuando estés listo.
+          Gestiona tu suscripción de Socialcors y actualiza tu plan cuando estés listo.
         </p>
       </div>
 

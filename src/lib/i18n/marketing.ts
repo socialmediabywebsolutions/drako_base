@@ -80,12 +80,12 @@ export function getMarketingCopy(locale: MarketingLocale) {
       subtitle: "Soluciones operativas diseñadas para el mundo real.",
       intro: "Nuestros productos no son experimentos. Son plataformas robustas que operan hoy en empresas reales, gestionando miles de interacciones y decisiones críticas. Cada uno nace de una necesidad específica y evoluciona con el uso diario.",
       socialFlow: {
-        name: "SocialFlow",
+        name: "Socialcors",
         tagline: "El sistema operativo para la comunicación de marca.",
-        badge: "SocialFlow v1.0",
+        badge: "Socialcors v1.0",
         hero: {
             title: "Tu marca no debería depender de quién está de turno hoy.",
-            subtitle: "SocialFlow es el sistema operativo que estandariza, protege y escala la comunicación digital de tu empresa. Deja de apagar fuegos y empieza a construir activos.",
+            subtitle: "Socialcors es el sistema operativo que estandariza, protege y escala la comunicación digital de tu empresa. Deja de apagar fuegos y empieza a construir activos.",
             cta: "Solicitar piloto",
             ctaSecondary: "Ver vídeo de producto", // Less prominent, actionable
             trustedBy: "Operando críticas en tiempo real para:"
@@ -112,7 +112,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
             ]
         },
         realFunctionality: {
-            title: "Qué hace SocialFlow en la práctica",
+            title: "Qué hace Socialcors en la práctica",
             subtitle: "Funcionalidad real para problemas diarios. Sin humo.",
             features: [
                 {
@@ -138,7 +138,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
             ]
         },
         icp: {
-            title: "Para quién es SocialFlow",
+            title: "Para quién es Socialcors",
             for: [
                 "Equipos de marketing con alto volumen de interacción diaria.",
                 "Empresas reguladas (Fintech, Salud, Legal) donde el error es costoso.",
@@ -176,7 +176,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
             features: [
                 {
                     title: "Guardianes de Marca IA",
-                    desc: "Configuramos modelos de lenguaje con tu manual de estilo. SocialFlow revisa cada borrador antes de que salga, sugiriendo correcciones de tono, gramática y cumplimiento normativo en tiempo real.",
+                    desc: "Configuramos modelos de lenguaje con tu manual de estilo. Socialcors revisa cada borrador antes de que salga, sugiriendo correcciones de tono, gramática y cumplimiento normativo en tiempo real.",
                     icon: "🛡️"
                 },
                 {
@@ -202,12 +202,12 @@ export function getMarketingCopy(locale: MarketingLocale) {
                 {
                     num: "01",
                     title: "Conexión y Calibración",
-                    text: "Conectamos tus canales y alimentamos el modelo con tu histórico de mejores publicaciones y guías de estilo. En 48 horas, SocialFlow 'habla' como tu mejor copywriter."
+                    text: "Conectamos tus canales y alimentamos el modelo con tu histórico de mejores publicaciones y guías de estilo. En 48 horas, Socialcors 'habla' como tu mejor copywriter."
                 },
                 {
                     num: "02",
                     title: "Adopción del Equipo",
-                    text: "Tu equipo sigue trabajando donde prefiere (Slack, Teams o nuestra interfaz). SocialFlow actúa como una capa invisible que asiste, no que interrumpe."
+                    text: "Tu equipo sigue trabajando donde prefiere (Slack, Teams o nuestra interfaz). Socialcors actúa como una capa invisible que asiste, no que interrumpe."
                 },
                 {
                     num: "03",
@@ -230,21 +230,21 @@ export function getMarketingCopy(locale: MarketingLocale) {
             title: "Caso Real: FinTech Logística",
             subtitle: "Cómo una empresa B2B escaló su soporte en Twitter sin duplicar equipo.",
             before: {
-                title: "Antes de SocialFlow",
+                title: "Antes de Socialcors",
                 items: ["4 horas de tiempo de respuesta promedio", "Tono inconsistente entre agentes", "Sin datos de motivos de contacto"]
             },
             after: {
-                title: "Con SocialFlow",
+                title: "Con Socialcors",
                 items: ["15 minutos de tiempo de respuesta", "Tono unificado y profesional", "Detección automática de incidencias técnicas"]
             },
-            quote: "SocialFlow nos permitió triplicar el volumen de interacciones manteniendo el mismo equipo. Es la única herramienta que se ha pagado sola el primer mes."
+            quote: "Socialcors nos permitió triplicar el volumen de interacciones manteniendo el mismo equipo. Es la única herramienta que se ha pagado sola el primer mes."
         },
         faq: {
             title: "Preguntas Frecuentes",
             items: [
                 {
-                    q: "¿SocialFlow reemplaza a mi equipo de marketing?",
-                    a: "No. SocialFlow elimina el trabajo robótico (programar, revisar erratas, etiquetar tickets) para que tu equipo se dedique a la estrategia, la creatividad y las relaciones complejas. Es un exoesqueleto, no un sustituto."
+                    q: "¿Socialcors reemplaza a mi equipo de marketing?",
+                    a: "No. Socialcors elimina el trabajo robótico (programar, revisar erratas, etiquetar tickets) para que tu equipo se dedique a la estrategia, la creatividad y las relaciones complejas. Es un exoesqueleto, no un sustituto."
                 },
                 {
                     q: "¿Cuánto tarda en aprender mi tono de voz?",
@@ -256,7 +256,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
                 },
                 {
                     q: "¿Puedo usarlo para múltiples marcas?",
-                    a: "Sí. SocialFlow es multi-tenant nativo. Puedes gestionar distintos tonos de voz, equipos y permisos para cada marca o región sin que se mezclen los datos ni los estilos."
+                    a: "Sí. Socialcors es multi-tenant nativo. Puedes gestionar distintos tonos de voz, equipos y permisos para cada marca o región sin que se mezclen los datos ni los estilos."
                 }
             ]
         },
@@ -281,7 +281,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
       },
       items: [
         {
-          name: "SocialFlow",
+          name: "Socialcors",
           tagline: "El sistema operativo para la comunicación de marca.",
           problem: "Gestión manual caótica, errores de tono y respuestas lentas que dañan la marca.",
           solution: "Un entorno unificado donde la IA redacta, supervisa y protege cada interacción pública de tu empresa.",
@@ -378,7 +378,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
         role: "Tu rol o cargo",
         interest: "¿Qué estás buscando?",
         interests: [
-            "Solicitar Piloto SocialFlow", 
+            "Solicitar Piloto Socialcors",
             "Consultoría de Operaciones", 
             "Explorar otros productos", 
             "Hablar con ingeniería"

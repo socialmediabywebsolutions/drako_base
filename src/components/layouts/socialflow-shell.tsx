@@ -80,12 +80,12 @@ export default function SocialFlowShell({
     >
       <aside className="hidden w-[292px] flex-shrink-0 border-r border-slate-200 bg-white/90 p-6 backdrop-blur xl:flex xl:flex-col">
         <div>
-          <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">SocialFlow</div>
+          <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">Socialcors</div>
           <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">
             Product workspace shell
           </h2>
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            This shell stays inside the SocialFlow product boundary for auth, team access, billing status
+            This shell stays inside the Socialcors product boundary for auth, team access, billing status
             and workspace navigation.
           </p>
         </div>
@@ -125,7 +125,7 @@ export default function SocialFlowShell({
                   </h1>
                 </div>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                  SocialFlow signs users in on the product host and keeps product navigation inside the
+                  Socialcors signs users in on the product host and keeps product navigation inside the
                   canonical `/socialflow/*` surface.
                 </p>
               </div>

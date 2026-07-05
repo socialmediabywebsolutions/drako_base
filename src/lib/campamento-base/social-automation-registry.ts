@@ -29,8 +29,8 @@ export type UpsertSocialAutomationRegistryInput = {
 };
 
 const SOCIAL_AUTOMATION_REGISTRY_KEY = "socialflow.content_generation";
-const SOCIAL_AUTOMATION_DISPLAY_NAME = "SocialFlow content generation";
-const SOCIAL_AUTOMATION_DESCRIPTION = "Generates and schedules SocialFlow campaigns for an owned SaaS workspace.";
+const SOCIAL_AUTOMATION_DISPLAY_NAME = "Socialcors content generation";
+const SOCIAL_AUTOMATION_DESCRIPTION = "Generates and schedules Socialcors campaigns for an owned SaaS workspace.";
 
 function normalizeText(value: string, errorCode: string): string {
   const normalized = value.trim();

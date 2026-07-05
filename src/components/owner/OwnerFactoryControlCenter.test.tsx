@@ -112,7 +112,7 @@ describe("OwnerFactoryControlCenter", () => {
       },
     }));
 
-    await user.type(screen.getByPlaceholderText("SocialFlow"), "SocialFlow");
+    await user.type(screen.getByPlaceholderText("Socialcors"), "SocialFlow");
     await user.type(screen.getByPlaceholderText("socialflows"), "socialflow");
     await user.click(screen.getByRole("button", { name: "Queue provisioning" }));
 

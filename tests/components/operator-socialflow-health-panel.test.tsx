@@ -208,7 +208,7 @@ describe("/operator/socialflow health panel", () => {
     expect(fetchMock.mock.calls[0][0]).toBe("/api/operator/socialflow");
     expect(fetchMock.mock.calls[1][0]).toBe("/api/operator/socialflow?tenantId=tenant-1&saasId=socialflow-main");
 
-    expect(await screen.findByText("Salud operativa SocialFlow")).toBeInTheDocument();
+    expect(await screen.findByText("Salud operativa Socialcors")).toBeInTheDocument();
     expect(screen.getAllByText("needs_attention").length).toBeGreaterThan(0);
     expect(screen.getByText("CONNECTED_REAL")).toBeInTheDocument();
     expect(screen.getByText("90%")).toBeInTheDocument();

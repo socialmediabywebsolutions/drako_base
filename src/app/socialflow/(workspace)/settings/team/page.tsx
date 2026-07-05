@@ -19,10 +19,10 @@ export default async function SocialFlowTeamSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Equipo SocialFlow</div>
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Equipo Socialcors</div>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Usuarios del workspace</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
-          Esta vista lee los usuarios de SocialFlow directamente desde el perímetro de autenticación del producto. La invitación y gestión de roles requiere un flujo nativo antes de habilitar acciones de escritura aquí.
+          Esta vista lee los usuarios de Socialcors directamente desde el perímetro de autenticación del producto. La invitación y gestión de roles requiere un flujo nativo antes de habilitar acciones de escritura aquí.
         </p>
       </div>
 
@@ -30,7 +30,7 @@ export default async function SocialFlowTeamSettingsPage() {
       <section className="rounded-2xl border border-white/10 bg-white/4">
         <header className="border-b border-white/8 px-6 py-5">
           <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Registro de autenticación del producto</p>
-          <h2 className="mt-1 text-lg font-black uppercase italic tracking-tight text-white">Usuarios registrados en SocialFlow para este tenant</h2>
+          <h2 className="mt-1 text-lg font-black uppercase italic tracking-tight text-white">Usuarios registrados en Socialcors para este tenant</h2>
         </header>
         <div className="px-6 py-6">
           <div className="grid gap-4 md:grid-cols-3">
@@ -57,7 +57,7 @@ export default async function SocialFlowTeamSettingsPage() {
         <div className="px-6 py-6">
           {members.length === 0 ? (
             <div className="rounded-xl border border-dashed border-white/10 bg-white/3 p-6 text-sm text-white/35">
-              No se encontraron usuarios de SocialFlow para este tenant.
+              No se encontraron usuarios de Socialcors para este tenant.
             </div>
           ) : (
             <div className="space-y-3">

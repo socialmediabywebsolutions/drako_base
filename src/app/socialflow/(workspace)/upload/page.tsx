@@ -17,7 +17,7 @@ export default async function SocialFlowUploadPage() {
     <div className="space-y-6">
       <div>
         <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
-          SocialFlow · Subir foto
+          Socialcors · Subir foto
         </div>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
           Foto → Post IA

@@ -208,7 +208,7 @@ export default function SocialFlowAuthExperience() {
             {isSubmitting
               ? "Un momento…"
               : mode === "login"
-                ? "Entrar a SocialFlow"
+                ? "Entrar a Socialcors"
                 : "Crear mi cuenta"}
           </button>
         </form>
@@ -421,7 +421,7 @@ export default function SocialFlowAuthExperience() {
                   <span className="h-2 w-2 rounded-full bg-red-500/70" />
                   <span className="h-2 w-2 rounded-full bg-yellow-500/70" />
                   <span className="h-2 w-2 rounded-full bg-green-500/70" />
-                  <span className="ml-3 text-xs text-white/25">SocialFlow — Dashboard</span>
+                  <span className="ml-3 text-xs text-white/25">Socialcors — Dashboard</span>
                 </div>
                 <div className="p-5">
                   <div className="mb-4 grid grid-cols-3 gap-2">

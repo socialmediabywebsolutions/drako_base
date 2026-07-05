@@ -27,7 +27,7 @@ export default async function SocialFlowConversationsPage() {
     <div className="space-y-6">
       <div>
         <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
-          SocialFlow · Conversaciones
+          Socialcors · Conversaciones
         </div>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
           Mi Comunidad

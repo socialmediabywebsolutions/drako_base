@@ -379,7 +379,7 @@ export async function middleware(req: NextRequest) {
 
       if (!session && needsExplicitLocalContext) {
         return buildHtmlResponse(
-          "Explicit auth context required in local development. Add ?__drako_host=bases.drako.systems, drako.systems, mentorias.drako.systems or a SocialFlow host.",
+          "Explicit auth context required in local development. Add ?__drako_host=bases.drako.systems, drako.systems, mentorias.drako.systems or a Socialcors host.",
           400,
         );
       }

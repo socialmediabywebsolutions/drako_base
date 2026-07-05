@@ -332,7 +332,7 @@ export default function OwnerFactoryControlCenter({
 
           <div className="grid gap-5 xl:grid-cols-2">
             <Field label="SaaS name">
-              <TextInput value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="SocialFlow" />
+              <TextInput value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Socialcors" />
             </Field>
             <Field label="Slug">
               <TextInput value={form.slug} onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") }))} placeholder="socialflows" />
@@ -340,7 +340,7 @@ export default function OwnerFactoryControlCenter({
             <Field label="Blueprint">
               <Select value={form.blueprint} onChange={(event) => setForm((current) => ({ ...current, blueprint: event.target.value as CreateFormState["blueprint"] }))}>
                 <option value="GENERIC">Generic SaaS</option>
-                <option value="SOCIALFLOW">SocialFlow pilot blueprint</option>
+                <option value="SOCIALFLOW">Socialcors pilot blueprint</option>
               </Select>
             </Field>
             <Field label="Vertical">

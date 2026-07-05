@@ -147,7 +147,7 @@ export function answerQuestion(query: string, snapshot: CampamentoBaseSnapshot):
         const summary = [
           critical.length ? `${critical.length} SaaS con CRITICAL.` : undefined,
           lowMargin.length ? `Márgenes <30% en top ${lowMargin.length} por MRR.` : undefined,
-          socialOff.length ? `${socialOff.length} con SocialFlow OFF.` : undefined,
+          socialOff.length ? `${socialOff.length} con Socialcors OFF.` : undefined,
           negatives.eventsSpike ? "Eventos subiendo en 30d." : undefined,
           negatives.mrrDrop ? "MRR cayendo en 30d." : undefined,
         ]

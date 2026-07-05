@@ -149,7 +149,7 @@ export default function ChatWidget() {
             </div>
             <div>
               <p className="text-sm font-black text-white">Flow</p>
-              <p className="text-[10px] text-white/40">Asistente de SocialFlow</p>
+              <p className="text-[10px] text-white/40">Asistente de Socialcors</p>
             </div>
             <span className="ml-auto flex items-center gap-1 text-[10px] text-emerald-400">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
