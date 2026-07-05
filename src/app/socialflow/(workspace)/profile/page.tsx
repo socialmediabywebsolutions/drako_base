@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Field, MiniList, SelectField, sectionCls, TagField, TextareaField } from "./ProfileFormFields";
+import ProfileAiChat from "./ProfileAiChat";
 
 type ProfileResponse = {
   ok: boolean;
@@ -10,15 +12,13 @@ type ProfileResponse = {
   error?: string;
 };
 
-const inputCls = "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/20";
-const sectionCls = "space-y-3 rounded-xl border border-white/8 bg-white/4 p-5";
-
 export default function SocialFlowProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [competitors, setCompetitors] = useState<any[]>([]);
+  const [aiChatOpen, setAiChatOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,26 +46,51 @@ export default function SocialFlowProfilePage() {
     return () => { cancelled = true; };
   }, []);
 
-  async function onSaveProfile() {
-    if (!profile) return;
+  async function onSaveProfile(overrideProfile?: any) {
+    const toSave = overrideProfile ?? profile;
+    if (!toSave) return;
     setSaving(true);
     setError(null);
     try {
       const res = await fetch("/api/socialflow/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile }),
+        body: JSON.stringify({ profile: toSave }),
       });
       const json: ProfileResponse = await res.json();
       if (!json.ok) {
         setError(json.error || "No se pudo guardar el perfil");
       } else {
-        setProfile(json.profile || profile);
+        setProfile(json.profile || toSave);
       }
     } catch (e: any) {
       setError(e?.message || "Error inesperado");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onSaveFromAiChat(finalProfile: any, newCompetitors: Array<Record<string, unknown>>) {
+    await onSaveProfile(finalProfile);
+    for (const competitor of newCompetitors) {
+      try {
+        await fetch("/api/socialflow/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ competitor }),
+        });
+      } catch {
+        // best-effort: a failed competitor save shouldn't block the profile save above
+      }
+    }
+    if (newCompetitors.length) {
+      try {
+        const res = await fetch("/api/socialflow/profile");
+        const json: ProfileResponse = await res.json();
+        if (json.ok) setCompetitors(json.competitors || []);
+      } catch {
+        // ignore — competitors list will just refresh next page load
+      }
     }
   }
 
@@ -92,17 +117,37 @@ export default function SocialFlowProfilePage() {
         <p className="mb-5 mt-2 text-sm text-white/45">
           Este perfil entrena a los agentes IA de SocialFlow. Rellénalo con información real y estratégica sobre tu marca, audiencia y ofertas. La IA usará esto como su base de conocimiento principal.
         </p>
-        <button
-          type="button"
-          onClick={onSaveProfile}
-          disabled={saving}
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {saving && <span className="h-2 w-2 animate-pulse rounded-full bg-white" />}
-          {saving ? "Guardando..." : "Guardar perfil del canal"}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onSaveProfile()}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {saving && <span className="h-2 w-2 animate-pulse rounded-full bg-white" />}
+            {saving ? "Guardando..." : "Guardar perfil del canal"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAiChatOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 transition hover:bg-violet-500/20"
+          >
+            ✨ Rellenar con IA
+          </button>
+        </div>
         {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
       </div>
+
+      {aiChatOpen && (
+        <ProfileAiChat
+          initialProfile={p}
+          onClose={() => setAiChatOpen(false)}
+          onSave={async (finalProfile, newCompetitors) => {
+            await onSaveFromAiChat(finalProfile, newCompetitors);
+            setAiChatOpen(false);
+          }}
+        />
+      )}
 
       {/* Brand identity */}
       <section className={sectionCls}>
@@ -338,85 +383,5 @@ export default function SocialFlowProfilePage() {
         </div>
       </section>
     </div>
-  );
-}
-
-function Field(props: { label: string; value: any; onChange: (v: string) => void; placeholder?: string }) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-xs font-medium text-white/45">{props.label}</span>
-      <input
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none"
-        placeholder={props.placeholder}
-        value={props.value ?? ""}
-        onChange={(e) => props.onChange(e.target.value)}
-      />
-    </label>
-  );
-}
-
-function SelectField(props: {
-  label: string;
-  value: any;
-  onChange: (v: string) => void;
-  options: Array<{ value: string; label: string }>;
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-xs font-medium text-white/45">{props.label}</span>
-      <select
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-violet-500/50 focus:outline-none"
-        value={props.value ?? ""}
-        onChange={(e) => props.onChange(e.target.value)}
-      >
-        <option className="bg-[#0b0b16]" value="">Sin especificar</option>
-        {props.options.map((opt) => (
-          <option className="bg-[#0b0b16]" key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function MiniList(props: { title: string; items: string[] | undefined }) {
-  const items = props.items ?? [];
-  if (!items.length) return null;
-  return (
-    <div>
-      <h4 className="mb-1 text-xs font-semibold text-white/55">{props.title}</h4>
-      <ul className="list-disc space-y-0.5 pl-4 text-xs text-white/40">
-        {items.map((item) => <li key={item}>{item}</li>)}
-      </ul>
-    </div>
-  );
-}
-
-function TextareaField(props: { label: string; value: any; onChange: (v: string) => void; placeholder?: string }) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-xs font-medium text-white/45">{props.label}</span>
-      <textarea
-        className="min-h-[80px] w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none"
-        placeholder={props.placeholder}
-        value={props.value ?? ""}
-        onChange={(e) => props.onChange(e.target.value)}
-      />
-    </label>
-  );
-}
-
-function TagField(props: { label: string; value: string[] | undefined; onChange: (v: string[]) => void; placeholder?: string }) {
-  const value = props.value ?? [];
-  const joined = value.join(", ");
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-xs font-medium text-white/45">{props.label}</span>
-      <input
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none"
-        placeholder={props.placeholder}
-        value={joined}
-        onChange={(e) => props.onChange(e.target.value.split(",").map((s) => s.trim()).filter(Boolean))}
-      />
-    </label>
   );
 }
