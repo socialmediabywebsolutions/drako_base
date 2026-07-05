@@ -16,6 +16,10 @@ custom_domain = true
 pattern = "socialflow.drako.systems"
 custom_domain = true
 
+[[routes]]
+pattern = "socialcors.com"
+custom_domain = true
+
 # D1 DATABASES
 [[d1_databases]]
 binding = "DRACO_DB"
@@ -68,7 +72,7 @@ crons = ["*/5 * * * *", "0 3 * * *"]
 
 [vars]
 SAASES_SLUG = "socialflows"
-SAASES_DOMAIN = "socialflows.drako.systems,socialflow.drako.systems"
+SAASES_DOMAIN = "socialflows.drako.systems,socialflow.drako.systems,socialcors.com"
 AUTHS_SECRETS_NAME = "SOCIALFLOWS_AUTHS_SECRET"
 WORKERS_ONLY_MODE = "true"
 INSTAGRAM_APP_ID = "1534853271675778"
