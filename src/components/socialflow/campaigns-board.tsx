@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { SaasSocialCampaign, SaasSocialCampaignStatus, SaasSocialPost } from "@/lib/social-core/types";
+import CampaignPhotoUpload from "./campaign-photo-upload";
 
 type Props = {
   campaigns: SaasSocialCampaign[];
@@ -147,6 +148,8 @@ function CreateCampaignForm({ saasId, onCreated }: { saasId: string; onCreated: 
   const [objective, setObjective] = useState("");
   const [targetSegment, setTargetSegment] = useState("");
   const [budgetEstimate, setBudgetEstimate] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -164,6 +167,8 @@ function CreateCampaignForm({ saasId, onCreated }: { saasId: string; onCreated: 
           objective: objective.trim() || undefined,
           targetSegment: targetSegment.trim() || undefined,
           budgetEstimate: budgetEstimate.trim() ? Number(budgetEstimate) : null,
+          startDate: startDate || null,
+          endDate: endDate || null,
         }),
       });
       const data = (await res.json().catch(() => null)) as { campaign?: SaasSocialCampaign; message?: string } | null;
@@ -175,6 +180,8 @@ function CreateCampaignForm({ saasId, onCreated }: { saasId: string; onCreated: 
       setObjective("");
       setTargetSegment("");
       setBudgetEstimate("");
+      setStartDate("");
+      setEndDate("");
       setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear la campaña");
@@ -225,6 +232,25 @@ function CreateCampaignForm({ saasId, onCreated }: { saasId: string; onCreated: 
           inputMode="numeric"
           className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
         />
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-white/30">Fecha de inicio</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-white/30">Fecha de fin</label>
+          <input
+            type="date"
+            value={endDate}
+            min={startDate || undefined}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+          />
+        </div>
       </div>
       {error && <p className="text-xs text-rose-300">{error}</p>}
       <div className="flex gap-2">
@@ -251,6 +277,7 @@ export default function CampaignsBoard({ campaigns: initialCampaigns, saasId }: 
   const router = useRouter();
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [uploadingPhotosId, setUploadingPhotosId] = useState<string | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -336,6 +363,7 @@ export default function CampaignsBoard({ campaigns: initialCampaigns, saasId }: 
               {section.items.map((campaign) => {
                 const cfg = STATUS_CFG[campaign.status];
                 const isExpanded = expandedId === campaign.id;
+                const isUploadingPhotos = uploadingPhotosId === campaign.id;
                 const isBusy = pendingId === campaign.id;
                 const isConfirmingDelete = confirmingDeleteId === campaign.id;
                 const canDelete = campaign.status !== "GENERATING";
@@ -386,6 +414,13 @@ export default function CampaignsBoard({ campaigns: initialCampaigns, saasId }: 
                         )}
                         <button
                           type="button"
+                          onClick={() => setUploadingPhotosId(isUploadingPhotos ? null : campaign.id)}
+                          className={actionBtnClass("neutral")}
+                        >
+                          {isUploadingPhotos ? "Cerrar subida" : "Subir fotos"}
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setExpandedId(isExpanded ? null : campaign.id)}
                           className={actionBtnClass("neutral")}
                         >
@@ -409,6 +444,12 @@ export default function CampaignsBoard({ campaigns: initialCampaigns, saasId }: 
                         )}
                       </div>
                     </div>
+
+                    {isUploadingPhotos && (
+                      <div className="border-t border-white/8">
+                        <CampaignPhotoUpload campaignId={campaign.id} saasId={saasId} />
+                      </div>
+                    )}
 
                     {isExpanded && (
                       <div className="border-t border-white/8">
