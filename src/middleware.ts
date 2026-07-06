@@ -404,6 +404,7 @@ export async function middleware(req: NextRequest) {
     const isSocialFlowHost =
       host === "socialflow.drako.systems" ||
       host === "socialflows.drako.systems" ||
+      host === "socialcors.com" ||
       host.startsWith("socialflow.") ||
       host.startsWith("socialflows.");
 
