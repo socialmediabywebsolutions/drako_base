@@ -16,6 +16,10 @@ custom_domain = true
 pattern = "socialflow.drako.systems"
 custom_domain = true
 
+[[routes]]
+pattern = "socialcors.com"
+custom_domain = true
+
 # D1 DATABASES
 [[d1_databases]]
 binding = "DRACO_DB"
