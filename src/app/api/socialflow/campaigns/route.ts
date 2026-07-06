@@ -2,9 +2,16 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
-import { listSaasSocialCampaigns, resolveSocialContext, SocialContextError, upsertSaasSocialCampaign } from "@/lib/socialflow/repository";
+import {
+  deleteSaasSocialCampaign,
+  listSaasSocialCampaigns,
+  resolveSocialContext,
+  SocialContextError,
+  upsertSaasSocialCampaign,
+} from "@/lib/socialflow/repository";
 
-const ALLOWED_CAMPAIGN_STATUSES = ["ACTIVE", "PAUSED"] as const;
+// GENERATING y FAILED están reservados para el pipeline de IA (ver SocialFlowOrchestrator) — el usuario nunca los fija a mano.
+const MANUAL_CAMPAIGN_STATUSES = ["ACTIVE", "PAUSED", "FINISHED", "ARCHIVED"] as const;
 
 export async function GET(request: Request) {
   try {
@@ -37,7 +44,6 @@ export async function POST(request: Request) {
       saasId?: string | null;
       name?: string;
       objective?: string;
-      status?: string;
       targetSegment?: string;
       startDate?: string | null;
       endDate?: string | null;
@@ -50,23 +56,20 @@ export async function POST(request: Request) {
 
     const saasId = body.saasId ?? null;
     const name = body.name?.trim() ?? "";
-    const status = body.status as (typeof ALLOWED_CAMPAIGN_STATUSES)[number] | null;
-    if (!saasId || !name || !status) {
-      return NextResponse.json({ code: "INVALID_BODY", message: "saasId, name and status are required" }, { status: 400 });
+    if (!saasId || !name) {
+      return NextResponse.json({ code: "INVALID_BODY", message: "saasId and name are required" }, { status: 400 });
     }
 
     const session = await requireCurrentSocialFlowSession(request);
     const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId });
-    if (!ALLOWED_CAMPAIGN_STATUSES.includes(status)) {
-      return NextResponse.json({ code: "INVALID_STATUS", message: "status must be ACTIVE or PAUSED" }, { status: 400 });
-    }
 
+    // Toda campaña creada a mano nace en DRAFT; el usuario la activa/pausa/finaliza/archiva después vía PATCH.
     const campaign = await upsertSaasSocialCampaign(ctx, {
       id: body.id,
       saasId,
       name,
       objective: body.objective ?? "AWARENESS",
-      status,
+      status: "DRAFT",
       targetSegment: body.targetSegment ?? "DEFAULT",
       startDate: body.startDate ?? null,
       endDate: body.endDate ?? null,
@@ -112,8 +115,11 @@ export async function PATCH(request: Request) {
     }
 
     const nextStatus = body.status ?? current.status;
-    if (!ALLOWED_CAMPAIGN_STATUSES.includes(nextStatus as (typeof ALLOWED_CAMPAIGN_STATUSES)[number])) {
-      return NextResponse.json({ code: "INVALID_STATUS", message: "status is invalid" }, { status: 400 });
+    if (body.status && !MANUAL_CAMPAIGN_STATUSES.includes(nextStatus as (typeof MANUAL_CAMPAIGN_STATUSES)[number])) {
+      return NextResponse.json(
+        { code: "INVALID_STATUS", message: "status must be one of ACTIVE, PAUSED, FINISHED, ARCHIVED" },
+        { status: 400 },
+      );
     }
 
     const campaign = await upsertSaasSocialCampaign(ctx, {
@@ -121,7 +127,7 @@ export async function PATCH(request: Request) {
       saasId: current.saasId,
       name: body.name ?? current.name,
       objective: body.objective ?? current.objective,
-      status: nextStatus as (typeof ALLOWED_CAMPAIGN_STATUSES)[number],
+      status: nextStatus as typeof current.status,
       targetSegment: body.targetSegment ?? current.targetSegment,
       startDate: typeof body.startDate === "undefined" ? current.startDate : body.startDate,
       endDate: typeof body.endDate === "undefined" ? current.endDate : body.endDate,
@@ -138,5 +144,33 @@ export async function PATCH(request: Request) {
     }
     console.error("SOCIALFLOW_CAMPAIGNS_PATCH_ERROR", error);
     return NextResponse.json({ code: "SOCIALFLOW_ERROR", message: "Unable to update campaign" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const url = new URL(request.url);
+    const id = url.searchParams.get("id");
+    const saasId = url.searchParams.get("saasId");
+
+    if (!id || !saasId) {
+      return NextResponse.json({ code: "INVALID_PARAMS", message: "id and saasId are required" }, { status: 400 });
+    }
+
+    const session = await requireCurrentSocialFlowSession(request);
+    const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId });
+
+    // Borra los posts en DRAFT de la campaña; los ya publicados/programados quedan huérfanos (campaign_id = NULL).
+    await deleteSaasSocialCampaign(ctx, id);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    if (error instanceof SocialContextError) {
+      return NextResponse.json({ code: "INVALID_SOCIAL_CONTEXT", message: error.message }, { status: 400 });
+    }
+    if (error instanceof Error && error.message === "SESSION_REQUIRED") {
+      return NextResponse.json({ code: "UNAUTHORIZED", message: "SESSION_REQUIRED" }, { status: 401 });
+    }
+    console.error("SOCIALFLOW_CAMPAIGNS_DELETE_ERROR", error);
+    return NextResponse.json({ code: "SOCIALFLOW_ERROR", message: "Unable to delete campaign" }, { status: 500 });
   }
 }

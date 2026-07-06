@@ -1,0 +1,427 @@
+"use client";
+
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import type { SaasSocialCampaign, SaasSocialCampaignStatus, SaasSocialPost } from "@/lib/social-core/types";
+
+type Props = {
+  campaigns: SaasSocialCampaign[];
+  saasId: string;
+};
+
+const STATUS_CFG: Record<SaasSocialCampaignStatus, { label: string; chipBg: string; dotBg: string }> = {
+  DRAFT:      { label: "Borrador",       chipBg: "bg-white/8 text-white/55",           dotBg: "bg-white/40"    },
+  GENERATING: { label: "Generando (IA)", chipBg: "bg-violet-500/15 text-violet-300",   dotBg: "bg-violet-500"  },
+  ACTIVE:     { label: "Activa",         chipBg: "bg-emerald-500/15 text-emerald-300", dotBg: "bg-emerald-500" },
+  PAUSED:     { label: "Pausada",        chipBg: "bg-amber-500/15 text-amber-300",     dotBg: "bg-amber-500"   },
+  FINISHED:   { label: "Terminada",      chipBg: "bg-indigo-500/15 text-indigo-300",   dotBg: "bg-indigo-500"  },
+  ARCHIVED:   { label: "Archivada",      chipBg: "bg-white/6 text-white/40",           dotBg: "bg-white/25"    },
+  FAILED:     { label: "Error IA",       chipBg: "bg-rose-500/15 text-rose-400",       dotBg: "bg-rose-500"    },
+};
+
+// Solo se listan como sección aparte si tienen al menos una campaña — así GENERATING/FAILED
+// (estados que solo gestiona la IA) no ensucian la vista cuando no hay ninguna en ese estado.
+const SECTIONS: { key: SaasSocialCampaignStatus; label: string }[] = [
+  { key: "ACTIVE", label: "Activas" },
+  { key: "PAUSED", label: "Pausadas" },
+  { key: "DRAFT", label: "En borrador" },
+  { key: "FINISHED", label: "Terminadas" },
+  { key: "ARCHIVED", label: "Archivadas" },
+  { key: "GENERATING", label: "Generando con IA" },
+  { key: "FAILED", label: "Con errores" },
+];
+
+function formatDate(iso: string | null) {
+  if (!iso) return null;
+  return new Date(iso).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function actionBtnClass(tone: "emerald" | "amber" | "indigo" | "rose" | "rose-ghost" | "neutral") {
+  const toneClass: Record<typeof tone, string> = {
+    emerald: "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25",
+    amber: "bg-amber-500/15 text-amber-300 hover:bg-amber-500/25",
+    indigo: "bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25",
+    rose: "bg-rose-500/20 text-rose-200 hover:bg-rose-500/30",
+    "rose-ghost": "bg-white/5 text-rose-300/70 hover:bg-rose-500/15 hover:text-rose-300",
+    neutral: "bg-white/6 text-white/60 hover:bg-white/10 hover:text-white",
+  };
+  return `rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${toneClass[tone]}`;
+}
+
+function CampaignDraftPosts({ campaignId, saasId }: { campaignId: string; saasId: string }) {
+  const router = useRouter();
+  const [posts, setPosts] = useState<SaasSocialPost[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPosts(null);
+    setError(null);
+    fetch(`/api/socialflow/posts?saasId=${encodeURIComponent(saasId)}&campaignId=${encodeURIComponent(campaignId)}&status=DRAFT`)
+      .then((res) => {
+        if (!res.ok) throw new Error("request_failed");
+        return res.json() as Promise<{ items?: SaasSocialPost[] }>;
+      })
+      .then((json) => {
+        if (!cancelled) setPosts(json.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setError("No se pudieron cargar los posts de esta campaña.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignId, saasId]);
+
+  function reviewPost(postId: string, action: "approve" | "reject") {
+    setPendingId(postId);
+    fetch("/api/socialflow/posts", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: postId, saasId, action }),
+    })
+      .then((res) => res.json() as Promise<{ post?: SaasSocialPost }>)
+      .then((json) => {
+        if (json.post) {
+          setPosts((prev) => (prev ?? []).filter((post) => post.id !== postId));
+        }
+      })
+      .finally(() => {
+        setPendingId(null);
+        router.refresh();
+      });
+  }
+
+  if (error) {
+    return <p className="px-4 pb-4 text-xs text-rose-300">{error}</p>;
+  }
+  if (posts === null) {
+    return <p className="px-4 pb-4 text-xs text-white/40">Cargando posts…</p>;
+  }
+  if (posts.length === 0) {
+    return <p className="px-4 pb-4 text-xs text-white/35">No hay posts en borrador para esta campaña.</p>;
+  }
+
+  return (
+    <div className="space-y-2 px-4 pb-4">
+      {posts.map((post) => (
+        <div key={post.id} className="rounded-xl border border-white/8 bg-white/3 p-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-white">{post.title}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-white/45">{post.body}</p>
+              {post.scheduledAt && (
+                <p className="mt-1 text-[11px] text-white/30">Programado: {formatDate(post.scheduledAt)}</p>
+              )}
+            </div>
+            <div className="flex shrink-0 gap-1.5">
+              <button
+                type="button"
+                disabled={pendingId === post.id}
+                onClick={() => reviewPost(post.id, "approve")}
+                className={actionBtnClass("emerald")}
+              >
+                Aprobar
+              </button>
+              <button
+                type="button"
+                disabled={pendingId === post.id}
+                onClick={() => reviewPost(post.id, "reject")}
+                className={actionBtnClass("rose-ghost")}
+              >
+                Rechazar
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CreateCampaignForm({ saasId, onCreated }: { saasId: string; onCreated: (campaign: SaasSocialCampaign) => void }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [objective, setObjective] = useState("");
+  const [targetSegment, setTargetSegment] = useState("");
+  const [budgetEstimate, setBudgetEstimate] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/socialflow/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          saasId,
+          name: name.trim(),
+          objective: objective.trim() || undefined,
+          targetSegment: targetSegment.trim() || undefined,
+          budgetEstimate: budgetEstimate.trim() ? Number(budgetEstimate) : null,
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as { campaign?: SaasSocialCampaign; message?: string } | null;
+      if (!res.ok || !data?.campaign) {
+        throw new Error(data?.message ?? "No se pudo crear la campaña");
+      }
+      onCreated(data.campaign);
+      setName("");
+      setObjective("");
+      setTargetSegment("");
+      setBudgetEstimate("");
+      setOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo crear la campaña");
+    } finally {
+      setSubmitting(false);
+      router.refresh();
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110"
+      >
+        + Nueva campaña
+      </button>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl border border-white/8 bg-white/4 p-4">
+      <div className="grid gap-3 md:grid-cols-2">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nombre de campaña"
+          required
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+        />
+        <input
+          value={objective}
+          onChange={(e) => setObjective(e.target.value)}
+          placeholder="Objetivo (ej. AWARENESS)"
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+        />
+        <input
+          value={targetSegment}
+          onChange={(e) => setTargetSegment(e.target.value)}
+          placeholder="Audiencia objetivo"
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+        />
+        <input
+          value={budgetEstimate}
+          onChange={(e) => setBudgetEstimate(e.target.value)}
+          placeholder="Presupuesto estimado (€)"
+          inputMode="numeric"
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+        />
+      </div>
+      {error && <p className="text-xs text-rose-300">{error}</p>}
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={submitting || !name.trim()}
+          className="rounded-xl bg-violet-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-violet-400 disabled:opacity-50"
+        >
+          {submitting ? "Creando…" : "Crear en borrador"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/50 transition hover:text-white/70"
+        >
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+}
+
+export default function CampaignsBoard({ campaigns: initialCampaigns, saasId }: Props) {
+  const router = useRouter();
+  const [campaigns, setCampaigns] = useState(initialCampaigns);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+
+  function changeStatus(campaign: SaasSocialCampaign, status: SaasSocialCampaignStatus) {
+    setPendingId(campaign.id);
+    setError(null);
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/socialflow/campaigns", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: campaign.id, saasId, status }),
+        });
+        const data = (await res.json().catch(() => null)) as { campaign?: SaasSocialCampaign; message?: string } | null;
+        if (res.ok && data?.campaign) {
+          setCampaigns((prev) => prev.map((c) => (c.id === campaign.id ? data.campaign! : c)));
+        } else {
+          setError(data?.message ?? "No se pudo actualizar la campaña");
+        }
+      } catch {
+        setError("No se pudo actualizar la campaña");
+      } finally {
+        setPendingId(null);
+        router.refresh();
+      }
+    });
+  }
+
+  function deleteCampaign(campaignId: string) {
+    setPendingId(campaignId);
+    setError(null);
+    startTransition(async () => {
+      try {
+        const res = await fetch(
+          `/api/socialflow/campaigns?id=${encodeURIComponent(campaignId)}&saasId=${encodeURIComponent(saasId)}`,
+          { method: "DELETE" },
+        );
+        if (res.ok) {
+          setCampaigns((prev) => prev.filter((c) => c.id !== campaignId));
+          setExpandedId((current) => (current === campaignId ? null : current));
+        } else {
+          const data = (await res.json().catch(() => null)) as { message?: string } | null;
+          setError(data?.message ?? "No se pudo borrar la campaña");
+        }
+      } catch {
+        setError("No se pudo borrar la campaña");
+      } finally {
+        setPendingId(null);
+        setConfirmingDeleteId(null);
+        router.refresh();
+      }
+    });
+  }
+
+  const grouped = SECTIONS.map((section) => ({
+    ...section,
+    items: campaigns.filter((c) => c.status === section.key),
+  })).filter((section) => section.items.length > 0);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-end">
+        <CreateCampaignForm saasId={saasId} onCreated={(campaign) => setCampaigns((prev) => [campaign, ...prev])} />
+      </div>
+
+      {error && (
+        <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div>
+      )}
+
+      {campaigns.length === 0 ? (
+        <div className="rounded-2xl border border-white/8 bg-white/4 p-8 text-center">
+          <p className="text-sm text-white/50">Todavía no hay campañas. Crea la primera para empezar a organizar tu contenido.</p>
+        </div>
+      ) : (
+        grouped.map((section) => (
+          <div key={section.key} className="space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">
+              {section.label} <span className="text-white/20">· {section.items.length}</span>
+            </h2>
+            <div className="space-y-3">
+              {section.items.map((campaign) => {
+                const cfg = STATUS_CFG[campaign.status];
+                const isExpanded = expandedId === campaign.id;
+                const isBusy = pendingId === campaign.id;
+                const isConfirmingDelete = confirmingDeleteId === campaign.id;
+                const canDelete = campaign.status !== "GENERATING";
+
+                return (
+                  <div key={campaign.id} className="rounded-2xl border border-white/8 bg-white/4">
+                    <div className="flex flex-wrap items-start justify-between gap-3 p-4">
+                      <div className="min-w-0 space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-bold text-white">{campaign.name}</h3>
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${cfg.chipBg}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotBg}`} />
+                            {cfg.label}
+                          </span>
+                        </div>
+                        {campaign.objective && <p className="text-sm text-white/50">{campaign.objective}</p>}
+                        <p className="text-xs text-white/35">
+                          Audiencia: {campaign.targetSegment}
+                          {campaign.budgetEstimate != null ? ` · Presupuesto: ${campaign.budgetEstimate}€` : ""}
+                          {formatDate(campaign.startDate) ? ` · Desde ${formatDate(campaign.startDate)}` : ""}
+                          {formatDate(campaign.endDate) ? ` hasta ${formatDate(campaign.endDate)}` : ""}
+                        </p>
+                        {campaign.status === "FAILED" && campaign.notes && (
+                          <p className="text-xs text-rose-300/80">{campaign.notes}</p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(campaign.status === "DRAFT" || campaign.status === "PAUSED") && (
+                          <button type="button" disabled={isBusy} onClick={() => changeStatus(campaign, "ACTIVE")} className={actionBtnClass("emerald")}>
+                            Activar
+                          </button>
+                        )}
+                        {campaign.status === "ACTIVE" && (
+                          <button type="button" disabled={isBusy} onClick={() => changeStatus(campaign, "PAUSED")} className={actionBtnClass("amber")}>
+                            Pausar
+                          </button>
+                        )}
+                        {(campaign.status === "ACTIVE" || campaign.status === "PAUSED") && (
+                          <button type="button" disabled={isBusy} onClick={() => changeStatus(campaign, "FINISHED")} className={actionBtnClass("indigo")}>
+                            Finalizar
+                          </button>
+                        )}
+                        {campaign.status !== "ARCHIVED" && campaign.status !== "GENERATING" && (
+                          <button type="button" disabled={isBusy} onClick={() => changeStatus(campaign, "ARCHIVED")} className={actionBtnClass("neutral")}>
+                            Archivar
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedId(isExpanded ? null : campaign.id)}
+                          className={actionBtnClass("neutral")}
+                        >
+                          {isExpanded ? "Ocultar borradores" : "Ver borradores"}
+                        </button>
+                        {canDelete && (
+                          isConfirmingDelete ? (
+                            <span className="flex items-center gap-1.5">
+                              <button type="button" disabled={isBusy} onClick={() => deleteCampaign(campaign.id)} className={actionBtnClass("rose")}>
+                                {isBusy ? "Borrando…" : "Confirmar borrado"}
+                              </button>
+                              <button type="button" onClick={() => setConfirmingDeleteId(null)} className={actionBtnClass("neutral")}>
+                                Cancelar
+                              </button>
+                            </span>
+                          ) : (
+                            <button type="button" onClick={() => setConfirmingDeleteId(campaign.id)} className={actionBtnClass("rose-ghost")}>
+                              Borrar
+                            </button>
+                          )
+                        )}
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="border-t border-white/8">
+                        <CampaignDraftPosts campaignId={campaign.id} saasId={saasId} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}

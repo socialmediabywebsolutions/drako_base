@@ -38,6 +38,9 @@ function IcoUser() {
 function IcoNetwork() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-9.686a2.25 2.25 0 1 0 3.935-2.186 2.25 2.25 0 0 0-3.935 2.186Z" /></svg>;
 }
+function IcoTarget() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" /></svg>;
+}
 function IcoChevron({ open }: { open: boolean }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>;
 }
@@ -48,6 +51,7 @@ const mainNav = [
   { href: "/socialflow/profile",       label: "Mi Perfil",           icon: <IcoUser /> },
   { href: "/socialflow/upload",        label: "Subir foto",          icon: <IcoCamera /> },
   { href: "/socialflow/plan",           label: "Plan editorial",      icon: <IcoCalendar /> },
+  { href: "/socialflow/campaigns",      label: "Campañas",            icon: <IcoTarget /> },
   { href: "/socialflow/redes",          label: "Mis Redes",           icon: <IcoNetwork /> },
   { href: "/socialflow/conversations", label: "Comunidad",           icon: <IcoChat /> },
   { href: "/socialflow/leads",         label: "Oportunidades",       icon: <IcoUsers /> },
