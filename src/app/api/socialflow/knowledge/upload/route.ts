@@ -4,10 +4,12 @@ import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { saveKnowledgeDoc } from "@/lib/socialflow/knowledge/repository";
 import { extractTextFromPdf } from "@/lib/socialflow/knowledge/pdf-extract";
+import { extractTextFromCsv } from "@/lib/socialflow/knowledge/csv-extract";
+import { extractTextFromXlsx } from "@/lib/socialflow/knowledge/xlsx-extract";
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-const ALLOWED_TYPES = new Set(["application/pdf", "text/plain"]);
 const DEFAULT_SAAS_ID = "socialflow";
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 function resolveSaasId(request: Request): string {
   return new URL(request.url).searchParams.get("saasId")?.trim() || DEFAULT_SAAS_ID;
@@ -34,12 +36,29 @@ export async function POST(req: Request) {
   }
 
   const mimeType = file.type || "application/octet-stream";
-  if (!ALLOWED_TYPES.has(mimeType) && !file.name.endsWith(".pdf") && !file.name.endsWith(".txt")) {
+  const lowerName = file.name.toLowerCase();
+  const isPdf = mimeType === "application/pdf" || lowerName.endsWith(".pdf");
+  const isTxt = mimeType === "text/plain" || lowerName.endsWith(".txt");
+  const isCsv = mimeType === "text/csv" || lowerName.endsWith(".csv");
+  const isXlsx = mimeType === XLSX_MIME || lowerName.endsWith(".xlsx");
+
+  if (!isPdf && !isTxt && !isCsv && !isXlsx) {
     return NextResponse.json(
-      { error: "INVALID_TYPE", message: "Only PDF and plain text files are supported." },
+      { error: "INVALID_TYPE", message: "Only PDF, plain text, CSV, and Excel (.xlsx) files are supported." },
       { status: 400 },
     );
   }
+
+  if ((isCsv || isXlsx) && session.accountType !== "empresa") {
+    return NextResponse.json(
+      {
+        error: "CATALOG_REQUIRES_EMPRESA_ACCOUNT",
+        message: "Catalog uploads (CSV/Excel) are only available for business accounts.",
+      },
+      { status: 403 },
+    );
+  }
+
   if (file.size > MAX_BYTES) {
     return NextResponse.json(
       { error: "FILE_TOO_LARGE", message: "File exceeds 10 MB limit." },
@@ -48,10 +67,11 @@ export async function POST(req: Request) {
   }
 
   let contentText: string;
+  let docType: "pdf" | "text" | "catalog";
   try {
     const buffer = await file.arrayBuffer();
-    const isPdf = mimeType === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     if (isPdf) {
+      docType = "pdf";
       contentText = extractTextFromPdf(buffer);
       if (!contentText.trim()) {
         return NextResponse.json(
@@ -59,7 +79,26 @@ export async function POST(req: Request) {
           { status: 422 },
         );
       }
+    } else if (isCsv) {
+      docType = "catalog";
+      contentText = extractTextFromCsv(new TextDecoder("utf-8", { fatal: false }).decode(buffer));
+      if (!contentText.trim()) {
+        return NextResponse.json(
+          { error: "CATALOG_NO_CONTENT", message: "No readable rows found in this CSV file." },
+          { status: 422 },
+        );
+      }
+    } else if (isXlsx) {
+      docType = "catalog";
+      contentText = await extractTextFromXlsx(buffer);
+      if (!contentText.trim()) {
+        return NextResponse.json(
+          { error: "CATALOG_NO_CONTENT", message: "No readable rows found in this Excel file." },
+          { status: 422 },
+        );
+      }
     } else {
+      docType = "text";
       contentText = new TextDecoder("utf-8", { fatal: false }).decode(buffer);
     }
   } catch (err) {
@@ -73,7 +112,7 @@ export async function POST(req: Request) {
       tenantId: session.tenantId,
       saasId: resolveSaasId(req),
       name,
-      type: "pdf",
+      type: docType,
       contentText,
     });
     return NextResponse.json({ ok: true, doc: { id: doc.id, name: doc.name, type: doc.type, created_at: doc.created_at } });

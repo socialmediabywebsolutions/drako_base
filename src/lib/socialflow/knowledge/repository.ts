@@ -4,8 +4,10 @@ const TABLE = "socialflow_knowledge_documents";
 const MAX_CONTENT_CHARS = 50_000;
 const CONTEXT_DOCS = 5;
 const CONTEXT_SNIPPET = 800;
+const CATALOG_CONTEXT_DOCS = 3;
+const CATALOG_CONTEXT_SNIPPET = 3000;
 
-export type KnowledgeDocType = "pdf" | "url" | "text" | "competitor" | "market_analysis" | "auto_learned_style";
+export type KnowledgeDocType = "pdf" | "url" | "text" | "catalog" | "competitor" | "market_analysis" | "auto_learned_style";
 
 export type KnowledgeDoc = {
   id: string;
@@ -152,8 +154,15 @@ export async function getKnowledgeContext(
   const styleDocs = results.filter((d) => d.type === "auto_learned_style").slice(0, 1);
   const marketDocs = results.filter((d) => d.type === "market_analysis").slice(0, 1);
   const competitorDocs = results.filter((d) => d.type === "competitor").slice(0, 5);
+  const catalogDocs = results.filter((d) => d.type === "catalog").slice(0, CATALOG_CONTEXT_DOCS);
   const knowledgeDocs = results
-    .filter((d) => d.type !== "market_analysis" && d.type !== "competitor" && d.type !== "auto_learned_style")
+    .filter(
+      (d) =>
+        d.type !== "market_analysis" &&
+        d.type !== "competitor" &&
+        d.type !== "auto_learned_style" &&
+        d.type !== "catalog",
+    )
     .slice(0, CONTEXT_DOCS);
 
   const parts: string[] = [];
@@ -171,6 +180,13 @@ export async function getKnowledgeContext(
       .map((d) => `[${d.name}]\n${d.content_text.slice(0, CONTEXT_SNIPPET)}`)
       .join("\n\n");
     parts.push(`## COMPETITOR INTELLIGENCE\n${section}`);
+  }
+
+  if (catalogDocs.length) {
+    const section = catalogDocs
+      .map((d) => `[${d.name}]\n${d.content_text.slice(0, CATALOG_CONTEXT_SNIPPET)}`)
+      .join("\n\n---\n\n");
+    parts.push(`## PRODUCT CATALOG\n${section}`);
   }
 
   if (knowledgeDocs.length) {
