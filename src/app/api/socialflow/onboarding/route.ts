@@ -60,6 +60,7 @@ export async function GET(request: Request) {
       profile: snapshot.profile,
       competitors: snapshot.competitors,
       completed: Boolean(snapshot.profile.onboardingCompletedAt),
+      accountType: session.accountType,
     });
   } catch (error) {
     if (error instanceof SocialContextError) {

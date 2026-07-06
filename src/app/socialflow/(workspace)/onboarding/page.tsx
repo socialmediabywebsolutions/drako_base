@@ -54,6 +54,7 @@ type OnboardingGetResponse = {
   profile?: OnboardingProfileResponse;
   competitors?: OnboardingCompetitorResponse[];
   completed?: boolean;
+  accountType?: "empresa" | "influencer" | null;
   message?: string;
   error?: string;
 };
@@ -83,6 +84,30 @@ const STEPS = [
   { key: "review", title: "Confirmar" },
 ];
 
+// Paso adicional exclusivo de accountType === "empresa" — nunca se añade para influencer.
+const EMPRESA_STEP = { key: "empresa-checklist", title: "Primeros pasos" };
+
+const EMPRESA_CHECKLIST_ITEMS = [
+  {
+    title: "Sube tu catálogo de productos",
+    description: "Sube un CSV o Excel con tus productos para que la IA los conozca al generar contenido y responder consultas.",
+    href: "/socialflow/knowledge",
+    cta: "Ir a Base de Conocimiento",
+  },
+  {
+    title: "Conecta tus redes sociales",
+    description: "Conecta Instagram, LinkedIn, Facebook u otras redes para poder publicar directamente desde Socialcors.",
+    href: "/socialflow/redes",
+    cta: "Ir a Mis Redes",
+  },
+  {
+    title: "Sube fotos de tu local y equipo",
+    description: "Añade fotos de tu espacio y tu equipo para enriquecer el contenido que genera la IA.",
+    href: "/socialflow/knowledge",
+    cta: "Ir a Base de Conocimiento",
+  },
+] as const;
+
 const inputCls = "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/20";
 const selectCls = "w-full rounded-xl border border-white/10 bg-[#0d0d1e] px-3 py-2 text-sm text-white/70 focus:border-violet-500/50 focus:outline-none";
 
@@ -93,6 +118,12 @@ export default function SocialFlowOnboardingPage() {
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [data, setData] = useState<FormState>(buildInitialState());
+  const [accountType, setAccountType] = useState<"empresa" | "influencer" | null>(null);
+
+  const steps = useMemo(
+    () => (accountType === "empresa" ? [...STEPS, EMPRESA_STEP] : STEPS),
+    [accountType],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -104,6 +135,9 @@ export default function SocialFlowOnboardingPage() {
         if (json?.ok && json.completed) {
           router.replace("/socialflow");
           return;
+        }
+        if (json?.ok) {
+          setAccountType(json.accountType ?? null);
         }
         if (json?.ok && json.profile) {
           const profile = json.profile;
@@ -162,13 +196,13 @@ export default function SocialFlowOnboardingPage() {
   const filledCompetitors = useMemo(() => data.competitors.filter((c) => c.name.trim().length > 0), [data.competitors]);
 
   const stepValid = useMemo(() => {
-    switch (STEPS[step].key) {
+    switch (steps[step]?.key) {
       case "brand": return data.brandName.trim().length > 0 && data.niche.trim().length > 0;
       case "audience": return true;
       case "competitors": return filledCompetitors.length >= MIN_COMPETITORS;
       default: return true;
     }
-  }, [step, data.brandName, data.niche, filledCompetitors.length]);
+  }, [steps, step, data.brandName, data.niche, filledCompetitors.length]);
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -189,7 +223,11 @@ export default function SocialFlowOnboardingPage() {
       });
       const json = (await res.json().catch(() => null)) as OnboardingPostResponse | null;
       if (!res.ok || !json?.ok) throw new Error(json?.message || json?.error || "ONBOARDING_SAVE_FAILED");
-      router.replace("/socialflow/audit");
+      if (accountType === "empresa") {
+        setStep(steps.length - 1);
+      } else {
+        router.replace("/socialflow/audit");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo guardar el onboarding");
     } finally {
@@ -215,13 +253,13 @@ export default function SocialFlowOnboardingPage() {
 
       {/* Stepper */}
       <div className="flex items-center gap-2">
-        {STEPS.map((s, idx) => (
+        {steps.map((s, idx) => (
           <div key={s.key} className="flex flex-1 items-center gap-2">
             <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${idx <= step ? "bg-violet-500 text-white" : "bg-white/8 text-white/35"}`}>
               {idx + 1}
             </div>
             <span className={`text-xs font-semibold ${idx === step ? "text-white" : "text-white/35"}`}>{s.title}</span>
-            {idx < STEPS.length - 1 && <div className="h-px flex-1 bg-white/10" />}
+            {idx < steps.length - 1 && <div className="h-px flex-1 bg-white/10" />}
           </div>
         ))}
       </div>
@@ -231,7 +269,7 @@ export default function SocialFlowOnboardingPage() {
       )}
 
       {/* Step: Brand */}
-      {STEPS[step].key === "brand" && (
+      {steps[step].key === "brand" && (
         <div className="rounded-2xl border border-white/10 bg-white/4 p-6">
           <div className="space-y-4">
             <StepField label="Nombre de marca" required>
@@ -249,7 +287,7 @@ export default function SocialFlowOnboardingPage() {
       )}
 
       {/* Step: Audience */}
-      {STEPS[step].key === "audience" && (
+      {steps[step].key === "audience" && (
         <div className="rounded-2xl border border-white/10 bg-white/4 p-6">
           <div className="space-y-4">
             <StepField label="Tono de comunicación">
@@ -284,7 +322,7 @@ export default function SocialFlowOnboardingPage() {
       )}
 
       {/* Step: Competitors */}
-      {STEPS[step].key === "competitors" && (
+      {steps[step].key === "competitors" && (
         <div className="rounded-2xl border border-white/10 bg-white/4 p-6">
           <div className="space-y-4">
             <div>
@@ -321,7 +359,7 @@ export default function SocialFlowOnboardingPage() {
       )}
 
       {/* Step: Review */}
-      {STEPS[step].key === "review" && (
+      {steps[step].key === "review" && (
         <div className="rounded-2xl border border-violet-500/25 bg-violet-500/8 p-6">
           <div className="space-y-3 text-sm text-white/65">
             <p className="text-sm font-semibold text-white/90">Revisa tu perfil antes de continuar</p>
@@ -339,6 +377,35 @@ export default function SocialFlowOnboardingPage() {
         </div>
       )}
 
+      {/* Step: Empresa checklist (solo accountType === "empresa") */}
+      {steps[step].key === "empresa-checklist" && (
+        <div className="rounded-2xl border border-white/10 bg-white/4 p-6">
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-white/85">Tu perfil ya está listo. Antes de seguir, completa estos 3 pasos:</p>
+              <p className="text-xs text-white/40">Puedes hacerlo ahora o más tarde desde el menú lateral.</p>
+            </div>
+            <div className="space-y-3">
+              {EMPRESA_CHECKLIST_ITEMS.map((item) => (
+                <div key={item.title} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/4 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-white/85">{item.title}</p>
+                    <p className="mt-1 text-xs text-white/40">{item.description}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => router.push(item.href)}
+                    className="inline-flex shrink-0 items-center rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/20"
+                  >
+                    {item.cta}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Navigation */}
       <div className="flex items-center justify-between">
         <button
@@ -349,16 +416,15 @@ export default function SocialFlowOnboardingPage() {
         >
           Atrás
         </button>
-        {step < STEPS.length - 1 ? (
+        {steps[step].key === "empresa-checklist" ? (
           <button
             type="button"
-            disabled={!stepValid}
-            onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => router.replace("/socialflow/audit")}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
           >
-            Siguiente
+            Ir a mi auditoría →
           </button>
-        ) : (
+        ) : steps[step].key === "review" ? (
           <button
             type="button"
             disabled={submitting}
@@ -367,6 +433,15 @@ export default function SocialFlowOnboardingPage() {
           >
             {submitting && <span className="h-2 w-2 animate-pulse rounded-full bg-white" />}
             {submitting ? "Guardando..." : "Generar mi auditoría"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={!stepValid}
+            onClick={() => setStep((s) => Math.min(steps.length - 1, s + 1))}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Siguiente
           </button>
         )}
       </div>
