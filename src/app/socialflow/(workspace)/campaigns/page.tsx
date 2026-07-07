@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { listSaasSocialCampaigns, resolveSocialContext } from "@/lib/socialflow/repository";
+import { getUploadBatchLimit } from "@/lib/socialflow/billing/enforce";
 import CampaignsBoard from "@/components/socialflow/campaigns-board";
 
 const SAAS_ID = "socialflow";
@@ -12,7 +13,10 @@ export default async function SocialFlowCampaignsPage() {
   }
 
   const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId: SAAS_ID });
-  const campaigns = await listSaasSocialCampaigns(ctx);
+  const [campaigns, maxImages] = await Promise.all([
+    listSaasSocialCampaigns(ctx),
+    getUploadBatchLimit(session.tenantId, session.role).catch(() => 8),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -24,7 +28,7 @@ export default async function SocialFlowCampaignsPage() {
         </p>
       </div>
 
-      <CampaignsBoard campaigns={campaigns} saasId={SAAS_ID} />
+      <CampaignsBoard campaigns={campaigns} saasId={SAAS_ID} maxImages={maxImages} />
     </div>
   );
 }

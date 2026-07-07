@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { SaasSocialCampaign, SaasSocialCampaignStatus, SaasSocialPost } from "@/lib/social-core/types";
 import CampaignPhotoUpload from "./campaign-photo-upload";
+import { useCampaignPhotoBatch, PhotoBatchGrid } from "./campaign-photo-batch";
 
 type Props = {
   campaigns: SaasSocialCampaign[];
   saasId: string;
+  maxImages: number;
 };
 
 const STATUS_CFG: Record<SaasSocialCampaignStatus, { label: string; chipBg: string; dotBg: string }> = {
@@ -141,9 +143,26 @@ function CampaignDraftPosts({ campaignId, saasId }: { campaignId: string; saasId
   );
 }
 
-function CreateCampaignForm({ saasId, onCreated }: { saasId: string; onCreated: (campaign: SaasSocialCampaign) => void }) {
+// [startDate, endDate] inclusive, en días — mismo criterio que buildDateRange en
+// /api/socialflow/campaigns/[id]/photos/route.ts (ventana de la campaña).
+function inclusiveDayCount(startDate: string, endDate: string): number {
+  const ms = new Date(endDate + "T00:00:00Z").getTime() - new Date(startDate + "T00:00:00Z").getTime();
+  return Math.max(1, Math.floor(ms / 86_400_000) + 1);
+}
+
+function CreateCampaignWizard({
+  saasId,
+  maxImages,
+  onCreated,
+}: {
+  saasId: string;
+  maxImages: number;
+  onCreated: (campaign: SaasSocialCampaign) => void;
+}) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [name, setName] = useState("");
   const [objective, setObjective] = useState("");
   const [targetSegment, setTargetSegment] = useState("");
@@ -152,11 +171,51 @@ function CreateCampaignForm({ saasId, onCreated }: { saasId: string; onCreated: 
   const [endDate, setEndDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdCampaign, setCreatedCampaign] = useState<SaasSocialCampaign | null>(null);
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setSubmitting(true);
+  const minPhotos = startDate && endDate ? inclusiveDayCount(startDate, endDate) : 1;
+  const exceedsPlan = minPhotos > maxImages;
+
+  const batch = useCampaignPhotoBatch({
+    campaignId: createdCampaign?.id ?? "",
+    saasId,
+    maxImages,
+    autoProcess: false,
+  });
+
+  function resetAll() {
+    setStep(1);
+    setName("");
+    setObjective("");
+    setTargetSegment("");
+    setBudgetEstimate("");
+    setStartDate("");
+    setEndDate("");
     setError(null);
+    setCreatedCampaign(null);
+    setOpen(false);
+  }
+
+  async function handleCreate(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+
+    if (!startDate || !endDate) {
+      setError("Indica fecha de inicio y fin para calcular cuántas fotos necesitas.");
+      return;
+    }
+    if (endDate < startDate) {
+      setError("La fecha de fin no puede ser anterior a la de inicio.");
+      return;
+    }
+    if (inclusiveDayCount(startDate, endDate) > maxImages) {
+      setError(
+        `Tu plan permite un máximo de ${maxImages} fotos. Acorta la campaña a ${maxImages} día${maxImages === 1 ? "" : "s"} o menos.`,
+      );
+      return;
+    }
+
+    setSubmitting(true);
     try {
       const res = await fetch("/api/socialflow/campaigns", {
         method: "POST",
@@ -167,8 +226,8 @@ function CreateCampaignForm({ saasId, onCreated }: { saasId: string; onCreated: 
           objective: objective.trim() || undefined,
           targetSegment: targetSegment.trim() || undefined,
           budgetEstimate: budgetEstimate.trim() ? Number(budgetEstimate) : null,
-          startDate: startDate || null,
-          endDate: endDate || null,
+          startDate,
+          endDate,
         }),
       });
       const data = (await res.json().catch(() => null)) as { campaign?: SaasSocialCampaign; message?: string } | null;
@@ -176,13 +235,8 @@ function CreateCampaignForm({ saasId, onCreated }: { saasId: string; onCreated: 
         throw new Error(data?.message ?? "No se pudo crear la campaña");
       }
       onCreated(data.campaign);
-      setName("");
-      setObjective("");
-      setTargetSegment("");
-      setBudgetEstimate("");
-      setStartDate("");
-      setEndDate("");
-      setOpen(false);
+      setCreatedCampaign(data.campaign);
+      setStep(2);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear la campaña");
     } finally {
@@ -204,76 +258,199 @@ function CreateCampaignForm({ saasId, onCreated }: { saasId: string; onCreated: 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl border border-white/8 bg-white/4 p-4">
-      <div className="grid gap-3 md:grid-cols-2">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Nombre de campaña"
-          required
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-        />
-        <input
-          value={objective}
-          onChange={(e) => setObjective(e.target.value)}
-          placeholder="Objetivo (ej. AWARENESS)"
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-        />
-        <input
-          value={targetSegment}
-          onChange={(e) => setTargetSegment(e.target.value)}
-          placeholder="Audiencia objetivo"
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-        />
-        <input
-          value={budgetEstimate}
-          onChange={(e) => setBudgetEstimate(e.target.value)}
-          placeholder="Presupuesto estimado (€)"
-          inputMode="numeric"
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-        />
-        <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wide text-white/30">Fecha de inicio</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wide text-white/30">Fecha de fin</label>
-          <input
-            type="date"
-            value={endDate}
-            min={startDate || undefined}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-          />
-        </div>
+    <div className="space-y-3 rounded-2xl border border-white/8 bg-white/4 p-4">
+      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-white/30">
+        <span className={step === 1 ? "text-violet-300" : ""}>1. Datos</span>
+        <span>→</span>
+        <span className={step === 2 ? "text-violet-300" : ""}>2. Fotos</span>
+        <span>→</span>
+        <span className={step === 3 ? "text-violet-300" : ""}>3. Confirmar</span>
       </div>
-      {error && <p className="text-xs text-rose-300">{error}</p>}
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={submitting || !name.trim()}
-          className="rounded-xl bg-violet-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-violet-400 disabled:opacity-50"
-        >
-          {submitting ? "Creando…" : "Crear en borrador"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/50 transition hover:text-white/70"
-        >
-          Cancelar
-        </button>
-      </div>
-    </form>
+
+      {step === 1 && (
+        <form onSubmit={handleCreate} className="space-y-3">
+          <div className="grid gap-3 md:grid-cols-2">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Nombre de campaña"
+              required
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            />
+            <input
+              value={objective}
+              onChange={(e) => setObjective(e.target.value)}
+              placeholder="Objetivo (ej. AWARENESS)"
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            />
+            <input
+              value={targetSegment}
+              onChange={(e) => setTargetSegment(e.target.value)}
+              placeholder="Audiencia objetivo"
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            />
+            <input
+              value={budgetEstimate}
+              onChange={(e) => setBudgetEstimate(e.target.value)}
+              placeholder="Presupuesto estimado (€)"
+              inputMode="numeric"
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            />
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-white/30">Fecha de inicio</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                required
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-white/30">Fecha de fin</label>
+              <input
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                onChange={(e) => setEndDate(e.target.value)}
+                required
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+              />
+            </div>
+          </div>
+          {startDate && endDate && (
+            <p className={`text-xs ${exceedsPlan ? "text-rose-300" : "text-white/40"}`}>
+              Esta campaña dura {minPhotos} día{minPhotos === 1 ? "" : "s"} → necesitarás al menos {minPhotos} foto
+              {minPhotos === 1 ? "" : "s"} (máximo de tu plan: {maxImages}).
+            </p>
+          )}
+          {error && <p className="text-xs text-rose-300">{error}</p>}
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={submitting || !name.trim()}
+              className="rounded-xl bg-violet-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-violet-400 disabled:opacity-50"
+            >
+              {submitting ? "Creando…" : "Siguiente →"}
+            </button>
+            <button
+              type="button"
+              onClick={resetAll}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/50 transition hover:text-white/70"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
+
+      {step === 2 && createdCampaign && (
+        <div className="space-y-3">
+          <p className="text-sm text-white/60">
+            &ldquo;{createdCampaign.name}&rdquo; dura {minPhotos} día{minPhotos === 1 ? "" : "s"} → sube al menos {minPhotos} foto
+            {minPhotos === 1 ? "" : "s"} (1 por día).
+          </p>
+          {batch.globalError && (
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+              {batch.globalError}
+            </div>
+          )}
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-white/12 bg-white/3 p-8 text-center transition hover:border-violet-500/40 hover:bg-violet-500/5"
+          >
+            <p className="text-sm font-semibold text-white/70">Arrastra o haz click para subir las fotos de la campaña</p>
+            <p className="text-xs text-white/30">
+              {batch.uploadedCount}/{minPhotos} fotos subidas · máximo {maxImages}
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) void batch.addFiles(e.target.files);
+              }}
+            />
+          </div>
+          {batch.items.length > 0 && (
+            <PhotoBatchGrid items={batch.items} onRemove={batch.removeItem} onApprove={batch.approveItem} onEditBody={batch.editBody} />
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={batch.uploadedCount < minPhotos}
+              onClick={() => setStep(3)}
+              className="rounded-xl bg-violet-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Continuar →
+            </button>
+            <button
+              type="button"
+              onClick={resetAll}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/50 transition hover:text-white/70"
+            >
+              Cerrar y continuar más tarde
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && createdCampaign && (
+        <div className="space-y-3">
+          {batch.readyCount === 0 && batch.savedCount === 0 ? (
+            <>
+              <p className="text-sm text-white/60">
+                Vas a generar {batch.uploadedCount} posts coordinados para &ldquo;{createdCampaign.name}&rdquo;.
+              </p>
+              <button
+                type="button"
+                disabled={batch.confirming}
+                onClick={() => void batch.confirmAndGenerate()}
+                className="rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:brightness-110 disabled:opacity-50"
+              >
+                {batch.confirming ? "Generando con IA…" : "Confirmar y generar con IA"}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-white/40">
+                  {batch.savedCount} programada{batch.savedCount !== 1 ? "s" : ""} de {batch.activeCount}
+                </p>
+                {batch.readyCount >= 1 && (
+                  <button
+                    type="button"
+                    onClick={() => void batch.approveAll()}
+                    className="rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+                  >
+                    Aprobar todo ({batch.readyCount})
+                  </button>
+                )}
+              </div>
+              <PhotoBatchGrid items={batch.items} onRemove={batch.removeItem} onApprove={batch.approveItem} onEditBody={batch.editBody} />
+              {batch.savedCount === batch.activeCount && batch.activeCount > 0 && (
+                <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+                  Campaña lista ✓
+                </div>
+              )}
+            </>
+          )}
+          <button
+            type="button"
+            onClick={resetAll}
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/50 transition hover:text-white/70"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
-export default function CampaignsBoard({ campaigns: initialCampaigns, saasId }: Props) {
+export default function CampaignsBoard({ campaigns: initialCampaigns, saasId, maxImages }: Props) {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -342,7 +519,11 @@ export default function CampaignsBoard({ campaigns: initialCampaigns, saasId }: 
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
-        <CreateCampaignForm saasId={saasId} onCreated={(campaign) => setCampaigns((prev) => [campaign, ...prev])} />
+        <CreateCampaignWizard
+          saasId={saasId}
+          maxImages={maxImages}
+          onCreated={(campaign) => setCampaigns((prev) => [campaign, ...prev])}
+        />
       </div>
 
       {error && (
@@ -447,7 +628,7 @@ export default function CampaignsBoard({ campaigns: initialCampaigns, saasId }: 
 
                     {isUploadingPhotos && (
                       <div className="border-t border-white/8">
-                        <CampaignPhotoUpload campaignId={campaign.id} saasId={saasId} />
+                        <CampaignPhotoUpload campaignId={campaign.id} saasId={saasId} maxImages={maxImages} />
                       </div>
                     )}
 
