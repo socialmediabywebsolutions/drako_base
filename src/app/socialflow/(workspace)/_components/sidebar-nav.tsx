@@ -100,10 +100,10 @@ export default function SidebarNav({
         {/* Logo */}
         <div className="flex items-center gap-2.5 pt-1 pb-1">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-xs font-black text-white shadow-md shadow-violet-500/20">
-            SF
+            SC
           </div>
           <span className="text-base font-black tracking-tight text-white">
-            Social<span className="sf-shimmer-text">Flow</span>
+            Social<span className="sf-shimmer-text">cors</span>
           </span>
         </div>
 

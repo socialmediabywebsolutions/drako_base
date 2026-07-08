@@ -32,10 +32,10 @@ function Card({ children }: { children: React.ReactNode }) {
         {/* Logo */}
         <div className="mb-8 flex items-center gap-3 self-start">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-black shadow-lg shadow-violet-500/30">
-            SF
+            SC
           </div>
           <span className="text-xl font-black tracking-tight">
-            Social<span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">Flow</span>
+            Social<span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">cors</span>
           </span>
         </div>
 

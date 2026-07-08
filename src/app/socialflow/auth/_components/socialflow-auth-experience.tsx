@@ -246,10 +246,10 @@ export default function SocialFlowAuthExperience() {
             <div className="mb-10 w-full max-w-xl lg:mb-0 lg:flex-1">
               <Link href="/" className="mb-8 flex items-center gap-3">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${typeConfig.gradient} text-sm font-black shadow-lg shadow-violet-500/30`}>
-                  SF
+                  SC
                 </div>
                 <span className="text-xl font-black tracking-tight">
-                  Social<span className="sf-shimmer-text">Flow</span>
+                  Social<span className="sf-shimmer-text">cors</span>
                 </span>
               </Link>
 
@@ -392,10 +392,10 @@ export default function SocialFlowAuthExperience() {
             <div className="mb-10 w-full max-w-xl lg:mb-0 lg:flex-1">
               <Link href="/" className="mb-8 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-black shadow-lg shadow-violet-500/30">
-                  SF
+                  SC
                 </div>
                 <span className="text-xl font-black tracking-tight">
-                  Social<span className="sf-shimmer-text">Flow</span>
+                  Social<span className="sf-shimmer-text">cors</span>
                 </span>
               </Link>
 
