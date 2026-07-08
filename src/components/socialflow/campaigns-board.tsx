@@ -258,7 +258,7 @@ function CreateCampaignWizard({
   }
 
   return (
-    <div className="space-y-3 rounded-2xl border border-white/8 bg-white/4 p-4">
+    <div className="w-full space-y-3 rounded-2xl border border-white/8 bg-white/4 p-4">
       <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-white/30">
         <span className={step === 1 ? "text-violet-300" : ""}>1. Datos</span>
         <span>→</span>
