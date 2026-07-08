@@ -1,5 +1,5 @@
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
-import type { ReelsConfig, ReelsEffect, ReelsRenderer, ReelsTemplate, ReelsTextOverlay } from "./ReelsEngine";
+import type { ReelsConfig, ReelsEffect, ReelsProgressCallback, ReelsRenderer, ReelsTemplate, ReelsTextOverlay } from "./ReelsEngine";
 
 // Capa 2 — única implementación de ReelsRenderer hoy. Usa Canvas (OffscreenCanvas
 // cuando está disponible) para dibujar cada frame y WebCodecs (VideoEncoder) para
@@ -211,7 +211,7 @@ async function loadImageBitmap(imageUrl: string): Promise<ImageBitmap> {
 const H264_CODEC = "avc1.640028";
 
 export class CanvasRenderer implements ReelsRenderer {
-  async render(config: ReelsConfig): Promise<Blob> {
+  async render(config: ReelsConfig, onProgress?: ReelsProgressCallback): Promise<Blob> {
     assertBrowserEnvironment();
 
     const { width, height, fps, durationSec } = config;
@@ -269,6 +269,7 @@ export class CanvasRenderer implements ReelsRenderer {
       });
       encoder.encode(frame, { keyFrame: i % keyFrameInterval === 0 });
       frame.close();
+      onProgress?.((i + 1) / totalFrames);
     }
 
     await encoder.flush();

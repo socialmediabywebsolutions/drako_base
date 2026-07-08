@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { SaasSocialCampaign, SaasSocialCampaignStatus, SaasSocialPost } from "@/lib/social-core/types";
 import CampaignPhotoUpload from "./campaign-photo-upload";
 import { useCampaignPhotoBatch, PhotoBatchGrid } from "./campaign-photo-batch";
+import ReelsCreator from "./reels-creator";
 
 type Props = {
   campaigns: SaasSocialCampaign[];
@@ -172,6 +173,7 @@ function CreateCampaignWizard({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdCampaign, setCreatedCampaign] = useState<SaasSocialCampaign | null>(null);
+  const [reelsPhotoId, setReelsPhotoId] = useState<string | null>(null);
 
   const minPhotos = startDate && endDate ? inclusiveDayCount(startDate, endDate) : 1;
   const exceedsPlan = minPhotos > maxImages;
@@ -429,7 +431,13 @@ function CreateCampaignWizard({
                   </button>
                 )}
               </div>
-              <PhotoBatchGrid items={batch.items} onRemove={batch.removeItem} onApprove={batch.approveItem} onEditBody={batch.editBody} />
+              <PhotoBatchGrid
+                items={batch.items}
+                onRemove={batch.removeItem}
+                onApprove={batch.approveItem}
+                onEditBody={batch.editBody}
+                onCreateReel={setReelsPhotoId}
+              />
               {batch.savedCount === batch.activeCount && batch.activeCount > 0 && (
                 <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
                   Campaña lista ✓
@@ -446,6 +454,41 @@ function CreateCampaignWizard({
           </button>
         </div>
       )}
+
+      {/* Reels creator modal — paso 3, opción "Reel" por foto */}
+      {reelsPhotoId && createdCampaign && (() => {
+        const reelsItem = batch.items.find((i) => i.id === reelsPhotoId);
+        if (!reelsItem?.r2Url) return null;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+            style={{ background: "rgba(0,0,0,0.75)" }}
+            onClick={() => setReelsPhotoId(null)}
+          >
+            <div
+              className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-y-auto rounded-3xl border border-white/10 bg-[#0d0d1e] p-5 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-black uppercase tracking-widest text-violet-400">Crear Reel</h3>
+                <button
+                  type="button"
+                  onClick={() => setReelsPhotoId(null)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+              <ReelsCreator
+                imageUrl={reelsItem.r2Url}
+                saasId={saasId}
+                campaignId={createdCampaign.id}
+                onClose={() => setReelsPhotoId(null)}
+              />
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

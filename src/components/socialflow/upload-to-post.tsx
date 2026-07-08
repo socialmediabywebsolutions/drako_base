@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
+import ReelsCreator from "./reels-creator";
 
 type ContentCategory = "foto_real" | "grafico_texto";
 
@@ -115,6 +116,14 @@ function IcoCalendar() {
   );
 }
 
+function IcoFilm() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-3.5 w-3.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.5h16.5v15H3.75v-15Zm0 4.5h16.5m-16.5 6h16.5M8.25 4.5v15m7.5-15v15" />
+    </svg>
+  );
+}
+
 function IcoReset() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4">
@@ -144,12 +153,14 @@ function ItemCard({
   onPreview,
   onRemove,
   onUpdate,
+  onCreateReel,
 }: {
   item: UploadItem;
   onApprove: (id: string) => void;
   onPreview: (id: string) => void;
   onRemove: (id: string) => void;
   onUpdate: (id: string, patch: Partial<UploadItem>) => void;
+  onCreateReel: (id: string) => void;
 }) {
   // ── uploading ──────────────────────────────────────────────────────────────
   if (item.step === "uploading") {
@@ -318,6 +329,13 @@ function ItemCard({
               className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/45 transition hover:bg-white/5 hover:text-white/70"
             >
               <IcoPencil /> Editar
+            </button>
+            <button
+              type="button"
+              onClick={() => onCreateReel(item.id)}
+              className="flex items-center gap-1.5 rounded-lg border border-violet-500/30 px-3 py-1.5 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/10"
+            >
+              <IcoFilm /> Reel
             </button>
             <button
               type="button"
@@ -626,6 +644,7 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [bulkPreviewOpen, setBulkPreviewOpen] = useState(false);
+  const [reelsItemId, setReelsItemId] = useState<string | null>(null);
 
   const updateItem = useCallback((id: string, patch: Partial<UploadItem>) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -1094,6 +1113,40 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
         ) : null;
       })()}
 
+      {/* Reels creator modal (z-50, mismo nivel que el preview individual) */}
+      {reelsItemId && (() => {
+        const reelsItem = items.find((i) => i.id === reelsItemId);
+        if (!reelsItem?.r2Url) return null;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+            style={{ background: "rgba(0,0,0,0.75)" }}
+            onClick={() => setReelsItemId(null)}
+          >
+            <div
+              className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-y-auto rounded-3xl border border-white/10 bg-[#0d0d1e] p-5 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-black uppercase tracking-widest text-violet-400">Crear Reel</h3>
+                <button
+                  type="button"
+                  onClick={() => setReelsItemId(null)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white"
+                >
+                  <IcoX />
+                </button>
+              </div>
+              <ReelsCreator
+                imageUrl={reelsItem.r2Url}
+                saasId={saasId}
+                onClose={() => setReelsItemId(null)}
+              />
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Cards */}
       <div className="grid gap-4 sm:grid-cols-2">
         {items.map((item) => (
@@ -1102,6 +1155,7 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
             item={item}
             onApprove={approveItem}
             onPreview={setPreviewId}
+            onCreateReel={setReelsItemId}
             onRemove={removeItem}
             onUpdate={updateItem}
           />

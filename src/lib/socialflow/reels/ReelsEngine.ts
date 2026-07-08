@@ -88,15 +88,17 @@ function validateReelsConfig(config: ReelsConfig): void {
   }
 }
 
+export type ReelsProgressCallback = (progress: number) => void;
+
 export interface ReelsRenderer {
-  render(config: ReelsConfig): Promise<Blob>;
+  render(config: ReelsConfig, onProgress?: ReelsProgressCallback): Promise<Blob>;
 }
 
 export class ReelsEngine {
   constructor(private readonly renderer: ReelsRenderer) {}
 
-  async generate(config: ReelsConfig): Promise<Blob> {
+  async generate(config: ReelsConfig, onProgress?: ReelsProgressCallback): Promise<Blob> {
     validateReelsConfig(config);
-    return this.renderer.render(config);
+    return this.renderer.render(config, onProgress);
   }
 }

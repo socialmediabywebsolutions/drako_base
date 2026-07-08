@@ -329,11 +329,16 @@ export function PhotoBatchGrid({
   onRemove,
   onApprove,
   onEditBody,
+  onCreateReel,
 }: {
   items: UploadItem[];
   onRemove: (id: string) => void;
   onApprove: (id: string) => void;
   onEditBody: (id: string, value: string) => void;
+  // Opcional — solo el wizard de creación de campaña lo pasa. El flujo legacy
+  // (botón "Subir fotos" en una campaña ya creada) no lo usa y no cambia de
+  // comportamiento.
+  onCreateReel?: (id: string) => void;
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -407,6 +412,15 @@ export function PhotoBatchGrid({
                   >
                     ✕
                   </button>
+                  {onCreateReel && (
+                    <button
+                      type="button"
+                      onClick={() => onCreateReel(item.id)}
+                      className="rounded-lg border border-violet-500/30 px-2 py-1.5 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/10"
+                    >
+                      Reel
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => onApprove(item.id)}
