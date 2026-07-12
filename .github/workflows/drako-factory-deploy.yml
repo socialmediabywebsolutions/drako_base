@@ -806,6 +806,10 @@ jobs:
           wrangler deploy -c wrangler.workers.toml
           popd
 
+          pushd workers/whatsapp-channel
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
   smoke:
     name: Smoke Tests (anti-loop / anti-cross)
     runs-on: ubuntu-latest
