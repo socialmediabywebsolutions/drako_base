@@ -20,4 +20,7 @@ DRAKO_CONTEXT = "whatsapp-channel"
 
 [env.production]
 name = "drako-whatsapp-channel"
-workers_dev = false
+workers_dev = true
+
+[env.production.vars]
+DRAKO_CONTEXT = "whatsapp-channel"
