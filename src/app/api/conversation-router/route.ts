@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { routeConversation } from "@/lib/conversation-router";
 import { registerCampamentoBaseWhatsappHandler } from "@/lib/conversation-router/handlers";
 import { registerMentoriaWhatsappHandler } from "@/lib/conversation-router/handlers";
+import { registerSocialflowWhatsappHandler } from "@/lib/conversation-router/handlers";
 import { findWhatsappIdentityByPhoneAndLineGlobal } from "@/lib/whatsapp/repository";
 import { PlatformTypeResolutionError, resolvePlatformTypeFromSaasId } from "@/lib/saas/resolve-platform-type";
 import type { Channel } from "@/lib/conversation-router/types";
@@ -32,7 +33,8 @@ function bootstrapHandlers(): void {
   // Active domain handlers for WhatsApp.
   registerCampamentoBaseWhatsappHandler();
   registerMentoriaWhatsappHandler();
-  
+  registerSocialflowWhatsappHandler();
+
   handlersBootstrapped = true;
 }
 
