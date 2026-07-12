@@ -807,7 +807,7 @@ jobs:
           popd
 
           pushd workers/whatsapp-channel
-          wrangler deploy -c wrangler.workers.toml
+          wrangler deploy -c wrangler.workers.toml --env production
           popd
 
   smoke:
