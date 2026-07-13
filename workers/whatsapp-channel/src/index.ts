@@ -117,6 +117,7 @@ export default {
   async fetch(
     request: Request,
     env: WhatsAppChannelEnv,
+    ctx: ExecutionContext,
   ): Promise<Response> {
     const url = new URL(request.url);
 
@@ -156,30 +157,38 @@ export default {
       // 4. Extract supported inbound messages (CHANNEL LAYER)
       const messages = extractInboundMessages(payload);
 
-      // 5. Process each message
-      for (const msg of messages) {
-        // 5a. Allowlist check (CHANNEL LAYER)
-        if (!isPhoneAllowed(msg.phoneNumber, env.ALLOWED_PHONES)) {
-          console.warn("[whatsapp-channel] phone not in allowlist", msg.phoneNumber);
-          continue;
-        }
+      // 5. Process every message in the background. Meta's webhook delivery has its own
+      // timeout (~20s) and expects the 200 ack promptly — callRouter()/sendWhatsAppText()
+      // can take longer than that (AI reply generation on the other end), so that work is
+      // deferred via ctx.waitUntil() instead of making Meta wait for it inline.
+      ctx.waitUntil(
+        Promise.resolve().then(async () => {
+          for (const msg of messages) {
+            // 5a. Allowlist check (CHANNEL LAYER)
+            if (!isPhoneAllowed(msg.phoneNumber, env.ALLOWED_PHONES)) {
+              console.warn("[whatsapp-channel] phone not in allowlist", msg.phoneNumber);
+              continue;
+            }
 
-        // 5b. Route to conversation router (ROUTING + DOMAIN handled by Next.js)
-        // The router resolves tenantId/saasId/actorType from saas_whatsapp_identities.
-        const result = await callRouter(msg, env);
+            // 5b. Route to conversation router (ROUTING + DOMAIN handled by Next.js)
+            // The router resolves tenantId/saasId/actorType from saas_whatsapp_identities.
+            const result = await callRouter(msg, env);
 
-        if (result.error) {
-          console.error("[whatsapp-channel] router error", result.error, msg.messageId);
-          continue;
-        }
+            if (result.error) {
+              console.error("[whatsapp-channel] router error", result.error, msg.messageId);
+              continue;
+            }
 
-        // 5d. Send reply (CHANNEL LAYER — read-only: only text replies, no mutations)
-        if (result.reply) {
-          await sendWhatsAppText(msg.phoneNumber, result.reply, env);
-        }
-      }
+            // 5d. Send reply (CHANNEL LAYER — read-only: only text replies, no mutations)
+            if (result.reply) {
+              await sendWhatsAppText(msg.phoneNumber, result.reply, env);
+            }
+          }
+        }),
+      );
 
-      // Meta requires a 200 response to acknowledge receipt, regardless of processing outcome
+      // Meta requires a 200 response to acknowledge receipt — returned immediately,
+      // without waiting for the background processing above to finish.
       return new Response("OK", { status: 200 });
     }
 
