@@ -5,16 +5,17 @@
  * Forwards the normalized turn to POST /api/socialflow/whatsapp/message,
  * which owns the actual profile lookup + AI reply generation.
  */
-import { env } from "@/lib/cf";
 import { registerHandler } from "../index";
 import type { ConversationHandler, RouteResult } from "../types";
 
 const HANDLER_ID = "socialflow";
 
-function resolveAppBaseUrl(): string | null {
-  const url = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? env()?.APP_URL ?? null;
-  return url ? url.replace(/\/$/, "") : null;
-}
+// Hardcoded deliberately: APP_URL in workers/socialflows/wrangler.workers.toml still
+// points at socialflows.drako.systems (changing it risks breaking already-registered
+// Instagram/Meta/LinkedIn OAuth redirect URIs). This endpoint call is internal
+// server-to-server traffic, not OAuth, so it can target the canonical domain directly
+// without touching APP_URL.
+const SOCIALFLOW_WHATSAPP_MESSAGE_URL = "https://socialcors.com/api/socialflow/whatsapp/message";
 
 const socialflowWhatsappHandler: ConversationHandler = async (route): Promise<RouteResult> => {
   const saasId = route.metadata?.saasId as string | undefined;
@@ -22,13 +23,8 @@ const socialflowWhatsappHandler: ConversationHandler = async (route): Promise<Ro
     return { handled: false, handler: HANDLER_ID, reply: null, error: "MISSING_SAAS_ID" };
   }
 
-  const baseUrl = resolveAppBaseUrl();
-  if (!baseUrl) {
-    return { handled: false, handler: HANDLER_ID, reply: null, error: "APP_URL_NOT_CONFIGURED" };
-  }
-
   try {
-    const res = await fetch(`${baseUrl}/api/socialflow/whatsapp/message`, {
+    const res = await fetch(SOCIALFLOW_WHATSAPP_MESSAGE_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
