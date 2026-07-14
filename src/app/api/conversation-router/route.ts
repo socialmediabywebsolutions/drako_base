@@ -20,7 +20,7 @@ import { registerCampamentoBaseWhatsappHandler } from "@/lib/conversation-router
 import { registerMentoriaWhatsappHandler } from "@/lib/conversation-router/handlers";
 import { registerSocialflowWhatsappHandler } from "@/lib/conversation-router/handlers";
 import { findWhatsappIdentityByPhoneAndLineGlobal } from "@/lib/whatsapp/repository";
-import { PlatformTypeResolutionError, resolvePlatformTypeFromSaasId } from "@/lib/saas/resolve-platform-type";
+import { PlatformTypeResolutionError, resolvePlatformTypeFromSaasId, VALID_PLATFORM_TYPES, type PlatformType } from "@/lib/saas/resolve-platform-type";
 import type { Channel } from "@/lib/conversation-router/types";
 
 const VALID_CHANNELS = new Set<Channel>(["whatsapp", "instagram_dm", "messenger", "email", "phone_call", "in_person", "sms", "slack", "api", "other"]);
@@ -121,25 +121,18 @@ export async function POST(request: NextRequest): Promise<Response> {
       return NextResponse.json({ error: "UNKNOWN_SENDER", senderId }, { status: 404 });
     }
     tenantId = identity.tenantId;
-    // Resolve the platform handler key from the SaaS instance record.
-    // saas_instances.platform_type is the authoritative source for routing.
-    // No silent fallback is allowed: unresolved or invalid platform types must
-    // fail closed so the message is observable and never routed to the wrong domain.
-    try {
-      saasTarget = await resolvePlatformTypeFromSaasId(identity.saasId);
-    } catch (error) {
-      const detail = error instanceof PlatformTypeResolutionError ? error.code : "PLATFORM_TYPE_DB_UNAVAILABLE";
-      return NextResponse.json(
-        { error: "PLATFORM_TYPE_RESOLUTION_FAILED", detail, saasId: identity.saasId },
-        {
-          status:
-            detail === "PLATFORM_TYPE_SAAS_NOT_FOUND"
-              ? platformTypeResolutionStatus("PLATFORM_TYPE_SAAS_NOT_FOUND")
-              : detail === "PLATFORM_TYPE_INVALID"
-                ? platformTypeResolutionStatus("PLATFORM_TYPE_INVALID")
-                : platformTypeResolutionStatus("PLATFORM_TYPE_DB_UNAVAILABLE"),
-        },
-      );
+    if (VALID_PLATFORM_TYPES.includes(identity.saasId as PlatformType)) {
+      saasTarget = identity.saasId as PlatformType;
+    } else {
+      try {
+        saasTarget = await resolvePlatformTypeFromSaasId(identity.saasId);
+      } catch (error) {
+        const detail = error instanceof PlatformTypeResolutionError ? error.code : "PLATFORM_TYPE_DB_UNAVAILABLE";
+        return NextResponse.json(
+          { error: "PLATFORM_TYPE_RESOLUTION_FAILED", detail, saasId: identity.saasId },
+          { status: platformTypeResolutionStatus(detail) },
+        );
+      }
     }
     resolvedMetadata = {
       ...resolvedMetadata,
