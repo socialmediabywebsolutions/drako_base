@@ -8,7 +8,8 @@ import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrat
 import { ImageAnalysisAgent } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import { TrendAgent } from "@/lib/socialflow/ai/agents/TrendAgent";
-import { ContentGeneratorAgent, type OpenerCategory } from "@/lib/socialflow/ai/agents/ContentGeneratorAgent";
+import { ContentGeneratorAgent } from "@/lib/socialflow/ai/agents/ContentGeneratorAgent";
+import { pickOpenerCategory, isGraphicTextContent } from "@/lib/socialflow/ai/openers/pickOpenerCategory";
 import { OptimizationAgent } from "@/lib/socialflow/ai/agents/OptimizationAgent";
 import type { KeywordEngineOutput, StrategyItem } from "@/lib/socialflow/ai/types";
 import { isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
@@ -21,13 +22,6 @@ function unauthorizedResponse() {
 function normalizeAnalysisText(analysis: ImageAnalysis): string {
   const raw = [analysis.description, analysis.context].join(" ");
   return raw.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-}
-
-// Quote cards / typography-driven graphics vs. real photos (person, food, exercise, scenery).
-// Reused both for hour selection (motivation slot below) and for content-type-aware batch ordering.
-const GRAPHIC_TEXT_RE = /\bfrase|\bcita\b|\btexto\b|\bquote\b|letras|tipografi/;
-function isGraphicTextContent(analysis: ImageAnalysis): boolean {
-  return GRAPHIC_TEXT_RE.test(normalizeAnalysisText(analysis));
 }
 
 // Map photo content (from LLaVA analysis) to the best UTC posting hour.
@@ -65,19 +59,6 @@ function cleanOpening(text: string): string {
     .replace(/^chicas?\s*[!,.\s¡]*/i, "")
     .replace(/^a\s+veces\s*[,.\s]*/i, "")
     .trimStart();
-}
-
-// Classify the photo into an opener category so ContentGeneratorAgent picks a
-// first line that actually matches what's in the image (gym vs. cocina vs.
-// outdoor vs. generic lifestyle), instead of one generic opener list for everything.
-function pickOpenerCategory(analysis: ImageAnalysis): OpenerCategory {
-  const raw = [analysis.description, analysis.context, ...analysis.suggestedThemes].join(" ");
-  const text = raw.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-
-  if (/gimnasio|\bgym\b|pesas|mancuernas|entrenamiento|ejercicio|rutina|musculacion|crossfit|pesa\b/.test(text)) return "gym";
-  if (/cocina|receta|\bplato\b|\bcomer\b|ingredi|comida|batido|\bjugo\b|nutrici|ensalada/.test(text)) return "cocina";
-  if (/aire libre|exterior|montana|parque|correr|caminar|playa|senderismo|naturaleza|\bcalle\b/.test(text)) return "outdoor";
-  return "lifestyle";
 }
 
 export async function POST(request: Request) {
@@ -215,7 +196,7 @@ export async function POST(request: Request) {
 
     // Step 5: Generate caption (Mistral via Workers AI)
     const contentAgent = new ContentGeneratorAgent();
-    const openerCategory = pickOpenerCategory(imageAnalysis);
+    const openerCategory = pickOpenerCategory(imageAnalysis, strategyItem.theme);
     const generated = await contentAgent.run({
       profile,
       strategyItem,

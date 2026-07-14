@@ -1,6 +1,7 @@
 import { defaultLocalModel } from "../models/localModel";
 import type { BrandProfile, GeneratedPost, KeywordEngineOutput } from "../types";
 import type { TrendInsights } from "./TrendAgent";
+import { OPENERS_BY_CATEGORY, type OpenerCategory } from "../openers/pickOpenerCategory";
 
 // Only include profile lines that carry information beyond the niche placeholder.
 function richProfileLines(profile: BrandProfile): string {
@@ -28,40 +29,7 @@ function richProfileLines(profile: BrandProfile): string {
   return lines.join("\n");
 }
 
-export type OpenerCategory = "gym" | "cocina" | "outdoor" | "lifestyle";
-
-// Openers grouped by image category so the caption's first line actually matches
-// what's in the photo, instead of one generic list shared by every kind of image.
-const OPENERS_BY_CATEGORY: Record<OpenerCategory, string[]> = {
-  gym: [
-    "Otra sesión terminada: [sensación o logro concreto de hoy].",
-    "Esto me costó admitirlo: [verdad incómoda sobre entrenar].",
-    "Hoy el cuerpo pedía parar. No paré. [resultado o lección].",
-    "Lo que nadie te cuenta antes de tomarte en serio el entrenamiento:",
-    "Años entrenando y por fin entendí: [lección clave].",
-  ],
-  cocina: [
-    "Esta receta me salvó una semana entera de [problema real].",
-    "Seré honesta: [verdad incómoda sobre comer bien].",
-    "Lo que aprendí cocinando esto para mí misma:",
-    "Años buscando esto y por fin lo encontré: [resultado].",
-    "La verdad sobre [tema de nutrición o comida]:",
-  ],
-  outdoor: [
-    "Salir hoy casi no pasaba. Me alegra que sí.",
-    "Esto me recordó por qué hago esto: [sensación o logro].",
-    "Lo que nadie te dice sobre moverte al aire libre:",
-    "Cambié la rutina de siempre por esto, y funcionó.",
-    "¿Alguna vez sentiste que necesitabas salir de la rutina?",
-  ],
-  lifestyle: [
-    "¿Alguna vez has sentido que [situación relacionada con el tema]?",
-    "Hoy necesito contarte algo sobre [tema].",
-    "La verdad sobre [tema]:",
-    "Esto me cambió la manera de ver [tema].",
-    "Lo que nadie te cuenta sobre [tema]:",
-  ],
-};
+export type { OpenerCategory };
 
 export class ContentGeneratorAgent {
   async run(input: {
