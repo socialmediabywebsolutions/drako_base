@@ -92,6 +92,12 @@ export type SaasSocialCampaign = {
   endDate: string | null;
   budgetEstimate: number | null;
   notes: string | null;
+  // Planned format-mix counters (Fase 1 — ver migrations/0200_saas_social_campaigns_format_mix.sql).
+  // Optional so every existing object literal that builds this type keeps compiling unchanged;
+  // the D1 column has DEFAULT 0, so absent here just means "no planned mix set yet".
+  postCount?: number;
+  reelCount?: number;
+  historiaCount?: number;
   createdAt: string;
   updatedAt: string;
 };
