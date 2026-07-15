@@ -15,6 +15,7 @@ import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgen
 import { TrendAgent } from "@/lib/socialflow/ai/agents/TrendAgent";
 import { ContentGeneratorAgent } from "@/lib/socialflow/ai/agents/ContentGeneratorAgent";
 import { pickOpenerCategory, isGraphicTextContent } from "@/lib/socialflow/ai/openers/pickOpenerCategory";
+import { cleanOpening } from "@/lib/socialflow/ai/openers/cleanOpening";
 import { OptimizationAgent } from "@/lib/socialflow/ai/agents/OptimizationAgent";
 import type { KeywordEngineOutput, StrategyItem } from "@/lib/socialflow/ai/types";
 import { isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
@@ -43,17 +44,6 @@ function pickHourFromContent(analysis: ImageAnalysis): number | null {
   if (/dormir|\bcama\b|meditaci|\byoga\b|respirar|\bnoche\b|\bsueno\b/.test(text)) return 21;
   if (isGraphicTextContent(analysis)) return 18;
   return null;
-}
-
-function cleanOpening(text: string): string {
-  return text
-    .replace(
-      /^[¡!]*\s*(hola|hey|buenas?(?:\s+(?:d[ií]as?|tardes?|noches?))?|buenos\s+d[ií]as?)\b[^a-záéíóúüñ\n]*/i,
-      "",
-    )
-    .replace(/^chicas?\s*[!,.\s¡]*/i, "")
-    .replace(/^a\s+veces\s*[,.\s]*/i, "")
-    .trimStart();
 }
 
 // Deterministic, campaign-wide hashtag so every photo of the same campaign shares one tag

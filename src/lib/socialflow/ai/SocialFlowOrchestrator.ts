@@ -13,6 +13,7 @@ import { getChannelKnowledge, saveCompetitorInsights } from "../profile/reposito
 import { getKnowledgeContext } from "../knowledge/repository";
 import { generatePostImage } from "./image-generator";
 import { buildImagePrompt } from "./image-prompt-builder";
+import { cleanOpening } from "./openers/cleanOpening";
 
 export class SocialFlowOrchestrator {
   private marketResearch = new MarketResearchAgent();
@@ -141,13 +142,14 @@ export class SocialFlowOrchestrator {
           (entry) => entry.id === `gen_${item.id}` || entry.id === item.id || entry.id.startsWith(`gen_${item.id}_`),
         );
         const postId = `ai_post_${campaign.id}_${item.id}`;
-        const imagePrompt = buildImagePrompt({ theme: item.theme, angle: item.angle, body: optimized?.improvedText }, profile);
+        const body = optimized?.improvedText ? cleanOpening(optimized.improvedText) : item.angle;
+        const imagePrompt = buildImagePrompt({ theme: item.theme, angle: item.angle, body }, profile);
         const imageHint = await generatePostImage(imagePrompt, postId);
         const postProvider = input.provider ?? "INSTAGRAM";
         const hashtags = (optimized?.hashtags ?? []).slice(0, 15);
         const formatMap: Record<string, SaasSocialContentType> = { single: "FEED", carousel: "FEED", reel: "REEL", story: "STORY", article: "FEED" };
         const contentType: SaasSocialContentType = formatMap[item.format] ?? "FEED";
-        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: postProvider, contentType, title: item.theme, body: optimized?.improvedText ?? item.angle, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, metadata: { targetProvider: postProvider, strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags, angle: item.angle, callToAction: item.callToAction } });
+        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: postProvider, contentType, title: item.theme, body, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, metadata: { targetProvider: postProvider, strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags, angle: item.angle, callToAction: item.callToAction } });
         savedCount++;
       } catch (postError) {
         console.error(`[SocialFlowOrchestrator] Failed to persist post for item ${item.id}`, postError instanceof Error ? postError.message : String(postError));

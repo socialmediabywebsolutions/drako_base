@@ -10,6 +10,7 @@ import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgen
 import { TrendAgent } from "@/lib/socialflow/ai/agents/TrendAgent";
 import { ContentGeneratorAgent } from "@/lib/socialflow/ai/agents/ContentGeneratorAgent";
 import { pickOpenerCategory, isGraphicTextContent } from "@/lib/socialflow/ai/openers/pickOpenerCategory";
+import { cleanOpening } from "@/lib/socialflow/ai/openers/cleanOpening";
 import { OptimizationAgent } from "@/lib/socialflow/ai/agents/OptimizationAgent";
 import type { KeywordEngineOutput, StrategyItem } from "@/lib/socialflow/ai/types";
 import { isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
@@ -46,19 +47,6 @@ function pickHourFromContent(analysis: ImageAnalysis): number | null {
   // Exercise is NOT detected by keyword: LLaVA mentions exercise terms in nearly all
   // fitness-niche photos regardless of actual content. Caller uses batchIndex rotation.
   return null;
-}
-
-// Strip greeting openings the LLM generates despite prompt instructions.
-// Two-pass: removes the greeting word, then residual vocatives ("chicas!") that survive.
-function cleanOpening(text: string): string {
-  return text
-    .replace(
-      /^[¡!]*\s*(hola|hey|buenas?(?:\s+(?:d[ií]as?|tardes?|noches?))?|buenos\s+d[ií]as?)\b[^a-záéíóúüñ\n]*/i,
-      "",
-    )
-    .replace(/^chicas?\s*[!,.\s¡]*/i, "")
-    .replace(/^a\s+veces\s*[,.\s]*/i, "")
-    .trimStart();
 }
 
 export async function POST(request: Request) {
