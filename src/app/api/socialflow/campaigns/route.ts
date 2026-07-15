@@ -49,6 +49,9 @@ export async function POST(request: Request) {
       endDate?: string | null;
       budgetEstimate?: number | null;
       notes?: string | null;
+      postCount?: number;
+      reelCount?: number;
+      historiaCount?: number;
     } | null;
     if (!body) {
       return NextResponse.json({ code: "INVALID_BODY", message: "Body is required" }, { status: 400 });
@@ -75,6 +78,9 @@ export async function POST(request: Request) {
       endDate: body.endDate ?? null,
       budgetEstimate: typeof body.budgetEstimate === "number" ? body.budgetEstimate : null,
       notes: body.notes ?? null,
+      postCount: typeof body.postCount === "number" ? body.postCount : 0,
+      reelCount: typeof body.reelCount === "number" ? body.reelCount : 0,
+      historiaCount: typeof body.historiaCount === "number" ? body.historiaCount : 0,
     });
     return NextResponse.json({ campaign });
   } catch (error) {

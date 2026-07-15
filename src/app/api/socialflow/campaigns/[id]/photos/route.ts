@@ -56,6 +56,23 @@ function campaignHashtagFor(campaignName: string): string {
   return slug ? `#${slug}` : "";
 }
 
+// Fase 2 — asigna FEED/REEL/STORY en bloques según la mezcla planeada de la campaña
+// (post_count/reel_count/historia_count), repitiendo el ciclo cada `total` fotos para
+// que un lote más grande que la mezcla planeada no se quede sin formato. Determinista y
+// sin estado compartido: cada foto se sube en su propia request, así que la única forma
+// de que todas coincidan en la misma mezcla es derivarla siempre del mismo índice.
+function pickContentTypeFromMix(
+  index: number,
+  counts: { FEED: number; REEL: number; STORY: number },
+): "FEED" | "REEL" | "STORY" | null {
+  const total = counts.FEED + counts.REEL + counts.STORY;
+  if (total <= 0) return null;
+  const position = index % total;
+  if (position < counts.FEED) return "FEED";
+  if (position < counts.FEED + counts.REEL) return "REEL";
+  return "STORY";
+}
+
 // [startStr, endStr] inclusive, one entry per calendar day (UTC). Falls back to a single
 // day if the range is empty/inverted (defensive — shouldn't happen with valid campaign dates).
 function buildDateRange(startStr: string, endStr: string): string[] {
@@ -308,7 +325,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const provider = body.provider ?? "INSTAGRAM";
     const contentTypeMap: Record<string, "FEED" | "REEL" | "STORY"> = { REEL: "REEL", STORY: "STORY", FEED: "FEED" };
-    const contentType = contentTypeMap[imageAnalysis.recommendedPostType] ?? "FEED";
+    const mixContentType = pickContentTypeFromMix(scheduleIndex, {
+      FEED: campaign.postCount ?? 0,
+      REEL: campaign.reelCount ?? 0,
+      STORY: campaign.historiaCount ?? 0,
+    });
+    const contentType = mixContentType ?? contentTypeMap[imageAnalysis.recommendedPostType] ?? "FEED";
     const title = optimized.improvedText.split("\n")[0]?.replace(/^#+\s*/, "").slice(0, 72).trim() ?? strategyItem.theme;
 
     return NextResponse.json({
