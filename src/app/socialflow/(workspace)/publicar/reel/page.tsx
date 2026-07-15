@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
-import { getUploadBatchLimit } from "@/lib/socialflow/billing/enforce";
-import UploadToPost from "@/components/socialflow/upload-to-post";
+import PublishReel from "@/components/socialflow/publish-reel";
 
 const SAAS_ID = "socialflow";
 
@@ -10,8 +9,6 @@ export default async function SocialFlowPublicarReelPage() {
   if (!session) {
     redirect("/socialflow/auth");
   }
-
-  const maxImages = await getUploadBatchLimit(session.tenantId, session.role).catch(() => 8);
 
   return (
     <div className="space-y-6">
@@ -23,11 +20,11 @@ export default async function SocialFlowPublicarReelPage() {
           Reel
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
-          Sube una foto y la IA la programa como Reel, con caption y hashtags optimizados.
+          Sube una foto y la IA la convierte en un Reel con movimiento (Ken Burns) y texto animado.
         </p>
       </div>
 
-      <UploadToPost saasId={SAAS_ID} maxImages={maxImages} contentType="REEL" />
+      <PublishReel saasId={SAAS_ID} />
     </div>
   );
 }
