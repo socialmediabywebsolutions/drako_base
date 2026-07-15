@@ -61,6 +61,7 @@ export async function POST(request: Request) {
       scheduleIndex?: number;   // 0-based position after content-type interleaving — drives day-pool assignment; falls back to batchIndex
       mode?: "analyze" | "finalize"; // "analyze" = LLaVA classification only (no caption/schedule); default ("finalize") runs the full pipeline
       imageAnalysis?: ImageAnalysis; // result of a prior "analyze" call — reused here to skip a duplicate LLaVA call
+      forcedContentType?: "FEED" | "REEL" | "STORY"; // explicit format chosen in Publicar → Post/Reel/Historia; overrides the LLaVA heuristic below
     } | null;
 
     if (!body?.imageUrl || !body?.imageKey || !body?.saasId) {
@@ -365,7 +366,7 @@ export async function POST(request: Request) {
       STORY: "STORY",
       FEED: "FEED",
     };
-    const contentType = contentTypeMap[imageAnalysis.recommendedPostType] ?? "FEED";
+    const contentType = body.forcedContentType ?? contentTypeMap[imageAnalysis.recommendedPostType] ?? "FEED";
     const title = optimized.improvedText.split("\n")[0]?.replace(/^#+\s*/, "").slice(0, 72).trim()
       ?? strategyItem.theme;
 

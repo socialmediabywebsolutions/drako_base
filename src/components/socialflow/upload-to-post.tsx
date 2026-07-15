@@ -635,7 +635,15 @@ function PreviewModal({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string; maxImages?: number }) {
+export default function UploadToPost({
+  saasId,
+  maxImages = 8,
+  contentType,
+}: {
+  saasId: string;
+  maxImages?: number;
+  contentType?: "AUTO" | "FEED" | "REEL" | "STORY";
+}) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addMoreRef = useRef<HTMLInputElement>(null);
@@ -764,6 +772,7 @@ export default function UploadToPost({ saasId, maxImages = 8 }: { saasId: string
           imageAnalysis: item.imageAnalysis,
           batchIndex: item.batchIndex,
           scheduleIndex,
+          ...(contentType && contentType !== "AUTO" ? { forcedContentType: contentType } : {}),
         }),
       });
       const genData = (await genRes.json()) as {
