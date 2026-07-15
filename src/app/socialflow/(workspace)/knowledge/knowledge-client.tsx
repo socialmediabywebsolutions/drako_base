@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { BrainScore } from "@/lib/socialflow/knowledge/brain-score";
+import BrainScorePanel from "@/components/socialflow/brain-score-panel";
 
 type DocType = "pdf" | "url" | "text" | "catalog" | "competitor" | "market_analysis" | "auto_learned_style";
 
@@ -38,7 +40,13 @@ const TYPE_BG: Record<DocType, string> = {
   auto_learned_style: "bg-fuchsia-500/15 text-fuchsia-300",
 };
 
-export default function KnowledgeBaseClient({ accountType }: { accountType: "influencer" | "empresa" | null }) {
+export default function KnowledgeBaseClient({
+  accountType,
+  score,
+}: {
+  accountType: "influencer" | "empresa" | null;
+  score: BrainScore;
+}) {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [panel, setPanel] = useState<Panel>("none");
@@ -127,6 +135,8 @@ export default function KnowledgeBaseClient({ accountType }: { accountType: "inf
           <p className="mt-3 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>
         )}
       </div>
+
+      <BrainScorePanel score={score} />
 
       {/* Panels */}
       {panel === "upload" && <UploadPanel onSuccess={onSaved} />}
