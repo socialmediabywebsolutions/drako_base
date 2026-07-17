@@ -44,6 +44,8 @@ export type ReelsConfig = {
   fps: number;
   width: number;
   height: number;
+  /** URL pública HTTPS de la pista de música de fondo (ver music-selector.ts). Sin audio si se omite. */
+  musicTrackUrl?: string;
 };
 
 // Formato exigido por Instagram Reels: 9:16, H.264, 15-30fps, 3-90s (acotamos a 15-30s
@@ -85,6 +87,9 @@ function validateReelsConfig(config: ReelsConfig): void {
   }
   if (config.textOverlays.some((t) => t.durationSec <= 0)) {
     throw new ReelsConfigError("Every textOverlay's durationSec must be > 0.");
+  }
+  if (config.musicTrackUrl !== undefined && !config.musicTrackUrl.startsWith("http")) {
+    throw new ReelsConfigError("musicTrackUrl must be a public HTTPS URL when provided.");
   }
 }
 

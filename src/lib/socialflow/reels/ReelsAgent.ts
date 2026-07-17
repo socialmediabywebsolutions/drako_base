@@ -1,6 +1,7 @@
 import { defaultLocalModel } from "../ai/models/localModel";
 import type { BrandProfile } from "../ai/types";
 import { REELS_DEFAULTS, type ReelsConfig, type ReelsEffect, type ReelsTemplate, type ReelsTextOverlay } from "./ReelsEngine";
+import { selectMusicTrack } from "./music-selector";
 
 // Capa 3 — decide el ReelsConfig (plantilla, efectos, texto animado, duración) a
 // partir del nicho/perfil de marca. Sigue el mismo patrón que StrategyAgent: una base
@@ -91,6 +92,7 @@ function sanitizeConfig(config: ReelsConfig, imageUrl: string): ReelsConfig {
     height: REELS_DEFAULTS.height,
     fps: clamp(Math.round(config.fps || REELS_DEFAULTS.fps), REELS_DEFAULTS.minFps, REELS_DEFAULTS.maxFps),
     durationSec,
+    musicTrackUrl: selectMusicTrack(config.template),
     effects: config.effects.map((e) => ({ ...e, startAt: clamp(e.startAt, 0, durationSec), endAt: clamp(e.endAt, 0, durationSec) })),
     textOverlays: config.textOverlays
       .filter((t) => t.text.trim().length > 0)

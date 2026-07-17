@@ -1,6 +1,10 @@
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import type { ReelsConfig, ReelsEffect, ReelsProgressCallback, ReelsRenderer, ReelsTemplate, ReelsTextOverlay } from "./ReelsEngine";
 
+// Reexportado tal cual desde mp4-muxer — necesitamos el tipo concreto para pasar el
+// Muxer ya construido (con pista de audio o sin ella) a encodeAudioTrack.
+type Mp4Muxer = Muxer<ArrayBufferTarget>;
+
 // Capa 2 — única implementación de ReelsRenderer hoy. Usa Canvas (OffscreenCanvas
 // cuando está disponible) para dibujar cada frame y WebCodecs (VideoEncoder) para
 // comprimirlo a H.264. Estas dos APIs SOLO existen en el navegador — no hay Canvas
@@ -31,6 +35,15 @@ function assertBrowserEnvironment(): void {
     throw new ReelsRenderError(
       "Este navegador no soporta WebCodecs (VideoEncoder/VideoFrame).",
       "REELS_RENDERER_WEBCODECS_UNSUPPORTED",
+    );
+  }
+}
+
+function assertAudioSupported(): void {
+  if (typeof AudioEncoder === "undefined" || typeof AudioData === "undefined" || typeof AudioContext === "undefined") {
+    throw new ReelsRenderError(
+      "Este navegador no soporta la codificación de audio requerida (AudioEncoder/AudioData/AudioContext).",
+      "REELS_RENDERER_AUDIO_UNSUPPORTED",
     );
   }
 }
@@ -207,6 +220,89 @@ async function loadImageBitmap(imageUrl: string): Promise<ImageBitmap> {
   return createImageBitmap(blob);
 }
 
+async function loadAudioBuffer(musicTrackUrl: string): Promise<AudioBuffer> {
+  const res = await fetch(musicTrackUrl);
+  if (!res.ok) {
+    throw new ReelsRenderError(`No se pudo cargar la pista de audio (${res.status}).`, "REELS_AUDIO_FETCH_FAILED");
+  }
+  const arrayBuffer = await res.arrayBuffer();
+  const audioCtx = new AudioContext();
+  try {
+    return await audioCtx.decodeAudioData(arrayBuffer);
+  } finally {
+    void audioCtx.close();
+  }
+}
+
+const AUDIO_FADE_OUT_SEC = 0.3;
+
+// Recorta o repite en bucle la pista para que dure exactamente durationSec, y aplica un
+// fade-out corto al final para evitar un corte/pop audible si la pista no encaja exacta.
+function buildPcmForDuration(buffer: AudioBuffer, durationSec: number): Float32Array[] {
+  const totalSamples = Math.round(durationSec * buffer.sampleRate);
+  const fadeSamples = Math.min(totalSamples, Math.round(AUDIO_FADE_OUT_SEC * buffer.sampleRate));
+
+  const channels: Float32Array[] = [];
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const source = buffer.getChannelData(c);
+    const out = new Float32Array(totalSamples);
+    for (let i = 0; i < totalSamples; i++) {
+      out[i] = source[i % source.length];
+    }
+    for (let i = 0; i < fadeSamples; i++) {
+      out[totalSamples - fadeSamples + i] *= 1 - i / fadeSamples;
+    }
+    channels.push(out);
+  }
+  return channels;
+}
+
+// AAC-LC — codec de audio más ampliamente soportado por AudioEncoder y por el
+// contenedor MP4 (mp4-muxer lo declara como 'aac').
+const AAC_CODEC = "mp4a.40.2";
+const AUDIO_FRAME_SIZE = 4096;
+
+async function encodeAudioTrack(buffer: AudioBuffer, durationSec: number, muxer: Mp4Muxer): Promise<void> {
+  const sampleRate = buffer.sampleRate;
+  const numberOfChannels = buffer.numberOfChannels;
+  const channels = buildPcmForDuration(buffer, durationSec);
+  const totalSamples = channels[0]?.length ?? 0;
+
+  const encoderConfig: AudioEncoderConfig = { codec: AAC_CODEC, numberOfChannels, sampleRate, bitrate: 128_000 };
+  const support = await AudioEncoder.isConfigSupported(encoderConfig);
+  if (!support.supported) {
+    throw new ReelsRenderError(`Este navegador no soporta la configuración de audio requerida (${AAC_CODEC}).`, "REELS_AUDIO_CODEC_UNSUPPORTED");
+  }
+
+  const encoder = new AudioEncoder({
+    output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+    error: (err) => console.error("[CanvasRenderer] AudioEncoder error", err),
+  });
+  encoder.configure(encoderConfig);
+
+  for (let offset = 0; offset < totalSamples; offset += AUDIO_FRAME_SIZE) {
+    const frameCount = Math.min(AUDIO_FRAME_SIZE, totalSamples - offset);
+    const chunkData = new Float32Array(frameCount * numberOfChannels);
+    for (let c = 0; c < numberOfChannels; c++) {
+      chunkData.set(channels[c].subarray(offset, offset + frameCount), c * frameCount);
+    }
+
+    const audioData = new AudioData({
+      format: "f32-planar",
+      sampleRate,
+      numberOfChannels,
+      numberOfFrames: frameCount,
+      timestamp: Math.round((offset / sampleRate) * 1_000_000),
+      data: chunkData,
+    });
+    encoder.encode(audioData);
+    audioData.close();
+  }
+
+  await encoder.flush();
+  encoder.close();
+}
+
 // H.264 High Profile Level 4.0 — soportado por todos los navegadores con WebCodecs.
 const H264_CODEC = "avc1.640028";
 
@@ -214,8 +310,16 @@ export class CanvasRenderer implements ReelsRenderer {
   async render(config: ReelsConfig, onProgress?: ReelsProgressCallback): Promise<Blob> {
     assertBrowserEnvironment();
 
-    const { width, height, fps, durationSec } = config;
-    const image = await loadImageBitmap(config.imageUrl);
+    const { width, height, fps, durationSec, musicTrackUrl } = config;
+
+    if (musicTrackUrl) {
+      assertAudioSupported();
+    }
+
+    const [image, audioBuffer] = await Promise.all([
+      loadImageBitmap(config.imageUrl),
+      musicTrackUrl ? loadAudioBuffer(musicTrackUrl) : Promise.resolve(null),
+    ]);
 
     const canvas = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(width, height) : document.createElement("canvas");
     if (!(canvas instanceof OffscreenCanvas)) {
@@ -242,6 +346,7 @@ export class CanvasRenderer implements ReelsRenderer {
     const muxer = new Muxer({
       target: new ArrayBufferTarget(),
       video: { codec: "avc", width, height, frameRate: fps },
+      audio: audioBuffer ? { codec: "aac", numberOfChannels: audioBuffer.numberOfChannels, sampleRate: audioBuffer.sampleRate } : undefined,
       fastStart: "in-memory",
     });
 
@@ -254,6 +359,7 @@ export class CanvasRenderer implements ReelsRenderer {
     const totalFrames = Math.round(durationSec * fps);
     const frameDurationUs = Math.round(1_000_000 / fps);
     const keyFrameInterval = fps; // 1 keyframe/segundo — suficiente para un clip de 15-30s
+    const videoProgressShare = audioBuffer ? 0.9 : 1; // deja un 10% para el encode de audio
 
     for (let i = 0; i < totalFrames; i++) {
       const t = i / fps;
@@ -269,11 +375,17 @@ export class CanvasRenderer implements ReelsRenderer {
       });
       encoder.encode(frame, { keyFrame: i % keyFrameInterval === 0 });
       frame.close();
-      onProgress?.((i + 1) / totalFrames);
+      onProgress?.(((i + 1) / totalFrames) * videoProgressShare);
     }
 
     await encoder.flush();
     encoder.close();
+
+    if (audioBuffer) {
+      await encodeAudioTrack(audioBuffer, durationSec, muxer);
+      onProgress?.(1);
+    }
+
     muxer.finalize();
 
     const { buffer } = muxer.target as ArrayBufferTarget;
