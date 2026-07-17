@@ -39,15 +39,6 @@ function assertBrowserEnvironment(): void {
   }
 }
 
-function assertAudioSupported(): void {
-  if (typeof AudioEncoder === "undefined" || typeof AudioData === "undefined" || typeof AudioContext === "undefined") {
-    throw new ReelsRenderError(
-      "Este navegador no soporta la codificación de audio requerida (AudioEncoder/AudioData/AudioContext).",
-      "REELS_RENDERER_AUDIO_UNSUPPORTED",
-    );
-  }
-}
-
 const TEMPLATE_STYLES: Record<ReelsTemplate, { font: string; color: string; accent: string }> = {
   fitness: { font: "900 64px system-ui, sans-serif", color: "#ffffff", accent: "#22d3ee" },
   lifestyle: { font: "600 58px system-ui, sans-serif", color: "#ffffff", accent: "#f0abfc" },
@@ -220,6 +211,10 @@ async function loadImageBitmap(imageUrl: string): Promise<ImageBitmap> {
   return createImageBitmap(blob);
 }
 
+// AAC-LC — codec de audio más ampliamente soportado por AudioEncoder y por el
+// contenedor MP4 (mp4-muxer lo declara como 'aac').
+const AAC_CODEC = "mp4a.40.2";
+
 async function loadAudioBuffer(musicTrackUrl: string): Promise<AudioBuffer> {
   const res = await fetch(musicTrackUrl);
   if (!res.ok) {
@@ -231,6 +226,33 @@ async function loadAudioBuffer(musicTrackUrl: string): Promise<AudioBuffer> {
     return await audioCtx.decodeAudioData(arrayBuffer);
   } finally {
     void audioCtx.close();
+  }
+}
+
+// La música es un extra, nunca el motivo por el que falle un Reel: si el navegador no
+// soporta WebCodecs de audio, la pista no carga (R2 caído, mp3 corrupto…) o el códec no
+// está soportado, se registra un aviso y el Reel se genera igualmente, mudo.
+async function prepareAudioTrack(musicTrackUrl: string): Promise<AudioBuffer | null> {
+  if (typeof AudioEncoder === "undefined" || typeof AudioData === "undefined" || typeof AudioContext === "undefined") {
+    console.warn("[CanvasRenderer] Este navegador no soporta WebCodecs de audio; el Reel se generará sin música.");
+    return null;
+  }
+  try {
+    const buffer = await loadAudioBuffer(musicTrackUrl);
+    const support = await AudioEncoder.isConfigSupported({
+      codec: AAC_CODEC,
+      numberOfChannels: buffer.numberOfChannels,
+      sampleRate: buffer.sampleRate,
+      bitrate: 128_000,
+    });
+    if (!support.supported) {
+      console.warn(`[CanvasRenderer] Códec de audio no soportado (${AAC_CODEC}); el Reel se generará sin música.`);
+      return null;
+    }
+    return buffer;
+  } catch (err) {
+    console.warn("[CanvasRenderer] No se pudo preparar la pista de audio; el Reel se generará sin música.", err);
+    return null;
   }
 }
 
@@ -257,11 +279,10 @@ function buildPcmForDuration(buffer: AudioBuffer, durationSec: number): Float32A
   return channels;
 }
 
-// AAC-LC — codec de audio más ampliamente soportado por AudioEncoder y por el
-// contenedor MP4 (mp4-muxer lo declara como 'aac').
-const AAC_CODEC = "mp4a.40.2";
 const AUDIO_FRAME_SIZE = 4096;
 
+// El soporte del códec ya se validó en prepareAudioTrack antes de declarar la pista de
+// audio en el Muxer, así que aquí se asume disponible.
 async function encodeAudioTrack(buffer: AudioBuffer, durationSec: number, muxer: Mp4Muxer): Promise<void> {
   const sampleRate = buffer.sampleRate;
   const numberOfChannels = buffer.numberOfChannels;
@@ -269,11 +290,6 @@ async function encodeAudioTrack(buffer: AudioBuffer, durationSec: number, muxer:
   const totalSamples = channels[0]?.length ?? 0;
 
   const encoderConfig: AudioEncoderConfig = { codec: AAC_CODEC, numberOfChannels, sampleRate, bitrate: 128_000 };
-  const support = await AudioEncoder.isConfigSupported(encoderConfig);
-  if (!support.supported) {
-    throw new ReelsRenderError(`Este navegador no soporta la configuración de audio requerida (${AAC_CODEC}).`, "REELS_AUDIO_CODEC_UNSUPPORTED");
-  }
-
   const encoder = new AudioEncoder({
     output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
     error: (err) => console.error("[CanvasRenderer] AudioEncoder error", err),
@@ -312,13 +328,9 @@ export class CanvasRenderer implements ReelsRenderer {
 
     const { width, height, fps, durationSec, musicTrackUrl } = config;
 
-    if (musicTrackUrl) {
-      assertAudioSupported();
-    }
-
     const [image, audioBuffer] = await Promise.all([
       loadImageBitmap(config.imageUrl),
-      musicTrackUrl ? loadAudioBuffer(musicTrackUrl) : Promise.resolve(null),
+      musicTrackUrl ? prepareAudioTrack(musicTrackUrl) : Promise.resolve(null),
     ]);
 
     const canvas = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(width, height) : document.createElement("canvas");
@@ -382,7 +394,11 @@ export class CanvasRenderer implements ReelsRenderer {
     encoder.close();
 
     if (audioBuffer) {
-      await encodeAudioTrack(audioBuffer, durationSec, muxer);
+      try {
+        await encodeAudioTrack(audioBuffer, durationSec, muxer);
+      } catch (err) {
+        console.warn("[CanvasRenderer] Falló la codificación de audio; el Reel se generará sin música.", err);
+      }
       onProgress?.(1);
     }
 
