@@ -1,5 +1,5 @@
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
-import type { ReelsConfig, ReelsEffect, ReelsProgressCallback, ReelsRenderer, ReelsTemplate, ReelsTextOverlay } from "./ReelsEngine";
+import type { ReelsConfig, ReelsEffect, ReelsProgressCallback, ReelsRenderer, ReelsTemplate, ReelsTextOverlay, ReelsTextRole } from "./ReelsEngine";
 
 // Reexportado tal cual desde mp4-muxer — necesitamos el tipo concreto para pasar el
 // Muxer ya construido (con pista de audio o sin ella) a encodeAudioTrack.
@@ -39,12 +39,22 @@ function assertBrowserEnvironment(): void {
   }
 }
 
-const TEMPLATE_STYLES: Record<ReelsTemplate, { font: string; color: string; accent: string }> = {
-  fitness: { font: "900 64px system-ui, sans-serif", color: "#ffffff", accent: "#22d3ee" },
-  lifestyle: { font: "600 58px system-ui, sans-serif", color: "#ffffff", accent: "#f0abfc" },
-  motivation: { font: "800 68px system-ui, sans-serif", color: "#ffffff", accent: "#fbbf24" },
-  education: { font: "700 56px system-ui, sans-serif", color: "#ffffff", accent: "#60a5fa" },
-  marketing: { font: "800 60px system-ui, sans-serif", color: "#ffffff", accent: "#34d399" },
+// fallbackFontSize solo se usa cuando el overlay no trae `role` (retrocompatibilidad —
+// ver TEXT_ROLE_STYLE para el tamaño por jerarquía, que es lo que usa ReelsAgent hoy).
+const TEMPLATE_STYLES: Record<ReelsTemplate, { weight: number; family: string; fallbackFontSize: number; color: string }> = {
+  fitness: { weight: 900, family: "system-ui, sans-serif", fallbackFontSize: 64, color: "#ffffff" },
+  lifestyle: { weight: 600, family: "system-ui, sans-serif", fallbackFontSize: 58, color: "#ffffff" },
+  motivation: { weight: 800, family: "system-ui, sans-serif", fallbackFontSize: 68, color: "#ffffff" },
+  education: { weight: 700, family: "system-ui, sans-serif", fallbackFontSize: 56, color: "#ffffff" },
+  marketing: { weight: 800, family: "system-ui, sans-serif", fallbackFontSize: 60, color: "#ffffff" },
+};
+
+// Jerarquía visual de 3 capas: título arriba (grande), subtítulo centrado (medio),
+// CTA abajo (pequeño). Solo se aplica cuando el overlay trae `role`.
+const TEXT_ROLE_STYLE: Record<ReelsTextRole, { fontSize: number; position: NonNullable<ReelsTextOverlay["position"]> }> = {
+  title: { fontSize: 90, position: "top" },
+  subtitle: { fontSize: 55, position: "center" },
+  cta: { fontSize: 45, position: "bottom" },
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -158,43 +168,85 @@ function drawTextOverlays(
   canvasWidth: number,
   canvasHeight: number,
 ): void {
-  const style = TEMPLATE_STYLES[template];
+  const templateStyle = TEMPLATE_STYLES[template];
 
   for (const overlay of overlays) {
     const endAt = overlay.startAt + overlay.durationSec;
     if (t < overlay.startAt || t > endAt) continue;
 
-    const introProgress = easedProgress(t, overlay.startAt, overlay.startAt + Math.min(0.4, overlay.durationSec / 2));
     let opacity = 1;
     let offsetY = 0;
+    let scale = 1;
 
-    if (overlay.animation === "fade-in") {
-      opacity = introProgress;
-    } else if (overlay.animation === "slide-up") {
-      opacity = introProgress;
-      offsetY = (1 - introProgress) * 40;
+    if (overlay.role) {
+      // Animación de entrada por rol, primeros 0.5s de vida del overlay (lineal, no eased).
+      const roleIntroProgress = Math.min(1, (t - overlay.startAt) / 0.5);
+      opacity = roleIntroProgress;
+      if (overlay.role === "title") {
+        offsetY = -50 * (1 - roleIntroProgress); // slide-down: entra desde arriba
+      } else if (overlay.role === "cta") {
+        offsetY = 50 * (1 - roleIntroProgress); // slide-up: entra desde abajo
+      } else if (overlay.role === "subtitle") {
+        scale = 0.85 + 0.15 * roleIntroProgress; // zoom-in: 0.85 → 1.0
+      }
+    } else {
+      const introProgress = easedProgress(t, overlay.startAt, overlay.startAt + Math.min(0.4, overlay.durationSec / 2));
+      if (overlay.animation === "fade-in") {
+        opacity = introProgress;
+      } else if (overlay.animation === "slide-up") {
+        opacity = introProgress;
+        offsetY = (1 - introProgress) * 40;
+      }
     }
 
-    const baseY =
-      overlay.position === "top" ? canvasHeight * 0.18 : overlay.position === "bottom" ? canvasHeight * 0.82 : canvasHeight * 0.5;
+    const roleStyle = overlay.role ? TEXT_ROLE_STYLE[overlay.role] : undefined;
+    const fontSize = roleStyle?.fontSize ?? templateStyle.fallbackFontSize;
+    const position = overlay.position ?? roleStyle?.position ?? "center";
+    const baseY = position === "top" ? canvasHeight * 0.18 : position === "bottom" ? canvasHeight * 0.82 : canvasHeight * 0.5;
 
     ctx.save();
     ctx.globalAlpha = opacity;
-    ctx.font = style.font;
+    ctx.font = `${templateStyle.weight} ${fontSize}px ${templateStyle.family}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
     ctx.shadowColor = "rgba(0,0,0,0.6)";
-    ctx.shadowBlur = 18;
+    ctx.shadowBlur = 28;
+
+    if (scale !== 1) {
+      // Escala alrededor del centro del bloque de texto (no de la esquina del canvas).
+      const blockCenterY = baseY + offsetY;
+      ctx.translate(canvasWidth / 2, blockCenterY);
+      ctx.scale(scale, scale);
+      ctx.translate(-canvasWidth / 2, -blockCenterY);
+    }
 
     const text = textForOverlayAtTime(overlay, t);
     const lines = wrapText(ctx, text, canvasWidth * 0.85);
-    const lineHeight = 76;
+    if (lines.length === 0) {
+      ctx.restore();
+      continue;
+    }
+    const lineHeight = fontSize * 1.15;
     const startY = baseY - ((lines.length - 1) * lineHeight) / 2 + offsetY;
+
+    // Fondo semitransparente real detrás del texto (antes se asignaba fillStyle pero se
+    // sobreescribía sin dibujarse nunca) — sin sombra propia, para no verse "difuminado".
+    const maxLineWidth = Math.max(...lines.map((line) => ctx.measureText(line).width));
+    const boxPaddingX = 32;
+    const boxPaddingY = 20;
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(
+      canvasWidth / 2 - maxLineWidth / 2 - boxPaddingX,
+      startY - lineHeight / 2 - boxPaddingY,
+      maxLineWidth + boxPaddingX * 2,
+      lines.length * lineHeight + boxPaddingY * 2,
+    );
+    ctx.shadowBlur = 28;
 
     lines.forEach((line, i) => {
       const y = startY + i * lineHeight;
-      ctx.fillStyle = style.color;
+      ctx.fillStyle = templateStyle.color;
       ctx.fillText(line, canvasWidth / 2, y);
     });
 

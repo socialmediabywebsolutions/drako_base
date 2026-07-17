@@ -26,12 +26,16 @@ export type ReelsEffect = {
 
 export type ReelsTextAnimationKind = "fade-in" | "slide-up" | "word-by-word";
 
+export type ReelsTextRole = "title" | "subtitle" | "cta";
+
 export type ReelsTextOverlay = {
   text: string;
   animation: ReelsTextAnimationKind;
   startAt: number;
   durationSec: number;
   position?: "top" | "center" | "bottom";
+  /** Jerarquía visual (ver TEXT_ROLE_STYLE en CanvasRenderer.ts). Opcional — si se omite, se usa el tamaño fijo por plantilla y `position` tal cual, como antes. */
+  role?: ReelsTextRole;
 };
 
 export type ReelsConfig = {

@@ -1,6 +1,6 @@
 import { defaultLocalModel } from "../ai/models/localModel";
 import type { BrandProfile } from "../ai/types";
-import { REELS_DEFAULTS, type ReelsConfig, type ReelsEffect, type ReelsTemplate, type ReelsTextOverlay } from "./ReelsEngine";
+import { REELS_DEFAULTS, type ReelsConfig, type ReelsEffect, type ReelsEffectKind, type ReelsTemplate, type ReelsTextOverlay } from "./ReelsEngine";
 import { selectMusicTrack } from "./music-selector";
 
 // Capa 3 — decide el ReelsConfig (plantilla, efectos, texto animado, duración) a
@@ -40,35 +40,109 @@ const TEMPLATE_TEXT_ANIMATION: Record<ReelsTemplate, ReelsTextOverlay["animation
   education: "word-by-word",
 };
 
-// Dos efectos fijos (movimiento principal + blur de cierre) — mergeAiStructuredOutput
-// hace merge posicional sobre arrays de objetos, así que la IA puede ajustar kind/
-// intensity/timing de estos dos "slots" pero no añadir un tercero (mismo límite que
-// StrategyAgent aplica a horizonDays).
-function buildBaseEffects(template: ReelsTemplate, durationSec: number): ReelsEffect[] {
-  const primary: ReelsEffect =
-    template === "fitness" || template === "motivation"
-      ? { kind: "pan-left", startAt: 0, endAt: durationSec, intensity: 0.35 }
-      : template === "lifestyle"
-      ? { kind: "parallax", startAt: 0, endAt: durationSec, intensity: 0.4 }
-      : template === "education"
-      ? { kind: "zoom-in", startAt: 0, endAt: durationSec, intensity: 0.2 }
-      : { kind: "rotate", startAt: 0, endAt: durationSec, intensity: 0.15 };
+type EffectProfile = {
+  pool: ReelsEffectKind[];
+  segmentCount: [min: number, max: number];
+  segmentDurationSec: [min: number, max: number];
+  intensityRange: [min: number, max: number];
+};
 
-  const outro: ReelsEffect = { kind: "blur", startAt: Math.max(0, durationSec - 1), endAt: durationSec, intensity: 0.4 };
+// Plantillas "energéticas" (fitness/motivation): segmentos cortos + intensidad alta →
+// más cambios de movimiento por segundo. Plantillas "suaves" (lifestyle/education):
+// segmentos largos + intensidad baja → transiciones que casi no se notan como corte.
+// marketing queda en un punto intermedio (ni deportivo ni relajado).
+const TEMPLATE_EFFECT_PROFILE: Record<ReelsTemplate, EffectProfile> = {
+  fitness: { pool: ["pan-left", "pan-right", "zoom-in", "rotate"], segmentCount: [3, 4], segmentDurationSec: [2, 4], intensityRange: [0.3, 0.5] },
+  motivation: { pool: ["zoom-in", "pan-left", "pan-right", "parallax"], segmentCount: [3, 4], segmentDurationSec: [2, 4], intensityRange: [0.3, 0.5] },
+  lifestyle: { pool: ["parallax", "zoom-out", "pan-right"], segmentCount: [2, 3], segmentDurationSec: [4, 7], intensityRange: [0.15, 0.3] },
+  education: { pool: ["zoom-in", "parallax"], segmentCount: [2, 3], segmentDurationSec: [5, 9], intensityRange: [0.1, 0.2] },
+  marketing: { pool: ["zoom-in", "rotate", "pan-left"], segmentCount: [2, 3], segmentDurationSec: [4, 6], intensityRange: [0.15, 0.3] },
+};
 
-  return [primary, outro];
+const OUTRO_BLUR_SEC = 1;
+
+function pickInRange([min, max]: [number, number], random: () => number): number {
+  return min + random() * (max - min);
+}
+
+function pickEffectKind(pool: ReelsEffectKind[], lastKind: ReelsEffectKind | null, random: () => number): ReelsEffectKind {
+  let kind = pool[Math.floor(random() * pool.length)];
+  let attempts = 0;
+  while (kind === lastKind && pool.length > 1 && attempts < 5) {
+    kind = pool[Math.floor(random() * pool.length)];
+    attempts++;
+  }
+  return kind;
+}
+
+// Encadena entre 2 y 4 efectos consecutivos (nunca simultáneos) según el perfil de la
+// plantilla, más el mismo blur de cierre de 1s de siempre. mergeAiStructuredOutput hace
+// merge posicional sobre arrays de objetos, así que la IA puede seguir ajustando
+// kind/intensity/timing de cada segmento, pero la estructura (cuántos, en qué orden)
+// la decide este heurístico, no la IA.
+function buildChainedEffects(template: ReelsTemplate, durationSec: number, random: () => number = Math.random): ReelsEffect[] {
+  const profile = TEMPLATE_EFFECT_PROFILE[template];
+  const mainDurationSec = Math.max(1, durationSec - OUTRO_BLUR_SEC);
+  const segmentCount = clamp(Math.round(pickInRange(profile.segmentCount, random)), 2, 4);
+
+  const segments: ReelsEffect[] = [];
+  let cursor = 0;
+  let lastKind: ReelsEffectKind | null = null;
+
+  for (let i = 0; i < segmentCount; i++) {
+    const isLast = i === segmentCount - 1;
+    const remaining = mainDurationSec - cursor;
+    const remainingSegmentsAfterThis = segmentCount - i - 1;
+    const segDuration = isLast
+      ? Math.max(0.5, remaining)
+      : Math.max(0.5, Math.min(remaining - remainingSegmentsAfterThis * 0.5, pickInRange(profile.segmentDurationSec, random)));
+
+    const kind = pickEffectKind(profile.pool, lastKind, random);
+    lastKind = kind;
+
+    segments.push({
+      kind,
+      startAt: Number(cursor.toFixed(2)),
+      endAt: Number(Math.min(mainDurationSec, cursor + segDuration).toFixed(2)),
+      intensity: Number(pickInRange(profile.intensityRange, random).toFixed(2)),
+    });
+
+    cursor += segDuration;
+  }
+
+  const outro: ReelsEffect = { kind: "blur", startAt: Math.max(0, durationSec - OUTRO_BLUR_SEC), endAt: durationSec, intensity: 0.4 };
+
+  return [...segments, outro];
+}
+
+const CTA_ENERGETIC: [string, string, string] = ["Sígueme para más 🔥", "Guárdalo 📌", "Comparte con alguien que lo necesite 💪"];
+
+// fitness y motivation comparten pool (ambas son plantillas "energéticas").
+const CTA_POOL: Record<ReelsTemplate, [string, string, string]> = {
+  fitness: CTA_ENERGETIC,
+  motivation: CTA_ENERGETIC,
+  lifestyle: ["Sígueme para más ✨", "Guárdalo para después 🌿", "¿Te identificas? Cuéntame 💬"],
+  education: ["Sígueme para más tips 📚", "Guárdalo 📌", "¿Lo sabías? Comenta 👇"],
+  marketing: ["Sígueme para más 🚀", "Compártelo 🔁", "Guárdalo para después ⭐"],
+};
+
+// Rotación determinista (no aleatoria) para que dos llamadas en el mismo segundo no
+// muestren CTAs distintos de forma inconsistente entre reintentos.
+function pickCta(template: ReelsTemplate): string {
+  return CTA_POOL[template][Date.now() % 3];
 }
 
 function buildBaseTextOverlays(template: ReelsTemplate, durationSec: number, profile: BrandProfile): ReelsTextOverlay[] {
   const animation = TEMPLATE_TEXT_ANIMATION[template];
   const hook = `${profile.brandIdentity}`;
   const pillar = profile.contentPillars[0] ?? profile.niche;
+  const cta = pickCta(template);
 
   const third = durationSec / 3;
   return [
-    { text: hook, animation, startAt: 0.3, durationSec: Math.max(2, third - 0.5), position: "top" },
-    { text: pillar, animation, startAt: third + 0.3, durationSec: Math.max(2, third - 0.5), position: "center" },
-    { text: "Sígueme para más", animation: "fade-in", startAt: third * 2 + 0.3, durationSec: Math.max(2, third - 0.8), position: "bottom" },
+    { text: hook, role: "title", animation, startAt: 0.3, durationSec: Math.max(2, third - 0.5), position: "top" },
+    { text: pillar, role: "subtitle", animation, startAt: third + 0.3, durationSec: Math.max(2, third - 0.5), position: "center" },
+    { text: cta, role: "cta", animation: "fade-in", startAt: third * 2 + 0.3, durationSec: Math.max(2, third - 0.8), position: "bottom" },
   ];
 }
 
@@ -110,7 +184,7 @@ export class ReelsAgent {
     const base: ReelsConfig = {
       imageUrl,
       template,
-      effects: buildBaseEffects(template, durationSec),
+      effects: buildChainedEffects(template, durationSec),
       textOverlays: buildBaseTextOverlays(template, durationSec, profile),
       durationSec,
       fps: REELS_DEFAULTS.fps,
