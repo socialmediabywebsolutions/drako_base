@@ -41,20 +41,20 @@ function assertBrowserEnvironment(): void {
 
 // fallbackFontSize solo se usa cuando el overlay no trae `role` (retrocompatibilidad —
 // ver TEXT_ROLE_STYLE para el tamaño por jerarquía, que es lo que usa ReelsAgent hoy).
-const TEMPLATE_STYLES: Record<ReelsTemplate, { weight: number; family: string; fallbackFontSize: number; color: string }> = {
-  fitness: { weight: 900, family: "system-ui, sans-serif", fallbackFontSize: 64, color: "#ffffff" },
-  lifestyle: { weight: 600, family: "system-ui, sans-serif", fallbackFontSize: 58, color: "#ffffff" },
-  motivation: { weight: 800, family: "system-ui, sans-serif", fallbackFontSize: 68, color: "#ffffff" },
-  education: { weight: 700, family: "system-ui, sans-serif", fallbackFontSize: 56, color: "#ffffff" },
-  marketing: { weight: 800, family: "system-ui, sans-serif", fallbackFontSize: 60, color: "#ffffff" },
+const TEMPLATE_STYLES: Record<ReelsTemplate, { weight: number; family: string; fallbackFontSize: number }> = {
+  fitness: { weight: 900, family: "system-ui, sans-serif", fallbackFontSize: 80 },
+  lifestyle: { weight: 600, family: "system-ui, sans-serif", fallbackFontSize: 72 },
+  motivation: { weight: 800, family: "system-ui, sans-serif", fallbackFontSize: 85 },
+  education: { weight: 700, family: "system-ui, sans-serif", fallbackFontSize: 70 },
+  marketing: { weight: 800, family: "system-ui, sans-serif", fallbackFontSize: 75 },
 };
 
 // Jerarquía visual de 3 capas: título arriba (grande), subtítulo centrado (medio),
 // CTA abajo (pequeño). Solo se aplica cuando el overlay trae `role`.
 const TEXT_ROLE_STYLE: Record<ReelsTextRole, { fontSize: number; position: NonNullable<ReelsTextOverlay["position"]> }> = {
-  title: { fontSize: 90, position: "top" },
-  subtitle: { fontSize: 55, position: "center" },
-  cta: { fontSize: 45, position: "bottom" },
+  title: { fontSize: 120, position: "top" },
+  subtitle: { fontSize: 72, position: "center" },
+  cta: { fontSize: 56, position: "bottom" },
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -69,6 +69,23 @@ function easedProgress(t: number, startAt: number, endAt: number): number {
   return linear * linear * (3 - 2 * linear); // smoothstep
 }
 
+function easeInOut(x: number): number {
+  return x < 0.5 ? 2 * x * x : -1 + (4 - 2 * x) * x;
+}
+
+const SEGMENT_FADE_SEC = 0.3;
+
+// Envolvente 0→1→0 en los bordes de cada segmento (0.3s de entrada, 0.3s de salida) para
+// que al pasar de un efecto encadenado al siguiente (no solapados) no haya un salto
+// brusco en la transformación — cada segmento nace y muere en el estado "neutro".
+function computeSegmentBlend(t: number, startAt: number, endAt: number): number {
+  const elapsed = t - startAt;
+  const remaining = endAt - t;
+  const blendIn = easeInOut(clamp(elapsed / SEGMENT_FADE_SEC, 0, 1));
+  const blendOut = easeInOut(clamp(remaining / SEGMENT_FADE_SEC, 0, 1));
+  return Math.min(blendIn, blendOut);
+}
+
 type FrameTransform = { scale: number; translateX: number; translateY: number; rotateDeg: number; blurPx: number };
 
 // Combina todos los efectos activos en el instante t en una única transformación.
@@ -79,7 +96,8 @@ function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number
   for (const effect of effects) {
     if (t < effect.startAt || t > effect.endAt) continue;
     const progress = easedProgress(t, effect.startAt, effect.endAt);
-    const intensity = effect.intensity ?? 0.15;
+    const blend = computeSegmentBlend(t, effect.startAt, effect.endAt);
+    const intensity = (effect.intensity ?? 0.15) * blend;
 
     switch (effect.kind) {
       case "zoom-in":
@@ -160,6 +178,25 @@ function textForOverlayAtTime(overlay: ReelsTextOverlay, t: number): string {
   return words.slice(0, revealCount).join(" ");
 }
 
+// Detecta si el fondo bajo el texto es claro u oscuro muestreando un área ~200x80px
+// centrada en (centerX, centerY), para elegir texto negro/sombra blanca o texto
+// blanco/sombra negra. Se recalcula cada frame porque los efectos mueven la imagen
+// bajo el texto, así que lo que hay debajo puede cambiar de brillo con el tiempo.
+function sampleAverageBrightness(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  sampleWidth: number,
+  sampleHeight: number,
+): number {
+  const { data } = ctx.getImageData(centerX - sampleWidth / 2, centerY - sampleHeight / 2, sampleWidth, sampleHeight);
+  let total = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    total += data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+  }
+  return total / (data.length / 4);
+}
+
 function drawTextOverlays(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   overlays: ReelsTextOverlay[],
@@ -204,12 +241,18 @@ function drawTextOverlays(
     const position = overlay.position ?? roleStyle?.position ?? "center";
     const baseY = position === "top" ? canvasHeight * 0.18 : position === "bottom" ? canvasHeight * 0.82 : canvasHeight * 0.5;
 
+    const brightness = sampleAverageBrightness(ctx, canvasWidth / 2, baseY, 200, 80);
+    const isLightBackground = brightness > 128;
+    const textColor = isLightBackground ? "#000000" : "#ffffff";
+    const shadowColor = isLightBackground ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)";
+    const boxColor = isLightBackground ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.35)";
+
     ctx.save();
     ctx.globalAlpha = opacity;
     ctx.font = `${templateStyle.weight} ${fontSize}px ${templateStyle.family}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.shadowColor = "rgba(0,0,0,0.6)";
+    ctx.shadowColor = shadowColor;
     ctx.shadowBlur = 28;
 
     if (scale !== 1) {
@@ -235,7 +278,7 @@ function drawTextOverlays(
     const boxPaddingX = 32;
     const boxPaddingY = 20;
     ctx.shadowBlur = 0;
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillStyle = boxColor;
     ctx.fillRect(
       canvasWidth / 2 - maxLineWidth / 2 - boxPaddingX,
       startY - lineHeight / 2 - boxPaddingY,
@@ -246,7 +289,7 @@ function drawTextOverlays(
 
     lines.forEach((line, i) => {
       const y = startY + i * lineHeight;
-      ctx.fillStyle = templateStyle.color;
+      ctx.fillStyle = textColor;
       ctx.fillText(line, canvasWidth / 2, y);
     });
 

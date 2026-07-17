@@ -20,7 +20,7 @@ export default async function SocialFlowPublicarReelPage() {
           Reel
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
-          Sube una foto y la IA la convierte en un Reel con movimiento (Ken Burns) y texto animado.
+          Sube una foto y Socialcors crea tu Reel automáticamente.
         </p>
       </div>
 
