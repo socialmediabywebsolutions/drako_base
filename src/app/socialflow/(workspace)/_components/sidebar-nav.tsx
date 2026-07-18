@@ -64,13 +64,6 @@ const mainNavBottom = [
   { href: "/socialflow/knowledge",     label: "Base de conocimiento",icon: <IcoBook /> },
 ];
 
-const publishNav = [
-  { href: "/socialflow/publicar",          label: "Automático" },
-  { href: "/socialflow/publicar/post",     label: "Post" },
-  { href: "/socialflow/publicar/reel",     label: "Reel" },
-  { href: "/socialflow/publicar/historia", label: "Historia" },
-];
-
 const settingsNav = [
   { href: "/socialflow/settings/account",   label: "Mi cuenta" },
   { href: "/socialflow/settings/accounts",  label: "Cuentas sociales" },
@@ -106,20 +99,10 @@ export default function SidebarNav({
   const [settingsOpen, setSettingsOpen] = useState(
     settingsNav.some((item) => pathname.startsWith(item.href)),
   );
-  const [publishOpen, setPublishOpen] = useState(
-    pathname.startsWith("/socialflow/publicar"),
-  );
   const [loggingOut, setLoggingOut] = useState(false);
 
   function isActive(href: string) {
     if (href === "/socialflow") return pathname === "/socialflow";
-    return pathname.startsWith(href);
-  }
-
-  // "/socialflow/publicar" (Automático) must NOT match as active when on
-  // /publicar/post, /publicar/reel, /publicar/historia (nested under it).
-  function isPublishItemActive(href: string) {
-    if (href === "/socialflow/publicar") return pathname === "/socialflow/publicar";
     return pathname.startsWith(href);
   }
 
@@ -162,41 +145,10 @@ export default function SidebarNav({
         <nav className="flex flex-col gap-0.5">
           {mainNavTop.map((item) => renderMainNavItem(item, isActive(item.href)))}
 
-          {/* Publicar collapsible */}
-          <div className="flex flex-col gap-0.5">
-            <button
-              type="button"
-              onClick={() => setPublishOpen((v) => !v)}
-              className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-white/45 hover:bg-white/5 hover:text-white/80 transition-all border border-transparent"
-            >
-              <span className="flex items-center gap-3">
-                <span className="text-white/30"><IcoPublish /></span>
-                Publicar
-              </span>
-              <IcoChevron open={publishOpen} />
-            </button>
-
-            {publishOpen && (
-              <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/8 pl-3">
-                {publishNav.map((item) => {
-                  const active = isPublishItemActive(item.href);
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-                        active
-                          ? "bg-violet-500/15 text-violet-300"
-                          : "text-white/40 hover:text-white/70 hover:bg-white/5"
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          {renderMainNavItem(
+            { href: "/socialflow/publicar", label: "Publicar", icon: <IcoPublish /> },
+            isActive("/socialflow/publicar"),
+          )}
 
           {mainNavBottom.map((item) => renderMainNavItem(item, isActive(item.href)))}
         </nav>
