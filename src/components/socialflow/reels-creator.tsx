@@ -8,20 +8,49 @@ import { CanvasRenderer } from "@/lib/socialflow/reels/CanvasRenderer";
 // Orquesta las 3 capas del Reels Engine desde el navegador (única forma posible —
 // Canvas/WebCodecs no existen en el runtime de Cloudflare Workers, ver auditoría):
 // 1) pide la config a /api/socialflow/reels/generate (Capa 3, servidor)
-// 2) la renderiza en el navegador con CanvasRenderer (Capa 2)
+// 2) en paralelo: la renderiza en el navegador con CanvasRenderer (Capa 2) y pide
+//    caption/hashtags/scheduledAt reales a /api/socialflow/posts/generate-from-image
+//    (mismo pipeline LLaVA+Mistral que usa el flujo de fotos, ver auditoría) — un fallo
+//    en el caption nunca debe tumbar el render del vídeo, por eso fetchCaption() nunca
+//    rechaza la promesa, solo devuelve null.
 // 3) sube el Blob resultante a /api/socialflow/media/upload (mismo endpoint que ya
 //    acepta video/mp4 para el flujo de fotos)
-// 4) al aprobar, programa el post vía /api/socialflow/posts con contentType "REEL".
+// 4) al aprobar, programa el post vía /api/socialflow/posts con contentType "REEL",
+//    usando el caption real si se consiguió, o el nombre de marca como fallback.
 
 type Phase = "deciding" | "rendering" | "uploading" | "ready" | "saving" | "saved" | "error";
 
+type SuggestedPost = {
+  title: string;
+  body: string;
+  hashtags: string[];
+  scheduledAt: string;
+};
+
+async function fetchCaption(imageUrl: string, imageKey: string, saasId: string): Promise<SuggestedPost | null> {
+  try {
+    const res = await fetch("/api/socialflow/posts/generate-from-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "finalize", imageUrl, imageKey, saasId, forcedContentType: "REEL" }),
+    });
+    const data = (await res.json()) as { suggestedPost?: SuggestedPost };
+    if (!res.ok || !data.suggestedPost) return null;
+    return data.suggestedPost;
+  } catch {
+    return null;
+  }
+}
+
 export default function ReelsCreator({
   imageUrl,
+  imageKey,
   saasId,
   campaignId,
   onClose,
 }: {
   imageUrl: string;
+  imageKey: string;
   saasId: string;
   campaignId?: string;
   onClose?: () => void;
@@ -36,6 +65,7 @@ export default function ReelsCreator({
   const [config, setConfig] = useState<ReelsConfig | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [suggestedPost, setSuggestedPost] = useState<SuggestedPost | null>(null);
 
   useEffect(() => {
     if (startedRef.current) return;
@@ -65,7 +95,11 @@ export default function ReelsCreator({
       setPhase("rendering");
       setProgress(0);
       const engine = new ReelsEngine(new CanvasRenderer());
-      const blob = await engine.generate(genData.config, (p) => setProgress(p));
+      const [blob, suggestedPostResult] = await Promise.all([
+        engine.generate(genData.config, (p) => setProgress(p)),
+        fetchCaption(imageUrl, imageKey, saasId),
+      ]);
+      setSuggestedPost(suggestedPostResult);
 
       const objectUrl = URL.createObjectURL(blob);
       previewUrlRef.current = objectUrl;
@@ -92,8 +126,15 @@ export default function ReelsCreator({
     if (!videoUrl || !config) return;
     setPhase("saving");
     try {
-      const caption = config.textOverlays[0]?.text || "Reel";
-      const scheduledAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      // Fallback si generate-from-image falló o nunca respondió: nombre de marca + 1h.
+      const fallbackCaption = config.textOverlays[0]?.text || "Reel";
+      const body = suggestedPost
+        ? suggestedPost.hashtags.length
+          ? `${suggestedPost.body}\n\n${suggestedPost.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")}`
+          : suggestedPost.body
+        : fallbackCaption;
+      const title = (suggestedPost?.title || fallbackCaption).slice(0, 72);
+      const scheduledAt = suggestedPost?.scheduledAt ?? new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
       const res = await fetch("/api/socialflow/posts", {
         method: "POST",
@@ -103,8 +144,8 @@ export default function ReelsCreator({
           campaignId: campaignId ?? null,
           provider: "INSTAGRAM",
           contentType: "REEL",
-          title: caption.slice(0, 72),
-          body: caption,
+          title,
+          body,
           imageHint: videoUrl,
           status: "SCHEDULED",
           scheduledAt,

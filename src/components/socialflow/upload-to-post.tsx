@@ -1125,7 +1125,7 @@ export default function UploadToPost({
       {/* Reels creator modal (z-50, mismo nivel que el preview individual) */}
       {reelsItemId && (() => {
         const reelsItem = items.find((i) => i.id === reelsItemId);
-        if (!reelsItem?.r2Url) return null;
+        if (!reelsItem?.r2Url || !reelsItem.r2Key) return null;
         return (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
@@ -1148,6 +1148,7 @@ export default function UploadToPost({
               </div>
               <ReelsCreator
                 imageUrl={reelsItem.r2Url}
+                imageKey={reelsItem.r2Key}
                 saasId={saasId}
                 onClose={() => setReelsItemId(null)}
               />

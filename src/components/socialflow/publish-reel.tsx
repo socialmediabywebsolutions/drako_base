@@ -30,11 +30,13 @@ export default function PublishReel({ saasId }: { saasId: string }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageKey, setImageKey] = useState<string | null>(null);
 
   function reset() {
     setPhase("idle");
     setError(null);
     setImageUrl(null);
+    setImageKey(null);
   }
 
   async function handleFile(file: File) {
@@ -50,11 +52,12 @@ export default function PublishReel({ saasId }: { saasId: string }) {
       const form = new FormData();
       form.append("file", file);
       const uploadRes = await fetch("/api/socialflow/media/upload", { method: "POST", body: form });
-      const uploadData = (await uploadRes.json()) as { url?: string; message?: string; error?: string };
-      if (!uploadRes.ok || !uploadData.url) {
+      const uploadData = (await uploadRes.json()) as { url?: string; key?: string; message?: string; error?: string };
+      if (!uploadRes.ok || !uploadData.url || !uploadData.key) {
         throw new Error(uploadData.message ?? uploadData.error ?? "Error al subir la imagen.");
       }
       setImageUrl(uploadData.url);
+      setImageKey(uploadData.key);
       setPhase("creating");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado.");
@@ -62,8 +65,8 @@ export default function PublishReel({ saasId }: { saasId: string }) {
     }
   }
 
-  if (phase === "creating" && imageUrl) {
-    return <ReelsCreator imageUrl={imageUrl} saasId={saasId} onClose={reset} />;
+  if (phase === "creating" && imageUrl && imageKey) {
+    return <ReelsCreator imageUrl={imageUrl} imageKey={imageKey} saasId={saasId} onClose={reset} />;
   }
 
   return (

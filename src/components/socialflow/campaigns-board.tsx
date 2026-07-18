@@ -514,7 +514,7 @@ function CreateCampaignWizard({
       {/* Reels creator modal — paso 3, opción "Reel" por foto */}
       {reelsPhotoId && createdCampaign && (() => {
         const reelsItem = batch.items.find((i) => i.id === reelsPhotoId);
-        if (!reelsItem?.r2Url) return null;
+        if (!reelsItem?.r2Url || !reelsItem.r2Key) return null;
         return (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
@@ -537,6 +537,7 @@ function CreateCampaignWizard({
               </div>
               <ReelsCreator
                 imageUrl={reelsItem.r2Url}
+                imageKey={reelsItem.r2Key}
                 saasId={saasId}
                 campaignId={createdCampaign.id}
                 onClose={() => setReelsPhotoId(null)}
