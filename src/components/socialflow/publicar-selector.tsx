@@ -52,10 +52,10 @@ export default function PublicarSelector({ saasId, maxImages }: { saasId: string
     <div className="space-y-6">
       <div>
         <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
-          Socialcors · Publicar
+          Socialcors · Crear contenido
         </div>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
-          ¿Qué quieres publicar hoy?
+          ¿Qué quieres crear hoy?
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
           Elige el formato y sube tu contenido. Socialcors hace el resto.

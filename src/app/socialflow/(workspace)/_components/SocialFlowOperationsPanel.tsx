@@ -71,7 +71,7 @@ export default function SocialFlowOperationsPanel() {
         onClick={() => router.push("/socialflow/upload")}
         className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition"
       >
-        ✦ Subir foto
+        ✦ Publicar
       </button>
 
       {/* ── Weekly calendar ──────────────────────────────────────────────── */}

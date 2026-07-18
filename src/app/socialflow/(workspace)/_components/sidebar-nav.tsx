@@ -52,12 +52,12 @@ function IcoPublish() {
 const mainNavTop = [
   { href: "/socialflow",               label: "Dashboard",           icon: <IcoHome /> },
   { href: "/socialflow/profile",       label: "Mi Perfil",           icon: <IcoUser /> },
-  { href: "/socialflow/upload",        label: "Subir foto",          icon: <IcoCamera /> },
+  { href: "/socialflow/upload",        label: "Publicar",          icon: <IcoCamera /> },
 ];
 
 const mainNavBottom = [
   { href: "/socialflow/plan",           label: "Plan editorial",      icon: <IcoCalendar /> },
-  { href: "/socialflow/campaigns",      label: "Campañas",            icon: <IcoTarget /> },
+  { href: "/socialflow/campaigns",      label: "Planificar",          icon: <IcoTarget /> },
   { href: "/socialflow/redes",          label: "Mis Redes",           icon: <IcoNetwork /> },
   { href: "/socialflow/conversations", label: "Comunidad",           icon: <IcoChat /> },
   { href: "/socialflow/leads",         label: "Oportunidades",       icon: <IcoUsers /> },
@@ -146,7 +146,7 @@ export default function SidebarNav({
           {mainNavTop.map((item) => renderMainNavItem(item, isActive(item.href)))}
 
           {renderMainNavItem(
-            { href: "/socialflow/publicar", label: "Publicar", icon: <IcoPublish /> },
+            { href: "/socialflow/publicar", label: "Crear contenido", icon: <IcoPublish /> },
             isActive("/socialflow/publicar"),
           )}
 
