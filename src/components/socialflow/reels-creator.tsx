@@ -20,19 +20,36 @@ import { CanvasRenderer } from "@/lib/socialflow/reels/CanvasRenderer";
 
 type Phase = "deciding" | "rendering" | "uploading" | "ready" | "saving" | "saved" | "error";
 
-type SuggestedPost = {
+export type SuggestedPost = {
   title: string;
   body: string;
   hashtags: string[];
   scheduledAt: string;
 };
 
-async function fetchCaption(imageUrl: string, imageKey: string, saasId: string): Promise<SuggestedPost | null> {
+// batchIndex/scheduleIndex son opcionales y por defecto se omiten (el servidor los trata
+// como 0) — mismo comportamiento de siempre para el flujo de 1 foto. El modo batch de
+// PublishReel (2-60 fotos) sí los pasa, incrementales por foto, para que
+// generate-from-image reparta cada Reel en un día/hora distinto del calendario, igual
+// que hace UploadToPost con sus fotos (ver auditoría).
+export async function fetchCaption(
+  imageUrl: string,
+  imageKey: string,
+  saasId: string,
+  scheduling?: { batchIndex: number; scheduleIndex: number },
+): Promise<SuggestedPost | null> {
   try {
     const res = await fetch("/api/socialflow/posts/generate-from-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "finalize", imageUrl, imageKey, saasId, forcedContentType: "REEL" }),
+      body: JSON.stringify({
+        mode: "finalize",
+        imageUrl,
+        imageKey,
+        saasId,
+        forcedContentType: "REEL",
+        ...(scheduling ? { batchIndex: scheduling.batchIndex, scheduleIndex: scheduling.scheduleIndex } : {}),
+      }),
     });
     const data = (await res.json()) as { suggestedPost?: SuggestedPost };
     if (!res.ok || !data.suggestedPost) return null;
