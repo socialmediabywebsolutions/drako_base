@@ -13,6 +13,10 @@ const FB_GRAPH_BASE = "https://graph.facebook.com/v19.0";
 const VIDEO_POLL_INTERVAL_MS = 2_000;
 const VIDEO_POLL_MAX_MS = 90_000;
 
+// Instagram Graph API hard limits for carousel posts.
+const CAROUSEL_MIN_ITEMS = 2;
+const CAROUSEL_MAX_ITEMS = 10;
+
 // ---------------------------------------------------------------------------
 // Error class
 // ---------------------------------------------------------------------------
@@ -61,7 +65,7 @@ function truncateCaption(text: string, maxLen = 2200): string {
 // Types
 // ---------------------------------------------------------------------------
 
-export type InstagramPostContentType = "FEED" | "REEL" | "SHORT" | "STORY";
+export type InstagramPostContentType = "FEED" | "REEL" | "SHORT" | "STORY" | "CAROUSEL";
 
 export type InstagramPublishInput = {
   accessToken: string;
@@ -69,7 +73,10 @@ export type InstagramPublishInput = {
   apiBase: string;
   caption: string;
   contentType: InstagramPostContentType;
-  mediaUrl: string;
+  // Required for FEED/REEL/SHORT/STORY. Ignored for CAROUSEL.
+  mediaUrl?: string;
+  // Required for CAROUSEL — 2 to 10 public HTTPS image URLs, one per slide, in order.
+  mediaUrls?: string[];
 };
 
 export type InstagramPublishResult = {
@@ -128,6 +135,7 @@ async function waitForVideoContainer(
   apiBase: string,
   containerId: string,
   accessToken: string,
+  contextLabel?: string,
 ): Promise<void> {
   const deadline = Date.now() + VIDEO_POLL_MAX_MS;
   while (Date.now() < deadline) {
@@ -141,13 +149,20 @@ async function waitForVideoContainer(
     const payload = await parseJson(res);
     const statusCode = typeof payload?.status_code === "string" ? payload.status_code : "";
 
-    console.log("INSTAGRAM_CONTAINER_STATUS", { containerId, statusCode });
+    console.log("INSTAGRAM_CONTAINER_STATUS", {
+      containerId,
+      statusCode,
+      ...(contextLabel ? { contextLabel } : {}),
+    });
 
     if (statusCode === "FINISHED") return;
     if (statusCode === "ERROR" || statusCode === "EXPIRED") {
       throw new InstagramPublishingError(
         `Video container failed with status: ${statusCode}`,
-        { code: "INSTAGRAM_CONTAINER_FAILED", details: { statusCode, ...payload } },
+        {
+          code: "INSTAGRAM_CONTAINER_FAILED",
+          details: { statusCode, ...(contextLabel ? { contextLabel } : {}), ...payload },
+        },
       );
     }
     // IN_PROGRESS or PUBLISHED_WITH_PENDING_REVIEW → keep polling
@@ -155,20 +170,190 @@ async function waitForVideoContainer(
 
   throw new InstagramPublishingError(
     `Video container processing timed out after ${VIDEO_POLL_MAX_MS}ms.`,
-    { code: "INSTAGRAM_CONTAINER_TIMEOUT", details: { containerId, maxWaitMs: VIDEO_POLL_MAX_MS } },
+    {
+      code: "INSTAGRAM_CONTAINER_TIMEOUT",
+      details: {
+        containerId,
+        maxWaitMs: VIDEO_POLL_MAX_MS,
+        ...(contextLabel ? { contextLabel } : {}),
+      },
+    },
   );
 }
 
 // ---------------------------------------------------------------------------
-// Public API — unified content publisher (Feed / Reel / Story)
+// Carousel — child item containers + parent container + publish
+// ---------------------------------------------------------------------------
+
+async function createCarouselItemContainer(
+  apiBase: string,
+  igUserId: string,
+  accessToken: string,
+  mediaUrl: string,
+): Promise<string> {
+  if (!mediaUrl.startsWith("http")) {
+    throw new InstagramPublishingError(
+      "A public HTTPS media URL is required for every carousel slide.",
+      { code: "INSTAGRAM_CAROUSEL_ITEM_MEDIA_REQUIRED" },
+    );
+  }
+  if (isVideoUrl(mediaUrl)) {
+    throw new InstagramPublishingError(
+      "Video carousel items are not supported — carousels must be image-only.",
+      { code: "INSTAGRAM_CAROUSEL_VIDEO_UNSUPPORTED", details: { mediaUrl } },
+    );
+  }
+
+  const url = new URL(`${apiBase}/${igUserId}/media`);
+  url.searchParams.set("access_token", accessToken);
+  url.searchParams.set("image_url", mediaUrl);
+  url.searchParams.set("is_carousel_item", "true");
+
+  const res = await fetch(url.toString(), { method: "POST", cache: "no-store" });
+  const payload = await parseJson(res);
+
+  if (!res.ok) {
+    throw new InstagramPublishingError(
+      getApiErrorMessage(payload, "Instagram carousel item container creation failed."),
+      {
+        code: classifyInstagramError(res.status, "INSTAGRAM_CAROUSEL_ITEM_CREATE_FAILED"),
+        details: { status: res.status, mediaUrl, ...(payload ?? {}) },
+      },
+    );
+  }
+
+  const containerId = typeof payload?.id === "string" ? payload.id.trim() : null;
+  if (!containerId) {
+    throw new InstagramPublishingError(
+      "Instagram carousel item container creation returned no ID.",
+      { code: "INSTAGRAM_CAROUSEL_ITEM_ID_MISSING", details: { mediaUrl, ...payload } },
+    );
+  }
+  return containerId;
+}
+
+async function publishInstagramCarousel(input: {
+  accessToken: string;
+  igUserId: string;
+  apiBase: string;
+  caption: string;
+  mediaUrls: string[];
+}): Promise<InstagramPublishResult> {
+  const { accessToken, igUserId, apiBase, caption, mediaUrls } = input;
+
+  if (mediaUrls.length < CAROUSEL_MIN_ITEMS) {
+    throw new InstagramPublishingError(
+      `A carousel needs at least ${CAROUSEL_MIN_ITEMS} slides.`,
+      { code: "INSTAGRAM_CAROUSEL_MIN_ITEMS", details: { count: mediaUrls.length } },
+    );
+  }
+  if (mediaUrls.length > CAROUSEL_MAX_ITEMS) {
+    throw new InstagramPublishingError(
+      `A carousel supports at most ${CAROUSEL_MAX_ITEMS} slides.`,
+      { code: "INSTAGRAM_CAROUSEL_MAX_ITEMS", details: { count: mediaUrls.length } },
+    );
+  }
+
+  // Step A — one unpublished child container per slide, sequential on purpose:
+  // if slide N fails, abort immediately without touching Instagram again. The
+  // already-created children are never referenced by a parent container, so
+  // they never go live — Meta expires unused containers on its own.
+  const childContainerIds: string[] = [];
+  for (let i = 0; i < mediaUrls.length; i++) {
+    console.log("INSTAGRAM_CAROUSEL_ITEM_CREATE", { igUserId, index: i, total: mediaUrls.length });
+    const containerId = await createCarouselItemContainer(apiBase, igUserId, accessToken, mediaUrls[i]);
+    console.log("INSTAGRAM_CAROUSEL_ITEM_CREATED", { containerId, index: i });
+    childContainerIds.push(containerId);
+  }
+
+  // Step B — parent container referencing all children.
+  const parentUrl = new URL(`${apiBase}/${igUserId}/media`);
+  parentUrl.searchParams.set("access_token", accessToken);
+  parentUrl.searchParams.set("media_type", "CAROUSEL");
+  parentUrl.searchParams.set("children", childContainerIds.join(","));
+  parentUrl.searchParams.set("caption", caption.trim());
+
+  console.log("INSTAGRAM_CAROUSEL_CONTAINER_CREATE", { igUserId, itemCount: childContainerIds.length });
+
+  const parentRes = await fetch(parentUrl.toString(), { method: "POST", cache: "no-store" });
+  const parentPayload = await parseJson(parentRes);
+
+  if (!parentRes.ok) {
+    throw new InstagramPublishingError(
+      getApiErrorMessage(parentPayload, "Instagram carousel container creation failed."),
+      {
+        code: classifyInstagramError(parentRes.status, "INSTAGRAM_CAROUSEL_CONTAINER_CREATE_FAILED"),
+        details: { status: parentRes.status, childContainerIds, ...(parentPayload ?? {}) },
+      },
+    );
+  }
+
+  const parentContainerId = typeof parentPayload?.id === "string" ? parentPayload.id.trim() : null;
+  if (!parentContainerId) {
+    throw new InstagramPublishingError(
+      "Instagram carousel container creation returned no ID.",
+      { code: "INSTAGRAM_CAROUSEL_CONTAINER_ID_MISSING", details: { childContainerIds, ...parentPayload } },
+    );
+  }
+
+  console.log("INSTAGRAM_CAROUSEL_CONTAINER_CREATED", { parentContainerId });
+
+  // Carousel parent containers also need to reach FINISHED before publishing.
+  // Labeled "carousel_parent" so logs/errors are distinguishable from the
+  // FEED/REEL/STORY single-container polling below.
+  await waitForVideoContainer(apiBase, parentContainerId, accessToken, "carousel_parent");
+
+  // Step C — publish the parent container.
+  const publishUrl = new URL(`${apiBase}/${igUserId}/media_publish`);
+  publishUrl.searchParams.set("creation_id", parentContainerId);
+  publishUrl.searchParams.set("access_token", accessToken);
+
+  const publishRes = await fetch(publishUrl.toString(), { method: "POST", cache: "no-store" });
+  const publishPayload = await parseJson(publishRes);
+
+  if (!publishRes.ok) {
+    throw new InstagramPublishingError(
+      getApiErrorMessage(publishPayload, "Instagram carousel publish failed."),
+      {
+        code: classifyInstagramError(publishRes.status, "INSTAGRAM_CAROUSEL_PUBLISH_FAILED"),
+        details: { status: publishRes.status, parentContainerId, ...(publishPayload ?? {}) },
+      },
+    );
+  }
+
+  const mediaId = typeof publishPayload?.id === "string" ? publishPayload.id.trim() : null;
+  if (!mediaId) {
+    throw new InstagramPublishingError(
+      "Instagram carousel publish returned no media ID.",
+      { code: "INSTAGRAM_CAROUSEL_MEDIA_ID_MISSING", details: { parentContainerId, ...publishPayload } },
+    );
+  }
+
+  console.log("INSTAGRAM_CAROUSEL_PUBLISH_OK", { mediaId, parentContainerId, itemCount: childContainerIds.length });
+  return { externalPostId: mediaId, containerId: parentContainerId, mediaType: "CAROUSEL" };
+}
+
+// ---------------------------------------------------------------------------
+// Public API — unified content publisher (Feed / Reel / Story / Carousel)
 // ---------------------------------------------------------------------------
 
 export async function publishInstagramContent(
   input: InstagramPublishInput,
 ): Promise<InstagramPublishResult> {
-  const { accessToken, igUserId, apiBase, contentType, mediaUrl } = input;
+  const { accessToken, igUserId, apiBase, contentType } = input;
   const caption = truncateCaption(input.caption.trim());
 
+  if (contentType === "CAROUSEL") {
+    return publishInstagramCarousel({
+      accessToken,
+      igUserId,
+      apiBase,
+      caption,
+      mediaUrls: input.mediaUrls ?? [],
+    });
+  }
+
+  const mediaUrl = input.mediaUrl ?? "";
   if (!mediaUrl.startsWith("http")) {
     throw new InstagramPublishingError(
       "A public HTTPS media URL is required (set imageHint on the post).",
