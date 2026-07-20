@@ -3,6 +3,7 @@
 import { useState } from "react";
 import UploadToPost from "./upload-to-post";
 import PublishReel from "./publish-reel";
+import PublishCarrusel from "./publish-carrusel";
 
 // Reemplaza las 4 rutas separadas que existían bajo /publicar/ (index, post, reel,
 // historia) por un único selector: 3 de los 4 formatos ya montaban el mismo
@@ -15,10 +16,18 @@ const FORMAT_CARDS: { id: PublishFormat; icon: string; title: string; descriptio
   { id: "post", icon: "📸", title: "Post", description: "Varias fotos según tu plan y el mes · Caption e hashtags generados por IA" },
   { id: "reel", icon: "🎬", title: "Reel", description: "Varias fotos según tu plan y el mes · Video animado con música automática · 15-30s" },
   { id: "historia", icon: "⭕", title: "Historia", description: "Varias fotos según tu plan y el mes · Visible 24h en Instagram · Caption optimizado" },
-  { id: "carrusel", icon: "📑", title: "Carrusel", description: "2 a 10 slides · Contenido educativo · Más guardados" },
+  { id: "carrusel", icon: "📑", title: "Carrusel", description: "Slides según tu plan · Contenido educativo generado por IA · Más guardados" },
 ];
 
-export default function PublicarSelector({ saasId, maxImages }: { saasId: string; maxImages: number }) {
+export default function PublicarSelector({
+  saasId,
+  maxImages,
+  maxCarouselSlides,
+}: {
+  saasId: string;
+  maxImages: number;
+  maxCarouselSlides: number;
+}) {
   const [selected, setSelected] = useState<PublishFormat | null>(null);
 
   if (selected) {
@@ -35,15 +44,7 @@ export default function PublicarSelector({ saasId, maxImages }: { saasId: string
         {selected === "post" && <UploadToPost saasId={saasId} maxImages={maxImages} contentType="FEED" />}
         {selected === "reel" && <PublishReel saasId={saasId} maxImages={maxImages} />}
         {selected === "historia" && <UploadToPost saasId={saasId} maxImages={maxImages} contentType="STORY" />}
-        {selected === "carrusel" && (
-          <div className="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/3 py-20 text-center">
-            <span className="text-4xl">📑</span>
-            <p className="text-lg font-black text-white">Próximamente</p>
-            <p className="max-w-sm text-sm text-white/50">
-              El formato Carrusel todavía no está disponible. Vuelve pronto.
-            </p>
-          </div>
-        )}
+        {selected === "carrusel" && <PublishCarrusel saasId={saasId} maxSlides={maxCarouselSlides} />}
       </div>
     );
   }

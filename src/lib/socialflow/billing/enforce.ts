@@ -26,6 +26,17 @@ const PLAN_DAILY_MULTIPLIER: Record<Exclude<SocialFlowPlanCode, "free">, number>
   empresa_pro: 3,
 };
 
+// Slides fijos por plan para el formato Carrusel — Starter=2, Básico=4, Pro=6,
+// simétrico entre influencer_ y empresa_ igual que PLAN_DAILY_MULTIPLIER arriba.
+const CAROUSEL_SLIDES_PER_PLAN: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
+  influencer_starter: 2,
+  influencer_basico: 4,
+  influencer_pro: 6,
+  empresa_starter: 2,
+  empresa_basico: 4,
+  empresa_pro: 6,
+};
+
 // Tenants sin plan activo (free): límite fijo, no se multiplica por días del mes.
 const FREE_TIER_UPLOAD_BATCH_LIMIT = 30;
 
@@ -125,4 +136,25 @@ export async function getUploadBatchLimit(tenantId: string, role?: string): Prom
   const planCode = resolveSocialFlowPlanCode(sub);
   if (planCode === "free") return FREE_TIER_UPLOAD_BATCH_LIMIT;
   return PLAN_DAILY_MULTIPLIER[planCode] * daysInCurrentMonth();
+}
+
+// Techo de fotos/slides para el formato Carrusel — a diferencia de
+// getUploadBatchLimit (lote diario × días del mes), este número es FIJO por plan,
+// no escala con el calendario. free y trial devuelven 0: como el mínimo real de un
+// carrusel es 2 (CAROUSEL_MIN_SLIDES en publish-carrusel.tsx), un techo de 0 deja el
+// botón "Generar carrusel" deshabilitado sin necesitar un gate aparte.
+export async function getCarouselSlideLimit(tenantId: string, role?: string): Promise<number> {
+  if (AI_BYPASS_TENANT_IDS.has(tenantId) || (role && AI_BYPASS_ROLES.has(role))) {
+    return CAROUSEL_SLIDES_PER_PLAN.influencer_pro;
+  }
+  const snapshot = await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" });
+  const sub = snapshot.subscription;
+
+  const trialEndsAt = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
+  const isActiveTrial = sub.status === "trial" && trialEndsAt !== null && trialEndsAt > new Date();
+  if (isActiveTrial) return 0;
+
+  const planCode = resolveSocialFlowPlanCode(sub);
+  if (planCode === "free") return 0;
+  return CAROUSEL_SLIDES_PER_PLAN[planCode];
 }
