@@ -17,12 +17,21 @@ type CarouselPhotoSlot = {
   previewUrl: string;
 };
 
+// "pending": recién generado o recién editado — sin aprobar todavía.
+// "approved": listo para guardar.
+// "editing": textarea abierto, draftText puede diferir de text.
+// "applying": re-renderizando + subiendo el nuevo compuesto a R2.
+type SlideReviewStatus = "pending" | "approved" | "editing" | "applying";
+
 type CarouselSlideState = {
   order: number;
   role: CarouselSlideRole;
   originalImageUrl: string;
   renderedImageUrl: string | null;
-  text: string;
+  text: string;        // texto YA aplicado — el que está quemado en renderedImageUrl
+  draftText: string;   // valor del textarea mientras se edita, separado de `text`
+  status: SlideReviewStatus;
+  error: string | null; // error de re-render de ESTE slide, no del carrusel completo
 };
 
 type FailedSlide = { order: number; imageKey?: string; message: string };
@@ -55,6 +64,20 @@ function IcoX() {
     </svg>
   );
 }
+function IcoCheck() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-3.5 w-3.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+    </svg>
+  );
+}
+function IcoPencil() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-3.5 w-3.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+    </svg>
+  );
+}
 
 async function uploadFile(file: File | Blob, filename = "upload"): Promise<{ url: string; key: string }> {
   const form = new FormData();
@@ -76,6 +99,105 @@ type SuggestedCarouselPost = {
   saasId: string;
   slides: { order: number; imageUrl: string; text: string; role: CarouselSlideRole }[];
 };
+
+// ── Tarjeta de revisión de un slide (mirror de ReelItemCard en publish-reel.tsx) ──
+
+function CarouselSlideCard({
+  slide,
+  onApprove,
+  onStartEdit,
+  onCancelEdit,
+  onDraftChange,
+  onApplyEdit,
+}: {
+  slide: CarouselSlideState;
+  onApprove: () => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onDraftChange: (value: string) => void;
+  onApplyEdit: () => void;
+}) {
+  const isEditing = slide.status === "editing" || slide.status === "applying";
+  const isApplying = slide.status === "applying";
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-white/8 bg-white/3">
+      <div className="relative">
+        {slide.renderedImageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={slide.renderedImageUrl} alt="" className="aspect-[4/5] w-full object-cover" />
+        )}
+        {slide.status === "approved" && (
+          <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-black text-white">
+            <IcoCheck /> Aprobado
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-2 px-3 py-3">
+        <span className="text-[10px] font-black uppercase tracking-wide text-violet-400">
+          {ROLE_LABEL[slide.role]}
+        </span>
+
+        {isEditing ? (
+          <>
+            <textarea
+              value={slide.draftText}
+              onChange={(e) => onDraftChange(e.target.value)}
+              disabled={isApplying}
+              rows={4}
+              className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50 disabled:opacity-50"
+            />
+            {slide.error && <p className="text-[11px] text-rose-400">{slide.error}</p>}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={isApplying || !slide.draftText.trim()}
+                onClick={onApplyEdit}
+                className="flex-1 rounded-lg bg-violet-500 py-1.5 text-[11px] font-bold text-white transition hover:bg-violet-400 disabled:opacity-50"
+              >
+                {isApplying ? "Aplicando…" : "Aplicar cambios"}
+              </button>
+              <button
+                type="button"
+                disabled={isApplying}
+                onClick={onCancelEdit}
+                className="rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/50 transition hover:text-white/80 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-xs leading-snug text-white/70">{slide.text}</p>
+            <div className="flex gap-2">
+              {slide.status !== "approved" && (
+                <button
+                  type="button"
+                  onClick={onApprove}
+                  className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-emerald-500 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-400"
+                >
+                  <IcoCheck /> Aprobar
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onStartEdit}
+                className={[
+                  "flex items-center justify-center gap-1 rounded-lg border border-white/10 py-1.5 text-[11px] text-white/60 transition hover:text-white/90",
+                  slide.status === "approved" ? "flex-1" : "px-3",
+                ].join(" ")}
+              >
+                <IcoPencil /> Editar
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: string; maxSlides?: number }) {
   const [phase, setPhase] = useState<Phase>("idle");
@@ -166,6 +288,9 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
             originalImageUrl: slide.imageUrl,
             renderedImageUrl: url,
             text: slide.text,
+            draftText: slide.text,
+            status: "pending",
+            error: null,
           } satisfies CarouselSlideState;
         }),
       );
@@ -175,6 +300,49 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al generar el carrusel.");
       setPhase("error");
+    }
+  }
+
+  function patchSlide(order: number, patch: Partial<CarouselSlideState>) {
+    setSlides((prev) => prev.map((s) => (s.order === order ? { ...s, ...patch } : s)));
+  }
+
+  function approveSlide(order: number) {
+    patchSlide(order, { status: "approved" });
+  }
+
+  // Entrar en edición SIEMPRE desaprueba — el texto vigente deja de ser el aprobado
+  // hasta que se aplique el cambio y se vuelva a aprobar explícitamente.
+  function startEditSlide(order: number) {
+    patchSlide(order, { status: "editing", error: null });
+  }
+
+  function updateDraftText(order: number, value: string) {
+    patchSlide(order, { draftText: value });
+  }
+
+  // Cancelar descarta el draft y vuelve al texto/estado ya aplicado — nunca "approved",
+  // porque entrar en edición ya lo había desaprobado.
+  function cancelEditSlide(order: number) {
+    setSlides((prev) =>
+      prev.map((s) => (s.order === order ? { ...s, draftText: s.text, status: "pending", error: null } : s)),
+    );
+  }
+
+  async function applySlideEdit(order: number) {
+    const slide = slides.find((s) => s.order === order);
+    if (!slide) return;
+    patchSlide(order, { status: "applying", error: null });
+    try {
+      const renderer = new StaticSlideRenderer();
+      const blob = await renderer.render({ imageUrl: slide.originalImageUrl, text: slide.draftText, role: slide.role });
+      const { url } = await uploadFile(blob, `slide_${order}.jpg`);
+      patchSlide(order, { text: slide.draftText, renderedImageUrl: url, status: "pending", error: null });
+    } catch (e) {
+      patchSlide(order, {
+        status: "editing",
+        error: e instanceof Error ? e.message : "No se pudo aplicar el cambio. Intenta de nuevo.",
+      });
     }
   }
 
@@ -293,27 +461,28 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
     );
   }
 
-  // ── review: solo lectura por ahora — aprobar/editar/rechazar llega en la próxima pieza ──
+  // ── review: aprobar/editar por slide — rechazar+reemplazo y el guardado final son piezas aparte ──
+  const approvedCount = slides.filter((s) => s.status === "approved").length;
   return (
     <div className="space-y-6">
+      <p className="text-xs text-white/40">
+        {approvedCount}/{slides.length} slides aprobados
+      </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {slides.map((slide) => (
-          <div key={slide.order} className="overflow-hidden rounded-2xl border border-white/8 bg-white/3">
-            {slide.renderedImageUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={slide.renderedImageUrl} alt="" className="aspect-[4/5] w-full object-cover" />
-            )}
-            <div className="px-3 py-2">
-              <span className="text-[10px] font-black uppercase tracking-wide text-violet-400">
-                {ROLE_LABEL[slide.role]}
-              </span>
-              <p className="mt-1 text-xs text-white/60">{slide.text}</p>
-            </div>
-          </div>
+          <CarouselSlideCard
+            key={slide.order}
+            slide={slide}
+            onApprove={() => approveSlide(slide.order)}
+            onStartEdit={() => startEditSlide(slide.order)}
+            onCancelEdit={() => cancelEditSlide(slide.order)}
+            onDraftChange={(value) => updateDraftText(slide.order, value)}
+            onApplyEdit={() => applySlideEdit(slide.order)}
+          />
         ))}
       </div>
       <p className="text-center text-xs text-white/30">
-        Revisión (aprobar/editar/rechazar) — próxima pieza.
+        Rechazar + reemplazo y guardar el carrusel — próximas piezas.
       </p>
     </div>
   );
