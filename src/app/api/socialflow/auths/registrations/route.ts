@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   const nowIso = new Date().toISOString();
   await run(
     `INSERT INTO saas_subscriptions (id, tenant_id, saas_slug, plan_code, status, current_period_end, created_at, updated_at)
-     VALUES (?, ?, 'socialflow', 'creator', 'trial', ?, ?, ?)
+     VALUES (?, ?, 'socialflow', 'influencer_starter', 'trial', ?, ?, ?)
      ON CONFLICT(tenant_id, saas_slug) DO NOTHING`,
     `${login.tenantId}:socialflow`,
     login.tenantId,

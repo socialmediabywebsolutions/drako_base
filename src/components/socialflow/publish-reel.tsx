@@ -26,8 +26,6 @@ type ReelBatchItem = {
   savedAt: string | null;
 };
 
-const MAX_FILES = 60;
-
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -375,7 +373,7 @@ function ReelItemCard({
 // revisión igual que UploadToPost: preview de vídeo, caption/hashtags/hora editables,
 // aprobar/rechazar por Reel o "Aprobar todos". Nada se programa hasta que el usuario
 // aprueba explícitamente.
-export default function PublishReel({ saasId }: { saasId: string }) {
+export default function PublishReel({ saasId, maxImages }: { saasId: string; maxImages: number }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -443,9 +441,9 @@ export default function PublishReel({ saasId }: { saasId: string }) {
     }
     if (images.length === 0) return;
 
-    const toProcess = images.slice(0, MAX_FILES);
-    if (images.length > MAX_FILES) {
-      setError(`Solo se procesarán ${MAX_FILES} fotos (límite alcanzado).`);
+    const toProcess = images.slice(0, maxImages);
+    if (images.length > maxImages) {
+      setError(`Solo se procesarán ${maxImages} fotos (límite alcanzado).`);
     }
 
     if (toProcess.length === 1) {
@@ -670,7 +668,7 @@ export default function PublishReel({ saasId }: { saasId: string }) {
           {phase !== "uploading" && (
             <>
               <p className="mt-1 text-sm text-white/40">o haz click para seleccionar</p>
-              <p className="mt-3 text-xs text-white/25">Hasta {MAX_FILES} fotos · JPEG, PNG, WebP, GIF · máx. 200 MB</p>
+              <p className="mt-3 text-xs text-white/25">Hasta {maxImages} fotos · JPEG, PNG, WebP, GIF · máx. 200 MB</p>
             </>
           )}
         </div>

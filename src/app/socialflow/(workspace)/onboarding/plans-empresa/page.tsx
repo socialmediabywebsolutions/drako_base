@@ -12,20 +12,36 @@ type Plan = {
   postsPerNetwork: number;
   users: string;
   features: string[];
-  stripePlan: "empresa_basico" | "empresa_pro" | "empresa_elite";
+  stripePlan: "empresa_starter" | "empresa_basico" | "empresa_pro";
   highlight?: boolean;
 };
 
 const PLANS: Plan[] = [
   {
-    id: "empresa_basico",
-    name: "Empresa Básico",
-    price: 99,
-    networks: "Instagram o LinkedIn (eliges una en el onboarding)",
-    postsPerNetwork: 90,
+    id: "empresa_starter",
+    name: "Empresa Starter",
+    price: 169,
+    networks: "Instagram",
+    postsPerNetwork: 30,
     users: "2 usuarios incluidos",
     features: [
       "Base de Conocimiento (web + PDFs + catálogos)",
+      "1 pieza/día por formato (post, reel, historia, carrusel) — ~30/mes",
+      "Respuesta automática comentarios y DMs",
+      "2 usuarios (dueño + community manager)",
+    ],
+    stripePlan: "empresa_starter",
+  },
+  {
+    id: "empresa_basico",
+    name: "Empresa Básico",
+    price: 299,
+    networks: "Instagram",
+    postsPerNetwork: 60,
+    users: "2 usuarios incluidos",
+    features: [
+      "Base de Conocimiento (web + PDFs + catálogos)",
+      "2 piezas/día por formato (post, reel, historia, carrusel) — ~60/mes",
       "Voz de marca en tercera persona",
       "CRM Social básico",
       "Respuesta automática comentarios y DMs",
@@ -39,12 +55,14 @@ const PLANS: Plan[] = [
   {
     id: "empresa_pro",
     name: "Empresa Pro",
-    price: 149,
-    networks: "Instagram + LinkedIn",
+    badge: "Más popular",
+    price: 449,
+    networks: "Instagram",
     postsPerNetwork: 90,
     users: "Usuarios ilimitados",
     features: [
       "Todo lo de Empresa Básico",
+      "3 piezas/día por formato (post, reel, historia, carrusel) — ~90/mes",
       "Gestión de reputación y alertas",
       "Generación de leads desde DMs con precios del catálogo",
       "Presupuestos automáticos desde conversaciones",
@@ -52,21 +70,6 @@ const PLANS: Plan[] = [
       "WhatsApp orquestador",
     ],
     stripePlan: "empresa_pro",
-  },
-  {
-    id: "empresa_elite",
-    name: "Empresa Elite",
-    badge: "Más popular",
-    price: 199,
-    networks: "Instagram + LinkedIn + Facebook",
-    postsPerNetwork: 90,
-    users: "Usuarios ilimitados",
-    features: [
-      "Todo lo de Empresa Pro",
-      "Reportes avanzados con comparativa de competencia",
-      "Soporte prioritario dedicado",
-    ],
-    stripePlan: "empresa_elite",
     highlight: true,
   },
 ];

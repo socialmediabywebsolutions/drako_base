@@ -14,12 +14,12 @@ type RequestBody = {
 };
 
 const VALID_CHECKOUT_PLANS = new Set<Exclude<SocialFlowPlanCode, "free">>([
+  "influencer_starter",
   "influencer_basico",
   "influencer_pro",
-  "influencer_elite",
+  "empresa_starter",
   "empresa_basico",
   "empresa_pro",
-  "empresa_elite",
 ]);
 
 function resolveCheckoutPlan(rawPlan: string | undefined): Exclude<SocialFlowPlanCode, "free"> | null {

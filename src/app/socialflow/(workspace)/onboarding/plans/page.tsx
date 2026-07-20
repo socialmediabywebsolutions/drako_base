@@ -11,20 +11,35 @@ type Plan = {
   networks: string;
   postsPerNetwork: number;
   features: string[];
-  stripePlan: "influencer_basico" | "influencer_pro" | "influencer_elite";
+  stripePlan: "influencer_starter" | "influencer_basico" | "influencer_pro";
   highlight?: boolean;
 };
 
 const PLANS: Plan[] = [
   {
-    id: "influencer_basico",
-    name: "Influencer Básico",
-    price: 49,
+    id: "influencer_starter",
+    name: "Influencer Starter",
+    price: 99,
     networks: "Instagram",
-    postsPerNetwork: 90,
+    postsPerNetwork: 30,
     features: [
       "Instagram",
-      "90 posts/mes por red (3 posts/día)",
+      "1 pieza/día por formato (post, reel, historia, carrusel) — ~30/mes",
+      "IA para captions y hashtags",
+      "Calendario de contenido",
+      "Publicación automática",
+    ],
+    stripePlan: "influencer_starter",
+  },
+  {
+    id: "influencer_basico",
+    name: "Influencer Básico",
+    price: 179,
+    networks: "Instagram",
+    postsPerNetwork: 60,
+    features: [
+      "Instagram",
+      "2 piezas/día por formato (post, reel, historia, carrusel) — ~60/mes",
       "IA para captions y hashtags",
       "Análisis de imagen con LLaVA",
       "Calendario de contenido",
@@ -35,35 +50,19 @@ const PLANS: Plan[] = [
   {
     id: "influencer_pro",
     name: "Influencer Pro",
-    price: 79,
-    networks: "Instagram + Facebook",
+    badge: "Más popular",
+    price: 299,
+    networks: "Instagram",
     postsPerNetwork: 90,
     features: [
-      "Instagram + Facebook",
-      "90 posts/mes por red (3 posts/día)",
+      "Instagram",
+      "3 piezas/día por formato (post, reel, historia, carrusel) — ~90/mes",
       "IA avanzada para contenido",
       "Análisis de imagen con LLaVA",
       "Calendario de contenido",
-      "Publicación automática + Analytics",
+      "Publicación automática + Analytics avanzados",
     ],
     stripePlan: "influencer_pro",
-  },
-  {
-    id: "influencer_elite",
-    name: "Influencer Elite",
-    badge: "Más popular",
-    price: 99,
-    networks: "Instagram + Facebook + LinkedIn",
-    postsPerNetwork: 90,
-    features: [
-      "Instagram + Facebook + LinkedIn",
-      "90 posts/mes por red (3 posts/día)",
-      "IA avanzada + análisis de imagen",
-      "Detección de leads y comunidad",
-      "Publicación automática + Analytics avanzados",
-      "Soporte prioritario",
-    ],
-    stripePlan: "influencer_elite",
     highlight: true,
   },
 ];

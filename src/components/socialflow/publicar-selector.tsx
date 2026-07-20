@@ -12,9 +12,9 @@ import PublishReel from "./publish-reel";
 type PublishFormat = "post" | "reel" | "historia" | "carrusel";
 
 const FORMAT_CARDS: { id: PublishFormat; icon: string; title: string; description: string }[] = [
-  { id: "post", icon: "📸", title: "Post", description: "1 a 8 fotos · Caption e hashtags generados por IA" },
-  { id: "reel", icon: "🎬", title: "Reel", description: "1 foto · Video animado con música automática · 15-30s" },
-  { id: "historia", icon: "⭕", title: "Historia", description: "1 foto · Visible 24h en Instagram · Caption optimizado" },
+  { id: "post", icon: "📸", title: "Post", description: "Varias fotos según tu plan y el mes · Caption e hashtags generados por IA" },
+  { id: "reel", icon: "🎬", title: "Reel", description: "Varias fotos según tu plan y el mes · Video animado con música automática · 15-30s" },
+  { id: "historia", icon: "⭕", title: "Historia", description: "Varias fotos según tu plan y el mes · Visible 24h en Instagram · Caption optimizado" },
   { id: "carrusel", icon: "📑", title: "Carrusel", description: "2 a 10 slides · Contenido educativo · Más guardados" },
 ];
 
@@ -33,7 +33,7 @@ export default function PublicarSelector({ saasId, maxImages }: { saasId: string
         </button>
 
         {selected === "post" && <UploadToPost saasId={saasId} maxImages={maxImages} contentType="FEED" />}
-        {selected === "reel" && <PublishReel saasId={saasId} />}
+        {selected === "reel" && <PublishReel saasId={saasId} maxImages={maxImages} />}
         {selected === "historia" && <UploadToPost saasId={saasId} maxImages={maxImages} contentType="STORY" />}
         {selected === "carrusel" && (
           <div className="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/3 py-20 text-center">
