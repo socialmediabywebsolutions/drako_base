@@ -66,11 +66,11 @@ const POST_TYPE_OPTIONS = [
 ] as const;
 
 const CONTENT_TYPE_CFG: Record<string, { label: string; icon: string; pill: string }> = {
-  FEED:     { label: "Feed",     icon: "🖼️",  pill: "bg-blue-500/15 text-blue-300"     },
+  FEED:     { label: "Post",     icon: "📸",  pill: "bg-blue-500/15 text-blue-300"     },
   REEL:     { label: "Reel",     icon: "🎬",  pill: "bg-purple-500/15 text-purple-300"  },
   STORY:    { label: "Historia", icon: "⭕",  pill: "bg-orange-500/15 text-orange-300"  },
   SHORT:    { label: "Short",    icon: "▶️",  pill: "bg-red-500/15 text-red-300"        },
-  CAROUSEL: { label: "Carrusel", icon: "🔁",  pill: "bg-teal-500/15 text-teal-300"     },
+  CAROUSEL: { label: "Carrusel", icon: "📑",  pill: "bg-teal-500/15 text-teal-300"     },
 };
 
 const PROVIDER_ABBR: Record<string, string> = {
