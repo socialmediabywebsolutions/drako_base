@@ -51,7 +51,7 @@ const TEMPLATE_STYLES: Record<ReelsTemplate, { weight: number; family: string; f
 
 // Jerarquía visual de 3 capas: título arriba (grande), subtítulo centrado (medio),
 // CTA abajo (pequeño). Solo se aplica cuando el overlay trae `role`.
-const TEXT_ROLE_STYLE: Record<ReelsTextRole, { fontSize: number; position: NonNullable<ReelsTextOverlay["position"]> }> = {
+export const TEXT_ROLE_STYLE: Record<ReelsTextRole, { fontSize: number; position: NonNullable<ReelsTextOverlay["position"]> }> = {
   title: { fontSize: 120, position: "top" },
   subtitle: { fontSize: 72, position: "center" },
   cta: { fontSize: 56, position: "bottom" },
@@ -182,7 +182,7 @@ function textForOverlayAtTime(overlay: ReelsTextOverlay, t: number): string {
 // centrada en (centerX, centerY), para elegir texto negro/sombra blanca o texto
 // blanco/sombra negra. Se recalcula cada frame porque los efectos mueven la imagen
 // bajo el texto, así que lo que hay debajo puede cambiar de brillo con el tiempo.
-function sampleAverageBrightness(
+export function sampleAverageBrightness(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   centerX: number,
   centerY: number,
