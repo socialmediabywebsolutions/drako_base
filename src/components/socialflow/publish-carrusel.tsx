@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import type { CarouselSlideRole } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
 import { StaticSlideRenderer } from "@/lib/socialflow/carousel/StaticSlideRenderer";
@@ -10,7 +11,7 @@ import { StaticSlideRenderer } from "@/lib/socialflow/carousel/StaticSlideRender
 // server-only (decryptToken, llamadas a graph.facebook.com) en el bundle de cliente.
 const CAROUSEL_MIN_SLIDES = 2;
 
-type Phase = "idle" | "uploading" | "composing" | "rendering" | "review" | "error";
+type Phase = "idle" | "uploading" | "composing" | "rendering" | "review" | "saved" | "error";
 
 type CarouselPhotoSlot = {
   id: string;
@@ -258,14 +259,17 @@ function CarouselSlideCard({
 }
 
 export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: string; maxSlides?: number }) {
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
   const [photos, setPhotos] = useState<CarouselPhotoSlot[]>([]);
   const [slides, setSlides] = useState<CarouselSlideState[]>([]);
   const [slideAnalyses, setSlideAnalyses] = useState<ImageAnalysis[]>([]);
-  const [, setHashtags] = useState<string[]>([]);
-  const [, setScheduledAt] = useState<string | null>(null);
+  const [hashtags, setHashtags] = useState<string[]>([]);
+  const [scheduledAt, setScheduledAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [failedSlides, setFailedSlides] = useState<FailedSlide[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canGenerate = photos.length >= CAROUSEL_MIN_SLIDES && photos.length <= maxSlides;
@@ -491,6 +495,45 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
     }
   }
 
+  async function saveCarousel() {
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const ordered = [...slides].sort((a, b) => a.order - b.order);
+      const introSlide = ordered.find((s) => s.role === "intro");
+      const title = (introSlide?.text ?? ordered[0]?.text ?? "").slice(0, 72);
+      const body = ordered.map((s) => s.text).join("\n\n");
+
+      const res = await fetch("/api/socialflow/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          saasId,
+          provider: "INSTAGRAM",
+          contentType: "CAROUSEL",
+          title,
+          body,
+          imageHint: ordered[0]?.renderedImageUrl ?? null,
+          status: "SCHEDULED",
+          scheduledAt,
+          metadata: {
+            slides: ordered.map((s) => ({ order: s.order, imageUrl: s.renderedImageUrl, text: s.text, role: s.role })),
+            hashtags,
+          },
+        }),
+      });
+      const data = (await res.json()) as { post?: unknown; message?: string; code?: string };
+      if (!res.ok || !data.post) {
+        throw new Error(data.message ?? data.code ?? "No se pudo guardar el carrusel.");
+      }
+      setPhase("saved");
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "No se pudo guardar el carrusel.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   // ── idle: selector de fotos ──────────────────────────────────────────────
   if (phase === "idle") {
     return (
@@ -581,6 +624,24 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
     );
   }
 
+  // ── saved: confirmación tras guardar ──────────────────────────────────────
+  if (phase === "saved") {
+    return (
+      <div className="flex flex-col items-center gap-4 rounded-3xl border border-emerald-500/20 bg-emerald-500/5 py-16 text-center">
+        <span className="text-4xl">✅</span>
+        <p className="text-lg font-black text-white">Carrusel guardado</p>
+        <p className="max-w-sm text-sm text-white/50">Se publicará automáticamente en la fecha programada.</p>
+        <button
+          type="button"
+          onClick={() => router.push("/socialflow/plan")}
+          className="rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110"
+        >
+          Ver en el calendario
+        </button>
+      </div>
+    );
+  }
+
   // ── error ─────────────────────────────────────────────────────────────────
   if (phase === "error") {
     return (
@@ -606,11 +667,12 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
     );
   }
 
-  // ── review: aprobar/editar/rechazar por slide — el guardado final es pieza aparte ──
+  // ── review: aprobar/editar/rechazar por slide + guardar ──────────────────
   const approvedCount = slides.filter((s) => s.status === "approved").length;
   const pendingReplacements = slides.filter(
     (s) => s.status === "rejected_awaiting_replacement" || s.status === "replacing",
   ).length;
+  const canSave = slides.length > 0 && pendingReplacements === 0 && approvedCount === slides.length;
   return (
     <div className="space-y-6">
       <p className="text-xs text-white/40">
@@ -637,9 +699,20 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
           />
         ))}
       </div>
-      <p className="text-center text-xs text-white/30">
-        Guardar el carrusel — próxima pieza.
-      </p>
+      {!canSave && pendingReplacements === 0 && (
+        <p className="text-center text-xs text-white/30">Aprueba todos los slides para poder guardar.</p>
+      )}
+      {saveError && (
+        <div className="rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3 text-sm text-rose-300">{saveError}</div>
+      )}
+      <button
+        type="button"
+        disabled={!canSave || isSaving}
+        onClick={saveCarousel}
+        className="w-full rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-40 disabled:hover:translate-y-0"
+      >
+        {isSaving ? "Guardando…" : "Guardar carrusel"}
+      </button>
     </div>
   );
 }
