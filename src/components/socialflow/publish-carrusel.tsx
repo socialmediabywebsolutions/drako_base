@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import type { CarouselSlideRole } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
 import { StaticSlideRenderer } from "@/lib/socialflow/carousel/StaticSlideRenderer";
 
@@ -21,12 +22,16 @@ type CarouselPhotoSlot = {
 // "approved": listo para guardar.
 // "editing": textarea abierto, draftText puede diferir de text.
 // "applying": re-renderizando + subiendo el nuevo compuesto a R2.
-type SlideReviewStatus = "pending" | "approved" | "editing" | "applying";
+// "rejected_awaiting_replacement": el conteo NUNCA baja — la posición queda marcada
+// pendiente de una foto nueva, no se puede guardar mientras exista este estado.
+// "replacing": subiendo/analizando/recomponiendo la foto de reemplazo.
+type SlideReviewStatus = "pending" | "approved" | "editing" | "applying" | "rejected_awaiting_replacement" | "replacing";
 
 type CarouselSlideState = {
   order: number;
   role: CarouselSlideRole;
   originalImageUrl: string;
+  originalImageKey: string; // necesario para reanalizar SOLO este slot al reemplazar
   renderedImageUrl: string | null;
   text: string;        // texto YA aplicado — el que está quemado en renderedImageUrl
   draftText: string;   // valor del textarea mientras se edita, separado de `text`
@@ -109,6 +114,9 @@ function CarouselSlideCard({
   onCancelEdit,
   onDraftChange,
   onApplyEdit,
+  onReject,
+  onReplacePhoto,
+  onUndoReject,
 }: {
   slide: CarouselSlideState;
   onApprove: () => void;
@@ -116,7 +124,11 @@ function CarouselSlideCard({
   onCancelEdit: () => void;
   onDraftChange: (value: string) => void;
   onApplyEdit: () => void;
+  onReject: () => void;
+  onReplacePhoto: (file: File) => void;
+  onUndoReject: () => void;
 }) {
+  const needsReplacement = slide.status === "rejected_awaiting_replacement" || slide.status === "replacing";
   const isEditing = slide.status === "editing" || slide.status === "applying";
   const isApplying = slide.status === "applying";
 
@@ -125,12 +137,47 @@ function CarouselSlideCard({
       <div className="relative">
         {slide.renderedImageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={slide.renderedImageUrl} alt="" className="aspect-[4/5] w-full object-cover" />
+          <img
+            src={slide.renderedImageUrl}
+            alt=""
+            className={`aspect-[4/5] w-full object-cover ${needsReplacement ? "opacity-30" : ""}`}
+          />
         )}
         {slide.status === "approved" && (
           <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-black text-white">
             <IcoCheck /> Aprobado
           </span>
+        )}
+        {needsReplacement && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50 p-3 text-center">
+            {slide.status === "replacing" ? (
+              <>
+                <Spinner />
+                <p className="text-xs font-semibold text-white">Analizando foto nueva…</p>
+              </>
+            ) : (
+              <>
+                <span className="text-2xl">🔄</span>
+                <p className="text-xs font-semibold text-white">Sube una foto de reemplazo para este slide</p>
+                <label className="cursor-pointer rounded-lg bg-violet-500 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-violet-400">
+                  Elegir foto
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) onReplacePhoto(f); e.target.value = ""; }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={onUndoReject}
+                  className="text-[11px] text-white/50 underline transition hover:text-white/80"
+                >
+                  Deshacer rechazo
+                </button>
+              </>
+            )}
+          </div>
         )}
       </div>
 
@@ -139,7 +186,11 @@ function CarouselSlideCard({
           {ROLE_LABEL[slide.role]}
         </span>
 
-        {isEditing ? (
+        {needsReplacement && slide.error && (
+          <p className="text-[11px] text-rose-400">{slide.error}</p>
+        )}
+
+        {needsReplacement ? null : isEditing ? (
           <>
             <textarea
               value={slide.draftText}
@@ -192,6 +243,13 @@ function CarouselSlideCard({
                 <IcoPencil /> Editar
               </button>
             </div>
+            <button
+              type="button"
+              onClick={onReject}
+              className="w-full rounded-lg border border-rose-500/25 bg-rose-500/10 py-1.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
+            >
+              Rechazar
+            </button>
           </>
         )}
       </div>
@@ -203,6 +261,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
   const [phase, setPhase] = useState<Phase>("idle");
   const [photos, setPhotos] = useState<CarouselPhotoSlot[]>([]);
   const [slides, setSlides] = useState<CarouselSlideState[]>([]);
+  const [slideAnalyses, setSlideAnalyses] = useState<ImageAnalysis[]>([]);
   const [, setHashtags] = useState<string[]>([]);
   const [, setScheduledAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -256,6 +315,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
       });
       const data = (await res.json()) as {
         suggestedCarouselPost?: SuggestedCarouselPost;
+        imageAnalyses?: ImageAnalysis[];
         code?: string;
         message?: string;
         failedSlides?: FailedSlide[];
@@ -275,6 +335,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
       const post = data.suggestedCarouselPost;
       setHashtags(post.hashtags);
       setScheduledAt(post.scheduledAt);
+      setSlideAnalyses(data.imageAnalyses ?? []);
 
       setPhase("rendering");
       const renderer = new StaticSlideRenderer();
@@ -286,6 +347,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
             order: slide.order,
             role: slide.role,
             originalImageUrl: slide.imageUrl,
+            originalImageKey: uploaded[slide.order].key,
             renderedImageUrl: url,
             text: slide.text,
             draftText: slide.text,
@@ -342,6 +404,89 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
       patchSlide(order, {
         status: "editing",
         error: e instanceof Error ? e.message : "No se pudo aplicar el cambio. Intenta de nuevo.",
+      });
+    }
+  }
+
+  function rejectSlide(order: number) {
+    patchSlide(order, { status: "rejected_awaiting_replacement", error: null });
+  }
+
+  // El texto/imagen ya estaban intactos (rejectSlide nunca los tocó) — solo hace
+  // falta volver el status a "pending" para que la tarjeta muestre lo que ya había.
+  function undoReject(order: number) {
+    patchSlide(order, { status: "pending", error: null });
+  }
+
+  // Confirmado con el usuario: se recompone el set COMPLETO (foto nueva + N-1
+  // originales, reusando su análisis ya cacheado para no re-llamar a LLaVA en ellas)
+  // pero solo se APLICA el texto del slide reemplazado — el resto conserva su texto
+  // local (editado o no) tal cual, nunca se sobreescribe.
+  async function replaceSlidePhoto(order: number, file: File) {
+    patchSlide(order, { status: "replacing", error: null });
+    try {
+      const { url, key } = await uploadFile(file);
+      const ordered = [...slides].sort((a, b) => a.order - b.order);
+      const imageUrls = ordered.map((s) => (s.order === order ? url : s.originalImageUrl));
+      const imageKeys = ordered.map((s) => (s.order === order ? key : s.originalImageKey));
+      const imageAnalysesPayload = ordered.map((s) => (s.order === order ? undefined : slideAnalyses[s.order]));
+
+      const res = await fetch("/api/socialflow/posts/generate-from-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          saasId,
+          forcedContentType: "CAROUSEL",
+          imageUrls,
+          imageKeys,
+          imageAnalyses: imageAnalysesPayload,
+        }),
+      });
+      const data = (await res.json()) as {
+        suggestedCarouselPost?: SuggestedCarouselPost;
+        imageAnalyses?: ImageAnalysis[];
+        code?: string;
+        message?: string;
+      };
+
+      if (!res.ok || !data.suggestedCarouselPost) {
+        patchSlide(order, {
+          status: "rejected_awaiting_replacement",
+          error:
+            data.code === "CAROUSEL_SLIDE_ANALYSIS_FAILED"
+              ? "La foto de reemplazo no se pudo analizar. Intenta con otra."
+              : data.message ?? "No se pudo procesar la foto de reemplazo.",
+        });
+        return;
+      }
+
+      if (data.imageAnalyses) {
+        setSlideAnalyses((prev) => {
+          const next = [...prev];
+          next[order] = data.imageAnalyses![order];
+          return next;
+        });
+      }
+
+      const finalText = data.suggestedCarouselPost.slides.find((s) => s.order === order)?.text ?? "";
+      const role = ordered.find((s) => s.order === order)!.role;
+      const renderer = new StaticSlideRenderer();
+      const blob = await renderer.render({ imageUrl: url, text: finalText, role });
+      const { url: renderedUrl } = await uploadFile(blob, `slide_${order}.jpg`);
+
+      patchSlide(order, {
+        originalImageUrl: url,
+        originalImageKey: key,
+        text: finalText,
+        draftText: finalText,
+        renderedImageUrl: renderedUrl,
+        status: "pending",
+        error: null,
+      });
+    } catch (e) {
+      patchSlide(order, {
+        status: "rejected_awaiting_replacement",
+        error: e instanceof Error ? e.message : "No se pudo reemplazar la foto. Intenta de nuevo.",
       });
     }
   }
@@ -461,13 +606,21 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
     );
   }
 
-  // ── review: aprobar/editar por slide — rechazar+reemplazo y el guardado final son piezas aparte ──
+  // ── review: aprobar/editar/rechazar por slide — el guardado final es pieza aparte ──
   const approvedCount = slides.filter((s) => s.status === "approved").length;
+  const pendingReplacements = slides.filter(
+    (s) => s.status === "rejected_awaiting_replacement" || s.status === "replacing",
+  ).length;
   return (
     <div className="space-y-6">
       <p className="text-xs text-white/40">
         {approvedCount}/{slides.length} slides aprobados
       </p>
+      {pendingReplacements > 0 && (
+        <p className="text-xs font-semibold text-amber-400">
+          Falta reemplazar {pendingReplacements} foto{pendingReplacements !== 1 ? "s" : ""} antes de poder guardar.
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {slides.map((slide) => (
           <CarouselSlideCard
@@ -478,11 +631,14 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
             onCancelEdit={() => cancelEditSlide(slide.order)}
             onDraftChange={(value) => updateDraftText(slide.order, value)}
             onApplyEdit={() => applySlideEdit(slide.order)}
+            onReject={() => rejectSlide(slide.order)}
+            onReplacePhoto={(file) => replaceSlidePhoto(slide.order, file)}
+            onUndoReject={() => undoReject(slide.order)}
           />
         ))}
       </div>
       <p className="text-center text-xs text-white/30">
-        Rechazar + reemplazo y guardar el carrusel — próximas piezas.
+        Guardar el carrusel — próxima pieza.
       </p>
     </div>
   );
