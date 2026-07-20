@@ -14,8 +14,8 @@ const VIDEO_POLL_INTERVAL_MS = 2_000;
 const VIDEO_POLL_MAX_MS = 90_000;
 
 // Instagram Graph API hard limits for carousel posts.
-const CAROUSEL_MIN_ITEMS = 2;
-const CAROUSEL_MAX_ITEMS = 10;
+export const CAROUSEL_MIN_ITEMS = 2;
+export const CAROUSEL_MAX_ITEMS = 10;
 
 // ---------------------------------------------------------------------------
 // Error class
