@@ -811,7 +811,7 @@ function CreatePostModal(p: CreateModalProps) {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/40">Hora (UTC)</label>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/40">Hora</label>
                 <input
                   type="time"
                   value={p.time}

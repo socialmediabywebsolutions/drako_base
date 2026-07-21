@@ -29,7 +29,7 @@ export type SuggestedPost = {
 
 // batchIndex/scheduleIndex son opcionales y por defecto se omiten (el servidor los trata
 // como 0) — mismo comportamiento de siempre para el flujo de 1 foto. El modo batch de
-// PublishReel (2-60 fotos) sí los pasa, incrementales por foto, para que
+// PublishReel (2-maxImages fotos, límite dinámico por plan × días del mes) sí los pasa, incrementales por foto, para que
 // generate-from-image reparta cada Reel en un día/hora distinto del calendario, igual
 // que hace UploadToPost con sus fotos (ver auditoría).
 export async function fetchCaption(

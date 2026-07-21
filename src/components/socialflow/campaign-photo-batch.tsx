@@ -400,7 +400,7 @@ export function PhotoBatchGrid({
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/40">
-                  <span>{displayDate(item.editDate)} · {item.editTime} UTC</span>
+                  <span>{displayDate(item.editDate)} · {item.editTime}</span>
                   <span>{PROVIDER_LABELS[item.editProvider] ?? item.editProvider}</span>
                   <span>{CONTENT_TYPE_LABELS[item.editContentType] ?? item.editContentType}</span>
                 </div>

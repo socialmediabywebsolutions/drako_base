@@ -224,7 +224,7 @@ function ReelItemCard({
           </p>
           {item.savedAt && (
             <p className="mt-0.5 text-xs text-white/35">
-              {displayDate(item.savedAt)} · {item.savedAt.slice(11, 16)} UTC
+              {displayDate(item.savedAt)} · {item.savedAt.slice(11, 16)}
             </p>
           )}
         </div>
@@ -254,7 +254,7 @@ function ReelItemCard({
           {item.editDate && (
             <p className="flex items-center gap-1.5 text-xs text-white/35">
               <IcoCalendar />
-              {displayDate(item.editDate)} · {item.editTime || "09:00"} UTC
+              {displayDate(item.editDate)} · {item.editTime || "09:00"}
             </p>
           )}
 
@@ -367,7 +367,8 @@ function ReelItemCard({
   );
 }
 
-// Dropzone de 1-60 fotos: 1 foto delega en ReelsCreator tal cual (preview + aprobar
+// Dropzone de 1-maxImages fotos (límite dinámico: plan × días del mes, ver
+// getUploadBatchLimit): 1 foto delega en ReelsCreator tal cual (preview + aprobar
 // manual); 2+ fotos entran en modo batch — genera cada Reel secuencialmente (el render
 // de Canvas consume mucha CPU como para paralelizarlo) y muestra una pantalla de
 // revisión igual que UploadToPost: preview de vídeo, caption/hashtags/hora editables,

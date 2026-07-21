@@ -235,7 +235,7 @@ function ItemCard({
           <p className="text-sm font-semibold text-emerald-300">Programado</p>
           {item.savedAt && (
             <p className="mt-0.5 text-xs text-white/35">
-              {displayDate(item.savedAt)} · {item.savedAt.slice(11, 16)} UTC
+              {displayDate(item.savedAt)} · {item.savedAt.slice(11, 16)}
             </p>
           )}
         </div>
@@ -310,7 +310,7 @@ function ItemCard({
           {item.editDate && (
             <p className="flex items-center gap-1.5 text-xs text-white/35">
               <IcoCalendar />
-              {displayDate(item.editDate)} · {item.editTime || "09:00"} UTC
+              {displayDate(item.editDate)} · {item.editTime || "09:00"}
             </p>
           )}
 
@@ -510,7 +510,7 @@ function BulkPreviewModal({
                   <p className="text-[10px] font-semibold text-white/60">
                     {item.editDate ? displayDate(item.editDate) : "—"}
                   </p>
-                  <p className="text-[10px] text-white/35">{item.editTime || "09:00"} UTC</p>
+                  <p className="text-[10px] text-white/35">{item.editTime || "09:00"}</p>
                 </div>
               </button>
             ))}
@@ -588,7 +588,7 @@ function PreviewModal({
               </span>
               {item.editDate && (
                 <span className="rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] font-medium text-white/50">
-                  {displayDate(item.editDate)} · {item.editTime || "09:00"} UTC
+                  {displayDate(item.editDate)} · {item.editTime || "09:00"}
                 </span>
               )}
             </div>
