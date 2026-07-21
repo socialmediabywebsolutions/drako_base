@@ -58,6 +58,14 @@ function displayDate(iso: string): string {
 const CONTENT_TYPE_LABELS: Record<string, string> = { FEED: "Feed", REEL: "Reel", STORY: "Story" };
 const PROVIDER_LABELS: Record<string, string> = { INSTAGRAM: "Instagram", LINKEDIN: "LinkedIn" };
 
+// Formato real decidido por la IA (ImageAnalysisAgent.recommendedPostType) — el único
+// indicador fiable del formato; distinto del botón manual "Convertir a Reel" de abajo.
+const CONTENT_TYPE_PILL: Record<string, { label: string; badge: string }> = {
+  FEED: { label: "📸 Post", badge: "bg-emerald-500 text-white" },
+  REEL: { label: "🎬 Reel", badge: "bg-violet-500 text-white" },
+  STORY: { label: "⭕ Historia", badge: "bg-sky-500 text-white" },
+};
+
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
 function IcoUpload() {
@@ -273,6 +281,13 @@ function ItemCard({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover" />
+          <span
+            className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-xs font-black shadow-md ${
+              CONTENT_TYPE_PILL[item.editContentType]?.badge ?? "bg-white/20 text-white"
+            }`}
+          >
+            {CONTENT_TYPE_PILL[item.editContentType]?.label ?? item.editContentType}
+          </span>
           <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 backdrop-blur-sm">
             <IcoSparkles />
             <span className="text-[10px] font-semibold text-white/70">IA</span>
@@ -301,9 +316,6 @@ function ItemCard({
             )}
             <span className="rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] font-medium text-white/40">
               {PROVIDER_LABELS[item.editProvider] ?? item.editProvider}
-            </span>
-            <span className="rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] font-medium text-white/40">
-              {CONTENT_TYPE_LABELS[item.editContentType] ?? item.editContentType}
             </span>
           </div>
 
@@ -335,7 +347,7 @@ function ItemCard({
               onClick={() => onCreateReel(item.id)}
               className="flex items-center gap-1.5 rounded-lg border border-violet-500/30 px-3 py-1.5 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/10"
             >
-              <IcoFilm /> Reel
+              <IcoFilm /> ✨ Convertir a Reel
             </button>
             <button
               type="button"

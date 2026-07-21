@@ -18,6 +18,17 @@ export type ImageAnalysis = {
   specificContext: string;
 };
 
+// Usado cuando no se puede decidir el formato real (LLaVA no disponible, o el campo
+// vino inválido/ausente en su respuesta) — un nicho de acción/deporte debe inclinarse
+// a REEL por defecto en vez de al FEED genérico.
+function nicheDefaultPostType(niche: string): "FEED" | "REEL" | "STORY" {
+  const n = niche.toLowerCase();
+  if (/fitness|gym|entrenamient|ejercicio|deporte|running|crossfit|yoga|pilates|baile|danza|hiit/.test(n)) {
+    return "REEL";
+  }
+  return "FEED";
+}
+
 export class ImageAnalysisAgent {
   async run(input: { imageBytes: number[]; profile: BrandProfile }): Promise<ImageAnalysis> {
     const { imageBytes, profile } = input;
@@ -26,7 +37,7 @@ export class ImageAnalysisAgent {
       description: `Imagen relacionada con ${profile.niche}`,
       emotion: "profesional y auténtico",
       context: "contenido de marca",
-      recommendedPostType: "FEED",
+      recommendedPostType: nicheDefaultPostType(profile.niche),
       suggestedThemes: profile.contentPillars.slice(0, 3).length
         ? profile.contentPillars.slice(0, 3)
         : [profile.niche, "detrás de cámaras", "resultados reales"],
@@ -61,17 +72,22 @@ ${isEmpresa
   ? `Esta cuenta es de tipo EMPRESA: enfoca "specificContext" hacia el producto o servicio concreto visible en la imagen (qué se ofrece, qué resuelve), en tercera persona, nunca como experiencia personal.`
   : `Esta cuenta es de tipo INFLUENCER: enfoca "specificContext" hacia el detalle personal y motivacional de lo que se ve (el esfuerzo, la sensación, el logro concreto), como si lo viviera la propia creadora en primera persona.`}
 
+Además, decide el campo "recommendedPostType" según estos criterios (elige el que mejor encaje, no asumas un valor por defecto):
+- REEL: la imagen transmite movimiento implícito, acción, deporte, ejercicio, energía o dinamismo (ej. corriendo, levantando pesas, bailando, cocinando en plena acción).
+- STORY: contenido casual, efímero, íntimo, backstage, un momento cotidiano, selfie informal, o algo que invite a preguntar/interactuar con la audiencia.
+- FEED: foto pulida, estática, bien compuesta — retrato, paisaje, producto o contenido evergreen de alta calidad visual.
+
 Responde ÚNICAMENTE con este JSON válido (sin markdown, sin texto extra):
 {
   "description": "descripción detallada de qué hay en la imagen en una oración",
   "emotion": "emoción principal que transmite (ej: confianza, alegría, profesionalismo, energía)",
   "context": "contexto visual (ej: interior de negocio, producto, persona, paisaje, evento)",
-  "recommendedPostType": "FEED",
+  "recommendedPostType": "<FEED|REEL|STORY>",
   "suggestedThemes": ["tema relevante 1", "tema relevante 2", "tema relevante 3"],
   "specificContext": "1-2 frases con el detalle concreto y granular de la categoría detectada — es el campo más importante de tu respuesta, sin datos inventados"
 }
 
-El campo recommendedPostType debe ser exactamente uno de: "FEED", "REEL" o "STORY".
+El campo recommendedPostType debe ser exactamente uno de: "FEED", "REEL" o "STORY", elegido según los criterios de arriba — nunca copies literalmente el placeholder "<FEED|REEL|STORY>".
 Los temas deben ser relevantes para el nicho: ${profile.niche}.
 Responde TODO en español.`;
 
@@ -105,9 +121,11 @@ Responde TODO en español.`;
             ? parsed.context.trim()
             : fallback.context,
         recommendedPostType:
-          parsed.recommendedPostType === "REEL" || parsed.recommendedPostType === "STORY"
+          parsed.recommendedPostType === "REEL" ||
+          parsed.recommendedPostType === "STORY" ||
+          parsed.recommendedPostType === "FEED"
             ? parsed.recommendedPostType
-            : "FEED",
+            : nicheDefaultPostType(profile.niche),
         suggestedThemes:
           Array.isArray(parsed.suggestedThemes) && parsed.suggestedThemes.length > 0
             ? parsed.suggestedThemes
