@@ -224,6 +224,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       openerIndex: (body.batchIndex ?? 0) % 10,
       openerCategory,
       specificContext: imageAnalysis.specificContext,
+      llavaSuggestedFormat: imageAnalysis.recommendedPostType,
     });
     const variant = generated.variants[0];
 
@@ -330,7 +331,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       REEL: campaign.reelCount ?? 0,
       STORY: campaign.historiaCount ?? 0,
     });
-    const contentType = mixContentType ?? contentTypeMap[imageAnalysis.recommendedPostType] ?? "FEED";
+    const contentType = mixContentType ?? contentTypeMap[variant.recommendedPostType] ?? "FEED";
     const title = optimized.improvedText.split("\n")[0]?.replace(/^#+\s*/, "").slice(0, 72).trim() ?? strategyItem.theme;
 
     return NextResponse.json({

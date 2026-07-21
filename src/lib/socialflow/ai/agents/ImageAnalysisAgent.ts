@@ -21,7 +21,7 @@ export type ImageAnalysis = {
 // Usado cuando no se puede decidir el formato real (LLaVA no disponible, o el campo
 // vino inválido/ausente en su respuesta) — un nicho de acción/deporte debe inclinarse
 // a REEL por defecto en vez de al FEED genérico.
-function nicheDefaultPostType(niche: string): "FEED" | "REEL" | "STORY" {
+export function nicheDefaultPostType(niche: string): "FEED" | "REEL" | "STORY" {
   const n = niche.toLowerCase();
   if (/fitness|gym|entrenamient|ejercicio|deporte|running|crossfit|yoga|pilates|baile|danza|hiit/.test(n)) {
     return "REEL";

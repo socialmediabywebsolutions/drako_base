@@ -2,6 +2,18 @@ import { defaultLocalModel } from "../models/localModel";
 import type { BrandProfile, GeneratedPost, KeywordEngineOutput } from "../types";
 import type { TrendInsights } from "./TrendAgent";
 import { OPENERS_BY_CATEGORY, type OpenerCategory } from "../openers/pickOpenerCategory";
+import { nicheDefaultPostType } from "./ImageAnalysisAgent";
+
+// Fallback determinista (sin llamar a Mistral) cuando el binding de IA no está
+// disponible — confía en la sugerencia de LLaVA si es REEL/STORY (señal real),
+// y solo usa el nicho como desempate cuando LLaVA no aportó nada útil.
+function resolveFallbackPostType(
+  niche: string,
+  llavaSuggestion?: "FEED" | "REEL" | "STORY",
+): "FEED" | "REEL" | "STORY" {
+  if (llavaSuggestion === "REEL" || llavaSuggestion === "STORY") return llavaSuggestion;
+  return nicheDefaultPostType(niche);
+}
 
 // Only include profile lines that carry information beyond the niche placeholder.
 function richProfileLines(profile: BrandProfile): string {
@@ -40,6 +52,7 @@ export class ContentGeneratorAgent {
     openerIndex?: number;
     openerCategory?: OpenerCategory;
     specificContext?: string;
+    llavaSuggestedFormat?: "FEED" | "REEL" | "STORY";
   }): Promise<GeneratedPost> {
     const { profile, strategyItem, keywordEngine, trends } = input;
     const isEmpresa = profile.accountType === "empresa";
@@ -99,6 +112,18 @@ Estructura obligatoria:
 3. Cierre con el CTA en una línea
 
 Genera entre 10 y 15 hashtags relevantes: mezcla hashtags de nicho específico (fitness, nutrición, bienestar), hashtags de comunidad hispanohablante, y 2-3 hashtags virales del momento. Formato: #hashtag1 #hashtag2 ... IMPORTANTE: genera exactamente entre 10 y 15 hashtags. Nunca menos de 10.
+
+Además, decide el formato final de publicación ("recommendedPostType") usando TODA esta información — tú tienes la decisión final, no una sola señal:
+- Detalle visual real de la imagen: "${input.specificContext ?? "sin detalle visual disponible"}"
+- Sugerencia preliminar de un modelo de visión (débil, puede estar equivocada — confírmala o descártala si el resto de la información indica otra cosa): "${input.llavaSuggestedFormat ?? "sin sugerencia"}"
+- Nicho del cliente: "${profile.niche}"
+
+Criterios:
+- REEL: movimiento, acción, deporte, ejercicio, energía, dinamismo.
+- STORY: casual, efímero, íntimo, backstage, momento cotidiano, invita a interactuar.
+- FEED: foto pulida, estática, bien compuesta — retrato, paisaje, producto, evergreen.
+
+El campo recommendedPostType debe ser exactamente uno de: "FEED", "REEL" o "STORY".
 Responde SOLO con el JSON solicitado.`;
 
     const fallbackHook = trends.hookIdeas[0] ?? `Lo que nadie te dice sobre ${profile.niche}...`;
@@ -114,6 +139,7 @@ Responde SOLO con el JSON solicitado.`;
         {
           id: `gen_${strategyItem.id}_v1`,
           hook: fallbackHook,
+          recommendedPostType: resolveFallbackPostType(profile.niche, input.llavaSuggestedFormat),
           text: isEmpresa
 ? `${profile.brandIdentity} tiene la solución para quienes trabajan en ${profile.niche}.
 

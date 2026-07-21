@@ -126,6 +126,7 @@ export type GeneratedPostVariant = {
   text: string;
   hook: string;
   callToAction: string;
+  recommendedPostType: "FEED" | "REEL" | "STORY";
 };
 
 export type GeneratedPost = {

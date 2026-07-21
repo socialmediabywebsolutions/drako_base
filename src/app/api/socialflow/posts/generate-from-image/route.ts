@@ -489,6 +489,7 @@ export async function POST(request: Request) {
       openerIndex: (body.batchIndex ?? 0) % 10,
       openerCategory,
       specificContext: imageAnalysis.specificContext,
+      llavaSuggestedFormat: imageAnalysis.recommendedPostType,
     });
     const variant = generated.variants[0];
 
@@ -544,7 +545,7 @@ export async function POST(request: Request) {
       STORY: "STORY",
       FEED: "FEED",
     };
-    const contentType = body.forcedContentType ?? contentTypeMap[imageAnalysis.recommendedPostType] ?? "FEED";
+    const contentType = body.forcedContentType ?? contentTypeMap[variant.recommendedPostType] ?? "FEED";
     const title = optimized.improvedText.split("\n")[0]?.replace(/^#+\s*/, "").slice(0, 72).trim()
       ?? strategyItem.theme;
 
