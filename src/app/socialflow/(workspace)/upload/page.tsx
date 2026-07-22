@@ -17,12 +17,15 @@ export default async function SocialFlowUploadPage() {
     <div className="space-y-6">
       <div>
         <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
-          Socialcors · Publicar
+          Socialcors · Analizar y publicar con IA
         </div>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
-          Publicar
+          Analizar y publicar con IA
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
+        <p className="mt-2 text-sm font-semibold text-violet-300">
+          La IA hace el resto
+        </p>
+        <p className="mt-1 max-w-2xl text-sm leading-6 text-white/50">
           Sube tus fotos o videos y la IA decide el formato, genera el caption, hashtags y hora de publicación automáticamente.
         </p>
       </div>

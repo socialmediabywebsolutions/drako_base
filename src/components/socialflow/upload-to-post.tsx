@@ -197,8 +197,7 @@ function ItemCard({
           </div>
         </div>
         <div className="px-4 py-3">
-          <p className="text-sm font-medium text-white/50">Analizando con IA…</p>
-          <p className="mt-0.5 text-xs text-white/25">LLaVA · Mistral</p>
+          <p className="text-sm font-medium text-white/50">Analizando tu foto…</p>
         </div>
       </div>
     );
@@ -288,10 +287,6 @@ function ItemCard({
           >
             {CONTENT_TYPE_PILL[item.editContentType]?.label ?? item.editContentType}
           </span>
-          <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 backdrop-blur-sm">
-            <IcoSparkles />
-            <span className="text-[10px] font-semibold text-white/70">IA</span>
-          </div>
           <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all group-hover:bg-black/35">
             <span className="rounded-full bg-black/55 px-3 py-1 text-[11px] font-bold text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">Ver preview</span>
           </div>

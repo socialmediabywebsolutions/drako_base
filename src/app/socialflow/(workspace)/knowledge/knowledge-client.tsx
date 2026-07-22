@@ -473,7 +473,7 @@ function CompetitorPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
         <Field label="Nombre del competidor"><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Agencia XYZ" className={inputCls} autoFocus /></Field>
         <Field label="URL de su web (opcional — mejora el análisis)"><input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://agenciaxyz.com" className={inputCls} /></Field>
         {localError && <p className="text-sm text-red-400">{localError}</p>}
-        <SubmitButton loading={loading}>{loading ? "Analizando con IA..." : "Analizar competidor"}</SubmitButton>
+        <SubmitButton loading={loading}>{loading ? "Analizando..." : "Analizar competidor"}</SubmitButton>
       </form>
     </DarkPanel>
   );

@@ -370,7 +370,7 @@ export function PhotoBatchGrid({
           <div className="flex flex-1 flex-col gap-2 p-3">
             {item.step === "uploading" && <p className="text-xs text-white/40">Subiendo…</p>}
             {item.step === "uploaded" && <p className="text-xs text-white/40">Esperando confirmación…</p>}
-            {item.step === "analyzing" && <p className="text-xs text-white/40">Analizando con IA…</p>}
+            {item.step === "analyzing" && <p className="text-xs text-white/40">Analizando…</p>}
             {item.step === "error" && (
               <>
                 <p className="text-xs text-rose-300">{item.error}</p>
