@@ -514,6 +514,13 @@ function BulkPreviewModal({
                 <div className="relative aspect-square w-full overflow-hidden bg-black/20">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+                  <span
+                    className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-xs font-black shadow-md ${
+                      CONTENT_TYPE_PILL[item.editContentType]?.badge ?? "bg-white/20 text-white"
+                    }`}
+                  >
+                    {CONTENT_TYPE_PILL[item.editContentType]?.label ?? item.editContentType}
+                  </span>
                   <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition group-hover:bg-black/30">
                     <span className="rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-bold text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100">Ver</span>
                   </div>
