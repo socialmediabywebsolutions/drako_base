@@ -1031,9 +1031,9 @@ export default function UploadToPost({
           <p className="mb-2 text-xs font-black uppercase tracking-widest text-white/25">Cómo funciona</p>
           <ol className="space-y-2">
             {[
-              "Sube hasta 8 fotos de tu trabajo, producto, equipo o espacio.",
+              `Sube hasta ${maxImages} fotos y la IA decide el formato automáticamente.`,
               "La IA analiza cada imagen y entiende el contexto visual.",
-              "Genera un caption optimizado, hashtags y fecha/hora para cada una.",
+              "Genera el caption, hashtags, formato (Post/Reel/Historia) y hora óptima para cada una.",
               "Aprueba todas de un click o edita individualmente antes de programar.",
             ].map((s, i) => (
               <li key={i} className="flex items-start gap-3 text-sm text-white/45">
