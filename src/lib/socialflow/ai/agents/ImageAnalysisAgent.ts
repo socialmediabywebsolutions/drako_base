@@ -16,6 +16,10 @@ export type ImageAnalysis = {
   // movement, environment...) — the priority input for ContentGeneratorAgent's caption,
   // instead of generic template phrases like "entrenando duro hoy".
   specificContext: string;
+  // Structured classification of the TYPE of moment the photo captures, independent of
+  // niche/category — this is what lets ContentGeneratorAgent decide FEED/REEL/STORY
+  // without relying on hardcoded per-niche keywords in specificContext's free text.
+  momentType: "accion" | "intimo_personal" | "estatico_compuesto";
 };
 
 // Usado cuando no se puede decidir el formato real (LLaVA no disponible, o el campo
@@ -27,6 +31,12 @@ export function nicheDefaultPostType(niche: string): "FEED" | "REEL" | "STORY" {
     return "REEL";
   }
   return "FEED";
+}
+
+// Mismo criterio que nicheDefaultPostType, pero como momentType — usado en el fallback
+// de ImageAnalysisAgent cuando no hay señal visual real que clasificar.
+function nicheDefaultMomentType(niche: string): "accion" | "intimo_personal" | "estatico_compuesto" {
+  return nicheDefaultPostType(niche) === "REEL" ? "accion" : "estatico_compuesto";
 }
 
 export class ImageAnalysisAgent {
@@ -45,6 +55,7 @@ export class ImageAnalysisAgent {
       specificContext: profile.contentPillars.slice(0, 2).length
         ? `Contenido relacionado con ${profile.contentPillars.slice(0, 2).join(" y ")}.`
         : `Contenido de ${profile.niche}.`,
+      momentType: nicheDefaultMomentType(profile.niche),
     };
 
     const binding = env()?.AI;
@@ -72,10 +83,15 @@ ${isEmpresa
   ? `Esta cuenta es de tipo EMPRESA: enfoca "specificContext" hacia el producto o servicio concreto visible en la imagen (qué se ofrece, qué resuelve), en tercera persona, nunca como experiencia personal.`
   : `Esta cuenta es de tipo INFLUENCER: enfoca "specificContext" hacia el detalle personal y motivacional de lo que se ve (el esfuerzo, la sensación, el logro concreto), como si lo viviera la propia creadora en primera persona.`}
 
-Además, decide el campo "recommendedPostType" según estos criterios (elige el que mejor encaje, no asumas un valor por defecto):
-- REEL: la imagen transmite movimiento implícito, acción, deporte, ejercicio, energía o dinamismo (ej. corriendo, levantando pesas, bailando, cocinando en plena acción).
-- STORY: contenido casual, efímero, íntimo, backstage, un momento cotidiano, selfie informal, o algo que invite a preguntar/interactuar con la audiencia.
-- FEED: foto pulida, estática, bien compuesta — retrato, paisaje, producto o contenido evergreen de alta calidad visual.
+Además, clasifica el campo "momentType" — el TIPO de momento que captura la foto, no lo que contiene ni el nicho:
+- "accion": la foto captura movimiento o esfuerzo en curso (entrenando, corriendo, cocinando en plena acción, bailando).
+- "intimo_personal": la foto captura un momento cotidiano, casual, de transición o preparación — antes o después de la acción, descanso, backstage, rutina personal, en casa, con material antes de usarlo — aunque el sujeto esté quieto y el encuadre parezca normal.
+- "estatico_compuesto": la foto es una composición deliberada y pulida — pose para cámara, producto, paisaje, retrato con buena luz o encuadre pensado.
+
+Decide también el campo "recommendedPostType" según estos criterios, y hazlo coherente con el "momentType" que acabas de elegir (elige el que mejor encaje, no asumas un valor por defecto):
+- REEL: corresponde a momentType "accion" — movimiento implícito, deporte, ejercicio, energía o dinamismo.
+- STORY: corresponde a momentType "intimo_personal" — contenido casual, efímero, íntimo, backstage, un momento cotidiano, selfie informal, o algo que invite a preguntar/interactuar con la audiencia.
+- FEED: corresponde a momentType "estatico_compuesto" — foto pulida, estática, bien compuesta — retrato, paisaje, producto o contenido evergreen de alta calidad visual.
 
 Responde ÚNICAMENTE con este JSON válido (sin markdown, sin texto extra):
 {
@@ -83,11 +99,13 @@ Responde ÚNICAMENTE con este JSON válido (sin markdown, sin texto extra):
   "emotion": "emoción principal que transmite (ej: confianza, alegría, profesionalismo, energía)",
   "context": "contexto visual (ej: interior de negocio, producto, persona, paisaje, evento)",
   "recommendedPostType": "<FEED|REEL|STORY>",
+  "momentType": "<accion|intimo_personal|estatico_compuesto>",
   "suggestedThemes": ["tema relevante 1", "tema relevante 2", "tema relevante 3"],
   "specificContext": "1-2 frases con el detalle concreto y granular de la categoría detectada — es el campo más importante de tu respuesta, sin datos inventados"
 }
 
 El campo recommendedPostType debe ser exactamente uno de: "FEED", "REEL" o "STORY", elegido según los criterios de arriba — nunca copies literalmente el placeholder "<FEED|REEL|STORY>".
+El campo momentType debe ser exactamente uno de: "accion", "intimo_personal" o "estatico_compuesto" — nunca copies literalmente el placeholder.
 Los temas deben ser relevantes para el nicho: ${profile.niche}.
 Responde TODO en español.`;
 
@@ -136,6 +154,12 @@ Responde TODO en español.`;
           typeof parsed.specificContext === "string" && parsed.specificContext.trim()
             ? parsed.specificContext.trim()
             : fallback.specificContext,
+        momentType:
+          parsed.momentType === "accion" ||
+          parsed.momentType === "intimo_personal" ||
+          parsed.momentType === "estatico_compuesto"
+            ? parsed.momentType
+            : fallback.momentType,
       };
     } catch {
       console.error("[ImageAnalysisAgent] LLaVA parse failed, using fallback");

@@ -5,12 +5,17 @@ import { OPENERS_BY_CATEGORY, type OpenerCategory } from "../openers/pickOpenerC
 import { nicheDefaultPostType } from "./ImageAnalysisAgent";
 
 // Fallback determinista (sin llamar a Mistral) cuando el binding de IA no está
-// disponible — confía en la sugerencia de LLaVA si es REEL/STORY (señal real),
-// y solo usa el nicho como desempate cuando LLaVA no aportó nada útil.
+// disponible — prioriza momentType (clasificación estructurada del modelo de visión,
+// escala a cualquier nicho), luego la sugerencia de formato de LLaVA si es REEL/STORY,
+// y solo usa el nicho como último desempate cuando no hay ninguna señal útil.
 function resolveFallbackPostType(
   niche: string,
   llavaSuggestion?: "FEED" | "REEL" | "STORY",
+  momentType?: "accion" | "intimo_personal" | "estatico_compuesto",
 ): "FEED" | "REEL" | "STORY" {
+  if (momentType === "intimo_personal") return "STORY";
+  if (momentType === "accion") return "REEL";
+  if (momentType === "estatico_compuesto") return "FEED";
   if (llavaSuggestion === "REEL" || llavaSuggestion === "STORY") return llavaSuggestion;
   return nicheDefaultPostType(niche);
 }
@@ -53,6 +58,7 @@ export class ContentGeneratorAgent {
     openerCategory?: OpenerCategory;
     specificContext?: string;
     llavaSuggestedFormat?: "FEED" | "REEL" | "STORY";
+    momentType?: "accion" | "intimo_personal" | "estatico_compuesto";
   }): Promise<GeneratedPost> {
     const { profile, strategyItem, keywordEngine, trends } = input;
     const isEmpresa = profile.accountType === "empresa";
@@ -115,7 +121,8 @@ Genera entre 10 y 15 hashtags relevantes: mezcla hashtags de nicho específico (
 
 Además, decide el formato final de publicación ("recommendedPostType") usando TODA esta información — tú tienes la decisión final, no una sola señal:
 - Detalle visual real de la imagen: "${input.specificContext ?? "sin detalle visual disponible"}"
-- Sugerencia preliminar de un modelo de visión (débil, puede estar equivocada — confírmala o descártala si el resto de la información indica otra cosa): "${input.llavaSuggestedFormat ?? "sin sugerencia"}"
+- Clasificación del tipo de momento (señal estructurada del modelo de visión): "${input.momentType ?? "sin clasificar"}"
+- Sugerencia preliminar de formato del mismo modelo de visión (débil, puede estar equivocada — confírmala o descártala si el resto de la información indica otra cosa): "${input.llavaSuggestedFormat ?? "sin sugerencia"}"
 - Nicho del cliente: "${profile.niche}"
 
 Criterios:
@@ -123,7 +130,7 @@ Criterios:
 - STORY: momento personal del día a día, rutina íntima, preparación antes del entreno, descanso, café matutino, skincare, organización personal, backstage, selfie informal, contenido que dura 24h y no necesita ser perfecto — todo lo que NO es ejercicio en acción ni foto pulida.
 - FEED: foto pulida, estática, bien compuesta — retrato, paisaje, producto, evergreen.
 
-Regla de prioridad: si el detalle visual ("specificContext") menciona interior, hogar, rutina, descanso, preparación, café, espejo o cuidado personal, clasifica como STORY aunque la foto esté bien compuesta — estas señales tienen prioridad sobre FEED.
+Regla de prioridad: si la clasificación del tipo de momento es "intimo_personal", clasifica como STORY; si es "accion", clasifica como REEL; si es "estatico_compuesto", clasifica como FEED — esta señal tiene prioridad sobre el resto, salvo que el nicho o el contexto de marca den una razón clara y explícita para contradecirla.
 
 El campo recommendedPostType debe ser exactamente uno de: "FEED", "REEL" o "STORY".
 Responde SOLO con el JSON solicitado.`;
@@ -141,7 +148,7 @@ Responde SOLO con el JSON solicitado.`;
         {
           id: `gen_${strategyItem.id}_v1`,
           hook: fallbackHook,
-          recommendedPostType: resolveFallbackPostType(profile.niche, input.llavaSuggestedFormat),
+          recommendedPostType: resolveFallbackPostType(profile.niche, input.llavaSuggestedFormat, input.momentType),
           text: isEmpresa
 ? `${profile.brandIdentity} tiene la solución para quienes trabajan en ${profile.niche}.
 

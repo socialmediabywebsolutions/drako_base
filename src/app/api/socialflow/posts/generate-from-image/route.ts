@@ -490,6 +490,7 @@ export async function POST(request: Request) {
       openerCategory,
       specificContext: imageAnalysis.specificContext,
       llavaSuggestedFormat: imageAnalysis.recommendedPostType,
+      momentType: imageAnalysis.momentType,
     });
     const variant = generated.variants[0];
 
