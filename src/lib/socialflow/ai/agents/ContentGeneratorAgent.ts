@@ -123,6 +123,8 @@ Criterios:
 - STORY: momento personal del día a día, rutina íntima, preparación antes del entreno, descanso, café matutino, skincare, organización personal, backstage, selfie informal, contenido que dura 24h y no necesita ser perfecto — todo lo que NO es ejercicio en acción ni foto pulida.
 - FEED: foto pulida, estática, bien compuesta — retrato, paisaje, producto, evergreen.
 
+Regla de prioridad: si el detalle visual ("specificContext") menciona interior, hogar, rutina, descanso, preparación, café, espejo o cuidado personal, clasifica como STORY aunque la foto esté bien compuesta — estas señales tienen prioridad sobre FEED.
+
 El campo recommendedPostType debe ser exactamente uno de: "FEED", "REEL" o "STORY".
 Responde SOLO con el JSON solicitado.`;
 
