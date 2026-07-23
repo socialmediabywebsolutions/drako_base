@@ -120,7 +120,7 @@ Además, decide el formato final de publicación ("recommendedPostType") usando 
 
 Criterios:
 - REEL: movimiento, acción, deporte, ejercicio, energía, dinamismo.
-- STORY: casual, efímero, íntimo, backstage, momento cotidiano, invita a interactuar.
+- STORY: momento personal del día a día, rutina íntima, preparación antes del entreno, descanso, café matutino, skincare, organización personal, backstage, selfie informal, contenido que dura 24h y no necesita ser perfecto — todo lo que NO es ejercicio en acción ni foto pulida.
 - FEED: foto pulida, estática, bien compuesta — retrato, paisaje, producto, evergreen.
 
 El campo recommendedPostType debe ser exactamente uno de: "FEED", "REEL" o "STORY".
