@@ -30,20 +30,20 @@ export default function SocialFlowAuthExperience() {
   const accountType = rawType === "influencer" || rawType === "empresa" ? rawType : null;
   const typeConfig = accountType === "influencer"
     ? {
-        badge: "✓ Plan Influencer · 7 días gratis",
+        badge: "✓ Plan Influencer · 15 días gratis",
         badgeCls: "border-violet-500/25 bg-violet-500/10 text-violet-300",
         registerTitle: "Crea tu cuenta como Influencer",
-        registerSubtitle: "Conecta Instagram y TikTok. La IA publica por ti.",
+        registerSubtitle: "Conecta Instagram. La IA publica por ti.",
         gradient: "from-violet-600 to-pink-500",
         btnShadow: "shadow-violet-500/25 hover:shadow-violet-500/40",
         tabShadow: "shadow-violet-500/20",
       }
     : accountType === "empresa"
     ? {
-        badge: "✓ Plan Empresa · 7 días gratis",
+        badge: "✓ Plan Empresa · 15 días gratis",
         badgeCls: "border-blue-500/25 bg-blue-500/10 text-blue-300",
         registerTitle: "Crea tu cuenta como Empresa",
-        registerSubtitle: "Conecta Instagram, Facebook y LinkedIn. La IA gestiona tu marca.",
+        registerSubtitle: "Conecta Instagram. La IA gestiona tu marca.",
         gradient: "from-blue-600 to-cyan-500",
         btnShadow: "shadow-blue-500/25 hover:shadow-blue-500/40",
         tabShadow: "shadow-blue-500/20",
@@ -144,7 +144,7 @@ export default function SocialFlowAuthExperience() {
         <p className="mb-7 text-sm text-white/45">
           {mode === "login"
             ? "Accede a tu panel de marketing."
-            : (typeConfig?.registerSubtitle ?? "7 días gratis. Sin tarjeta de crédito.")}
+            : (typeConfig?.registerSubtitle ?? "15 días gratis. Sin tarjeta de crédito.")}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -274,7 +274,7 @@ export default function SocialFlowAuthExperience() {
                   <ul className="mt-6 space-y-3">
                     {[
                       "Sube una foto — caption, hashtags y hora óptima en 10 segundos",
-                      "Publicación automática en Instagram y TikTok sin tocar el móvil",
+                      "Publicación automática en Instagram sin tocar el móvil",
                       "Detecta sponsors y colaboraciones en tus DMs automáticamente",
                     ].map((b) => (
                       <li key={b} className="flex items-start gap-3 text-sm text-white/75">
@@ -285,13 +285,25 @@ export default function SocialFlowAuthExperience() {
                   </ul>
 
                   {/* 5. Planes */}
-                  <div className="mt-8 grid grid-cols-2 gap-3">
+                  <div className="mt-8 grid grid-cols-3 gap-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs font-bold uppercase tracking-widest text-white/40">Influencer Starter</p>
+                      <p className="mt-2 text-2xl font-black text-white">99€<span className="text-sm font-normal text-white/40">/mes</span></p>
+                      <p className="mt-1 text-[11px] text-white/40">Instagram · 1 post+reel+historia+carrusel/día</p>
+                      <ul className="mt-3 space-y-1.5">
+                        {["Captions con tu voz", "Hashtags por tendencias", "Publicación automática", "Calendario de contenido"].map((f) => (
+                          <li key={f} className="flex items-center gap-2 text-[11px] text-white/60">
+                            <span className="text-violet-400">·</span>{f}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                       <p className="text-xs font-bold uppercase tracking-widest text-white/40">Influencer Básico</p>
-                      <p className="mt-2 text-2xl font-black text-white">49€<span className="text-sm font-normal text-white/40">/mes</span></p>
-                      <p className="mt-1 text-[11px] text-white/40">Instagram + TikTok · 30 posts/mes</p>
+                      <p className="mt-2 text-2xl font-black text-white">179€<span className="text-sm font-normal text-white/40">/mes</span></p>
+                      <p className="mt-1 text-[11px] text-white/40">Instagram · 2 posts+reels+historias+carruseles/día</p>
                       <ul className="mt-3 space-y-1.5">
-                        {["Captions con tu voz", "Hashtags por tendencias", "Publicación automática", "Comunidad básica"].map((f) => (
+                        {["Todo lo de Starter", "Análisis de imagen con IA", "Calendario de contenido"].map((f) => (
                           <li key={f} className="flex items-center gap-2 text-[11px] text-white/60">
                             <span className="text-violet-400">·</span>{f}
                           </li>
@@ -301,10 +313,10 @@ export default function SocialFlowAuthExperience() {
                     <div className="rounded-2xl border border-violet-500/50 bg-violet-500/10 p-4">
                       <div className="mb-2 inline-block rounded-full bg-violet-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-violet-300">MÁS POPULAR</div>
                       <p className="text-xs font-bold uppercase tracking-widest text-violet-300">Influencer Pro</p>
-                      <p className="mt-2 text-2xl font-black text-white">99€<span className="text-sm font-normal text-white/40">/mes</span></p>
-                      <p className="mt-1 text-[11px] text-white/40">+Facebook +YouTube · 60 posts/mes</p>
+                      <p className="mt-2 text-2xl font-black text-white">299€<span className="text-sm font-normal text-white/40">/mes</span></p>
+                      <p className="mt-1 text-[11px] text-white/40">Instagram · 3 posts+reels+historias+carruseles/día</p>
                       <ul className="mt-3 space-y-1.5">
-                        {["Todo lo básico", "IA genera imágenes", "Detecta sponsors", "WhatsApp orquestador"].map((f) => (
+                        {["Todo lo de Básico", "IA avanzada + análisis de imagen", "Analytics avanzados"].map((f) => (
                           <li key={f} className="flex items-center gap-2 text-[11px] text-violet-200/80">
                             <span className="text-violet-400">·</span>{f}
                           </li>
@@ -315,7 +327,7 @@ export default function SocialFlowAuthExperience() {
 
                   {/* 6. Cierre con urgencia */}
                   <p className="mt-7 text-center text-lg font-black text-white">Empieza hoy. Publica mañana.</p>
-                  <p className="mt-2 text-center text-xs text-white/35">✓ 7 días gratis · ✓ Sin tarjeta · ✓ Cancela cuando quieras</p>
+                  <p className="mt-2 text-center text-xs text-white/35">✓ 15 días gratis · ✓ Sin tarjeta · ✓ Cancela cuando quieras</p>
                 </>
               ) : (
                 <>
@@ -349,13 +361,25 @@ export default function SocialFlowAuthExperience() {
                   </ul>
 
                   {/* 5. Planes */}
-                  <div className="mt-8 grid grid-cols-2 gap-3">
+                  <div className="mt-8 grid grid-cols-3 gap-3">
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-xs font-bold uppercase tracking-widest text-white/40">Empresa Básica</p>
-                      <p className="mt-2 text-2xl font-black text-white">79€<span className="text-sm font-normal text-white/40">/mes</span></p>
-                      <p className="mt-1 text-[11px] text-white/40">Instagram + Facebook + LinkedIn · 30 posts/mes</p>
+                      <p className="text-xs font-bold uppercase tracking-widest text-white/40">Empresa Starter</p>
+                      <p className="mt-2 text-2xl font-black text-white">169€<span className="text-sm font-normal text-white/40">/mes</span></p>
+                      <p className="mt-1 text-[11px] text-white/40">Instagram · 1 post+reel+historia+carrusel/día</p>
                       <ul className="mt-3 space-y-1.5">
-                        {["Base de Conocimiento", "Voz de marca", "CRM Social básico", "Respuesta automática"].map((f) => (
+                        {["Base de Conocimiento", "Respuesta automática comentarios y DMs"].map((f) => (
+                          <li key={f} className="flex items-center gap-2 text-[11px] text-white/60">
+                            <span className="text-blue-400">·</span>{f}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs font-bold uppercase tracking-widest text-white/40">Empresa Básico</p>
+                      <p className="mt-2 text-2xl font-black text-white">299€<span className="text-sm font-normal text-white/40">/mes</span></p>
+                      <p className="mt-1 text-[11px] text-white/40">Instagram · 2 posts+reels+historias+carruseles/día</p>
+                      <ul className="mt-3 space-y-1.5">
+                        {["Todo lo de Starter", "Voz de marca", "CRM Social básico"].map((f) => (
                           <li key={f} className="flex items-center gap-2 text-[11px] text-white/60">
                             <span className="text-blue-400">·</span>{f}
                           </li>
@@ -365,10 +389,10 @@ export default function SocialFlowAuthExperience() {
                     <div className="rounded-2xl border border-blue-500/50 bg-blue-500/10 p-4">
                       <div className="mb-2 inline-block rounded-full bg-blue-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-blue-300">MÁS COMPLETO</div>
                       <p className="text-xs font-bold uppercase tracking-widest text-blue-300">Empresa Pro</p>
-                      <p className="mt-2 text-2xl font-black text-white">149€<span className="text-sm font-normal text-white/40">/mes</span></p>
-                      <p className="mt-1 text-[11px] text-white/40">+TikTok +Pinterest · 60 posts/mes</p>
+                      <p className="mt-2 text-2xl font-black text-white">449€<span className="text-sm font-normal text-white/40">/mes</span></p>
+                      <p className="mt-1 text-[11px] text-white/40">Instagram · 3 posts+reels+historias+carruseles/día</p>
                       <ul className="mt-3 space-y-1.5">
-                        {["Todo lo básico", "Gestión de reputación", "Leads desde DMs", "WhatsApp orquestador"].map((f) => (
+                        {["Todo lo de Básico", "Gestión de reputación", "Leads desde DMs", "WhatsApp orquestador"].map((f) => (
                           <li key={f} className="flex items-center gap-2 text-[11px] text-blue-200/80">
                             <span className="text-blue-400">·</span>{f}
                           </li>
@@ -379,7 +403,7 @@ export default function SocialFlowAuthExperience() {
 
                   {/* 6. Cierre con urgencia */}
                   <p className="mt-7 text-center text-lg font-black text-white">Configura hoy. Tu IA trabaja mañana.</p>
-                  <p className="mt-2 text-center text-xs text-white/35">✓ 7 días gratis · ✓ Sin tarjeta · ✓ Cancela cuando quieras</p>
+                  <p className="mt-2 text-center text-xs text-white/35">✓ 15 días gratis · ✓ Sin tarjeta · ✓ Cancela cuando quieras</p>
                 </>
               )}
             </div>
