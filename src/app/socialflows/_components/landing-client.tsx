@@ -239,62 +239,71 @@ function CheckItem({ text, color = "text-violet-400" }: { text: string; color?: 
   );
 }
 
-function PlanAccordionRow({ plan, expanded, onToggle, accentClass }: {
+function PlanGridCard({ plan, expanded, onSelect, accentClass }: {
   plan: Plan;
   expanded: boolean;
-  onToggle: () => void;
+  onSelect: () => void;
   accentClass: string;
 }) {
+  const visibleFeatures = expanded ? plan.features : plan.features.slice(0, 3);
+
   return (
-    <div className={[
-      "relative overflow-hidden rounded-2xl border transition-all duration-300",
-      plan.popular
-        ? "border-violet-500/60 bg-violet-500/10 ring-1 ring-violet-500/30"
-        : "border-white/10 bg-white/5",
-    ].join(" ")}>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); }
+      }}
+      className={[
+        "relative flex cursor-pointer flex-col rounded-2xl border text-left transition-all duration-300",
+        expanded
+          ? "border-violet-500/60 bg-violet-500/10 p-7 ring-1 ring-violet-500/30"
+          : "border-white/10 bg-white/5 p-5 hover:border-white/25 hover:bg-white/[0.08]",
+      ].join(" ")}
+    >
       {plan.popular && (
-        <span className={`absolute -top-3 left-6 rounded-full ${accentClass} px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg`}>
+        <span className={`absolute -top-3 left-1/2 -translate-x-1/2 rounded-full ${accentClass} px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg`}>
           MÁS POPULAR
         </span>
       )}
 
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
-      >
-        <span className="text-lg font-black text-white">{plan.name}</span>
-        <span className="flex items-center gap-3">
-          <span className="text-2xl font-black text-white">
-            {plan.price}<span className="ml-1 text-sm font-normal text-white/40">{plan.period}</span>
-          </span>
-          <span className={`text-white/40 transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}>▾</span>
+      <h3 className={expanded ? "text-xl font-black text-white" : "text-sm font-black text-white"}>
+        {plan.name}
+      </h3>
+
+      <div className="mt-2 flex items-baseline gap-1.5">
+        <span className={expanded ? "text-4xl font-black text-white" : "text-2xl font-black text-white"}>
+          {plan.price}
         </span>
-      </button>
+        <span className="text-sm text-white/40">{plan.period}</span>
+      </div>
 
       {expanded && (
-        <div className="px-6 pb-7">
-          <p className="text-sm font-semibold text-violet-300/80">{plan.networks} · {plan.posts}</p>
-          <ul className="mt-5 space-y-2.5">
-            {plan.features.map((f) => (
-              <li key={f} className="flex items-start gap-2 text-sm text-white/65">
-                <span className="mt-px shrink-0 text-[13px] font-black text-violet-400">✓</span>
-                {f}
-              </li>
-            ))}
-          </ul>
-          <Link
-            href="/socialflow/auth"
-            className={[
-              "mt-6 block w-full rounded-xl py-3.5 text-center text-sm font-black tracking-wide text-white transition-all duration-200",
-              plan.popular
-                ? `${accentClass} shadow-lg hover:brightness-110`
-                : "border border-white/20 bg-white/10 hover:bg-white/15 hover:border-white/30",
-            ].join(" ")}
-          >
-            Empezar gratis 15 días
-          </Link>
-        </div>
+        <p className="mt-1.5 text-sm font-semibold text-violet-300/80">{plan.networks} · {plan.posts}</p>
+      )}
+
+      <ul className={`mt-4 space-y-2 ${expanded ? "flex-1" : ""}`}>
+        {visibleFeatures.map((f) => (
+          <li key={f} className={`flex items-start gap-2 text-white/65 ${expanded ? "text-sm" : "text-xs"}`}>
+            <span className="mt-px shrink-0 text-[13px] font-black text-violet-400">✓</span>
+            {f}
+          </li>
+        ))}
+      </ul>
+
+      {expanded ? (
+        <Link
+          href="/socialflow/auth"
+          onClick={(e) => e.stopPropagation()}
+          className={`mt-6 block w-full rounded-xl py-3.5 text-center text-sm font-black tracking-wide text-white transition-all duration-200 ${accentClass} shadow-lg hover:brightness-110`}
+        >
+          Empezar gratis 15 días
+        </Link>
+      ) : (
+        <span className="mt-4 block text-center text-xs font-bold text-white/30">
+          Ver detalles ↓
+        </span>
       )}
     </div>
   );
@@ -342,7 +351,7 @@ export default function LandingClient() {
   const { text: rotatingText, visible: rotatingVisible } = useRotatingText(ROTATING_PHRASES);
   const [pricingTab, setPricingTab] = useState<PricingTab>("influencer");
   const [pricingVisible, setPricingVisible] = useState(true);
-  const [expandedPlanId, setExpandedPlanId] = useState<string>(
+  const [activePlanId, setActivePlanId] = useState<string>(
     PLANS_INFLUENCER.find((p) => p.popular)?.id ?? PLANS_INFLUENCER[0].id
   );
   const { ref: agentsRef, inView: agentsInView } = useInView(0.1);
@@ -353,7 +362,7 @@ export default function LandingClient() {
     setTimeout(() => {
       setPricingTab(tab);
       const plans = tab === "influencer" ? PLANS_INFLUENCER : PLANS_EMPRESA;
-      setExpandedPlanId(plans.find((p) => p.popular)?.id ?? plans[0].id);
+      setActivePlanId(plans.find((p) => p.popular)?.id ?? plans[0].id);
       setPricingVisible(true);
     }, 200);
   }
@@ -646,9 +655,9 @@ export default function LandingClient() {
             </div>
           </div>
 
-          {/* Accordion */}
+          {/* Cards */}
           <div
-            className="mx-auto mt-10 max-w-2xl space-y-4"
+            className="mx-auto mt-10 grid max-w-4xl grid-cols-1 items-start gap-4 sm:grid-cols-3"
             style={{
               opacity: pricingVisible ? 1 : 0,
               transform: pricingVisible ? "translateY(0)" : "translateY(8px)",
@@ -656,11 +665,11 @@ export default function LandingClient() {
             }}
           >
             {(pricingTab === "influencer" ? PLANS_INFLUENCER : PLANS_EMPRESA).map((plan) => (
-              <PlanAccordionRow
+              <PlanGridCard
                 key={plan.id}
                 plan={plan}
-                expanded={expandedPlanId === plan.id}
-                onToggle={() => setExpandedPlanId(plan.id)}
+                expanded={activePlanId === plan.id}
+                onSelect={() => setActivePlanId(plan.id)}
                 accentClass={
                   pricingTab === "influencer"
                     ? "bg-gradient-to-r from-violet-500 to-fuchsia-500"
