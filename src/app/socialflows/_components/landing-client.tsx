@@ -36,7 +36,7 @@ const INFLUENCER_FEATURES = [
   "Sube tu foto, la IA genera todo",
   "Captions en tu voz y estilo",
   "Hashtags optimizados por tendencias",
-  "Publicación automática en Instagram y TikTok",
+  "Publicación automática en Instagram",
   "Detecta colaboraciones y sponsors en tus DMs",
   "Crece sin esfuerzo manual",
 ];
@@ -46,77 +46,108 @@ const EMPRESA_FEATURES = [
   "Voz de marca consistente en todas las redes",
   "Responde comentarios y DMs automáticamente",
   "Detecta leads y genera presupuestos",
-  "Analiza reseñas de Google Business",
-  "Informes mensuales en PDF",
 ];
 
-const PLANS_INFLUENCER = [
+type Plan = {
+  id: string;
+  name: string;
+  price: string;
+  period: string;
+  networks: string;
+  posts: string;
+  features: string[];
+  popular?: boolean;
+};
+
+const PLANS_INFLUENCER: Plan[] = [
+  {
+    id: "influencer-starter",
+    name: "Influencer Starter",
+    price: "99€",
+    period: "/mes",
+    networks: "Instagram",
+    posts: "1 post+reel+historia+carrusel/día",
+    features: [
+      "Captions con tu voz",
+      "Hashtags por tendencias",
+      "Publicación automática",
+      "Calendario de contenido",
+    ],
+  },
   {
     id: "influencer-basico",
     name: "Influencer Básico",
-    price: "49€",
+    price: "179€",
     period: "/mes",
-    networks: "Instagram + TikTok",
-    posts: "30 posts/mes por red",
+    networks: "Instagram",
+    posts: "2 posts+reels+historias+carruseles/día",
     features: [
-      "Sube fotos, IA genera captions",
-      "Hashtags por tendencias",
-      "Publicación automática",
-      "Comunidad y leads básico",
+      "Todo lo de Starter",
+      "Reels automáticos",
+      "Historias diarias",
+      "Carruseles educativos",
     ],
-    highlight: false,
+    popular: true,
   },
   {
     id: "influencer-pro",
     name: "Influencer Pro",
-    price: "99€",
+    price: "299€",
     period: "/mes",
-    networks: "Instagram + TikTok + Facebook + YouTube",
-    posts: "60 posts/mes por red",
-    badge: "MÁS POPULAR",
+    networks: "Instagram",
+    posts: "3 posts+reels+historias+carruseles/día",
     features: [
       "Todo lo de Básico",
-      "IA genera imágenes",
-      "Oportunidades y sponsors",
-      "WhatsApp orquestador",
+      "Análisis de imagen IA",
+      "Analytics avanzados",
+      "Soporte prioritario",
     ],
-    highlight: true,
   },
 ];
 
-const PLANS_EMPRESA = [
+const PLANS_EMPRESA: Plan[] = [
   {
-    id: "empresa-basica",
-    name: "Empresa Básica",
-    price: "79€",
+    id: "empresa-starter",
+    name: "Empresa Starter",
+    price: "169€",
     period: "/mes",
-    networks: "Instagram + Facebook + LinkedIn",
-    posts: "30 posts/mes por red",
+    networks: "Instagram",
+    posts: "1 post+reel+historia+carrusel/día",
     features: [
       "Base de Conocimiento",
-      "CRM Social",
-      "Respuesta automática",
-      "Informe PDF mensual",
-      "2 usuarios",
+      "Voz de marca consistente",
+      "Respuesta automática comentarios y DMs",
+      "Calendario de contenido",
     ],
-    highlight: false,
+  },
+  {
+    id: "empresa-basico",
+    name: "Empresa Básico",
+    price: "299€",
+    period: "/mes",
+    networks: "Instagram",
+    posts: "2 posts+reels+historias+carruseles/día",
+    features: [
+      "Todo lo de Starter",
+      "CRM Social básico",
+      "Reels e Historias diarias",
+      "Carruseles de producto",
+    ],
+    popular: true,
   },
   {
     id: "empresa-pro",
     name: "Empresa Pro",
-    price: "149€",
+    price: "449€",
     period: "/mes",
-    networks: "Instagram + TikTok + Facebook + LinkedIn + Pinterest",
-    posts: "60 posts/mes por red",
-    badge: "MÁS POPULAR",
+    networks: "Instagram",
+    posts: "3 posts+reels+historias+carruseles/día",
     features: [
       "Todo lo de Básico",
+      "Gestión de reputación",
       "Leads desde DMs",
-      "Presupuestos automáticos",
-      "Usuarios ilimitados",
       "WhatsApp orquestador",
     ],
-    highlight: true,
   },
 ];
 
@@ -208,50 +239,63 @@ function CheckItem({ text, color = "text-violet-400" }: { text: string; color?: 
   );
 }
 
-function PlanCard({ plan, accentClass }: {
-  plan: typeof PLANS_INFLUENCER[number];
+function PlanAccordionRow({ plan, expanded, onToggle, accentClass }: {
+  plan: Plan;
+  expanded: boolean;
+  onToggle: () => void;
   accentClass: string;
 }) {
   return (
     <div className={[
-      "relative flex flex-col rounded-2xl border p-7 transition-all duration-300 hover:-translate-y-1",
-      plan.highlight
-        ? `border-violet-500/60 bg-violet-500/10 ring-1 ring-violet-500/30 hover:border-violet-400/80 hover:shadow-xl hover:shadow-violet-500/20`
-        : "border-white/10 bg-white/5 hover:border-white/25 hover:shadow-lg hover:shadow-black/40",
+      "relative overflow-hidden rounded-2xl border transition-all duration-300",
+      plan.popular
+        ? "border-violet-500/60 bg-violet-500/10 ring-1 ring-violet-500/30"
+        : "border-white/10 bg-white/5",
     ].join(" ")}>
-      {plan.badge && (
-        <span className={`absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full ${accentClass} px-4 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg`}>
-          {plan.badge}
+      {plan.popular && (
+        <span className={`absolute -top-3 left-6 rounded-full ${accentClass} px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg`}>
+          MÁS POPULAR
         </span>
       )}
-      <div className="mb-5">
-        <h3 className="text-xl font-black text-white">{plan.name}</h3>
-        <p className="mt-1 text-xs font-semibold text-white/40">{plan.networks}</p>
-        <div className="mt-4 flex items-baseline gap-1.5">
-          <span className="text-5xl font-black text-white">{plan.price}</span>
-          <span className="text-sm text-white/40">{plan.period}</span>
-        </div>
-        <p className="mt-1.5 text-sm font-semibold text-violet-300/80">{plan.posts}</p>
-      </div>
-      <ul className="mb-7 flex-1 space-y-2.5">
-        {plan.features.map((f) => (
-          <li key={f} className="flex items-start gap-2 text-sm text-white/65">
-            <span className="mt-px shrink-0 text-[13px] font-black text-violet-400">✓</span>
-            {f}
-          </li>
-        ))}
-      </ul>
-      <Link
-        href="/socialflow/auth"
-        className={[
-          "block w-full rounded-xl py-3.5 text-center text-sm font-black tracking-wide text-white transition-all duration-200",
-          plan.highlight
-            ? `${accentClass} shadow-lg hover:brightness-110`
-            : "border border-white/20 bg-white/10 hover:bg-white/15 hover:border-white/30",
-        ].join(" ")}
+
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
       >
-        Empezar gratis 7 días
-      </Link>
+        <span className="text-lg font-black text-white">{plan.name}</span>
+        <span className="flex items-center gap-3">
+          <span className="text-2xl font-black text-white">
+            {plan.price}<span className="ml-1 text-sm font-normal text-white/40">{plan.period}</span>
+          </span>
+          <span className={`text-white/40 transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}>▾</span>
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="px-6 pb-7">
+          <p className="text-sm font-semibold text-violet-300/80">{plan.networks} · {plan.posts}</p>
+          <ul className="mt-5 space-y-2.5">
+            {plan.features.map((f) => (
+              <li key={f} className="flex items-start gap-2 text-sm text-white/65">
+                <span className="mt-px shrink-0 text-[13px] font-black text-violet-400">✓</span>
+                {f}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/socialflow/auth"
+            className={[
+              "mt-6 block w-full rounded-xl py-3.5 text-center text-sm font-black tracking-wide text-white transition-all duration-200",
+              plan.popular
+                ? `${accentClass} shadow-lg hover:brightness-110`
+                : "border border-white/20 bg-white/10 hover:bg-white/15 hover:border-white/30",
+            ].join(" ")}
+          >
+            Empezar gratis 15 días
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
@@ -298,6 +342,9 @@ export default function LandingClient() {
   const { text: rotatingText, visible: rotatingVisible } = useRotatingText(ROTATING_PHRASES);
   const [pricingTab, setPricingTab] = useState<PricingTab>("influencer");
   const [pricingVisible, setPricingVisible] = useState(true);
+  const [expandedPlanId, setExpandedPlanId] = useState<string>(
+    PLANS_INFLUENCER.find((p) => p.popular)?.id ?? PLANS_INFLUENCER[0].id
+  );
   const { ref: agentsRef, inView: agentsInView } = useInView(0.1);
 
   function switchTab(tab: PricingTab) {
@@ -305,6 +352,8 @@ export default function LandingClient() {
     setPricingVisible(false);
     setTimeout(() => {
       setPricingTab(tab);
+      const plans = tab === "influencer" ? PLANS_INFLUENCER : PLANS_EMPRESA;
+      setExpandedPlanId(plans.find((p) => p.popular)?.id ?? plans[0].id);
       setPricingVisible(true);
     }, 200);
   }
@@ -402,7 +451,7 @@ export default function LandingClient() {
             </Link>
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-            {["7 días gratis", "Sin tarjeta", "Cancela cuando quieras"].map((item) => (
+            {["15 días gratis", "Sin tarjeta", "Cancela cuando quieras"].map((item) => (
               <span key={item} className="flex items-center gap-1.5 text-sm text-white/60">
                 <span className="font-black text-violet-400">✓</span>
                 {item}
@@ -428,11 +477,6 @@ export default function LandingClient() {
           100% { opacity: 0; transform: translateY(-22px); }
         }
         .net-pill-0 { animation: net-float 3.2s ease-in-out 0.0s infinite; }
-        .net-pill-1 { animation: net-float 3.5s ease-in-out 0.5s infinite; }
-        .net-pill-2 { animation: net-float 3.8s ease-in-out 1.0s infinite; }
-        .net-pill-3 { animation: net-float 3.4s ease-in-out 0.3s infinite; }
-        .net-pill-4 { animation: net-float 3.6s ease-in-out 0.8s infinite; }
-        .net-pill-5 { animation: net-float 3.3s ease-in-out 1.3s infinite; }
         .net-activity {
           position: absolute;
           top: -10px;
@@ -444,35 +488,19 @@ export default function LandingClient() {
           animation: net-rise 2.8s ease-out infinite;
         }
         .net-act-1 { animation-delay: 0.0s; animation-duration: 2.8s; }
-        .net-act-2 { animation-delay: 1.4s; animation-duration: 3.5s; }
-        .net-act-3 { animation-delay: 2.6s; animation-duration: 3.1s; }
       `}</style>
       <section className="border-b border-white/5 py-8">
         <div className="mx-auto max-w-5xl px-6">
-          <p className="text-center text-[10px] font-black uppercase tracking-[0.22em] text-white/30">
-            Conecta todas tus redes
-          </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
-            {[
-              { name: "Instagram", floatCls: "net-pill-0", activityCls: "net-act-1", bg: "linear-gradient(135deg,rgba(131,58,180,.13),rgba(253,29,29,.09),rgba(252,176,69,.08))", border: "rgba(188,62,138,.40)" },
-              { name: "TikTok",    floatCls: "net-pill-1", activityCls: "net-act-2", bg: "rgba(18,18,18,.60)",                                                                      border: "rgba(98,234,235,.35)" },
-              { name: "Facebook",  floatCls: "net-pill-2", activityCls: "",           bg: "rgba(24,119,242,.13)",                                                                    border: "rgba(24,119,242,.40)" },
-              { name: "LinkedIn",  floatCls: "net-pill-3", activityCls: "",           bg: "rgba(10,102,194,.13)",                                                                    border: "rgba(10,102,194,.40)" },
-              { name: "Pinterest", floatCls: "net-pill-4", activityCls: "",           bg: "rgba(230,0,35,.13)",                                                                      border: "rgba(230,0,35,.40)"   },
-              { name: "YouTube",   floatCls: "net-pill-5", activityCls: "net-act-3", bg: "rgba(255,0,0,.13)",                                                                       border: "rgba(255,0,0,.40)"    },
-            ].map((net) => (
-              <div key={net.name} className={`relative ${net.floatCls}`}>
-                <div
-                  className="rounded-full px-5 py-2.5 text-sm font-bold text-white transition-all hover:brightness-125"
-                  style={{ background: net.bg, border: `1px solid ${net.border}` }}
-                >
-                  {net.name}
-                </div>
-                {net.activityCls && (
-                  <span className={`net-activity ${net.activityCls}`}>+1</span>
-                )}
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <div className="relative net-pill-0">
+              <div
+                className="rounded-full px-5 py-2.5 text-sm font-bold text-white transition-all hover:brightness-125"
+                style={{ background: "linear-gradient(135deg,rgba(131,58,180,.13),rgba(253,29,29,.09),rgba(252,176,69,.08))", border: "1px solid rgba(188,62,138,.40)" }}
+              >
+                Instagram
               </div>
-            ))}
+              <span className="net-activity net-act-1">+1</span>
+            </div>
           </div>
         </div>
       </section>
@@ -618,9 +646,9 @@ export default function LandingClient() {
             </div>
           </div>
 
-          {/* Cards */}
+          {/* Accordion */}
           <div
-            className="mt-10 grid gap-6 sm:grid-cols-2"
+            className="mx-auto mt-10 max-w-2xl space-y-4"
             style={{
               opacity: pricingVisible ? 1 : 0,
               transform: pricingVisible ? "translateY(0)" : "translateY(8px)",
@@ -628,9 +656,11 @@ export default function LandingClient() {
             }}
           >
             {(pricingTab === "influencer" ? PLANS_INFLUENCER : PLANS_EMPRESA).map((plan) => (
-              <PlanCard
+              <PlanAccordionRow
                 key={plan.id}
                 plan={plan}
+                expanded={expandedPlanId === plan.id}
+                onToggle={() => setExpandedPlanId(plan.id)}
                 accentClass={
                   pricingTab === "influencer"
                     ? "bg-gradient-to-r from-violet-500 to-fuchsia-500"
@@ -641,7 +671,7 @@ export default function LandingClient() {
           </div>
 
           <p className="mt-8 text-center text-xs text-white/25">
-            Todos los planes incluyen 7 días gratis sin tarjeta de crédito
+            Todos los planes incluyen 15 días gratis sin tarjeta de crédito
           </p>
         </div>
       </section>
@@ -724,7 +754,7 @@ export default function LandingClient() {
             Empieza gratis hoy
           </h2>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-            {["7 días gratis", "Sin tarjeta", "Cancela cuando quieras"].map((item) => (
+            {["15 días gratis", "Sin tarjeta", "Cancela cuando quieras"].map((item) => (
               <span key={item} className="flex items-center gap-1.5 text-sm text-white/70">
                 <span className="font-black text-emerald-400">✓</span>
                 {item}
@@ -732,7 +762,7 @@ export default function LandingClient() {
             ))}
           </div>
           <p className="text-sm font-bold text-white/50">
-            8 agentes IA trabajando · 6 redes sociales conectables · Resultados desde el día 1
+            8 agentes IA trabajando · Instagram · Más redes próximamente · Resultados desde el día 1
           </p>
           <Link
             href="/socialflow/auth"
