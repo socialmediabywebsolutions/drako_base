@@ -124,14 +124,6 @@ function IcoCalendar() {
   );
 }
 
-function IcoFilm() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-3.5 w-3.5">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.5h16.5v15H3.75v-15Zm0 4.5h16.5m-16.5 6h16.5M8.25 4.5v15m7.5-15v15" />
-    </svg>
-  );
-}
-
 function IcoReset() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4">
@@ -321,6 +313,43 @@ function ItemCard({
             </p>
           )}
 
+          {/* Format selector */}
+          <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => onUpdate(item.id, { editContentType: "FEED" })}
+              className={`flex flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
+                item.editContentType === "FEED"
+                  ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
+                  : "border-white/10 text-white/40 hover:bg-white/5 hover:text-white/60"
+              }`}
+            >
+              📸 Post
+            </button>
+            <button
+              type="button"
+              onClick={() => onUpdate(item.id, { editContentType: "STORY" })}
+              className={`flex flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
+                item.editContentType === "STORY"
+                  ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
+                  : "border-white/10 text-white/40 hover:bg-white/5 hover:text-white/60"
+              }`}
+            >
+              ⭕ Historia
+            </button>
+            <button
+              type="button"
+              onClick={() => onCreateReel(item.id)}
+              className={`flex flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
+                item.editContentType === "REEL"
+                  ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
+                  : "border-white/10 text-white/40 hover:bg-white/5 hover:text-white/60"
+              }`}
+            >
+              🎬 Reel
+            </button>
+          </div>
+
           {/* Actions */}
           <div className="mt-auto flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
             <button
@@ -336,13 +365,6 @@ function ItemCard({
               className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/45 transition hover:bg-white/5 hover:text-white/70"
             >
               <IcoPencil /> Editar
-            </button>
-            <button
-              type="button"
-              onClick={() => onCreateReel(item.id)}
-              className="flex items-center gap-1.5 rounded-lg border border-violet-500/30 px-3 py-1.5 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/10"
-            >
-              <IcoFilm /> ✨ Convertir a Reel
             </button>
             <button
               type="button"

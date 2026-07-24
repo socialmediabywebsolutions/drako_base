@@ -433,7 +433,7 @@ function CreateCampaignWizard({
             />
           </div>
           {batch.items.length > 0 && (
-            <PhotoBatchGrid items={batch.items} onRemove={batch.removeItem} onApprove={batch.approveItem} onEditBody={batch.editBody} />
+            <PhotoBatchGrid items={batch.items} onRemove={batch.removeItem} onApprove={batch.approveItem} onEditBody={batch.editBody} onEditContentType={batch.editContentType} />
           )}
           <div className="flex flex-wrap gap-2">
             <button
@@ -492,6 +492,7 @@ function CreateCampaignWizard({
                 onRemove={batch.removeItem}
                 onApprove={batch.approveItem}
                 onEditBody={batch.editBody}
+                onEditContentType={batch.editContentType}
                 onCreateReel={setReelsPhotoId}
               />
               {batch.savedCount === batch.activeCount && batch.activeCount > 0 && (

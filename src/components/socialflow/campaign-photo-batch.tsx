@@ -305,6 +305,10 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
     updateItem(id, { editBody: value });
   }
 
+  function editContentType(id: string, value: string) {
+    updateItem(id, { editContentType: value });
+  }
+
   return {
     items,
     globalError,
@@ -319,6 +323,7 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
     approveAll,
     removeItem,
     editBody,
+    editContentType,
   };
 }
 
@@ -329,12 +334,14 @@ export function PhotoBatchGrid({
   onRemove,
   onApprove,
   onEditBody,
+  onEditContentType,
   onCreateReel,
 }: {
   items: UploadItem[];
   onRemove: (id: string) => void;
   onApprove: (id: string) => void;
   onEditBody: (id: string, value: string) => void;
+  onEditContentType: (id: string, value: string) => void;
   // Opcional — solo el wizard de creación de campaña lo pasa. El flujo legacy
   // (botón "Subir fotos" en una campaña ya creada) no lo usa y no cambia de
   // comportamiento.
@@ -402,7 +409,43 @@ export function PhotoBatchGrid({
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/40">
                   <span>{displayDate(item.editDate)} · {item.editTime}</span>
                   <span>{PROVIDER_LABELS[item.editProvider] ?? item.editProvider}</span>
-                  <span>{CONTENT_TYPE_LABELS[item.editContentType] ?? item.editContentType}</span>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onEditContentType(item.id, "FEED")}
+                    className={`flex-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${
+                      item.editContentType === "FEED"
+                        ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
+                        : "border-white/10 text-white/35 hover:bg-white/5 hover:text-white/55"
+                    }`}
+                  >
+                    📸 Post
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onEditContentType(item.id, "STORY")}
+                    className={`flex-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${
+                      item.editContentType === "STORY"
+                        ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
+                        : "border-white/10 text-white/35 hover:bg-white/5 hover:text-white/55"
+                    }`}
+                  >
+                    ⭕ Historia
+                  </button>
+                  {onCreateReel && (
+                    <button
+                      type="button"
+                      onClick={() => onCreateReel(item.id)}
+                      className={`flex-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${
+                        item.editContentType === "REEL"
+                          ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
+                          : "border-white/10 text-white/35 hover:bg-white/5 hover:text-white/55"
+                      }`}
+                    >
+                      🎬 Reel
+                    </button>
+                  )}
                 </div>
                 <div className="mt-auto flex gap-2 pt-1">
                   <button
@@ -412,15 +455,6 @@ export function PhotoBatchGrid({
                   >
                     ✕
                   </button>
-                  {onCreateReel && (
-                    <button
-                      type="button"
-                      onClick={() => onCreateReel(item.id)}
-                      className="rounded-lg border border-violet-500/30 px-2 py-1.5 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/10"
-                    >
-                      Reel
-                    </button>
-                  )}
                   <button
                     type="button"
                     onClick={() => onApprove(item.id)}

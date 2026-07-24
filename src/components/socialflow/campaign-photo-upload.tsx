@@ -24,7 +24,7 @@ export default function CampaignPhotoUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     items, globalError, activeCount, readyCount, savedCount,
-    addFiles, approveAll, approveItem, removeItem, editBody,
+    addFiles, approveAll, approveItem, removeItem, editBody, editContentType,
   } = useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProcess: true });
 
   return (
@@ -69,7 +69,7 @@ export default function CampaignPhotoUpload({
             )}
           </div>
 
-          <PhotoBatchGrid items={items} onRemove={removeItem} onApprove={approveItem} onEditBody={editBody} />
+          <PhotoBatchGrid items={items} onRemove={removeItem} onApprove={approveItem} onEditBody={editBody} onEditContentType={editContentType} />
         </>
       )}
     </div>
