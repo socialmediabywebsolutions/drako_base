@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { env } from "@/lib/cf";
-import { SocialContextError, resolveSocialContext, getFutureScheduledSlots } from "@/lib/socialflow/repository";
+import { SocialContextError, resolveSocialContext, getFutureScheduledSlots, listSaasSocialPosts } from "@/lib/socialflow/repository";
 import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
 import { ImageAnalysisAgent } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
@@ -365,8 +365,23 @@ export async function POST(request: Request) {
         logLabel: "carousel",
       });
 
+      // Cuántos carruseles ya tiene este tenant en el mes en curso — determina qué
+      // variante de estilo le toca rotar (getStyleForCarousel, resuelto en el cliente
+      // para no acoplar CarouselStylePacks.ts, que es Canvas/cliente, a esta ruta server).
+      const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId: body.saasId });
+      const existingPosts = await listSaasSocialPosts(ctx);
+      const now = new Date();
+      const carouselIndex = existingPosts.filter((p) => {
+        if (p.contentType !== "CAROUSEL") return false;
+        const created = new Date(p.createdAt);
+        return created.getUTCFullYear() === now.getUTCFullYear() && created.getUTCMonth() === now.getUTCMonth();
+      }).length;
+
       return NextResponse.json({
         imageAnalyses,
+        niche: profile.niche,
+        channelHandle: profile.channelHandle,
+        carouselIndex,
         suggestedCarouselPost: {
           title: composition.slides[0]?.text.slice(0, 72) ?? imageAnalyses[0].context,
           hashtags: composition.hashtags,

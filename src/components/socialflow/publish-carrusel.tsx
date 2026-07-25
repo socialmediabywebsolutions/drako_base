@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import type { CarouselSlideRole } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
 import { StaticSlideRenderer } from "@/lib/socialflow/carousel/StaticSlideRenderer";
+import { getStyleForCarousel, getNichoPackKey, CAROUSEL_STYLE_PACKS, type CarouselStyleVariant } from "@/lib/socialflow/carousel/CarouselStylePacks";
 
 // Mismo límite real de la Graph API que ya aplica el backend (CAROUSEL_MIN_ITEMS en
 // meta/publishing.ts) — duplicado aquí como número simple para no meter ese módulo
@@ -266,6 +267,14 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
   const [slideAnalyses, setSlideAnalyses] = useState<ImageAnalysis[]>([]);
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [scheduledAt, setScheduledAt] = useState<string | null>(null);
+  // Resueltos UNA VEZ por carrusel en generateCarousel() y reutilizados tal cual en
+  // cada render posterior (edición, reemplazo de foto) — nunca se recalculan a mitad
+  // de revisión, para que todos los slides del mismo carrusel compartan estilo/handle
+  // aunque el servidor devuelva un carouselIndex distinto en una llamada posterior.
+  const [style, setStyle] = useState<CarouselStyleVariant | null>(null);
+  const [styleLabel, setStyleLabel] = useState<string | null>(null);
+  const [channelHandle, setChannelHandle] = useState<string | null>(null);
+  const [carouselIndex, setCarouselIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [failedSlides, setFailedSlides] = useState<FailedSlide[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -323,6 +332,9 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
         code?: string;
         message?: string;
         failedSlides?: FailedSlide[];
+        niche?: string;
+        channelHandle?: string;
+        carouselIndex?: number;
       };
 
       if (!res.ok || !data.suggestedCarouselPost) {
@@ -341,11 +353,24 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
       setScheduledAt(post.scheduledAt);
       setSlideAnalyses(data.imageAnalyses ?? []);
 
+      const resolvedStyle = getStyleForCarousel(data.niche ?? "", data.carouselIndex ?? 0);
+      const packKey = getNichoPackKey(data.niche ?? "");
+      setStyle(resolvedStyle);
+      setStyleLabel(`${CAROUSEL_STYLE_PACKS[packKey].label} · ${resolvedStyle.label}`);
+      setChannelHandle(data.channelHandle ?? null);
+      setCarouselIndex(data.carouselIndex ?? 0);
+
       setPhase("rendering");
       const renderer = new StaticSlideRenderer();
       const rendered = await Promise.all(
         post.slides.map(async (slide) => {
-          const blob = await renderer.render({ imageUrl: slide.imageUrl, text: slide.text, role: slide.role });
+          const blob = await renderer.render({
+            imageUrl: slide.imageUrl,
+            text: slide.text,
+            role: slide.role,
+            style: resolvedStyle,
+            handle: data.channelHandle ?? undefined,
+          });
           const { url } = await uploadFile(blob, `slide_${slide.order}.jpg`);
           return {
             order: slide.order,
@@ -401,7 +426,13 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
     patchSlide(order, { status: "applying", error: null });
     try {
       const renderer = new StaticSlideRenderer();
-      const blob = await renderer.render({ imageUrl: slide.originalImageUrl, text: slide.draftText, role: slide.role });
+      const blob = await renderer.render({
+        imageUrl: slide.originalImageUrl,
+        text: slide.draftText,
+        role: slide.role,
+        style: style ?? undefined,
+        handle: channelHandle ?? undefined,
+      });
       const { url } = await uploadFile(blob, `slide_${order}.jpg`);
       patchSlide(order, { text: slide.draftText, renderedImageUrl: url, status: "pending", error: null });
     } catch (e) {
@@ -475,7 +506,13 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
       const finalText = data.suggestedCarouselPost.slides.find((s) => s.order === order)?.text ?? "";
       const role = ordered.find((s) => s.order === order)!.role;
       const renderer = new StaticSlideRenderer();
-      const blob = await renderer.render({ imageUrl: url, text: finalText, role });
+      const blob = await renderer.render({
+        imageUrl: url,
+        text: finalText,
+        role,
+        style: style ?? undefined,
+        handle: channelHandle ?? undefined,
+      });
       const { url: renderedUrl } = await uploadFile(blob, `slide_${order}.jpg`);
 
       patchSlide(order, {
@@ -519,6 +556,8 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
           metadata: {
             slides: ordered.map((s) => ({ order: s.order, imageUrl: s.renderedImageUrl, text: s.text, role: s.role })),
             hashtags,
+            carouselIndex,
+            styleVariantKey: style?.key ?? null,
           },
         }),
       });
@@ -678,6 +717,9 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
       <p className="text-xs text-white/40">
         {approvedCount}/{slides.length} slides aprobados
       </p>
+      {styleLabel && (
+        <p className="text-[11px] text-white/25">Estilo visual: {styleLabel}</p>
+      )}
       {pendingReplacements > 0 && (
         <p className="text-xs font-semibold text-amber-400">
           Falta reemplazar {pendingReplacements} foto{pendingReplacements !== 1 ? "s" : ""} antes de poder guardar.
