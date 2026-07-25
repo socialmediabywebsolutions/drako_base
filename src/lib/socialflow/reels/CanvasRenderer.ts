@@ -90,7 +90,7 @@ type FrameTransform = { scale: number; translateX: number; translateY: number; r
 
 // Combina todos los efectos activos en el instante t en una única transformación.
 // zoom es multiplicativo (varios zooms se acumulan), pan/rotate/blur son aditivos.
-function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number): FrameTransform {
+function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number, height: number): FrameTransform {
   const transform: FrameTransform = { scale: 1, translateX: 0, translateY: 0, rotateDeg: 0, blurPx: 0 };
 
   for (const effect of effects) {
@@ -121,6 +121,26 @@ function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number
         break;
       case "blur":
         transform.blurPx += intensity * 16 * progress;
+        break;
+      case "ken-burns":
+        // Zoom lento + pan diagonal constante, de esquina a esquina (nunca oscila).
+        transform.scale *= 1 + intensity * 0.5 * progress;
+        transform.translateX += width * 0.08 * intensity * progress;
+        transform.translateY += height * 0.08 * intensity * progress;
+        break;
+      case "drift":
+        // Movimiento lateral casi imperceptible — ReelsAgent ya acota su intensity
+        // a 0.05-0.15 (EFFECT_INTENSITY_OVERRIDE), aquí solo se traduce a píxeles.
+        transform.translateX += width * 0.04 * intensity * Math.sin(progress * Math.PI * 0.5);
+        break;
+      case "pulse":
+        // Zoom rítmico: oscila entre 1.0 y 1.0+intensity, 2.5 ciclos durante el segmento.
+        transform.scale *= 1 + intensity * (0.5 - 0.5 * Math.cos(progress * Math.PI * 2 * 2.5));
+        break;
+      case "tilt":
+        // Ligera rotación (barrido 0→pico→0, sin oscilar) + pan horizontal constante.
+        transform.rotateDeg += intensity * 8 * Math.sin(progress * Math.PI);
+        transform.translateX += width * 0.07 * intensity * progress;
         break;
     }
   }
@@ -171,11 +191,60 @@ function wrapText(
 }
 
 function textForOverlayAtTime(overlay: ReelsTextOverlay, t: number): string {
-  if (overlay.animation !== "word-by-word") return overlay.text;
-  const words = overlay.text.split(/\s+/).filter(Boolean);
   const progress = clamp((t - overlay.startAt) / overlay.durationSec, 0, 1);
-  const revealCount = Math.max(1, Math.ceil(words.length * progress));
-  return words.slice(0, revealCount).join(" ");
+  if (overlay.animation === "word-by-word") {
+    const words = overlay.text.split(/\s+/).filter(Boolean);
+    const revealCount = Math.max(1, Math.ceil(words.length * progress));
+    return words.slice(0, revealCount).join(" ");
+  }
+  if (overlay.animation === "typewriter") {
+    const revealCount = Math.max(1, Math.ceil(overlay.text.length * progress));
+    return overlay.text.slice(0, revealCount);
+  }
+  return overlay.text;
+}
+
+// Y relativo del canvas por posición — "top-center"/"upper-center" son paradas
+// intermedias entre "top" y "center", usadas hoy solo por el título (ver
+// pickTitlePosition en ReelsAgent.ts) para que no todos los Reels lleven el título
+// pegado al borde superior.
+const POSITION_Y_RATIO: Record<NonNullable<ReelsTextOverlay["position"]>, number> = {
+  top: 0.18,
+  "top-center": 0.28,
+  "upper-center": 0.38,
+  center: 0.5,
+  bottom: 0.82,
+};
+
+// Traduce el tipo de animación de entrada del overlay a opacity/offsetY/scale en el
+// instante t. Antes esto dependía de si el overlay tenía `role` (dos caminos
+// distintos, con el `animation` real ignorado para overlays con rol) — ahora es un
+// único cálculo dirigido por `overlay.animation`, que ReelsAgent varía por Reel.
+function computeEntryAnimation(
+  animation: ReelsTextOverlay["animation"],
+  t: number,
+  startAt: number,
+  durationSec: number,
+): { opacity: number; offsetY: number; scale: number } {
+  const introWindow = Math.min(0.5, durationSec / 2);
+  const introProgress = clamp((t - startAt) / introWindow, 0, 1);
+
+  switch (animation) {
+    case "fade-in":
+      return { opacity: introProgress, offsetY: 0, scale: 1 };
+    case "slide-up":
+      return { opacity: introProgress, offsetY: (1 - introProgress) * 50, scale: 1 };
+    case "slide-down":
+      return { opacity: introProgress, offsetY: -50 * (1 - introProgress), scale: 1 };
+    case "zoom":
+      return { opacity: introProgress, offsetY: 0, scale: 0.85 + 0.15 * introProgress };
+    case "word-by-word":
+    case "typewriter":
+      // El reveal progresivo del propio texto ya transmite la entrada — solo un fade rápido.
+      return { opacity: Math.min(1, introProgress * 2), offsetY: 0, scale: 1 };
+    default:
+      return { opacity: 1, offsetY: 0, scale: 1 };
+  }
 }
 
 // Detecta si el fondo bajo el texto es claro u oscuro muestreando un área ~200x80px
@@ -211,35 +280,12 @@ function drawTextOverlays(
     const endAt = overlay.startAt + overlay.durationSec;
     if (t < overlay.startAt || t > endAt) continue;
 
-    let opacity = 1;
-    let offsetY = 0;
-    let scale = 1;
-
-    if (overlay.role) {
-      // Animación de entrada por rol, primeros 0.5s de vida del overlay (lineal, no eased).
-      const roleIntroProgress = Math.min(1, (t - overlay.startAt) / 0.5);
-      opacity = roleIntroProgress;
-      if (overlay.role === "title") {
-        offsetY = -50 * (1 - roleIntroProgress); // slide-down: entra desde arriba
-      } else if (overlay.role === "cta") {
-        offsetY = 50 * (1 - roleIntroProgress); // slide-up: entra desde abajo
-      } else if (overlay.role === "subtitle") {
-        scale = 0.85 + 0.15 * roleIntroProgress; // zoom-in: 0.85 → 1.0
-      }
-    } else {
-      const introProgress = easedProgress(t, overlay.startAt, overlay.startAt + Math.min(0.4, overlay.durationSec / 2));
-      if (overlay.animation === "fade-in") {
-        opacity = introProgress;
-      } else if (overlay.animation === "slide-up") {
-        opacity = introProgress;
-        offsetY = (1 - introProgress) * 40;
-      }
-    }
+    const { opacity, offsetY, scale } = computeEntryAnimation(overlay.animation, t, overlay.startAt, overlay.durationSec);
 
     const roleStyle = overlay.role ? TEXT_ROLE_STYLE[overlay.role] : undefined;
-    const fontSize = roleStyle?.fontSize ?? templateStyle.fallbackFontSize;
+    const fontSize = overlay.fontSize ?? roleStyle?.fontSize ?? templateStyle.fallbackFontSize;
     const position = overlay.position ?? roleStyle?.position ?? "center";
-    const baseY = position === "top" ? canvasHeight * 0.18 : position === "bottom" ? canvasHeight * 0.82 : canvasHeight * 0.5;
+    const baseY = canvasHeight * (POSITION_Y_RATIO[position] ?? 0.5);
 
     const brightness = sampleAverageBrightness(ctx, canvasWidth / 2, baseY, 200, 80);
     const isLightBackground = brightness > 128;
@@ -422,11 +468,25 @@ export class CanvasRenderer implements ReelsRenderer {
     assertBrowserEnvironment();
 
     const { width, height, fps, durationSec, musicTrackUrl } = config;
+    // imageSegments solo viene poblado cuando ReelsConfig.imageUrls tenía 2+ entradas
+    // (ver ReelsAgent.buildMultiImageEffects) — con 0-1 imagen, el Reel sigue siendo
+    // exactamente el flujo de una sola imagen de siempre.
+    const imageSegments = config.imageSegments && config.imageSegments.length > 0 ? config.imageSegments : null;
 
-    const [image, audioBuffer] = await Promise.all([
-      loadImageBitmap(config.imageUrl),
+    const [images, audioBuffer] = await Promise.all([
+      imageSegments
+        ? Promise.all(imageSegments.map((seg) => loadImageBitmap(seg.imageUrl)))
+        : loadImageBitmap(config.imageUrl).then((img) => [img]),
       musicTrackUrl ? prepareAudioTrack(musicTrackUrl) : Promise.resolve(null),
     ]);
+
+    // Devuelve la imagen que corresponde al instante t. Sin imageSegments, siempre la
+    // única imagen cargada — comportamiento idéntico al de antes de multi-imagen.
+    function imageForTime(t: number): ImageBitmap {
+      if (!imageSegments) return images[0];
+      const idx = imageSegments.findIndex((seg) => t >= seg.startAt && t < seg.endAt);
+      return images[idx === -1 ? images.length - 1 : idx];
+    }
 
     const canvas = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(width, height) : document.createElement("canvas");
     if (!(canvas instanceof OffscreenCanvas)) {
@@ -470,10 +530,10 @@ export class CanvasRenderer implements ReelsRenderer {
 
     for (let i = 0; i < totalFrames; i++) {
       const t = i / fps;
-      const transform = computeTransformAtTime(config.effects, t, width);
+      const transform = computeTransformAtTime(config.effects, t, width, height);
 
       ctx.clearRect(0, 0, width, height);
-      drawImageCover(ctx, image, width, height, transform);
+      drawImageCover(ctx, imageForTime(t), width, height, transform);
       drawTextOverlays(ctx, config.textOverlays, config.template, t, width, height);
 
       const frame = new VideoFrame(canvas as CanvasImageSource, {
