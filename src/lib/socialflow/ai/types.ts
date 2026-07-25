@@ -1,3 +1,5 @@
+export type SocialFlowClientObjective = "followers" | "engagement" | "leads" | "sales" | "saves";
+
 export type BrandProfile = {
   // Core brand & channel identity
   brandIdentity: string; // maps from ChannelProfile.brandName
@@ -28,6 +30,10 @@ export type BrandProfile = {
   differentiators: string[];
   primaryCTA: string;
   secondaryCTAs: string[];
+  // Objetivo configurado una vez en el perfil (ver ChannelProfile.clientObjective) — los
+  // agentes de composición (ej. CarouselComposerAgent) lo usan para fijar el CTA del
+  // último slide/frame sin depender de que la IA lo redacte cada vez.
+  clientObjective?: SocialFlowClientObjective | null;
 
   // Content & SEO
   baseKeywords: string[];

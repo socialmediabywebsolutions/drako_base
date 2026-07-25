@@ -1,4 +1,4 @@
-import type { CompetitorInsights } from "@/lib/socialflow/ai/types";
+import type { CompetitorInsights, SocialFlowClientObjective } from "@/lib/socialflow/ai/types";
 import { resolveSocialContext, SocialContextError } from "@/lib/socialflow/repository";
 import type { ChannelAsset, ChannelCompetitor, ChannelKnowledgeSnapshot, ChannelProfile } from "@/lib/socialflow/profile/types";
 
@@ -25,6 +25,7 @@ const PROFILE_COLUMNS = [
   "growth_goal_timeline",
   "content_style",
   "posting_frequency",
+  "client_objective",
   "created_at",
   "updated_at",
 ].join(", ");
@@ -48,6 +49,7 @@ type ProfileRow = {
   growth_goal_timeline: string | null;
   content_style: string | null;
   posting_frequency: number | null;
+  client_objective: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -139,6 +141,15 @@ function normalizeNullableNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+const VALID_CLIENT_OBJECTIVES = new Set<SocialFlowClientObjective>(["followers", "engagement", "leads", "sales", "saves"]);
+
+function normalizeClientObjective(value: unknown): SocialFlowClientObjective | null {
+  const normalized = normalizeNullableString(value);
+  return normalized && VALID_CLIENT_OBJECTIVES.has(normalized as SocialFlowClientObjective)
+    ? (normalized as SocialFlowClientObjective)
+    : null;
+}
+
 function normalizeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -169,6 +180,7 @@ const PERSONA_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "growth_goal_timeline", ddl: "TEXT" },
   { name: "content_style", ddl: "TEXT" },
   { name: "posting_frequency", ddl: "INTEGER" },
+  { name: "client_objective", ddl: "TEXT" },
 ];
 
 async function ensurePersonaColumns(db: D1Database): Promise<void> {
@@ -293,6 +305,7 @@ function buildEmptyProfile(tenantId: string, saasId: string): ChannelProfile {
     growthGoalTimeline: null,
     contentStyle: null,
     postingFrequency: null,
+    clientObjective: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -340,6 +353,9 @@ function mergeProfile(base: ChannelProfile, patch: Partial<ChannelProfile>): Cha
   }
   if ("postingFrequency" in patch) {
     next.postingFrequency = normalizeNullableNumber(patch.postingFrequency);
+  }
+  if ("clientObjective" in patch) {
+    next.clientObjective = normalizeClientObjective(patch.clientObjective);
   }
 
   next.updatedAt = nowIso();
@@ -430,6 +446,7 @@ function mapRowToSnapshot(row: ProfileRow): ChannelKnowledgeSnapshot {
     growthGoalTimeline: row.growth_goal_timeline ?? mergedFromMetadata.growthGoalTimeline ?? null,
     contentStyle: row.content_style ?? mergedFromMetadata.contentStyle ?? null,
     postingFrequency: row.posting_frequency ?? mergedFromMetadata.postingFrequency ?? null,
+    clientObjective: normalizeClientObjective(row.client_objective) ?? mergedFromMetadata.clientObjective ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -471,8 +488,8 @@ async function upsertProfileRow(snapshot: ChannelKnowledgeSnapshot): Promise<Cha
   await context.socialDb.prepare(
     `INSERT INTO ${SOCIALFLOW_PROFILE_TABLE} (
       id, tenant_id, saas_id, display_name, brand_name, business_type, website_url, description, tone, audience, goals_json, metadata_json,
-      age_range, gender, growth_goal_followers, growth_goal_timeline, content_style, posting_frequency, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      age_range, gender, growth_goal_followers, growth_goal_timeline, content_style, posting_frequency, client_objective, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(tenant_id, saas_id) DO UPDATE SET
       id = excluded.id,
       display_name = excluded.display_name,
@@ -490,6 +507,7 @@ async function upsertProfileRow(snapshot: ChannelKnowledgeSnapshot): Promise<Cha
       growth_goal_timeline = excluded.growth_goal_timeline,
       content_style = excluded.content_style,
       posting_frequency = excluded.posting_frequency,
+      client_objective = excluded.client_objective,
       updated_at = excluded.updated_at`,
   ).bind(
     rowId,
@@ -510,6 +528,7 @@ async function upsertProfileRow(snapshot: ChannelKnowledgeSnapshot): Promise<Cha
     normalizeNullableString(snapshot.profile.growthGoalTimeline),
     normalizeNullableString(snapshot.profile.contentStyle),
     normalizeNullableNumber(snapshot.profile.postingFrequency),
+    normalizeClientObjective(snapshot.profile.clientObjective),
     createdAt,
     updatedAt,
   ).run();

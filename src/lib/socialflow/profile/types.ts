@@ -1,3 +1,5 @@
+import type { SocialFlowClientObjective } from "@/lib/socialflow/ai/types";
+
 export type ChannelCompetitor = {
   id: string;
   channelId: string;
@@ -116,6 +118,7 @@ export type ChannelProfile = {
   growthGoalTimeline: string | null;
   contentStyle: string | null;
   postingFrequency: number | null;
+  clientObjective: SocialFlowClientObjective | null;
   createdAt: string;
   updatedAt: string;
 };

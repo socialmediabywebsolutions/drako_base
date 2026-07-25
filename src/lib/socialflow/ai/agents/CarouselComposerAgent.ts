@@ -1,5 +1,5 @@
 import { defaultLocalModel } from "../models/localModel";
-import type { BrandProfile, KeywordEngineOutput } from "../types";
+import type { BrandProfile, KeywordEngineOutput, SocialFlowClientObjective } from "../types";
 import type { TrendInsights } from "./TrendAgent";
 import { OPENERS_BY_CATEGORY, type OpenerCategory } from "../openers/pickOpenerCategory";
 
@@ -39,6 +39,25 @@ export type CarouselComposition = {
   tone: string;
 };
 
+// CTA fijo por objetivo del cliente (BrandProfile.clientObjective, configurado una vez en
+// el perfil) — se usa tal cual para el slide cierre_cta, sin pedirle a la IA que lo
+// redacte. Son frases ya decididas, no una sugerencia de estilo: mismo motivo por el que
+// se protegió "cta" de la sobrescritura de la IA en el motor de Reels (ver
+// mergeAiStructuredOutput/protectedKeys) — si se le pide "también" que lo escriba, tiende
+// a generar uno propio y el objetivo configurado deja de reflejarse en el resultado.
+const CTA_BY_OBJECTIVE: Record<SocialFlowClientObjective, string> = {
+  followers: "Sígueme para más contenido como este 👉 {handle}",
+  engagement: "¿Cuál vas a aplicar hoy? Cuéntame 👇",
+  leads: "Escríbeme por DM y te explico cómo empezar 💬",
+  sales: "Link en bio para conseguirlo 🛒",
+  saves: "Guarda esto para cuando lo necesites 🔖",
+};
+
+function resolveObjectiveCta(profile: BrandProfile): string | null {
+  if (!profile.clientObjective) return null;
+  return CTA_BY_OBJECTIVE[profile.clientObjective].replace("{handle}", profile.channelHandle || "");
+}
+
 // Posición narrativa por índice — determinista, nunca se le pide a Mistral que la
 // etiquete. Con 2 slides (plan Starter) no hay "desarrollo": el primero es intro,
 // el segundo (que también es el último) es cierre_cta.
@@ -69,7 +88,7 @@ function fallbackSlideText(
     return OPENERS_BY_CATEGORY[openerCategory]?.[0] ?? `Esto es lo que necesitas saber sobre ${profile.niche}.`;
   }
   if (role === "cierre_cta") {
-    return profile.primaryCTA || "Guarda este post y cuéntanos qué opinas en los comentarios.";
+    return resolveObjectiveCta(profile) || profile.primaryCTA || "Guarda este post y cuéntanos qué opinas en los comentarios.";
   }
   return specificContext || `Un detalle importante sobre ${profile.niche}.`;
 }
@@ -87,6 +106,7 @@ export class CarouselComposerAgent {
     const { profile, keywordEngine, openerCategory, slideContexts } = input;
     const isEmpresa = profile.accountType === "empresa";
     const total = slideContexts.length;
+    const objectiveCta = resolveObjectiveCta(profile);
 
     const hashtagPool = [
       ...(profile.baseHashtags ?? []),
@@ -111,6 +131,10 @@ export class CarouselComposerAgent {
       .map((s, i) => `Slide ${i + 1} (${roleForIndex(i, total)}): "${s.specificContext}"`)
       .join("\n");
 
+    const cierreCtaInstruction = objectiveCta
+      ? `- Último slide (cierre_cta): este slide YA tiene su call-to-action fijo ("${objectiveCta}") — no lo reescribas, el JSON base que recibirás ya lo trae listo para ese slide.`
+      : `- Último slide (cierre_cta): cierre + llamada a la acción (${profile.primaryCTA || "invita a comentar o guardar el post"}). MÁXIMO ${CAROUSEL_SLIDE_TEXT_LIMITS.cierre_cta} caracteres.`;
+
     const prompt = `Escribe el texto de un carrusel educativo de Instagram sobre "${profile.niche}" para la marca "${profile.brandIdentity}", con exactamente ${total} slides, EN ESPAÑOL.
 
 ${isEmpresa
@@ -125,7 +149,7 @@ ${slideContextLines}
 Estructura narrativa obligatoria:
 - Slide 1 (intro): gancho corto que abra el tema. MÁXIMO ${CAROUSEL_SLIDE_TEXT_LIMITS.intro} caracteres.
 - Slides intermedios (desarrollo, si los hay): un punto educativo concreto por slide, anclado en su propio detalle visual. MÁXIMO ${CAROUSEL_SLIDE_TEXT_LIMITS.desarrollo} caracteres cada uno.
-- Último slide (cierre_cta): cierre + llamada a la acción (${profile.primaryCTA || "invita a comentar o guardar el post"}). MÁXIMO ${CAROUSEL_SLIDE_TEXT_LIMITS.cierre_cta} caracteres.
+${cierreCtaInstruction}
 
 Genera también entre 10 y 15 hashtags relevantes para el carrusel completo.
 Responde SOLO con el JSON solicitado, con exactamente ${total} slides en el mismo orden en que se listaron arriba.`;
@@ -140,6 +164,9 @@ Responde SOLO con el JSON solicitado, con exactamente ${total} slides en el mism
     // cae de vuelta al fallback determinista de su rol — nunca queda un slide sin texto.
     data.slides = slideContexts.map((s, i) => {
       const role = roleForIndex(i, total);
+      if (role === "cierre_cta" && objectiveCta) {
+        return { order: s.order, role, text: clampSlideText(objectiveCta, role) };
+      }
       const modelText = typeof data.slides[i]?.text === "string" ? data.slides[i].text.trim() : "";
       const text = modelText.length > 0 ? modelText : base.slides[i].text;
       return { order: s.order, role, text: clampSlideText(text, role) };

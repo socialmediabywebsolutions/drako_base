@@ -235,6 +235,20 @@ export default function SocialFlowProfilePage() {
             onChange={(v) => setProfile({ ...p, postingFrequency: v ? Number(v) : null })}
           />
         </div>
+        <div className="grid gap-4 text-sm md:grid-cols-3">
+          <SelectField
+            label="Objetivo principal del contenido"
+            value={p.clientObjective}
+            onChange={(v) => setProfile({ ...p, clientObjective: v })}
+            options={[
+              { value: "followers", label: "Ganar seguidores" },
+              { value: "engagement", label: "Generar interacción" },
+              { value: "leads", label: "Conseguir leads / DMs" },
+              { value: "sales", label: "Vender (link en bio)" },
+              { value: "saves", label: "Que guarden el contenido" },
+            ]}
+          />
+        </div>
       </section>
 
       {/* Niche & topics */}

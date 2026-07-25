@@ -60,6 +60,7 @@ export class SocialFlowOrchestrator {
       accountType: input.accountType ?? null,
       ageRange: profile.ageRange || null,
       gender: profile.gender || null,
+      clientObjective: profile.clientObjective || null,
       niche,
       audience: profile.audienceDescription || `${niche} buyers`,
       buyerPersona: profile.buyerPersona || `${niche} operator`,
