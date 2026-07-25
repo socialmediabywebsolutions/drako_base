@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
-import { getUploadBatchLimit, getCarouselSlideLimit } from "@/lib/socialflow/billing/enforce";
+import { getUploadBatchLimit } from "@/lib/socialflow/billing/enforce";
 import PublicarSelector from "@/components/socialflow/publicar-selector";
 
 const SAAS_ID = "socialflow";
@@ -11,10 +11,7 @@ export default async function SocialFlowPublicarPage() {
     redirect("/socialflow/auth");
   }
 
-  const [maxImages, maxCarouselSlides] = await Promise.all([
-    getUploadBatchLimit(session.tenantId, session.role).catch(() => 8),
-    getCarouselSlideLimit(session.tenantId, session.role).catch(() => 2),
-  ]);
+  const maxImages = await getUploadBatchLimit(session.tenantId, session.role).catch(() => 8);
 
-  return <PublicarSelector saasId={SAAS_ID} maxImages={maxImages} maxCarouselSlides={maxCarouselSlides} />;
+  return <PublicarSelector saasId={SAAS_ID} maxImages={maxImages} />;
 }

@@ -47,6 +47,9 @@ function IcoChevron({ open }: { open: boolean }) {
 function IcoPublish() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" /></svg>;
 }
+function IcoCarrusel() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><rect x="3" y="7" width="13" height="13" rx="2" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V5.25A2.25 2.25 0 0 1 10.25 3h8.5A2.25 2.25 0 0 1 21 5.25v8.5A2.25 2.25 0 0 1 18.75 16H17" /></svg>;
+}
 
 // ── Nav structure ───────────────────────────────────────────────────────────────
 const mainNavTop = [
@@ -57,6 +60,7 @@ const mainNavTop = [
 
 const mainNavBottom = [
   { href: "/socialflow/plan",           label: "Plan editorial",      icon: <IcoCalendar /> },
+  { href: "/socialflow/carrusel",       label: "Carrusel",            icon: <IcoCarrusel /> },
   { href: "/socialflow/campaigns",      label: "Planificar",          icon: <IcoTarget /> },
   { href: "/socialflow/redes",          label: "Mis Redes",           icon: <IcoNetwork /> },
   { href: "/socialflow/conversations", label: "Comunidad",           icon: <IcoChat /> },

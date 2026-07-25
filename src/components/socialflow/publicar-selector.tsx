@@ -3,30 +3,26 @@
 import { useState } from "react";
 import UploadToPost from "./upload-to-post";
 import PublishReel from "./publish-reel";
-import PublishCarrusel from "./publish-carrusel";
 
 // Reemplaza las 4 rutas separadas que existían bajo /publicar/ (index, post, reel,
 // historia) por un único selector: 3 de los 4 formatos ya montaban el mismo
 // UploadToPost con distinto contentType, y Reel montaba PublishReel — ahora todo vive
 // en esta página con un selector de tarjetas en vez de 4 Server Components casi
-// idénticos.
-type PublishFormat = "post" | "reel" | "historia" | "carrusel";
+// idénticos. Carrusel se movió a su propia sección /socialflow/carrusel.
+type PublishFormat = "post" | "reel" | "historia";
 
 const FORMAT_CARDS: { id: PublishFormat; icon: string; title: string; description: string }[] = [
   { id: "post", icon: "📸", title: "Post", description: "Varias fotos según tu plan y el mes · Caption e hashtags generados por IA" },
   { id: "reel", icon: "🎬", title: "Reel", description: "Varias fotos según tu plan y el mes · Video animado con música automática · 15-30s" },
   { id: "historia", icon: "⭕", title: "Historia", description: "Varias fotos según tu plan y el mes · Visible 24h en Instagram · Caption optimizado" },
-  { id: "carrusel", icon: "📑", title: "Carrusel", description: "Slides según tu plan · Contenido educativo generado por IA · Más guardados" },
 ];
 
 export default function PublicarSelector({
   saasId,
   maxImages,
-  maxCarouselSlides,
 }: {
   saasId: string;
   maxImages: number;
-  maxCarouselSlides: number;
 }) {
   const [selected, setSelected] = useState<PublishFormat | null>(null);
 
@@ -44,7 +40,6 @@ export default function PublicarSelector({
         {selected === "post" && <UploadToPost saasId={saasId} maxImages={maxImages} contentType="FEED" />}
         {selected === "reel" && <PublishReel saasId={saasId} maxImages={maxImages} />}
         {selected === "historia" && <UploadToPost saasId={saasId} maxImages={maxImages} contentType="STORY" />}
-        {selected === "carrusel" && <PublishCarrusel saasId={saasId} maxSlides={maxCarouselSlides} />}
       </div>
     );
   }
