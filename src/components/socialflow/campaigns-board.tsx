@@ -477,16 +477,30 @@ function CreateCampaignWizard({
                 <p className="text-xs text-white/40">
                   {batch.savedCount} programada{batch.savedCount !== 1 ? "s" : ""} de {batch.activeCount}
                 </p>
-                {batch.readyCount >= 1 && (
+                {batch.approvableCount >= 1 && (
                   <button
                     type="button"
                     onClick={() => void batch.approveAll()}
                     className="rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
                   >
-                    Aprobar todo ({batch.readyCount})
+                    Aprobar todo ({batch.approvableCount})
                   </button>
                 )}
               </div>
+              {batch.skippedReelsCount > 0 && (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-violet-500/25 bg-violet-500/10 px-3 py-2 text-xs text-violet-300">
+                  <span>
+                    {batch.skippedReelsCount} Reel{batch.skippedReelsCount !== 1 ? "s" : ""} pendiente{batch.skippedReelsCount !== 1 ? "s" : ""} — genera y revisa cada uno con ▶ Ver Reel
+                  </span>
+                  <button
+                    type="button"
+                    onClick={batch.clearSkippedReels}
+                    className="text-violet-300/60 transition hover:text-violet-200"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
               <PhotoBatchGrid
                 items={batch.items}
                 onRemove={batch.removeItem}
@@ -512,9 +526,12 @@ function CreateCampaignWizard({
         </div>
       )}
 
-      {/* Reels creator modal — paso 3, opción "Reel" por foto */}
+      {/* Reels creator modal — paso 3, opción "Reel" por foto. "Aprobar y programar" dentro
+          del modal no guarda el post por su cuenta — devuelve el vídeo revisado al item vía
+          batch.markReelReady() para que se programe por el mismo "Aprobar" que el resto. */}
       {reelsPhotoId && createdCampaign && (() => {
-        const reelsItem = batch.items.find((i) => i.id === reelsPhotoId);
+        const targetId = reelsPhotoId;
+        const reelsItem = batch.items.find((i) => i.id === targetId);
         if (!reelsItem?.r2Url || !reelsItem.r2Key) return null;
         return (
           <div
@@ -541,6 +558,10 @@ function CreateCampaignWizard({
                 imageKey={reelsItem.r2Key}
                 saasId={saasId}
                 campaignId={createdCampaign.id}
+                onApproved={({ videoUrl, suggestedPost }) => {
+                  batch.markReelReady(targetId, videoUrl, suggestedPost);
+                  setReelsPhotoId(null);
+                }}
                 onClose={() => setReelsPhotoId(null)}
               />
             </div>

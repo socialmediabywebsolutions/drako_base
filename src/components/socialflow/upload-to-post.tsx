@@ -9,7 +9,12 @@ type ContentCategory = "foto_real" | "grafico_texto";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type ItemStep = "uploading" | "analyzing" | "ready" | "saving" | "saved" | "error";
+// "reel_ready": el usuario ya generó y vio el vídeo en ReelsCreator (reelVideoUrl
+// presente) — puede aprobarse por el flujo normal. Un item "ready" con
+// editContentType "REEL" pero sin reelVideoUrl NUNCA debe ser aprobable (ver
+// approveItem/approveAll) — es el caso de la IA clasificando la foto como Reel
+// automáticamente, sin que nadie haya visto el vídeo.
+type ItemStep = "uploading" | "analyzing" | "ready" | "reel_ready" | "saving" | "saved" | "error";
 
 type UploadItem = {
   id: string;
@@ -17,6 +22,7 @@ type UploadItem = {
   localPreviewUrl: string;   // blob URL — used for all <img> display
   r2Url: string | null;      // R2 public URL — only used as imageHint in DB
   r2Key: string | null;      // R2 object key — used by server to read via binding
+  reelVideoUrl?: string;     // set only after the user reviewed the video in ReelsCreator
   step: ItemStep;
   error: string | null;
   imageAnalysis: ImageAnalysis | null;
@@ -366,13 +372,23 @@ function ItemCard({
             >
               <IcoPencil /> Editar
             </button>
-            <button
-              type="button"
-              onClick={() => onPreview(item.id)}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
-            >
-              <IcoCheck sm /> Aprobar
-            </button>
+            {item.editContentType === "REEL" && !item.reelVideoUrl ? (
+              <button
+                type="button"
+                onClick={() => onCreateReel(item.id)}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-bold text-violet-300 transition hover:bg-violet-500/20"
+              >
+                ▶ Ver Reel
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onPreview(item.id)}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+              >
+                <IcoCheck sm /> Aprobar
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -466,14 +482,24 @@ function ItemCard({
           >
             Cancelar
           </button>
-          <button
-            type="button"
-            onClick={() => { onUpdate(item.id, { isEditing: false }); onPreview(item.id); }}
-            disabled={!item.editDate || !item.editBody.trim()}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <IcoCheck sm /> Aprobar
-          </button>
+          {item.editContentType === "REEL" && !item.reelVideoUrl ? (
+            <button
+              type="button"
+              onClick={() => { onUpdate(item.id, { isEditing: false }); onCreateReel(item.id); }}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 py-2 text-xs font-bold text-violet-300 transition hover:bg-violet-500/20"
+            >
+              ▶ Ver Reel
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { onUpdate(item.id, { isEditing: false }); onPreview(item.id); }}
+              disabled={!item.editDate || !item.editBody.trim()}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <IcoCheck sm /> Aprobar
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -689,13 +715,17 @@ export default function UploadToPost({
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [bulkPreviewOpen, setBulkPreviewOpen] = useState(false);
   const [reelsItemId, setReelsItemId] = useState<string | null>(null);
+  const [skippedReelsCount, setSkippedReelsCount] = useState(0);
 
   const updateItem = useCallback((id: string, patch: Partial<UploadItem>) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   }, []);
 
   const savedCount = items.filter((i) => i.step === "saved").length;
-  const readyCount = items.filter((i) => i.step === "ready").length;
+  // Cuenta real de items aprobables en bloque: excluye Reels "ready" sin video revisado.
+  const approvableCount = items.filter(
+    (i) => (i.step === "ready" && i.editContentType !== "REEL") || i.step === "reel_ready"
+  ).length;
   const allDone =
     items.length > 0 && items.every((i) => i.step === "saved" || i.step === "error");
   const allSaved = items.length > 0 && items.every((i) => i.step === "saved");
@@ -901,7 +931,15 @@ export default function UploadToPost({
 
   async function approveItem(id: string): Promise<void> {
     const item = items.find((i) => i.id === id);
-    if (!item || item.step !== "ready" || !item.r2Url) return;
+    if (!item) return;
+
+    // Un Reel solo es aprobable una vez revisado en ReelsCreator (reelVideoUrl presente,
+    // step "reel_ready"). Un item "ready" clasificado REEL por la IA pero nunca visto
+    // como vídeo se ignora en silencio — la UI ya le oculta el botón "Aprobar" para este caso.
+    const isReel = item.editContentType === "REEL";
+    const mediaUrl = isReel ? item.reelVideoUrl : item.r2Url;
+    const approvable = isReel ? item.step === "reel_ready" && !!item.reelVideoUrl : item.step === "ready" && !!item.r2Url;
+    if (!approvable || !mediaUrl) return;
 
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, step: "saving" } : i)));
 
@@ -922,7 +960,7 @@ export default function UploadToPost({
           contentType: item.editContentType,
           title,
           body: bodyWithHashtags,
-          imageHint: item.r2Url,
+          imageHint: mediaUrl,
           status: "SCHEDULED",
           scheduledAt,
         }),
@@ -937,7 +975,7 @@ export default function UploadToPost({
       setItems((prev) =>
         prev.map((i) =>
           i.id === id
-            ? { ...i, step: "ready", error: e instanceof Error ? e.message : "Error al guardar." }
+            ? { ...i, step: isReel ? "reel_ready" : "ready", error: e instanceof Error ? e.message : "Error al guardar." }
             : i
         )
       );
@@ -945,8 +983,14 @@ export default function UploadToPost({
   }
 
   async function approveAll(): Promise<void> {
-    const readyIds = items.filter((i) => i.step === "ready").map((i) => i.id);
-    await Promise.all(readyIds.map((id) => approveItem(id)));
+    const approvableIds = items
+      .filter((i) => (i.step === "ready" && i.editContentType !== "REEL") || i.step === "reel_ready")
+      .map((i) => i.id);
+    const skippedReels = items.filter(
+      (i) => i.step === "ready" && i.editContentType === "REEL" && !i.reelVideoUrl
+    ).length;
+    await Promise.all(approvableIds.map((id) => approveItem(id)));
+    setSkippedReelsCount(skippedReels);
   }
 
   function removeItem(id: string) {
@@ -1076,6 +1120,21 @@ export default function UploadToPost({
         </div>
       )}
 
+      {skippedReelsCount > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-violet-500/25 bg-violet-500/10 px-4 py-3 text-sm text-violet-300">
+          <span>
+            {skippedReelsCount} Reel{skippedReelsCount !== 1 ? "s" : ""} pendiente{skippedReelsCount !== 1 ? "s" : ""} — genera y revisa cada uno con ▶ Ver Reel
+          </span>
+          <button
+            type="button"
+            onClick={() => setSkippedReelsCount(0)}
+            className="text-violet-300/60 transition hover:text-violet-200"
+          >
+            <IcoX />
+          </button>
+        </div>
+      )}
+
       {/* Action bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-white/40">
@@ -1097,14 +1156,14 @@ export default function UploadToPost({
               Añadir fotos ({activeCount}/{maxImages})
             </button>
           )}
-          {readyCount >= 2 && (
+          {approvableCount >= 2 && (
             <button
               type="button"
               onClick={() => setBulkPreviewOpen(true)}
               className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
             >
               <IcoCheck sm />
-              Aprobar todo ({readyCount})
+              Aprobar todo ({approvableCount})
             </button>
           )}
           {allDone && savedCount > 0 && (
@@ -1136,10 +1195,10 @@ export default function UploadToPost({
         onChange={(e) => { if (e.target.files) void handleFiles(e.target.files); }}
       />
 
-      {/* Bulk preview modal (z-40) */}
+      {/* Bulk preview modal (z-40) — excluye Reels aún no revisados en ReelsCreator */}
       {bulkPreviewOpen && (
         <BulkPreviewModal
-          items={items.filter((i) => i.step === "ready")}
+          items={items.filter((i) => (i.step === "ready" && i.editContentType !== "REEL") || i.step === "reel_ready")}
           onConfirmAll={() => { setBulkPreviewOpen(false); void approveAll(); }}
           onClose={() => setBulkPreviewOpen(false)}
           onPreviewOne={(id) => setPreviewId(id)}
@@ -1158,9 +1217,13 @@ export default function UploadToPost({
         ) : null;
       })()}
 
-      {/* Reels creator modal (z-50, mismo nivel que el preview individual) */}
+      {/* Reels creator modal (z-50, mismo nivel que el preview individual). "Aprobar y
+          programar" dentro del modal NO guarda el post por su cuenta — devuelve el vídeo
+          revisado al item padre (reelVideoUrl + step "reel_ready") para que se programe por
+          el mismo approveItem()/"Aprobar" que el resto de items. */}
       {reelsItemId && (() => {
-        const reelsItem = items.find((i) => i.id === reelsItemId);
+        const targetId = reelsItemId;
+        const reelsItem = items.find((i) => i.id === targetId);
         if (!reelsItem?.r2Url || !reelsItem.r2Key) return null;
         return (
           <div
@@ -1186,6 +1249,18 @@ export default function UploadToPost({
                 imageUrl={reelsItem.r2Url}
                 imageKey={reelsItem.r2Key}
                 saasId={saasId}
+                onApproved={({ videoUrl, suggestedPost, fallbackCaption }) => {
+                  updateItem(targetId, {
+                    reelVideoUrl: videoUrl,
+                    editContentType: "REEL",
+                    step: "reel_ready",
+                    editBody: suggestedPost?.body ?? fallbackCaption,
+                    editHashtags: suggestedPost?.hashtags ?? [],
+                    editDate: suggestedPost ? parseDate(suggestedPost.scheduledAt) : reelsItem.editDate,
+                    editTime: suggestedPost ? parseTime(suggestedPost.scheduledAt) : reelsItem.editTime,
+                  });
+                  setReelsItemId(null);
+                }}
                 onClose={() => setReelsItemId(null)}
               />
             </div>

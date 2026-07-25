@@ -59,18 +59,30 @@ export async function fetchCaption(
   }
 }
 
+export type ReelApprovedResult = {
+  videoUrl: string;
+  suggestedPost: SuggestedPost | null;
+  fallbackCaption: string;
+};
+
 export default function ReelsCreator({
   imageUrl,
   imageKey,
   saasId,
   campaignId,
   onClose,
+  onApproved,
 }: {
   imageUrl: string;
   imageKey: string;
   saasId: string;
   campaignId?: string;
   onClose?: () => void;
+  // Si se pasa, "Aprobar y programar" NO guarda el post aquí — solo entrega el vídeo y el
+  // caption sugerido al padre (usado por upload-to-post.tsx / campaign-photo-batch.tsx para
+  // que el Reel entre en su mismo pipeline de aprobación en vez de crear un post por su cuenta).
+  // Sin este prop, el comportamiento es el de siempre (self-contained save).
+  onApproved?: (result: ReelApprovedResult) => void;
 }) {
   const router = useRouter();
   const startedRef = useRef(false);
@@ -141,10 +153,17 @@ export default function ReelsCreator({
 
   async function approve() {
     if (!videoUrl || !config) return;
+
+    // Fallback si generate-from-image falló o nunca respondió: nombre de marca + 1h.
+    const fallbackCaption = config.textOverlays[0]?.text || "Reel";
+
+    if (onApproved) {
+      onApproved({ videoUrl, suggestedPost, fallbackCaption });
+      return;
+    }
+
     setPhase("saving");
     try {
-      // Fallback si generate-from-image falló o nunca respondió: nombre de marca + 1h.
-      const fallbackCaption = config.textOverlays[0]?.text || "Reel";
       const body = suggestedPost
         ? suggestedPost.hashtags.length
           ? `${suggestedPost.body}\n\n${suggestedPost.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")}`

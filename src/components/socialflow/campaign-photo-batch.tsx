@@ -10,7 +10,10 @@ import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgen
 // generación coordinada de todo el lote se dispara una vez desde confirmAndGenerate() en el paso 3).
 
 export type ContentCategory = "foto_real" | "grafico_texto";
-export type ItemStep = "uploading" | "uploaded" | "analyzing" | "ready" | "saving" | "saved" | "error";
+// "reel_ready": el usuario ya generó y vio el vídeo en ReelsCreator (reelVideoUrl
+// presente) — puede aprobarse por el flujo normal. Un item "ready" con
+// editContentType "REEL" pero sin reelVideoUrl nunca es aprobable (ver approveItem).
+export type ItemStep = "uploading" | "uploaded" | "analyzing" | "ready" | "reel_ready" | "saving" | "saved" | "error";
 
 export type UploadItem = {
   id: string;
@@ -18,6 +21,7 @@ export type UploadItem = {
   localPreviewUrl: string;
   r2Url: string | null;
   r2Key: string | null;
+  reelVideoUrl?: string;     // set only after the user reviewed the video in ReelsCreator
   batchIndex: number;
   step: ItemStep;
   error: string | null;
@@ -77,11 +81,16 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
   const [items, setItems] = useState<UploadItem[]>([]);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [skippedReelsCount, setSkippedReelsCount] = useState(0);
 
   const activeCount = items.filter((i) => i.step !== "error").length;
   const uploadedCount = items.filter((i) => i.step === "uploaded").length;
   const readyCount = items.filter((i) => i.step === "ready").length;
   const savedCount = items.filter((i) => i.step === "saved").length;
+  // Cuenta real de items aprobables en bloque: excluye Reels "ready" sin video revisado.
+  const approvableCount = items.filter(
+    (i) => (i.step === "ready" && i.editContentType !== "REEL") || i.step === "reel_ready"
+  ).length;
 
   function updateItem(id: string, patch: Partial<UploadItem>) {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
@@ -251,7 +260,15 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
 
   async function approveItem(id: string): Promise<void> {
     const item = items.find((i) => i.id === id);
-    if (!item || item.step !== "ready" || !item.r2Url) return;
+    if (!item) return;
+
+    // Un Reel solo es aprobable una vez revisado en ReelsCreator (reelVideoUrl presente,
+    // step "reel_ready"). Un item "ready" clasificado REEL por la IA pero nunca visto
+    // como vídeo se ignora en silencio — la UI ya le oculta el botón "Aprobar" para este caso.
+    const isReel = item.editContentType === "REEL";
+    const mediaUrl = isReel ? item.reelVideoUrl : item.r2Url;
+    const approvable = isReel ? item.step === "reel_ready" && !!item.reelVideoUrl : item.step === "ready" && !!item.r2Url;
+    if (!approvable || !mediaUrl) return;
 
     updateItem(id, { step: "saving" });
 
@@ -272,7 +289,7 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
           contentType: item.editContentType,
           title,
           body: bodyWithHashtags,
-          imageHint: item.r2Url,
+          imageHint: mediaUrl,
           status: "SCHEDULED",
           scheduledAt,
         }),
@@ -282,15 +299,21 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
 
       updateItem(id, { step: "saved", savedAt: scheduledAt });
     } catch (e) {
-      updateItem(id, { step: "ready", error: e instanceof Error ? e.message : "Error al guardar." });
+      updateItem(id, { step: isReel ? "reel_ready" : "ready", error: e instanceof Error ? e.message : "Error al guardar." });
     } finally {
       router.refresh();
     }
   }
 
   async function approveAll(): Promise<void> {
-    const readyIds = items.filter((i) => i.step === "ready").map((i) => i.id);
-    await Promise.all(readyIds.map((id) => approveItem(id)));
+    const approvableIds = items
+      .filter((i) => (i.step === "ready" && i.editContentType !== "REEL") || i.step === "reel_ready")
+      .map((i) => i.id);
+    const skippedReels = items.filter(
+      (i) => i.step === "ready" && i.editContentType === "REEL" && !i.reelVideoUrl
+    ).length;
+    await Promise.all(approvableIds.map((id) => approveItem(id)));
+    setSkippedReelsCount(skippedReels);
   }
 
   function removeItem(id: string) {
@@ -309,6 +332,33 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
     updateItem(id, { editContentType: value });
   }
 
+  // Llamado desde el modal ReelsCreator (onApproved) tras generar y revisar el vídeo —
+  // entrega el resultado al item para que se programe por el mismo approveItem/"Aprobar"
+  // que el resto del batch, en vez de que ReelsCreator guarde el post por su cuenta.
+  function markReelReady(
+    id: string,
+    videoUrl: string,
+    suggestedPost?: { body: string; hashtags: string[]; scheduledAt: string } | null,
+  ) {
+    updateItem(id, {
+      reelVideoUrl: videoUrl,
+      editContentType: "REEL",
+      step: "reel_ready",
+      ...(suggestedPost
+        ? {
+            editBody: suggestedPost.body,
+            editHashtags: suggestedPost.hashtags,
+            editDate: parseDate(suggestedPost.scheduledAt),
+            editTime: parseTime(suggestedPost.scheduledAt),
+          }
+        : {}),
+    });
+  }
+
+  function clearSkippedReels() {
+    setSkippedReelsCount(0);
+  }
+
   return {
     items,
     globalError,
@@ -316,6 +366,8 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
     activeCount,
     uploadedCount,
     readyCount,
+    approvableCount,
+    skippedReelsCount,
     savedCount,
     addFiles,
     confirmAndGenerate,
@@ -324,6 +376,8 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
     removeItem,
     editBody,
     editContentType,
+    markReelReady,
+    clearSkippedReels,
   };
 }
 
@@ -455,13 +509,29 @@ export function PhotoBatchGrid({
                   >
                     ✕
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => onApprove(item.id)}
-                    className="flex-1 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-1.5 text-xs font-bold text-white shadow-sm transition hover:brightness-110"
-                  >
-                    Aprobar
-                  </button>
+                  {item.editContentType === "REEL" && !item.reelVideoUrl ? (
+                    onCreateReel ? (
+                      <button
+                        type="button"
+                        onClick={() => onCreateReel(item.id)}
+                        className="flex-1 rounded-lg border border-violet-500/40 bg-violet-500/10 py-1.5 text-xs font-bold text-violet-300 transition hover:bg-violet-500/20"
+                      >
+                        ▶ Ver Reel
+                      </button>
+                    ) : (
+                      <span className="flex-1 rounded-lg border border-white/10 py-1.5 text-center text-[11px] text-white/30">
+                        Revisión de Reel requerida
+                      </span>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onApprove(item.id)}
+                      className="flex-1 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-1.5 text-xs font-bold text-white shadow-sm transition hover:brightness-110"
+                    >
+                      Aprobar
+                    </button>
+                  )}
                 </div>
               </>
             )}
