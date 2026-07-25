@@ -13,9 +13,10 @@ export const dynamic = "force-dynamic";
  *   "saasId": "...",
  *   "accountId": "...",           // ID of the connected SaasSocialAccount
  *   "platform": "instagram",
- *   "postType": "feed" | "reel" | "story",
+ *   "postType": "feed" | "reel" | "story" | "carousel",
  *   "caption": "...",
- *   "imageHint": "https://..."    // public HTTPS media URL
+ *   "imageHint": "https://...",   // public HTTPS media URL — required unless postType is "carousel"
+ *   "mediaUrls": ["https://...", "https://..."]  // required for postType "carousel" — 2-10 public HTTPS URLs, in slide order
  * }
  */
 
@@ -23,6 +24,7 @@ import { NextResponse } from "next/server";
 import { env } from "@/lib/cf";
 import { resolveSocialContext, listSaasSocialAccounts, SocialContextError } from "@/lib/socialflow/repository";
 import {
+  CAROUSEL_MIN_ITEMS,
   requireInstagramCredentials,
   publishInstagramContent,
   InstagramPublishingError,
@@ -44,6 +46,7 @@ function mapPostType(postType: string): InstagramPostContentType {
   switch (postType.toLowerCase()) {
     case "reel": return "REEL";
     case "story": return "STORY";
+    case "carousel": return "CAROUSEL";
     default: return "FEED";
   }
 }
@@ -61,13 +64,18 @@ export async function POST(request: Request) {
   const postType = typeof body.postType === "string" ? body.postType.trim() : "feed";
   const caption = typeof body.caption === "string" ? body.caption.trim() : "";
   const imageHint = typeof body.imageHint === "string" ? body.imageHint.trim() : "";
+  const isCarousel = postType.toLowerCase() === "carousel";
+  const mediaUrls = Array.isArray(body.mediaUrls)
+    ? (body.mediaUrls as unknown[]).filter((u): u is string => typeof u === "string" && u.trim().startsWith("http")).map((u) => u.trim())
+    : [];
 
   const missing: string[] = [];
   if (!tenantId) missing.push("tenantId");
   if (!saasId) missing.push("saasId");
   if (!accountId) missing.push("accountId");
   if (!platform) missing.push("platform");
-  if (platform === "instagram" && !imageHint) missing.push("imageHint");
+  if (platform === "instagram" && !isCarousel && !imageHint) missing.push("imageHint");
+  if (platform === "instagram" && isCarousel && mediaUrls.length < CAROUSEL_MIN_ITEMS) missing.push(`mediaUrls (at least ${CAROUSEL_MIN_ITEMS} public HTTPS URLs)`);
   if (missing.length > 0) {
     return NextResponse.json(
       { ok: false, code: "INVALID_PARAMS", message: `Missing required fields: ${missing.join(", ")}` },
@@ -170,20 +178,29 @@ export async function POST(request: Request) {
     authType: creds.authType,
     apiBase: creds.apiBase,
     imageHint,
+    ...(isCarousel ? { mediaUrlsCount: mediaUrls.length } : {}),
   });
 
   try {
-    // Re-host via R2 so Instagram can always fetch the media
-    const mediaUrl = await uploadMediaToR2(imageHint, accountId);
-
-    const result = await publishInstagramContent({
-      accessToken: creds.accessToken,
-      igUserId: creds.igUserId,
-      apiBase: creds.apiBase,
-      caption,
-      contentType,
-      mediaUrl,
-    });
+    const result = isCarousel
+      ? await publishInstagramContent({
+          accessToken: creds.accessToken,
+          igUserId: creds.igUserId,
+          apiBase: creds.apiBase,
+          caption,
+          contentType,
+          // Re-host every slide via R2, in the order they were submitted.
+          mediaUrls: await Promise.all(mediaUrls.map((url, i) => uploadMediaToR2(url, `${accountId}-slide${i}`))),
+        })
+      : await publishInstagramContent({
+          accessToken: creds.accessToken,
+          igUserId: creds.igUserId,
+          apiBase: creds.apiBase,
+          caption,
+          contentType,
+          // Re-host via R2 so Instagram can always fetch the media
+          mediaUrl: await uploadMediaToR2(imageHint, accountId),
+        });
 
     console.log("CRON_PUBLISH_SCHEDULED_OK", {
       tenantId,

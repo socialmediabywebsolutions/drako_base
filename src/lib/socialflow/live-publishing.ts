@@ -2,6 +2,7 @@ import { env } from "@/lib/cf";
 import { LinkedInIntegrationError } from "@/lib/socialflow/linkedin/core";
 import { publishPost } from "@/lib/socialflow/linkedin/publishing";
 import {
+  CAROUSEL_MIN_ITEMS,
   FacebookPublishingError,
   InstagramPublishingError,
   publishFacebookPageContent,
@@ -159,8 +160,21 @@ export async function uploadMediaToR2(mediaUrl: string, postId: string): Promise
 // ---------------------------------------------------------------------------
 
 function mapToInstagramContentType(ct: SaasSocialContentType): InstagramPostContentType {
-  if (ct === "REEL" || ct === "SHORT" || ct === "STORY") return ct;
-  return "FEED"; // FEED, CAROUSEL, unknown → image feed post
+  if (ct === "REEL" || ct === "SHORT" || ct === "STORY" || ct === "CAROUSEL") return ct;
+  return "FEED"; // FEED, unknown → single-image feed post
+}
+
+// CAROUSEL posts store their slide URLs in metadata.slides (written by
+// publish-carrusel.tsx's saveCarousel()) — imageHint only ever holds slide 1, which is
+// why live publishing was silently downgrading every carousel to a single-image FEED
+// post. Sorted by `order` since slides can be edited/replaced out of upload order.
+function extractCarouselMediaUrls(post: SaasSocialPost): string[] {
+  const rawSlides = Array.isArray(post.metadata?.slides) ? (post.metadata.slides as unknown[]) : [];
+  return rawSlides
+    .filter((s): s is Record<string, unknown> => !!s && typeof s === "object")
+    .sort((a, b) => (typeof a.order === "number" ? a.order : 0) - (typeof b.order === "number" ? b.order : 0))
+    .map((s) => (typeof s.imageUrl === "string" ? s.imageUrl.trim() : ""))
+    .filter((url) => url.startsWith("http"));
 }
 
 async function publishToInstagram(input: {
@@ -169,6 +183,31 @@ async function publishToInstagram(input: {
 }): Promise<{ externalPostId?: string | null }> {
   const creds = await requireInstagramCredentials(input.account);
   const caption = buildPostCaption(input.post);
+  const contentType = mapToInstagramContentType(input.post.contentType);
+
+  if (contentType === "CAROUSEL") {
+    const rawMediaUrls = extractCarouselMediaUrls(input.post);
+    if (rawMediaUrls.length < CAROUSEL_MIN_ITEMS) {
+      throw new InstagramPublishingError(
+        `A carousel post needs at least ${CAROUSEL_MIN_ITEMS} slide image URLs in metadata.slides.`,
+        { code: "INSTAGRAM_CAROUSEL_SLIDES_MISSING", details: { found: rawMediaUrls.length } },
+      );
+    }
+    // Re-host every slide via R2, in order, so Instagram can always fetch each one.
+    const mediaUrls = await Promise.all(
+      rawMediaUrls.map((url, i) => uploadMediaToR2(url, `${input.post.id}-slide${i}`)),
+    );
+    const result = await publishInstagramContent({
+      accessToken: creds.accessToken,
+      igUserId: creds.igUserId,
+      apiBase: creds.apiBase,
+      caption,
+      contentType: "CAROUSEL",
+      mediaUrls,
+    });
+    return { externalPostId: result.externalPostId };
+  }
+
   const rawMediaUrl = input.post.imageHint?.trim() ?? "";
 
   if (!rawMediaUrl.startsWith("http")) {
@@ -181,7 +220,6 @@ async function publishToInstagram(input: {
   // Re-host via R2 so Instagram can always fetch the media
   const mediaUrl = await uploadMediaToR2(rawMediaUrl, input.post.id);
 
-  const contentType = mapToInstagramContentType(input.post.contentType);
   const result = await publishInstagramContent({
     accessToken: creds.accessToken,
     igUserId: creds.igUserId,
