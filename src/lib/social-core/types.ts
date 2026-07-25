@@ -98,6 +98,10 @@ export type SaasSocialCampaign = {
   postCount?: number;
   reelCount?: number;
   historiaCount?: number;
+  // Fase 5 — ver migrations/0201_saas_social_campaigns_carousel_count.sql. Modelo
+  // distinto al resto: 1 carrusel = N fotos agrupadas (no 1 foto = 1 post) — ver
+  // campaigns/[id]/photos/route.ts.
+  carouselCount?: number;
   createdAt: string;
   updatedAt: string;
 };

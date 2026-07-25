@@ -52,6 +52,7 @@ export async function POST(request: Request) {
       postCount?: number;
       reelCount?: number;
       historiaCount?: number;
+      carouselCount?: number;
     } | null;
     if (!body) {
       return NextResponse.json({ code: "INVALID_BODY", message: "Body is required" }, { status: 400 });
@@ -81,6 +82,7 @@ export async function POST(request: Request) {
       postCount: typeof body.postCount === "number" ? body.postCount : 0,
       reelCount: typeof body.reelCount === "number" ? body.reelCount : 0,
       historiaCount: typeof body.historiaCount === "number" ? body.historiaCount : 0,
+      carouselCount: typeof body.carouselCount === "number" ? body.carouselCount : 0,
     });
     return NextResponse.json({ campaign });
   } catch (error) {

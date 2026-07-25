@@ -173,6 +173,7 @@ function CreateCampaignWizard({
   const [postCount, setPostCount] = useState(1);
   const [reelCount, setReelCount] = useState(0);
   const [historiaCount, setHistoriaCount] = useState(0);
+  const [carouselCount, setCarouselCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdCampaign, setCreatedCampaign] = useState<SaasSocialCampaign | null>(null);
@@ -205,6 +206,7 @@ function CreateCampaignWizard({
     setPostCount(1);
     setReelCount(0);
     setHistoriaCount(0);
+    setCarouselCount(0);
     setError(null);
     setCreatedCampaign(null);
     setOpen(false);
@@ -245,6 +247,7 @@ function CreateCampaignWizard({
           postCount,
           reelCount,
           historiaCount,
+          carouselCount,
         }),
       });
       const data = (await res.json().catch(() => null)) as { campaign?: SaasSocialCampaign; message?: string } | null;
@@ -344,7 +347,7 @@ function CreateCampaignWizard({
           {startDate && endDate && (
             <div className="space-y-2 rounded-xl border border-white/8 bg-white/3 p-3">
               <p className="text-xs font-semibold text-white/60">¿Qué tipo de contenido quieres en esta campaña?</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-semibold uppercase tracking-wide text-white/30">Posts 📸</label>
                   <input
@@ -378,8 +381,19 @@ function CreateCampaignWizard({
                     className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
                   />
                 </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-white/30">Carrusel 📑</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    value={carouselCount}
+                    onChange={(e) => setCarouselCount(Number(e.target.value))}
+                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                  />
+                </div>
               </div>
-              <p className="text-xs text-white/40">Total: {postCount + reelCount + historiaCount} piezas de contenido</p>
+              <p className="text-xs text-white/40">Total: {postCount + reelCount + historiaCount + carouselCount} piezas de contenido</p>
             </div>
           )}
           {error && <p className="text-xs text-rose-300">{error}</p>}
