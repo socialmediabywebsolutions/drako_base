@@ -86,15 +86,31 @@ function computeSegmentBlend(t: number, startAt: number, endAt: number): number 
   return Math.min(blendIn, blendOut);
 }
 
-type FrameTransform = { scale: number; translateX: number; translateY: number; rotateDeg: number; blurPx: number };
+type FrameTransform = {
+  scale: number;
+  translateX: number;
+  translateY: number;
+  rotateDeg: number;
+  blurPx: number;
+  /** true si algún efecto activo en este frame necesita "recorrido" fuera del cover normal (ver OVERSCAN_EFFECT_KINDS / drawImageCover). */
+  needsOverscan: boolean;
+};
+
+// Efectos que desplazan/rotan/hacen zoom lo bastante como para necesitar imagen de
+// sobra fuera del cover normal para no revelar el borde del canvas. "rotate", "pulse",
+// "drift" y "blur" quedan fuera a propósito: rotate/drift desplazan muy poco, pulse solo
+// hace zoom-in (nunca baja de escala 1.0, así que nunca deja de cubrir el canvas) y blur
+// no toca scale/translate/rotate en absoluto — ninguno necesita el margen extra.
+const OVERSCAN_EFFECT_KINDS = new Set<ReelsEffect["kind"]>(["zoom-in", "zoom-out", "pan-left", "pan-right", "parallax", "tilt", "ken-burns"]);
 
 // Combina todos los efectos activos en el instante t en una única transformación.
 // zoom es multiplicativo (varios zooms se acumulan), pan/rotate/blur son aditivos.
 function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number, height: number): FrameTransform {
-  const transform: FrameTransform = { scale: 1, translateX: 0, translateY: 0, rotateDeg: 0, blurPx: 0 };
+  const transform: FrameTransform = { scale: 1, translateX: 0, translateY: 0, rotateDeg: 0, blurPx: 0, needsOverscan: false };
 
   for (const effect of effects) {
     if (t < effect.startAt || t > effect.endAt) continue;
+    if (OVERSCAN_EFFECT_KINDS.has(effect.kind)) transform.needsOverscan = true;
     const progress = easedProgress(t, effect.startAt, effect.endAt);
     const blend = computeSegmentBlend(t, effect.startAt, effect.endAt);
     const intensity = (effect.intensity ?? 0.15) * blend;
@@ -148,8 +164,15 @@ function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number
   return transform;
 }
 
-// Dibuja la imagen ya cargada rellenando el canvas ("cover"), con un 12% de margen
-// extra para que zoom/pan/parallax tengan recorrido sin dejar ver los bordes.
+// Overscan sobre el cover normal (object-fit: cover) — solo se necesita en frames cuyo
+// efecto activo mueve/rota/hace zoom-out la imagen lo suficiente como para revelar el
+// borde del canvas (ver OVERSCAN_EFFECT_KINDS). Antes se aplicaba MAX_OVERSCAN siempre,
+// recortando un 12% extra incluso en frames estáticos o de blur — MIN_OVERSCAN (2%) es
+// solo un margen de seguridad para bordes de redondeo/antialiasing.
+const MAX_OVERSCAN = 1.12;
+const MIN_OVERSCAN = 1.02;
+
+// Dibuja la imagen ya cargada rellenando el canvas ("cover").
 function drawImageCover(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   image: ImageBitmap,
@@ -157,7 +180,8 @@ function drawImageCover(
   canvasHeight: number,
   transform: FrameTransform,
 ): void {
-  const coverScale = Math.max(canvasWidth / image.width, canvasHeight / image.height) * 1.12;
+  const overscan = transform.needsOverscan ? MAX_OVERSCAN : MIN_OVERSCAN;
+  const coverScale = Math.max(canvasWidth / image.width, canvasHeight / image.height) * overscan;
   const drawWidth = image.width * coverScale * transform.scale;
   const drawHeight = image.height * coverScale * transform.scale;
 

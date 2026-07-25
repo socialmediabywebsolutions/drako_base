@@ -7,6 +7,11 @@ export type LocalModelRequest = {
   // Optional context for AI cost tracking
   tenantId?: string;
   saasId?: string;
+  // Nombres de campo que mergeAiStructuredOutput nunca sobrescribe con la respuesta de
+  // la IA, aunque la IA los incluya en su JSON — se quedan exactamente con el valor del
+  // seed/base (ver mergeAiStructuredOutput más abajo). Vacío por defecto: no cambia el
+  // comportamiento de ningún caller existente que no lo pase explícitamente.
+  protectedKeys?: string[];
 };
 
 export type LocalModelResponse<T> = {
@@ -57,7 +62,14 @@ export function stripJsonFences(text: string): string {
 }
 
 // Overlays AI-provided values onto the deterministic seed, preserving its shape and ids.
-export function mergeAiStructuredOutput<T>(base: T, candidate: unknown): T {
+// protectedKeys (vacío por defecto, no afecta a callers que no lo pasan): nombres de
+// campo que se quedan siempre con el valor de `base`, sin importar lo que traiga
+// `candidate` — se comprueban en dos sitios:
+//  1) como key literal de un objeto (ej. "effects", "imageSegments" en ReelsConfig),
+//  2) como valor del campo `role` del propio objeto que se está fusionando (ej. "cta"
+//     protege el overlay entero cuyo role es "cta" — texto, animación, posición y
+//     tamaño ya decididos por seed, no tiene sentido protegerlo campo a campo).
+export function mergeAiStructuredOutput<T>(base: T, candidate: unknown, protectedKeys: Set<string> = new Set()): T {
   if (candidate === null || candidate === undefined) return base;
 
   if (Array.isArray(base)) {
@@ -72,17 +84,22 @@ export function mergeAiStructuredOutput<T>(base: T, candidate: unknown): T {
     const isPrimitiveArray = base.every((item) => item === null || typeof item !== "object");
     if (isPrimitiveArray) return candidate as unknown as T;
 
-    return base.map((item, index) => mergeAiStructuredOutput(item, candidate[index])) as unknown as T;
+    return base.map((item, index) => mergeAiStructuredOutput(item, candidate[index], protectedKeys)) as unknown as T;
   }
 
   if (base !== null && typeof base === "object") {
     if (candidate === null || typeof candidate !== "object" || Array.isArray(candidate)) return base;
     const baseRecord = base as Record<string, unknown>;
+
+    const role = baseRecord.role;
+    if (typeof role === "string" && protectedKeys.has(role)) return base;
+
     const candidateRecord = candidate as Record<string, unknown>;
     const result: Record<string, unknown> = { ...baseRecord };
     for (const key of Object.keys(baseRecord)) {
       if (/(^id$|Id$|ID$)/.test(key)) continue;
-      result[key] = mergeAiStructuredOutput(baseRecord[key], candidateRecord[key]);
+      if (protectedKeys.has(key)) continue;
+      result[key] = mergeAiStructuredOutput(baseRecord[key], candidateRecord[key], protectedKeys);
     }
     return result as T;
   }
@@ -135,7 +152,7 @@ export class WorkersAiLocalModel implements LocalModelClient {
 
       const cleaned = stripJsonFences(text);
       const parsed = JSON.parse(cleaned);
-      const merged = mergeAiStructuredOutput(base, parsed);
+      const merged = mergeAiStructuredOutput(base, parsed, new Set(req.protectedKeys ?? []));
       const decorated = attachMeta(merged, {
         generatedAt: new Date().toISOString(),
         promptPreview: req.prompt.slice(0, 120),

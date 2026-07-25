@@ -366,10 +366,17 @@ Tono: ${profile.toneOfVoice}.
 
 La plantilla debe ser exactamente una de: "fitness", "lifestyle", "motivation", "education", "marketing" — la que mejor encaje con el nicho.
 Cada efecto debe ser uno de: "zoom-in", "zoom-out", "pan-left", "pan-right", "parallax", "rotate", "blur", "ken-burns", "drift", "pulse", "tilt", con startAt/endAt en segundos dentro de la duración del clip e intensity entre 0 y 1.
-Cada texto animado (textOverlays) debe tener una frase corta y directa EN ESPAÑOL (máximo 6 palabras), relevante para "${profile.niche}" y la marca "${profile.brandIdentity}" — nunca genérica.
+Los efectos ya están calculados y NO deben modificarse — preserva exactamente los valores de "effects" que recibes en el JSON base.
+Cada texto animado (textOverlays) debe tener una frase corta y directa EN ESPAÑOL (máximo 6 palabras), relevante para "${profile.niche}" y la marca "${profile.brandIdentity}" — nunca genérica, EXCEPTO el overlay cuyo "role" es "cta": ese campo ya está seleccionado y NO debe modificarse — usa exactamente el valor que recibes en el JSON base.
 La duración total (durationSec) debe estar entre ${REELS_DEFAULTS.minDurationSec} y ${REELS_DEFAULTS.maxDurationSec} segundos.`;
 
-    const { data } = await defaultLocalModel.generateStructured<ReelsConfig>({ prompt }, () => base);
+    // "effects"/"imageSegments"/"cta" nunca se sobrescriben con lo que devuelva la IA
+    // (ver mergeAiStructuredOutput en localModel.ts) — ya están decididos por seed antes
+    // de esta llamada, precisamente para que dos imágenes distintas den Reels distintos.
+    const { data } = await defaultLocalModel.generateStructured<ReelsConfig>(
+      { prompt, protectedKeys: ["effects", "imageSegments", "cta"] },
+      () => base,
+    );
 
     return sanitizeConfig(data, imageUrl, imageUrls, imageSegments);
   }
