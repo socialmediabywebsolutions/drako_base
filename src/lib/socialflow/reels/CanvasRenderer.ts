@@ -719,7 +719,10 @@ function drawHandle(
   canvasHeight: number,
 ): void {
   const text = handle.startsWith("@") ? handle : `@${handle}`;
-  const fontSize = 28;
+  // 40px (subido de 28, copiado sin ajustar de Carruseles) — el canvas de Reels es un 42%
+  // más alto (1920 vs 1350) y compite con una jerarquía de texto mucho mayor (180/100/68px
+  // tras P3); 28px quedaba desproporcionadamente pequeño, casi ilegible a simple vista.
+  const fontSize = 40;
   const padding = 28;
 
   ctx.save();

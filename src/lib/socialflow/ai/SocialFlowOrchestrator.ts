@@ -8,12 +8,27 @@ import { SchedulerAgent } from "./agents/SchedulerAgent";
 import { TrendAgent } from "./agents/TrendAgent";
 import type { BrandProfile, SocialAIPipelineInput, SocialAIPipelineResult, StrategyItem } from "./types";
 import type { SaasSocialContentType } from "@/lib/social-core/types";
-import { listSaasSocialChannels, resolveSocialContext, upsertSaasSocialCampaign, upsertSaasSocialPost } from "../repository";
+import { listSaasSocialAccounts, listSaasSocialChannels, resolveSocialContext, upsertSaasSocialCampaign, upsertSaasSocialPost } from "../repository";
 import { getChannelKnowledge, saveCompetitorInsights } from "../profile/repository";
 import { getKnowledgeContext } from "../knowledge/repository";
 import { generatePostImage } from "./image-generator";
 import { buildImagePrompt } from "./image-prompt-builder";
 import { cleanOpening } from "./openers/cleanOpening";
+
+// Handle real de la cuenta de Instagram conectada (OAuth) para este tenant/saas, si existe
+// — prioriza la marcada como primaria (is_primary=1) entre las CONNECTED_REAL, y si ninguna
+// lo está, cualquier Instagram conectado. Devuelve null si no hay ninguna cuenta conectada
+// todavía (ej. cliente en onboarding) — buildProfile cae entonces al fallback de siempre
+// (profile.channelName / @saasId). Usado por Reels y Carruseles por igual, ya que ambos
+// construyen su BrandProfile a través de buildProfile().
+async function resolvePrimaryInstagramHandle(tenantId: string, saasId: string): Promise<string | null> {
+  const ctx = await resolveSocialContext({ tenantId, saasId });
+  const accounts = await listSaasSocialAccounts(ctx);
+  const primary =
+    accounts.find((a) => a.provider === "INSTAGRAM" && a.status === "CONNECTED_REAL" && a.isPrimary) ??
+    accounts.find((a) => a.provider === "INSTAGRAM" && a.status === "CONNECTED_REAL");
+  return primary?.handle?.trim() || null;
+}
 
 export class SocialFlowOrchestrator {
   private marketResearch = new MarketResearchAgent();
@@ -26,9 +41,15 @@ export class SocialFlowOrchestrator {
   private trendAgent = new TrendAgent();
 
   async buildProfile(input: SocialAIPipelineInput): Promise<BrandProfile> {
-    const [{ profile, competitors }, knowledgeContext] = await Promise.all([
+    const [{ profile, competitors }, knowledgeContext, connectedInstagramHandle] = await Promise.all([
       getChannelKnowledge(input.tenantId, input.saasId),
       getKnowledgeContext(input.tenantId, input.saasId).catch(() => ""),
+      // Handle real de Instagram (OAuth, saas_social_accounts) — fuente de verdad para
+      // channelHandle. profile.channelName (socialflow_profiles.display_name) es un campo
+      // de onboarding manual sin relación con la cuenta conectada; se usa solo como
+      // fallback cuando el cliente aún no ha conectado ninguna cuenta de Instagram. Nunca
+      // debe tumbar buildProfile si SOCIAL_DB falla — se degrada al fallback existente.
+      resolvePrimaryInstagramHandle(input.tenantId, input.saasId).catch(() => null),
     ]);
 
     const niche = input.niche || profile.niche || input.saasId;
@@ -49,7 +70,11 @@ export class SocialFlowOrchestrator {
 
     return {
       brandIdentity: brandName,
-      channelHandle: profile.channelName ? `@${profile.channelName}` : `@${input.saasId}`,
+      channelHandle: connectedInstagramHandle
+        ? `@${connectedInstagramHandle}`
+        : profile.channelName
+          ? `@${profile.channelName}`
+          : `@${input.saasId}`,
       shortDescription: profile.shortDescription || `${niche} social automation`,
       longDescription,
       mission: profile.mission || `Grow ${brandName} with consistent social execution.`,
