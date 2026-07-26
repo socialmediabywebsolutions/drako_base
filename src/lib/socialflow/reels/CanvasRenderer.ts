@@ -736,9 +736,13 @@ function drawHandle(
   canvasHeight: number,
 ): void {
   const text = handle.startsWith("@") ? handle : `@${handle}`;
-  // 56px (subido de 40) — es la marca del influencer, tiene que leerse igual de bien que
-  // el CTA (ver P5 del audit), no quedar como un detalle discreto de esquina.
-  const fontSize = 56;
+  // 72px (subido de 56, antes de 40) — es la marca del influencer, tiene que leerse igual
+  // de bien que el CTA (ver P5/P6 del audit), no quedar como un detalle discreto de
+  // esquina. Crece hacia ARRIBA desde su baseline (textBaseline "bottom" en
+  // HANDLE_Y_RATIO), así que este cambio no reduce el margen respecto al CTA (ver
+  // HANDLE_Y_RATIO) — solo acerca el borde superior del handle a la zona del subtitle,
+  // donde sigue habiendo de sobra.
+  const fontSize = 72;
   const padding = 28;
   const y = canvasHeight * HANDLE_Y_RATIO;
 
