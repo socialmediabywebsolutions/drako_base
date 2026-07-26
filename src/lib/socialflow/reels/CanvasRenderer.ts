@@ -92,8 +92,8 @@ type FrameTransform = {
   translateY: number;
   rotateDeg: number;
   blurPx: number;
-  /** true si algún efecto activo en este frame necesita "recorrido" fuera del cover normal (ver OVERSCAN_EFFECT_KINDS / drawImageCover). */
-  needsOverscan: boolean;
+  /** Overscan (multiplicador uniforme sobre el cover normal) que necesita el efecto más exigente activo en este frame — ver EFFECT_OVERSCAN / drawImageCover. */
+  overscan: number;
   /** 0-1 — opacidad de un destello blanco superpuesto (transición de cierre "flash", ver drawTransitionOverlay). */
   flashOpacity: number;
   /** Progreso 0-1 del barrido de una barra sólida de un borde a otro del canvas (transición de cierre "wipe"), o null si no hay wipe activo en este frame. */
@@ -106,12 +106,37 @@ type FrameTransform = {
 type FocalOffset = { offsetX: number; offsetY: number };
 const NEUTRAL_FOCAL_OFFSET: FocalOffset = { offsetX: 0, offsetY: 0 };
 
-// Efectos que desplazan/rotan/hacen zoom lo bastante como para necesitar imagen de
-// sobra fuera del cover normal para no revelar el borde del canvas. "rotate", "pulse",
-// "drift" y "blur" quedan fuera a propósito: rotate/drift desplazan muy poco, pulse solo
-// hace zoom-in (nunca baja de escala 1.0, así que nunca deja de cubrir el canvas) y blur
-// no toca scale/translate/rotate en absoluto — ninguno necesita el margen extra.
-const OVERSCAN_EFFECT_KINDS = new Set<ReelsEffect["kind"]>(["zoom-in", "zoom-out", "pan-left", "pan-right", "parallax", "tilt", "ken-burns"]);
+// Overscan (multiplicador uniforme sobre el cover normal — drawImage no permite estirar
+// ancho y alto de forma independiente sin distorsionar la imagen) piso para frames sin
+// movimiento: solo margen de seguridad para bordes de redondeo/antialiasing. También es la
+// base que usa computeSaliencyOffset para su clamp de seguridad (sigue siendo el overscan
+// MÁS PEQUEÑO de cualquier frame, así que ese clamp no cambia). El extra por encima de este
+// piso ya no es un valor único para "cualquier efecto que se mueva algo" — ver
+// EFFECT_OVERSCAN, calculado caso por caso según lo que cada efecto necesita de verdad en
+// el eje más exigente (el canvas 9:16 es mucho más alto que ancho, ese eje casi siempre es X).
+const MIN_OVERSCAN = 1.01;
+
+// Overscan necesario POR EFECTO (no un único valor para todos) — cada uno solo pide el
+// margen que su propio movimiento máximo requiere (a la intensidad más alta que le asigna
+// cualquier plantilla, ver TEMPLATE_EFFECT_PROFILE en ReelsAgent.ts), en vez de un
+// MAX_OVERSCAN plano para cualquier efecto "que se mueva algo".
+//
+// zoom-in, zoom-out, parallax, ken-burns, drift y pulse NO aparecen aquí a propósito:
+// zoom-in/zoom-out/pulse solo cambian `scale` y nunca bajan de 1.0 más que en un instante
+// puntual (nunca dejan de cubrir el canvas); parallax y ken-burns traen su propio zoom
+// (0.6x/0.5x la intensidad) que crece más rápido que su propio pan (0.08x) en todo su
+// rango — se autocubren; drift es insignificante (0.6% del ancho como mucho). Todos caen
+// al MIN_OVERSCAN por defecto (ver drawImageCover).
+//
+// pan-left/pan-right: hasta 6.0% del ancho a intensidad 0.5 (fitness/motivation) → 1.07
+// con margen. "tilt" se deja aquí con su valor heredado (1.08, el MAX_OVERSCAN de antes)
+// sin recalcular todavía — el valor geométricamente correcto (~15.7% en X) es un hallazgo
+// aparte del audit, corregido en un commit separado para no mezclar ambos cambios.
+const EFFECT_OVERSCAN: Partial<Record<ReelsEffect["kind"], number>> = {
+  "pan-left": 1.07,
+  "pan-right": 1.07,
+  tilt: 1.08,
+};
 
 // Combina todos los efectos activos en el instante t en una única transformación.
 // zoom es multiplicativo (varios zooms se acumulan), pan/rotate/blur son aditivos.
@@ -122,14 +147,14 @@ function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number
     translateY: 0,
     rotateDeg: 0,
     blurPx: 0,
-    needsOverscan: false,
+    overscan: MIN_OVERSCAN,
     flashOpacity: 0,
     wipeProgress: null,
   };
 
   for (const effect of effects) {
     if (t < effect.startAt || t > effect.endAt) continue;
-    if (OVERSCAN_EFFECT_KINDS.has(effect.kind)) transform.needsOverscan = true;
+    transform.overscan = Math.max(transform.overscan, EFFECT_OVERSCAN[effect.kind] ?? MIN_OVERSCAN);
     const progress = easedProgress(t, effect.startAt, effect.endAt);
     const blend = computeSegmentBlend(t, effect.startAt, effect.endAt);
     const intensity = (effect.intensity ?? 0.15) * blend;
@@ -195,23 +220,6 @@ function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number
   return transform;
 }
 
-// Overscan sobre el cover normal (object-fit: cover) — solo se necesita en frames cuyo
-// efecto activo mueve/rota/hace zoom-out la imagen lo suficiente como para revelar el
-// borde del canvas (ver OVERSCAN_EFFECT_KINDS). MIN_OVERSCAN (1%) es solo un margen de
-// seguridad para bordes de redondeo/antialiasing en frames sin movimiento.
-//
-// MAX_OVERSCAN reducido de 1.12 a 1.08 (de 12% a 8% de zoom extra sobre el cover mínimo)
-// para que sobreviva más contenido bruto de la imagen original en el encuadre — el cover
-// matemático (Math.max(canvasWidth/imgW, canvasHeight/imgH)) es quien de verdad decide
-// cuánto se recorta en una conversión 1:1→9:16, este overscan es solo el colchón extra por
-// encima de eso para que pan/zoom/rotate (OVERSCAN_EFFECT_KINDS) no revelen el borde del
-// canvas al moverse. 8% se eligió con margen sobre el desplazamiento máximo real de
-// pan-left/pan-right (el más exigente de los efectos, sin zoom propio que ayude: hasta 6%
-// del ancho a la intensidad más alta que usa cualquier plantilla) — pendiente de
-// confirmar visualmente con un Reel real en producción antes de apretar más hacia el 6%.
-const MAX_OVERSCAN = 1.08;
-const MIN_OVERSCAN = 1.01;
-
 // Dibuja la imagen ya cargada rellenando el canvas ("cover"). `focalOffset` (ver
 // computeSaliencyOffset) desplaza el centrado base hacia la zona con más detalle del eje
 // que el cover recorta — se SUMA a transform.translateX/Y, nunca lo reemplaza, así que
@@ -224,8 +232,7 @@ function drawImageCover(
   transform: FrameTransform,
   focalOffset: FocalOffset,
 ): void {
-  const overscan = transform.needsOverscan ? MAX_OVERSCAN : MIN_OVERSCAN;
-  const coverScale = Math.max(canvasWidth / image.width, canvasHeight / image.height) * overscan;
+  const coverScale = Math.max(canvasWidth / image.width, canvasHeight / image.height) * transform.overscan;
   const drawWidth = image.width * coverScale * transform.scale;
   const drawHeight = image.height * coverScale * transform.scale;
 
@@ -324,8 +331,10 @@ function bestWindowCenterFraction(energy: Float32Array, windowSize: number): num
 // contexto 2D disponible, o si algo falla — nunca debe romper la generación del Reel.
 function computeSaliencyOffset(image: ImageBitmap, canvasWidth: number, canvasHeight: number): FocalOffset {
   try {
-    // MIN_OVERSCAN (el más pequeño posible en cualquier frame) para que el clamp de más
-    // abajo sea seguro pase lo que pase: MAX_OVERSCAN solo da MÁS margen, nunca menos.
+    // MIN_OVERSCAN (el más pequeño posible en cualquier frame, incluso tras pasar a
+    // overscan por-efecto — ver EFFECT_OVERSCAN) para que el clamp de más abajo sea
+    // seguro pase lo que pase: cualquier efecto con overscan propio solo da MÁS margen,
+    // nunca menos.
     const coverScale = Math.max(canvasWidth / image.width, canvasHeight / image.height) * MIN_OVERSCAN;
     const drawWidth = image.width * coverScale;
     const drawHeight = image.height * coverScale;
