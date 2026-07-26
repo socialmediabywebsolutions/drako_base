@@ -727,9 +727,19 @@ function drawHandle(
   ctx.textAlign = "left";
   ctx.textBaseline = "bottom";
   ctx.globalAlpha = 0.7;
-  ctx.fillStyle = "#ffffff";
   ctx.shadowColor = "rgba(0,0,0,0.5)";
   ctx.shadowBlur = 6;
+
+  // Mismo contorno de contraste fijo que drawTextOverlays desde P2 — antes esta función
+  // solo tenía una sombra suave (shadowBlur), insuficiente sobre fondos claros/blancos
+  // (ropa deportiva, paredes de gimnasio, etc.), donde el relleno blanco quedaba
+  // prácticamente invisible. El contorno no depende del brillo del fondo: siempre está.
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = TEXT_OUTLINE_COLOR;
+  ctx.lineWidth = Math.max(TEXT_OUTLINE_MIN_WIDTH, fontSize * TEXT_OUTLINE_WIDTH_RATIO);
+  ctx.strokeText(text, padding, canvasHeight - padding);
+
+  ctx.fillStyle = "#ffffff";
   ctx.fillText(text, padding, canvasHeight - padding);
   ctx.restore();
 }
