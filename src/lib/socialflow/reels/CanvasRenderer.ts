@@ -129,13 +129,20 @@ const MIN_OVERSCAN = 1.01;
 // al MIN_OVERSCAN por defecto (ver drawImageCover).
 //
 // pan-left/pan-right: hasta 6.0% del ancho a intensidad 0.5 (fitness/motivation) → 1.07
-// con margen. "tilt" se deja aquí con su valor heredado (1.08, el MAX_OVERSCAN de antes)
-// sin recalcular todavía — el valor geométricamente correcto (~15.7% en X) es un hallazgo
-// aparte del audit, corregido en un commit separado para no mezclar ambos cambios.
+// con margen.
+//
+// rotate/tilt son geometría distinta: no es solo "cuánto se traslada" sino cuánto necesita
+// crecer un rectángulo rotado θ para seguir cubriendo un canvas mucho más alto que ancho
+// (requiredOverscan = |cosθ| + aspecto·|sinθ|, con aspecto=H/W=1.78 en X) — un canvas tan
+// vertical amplifica mucho el margen que pide una rotación pequeña. rotate (hasta 3° a
+// intensidad 0.5) necesita ~9.2% en X; tilt (hasta 4° + su propio pan) necesita ~15.7% en
+// X. Ninguno de los dos trae zoom propio que lo autocubra (a diferencia de parallax/
+// ken-burns), así que ambos necesitan su margen completo aquí.
 const EFFECT_OVERSCAN: Partial<Record<ReelsEffect["kind"], number>> = {
   "pan-left": 1.07,
   "pan-right": 1.07,
-  tilt: 1.08,
+  rotate: 1.1,
+  tilt: 1.17,
 };
 
 // Combina todos los efectos activos en el instante t en una única transformación.
