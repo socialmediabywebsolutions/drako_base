@@ -197,11 +197,20 @@ function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number
 
 // Overscan sobre el cover normal (object-fit: cover) — solo se necesita en frames cuyo
 // efecto activo mueve/rota/hace zoom-out la imagen lo suficiente como para revelar el
-// borde del canvas (ver OVERSCAN_EFFECT_KINDS). Antes se aplicaba MAX_OVERSCAN siempre,
-// recortando un 12% extra incluso en frames estáticos o de blur — MIN_OVERSCAN (2%) es
-// solo un margen de seguridad para bordes de redondeo/antialiasing.
-const MAX_OVERSCAN = 1.12;
-const MIN_OVERSCAN = 1.02;
+// borde del canvas (ver OVERSCAN_EFFECT_KINDS). MIN_OVERSCAN (1%) es solo un margen de
+// seguridad para bordes de redondeo/antialiasing en frames sin movimiento.
+//
+// MAX_OVERSCAN reducido de 1.12 a 1.08 (de 12% a 8% de zoom extra sobre el cover mínimo)
+// para que sobreviva más contenido bruto de la imagen original en el encuadre — el cover
+// matemático (Math.max(canvasWidth/imgW, canvasHeight/imgH)) es quien de verdad decide
+// cuánto se recorta en una conversión 1:1→9:16, este overscan es solo el colchón extra por
+// encima de eso para que pan/zoom/rotate (OVERSCAN_EFFECT_KINDS) no revelen el borde del
+// canvas al moverse. 8% se eligió con margen sobre el desplazamiento máximo real de
+// pan-left/pan-right (el más exigente de los efectos, sin zoom propio que ayude: hasta 6%
+// del ancho a la intensidad más alta que usa cualquier plantilla) — pendiente de
+// confirmar visualmente con un Reel real en producción antes de apretar más hacia el 6%.
+const MAX_OVERSCAN = 1.08;
+const MIN_OVERSCAN = 1.01;
 
 // Dibuja la imagen ya cargada rellenando el canvas ("cover"). `focalOffset` (ver
 // computeSaliencyOffset) desplaza el centrado base hacia la zona con más detalle del eje
