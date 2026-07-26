@@ -125,6 +125,7 @@ export default function ReelsCreator({
       // a un Reel real. No dejar en producción.
       console.log("[ReelsCreator DEBUG] template:", genData.config.template);
       console.log("[ReelsCreator DEBUG] effects:", genData.config.effects.map((e) => e.kind));
+      console.log("[ReelsCreator DEBUG] handle:", genData.config.handle);
 
       setPhase("rendering");
       setProgress(0);
