@@ -52,9 +52,9 @@ const TEMPLATE_STYLES: Record<ReelsTemplate, { weight: number; family: string; f
 // Jerarquía visual de 3 capas: título arriba (grande), subtítulo centrado (medio),
 // CTA abajo (pequeño). Solo se aplica cuando el overlay trae `role`.
 export const TEXT_ROLE_STYLE: Record<ReelsTextRole, { fontSize: number; position: NonNullable<ReelsTextOverlay["position"]> }> = {
-  title: { fontSize: 120, position: "top" },
-  subtitle: { fontSize: 72, position: "center" },
-  cta: { fontSize: 56, position: "bottom" },
+  title: { fontSize: 180, position: "top" },
+  subtitle: { fontSize: 100, position: "center" },
+  cta: { fontSize: 68, position: "bottom" },
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -94,7 +94,17 @@ type FrameTransform = {
   blurPx: number;
   /** true si algún efecto activo en este frame necesita "recorrido" fuera del cover normal (ver OVERSCAN_EFFECT_KINDS / drawImageCover). */
   needsOverscan: boolean;
+  /** 0-1 — opacidad de un destello blanco superpuesto (transición de cierre "flash", ver drawTransitionOverlay). */
+  flashOpacity: number;
+  /** Progreso 0-1 del barrido de una barra sólida de un borde a otro del canvas (transición de cierre "wipe"), o null si no hay wipe activo en este frame. */
+  wipeProgress: number | null;
 };
+
+// Desplazamiento del centrado de drawImageCover hacia la zona con más detalle/contraste
+// del eje que el "cover" recorta — calculado UNA VEZ por imagen (ver computeSaliencyOffset),
+// nunca por frame. { offsetX: 0, offsetY: 0 } = centrado geométrico normal, sin cambios.
+type FocalOffset = { offsetX: number; offsetY: number };
+const NEUTRAL_FOCAL_OFFSET: FocalOffset = { offsetX: 0, offsetY: 0 };
 
 // Efectos que desplazan/rotan/hacen zoom lo bastante como para necesitar imagen de
 // sobra fuera del cover normal para no revelar el borde del canvas. "rotate", "pulse",
@@ -106,7 +116,16 @@ const OVERSCAN_EFFECT_KINDS = new Set<ReelsEffect["kind"]>(["zoom-in", "zoom-out
 // Combina todos los efectos activos en el instante t en una única transformación.
 // zoom es multiplicativo (varios zooms se acumulan), pan/rotate/blur son aditivos.
 function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number, height: number): FrameTransform {
-  const transform: FrameTransform = { scale: 1, translateX: 0, translateY: 0, rotateDeg: 0, blurPx: 0, needsOverscan: false };
+  const transform: FrameTransform = {
+    scale: 1,
+    translateX: 0,
+    translateY: 0,
+    rotateDeg: 0,
+    blurPx: 0,
+    needsOverscan: false,
+    flashOpacity: 0,
+    wipeProgress: null,
+  };
 
   for (const effect of effects) {
     if (t < effect.startAt || t > effect.endAt) continue;
@@ -158,6 +177,18 @@ function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number
         transform.rotateDeg += intensity * 8 * Math.sin(progress * Math.PI);
         transform.translateX += width * 0.07 * intensity * progress;
         break;
+      case "flash":
+        // Destello blanco corto tipo "corte" (Reels/TikTok) — sube y baja de opacidad
+        // dentro de la ventana del efecto en vez de quedarse fijo. El dibujo real ocurre
+        // en drawTransitionOverlay (CanvasRenderer.render), aquí solo se calcula cuánto.
+        transform.flashOpacity = Math.max(transform.flashOpacity, Math.min(0.85, intensity * 1.5 * Math.sin(progress * Math.PI)));
+        break;
+      case "wipe":
+        // Progreso 0-1 del barrido de una barra sólida de un borde a otro del canvas —
+        // el dibujo real también ocurre en drawTransitionOverlay, aquí solo se guarda en
+        // qué punto del barrido está este frame (no usa intensity: la barra es siempre opaca).
+        transform.wipeProgress = progress;
+        break;
     }
   }
 
@@ -172,13 +203,17 @@ function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number
 const MAX_OVERSCAN = 1.12;
 const MIN_OVERSCAN = 1.02;
 
-// Dibuja la imagen ya cargada rellenando el canvas ("cover").
+// Dibuja la imagen ya cargada rellenando el canvas ("cover"). `focalOffset` (ver
+// computeSaliencyOffset) desplaza el centrado base hacia la zona con más detalle del eje
+// que el cover recorta — se SUMA a transform.translateX/Y, nunca lo reemplaza, así que
+// los efectos de pan/zoom de ReelsAgent siguen operando igual encima de este punto de partida.
 function drawImageCover(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   image: ImageBitmap,
   canvasWidth: number,
   canvasHeight: number,
   transform: FrameTransform,
+  focalOffset: FocalOffset,
 ): void {
   const overscan = transform.needsOverscan ? MAX_OVERSCAN : MIN_OVERSCAN;
   const coverScale = Math.max(canvasWidth / image.width, canvasHeight / image.height) * overscan;
@@ -187,10 +222,178 @@ function drawImageCover(
 
   ctx.save();
   ctx.filter = transform.blurPx > 0.5 ? `blur(${transform.blurPx.toFixed(1)}px)` : "none";
-  ctx.translate(canvasWidth / 2 + transform.translateX, canvasHeight / 2 + transform.translateY);
+  ctx.translate(
+    canvasWidth / 2 + transform.translateX + focalOffset.offsetX,
+    canvasHeight / 2 + transform.translateY + focalOffset.offsetY,
+  );
   ctx.rotate((transform.rotateDeg * Math.PI) / 180);
   ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
   ctx.restore();
+}
+
+// Lado más largo del canvas auxiliar usado para calcular la energía de contraste — basta
+// con una versión muy reducida de la imagen (esto se computa una sola vez por imagen, no
+// por frame) para localizar dónde está "lo interesante" del eje que el cover recorta.
+const SALIENCY_DOWNSCALE_MAX_DIM = 128;
+
+// Por debajo de este overflow (en px, ya con MIN_OVERSCAN aplicado) se considera que el
+// cover no recorta nada relevante en ese eje — ver PROBLEMA 1 del audit: object-fit: cover
+// nunca desborda los dos ejes a la vez (coverScale = max(...) garantiza que al menos uno
+// encaje exacto), así que basta comprobar si AMBOS overflow están por debajo de esto.
+const SALIENCY_OVERFLOW_EPSILON_PX = 2;
+
+function luminanceGrid(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  downWidth: number,
+  downHeight: number,
+): Float32Array {
+  const { data } = ctx.getImageData(0, 0, downWidth, downHeight);
+  const lum = new Float32Array(downWidth * downHeight);
+  for (let i = 0, p = 0; p < data.length; i++, p += 4) {
+    lum[i] = data[p] * 0.299 + data[p + 1] * 0.587 + data[p + 2] * 0.114;
+  }
+  return lum;
+}
+
+// Energía de contraste por columna (axis "x") o por fila (axis "y") — suma, para cada
+// pixel de esa columna/fila, la diferencia de luminancia con sus 4 vecinos (arriba/abajo/
+// izquierda/derecha). Un valor alto indica bordes/textura/detalle (típicamente un sujeto);
+// un fondo liso da valores bajos. Deliberadamente simple (sin librería de visión) — solo
+// necesita ordenar franjas por "cuánto pasa ahí", no clasificar qué es.
+function computeAxisEnergy(lum: Float32Array, downWidth: number, downHeight: number, axis: "x" | "y"): Float32Array {
+  const size = axis === "x" ? downWidth : downHeight;
+  const energy = new Float32Array(size);
+
+  for (let a = 0; a < size; a++) {
+    let sum = 0;
+    const otherSize = axis === "x" ? downHeight : downWidth;
+    for (let b = 0; b < otherSize; b++) {
+      const x = axis === "x" ? a : b;
+      const y = axis === "x" ? b : a;
+      const idx = y * downWidth + x;
+      const left = x > 0 ? lum[idx - 1] : lum[idx];
+      const right = x < downWidth - 1 ? lum[idx + 1] : lum[idx];
+      const up = y > 0 ? lum[idx - downWidth] : lum[idx];
+      const down = y < downHeight - 1 ? lum[idx + downWidth] : lum[idx];
+      sum += Math.abs(lum[idx] - left) + Math.abs(lum[idx] - right) + Math.abs(lum[idx] - up) + Math.abs(lum[idx] - down);
+    }
+    energy[a] = sum;
+  }
+
+  return energy;
+}
+
+// Ventana deslizante: encuentra, entre todas las posiciones contiguas de tamaño
+// `windowSize` dentro de `energy`, la que acumula más energía — ahí es donde "está pasando
+// algo" en la franja que el cover va a recortar. Devuelve el CENTRO de esa ventana como
+// fracción 0-1 a lo largo del eje analizado (0 = borde izquierdo/superior de la imagen).
+function bestWindowCenterFraction(energy: Float32Array, windowSize: number): number {
+  const n = energy.length;
+  const w = clamp(Math.round(windowSize), 1, n);
+
+  let sum = 0;
+  for (let i = 0; i < w; i++) sum += energy[i];
+  let bestSum = sum;
+  let bestStart = 0;
+
+  for (let start = 1; start <= n - w; start++) {
+    sum += energy[start + w - 1] - energy[start - 1];
+    if (sum > bestSum) {
+      bestSum = sum;
+      bestStart = start;
+    }
+  }
+
+  return (bestStart + w / 2) / n;
+}
+
+// Calculado UNA VEZ por imagen (nunca por frame — ver su único call site en
+// CanvasRenderer.render). Desplaza el centrado de drawImageCover hacia la zona con más
+// contraste/detalle del ÚNICO eje que el cover recorta (ver PROBLEMA 1 del audit: cover
+// nunca desborda los dos ejes a la vez), en vez del centrado geométrico ciego de siempre.
+// Fallback a NEUTRAL_FOCAL_OFFSET si no hay overflow relevante en ningún eje, si no hay
+// contexto 2D disponible, o si algo falla — nunca debe romper la generación del Reel.
+function computeSaliencyOffset(image: ImageBitmap, canvasWidth: number, canvasHeight: number): FocalOffset {
+  try {
+    // MIN_OVERSCAN (el más pequeño posible en cualquier frame) para que el clamp de más
+    // abajo sea seguro pase lo que pase: MAX_OVERSCAN solo da MÁS margen, nunca menos.
+    const coverScale = Math.max(canvasWidth / image.width, canvasHeight / image.height) * MIN_OVERSCAN;
+    const drawWidth = image.width * coverScale;
+    const drawHeight = image.height * coverScale;
+    const overflowX = drawWidth - canvasWidth;
+    const overflowY = drawHeight - canvasHeight;
+
+    if (overflowX <= SALIENCY_OVERFLOW_EPSILON_PX && overflowY <= SALIENCY_OVERFLOW_EPSILON_PX) {
+      return NEUTRAL_FOCAL_OFFSET;
+    }
+
+    const axis: "x" | "y" = overflowX >= overflowY ? "x" : "y";
+
+    const scale = SALIENCY_DOWNSCALE_MAX_DIM / Math.max(image.width, image.height);
+    const downWidth = Math.max(1, Math.round(image.width * scale));
+    const downHeight = Math.max(1, Math.round(image.height * scale));
+
+    const downCanvas = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(downWidth, downHeight) : document.createElement("canvas");
+    if (!(downCanvas instanceof OffscreenCanvas)) {
+      downCanvas.width = downWidth;
+      downCanvas.height = downHeight;
+    }
+    const downCtx = downCanvas.getContext("2d") as OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null;
+    if (!downCtx) return NEUTRAL_FOCAL_OFFSET;
+
+    downCtx.drawImage(image, 0, 0, downWidth, downHeight);
+    const lum = luminanceGrid(downCtx, downWidth, downHeight);
+    const energy = computeAxisEnergy(lum, downWidth, downHeight, axis);
+
+    if (axis === "x") {
+      const windowCols = (canvasWidth / drawWidth) * downWidth;
+      const focalFractionX = bestWindowCenterFraction(energy, windowCols);
+      const maxOffsetX = overflowX / 2;
+      return { offsetX: clamp(drawWidth * (0.5 - focalFractionX), -maxOffsetX, maxOffsetX), offsetY: 0 };
+    }
+
+    const windowRows = (canvasHeight / drawHeight) * downHeight;
+    const focalFractionY = bestWindowCenterFraction(energy, windowRows);
+    const maxOffsetY = overflowY / 2;
+    return { offsetX: 0, offsetY: clamp(drawHeight * (0.5 - focalFractionY), -maxOffsetY, maxOffsetY) };
+  } catch (err) {
+    console.warn("[CanvasRenderer] No se pudo calcular el offset de saliencia; se usa centrado normal.", err);
+    return NEUTRAL_FOCAL_OFFSET;
+  }
+}
+
+// Ancho de la barra sólida del "wipe" en proporción al canvas — suficientemente ancha
+// para que el barrido se note, sin cubrir instantáneamente todo el frame de golpe.
+const WIPE_BAR_WIDTH_RATIO = 0.55;
+
+// Dibuja las transiciones de cierre "flash" (destello blanco) y "wipe" (barra sólida
+// barriendo el canvas) por encima de la imagen ya compuesta — mismo frame, una capa más,
+// sin necesitar componer dos imágenes distintas (ver OUTRO_TRANSITION_POOL en ReelsAgent).
+function drawTransitionOverlay(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  transform: FrameTransform,
+  canvasWidth: number,
+  canvasHeight: number,
+): void {
+  if (transform.flashOpacity > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = transform.flashOpacity;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    ctx.restore();
+  }
+
+  if (transform.wipeProgress !== null) {
+    // La barra recorre desde fuera del borde izquierdo hasta fuera del borde derecho —
+    // en progress 0 y 1 está completamente fuera de canvas (invisible), como cualquier
+    // otro efecto encadenado que arranca/termina en su estado neutro.
+    const barWidth = canvasWidth * WIPE_BAR_WIDTH_RATIO;
+    const barLeft = -barWidth + transform.wipeProgress * (canvasWidth + barWidth * 2);
+    ctx.save();
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(barLeft, 0, barWidth, canvasHeight);
+    ctx.restore();
+  }
 }
 
 function wrapText(
@@ -212,6 +415,56 @@ function wrapText(
   }
   if (current) lines.push(current);
   return lines;
+}
+
+// No bajar el tamaño de fuente de un texto largo por debajo de este % del pedido — los
+// tamaños de TEXT_ROLE_STYLE (180/100/68px) buscan impacto visual a propósito; reducirlos
+// demasiado para que quepan anularía ese objetivo, así que se prioriza mantener presencia
+// visual sobre encajar perfecto en `maxHeight` en el caso extremo de un texto muy largo.
+const MIN_FONT_SIZE_SCALE = 0.55;
+const FONT_SHRINK_STEP = 0.92;
+
+// Margen de seguridad respecto al borde de canvas más cercano al calcular cuánto alto
+// puede ocupar un bloque de texto envuelto en varias líneas (ver fitTextBlock/maxHeight).
+const TEXT_VERTICAL_MARGIN = 48;
+
+// Contorno fijo (no depende del brillo muestreado) dibujado siempre detrás del fill del
+// texto — capa de seguridad de contraste independiente del color: si el muestreo de
+// brillo elige mal o el fondo es uniforme, este trazo oscuro sigue delimitando las letras.
+const TEXT_OUTLINE_COLOR = "rgba(0,0,0,0.55)";
+const TEXT_OUTLINE_WIDTH_RATIO = 0.06;
+const TEXT_OUTLINE_MIN_WIDTH = 2;
+
+// Reduce el fontSize en pasos (nunca por debajo de MIN_FONT_SIZE_SCALE del tamaño pedido)
+// hasta que el bloque de líneas quepa en maxHeight, o hasta agotar el margen de reducción
+// permitido. Necesario porque los tamaños grandes de P3 (180/100/68px) pueden envolver a
+// 2-3 líneas con textos más largos y desbordar verticalmente el canvas si no se acotan.
+function fitTextBlock(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  text: string,
+  fontWeight: number,
+  fontFamily: string,
+  baseFontSize: number,
+  maxWidth: number,
+  maxHeight: number,
+): { lines: string[]; fontSize: number; lineHeight: number } {
+  const minFontSize = baseFontSize * MIN_FONT_SIZE_SCALE;
+  let fontSize = baseFontSize;
+
+  const measure = () => {
+    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    const lines = wrapText(ctx, text, maxWidth);
+    const lineHeight = fontSize * 1.15;
+    return { lines, lineHeight, blockHeight: lines.length * lineHeight };
+  };
+
+  let block = measure();
+  while (block.blockHeight > maxHeight && fontSize > minFontSize) {
+    fontSize = Math.max(minFontSize, fontSize * FONT_SHRINK_STEP);
+    block = measure();
+  }
+
+  return { lines: block.lines, fontSize, lineHeight: block.lineHeight };
 }
 
 function textForOverlayAtTime(overlay: ReelsTextOverlay, t: number): string {
@@ -240,41 +493,57 @@ const POSITION_Y_RATIO: Record<NonNullable<ReelsTextOverlay["position"]>, number
   bottom: 0.82,
 };
 
-// Traduce el tipo de animación de entrada del overlay a opacity/offsetY/scale en el
-// instante t. Antes esto dependía de si el overlay tenía `role` (dos caminos
-// distintos, con el `animation` real ignorado para overlays con rol) — ahora es un
-// único cálculo dirigido por `overlay.animation`, que ReelsAgent varía por Reel.
+// Traduce el tipo de animación del overlay a opacity/offsetY/scale en el instante t,
+// cubriendo tanto la entrada como la salida (antes solo había entrada; el texto
+// desaparecía de golpe en endAt). introWindow/outroWindow usan la misma duración (máx
+// 0.5s o mitad del tiempo visible, lo que sea menor) y se tocan exactamente en el punto
+// medio del overlay, así que nunca se solapan ni dejan un hueco sin animar.
+// La salida es simétrica a la entrada dentro de la misma familia: fade-in↔fade-out,
+// slide-up (entra desde abajo) ↔ sale deslizando hacia abajo, slide-down (entra desde
+// arriba) ↔ sale deslizando hacia arriba, zoom (crece al entrar) ↔ encoge al salir.
 function computeEntryAnimation(
   animation: ReelsTextOverlay["animation"],
   t: number,
   startAt: number,
   durationSec: number,
 ): { opacity: number; offsetY: number; scale: number } {
-  const introWindow = Math.min(0.5, durationSec / 2);
-  const introProgress = clamp((t - startAt) / introWindow, 0, 1);
+  const endAt = startAt + durationSec;
+  const window = Math.min(0.5, durationSec / 2);
+  const introProgress = clamp((t - startAt) / window, 0, 1);
+  const outroProgress = clamp((endAt - t) / window, 0, 1);
+  // El más restrictivo de los dos manda — así un overlay corto no llega a estar 100%
+  // visible entre que termina de entrar y ya tiene que empezar a salir.
+  const visibility = Math.min(introProgress, outroProgress);
+  // Mientras introProgress < 1 todavía estamos en la ventana de entrada; en cuanto llega
+  // a 1 (resto de la vida del overlay, incluida la salida) manda la fórmula de salida,
+  // que en reposo (outroProgress = 1) da exactamente el mismo valor neutro que la entrada
+  // ya terminada.
+  const inEntry = introProgress < 1;
 
   switch (animation) {
     case "fade-in":
-      return { opacity: introProgress, offsetY: 0, scale: 1 };
+      return { opacity: visibility, offsetY: 0, scale: 1 };
     case "slide-up":
-      return { opacity: introProgress, offsetY: (1 - introProgress) * 50, scale: 1 };
+      return { opacity: visibility, offsetY: inEntry ? (1 - introProgress) * 50 : (1 - outroProgress) * 50, scale: 1 };
     case "slide-down":
-      return { opacity: introProgress, offsetY: -50 * (1 - introProgress), scale: 1 };
+      return { opacity: visibility, offsetY: inEntry ? -50 * (1 - introProgress) : -50 * (1 - outroProgress), scale: 1 };
     case "zoom":
-      return { opacity: introProgress, offsetY: 0, scale: 0.85 + 0.15 * introProgress };
+      return { opacity: visibility, offsetY: 0, scale: inEntry ? 0.85 + 0.15 * introProgress : 0.85 + 0.15 * outroProgress };
     case "word-by-word":
     case "typewriter":
-      // El reveal progresivo del propio texto ya transmite la entrada — solo un fade rápido.
-      return { opacity: Math.min(1, introProgress * 2), offsetY: 0, scale: 1 };
+      // El reveal progresivo del propio texto ya transmite la entrada — solo un fade rápido
+      // (tanto al entrar como al salir).
+      return { opacity: Math.min(1, introProgress * 2, outroProgress * 2), offsetY: 0, scale: 1 };
     default:
-      return { opacity: 1, offsetY: 0, scale: 1 };
+      return { opacity: visibility, offsetY: 0, scale: 1 };
   }
 }
 
-// Detecta si el fondo bajo el texto es claro u oscuro muestreando un área ~200x80px
-// centrada en (centerX, centerY), para elegir texto negro/sombra blanca o texto
-// blanco/sombra negra. Se recalcula cada frame porque los efectos mueven la imagen
-// bajo el texto, así que lo que hay debajo puede cambiar de brillo con el tiempo.
+// Detecta si el fondo bajo el texto es claro u oscuro muestreando el área indicada
+// (pensada para ser el bounding box real del bloque de texto — ver su uso en
+// drawTextOverlays), para elegir texto negro/sombra blanca o texto blanco/sombra negra.
+// Se recalcula cada frame porque los efectos mueven la imagen bajo el texto, así que lo
+// que hay debajo puede cambiar de brillo con el tiempo.
 export function sampleAverageBrightness(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   centerX: number,
@@ -307,11 +576,38 @@ function drawTextOverlays(
     const { opacity, offsetY, scale } = computeEntryAnimation(overlay.animation, t, overlay.startAt, overlay.durationSec);
 
     const roleStyle = overlay.role ? TEXT_ROLE_STYLE[overlay.role] : undefined;
-    const fontSize = overlay.fontSize ?? roleStyle?.fontSize ?? templateStyle.fallbackFontSize;
+    const requestedFontSize = overlay.fontSize ?? roleStyle?.fontSize ?? templateStyle.fallbackFontSize;
     const position = overlay.position ?? roleStyle?.position ?? "center";
     const baseY = canvasHeight * (POSITION_Y_RATIO[position] ?? 0.5);
 
-    const brightness = sampleAverageBrightness(ctx, canvasWidth / 2, baseY, 200, 80);
+    const text = textForOverlayAtTime(overlay, t);
+    const maxWidth = canvasWidth * 0.85;
+    // Espacio vertical disponible centrado en baseY, acotado por el borde de canvas más
+    // cercano (con margen de seguridad) — evita que 2-3 líneas de un texto largo con los
+    // tamaños grandes de TEXT_ROLE_STYLE (180/100/68px) se salgan del canvas por arriba/abajo.
+    const maxHeight = 2 * Math.min(baseY, canvasHeight - baseY) - TEXT_VERTICAL_MARGIN * 2;
+    const { lines, fontSize, lineHeight } = fitTextBlock(
+      ctx,
+      text,
+      templateStyle.weight,
+      templateStyle.family,
+      requestedFontSize,
+      maxWidth,
+      maxHeight,
+    );
+    if (lines.length === 0) continue;
+
+    // Bounding box real del bloque (ancho real tras el wrap, alto real de todas las
+    // líneas + el mismo padding que luego dibuja el fondo semitransparente) — el brillo
+    // se muestrea sobre esta área exacta, no sobre un parche fijo arbitrario, para que la
+    // decisión de color refleje lo que de verdad hay detrás del texto.
+    const maxLineWidth = Math.max(...lines.map((line) => ctx.measureText(line).width));
+    const boxPaddingX = 32;
+    const boxPaddingY = 20;
+    const boxWidth = maxLineWidth + boxPaddingX * 2;
+    const boxHeight = lines.length * lineHeight + boxPaddingY * 2;
+
+    const brightness = sampleAverageBrightness(ctx, canvasWidth / 2, baseY, boxWidth, boxHeight);
     const isLightBackground = brightness > 128;
     const textColor = isLightBackground ? "#000000" : "#ffffff";
     const shadowColor = isLightBackground ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)";
@@ -333,32 +629,24 @@ function drawTextOverlays(
       ctx.translate(-canvasWidth / 2, -blockCenterY);
     }
 
-    const text = textForOverlayAtTime(overlay, t);
-    const lines = wrapText(ctx, text, canvasWidth * 0.85);
-    if (lines.length === 0) {
-      ctx.restore();
-      continue;
-    }
-    const lineHeight = fontSize * 1.15;
     const startY = baseY - ((lines.length - 1) * lineHeight) / 2 + offsetY;
 
     // Fondo semitransparente real detrás del texto (antes se asignaba fillStyle pero se
     // sobreescribía sin dibujarse nunca) — sin sombra propia, para no verse "difuminado".
-    const maxLineWidth = Math.max(...lines.map((line) => ctx.measureText(line).width));
-    const boxPaddingX = 32;
-    const boxPaddingY = 20;
     ctx.shadowBlur = 0;
     ctx.fillStyle = boxColor;
-    ctx.fillRect(
-      canvasWidth / 2 - maxLineWidth / 2 - boxPaddingX,
-      startY - lineHeight / 2 - boxPaddingY,
-      maxLineWidth + boxPaddingX * 2,
-      lines.length * lineHeight + boxPaddingY * 2,
-    );
+    ctx.fillRect(canvasWidth / 2 - boxWidth / 2, startY - lineHeight / 2 - boxPaddingY, boxWidth, boxHeight);
     ctx.shadowBlur = 28;
 
     lines.forEach((line, i) => {
       const y = startY + i * lineHeight;
+      // Contorno de contraste SIEMPRE presente, fijo (no depende de isLightBackground) —
+      // capa de seguridad independiente del muestreo de brillo: aunque este falle o el
+      // fondo sea uniforme, el trazo oscuro delimita las letras contra cualquier imagen.
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = TEXT_OUTLINE_COLOR;
+      ctx.lineWidth = Math.max(TEXT_OUTLINE_MIN_WIDTH, fontSize * TEXT_OUTLINE_WIDTH_RATIO);
+      ctx.strokeText(line, canvasWidth / 2, y);
       ctx.fillStyle = textColor;
       ctx.fillText(line, canvasWidth / 2, y);
     });
@@ -504,12 +792,17 @@ export class CanvasRenderer implements ReelsRenderer {
       musicTrackUrl ? prepareAudioTrack(musicTrackUrl) : Promise.resolve(null),
     ]);
 
-    // Devuelve la imagen que corresponde al instante t. Sin imageSegments, siempre la
-    // única imagen cargada — comportamiento idéntico al de antes de multi-imagen.
-    function imageForTime(t: number): ImageBitmap {
-      if (!imageSegments) return images[0];
+    // Una entrada por imagen, calculada una sola vez aquí — nunca dentro del loop de
+    // frames de más abajo (ver computeSaliencyOffset).
+    const saliencyOffsets = images.map((img) => computeSaliencyOffset(img, width, height));
+
+    // Devuelve el índice de la imagen que corresponde al instante t (para images[] y
+    // saliencyOffsets[] a la vez). Sin imageSegments, siempre 0 — comportamiento idéntico
+    // al de antes de multi-imagen.
+    function imageIndexForTime(t: number): number {
+      if (!imageSegments) return 0;
       const idx = imageSegments.findIndex((seg) => t >= seg.startAt && t < seg.endAt);
-      return images[idx === -1 ? images.length - 1 : idx];
+      return idx === -1 ? imageSegments.length - 1 : idx;
     }
 
     const canvas = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(width, height) : document.createElement("canvas");
@@ -555,9 +848,11 @@ export class CanvasRenderer implements ReelsRenderer {
     for (let i = 0; i < totalFrames; i++) {
       const t = i / fps;
       const transform = computeTransformAtTime(config.effects, t, width, height);
+      const imageIndex = imageIndexForTime(t);
 
       ctx.clearRect(0, 0, width, height);
-      drawImageCover(ctx, imageForTime(t), width, height, transform);
+      drawImageCover(ctx, images[imageIndex], width, height, transform, saliencyOffsets[imageIndex]);
+      drawTransitionOverlay(ctx, transform, width, height);
       drawTextOverlays(ctx, config.textOverlays, config.template, t, width, height);
 
       const frame = new VideoFrame(canvas as CanvasImageSource, {

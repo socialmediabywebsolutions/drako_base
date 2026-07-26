@@ -16,7 +16,11 @@ export type ReelsEffectKind =
   | "ken-burns"
   | "drift"
   | "pulse"
-  | "tilt";
+  | "tilt"
+  // "flash" y "wipe" son transiciones de cierre (ver OUTRO_TRANSITION_POOL en
+  // ReelsAgent.ts) — nunca aparecen en los pools normales de efectos por plantilla.
+  | "flash"
+  | "wipe";
 
 export type ReelsEffect = {
   kind: ReelsEffectKind;

@@ -80,7 +80,11 @@ const TEMPLATE_EFFECT_PROFILE: Record<ReelsTemplate, EffectProfile> = {
   fitness: { pool: ["pan-left", "pan-right", "zoom-in", "rotate", "ken-burns", "pulse"], segmentCount: [3, 4], segmentDurationSec: [2, 4], intensityRange: [0.3, 0.5] },
   motivation: { pool: ["zoom-in", "pan-left", "pan-right", "parallax", "ken-burns", "drift", "tilt"], segmentCount: [3, 4], segmentDurationSec: [2, 4], intensityRange: [0.3, 0.5] },
   lifestyle: { pool: ["parallax", "zoom-out", "pan-right", "ken-burns", "drift", "pulse"], segmentCount: [2, 3], segmentDurationSec: [4, 7], intensityRange: [0.15, 0.3] },
-  education: { pool: ["zoom-in", "parallax", "drift", "ken-burns"], segmentCount: [2, 3], segmentDurationSec: [5, 9], intensityRange: [0.1, 0.2] },
+  // Ampliado de 4 a 7 tipos (pan-left/pan-right/tilt tomados de motivation/marketing) —
+  // el intensityRange bajo (0.1-0.2) de esta plantilla ya mantiene el movimiento sutil
+  // sin importar qué tipo de efecto le toque, así que sumar más variedad no la vuelve
+  // "energética", solo evita que sea siempre la misma combinación de 4.
+  education: { pool: ["zoom-in", "parallax", "drift", "ken-burns", "pan-left", "pan-right", "tilt"], segmentCount: [2, 3], segmentDurationSec: [5, 9], intensityRange: [0.1, 0.2] },
   marketing: { pool: ["zoom-in", "rotate", "pan-left", "ken-burns", "tilt", "drift"], segmentCount: [2, 3], segmentDurationSec: [4, 6], intensityRange: [0.15, 0.3] },
 };
 
@@ -91,7 +95,13 @@ const EFFECT_INTENSITY_OVERRIDE: Partial<Record<ReelsEffectKind, [min: number, m
   drift: [0.05, 0.15],
 };
 
-const OUTRO_BLUR_SEC = 1;
+const OUTRO_TRANSITION_SEC = 1;
+
+// Pool de transiciones de cierre — antes siempre "blur" fijo, ahora rota entre 3 estilos
+// con el mismo patrón pool+elección que ya usan los efectos de imagen (pickFrom + random
+// seeded por imagen, así que el mismo Reel sale siempre igual, distinto entre imágenes).
+// "flash"/"wipe" se renderizan como overlay en CanvasRenderer (ver drawTransitionOverlay).
+const OUTRO_TRANSITION_POOL: Extract<ReelsEffectKind, "blur" | "flash" | "wipe">[] = ["blur", "flash", "wipe"];
 
 function pickInRange([min, max]: [number, number], random: () => number): number {
   return min + random() * (max - min);
@@ -118,7 +128,7 @@ function pickEffectKind(pool: ReelsEffectKind[], lastKind: ReelsEffectKind | nul
 // la decide este heurístico con `random` (seededRandom por imagen), no la IA.
 function buildChainedEffects(template: ReelsTemplate, durationSec: number, random: () => number = Math.random): ReelsEffect[] {
   const profile = TEMPLATE_EFFECT_PROFILE[template];
-  const mainDurationSec = Math.max(1, durationSec - OUTRO_BLUR_SEC);
+  const mainDurationSec = Math.max(1, durationSec - OUTRO_TRANSITION_SEC);
   const segmentCount = clamp(Math.round(pickInRange(profile.segmentCount, random)), 2, 4);
 
   const segments: ReelsEffect[] = [];
@@ -147,7 +157,8 @@ function buildChainedEffects(template: ReelsTemplate, durationSec: number, rando
     cursor += segDuration;
   }
 
-  const outro: ReelsEffect = { kind: "blur", startAt: Math.max(0, durationSec - OUTRO_BLUR_SEC), endAt: durationSec, intensity: 0.4 };
+  const outroKind = pickFrom(OUTRO_TRANSITION_POOL, random);
+  const outro: ReelsEffect = { kind: outroKind, startAt: Math.max(0, durationSec - OUTRO_TRANSITION_SEC), endAt: durationSec, intensity: 0.4 };
 
   return [...segments, outro];
 }
@@ -155,10 +166,11 @@ function buildChainedEffects(template: ReelsTemplate, durationSec: number, rando
 // PARTE 4 (base multi-imagen): un grupo de segmentos independiente por imagen, cada uno
 // con su propio seed (misma imagen → mismos efectos siempre, imagen distinta → efectos
 // distintos), concatenados y desplazados en el tiempo para cubrir su propio tramo del
-// clip. buildChainedEffects ya añade su propio blur de cierre a cada grupo (1s antes de
-// cortar a la siguiente imagen), así que las transiciones entre imágenes salen suaves
-// sin lógica adicional. CanvasRenderer usa imageSegments para saber qué imagen dibujar
-// en cada tramo (ver CanvasRenderer.render → imageForTime).
+// clip. buildChainedEffects ya añade su propia transición de cierre a cada grupo (1s antes
+// de cortar a la siguiente imagen, rotando entre blur/flash/wipe — ver OUTRO_TRANSITION_POOL),
+// así que el corte entre imágenes sale con variedad sin lógica adicional aquí. CanvasRenderer
+// usa imageSegments para saber qué imagen dibujar en cada tramo (ver CanvasRenderer.render →
+// imageForTime).
 function buildMultiImageEffects(
   template: ReelsTemplate,
   durationSec: number,
@@ -256,9 +268,9 @@ const ROLE_ANIMATION_POOL: Record<ReelsTextRole, ReelsTextAnimationKind[]> = {
 // mover TEXT_ROLE_STYLE a ReelsEngine.ts, para no ampliar la superficie tocada del
 // renderer que ya está en producción.
 const ROLE_BASE_FONT_SIZE: Record<ReelsTextRole, number> = {
-  title: 120,
-  subtitle: 72,
-  cta: 56,
+  title: 180,
+  subtitle: 100,
+  cta: 68,
 };
 
 function pickFontSize(role: ReelsTextRole, random: () => number): number {
