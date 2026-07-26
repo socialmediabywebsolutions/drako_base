@@ -128,8 +128,12 @@ const MIN_OVERSCAN = 1.01;
 // rango — se autocubren; drift es insignificante (0.6% del ancho como mucho). Todos caen
 // al MIN_OVERSCAN por defecto (ver drawImageCover).
 //
-// pan-left/pan-right: hasta 6.0% del ancho a intensidad 0.5 (fitness/motivation) → 1.07
-// con margen.
+// pan-left/pan-right: hasta 6.0% del ancho a intensidad 0.5 (fitness/motivation) → 1.09,
+// más generoso que el mínimo con margen (1.07) porque ReelsAgent ahora consolida
+// pan-left/pan-right en una sola casilla del pool ("pan", resuelta a una dirección al azar
+// — ver EffectPoolKind) en vez de dos, así que aparece la mitad de veces que antes: se
+// puede permitir un poco más de zoom por aparición sin que el clip se sienta más recortado
+// de media a lo largo de todo el Reel.
 //
 // rotate/tilt son geometría distinta: no es solo "cuánto se traslada" sino cuánto necesita
 // crecer un rectángulo rotado θ para seguir cubriendo un canvas mucho más alto que ancho
@@ -139,8 +143,8 @@ const MIN_OVERSCAN = 1.01;
 // X. Ninguno de los dos trae zoom propio que lo autocubra (a diferencia de parallax/
 // ken-burns), así que ambos necesitan su margen completo aquí.
 const EFFECT_OVERSCAN: Partial<Record<ReelsEffect["kind"], number>> = {
-  "pan-left": 1.07,
-  "pan-right": 1.07,
+  "pan-left": 1.09,
+  "pan-right": 1.09,
   rotate: 1.1,
   tilt: 1.17,
 };
@@ -332,8 +336,15 @@ function bestWindowCenterFraction(energy: Float32Array, windowSize: number): num
 
 // Calculado UNA VEZ por imagen (nunca por frame — ver su único call site en
 // CanvasRenderer.render). Desplaza el centrado de drawImageCover hacia la zona con más
-// contraste/detalle del ÚNICO eje que el cover recorta (ver PROBLEMA 1 del audit: cover
-// nunca desborda los dos ejes a la vez), en vez del centrado geométrico ciego de siempre.
+// contraste/detalle de CADA eje que tenga overflow real (ver PROBLEMA 1 del audit) — el
+// cover puro (overscan=1.0) nunca desborda los dos ejes a la vez, pero en cuanto se aplica
+// cualquier overscan>1.0 (que es siempre, ver EFFECT_OVERSCAN) sí puede haber overflow en
+// ambos simultáneamente, así que ya no se elige un único eje "dominante": X e Y se evalúan
+// de forma independiente, cada uno con su propio clamp de seguridad, en vez del centrado
+// geométrico ciego de siempre. El cálculo usa MIN_OVERSCAN como base conservadora (ver
+// abajo), así que el offset resultante es seguro para cualquier frame pero no aprovecha el
+// margen extra que dan pan/rotate/tilt en sus propios frames — eso queda fuera de este
+// cálculo estático a propósito, para no acoplar P1 al sistema de efectos por-frame.
 // Fallback a NEUTRAL_FOCAL_OFFSET si no hay overflow relevante en ningún eje, si no hay
 // contexto 2D disponible, o si algo falla — nunca debe romper la generación del Reel.
 function computeSaliencyOffset(image: ImageBitmap, canvasWidth: number, canvasHeight: number): FocalOffset {
@@ -348,11 +359,11 @@ function computeSaliencyOffset(image: ImageBitmap, canvasWidth: number, canvasHe
     const overflowX = drawWidth - canvasWidth;
     const overflowY = drawHeight - canvasHeight;
 
-    if (overflowX <= SALIENCY_OVERFLOW_EPSILON_PX && overflowY <= SALIENCY_OVERFLOW_EPSILON_PX) {
+    const needsX = overflowX > SALIENCY_OVERFLOW_EPSILON_PX;
+    const needsY = overflowY > SALIENCY_OVERFLOW_EPSILON_PX;
+    if (!needsX && !needsY) {
       return NEUTRAL_FOCAL_OFFSET;
     }
-
-    const axis: "x" | "y" = overflowX >= overflowY ? "x" : "y";
 
     const scale = SALIENCY_DOWNSCALE_MAX_DIM / Math.max(image.width, image.height);
     const downWidth = Math.max(1, Math.round(image.width * scale));
@@ -368,19 +379,31 @@ function computeSaliencyOffset(image: ImageBitmap, canvasWidth: number, canvasHe
 
     downCtx.drawImage(image, 0, 0, downWidth, downHeight);
     const lum = luminanceGrid(downCtx, downWidth, downHeight);
-    const energy = computeAxisEnergy(lum, downWidth, downHeight, axis);
 
-    if (axis === "x") {
+    // Cualquier overscan > 1.0 (que es siempre, salvo el cover puro sin margen) produce
+    // overflow en los dos ejes a la vez — antes solo se corregía el eje dominante y el
+    // otro se dejaba fijo en 0, aunque tuviera overflow real (pequeño, pero real). Ahora
+    // se evalúan ambos de forma independiente, cada uno con su propia ventana deslizante
+    // de energía y su propio clamp ±overflow/2 — siguen sin poder interferir entre sí.
+    let offsetX = 0;
+    if (needsX) {
+      const energyX = computeAxisEnergy(lum, downWidth, downHeight, "x");
       const windowCols = (canvasWidth / drawWidth) * downWidth;
-      const focalFractionX = bestWindowCenterFraction(energy, windowCols);
+      const focalFractionX = bestWindowCenterFraction(energyX, windowCols);
       const maxOffsetX = overflowX / 2;
-      return { offsetX: clamp(drawWidth * (0.5 - focalFractionX), -maxOffsetX, maxOffsetX), offsetY: 0 };
+      offsetX = clamp(drawWidth * (0.5 - focalFractionX), -maxOffsetX, maxOffsetX);
     }
 
-    const windowRows = (canvasHeight / drawHeight) * downHeight;
-    const focalFractionY = bestWindowCenterFraction(energy, windowRows);
-    const maxOffsetY = overflowY / 2;
-    return { offsetX: 0, offsetY: clamp(drawHeight * (0.5 - focalFractionY), -maxOffsetY, maxOffsetY) };
+    let offsetY = 0;
+    if (needsY) {
+      const energyY = computeAxisEnergy(lum, downWidth, downHeight, "y");
+      const windowRows = (canvasHeight / drawHeight) * downHeight;
+      const focalFractionY = bestWindowCenterFraction(energyY, windowRows);
+      const maxOffsetY = overflowY / 2;
+      offsetY = clamp(drawHeight * (0.5 - focalFractionY), -maxOffsetY, maxOffsetY);
+    }
+
+    return { offsetX, offsetY };
   } catch (err) {
     console.warn("[CanvasRenderer] No se pudo calcular el offset de saliencia; se usa centrado normal.", err);
     return NEUTRAL_FOCAL_OFFSET;

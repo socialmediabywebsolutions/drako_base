@@ -65,8 +65,15 @@ export function seededRandom(seed: string): () => number {
   };
 }
 
+// "pan" es un marcador de pool que se resuelve a "pan-left" o "pan-right" al azar en el
+// momento de la elección (ver resolveEffectKind) — antes pan-left/pan-right ocupaban 2
+// casillas del pool (el doble de probabilidad que cualquier otro efecto individual, ver
+// audit del bug "se usa un montón"); ahora ocupan 1 sola, igual que el resto, sin perder
+// la variedad de dirección.
+type EffectPoolKind = ReelsEffectKind | "pan";
+
 type EffectProfile = {
-  pool: ReelsEffectKind[];
+  pool: EffectPoolKind[];
   segmentCount: [min: number, max: number];
   segmentDurationSec: [min: number, max: number];
   intensityRange: [min: number, max: number];
@@ -77,15 +84,15 @@ type EffectProfile = {
 // segmentos largos + intensidad baja → transiciones que casi no se notan como corte.
 // marketing queda en un punto intermedio (ni deportivo ni relajado).
 const TEMPLATE_EFFECT_PROFILE: Record<ReelsTemplate, EffectProfile> = {
-  fitness: { pool: ["pan-left", "pan-right", "zoom-in", "rotate", "ken-burns", "pulse"], segmentCount: [3, 4], segmentDurationSec: [2, 4], intensityRange: [0.3, 0.5] },
-  motivation: { pool: ["zoom-in", "pan-left", "pan-right", "parallax", "ken-burns", "drift", "tilt"], segmentCount: [3, 4], segmentDurationSec: [2, 4], intensityRange: [0.3, 0.5] },
-  lifestyle: { pool: ["parallax", "zoom-out", "pan-right", "ken-burns", "drift", "pulse"], segmentCount: [2, 3], segmentDurationSec: [4, 7], intensityRange: [0.15, 0.3] },
-  // Ampliado de 4 a 7 tipos (pan-left/pan-right/tilt tomados de motivation/marketing) —
-  // el intensityRange bajo (0.1-0.2) de esta plantilla ya mantiene el movimiento sutil
-  // sin importar qué tipo de efecto le toque, así que sumar más variedad no la vuelve
-  // "energética", solo evita que sea siempre la misma combinación de 4.
-  education: { pool: ["zoom-in", "parallax", "drift", "ken-burns", "pan-left", "pan-right", "tilt"], segmentCount: [2, 3], segmentDurationSec: [5, 9], intensityRange: [0.1, 0.2] },
-  marketing: { pool: ["zoom-in", "rotate", "pan-left", "ken-burns", "tilt", "drift"], segmentCount: [2, 3], segmentDurationSec: [4, 6], intensityRange: [0.15, 0.3] },
+  fitness: { pool: ["pan", "zoom-in", "rotate", "ken-burns", "pulse"], segmentCount: [3, 4], segmentDurationSec: [2, 4], intensityRange: [0.3, 0.5] },
+  motivation: { pool: ["zoom-in", "pan", "parallax", "ken-burns", "drift", "tilt"], segmentCount: [3, 4], segmentDurationSec: [2, 4], intensityRange: [0.3, 0.5] },
+  lifestyle: { pool: ["parallax", "zoom-out", "pan", "ken-burns", "drift", "pulse"], segmentCount: [2, 3], segmentDurationSec: [4, 7], intensityRange: [0.15, 0.3] },
+  // Ampliado de 4 a 6 tipos (pan/tilt tomados de motivation/marketing) — el intensityRange
+  // bajo (0.1-0.2) de esta plantilla ya mantiene el movimiento sutil sin importar qué tipo
+  // de efecto le toque, así que sumar más variedad no la vuelve "energética", solo evita
+  // que sea siempre la misma combinación de 4.
+  education: { pool: ["zoom-in", "parallax", "drift", "ken-burns", "pan", "tilt"], segmentCount: [2, 3], segmentDurationSec: [5, 9], intensityRange: [0.1, 0.2] },
+  marketing: { pool: ["zoom-in", "rotate", "pan", "ken-burns", "tilt", "drift"], segmentCount: [2, 3], segmentDurationSec: [4, 6], intensityRange: [0.15, 0.3] },
 };
 
 // "drift" debe ser casi imperceptible siempre, incluso en plantillas "energéticas" que
@@ -111,14 +118,24 @@ function pickFrom<T>(pool: readonly T[], random: () => number): T {
   return pool[Math.floor(random() * pool.length)];
 }
 
-function pickEffectKind(pool: ReelsEffectKind[], lastKind: ReelsEffectKind | null, random: () => number): ReelsEffectKind {
+// Elige del pool evitando repetir la MISMA casilla que el segmento anterior (lastPoolKind
+// es el marcador crudo, ej. "pan", no la dirección ya resuelta) — así "pan" seguido de
+// "pan" sigue bloqueado como antes, independientemente de qué dirección le toque a cada uno.
+function pickEffectKind(pool: EffectPoolKind[], lastPoolKind: EffectPoolKind | null, random: () => number): EffectPoolKind {
   let kind = pool[Math.floor(random() * pool.length)];
   let attempts = 0;
-  while (kind === lastKind && pool.length > 1 && attempts < 5) {
+  while (kind === lastPoolKind && pool.length > 1 && attempts < 5) {
     kind = pool[Math.floor(random() * pool.length)];
     attempts++;
   }
   return kind;
+}
+
+// Resuelve el marcador "pan" a una dirección concreta al azar (misma probabilidad cada
+// vez que sale elegido) — CanvasRenderer solo conoce "pan-left"/"pan-right" como kinds
+// reales, esto es puramente una decisión de ReelsAgent al construir el ReelsEffect.
+function resolveEffectKind(kind: EffectPoolKind, random: () => number): ReelsEffectKind {
+  return kind === "pan" ? (random() < 0.5 ? "pan-left" : "pan-right") : kind;
 }
 
 // Encadena entre 2 y 4 efectos consecutivos (nunca simultáneos) según el perfil de la
@@ -133,7 +150,7 @@ function buildChainedEffects(template: ReelsTemplate, durationSec: number, rando
 
   const segments: ReelsEffect[] = [];
   let cursor = 0;
-  let lastKind: ReelsEffectKind | null = null;
+  let lastPoolKind: EffectPoolKind | null = null;
 
   for (let i = 0; i < segmentCount; i++) {
     const isLast = i === segmentCount - 1;
@@ -143,8 +160,9 @@ function buildChainedEffects(template: ReelsTemplate, durationSec: number, rando
       ? Math.max(0.5, remaining)
       : Math.max(0.5, Math.min(remaining - remainingSegmentsAfterThis * 0.5, pickInRange(profile.segmentDurationSec, random)));
 
-    const kind = pickEffectKind(profile.pool, lastKind, random);
-    lastKind = kind;
+    const poolKind = pickEffectKind(profile.pool, lastPoolKind, random);
+    lastPoolKind = poolKind;
+    const kind = resolveEffectKind(poolKind, random);
     const intensityRange = EFFECT_INTENSITY_OVERRIDE[kind] ?? profile.intensityRange;
 
     segments.push({
