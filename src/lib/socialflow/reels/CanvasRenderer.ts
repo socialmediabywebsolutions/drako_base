@@ -533,12 +533,17 @@ function textForOverlayAtTime(overlay: ReelsTextOverlay, t: number): string {
 // intermedias entre "top" y "center", usadas hoy solo por el título (ver
 // pickTitlePosition en ReelsAgent.ts) para que no todos los Reels lleven el título
 // pegado al borde superior.
+// bottom: subido de 0.82 a 0.79 — con el fontSize de CTA de 68px (ver TEXT_ROLE_STYLE),
+// 0.82 dejaba el borde inferior de la caja del CTA a solo ~247px del borde del canvas en
+// el caso de 2 líneas, por debajo de la "zona segura" que reservan Instagram/TikTok para
+// sus propios controles (username, caption, iconos de interacción — hasta ~300-320px
+// cuando están visibles). Con 0.79: ~344px de margen con 1 línea, ~305px con 2 líneas.
 const POSITION_Y_RATIO: Record<NonNullable<ReelsTextOverlay["position"]>, number> = {
   top: 0.18,
   "top-center": 0.28,
   "upper-center": 0.38,
   center: 0.5,
-  bottom: 0.82,
+  bottom: 0.79,
 };
 
 // Traduce el tipo de animación del overlay a opacity/offsetY/scale en el instante t,
