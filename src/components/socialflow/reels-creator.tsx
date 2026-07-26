@@ -120,6 +120,11 @@ export default function ReelsCreator({
         throw new Error(genData.message ?? genData.code ?? "No se pudo decidir la configuración del Reel.");
       }
       setConfig(genData.config);
+      // TEMPORAL — depuración del bug de recorte vertical (mano cortada en fotos con
+      // sujeto asimétrico en Y). Quitar una vez confirmado qué template/efectos le tocan
+      // a un Reel real. No dejar en producción.
+      console.log("[ReelsCreator DEBUG] template:", genData.config.template);
+      console.log("[ReelsCreator DEBUG] effects:", genData.config.effects.map((e) => e.kind));
 
       setPhase("rendering");
       setProgress(0);
