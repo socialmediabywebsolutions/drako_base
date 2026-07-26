@@ -703,6 +703,32 @@ function drawTextOverlays(
   }
 }
 
+// Handle del cliente — SIEMPRE se dibuja si se pasa, sin importar plantilla/efectos
+// (esquina inferior izquierda, pequeño, semitransparente con sombra para leerse tanto
+// sobre fondos claros como oscuros). Mismo estilo visual que drawHandle en
+// StaticSlideRenderer.ts (Carruseles) para mantener consistencia entre formatos.
+function drawHandle(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  handle: string,
+  canvasWidth: number,
+  canvasHeight: number,
+): void {
+  const text = handle.startsWith("@") ? handle : `@${handle}`;
+  const fontSize = 28;
+  const padding = 28;
+
+  ctx.save();
+  ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "bottom";
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle = "#ffffff";
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
+  ctx.shadowBlur = 6;
+  ctx.fillText(text, padding, canvasHeight - padding);
+  ctx.restore();
+}
+
 async function loadImageBitmap(imageUrl: string): Promise<ImageBitmap> {
   const res = await fetch(imageUrl);
   if (!res.ok) {
@@ -902,6 +928,7 @@ export class CanvasRenderer implements ReelsRenderer {
       drawImageCover(ctx, images[imageIndex], width, height, transform, saliencyOffsets[imageIndex]);
       drawTransitionOverlay(ctx, transform, width, height);
       drawTextOverlays(ctx, config.textOverlays, config.template, t, width, height);
+      if (config.handle) drawHandle(ctx, config.handle, width, height);
 
       const frame = new VideoFrame(canvas as CanvasImageSource, {
         timestamp: i * frameDurationUs,

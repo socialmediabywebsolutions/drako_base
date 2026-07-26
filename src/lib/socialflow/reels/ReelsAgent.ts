@@ -334,6 +334,7 @@ async function sanitizeConfig(
   config: ReelsConfig,
   imageUrl: string,
   music: MusicTrackDeps | undefined,
+  handle: string,
   imageUrls?: string[],
   imageSegments?: ReelsImageSegment[],
 ): Promise<ReelsConfig> {
@@ -357,6 +358,10 @@ async function sanitizeConfig(
     fps: clamp(Math.round(config.fps || REELS_DEFAULTS.fps), REELS_DEFAULTS.minFps, REELS_DEFAULTS.maxFps),
     durationSec,
     ...(musicTrack ? { musicTrackUrl: musicTrack.url } : {}),
+    // Forzado igual que imageUrl/width/height/fps — el handle de marca del cliente nunca
+    // debe depender de lo que "invente" el modelo (mismo criterio que el resto de campos
+    // no-IA de esta función).
+    handle,
     effects: config.effects.map((e) => ({ ...e, startAt: clamp(e.startAt, 0, durationSec), endAt: clamp(e.endAt, 0, durationSec) })),
     textOverlays: config.textOverlays
       .filter((t) => t.text.trim().length > 0)
@@ -419,6 +424,6 @@ La duración total (durationSec) debe estar entre ${REELS_DEFAULTS.minDurationSe
       () => base,
     );
 
-    return sanitizeConfig(data, imageUrl, music, imageUrls, imageSegments);
+    return sanitizeConfig(data, imageUrl, music, profile.channelHandle, imageUrls, imageSegments);
   }
 }

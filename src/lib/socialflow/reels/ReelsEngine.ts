@@ -72,6 +72,8 @@ export type ReelsConfig = {
   height: number;
   /** URL pública HTTPS de la pista de música de fondo (ver music-selector.ts). Sin audio si se omite. */
   musicTrackUrl?: string;
+  /** "@usuario" de Instagram del cliente (BrandProfile.channelHandle) — mismo patrón que StaticSlideRenderer.ts en Carruseles. Sin marca si se omite. */
+  handle?: string;
 };
 
 // Formato exigido por Instagram Reels: 9:16, H.264, 15-30fps, 3-90s (acotamos a 15-30s
