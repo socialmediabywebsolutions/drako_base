@@ -287,8 +287,8 @@ const ROLE_ANIMATION_POOL: Record<ReelsTextRole, ReelsTextAnimationKind[]> = {
 // renderer que ya está en producción.
 const ROLE_BASE_FONT_SIZE: Record<ReelsTextRole, number> = {
   title: 180,
-  subtitle: 100,
-  cta: 68,
+  subtitle: 130,
+  cta: 90,
 };
 
 function pickFontSize(role: ReelsTextRole, random: () => number): number {

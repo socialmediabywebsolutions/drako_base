@@ -53,8 +53,8 @@ const TEMPLATE_STYLES: Record<ReelsTemplate, { weight: number; family: string; f
 // CTA abajo (pequeño). Solo se aplica cuando el overlay trae `role`.
 export const TEXT_ROLE_STYLE: Record<ReelsTextRole, { fontSize: number; position: NonNullable<ReelsTextOverlay["position"]> }> = {
   title: { fontSize: 180, position: "top" },
-  subtitle: { fontSize: 100, position: "center" },
-  cta: { fontSize: 68, position: "bottom" },
+  subtitle: { fontSize: 130, position: "center" },
+  cta: { fontSize: 90, position: "bottom" },
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -466,7 +466,7 @@ function wrapText(
 }
 
 // No bajar el tamaño de fuente de un texto largo por debajo de este % del pedido — los
-// tamaños de TEXT_ROLE_STYLE (180/100/68px) buscan impacto visual a propósito; reducirlos
+// tamaños de TEXT_ROLE_STYLE (180/130/90px) buscan impacto visual a propósito; reducirlos
 // demasiado para que quepan anularía ese objetivo, así que se prioriza mantener presencia
 // visual sobre encajar perfecto en `maxHeight` en el caso extremo de un texto muy largo.
 const MIN_FONT_SIZE_SCALE = 0.55;
@@ -485,7 +485,7 @@ const TEXT_OUTLINE_MIN_WIDTH = 2;
 
 // Reduce el fontSize en pasos (nunca por debajo de MIN_FONT_SIZE_SCALE del tamaño pedido)
 // hasta que el bloque de líneas quepa en maxHeight, o hasta agotar el margen de reducción
-// permitido. Necesario porque los tamaños grandes de P3 (180/100/68px) pueden envolver a
+// permitido. Necesario porque los tamaños grandes de P3 (180/130/90px) pueden envolver a
 // 2-3 líneas con textos más largos y desbordar verticalmente el canvas si no se acotan.
 function fitTextBlock(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
@@ -537,7 +537,11 @@ function textForOverlayAtTime(overlay: ReelsTextOverlay, t: number): string {
 // 0.82 dejaba el borde inferior de la caja del CTA a solo ~247px del borde del canvas en
 // el caso de 2 líneas, por debajo de la "zona segura" que reservan Instagram/TikTok para
 // sus propios controles (username, caption, iconos de interacción — hasta ~300-320px
-// cuando están visibles). Con 0.79: ~344px de margen con 1 línea, ~305px con 2 líneas.
+// cuando están visibles). Con 0.79 y CTA a 68px: ~344px de margen con 1 línea, ~305px con
+// 2 líneas. Tras subir CTA a 90px (P4) el margen baja a ~331px (1 línea) / ~280px (2
+// líneas) — ligeramente por debajo del objetivo de 300px en el caso de 2 líneas; no se
+// tocó este ratio porque no formaba parte de este ajuste, pero queda anotado para revisar
+// si algún CTA real llega a envolver a 2 líneas con este tamaño.
 const POSITION_Y_RATIO: Record<NonNullable<ReelsTextOverlay["position"]>, number> = {
   top: 0.18,
   "top-center": 0.28,
@@ -637,7 +641,7 @@ function drawTextOverlays(
     const maxWidth = canvasWidth * 0.85;
     // Espacio vertical disponible centrado en baseY, acotado por el borde de canvas más
     // cercano (con margen de seguridad) — evita que 2-3 líneas de un texto largo con los
-    // tamaños grandes de TEXT_ROLE_STYLE (180/100/68px) se salgan del canvas por arriba/abajo.
+    // tamaños grandes de TEXT_ROLE_STYLE (180/130/90px) se salgan del canvas por arriba/abajo.
     const maxHeight = 2 * Math.min(baseY, canvasHeight - baseY) - TEXT_VERTICAL_MARGIN * 2;
     const { lines, fontSize, lineHeight } = fitTextBlock(
       ctx,
@@ -708,10 +712,23 @@ function drawTextOverlays(
   }
 }
 
+// Y del handle como fracción del canvas (textBaseline "bottom", así que el texto entero
+// queda POR ENCIMA de esta línea) — 0.70 en vez de pegado al borde inferior (ver P5 del
+// audit): a POSITION_Y_RATIO.bottom (0.79, la misma "zona segura" del CTA) la caja del
+// CTA a 90px puede llegar hasta ~123.5px por encima de su propio baseY en el caso de 2
+// líneas, es decir su borde superior cae en ~0.79-123.5/1920 ≈ 0.725 del canvas. 0.70 deja
+// ~48px de margen por encima de ese peor caso, así el handle (esquina inferior izquierda)
+// nunca se solapa verticalmente con el CTA (centrado) aunque este envuelva a 2 líneas.
+// A la vez, 0.70 sigue estando muy por encima del borde inferior real (~576px de margen
+// en un canvas de 1920px), bien dentro de la zona segura de Instagram/TikTok.
+const HANDLE_Y_RATIO = 0.7;
+
 // Handle del cliente — SIEMPRE se dibuja si se pasa, sin importar plantilla/efectos
-// (esquina inferior izquierda, pequeño, semitransparente con sombra para leerse tanto
-// sobre fondos claros como oscuros). Mismo estilo visual que drawHandle en
-// StaticSlideRenderer.ts (Carruseles) para mantener consistencia entre formatos.
+// (esquina inferior izquierda, semitransparente con sombra para leerse tanto sobre fondos
+// claros como oscuros). Ya no comparte tamaño/posición 1:1 con drawHandle en
+// StaticSlideRenderer.ts (Carruseles): el canvas de Reels es mucho más alto y compite con
+// una jerarquía de texto mucho mayor, así que aquí necesita más tamaño y su propia zona
+// vertical segura (ver HANDLE_Y_RATIO) en vez de ir pegado al borde inferior.
 function drawHandle(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   handle: string,
@@ -719,11 +736,11 @@ function drawHandle(
   canvasHeight: number,
 ): void {
   const text = handle.startsWith("@") ? handle : `@${handle}`;
-  // 40px (subido de 28, copiado sin ajustar de Carruseles) — el canvas de Reels es un 42%
-  // más alto (1920 vs 1350) y compite con una jerarquía de texto mucho mayor (180/100/68px
-  // tras P3); 28px quedaba desproporcionadamente pequeño, casi ilegible a simple vista.
-  const fontSize = 40;
+  // 56px (subido de 40) — es la marca del influencer, tiene que leerse igual de bien que
+  // el CTA (ver P5 del audit), no quedar como un detalle discreto de esquina.
+  const fontSize = 56;
   const padding = 28;
+  const y = canvasHeight * HANDLE_Y_RATIO;
 
   ctx.save();
   ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
@@ -740,10 +757,10 @@ function drawHandle(
   ctx.lineJoin = "round";
   ctx.strokeStyle = TEXT_OUTLINE_COLOR;
   ctx.lineWidth = Math.max(TEXT_OUTLINE_MIN_WIDTH, fontSize * TEXT_OUTLINE_WIDTH_RATIO);
-  ctx.strokeText(text, padding, canvasHeight - padding);
+  ctx.strokeText(text, padding, y);
 
   ctx.fillStyle = "#ffffff";
-  ctx.fillText(text, padding, canvasHeight - padding);
+  ctx.fillText(text, padding, y);
   ctx.restore();
 }
 
