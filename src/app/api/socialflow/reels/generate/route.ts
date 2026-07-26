@@ -5,6 +5,8 @@ import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { guardAiAccess } from "@/lib/socialflow/billing/enforce";
 import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
 import { ReelsAgent } from "@/lib/socialflow/reels/ReelsAgent";
+import type { MusicTrackDeps } from "@/lib/socialflow/reels/music-selector";
+import { env } from "@/lib/cf";
 
 // Solo decide la Capa 3 (ReelsAgent) en el servidor y devuelve el ReelsConfig — la
 // Capa 2 (CanvasRenderer, Canvas API + WebCodecs) es tecnología de navegador y no
@@ -46,7 +48,15 @@ export async function POST(request: Request) {
       accountType: session.accountType,
     });
 
-    const config = await new ReelsAgent().run({ imageUrl, profile });
+    // Sin SOCIAL_DB/SOCIAL_MEDIA_R2_PUBLIC_URL (ej. entorno local sin bindings) el Reel
+    // se genera sin música de fondo en vez de fallar — ver sanitizeConfig en ReelsAgent.
+    const cfEnv = env();
+    const music: MusicTrackDeps | undefined =
+      cfEnv?.SOCIAL_DB && cfEnv?.SOCIAL_MEDIA_R2_PUBLIC_URL
+        ? { db: cfEnv.SOCIAL_DB, r2PublicUrl: cfEnv.SOCIAL_MEDIA_R2_PUBLIC_URL }
+        : undefined;
+
+    const config = await new ReelsAgent().run({ imageUrl, profile, music });
 
     return NextResponse.json({ config });
   } catch (error) {

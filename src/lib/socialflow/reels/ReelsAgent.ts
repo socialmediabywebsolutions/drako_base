@@ -11,7 +11,7 @@ import {
   type ReelsTextOverlay,
   type ReelsTextRole,
 } from "./ReelsEngine";
-import { selectMusicTrack } from "./music-selector";
+import { selectMusicTrack, type MusicTrackDeps } from "./music-selector";
 
 // Capa 3 — decide el ReelsConfig (plantilla, efectos, texto animado, duración) a
 // partir del nicho/perfil de marca. Sigue el mismo patrón que StrategyAgent: una base
@@ -300,17 +300,22 @@ function clamp(value: number, min: number, max: number): number {
 // imageUrl/imageUrls/imageSegments/width/height — nunca deben depender de lo que
 // "invente" el modelo (mergeAiStructuredOutput deja que la IA reemplace arrays de
 // strings como imageUrls si los incluye en su respuesta — ver localModel.ts).
-function sanitizeConfig(
+async function sanitizeConfig(
   config: ReelsConfig,
   imageUrl: string,
+  music: MusicTrackDeps | undefined,
   imageUrls?: string[],
   imageSegments?: ReelsImageSegment[],
-): ReelsConfig {
+): Promise<ReelsConfig> {
   const durationSec = clamp(
     Math.round(config.durationSec || REELS_DEFAULTS.minDurationSec),
     REELS_DEFAULTS.minDurationSec,
     REELS_DEFAULTS.maxDurationSec,
   );
+
+  // Sin `music` (D1/R2 no configurados en este entorno) el Reel se genera sin audio,
+  // igual que cuando reel_music_tracks no tiene ninguna pista activa ni en fallback.
+  const musicTrack = music ? await selectMusicTrack(config.template, music) : null;
 
   return {
     ...config,
@@ -321,7 +326,7 @@ function sanitizeConfig(
     height: REELS_DEFAULTS.height,
     fps: clamp(Math.round(config.fps || REELS_DEFAULTS.fps), REELS_DEFAULTS.minFps, REELS_DEFAULTS.maxFps),
     durationSec,
-    musicTrackUrl: selectMusicTrack(config.template),
+    ...(musicTrack ? { musicTrackUrl: musicTrack.url } : {}),
     effects: config.effects.map((e) => ({ ...e, startAt: clamp(e.startAt, 0, durationSec), endAt: clamp(e.endAt, 0, durationSec) })),
     textOverlays: config.textOverlays
       .filter((t) => t.text.trim().length > 0)
@@ -330,8 +335,14 @@ function sanitizeConfig(
 }
 
 export class ReelsAgent {
-  async run(input: { imageUrl: string; imageUrls?: string[]; profile: BrandProfile }): Promise<ReelsConfig> {
-    const { imageUrl, profile } = input;
+  async run(input: {
+    imageUrl: string;
+    imageUrls?: string[];
+    profile: BrandProfile;
+    /** SOCIAL_DB + SOCIAL_MEDIA_R2_PUBLIC_URL — omitir genera el Reel sin audio. */
+    music?: MusicTrackDeps;
+  }): Promise<ReelsConfig> {
+    const { imageUrl, profile, music } = input;
     // Base multi-imagen (PARTE 4): solo se activa con 2+ imágenes — con 0-1, es
     // exactamente el flujo de una sola imagen de siempre (nadie llama a run() con
     // imageUrls todavía; esto es la base del motor, no está conectado a la UI/API aún).
@@ -378,6 +389,6 @@ La duración total (durationSec) debe estar entre ${REELS_DEFAULTS.minDurationSe
       () => base,
     );
 
-    return sanitizeConfig(data, imageUrl, imageUrls, imageSegments);
+    return sanitizeConfig(data, imageUrl, music, imageUrls, imageSegments);
   }
 }
