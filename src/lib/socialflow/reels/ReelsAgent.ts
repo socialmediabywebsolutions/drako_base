@@ -117,6 +117,27 @@ const TEMPLATE_COLOR_GRADE_POOL: Record<ReelsTemplate, ReelsColorGrade[]> = {
   marketing: ["none", "bw"],
 };
 
+// Pools de filmGrain/lightLeak — mismo patrón pool+seed que TEMPLATE_COLOR_GRADE_POOL,
+// pero ORTOGONALES a colorGrade (no compiten por el mismo eje: grano/light leak son
+// aditivos, se pueden combinar con cualquier colorGrade, ej. sepia+grano = look vintage).
+// Mismo criterio de sesgo por plantilla: fitness/education priorizan energía/legibilidad
+// (nunca), lifestyle/motivation tienen más variedad (estética editorial/cinematográfica).
+const TEMPLATE_FILM_GRAIN_POOL: Record<ReelsTemplate, boolean[]> = {
+  fitness: [false, false, false],
+  motivation: [false, false, true],
+  lifestyle: [false, true, true],
+  education: [false, false, false],
+  marketing: [false, false, false],
+};
+
+const TEMPLATE_LIGHT_LEAK_POOL: Record<ReelsTemplate, boolean[]> = {
+  fitness: [false, false, false],
+  motivation: [false, false, true],
+  lifestyle: [false, false, true],
+  education: [false, false, false],
+  marketing: [false, false, false],
+};
+
 const OUTRO_TRANSITION_SEC = 1;
 
 // Pool de transiciones de cierre — antes siempre "blur" fijo, ahora rota entre 3 estilos
@@ -431,8 +452,11 @@ export class ReelsAgent {
 
     // Una sola vez para todo el clip (a diferencia de effects, que se decide por
     // segmento/imagen) — mismo stream que tipografía/CTA, así que el mismo Reel sigue
-    // saliendo siempre igual.
+    // saliendo siempre igual. filmGrain/lightLeak son ortogonales a colorGrade (pools
+    // independientes, se pueden combinar) — ver TEMPLATE_FILM_GRAIN_POOL/TEMPLATE_LIGHT_LEAK_POOL.
     const colorGrade = pickFrom(TEMPLATE_COLOR_GRADE_POOL[template], typographyRandom);
+    const filmGrain = pickFrom(TEMPLATE_FILM_GRAIN_POOL[template], typographyRandom);
+    const lightLeak = pickFrom(TEMPLATE_LIGHT_LEAK_POOL[template], typographyRandom);
 
     const base: ReelsConfig = {
       imageUrl,
@@ -440,6 +464,8 @@ export class ReelsAgent {
       ...(imageSegments ? { imageSegments } : {}),
       template,
       colorGrade,
+      filmGrain,
+      lightLeak,
       effects,
       textOverlays: buildBaseTextOverlays(template, durationSec, profile, typographyRandom),
       durationSec,
@@ -457,12 +483,12 @@ Los efectos ya están calculados y NO deben modificarse — preserva exactamente
 Cada texto animado (textOverlays) debe tener una frase corta y directa EN ESPAÑOL (máximo 6 palabras), relevante para "${profile.niche}" y la marca "${profile.brandIdentity}" — nunca genérica, EXCEPTO el overlay cuyo "role" es "cta": ese campo ya está seleccionado y NO debe modificarse — usa exactamente el valor que recibes en el JSON base.
 La duración total (durationSec) debe estar entre ${REELS_DEFAULTS.minDurationSec} y ${REELS_DEFAULTS.maxDurationSec} segundos.`;
 
-    // "effects"/"imageSegments"/"cta"/"colorGrade" nunca se sobrescriben con lo que
-    // devuelva la IA (ver mergeAiStructuredOutput en localModel.ts) — ya están decididos
-    // por seed antes de esta llamada, precisamente para que dos imágenes distintas den
-    // Reels distintos.
+    // "effects"/"imageSegments"/"cta"/"colorGrade"/"filmGrain"/"lightLeak" nunca se
+    // sobrescriben con lo que devuelva la IA (ver mergeAiStructuredOutput en
+    // localModel.ts) — ya están decididos por seed antes de esta llamada, precisamente
+    // para que dos imágenes distintas den Reels distintos.
     const { data } = await defaultLocalModel.generateStructured<ReelsConfig>(
-      { prompt, protectedKeys: ["effects", "imageSegments", "cta", "colorGrade"] },
+      { prompt, protectedKeys: ["effects", "imageSegments", "cta", "colorGrade", "filmGrain", "lightLeak"] },
       () => base,
     );
 

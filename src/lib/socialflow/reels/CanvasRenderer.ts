@@ -476,6 +476,122 @@ function drawVignetteOverlay(
   ctx.restore();
 }
 
+// Lado del tile de ruido (px) — pequeño a propósito, se repite en pattern sobre todo el
+// canvas (grano fino, no manchas grandes).
+const GRAIN_TILE_SIZE = 128;
+// Cuántos tiles distintos se pre-generan — el grano real "parpadea" frame a frame, pero
+// generar ruido por-píxel EN CADA uno de los ~500-900 frames del clip (getImageData/
+// putImageData, igual de caro que el muestreo de computeSaliencyOffset) sería un coste
+// real por poco beneficio: ciclar entre un puñado de tiles ya generados (ver
+// drawFilmGrainOverlay) da el mismo parpadeo percibido a una fracción del coste.
+const GRAIN_TILE_COUNT = 6;
+const GRAIN_OPACITY = 0.1;
+
+// Un tile de ruido monocromo — Math.random() directo (no seededRandom): a diferencia de
+// colorGrade/filmGrain/lightLeak (cuya decisión ON/OFF sí necesita ser reproducible por
+// imagen, ver ReelsAgent), el patrón de píxeles en sí no necesita determinismo, solo
+// parecer ruido.
+function buildGrainTile(): OffscreenCanvas | HTMLCanvasElement {
+  const tile = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(GRAIN_TILE_SIZE, GRAIN_TILE_SIZE) : document.createElement("canvas");
+  if (!(tile instanceof OffscreenCanvas)) {
+    tile.width = GRAIN_TILE_SIZE;
+    tile.height = GRAIN_TILE_SIZE;
+  }
+  const tileCtx = tile.getContext("2d") as OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
+  const imageData = tileCtx.createImageData(GRAIN_TILE_SIZE, GRAIN_TILE_SIZE);
+  for (let p = 0; p < imageData.data.length; p += 4) {
+    const v = Math.floor(Math.random() * 256);
+    imageData.data[p] = v;
+    imageData.data[p + 1] = v;
+    imageData.data[p + 2] = v;
+    imageData.data[p + 3] = 255;
+  }
+  tileCtx.putImageData(imageData, 0, 0);
+  return tile;
+}
+
+// Calculado UNA VEZ antes del loop de frames (ver su único call site en
+// CanvasRenderer.render) — nunca dentro del loop, mismo criterio que saliencyOffsets.
+function buildGrainTiles(): (OffscreenCanvas | HTMLCanvasElement)[] {
+  return Array.from({ length: GRAIN_TILE_COUNT }, () => buildGrainTile());
+}
+
+// Overlay de grano de película — cicla por índice de frame entre los tiles
+// pre-generados (ver buildGrainTiles) para que el ruido "parpadee" entre frames sin
+// recalcular píxeles en cada uno. "overlay" (no un alpha plano) es el modo de mezcla
+// estándar para grano: oscurece sombras y aclara luces sin lavar el color de la imagen
+// por debajo.
+function drawFilmGrainOverlay(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  tiles: (OffscreenCanvas | HTMLCanvasElement)[],
+  frameIndex: number,
+  canvasWidth: number,
+  canvasHeight: number,
+): void {
+  const tile = tiles[frameIndex % tiles.length];
+  const pattern = ctx.createPattern(tile, "repeat");
+  if (!pattern) return;
+
+  ctx.save();
+  ctx.globalAlpha = GRAIN_OPACITY;
+  ctx.globalCompositeOperation = "overlay";
+  ctx.fillStyle = pattern;
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  ctx.restore();
+}
+
+// Opacidad pico del light leak en el punto más intenso del pulso (mitad del clip) — no
+// más alto: el objetivo es un destello sutil de luz entrando, no lavar la imagen.
+const LIGHT_LEAK_MAX_OPACITY = 0.4;
+// Colores cálidos del destello — opaco en el núcleo, transparente en el borde (mismo
+// patrón de gradiente radial que drawVignetteOverlay, pero aditivo y desde una esquina
+// en vez de sustractivo y centrado).
+const LIGHT_LEAK_COLOR_INNER = "rgba(255, 190, 90, 1)";
+const LIGHT_LEAK_COLOR_OUTER = "rgba(255, 100, 40, 0)";
+
+// Ventana de blend (mitad de durationSec a cada lado) del pulso 0→1→0 del light leak —
+// ver lightLeakEnvelope. No es un valor fijo tipo SEGMENT_FADE_SEC porque aquí la
+// "ventana" es el clip entero: el pulso ocupa toda la duración, no un margen fijo en los
+// bordes de un segmento.
+function lightLeakEnvelope(t: number, durationSec: number): number {
+  const halfDuration = durationSec / 2;
+  const blendIn = easeInOut(clamp(t / halfDuration, 0, 1));
+  const blendOut = easeInOut(clamp((durationSec - t) / halfDuration, 0, 1));
+  return Math.min(blendIn, blendOut);
+}
+
+// Overlay de light leak — "screen" (aditivo, aclara) en vez de "overlay" (grano) o alpha
+// plano (viñeta): así se ve como luz real entrando por una esquina, no como un tinte de
+// color encima de la imagen. `envelope` (0-1, ver lightLeakEnvelope) ya trae la forma
+// completa del pulso a lo largo del clip — aquí solo se escala a la opacidad máxima y se
+// dibuja.
+function drawLightLeakOverlay(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  envelope: number,
+): void {
+  if (envelope <= 0.01) return;
+
+  // Esquina superior derecha — el light leak clásico entra desde un borde del encuadre,
+  // nunca desde el centro (un destello centrado sería más bien un "flash", ver
+  // drawTransitionOverlay, que ya cubre ese caso como transición de cierre).
+  const centerX = canvasWidth * 0.85;
+  const centerY = canvasHeight * 0.08;
+  const radius = Math.max(canvasWidth, canvasHeight) * 0.6;
+
+  const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+  gradient.addColorStop(0, LIGHT_LEAK_COLOR_INNER);
+  gradient.addColorStop(1, LIGHT_LEAK_COLOR_OUTER);
+
+  ctx.save();
+  ctx.globalAlpha = envelope * LIGHT_LEAK_MAX_OPACITY;
+  ctx.globalCompositeOperation = "screen";
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  ctx.restore();
+}
+
 // Ancho de la barra sólida del "wipe" en proporción al canvas — suficientemente ancha
 // para que el barrido se note, sin cubrir instantáneamente todo el frame de golpe.
 const WIPE_BAR_WIDTH_RATIO = 0.55;
@@ -975,6 +1091,9 @@ export class CanvasRenderer implements ReelsRenderer {
     // frames de más abajo (ver computeSaliencyOffset).
     const saliencyOffsets = images.map((img) => computeSaliencyOffset(img, width, height));
 
+    // Igual que saliencyOffsets: calculado UNA VEZ aquí, nunca por frame (ver buildGrainTiles).
+    const grainTiles = config.filmGrain ? buildGrainTiles() : null;
+
     // Devuelve el índice de la imagen que corresponde al instante t (para images[] y
     // saliencyOffsets[] a la vez). Sin imageSegments, siempre 0 — comportamiento idéntico
     // al de antes de multi-imagen.
@@ -1066,6 +1185,8 @@ export class CanvasRenderer implements ReelsRenderer {
         drawImageCover(ctx, images[imageIndex], width, height, transform, saliencyOffsets[imageIndex], config.colorGrade);
       }
       if (config.colorGrade === "vignette") drawVignetteOverlay(ctx, width, height);
+      if (grainTiles) drawFilmGrainOverlay(ctx, grainTiles, i, width, height);
+      if (config.lightLeak) drawLightLeakOverlay(ctx, width, height, lightLeakEnvelope(t, durationSec));
       drawTransitionOverlay(ctx, transform, width, height);
       drawTextOverlays(ctx, config.textOverlays, config.template, t, width, height);
       if (config.handle) drawHandle(ctx, config.handle, width, height);

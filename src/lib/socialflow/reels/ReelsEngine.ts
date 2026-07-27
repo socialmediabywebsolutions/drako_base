@@ -73,6 +73,10 @@ export type ReelsConfig = {
   template: ReelsTemplate;
   /** Decidido por seed en ReelsAgent (mismo patrón que OUTRO_TRANSITION_POOL), fijo para todo el clip. Opcional — sin valor se comporta como "none" (sin cambios, comportamiento idéntico al de antes de este campo). */
   colorGrade?: ReelsColorGrade;
+  /** Ruido de grano superpuesto en todo el clip (ver drawFilmGrainOverlay en CanvasRenderer.ts). Decidido por seed en ReelsAgent, ortogonal a colorGrade (se pueden combinar, ej. sepia+grano = look vintage). Opcional — sin valor equivale a false. */
+  filmGrain?: boolean;
+  /** Destello de luz cálido que "entra y se va" una vez a lo largo del clip (ver drawLightLeakOverlay/lightLeakEnvelope en CanvasRenderer.ts). Decidido por seed en ReelsAgent, ortogonal a colorGrade/filmGrain. Opcional — sin valor equivale a false. */
+  lightLeak?: boolean;
   effects: ReelsEffect[];
   textOverlays: ReelsTextOverlay[];
   durationSec: number;
