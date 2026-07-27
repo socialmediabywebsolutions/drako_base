@@ -75,6 +75,12 @@ function easeInOut(x: number): number {
 
 const SEGMENT_FADE_SEC = 0.3;
 
+// Duración del crossfade entre imágenes en modo multi-imagen (ver crossfadeStateAtTime en
+// render()) — fija, no proporcional a la duración del segmento: los segmentos por imagen
+// van de 2 a 9s según plantilla (TEMPLATE_EFFECT_PROFILE en ReelsAgent.ts), así que 0.4s es
+// siempre una fracción pequeña, sin necesidad de acotarla caso por caso.
+const CROSSFADE_SEC = 0.4;
+
 // Envolvente 0→1→0 en los bordes de cada segmento (0.3s de entrada, 0.3s de salida) para
 // que al pasar de un efecto encadenado al siguiente (no solapados) no haya un salto
 // brusco en la transformación — cada segmento nace y muere en el estado "neutro".
@@ -149,10 +155,14 @@ const EFFECT_OVERSCAN: Partial<Record<ReelsEffect["kind"], number>> = {
   tilt: 1.17,
 };
 
-// Combina todos los efectos activos en el instante t en una única transformación.
-// zoom es multiplicativo (varios zooms se acumulan), pan/rotate/blur son aditivos.
-function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number, height: number): FrameTransform {
-  const transform: FrameTransform = {
+// Estado neutro (sin efecto activo) — es el mismo objeto inicial que computeTransformAtTime
+// arma antes de aplicar cualquier efecto, extraído aparte porque el crossfade (ver
+// crossfadeStateAtTime) lo necesita para la imagen ENTRANTE: durante la ventana de fundido
+// esa imagen todavía no ha llegado a su propio startAt de efectos (sus efectos arrancan
+// justo en el límite del segmento), así que se dibuja en su pose neutra mientras se funde,
+// nunca heredando la transformación de la imagen SALIENTE (ver drawImageCover en render()).
+function neutralTransform(): FrameTransform {
+  return {
     scale: 1,
     translateX: 0,
     translateY: 0,
@@ -162,6 +172,12 @@ function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number
     flashOpacity: 0,
     wipeProgress: null,
   };
+}
+
+// Combina todos los efectos activos en el instante t en una única transformación.
+// zoom es multiplicativo (varios zooms se acumulan), pan/rotate/blur son aditivos.
+function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number, height: number): FrameTransform {
+  const transform: FrameTransform = neutralTransform();
 
   for (const effect of effects) {
     if (t < effect.startAt || t > effect.endAt) continue;
@@ -968,6 +984,25 @@ export class CanvasRenderer implements ReelsRenderer {
       return idx === -1 ? imageSegments.length - 1 : idx;
     }
 
+    // Estado de crossfade en el instante t, o null si no hay ninguno activo (sin
+    // imageSegments, en un frame fuera de ventana, o en el ÚLTIMO segmento — no hay
+    // "imagen siguiente" con la que fundir, ahí sigue aplicando el cierre de
+    // OUTRO_TRANSITION_POOL de siempre, ver ReelsAgent.buildMultiImageEffects). Ventana
+    // fija de CROSSFADE_SEC terminando exactamente en el límite del segmento (el mismo
+    // instante en que imageIndexForTime ya devuelve el índice siguiente), así que fuera
+    // de la ventana el corte a la imagen normal sigue siendo continuo: toAlpha llega a 1
+    // justo cuando el path normal (sin crossfade) empezaría a dibujar solo la imagen B.
+    function crossfadeStateAtTime(t: number): { fromIndex: number; toIndex: number; toAlpha: number } | null {
+      if (!imageSegments) return null;
+      const fromIndex = imageIndexForTime(t);
+      if (fromIndex >= imageSegments.length - 1) return null;
+      const boundary = imageSegments[fromIndex].endAt;
+      const windowStart = boundary - CROSSFADE_SEC;
+      if (t < windowStart) return null;
+      const toAlpha = clamp((t - windowStart) / CROSSFADE_SEC, 0, 1);
+      return { fromIndex, toIndex: fromIndex + 1, toAlpha };
+    }
+
     const canvas = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(width, height) : document.createElement("canvas");
     if (!(canvas instanceof OffscreenCanvas)) {
       canvas.width = width;
@@ -1011,10 +1046,25 @@ export class CanvasRenderer implements ReelsRenderer {
     for (let i = 0; i < totalFrames; i++) {
       const t = i / fps;
       const transform = computeTransformAtTime(config.effects, t, width, height);
-      const imageIndex = imageIndexForTime(t);
+      const crossfade = crossfadeStateAtTime(t);
 
       ctx.clearRect(0, 0, width, height);
-      drawImageCover(ctx, images[imageIndex], width, height, transform, saliencyOffsets[imageIndex], config.colorGrade);
+      if (crossfade) {
+        // Imagen SALIENTE: su transform es el mismo `transform` global de este frame —
+        // sus propios efectos siguen activos hasta boundary=endAt de su segmento, t
+        // todavía no lo cruza (crossfadeStateAtTime solo arranca en la ventana previa).
+        ctx.globalAlpha = 1 - crossfade.toAlpha;
+        drawImageCover(ctx, images[crossfade.fromIndex], width, height, transform, saliencyOffsets[crossfade.fromIndex], config.colorGrade);
+        // Imagen ENTRANTE: sus efectos no arrancan hasta boundary (su propio startAt),
+        // todavía no ha llegado — se dibuja en pose neutra mientras se funde, nunca con
+        // el transform de la saliente (ver neutralTransform).
+        ctx.globalAlpha = crossfade.toAlpha;
+        drawImageCover(ctx, images[crossfade.toIndex], width, height, neutralTransform(), saliencyOffsets[crossfade.toIndex], config.colorGrade);
+        ctx.globalAlpha = 1;
+      } else {
+        const imageIndex = imageIndexForTime(t);
+        drawImageCover(ctx, images[imageIndex], width, height, transform, saliencyOffsets[imageIndex], config.colorGrade);
+      }
       if (config.colorGrade === "vignette") drawVignetteOverlay(ctx, width, height);
       drawTransitionOverlay(ctx, transform, width, height);
       drawTextOverlays(ctx, config.textOverlays, config.template, t, width, height);

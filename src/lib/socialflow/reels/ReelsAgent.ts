@@ -154,13 +154,26 @@ function resolveEffectKind(kind: EffectPoolKind, random: () => number): ReelsEff
 }
 
 // Encadena entre 2 y 4 efectos consecutivos (nunca simultáneos) según el perfil de la
-// plantilla, más el mismo blur de cierre de 1s de siempre. mergeAiStructuredOutput hace
-// merge posicional sobre arrays de objetos, así que la IA puede seguir ajustando
-// kind/intensity/timing de cada segmento, pero la estructura (cuántos, en qué orden)
-// la decide este heurístico con `random` (seededRandom por imagen), no la IA.
-function buildChainedEffects(template: ReelsTemplate, durationSec: number, random: () => number = Math.random): ReelsEffect[] {
+// plantilla, más el mismo blur/flash/wipe de cierre de 1s de siempre — SOLO cuando
+// includeOutro es true. mergeAiStructuredOutput hace merge posicional sobre arrays de
+// objetos, así que la IA puede seguir ajustando kind/intensity/timing de cada segmento,
+// pero la estructura (cuántos, en qué orden) la decide este heurístico con `random`
+// (seededRandom por imagen), no la IA.
+//
+// includeOutro=false (ver buildMultiImageEffects): grupos internos de un Reel
+// multi-imagen ya no llevan blur/flash/wipe de cierre — el corte a la siguiente imagen
+// ahora lo resuelve el crossfade real (ver CROSSFADE_SEC/crossfadeStateAtTime en
+// CanvasRenderer.ts), y blur/flash/wipe + crossfade simultáneos en el mismo corte se
+// pisarían (wipe taparía el blend, flash lo blanquearía) sin aportar nada. Sin reserva de
+// OUTRO_TRANSITION_SEC tampoco: los efectos ocupan el tramo completo del segmento.
+function buildChainedEffects(
+  template: ReelsTemplate,
+  durationSec: number,
+  random: () => number = Math.random,
+  includeOutro: boolean = true,
+): ReelsEffect[] {
   const profile = TEMPLATE_EFFECT_PROFILE[template];
-  const mainDurationSec = Math.max(1, durationSec - OUTRO_TRANSITION_SEC);
+  const mainDurationSec = includeOutro ? Math.max(1, durationSec - OUTRO_TRANSITION_SEC) : durationSec;
   const segmentCount = clamp(Math.round(pickInRange(profile.segmentCount, random)), 2, 4);
 
   const segments: ReelsEffect[] = [];
@@ -190,6 +203,10 @@ function buildChainedEffects(template: ReelsTemplate, durationSec: number, rando
     cursor += segDuration;
   }
 
+  if (!includeOutro) {
+    return segments;
+  }
+
   const outroKind = pickFrom(OUTRO_TRANSITION_POOL, random);
   const outro: ReelsEffect = { kind: outroKind, startAt: Math.max(0, durationSec - OUTRO_TRANSITION_SEC), endAt: durationSec, intensity: 0.4 };
 
@@ -199,11 +216,13 @@ function buildChainedEffects(template: ReelsTemplate, durationSec: number, rando
 // PARTE 4 (base multi-imagen): un grupo de segmentos independiente por imagen, cada uno
 // con su propio seed (misma imagen → mismos efectos siempre, imagen distinta → efectos
 // distintos), concatenados y desplazados en el tiempo para cubrir su propio tramo del
-// clip. buildChainedEffects ya añade su propia transición de cierre a cada grupo (1s antes
-// de cortar a la siguiente imagen, rotando entre blur/flash/wipe — ver OUTRO_TRANSITION_POOL),
-// así que el corte entre imágenes sale con variedad sin lógica adicional aquí. CanvasRenderer
-// usa imageSegments para saber qué imagen dibujar en cada tramo (ver CanvasRenderer.render →
-// imageForTime).
+// clip. Solo el ÚLTIMO grupo lleva blur/flash/wipe de cierre (includeOutro=true) — es el
+// cierre real del clip completo, donde no hay "imagen siguiente" con la que hacer
+// crossfade. Los cortes INTERNOS entre imágenes ya no llevan ese cierre (includeOutro=
+// false): los resuelve el crossfade real de CanvasRenderer.ts (ver CROSSFADE_SEC), que
+// sustituye por completo al antiguo blur/flash/wipe rotado en esos cortes. CanvasRenderer
+// usa imageSegments para saber qué imagen dibujar en cada tramo (ver CanvasRenderer.render
+// → imageIndexForTime/crossfadeStateAtTime).
 function buildMultiImageEffects(
   template: ReelsTemplate,
   durationSec: number,
@@ -214,9 +233,10 @@ function buildMultiImageEffects(
   const imageSegments: ReelsImageSegment[] = [];
 
   imageUrls.forEach((url, i) => {
+    const isLastImage = i === imageUrls.length - 1;
     const segStart = i * perImageDuration;
-    const segEnd = i === imageUrls.length - 1 ? durationSec : (i + 1) * perImageDuration;
-    const groupEffects = buildChainedEffects(template, segEnd - segStart, seededRandom(url));
+    const segEnd = isLastImage ? durationSec : (i + 1) * perImageDuration;
+    const groupEffects = buildChainedEffects(template, segEnd - segStart, seededRandom(url), isLastImage);
     for (const effect of groupEffects) {
       effects.push({
         ...effect,
