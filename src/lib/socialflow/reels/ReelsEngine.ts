@@ -56,6 +56,13 @@ export type ReelsImageSegment = {
   endAt: number;
 };
 
+/**
+ * Filtro de color aplicado a todo el clip (ver drawImageCover/drawVignetteOverlay en
+ * CanvasRenderer.ts). "none" es el default — bw/sepia se dibujan como ctx.filter,
+ * vignette como overlay de gradiente radial (no existe filtro CSS de viñeta).
+ */
+export type ReelsColorGrade = "none" | "bw" | "sepia" | "vignette";
+
 export type ReelsConfig = {
   /** URL pública HTTPS de la imagen origen (misma que ya sube CampaignPhotoUpload/UploadToPost a R2). */
   imageUrl: string;
@@ -64,6 +71,8 @@ export type ReelsConfig = {
   /** Derivado por ReelsAgent a partir de imageUrls — qué imagen se dibuja en qué tramo del clip. Solo presente si imageUrls tiene 2+ entradas. */
   imageSegments?: ReelsImageSegment[];
   template: ReelsTemplate;
+  /** Decidido por seed en ReelsAgent (mismo patrón que OUTRO_TRANSITION_POOL), fijo para todo el clip. Opcional — sin valor se comporta como "none" (sin cambios, comportamiento idéntico al de antes de este campo). */
+  colorGrade?: ReelsColorGrade;
   effects: ReelsEffect[];
   textOverlays: ReelsTextOverlay[];
   durationSec: number;

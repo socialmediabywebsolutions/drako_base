@@ -1,5 +1,5 @@
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
-import type { ReelsConfig, ReelsEffect, ReelsProgressCallback, ReelsRenderer, ReelsTemplate, ReelsTextOverlay, ReelsTextRole } from "./ReelsEngine";
+import type { ReelsColorGrade, ReelsConfig, ReelsEffect, ReelsProgressCallback, ReelsRenderer, ReelsTemplate, ReelsTextOverlay, ReelsTextRole } from "./ReelsEngine";
 
 // Reexportado tal cual desde mp4-muxer — necesitamos el tipo concreto para pasar el
 // Muxer ya construido (con pista de audio o sin ella) a encodeAudioTrack.
@@ -231,6 +231,24 @@ function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number
   return transform;
 }
 
+// Intensidad fija de bw/sepia como ctx.filter — a diferencia del blur de efectos (que
+// varía con transform.blurPx), colorGrade es una decisión estática de todo el clip
+// (ver ReelsAgent.TEMPLATE_COLOR_GRADE_POOL), así que no necesita variar por frame.
+const BW_FILTER = "grayscale(1)";
+const SEPIA_FILTER = "sepia(0.75)";
+
+// Compone el filtro de blur (por-frame, viene de efectos) con el de colorGrade
+// (estático, viene de ReelsConfig) en un único string — ctx.filter admite varias
+// funciones CSS encadenadas con espacio. "vignette" no genera nada aquí: no existe un
+// filtro CSS de viñeta, se dibuja como overlay aparte (ver drawVignetteOverlay).
+function buildImageFilter(blurPx: number, colorGrade: ReelsColorGrade | undefined): string {
+  const parts: string[] = [];
+  if (blurPx > 0.5) parts.push(`blur(${blurPx.toFixed(1)}px)`);
+  if (colorGrade === "bw") parts.push(BW_FILTER);
+  if (colorGrade === "sepia") parts.push(SEPIA_FILTER);
+  return parts.length > 0 ? parts.join(" ") : "none";
+}
+
 // Dibuja la imagen ya cargada rellenando el canvas ("cover"). `focalOffset` (ver
 // computeSaliencyOffset) desplaza el centrado base hacia la zona con más detalle del eje
 // que el cover recorta — se SUMA a transform.translateX/Y, nunca lo reemplaza, así que
@@ -242,13 +260,14 @@ function drawImageCover(
   canvasHeight: number,
   transform: FrameTransform,
   focalOffset: FocalOffset,
+  colorGrade: ReelsColorGrade | undefined,
 ): void {
   const coverScale = Math.max(canvasWidth / image.width, canvasHeight / image.height) * transform.overscan;
   const drawWidth = image.width * coverScale * transform.scale;
   const drawHeight = image.height * coverScale * transform.scale;
 
   ctx.save();
-  ctx.filter = transform.blurPx > 0.5 ? `blur(${transform.blurPx.toFixed(1)}px)` : "none";
+  ctx.filter = buildImageFilter(transform.blurPx, colorGrade);
   ctx.translate(
     canvasWidth / 2 + transform.translateX + focalOffset.offsetX,
     canvasHeight / 2 + transform.translateY + focalOffset.offsetY,
@@ -408,6 +427,37 @@ function computeSaliencyOffset(image: ImageBitmap, canvasWidth: number, canvasHe
     console.warn("[CanvasRenderer] No se pudo calcular el offset de saliencia; se usa centrado normal.", err);
     return NEUTRAL_FOCAL_OFFSET;
   }
+}
+
+// Radio (fracción del radio máximo, la diagonal centro-esquina) donde empieza a
+// oscurecer — dentro de este radio el centro queda intacto, sin oscurecer el sujeto.
+const VIGNETTE_INNER_RADIUS_RATIO = 0.35;
+// Opacidad del negro en el borde extremo (esquinas) — no 1.0 a propósito: se busca un
+// viñeteado sutil tipo "encuadre", no ocultar contenido en las esquinas.
+const VIGNETTE_MAX_OPACITY = 0.55;
+
+// Overlay de viñeta — activo en TODOS los frames del clip por igual (a diferencia de
+// flash/wipe, que son transiciones puntuales de cierre), ver colorGrade === "vignette".
+// No es un ctx.filter (no existe filtro CSS de viñeta): gradiente radial negro
+// transparente-en-el-centro / opaco-en-los-bordes dibujado sobre la imagen ya compuesta.
+function drawVignetteOverlay(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+): void {
+  const centerX = canvasWidth / 2;
+  const centerY = canvasHeight / 2;
+  const outerRadius = Math.sqrt(centerX * centerX + centerY * centerY);
+  const innerRadius = outerRadius * VIGNETTE_INNER_RADIUS_RATIO;
+
+  const gradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, outerRadius);
+  gradient.addColorStop(0, "rgba(0,0,0,0)");
+  gradient.addColorStop(1, `rgba(0,0,0,${VIGNETTE_MAX_OPACITY})`);
+
+  ctx.save();
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  ctx.restore();
 }
 
 // Ancho de la barra sólida del "wipe" en proporción al canvas — suficientemente ancha
@@ -964,7 +1014,8 @@ export class CanvasRenderer implements ReelsRenderer {
       const imageIndex = imageIndexForTime(t);
 
       ctx.clearRect(0, 0, width, height);
-      drawImageCover(ctx, images[imageIndex], width, height, transform, saliencyOffsets[imageIndex]);
+      drawImageCover(ctx, images[imageIndex], width, height, transform, saliencyOffsets[imageIndex], config.colorGrade);
+      if (config.colorGrade === "vignette") drawVignetteOverlay(ctx, width, height);
       drawTransitionOverlay(ctx, transform, width, height);
       drawTextOverlays(ctx, config.textOverlays, config.template, t, width, height);
       if (config.handle) drawHandle(ctx, config.handle, width, height);

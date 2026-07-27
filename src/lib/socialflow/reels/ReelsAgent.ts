@@ -2,6 +2,7 @@ import { defaultLocalModel } from "../ai/models/localModel";
 import type { BrandProfile } from "../ai/types";
 import {
   REELS_DEFAULTS,
+  type ReelsColorGrade,
   type ReelsConfig,
   type ReelsEffect,
   type ReelsEffectKind,
@@ -100,6 +101,20 @@ const TEMPLATE_EFFECT_PROFILE: Record<ReelsTemplate, EffectProfile> = {
 // intensityRange de la plantilla solo cuando el efecto elegido para el segmento es drift.
 const EFFECT_INTENSITY_OVERRIDE: Partial<Record<ReelsEffectKind, [min: number, max: number]>> = {
   drift: [0.05, 0.15],
+};
+
+// Pool de color grading por plantilla, mismo patrón pool+seed que OUTRO_TRANSITION_POOL
+// pero decidido UNA VEZ para todo el clip (no por segmento/efecto) — es una decisión
+// estética del Reel completo, no una transición puntual. Sesgado hacia "none" en todas
+// las plantillas para que el filtro sea la excepción, no la norma; fitness/education
+// priorizan energía/legibilidad (solo "none"), lifestyle/marketing tienen más variedad
+// (estética más "editorial" encaja mejor con esos nichos).
+const TEMPLATE_COLOR_GRADE_POOL: Record<ReelsTemplate, ReelsColorGrade[]> = {
+  fitness: ["none", "none", "none"],
+  motivation: ["none", "none", "vignette"],
+  lifestyle: ["none", "sepia", "vignette"],
+  education: ["none", "none"],
+  marketing: ["none", "bw"],
 };
 
 const OUTRO_TRANSITION_SEC = 1;
@@ -394,11 +409,17 @@ export class ReelsAgent {
       ? buildMultiImageEffects(template, durationSec, imageUrls)
       : { effects: buildChainedEffects(template, durationSec, seededRandom(imageUrl)), imageSegments: undefined };
 
+    // Una sola vez para todo el clip (a diferencia de effects, que se decide por
+    // segmento/imagen) — mismo stream que tipografía/CTA, así que el mismo Reel sigue
+    // saliendo siempre igual.
+    const colorGrade = pickFrom(TEMPLATE_COLOR_GRADE_POOL[template], typographyRandom);
+
     const base: ReelsConfig = {
       imageUrl,
       ...(imageUrls ? { imageUrls } : {}),
       ...(imageSegments ? { imageSegments } : {}),
       template,
+      colorGrade,
       effects,
       textOverlays: buildBaseTextOverlays(template, durationSec, profile, typographyRandom),
       durationSec,
@@ -416,11 +437,12 @@ Los efectos ya están calculados y NO deben modificarse — preserva exactamente
 Cada texto animado (textOverlays) debe tener una frase corta y directa EN ESPAÑOL (máximo 6 palabras), relevante para "${profile.niche}" y la marca "${profile.brandIdentity}" — nunca genérica, EXCEPTO el overlay cuyo "role" es "cta": ese campo ya está seleccionado y NO debe modificarse — usa exactamente el valor que recibes en el JSON base.
 La duración total (durationSec) debe estar entre ${REELS_DEFAULTS.minDurationSec} y ${REELS_DEFAULTS.maxDurationSec} segundos.`;
 
-    // "effects"/"imageSegments"/"cta" nunca se sobrescriben con lo que devuelva la IA
-    // (ver mergeAiStructuredOutput en localModel.ts) — ya están decididos por seed antes
-    // de esta llamada, precisamente para que dos imágenes distintas den Reels distintos.
+    // "effects"/"imageSegments"/"cta"/"colorGrade" nunca se sobrescriben con lo que
+    // devuelva la IA (ver mergeAiStructuredOutput en localModel.ts) — ya están decididos
+    // por seed antes de esta llamada, precisamente para que dos imágenes distintas den
+    // Reels distintos.
     const { data } = await defaultLocalModel.generateStructured<ReelsConfig>(
-      { prompt, protectedKeys: ["effects", "imageSegments", "cta"] },
+      { prompt, protectedKeys: ["effects", "imageSegments", "cta", "colorGrade"] },
       () => base,
     );
 
