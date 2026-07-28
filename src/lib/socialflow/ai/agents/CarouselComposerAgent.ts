@@ -83,6 +83,7 @@ function fallbackSlideText(
   profile: BrandProfile,
   openerCategory: OpenerCategory,
   specificContext: string,
+  topic?: string,
 ): string {
   if (role === "intro") {
     return OPENERS_BY_CATEGORY[openerCategory]?.[0] ?? `Esto es lo que necesitas saber sobre ${profile.niche}.`;
@@ -90,7 +91,40 @@ function fallbackSlideText(
   if (role === "cierre_cta") {
     return resolveObjectiveCta(profile) || profile.primaryCTA || "Guarda este post y cuéntanos qué opinas en los comentarios.";
   }
-  return specificContext || `Un detalle importante sobre ${profile.niche}.`;
+  // specificContext viene vacío en modo "Crear con IA" (ver resolveSlidePlan) — ahí el
+  // fallback se apoya en el tema declarado en vez del detalle visual de una foto que no existe.
+  return specificContext || (topic ? `Un punto clave sobre ${topic}.` : `Un detalle importante sobre ${profile.niche}.`);
+}
+
+// Fase 7 — modo "Crear con IA" (sin fotos): cuántos slides generar cuando no hay
+// slideContexts real. Acotado al mismo rango que ya permite cualquier carrusel
+// (CAROUSEL_MIN_ITEMS/CAROUSEL_MAX_ITEMS en meta/publishing.ts) — duplicado aquí como
+// límite numérico simple para no acoplar este agente a ese módulo.
+const DEFAULT_TOPIC_SLIDE_COUNT = 5;
+const MIN_TOPIC_SLIDE_COUNT = 2;
+const MAX_TOPIC_SLIDE_COUNT = 10;
+
+function clampSlideCount(count: number): number {
+  return Math.min(MAX_TOPIC_SLIDE_COUNT, Math.max(MIN_TOPIC_SLIDE_COUNT, Math.round(count)));
+}
+
+// Resuelve el plan de slides según el modo: "Subir imágenes" (slideContexts ya viene
+// poblado desde N fotos analizadas, se usa tal cual) o "Crear con IA" (Fase 7,
+// slideContexts ausente/vacío — se generan `slideCount` slides con specificContext
+// vacío; ni el prompt ni fallbackSlideText anclan nada en detalle visual cuando
+// hasPhotos es false, ver su uso en run()).
+function resolveSlidePlan(input: {
+  slideContexts?: { order: number; specificContext: string }[];
+  slideCount?: number;
+}): { slideContexts: { order: number; specificContext: string }[]; hasPhotos: boolean } {
+  if (input.slideContexts && input.slideContexts.length > 0) {
+    return { slideContexts: input.slideContexts, hasPhotos: true };
+  }
+  const total = clampSlideCount(input.slideCount ?? DEFAULT_TOPIC_SLIDE_COUNT);
+  return {
+    slideContexts: Array.from({ length: total }, (_, i) => ({ order: i, specificContext: "" })),
+    hasPhotos: false,
+  };
 }
 
 export class CarouselComposerAgent {
@@ -99,14 +133,28 @@ export class CarouselComposerAgent {
     keywordEngine: KeywordEngineOutput;
     trends: TrendInsights;
     openerCategory: OpenerCategory;
-    // Una entrada por foto, en el mismo orden en que el cliente las subió — viene de
-    // N llamadas paralelas a ImageAnalysisAgent (Opción A ya acordada).
-    slideContexts: { order: number; specificContext: string }[];
+    // Modo "Subir imágenes": una entrada por foto, en el mismo orden en que el cliente
+    // las subió — viene de N llamadas paralelas a ImageAnalysisAgent (Opción A ya
+    // acordada). Modo "Crear con IA" (Fase 7): se omite o se pasa vacío — ver
+    // topic/slideCount y resolveSlidePlan.
+    slideContexts?: { order: number; specificContext: string }[];
+    // SOLO modo "Crear con IA" (slideContexts vacío/ausente) — tema elegido por el
+    // cliente, o decidido aguas arriba según KB+nicho. Se ignora si slideContexts trae
+    // datos (ahí el ancla es el detalle visual de cada foto, no un tema declarado).
+    topic?: string;
+    // SOLO modo "Crear con IA" — cuántos slides generar (2-10, default 5). Se ignora
+    // si slideContexts trae datos (ahí total = slideContexts.length, como siempre).
+    slideCount?: number;
   }): Promise<CarouselComposition> {
-    const { profile, keywordEngine, openerCategory, slideContexts } = input;
+    const { profile, keywordEngine, openerCategory } = input;
     const isEmpresa = profile.accountType === "empresa";
+    const { slideContexts, hasPhotos } = resolveSlidePlan(input);
     const total = slideContexts.length;
     const objectiveCta = resolveObjectiveCta(profile);
+    // Nicho + KB (profile.contentPillars ya viene del KB del cliente, igual que en el
+    // resto de agentes) + tema explícito si lo trajo el cliente — mismo criterio de
+    // prioridad que usa el resto del pipeline para decidir "de dónde sale el ángulo".
+    const resolvedTopic = input.topic?.trim() || profile.contentPillars[0] || profile.niche;
 
     const hashtagPool = [
       ...(profile.baseHashtags ?? []),
@@ -120,20 +168,32 @@ export class CarouselComposerAgent {
       openerCategory,
       slides: slideContexts.map((s, i) => {
         const role = roleForIndex(i, total);
-        const text = fallbackSlideText(role, profile, openerCategory, s.specificContext);
+        const text = fallbackSlideText(role, profile, openerCategory, s.specificContext, resolvedTopic);
         return { order: s.order, role, text: clampSlideText(text, role) };
       }),
       hashtags: uniqueHashtags,
       tone: profile.toneOfVoice,
     };
 
-    const slideContextLines = slideContexts
-      .map((s, i) => `Slide ${i + 1} (${roleForIndex(i, total)}): "${s.specificContext}"`)
-      .join("\n");
+    // Solo tiene sentido en modo foto — en modo "Crear con IA" no hay detalle visual
+    // que listar (specificContext viene vacío para todos los slides, ver
+    // resolveSlidePlan); listarlas igual solo metería ruido vacío en el prompt.
+    const slideContextLines = hasPhotos
+      ? slideContexts.map((s, i) => `Slide ${i + 1} (${roleForIndex(i, total)}): "${s.specificContext}"`).join("\n")
+      : "";
 
     const cierreCtaInstruction = objectiveCta
       ? `- Último slide (cierre_cta): este slide YA tiene su call-to-action fijo ("${objectiveCta}") — no lo reescribas, el JSON base que recibirás ya lo trae listo para ese slide.`
       : `- Último slide (cierre_cta): cierre + llamada a la acción (${profile.primaryCTA || "invita a comentar o guardar el post"}). MÁXIMO ${CAROUSEL_SLIDE_TEXT_LIMITS.cierre_cta} caracteres.`;
+
+    // Único bloque que difiere de verdad entre los dos modos: con fotos, el texto de
+    // cada slide se ancla en su detalle visual real (nunca inventar un dato que no esté
+    // ahí); sin fotos (Fase 7), no hay nada que anclar — el ancla pasa a ser el tema
+    // declarado, y ahí el modelo SÍ tiene que aportar el contenido educativo (no hay
+    // "detalle" del que tirar).
+    const contentAnchorInstruction = hasPhotos
+      ? `Cada slide corresponde a una foto ya analizada. Ancla el texto de CADA slide en su propio detalle visual — NUNCA inventes un dato que no esté en el detalle:\n${slideContextLines}`
+      : `No hay fotos — este carrusel es 100% generado. Desarrolla el tema "${resolvedTopic}" con un punto educativo concreto y distinto por slide (nunca repitas la misma idea en dos slides, nunca dejes un slide vacío de contenido real).`;
 
     const prompt = `Escribe el texto de un carrusel educativo de Instagram sobre "${profile.niche}" para la marca "${profile.brandIdentity}", con exactamente ${total} slides, EN ESPAÑOL.
 
@@ -143,12 +203,11 @@ ${isEmpresa
 ${profile.voiceInstruction ? `${profile.voiceInstruction}\n` : ""}
 Categoría del carrusel: "${openerCategory}" — todo el carrusel debe sonar coherente con este ángulo (ej. si es "receta", las ${total} tarjetas narran una receta paso a paso; si es "tecnica", una técnica de ejecución).
 
-Cada slide corresponde a una foto ya analizada. Ancla el texto de CADA slide en su propio detalle visual — NUNCA inventes un dato que no esté en el detalle:
-${slideContextLines}
+${contentAnchorInstruction}
 
 Estructura narrativa obligatoria:
 - Slide 1 (intro): gancho corto que abra el tema. MÁXIMO ${CAROUSEL_SLIDE_TEXT_LIMITS.intro} caracteres.
-- Slides intermedios (desarrollo, si los hay): un punto educativo concreto por slide, anclado en su propio detalle visual. MÁXIMO ${CAROUSEL_SLIDE_TEXT_LIMITS.desarrollo} caracteres cada uno.
+- Slides intermedios (desarrollo, si los hay): un punto educativo concreto por slide${hasPhotos ? ", anclado en su propio detalle visual" : ` sobre "${resolvedTopic}"`}. MÁXIMO ${CAROUSEL_SLIDE_TEXT_LIMITS.desarrollo} caracteres cada uno.
 ${cierreCtaInstruction}
 
 Genera también entre 10 y 15 hashtags relevantes para el carrusel completo.

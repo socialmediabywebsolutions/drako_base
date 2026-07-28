@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import PublishCarrusel from "./publish-carrusel";
+import AiCarouselCreator from "./AiCarouselCreator";
 
 // Selector de modo para /socialflow/carrusel — mismo patrón que PublicarSelector
 // (src/components/socialflow/publicar-selector.tsx): tarjetas → vuelve al elegir.
 type CarruselMode = "subir" | "ia";
 
-const MODE_CARDS: { id: CarruselMode; icon: string; title: string; description: string; comingSoon?: boolean }[] = [
+const MODE_CARDS: { id: CarruselMode; icon: string; title: string; description: string }[] = [
   { id: "subir", icon: "📸", title: "Subir imágenes", description: "Sube tus fotos y la IA genera el texto de cada slide." },
-  { id: "ia", icon: "✨", title: "Crear con IA", description: "La IA genera texto e imagen — sin necesidad de subir fotos.", comingSoon: true },
+  { id: "ia", icon: "✨", title: "Crear con IA", description: "La IA genera texto e imagen — sin necesidad de subir fotos." },
 ];
 
 export default function CarruselSelector({ saasId, maxSlides }: { saasId: string; maxSlides: number }) {
@@ -40,13 +41,7 @@ export default function CarruselSelector({ saasId, maxSlides }: { saasId: string
         >
           <span aria-hidden>←</span> Volver
         </button>
-        <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-white/15 bg-white/3 px-6 py-20 text-center">
-          <span className="text-4xl">✨</span>
-          <p className="text-lg font-black text-white">Próximamente</p>
-          <p className="max-w-sm text-sm text-white/50">
-            La generación de carruseles 100% con IA (sin subir fotos) está en desarrollo.
-          </p>
-        </div>
+        <AiCarouselCreator saasId={saasId} maxSlides={maxSlides} />
       </div>
     );
   }
@@ -76,11 +71,6 @@ export default function CarruselSelector({ saasId, maxSlides }: { saasId: string
             <span className="text-4xl">{card.icon}</span>
             <span className="flex items-center gap-2 text-lg font-black text-white">
               {card.title}
-              {card.comingSoon && (
-                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/40">
-                  Próximamente
-                </span>
-              )}
             </span>
             <span className="text-sm text-white/50">{card.description}</span>
           </button>
