@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
+import { CAROUSEL_MIN_ITEMS } from "@/lib/socialflow/meta/publishing";
 
 // Shared upload/analyze/finalize/approve pipeline behind CampaignPhotoUpload (legacy "Subir fotos"
 // button, autoProcess: true — analiza cada foto en cuanto se sube, sin cambios de comportamiento)
@@ -14,6 +15,10 @@ export type ContentCategory = "foto_real" | "grafico_texto";
 // presente) — puede aprobarse por el flujo normal. Un item "ready" con
 // editContentType "REEL" pero sin reelVideoUrl nunca es aprobable (ver approveItem).
 export type ItemStep = "uploading" | "uploaded" | "analyzing" | "ready" | "reel_ready" | "saving" | "saved" | "error";
+
+// Slide ya resuelto por CarouselComposerAgent (ver suggestedCarouselPosts en
+// photos/route.ts) — imageUrl es la URL R2 de una de las fotos miembro del grupo.
+export type CarouselSlideDraft = { order: number; imageUrl: string; text: string; role: string };
 
 export type UploadItem = {
   id: string;
@@ -34,6 +39,12 @@ export type UploadItem = {
   editContentType: string;
   editProvider: string;
   savedAt: string | null;
+  // Presentes SOLO si este item representa un grupo CAROUSEL (N fotos agrupadas en 1
+  // post, ver finalizeCarouselGroup) — ausentes en items normales de 1 foto = 1 post.
+  // El item de grupo reemplaza en `items` a las N fotos miembro que lo componen (mismo
+  // patrón "1 entrada = 1 publicación" que ya usan las demás cuentas del hook).
+  carouselSlideCount?: number;
+  carouselSlides?: CarouselSlideDraft[];
 };
 
 export const CONTENT_TYPE_LABELS: Record<string, string> = { FEED: "Feed", REEL: "Reel", STORY: "Story" };
@@ -68,6 +79,29 @@ export function interleaveByCategory<T extends { contentCategory: ContentCategor
   }
   return merged;
 }
+
+// Réplica cliente EXACTA de pickContentTypeFromMix en photos/route.ts — misma fórmula,
+// determinista sobre el mismo índice. Necesaria para saber ANTES de llamar a finalize
+// qué fotos caerán en CAROUSEL (el servidor solo la aplica dentro de la generación
+// singular de post, demasiado tarde para agrupar — ver auditoría previa). Si algún día
+// diverge del servidor, el peor caso es agrupar/no agrupar de más — el servidor sigue
+// siendo la autoridad final (isCarouselRequest revalida CAROUSEL_MIN_ITEMS él solo).
+function pickContentTypeFromMix(
+  index: number,
+  counts: { FEED: number; REEL: number; STORY: number; CAROUSEL: number },
+): "FEED" | "REEL" | "STORY" | "CAROUSEL" | null {
+  const total = counts.FEED + counts.REEL + counts.STORY + counts.CAROUSEL;
+  if (total <= 0) return null;
+  const position = index % total;
+  if (position < counts.FEED) return "FEED";
+  if (position < counts.FEED + counts.REEL) return "REEL";
+  if (position < counts.FEED + counts.REEL + counts.STORY) return "STORY";
+  return "CAROUSEL";
+}
+
+// Forma común a analyzePhoto/finalizePhoto/finalizeCarouselGroup — una foto ya subida y
+// analizada, lista para pasar a la fase de generación (individual o agrupada).
+type AnalyzedPhoto = { id: string; r2Url: string; r2Key: string; imageAnalysis: ImageAnalysis; batchIndex: number };
 
 type UseCampaignPhotoBatchArgs = {
   campaignId: string;
@@ -169,7 +203,7 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
   }
 
   async function finalizePhoto(
-    item: { id: string; r2Url: string; r2Key: string; imageAnalysis: ImageAnalysis; batchIndex: number },
+    item: AnalyzedPhoto,
     scheduleIndex: number,
   ): Promise<void> {
     try {
@@ -207,6 +241,163 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
     }
   }
 
+  // Cuenta real de la mezcla de la campaña (postCount/reelCount/historiaCount/
+  // carouselCount) — necesaria para pickContentTypeFromMix. campaigns-board.tsx ya la
+  // tiene en memoria (createdCampaign) pero no se la pasa al hook; en vez de forzar un
+  // cambio ahí, el hook la pide ella misma por campaignId/saasId (ambos ya son
+  // argumentos existentes de useCampaignPhotoBatch). Fallo silencioso a "sin mix" (todo
+  // 0): si la campaña no aparece en la lista o la request falla, pickContentTypeFromMix
+  // nunca devuelve CAROUSEL y el flujo cae exactamente al camino FEED/REEL/STORY de
+  // siempre — cero regresión si esto falla.
+  async function fetchCarouselMix(): Promise<{ FEED: number; REEL: number; STORY: number; CAROUSEL: number }> {
+    const empty = { FEED: 0, REEL: 0, STORY: 0, CAROUSEL: 0 };
+    try {
+      const res = await fetch(`/api/socialflow/campaigns?saasId=${encodeURIComponent(saasId)}`);
+      if (!res.ok) return empty;
+      const data = (await res.json()) as {
+        items?: Array<{ id: string; postCount?: number; reelCount?: number; historiaCount?: number; carouselCount?: number }>;
+      };
+      const campaign = data.items?.find((c) => c.id === campaignId);
+      if (!campaign) return empty;
+      return {
+        FEED: campaign.postCount ?? 0,
+        REEL: campaign.reelCount ?? 0,
+        STORY: campaign.historiaCount ?? 0,
+        CAROUSEL: campaign.carouselCount ?? 0,
+      };
+    } catch {
+      return empty;
+    }
+  }
+
+  // Una sola llamada agrupada para TODAS las fotos que el mix asignó a CAROUSEL en este
+  // lote — el servidor internamente las trocea en lotes de maxSlides (chunkCarouselPhotos
+  // en photos/route.ts) y puede devolver más de un post si el grupo es más grande que un
+  // carrusel. Cada post recibido reemplaza a sus fotos miembro en `items` por UNA sola
+  // tarjeta (ver carouselSlideCount/carouselSlides en UploadItem) — "un carrusel = 1
+  // publicación", igual que el resto del hook trata cualquier otro item.
+  async function finalizeCarouselGroup(members: AnalyzedPhoto[], scheduleIndex: number): Promise<void> {
+    try {
+      const res = await fetch(`/api/socialflow/campaigns/${campaignId}/photos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageUrls: members.map((m) => m.r2Url),
+          imageKeys: members.map((m) => m.r2Key),
+          imageAnalyses: members.map((m) => m.imageAnalysis),
+          saasId,
+          scheduleIndex,
+        }),
+      });
+      const data = (await res.json()) as {
+        suggestedCarouselPosts?: {
+          title: string; body: string; hashtags: string[]; provider: string;
+          scheduledAt: string; slides: CarouselSlideDraft[];
+        }[];
+        failedGroups?: { failedSlides: { imageKey: string; message: string }[] }[];
+        skippedImages?: { imageKey: string }[];
+        code?: string; message?: string;
+      };
+      // Fallo total (ej. CAROUSEL_BATCH_FAILED, 422, sin ningún post generado) — se trata
+      // como error uniforme para todo el grupo, igual que cualquier otro catch de este
+      // hook. Un fallo PARCIAL (algunos posts sí, otros no) NO entra aquí — res.ok sigue
+      // siendo true mientras haya al menos un post en suggestedCarouselPosts.
+      if (!res.ok && !data.suggestedCarouselPosts) {
+        throw new Error(data.message ?? data.code ?? "Error al generar el carrusel.");
+      }
+
+      // Fotos reportadas explícitamente como problema (análisis fallido dentro de su
+      // lote, o resto final por debajo de CAROUSEL_MIN_ITEMS) — mensaje específico en vez
+      // del genérico de más abajo.
+      const problemMessageByKey = new Map<string, string>();
+      for (const group of data.failedGroups ?? []) {
+        for (const slide of group.failedSlides) problemMessageByKey.set(slide.imageKey, slide.message);
+      }
+      for (const skipped of data.skippedImages ?? []) {
+        if (!problemMessageByKey.has(skipped.imageKey)) {
+          problemMessageByKey.set(skipped.imageKey, "Grupo de carrusel incompleto (muy pocas fotos para formar un lote).");
+        }
+      }
+
+      // Cada post consume las fotos cuyo slide.imageUrl coincide con su r2Url — así se
+      // reconstruye la pertenencia sin depender de conocer maxSlides en el cliente (el
+      // servidor trocea con un límite que el cliente no tiene por qué conocer).
+      const consumedIds = new Set<string>();
+      const newGroupItems: UploadItem[] = [];
+      for (const post of data.suggestedCarouselPosts ?? []) {
+        const postMembers = post.slides
+          .map((slide) => members.find((m) => m.r2Url === slide.imageUrl))
+          .filter((m): m is AnalyzedPhoto => !!m);
+        if (postMembers.length === 0) continue;
+        postMembers.forEach((m) => consumedIds.add(m.id));
+
+        const orderedSlides = [...post.slides].sort((a, b) => a.order - b.order);
+        const cover = items.find((i) => i.id === postMembers[0].id);
+        if (!cover) continue;
+
+        newGroupItems.push({
+          ...cover,
+          id: crypto.randomUUID(),
+          r2Url: orderedSlides[0]?.imageUrl ?? cover.r2Url,
+          step: "ready",
+          error: null,
+          editBody: post.body,
+          editHashtags: post.hashtags,
+          editDate: parseDate(post.scheduledAt),
+          editTime: parseTime(post.scheduledAt),
+          editContentType: "CAROUSEL",
+          editProvider: post.provider,
+          carouselSlideCount: orderedSlides.length,
+          carouselSlides: orderedSlides,
+        });
+      }
+
+      // Cualquier miembro que no quedó dentro de ningún post generado (fallo reportado, o
+      // caso límite no cubierto explícitamente) se marca como error — nunca desaparece en
+      // silencio de la UI, mismo criterio que el resto del hook.
+      for (const m of members) {
+        if (consumedIds.has(m.id)) continue;
+        updateItem(m.id, {
+          step: "error",
+          error: problemMessageByKey.get(m.r2Key) ?? "No se pudo incluir esta foto en ningún carrusel.",
+        });
+      }
+
+      setItems((prev) => [...prev.filter((i) => !consumedIds.has(i.id)), ...newGroupItems]);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Error inesperado al generar el carrusel.";
+      members.forEach((m) => updateItem(m.id, { step: "error", error: message }));
+    }
+  }
+
+  // Punto único de finalización para un lote ya analizado e intercalado — usado tanto por
+  // confirmAndGenerate (wizard) como por addFiles (legacy). Precalcula qué posiciones caen
+  // en CAROUSEL según el mix real de la campaña (pickContentTypeFromMix) ANTES de llamar a
+  // ninguna API, así puede agruparlas en una sola llamada en vez de mandarlas una a una
+  // (que el servidor rechazaría como carrusel de 1 sola foto — ver auditoría previa).
+  // baseIndex es el mismo offset que ya usaban ambos callers para que scheduleIndex por
+  // foto siga siendo consistente con el resto de la campaña.
+  async function finalizeInterleavedBatch(interleaved: AnalyzedPhoto[], baseIndex: number): Promise<void> {
+    const mix = await fetchCarouselMix();
+    const withPosition = interleaved.map((item, position) => ({ item, scheduleIndex: baseIndex + position }));
+
+    const carouselCandidates = withPosition.filter((e) => pickContentTypeFromMix(e.scheduleIndex, mix) === "CAROUSEL");
+    // Por debajo de CAROUSEL_MIN_ITEMS no hay carrusel posible (mismo mínimo que valida
+    // photos/route.ts) — esas fotos vuelven al camino individual, donde el servidor ya
+    // sabe caer de vuelta al formato sugerido por LLaVA para una sola foto.
+    const useGroup = carouselCandidates.length >= CAROUSEL_MIN_ITEMS;
+    const carouselEntries = useGroup ? carouselCandidates : [];
+    const individualEntries = useGroup
+      ? withPosition.filter((e) => pickContentTypeFromMix(e.scheduleIndex, mix) !== "CAROUSEL")
+      : withPosition;
+
+    const tasks: Promise<void>[] = individualEntries.map((e) => finalizePhoto(e.item, e.scheduleIndex));
+    if (carouselEntries.length > 0) {
+      tasks.push(finalizeCarouselGroup(carouselEntries.map((e) => e.item), carouselEntries[0].scheduleIndex));
+    }
+    await Promise.all(tasks);
+  }
+
   async function addFiles(newFiles: FileList | File[]) {
     setGlobalError(null);
     const files = Array.from(newFiles);
@@ -236,7 +427,7 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
     const analyzed = await Promise.all(succeeded.map((r) => analyzePhoto(r)));
     const analyzedOk = analyzed.filter((r): r is NonNullable<typeof r> => r !== null);
     const interleaved = interleaveByCategory(analyzedOk);
-    await Promise.all(interleaved.map((item, position) => finalizePhoto(item, startingIndex + position)));
+    await finalizeInterleavedBatch(interleaved, startingIndex);
   }
 
   // Modo wizard (!autoProcess): dispara el análisis + generación coordinada de TODO el lote
@@ -252,7 +443,7 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
       );
       const analyzedOk = analyzed.filter((r): r is NonNullable<typeof r> => r !== null);
       const interleaved = interleaveByCategory(analyzedOk);
-      await Promise.all(interleaved.map((item, position) => finalizePhoto(item, position)));
+      await finalizeInterleavedBatch(interleaved, 0);
     } finally {
       setConfirming(false);
     }
@@ -266,8 +457,14 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
     // step "reel_ready"). Un item "ready" clasificado REEL por la IA pero nunca visto
     // como vídeo se ignora en silencio — la UI ya le oculta el botón "Aprobar" para este caso.
     const isReel = item.editContentType === "REEL";
-    const mediaUrl = isReel ? item.reelVideoUrl : item.r2Url;
-    const approvable = isReel ? item.step === "reel_ready" && !!item.reelVideoUrl : item.step === "ready" && !!item.r2Url;
+    // Un grupo CAROUSEL aprueba TODAS sus fotos de golpe (1 carrusel = 1 publicación) —
+    // mismo botón "Aprobar"/"Aprobar todo" que cualquier otro item, sin lógica extra en
+    // approveAll. imageHint usa el primer slide por `order` (mismo criterio que
+    // publish-carrusel.tsx), no r2Url del item (que aquí solo guarda una referencia de
+    // portada, ver finalizeCarouselGroup).
+    const orderedSlides = item.carouselSlides ? [...item.carouselSlides].sort((a, b) => a.order - b.order) : null;
+    const mediaUrl = isReel ? item.reelVideoUrl : orderedSlides ? orderedSlides[0]?.imageUrl ?? item.r2Url : item.r2Url;
+    const approvable = isReel ? item.step === "reel_ready" && !!item.reelVideoUrl : item.step === "ready" && !!mediaUrl;
     if (!approvable || !mediaUrl) return;
 
     updateItem(id, { step: "saving" });
@@ -292,6 +489,7 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
           imageHint: mediaUrl,
           status: "SCHEDULED",
           scheduledAt,
+          ...(orderedSlides ? { metadata: { slides: orderedSlides } } : {}),
         }),
       });
       const data = (await res.json()) as { post?: { id: string }; code?: string; message?: string };
@@ -444,7 +642,53 @@ export function PhotoBatchGrid({
                 </button>
               </>
             )}
-            {item.step === "ready" && (
+            {item.step === "ready" && item.carouselSlideCount ? (
+              // Grupo CAROUSEL: N fotos agrupadas en 1 tarjeta = 1 publicación. Se
+              // aprueba/elimina de golpe, sin el selector FEED/Historia/Reel (no aplica a
+              // un grupo ya compuesto) ni el flujo de Reel — solo cuerpo, hashtags,
+              // fecha/proveedor y Aprobar, igual que el resto de items en su forma final.
+              <>
+                <div className="flex items-center gap-1.5">
+                  <span className="rounded-full border border-fuchsia-500/40 bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-bold text-fuchsia-300">
+                    📑 Carrusel ({item.carouselSlideCount} fotos)
+                  </span>
+                </div>
+                <textarea
+                  value={item.editBody}
+                  onChange={(e) => onEditBody(item.id, e.target.value)}
+                  rows={3}
+                  className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                />
+                <div className="flex flex-wrap gap-1">
+                  {item.editHashtags.slice(0, 4).map((h) => (
+                    <span key={h} className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">{h}</span>
+                  ))}
+                  {item.editHashtags.length > 4 && (
+                    <span className="text-[10px] text-white/30">+{item.editHashtags.length - 4}</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/40">
+                  <span>{displayDate(item.editDate)} · {item.editTime}</span>
+                  <span>{PROVIDER_LABELS[item.editProvider] ?? item.editProvider}</span>
+                </div>
+                <div className="mt-auto flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => onRemove(item.id)}
+                    className="rounded-lg border border-white/10 px-2 py-1.5 text-xs text-white/35 transition hover:border-rose-500/30 hover:text-rose-400"
+                  >
+                    ✕
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onApprove(item.id)}
+                    className="flex-1 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-1.5 text-xs font-bold text-white shadow-sm transition hover:brightness-110"
+                  >
+                    Aprobar carrusel
+                  </button>
+                </div>
+              </>
+            ) : item.step === "ready" ? (
               <>
                 <textarea
                   value={item.editBody}
@@ -534,7 +778,7 @@ export function PhotoBatchGrid({
                   )}
                 </div>
               </>
-            )}
+            ) : null}
           </div>
         </div>
       ))}
