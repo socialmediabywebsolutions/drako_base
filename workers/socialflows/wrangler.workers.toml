@@ -30,12 +30,14 @@ database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
 binding = "SAASES_DB"
 database_name = "saas_socialflows_prod_db"
 database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
+migrations_dir = "migrations"
 
 # 🔥 FIX: binding adicional para SocialFlow
 [[d1_databases]]
 binding = "SOCIAL_DB"
 database_name = "saas_socialflows_prod_db"
 database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
+migrations_dir = "migrations"
 
 [[d1_databases]]
 binding = "SOCIALFLOW_AUTHS_DB"
