@@ -1,7 +1,8 @@
 import { defaultLocalModel } from "../models/localModel";
-import type { BrandProfile, KeywordEngineOutput, SocialFlowClientObjective } from "../types";
+import type { BrandProfile, KeywordEngineOutput } from "../types";
 import type { TrendInsights } from "./TrendAgent";
 import { OPENERS_BY_CATEGORY, type OpenerCategory } from "../openers/pickOpenerCategory";
+import { resolveObjectiveCta } from "../utils/ctaUtils";
 
 // Composición multi-slide para carruseles de Instagram — una sola llamada a Mistral
 // que recibe el specificContext de cada foto (ya analizada por N llamadas paralelas a
@@ -39,25 +40,6 @@ export type CarouselComposition = {
   tone: string;
 };
 
-// CTA fijo por objetivo del cliente (BrandProfile.clientObjective, configurado una vez en
-// el perfil) — se usa tal cual para el slide cierre_cta, sin pedirle a la IA que lo
-// redacte. Son frases ya decididas, no una sugerencia de estilo: mismo motivo por el que
-// se protegió "cta" de la sobrescritura de la IA en el motor de Reels (ver
-// mergeAiStructuredOutput/protectedKeys) — si se le pide "también" que lo escriba, tiende
-// a generar uno propio y el objetivo configurado deja de reflejarse en el resultado.
-const CTA_BY_OBJECTIVE: Record<SocialFlowClientObjective, string> = {
-  followers: "Sígueme para más contenido como este 👉 {handle}",
-  engagement: "¿Cuál vas a aplicar hoy? Cuéntame 👇",
-  leads: "Escríbeme por DM y te explico cómo empezar 💬",
-  sales: "Link en bio para conseguirlo 🛒",
-  saves: "Guarda esto para cuando lo necesites 🔖",
-};
-
-function resolveObjectiveCta(profile: BrandProfile): string | null {
-  if (!profile.clientObjective) return null;
-  return CTA_BY_OBJECTIVE[profile.clientObjective].replace("{handle}", profile.channelHandle || "");
-}
-
 // Posición narrativa por índice — determinista, nunca se le pide a Mistral que la
 // etiquete. Con 2 slides (plan Starter) no hay "desarrollo": el primero es intro,
 // el segundo (que también es el último) es cierre_cta.
@@ -89,7 +71,11 @@ function fallbackSlideText(
     return OPENERS_BY_CATEGORY[openerCategory]?.[0] ?? `Esto es lo que necesitas saber sobre ${profile.niche}.`;
   }
   if (role === "cierre_cta") {
-    return resolveObjectiveCta(profile) || profile.primaryCTA || "Guarda este post y cuéntanos qué opinas en los comentarios.";
+    return (
+      resolveObjectiveCta(profile.clientObjective, profile.channelHandle) ||
+      profile.primaryCTA ||
+      "Guarda este post y cuéntanos qué opinas en los comentarios."
+    );
   }
   // specificContext viene vacío en modo "Crear con IA" (ver resolveSlidePlan) — ahí el
   // fallback se apoya en el tema declarado en vez del detalle visual de una foto que no existe.
@@ -150,7 +136,7 @@ export class CarouselComposerAgent {
     const isEmpresa = profile.accountType === "empresa";
     const { slideContexts, hasPhotos } = resolveSlidePlan(input);
     const total = slideContexts.length;
-    const objectiveCta = resolveObjectiveCta(profile);
+    const objectiveCta = resolveObjectiveCta(profile.clientObjective, profile.channelHandle);
     // Nicho + KB (profile.contentPillars ya viene del KB del cliente, igual que en el
     // resto de agentes) + tema explícito si lo trajo el cliente — mismo criterio de
     // prioridad que usa el resto del pipeline para decidir "de dónde sale el ángulo".

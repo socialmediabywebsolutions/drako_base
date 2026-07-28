@@ -3,6 +3,7 @@ import type { BrandProfile, GeneratedPost, KeywordEngineOutput } from "../types"
 import type { TrendInsights } from "./TrendAgent";
 import { OPENERS_BY_CATEGORY, type OpenerCategory } from "../openers/pickOpenerCategory";
 import { nicheDefaultPostType } from "./ImageAnalysisAgent";
+import { resolveObjectiveCta } from "../utils/ctaUtils";
 
 // Fallback determinista (sin llamar a Mistral) cuando el binding de IA no está
 // disponible — prioriza momentType (clasificación estructurada del modelo de visión,
@@ -71,7 +72,15 @@ export class ContentGeneratorAgent {
     const extra = richProfileLines(profile);
     const keywords = keywordEngine.clusters.map((c) => c.cluster).filter(Boolean).join(", ");
     const hooks = trends.hookIdeas.filter(Boolean).slice(0, 3).join(" | ");
-    const cta = profile.primaryCTA || `¿Tú también lo sientes así? Cuéntame en los comentarios 👇`;
+    // Cuando hay un objetivo configurado, OptimizationAgent añade el CTA real DESPUÉS
+    // de optimizar el texto (protegido de reescritura por la IA, ver ctaUtils.ts y su
+    // uso en OptimizationAgent.ts — es el último paso real del pipeline Post/Reel/
+    // Historia, ContentGeneratorAgent NO lo es). Este borrador no debe llevar ningún CTA
+    // propio en ese caso, o el caption final terminaría con dos. Sin objetivo,
+    // comportamiento idéntico a siempre.
+    const objectiveCta = resolveObjectiveCta(profile.clientObjective, profile.channelHandle);
+    const cta = objectiveCta ? null : profile.primaryCTA || `¿Tú también lo sientes así? Cuéntame en los comentarios 👇`;
+    const ctaSuffix = cta ? `\n\n${cta}` : "";
 
     const fitnessNicheKeys = ['fitness', 'nutrici', 'bienestar', 'salud', 'entrenamiento', 'gym', 'yoga', 'pilates', 'deporte', 'fit'];
     const isFitnessNiche = fitnessNicheKeys.some(k => profile.niche.toLowerCase().includes(k));
@@ -98,7 +107,7 @@ Tipo de contenido: ${strategyItem.theme}
 ${input.specificContext ? `\n⚠️ DETALLE VISUAL CONCRETO — PRIORIDAD MÁXIMA: La imagen muestra exactamente esto: "${input.specificContext}". DEBES anclar la apertura y el cuerpo del post en este detalle real y concreto (el ejercicio, los ingredientes, el movimiento o el entorno específicos) en vez de frases genéricas de plantilla como "entrenando duro hoy" o "otro día más cuidándome". Si el detalle no incluye una cifra exacta (km, tiempo, peso), NO inventes una — usa el mismo nivel de aproximación que el detalle proporcionado.\n` : ""}${extra ? `\n${extra}` : ""}
 Identidad: ${profile.brandIdentity} · Tono: ${profile.toneOfVoice}.
 ${(profile.ageRange || profile.gender) ? `Perfil del creador: ${[profile.ageRange ? `rango de edad ${profile.ageRange}` : "", profile.gender ? `género ${profile.gender}` : ""].filter(Boolean).join(", ")} — úsalo solo para calibrar referencias, ejemplos y estilo de voz; NUNCA lo menciones explícitamente en el post.` : ""}
-CTA: ${cta}
+${cta ? `CTA: ${cta}` : ""}
 ${hooks ? `Hooks de referencia (adapta al tema): ${hooks}` : ""}
 ${keywords ? `Keywords a incluir naturalmente: ${keywords}` : ""}
 ${hashtagSeed ? `Hashtags de referencia para incluir: ${hashtagSeed}` : ""}
@@ -115,7 +124,7 @@ Estructura obligatoria:
 2. ${isEmpresa
   ? `1-2 líneas hablando de "${profile.brandIdentity}" en tercera persona: qué ofrece, qué resuelve, qué la diferencia. NO uses "yo", "mi", "me" ni "mis". Habla de la marca o del equipo, nunca en primera persona.`
   : `1-2 líneas donde YO (la influencer) hablo desde mi experiencia personal: qué hago, qué siento, qué aprendí. Uso "yo", "mi", "me", "mis". NO escribo consejos genéricos dirigidos a la audiencia. Hablo de MI vida y MI experiencia relacionada con el tema de la imagen.`}
-3. Cierre con el CTA en una línea
+3. ${cta ? "Cierre con el CTA en una línea" : "Cierre natural del pensamiento — NO añadas ningún call-to-action ni invites a seguir/comentar/guardar, el CTA se añade aparte por separado."}
 
 Genera entre 10 y 15 hashtags relevantes: mezcla hashtags de nicho específico (fitness, nutrición, bienestar), hashtags de comunidad hispanohablante, y 2-3 hashtags virales del momento. Formato: #hashtag1 #hashtag2 ... IMPORTANTE: genera exactamente entre 10 y 15 hashtags. Nunca menos de 10.
 
@@ -162,9 +171,7 @@ Lo que ofrece ${profile.brandIdentity} en ${profile.niche}:
 → El ángulo correcto: ${strategyItem.angle}.
 → Seguimiento y ajuste constante de resultados.
 
-¿Cuál es tu mayor obstáculo en ${profile.niche}? Cuéntanoslo en los comentarios.
-
-${cta}`
+¿Cuál es tu mayor obstáculo en ${profile.niche}? Cuéntanoslo en los comentarios.${ctaSuffix}`
 : profile.voiceInstruction
 ? `Si te cuesta mantener la constancia en ${profile.niche}, esto es para ti.
 
@@ -178,9 +185,7 @@ Lo que a mí me ha funcionado en ${profile.niche}:
 → Aplicar el ángulo correcto: ${strategyItem.angle}.
 → Medir el impacto y ajustar cada semana.
 
-¿Cuál es tu mayor obstáculo en ${profile.niche}? Cuéntame en los comentarios.
-
-${cta}`
+¿Cuál es tu mayor obstáculo en ${profile.niche}? Cuéntame en los comentarios.${ctaSuffix}`
 : `Si trabajas en ${profile.niche}, esto es para ti.
 
 ${strategyItem.angle}.
@@ -193,10 +198,11 @@ Aquí va lo que realmente funciona en ${profile.niche}:
 → Aplica el ángulo correcto: ${strategyItem.angle}.
 → Mide el impacto y ajusta cada semana.
 
-¿Cuál es tu mayor obstáculo en ${profile.niche}? Cuéntame en los comentarios.
-
-${cta}`,
-          callToAction: strategyItem.callToAction || cta,
+¿Cuál es tu mayor obstáculo en ${profile.niche}? Cuéntame en los comentarios.${ctaSuffix}`,
+          // objectiveCta como último fallback — cta puede ser null aquí precisamente
+          // cuando hay objetivo configurado (ver arriba), así este campo informativo
+          // sigue reflejando qué CTA se está usando de verdad.
+          callToAction: strategyItem.callToAction || cta || objectiveCta || "",
         },
       ],
     };

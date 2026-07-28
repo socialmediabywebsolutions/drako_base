@@ -1,5 +1,6 @@
 import { defaultLocalModel } from "../models/localModel";
 import type { BrandProfile, KeywordEngineOutput, OptimizedPost } from "../types";
+import { resolveObjectiveCta } from "../utils/ctaUtils";
 
 export class OptimizationAgent {
   async run(input: {
@@ -54,6 +55,18 @@ Texto original: ${variant.text}`;
       data.improvedText = data.improvedText
         .replace(/\n\n(Ajustado al tono|Tone adjusted for)[^\n]*/gi, "")
         .trim();
+    }
+
+    // CTA por objetivo — añadido DESPUÉS de que Mistral optimice el texto, el último
+    // paso real del pipeline de Post/Reel/Historia (ContentGeneratorAgent no lo es,
+    // este agente corre después y reescribe el texto completo). Mismo criterio que ya
+    // usa Carrusel con su slide cierre_cta: frase fija en código, nunca sujeta a lo que
+    // decida reescribir la IA. ContentGeneratorAgent ya omite su propio CTA genérico
+    // cuando hay objetivo configurado (ver ese archivo), así que esto nunca duplica un
+    // CTA existente.
+    const objectiveCta = resolveObjectiveCta(profile.clientObjective, profile.channelHandle);
+    if (objectiveCta && typeof data.improvedText === "string") {
+      data.improvedText = `${data.improvedText}\n\n${objectiveCta}`;
     }
 
     return data;
