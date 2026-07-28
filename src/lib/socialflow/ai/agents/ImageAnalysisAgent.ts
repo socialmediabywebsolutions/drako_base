@@ -85,10 +85,22 @@ ${isEmpresa
 
 Además, clasifica el campo "momentType" — el TIPO de momento que captura la foto, no lo que contiene ni el nicho:
 - "accion": la foto captura movimiento físico activo y evidente — deporte, ejercicio intenso, corriendo, saltando, bailando con energía. Solo es "accion" si hay dinamismo corporal claro e inequívoco.
-- "intimo_personal": la foto captura un momento cotidiano, casual o de vida personal — en casa o entorno doméstico tomando café, desayunando, leyendo, en el sofá, mirando el móvil, cocinando tranquilamente, preparando el outfit, selfie informal frente al espejo, backstage, momento de descanso, rutina diaria, luz natural suave. Si la escena es doméstica o personal aunque el sujeto esté quieto y la foto esté bien encuadrada, es "intimo_personal".
+- "intimo_personal": la foto captura un momento cotidiano, casual o de vida personal — en casa o entorno doméstico tomando café, desayunando, leyendo, en el sofá, mirando el móvil, cocinando tranquilamente, preparando el outfit, selfie informal frente al espejo, backstage, momento de descanso, rutina diaria, luz natural suave. Si la escena es doméstica o personal aunque el sujeto esté quieto y la foto esté bien encuadrada, es "intimo_personal". También es "intimo_personal", explícitamente:
+  · Persona riendo o sonriendo en exteriores sin hacer deporte (parque, calle, terraza).
+  · Selfie frente a espejo con teléfono visible.
+  · Persona mostrando su outfit/ropa del día, posando de pie en casa o en exterior casual.
+  · Momento de ocio relajado al aire libre (sentada en un parque, paseando sin actividad deportiva).
 - "estatico_compuesto": la foto es claramente una composición preparada para cámara sin contexto personal ni doméstico — retrato de estudio con fondo neutro, foto de producto, paisaje sin personas, contenido evergreen de alta calidad visual sin historia personal detrás.
 
-REGLA DE DESEMPATE: cuando dudes entre "intimo_personal" y "estatico_compuesto", elige "intimo_personal" si hay una persona en un contexto de vida cotidiana o doméstico. Elige "estatico_compuesto" solo si es claramente una foto de producto, estudio o paisaje sin contexto personal.
+REGLA DE DESEMPATE (aplícala SIEMPRE que dudes entre categorías):
+- Si hay UNA persona y NO hay equipamiento deportivo activo NI fondo de estudio/profesional, elige "intimo_personal" por defecto — incluso si la foto está bien encuadrada o iluminada.
+- "Riendo", "sonriendo" o "posando con ropa" sin contexto deportivo intenso es SIEMPRE "intimo_personal", nunca "accion" ni "estatico_compuesto".
+- Entre "intimo_personal" y "estatico_compuesto": elige "intimo_personal" si hay una persona en un contexto de vida cotidiana o doméstico. Elige "estatico_compuesto" solo si es claramente una foto de producto, estudio o paisaje sin contexto personal.
+
+⚠️ CONTRAEJEMPLOS — para no sobrecorregir hacia "intimo_personal":
+- Persona corriendo, saltando o levantando peso → "accion" (NUNCA "intimo_personal", aunque además esté sonriendo o el entorno sea informal — el movimiento físico manda sobre la expresión facial).
+- Foto de producto sin ninguna persona → "estatico_compuesto".
+- Grupo de personas en un evento (fiesta, conferencia, celebración) → "estatico_compuesto".
 
 Decide también el campo "recommendedPostType" según estos criterios, y hazlo coherente con el "momentType" que acabas de elegir (elige el que mejor encaje, no asumas un valor por defecto):
 - REEL: corresponde a momentType "accion" — movimiento implícito, deporte, ejercicio, energía o dinamismo.
