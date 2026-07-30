@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       id: campaignId,
       saasId,
       name: `AI Campaign: ${niche}`,
-      objective: "AWARENESS",
+      objective: null,
       status: "GENERATING",
       targetSegment: "DEFAULT",
       startDate: null,

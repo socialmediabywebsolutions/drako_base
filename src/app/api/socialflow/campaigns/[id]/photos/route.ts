@@ -242,6 +242,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const profile = await orchestrator.buildProfile({
       tenantId: session.tenantId,
       saasId: body.saasId,
+      campaignId,
       niche: "",
       tone: "",
       frequencyPerWeek: 1,

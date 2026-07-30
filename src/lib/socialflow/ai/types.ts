@@ -1,4 +1,4 @@
-export type SocialFlowClientObjective = "followers" | "engagement" | "leads" | "sales" | "saves";
+export type SocialFlowClientObjective = "followers" | "engagement" | "leads" | "sales" | "saves" | "virality";
 
 export type BrandProfile = {
   // Core brand & channel identity

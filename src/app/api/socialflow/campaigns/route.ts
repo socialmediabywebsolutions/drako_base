@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
+import type { CampaignObjective } from "@/lib/social-core/types";
 import {
   deleteSaasSocialCampaign,
   listSaasSocialCampaigns,
@@ -12,6 +13,7 @@ import {
 
 // GENERATING y FAILED están reservados para el pipeline de IA (ver SocialFlowOrchestrator) — el usuario nunca los fija a mano.
 const MANUAL_CAMPAIGN_STATUSES = ["ACTIVE", "PAUSED", "FINISHED", "ARCHIVED"] as const;
+const CAMPAIGN_OBJECTIVES = ["followers", "engagement", "leads", "sales", "saves", "virality"] as const;
 
 export async function GET(request: Request) {
   try {
@@ -43,7 +45,7 @@ export async function POST(request: Request) {
       id?: string;
       saasId?: string | null;
       name?: string;
-      objective?: string;
+      objective?: CampaignObjective;
       targetSegment?: string;
       startDate?: string | null;
       endDate?: string | null;
@@ -63,6 +65,12 @@ export async function POST(request: Request) {
     if (!saasId || !name) {
       return NextResponse.json({ code: "INVALID_BODY", message: "saasId and name are required" }, { status: 400 });
     }
+    if (body.objective && !CAMPAIGN_OBJECTIVES.includes(body.objective as (typeof CAMPAIGN_OBJECTIVES)[number])) {
+      return NextResponse.json(
+        { code: "INVALID_OBJECTIVE", message: "objective must be one of " + CAMPAIGN_OBJECTIVES.join(", ") },
+        { status: 400 },
+      );
+    }
 
     const session = await requireCurrentSocialFlowSession(request);
     const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId });
@@ -72,7 +80,7 @@ export async function POST(request: Request) {
       id: body.id,
       saasId,
       name,
-      objective: body.objective ?? "AWARENESS",
+      objective: body.objective ?? null,
       status: "DRAFT",
       targetSegment: body.targetSegment ?? "DEFAULT",
       startDate: body.startDate ?? null,
@@ -104,7 +112,7 @@ export async function PATCH(request: Request) {
       saasId?: string | null;
       name?: string | null;
       status?: string | null;
-      objective?: string | null;
+      objective?: CampaignObjective | null;
       targetSegment?: string | null;
       startDate?: string | null;
       endDate?: string | null;
@@ -129,12 +137,18 @@ export async function PATCH(request: Request) {
         { status: 400 },
       );
     }
+    if (body.objective && !CAMPAIGN_OBJECTIVES.includes(body.objective as (typeof CAMPAIGN_OBJECTIVES)[number])) {
+      return NextResponse.json(
+        { code: "INVALID_OBJECTIVE", message: "objective must be one of " + CAMPAIGN_OBJECTIVES.join(", ") },
+        { status: 400 },
+      );
+    }
 
     const campaign = await upsertSaasSocialCampaign(ctx, {
       id: current.id,
       saasId: current.saasId,
       name: body.name ?? current.name,
-      objective: body.objective ?? current.objective,
+      objective: typeof body.objective === "undefined" ? current.objective : body.objective,
       status: nextStatus as typeof current.status,
       targetSegment: body.targetSegment ?? current.targetSegment,
       startDate: typeof body.startDate === "undefined" ? current.startDate : body.startDate,

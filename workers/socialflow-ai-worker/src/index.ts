@@ -78,7 +78,7 @@ export default {
             id: job.campaignId,
             saasId: job.saasId,
             name: `AI Campaign: ${job.niche}`,
-            objective: "AWARENESS",
+            objective: null,
             status: "FAILED",
             targetSegment: "DEFAULT",
             startDate: null,

@@ -8,7 +8,7 @@ import { SchedulerAgent } from "./agents/SchedulerAgent";
 import { TrendAgent } from "./agents/TrendAgent";
 import type { BrandProfile, SocialAIPipelineInput, SocialAIPipelineResult, StrategyItem } from "./types";
 import type { SaasSocialContentType } from "@/lib/social-core/types";
-import { listSaasSocialAccounts, listSaasSocialChannels, resolveSocialContext, upsertSaasSocialCampaign, upsertSaasSocialPost } from "../repository";
+import { getSaasSocialCampaignById, listSaasSocialAccounts, listSaasSocialChannels, resolveSocialContext, upsertSaasSocialCampaign, upsertSaasSocialPost } from "../repository";
 import { getChannelKnowledge, saveCompetitorInsights } from "../profile/repository";
 import { getKnowledgeContext } from "../knowledge/repository";
 import { generatePostImage } from "./image-generator";
@@ -30,6 +30,16 @@ async function resolvePrimaryInstagramHandle(tenantId: string, saasId: string): 
   return primary?.handle?.trim() || null;
 }
 
+// Objetivo propio de la campaña (saas_social_campaigns.objective), si la campaña define
+// uno — sobrescribe el clientObjective del perfil solo para el contenido de esta campaña.
+// Resiliente igual que resolvePrimaryInstagramHandle: nunca debe tumbar buildProfile.
+async function resolveCampaignObjective(tenantId: string, saasId: string, campaignId: string | undefined) {
+  if (!campaignId) return null;
+  const ctx = await resolveSocialContext({ tenantId, saasId });
+  const campaign = await getSaasSocialCampaignById(ctx, campaignId);
+  return campaign?.objective ?? null;
+}
+
 export class SocialFlowOrchestrator {
   private marketResearch = new MarketResearchAgent();
   private keywordAgent = new KeywordAgent();
@@ -41,7 +51,7 @@ export class SocialFlowOrchestrator {
   private trendAgent = new TrendAgent();
 
   async buildProfile(input: SocialAIPipelineInput): Promise<BrandProfile> {
-    const [{ profile, competitors }, knowledgeContext, connectedInstagramHandle] = await Promise.all([
+    const [{ profile, competitors }, knowledgeContext, connectedInstagramHandle, campaignObjective] = await Promise.all([
       getChannelKnowledge(input.tenantId, input.saasId),
       getKnowledgeContext(input.tenantId, input.saasId).catch(() => ""),
       // Handle real de Instagram (OAuth, saas_social_accounts) — fuente de verdad para
@@ -50,6 +60,7 @@ export class SocialFlowOrchestrator {
       // fallback cuando el cliente aún no ha conectado ninguna cuenta de Instagram. Nunca
       // debe tumbar buildProfile si SOCIAL_DB falla — se degrada al fallback existente.
       resolvePrimaryInstagramHandle(input.tenantId, input.saasId).catch(() => null),
+      resolveCampaignObjective(input.tenantId, input.saasId, input.campaignId).catch(() => null),
     ]);
 
     const niche = input.niche || profile.niche || input.saasId;
@@ -85,7 +96,9 @@ export class SocialFlowOrchestrator {
       accountType: input.accountType ?? null,
       ageRange: profile.ageRange || null,
       gender: profile.gender || null,
-      clientObjective: profile.clientObjective || null,
+      // Si la campaña (input.campaignId) tiene su propio objetivo, sobrescribe el del
+      // perfil solo para el contenido de esta campaña — ver saas_social_campaigns.objective.
+      clientObjective: (campaignObjective as BrandProfile["clientObjective"]) || profile.clientObjective || null,
       niche,
       audience: profile.audienceDescription || `${niche} buyers`,
       buyerPersona: profile.buyerPersona || `${niche} operator`,
@@ -155,7 +168,7 @@ export class SocialFlowOrchestrator {
 
   private async persistToDb(input: SocialAIPipelineInput, profile: BrandProfile, strategyItems: StrategyItem[], optimizedPosts: { id: string; improvedText: string; hashtags?: string[] }[], schedule: { id: string; postId: string; scheduledAt: string }[]): Promise<string> {
     const ctx = await resolveSocialContext({ tenantId: input.tenantId, saasId: input.saasId });
-    const campaign = await upsertSaasSocialCampaign(ctx, { id: input.campaignId ?? `ai_campaign_${Date.now()}`, saasId: input.saasId, name: `IA: ${input.niche}`, objective: "AWARENESS", status: "ACTIVE", targetSegment: "DEFAULT", startDate: input.startDate ?? null, endDate: input.endDate ?? null, budgetEstimate: null, notes: `Generated for ${input.niche}` });
+    const campaign = await upsertSaasSocialCampaign(ctx, { id: input.campaignId ?? `ai_campaign_${Date.now()}`, saasId: input.saasId, name: `IA: ${input.niche}`, objective: null, status: "ACTIVE", targetSegment: "DEFAULT", startDate: input.startDate ?? null, endDate: input.endDate ?? null, budgetEstimate: null, notes: `Generated for ${input.niche}` });
     const channels = await listSaasSocialChannels(ctx);
     const postProvider = input.provider ?? "INSTAGRAM";
     const channelId = channels.find(c => c.provider === postProvider)?.id ?? null;

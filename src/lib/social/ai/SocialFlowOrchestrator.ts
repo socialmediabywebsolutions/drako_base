@@ -107,7 +107,7 @@ export class SocialFlowOrchestrator {
 
   private async persistToDb(input: SocialAIPipelineInput, strategyItems: StrategyItem[], optimizedPosts: { id: string; improvedText: string }[], schedule: { id: string; postId: string; scheduledAt: string }[]): Promise<string> {
     const ctx = await resolveSocialContext({ tenantId: input.tenantId, saasId: input.saasId });
-    const campaign = await upsertSaasSocialCampaign(ctx, { id: `ai_campaign_${Date.now()}`, saasId: input.saasId, name: `AI Campaign: ${input.niche}`, objective: "AWARENESS", status: "ACTIVE", targetSegment: "DEFAULT", startDate: null, endDate: null, budgetEstimate: null, notes: `Generated for ${input.niche}` });
+    const campaign = await upsertSaasSocialCampaign(ctx, { id: `ai_campaign_${Date.now()}`, saasId: input.saasId, name: `AI Campaign: ${input.niche}`, objective: null, status: "ACTIVE", targetSegment: "DEFAULT", startDate: null, endDate: null, budgetEstimate: null, notes: `Generated for ${input.niche}` });
     const channels = await listSaasSocialChannels(ctx);
     const channelId = channels[0]?.id ?? null;
     for (const item of strategyItems) {

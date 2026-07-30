@@ -12,6 +12,7 @@ export const CTA_BY_OBJECTIVE: Record<SocialFlowClientObjective, string> = {
   leads: "Escríbeme por DM y te explico cómo empezar 💬",
   sales: "Link en bio para conseguirlo 🛒",
   saves: "Guarda esto para cuando lo necesites 🔖",
+  virality: "Etiqueta a alguien que necesita ver esto 🔁",
 };
 
 // objective/handle sueltos en vez de BrandProfile completo — desacopla este util del

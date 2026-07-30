@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { SaasSocialCampaign, SaasSocialCampaignStatus, SaasSocialPost } from "@/lib/social-core/types";
+import type { CampaignObjective, SaasSocialCampaign, SaasSocialCampaignStatus, SaasSocialPost } from "@/lib/social-core/types";
 import CampaignPhotoUpload from "./campaign-photo-upload";
 import { useCampaignPhotoBatch, PhotoBatchGrid } from "./campaign-photo-batch";
 import ReelsCreator from "./reels-creator";
@@ -12,6 +12,15 @@ type Props = {
   saasId: string;
   maxImages: number;
 };
+
+const OBJECTIVE_OPTIONS: { value: CampaignObjective; icon: string; label: string; description: string }[] = [
+  { value: "followers", icon: "👥", label: "Seguidores", description: "Ganar seguidores nuevos" },
+  { value: "engagement", icon: "💬", label: "Interacción", description: "Más comentarios y likes" },
+  { value: "leads", icon: "📩", label: "Leads", description: "Captar clientes potenciales" },
+  { value: "sales", icon: "🛒", label: "Ventas", description: "Vender producto o servicio" },
+  { value: "saves", icon: "🔖", label: "Guardados", description: "Contenido para guardar" },
+  { value: "virality", icon: "🚀", label: "Viralidad", description: "Difusión masiva" },
+];
 
 const STATUS_CFG: Record<SaasSocialCampaignStatus, { label: string; chipBg: string; dotBg: string }> = {
   DRAFT:      { label: "Borrador",       chipBg: "bg-white/8 text-white/55",           dotBg: "bg-white/40"    },
@@ -165,7 +174,7 @@ function CreateCampaignWizard({
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [name, setName] = useState("");
-  const [objective, setObjective] = useState("");
+  const [objective, setObjective] = useState<CampaignObjective | "">("");
   const [targetSegment, setTargetSegment] = useState("");
   const [budgetEstimate, setBudgetEstimate] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -239,7 +248,7 @@ function CreateCampaignWizard({
         body: JSON.stringify({
           saasId,
           name: name.trim(),
-          objective: objective.trim() || undefined,
+          objective: objective || undefined,
           targetSegment: targetSegment.trim() || undefined,
           budgetEstimate: budgetEstimate.trim() ? Number(budgetEstimate) : null,
           startDate,
@@ -289,20 +298,40 @@ function CreateCampaignWizard({
 
       {step === 1 && (
         <form onSubmit={handleCreate} className="space-y-3">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nombre de campaña"
+            required
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+          />
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-white/60">
+              Objetivo de esta campaña <span className="font-normal text-white/30">(opcional — si no eliges, hereda el del perfil)</span>
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {OBJECTIVE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setObjective((prev) => (prev === opt.value ? "" : opt.value))}
+                  className={`flex flex-col items-start gap-0.5 rounded-xl border px-3 py-2 text-left transition ${
+                    objective === opt.value
+                      ? "border-violet-500/60 bg-violet-500/15"
+                      : "border-white/10 bg-white/5 hover:bg-white/8"
+                  }`}
+                >
+                  <span className="text-sm font-semibold text-white">
+                    {opt.icon} {opt.label}
+                  </span>
+                  <span className="text-[11px] text-white/40">{opt.description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid gap-3 md:grid-cols-2">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Nombre de campaña"
-              required
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-            />
-            <input
-              value={objective}
-              onChange={(e) => setObjective(e.target.value)}
-              placeholder="Objetivo (ej. AWARENESS)"
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
-            />
             <input
               value={targetSegment}
               onChange={(e) => setTargetSegment(e.target.value)}
@@ -696,7 +725,12 @@ export default function CampaignsBoard({ campaigns: initialCampaigns, saasId, ma
                             {cfg.label}
                           </span>
                         </div>
-                        {campaign.objective && <p className="text-sm text-white/50">{campaign.objective}</p>}
+                        {campaign.objective && (
+                          <p className="text-sm text-white/50">
+                            {OBJECTIVE_OPTIONS.find((o) => o.value === campaign.objective)?.icon}{" "}
+                            {OBJECTIVE_OPTIONS.find((o) => o.value === campaign.objective)?.label}
+                          </p>
+                        )}
                         <p className="text-xs text-white/35">
                           Audiencia: {campaign.targetSegment}
                           {campaign.budgetEstimate != null ? ` · Presupuesto: ${campaign.budgetEstimate}€` : ""}

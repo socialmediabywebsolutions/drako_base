@@ -945,7 +945,7 @@ export default function SocialFlowWorkspaceClient({
     setCampaignForm({
       id: campaign.id,
       name: campaign.name,
-      objective: campaign.objective,
+      objective: campaign.objective ?? "",
       status: formStatus,
       targetSegment: campaign.targetSegment,
       budgetEstimate: campaign.budgetEstimate == null ? "" : String(campaign.budgetEstimate),

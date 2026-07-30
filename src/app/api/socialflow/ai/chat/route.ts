@@ -300,7 +300,7 @@ export async function POST(request: Request) {
       id: campaignId,
       saasId,
       name: `IA: ${intent.topic.slice(0, 60)}`,
-      objective: "AWARENESS",
+      objective: null,
       status: "GENERATING",
       targetSegment: "DEFAULT",
       startDate: dateRange.startDate,

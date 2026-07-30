@@ -80,12 +80,18 @@ export type SaasSocialChannelSignals = {
 
 export type SaasSocialCampaignStatus = "DRAFT" | "GENERATING" | "ACTIVE" | "PAUSED" | "FINISHED" | "ARCHIVED" | "FAILED";
 
+// Objetivo específico de esta campaña — si está definido, sobrescribe el clientObjective
+// del perfil (BrandProfile.clientObjective) solo para el contenido generado dentro de
+// esta campaña. Ver SocialFlowOrchestrator.buildProfile().
+export type CampaignObjective = "followers" | "engagement" | "leads" | "sales" | "saves" | "virality";
+
 export type SaasSocialCampaign = {
   id: string;
   tenantId: string;
   saasId: string;
   name: string;
-  objective: string;
+  // null/undefined = sin override, hereda el objetivo del perfil del cliente.
+  objective?: CampaignObjective | null;
   status: SaasSocialCampaignStatus;
   targetSegment: string;
   startDate: string | null;
