@@ -62,7 +62,7 @@ export default async function SocialFlowWorkspaceLayout({
       <div className="relative flex min-h-screen">
         {/* Sidebar — hidden on mobile, shown on lg */}
         <div className="hidden lg:flex">
-          <SidebarNav session={{ name: session.name ?? null, email: session.email }} />
+          <SidebarNav session={{ name: session.name ?? null, email: session.email, accountType: session.accountType }} />
         </div>
 
         {/* Main content */}

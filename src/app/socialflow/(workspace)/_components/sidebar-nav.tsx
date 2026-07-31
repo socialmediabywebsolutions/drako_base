@@ -50,6 +50,9 @@ function IcoPublish() {
 function IcoCarrusel() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><rect x="3" y="7" width="13" height="13" rx="2" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V5.25A2.25 2.25 0 0 1 10.25 3h8.5A2.25 2.25 0 0 1 21 5.25v8.5A2.25 2.25 0 0 1 18.75 16H17" /></svg>;
 }
+function IcoTeam() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Zm6-10.125a1.875 1.875 0 1 1-3.75 0 1.875 1.875 0 0 1 3.75 0Zm1.294 6.336a6.721 6.721 0 0 1-3.17.789 6.721 6.721 0 0 1-3.168-.789 3.376 3.376 0 0 1 6.338 0Z" /></svg>;
+}
 
 // ── Nav structure ───────────────────────────────────────────────────────────────
 const mainNavTop = [
@@ -63,10 +66,12 @@ const mainNavBottom = [
   { href: "/socialflow/carrusel",       label: "Carrusel",            icon: <IcoCarrusel /> },
   { href: "/socialflow/campaigns",      label: "Planificar",          icon: <IcoTarget /> },
   { href: "/socialflow/redes",          label: "Mis Redes",           icon: <IcoNetwork /> },
-  { href: "/socialflow/conversations", label: "Comunidad",           icon: <IcoChat /> },
   { href: "/socialflow/leads",         label: "Oportunidades",       icon: <IcoUsers /> },
   { href: "/socialflow/knowledge",     label: "Base de conocimiento",icon: <IcoBook /> },
 ];
+
+const empresaNavItem = { href: "/socialflow/empresa/empleados", label: "Empleados", icon: <IcoTeam /> };
+const comunidadNavItem = { href: "/socialflow/conversations", label: "Comunidad", icon: <IcoChat /> };
 
 const settingsNav = [
   { href: "/socialflow/settings/account",   label: "Mi cuenta" },
@@ -97,7 +102,7 @@ function renderMainNavItem(item: { href: string; label: string; icon: React.Reac
 export default function SidebarNav({
   session,
 }: {
-  session: { name: string | null; email: string };
+  session: { name: string | null; email: string; accountType: "influencer" | "empresa" | null };
 }) {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(
@@ -154,7 +159,11 @@ export default function SidebarNav({
             isActive("/socialflow/publicar"),
           )}
 
-          {mainNavBottom.map((item) => renderMainNavItem(item, isActive(item.href)))}
+          {mainNavBottom.slice(0, 4).map((item) => renderMainNavItem(item, isActive(item.href)))}
+          {session.accountType === "empresa" &&
+            renderMainNavItem(empresaNavItem, isActive(empresaNavItem.href))}
+          {renderMainNavItem(comunidadNavItem, isActive(comunidadNavItem.href))}
+          {mainNavBottom.slice(4).map((item) => renderMainNavItem(item, isActive(item.href)))}
         </nav>
 
         {/* Separator */}
