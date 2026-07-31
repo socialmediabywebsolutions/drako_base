@@ -53,6 +53,9 @@ function IcoCarrusel() {
 function IcoTeam() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Zm6-10.125a1.875 1.875 0 1 1-3.75 0 1.875 1.875 0 0 1 3.75 0Zm1.294 6.336a6.721 6.721 0 0 1-3.17.789 6.721 6.721 0 0 1-3.168-.789 3.376 3.376 0 0 1 6.338 0Z" /></svg>;
 }
+function IcoLocal() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg>;
+}
 
 // ── Nav structure ───────────────────────────────────────────────────────────────
 const mainNavTop = [
@@ -71,6 +74,7 @@ const mainNavBottom = [
 ];
 
 const empresaNavItem = { href: "/socialflow/empresa/empleados", label: "Empleados", icon: <IcoTeam /> };
+const localNavItem = { href: "/socialflow/empresa/local", label: "Mi Local", icon: <IcoLocal /> };
 const comunidadNavItem = { href: "/socialflow/conversations", label: "Comunidad", icon: <IcoChat /> };
 
 const settingsNav = [
@@ -160,8 +164,12 @@ export default function SidebarNav({
           )}
 
           {mainNavBottom.slice(0, 4).map((item) => renderMainNavItem(item, isActive(item.href)))}
-          {session.accountType === "empresa" &&
-            renderMainNavItem(empresaNavItem, isActive(empresaNavItem.href))}
+          {session.accountType === "empresa" && (
+            <>
+              {renderMainNavItem(empresaNavItem, isActive(empresaNavItem.href))}
+              {renderMainNavItem(localNavItem, isActive(localNavItem.href))}
+            </>
+          )}
           {renderMainNavItem(comunidadNavItem, isActive(comunidadNavItem.href))}
           {mainNavBottom.slice(4).map((item) => renderMainNavItem(item, isActive(item.href)))}
         </nav>

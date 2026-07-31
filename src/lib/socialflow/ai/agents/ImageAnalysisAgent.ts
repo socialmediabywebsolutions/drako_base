@@ -1,6 +1,7 @@
 import { env } from "@/lib/cf";
 import type { BrandProfile } from "../types";
 import { getEmployeeContext } from "@/lib/socialflow/employees/repository";
+import { getLocalContext } from "@/lib/socialflow/local/repository";
 
 // Correct Workers AI catalog ID — "@cf/llava-1.5-7b-hf" (missing the "llava-hf/"
 // namespace) does not exist and throws AiError 5007, silently caught below and
@@ -82,9 +83,14 @@ export class ImageAnalysisAgent {
       isEmpresa && input.tenantId && input.saasId
         ? await getEmployeeContext(input.tenantId, input.saasId).catch(() => "")
         : "";
+    const localContext =
+      isEmpresa && input.tenantId && input.saasId
+        ? await getLocalContext(input.tenantId, input.saasId).catch(() => "")
+        : "";
 
     const prompt = `Analiza esta imagen para una marca de ${profile.niche} llamada "${profile.brandIdentity}".
 ${brandContext ? `\nContexto de la marca (usa esto para que la descripción y los temas sugeridos encajen con su identidad real):\n${brandContext}\n` : ""}
+${localContext ? `\nCONTEXTO DEL LOCAL: ${localContext}\nUsa esta información para que la descripción y los temas encajen con el negocio real.\n` : ""}
 ${employeeContext ? `\nCONTEXTO DEL NEGOCIO: ${employeeContext}\nSi reconoces a algún empleado de esta lista en la imagen (por su cargo, especialidad o descripción de estilo de trabajo), menciona su nombre exacto en el campo "employeeDetected". Si no puedes identificarlo con una señal visual razonable, deja "employeeDetected" en null — NUNCA inventes ni asumas un nombre sin fundamento.\n` : ""}
 Esta imagen pertenece probablemente a una de estas categorías. Identifica cuál encaja mejor y extrae el detalle concreto correspondiente para el campo "specificContext":
 
