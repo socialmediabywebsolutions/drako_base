@@ -1,5 +1,6 @@
 import { env } from "@/lib/cf";
 import type { BrandProfile } from "../types";
+import { getEmployeeContext } from "@/lib/socialflow/employees/repository";
 
 // Correct Workers AI catalog ID — "@cf/llava-1.5-7b-hf" (missing the "llava-hf/"
 // namespace) does not exist and throws AiError 5007, silently caught below and
@@ -20,6 +21,9 @@ export type ImageAnalysis = {
   // niche/category — this is what lets ContentGeneratorAgent decide FEED/REEL/STORY
   // without relying on hardcoded per-niche keywords in specificContext's free text.
   momentType: "accion" | "intimo_personal" | "estatico_compuesto";
+  // Nombre del empleado reconocido en la imagen (solo cuentas empresa con empleados
+  // registrados y una señal visual razonable) — null si no aplica.
+  employeeDetected: string | null;
 };
 
 // Usado cuando no se puede decidir el formato real (LLaVA no disponible, o el campo
@@ -40,7 +44,12 @@ function nicheDefaultMomentType(niche: string): "accion" | "intimo_personal" | "
 }
 
 export class ImageAnalysisAgent {
-  async run(input: { imageBytes: number[]; profile: BrandProfile }): Promise<ImageAnalysis> {
+  async run(input: {
+    imageBytes: number[];
+    profile: BrandProfile;
+    tenantId?: string;
+    saasId?: string;
+  }): Promise<ImageAnalysis> {
     const { imageBytes, profile } = input;
 
     const fallback: ImageAnalysis = {
@@ -56,6 +65,7 @@ export class ImageAnalysisAgent {
         ? `Contenido relacionado con ${profile.contentPillars.slice(0, 2).join(" y ")}.`
         : `Contenido de ${profile.niche}.`,
       momentType: nicheDefaultMomentType(profile.niche),
+      employeeDetected: null,
     };
 
     const binding = env()?.AI;
@@ -67,8 +77,15 @@ export class ImageAnalysisAgent {
     const brandContext = profile.longDescription?.trim().slice(0, 1200) || "";
     const isEmpresa = profile.accountType === "empresa";
 
+    // Solo cuentas empresa cargan contexto de empleados — un influencer no tiene equipo.
+    const employeeContext =
+      isEmpresa && input.tenantId && input.saasId
+        ? await getEmployeeContext(input.tenantId, input.saasId).catch(() => "")
+        : "";
+
     const prompt = `Analiza esta imagen para una marca de ${profile.niche} llamada "${profile.brandIdentity}".
 ${brandContext ? `\nContexto de la marca (usa esto para que la descripción y los temas sugeridos encajen con su identidad real):\n${brandContext}\n` : ""}
+${employeeContext ? `\nCONTEXTO DEL NEGOCIO: ${employeeContext}\nSi reconoces a algún empleado de esta lista en la imagen (por su cargo, especialidad o descripción de estilo de trabajo), menciona su nombre exacto en el campo "employeeDetected". Si no puedes identificarlo con una señal visual razonable, deja "employeeDetected" en null — NUNCA inventes ni asumas un nombre sin fundamento.\n` : ""}
 Esta imagen pertenece probablemente a una de estas categorías. Identifica cuál encaja mejor y extrae el detalle concreto correspondiente para el campo "specificContext":
 
 1. GYM / FUERZA (pesas, mancuernas, barra, máquinas): identifica el ejercicio concreto si es reconocible (press banca, sentadilla, remo, curl bíceps, peso muerto, zancadas, etc.), el grupo muscular que trabaja, y si la postura, el agarre o la carga aparente sugieren esfuerzo/intensidad alta.
@@ -115,7 +132,8 @@ Responde ÚNICAMENTE con este JSON válido (sin markdown, sin texto extra):
   "recommendedPostType": "<FEED|REEL|STORY>",
   "momentType": "<accion|intimo_personal|estatico_compuesto>",
   "suggestedThemes": ["tema relevante 1", "tema relevante 2", "tema relevante 3"],
-  "specificContext": "1-2 frases con el detalle concreto y granular de la categoría detectada — es el campo más importante de tu respuesta, sin datos inventados"
+  "specificContext": "1-2 frases con el detalle concreto y granular de la categoría detectada — es el campo más importante de tu respuesta, sin datos inventados",
+  "employeeDetected": "nombre exacto del empleado si lo reconoces con certeza razonable, o null si no aplica"
 }
 
 El campo recommendedPostType debe ser exactamente uno de: "FEED", "REEL" o "STORY", elegido según los criterios de arriba — nunca copies literalmente el placeholder "<FEED|REEL|STORY>".
@@ -174,6 +192,10 @@ Responde TODO en español.`;
           parsed.momentType === "estatico_compuesto"
             ? parsed.momentType
             : fallback.momentType,
+        employeeDetected:
+          employeeContext && typeof parsed.employeeDetected === "string" && parsed.employeeDetected.trim()
+            ? parsed.employeeDetected.trim()
+            : null,
       };
     } catch {
       console.error("[ImageAnalysisAgent] LLaVA parse failed, using fallback");

@@ -195,6 +195,7 @@ export async function POST(request: Request) {
       suggestedThemes: profile.contentPillars,
       specificContext: "",
       momentType: "estatico_compuesto",
+      employeeDetected: null,
     };
     const openerCategory = pickOpenerCategory(syntheticAnalysis, resolvedTopic);
 

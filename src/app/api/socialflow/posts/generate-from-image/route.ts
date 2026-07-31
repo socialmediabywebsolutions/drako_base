@@ -288,7 +288,12 @@ export async function POST(request: Request) {
           const r2Object = await bucket.get(imageKeys[i]);
           if (!r2Object) throw new Error("IMAGE_NOT_FOUND");
           const imageBytes = Array.from(new Uint8Array(await r2Object.arrayBuffer()));
-          return new ImageAnalysisAgent().run({ imageBytes, profile });
+          return new ImageAnalysisAgent().run({
+            imageBytes,
+            profile,
+            tenantId: session.tenantId,
+            saasId: body.saasId,
+          });
         }),
       );
 
@@ -426,7 +431,12 @@ export async function POST(request: Request) {
         );
       }
       const imageBytes = Array.from(new Uint8Array(await r2Object.arrayBuffer()));
-      imageAnalysis = await new ImageAnalysisAgent().run({ imageBytes, profile });
+      imageAnalysis = await new ImageAnalysisAgent().run({
+        imageBytes,
+        profile,
+        tenantId: session.tenantId,
+        saasId: body.saasId,
+      });
     }
     console.log(
       `[ImageAnalysis] description="${imageAnalysis.description}" context="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)}`,
@@ -506,6 +516,7 @@ export async function POST(request: Request) {
       specificContext: imageAnalysis.specificContext,
       llavaSuggestedFormat: imageAnalysis.recommendedPostType,
       momentType: imageAnalysis.momentType,
+      employeeDetected: imageAnalysis.employeeDetected,
     });
     const variant = generated.variants[0];
 

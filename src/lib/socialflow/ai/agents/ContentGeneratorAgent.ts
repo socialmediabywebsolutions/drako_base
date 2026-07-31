@@ -60,6 +60,7 @@ export class ContentGeneratorAgent {
     specificContext?: string;
     llavaSuggestedFormat?: "FEED" | "REEL" | "STORY";
     momentType?: "accion" | "intimo_personal" | "estatico_compuesto";
+    employeeDetected?: string | null;
   }): Promise<GeneratedPost> {
     const { profile, strategyItem, keywordEngine, trends } = input;
     const isEmpresa = profile.accountType === "empresa";
@@ -104,7 +105,7 @@ ${isEmpresa
 ${profile.voiceInstruction ? `${profile.voiceInstruction}\n` : ""}
 Ángulo a desarrollar: ${strategyItem.angle}
 Tipo de contenido: ${strategyItem.theme}
-${input.specificContext ? `\n⚠️ DETALLE VISUAL CONCRETO — PRIORIDAD MÁXIMA: La imagen muestra exactamente esto: "${input.specificContext}". DEBES anclar la apertura y el cuerpo del post en este detalle real y concreto (el ejercicio, los ingredientes, el movimiento o el entorno específicos) en vez de frases genéricas de plantilla como "entrenando duro hoy" o "otro día más cuidándome". Si el detalle no incluye una cifra exacta (km, tiempo, peso), NO inventes una — usa el mismo nivel de aproximación que el detalle proporcionado.\n` : ""}${extra ? `\n${extra}` : ""}
+${input.specificContext ? `\n⚠️ DETALLE VISUAL CONCRETO — PRIORIDAD MÁXIMA: La imagen muestra exactamente esto: "${input.specificContext}". DEBES anclar la apertura y el cuerpo del post en este detalle real y concreto (el ejercicio, los ingredientes, el movimiento o el entorno específicos) en vez de frases genéricas de plantilla como "entrenando duro hoy" o "otro día más cuidándome". Si el detalle no incluye una cifra exacta (km, tiempo, peso), NO inventes una — usa el mismo nivel de aproximación que el detalle proporcionado.\n` : ""}${input.employeeDetected ? `\n⚠️ EMPLEADO RECONOCIDO — PRIORIDAD ALTA: La imagen muestra a ${input.employeeDetected}. El caption DEBE mencionar a ${input.employeeDetected} por su nombre propio (ej. "${input.employeeDetected} creando unas mechas increíbles" en vez de una referencia genérica como "nuestro equipo" o "nuestra estilista").\n` : ""}${extra ? `\n${extra}` : ""}
 Identidad: ${profile.brandIdentity} · Tono: ${profile.toneOfVoice}.
 ${(profile.ageRange || profile.gender) ? `Perfil del creador: ${[profile.ageRange ? `rango de edad ${profile.ageRange}` : "", profile.gender ? `género ${profile.gender}` : ""].filter(Boolean).join(", ")} — úsalo solo para calibrar referencias, ejemplos y estilo de voz; NUNCA lo menciones explícitamente en el post.` : ""}
 ${cta ? `CTA: ${cta}` : ""}
