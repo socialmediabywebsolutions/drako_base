@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import EmpresaChecklist from "@/components/socialflow/EmpresaChecklist";
+import type { ChecklistItem } from "@/lib/socialflow/onboarding/checklistRepository";
 
 const SOCIAL_NETWORKS = [
   { value: "instagram", label: "Instagram" },
@@ -87,26 +89,7 @@ const STEPS = [
 // Paso adicional exclusivo de accountType === "empresa" — nunca se añade para influencer.
 const EMPRESA_STEP = { key: "empresa-checklist", title: "Primeros pasos" };
 
-const EMPRESA_CHECKLIST_ITEMS = [
-  {
-    title: "Sube tu catálogo de productos",
-    description: "Sube un CSV o Excel con tus productos para que la IA los conozca al generar contenido y responder consultas.",
-    href: "/socialflow/knowledge",
-    cta: "Ir a Base de Conocimiento",
-  },
-  {
-    title: "Conecta tus redes sociales",
-    description: "Conecta Instagram, LinkedIn, Facebook u otras redes para poder publicar directamente desde Socialcors.",
-    href: "/socialflow/redes",
-    cta: "Ir a Mis Redes",
-  },
-  {
-    title: "Sube fotos de tu local y equipo",
-    description: "Añade fotos de tu espacio y tu equipo para enriquecer el contenido que genera la IA.",
-    href: "/socialflow/knowledge",
-    cta: "Ir a Base de Conocimiento",
-  },
-] as const;
+// (checklist real reemplaza este array estático — ver useEffect de carga más abajo)
 
 const inputCls = "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/20";
 const selectCls = "w-full rounded-xl border border-white/10 bg-[#0d0d1e] px-3 py-2 text-sm text-white/70 focus:border-violet-500/50 focus:outline-none";
@@ -119,6 +102,8 @@ export default function SocialFlowOnboardingPage() {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<FormState>(buildInitialState());
   const [accountType, setAccountType] = useState<"empresa" | "influencer" | null>(null);
+  const [checklist, setChecklist] = useState<{ items: ChecklistItem[]; completedCount: number; totalCount: number } | null>(null);
+  const [checklistLoading, setChecklistLoading] = useState(false);
 
   const steps = useMemo(
     () => (accountType === "empresa" ? [...STEPS, EMPRESA_STEP] : STEPS),
@@ -164,6 +149,30 @@ export default function SocialFlowOnboardingPage() {
     void load();
     return () => { cancelled = true; };
   }, [router]);
+
+  useEffect(() => {
+    if (accountType !== "empresa") return;
+    if (steps[step]?.key !== "empresa-checklist") return;
+    if (checklist || checklistLoading) return;
+    let cancelled = false;
+    async function loadChecklist() {
+      setChecklistLoading(true);
+      try {
+        const res = await fetch("/api/socialflow/empresa/checklist");
+        const json = (await res.json().catch(() => null)) as
+          | { ok: true; items: ChecklistItem[]; completedCount: number; totalCount: number }
+          | { ok: false }
+          | null;
+        if (!cancelled && json?.ok) {
+          setChecklist({ items: json.items, completedCount: json.completedCount, totalCount: json.totalCount });
+        }
+      } finally {
+        if (!cancelled) setChecklistLoading(false);
+      }
+    }
+    void loadChecklist();
+    return () => { cancelled = true; };
+  }, [accountType, step, steps, checklist, checklistLoading]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setData((prev) => ({ ...prev, [key]: value }));
@@ -379,30 +388,24 @@ export default function SocialFlowOnboardingPage() {
 
       {/* Step: Empresa checklist (solo accountType === "empresa") */}
       {steps[step].key === "empresa-checklist" && (
-        <div className="rounded-2xl border border-white/10 bg-white/4 p-6">
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm font-semibold text-white/85">Tu perfil ya está listo. Antes de seguir, completa estos 3 pasos:</p>
-              <p className="text-xs text-white/40">Puedes hacerlo ahora o más tarde desde el menú lateral.</p>
-            </div>
-            <div className="space-y-3">
-              {EMPRESA_CHECKLIST_ITEMS.map((item) => (
-                <div key={item.title} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/4 p-4">
-                  <div>
-                    <p className="text-sm font-semibold text-white/85">{item.title}</p>
-                    <p className="mt-1 text-xs text-white/40">{item.description}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => router.push(item.href)}
-                    className="inline-flex shrink-0 items-center rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/20"
-                  >
-                    {item.cta}
-                  </button>
-                </div>
-              ))}
-            </div>
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm font-semibold text-white/85">
+              Tu perfil ya está listo. Completa estos pasos para que la IA trabaje con toda la información de tu negocio:
+            </p>
+            <p className="text-xs text-white/40">Puedes hacerlo ahora o más tarde desde el menú lateral.</p>
           </div>
+          {checklistLoading || !checklist ? (
+            <div className="rounded-2xl border border-white/10 bg-white/4 p-6 text-center text-sm text-white/40">
+              Cargando checklist...
+            </div>
+          ) : (
+            <EmpresaChecklist
+              items={checklist.items}
+              completedCount={checklist.completedCount}
+              totalCount={checklist.totalCount}
+            />
+          )}
         </div>
       )}
 

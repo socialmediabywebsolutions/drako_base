@@ -9,6 +9,8 @@ import { getSocialFlowPlanDefinition, resolveSocialFlowPlanCode } from "@/lib/so
 import DashboardMetrics from "./_components/DashboardMetrics";
 import IntelligenceFeedPanel from "./_components/IntelligenceFeedPanel";
 import SocialFlowOperationsPanel from "./_components/SocialFlowOperationsPanel";
+import { getEmpresaChecklist } from "@/lib/socialflow/onboarding/checklistRepository";
+import EmpresaChecklist from "@/components/socialflow/EmpresaChecklist";
 
 const DEFAULT_SAAS_ID = "socialflow";
 
@@ -39,6 +41,16 @@ export default async function SocialFlowDashboardPage() {
 
   const audit = await getLatestAudit(session.tenantId, DEFAULT_SAAS_ID);
 
+  let empresaChecklist: Awaited<ReturnType<typeof getEmpresaChecklist>> | null = null;
+  if (session.accountType === "empresa") {
+    try {
+      empresaChecklist = await getEmpresaChecklist(session.tenantId, DEFAULT_SAAS_ID);
+    } catch (error) {
+      console.error("SOCIALFLOW_DASHBOARD_CHECKLIST_ERROR", error);
+    }
+  }
+  const showChecklistWidget = Boolean(empresaChecklist && empresaChecklist.completedCount < empresaChecklist.totalCount);
+
   return (
     <div className="space-y-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -57,6 +69,14 @@ export default async function SocialFlowDashboardPage() {
       </div>
 
       {summary && <DashboardMetrics planCode={planCode} summary={summary} auditScore={audit?.score ?? null} />}
+
+      {showChecklistWidget && empresaChecklist && (
+        <EmpresaChecklist
+          items={empresaChecklist.items}
+          completedCount={empresaChecklist.completedCount}
+          totalCount={empresaChecklist.totalCount}
+        />
+      )}
 
       <SocialFlowOperationsPanel />
 
