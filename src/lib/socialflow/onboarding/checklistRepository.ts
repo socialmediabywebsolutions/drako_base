@@ -36,6 +36,7 @@ export async function getEmpresaChecklist(tenantId: string, saasId: string): Pro
     profileRow,
     campaignsCount,
     scheduledPostsCount,
+    marketAnalysisCount,
   ] = await Promise.all([
     countRows(
       db,
@@ -75,6 +76,15 @@ export async function getEmpresaChecklist(tenantId: string, saasId: string): Pro
       `SELECT COUNT(*) as cnt FROM saas_social_posts WHERE tenant_id = ? AND saas_id = ? AND status IN ('SCHEDULED','APPROVED')`,
       [tenantId, saasId],
     ),
+    // name fijo, distinto del name dinámico ("Market Analysis: {niche}") que usa el
+    // endpoint genérico /api/socialflow/knowledge/analyze-market — así este item solo
+    // cuenta como completado si se corrió específicamente el flujo de Google Maps
+    // (analyze-local-competitors), no el análisis de mercado genérico sin geolocalización.
+    countRows(
+      db,
+      `SELECT COUNT(*) as cnt FROM socialflow_knowledge_documents WHERE tenant_id = ? AND saas_id = ? AND type = 'market_analysis' AND name = 'Análisis de competencia local'`,
+      [tenantId, saasId],
+    ),
   ]);
 
   const items: ChecklistItem[] = [
@@ -97,6 +107,13 @@ export async function getEmpresaChecklist(tenantId: string, saasId: string): Pro
       label: "Configurar Mi Local",
       description: "Añade la información de tu negocio y al menos una foto de tu local.",
       completed: Boolean(localRow?.business_name?.trim()) && localPhotosCount > 0,
+      href: "/socialflow/empresa/local",
+    },
+    {
+      id: "competitor_analysis",
+      label: "Analizar competencia local",
+      description: "Descubre quién es tu competencia cercana y cómo diferenciarte de ella.",
+      completed: marketAnalysisCount > 0,
       href: "/socialflow/empresa/local",
     },
     {
