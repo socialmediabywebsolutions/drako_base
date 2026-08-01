@@ -7,6 +7,7 @@ import type { LeadStatus, LeadTemperature, SocialFlowLead } from "@/lib/socialfl
 type Props = {
   leads: SocialFlowLead[];
   saasId: string;
+  accountType: "influencer" | "empresa" | null;
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ function ScoreBar({ score, temp }: { score: number; temp: LeadTemperature }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function LeadsPanel({ leads: initialLeads, saasId }: Props) {
+export default function LeadsPanel({ leads: initialLeads, saasId, accountType }: Props) {
   const [leads, setLeads] = useState(initialLeads);
   const [filterTemp, setFilterTemp] = useState<LeadTemperature | null>(null);
   const [filterStatus, setFilterStatus] = useState<LeadStatus | null>(null);
@@ -184,12 +185,13 @@ export default function LeadsPanel({ leads: initialLeads, saasId }: Props) {
       {/* Lead cards */}
       <div className="space-y-3">
         {visible.length === 0 ? (
-          <EmptyState hasLeads={leads.length > 0} />
+          <EmptyState hasLeads={leads.length > 0} accountType={accountType} />
         ) : (
           visible.map((lead) => (
             <LeadCard
               key={lead.id}
               lead={lead}
+              accountType={accountType}
               isPending={isPending && pendingId === lead.id}
               onStatusChange={(s) => changeStatus(lead.id, s)}
             />
@@ -208,10 +210,19 @@ const TEMP_BADGE: Record<LeadTemperature, string> = {
   COLD: "bg-blue-500/20 text-blue-400",
 };
 
-function detectOpportunityType(message: string): { label: string; cls: string } {
+function detectOpportunityType(
+  message: string,
+  accountType: "influencer" | "empresa" | null,
+): { label: string; cls: string } {
   const m = message.toLowerCase();
-  if (/colabor|collab|sponsor|patrocinio/.test(m))
+  // "Colaboración" es lenguaje de influencer (brand deals) — no tiene sentido en un
+  // negocio, así que para empresa ese mismo patrón cae a "Consulta" en su lugar.
+  if (/colabor|collab|sponsor|patrocinio/.test(m)) {
+    if (accountType === "empresa") {
+      return { label: "💬 Consulta", cls: "bg-gray-500/20 text-gray-400" };
+    }
     return { label: "🤝 Colaboración", cls: "bg-purple-500/20 text-purple-400" };
+  }
   if (/coach|entrena|rutina|plan/.test(m))
     return { label: "💪 Servicio", cls: "bg-green-500/20 text-green-400" };
   if (/precio|comprar|adquirir|pagar/.test(m))
@@ -226,15 +237,17 @@ function initials(name: string | null, handle: string | null): string {
 
 function LeadCard({
   lead,
+  accountType,
   isPending,
   onStatusChange,
 }: {
   lead: SocialFlowLead;
+  accountType: "influencer" | "empresa" | null;
   isPending: boolean;
   onStatusChange: (s: LeadStatus) => void;
 }) {
   const isDone = lead.status === "CONVERTED" || lead.status === "LOST";
-  const opportunity = detectOpportunityType(lead.incomingMessage);
+  const opportunity = detectOpportunityType(lead.incomingMessage, accountType);
 
   return (
     <div
@@ -411,22 +424,33 @@ function FilterBtn({
 }
 
 
-function EmptyState({ hasLeads }: { hasLeads: boolean }) {
+function EmptyState({
+  hasLeads,
+  accountType,
+}: {
+  hasLeads: boolean;
+  accountType: "influencer" | "empresa" | null;
+}) {
+  const isEmpresa = accountType === "empresa";
   return (
     <div className="rounded-xl border border-dashed border-white/10 py-16 text-center">
       {hasLeads ? (
         <p className="text-sm text-white/35">No hay leads con esos filtros.</p>
       ) : (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-white/60">Sin oportunidades aún</p>
+          <p className="text-sm font-medium text-white/60">
+            {isEmpresa ? "Sin clientes potenciales todavía" : "Sin oportunidades aún"}
+          </p>
           <p className="mx-auto max-w-xs text-xs text-white/35">
-            Cuando un seguidor pregunte por colaboraciones, servicios o productos, aparecerá aquí automáticamente.
+            {isEmpresa
+              ? "Cuando alguien pregunte por tus servicios o productos, aparecerá aquí automáticamente."
+              : "Cuando un seguidor pregunte por colaboraciones, servicios o productos, aparecerá aquí automáticamente."}
           </p>
           <Link
             href="/socialflow/conversations"
             className="mt-3 inline-block rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-medium text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
           >
-            Ver mi comunidad
+            {isEmpresa ? "Ver mis clientes" : "Ver mi comunidad"}
           </Link>
         </div>
       )}

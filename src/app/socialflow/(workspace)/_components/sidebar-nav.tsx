@@ -69,13 +69,22 @@ const mainNavBottom = [
   { href: "/socialflow/carrusel",       label: "Carrusel",            icon: <IcoCarrusel /> },
   { href: "/socialflow/campaigns",      label: "Planificar",          icon: <IcoTarget /> },
   { href: "/socialflow/redes",          label: "Mis Redes",           icon: <IcoNetwork /> },
-  { href: "/socialflow/leads",         label: "Oportunidades",       icon: <IcoUsers /> },
   { href: "/socialflow/knowledge",     label: "Base de conocimiento",icon: <IcoBook /> },
 ];
 
 const empresaNavItem = { href: "/socialflow/empresa/empleados", label: "Empleados", icon: <IcoTeam /> };
 const localNavItem = { href: "/socialflow/empresa/local", label: "Mi Local", icon: <IcoLocal /> };
 const comunidadNavItem = { href: "/socialflow/conversations", label: "Comunidad", icon: <IcoChat /> };
+
+// Misma URL/icono para ambos perfiles — solo cambia el label ("CRM Social" encaja mejor
+// con el tono de negocio que "Oportunidades", que es lenguaje de influencer/colaboraciones).
+function leadsNavItem(accountType: "influencer" | "empresa" | null) {
+  return {
+    href: "/socialflow/leads",
+    label: accountType === "empresa" ? "CRM Social" : "Oportunidades",
+    icon: <IcoUsers />,
+  };
+}
 
 const settingsNav = [
   { href: "/socialflow/settings/account",   label: "Mi cuenta" },
@@ -171,6 +180,7 @@ export default function SidebarNav({
             </>
           )}
           {renderMainNavItem(comunidadNavItem, isActive(comunidadNavItem.href))}
+          {renderMainNavItem(leadsNavItem(session.accountType), isActive("/socialflow/leads"))}
           {mainNavBottom.slice(4).map((item) => renderMainNavItem(item, isActive(item.href)))}
         </nav>
 
