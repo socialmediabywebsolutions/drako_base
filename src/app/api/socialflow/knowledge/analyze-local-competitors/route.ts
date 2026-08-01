@@ -62,6 +62,7 @@ export async function POST(req: Request) {
       ok: true,
       doc: { id: doc.id, name: doc.name, type: doc.type, source_url: doc.source_url, created_at: doc.created_at },
       competitors: result.competitors,
+      report: result.report,
       geocodedAt: result.geocodedAt,
     });
   } catch (err) {

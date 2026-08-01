@@ -2,15 +2,50 @@
 
 import { useRef, useState } from "react";
 import type { EmpresaLocal, EmpresaLocalPhoto, LocalPhotoType } from "@/lib/socialflow/local/types";
+import type { GooglePriceLevel, LocalCompetitorProfile } from "@/lib/socialflow/ai/types";
 
 type PhotoDTO = Omit<EmpresaLocalPhoto, "tenantId" | "saasId">;
 type LocalDTO = Omit<EmpresaLocal, "tenantId" | "saasId">;
+
+type CompetitorAnalysisResult = {
+  report: string;
+  competitors: LocalCompetitorProfile[];
+};
+
+type AnalyzeLocalCompetitorsResponse =
+  | {
+      ok: true;
+      doc: { id: string; name: string; type: string; source_url: string | null; created_at: string };
+      competitors: LocalCompetitorProfile[];
+      report: string;
+      geocodedAt: string;
+    }
+  | { error: string };
 
 const PHOTO_TYPE_LABEL: Record<LocalPhotoType, string> = {
   exterior: "Exterior",
   interior: "Interior",
   ambiente: "Ambiente",
 };
+
+const AGENT_ERROR_MESSAGES: Record<string, string> = {
+  EMPRESA_LOCAL_NOT_CONFIGURED: "Completa y guarda la dirección de tu negocio antes de analizar la competencia",
+  GOOGLE_MAPS_API_KEY_NOT_CONFIGURED: "Función no disponible temporalmente, contacta con soporte",
+  GEOCODING_FAILED: "No pudimos ubicar tu dirección. Revisa que esté completa y correcta",
+};
+const DEFAULT_ANALYSIS_ERROR = "Error inesperado, inténtalo de nuevo";
+
+const PRICE_LEVEL_LABEL: Partial<Record<GooglePriceLevel, string>> = {
+  PRICE_LEVEL_INEXPENSIVE: "Económico",
+  PRICE_LEVEL_MODERATE: "Moderado",
+  PRICE_LEVEL_EXPENSIVE: "Caro",
+  PRICE_LEVEL_VERY_EXPENSIVE: "Muy caro",
+};
+
+function priceLevelLabel(level: GooglePriceLevel | null): string {
+  if (!level) return "Sin datos";
+  return PRICE_LEVEL_LABEL[level] ?? "Sin datos";
+}
 
 export default function LocalClient({
   initialLocal,
@@ -30,6 +65,10 @@ export default function LocalClient({
 
   const [photos, setPhotos] = useState<PhotoDTO[]>(initialPhotos);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const [analyzingCompetitors, setAnalyzingCompetitors] = useState(false);
+  const [competitorAnalysisError, setCompetitorAnalysisError] = useState<string | null>(null);
+  const [competitorAnalysisResult, setCompetitorAnalysisResult] = useState<CompetitorAnalysisResult | null>(null);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -74,6 +113,25 @@ export default function LocalClient({
     }
   }
 
+  async function handleAnalyzeCompetitors() {
+    setAnalyzingCompetitors(true);
+    setCompetitorAnalysisError(null);
+    try {
+      const res = await fetch("/api/socialflow/knowledge/analyze-local-competitors", { method: "POST" });
+      const json = (await res.json()) as AnalyzeLocalCompetitorsResponse;
+      if ("ok" in json && json.ok) {
+        setCompetitorAnalysisResult({ report: json.report, competitors: json.competitors });
+      } else {
+        const code = "error" in json ? json.error : "";
+        setCompetitorAnalysisError(AGENT_ERROR_MESSAGES[code] ?? DEFAULT_ANALYSIS_ERROR);
+      }
+    } catch {
+      setCompetitorAnalysisError(DEFAULT_ANALYSIS_ERROR);
+    } finally {
+      setAnalyzingCompetitors(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -112,6 +170,62 @@ export default function LocalClient({
             {saving ? "Guardando..." : "Guardar"}
           </button>
         </form>
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-white/4 p-5">
+        <h3 className="mb-4 text-sm font-semibold text-white">Analizar competencia local</h3>
+        <p className="mb-4 text-xs text-white/40">
+          La IA buscará negocios similares cerca de tu dirección en Google Maps y generará un informe de posicionamiento competitivo.
+        </p>
+
+        {competitorAnalysisError && (
+          <p className="mb-4 text-sm text-red-400">{competitorAnalysisError}</p>
+        )}
+
+        <button
+          type="button"
+          onClick={handleAnalyzeCompetitors}
+          disabled={analyzingCompetitors}
+          className="inline-flex rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:opacity-50"
+        >
+          {analyzingCompetitors ? "Analizando..." : "Analizar competencia local"}
+        </button>
+
+        {competitorAnalysisResult && (
+          <div className="mt-5 space-y-5">
+            <div>
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/40">
+                Informe de posicionamiento
+              </h4>
+              <p className="whitespace-pre-wrap rounded-xl border border-white/8 bg-white/3 p-4 text-sm leading-6 text-white/70">
+                {competitorAnalysisResult.report}
+              </p>
+            </div>
+
+            <div>
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/40">
+                Competidores encontrados ({competitorAnalysisResult.competitors.length})
+              </h4>
+              {competitorAnalysisResult.competitors.length === 0 ? (
+                <p className="text-sm text-white/30">No se encontraron competidores en el radio analizado</p>
+              ) : (
+                <ul className="space-y-2.5">
+                  {competitorAnalysisResult.competitors.map((c) => (
+                    <li key={c.placeId} className="rounded-xl border border-white/8 bg-white/4 p-4">
+                      <p className="text-sm font-semibold text-white/85">{c.name}</p>
+                      <p className="mt-0.5 text-xs text-white/40">{c.address}</p>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/50">
+                        <span>⭐ {c.rating != null ? c.rating.toFixed(1) : "Sin valorar"}</span>
+                        <span>{c.distanceKm} km</span>
+                        <span>{priceLevelLabel(c.priceLevel)}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {uploadError && (
