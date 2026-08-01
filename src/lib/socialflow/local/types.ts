@@ -7,6 +7,10 @@ export interface EmpresaLocal {
   openingHours: string | null;
   description: string | null;
   niche: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  placeId: string | null;
+  geocodedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

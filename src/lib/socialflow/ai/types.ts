@@ -167,6 +167,39 @@ export type SocialAIPipelineResult = {
   campaignId?: string;
 };
 
+// Local competitor intelligence (Google Maps-based) — independent from CompetitorInsights
+// / CompetitorAgent above, which analyze social-content patterns rather than real nearby
+// businesses. Produced by CompetitorIntelligenceAgent.
+export type GooglePriceLevel =
+  | "PRICE_LEVEL_UNSPECIFIED"
+  | "PRICE_LEVEL_FREE"
+  | "PRICE_LEVEL_INEXPENSIVE"
+  | "PRICE_LEVEL_MODERATE"
+  | "PRICE_LEVEL_EXPENSIVE"
+  | "PRICE_LEVEL_VERY_EXPENSIVE";
+
+export type LocalCompetitorProfile = {
+  placeId: string;
+  name: string;
+  address: string;
+  rating: number | null;
+  reviewCount: number | null;
+  priceLevel: GooglePriceLevel | null;
+  distanceKm: number;
+};
+
+export type CompetitorIntelligenceInput = {
+  tenantId: string;
+  saasId: string;
+  radiusKm?: number; // default 5, see CompetitorIntelligenceAgent
+};
+
+export type CompetitorIntelligenceResult = {
+  competitors: LocalCompetitorProfile[];
+  report: string;
+  geocodedAt: string;
+};
+
 export type SocialAIPipelineInput = {
   tenantId: string;
   saasId: string;

@@ -13,6 +13,10 @@ type LocalRow = {
   opening_hours: string | null;
   description: string | null;
   niche: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  place_id: string | null;
+  geocoded_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -36,6 +40,10 @@ function rowToLocal(row: LocalRow): EmpresaLocal {
     openingHours: row.opening_hours,
     description: row.description,
     niche: row.niche,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    placeId: row.place_id,
+    geocodedAt: row.geocoded_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -73,17 +81,23 @@ export async function upsertLocal(
 ): Promise<EmpresaLocal> {
   const db = await getDb(tenantId, saasId);
   const existing = await db
-    .prepare(`SELECT id FROM ${LOCAL_TABLE} WHERE tenant_id = ? AND saas_id = ?`)
+    .prepare(`SELECT id, address FROM ${LOCAL_TABLE} WHERE tenant_id = ? AND saas_id = ?`)
     .bind(tenantId, saasId)
-    .first<{ id: string }>();
+    .first<{ id: string; address: string | null }>();
   const now = new Date().toISOString();
 
   if (existing) {
+    // If the address changed, the cached geocoding (latitude/longitude/place_id/
+    // geocoded_at) no longer points at the right place — reset it so
+    // CompetitorIntelligenceAgent re-geocodes on its next run instead of using stale
+    // coordinates for the old address.
+    const addressChanged = (input.address ?? null) !== existing.address;
+    const setClause = addressChanged
+      ? `business_name = ?, address = ?, opening_hours = ?, description = ?, niche = ?, updated_at = ?, latitude = NULL, longitude = NULL, place_id = NULL, geocoded_at = NULL`
+      : `business_name = ?, address = ?, opening_hours = ?, description = ?, niche = ?, updated_at = ?`;
+
     await db
-      .prepare(
-        `UPDATE ${LOCAL_TABLE} SET business_name = ?, address = ?, opening_hours = ?, description = ?, niche = ?, updated_at = ?
-         WHERE id = ?`,
-      )
+      .prepare(`UPDATE ${LOCAL_TABLE} SET ${setClause} WHERE id = ?`)
       .bind(
         input.businessName ?? null,
         input.address ?? null,
@@ -126,6 +140,10 @@ export async function upsertLocal(
     openingHours: input.openingHours ?? null,
     description: input.description ?? null,
     niche: input.niche ?? null,
+    latitude: null,
+    longitude: null,
+    placeId: null,
+    geocodedAt: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -168,6 +186,24 @@ export async function deleteLocalPhoto(id: string, tenantId: string, saasId: str
     .bind(id, tenantId, saasId)
     .run();
   return ((result?.meta as { changes?: number })?.changes ?? 0) > 0;
+}
+
+// Persists geocoded coordinates for the business address, so CompetitorIntelligenceAgent
+// doesn't need to re-geocode on every run. Called only when saas_empresa_local has no
+// cached latitude/longitude yet (or the client's address changed).
+export async function updateLocalCoordinates(
+  tenantId: string,
+  saasId: string,
+  coords: { latitude: number; longitude: number; placeId: string | null },
+): Promise<void> {
+  const db = await getDb(tenantId, saasId);
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `UPDATE ${LOCAL_TABLE} SET latitude = ?, longitude = ?, place_id = ?, geocoded_at = ? WHERE tenant_id = ? AND saas_id = ?`,
+    )
+    .bind(coords.latitude, coords.longitude, coords.placeId, now, tenantId, saasId)
+    .run();
 }
 
 // Returns a structured context string for injection into the LLaVA image-analysis
