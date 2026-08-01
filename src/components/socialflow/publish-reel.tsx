@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import ReelsCreator, { fetchCaption } from "./reels-creator";
 import { ReelsEngine, type ReelsConfig } from "@/lib/socialflow/reels/ReelsEngine";
 import { CanvasRenderer } from "@/lib/socialflow/reels/CanvasRenderer";
+import { extractVideoFrame } from "@/lib/socialflow/video/extractFrame";
 
 type Phase = "idle" | "uploading" | "creating" | "error" | "batch-review" | "batch-items";
 
@@ -13,7 +14,11 @@ type ReelItemStep = "queued" | "generating" | "ready" | "saving" | "saved" | "er
 type ReelBatchItem = {
   id: string;
   file: File;
-  sourcePreviewUrl: string;    // blob URL de la foto original — thumbnail mientras se genera
+  // "image": foto → Canvas anima y renderiza el MP4 (flujo de siempre).
+  // "video": vídeo del cliente ya viene completo — sin render, se publica tal cual
+  // (ver generateVideoReelForReview). Solo Fase 1: 1 vídeo por vez, sin overlays.
+  sourceType: "image" | "video";
+  sourcePreviewUrl: string;    // blob URL de la foto/vídeo original — thumbnail mientras se genera
   videoBlobUrl: string | null; // blob URL del MP4 renderizado — preview una vez listo
   videoUrl: string | null;     // URL pública en R2 del MP4 — imageHint al guardar
   step: ReelItemStep;
@@ -146,7 +151,53 @@ async function generateReelForReview(
   };
 }
 
+// Fase 1 — vídeo del cliente: sin ReelsAgent/CanvasRenderer/ReelsEngine, el vídeo ya
+// viene completo. Sube el original + un frame extraído en el navegador (25% de la
+// duración, ver extractVideoFrame) en paralelo; el frame solo sirve para pedir un
+// caption real (mismo pipeline LLaVA+Mistral que fotos, vía generate-from-image) — el
+// vídeo que se publica es siempre el original, nunca el frame. Mismo shape de retorno
+// que generateReelForReview para que runBatch() no necesite saber cuál se usó.
+async function generateVideoReelForReview(
+  file: File,
+  saasId: string,
+  batchIndex: number,
+): Promise<{ videoBlobUrl: string; videoUrl: string; body: string; hashtags: string[]; scheduledAt: string }> {
+  const [{ url: videoUrl }, frameBlob] = await Promise.all([
+    uploadFile(file),
+    extractVideoFrame(file),
+  ]);
+
+  const frameFile = new File([frameBlob], "frame.jpg", { type: "image/jpeg" });
+  const { url: frameUrl, key: frameKey } = await uploadFile(frameFile);
+
+  // fetchCaption nunca rechaza (ver reels-creator.tsx) — un fallo aquí nunca debe
+  // tumbar la publicación del vídeo, solo degrada a un caption genérico.
+  const suggestedPost = await fetchCaption(frameUrl, frameKey, saasId, { batchIndex, scheduleIndex: batchIndex });
+
+  return {
+    videoBlobUrl: URL.createObjectURL(file),
+    videoUrl,
+    body: suggestedPost?.body ?? "Nuevo Reel",
+    hashtags: suggestedPost?.hashtags ?? [],
+    scheduledAt: suggestedPost?.scheduledAt ?? new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+  };
+}
+
 // ── Item card (modo batch) ───────────────────────────────────────────────────────
+
+// item.sourcePreviewUrl es un blob URL — de una foto (<img>) o de un vídeo (<video>)
+// según sourceType. Un <img> no puede pintar un blob de vídeo (ni viceversa), así que
+// el thumbnail de carga/error necesita esta rama; el resto de estados de la card ya
+// usan <video> sin condicional (ver ready/saving/saved más abajo — videoBlobUrl es
+// siempre el MP4 final tanto si vino de Canvas como si es el vídeo original del cliente).
+function ItemThumbnail({ item, className }: { item: ReelBatchItem; className: string }) {
+  if (item.sourceType === "video") {
+    // eslint-disable-next-line jsx-a11y/media-has-caption
+    return <video src={item.sourcePreviewUrl} muted className={className} />;
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={item.sourcePreviewUrl} alt="" className={className} />;
+}
 
 function ReelItemCard({
   item,
@@ -163,8 +214,7 @@ function ReelItemCard({
     return (
       <div className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-white/3">
         <div className="relative h-40 overflow-hidden bg-black/20">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.sourcePreviewUrl} alt="" className="h-full w-full object-cover opacity-40" />
+          <ItemThumbnail item={item} className="h-full w-full object-cover opacity-40" />
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
             <Spinner />
           </div>
@@ -182,8 +232,7 @@ function ReelItemCard({
     return (
       <div className="flex flex-col overflow-hidden rounded-2xl border border-rose-500/20 bg-rose-500/5">
         <div className="relative h-40 overflow-hidden bg-black/20">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.sourcePreviewUrl} alt="" className="h-full w-full object-cover opacity-40" />
+          <ItemThumbnail item={item} className="h-full w-full object-cover opacity-40" />
         </div>
         <div className="flex flex-col gap-3 px-4 py-3">
           <p className="text-xs leading-relaxed text-rose-300">{item.error}</p>
@@ -436,9 +485,32 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
     setError(null);
     const files = Array.from(fileList);
     const images = files.filter((f) => f.type.startsWith("image/"));
+    const videos = files.filter((f) => f.type.startsWith("video/"));
+    const unsupportedCount = files.length - images.length - videos.length;
 
-    if (files.length > images.length) {
-      setError("Los vídeos todavía no están soportados como origen de Reel (próximamente) — se ignoraron.");
+    // Fase 1: 1 vídeo por vez, sin mezclar con fotos — el batch de vídeos y el mix
+    // foto+vídeo quedan fuera de alcance (ver auditoría).
+    if (videos.length > 0 && images.length > 0) {
+      setError("No se puede mezclar fotos y vídeo en la misma subida. Sube el vídeo por separado.");
+      return;
+    }
+    if (videos.length > 1) {
+      setError("Por ahora solo se puede subir un vídeo a la vez.");
+      return;
+    }
+    if (videos.length === 1) {
+      if (unsupportedCount > 0) {
+        setError("Algunos archivos no son compatibles y se ignoraron.");
+      }
+      // Igual que 1 foto sola: se salta la pantalla de confirmación "batch-review" y
+      // entra directo a generar — la revisión (caption/hashtags/hora editables) ya
+      // ocurre en la pantalla "batch-items" de todos modos.
+      void runBatch([buildReelItem(videos[0], "video")]);
+      return;
+    }
+
+    if (unsupportedCount > 0) {
+      setError("Algunos archivos no son compatibles y se ignoraron.");
     }
     if (images.length === 0) return;
 
@@ -456,10 +528,11 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
     setPhase("batch-review");
   }
 
-  async function runBatch() {
-    const initialItems: ReelBatchItem[] = pendingFiles.map((file) => ({
+  function buildReelItem(file: File, sourceType: ReelBatchItem["sourceType"]): ReelBatchItem {
+    return {
       id: crypto.randomUUID(),
       file,
+      sourceType,
       sourcePreviewUrl: URL.createObjectURL(file),
       videoBlobUrl: null,
       videoUrl: null,
@@ -471,7 +544,12 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
       editTime: "",
       isEditing: false,
       savedAt: null,
-    }));
+    };
+  }
+
+  // Un único loop para foto y vídeo — elige la función generadora por item.sourceType,
+  // el resto (estado, errores, UI) es idéntico para ambos orígenes.
+  async function runBatch(initialItems: ReelBatchItem[]) {
     setReelItems(initialItems);
     setPhase("batch-items");
 
@@ -479,7 +557,10 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
       const item = initialItems[i];
       updateReelItem(item.id, { step: "generating" });
       try {
-        const result = await generateReelForReview(item.file, saasId, i);
+        const result =
+          item.sourceType === "video"
+            ? await generateVideoReelForReview(item.file, saasId, i)
+            : await generateReelForReview(item.file, saasId, i);
         updateReelItem(item.id, {
           step: "ready",
           videoBlobUrl: result.videoBlobUrl,
@@ -519,6 +600,9 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
           imageHint: item.videoUrl,
           status: "SCHEDULED",
           scheduledAt,
+          // Solo los Reels de vídeo-cliente llevan esta marca — los generados desde
+          // foto (Canvas/ReelsEngine) no cambian de comportamiento, sin metadata nueva.
+          ...(item.sourceType === "video" ? { metadata: { sourceType: "client_video" } } : {}),
         }),
       });
       const data = (await res.json()) as { post?: { id: string }; message?: string; code?: string };
@@ -563,7 +647,7 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
           <div className="mt-5 flex justify-center gap-2">
             <button
               type="button"
-              onClick={() => void runBatch()}
+              onClick={() => void runBatch(pendingFiles.map((file) => buildReelItem(file, "image")))}
               className="rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
             >
               Generar {pendingFiles.length} Reels
@@ -664,12 +748,14 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
         </div>
         <div>
           <p className="text-base font-bold text-white/80">
-            {phase === "uploading" ? "Subiendo imagen…" : "Arrastra tus fotos aquí"}
+            {phase === "uploading" ? "Subiendo imagen…" : "Arrastra tus fotos o un vídeo aquí"}
           </p>
           {phase !== "uploading" && (
             <>
               <p className="mt-1 text-sm text-white/40">o haz click para seleccionar</p>
-              <p className="mt-3 text-xs text-white/25">Hasta {maxImages} fotos · JPEG, PNG, WebP, GIF · máx. 200 MB</p>
+              <p className="mt-3 text-xs text-white/25">
+                Hasta {maxImages} fotos (JPEG, PNG, WebP, GIF) o 1 vídeo (MP4, MOV) · máx. 200 MB
+              </p>
             </>
           )}
         </div>
