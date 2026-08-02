@@ -44,6 +44,28 @@ function nicheDefaultMomentType(niche: string): "accion" | "intimo_personal" | "
   return nicheDefaultPostType(niche) === "REEL" ? "accion" : "estatico_compuesto";
 }
 
+// Seed determinista derivado de los bytes de ESTA imagen — lo único que realmente
+// difiere entre dos fotos cuando este fallback se activa (LLaVA no disponible, error,
+// o JSON inválido). Usado para rotar qué content pillar encabeza el fallback, así dos
+// imágenes distintas de la misma tanda nunca producen un ImageAnalysis idéntico —
+// y por tanto nunca el mismo strategyItem.theme/angle ni el mismo caption final (ver
+// ContentGeneratorAgent, que deriva ambos directamente de este resultado).
+function imageByteSeed(imageBytes: number[]): number {
+  if (!imageBytes.length) return 0;
+  let hash = 0;
+  const sampleStep = Math.max(1, Math.floor(imageBytes.length / 64));
+  for (let i = 0; i < imageBytes.length; i += sampleStep) {
+    hash = (hash * 31 + imageBytes[i]) >>> 0;
+  }
+  return hash;
+}
+
+function rotate<T>(items: T[], seed: number): T[] {
+  if (items.length < 2) return items;
+  const offset = seed % items.length;
+  return [...items.slice(offset), ...items.slice(0, offset)];
+}
+
 export class ImageAnalysisAgent {
   async run(input: {
     imageBytes: number[];
@@ -53,17 +75,24 @@ export class ImageAnalysisAgent {
   }): Promise<ImageAnalysis> {
     const { imageBytes, profile } = input;
 
+    // Rotado por imageByteSeed — si hay 2+ pillars (o se cae al trío genérico de abajo),
+    // cada imagen de la tanda encabeza con uno distinto en vez de repetir siempre el
+    // mismo orden fijo. Con 0-1 pillars configurados no hay señal que rotar; ese caso
+    // límite se queda igual para todas las imágenes (perfil mínimamente configurado).
+    const basePillars = profile.contentPillars.length
+      ? profile.contentPillars
+      : [profile.niche, "detrás de cámaras", "resultados reales"];
+    const pillars = rotate(basePillars, imageByteSeed(imageBytes));
+
     const fallback: ImageAnalysis = {
       description: `Imagen relacionada con ${profile.niche}`,
       emotion: "profesional y auténtico",
-      context: "contenido de marca",
+      context: pillars[0] ?? "contenido de marca",
       recommendedPostType: nicheDefaultPostType(profile.niche),
-      suggestedThemes: profile.contentPillars.slice(0, 3).length
-        ? profile.contentPillars.slice(0, 3)
-        : [profile.niche, "detrás de cámaras", "resultados reales"],
+      suggestedThemes: pillars.slice(0, 3),
       // Honest, non-invented fallback — no fabricated exercise/ingredient/distance data.
-      specificContext: profile.contentPillars.slice(0, 2).length
-        ? `Contenido relacionado con ${profile.contentPillars.slice(0, 2).join(" y ")}.`
+      specificContext: pillars.slice(0, 2).length
+        ? `Contenido relacionado con ${pillars.slice(0, 2).join(" y ")}.`
         : `Contenido de ${profile.niche}.`,
       momentType: nicheDefaultMomentType(profile.niche),
       employeeDetected: null,

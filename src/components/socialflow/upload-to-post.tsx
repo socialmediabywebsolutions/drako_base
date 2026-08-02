@@ -719,6 +719,9 @@ function PreviewModal({
               )}
             </div>
 
+            {/* Score viral — primero, encima del caption */}
+            {item.viralScore && <ViralScoreCard viralScore={item.viralScore} />}
+
             {/* Caption completo */}
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/80">
               {item.editBody}
@@ -734,9 +737,6 @@ function PreviewModal({
                 ))}
               </div>
             )}
-
-            {/* Score viral */}
-            {item.viralScore && <ViralScoreCard viralScore={item.viralScore} />}
           </div>
         </div>
 
