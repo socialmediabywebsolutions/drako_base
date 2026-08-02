@@ -122,6 +122,9 @@ export async function POST(request: Request) {
       baseKeywords: current.profile.baseKeywords.length > 0 ? current.profile.baseKeywords : scrapedKeywords,
       mainTopics: current.profile.mainTopics.length > 0 ? current.profile.mainTopics : scrapedTopics,
       onboardingCompletedAt: new Date().toISOString(),
+      // Seed from the authenticated session on first onboarding — never overwrite
+      // an email the client already set manually via the profile endpoint.
+      contactEmail: current.profile.contactEmail || session.email,
     };
 
     const profile = await upsertChannelProfile(session.tenantId, profilePatch, saasId);

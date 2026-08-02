@@ -323,24 +323,18 @@ function buildBriefingHtml(briefing: BriefingResult): string {
 </html>`;
 }
 
-// SOCIAL_DB has no dedicated column for a tenant's contact email today — the login
-// email lives in SOCIALFLOW_AUTHS_DB, a different database out of scope here (this
-// agent only reads/writes SOCIAL_DB). Best-effort: some profiles carry a contact
-// email inside metadata_json from manual onboarding notes. Returns null otherwise —
-// callers must treat that as "skip the email channel", not an error.
+// socialflow_profiles.contact_email (migration 0210) — seeded from the
+// authenticated session at onboarding time, editable via the profile endpoint.
+// Kept in SOCIAL_DB on purpose so this agent never touches SOCIALFLOW_AUTHS_DB
+// (where the login email actually lives). null when not yet seeded — callers
+// must treat that as "skip the email channel", not an error.
 async function resolveTenantEmail(db: D1Database, tenantId: string, saasId: string): Promise<string | null> {
   const row = await db
-    .prepare(`SELECT metadata_json FROM socialflow_profiles WHERE tenant_id = ? AND saas_id = ? LIMIT 1`)
+    .prepare(`SELECT contact_email FROM socialflow_profiles WHERE tenant_id = ? AND saas_id = ? LIMIT 1`)
     .bind(tenantId, saasId)
-    .first<{ metadata_json: string | null }>();
-  if (!row?.metadata_json) return null;
-  try {
-    const meta = JSON.parse(row.metadata_json) as Record<string, unknown>;
-    const candidate = meta.email ?? meta.contactEmail ?? meta.billingEmail;
-    return typeof candidate === "string" && candidate.includes("@") ? candidate : null;
-  } catch {
-    return null;
-  }
+    .first<{ contact_email: string | null }>();
+  const email = row?.contact_email;
+  return typeof email === "string" && email.includes("@") ? email : null;
 }
 
 // Returns whether the email was actually sent, so callers can record it in

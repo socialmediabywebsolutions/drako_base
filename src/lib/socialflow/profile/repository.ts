@@ -26,6 +26,7 @@ const PROFILE_COLUMNS = [
   "content_style",
   "posting_frequency",
   "client_objective",
+  "contact_email",
   "created_at",
   "updated_at",
 ].join(", ");
@@ -50,6 +51,7 @@ type ProfileRow = {
   content_style: string | null;
   posting_frequency: number | null;
   client_objective: string | null;
+  contact_email: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -181,6 +183,7 @@ const PERSONA_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "content_style", ddl: "TEXT" },
   { name: "posting_frequency", ddl: "INTEGER" },
   { name: "client_objective", ddl: "TEXT" },
+  { name: "contact_email", ddl: "TEXT" },
 ];
 
 async function ensurePersonaColumns(db: D1Database): Promise<void> {
@@ -306,6 +309,7 @@ function buildEmptyProfile(tenantId: string, saasId: string): ChannelProfile {
     contentStyle: null,
     postingFrequency: null,
     clientObjective: null,
+    contactEmail: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -356,6 +360,9 @@ function mergeProfile(base: ChannelProfile, patch: Partial<ChannelProfile>): Cha
   }
   if ("clientObjective" in patch) {
     next.clientObjective = normalizeClientObjective(patch.clientObjective);
+  }
+  if ("contactEmail" in patch) {
+    next.contactEmail = normalizeNullableString(patch.contactEmail);
   }
 
   next.updatedAt = nowIso();
@@ -447,6 +454,7 @@ function mapRowToSnapshot(row: ProfileRow): ChannelKnowledgeSnapshot {
     contentStyle: row.content_style ?? mergedFromMetadata.contentStyle ?? null,
     postingFrequency: row.posting_frequency ?? mergedFromMetadata.postingFrequency ?? null,
     clientObjective: normalizeClientObjective(row.client_objective) ?? mergedFromMetadata.clientObjective ?? null,
+    contactEmail: row.contact_email ?? mergedFromMetadata.contactEmail ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -488,8 +496,8 @@ async function upsertProfileRow(snapshot: ChannelKnowledgeSnapshot): Promise<Cha
   await context.socialDb.prepare(
     `INSERT INTO ${SOCIALFLOW_PROFILE_TABLE} (
       id, tenant_id, saas_id, display_name, brand_name, business_type, website_url, description, tone, audience, goals_json, metadata_json,
-      age_range, gender, growth_goal_followers, growth_goal_timeline, content_style, posting_frequency, client_objective, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      age_range, gender, growth_goal_followers, growth_goal_timeline, content_style, posting_frequency, client_objective, contact_email, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(tenant_id, saas_id) DO UPDATE SET
       id = excluded.id,
       display_name = excluded.display_name,
@@ -508,6 +516,7 @@ async function upsertProfileRow(snapshot: ChannelKnowledgeSnapshot): Promise<Cha
       content_style = excluded.content_style,
       posting_frequency = excluded.posting_frequency,
       client_objective = excluded.client_objective,
+      contact_email = excluded.contact_email,
       updated_at = excluded.updated_at`,
   ).bind(
     rowId,
@@ -529,6 +538,7 @@ async function upsertProfileRow(snapshot: ChannelKnowledgeSnapshot): Promise<Cha
     normalizeNullableString(snapshot.profile.contentStyle),
     normalizeNullableNumber(snapshot.profile.postingFrequency),
     normalizeClientObjective(snapshot.profile.clientObjective),
+    normalizeNullableString(snapshot.profile.contactEmail),
     createdAt,
     updatedAt,
   ).run();

@@ -119,6 +119,9 @@ export type ChannelProfile = {
   contentStyle: string | null;
   postingFrequency: number | null;
   clientObjective: SocialFlowClientObjective | null;
+  // Kept in SOCIAL_DB (socialflow_profiles.contact_email) so WeeklyBriefingAgent
+  // can send the weekly briefing without touching SOCIALFLOW_AUTHS_DB.
+  contactEmail: string | null;
   createdAt: string;
   updatedAt: string;
 };
