@@ -7,7 +7,10 @@
  *     /api/cron/social/comments (Instagram comment auto-reply)
  *   - once a day (0 3 * * *): /api/cron/social/style-learning (StyleLearningAgent)
  *   - once a week, Mondays (0 3 * * 1): /api/cron/social/niche-intelligence
- *     (NicheIntelligenceCronAgent — refreshes socialcors_niche_intelligence)
+ *     (NicheIntelligenceCronAgent — refreshes socialcors_niche_intelligence), then
+ *     /api/cron/social/weekly-briefing (WeeklyBriefingAgent — generates + sends
+ *     the per-tenant weekly briefing, run after niche intelligence so it can use
+ *     that week's freshly-refreshed data)
  *
  * The artifact matrix build generates a thin re-export wrapper:
  *   export { default } from "<path>";
@@ -75,6 +78,9 @@ export default {
     if (event.cron === "0 3 * * 1") {
       await fetch(appUrl + "/api/cron/social/niche-intelligence", authHeaders).catch(function(err) {
         console.error("[Cron] scheduled niche-intelligence failed:", err.message);
+      });
+      await fetch(appUrl + "/api/cron/social/weekly-briefing", authHeaders).catch(function(err) {
+        console.error("[Cron] scheduled weekly-briefing failed:", err.message);
       });
       return;
     }
