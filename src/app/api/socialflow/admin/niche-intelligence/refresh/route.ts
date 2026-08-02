@@ -60,7 +60,15 @@ export async function POST(request: NextRequest) {
   const startedAt = Date.now();
 
   if (requestedNiche) {
-    await generateNicheAnalysis(requestedNiche, bindings);
+    try {
+      await generateNicheAnalysis(requestedNiche, bindings);
+    } catch (err) {
+      console.error("[admin/niche-intelligence/refresh] generateNicheAnalysis failed", requestedNiche, err instanceof Error ? err.message : String(err));
+      return NextResponse.json(
+        { ok: false, code: "NICHE_REFRESH_FAILED", message: err instanceof Error ? err.message : String(err) },
+        { status: 500 },
+      );
+    }
     return NextResponse.json({
       success: true,
       niches: [requestedNiche],
@@ -68,6 +76,8 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // runNicheIntelligenceCron already wraps each niche in its own try/catch and
+  // never throws (see NicheIntelligenceCronAgent.ts) — no extra handling needed here.
   const results = await runNicheIntelligenceCron(bindings);
   return NextResponse.json({
     success: true,
