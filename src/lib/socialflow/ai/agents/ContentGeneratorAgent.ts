@@ -4,6 +4,8 @@ import type { TrendInsights } from "./TrendAgent";
 import { OPENERS_BY_CATEGORY, type OpenerCategory } from "../openers/pickOpenerCategory";
 import { nicheDefaultPostType } from "./ImageAnalysisAgent";
 import { resolveObjectiveCta } from "../utils/ctaUtils";
+import { getNicheIntelligence, getStyleHistory, detectContentFatigue } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
+import { env } from "@/lib/cf";
 
 // Fallback determinista (sin llamar a Mistral) cuando el binding de IA no está
 // disponible — prioriza momentType (clasificación estructurada del modelo de visión,
@@ -61,9 +63,32 @@ export class ContentGeneratorAgent {
     llavaSuggestedFormat?: "FEED" | "REEL" | "STORY";
     momentType?: "accion" | "intimo_personal" | "estatico_compuesto";
     employeeDetected?: string | null;
+    // Optional — enables the "Cerebro Socialcors" context (niche trends + content
+    // fatigue detection) below. Omitted by callers that don't have tenant context
+    // yet degrades gracefully to today's behavior, no prompt sections added.
+    tenantId?: string;
+    saasId?: string;
   }): Promise<GeneratedPost> {
     const { profile, strategyItem, keywordEngine, trends } = input;
     const isEmpresa = profile.accountType === "empresa";
+
+    const dracoEnv = env();
+    const [nicheIntel, styleHistory] = dracoEnv
+      ? await Promise.all([
+          getNicheIntelligence(profile.niche, dracoEnv),
+          input.tenantId && input.saasId
+            ? getStyleHistory(input.tenantId, input.saasId, dracoEnv)
+            : Promise.resolve([]),
+        ])
+      : [null, []];
+    const fatigueWarning = detectContentFatigue(styleHistory);
+
+    const nicheIntelSection = nicheIntel
+      ? `\n## Tendencias actuales del nicho ${profile.niche} (últimos 7 días)\n${nicheIntel.hashtags.length ? `Hashtags en tendencia: ${nicheIntel.hashtags.join(" ")}\n` : ""}${nicheIntel.formats.length ? `Formatos que están funcionando mejor: ${nicheIntel.formats.join(", ")}\n` : ""}${nicheIntel.hooks.length ? `Hooks que están funcionando: ${nicheIntel.hooks.join(" | ")}\n` : ""}`
+      : "";
+    const fatigueSection = fatigueWarning
+      ? `\n⚠️ ATENCIÓN — FATIGA DE CONTENIDO DETECTADA: ${fatigueWarning.description}\n`
+      : "";
     const openers = OPENERS_BY_CATEGORY[input.openerCategory ?? "lifestyle"];
     // Rotate opener so every upload gets a different caption structure.
     // Falls back to time-based seed when no explicit index is given.
@@ -112,6 +137,7 @@ ${cta ? `CTA: ${cta}` : ""}
 ${hooks ? `Hooks de referencia (adapta al tema): ${hooks}` : ""}
 ${keywords ? `Keywords a incluir naturalmente: ${keywords}` : ""}
 ${hashtagSeed ? `Hashtags de referencia para incluir: ${hashtagSeed}` : ""}
+${nicheIntelSection}${fatigueSection}
 
 ⚠️ APERTURA — REGLA IRROMPIBLE: NUNCA empieces con "Hola", "Chicas", "A veces", ni presentándote ("Soy ${profile.brandIdentity}...").
 Aperturas disponibles para este tipo de imagen:

@@ -517,6 +517,8 @@ export async function POST(request: Request) {
       llavaSuggestedFormat: imageAnalysis.recommendedPostType,
       momentType: imageAnalysis.momentType,
       employeeDetected: imageAnalysis.employeeDetected,
+      tenantId: session.tenantId,
+      saasId: body.saasId,
     });
     const variant = generated.variants[0];
 

@@ -493,6 +493,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       specificContext: imageAnalysis.specificContext,
       llavaSuggestedFormat: imageAnalysis.recommendedPostType,
       momentType: imageAnalysis.momentType,
+      tenantId: session.tenantId,
+      saasId: body.saasId,
     });
     const variant = generated.variants[0];
 

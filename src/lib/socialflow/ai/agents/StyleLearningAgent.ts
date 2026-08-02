@@ -1,6 +1,8 @@
 import { defaultLocalModel } from "../models/localModel";
 import { listSaasSocialPosts, listSaasSocialMetricsForPost, resolveSocialContext } from "@/lib/socialflow/repository";
 import { upsertKnowledgeDocByType } from "@/lib/socialflow/knowledge/repository";
+import { saveStyleSnapshot } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
+import { env } from "@/lib/cf";
 import type { SaasSocialPost } from "@/lib/social-core/types";
 
 const MAX_POSTS_ANALYZED = 30;
@@ -170,7 +172,7 @@ export class StyleLearningAgent {
       contentText: summaryText,
     });
 
-    return {
+    const result: StyleLearningResult = {
       postsAnalyzed: published.length,
       avgCaptionLength,
       topHookPatterns,
@@ -179,5 +181,16 @@ export class StyleLearningAgent {
       bestPerformingHours,
       summaryText,
     };
+
+    // Additive: the KB doc above keeps overwriting (compatibility with existing
+    // readers of getKnowledgeContext), while this also appends to history so the
+    // brain can look back further than "just the latest run" — see
+    // NicheIntelligenceService.detectContentFatigue.
+    const dracoEnv = env();
+    if (dracoEnv) {
+      await saveStyleSnapshot(input.tenantId, input.saasId, JSON.stringify(result), published.length, dracoEnv);
+    }
+
+    return result;
   }
 }
