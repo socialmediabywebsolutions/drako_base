@@ -2,13 +2,15 @@ import type { DracoEnv } from "@/lib/cf";
 
 export type Env = DracoEnv;
 
+export type NicheOptimalHour = { day: string; hour: number; score: number };
+
 export type NicheIntelligence = {
   niche: string;
   analysis: Record<string, unknown> | null;
   hashtags: string[];
   formats: string[];
   hooks: string[];
-  optimalHours: number[];
+  optimalHours: NicheOptimalHour[];
   fatigueSignals: string[];
   updatedAt: string;
   validUntil: string;
@@ -116,7 +118,7 @@ export async function getNicheIntelligence(niche: string, env: Env): Promise<Nic
       hashtags: safeParseArray<string>(row.hashtags_json),
       formats: safeParseArray<string>(row.formats_json),
       hooks: safeParseArray<string>(row.hooks_json),
-      optimalHours: safeParseArray<number>(row.optimal_hours_json),
+      optimalHours: safeParseArray<NicheOptimalHour>(row.optimal_hours_json),
       fatigueSignals: safeParseArray<string>(row.fatigue_signals_json),
       updatedAt: row.updated_at,
       validUntil: row.valid_until,

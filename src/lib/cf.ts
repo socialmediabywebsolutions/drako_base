@@ -23,6 +23,7 @@ export type DracoEnv = {
   BASES_AUTHS_DB?: D1Database;
   SESSION_SECRET: string;
   SOCIALFLOW_WEBHOOK_VERIFY_TOKEN?: string;
+  SOCIALFLOW_ADMIN_KEY?: string;
   DEFAULT_TENANT_ID?: string;
   ADMIN_EMAIL?: string;
   ADMIN_PASSWORD?: string;
