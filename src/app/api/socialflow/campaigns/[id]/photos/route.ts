@@ -23,6 +23,7 @@ import { CAROUSEL_MIN_ITEMS } from "@/lib/socialflow/meta/publishing";
 import type { BrandProfile, KeywordEngineOutput, StrategyItem } from "@/lib/socialflow/ai/types";
 import type { SaasSocialCampaign } from "@/lib/social-core/types";
 import { isActiveSocialFlowTrial, getCarouselSlideLimit } from "@/lib/socialflow/billing/enforce";
+import { calculateViralScore, mapContentTypeToViralFormat, type ViralScore } from "@/lib/socialflow/intelligence/ViralScoreAgent";
 
 // This endpoint is the campaign-aware sibling of /api/socialflow/posts/generate-from-image —
 // same per-photo LLaVA + Mistral pipeline, but (a) it narrates every photo inside the campaign's
@@ -551,6 +552,29 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       mixContentType && mixContentType !== "CAROUSEL" ? mixContentType : contentTypeMap[variant.recommendedPostType] ?? "FEED";
     const title = optimized.improvedText.split("\n")[0]?.replace(/^#+\s*/, "").slice(0, 72).trim() ?? strategyItem.theme;
 
+    // Score viral — mismo criterio que posts/generate-from-image: nunca debe
+    // romper este endpoint, calculateViralScore ya degrada a un score neutro
+    // internamente, y este try/catch es defensa adicional en el punto de
+    // integración.
+    let viralScore: ViralScore | null = null;
+    const dracoEnvForScore = env();
+    if (dracoEnvForScore) {
+      try {
+        viralScore = await calculateViralScore({
+          caption: optimized.improvedText,
+          hashtags: optimized.hashtags,
+          format: mapContentTypeToViralFormat(contentType),
+          niche: profile.niche,
+          tenantId: session.tenantId,
+          saasId: body.saasId,
+          env: dracoEnvForScore,
+        });
+      } catch (err) {
+        console.error("[campaigns/photos] calculateViralScore failed", err instanceof Error ? err.message : String(err));
+        viralScore = null;
+      }
+    }
+
     return NextResponse.json({
       imageUrl: body.imageUrl,
       imageAnalysis,
@@ -564,6 +588,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         scheduledAt: computedScheduledAt,
         saasId: body.saasId,
         campaignId: campaign.id,
+        viralScore,
       },
     });
   } catch (error) {

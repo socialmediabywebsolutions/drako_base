@@ -16,6 +16,7 @@ import { CarouselComposerAgent } from "@/lib/socialflow/ai/agents/CarouselCompos
 import { CAROUSEL_MIN_ITEMS, CAROUSEL_MAX_ITEMS } from "@/lib/socialflow/meta/publishing";
 import type { BrandProfile, KeywordEngineOutput, StrategyItem } from "@/lib/socialflow/ai/types";
 import { isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
+import { calculateViralScore, mapContentTypeToViralFormat, type ViralScore } from "@/lib/socialflow/intelligence/ViralScoreAgent";
 
 function unauthorizedResponse() {
   return NextResponse.json({ code: "UNAUTHORIZED", message: "SESSION_REQUIRED" }, { status: 401 });
@@ -578,6 +579,30 @@ export async function POST(request: Request) {
     const title = optimized.improvedText.split("\n")[0]?.replace(/^#+\s*/, "").slice(0, 72).trim()
       ?? strategyItem.theme;
 
+    // Score viral — calculado ANTES de devolver el post al cliente para aprobar.
+    // Nunca debe romper este endpoint: calculateViralScore ya degrada internamente
+    // a un score neutro en cualquier fallo, y este try/catch es defensa adicional
+    // en el punto de integración para que el flujo de aprobación jamás dependa de
+    // que la puntuación exista.
+    let viralScore: ViralScore | null = null;
+    const dracoEnvForScore = env();
+    if (dracoEnvForScore) {
+      try {
+        viralScore = await calculateViralScore({
+          caption: optimized.improvedText,
+          hashtags: optimized.hashtags,
+          format: mapContentTypeToViralFormat(contentType),
+          niche: profile.niche,
+          tenantId: session.tenantId,
+          saasId: body.saasId,
+          env: dracoEnvForScore,
+        });
+      } catch (err) {
+        console.error("[generate-from-image] calculateViralScore failed", err instanceof Error ? err.message : String(err));
+        viralScore = null;
+      }
+    }
+
     return NextResponse.json({
       imageUrl: body.imageUrl,
       imageAnalysis,
@@ -590,6 +615,7 @@ export async function POST(request: Request) {
         contentType,
         scheduledAt: computedScheduledAt,
         saasId: body.saasId,
+        viralScore,
       },
     });
   } catch (error) {

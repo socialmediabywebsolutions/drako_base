@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
+import type { ViralScore } from "@/lib/socialflow/intelligence/ViralScoreAgent";
 import ReelsCreator from "./reels-creator";
 
 type ContentCategory = "foto_real" | "grafico_texto";
@@ -35,6 +36,7 @@ type UploadItem = {
   editProvider: string;
   isEditing: boolean;
   savedAt: string | null;    // ISO scheduledAt after successful save
+  viralScore: ViralScore | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -603,6 +605,68 @@ function BulkPreviewModal({
 
 // ── Preview modal ─────────────────────────────────────────────────────────────
 
+const VIRAL_SCORE_COLORS: Record<ViralScore["label"], { text: string; bg: string }> = {
+  Bajo: { text: "text-red-400", bg: "bg-red-500/10" },
+  Medio: { text: "text-amber-400", bg: "bg-amber-500/10" },
+  Alto: { text: "text-emerald-400", bg: "bg-emerald-500/10" },
+  Viral: { text: "text-fuchsia-300", bg: "bg-fuchsia-500/10" },
+};
+
+const VIRAL_SCORE_TITLES: Record<ViralScore["label"], string> = {
+  Bajo: "Bajo potencial viral",
+  Medio: "Potencial medio",
+  Alto: "Alto potencial viral",
+  Viral: "Potencial viral",
+};
+
+// Score calculado server-side por ViralScoreAgent — item.viralScore es null tanto
+// si el cálculo falló como si el endpoint todavía no lo soporta (degradación
+// silenciosa, no se muestra nada en ese caso).
+function ViralScoreCard({ viralScore }: { viralScore: ViralScore }) {
+  const [showImprovements, setShowImprovements] = useState(false);
+  const colors = VIRAL_SCORE_COLORS[viralScore.label];
+
+  return (
+    <div className={`rounded-2xl border border-white/10 ${colors.bg} p-4`}>
+      <div className="flex items-center gap-3">
+        <span
+          className={`text-3xl font-black tabular-nums ${colors.text} ${viralScore.label === "Viral" ? "animate-pulse" : ""}`}
+        >
+          {viralScore.score.toFixed(1)}
+        </span>
+        <div className="flex flex-col">
+          <span className={`text-sm font-bold ${colors.text}`}>{VIRAL_SCORE_TITLES[viralScore.label]}</span>
+          <span className="text-[11px] text-white/40">Puntuación de potencial viral (1-10)</span>
+        </div>
+      </div>
+      {viralScore.explanation && (
+        <p className="mt-2 text-xs leading-relaxed text-white/60">{viralScore.explanation}</p>
+      )}
+      {viralScore.improvements.length > 0 && (
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => setShowImprovements((v) => !v)}
+            className="text-[11px] font-semibold text-white/50 underline decoration-dotted underline-offset-2 transition hover:text-white/80"
+          >
+            {showImprovements ? "Ocultar sugerencias" : `Ver ${viralScore.improvements.length} sugerencias para mejorar`}
+          </button>
+          {showImprovements && (
+            <ul className="mt-2 space-y-1 text-xs text-white/60">
+              {viralScore.improvements.map((tip, i) => (
+                <li key={i} className="flex gap-1.5">
+                  <span className="text-white/30">•</span>
+                  <span>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PreviewModal({
   item,
   onConfirm,
@@ -670,6 +734,9 @@ function PreviewModal({
                 ))}
               </div>
             )}
+
+            {/* Score viral */}
+            {item.viralScore && <ViralScoreCard viralScore={item.viralScore} />}
           </div>
         </div>
 
@@ -759,7 +826,7 @@ export default function UploadToPost({
         step: "uploading", error: null, imageAnalysis: null, contentCategory: null,
         editBody: "", editHashtags: [], editDate: "", editTime: "",
         editContentType: "FEED", editProvider: "INSTAGRAM",
-        isEditing: false, savedAt: null,
+        isEditing: false, savedAt: null, viralScore: null,
       },
     ]);
 
@@ -845,6 +912,7 @@ export default function UploadToPost({
         suggestedPost?: {
           body: string; hashtags: string[]; scheduledAt: string;
           contentType: string; provider: string;
+          viralScore?: ViralScore | null;
         };
         code?: string; message?: string;
       };
@@ -864,6 +932,7 @@ export default function UploadToPost({
                 editTime: parseTime(genData.suggestedPost!.scheduledAt),
                 editContentType: genData.suggestedPost!.contentType,
                 editProvider: genData.suggestedPost!.provider,
+                viralScore: genData.suggestedPost!.viralScore ?? null,
               }
             : i
         )
