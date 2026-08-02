@@ -23,6 +23,8 @@ type UploadItem = {
   localPreviewUrl: string;   // blob URL — used for all <img> display
   r2Url: string | null;      // R2 public URL — only used as imageHint in DB
   r2Key: string | null;      // R2 object key — used by server to read via binding
+  batchIndex: number;        // position within this upload wave — threaded into ReelsCreator
+                              // so each Reel's caption gets its own opener (see fetchCaption)
   reelVideoUrl?: string;     // set only after the user reviewed the video in ReelsCreator
   step: ItemStep;
   error: string | null;
@@ -301,6 +303,14 @@ function ItemCard({
             <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{item.error}</p>
           )}
 
+          {/* Reel pendiente de revisión — no es aprobable hasta generar el vídeo */}
+          {item.editContentType === "REEL" && item.step !== "reel_ready" && (
+            <div className="flex flex-col gap-0.5 rounded-lg border border-orange-500/50 bg-orange-500/15 px-3 py-2">
+              <span className="text-xs font-black text-orange-300">🎬 Pendiente de revisión</span>
+              <span className="text-[11px] text-orange-200/70">Genera el vídeo para poder programarlo</span>
+            </div>
+          )}
+
           <p className="line-clamp-3 text-sm leading-relaxed text-white/70">{item.editBody}</p>
 
           <div className="flex flex-wrap gap-1.5">
@@ -378,7 +388,7 @@ function ItemCard({
               <button
                 type="button"
                 onClick={() => onCreateReel(item.id)}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-bold text-violet-300 transition hover:bg-violet-500/20"
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg border-2 border-orange-500/60 bg-orange-500/20 px-3 py-2.5 text-sm font-black text-orange-300 shadow-md shadow-orange-500/10 transition hover:bg-orange-500/30"
               >
                 ▶ Ver Reel
               </button>
@@ -488,7 +498,7 @@ function ItemCard({
             <button
               type="button"
               onClick={() => { onUpdate(item.id, { isEditing: false }); onCreateReel(item.id); }}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 py-2 text-xs font-bold text-violet-300 transition hover:bg-violet-500/20"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg border-2 border-orange-500/60 bg-orange-500/20 py-2.5 text-sm font-black text-orange-300 shadow-md shadow-orange-500/10 transition hover:bg-orange-500/30"
             >
               ▶ Ver Reel
             </button>
@@ -821,7 +831,7 @@ export default function UploadToPost({
     setItems((prev) => [
       ...prev,
       {
-        id, file, localPreviewUrl,
+        id, file, localPreviewUrl, batchIndex,
         r2Url: null, r2Key: null,
         step: "uploading", error: null, imageAnalysis: null, contentCategory: null,
         editBody: "", editHashtags: [], editDate: "", editTime: "",
@@ -1318,6 +1328,7 @@ export default function UploadToPost({
                 imageUrl={reelsItem.r2Url}
                 imageKey={reelsItem.r2Key}
                 saasId={saasId}
+                batchIndex={reelsItem.batchIndex}
                 onApproved={({ videoUrl, suggestedPost, fallbackCaption }) => {
                   updateItem(targetId, {
                     reelVideoUrl: videoUrl,

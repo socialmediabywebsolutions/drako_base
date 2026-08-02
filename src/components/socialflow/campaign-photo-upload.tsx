@@ -130,6 +130,7 @@ export default function CampaignPhotoUpload({
                 imageKey={reelsItem.r2Key}
                 saasId={saasId}
                 campaignId={campaignId}
+                batchIndex={reelsItem.batchIndex}
                 onApproved={({ videoUrl, suggestedPost }) => {
                   markReelReady(targetId, videoUrl, suggestedPost);
                   setReelsPhotoId(null);

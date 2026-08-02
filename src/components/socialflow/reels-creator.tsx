@@ -70,6 +70,7 @@ export default function ReelsCreator({
   imageKey,
   saasId,
   campaignId,
+  batchIndex,
   onClose,
   onApproved,
 }: {
@@ -77,6 +78,12 @@ export default function ReelsCreator({
   imageKey: string;
   saasId: string;
   campaignId?: string;
+  // Posición de esta foto dentro de la tanda de subida — sin esto, fetchCaption()
+  // omitía batchIndex/scheduleIndex y generate-from-image siempre calculaba el mismo
+  // openerIndex (ver ContentGeneratorAgent), lo que hacía que varios Reels creados en
+  // la misma sesión terminaran con captions muy parecidos o iguales. Opcional para no
+  // romper ningún caller existente que aún no lo pase.
+  batchIndex?: number;
   onClose?: () => void;
   // Si se pasa, "Aprobar y programar" NO guarda el post aquí — solo entrega el vídeo y el
   // caption sugerido al padre (usado por upload-to-post.tsx / campaign-photo-batch.tsx para
@@ -132,7 +139,12 @@ export default function ReelsCreator({
       const engine = new ReelsEngine(new CanvasRenderer());
       const [blob, suggestedPostResult] = await Promise.all([
         engine.generate(genData.config, (p) => setProgress(p)),
-        fetchCaption(imageUrl, imageKey, saasId),
+        fetchCaption(
+          imageUrl,
+          imageKey,
+          saasId,
+          typeof batchIndex === "number" ? { batchIndex, scheduleIndex: batchIndex } : undefined,
+        ),
       ]);
       setSuggestedPost(suggestedPostResult);
 
