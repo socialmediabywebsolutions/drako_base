@@ -61,7 +61,6 @@ function IcoLocal() {
 const mainNavTop = [
   { href: "/socialflow",               label: "Dashboard",           icon: <IcoHome /> },
   { href: "/socialflow/profile",       label: "Mi Perfil",           icon: <IcoUser /> },
-  { href: "/socialflow/upload",        label: "Analizar y publicar con IA", icon: <IcoCamera /> },
 ];
 
 const mainNavBottom = [
