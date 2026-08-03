@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import { CAROUSEL_MIN_ITEMS } from "@/lib/socialflow/meta/publishing";
+import { getImageDimensions, isHorizontalImage } from "@/lib/socialflow/media/image-dimensions";
 
 // Shared upload/analyze/finalize/approve pipeline behind CampaignPhotoUpload (legacy "Subir fotos"
 // button, autoProcess: true — analiza cada foto en cuanto se sube, sin cambios de comportamiento)
@@ -148,6 +149,11 @@ export function useCampaignPhotoBatch({ campaignId, saasId, maxImages, autoProce
     ]);
 
     try {
+      const { width, height } = await getImageDimensions(file);
+      if (isHorizontalImage(width, height)) {
+        throw new Error("Esta foto es horizontal. Instagram requiere fotos verticales o cuadradas.");
+      }
+
       const form = new FormData();
       form.append("file", file);
       const uploadRes = await fetch("/api/socialflow/media/upload", { method: "POST", body: form });

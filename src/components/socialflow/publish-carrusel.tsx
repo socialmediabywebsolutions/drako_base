@@ -6,6 +6,7 @@ import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgen
 import type { CarouselSlideRole } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
 import { StaticSlideRenderer } from "@/lib/socialflow/carousel/StaticSlideRenderer";
 import { getStyleForCarousel, getNichoPackKey, CAROUSEL_STYLE_PACKS, type CarouselStyleVariant } from "@/lib/socialflow/carousel/CarouselStylePacks";
+import { getImageDimensions, isHorizontalImage } from "@/lib/socialflow/media/image-dimensions";
 
 // Mismo límite real de la Graph API que ya aplica el backend (CAROUSEL_MIN_ITEMS en
 // meta/publishing.ts) — duplicado aquí como número simple para no meter ese módulo
@@ -283,7 +284,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
 
   const canGenerate = photos.length >= CAROUSEL_MIN_SLIDES && photos.length <= maxSlides;
 
-  function handleFileSelect(files: FileList | null) {
+  async function handleFileSelect(files: FileList | null) {
     if (!files || files.length === 0) return;
     const available = maxSlides - photos.length;
     if (available <= 0) {
@@ -291,12 +292,20 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
       return;
     }
     const incoming = Array.from(files).slice(0, available);
-    if (files.length > incoming.length) {
-      setError(`Solo se añadieron ${incoming.length} de ${files.length} fotos (límite de tu plan: ${maxSlides}).`);
+    const truncated = files.length > incoming.length;
+
+    const dimensions = await Promise.all(incoming.map((f) => getImageDimensions(f).catch(() => null)));
+    const accepted = incoming.filter((_, i) => !(dimensions[i] && isHorizontalImage(dimensions[i]!.width, dimensions[i]!.height)));
+    const horizontalCount = incoming.length - accepted.length;
+
+    if (horizontalCount > 0) {
+      setError("Esta foto es horizontal. Instagram requiere fotos verticales o cuadradas.");
+    } else if (truncated) {
+      setError(`Solo se añadieron ${accepted.length} de ${files.length} fotos (límite de tu plan: ${maxSlides}).`);
     } else {
       setError(null);
     }
-    const newSlots: CarouselPhotoSlot[] = incoming.map((file) => ({
+    const newSlots: CarouselPhotoSlot[] = accepted.map((file) => ({
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       file,
       previewUrl: URL.createObjectURL(file),
@@ -580,7 +589,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
         <div
           className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-white/15 bg-white/3 px-6 py-14 text-center transition hover:border-violet-500/40"
           onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { e.preventDefault(); handleFileSelect(e.dataTransfer.files); }}
+          onDrop={(e) => { e.preventDefault(); void handleFileSelect(e.dataTransfer.files); }}
         >
           <IcoUpload />
           <p className="text-sm font-semibold text-white/70">Arrastra tus fotos aquí o</p>
@@ -600,7 +609,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
             accept="image/jpeg,image/png,image/webp,image/gif"
             multiple
             className="hidden"
-            onChange={(e) => { handleFileSelect(e.target.files); e.target.value = ""; }}
+            onChange={(e) => { void handleFileSelect(e.target.files); e.target.value = ""; }}
           />
         </div>
 

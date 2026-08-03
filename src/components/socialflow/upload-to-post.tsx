@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import type { ViralScore } from "@/lib/socialflow/intelligence/ViralScoreAgent";
+import { getImageDimensions, isHorizontalImage } from "@/lib/socialflow/media/image-dimensions";
 import ReelsCreator from "./reels-creator";
 
 type ContentCategory = "foto_real" | "grafico_texto";
@@ -841,6 +842,11 @@ export default function UploadToPost({
     ]);
 
     try {
+      const { width, height } = await getImageDimensions(file);
+      if (isHorizontalImage(width, height)) {
+        throw new Error("Esta foto es horizontal. Instagram requiere fotos verticales o cuadradas.");
+      }
+
       const form = new FormData();
       form.append("file", file);
       const uploadRes = await fetch("/api/socialflow/media/upload", { method: "POST", body: form });

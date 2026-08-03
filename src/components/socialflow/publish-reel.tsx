@@ -6,6 +6,7 @@ import ReelsCreator, { fetchCaption } from "./reels-creator";
 import { ReelsEngine, type ReelsConfig } from "@/lib/socialflow/reels/ReelsEngine";
 import { CanvasRenderer } from "@/lib/socialflow/reels/CanvasRenderer";
 import { extractVideoFrame } from "@/lib/socialflow/video/extractFrame";
+import { getImageDimensions, isHorizontalImage } from "@/lib/socialflow/media/image-dimensions";
 
 type Phase = "idle" | "uploading" | "creating" | "error" | "batch-review" | "batch-items";
 
@@ -481,12 +482,17 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
     }
   }
 
-  function handleFiles(fileList: FileList | File[]) {
+  async function handleFiles(fileList: FileList | File[]) {
     setError(null);
     const files = Array.from(fileList);
-    const images = files.filter((f) => f.type.startsWith("image/"));
+    const rawImages = files.filter((f) => f.type.startsWith("image/"));
     const videos = files.filter((f) => f.type.startsWith("video/"));
-    const unsupportedCount = files.length - images.length - videos.length;
+    const unsupportedCount = files.length - rawImages.length - videos.length;
+
+    // Solo las imágenes pasan por el filtro de aspect ratio — los vídeos (rama de abajo) no se tocan.
+    const dimensions = await Promise.all(rawImages.map((f) => getImageDimensions(f).catch(() => null)));
+    const images = rawImages.filter((_, i) => !(dimensions[i] && isHorizontalImage(dimensions[i]!.width, dimensions[i]!.height)));
+    const horizontalCount = rawImages.length - images.length;
 
     // Fase 1: 1 vídeo por vez, sin mezclar con fotos — el batch de vídeos y el mix
     // foto+vídeo quedan fuera de alcance (ver auditoría).
@@ -502,6 +508,9 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
       if (unsupportedCount > 0) {
         setError("Algunos archivos no son compatibles y se ignoraron.");
       }
+      if (horizontalCount > 0) {
+        setError("Esta foto es horizontal. Instagram requiere fotos verticales o cuadradas.");
+      }
       // Igual que 1 foto sola: se salta la pantalla de confirmación "batch-review" y
       // entra directo a generar — la revisión (caption/hashtags/hora editables) ya
       // ocurre en la pantalla "batch-items" de todos modos.
@@ -511,6 +520,9 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
 
     if (unsupportedCount > 0) {
       setError("Algunos archivos no son compatibles y se ignoraron.");
+    }
+    if (horizontalCount > 0) {
+      setError("Esta foto es horizontal. Instagram requiere fotos verticales o cuadradas.");
     }
     if (images.length === 0) return;
 
@@ -733,7 +745,7 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
         onDrop={(e) => {
           e.preventDefault();
           setIsDragging(false);
-          if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files);
+          if (e.dataTransfer.files?.length) void handleFiles(e.dataTransfer.files);
         }}
         onClick={() => phase !== "uploading" && fileInputRef.current?.click()}
         className={[
@@ -766,7 +778,7 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
           multiple
           className="hidden"
           onChange={(e) => {
-            if (e.target.files?.length) handleFiles(e.target.files);
+            if (e.target.files?.length) void handleFiles(e.target.files);
             e.target.value = "";
           }}
         />

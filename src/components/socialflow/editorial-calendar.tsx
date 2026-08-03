@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { AnalyticsMeta, SaasSocialPost, SaasSocialCampaign } from "@/lib/social-core/types";
+import { getImageDimensions, isHorizontalImage } from "@/lib/socialflow/media/image-dimensions";
 
 type PostStatus = SaasSocialPost["status"];
 
@@ -925,8 +926,15 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
   }
 
   async function handleImageFileSelect(file: File) {
-    setFImageUploading(true);
     setFError(null);
+    if (file.type.startsWith("image/")) {
+      const dims = await getImageDimensions(file).catch(() => null);
+      if (dims && isHorizontalImage(dims.width, dims.height)) {
+        setFError("Esta foto es horizontal. Instagram requiere fotos verticales o cuadradas.");
+        return;
+      }
+    }
+    setFImageUploading(true);
     try {
       const form = new FormData();
       form.append("file", file);
