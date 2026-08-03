@@ -50,6 +50,12 @@ function IcoPublish() {
 function IcoCarrusel() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><rect x="3" y="7" width="13" height="13" rx="2" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V5.25A2.25 2.25 0 0 1 10.25 3h8.5A2.25 2.25 0 0 1 21 5.25v8.5A2.25 2.25 0 0 1 18.75 16H17" /></svg>;
 }
+function IcoReel() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5 20.47 5.78a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53L15.75 13.5M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>;
+}
+function IcoStory() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><circle cx="12" cy="12" r="8.25" /></svg>;
+}
 function IcoTeam() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Zm6-10.125a1.875 1.875 0 1 1-3.75 0 1.875 1.875 0 0 1 3.75 0Zm1.294 6.336a6.721 6.721 0 0 1-3.17.789 6.721 6.721 0 0 1-3.168-.789 3.376 3.376 0 0 1 6.338 0Z" /></svg>;
 }
@@ -64,11 +70,18 @@ const mainNavTop = [
 ];
 
 const mainNavBottom = [
-  { href: "/socialflow/plan",           label: "Plan editorial",      icon: <IcoCalendar /> },
+  { href: "/socialflow/plan",           label: "Próximas publicaciones", icon: <IcoCalendar /> },
   { href: "/socialflow/carrusel",       label: "Carrusel",            icon: <IcoCarrusel /> },
-  { href: "/socialflow/campaigns",      label: "Planificar",          icon: <IcoTarget /> },
-  { href: "/socialflow/redes",          label: "Mis Redes",           icon: <IcoNetwork /> },
+  { href: "/socialflow/campaigns",      label: "Crear campañas",      icon: <IcoTarget /> },
+  { href: "/socialflow/redes",          label: "Conectar redes",      icon: <IcoNetwork /> },
   { href: "/socialflow/knowledge",     label: "Base de conocimiento",icon: <IcoBook /> },
+];
+
+const createNavItems: { href: string; label: string; icon: React.ReactNode }[] = [
+  { href: "/socialflow/publicar/post",     label: "Crear Post",     icon: <IcoCamera /> },
+  { href: "/socialflow/publicar/reel",     label: "Crear Reel",     icon: <IcoReel /> },
+  { href: "/socialflow/publicar/historia", label: "Crear Historia", icon: <IcoStory /> },
+  { href: "/socialflow/carrusel/subir",    label: "Crear Carrusel", icon: <IcoCarrusel /> },
 ];
 
 const empresaNavItem = { href: "/socialflow/empresa/empleados", label: "Empleados", icon: <IcoTeam /> };
@@ -166,10 +179,10 @@ export default function SidebarNav({
         <nav className="flex flex-col gap-0.5">
           {mainNavTop.map((item) => renderMainNavItem(item, isActive(item.href)))}
 
-          {renderMainNavItem(
-            { href: "/socialflow/publicar", label: "Crear contenido", icon: <IcoPublish /> },
-            isActive("/socialflow/publicar"),
-          )}
+          <p className="px-3 pt-2 pb-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/25">
+            Crear
+          </p>
+          {createNavItems.map((item) => renderMainNavItem(item, isActive(item.href)))}
 
           {mainNavBottom.slice(0, 4).map((item) => renderMainNavItem(item, isActive(item.href)))}
           {session.accountType === "empresa" && (
