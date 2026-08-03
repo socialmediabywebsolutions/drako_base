@@ -71,7 +71,6 @@ const mainNavTop = [
 
 const mainNavBottom = [
   { href: "/socialflow/plan",           label: "Próximas publicaciones", icon: <IcoCalendar /> },
-  { href: "/socialflow/carrusel",       label: "Carrusel",            icon: <IcoCarrusel /> },
   { href: "/socialflow/campaigns",      label: "Crear campañas",      icon: <IcoTarget /> },
   { href: "/socialflow/redes",          label: "Conectar redes",      icon: <IcoNetwork /> },
   { href: "/socialflow/knowledge",     label: "Base de conocimiento",icon: <IcoBook /> },
