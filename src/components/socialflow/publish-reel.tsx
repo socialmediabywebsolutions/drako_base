@@ -30,6 +30,7 @@ type ReelBatchItem = {
   editTime: string;            // HH:MM
   isEditing: boolean;
   savedAt: string | null;
+  degraded?: boolean;
 };
 
 function todayStr(): string {
@@ -113,7 +114,7 @@ async function generateReelForReview(
   file: File,
   saasId: string,
   batchIndex: number,
-): Promise<{ videoBlobUrl: string; videoUrl: string; body: string; hashtags: string[]; scheduledAt: string }> {
+): Promise<{ videoBlobUrl: string; videoUrl: string; body: string; hashtags: string[]; scheduledAt: string; degraded: boolean }> {
   const { url: imageUrl, key: imageKey } = await uploadFile(file);
 
   const genRes = await fetch("/api/socialflow/reels/generate", {
@@ -149,6 +150,7 @@ async function generateReelForReview(
     body: suggestedPost?.body ?? fallbackCaption,
     hashtags: suggestedPost?.hashtags ?? [],
     scheduledAt: suggestedPost?.scheduledAt ?? new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    degraded: suggestedPost?.degraded ?? false,
   };
 }
 
@@ -162,7 +164,7 @@ async function generateVideoReelForReview(
   file: File,
   saasId: string,
   batchIndex: number,
-): Promise<{ videoBlobUrl: string; videoUrl: string; body: string; hashtags: string[]; scheduledAt: string }> {
+): Promise<{ videoBlobUrl: string; videoUrl: string; body: string; hashtags: string[]; scheduledAt: string; degraded: boolean }> {
   const [{ url: videoUrl }, frameBlob] = await Promise.all([
     uploadFile(file),
     extractVideoFrame(file),
@@ -181,6 +183,7 @@ async function generateVideoReelForReview(
     body: suggestedPost?.body ?? "Nuevo Reel",
     hashtags: suggestedPost?.hashtags ?? [],
     scheduledAt: suggestedPost?.scheduledAt ?? new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    degraded: suggestedPost?.degraded ?? false,
   };
 }
 
@@ -292,6 +295,11 @@ function ReelItemCard({
 
         <div className="flex flex-1 flex-col gap-3 p-4">
           {item.error && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{item.error}</p>}
+          {item.degraded && (
+            <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+              ⚠️ No pudimos analizar bien el contenido de este archivo — revisa el texto generado antes de aprobar.
+            </p>
+          )}
 
           <p className="line-clamp-3 text-sm leading-relaxed text-white/70">{item.editBody}</p>
 
@@ -351,6 +359,11 @@ function ReelItemCard({
       </div>
 
       <div className="flex flex-col gap-3 p-4">
+        {item.degraded && (
+          <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+            ⚠️ No pudimos analizar bien el contenido de este archivo — revisa el texto generado antes de aprobar.
+          </p>
+        )}
         <div>
           <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-white/25">Caption</p>
           <textarea
@@ -581,6 +594,7 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
           editHashtags: result.hashtags,
           editDate: parseDate(result.scheduledAt),
           editTime: parseTime(result.scheduledAt),
+          degraded: result.degraded,
         });
       } catch (e) {
         updateReelItem(item.id, { step: "error", error: e instanceof Error ? e.message : "Error inesperado." });

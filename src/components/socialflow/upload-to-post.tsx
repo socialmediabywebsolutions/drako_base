@@ -304,6 +304,12 @@ function ItemCard({
             <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{item.error}</p>
           )}
 
+          {item.imageAnalysis?.degraded && (
+            <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+              ⚠️ No pudimos analizar bien el contenido de este archivo — revisa el texto generado antes de aprobar.
+            </p>
+          )}
+
           {/* Reel pendiente de revisión — no es aprobable hasta generar el vídeo */}
           {item.editContentType === "REEL" && item.step !== "reel_ready" && (
             <div className="flex flex-col gap-0.5 rounded-lg border border-orange-500/50 bg-orange-500/15 px-3 py-2">
@@ -426,6 +432,11 @@ function ItemCard({
 
       {/* Edit form */}
       <div className="flex flex-col gap-3 p-4">
+        {item.imageAnalysis?.degraded && (
+          <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+            ⚠️ No pudimos analizar bien el contenido de este archivo — revisa el texto generado antes de aprobar.
+          </p>
+        )}
         <div>
           <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-white/25">Caption</p>
           <textarea

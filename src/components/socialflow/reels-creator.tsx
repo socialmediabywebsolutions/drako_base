@@ -25,6 +25,7 @@ export type SuggestedPost = {
   body: string;
   hashtags: string[];
   scheduledAt: string;
+  degraded?: boolean;
 };
 
 // batchIndex/scheduleIndex son opcionales y por defecto se omiten (el servidor los trata
@@ -271,6 +272,11 @@ export default function ReelsCreator({
             className="mx-auto h-96 max-w-full rounded-xl border border-white/10 bg-black"
           />
           {error && <p className="text-xs text-rose-300">{error}</p>}
+          {suggestedPost?.degraded && (
+            <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+              ⚠️ No pudimos analizar bien el contenido de este archivo — revisa el texto generado antes de aprobar.
+            </p>
+          )}
           <div className="flex gap-2">
             <button
               type="button"

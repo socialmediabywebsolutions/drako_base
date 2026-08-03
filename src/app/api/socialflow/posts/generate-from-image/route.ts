@@ -440,7 +440,7 @@ export async function POST(request: Request) {
       });
     }
     console.log(
-      `[ImageAnalysis] description="${imageAnalysis.description}" context="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)}`,
+      `${imageAnalysis.degraded ? "[ImageAnalysis DEGRADED]" : "[ImageAnalysis]"} description="${imageAnalysis.description}" context="${imageAnalysis.context}" themes=${JSON.stringify(imageAnalysis.suggestedThemes)}`,
     );
 
     // "analyze" mode: classification only. Used by the upload UI to learn every photo's
@@ -616,6 +616,7 @@ export async function POST(request: Request) {
         scheduledAt: computedScheduledAt,
         saasId: body.saasId,
         viralScore,
+        degraded: imageAnalysis.degraded ?? false,
       },
     });
   } catch (error) {

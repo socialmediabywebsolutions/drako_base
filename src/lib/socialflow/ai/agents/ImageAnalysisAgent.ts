@@ -25,6 +25,10 @@ export type ImageAnalysis = {
   // Nombre del empleado reconocido en la imagen (solo cuentas empresa con empleados
   // registrados y una señal visual razonable) — null si no aplica.
   employeeDetected: string | null;
+  // true cuando LLaVA falló (binding no disponible, JSON no parseable, o cualquier
+  // excepción) y este resultado es la plantilla genérica basada en el nicho del perfil,
+  // sin relación real con la imagen. Ausente/false = análisis real de LLaVA.
+  degraded?: boolean;
 };
 
 // Usado cuando no se puede decidir el formato real (LLaVA no disponible, o el campo
@@ -96,6 +100,7 @@ export class ImageAnalysisAgent {
         : `Contenido de ${profile.niche}.`,
       momentType: nicheDefaultMomentType(profile.niche),
       employeeDetected: null,
+      degraded: true,
     };
 
     const binding = env()?.AI;
@@ -231,6 +236,7 @@ Responde TODO en español.`;
           employeeContext && typeof parsed.employeeDetected === "string" && parsed.employeeDetected.trim()
             ? parsed.employeeDetected.trim()
             : null,
+        degraded: false,
       };
     } catch {
       console.error("[ImageAnalysisAgent] LLaVA parse failed, using fallback");
