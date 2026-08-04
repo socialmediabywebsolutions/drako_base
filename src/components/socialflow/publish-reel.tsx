@@ -21,7 +21,11 @@ type ReelBatchItem = {
   sourceType: "image" | "video";
   sourcePreviewUrl: string;    // blob URL de la foto/vídeo original — thumbnail mientras se genera
   videoBlobUrl: string | null; // blob URL del MP4 renderizado — preview una vez listo
-  videoUrl: string | null;     // URL pública en R2 del MP4 — imageHint al guardar
+  videoUrl: string | null;     // URL pública en R2 del MP4 — se publica en Instagram, va en metadata.videoUrl
+  thumbnailUrl: string | null; // URL pública en R2 de una imagen ESTÁTICA (la foto original si sourceType
+                               // es "image", o el frame extraído al 25% si es "video") — imageHint al
+                               // guardar. Nunca un blob: (sourcePreviewUrl) ni el MP4 (videoUrl): un <img>
+                               // no puede decodificar vídeo, ver PostDetailModal en editorial-calendar.tsx.
   step: ReelItemStep;
   error: string | null;
   editBody: string;
@@ -114,7 +118,7 @@ async function generateReelForReview(
   file: File,
   saasId: string,
   batchIndex: number,
-): Promise<{ videoBlobUrl: string; videoUrl: string; body: string; hashtags: string[]; scheduledAt: string; degraded: boolean }> {
+): Promise<{ videoBlobUrl: string; videoUrl: string; thumbnailUrl: string; body: string; hashtags: string[]; scheduledAt: string; degraded: boolean }> {
   const { url: imageUrl, key: imageKey } = await uploadFile(file);
 
   const genRes = await fetch("/api/socialflow/reels/generate", {
@@ -147,6 +151,7 @@ async function generateReelForReview(
   return {
     videoBlobUrl,
     videoUrl: uploadData.url,
+    thumbnailUrl: imageUrl,
     body: suggestedPost?.body ?? fallbackCaption,
     hashtags: suggestedPost?.hashtags ?? [],
     scheduledAt: suggestedPost?.scheduledAt ?? new Date(Date.now() + 60 * 60 * 1000).toISOString(),
@@ -164,7 +169,7 @@ async function generateVideoReelForReview(
   file: File,
   saasId: string,
   batchIndex: number,
-): Promise<{ videoBlobUrl: string; videoUrl: string; body: string; hashtags: string[]; scheduledAt: string; degraded: boolean }> {
+): Promise<{ videoBlobUrl: string; videoUrl: string; thumbnailUrl: string; body: string; hashtags: string[]; scheduledAt: string; degraded: boolean }> {
   const [{ url: videoUrl }, frameBlob] = await Promise.all([
     uploadFile(file),
     extractVideoFrame(file),
@@ -180,6 +185,7 @@ async function generateVideoReelForReview(
   return {
     videoBlobUrl: URL.createObjectURL(file),
     videoUrl,
+    thumbnailUrl: frameUrl,
     body: suggestedPost?.body ?? "Nuevo Reel",
     hashtags: suggestedPost?.hashtags ?? [],
     scheduledAt: suggestedPost?.scheduledAt ?? new Date(Date.now() + 60 * 60 * 1000).toISOString(),
@@ -679,6 +685,7 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
       sourcePreviewUrl: URL.createObjectURL(file),
       videoBlobUrl: null,
       videoUrl: null,
+      thumbnailUrl: null,
       step: "queued",
       error: null,
       editBody: "",
@@ -708,6 +715,7 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
           step: "ready",
           videoBlobUrl: result.videoBlobUrl,
           videoUrl: result.videoUrl,
+          thumbnailUrl: result.thumbnailUrl,
           editBody: result.body,
           editHashtags: result.hashtags,
           editDate: parseDate(result.scheduledAt),
@@ -741,12 +749,20 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
           contentType: "REEL",
           title,
           body: bodyWithHashtags,
-          imageHint: item.videoUrl,
+          // Imagen estática (foto original o frame extraído) — nunca el MP4 (item.videoUrl,
+          // ahora en metadata.videoUrl) ni el blob local (item.sourcePreviewUrl): un <img>
+          // no puede decodificar vídeo. Fallback a videoUrl solo por seguridad, no debería
+          // darse nunca con step "ready" (ver generateReelForReview/generateVideoReelForReview).
+          imageHint: item.thumbnailUrl ?? item.videoUrl,
           status: "SCHEDULED",
           scheduledAt,
-          // Solo los Reels de vídeo-cliente llevan esta marca — los generados desde
-          // foto (Canvas/ReelsEngine) no cambian de comportamiento, sin metadata nueva.
-          ...(item.sourceType === "video" ? { metadata: { sourceType: "client_video" } } : {}),
+          // videoUrl siempre viaja en metadata (todo Reel tiene un MP4) — PostDetailModal
+          // lo usa para mostrar <video> en vez de <img>. sourceType solo se marca para
+          // vídeo-cliente, igual que antes.
+          metadata: {
+            videoUrl: item.videoUrl,
+            ...(item.sourceType === "video" ? { sourceType: "client_video" } : {}),
+          },
         }),
       });
       const data = (await res.json()) as { post?: { id: string }; message?: string; code?: string };

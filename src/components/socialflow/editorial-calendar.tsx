@@ -247,7 +247,12 @@ function isMediaUrl(hint: string | null | undefined): hint is string {
 
 function PostThumb({ post, onClick }: { post: SaasSocialPost; onClick: () => void }) {
   const [imageError, setImageError] = useState(false);
-  const hasImage = isMediaUrl(post.imageHint) && !imageError;
+  const postVideoUrl =
+    typeof (post.metadata as Record<string, unknown> | null)?.videoUrl === "string"
+      ? ((post.metadata as Record<string, unknown>).videoUrl as string)
+      : null;
+  const hasVideo = isMediaUrl(postVideoUrl);
+  const hasImage = !hasVideo && isMediaUrl(post.imageHint) && !imageError;
   const gradient = thumbGradient(post.id);
   const ring = STATUS_RING[post.status] ?? "ring-white/8";
   const dot  = STATUS_DOT[post.status]  ?? "bg-white/20";
@@ -259,7 +264,11 @@ function PostThumb({ post, onClick }: { post: SaasSocialPost; onClick: () => voi
       onClick={onClick}
       className={`group relative aspect-square w-full overflow-hidden rounded-xl ring-2 ${ring} transition-all duration-150 hover:scale-[1.03] hover:ring-white/30 active:scale-[0.98]`}
     >
-      {hasImage ? (
+      {hasVideo ? (
+        // Reel (imagen o vídeo del cliente) — mismo criterio que PostDetailModal:
+        // metadata.videoUrl es el MP4 real, imageHint puede no ser una imagen decodificable.
+        <video src={postVideoUrl!} muted autoPlay loop playsInline className="h-full w-full object-cover" />
+      ) : hasImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={post.imageHint!}
@@ -322,6 +331,10 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
   const isRejected = post.status === "REJECTED";
   const isApprovable = isEditable;
   const gradient = thumbGradient(post.id);
+  const postVideoUrl =
+    typeof (post.metadata as Record<string, unknown> | null)?.videoUrl === "string"
+      ? ((post.metadata as Record<string, unknown>).videoUrl as string)
+      : null;
 
   useEffect(() => {
     function handler(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
@@ -346,9 +359,14 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
         </button>
 
         <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
-          {/* Left: image */}
+          {/* Left: image/video */}
           <div className="relative flex h-52 shrink-0 items-center justify-center bg-black/30 md:h-auto md:w-5/12">
-            {isMediaUrl(post.imageHint) && !modalImageError ? (
+            {isMediaUrl(postVideoUrl) ? (
+              // Reel (imagen o vídeo del cliente) — el MP4 real, reproducible, en vez del
+              // imageHint estático. postVideoUrl viene de metadata.videoUrl (ver approveReelItem
+              // en publish-reel.tsx), que siempre existe para posts REEL aprobados desde este flujo.
+              <video src={postVideoUrl} controls playsInline className="h-full w-full object-cover" />
+            ) : isMediaUrl(post.imageHint) && !modalImageError ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={post.imageHint} alt={post.title} className="h-full w-full object-cover" onError={() => setModalImageError(true)} />
             ) : (
