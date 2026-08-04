@@ -85,15 +85,15 @@ type EffectProfile = {
 // segmentos largos + intensidad baja → transiciones que casi no se notan como corte.
 // marketing queda en un punto intermedio (ni deportivo ni relajado).
 const TEMPLATE_EFFECT_PROFILE: Record<ReelsTemplate, EffectProfile> = {
-  fitness: { pool: ["pan", "zoom-in", "rotate", "ken-burns", "pulse"], segmentCount: [3, 4], segmentDurationSec: [2, 4], intensityRange: [0.3, 0.5] },
-  motivation: { pool: ["zoom-in", "pan", "parallax", "ken-burns", "drift", "tilt"], segmentCount: [3, 4], segmentDurationSec: [2, 4], intensityRange: [0.3, 0.5] },
-  lifestyle: { pool: ["parallax", "zoom-out", "pan", "ken-burns", "drift", "pulse"], segmentCount: [2, 3], segmentDurationSec: [4, 7], intensityRange: [0.15, 0.3] },
+  fitness: { pool: ["zoom-in", "rotate", "ken-burns", "pulse"], segmentCount: [3, 4], segmentDurationSec: [2, 4], intensityRange: [0.3, 0.5] },
+  motivation: { pool: ["zoom-in", "parallax", "ken-burns", "drift", "tilt"], segmentCount: [3, 4], segmentDurationSec: [2, 4], intensityRange: [0.3, 0.5] },
+  lifestyle: { pool: ["parallax", "zoom-out", "ken-burns", "drift", "pulse"], segmentCount: [2, 3], segmentDurationSec: [4, 7], intensityRange: [0.15, 0.3] },
   // Ampliado de 4 a 6 tipos (pan/tilt tomados de motivation/marketing) — el intensityRange
   // bajo (0.1-0.2) de esta plantilla ya mantiene el movimiento sutil sin importar qué tipo
   // de efecto le toque, así que sumar más variedad no la vuelve "energética", solo evita
   // que sea siempre la misma combinación de 4.
-  education: { pool: ["zoom-in", "parallax", "drift", "ken-burns", "pan", "tilt"], segmentCount: [2, 3], segmentDurationSec: [5, 9], intensityRange: [0.1, 0.2] },
-  marketing: { pool: ["zoom-in", "rotate", "pan", "ken-burns", "tilt", "drift"], segmentCount: [2, 3], segmentDurationSec: [4, 6], intensityRange: [0.15, 0.3] },
+  education: { pool: ["zoom-in", "parallax", "drift", "ken-burns", "tilt"], segmentCount: [2, 3], segmentDurationSec: [5, 9], intensityRange: [0.1, 0.2] },
+  marketing: { pool: ["zoom-in", "rotate", "ken-burns", "tilt", "drift"], segmentCount: [2, 3], segmentDurationSec: [4, 6], intensityRange: [0.15, 0.3] },
 };
 
 // "drift" debe ser casi imperceptible siempre, incluso en plantillas "energéticas" que

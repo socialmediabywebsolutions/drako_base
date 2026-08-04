@@ -125,23 +125,32 @@ export class ImageAnalysisAgent {
         ? await getLocalContext(input.tenantId, input.saasId).catch(() => "")
         : "";
 
-    const prompt = `Analiza esta imagen para una marca de ${profile.niche} llamada "${profile.brandIdentity}".
+    const prompt = `PASO 1 — DESCRIPCIÓN OBJETIVA (haz esto ANTES de pensar en cualquier nicho o tema de marca):
+Mira la imagen y describe con precisión qué aparece REALMENTE en ella — personas, animales, objetos, entorno, acciones visibles. No asumas todavía ningún tema, nicho o categoría de negocio; describe solo lo que ves.
+
+Recuerda desde ya: tu respuesta FINAL a este mensaje debe ser ÚNICAMENTE un JSON válido (sin markdown, sin texto extra, sin explicaciones antes ni después) — el formato exacto se detalla al final de este mensaje.
+
+PASO 2 — CONTEXTO DE LA MARCA:
+Esta imagen es para una marca de ${profile.niche} llamada "${profile.brandIdentity}".
 ${brandContext ? `\nContexto de la marca (usa esto para que la descripción y los temas sugeridos encajen con su identidad real):\n${brandContext}\n` : ""}
 ${localContext ? `\nCONTEXTO DEL LOCAL: ${localContext}\nUsa esta información para que la descripción y los temas encajen con el negocio real.\n` : ""}
 ${employeeContext ? `\nCONTEXTO DEL NEGOCIO: ${employeeContext}\nSi reconoces a algún empleado de esta lista en la imagen (por su cargo, especialidad o descripción de estilo de trabajo), menciona su nombre exacto en el campo "employeeDetected". Si no puedes identificarlo con una señal visual razonable, deja "employeeDetected" en null — NUNCA inventes ni asumas un nombre sin fundamento.\n` : ""}
-Esta imagen pertenece probablemente a una de estas categorías. Identifica cuál encaja mejor y extrae el detalle concreto correspondiente para el campo "specificContext":
+Ahora, compara lo que describiste en el PASO 1 con estas categorías. Identifica cuál encaja mejor SOLO si realmente encaja, y extrae el detalle concreto correspondiente para el campo "specificContext":
 
 1. GYM / FUERZA (pesas, mancuernas, barra, máquinas): identifica el ejercicio concreto si es reconocible (press banca, sentadilla, remo, curl bíceps, peso muerto, zancadas, etc.), el grupo muscular que trabaja, y si la postura, el agarre o la carga aparente sugieren esfuerzo/intensidad alta.
 2. CUERDAS / ENTRENAMIENTO FUNCIONAL (battle ropes, kettlebells, circuitos): identifica el tipo de movimiento (oleadas, slams, en cruz, lateral) y qué trabaja (core, hombros, cardio).
 3. COCINA / NUTRICIÓN (ingredientes visibles: verduras, pimientos, proteína, batidos, bowls): identifica los ingredientes concretos que reconozcas y qué tipo de receta o preparación sugieren (ensalada, salteado, smoothie bowl, meal prep, etc.).
 4. RUNNING / OUTDOOR CARDIO: identifica el entorno (parque, montaña, playa, ciudad) e indicios de intensidad SOLO si son visibles (ropa técnica, sudor, terreno, hora del día aparente).
-5. OTRAS (outdoor genérico, lifestyle, producto, evento): mantén el nivel de detalle habitual, pero añade siempre 1-2 detalles concretos que realmente veas en la imagen (color, objeto, gesto, entorno) en vez de una frase genérica.
+5. OTRAS (outdoor genérico, lifestyle, producto, evento, o CUALQUIER contenido que no encaje claramente en 1-4): mantén el nivel de detalle habitual, pero añade siempre 1-2 detalles concretos que realmente veas en la imagen (color, objeto, gesto, entorno) en vez de una frase genérica. Usa esta categoría siempre que el contenido real no encaje con claridad en 1-4 — NUNCA fuerces una imagen dentro de una categoría 1-4 solo porque el nicho de la marca sea ese.
+
+⚠️ IMPORTANTE — si el contenido de la imagen no tiene relación con el nicho de la marca (ej. mascotas, familia, viajes, contenido no relacionado), descríbelo tal cual es (ej. "una foto de un gato y un perro"), sin forzar ninguna relación con el nicho ni con las categorías 1-4. Usa la categoría 5 (OTRAS) para este caso.
 
 ⚠️ REGLA ANTI-INVENCIÓN — OBLIGATORIA: si no puedes identificar con claridad un dato concreto (qué ejercicio exacto es, cuántos km corrió, qué ingrediente exacto es, cuánto tiempo pasó), NUNCA lo inventes ni des una cifra exacta que no puedas ver. Usa lenguaje aproximado y honesto en su lugar (ej. "trabajando la parte superior del cuerpo con pesas" en vez de adivinar "press banca"; "una buena tirada" o "carrera larga" en vez de inventar "5km").
 
 ${isEmpresa
   ? `Esta cuenta es de tipo EMPRESA: enfoca "specificContext" hacia el producto o servicio concreto visible en la imagen (qué se ofrece, qué resuelve), en tercera persona, nunca como experiencia personal.`
   : `Esta cuenta es de tipo INFLUENCER: enfoca "specificContext" hacia el detalle personal y motivacional de lo que se ve (el esfuerzo, la sensación, el logro concreto), como si lo viviera la propia creadora en primera persona.`}
+Si la imagen no tiene relación con el nicho (categoría 5, caso mascotas/familia/viajes/etc.), aplica este mismo enfoque (empresa/influencer) al hecho real que describiste, sin inventar una conexión con el nicho.
 
 Además, clasifica el campo "momentType" — el TIPO de momento que captura la foto, no lo que contiene ni el nicho:
 - "accion": la foto captura movimiento físico activo y evidente — deporte, ejercicio intenso, corriendo, saltando, bailando con energía. Solo es "accion" si hay dinamismo corporal claro e inequívoco.
@@ -161,13 +170,15 @@ REGLA DE DESEMPATE (aplícala SIEMPRE que dudes entre categorías):
 - Persona corriendo, saltando o levantando peso → "accion" (NUNCA "intimo_personal", aunque además esté sonriendo o el entorno sea informal — el movimiento físico manda sobre la expresión facial).
 - Foto de producto sin ninguna persona → "estatico_compuesto".
 - Grupo de personas en un evento (fiesta, conferencia, celebración) → "estatico_compuesto".
+- Una mascota, un animal o una escena sin relación con el nicho → clasifica "momentType" según lo que realmente se ve (ej. una mascota jugando en casa es "intimo_personal"; una mascota posando quieta para una foto es "estatico_compuesto"), nunca fuerces "accion" solo porque el nicho de la marca sea deportivo.
 
 Decide también el campo "recommendedPostType" según estos criterios, y hazlo coherente con el "momentType" que acabas de elegir (elige el que mejor encaje, no asumas un valor por defecto):
 - REEL: corresponde a momentType "accion" — movimiento implícito, deporte, ejercicio, energía o dinamismo.
 - STORY: corresponde a momentType "intimo_personal" — contenido casual, efímero, íntimo, backstage, un momento cotidiano, selfie informal, o algo que invite a preguntar/interactuar con la audiencia.
 - FEED: corresponde a momentType "estatico_compuesto" — foto pulida, estática, bien compuesta — retrato, paisaje, producto o contenido evergreen de alta calidad visual.
 
-Responde ÚNICAMENTE con este JSON válido (sin markdown, sin texto extra):
+PASO 3 — FORMATO DE RESPUESTA (OBLIGATORIO):
+Responde ÚNICAMENTE con este JSON válido (sin markdown, sin texto extra, sin explicaciones antes ni después):
 {
   "description": "descripción detallada de qué hay en la imagen en una oración",
   "emotion": "emoción principal que transmite (ej: confianza, alegría, profesionalismo, energía)",
@@ -179,9 +190,15 @@ Responde ÚNICAMENTE con este JSON válido (sin markdown, sin texto extra):
   "employeeDetected": "nombre exacto del empleado si lo reconoces con certeza razonable, o null si no aplica"
 }
 
+EJEMPLO 1 (imagen relacionada con el nicho — nicho "fitness", foto de alguien haciendo sentadillas con barra en un gimnasio):
+{"description": "Persona realizando una sentadilla con barra en un gimnasio", "emotion": "energía", "context": "gimnasio, entrenamiento de fuerza", "recommendedPostType": "REEL", "momentType": "accion", "suggestedThemes": ["fuerza", "entrenamiento de piernas", "constancia"], "specificContext": "Trabajando tren inferior con sentadilla, carga aparente media-alta.", "employeeDetected": null}
+
+EJEMPLO 2 (imagen SIN relación con el nicho — nicho "fitness", foto de un gato y un perro en un sofá):
+{"description": "Un gato y un perro descansando juntos sobre un sofá", "emotion": "cercanía", "context": "interior doméstico, mascotas", "recommendedPostType": "STORY", "momentType": "intimo_personal", "suggestedThemes": ["mascotas", "momento cotidiano", "vida diaria"], "specificContext": "Un gato y un perro compartiendo un momento tranquilo en casa, sin relación con entrenamiento o nutrición.", "employeeDetected": null}
+
 El campo recommendedPostType debe ser exactamente uno de: "FEED", "REEL" o "STORY", elegido según los criterios de arriba — nunca copies literalmente el placeholder "<FEED|REEL|STORY>".
 El campo momentType debe ser exactamente uno de: "accion", "intimo_personal" o "estatico_compuesto" — nunca copies literalmente el placeholder.
-Los temas deben ser relevantes para el nicho: ${profile.niche}.
+Los temas deben ser relevantes para el nicho: ${profile.niche}, salvo que la imagen no tenga relación con él (en ese caso, deben ser relevantes para lo que realmente aparece en la imagen).
 Responde TODO en español.`;
 
     try {
