@@ -208,11 +208,13 @@ function ReelItemCard({
   onUpdate,
   onRemove,
   onApprove,
+  onPreview,
 }: {
   item: ReelBatchItem;
   onUpdate: (id: string, patch: Partial<ReelBatchItem>) => void;
   onRemove: (id: string) => void;
   onApprove: (id: string) => void;
+  onPreview: (id: string) => void;
 }) {
   if (item.step === "queued" || item.step === "generating") {
     return (
@@ -289,11 +291,27 @@ function ReelItemCard({
   if (!item.isEditing) {
     return (
       <div className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-white/3">
-        <div className="relative h-40 w-full overflow-hidden bg-black/20">
-          <video src={item.videoBlobUrl ?? undefined} controls playsInline className="h-full w-full object-cover" />
-        </div>
+        {/* Thumbnail — click abre el preview completo (ReelPreviewModal) en vez de
+            reproducir inline, así el click siempre lleva a la vista con caption/hashtags
+            completos en vez de dejar al usuario en la card recortada. */}
+        <button
+          type="button"
+          onClick={() => onPreview(item.id)}
+          className="group relative h-40 w-full overflow-hidden bg-black/20 focus:outline-none"
+        >
+          <video src={item.videoBlobUrl ?? undefined} muted playsInline className="h-full w-full object-cover" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all group-hover:bg-black/35">
+            <span className="rounded-full bg-black/55 px-3 py-1 text-[11px] font-bold text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+              Ver preview
+            </span>
+          </div>
+        </button>
 
-        <div className="flex flex-1 flex-col gap-3 p-4">
+        {/* Content — also opens preview when clicked outside the action buttons */}
+        <div
+          className="flex flex-1 cursor-pointer flex-col gap-3 p-4"
+          onClick={() => onPreview(item.id)}
+        >
           {item.error && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{item.error}</p>}
           {item.degraded && (
             <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
@@ -316,7 +334,7 @@ function ReelItemCard({
             </p>
           )}
 
-          <div className="mt-auto flex gap-2 pt-1">
+          <div className="mt-auto flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               onClick={() => onRemove(item.id)}
@@ -430,6 +448,104 @@ function ReelItemCard({
   );
 }
 
+// ── Preview modal (vídeo completo antes de aprobar) ──────────────────────────
+// Mismo layout que PreviewModal en upload-to-post.tsx (ver auditoría), adaptado a
+// vídeo: <video controls> grande sin recortar en vez de <img>. No pide ningún dato
+// nuevo — item.videoBlobUrl/editBody/editHashtags/editDate/editTime ya existen en
+// ReelBatchItem. "Editar" cierra el modal y abre la vista de edición existente de la
+// card (isEditing: true) en vez de duplicar los campos aquí.
+function ReelPreviewModal({
+  item,
+  onClose,
+  onEdit,
+  onApprove,
+}: {
+  item: ReelBatchItem;
+  onClose: () => void;
+  onEdit: () => void;
+  onApprove: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+      style={{ background: "rgba(0,0,0,0.75)" }}
+      onClick={onClose}
+    >
+      <div
+        className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0d0d1e] shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white"
+        >
+          <IcoX />
+        </button>
+
+        <div className="flex flex-col overflow-y-auto sm:flex-row">
+          {/* Video — reproducible, tamaño grande, sin recortar */}
+          <div className="flex h-64 shrink-0 items-center justify-center overflow-hidden bg-black/40 sm:h-auto sm:w-72">
+            <video src={item.videoBlobUrl ?? undefined} controls playsInline className="h-full w-full object-contain" />
+          </div>
+
+          {/* Content */}
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
+            {item.error && (
+              <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{item.error}</p>
+            )}
+            {item.degraded && (
+              <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                ⚠️ No pudimos analizar bien el contenido de este archivo — revisa el texto generado antes de aprobar.
+              </p>
+            )}
+
+            {item.editDate && (
+              <p className="flex items-center gap-1.5 text-xs text-white/40">
+                <IcoCalendar />
+                {displayDate(item.editDate)} · {item.editTime || "09:00"}
+              </p>
+            )}
+
+            {/* Caption completo — sin line-clamp */}
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/80">{item.editBody}</p>
+
+            {/* Hashtags completos — chips individuales, no solo el conteo */}
+            {item.editHashtags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {item.editHashtags.map((h) => (
+                  <span key={h} className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">
+                    {h}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 border-t border-white/8 px-6 py-4">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 py-2.5 text-sm text-white/45 transition hover:bg-white/5 hover:text-white/70"
+          >
+            <IcoPencil /> Editar
+          </button>
+          <button
+            type="button"
+            onClick={onApprove}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+          >
+            <IcoCheck /> Aprobar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Dropzone de 1-maxImages fotos (límite dinámico: plan × días del mes, ver
 // getUploadBatchLimit): 1 foto delega en ReelsCreator tal cual (preview + aprobar
 // manual); 2+ fotos entran en modo batch — genera cada Reel secuencialmente (el render
@@ -448,6 +564,7 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
 
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [reelItems, setReelItems] = useState<ReelBatchItem[]>([]);
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
   const readyCount = reelItems.filter((i) => i.step === "ready").length;
   const allSaved = reelItems.length > 0 && reelItems.every((i) => i.step === "saved");
@@ -473,6 +590,7 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
     setImageKey(null);
     setPendingFiles([]);
     setReelItems([]);
+    setPreviewId(null);
   }
 
   async function handleFile(file: File) {
@@ -738,9 +856,29 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
               onUpdate={updateReelItem}
               onRemove={removeReelItem}
               onApprove={(id) => void approveReelItem(id)}
+              onPreview={setPreviewId}
             />
           ))}
         </div>
+
+        {previewId && (() => {
+          const previewItem = reelItems.find((i) => i.id === previewId);
+          if (!previewItem) return null;
+          return (
+            <ReelPreviewModal
+              item={previewItem}
+              onClose={() => setPreviewId(null)}
+              onEdit={() => {
+                updateReelItem(previewItem.id, { isEditing: true });
+                setPreviewId(null);
+              }}
+              onApprove={() => {
+                setPreviewId(null);
+                void approveReelItem(previewItem.id);
+              }}
+            />
+          );
+        })()}
       </div>
     );
   }
