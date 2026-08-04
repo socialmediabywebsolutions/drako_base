@@ -498,6 +498,17 @@ jobs:
             exit 1
           fi
 
+      - name: Patch SocialFlow cron handler (inject scheduled())
+        run: |
+          set -euo pipefail
+          # Must run AFTER both SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION guardrails above
+          # (this step's own and "Verify SocialFlow standalone active artifact" earlier) —
+          # the patch's output keeps `export * from` (see scripts/patch-socialflow-cron-handler.mjs),
+          # which those guardrails reject. Running from repo root, not workers/socialflows/,
+          # so `.open-next/socialflows-standalone/worker.js` resolves correctly.
+          node scripts/patch-socialflow-cron-handler.mjs
+          grep -q '__socialflowCronHandlerPatched' .open-next/socialflows-standalone/worker.js || (echo "SOCIALFLOW_CRON_PATCH_FAILED"; exit 1)
+
       - name: Verify Mentoria dedicated artifact
         run: |
           set -euo pipefail
