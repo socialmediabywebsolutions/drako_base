@@ -3,10 +3,11 @@ import type { BrandProfile } from "../types";
 import { getEmployeeContext } from "@/lib/socialflow/employees/repository";
 import { getLocalContext } from "@/lib/socialflow/local/repository";
 
-// Correct Workers AI catalog ID — "@cf/llava-1.5-7b-hf" (missing the "llava-hf/"
-// namespace) does not exist and throws AiError 5007, silently caught below and
-// replaced by the generic fallback. Verified against `wrangler ai models`.
-const IMAGE_ANALYSIS_MODEL = "@cf/llava-hf/llava-1.5-7b-hf";
+// Llama 3.2 11B Vision Instruct — reemplaza a LLaVA-1.5-7B (mismo shape de entrada
+// prompt+image, pero el campo de salida es "response", no "description"; ver parsing
+// más abajo). Más capaz y con mucho más contexto (128k) que el 7B anterior. Verificado
+// contra el registro AiModels de @cloudflare/workers-types instalado en el proyecto.
+const IMAGE_ANALYSIS_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
 
 export type ImageAnalysis = {
   description: string;
@@ -205,10 +206,11 @@ Responde TODO en español.`;
       const result = (await binding.run(IMAGE_ANALYSIS_MODEL, {
         prompt,
         image: imageBytes,
-        max_tokens: 512,
-      })) as { description?: string } | null;
+        max_tokens: 1024,
+        temperature: 0.1,
+      })) as { response?: string } | null;
 
-      const raw = result?.description ?? "";
+      const raw = result?.response ?? "";
       const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
 
       const jsonStart = cleaned.indexOf("{");
