@@ -104,7 +104,10 @@ export class ImageAnalysisAgent {
     };
 
     const binding = env()?.AI;
-    if (!binding?.run) return fallback;
+    if (!binding?.run) {
+      console.error("[ImageAnalysisAgent] AI binding no disponible (env().AI es null/undefined)");
+      return fallback;
+    }
 
     // profile.longDescription already carries the tenant's Knowledge Base content
     // (merged in by SocialFlowOrchestrator.buildProfile) when one exists — reuse it
@@ -193,7 +196,10 @@ Responde TODO en español.`;
 
       const jsonStart = cleaned.indexOf("{");
       const jsonEnd = cleaned.lastIndexOf("}");
-      if (jsonStart === -1 || jsonEnd === -1) return fallback;
+      if (jsonStart === -1 || jsonEnd === -1) {
+        console.error("[ImageAnalysisAgent] LLaVA respondió pero sin JSON parseable. Respuesta cruda:", raw?.slice(0, 500));
+        return fallback;
+      }
 
       const parsed = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1)) as Partial<ImageAnalysis>;
 
@@ -238,8 +244,8 @@ Responde TODO en español.`;
             : null,
         degraded: false,
       };
-    } catch {
-      console.error("[ImageAnalysisAgent] LLaVA parse failed, using fallback");
+    } catch (error) {
+      console.error("[ImageAnalysisAgent] Excepción no manejada:", error);
       return fallback;
     }
   }
