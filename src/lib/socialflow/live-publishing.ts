@@ -286,6 +286,7 @@ async function persistPublicationState(
     scheduledAt: post.scheduledAt,
     postedAt: post.postedAt,
     externalPostId: post.externalPostId,
+    creationMode: post.creationMode,
     metadata: {
       ...(post.metadata ?? {}),
       publication: {

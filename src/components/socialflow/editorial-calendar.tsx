@@ -74,6 +74,11 @@ const CONTENT_TYPE_CFG: Record<string, { label: string; icon: string; pill: stri
   CAROUSEL: { label: "Carrusel", icon: "📑",  pill: "bg-teal-500/15 text-teal-300"     },
 };
 
+const CREATION_MODE_CFG: Record<"AUTO" | "MANUAL", { label: string; color: string }> = {
+  AUTO:   { label: "✦ IA",     color: "bg-violet-500/15 text-violet-300" },
+  MANUAL: { label: "✎ Manual", color: "bg-slate-500/15 text-slate-300"   },
+};
+
 const PROVIDER_ABBR: Record<string, string> = {
   LINKEDIN: "LI", INSTAGRAM: "IG", FACEBOOK_PAGE: "FB", TWITTER_X: "X", TIKTOK: "TT",
 };
@@ -204,6 +209,7 @@ function PostChip({ post, today }: { post: SaasSocialPost; today: string }) {
   const cfg = STATUS_CFG[post.status];
   const abbr = PROVIDER_ABBR[post.provider] ?? "?";
   const typeIcon = CONTENT_TYPE_CFG[post.contentType]?.icon ?? "🖼️";
+  const modeCfg = CREATION_MODE_CFG[post.creationMode ?? "AUTO"];
   const overdue = isOverdue(post, today);
   const title = post.title.length > 13 ? post.title.slice(0, 13) + "…" : post.title;
   const time = post.scheduledAt ? formatTime(post.scheduledAt) : null;
@@ -211,6 +217,9 @@ function PostChip({ post, today }: { post: SaasSocialPost; today: string }) {
     <div className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${overdue ? "bg-amber-500/20 text-amber-200" : cfg.chipBg}`}>
       {overdue && <span className="shrink-0 font-black text-amber-400">!</span>}
       <span className="shrink-0 text-[9px] leading-none">{typeIcon}</span>
+      <span className={`shrink-0 rounded px-1 py-px text-[9px] font-black leading-none ${modeCfg.color}`}>
+        {modeCfg.label}
+      </span>
       <span className="font-black opacity-60">{abbr}</span>
       <span className="truncate">{title}</span>
       {time && <span className="ml-auto shrink-0 text-[10px] font-bold opacity-65">{time}</span>}
@@ -242,6 +251,7 @@ function PostThumb({ post, onClick }: { post: SaasSocialPost; onClick: () => voi
   const gradient = thumbGradient(post.id);
   const ring = STATUS_RING[post.status] ?? "ring-white/8";
   const dot  = STATUS_DOT[post.status]  ?? "bg-white/20";
+  const modeCfg = CREATION_MODE_CFG[post.creationMode ?? "AUTO"];
 
   return (
     <button
@@ -265,6 +275,9 @@ function PostThumb({ post, onClick }: { post: SaasSocialPost; onClick: () => voi
       )}
       <span className="absolute left-1.5 top-1.5 rounded-md bg-black/55 px-1 py-0.5 text-[10px] leading-none backdrop-blur-sm">
         {CONTENT_TYPE_CFG[post.contentType]?.icon ?? "🖼️"}
+      </span>
+      <span className={`absolute right-1.5 top-1.5 rounded-md px-1 py-0.5 text-[9px] font-black leading-none backdrop-blur-sm ${modeCfg.color}`}>
+        {modeCfg.label}
       </span>
       <span className={`absolute bottom-1.5 right-1.5 h-2 w-2 rounded-full ${dot} ring-1 ring-black/40`} />
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 transition-all duration-150 group-hover:bg-black/45">

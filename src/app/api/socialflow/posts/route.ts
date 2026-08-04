@@ -131,6 +131,10 @@ export async function POST(request: Request) {
       scheduledAt,
       postedAt: body.postedAt ?? null,
       externalPostId: body.externalPostId ?? null,
+      // Único endpoint HTTP usado por los 4 flujos del menú vertical (Post/Reel/
+      // Historia/Carrusel) — SocialFlowOrchestrator nunca pasa por aquí, llama a
+      // upsertSaasSocialPost directamente y marca "AUTO" (ver SocialFlowOrchestrator.ts).
+      creationMode: "MANUAL",
       metadata: body.metadata ?? null,
     });
 
@@ -250,6 +254,7 @@ export async function PATCH(request: Request) {
       scheduledAt: typeof body.scheduledAt === "undefined" ? current.scheduledAt : body.scheduledAt,
       postedAt: typeof body.postedAt === "undefined" ? current.postedAt : body.postedAt,
       externalPostId: typeof body.externalPostId === "undefined" ? current.externalPostId : body.externalPostId,
+      creationMode: current.creationMode,
       metadata: typeof body.metadata === "undefined" ? current.metadata : body.metadata,
     });
 

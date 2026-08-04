@@ -80,6 +80,7 @@ export async function POST(request: Request) {
         scheduledAt: current.scheduledAt,
         postedAt: current.postedAt,
         externalPostId: current.externalPostId,
+        creationMode: current.creationMode,
         metadata: current.metadata,
       });
       return NextResponse.json({ ok: true, post });
@@ -114,6 +115,7 @@ export async function POST(request: Request) {
       scheduledAt: current.scheduledAt,
       postedAt: current.postedAt,
       externalPostId: current.externalPostId,
+      creationMode: current.creationMode,
       metadata: {
         ...(current.metadata ?? {}),
         hook: primaryVariant?.hook,
