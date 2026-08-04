@@ -3,11 +3,13 @@ import type { BrandProfile } from "../types";
 import { getEmployeeContext } from "@/lib/socialflow/employees/repository";
 import { getLocalContext } from "@/lib/socialflow/local/repository";
 
-// Llama 3.2 11B Vision Instruct — reemplaza a LLaVA-1.5-7B (mismo shape de entrada
-// prompt+image, pero el campo de salida es "response", no "description"; ver parsing
-// más abajo). Más capaz y con mucho más contexto (128k) que el 7B anterior. Verificado
-// contra el registro AiModels de @cloudflare/workers-types instalado en el proyecto.
-const IMAGE_ANALYSIS_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
+// Mistral Small 3.1 24B Instruct — reemplaza a Llama 3.2 11B Vision, bloqueado en
+// producción para usuarios domiciliados en la UE (AiError 5016: "you must submit the
+// prompt 'agree'" + cláusula de exclusión UE en la licencia del modelo). Este modelo no
+// tiene esa restricción. Usa formato chat (messages con image_url en base64 data URI)
+// en vez de {prompt, image} — ver construcción del body en run(). Verificado contra el
+// registro AiModels de @cloudflare/workers-types instalado en el proyecto.
+const IMAGE_ANALYSIS_MODEL = "@cf/mistralai/mistral-small-3.1-24b-instruct";
 
 export type ImageAnalysis = {
   description: string;
@@ -69,6 +71,31 @@ function rotate<T>(items: T[], seed: number): T[] {
   if (items.length < 2) return items;
   const offset = seed % items.length;
   return [...items.slice(offset), ...items.slice(0, offset)];
+}
+
+// Firma de los primeros bytes — suficiente para diferenciar los formatos que el flujo de
+// subida realmente produce (JPEG/PNG/WEBP). Default a JPEG si no matchea ninguno: es el
+// formato mayoritario de las fotos subidas y Mistral igualmente decodifica por contenido,
+// no solo por el mime declarado en el data URI.
+function detectImageMimeType(bytes: number[]): string {
+  if (bytes[0] === 0xff && bytes[1] === 0xd8) return "image/jpeg";
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) return "image/webp";
+  return "image/jpeg";
+}
+
+// Mismo patrón que base64Encode en token-encryption.ts — Buffer cuando está disponible,
+// loop manual + btoa si no (evita el stack overflow de String.fromCharCode(...bytes) vía
+// spread con imágenes grandes).
+function imageBytesToBase64(bytes: number[]): string {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(bytes).toString("base64");
+  }
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 export class ImageAnalysisAgent {
@@ -203,9 +230,17 @@ Los temas deben ser relevantes para el nicho: ${profile.niche}, salvo que la ima
 Responde TODO en español.`;
 
     try {
+      const imageDataUrl = `data:${detectImageMimeType(imageBytes)};base64,${imageBytesToBase64(imageBytes)}`;
       const result = (await binding.run(IMAGE_ANALYSIS_MODEL, {
-        prompt,
-        image: imageBytes,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: imageDataUrl } },
+            ],
+          },
+        ],
         max_tokens: 1024,
         temperature: 0.1,
       })) as { response?: string } | null;
