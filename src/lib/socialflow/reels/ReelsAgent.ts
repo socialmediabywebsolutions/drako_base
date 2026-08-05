@@ -2,6 +2,7 @@ import { defaultLocalModel } from "../ai/models/localModel";
 import type { BrandProfile } from "../ai/types";
 import {
   REELS_DEFAULTS,
+  type AnimatedBackgroundType,
   type ReelsColorGrade,
   type ReelsConfig,
   type ReelsEffect,
@@ -136,6 +137,56 @@ const TEMPLATE_LIGHT_LEAK_POOL: Record<ReelsTemplate, boolean[]> = {
   lifestyle: [false, false, true],
   education: [false, false, false],
   marketing: [false, false, false],
+};
+
+// Pool de fondo animado por plantilla — mismo patrón pool+seed que TEMPLATE_COLOR_GRADE_POOL/
+// TEMPLATE_FILM_GRAIN_POOL/TEMPLATE_LIGHT_LEAK_POOL, pero "pesado" por repetición en vez de
+// boolean: cada tipo aparece tantas veces como su peso, así pickFrom (uniforme sobre el
+// array) le da más probabilidad sin necesitar una tabla de pesos aparte. fitness/motivation
+// pesan hacia particles/sparks/pulse-waves (energía); lifestyle hacia bokeh/aurora/smoke
+// (editorial/suave); education hacia gradient-wave/geometric-lines (limpio, no distrae del
+// contenido); marketing hacia geometric-lines/glitch (corporativo/técnico). Los 12 tipos
+// están siempre presentes en los 5 pools, solo cambia el peso.
+const ANIMATED_BG_POOLS: Record<ReelsTemplate, AnimatedBackgroundType[]> = {
+  fitness: [
+    "particles", "particles", "particles",
+    "sparks", "sparks", "sparks",
+    "pulse-waves", "pulse-waves",
+    "stars", "stars",
+    "bokeh", "geometric-lines", "gradient-wave", "water-waves", "smoke", "confetti", "glitch", "aurora",
+  ],
+  lifestyle: [
+    "bokeh", "bokeh", "bokeh",
+    "aurora", "aurora", "aurora",
+    "smoke", "smoke",
+    "water-waves", "water-waves",
+    "stars", "stars",
+    "gradient-wave", "gradient-wave",
+    "particles", "confetti", "sparks", "pulse-waves", "geometric-lines", "glitch",
+  ],
+  motivation: [
+    "particles", "particles", "particles",
+    "sparks", "sparks", "sparks",
+    "pulse-waves", "pulse-waves", "pulse-waves",
+    "stars", "stars",
+    "bokeh", "aurora", "gradient-wave", "water-waves", "smoke", "geometric-lines", "confetti", "glitch",
+  ],
+  education: [
+    "gradient-wave", "gradient-wave", "gradient-wave",
+    "geometric-lines", "geometric-lines", "geometric-lines",
+    "water-waves", "water-waves",
+    "smoke", "smoke",
+    "stars", "stars",
+    "bokeh", "particles", "pulse-waves", "aurora", "confetti", "sparks", "glitch",
+  ],
+  marketing: [
+    "geometric-lines", "geometric-lines", "geometric-lines",
+    "glitch", "glitch", "glitch",
+    "gradient-wave", "gradient-wave",
+    "pulse-waves", "pulse-waves",
+    "stars", "stars",
+    "bokeh", "particles", "sparks", "aurora", "water-waves", "smoke", "confetti",
+  ],
 };
 
 const OUTRO_TRANSITION_SEC = 1;
@@ -457,6 +508,7 @@ export class ReelsAgent {
     const colorGrade = pickFrom(TEMPLATE_COLOR_GRADE_POOL[template], typographyRandom);
     const filmGrain = pickFrom(TEMPLATE_FILM_GRAIN_POOL[template], typographyRandom);
     const lightLeak = pickFrom(TEMPLATE_LIGHT_LEAK_POOL[template], typographyRandom);
+    const animatedBackground = pickFrom(ANIMATED_BG_POOLS[template], typographyRandom);
 
     const base: ReelsConfig = {
       imageUrl,
@@ -466,6 +518,7 @@ export class ReelsAgent {
       colorGrade,
       filmGrain,
       lightLeak,
+      animatedBackground,
       effects,
       textOverlays: buildBaseTextOverlays(template, durationSec, profile, typographyRandom),
       durationSec,
@@ -483,12 +536,12 @@ Los efectos ya están calculados y NO deben modificarse — preserva exactamente
 Cada texto animado (textOverlays) debe tener una frase corta y directa EN ESPAÑOL (máximo 6 palabras), relevante para "${profile.niche}" y la marca "${profile.brandIdentity}" — nunca genérica, EXCEPTO el overlay cuyo "role" es "cta": ese campo ya está seleccionado y NO debe modificarse — usa exactamente el valor que recibes en el JSON base.
 La duración total (durationSec) debe estar entre ${REELS_DEFAULTS.minDurationSec} y ${REELS_DEFAULTS.maxDurationSec} segundos.`;
 
-    // "effects"/"imageSegments"/"cta"/"colorGrade"/"filmGrain"/"lightLeak" nunca se
-    // sobrescriben con lo que devuelva la IA (ver mergeAiStructuredOutput en
+    // "effects"/"imageSegments"/"cta"/"colorGrade"/"filmGrain"/"lightLeak"/"animatedBackground"
+    // nunca se sobrescriben con lo que devuelva la IA (ver mergeAiStructuredOutput en
     // localModel.ts) — ya están decididos por seed antes de esta llamada, precisamente
     // para que dos imágenes distintas den Reels distintos.
     const { data } = await defaultLocalModel.generateStructured<ReelsConfig>(
-      { prompt, protectedKeys: ["effects", "imageSegments", "cta", "colorGrade", "filmGrain", "lightLeak"] },
+      { prompt, protectedKeys: ["effects", "imageSegments", "cta", "colorGrade", "filmGrain", "lightLeak", "animatedBackground"] },
       () => base,
     );
 

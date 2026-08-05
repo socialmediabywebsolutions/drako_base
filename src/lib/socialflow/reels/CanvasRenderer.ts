@@ -1,5 +1,5 @@
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
-import type { ReelsColorGrade, ReelsConfig, ReelsEffect, ReelsProgressCallback, ReelsRenderer, ReelsTemplate, ReelsTextOverlay, ReelsTextRole } from "./ReelsEngine";
+import type { AnimatedBackgroundType, ReelsColorGrade, ReelsConfig, ReelsEffect, ReelsProgressCallback, ReelsRenderer, ReelsTemplate, ReelsTextOverlay, ReelsTextRole } from "./ReelsEngine";
 
 // Reexportado tal cual desde mp4-muxer — necesitamos el tipo concreto para pasar el
 // Muxer ya construido (con pista de audio o sin ella) a encodeAudioTrack.
@@ -592,6 +592,461 @@ function drawLightLeakOverlay(
   ctx.restore();
 }
 
+// Fondo animado — igual que drawLightLeakOverlay/drawFilmGrainOverlay, se dibuja DESPUÉS
+// de drawImageCover (nunca antes: drawImageCover cubre el 100% del canvas en modo
+// "cover", así que cualquier capa detrás de la imagen sería invisible — ver auditoría de
+// fondos animados). Es un overlay aditivo/blend sobre la imagen ya compuesta, no un fondo
+// en el sentido literal.
+//
+// Techo de opacidad común a los 12 tipos — sutil, nunca debe competir visualmente con la
+// imagen del cliente ni con el texto (que se dibuja encima, ver drawTextOverlays).
+const ANIMATED_BG_MAX_OPACITY = 0.35;
+
+type BgParticle = { x: number; y: number; radius: number; speed: number; opacity: number; hue: number };
+type BgBokehCircle = { x: number; y: number; radius: number; angle: number; angleSpeed: number; color: string };
+type BgConfettiPiece = { x: number; y: number; size: number; rotation: number; rotSpeed: number; speed: number; color: string };
+type BgStar = { x: number; y: number; phase: number; speed: number; maxOpacity: number };
+type BgGlitchEvent = { frameStart: number; duration: number; y: number; height: number; intensity: number };
+
+// Datos por tipo de efecto, calculados UNA VEZ antes del loop de frames (ver su único
+// call site en CanvasRenderer.render) — mismo criterio que saliencyOffsets/grainTiles.
+// Los tipos sin campo aquí (gradient-wave, geometric-lines, water-waves, smoke,
+// pulse-waves, aurora) no necesitan precálculo: su forma en cada frame sale de fórmulas
+// puras sobre frameIndex, sin estado propio que fijar de antemano.
+type AnimatedBackgroundData = {
+  particles?: BgParticle[];
+  bokeh?: BgBokehCircle[];
+  confetti?: BgConfettiPiece[];
+  stars?: BgStar[];
+  glitch?: BgGlitchEvent[];
+};
+
+const BG_PARTICLE_COUNT = 25;
+const BG_BOKEH_COUNT = 6;
+const BG_CONFETTI_COUNT = 20;
+const BG_STAR_COUNT = 30;
+const BG_GLITCH_EVENT_COUNT = 8;
+
+// Math.random() directo, no seededRandom — mismo criterio que buildGrainTile: la
+// posición/velocidad/color de cada partícula no necesita ser reproducible por imagen
+// (a diferencia de la DECISIÓN de qué tipo de fondo usar, que sí lo es — ver
+// ANIMATED_BG_POOLS/seededRandom en ReelsAgent.ts), solo necesita parecer natural.
+function precalcAnimatedBackground(
+  type: AnimatedBackgroundType | undefined,
+  canvasWidth: number,
+  canvasHeight: number,
+  totalFrames: number,
+): AnimatedBackgroundData {
+  switch (type) {
+    case "particles":
+    case "sparks":
+      return {
+        particles: Array.from({ length: BG_PARTICLE_COUNT }, () => ({
+          x: Math.random() * canvasWidth,
+          y: Math.random() * canvasHeight,
+          radius: 2 + Math.random() * 4,
+          speed: 0.3 + Math.random() * 0.7,
+          opacity: 0.3 + Math.random() * 0.5,
+          hue: 40 + Math.random() * 20, // dorado
+        })),
+      };
+    case "bokeh":
+      return {
+        bokeh: Array.from({ length: BG_BOKEH_COUNT }, () => ({
+          x: Math.random() * canvasWidth,
+          y: Math.random() * canvasHeight,
+          radius: 60 + Math.random() * 120,
+          angle: Math.random() * Math.PI * 2,
+          angleSpeed: 0.1 + Math.random() * 0.2,
+          color: `hsl(${Math.round(Math.random() * 360)}, 70%, 70%)`,
+        })),
+      };
+    case "confetti":
+      return {
+        confetti: Array.from({ length: BG_CONFETTI_COUNT }, () => ({
+          x: Math.random() * canvasWidth,
+          y: Math.random() * canvasHeight,
+          size: 8 + Math.random() * 10,
+          rotation: Math.random() * 360,
+          rotSpeed: (Math.random() - 0.5) * 6,
+          speed: 40 + Math.random() * 60,
+          color: `hsl(${Math.round(Math.random() * 360)}, 80%, 60%)`,
+        })),
+      };
+    case "stars":
+      return {
+        stars: Array.from({ length: BG_STAR_COUNT }, () => ({
+          x: Math.random() * canvasWidth,
+          y: Math.random() * canvasHeight,
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.5 + Math.random() * 1.5,
+          maxOpacity: 0.4 + Math.random() * 0.4,
+        })),
+      };
+    case "glitch":
+      return {
+        glitch: Array.from({ length: BG_GLITCH_EVENT_COUNT }, () => ({
+          frameStart: Math.floor(Math.random() * totalFrames),
+          duration: 2 + Math.floor(Math.random() * 4),
+          y: Math.random() * canvasHeight,
+          height: 10 + Math.random() * 40,
+          intensity: 10 + Math.random() * 30,
+        })),
+      };
+    default:
+      return {};
+  }
+}
+
+// Partículas doradas subiendo con leve deriva lateral — envuelven verticalmente (salen
+// por arriba, reentran por abajo) para que el bucle de frames nunca las agote.
+function drawParticlesLayer(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  frameIndex: number,
+  particles: BgParticle[],
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (const p of particles) {
+    const span = canvasHeight + 40;
+    const y = (((p.y - frameIndex * p.speed * 2) % span) + span) % span - 20;
+    const x = p.x + Math.sin(frameIndex * 0.02 + p.y) * 12;
+    ctx.globalAlpha = p.opacity * ANIMATED_BG_MAX_OPACITY;
+    ctx.fillStyle = `hsl(${p.hue}, 90%, 65%)`;
+    ctx.beginPath();
+    ctx.arc(x, y, p.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Igual base que drawParticlesLayer pero con trayectoria caótica (dos senoidales de
+// frecuencia distinta en X en vez de una deriva suave) y subida más rápida.
+function drawSparksLayer(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  frameIndex: number,
+  particles: BgParticle[],
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (const p of particles) {
+    const span = canvasHeight + 40;
+    const y = (((p.y - frameIndex * p.speed * 4) % span) + span) % span - 20;
+    const x = p.x + Math.sin(frameIndex * 0.09 + p.y) * 18 + Math.cos(frameIndex * 0.05 + p.x) * 10;
+    ctx.globalAlpha = p.opacity * ANIMATED_BG_MAX_OPACITY;
+    ctx.fillStyle = `hsl(${p.hue}, 95%, 70%)`;
+    ctx.beginPath();
+    ctx.arc(x, y, p.radius * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Círculos grandes desenfocados en órbitas lentas — blur nativo del contexto (mismo
+// mecanismo que buildImageFilter, ya usado por frame en drawImageCover).
+function drawBokehLayer(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  frameIndex: number,
+  circles: BgBokehCircle[],
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.filter = "blur(18px)";
+  for (const c of circles) {
+    const angle = c.angle + frameIndex * c.angleSpeed * 0.02;
+    const x = c.x + Math.cos(angle) * canvasWidth * 0.08;
+    const y = c.y + Math.sin(angle) * canvasHeight * 0.05;
+    ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY * 0.6;
+    ctx.fillStyle = c.color;
+    ctx.beginPath();
+    ctx.arc(x, y, c.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Gradiente lineal cuyo ángulo gira una vuelta completa a lo largo del clip entero (ver
+// `totalFrames`) — "overlay" para que tiña el color sin lavar el brillo de la foto.
+function drawGradientWaveLayer(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  frameIndex: number,
+  totalFrames: number,
+): void {
+  const angle = (frameIndex / totalFrames) * Math.PI * 2;
+  const x0 = canvasWidth / 2 + Math.cos(angle) * canvasWidth * 0.5;
+  const y0 = canvasHeight / 2 + Math.sin(angle) * canvasHeight * 0.5;
+  const x1 = canvasWidth / 2 - Math.cos(angle) * canvasWidth * 0.5;
+  const y1 = canvasHeight / 2 - Math.sin(angle) * canvasHeight * 0.5;
+
+  const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
+  gradient.addColorStop(0, "rgba(255,120,180,1)");
+  gradient.addColorStop(0.5, "rgba(120,180,255,1)");
+  gradient.addColorStop(1, "rgba(180,255,200,1)");
+
+  ctx.save();
+  ctx.globalCompositeOperation = "overlay";
+  ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY;
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  ctx.restore();
+}
+
+// Líneas diagonales paralelas desplazándose lateralmente en bucle (el offset vuelve a 0
+// cada 160px recorridos, así que nunca hay un salto visible).
+function drawGeometricLinesLayer(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  frameIndex: number,
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY * 0.7;
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2;
+  const offset = (frameIndex * 6) % 160;
+  for (let x = -canvasHeight; x < canvasWidth + canvasHeight; x += 80) {
+    ctx.beginPath();
+    ctx.moveTo(x + offset, 0);
+    ctx.lineTo(x + offset - canvasHeight, canvasHeight);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Destellos que titilan (envolvente seno por estrella, fase propia) — igual patrón de
+// "screen" que drawParticlesLayer, radio fijo pequeño en vez de variable.
+function drawStarsLayer(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  frameIndex: number,
+  stars: BgStar[],
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (const s of stars) {
+    const twinkle = (Math.sin(frameIndex * 0.05 * s.speed + s.phase) + 1) / 2;
+    ctx.globalAlpha = twinkle * s.maxOpacity * ANIMATED_BG_MAX_OPACITY;
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// 5 franjas horizontales, cada una una curva senoidal rellena hasta el borde inferior —
+// "overlay" tiñe de azul sin tapar el detalle de la imagen debajo.
+function drawWaterWavesLayer(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  frameIndex: number,
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = "overlay";
+  ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY;
+  const rows = 5;
+  for (let r = 0; r < rows; r++) {
+    const baseY = (canvasHeight / rows) * (r + 0.5);
+    ctx.beginPath();
+    ctx.moveTo(0, baseY);
+    for (let x = 0; x <= canvasWidth; x += 20) {
+      const y = baseY + Math.sin(x * 0.01 + frameIndex * 0.05 + r) * 14;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(canvasWidth, canvasHeight);
+    ctx.lineTo(0, canvasHeight);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(80,180,255,${0.5 - r * 0.07})`;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// 3 nubes radiales grandes derivando horizontalmente a fases distintas — "overlay" para
+// que aclare/oscurezca según lo que haya debajo en vez de teñir un color fijo.
+function drawSmokeLayer(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  frameIndex: number,
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = "overlay";
+  ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY;
+  const layers = 3;
+  for (let l = 0; l < layers; l++) {
+    const cx = canvasWidth * 0.5 + Math.sin(frameIndex * 0.008 + l * 2) * canvasWidth * 0.3;
+    const cy = canvasHeight * (0.25 + l * 0.25);
+    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, canvasWidth * 0.5);
+    gradient.addColorStop(0, "rgba(210,210,220,0.8)");
+    gradient.addColorStop(1, "rgba(210,210,220,0)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  }
+  ctx.restore();
+}
+
+// Rectángulos pequeños cayendo en bucle vertical, rotando sobre sí mismos — a diferencia
+// de particles/sparks (que suben) cae hacia abajo, sin "screen": son formas de color
+// sólido, no puntos de luz.
+function drawConfettiLayer(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  frameIndex: number,
+  confetti: BgConfettiPiece[],
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY;
+  for (const c of confetti) {
+    const span = canvasHeight + 40;
+    const y = (((c.y + frameIndex * (c.speed / 30)) % span) + span) % span - 20;
+    const rotation = c.rotation + frameIndex * c.rotSpeed;
+    ctx.save();
+    ctx.translate(c.x, y);
+    ctx.rotate((rotation * Math.PI) / 180);
+    ctx.fillStyle = c.color;
+    ctx.fillRect(-c.size / 2, -c.size / 4, c.size, c.size / 2);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// 3 anillos expandiéndose desde el centro en bucle, desfasados 1/3 de ciclo entre sí, se
+// desvanecen conforme crecen — "screen" para que se vean como luz, no como tinta.
+const PULSE_WAVE_CYCLE_FRAMES = 75;
+function drawPulseWavesLayer(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  frameIndex: number,
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  const cx = canvasWidth / 2;
+  const cy = canvasHeight / 2;
+  const maxRadius = Math.max(canvasWidth, canvasHeight) * 0.6;
+  for (let ring = 0; ring < 3; ring++) {
+    const ringOffset = ring * (PULSE_WAVE_CYCLE_FRAMES / 3);
+    const progress = ((frameIndex + ringOffset) % PULSE_WAVE_CYCLE_FRAMES) / PULSE_WAVE_CYCLE_FRAMES;
+    ctx.globalAlpha = (1 - progress) * ANIMATED_BG_MAX_OPACITY;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, progress * maxRadius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Barras horizontales de color desplazado (cian/magenta, como un desalineado de canales)
+// en ventanas cortas y aleatorias del clip — sin getImageData/putImageData (demasiado
+// caro por frame, ver comentario de GRAIN_TILE_COUNT más arriba): simula el desalineado
+// con dos rectángulos semitransparentes en vez de desplazar píxeles reales.
+function drawGlitchLayer(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  frameIndex: number,
+  events: BgGlitchEvent[],
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY;
+  for (const ev of events) {
+    if (frameIndex < ev.frameStart || frameIndex > ev.frameStart + ev.duration) continue;
+    const shift = ev.intensity * (frameIndex % 2 === 0 ? 1 : -1);
+    ctx.fillStyle = "rgba(0,255,255,0.5)";
+    ctx.fillRect(shift, ev.y, canvasWidth, ev.height);
+    ctx.fillStyle = "rgba(255,0,120,0.5)";
+    ctx.fillRect(-shift, ev.y, canvasWidth, ev.height);
+  }
+  ctx.restore();
+}
+
+// 3 bandas verticales de color fluyendo horizontalmente, cada una con su propio tono —
+// "screen" para el look luminoso característico de una aurora.
+function drawAuroraLayer(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  frameIndex: number,
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  const bands = 3;
+  for (let b = 0; b < bands; b++) {
+    const hue = 140 + b * 60;
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+    gradient.addColorStop(0, `hsla(${hue}, 90%, 60%, 0)`);
+    gradient.addColorStop(0.5, `hsla(${hue}, 90%, 60%, 1)`);
+    gradient.addColorStop(1, `hsla(${hue}, 90%, 60%, 0)`);
+    const xOffset = canvasWidth * 0.5 + Math.sin(frameIndex * 0.015 + b * 2) * canvasWidth * 0.35;
+    ctx.save();
+    ctx.translate(xOffset, 0);
+    ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY;
+    ctx.fillStyle = gradient;
+    ctx.fillRect(-canvasWidth * 0.25, 0, canvasWidth * 0.5, canvasHeight);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// Despacha al tipo activo — llamada única por frame desde CanvasRenderer.render, después
+// de drawImageCover (ver comentario de ANIMATED_BG_MAX_OPACITY más arriba). "none"/
+// undefined no dibuja nada, mismo criterio que colorGrade/filmGrain/lightLeak opcionales.
+function drawAnimatedBackground(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  frameIndex: number,
+  totalFrames: number,
+  type: AnimatedBackgroundType,
+  data: AnimatedBackgroundData,
+): void {
+  switch (type) {
+    case "particles":
+      return drawParticlesLayer(ctx, canvasWidth, canvasHeight, frameIndex, data.particles ?? []);
+    case "sparks":
+      return drawSparksLayer(ctx, canvasWidth, canvasHeight, frameIndex, data.particles ?? []);
+    case "bokeh":
+      return drawBokehLayer(ctx, canvasWidth, canvasHeight, frameIndex, data.bokeh ?? []);
+    case "gradient-wave":
+      return drawGradientWaveLayer(ctx, canvasWidth, canvasHeight, frameIndex, totalFrames);
+    case "geometric-lines":
+      return drawGeometricLinesLayer(ctx, canvasWidth, canvasHeight, frameIndex);
+    case "stars":
+      return drawStarsLayer(ctx, canvasWidth, canvasHeight, frameIndex, data.stars ?? []);
+    case "water-waves":
+      return drawWaterWavesLayer(ctx, canvasWidth, canvasHeight, frameIndex);
+    case "smoke":
+      return drawSmokeLayer(ctx, canvasWidth, canvasHeight, frameIndex);
+    case "confetti":
+      return drawConfettiLayer(ctx, canvasWidth, canvasHeight, frameIndex, data.confetti ?? []);
+    case "pulse-waves":
+      return drawPulseWavesLayer(ctx, canvasWidth, canvasHeight, frameIndex);
+    case "glitch":
+      return drawGlitchLayer(ctx, canvasWidth, canvasHeight, frameIndex, data.glitch ?? []);
+    case "aurora":
+      return drawAuroraLayer(ctx, canvasWidth, canvasHeight, frameIndex);
+    case "none":
+    default:
+      return;
+  }
+}
+
 // Ancho de la barra sólida del "wipe" en proporción al canvas — suficientemente ancha
 // para que el barrido se note, sin cubrir instantáneamente todo el frame de golpe.
 const WIPE_BAR_WIDTH_RATIO = 0.55;
@@ -1075,6 +1530,9 @@ export class CanvasRenderer implements ReelsRenderer {
     assertBrowserEnvironment();
 
     const { width, height, fps, durationSec, musicTrackUrl } = config;
+    // Adelantado desde más abajo (antes se calculaba junto a frameDurationUs) — precalcAnimatedBackground
+    // lo necesita para repartir los eventos de "glitch" a lo largo de todo el clip.
+    const totalFrames = Math.round(durationSec * fps);
     // imageSegments solo viene poblado cuando ReelsConfig.imageUrls tenía 2+ entradas
     // (ver ReelsAgent.buildMultiImageEffects) — con 0-1 imagen, el Reel sigue siendo
     // exactamente el flujo de una sola imagen de siempre.
@@ -1093,6 +1551,9 @@ export class CanvasRenderer implements ReelsRenderer {
 
     // Igual que saliencyOffsets: calculado UNA VEZ aquí, nunca por frame (ver buildGrainTiles).
     const grainTiles = config.filmGrain ? buildGrainTiles() : null;
+
+    // Igual que grainTiles: calculado UNA VEZ aquí, nunca por frame (ver precalcAnimatedBackground).
+    const bgData = precalcAnimatedBackground(config.animatedBackground, width, height, totalFrames);
 
     // Devuelve el índice de la imagen que corresponde al instante t (para images[] y
     // saliencyOffsets[] a la vez). Sin imageSegments, siempre 0 — comportamiento idéntico
@@ -1157,7 +1618,6 @@ export class CanvasRenderer implements ReelsRenderer {
     });
     encoder.configure(encoderConfig);
 
-    const totalFrames = Math.round(durationSec * fps);
     const frameDurationUs = Math.round(1_000_000 / fps);
     const keyFrameInterval = fps; // 1 keyframe/segundo — suficiente para un clip de 15-30s
     const videoProgressShare = audioBuffer ? 0.9 : 1; // deja un 10% para el encode de audio
@@ -1183,6 +1643,9 @@ export class CanvasRenderer implements ReelsRenderer {
       } else {
         const imageIndex = imageIndexForTime(t);
         drawImageCover(ctx, images[imageIndex], width, height, transform, saliencyOffsets[imageIndex], config.colorGrade);
+      }
+      if (config.animatedBackground && config.animatedBackground !== "none") {
+        drawAnimatedBackground(ctx, width, height, i, totalFrames, config.animatedBackground, bgData);
       }
       if (config.colorGrade === "vignette") drawVignetteOverlay(ctx, width, height);
       if (grainTiles) drawFilmGrainOverlay(ctx, grainTiles, i, width, height);

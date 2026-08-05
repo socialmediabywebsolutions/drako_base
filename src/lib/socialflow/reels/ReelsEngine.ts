@@ -63,6 +63,26 @@ export type ReelsImageSegment = {
  */
 export type ReelsColorGrade = "none" | "bw" | "sepia" | "vignette";
 
+/**
+ * Fondo animado superpuesto sobre la imagen (overlay aditivo/blend, no un fondo
+ * detrás — ver drawAnimatedBackground en CanvasRenderer.ts, drawImageCover siempre
+ * cubre el 100% del canvas). "none" es el default — sin valor se comporta igual.
+ */
+export type AnimatedBackgroundType =
+  | "particles"
+  | "bokeh"
+  | "gradient-wave"
+  | "geometric-lines"
+  | "stars"
+  | "water-waves"
+  | "smoke"
+  | "confetti"
+  | "pulse-waves"
+  | "glitch"
+  | "aurora"
+  | "sparks"
+  | "none";
+
 export type ReelsConfig = {
   /** URL pública HTTPS de la imagen origen (misma que ya sube CampaignPhotoUpload/UploadToPost a R2). */
   imageUrl: string;
@@ -77,6 +97,8 @@ export type ReelsConfig = {
   filmGrain?: boolean;
   /** Destello de luz cálido que "entra y se va" una vez a lo largo del clip (ver drawLightLeakOverlay/lightLeakEnvelope en CanvasRenderer.ts). Decidido por seed en ReelsAgent, ortogonal a colorGrade/filmGrain. Opcional — sin valor equivale a false. */
   lightLeak?: boolean;
+  /** Fondo animado superpuesto sobre la imagen (ver AnimatedBackgroundType / drawAnimatedBackground en CanvasRenderer.ts). Decidido por seed en ReelsAgent, ortogonal a colorGrade/filmGrain/lightLeak. Opcional — sin valor o "none" equivale a sin fondo animado. */
+  animatedBackground?: AnimatedBackgroundType;
   effects: ReelsEffect[];
   textOverlays: ReelsTextOverlay[];
   durationSec: number;
