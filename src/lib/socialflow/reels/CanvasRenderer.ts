@@ -127,32 +127,45 @@ const MIN_OVERSCAN = 1.01;
 // cualquier plantilla, ver TEMPLATE_EFFECT_PROFILE en ReelsAgent.ts), en vez de un
 // MAX_OVERSCAN plano para cualquier efecto "que se mueva algo".
 //
-// zoom-in, zoom-out, parallax, ken-burns, drift y pulse NO aparecen aquí a propósito:
-// zoom-in/zoom-out/pulse solo cambian `scale` y nunca bajan de 1.0 más que en un instante
-// puntual (nunca dejan de cubrir el canvas); parallax y ken-burns traen su propio zoom
-// (0.6x/0.5x la intensidad) que crece más rápido que su propio pan (0.08x) en todo su
-// rango — se autocubren; drift es insignificante (0.6% del ancho como mucho). Todos caen
-// al MIN_OVERSCAN por defecto (ver drawImageCover).
+// zoom-in, zoom-out, parallax, ken-burns, drift, pulse, zoom-pulse y zoom-breathe NO
+// aparecen aquí a propósito: zoom-in/zoom-out/pulse/zoom-pulse/zoom-breathe solo cambian
+// `scale` y nunca bajan de 1.0 (nunca dejan de cubrir el canvas); parallax y ken-burns ya
+// no traen ningún pan (ver auditoría de movimiento lateral — el componente translateX/Y
+// que tenían se eliminó, ahora son zoom puro) así que se autocubren trivialmente; drift es
+// insignificante (0.75% del alto como mucho, ver EFFECT_INTENSITY_OVERRIDE). Todos caen al
+// MIN_OVERSCAN por defecto (ver drawImageCover).
 //
-// pan-left/pan-right: hasta 6.0% del ancho a intensidad 0.5 (fitness/motivation) → 1.09,
-// más generoso que el mínimo con margen (1.07) porque ReelsAgent ahora consolida
-// pan-left/pan-right en una sola casilla del pool ("pan", resuelta a una dirección al azar
-// — ver EffectPoolKind) en vez de dos, así que aparece la mitad de veces que antes: se
-// puede permitir un poco más de zoom por aparición sin que el clip se sienta más recortado
-// de media a lo largo de todo el Reel.
+// pan-left/pan-right ya no aparecen en ningún pool de plantilla (ver auditoría de
+// movimiento lateral, deploy #691) — el tipo y su entrada aquí se dejan intactos por si se
+// reactivan, no por uso actual.
 //
 // rotate/tilt son geometría distinta: no es solo "cuánto se traslada" sino cuánto necesita
 // crecer un rectángulo rotado θ para seguir cubriendo un canvas mucho más alto que ancho
 // (requiredOverscan = |cosθ| + aspecto·|sinθ|, con aspecto=H/W=1.78 en X) — un canvas tan
 // vertical amplifica mucho el margen que pide una rotación pequeña. rotate (hasta 3° a
-// intensidad 0.5) necesita ~9.2% en X; tilt (hasta 4° + su propio pan) necesita ~15.7% en
-// X. Ninguno de los dos trae zoom propio que lo autocubra (a diferencia de parallax/
-// ken-burns), así que ambos necesitan su margen completo aquí.
+// intensidad 0.5) necesita ~9.2% en X. tilt (hasta 4°) ya no trae pan propio (eliminado,
+// ver arriba) — su valor se deja igual de generoso (1.17 > lo que la sola rotación
+// necesitaría, ~11-12%) en vez de recalcularlo a la baja: más overscan del estrictamente
+// necesario solo recorta un poco más de sobra, nunca expone borde, así que no hay
+// corrección que hacer aquí, solo esta nota de que el motivo original (pan+rotación) ya no
+// aplica tal cual.
 const EFFECT_OVERSCAN: Partial<Record<ReelsEffect["kind"], number>> = {
   "pan-left": 1.09,
   "pan-right": 1.09,
   rotate: 1.1,
   tilt: 1.17,
+  // vertical-drift (nuevo, sin EFFECT_INTENSITY_OVERRIDE — usa el intensityRange completo
+  // de la plantilla) puede llegar a height*0.06*intensity en el pico del segmento. Desde
+  // que TEMPLATE_EFFECT_PROFILE pasó a pools pesados con los 11 tipos disponibles en las 5
+  // plantillas, vertical-drift ya no queda fuera de fitness/motivation (intensityRange
+  // hasta 0.5, el máximo de las 5) — recalculado sobre ese máximo, no sobre el 0.3 de
+  // marketing (que era el único caso cuando este valor se fijó por primera vez): 0.06*0.5 =
+  // 3% del alto del canvas. MIN_OVERSCAN por sí solo (1.01) solo da ~0.5% de margen por
+  // lado, insuficiente. 1.08 da ~4% de margen por lado, con margen de sobra sobre el 3%
+  // necesario (a diferencia de "drift", cuyo 0.75% máximo con EFFECT_INTENSITY_OVERRIDE sí
+  // cae dentro de la tolerancia que ya aceptaba MIN_OVERSCAN, ver comentario de arriba — a
+  // drift no le afecta este cambio de pools porque su intensity sigue capado aparte).
+  "vertical-drift": 1.08,
 };
 
 // Estado neutro (sin efecto activo) — es el mismo objeto inicial que computeTransformAtTime
@@ -200,8 +213,11 @@ function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number
         transform.translateX += width * 0.12 * intensity * progress;
         break;
       case "parallax":
+        // Zoom puro — el pan horizontal que traía se eliminó (ver auditoría de
+        // movimiento lateral); sin él, este efecto es funcionalmente un zoom-in con
+        // otro coeficiente (0.6x en vez de 1x), se deja igual por si vuelve a
+        // diferenciarse en el futuro (ej. con un componente vertical propio).
         transform.scale *= 1 + intensity * 0.6 * progress;
-        transform.translateX += width * 0.08 * intensity * Math.sin(progress * Math.PI);
         break;
       case "rotate":
         transform.rotateDeg += intensity * 6 * Math.sin(progress * Math.PI * 2);
@@ -210,24 +226,46 @@ function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number
         transform.blurPx += intensity * 16 * progress;
         break;
       case "ken-burns":
-        // Zoom lento + pan diagonal constante, de esquina a esquina (nunca oscila).
+        // Zoom puro — el pan diagonal (X+Y) que traía se eliminó por completo (ver
+        // auditoría de movimiento lateral), no solo su componente X: "diagonal" sin
+        // el eje X ya no describe una diagonal, así que se quitan ambos ejes.
         transform.scale *= 1 + intensity * 0.5 * progress;
-        transform.translateX += width * 0.08 * intensity * progress;
-        transform.translateY += height * 0.08 * intensity * progress;
         break;
       case "drift":
-        // Movimiento lateral casi imperceptible — ReelsAgent ya acota su intensity
-        // a 0.05-0.15 (EFFECT_INTENSITY_OVERRIDE), aquí solo se traduce a píxeles.
-        transform.translateX += width * 0.04 * intensity * Math.sin(progress * Math.PI * 0.5);
+        // Deriva vertical casi imperceptible — antes era horizontal (ver auditoría de
+        // movimiento lateral), convertida a Y sin cambiar su magnitud relativa.
+        // ReelsAgent ya acota su intensity a 0.05-0.15 (EFFECT_INTENSITY_OVERRIDE),
+        // aquí solo se traduce a píxeles.
+        transform.translateY += height * 0.05 * intensity * Math.sin(progress * Math.PI * 0.5);
         break;
       case "pulse":
         // Zoom rítmico: oscila entre 1.0 y 1.0+intensity, 2.5 ciclos durante el segmento.
         transform.scale *= 1 + intensity * (0.5 - 0.5 * Math.cos(progress * Math.PI * 2 * 2.5));
         break;
       case "tilt":
-        // Ligera rotación (barrido 0→pico→0, sin oscilar) + pan horizontal constante.
+        // Ligera rotación (barrido 0→pico→0, sin oscilar) — el pan horizontal que
+        // traía se eliminó (ver auditoría de movimiento lateral), queda solo rotación.
         transform.rotateDeg += intensity * 8 * Math.sin(progress * Math.PI);
-        transform.translateX += width * 0.07 * intensity * progress;
+        break;
+      case "zoom-pulse":
+        // Zoom "latido": un ciclo completo de 1.0 a 1.0+intensity*0.08 y vuelta por
+        // segmento (a diferencia de "pulse", que hace 2.5 ciclos) — (sin(...)+1)/2
+        // desplaza el seno para que nunca baje de 1.0 (mismo criterio que
+        // zoom-in/zoom-out/pulse, ver EFFECT_OVERSCAN: nunca debe dejar de cubrir el canvas).
+        transform.scale *= 1 + intensity * 0.08 * ((Math.sin(progress * Math.PI * 2) + 1) / 2);
+        break;
+      case "zoom-breathe":
+        // Zoom "respiración": un único ciclo lento y suave 1.0→1.0+intensity*0.04→1.0
+        // a lo largo de todo el segmento — sin(progress*PI) ya es ≥0 en todo [0,1], no
+        // necesita desplazamiento como zoom-pulse.
+        transform.scale *= 1 + intensity * 0.04 * Math.sin(progress * Math.PI);
+        break;
+      case "vertical-drift":
+        // Deriva vertical con más presencia que "drift" (que usa su propio
+        // EFFECT_INTENSITY_OVERRIDE para quedar casi imperceptible) — mismo shape
+        // 0→pico→0 que zoom-breathe, ver EFFECT_OVERSCAN["vertical-drift"] para el
+        // margen que necesita en Y a la intensidad máxima que le asignan sus plantillas.
+        transform.translateY += height * 0.06 * intensity * Math.sin(progress * Math.PI);
         break;
       case "flash":
         // Destello blanco corto tipo "corte" (Reels/TikTok) — sube y baja de opacidad
@@ -598,9 +636,15 @@ function drawLightLeakOverlay(
 // fondos animados). Es un overlay aditivo/blend sobre la imagen ya compuesta, no un fondo
 // en el sentido literal.
 //
-// Techo de opacidad común a los 12 tipos — sutil, nunca debe competir visualmente con la
-// imagen del cliente ni con el texto (que se dibuja encima, ver drawTextOverlays).
-const ANIMATED_BG_MAX_OPACITY = 0.35;
+// Dos techos de opacidad en vez de uno — "sutiles" (smoke/aurora/gradient-wave/
+// water-waves/confetti, texturas que tiñen amplias zonas del canvas) se quedan discretos;
+// "de impacto" (particles/sparks/bokeh/stars/pulse-waves/glitch/geometric-lines, formas
+// puntuales o de área pequeña que necesitan destacar para notarse) suben a un techo más
+// alto — ninguno de los dos debe tapar la imagen del cliente ni el texto (que se dibuja
+// encima, ver drawTextOverlays), pero "de impacto" puede permitirse más presencia porque
+// cubre mucha menos superficie del frame en cada instante que los sutiles.
+const ANIMATED_BG_OPACITY_SUBTLE = 0.35;
+const ANIMATED_BG_OPACITY_IMPACT = 0.65;
 
 type BgParticle = { x: number; y: number; radius: number; speed: number; opacity: number; hue: number };
 type BgBokehCircle = { x: number; y: number; radius: number; angle: number; angleSpeed: number; color: string };
@@ -641,12 +685,15 @@ function precalcAnimatedBackground(
     case "particles":
     case "sparks":
       return {
+        // opacity subido de 0.3-0.8 a 0.5-1.0 (ver ANIMATED_BG_OPACITY_IMPACT) — con el
+        // techo de 0.35 anterior el rango viejo ya daba partículas apagadas de por sí
+        // (máx 0.8*0.35=0.28); con el techo de impacto (0.65) este rango nuevo da 0.325-0.65.
         particles: Array.from({ length: BG_PARTICLE_COUNT }, () => ({
           x: Math.random() * canvasWidth,
           y: Math.random() * canvasHeight,
           radius: 2 + Math.random() * 4,
           speed: 0.3 + Math.random() * 0.7,
-          opacity: 0.3 + Math.random() * 0.5,
+          opacity: 0.5 + Math.random() * 0.5,
           hue: 40 + Math.random() * 20, // dorado
         })),
       };
@@ -674,13 +721,16 @@ function precalcAnimatedBackground(
         })),
       };
     case "stars":
+      // maxOpacity subido de 0.4-0.8 a 0.6-1.0 (ver ANIMATED_BG_OPACITY_IMPACT) — mismo
+      // motivo que particles: con el techo de 0.35 el rango viejo daba destellos apenas
+      // visibles en su pico (twinkle=1); con el techo de impacto (0.65) llega a 0.39-0.65.
       return {
         stars: Array.from({ length: BG_STAR_COUNT }, () => ({
           x: Math.random() * canvasWidth,
           y: Math.random() * canvasHeight,
           phase: Math.random() * Math.PI * 2,
           speed: 0.5 + Math.random() * 1.5,
-          maxOpacity: 0.4 + Math.random() * 0.4,
+          maxOpacity: 0.6 + Math.random() * 0.4,
         })),
       };
     case "glitch":
@@ -713,7 +763,7 @@ function drawParticlesLayer(
     const span = canvasHeight + 40;
     const y = (((p.y - frameIndex * p.speed * 2) % span) + span) % span - 20;
     const x = p.x + Math.sin(frameIndex * 0.02 + p.y) * 12;
-    ctx.globalAlpha = p.opacity * ANIMATED_BG_MAX_OPACITY;
+    ctx.globalAlpha = p.opacity * ANIMATED_BG_OPACITY_IMPACT;
     ctx.fillStyle = `hsl(${p.hue}, 90%, 65%)`;
     ctx.beginPath();
     ctx.arc(x, y, p.radius, 0, Math.PI * 2);
@@ -737,7 +787,7 @@ function drawSparksLayer(
     const span = canvasHeight + 40;
     const y = (((p.y - frameIndex * p.speed * 4) % span) + span) % span - 20;
     const x = p.x + Math.sin(frameIndex * 0.09 + p.y) * 18 + Math.cos(frameIndex * 0.05 + p.x) * 10;
-    ctx.globalAlpha = p.opacity * ANIMATED_BG_MAX_OPACITY;
+    ctx.globalAlpha = p.opacity * ANIMATED_BG_OPACITY_IMPACT;
     ctx.fillStyle = `hsl(${p.hue}, 95%, 70%)`;
     ctx.beginPath();
     ctx.arc(x, y, p.radius * 0.7, 0, Math.PI * 2);
@@ -762,7 +812,10 @@ function drawBokehLayer(
     const angle = c.angle + frameIndex * c.angleSpeed * 0.02;
     const x = c.x + Math.cos(angle) * canvasWidth * 0.08;
     const y = c.y + Math.sin(angle) * canvasHeight * 0.05;
-    ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY * 0.6;
+    // Sin el *0.6 de damping que llevaba antes (con el techo de 0.35 dejaba el bokeh en
+    // 0.21 — el más apagado de los 12 pese a ser un efecto de impacto) — con el blur de
+    // 18px ya suavizando cada círculo, el techo de impacto pleno no lo vuelve "duro".
+    ctx.globalAlpha = ANIMATED_BG_OPACITY_IMPACT;
     ctx.fillStyle = c.color;
     ctx.beginPath();
     ctx.arc(x, y, c.radius, 0, Math.PI * 2);
@@ -793,7 +846,7 @@ function drawGradientWaveLayer(
 
   ctx.save();
   ctx.globalCompositeOperation = "overlay";
-  ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY;
+  ctx.globalAlpha = ANIMATED_BG_OPACITY_SUBTLE;
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
   ctx.restore();
@@ -809,7 +862,7 @@ function drawGeometricLinesLayer(
 ): void {
   ctx.save();
   ctx.globalCompositeOperation = "source-over";
-  ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY * 0.7;
+  ctx.globalAlpha = ANIMATED_BG_OPACITY_IMPACT * 0.7;
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 2;
   const offset = (frameIndex * 6) % 160;
@@ -835,7 +888,7 @@ function drawStarsLayer(
   ctx.globalCompositeOperation = "screen";
   for (const s of stars) {
     const twinkle = (Math.sin(frameIndex * 0.05 * s.speed + s.phase) + 1) / 2;
-    ctx.globalAlpha = twinkle * s.maxOpacity * ANIMATED_BG_MAX_OPACITY;
+    ctx.globalAlpha = twinkle * s.maxOpacity * ANIMATED_BG_OPACITY_IMPACT;
     ctx.fillStyle = "#ffffff";
     ctx.beginPath();
     ctx.arc(s.x, s.y, 2.5, 0, Math.PI * 2);
@@ -854,7 +907,7 @@ function drawWaterWavesLayer(
 ): void {
   ctx.save();
   ctx.globalCompositeOperation = "overlay";
-  ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY;
+  ctx.globalAlpha = ANIMATED_BG_OPACITY_SUBTLE;
   const rows = 5;
   for (let r = 0; r < rows; r++) {
     const baseY = (canvasHeight / rows) * (r + 0.5);
@@ -883,7 +936,7 @@ function drawSmokeLayer(
 ): void {
   ctx.save();
   ctx.globalCompositeOperation = "overlay";
-  ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY;
+  ctx.globalAlpha = ANIMATED_BG_OPACITY_SUBTLE;
   const layers = 3;
   for (let l = 0; l < layers; l++) {
     const cx = canvasWidth * 0.5 + Math.sin(frameIndex * 0.008 + l * 2) * canvasWidth * 0.3;
@@ -909,7 +962,7 @@ function drawConfettiLayer(
 ): void {
   ctx.save();
   ctx.globalCompositeOperation = "source-over";
-  ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY;
+  ctx.globalAlpha = ANIMATED_BG_OPACITY_SUBTLE;
   for (const c of confetti) {
     const span = canvasHeight + 40;
     const y = (((c.y + frameIndex * (c.speed / 30)) % span) + span) % span - 20;
@@ -941,7 +994,7 @@ function drawPulseWavesLayer(
   for (let ring = 0; ring < 3; ring++) {
     const ringOffset = ring * (PULSE_WAVE_CYCLE_FRAMES / 3);
     const progress = ((frameIndex + ringOffset) % PULSE_WAVE_CYCLE_FRAMES) / PULSE_WAVE_CYCLE_FRAMES;
-    ctx.globalAlpha = (1 - progress) * ANIMATED_BG_MAX_OPACITY;
+    ctx.globalAlpha = (1 - progress) * ANIMATED_BG_OPACITY_IMPACT;
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -964,7 +1017,7 @@ function drawGlitchLayer(
 ): void {
   ctx.save();
   ctx.globalCompositeOperation = "source-over";
-  ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY;
+  ctx.globalAlpha = ANIMATED_BG_OPACITY_IMPACT;
   for (const ev of events) {
     if (frameIndex < ev.frameStart || frameIndex > ev.frameStart + ev.duration) continue;
     const shift = ev.intensity * (frameIndex % 2 === 0 ? 1 : -1);
@@ -996,7 +1049,7 @@ function drawAuroraLayer(
     const xOffset = canvasWidth * 0.5 + Math.sin(frameIndex * 0.015 + b * 2) * canvasWidth * 0.35;
     ctx.save();
     ctx.translate(xOffset, 0);
-    ctx.globalAlpha = ANIMATED_BG_MAX_OPACITY;
+    ctx.globalAlpha = ANIMATED_BG_OPACITY_SUBTLE;
     ctx.fillStyle = gradient;
     ctx.fillRect(-canvasWidth * 0.25, 0, canvasWidth * 0.5, canvasHeight);
     ctx.restore();
@@ -1005,8 +1058,8 @@ function drawAuroraLayer(
 }
 
 // Despacha al tipo activo — llamada única por frame desde CanvasRenderer.render, después
-// de drawImageCover (ver comentario de ANIMATED_BG_MAX_OPACITY más arriba). "none"/
-// undefined no dibuja nada, mismo criterio que colorGrade/filmGrain/lightLeak opcionales.
+// de drawImageCover (ver comentario de ANIMATED_BG_OPACITY_SUBTLE/_IMPACT más arriba).
+// "none"/undefined no dibuja nada, mismo criterio que colorGrade/filmGrain/lightLeak opcionales.
 function drawAnimatedBackground(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   canvasWidth: number,

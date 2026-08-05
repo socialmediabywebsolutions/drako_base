@@ -85,16 +85,77 @@ type EffectProfile = {
 // más cambios de movimiento por segundo. Plantillas "suaves" (lifestyle/education):
 // segmentos largos + intensidad baja → transiciones que casi no se notan como corte.
 // marketing queda en un punto intermedio (ni deportivo ni relajado).
+//
+// Los 11 tipos de movimiento (todo ReelsEffectKind salvo pan-left/pan-right, que ya no se
+// usan — ver auditoría de movimiento lateral —, y blur/flash/wipe, que son otra categoría:
+// blur no es un "movimiento" seleccionable por pool y flash/wipe son transiciones de
+// cierre, ver OUTRO_TRANSITION_POOL) están disponibles en las 5 plantillas — mismo patrón
+// "pool pesado por repetición + pickFrom(pool, seededRandom)" que ANIMATED_BG_POOLS, en vez
+// de listas fijas distintas por plantilla: cada plantilla pesa hacia el carácter que le
+// corresponde (fitness/motivation hacia zoom-pulse/zoom-in/rotate, energético;
+// lifestyle/education hacia zoom-breathe/vertical-drift/zoom-out, suave; marketing hacia
+// zoom-pulse/zoom-in/vertical-drift, intermedio) pero cualquier tipo puede salir en
+// cualquier plantilla, solo con menos frecuencia.
 const TEMPLATE_EFFECT_PROFILE: Record<ReelsTemplate, EffectProfile> = {
-  fitness: { pool: ["zoom-in", "rotate", "ken-burns", "pulse"], segmentCount: [3, 4], segmentDurationSec: [2, 4], intensityRange: [0.3, 0.5] },
-  motivation: { pool: ["zoom-in", "parallax", "ken-burns", "drift", "tilt"], segmentCount: [3, 4], segmentDurationSec: [2, 4], intensityRange: [0.3, 0.5] },
-  lifestyle: { pool: ["parallax", "zoom-out", "ken-burns", "drift", "pulse"], segmentCount: [2, 3], segmentDurationSec: [4, 7], intensityRange: [0.15, 0.3] },
-  // Ampliado de 4 a 6 tipos (pan/tilt tomados de motivation/marketing) — el intensityRange
-  // bajo (0.1-0.2) de esta plantilla ya mantiene el movimiento sutil sin importar qué tipo
-  // de efecto le toque, así que sumar más variedad no la vuelve "energética", solo evita
-  // que sea siempre la misma combinación de 4.
-  education: { pool: ["zoom-in", "parallax", "drift", "ken-burns", "tilt"], segmentCount: [2, 3], segmentDurationSec: [5, 9], intensityRange: [0.1, 0.2] },
-  marketing: { pool: ["zoom-in", "rotate", "ken-burns", "tilt", "drift"], segmentCount: [2, 3], segmentDurationSec: [4, 6], intensityRange: [0.15, 0.3] },
+  fitness: {
+    pool: [
+      "zoom-in", "zoom-in", "zoom-in",
+      "zoom-pulse", "zoom-pulse", "zoom-pulse",
+      "rotate", "rotate",
+      "zoom-breathe", "vertical-drift", "parallax", "ken-burns", "drift", "tilt", "zoom-out", "pulse",
+    ],
+    segmentCount: [3, 4],
+    segmentDurationSec: [2, 4],
+    intensityRange: [0.3, 0.5],
+  },
+  lifestyle: {
+    pool: [
+      "zoom-breathe", "zoom-breathe", "zoom-breathe",
+      "zoom-out", "zoom-out", "zoom-out",
+      "vertical-drift", "vertical-drift",
+      "zoom-pulse", "zoom-pulse",
+      "rotate", "parallax", "ken-burns", "drift", "tilt", "zoom-in", "pulse",
+    ],
+    segmentCount: [2, 3],
+    segmentDurationSec: [4, 7],
+    intensityRange: [0.15, 0.3],
+  },
+  motivation: {
+    pool: [
+      "zoom-pulse", "zoom-pulse", "zoom-pulse",
+      "zoom-in", "zoom-in", "zoom-in",
+      "rotate", "rotate",
+      "zoom-breathe", "zoom-breathe",
+      "vertical-drift", "parallax", "ken-burns", "drift", "tilt", "zoom-out", "pulse",
+    ],
+    segmentCount: [3, 4],
+    segmentDurationSec: [2, 4],
+    intensityRange: [0.3, 0.5],
+  },
+  education: {
+    pool: [
+      "zoom-breathe", "zoom-breathe", "zoom-breathe",
+      "vertical-drift", "vertical-drift", "vertical-drift",
+      "zoom-out", "zoom-out",
+      "zoom-in", "zoom-in",
+      "rotate", "zoom-pulse", "parallax", "ken-burns", "drift", "tilt", "pulse",
+    ],
+    segmentCount: [2, 3],
+    segmentDurationSec: [5, 9],
+    intensityRange: [0.1, 0.2],
+  },
+  marketing: {
+    pool: [
+      "zoom-pulse", "zoom-pulse", "zoom-pulse",
+      "zoom-in", "zoom-in", "zoom-in",
+      "vertical-drift", "vertical-drift",
+      "rotate", "rotate",
+      "zoom-breathe", "zoom-out", "parallax", "ken-burns", "drift", "tilt", "pulse",
+    ],
+    segmentCount: [2, 3],
+    segmentDurationSec: [4, 6],
+    intensityRange: [0.15, 0.3],
+  },
 };
 
 // "drift" debe ser casi imperceptible siempre, incluso en plantillas "energéticas" que

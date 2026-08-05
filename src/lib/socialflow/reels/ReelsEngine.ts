@@ -17,6 +17,12 @@ export type ReelsEffectKind =
   | "drift"
   | "pulse"
   | "tilt"
+  // Sin componente horizontal — añadidos tras la auditoría de movimiento lateral que
+  // quitó el pan de parallax/ken-burns/tilt y convirtió drift a vertical (ver
+  // computeTransformAtTime en CanvasRenderer.ts).
+  | "zoom-pulse"
+  | "zoom-breathe"
+  | "vertical-drift"
   // "flash" y "wipe" son transiciones de cierre (ver OUTRO_TRANSITION_POOL en
   // ReelsAgent.ts) — nunca aparecen en los pools normales de efectos por plantilla.
   | "flash"
