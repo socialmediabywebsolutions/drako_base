@@ -210,6 +210,9 @@ export async function POST(request: Request) {
       imageKeys?: string[];             // CAROUSEL only
       imageAnalyses?: ImageAnalysis[];  // CAROUSEL only — mismo patrón que imageAnalysis singular: si el cliente ya
                                          // corrió "analyze" por foto, se pasa aquí para saltar la llamada a LLaVA de esa foto
+      targetSlideCount?: number;        // CAROUSEL only — total de slides del carrusel (fotos + IA), típicamente
+                                         // maxSlides del plan del cliente. Si es mayor que imageUrls.length, los
+                                         // slots sobrantes se rellenan con slides de texto puro (ver carrusel mixto).
       saasId?: string;
       provider?: string;
       startDate?: string;
@@ -231,14 +234,23 @@ export async function POST(request: Request) {
     if (isCarousel) {
       const urls = body.imageUrls;
       const keys = body.imageKeys;
+      const targetSlideCount = body.targetSlideCount;
+      // Carrusel mixto: si se pide más slides de las que hay fotos, la IA rellena el
+      // resto — el mínimo real de fotos baja a 1 (puede ser 0 fotos + slides IA en
+      // teoría, pero el flujo "Subir imágenes" siempre trae al menos 1). Sin
+      // targetSlideCount (o con targetSlideCount <= urls.length) el comportamiento es
+      // IDÉNTICO al de siempre: mínimo CAROUSEL_MIN_ITEMS, 100% fotos.
+      const willFillWithAi = typeof targetSlideCount === "number" && targetSlideCount > (urls?.length ?? 0);
+      const minPhotos = willFillWithAi ? 1 : CAROUSEL_MIN_ITEMS;
       if (
         !Array.isArray(urls) || !Array.isArray(keys) || urls.length !== keys.length ||
-        urls.length < CAROUSEL_MIN_ITEMS || urls.length > CAROUSEL_MAX_ITEMS
+        urls.length < minPhotos || urls.length > CAROUSEL_MAX_ITEMS ||
+        (typeof targetSlideCount === "number" && (targetSlideCount < CAROUSEL_MIN_ITEMS || targetSlideCount > CAROUSEL_MAX_ITEMS))
       ) {
         return NextResponse.json(
           {
             code: "INVALID_CAROUSEL_BODY",
-            message: `imageUrls and imageKeys must be equal-length arrays of ${CAROUSEL_MIN_ITEMS}-${CAROUSEL_MAX_ITEMS} items`,
+            message: `imageUrls and imageKeys must be equal-length arrays of ${minPhotos}-${CAROUSEL_MAX_ITEMS} items`,
           },
           { status: 400 },
         );
@@ -349,7 +361,17 @@ export async function POST(request: Request) {
         campaignHashtags: profile.priorityHashtags,
       };
 
-      const slideContexts = imageAnalyses.map((a, i) => ({ order: i, specificContext: a.specificContext }));
+      // Carrusel mixto: si targetSlideCount pide más slides de las fotos analizadas, se
+      // extiende slideContexts con slots vacíos (specificContext: "") al final — esos
+      // son los que CarouselComposerAgent rellena con texto puro (ver hasPhotoAt ahí).
+      // Sin targetSlideCount (o <= imageUrls.length) esto es un no-op: mismo array de
+      // siempre, 1 por foto.
+      const totalSlideCount = Math.max(body.targetSlideCount ?? imageUrls.length, imageUrls.length);
+      const slideContexts = Array.from({ length: totalSlideCount }, (_, i) =>
+        i < imageAnalyses.length
+          ? { order: i, specificContext: imageAnalyses[i].specificContext }
+          : { order: i, specificContext: "" },
+      );
 
       const composition = await new CarouselComposerAgent().run({
         profile,
@@ -396,10 +418,12 @@ export async function POST(request: Request) {
           scheduledAt,
           saasId: body.saasId,
           // imageUrl aquí es la foto ORIGINAL subida — sin texto quemado todavía, eso lo
-          // hace StaticSlideRenderer en el cliente (siguiente pieza).
+          // hace StaticSlideRenderer en el cliente (siguiente pieza). undefined en los
+          // slots que rellena la IA (carrusel mixto, i >= imageUrls.length) — el cliente
+          // le pasa `style` en vez de `imageUrl` a StaticSlideRenderer para esos.
           slides: composition.slides.map((slide, i) => ({
             order: slide.order,
-            imageUrl: imageUrls[i],
+            imageUrl: imageUrls[i] ?? undefined,
             text: slide.text,
             role: slide.role,
           })),

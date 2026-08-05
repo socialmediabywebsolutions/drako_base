@@ -33,13 +33,18 @@ type SlideReviewStatus = "pending" | "approved" | "editing" | "applying" | "reje
 type CarouselSlideState = {
   order: number;
   role: CarouselSlideRole;
-  originalImageUrl: string;
-  originalImageKey: string; // necesario para reanalizar SOLO este slot al reemplazar
+  // null en slides "ai" (carrusel mixto) — no hay foto original que reanalizar/reemplazar.
+  originalImageUrl: string | null;
+  originalImageKey: string | null; // necesario para reanalizar SOLO este slot al reemplazar
   renderedImageUrl: string | null;
   text: string;        // texto YA aplicado — el que está quemado en renderedImageUrl
   draftText: string;   // valor del textarea mientras se edita, separado de `text`
   status: SlideReviewStatus;
   error: string | null; // error de re-render de ESTE slide, no del carrusel completo
+  // "client": slide con foto subida por el cliente. "ai": slot que la IA rellenó con
+  // texto puro (carrusel mixto, cuando el cliente sube menos fotos de las que su plan
+  // permite) — sin foto original, StaticSlideRenderer usa `style` como fondo.
+  source: "client" | "ai";
 };
 
 type FailedSlide = { order: number; imageKey?: string; message: string };
@@ -105,7 +110,8 @@ type SuggestedCarouselPost = {
   contentType: "CAROUSEL";
   scheduledAt: string;
   saasId: string;
-  slides: { order: number; imageUrl: string; text: string; role: CarouselSlideRole }[];
+  // imageUrl ausente en los slots que la IA rellenó (carrusel mixto) — ver targetSlideCount.
+  slides: { order: number; imageUrl?: string; text: string; role: CarouselSlideRole }[];
 };
 
 // ── Tarjeta de revisión de un slide (mirror de ReelItemCard en publish-reel.tsx) ──
@@ -146,6 +152,9 @@ function CarouselSlideCard({
             className={`aspect-[4/5] w-full object-cover ${needsReplacement ? "opacity-30" : ""}`}
           />
         )}
+        <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white">
+          {slide.source === "client" ? "📷 Tuya" : "✦ IA"}
+        </span>
         {slide.status === "approved" && (
           <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-black text-white">
             <IcoCheck /> Aprobado
@@ -246,13 +255,15 @@ function CarouselSlideCard({
                 <IcoPencil /> Editar
               </button>
             </div>
-            <button
-              type="button"
-              onClick={onReject}
-              className="w-full rounded-lg border border-rose-500/25 bg-rose-500/10 py-1.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
-            >
-              Rechazar
-            </button>
+            {slide.source === "client" && (
+              <button
+                type="button"
+                onClick={onReject}
+                className="w-full rounded-lg border border-rose-500/25 bg-rose-500/10 py-1.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
+              >
+                Rechazar
+              </button>
+            )}
           </>
         )}
       </div>
@@ -283,6 +294,9 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canGenerate = photos.length >= CAROUSEL_MIN_SLIDES && photos.length <= maxSlides;
+  // Cuántos slides le faltan al carrusel para llegar al máximo de su plan — la IA los
+  // rellena con texto puro (carrusel mixto). 0 si el cliente ya subió maxSlides fotos.
+  const aiSlides = Math.max(0, maxSlides - photos.length);
 
   async function handleFileSelect(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -333,6 +347,9 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
           forcedContentType: "CAROUSEL",
           imageUrls: uploaded.map((u) => u.url),
           imageKeys: uploaded.map((u) => u.key),
+          // Siempre se manda — el backend solo rellena con IA si es mayor que la
+          // cantidad de fotos subidas; si no, es un no-op (comportamiento de siempre).
+          targetSlideCount: maxSlides,
         }),
       });
       const data = (await res.json()) as {
@@ -381,15 +398,19 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
             handle: data.channelHandle ?? undefined,
           });
           const { url } = await uploadFile(blob, `slide_${slide.order}.jpg`);
+          // Slots IA (carrusel mixto) no tienen entrada en `uploaded` — solo las
+          // primeras photos.length posiciones corresponden a una foto subida.
+          const uploadedPhoto = slide.imageUrl ? uploaded[slide.order] : undefined;
           return {
             order: slide.order,
             role: slide.role,
-            originalImageUrl: slide.imageUrl,
-            originalImageKey: uploaded[slide.order].key,
+            originalImageUrl: slide.imageUrl ?? null,
+            originalImageKey: uploadedPhoto?.key ?? null,
             renderedImageUrl: url,
             text: slide.text,
             draftText: slide.text,
             status: "pending",
+            source: slide.imageUrl ? "client" : "ai",
             error: null,
           } satisfies CarouselSlideState;
         }),
@@ -436,7 +457,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
     try {
       const renderer = new StaticSlideRenderer();
       const blob = await renderer.render({
-        imageUrl: slide.originalImageUrl,
+        imageUrl: slide.originalImageUrl ?? undefined,
         text: slide.draftText,
         role: slide.role,
         style: style ?? undefined,
@@ -471,9 +492,16 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
     try {
       const { url, key } = await uploadFile(file);
       const ordered = [...slides].sort((a, b) => a.order - b.order);
-      const imageUrls = ordered.map((s) => (s.order === order ? url : s.originalImageUrl));
-      const imageKeys = ordered.map((s) => (s.order === order ? key : s.originalImageKey));
-      const imageAnalysesPayload = ordered.map((s) => (s.order === order ? undefined : slideAnalyses[s.order]));
+      // Solo los slides "client" viajan a reanálisis — un slide "ai" (carrusel mixto)
+      // no tiene foto que reanalizar y este flujo de todos modos no lo toca (solo se
+      // aplica el texto del slide reemplazado, ver comentario de la función). Sin este
+      // filtro, un originalImageUrl/Key null de un slide IA rompería la validación del
+      // backend. Este botón solo es alcanzable en slides "client" (ver CarouselSlideCard).
+      const clientSlides = ordered.filter((s) => s.source === "client");
+      const replaceIndex = clientSlides.findIndex((s) => s.order === order);
+      const imageUrls = clientSlides.map((s) => (s.order === order ? url : s.originalImageUrl!));
+      const imageKeys = clientSlides.map((s) => (s.order === order ? key : s.originalImageKey!));
+      const imageAnalysesPayload = clientSlides.map((s) => (s.order === order ? undefined : slideAnalyses[s.order]));
 
       const res = await fetch("/api/socialflow/posts/generate-from-image", {
         method: "POST",
@@ -507,12 +535,12 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
       if (data.imageAnalyses) {
         setSlideAnalyses((prev) => {
           const next = [...prev];
-          next[order] = data.imageAnalyses![order];
+          next[order] = data.imageAnalyses![replaceIndex];
           return next;
         });
       }
 
-      const finalText = data.suggestedCarouselPost.slides.find((s) => s.order === order)?.text ?? "";
+      const finalText = data.suggestedCarouselPost.slides[replaceIndex]?.text ?? "";
       const role = ordered.find((s) => s.order === order)!.role;
       const renderer = new StaticSlideRenderer();
       const blob = await renderer.render({
@@ -637,6 +665,12 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
                 </div>
               ))}
             </div>
+
+            {canGenerate && aiSlides > 0 && (
+              <p className="rounded-xl border border-violet-500/20 bg-violet-500/8 px-3 py-2 text-center text-xs text-violet-300">
+                ✦ La IA completará {aiSlides} slide(s) de texto para llegar a las {maxSlides} slides de tu plan.
+              </p>
+            )}
 
             <div className="flex items-center justify-between">
               <p className="text-xs text-white/40">
