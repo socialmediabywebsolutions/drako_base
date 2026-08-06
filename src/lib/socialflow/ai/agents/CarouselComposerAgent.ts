@@ -27,15 +27,16 @@ export const CAROUSEL_SLIDE_TEXT_LIMITS: Record<CarouselSlideRole, number> = {
 };
 
 export type CarouselSlideText = {
-  order: number;            // 0-based, mismo orden que las fotos subidas
+  order: number;            // 0-based, posición final del slide en el carrusel (puede intercalar fotos y texto IA — ver resolveSlidePlan)
   role: CarouselSlideRole;
   text: string;             // clamped a CAROUSEL_SLIDE_TEXT_LIMITS[role] antes de devolverse
+  photoIndex?: number;      // índice en el array de fotos subidas (imageUrls) — undefined si el slide es texto puro IA. En carrusel mixto el orden final ya no es 1:1 con el orden de subida.
 };
 
 export type CarouselComposition = {
   id: string;
   openerCategory: OpenerCategory;  // una sola categoría para todo el carrusel
-  slides: CarouselSlideText[];     // length === N fotos, mismo orden
+  slides: CarouselSlideText[];     // length === total slides; orden final del carrusel (puede intercalar fotos y texto IA en modo mixto)
   hashtags: string[];              // 10-15, misma convención que OptimizedPost.hashtags
   tone: string;
 };
@@ -95,20 +96,49 @@ function clampSlideCount(count: number): number {
 }
 
 // Resuelve el plan de slides según el modo: "Subir imágenes" (slideContexts ya viene
-// poblado desde N fotos analizadas, se usa tal cual), "Crear con IA" (Fase 7,
+// poblado desde N fotos analizadas, se usa tal cual) o "Crear con IA" (Fase 7,
 // slideContexts ausente/vacío — se generan `slideCount` slides con specificContext
-// vacío) o carrusel MIXTO (el caller ya intercaló specificContext real con "" para
-// los slots que rellena la IA — ver route.ts generate-from-image). `hasPhotoAt` es
-// por-posición (no un único booleano global) precisamente para soportar el modo
-// mixto: cada slide sabe si debe anclarse en detalle visual real o no.
+// vacío). En carrusel MIXTO (el caller manda fotos + slots vacíos que rellena la IA —
+// ver route.ts generate-from-image) el orden de entrada trae todas las fotos primero;
+// aquí se intercalan foto/texto-IA (foto, texto relacionado, foto, texto relacionado...)
+// para que el carrusel no se sienta "fotos y luego bloque de texto". Los sobrantes (si
+// #fotos != #slots IA) se agrupan al final, antes del último slide (que siempre es
+// cierre_cta por posición, sin importar si terminó siendo foto o texto). `photoIndex`
+// rastrea a qué foto original (índice en imageUrls) corresponde cada slide con foto,
+// porque tras intercalar el índice del array ya no coincide con el de subida.
+// `hasPhotoAt` es por-posición (no un único booleano global) precisamente para soportar
+// el modo mixto: cada slide sabe si debe anclarse en detalle visual real o no.
 function resolveSlidePlan(input: {
   slideContexts?: { order: number; specificContext: string }[];
   slideCount?: number;
-}): { slideContexts: { order: number; specificContext: string }[]; hasPhotoAt: boolean[] } {
+}): { slideContexts: { order: number; specificContext: string; photoIndex?: number }[]; hasPhotoAt: boolean[] } {
   if (input.slideContexts && input.slideContexts.length > 0) {
+    const photos = input.slideContexts
+      .map((s, i) => ({ specificContext: s.specificContext, photoIndex: i }))
+      .filter((s) => s.specificContext.trim().length > 0);
+    const aiSlots = input.slideContexts.filter((s) => s.specificContext.trim().length === 0);
+
+    let ordered: { specificContext: string; photoIndex?: number }[];
+    if (photos.length === 0 || aiSlots.length === 0) {
+      // Sin mezcla real (todo foto o todo texto IA) — no hay nada que intercalar.
+      ordered = input.slideContexts.map((s, i) => ({
+        specificContext: s.specificContext,
+        photoIndex: s.specificContext.trim().length > 0 ? i : undefined,
+      }));
+    } else {
+      const pairCount = Math.min(photos.length, aiSlots.length);
+      ordered = [];
+      for (let i = 0; i < pairCount; i++) {
+        ordered.push(photos[i]);
+        ordered.push({ specificContext: aiSlots[i].specificContext });
+      }
+      ordered.push(...photos.slice(pairCount));
+      ordered.push(...aiSlots.slice(pairCount).map((s) => ({ specificContext: s.specificContext })));
+    }
+
     return {
-      slideContexts: input.slideContexts,
-      hasPhotoAt: input.slideContexts.map((s) => s.specificContext.trim().length > 0),
+      slideContexts: ordered.map((s, i) => ({ order: i, specificContext: s.specificContext, photoIndex: s.photoIndex })),
+      hasPhotoAt: ordered.map((s) => s.specificContext.trim().length > 0),
     };
   }
   const total = clampSlideCount(input.slideCount ?? DEFAULT_TOPIC_SLIDE_COUNT);
@@ -160,7 +190,7 @@ export class CarouselComposerAgent {
       slides: slideContexts.map((s, i) => {
         const role = roleForIndex(i, total);
         const text = fallbackSlideText(role, profile, openerCategory, s.specificContext, resolvedTopic);
-        return { order: s.order, role, text: clampSlideText(text, role) };
+        return { order: s.order, role, text: clampSlideText(text, role), photoIndex: s.photoIndex };
       }),
       hashtags: uniqueHashtags,
       tone: profile.toneOfVoice,
@@ -168,15 +198,24 @@ export class CarouselComposerAgent {
 
     // hasPhotoAt es por-posición (no un único booleano global) para soportar el
     // carrusel MIXTO: algunos slides traen detalle visual real (fotos del cliente),
-    // otros no (slots que rellena la IA, ver route.ts generate-from-image). Cada línea
-    // lleva su propia instrucción según corresponda, en vez de un bloque homogéneo.
+    // otros no (slots que rellena la IA, ya intercalados con las fotos — ver
+    // resolveSlidePlan). Cada línea lleva su propia instrucción según corresponda, en
+    // vez de un bloque homogéneo. Para slides con foto la instrucción pide un mensaje de
+    // VALOR inspirado en la imagen, no una descripción literal de lo que se ve (causa
+    // raíz detectada en auditoría: el modelo describía la foto en vez de aportar valor).
+    // Para un slide de texto IA que quedó justo después de una foto (por el intercalado),
+    // se le pide explícitamente que amplíe/complemente esa foto en vez de partir de cero.
     const hasAnyPhoto = hasPhotoAt.some(Boolean);
     const hasAnyAiSlide = hasPhotoAt.some((v) => !v);
     const slideContextLines = slideContexts
       .map((s, i) => {
         const role = roleForIndex(i, total);
-        return hasPhotoAt[i]
-          ? `Slide ${i + 1} (${role}): ancla el texto en su propio detalle visual — NUNCA inventes un dato que no esté aquí: "${s.specificContext}"`
+        if (hasPhotoAt[i]) {
+          return `Slide ${i + 1} (${role}): la foto muestra: "${s.specificContext}". Inspírate en lo que transmite esta imagen para crear un mensaje de VALOR REAL para la audiencia — no describas la foto, sino qué aprende, qué siente o qué puede hacer el lector gracias a este momento. Si la imagen muestra comida, da un tip nutricional o una receta rápida. Si muestra ejercicio, da un tip de técnica o motivación específica. Si muestra un lugar, cuenta algo interesante de ese lugar. Nunca digas "en esta foto veo" ni describas lo que aparece visualmente.`;
+        }
+        const precedingPhotoContext = i > 0 && hasPhotoAt[i - 1] ? slideContexts[i - 1].specificContext : null;
+        return precedingPhotoContext
+          ? `Slide ${i + 1} (${role}, texto IA, relacionada con la foto anterior de "${precedingPhotoContext}"): desarrolla un mensaje de valor que amplíe o complemente lo que transmite esa foto, sin describirla literalmente ni repetir el mismo ángulo del slide anterior.`
           : `Slide ${i + 1} (${role}): sin foto — desarrolla el tema "${resolvedTopic}" con un punto educativo concreto, sin inventar ningún detalle visual.`;
       })
       .join("\n");
@@ -185,17 +224,19 @@ export class CarouselComposerAgent {
       ? `- Último slide (cierre_cta): este slide YA tiene su call-to-action fijo ("${objectiveCta}") — no lo reescribas, el JSON base que recibirás ya lo trae listo para ese slide.`
       : `- Último slide (cierre_cta): cierre + llamada a la acción (${profile.primaryCTA || "invita a comentar o guardar el post"}). MÁXIMO ${CAROUSEL_SLIDE_TEXT_LIMITS.cierre_cta} caracteres.`;
 
-    // Con fotos (todas o algunas), el texto de cada slide con foto se ancla en su
-    // detalle visual real (nunca inventar un dato que no esté ahí); sin fotos (Fase 7)
-    // o en los slots IA de un carrusel mixto, el ancla pasa a ser el tema declarado, y
-    // ahí el modelo SÍ tiene que aportar el contenido educativo (no hay "detalle" del
-    // que tirar). En modo mixto se listan las dos instrucciones por slide explícitamente
-    // para que el modelo no generalice el criterio de un slide al resto.
+    // Con fotos (todas o algunas), el texto de cada slide con foto se inspira en su
+    // detalle visual real para generar un mensaje de VALOR (nunca una descripción
+    // literal ni un dato inventado); sin fotos (Fase 7) o en los slots IA de un carrusel
+    // mixto, el ancla pasa a ser el tema declarado (o la foto inmediatamente anterior,
+    // si el intercalado la dejó ahí), y ahí el modelo SÍ tiene que aportar el contenido
+    // educativo (no hay "detalle" del que tirar). En modo mixto se listan las dos
+    // instrucciones por slide explícitamente para que el modelo no generalice el
+    // criterio de un slide al resto.
     const contentAnchorInstruction = !hasAnyPhoto
       ? `No hay fotos — este carrusel es 100% generado. Desarrolla el tema "${resolvedTopic}" con un punto educativo concreto y distinto por slide (nunca repitas la misma idea en dos slides, nunca dejes un slide vacío de contenido real).`
       : hasAnyAiSlide
-        ? `Este carrusel MEZCLA slides con foto real y slides sin foto (rellenados por IA). Sigue la instrucción de CADA slide tal como se detalla abajo — nunca inventes un detalle visual en un slide sin foto, y nunca ignores el detalle real en un slide que sí lo tiene:\n${slideContextLines}`
-        : `Cada slide corresponde a una foto ya analizada. Ancla el texto de CADA slide en su propio detalle visual — NUNCA inventes un dato que no esté en el detalle:\n${slideContextLines}`;
+        ? `Este carrusel MEZCLA slides con foto real y slides sin foto (rellenados por IA). Sigue la instrucción de CADA slide tal como se detalla abajo — para las slides con foto, crea un mensaje de valor inspirado en la imagen (nunca la describas literalmente); para las slides sin foto, nunca inventes un detalle visual:\n${slideContextLines}`
+        : `Cada slide corresponde a una foto ya analizada. Para CADA slide, crea un mensaje de VALOR inspirado en su detalle visual — nunca te limites a describir la foto:\n${slideContextLines}`;
 
     const prompt = `Escribe el texto de un carrusel educativo de Instagram sobre "${profile.niche}" para la marca "${profile.brandIdentity}", con exactamente ${total} slides, EN ESPAÑOL.
 
@@ -226,11 +267,11 @@ Responde SOLO con el JSON solicitado, con exactamente ${total} slides en el mism
     data.slides = slideContexts.map((s, i) => {
       const role = roleForIndex(i, total);
       if (role === "cierre_cta" && objectiveCta) {
-        return { order: s.order, role, text: clampSlideText(objectiveCta, role) };
+        return { order: s.order, role, text: clampSlideText(objectiveCta, role), photoIndex: s.photoIndex };
       }
       const modelText = typeof data.slides[i]?.text === "string" ? data.slides[i].text.trim() : "";
       const text = modelText.length > 0 ? modelText : base.slides[i].text;
-      return { order: s.order, role, text: clampSlideText(text, role) };
+      return { order: s.order, role, text: clampSlideText(text, role), photoIndex: s.photoIndex };
     });
 
     if (Array.isArray(data.hashtags) && data.hashtags.length > 15) {

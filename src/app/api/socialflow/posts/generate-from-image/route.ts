@@ -419,11 +419,14 @@ export async function POST(request: Request) {
           saasId: body.saasId,
           // imageUrl aquí es la foto ORIGINAL subida — sin texto quemado todavía, eso lo
           // hace StaticSlideRenderer en el cliente (siguiente pieza). undefined en los
-          // slots que rellena la IA (carrusel mixto, i >= imageUrls.length) — el cliente
-          // le pasa `style` en vez de `imageUrl` a StaticSlideRenderer para esos.
-          slides: composition.slides.map((slide, i) => ({
+          // slots que rellena la IA. Se resuelve por `photoIndex` (no por posición en el
+          // array): en carrusel mixto CarouselComposerAgent intercala foto/texto-IA, así
+          // que el índice del slide ya no coincide con el índice de subida de la foto —
+          // el cliente le pasa `style` en vez de `imageUrl` a StaticSlideRenderer cuando
+          // photoIndex es undefined.
+          slides: composition.slides.map((slide) => ({
             order: slide.order,
-            imageUrl: imageUrls[i] ?? undefined,
+            imageUrl: slide.photoIndex !== undefined ? imageUrls[slide.photoIndex] : undefined,
             text: slide.text,
             role: slide.role,
           })),
