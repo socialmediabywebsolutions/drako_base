@@ -1,6 +1,6 @@
 import type { CarouselSlideRole } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
 import type { ReelsTextRole } from "@/lib/socialflow/reels/ReelsEngine";
-import { TEXT_ROLE_STYLE, sampleAverageBrightness } from "@/lib/socialflow/reels/CanvasRenderer";
+import { sampleAverageBrightness } from "@/lib/socialflow/reels/CanvasRenderer";
 import type { CarouselStyleVariant } from "@/lib/socialflow/carousel/CarouselStylePacks";
 
 // Compone un slide de carrusel ESTÁTICO (una foto + un bloque de texto quemado encima)
@@ -155,6 +155,23 @@ function wrapText(
 
 const CAROUSEL_TEXT_STYLE = { weight: 800, family: "system-ui, sans-serif" };
 
+// Tamaños propios del carrusel — TEXT_ROLE_STYLE de CanvasRenderer.ts (180/130/90px) está
+// pensado para el canvas vertical de Reels (1920px de alto); el carrusel usa 1350px (4:5,
+// ver StaticSlideInput.height), un 30% menos de alto, así que reutilizar esos tamaños
+// producía bloques de texto que se salían del canvas al envolver en varias líneas.
+const CAROUSEL_TEXT_ROLE_STYLE: Record<ReelsTextRole, { fontSize: number; position: "top" | "center" | "bottom" }> = {
+  title: { fontSize: 90, position: "top" },
+  subtitle: { fontSize: 72, position: "center" },
+  cta: { fontSize: 60, position: "bottom" },
+};
+
+// Altura máxima que puede ocupar el bloque de texto envuelto antes de forzar una fuente
+// más pequeña — evita que un texto largo se salga por arriba/abajo del canvas.
+const MAX_TEXT_BLOCK_HEIGHT_RATIO = 0.6;
+const FONT_SHRINK_FACTOR = 0.85;
+const MIN_FONT_SIZE = 36;
+const MAX_SHRINK_ITERATIONS = 5;
+
 function splitLastWord(text: string): { rest: string; lastWord: string } {
   const trimmed = text.trim();
   const idx = trimmed.lastIndexOf(" ");
@@ -215,8 +232,8 @@ function drawStaticSlideText(
   style?: CarouselStyleVariant,
   hasClientImage?: boolean,
 ): void {
-  const { fontSize: baseFontSize, position } = TEXT_ROLE_STYLE[role];
-  const fontSize = style?.fontScale ? Math.round(baseFontSize * style.fontScale) : baseFontSize;
+  const { fontSize: baseFontSize, position } = CAROUSEL_TEXT_ROLE_STYLE[role];
+  let fontSize = style?.fontScale ? Math.round(baseFontSize * style.fontScale) : baseFontSize;
   const baseY = position === "top" ? canvasHeight * 0.18 : position === "bottom" ? canvasHeight * 0.82 : canvasHeight * 0.5;
 
   let textColor: string;
@@ -261,12 +278,25 @@ function drawStaticSlideText(
   ctx.shadowColor = shadowColor;
   ctx.shadowBlur = 28;
 
-  const lines = wrapText(ctx, text, canvasWidth * 0.85);
+  let lines = wrapText(ctx, text, canvasWidth * 0.85);
   if (lines.length === 0) {
     ctx.restore();
     return;
   }
-  const lineHeight = fontSize * 1.15;
+  let lineHeight = fontSize * 1.15;
+
+  // Auto-shrink: si el bloque envuelto no cabe en el alto del canvas, reduce la fuente
+  // y vuelve a envolver hasta que quepa (o hasta MIN_FONT_SIZE / MAX_SHRINK_ITERATIONS).
+  const maxTextBlockHeight = canvasHeight * MAX_TEXT_BLOCK_HEIGHT_RATIO;
+  let shrinkIterations = 0;
+  while (lines.length * lineHeight > maxTextBlockHeight && fontSize > MIN_FONT_SIZE && shrinkIterations < MAX_SHRINK_ITERATIONS) {
+    fontSize = Math.max(MIN_FONT_SIZE, Math.round(fontSize * FONT_SHRINK_FACTOR));
+    ctx.font = `${style?.fontWeight ?? CAROUSEL_TEXT_STYLE.weight} ${fontSize}px ${style?.fontFamily ?? CAROUSEL_TEXT_STYLE.family}`;
+    lines = wrapText(ctx, text, canvasWidth * 0.85);
+    lineHeight = fontSize * 1.15;
+    shrinkIterations++;
+  }
+
   const startY = baseY - ((lines.length - 1) * lineHeight) / 2;
 
   if (boxColor) {

@@ -15,15 +15,15 @@ import { resolveObjectiveCta } from "../utils/ctaUtils";
 // DENTRO de un frame; StaticSlideRenderer mapea uno al otro (ver auditoría).
 export type CarouselSlideRole = "intro" | "desarrollo" | "cierre_cta";
 
-// Presupuesto de caracteres por rol para que el texto quepa en el overlay estático
-// sin desbordar el canvas — wrapText no trunca, solo envuelve en más líneas, así que
-// sin este límite un texto largo del rol "intro" (fuente 120px) se saldría del frame.
-// Estimado a partir del ancho disponible (canvasWidth*0.85) y ancho medio de carácter
-// en fuente bold system-ui — no son mediciones de producción, son cálculo de wrap.
+// Presupuesto de caracteres por rol para que el texto quepa en el overlay estático sin
+// desbordar el canvas — wrapText no trunca, solo envuelve en más líneas. StaticSlideRenderer
+// ahora tiene un auto-shrink de fuente como red de seguridad (ver MAX_TEXT_BLOCK_HEIGHT_RATIO
+// en StaticSlideRenderer.ts), pero estos límites siguen siendo la primera línea de defensa
+// para que el texto no llegue ya demasiado largo a esa red.
 export const CAROUSEL_SLIDE_TEXT_LIMITS: Record<CarouselSlideRole, number> = {
   intro: 70,
-  desarrollo: 110,
-  cierre_cta: 130,
+  desarrollo: 90,
+  cierre_cta: 100,
 };
 
 export type CarouselSlideText = {
