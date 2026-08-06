@@ -298,6 +298,13 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
   // rellena con texto puro (carrusel mixto). 0 si el cliente ya subió maxSlides fotos.
   const aiSlides = Math.max(0, maxSlides - photos.length);
 
+  function photoCounterLabel(): string {
+    const base = `${photos.length} de ${maxSlides} fotos`;
+    if (photos.length >= maxSlides) return `${base} · Carrusel completo`;
+    if (photos.length < CAROUSEL_MIN_SLIDES) return `${base} · mínimo ${CAROUSEL_MIN_SLIDES}`;
+    return `${base} · La IA añadirá ${aiSlides} slide${aiSlides !== 1 ? "s" : ""} de texto`;
+  }
+
   async function handleFileSelect(files: FileList | null) {
     if (!files || files.length === 0) return;
     const available = maxSlides - photos.length;
@@ -614,6 +621,10 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
   if (phase === "idle") {
     return (
       <div className="space-y-6">
+        <p className="text-sm leading-6 text-white/50">
+          Sube tus fotos y la IA generará el texto de cada slide. Revisa y aprueba cada slide antes de publicar.
+        </p>
+
         <div
           className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-white/15 bg-white/3 px-6 py-14 text-center transition hover:border-violet-500/40"
           onDragOver={(e) => e.preventDefault()}
@@ -667,26 +678,27 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
             </div>
 
             {canGenerate && aiSlides > 0 && (
-              <p className="rounded-xl border border-violet-500/20 bg-violet-500/8 px-3 py-2 text-center text-xs text-violet-300">
-                ✦ La IA completará {aiSlides} slide(s) de texto para llegar a las {maxSlides} slides de tu plan.
+              <p className="flex items-center gap-2 rounded-2xl border border-violet-500/25 bg-violet-500/10 px-4 py-3 text-sm font-semibold text-violet-200">
+                <span className="text-lg" aria-hidden>✦</span>
+                La IA completará {aiSlides} slide{aiSlides !== 1 ? "s" : ""} de texto para llegar a las {maxSlides} slides de tu plan.
               </p>
             )}
 
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-white/40">
-                {photos.length}/{maxSlides} fotos
-                {!canGenerate && photos.length < CAROUSEL_MIN_SLIDES && ` · mínimo ${CAROUSEL_MIN_SLIDES}`}
-              </p>
-              <button
-                type="button"
-                disabled={!canGenerate}
-                onClick={generateCarousel}
-                className="rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-40 disabled:hover:translate-y-0"
-              >
-                Generar carrusel
-              </button>
-            </div>
+            <p className="text-sm font-medium text-white/60">{photoCounterLabel()}</p>
           </>
+        )}
+
+        {photos.length > 0 && (
+          <div className="sticky bottom-0 z-10 -mx-1 rounded-2xl border border-white/10 bg-[#050510]/95 p-3 shadow-2xl shadow-black/40 backdrop-blur-md">
+            <button
+              type="button"
+              disabled={!canGenerate}
+              onClick={generateCarousel}
+              className="w-full rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-40 disabled:hover:translate-y-0"
+            >
+              Generar carrusel
+            </button>
+          </div>
         )}
       </div>
     );
