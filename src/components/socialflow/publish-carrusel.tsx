@@ -28,7 +28,17 @@ type CarouselPhotoSlot = {
 // "rejected_awaiting_replacement": el conteo NUNCA baja — la posición queda marcada
 // pendiente de una foto nueva, no se puede guardar mientras exista este estado.
 // "replacing": subiendo/analizando/recomponiendo la foto de reemplazo.
-type SlideReviewStatus = "pending" | "approved" | "editing" | "applying" | "rejected_awaiting_replacement" | "replacing";
+// "regenerating": pidiendo texto nuevo a la IA para ESTE slide (solo source "ai") y
+// re-renderizando — separado de "applying" porque se dispara desde la vista normal de
+// la tarjeta, no desde el modo edición.
+type SlideReviewStatus =
+  | "pending"
+  | "approved"
+  | "editing"
+  | "applying"
+  | "rejected_awaiting_replacement"
+  | "replacing"
+  | "regenerating";
 
 type CarouselSlideState = {
   order: number;
@@ -54,6 +64,21 @@ const ROLE_LABEL: Record<CarouselSlideRole, string> = {
   desarrollo: "Desarrollo",
   cierre_cta: "Cierre / CTA",
 };
+
+// Selector de tema previo a "Generar carrusel" — value viaja en el state del componente,
+// sendValue es lo que llega al body de generate-from-image como `carouselTheme` ("auto"
+// es el centinela que CarouselComposerAgent interpreta como "sin tema explícito", ver
+// resolveSlidePlan/run en ese agente).
+type CarouselTheme = "entrenamiento" | "nutricion" | "motivacion" | "educativo" | "lifestyle" | "auto";
+
+const THEME_OPTIONS: { value: CarouselTheme; label: string; sendValue: string }[] = [
+  { value: "entrenamiento", label: "🏋️ Entrenamiento", sendValue: "Entrenamiento" },
+  { value: "nutricion", label: "🥗 Nutrición y recetas", sendValue: "Nutrición y recetas" },
+  { value: "motivacion", label: "💪 Motivación", sendValue: "Motivación" },
+  { value: "educativo", label: "📚 Educativo / Tips", sendValue: "Educativo / Tips" },
+  { value: "lifestyle", label: "✨ Lifestyle", sendValue: "Lifestyle" },
+  { value: "auto", label: "🎯 Lo que decida la IA", sendValue: "auto" },
+];
 
 function IcoUpload() {
   return (
@@ -126,6 +151,7 @@ function CarouselSlideCard({
   onReject,
   onReplacePhoto,
   onUndoReject,
+  onRegenerate,
 }: {
   slide: CarouselSlideState;
   onApprove: () => void;
@@ -136,10 +162,12 @@ function CarouselSlideCard({
   onReject: () => void;
   onReplacePhoto: (file: File) => void;
   onUndoReject: () => void;
+  onRegenerate: () => void;
 }) {
   const needsReplacement = slide.status === "rejected_awaiting_replacement" || slide.status === "replacing";
   const isEditing = slide.status === "editing" || slide.status === "applying";
   const isApplying = slide.status === "applying";
+  const isRegenerating = slide.status === "regenerating";
 
   return (
     <div className="overflow-hidden rounded-2xl border border-white/8 bg-white/3">
@@ -155,6 +183,12 @@ function CarouselSlideCard({
         <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white">
           {slide.source === "client" ? "📷 Tuya" : "✦ IA"}
         </span>
+        {isRegenerating && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50">
+            <Spinner />
+            <p className="text-xs font-semibold text-white">Regenerando texto…</p>
+          </div>
+        )}
         {slide.status === "approved" && (
           <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-black text-white">
             <IcoCheck /> Aprobado
@@ -238,22 +272,34 @@ function CarouselSlideCard({
               {slide.status !== "approved" && (
                 <button
                   type="button"
+                  disabled={isRegenerating}
                   onClick={onApprove}
-                  className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-emerald-500 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-400"
+                  className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-emerald-500 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-400 disabled:opacity-50"
                 >
                   <IcoCheck /> Aprobar
                 </button>
               )}
               <button
                 type="button"
+                disabled={isRegenerating}
                 onClick={onStartEdit}
                 className={[
-                  "flex items-center justify-center gap-1 rounded-lg border border-white/10 py-1.5 text-[11px] text-white/60 transition hover:text-white/90",
+                  "flex items-center justify-center gap-1 rounded-lg border border-white/10 py-1.5 text-[11px] text-white/60 transition hover:text-white/90 disabled:opacity-50",
                   slide.status === "approved" ? "flex-1" : "px-3",
                 ].join(" ")}
               >
                 <IcoPencil /> Editar
               </button>
+              {slide.source === "ai" && (
+                <button
+                  type="button"
+                  disabled={isRegenerating}
+                  onClick={onRegenerate}
+                  className="flex items-center justify-center gap-1 rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/60 transition hover:text-white/90 disabled:opacity-50"
+                >
+                  ↺ Regenerar
+                </button>
+              )}
             </div>
             {slide.source === "client" && (
               <button
@@ -275,6 +321,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
   const [photos, setPhotos] = useState<CarouselPhotoSlot[]>([]);
+  const [carouselTheme, setCarouselTheme] = useState<CarouselTheme>("auto");
   const [slides, setSlides] = useState<CarouselSlideState[]>([]);
   const [slideAnalyses, setSlideAnalyses] = useState<ImageAnalysis[]>([]);
   const [hashtags, setHashtags] = useState<string[]>([]);
@@ -357,6 +404,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
           // Siempre se manda — el backend solo rellena con IA si es mayor que la
           // cantidad de fotos subidas; si no, es un no-op (comportamiento de siempre).
           targetSlideCount: maxSlides,
+          carouselTheme: THEME_OPTIONS.find((o) => o.value === carouselTheme)?.sendValue ?? "auto",
         }),
       });
       const data = (await res.json()) as {
@@ -401,6 +449,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
             imageUrl: slide.imageUrl,
             text: slide.text,
             role: slide.role,
+            slideIndex: slide.order,
             style: resolvedStyle,
             handle: data.channelHandle ?? undefined,
           });
@@ -467,6 +516,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
         imageUrl: slide.originalImageUrl ?? undefined,
         text: slide.draftText,
         role: slide.role,
+        slideIndex: order,
         style: style ?? undefined,
         handle: channelHandle ?? undefined,
       });
@@ -476,6 +526,57 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
       patchSlide(order, {
         status: "editing",
         error: e instanceof Error ? e.message : "No se pudo aplicar el cambio. Intenta de nuevo.",
+      });
+    }
+  }
+
+  // Pide a la IA un texto nuevo SOLO para este slide (source "ai" — no hay foto que
+  // reanalizar) y re-renderiza/re-sube igual que applySlideEdit, pero sin pasar por el
+  // modo edición (el botón vive en la vista normal de la tarjeta). Reset a "pending"
+  // como cualquier cambio de texto: hay que volver a aprobar.
+  async function regenerateSlide(order: number) {
+    const slide = slides.find((s) => s.order === order);
+    if (!slide || slide.source !== "ai") return;
+    const ordered = [...slides].sort((a, b) => a.order - b.order);
+    const currentPos = ordered.findIndex((s) => s.order === order);
+    // Foto inmediatamente anterior en el orden final del carrusel (si la hay) — mismo
+    // criterio que CarouselComposerAgent usa al intercalar foto/texto-IA, para que el
+    // texto regenerado siga anclado a esa foto en vez de partir de cero.
+    const precedingPhoto = currentPos > 0 && ordered[currentPos - 1].source === "client" ? ordered[currentPos - 1] : null;
+
+    patchSlide(order, { status: "regenerating", error: null });
+    try {
+      const res = await fetch("/api/socialflow/carousel/regenerate-slide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          saasId,
+          slideIndex: order,
+          role: slide.role,
+          theme: THEME_OPTIONS.find((o) => o.value === carouselTheme)?.sendValue ?? "auto",
+          currentText: slide.text,
+          precedingPhotoContext: precedingPhoto ? slideAnalyses[precedingPhoto.order]?.specificContext ?? null : null,
+        }),
+      });
+      const data = (await res.json()) as { text?: string; message?: string };
+      if (!res.ok || !data.text) {
+        throw new Error(data.message ?? "No se pudo regenerar el texto.");
+      }
+
+      const renderer = new StaticSlideRenderer();
+      const blob = await renderer.render({
+        text: data.text,
+        role: slide.role,
+        slideIndex: order,
+        style: style ?? undefined,
+        handle: channelHandle ?? undefined,
+      });
+      const { url } = await uploadFile(blob, `slide_${order}.jpg`);
+      patchSlide(order, { text: data.text, draftText: data.text, renderedImageUrl: url, status: "pending", error: null });
+    } catch (e) {
+      patchSlide(order, {
+        status: "pending",
+        error: e instanceof Error ? e.message : "No se pudo regenerar el texto. Intenta de nuevo.",
       });
     }
   }
@@ -554,6 +655,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
         imageUrl: url,
         text: finalText,
         role,
+        slideIndex: order,
         style: style ?? undefined,
         handle: channelHandle ?? undefined,
       });
@@ -689,7 +791,26 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
         )}
 
         {photos.length > 0 && (
-          <div className="sticky bottom-0 z-10 -mx-1 rounded-2xl border border-white/10 bg-[#050510]/95 p-3 shadow-2xl shadow-black/40 backdrop-blur-md">
+          <div className="sticky bottom-0 z-10 -mx-1 space-y-3 rounded-2xl border border-white/10 bg-[#050510]/95 p-3 shadow-2xl shadow-black/40 backdrop-blur-md">
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold text-white/50">Tema del carrusel</p>
+              <div className="flex flex-wrap gap-1.5">
+                {THEME_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setCarouselTheme(opt.value)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                      carouselTheme === opt.value
+                        ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
+                        : "border-white/10 text-white/50 hover:bg-white/5 hover:text-white/70"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <button
               type="button"
               disabled={!canGenerate}
@@ -793,6 +914,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
             onReject={() => rejectSlide(slide.order)}
             onReplacePhoto={(file) => replaceSlidePhoto(slide.order, file)}
             onUndoReject={() => undoReject(slide.order)}
+            onRegenerate={() => regenerateSlide(slide.order)}
           />
         ))}
       </div>

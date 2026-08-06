@@ -213,6 +213,8 @@ export async function POST(request: Request) {
       targetSlideCount?: number;        // CAROUSEL only — total de slides del carrusel (fotos + IA), típicamente
                                          // maxSlides del plan del cliente. Si es mayor que imageUrls.length, los
                                          // slots sobrantes se rellenan con slides de texto puro (ver carrusel mixto).
+      carouselTheme?: string;           // CAROUSEL only — tema elegido en el selector de publish-carrusel.tsx.
+                                         // "auto" o ausente = comportamiento de siempre (ver CarouselComposerAgent.run).
       saasId?: string;
       provider?: string;
       startDate?: string;
@@ -379,6 +381,7 @@ export async function POST(request: Request) {
         trends,
         openerCategory,
         slideContexts,
+        carouselTheme: body.carouselTheme,
       });
 
       const scheduledAt = await computeScheduledSlot({

@@ -1,6 +1,7 @@
 import type { CarouselSlideRole } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
 import type { ReelsTextRole } from "@/lib/socialflow/reels/ReelsEngine";
 import { sampleAverageBrightness } from "@/lib/socialflow/reels/CanvasRenderer";
+import { seededRandom } from "@/lib/socialflow/reels/ReelsAgent";
 import type { CarouselStyleVariant } from "@/lib/socialflow/carousel/CarouselStylePacks";
 
 // Compone un slide de carrusel ESTÁTICO (una foto + un bloque de texto quemado encima)
@@ -51,16 +52,75 @@ function drawImageCoverStatic(
   ctx.drawImage(image, (canvasWidth - drawWidth) / 2, (canvasHeight - drawHeight) / 2, drawWidth, drawHeight);
 }
 
+function clampByte(value: number): number {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean;
+  const n = parseInt(full, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return `#${[r, g, b].map((v) => clampByte(v).toString(16).padStart(2, "0")).join("")}`;
+}
+
+// amount > 0 aclara hacia blanco, amount < 0 oscurece hacia negro — proporcional a la
+// distancia al extremo, para que el resultado siga leyéndose como "el mismo color".
+function shadeColor(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const target = amount >= 0 ? 255 : 0;
+  const t = Math.min(1, Math.abs(amount));
+  return rgbToHex(r + (target - r) * t, g + (target - g) * t, b + (target - b) * t);
+}
+
+// Variedad de fondos por slide — sin esto, todas las slides IA de un carrusel (100% IA
+// o los slots que rellena la IA en uno mixto) salían con el MISMO fondo del pack (ver
+// Sprint carrusel: variedad de fondos). Deriva un color distinto por rol/posición a
+// partir de los colores que el pack ya define (backgroundColors[0]="primario",
+// backgroundColors[1]/accentColor="secundario"/"accent" — con fallback vía shadeColor
+// cuando el pack no define esos dos, ej. los packs "solid" de 1 solo color), y añade un
+// jitter de brillo determinista por slideIndex (seededRandom, no Math.random()) para que
+// dos slides del mismo "bucket" de color no salgan pixel-idénticas — mismo criterio de
+// "consistente entre renders, distinto por posición" que ya usa ReelsAgent.ts.
+function resolveAiSlideBackgroundColors(
+  style: CarouselStyleVariant,
+  role: CarouselSlideRole,
+  slideIndex: number,
+): [string, string?] {
+  const [primary, secondary] = style.backgroundColors;
+  const effectiveSecondary = secondary ?? shadeColor(primary, 0.18);
+  const effectiveAccent = style.accentColor ?? shadeColor(primary, -0.18);
+  const jitter = (seededRandom(`carousel-bg-${slideIndex}`)() - 0.5) * 0.12; // ±6%, solo textura
+
+  if (role === "cierre_cta") {
+    return [shadeColor(shadeColor(primary, -0.32), jitter), effectiveAccent];
+  }
+  if (slideIndex === 0) {
+    return [shadeColor(primary, jitter), effectiveSecondary];
+  }
+  const base = slideIndex % 2 === 0 ? effectiveSecondary : effectiveAccent;
+  const other = slideIndex % 2 === 0 ? effectiveAccent : effectiveSecondary;
+  return [shadeColor(base, jitter), other];
+}
+
 // Fondo generado por Canvas cuando el slide no trae foto (modo "Crear con IA") — usa la
 // técnica declarada en el estilo del pack (solid/gradient/stripes). darkOverlay (Estilo C)
-// se aplica aparte, también sobre foto real, ver applyDarkOverlay.
+// se aplica aparte, también sobre foto real, ver applyDarkOverlay. `slideIndex` es
+// opcional para no romper compatibilidad: sin él, se usa backgroundColors tal cual
+// (comportamiento de siempre, un único color para todo el carrusel).
 function drawStyleBackground(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   style: CarouselStyleVariant,
   canvasWidth: number,
   canvasHeight: number,
+  role: CarouselSlideRole,
+  slideIndex?: number,
 ): void {
-  const [primary, secondary] = style.backgroundColors;
+  const [primary, secondary] =
+    slideIndex !== undefined ? resolveAiSlideBackgroundColors(style, role, slideIndex) : style.backgroundColors;
 
   if (style.backgroundKind === "gradient" && secondary) {
     const gradient = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
@@ -330,6 +390,7 @@ export type StaticSlideInput = {
   imageUrl?: string;          // URL pública HTTPS de la foto subida — opcional en modo "Crear con IA" (requiere `style` para el fondo generado)
   text: string;               // ya clampeado por CarouselComposerAgent — este renderer no vuelve a recortar
   role: CarouselSlideRole;
+  slideIndex?: number;         // 0-based posición del slide en el carrusel — determina el color de fondo cuando no hay foto (ver resolveAiSlideBackgroundColors). Opcional: sin él, un único color para todo el carrusel (retrocompatible).
   width?: number;              // default 1080 — 4:5 es el ratio recomendado de Meta para carrusel/feed
   height?: number;             // default 1350, a diferencia de 1920 (9:16) que usa Reels
   style?: CarouselStyleVariant;  // opcional — sin él, estilo fijo de siempre (retrocompatible). Ver CarouselStylePacks.getStyleForCarousel.
@@ -360,7 +421,7 @@ export class StaticSlideRenderer {
       drawImageCoverStatic(ctx, image, width, height);
       if (input.style?.darkOverlay) applyDarkOverlay(ctx, width, height);
     } else if (input.style) {
-      drawStyleBackground(ctx, input.style, width, height);
+      drawStyleBackground(ctx, input.style, width, height, input.role, input.slideIndex);
       if (input.style.darkOverlay) applyDarkOverlay(ctx, width, height);
     } else {
       throw new StaticSlideRenderError(

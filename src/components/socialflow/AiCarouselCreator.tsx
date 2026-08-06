@@ -160,6 +160,7 @@ export default function AiCarouselCreator({ saasId, maxSlides }: { saasId: strin
             const blob = await renderer.render({
               text: slide.text,
               role: slide.role,
+              slideIndex: slide.order,
               style: resolvedStyle,
               handle: resolvedHandle ?? undefined,
             });
@@ -210,7 +211,7 @@ export default function AiCarouselCreator({ saasId, maxSlides }: { saasId: strin
     setSlides((prev) => prev.map((s) => (s.order === order ? { ...s, status: "rendering", error: null } : s)));
     try {
       const renderer = new StaticSlideRenderer();
-      const blob = await renderer.render({ text: trimmed, role: slide.role, style, handle: channelHandle ?? undefined });
+      const blob = await renderer.render({ text: trimmed, role: slide.role, slideIndex: order, style, handle: channelHandle ?? undefined });
       const { url } = await uploadFile(blob, `ai_slide_${order}.jpg`);
       setSlides((prev) =>
         prev.map((s) => (s.order === order ? { ...s, text: trimmed, draftText: trimmed, renderedImageUrl: url, status: "ready" } : s)),

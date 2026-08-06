@@ -53,7 +53,7 @@ function roleForIndex(index: number, total: number): CarouselSlideRole {
 // Recorte por palabra completa (sin "...", a diferencia de truncateCaption en
 // publishing.ts) — este texto se dibuja sobre una foto, no continúa en ningún lado,
 // así que un "..." colgando se vería fuera de lugar en la tarjeta.
-function clampSlideText(text: string, role: CarouselSlideRole): string {
+export function clampSlideText(text: string, role: CarouselSlideRole): string {
   const limit = CAROUSEL_SLIDE_TEXT_LIMITS[role];
   const trimmed = text.trim();
   if (trimmed.length <= limit) return trimmed;
@@ -166,16 +166,29 @@ export class CarouselComposerAgent {
     // SOLO modo "Crear con IA" — cuántos slides generar (2-10, default 5). Se ignora
     // si slideContexts trae datos (ahí total = slideContexts.length, como siempre).
     slideCount?: number;
+    // Tema elegido por el cliente en el selector de publish-carrusel.tsx (modo "Subir
+    // imágenes" — orthogonal a `topic`, que es solo del modo "Crear con IA"). "auto" o
+    // ausente = comportamiento de siempre (la IA infiere el ángulo de las fotos/KB). Con
+    // un valor explícito, ese tema manda TANTO en la instrucción top-of-prompt como en
+    // `resolvedTopic` (usado por los slides sin foto) — evita que ambos queden
+    // desalineados.
+    carouselTheme?: string;
   }): Promise<CarouselComposition> {
     const { profile, keywordEngine, openerCategory } = input;
     const isEmpresa = profile.accountType === "empresa";
     const { slideContexts, hasPhotoAt } = resolveSlidePlan(input);
     const total = slideContexts.length;
     const objectiveCta = resolveObjectiveCta(profile.clientObjective, profile.channelHandle);
+    const explicitTheme = input.carouselTheme?.trim();
+    const hasExplicitTheme = !!explicitTheme && explicitTheme.toLowerCase() !== "auto";
     // Nicho + KB (profile.contentPillars ya viene del KB del cliente, igual que en el
     // resto de agentes) + tema explícito si lo trajo el cliente — mismo criterio de
     // prioridad que usa el resto del pipeline para decidir "de dónde sale el ángulo".
-    const resolvedTopic = input.topic?.trim() || profile.contentPillars[0] || profile.niche;
+    // El tema del selector (carouselTheme) tiene prioridad sobre `topic` (modo "Crear
+    // con IA") porque ambos nunca llegan a la vez desde el mismo caller.
+    const resolvedTopic = hasExplicitTheme
+      ? explicitTheme!
+      : input.topic?.trim() || profile.contentPillars[0] || profile.niche;
 
     const hashtagPool = [
       ...(profile.baseHashtags ?? []),
@@ -238,9 +251,17 @@ export class CarouselComposerAgent {
         ? `Este carrusel MEZCLA slides con foto real y slides sin foto (rellenados por IA). Sigue la instrucción de CADA slide tal como se detalla abajo — para las slides con foto, crea un mensaje de valor inspirado en la imagen (nunca la describas literalmente); para las slides sin foto, nunca inventes un detalle visual:\n${slideContextLines}`
         : `Cada slide corresponde a una foto ya analizada. Para CADA slide, crea un mensaje de VALOR inspirado en su detalle visual — nunca te limites a describir la foto:\n${slideContextLines}`;
 
+    // Instrucción de tema explícito (selector del cliente) — va ANTES que VOZ/categoría
+    // para que el modelo la lea como restricción de más alto nivel, no como un detalle
+    // más entre otros. Vacía (sin línea) cuando el tema es "auto": comportamiento de
+    // siempre, la IA infiere el ángulo de las fotos/KB.
+    const themeInstruction = hasExplicitTheme
+      ? `Este carrusel es sobre "${explicitTheme}". TODO el contenido debe girar en torno a este tema específico.\n\n`
+      : "";
+
     const prompt = `Escribe el texto de un carrusel educativo de Instagram sobre "${profile.niche}" para la marca "${profile.brandIdentity}", con exactamente ${total} slides, EN ESPAÑOL.
 
-${isEmpresa
+${themeInstruction}${isEmpresa
   ? `⚠️ VOZ — REGLA IRROMPIBLE: Escribe SIEMPRE en tercera persona hablando de "${profile.brandIdentity}" como marca/entidad. NUNCA uses "yo", "mi", "me" ni "mis".`
   : `⚠️ VOZ — REGLA IRROMPIBLE: Escribe SIEMPRE en primera persona singular (yo, mi, me, mis). Nunca hables de "${profile.brandIdentity}" en tercera persona.`}
 ${profile.voiceInstruction ? `${profile.voiceInstruction}\n` : ""}
