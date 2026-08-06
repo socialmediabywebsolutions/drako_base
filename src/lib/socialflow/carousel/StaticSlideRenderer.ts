@@ -213,6 +213,7 @@ function drawStaticSlideText(
   canvasWidth: number,
   canvasHeight: number,
   style?: CarouselStyleVariant,
+  hasClientImage?: boolean,
 ): void {
   const { fontSize: baseFontSize, position } = TEXT_ROLE_STYLE[role];
   const fontSize = style?.fontScale ? Math.round(baseFontSize * style.fontScale) : baseFontSize;
@@ -222,10 +223,27 @@ function drawStaticSlideText(
   let shadowColor: string;
   let boxColor: string | null;
 
-  if (style) {
-    // Los colores del pack ya están pensados para contraste — sin caja detrás del texto.
-    textColor = style.darkOverlay ? "#ffffff" : style.textColor;
-    shadowColor = style.darkOverlay ? "rgba(0,0,0,0.7)" : "rgba(0,0,0,0.25)";
+  if (style?.darkOverlay) {
+    // Estilo C: applyDarkOverlay ya oscurece toda la imagen antes de llegar aquí —
+    // el contraste con blanco está garantizado, no hace falta samplear brillo.
+    textColor = "#ffffff";
+    shadowColor = "rgba(0,0,0,0.7)";
+    boxColor = null;
+  } else if (style && hasClientImage) {
+    // Foto real del cliente: el textColor fijo del pack está pensado para los fondos
+    // generados por Canvas (sólidos/gradientes controlados), no para una foto de brillo
+    // impredecible — se decide por luminosidad real bajo el texto, igual que la rama
+    // retrocompatible de abajo.
+    const brightness = sampleAverageBrightness(ctx, canvasWidth / 2, baseY, 200, 80);
+    const isLightBackground = brightness > 128;
+    textColor = isLightBackground ? "#000000" : "#ffffff";
+    shadowColor = isLightBackground ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)";
+    boxColor = null;
+  } else if (style) {
+    // Fondo generado por Canvas (sin foto) — el color del pack ya está pensado para
+    // ese fondo, sin caja detrás del texto.
+    textColor = style.textColor;
+    shadowColor = "rgba(0,0,0,0.25)";
     boxColor = null;
   } else {
     // Retrocompatible: comportamiento de siempre, color por brillo del fondo bajo el texto.
@@ -321,7 +339,7 @@ export class StaticSlideRenderer {
       );
     }
 
-    drawStaticSlideText(ctx, input.text, CAROUSEL_ROLE_TO_TEXT_ROLE[input.role], width, height, input.style);
+    drawStaticSlideText(ctx, input.text, CAROUSEL_ROLE_TO_TEXT_ROLE[input.role], width, height, input.style, !!input.imageUrl);
     if (input.handle) drawHandle(ctx, input.handle, width, height);
 
     if (canvas instanceof OffscreenCanvas) {
