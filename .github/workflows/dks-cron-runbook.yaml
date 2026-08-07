@@ -6,6 +6,8 @@ on:
     - cron: "*/5 * * * *"   # cada 5 minutos — auto-publish scheduled posts
     - cron: "*/15 * * * *"  # cada 15 minutos — procesar comentarios de Instagram
     - cron: "0 6 * * *"     # 06:00 UTC diario — social metrics sync
+    - cron: "0 3 * * *"     # 03:00 UTC diario — StyleLearningAgent (Cerebro Socialcors)
+    - cron: "0 3 * * 1"     # 03:00 UTC lunes — niche-intelligence + weekly-briefing
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -67,6 +69,61 @@ jobs:
             exit 1
           fi
           echo "✅ Metrics cron completed successfully"
+
+  socialflow-style-learning:
+    name: 🧠 SocialFlow — Style Learning (Cerebro)
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 3 * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: 🔗 Ejecutar StyleLearningAgent por tenant
+        run: |
+          STATUS=$(curl -s -o /tmp/style_learning_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/style-learning" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/style_learning_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Style-learning cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Style-learning cron completed successfully"
+
+  socialflow-niche-intelligence:
+    name: 📈 SocialFlow — Niche Intelligence (Cerebro)
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 3 * * 1' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: 🔗 Refrescar socialcors_niche_intelligence
+        run: |
+          STATUS=$(curl -s -o /tmp/niche_intelligence_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/niche-intelligence" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/niche_intelligence_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Niche-intelligence cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Niche-intelligence cron completed successfully"
+      # weekly-briefing corre DESPUÉS de niche-intelligence, en el mismo job (no en
+      # paralelo) — usa los datos recién refrescados de esta misma semana, mismo
+      # orden que ya documentaba scripts/patch-socialflow-cron-handler.mjs para el
+      # trigger nativo de Cloudflare Workers.
+      - name: 🔗 Generar y enviar weekly briefing
+        run: |
+          STATUS=$(curl -s -o /tmp/weekly_briefing_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/weekly-briefing" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/weekly_briefing_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Weekly-briefing cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Weekly-briefing cron completed successfully"
 
   alerts-check:
     name: 🧪 Auditor Manual de Salud

@@ -3,6 +3,27 @@ import type { BrandProfile, KeywordEngineOutput } from "../types";
 import type { TrendInsights } from "./TrendAgent";
 import { OPENERS_BY_CATEGORY, type OpenerCategory } from "../openers/pickOpenerCategory";
 import { resolveObjectiveCta } from "../utils/ctaUtils";
+import { getNicheIntelligence, getStyleHistory } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
+import { env } from "@/lib/cf";
+
+// Shape of StyleLearningAgent's result, as stored (JSON.stringify'd) in each
+// StyleSnapshot.snapshotJson row — duplicated here as a minimal local type
+// instead of importing StyleLearningAgent, same reasoning as
+// NicheIntelligenceService's own safeParseObject: this agent only needs to
+// read three fields, not depend on the class that produced them.
+function parseLatestStyleSnapshot(snapshotJson: string): { avgCaptionLength: number; topHookPatterns: string[]; bestPerformingHours: number[] } | null {
+  try {
+    const parsed = JSON.parse(snapshotJson);
+    if (!parsed || typeof parsed !== "object") return null;
+    return {
+      avgCaptionLength: typeof parsed.avgCaptionLength === "number" ? parsed.avgCaptionLength : 0,
+      topHookPatterns: Array.isArray(parsed.topHookPatterns) ? parsed.topHookPatterns.filter((p: unknown) => typeof p === "string") : [],
+      bestPerformingHours: Array.isArray(parsed.bestPerformingHours) ? parsed.bestPerformingHours.filter((h: unknown) => typeof h === "number") : [],
+    };
+  } catch {
+    return null;
+  }
+}
 
 // Composición multi-slide para carruseles de Instagram — una sola llamada a Mistral
 // que recibe el specificContext de cada foto (ya analizada por N llamadas paralelas a
@@ -46,12 +67,27 @@ export type CarouselSlideText = {
   photoIndex?: number;      // índice en el array de fotos subidas (imageUrls) — undefined si el slide es texto puro IA. En carrusel mixto el orden final ya no es 1:1 con el orden de subida.
 };
 
+// Presupuesto de caracteres para el caption de Instagram (independiente del texto de
+// los slides) — límite generoso de Instagram, no un requisito de diseño como
+// CAROUSEL_SLIDE_TEXT_LIMITS; aquí es solo un tope razonable para el campo de
+// descripción, no un espacio visual que desborde un canvas.
+export const CAROUSEL_CAPTION_MAX_LENGTH = 2200;
+
+export function clampCaption(text: string): string {
+  const trimmed = text.trim();
+  return trimmed.length <= CAROUSEL_CAPTION_MAX_LENGTH ? trimmed : trimmed.slice(0, CAROUSEL_CAPTION_MAX_LENGTH).trim();
+}
+
 export type CarouselComposition = {
   id: string;
   openerCategory: OpenerCategory;  // una sola categoría para todo el carrusel
   slides: CarouselSlideText[];     // length === total slides; orden final del carrusel (puede intercalar fotos y texto IA en modo mixto)
   hashtags: string[];              // 10-15, misma convención que OptimizedPost.hashtags
   tone: string;
+  // Descripción de Instagram, independiente del texto visual de los slides (que antes
+  // se usaba, concatenado, como caption — ver auditoría Sprint A sección 5). Hook +
+  // desarrollo narrativo + CTA, máx CAROUSEL_CAPTION_MAX_LENGTH caracteres.
+  caption: string;
 };
 
 // Posición narrativa por índice — determinista, nunca se le pide a Mistral que la
@@ -186,6 +222,12 @@ export class CarouselComposerAgent {
     // `resolvedTopic` (usado por los slides sin foto) — evita que ambos queden
     // desalineados.
     carouselTheme?: string;
+    // Opcional — habilita el contexto "Cerebro Socialcors" (audiencia/dolor, extracto
+    // de KB, keywords, tendencias del nicho y estilo aprendido) en el prompt. Ausente
+    // en algún caller degrada de forma elegante al comportamiento de siempre, sin
+    // añadir ninguna sección — mismo patrón que ContentGeneratorAgent.
+    tenantId?: string;
+    saasId?: string;
   }): Promise<CarouselComposition> {
     const { profile, keywordEngine, openerCategory } = input;
     const isEmpresa = profile.accountType === "empresa";
@@ -210,16 +252,22 @@ export class CarouselComposerAgent {
     ];
     const uniqueHashtags = Array.from(new Set(hashtagPool)).slice(0, 15);
 
+    const fallbackSlides = slideContexts.map((s, i) => {
+      const role = roleForIndex(i, total);
+      const text = fallbackSlideText(role, profile, openerCategory, s.specificContext, resolvedTopic);
+      return { order: s.order, role, text: clampSlideText(text, role), photoIndex: s.photoIndex };
+    });
+
     const base: CarouselComposition = {
       id: `carousel_${Date.now()}`,
       openerCategory,
-      slides: slideContexts.map((s, i) => {
-        const role = roleForIndex(i, total);
-        const text = fallbackSlideText(role, profile, openerCategory, s.specificContext, resolvedTopic);
-        return { order: s.order, role, text: clampSlideText(text, role), photoIndex: s.photoIndex };
-      }),
+      slides: fallbackSlides,
       hashtags: uniqueHashtags,
       tone: profile.toneOfVoice,
+      // Mismo criterio que el frontend usaba antes de este cambio (concatenar los
+      // textos de los slides) — solo como red de seguridad si Mistral no devuelve
+      // un caption utilizable, nunca el resultado esperado en el camino feliz.
+      caption: clampCaption(fallbackSlides.map((s) => s.text).join("\n\n")),
     };
 
     // hasPhotoAt es por-posición (no un único booleano global) para soportar el
@@ -269,7 +317,44 @@ export class CarouselComposerAgent {
     // más entre otros. Vacía (sin línea) cuando el tema es "auto": comportamiento de
     // siempre, la IA infiere el ángulo de las fotos/KB.
     const themeInstruction = hasExplicitTheme
-      ? `Este carrusel es sobre "${explicitTheme}". TODO el contenido debe girar en torno a este tema específico.\n\n`
+      ? `Este carrusel es sobre "${explicitTheme}". TODO el contenido debe girar en torno a este tema específico. El tema debe reforzarse en CADA slide, no solo mencionarse al inicio.\n\n`
+      : "";
+
+    // Cerebro Socialcors — mismo patrón que ContentGeneratorAgent (ver
+    // ContentGeneratorAgent.ts): degrada de forma elegante a "sin sección" cuando no
+    // hay binding de env o no hay tenantId/saasId (callers que aún no los pasan).
+    const dracoEnv = env();
+    const [nicheIntel, styleHistory] = dracoEnv
+      ? await Promise.all([
+          getNicheIntelligence(profile.niche, dracoEnv),
+          input.tenantId && input.saasId
+            ? getStyleHistory(input.tenantId, input.saasId, dracoEnv)
+            : Promise.resolve([]),
+        ])
+      : [null, []];
+
+    const audienceSection = `\nAUDIENCIA Y DOLOR:\n- Quién es: ${profile.audience}\n- Buyer persona: ${profile.buyerPersona}\n- Qué le duele: ${profile.painPoints.join(", ")}\n- Qué desea: ${profile.desires.join(", ")}\n`;
+
+    // profile.longDescription ya trae la KB embebida por buildProfile() (ver
+    // auditoría) — el resto del pipeline (ContentGeneratorAgent) lee longDescription
+    // completo vía richProfileLines(); aquí se extrae solo el bloque de KB para no
+    // duplicar la descripción base de marca, que ya está implícita en el resto del
+    // prompt (brandIdentity, niche, etc).
+    const kbMarker = "--- Knowledge Base ---";
+    const kbIndex = profile.longDescription.indexOf(kbMarker);
+    const kbExtract = kbIndex >= 0 ? profile.longDescription.slice(kbIndex + kbMarker.length).trim().slice(0, 600) : "";
+    const kbSection = kbExtract ? `\nCONOCIMIENTO DEL CLIENTE:\n${kbExtract}\n` : "";
+
+    const keywordPool = Array.from(new Set([...(profile.priorityKeywords ?? []), ...(profile.baseKeywords ?? [])])).filter(Boolean).slice(0, 8);
+    const keywordsSection = keywordPool.length ? `\nKEYWORDS A INCLUIR NATURALMENTE EN EL CAPTION:\n${keywordPool.join(", ")}\n` : "";
+
+    const nicheIntelSection = nicheIntel
+      ? `\nINTELIGENCIA DEL NICHO ESTA SEMANA:\n${nicheIntel.hooks.length ? `- Hooks que funcionan: ${nicheIntel.hooks.join(" | ")}\n` : ""}${nicheIntel.formats.length ? `- Formatos ganadores: ${nicheIntel.formats.join(", ")}\n` : ""}${nicheIntel.hashtags.length ? `- Hashtags de tendencia: ${nicheIntel.hashtags.join(" ")}\n` : ""}`
+      : "";
+
+    const latestStyle = styleHistory[0] ? parseLatestStyleSnapshot(styleHistory[0].snapshotJson) : null;
+    const styleSection = latestStyle
+      ? `\nESTILO APRENDIDO DEL CLIENTE:\n- Longitud media de caption: ${latestStyle.avgCaptionLength} caracteres.\n${latestStyle.topHookPatterns.length ? `- Patrones de hook más usados: ${latestStyle.topHookPatterns.join(", ")}.\n` : ""}${latestStyle.bestPerformingHours.length ? `- Mejores horas (UTC): ${latestStyle.bestPerformingHours.join(", ")}.\n` : ""}`
       : "";
 
     const prompt = `Escribe el texto de un carrusel educativo de Instagram sobre "${profile.niche}" para la marca "${profile.brandIdentity}", con exactamente ${total} slides, EN ESPAÑOL.
@@ -278,6 +363,7 @@ ${themeInstruction}${isEmpresa
   ? `⚠️ VOZ — REGLA IRROMPIBLE: Escribe SIEMPRE en tercera persona hablando de "${profile.brandIdentity}" como marca/entidad. NUNCA uses "yo", "mi", "me" ni "mis".`
   : `⚠️ VOZ — REGLA IRROMPIBLE: Escribe SIEMPRE en primera persona singular (yo, mi, me, mis). Nunca hables de "${profile.brandIdentity}" en tercera persona.`}
 ${profile.voiceInstruction ? `${profile.voiceInstruction}\n` : ""}
+${audienceSection}${kbSection}${keywordsSection}${nicheIntelSection}${styleSection}
 Categoría del carrusel: "${openerCategory}" — todo el carrusel debe sonar coherente con este ángulo (ej. si es "receta", las ${total} tarjetas narran una receta paso a paso; si es "tecnica", una técnica de ejecución).
 
 ${contentAnchorInstruction}
@@ -288,7 +374,14 @@ Estructura narrativa obligatoria:
 ${cierreCtaInstruction}
 
 Genera también entre 10 y 15 hashtags relevantes para el carrusel completo.
-Responde SOLO con el JSON solicitado, con exactamente ${total} slides en el mismo orden en que se listaron arriba.`;
+
+Además, escribe un campo "caption" — la descripción de Instagram, INDEPENDIENTE del texto de los slides (nunca repitas literalmente lo que ya dice cada tarjeta):
+- Primera línea: un hook fuerte y autocontenido, MÁXIMO 125 caracteres (es lo único visible antes de que Instagram corte con "ver más").
+- Después del hook: un desarrollo narrativo que complemente el contenido de los slides con contexto adicional, no un resumen de ellos.
+${keywordPool.length ? `- Integra de forma natural estas keywords si encajan: ${keywordPool.join(", ")}.\n` : ""}- Cierra con una pregunta como CTA que invite a comentar.
+- Longitud total MÁXIMA: ${CAROUSEL_CAPTION_MAX_LENGTH} caracteres.
+
+Responde SOLO con el JSON solicitado, con exactamente ${total} slides en el mismo orden en que se listaron arriba, y el campo "caption" descrito arriba.`;
 
     const { data, isFallback } = await defaultLocalModel.generateStructured<CarouselComposition>({ prompt }, () => base);
     // Mejor fallar con un 503 explícito que devolver contenido de plantilla que el
@@ -322,6 +415,11 @@ Responde SOLO con el JSON solicitado, con exactamente ${total} slides en el mism
       const needed = 10 - data.hashtags.length;
       data.hashtags = [...data.hashtags, ...uniqueHashtags.slice(0, needed)];
     }
+
+    // Mismo criterio que ya se aplica a slides/hashtags: nunca confiar ciegamente en
+    // que el modelo devolvió el campo — si falta o viene vacío, cae al fallback
+    // determinista en vez de dejar el carrusel sin descripción de Instagram.
+    data.caption = typeof data.caption === "string" && data.caption.trim() ? clampCaption(data.caption) : base.caption;
 
     return data;
   }

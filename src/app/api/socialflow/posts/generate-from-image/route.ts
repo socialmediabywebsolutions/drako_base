@@ -382,7 +382,32 @@ export async function POST(request: Request) {
         openerCategory,
         slideContexts,
         carouselTheme: body.carouselTheme,
+        tenantId: session.tenantId,
+        saasId: body.saasId,
       });
+
+      // Score viral del carrusel — mismo patrón defensivo que el flujo de post único
+      // más abajo: calculateViralScore ya degrada internamente a un score neutro en
+      // cualquier fallo, este try/catch es defensa adicional para que la generación
+      // del carrusel nunca dependa de que la puntuación exista.
+      let viralScore: ViralScore | null = null;
+      const dracoEnvForCarouselScore = env();
+      if (dracoEnvForCarouselScore) {
+        try {
+          viralScore = await calculateViralScore({
+            caption: composition.caption,
+            hashtags: composition.hashtags,
+            format: "CARRUSEL",
+            niche: profile.niche,
+            tenantId: session.tenantId,
+            saasId: body.saasId,
+            env: dracoEnvForCarouselScore,
+          });
+        } catch (err) {
+          console.error("[generate-from-image] calculateViralScore (carousel) failed", err instanceof Error ? err.message : String(err));
+          viralScore = null;
+        }
+      }
 
       const scheduledAt = await computeScheduledSlot({
         tenantId: session.tenantId,
@@ -416,10 +441,12 @@ export async function POST(request: Request) {
         suggestedCarouselPost: {
           title: composition.slides[0]?.text.slice(0, 72) ?? imageAnalyses[0].context,
           hashtags: composition.hashtags,
+          caption: composition.caption,
           provider: body.provider ?? "INSTAGRAM",
           contentType: "CAROUSEL",
           scheduledAt,
           saasId: body.saasId,
+          viralScore,
           // imageUrl aquí es la foto ORIGINAL subida — sin texto quemado todavía, eso lo
           // hace StaticSlideRenderer en el cliente (siguiente pieza). undefined en los
           // slots que rellena la IA. Se resuelve por `photoIndex` (no por posición en el

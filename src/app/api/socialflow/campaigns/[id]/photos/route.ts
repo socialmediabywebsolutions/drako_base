@@ -359,7 +359,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         };
 
         const slideContexts = imageAnalyses.map((a, i) => ({ order: i, specificContext: a.specificContext }));
-        const composition = await new CarouselComposerAgent().run({ profile, keywordEngine, trends, openerCategory, slideContexts });
+        const composition = await new CarouselComposerAgent().run({
+          profile,
+          keywordEngine,
+          trends,
+          openerCategory,
+          slideContexts,
+          tenantId: session.tenantId,
+          saasId: body.saasId,
+        });
 
         let hashtags = composition.hashtags;
         if (campaignHashtag && !hashtags.includes(campaignHashtag)) {

@@ -13,6 +13,11 @@ import { getImageDimensions, isHorizontalImage } from "@/lib/socialflow/media/im
 // server-only (decryptToken, llamadas a graph.facebook.com) en el bundle de cliente.
 const CAROUSEL_MIN_SLIDES = 2;
 
+// Mismo criterio: CAROUSEL_CAPTION_MAX_LENGTH vive en CarouselComposerAgent.ts (server-only,
+// importa @/lib/cf y defaultLocalModel) — duplicado aquí como número simple, no como
+// import de valor, para no arrastrar ese módulo al bundle de cliente.
+const CAROUSEL_CAPTION_MAX_LENGTH = 2200;
+
 type Phase = "idle" | "uploading" | "composing" | "rendering" | "review" | "saved" | "error";
 
 type CarouselPhotoSlot = {
@@ -128,15 +133,39 @@ async function uploadFile(file: File | Blob, filename = "upload"): Promise<{ url
   return { url: data.url, key: data.key };
 }
 
+// Shape de ViralScoreAgent.ts (ViralScore) duplicado aquí como tipo local, acotado
+// solo a los campos que la UI del carrusel usa (score/label/explanation/improvements,
+// sin `factors`) — igual que SuggestedCarouselPost ya se define localmente en vez de
+// importar los tipos de la ruta API.
+type ViralScoreState = {
+  score: number;
+  label: "Bajo" | "Medio" | "Alto" | "Viral";
+  explanation: string;
+  improvements: string[];
+};
+
+const VIRAL_SCORE_STYLES: Record<ViralScoreState["label"], string> = {
+  Bajo: "border-rose-500/25 bg-rose-500/8 text-rose-300",
+  Medio: "border-amber-500/25 bg-amber-500/8 text-amber-300",
+  Alto: "border-emerald-500/25 bg-emerald-500/8 text-emerald-300",
+  Viral: "border-purple-500/25 bg-purple-500/8 text-purple-300",
+};
+
 type SuggestedCarouselPost = {
   title: string;
   hashtags: string[];
+  // Descripción de Instagram generada por CarouselComposerAgent, independiente del
+  // texto visual de los slides — ver CAMBIO 2 (antes se concatenaban los slides).
+  caption: string;
   provider: string;
   contentType: "CAROUSEL";
   scheduledAt: string;
   saasId: string;
   // imageUrl ausente en los slots que la IA rellenó (carrusel mixto) — ver targetSlideCount.
   slides: { order: number; imageUrl?: string; text: string; role: CarouselSlideRole }[];
+  // null cuando calculateViralScore degradó internamente o cuando falla el punto de
+  // integración en el backend (ver CAMBIO 3) — nunca bloquea la generación.
+  viralScore: ViralScoreState | null;
 };
 
 // ── Tarjeta de revisión de un slide (mirror de ReelItemCard en publish-reel.tsx) ──
@@ -325,6 +354,8 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
   const [slides, setSlides] = useState<CarouselSlideState[]>([]);
   const [slideAnalyses, setSlideAnalyses] = useState<ImageAnalysis[]>([]);
   const [hashtags, setHashtags] = useState<string[]>([]);
+  const [caption, setCaption] = useState("");
+  const [viralScore, setViralScore] = useState<ViralScoreState | null>(null);
   const [scheduledAt, setScheduledAt] = useState<string | null>(null);
   // Resueltos UNA VEZ por carrusel en generateCarousel() y reutilizados tal cual en
   // cada render posterior (edición, reemplazo de foto) — nunca se recalculan a mitad
@@ -431,6 +462,8 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
 
       const post = data.suggestedCarouselPost;
       setHashtags(post.hashtags);
+      setCaption(post.caption);
+      setViralScore(post.viralScore);
       setScheduledAt(post.scheduledAt);
       setSlideAnalyses(data.imageAnalyses ?? []);
 
@@ -685,7 +718,10 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
       const ordered = [...slides].sort((a, b) => a.order - b.order);
       const introSlide = ordered.find((s) => s.role === "intro");
       const title = (introSlide?.text ?? ordered[0]?.text ?? "").slice(0, 72);
-      const body = ordered.map((s) => s.text).join("\n\n");
+      // Descripción de Instagram editable por el cliente (CAMBIO 2) — ya no se
+      // concatenan los textos de los slides como caption; fallback defensivo por si
+      // llega vacío (no debería, se precarga desde suggestedCarouselPost.caption).
+      const body = caption.trim() || ordered.map((s) => s.text).join("\n\n");
 
       const res = await fetch("/api/socialflow/posts", {
         method: "POST",
@@ -901,6 +937,12 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
           Falta reemplazar {pendingReplacements} foto{pendingReplacements !== 1 ? "s" : ""} antes de poder guardar.
         </p>
       )}
+      {viralScore && (
+        <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${VIRAL_SCORE_STYLES[viralScore.label]}`}>
+          Score de viralidad: {viralScore.score}/10 ({viralScore.label})
+          {viralScore.improvements[0] ? ` — ${viralScore.improvements[0]}` : ""}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {slides.map((slide) => (
           <CarouselSlideCard
@@ -921,6 +963,20 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
       {!canSave && pendingReplacements === 0 && (
         <p className="text-center text-xs text-white/30">Aprueba todos los slides para poder guardar.</p>
       )}
+      <div className="space-y-1.5">
+        <label htmlFor="carousel-caption" className="text-xs font-semibold text-white/50">
+          Descripción de Instagram (editable)
+        </label>
+        <textarea
+          id="carousel-caption"
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          maxLength={CAROUSEL_CAPTION_MAX_LENGTH}
+          rows={5}
+          className="w-full resize-y rounded-xl border border-white/10 bg-white/3 px-3 py-2.5 text-sm text-white/80 outline-none transition focus:border-violet-400/40"
+        />
+        <p className="text-right text-[11px] text-white/25">{caption.length}/{CAROUSEL_CAPTION_MAX_LENGTH}</p>
+      </div>
       {saveError && (
         <div className="rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3 text-sm text-rose-300">{saveError}</div>
       )}

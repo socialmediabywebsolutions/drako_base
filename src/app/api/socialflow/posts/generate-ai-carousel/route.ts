@@ -227,6 +227,8 @@ export async function POST(request: Request) {
       openerCategory,
       topic: resolvedTopic,
       slideCount: body.slideCount,
+      tenantId: session.tenantId,
+      saasId: body.saasId,
     });
 
     const scheduledAt = await computeScheduledSlot({
