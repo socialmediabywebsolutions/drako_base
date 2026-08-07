@@ -10,6 +10,19 @@ import { resolveObjectiveCta } from "../utils/ctaUtils";
 // (intro → desarrollo → cierre/CTA) en un solo JSON, en vez de repetir el par
 // ContentGeneratorAgent+OptimizationAgent una vez por slide.
 
+// Lanzada cuando defaultLocalModel.generateStructured() no pudo llamar a Mistral y
+// devolvió el seed determinista (isFallback: true) — antes de este fix, ese contenido de
+// plantilla (openers con placeholders sin resolver, specificContext crudo, "Un punto
+// clave sobre X") se devolvía como si fuera una composición real (ver auditoría). Los
+// callers (route.ts) la traducen a HTTP 503 en vez de un 200 con contenido de plantilla.
+export class CarouselGenerationFailedError extends Error {
+  code = "CAROUSEL_AI_GENERATION_FAILED";
+  constructor() {
+    super("No se pudo generar el contenido del carrusel con IA.");
+    this.name = "CarouselGenerationFailedError";
+  }
+}
+
 // Posición narrativa del slide dentro del carrusel — distinto del ReelsTextRole
 // (title/subtitle/cta) que ya existe en CanvasRenderer.ts para la jerarquía visual
 // DENTRO de un frame; StaticSlideRenderer mapea uno al otro (ver auditoría).
@@ -277,7 +290,14 @@ ${cierreCtaInstruction}
 Genera también entre 10 y 15 hashtags relevantes para el carrusel completo.
 Responde SOLO con el JSON solicitado, con exactamente ${total} slides en el mismo orden en que se listaron arriba.`;
 
-    const { data } = await defaultLocalModel.generateStructured<CarouselComposition>({ prompt }, () => base);
+    const { data, isFallback } = await defaultLocalModel.generateStructured<CarouselComposition>({ prompt }, () => base);
+    // Mejor fallar con un 503 explícito que devolver contenido de plantilla que el
+    // cliente podría aprobar sin darse cuenta (ver auditoría: openers con placeholders,
+    // specificContext crudo, "Un punto clave sobre X" — todos síntomas de este mismo
+    // fallback silencioso).
+    if (isFallback) {
+      throw new CarouselGenerationFailedError();
+    }
 
     // Nunca confiar en el modelo para el rol (es determinista por posición) ni para la
     // longitud (es un presupuesto visual, no una preferencia de estilo) — se reasignan

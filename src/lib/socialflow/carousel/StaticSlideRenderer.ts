@@ -251,6 +251,7 @@ function drawTextLines(
   textColor: string,
   highlightLastWord: boolean,
   accentColor: string | undefined,
+  strokeColor: string | null,
 ): void {
   lines.forEach((line, i) => {
     const y = startY + i * lineHeight;
@@ -259,6 +260,11 @@ function drawTextLines(
       const { rest, lastWord } = splitLastWord(line);
       if (!rest) {
         ctx.textAlign = "center";
+        if (strokeColor) {
+          ctx.lineWidth = 8;
+          ctx.strokeStyle = strokeColor;
+          ctx.strokeText(lastWord, canvasWidth / 2, y);
+        }
         ctx.fillStyle = accentColor;
         ctx.fillText(lastWord, canvasWidth / 2, y);
         return;
@@ -268,12 +274,23 @@ function drawTextLines(
       const lastWordWidth = ctx.measureText(lastWord).width;
       const startX = canvasWidth / 2 - (restWidth + lastWordWidth) / 2;
       ctx.textAlign = "left";
+      if (strokeColor) {
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = strokeColor;
+        ctx.strokeText(restWithSpace, startX, y);
+        ctx.strokeText(lastWord, startX + restWidth, y);
+      }
       ctx.fillStyle = textColor;
       ctx.fillText(restWithSpace, startX, y);
       ctx.fillStyle = accentColor;
       ctx.fillText(lastWord, startX + restWidth, y);
     } else {
       ctx.textAlign = "center";
+      if (strokeColor) {
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = strokeColor;
+        ctx.strokeText(line, canvasWidth / 2, y);
+      }
       ctx.fillStyle = textColor;
       ctx.fillText(line, canvasWidth / 2, y);
     }
@@ -299,6 +316,12 @@ function drawStaticSlideText(
   let textColor: string;
   let shadowColor: string;
   let boxColor: string | null;
+  // Contorno oscuro detrás del relleno — solo fotos de cliente (Bug 1, ver auditoría):
+  // un solo blanco/negro adaptativo por brillo promedio falla en fotos con zonas claras
+  // y oscuras bajo el mismo bloque de texto. Blanco fijo + contorno + sombra es legible
+  // sin importar el contenido de la foto, a diferencia de la heurística de brillo.
+  let strokeColor: string | null = null;
+  let shadowBlurAmount = 28;
 
   if (style?.darkOverlay) {
     // Estilo C: applyDarkOverlay ya oscurece toda la imagen antes de llegar aquí —
@@ -307,15 +330,13 @@ function drawStaticSlideText(
     shadowColor = "rgba(0,0,0,0.7)";
     boxColor = null;
   } else if (style && hasClientImage) {
-    // Foto real del cliente: el textColor fijo del pack está pensado para los fondos
-    // generados por Canvas (sólidos/gradientes controlados), no para una foto de brillo
-    // impredecible — se decide por luminosidad real bajo el texto, igual que la rama
-    // retrocompatible de abajo.
-    const brightness = sampleAverageBrightness(ctx, canvasWidth / 2, baseY, 200, 80);
-    const isLightBackground = brightness > 128;
-    textColor = isLightBackground ? "#000000" : "#ffffff";
-    shadowColor = isLightBackground ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)";
+    // Foto real del cliente: blanco fijo + contorno oscuro, nunca se samplea brillo (ver
+    // comentario de strokeColor arriba).
+    textColor = "#ffffff";
+    shadowColor = "rgba(0,0,0,0.85)";
     boxColor = null;
+    strokeColor = "rgba(0,0,0,0.85)";
+    shadowBlurAmount = 20;
   } else if (style) {
     // Fondo generado por Canvas (sin foto) — el color del pack ya está pensado para
     // ese fondo, sin caja detrás del texto.
@@ -336,7 +357,7 @@ function drawStaticSlideText(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.shadowColor = shadowColor;
-  ctx.shadowBlur = 28;
+  ctx.shadowBlur = shadowBlurAmount;
 
   let lines = wrapText(ctx, text, canvasWidth * 0.85);
   if (lines.length === 0) {
@@ -372,10 +393,10 @@ function drawStaticSlideText(
       maxLineWidth + boxPaddingX * 2,
       lines.length * lineHeight + boxPaddingY * 2,
     );
-    ctx.shadowBlur = 28;
+    ctx.shadowBlur = shadowBlurAmount;
   }
 
-  drawTextLines(ctx, lines, startY, lineHeight, canvasWidth, textColor, !!style?.highlightLastWord, style?.accentColor);
+  drawTextLines(ctx, lines, startY, lineHeight, canvasWidth, textColor, !!style?.highlightLastWord, style?.accentColor, strokeColor);
 
   ctx.restore();
 }

@@ -17,6 +17,11 @@ export type LocalModelRequest = {
 export type LocalModelResponse<T> = {
   data: T;
   raw: string;
+  // true cuando `data` es el seed determinista (DeterministicLocalModel), no una
+  // respuesta real de Mistral — ver WorkersAiLocalModel.generateStructured. Los callers
+  // que no puedan tolerar contenido de plantilla (ej. CarouselComposerAgent) deben
+  // comprobarlo y lanzar en vez de devolver el fallback como si fuera contenido real.
+  isFallback: boolean;
 };
 
 export interface LocalModelClient {
@@ -48,6 +53,7 @@ export class DeterministicLocalModel implements LocalModelClient {
     return {
       data: decorated as unknown as T,
       raw: JSON.stringify(decorated),
+      isFallback: true,
     };
   }
 }
@@ -172,6 +178,7 @@ export class WorkersAiLocalModel implements LocalModelClient {
       return {
         data: decorated as unknown as T,
         raw: cleaned,
+        isFallback: false,
       };
     } catch (error) {
       console.error("SOCIALFLOW_AI_GENERATION_FAILED", error);

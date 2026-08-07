@@ -102,10 +102,20 @@ ${body.currentText ? `\nTexto actual del slide (a reemplazar — genera algo DIS
 
 Responde SOLO con el JSON solicitado.`;
 
-    const { data } = await defaultLocalModel.generateStructured<{ text: string }>(
+    const { data, isFallback } = await defaultLocalModel.generateStructured<{ text: string }>(
       { prompt, tenantId: session.tenantId, saasId: body.saasId },
       () => ({ text: body.currentText ?? "" }),
     );
+
+    // No llamó a Mistral (binding ausente o la llamada falló) — devolver el texto actual
+    // sin cambios como "éxito" dejaría que el cliente crea que regeneró algo nuevo. Mismo
+    // criterio que CarouselComposerAgent (ver auditoría del fallback silencioso).
+    if (isFallback) {
+      return NextResponse.json(
+        { code: "CAROUSEL_AI_GENERATION_FAILED", message: "No se pudo generar el contenido. Inténtalo de nuevo." },
+        { status: 503 },
+      );
+    }
 
     const rawText = typeof data.text === "string" ? data.text.trim() : "";
     if (!rawText) {

@@ -12,7 +12,7 @@ import { ContentGeneratorAgent } from "@/lib/socialflow/ai/agents/ContentGenerat
 import { pickOpenerCategory, isGraphicTextContent } from "@/lib/socialflow/ai/openers/pickOpenerCategory";
 import { cleanOpening } from "@/lib/socialflow/ai/openers/cleanOpening";
 import { OptimizationAgent } from "@/lib/socialflow/ai/agents/OptimizationAgent";
-import { CarouselComposerAgent } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
+import { CarouselComposerAgent, CarouselGenerationFailedError } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
 import { CAROUSEL_MIN_ITEMS, CAROUSEL_MAX_ITEMS } from "@/lib/socialflow/meta/publishing";
 import type { BrandProfile, KeywordEngineOutput, StrategyItem } from "@/lib/socialflow/ai/types";
 import { isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
@@ -658,6 +658,12 @@ export async function POST(request: Request) {
     }
     if (error instanceof Error && error.message === "SESSION_REQUIRED") {
       return unauthorizedResponse();
+    }
+    if (error instanceof CarouselGenerationFailedError) {
+      return NextResponse.json(
+        { code: error.code, message: "No se pudo generar el contenido. Inténtalo de nuevo." },
+        { status: 503 },
+      );
     }
     console.error("SOCIALFLOW_GENERATE_FROM_IMAGE_ERROR", error);
     return NextResponse.json(

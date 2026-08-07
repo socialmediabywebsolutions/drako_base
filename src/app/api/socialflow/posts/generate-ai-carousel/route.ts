@@ -6,7 +6,7 @@ import { SocialContextError, resolveSocialContext, getFutureScheduledSlots, list
 import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import { TrendAgent, type TrendInsights } from "@/lib/socialflow/ai/agents/TrendAgent";
-import { CarouselComposerAgent } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
+import { CarouselComposerAgent, CarouselGenerationFailedError } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
 import { pickOpenerCategory, isGraphicTextContent } from "@/lib/socialflow/ai/openers/pickOpenerCategory";
 import { getStyleForCarousel, getNichoPackKey, CAROUSEL_STYLE_PACKS } from "@/lib/socialflow/carousel/CarouselStylePacks";
 import type { BrandProfile, KeywordEngineOutput } from "@/lib/socialflow/ai/types";
@@ -281,6 +281,12 @@ export async function POST(request: Request) {
     }
     if (error instanceof Error && error.message === "SESSION_REQUIRED") {
       return unauthorizedResponse();
+    }
+    if (error instanceof CarouselGenerationFailedError) {
+      return NextResponse.json(
+        { code: error.code, message: "No se pudo generar el contenido. Inténtalo de nuevo." },
+        { status: 503 },
+      );
     }
     console.error("SOCIALFLOW_GENERATE_AI_CAROUSEL_ERROR", error);
     return NextResponse.json(

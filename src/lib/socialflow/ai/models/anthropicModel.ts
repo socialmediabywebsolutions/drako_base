@@ -96,6 +96,7 @@ export class AnthropicLocalModel implements LocalModelClient {
       return {
         data: decorated as unknown as T,
         raw: cleaned,
+        isFallback: false,
       };
     } catch (error) {
       console.error("SOCIALFLOW_ANTHROPIC_GENERATION_FAILED", error);
