@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { CronAuthError, verifyCronAuth } from "@/lib/security/cron-auth";
 import { env } from "@/lib/cf";
 import { StyleLearningAgent } from "@/lib/socialflow/ai/agents/StyleLearningAgent";
+import { VoiceExtractionAgent } from "@/lib/socialflow/ai/agents/VoiceExtractionAgent";
 
 const MIN_PUBLISHED_POSTS = 10;
 
@@ -14,6 +15,7 @@ type TenantResult = {
   saasId: string;
   ok: boolean;
   postsAnalyzed?: number;
+  voicePostsAnalyzed?: number;
   error?: string;
 };
 
@@ -60,12 +62,19 @@ export async function GET(request: NextRequest) {
 
   for (const row of tenantRows) {
     try {
-      const learned = await new StyleLearningAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id });
+      // En paralelo — ambos agentes son independientes (cada uno solo lee
+      // saas_social_posts por su cuenta, ninguno depende del resultado del otro),
+      // así que correrlos a la vez reduce el tiempo total del cron en vez de sumarlo.
+      const [learned, voice] = await Promise.all([
+        new StyleLearningAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+        new VoiceExtractionAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+      ]);
       results.push({
         tenantId: row.tenant_id,
         saasId: row.saas_id,
         ok: true,
         postsAnalyzed: learned?.postsAnalyzed ?? 0,
+        voicePostsAnalyzed: voice?.postsAnalyzed ?? 0,
       });
     } catch (err) {
       console.error("[cron/style-learning] agent failed", row.tenant_id, err instanceof Error ? err.message : String(err));

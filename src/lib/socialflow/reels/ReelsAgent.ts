@@ -1,5 +1,6 @@
 import { defaultLocalModel } from "../ai/models/localModel";
 import type { BrandProfile } from "../ai/types";
+import { extractVoiceSection } from "../ai/utils/voiceUtils";
 import {
   REELS_DEFAULTS,
   type AnimatedBackgroundType,
@@ -588,13 +589,15 @@ export class ReelsAgent {
       height: REELS_DEFAULTS.height,
     };
 
+    const voiceSection = extractVoiceSection(profile.longDescription);
+
     const prompt = `Decide la configuración de un Reel (vídeo corto vertical) para una marca de "${profile.niche}" llamada "${profile.brandIdentity}".
 Tono: ${profile.toneOfVoice}.
-
+${voiceSection ? `\n${voiceSection}\n` : ""}
 La plantilla debe ser exactamente una de: "fitness", "lifestyle", "motivation", "education", "marketing" — la que mejor encaje con el nicho.
 Cada efecto debe ser uno de: "zoom-in", "zoom-out", "pan-left", "pan-right", "parallax", "rotate", "blur", "ken-burns", "drift", "pulse", "tilt", con startAt/endAt en segundos dentro de la duración del clip e intensity entre 0 y 1.
 Los efectos ya están calculados y NO deben modificarse — preserva exactamente los valores de "effects" que recibes en el JSON base.
-Cada texto animado (textOverlays) debe tener una frase corta y directa EN ESPAÑOL (máximo 6 palabras), relevante para "${profile.niche}" y la marca "${profile.brandIdentity}" — nunca genérica, EXCEPTO el overlay cuyo "role" es "cta": ese campo ya está seleccionado y NO debe modificarse — usa exactamente el valor que recibes en el JSON base.
+Cada texto animado (textOverlays) debe tener una frase corta y directa EN ESPAÑOL (máximo 6 palabras), relevante para "${profile.niche}" y la marca "${profile.brandIdentity}" — nunca genérica, EXCEPTO el overlay cuyo "role" es "cta": ese campo ya está seleccionado y NO debe modificarse — usa exactamente el valor que recibes en el JSON base. Si hay una sección de voz real arriba, que las frases suenen coherentes con esa voz dentro del límite de 6 palabras.
 La duración total (durationSec) debe estar entre ${REELS_DEFAULTS.minDurationSec} y ${REELS_DEFAULTS.maxDurationSec} segundos.`;
 
     // "effects"/"imageSegments"/"cta"/"colorGrade"/"filmGrain"/"lightLeak"/"animatedBackground"

@@ -7,7 +7,7 @@ const CONTEXT_SNIPPET = 800;
 const CATALOG_CONTEXT_DOCS = 3;
 const CATALOG_CONTEXT_SNIPPET = 3000;
 
-export type KnowledgeDocType = "pdf" | "url" | "text" | "catalog" | "competitor" | "market_analysis" | "auto_learned_style";
+export type KnowledgeDocType = "pdf" | "url" | "text" | "catalog" | "competitor" | "market_analysis" | "auto_learned_style" | "voice_profile";
 
 export type KnowledgeDoc = {
   id: string;
@@ -152,6 +152,7 @@ export async function getKnowledgeContext(
   if (!results?.length) return "";
 
   const styleDocs = results.filter((d) => d.type === "auto_learned_style").slice(0, 1);
+  const voiceDocs = results.filter((d) => d.type === "voice_profile").slice(0, 1);
   const marketDocs = results.filter((d) => d.type === "market_analysis").slice(0, 1);
   const competitorDocs = results.filter((d) => d.type === "competitor").slice(0, 5);
   const catalogDocs = results.filter((d) => d.type === "catalog").slice(0, CATALOG_CONTEXT_DOCS);
@@ -161,6 +162,7 @@ export async function getKnowledgeContext(
         d.type !== "market_analysis" &&
         d.type !== "competitor" &&
         d.type !== "auto_learned_style" &&
+        d.type !== "voice_profile" &&
         d.type !== "catalog",
     )
     .slice(0, CONTEXT_DOCS);
@@ -169,6 +171,10 @@ export async function getKnowledgeContext(
 
   if (styleDocs.length) {
     parts.push(`## LEARNED WRITING STYLE (from this account's own published posts)\n${styleDocs[0].content_text.slice(0, 2000)}`);
+  }
+
+  if (voiceDocs.length) {
+    parts.push(`## VOZ REAL DEL CLIENTE (extraída de sus propios posts publicados)\n${voiceDocs[0].content_text.slice(0, 1500)}`);
   }
 
   if (marketDocs.length) {
