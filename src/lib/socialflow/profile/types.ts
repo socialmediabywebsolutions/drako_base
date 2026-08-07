@@ -66,6 +66,13 @@ export type ChannelProfile = {
   targetCountry: string;
   targetMarkets: string[];
   niche: string;
+  // Caché del slug normalizado de socialcors_niche_intelligence (ver
+  // NicheIntelligenceService.normalizeNiche) — `niche` es texto libre que el cliente
+  // escribió en onboarding, nunca matchea el WHERE exacto de la tabla. Válido solo
+  // mientras normalizedNicheSourceText === niche (auto-invalidación si el cliente
+  // edita su nicho más adelante, sin necesidad de enganchar el flujo de update).
+  normalizedNicheSlug: string | null;
+  normalizedNicheSourceText: string | null;
   subniches: string[];
   mainTopics: string[];
   secondaryTopics: string[];

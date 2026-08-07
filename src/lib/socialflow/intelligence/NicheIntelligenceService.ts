@@ -1,4 +1,6 @@
 import type { DracoEnv } from "@/lib/cf";
+import { defaultLocalModel } from "@/lib/socialflow/ai/models/localModel";
+import { getChannelProfile, upsertChannelProfile } from "@/lib/socialflow/profile/repository";
 
 export type Env = DracoEnv;
 
@@ -87,16 +89,122 @@ function mapStyleHistoryRow(row: StyleHistoryRow): StyleSnapshot {
   };
 }
 
+// profile.niche es texto libre que el cliente escribió en onboarding (ej. "Fitness y
+// lifestyle para mujeres hispanohablantes") — nunca coincide con los slugs
+// normalizados de socialcors_niche_intelligence (ej. "fitness"). Sin esto, el WHERE
+// niche = ? de abajo nunca matchea para ningún cliente real (ver auditoría "Sprint C
+// — bug crítico" 2026-08-07). NFD + strip diacríticos + minúsculas, para que acentos
+// y mayúsculas no rompan ni el match exacto ni el parcial.
+function normalizeForMatch(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Tres niveles, del más barato al más caro — nunca se salta al siguiente si el
+// anterior ya resolvió. Devuelve "" (nunca null/undefined) cuando no hay match
+// razonable en ningún nivel; getNicheIntelligence trata "" igual que un niche vacío.
+export async function normalizeNiche(
+  profileNiche: string,
+  availableNiches: string[],
+  tenantId?: string,
+  saasId?: string,
+): Promise<string> {
+  const trimmed = profileNiche.trim();
+  if (!trimmed || availableNiches.length === 0) return "";
+
+  const trimmedLower = trimmed.toLowerCase();
+  const exact = availableNiches.find((n) => n.toLowerCase() === trimmedLower);
+  if (exact) return exact;
+
+  const normalizedProfile = normalizeForMatch(trimmed);
+  const partial = availableNiches.find((slug) => {
+    const normalizedSlug = normalizeForMatch(slug.replace(/_/g, " "));
+    return new RegExp(`\\b${escapeRegExp(normalizedSlug)}\\b`).test(normalizedProfile);
+  });
+  if (partial) return partial;
+
+  // Nivel 3 — Mistral. defaultLocalModel ya resuelve el binding de IA internamente
+  // (env() de @/lib/cf) y degrada al seed determinista si no está disponible, así
+  // que no hace falta comprobar env.AI aquí — un fallo simplemente devuelve slug: "".
+  const prompt = `Clasifica este nicho de negocio en el slug MÁS CERCANO de esta lista (responde EXACTAMENTE uno de estos):
+${availableNiches.join(", ")}
+
+Nicho del cliente: "${trimmed}"
+
+Responde SOLO con el slug exacto de la lista, sin explicación.`;
+
+  const { data } = await defaultLocalModel.generateStructured<{ slug: string }>(
+    { prompt, tenantId, saasId },
+    () => ({ slug: "" }),
+  );
+
+  // Nunca confiar ciegamente en el output de un LLM para esto — si devuelve algo que
+  // no está literalmente en la lista (alucinación), se descarta.
+  return typeof data.slug === "string" && availableNiches.includes(data.slug) ? data.slug : "";
+}
+
+// Caché en el propio registro del perfil (ChannelProfile.normalizedNicheSlug) para no
+// llamar a Mistral (nivel 3) en cada request — válida solo mientras
+// normalizedNicheSourceText siga siendo exactamente profile.niche (auto-invalidación
+// si el cliente edita su nicho, sin enganchar el flujo de update del perfil).
+async function resolveNicheSlug(
+  rawNiche: string,
+  db: NonNullable<Env["SOCIAL_DB"]>,
+  tenantId?: string,
+  saasId?: string,
+): Promise<string> {
+  if (tenantId && saasId) {
+    try {
+      const profile = await getChannelProfile(tenantId, saasId);
+      if (profile.normalizedNicheSlug && profile.normalizedNicheSourceText === rawNiche) {
+        return profile.normalizedNicheSlug;
+      }
+    } catch (err) {
+      console.error("[NicheIntelligenceService] cache lookup failed, falling back to fresh normalization", err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  const { results } = await db.prepare(`SELECT DISTINCT niche FROM socialcors_niche_intelligence`).all<{ niche: string }>();
+  const availableNiches = (results ?? []).map((r) => r.niche);
+  const resolved = await normalizeNiche(rawNiche, availableNiches, tenantId, saasId);
+
+  if (resolved && tenantId && saasId) {
+    // Fire-and-forget — una escritura de caché nunca debe añadir latencia al path de
+    // generación de contenido.
+    void upsertChannelProfile(tenantId, { normalizedNicheSlug: resolved, normalizedNicheSourceText: rawNiche }, saasId)
+      .catch((err) => console.error("[NicheIntelligenceService] cache write failed", err instanceof Error ? err.message : String(err)));
+  }
+
+  return resolved;
+}
+
 // Cross-tenant, aggregated cache of "what's working this week" per niche — not
 // scoped to a single tenant on purpose (see migration 0207). Returns null on any
 // miss (not yet cached, expired, or DB error) so callers can degrade gracefully
 // instead of blocking content generation: this cache is filled by a separate cron
-// job, not by the generation path itself.
-export async function getNicheIntelligence(niche: string, env: Env): Promise<NicheIntelligence | null> {
+// job, not by the generation path itself. tenantId/saasId opcionales — habilitan la
+// normalización de nicho (ver resolveNicheSlug) y su caché; ausentes, se comporta
+// igual que antes pero SIN normalizar (mismo bug de siempre para ese caller).
+export async function getNicheIntelligence(
+  rawNiche: string,
+  env: Env,
+  tenantId?: string,
+  saasId?: string,
+): Promise<NicheIntelligence | null> {
   const db = env?.SOCIAL_DB;
-  if (!db || !niche) return null;
+  if (!db || !rawNiche) return null;
 
   try {
+    const niche = await resolveNicheSlug(rawNiche, db, tenantId, saasId);
+    if (!niche) return null;
+
     const now = new Date().toISOString();
     const row = await db
       .prepare(
@@ -124,7 +232,7 @@ export async function getNicheIntelligence(niche: string, env: Env): Promise<Nic
       validUntil: row.valid_until,
     };
   } catch (err) {
-    console.error("[NicheIntelligenceService] getNicheIntelligence failed", niche, err instanceof Error ? err.message : String(err));
+    console.error("[NicheIntelligenceService] getNicheIntelligence failed", rawNiche, err instanceof Error ? err.message : String(err));
     return null;
   }
 }

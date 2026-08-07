@@ -75,7 +75,7 @@ export class ContentGeneratorAgent {
     const dracoEnv = env();
     const [nicheIntel, styleHistory] = dracoEnv
       ? await Promise.all([
-          getNicheIntelligence(profile.niche, dracoEnv),
+          getNicheIntelligence(profile.niche, dracoEnv, input.tenantId, input.saasId),
           input.tenantId && input.saasId
             ? getStyleHistory(input.tenantId, input.saasId, dracoEnv)
             : Promise.resolve([]),

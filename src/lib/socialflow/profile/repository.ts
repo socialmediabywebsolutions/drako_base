@@ -256,6 +256,8 @@ function buildEmptyProfile(tenantId: string, saasId: string): ChannelProfile {
     targetCountry: "",
     targetMarkets: [],
     niche: "",
+    normalizedNicheSlug: null,
+    normalizedNicheSourceText: null,
     subniches: [],
     mainTopics: [],
     secondaryTopics: [],
@@ -331,6 +333,12 @@ function mergeProfile(base: ChannelProfile, patch: Partial<ChannelProfile>): Cha
     }
   }
 
+  if ("normalizedNicheSlug" in patch) {
+    next.normalizedNicheSlug = normalizeNullableString(patch.normalizedNicheSlug);
+  }
+  if ("normalizedNicheSourceText" in patch) {
+    next.normalizedNicheSourceText = normalizeNullableString(patch.normalizedNicheSourceText);
+  }
   if ("avgPrice" in patch) {
     next.avgPrice = typeof patch.avgPrice === "number" && Number.isFinite(patch.avgPrice) ? patch.avgPrice : null;
   }

@@ -124,7 +124,7 @@ export async function calculateViralScore(input: {
 }): Promise<ViralScore> {
   try {
     const [nicheIntel, styleHistory] = await Promise.all([
-      getNicheIntelligence(input.niche, input.env),
+      getNicheIntelligence(input.niche, input.env, input.tenantId, input.saasId),
       getStyleHistory(input.tenantId, input.saasId, input.env),
     ]);
     const fatigueWarning = detectContentFatigue(styleHistory);
