@@ -800,6 +800,12 @@ export default function UploadToPost({
   const addMoreRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [items, setItems] = useState<UploadItem[]>([]);
+  // Nota opcional del cliente, capturada ANTES de subir — el flujo de subida es
+  // automático (analyze → generate en cadena, sin botón "Generar" que pausar), así
+  // que no hay forma de pedir esto por foto una vez arrancó el pipeline. Se aplica a
+  // toda la tanda que se suba mientras el campo tenga este valor — no se limpia solo
+  // entre tandas, el cliente lo controla manualmente.
+  const [batchUserNote, setBatchUserNote] = useState("");
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [bulkPreviewOpen, setBulkPreviewOpen] = useState(false);
@@ -933,6 +939,7 @@ export default function UploadToPost({
           batchIndex: item.batchIndex,
           scheduleIndex,
           ...(contentType && contentType !== "AUTO" ? { forcedContentType: contentType } : {}),
+          ...(batchUserNote.trim() ? { userNote: batchUserNote.trim() } : {}),
         }),
       });
       const genData = (await genRes.json()) as {
@@ -1150,6 +1157,21 @@ export default function UploadToPost({
             {globalError}
           </div>
         )}
+        <div className="space-y-1.5">
+          <label htmlFor="batch-user-note" className="text-xs font-semibold text-white/50">
+            ¿Qué estás haciendo en estas fotos? (opcional)
+          </label>
+          <textarea
+            id="batch-user-note"
+            value={batchUserNote}
+            onChange={(e) => setBatchUserNote(e.target.value)}
+            maxLength={200}
+            rows={2}
+            placeholder="Ej: sentadilla búlgara con mancuerna de 15kg"
+            className="w-full resize-none rounded-xl border border-white/10 bg-white/3 px-3 py-2 text-sm text-white/80 placeholder:text-white/20 outline-none transition focus:border-violet-400/40"
+          />
+          <p className="text-right text-[11px] text-white/25">{batchUserNote.length}/200</p>
+        </div>
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragLeave={() => setIsDragging(false)}

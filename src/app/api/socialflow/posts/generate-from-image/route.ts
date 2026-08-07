@@ -9,6 +9,7 @@ import { ImageAnalysisAgent } from "@/lib/socialflow/ai/agents/ImageAnalysisAgen
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import { TrendAgent, type TrendInsights } from "@/lib/socialflow/ai/agents/TrendAgent";
 import { ContentGeneratorAgent } from "@/lib/socialflow/ai/agents/ContentGeneratorAgent";
+import { ContentValueAgent } from "@/lib/socialflow/ai/agents/ContentValueAgent";
 import { pickOpenerCategory, isGraphicTextContent } from "@/lib/socialflow/ai/openers/pickOpenerCategory";
 import { cleanOpening } from "@/lib/socialflow/ai/openers/cleanOpening";
 import { OptimizationAgent } from "@/lib/socialflow/ai/agents/OptimizationAgent";
@@ -223,6 +224,7 @@ export async function POST(request: Request) {
       mode?: "analyze" | "finalize"; // "analyze" = LLaVA classification only (no caption/schedule); default ("finalize") runs the full pipeline
       imageAnalysis?: ImageAnalysis; // result of a prior "analyze" call — reused here to skip a duplicate LLaVA call
       forcedContentType?: "FEED" | "REEL" | "STORY" | "CAROUSEL"; // explicit format chosen in Publicar → Post/Reel/Historia/Carrusel; overrides the LLaVA heuristic below
+      userNote?: string; // texto libre opcional del cliente ("¿Qué estás haciendo en esta foto?") — prioridad máxima en ContentValueAgent sobre la inferencia visual. Solo lo envían upload-to-post.tsx/publish-reel.tsx hoy.
     } | null;
 
     const isCarousel = body?.forcedContentType === "CAROUSEL";
@@ -363,6 +365,18 @@ export async function POST(request: Request) {
         campaignHashtags: profile.priorityHashtags,
       };
 
+      // ContentValueAgent enriquece cada slide CON foto (sin userNote — publish-carrusel.tsx
+      // no tiene ese campo, solo se usa en el flujo single-photo) antes de pasarlo a
+      // CarouselComposerAgent. Nunca lanza — degrada a null (usa el specificContext
+      // original) sin bloquear la generación del carrusel.
+      const contentValues = await Promise.all(
+        imageAnalyses.map((a) =>
+          new ContentValueAgent()
+            .run({ profile, specificContext: a.specificContext, tenantId: session.tenantId, saasId: body.saasId })
+            .catch(() => null),
+        ),
+      );
+
       // Carrusel mixto: si targetSlideCount pide más slides de las fotos analizadas, se
       // extiende slideContexts con slots vacíos (specificContext: "") al final — esos
       // son los que CarouselComposerAgent rellena con texto puro (ver hasPhotoAt ahí).
@@ -371,7 +385,7 @@ export async function POST(request: Request) {
       const totalSlideCount = Math.max(body.targetSlideCount ?? imageUrls.length, imageUrls.length);
       const slideContexts = Array.from({ length: totalSlideCount }, (_, i) =>
         i < imageAnalyses.length
-          ? { order: i, specificContext: imageAnalyses[i].specificContext }
+          ? { order: i, specificContext: contentValues[i]?.enrichedContext ?? imageAnalyses[i].specificContext }
           : { order: i, specificContext: "" },
       );
 
@@ -510,6 +524,21 @@ export async function POST(request: Request) {
       });
     }
 
+    // ContentValueAgent enriquece specificContext con contenido técnico/educativo real
+    // (técnica de ejercicio, beneficio nutricional, dato cultural, etc.) antes de
+    // ContentGeneratorAgent — userNote (dato manual del cliente) tiene prioridad
+    // máxima ahí dentro. Nunca lanza — degrada a null (usa specificContext original)
+    // sin bloquear la generación.
+    const contentValue = await new ContentValueAgent()
+      .run({
+        profile,
+        specificContext: imageAnalysis.specificContext,
+        userNote: body.userNote,
+        tenantId: session.tenantId,
+        saasId: body.saasId,
+      })
+      .catch(() => null);
+
     // Step 1b: trends (Mistral) + trial check in parallel (image already analyzed above)
     const [trends, isTrial] = await Promise.all([
       new TrendAgent().run({ profile }),
@@ -571,7 +600,7 @@ export async function POST(request: Request) {
       trends,
       openerIndex: (body.batchIndex ?? 0) % 10,
       openerCategory,
-      specificContext: imageAnalysis.specificContext,
+      specificContext: contentValue?.enrichedContext ?? imageAnalysis.specificContext,
       llavaSuggestedFormat: imageAnalysis.recommendedPostType,
       momentType: imageAnalysis.momentType,
       employeeDetected: imageAnalysis.employeeDetected,

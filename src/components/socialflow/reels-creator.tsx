@@ -38,6 +38,7 @@ export async function fetchCaption(
   imageKey: string,
   saasId: string,
   scheduling?: { batchIndex: number; scheduleIndex: number },
+  userNote?: string,
 ): Promise<SuggestedPost | null> {
   try {
     const res = await fetch("/api/socialflow/posts/generate-from-image", {
@@ -50,6 +51,7 @@ export async function fetchCaption(
         saasId,
         forcedContentType: "REEL",
         ...(scheduling ? { batchIndex: scheduling.batchIndex, scheduleIndex: scheduling.scheduleIndex } : {}),
+        ...(userNote?.trim() ? { userNote: userNote.trim() } : {}),
       }),
     });
     const data = (await res.json()) as { suggestedPost?: SuggestedPost };
@@ -72,6 +74,7 @@ export default function ReelsCreator({
   saasId,
   campaignId,
   batchIndex,
+  userNote,
   onClose,
   onApproved,
 }: {
@@ -85,6 +88,10 @@ export default function ReelsCreator({
   // la misma sesión terminaran con captions muy parecidos o iguales. Opcional para no
   // romper ningún caller existente que aún no lo pase.
   batchIndex?: number;
+  // Nota opcional del cliente ("¿qué estás haciendo en esta foto?") — prioridad
+  // máxima en ContentValueAgent sobre la inferencia visual. Opcional, mismo criterio
+  // que batchIndex: no rompe ningún caller que aún no lo pase.
+  userNote?: string;
   onClose?: () => void;
   // Si se pasa, "Aprobar y programar" NO guarda el post aquí — solo entrega el vídeo y el
   // caption sugerido al padre (usado por upload-to-post.tsx / campaign-photo-batch.tsx para
@@ -145,6 +152,7 @@ export default function ReelsCreator({
           imageKey,
           saasId,
           typeof batchIndex === "number" ? { batchIndex, scheduleIndex: batchIndex } : undefined,
+          userNote,
         ),
       ]);
       setSuggestedPost(suggestedPostResult);

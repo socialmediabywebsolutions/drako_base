@@ -118,6 +118,7 @@ async function generateReelForReview(
   file: File,
   saasId: string,
   batchIndex: number,
+  userNote?: string,
 ): Promise<{ videoBlobUrl: string; videoUrl: string; thumbnailUrl: string; body: string; hashtags: string[]; scheduledAt: string; degraded: boolean }> {
   const { url: imageUrl, key: imageKey } = await uploadFile(file);
 
@@ -134,7 +135,7 @@ async function generateReelForReview(
   const engine = new ReelsEngine(new CanvasRenderer());
   const [blob, suggestedPost] = await Promise.all([
     engine.generate(genData.config),
-    fetchCaption(imageUrl, imageKey, saasId, { batchIndex, scheduleIndex: batchIndex }),
+    fetchCaption(imageUrl, imageKey, saasId, { batchIndex, scheduleIndex: batchIndex }, userNote),
   ]);
 
   const videoBlobUrl = URL.createObjectURL(blob);
@@ -169,6 +170,7 @@ async function generateVideoReelForReview(
   file: File,
   saasId: string,
   batchIndex: number,
+  userNote?: string,
 ): Promise<{ videoBlobUrl: string; videoUrl: string; thumbnailUrl: string; body: string; hashtags: string[]; scheduledAt: string; degraded: boolean }> {
   const [{ url: videoUrl }, frameBlob] = await Promise.all([
     uploadFile(file),
@@ -180,7 +182,7 @@ async function generateVideoReelForReview(
 
   // fetchCaption nunca rechaza (ver reels-creator.tsx) — un fallo aquí nunca debe
   // tumbar la publicación del vídeo, solo degrada a un caption genérico.
-  const suggestedPost = await fetchCaption(frameUrl, frameKey, saasId, { batchIndex, scheduleIndex: batchIndex });
+  const suggestedPost = await fetchCaption(frameUrl, frameKey, saasId, { batchIndex, scheduleIndex: batchIndex }, userNote);
 
   return {
     videoBlobUrl: URL.createObjectURL(file),
@@ -571,6 +573,10 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [reelItems, setReelItems] = useState<ReelBatchItem[]>([]);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  // Nota opcional del cliente, capturada ANTES de subir — mismo criterio que
+  // UploadToPost: el flujo de subida es automático (sin botón "Generar" que pausar
+  // por ítem), así que se pide una vez por tanda, no por foto/vídeo.
+  const [batchUserNote, setBatchUserNote] = useState("");
 
   const readyCount = reelItems.filter((i) => i.step === "ready").length;
   const allSaved = reelItems.length > 0 && reelItems.every((i) => i.step === "saved");
@@ -709,8 +715,8 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
       try {
         const result =
           item.sourceType === "video"
-            ? await generateVideoReelForReview(item.file, saasId, i)
-            : await generateReelForReview(item.file, saasId, i);
+            ? await generateVideoReelForReview(item.file, saasId, i, batchUserNote)
+            : await generateReelForReview(item.file, saasId, i, batchUserNote);
         updateReelItem(item.id, {
           step: "ready",
           videoBlobUrl: result.videoBlobUrl,
@@ -791,7 +797,7 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
   }
 
   if (phase === "creating" && imageUrl && imageKey) {
-    return <ReelsCreator imageUrl={imageUrl} imageKey={imageKey} saasId={saasId} onClose={reset} />;
+    return <ReelsCreator imageUrl={imageUrl} imageKey={imageKey} saasId={saasId} userNote={batchUserNote} onClose={reset} />;
   }
 
   if (phase === "batch-review") {
@@ -906,6 +912,22 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
           {error}
         </div>
       )}
+
+      <div className="space-y-1.5">
+        <label htmlFor="reel-batch-user-note" className="text-xs font-semibold text-white/50">
+          ¿Qué estás haciendo en estas fotos? (opcional)
+        </label>
+        <textarea
+          id="reel-batch-user-note"
+          value={batchUserNote}
+          onChange={(e) => setBatchUserNote(e.target.value)}
+          maxLength={200}
+          rows={2}
+          placeholder="Ej: sentadilla búlgara con mancuerna de 15kg"
+          className="w-full resize-none rounded-xl border border-white/10 bg-white/3 px-3 py-2 text-sm text-white/80 placeholder:text-white/20 outline-none transition focus:border-violet-400/40"
+        />
+        <p className="text-right text-[11px] text-white/25">{batchUserNote.length}/200</p>
+      </div>
 
       <div
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
