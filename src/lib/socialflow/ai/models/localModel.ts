@@ -12,6 +12,10 @@ export type LocalModelRequest = {
   // seed/base (ver mergeAiStructuredOutput más abajo). Vacío por defecto: no cambia el
   // comportamiento de ningún caller existente que no lo pase explícitamente.
   protectedKeys?: string[];
+  // Opcional — sobreescribe el max_tokens por defecto (4096) para esta llamada.
+  // Ausente en cualquier caller existente: cero cambio de comportamiento para ellos.
+  // Ver CarouselComposerAgent.ts (CAROUSEL_MAX_TOKENS) — el único caller que lo usa hoy.
+  maxTokens?: number;
 };
 
 export type LocalModelResponse<T> = {
@@ -143,7 +147,7 @@ export class WorkersAiLocalModel implements LocalModelClient {
             content: `${req.prompt}\n\nRespond with JSON matching this shape exactly:\n${JSON.stringify(base)}`,
           },
         ],
-        max_tokens: 4096,
+        max_tokens: req.maxTokens ?? 4096,
       })) as { response?: unknown };
 
       const raw = response?.response;

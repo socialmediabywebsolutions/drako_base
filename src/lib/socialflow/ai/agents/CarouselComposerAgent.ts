@@ -78,6 +78,15 @@ export function clampCaption(text: string): string {
   return trimmed.length <= CAROUSEL_CAPTION_MAX_LENGTH ? trimmed : trimmed.slice(0, CAROUSEL_CAPTION_MAX_LENGTH).trim();
 }
 
+// El default de defaultLocalModel (4096, ver localModel.ts) quedó justo tras el
+// Cambio 2 (caption de hasta CAROUSEL_CAPTION_MAX_LENGTH chars + secciones de Cerebro
+// en el prompt) — un carrusel de hasta 10 slides con caption largo puede acercarse a
+// ese techo y cortar la respuesta de Mistral a mitad de un string (ver auditoría
+// "slides cortados" 2026-08-07: el bug del cierre_cta a 43/100 chars no lo explicaba
+// clampSlideText, la única causa que sobrevivió fue esta). Solo este agente lo eleva —
+// el resto de agentes sigue en 4096 sin cambios.
+const CAROUSEL_MAX_TOKENS = 8192;
+
 export type CarouselComposition = {
   id: string;
   openerCategory: OpenerCategory;  // una sola categoría para todo el carrusel
@@ -99,15 +108,41 @@ function roleForIndex(index: number, total: number): CarouselSlideRole {
   return "desarrollo";
 }
 
-// Recorte por palabra completa (sin "...", a diferencia de truncateCaption en
-// publishing.ts) — este texto se dibuja sobre una foto, no continúa en ningún lado,
-// así que un "..." colgando se vería fuera de lugar en la tarjeta.
+const SENTENCE_END = /[.!?]/;
+// Si el último signo de puntuación dentro del límite retiene menos de este % del
+// presupuesto de caracteres, se descarta ese corte (perdería demasiado contenido —
+// ej. una frase corta seguida de una frase larga cortada) y se usa el fallback de
+// palabra completa + "..." en su lugar. Ver auditoría "slides cortados" 2026-08-07.
+const MIN_PUNCTUATION_RETENTION_RATIO = 0.6;
+
+// Corta en el último signo de puntuación completo (. ! ?) dentro del límite, para no
+// dejar la frase a mitad de pensamiento (bug real: el corte anterior, por palabra
+// suelta y sin "...", producía slides como "...para el" o "...en los"). Si no hay
+// puntuación utilizable (retendría menos de MIN_PUNCTUATION_RETENTION_RATIO del
+// presupuesto), cae al recorte por palabra completa + "..." — a diferencia de
+// truncateCaption en publishing.ts, este texto se dibuja sobre una foto, así que el
+// "..." solo aparece cuando es la única opción razonable.
 export function clampSlideText(text: string, role: CarouselSlideRole): string {
   const limit = CAROUSEL_SLIDE_TEXT_LIMITS[role];
   const trimmed = text.trim();
   if (trimmed.length <= limit) return trimmed;
-  const cut = trimmed.lastIndexOf(" ", limit - 1);
-  return (cut > 0 ? trimmed.slice(0, cut) : trimmed.slice(0, limit)).trim();
+
+  const window = trimmed.slice(0, limit);
+  let lastPunct = -1;
+  for (let i = window.length - 1; i >= 0; i--) {
+    if (SENTENCE_END.test(window[i])) {
+      lastPunct = i;
+      break;
+    }
+  }
+  if (lastPunct >= 0 && lastPunct + 1 >= limit * MIN_PUNCTUATION_RETENTION_RATIO) {
+    return window.slice(0, lastPunct + 1).trim();
+  }
+
+  const ellipsisBudget = limit - 3;
+  const cut = trimmed.lastIndexOf(" ", ellipsisBudget - 1);
+  const base = cut > 0 ? trimmed.slice(0, cut) : trimmed.slice(0, Math.max(0, ellipsisBudget));
+  return `${base.trim()}...`;
 }
 
 function fallbackSlideText(
@@ -383,7 +418,10 @@ ${keywordPool.length ? `- Integra de forma natural estas keywords si encajan: ${
 
 Responde SOLO con el JSON solicitado, con exactamente ${total} slides en el mismo orden en que se listaron arriba, y el campo "caption" descrito arriba.`;
 
-    const { data, isFallback } = await defaultLocalModel.generateStructured<CarouselComposition>({ prompt }, () => base);
+    const { data, isFallback } = await defaultLocalModel.generateStructured<CarouselComposition>(
+      { prompt, maxTokens: CAROUSEL_MAX_TOKENS },
+      () => base,
+    );
     // Mejor fallar con un 503 explícito que devolver contenido de plantilla que el
     // cliente podría aprobar sin darse cuenta (ver auditoría: openers con placeholders,
     // specificContext crudo, "Un punto clave sobre X" — todos síntomas de este mismo
