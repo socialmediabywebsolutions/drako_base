@@ -51,6 +51,23 @@ const TOPIC_OPTIONS_BY_PACK: Record<CarouselNichePackKey, string[]> = {
   food: ["Receta", "Ingrediente estrella", "Técnica culinaria", "Historia del plato", "Maridaje"],
 };
 
+// Shape de ViralScoreAgent.ts (ViralScore) duplicado aquí como tipo local — mismo
+// criterio que publish-carrusel.tsx (su hermano), que también define su propia copia
+// acotada en vez de importar los tipos de la ruta API.
+type ViralScoreState = {
+  score: number;
+  label: "Bajo" | "Medio" | "Alto" | "Viral";
+  explanation: string;
+  improvements: string[];
+};
+
+const VIRAL_SCORE_STYLES: Record<ViralScoreState["label"], string> = {
+  Bajo: "border-rose-500/25 bg-rose-500/8 text-rose-300",
+  Medio: "border-amber-500/25 bg-amber-500/8 text-amber-300",
+  Alto: "border-emerald-500/25 bg-emerald-500/8 text-emerald-300",
+  Viral: "border-purple-500/25 bg-purple-500/8 text-purple-300",
+};
+
 function Spinner() {
   return (
     <svg className="h-5 w-5 animate-spin text-violet-400" viewBox="0 0 24 24" fill="none">
@@ -81,6 +98,7 @@ type GenerateAiCarouselResponse = {
     hashtags: string[];
     scheduledAt: string;
     slides: { order: number; text: string; role: CarouselSlideRole }[];
+    viralScore: ViralScoreState | null;
   };
   code?: string;
   message?: string;
@@ -98,6 +116,7 @@ export default function AiCarouselCreator({ saasId, maxSlides }: { saasId: strin
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [scheduledAt, setScheduledAt] = useState<string>("");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [viralScore, setViralScore] = useState<ViralScoreState | null>(null);
 
   // Niche del cliente para elegir qué chips de tema mostrar — mismo endpoint que ya usa
   // el resto del panel de perfil. Fallo silencioso: sin niche, getNichoPackKey cae a su
@@ -147,6 +166,7 @@ export default function AiCarouselCreator({ saasId, maxSlides }: { saasId: strin
       const resolvedHandle = data.channelHandle ?? null;
       setHashtags(post.hashtags);
       setScheduledAt(post.scheduledAt);
+      setViralScore(post.viralScore);
       setStyle(resolvedStyle);
       setStyleLabel(data.styleLabel ?? "");
       setChannelHandle(resolvedHandle);
@@ -401,6 +421,13 @@ export default function AiCarouselCreator({ saasId, maxSlides }: { saasId: strin
           </div>
         ))}
       </div>
+
+      {viralScore && (
+        <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${VIRAL_SCORE_STYLES[viralScore.label]}`}>
+          Score de viralidad: {viralScore.score}/10 ({viralScore.label})
+          {viralScore.improvements[0] ? ` — ${viralScore.improvements[0]}` : ""}
+        </div>
+      )}
 
       {saveError && <p className="text-xs text-rose-300">{saveError}</p>}
 

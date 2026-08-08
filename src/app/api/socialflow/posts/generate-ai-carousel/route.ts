@@ -11,6 +11,8 @@ import { pickOpenerCategory, isGraphicTextContent } from "@/lib/socialflow/ai/op
 import { getStyleForCarousel, getNichoPackKey, CAROUSEL_STYLE_PACKS } from "@/lib/socialflow/carousel/CarouselStylePacks";
 import type { BrandProfile, KeywordEngineOutput } from "@/lib/socialflow/ai/types";
 import { isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
+import { calculateViralScore, type ViralScore } from "@/lib/socialflow/intelligence/ViralScoreAgent";
+import { env } from "@/lib/cf";
 
 // Hermano de posts/generate-from-image/route.ts para el modo "Crear con IA" (Fase 7,
 // carrusel sin fotos) — compone el texto de cada slide y resuelve el estilo visual, pero
@@ -231,6 +233,29 @@ export async function POST(request: Request) {
       saasId: body.saasId,
     });
 
+    // Mismo patrón defensivo que generate-from-image/route.ts (rama carrusel):
+    // calculateViralScore ya degrada internamente a un score neutro en cualquier fallo,
+    // este try/catch es defensa adicional para que la generación nunca dependa de que
+    // la puntuación exista.
+    let viralScore: ViralScore | null = null;
+    const dracoEnvForCarouselScore = env();
+    if (dracoEnvForCarouselScore) {
+      try {
+        viralScore = await calculateViralScore({
+          caption: composition.caption,
+          hashtags: composition.hashtags,
+          format: "CARRUSEL",
+          niche: profile.niche,
+          tenantId: session.tenantId,
+          saasId: body.saasId,
+          env: dracoEnvForCarouselScore,
+        });
+      } catch (err) {
+        console.error("[generate-ai-carousel] calculateViralScore failed", err instanceof Error ? err.message : String(err));
+        viralScore = null;
+      }
+    }
+
     const scheduledAt = await computeScheduledSlot({
       tenantId: session.tenantId,
       saasId: body.saasId,
@@ -271,6 +296,7 @@ export async function POST(request: Request) {
         contentType: "CAROUSEL",
         scheduledAt,
         saasId: body.saasId,
+        viralScore,
         // Sin imageUrl — no hay foto origen (modo "Crear con IA"). El cliente renderiza
         // cada slide con StaticSlideRenderer usando `style` (fondo generado) y sube el
         // PNG resultante a R2, mismo patrón que ya usa publish-carrusel.tsx para fotos.

@@ -5,6 +5,7 @@ import { OPENERS_BY_CATEGORY, type OpenerCategory } from "../openers/pickOpenerC
 import { resolveObjectiveCta } from "../utils/ctaUtils";
 import { getNicheIntelligence, getStyleHistory } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
 import { extractEngagementPatterns } from "@/lib/socialflow/intelligence/CrossTenantIntelligenceAgent";
+import { extractVoiceSection } from "../utils/voiceUtils";
 import { env } from "@/lib/cf";
 
 // Shape of StyleLearningAgent's result, as stored (JSON.stringify'd) in each
@@ -392,6 +393,13 @@ export class CarouselComposerAgent {
     const kbExtract = kbIndex >= 0 ? profile.longDescription.slice(kbIndex + kbMarker.length).trim().slice(0, 600) : "";
     const kbSection = kbExtract ? `\nCONOCIMIENTO DEL CLIENTE:\n${kbExtract}\n` : "";
 
+    // Extraída explícitamente en vez de depender de que quepa dentro del truncado de
+    // 600 caracteres de kbExtract — la sección de estilo (auto_learned_style) va primero
+    // en el bloque de KB y por sí sola puede ocupar los 600 caracteres enteros, dejando
+    // la voz real fuera casi siempre. Mismo patrón que OptimizationAgent/ReelsAgent.
+    const voiceSection = extractVoiceSection(profile.longDescription);
+    const voiceSectionBlock = voiceSection ? `\nVOZ REAL DEL CLIENTE:\n${voiceSection}\n` : "";
+
     const keywordPool = Array.from(new Set([...(profile.priorityKeywords ?? []), ...(profile.baseKeywords ?? [])])).filter(Boolean).slice(0, 8);
     const keywordsSection = keywordPool.length ? `\nKEYWORDS A INCLUIR NATURALMENTE EN EL CAPTION:\n${keywordPool.join(", ")}\n` : "";
 
@@ -410,7 +418,7 @@ ${themeInstruction}${isEmpresa
   ? `⚠️ VOZ — REGLA IRROMPIBLE: Escribe SIEMPRE en tercera persona hablando de "${profile.brandIdentity}" como marca/entidad. NUNCA uses "yo", "mi", "me" ni "mis".`
   : `⚠️ VOZ — REGLA IRROMPIBLE: Escribe SIEMPRE en primera persona singular (yo, mi, me, mis). Nunca hables de "${profile.brandIdentity}" en tercera persona.`}
 ${profile.voiceInstruction ? `${profile.voiceInstruction}\n` : ""}
-${audienceSection}${kbSection}${keywordsSection}${nicheIntelSection}${styleSection}
+${audienceSection}${kbSection}${voiceSectionBlock}${keywordsSection}${nicheIntelSection}${styleSection}
 Categoría del carrusel: "${openerCategory}" — todo el carrusel debe sonar coherente con este ángulo (ej. si es "receta", las ${total} tarjetas narran una receta paso a paso; si es "tecnica", una técnica de ejecución).
 
 ${contentAnchorInstruction}
