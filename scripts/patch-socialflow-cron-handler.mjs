@@ -8,9 +8,12 @@
  *   - once a day (0 3 * * *): /api/cron/social/style-learning (StyleLearningAgent)
  *   - once a week, Mondays (0 3 * * 1): /api/cron/social/niche-intelligence
  *     (NicheIntelligenceCronAgent — refreshes socialcors_niche_intelligence), then
- *     /api/cron/social/weekly-briefing (WeeklyBriefingAgent — generates + sends
- *     the per-tenant weekly briefing, run after niche intelligence so it can use
- *     that week's freshly-refreshed data)
+ *     /api/cron/social/cross-tenant-intelligence (CrossTenantIntelligenceAgent —
+ *     merges real, anonymized cross-tenant engagement patterns into that same row's
+ *     analysis_json; must run after niche-intelligence or its merge lands on a row
+ *     niche-intelligence is about to overwrite), then /api/cron/social/weekly-briefing
+ *     (WeeklyBriefingAgent — generates + sends the per-tenant weekly briefing, run
+ *     last so it can use that week's freshly-refreshed data)
  *
  * The "standalone" artifact mode used for socialflows is a full runtime COPY of
  * the real OpenNext worker (scopeMode: "standalone-runtime-copy"), NOT a thin
@@ -80,6 +83,9 @@ const scheduledHandler = `    // __socialflowCronHandlerPatched
         if (event.cron === "0 3 * * 1") {
             await fetch(appUrl + "/api/cron/social/niche-intelligence", authHeaders).catch(function(err) {
                 console.error("[Cron] scheduled niche-intelligence failed:", err.message);
+            });
+            await fetch(appUrl + "/api/cron/social/cross-tenant-intelligence", authHeaders).catch(function(err) {
+                console.error("[Cron] scheduled cross-tenant-intelligence failed:", err.message);
             });
             await fetch(appUrl + "/api/cron/social/weekly-briefing", authHeaders).catch(function(err) {
                 console.error("[Cron] scheduled weekly-briefing failed:", err.message);

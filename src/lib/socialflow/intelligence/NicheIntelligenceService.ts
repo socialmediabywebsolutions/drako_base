@@ -68,7 +68,7 @@ function safeParseArray<T>(json: string | null | undefined): T[] {
   }
 }
 
-function safeParseObject(json: string | null | undefined): Record<string, unknown> | null {
+export function safeParseObject(json: string | null | undefined): Record<string, unknown> | null {
   if (!json) return null;
   try {
     const parsed = JSON.parse(json);
@@ -154,7 +154,10 @@ Responde SOLO con el slug exacto de la lista, sin explicación.`;
 // llamar a Mistral (nivel 3) en cada request — válida solo mientras
 // normalizedNicheSourceText siga siendo exactamente profile.niche (auto-invalidación
 // si el cliente edita su nicho, sin enganchar el flujo de update del perfil).
-async function resolveNicheSlug(
+// Exported for CrossTenantIntelligenceAgent, which needs to resolve each tenant's
+// free-text niche to the same slug space as socialcors_niche_intelligence before it
+// can group tenants by niche — same cache semantics as the getNicheIntelligence path.
+export async function resolveNicheSlug(
   rawNiche: string,
   db: NonNullable<Env["SOCIAL_DB"]>,
   tenantId?: string,

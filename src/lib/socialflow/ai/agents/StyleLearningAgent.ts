@@ -4,6 +4,8 @@ import { upsertKnowledgeDocByType } from "@/lib/socialflow/knowledge/repository"
 import { saveStyleSnapshot } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
 import { env } from "@/lib/cf";
 import type { SaasSocialPost } from "@/lib/social-core/types";
+import { extractHashtags, classifyHook } from "./contentHeuristics";
+import { EngagementLearningAgent, type EngagementPatterns, type PostWithEngagement } from "./EngagementLearningAgent";
 
 const MAX_POSTS_ANALYZED = 30;
 
@@ -26,28 +28,7 @@ export type StyleLearningResult = {
   recurringTopics: string[];
   bestPerformingHours: number[];
   summaryText: string;
-};
-
-function extractHashtags(post: SaasSocialPost): string[] {
-  const fromMetadata = Array.isArray(post.metadata?.hashtags)
-    ? (post.metadata!.hashtags as unknown[]).filter((h): h is string => typeof h === "string")
-    : [];
-  const fromBody = post.body.match(/#[\p{L}0-9_]+/gu) ?? [];
-  return Array.from(new Set([...fromMetadata, ...fromBody].map((h) => h.toLowerCase())));
-}
-
-// Heuristic hook classifier — mirrors the regex-based classifiers already used
-// elsewhere in this codebase (e.g. pickOpenerCategory in generate-from-image).
-function classifyHook(firstLine: string): string {
-  const line = firstLine.trim();
-  if (!line) return "sin hook";
-  if (/^(\d+)\s/.test(line)) return "lista numerada";
-  if (/\?\s*$/.test(line)) return "pregunta directa";
-  if (/^(nadie|nunca|lo que nadie|nadie te dice)/i.test(line)) return "revelación / secreto";
-  if (/^(antes de|si (estás|quieres|trabajas|eres))/i.test(line)) return "condicional / advertencia";
-  if (/^(te comparto|hoy|esta semana|esta es)/i.test(line)) return "anuncio directo";
-  return "afirmación directa";
-}
+} & EngagementPatterns;
 
 function extractRecurringTopics(posts: SaasSocialPost[]): string[] {
   const freq = new Map<string, number>();
@@ -82,7 +63,7 @@ export class StyleLearningAgent {
 
     if (published.length === 0) return null;
 
-    const withEngagement = await Promise.all(
+    const withEngagement: PostWithEngagement[] = await Promise.all(
       published.map(async (post) => {
         const metrics = await listSaasSocialMetricsForPost(ctx, post.id).catch(() => []);
         const latest = metrics[0] ?? null;
@@ -91,6 +72,13 @@ export class StyleLearningAgent {
       }),
     );
     const hasAnyMetrics = withEngagement.some((w) => w.hasMetrics);
+
+    // Deterministic, metrics-driven — complements topHookPatterns (frequency of use)
+    // with which hook/format/caption-length actually correlates with engagement.
+    // Folded into the same snapshot below rather than a separate
+    // socialcors_style_history row, so detectContentFatigue's "last 3 rows are all
+    // StyleLearningAgent snapshots" assumption stays true.
+    const engagementPatterns = new EngagementLearningAgent().analyze(withEngagement);
 
     const avgCaptionLength = Math.round(
       published.reduce((sum, post) => sum + post.body.length, 0) / published.length,
@@ -153,6 +141,12 @@ export class StyleLearningAgent {
       bestPerformingHours.length && hasAnyMetrics
         ? `Horas UTC con mejor rendimiento histórico: ${bestPerformingHours.join(", ")}.`
         : "",
+      engagementPatterns.hookPerformance.length
+        ? `Tipo de hook con mejor engagement medio real: "${engagementPatterns.hookPerformance[0].hook}" (${engagementPatterns.hookPerformance[0].avgEngagement}).`
+        : "",
+      engagementPatterns.formatPerformance.length
+        ? `Formato con mejor engagement medio real: ${engagementPatterns.formatPerformance[0].format} (${engagementPatterns.formatPerformance[0].avgEngagement}).`
+        : "",
     ].filter(Boolean).join(" ");
 
     const prompt = `Resume en un párrafo, en español, el estilo de escritura real de este creador a partir de datos de sus propios posts publicados. No inventes cifras nuevas ni temas que no aparezcan aquí — reescribe de forma natural exactamente esta información:\n\n${baseSummary}`;
@@ -180,6 +174,7 @@ export class StyleLearningAgent {
       recurringTopics,
       bestPerformingHours,
       summaryText,
+      ...engagementPatterns,
     };
 
     // Additive: the KB doc above keeps overwriting (compatibility with existing
