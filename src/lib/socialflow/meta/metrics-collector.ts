@@ -6,7 +6,20 @@ import {
   fetchInstagramRecentMedia,
   fetchInstagramMediaInsights,
   resolveMetaApiBase,
+  MetaIntegrationError,
 } from "@/lib/socialflow/meta/core";
+
+// So Cloudflare Logs show exactly which endpoint failed for which account type —
+// needed to confirm (or rule out) which Graph API calls actually reject MEDIA_CREATOR
+// accounts, since that can't be verified from this sandbox (no egress to Graph API).
+function logMetaMetricsError(endpoint: string, accountId: string, accountType: string | null, error: unknown, extra?: string) {
+  const suffix = extra ? ` (${extra})` : "";
+  if (error instanceof MetaIntegrationError) {
+    console.error(`[MetricsCron] endpoint=${endpoint} account=${accountId} accountType=${accountType ?? "unknown"}${suffix} code=${error.code} message=${error.message} details=${JSON.stringify(error.details)}`);
+  } else {
+    console.error(`[MetricsCron] endpoint=${endpoint} account=${accountId} accountType=${accountType ?? "unknown"}${suffix} error=${error instanceof Error ? error.message : String(error)}`);
+  }
+}
 
 type DeferredPostRow = {
   id: string;
@@ -161,6 +174,7 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
   let mediaProcessed = 0;
 
   for (const account of accounts) {
+    let accountType: string | null = null;
     try {
       const authMeta =
         account.auth_meta ? (JSON.parse(account.auth_meta) as Record<string, unknown>) : null;
@@ -170,6 +184,9 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
         typeof authMeta?.igUserId === "string" ? authMeta.igUserId : null;
       const authType =
         typeof authMeta?.authType === "string" ? authMeta.authType : null;
+      accountType =
+        typeof authMeta?.accountType === "string" ? authMeta.accountType : null;
+      const isCreator = accountType === "MEDIA_CREATOR";
 
       if (!encryptedToken || !igUserId) {
         console.warn(`[MetricsCron] Account ${account.id}: missing token or igUserId`);
@@ -185,33 +202,55 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
       }
 
       const apiBase = resolveMetaApiBase(authType);
-      const insights = await fetchInstagramAccountInsights(pageToken, igUserId, apiBase);
       const ctx = await resolveSocialContext({
         tenantId: account.tenant_id,
         saasId: account.saas_id,
       });
 
-      await upsertSaasSocialMetrics(ctx, {
-        postId: `account:${account.id}`,
-        provider: "INSTAGRAM",
-        impressions: insights.impressions,
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        clicks: 0,
-        leadsGenerated: 0,
-        capturedAt: insights.capturedAt,
-        metadata: {
-          type: "account",
-          accountId: account.id,
-          igUserId,
-          followersCount: insights.followersCount,
-          reach: insights.reach,
-        },
-      });
+      let insights;
+      try {
+        insights = await fetchInstagramAccountInsights(pageToken, igUserId, apiBase, accountType);
+      } catch (accountInsightsError) {
+        logMetaMetricsError("account_insights", account.id, accountType, accountInsightsError);
+        throw accountInsightsError;
+      }
+
+      // For Business/legacy accounts, impressions/reach come straight from account
+      // insights and are written immediately, as before. For MEDIA_CREATOR, impressions
+      // and reach are 0 here by design (fetchInstagramAccountInsights skipped that call)
+      // — the account-level row is written further down instead, once the per-media loop
+      // has summed real numbers from each post's own insights.
+      if (!isCreator) {
+        await upsertSaasSocialMetrics(ctx, {
+          postId: `account:${account.id}`,
+          provider: "INSTAGRAM",
+          impressions: insights.impressions,
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          clicks: 0,
+          leadsGenerated: 0,
+          capturedAt: insights.capturedAt,
+          metadata: {
+            type: "account",
+            accountId: account.id,
+            igUserId,
+            followersCount: insights.followersCount,
+            reach: insights.reach,
+            reachSource: "account_insights",
+          },
+        });
+      }
 
       // Per-media insights — only for posts SocialFlow published (have externalPostId match)
-      const media = await fetchInstagramRecentMedia(pageToken, igUserId, apiBase).catch(() => []);
+      const media = await fetchInstagramRecentMedia(pageToken, igUserId, apiBase).catch((recentMediaError) => {
+        logMetaMetricsError("recent_media", account.id, accountType, recentMediaError);
+        return [];
+      });
+
+      let creatorReachSum = 0;
+      let creatorImpressionsSum = 0;
+
       for (const item of media.slice(0, 10)) {
         try {
           const { results: matchingPosts } = await socialDb
@@ -234,6 +273,11 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
                   saasId: matchingPost.saas_id,
                 })
               : ctx;
+
+          if (isCreator) {
+            creatorReachSum += mediaInsights.reach;
+            creatorImpressionsSum += mediaInsights.impressions;
+          }
 
           await upsertSaasSocialMetrics(mediaCtx, {
             postId: matchingPost.id,
@@ -259,13 +303,35 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
 
           mediaProcessed++;
         } catch (mediaError) {
-          console.warn(`[MetricsCron] Media ${item.id} insights error:`, mediaError);
+          logMetaMetricsError("media_insights", account.id, accountType, mediaError, item.id);
         }
+      }
+
+      if (isCreator) {
+        await upsertSaasSocialMetrics(ctx, {
+          postId: `account:${account.id}`,
+          provider: "INSTAGRAM",
+          impressions: creatorImpressionsSum,
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          clicks: 0,
+          leadsGenerated: 0,
+          capturedAt: new Date().toISOString(),
+          metadata: {
+            type: "account",
+            accountId: account.id,
+            igUserId,
+            followersCount: insights.followersCount,
+            reach: creatorReachSum,
+            reachSource: "media_insights_sum",
+          },
+        });
       }
 
       processed++;
     } catch (error) {
-      console.error(`[MetricsCron] Account ${account.id} error:`, error);
+      logMetaMetricsError("account_processing", account.id, accountType, error);
       errors++;
     }
   }

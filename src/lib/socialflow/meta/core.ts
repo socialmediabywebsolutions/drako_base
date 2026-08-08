@@ -568,10 +568,20 @@ function sumInsightMetric(data: unknown[], metricName: string): number {
   }, 0);
 }
 
+// MEDIA_CREATOR accounts skip /{ig-user-id}/insights entirely — that account-level
+// aggregate endpoint has historically been unreliable/restricted for Creator accounts
+// (unverified against a live Creator account from this sandbox, but the best-documented
+// hypothesis; see metrics-collector.ts's per-call error logging for the endpoint that
+// actually fails once a real Creator account hits this). followers_count is a basic
+// profile field valid for any professional account type, so it's kept for everyone.
+// impressions/reach for Creator come back as 0 here by design — the caller
+// (processInstagramMetrics) fills them in from the per-media insights it already
+// collects in its own loop, not from a second insights call this function can't make.
 export async function fetchInstagramAccountInsights(
   pageToken: string,
   igUserId: string,
   apiBase: string,
+  accountType: string | null = null,
 ): Promise<InstagramAccountInsights> {
   const normalizedToken = pageToken.trim();
   const normalizedId = igUserId.trim();
@@ -581,19 +591,22 @@ export async function fetchInstagramAccountInsights(
 
   const since = Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000);
   const until = Math.floor(Date.now() / 1000);
+  const isCreator = accountType === "MEDIA_CREATOR";
 
   const [insightsResponse, profileResponse] = await Promise.all([
-    fetch(
-      `${apiBase}/${normalizedId}/insights?metric=impressions,reach&period=day&since=${since}&until=${until}&access_token=${normalizedToken}`,
-      { method: "GET", cache: "no-store" },
-    ),
+    isCreator
+      ? Promise.resolve(null)
+      : fetch(
+          `${apiBase}/${normalizedId}/insights?metric=impressions,reach&period=day&since=${since}&until=${until}&access_token=${normalizedToken}`,
+          { method: "GET", cache: "no-store" },
+        ),
     fetch(
       `${apiBase}/${normalizedId}?fields=followers_count&access_token=${normalizedToken}`,
       { method: "GET", cache: "no-store" },
     ),
   ]);
 
-  const insightsPayload = await parseMetaJson(insightsResponse);
+  const insightsPayload = insightsResponse ? await parseMetaJson(insightsResponse) : null;
   const profilePayload = await parseMetaJson(profileResponse);
 
   const data = Array.isArray(insightsPayload?.data) ? insightsPayload.data : [];
@@ -601,8 +614,8 @@ export async function fetchInstagramAccountInsights(
 
   return {
     followersCount,
-    impressions: sumInsightMetric(data, "impressions"),
-    reach: sumInsightMetric(data, "reach"),
+    impressions: isCreator ? 0 : sumInsightMetric(data, "impressions"),
+    reach: isCreator ? 0 : sumInsightMetric(data, "reach"),
     capturedAt: new Date().toISOString(),
   };
 }

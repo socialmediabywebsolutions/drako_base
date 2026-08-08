@@ -90,6 +90,10 @@ export type InstagramCredentials = {
   igUserId: string;
   authType: string;
   apiBase: string;
+  // "BUSINESS" | "MEDIA_CREATOR" | null — only captured for instagram_business_login
+  // accounts (see instagram/oauth.ts's fetchInstagramUser); legacy Facebook-Page
+  // accounts never fetch account_type, so this stays null for them.
+  accountType: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -589,6 +593,8 @@ export async function requireInstagramCredentials(
     typeof authMeta.igUserId === "string" ? authMeta.igUserId.trim() : "";
   const authType =
     typeof authMeta.authType === "string" ? authMeta.authType : "";
+  const accountType =
+    typeof authMeta.accountType === "string" ? authMeta.accountType : null;
 
   if (!encryptedToken) {
     throw new InstagramPublishingError(
@@ -615,7 +621,7 @@ export async function requireInstagramCredentials(
   // classic Facebook-Pages tokens use graph.facebook.com.
   const apiBase = authType === "instagram_business_login" ? IG_GRAPH_BASE : FB_GRAPH_BASE;
 
-  return { accessToken, igUserId, authType, apiBase };
+  return { accessToken, igUserId, authType, apiBase, accountType };
 }
 
 // ---------------------------------------------------------------------------
