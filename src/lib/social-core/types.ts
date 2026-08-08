@@ -266,6 +266,42 @@ export type FollowerHistoryPoint = {
   followersCount: number;
 };
 
+export type SocialInsightsWeeklyFormatPoint = {
+  weekStart: string;
+  weekLabel: string;
+  FEED: number;
+  REEL: number;
+  STORY: number;
+  CAROUSEL: number;
+};
+
+export type SocialInsightsTopPost = {
+  id: string;
+  title: string;
+  body: string;
+  imageHint: string | null;
+  contentType: SaasSocialContentType;
+  likes: number;
+  comments: number;
+  saved: number;
+  engagement: number;
+  postedAt: string | null;
+};
+
+export type SocialInsightsSnapshot = {
+  summary: {
+    reach30d: number;
+    saved30d: number;
+    plays30d: number;
+    engagementRate: number;
+    currentFollowers: number | null;
+    followerGrowthThisMonth: number | null;
+  };
+  weeklyFormatBreakdown: SocialInsightsWeeklyFormatPoint[];
+  followerHistory: FollowerHistoryPoint[];
+  topPosts: SocialInsightsTopPost[];
+};
+
 export type SocialLiveAnalyticsSummary = {
   totalEligibleLivePosts: number;
   healthyPosts: number;

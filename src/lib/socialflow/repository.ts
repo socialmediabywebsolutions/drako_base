@@ -5,7 +5,7 @@ import {
   createSocialRepositoryContextWithCoreProjection,
   type SocialRepositoryContext,
 } from "@/lib/socialflow/contracts/repository-core-context";
-import type { AnalyticsMeta, FollowerHistoryPoint, SaasSocialAccount, SaasSocialCampaign, SaasSocialChannel, SaasSocialChannelIdea, SaasSocialChannelKnowledge, SaasSocialChannelSignals, SaasSocialMetrics, SaasSocialPost, SaasSocialProvider, SocialAnalyticsActivity, SocialAnalyticsIncident, SocialAnalyticsSnapshot, SocialAnalyticsWindow, SocialCalendarDay, SocialCalendarSnapshot, SocialCampaignPerformance, SocialConversionSnapshot, SocialLiveAnalyticsSummary, SocialPostPerformance, SocialProductSummary } from "@/lib/social-core/types";
+import type { AnalyticsMeta, FollowerHistoryPoint, SaasSocialAccount, SaasSocialCampaign, SaasSocialChannel, SaasSocialChannelIdea, SaasSocialChannelKnowledge, SaasSocialChannelSignals, SaasSocialMetrics, SaasSocialPost, SaasSocialProvider, SocialAnalyticsActivity, SocialAnalyticsIncident, SocialAnalyticsSnapshot, SocialAnalyticsWindow, SocialCalendarDay, SocialCalendarSnapshot, SocialCampaignPerformance, SocialConversionSnapshot, SocialInsightsSnapshot, SocialInsightsTopPost, SocialInsightsWeeklyFormatPoint, SocialLiveAnalyticsSummary, SocialPostPerformance, SocialProductSummary } from "@/lib/social-core/types";
 
 export type SocialContextMode = SocialRepositoryContext["mode"];
 export type SocialContext = SocialRepositoryContext;
@@ -134,6 +134,112 @@ export async function getSocialAnalyticsSnapshot(ctx: SocialContext): Promise<So
 // rows processInstagramMetrics writes every 4h (post_id = "account:<id>", never
 // overwritten). One row skipped if its metadata predates the followersCount field.
 export async function getFollowerHistory(ctx: SocialContext, sinceDays = 30): Promise<FollowerHistoryPoint[]> { const saasId = requireSaasId(ctx); const accounts = await listSaasSocialAccounts(ctx); const account = accounts.find((a) => a.provider === "INSTAGRAM" && a.status === "CONNECTED_REAL"); if (!account) return []; const sinceIso = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString(); const rows = await queryRows<{ captured_at: string; metadata: string | null }>(ctx.socialDb, `SELECT captured_at, metadata FROM saas_social_metrics WHERE tenant_id = ? AND saas_id = ? AND post_id = ? AND captured_at >= ? ORDER BY datetime(captured_at) ASC`, ctx.tenantId, saasId, `account:${account.id}`, sinceIso); return rows.flatMap((row) => { const meta = parseJson<Record<string, unknown>>(row.metadata); const followersCount = typeof meta?.followersCount === "number" ? meta.followersCount : null; return followersCount === null ? [] : [{ capturedAt: row.captured_at, followersCount }]; }); }
+
+type InsightsMetricsRow = { post_id: string; captured_at: string; likes: number; comments: number; metadata: string | null };
+type InsightsMetric = { likes: number; comments: number; reach: number; saved: number; plays: number };
+
+function formatWeekLabel(startMs: number, endMs: number): string {
+  const fmt = (ms: number) => {
+    const d = new Date(ms);
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+  };
+  return `${fmt(startMs)}–${fmt(endMs - 24 * 60 * 60 * 1000)}`;
+}
+
+// Reach/saved/plays only live inside saas_social_metrics.metadata (JSON) — never
+// exposed by DedupedMetric/getSocialAnalyticsSnapshot, which only the dashboard cards
+// need. This runs its own deduplicated query (same MAX(captured_at)+GROUP BY post_id
+// trick, safe for bare columns per SQLite's documented behavior — already relied on by
+// getSocialAnalyticsSnapshot above) over a wider 35-day window so both the 30-day
+// summary and the 4-week format breakdown can share one dataset.
+export async function getSocialInsightsSnapshot(ctx: SocialContext): Promise<SocialInsightsSnapshot> {
+  const saasId = requireSaasId(ctx);
+  const now = Date.now();
+  const thirtyDaysAgoMs = now - 30 * 24 * 60 * 60 * 1000;
+  const thirtyFiveDaysAgoIso = new Date(now - 35 * 24 * 60 * 60 * 1000).toISOString();
+
+  const [metricsRows, posts, followerHistory] = await Promise.all([
+    queryRows<InsightsMetricsRow>(
+      ctx.socialDb,
+      `SELECT post_id, MAX(captured_at) as captured_at, likes, comments, metadata
+       FROM saas_social_metrics
+       WHERE tenant_id = ? AND saas_id = ? AND captured_at >= ?
+       GROUP BY post_id ORDER BY captured_at DESC`,
+      ctx.tenantId, saasId, thirtyFiveDaysAgoIso,
+    ),
+    listSaasSocialPosts(ctx),
+    getFollowerHistory(ctx, 30),
+  ]);
+
+  // post_id = "account:<id>" snapshot rows never match a real post.id below, so they're
+  // excluded from every sum here purely by never being joined — no extra filter needed.
+  const metricByPostId = new Map<string, InsightsMetric>();
+  for (const row of metricsRows) {
+    const meta = parseJson<Record<string, unknown>>(row.metadata);
+    const reach = typeof meta?.reach === "number" ? meta.reach : 0;
+    const saved = typeof meta?.saved === "number" ? meta.saved : 0;
+    const plays = typeof meta?.plays === "number" ? meta.plays : typeof meta?.videoViews === "number" ? meta.videoViews : 0;
+    metricByPostId.set(row.post_id, { likes: row.likes, comments: row.comments, reach, saved, plays });
+  }
+
+  const publishedPosts = posts.filter((post) => (post.status === "POSTED" || post.status === "PUBLISHED") && post.postedAt);
+
+  let reach30d = 0, saved30d = 0, plays30d = 0, likes30d = 0, comments30d = 0;
+  for (const post of publishedPosts) {
+    if (new Date(post.postedAt!).getTime() < thirtyDaysAgoMs) continue;
+    const metric = metricByPostId.get(post.id);
+    if (!metric) continue;
+    reach30d += metric.reach;
+    saved30d += metric.saved;
+    likes30d += metric.likes;
+    comments30d += metric.comments;
+    if (post.contentType === "REEL") plays30d += metric.plays;
+  }
+  const engagementRate = reach30d > 0 ? Number(((likes30d + comments30d + saved30d) / reach30d).toFixed(4)) : 0;
+
+  // 4 rolling 7-day buckets ending now, bucketed by posted_at (when the post actually
+  // went live) — not by captured_at (when its metric was last snapshotted), which would
+  // wrongly dump most reach into "this week" since capture timestamps cluster near now.
+  const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+  const weeklyFormatBreakdown: SocialInsightsWeeklyFormatPoint[] = [];
+  for (let i = 3; i >= 0; i--) {
+    const weekStartMs = now - (i + 1) * WEEK_MS;
+    const weekEndMs = now - i * WEEK_MS;
+    const point: SocialInsightsWeeklyFormatPoint = { weekStart: new Date(weekStartMs).toISOString(), weekLabel: formatWeekLabel(weekStartMs, weekEndMs), FEED: 0, REEL: 0, STORY: 0, CAROUSEL: 0 };
+    for (const post of publishedPosts) {
+      const postedMs = new Date(post.postedAt!).getTime();
+      if (postedMs < weekStartMs || postedMs >= weekEndMs) continue;
+      const metric = metricByPostId.get(post.id);
+      if (!metric) continue;
+      if (post.contentType === "FEED" || post.contentType === "REEL" || post.contentType === "STORY" || post.contentType === "CAROUSEL") {
+        point[post.contentType] += metric.reach;
+      }
+    }
+    weeklyFormatBreakdown.push(point);
+  }
+
+  const topPosts: SocialInsightsTopPost[] = publishedPosts
+    .filter((post) => new Date(post.postedAt!).getTime() >= thirtyDaysAgoMs)
+    .map((post) => {
+      const metric = metricByPostId.get(post.id);
+      const likes = metric?.likes ?? 0;
+      const comments = metric?.comments ?? 0;
+      const saved = metric?.saved ?? 0;
+      return { id: post.id, title: post.title, body: post.body, imageHint: post.imageHint, contentType: post.contentType, likes, comments, saved, engagement: likes + comments + saved, postedAt: post.postedAt };
+    })
+    .sort((a, b) => b.engagement - a.engagement)
+    .slice(0, 5);
+
+  const currentFollowers = followerHistory.length > 0 ? followerHistory[followerHistory.length - 1].followersCount : null;
+  const followerGrowthThisMonth = followerHistory.length >= 2 ? currentFollowers! - followerHistory[0].followersCount : null;
+
+  return {
+    summary: { reach30d, saved30d, plays30d, engagementRate, currentFollowers, followerGrowthThisMonth },
+    weeklyFormatBreakdown,
+    followerHistory,
+    topPosts,
+  };
+}
 function buildAnalyticsActivity(posts: SaasSocialPost[]): SocialAnalyticsActivity[] { return posts.flatMap((post) => { const analytics = getAnalyticsMetaFromMetadata(post.metadata); const review = typeof post.metadata?.analyticsReview === "object" && post.metadata.analyticsReview ? (post.metadata.analyticsReview as Record<string, unknown>) : null; if (!analytics.lastFetchedAt && !analytics.lastRefreshStatus) return []; const state = analytics.lastRefreshStatus === "error" ? "error" : analytics.source === "social_db" ? "success" : "success"; return [{ postId: post.id, postTitle: post.title, provider: post.provider, lastFetchedAt: analytics.lastFetchedAt ?? post.updatedAt, state, summary: state === "error" ? "Refresh failed" : "Metrics synced", reviewed: Boolean(review?.reviewed), manualReviewAt: typeof review?.manualReviewAt === "string" ? review.manualReviewAt : null, analyticsSource: analytics.source, lastRefreshStatus: analytics.lastRefreshStatus, lastRefreshErrorMessage: analytics.lastRefreshErrorMessage ?? null, lastRefreshErrorCode: analytics.lastRefreshErrorCode ?? null, lastRefreshAt: analytics.lastFetchedAt ?? null, lastFetchedAtDisplay: analytics.lastFetchedAt ?? null, manualReviewNote: typeof review?.note === "string" ? review.note : null, recommendation: state === "error" ? "Inspect the live post and retry the analytics refresh." : "Metrics are stored in SOCIAL_DB for this post.", externalPostId: post.externalPostId }]; }).sort((a, b) => b.lastFetchedAt.localeCompare(a.lastFetchedAt)).slice(0, 8); }
 function buildAnalyticsIncidents(posts: SaasSocialPost[]): SocialAnalyticsIncident[] { return posts.flatMap((post) => { const analytics = getAnalyticsMetaFromMetadata(post.metadata); if (analytics.lastRefreshStatus !== "error") return []; const review = typeof post.metadata?.analyticsReview === "object" && post.metadata.analyticsReview ? (post.metadata.analyticsReview as Record<string, unknown>) : null; return [{ id: `${post.id}:analytics`, postId: post.id, state: "error", summary: "Analytics refresh failed", createdAt: analytics.lastFetchedAt ?? post.updatedAt, lastFetchedAt: analytics.lastFetchedAt ?? post.updatedAt, postTitle: post.title, reviewed: Boolean(review?.reviewed), manualReviewAt: typeof review?.manualReviewAt === "string" ? review.manualReviewAt : null, lastRefreshErrorMessage: analytics.lastRefreshErrorMessage ?? null, lastRefreshErrorCode: analytics.lastRefreshErrorCode ?? null, recommendation: "Retry analytics refresh after confirming the live post reference remains valid.", manualReviewNote: typeof review?.note === "string" ? review.note : null }]; }).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8); }
 function buildAnalyticsHealth(posts: SaasSocialPost[]): SocialLiveAnalyticsSummary { const eligiblePosts = posts.filter((post) => post.status === "POSTED" || post.status === "PUBLISHED"); const activity = buildAnalyticsActivity(posts); const incidents = buildAnalyticsIncidents(posts); const healthyPosts = eligiblePosts.filter((post) => getAnalyticsMetaFromMetadata(post.metadata).source === "social_db").length; const failedPosts = incidents.length; const noLiveAnalyticsYetPosts = Math.max(0, eligiblePosts.length - healthyPosts - failedPosts); const lastHealthyLiveSyncAt = eligiblePosts.map((post) => getAnalyticsMetaFromMetadata(post.metadata).lastFetchedAt).filter((value): value is string => Boolean(value)).sort((a, b) => b.localeCompare(a))[0] ?? null; const lastResolvedAt = activity.filter((item) => item.state === "resolved").map((item) => item.lastFetchedAt).sort((a, b) => b.localeCompare(a))[0] ?? null; const freshnessMinutes = lastHealthyLiveSyncAt ? (Date.now() - new Date(lastHealthyLiveSyncAt).getTime()) / 60000 : null; return { totalEligibleLivePosts: eligiblePosts.length, healthyPosts, failedPosts, noLiveAnalyticsYetPosts, lastHealthyLiveSyncAt, healthySyncFreshnessStatus: freshnessMinutes == null ? "NOT_AVAILABLE" : freshnessMinutes <= 180 ? "FRESH" : "AGING", healthySyncNeedsRefresh: freshnessMinutes != null && freshnessMinutes > 180, resolvedRecently: Boolean(lastResolvedAt), resolvedRecentlyCount: activity.filter((item) => item.state === "resolved").length, lastResolvedAt, lastWorkspaceSyncAt: activity[0]?.lastFetchedAt ?? null, status: failedPosts > 0 ? "Needs attention" : healthyPosts > 0 ? "Healthy" : "No live analytics yet", recommendation: failedPosts > 0 ? "Review failed syncs and retry live analytics refresh." : healthyPosts > 0 ? "Live analytics are reading from SOCIAL_DB." : "Publish a live post and ingest metrics into SOCIAL_DB to unlock live analytics.", recentActivity: activity, recentIncidents: incidents }; }
