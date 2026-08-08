@@ -5,6 +5,7 @@ import { OPENERS_BY_CATEGORY, type OpenerCategory } from "../openers/pickOpenerC
 import { nicheDefaultPostType } from "./ImageAnalysisAgent";
 import { resolveObjectiveCta } from "../utils/ctaUtils";
 import { getNicheIntelligence, getStyleHistory, detectContentFatigue } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
+import { extractEngagementPatterns } from "@/lib/socialflow/intelligence/CrossTenantIntelligenceAgent";
 import { env } from "@/lib/cf";
 
 // Fallback determinista (sin llamar a Mistral) cuando el binding de IA no está
@@ -83,8 +84,16 @@ export class ContentGeneratorAgent {
       : [null, []];
     const fatigueWarning = detectContentFatigue(styleHistory);
 
+    // Real, cross-tenant hashtag data (Sprint F) — read directly from
+    // analysis.engagementPatterns rather than relying on nicheIntel.hashtags having
+    // already been upgraded (NicheIntelligenceCronAgent), so this line is explicit about
+    // being real regardless of that week's hashtags_json fallback state.
+    const realHashtagValues = (extractEngagementPatterns(nicheIntel?.analysis)?.hashtagsQueFuncionanRealmente ?? [])
+      .slice(0, 8)
+      .map((h) => h.hashtag);
+
     const nicheIntelSection = nicheIntel
-      ? `\n## Tendencias actuales del nicho ${profile.niche} (últimos 7 días)\n${nicheIntel.hashtags.length ? `Hashtags en tendencia: ${nicheIntel.hashtags.join(" ")}\n` : ""}${nicheIntel.formats.length ? `Formatos que están funcionando mejor: ${nicheIntel.formats.join(", ")}\n` : ""}${nicheIntel.hooks.length ? `Hooks que están funcionando: ${nicheIntel.hooks.join(" | ")}\n` : ""}`
+      ? `\n## Tendencias actuales del nicho ${profile.niche} (últimos 7 días)\n${nicheIntel.hashtags.length ? `Hashtags en tendencia: ${nicheIntel.hashtags.join(" ")}\n` : ""}${nicheIntel.formats.length ? `Formatos que están funcionando mejor: ${nicheIntel.formats.join(", ")}\n` : ""}${nicheIntel.hooks.length ? `Hooks que están funcionando: ${nicheIntel.hooks.join(" | ")}\n` : ""}${realHashtagValues.length ? `Hashtags con tracción real en tu nicho esta semana: ${realHashtagValues.join(" ")} — prioriza estos.\n` : ""}`
       : "";
     const fatigueSection = fatigueWarning
       ? `\n⚠️ ATENCIÓN — FATIGA DE CONTENIDO DETECTADA: ${fatigueWarning.description}\n`
@@ -111,6 +120,9 @@ export class ContentGeneratorAgent {
     const fitnessNicheKeys = ['fitness', 'nutrici', 'bienestar', 'salud', 'entrenamiento', 'gym', 'yoga', 'pilates', 'deporte', 'fit'];
     const isFitnessNiche = fitnessNicheKeys.some(k => profile.niche.toLowerCase().includes(k));
     const hashtagPool = [
+      // Reales primero — el pool se deduplica y trunca a 15 más abajo, así que los
+      // hashtags con tracción real ganan cualquier hueco frente a los manuales del perfil.
+      ...realHashtagValues,
       ...(profile.baseHashtags ?? []),
       ...(profile.priorityHashtags ?? []),
       ...(keywordEngine.campaignHashtags ?? []),

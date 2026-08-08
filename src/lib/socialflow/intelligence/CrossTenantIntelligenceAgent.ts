@@ -21,9 +21,22 @@ export type NicheEngagementPatterns = {
   hooksQueFuncionanRealmente: Array<{ hook: string; avgEngagement: number; tenantsReporting: number }>;
   formatosGanadoresReales: Array<{ format: string; avgEngagement: number; tenantsReporting: number }>;
   horasOptimasReales: Array<{ hourUtc: number; avgEngagement: number; tenantsReporting: number }>;
+  hashtagsQueFuncionanRealmente: Array<{ hashtag: string; avgEngagement: number; tenantsReporting: number }>;
   sampleSize: number;
   computedAt: string;
 };
+
+// Shared validator for analysis_json.engagementPatterns — used by every reader of this
+// shape (ViralOpportunityAgent, NicheIntelligenceCronAgent's real-hashtags-with-fallback,
+// ContentGeneratorAgent/CarouselComposerAgent's prompt injection) so the same loose
+// runtime check (never trust a JSON blob's shape blindly) isn't duplicated per caller.
+export function extractEngagementPatterns(analysis: Record<string, unknown> | null | undefined): NicheEngagementPatterns | null {
+  const raw = analysis?.engagementPatterns;
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Partial<NicheEngagementPatterns>;
+  if (!Array.isArray(candidate.hooksQueFuncionanRealmente) || !Array.isArray(candidate.formatosGanadoresReales)) return null;
+  return candidate as NicheEngagementPatterns;
+}
 
 export type CrossTenantIntelligenceResult = {
   niche: string;
@@ -89,15 +102,24 @@ function mergeStat(
     .sort((a, b) => b.avgEngagement - a.avgEngagement);
 }
 
+// Same 20-hashtag ceiling as EngagementLearningAgent's per-tenant cap, applied again
+// here because merging N tenants' top-20 lists can still produce more than 20 distinct
+// keys — this is the cap that actually bounds analysis_json size.
+const MAX_HASHTAGS = 20;
+
 function aggregateNichePatterns(perTenantPatterns: EngagementPatterns[]): NicheEngagementPatterns {
   const hooks = mergeStat(perTenantPatterns.map((p) => p.hookPerformance.map((h) => ({ key: h.hook, avgEngagement: h.avgEngagement, uses: h.uses }))));
   const formats = mergeStat(perTenantPatterns.map((p) => p.formatPerformance.map((f) => ({ key: f.format, avgEngagement: f.avgEngagement, uses: f.uses }))));
   const hours = mergeStat(perTenantPatterns.map((p) => p.hourPerformance.map((h) => ({ key: String(h.hourUtc), avgEngagement: h.avgEngagement, uses: h.uses }))));
+  const hashtags = mergeStat(perTenantPatterns.map((p) => p.hashtagsQueFuncionan.map((h) => ({ key: h.hashtag, avgEngagement: h.avgEngagement, uses: h.postsCount }))));
 
   return {
     hooksQueFuncionanRealmente: hooks.map(({ key, avgEngagement, tenantsReporting }) => ({ hook: key, avgEngagement, tenantsReporting })),
     formatosGanadoresReales: formats.map(({ key, avgEngagement, tenantsReporting }) => ({ format: key, avgEngagement, tenantsReporting })),
     horasOptimasReales: hours.map(({ key, avgEngagement, tenantsReporting }) => ({ hourUtc: Number(key), avgEngagement, tenantsReporting })),
+    hashtagsQueFuncionanRealmente: hashtags
+      .slice(0, MAX_HASHTAGS)
+      .map(({ key, avgEngagement, tenantsReporting }) => ({ hashtag: key, avgEngagement, tenantsReporting })),
     sampleSize: perTenantPatterns.length,
     computedAt: new Date().toISOString(),
   };

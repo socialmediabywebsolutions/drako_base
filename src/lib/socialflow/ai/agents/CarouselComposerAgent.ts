@@ -4,6 +4,7 @@ import type { TrendInsights } from "./TrendAgent";
 import { OPENERS_BY_CATEGORY, type OpenerCategory } from "../openers/pickOpenerCategory";
 import { resolveObjectiveCta } from "../utils/ctaUtils";
 import { getNicheIntelligence, getStyleHistory } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
+import { extractEngagementPatterns } from "@/lib/socialflow/intelligence/CrossTenantIntelligenceAgent";
 import { env } from "@/lib/cf";
 
 // Shape of StyleLearningAgent's result, as stored (JSON.stringify'd) in each
@@ -280,7 +281,31 @@ export class CarouselComposerAgent {
       ? explicitTheme!
       : input.topic?.trim() || profile.contentPillars[0] || profile.niche;
 
+    // Cerebro Socialcors — mismo patrón que ContentGeneratorAgent (ver
+    // ContentGeneratorAgent.ts): degrada de forma elegante a "sin sección" cuando no
+    // hay binding de env o no hay tenantId/saasId (callers que aún no los pasan).
+    // Hoisted antes de hashtagPool (Sprint F) — los hashtags reales necesitan estar
+    // disponibles para dar prioridad sobre profile.baseHashtags en el pool.
+    const dracoEnv = env();
+    const [nicheIntel, styleHistory] = dracoEnv
+      ? await Promise.all([
+          getNicheIntelligence(profile.niche, dracoEnv, input.tenantId, input.saasId),
+          input.tenantId && input.saasId
+            ? getStyleHistory(input.tenantId, input.saasId, dracoEnv)
+            : Promise.resolve([]),
+        ])
+      : [null, []];
+
+    // Real, cross-tenant hashtag data (Sprint F) — read directly from
+    // analysis.engagementPatterns, ver ContentGeneratorAgent.ts para la misma lógica.
+    const realHashtagValues = (extractEngagementPatterns(nicheIntel?.analysis)?.hashtagsQueFuncionanRealmente ?? [])
+      .slice(0, 8)
+      .map((h) => h.hashtag);
+
     const hashtagPool = [
+      // Reales primero — el pool se deduplica y trunca a 15 más abajo, así que los
+      // hashtags con tracción real ganan cualquier hueco frente a los manuales del perfil.
+      ...realHashtagValues,
       ...(profile.baseHashtags ?? []),
       ...(profile.priorityHashtags ?? []),
       ...(keywordEngine.campaignHashtags ?? []),
@@ -355,19 +380,6 @@ export class CarouselComposerAgent {
       ? `Este carrusel es sobre "${explicitTheme}". TODO el contenido debe girar en torno a este tema específico. El tema debe reforzarse en CADA slide, no solo mencionarse al inicio.\n\n`
       : "";
 
-    // Cerebro Socialcors — mismo patrón que ContentGeneratorAgent (ver
-    // ContentGeneratorAgent.ts): degrada de forma elegante a "sin sección" cuando no
-    // hay binding de env o no hay tenantId/saasId (callers que aún no los pasan).
-    const dracoEnv = env();
-    const [nicheIntel, styleHistory] = dracoEnv
-      ? await Promise.all([
-          getNicheIntelligence(profile.niche, dracoEnv, input.tenantId, input.saasId),
-          input.tenantId && input.saasId
-            ? getStyleHistory(input.tenantId, input.saasId, dracoEnv)
-            : Promise.resolve([]),
-        ])
-      : [null, []];
-
     const audienceSection = `\nAUDIENCIA Y DOLOR:\n- Quién es: ${profile.audience}\n- Buyer persona: ${profile.buyerPersona}\n- Qué le duele: ${profile.painPoints.join(", ")}\n- Qué desea: ${profile.desires.join(", ")}\n`;
 
     // profile.longDescription ya trae la KB embebida por buildProfile() (ver
@@ -384,7 +396,7 @@ export class CarouselComposerAgent {
     const keywordsSection = keywordPool.length ? `\nKEYWORDS A INCLUIR NATURALMENTE EN EL CAPTION:\n${keywordPool.join(", ")}\n` : "";
 
     const nicheIntelSection = nicheIntel
-      ? `\nINTELIGENCIA DEL NICHO ESTA SEMANA:\n${nicheIntel.hooks.length ? `- Hooks que funcionan: ${nicheIntel.hooks.join(" | ")}\n` : ""}${nicheIntel.formats.length ? `- Formatos ganadores: ${nicheIntel.formats.join(", ")}\n` : ""}${nicheIntel.hashtags.length ? `- Hashtags de tendencia: ${nicheIntel.hashtags.join(" ")}\n` : ""}`
+      ? `\nINTELIGENCIA DEL NICHO ESTA SEMANA:\n${nicheIntel.hooks.length ? `- Hooks que funcionan: ${nicheIntel.hooks.join(" | ")}\n` : ""}${nicheIntel.formats.length ? `- Formatos ganadores: ${nicheIntel.formats.join(", ")}\n` : ""}${nicheIntel.hashtags.length ? `- Hashtags de tendencia: ${nicheIntel.hashtags.join(" ")}\n` : ""}${realHashtagValues.length ? `- Hashtags con tracción real en tu nicho esta semana: ${realHashtagValues.join(" ")} — prioriza estos.\n` : ""}`
       : "";
 
     const latestStyle = styleHistory[0] ? parseLatestStyleSnapshot(styleHistory[0].snapshotJson) : null;

@@ -1,5 +1,6 @@
 import { defaultLocalModel } from "../ai/models/localModel";
-import type { Env, NicheOptimalHour } from "./NicheIntelligenceService";
+import { safeParseObject, type Env, type NicheOptimalHour } from "./NicheIntelligenceService";
+import { extractEngagementPatterns } from "./CrossTenantIntelligenceAgent";
 
 export const NICHE_INTELLIGENCE_NICHES = [
   // Influencers
@@ -110,17 +111,29 @@ async function upsertNicheIntelligence(niche: string, payload: NicheAnalysisPayl
   const now = new Date();
   const nowIso = now.toISOString();
   const validUntil = new Date(now.getTime() + VALID_FOR_MS).toISOString();
+
+  const existing = await db
+    .prepare(`SELECT id, analysis_json FROM socialcors_niche_intelligence WHERE niche = ? LIMIT 1`)
+    .bind(niche)
+    .first<{ id: string; analysis_json: string }>();
+
+  // Real hashtags (Sprint F) take priority over the LLM's opinion when available. What's
+  // read here is last week's analysis_json — CrossTenantIntelligenceAgent runs AFTER this
+  // cron step in the weekly chain, so "real this week" doesn't exist yet at this point;
+  // it re-merges fresh engagementPatterns onto this same row a few minutes later, same as
+  // it's done since Sprint D. One-week lag, not a bug — every niche-intelligence-derived
+  // signal already has it.
+  const realHashtags = existing
+    ? extractEngagementPatterns(safeParseObject(existing.analysis_json))?.hashtagsQueFuncionanRealmente
+    : undefined;
+  const hashtags = realHashtags?.length ? realHashtags.map((h) => h.hashtag) : payload.hashtags;
+
   const analysisJson = JSON.stringify({ summary: payload.analysis });
-  const hashtagsJson = JSON.stringify(payload.hashtags);
+  const hashtagsJson = JSON.stringify(hashtags);
   const formatsJson = JSON.stringify(payload.formats);
   const hooksJson = JSON.stringify(payload.hooks);
   const optimalHoursJson = JSON.stringify(payload.optimalHours);
   const fatigueSignalsJson = JSON.stringify(payload.fatigueSignals);
-
-  const existing = await db
-    .prepare(`SELECT id FROM socialcors_niche_intelligence WHERE niche = ? LIMIT 1`)
-    .bind(niche)
-    .first<{ id: string }>();
 
   if (existing) {
     await db

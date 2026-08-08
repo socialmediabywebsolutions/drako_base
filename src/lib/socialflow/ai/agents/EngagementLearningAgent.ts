@@ -1,5 +1,5 @@
 import type { SaasSocialPost } from "@/lib/social-core/types";
-import { classifyHook } from "./contentHeuristics";
+import { classifyHook, extractHashtags } from "./contentHeuristics";
 
 export type PostWithEngagement = {
   post: SaasSocialPost;
@@ -13,16 +13,24 @@ export type HookEngagementStat = { hook: string; avgEngagement: number; uses: nu
 export type FormatEngagementStat = { format: string; avgEngagement: number; uses: number };
 export type CaptionLengthStat = { bucket: CaptionLengthBucket; avgEngagement: number; uses: number };
 export type HourEngagementStat = { hourUtc: number; avgEngagement: number; uses: number };
+export type HashtagEngagementStat = { hashtag: string; avgEngagement: number; postsCount: number };
 
 export type EngagementPatterns = {
   hookPerformance: HookEngagementStat[];
   formatPerformance: FormatEngagementStat[];
   captionLengthCorrelation: CaptionLengthStat[];
   hourPerformance: HourEngagementStat[];
+  hashtagsQueFuncionan: HashtagEngagementStat[];
 };
 
 const CAPTION_SHORT_MAX = 150;
 const CAPTION_MEDIUM_MAX = 400;
+// Hashtags are unbounded cardinality — unlike hook/format/hour (a handful of fixed
+// buckets each), a tenant can use dozens of distinct hashtags. Capped here (per tenant)
+// and again after the cross-tenant merge in CrossTenantIntelligenceAgent, same ceiling
+// StyleLearningAgent.topHashtags already uses (there: 10; here: 20, since this feeds a
+// cross-tenant aggregate that needs more raw candidates before its own 2-tenant filter).
+const MAX_HASHTAGS = 20;
 
 function captionLengthBucket(length: number): CaptionLengthBucket {
   if (length < CAPTION_SHORT_MAX) return "corto";
@@ -63,6 +71,30 @@ function hourKeyFor(entry: PostWithEngagement): string | null {
   return String(new Date(stamp).getUTCHours());
 }
 
+// Separate from buildStats() because a hashtag isn't one key per post — each post can
+// carry several, so a post's engagement is counted once per hashtag it has (same
+// multi-count approach StyleLearningAgent.topHashtags already uses).
+function buildHashtagStats(entries: PostWithEngagement[]): HashtagEngagementStat[] {
+  const stats = new Map<string, { totalEngagement: number; postsCount: number }>();
+  for (const entry of entries) {
+    if (!entry.hasMetrics) continue;
+    for (const hashtag of extractHashtags(entry.post)) {
+      const bucket = stats.get(hashtag) ?? { totalEngagement: 0, postsCount: 0 };
+      bucket.totalEngagement += entry.engagement;
+      bucket.postsCount += 1;
+      stats.set(hashtag, bucket);
+    }
+  }
+  return Array.from(stats.entries())
+    .map(([hashtag, { totalEngagement, postsCount }]) => ({
+      hashtag,
+      avgEngagement: Math.round((totalEngagement / postsCount) * 10) / 10,
+      postsCount,
+    }))
+    .sort((a, b) => b.avgEngagement - a.avgEngagement)
+    .slice(0, MAX_HASHTAGS);
+}
+
 // Deterministic, LLM-free analysis of what actually correlates with engagement for a
 // set of posts — reused per-tenant (folded into StyleLearningAgent's snapshot, see
 // EngagementLearningAgent.analyze below) and cross-tenant (CrossTenantIntelligenceAgent
@@ -72,6 +104,7 @@ export function computeEngagementPatterns(withEngagement: PostWithEngagement[]):
   const formatStats = buildStats(withEngagement, (e) => e.post.contentType);
   const lengthStats = buildStats(withEngagement, (e) => captionLengthBucket(e.post.body.length));
   const hourStats = buildStats(withEngagement, hourKeyFor);
+  const hashtagStats = buildHashtagStats(withEngagement);
 
   return {
     hookPerformance: hookStats.map(({ key, avgEngagement, uses }) => ({ hook: key, avgEngagement, uses })),
@@ -82,6 +115,7 @@ export function computeEngagementPatterns(withEngagement: PostWithEngagement[]):
       uses,
     })),
     hourPerformance: hourStats.map(({ key, avgEngagement, uses }) => ({ hourUtc: Number(key), avgEngagement, uses })),
+    hashtagsQueFuncionan: hashtagStats,
   };
 }
 

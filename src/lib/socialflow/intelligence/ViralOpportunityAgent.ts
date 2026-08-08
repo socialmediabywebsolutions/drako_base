@@ -4,7 +4,7 @@ import { seedFeedItems, dismissFeedItemsBySource } from "@/lib/socialflow/intell
 import { classifyHook } from "@/lib/socialflow/ai/agents/contentHeuristics";
 import type { PostWithEngagement } from "@/lib/socialflow/ai/agents/EngagementLearningAgent";
 import { getNicheIntelligence, type Env } from "./NicheIntelligenceService";
-import type { NicheEngagementPatterns } from "./CrossTenantIntelligenceAgent";
+import { extractEngagementPatterns } from "./CrossTenantIntelligenceAgent";
 
 const LOOKBACK_DAYS = 30;
 
@@ -19,14 +19,6 @@ export type ViralOpportunityResult = {
   formatOpportunity?: string | null;
   error?: string;
 };
-
-function extractEngagementPatterns(analysis: Record<string, unknown> | null | undefined): NicheEngagementPatterns | null {
-  const raw = analysis?.engagementPatterns;
-  if (!raw || typeof raw !== "object") return null;
-  const candidate = raw as Partial<NicheEngagementPatterns>;
-  if (!Array.isArray(candidate.hooksQueFuncionanRealmente) || !Array.isArray(candidate.formatosGanadoresReales)) return null;
-  return candidate as NicheEngagementPatterns;
-}
 
 async function processTenant(
   tenantId: string,
