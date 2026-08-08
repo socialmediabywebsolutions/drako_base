@@ -120,7 +120,7 @@ async function processTenantComments(
   // Fetch recent posts
   let recentMedia: Awaited<ReturnType<typeof fetchInstagramRecentMedia>>;
   try {
-    recentMedia = await fetchInstagramRecentMedia(creds.accessToken, creds.igUserId);
+    recentMedia = await fetchInstagramRecentMedia(creds.accessToken, creds.igUserId, creds.apiBase);
   } catch (err) {
     result.error = `media fetch: ${err instanceof Error ? err.message : String(err)}`;
     return result;
@@ -141,7 +141,7 @@ async function processTenantComments(
   ]);
 
   for (const post of postsWithComments) {
-    const fetched = await fetchInstagramComments(post.id, creds.accessToken);
+    const fetched = await fetchInstagramComments(post.id, creds.accessToken, creds.apiBase);
     if (!fetched.ok) continue;
 
     for (const comment of fetched.comments) {
@@ -234,7 +234,7 @@ async function processTenantComments(
       const shouldSend = settings.autoSendEnabled && settings.autoSendProviders.includes("INSTAGRAM");
 
       if (shouldSend) {
-        const replyResult = await replyToInstagramComment(comment.id, suggestedReply, creds.accessToken);
+        const replyResult = await replyToInstagramComment(comment.id, suggestedReply, creds.accessToken, creds.apiBase);
         const thread = await ingestConversationThread(convCtx, {
           provider: "INSTAGRAM",
           threadType: "COMMENT",

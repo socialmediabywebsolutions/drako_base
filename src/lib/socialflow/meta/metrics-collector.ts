@@ -5,6 +5,7 @@ import {
   fetchInstagramAccountInsights,
   fetchInstagramRecentMedia,
   fetchInstagramMediaInsights,
+  resolveMetaApiBase,
 } from "@/lib/socialflow/meta/core";
 
 type DeferredPostRow = {
@@ -12,6 +13,7 @@ type DeferredPostRow = {
   tenant_id: string;
   saas_id: string;
   external_post_id: string;
+  content_type: string;
 };
 
 type DeferredAccountRow = {
@@ -29,7 +31,7 @@ export async function processDeferredInstagramMetrics(): Promise<{ processed: nu
 
   const { results: posts } = await socialDb
     .prepare(
-      `SELECT p.id, p.tenant_id, p.saas_id, p.external_post_id
+      `SELECT p.id, p.tenant_id, p.saas_id, p.external_post_id, p.content_type
        FROM saas_social_posts p
        WHERE p.provider = 'INSTAGRAM'
          AND p.status IN ('POSTED', 'PUBLISHED')
@@ -69,14 +71,17 @@ export async function processDeferredInstagramMetrics(): Promise<{ processed: nu
         : null;
       const encryptedToken = typeof authMeta?.accessToken === "string" ? authMeta.accessToken : null;
       const igUserId = typeof authMeta?.igUserId === "string" ? authMeta.igUserId : null;
+      const authType = typeof authMeta?.authType === "string" ? authMeta.authType : null;
       if (!encryptedToken || !igUserId) { errors++; continue; }
 
       const pageToken = await decryptToken(encryptedToken);
       if (!pageToken) { errors++; continue; }
 
+      const apiBase = resolveMetaApiBase(authType);
+      const isReel = post.content_type === "REEL";
       const [recentMedia, mediaInsights] = await Promise.all([
-        fetchInstagramRecentMedia(pageToken, igUserId).catch(() => []),
-        fetchInstagramMediaInsights(pageToken, post.external_post_id),
+        fetchInstagramRecentMedia(pageToken, igUserId, apiBase).catch(() => []),
+        fetchInstagramMediaInsights(pageToken, post.external_post_id, apiBase, isReel),
       ]);
 
       const mediaItem = recentMedia.find((m) => m.id === post.external_post_id);
@@ -97,6 +102,9 @@ export async function processDeferredInstagramMetrics(): Promise<{ processed: nu
           mediaId: post.external_post_id,
           reach: mediaInsights.reach,
           saved: mediaInsights.saved,
+          ...(isReel
+            ? { videoViews: mediaInsights.videoViews, plays: mediaInsights.plays, avgWatchTimeMs: mediaInsights.avgWatchTimeMs }
+            : {}),
         },
       });
 
@@ -121,6 +129,7 @@ type AccountRow = {
 type MediaPostRow = {
   id: string;
   saas_id: string;
+  content_type: string;
 };
 
 export type InstagramMetricsResult = {
@@ -159,6 +168,8 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
         typeof authMeta?.accessToken === "string" ? authMeta.accessToken : null;
       const igUserId =
         typeof authMeta?.igUserId === "string" ? authMeta.igUserId : null;
+      const authType =
+        typeof authMeta?.authType === "string" ? authMeta.authType : null;
 
       if (!encryptedToken || !igUserId) {
         console.warn(`[MetricsCron] Account ${account.id}: missing token or igUserId`);
@@ -173,7 +184,8 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
         continue;
       }
 
-      const insights = await fetchInstagramAccountInsights(pageToken, igUserId);
+      const apiBase = resolveMetaApiBase(authType);
+      const insights = await fetchInstagramAccountInsights(pageToken, igUserId, apiBase);
       const ctx = await resolveSocialContext({
         tenantId: account.tenant_id,
         saasId: account.saas_id,
@@ -199,12 +211,12 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
       });
 
       // Per-media insights — only for posts SocialFlow published (have externalPostId match)
-      const media = await fetchInstagramRecentMedia(pageToken, igUserId).catch(() => []);
+      const media = await fetchInstagramRecentMedia(pageToken, igUserId, apiBase).catch(() => []);
       for (const item of media.slice(0, 10)) {
         try {
           const { results: matchingPosts } = await socialDb
             .prepare(
-              `SELECT id, saas_id FROM saas_social_posts
+              `SELECT id, saas_id, content_type FROM saas_social_posts
                WHERE tenant_id = ? AND external_post_id = ? LIMIT 1`,
             )
             .bind(account.tenant_id, item.id)
@@ -213,7 +225,8 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
           if (!matchingPosts?.length) continue;
 
           const matchingPost = matchingPosts[0];
-          const mediaInsights = await fetchInstagramMediaInsights(pageToken, item.id);
+          const isMediaReel = matchingPost.content_type === "REEL";
+          const mediaInsights = await fetchInstagramMediaInsights(pageToken, item.id, apiBase, isMediaReel);
           const mediaCtx =
             matchingPost.saas_id !== account.saas_id
               ? await resolveSocialContext({
@@ -238,6 +251,9 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
               reach: mediaInsights.reach,
               saved: mediaInsights.saved,
               timestamp: item.timestamp,
+              ...(isMediaReel
+                ? { videoViews: mediaInsights.videoViews, plays: mediaInsights.plays, avgWatchTimeMs: mediaInsights.avgWatchTimeMs }
+                : {}),
             },
           });
 

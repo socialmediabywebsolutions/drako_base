@@ -1,5 +1,3 @@
-const FB_GRAPH_BASE = "https://graph.facebook.com/v19.0";
-
 export type InstagramComment = {
   id: string;
   text: string;
@@ -37,12 +35,13 @@ function apiError(payload: Record<string, unknown> | null, fallback: string): st
 export async function fetchInstagramComments(
   mediaId: string,
   accessToken: string,
+  apiBase: string,
 ): Promise<FetchCommentsResult> {
   if (!mediaId.trim() || !accessToken.trim()) {
     return { ok: false, error: "mediaId and accessToken are required" };
   }
 
-  const url = new URL(`${FB_GRAPH_BASE}/${mediaId}/comments`);
+  const url = new URL(`${apiBase}/${mediaId}/comments`);
   url.searchParams.set("fields", "id,text,username,timestamp");
   url.searchParams.set("limit", "50");
   url.searchParams.set("access_token", accessToken);
@@ -83,12 +82,13 @@ export async function replyToInstagramComment(
   commentId: string,
   message: string,
   accessToken: string,
+  apiBase: string,
 ): Promise<ReplyResult> {
   if (!commentId.trim() || !message.trim() || !accessToken.trim()) {
     return { ok: false, error: "commentId, message, and accessToken are required" };
   }
 
-  const url = new URL(`${FB_GRAPH_BASE}/${commentId}/replies`);
+  const url = new URL(`${apiBase}/${commentId}/replies`);
   const body = new URLSearchParams({ message: message.trim(), access_token: accessToken });
 
   let response: Response;

@@ -10,8 +10,8 @@ import {
   SocialContextError,
   upsertSaasSocialMetrics,
 } from "@/lib/socialflow/repository";
-import { decryptToken } from "@/lib/socialflow/token-encryption";
 import { fetchInstagramMediaInsights, fetchInstagramRecentMedia } from "@/lib/socialflow/meta/core";
+import { requireInstagramCredentials } from "@/lib/socialflow/meta/publishing";
 
 export async function POST(
   request: Request,
@@ -49,21 +49,17 @@ export async function POST(
       return NextResponse.json({ code: "NO_INSTAGRAM_ACCOUNT", message: "No connected Instagram account found" }, { status: 422 });
     }
 
-    const authMeta = account.authMeta as Record<string, unknown> | null;
-    const encryptedToken = typeof authMeta?.accessToken === "string" ? authMeta.accessToken : null;
-    const igUserId = typeof authMeta?.igUserId === "string" ? authMeta.igUserId : null;
-    if (!encryptedToken || !igUserId) {
-      return NextResponse.json({ code: "INVALID_CREDENTIALS", message: "Instagram account credentials are incomplete" }, { status: 422 });
+    let creds: Awaited<ReturnType<typeof requireInstagramCredentials>>;
+    try {
+      creds = await requireInstagramCredentials(account);
+    } catch (err) {
+      return NextResponse.json({ code: "INVALID_CREDENTIALS", message: err instanceof Error ? err.message : "Instagram account credentials are incomplete" }, { status: 422 });
     }
 
-    const accessToken = await decryptToken(encryptedToken);
-    if (!accessToken) {
-      return NextResponse.json({ code: "TOKEN_DECRYPT_FAILED", message: "Could not decrypt Instagram access token" }, { status: 500 });
-    }
-
+    const isReel = post.contentType === "REEL";
     const [recentMedia, mediaInsights] = await Promise.all([
-      fetchInstagramRecentMedia(accessToken, igUserId).catch(() => []),
-      fetchInstagramMediaInsights(accessToken, post.externalPostId),
+      fetchInstagramRecentMedia(creds.accessToken, creds.igUserId, creds.apiBase).catch(() => []),
+      fetchInstagramMediaInsights(creds.accessToken, post.externalPostId, creds.apiBase, isReel),
     ]);
 
     const mediaItem = recentMedia.find((m) => m.id === post.externalPostId);
@@ -85,6 +81,9 @@ export async function POST(
         reach: mediaInsights.reach,
         saved: mediaInsights.saved,
         timestamp: mediaItem?.timestamp ?? null,
+        ...(isReel
+          ? { videoViews: mediaInsights.videoViews, plays: mediaInsights.plays, avgWatchTimeMs: mediaInsights.avgWatchTimeMs }
+          : {}),
       },
     });
 
@@ -102,6 +101,9 @@ export async function POST(
         reach: mediaInsights.reach,
         saved: mediaInsights.saved,
         capturedAt,
+        ...(isReel
+          ? { videoViews: mediaInsights.videoViews, plays: mediaInsights.plays, avgWatchTimeMs: mediaInsights.avgWatchTimeMs }
+          : {}),
       },
     });
   } catch (error) {

@@ -14,7 +14,22 @@ import { env } from "@/lib/cf";
 
 const META_GRAPH_VERSION = "v19.0";
 const META_GRAPH_BASE_URL = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
+// instagram_business_login accounts (direct Instagram Login, no Facebook Page) get
+// tokens scoped to graph.instagram.com — calling graph.facebook.com with one of those
+// tokens fails. Classic Facebook-Pages accounts keep using META_GRAPH_BASE_URL. Same
+// pair of hosts as publishing.ts's IG_GRAPH_BASE/FB_GRAPH_BASE (duplicated here as a
+// single URL string, not logic — publishing.ts's FB_GRAPH_BASE has its own unrelated
+// uses for Facebook Page posting, so it can't just delegate to this file).
+const IG_GRAPH_BASE = "https://graph.instagram.com/v22.0";
 const META_CALLBACK_PATH = "/api/socialflow/meta/callback";
+
+// Single source of truth for which Graph API host a call should hit, based on the
+// account's stored authType (saas_social_accounts.auth_meta.authType) — every reader of
+// Instagram data (insights, recent media, comments) needs this, not just publishing.
+// Mirrors the same ternary requireInstagramCredentials already applies in publishing.ts.
+export function resolveMetaApiBase(authType: string | null | undefined): string {
+  return authType === "instagram_business_login" ? IG_GRAPH_BASE : META_GRAPH_BASE_URL;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -534,6 +549,12 @@ export type InstagramMediaInsights = {
   reach: number;
   saved: number;
   shares: number;
+  // Solo presentes cuando isReel=true — video_views/plays/ig_reels_avg_watch_time no son
+  // métricas válidas para foto/carrusel, la Insights API rechaza la petición entera si se
+  // piden fuera de un Reel. undefined (no 0) para no fingir un dato que no se pidió.
+  videoViews?: number;
+  plays?: number;
+  avgWatchTimeMs?: number;
 };
 
 function sumInsightMetric(data: unknown[], metricName: string): number {
@@ -550,6 +571,7 @@ function sumInsightMetric(data: unknown[], metricName: string): number {
 export async function fetchInstagramAccountInsights(
   pageToken: string,
   igUserId: string,
+  apiBase: string,
 ): Promise<InstagramAccountInsights> {
   const normalizedToken = pageToken.trim();
   const normalizedId = igUserId.trim();
@@ -562,11 +584,11 @@ export async function fetchInstagramAccountInsights(
 
   const [insightsResponse, profileResponse] = await Promise.all([
     fetch(
-      `${META_GRAPH_BASE_URL}/${normalizedId}/insights?metric=impressions,reach&period=day&since=${since}&until=${until}&access_token=${normalizedToken}`,
+      `${apiBase}/${normalizedId}/insights?metric=impressions,reach&period=day&since=${since}&until=${until}&access_token=${normalizedToken}`,
       { method: "GET", cache: "no-store" },
     ),
     fetch(
-      `${META_GRAPH_BASE_URL}/${normalizedId}?fields=followers_count&access_token=${normalizedToken}`,
+      `${apiBase}/${normalizedId}?fields=followers_count&access_token=${normalizedToken}`,
       { method: "GET", cache: "no-store" },
     ),
   ]);
@@ -588,6 +610,7 @@ export async function fetchInstagramAccountInsights(
 export async function fetchInstagramRecentMedia(
   pageToken: string,
   igUserId: string,
+  apiBase: string,
 ): Promise<InstagramMediaItem[]> {
   const normalizedToken = pageToken.trim();
   const normalizedId = igUserId.trim();
@@ -595,7 +618,7 @@ export async function fetchInstagramRecentMedia(
     throw buildMetaApiError("META_ACCESS_TOKEN_MISSING", "Page token and IG user ID are required.", { accountStatus: "INVALID_CREDENTIALS" });
   }
 
-  const url = new URL(`${META_GRAPH_BASE_URL}/${normalizedId}/media`);
+  const url = new URL(`${apiBase}/${normalizedId}/media`);
   url.searchParams.set("fields", "id,timestamp,like_count,comments_count");
   url.searchParams.set("limit", "25");
   url.searchParams.set("access_token", normalizedToken);
@@ -619,9 +642,15 @@ export async function fetchInstagramRecentMedia(
   });
 }
 
+// isReel selects which metric set to request — the Insights API rejects the ENTIRE
+// request with a 400 if any metric in the list doesn't apply to that media's type
+// (video_views/plays/ig_reels_avg_watch_time only exist for Reels; impressions is
+// deprecated for Reels), so the two sets can never be concatenated into one call.
 export async function fetchInstagramMediaInsights(
   pageToken: string,
   mediaId: string,
+  apiBase: string,
+  isReel: boolean,
 ): Promise<InstagramMediaInsights> {
   const normalizedToken = pageToken.trim();
   const normalizedMediaId = mediaId.trim();
@@ -629,8 +658,12 @@ export async function fetchInstagramMediaInsights(
     throw buildMetaApiError("META_ACCESS_TOKEN_MISSING", "Page token and media ID are required.", { accountStatus: "INVALID_CREDENTIALS" });
   }
 
-  const url = new URL(`${META_GRAPH_BASE_URL}/${normalizedMediaId}/insights`);
-  url.searchParams.set("metric", "impressions,reach,saved,shares");
+  const metric = isReel
+    ? "reach,saved,shares,video_views,plays,ig_reels_avg_watch_time"
+    : "impressions,reach,saved,shares";
+
+  const url = new URL(`${apiBase}/${normalizedMediaId}/insights`);
+  url.searchParams.set("metric", metric);
   url.searchParams.set("access_token", normalizedToken);
 
   const response = await fetch(url.toString(), { method: "GET", cache: "no-store" });
@@ -641,10 +674,17 @@ export async function fetchInstagramMediaInsights(
 
   const data = Array.isArray(payload?.data) ? payload.data : [];
   return {
-    impressions: sumInsightMetric(data, "impressions"),
+    impressions: isReel ? 0 : sumInsightMetric(data, "impressions"),
     reach: sumInsightMetric(data, "reach"),
     saved: sumInsightMetric(data, "saved"),
     shares: sumInsightMetric(data, "shares"),
+    ...(isReel
+      ? {
+          videoViews: sumInsightMetric(data, "video_views"),
+          plays: sumInsightMetric(data, "plays"),
+          avgWatchTimeMs: sumInsightMetric(data, "ig_reels_avg_watch_time"),
+        }
+      : {}),
   };
 }
 

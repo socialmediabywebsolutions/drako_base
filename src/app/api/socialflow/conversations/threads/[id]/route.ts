@@ -108,7 +108,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
         try {
           const creds = await requireInstagramCredentials(instagramAccount);
-          const replyResult = await replyToInstagramComment(current.platformThreadId, finalReply, creds.accessToken);
+          const replyResult = await replyToInstagramComment(current.platformThreadId, finalReply, creds.accessToken, creds.apiBase);
           if (!replyResult.ok) {
             return new Response(JSON.stringify({ error: "INSTAGRAM_REPLY_FAILED", message: replyResult.error }), {
               status: 502,
