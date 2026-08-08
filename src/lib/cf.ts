@@ -18,6 +18,7 @@ export type DracoEnv = {
   INSTAGRAM_APP_ID?: string;
   INSTAGRAM_APP_SECRET?: string;
   GOOGLE_MAPS_API_KEY?: string;
+  YOUTUBE_API_KEY?: string;
   SOCIALFLOW_PRIVATE_PILOT_MODE?: string;
   SOCIALFLOW_PRIVATE_PILOT_TENANT_ALLOWLIST?: string;
   BASES_AUTHS_DB?: D1Database;

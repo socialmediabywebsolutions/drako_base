@@ -5,6 +5,7 @@ on:
   schedule:
     - cron: "*/5 * * * *"   # cada 5 minutos — auto-publish scheduled posts
     - cron: "*/15 * * * *"  # cada 15 minutos — procesar comentarios de Instagram
+    - cron: "*/20 * * * *"  # cada 20 minutos — TrendKeywordAgent (un nicho por invocación)
     - cron: "0 */4 * * *"   # cada 4 horas — social metrics sync
     - cron: "0 3 * * *"     # 03:00 UTC diario — StyleLearningAgent (Cerebro Socialcors)
     - cron: "0 3 * * 1"     # 03:00 UTC lunes — niche-intelligence + cross-tenant-intelligence + viral-opportunity + weekly-briefing
@@ -50,6 +51,25 @@ jobs:
             exit 1
           fi
           echo "✅ Comments cron completed successfully"
+
+  socialflow-trend-keywords:
+    name: 🌐 SocialFlow — TrendKeywordAgent (Cerebro)
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '*/20 * * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: 🔗 Refrescar señales externas de un nicho
+        run: |
+          STATUS=$(curl -s -o /tmp/trend_keywords_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/trend-keywords" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/trend_keywords_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Trend-keywords cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Trend-keywords cron completed successfully"
 
   social-metrics-cron:
     name: 📊 Social Metrics — Instagram Insights Sync

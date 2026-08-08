@@ -68,10 +68,11 @@ queue = "saas-socialflow-ai-generation-queue"
 binding = "AI"
 
 [triggers]
-# */5 * * * * -> scheduled publishing + comment auto-reply
-# 0 3 * * *   -> daily StyleLearningAgent run (see scripts/patch-socialflow-cron-handler.mjs)
-# 0 3 * * 1   -> weekly NicheIntelligenceCronAgent run, Mondays (see scripts/patch-socialflow-cron-handler.mjs)
-crons = ["*/5 * * * *", "0 3 * * *", "0 3 * * 1"]
+# */5 * * * *  -> scheduled publishing + comment auto-reply
+# */20 * * * * -> TrendKeywordAgent run, one niche per invocation (see scripts/patch-socialflow-cron-handler.mjs)
+# 0 3 * * *    -> daily StyleLearningAgent run (see scripts/patch-socialflow-cron-handler.mjs)
+# 0 3 * * 1    -> weekly NicheIntelligenceCronAgent run, Mondays (see scripts/patch-socialflow-cron-handler.mjs)
+crons = ["*/5 * * * *", "*/20 * * * *", "0 3 * * *", "0 3 * * 1"]
 
 [vars]
 SAASES_SLUG = "socialflows"

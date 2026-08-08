@@ -1,6 +1,7 @@
 import { defaultLocalModel } from "../ai/models/localModel";
 import { safeParseObject, type Env, type NicheOptimalHour } from "./NicheIntelligenceService";
 import { extractEngagementPatterns } from "./CrossTenantIntelligenceAgent";
+import { extractTrendSignals } from "./TrendKeywordAgent";
 
 export const NICHE_INTELLIGENCE_NICHES = [
   // Influencers
@@ -128,10 +129,20 @@ async function upsertNicheIntelligence(niche: string, payload: NicheAnalysisPayl
     : undefined;
   const hashtags = realHashtags?.length ? realHashtags.map((h) => h.hashtag) : payload.hashtags;
 
+  // Mismo criterio que los hashtags reales (Sprint F) — hooks reales de YouTube
+  // (Sprint G, TrendKeywordAgent) tienen prioridad sobre la opinión del LLM cuando
+  // existen. Igual desfase inherente que los hashtags: lo que se lee aquí es el
+  // trendSignals más reciente que TrendKeywordAgent ya haya escrito para este nicho —
+  // a */20 min con 55 nichos, como mucho ~18.3h de antigüedad, no una semana.
+  const realHooks = existing
+    ? extractTrendSignals(safeParseObject(existing.analysis_json))?.youtubeHooks
+    : undefined;
+  const hooks = realHooks?.length ? realHooks.slice(0, 8) : payload.hooks;
+
   const analysisJson = JSON.stringify({ summary: payload.analysis });
   const hashtagsJson = JSON.stringify(hashtags);
   const formatsJson = JSON.stringify(payload.formats);
-  const hooksJson = JSON.stringify(payload.hooks);
+  const hooksJson = JSON.stringify(hooks);
   const optimalHoursJson = JSON.stringify(payload.optimalHours);
   const fatigueSignalsJson = JSON.stringify(payload.fatigueSignals);
 
