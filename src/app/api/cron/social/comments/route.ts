@@ -18,6 +18,9 @@ import {
 } from "@/lib/socialflow/conversational/repository";
 import { getChannelKnowledge } from "@/lib/socialflow/profile/repository";
 import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
+import { detectLeadSignals } from "@/lib/socialflow/leads/detector";
+import { createLead } from "@/lib/socialflow/leads/repository";
+import type { SocialContext } from "@/lib/socialflow/repository";
 import type { SaasSocialAccount } from "@/lib/social-core/types";
 
 type AccountRow = {
@@ -72,6 +75,31 @@ function rowToAccount(row: AccountRow): SaasSocialAccount {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+// Mismo patrón que inbound/route.ts para DMs — se ejecuta sobre todo comentario
+// ingresado, sin importar la rama de sentimiento/envío que haya tomado, para que
+// "Oportunidades" reciba leads de comentarios igual que ya recibe de DMs.
+async function maybeCreateLead(
+  convCtx: SocialContext,
+  threadId: string,
+  comment: { text: string; username: string },
+): Promise<void> {
+  const leadSignals = detectLeadSignals(comment.text);
+  if (!leadSignals.isLead || !leadSignals.temperature) return;
+  try {
+    await createLead(convCtx, {
+      threadId,
+      provider: "INSTAGRAM",
+      senderName: comment.username,
+      senderHandle: comment.username,
+      incomingMessage: comment.text,
+      intentScore: leadSignals.intentScore,
+      temperature: leadSignals.temperature,
+    });
+  } catch (err) {
+    console.warn("[cron/comments] lead create failed", err instanceof Error ? err.message : String(err));
+  }
 }
 
 async function processTenantComments(
@@ -139,7 +167,7 @@ async function processTenantComments(
 
       if (!sentiment.shouldAutoReply) {
         // Save as NEEDS_HUMAN — no reply generated
-        await ingestConversationThread(convCtx, {
+        const thread = await ingestConversationThread(convCtx, {
           provider: "INSTAGRAM",
           threadType: "COMMENT",
           platformThreadId: comment.id,
@@ -151,6 +179,7 @@ async function processTenantComments(
           status: "NEEDS_HUMAN",
           aiMetadata: { sentiment: sentiment.sentiment, confidence: sentiment.confidence, reason: sentiment.reason },
         });
+        await maybeCreateLead(convCtx, thread.id, comment);
         result.commentsProcessed.push({
           commentId: comment.id,
           status: "NEEDS_HUMAN",
@@ -184,7 +213,7 @@ async function processTenantComments(
 
       if (!suggestedReply) {
         // Reply generation failed — escalate to human
-        await ingestConversationThread(convCtx, {
+        const thread = await ingestConversationThread(convCtx, {
           provider: "INSTAGRAM",
           threadType: "COMMENT",
           platformThreadId: comment.id,
@@ -196,6 +225,7 @@ async function processTenantComments(
           status: "NEEDS_HUMAN",
           aiMetadata: { ...aiMetadata, errorReason: "reply_generation_failed" },
         });
+        await maybeCreateLead(convCtx, thread.id, comment);
         result.commentsProcessed.push({ commentId: comment.id, status: "NEEDS_HUMAN", sentiment: sentiment.sentiment });
         continue;
       }
@@ -220,13 +250,14 @@ async function processTenantComments(
         if (replyResult.ok) {
           await updateConversationThread(convCtx, thread.id, { status: "SENT", finalReply: suggestedReply });
         }
+        await maybeCreateLead(convCtx, thread.id, comment);
         result.commentsProcessed.push({
           commentId: comment.id,
           status: replyResult.ok ? "SENT" : "AUTO_APPROVED",
           sentiment: sentiment.sentiment,
         });
       } else {
-        await ingestConversationThread(convCtx, {
+        const thread = await ingestConversationThread(convCtx, {
           provider: "INSTAGRAM",
           threadType: "COMMENT",
           platformThreadId: comment.id,
@@ -238,6 +269,7 @@ async function processTenantComments(
           status: "AUTO_APPROVED",
           aiMetadata,
         });
+        await maybeCreateLead(convCtx, thread.id, comment);
         result.commentsProcessed.push({ commentId: comment.id, status: "AUTO_APPROVED", sentiment: sentiment.sentiment });
       }
     }

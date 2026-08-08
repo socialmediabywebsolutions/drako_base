@@ -12,7 +12,9 @@ type Props = {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TEMP_META: Record<LeadTemperature, { label: string; bg: string; dot: string; border: string }> = {
+// Exportado — reutilizado por conversation-inbox.tsx para el badge de temperatura de
+// lead en las tarjetas de Comunidad, mismos colores que aquí.
+export const TEMP_META: Record<LeadTemperature, { label: string; bg: string; dot: string; border: string }> = {
   HOT:  { label: "HOT",  bg: "bg-rose-500/15 text-rose-300",   dot: "bg-rose-500",   border: "border-rose-500/25" },
   WARM: { label: "WARM", bg: "bg-amber-500/15 text-amber-300", dot: "bg-amber-400",  border: "border-amber-500/25" },
   COLD: { label: "COLD", bg: "bg-sky-500/15 text-sky-300",     dot: "bg-sky-400",    border: "border-sky-500/25" },

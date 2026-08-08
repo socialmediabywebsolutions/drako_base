@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { listLeads, resolveSocialContext } from "@/lib/socialflow/leads/repository";
+import { listFeedItems } from "@/lib/socialflow/intelligence/repository";
 import LeadsPanel from "@/components/socialflow/leads-panel";
+import IntelligenceFeedSection from "@/components/socialflow/intelligence-feed-section";
 
 const SAAS_ID = "socialflow";
 
@@ -12,7 +14,13 @@ export default async function SocialFlowLeadsPage() {
   }
 
   const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId: SAAS_ID });
-  const leads = await listLeads(ctx, { limit: 100 });
+  const [leads, feedItems] = await Promise.all([
+    listLeads(ctx, { limit: 100 }),
+    listFeedItems(session.tenantId, SAAS_ID, { limit: 50 }).catch(() => []),
+  ]);
+
+  const alerts = feedItems.filter((item) => item.type === "alert");
+  const opportunities = feedItems.filter((item) => item.type === "opportunity");
 
   const hotCount = leads.filter((l) => l.temperature === "HOT").length;
   const isEmpresa = session.accountType === "empresa";
@@ -38,7 +46,26 @@ export default async function SocialFlowLeadsPage() {
         </p>
       </div>
 
-      <LeadsPanel leads={leads} saasId={SAAS_ID} accountType={session.accountType} />
+      <section>
+        <h2 className="mb-3 text-base font-bold text-white">🎯 Leads detectados</h2>
+        <LeadsPanel leads={leads} saasId={SAAS_ID} accountType={session.accountType} />
+      </section>
+
+      <IntelligenceFeedSection
+        title="Alertas del sistema"
+        description="Fatiga de contenido detectada en tus últimos posts"
+        icon="⚠️"
+        items={alerts}
+        emptyMessage="Sin alertas activas ahora mismo."
+      />
+
+      <IntelligenceFeedSection
+        title="Oportunidades de nicho"
+        description="Hooks y formatos con tracción real en tu nicho que aún no has probado"
+        icon="💡"
+        items={opportunities}
+        emptyMessage="Sin oportunidades detectadas esta semana — vuelve a revisar tras el próximo análisis semanal."
+      />
     </div>
   );
 }

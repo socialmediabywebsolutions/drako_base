@@ -232,16 +232,28 @@ export async function updateLeadStatus(
   return getLeadById(ctx, id);
 }
 
-export async function listHotLeadThreadIds(ctx: SocialContext): Promise<Set<string>> {
+// thread_id aquí es el id interno de socialflow_conversation_threads (el mismo que
+// createLead recibe como threadId, ver inbound/route.ts y cron/social/comments), no el
+// id de la plataforma (platformThreadId) — ese es el join correcto contra
+// ConversationThread.id en la UI de Comunidad.
+export async function listLeadTemperatureByThreadId(ctx: SocialContext): Promise<Map<string, LeadTemperature>> {
   await ensureLeadsSchema(ctx.socialDb);
   const saasId = ctx.saasId ?? "socialflow";
-  const rows = await queryRows<{ thread_id: string }>(
+  const rows = await queryRows<{ thread_id: string; temperature: string }>(
     ctx.socialDb,
-    `SELECT DISTINCT thread_id FROM socialflow_leads WHERE tenant_id = ? AND saas_id = ? AND temperature = 'HOT'`,
+    `SELECT thread_id, temperature FROM socialflow_leads
+     WHERE tenant_id = ? AND saas_id = ?
+     ORDER BY datetime(created_at) DESC`,
     ctx.tenantId,
     saasId,
   );
-  return new Set(rows.map((r) => r.thread_id));
+  const map = new Map<string, LeadTemperature>();
+  for (const row of rows) {
+    // ORDER BY created_at DESC + set-once-per-key = se queda con el lead más reciente
+    // si un mismo hilo llegara a tener más de uno.
+    if (!map.has(row.thread_id)) map.set(row.thread_id, row.temperature as LeadTemperature);
+  }
+  return map;
 }
 
 export { resolveSocialContext };

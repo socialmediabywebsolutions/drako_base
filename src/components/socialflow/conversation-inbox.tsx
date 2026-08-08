@@ -3,12 +3,14 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ConversationSettings, ConversationThread } from "@/lib/socialflow/conversational/types";
+import type { LeadTemperature } from "@/lib/socialflow/leads/types";
+import { TEMP_META } from "./leads-panel";
 
 type Props = {
   threads: ConversationThread[];
   settings: ConversationSettings;
   saasId: string;
-  hotLeadThreadIds?: string[];
+  leadTemperatureByThreadId?: Record<string, LeadTemperature>;
 };
 
 type Tab = "inbox" | "needs_human" | "toxic" | "history";
@@ -93,9 +95,8 @@ export default function ConversationInbox({
   threads: initialThreads,
   settings: initialSettings,
   saasId,
-  hotLeadThreadIds = [],
+  leadTemperatureByThreadId = {},
 }: Props) {
-  const hotLeadSet = new Set(hotLeadThreadIds);
   const router = useRouter();
 
   const [tab, setTab] = useState<Tab>("inbox");
@@ -476,7 +477,7 @@ export default function ConversationInbox({
             <ThreadCard
               key={thread.id}
               thread={thread}
-              isHotLead={hotLeadSet.has(thread.id)}
+              leadTemperature={leadTemperatureByThreadId[thread.id] ?? null}
               editedReply={editedReplies[thread.id]}
               isOverriding={overriding[thread.id] ?? false}
               isGenerating={generatingFor === thread.id}
@@ -502,7 +503,7 @@ export default function ConversationInbox({
 
 type ThreadCardProps = {
   thread: ConversationThread;
-  isHotLead: boolean;
+  leadTemperature: LeadTemperature | null;
   editedReply: string | undefined;
   isOverriding: boolean;
   isGenerating: boolean;
@@ -516,7 +517,7 @@ type ThreadCardProps = {
 
 function ThreadCard({
   thread,
-  isHotLead,
+  leadTemperature,
   editedReply,
   isOverriding,
   isGenerating,
@@ -580,9 +581,15 @@ function ThreadCard({
             {confidence !== null && ` · ${Math.round(confidence * 100)}%`}
           </span>
         )}
-        {isHotLead && (
-          <span className="rounded-full border border-rose-500/30 bg-rose-500/15 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-rose-300">
-            HOT LEAD
+        {leadTemperature && (
+          <span
+            className={[
+              "rounded-full border px-2.5 py-0.5 text-[11px] font-bold tracking-wide",
+              TEMP_META[leadTemperature].border,
+              TEMP_META[leadTemperature].bg,
+            ].join(" ")}
+          >
+            {TEMP_META[leadTemperature].label} LEAD
           </span>
         )}
         <span className="ml-auto text-[11px] text-white/25">{relativeTime(thread.createdAt)}</span>
