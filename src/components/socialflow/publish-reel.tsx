@@ -7,6 +7,7 @@ import { ReelsEngine, type ReelsConfig } from "@/lib/socialflow/reels/ReelsEngin
 import { CanvasRenderer } from "@/lib/socialflow/reels/CanvasRenderer";
 import { extractVideoFrame } from "@/lib/socialflow/video/extractFrame";
 import { getImageDimensions, isHorizontalImage } from "@/lib/socialflow/media/image-dimensions";
+import { THEME_OPTIONS, type ContentTheme } from "@/lib/socialflow/theme-options";
 
 type Phase = "idle" | "uploading" | "creating" | "error" | "batch-review" | "batch-items";
 
@@ -119,6 +120,7 @@ async function generateReelForReview(
   saasId: string,
   batchIndex: number,
   userNote?: string,
+  theme?: string,
 ): Promise<{ videoBlobUrl: string; videoUrl: string; thumbnailUrl: string; body: string; hashtags: string[]; scheduledAt: string; degraded: boolean }> {
   const { url: imageUrl, key: imageKey } = await uploadFile(file);
 
@@ -135,7 +137,7 @@ async function generateReelForReview(
   const engine = new ReelsEngine(new CanvasRenderer());
   const [blob, suggestedPost] = await Promise.all([
     engine.generate(genData.config),
-    fetchCaption(imageUrl, imageKey, saasId, { batchIndex, scheduleIndex: batchIndex }, userNote),
+    fetchCaption(imageUrl, imageKey, saasId, { batchIndex, scheduleIndex: batchIndex }, userNote, theme),
   ]);
 
   const videoBlobUrl = URL.createObjectURL(blob);
@@ -171,6 +173,7 @@ async function generateVideoReelForReview(
   saasId: string,
   batchIndex: number,
   userNote?: string,
+  theme?: string,
 ): Promise<{ videoBlobUrl: string; videoUrl: string; thumbnailUrl: string; body: string; hashtags: string[]; scheduledAt: string; degraded: boolean }> {
   const [{ url: videoUrl }, frameBlob] = await Promise.all([
     uploadFile(file),
@@ -182,7 +185,7 @@ async function generateVideoReelForReview(
 
   // fetchCaption nunca rechaza (ver reels-creator.tsx) — un fallo aquí nunca debe
   // tumbar la publicación del vídeo, solo degrada a un caption genérico.
-  const suggestedPost = await fetchCaption(frameUrl, frameKey, saasId, { batchIndex, scheduleIndex: batchIndex }, userNote);
+  const suggestedPost = await fetchCaption(frameUrl, frameKey, saasId, { batchIndex, scheduleIndex: batchIndex }, userNote, theme);
 
   return {
     videoBlobUrl: URL.createObjectURL(file),
@@ -577,6 +580,7 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
   // UploadToPost: el flujo de subida es automático (sin botón "Generar" que pausar
   // por ítem), así que se pide una vez por tanda, no por foto/vídeo.
   const [batchUserNote, setBatchUserNote] = useState("");
+  const [selectedTheme, setSelectedTheme] = useState<ContentTheme>("auto");
 
   const readyCount = reelItems.filter((i) => i.step === "ready").length;
   const allSaved = reelItems.length > 0 && reelItems.every((i) => i.step === "saved");
@@ -709,14 +713,16 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
     setReelItems(initialItems);
     setPhase("batch-items");
 
+    const themeSendValue = THEME_OPTIONS.find((o) => o.value === selectedTheme)?.sendValue;
+
     for (let i = 0; i < initialItems.length; i++) {
       const item = initialItems[i];
       updateReelItem(item.id, { step: "generating" });
       try {
         const result =
           item.sourceType === "video"
-            ? await generateVideoReelForReview(item.file, saasId, i, batchUserNote)
-            : await generateReelForReview(item.file, saasId, i, batchUserNote);
+            ? await generateVideoReelForReview(item.file, saasId, i, batchUserNote, themeSendValue)
+            : await generateReelForReview(item.file, saasId, i, batchUserNote, themeSendValue);
         updateReelItem(item.id, {
           step: "ready",
           videoBlobUrl: result.videoBlobUrl,
@@ -797,7 +803,16 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
   }
 
   if (phase === "creating" && imageUrl && imageKey) {
-    return <ReelsCreator imageUrl={imageUrl} imageKey={imageKey} saasId={saasId} userNote={batchUserNote} onClose={reset} />;
+    return (
+      <ReelsCreator
+        imageUrl={imageUrl}
+        imageKey={imageKey}
+        saasId={saasId}
+        userNote={batchUserNote}
+        theme={THEME_OPTIONS.find((o) => o.value === selectedTheme)?.sendValue}
+        onClose={reset}
+      />
+    );
   }
 
   if (phase === "batch-review") {
@@ -810,6 +825,25 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
           <p className="mt-1 text-sm text-white/50">
             Cada Reel se genera en secuencia y podrás revisar caption, hashtags y hora antes de programarlo.
           </p>
+          <div className="mt-4 space-y-1.5 text-left">
+            <p className="text-xs font-semibold text-white/50">Tema (opcional)</p>
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {THEME_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSelectedTheme(opt.value)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    selectedTheme === opt.value
+                      ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
+                      : "border-white/10 text-white/50 hover:bg-white/5 hover:text-white/70"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="mt-5 flex justify-center gap-2">
             <button
               type="button"
@@ -927,6 +961,26 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
           className="w-full resize-none rounded-xl border border-white/10 bg-white/3 px-3 py-2 text-sm text-white/80 placeholder:text-white/20 outline-none transition focus:border-violet-400/40"
         />
         <p className="text-right text-[11px] text-white/25">{batchUserNote.length}/200</p>
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-xs font-semibold text-white/50">Tema (opcional)</p>
+        <div className="flex flex-wrap gap-1.5">
+          {THEME_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setSelectedTheme(opt.value)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                selectedTheme === opt.value
+                  ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
+                  : "border-white/10 text-white/50 hover:bg-white/5 hover:text-white/70"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div

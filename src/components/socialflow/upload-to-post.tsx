@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import type { ViralScore } from "@/lib/socialflow/intelligence/ViralScoreAgent";
 import { getImageDimensions, isHorizontalImage } from "@/lib/socialflow/media/image-dimensions";
+import { THEME_OPTIONS, type ContentTheme } from "@/lib/socialflow/theme-options";
 import ReelsCreator from "./reels-creator";
 
 type ContentCategory = "foto_real" | "grafico_texto";
@@ -806,6 +807,7 @@ export default function UploadToPost({
   // toda la tanda que se suba mientras el campo tenga este valor — no se limpia solo
   // entre tandas, el cliente lo controla manualmente.
   const [batchUserNote, setBatchUserNote] = useState("");
+  const [selectedTheme, setSelectedTheme] = useState<ContentTheme>("auto");
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [bulkPreviewOpen, setBulkPreviewOpen] = useState(false);
@@ -940,6 +942,7 @@ export default function UploadToPost({
           scheduleIndex,
           ...(contentType && contentType !== "AUTO" ? { forcedContentType: contentType } : {}),
           ...(batchUserNote.trim() ? { userNote: batchUserNote.trim() } : {}),
+          ...(selectedTheme !== "auto" ? { carouselTheme: THEME_OPTIONS.find((o) => o.value === selectedTheme)?.sendValue } : {}),
         }),
       });
       const genData = (await genRes.json()) as {
@@ -1171,6 +1174,25 @@ export default function UploadToPost({
             className="w-full resize-none rounded-xl border border-white/10 bg-white/3 px-3 py-2 text-sm text-white/80 placeholder:text-white/20 outline-none transition focus:border-violet-400/40"
           />
           <p className="text-right text-[11px] text-white/25">{batchUserNote.length}/200</p>
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold text-white/50">Tema (opcional)</p>
+          <div className="flex flex-wrap gap-1.5">
+            {THEME_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSelectedTheme(opt.value)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  selectedTheme === opt.value
+                    ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
+                    : "border-white/10 text-white/50 hover:bg-white/5 hover:text-white/70"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}

@@ -214,8 +214,11 @@ export async function POST(request: Request) {
       targetSlideCount?: number;        // CAROUSEL only — total de slides del carrusel (fotos + IA), típicamente
                                          // maxSlides del plan del cliente. Si es mayor que imageUrls.length, los
                                          // slots sobrantes se rellenan con slides de texto puro (ver carrusel mixto).
-      carouselTheme?: string;           // CAROUSEL only — tema elegido en el selector de publish-carrusel.tsx.
-                                         // "auto" o ausente = comportamiento de siempre (ver CarouselComposerAgent.run).
+      carouselTheme?: string;           // Tema elegido en el selector de tema (publish-carrusel.tsx y, desde esta
+                                         // extensión, upload-to-post.tsx/publish-reel.tsx/reels-creator.tsx). "auto"
+                                         // o ausente = comportamiento de siempre. En CAROUSEL lo consume
+                                         // CarouselComposerAgent.run (hasExplicitTheme); en FEED/REEL/STORY
+                                         // sobreescribe strategyItem.theme/.angle más abajo antes de ContentGeneratorAgent.
       saasId?: string;
       provider?: string;
       startDate?: string;
@@ -545,12 +548,19 @@ export async function POST(request: Request) {
       isActiveSocialFlowTrial(session.tenantId, session.role),
     ]);
 
-    // Step 2: Build StrategyItem from image analysis (no LLM call)
+    // Step 2: Build StrategyItem from image analysis (no LLM call). Un tema explícito del
+    // selector (carouselTheme, ver el tipo del body arriba) tiene prioridad sobre lo que
+    // infiere LLaVA — mismo criterio de prioridad que hasExplicitTheme en
+    // CarouselComposerAgent.run. theme/angle se sobreescriben con el MISMO valor (no
+    // valores derivados distintos) para que el ángulo sea coherente con el tema por
+    // construcción, sin necesitar lógica adicional para derivarlo por separado.
+    const explicitTheme = body.carouselTheme?.trim();
+    const hasExplicitTheme = !!explicitTheme && explicitTheme.toLowerCase() !== "auto";
     const strategyItem: StrategyItem = {
       id: `img_${Date.now()}`,
       dayOffset: 0,
-      theme: imageAnalysis.context,
-      angle: imageAnalysis.suggestedThemes[0] ?? profile.niche,
+      theme: hasExplicitTheme ? explicitTheme! : imageAnalysis.context,
+      angle: hasExplicitTheme ? explicitTheme! : (imageAnalysis.suggestedThemes[0] ?? profile.niche),
       format:
         imageAnalysis.recommendedPostType === "REEL"
           ? "reel"

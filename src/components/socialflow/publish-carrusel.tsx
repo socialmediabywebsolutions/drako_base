@@ -7,6 +7,7 @@ import type { CarouselSlideRole } from "@/lib/socialflow/ai/agents/CarouselCompo
 import { StaticSlideRenderer } from "@/lib/socialflow/carousel/StaticSlideRenderer";
 import { getStyleForCarousel, getNichoPackKey, CAROUSEL_STYLE_PACKS, type CarouselStyleVariant } from "@/lib/socialflow/carousel/CarouselStylePacks";
 import { getImageDimensions, isHorizontalImage } from "@/lib/socialflow/media/image-dimensions";
+import { THEME_OPTIONS, type ContentTheme } from "@/lib/socialflow/theme-options";
 
 // Mismo límite real de la Graph API que ya aplica el backend (CAROUSEL_MIN_ITEMS en
 // meta/publishing.ts) — duplicado aquí como número simple para no meter ese módulo
@@ -69,21 +70,6 @@ const ROLE_LABEL: Record<CarouselSlideRole, string> = {
   desarrollo: "Desarrollo",
   cierre_cta: "Cierre / CTA",
 };
-
-// Selector de tema previo a "Generar carrusel" — value viaja en el state del componente,
-// sendValue es lo que llega al body de generate-from-image como `carouselTheme` ("auto"
-// es el centinela que CarouselComposerAgent interpreta como "sin tema explícito", ver
-// resolveSlidePlan/run en ese agente).
-type CarouselTheme = "entrenamiento" | "nutricion" | "motivacion" | "educativo" | "lifestyle" | "auto";
-
-const THEME_OPTIONS: { value: CarouselTheme; label: string; sendValue: string }[] = [
-  { value: "entrenamiento", label: "🏋️ Entrenamiento", sendValue: "Entrenamiento" },
-  { value: "nutricion", label: "🥗 Nutrición y recetas", sendValue: "Nutrición y recetas" },
-  { value: "motivacion", label: "💪 Motivación", sendValue: "Motivación" },
-  { value: "educativo", label: "📚 Educativo / Tips", sendValue: "Educativo / Tips" },
-  { value: "lifestyle", label: "✨ Lifestyle", sendValue: "Lifestyle" },
-  { value: "auto", label: "🎯 Lo que decida la IA", sendValue: "auto" },
-];
 
 function IcoUpload() {
   return (
@@ -350,7 +336,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
   const [photos, setPhotos] = useState<CarouselPhotoSlot[]>([]);
-  const [carouselTheme, setCarouselTheme] = useState<CarouselTheme>("auto");
+  const [carouselTheme, setCarouselTheme] = useState<ContentTheme>("auto");
   const [slides, setSlides] = useState<CarouselSlideState[]>([]);
   const [slideAnalyses, setSlideAnalyses] = useState<ImageAnalysis[]>([]);
   const [hashtags, setHashtags] = useState<string[]>([]);

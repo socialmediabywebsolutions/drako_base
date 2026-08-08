@@ -39,6 +39,7 @@ export async function fetchCaption(
   saasId: string,
   scheduling?: { batchIndex: number; scheduleIndex: number },
   userNote?: string,
+  theme?: string,
 ): Promise<SuggestedPost | null> {
   try {
     const res = await fetch("/api/socialflow/posts/generate-from-image", {
@@ -52,6 +53,7 @@ export async function fetchCaption(
         forcedContentType: "REEL",
         ...(scheduling ? { batchIndex: scheduling.batchIndex, scheduleIndex: scheduling.scheduleIndex } : {}),
         ...(userNote?.trim() ? { userNote: userNote.trim() } : {}),
+        ...(theme && theme !== "auto" ? { carouselTheme: theme } : {}),
       }),
     });
     const data = (await res.json()) as { suggestedPost?: SuggestedPost };
@@ -75,6 +77,7 @@ export default function ReelsCreator({
   campaignId,
   batchIndex,
   userNote,
+  theme,
   onClose,
   onApproved,
 }: {
@@ -92,6 +95,9 @@ export default function ReelsCreator({
   // máxima en ContentValueAgent sobre la inferencia visual. Opcional, mismo criterio
   // que batchIndex: no rompe ningún caller que aún no lo pase.
   userNote?: string;
+  // Tema elegido en el selector previo al dropzone (publish-reel.tsx) — mismo criterio
+  // que userNote: opcional, no rompe ningún caller que aún no lo pase.
+  theme?: string;
   onClose?: () => void;
   // Si se pasa, "Aprobar y programar" NO guarda el post aquí — solo entrega el vídeo y el
   // caption sugerido al padre (usado por upload-to-post.tsx / campaign-photo-batch.tsx para
@@ -153,6 +159,7 @@ export default function ReelsCreator({
           saasId,
           typeof batchIndex === "number" ? { batchIndex, scheduleIndex: batchIndex } : undefined,
           userNote,
+          theme,
         ),
       ]);
       setSuggestedPost(suggestedPostResult);
