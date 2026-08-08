@@ -31,10 +31,11 @@ function buildMetrics(
   planCode: SocialFlowPlanCode,
   summary: MetricsSource,
   auditScore: number | null,
+  leadsCount: number,
 ): Metric[] {
   if (planCode === "influencer_pro" || planCode === "empresa_pro") {
     return [
-      { label: "Leads (30 días)",       value: analyticsValue(summary.analytics.last30Days.leadsGenerated),              hint: "Generados por tus publicaciones",            accent: "from-violet-500 to-purple-600" },
+      { label: "Leads (30 días)",       value: analyticsValue(leadsCount),                                                hint: "Detectados en tus comentarios y DMs",        accent: "from-violet-500 to-purple-600" },
       { label: "Impresiones (30 días)", value: analyticsValue(summary.analytics.last30Days.impressions),                  hint: "Alcance total de tu contenido",              accent: "from-fuchsia-500 to-pink-600" },
       { label: "Engagement / post",     value: analyticsValue(summary.analytics.last30Days.averageEngagementPerPublishedPost), hint: "Promedio de interacciones por publicación", accent: "from-blue-500 to-indigo-600" },
       { label: "Reputación online",     value: auditScore !== null ? `${auditScore}/100` : "—",                          hint: "Score de tu última auditoría social",        accent: "from-cyan-400 to-blue-500" },
@@ -53,12 +54,14 @@ export default function DashboardMetrics({
   planCode,
   summary,
   auditScore,
+  leadsCount,
 }: {
   planCode: SocialFlowPlanCode;
   summary: MetricsSource;
   auditScore: number | null;
+  leadsCount: number;
 }) {
-  const metrics = buildMetrics(planCode, summary, auditScore);
+  const metrics = buildMetrics(planCode, summary, auditScore, leadsCount);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

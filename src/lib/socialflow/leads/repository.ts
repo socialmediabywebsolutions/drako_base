@@ -200,6 +200,22 @@ export async function listLeads(
   return rows.map(mapLeadRow);
 }
 
+// Fuente real del contador "Leads (30 días)" del dashboard — saas_social_metrics.
+// leads_generated nunca se escribe distinto de 0 en ningún camino del código (ver
+// auditoría), los leads reales viven aquí.
+export async function countLeadsSince(ctx: SocialContext, sinceIso: string): Promise<number> {
+  await ensureLeadsSchema(ctx.socialDb);
+  const saasId = ctx.saasId ?? "socialflow";
+  const row = await queryFirst<{ count: number }>(
+    ctx.socialDb,
+    `SELECT COUNT(*) as count FROM socialflow_leads WHERE tenant_id = ? AND saas_id = ? AND created_at >= ?`,
+    ctx.tenantId,
+    saasId,
+    sinceIso,
+  );
+  return row?.count ?? 0;
+}
+
 export async function getLeadById(ctx: SocialContext, id: string): Promise<SocialFlowLead | null> {
   await ensureLeadsSchema(ctx.socialDb);
   const saasId = ctx.saasId ?? "socialflow";

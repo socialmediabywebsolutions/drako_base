@@ -258,6 +258,14 @@ export type SocialAnalyticsSnapshot = {
   last30Days: SocialAnalyticsWindow;
 };
 
+// One point per captured account-level snapshot (saas_social_metrics rows with
+// post_id = "account:<id>", written every 4h by processInstagramMetrics — append-only,
+// never overwritten) — the real historical source for a followers-evolution chart.
+export type FollowerHistoryPoint = {
+  capturedAt: string;
+  followersCount: number;
+};
+
 export type SocialLiveAnalyticsSummary = {
   totalEligibleLivePosts: number;
   healthyPosts: number;

@@ -4,6 +4,7 @@ import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { getChannelKnowledge } from "@/lib/socialflow/profile/repository";
 import { getLatestAudit } from "@/lib/socialflow/audit/repository";
 import { resolveSocialContext, getSocialProductSummary, SocialContextError } from "@/lib/socialflow/repository";
+import { countLeadsSince } from "@/lib/socialflow/leads/repository";
 import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
 import { getSocialFlowPlanDefinition, resolveSocialFlowPlanCode } from "@/lib/socialflow/billing/plans";
 import DashboardMetrics from "./_components/DashboardMetrics";
@@ -30,9 +31,14 @@ export default async function SocialFlowDashboardPage() {
   const planDefinition = getSocialFlowPlanDefinition(planCode);
 
   let summary: Awaited<ReturnType<typeof getSocialProductSummary>> | null = null;
+  let leadsCount = 0;
   try {
     const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId: DEFAULT_SAAS_ID });
-    summary = await getSocialProductSummary(ctx);
+    const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    [summary, leadsCount] = await Promise.all([
+      getSocialProductSummary(ctx),
+      countLeadsSince(ctx, thirtyDaysAgoIso),
+    ]);
   } catch (error) {
     if (!(error instanceof SocialContextError)) {
       console.error("SOCIALFLOW_DASHBOARD_SUMMARY_ERROR", error);
@@ -68,7 +74,7 @@ export default async function SocialFlowDashboardPage() {
         </span>
       </div>
 
-      {summary && <DashboardMetrics planCode={planCode} summary={summary} auditScore={audit?.score ?? null} />}
+      {summary && <DashboardMetrics planCode={planCode} summary={summary} auditScore={audit?.score ?? null} leadsCount={leadsCount} />}
 
       {showChecklistWidget && empresaChecklist && (
         <EmpresaChecklist
