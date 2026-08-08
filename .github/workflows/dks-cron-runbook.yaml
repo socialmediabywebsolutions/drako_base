@@ -7,7 +7,7 @@ on:
     - cron: "*/15 * * * *"  # cada 15 minutos — procesar comentarios de Instagram
     - cron: "0 */4 * * *"   # cada 4 horas — social metrics sync
     - cron: "0 3 * * *"     # 03:00 UTC diario — StyleLearningAgent (Cerebro Socialcors)
-    - cron: "0 3 * * 1"     # 03:00 UTC lunes — niche-intelligence + cross-tenant-intelligence + weekly-briefing
+    - cron: "0 3 * * 1"     # 03:00 UTC lunes — niche-intelligence + cross-tenant-intelligence + viral-opportunity + weekly-briefing
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -126,6 +126,24 @@ jobs:
             exit 1
           fi
           echo "✅ Cross-tenant-intelligence cron completed successfully"
+      # viral-opportunity corre DESPUÉS de cross-tenant-intelligence, en el mismo job
+      # (no en paralelo) — necesita el engagementPatterns recién fusionado de esta
+      # misma semana para encontrar hooks/formatos que el nicho usa pero el cliente no
+      # ha probado. Mismo orden que scripts/patch-socialflow-cron-handler.mjs para el
+      # trigger nativo de Cloudflare.
+      - name: 🔗 Detectar oportunidades virales por tenant
+        run: |
+          STATUS=$(curl -s -o /tmp/viral_opportunity_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/viral-opportunity" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/viral_opportunity_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Viral-opportunity cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Viral-opportunity cron completed successfully"
       # weekly-briefing corre DESPUÉS de niche-intelligence, en el mismo job (no en
       # paralelo) — usa los datos recién refrescados de esta misma semana, mismo
       # orden que ya documentaba scripts/patch-socialflow-cron-handler.mjs para el

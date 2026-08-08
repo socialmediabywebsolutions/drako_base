@@ -215,3 +215,26 @@ export async function countFeedItems(
 
   return result.results?.[0]?.count ?? 0;
 }
+
+// Cron-driven agents (ContentFatigueAgent, ViralOpportunityAgent) recompute their
+// condition on every run and must actively clear a card once it no longer holds —
+// seedFeedItems only creates/refreshes, it never removes. Callers use a `source` that
+// is stable per dimension (e.g. "content_fatigue:hook", not
+// "content_fatigue:hook:pregunta_directa"), so the card for a dimension gets dismissed
+// here instead of orphaned when the underlying value changes.
+export async function dismissFeedItemsBySource(
+  tenantId: string,
+  source: string,
+  saasId = DEFAULT_SAAS_ID,
+): Promise<void> {
+  const context = await resolveSocialContext({ tenantId, saasId });
+  await ensureFeedTable(context.socialDb);
+
+  await context.socialDb
+    .prepare(
+      `UPDATE ${SOCIALFLOW_FEED_TABLE} SET status = 'dismissed', updated_at = ?
+       WHERE tenant_id = ? AND saas_id = ? AND source = ? AND status != 'dismissed'`,
+    )
+    .bind(nowIso(), context.tenantId, context.saasId ?? saasId, source)
+    .run();
+}
