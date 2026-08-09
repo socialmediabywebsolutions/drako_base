@@ -7,6 +7,8 @@ import { resolveSocialContext, listSaasSocialAccounts } from "@/lib/socialflow/r
 import { requireInstagramCredentials } from "@/lib/socialflow/meta/publishing";
 import { fetchInstagramRecentMedia } from "@/lib/socialflow/meta/core";
 import { fetchInstagramComments, replyToInstagramComment } from "@/lib/socialflow/meta/comments";
+import type { InstagramComment } from "@/lib/socialflow/meta/comments";
+import { sendInstagramPrivateReply } from "@/lib/socialflow/meta/privateReplies";
 import { analyzeSentiment } from "@/lib/socialflow/conversational/sentiment";
 import { generateConversationalReply } from "@/lib/socialflow/conversational/engine";
 import {
@@ -20,6 +22,9 @@ import { getChannelKnowledge } from "@/lib/socialflow/profile/repository";
 import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
 import { detectLeadSignals } from "@/lib/socialflow/leads/detector";
 import { createLead } from "@/lib/socialflow/leads/repository";
+import { listKeywordDmTriggers, hasKeywordDmLogEntry, recordKeywordDmLog } from "@/lib/socialflow/keyword-dm/repository";
+import { pickMatchingTrigger } from "@/lib/socialflow/keyword-dm/matcher";
+import type { KeywordDmTrigger } from "@/lib/socialflow/keyword-dm/types";
 import type { SocialContext } from "@/lib/socialflow/repository";
 import type { SaasSocialAccount } from "@/lib/social-core/types";
 
@@ -102,6 +107,42 @@ async function maybeCreateLead(
   }
 }
 
+// Independiente del pipeline de sentiment/NEEDS_HUMAN: opera sobre el mismo array
+// `comments` que ya trajo el único fetchInstagramComments del post (no hace una segunda
+// llamada), con su propio gate de dedup (socialflow_keyword_dm_log, no
+// threadExistsByPlatformId) y su propio try/catch por comentario — un fallo aquí nunca
+// aborta el post ni bloquea el loop de sentiment que corre después, y un match aquí
+// tampoco impide que el mismo comentario siga su flujo normal de moderación/respuesta
+// pública (son dos escrituras a tablas distintas, sin dependencia entre sí).
+async function processKeywordDmTriggers(
+  convCtx: SocialContext,
+  postId: string,
+  comments: InstagramComment[],
+  triggers: KeywordDmTrigger[],
+  creds: { accessToken: string; igUserId: string },
+): Promise<void> {
+  for (const comment of comments) {
+    try {
+      const alreadyLogged = await hasKeywordDmLogEntry(convCtx, comment.id);
+      if (alreadyLogged) continue;
+
+      const trigger = pickMatchingTrigger(triggers, comment.text, postId);
+      if (!trigger) continue;
+
+      const sendResult = await sendInstagramPrivateReply(creds.igUserId, creds.accessToken, comment.id, trigger.dmMessage);
+      await recordKeywordDmLog(convCtx, {
+        triggerId: trigger.id,
+        platformCommentId: comment.id,
+        commenterUsername: comment.username,
+        status: sendResult.success ? "SENT" : "FAILED",
+        errorMessage: sendResult.success ? null : (sendResult.error ?? "unknown error"),
+      });
+    } catch (err) {
+      console.error("[cron/comments] keyword-dm failed", comment.id, err instanceof Error ? err.message : String(err));
+    }
+  }
+}
+
 async function processTenantComments(
   tenantId: string,
   saasId: string,
@@ -134,15 +175,20 @@ async function processTenantComments(
 
   // Load tenant context once
   const convCtx = await resolveConvContext({ tenantId, saasId });
-  const [knowledge, settings, knowledgeContext] = await Promise.all([
+  const [knowledge, settings, knowledgeContext, activeKeywordTriggers] = await Promise.all([
     getChannelKnowledge(tenantId, saasId).catch(() => null),
     getConversationSettings(convCtx),
     getKnowledgeContext(tenantId, saasId).catch(() => ""),
+    listKeywordDmTriggers(convCtx, { activeOnly: true }).catch(() => []),
   ]);
 
   for (const post of postsWithComments) {
     const fetched = await fetchInstagramComments(post.id, creds.accessToken, creds.apiBase);
     if (!fetched.ok) continue;
+
+    if (activeKeywordTriggers.length) {
+      await processKeywordDmTriggers(convCtx, post.id, fetched.comments, activeKeywordTriggers, creds);
+    }
 
     for (const comment of fetched.comments) {
       // Skip already-processed comments
