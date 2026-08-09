@@ -641,7 +641,8 @@ jobs:
             migrations/0192_socialflow_social_metrics_snapshots.sql \
             migrations/0193_socialflow_conversation_engine.sql \
             migrations/0197_socialflow_knowledge_documents.sql \
-            migrations/0199_socialflow_profiles_persona_fields.sql; do
+            migrations/0199_socialflow_profiles_persona_fields.sql \
+            workers/socialflows/migrations/0213_seasonality_cache.sql; do
             echo "Applying ${migration}..."
             if ! OUTPUT="$(wrangler d1 execute SOCIAL_DB --remote --config workers/socialflows/wrangler.workers.toml \
               --file "${migration}" 2>&1)"; then
