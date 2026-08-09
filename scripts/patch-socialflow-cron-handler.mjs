@@ -10,7 +10,10 @@
  *   - every 4 hours, on the hour (see wrangler.workers.toml crons): /api/cron/social/metrics
  *     (processInstagramMetrics — collects per-post Instagram engagement/impressions into
  *     saas_social_metrics)
- *   - once a day (0 3 * * *): /api/cron/social/style-learning (StyleLearningAgent)
+ *   - once a day (0 3 * * *): /api/cron/social/style-learning (StyleLearningAgent), then
+ *     /api/cron/social/seasonality (SeasonalityAgent — refreshes
+ *     socialflow_seasonality_cache per niche+current-month, 30-day TTL so most nights
+ *     it's a no-op scan; see runSeasonalityCron)
  *   - once a week, Mondays (0 3 * * 1): /api/cron/social/niche-intelligence
  *     (NicheIntelligenceCronAgent — refreshes socialcors_niche_intelligence), then
  *     /api/cron/social/cross-tenant-intelligence (CrossTenantIntelligenceAgent —
@@ -97,6 +100,9 @@ const scheduledHandler = `    // __socialflowCronHandlerPatched
         if (event.cron === "0 3 * * *") {
             await fetch(appUrl + "/api/cron/social/style-learning", authHeaders).catch(function(err) {
                 console.error("[Cron] scheduled style-learning failed:", err.message);
+            });
+            await fetch(appUrl + "/api/cron/social/seasonality", authHeaders).catch(function(err) {
+                console.error("[Cron] scheduled seasonality failed:", err.message);
             });
             return;
         }
