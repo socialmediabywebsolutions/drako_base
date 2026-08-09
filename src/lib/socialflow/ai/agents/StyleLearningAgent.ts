@@ -5,7 +5,8 @@ import { saveStyleSnapshot } from "@/lib/socialflow/intelligence/NicheIntelligen
 import { env } from "@/lib/cf";
 import type { SaasSocialPost } from "@/lib/social-core/types";
 import { extractHashtags, classifyHook } from "./contentHeuristics";
-import { EngagementLearningAgent, type EngagementPatterns, type PostWithEngagement } from "./EngagementLearningAgent";
+import { EngagementLearningAgent, type EngagementPatterns } from "./EngagementLearningAgent";
+import { BestTimeToPostAgent, type BestHourByFormat } from "./BestTimeToPostAgent";
 
 const MAX_POSTS_ANALYZED = 30;
 
@@ -27,6 +28,7 @@ export type StyleLearningResult = {
   topHashtags: Array<{ tag: string; avgEngagement: number; uses: number }>;
   recurringTopics: string[];
   bestPerformingHours: number[];
+  bestHourByFormat: BestHourByFormat;
   summaryText: string;
 } & EngagementPatterns;
 
@@ -63,14 +65,20 @@ export class StyleLearningAgent {
 
     if (published.length === 0) return null;
 
-    const withEngagement: PostWithEngagement[] = await Promise.all(
-      published.map(async (post) => {
-        const metrics = await listSaasSocialMetricsForPost(ctx, post.id).catch(() => []);
-        const latest = metrics[0] ?? null;
-        const engagement = latest ? latest.likes + latest.comments + latest.shares : 0;
-        return { post, engagement, hasMetrics: Boolean(latest) };
-      }),
-    );
+    // BestTimeToPostAgent corre en paralelo — lee su propia ventana de 90 días vía
+    // getRecentPostEngagementByHour (independiente de MAX_POSTS_ANALYZED, que solo
+    // acota el análisis de estilo/hooks de arriba), no depende de withEngagement.
+    const [withEngagement, bestHourByFormat] = await Promise.all([
+      Promise.all(
+        published.map(async (post) => {
+          const metrics = await listSaasSocialMetricsForPost(ctx, post.id).catch(() => []);
+          const latest = metrics[0] ?? null;
+          const engagement = latest ? latest.likes + latest.comments + latest.shares : 0;
+          return { post, engagement, hasMetrics: Boolean(latest) };
+        }),
+      ),
+      new BestTimeToPostAgent().run(ctx),
+    ]);
     const hasAnyMetrics = withEngagement.some((w) => w.hasMetrics);
 
     // Deterministic, metrics-driven — complements topHookPatterns (frequency of use)
@@ -173,6 +181,7 @@ export class StyleLearningAgent {
       topHashtags,
       recurringTopics,
       bestPerformingHours,
+      bestHourByFormat,
       summaryText,
       ...engagementPatterns,
     };

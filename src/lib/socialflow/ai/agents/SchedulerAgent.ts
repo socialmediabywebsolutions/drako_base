@@ -1,7 +1,10 @@
-import type { ScheduledPostPlan, StrategyItem } from "../types";
+import { STRATEGY_FORMAT_TO_CONTENT_TYPE, type ScheduledPostPlan, type StrategyItem } from "../types";
+import type { SaasSocialContentType } from "@/lib/social-core/types";
 
 const FITNESS_LIFESTYLE_HOURS = [7, 12, 18] as const;
 const DEFAULT_HOURS = [9, 18] as const;
+const DAY_MS = 86_400_000;
+const SCHEDULING_WINDOW_DAYS = 62; // covers current + next month from startDate
 
 const FITNESS_LIFESTYLE_RE = /fitness|lifestyle|wellness|salud\b|health|gym|sport|yoga|pilates|nutrici[oó]n|coach|entrenami|ejercici/i;
 
@@ -19,7 +22,6 @@ function buildSlots(
   fromDateStr: string,
   numDays: number,
 ): Array<{ dateStr: string; hour: number }> {
-  const DAY_MS = 86_400_000;
   const dayList: string[] = [];
   let cursor = new Date(fromDateStr + "T00:00:00Z").getTime();
   for (let i = 0; i < numDays; i++) {
@@ -37,6 +39,25 @@ function buildSlots(
   return slots;
 }
 
+// Primer día libre (desde fromDateStr, dentro de numDays) para una hora exacta — usado
+// cuando un item tiene hora óptima real por formato (BestTimeToPostAgent), en vez del
+// pool wave-based de abajo, que reparte entre varias horas genéricas por nicho.
+function firstFreeDayForHour(
+  hour: number,
+  fromDateStr: string,
+  numDays: number,
+  occupiedKeys: Set<string>,
+): string | null {
+  let cursor = new Date(fromDateStr + "T00:00:00Z").getTime();
+  for (let i = 0; i < numDays; i++) {
+    const dateStr = new Date(cursor).toISOString().slice(0, 10);
+    const key = `${dateStr}T${String(hour).padStart(2, "0")}`;
+    if (!occupiedKeys.has(key)) return dateStr;
+    cursor += DAY_MS;
+  }
+  return null;
+}
+
 export class SchedulerAgent {
   run(input: {
     strategy: StrategyItem[];
@@ -46,11 +67,16 @@ export class SchedulerAgent {
     niche?: string;
     occupiedSlots?: string[];   // ISO date-times already scheduled in DB
     optimalHours?: number[];    // AI-provided UTC hours; falls back to niche heuristic
+    // Hora óptima real por content_type (BestTimeToPostAgent, vía socialcors_style_history)
+    // — resuelta por el caller (SocialFlowOrchestrator), no leída aquí: este agente se
+    // mantiene síncrono y sin I/O. Tiene prioridad sobre optimalHours/niche heuristic
+    // para el formato de CADA item que tenga dato suficiente; los demás items (formato
+    // sin datos, o mapa ausente) siguen usando el pool de abajo sin ningún cambio.
+    optimalHoursByFormat?: Partial<Record<SaasSocialContentType, number>>;
   }): ScheduledPostPlan[] {
     const n = input.strategy.length;
     if (n === 0) return [];
 
-    const DAY_MS = 86_400_000;
     const now = Date.now();
 
     const startMs = input.startDate
@@ -72,31 +98,37 @@ export class SchedulerAgent {
       (input.occupiedSlots ?? []).map((iso) => iso.slice(0, 13)),
     );
 
-    // 62 days covers current + next month from startDate
-    const allSlots = buildSlots(hours, rangeStart, 62);
+    const allSlots = buildSlots(hours, rangeStart, SCHEDULING_WINDOW_DAYS);
     const available = allSlots.filter(({ dateStr, hour }) => {
       const key = `${dateStr}T${String(hour).padStart(2, "0")}`;
       return !occupiedKeys.has(key);
     });
+    // Consumido en orden de asignación (no necesariamente el mismo que el índice del
+    // item en `strategy`, porque los items con hora óptima por formato no tocan el
+    // pool) — cuando optimalHoursByFormat está ausente, cada item lo consume en orden,
+    // idéntico al `available[index]` de antes.
+    let poolIndex = 0;
 
-    return input.strategy.map((item, index) => {
-      const slot = available[index];
+    const endMs = Math.max(
+      input.endDate
+        ? new Date(input.endDate + "T23:59:00Z").getTime()
+        : startMs + 6 * DAY_MS,
+      startMs + DAY_MS - 1,
+    );
+
+    const assignFromPoolOrFallback = (item: StrategyItem, itemIndex: number): ScheduledPostPlan => {
+      const slot = available[poolIndex];
 
       if (!slot) {
         // Fallback: linear spread if slots somehow exhausted (62-day range, 186 slots max)
-        const endMs = Math.max(
-          input.endDate
-            ? new Date(input.endDate + "T23:59:00Z").getTime()
-            : startMs + 6 * DAY_MS,
-          startMs + DAY_MS - 1,
-        );
-        const t = n === 1 ? 0.5 : index / (n - 1);
+        const t = n === 1 ? 0.5 : itemIndex / (n - 1);
         const postDate = new Date(startMs + t * (endMs - startMs));
         const dateStr = postDate.toISOString().slice(0, 10);
         postDate.setUTCHours(pickHour(hours, dateStr), 0, 0, 0);
         return { id: `sched_${item.id}`, postId: item.id, scheduledAt: postDate.toISOString() };
       }
 
+      poolIndex++;
       // Mark slot occupied so later posts in this batch don't collide
       occupiedKeys.add(`${slot.dateStr}T${String(slot.hour).padStart(2, "0")}`);
 
@@ -108,6 +140,24 @@ export class SchedulerAgent {
         postId: item.id,
         scheduledAt: postDate.toISOString(),
       };
+    };
+
+    return input.strategy.map((item, index) => {
+      const contentType = STRATEGY_FORMAT_TO_CONTENT_TYPE[item.format];
+      const targetHour = input.optimalHoursByFormat?.[contentType];
+
+      if (targetHour !== undefined) {
+        const dateStr = firstFreeDayForHour(targetHour, rangeStart, SCHEDULING_WINDOW_DAYS, occupiedKeys);
+        if (dateStr) {
+          occupiedKeys.add(`${dateStr}T${String(targetHour).padStart(2, "0")}`);
+          const postDate = new Date(dateStr + "T00:00:00Z");
+          postDate.setUTCHours(targetHour, 0, 0, 0);
+          return { id: `sched_${item.id}`, postId: item.id, scheduledAt: postDate.toISOString() };
+        }
+        // Ventana de 62 días agotada para esa hora exacta (caso raro) — cae al pool.
+      }
+
+      return assignFromPoolOrFallback(item, index);
     });
   }
 }

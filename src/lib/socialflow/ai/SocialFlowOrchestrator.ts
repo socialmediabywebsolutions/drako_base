@@ -7,12 +7,16 @@ import { OptimizationAgent } from "./agents/OptimizationAgent";
 import { SchedulerAgent } from "./agents/SchedulerAgent";
 import { TrendAgent } from "./agents/TrendAgent";
 import type { BrandProfile, SocialAIPipelineInput, SocialAIPipelineResult, StrategyItem } from "./types";
+import { STRATEGY_FORMAT_TO_CONTENT_TYPE } from "./types";
 import type { SaasSocialContentType } from "@/lib/social-core/types";
 import { getSaasSocialCampaignById, listSaasSocialAccounts, listSaasSocialChannels, resolveSocialContext, upsertSaasSocialCampaign, upsertSaasSocialPost } from "../repository";
 import { getChannelKnowledge, saveCompetitorInsights } from "../profile/repository";
 import { getKnowledgeContext } from "../knowledge/repository";
+import { getStyleHistory } from "../intelligence/NicheIntelligenceService";
+import { extractBestHourByFormat } from "./agents/BestTimeToPostAgent";
 import { generatePostImage } from "./image-generator";
 import { buildImagePrompt } from "./image-prompt-builder";
+import { env } from "@/lib/cf";
 import { cleanOpening } from "./openers/cleanOpening";
 
 // Handle real de la cuenta de Instagram conectada (OAuth) para este tenant/saas, si existe
@@ -152,12 +156,33 @@ export class SocialFlowOrchestrator {
       const optimized = await this.optimizationAgent.run({ profile, variant: generated.variants[0], keywordEngine });
       optimizedPosts.push(optimized);
     }
+    // BestTimeToPostAgent — resuelto aquí (no dentro de SchedulerAgent, que se mantiene
+    // síncrono y sin I/O) leyendo el snapshot más reciente de socialcors_style_history.
+    // Degradación elegante: cualquier fallo deja optimalHoursByFormat undefined y
+    // SchedulerAgent cae exactamente a las reglas de nicho de siempre.
+    let optimalHoursByFormat: Partial<Record<SaasSocialContentType, number>> | undefined;
+    try {
+      const dracoEnv = env();
+      if (dracoEnv) {
+        const styleHistory = await getStyleHistory(input.tenantId, input.saasId, dracoEnv);
+        const parsed = styleHistory[0] ? extractBestHourByFormat(styleHistory[0].snapshotJson) : null;
+        if (parsed) {
+          optimalHoursByFormat = Object.fromEntries(
+            Object.entries(parsed).filter(([, hour]) => hour !== null),
+          ) as Partial<Record<SaasSocialContentType, number>>;
+        }
+      }
+    } catch (err) {
+      console.error("[SocialFlowOrchestrator] bestHourByFormat lookup failed, falling back to niche rules", err instanceof Error ? err.message : String(err));
+    }
+
     const schedule = this.schedulerAgent.run({
       strategy: strategy.items as StrategyItem[],
       frequencyPerWeek: input.frequencyPerWeek,
       startDate: input.startDate ?? null,
       endDate: input.endDate ?? null,
       niche: profile.niche,
+      optimalHoursByFormat,
     });
     const campaignId = await this.persistToDb(input, profile, strategy.items as StrategyItem[], optimizedPosts, schedule);
     return { profile, research, keywords: research, competitors, strategy, generatedPosts, optimizedPosts, schedule, campaignId };
@@ -186,8 +211,7 @@ export class SocialFlowOrchestrator {
         const imageHint = await generatePostImage(imagePrompt, postId);
         const postProvider = input.provider ?? "INSTAGRAM";
         const hashtags = (optimized?.hashtags ?? []).slice(0, 15);
-        const formatMap: Record<string, SaasSocialContentType> = { single: "FEED", carousel: "FEED", reel: "REEL", story: "STORY", article: "FEED" };
-        const contentType: SaasSocialContentType = formatMap[item.format] ?? "FEED";
+        const contentType: SaasSocialContentType = STRATEGY_FORMAT_TO_CONTENT_TYPE[item.format] ?? "FEED";
         await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: postProvider, contentType, title: item.theme, body, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, creationMode: "AUTO", metadata: { targetProvider: postProvider, strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags, angle: item.angle, callToAction: item.callToAction } });
         savedCount++;
       } catch (postError) {

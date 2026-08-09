@@ -1,3 +1,5 @@
+import type { SaasSocialContentType } from "@/lib/social-core/types";
+
 export type SocialFlowClientObjective = "followers" | "engagement" | "leads" | "sales" | "saves" | "virality";
 
 export type BrandProfile = {
@@ -120,6 +122,18 @@ export type StrategyItem = {
   angle: string;
   format: "carousel" | "reel" | "single" | "story" | "article";
   callToAction: string;
+};
+
+// Compartido entre SocialFlowOrchestrator.persistToDb (contentType real que se
+// persiste) y SchedulerAgent (para saber a qué formato le aplica cada hora óptima) —
+// deben usar la MISMA traducción, si divergieran SchedulerAgent podría optimizar para
+// un content_type que luego no es el que realmente se guarda.
+export const STRATEGY_FORMAT_TO_CONTENT_TYPE: Record<StrategyItem["format"], SaasSocialContentType> = {
+  single: "FEED",
+  carousel: "FEED",
+  reel: "REEL",
+  story: "STORY",
+  article: "FEED",
 };
 
 export type ContentStrategy = {

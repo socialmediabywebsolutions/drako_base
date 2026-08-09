@@ -315,6 +315,11 @@ export type SocialActivitySummary = {
   currentFollowers: number | null;
 };
 
+// Un post real, con su hora de publicación (UTC) y engagement (likes+comments+reach) —
+// insumo crudo de BestTimeToPostAgent.computeBestHourByFormat, ver
+// getRecentPostEngagementByHour en repository.ts.
+export type PostEngagementHourPoint = { contentType: SaasSocialContentType; hourUtc: number; engagement: number };
+
 export type SocialLiveAnalyticsSummary = {
   totalEligibleLivePosts: number;
   healthyPosts: number;

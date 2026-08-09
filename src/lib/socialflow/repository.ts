@@ -5,7 +5,7 @@ import {
   createSocialRepositoryContextWithCoreProjection,
   type SocialRepositoryContext,
 } from "@/lib/socialflow/contracts/repository-core-context";
-import type { AnalyticsMeta, FollowerHistoryPoint, SaasSocialAccount, SaasSocialCampaign, SaasSocialChannel, SaasSocialChannelIdea, SaasSocialChannelKnowledge, SaasSocialChannelSignals, SaasSocialMetrics, SaasSocialPost, SaasSocialProvider, SocialActivitySummary, SocialAnalyticsActivity, SocialAnalyticsIncident, SocialAnalyticsSnapshot, SocialAnalyticsWindow, SocialCalendarDay, SocialCalendarSnapshot, SocialCampaignPerformance, SocialConversionSnapshot, SocialInsightsSnapshot, SocialInsightsTopPost, SocialInsightsWeeklyFormatPoint, SocialLiveAnalyticsSummary, SocialPostPerformance, SocialProductSummary } from "@/lib/social-core/types";
+import type { AnalyticsMeta, FollowerHistoryPoint, PostEngagementHourPoint, SaasSocialAccount, SaasSocialCampaign, SaasSocialChannel, SaasSocialChannelIdea, SaasSocialChannelKnowledge, SaasSocialChannelSignals, SaasSocialMetrics, SaasSocialPost, SaasSocialProvider, SocialActivitySummary, SocialAnalyticsActivity, SocialAnalyticsIncident, SocialAnalyticsSnapshot, SocialAnalyticsWindow, SocialCalendarDay, SocialCalendarSnapshot, SocialCampaignPerformance, SocialConversionSnapshot, SocialInsightsSnapshot, SocialInsightsTopPost, SocialInsightsWeeklyFormatPoint, SocialLiveAnalyticsSummary, SocialPostPerformance, SocialProductSummary } from "@/lib/social-core/types";
 
 export type SocialContextMode = SocialRepositoryContext["mode"];
 export type SocialContext = SocialRepositoryContext;
@@ -299,6 +299,49 @@ export async function getSocialActivitySummary(ctx: SocialContext): Promise<Soci
   const currentFollowers = followerHistory.length > 0 ? followerHistory[followerHistory.length - 1].followersCount : null;
 
   return { postsThisMonth, totalLikesThisMonth, totalCommentsThisMonth, currentFollowers };
+}
+
+type HourEngagementMetricsRow = { post_id: string; captured_at: string; likes: number; comments: number; metadata: string | null };
+
+// Insumo crudo de BestTimeToPostAgent — un punto por post real (formato, hora UTC de
+// publicación, engagement) dentro de la ventana pedida. Mismo patrón de dos queries en
+// paralelo + dedup MAX(captured_at)+GROUP BY post_id que getSocialInsightsSnapshot/
+// getSocialActivitySummary. engagement = likes+comments+reach — distinto del
+// likes+comments+shares que ya usa EngagementLearningAgent, fórmula propia de este agente.
+export async function getRecentPostEngagementByHour(ctx: SocialContext, sinceDays: number): Promise<PostEngagementHourPoint[]> {
+  const saasId = requireSaasId(ctx);
+  const sinceMs = Date.now() - sinceDays * 24 * 60 * 60 * 1000;
+  const sinceIso = new Date(sinceMs).toISOString();
+
+  const [metricsRows, posts] = await Promise.all([
+    queryRows<HourEngagementMetricsRow>(
+      ctx.socialDb,
+      `SELECT post_id, MAX(captured_at) as captured_at, likes, comments, metadata
+       FROM saas_social_metrics
+       WHERE tenant_id = ? AND saas_id = ? AND captured_at >= ?
+       GROUP BY post_id ORDER BY captured_at DESC`,
+      ctx.tenantId, saasId, sinceIso,
+    ),
+    listSaasSocialPosts(ctx),
+  ]);
+
+  const engagementByPostId = new Map<string, number>();
+  for (const row of metricsRows) {
+    const meta = parseJson<Record<string, unknown>>(row.metadata);
+    const reach = typeof meta?.reach === "number" ? meta.reach : 0;
+    engagementByPostId.set(row.post_id, row.likes + row.comments + reach);
+  }
+
+  const points: PostEngagementHourPoint[] = [];
+  for (const post of posts) {
+    if (post.status !== "POSTED" && post.status !== "PUBLISHED") continue;
+    if (!post.postedAt || new Date(post.postedAt).getTime() < sinceMs) continue;
+    const engagement = engagementByPostId.get(post.id);
+    if (engagement === undefined) continue;
+    points.push({ contentType: post.contentType, hourUtc: new Date(post.postedAt).getUTCHours(), engagement });
+  }
+
+  return points;
 }
 
 function buildAnalyticsActivity(posts: SaasSocialPost[]): SocialAnalyticsActivity[] { return posts.flatMap((post) => { const analytics = getAnalyticsMetaFromMetadata(post.metadata); const review = typeof post.metadata?.analyticsReview === "object" && post.metadata.analyticsReview ? (post.metadata.analyticsReview as Record<string, unknown>) : null; if (!analytics.lastFetchedAt && !analytics.lastRefreshStatus) return []; const state = analytics.lastRefreshStatus === "error" ? "error" : analytics.source === "social_db" ? "success" : "success"; return [{ postId: post.id, postTitle: post.title, provider: post.provider, lastFetchedAt: analytics.lastFetchedAt ?? post.updatedAt, state, summary: state === "error" ? "Refresh failed" : "Metrics synced", reviewed: Boolean(review?.reviewed), manualReviewAt: typeof review?.manualReviewAt === "string" ? review.manualReviewAt : null, analyticsSource: analytics.source, lastRefreshStatus: analytics.lastRefreshStatus, lastRefreshErrorMessage: analytics.lastRefreshErrorMessage ?? null, lastRefreshErrorCode: analytics.lastRefreshErrorCode ?? null, lastRefreshAt: analytics.lastFetchedAt ?? null, lastFetchedAtDisplay: analytics.lastFetchedAt ?? null, manualReviewNote: typeof review?.note === "string" ? review.note : null, recommendation: state === "error" ? "Inspect the live post and retry the analytics refresh." : "Metrics are stored in SOCIAL_DB for this post.", externalPostId: post.externalPostId }]; }).sort((a, b) => b.lastFetchedAt.localeCompare(a.lastFetchedAt)).slice(0, 8); }

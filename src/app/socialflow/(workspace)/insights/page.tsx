@@ -1,12 +1,16 @@
 import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { getSocialInsightsSnapshot, resolveSocialContext, SocialContextError } from "@/lib/socialflow/repository";
+import { getStyleHistory } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
+import { extractBestHourByFormat, type BestHourByFormat } from "@/lib/socialflow/ai/agents/BestTimeToPostAgent";
+import { env } from "@/lib/cf";
 import type { SocialInsightsSnapshot } from "@/lib/social-core/types";
 import InsightsSummaryCards from "./_components/InsightsSummaryCards";
 import ReachByFormatChart from "./_components/ReachByFormatChart";
 import LikesCommentsByFormatChart from "./_components/LikesCommentsByFormatChart";
 import PlaysByFormatChart from "./_components/PlaysByFormatChart";
 import FollowerGrowthChart from "./_components/FollowerGrowthChart";
+import BestTimeToPostCard from "./_components/BestTimeToPostCard";
 import TopPostsList from "./_components/TopPostsList";
 
 const SAAS_ID = "socialflow";
@@ -25,6 +29,17 @@ export default async function SocialFlowInsightsPage() {
     if (!(error instanceof SocialContextError)) {
       console.error("SOCIALFLOW_INSIGHTS_PAGE_ERROR", error);
     }
+  }
+
+  let bestHourByFormat: BestHourByFormat | null = null;
+  try {
+    const dracoEnv = env();
+    if (dracoEnv) {
+      const styleHistory = await getStyleHistory(session.tenantId, SAAS_ID, dracoEnv);
+      bestHourByFormat = styleHistory[0] ? extractBestHourByFormat(styleHistory[0].snapshotJson) : null;
+    }
+  } catch (error) {
+    console.error("SOCIALFLOW_INSIGHTS_BEST_TIME_ERROR", error);
   }
 
   return (
@@ -55,6 +70,13 @@ export default async function SocialFlowInsightsPage() {
             <h2 className="mb-3 text-base font-bold text-white">Visualizaciones por formato (últimas 4 semanas)</h2>
             <PlaysByFormatChart data={insights.playsByFormatBreakdown} />
           </section>
+
+          {bestHourByFormat && (
+            <section>
+              <h2 className="mb-3 text-base font-bold text-white">Mejores horas para publicar</h2>
+              <BestTimeToPostCard bestHourByFormat={bestHourByFormat} />
+            </section>
+          )}
 
           <section>
             <h2 className="mb-3 text-base font-bold text-white">Evolución de seguidores</h2>
