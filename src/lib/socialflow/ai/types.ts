@@ -51,7 +51,13 @@ export type BrandProfile = {
   // Topics & trends
   viralThemes: string[];
   trendingTopics: string[];
+  // Gestionado por SeasonalityAgent (src/lib/socialflow/ai/agents/SeasonalityAgent.ts) —
+  // ya no es un campo manual del formulario de perfil. seasonalTopics es el array
+  // "themes" extraído del JSON de seasonalContext; seasonalContext es el JSON completo
+  // (context/hooks/themes/cta_suggestions/avoid) serializado como string, listo para que
+  // cada agente lo interpole tal cual en su prompt.
   seasonalTopics: string[];
+  seasonalContext: string;
 
   // Market & signals
   marketSignals: string[];

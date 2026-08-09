@@ -267,8 +267,11 @@ export default function SocialFlowProfilePage() {
           <TagField label="Temas virales" value={p.viralThemes} onChange={(v) => setProfile({ ...p, viralThemes: v })} />
           <TagField label="Temas tendencia" value={p.trendingTopics} onChange={(v) => setProfile({ ...p, trendingTopics: v })} />
         </div>
+        {/* "Temas estacionales" ya no es editable a mano aquí — lo gestiona
+            SeasonalityAgent (contexto global por nicho+mes, ver BrandProfile.seasonalContext
+            en src/lib/socialflow/ai/types.ts). El campo p.seasonalTopics se mantiene en el
+            tipo de perfil por compatibilidad, pero ya no tiene UI de edición. */}
         <div className="grid gap-4 text-sm md:grid-cols-3">
-          <TagField label="Temas estacionales" value={p.seasonalTopics} onChange={(v) => setProfile({ ...p, seasonalTopics: v })} />
           <TagField label="Temas prohibidos" value={p.forbiddenTopics} onChange={(v) => setProfile({ ...p, forbiddenTopics: v })} />
           <TagField label="Temas permitidos" value={p.allowedTopics} onChange={(v) => setProfile({ ...p, allowedTopics: v })} />
         </div>

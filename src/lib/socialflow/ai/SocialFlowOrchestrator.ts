@@ -13,6 +13,7 @@ import { getSaasSocialCampaignById, listSaasSocialAccounts, listSaasSocialChanne
 import { getChannelKnowledge, saveCompetitorInsights } from "../profile/repository";
 import { getKnowledgeContext } from "../knowledge/repository";
 import { getStyleHistory } from "../intelligence/NicheIntelligenceService";
+import { getSeasonalityContext } from "./agents/SeasonalityAgent";
 import { extractBestHourByFormat } from "./agents/BestTimeToPostAgent";
 import { generatePostImage } from "./image-generator";
 import { buildImagePrompt } from "./image-prompt-builder";
@@ -55,7 +56,12 @@ export class SocialFlowOrchestrator {
   private trendAgent = new TrendAgent();
 
   async buildProfile(input: SocialAIPipelineInput): Promise<BrandProfile> {
-    const [{ profile, competitors }, knowledgeContext, connectedInstagramHandle, campaignObjective] = await Promise.all([
+    // DracoEnv | null — mismo patrón que ContentGeneratorAgent/ReelsAgent para
+    // getNicheIntelligence: se comprueba una vez y se degrada a Promise.resolve(null) si
+    // no hay bindings (ej. entorno local sin Cloudflare), en vez de forzar un valor
+    // "vacío" que no satisface el tipo DracoEnv (DRACO_DB es obligatorio en él).
+    const dracoEnv = env();
+    const [{ profile, competitors }, knowledgeContext, connectedInstagramHandle, campaignObjective, seasonalContextRaw] = await Promise.all([
       getChannelKnowledge(input.tenantId, input.saasId),
       getKnowledgeContext(input.tenantId, input.saasId).catch(() => ""),
       // Handle real de Instagram (OAuth, saas_social_accounts) — fuente de verdad para
@@ -65,9 +71,35 @@ export class SocialFlowOrchestrator {
       // debe tumbar buildProfile si SOCIAL_DB falla — se degrada al fallback existente.
       resolvePrimaryInstagramHandle(input.tenantId, input.saasId).catch(() => null),
       resolveCampaignObjective(input.tenantId, input.saasId, input.campaignId).catch(() => null),
+      // Usa input.niche directamente en vez de esperar a `niche` (línea de abajo, que
+      // también cae a profile.niche) — SocialAIPipelineInput.niche es obligatorio en el
+      // tipo, así que en la práctica ya está disponible aquí sin esperar a que resuelva
+      // getChannelKnowledge; si algún caller lo manda vacío igualmente, getSeasonalityContext
+      // devuelve null con gracia (mismo criterio que el resto de fetches de este Promise.all)
+      // en vez de forzar una segunda ronda secuencial solo para este caso borde.
+      dracoEnv
+        ? getSeasonalityContext(input.niche, dracoEnv, input.tenantId, input.saasId).catch(() => null)
+        : Promise.resolve(null),
     ]);
 
     const niche = input.niche || profile.niche || input.saasId;
+
+    // seasonalTopics ya no es un campo manual del formulario de perfil (ver
+    // profile/page.tsx) — lo gestiona la IA a partir de SeasonalityAgent. Tolera JSON
+    // malformado sin tumbar buildProfile: seasonalTopics se queda en [] si el parseo
+    // falla o el campo "themes" no viene en la forma esperada.
+    let seasonalTopics: string[] = [];
+    if (seasonalContextRaw) {
+      try {
+        const parsed: unknown = JSON.parse(seasonalContextRaw);
+        const themes = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>).themes : null;
+        if (Array.isArray(themes)) {
+          seasonalTopics = themes.filter((t): t is string => typeof t === "string");
+        }
+      } catch {
+        // seasonalTopics se queda en []
+      }
+    }
     const tone = profile.toneOfVoice || input.tone || "neutro y profesional";
     const brandName = profile.brandName || input.saasId.replace(/[-_]/g, " ");
 
@@ -126,7 +158,8 @@ export class SocialFlowOrchestrator {
       avoidedFormats: profile.avoidedFormats,
       viralThemes: profile.viralThemes,
       trendingTopics: profile.trendingTopics,
-      seasonalTopics: profile.seasonalTopics,
+      seasonalTopics,
+      seasonalContext: seasonalContextRaw ?? "",
       marketSignals: profile.marketSignals,
       opportunitySignals: profile.opportunitySignals,
       demandSignals: profile.demandSignals.length ? profile.demandSignals : [niche],
