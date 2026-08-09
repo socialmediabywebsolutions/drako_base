@@ -5,6 +5,7 @@ import { OPENERS_BY_CATEGORY, type OpenerCategory } from "../openers/pickOpenerC
 import { resolveObjectiveCta } from "../utils/ctaUtils";
 import { getNicheIntelligence, getStyleHistory } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
 import { extractEngagementPatterns } from "@/lib/socialflow/intelligence/CrossTenantIntelligenceAgent";
+import { extractTrendSignals } from "@/lib/socialflow/intelligence/TrendKeywordAgent";
 import { extractVoiceSection } from "../utils/voiceUtils";
 import { env } from "@/lib/cf";
 
@@ -403,8 +404,13 @@ export class CarouselComposerAgent {
     const keywordPool = Array.from(new Set([...(profile.priorityKeywords ?? []), ...(profile.baseKeywords ?? [])])).filter(Boolean).slice(0, 8);
     const keywordsSection = keywordPool.length ? `\nKEYWORDS A INCLUIR NATURALMENTE EN EL CAPTION:\n${keywordPool.join(", ")}\n` : "";
 
+    // Sprint G (TrendKeywordAgent) — mismo criterio que ContentGeneratorAgent.ts: señales
+    // crudas de Reddit/Google Trends que hasta ahora solo se guardaban en
+    // analysis_json.trendSignals sin llegar nunca al prompt.
+    const trendSignals = extractTrendSignals(nicheIntel?.analysis);
+
     const nicheIntelSection = nicheIntel
-      ? `\nINTELIGENCIA DEL NICHO ESTA SEMANA:\n${nicheIntel.hooks.length ? `- Hooks que funcionan: ${nicheIntel.hooks.join(" | ")}\n` : ""}${nicheIntel.formats.length ? `- Formatos ganadores: ${nicheIntel.formats.join(", ")}\n` : ""}${nicheIntel.hashtags.length ? `- Hashtags de tendencia: ${nicheIntel.hashtags.join(" ")}\n` : ""}${realHashtagValues.length ? `- Hashtags con tracción real en tu nicho esta semana: ${realHashtagValues.join(" ")} — prioriza estos.\n` : ""}`
+      ? `\nINTELIGENCIA DEL NICHO ESTA SEMANA:\n${nicheIntel.hooks.length ? `- Hooks que funcionan: ${nicheIntel.hooks.join(" | ")}\n` : ""}${nicheIntel.formats.length ? `- Formatos ganadores: ${nicheIntel.formats.join(", ")}\n` : ""}${nicheIntel.hashtags.length ? `- Hashtags de tendencia: ${nicheIntel.hashtags.join(" ")}\n` : ""}${realHashtagValues.length ? `- Hashtags con tracción real en tu nicho esta semana: ${realHashtagValues.join(" ")} — prioriza estos.\n` : ""}${trendSignals?.redditTopics.length ? `- Temas trending en comunidades (Reddit): ${trendSignals.redditTopics.slice(0, 5).join(" | ")}\n` : ""}${trendSignals?.globalTrends.length ? `- Tendencias globales esta semana: ${trendSignals.globalTrends.slice(0, 5).join(", ")}\n` : ""}`
       : "";
 
     const latestStyle = styleHistory[0] ? parseLatestStyleSnapshot(styleHistory[0].snapshotJson) : null;

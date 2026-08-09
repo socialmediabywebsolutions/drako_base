@@ -6,6 +6,7 @@ import { nicheDefaultPostType } from "./ImageAnalysisAgent";
 import { resolveObjectiveCta } from "../utils/ctaUtils";
 import { getNicheIntelligence, getStyleHistory, detectContentFatigue } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
 import { extractEngagementPatterns } from "@/lib/socialflow/intelligence/CrossTenantIntelligenceAgent";
+import { extractTrendSignals } from "@/lib/socialflow/intelligence/TrendKeywordAgent";
 import { env } from "@/lib/cf";
 
 // Fallback determinista (sin llamar a Mistral) cuando el binding de IA no está
@@ -92,8 +93,15 @@ export class ContentGeneratorAgent {
       .slice(0, 8)
       .map((h) => h.hashtag);
 
+    // Sprint G (TrendKeywordAgent) — señales crudas de Reddit/Google Trends que hasta
+    // ahora solo se guardaban en analysis_json.trendSignals sin llegar nunca al prompt
+    // (a diferencia de youtubeHooks, que sí se mezclaba en hooks_json vía
+    // NicheIntelligenceCronAgent). Top 5 de cada una, mismo criterio de recorte que
+    // realHashtagValues, para no inflar el prompt con las 10 completas.
+    const trendSignals = extractTrendSignals(nicheIntel?.analysis);
+
     const nicheIntelSection = nicheIntel
-      ? `\n## Tendencias actuales del nicho ${profile.niche} (últimos 7 días)\n${nicheIntel.hashtags.length ? `Hashtags en tendencia: ${nicheIntel.hashtags.join(" ")}\n` : ""}${nicheIntel.formats.length ? `Formatos que están funcionando mejor: ${nicheIntel.formats.join(", ")}\n` : ""}${nicheIntel.hooks.length ? `Hooks que están funcionando: ${nicheIntel.hooks.join(" | ")}\n` : ""}${realHashtagValues.length ? `Hashtags con tracción real en tu nicho esta semana: ${realHashtagValues.join(" ")} — prioriza estos.\n` : ""}`
+      ? `\n## Tendencias actuales del nicho ${profile.niche} (últimos 7 días)\n${nicheIntel.hashtags.length ? `Hashtags en tendencia: ${nicheIntel.hashtags.join(" ")}\n` : ""}${nicheIntel.formats.length ? `Formatos que están funcionando mejor: ${nicheIntel.formats.join(", ")}\n` : ""}${nicheIntel.hooks.length ? `Hooks que están funcionando: ${nicheIntel.hooks.join(" | ")}\n` : ""}${realHashtagValues.length ? `Hashtags con tracción real en tu nicho esta semana: ${realHashtagValues.join(" ")} — prioriza estos.\n` : ""}${trendSignals?.redditTopics.length ? `Temas trending en comunidades (Reddit): ${trendSignals.redditTopics.slice(0, 5).join(" | ")}\n` : ""}${trendSignals?.globalTrends.length ? `Tendencias globales esta semana: ${trendSignals.globalTrends.slice(0, 5).join(", ")}\n` : ""}`
       : "";
     const fatigueSection = fatigueWarning
       ? `\n⚠️ ATENCIÓN — FATIGA DE CONTENIDO DETECTADA: ${fatigueWarning.description}\n`

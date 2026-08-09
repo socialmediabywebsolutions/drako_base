@@ -5,7 +5,7 @@ import {
   createSocialRepositoryContextWithCoreProjection,
   type SocialRepositoryContext,
 } from "@/lib/socialflow/contracts/repository-core-context";
-import type { AnalyticsMeta, FollowerHistoryPoint, SaasSocialAccount, SaasSocialCampaign, SaasSocialChannel, SaasSocialChannelIdea, SaasSocialChannelKnowledge, SaasSocialChannelSignals, SaasSocialMetrics, SaasSocialPost, SaasSocialProvider, SocialAnalyticsActivity, SocialAnalyticsIncident, SocialAnalyticsSnapshot, SocialAnalyticsWindow, SocialCalendarDay, SocialCalendarSnapshot, SocialCampaignPerformance, SocialConversionSnapshot, SocialInsightsSnapshot, SocialInsightsTopPost, SocialInsightsWeeklyFormatPoint, SocialLiveAnalyticsSummary, SocialPostPerformance, SocialProductSummary } from "@/lib/social-core/types";
+import type { AnalyticsMeta, FollowerHistoryPoint, SaasSocialAccount, SaasSocialCampaign, SaasSocialChannel, SaasSocialChannelIdea, SaasSocialChannelKnowledge, SaasSocialChannelSignals, SaasSocialMetrics, SaasSocialPost, SaasSocialProvider, SocialActivitySummary, SocialAnalyticsActivity, SocialAnalyticsIncident, SocialAnalyticsSnapshot, SocialAnalyticsWindow, SocialCalendarDay, SocialCalendarSnapshot, SocialCampaignPerformance, SocialConversionSnapshot, SocialInsightsSnapshot, SocialInsightsTopPost, SocialInsightsWeeklyFormatPoint, SocialLiveAnalyticsSummary, SocialPostPerformance, SocialProductSummary } from "@/lib/social-core/types";
 
 export type SocialContextMode = SocialRepositoryContext["mode"];
 export type SocialContext = SocialRepositoryContext;
@@ -202,20 +202,30 @@ export async function getSocialInsightsSnapshot(ctx: SocialContext): Promise<Soc
   // wrongly dump most reach into "this week" since capture timestamps cluster near now.
   const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
   const weeklyFormatBreakdown: SocialInsightsWeeklyFormatPoint[] = [];
+  const engagementByFormatBreakdown: SocialInsightsWeeklyFormatPoint[] = [];
+  const playsByFormatBreakdown: SocialInsightsWeeklyFormatPoint[] = [];
   for (let i = 3; i >= 0; i--) {
     const weekStartMs = now - (i + 1) * WEEK_MS;
     const weekEndMs = now - i * WEEK_MS;
-    const point: SocialInsightsWeeklyFormatPoint = { weekStart: new Date(weekStartMs).toISOString(), weekLabel: formatWeekLabel(weekStartMs, weekEndMs), FEED: 0, REEL: 0, STORY: 0, CAROUSEL: 0 };
+    const weekStart = new Date(weekStartMs).toISOString();
+    const weekLabel = formatWeekLabel(weekStartMs, weekEndMs);
+    const reachPoint: SocialInsightsWeeklyFormatPoint = { weekStart, weekLabel, FEED: 0, REEL: 0, STORY: 0, CAROUSEL: 0 };
+    const engagementPoint: SocialInsightsWeeklyFormatPoint = { weekStart, weekLabel, FEED: 0, REEL: 0, STORY: 0, CAROUSEL: 0 };
+    const playsPoint: SocialInsightsWeeklyFormatPoint = { weekStart, weekLabel, FEED: 0, REEL: 0, STORY: 0, CAROUSEL: 0 };
     for (const post of publishedPosts) {
       const postedMs = new Date(post.postedAt!).getTime();
       if (postedMs < weekStartMs || postedMs >= weekEndMs) continue;
       const metric = metricByPostId.get(post.id);
       if (!metric) continue;
       if (post.contentType === "FEED" || post.contentType === "REEL" || post.contentType === "STORY" || post.contentType === "CAROUSEL") {
-        point[post.contentType] += metric.reach;
+        reachPoint[post.contentType] += metric.reach;
+        engagementPoint[post.contentType] += metric.likes + metric.comments;
+        playsPoint[post.contentType] += metric.plays;
       }
     }
-    weeklyFormatBreakdown.push(point);
+    weeklyFormatBreakdown.push(reachPoint);
+    engagementByFormatBreakdown.push(engagementPoint);
+    playsByFormatBreakdown.push(playsPoint);
   }
 
   const topPosts: SocialInsightsTopPost[] = publishedPosts
@@ -236,10 +246,61 @@ export async function getSocialInsightsSnapshot(ctx: SocialContext): Promise<Soc
   return {
     summary: { reach30d, saved30d, plays30d, engagementRate, currentFollowers, followerGrowthThisMonth },
     weeklyFormatBreakdown,
+    engagementByFormatBreakdown,
+    playsByFormatBreakdown,
     followerHistory,
     topPosts,
   };
 }
+
+type MonthlyMetricsRow = { post_id: string; captured_at: string; likes: number; comments: number };
+
+// Tarjetas adicionales del dashboard (Fix 5) — actividad real del mes calendario en
+// curso, aparte de SocialProductSummary (ventanas de 7/30 días). Misma deduplicación
+// MAX(captured_at)+GROUP BY post_id que getSocialInsightsSnapshot/getSocialAnalyticsSnapshot.
+export async function getSocialActivitySummary(ctx: SocialContext): Promise<SocialActivitySummary> {
+  const saasId = requireSaasId(ctx);
+  const now = new Date();
+  const monthStartMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+  const monthStartIso = new Date(monthStartMs).toISOString();
+
+  const [metricsRows, posts, followerHistory] = await Promise.all([
+    queryRows<MonthlyMetricsRow>(
+      ctx.socialDb,
+      `SELECT post_id, MAX(captured_at) as captured_at, likes, comments
+       FROM saas_social_metrics
+       WHERE tenant_id = ? AND saas_id = ? AND captured_at >= ?
+       GROUP BY post_id ORDER BY captured_at DESC`,
+      ctx.tenantId, saasId, monthStartIso,
+    ),
+    listSaasSocialPosts(ctx),
+    getFollowerHistory(ctx, 3),
+  ]);
+
+  const metricByPostId = new Map(metricsRows.map((row) => [row.post_id, { likes: row.likes, comments: row.comments }]));
+
+  const postsThisMonth = { FEED: 0, REEL: 0, STORY: 0, CAROUSEL: 0 };
+  let totalLikesThisMonth = 0;
+  let totalCommentsThisMonth = 0;
+
+  for (const post of posts) {
+    if (post.status !== "POSTED" && post.status !== "PUBLISHED") continue;
+    if (!post.postedAt || new Date(post.postedAt).getTime() < monthStartMs) continue;
+    if (post.contentType === "FEED" || post.contentType === "REEL" || post.contentType === "STORY" || post.contentType === "CAROUSEL") {
+      postsThisMonth[post.contentType]++;
+    }
+    const metric = metricByPostId.get(post.id);
+    if (metric) {
+      totalLikesThisMonth += metric.likes;
+      totalCommentsThisMonth += metric.comments;
+    }
+  }
+
+  const currentFollowers = followerHistory.length > 0 ? followerHistory[followerHistory.length - 1].followersCount : null;
+
+  return { postsThisMonth, totalLikesThisMonth, totalCommentsThisMonth, currentFollowers };
+}
+
 function buildAnalyticsActivity(posts: SaasSocialPost[]): SocialAnalyticsActivity[] { return posts.flatMap((post) => { const analytics = getAnalyticsMetaFromMetadata(post.metadata); const review = typeof post.metadata?.analyticsReview === "object" && post.metadata.analyticsReview ? (post.metadata.analyticsReview as Record<string, unknown>) : null; if (!analytics.lastFetchedAt && !analytics.lastRefreshStatus) return []; const state = analytics.lastRefreshStatus === "error" ? "error" : analytics.source === "social_db" ? "success" : "success"; return [{ postId: post.id, postTitle: post.title, provider: post.provider, lastFetchedAt: analytics.lastFetchedAt ?? post.updatedAt, state, summary: state === "error" ? "Refresh failed" : "Metrics synced", reviewed: Boolean(review?.reviewed), manualReviewAt: typeof review?.manualReviewAt === "string" ? review.manualReviewAt : null, analyticsSource: analytics.source, lastRefreshStatus: analytics.lastRefreshStatus, lastRefreshErrorMessage: analytics.lastRefreshErrorMessage ?? null, lastRefreshErrorCode: analytics.lastRefreshErrorCode ?? null, lastRefreshAt: analytics.lastFetchedAt ?? null, lastFetchedAtDisplay: analytics.lastFetchedAt ?? null, manualReviewNote: typeof review?.note === "string" ? review.note : null, recommendation: state === "error" ? "Inspect the live post and retry the analytics refresh." : "Metrics are stored in SOCIAL_DB for this post.", externalPostId: post.externalPostId }]; }).sort((a, b) => b.lastFetchedAt.localeCompare(a.lastFetchedAt)).slice(0, 8); }
 function buildAnalyticsIncidents(posts: SaasSocialPost[]): SocialAnalyticsIncident[] { return posts.flatMap((post) => { const analytics = getAnalyticsMetaFromMetadata(post.metadata); if (analytics.lastRefreshStatus !== "error") return []; const review = typeof post.metadata?.analyticsReview === "object" && post.metadata.analyticsReview ? (post.metadata.analyticsReview as Record<string, unknown>) : null; return [{ id: `${post.id}:analytics`, postId: post.id, state: "error", summary: "Analytics refresh failed", createdAt: analytics.lastFetchedAt ?? post.updatedAt, lastFetchedAt: analytics.lastFetchedAt ?? post.updatedAt, postTitle: post.title, reviewed: Boolean(review?.reviewed), manualReviewAt: typeof review?.manualReviewAt === "string" ? review.manualReviewAt : null, lastRefreshErrorMessage: analytics.lastRefreshErrorMessage ?? null, lastRefreshErrorCode: analytics.lastRefreshErrorCode ?? null, recommendation: "Retry analytics refresh after confirming the live post reference remains valid.", manualReviewNote: typeof review?.note === "string" ? review.note : null }]; }).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8); }
 function buildAnalyticsHealth(posts: SaasSocialPost[]): SocialLiveAnalyticsSummary { const eligiblePosts = posts.filter((post) => post.status === "POSTED" || post.status === "PUBLISHED"); const activity = buildAnalyticsActivity(posts); const incidents = buildAnalyticsIncidents(posts); const healthyPosts = eligiblePosts.filter((post) => getAnalyticsMetaFromMetadata(post.metadata).source === "social_db").length; const failedPosts = incidents.length; const noLiveAnalyticsYetPosts = Math.max(0, eligiblePosts.length - healthyPosts - failedPosts); const lastHealthyLiveSyncAt = eligiblePosts.map((post) => getAnalyticsMetaFromMetadata(post.metadata).lastFetchedAt).filter((value): value is string => Boolean(value)).sort((a, b) => b.localeCompare(a))[0] ?? null; const lastResolvedAt = activity.filter((item) => item.state === "resolved").map((item) => item.lastFetchedAt).sort((a, b) => b.localeCompare(a))[0] ?? null; const freshnessMinutes = lastHealthyLiveSyncAt ? (Date.now() - new Date(lastHealthyLiveSyncAt).getTime()) / 60000 : null; return { totalEligibleLivePosts: eligiblePosts.length, healthyPosts, failedPosts, noLiveAnalyticsYetPosts, lastHealthyLiveSyncAt, healthySyncFreshnessStatus: freshnessMinutes == null ? "NOT_AVAILABLE" : freshnessMinutes <= 180 ? "FRESH" : "AGING", healthySyncNeedsRefresh: freshnessMinutes != null && freshnessMinutes > 180, resolvedRecently: Boolean(lastResolvedAt), resolvedRecentlyCount: activity.filter((item) => item.state === "resolved").length, lastResolvedAt, lastWorkspaceSyncAt: activity[0]?.lastFetchedAt ?? null, status: failedPosts > 0 ? "Needs attention" : healthyPosts > 0 ? "Healthy" : "No live analytics yet", recommendation: failedPosts > 0 ? "Review failed syncs and retry live analytics refresh." : healthyPosts > 0 ? "Live analytics are reading from SOCIAL_DB." : "Publish a live post and ingest metrics into SOCIAL_DB to unlock live analytics.", recentActivity: activity, recentIncidents: incidents }; }

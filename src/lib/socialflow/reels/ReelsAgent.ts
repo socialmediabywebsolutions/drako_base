@@ -1,6 +1,9 @@
 import { defaultLocalModel } from "../ai/models/localModel";
 import type { BrandProfile } from "../ai/types";
 import { extractVoiceSection } from "../ai/utils/voiceUtils";
+import { getNicheIntelligence, getStyleHistory } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
+import { extractTrendSignals } from "@/lib/socialflow/intelligence/TrendKeywordAgent";
+import { env } from "@/lib/cf";
 import {
   REELS_DEFAULTS,
   type AnimatedBackgroundType,
@@ -495,6 +498,18 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+// Mismo criterio que CarouselComposerAgent.ts (parseLatestStyleSnapshot) — parser local
+// en vez de importar StyleLearningAgent, solo necesitamos topHookPatterns aquí.
+function parseTopHookPatterns(snapshotJson: string): string[] {
+  try {
+    const parsed = JSON.parse(snapshotJson);
+    const patterns = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>).topHookPatterns : null;
+    return Array.isArray(patterns) ? patterns.filter((p): p is string => typeof p === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 // Re-acota lo que devuelva la IA a los límites reales del engine, y fuerza de vuelta
 // imageUrl/imageUrls/imageSegments/width/height — nunca deben depender de lo que
 // "invente" el modelo (mergeAiStructuredOutput deja que la IA reemplace arrays de
@@ -545,8 +560,31 @@ export class ReelsAgent {
     profile: BrandProfile;
     /** SOCIAL_DB + SOCIAL_MEDIA_R2_PUBLIC_URL — omitir genera el Reel sin audio. */
     music?: MusicTrackDeps;
+    // Optional — habilita inyectar NicheIntelligence (hooks virales, hashtags reales,
+    // temas trending) en el prompt de textOverlays, mismo patrón que
+    // ContentGeneratorAgent/CarouselComposerAgent. Omitido por callers sin contexto de
+    // tenant degrada al comportamiento de siempre, sin sección añadida.
+    tenantId?: string;
+    saasId?: string;
   }): Promise<ReelsConfig> {
     const { imageUrl, profile, music } = input;
+
+    const dracoEnv = env();
+    const [nicheIntel, styleHistory] = dracoEnv
+      ? await Promise.all([
+          getNicheIntelligence(profile.niche, dracoEnv, input.tenantId, input.saasId),
+          input.tenantId && input.saasId
+            ? getStyleHistory(input.tenantId, input.saasId, dracoEnv)
+            : Promise.resolve([]),
+        ])
+      : [null, []];
+    const trendSignals = extractTrendSignals(nicheIntel?.analysis);
+    const topHookPatterns = styleHistory[0] ? parseTopHookPatterns(styleHistory[0].snapshotJson) : [];
+
+    const nicheIntelSection = nicheIntel
+      ? `\nINTELIGENCIA DEL NICHO ESTA SEMANA:\n${nicheIntel.hooks.length ? `- Hooks virales que funcionan: ${nicheIntel.hooks.join(" | ")}\n` : ""}${nicheIntel.hashtags.length ? `- Hashtags reales de tendencia: ${nicheIntel.hashtags.join(" ")}\n` : ""}${trendSignals?.redditTopics.length ? `- Temas trending en comunidades (Reddit): ${trendSignals.redditTopics.slice(0, 5).join(" | ")}\n` : ""}${trendSignals?.globalTrends.length ? `- Tendencias globales esta semana: ${trendSignals.globalTrends.slice(0, 5).join(", ")}\n` : ""}${topHookPatterns.length ? `- Patrones de hook que mejor funcionan con esta marca: ${topHookPatterns.join(", ")}\n` : ""}`
+      : "";
+
     // Base multi-imagen (PARTE 4): solo se activa con 2+ imágenes — con 0-1, es
     // exactamente el flujo de una sola imagen de siempre (nadie llama a run() con
     // imageUrls todavía; esto es la base del motor, no está conectado a la UI/API aún).
@@ -593,11 +631,11 @@ export class ReelsAgent {
 
     const prompt = `Decide la configuración de un Reel (vídeo corto vertical) para una marca de "${profile.niche}" llamada "${profile.brandIdentity}".
 Tono: ${profile.toneOfVoice}.
-${voiceSection ? `\n${voiceSection}\n` : ""}
+${voiceSection ? `\n${voiceSection}\n` : ""}${nicheIntelSection}
 La plantilla debe ser exactamente una de: "fitness", "lifestyle", "motivation", "education", "marketing" — la que mejor encaje con el nicho.
 Cada efecto debe ser uno de: "zoom-in", "zoom-out", "pan-left", "pan-right", "parallax", "rotate", "blur", "ken-burns", "drift", "pulse", "tilt", con startAt/endAt en segundos dentro de la duración del clip e intensity entre 0 y 1.
 Los efectos ya están calculados y NO deben modificarse — preserva exactamente los valores de "effects" que recibes en el JSON base.
-Cada texto animado (textOverlays) debe tener una frase corta y directa EN ESPAÑOL (máximo 6 palabras), relevante para "${profile.niche}" y la marca "${profile.brandIdentity}" — nunca genérica, EXCEPTO el overlay cuyo "role" es "cta": ese campo ya está seleccionado y NO debe modificarse — usa exactamente el valor que recibes en el JSON base. Si hay una sección de voz real arriba, que las frases suenen coherentes con esa voz dentro del límite de 6 palabras.
+Cada texto animado (textOverlays) debe tener una frase corta y directa EN ESPAÑOL (máximo 6 palabras), relevante para "${profile.niche}" y la marca "${profile.brandIdentity}" — nunca genérica, EXCEPTO el overlay cuyo "role" es "cta": ese campo ya está seleccionado y NO debe modificarse — usa exactamente el valor que recibes en el JSON base. Si hay una sección de voz real arriba, que las frases suenen coherentes con esa voz dentro del límite de 6 palabras. Si hay inteligencia del nicho arriba, inspírate en esos hooks/temas trending para el título y subtítulo — sin copiarlos literalmente ni salirte del límite de 6 palabras.
 La duración total (durationSec) debe estar entre ${REELS_DEFAULTS.minDurationSec} y ${REELS_DEFAULTS.maxDurationSec} segundos.`;
 
     // "effects"/"imageSegments"/"cta"/"colorGrade"/"filmGrain"/"lightLeak"/"animatedBackground"

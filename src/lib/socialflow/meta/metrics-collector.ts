@@ -1,10 +1,11 @@
 import { env } from "@/lib/cf";
 import { decryptToken } from "@/lib/socialflow/token-encryption";
-import { resolveSocialContext, upsertSaasSocialMetrics } from "@/lib/socialflow/repository";
+import { resolveSocialContext, upsertSaasSocialMetrics, type SocialContext } from "@/lib/socialflow/repository";
 import {
   fetchInstagramAccountInsights,
   fetchInstagramRecentMedia,
   fetchInstagramMediaInsights,
+  fetchInstagramMediaEngagement,
   resolveMetaApiBase,
   MetaIntegrationError,
 } from "@/lib/socialflow/meta/core";
@@ -145,6 +146,13 @@ type MediaPostRow = {
   content_type: string;
 };
 
+type UncapturedPostRow = {
+  id: string;
+  saas_id: string;
+  external_post_id: string;
+  content_type: string;
+};
+
 export type InstagramMetricsResult = {
   processed: number;
   errors: number;
@@ -250,6 +258,8 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
 
       let creatorReachSum = 0;
       let creatorImpressionsSum = 0;
+      const matchedExternalIds = new Set<string>();
+      const contextBySaasId = new Map<string, SocialContext>([[account.saas_id, ctx]]);
 
       for (const item of media.slice(0, 10)) {
         try {
@@ -262,17 +272,16 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
             .all<MediaPostRow>();
 
           if (!matchingPosts?.length) continue;
+          matchedExternalIds.add(item.id);
 
           const matchingPost = matchingPosts[0];
           const isMediaReel = matchingPost.content_type === "REEL";
           const mediaInsights = await fetchInstagramMediaInsights(pageToken, item.id, apiBase, isMediaReel);
-          const mediaCtx =
-            matchingPost.saas_id !== account.saas_id
-              ? await resolveSocialContext({
-                  tenantId: account.tenant_id,
-                  saasId: matchingPost.saas_id,
-                })
-              : ctx;
+          let mediaCtx = contextBySaasId.get(matchingPost.saas_id);
+          if (!mediaCtx) {
+            mediaCtx = await resolveSocialContext({ tenantId: account.tenant_id, saasId: matchingPost.saas_id });
+            contextBySaasId.set(matchingPost.saas_id, mediaCtx);
+          }
 
           if (isCreator) {
             creatorReachSum += mediaInsights.reach;
@@ -304,6 +313,80 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
           mediaProcessed++;
         } catch (mediaError) {
           logMetaMetricsError("media_insights", account.id, accountType, mediaError, item.id);
+        }
+      }
+
+      // Backfill — posts con external_post_id real que /media no devolvió en este ciclo
+      // (fuera del top-25 más reciente, o Stories, que ese edge nunca incluye). Sin esto,
+      // esos posts nunca reciben fila en saas_social_metrics porque el matching de arriba
+      // depende enteramente de que el post siga en fetchInstagramRecentMedia. LEFT JOIN en
+      // vez de NOT EXISTS correlacionado — una sola query no correlacionada; no filtra por
+      // saas_id (columna se trae en el SELECT) para cubrir el mismo caso cross-saas_id que
+      // el loop de arriba, sin necesitar una query extra por post. Ventana de 30 días
+      // (coincide con dashboard/Insights) y refresco cada 4h (misma cadencia que las
+      // cuentas), acotado a 15 posts por cuenta por corrida del cron.
+      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { results: uncapturedPosts } = await socialDb
+        .prepare(
+          `SELECT p.id as id, p.saas_id as saas_id, p.external_post_id as external_post_id, p.content_type as content_type
+           FROM saas_social_posts p
+           LEFT JOIN saas_social_metrics m ON m.post_id = p.id AND m.tenant_id = p.tenant_id
+           WHERE p.tenant_id = ? AND p.provider = 'INSTAGRAM'
+             AND p.status IN ('POSTED', 'PUBLISHED')
+             AND p.external_post_id IS NOT NULL
+             AND p.posted_at >= ?
+           GROUP BY p.id
+           HAVING MAX(m.captured_at) IS NULL OR MAX(m.captured_at) < ?
+           LIMIT 15`,
+        )
+        .bind(account.tenant_id, thirtyDaysAgo, fourHoursAgo)
+        .all<UncapturedPostRow>();
+
+      for (const post of uncapturedPosts ?? []) {
+        if (matchedExternalIds.has(post.external_post_id)) continue;
+        try {
+          const isBackfillReel = post.content_type === "REEL";
+          const [mediaInsights, engagement] = await Promise.all([
+            fetchInstagramMediaInsights(pageToken, post.external_post_id, apiBase, isBackfillReel),
+            fetchInstagramMediaEngagement(pageToken, post.external_post_id, apiBase),
+          ]);
+
+          let backfillCtx = contextBySaasId.get(post.saas_id);
+          if (!backfillCtx) {
+            backfillCtx = await resolveSocialContext({ tenantId: account.tenant_id, saasId: post.saas_id });
+            contextBySaasId.set(post.saas_id, backfillCtx);
+          }
+
+          if (isCreator) {
+            creatorReachSum += mediaInsights.reach;
+            creatorImpressionsSum += mediaInsights.impressions;
+          }
+
+          await upsertSaasSocialMetrics(backfillCtx, {
+            postId: post.id,
+            provider: "INSTAGRAM",
+            impressions: mediaInsights.impressions,
+            likes: engagement.likeCount,
+            comments: engagement.commentsCount,
+            shares: mediaInsights.shares,
+            clicks: 0,
+            leadsGenerated: 0,
+            capturedAt: new Date().toISOString(),
+            metadata: {
+              type: "media_backfill",
+              mediaId: post.external_post_id,
+              reach: mediaInsights.reach,
+              saved: mediaInsights.saved,
+              ...(isBackfillReel
+                ? { videoViews: mediaInsights.videoViews, plays: mediaInsights.plays, avgWatchTimeMs: mediaInsights.avgWatchTimeMs }
+                : {}),
+            },
+          });
+
+          mediaProcessed++;
+        } catch (backfillError) {
+          logMetaMetricsError("media_insights_backfill", account.id, accountType, backfillError, post.external_post_id);
         }
       }
 

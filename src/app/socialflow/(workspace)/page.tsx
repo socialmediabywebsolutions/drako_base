@@ -3,11 +3,12 @@ import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { getChannelKnowledge } from "@/lib/socialflow/profile/repository";
 import { getLatestAudit } from "@/lib/socialflow/audit/repository";
-import { resolveSocialContext, getSocialProductSummary, SocialContextError } from "@/lib/socialflow/repository";
+import { resolveSocialContext, getSocialProductSummary, getSocialActivitySummary, SocialContextError } from "@/lib/socialflow/repository";
 import { countLeadsSince } from "@/lib/socialflow/leads/repository";
 import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
 import { getSocialFlowPlanDefinition, resolveSocialFlowPlanCode } from "@/lib/socialflow/billing/plans";
 import DashboardMetrics from "./_components/DashboardMetrics";
+import DashboardActivityCards from "./_components/DashboardActivityCards";
 import IntelligenceFeedPanel from "./_components/IntelligenceFeedPanel";
 import SocialFlowOperationsPanel from "./_components/SocialFlowOperationsPanel";
 import { getEmpresaChecklist } from "@/lib/socialflow/onboarding/checklistRepository";
@@ -32,12 +33,14 @@ export default async function SocialFlowDashboardPage() {
 
   let summary: Awaited<ReturnType<typeof getSocialProductSummary>> | null = null;
   let leadsCount = 0;
+  let activity: Awaited<ReturnType<typeof getSocialActivitySummary>> | null = null;
   try {
     const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId: DEFAULT_SAAS_ID });
     const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    [summary, leadsCount] = await Promise.all([
+    [summary, leadsCount, activity] = await Promise.all([
       getSocialProductSummary(ctx),
       countLeadsSince(ctx, thirtyDaysAgoIso),
+      getSocialActivitySummary(ctx),
     ]);
   } catch (error) {
     if (!(error instanceof SocialContextError)) {
@@ -75,6 +78,8 @@ export default async function SocialFlowDashboardPage() {
       </div>
 
       {summary && <DashboardMetrics planCode={planCode} summary={summary} auditScore={audit?.score ?? null} leadsCount={leadsCount} />}
+
+      {activity && <DashboardActivityCards activity={activity} />}
 
       {showChecklistWidget && empresaChecklist && (
         <EmpresaChecklist

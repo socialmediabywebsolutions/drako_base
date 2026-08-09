@@ -4,6 +4,8 @@ import { getSocialInsightsSnapshot, resolveSocialContext, SocialContextError } f
 import type { SocialInsightsSnapshot } from "@/lib/social-core/types";
 import InsightsSummaryCards from "./_components/InsightsSummaryCards";
 import ReachByFormatChart from "./_components/ReachByFormatChart";
+import LikesCommentsByFormatChart from "./_components/LikesCommentsByFormatChart";
+import PlaysByFormatChart from "./_components/PlaysByFormatChart";
 import FollowerGrowthChart from "./_components/FollowerGrowthChart";
 import TopPostsList from "./_components/TopPostsList";
 
@@ -42,6 +44,16 @@ export default async function SocialFlowInsightsPage() {
           <section>
             <h2 className="mb-3 text-base font-bold text-white">Alcance por formato (últimas 4 semanas)</h2>
             <ReachByFormatChart data={insights.weeklyFormatBreakdown} />
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-base font-bold text-white">Likes + comentarios por formato (últimas 4 semanas)</h2>
+            <LikesCommentsByFormatChart data={insights.engagementByFormatBreakdown} />
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-base font-bold text-white">Visualizaciones por formato (últimas 4 semanas)</h2>
+            <PlaysByFormatChart data={insights.playsByFormatBreakdown} />
           </section>
 
           <section>

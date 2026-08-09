@@ -298,8 +298,21 @@ export type SocialInsightsSnapshot = {
     followerGrowthThisMonth: number | null;
   };
   weeklyFormatBreakdown: SocialInsightsWeeklyFormatPoint[];
+  // Mismo shape que weeklyFormatBreakdown (reach) — likes+comments y plays por formato,
+  // en los mismos 4 buckets semanales, para los gráficos correspondientes en Insights.
+  engagementByFormatBreakdown: SocialInsightsWeeklyFormatPoint[];
+  playsByFormatBreakdown: SocialInsightsWeeklyFormatPoint[];
   followerHistory: FollowerHistoryPoint[];
   topPosts: SocialInsightsTopPost[];
+};
+
+// Tarjetas adicionales del dashboard (Fix 5) — actividad real del mes en curso, aparte
+// del resumen de producto (SocialProductSummary) que ya usan las 4 tarjetas existentes.
+export type SocialActivitySummary = {
+  postsThisMonth: { FEED: number; REEL: number; STORY: number; CAROUSEL: number };
+  totalLikesThisMonth: number;
+  totalCommentsThisMonth: number;
+  currentFollowers: number | null;
 };
 
 export type SocialLiveAnalyticsSummary = {

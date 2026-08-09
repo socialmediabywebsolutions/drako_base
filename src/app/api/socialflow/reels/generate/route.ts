@@ -56,7 +56,7 @@ export async function POST(request: Request) {
         ? { db: cfEnv.SOCIAL_DB, r2PublicUrl: cfEnv.SOCIAL_MEDIA_R2_PUBLIC_URL }
         : undefined;
 
-    const config = await new ReelsAgent().run({ imageUrl, profile, music });
+    const config = await new ReelsAgent().run({ imageUrl, profile, music, tenantId: session.tenantId, saasId });
 
     return NextResponse.json({ config });
   } catch (error) {

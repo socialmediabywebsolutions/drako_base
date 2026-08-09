@@ -655,6 +655,41 @@ export async function fetchInstagramRecentMedia(
   });
 }
 
+// Cubre los posts que fetchInstagramRecentMedia no devuelve (fuera del top-25, o Stories,
+// que ese edge nunca incluye) pero para los que sí tenemos external_post_id guardado —
+// like_count/comments_count no están disponibles vía Insights API, solo en el nodo de media.
+export type InstagramMediaEngagement = {
+  likeCount: number;
+  commentsCount: number;
+};
+
+export async function fetchInstagramMediaEngagement(
+  pageToken: string,
+  mediaId: string,
+  apiBase: string,
+): Promise<InstagramMediaEngagement> {
+  const normalizedToken = pageToken.trim();
+  const normalizedMediaId = mediaId.trim();
+  if (!normalizedToken || !normalizedMediaId) {
+    throw buildMetaApiError("META_ACCESS_TOKEN_MISSING", "Page token and media ID are required.", { accountStatus: "INVALID_CREDENTIALS" });
+  }
+
+  const url = new URL(`${apiBase}/${normalizedMediaId}`);
+  url.searchParams.set("fields", "like_count,comments_count");
+  url.searchParams.set("access_token", normalizedToken);
+
+  const response = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+  const payload = await parseMetaJson(response);
+  if (!response.ok) {
+    throw buildMetaApiError("META_MEDIA_ENGAGEMENT_FAILED", normalizeMetaApiMessage(payload, "Instagram media engagement fetch failed."), { status: response.status, payload });
+  }
+
+  return {
+    likeCount: typeof payload?.like_count === "number" ? payload.like_count : 0,
+    commentsCount: typeof payload?.comments_count === "number" ? payload.comments_count : 0,
+  };
+}
+
 // isReel selects which metric set to request — the Insights API rejects the ENTIRE
 // request with a 400 if any metric in the list doesn't apply to that media's type
 // (video_views/plays/ig_reels_avg_watch_time only exist for Reels; impressions is
