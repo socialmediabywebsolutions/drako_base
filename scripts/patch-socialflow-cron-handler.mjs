@@ -7,6 +7,9 @@
  *     /api/cron/social/comments (Instagram comment auto-reply)
  *   - every 20 minutes: /api/cron/social/trend-keywords (TrendKeywordAgent — one niche
  *     per invocation, oldest trend_last_fetched first, see runTrendKeywordCron)
+ *   - every 4 hours, on the hour (see wrangler.workers.toml crons): /api/cron/social/metrics
+ *     (processInstagramMetrics — collects per-post Instagram engagement/impressions into
+ *     saas_social_metrics)
  *   - once a day (0 3 * * *): /api/cron/social/style-learning (StyleLearningAgent)
  *   - once a week, Mondays (0 3 * * 1): /api/cron/social/niche-intelligence
  *     (NicheIntelligenceCronAgent — refreshes socialcors_niche_intelligence), then
@@ -80,6 +83,13 @@ const scheduledHandler = `    // __socialflowCronHandlerPatched
         if (event.cron === "*/20 * * * *") {
             await fetch(appUrl + "/api/cron/social/trend-keywords", authHeaders).catch(function(err) {
                 console.error("[Cron] scheduled trend-keywords failed:", err.message);
+            });
+            return;
+        }
+
+        if (event.cron === "0 */4 * * *") {
+            await fetch(appUrl + "/api/cron/social/metrics", authHeaders).catch(function(err) {
+                console.error("[Cron] scheduled metrics failed:", err.message);
             });
             return;
         }
