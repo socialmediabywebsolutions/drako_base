@@ -45,6 +45,40 @@ export async function geocodeAddress(
   }
 }
 
+// Inverso de geocodeAddress (lat/lng → nombre del lugar) — mismo endpoint clásico
+// (Geocoding API no tiene variante "New"), mismo patrón defensivo: nunca lanza, null en
+// cualquier fallo de red/API/parseo. Ver Sprint I (geolocalización narrativa) — usado por
+// generate-from-image para traducir el GPS de los EXIF de una foto a un nombre de lugar
+// legible antes de pedirle contexto a Wikipedia.
+export async function reverseGeocode(lat: number, lng: number, apiKey: string): Promise<string | null> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || !apiKey) return null;
+
+  try {
+    const url = `${GEOCODE_URL}?latlng=${lat},${lng}&key=${apiKey}&language=es`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error("GOOGLE_REVERSE_GEOCODE_HTTP_ERROR", res.status);
+      return null;
+    }
+
+    const data = (await res.json()) as {
+      status?: string;
+      results?: { formatted_address?: string }[];
+    };
+
+    if (data.status !== "OK") {
+      console.error("GOOGLE_REVERSE_GEOCODE_API_ERROR", data.status);
+      return null;
+    }
+
+    const formattedAddress = data.results?.[0]?.formatted_address;
+    return typeof formattedAddress === "string" && formattedAddress.trim() ? formattedAddress.trim() : null;
+  } catch (error) {
+    console.error("GOOGLE_REVERSE_GEOCODE_FAILED", error);
+    return null;
+  }
+}
+
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
