@@ -106,6 +106,12 @@ export class ContentGeneratorAgent {
     const fatigueSection = fatigueWarning
       ? `\n⚠️ ATENCIÓN — FATIGA DE CONTENIDO DETECTADA: ${fatigueWarning.description}\n`
       : "";
+    // profile.seasonalContext es el JSON completo que genera SeasonalityAgent
+    // (context/hooks/themes/cta_suggestions/avoid) — se interpola tal cual, sin
+    // desestructurar campo a campo: Mistral ya sabe leer JSON dentro de un prompt.
+    const seasonalSection = profile.seasonalContext
+      ? `\n## Contexto estacional del mes (JSON)\n${profile.seasonalContext}\n`
+      : "";
     const openers = OPENERS_BY_CATEGORY[input.openerCategory ?? "lifestyle"];
     // Rotate opener so every upload gets a different caption structure.
     // Falls back to time-based seed when no explicit index is given.
@@ -157,7 +163,7 @@ ${cta ? `CTA: ${cta}` : ""}
 ${hooks ? `Hooks de referencia (adapta al tema): ${hooks}` : ""}
 ${keywords ? `Keywords a incluir naturalmente: ${keywords}` : ""}
 ${hashtagSeed ? `Hashtags de referencia para incluir: ${hashtagSeed}` : ""}
-${nicheIntelSection}${fatigueSection}
+${nicheIntelSection}${fatigueSection}${seasonalSection}
 
 ⚠️ APERTURA — REGLA IRROMPIBLE: NUNCA empieces con "Hola", "Chicas", "A veces", ni presentándote ("Soy ${profile.brandIdentity}...").
 Aperturas disponibles para este tipo de imagen:

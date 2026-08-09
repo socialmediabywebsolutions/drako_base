@@ -418,13 +418,20 @@ export class CarouselComposerAgent {
       ? `\nESTILO APRENDIDO DEL CLIENTE:\n- Longitud media de caption: ${latestStyle.avgCaptionLength} caracteres.\n${latestStyle.topHookPatterns.length ? `- Patrones de hook más usados: ${latestStyle.topHookPatterns.join(", ")}.\n` : ""}${latestStyle.bestPerformingHours.length ? `- Mejores horas (UTC): ${latestStyle.bestPerformingHours.join(", ")}.\n` : ""}`
       : "";
 
+    // profile.seasonalContext es el JSON completo que genera SeasonalityAgent
+    // (context/hooks/themes/cta_suggestions/avoid) — se interpola tal cual, sin
+    // desestructurar campo a campo: Mistral ya sabe leer JSON dentro de un prompt.
+    const seasonalSection = profile.seasonalContext
+      ? `\nCONTEXTO ESTACIONAL DEL MES (JSON):\n${profile.seasonalContext}\n`
+      : "";
+
     const prompt = `Escribe el texto de un carrusel educativo de Instagram sobre "${profile.niche}" para la marca "${profile.brandIdentity}", con exactamente ${total} slides, EN ESPAÑOL.
 
 ${themeInstruction}${isEmpresa
   ? `⚠️ VOZ — REGLA IRROMPIBLE: Escribe SIEMPRE en tercera persona hablando de "${profile.brandIdentity}" como marca/entidad. NUNCA uses "yo", "mi", "me" ni "mis".`
   : `⚠️ VOZ — REGLA IRROMPIBLE: Escribe SIEMPRE en primera persona singular (yo, mi, me, mis). Nunca hables de "${profile.brandIdentity}" en tercera persona.`}
 ${profile.voiceInstruction ? `${profile.voiceInstruction}\n` : ""}
-${audienceSection}${kbSection}${voiceSectionBlock}${keywordsSection}${nicheIntelSection}${styleSection}
+${audienceSection}${kbSection}${voiceSectionBlock}${keywordsSection}${nicheIntelSection}${styleSection}${seasonalSection}
 Categoría del carrusel: "${openerCategory}" — todo el carrusel debe sonar coherente con este ángulo (ej. si es "receta", las ${total} tarjetas narran una receta paso a paso; si es "tecnica", una técnica de ejecución).
 
 ${contentAnchorInstruction}

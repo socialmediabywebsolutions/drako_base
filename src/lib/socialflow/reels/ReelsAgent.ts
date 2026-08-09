@@ -571,6 +571,13 @@ export class ReelsAgent {
       ? `\nINTELIGENCIA DEL NICHO ESTA SEMANA:\n${nicheIntel.hooks.length ? `- Hooks virales que funcionan: ${nicheIntel.hooks.join(" | ")}\n` : ""}${nicheIntel.hashtags.length ? `- Hashtags reales de tendencia: ${nicheIntel.hashtags.join(" ")}\n` : ""}${trendSignals?.redditTopics.length ? `- Temas trending en comunidades (Reddit): ${trendSignals.redditTopics.slice(0, 5).join(" | ")}\n` : ""}${trendSignals?.globalTrends.length ? `- Tendencias globales esta semana: ${trendSignals.globalTrends.slice(0, 5).join(", ")}\n` : ""}${topHookPatterns.length ? `- Patrones de hook que mejor funcionan con esta marca: ${topHookPatterns.join(", ")}\n` : ""}`
       : "";
 
+    // profile.seasonalContext es el JSON completo que genera SeasonalityAgent
+    // (context/hooks/themes/cta_suggestions/avoid) — se interpola tal cual, sin
+    // desestructurar campo a campo: Mistral ya sabe leer JSON dentro de un prompt.
+    const seasonalSection = profile.seasonalContext
+      ? `\nCONTEXTO ESTACIONAL DEL MES (JSON):\n${profile.seasonalContext}\n`
+      : "";
+
     // Base multi-imagen (PARTE 4): solo se activa con 2+ imágenes — con 0-1, es
     // exactamente el flujo de una sola imagen de siempre (nadie llama a run() con
     // imageUrls todavía; esto es la base del motor, no está conectado a la UI/API aún).
@@ -617,7 +624,7 @@ export class ReelsAgent {
 
     const prompt = `Decide la configuración de un Reel (vídeo corto vertical) para una marca de "${profile.niche}" llamada "${profile.brandIdentity}".
 Tono: ${profile.toneOfVoice}.
-${voiceSection ? `\n${voiceSection}\n` : ""}${nicheIntelSection}
+${voiceSection ? `\n${voiceSection}\n` : ""}${nicheIntelSection}${seasonalSection}
 La plantilla debe ser exactamente una de: "fitness", "lifestyle", "motivation", "education", "marketing" — la que mejor encaje con el nicho.
 Cada efecto debe ser uno de: "zoom-in", "zoom-out", "parallax", "rotate", "blur", "ken-burns", "drift", "pulse", "tilt", con startAt/endAt en segundos dentro de la duración del clip e intensity entre 0 y 1.
 Los efectos ya están calculados y NO deben modificarse — preserva exactamente los valores de "effects" que recibes en el JSON base.
