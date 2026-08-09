@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ConversationSettings, ConversationThread } from "@/lib/socialflow/conversational/types";
 import type { LeadTemperature } from "@/lib/socialflow/leads/types";
 import { TEMP_META } from "./leads-panel";
+import KeywordDmAutomationPanel from "./keyword-dm-panel";
 
 type Props = {
   threads: ConversationThread[];
@@ -13,7 +14,7 @@ type Props = {
   leadTemperatureByThreadId?: Record<string, LeadTemperature>;
 };
 
-type Tab = "inbox" | "needs_human" | "toxic" | "history";
+type Tab = "inbox" | "needs_human" | "toxic" | "history" | "automation";
 
 const AUTO_SEND_PROVIDERS = ["INSTAGRAM", "FACEBOOK_PAGE", "LINKEDIN"] as const;
 
@@ -440,6 +441,7 @@ export default function ConversationInbox({
             { id: "needs_human" as Tab, label: "Leads 🔥", count: needsHumanThreads.length },
             { id: "toxic" as Tab, label: "Tóxicos ⚠️", count: toxicThreads.length },
             { id: "history" as Tab, label: "Respondidos", count: historyThreads.length },
+            { id: "automation" as Tab, label: "Automatización", count: 0 },
           ] as { id: Tab; label: string; count: number }[]
         ).map(({ id, label, count }) => (
           <button
@@ -468,33 +470,37 @@ export default function ConversationInbox({
         ))}
       </div>
 
-      {/* Thread list */}
-      <div className="space-y-3">
-        {activeThreads.length === 0 ? (
-          <EmptyState tab={tab} />
-        ) : (
-          activeThreads.map((thread) => (
-            <ThreadCard
-              key={thread.id}
-              thread={thread}
-              leadTemperature={leadTemperatureByThreadId[thread.id] ?? null}
-              editedReply={editedReplies[thread.id]}
-              isOverriding={overriding[thread.id] ?? false}
-              isGenerating={generatingFor === thread.id}
-              isPending={isPendingAction && pendingThreadId === thread.id}
-              onReplyChange={(v) => setEditedReplies((prev) => ({ ...prev, [thread.id]: v }))}
-              onApprove={() => patchThread(thread.id, "APPROVED")}
-              onDismiss={() => patchThread(thread.id, "DISMISSED")}
-              onOverride={() => generateOverrideReply(thread)}
-              onApproveOverride={() => {
-                const r = editedReplies[thread.id] ?? "";
-                patchThread(thread.id, "APPROVED", r);
-                setOverriding((prev) => ({ ...prev, [thread.id]: false }));
-              }}
-            />
-          ))
-        )}
-      </div>
+      {/* Tab content */}
+      {tab === "automation" ? (
+        <KeywordDmAutomationPanel saasId={saasId} />
+      ) : (
+        <div className="space-y-3">
+          {activeThreads.length === 0 ? (
+            <EmptyState tab={tab} />
+          ) : (
+            activeThreads.map((thread) => (
+              <ThreadCard
+                key={thread.id}
+                thread={thread}
+                leadTemperature={leadTemperatureByThreadId[thread.id] ?? null}
+                editedReply={editedReplies[thread.id]}
+                isOverriding={overriding[thread.id] ?? false}
+                isGenerating={generatingFor === thread.id}
+                isPending={isPendingAction && pendingThreadId === thread.id}
+                onReplyChange={(v) => setEditedReplies((prev) => ({ ...prev, [thread.id]: v }))}
+                onApprove={() => patchThread(thread.id, "APPROVED")}
+                onDismiss={() => patchThread(thread.id, "DISMISSED")}
+                onOverride={() => generateOverrideReply(thread)}
+                onApproveOverride={() => {
+                  const r = editedReplies[thread.id] ?? "";
+                  patchThread(thread.id, "APPROVED", r);
+                  setOverriding((prev) => ({ ...prev, [thread.id]: false }));
+                }}
+              />
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -790,6 +796,7 @@ function EmptyState({ tab }: { tab: Tab }) {
     needs_human: "Sin conversaciones escaladas. La IA gestiona automáticamente los comentarios negativos y de baja confianza.",
     toxic: "Sin mensajes tóxicos detectados. La IA identifica automáticamente contenido negativo o dañino.",
     history: "Sin historial aún. Los hilos aprobados y descartados aparecen aquí.",
+    automation: "",
   };
   return (
     <div className="rounded-xl border border-dashed border-white/10 py-12 text-center">
