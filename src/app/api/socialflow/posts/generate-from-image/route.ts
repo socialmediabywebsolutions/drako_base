@@ -18,6 +18,9 @@ import { CAROUSEL_MIN_ITEMS, CAROUSEL_MAX_ITEMS } from "@/lib/socialflow/meta/pu
 import type { BrandProfile, KeywordEngineOutput, StrategyItem } from "@/lib/socialflow/ai/types";
 import { isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
 import { calculateViralScore, mapContentTypeToViralFormat, type ViralScore } from "@/lib/socialflow/intelligence/ViralScoreAgent";
+import { extractGpsFromBuffer } from "@/lib/socialflow/geo/exif";
+import { reverseGeocode } from "@/lib/google-places-client";
+import { getWikipediaContext } from "@/lib/socialflow/geo/wikipedia";
 
 function unauthorizedResponse() {
   return NextResponse.json({ code: "UNAUTHORIZED", message: "SESSION_REQUIRED" }, { status: 401 });
@@ -484,6 +487,14 @@ export async function POST(request: Request) {
     // Run LLaVA only when the caller hasn't already analyzed this image — the upload UI's
     // "analyze" pre-pass result is passed back here on the "finalize" call to avoid a
     // second, redundant vision-model call for the same photo.
+    // Sprint I (geolocalización narrativa) — solo se calcula cuando de verdad se leen
+    // bytes frescos de R2 (rama else de abajo). Si el cliente ya trae body.imageAnalysis
+    // de un pre-pass "analyze" previo, no volvemos a tocar R2 y geoContext se queda en
+    // null para esta llamada — mismo caption de siempre, sin contexto de lugar (gap
+    // conocido: cerrarlo del todo requeriría hacer viajar geoContext de vuelta en la
+    // respuesta de "analyze" y que el cliente lo reenvíe, fuera del alcance de este sprint).
+    let geoContext: string | null = null;
+
     let imageAnalysis: ImageAnalysis;
     if (body.imageAnalysis) {
       imageAnalysis = body.imageAnalysis;
@@ -505,12 +516,36 @@ export async function POST(request: Request) {
           { status: 404 },
         );
       }
-      const imageBytes = Array.from(new Uint8Array(await r2Object.arrayBuffer()));
+      // Un solo arrayBuffer() — se reutiliza tanto para imageBytes (ImageAnalysisAgent)
+      // como para la extracción EXIF, en vez de consumir el body de R2 dos veces.
+      const arrayBuffer = await r2Object.arrayBuffer();
+      const imageBytes = Array.from(new Uint8Array(arrayBuffer));
+
+      // Todo el bloque de geolocalización en su propio try/catch — cualquier fallo en
+      // cualquier paso (EXIF sin GPS, geocoding inverso caído, Wikipedia sin artículo)
+      // deja geoContext en null y el flujo sigue exactamente igual que sin este sprint,
+      // nunca bloquea la generación del post.
+      try {
+        const coords = await extractGpsFromBuffer(arrayBuffer);
+        if (coords) {
+          const apiKey = env()?.GOOGLE_MAPS_API_KEY;
+          const placeName = apiKey ? await reverseGeocode(coords.lat, coords.lng, apiKey) : null;
+          if (placeName) {
+            const wikiContext = await getWikipediaContext(placeName);
+            geoContext = `Ubicación: ${placeName}.${wikiContext ? ` ${wikiContext}` : ""}`;
+          }
+        }
+      } catch (error) {
+        console.error("[generate-from-image] geo context extraction failed", error instanceof Error ? error.message : String(error));
+        geoContext = null;
+      }
+
       imageAnalysis = await new ImageAnalysisAgent().run({
         imageBytes,
         profile,
         tenantId: session.tenantId,
         saasId: body.saasId,
+        geoContext,
       });
     }
     console.log(
@@ -614,6 +649,7 @@ export async function POST(request: Request) {
       llavaSuggestedFormat: imageAnalysis.recommendedPostType,
       momentType: imageAnalysis.momentType,
       employeeDetected: imageAnalysis.employeeDetected,
+      geoContext,
       tenantId: session.tenantId,
       saasId: body.saasId,
     });
