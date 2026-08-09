@@ -8,7 +8,14 @@ export type ReelsTemplate = "fitness" | "lifestyle" | "motivation" | "education"
 export type ReelsEffectKind =
   | "zoom-in"
   | "zoom-out"
+  // @deprecated Sin case en computeTransformAtTime (CanvasRenderer.ts) desde la auditoría
+  // de movimiento lateral — translateX puro, ya no se selecciona. El literal se mantiene
+  // solo porque resolveEffectKind (ReelsAgent.ts) todavía lo devuelve como resultado
+  // posible del marcador de pool "pan", que a su vez no aparece en ningún
+  // TEMPLATE_EFFECT_PROFILE.pool — quitarlo rompería el tipado de esa función sin ganar
+  // nada, ya que esa rama tampoco es alcanzable en la práctica.
   | "pan-left"
+  // @deprecated Ver nota de "pan-left".
   | "pan-right"
   | "parallax"
   | "rotate"

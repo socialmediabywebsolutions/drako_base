@@ -135,9 +135,13 @@ const MIN_OVERSCAN = 1.01;
 // insignificante (0.75% del alto como mucho, ver EFFECT_INTENSITY_OVERRIDE). Todos caen al
 // MIN_OVERSCAN por defecto (ver drawImageCover).
 //
-// pan-left/pan-right ya no aparecen en ningún pool de plantilla (ver auditoría de
-// movimiento lateral, deploy #691) — el tipo y su entrada aquí se dejan intactos por si se
-// reactivan, no por uso actual.
+// pan-left/pan-right ya no tienen case en computeTransformAtTime (eliminado — ver
+// auditoría de movimiento lateral) ni entrada aquí: nunca producen transform, así que no
+// necesitan overscan propio. El literal de tipo se deja en ReelsEffectKind marcado
+// @deprecated (ver ReelsEngine.ts) solo porque resolveEffectKind en ReelsAgent.ts todavía
+// lo referencia como resultado posible del marcador de pool "pan" — que a su vez no
+// aparece en ningún TEMPLATE_EFFECT_PROFILE.pool, así que esa rama tampoco es alcanzable
+// en la práctica. No por uso actual.
 //
 // rotate/tilt son geometría distinta: no es solo "cuánto se traslada" sino cuánto necesita
 // crecer un rectángulo rotado θ para seguir cubriendo un canvas mucho más alto que ancho
@@ -150,8 +154,6 @@ const MIN_OVERSCAN = 1.01;
 // corrección que hacer aquí, solo esta nota de que el motivo original (pan+rotación) ya no
 // aplica tal cual.
 const EFFECT_OVERSCAN: Partial<Record<ReelsEffect["kind"], number>> = {
-  "pan-left": 1.09,
-  "pan-right": 1.09,
   rotate: 1.1,
   tilt: 1.17,
   // vertical-drift (nuevo, sin EFFECT_INTENSITY_OVERRIDE — usa el intensityRange completo
@@ -205,12 +207,6 @@ function computeTransformAtTime(effects: ReelsEffect[], t: number, width: number
         break;
       case "zoom-out":
         transform.scale *= 1 + intensity * (1 - progress);
-        break;
-      case "pan-left":
-        transform.translateX -= width * 0.12 * intensity * progress;
-        break;
-      case "pan-right":
-        transform.translateX += width * 0.12 * intensity * progress;
         break;
       case "parallax":
         // Zoom puro — el pan horizontal que traía se eliminó (ver auditoría de
