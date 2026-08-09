@@ -744,8 +744,9 @@ function precalcAnimatedBackground(
   }
 }
 
-// Partículas doradas subiendo con leve deriva lateral — envuelven verticalmente (salen
-// por arriba, reentran por abajo) para que el bucle de frames nunca las agote.
+// Partículas doradas subiendo en línea recta — envuelven verticalmente (salen por
+// arriba, reentran por abajo) para que el bucle de frames nunca las agote. Sin deriva
+// lateral (ver auditoría de movimiento lateral): x se queda fija en su spawn (p.x).
 function drawParticlesLayer(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   canvasWidth: number,
@@ -758,7 +759,7 @@ function drawParticlesLayer(
   for (const p of particles) {
     const span = canvasHeight + 40;
     const y = (((p.y - frameIndex * p.speed * 2) % span) + span) % span - 20;
-    const x = p.x + Math.sin(frameIndex * 0.02 + p.y) * 12;
+    const x = p.x;
     ctx.globalAlpha = p.opacity * ANIMATED_BG_OPACITY_IMPACT;
     ctx.fillStyle = `hsl(${p.hue}, 90%, 65%)`;
     ctx.beginPath();
@@ -769,7 +770,9 @@ function drawParticlesLayer(
 }
 
 // Igual base que drawParticlesLayer pero con trayectoria caótica (dos senoidales de
-// frecuencia distinta en X en vez de una deriva suave) y subida más rápida.
+// frecuencia distinta, subida más rápida). Antes el caos era en X (deriva lateral); ahora
+// la misma fórmula se aplica sobre Y — vx=0 siempre (x se queda fija en p.x), vy es lo
+// que varía frame a frame (ver auditoría de movimiento lateral).
 function drawSparksLayer(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   canvasWidth: number,
@@ -781,8 +784,9 @@ function drawSparksLayer(
   ctx.globalCompositeOperation = "screen";
   for (const p of particles) {
     const span = canvasHeight + 40;
-    const y = (((p.y - frameIndex * p.speed * 4) % span) + span) % span - 20;
-    const x = p.x + Math.sin(frameIndex * 0.09 + p.y) * 18 + Math.cos(frameIndex * 0.05 + p.x) * 10;
+    const baseY = (((p.y - frameIndex * p.speed * 4) % span) + span) % span - 20;
+    const y = baseY + Math.sin(frameIndex * 0.09 + p.y) * 18 + Math.cos(frameIndex * 0.05 + p.y) * 10;
+    const x = p.x;
     ctx.globalAlpha = p.opacity * ANIMATED_BG_OPACITY_IMPACT;
     ctx.fillStyle = `hsl(${p.hue}, 95%, 70%)`;
     ctx.beginPath();
@@ -792,8 +796,11 @@ function drawSparksLayer(
   ctx.restore();
 }
 
-// Círculos grandes desenfocados en órbitas lentas — blur nativo del contexto (mismo
-// mecanismo que buildImageFilter, ya usado por frame en drawImageCover).
+// Círculos grandes desenfocados con deriva vertical lenta y radio pulsante — blur nativo
+// del contexto (mismo mecanismo que buildImageFilter, ya usado por frame en
+// drawImageCover). Antes orbitaban en X e Y (Math.cos/Math.sin sobre `angle`); ahora
+// Math.cos(angle) ya no mueve nada en X — pulsa el radio en su lugar, x se queda fija en
+// c.x (ver auditoría de movimiento lateral).
 function drawBokehLayer(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   canvasWidth: number,
@@ -806,15 +813,16 @@ function drawBokehLayer(
   ctx.filter = "blur(18px)";
   for (const c of circles) {
     const angle = c.angle + frameIndex * c.angleSpeed * 0.02;
-    const x = c.x + Math.cos(angle) * canvasWidth * 0.08;
+    const x = c.x;
     const y = c.y + Math.sin(angle) * canvasHeight * 0.05;
+    const scalePulse = 0.85 + Math.cos(angle) * 0.15;
     // Sin el *0.6 de damping que llevaba antes (con el techo de 0.35 dejaba el bokeh en
     // 0.21 — el más apagado de los 12 pese a ser un efecto de impacto) — con el blur de
     // 18px ya suavizando cada círculo, el techo de impacto pleno no lo vuelve "duro".
     ctx.globalAlpha = ANIMATED_BG_OPACITY_IMPACT;
     ctx.fillStyle = c.color;
     ctx.beginPath();
-    ctx.arc(x, y, c.radius, 0, Math.PI * 2);
+    ctx.arc(x, y, c.radius * scalePulse, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
@@ -848,8 +856,11 @@ function drawGradientWaveLayer(
   ctx.restore();
 }
 
-// Líneas diagonales paralelas desplazándose lateralmente en bucle (el offset vuelve a 0
-// cada 160px recorridos, así que nunca hay un salto visible).
+// Líneas horizontales paralelas (ancho completo, X siempre 0→canvasWidth fijo)
+// desplazándose verticalmente en bucle — aparecen por un borde y desaparecen por el
+// opuesto (el offset vuelve a 0 cada `spacing` px recorridos, así que nunca hay un salto
+// visible). Antes eran diagonales desplazándose lateralmente (ver auditoría de
+// movimiento lateral); ahora el mismo bucle de offset se aplica en Y, nunca en X.
 function drawGeometricLinesLayer(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   canvasWidth: number,
@@ -861,11 +872,13 @@ function drawGeometricLinesLayer(
   ctx.globalAlpha = ANIMATED_BG_OPACITY_IMPACT * 0.7;
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 2;
-  const offset = (frameIndex * 6) % 160;
-  for (let x = -canvasHeight; x < canvasWidth + canvasHeight; x += 80) {
+  const spacing = 80;
+  const offset = (frameIndex * 6) % spacing;
+  for (let y = -spacing; y < canvasHeight + spacing; y += spacing) {
+    const lineY = y + offset;
     ctx.beginPath();
-    ctx.moveTo(x + offset, 0);
-    ctx.lineTo(x + offset - canvasHeight, canvasHeight);
+    ctx.moveTo(0, lineY);
+    ctx.lineTo(canvasWidth, lineY);
     ctx.stroke();
   }
   ctx.restore();
@@ -922,8 +935,10 @@ function drawWaterWavesLayer(
   ctx.restore();
 }
 
-// 3 nubes radiales grandes derivando horizontalmente a fases distintas — "overlay" para
-// que aclare/oscurezca según lo que haya debajo en vez de teñir un color fijo.
+// 3 nubes radiales grandes derivando verticalmente a fases distintas — "overlay" para
+// que aclare/oscurezca según lo que haya debajo en vez de teñir un color fijo. Antes
+// derivaban horizontalmente (ver auditoría de movimiento lateral); cx se queda fijo en
+// el centro, la misma senoidal que movía X ahora se aplica sobre cy.
 function drawSmokeLayer(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   canvasWidth: number,
@@ -935,8 +950,8 @@ function drawSmokeLayer(
   ctx.globalAlpha = ANIMATED_BG_OPACITY_SUBTLE;
   const layers = 3;
   for (let l = 0; l < layers; l++) {
-    const cx = canvasWidth * 0.5 + Math.sin(frameIndex * 0.008 + l * 2) * canvasWidth * 0.3;
-    const cy = canvasHeight * (0.25 + l * 0.25);
+    const cx = canvasWidth * 0.5;
+    const cy = canvasHeight * (0.25 + l * 0.25) + Math.sin(frameIndex * 0.008 + l * 2) * canvasHeight * 0.15;
     const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, canvasWidth * 0.5);
     gradient.addColorStop(0, "rgba(210,210,220,0.8)");
     gradient.addColorStop(1, "rgba(210,210,220,0)");
@@ -1025,8 +1040,11 @@ function drawGlitchLayer(
   ctx.restore();
 }
 
-// 3 bandas verticales de color fluyendo horizontalmente, cada una con su propio tono —
-// "screen" para el look luminoso característico de una aurora.
+// 3 bandas verticales de color, cada una con su propio tono y su propia X fija —
+// "screen" para el look luminoso característico de una aurora. Antes fluían
+// horizontalmente (Math.sin sobre xOffset, ver auditoría de movimiento lateral); ahora
+// esa misma fase pulsa opacidad (0.3-0.7) y una escala vertical suave alrededor de un
+// punto de anclaje fijo en X, así que ningún píxel de la banda se desplaza en X.
 function drawAuroraLayer(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   canvasWidth: number,
@@ -1042,12 +1060,18 @@ function drawAuroraLayer(
     gradient.addColorStop(0, `hsla(${hue}, 90%, 60%, 0)`);
     gradient.addColorStop(0.5, `hsla(${hue}, 90%, 60%, 1)`);
     gradient.addColorStop(1, `hsla(${hue}, 90%, 60%, 0)`);
-    const xOffset = canvasWidth * 0.5 + Math.sin(frameIndex * 0.015 + b * 2) * canvasWidth * 0.35;
+    const pulse = (Math.sin(frameIndex * 0.015 + b * 2) + 1) / 2; // 0..1
+    const bandCenterX = canvasWidth * ((b + 0.5) / bands);
     ctx.save();
-    ctx.translate(xOffset, 0);
-    ctx.globalAlpha = ANIMATED_BG_OPACITY_SUBTLE;
+    // translate → scale → translate inverso: ancla bandCenterX en su sitio mientras
+    // escala solo en Y (1 en X), así el centro y los bordes laterales de la banda nunca
+    // se mueven en X, solo "respira" verticalmente.
+    ctx.translate(bandCenterX, canvasHeight / 2);
+    ctx.scale(1, 1 + pulse * 0.1);
+    ctx.translate(-bandCenterX, -canvasHeight / 2);
+    ctx.globalAlpha = 0.3 + pulse * 0.4;
     ctx.fillStyle = gradient;
-    ctx.fillRect(-canvasWidth * 0.25, 0, canvasWidth * 0.5, canvasHeight);
+    ctx.fillRect(bandCenterX - canvasWidth * 0.25, 0, canvasWidth * 0.5, canvasHeight);
     ctx.restore();
   }
   ctx.restore();

@@ -185,68 +185,58 @@ const TEMPLATE_LIGHT_LEAK_POOL: Record<ReelsTemplate, boolean[]> = {
 // Pool de fondo animado por plantilla — mismo patrón pool+seed que TEMPLATE_COLOR_GRADE_POOL/
 // TEMPLATE_FILM_GRAIN_POOL/TEMPLATE_LIGHT_LEAK_POOL, pero "pesado" por repetición en vez de
 // boolean: cada tipo aparece tantas veces como su peso, así pickFrom (uniforme sobre el
-// array) le da más probabilidad sin necesitar una tabla de pesos aparte.
+// array) le da más probabilidad sin necesitar una tabla de pesos aparte. fitness/motivation
+// pesan hacia particles/sparks/pulse-waves (energía); lifestyle hacia bokeh/aurora/smoke
+// (editorial/suave); education hacia gradient-wave/geometric-lines (limpio, no distrae del
+// contenido); marketing hacia geometric-lines/glitch (corporativo/técnico). Los 12 tipos
+// están siempre presentes en los 5 pools, solo cambia el peso.
 //
-// "particles", "sparks", "bokeh", "geometric-lines", "smoke" y "aurora" ya NO aparecen en
-// ningún pool (ver auditoría de movimiento lateral) — sus funciones drawParticlesLayer/
-// drawSparksLayer/drawBokehLayer/drawGeometricLinesLayer/drawSmokeLayer/drawAuroraLayer en
-// CanvasRenderer.ts tienen Math.sin/cos afectando la posición X (o, en geometric-lines, un
-// offset que hace scroll lateral explícito) — quitarlas del pool basta para que nunca se
-// seleccionen, sin tocar su código de dibujo (mismo patrón "muerto pero presente" ya usado
-// con pan-left/pan-right). "glitch" se queda exactamente con el mismo peso de antes (su
-// jitter horizontal es un flicker simétrico por paridad de frame, no un pan direccional) —
-// el hueco que dejan las 6 eliminadas se redistribuye SOLO entre los 5 tipos sin
-// componente horizontal (stars, water-waves, confetti, pulse-waves, gradient-wave),
-// proporcional al peso que cada uno ya tenía en ese pool, así que cada plantilla conserva
-// el "carácter" más parecido posible al que tenía con los 12 tipos: fitness/motivation
-// (antes particles/sparks/pulse-waves, energía) pasan a pulse-waves+stars como flagship;
-// lifestyle (antes bokeh/aurora/smoke, editorial/suave) pasa a water-waves+gradient-wave;
-// education (antes gradient-wave/geometric-lines, limpio) concentra aún más en
-// gradient-wave; marketing (antes geometric-lines/glitch, corporativo) absorbe el hueco de
-// geometric-lines en gradient-wave y deja glitch intacto como flagship técnico. El tamaño
-// total de cada array se mantiene igual al de antes de la limpieza (18/20/19/19/19), así
-// que los pesos siguen sumando 100% del pool, solo que ahora repartido entre 6 tipos en
-// vez de 12.
+// "particles", "sparks", "bokeh", "geometric-lines", "smoke" y "aurora" habían salido de
+// aquí (ver auditoría de movimiento lateral) porque sus draw*Layer en CanvasRenderer.ts
+// tenían Math.sin/cos afectando la posición X (o, en geometric-lines, un scroll lateral
+// explícito). Ya están arreglados (drawParticlesLayer/drawSparksLayer/drawBokehLayer/
+// drawGeometricLinesLayer/drawSmokeLayer/drawAuroraLayer solo animan Y, escala u opacidad
+// ahora — ningún punto se desplaza en X) y vuelven al pool con el mismo peso que tenían
+// antes de quitarlos.
 const ANIMATED_BG_POOLS: Record<ReelsTemplate, AnimatedBackgroundType[]> = {
   fitness: [
-    "pulse-waves", "pulse-waves", "pulse-waves", "pulse-waves", "pulse-waves", "pulse-waves",
-    "stars", "stars", "stars", "stars", "stars", "stars",
-    "water-waves", "water-waves",
-    "gradient-wave", "gradient-wave",
-    "confetti",
-    "glitch",
+    "particles", "particles", "particles",
+    "sparks", "sparks", "sparks",
+    "pulse-waves", "pulse-waves",
+    "stars", "stars",
+    "bokeh", "geometric-lines", "gradient-wave", "water-waves", "smoke", "confetti", "glitch", "aurora",
   ],
   lifestyle: [
-    "water-waves", "water-waves", "water-waves", "water-waves", "water-waves", "water-waves", "water-waves",
-    "gradient-wave", "gradient-wave", "gradient-wave", "gradient-wave", "gradient-wave", "gradient-wave", "gradient-wave",
-    "stars", "stars", "stars",
-    "confetti",
-    "pulse-waves",
-    "glitch",
+    "bokeh", "bokeh", "bokeh",
+    "aurora", "aurora", "aurora",
+    "smoke", "smoke",
+    "water-waves", "water-waves",
+    "stars", "stars",
+    "gradient-wave", "gradient-wave",
+    "particles", "confetti", "sparks", "pulse-waves", "geometric-lines", "glitch",
   ],
   motivation: [
-    "pulse-waves", "pulse-waves", "pulse-waves", "pulse-waves", "pulse-waves", "pulse-waves", "pulse-waves", "pulse-waves",
-    "stars", "stars", "stars", "stars", "stars", "stars",
-    "water-waves", "water-waves",
-    "gradient-wave",
-    "confetti",
-    "glitch",
+    "particles", "particles", "particles",
+    "sparks", "sparks", "sparks",
+    "pulse-waves", "pulse-waves", "pulse-waves",
+    "stars", "stars",
+    "bokeh", "aurora", "gradient-wave", "water-waves", "smoke", "geometric-lines", "confetti", "glitch",
   ],
   education: [
-    "gradient-wave", "gradient-wave", "gradient-wave", "gradient-wave", "gradient-wave", "gradient-wave", "gradient-wave", "gradient-wave",
-    "water-waves", "water-waves", "water-waves", "water-waves", "water-waves",
-    "stars", "stars", "stars",
-    "pulse-waves",
-    "confetti",
-    "glitch",
+    "gradient-wave", "gradient-wave", "gradient-wave",
+    "geometric-lines", "geometric-lines", "geometric-lines",
+    "water-waves", "water-waves",
+    "smoke", "smoke",
+    "stars", "stars",
+    "bokeh", "particles", "pulse-waves", "aurora", "confetti", "sparks", "glitch",
   ],
   marketing: [
-    "gradient-wave", "gradient-wave", "gradient-wave", "gradient-wave", "gradient-wave", "gradient-wave",
-    "pulse-waves", "pulse-waves", "pulse-waves", "pulse-waves",
-    "stars", "stars", "stars", "stars",
-    "water-waves",
-    "confetti",
+    "geometric-lines", "geometric-lines", "geometric-lines",
     "glitch", "glitch", "glitch",
+    "gradient-wave", "gradient-wave",
+    "pulse-waves", "pulse-waves",
+    "stars", "stars",
+    "bokeh", "particles", "sparks", "aurora", "water-waves", "smoke", "confetti",
   ],
 };
 
