@@ -70,6 +70,11 @@ export class ContentGeneratorAgent {
     // yet degrades gracefully to today's behavior, no prompt sections added.
     tenantId?: string;
     saasId?: string;
+    // Sprint I (geolocalización narrativa) — "Ubicación: {placeName}. {wikiContext}",
+    // igual que le llega a ImageAnalysisAgent (ver generate-from-image/route.ts).
+    // Opcional — ausente cuando la foto no trae GPS o la cadena de geocoding/Wikipedia
+    // falla, degrada al caption genérico del nicho de siempre.
+    geoContext?: string | null;
   }): Promise<GeneratedPost> {
     const { profile, strategyItem, keywordEngine, trends } = input;
     const isEmpresa = profile.accountType === "empresa";
@@ -112,6 +117,8 @@ export class ContentGeneratorAgent {
     const seasonalSection = profile.seasonalContext
       ? `\n## Contexto estacional del mes (JSON)\n${profile.seasonalContext}\n`
       : "";
+    // Sprint I (geolocalización narrativa) — mismo patrón que seasonalSection.
+    const geoSection = input.geoContext ? `\nCONTEXTO DEL LUGAR:\n${input.geoContext}\n` : "";
     const openers = OPENERS_BY_CATEGORY[input.openerCategory ?? "lifestyle"];
     // Rotate opener so every upload gets a different caption structure.
     // Falls back to time-based seed when no explicit index is given.
@@ -163,7 +170,7 @@ ${cta ? `CTA: ${cta}` : ""}
 ${hooks ? `Hooks de referencia (adapta al tema): ${hooks}` : ""}
 ${keywords ? `Keywords a incluir naturalmente: ${keywords}` : ""}
 ${hashtagSeed ? `Hashtags de referencia para incluir: ${hashtagSeed}` : ""}
-${nicheIntelSection}${fatigueSection}${seasonalSection}
+${nicheIntelSection}${fatigueSection}${seasonalSection}${geoSection}
 
 ⚠️ APERTURA — REGLA IRROMPIBLE: NUNCA empieces con "Hola", "Chicas", "A veces", ni presentándote ("Soy ${profile.brandIdentity}...").
 Aperturas disponibles para este tipo de imagen:

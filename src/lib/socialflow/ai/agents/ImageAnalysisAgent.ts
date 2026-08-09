@@ -104,6 +104,12 @@ export class ImageAnalysisAgent {
     profile: BrandProfile;
     tenantId?: string;
     saasId?: string;
+    // Sprint I (geolocalización narrativa) — "Ubicación: {placeName}. {wikiContext}" ya
+    // resuelto por el caller (ver generate-from-image/route.ts: extractGpsFromBuffer +
+    // reverseGeocode + getWikipediaContext) a partir del EXIF GPS de la foto. Opcional —
+    // ausente cuando la foto no trae GPS o cualquier paso de esa cadena falla, degrada al
+    // comportamiento de siempre (sin pista de ubicación).
+    geoContext?: string | null;
   }): Promise<ImageAnalysis> {
     const { imageBytes, profile } = input;
 
@@ -163,6 +169,7 @@ Esta imagen es para una marca de ${profile.niche} llamada "${profile.brandIdenti
 ${brandContext ? `\nContexto de la marca (usa esto para que la descripción y los temas sugeridos encajen con su identidad real):\n${brandContext}\n` : ""}
 ${localContext ? `\nCONTEXTO DEL LOCAL: ${localContext}\nUsa esta información para que la descripción y los temas encajen con el negocio real.\n` : ""}
 ${employeeContext ? `\nCONTEXTO DEL NEGOCIO: ${employeeContext}\nSi reconoces a algún empleado de esta lista en la imagen (por su cargo, especialidad o descripción de estilo de trabajo), menciona su nombre exacto en el campo "employeeDetected". Si no puedes identificarlo con una señal visual razonable, deja "employeeDetected" en null — NUNCA inventes ni asumas un nombre sin fundamento.\n` : ""}
+${input.geoContext ? `\nLa foto fue tomada en: ${input.geoContext}\n` : ""}
 Ahora, compara lo que describiste en el PASO 1 con estas categorías. Identifica cuál encaja mejor SOLO si realmente encaja, y extrae el detalle concreto correspondiente para el campo "specificContext":
 
 1. GYM / FUERZA (pesas, mancuernas, barra, máquinas): identifica el ejercicio concreto si es reconocible (press banca, sentadilla, remo, curl bíceps, peso muerto, zancadas, etc.), el grupo muscular que trabaja, y si la postura, el agarre o la carga aparente sugieren esfuerzo/intensidad alta.
