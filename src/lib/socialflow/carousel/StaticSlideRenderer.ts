@@ -1,7 +1,7 @@
 import type { CarouselSlideRole } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
 import type { ReelsTextRole } from "@/lib/socialflow/reels/ReelsEngine";
 import { sampleAverageBrightness } from "@/lib/socialflow/reels/CanvasRenderer";
-import { seededRandom } from "@/lib/socialflow/reels/ReelsAgent";
+import { seededRandom } from "@/lib/socialflow/reels/seededRandom";
 import type { CarouselStyleVariant } from "@/lib/socialflow/carousel/CarouselStylePacks";
 
 // Compone un slide de carrusel ESTÁTICO (una foto + un bloque de texto quemado encima)
