@@ -166,6 +166,7 @@ function ItemCard({
   onRemove,
   onUpdate,
   onCreateReel,
+  onCreateAiVideo,
 }: {
   item: UploadItem;
   onApprove: (id: string) => void;
@@ -173,6 +174,10 @@ function ItemCard({
   onRemove: (id: string) => void;
   onUpdate: (id: string, patch: Partial<UploadItem>) => void;
   onCreateReel: (id: string) => void;
+  // Igual que onCreateReel pero abre ReelsCreator con initialMode="ai-video" — se salta
+  // la pantalla "¿Cómo quieres crear este Reel?" y arranca directo la generación real
+  // (alibaba/hh1-i2v) en vez del CanvasRenderer local.
+  onCreateAiVideo: (id: string) => void;
 }) {
   // ── uploading ──────────────────────────────────────────────────────────────
   if (item.step === "uploading") {
@@ -340,11 +345,11 @@ function ItemCard({
           )}
 
           {/* Format selector */}
-          <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <div className="grid grid-cols-2 gap-1.5" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               onClick={() => onUpdate(item.id, { editContentType: "FEED" })}
-              className={`flex flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
+              className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
                 item.editContentType === "FEED"
                   ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
                   : "border-white/10 text-white/40 hover:bg-white/5 hover:text-white/60"
@@ -355,7 +360,7 @@ function ItemCard({
             <button
               type="button"
               onClick={() => onUpdate(item.id, { editContentType: "STORY" })}
-              className={`flex flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
+              className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
                 item.editContentType === "STORY"
                   ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
                   : "border-white/10 text-white/40 hover:bg-white/5 hover:text-white/60"
@@ -366,13 +371,20 @@ function ItemCard({
             <button
               type="button"
               onClick={() => onCreateReel(item.id)}
-              className={`flex flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
+              className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
                 item.editContentType === "REEL"
                   ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
                   : "border-white/10 text-white/40 hover:bg-white/5 hover:text-white/60"
               }`}
             >
               🎬 Reel
+            </button>
+            <button
+              type="button"
+              onClick={() => onCreateAiVideo(item.id)}
+              className="flex items-center justify-center gap-1 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/5 px-2 py-1.5 text-xs font-semibold text-fuchsia-300 transition hover:bg-fuchsia-500/15"
+            >
+              🤖 Vídeo IA
             </button>
           </div>
 
@@ -812,7 +824,22 @@ export default function UploadToPost({
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [bulkPreviewOpen, setBulkPreviewOpen] = useState(false);
   const [reelsItemId, setReelsItemId] = useState<string | null>(null);
+  // "ai-video" cuando el modal se abrió desde el botón "🤖 Vídeo IA" del selector de
+  // formato — se pasa como initialMode a ReelsCreator para saltar su pantalla de
+  // elección y arrancar directo la generación real (ver FIX 3). undefined = comportamiento
+  // de siempre (botón "🎬 Reel", el cliente elige dentro del modal).
+  const [reelsInitialMode, setReelsInitialMode] = useState<"ai-video" | undefined>(undefined);
   const [skippedReelsCount, setSkippedReelsCount] = useState(0);
+
+  function openReelsCreator(id: string, mode?: "ai-video") {
+    setReelsInitialMode(mode);
+    setReelsItemId(id);
+  }
+
+  function closeReelsCreator() {
+    setReelsItemId(null);
+    setReelsInitialMode(undefined);
+  }
 
   const updateItem = useCallback((id: string, patch: Partial<UploadItem>) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -1369,17 +1396,19 @@ export default function UploadToPost({
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
             style={{ background: "rgba(0,0,0,0.75)" }}
-            onClick={() => setReelsItemId(null)}
+            onClick={closeReelsCreator}
           >
             <div
               className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-y-auto rounded-3xl border border-white/10 bg-[#0d0d1e] p-5 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-black uppercase tracking-widest text-violet-400">Crear Reel</h3>
+                <h3 className="text-sm font-black uppercase tracking-widest text-violet-400">
+                  {reelsInitialMode === "ai-video" ? "Vídeo IA" : "Crear Reel"}
+                </h3>
                 <button
                   type="button"
-                  onClick={() => setReelsItemId(null)}
+                  onClick={closeReelsCreator}
                   className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white"
                 >
                   <IcoX />
@@ -1390,6 +1419,10 @@ export default function UploadToPost({
                 imageKey={reelsItem.r2Key}
                 saasId={saasId}
                 batchIndex={reelsItem.batchIndex}
+                userNote={batchUserNote}
+                theme={selectedTheme !== "auto" ? THEME_OPTIONS.find((o) => o.value === selectedTheme)?.sendValue : undefined}
+                totalImagesInBatch={activeCount}
+                initialMode={reelsInitialMode}
                 onApproved={({ videoUrl, suggestedPost, fallbackCaption }) => {
                   updateItem(targetId, {
                     reelVideoUrl: videoUrl,
@@ -1400,9 +1433,9 @@ export default function UploadToPost({
                     editDate: suggestedPost ? parseDate(suggestedPost.scheduledAt) : reelsItem.editDate,
                     editTime: suggestedPost ? parseTime(suggestedPost.scheduledAt) : reelsItem.editTime,
                   });
-                  setReelsItemId(null);
+                  closeReelsCreator();
                 }}
-                onClose={() => setReelsItemId(null)}
+                onClose={closeReelsCreator}
               />
             </div>
           </div>
@@ -1417,7 +1450,8 @@ export default function UploadToPost({
             item={item}
             onApprove={approveItem}
             onPreview={setPreviewId}
-            onCreateReel={setReelsItemId}
+            onCreateReel={(id) => openReelsCreator(id)}
+            onCreateAiVideo={(id) => openReelsCreator(id, "ai-video")}
             onRemove={removeItem}
             onUpdate={updateItem}
           />

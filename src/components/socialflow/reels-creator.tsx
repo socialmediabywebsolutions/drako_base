@@ -80,11 +80,20 @@ export default function ReelsCreator({
   theme,
   onClose,
   onApproved,
+  totalImagesInBatch,
+  initialMode,
 }: {
   imageUrl: string;
   imageKey: string;
   saasId: string;
   campaignId?: string;
+  // Cuántas fotos seleccionó el cliente en total en esta sesión de subida — este
+  // componente SIEMPRE procesa una sola (imageUrl), esto es solo para saber si hay que
+  // avisar de que "Vídeo IA" usará únicamente la primera. Opcional, default 1 — lo pasa
+  // upload-to-post.tsx (activeCount) desde cualquiera de los dos botones que abren este
+  // modal ("🎬 Reel" y "🤖 Vídeo IA"); publish-reel.tsx todavía no lo conecta (su modo
+  // batch de 2+ fotos no pasa por este componente, ver generateReelForReview).
+  totalImagesInBatch?: number;
   // Posición de esta foto dentro de la tanda de subida — sin esto, fetchCaption()
   // omitía batchIndex/scheduleIndex y generate-from-image siempre calculaba el mismo
   // openerIndex (ver ContentGeneratorAgent), lo que hacía que varios Reels creados en
@@ -98,6 +107,11 @@ export default function ReelsCreator({
   // Tema elegido en el selector previo al dropzone (publish-reel.tsx) — mismo criterio
   // que userNote: opcional, no rompe ningún caller que aún no lo pase.
   theme?: string;
+  // Si se pasa, se salta la pantalla "¿Cómo quieres crear este Reel?" y arranca esa
+  // ruta directamente en el montaje — usado por el botón "🤖 Vídeo IA" del selector de
+  // formato de UploadToPost para entrar sin el paso intermedio (ver auditoría FIX 3).
+  // Opcional: sin este prop, el comportamiento es el de siempre (pantalla de elección).
+  initialMode?: "effects" | "ai-video";
   onClose?: () => void;
   // Si se pasa, "Aprobar y programar" NO guarda el post aquí — solo entrega el vídeo y el
   // caption sugerido al padre (usado por upload-to-post.tsx / campaign-photo-batch.tsx para
@@ -117,6 +131,11 @@ export default function ReelsCreator({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [suggestedPost, setSuggestedPost] = useState<SuggestedPost | null>(null);
 
+  // Selector inicial — el cliente elige UNA de las dos rutas antes de que empiece
+  // cualquier procesamiento (ni CanvasRenderer ni Vídeo IA arrancan solos al montar).
+  type SelectedMode = "choosing" | "effects" | "ai-video";
+  const [selectedMode, setSelectedMode] = useState<SelectedMode>("choosing");
+
   // Real Video Generation (alibaba/hh1-i2v) — flujo independiente del CanvasRenderer de
   // arriba: no comparte fase ni estado con `run()`/`approve()`, corre en su propio
   // worker dedicado (ver auditoría) vía job + polling, nunca bloquea ni depende del
@@ -130,18 +149,41 @@ export default function ReelsCreator({
   useEffect(() => {
     return () => {
       if (aiVideoPollRef.current) clearInterval(aiVideoPollRef.current);
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     };
   }, []);
 
+  // Si el caller ya sabe qué ruta quiere (botón "🤖 Vídeo IA" del selector de formato),
+  // se salta la pantalla de elección y arranca directo — chooseMode ya protege contra
+  // doble arranque con startedRef.
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-    void run();
-    return () => {
-      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-    };
+    if (initialMode) chooseMode(initialMode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Dispara UNA de las dos rutas — nunca ambas — según lo que elija el cliente en el
+  // selector. startedRef evita doble arranque si el usuario hace doble clic.
+  function chooseMode(mode: "effects" | "ai-video") {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    setSelectedMode(mode);
+    if (mode === "effects") {
+      void run();
+    } else {
+      void startAiVideoGeneration();
+      // Caption real en paralelo (mismo pipeline LLaVA+Mistral que el flujo de efectos)
+      // — fetchCaption nunca rechaza, así que un fallo aquí solo deja suggestedPost en
+      // null y publishAiVideo cae a fallbackCaption. Nunca espera al vídeo.
+      void fetchCaption(
+        imageUrl,
+        imageKey,
+        saasId,
+        typeof batchIndex === "number" ? { batchIndex, scheduleIndex: batchIndex } : undefined,
+        userNote,
+        theme,
+      ).then(setSuggestedPost);
+    }
+  }
 
   async function run() {
     setError(null);
@@ -346,6 +388,37 @@ export default function ReelsCreator({
 
   return (
     <div className="space-y-3 rounded-2xl border border-violet-500/20 bg-white/3 p-4">
+      {selectedMode === "choosing" && (
+        <div className="space-y-3">
+          <p className="text-center text-xs font-semibold text-white/60">¿Cómo quieres crear este Reel?</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => chooseMode("effects")}
+              className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-4 text-left transition hover:bg-violet-500/20"
+            >
+              <div className="text-sm font-bold text-violet-300">⚡ Reel con efectos</div>
+              <p className="mt-1 text-xs text-white/50">Listo en segundos. Imagen animada con música y narración IA.</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => chooseMode("ai-video")}
+              className="rounded-xl border border-fuchsia-500/25 bg-fuchsia-500/10 p-4 text-left transition hover:bg-fuchsia-500/20"
+            >
+              <div className="text-sm font-bold text-fuchsia-300">✨ Vídeo IA</div>
+              <p className="mt-1 text-xs text-white/50">2-3 minutos. Movimiento real generado por IA.</p>
+            </button>
+          </div>
+          {(totalImagesInBatch ?? 1) > 1 && (
+            <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-300">
+              El Vídeo IA procesa una imagen a la vez. Se usará la primera foto seleccionada.
+            </p>
+          )}
+        </div>
+      )}
+
+      {selectedMode === "effects" && (
+      <>
       {(phase === "deciding" || phase === "rendering" || phase === "uploading") && (
         <div className="flex flex-col items-center gap-3 py-8 text-center">
           <span className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-violet-400" />
@@ -451,19 +524,22 @@ export default function ReelsCreator({
         </div>
       )}
 
-      {/* Vídeo IA (alibaba/hh1-i2v) — botón secundario, flujo independiente del
-          CanvasRenderer de arriba. */}
-      <div className="space-y-2 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-3">
-        {aiVideoPhase === "idle" && (
-          <button
-            type="button"
-            onClick={() => void startAiVideoGeneration()}
-            className="w-full rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 py-2 text-xs font-bold text-fuchsia-300 transition hover:bg-fuchsia-500/20"
-          >
-            ✨ Vídeo IA
-          </button>
-        )}
+      </>
+      )}
 
+      {/* Vídeo IA (alibaba/hh1-i2v) — elegido en el selector de arriba (o vía initialMode,
+          que se salta esa pantalla), dispara startAiVideoGeneration() desde chooseMode();
+          nunca queda en "idle" visible. */}
+      {selectedMode === "ai-video" && (
+      <div className="space-y-2 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-3">
+        {/* Mismo aviso que en la pantalla de elección — necesario aquí también porque
+            initialMode="ai-video" se la salta y este es el único punto donde el cliente
+            ve el aviso en ese caso. */}
+        {(totalImagesInBatch ?? 1) > 1 && (
+          <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-300">
+            El Vídeo IA procesa una imagen a la vez. Se usará la primera foto seleccionada.
+          </p>
+        )}
         {aiVideoPhase === "generating" && (
           <div className="flex items-center justify-center gap-2 py-3 text-center">
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-fuchsia-300/30 border-t-fuchsia-300" />
@@ -503,6 +579,7 @@ export default function ReelsCreator({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
