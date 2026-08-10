@@ -643,7 +643,8 @@ jobs:
             migrations/0197_socialflow_knowledge_documents.sql \
             migrations/0199_socialflow_profiles_persona_fields.sql \
             workers/socialflows/migrations/0213_seasonality_cache.sql \
-            workers/socialflows/migrations/0214_ai_video_jobs.sql; do
+            workers/socialflows/migrations/0214_ai_video_jobs.sql \
+            workers/socialflows/migrations/0215_ai_video_jobs_enriched.sql; do
             echo "Applying ${migration}..."
             if ! OUTPUT="$(wrangler d1 execute SOCIAL_DB --remote --config workers/socialflows/wrangler.workers.toml \
               --file "${migration}" 2>&1)"; then
