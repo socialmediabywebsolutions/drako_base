@@ -166,6 +166,11 @@ export default function ReelsCreator({
   function chooseMode(mode: "effects" | "ai-video") {
     if (startedRef.current) return;
     startedRef.current = true;
+    // Limpia cualquier error que hubiera quedado de un intento anterior — sin esto, un
+    // error de efectos/vídeo IA de una sesión previa de este mismo modal podía seguir
+    // visible tras elegir el otro modo.
+    setError(null);
+    setAiVideoError(null);
     setSelectedMode(mode);
     if (mode === "effects") {
       void run();
@@ -317,6 +322,7 @@ export default function ReelsCreator({
 
             if (statusData.job.status === "completed" && statusData.job.videoUrl) {
               if (aiVideoPollRef.current) clearInterval(aiVideoPollRef.current);
+              setError(null);
               setAiVideoResultUrl(statusData.job.videoUrl);
               setAiVideoPhase("ready");
             } else if (statusData.job.status === "failed") {
