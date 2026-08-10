@@ -74,7 +74,9 @@ export async function POST(request: Request) {
       notes: null,
     });
 
-    await queue.send({ tenantId: session.tenantId, saasId, niche, tone, frequencyPerWeek, campaignId });
+    // type explícito desde Real Video Generation (misma cola, mismo consumer en
+    // socialflow-ai-worker, ahora despacha por job.type) — ver AiVideoJob ahí.
+    await queue.send({ type: "campaign", tenantId: session.tenantId, saasId, niche, tone, frequencyPerWeek, campaignId });
 
     return NextResponse.json({ ok: true, campaignId, status: "GENERATING" }, { status: 202 });
   } catch (error) {
