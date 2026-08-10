@@ -11,6 +11,17 @@ import { setGlobalEnv, type DracoEnv } from "../../../src/lib/cf";
 import { SocialFlowOrchestrator } from "../../../src/lib/socialflow/ai/SocialFlowOrchestrator";
 import { resolveSocialContext, upsertSaasSocialCampaign } from "../../../src/lib/socialflow/repository";
 import { processScheduledPosts } from "../../../src/lib/socialflow/scheduler";
+import { ImageAnalysisAgent, type ImageAnalysis } from "../../../src/lib/socialflow/ai/agents/ImageAnalysisAgent";
+import { ContentGeneratorAgent } from "../../../src/lib/socialflow/ai/agents/ContentGeneratorAgent";
+import { OptimizationAgent } from "../../../src/lib/socialflow/ai/agents/OptimizationAgent";
+import { TrendAgent } from "../../../src/lib/socialflow/ai/agents/TrendAgent";
+import { extractBestHourByFormat } from "../../../src/lib/socialflow/ai/agents/BestTimeToPostAgent";
+import { pickOpenerCategory } from "../../../src/lib/socialflow/ai/openers/pickOpenerCategory";
+import { cleanOpening } from "../../../src/lib/socialflow/ai/openers/cleanOpening";
+import { defaultLocalModel } from "../../../src/lib/socialflow/ai/models/localModel";
+import { getStyleHistory } from "../../../src/lib/socialflow/intelligence/NicheIntelligenceService";
+import { generateNarrationTrackUrl } from "../../../src/lib/socialflow/reels/ReelsAgent";
+import type { StrategyItem, KeywordEngineOutput } from "../../../src/lib/socialflow/ai/types";
 
 export interface SocialFlowAiJob {
   // Ausente en mensajes ya en vuelo antes de este campo existir — se tratan como
@@ -60,11 +71,36 @@ async function markVideoJobProcessing(db: DracoEnv["SOCIAL_DB"], jobId: string):
     .run();
 }
 
-async function markVideoJobCompleted(db: DracoEnv["SOCIAL_DB"], jobId: string, videoUrl: string): Promise<void> {
+async function markVideoJobCompleted(
+  db: DracoEnv["SOCIAL_DB"],
+  jobId: string,
+  result: {
+    videoUrl: string;
+    caption: string;
+    hashtags: string[];
+    narrationUrl: string | undefined;
+    suggestedScheduledAt: string;
+    animationPrompt: string;
+  },
+): Promise<void> {
   if (!db) return;
   await db
-    .prepare(`UPDATE socialflow_ai_video_jobs SET status = 'completed', video_url = ?, error = NULL, updated_at = ? WHERE id = ?`)
-    .bind(videoUrl, new Date().toISOString(), jobId)
+    .prepare(
+      `UPDATE socialflow_ai_video_jobs
+       SET status = 'completed', video_url = ?, caption = ?, hashtags = ?, narration_url = ?,
+           suggested_scheduled_at = ?, animation_prompt = ?, error = NULL, updated_at = ?
+       WHERE id = ?`,
+    )
+    .bind(
+      result.videoUrl,
+      result.caption,
+      JSON.stringify(result.hashtags),
+      result.narrationUrl ?? null,
+      result.suggestedScheduledAt,
+      result.animationPrompt,
+      new Date().toISOString(),
+      jobId,
+    )
     .run();
 }
 
@@ -74,6 +110,63 @@ async function markVideoJobFailed(db: DracoEnv["SOCIAL_DB"], jobId: string, erro
     .prepare(`UPDATE socialflow_ai_video_jobs SET status = 'failed', error = ?, updated_at = ? WHERE id = ?`)
     .bind(errorMessage.slice(0, 500), new Date().toISOString(), jobId)
     .run();
+}
+
+const DEFAULT_ANIMATION_PROMPT = "smooth natural camera movement";
+
+// Prompt de animación específico para hh1-i2v a partir del análisis real de la imagen
+// (en vez del genérico DEFAULT_ANIMATION_PROMPT de siempre) — ~30 palabras en inglés
+// describiendo movimiento natural y físicamente plausible (pelo, ropa, ambiente, luz).
+// generateStructured nunca lanza (degrada al seed determinista internamente), así que
+// esta función tampoco necesita su propio try/catch.
+async function generateAnimationPrompt(input: {
+  imageAnalysis: ImageAnalysis;
+  niche: string;
+  tenantId: string;
+  saasId: string;
+}): Promise<string> {
+  const { data, isFallback } = await defaultLocalModel.generateStructured<{ prompt: string }>(
+    {
+      prompt: `You are writing a short motion-generation instruction for an AI image-to-video model (hh1-i2v) that will animate a still photo.
+
+Image description: ${input.imageAnalysis.description}
+Visual context: ${input.imageAnalysis.context}
+Themes: ${input.imageAnalysis.suggestedThemes.join(", ")}
+Niche: ${input.niche}
+
+Write ONE prompt in ENGLISH, around 30 words, describing SUBTLE, NATURAL movement appropriate to this specific image — hair, clothing, ambient elements (leaves, water, light), gentle camera drift. No dramatic action, no scene changes, no on-screen text. Physically plausible motion only.
+
+Respond with ONLY this JSON: {"prompt": "..."}`,
+      tenantId: input.tenantId,
+      saasId: input.saasId,
+    },
+    () => ({ prompt: DEFAULT_ANIMATION_PROMPT }),
+  );
+  const prompt = typeof data.prompt === "string" ? data.prompt.trim() : "";
+  return !isFallback && prompt ? prompt : DEFAULT_ANIMATION_PROMPT;
+}
+
+// Hora sugerida para programar el Reel — usa el mejor horario histórico para formato
+// REEL (mismo snapshot que BestTimeToPostAgent ya calcula para el resto del calendario)
+// si hay suficiente historial; si no, +1h desde ahora, mismo fallback que ya usa
+// ReelsCreator/PublishReel cuando generate-from-image no devuelve un scheduledAt real.
+// Es una SUGERENCIA — el cliente la muestra editable antes de aprobar, nunca un slot
+// reservado en firme (a diferencia de computeScheduledSlot en generate-from-image, que
+// sí evita colisiones reales de calendario — innecesario aquí, un solo vídeo ad-hoc).
+async function computeSuggestedScheduledAt(tenantId: string, saasId: string, env: DracoEnv): Promise<string> {
+  const fallback = () => new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  try {
+    const styleHistory = await getStyleHistory(tenantId, saasId, env);
+    const preferredHour = styleHistory[0] ? extractBestHourByFormat(styleHistory[0].snapshotJson)?.REEL : null;
+    if (typeof preferredHour !== "number") return fallback();
+
+    const now = new Date();
+    const candidate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), preferredHour, 0, 0, 0));
+    if (candidate.getTime() <= Date.now()) candidate.setUTCDate(candidate.getUTCDate() + 1);
+    return candidate.toISOString();
+  } catch {
+    return fallback();
+  }
 }
 
 // Nunca lanza fuera de sí misma — cualquier fallo (bindings ausentes, el modelo no
@@ -101,15 +194,130 @@ async function processAiVideoJob(job: AiVideoJob, env: DracoEnv): Promise<void> 
       throw new Error("R2 or AI bindings not fully configured for AI video generation");
     }
 
+    // Paso 1 — bytes de la imagen directo del bucket (mismo objeto que subió
+    // /api/socialflow/media/upload) — sin fetch HTTP contra nuestro propio dominio público.
+    const imageObject = await bucket.get(job.imageKey);
+    if (!imageObject) {
+      throw new Error(`Image not found in R2 for key ${job.imageKey}`);
+    }
+    const imageBytes = Array.from(new Uint8Array(await imageObject.arrayBuffer()));
+
+    // Paso 2 — BrandProfile completo (KB, seasonalContext, nicheIntel) — mismo builder
+    // que generate-from-image/route.ts usa para el flujo normal de foto→post.
+    const profile = await new SocialFlowOrchestrator().buildProfile({
+      tenantId: job.tenantId,
+      saasId: job.saasId,
+      niche: "",
+      tone: "",
+      frequencyPerWeek: 1,
+    });
+
+    // Paso 3 — análisis visual real (Mistral vision).
+    const imageAnalysis = await new ImageAnalysisAgent().run({
+      imageBytes,
+      profile,
+      tenantId: job.tenantId,
+      saasId: job.saasId,
+    });
+
+    // Paso 4 — prompt de animación específico para hh1-i2v, basado en el análisis real
+    // de la imagen. job.prompt (override manual opcional, ver generate-ai-video/route.ts)
+    // sigue teniendo prioridad si algún caller futuro lo manda explícito.
+    const animationPrompt =
+      job.prompt || (await generateAnimationPrompt({ imageAnalysis, niche: profile.niche, tenantId: job.tenantId, saasId: job.saasId }));
+
+    // Paso 5 — caption + hashtags completos, mismo pipeline que Posts/Reels normales:
+    // ContentGeneratorAgent seguido de OptimizationAgent (fuerza 10-15 hashtags, limpia
+    // el opening). llavaSuggestedFormat se fuerza a "REEL" — el formato ya está decidido
+    // por el cliente al elegir Vídeo IA, no lo vuelve a inferir de la imagen.
+    const trends = await new TrendAgent().run({ profile });
+    const strategyItem: StrategyItem = {
+      id: `aivideo_${job.jobId}`,
+      dayOffset: 0,
+      theme: imageAnalysis.context,
+      angle: imageAnalysis.suggestedThemes[0] ?? profile.niche,
+      format: "reel",
+      callToAction: profile.primaryCTA || "Conoce más en el enlace de la bio.",
+    };
+    const imageThemeHashtags = imageAnalysis.suggestedThemes
+      .map((t) => `#${t.replace(/\s+/g, "").replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9]/g, "").toLowerCase()}`)
+      .filter((h) => h.length > 2);
+    const keywordEngine: KeywordEngineOutput = {
+      clusters: profile.contentPillars.slice(0, 3).map((pillar, i) => ({
+        cluster: pillar,
+        intent: (["awareness", "consideration", "conversion"] as const)[i % 3],
+        difficulty: "medium" as const,
+        trendScore: 70,
+        seasonality: null,
+        contentAngles: imageAnalysis.suggestedThemes,
+        keywords: profile.baseKeywords.slice(0, 3),
+        hashtags: profile.baseHashtags.slice(0, 5),
+      })),
+      evergreenHashtags: profile.baseHashtags,
+      trendingHashtags: [
+        ...trends.trendingTopics.map((t) => `#${t.replace(/\s+/g, "").replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9]/g, "").toLowerCase()}`),
+        ...imageThemeHashtags,
+      ].filter((h) => h.length > 2).slice(0, 10),
+      nicheHashtags: profile.competitorHashtags.slice(0, 5),
+      viralHashtags: profile.viralThemes.map((t) => `#${t.replace(/\s+/g, "").toLowerCase()}`),
+      campaignHashtags: profile.priorityHashtags,
+    };
+
+    const generated = await new ContentGeneratorAgent().run({
+      profile,
+      strategyItem,
+      keywordEngine,
+      trends,
+      openerIndex: 0,
+      openerCategory: pickOpenerCategory(imageAnalysis, strategyItem.theme),
+      specificContext: imageAnalysis.specificContext,
+      llavaSuggestedFormat: "REEL",
+      momentType: imageAnalysis.momentType,
+      employeeDetected: imageAnalysis.employeeDetected,
+      tenantId: job.tenantId,
+      saasId: job.saasId,
+    });
+    const optimized = await new OptimizationAgent().run({
+      profile,
+      variant: generated.variants[0],
+      keywordEngine,
+    });
+    optimized.improvedText = cleanOpening(optimized.improvedText);
+    if (optimized.hashtags.length < 10) {
+      const supplementPool = [
+        ...optimized.hashtags,
+        ...imageThemeHashtags,
+        ...(profile.competitorHashtags ?? []),
+        ...(profile.priorityHashtags ?? []),
+        ...(profile.baseHashtags ?? []),
+      ];
+      optimized.hashtags = Array.from(new Set(supplementPool)).filter(Boolean).slice(0, 15);
+    }
+
+    // Paso 6 — narración de voz (guion Mistral + TTS @cf/deepgram/aura-2-es), reutiliza
+    // el mismo generador que ya usa el Reel con efectos — nunca lanza, degrada a
+    // undefined si cualquier paso falla (bindings, Mistral, TTS o R2).
+    const narrationUrl = await generateNarrationTrackUrl({
+      niche: profile.niche,
+      tema: strategyItem.theme,
+      seasonalContext: profile.seasonalContext,
+      tenantId: job.tenantId,
+      saasId: job.saasId,
+    });
+
+    // Paso 7 — hora sugerida para programar (editable por el cliente antes de aprobar).
+    const suggestedScheduledAt = await computeSuggestedScheduledAt(job.tenantId, job.saasId, env);
+
+    // Paso 8 — el vídeo real (alibaba/hh1-i2v) con el prompt inteligente del paso 4.
+    // result.video, no result.url — confirmado contra el ejemplo real de respuesta de
+    // la documentación de Cloudflare para alibaba/hh1-i2v.
     const result = (await aiBinding.run(AI_VIDEO_MODEL, {
       image: job.imageUrl,
-      prompt: job.prompt || "smooth natural camera movement",
+      prompt: animationPrompt,
       duration: 5,
       resolution: "720P",
     })) as { result?: { video?: string } } | null;
 
-    // result.video, no result.url — confirmado contra el ejemplo real de respuesta de
-    // la documentación de Cloudflare para alibaba/hh1-i2v.
     const generatedVideoUrl = result?.result?.video;
     if (!generatedVideoUrl) {
       throw new Error("alibaba/hh1-i2v did not return a video URL");
@@ -126,9 +334,16 @@ async function processAiVideoJob(job: AiVideoJob, env: DracoEnv): Promise<void> 
     // asset, mismo criterio que ya se usa para el MP3 de narración TTS.
     const key = `reels/ai-video/${job.tenantId}/${job.jobId}.mp4`;
     await bucket.put(key, videoBuffer, { httpMetadata: { contentType: "video/mp4" } });
-
     const publicUrl = `${baseUrl.replace(/\/$/, "")}/${key}`;
-    await markVideoJobCompleted(db, job.jobId, publicUrl);
+
+    await markVideoJobCompleted(db, job.jobId, {
+      videoUrl: publicUrl,
+      caption: optimized.improvedText,
+      hashtags: optimized.hashtags,
+      narrationUrl,
+      suggestedScheduledAt,
+      animationPrompt,
+    });
     console.log(`[SocialFlowAiWorker] AI video job ${job.jobId} completed`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

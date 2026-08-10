@@ -548,7 +548,10 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
 // otro asset. Nunca lanza: cualquier fallo en cualquier paso (bindings ausentes, Mistral,
 // TTS, R2) devuelve undefined y el Reel se genera con música solamente, exactamente igual
 // que si este sprint no existiera — nunca bloquea ni degrada el resto del Reel.
-async function generateNarrationTrackUrl(input: {
+// Exportada — también la reutiliza processAiVideoJob en
+// workers/socialflow-ai-worker/src/index.ts para la narración del flujo de Vídeo IA
+// (Real Video Generation), mismo guion+TTS+R2 que el Reel con efectos.
+export async function generateNarrationTrackUrl(input: {
   niche: string;
   tema: string;
   seasonalContext: string | undefined;
