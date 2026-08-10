@@ -496,6 +496,104 @@ function parseTopHookPatterns(snapshotJson: string): string[] {
   }
 }
 
+// --- TTS Voice Narration ---
+
+type NarrationScriptPayload = { script: string };
+
+// generateStructured() decora el resultado con _meta.engine — mismo criterio que
+// SeasonalityAgent/NicheIntelligenceCronAgent: "workers-ai" en una respuesta real,
+// "local-deterministic-stub" ante cualquier fallo. Nunca se sintetiza voz a partir del
+// seed vacío del stub.
+type NarrationScriptResult = NarrationScriptPayload & { _meta?: { engine?: string } };
+
+// Voz válida de @cf/deepgram/aura-2-es (ver Ai_Cf_Deepgram_Aura_2_Es_Input en
+// @cloudflare/workers-types — el campo se llama `speaker`, no `voice`, y sus únicos
+// valores válidos son sirio/nestor/carina/celeste/alvaro/diana/aquila/selena/estrella/
+// javier; "asteria" no existe en este modelo, es una voz de Aura-1 en inglés).
+const NARRATION_SPEAKER = "carina";
+const NARRATION_MODEL = "@cf/deepgram/aura-2-es";
+
+function buildNarrationPrompt(niche: string, tema: string, seasonalContext: string | undefined): string {
+  return `Escribe un guion corto de narración en off para un Reel de Instagram de una marca de "${niche}". El tema de este Reel es: "${tema}".
+
+Debe sonar como algo pensado para ESCUCHARSE en voz alta, no para leerse como texto — frases cortas, ritmo natural al hablar, nunca una lista ni el texto de un caption. Escribe en primera persona, con un gancho emocional que conecte con la audiencia desde la primera frase.
+${seasonalContext ? `\nContexto estacional del mes (JSON, úsalo solo si encaja de forma natural, no lo fuerces):\n${seasonalContext}\n` : ""}
+Máximo 3 frases, entre 25 y 40 palabras en total.
+
+Responde SOLO con un objeto JSON válido, sin markdown, sin backticks, con esta forma exacta:
+{"script": "el guion aquí"}
+
+Responde en español.`;
+}
+
+// @cf/deepgram/aura-2-es devuelve el MP3 como string en base64 (Ai_Cf_Deepgram_Aura_2_Es_Output
+// = string en @cloudflare/workers-types), no un ArrayBuffer — hay que decodificarlo antes de
+// subirlo a R2. Mismo patrón Buffer-o-atob que token-encryption.ts:base64Decode (duplicado
+// aquí en vez de importado porque no lo exporta).
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  if (typeof Buffer !== "undefined") {
+    const bytes = Uint8Array.from(Buffer.from(base64, "base64"));
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  }
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+}
+
+// Genera un guion corto (Mistral) y lo sintetiza a voz (@cf/deepgram/aura-2-es), subiendo
+// el MP3 a R2 — mismo bucket/URL pública que ya usa media/upload/route.ts para cualquier
+// otro asset. Nunca lanza: cualquier fallo en cualquier paso (bindings ausentes, Mistral,
+// TTS, R2) devuelve undefined y el Reel se genera con música solamente, exactamente igual
+// que si este sprint no existiera — nunca bloquea ni degrada el resto del Reel.
+async function generateNarrationTrackUrl(input: {
+  niche: string;
+  tema: string;
+  seasonalContext: string | undefined;
+  tenantId: string | undefined;
+  saasId: string | undefined;
+}): Promise<string | undefined> {
+  try {
+    if (!input.tenantId) return undefined;
+
+    const dracoEnv = env();
+    const bucket = dracoEnv?.SOCIAL_MEDIA_BUCKET;
+    const baseUrl = dracoEnv?.SOCIAL_MEDIA_R2_PUBLIC_URL?.trim();
+    const aiBinding = dracoEnv?.AI;
+    if (!bucket || !baseUrl || !aiBinding?.run) return undefined;
+
+    const seed: NarrationScriptPayload = { script: "" };
+    const { data } = await defaultLocalModel.generateStructured<NarrationScriptResult>(
+      {
+        prompt: buildNarrationPrompt(input.niche, input.tema, input.seasonalContext),
+        tenantId: input.tenantId,
+        saasId: input.saasId,
+      },
+      () => seed as NarrationScriptResult,
+    );
+    const script = data.script?.trim();
+    if (data._meta?.engine !== "workers-ai" || !script) return undefined;
+
+    const ttsResult = await aiBinding.run(NARRATION_MODEL, {
+      text: script,
+      speaker: NARRATION_SPEAKER,
+      encoding: "mp3",
+    });
+    if (typeof ttsResult !== "string" || !ttsResult) return undefined;
+
+    const audioBuffer = base64ToArrayBuffer(ttsResult);
+    const key = `reels/narration/${input.tenantId}/${Date.now()}.mp3`;
+    await bucket.put(key, audioBuffer, { httpMetadata: { contentType: "audio/mpeg" } });
+
+    return `${baseUrl.replace(/\/$/, "")}/${key}`;
+  } catch (error) {
+    console.error("[ReelsAgent] generateNarrationTrackUrl failed", error instanceof Error ? error.message : String(error));
+    return undefined;
+  }
+}
+
 // Re-acota lo que devuelva la IA a los límites reales del engine, y fuerza de vuelta
 // imageUrl/imageUrls/imageSegments/width/height — nunca deben depender de lo que
 // "invente" el modelo (mergeAiStructuredOutput deja que la IA reemplace arrays de
@@ -505,6 +603,10 @@ async function sanitizeConfig(
   imageUrl: string,
   music: MusicTrackDeps | undefined,
   handle: string,
+  niche: string,
+  seasonalContext: string | undefined,
+  tenantId: string | undefined,
+  saasId: string | undefined,
   imageUrls?: string[],
   imageSegments?: ReelsImageSegment[],
 ): Promise<ReelsConfig> {
@@ -518,6 +620,12 @@ async function sanitizeConfig(
   // igual que cuando reel_music_tracks no tiene ninguna pista activa ni en fallback.
   const musicTrack = music ? await selectMusicTrack(config.template, music) : null;
 
+  // Tema del Reel para el guion de narración — el título ya decidido (post-merge con la
+  // IA) es el análogo más cercano a un "strategyItem.theme" en este agente, que no recibe
+  // ninguno (eso es un concepto de ContentGeneratorAgent/CarouselComposerAgent, no de Reels).
+  const tema = config.textOverlays.find((t) => t.role === "title")?.text?.trim() || niche;
+  const narrationTrackUrl = await generateNarrationTrackUrl({ niche, tema, seasonalContext, tenantId, saasId });
+
   return {
     ...config,
     imageUrl,
@@ -528,6 +636,7 @@ async function sanitizeConfig(
     fps: clamp(Math.round(config.fps || REELS_DEFAULTS.fps), REELS_DEFAULTS.minFps, REELS_DEFAULTS.maxFps),
     durationSec,
     ...(musicTrack ? { musicTrackUrl: musicTrack.url } : {}),
+    ...(narrationTrackUrl ? { narrationTrackUrl } : {}),
     // Forzado igual que imageUrl/width/height/fps — el handle de marca del cliente nunca
     // debe depender de lo que "invente" el modelo (mismo criterio que el resto de campos
     // no-IA de esta función).
@@ -640,6 +749,17 @@ La duración total (durationSec) debe estar entre ${REELS_DEFAULTS.minDurationSe
       () => base,
     );
 
-    return sanitizeConfig(data, imageUrl, music, profile.channelHandle, imageUrls, imageSegments);
+    return sanitizeConfig(
+      data,
+      imageUrl,
+      music,
+      profile.channelHandle,
+      profile.niche,
+      profile.seasonalContext,
+      input.tenantId,
+      input.saasId,
+      imageUrls,
+      imageSegments,
+    );
   }
 }

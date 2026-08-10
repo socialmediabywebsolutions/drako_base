@@ -120,6 +120,8 @@ export type ReelsConfig = {
   height: number;
   /** URL pública HTTPS de la pista de música de fondo (ver music-selector.ts). Sin audio si se omite. */
   musicTrackUrl?: string;
+  /** URL pública HTTPS de la narración de voz IA (ver generateNarrationTrackUrl en ReelsAgent.ts, @cf/deepgram/aura-2-es). Opcional — cualquier fallo en su generación deja este campo undefined, el Reel se genera con música solamente, igual que si nunca hubiera existido este campo. */
+  narrationTrackUrl?: string;
   /** "@usuario" de Instagram del cliente (BrandProfile.channelHandle) — mismo patrón que StaticSlideRenderer.ts en Carruseles. Sin marca si se omite. */
   handle?: string;
 };
@@ -166,6 +168,9 @@ function validateReelsConfig(config: ReelsConfig): void {
   }
   if (config.musicTrackUrl !== undefined && !config.musicTrackUrl.startsWith("http")) {
     throw new ReelsConfigError("musicTrackUrl must be a public HTTPS URL when provided.");
+  }
+  if (config.narrationTrackUrl !== undefined && !config.narrationTrackUrl.startsWith("http")) {
+    throw new ReelsConfigError("narrationTrackUrl must be a public HTTPS URL when provided.");
   }
   if (config.imageUrls?.some((url) => !url.startsWith("http"))) {
     throw new ReelsConfigError("Every entry in imageUrls must be a public HTTPS URL.");
