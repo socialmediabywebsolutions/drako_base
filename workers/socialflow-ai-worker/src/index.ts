@@ -38,11 +38,13 @@ export interface SocialFlowAiJob {
   provider?: string;
 }
 
-// Real Video Generation (HappyHorse 1.0 I2V, alibaba/hh1-i2v) — mismo motivo que la
-// generación completa de campañas para correr en este worker dedicado y no en el
-// principal: un modelo de vídeo real puede tardar bastante más que el límite práctico
-// de duración de request que ya se topó antes en este mismo pipeline (ver el comentario
-// en generate-from-image/route.ts sobre el límite de ~30s de Cloudflare Workers).
+// Real Video Generation (Seedance 2.0 Fast, bytedance/seedance-2.0-fast — antes
+// alibaba/hh1-i2v, cambiado por AiGatewayError 2021 "Invalid User Credentials" en
+// hh1-i2v, ver auditoría) — mismo motivo que la generación completa de campañas para
+// correr en este worker dedicado y no en el principal: un modelo de vídeo real puede
+// tardar bastante más que el límite práctico de duración de request que ya se topó
+// antes en este mismo pipeline (ver el comentario en generate-from-image/route.ts
+// sobre el límite de ~30s de Cloudflare Workers).
 export interface AiVideoJob {
   type: "ai_video";
   jobId: string;
@@ -57,11 +59,11 @@ export interface AiVideoJob {
 
 type QueueJobMessage = SocialFlowAiJob | AiVideoJob;
 
-// alibaba/hh1-i2v — sin prefijo @cf/, sin versión 1.1 (confirmado en auditoría contra la
-// documentación oficial de Cloudflare; el modelo no está todavía en el paquete de tipos
-// @cloudflare/workers-types instalado, es demasiado nuevo, así que env.AI.run se llama
-// con el string del modelo directamente, sin el genérico estricto por-modelo).
-const AI_VIDEO_MODEL = "alibaba/hh1-i2v";
+// bytedance/seedance-2.0-fast — sin prefijo @cf/ (modelo de terceros, igual que
+// hh1-i2v); tampoco está en el paquete de tipos @cloudflare/workers-types instalado,
+// así que env.AI.run se llama con el string del modelo directamente, sin el genérico
+// estricto por-modelo.
+const AI_VIDEO_MODEL = "bytedance/seedance-2.0-fast";
 
 async function markVideoJobProcessing(db: DracoEnv["SOCIAL_DB"], jobId: string): Promise<void> {
   if (!db) return;
@@ -114,7 +116,7 @@ async function markVideoJobFailed(db: DracoEnv["SOCIAL_DB"], jobId: string, erro
 
 const DEFAULT_ANIMATION_PROMPT = "smooth natural camera movement";
 
-// Prompt de animación específico para hh1-i2v a partir del análisis real de la imagen
+// Prompt de animación específico para Seedance a partir del análisis real de la imagen
 // (en vez del genérico DEFAULT_ANIMATION_PROMPT de siempre) — ~30 palabras en inglés
 // describiendo movimiento natural y físicamente plausible (pelo, ropa, ambiente, luz).
 // generateStructured nunca lanza (degrada al seed determinista internamente), así que
@@ -127,7 +129,7 @@ async function generateAnimationPrompt(input: {
 }): Promise<string> {
   const { data, isFallback } = await defaultLocalModel.generateStructured<{ prompt: string }>(
     {
-      prompt: `You are writing a short motion-generation instruction for an AI image-to-video model (hh1-i2v) that will animate a still photo.
+      prompt: `You are writing a short motion-generation instruction for an AI image-to-video model (Seedance) that will animate a still photo.
 
 Image description: ${input.imageAnalysis.description}
 Visual context: ${input.imageAnalysis.context}
@@ -220,7 +222,7 @@ async function processAiVideoJob(job: AiVideoJob, env: DracoEnv): Promise<void> 
       saasId: job.saasId,
     });
 
-    // Paso 4 — prompt de animación específico para hh1-i2v, basado en el análisis real
+    // Paso 4 — prompt de animación específico para Seedance, basado en el análisis real
     // de la imagen. job.prompt (override manual opcional, ver generate-ai-video/route.ts)
     // sigue teniendo prioridad si algún caller futuro lo manda explícito.
     const animationPrompt =
@@ -308,33 +310,38 @@ async function processAiVideoJob(job: AiVideoJob, env: DracoEnv): Promise<void> 
     // Paso 7 — hora sugerida para programar (editable por el cliente antes de aprobar).
     const suggestedScheduledAt = await computeSuggestedScheduledAt(job.tenantId, job.saasId, env);
 
-    // Paso 8 — el vídeo real (alibaba/hh1-i2v) con el prompt inteligente del paso 4.
-    // result.video, no result.url — confirmado contra el ejemplo real de respuesta de
-    // la documentación de Cloudflare para alibaba/hh1-i2v.
+    // Paso 8 — el vídeo real (bytedance/seedance-2.0-fast) con el prompt inteligente del
+    // paso 4. 9:16 vertical (formato Reel de Instagram), 10s (máximo del modelo), 720p.
+    // result.result.video — mismo shape anidado que ya tenía hh1-i2v (result.result.*),
+    // solo cambia el modelo, no la forma de leer la respuesta.
     // Try/catch específico (aparte del genérico de processAiVideoJob) — esta es la única
     // llamada del pipeline directa al binding AI sin su propio manejo de error (ver
-    // auditoría "2021: Invalid User Credentials"): loguea el error crudo completo
-    // (Object.getOwnPropertyNames captura .type/.code si es un AiError de Cloudflare,
-    // que no son enumerable por defecto y JSON.stringify(error) a secas los omite) antes
-    // de relanzar — el catch exterior sigue marcando el job como 'failed' igual que hoy.
-    let result: { result?: { video?: string } } | null;
+    // auditoría "2021: Invalid User Credentials" en hh1-i2v): loguea el error crudo
+    // completo (Object.getOwnPropertyNames captura .type/.code si es un AiError de
+    // Cloudflare, que no son enumerable por defecto y JSON.stringify(error) a secas los
+    // omite) antes de relanzar — el catch exterior sigue marcando el job como 'failed'
+    // igual que hoy.
+    let result: { state?: string; result?: { video?: string } } | null;
     try {
       result = (await aiBinding.run(AI_VIDEO_MODEL, {
         image: job.imageUrl,
         prompt: animationPrompt,
-        duration: 5,
-        resolution: "720P",
-      })) as { result?: { video?: string } } | null;
-    } catch (hh1Error) {
+        aspect_ratio: "9:16",
+        duration: 10,
+        resolution: "720p",
+      })) as { state?: string; result?: { video?: string } } | null;
+    } catch (videoModelError) {
       const propertyNames =
-        typeof hh1Error === "object" && hh1Error !== null ? Object.getOwnPropertyNames(hh1Error) : undefined;
-      console.error("[hh1-i2v] RAW ERROR", JSON.stringify(hh1Error, propertyNames));
-      throw hh1Error;
+        typeof videoModelError === "object" && videoModelError !== null
+          ? Object.getOwnPropertyNames(videoModelError)
+          : undefined;
+      console.error(`[${AI_VIDEO_MODEL}] RAW ERROR`, JSON.stringify(videoModelError, propertyNames));
+      throw videoModelError;
     }
 
     const generatedVideoUrl = result?.result?.video;
     if (!generatedVideoUrl) {
-      throw new Error("alibaba/hh1-i2v did not return a video URL");
+      throw new Error(`${AI_VIDEO_MODEL} did not return a video URL (state: ${result?.state ?? "unknown"})`);
     }
 
     const videoRes = await fetch(generatedVideoUrl);
@@ -391,7 +398,7 @@ export default {
 
   /**
    * Queue consumer: processes SocialFlow AI campaign generation jobs AND
-   * AI video generation jobs (Real Video Generation, alibaba/hh1-i2v) — misma cola,
+   * AI video generation jobs (Real Video Generation, bytedance/seedance-2.0-fast) — misma cola,
    * misma queue() handler, despachado por job.type. Mensajes sin `type` (en vuelo desde
    * antes de que este campo existiera) se tratan como "campaign", el único tipo que
    * había.
