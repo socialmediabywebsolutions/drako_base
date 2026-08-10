@@ -119,7 +119,17 @@ function getApiErrorMessage(payload: Record<string, unknown> | null, fallback: s
   return fallback;
 }
 
-function classifyInstagramError(status: number, defaultCode: string): string {
+// error.code 2021 = OAuthException "Invalid User Credentials" — el código real que Meta
+// devuelve en el body cuando el Long-Lived Token ya expiró o fue revocado, sea cual sea
+// el status HTTP con el que venga envuelto (400 y 401 se han visto ambos en la práctica
+// para este mismo código). Se comprueba ANTES que el resto de reglas por status —
+// "token caducado" es una categoría más específica y accionable (el cliente necesita
+// reconectar la cuenta, ver token-health.ts) que "TOKEN_INVALID" genérico.
+function classifyInstagramError(status: number, payload: Record<string, unknown> | null, defaultCode: string): string {
+  const err = payload?.error;
+  const errorCode = err && typeof err === "object" && !Array.isArray(err) ? (err as Record<string, unknown>).code : undefined;
+  if (errorCode === 2021) return "INSTAGRAM_TOKEN_EXPIRED";
+
   if (status === 401) return "INSTAGRAM_TOKEN_INVALID";
   if (status === 403) return "INSTAGRAM_PUBLISH_FORBIDDEN";
   if (status === 429) return "INSTAGRAM_PUBLISH_RATE_LIMITED";
@@ -220,7 +230,7 @@ async function createCarouselItemContainer(
     throw new InstagramPublishingError(
       getApiErrorMessage(payload, "Instagram carousel item container creation failed."),
       {
-        code: classifyInstagramError(res.status, "INSTAGRAM_CAROUSEL_ITEM_CREATE_FAILED"),
+        code: classifyInstagramError(res.status, payload, "INSTAGRAM_CAROUSEL_ITEM_CREATE_FAILED"),
         details: { status: res.status, mediaUrl, ...(payload ?? {}) },
       },
     );
@@ -286,7 +296,7 @@ async function publishInstagramCarousel(input: {
     throw new InstagramPublishingError(
       getApiErrorMessage(parentPayload, "Instagram carousel container creation failed."),
       {
-        code: classifyInstagramError(parentRes.status, "INSTAGRAM_CAROUSEL_CONTAINER_CREATE_FAILED"),
+        code: classifyInstagramError(parentRes.status, parentPayload, "INSTAGRAM_CAROUSEL_CONTAINER_CREATE_FAILED"),
         details: { status: parentRes.status, childContainerIds, ...(parentPayload ?? {}) },
       },
     );
@@ -319,7 +329,7 @@ async function publishInstagramCarousel(input: {
     throw new InstagramPublishingError(
       getApiErrorMessage(publishPayload, "Instagram carousel publish failed."),
       {
-        code: classifyInstagramError(publishRes.status, "INSTAGRAM_CAROUSEL_PUBLISH_FAILED"),
+        code: classifyInstagramError(publishRes.status, publishPayload, "INSTAGRAM_CAROUSEL_PUBLISH_FAILED"),
         details: { status: publishRes.status, parentContainerId, ...(publishPayload ?? {}) },
       },
     );
@@ -408,7 +418,7 @@ export async function publishInstagramContent(
     throw new InstagramPublishingError(
       getApiErrorMessage(containerPayload, "Instagram media container creation failed."),
       {
-        code: classifyInstagramError(containerRes.status, "INSTAGRAM_CONTAINER_CREATE_FAILED"),
+        code: classifyInstagramError(containerRes.status, containerPayload, "INSTAGRAM_CONTAINER_CREATE_FAILED"),
         details: { status: containerRes.status, ...(containerPayload ?? {}) },
       },
     );
@@ -445,7 +455,7 @@ export async function publishInstagramContent(
     throw new InstagramPublishingError(
       getApiErrorMessage(publishPayload, "Instagram media publish failed."),
       {
-        code: classifyInstagramError(publishRes.status, "INSTAGRAM_PUBLISH_FAILED"),
+        code: classifyInstagramError(publishRes.status, publishPayload, "INSTAGRAM_PUBLISH_FAILED"),
         details: { status: publishRes.status, containerId, ...(publishPayload ?? {}) },
       },
     );

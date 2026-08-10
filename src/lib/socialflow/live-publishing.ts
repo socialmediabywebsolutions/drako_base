@@ -15,6 +15,7 @@ import { claimScheduledPostForPublishing, getSaasSocialPostById, listSaasSocialA
 import type { SocialContext } from "@/lib/socialflow/repository";
 import type { SaasSocialAccount, SaasSocialContentType, SaasSocialPost, SaasSocialProvider } from "@/lib/social-core/types";
 import { recordObservabilityActivity } from "@/lib/observability-core";
+import { seedTokenInvalidAlert } from "@/lib/socialflow/instagram/token-health";
 
 const LIVE_PUBLISH_MAX_ATTEMPTS = 3;
 const LIVE_PUBLISH_BASE_DELAY_MS = 1000;
@@ -492,6 +493,14 @@ export async function publishSocialPostLive(
 
         console.error(`[SocialFlow] ${post.provider} publish failed for post ${postId} on attempt ${attempt}`, providerError);
         safeRecordActivity(ctx, postId, "publish_attempt_failed", "error", `Attempt ${attempt}/${LIVE_PUBLISH_MAX_ATTEMPTS} failed: ${errorCode}`, { attempt, errorCode, errorMessage, canRetry });
+
+        // Token ya caducado del todo (error 2021 real de Meta, ver classifyInstagramError)
+        // — la renovación proactiva del cron de métricas ya no llega a tiempo para esta
+        // publicación. seedTokenInvalidAlert es idempotente (id determinista por
+        // tenant+saas+source+title), llamarlo en cada intento fallido no duplica la card.
+        if (post.provider === "INSTAGRAM" && errorCode === "INSTAGRAM_TOKEN_EXPIRED") {
+          await seedTokenInvalidAlert(ctx.tenantId, post.saasId);
+        }
 
         post = (await persistPublicationState(ctx, post, {
           mode: "live",
