@@ -117,6 +117,22 @@ export default function ReelsCreator({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [suggestedPost, setSuggestedPost] = useState<SuggestedPost | null>(null);
 
+  // Real Video Generation (alibaba/hh1-i2v) — flujo independiente del CanvasRenderer de
+  // arriba: no comparte fase ni estado con `run()`/`approve()`, corre en su propio
+  // worker dedicado (ver auditoría) vía job + polling, nunca bloquea ni depende del
+  // render local.
+  type AiVideoPhase = "idle" | "generating" | "ready" | "failed";
+  const [aiVideoPhase, setAiVideoPhase] = useState<AiVideoPhase>("idle");
+  const [aiVideoResultUrl, setAiVideoResultUrl] = useState<string | null>(null);
+  const [aiVideoError, setAiVideoError] = useState<string | null>(null);
+  const aiVideoPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (aiVideoPollRef.current) clearInterval(aiVideoPollRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
@@ -232,6 +248,102 @@ export default function ReelsCreator({
     }
   }
 
+  async function startAiVideoGeneration() {
+    setAiVideoError(null);
+    setAiVideoPhase("generating");
+    try {
+      const res = await fetch("/api/socialflow/reels/generate-ai-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl, saasId }),
+      });
+      const data = (await res.json()) as { jobId?: string; message?: string; error?: string };
+      if (!res.ok || !data.jobId) {
+        throw new Error(data.message ?? data.error ?? "No se pudo iniciar la generación de vídeo IA.");
+      }
+
+      const jobId = data.jobId;
+      aiVideoPollRef.current = setInterval(() => {
+        void (async () => {
+          try {
+            const statusRes = await fetch(`/api/socialflow/reels/ai-video-status/${jobId}`);
+            const statusData = (await statusRes.json()) as {
+              ok?: boolean;
+              job?: { status: string; videoUrl: string | null; error: string | null };
+            };
+            if (!statusRes.ok || !statusData.job) return;
+
+            if (statusData.job.status === "completed" && statusData.job.videoUrl) {
+              if (aiVideoPollRef.current) clearInterval(aiVideoPollRef.current);
+              setAiVideoResultUrl(statusData.job.videoUrl);
+              setAiVideoPhase("ready");
+            } else if (statusData.job.status === "failed") {
+              if (aiVideoPollRef.current) clearInterval(aiVideoPollRef.current);
+              setAiVideoError(statusData.job.error ?? "La generación de vídeo IA falló.");
+              setAiVideoPhase("failed");
+            }
+            // "pending"/"processing" — sigue el polling, nada que hacer todavía.
+          } catch {
+            // Un fallo puntual de red en un tick de polling no cancela el intento —
+            // el intervalo sigue reintentando cada 5s hasta completed/failed.
+          }
+        })();
+      }, 5000);
+    } catch (e) {
+      setAiVideoError(e instanceof Error ? e.message : "Error inesperado iniciando el vídeo IA.");
+      setAiVideoPhase("failed");
+    }
+  }
+
+  // Mismo flujo de publicación que approve() (onApproved del padre, o self-contained
+  // save a /api/socialflow/posts) — separado en vez de reutilizar approve() para no
+  // acoplar dos pipelines independientes (CanvasRenderer exige `config`, este no).
+  async function publishAiVideo() {
+    if (!aiVideoResultUrl) return;
+
+    const fallbackCaption = config?.textOverlays[0]?.text || "Reel";
+
+    if (onApproved) {
+      onApproved({ videoUrl: aiVideoResultUrl, suggestedPost, fallbackCaption });
+      return;
+    }
+
+    setPhase("saving");
+    try {
+      const body = suggestedPost
+        ? suggestedPost.hashtags.length
+          ? `${suggestedPost.body}\n\n${suggestedPost.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")}`
+          : suggestedPost.body
+        : fallbackCaption;
+      const title = (suggestedPost?.title || fallbackCaption).slice(0, 72);
+      const scheduledAt = suggestedPost?.scheduledAt ?? new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+      const res = await fetch("/api/socialflow/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          saasId,
+          campaignId: campaignId ?? null,
+          provider: "INSTAGRAM",
+          contentType: "REEL",
+          title,
+          body,
+          imageHint: aiVideoResultUrl,
+          status: "SCHEDULED",
+          scheduledAt,
+        }),
+      });
+      const data = (await res.json()) as { post?: { id: string }; message?: string; code?: string };
+      if (!res.ok || !data.post) throw new Error(data.message ?? data.code ?? "No se pudo programar el Reel.");
+
+      setPhase("saved");
+      router.refresh();
+    } catch (e) {
+      setAiVideoError(e instanceof Error ? e.message : "Error al programar el Reel.");
+      setPhase("ready");
+    }
+  }
+
   return (
     <div className="space-y-3 rounded-2xl border border-violet-500/20 bg-white/3 p-4">
       {(phase === "deciding" || phase === "rendering" || phase === "uploading") && (
@@ -338,6 +450,59 @@ export default function ReelsCreator({
           )}
         </div>
       )}
+
+      {/* Vídeo IA (alibaba/hh1-i2v) — botón secundario, flujo independiente del
+          CanvasRenderer de arriba. */}
+      <div className="space-y-2 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-3">
+        {aiVideoPhase === "idle" && (
+          <button
+            type="button"
+            onClick={() => void startAiVideoGeneration()}
+            className="w-full rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 py-2 text-xs font-bold text-fuchsia-300 transition hover:bg-fuchsia-500/20"
+          >
+            ✨ Vídeo IA
+          </button>
+        )}
+
+        {aiVideoPhase === "generating" && (
+          <div className="flex items-center justify-center gap-2 py-3 text-center">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-fuchsia-300/30 border-t-fuchsia-300" />
+            <p className="text-xs text-white/60">Generando vídeo IA…</p>
+          </div>
+        )}
+
+        {aiVideoPhase === "ready" && aiVideoResultUrl && (
+          <div className="space-y-2">
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <video
+              src={aiVideoResultUrl}
+              controls
+              playsInline
+              className="mx-auto h-72 max-w-full rounded-xl border border-white/10 bg-black"
+            />
+            <button
+              type="button"
+              onClick={() => void publishAiVideo()}
+              className="w-full rounded-lg bg-gradient-to-r from-fuchsia-500 to-violet-500 py-2 text-xs font-bold text-white shadow-sm transition hover:brightness-110"
+            >
+              Publicar como Reel
+            </button>
+          </div>
+        )}
+
+        {aiVideoPhase === "failed" && (
+          <div className="space-y-2 text-center">
+            <p className="text-xs text-rose-300">{aiVideoError}</p>
+            <button
+              type="button"
+              onClick={() => void startAiVideoGeneration()}
+              className="rounded-lg bg-fuchsia-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-fuchsia-400"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
