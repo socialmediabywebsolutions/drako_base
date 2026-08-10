@@ -13,7 +13,9 @@
  *   - once a day (0 3 * * *): /api/cron/social/style-learning (StyleLearningAgent), then
  *     /api/cron/social/seasonality (SeasonalityAgent — refreshes
  *     socialflow_seasonality_cache per niche+current-month, 30-day TTL so most nights
- *     it's a no-op scan; see runSeasonalityCron)
+ *     it's a no-op scan; see runSeasonalityCron), then /api/cron/social/audience-insights
+ *     (AudienceInsightAgent — detects recurring question patterns in real Instagram
+ *     comments per tenant, seeds content suggestions into socialflow_intelligence_feed)
  *   - once a week, Mondays (0 3 * * 1): /api/cron/social/niche-intelligence
  *     (NicheIntelligenceCronAgent — refreshes socialcors_niche_intelligence), then
  *     /api/cron/social/cross-tenant-intelligence (CrossTenantIntelligenceAgent —
@@ -103,6 +105,9 @@ const scheduledHandler = `    // __socialflowCronHandlerPatched
             });
             await fetch(appUrl + "/api/cron/social/seasonality", authHeaders).catch(function(err) {
                 console.error("[Cron] scheduled seasonality failed:", err.message);
+            });
+            await fetch(appUrl + "/api/cron/social/audience-insights", authHeaders).catch(function(err) {
+                console.error("[Cron] scheduled audience-insights failed:", err.message);
             });
             return;
         }
