@@ -286,6 +286,13 @@ export default function ReelsCreator({
             playsInline
             className="mx-auto h-96 max-w-full rounded-xl border border-white/10 bg-black"
           />
+          {config?.narrationTrackUrl && (
+            <div className="flex justify-center">
+              <span className="rounded-full border border-violet-500/25 bg-violet-500/10 px-3 py-1 text-[11px] font-medium text-violet-300">
+                🎙 Narración IA
+              </span>
+            </div>
+          )}
           {error && <p className="text-xs text-rose-300">{error}</p>}
           {suggestedPost?.degraded && (
             <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
