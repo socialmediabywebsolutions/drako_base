@@ -311,12 +311,26 @@ async function processAiVideoJob(job: AiVideoJob, env: DracoEnv): Promise<void> 
     // Paso 8 — el vídeo real (alibaba/hh1-i2v) con el prompt inteligente del paso 4.
     // result.video, no result.url — confirmado contra el ejemplo real de respuesta de
     // la documentación de Cloudflare para alibaba/hh1-i2v.
-    const result = (await aiBinding.run(AI_VIDEO_MODEL, {
-      image: job.imageUrl,
-      prompt: animationPrompt,
-      duration: 5,
-      resolution: "720P",
-    })) as { result?: { video?: string } } | null;
+    // Try/catch específico (aparte del genérico de processAiVideoJob) — esta es la única
+    // llamada del pipeline directa al binding AI sin su propio manejo de error (ver
+    // auditoría "2021: Invalid User Credentials"): loguea el error crudo completo
+    // (Object.getOwnPropertyNames captura .type/.code si es un AiError de Cloudflare,
+    // que no son enumerable por defecto y JSON.stringify(error) a secas los omite) antes
+    // de relanzar — el catch exterior sigue marcando el job como 'failed' igual que hoy.
+    let result: { result?: { video?: string } } | null;
+    try {
+      result = (await aiBinding.run(AI_VIDEO_MODEL, {
+        image: job.imageUrl,
+        prompt: animationPrompt,
+        duration: 5,
+        resolution: "720P",
+      })) as { result?: { video?: string } } | null;
+    } catch (hh1Error) {
+      const propertyNames =
+        typeof hh1Error === "object" && hh1Error !== null ? Object.getOwnPropertyNames(hh1Error) : undefined;
+      console.error("[hh1-i2v] RAW ERROR", JSON.stringify(hh1Error, propertyNames));
+      throw hh1Error;
+    }
 
     const generatedVideoUrl = result?.result?.video;
     if (!generatedVideoUrl) {
