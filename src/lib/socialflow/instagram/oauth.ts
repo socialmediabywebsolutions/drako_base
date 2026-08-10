@@ -9,6 +9,7 @@ import { listSaasSocialAccounts, resolveSocialContext, upsertSaasSocialAccount }
 const INSTAGRAM_AUTHORIZE_URL = "https://www.instagram.com/oauth/authorize";
 const INSTAGRAM_TOKEN_URL = "https://api.instagram.com/oauth/access_token";
 const INSTAGRAM_LONG_LIVED_URL = "https://graph.instagram.com/access_token";
+const INSTAGRAM_REFRESH_TOKEN_URL = "https://graph.instagram.com/refresh_access_token";
 const INSTAGRAM_GRAPH_ME_URL = "https://graph.instagram.com/me";
 
 export const INSTAGRAM_OAUTH_CALLBACK_PATH = "/api/socialflow/oauth/instagram/callback";
@@ -287,6 +288,35 @@ export async function exchangeForLongLivedInstagramToken(shortLivedToken: string
     access_token: payload.access_token.trim(),
     token_type: typeof payload.token_type === "string" ? payload.token_type : "bearer",
     expires_in: typeof payload.expires_in === "number" ? payload.expires_in : 5184000, // 60 days
+  };
+}
+
+// Renueva un Long-Lived Token vigente por otros ~60 días desde AHORA (no desde su
+// expiración original) — a diferencia de exchangeForLongLivedInstagramToken (que
+// intercambia un token de CORTA duración recién salido del OAuth flow), este toma un
+// token de LARGA duración ya existente y lo extiende. Meta exige que el token todavía
+// no haya expirado para poder renovarlo — si ya expiró, esta llamada falla igual que
+// cualquier otra que use un token inválido (error 2021), no hay forma de "revivir" un
+// token ya caducado sin que el cliente reconecte la cuenta.
+export async function refreshLongLivedInstagramToken(currentAccessToken: string): Promise<InstagramTokenResponse> {
+  const url = new URL(INSTAGRAM_REFRESH_TOKEN_URL);
+  url.searchParams.set("grant_type", "ig_refresh_token");
+  url.searchParams.set("access_token", currentAccessToken);
+
+  const res = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+  const payload = await parseJson(res);
+
+  if (!res.ok || typeof payload?.access_token !== "string") {
+    throw new InstagramOAuthError(
+      apiErrorMessage(payload, "Instagram token refresh failed."),
+      { code: "INSTAGRAM_TOKEN_REFRESH_FAILED", details: { status: res.status, ...(payload ?? {}) } },
+    );
+  }
+
+  return {
+    access_token: payload.access_token.trim(),
+    token_type: typeof payload.token_type === "string" ? payload.token_type : "bearer",
+    expires_in: typeof payload.expires_in === "number" ? payload.expires_in : 5184000, // 60 días
   };
 }
 

@@ -1,6 +1,7 @@
 import { env } from "@/lib/cf";
 import { decryptToken } from "@/lib/socialflow/token-encryption";
 import { resolveSocialContext, upsertSaasSocialMetrics, type SocialContext } from "@/lib/socialflow/repository";
+import { checkAndRefreshInstagramToken } from "@/lib/socialflow/instagram/token-health";
 import {
   fetchInstagramAccountInsights,
   fetchInstagramRecentMedia,
@@ -413,6 +414,13 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
       }
 
       processed++;
+
+      // Renovación proactiva del Long-Lived Token (60 días) — comprueba expiresAt y
+      // renueva si quedan <15 días. Nunca lanza (ver checkAndRefreshInstagramToken),
+      // así que un fallo aquí no puede tumbar el resto del cron de métricas.
+      if (authMeta) {
+        await checkAndRefreshInstagramToken(socialDb, { id: account.id, tenantId: account.tenant_id, saasId: account.saas_id }, authMeta);
+      }
     } catch (error) {
       logMetaMetricsError("account_processing", account.id, accountType, error);
       errors++;
