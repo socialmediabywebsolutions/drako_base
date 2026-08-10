@@ -140,11 +140,20 @@ export default function ReelsCreator({
   // arriba: no comparte fase ni estado con `run()`/`approve()`, corre en su propio
   // worker dedicado (ver auditoría) vía job + polling, nunca bloquea ni depende del
   // render local.
-  type AiVideoPhase = "idle" | "generating" | "ready" | "failed";
+  type AiVideoPhase = "idle" | "generating" | "ready" | "saving" | "saved" | "failed";
   const [aiVideoPhase, setAiVideoPhase] = useState<AiVideoPhase>("idle");
   const [aiVideoResultUrl, setAiVideoResultUrl] = useState<string | null>(null);
   const [aiVideoError, setAiVideoError] = useState<string | null>(null);
+  // Caption/hashtags/narración/hora sugerida — los produce el consumer (ContentGeneratorAgent
+  // + TTS, ver processAiVideoJob) y llegan ya listos en el polling de ai-video-status;
+  // editables aquí antes de aprobar (a diferencia del flujo "efectos", que delega la
+  // edición al padre — ver auditoría del rediseño de Vídeo IA).
+  const [aiVideoCaption, setAiVideoCaption] = useState("");
+  const [aiVideoHashtags, setAiVideoHashtags] = useState<string[]>([]);
+  const [aiVideoNarrationUrl, setAiVideoNarrationUrl] = useState<string | null>(null);
+  const [aiVideoSuggestedScheduledAt, setAiVideoSuggestedScheduledAt] = useState<string | null>(null);
   const aiVideoPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const aiVideoJobIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -175,18 +184,11 @@ export default function ReelsCreator({
     if (mode === "effects") {
       void run();
     } else {
+      // El caption/hashtags ya no se piden aquí en paralelo — el consumer del job
+      // (processAiVideoJob) los genera con ContentGeneratorAgent, con el análisis real
+      // de la imagen de por medio, y llegan listos en el polling de ai-video-status.
+      // Pedirlos también aquí sería repetir el mismo análisis+generación dos veces.
       void startAiVideoGeneration();
-      // Caption real en paralelo (mismo pipeline LLaVA+Mistral que el flujo de efectos)
-      // — fetchCaption nunca rechaza, así que un fallo aquí solo deja suggestedPost en
-      // null y publishAiVideo cae a fallbackCaption. Nunca espera al vídeo.
-      void fetchCaption(
-        imageUrl,
-        imageKey,
-        saasId,
-        typeof batchIndex === "number" ? { batchIndex, scheduleIndex: batchIndex } : undefined,
-        userNote,
-        theme,
-      ).then(setSuggestedPost);
     }
   }
 
@@ -310,13 +312,22 @@ export default function ReelsCreator({
       }
 
       const jobId = data.jobId;
+      aiVideoJobIdRef.current = jobId;
       aiVideoPollRef.current = setInterval(() => {
         void (async () => {
           try {
             const statusRes = await fetch(`/api/socialflow/reels/ai-video-status/${jobId}`);
             const statusData = (await statusRes.json()) as {
               ok?: boolean;
-              job?: { status: string; videoUrl: string | null; error: string | null };
+              job?: {
+                status: string;
+                videoUrl: string | null;
+                error: string | null;
+                caption: string | null;
+                hashtags: string[];
+                narrationUrl: string | null;
+                suggestedScheduledAt: string | null;
+              };
             };
             if (!statusRes.ok || !statusData.job) return;
 
@@ -324,6 +335,10 @@ export default function ReelsCreator({
               if (aiVideoPollRef.current) clearInterval(aiVideoPollRef.current);
               setError(null);
               setAiVideoResultUrl(statusData.job.videoUrl);
+              setAiVideoCaption(statusData.job.caption?.trim() ?? "");
+              setAiVideoHashtags(statusData.job.hashtags ?? []);
+              setAiVideoNarrationUrl(statusData.job.narrationUrl);
+              setAiVideoSuggestedScheduledAt(statusData.job.suggestedScheduledAt);
               setAiVideoPhase("ready");
             } else if (statusData.job.status === "failed") {
               if (aiVideoPollRef.current) clearInterval(aiVideoPollRef.current);
@@ -346,25 +361,33 @@ export default function ReelsCreator({
   // Mismo flujo de publicación que approve() (onApproved del padre, o self-contained
   // save a /api/socialflow/posts) — separado en vez de reutilizar approve() para no
   // acoplar dos pipelines independientes (CanvasRenderer exige `config`, este no).
+  // Usa aiVideoCaption/aiVideoHashtags (editables por el cliente, precargados desde el
+  // job) en vez de `suggestedPost` — ese state es del flujo "efectos", el de Vídeo IA ya
+  // no lo rellena (ver chooseMode).
   async function publishAiVideo() {
     if (!aiVideoResultUrl) return;
 
-    const fallbackCaption = config?.textOverlays[0]?.text || "Reel";
+    const fallbackCaption = "Reel";
+    const caption = aiVideoCaption.trim() || fallbackCaption;
+    const scheduledAt = aiVideoSuggestedScheduledAt ?? new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const aiVideoSuggestedPost: SuggestedPost = {
+      title: caption.slice(0, 72),
+      body: caption,
+      hashtags: aiVideoHashtags,
+      scheduledAt,
+      degraded: false,
+    };
 
     if (onApproved) {
-      onApproved({ videoUrl: aiVideoResultUrl, suggestedPost, fallbackCaption });
+      onApproved({ videoUrl: aiVideoResultUrl, suggestedPost: aiVideoSuggestedPost, fallbackCaption });
       return;
     }
 
-    setPhase("saving");
+    setAiVideoPhase("saving");
     try {
-      const body = suggestedPost
-        ? suggestedPost.hashtags.length
-          ? `${suggestedPost.body}\n\n${suggestedPost.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")}`
-          : suggestedPost.body
-        : fallbackCaption;
-      const title = (suggestedPost?.title || fallbackCaption).slice(0, 72);
-      const scheduledAt = suggestedPost?.scheduledAt ?? new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      const body = aiVideoHashtags.length
+        ? `${caption}\n\n${aiVideoHashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")}`
+        : caption;
 
       const res = await fetch("/api/socialflow/posts", {
         method: "POST",
@@ -374,22 +397,41 @@ export default function ReelsCreator({
           campaignId: campaignId ?? null,
           provider: "INSTAGRAM",
           contentType: "REEL",
-          title,
+          title: aiVideoSuggestedPost.title,
           body,
           imageHint: aiVideoResultUrl,
           status: "SCHEDULED",
           scheduledAt,
+          metadata: aiVideoNarrationUrl ? { narrationUrl: aiVideoNarrationUrl } : undefined,
         }),
       });
       const data = (await res.json()) as { post?: { id: string }; message?: string; code?: string };
       if (!res.ok || !data.post) throw new Error(data.message ?? data.code ?? "No se pudo programar el Reel.");
 
-      setPhase("saved");
+      setAiVideoPhase("saved");
       router.refresh();
     } catch (e) {
       setAiVideoError(e instanceof Error ? e.message : "Error al programar el Reel.");
-      setPhase("ready");
+      setAiVideoPhase("ready");
     }
+  }
+
+  // Descarta el job de Vídeo IA — borra la fila en DB (no queda nada que programar) y
+  // resetea el estado local. DELETE nunca lanza fuera de sí misma en el cliente: un
+  // fallo de red al borrar no debe impedir cerrar el modal, el peor caso es una fila
+  // huérfana en socialflow_ai_video_jobs, no un post publicado por error.
+  async function discardAiVideo() {
+    const jobId = aiVideoJobIdRef.current;
+    setAiVideoPhase("idle");
+    setAiVideoResultUrl(null);
+    setAiVideoCaption("");
+    setAiVideoHashtags([]);
+    setAiVideoNarrationUrl(null);
+    setAiVideoSuggestedScheduledAt(null);
+    if (jobId) {
+      fetch(`/api/socialflow/reels/ai-video-status/${jobId}`, { method: "DELETE" }).catch(() => {});
+    }
+    onClose?.();
   }
 
   return (
@@ -553,8 +595,8 @@ export default function ReelsCreator({
           </div>
         )}
 
-        {aiVideoPhase === "ready" && aiVideoResultUrl && (
-          <div className="space-y-2">
+        {(aiVideoPhase === "ready" || aiVideoPhase === "saving") && aiVideoResultUrl && (
+          <div className="space-y-3">
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video
               src={aiVideoResultUrl}
@@ -562,26 +604,105 @@ export default function ReelsCreator({
               playsInline
               className="mx-auto h-72 max-w-full rounded-xl border border-white/10 bg-black"
             />
-            <button
-              type="button"
-              onClick={() => void publishAiVideo()}
-              className="w-full rounded-lg bg-gradient-to-r from-fuchsia-500 to-violet-500 py-2 text-xs font-bold text-white shadow-sm transition hover:brightness-110"
-            >
-              Publicar como Reel
-            </button>
+
+            {aiVideoNarrationUrl && (
+              <div className="flex justify-center">
+                <span className="rounded-full border border-violet-500/25 bg-violet-500/10 px-3 py-1 text-[11px] font-medium text-violet-300">
+                  🎙 Narración IA
+                </span>
+              </div>
+            )}
+
+            <div>
+              <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-white/25">Caption</p>
+              <textarea
+                value={aiVideoCaption}
+                onChange={(e) => setAiVideoCaption(e.target.value)}
+                rows={4}
+                disabled={aiVideoPhase === "saving"}
+                className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm leading-relaxed text-white/80 focus:outline-none focus:ring-1 focus:ring-fuchsia-500/50 disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-white/25">
+                Hashtags ({aiVideoHashtags.length}/15)
+              </p>
+              <textarea
+                value={aiVideoHashtags.join(" ")}
+                onChange={(e) => {
+                  const raw = e.target.value.trim();
+                  if (!raw) { setAiVideoHashtags([]); return; }
+                  setAiVideoHashtags(raw.split(/\s+/).map((t) => (t.startsWith("#") ? t : `#${t}`)).slice(0, 15));
+                }}
+                rows={2}
+                placeholder="#hashtag1 #hashtag2 …"
+                disabled={aiVideoPhase === "saving"}
+                className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-fuchsia-500/50 disabled:opacity-50"
+              />
+            </div>
+
+            {aiVideoError && <p className="text-xs text-rose-300">{aiVideoError}</p>}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={aiVideoPhase === "saving"}
+                onClick={() => void publishAiVideo()}
+                className="flex-1 rounded-lg bg-gradient-to-r from-fuchsia-500 to-violet-500 py-2 text-xs font-bold text-white shadow-sm transition hover:brightness-110 disabled:opacity-50"
+              >
+                {aiVideoPhase === "saving" ? "Programando…" : "Aprobar y programar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void discardAiVideo()}
+                disabled={aiVideoPhase === "saving"}
+                className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/50 transition hover:text-white/70 disabled:opacity-50"
+              >
+                Descartar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {aiVideoPhase === "saved" && (
+          <div className="flex flex-col items-center gap-2 py-6 text-center">
+            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300">
+              ✓ Reel programado
+            </span>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="mt-2 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/50 transition hover:text-white/70"
+              >
+                Cerrar
+              </button>
+            )}
           </div>
         )}
 
         {aiVideoPhase === "failed" && (
           <div className="space-y-2 text-center">
             <p className="text-xs text-rose-300">{aiVideoError}</p>
-            <button
-              type="button"
-              onClick={() => void startAiVideoGeneration()}
-              className="rounded-lg bg-fuchsia-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-fuchsia-400"
-            >
-              Reintentar
-            </button>
+            <div className="flex justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => void startAiVideoGeneration()}
+                className="rounded-lg bg-fuchsia-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-fuchsia-400"
+              >
+                Reintentar
+              </button>
+              {onClose && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/50 transition hover:text-white/70"
+                >
+                  Cancelar
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
