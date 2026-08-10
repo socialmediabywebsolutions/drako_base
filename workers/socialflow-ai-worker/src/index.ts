@@ -38,6 +38,9 @@ export interface AiVideoJob {
   tenantId: string;
   saasId: string;
   imageUrl: string;
+  // Key de R2 (no la URL pública) — permite leer los bytes de la imagen directo del
+  // bucket (bucket.get) en vez de un fetch HTTP contra nuestro propio dominio público.
+  imageKey: string;
   prompt?: string;
 }
 

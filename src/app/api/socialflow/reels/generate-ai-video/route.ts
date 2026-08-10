@@ -8,15 +8,21 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => null)) as {
       imageUrl?: string;
+      imageKey?: string;
       saasId?: string;
       prompt?: string;
     } | null;
 
     const imageUrl = body?.imageUrl?.trim() ?? "";
+    const imageKey = body?.imageKey?.trim() ?? "";
     const saasId = body?.saasId?.trim() ?? "";
 
-    if (!imageUrl || !saasId) {
-      return NextResponse.json({ ok: false, error: "INVALID_BODY", message: "imageUrl and saasId are required" }, { status: 400 });
+    // imageKey (la key de R2, no la URL pública) es lo que el consumer usa para leer los
+    // bytes de la imagen directo del bucket (bucket.get) en vez de un fetch HTTP contra
+    // nuestro propio dominio público — ver processAiVideoJob en
+    // workers/socialflow-ai-worker/src/index.ts.
+    if (!imageUrl || !imageKey || !saasId) {
+      return NextResponse.json({ ok: false, error: "INVALID_BODY", message: "imageUrl, imageKey and saasId are required" }, { status: 400 });
     }
     if (!imageUrl.startsWith("http")) {
       return NextResponse.json({ ok: false, error: "INVALID_IMAGE_URL", message: "imageUrl must be a public HTTPS URL" }, { status: 400 });
@@ -51,7 +57,7 @@ export async function POST(request: Request) {
     // completa de campañas: un modelo de vídeo real puede tardar bastante más que el
     // límite práctico de duración de request que ya topamos antes en este pipeline
     // (ver generate-from-image/route.ts).
-    await queue.send({ type: "ai_video", jobId, tenantId: session.tenantId, saasId, imageUrl, prompt: prompt ?? undefined });
+    await queue.send({ type: "ai_video", jobId, tenantId: session.tenantId, saasId, imageUrl, imageKey, prompt: prompt ?? undefined });
 
     return NextResponse.json({ jobId, status: "pending" }, { status: 202 });
   } catch (error) {

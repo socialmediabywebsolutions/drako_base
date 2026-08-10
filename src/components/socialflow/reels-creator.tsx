@@ -302,7 +302,7 @@ export default function ReelsCreator({
       const res = await fetch("/api/socialflow/reels/generate-ai-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl, saasId }),
+        body: JSON.stringify({ imageUrl, imageKey, saasId }),
       });
       const data = (await res.json()) as { jobId?: string; message?: string; error?: string };
       if (!res.ok || !data.jobId) {
