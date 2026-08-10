@@ -1532,6 +1532,73 @@ async function prepareAudioTrack(musicTrackUrl: string): Promise<AudioBuffer | n
   }
 }
 
+// Mezcla música de fondo (30% de volumen) + narración de voz IA (100%) en un único
+// AudioBuffer vía OfflineAudioContext — WebCodecs solo sabe codificar UNA pista (ver
+// encodeAudioTrack más abajo), así que la mezcla tiene que resolverse aquí, ANTES del
+// encoder, no dentro de él. `loop = true` en la música deja que el propio Web Audio API
+// la repita sample-accurate si dura menos que el Reel (mismo comportamiento que el bucle
+// manual de buildPcmForDuration, pero nativo); la narración se reproduce una sola vez —
+// si es más corta que el Reel, el resto queda en silencio; si es más larga, la duración
+// fija del OfflineAudioContext la recorta.
+async function mixMusicAndNarration(music: AudioBuffer, narration: AudioBuffer, durationSec: number): Promise<AudioBuffer> {
+  const numberOfChannels = Math.max(music.numberOfChannels, narration.numberOfChannels);
+  const sampleRate = music.sampleRate;
+  const length = Math.max(1, Math.round(durationSec * sampleRate));
+  const offlineCtx = new OfflineAudioContext(numberOfChannels, length, sampleRate);
+
+  const musicSource = offlineCtx.createBufferSource();
+  musicSource.buffer = music;
+  musicSource.loop = true;
+  const musicGain = offlineCtx.createGain();
+  musicGain.gain.value = 0.3;
+  musicSource.connect(musicGain).connect(offlineCtx.destination);
+  musicSource.start(0);
+
+  const narrationSource = offlineCtx.createBufferSource();
+  narrationSource.buffer = narration;
+  const narrationGain = offlineCtx.createGain();
+  narrationGain.gain.value = 1;
+  narrationSource.connect(narrationGain).connect(offlineCtx.destination);
+  narrationSource.start(0);
+
+  return offlineCtx.startRendering();
+}
+
+// Orquesta el audio final del Reel — música sola (comportamiento de siempre), música +
+// narración mezcladas (Sprint TTS), o silencio. Nunca lanza ni bloquea el render: si la
+// mezcla falla en cualquier paso (carga de la narración, la propia mezcla, códec no
+// soportado para el resultado combinado), cae un escalón — música sola — en vez de
+// tumbar el Reel completo. narrationTrackUrl nunca es indispensable.
+async function prepareFinalAudioTrack(
+  musicTrackUrl: string | undefined,
+  narrationTrackUrl: string | undefined,
+  durationSec: number,
+): Promise<AudioBuffer | null> {
+  if (!musicTrackUrl) return null;
+
+  if (narrationTrackUrl) {
+    try {
+      const [music, narration] = await Promise.all([loadAudioBuffer(musicTrackUrl), loadAudioBuffer(narrationTrackUrl)]);
+      const mixed = await mixMusicAndNarration(music, narration, durationSec);
+
+      if (typeof AudioEncoder !== "undefined") {
+        const support = await AudioEncoder.isConfigSupported({
+          codec: AAC_CODEC,
+          numberOfChannels: mixed.numberOfChannels,
+          sampleRate: mixed.sampleRate,
+          bitrate: 128_000,
+        });
+        if (support.supported) return mixed;
+        console.warn(`[CanvasRenderer] Códec de audio no soportado (${AAC_CODEC}) para la mezcla música+narración; el Reel se generará solo con música.`);
+      }
+    } catch (err) {
+      console.warn("[CanvasRenderer] No se pudo mezclar música + narración; el Reel se generará solo con música.", err);
+    }
+  }
+
+  return prepareAudioTrack(musicTrackUrl);
+}
+
 const AUDIO_FADE_OUT_SEC = 0.3;
 
 // Recorta o repite en bucle la pista para que dure exactamente durationSec, y aplica un
@@ -1615,7 +1682,7 @@ export class CanvasRenderer implements ReelsRenderer {
       imageSegments
         ? Promise.all(imageSegments.map((seg) => loadImageBitmap(seg.imageUrl)))
         : loadImageBitmap(config.imageUrl).then((img) => [img]),
-      musicTrackUrl ? prepareAudioTrack(musicTrackUrl) : Promise.resolve(null),
+      prepareFinalAudioTrack(musicTrackUrl, config.narrationTrackUrl, durationSec),
     ]);
 
     // Una entrada por imagen, calculada una sola vez aquí — nunca dentro del loop de
