@@ -68,6 +68,10 @@ export type DracoEnv = {
   ANTHROPIC_API_KEY?: string;
   CRON_SECRET?: string;
   AI?: { run: (model: string, inputs: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown> };
+  // DashScope (Alibaba) API key — llamada directa vía fetch() para generación de vídeo IA
+  // (bytedance/seedance-2.0-fast y hh1-i2v fallaban con AiGatewayError 2021 "Invalid User
+  // Credentials" a través de env.AI.run(), confirmado en ambos modelos de terceros).
+  DASHSCOPE_API_KEY?: string;
   SAAS_FACTORY_QUEUE?: { send: (msg: any) => Promise<void> };
   SOCIALFLOW_AI_QUEUE?: { send: (msg: any) => Promise<void> }; // Cloudflare Queue Producer for async AI campaign generation
   SCHEDULER?: Fetcher; // Service Binding to drako-scheduler

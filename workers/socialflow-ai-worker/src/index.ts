@@ -38,9 +38,11 @@ export interface SocialFlowAiJob {
   provider?: string;
 }
 
-// Real Video Generation (Seedance 2.0 Fast, bytedance/seedance-2.0-fast — antes
-// alibaba/hh1-i2v, cambiado por AiGatewayError 2021 "Invalid User Credentials" en
-// hh1-i2v, ver auditoría) — mismo motivo que la generación completa de campañas para
+// Real Video Generation (DashScope wanx2.5-vace-turbo, llamado por fetch() directo —
+// tanto bytedance/seedance-2.0-fast como, antes, alibaba/hh1-i2v fallaban con
+// AiGatewayError 2021 "Invalid User Credentials" al pasar por env.AI.run(), confirmado
+// en ambos modelos de terceros, así que este pipeline ya no pasa por el AI Gateway de
+// Cloudflare para el vídeo) — mismo motivo que la generación completa de campañas para
 // correr en este worker dedicado y no en el principal: un modelo de vídeo real puede
 // tardar bastante más que el límite práctico de duración de request que ya se topó
 // antes en este mismo pipeline (ver el comentario en generate-from-image/route.ts
@@ -59,11 +61,94 @@ export interface AiVideoJob {
 
 type QueueJobMessage = SocialFlowAiJob | AiVideoJob;
 
-// bytedance/seedance-2.0-fast — sin prefijo @cf/ (modelo de terceros, igual que
-// hh1-i2v); tampoco está en el paquete de tipos @cloudflare/workers-types instalado,
-// así que env.AI.run se llama con el string del modelo directamente, sin el genérico
-// estricto por-modelo.
-const AI_VIDEO_MODEL = "bytedance/seedance-2.0-fast";
+// DashScope (Alibaba) — API asíncrona ajena al AI Gateway de Cloudflare: se lanza la
+// tarea, devuelve un task_id, y hay que hacer polling a DASHSCOPE_TASK_URL hasta que
+// task_status sea SUCCEEDED/FAILED/CANCELED.
+const DASHSCOPE_MODEL = "wanx2.5-vace-turbo";
+const DASHSCOPE_SYNTHESIS_URL = "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis";
+const DASHSCOPE_TASK_URL = (taskId: string) => `https://dashscope-intl.aliyuncs.com/api/v1/tasks/${taskId}`;
+const DASHSCOPE_POLL_INTERVAL_MS = 5000;
+const DASHSCOPE_MAX_POLL_MS = 5 * 60 * 1000;
+
+interface DashScopeSynthesisResponse {
+  output?: { task_id?: string };
+  request_id?: string;
+  code?: string;
+  message?: string;
+}
+
+interface DashScopeTaskResponse {
+  output?: {
+    task_status?: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELED";
+    video_url?: string;
+    message?: string;
+    code?: string;
+  };
+  request_id?: string;
+}
+
+// Lanza la tarea de generación de vídeo y hace polling hasta que complete. Nunca
+// devuelve sin video_url — o resuelve con la URL real, o lanza con el motivo concreto
+// (falta la API key, DashScope respondió con error HTTP, la tarea falló/expiró, etc.),
+// para que el catch de processAiVideoJob marque el job como 'failed' con un mensaje útil.
+async function generateVideoWithDashScope(env: DracoEnv, imageUrl: string, prompt: string): Promise<string> {
+  const apiKey = env.DASHSCOPE_API_KEY;
+  if (!apiKey) {
+    throw new Error("DASHSCOPE_API_KEY not configured");
+  }
+
+  const synthesisRes = await fetch(DASHSCOPE_SYNTHESIS_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "X-DashScope-Async": "enable",
+    },
+    body: JSON.stringify({
+      model: DASHSCOPE_MODEL,
+      input: { image_url: imageUrl, prompt },
+      parameters: { size: "1080*1920", duration: 5 },
+    }),
+  });
+  if (!synthesisRes.ok) {
+    const errorText = await synthesisRes.text().catch(() => "");
+    throw new Error(`DashScope video-synthesis request failed (${synthesisRes.status}): ${errorText.slice(0, 500)}`);
+  }
+  const synthesisBody = (await synthesisRes.json()) as DashScopeSynthesisResponse;
+  const taskId = synthesisBody.output?.task_id;
+  if (!taskId) {
+    throw new Error(`DashScope video-synthesis response missing task_id: ${JSON.stringify(synthesisBody).slice(0, 500)}`);
+  }
+
+  const deadline = Date.now() + DASHSCOPE_MAX_POLL_MS;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, DASHSCOPE_POLL_INTERVAL_MS));
+
+    const taskRes = await fetch(DASHSCOPE_TASK_URL(taskId), {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!taskRes.ok) {
+      const errorText = await taskRes.text().catch(() => "");
+      throw new Error(`DashScope task poll failed (${taskRes.status}): ${errorText.slice(0, 500)}`);
+    }
+    const taskBody = (await taskRes.json()) as DashScopeTaskResponse;
+    const status = taskBody.output?.task_status;
+
+    if (status === "SUCCEEDED") {
+      const videoUrl = taskBody.output?.video_url;
+      if (!videoUrl) {
+        throw new Error(`DashScope task ${taskId} succeeded but returned no video_url`);
+      }
+      return videoUrl;
+    }
+    if (status === "FAILED" || status === "CANCELED") {
+      throw new Error(`DashScope task ${taskId} ${status}: ${taskBody.output?.message ?? "no message"}`);
+    }
+    // PENDING / RUNNING — sigue en cola/procesando, se reintenta en el próximo tick.
+  }
+
+  throw new Error(`DashScope task ${taskId} timed out after ${DASHSCOPE_MAX_POLL_MS / 1000}s`);
+}
 
 async function markVideoJobProcessing(db: DracoEnv["SOCIAL_DB"], jobId: string): Promise<void> {
   if (!db) return;
@@ -191,9 +276,8 @@ async function processAiVideoJob(job: AiVideoJob, env: DracoEnv): Promise<void> 
     // apunten al mismo bucket físico; hay que confirmarlo/fijarlo aquí también con
     // `wrangler secret put SOCIAL_MEDIA_R2_PUBLIC_URL -c workers/socialflow-ai-worker/wrangler.workers.toml`.
     const baseUrl = env.SOCIAL_MEDIA_R2_PUBLIC_URL?.trim();
-    const aiBinding = env.AI;
-    if (!bucket || !baseUrl || !aiBinding?.run) {
-      throw new Error("R2 or AI bindings not fully configured for AI video generation");
+    if (!bucket || !baseUrl || !env.DASHSCOPE_API_KEY) {
+      throw new Error("R2 bindings or DASHSCOPE_API_KEY not fully configured for AI video generation");
     }
 
     // Paso 1 — bytes de la imagen directo del bucket (mismo objeto que subió
@@ -310,38 +394,23 @@ async function processAiVideoJob(job: AiVideoJob, env: DracoEnv): Promise<void> 
     // Paso 7 — hora sugerida para programar (editable por el cliente antes de aprobar).
     const suggestedScheduledAt = await computeSuggestedScheduledAt(job.tenantId, job.saasId, env);
 
-    // Paso 8 — el vídeo real (bytedance/seedance-2.0-fast) con el prompt inteligente del
-    // paso 4. 9:16 vertical (formato Reel de Instagram), 10s (máximo del modelo), 720p.
-    // result.result.video — mismo shape anidado que ya tenía hh1-i2v (result.result.*),
-    // solo cambia el modelo, no la forma de leer la respuesta.
-    // Try/catch específico (aparte del genérico de processAiVideoJob) — esta es la única
-    // llamada del pipeline directa al binding AI sin su propio manejo de error (ver
-    // auditoría "2021: Invalid User Credentials" en hh1-i2v): loguea el error crudo
-    // completo (Object.getOwnPropertyNames captura .type/.code si es un AiError de
-    // Cloudflare, que no son enumerable por defecto y JSON.stringify(error) a secas los
-    // omite) antes de relanzar — el catch exterior sigue marcando el job como 'failed'
-    // igual que hoy.
-    let result: { state?: string; result?: { video?: string } } | null;
+    // Paso 8 — el vídeo real (DashScope wanx2.5-vace-turbo) con el prompt inteligente del
+    // paso 4, vía fetch() directo a la API de DashScope (bytedance/seedance-2.0-fast y,
+    // antes, alibaba/hh1-i2v fallaban ambos con AiGatewayError 2021 "Invalid User
+    // Credentials" al pasar por env.AI.run(), confirmado en los dos modelos de terceros —
+    // el AI Gateway de Cloudflare queda fuera de este pipeline). Try/catch específico
+    // (aparte del genérico de processAiVideoJob) para loguear el error crudo antes de
+    // relanzar — el catch exterior sigue marcando el job como 'failed' igual que hoy.
+    let generatedVideoUrl: string;
     try {
-      result = (await aiBinding.run(AI_VIDEO_MODEL, {
-        image: job.imageUrl,
-        prompt: animationPrompt,
-        aspect_ratio: "9:16",
-        duration: 10,
-        resolution: "720p",
-      })) as { state?: string; result?: { video?: string } } | null;
+      generatedVideoUrl = await generateVideoWithDashScope(env, job.imageUrl, animationPrompt);
     } catch (videoModelError) {
       const propertyNames =
         typeof videoModelError === "object" && videoModelError !== null
           ? Object.getOwnPropertyNames(videoModelError)
           : undefined;
-      console.error(`[${AI_VIDEO_MODEL}] RAW ERROR`, JSON.stringify(videoModelError, propertyNames));
+      console.error(`[${DASHSCOPE_MODEL}] RAW ERROR`, JSON.stringify(videoModelError, propertyNames));
       throw videoModelError;
-    }
-
-    const generatedVideoUrl = result?.result?.video;
-    if (!generatedVideoUrl) {
-      throw new Error(`${AI_VIDEO_MODEL} did not return a video URL (state: ${result?.state ?? "unknown"})`);
     }
 
     const videoRes = await fetch(generatedVideoUrl);
@@ -387,6 +456,7 @@ export default {
         bindings: {
           socialDb: env.SOCIAL_DB ? "connected" : "missing",
           ai: env.AI ? "connected" : "missing",
+          dashscope: env.DASHSCOPE_API_KEY ? "connected" : "missing",
         },
       }), {
         headers: { "Content-Type": "application/json" },
