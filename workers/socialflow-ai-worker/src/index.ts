@@ -63,10 +63,13 @@ type QueueJobMessage = SocialFlowAiJob | AiVideoJob;
 
 // DashScope (Alibaba) — API asíncrona ajena al AI Gateway de Cloudflare: se lanza la
 // tarea, devuelve un task_id, y hay que hacer polling a DASHSCOPE_TASK_URL hasta que
-// task_status sea SUCCEEDED/FAILED/CANCELED.
-const DASHSCOPE_MODEL = "wanx2.5-vace-turbo";
-const DASHSCOPE_SYNTHESIS_URL = "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis";
-const DASHSCOPE_TASK_URL = (taskId: string) => `https://dashscope-intl.aliyuncs.com/api/v1/tasks/${taskId}`;
+// task_status sea SUCCEEDED/FAILED/CANCELED. El endpoint es por-workspace (WorkspaceId
+// visible en la consola de Alibaba, panel de API Key) en vez del host genérico
+// dashscope-intl.aliyuncs.com.
+const DASHSCOPE_MODEL = "wan2.6-i2v-flash";
+const DASHSCOPE_WORKSPACE_HOST = "https://ws-r3sfwy2fsvg530c6.ap-southeast-1.maas.aliyuncs.com";
+const DASHSCOPE_SYNTHESIS_URL = `${DASHSCOPE_WORKSPACE_HOST}/api/v1/services/aigc/video-generation/video-synthesis`;
+const DASHSCOPE_TASK_URL = (taskId: string) => `${DASHSCOPE_WORKSPACE_HOST}/api/v1/tasks/${taskId}`;
 const DASHSCOPE_POLL_INTERVAL_MS = 5000;
 const DASHSCOPE_MAX_POLL_MS = 5 * 60 * 1000;
 
@@ -106,8 +109,8 @@ async function generateVideoWithDashScope(env: DracoEnv, imageUrl: string, promp
     },
     body: JSON.stringify({
       model: DASHSCOPE_MODEL,
-      input: { image_url: imageUrl, prompt },
-      parameters: { size: "1080*1920", duration: 5 },
+      input: { img_url: imageUrl, prompt },
+      parameters: { size: "1080*1920", duration: 5, prompt_extend: true },
     }),
   });
   if (!synthesisRes.ok) {
