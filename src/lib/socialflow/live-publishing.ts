@@ -61,9 +61,12 @@ async function publishToLinkedIn(input: {
   account: SaasSocialAccount;
   post: SaasSocialPost;
 }): Promise<{ externalPostId?: string | null }> {
+  // Mismo campo que ya usa Instagram (ver publishToInstagram más abajo) — por
+  // ahora solo la imagen principal, sin soporte de carrusel/slides para LinkedIn.
   const operation = await publishPost(
     input.account,
     buildPostCaption(input.post),
+    input.post.imageHint?.trim() || null,
   );
   return { externalPostId: operation.externalPostId };
 }

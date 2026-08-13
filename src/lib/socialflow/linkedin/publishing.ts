@@ -2,6 +2,7 @@ import {
   LinkedInIntegrationError,
   publishLinkedInMemberPost,
   publishLinkedInOrganizationPost,
+  registerAndUploadLinkedInImage,
   verifyLinkedInAccess,
 } from "@/lib/socialflow/linkedin/core";
 import type { SaasSocialAccount } from "@/lib/social-core/types";
@@ -75,9 +76,15 @@ function resolveLinkedInOrganizationUrn(account: SaasSocialAccount): string | nu
   return typeof organizationUrn === "string" && organizationUrn.trim() ? organizationUrn.trim() : null;
 }
 
-export async function publishPost(account: SaasSocialAccount, content: string) {
+// imageUrl (opcional, ver live-publishing.ts::publishToLinkedIn) — mismo
+// requisito que ya aplica a Instagram: debe ser una URL pública HTTPS. Si el
+// registro/subida a LinkedIn falla, se relanza y el post NO se publica como
+// solo texto silenciosamente — un post pensado para llevar imagen no debe
+// terminar sin ella sin que nadie se entere.
+export async function publishPost(account: SaasSocialAccount, content: string, imageUrl?: string | null) {
   const scopes = parseLinkedInScopes(account);
   const organizationUrn = resolveLinkedInOrganizationUrn(account);
+  const trimmedImageUrl = imageUrl?.trim() || null;
 
   if (organizationUrn) {
     if (!scopes.has(LINKEDIN_ORGANIZATION_SCOPE)) {
@@ -87,10 +94,16 @@ export async function publishPost(account: SaasSocialAccount, content: string) {
       });
     }
 
+    const accessToken = await requireLinkedInAccessToken(account);
+    const imageAssetUrn = trimmedImageUrl
+      ? await registerAndUploadLinkedInImage(accessToken, organizationUrn, trimmedImageUrl)
+      : null;
+
     return publishLinkedInOrganizationPost({
-      accessToken: await requireLinkedInAccessToken(account),
+      accessToken,
       organizationUrn,
       content,
+      imageAssetUrn,
     });
   }
 
@@ -101,10 +114,17 @@ export async function publishPost(account: SaasSocialAccount, content: string) {
     });
   }
 
+  const accessToken = await requireLinkedInAccessToken(account);
+  const authorUrn = requireLinkedInAuthorUrn(account);
+  const imageAssetUrn = trimmedImageUrl
+    ? await registerAndUploadLinkedInImage(accessToken, authorUrn, trimmedImageUrl)
+    : null;
+
   return publishLinkedInMemberPost({
-    accessToken: await requireLinkedInAccessToken(account),
-    authorUrn: requireLinkedInAuthorUrn(account),
+    accessToken,
+    authorUrn,
     content,
+    imageAssetUrn,
   });
 }
 

@@ -20,6 +20,23 @@ const LINKEDIN_USERINFO_ENDPOINT = "https://api.linkedin.com/v2/userinfo";
 const LINKEDIN_ORGANIZATION_ACLS_ENDPOINT = "https://api.linkedin.com/v2/organizationAcls";
 const LINKEDIN_CALLBACK_PATH = "/auth/linkedin/callback";
 const LINKEDIN_ORGANIZATION_SCOPE_ENV_KEY = "SOCIALFLOW_LINKEDIN_ORGANIZATION_SCOPE_ENABLED";
+// Assets API (legacy, LinkedIn marca esta familia como "won't have any feature
+// additions and will be deprecated in the future" a favor de Images API +
+// Posts API en /rest/) — se mantiene aquí porque el post en sí sigue yendo por
+// /v2/ugcPosts (ver postLinkedInUgcContent), y mezclar generaciones de API
+// distintas (ugcPosts sin versionar + Posts API versionada) sería más riesgoso
+// que quedarse en la familia legacy para las dos llamadas. A diferencia de
+// /v2/ugcPosts, el registro de subida SÍ vive ya bajo /rest/ y SÍ exige el
+// header Linkedin-Version — confirmado contra
+// learn.microsoft.com/linkedin/marketing/community-management/shares/vector-asset-api
+// (2026-08-13). Revisar este endpoint si LinkedIn retira /rest/assets del todo.
+const LINKEDIN_ASSETS_REGISTER_UPLOAD_ENDPOINT = "https://api.linkedin.com/rest/assets?action=registerUpload";
+const LINKEDIN_ORGANIZATION_SHARE_STATISTICS_ENDPOINT = "https://api.linkedin.com/rest/organizationalEntityShareStatistics";
+// Formato YYYYMM exigido por el header Linkedin-Version — 202607 es el
+// "defaultMoniker" (versión soportada más reciente) confirmado en la
+// documentación de LinkedIn a fecha 2026-08-13. Bump manual cuando LinkedIn
+// publique una versión más reciente y confirme que 202607 ha sido retirada.
+const LINKEDIN_API_VERSION = "202607";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -100,12 +117,16 @@ export type LinkedInPublishPostInput = {
   accessToken: string;
   authorUrn: string;
   content: string;
+  // URN de un asset ya registrado y subido (ver registerAndUploadLinkedInImage) —
+  // ausente/null = post de solo texto, mismo comportamiento que antes de Paso 4.
+  imageAssetUrn?: string | null;
 };
 
 export type LinkedInPublishOrganizationPostInput = {
   accessToken: string;
   organizationUrn: string;
   content: string;
+  imageAssetUrn?: string | null;
 };
 
 export type LinkedInPublishPostResult = {
@@ -711,6 +732,109 @@ export async function fetchLinkedInUserProfile(accessToken: string): Promise<Lin
 }
 
 // ---------------------------------------------------------------------------
+// Public API — Image upload (Assets API, registerUpload + PUT bytes)
+// ---------------------------------------------------------------------------
+
+// Registra la subida de una imagen (Assets API, recipe feedshare-image — el
+// uso correcto para UGC Posts, ver tabla de recipes en vector-asset-api).
+// SYNCHRONOUS_UPLOAD para no tener que sondear el estado antes de publicar
+// (la doc lo recomienda explícitamente: si se publica el post antes de que el
+// asset esté listo, LinkedIn no lo renderiza). `owner` es el mismo URN que se
+// usará como `author` del post (persona u organización).
+async function registerLinkedInImageUpload(
+  accessToken: string,
+  ownerUrn: string,
+): Promise<{ assetUrn: string; uploadUrl: string }> {
+  const response = await fetch(LINKEDIN_ASSETS_REGISTER_UPLOAD_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      "Linkedin-Version": LINKEDIN_API_VERSION,
+      "X-Restli-Protocol-Version": "2.0.0",
+    },
+    body: JSON.stringify({
+      registerUploadRequest: {
+        owner: ownerUrn,
+        recipes: ["urn:li:digitalmediaRecipe:feedshare-image"],
+        serviceRelationships: [
+          { identifier: "urn:li:userGeneratedContent", relationshipType: "OWNER" },
+        ],
+        supportedUploadMechanism: ["SYNCHRONOUS_UPLOAD"],
+      },
+    }),
+    cache: "no-store",
+  });
+
+  const body = await parseLinkedInResponseBody(response);
+  if (!response.ok) {
+    throw buildLinkedInApiError(
+      "LINKEDIN_IMAGE_REGISTER_UPLOAD_FAILED",
+      normalizeLinkedInApiMessage(body, "LinkedIn image upload registration failed."),
+      { status: response.status, payload: body },
+    );
+  }
+
+  const value = toLinkedInRecord(body?.value);
+  const asset = typeof value?.asset === "string" ? value.asset : null;
+  const uploadMechanism = toLinkedInRecord(value?.uploadMechanism);
+  const httpRequest = toLinkedInRecord(uploadMechanism?.["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]);
+  const uploadUrl = typeof httpRequest?.uploadUrl === "string" ? httpRequest.uploadUrl : null;
+
+  if (!asset || !uploadUrl) {
+    throw buildLinkedInApiError(
+      "LINKEDIN_IMAGE_REGISTER_UPLOAD_RESPONSE_INVALID",
+      "LinkedIn image upload registration did not return an asset URN and uploadUrl.",
+      { status: response.status, payload: body },
+    );
+  }
+
+  return { assetUrn: asset, uploadUrl };
+}
+
+// PUT de los bytes al uploadUrl devuelto por registerLinkedInImageUpload — a
+// diferencia de la subida de vídeo (que NO lleva Authorization), la subida de
+// imagen SÍ requiere el token OAuth en el header, confirmado en la doc.
+async function uploadLinkedInImageBytes(uploadUrl: string, accessToken: string, imageBytes: ArrayBuffer): Promise<void> {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: imageBytes,
+  });
+
+  if (!response.ok) {
+    throw buildLinkedInApiError(
+      "LINKEDIN_IMAGE_UPLOAD_FAILED",
+      `LinkedIn image upload failed (${response.status}).`,
+      { status: response.status },
+    );
+  }
+}
+
+// Descarga la imagen desde imageUrl (debe ser una URL pública HTTPS — mismo
+// requisito que ya aplica a post.imageHint para Instagram), la registra y la
+// sube a LinkedIn, y devuelve el asset URN listo para usar en
+// specificContent.media. Lanza si cualquier paso falla — un post pensado para
+// llevar imagen nunca se publica silenciosamente como solo texto.
+export async function registerAndUploadLinkedInImage(accessToken: string, ownerUrn: string, imageUrl: string): Promise<string> {
+  const imageRes = await fetch(imageUrl);
+  if (!imageRes.ok) {
+    throw buildLinkedInApiError(
+      "LINKEDIN_IMAGE_DOWNLOAD_FAILED",
+      `Failed to download image for LinkedIn upload (${imageRes.status}).`,
+      { status: imageRes.status },
+    );
+  }
+  const imageBytes = await imageRes.arrayBuffer();
+
+  const { assetUrn, uploadUrl } = await registerLinkedInImageUpload(accessToken, ownerUrn);
+  await uploadLinkedInImageBytes(uploadUrl, accessToken, imageBytes);
+  return assetUrn;
+}
+
+// ---------------------------------------------------------------------------
 // Public API — Publishing
 // ---------------------------------------------------------------------------
 
@@ -719,10 +843,12 @@ async function postLinkedInUgcContent(input: {
   authorUrn: string;
   content: string;
   authorUrnMissingCode: string;
+  imageAssetUrn?: string | null;
 }): Promise<LinkedInPublishPostResult> {
   const accessToken = input.accessToken.trim();
   const authorUrn = input.authorUrn.trim();
   const content = input.content.trim();
+  const imageAssetUrn = input.imageAssetUrn?.trim() || null;
 
   if (!accessToken) {
     throw buildLinkedInApiError(
@@ -746,16 +872,31 @@ async function postLinkedInUgcContent(input: {
     );
   }
 
-  const payload = {
-    author: authorUrn,
-    lifecycleState: "PUBLISHED",
-    specificContent: {
-      "com.linkedin.ugc.ShareContent": {
+  const shareContent = imageAssetUrn
+    ? {
+        shareCommentary: {
+          text: content,
+        },
+        shareMediaCategory: "IMAGE",
+        media: [
+          {
+            status: "READY",
+            media: imageAssetUrn,
+          },
+        ],
+      }
+    : {
         shareCommentary: {
           text: content,
         },
         shareMediaCategory: "NONE",
-      },
+      };
+
+  const payload = {
+    author: authorUrn,
+    lifecycleState: "PUBLISHED",
+    specificContent: {
+      "com.linkedin.ugc.ShareContent": shareContent,
     },
     visibility: {
       "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
@@ -812,6 +953,7 @@ export async function publishLinkedInMemberPost(
     authorUrn: input.authorUrn,
     content: input.content,
     authorUrnMissingCode: "LINKEDIN_AUTHOR_URN_MISSING",
+    imageAssetUrn: input.imageAssetUrn,
   });
 }
 
@@ -823,6 +965,7 @@ export async function publishLinkedInOrganizationPost(
     authorUrn: input.organizationUrn,
     content: input.content,
     authorUrnMissingCode: "LINKEDIN_ORGANIZATION_URN_MISSING",
+    imageAssetUrn: input.imageAssetUrn,
   });
 }
 
@@ -903,6 +1046,83 @@ export async function resolveLinkedInPrimaryOrganization(
     organizationUrn: primary.organizationUrn,
     organizationId: primary.organizationId,
     name: null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public API — Share statistics (Company Page metrics)
+// ---------------------------------------------------------------------------
+
+export type LinkedInShareStatistics = {
+  impressionCount: number;
+  clickCount: number;
+  likeCount: number;
+  commentCount: number;
+  shareCount: number;
+  engagement: number;
+};
+
+// Requiere el permiso rw_organization_admin — DISTINTO de w_organization_social
+// (el de publicar) y de w_member_social. Confirmado contra
+// learn.microsoft.com/linkedin/marketing/community-management/organizations/share-statistics
+// (2026-08-13): no existe ningún endpoint de analíticas para posts de perfil
+// personal, solo para organización — por eso este collector solo tiene sentido
+// una vez aprobado Community Management (ver linkedin_cm_enabled en
+// saas_social_accounts). Devuelve null si LinkedIn no incluye el elemento en
+// la respuesta (la doc dice explícitamente que un post sin impresiones/
+// acciones no aparece en `elements`, cuenta 0 para todo).
+export async function fetchLinkedInOrganizationShareStatistics(
+  accessToken: string,
+  organizationUrn: string,
+  ugcPostUrn: string,
+): Promise<LinkedInShareStatistics | null> {
+  const normalizedToken = accessToken.trim();
+  const normalizedUgcPostUrn = ugcPostUrn.trim().startsWith("urn:li:")
+    ? ugcPostUrn.trim()
+    : `urn:li:ugcPost:${ugcPostUrn.trim()}`;
+
+  const url = new URL(LINKEDIN_ORGANIZATION_SHARE_STATISTICS_ENDPOINT);
+  url.searchParams.set("q", "organizationalEntity");
+  url.searchParams.set("organizationalEntity", organizationUrn);
+  url.searchParams.set("ugcPosts[0]", normalizedUgcPostUrn);
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${normalizedToken}`,
+      "Linkedin-Version": LINKEDIN_API_VERSION,
+      "X-Restli-Protocol-Version": "2.0.0",
+    },
+    cache: "no-store",
+  });
+
+  const payload = await parseLinkedInResponseBody(response);
+  if (!response.ok) {
+    throw buildLinkedInApiError(
+      "LINKEDIN_SHARE_STATISTICS_FAILED",
+      normalizeLinkedInApiMessage(payload, "LinkedIn share statistics lookup failed."),
+      {
+        status: response.status,
+        payload,
+        accountStatus: response.status === 401 || response.status === 403 ? "INVALID_CREDENTIALS" : "PENDING",
+      },
+    );
+  }
+
+  const elements = Array.isArray(payload?.elements) ? payload.elements : [];
+  const element = elements
+    .map((item) => toLinkedInRecord(item))
+    .find((item): item is Record<string, unknown> => item !== null);
+  const stats = toLinkedInRecord(element?.totalShareStatistics);
+  if (!stats) return null;
+
+  return {
+    impressionCount: typeof stats.impressionCount === "number" ? stats.impressionCount : 0,
+    clickCount: typeof stats.clickCount === "number" ? stats.clickCount : 0,
+    likeCount: typeof stats.likeCount === "number" ? stats.likeCount : 0,
+    commentCount: typeof stats.commentCount === "number" ? stats.commentCount : 0,
+    shareCount: typeof stats.shareCount === "number" ? stats.shareCount : 0,
+    engagement: typeof stats.engagement === "number" ? stats.engagement : 0,
   };
 }
 
