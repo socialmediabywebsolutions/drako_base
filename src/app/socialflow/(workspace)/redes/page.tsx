@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
 import { resolveNetworkEntitlements } from "@/lib/socialflow/billing/network-entitlements";
-import { isLinkedInOrganizationScopeEnabled } from "@/lib/socialflow/linkedin/core";
+import { isLinkedInConnectEnabled } from "@/lib/socialflow/linkedin/core";
 import SocialNetworksBoard, {
   type ConnectedAccountSummary,
   type SocialNetworkCardModel,
@@ -29,7 +29,7 @@ export default async function SocialFlowRedesPage() {
   }));
 
   const entitlements = await resolveNetworkEntitlements({ tenantId: session.tenantId, saasId: SOCIALFLOW_REDES_SAAS_ID });
-  const linkedInAvailable = isLinkedInOrganizationScopeEnabled();
+  const linkedInAvailable = isLinkedInConnectEnabled();
   const isEmpresa = entitlements.accountType === "empresa";
 
   const networks: SocialNetworkCardModel[] = isEmpresa

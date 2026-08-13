@@ -369,6 +369,19 @@ export function isLinkedInOrganizationScopeEnabled(): boolean {
   return isTruthyLinkedInFlag(bindings?.[LINKEDIN_ORGANIZATION_SCOPE_ENV_KEY]);
 }
 
+/**
+ * Gates visibility of the "Conectar LinkedIn" button — independent from
+ * isLinkedInOrganizationScopeEnabled above, which only gates the
+ * w_organization_social (Company Page / Community Management) scope. The
+ * personal-profile flow (Share on LinkedIn + Sign In with OpenID Connect,
+ * client_id 78oja5neoc8g42) is already approved and live, so this only checks
+ * that LINKEDIN_CLIENT_ID is actually configured for the running environment —
+ * it does not wait on Company Page or Community Management approval.
+ */
+export function isLinkedInConnectEnabled(): boolean {
+  return resolveLinkedInEnvValue("LINKEDIN_CLIENT_ID") !== null;
+}
+
 // ---------------------------------------------------------------------------
 // Origin & callback resolution
 // ---------------------------------------------------------------------------
