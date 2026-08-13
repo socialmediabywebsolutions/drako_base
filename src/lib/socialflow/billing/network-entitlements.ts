@@ -8,10 +8,10 @@ import { resolveSocialFlowPlanCode, type SocialFlowPlanCode } from "./plans";
 // redes anunciadas, nada más. TikTok y YouTube no tienen OAuth implementado todavía,
 // así que no aparecen en ningún plan (se muestran como "Próximamente" en la UI).
 const INFLUENCER_INCLUDED: Record<"free" | "influencer_starter" | "influencer_basico" | "influencer_pro", SaasSocialProvider[]> = {
-  free: ["INSTAGRAM"],
-  influencer_starter: ["INSTAGRAM"],
-  influencer_basico: ["INSTAGRAM"],
-  influencer_pro: ["INSTAGRAM", "FACEBOOK_PAGE"],
+  free: ["INSTAGRAM", "LINKEDIN"],
+  influencer_starter: ["INSTAGRAM", "LINKEDIN"],
+  influencer_basico: ["INSTAGRAM", "LINKEDIN"],
+  influencer_pro: ["INSTAGRAM", "FACEBOOK_PAGE", "LINKEDIN"],
 };
 
 // Empresa Básico (y free con accountType empresa) permiten elegir UNA red principal entre
