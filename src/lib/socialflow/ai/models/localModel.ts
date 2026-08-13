@@ -1,5 +1,5 @@
 import { env } from "@/lib/cf";
-import { reportAiUsage } from "@/lib/ai/usage";
+import { reportAiUsage, reportSocialflowAiUsage } from "@/lib/ai/usage";
 
 export type LocalModelRequest = {
   prompt: string;
@@ -7,6 +7,12 @@ export type LocalModelRequest = {
   // Optional context for AI cost tracking
   tenantId?: string;
   saasId?: string;
+  // Nombre del agente caller (ej: "ImageAnalysisAgent", "ContentGeneratorAgent") — cuando
+  // se pasa junto con tenantId, además del contador agregado de reportAiUsage se escribe
+  // una fila en socialflow_ai_usage_log (SOCIAL_DB) para ese agente/modelo/llamada.
+  // Ausente en cualquier caller que no lo pase explícitamente: cero cambio de
+  // comportamiento para ellos.
+  agent?: string;
   // Nombres de campo que mergeAiStructuredOutput nunca sobrescribe con la respuesta de
   // la IA, aunque la IA los incluya en su JSON — se quedan exactamente con el valor del
   // seed/base (ver mergeAiStructuredOutput más abajo). Vacío por defecto: no cambia el
@@ -177,6 +183,15 @@ export class WorkersAiLocalModel implements LocalModelClient {
         const estimatedIn = Math.ceil(promptText.length / 4);
         const estimatedOut = Math.ceil(cleaned.length / 4);
         void reportAiUsage({ tenantId: req.tenantId, saasId: req.saasId, model: WORKERS_AI_MODEL, tokensIn: estimatedIn, tokensOut: estimatedOut });
+        if (req.agent) {
+          void reportSocialflowAiUsage({
+            tenantId: req.tenantId,
+            agent: req.agent,
+            model: WORKERS_AI_MODEL,
+            inputTokens: estimatedIn,
+            outputTokens: estimatedOut,
+          });
+        }
       }
 
       return {

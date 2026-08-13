@@ -2,6 +2,7 @@ import { env } from "@/lib/cf";
 import type { BrandProfile } from "../types";
 import { getEmployeeContext } from "@/lib/socialflow/employees/repository";
 import { getLocalContext } from "@/lib/socialflow/local/repository";
+import { reportSocialflowAiUsage } from "@/lib/ai/usage";
 
 // Mistral Small 3.1 24B Instruct — reemplaza a Llama 3.2 11B Vision, bloqueado en
 // producción para usuarios domiciliados en la UE (AiError 5016: "you must submit the
@@ -254,6 +255,19 @@ Responde TODO en español.`;
 
       const raw = result?.response ?? "";
       const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+      // Estimación tokens desde longitud de texto (Workers AI no los reporta) — mismo
+      // criterio que WorkersAiLocalModel.generateStructured. No cuenta los tokens reales
+      // de la imagen (LLaVA los tokeniza aparte del texto), solo el texto del prompt.
+      if (input.tenantId) {
+        void reportSocialflowAiUsage({
+          tenantId: input.tenantId,
+          agent: "ImageAnalysisAgent",
+          model: IMAGE_ANALYSIS_MODEL,
+          inputTokens: Math.ceil(prompt.length / 4),
+          outputTokens: Math.ceil(raw.length / 4),
+        });
+      }
 
       const jsonStart = cleaned.indexOf("{");
       const jsonEnd = cleaned.lastIndexOf("}");

@@ -267,7 +267,10 @@ Aquí va lo que realmente funciona en ${profile.niche}:
       ],
     };
 
-    const { data } = await defaultLocalModel.generateStructured<GeneratedPost>({ prompt }, () => base);
+    const { data } = await defaultLocalModel.generateStructured<GeneratedPost>(
+      { prompt, tenantId: input.tenantId, saasId: input.saasId, agent: "ContentGeneratorAgent" },
+      () => base,
+    );
 
     return data;
   }

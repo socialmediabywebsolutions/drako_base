@@ -4,6 +4,7 @@ import { extractVoiceSection } from "../ai/utils/voiceUtils";
 import { getNicheIntelligence, getStyleHistory } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
 import { extractTrendSignals } from "@/lib/socialflow/intelligence/TrendKeywordAgent";
 import { env } from "@/lib/cf";
+import { reportSocialflowAiUsage } from "@/lib/ai/usage";
 import { seededRandom } from "./seededRandom";
 import {
   REELS_DEFAULTS,
@@ -543,6 +544,56 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 }
 
+// Tablas MPEG1/2 Layer III (bitrate en kbps y sample rate en Hz por índice del frame
+// header) — necesarias para estimar la duración del MP3 sin decodificarlo (Workers no
+// tiene un decoder de audio nativo ni acceso a librerías tipo music-metadata).
+const MP3_BITRATES_KBPS: Record<"mpeg1" | "mpeg2", number[]> = {
+  mpeg1: [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0],
+  mpeg2: [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0],
+};
+const MP3_SAMPLE_RATES_HZ: Record<"mpeg1" | "mpeg2" | "mpeg25", number[]> = {
+  mpeg1: [44100, 48000, 32000, 0],
+  mpeg2: [22050, 24000, 16000, 0],
+  mpeg25: [11025, 12000, 8000, 0],
+};
+
+// Duración aproximada a partir del primer frame header MP3 válido: bitrate real del
+// stream (CBR — @cf/deepgram/aura-2-es no produce VBR) contra los bytes de audio
+// restantes. Salta un tag ID3v2 inicial si lo hubiera. Devuelve null si no encuentra un
+// frame Layer III reconocible — el caller trata la duración como opcional.
+function estimateMp3DurationSeconds(buffer: ArrayBuffer): number | null {
+  const bytes = new Uint8Array(buffer);
+  let offset = 0;
+
+  if (bytes.length > 10 && bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) {
+    const tagSize =
+      ((bytes[6] & 0x7f) << 21) | ((bytes[7] & 0x7f) << 14) | ((bytes[8] & 0x7f) << 7) | (bytes[9] & 0x7f);
+    offset = 10 + tagSize;
+  }
+
+  for (let i = offset; i < bytes.length - 4; i += 1) {
+    if (bytes[i] !== 0xff || (bytes[i + 1] & 0xe0) !== 0xe0) continue;
+
+    const versionBits = (bytes[i + 1] >> 3) & 0x3;
+    const layerBits = (bytes[i + 1] >> 1) & 0x3;
+    if (layerBits !== 0x1) continue; // Solo Layer III
+
+    const version = versionBits === 0x3 ? "mpeg1" : versionBits === 0x2 ? "mpeg2" : versionBits === 0x0 ? "mpeg25" : null;
+    if (!version) continue; // 0x1 es "reserved"
+
+    const bitrateIndex = (bytes[i + 2] >> 4) & 0xf;
+    const sampleRateIndex = (bytes[i + 2] >> 2) & 0x3;
+    const bitrateKbps = (version === "mpeg1" ? MP3_BITRATES_KBPS.mpeg1 : MP3_BITRATES_KBPS.mpeg2)[bitrateIndex];
+    const sampleRate = MP3_SAMPLE_RATES_HZ[version][sampleRateIndex];
+    if (!bitrateKbps || !sampleRate) continue;
+
+    const audioBytes = bytes.length - i;
+    return Math.round((audioBytes * 8) / (bitrateKbps * 1000));
+  }
+
+  return null;
+}
+
 // Genera un guion corto (Mistral) y lo sintetiza a voz (@cf/deepgram/aura-2-es), subiendo
 // el MP3 a R2 — mismo bucket/URL pública que ya usa media/upload/route.ts para cualquier
 // otro asset. Nunca lanza: cualquier fallo en cualquier paso (bindings ausentes, Mistral,
@@ -589,6 +640,13 @@ export async function generateNarrationTrackUrl(input: {
     const audioBuffer = base64ToArrayBuffer(ttsResult);
     const key = `reels/narration/${input.tenantId}/${Date.now()}.mp3`;
     await bucket.put(key, audioBuffer, { httpMetadata: { contentType: "audio/mpeg" } });
+
+    void reportSocialflowAiUsage({
+      tenantId: input.tenantId,
+      agent: "TTS",
+      model: NARRATION_MODEL,
+      durationSeconds: estimateMp3DurationSeconds(audioBuffer) ?? undefined,
+    });
 
     return `${baseUrl.replace(/\/$/, "")}/${key}`;
   } catch (error) {

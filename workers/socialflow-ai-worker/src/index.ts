@@ -21,6 +21,7 @@ import { cleanOpening } from "../../../src/lib/socialflow/ai/openers/cleanOpenin
 import { defaultLocalModel } from "../../../src/lib/socialflow/ai/models/localModel";
 import { getStyleHistory } from "../../../src/lib/socialflow/intelligence/NicheIntelligenceService";
 import { generateNarrationTrackUrl } from "../../../src/lib/socialflow/reels/ReelsAgent";
+import { reportSocialflowAiUsage } from "../../../src/lib/ai/usage";
 import type { StrategyItem, KeywordEngineOutput } from "../../../src/lib/socialflow/ai/types";
 
 export interface SocialFlowAiJob {
@@ -153,6 +154,103 @@ async function generateVideoWithDashScope(env: DracoEnv, imageUrl: string, promp
   throw new Error(`DashScope task ${taskId} timed out after ${DASHSCOPE_MAX_POLL_MS / 1000}s`);
 }
 
+// Apiframe (apiframe.ai) — proveedor PRIMARIO de vídeo IA, Kling 2.6 (image-to-video).
+// Cuenta de Alibaba Cloud bloqueada por verificación KYC (AccessDenied.Unpurchased, sin
+// fecha de resolución) — DashScope queda como fallback más abajo, no se borra.
+// Endpoint/params confirmados contra docs.apiframe.ai (no existe Kling 3.0 ni un
+// endpoint genérico /v2/videos/generate — cada modelo tiene su propia ruta fija en
+// api.apiframe.pro, y el parámetro de imagen se llama image_url, no image). API
+// asíncrona igual que DashScope: POST devuelve task_id, se hace polling a /fetch hasta
+// status 'finished'/'failed'. aspect_ratio se ignora cuando se pasa image_url (el ratio
+// de salida sigue al de la imagen de entrada) — no se manda, los R2 de Reels ya vienen
+// en 9:16.
+const APIFRAME_BASE_URL = "https://api.apiframe.pro";
+const APIFRAME_KLING_2_6_URL = `${APIFRAME_BASE_URL}/kling-imagine-2-6`;
+const APIFRAME_FETCH_URL = `${APIFRAME_BASE_URL}/fetch`;
+const APIFRAME_MODEL = "kling-2.6";
+// Kling 2.6 solo acepta 5 o 10 (segundos) — no un rango libre 3-15s.
+const APIFRAME_VIDEO_DURATION_SECONDS = 5;
+const APIFRAME_POLL_INTERVAL_MS = 5000;
+const APIFRAME_MAX_POLL_MS = 5 * 60 * 1000;
+
+interface ApiframeGenerateResponse {
+  task_id?: string;
+  errors?: { msg: string }[];
+}
+
+interface ApiframeTaskResponse {
+  task_id?: string;
+  task_type?: string;
+  status?: "processing" | "finished" | "failed" | string;
+  percentage?: string | number;
+  video_url?: string;
+  error?: string;
+  errors?: { msg: string }[];
+}
+
+async function generateVideoWithApiframe(env: DracoEnv, imageUrl: string, prompt: string): Promise<string> {
+  const apiKey = env.APIFRAME_API_KEY;
+  if (!apiKey) {
+    throw new Error("APIFRAME_API_KEY not configured");
+  }
+
+  const generateRes = await fetch(APIFRAME_KLING_2_6_URL, {
+    method: "POST",
+    headers: {
+      // docs.apiframe.ai: sin prefijo "Bearer", el valor del header ES la API key.
+      Authorization: apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt,
+      image_url: imageUrl,
+      duration: APIFRAME_VIDEO_DURATION_SECONDS,
+      generate_audio: false,
+    }),
+  });
+  if (!generateRes.ok) {
+    const errorText = await generateRes.text().catch(() => "");
+    throw new Error(`Apiframe kling-imagine-2-6 request failed (${generateRes.status}): ${errorText.slice(0, 500)}`);
+  }
+  const generateBody = (await generateRes.json()) as ApiframeGenerateResponse;
+  const taskId = generateBody.task_id;
+  if (!taskId) {
+    throw new Error(`Apiframe kling-imagine-2-6 response missing task_id: ${JSON.stringify(generateBody).slice(0, 500)}`);
+  }
+
+  const deadline = Date.now() + APIFRAME_MAX_POLL_MS;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, APIFRAME_POLL_INTERVAL_MS));
+
+    const taskRes = await fetch(APIFRAME_FETCH_URL, {
+      method: "POST",
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ task_id: taskId }),
+    });
+    if (!taskRes.ok) {
+      const errorText = await taskRes.text().catch(() => "");
+      throw new Error(`Apiframe fetch task poll failed (${taskRes.status}): ${errorText.slice(0, 500)}`);
+    }
+    const taskBody = (await taskRes.json()) as ApiframeTaskResponse;
+
+    if (taskBody.status === "finished") {
+      if (!taskBody.video_url) {
+        throw new Error(`Apiframe task ${taskId} finished but returned no video_url`);
+      }
+      return taskBody.video_url;
+    }
+    if (taskBody.status === "failed") {
+      throw new Error(`Apiframe task ${taskId} failed: ${taskBody.error ?? taskBody.errors?.[0]?.msg ?? "no message"}`);
+    }
+    // 'processing' — sigue en cola, se reintenta en el próximo tick.
+  }
+
+  throw new Error(`Apiframe task ${taskId} timed out after ${APIFRAME_MAX_POLL_MS / 1000}s`);
+}
+
 async function markVideoJobProcessing(db: DracoEnv["SOCIAL_DB"], jobId: string): Promise<void> {
   if (!db) return;
   await db
@@ -279,8 +377,8 @@ async function processAiVideoJob(job: AiVideoJob, env: DracoEnv): Promise<void> 
     // apunten al mismo bucket físico; hay que confirmarlo/fijarlo aquí también con
     // `wrangler secret put SOCIAL_MEDIA_R2_PUBLIC_URL -c workers/socialflow-ai-worker/wrangler.workers.toml`.
     const baseUrl = env.SOCIAL_MEDIA_R2_PUBLIC_URL?.trim();
-    if (!bucket || !baseUrl || !env.DASHSCOPE_API_KEY) {
-      throw new Error("R2 bindings or DASHSCOPE_API_KEY not fully configured for AI video generation");
+    if (!bucket || !baseUrl || !env.APIFRAME_API_KEY) {
+      throw new Error("R2 bindings or APIFRAME_API_KEY not fully configured for AI video generation");
     }
 
     // Paso 1 — bytes de la imagen directo del bucket (mismo objeto que subió
@@ -397,23 +495,44 @@ async function processAiVideoJob(job: AiVideoJob, env: DracoEnv): Promise<void> 
     // Paso 7 — hora sugerida para programar (editable por el cliente antes de aprobar).
     const suggestedScheduledAt = await computeSuggestedScheduledAt(job.tenantId, job.saasId, env);
 
-    // Paso 8 — el vídeo real (DashScope wanx2.5-vace-turbo) con el prompt inteligente del
-    // paso 4, vía fetch() directo a la API de DashScope (bytedance/seedance-2.0-fast y,
-    // antes, alibaba/hh1-i2v fallaban ambos con AiGatewayError 2021 "Invalid User
-    // Credentials" al pasar por env.AI.run(), confirmado en los dos modelos de terceros —
-    // el AI Gateway de Cloudflare queda fuera de este pipeline). Try/catch específico
-    // (aparte del genérico de processAiVideoJob) para loguear el error crudo antes de
-    // relanzar — el catch exterior sigue marcando el job como 'failed' igual que hoy.
+    // Paso 8 — el vídeo real con el prompt inteligente del paso 4. Apiframe/Kling 2.6 es
+    // el proveedor PRIMARIO (ver generateVideoWithApiframe); DashScope queda como
+    // fallback si Apiframe falla y hay DASHSCOPE_API_KEY configurada — el código de
+    // DashScope no se borra, solo deja de ser la vía principal (cuenta de Alibaba Cloud
+    // bloqueada por verificación KYC, AccessDenied.Unpurchased, sin fecha de resolución).
+    // Try/catch específico (aparte del genérico de processAiVideoJob) para loguear el
+    // error crudo de cada proveedor antes de relanzar — el catch exterior sigue marcando
+    // el job como 'failed' igual que hoy.
     let generatedVideoUrl: string;
     try {
-      generatedVideoUrl = await generateVideoWithDashScope(env, job.imageUrl, animationPrompt);
-    } catch (videoModelError) {
+      generatedVideoUrl = await generateVideoWithApiframe(env, job.imageUrl, animationPrompt);
+      void reportSocialflowAiUsage({
+        tenantId: job.tenantId,
+        agent: "VideoIA",
+        model: APIFRAME_MODEL,
+        durationSeconds: APIFRAME_VIDEO_DURATION_SECONDS,
+      });
+    } catch (primaryError) {
       const propertyNames =
-        typeof videoModelError === "object" && videoModelError !== null
-          ? Object.getOwnPropertyNames(videoModelError)
-          : undefined;
-      console.error(`[${DASHSCOPE_MODEL}] RAW ERROR`, JSON.stringify(videoModelError, propertyNames));
-      throw videoModelError;
+        typeof primaryError === "object" && primaryError !== null ? Object.getOwnPropertyNames(primaryError) : undefined;
+      console.error(`[${APIFRAME_MODEL}] RAW ERROR`, JSON.stringify(primaryError, propertyNames));
+
+      if (!env.DASHSCOPE_API_KEY) {
+        throw primaryError;
+      }
+
+      console.error(
+        `[SocialFlowAiWorker] Apiframe failed for job ${job.jobId}, falling back to DashScope`,
+        primaryError instanceof Error ? primaryError.message : String(primaryError),
+      );
+      try {
+        generatedVideoUrl = await generateVideoWithDashScope(env, job.imageUrl, animationPrompt);
+      } catch (fallbackError) {
+        const fallbackPropertyNames =
+          typeof fallbackError === "object" && fallbackError !== null ? Object.getOwnPropertyNames(fallbackError) : undefined;
+        console.error(`[${DASHSCOPE_MODEL}] RAW ERROR (fallback)`, JSON.stringify(fallbackError, fallbackPropertyNames));
+        throw fallbackError;
+      }
     }
 
     const videoRes = await fetch(generatedVideoUrl);
@@ -459,6 +578,7 @@ export default {
         bindings: {
           socialDb: env.SOCIAL_DB ? "connected" : "missing",
           ai: env.AI ? "connected" : "missing",
+          apiframe: env.APIFRAME_API_KEY ? "connected" : "missing",
           dashscope: env.DASHSCOPE_API_KEY ? "connected" : "missing",
         },
       }), {
