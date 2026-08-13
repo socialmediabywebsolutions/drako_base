@@ -330,6 +330,10 @@ export async function persistSocialFlowLinkedInConnection(
 
   const encryptedAccessToken = await encryptToken(input.token.access_token);
   const encryptedIdToken = await encryptToken(input.token.id_token ?? null);
+  // refresh_token solo viene si la app está aprobada como partner MDP (Marketing
+  // Developer Platform) — ver refreshLinkedInAccessToken en core.ts. Ausente hoy
+  // en el caso normal; se guarda si algún día aparece.
+  const encryptedRefreshToken = await encryptToken(input.token.refresh_token ?? null);
   const socialAccountStatus = coreProjection.validation.ok ? "CONNECTED_REAL" : "PENDING_REAL";
 
   const account = await upsertSaasSocialAccount(socialContext, {
@@ -345,6 +349,12 @@ export async function persistSocialFlowLinkedInConnection(
       accessToken: encryptedAccessToken,
       idToken: encryptedIdToken,
       expiresIn: input.token.expires_in,
+      // expiresAt (absoluto) — necesario para linkedin/token-health.ts, que no
+      // puede calcular vencimiento solo con expiresIn relativo + updated_at
+      // (updated_at se toca en cada upsert, no solo en la conexión inicial).
+      expiresAt: resolveTokenExpiresAt(input.token.expires_in),
+      refreshToken: encryptedRefreshToken,
+      refreshTokenExpiresAt: resolveTokenExpiresAt(input.token.refresh_token_expires_in),
       scope: input.token.scope ?? null,
       tokenType: input.token.token_type ?? null,
       profileId: input.identity.profileId,

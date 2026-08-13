@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyCronAuth, CronAuthError } from "@/lib/security/cron-auth";
 import { processInstagramMetrics } from "@/lib/socialflow/meta/metrics-collector";
 import { processLinkedInMetrics } from "@/lib/socialflow/linkedin/metrics-collector";
+import { checkAllLinkedInAccountTokens } from "@/lib/socialflow/linkedin/token-health";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,19 @@ export async function GET(req: NextRequest) {
       linkedin = { processed: 0, errors: 1, skipped: 0 };
     }
 
-    return NextResponse.json({ success: true, instagram, linkedin });
+    // Independiente también de las métricas — corre para TODAS las cuentas
+    // LinkedIn conectadas (sin el gate de linkedin_cm_enabled que sí aplica a
+    // `linkedin` arriba), porque el token necesita revisarse tenga o no la
+    // cuenta Community Management activado.
+    let linkedinTokenHealth: Awaited<ReturnType<typeof checkAllLinkedInAccountTokens>>;
+    try {
+      linkedinTokenHealth = await checkAllLinkedInAccountTokens();
+    } catch (tokenHealthError) {
+      console.error("[SocialMetricsCron] LinkedIn token health failed", tokenHealthError);
+      linkedinTokenHealth = { checked: 0, errors: 1 };
+    }
+
+    return NextResponse.json({ success: true, instagram, linkedin, linkedinTokenHealth });
   } catch (error) {
     console.error("[SocialMetricsCron] Failed", error);
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });

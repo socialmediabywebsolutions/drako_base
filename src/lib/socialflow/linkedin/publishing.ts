@@ -140,9 +140,8 @@ export async function validateAccount(account: SaasSocialAccount) {
   return verifyLinkedInAccess(await requireLinkedInAccessToken(account));
 }
 
-export async function refreshToken(_account: SaasSocialAccount) {
-  throw new LinkedInIntegrationError("LinkedIn member tokens cannot be refreshed automatically in this flow.", {
-    code: "LINKEDIN_REFRESH_NOT_SUPPORTED",
-    accountStatus: "PENDING",
-  });
-}
+// El refresh real vive en linkedin/token-health.ts (checkAndRefreshLinkedInToken +
+// checkAllLinkedInAccountTokens) — este stub quedó sin ningún caller en todo el
+// repo (confirmado por grep antes de tocarlo) y se reemplaza por la
+// implementación real en vez de mantener dos puntos de entrada de "refresh"
+// contradictorios (uno que siempre lanza, otro que funciona de verdad).

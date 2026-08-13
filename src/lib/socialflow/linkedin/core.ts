@@ -90,6 +90,12 @@ export type LinkedInTokenResponse = {
   scope?: string;
   token_type?: string;
   id_token?: string;
+  // Ausentes salvo que la app esté aprobada como partner Marketing Developer
+  // Platform (MDP) — programa distinto de "Share on LinkedIn". Sin esa
+  // aprobación, LinkedIn simplemente no los incluye en la respuesta; no es un
+  // error, ver linkedin/token-health.ts.
+  refresh_token?: string;
+  refresh_token_expires_in?: number;
 };
 
 export type LinkedInUserProfile = {
@@ -677,6 +683,77 @@ export async function exchangeLinkedInCodeForAccessToken(
     scope: typeof payload.scope === "string" ? payload.scope : undefined,
     token_type: typeof payload.token_type === "string" ? payload.token_type : undefined,
     id_token: typeof payload.id_token === "string" ? payload.id_token : undefined,
+    refresh_token: typeof payload.refresh_token === "string" ? payload.refresh_token : undefined,
+    refresh_token_expires_in: typeof payload.refresh_token_expires_in === "number" ? payload.refresh_token_expires_in : undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public API — Token refresh
+// ---------------------------------------------------------------------------
+
+// Solo funciona si LinkedIn incluyó refresh_token en el intercambio inicial —
+// requiere la app aprobada como partner MDP (Marketing Developer Platform),
+// programa distinto de "Share on LinkedIn". Confirmado contra
+// learn.microsoft.com/linkedin/shared/authentication/programmatic-refresh-tokens
+// (2026-08-13): "LinkedIn supports programmatic refresh tokens for all
+// approved Marketing Developer Platform (MDP) partners." Ver
+// linkedin/token-health.ts para el flujo completo de comprobación/uso.
+export async function refreshLinkedInAccessToken(refreshToken: string): Promise<LinkedInTokenResponse> {
+  const normalizedRefreshToken = refreshToken.trim();
+  if (!normalizedRefreshToken) {
+    throw buildLinkedInApiError(
+      "LINKEDIN_REFRESH_TOKEN_MISSING",
+      "LinkedIn refresh token is required.",
+      { accountStatus: "INVALID_CREDENTIALS" },
+    );
+  }
+
+  const clientId = getLinkedInClientIdWithSource();
+  const clientSecret = getLinkedInClientSecretWithSource();
+
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: normalizedRefreshToken,
+    client_id: clientId.value,
+    client_secret: clientSecret.value,
+  });
+
+  const response = await fetch(LINKEDIN_TOKEN_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+    cache: "no-store",
+  });
+
+  const payload = await parseLinkedInJson(response);
+  if (!response.ok) {
+    throw buildLinkedInApiError(
+      "LINKEDIN_REFRESH_FAILED",
+      normalizeLinkedInApiMessage(payload, "LinkedIn token refresh failed."),
+      {
+        status: response.status,
+        payload,
+        accountStatus: response.status === 400 || response.status === 401 ? "INVALID_CREDENTIALS" : "PENDING",
+      },
+    );
+  }
+
+  if (typeof payload?.access_token !== "string" || !payload.access_token.trim()) {
+    throw buildLinkedInApiError(
+      "LINKEDIN_REFRESH_RESPONSE_INVALID",
+      "LinkedIn refresh response did not include an access token.",
+      { status: response.status, payload, accountStatus: "PENDING" },
+    );
+  }
+
+  return {
+    access_token: payload.access_token.trim(),
+    expires_in: typeof payload.expires_in === "number" ? payload.expires_in : 0,
+    scope: typeof payload.scope === "string" ? payload.scope : undefined,
+    token_type: typeof payload.token_type === "string" ? payload.token_type : undefined,
+    refresh_token: typeof payload.refresh_token === "string" ? payload.refresh_token : undefined,
+    refresh_token_expires_in: typeof payload.refresh_token_expires_in === "number" ? payload.refresh_token_expires_in : undefined,
   };
 }
 
