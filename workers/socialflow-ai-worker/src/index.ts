@@ -154,9 +154,119 @@ async function generateVideoWithDashScope(env: DracoEnv, imageUrl: string, promp
   throw new Error(`DashScope task ${taskId} timed out after ${DASHSCOPE_MAX_POLL_MS / 1000}s`);
 }
 
-// Apiframe (apiframe.ai) — proveedor PRIMARIO de vídeo IA, Kling 2.6 (image-to-video).
-// Cuenta de Alibaba Cloud bloqueada por verificación KYC (AccessDenied.Unpurchased, sin
-// fecha de resolución) — DashScope queda como fallback más abajo, no se borra.
+// PiAPI (piapi.ai) — proveedor PRIMARIO de vídeo IA, Kling 2.6 (image-to-video). Apiframe
+// pasa a ser el fallback SECUNDARIO (exige suscripción mínima de $19/mes para poder
+// comprar créditos pay-as-you-go — bloquea el uso sin ingresos aún; PiAPI da créditos
+// gratis al registro sin esa exigencia, y su pay-as-you-go es más barato: $0.20/5s
+// Standard vs $0.60/5s en Apiframe). Confirmado contra piapi.ai/docs (create-task +
+// get-task, no hay trampa de versión tipo la de Apiframe v1/v2): base URL
+// https://api.piapi.ai, auth por header x-api-key (valor crudo, sin "Bearer"), endpoint
+// único POST /api/v1/task para TODOS los modelos con { model: "kling", task_type:
+// "video_generation", input: {...} } — el modelo Kling concreto se elige con
+// input.version ("2.6"), no con una ruta distinta. Polling en GET /api/v1/task/{task_id}
+// hasta status "completed"/"failed" (la doc usa distinta capitalización según la página
+// — "Pending"/"pending" — se normaliza a minúsculas al comparar). El vídeo final viene
+// en data.output.video en el ejemplo real de respuesta completada, aunque el schema
+// genérico de la doc de creación muestra "video_url" — se comprueban ambos campos por
+// seguridad. aspect_ratio es "requerido para text-to-video" (implícitamente no aplica
+// con image_url) — no se manda, mismo criterio que con Apiframe/DashScope.
+const PIAPI_BASE_URL = "https://api.piapi.ai";
+const PIAPI_CREATE_TASK_URL = `${PIAPI_BASE_URL}/api/v1/task`;
+const PIAPI_TASK_URL = (taskId: string) => `${PIAPI_BASE_URL}/api/v1/task/${taskId}`;
+const PIAPI_KLING_VERSION = "2.6";
+const PIAPI_MODEL = `piapi-kling-${PIAPI_KLING_VERSION}`;
+// "std" (Standard) es el tier barato ($0.20/5s) — "pro" cuesta más ($0.33/5s).
+const PIAPI_MODE = "std";
+const PIAPI_VIDEO_DURATION_SECONDS = 5;
+const PIAPI_POLL_INTERVAL_MS = 5000;
+const PIAPI_MAX_POLL_MS = 5 * 60 * 1000;
+
+interface PiapiCreateTaskResponse {
+  code?: number;
+  data?: { task_id?: string };
+  message?: string;
+}
+
+interface PiapiTaskResponse {
+  code?: number;
+  data?: {
+    task_id?: string;
+    status?: string;
+    output?: { video?: string; video_url?: string };
+    error?: { code?: number; message?: string };
+  };
+  message?: string;
+}
+
+async function generateVideoWithPiapi(env: DracoEnv, imageUrl: string, prompt: string): Promise<string> {
+  const apiKey = env.PIAPI_API_KEY;
+  if (!apiKey) {
+    throw new Error("PIAPI_API_KEY not configured");
+  }
+
+  const createRes = await fetch(PIAPI_CREATE_TASK_URL, {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "kling",
+      task_type: "video_generation",
+      input: {
+        version: PIAPI_KLING_VERSION,
+        prompt,
+        image_url: imageUrl,
+        duration: PIAPI_VIDEO_DURATION_SECONDS,
+        mode: PIAPI_MODE,
+        enable_audio: false,
+      },
+    }),
+  });
+  if (!createRes.ok) {
+    const errorText = await createRes.text().catch(() => "");
+    throw new Error(`PiAPI create task request failed (${createRes.status}): ${errorText.slice(0, 500)}`);
+  }
+  const createBody = (await createRes.json()) as PiapiCreateTaskResponse;
+  const taskId = createBody.data?.task_id;
+  if (!taskId) {
+    throw new Error(`PiAPI create task response missing task_id: ${JSON.stringify(createBody).slice(0, 500)}`);
+  }
+
+  const deadline = Date.now() + PIAPI_MAX_POLL_MS;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, PIAPI_POLL_INTERVAL_MS));
+
+    const taskRes = await fetch(PIAPI_TASK_URL(taskId), {
+      headers: { "x-api-key": apiKey },
+    });
+    if (!taskRes.ok) {
+      const errorText = await taskRes.text().catch(() => "");
+      throw new Error(`PiAPI task poll failed (${taskRes.status}): ${errorText.slice(0, 500)}`);
+    }
+    const taskBody = (await taskRes.json()) as PiapiTaskResponse;
+    const status = taskBody.data?.status?.toLowerCase();
+
+    if (status === "completed") {
+      const videoUrl = taskBody.data?.output?.video ?? taskBody.data?.output?.video_url;
+      if (!videoUrl) {
+        throw new Error(`PiAPI task ${taskId} completed but returned no video: ${JSON.stringify(taskBody).slice(0, 500)}`);
+      }
+      return videoUrl;
+    }
+    if (status === "failed") {
+      throw new Error(`PiAPI task ${taskId} failed: ${taskBody.data?.error?.message ?? "no message"}`);
+    }
+    // 'pending' / 'staged' / 'processing' — sigue en cola/procesando, se reintenta en el próximo tick.
+  }
+
+  throw new Error(`PiAPI task ${taskId} timed out after ${PIAPI_MAX_POLL_MS / 1000}s`);
+}
+
+// Apiframe (apiframe.ai) — proveedor SECUNDARIO de vídeo IA, Kling 2.6 (image-to-video).
+// Cuenta de Alibaba Cloud (DashScope) bloqueada por verificación KYC (AccessDenied.
+// Unpurchased, sin fecha de resolución) — DashScope queda como fallback terciario más
+// abajo, no se borra.
 // La API key configurada (prefijo afk_) es de Apiframe v2 — v1 y v2 NO son compatibles
 // (rutas, header de auth y forma del body distintos, confirmado en producción con el
 // error "Your API key starts with 'afk_' ... This endpoint is for Apiframe v1" al usar
@@ -362,6 +472,32 @@ async function computeSuggestedScheduledAt(tenantId: string, saasId: string, env
   }
 }
 
+// Prueba cada proveedor de vídeo en orden (PiAPI → Apiframe → DashScope hoy), pasando al
+// siguiente SOLO si el anterior lanza y está configurado (tiene su API key) — nunca
+// prueba uno sin key, para no perder tiempo en un fallo garantizado. Loguea el error
+// crudo de cada intento fallido (mismo criterio que ya usaba el try/catch específico de
+// Paso 8) antes de pasar al siguiente; si todos fallan, relanza el error del último
+// intento real.
+async function generateVideoWithFallbacks(
+  providers: { label: string; model: string; enabled: boolean; generate: () => Promise<string> }[],
+): Promise<{ videoUrl: string; model: string }> {
+  let lastError: unknown = new Error("No AI video provider configured (no API key set for any provider)");
+
+  for (const provider of providers) {
+    if (!provider.enabled) continue;
+    try {
+      const videoUrl = await provider.generate();
+      return { videoUrl, model: provider.model };
+    } catch (error) {
+      const propertyNames = typeof error === "object" && error !== null ? Object.getOwnPropertyNames(error) : undefined;
+      console.error(`[${provider.label}] RAW ERROR`, JSON.stringify(error, propertyNames));
+      lastError = error;
+    }
+  }
+
+  throw lastError;
+}
+
 // Nunca lanza fuera de sí misma — cualquier fallo (bindings ausentes, el modelo no
 // devuelve vídeo, la descarga o la subida a R2 fallan) se traduce a status 'failed' con
 // el mensaje real, nunca deja el job colgado en 'processing' para siempre.
@@ -382,8 +518,8 @@ async function processAiVideoJob(job: AiVideoJob, env: DracoEnv): Promise<void> 
     // apunten al mismo bucket físico; hay que confirmarlo/fijarlo aquí también con
     // `wrangler secret put SOCIAL_MEDIA_R2_PUBLIC_URL -c workers/socialflow-ai-worker/wrangler.workers.toml`.
     const baseUrl = env.SOCIAL_MEDIA_R2_PUBLIC_URL?.trim();
-    if (!bucket || !baseUrl || !env.APIFRAME_API_KEY) {
-      throw new Error("R2 bindings or APIFRAME_API_KEY not fully configured for AI video generation");
+    if (!bucket || !baseUrl || !env.PIAPI_API_KEY) {
+      throw new Error("R2 bindings or PIAPI_API_KEY not fully configured for AI video generation");
     }
 
     // Paso 1 — bytes de la imagen directo del bucket (mismo objeto que subió
@@ -500,45 +636,41 @@ async function processAiVideoJob(job: AiVideoJob, env: DracoEnv): Promise<void> 
     // Paso 7 — hora sugerida para programar (editable por el cliente antes de aprobar).
     const suggestedScheduledAt = await computeSuggestedScheduledAt(job.tenantId, job.saasId, env);
 
-    // Paso 8 — el vídeo real con el prompt inteligente del paso 4. Apiframe/Kling 2.6 es
-    // el proveedor PRIMARIO (ver generateVideoWithApiframe); DashScope queda como
-    // fallback si Apiframe falla y hay DASHSCOPE_API_KEY configurada — el código de
-    // DashScope no se borra, solo deja de ser la vía principal (cuenta de Alibaba Cloud
-    // bloqueada por verificación KYC, AccessDenied.Unpurchased, sin fecha de resolución).
-    // Try/catch específico (aparte del genérico de processAiVideoJob) para loguear el
-    // error crudo de cada proveedor antes de relanzar — el catch exterior sigue marcando
-    // el job como 'failed' igual que hoy.
-    let generatedVideoUrl: string;
-    try {
-      generatedVideoUrl = await generateVideoWithApiframe(env, job.imageUrl, animationPrompt);
-      void reportSocialflowAiUsage({
-        tenantId: job.tenantId,
-        agent: "VideoIA",
-        model: APIFRAME_MODEL,
-        durationSeconds: APIFRAME_VIDEO_DURATION_SECONDS,
-      });
-    } catch (primaryError) {
-      const propertyNames =
-        typeof primaryError === "object" && primaryError !== null ? Object.getOwnPropertyNames(primaryError) : undefined;
-      console.error(`[${APIFRAME_MODEL}] RAW ERROR`, JSON.stringify(primaryError, propertyNames));
-
-      if (!env.DASHSCOPE_API_KEY) {
-        throw primaryError;
-      }
-
-      console.error(
-        `[SocialFlowAiWorker] Apiframe failed for job ${job.jobId}, falling back to DashScope`,
-        primaryError instanceof Error ? primaryError.message : String(primaryError),
-      );
-      try {
-        generatedVideoUrl = await generateVideoWithDashScope(env, job.imageUrl, animationPrompt);
-      } catch (fallbackError) {
-        const fallbackPropertyNames =
-          typeof fallbackError === "object" && fallbackError !== null ? Object.getOwnPropertyNames(fallbackError) : undefined;
-        console.error(`[${DASHSCOPE_MODEL}] RAW ERROR (fallback)`, JSON.stringify(fallbackError, fallbackPropertyNames));
-        throw fallbackError;
-      }
-    }
+    // Paso 8 — el vídeo real con el prompt inteligente del paso 4. Orden de proveedores:
+    // PiAPI (primario — sin suscripción mínima, más barato) → Apiframe (secundario) →
+    // DashScope (terciario, cuenta de Alibaba Cloud bloqueada por verificación KYC,
+    // AccessDenied.Unpurchased, sin fecha de resolución) — ninguno se borra, solo cambia
+    // el orden de intento. generateVideoWithFallbacks salta cualquier proveedor sin API
+    // key configurada y solo pasa al siguiente si el anterior falla de verdad.
+    const { videoUrl: generatedVideoUrl, model: usedVideoModel } = await generateVideoWithFallbacks([
+      {
+        label: `PiAPI ${PIAPI_MODEL}`,
+        model: PIAPI_MODEL,
+        enabled: Boolean(env.PIAPI_API_KEY),
+        generate: () => generateVideoWithPiapi(env, job.imageUrl, animationPrompt),
+      },
+      {
+        label: `Apiframe ${APIFRAME_MODEL}`,
+        model: `apiframe-${APIFRAME_MODEL}`,
+        enabled: Boolean(env.APIFRAME_API_KEY),
+        generate: () => generateVideoWithApiframe(env, job.imageUrl, animationPrompt),
+      },
+      {
+        label: `DashScope ${DASHSCOPE_MODEL}`,
+        model: DASHSCOPE_MODEL,
+        enabled: Boolean(env.DASHSCOPE_API_KEY),
+        generate: () => generateVideoWithDashScope(env, job.imageUrl, animationPrompt),
+      },
+    ]);
+    // Los 3 proveedores están configurados para pedir un clip de 5s (ver
+    // PIAPI_VIDEO_DURATION_SECONDS / APIFRAME_VIDEO_DURATION_SECONDS / el `duration: 5`
+    // hardcodeado en generateVideoWithDashScope) — de ahí la constante compartida aquí.
+    void reportSocialflowAiUsage({
+      tenantId: job.tenantId,
+      agent: "VideoIA",
+      model: usedVideoModel,
+      durationSeconds: 5,
+    });
 
     const videoRes = await fetch(generatedVideoUrl);
     if (!videoRes.ok) {
@@ -583,6 +715,7 @@ export default {
         bindings: {
           socialDb: env.SOCIAL_DB ? "connected" : "missing",
           ai: env.AI ? "connected" : "missing",
+          piapi: env.PIAPI_API_KEY ? "connected" : "missing",
           apiframe: env.APIFRAME_API_KEY ? "connected" : "missing",
           dashscope: env.DASHSCOPE_API_KEY ? "connected" : "missing",
         },

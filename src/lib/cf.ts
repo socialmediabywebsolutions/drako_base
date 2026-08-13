@@ -72,10 +72,14 @@ export type DracoEnv = {
   // (bytedance/seedance-2.0-fast y hh1-i2v fallaban con AiGatewayError 2021 "Invalid User
   // Credentials" a través de env.AI.run(), confirmado en ambos modelos de terceros).
   DASHSCOPE_API_KEY?: string;
-  // Apiframe (apiframe.ai) — proveedor primario de generación de vídeo IA (Kling 2.6),
-  // llamado vía fetch() directo igual que DASHSCOPE_API_KEY arriba (mismo motivo: modelos
-  // de vídeo de terceros fallan a través de env.AI.run()/AI Gateway).
+  // Apiframe (apiframe.ai) — proveedor SECUNDARIO de vídeo IA (Kling 2.6) desde que PiAPI
+  // pasó a ser el primario (Apiframe exige suscripción mínima de $19/mes para comprar
+  // créditos pay-as-you-go). Llamado vía fetch() directo igual que DASHSCOPE_API_KEY
+  // (mismo motivo: modelos de vídeo de terceros fallan a través de env.AI.run()/AI Gateway).
   APIFRAME_API_KEY?: string;
+  // PiAPI (piapi.ai) — proveedor PRIMARIO de vídeo IA (Kling 2.6): créditos gratis al
+  // registro sin suscripción mínima, y pay-as-you-go más barato que Apiframe.
+  PIAPI_API_KEY?: string;
   SAAS_FACTORY_QUEUE?: { send: (msg: any) => Promise<void> };
   SOCIALFLOW_AI_QUEUE?: { send: (msg: any) => Promise<void> }; // Cloudflare Queue Producer for async AI campaign generation
   SCHEDULER?: Fetcher; // Service Binding to drako-scheduler
