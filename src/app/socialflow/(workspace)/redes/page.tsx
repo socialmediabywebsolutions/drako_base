@@ -93,6 +93,13 @@ export default async function SocialFlowRedesPage() {
           description: "Conecta una Página de Facebook para obtener seguidores, engagement y publicaciones recientes.",
         },
         {
+          key: "LINKEDIN",
+          connectPath: linkedInAvailable ? "/api/socialflow/linkedin/connect" : null,
+          comingSoon: !linkedInAvailable,
+          entitlement: entitlements.included.has("LINKEDIN") ? "included" : "extra",
+          description: "Conecta tu perfil personal de LinkedIn para publicar contenido y hacer crecer tu marca personal.",
+        },
+        {
           key: "YOUTUBE",
           connectPath: null,
           comingSoon: true,
