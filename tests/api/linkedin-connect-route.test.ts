@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const requireTenantAccess = vi.hoisted(() => vi.fn());
+const requireCurrentSocialFlowSession = vi.hoisted(() => vi.fn());
 const buildSocialFlowLinkedInConnectUrl = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth/session", () => ({
-  requireTenantAccess,
+vi.mock("@/lib/socialflow/auth/request", () => ({
+  requireCurrentSocialFlowSession,
 }));
 
 vi.mock("@/lib/socialflow/linkedin/oauth", () => ({
@@ -17,7 +17,7 @@ import { GET as legacyGET } from "@/app/api/social/linkedin/connect/route";
 describe("LinkedIn connect routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    requireTenantAccess.mockResolvedValue({ tenantId: "tenant_socialflow" });
+    requireCurrentSocialFlowSession.mockResolvedValue({ tenantId: "tenant_socialflow" });
     buildSocialFlowLinkedInConnectUrl.mockReturnValue({
       authorizationUrl: "https://www.linkedin.com/oauth/v2/authorization?client_id=linkedin-client-id&redirect_uri=http%3A%2F%2Flocalhost%3A8787%2Fapi%2Fsocialflow%2Flinkedin%2Fcallback&state=encoded-state",
     });
@@ -31,7 +31,7 @@ describe("LinkedIn connect routes", () => {
     expect(location).toContain("https://www.linkedin.com/oauth/v2/authorization");
     expect(location).toContain("client_id=linkedin-client-id");
     expect(location).toContain("state=encoded-state");
-    expect(requireTenantAccess).toHaveBeenCalledTimes(1);
+    expect(requireCurrentSocialFlowSession).toHaveBeenCalledTimes(1);
     expect(buildSocialFlowLinkedInConnectUrl).toHaveBeenCalledWith(
       expect.objectContaining({
         tenantId: "tenant_socialflow",
@@ -54,7 +54,7 @@ describe("LinkedIn connect routes", () => {
     expect(response.status).toBe(308);
     const location = response.headers.get("location") ?? "";
     expect(location).toBe("https://drako.local/api/socialflow/linkedin/connect?saasId=socialflow&redirectTo=%2Fsocialflow%2Fsettings%2Faccount");
-    expect(requireTenantAccess).not.toHaveBeenCalled();
+    expect(requireCurrentSocialFlowSession).not.toHaveBeenCalled();
     expect(buildSocialFlowLinkedInConnectUrl).not.toHaveBeenCalled();
   });
 });
