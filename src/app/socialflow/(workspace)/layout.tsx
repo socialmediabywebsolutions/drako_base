@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
+import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
 import SidebarNav from "./_components/sidebar-nav";
 import TrialBanner from "./_components/trial-banner";
 import TrialPaywall from "./_components/trial-paywall";
@@ -32,6 +33,12 @@ export default async function SocialFlowWorkspaceLayout({
 
   const snapshot = await getCanonicalBillingSnapshot({ tenantId: session.tenantId, saasSlug: "socialflow" });
   const sub = snapshot.subscription;
+
+  const socialCtx = await resolveSocialContext({ tenantId: session.tenantId, saasId: "socialflow" });
+  const socialAccounts = await listSaasSocialAccounts(socialCtx);
+  const connectedProviders = socialAccounts
+    .filter((account) => account.status === "CONNECTED_REAL" || account.status === "PENDING_REAL")
+    .map((account) => account.provider);
 
   // Real paid subscription (has actual Stripe customer ID, status active/trialing)
   const hasPaidAccess =
@@ -62,7 +69,10 @@ export default async function SocialFlowWorkspaceLayout({
       <div className="relative flex min-h-screen">
         {/* Sidebar — hidden on mobile, shown on lg */}
         <div className="hidden lg:flex">
-          <SidebarNav session={{ name: session.name ?? null, email: session.email, accountType: session.accountType }} />
+          <SidebarNav
+            session={{ name: session.name ?? null, email: session.email, accountType: session.accountType }}
+            connectedProviders={connectedProviders}
+          />
         </div>
 
         {/* Main content */}

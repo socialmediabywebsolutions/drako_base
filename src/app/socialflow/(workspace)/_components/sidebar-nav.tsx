@@ -3,6 +3,8 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
+import type { SaasSocialProvider } from "@/lib/social-core/types";
+import { SOCIAL_PROVIDER_LABEL } from "@/lib/socialflow/social-providers";
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 function IcoHome() {
@@ -80,11 +82,22 @@ const mainNavBottom = [
   { href: "/socialflow/knowledge",     label: "Base de conocimiento",icon: <IcoBook /> },
 ];
 
-const createNavItems: { href: string; label: string; icon: React.ReactNode }[] = [
-  { href: "/socialflow/publicar/post",     label: "Crear Post",     icon: <IcoCamera /> },
-  { href: "/socialflow/publicar/reel",     label: "Crear Reel",     icon: <IcoReel /> },
-  { href: "/socialflow/publicar/historia", label: "Crear Historia", icon: <IcoStory /> },
-  { href: "/socialflow/carrusel/subir",    label: "Crear Carrusel", icon: <IcoCarrusel /> },
+const createNavByNetwork: { provider: SaasSocialProvider; items: { href: string; label: string; icon: React.ReactNode }[] }[] = [
+  {
+    provider: "INSTAGRAM",
+    items: [
+      { href: "/socialflow/publicar/post",     label: "Crear Post",     icon: <IcoCamera /> },
+      { href: "/socialflow/publicar/reel",     label: "Crear Reel",     icon: <IcoReel /> },
+      { href: "/socialflow/publicar/historia", label: "Crear Historia", icon: <IcoStory /> },
+      { href: "/socialflow/carrusel/subir",    label: "Crear Carrusel", icon: <IcoCarrusel /> },
+    ],
+  },
+  {
+    provider: "LINKEDIN",
+    items: [
+      { href: "/socialflow/linkedin/post", label: "Crear Post", icon: <IcoCamera /> },
+    ],
+  },
 ];
 
 const empresaNavItem = { href: "/socialflow/empresa/empleados", label: "Empleados", icon: <IcoTeam /> };
@@ -129,8 +142,10 @@ function renderMainNavItem(item: { href: string; label: string; icon: React.Reac
 // ── Component ───────────────────────────────────────────────────────────────────
 export default function SidebarNav({
   session,
+  connectedProviders,
 }: {
   session: { name: string | null; email: string; accountType: "influencer" | "empresa" | null };
+  connectedProviders: SaasSocialProvider[];
 }) {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(
@@ -182,10 +197,16 @@ export default function SidebarNav({
         <nav className="flex flex-col gap-0.5">
           {mainNavTop.map((item) => renderMainNavItem(item, isActive(item.href)))}
 
-          <p className="px-3 pt-2 pb-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/25">
-            Crear
-          </p>
-          {createNavItems.map((item) => renderMainNavItem(item, isActive(item.href)))}
+          {createNavByNetwork
+            .filter((group) => connectedProviders.includes(group.provider))
+            .map((group) => (
+              <div key={group.provider}>
+                <p className="px-3 pt-2 pb-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/25">
+                  Crear · {SOCIAL_PROVIDER_LABEL[group.provider]}
+                </p>
+                {group.items.map((item) => renderMainNavItem(item, isActive(item.href)))}
+              </div>
+            ))}
 
           {mainNavBottom.slice(0, 4).map((item) => renderMainNavItem(item, isActive(item.href)))}
           {session.accountType === "empresa" && (
