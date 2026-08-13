@@ -25,6 +25,14 @@ export type SaasSocialAccount = {
   status: SaasSocialAccountStatus;
   authMeta: Record<string, unknown> | null;
   isPrimary: boolean;
+  // LinkedIn Community Management API (app "Socialcors Community Management",
+  // client_id 78kxkuoq09u78p) — en review, sin aprobar todavía. Siempre false
+  // hasta que se active manualmente cuenta por cuenta tras la aprobación de
+  // LinkedIn. No usado por ninguna otra red. Opcional en el tipo (no en la
+  // columna, que es NOT NULL) para no forzar a los callers de
+  // upsertSaasSocialAccount de Instagram/Facebook a pasarlo — ausente se trata
+  // como false tanto al leer como al escribir.
+  linkedinCmEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
 };
