@@ -157,33 +157,40 @@ async function generateVideoWithDashScope(env: DracoEnv, imageUrl: string, promp
 // Apiframe (apiframe.ai) — proveedor PRIMARIO de vídeo IA, Kling 2.6 (image-to-video).
 // Cuenta de Alibaba Cloud bloqueada por verificación KYC (AccessDenied.Unpurchased, sin
 // fecha de resolución) — DashScope queda como fallback más abajo, no se borra.
-// Endpoint/params confirmados contra docs.apiframe.ai (no existe Kling 3.0 ni un
-// endpoint genérico /v2/videos/generate — cada modelo tiene su propia ruta fija en
-// api.apiframe.pro, y el parámetro de imagen se llama image_url, no image). API
-// asíncrona igual que DashScope: POST devuelve task_id, se hace polling a /fetch hasta
-// status 'finished'/'failed'. aspect_ratio se ignora cuando se pasa image_url (el ratio
-// de salida sigue al de la imagen de entrada) — no se manda, los R2 de Reels ya vienen
-// en 9:16.
-const APIFRAME_BASE_URL = "https://api.apiframe.pro";
-const APIFRAME_KLING_2_6_URL = `${APIFRAME_BASE_URL}/kling-imagine-2-6`;
-const APIFRAME_FETCH_URL = `${APIFRAME_BASE_URL}/fetch`;
+// La API key configurada (prefijo afk_) es de Apiframe v2 — v1 y v2 NO son compatibles
+// (rutas, header de auth y forma del body distintos, confirmado en producción con el
+// error "Your API key starts with 'afk_' ... This endpoint is for Apiframe v1" al usar
+// las rutas v1 de api.apiframe.pro). Confirmado contra apiframe.ai/docs (v2): base URL
+// api.apiframe.ai/v2, auth vía header X-API-Key (no Authorization/Bearer), endpoint
+// genérico POST /v2/videos/generate con { prompt, model, klingParams: {...} } (a
+// diferencia de v1, que tenía una ruta fija por modelo), respuesta 202 con { jobId,
+// status: "QUEUED" }, y polling en GET /v2/jobs/:id (no POST /fetch con task_id en el
+// body) hasta status "COMPLETED"/"FAILED". v2 sí tiene Kling 3.0 (duration 3-15s, mode
+// standard/pro/4k) además de Kling 2.6 — se mantiene 2.6 (duration solo 5 o 10s, sin
+// mode) por ser más barato en créditos para un clip corto. klingParams.start_image es
+// el parámetro de imagen (no image_url) — no se manda aspect_ratio, la doc no confirma
+// que se ignore con start_image y los R2 de Reels ya vienen en 9:16.
+const APIFRAME_BASE_URL = "https://api.apiframe.ai/v2";
+const APIFRAME_GENERATE_URL = `${APIFRAME_BASE_URL}/videos/generate`;
+const APIFRAME_JOB_URL = (jobId: string) => `${APIFRAME_BASE_URL}/jobs/${jobId}`;
 const APIFRAME_MODEL = "kling-2.6";
-// Kling 2.6 solo acepta 5 o 10 (segundos) — no un rango libre 3-15s.
+// Kling 2.6 solo acepta 5 o 10 (segundos) — no un rango libre 3-15s (eso es Kling 3.0).
 const APIFRAME_VIDEO_DURATION_SECONDS = 5;
 const APIFRAME_POLL_INTERVAL_MS = 5000;
 const APIFRAME_MAX_POLL_MS = 5 * 60 * 1000;
 
 interface ApiframeGenerateResponse {
-  task_id?: string;
+  jobId?: string;
+  status?: string;
   errors?: { msg: string }[];
 }
 
-interface ApiframeTaskResponse {
-  task_id?: string;
-  task_type?: string;
-  status?: "processing" | "finished" | "failed" | string;
-  percentage?: string | number;
-  video_url?: string;
+interface ApiframeJobResponse {
+  jobId?: string;
+  status?: "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED" | string;
+  progress?: number;
+  videoUrl?: string;
+  result?: { videoUrl?: string };
   error?: string;
   errors?: { msg: string }[];
 }
@@ -194,61 +201,59 @@ async function generateVideoWithApiframe(env: DracoEnv, imageUrl: string, prompt
     throw new Error("APIFRAME_API_KEY not configured");
   }
 
-  const generateRes = await fetch(APIFRAME_KLING_2_6_URL, {
+  const generateRes = await fetch(APIFRAME_GENERATE_URL, {
     method: "POST",
     headers: {
-      // docs.apiframe.ai: sin prefijo "Bearer", el valor del header ES la API key.
-      Authorization: apiKey,
+      "X-API-Key": apiKey,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       prompt,
-      image_url: imageUrl,
-      duration: APIFRAME_VIDEO_DURATION_SECONDS,
-      generate_audio: false,
+      model: APIFRAME_MODEL,
+      klingParams: {
+        duration: APIFRAME_VIDEO_DURATION_SECONDS,
+        start_image: imageUrl,
+        generate_audio: false,
+      },
     }),
   });
   if (!generateRes.ok) {
     const errorText = await generateRes.text().catch(() => "");
-    throw new Error(`Apiframe kling-imagine-2-6 request failed (${generateRes.status}): ${errorText.slice(0, 500)}`);
+    throw new Error(`Apiframe videos/generate request failed (${generateRes.status}): ${errorText.slice(0, 500)}`);
   }
   const generateBody = (await generateRes.json()) as ApiframeGenerateResponse;
-  const taskId = generateBody.task_id;
-  if (!taskId) {
-    throw new Error(`Apiframe kling-imagine-2-6 response missing task_id: ${JSON.stringify(generateBody).slice(0, 500)}`);
+  const jobId = generateBody.jobId;
+  if (!jobId) {
+    throw new Error(`Apiframe videos/generate response missing jobId: ${JSON.stringify(generateBody).slice(0, 500)}`);
   }
 
   const deadline = Date.now() + APIFRAME_MAX_POLL_MS;
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, APIFRAME_POLL_INTERVAL_MS));
 
-    const taskRes = await fetch(APIFRAME_FETCH_URL, {
-      method: "POST",
-      headers: {
-        Authorization: apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ task_id: taskId }),
+    const jobRes = await fetch(APIFRAME_JOB_URL(jobId), {
+      headers: { "X-API-Key": apiKey },
     });
-    if (!taskRes.ok) {
-      const errorText = await taskRes.text().catch(() => "");
-      throw new Error(`Apiframe fetch task poll failed (${taskRes.status}): ${errorText.slice(0, 500)}`);
+    if (!jobRes.ok) {
+      const errorText = await jobRes.text().catch(() => "");
+      throw new Error(`Apiframe job poll failed (${jobRes.status}): ${errorText.slice(0, 500)}`);
     }
-    const taskBody = (await taskRes.json()) as ApiframeTaskResponse;
+    const jobBody = (await jobRes.json()) as ApiframeJobResponse;
 
-    if (taskBody.status === "finished") {
-      if (!taskBody.video_url) {
-        throw new Error(`Apiframe task ${taskId} finished but returned no video_url`);
+    if (jobBody.status === "COMPLETED") {
+      const videoUrl = jobBody.result?.videoUrl ?? jobBody.videoUrl;
+      if (!videoUrl) {
+        throw new Error(`Apiframe job ${jobId} completed but returned no videoUrl: ${JSON.stringify(jobBody).slice(0, 500)}`);
       }
-      return taskBody.video_url;
+      return videoUrl;
     }
-    if (taskBody.status === "failed") {
-      throw new Error(`Apiframe task ${taskId} failed: ${taskBody.error ?? taskBody.errors?.[0]?.msg ?? "no message"}`);
+    if (jobBody.status === "FAILED") {
+      throw new Error(`Apiframe job ${jobId} failed: ${jobBody.error ?? jobBody.errors?.[0]?.msg ?? "no message"}`);
     }
-    // 'processing' — sigue en cola, se reintenta en el próximo tick.
+    // 'QUEUED' / 'PROCESSING' — sigue en cola/procesando, se reintenta en el próximo tick.
   }
 
-  throw new Error(`Apiframe task ${taskId} timed out after ${APIFRAME_MAX_POLL_MS / 1000}s`);
+  throw new Error(`Apiframe job ${jobId} timed out after ${APIFRAME_MAX_POLL_MS / 1000}s`);
 }
 
 async function markVideoJobProcessing(db: DracoEnv["SOCIAL_DB"], jobId: string): Promise<void> {
