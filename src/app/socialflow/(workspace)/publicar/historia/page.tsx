@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { getUploadBatchLimit } from "@/lib/socialflow/billing/enforce";
+import { getEmployeesByTenant } from "@/lib/socialflow/employees/repository";
 import UploadToPost from "@/components/socialflow/upload-to-post";
 
 const SAAS_ID = "socialflow";
@@ -13,6 +14,9 @@ export default async function SocialFlowPublicarHistoriaPage() {
   }
 
   const maxImages = await getUploadBatchLimit(session.tenantId, session.role).catch(() => 8);
+  const employees = session.accountType === "empresa"
+    ? (await getEmployeesByTenant(session.tenantId, SAAS_ID)).filter((e) => e.active)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -22,7 +26,13 @@ export default async function SocialFlowPublicarHistoriaPage() {
       >
         <span aria-hidden>←</span> Volver
       </Link>
-      <UploadToPost saasId={SAAS_ID} maxImages={maxImages} contentType="STORY" />
+      <UploadToPost
+        saasId={SAAS_ID}
+        maxImages={maxImages}
+        contentType="STORY"
+        accountType={session.accountType}
+        employees={employees}
+      />
     </div>
   );
 }

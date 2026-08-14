@@ -6,9 +6,15 @@ import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgen
 import type { ViralScore } from "@/lib/socialflow/intelligence/ViralScoreAgent";
 import { getImageDimensions, isHorizontalImage } from "@/lib/socialflow/media/image-dimensions";
 import { THEME_OPTIONS, type ContentTheme } from "@/lib/socialflow/theme-options";
+import type { EmpresaEmployee } from "@/lib/socialflow/employees/types";
 import ReelsCreator from "./reels-creator";
 
 type ContentCategory = "foto_real" | "grafico_texto";
+
+// "employee" = uno de los empleados del roster; "cliente" = protagonista es un cliente
+// del negocio, no del equipo; "none" = nadie/no aplica. null = todavía sin confirmar
+// (bloquea Phase 2 para empresa, ver analyzeFile/confirmSubjectAndFinalize).
+type SubjectType = "employee" | "cliente" | "none";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -17,7 +23,10 @@ type ContentCategory = "foto_real" | "grafico_texto";
 // editContentType "REEL" pero sin reelVideoUrl NUNCA debe ser aprobable (ver
 // approveItem/approveAll) — es el caso de la IA clasificando la foto como Reel
 // automáticamente, sin que nadie haya visto el vídeo.
-type ItemStep = "uploading" | "analyzing" | "ready" | "reel_ready" | "saving" | "saved" | "error";
+// "awaiting_employee": solo para cuentas empresa — Phase 1 (analyzeFile) ya terminó,
+// pero Phase 2 (finalizeFile) queda en pausa hasta que el humano confirme quién aparece
+// en la foto (confirmSubjectAndFinalize). Nunca se alcanza para influencer.
+type ItemStep = "uploading" | "analyzing" | "awaiting_employee" | "ready" | "reel_ready" | "saving" | "saved" | "error";
 
 type UploadItem = {
   id: string;
@@ -41,6 +50,10 @@ type UploadItem = {
   isEditing: boolean;
   savedAt: string | null;    // ISO scheduledAt after successful save
   viralScore: ViralScore | null;
+  // Confirmado por el humano (empresa) antes de que Phase 2 se dispare — nunca inferido
+  // por IA. null = sin confirmar todavía (empresa) o no aplica (influencer).
+  subjectType: SubjectType | null;
+  employeeId: string | null; // solo tiene sentido cuando subjectType === "employee"
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -167,6 +180,8 @@ function ItemCard({
   onUpdate,
   onCreateReel,
   onCreateAiVideo,
+  employees,
+  onConfirmSubject,
 }: {
   item: UploadItem;
   onApprove: (id: string) => void;
@@ -178,6 +193,10 @@ function ItemCard({
   // la pantalla "¿Cómo quieres crear este Reel?" y arranca directo la generación real
   // (alibaba/hh1-i2v) en vez del CanvasRenderer local.
   onCreateAiVideo: (id: string) => void;
+  // Solo se usan en el branch "awaiting_employee" (empresa) — employees llega vacío
+  // para influencer, ese branch nunca se alcanza en ese caso.
+  employees: EmpresaEmployee[];
+  onConfirmSubject: (id: string, subjectType: SubjectType, employeeId: string | null) => void;
 }) {
   // ── uploading ──────────────────────────────────────────────────────────────
   if (item.step === "uploading") {
@@ -207,6 +226,47 @@ function ItemCard({
         </div>
         <div className="px-4 py-3">
           <p className="text-sm font-medium text-white/50">Analizando tu foto…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── awaiting_employee (solo empresa) ──────────────────────────────────────
+  if (item.step === "awaiting_employee") {
+    return (
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-violet-500/25 bg-white/3">
+        <div className="relative h-40 overflow-hidden bg-black/20">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover" />
+        </div>
+        <div className="flex flex-col gap-2.5 px-4 py-3">
+          <p className="text-sm font-medium text-white/70">¿Quién aparece en esta foto?</p>
+          <div className="flex flex-wrap gap-2">
+            {employees.map((employee) => (
+              <button
+                key={employee.id}
+                type="button"
+                onClick={() => onConfirmSubject(item.id, "employee", employee.id)}
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-violet-500/40 hover:bg-violet-500/10"
+              >
+                {employee.name}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => onConfirmSubject(item.id, "cliente", null)}
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-violet-500/40 hover:bg-violet-500/10"
+            >
+              Cliente
+            </button>
+            <button
+              type="button"
+              onClick={() => onConfirmSubject(item.id, "none", null)}
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/45 transition hover:border-white/20 hover:bg-white/8"
+            >
+              Nadie / No aplica
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -803,14 +863,23 @@ export default function UploadToPost({
   saasId,
   maxImages = 8,
   contentType,
+  accountType = null,
+  employees = [],
 }: {
   saasId: string;
   maxImages?: number;
   contentType?: "AUTO" | "FEED" | "REEL" | "STORY";
+  accountType?: "influencer" | "empresa" | null;
+  employees?: EmpresaEmployee[];
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addMoreRef = useRef<HTMLInputElement>(null);
+  // Orden de confirmación humana (empresa), no orden de subida — cada foto empresa toma
+  // el siguiente slot de calendario disponible en el momento en que se confirma quién
+  // aparece, independiente de interleaveByCategory/scheduleIndex del batch normal (que
+  // sigue intacto para influencer, ver handleFiles).
+  const empresaConfirmScheduleRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
   const [items, setItems] = useState<UploadItem[]>([]);
   // Nota opcional del cliente, capturada ANTES de subir — el flujo de subida es
@@ -884,6 +953,7 @@ export default function UploadToPost({
         editBody: "", editHashtags: [], editDate: "", editTime: "",
         editContentType: "FEED", editProvider: "INSTAGRAM",
         isEditing: false, savedAt: null, viralScore: null,
+        subjectType: null, employeeId: null,
       },
     ]);
 
@@ -924,7 +994,14 @@ export default function UploadToPost({
       setItems((prev) =>
         prev.map((i) =>
           i.id === id
-            ? { ...i, imageAnalysis: analyzeData.imageAnalysis!, contentCategory: analyzeData.contentCategory! }
+            ? {
+                ...i,
+                imageAnalysis: analyzeData.imageAnalysis!,
+                contentCategory: analyzeData.contentCategory!,
+                // Empresa: pausa aquí hasta que el humano confirme quién aparece (Paso 5).
+                // Influencer: sin cambios, sigue el pipeline automático de siempre.
+                step: accountType === "empresa" ? "awaiting_employee" : i.step,
+              }
             : i
         )
       );
@@ -953,7 +1030,13 @@ export default function UploadToPost({
   // scheduleIndex drives the day assignment (post-interleaving); batchIndex (original
   // upload order) still drives opener rotation, untouched by the reordering.
   async function finalizeFile(
-    item: { id: string; r2Url: string; r2Key: string; imageAnalysis: ImageAnalysis; batchIndex: number },
+    item: {
+      id: string; r2Url: string; r2Key: string; imageAnalysis: ImageAnalysis; batchIndex: number;
+      // Solo presentes en el path de confirmación empresa (ver confirmSubjectAndFinalize)
+      // — ausentes para influencer, no cambia el payload actual en ese caso.
+      subjectType?: SubjectType | null;
+      employeeId?: string | null;
+    },
     scheduleIndex: number,
   ): Promise<void> {
     try {
@@ -967,6 +1050,9 @@ export default function UploadToPost({
           imageAnalysis: item.imageAnalysis,
           batchIndex: item.batchIndex,
           scheduleIndex,
+          // El servidor todavía no lee estos dos campos (Paso 7) — viajan sin efecto.
+          ...(item.subjectType ? { subjectType: item.subjectType } : {}),
+          ...(item.employeeId ? { employeeId: item.employeeId } : {}),
           ...(contentType && contentType !== "AUTO" ? { forcedContentType: contentType } : {}),
           ...(batchUserNote.trim() ? { userNote: batchUserNote.trim() } : {}),
           ...(selectedTheme !== "auto" ? { carouselTheme: THEME_OPTIONS.find((o) => o.value === selectedTheme)?.sendValue } : {}),
@@ -1053,13 +1139,46 @@ export default function UploadToPost({
 
     // Phase 1: upload + classify every photo of this wave in parallel (unaffected by
     // the reordering below — each photo still uploads/analyzes as soon as it can).
+    // Se dispara siempre, para todas las cuentas — empresa incluida (Paso 5 solo pausa
+    // Phase 2, nunca Phase 1).
     const analyzed = await Promise.all(toProcess.map((f, i) => analyzeFile(f, startingIndex + i)));
     const succeeded = analyzed.filter((r): r is NonNullable<typeof r> => r !== null);
 
     // Phase 2: reorder this wave by content type, then assign calendar slots + generate
     // captions in that interleaved order (still one request per photo, run in parallel).
-    const interleaved = interleaveByCategory(succeeded);
+    // Empresa: ninguna foto entra aquí — cada una queda en "awaiting_employee"
+    // (ver analyzeFile) hasta que el humano confirme vía confirmSubjectAndFinalize, que
+    // dispara finalizeFile por separado con su propio scheduleIndex. Influencer: sin
+    // cambios, comportamiento idéntico a siempre.
+    const readyForPhase2 = accountType === "empresa" ? [] : succeeded;
+    const interleaved = interleaveByCategory(readyForPhase2);
     await Promise.all(interleaved.map((item, position) => finalizeFile(item, startingIndex + position)));
+  }
+
+  // Empresa únicamente — dispara Phase 2 para una sola foto tras la confirmación humana
+  // de quién aparece (chips "awaiting_employee" en ItemCard). subjectType/employeeId
+  // viajan tal cual a finalizeFile, sin pasar por ninguna inferencia de IA.
+  function confirmSubjectAndFinalize(id: string, subjectType: SubjectType, employeeId: string | null): void {
+    const item = items.find((i) => i.id === id);
+    if (!item || !item.r2Url || !item.r2Key || !item.imageAnalysis) return;
+
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, subjectType, employeeId, step: "analyzing" } : i))
+    );
+
+    const scheduleIndex = empresaConfirmScheduleRef.current++;
+    void finalizeFile(
+      {
+        id: item.id,
+        r2Url: item.r2Url,
+        r2Key: item.r2Key,
+        imageAnalysis: item.imageAnalysis,
+        batchIndex: item.batchIndex,
+        subjectType,
+        employeeId,
+      },
+      scheduleIndex,
+    );
   }
 
   async function approveItem(id: string): Promise<void> {
@@ -1454,6 +1573,8 @@ export default function UploadToPost({
             onCreateAiVideo={(id) => openReelsCreator(id, "ai-video")}
             onRemove={removeItem}
             onUpdate={updateItem}
+            employees={employees}
+            onConfirmSubject={confirmSubjectAndFinalize}
           />
         ))}
 
