@@ -116,7 +116,7 @@ export default function SocialNetworksBoard({ networks, accounts, saasId, redire
         {networks.map((network) => {
           const account = accountsByProvider.get(network.key);
           const status = account?.status ?? "DISCONNECTED";
-          const isConnected = status === "CONNECTED_REAL" || status === "CONNECTED_DEMO";
+          const isConnected = status === "CONNECTED_REAL" || status === "CONNECTED_DEMO" || status === "PENDING_REAL";
           const label = SOCIAL_PROVIDER_LABEL[network.key];
           const abbr = SOCIAL_PROVIDER_ABBR[network.key];
           const color = SOCIAL_PROVIDER_COLOR[network.key];
