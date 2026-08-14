@@ -67,6 +67,9 @@ function IcoTeam() {
 function IcoLocal() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg>;
 }
+function IcoTag() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.169.659 1.591l9.581 9.581c.699.699 1.831.699 2.53 0l4.318-4.318a1.79 1.79 0 0 0 0-2.53L10.507 3.659A2.25 2.25 0 0 0 9.568 3Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6Z" /></svg>;
+}
 
 // ── Nav structure ───────────────────────────────────────────────────────────────
 const mainNavTop = [
@@ -102,6 +105,7 @@ const createNavByNetwork: { provider: SaasSocialProvider; items: { href: string;
 
 const empresaNavItem = { href: "/socialflow/empresa/empleados", label: "Empleados", icon: <IcoTeam /> };
 const localNavItem = { href: "/socialflow/empresa/local", label: "Mi Local", icon: <IcoLocal /> };
+const serviciosNavItem = { href: "/socialflow/empresa/servicios", label: "Servicios", icon: <IcoTag /> };
 const comunidadNavItem = { href: "/socialflow/conversations", label: "Comunidad", icon: <IcoChat /> };
 
 // Misma URL/icono para ambos perfiles — solo cambia el label ("CRM Social" encaja mejor
@@ -213,6 +217,7 @@ export default function SidebarNav({
             <>
               {renderMainNavItem(empresaNavItem, isActive(empresaNavItem.href))}
               {renderMainNavItem(localNavItem, isActive(localNavItem.href))}
+              {renderMainNavItem(serviciosNavItem, isActive(serviciosNavItem.href))}
             </>
           )}
           {renderMainNavItem(comunidadNavItem, isActive(comunidadNavItem.href))}
