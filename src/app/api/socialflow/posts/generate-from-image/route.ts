@@ -649,6 +649,7 @@ export async function POST(request: Request) {
       llavaSuggestedFormat: imageAnalysis.recommendedPostType,
       momentType: imageAnalysis.momentType,
       employeeDetected: imageAnalysis.employeeDetected,
+      serviceDetected: imageAnalysis.serviceDetected,
       geoContext,
       tenantId: session.tenantId,
       saasId: body.saasId,

@@ -65,6 +65,10 @@ export class ContentGeneratorAgent {
     llavaSuggestedFormat?: "FEED" | "REEL" | "STORY";
     momentType?: "accion" | "intimo_personal" | "estatico_compuesto";
     employeeDetected?: string | null;
+    // Servicio del catálogo (saas_empresa_services) reconocido por ImageAnalysisAgent —
+    // llega desde generate-from-image/route.ts, todavía no se usa en el prompt (paso 7
+    // del plan "catálogo de servicios + selector humano de quién aparece").
+    serviceDetected?: string | null;
     // Optional — enables the "Cerebro Socialcors" context (niche trends + content
     // fatigue detection) below. Omitted by callers that don't have tenant context
     // yet degrades gracefully to today's behavior, no prompt sections added.

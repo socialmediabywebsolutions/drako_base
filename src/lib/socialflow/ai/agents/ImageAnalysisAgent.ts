@@ -2,6 +2,7 @@ import { env } from "@/lib/cf";
 import type { BrandProfile } from "../types";
 import { getEmployeeContext } from "@/lib/socialflow/employees/repository";
 import { getLocalContext } from "@/lib/socialflow/local/repository";
+import { getServiceContext } from "@/lib/socialflow/services/repository";
 import { reportSocialflowAiUsage } from "@/lib/ai/usage";
 
 // Mistral Small 3.1 24B Instruct — reemplaza a Llama 3.2 11B Vision, bloqueado en
@@ -29,6 +30,10 @@ export type ImageAnalysis = {
   // Nombre del empleado reconocido en la imagen (solo cuentas empresa con empleados
   // registrados y una señal visual razonable) — null si no aplica.
   employeeDetected: string | null;
+  // Nombre del servicio reconocido en la imagen (solo cuentas empresa con catálogo de
+  // servicios cargado y una señal visual razonable) — null si no aplica. Mismo criterio
+  // anti-invención que employeeDetected.
+  serviceDetected: string | null;
   // true cuando LLaVA falló (binding no disponible, JSON no parseable, o cualquier
   // excepción) y este resultado es la plantilla genérica basada en el nicho del perfil,
   // sin relación real con la imagen. Ausente/false = análisis real de LLaVA.
@@ -135,6 +140,7 @@ export class ImageAnalysisAgent {
         : `Contenido de ${profile.niche}.`,
       momentType: nicheDefaultMomentType(profile.niche),
       employeeDetected: null,
+      serviceDetected: null,
       degraded: true,
     };
 
@@ -159,6 +165,10 @@ export class ImageAnalysisAgent {
       isEmpresa && input.tenantId && input.saasId
         ? await getLocalContext(input.tenantId, input.saasId).catch(() => "")
         : "";
+    const serviceContext =
+      isEmpresa && input.tenantId && input.saasId
+        ? await getServiceContext(input.tenantId, input.saasId).catch(() => "")
+        : "";
 
     const prompt = `PASO 1 — DESCRIPCIÓN OBJETIVA (haz esto ANTES de pensar en cualquier nicho o tema de marca):
 Mira la imagen y describe con precisión qué aparece REALMENTE en ella — personas, animales, objetos, entorno, acciones visibles. No asumas todavía ningún tema, nicho o categoría de negocio; describe solo lo que ves.
@@ -170,6 +180,7 @@ Esta imagen es para una marca de ${profile.niche} llamada "${profile.brandIdenti
 ${brandContext ? `\nContexto de la marca (usa esto para que la descripción y los temas sugeridos encajen con su identidad real):\n${brandContext}\n` : ""}
 ${localContext ? `\nCONTEXTO DEL LOCAL: ${localContext}\nUsa esta información para que la descripción y los temas encajen con el negocio real.\n` : ""}
 ${employeeContext ? `\nCONTEXTO DEL NEGOCIO: ${employeeContext}\nSi reconoces a algún empleado de esta lista en la imagen (por su cargo, especialidad o descripción de estilo de trabajo), menciona su nombre exacto en el campo "employeeDetected". Si no puedes identificarlo con una señal visual razonable, deja "employeeDetected" en null — NUNCA inventes ni asumas un nombre sin fundamento.\n` : ""}
+${serviceContext ? `\nCONTEXTO DE SERVICIOS: ${serviceContext}\nSi identificas que la imagen muestra alguno de estos servicios en curso o su resultado, menciona el nombre exacto del servicio en el campo "serviceDetected". Si no puedes identificarlo con una señal visual razonable, deja "serviceDetected" en null — NUNCA inventes ni asumas un servicio sin fundamento.\n` : ""}
 ${input.geoContext ? `\nLa foto fue tomada en: ${input.geoContext}\n` : ""}
 Ahora, compara lo que describiste en el PASO 1 con estas categorías. Identifica cuál encaja mejor SOLO si realmente encaja, y extrae el detalle concreto correspondiente para el campo "specificContext":
 
@@ -223,14 +234,15 @@ Responde ÚNICAMENTE con este JSON válido (sin markdown, sin texto extra, sin e
   "momentType": "<accion|intimo_personal|estatico_compuesto>",
   "suggestedThemes": ["tema relevante 1", "tema relevante 2", "tema relevante 3"],
   "specificContext": "1-2 frases con el detalle concreto y granular de la categoría detectada — es el campo más importante de tu respuesta, sin datos inventados",
-  "employeeDetected": "nombre exacto del empleado si lo reconoces con certeza razonable, o null si no aplica"
+  "employeeDetected": "nombre exacto del empleado si lo reconoces con certeza razonable, o null si no aplica",
+  "serviceDetected": "nombre exacto del servicio si lo reconoces con certeza razonable, o null si no aplica"
 }
 
 EJEMPLO 1 (imagen relacionada con el nicho — nicho "fitness", foto de alguien haciendo sentadillas con barra en un gimnasio):
-{"description": "Persona realizando una sentadilla con barra en un gimnasio", "emotion": "energía", "context": "gimnasio, entrenamiento de fuerza", "recommendedPostType": "REEL", "momentType": "accion", "suggestedThemes": ["fuerza", "entrenamiento de piernas", "constancia"], "specificContext": "Trabajando tren inferior con sentadilla, carga aparente media-alta.", "employeeDetected": null}
+{"description": "Persona realizando una sentadilla con barra en un gimnasio", "emotion": "energía", "context": "gimnasio, entrenamiento de fuerza", "recommendedPostType": "REEL", "momentType": "accion", "suggestedThemes": ["fuerza", "entrenamiento de piernas", "constancia"], "specificContext": "Trabajando tren inferior con sentadilla, carga aparente media-alta.", "employeeDetected": null, "serviceDetected": null}
 
 EJEMPLO 2 (imagen SIN relación con el nicho — nicho "fitness", foto de un gato y un perro en un sofá):
-{"description": "Un gato y un perro descansando juntos sobre un sofá", "emotion": "cercanía", "context": "interior doméstico, mascotas", "recommendedPostType": "STORY", "momentType": "intimo_personal", "suggestedThemes": ["mascotas", "momento cotidiano", "vida diaria"], "specificContext": "Un gato y un perro compartiendo un momento tranquilo en casa, sin relación con entrenamiento o nutrición.", "employeeDetected": null}
+{"description": "Un gato y un perro descansando juntos sobre un sofá", "emotion": "cercanía", "context": "interior doméstico, mascotas", "recommendedPostType": "STORY", "momentType": "intimo_personal", "suggestedThemes": ["mascotas", "momento cotidiano", "vida diaria"], "specificContext": "Un gato y un perro compartiendo un momento tranquilo en casa, sin relación con entrenamiento o nutrición.", "employeeDetected": null, "serviceDetected": null}
 
 El campo recommendedPostType debe ser exactamente uno de: "FEED", "REEL" o "STORY", elegido según los criterios de arriba — nunca copies literalmente el placeholder "<FEED|REEL|STORY>".
 El campo momentType debe ser exactamente uno de: "accion", "intimo_personal" o "estatico_compuesto" — nunca copies literalmente el placeholder.
@@ -316,6 +328,10 @@ Responde TODO en español.`;
         employeeDetected:
           employeeContext && typeof parsed.employeeDetected === "string" && parsed.employeeDetected.trim()
             ? parsed.employeeDetected.trim()
+            : null,
+        serviceDetected:
+          serviceContext && typeof parsed.serviceDetected === "string" && parsed.serviceDetected.trim()
+            ? parsed.serviceDetected.trim()
             : null,
         degraded: false,
       };

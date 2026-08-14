@@ -198,6 +198,7 @@ export async function POST(request: Request) {
       specificContext: "",
       momentType: "estatico_compuesto",
       employeeDetected: null,
+      serviceDetected: null,
     };
     const openerCategory = pickOpenerCategory(syntheticAnalysis, resolvedTopic);
 

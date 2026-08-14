@@ -159,3 +159,20 @@ export async function deleteService(
     .run();
   return ((result?.meta as { changes?: number })?.changes ?? 0) > 0;
 }
+
+// Returns a structured context string for injection into the LLaVA image-analysis
+// prompt, so it can name a service instead of a generic description. Mismo patrón
+// que getEmployeeContext (employees/repository.ts).
+export async function getServiceContext(tenantId: string, saasId: string): Promise<string> {
+  const services = await getServicesByTenant(tenantId, saasId);
+  const active = services.filter((s) => s.active);
+  if (!active.length) return "";
+
+  const entries = active.map((s) => {
+    const category = s.category ? ` (${s.category})` : "";
+    const description = s.description ? ` ${s.description}` : "";
+    return `${s.name}${category}.${description}`;
+  });
+
+  return `Los servicios del negocio son: ${entries.join(" ")}`;
+}
