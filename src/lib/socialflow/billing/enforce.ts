@@ -1,6 +1,18 @@
-import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
+import { getCanonicalBillingSnapshot, type CanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
+import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
 import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
 import { resolveSocialFlowPlanCode, type SocialFlowPlanCode } from "./plans";
+
+// El fetch de accountType solo se dispara cuando isInternalAccount es true (caso
+// raro, gestionado a mano) — evita añadir una consulta extra a SOCIALFLOW_AUTHS_DB
+// en el camino caliente de cada tenant normal.
+async function resolvePlanCode(tenantId: string, snapshot: CanonicalBillingSnapshot): Promise<SocialFlowPlanCode> {
+  if (!snapshot.isInternalAccount) {
+    return resolveSocialFlowPlanCode(snapshot.subscription);
+  }
+  const accountType = await getSocialFlowAccountTypeByTenant(tenantId);
+  return resolveSocialFlowPlanCode(snapshot.subscription, { isInternalAccount: true, accountType });
+}
 
 // Sin extras ni add-ons: el límite de canales coincide exactamente con el número
 // de redes incluidas en cada plan (ver network-entitlements.ts).
@@ -67,7 +79,7 @@ export async function guardChannelLimit(
     resolveSocialContext({ tenantId, saasId }),
   ]);
 
-  const planCode = resolveSocialFlowPlanCode(snapshot.subscription);
+  const planCode = await resolvePlanCode(tenantId, snapshot);
   const maxChannels = PLAN_MAX_CHANNELS[planCode];
   const accounts = await listSaasSocialAccounts(ctx);
   const activeCount = accounts.filter((a) => a.status !== "DISCONNECTED").length;
@@ -99,7 +111,7 @@ export async function guardAiAccess(
   }
 
   const snapshot = await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" });
-  const planCode = resolveSocialFlowPlanCode(snapshot.subscription);
+  const planCode = await resolvePlanCode(tenantId, snapshot);
 
   if (!PLAN_AI_ALLOWED[planCode]) {
     return {
@@ -133,7 +145,7 @@ export async function getUploadBatchLimit(tenantId: string, role?: string): Prom
   const isActiveTrial = sub.status === "trial" && trialEndsAt !== null && trialEndsAt > new Date();
   if (isActiveTrial) return 1;
 
-  const planCode = resolveSocialFlowPlanCode(sub);
+  const planCode = await resolvePlanCode(tenantId, snapshot);
   if (planCode === "free") return FREE_TIER_UPLOAD_BATCH_LIMIT;
   return PLAN_DAILY_MULTIPLIER[planCode] * daysInCurrentMonth();
 }
@@ -154,7 +166,7 @@ export async function getCarouselSlideLimit(tenantId: string, role?: string): Pr
   const isActiveTrial = sub.status === "trial" && trialEndsAt !== null && trialEndsAt > new Date();
   if (isActiveTrial) return 0;
 
-  const planCode = resolveSocialFlowPlanCode(sub);
+  const planCode = await resolvePlanCode(tenantId, snapshot);
   if (planCode === "free") return 0;
   return CAROUSEL_SLIDES_PER_PLAN[planCode];
 }

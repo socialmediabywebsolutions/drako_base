@@ -9,7 +9,7 @@ import type { MentoriaAgentHistoryTurn } from "@/lib/agents/mentoria/base-agent"
 import { correctExercise } from "@/lib/agents/mentoria/exercise-agent";
 import { buildStudyPlan } from "@/lib/agents/mentoria/planner-agent";
 import { buildInitialProgressFromOnboarding } from "@/lib/agents/mentoria/progress-agent";
-import { getCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
+import { getCanonicalSubscriptionState, isInternalAccount } from "@/lib/billing/subscriptions";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import type { MentoriaRequestSession } from "@/lib/mentoria/auth/request";
 import { ensureMentoriaAgentHandlersRegistered } from "@/lib/mentoria/drako-agent-handlers";
@@ -1331,8 +1331,9 @@ export class MentoriaService {
       });
       return null;
     });
-    const [subscription, guidedSessionsToday, exercisesToday, plannerRegenerationsToday, referralProfile] = await Promise.all([
+    const [subscription, isInternal, guidedSessionsToday, exercisesToday, plannerRegenerationsToday, referralProfile] = await Promise.all([
       subscriptionPromise,
+      isInternalAccount(context.tenantId, "mentoria"),
       this.repository.countLearningSessionsForDay(context.tenantId, student.id, isoDay),
       this.repository.countExercisesForDay(context.tenantId, student.id, isoDay),
       this.repository.countPlannerRegenerationsForDay(context.tenantId, student.id, isoDay),
@@ -1347,6 +1348,7 @@ export class MentoriaService {
         plannerRegenerationsToday,
       },
       canManageBilling: context.canManageBilling,
+      isInternalAccount: isInternal,
     });
     return applyMentoriaGrowthEntitlements(billing, resolveGrowthEntitlements(referralProfile));
   }

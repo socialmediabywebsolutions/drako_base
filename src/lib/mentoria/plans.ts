@@ -97,7 +97,17 @@ export function getMentoriaStripePriceId(planCode: Exclude<MentoriaPlanCode, "fr
   return typeof bound === "string" && bound.trim().length > 0 ? bound.trim() : null;
 }
 
-export function resolveMentoriaPlanCode(subscription: CanonicalSubscriptionState | null): MentoriaPlanCode {
+export function resolveMentoriaPlanCode(
+  subscription: CanonicalSubscriptionState | null,
+  options?: { isInternalAccount?: boolean },
+): MentoriaPlanCode {
+  // Cuenta interna (internal_accounts, DRACO_DB) — ignora saas_subscriptions y
+  // devuelve el plan más alto del catálogo, "family" (60 sesiones guiadas/día, 4
+  // seats). Mentoria no tiene split por accountType como Socialcors, así que aquí
+  // no hace falta ningún parámetro adicional más allá del flag.
+  if (options?.isInternalAccount) {
+    return "family";
+  }
   if (!subscription || !ENTITLED_STATUSES.has(subscription.status)) {
     return "free";
   }
@@ -108,8 +118,9 @@ export function buildMentoriaBillingSummary(input: {
   subscription: CanonicalSubscriptionState | null;
   usage: MentoriaBillingUsage;
   canManageBilling: boolean;
+  isInternalAccount?: boolean;
 }): MentoriaBillingSummary {
-  const planCode = resolveMentoriaPlanCode(input.subscription);
+  const planCode = resolveMentoriaPlanCode(input.subscription, { isInternalAccount: input.isInternalAccount });
   const plan = getMentoriaPlanDefinition(planCode);
   const limitReached =
     input.usage.guidedSessionsToday >= plan.limits.guidedSessionsPerDay

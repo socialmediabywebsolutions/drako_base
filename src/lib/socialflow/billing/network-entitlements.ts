@@ -36,7 +36,10 @@ export async function resolveNetworkEntitlements(input: {
     getSocialFlowAccountTypeByTenant(input.tenantId),
   ]);
 
-  const planCode = resolveSocialFlowPlanCode(snapshot.subscription);
+  const planCode = resolveSocialFlowPlanCode(snapshot.subscription, {
+    isInternalAccount: snapshot.isInternalAccount,
+    accountType,
+  });
   const accounts = await listSaasSocialAccounts(ctx);
   const connected = new Set(accounts.filter((account) => account.status !== "DISCONNECTED").map((account) => account.provider));
 

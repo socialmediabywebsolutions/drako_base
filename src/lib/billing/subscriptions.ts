@@ -113,6 +113,12 @@ export type CanonicalBillingSnapshot = {
     features: string[];
     usage: CanonicalBillingUsage;
   };
+  // true si (tenantId, saasSlug) está en internal_accounts (DRACO_DB) — cuentas
+  // propias del founder, exentas de restricciones de facturación en cualquier SaaS
+  // del ecosistema. Cuando es true, subscription.status ya viene forzado a "active"
+  // arriba; cada producto decide su propio plan_code "top tier" a partir de este
+  // flag (ver resolveSocialFlowPlanCode en socialflow/billing/plans.ts).
+  isInternalAccount: boolean;
 };
 
 function hasDatabase(): boolean {
@@ -366,60 +372,14 @@ export async function getCanonicalSubscriptionState(input: {
   tenantId: string;
   saasSlug: string;
 }): Promise<CanonicalSubscriptionState | null> {
-  let row: {
-    tenant_id: string;
-    saas_slug: string;
-    stripe_customer_id: string | null;
-    stripe_subscription_id: string | null;
-    stripe_price_id?: string | null;
-    plan_code: string | null;
-    status: string;
-    current_period_end: string | null;
-    cancel_at_period_end?: number | null;
-    updated_at: string;
-  } | null = null;
-  try {
-    row = await queryOne<{
-      tenant_id: string;
-      saas_slug: string;
-      stripe_customer_id: string | null;
-      stripe_subscription_id: string | null;
-      stripe_price_id?: string | null;
-      plan_code: string | null;
-      status: string;
-      current_period_end: string | null;
-      cancel_at_period_end?: number | null;
-      updated_at: string;
-    }>(
-      `SELECT tenant_id, saas_slug, stripe_customer_id, stripe_subscription_id, stripe_price_id, plan_code, status, current_period_end, cancel_at_period_end, updated_at
-       FROM saas_subscriptions
-       WHERE tenant_id = ? AND saas_slug = ?
-       LIMIT 1`,
-      input.tenantId,
-      input.saasSlug,
-    );
-  } catch (error) {
-    if (!isMissingColumnError(error)) {
-      throw error;
-    }
-    row = await queryOne<{
-      tenant_id: string;
-      saas_slug: string;
-      stripe_customer_id: string | null;
-      stripe_subscription_id: string | null;
-      plan_code: string | null;
-      status: string;
-      current_period_end: string | null;
-      updated_at: string;
-    }>(
-      `SELECT tenant_id, saas_slug, stripe_customer_id, stripe_subscription_id, plan_code, status, current_period_end, updated_at
-       FROM saas_subscriptions
-       WHERE tenant_id = ? AND saas_slug = ?
-       LIMIT 1`,
-      input.tenantId,
-      input.saasSlug,
-    );
-  }
+  // Reutiliza el mismo row-fetch que getCanonicalBillingSnapshot (antes esta función
+  // mantenía su propia query duplicada) — internal_accounts NO se aplica aquí a
+  // propósito: esta función solo representa una suscripción Stripe real (por eso el
+  // null-check de stripe_customer_id/stripe_subscription_id justo debajo se mantiene
+  // intacto), y una cuenta interna no tiene Stripe real que gestionar. El bypass de
+  // cuentas internas para los consumidores que sí tratan ese null como "no
+  // autorizado" (sso-init, Mentoria) vive en isInternalAccount(), no aquí.
+  const row = await getCanonicalSubscriptionRow(input);
   if (!row?.stripe_customer_id || !row.stripe_subscription_id) {
     return null;
   }
@@ -595,24 +555,51 @@ async function readCanonicalFeatures(input: {
   }
 }
 
+// Cuentas propias del founder (tabla internal_accounts, DRACO_DB, gestionada 100% a
+// mano vía SQL directo — sin endpoint, sin UI). Falla cerrado a "no interna" si la
+// tabla todavía no existe en algún entorno (local/test sin la migración 0203
+// aplicada) en vez de tumbar getCanonicalBillingSnapshot/getCanonicalSubscriptionState,
+// que se usan en el camino caliente de todos los productos.
+export async function isInternalAccount(tenantId: string, saasSlug: string): Promise<boolean> {
+  try {
+    const row = await queryOne<{ tenant_id: string }>(
+      `SELECT tenant_id FROM internal_accounts WHERE tenant_id = ? AND saas_slug = ? LIMIT 1`,
+      tenantId,
+      saasSlug,
+    );
+    return Boolean(row);
+  } catch (error) {
+    if (isMissingTableError(error)) return false;
+    throw error;
+  }
+}
+
 export async function getCanonicalBillingSnapshot(input: {
   tenantId: string;
   saasSlug: string;
 }): Promise<CanonicalBillingSnapshot> {
-  const [subscriptionRow, saasId, quotas] = await Promise.all([
+  const [subscriptionRow, saasId, quotas, internal] = await Promise.all([
     getCanonicalSubscriptionRow(input),
     resolveCanonicalSaasId(input),
     readCanonicalLimitsAndUsage(input),
+    isInternalAccount(input.tenantId, input.saasSlug),
   ]);
   const features = await readCanonicalFeatures({ tenantId: input.tenantId, saasId });
-  const normalizedStatus = subscriptionRow?.status?.trim().toLowerCase() as CanonicalSubscriptionStatus | undefined;
+  const rawStatus = subscriptionRow?.status?.trim().toLowerCase() as CanonicalSubscriptionStatus | undefined;
+  // Cuenta interna → status forzado a "active" (entra en ENTITLED_STATUSES en todos
+  // los productos) ignorando por completo lo que diga saas_subscriptions. El
+  // plan_code "top tier" concreto (empresa_pro/influencer_pro, family, etc.) lo
+  // decide cada producto a partir de isInternalAccount abajo — este objeto no sabe
+  // de accountType ni de catálogos de planes específicos de un SaaS.
+  const normalizedStatus: CanonicalSubscriptionStatus | null = internal ? "active" : (rawStatus ?? null);
 
   return {
     tenantId: input.tenantId,
     saasSlug: input.saasSlug,
     saasId,
+    isInternalAccount: internal,
     subscription: {
-      status: normalizedStatus ?? null,
+      status: normalizedStatus,
       planCode: normalizePlanCode(subscriptionRow?.plan_code),
       currentPeriodStart: subscriptionRow?.current_period_start ?? null,
       currentPeriodEnd: subscriptionRow?.current_period_end ?? null,

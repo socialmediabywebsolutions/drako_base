@@ -76,6 +76,7 @@ describe("getCanonicalBillingSnapshot", () => {
       tenantId: "tenant_1",
       saasSlug: "mentoria",
       saasId: null,
+      isInternalAccount: false,
       subscription: {
         status: null,
         planCode: null,

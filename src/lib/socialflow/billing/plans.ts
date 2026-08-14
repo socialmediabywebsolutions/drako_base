@@ -178,7 +178,16 @@ export function normalizeSocialFlowPlanCode(value: string | null | undefined): S
   }
 }
 
-export function resolveSocialFlowPlanCode(subscription: { status: string | null; planCode: string | null } | null): SocialFlowPlanCode {
+export function resolveSocialFlowPlanCode(
+  subscription: { status: string | null; planCode: string | null } | null,
+  options?: { isInternalAccount?: boolean; accountType?: SocialFlowAccountType | null },
+): SocialFlowPlanCode {
+  // Cuenta interna (internal_accounts, DRACO_DB) — ignora saas_subscriptions por
+  // completo y devuelve el plan más alto disponible según accountType. Ver
+  // getCanonicalBillingSnapshot() en @/lib/billing/subscriptions para el flag.
+  if (options?.isInternalAccount) {
+    return options.accountType === "empresa" ? "empresa_pro" : "influencer_pro";
+  }
   if (!subscription || !subscription.status || !ENTITLED_STATUSES.has(subscription.status)) {
     return "free";
   }

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/session";
 import { run } from "@/lib/db";
-import { getCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
+import { getCanonicalSubscriptionState, isInternalAccount } from "@/lib/billing/subscriptions";
 
 const SOCIALFLOW_ORIGIN =
   process.env.SOCIALFLOW_SSO_ORIGIN ?? "https://socialflows.drako.systems";
@@ -40,7 +40,11 @@ export async function GET(request: Request) {
     saasSlug: "socialflow",
   });
 
-  if (!subscription || !ENTITLED_STATUSES.has(subscription.status)) {
+  const entitled = Boolean(subscription && ENTITLED_STATUSES.has(subscription.status));
+  // getCanonicalSubscriptionState() devuelve null para cuentas internas (no tienen
+  // Stripe real que verificar) — solo se consulta internal_accounts cuando el check
+  // normal ya falló, para no añadir una query extra al camino feliz de cada tenant.
+  if (!entitled && !(await isInternalAccount(session.tenantId, "socialflow"))) {
     return NextResponse.redirect(
       `${SOCIALFLOW_ORIGIN}/socialflow/auth?error=NO_SUBSCRIPTION`,
       { status: 302 },
