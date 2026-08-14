@@ -29,11 +29,34 @@ export type ConversationThread = {
   updatedAt: string;
 };
 
+export type ActiveHoursDay = {
+  active: boolean;
+  from: string; // "HH:MM", 24h local al timezone configurado
+  to: string;   // "HH:MM"
+};
+
+export type ActiveHoursConfig = {
+  enabled: boolean;
+  timezone: string; // IANA, ej. "Europe/Madrid"
+  schedule: {
+    monday: ActiveHoursDay;
+    tuesday: ActiveHoursDay;
+    wednesday: ActiveHoursDay;
+    thursday: ActiveHoursDay;
+    friday: ActiveHoursDay;
+    saturday: ActiveHoursDay;
+    sunday: ActiveHoursDay;
+  };
+  outside_hours_message: string | null;
+};
+
 export type ConversationSettings = {
   tenantId: string;
   saasId: string;
   autoSendEnabled: boolean;
   autoSendProviders: string[];
+  // NULL = sin configurar → el agente responde 24/7 (comportamiento actual, sin cambios).
+  activeHoursJson: string | null;
 };
 
 export type ConversationalReplyInput = {

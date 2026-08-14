@@ -56,6 +56,7 @@ type SettingsRow = {
   saas_id: string;
   auto_send_enabled: number;
   auto_send_providers: string;
+  active_hours_json: string | null;
   updated_at: string;
 };
 
@@ -86,6 +87,7 @@ function mapSettingsRow(row: SettingsRow, tenantId: string, saasId: string): Con
     saasId,
     autoSendEnabled: row.auto_send_enabled === 1,
     autoSendProviders: parseJson<string[]>(row.auto_send_providers) ?? [],
+    activeHoursJson: row.active_hours_json,
   };
 }
 
@@ -151,6 +153,7 @@ async function ensureConversationSchemaInner(db: D1Database): Promise<void> {
       saas_id TEXT NOT NULL,
       auto_send_enabled INTEGER NOT NULL DEFAULT 0,
       auto_send_providers TEXT NOT NULL DEFAULT '[]',
+      active_hours_json TEXT DEFAULT NULL,
       updated_at TEXT NOT NULL,
       UNIQUE (tenant_id, saas_id)
     )`,
@@ -320,19 +323,19 @@ export async function getConversationSettings(ctx: SocialContext): Promise<Conve
   const saasId = ctx.saasId ?? "socialflow";
   const row = await queryFirst<SettingsRow>(
     ctx.socialDb,
-    `SELECT id, tenant_id, saas_id, auto_send_enabled, auto_send_providers, updated_at
+    `SELECT id, tenant_id, saas_id, auto_send_enabled, auto_send_providers, active_hours_json, updated_at
      FROM socialflow_conversation_settings
      WHERE tenant_id = ? AND saas_id = ? LIMIT 1`,
     ctx.tenantId,
     saasId,
   );
-  if (!row) return { tenantId: ctx.tenantId, saasId, autoSendEnabled: false, autoSendProviders: [] };
+  if (!row) return { tenantId: ctx.tenantId, saasId, autoSendEnabled: false, autoSendProviders: [], activeHoursJson: null };
   return mapSettingsRow(row, ctx.tenantId, saasId);
 }
 
 export async function upsertConversationSettings(
   ctx: SocialContext,
-  patch: { autoSendEnabled: boolean; autoSendProviders?: string[] },
+  patch: { autoSendEnabled: boolean; autoSendProviders?: string[]; activeHoursJson?: string | null },
 ): Promise<ConversationSettings> {
   await ensureConversationSchema(ctx.socialDb);
   const saasId = ctx.saasId ?? "socialflow";
@@ -340,19 +343,22 @@ export async function upsertConversationSettings(
   const id = generateId();
   const now = nowIso();
   const providers = patch.autoSendProviders ?? existing.autoSendProviders;
+  const activeHoursJson = "activeHoursJson" in patch ? patch.activeHoursJson ?? null : existing.activeHoursJson;
   await runStatement(
     ctx.socialDb,
-    `INSERT INTO socialflow_conversation_settings (id, tenant_id, saas_id, auto_send_enabled, auto_send_providers, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO socialflow_conversation_settings (id, tenant_id, saas_id, auto_send_enabled, auto_send_providers, active_hours_json, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(tenant_id, saas_id) DO UPDATE SET
        auto_send_enabled = excluded.auto_send_enabled,
        auto_send_providers = excluded.auto_send_providers,
+       active_hours_json = excluded.active_hours_json,
        updated_at = excluded.updated_at`,
     id,
     ctx.tenantId,
     saasId,
     patch.autoSendEnabled ? 1 : 0,
     JSON.stringify(providers),
+    activeHoursJson,
     now,
   );
   return getConversationSettings(ctx);
