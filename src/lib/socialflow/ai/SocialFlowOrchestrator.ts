@@ -12,6 +12,7 @@ import type { SaasSocialContentType } from "@/lib/social-core/types";
 import { getSaasSocialCampaignById, listSaasSocialAccounts, listSaasSocialChannels, resolveSocialContext, upsertSaasSocialCampaign, upsertSaasSocialPost } from "../repository";
 import { getChannelKnowledge, saveCompetitorInsights } from "../profile/repository";
 import { getKnowledgeContext } from "../knowledge/repository";
+import { getLocal } from "../local/repository";
 import { getStyleHistory } from "../intelligence/NicheIntelligenceService";
 import { getSeasonalityContext } from "./agents/SeasonalityAgent";
 import { extractBestHourByFormat } from "./agents/BestTimeToPostAgent";
@@ -61,7 +62,7 @@ export class SocialFlowOrchestrator {
     // no hay bindings (ej. entorno local sin Cloudflare), en vez de forzar un valor
     // "vacío" que no satisface el tipo DracoEnv (DRACO_DB es obligatorio en él).
     const dracoEnv = env();
-    const [{ profile, competitors }, knowledgeContext, connectedInstagramHandle, campaignObjective, seasonalContextRaw] = await Promise.all([
+    const [{ profile, competitors }, knowledgeContext, connectedInstagramHandle, campaignObjective, seasonalContextRaw, empresaLocal] = await Promise.all([
       getChannelKnowledge(input.tenantId, input.saasId),
       getKnowledgeContext(input.tenantId, input.saasId).catch(() => ""),
       // Handle real de Instagram (OAuth, saas_social_accounts) — fuente de verdad para
@@ -80,9 +81,18 @@ export class SocialFlowOrchestrator {
       dracoEnv
         ? getSeasonalityContext(input.niche, dracoEnv, input.tenantId, input.saasId).catch(() => null)
         : Promise.resolve(null),
+      // Onboarding empresa (Empleados/Mi Local, saas_empresa_local) es un flujo separado
+      // del onboarding genérico de marca/nicho (socialflow_profiles, arriba en `profile`)
+      // — un cliente empresa puede completar uno sin el otro. Cuando existe,
+      // business_name/niche/description de saas_empresa_local tienen prioridad sobre
+      // socialflow_profiles para identidad de marca (ver brandName/niche/shortDescription
+      // más abajo). Solo se consulta para cuentas empresa — un influencer no tiene "local".
+      input.accountType === "empresa"
+        ? getLocal(input.tenantId, input.saasId).catch(() => null)
+        : Promise.resolve(null),
     ]);
 
-    const niche = input.niche || profile.niche || input.saasId;
+    const niche = input.niche || empresaLocal?.niche || profile.niche || input.saasId;
 
     // seasonalTopics ya no es un campo manual del formulario de perfil (ver
     // profile/page.tsx) — lo gestiona la IA a partir de SeasonalityAgent. Tolera JSON
@@ -101,9 +111,10 @@ export class SocialFlowOrchestrator {
       }
     }
     const tone = profile.toneOfVoice || input.tone || "neutro y profesional";
-    const brandName = profile.brandName || input.saasId.replace(/[-_]/g, " ");
+    const brandName = empresaLocal?.businessName || profile.brandName || input.saasId.replace(/[-_]/g, " ");
+    const shortDescription = empresaLocal?.description || profile.shortDescription || `${niche} social automation`;
 
-    const baseLongDescription = profile.longDescription || profile.shortDescription || `${niche} content pipeline`;
+    const baseLongDescription = profile.longDescription || shortDescription || `${niche} content pipeline`;
     const longDescription = knowledgeContext
       ? `${baseLongDescription}\n\n--- Knowledge Base ---\n${knowledgeContext}`
       : baseLongDescription;
@@ -122,7 +133,7 @@ export class SocialFlowOrchestrator {
         : profile.channelName
           ? `@${profile.channelName}`
           : `@${input.saasId}`,
-      shortDescription: profile.shortDescription || `${niche} social automation`,
+      shortDescription,
       longDescription,
       mission: profile.mission || `Grow ${brandName} with consistent social execution.`,
       valueProposition: profile.valueProposition || `${niche} content for ${profile.audienceDescription || "your audience"}.`,

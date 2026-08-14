@@ -195,6 +195,17 @@ Estructura obligatoria:
 3. Cierre con una pregunta abierta o una reflexión final que invite a pensar, no un CTA de "comenta/sígueme".
 
 Genera entre 3 y 5 hashtags relevantes: profesionales y específicos del sector de "${profile.niche}", nada de hashtags genéricos de comunidad o virales de Instagram. Formato: #hashtag1 #hashtag2 ... IMPORTANTE: nunca más de 5.
+` : isEmpresa ? `
+⚠️ APERTURA — REGLA IRROMPIBLE: NUNCA empieces con "Hola", "Chicas", "A veces", ni presentándote ("Soy ${profile.brandIdentity}..."). Fuera de esa restricción, redacta la línea de apertura libremente — no uses ningún banco de frases fijo, solo engancha con el tema concreto de la imagen.
+
+⚠️ LONGITUD — REGLA IRROMPIBLE: El post completo debe tener MÁXIMO 3-4 líneas cortas e impactantes. Nada de párrafos largos. Cada línea debe aportar por sí sola.
+
+Estructura obligatoria:
+1. Línea de apertura libre (sin "Hola", sin "A veces", sin autopresentación) que enganche con el tema de la imagen.
+2. 1-2 líneas hablando de "${profile.brandIdentity}" en tercera persona: qué ofrece, qué resuelve, qué la diferencia. NO uses "yo", "mi", "me" ni "mis". Habla de la marca o del equipo, nunca en primera persona.
+3. ${cta ? "Cierre con el CTA en una línea" : "Cierre natural del pensamiento — NO añadas ningún call-to-action ni invites a seguir/comentar/guardar, el CTA se añade aparte por separado."}
+
+Genera entre 10 y 15 hashtags relevantes: mezcla hashtags de nicho específico (fitness, nutrición, bienestar), hashtags de comunidad hispanohablante, y 2-3 hashtags virales del momento. Formato: #hashtag1 #hashtag2 ... IMPORTANTE: genera exactamente entre 10 y 15 hashtags. Nunca menos de 10.
 ` : `
 ⚠️ APERTURA — REGLA IRROMPIBLE: NUNCA empieces con "Hola", "Chicas", "A veces", ni presentándote ("Soy ${profile.brandIdentity}...").
 Aperturas disponibles para este tipo de imagen:
@@ -205,9 +216,7 @@ ${openerList}
 
 Estructura obligatoria:
 1. Línea de apertura usando UNA de las frases anteriores (adaptada al tema, sin "Hola", sin "A veces")
-2. ${isEmpresa
-  ? `1-2 líneas hablando de "${profile.brandIdentity}" en tercera persona: qué ofrece, qué resuelve, qué la diferencia. NO uses "yo", "mi", "me" ni "mis". Habla de la marca o del equipo, nunca en primera persona.`
-  : `1-2 líneas donde YO (la influencer) hablo desde mi experiencia personal: qué hago, qué siento, qué aprendí. Uso "yo", "mi", "me", "mis". NO escribo consejos genéricos dirigidos a la audiencia. Hablo de MI vida y MI experiencia relacionada con el tema de la imagen.`}
+2. 1-2 líneas donde YO (la influencer) hablo desde mi experiencia personal: qué hago, qué siento, qué aprendí. Uso "yo", "mi", "me", "mis". NO escribo consejos genéricos dirigidos a la audiencia. Hablo de MI vida y MI experiencia relacionada con el tema de la imagen.
 3. ${cta ? "Cierre con el CTA en una línea" : "Cierre natural del pensamiento — NO añadas ningún call-to-action ni invites a seguir/comentar/guardar, el CTA se añade aparte por separado."}
 
 Genera entre 10 y 15 hashtags relevantes: mezcla hashtags de nicho específico (fitness, nutrición, bienestar), hashtags de comunidad hispanohablante, y 2-3 hashtags virales del momento. Formato: #hashtag1 #hashtag2 ... IMPORTANTE: genera exactamente entre 10 y 15 hashtags. Nunca menos de 10.`}
