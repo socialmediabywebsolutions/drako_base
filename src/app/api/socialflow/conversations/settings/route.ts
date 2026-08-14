@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => null)) as {
       autoSendEnabled?: boolean;
       autoSendProviders?: string[];
+      activeHoursJson?: string | null;
       saasId?: string;
     } | null;
 
@@ -57,6 +58,7 @@ export async function POST(request: Request) {
     const settings = await upsertConversationSettings(ctx, {
       autoSendEnabled: body.autoSendEnabled,
       autoSendProviders: Array.isArray(body.autoSendProviders) ? body.autoSendProviders : undefined,
+      ...("activeHoursJson" in body ? { activeHoursJson: body.activeHoursJson ?? null } : {}),
     });
 
     return new Response(JSON.stringify({ ok: true, settings }), {

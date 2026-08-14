@@ -6,6 +6,7 @@ import type { ConversationSettings, ConversationThread } from "@/lib/socialflow/
 import type { LeadTemperature } from "@/lib/socialflow/leads/types";
 import { TEMP_META } from "./leads-panel";
 import KeywordDmAutomationPanel from "./keyword-dm-panel";
+import AgentSchedulePanel from "./agent-schedule-panel";
 
 type Props = {
   threads: ConversationThread[];
@@ -370,6 +371,14 @@ export default function ConversationInbox({
           </div>
         )}
       </div>
+
+      {/* Horario del Agente */}
+      <AgentSchedulePanel
+        saasId={saasId}
+        autoSendEnabled={settings.autoSendEnabled}
+        initialActiveHoursJson={settings.activeHoursJson}
+        onSaved={setSettings}
+      />
 
       {/* Test panel */}
       <div className="rounded-xl border border-white/8 bg-white/4">
