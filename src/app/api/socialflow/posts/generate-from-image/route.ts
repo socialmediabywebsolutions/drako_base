@@ -15,6 +15,7 @@ import { cleanOpening } from "@/lib/socialflow/ai/openers/cleanOpening";
 import { OptimizationAgent } from "@/lib/socialflow/ai/agents/OptimizationAgent";
 import { CarouselComposerAgent, CarouselGenerationFailedError } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
 import { CAROUSEL_MIN_ITEMS, CAROUSEL_MAX_ITEMS } from "@/lib/socialflow/meta/publishing";
+import { getEmployeesByTenant } from "@/lib/socialflow/employees/repository";
 import type { BrandProfile, KeywordEngineOutput, StrategyItem } from "@/lib/socialflow/ai/types";
 import { isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
 import { calculateViralScore, mapContentTypeToViralFormat, type ViralScore } from "@/lib/socialflow/intelligence/ViralScoreAgent";
@@ -231,6 +232,11 @@ export async function POST(request: Request) {
       imageAnalysis?: ImageAnalysis; // result of a prior "analyze" call — reused here to skip a duplicate LLaVA call
       forcedContentType?: "FEED" | "REEL" | "STORY" | "CAROUSEL"; // explicit format chosen in Publicar → Post/Reel/Historia/Carrusel; overrides the LLaVA heuristic below
       userNote?: string; // texto libre opcional del cliente ("¿Qué estás haciendo en esta foto?") — prioridad máxima en ContentValueAgent sobre la inferencia visual. Solo lo envían upload-to-post.tsx/publish-reel.tsx hoy.
+      // Confirmado por el humano al subir la foto (paso 5, empresa) — nunca inferido por
+      // IA. employeeId es solo un id: se resuelve contra la DB del tenant más abajo,
+      // nunca se confía en un nombre que mandara el cliente directamente.
+      subjectType?: "employee" | "cliente" | "none";
+      employeeId?: string | null;
     } | null;
 
     const isCarousel = body?.forcedContentType === "CAROUSEL";
@@ -635,6 +641,18 @@ export async function POST(request: Request) {
       campaignHashtags: profile.priorityHashtags,
     };
 
+    // Paso 7 — subjectType/employeeId confirmados por el humano (paso 5, empresa).
+    // employeeId es solo un id que llega del cliente: se resuelve el nombre contra
+    // getEmployeesByTenant (mismo tenant de la sesión) antes de meterlo en cualquier
+    // prompt — nunca se confía en un nombre que mandara el cliente directamente. Si el
+    // id no existe en este tenant (manipulado, empleado borrado entre medias, etc.),
+    // employeeName queda null y ContentGeneratorAgent degrada sin nombre confirmado.
+    let employeeName: string | null = null;
+    if (body.subjectType === "employee" && body.employeeId) {
+      const tenantEmployees = await getEmployeesByTenant(session.tenantId, body.saasId).catch(() => []);
+      employeeName = tenantEmployees.find((e) => e.id === body.employeeId)?.name ?? null;
+    }
+
     // Step 5: Generate caption (Mistral via Workers AI)
     const contentAgent = new ContentGeneratorAgent();
     const openerCategory = pickOpenerCategory(imageAnalysis, strategyItem.theme);
@@ -650,6 +668,8 @@ export async function POST(request: Request) {
       momentType: imageAnalysis.momentType,
       employeeDetected: imageAnalysis.employeeDetected,
       serviceDetected: imageAnalysis.serviceDetected,
+      subjectType: body.subjectType ?? null,
+      employeeName,
       geoContext,
       tenantId: session.tenantId,
       saasId: body.saasId,
