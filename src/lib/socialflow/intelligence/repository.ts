@@ -1,4 +1,5 @@
 import { resolveSocialContext } from "@/lib/socialflow/repository";
+import type { SaasSocialProvider } from "@/lib/social-core/types";
 import type {
   IntelligenceFeedItem,
   IntelligenceFeedPriority,
@@ -21,6 +22,7 @@ type FeedRow = {
   action_label: string | null;
   action_href: string | null;
   source: string | null;
+  network: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -33,6 +35,9 @@ export type NewFeedItem = {
   actionLabel?: string | null;
   actionHref?: string | null;
   source?: string | null;
+  // Opcional — ausente/null significa señal agnóstica de red (comportamiento actual de
+  // todos los escritores salvo instagram/linkedin token-health). Ver IntelligenceFeedItem.
+  network?: SaasSocialProvider | null;
 };
 
 function nowIso() {
@@ -74,6 +79,7 @@ function ensureFeedTable(db: D1Database) {
         action_label TEXT,
         action_href TEXT,
         source TEXT,
+        network TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )`,
@@ -98,6 +104,7 @@ function mapRowToItem(row: FeedRow): IntelligenceFeedItem {
     actionLabel: row.action_label,
     actionHref: row.action_href,
     source: row.source,
+    network: row.network as SaasSocialProvider | null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -148,14 +155,15 @@ export async function seedFeedItems(
     await context.socialDb
       .prepare(
         `INSERT INTO ${SOCIALFLOW_FEED_TABLE} (
-          id, tenant_id, saas_id, type, title, description, priority, status, action_label, action_href, source, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?)
+          id, tenant_id, saas_id, type, title, description, priority, status, action_label, action_href, source, network, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
           title = excluded.title,
           description = excluded.description,
           priority = excluded.priority,
           action_label = excluded.action_label,
           action_href = excluded.action_href,
+          network = excluded.network,
           updated_at = excluded.updated_at`,
       )
       .bind(
@@ -169,6 +177,7 @@ export async function seedFeedItems(
         item.actionLabel ?? null,
         item.actionHref ?? null,
         source,
+        item.network ?? null,
         timestamp,
         timestamp,
       )

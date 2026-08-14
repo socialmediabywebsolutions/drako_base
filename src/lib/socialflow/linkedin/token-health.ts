@@ -20,6 +20,7 @@ async function seedLinkedInTokenAlert(tenantId: string, saasId: string, descript
         actionLabel: "Reconectar cuenta",
         actionHref: "/socialflow/redes",
         source: LINKEDIN_TOKEN_ALERT_SOURCE,
+        network: "LINKEDIN",
       },
     ],
     saasId,

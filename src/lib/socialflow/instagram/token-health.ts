@@ -25,6 +25,7 @@ export async function seedTokenInvalidAlert(tenantId: string, saasId: string): P
         actionLabel: "Reconectar cuenta",
         actionHref: "/socialflow/settings/accounts",
         source: TOKEN_INVALID_ALERT_SOURCE,
+        network: "INSTAGRAM",
       },
     ],
     saasId,
