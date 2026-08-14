@@ -11,6 +11,7 @@ import type { InstagramComment } from "@/lib/socialflow/meta/comments";
 import { sendInstagramPrivateReply } from "@/lib/socialflow/meta/privateReplies";
 import { analyzeSentiment } from "@/lib/socialflow/conversational/sentiment";
 import { generateConversationalReply } from "@/lib/socialflow/conversational/engine";
+import { isWithinActiveHours, getOutsideHoursMessage } from "@/lib/socialflow/conversational/active-hours";
 import {
   resolveSocialContext as resolveConvContext,
   ingestConversationThread,
@@ -276,11 +277,24 @@ async function processTenantComments(
         continue;
       }
 
-      // Decide: send now or queue as AUTO_APPROVED
-      const shouldSend = settings.autoSendEnabled && settings.autoSendProviders.includes("INSTAGRAM");
+      // Decide: send now or queue as AUTO_APPROVED — el auto-envío solo aplica dentro
+      // del horario configurado (active-hours.ts, paso 3 del Agente de Comunidad).
+      // Fuera de horario: si el tenant configuró un mensaje, se envía ESE en vez de la
+      // respuesta IA (el aiMetadata queda marcado outsideActiveHours para diferenciarlo
+      // en el inbox); si no hay mensaje configurado, cae al mismo camino que auto-envío
+      // desactivado — se guarda en cola AUTO_APPROVED, suggestedReply intacto para
+      // aprobación manual. settings.activeHoursJson NULL (sin configurar) hace que
+      // isWithinActiveHours siempre devuelva true, así que este bloque es un no-op
+      // exacto del comportamiento anterior para cualquier tenant que no lo configure.
+      const autoSendConfigured = settings.autoSendEnabled && settings.autoSendProviders.includes("INSTAGRAM");
+      const withinActiveHours = isWithinActiveHours(settings.activeHoursJson);
+      const outsideHoursMessage = withinActiveHours ? null : getOutsideHoursMessage(settings.activeHoursJson);
+      const messageToSend = withinActiveHours ? suggestedReply : outsideHoursMessage;
+      const shouldSend = autoSendConfigured && messageToSend !== null;
+      const aiMetadataWithHours = withinActiveHours ? aiMetadata : { ...aiMetadata, outsideActiveHours: true };
 
       if (shouldSend) {
-        const replyResult = await replyToInstagramComment(comment.id, suggestedReply, creds.accessToken, creds.apiBase);
+        const replyResult = await replyToInstagramComment(comment.id, messageToSend!, creds.accessToken, creds.apiBase);
         const thread = await ingestConversationThread(convCtx, {
           provider: "INSTAGRAM",
           threadType: "COMMENT",
@@ -291,10 +305,10 @@ async function processTenantComments(
           contextPostId: post.id,
           suggestedReply,
           status: replyResult.ok ? "SENT" : "AUTO_APPROVED",
-          aiMetadata,
+          aiMetadata: aiMetadataWithHours,
         });
         if (replyResult.ok) {
-          await updateConversationThread(convCtx, thread.id, { status: "SENT", finalReply: suggestedReply });
+          await updateConversationThread(convCtx, thread.id, { status: "SENT", finalReply: messageToSend });
         }
         await maybeCreateLead(convCtx, thread.id, comment);
         result.commentsProcessed.push({
@@ -313,7 +327,7 @@ async function processTenantComments(
           contextPostId: post.id,
           suggestedReply,
           status: "AUTO_APPROVED",
-          aiMetadata,
+          aiMetadata: aiMetadataWithHours,
         });
         await maybeCreateLead(convCtx, thread.id, comment);
         result.commentsProcessed.push({ commentId: comment.id, status: "AUTO_APPROVED", sentiment: sentiment.sentiment });
