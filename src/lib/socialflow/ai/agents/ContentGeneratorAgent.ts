@@ -76,12 +76,13 @@ export class ContentGeneratorAgent {
     // falla, degrada al caption genérico del nicho de siempre.
     geoContext?: string | null;
     // Dashboard por Red Social (paso 2/3) — red destino del post. Ausente/"INSTAGRAM"
-    // conserva el comportamiento actual exacto (prompt sin cambios). "LINKEDIN" no
-    // altera el prompt todavía: la rama de tono profesional se añade en el paso 3.
+    // conserva el comportamiento actual exacto (prompt sin cambios). "LINKEDIN" activa
+    // la rama de tono profesional (paso 3, ver isLinkedin más abajo).
     network?: "INSTAGRAM" | "LINKEDIN";
   }): Promise<GeneratedPost> {
     const { profile, strategyItem, keywordEngine, trends } = input;
     const isEmpresa = profile.accountType === "empresa";
+    const isLinkedin = input.network === "LINKEDIN";
 
     const dracoEnv = env();
     const [nicheIntel, styleHistory] = dracoEnv
@@ -139,7 +140,10 @@ export class ContentGeneratorAgent {
     // propio en ese caso, o el caption final terminaría con dos. Sin objetivo,
     // comportamiento idéntico a siempre.
     const objectiveCta = resolveObjectiveCta(profile.clientObjective, profile.channelHandle);
-    const cta = objectiveCta ? null : profile.primaryCTA || `¿Tú también lo sientes así? Cuéntame en los comentarios 👇`;
+    // El default "Cuéntame en los comentarios 👇" es 100% Instagram (comment-bait) — en
+    // LinkedIn el cierre con pregunta/reflexión de la estructura obligatoria ya cumple
+    // ese rol, así que sin CTA configurado en el perfil no se fuerza ninguno.
+    const cta = objectiveCta ? null : profile.primaryCTA || (isLinkedin ? null : `¿Tú también lo sientes así? Cuéntame en los comentarios 👇`);
     const ctaSuffix = cta ? `\n\n${cta}` : "";
 
     const fitnessNicheKeys = ['fitness', 'nutrici', 'bienestar', 'salud', 'entrenamiento', 'gym', 'yoga', 'pilates', 'deporte', 'fit'];
@@ -176,6 +180,22 @@ ${keywords ? `Keywords a incluir naturalmente: ${keywords}` : ""}
 ${hashtagSeed ? `Hashtags de referencia para incluir: ${hashtagSeed}` : ""}
 ${nicheIntelSection}${fatigueSection}${seasonalSection}${geoSection}
 
+${isLinkedin ? `
+⚠️ GANCHO — REGLA IRROMPIBLE: La primera línea debe enganchar con una idea, dato o pregunta potente relacionada con "${strategyItem.angle}" — nunca un saludo genérico ("Hola", "Chicas") ni una autopresentación ("Soy ${profile.brandIdentity}...").
+
+⚠️ LONGITUD — REGLA IRROMPIBLE: El post completo debe tener entre 150 y 300 palabras. Ni un post corto de 3-4 líneas (eso es Instagram) ni un artículo largo — un post de LinkedIn con desarrollo real.
+
+⚠️ TONO — REGLA IRROMPIBLE: Profesional, reflexivo, orientado a aportar valor a la audiencia. Nada de tono promocional agresivo ni frases tipo "¡Sígueme!" o "¡Comenta abajo!" — el cierre invita a pensar, no a interactuar de forma forzada.
+
+⚠️ EMOJIS: Máximo 2-3 en todo el post, y solo si aportan énfasis real. Evita decorar cada línea con emojis.
+
+Estructura obligatoria:
+1. Gancho en la primera línea (una idea, dato o pregunta que detenga el scroll).
+2. Desarrollo: 2-4 párrafos cortos con el contenido real — la reflexión, el aprendizaje o el valor concreto que ofreces sobre "${strategyItem.angle}".
+3. Cierre con una pregunta abierta o una reflexión final que invite a pensar, no un CTA de "comenta/sígueme".
+
+Genera entre 3 y 5 hashtags relevantes: profesionales y específicos del sector de "${profile.niche}", nada de hashtags genéricos de comunidad o virales de Instagram. Formato: #hashtag1 #hashtag2 ... IMPORTANTE: nunca más de 5.
+` : `
 ⚠️ APERTURA — REGLA IRROMPIBLE: NUNCA empieces con "Hola", "Chicas", "A veces", ni presentándote ("Soy ${profile.brandIdentity}...").
 Aperturas disponibles para este tipo de imagen:
 ${openerList}
@@ -190,7 +210,7 @@ Estructura obligatoria:
   : `1-2 líneas donde YO (la influencer) hablo desde mi experiencia personal: qué hago, qué siento, qué aprendí. Uso "yo", "mi", "me", "mis". NO escribo consejos genéricos dirigidos a la audiencia. Hablo de MI vida y MI experiencia relacionada con el tema de la imagen.`}
 3. ${cta ? "Cierre con el CTA en una línea" : "Cierre natural del pensamiento — NO añadas ningún call-to-action ni invites a seguir/comentar/guardar, el CTA se añade aparte por separado."}
 
-Genera entre 10 y 15 hashtags relevantes: mezcla hashtags de nicho específico (fitness, nutrición, bienestar), hashtags de comunidad hispanohablante, y 2-3 hashtags virales del momento. Formato: #hashtag1 #hashtag2 ... IMPORTANTE: genera exactamente entre 10 y 15 hashtags. Nunca menos de 10.
+Genera entre 10 y 15 hashtags relevantes: mezcla hashtags de nicho específico (fitness, nutrición, bienestar), hashtags de comunidad hispanohablante, y 2-3 hashtags virales del momento. Formato: #hashtag1 #hashtag2 ... IMPORTANTE: genera exactamente entre 10 y 15 hashtags. Nunca menos de 10.`}
 
 Además, decide el formato final de publicación ("recommendedPostType") usando TODA esta información — tú tienes la decisión final, no una sola señal:
 - Detalle visual real de la imagen: "${input.specificContext ?? "sin detalle visual disponible"}"
