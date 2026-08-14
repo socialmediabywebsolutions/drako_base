@@ -75,6 +75,10 @@ export class ContentGeneratorAgent {
     // Opcional — ausente cuando la foto no trae GPS o la cadena de geocoding/Wikipedia
     // falla, degrada al caption genérico del nicho de siempre.
     geoContext?: string | null;
+    // Dashboard por Red Social (paso 2/3) — red destino del post. Ausente/"INSTAGRAM"
+    // conserva el comportamiento actual exacto (prompt sin cambios). "LINKEDIN" no
+    // altera el prompt todavía: la rama de tono profesional se añade en el paso 3.
+    network?: "INSTAGRAM" | "LINKEDIN";
   }): Promise<GeneratedPost> {
     const { profile, strategyItem, keywordEngine, trends } = input;
     const isEmpresa = profile.accountType === "empresa";
