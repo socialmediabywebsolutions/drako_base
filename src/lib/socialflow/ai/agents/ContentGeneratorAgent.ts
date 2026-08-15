@@ -195,6 +195,17 @@ export class ContentGeneratorAgent {
       ? `\n⚠️ SERVICIO IDENTIFICADO: La imagen muestra el servicio "${input.serviceDetected}". Menciónalo de forma natural en el caption como parte de lo que ofrece ${profile.brandIdentity}.\n`
       : "";
 
+    // Repite la instrucción de subjectBlock cerca del final del prompt (algunos modelos
+    // dan más peso a instrucciones cercanas al final del contexto) — redacción corta y
+    // distinta a propósito, para que se lea como recordatorio y no como una segunda
+    // instrucción que pueda contradecir o confundirse con la de arriba. Solo para
+    // "employee": es la única rama con tasa de acierto baja observada en validación
+    // manual (1 de 3 generaciones mencionó el nombre).
+    const subjectReinforcement =
+      input.subjectType === "employee" && input.employeeName
+        ? `\n⚠️ RECORDATORIO FINAL — OBLIGATORIO: el caption debe mencionar a ${input.employeeName} por su nombre propio al menos una vez antes de responder. No lo omitas.\n`
+        : "";
+
     const prompt = `Escribe un post de redes sociales EN ESPAÑOL sobre el tema: "${profile.niche}".
 
 ⚠️ REGLA ABSOLUTA: El post trata EXCLUSIVAMENTE sobre "${profile.niche}".
@@ -271,7 +282,7 @@ Criterios:
 Regla de prioridad: si la clasificación del tipo de momento es "intimo_personal", clasifica como STORY; si es "accion", clasifica como REEL; si es "estatico_compuesto", clasifica como FEED — esta señal tiene prioridad sobre el resto, salvo que el nicho o el contexto de marca den una razón clara y explícita para contradecirla.
 
 El campo recommendedPostType debe ser exactamente uno de: "FEED", "REEL" o "STORY".
-Responde SOLO con el JSON solicitado.`;
+${subjectReinforcement}Responde SOLO con el JSON solicitado.`;
 
     const fallbackHook = trends.hookIdeas[0] ?? `Lo que nadie te dice sobre ${profile.niche}...`;
     const fallbackPain = profile.painPoints.find(p => p && p !== profile.niche)

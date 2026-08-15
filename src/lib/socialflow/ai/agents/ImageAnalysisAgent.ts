@@ -180,7 +180,7 @@ Esta imagen es para una marca de ${profile.niche} llamada "${profile.brandIdenti
 ${brandContext ? `\nContexto de la marca (usa esto para que la descripción y los temas sugeridos encajen con su identidad real):\n${brandContext}\n` : ""}
 ${localContext ? `\nCONTEXTO DEL LOCAL: ${localContext}\nUsa esta información para que la descripción y los temas encajen con el negocio real.\n` : ""}
 ${employeeContext ? `\nCONTEXTO DEL NEGOCIO: ${employeeContext}\nSi reconoces a algún empleado de esta lista en la imagen (por su cargo, especialidad o descripción de estilo de trabajo), menciona su nombre exacto en el campo "employeeDetected". Si no puedes identificarlo con una señal visual razonable, deja "employeeDetected" en null — NUNCA inventes ni asumas un nombre sin fundamento.\n` : ""}
-${serviceContext ? `\nCONTEXTO DE SERVICIOS: ${serviceContext}\nSi identificas que la imagen muestra alguno de estos servicios en curso o su resultado, menciona el nombre exacto del servicio en el campo "serviceDetected". Si no puedes identificarlo con una señal visual razonable, deja "serviceDetected" en null — NUNCA inventes ni asumas un servicio sin fundamento.\n` : ""}
+${serviceContext ? `\nCONTEXTO DE SERVICIOS: ${serviceContext}\nSi identificas que la imagen muestra alguno de estos servicios en curso o su resultado, menciona el nombre exacto del servicio en el campo "serviceDetected" — SOLO el nombre, sin la categoría entre paréntesis que pueda venir a continuación (ej. si el contexto dice "Entrenamiento personal (Fuerza)", el valor correcto es "Entrenamiento personal", NUNCA "Entrenamiento personal (Fuerza)"). Si no puedes identificarlo con una señal visual razonable, deja "serviceDetected" en null — NUNCA inventes ni asumas un servicio sin fundamento.\n` : ""}
 ${input.geoContext ? `\nLa foto fue tomada en: ${input.geoContext}\n` : ""}
 Ahora, compara lo que describiste en el PASO 1 con estas categorías. Identifica cuál encaja mejor SOLO si realmente encaja, y extrae el detalle concreto correspondiente para el campo "specificContext":
 
@@ -235,7 +235,7 @@ Responde ÚNICAMENTE con este JSON válido (sin markdown, sin texto extra, sin e
   "suggestedThemes": ["tema relevante 1", "tema relevante 2", "tema relevante 3"],
   "specificContext": "1-2 frases con el detalle concreto y granular de la categoría detectada — es el campo más importante de tu respuesta, sin datos inventados",
   "employeeDetected": "nombre exacto del empleado si lo reconoces con certeza razonable, o null si no aplica",
-  "serviceDetected": "nombre exacto del servicio si lo reconoces con certeza razonable, o null si no aplica"
+  "serviceDetected": "nombre exacto del servicio si lo reconoces con certeza razonable, SIN la categoría entre paréntesis (ej. \"Entrenamiento personal\", no \"Entrenamiento personal (Fuerza)\"), o null si no aplica"
 }
 
 EJEMPLO 1 (imagen relacionada con el nicho — nicho "fitness", foto de alguien haciendo sentadillas con barra en un gimnasio):
