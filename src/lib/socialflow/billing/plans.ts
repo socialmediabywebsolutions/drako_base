@@ -51,7 +51,7 @@ const SOCIALFLOW_PLANS: Record<SocialFlowPlanCode, SocialFlowPlanDefinition> = {
       "Publicación automática",
     ],
     accountType: "influencer",
-    stripePriceId: null,
+    stripePriceId: "price_1U58y82drYIYdjRXP5JR5Qvt",
   },
   influencer_basico: {
     code: "influencer_basico",
@@ -67,7 +67,7 @@ const SOCIALFLOW_PLANS: Record<SocialFlowPlanCode, SocialFlowPlanDefinition> = {
       "Publicación automática",
     ],
     accountType: "influencer",
-    stripePriceId: null,
+    stripePriceId: "price_1U58yE2drYIYdjRXAZhRWgwe",
   },
   influencer_pro: {
     code: "influencer_pro",
@@ -83,7 +83,7 @@ const SOCIALFLOW_PLANS: Record<SocialFlowPlanCode, SocialFlowPlanDefinition> = {
       "Analytics avanzados",
     ],
     accountType: "influencer",
-    stripePriceId: null,
+    stripePriceId: "price_1U58yL2drYIYdjRXo8UF0HOl",
   },
   empresa_starter: {
     code: "empresa_starter",
@@ -97,7 +97,7 @@ const SOCIALFLOW_PLANS: Record<SocialFlowPlanCode, SocialFlowPlanDefinition> = {
       "Respuesta automática comentarios y DMs",
     ],
     accountType: "empresa",
-    stripePriceId: null,
+    stripePriceId: "price_1U58yR2drYIYdjRXjz92VWoL",
   },
   empresa_basico: {
     code: "empresa_basico",
@@ -113,7 +113,7 @@ const SOCIALFLOW_PLANS: Record<SocialFlowPlanCode, SocialFlowPlanDefinition> = {
       "2 usuarios (dueño + community manager)",
     ],
     accountType: "empresa",
-    stripePriceId: null,
+    stripePriceId: "price_1U58yX2drYIYdjRXXumbjZSb",
   },
   empresa_pro: {
     code: "empresa_pro",
@@ -129,7 +129,7 @@ const SOCIALFLOW_PLANS: Record<SocialFlowPlanCode, SocialFlowPlanDefinition> = {
       "Usuarios ilimitados con roles y permisos",
     ],
     accountType: "empresa",
-    stripePriceId: null,
+    stripePriceId: "price_1U58yd2drYIYdjRXfwSygOoD",
   },
 };
 

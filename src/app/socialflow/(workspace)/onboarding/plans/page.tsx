@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { getSocialFlowPlanDefinition } from "@/lib/socialflow/billing/plans";
 
 type Plan = {
   id: string;
@@ -19,7 +20,7 @@ const PLANS: Plan[] = [
   {
     id: "influencer_starter",
     name: "Influencer Starter",
-    price: 99,
+    price: getSocialFlowPlanDefinition("influencer_starter").priceEur!,
     networks: "Instagram",
     postsPerNetwork: 30,
     features: [
@@ -34,7 +35,7 @@ const PLANS: Plan[] = [
   {
     id: "influencer_basico",
     name: "Influencer Básico",
-    price: 179,
+    price: getSocialFlowPlanDefinition("influencer_basico").priceEur!,
     networks: "Instagram",
     postsPerNetwork: 60,
     features: [
@@ -51,7 +52,7 @@ const PLANS: Plan[] = [
     id: "influencer_pro",
     name: "Influencer Pro",
     badge: "Más popular",
-    price: 299,
+    price: getSocialFlowPlanDefinition("influencer_pro").priceEur!,
     networks: "Instagram",
     postsPerNetwork: 90,
     features: [
