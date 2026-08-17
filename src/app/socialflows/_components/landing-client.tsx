@@ -218,8 +218,8 @@ function HeroColumn({ config }: { config: HeroSideConfig }) {
     <motion.div
       {...fadeUp}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="relative px-6 pb-14 pt-28 sm:px-10 md:pb-20 lg:px-14"
-      style={{ background: config.bgGradient }}
+      className="relative flex flex-col px-6 pb-14 pt-28 sm:px-10 md:pb-20 lg:px-14"
+      style={{ background: config.bgGradient, height: "100%" }}
     >
       <div
         className="mb-5 inline-flex items-center gap-2 rounded-full border px-4 py-2"
@@ -248,7 +248,7 @@ function HeroColumn({ config }: { config: HeroSideConfig }) {
         {config.explainerText}
       </p>
 
-      <div className="mt-8">
+      <div style={{ marginTop: "auto", paddingTop: 32 }}>
         <Link
           href={`/socialflow/planes?type=${config.key}`}
           className={`${config.ctaGlowClass} sc-cta-shine inline-flex items-center gap-2 rounded-xl px-8 py-4 text-base font-black text-white transition-all hover:brightness-110 hover:-translate-y-0.5`}
