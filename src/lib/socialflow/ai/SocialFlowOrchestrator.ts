@@ -111,7 +111,11 @@ export class SocialFlowOrchestrator {
       }
     }
     const tone = profile.toneOfVoice || input.tone || "neutro y profesional";
-    const brandName = empresaLocal?.businessName || profile.brandName || input.saasId.replace(/[-_]/g, " ");
+    // Nunca usar el saas_id técnico como nombre de marca visible — un identificador interno
+    // (ej. "socialflow", herencia del rebrand a Socialcors) puede colarse literal en el
+    // contenido generado si el tenant no completó el onboarding (ver bug carrusel Socialcors,
+    // tenant 775444ce).
+    const brandName = empresaLocal?.businessName || profile.brandName || "esta empresa";
     const shortDescription = empresaLocal?.description || profile.shortDescription || `${niche} social automation`;
 
     const baseLongDescription = profile.longDescription || shortDescription || `${niche} content pipeline`;

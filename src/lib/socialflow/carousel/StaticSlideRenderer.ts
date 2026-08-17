@@ -232,6 +232,15 @@ const FONT_SHRINK_FACTOR = 0.85;
 const MIN_FONT_SIZE = 36;
 const MAX_SHRINK_ITERATIONS = 5;
 
+// Auto-grow simétrico al shrink de arriba — cuando el texto es corto, el bloque envuelto
+// se queda muy por debajo del alto disponible y el slide sale con mucho espacio vacío.
+// MIN_TEXT_BLOCK_HEIGHT_RATIO acota "muy por debajo" a menos de un 30% del alto máximo; el
+// tope de 1.3x el fontSize inicial evita que un texto de una palabra salga desproporcionado.
+const MIN_TEXT_BLOCK_HEIGHT_RATIO = 0.3;
+const FONT_GROW_FACTOR = 1.08;
+const MAX_FONT_SCALE_UP = 1.3;
+const MAX_GROW_ITERATIONS = 5;
+
 function splitLastWord(text: string): { rest: string; lastWord: string } {
   const trimmed = text.trim();
   const idx = trimmed.lastIndexOf(" ");
@@ -376,6 +385,34 @@ function drawStaticSlideText(
     lines = wrapText(ctx, text, canvasWidth * 0.85);
     lineHeight = fontSize * 1.15;
     shrinkIterations++;
+  }
+
+  // Auto-grow: si el texto es corto y el bloque queda muy por debajo del alto disponible,
+  // aumenta la fuente gradualmente para aprovechar el espacio — mismo mecanismo que el
+  // shrink de arriba, en la dirección contraria. wrapText ya garantiza que ninguna línea
+  // exceda canvasWidth*0.85 en cada intento. Revierte el último paso si en algún momento
+  // se pasa de maxTextBlockHeight (una subida de fuente puede saltar de "cabe de sobra" a
+  // "no cabe" en una sola iteración si el rewrap añade línea).
+  const minTextBlockHeight = maxTextBlockHeight * MIN_TEXT_BLOCK_HEIGHT_RATIO;
+  const maxGrowFontSize = fontSize * MAX_FONT_SCALE_UP;
+  let growIterations = 0;
+  while (
+    lines.length * lineHeight < minTextBlockHeight &&
+    fontSize < maxGrowFontSize &&
+    growIterations < MAX_GROW_ITERATIONS
+  ) {
+    const candidateFontSize = Math.min(maxGrowFontSize, Math.round(fontSize * FONT_GROW_FACTOR));
+    ctx.font = `${style?.fontWeight ?? CAROUSEL_TEXT_STYLE.weight} ${candidateFontSize}px ${style?.fontFamily ?? CAROUSEL_TEXT_STYLE.family}`;
+    const candidateLines = wrapText(ctx, text, canvasWidth * 0.85);
+    const candidateLineHeight = candidateFontSize * 1.15;
+    if (candidateLines.length * candidateLineHeight > maxTextBlockHeight) {
+      ctx.font = `${style?.fontWeight ?? CAROUSEL_TEXT_STYLE.weight} ${fontSize}px ${style?.fontFamily ?? CAROUSEL_TEXT_STYLE.family}`;
+      break;
+    }
+    fontSize = candidateFontSize;
+    lines = candidateLines;
+    lineHeight = candidateLineHeight;
+    growIterations++;
   }
 
   const startY = baseY - ((lines.length - 1) * lineHeight) / 2;
