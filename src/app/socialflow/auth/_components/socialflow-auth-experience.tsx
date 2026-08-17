@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { listSocialFlowPaidPlans, type SocialFlowAccountType } from "@/lib/socialflow/billing/plans";
 
 type SocialFlowAuthMode = "login" | "register";
 
@@ -43,16 +44,24 @@ export default function SocialFlowAuthExperience() {
   const typeConfig = accountType === "influencer"
     ? {
         badge: "✓ Plan Influencer · 15 días gratis",
-        registerTitle: "Crea tu cuenta como Influencer",
-        registerSubtitle: "Conecta Instagram. La IA publica por ti.",
+        registerTitle: "Crea tu cuenta de Influencer",
+        registerSubtitle: "Empieza gratis 15 días en Socialcors para Influencers",
+        loginTitle: "Bienvenido de vuelta, Influencer",
+        loginSubtitle: "Accede a tu panel de marketing para creadores",
+        registerButtonLabel: "Crear cuenta de Influencer →",
+        loginButtonLabel: "Entrar a Socialcors →",
         gradient: IG_GRADIENT,
         accentColor: IG_PINK,
       }
     : accountType === "empresa"
     ? {
         badge: "✓ Plan Empresa · 15 días gratis",
-        registerTitle: "Crea tu cuenta como Empresa",
-        registerSubtitle: "Conecta Instagram. La IA gestiona tu marca.",
+        registerTitle: "Crea tu cuenta de Empresa",
+        registerSubtitle: "Empieza gratis 15 días en Socialcors para Empresas",
+        loginTitle: "Bienvenido de vuelta",
+        loginSubtitle: "Accede a tu panel de marketing empresarial",
+        registerButtonLabel: "Crear cuenta de Empresa →",
+        loginButtonLabel: "Entrar a Socialcors →",
         gradient: LI_GRADIENT,
         accentColor: LI_BLUE,
       }
@@ -62,6 +71,10 @@ export default function SocialFlowAuthExperience() {
   // morado de marca por defecto.
   const activeGradient = typeConfig?.gradient ?? BRAND_GRADIENT;
   const activeAccent = typeConfig?.accentColor ?? BRAND_ACCENT;
+
+  // Toggle local del panel "sin type" — solo cambia qué se previsualiza a la izquierda,
+  // nunca la URL ni el accountType real (eso solo lo fija ?type= al llegar desde la landing).
+  const [previewType, setPreviewType] = useState<SocialFlowAccountType>("influencer");
 
   const [mode, setMode] = useState<SocialFlowAuthMode>("login");
   const [name, setName] = useState("");
@@ -156,12 +169,14 @@ export default function SocialFlowAuthExperience() {
         )}
 
         <h2 className="mb-1 text-2xl font-black tracking-tight" style={{ color: INK }}>
-          {mode === "login" ? "Bienvenido de vuelta" : (typeConfig?.registerTitle ?? "Empieza hoy")}
+          {mode === "login"
+            ? (typeConfig?.loginTitle ?? "Bienvenido de vuelta")
+            : (typeConfig?.registerTitle ?? "Crea tu cuenta")}
         </h2>
         <p className="mb-7 text-sm" style={{ color: MUTED }}>
           {mode === "login"
-            ? "Accede a tu panel de marketing."
-            : (typeConfig?.registerSubtitle ?? "15 días gratis. Sin tarjeta de crédito.")}
+            ? (typeConfig?.loginSubtitle ?? "Accede a tu panel de marketing")
+            : (typeConfig?.registerSubtitle ?? "Empieza gratis 15 días — sin tarjeta de crédito")}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -227,8 +242,8 @@ export default function SocialFlowAuthExperience() {
             {isSubmitting
               ? "Un momento…"
               : mode === "login"
-                ? "Entrar a Socialcors"
-                : "Crear mi cuenta"}
+                ? (typeConfig?.loginButtonLabel ?? "Entrar a Socialcors →")
+                : (typeConfig?.registerButtonLabel ?? "Entrar a Socialcors →")}
           </button>
         </form>
 
@@ -364,7 +379,8 @@ export default function SocialFlowAuthExperience() {
           </>
         ) : (
           <>
-            {/* Left — brand + preview (original) */}
+            {/* Left — brand + plan preview (sin type: el visitante elige aquí, en local
+                state, qué previsualizar — no cambia la URL) */}
             <div className="mb-10 w-full max-w-xl lg:mb-0 lg:flex-1">
               <Link href="/" className="mb-8 flex items-center gap-3">
                 <div
@@ -378,64 +394,93 @@ export default function SocialFlowAuthExperience() {
                 </span>
               </Link>
 
-              <div
-                className="mb-3 inline-flex items-center gap-2 rounded-full border px-4 py-1.5"
-                style={{ borderColor: `${BRAND_ACCENT}30`, backgroundColor: `${BRAND_ACCENT}12` }}
-              >
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ backgroundColor: BRAND_ACCENT }} />
-                <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: BRAND_ACCENT }}>
-                  Sistema operativo de marketing con IA
-                </span>
-              </div>
-
-              <h1 className="mt-4 text-4xl font-black leading-tight tracking-tight sm:text-5xl" style={{ color: INK }}>
-                La IA que gestiona tu marketing{" "}
-                <span className="sf-shimmer-text">mientras tú te dedicas a tu negocio.</span>
+              <h1 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl" style={{ color: INK }}>
+                Tu Community Manager con Inteligencia Artificial
               </h1>
-
-              <p className="mt-5 text-base leading-relaxed" style={{ color: MUTED }}>
-                Crea campañas completas, publica automáticamente, responde con tu voz y detecta leads — desde un único panel.
+              <p className="mt-4 text-base leading-relaxed" style={{ color: MUTED }}>
+                Elige tu plan y empieza gratis hoy — sin tarjeta de crédito
               </p>
 
-              {/* Mini dashboard mockup — screenshot-style, deliberadamente oscuro (igual que
-                  los paneles "El Cerebro"/CTA final de la landing) para que destaque sobre
-                  el fondo claro de la página */}
-              <div className="sf-float mt-10 overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d1a] shadow-2xl shadow-violet-900/20">
-                <div className="flex items-center gap-2 border-b border-white/5 bg-white/5 px-4 py-3">
-                  <span className="h-2 w-2 rounded-full bg-red-500/70" />
-                  <span className="h-2 w-2 rounded-full bg-yellow-500/70" />
-                  <span className="h-2 w-2 rounded-full bg-green-500/70" />
-                  <span className="ml-3 text-xs text-white/25">Socialcors — Dashboard</span>
-                </div>
-                <div className="p-5">
-                  <div className="mb-4 grid grid-cols-3 gap-2">
-                    {[
-                      { l: "Publicaciones hoy", v: "12", c: "text-violet-400" },
-                      { l: "Leads detectados", v: "3", c: "text-fuchsia-400" },
-                      { l: "Engagement", v: "↑ 4.2%", c: "text-blue-400" },
-                    ].map((stat) => (
-                      <div key={stat.l} className="rounded-lg border border-white/5 bg-white/5 p-3">
-                        <p className="text-[9px] text-white/35 mb-1">{stat.l}</p>
-                        <p className={`text-base font-black ${stat.c}`}>{stat.v}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="space-y-2">
-                    {[
-                      { t: "10:00", net: "IG", msg: "Nuevo lanzamiento de producto", s: "✓ publicado", sc: "text-emerald-400" },
-                      { t: "14:30", net: "LK", msg: "Artículo de tendencias IA", s: "⏱ programado", sc: "text-white/30" },
-                      { t: "18:00", net: "TK", msg: "Behind the scenes del equipo", s: "⚡ generando…", sc: "text-fuchsia-400 animate-pulse" },
-                    ].map((item) => (
-                      <div key={item.t} className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/3 px-3 py-2">
-                        <span className="w-9 shrink-0 text-[10px] text-white/25">{item.t}</span>
-                        <span className="rounded bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-bold text-violet-300">{item.net}</span>
-                        <span className="flex-1 truncate text-xs text-white/55">{item.msg}</span>
-                        <span className={`text-[10px] ${item.sc}`}>{item.s}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              {/* Toggle Influencer / Empresa — mismo patrón visual que los tabs de modo del
+                  formulario, de arriba (líneas 130-147) */}
+              <div className="mt-8 grid grid-cols-2 overflow-hidden rounded-xl border border-black/[0.06] bg-black/[0.02] p-1">
+                {(["influencer", "empresa"] as SocialFlowAccountType[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setPreviewType(t)}
+                    className="rounded-lg px-4 py-2.5 text-sm font-bold transition"
+                    style={
+                      previewType === t
+                        ? {
+                            background: t === "influencer" ? IG_GRADIENT : LI_GRADIENT,
+                            color: "#fff",
+                            boxShadow: `0 4px 14px ${(t === "influencer" ? IG_PINK : LI_BLUE)}40`,
+                          }
+                        : { color: MUTED }
+                    }
+                  >
+                    {t === "influencer" ? "Influencer" : "Empresa"}
+                  </button>
+                ))}
               </div>
+
+              {/* 3 tarjetas de plan — datos reales de plans.ts, nunca hardcodeados */}
+              <div className="mt-5 grid gap-3">
+                {listSocialFlowPaidPlans(previewType).map((plan) => {
+                  const isPopular = plan.code.endsWith("_basico");
+                  const shortName = plan.label.replace(/^(Influencer|Empresa)\s+/, "");
+                  const previewAccent = previewType === "influencer" ? IG_PINK : LI_BLUE;
+                  const previewGradient = previewType === "influencer" ? IG_GRADIENT : LI_GRADIENT;
+                  return (
+                    <Link
+                      key={plan.code}
+                      href={`/socialflow/planes?type=${previewType}`}
+                      className="relative block rounded-xl bg-white p-4 transition-all duration-300 hover:-translate-y-0.5"
+                      style={{
+                        border: `1.5px solid ${previewAccent}`,
+                        boxShadow: isPopular ? `0 6px 20px ${previewAccent}26` : "0 1px 3px rgba(15,15,35,0.05)",
+                      }}
+                    >
+                      {isPopular && (
+                        <span
+                          className="absolute -top-2.5 left-4 rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow"
+                          style={{ background: previewGradient }}
+                        >
+                          Más popular
+                        </span>
+                      )}
+                      <div className="flex items-baseline justify-between gap-2">
+                        <h4 className="text-sm font-black" style={{ color: INK }}>{shortName}</h4>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-lg font-black" style={{ color: previewAccent }}>{plan.priceEur}€</span>
+                          <span className="text-[11px]" style={{ color: MUTED }}>/mes</span>
+                        </div>
+                      </div>
+                      <p className="mt-1 text-xs" style={{ color: MUTED }}>{plan.description}</p>
+                      <ul className="mt-2.5 space-y-1">
+                        {plan.features.slice(0, 4).map((feature) => (
+                          <li key={feature} className="flex items-start gap-1.5 text-[11px]" style={{ color: `${INK}b3` }}>
+                            <span className="mt-px shrink-0 font-black" style={{ color: previewAccent }}>✓</span>
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                    </Link>
+                  );
+                })}
+              </div>
+
+              <p className="mt-6 text-sm leading-relaxed" style={{ color: MUTED }}>
+                ¿Por qué Socialcors? Analizamos, creamos, publicamos y aprendemos por ti — en Instagram y LinkedIn — mientras tú te dedicas a tu negocio.
+              </p>
+              <Link
+                href={`/socialflow/planes?type=${previewType}`}
+                className="mt-3 inline-flex items-center gap-1 text-sm font-bold transition-colors hover:opacity-75"
+                style={{ color: previewType === "influencer" ? IG_PINK : LI_BLUE }}
+              >
+                Ver todos los detalles de cada plan →
+              </Link>
             </div>
 
             {authForm}
