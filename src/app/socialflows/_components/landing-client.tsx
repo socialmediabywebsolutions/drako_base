@@ -250,7 +250,7 @@ function HeroColumn({ config }: { config: HeroSideConfig }) {
 
       <div className="mt-8">
         <Link
-          href={`/socialflow/auth?type=${config.key}`}
+          href={`/socialflow/planes?type=${config.key}`}
           className={`${config.ctaGlowClass} sc-cta-shine inline-flex items-center gap-2 rounded-xl px-8 py-4 text-base font-black text-white transition-all hover:brightness-110 hover:-translate-y-0.5`}
           style={{ background: config.ctaGradient }}
         >
