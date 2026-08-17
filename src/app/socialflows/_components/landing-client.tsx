@@ -331,6 +331,10 @@ export default function LandingClient() {
     <>
     <div className="min-h-screen overflow-x-hidden font-sans antialiased" style={{ backgroundColor: BG }}>
       <style>{`
+        html {
+          scroll-behavior: smooth;
+        }
+
         @keyframes sc-hero-gradient {
           0%, 100% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }
@@ -420,7 +424,7 @@ export default function LandingClient() {
               Iniciar sesión
             </Link>
             <Link
-              href="/socialflow/auth"
+              href="#hero-dividido"
               className="sc-cta-glow sc-cta-shine rounded-lg px-4 py-2 text-sm font-bold text-white transition-all hover:brightness-110"
               style={{ background: `linear-gradient(90deg, ${ACCENT_SOFT}, ${ACCENT})` }}
             >
@@ -476,7 +480,7 @@ export default function LandingClient() {
           {/* CTA */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <Link
-              href="/socialflow/auth"
+              href="#hero-dividido"
               className="sc-cta-glow sc-cta-shine rounded-xl px-9 py-4 text-base font-black text-white transition-all hover:brightness-110 hover:-translate-y-0.5"
               style={{ background: `linear-gradient(90deg, ${ACCENT_SOFT}, ${ACCENT}, ${ACCENT_STRONG})` }}
             >
@@ -495,7 +499,7 @@ export default function LandingClient() {
       </section>
 
       {/* ── HERO DIVIDIDO ─────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden">
+      <section id="hero-dividido" className="relative scroll-mt-20 overflow-hidden">
         <div className="relative grid grid-cols-1 md:grid-cols-2">
           {HERO_SIDES.map((side) => (
             <HeroColumn key={side.key} config={side} />
