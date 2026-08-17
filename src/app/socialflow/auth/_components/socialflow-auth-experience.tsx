@@ -12,6 +12,18 @@ type AuthResponseBody = {
   code?: string;
 };
 
+// ─── Design tokens — mismos que landing-client.tsx / planes-client.tsx ──────────
+const BG = "#F7F6FA";
+const INK = "#1a1a2e";
+const MUTED = "#64748b";
+
+const IG_PINK = "#DD2A7B";
+const LI_BLUE = "#0A66C2";
+const BRAND_ACCENT = "#4338CA";
+const IG_GRADIENT = "linear-gradient(90deg, #F58529, #DD2A7B, #8134AF)";
+const LI_GRADIENT = "linear-gradient(90deg, #0A66C2, #0077B5)";
+const BRAND_GRADIENT = "linear-gradient(90deg, #6D5DFB, #4338CA)";
+
 function resolveSafeRedirectTarget(rawTarget: string | null, fallback = "/socialflow") {
   if (!rawTarget) return fallback;
   try {
@@ -31,24 +43,25 @@ export default function SocialFlowAuthExperience() {
   const typeConfig = accountType === "influencer"
     ? {
         badge: "✓ Plan Influencer · 15 días gratis",
-        badgeCls: "border-violet-500/25 bg-violet-500/10 text-violet-300",
         registerTitle: "Crea tu cuenta como Influencer",
         registerSubtitle: "Conecta Instagram. La IA publica por ti.",
-        gradient: "from-violet-600 to-pink-500",
-        btnShadow: "shadow-violet-500/25 hover:shadow-violet-500/40",
-        tabShadow: "shadow-violet-500/20",
+        gradient: IG_GRADIENT,
+        accentColor: IG_PINK,
       }
     : accountType === "empresa"
     ? {
         badge: "✓ Plan Empresa · 15 días gratis",
-        badgeCls: "border-blue-500/25 bg-blue-500/10 text-blue-300",
         registerTitle: "Crea tu cuenta como Empresa",
         registerSubtitle: "Conecta Instagram. La IA gestiona tu marca.",
-        gradient: "from-blue-600 to-cyan-500",
-        btnShadow: "shadow-blue-500/25 hover:shadow-blue-500/40",
-        tabShadow: "shadow-blue-500/20",
+        gradient: LI_GRADIENT,
+        accentColor: LI_BLUE,
       }
     : null;
+
+  // Acento activo del panel (tabs, botón, badge) — colores de red cuando hay type,
+  // morado de marca por defecto.
+  const activeGradient = typeConfig?.gradient ?? BRAND_GRADIENT;
+  const activeAccent = typeConfig?.accentColor ?? BRAND_ACCENT;
 
   const [mode, setMode] = useState<SocialFlowAuthMode>("login");
   const [name, setName] = useState("");
@@ -112,20 +125,21 @@ export default function SocialFlowAuthExperience() {
 
   const authForm = (
     <aside className="w-full max-w-md lg:flex-shrink-0">
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-7 shadow-2xl shadow-violet-900/20 backdrop-blur-sm sm:p-9">
+      <div className="rounded-2xl border border-black/[0.06] bg-white p-7 shadow-[0_8px_30px_rgba(15,15,35,0.08)] sm:p-9">
 
         {/* Mode tabs */}
-        <div className="mb-7 grid grid-cols-2 overflow-hidden rounded-xl border border-white/10 bg-white/5 p-1">
+        <div className="mb-7 grid grid-cols-2 overflow-hidden rounded-xl border border-black/[0.06] bg-black/[0.02] p-1">
           {(["login", "register"] as SocialFlowAuthMode[]).map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => { setMode(m); setError(null); }}
-              className={`rounded-lg px-4 py-2.5 text-sm font-bold transition ${
+              className="rounded-lg px-4 py-2.5 text-sm font-bold transition"
+              style={
                 mode === m
-                  ? `bg-gradient-to-r ${typeConfig?.gradient ?? "from-violet-500 to-fuchsia-500"} text-white shadow-md ${typeConfig?.tabShadow ?? "shadow-violet-500/20"}`
-                  : "text-white/40 hover:text-white/70"
-              }`}
+                  ? { background: activeGradient, color: "#fff", boxShadow: `0 4px 14px ${activeAccent}40` }
+                  : { color: MUTED }
+              }
             >
               {m === "login" ? "Iniciar sesión" : "Crear cuenta"}
             </button>
@@ -133,15 +147,18 @@ export default function SocialFlowAuthExperience() {
         </div>
 
         {typeConfig && mode === "register" && (
-          <div className={`mb-4 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold ${typeConfig.badgeCls}`}>
+          <div
+            className="mb-4 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold"
+            style={{ borderColor: `${activeAccent}40`, backgroundColor: `${activeAccent}14`, color: activeAccent }}
+          >
             {typeConfig.badge}
           </div>
         )}
 
-        <h2 className="mb-1 text-2xl font-black tracking-tight text-white">
+        <h2 className="mb-1 text-2xl font-black tracking-tight" style={{ color: INK }}>
           {mode === "login" ? "Bienvenido de vuelta" : (typeConfig?.registerTitle ?? "Empieza hoy")}
         </h2>
-        <p className="mb-7 text-sm text-white/45">
+        <p className="mb-7 text-sm" style={{ color: MUTED }}>
           {mode === "login"
             ? "Accede a tu panel de marketing."
             : (typeConfig?.registerSubtitle ?? "15 días gratis. Sin tarjeta de crédito.")}
@@ -177,7 +194,8 @@ export default function SocialFlowAuthExperience() {
               mode === "login" ? (
                 <Link
                   href="/socialflow/auth/reset-password"
-                  className="text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors"
+                  className="text-xs font-semibold transition-colors hover:opacity-75"
+                  style={{ color: activeAccent }}
                 >
                   ¿Olvidaste tu contraseña?
                 </Link>
@@ -195,7 +213,7 @@ export default function SocialFlowAuthExperience() {
           </FieldLabel>
 
           {error && (
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-300">
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
               {error}
             </div>
           )}
@@ -203,7 +221,8 @@ export default function SocialFlowAuthExperience() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className={`mt-2 w-full rounded-xl bg-gradient-to-r ${typeConfig?.gradient ?? "from-violet-500 to-fuchsia-500"} px-5 py-3.5 text-sm font-black tracking-wide text-white shadow-lg ${typeConfig?.btnShadow ?? "shadow-violet-500/25 hover:shadow-violet-500/40"} transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50`}
+            className="mt-2 w-full rounded-xl px-5 py-3.5 text-sm font-black tracking-wide text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ background: activeGradient, boxShadow: `0 8px 20px ${activeAccent}40` }}
           >
             {isSubmitting
               ? "Un momento…"
@@ -213,29 +232,29 @@ export default function SocialFlowAuthExperience() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-white/25">
+        <p className="mt-6 text-center text-xs" style={{ color: `${MUTED}99` }}>
           Al continuar aceptas los{" "}
-          <span className="text-white/40">Términos de servicio</span> y la{" "}
-          <span className="text-white/40">Política de privacidad</span>.
+          <span style={{ color: MUTED }}>Términos de servicio</span> y la{" "}
+          <span style={{ color: MUTED }}>Política de privacidad</span>.
         </p>
       </div>
     </aside>
   );
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#030312] text-white">
+    <main className="relative min-h-screen overflow-hidden" style={{ backgroundColor: BG, color: INK }}>
 
-      {/* Gradient orbs */}
+      {/* Gradient orbs — tonos suaves para fondo claro */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="sf-orb-1 absolute left-[-15%] top-[-10%] h-[500px] w-[500px] rounded-full bg-violet-600/25 blur-[120px]" />
-        <div className="sf-orb-2 absolute right-[-10%] bottom-[-10%] h-[400px] w-[400px] rounded-full bg-fuchsia-600/20 blur-[100px]" />
-        <div className="sf-orb-3 absolute left-[40%] top-[50%] h-[300px] w-[300px] rounded-full bg-blue-600/15 blur-[90px]" />
+        <div className="sf-orb-1 absolute left-[-15%] top-[-10%] h-[500px] w-[500px] rounded-full bg-violet-200/30 blur-[120px]" />
+        <div className="sf-orb-2 absolute right-[-10%] bottom-[-10%] h-[400px] w-[400px] rounded-full bg-fuchsia-200/25 blur-[100px]" />
+        <div className="sf-orb-3 absolute left-[40%] top-[50%] h-[300px] w-[300px] rounded-full bg-cyan-100/20 blur-[90px]" />
       </div>
 
       {/* Dot grid */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-15"
-        style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.15) 1px, transparent 1px)", backgroundSize: "32px 32px" }}
+        className="pointer-events-none absolute inset-0 opacity-70"
+        style={{ backgroundImage: "radial-gradient(rgba(26,26,46,0.08) 1px, transparent 1px)", backgroundSize: "32px 32px" }}
       />
 
       <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col items-center justify-center px-5 py-16 sm:px-8 lg:flex-row lg:items-center lg:gap-16 lg:py-10">
@@ -245,165 +264,98 @@ export default function SocialFlowAuthExperience() {
             {/* Left — sales content */}
             <div className="mb-10 w-full max-w-xl lg:mb-0 lg:flex-1">
               <Link href="/" className="mb-8 flex items-center gap-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${typeConfig.gradient} text-sm font-black shadow-lg shadow-violet-500/30`}>
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-black text-white shadow-lg"
+                  style={{ background: typeConfig.gradient }}
+                >
                   SC
                 </div>
-                <span className="text-xl font-black tracking-tight">
-                  Social<span className="sf-shimmer-text">cors</span>
+                <span className="text-xl font-black tracking-tight" style={{ color: INK }}>
+                  Socialcors
                 </span>
               </Link>
 
               {accountType === "influencer" ? (
                 <>
-                  {/* 1. Identificación — lo primero y más prominente */}
-                  <h1 className="bg-gradient-to-r from-violet-500 to-pink-500 bg-clip-text text-4xl font-black leading-tight tracking-tight text-transparent sm:text-5xl">
+                  <h1
+                    className="text-4xl font-black leading-tight tracking-tight sm:text-5xl"
+                    style={{ background: IG_GRADIENT, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}
+                  >
                     Para Influencers y Creadores
                   </h1>
 
-                  {/* 2. Problema */}
-                  <p className="mt-5 text-lg leading-relaxed text-white/70">
+                  <p className="mt-5 text-lg leading-relaxed" style={{ color: MUTED }}>
                     ¿Pasas horas pensando qué publicar, cuándo publicar y cómo escribir captions que conecten? Eso se acabó.
                   </p>
 
-                  {/* 3. Solución */}
-                  <p className="mt-6 text-2xl font-bold text-white">
+                  <p className="mt-6 text-2xl font-bold" style={{ color: INK }}>
                     La IA publica por ti mientras tú creces
                   </p>
 
-                  {/* 4. Beneficios concretos */}
                   <ul className="mt-6 space-y-3">
                     {[
                       "Sube una foto — caption, hashtags y hora óptima en 10 segundos",
                       "Publicación automática en Instagram sin tocar el móvil",
                       "Detecta sponsors y colaboraciones en tus DMs automáticamente",
                     ].map((b) => (
-                      <li key={b} className="flex items-start gap-3 text-sm text-white/75">
-                        <span className="mt-0.5 shrink-0 font-black text-violet-400">✓</span>
+                      <li key={b} className="flex items-start gap-3 text-sm" style={{ color: `${INK}b3` }}>
+                        <span className="mt-0.5 shrink-0 font-black" style={{ color: IG_PINK }}>✓</span>
                         {b}
                       </li>
                     ))}
                   </ul>
 
-                  {/* 5. Planes */}
-                  <div className="mt-8 grid grid-cols-3 gap-3">
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-xs font-bold uppercase tracking-widest text-white/40">Influencer Starter</p>
-                      <p className="mt-2 text-2xl font-black text-white">99€<span className="text-sm font-normal text-white/40">/mes</span></p>
-                      <p className="mt-1 text-[11px] text-white/40">Instagram · 1 post+reel+historia+carrusel/día</p>
-                      <ul className="mt-3 space-y-1.5">
-                        {["Captions con tu voz", "Hashtags por tendencias", "Publicación automática", "Calendario de contenido"].map((f) => (
-                          <li key={f} className="flex items-center gap-2 text-[11px] text-white/60">
-                            <span className="text-violet-400">·</span>{f}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-xs font-bold uppercase tracking-widest text-white/40">Influencer Básico</p>
-                      <p className="mt-2 text-2xl font-black text-white">179€<span className="text-sm font-normal text-white/40">/mes</span></p>
-                      <p className="mt-1 text-[11px] text-white/40">Instagram · 2 posts+reels+historias+carruseles/día</p>
-                      <ul className="mt-3 space-y-1.5">
-                        {["Todo lo de Starter", "Análisis de imagen con IA", "Calendario de contenido"].map((f) => (
-                          <li key={f} className="flex items-center gap-2 text-[11px] text-white/60">
-                            <span className="text-violet-400">·</span>{f}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="rounded-2xl border border-violet-500/50 bg-violet-500/10 p-4">
-                      <div className="mb-2 inline-block rounded-full bg-violet-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-violet-300">MÁS POPULAR</div>
-                      <p className="text-xs font-bold uppercase tracking-widest text-violet-300">Influencer Pro</p>
-                      <p className="mt-2 text-2xl font-black text-white">299€<span className="text-sm font-normal text-white/40">/mes</span></p>
-                      <p className="mt-1 text-[11px] text-white/40">Instagram · 3 posts+reels+historias+carruseles/día</p>
-                      <ul className="mt-3 space-y-1.5">
-                        {["Todo lo de Básico", "IA avanzada + análisis de imagen", "Analytics avanzados"].map((f) => (
-                          <li key={f} className="flex items-center gap-2 text-[11px] text-violet-200/80">
-                            <span className="text-violet-400">·</span>{f}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
+                  <Link
+                    href="/socialflow/planes?type=influencer"
+                    className="mt-8 inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-sm font-black text-white shadow-lg transition-all hover:brightness-110 hover:-translate-y-0.5"
+                    style={{ background: IG_GRADIENT, boxShadow: `0 10px 24px ${IG_PINK}33` }}
+                  >
+                    Ver los 3 planes en detalle →
+                  </Link>
 
-                  {/* 6. Cierre con urgencia */}
-                  <p className="mt-7 text-center text-lg font-black text-white">Empieza hoy. Publica mañana.</p>
-                  <p className="mt-2 text-center text-xs text-white/35">✓ 15 días gratis · ✓ Sin tarjeta · ✓ Cancela cuando quieras</p>
+                  <p className="mt-7 text-center text-lg font-black" style={{ color: INK }}>Empieza hoy. Publica mañana.</p>
+                  <p className="mt-2 text-center text-xs" style={{ color: MUTED }}>✓ 15 días gratis · ✓ Sin tarjeta · ✓ Cancela cuando quieras</p>
                 </>
               ) : (
                 <>
-                  {/* 1. Identificación — lo primero y más prominente */}
-                  <h1 className="bg-gradient-to-r from-blue-500 to-cyan-400 bg-clip-text text-4xl font-black leading-tight tracking-tight text-transparent sm:text-5xl">
+                  <h1
+                    className="text-4xl font-black leading-tight tracking-tight sm:text-5xl"
+                    style={{ background: LI_GRADIENT, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}
+                  >
                     Para Empresas y PYMEs
                   </h1>
 
-                  {/* 2. Problema */}
-                  <p className="mt-5 text-lg leading-relaxed text-white/70">
+                  <p className="mt-5 text-lg leading-relaxed" style={{ color: MUTED }}>
                     ¿Tu community manager cuesta más de 1.500€/mes y aún así no consigues constancia, leads ni resultados medibles?
                   </p>
 
-                  {/* 3. Solución */}
-                  <p className="mt-6 text-2xl font-bold text-white">
+                  <p className="mt-6 text-2xl font-bold" style={{ color: INK }}>
                     Tu equipo de marketing con IA, por menos que un community manager
                   </p>
 
-                  {/* 4. Beneficios concretos */}
                   <ul className="mt-6 space-y-3">
                     {[
                       "Contenido auténtico generado desde tu web, PDFs y catálogo de productos",
                       "Responde comentarios y DMs con el conocimiento real de tu negocio 24/7",
                       "Detecta leads y genera presupuestos automáticamente desde conversaciones",
                     ].map((b) => (
-                      <li key={b} className="flex items-start gap-3 text-sm text-white/75">
-                        <span className="mt-0.5 shrink-0 font-black text-blue-400">✓</span>
+                      <li key={b} className="flex items-start gap-3 text-sm" style={{ color: `${INK}b3` }}>
+                        <span className="mt-0.5 shrink-0 font-black" style={{ color: LI_BLUE }}>✓</span>
                         {b}
                       </li>
                     ))}
                   </ul>
 
-                  {/* 5. Planes */}
-                  <div className="mt-8 grid grid-cols-3 gap-3">
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-xs font-bold uppercase tracking-widest text-white/40">Empresa Starter</p>
-                      <p className="mt-2 text-2xl font-black text-white">169€<span className="text-sm font-normal text-white/40">/mes</span></p>
-                      <p className="mt-1 text-[11px] text-white/40">Instagram · 1 post+reel+historia+carrusel/día</p>
-                      <ul className="mt-3 space-y-1.5">
-                        {["Base de Conocimiento", "Respuesta automática comentarios y DMs"].map((f) => (
-                          <li key={f} className="flex items-center gap-2 text-[11px] text-white/60">
-                            <span className="text-blue-400">·</span>{f}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-xs font-bold uppercase tracking-widest text-white/40">Empresa Básico</p>
-                      <p className="mt-2 text-2xl font-black text-white">299€<span className="text-sm font-normal text-white/40">/mes</span></p>
-                      <p className="mt-1 text-[11px] text-white/40">Instagram · 2 posts+reels+historias+carruseles/día</p>
-                      <ul className="mt-3 space-y-1.5">
-                        {["Todo lo de Starter", "Voz de marca", "CRM Social básico"].map((f) => (
-                          <li key={f} className="flex items-center gap-2 text-[11px] text-white/60">
-                            <span className="text-blue-400">·</span>{f}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="rounded-2xl border border-blue-500/50 bg-blue-500/10 p-4">
-                      <div className="mb-2 inline-block rounded-full bg-blue-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-blue-300">MÁS COMPLETO</div>
-                      <p className="text-xs font-bold uppercase tracking-widest text-blue-300">Empresa Pro</p>
-                      <p className="mt-2 text-2xl font-black text-white">449€<span className="text-sm font-normal text-white/40">/mes</span></p>
-                      <p className="mt-1 text-[11px] text-white/40">Instagram · 3 posts+reels+historias+carruseles/día</p>
-                      <ul className="mt-3 space-y-1.5">
-                        {["Todo lo de Básico", "Gestión de reputación", "Leads desde DMs", "WhatsApp orquestador"].map((f) => (
-                          <li key={f} className="flex items-center gap-2 text-[11px] text-blue-200/80">
-                            <span className="text-blue-400">·</span>{f}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
+                  <Link
+                    href="/socialflow/planes?type=empresa"
+                    className="mt-8 inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-sm font-black text-white shadow-lg transition-all hover:brightness-110 hover:-translate-y-0.5"
+                    style={{ background: LI_GRADIENT, boxShadow: `0 10px 24px ${LI_BLUE}33` }}
+                  >
+                    Ver los 3 planes en detalle →
+                  </Link>
 
-                  {/* 6. Cierre con urgencia */}
-                  <p className="mt-7 text-center text-lg font-black text-white">Configura hoy. Tu IA trabaja mañana.</p>
-                  <p className="mt-2 text-center text-xs text-white/35">✓ 15 días gratis · ✓ Sin tarjeta · ✓ Cancela cuando quieras</p>
+                  <p className="mt-7 text-center text-lg font-black" style={{ color: INK }}>Configura hoy. Tu IA trabaja mañana.</p>
+                  <p className="mt-2 text-center text-xs" style={{ color: MUTED }}>✓ 15 días gratis · ✓ Sin tarjeta · ✓ Cancela cuando quieras</p>
                 </>
               )}
             </div>
@@ -415,31 +367,39 @@ export default function SocialFlowAuthExperience() {
             {/* Left — brand + preview (original) */}
             <div className="mb-10 w-full max-w-xl lg:mb-0 lg:flex-1">
               <Link href="/" className="mb-8 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-black shadow-lg shadow-violet-500/30">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-black text-white shadow-lg"
+                  style={{ background: BRAND_GRADIENT }}
+                >
                   SC
                 </div>
-                <span className="text-xl font-black tracking-tight">
-                  Social<span className="sf-shimmer-text">cors</span>
+                <span className="text-xl font-black tracking-tight" style={{ color: INK }}>
+                  Socialcors
                 </span>
               </Link>
 
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-4 py-1.5">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400" />
-                <span className="text-xs font-semibold uppercase tracking-widest text-violet-300">
+              <div
+                className="mb-3 inline-flex items-center gap-2 rounded-full border px-4 py-1.5"
+                style={{ borderColor: `${BRAND_ACCENT}30`, backgroundColor: `${BRAND_ACCENT}12` }}
+              >
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ backgroundColor: BRAND_ACCENT }} />
+                <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: BRAND_ACCENT }}>
                   Sistema operativo de marketing con IA
                 </span>
               </div>
 
-              <h1 className="mt-4 text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
+              <h1 className="mt-4 text-4xl font-black leading-tight tracking-tight sm:text-5xl" style={{ color: INK }}>
                 La IA que gestiona tu marketing{" "}
                 <span className="sf-shimmer-text">mientras tú te dedicas a tu negocio.</span>
               </h1>
 
-              <p className="mt-5 text-base leading-relaxed text-white/55">
+              <p className="mt-5 text-base leading-relaxed" style={{ color: MUTED }}>
                 Crea campañas completas, publica automáticamente, responde con tu voz y detecta leads — desde un único panel.
               </p>
 
-              {/* Mini dashboard mockup */}
+              {/* Mini dashboard mockup — screenshot-style, deliberadamente oscuro (igual que
+                  los paneles "El Cerebro"/CTA final de la landing) para que destaque sobre
+                  el fondo claro de la página */}
               <div className="sf-float mt-10 overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d1a] shadow-2xl shadow-violet-900/20">
                 <div className="flex items-center gap-2 border-b border-white/5 bg-white/5 px-4 py-3">
                   <span className="h-2 w-2 rounded-full bg-red-500/70" />
@@ -499,7 +459,7 @@ function FieldLabel({
   return (
     <label className="block">
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-sm font-semibold text-white/70">{label}</span>
+        <span className="text-sm font-semibold" style={{ color: `${INK}b3` }}>{label}</span>
         {right}
       </div>
       {children}

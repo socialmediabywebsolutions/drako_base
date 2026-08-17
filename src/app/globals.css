@@ -326,17 +326,16 @@ body::before {
   display: block;
   width: 100%;
   border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #ffffff;
   padding: 0.75rem 1rem;
   font-size: 0.875rem;
-  color: white;
+  color: #1a1a2e;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
-  backdrop-filter: blur(4px);
 }
-.auth-input::placeholder { color: rgba(255,255,255,0.25); }
+.auth-input::placeholder { color: rgba(26, 26, 46, 0.35); }
 .auth-input:focus {
-  border-color: rgba(167, 139, 250, 0.6);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  border-color: rgba(67, 56, 202, 0.5);
+  box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.12);
 }
