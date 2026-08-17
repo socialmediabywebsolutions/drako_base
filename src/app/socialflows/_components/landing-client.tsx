@@ -72,26 +72,31 @@ type SocialLink = {
 };
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
+const IG_CIRCLE = "linear-gradient(135deg,#F58529,#DD2A7B)";
+const LI_LI_CIRCLE = "linear-gradient(135deg,#6D5DFB,#4338CA)"; // pasos "diseño/creación" — morado dominante
+const HANDOFF_CIRCLE = "linear-gradient(135deg,#DD2A7B,#0A66C2)"; // paso 7: publica en ambas redes
+
 const HOW_IT_WORKS = [
-  { num: "1", icon: "📸", title: "Subes una foto", text: "Desde el móvil o el ordenador. Sin plantillas ni formularios — solo la foto que ya has hecho hoy." },
-  { num: "2", icon: "🔍", title: "La IA analiza el contexto", text: "Detecta quién aparece, dónde estás y qué producto o servicio muestra la imagen." },
-  { num: "3", icon: "🎨", title: "Genera la imagen optimizada", text: "Ajusta formato, composición y estilo según Instagram o LinkedIn automáticamente." },
-  { num: "4", icon: "✍️", title: "Escribe el contenido completo", text: "Caption en tu voz, hashtags con tracción real y CTA adaptado a tu objetivo." },
-  { num: "5", icon: "🎬", title: "Crea el carrusel o el reel", text: "Si aplica, diseña los slides o anima el vídeo con efectos visuales automáticamente." },
-  { num: "6", icon: "⏰", title: "Elige el mejor momento", text: "Calcula la hora exacta de publicación según el comportamiento real de tu audiencia." },
-  { num: "7", icon: "🚀", title: "Publica y agenda", text: "En Instagram y LinkedIn, en el momento exacto, sin que toques nada más." },
-  { num: "8", icon: "📊", title: "Mide y aprende", text: "Analiza los resultados reales y mejora automáticamente el siguiente contenido." },
+  { num: "1", title: "Subes la foto", sub: "móvil u ordenador", circle: IG_CIRCLE },
+  { num: "2", title: "Analiza contexto", sub: "personas, lugar, producto", circle: IG_CIRCLE },
+  { num: "3", title: "Diseña contenido", sub: "formato por red social", circle: LI_LI_CIRCLE },
+  { num: "4", title: "Escribe el caption", sub: "tu voz + hashtags", circle: IG_CIRCLE },
+  { num: "5", title: "Crea reel/carrusel", sub: "animado automático", circle: LI_LI_CIRCLE },
+  { num: "6", title: "Elige el momento", sub: "hora exacta tu audiencia", circle: LI_BLUE },
+  { num: "7", title: "Publica automático", sub: "Instagram y LinkedIn", circle: HANDOFF_CIRCLE },
+  { num: "8", title: "Mide y aprende", sub: "mejora el siguiente", circle: LI_BLUE },
+  { num: "9", title: "Responde", sub: "comentarios y DMs", circle: IG_CIRCLE },
 ];
 
 const AI_AGENTS = [
-  { num: "1", network: "instagram" as const, icon: "📸", name: "Visual Agent", text: "Analiza la foto — detecta personas, lugar, productos y emoción." },
-  { num: "2", network: "instagram" as const, icon: "🧠", name: "Strategy Agent", text: "Cruza con tu Knowledge Base — entiende tu marca, voz y audiencia." },
-  { num: "3", network: "instagram" as const, icon: "🔥", name: "Trend Agent", text: "Detecta qué está siendo viral en tu nicho ahora mismo." },
-  { num: "4", network: "instagram" as const, icon: "✍️", name: "Copywriter Agent", text: "Escribe el caption en tu voz + hashtags con tracción real." },
-  { num: "5", network: "linkedin" as const, icon: "⏰", name: "Best Time Agent", text: "Calcula la hora exacta según el comportamiento real de tu audiencia." },
-  { num: "6", network: "linkedin" as const, icon: "🚀", name: "Publisher Agent", text: "Publica en Instagram y LinkedIn en el momento exacto." },
-  { num: "7", network: "linkedin" as const, icon: "📊", name: "Analytics Agent", text: "Mide resultados reales y mejora automáticamente el siguiente contenido." },
-  { num: "8", network: "instagram" as const, icon: "💬", name: "Community Agent", text: "Responde comentarios y DMs usando el conocimiento de tu marca." },
+  { network: "instagram" as const, name: "Visual Agent", text: "Analiza la foto — detecta personas, lugar, productos y emoción." },
+  { network: "instagram" as const, name: "Strategy Agent", text: "Cruza con tu Knowledge Base — entiende tu marca, voz y audiencia." },
+  { network: "instagram" as const, name: "Trend Agent", text: "Detecta qué está siendo viral en tu nicho ahora mismo." },
+  { network: "instagram" as const, name: "Copywriter Agent", text: "Escribe el caption en tu voz + hashtags con tracción real." },
+  { network: "linkedin" as const, name: "Best Time Agent", text: "Calcula la hora exacta según el comportamiento real de tu audiencia." },
+  { network: "linkedin" as const, name: "Publisher Agent", text: "Publica en Instagram y LinkedIn en el momento exacto." },
+  { network: "linkedin" as const, name: "Analytics Agent", text: "Mide resultados reales y mejora automáticamente el siguiente contenido." },
+  { network: "instagram" as const, name: "Community Agent", text: "Responde comentarios y DMs usando el conocimiento de tu marca." },
 ];
 
 const HERO_SIDES: HeroSideConfig[] = [
@@ -131,6 +136,24 @@ const HERO_SIDES: HeroSideConfig[] = [
     ctaGlowClass: "sc-cta-glow-li",
     ctaLabel: "Soy Empresa →",
   },
+];
+
+const OLD_WAY_POINTS = [
+  "Solo programan posts — tú sigues creando todo",
+  "Muestran métricas pero no actúan sobre ellas",
+  "Texto genérico sin conocer tu marca ni tu voz",
+  "No aprenden de tu audiencia real",
+  "No responden comentarios ni DMs",
+  "No detectan tendencias ni oportunidades",
+];
+
+const SOCIALCORS_POINTS = [
+  "Crea, diseña, escribe y publica por ti",
+  "Analiza resultados y mejora el siguiente contenido solo",
+  "Aprende tu voz, tu estilo y tu marca desde el día 1",
+  "Detecta tendencias virales en tu nicho en tiempo real",
+  "Responde comentarios y DMs con tu conocimiento de marca",
+  "Cada cliente tiene su hora de publicación calculada con sus datos reales",
 ];
 
 const NETWORK_COLOR: Record<SocialLink["network"], string> = {
@@ -495,41 +518,51 @@ export default function LandingClient() {
         <div className="mx-auto max-w-6xl px-6">
           <motion.div {...fadeUp} transition={{ duration: 0.5, ease: "easeOut" }}>
             <p className="text-center text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
-              EL PROCESO
+              CÓMO FUNCIONA
             </p>
             <h2 className="mt-3 text-center text-3xl font-black tracking-tight md:text-4xl" style={{ color: INK }}>
-              Cómo funciona
+              Lo que pasa desde que subes tu foto
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-center text-sm" style={{ color: MUTED }}>
-              De la foto al resultado — sin tocar nada más
+              Todo ocurre automáticamente, en segundos
             </p>
           </motion.div>
 
-          <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {HOW_IT_WORKS.map((step, i) => (
-              <motion.div
-                key={step.num}
-                {...fadeUp}
-                transition={{ duration: 0.5, ease: "easeOut", delay: i * 0.08 }}
-              >
-                <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white p-6 shadow-[0_1px_3px_rgba(15,15,35,0.06)] transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_14px_30px_rgba(67,56,202,0.16)]">
-                  <span
-                    className="pointer-events-none absolute -right-2 -top-4 text-7xl font-black leading-none"
-                    style={{ color: ACCENT, opacity: 0.06 }}
+          <div className="mt-12" style={{ overflowX: "auto", paddingBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, minWidth: "max-content" }}>
+              {HOW_IT_WORKS.map((step, i) => [
+                <motion.div
+                  key={`step-${step.num}`}
+                  {...fadeUp}
+                  transition={{ duration: 0.4, ease: "easeOut", delay: i * 0.06 }}
+                  style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4, maxWidth: 80 }}
+                >
+                  <div
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: "50%",
+                      background: step.circle,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: "#fff",
+                    }}
                   >
                     {step.num}
-                  </span>
-                  <div
-                    className="relative mb-4 flex items-center justify-center rounded-[10px]"
-                    style={{ width: 40, height: 40, backgroundColor: `${ACCENT}1a` }}
-                  >
-                    <span style={{ fontSize: "20px", lineHeight: 1 }}>{step.icon}</span>
                   </div>
-                  <h3 className="relative text-base font-black" style={{ color: INK }}>{step.title}</h3>
-                  <p className="relative mt-1.5 text-sm leading-relaxed" style={{ color: MUTED }}>{step.text}</p>
-                </div>
-              </motion.div>
-            ))}
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#1a1a2e", lineHeight: 1.3 }}>{step.title}</span>
+                  <span style={{ fontSize: 9, color: "#94a3b8", lineHeight: 1.3 }}>{step.sub}</span>
+                </motion.div>,
+                i < HOW_IT_WORKS.length - 1 ? (
+                  <span key={`arrow-${step.num}`} style={{ color: "#c4b5fd", fontSize: 16, marginTop: 8, flexShrink: 0 }}>
+                    →
+                  </span>
+                ) : null,
+              ])}
+            </div>
           </div>
         </div>
       </section>
@@ -541,44 +574,49 @@ export default function LandingClient() {
             {...fadeUp}
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="relative overflow-hidden rounded-3xl px-8 py-14 text-center md:px-16 md:py-20"
-            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+            style={{ background: "linear-gradient(160deg,#F0FDF9 0%,#E8FFF9 50%,#F0F7FF 100%)" }}
           >
-            {/* Glow orbs decorativos — drift lento tipo float, discretos, nunca protagonistas */}
+            {/* Glow orbs decorativos — drift lento tipo float, discretos, nunca protagonistas.
+                Recoloreados a tonos claros ahora que el panel tiene fondo claro (antes eran
+                blancos/violeta oscuro, pensados para el panel oscuro anterior). */}
             <motion.div
-              className="pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full bg-white/10 blur-[100px]"
+              className="pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full bg-emerald-200/40 blur-[100px]"
               animate={{ x: [0, 30, 0], y: [0, 20, 0] }}
               transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
             />
             <motion.div
-              className="pointer-events-none absolute -bottom-24 -right-10 h-80 w-80 rounded-full bg-violet-400/10 blur-[110px]"
+              className="pointer-events-none absolute -bottom-24 -right-10 h-80 w-80 rounded-full bg-violet-200/40 blur-[110px]"
               animate={{ x: [0, -25, 0], y: [0, -15, 0] }}
               transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }}
             />
 
             <div className="relative">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2">
+              <div
+                className="mb-5 inline-flex items-center gap-2 rounded-full border px-4 py-2"
+                style={{ borderColor: `${ACCENT2}40`, backgroundColor: `${ACCENT2}14` }}
+              >
                 <span className="text-lg">🧠</span>
-                <span className="text-[11px] font-black uppercase tracking-[0.22em] text-white/90">
+                <span className="text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT2_STRONG }}>
                   El diferenciador real
                 </span>
               </div>
 
-              <h2 className="mx-auto max-w-3xl text-4xl font-black leading-tight tracking-tight text-white md:text-5xl">
+              <h2 className="mx-auto max-w-3xl text-4xl font-black leading-tight tracking-tight md:text-5xl" style={{ color: INK }}>
                 No es un programador de publicaciones. Es un cerebro.
               </h2>
 
-              <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/80">
+              <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed" style={{ color: `${INK}cc` }}>
                 Socialcors analiza constantemente tu nicho y la viralidad de contenido similar,
                 y decide la hora exacta de publicar según los seguidores y el comportamiento
-                <strong className="font-black text-white"> reales de cada cliente</strong> — no un
+                <strong className="font-black" style={{ color: INK }}> reales de cada cliente</strong> — no un
                 horario genérico igual para todos.
               </p>
 
               <div className="mx-auto mt-12 max-w-3xl">
-                <p className="text-center text-[11px] font-black uppercase tracking-[0.22em] text-white/90">
+                <p className="text-center text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
                   LOS AGENTES
                 </p>
-                <p className="mt-2 text-center text-sm text-white/80">
+                <p className="mt-2 text-center text-sm" style={{ color: MUTED }}>
                   8 agentes trabajando en paralelo, 24/7
                 </p>
               </div>
@@ -586,33 +624,28 @@ export default function LandingClient() {
               <div className="mx-auto mt-6 grid max-w-5xl grid-cols-1 gap-4 text-left sm:grid-cols-2 lg:grid-cols-4">
                 {AI_AGENTS.map((agent, i) => (
                   <motion.div
-                    key={agent.num}
+                    key={agent.name}
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, amount: 0.2 }}
                     transition={{ duration: 0.5, ease: "easeOut", delay: i * 0.06 }}
                   >
-                    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20">
+                    <div
+                      className={
+                        agent.network === "instagram"
+                          ? "rounded-[10px] border-[1.5px] bg-white p-[14px] transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_12px_28px_rgba(221,42,123,0.25)]"
+                          : "rounded-[10px] border-[1.5px] bg-white p-[14px] transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_12px_28px_rgba(10,102,194,0.25)]"
+                      }
+                      style={{ borderColor: agent.network === "instagram" ? IG_PINK : LI_BLUE }}
+                    >
                       <span
-                        className="pointer-events-none absolute -right-2 -top-3 text-6xl font-black leading-none text-white"
-                        style={{ opacity: 0.08 }}
-                      >
-                        {agent.num}
-                      </span>
-                      <div
-                        className="relative mb-3 flex items-center justify-center rounded-lg bg-white/10"
-                        style={{ width: 36, height: 36 }}
-                      >
-                        <span style={{ fontSize: "18px", lineHeight: 1 }}>{agent.icon}</span>
-                      </div>
-                      <span
-                        className="relative mb-2 inline-block rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white"
+                        className="mb-2 inline-block rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white"
                         style={{ background: agent.network === "instagram" ? "linear-gradient(90deg, #F58529, #DD2A7B, #8134AF)" : LI_BLUE }}
                       >
                         {agent.network === "instagram" ? "Instagram" : "LinkedIn"}
                       </span>
-                      <p className="relative text-sm font-black text-white">{agent.name}</p>
-                      <p className="relative mt-1 text-xs leading-relaxed text-white/70">{agent.text}</p>
+                      <p style={{ fontSize: "12px", fontWeight: 700, color: INK }}>{agent.name}</p>
+                      <p className="mt-1 leading-relaxed" style={{ fontSize: "10px", color: MUTED }}>{agent.text}</p>
                     </div>
                   </motion.div>
                 ))}
@@ -627,10 +660,10 @@ export default function LandingClient() {
         <div className="mx-auto max-w-5xl px-6">
           <motion.div {...fadeUp} transition={{ duration: 0.5, ease: "easeOut" }}>
             <p className="text-center text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
-              Por qué no somos un programador de publicaciones
+              LA DIFERENCIA
             </p>
             <h2 className="mt-3 text-center text-3xl font-black tracking-tight md:text-4xl" style={{ color: INK }}>
-              Herramientas tradicionales vs. Socialcors
+              ¿Por qué Socialcors y no otra herramienta?
             </h2>
           </motion.div>
 
@@ -638,33 +671,44 @@ export default function LandingClient() {
             <motion.div
               {...fadeUp}
               transition={{ duration: 0.5, ease: "easeOut" }}
-              className="rounded-2xl border border-red-200 bg-red-50/60 p-7"
+              className="rounded-2xl p-7"
+              style={{ backgroundColor: "#FFF5F5", border: "1px solid rgba(220,38,38,0.2)" }}
             >
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-red-300 bg-red-100 px-4 py-2">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-red-300 bg-red-100 px-4 py-2">
                 <span className="text-sm">❌</span>
                 <span className="text-xs font-bold text-red-600">Herramientas tradicionales</span>
               </div>
-              <p className="text-lg font-black leading-snug" style={{ color: INK }}>
-                Tú creas, tú programas, tú analizas.
-              </p>
+              <ul className="space-y-3">
+                {OLD_WAY_POINTS.map((point) => (
+                  <li key={point} className="flex items-start gap-2 text-sm" style={{ color: `${INK}cc` }}>
+                    <span className="mt-px shrink-0 font-black text-red-600">✗</span>
+                    {point}
+                  </li>
+                ))}
+              </ul>
             </motion.div>
 
             <motion.div
               {...fadeUp}
               transition={{ duration: 0.5, ease: "easeOut", delay: 0.12 }}
-              className="rounded-2xl border-2 p-7"
-              style={{ borderColor: `${ACCENT}55`, backgroundColor: `${ACCENT}0d` }}
+              className="rounded-2xl p-7"
+              style={{ backgroundColor: "#F0FDF9", border: `1px solid ${ACCENT2}4d` }}
             >
               <div
-                className="mb-4 inline-flex items-center gap-2 rounded-full border px-4 py-2"
-                style={{ borderColor: `${ACCENT}55`, backgroundColor: `${ACCENT}1a` }}
+                className="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-2"
+                style={{ background: `linear-gradient(90deg, ${ACCENT2}, ${ACCENT})` }}
               >
                 <span className="text-sm">✅</span>
-                <span className="text-xs font-bold" style={{ color: ACCENT_STRONG }}>Socialcors</span>
+                <span className="text-xs font-bold text-white">Socialcors</span>
               </div>
-              <p className="text-lg font-black leading-snug" style={{ color: INK }}>
-                Nosotros lo hacemos todo por ti.
-              </p>
+              <ul className="space-y-3">
+                {SOCIALCORS_POINTS.map((point) => (
+                  <li key={point} className="flex items-start gap-2 text-sm" style={{ color: `${INK}cc` }}>
+                    <span className="mt-px shrink-0 font-black" style={{ color: ACCENT2 }}>✓</span>
+                    {point}
+                  </li>
+                ))}
+              </ul>
             </motion.div>
           </div>
         </div>
