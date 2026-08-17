@@ -4,74 +4,81 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import ChatWidget from "./chat-widget";
 
+// ─── Design tokens (landing-only, ver auditoría de fondo oscuro para el resto del SaaS) ──
+const BG = "#F7F6FA";
+const INK = "#1a1a2e";
+const MUTED = "#64748b";
+const ACCENT_SOFT = "#7F77DD";
+const ACCENT = "#534AB7";
+const ACCENT_STRONG = "#3C3489";
+
 // ─── Types ─────────────────────────────────────────────────────────────────────
 type PricingTab = "influencer" | "empresa";
 
-type StatsData = {
-  active_clients: number;
-  published_posts: number;
-  scheduled_posts: number;
-};
-
-// ─── Data ──────────────────────────────────────────────────────────────────────
-const ROTATING_PHRASES = [
-  "mientras tú creces",
-  "mientras tú vendes",
-  "mientras tú vives",
-  "mientras tú duermes",
-];
-
-const AGENTS = [
-  { num: "01", name: "Agente de Tendencias",    desc: "Detecta tendencias virales en tu nicho" },
-  { num: "02", name: "Agente de Redacción",      desc: "Genera captions con tu voz única" },
-  { num: "03", name: "Agente de Estrategia",     desc: "Planifica tu contenido del mes" },
-  { num: "04", name: "Agente de Palabras Clave", desc: "Optimiza hashtags y SEO social" },
-  { num: "05", name: "Agente de Competencia",    desc: "Analiza a tu competencia en tiempo real" },
-  { num: "06", name: "Agente de Publicación",    desc: "Publica en el momento óptimo" },
-  { num: "07", name: "Agente de Comunidad",      desc: "Responde comentarios y DMs" },
-  { num: "08", name: "Agente de Oportunidades",  desc: "Detecta y clasifica leads" },
-];
-
-const INFLUENCER_FEATURES = [
-  "Sube tu foto, la IA genera todo",
-  "Captions en tu voz y estilo",
-  "Hashtags optimizados por tendencias",
-  "Publicación automática en Instagram",
-  "Detecta colaboraciones y sponsors en tus DMs",
-  "Crece sin esfuerzo manual",
-];
-
-const EMPRESA_FEATURES = [
-  "Base de Conocimiento con tu web, PDFs y catálogo",
-  "Voz de marca consistente en todas las redes",
-  "Responde comentarios y DMs automáticamente",
-  "Detecta leads y genera presupuestos",
-];
-
-type Plan = {
+type WeeklyPlan = {
   id: string;
   name: string;
   price: string;
   period: string;
+  weeklyPosts: number;
+  maxPerDay: number;
+  storiesPerDay: number;
+  distribution: number[]; // [L, M, X, J, V, S, D]
   networks: string;
-  posts: string;
   features: string[];
   popular?: boolean;
 };
 
-const PLANS_INFLUENCER: Plan[] = [
+type SocialLink = {
+  label: string;
+  handle: string;
+  href: string;
+  badge: string;
+};
+
+// ─── Data ──────────────────────────────────────────────────────────────────────
+const WEEKDAYS = ["L", "M", "X", "J", "V", "S", "D"];
+const DIST_8 = [2, 1, 1, 1, 1, 1, 1];
+const DIST_12 = [2, 2, 2, 2, 2, 1, 1];
+const DIST_14 = [2, 2, 2, 2, 2, 2, 2];
+
+const HOW_IT_WORKS = [
+  {
+    num: "1",
+    icon: "📸",
+    title: "Subes una foto",
+    text: "Desde el móvil o el ordenador. Nada de plantillas ni formularios eternos.",
+  },
+  {
+    num: "2",
+    icon: "🧠",
+    title: "La IA analiza, crea y elige la mejor hora",
+    text: "Genera el caption, los hashtags y decide cuándo publicar según tu audiencia real.",
+  },
+  {
+    num: "3",
+    icon: "✅",
+    title: "Apruebas con un toque y se publica solo",
+    text: "Tú das el visto bueno (o dejas que se publique automáticamente). El resto lo hacemos nosotros.",
+  },
+];
+
+const PLANS_INFLUENCER: WeeklyPlan[] = [
   {
     id: "influencer-starter",
     name: "Influencer Starter",
     price: "99€",
     period: "/mes",
-    networks: "Instagram",
-    posts: "1 post+reel+historia+carrusel/día",
+    weeklyPosts: 8,
+    maxPerDay: 2,
+    storiesPerDay: 1,
+    distribution: DIST_8,
+    networks: "Instagram + LinkedIn (perfil personal)",
     features: [
-      "Captions con tu voz",
-      "Hashtags por tendencias",
+      "Instagram + LinkedIn (perfil personal)",
+      "1 historia/día",
+      "El Cerebro elige la mejor hora para ti",
       "Publicación automática",
-      "Calendario de contenido",
     ],
   },
   {
@@ -79,13 +86,16 @@ const PLANS_INFLUENCER: Plan[] = [
     name: "Influencer Básico",
     price: "179€",
     period: "/mes",
-    networks: "Instagram",
-    posts: "2 posts+reels+historias+carruseles/día",
+    weeklyPosts: 12,
+    maxPerDay: 2,
+    storiesPerDay: 2,
+    distribution: DIST_12,
+    networks: "Instagram + LinkedIn (perfil personal)",
     features: [
       "Todo lo de Starter",
-      "Reels automáticos",
-      "Historias diarias",
-      "Carruseles educativos",
+      "2 historias/día",
+      "Análisis de imagen con IA",
+      "Reels y carruseles automáticos",
     ],
     popular: true,
   },
@@ -94,30 +104,36 @@ const PLANS_INFLUENCER: Plan[] = [
     name: "Influencer Pro",
     price: "299€",
     period: "/mes",
-    networks: "Instagram",
-    posts: "3 posts+reels+historias+carruseles/día",
+    weeklyPosts: 14,
+    maxPerDay: 2,
+    storiesPerDay: 2,
+    distribution: DIST_14,
+    networks: "Instagram + LinkedIn (perfil personal)",
     features: [
       "Todo lo de Básico",
-      "Análisis de imagen IA",
+      "2 historias/día",
       "Analytics avanzados",
       "Soporte prioritario",
     ],
   },
 ];
 
-const PLANS_EMPRESA: Plan[] = [
+const PLANS_EMPRESA: WeeklyPlan[] = [
   {
     id: "empresa-starter",
     name: "Empresa Starter",
     price: "169€",
     period: "/mes",
-    networks: "Instagram",
-    posts: "1 post+reel+historia+carrusel/día",
+    weeklyPosts: 8,
+    maxPerDay: 2,
+    storiesPerDay: 1,
+    distribution: DIST_8,
+    networks: "Instagram + LinkedIn (perfil personal)",
     features: [
-      "Base de Conocimiento",
-      "Voz de marca consistente",
-      "Respuesta automática comentarios y DMs",
-      "Calendario de contenido",
+      "Instagram + LinkedIn (perfil personal)",
+      "1 historia/día",
+      "Base de Conocimiento (web, PDFs, catálogo)",
+      "Respuesta automática a comentarios y DMs",
     ],
   },
   {
@@ -125,13 +141,16 @@ const PLANS_EMPRESA: Plan[] = [
     name: "Empresa Básico",
     price: "299€",
     period: "/mes",
-    networks: "Instagram",
-    posts: "2 posts+reels+historias+carruseles/día",
+    weeklyPosts: 12,
+    maxPerDay: 2,
+    storiesPerDay: 2,
+    distribution: DIST_12,
+    networks: "Instagram + LinkedIn (perfil personal)",
     features: [
       "Todo lo de Starter",
+      "2 historias/día",
       "CRM Social básico",
-      "Reels e Historias diarias",
-      "Carruseles de producto",
+      "Voz de marca consistente",
     ],
     popular: true,
   },
@@ -140,58 +159,54 @@ const PLANS_EMPRESA: Plan[] = [
     name: "Empresa Pro",
     price: "449€",
     period: "/mes",
-    networks: "Instagram",
-    posts: "3 posts+reels+historias+carruseles/día",
+    weeklyPosts: 14,
+    maxPerDay: 2,
+    storiesPerDay: 2,
+    distribution: DIST_14,
+    networks: "Instagram + LinkedIn (perfil personal)",
     features: [
       "Todo lo de Básico",
-      "Gestión de reputación",
-      "Leads desde DMs",
+      "2 historias/día",
+      "Gestión de reputación y leads",
       "WhatsApp orquestador",
     ],
   },
 ];
 
+const SOCIAL_LINKS: SocialLink[] = [
+  {
+    label: "Instagram",
+    handle: "@socialcors",
+    href: "https://www.instagram.com/socialcors/",
+    badge: "IG",
+  },
+  {
+    label: "LinkedIn",
+    handle: "Socialcors",
+    href: "https://www.linkedin.com/company/socialcors/",
+    badge: "in",
+  },
+  {
+    label: "Instagram",
+    handle: "@drako.systems",
+    href: "https://www.instagram.com/drako.systems/",
+    badge: "IG",
+  },
+  {
+    label: "LinkedIn",
+    handle: "Drako Systems",
+    href: "https://www.linkedin.com/company/drako-systems/",
+    badge: "in",
+  },
+  {
+    label: "LinkedIn",
+    handle: "Cristóbal Cors Bernal · Founder",
+    href: "https://www.linkedin.com/in/cris-cors/",
+    badge: "in",
+  },
+];
+
 // ─── Hooks ─────────────────────────────────────────────────────────────────────
-function useRotatingText(phrases: string[], interval = 2500) {
-  const [index, setIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setIndex((i) => (i + 1) % phrases.length);
-        setVisible(true);
-      }, 300);
-    }, interval);
-    return () => clearInterval(timer);
-  }, [phrases.length, interval]);
-
-  return { text: phrases[index], visible };
-}
-
-function useCountUp(target: number, duration = 2000, active = false) {
-  const [value, setValue] = useState(0);
-
-  useEffect(() => {
-    if (!active || target === 0) {
-      setValue(target);
-      return;
-    }
-    const steps = 60;
-    const stepDuration = duration / steps;
-    let current = 0;
-    const timer = setInterval(() => {
-      current += 1;
-      setValue(Math.round((current / steps) * target));
-      if (current >= steps) clearInterval(timer);
-    }, stepDuration);
-    return () => clearInterval(timer);
-  }, [target, duration, active]);
-
-  return value;
-}
-
 function useScrolledNav() {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
@@ -219,184 +234,150 @@ function useInView(threshold = 0.2) {
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
-function StatCard({ label, value, suffix = "" }: { label: string; value: string | number; suffix?: string }) {
+function WeekDistribution({ distribution }: { distribution: number[] }) {
+  const max = Math.max(...distribution);
   return (
-    <div className="flex flex-col items-center gap-1.5 px-6 py-5">
-      <span className="text-4xl font-black tracking-tight text-white">
-        {value}{suffix}
-      </span>
-      <span className="text-xs font-semibold uppercase tracking-widest text-white/40">{label}</span>
+    <div className="mt-4 grid grid-cols-7 gap-1.5">
+      {WEEKDAYS.map((day, i) => (
+        <div key={`${day}-${i}`} className="flex flex-col items-center gap-1.5">
+          <div className="flex h-14 w-full items-end overflow-hidden rounded-lg bg-black/[0.04]">
+            <div
+              className="w-full rounded-lg"
+              style={{
+                height: `${(distribution[i] / max) * 100}%`,
+                minHeight: "16px",
+                background: `linear-gradient(180deg, ${ACCENT_SOFT}, ${ACCENT})`,
+              }}
+            />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-wide" style={{ color: `${INK}66` }}>{day}</span>
+          <span className="text-[10px] font-bold" style={{ color: INK }}>{distribution[i]}</span>
+        </div>
+      ))}
     </div>
   );
 }
 
-function CheckItem({ text, color = "text-violet-400" }: { text: string; color?: string }) {
-  return (
-    <li className="flex items-start gap-2.5 text-sm text-white/70">
-      <span className={`mt-px shrink-0 font-black ${color}`}>✓</span>
-      {text}
-    </li>
-  );
-}
-
-function PlanGridCard({ plan, expanded, onSelect, accentClass }: {
-  plan: Plan;
-  expanded: boolean;
-  onSelect: () => void;
-  accentClass: string;
-}) {
-  const visibleFeatures = expanded ? plan.features : plan.features.slice(0, 3);
-
+function PlanCard({ plan }: { plan: WeeklyPlan }) {
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); }
-      }}
       className={[
-        "relative flex cursor-pointer flex-col rounded-2xl border text-left transition-all duration-300",
-        expanded
-          ? "border-violet-500/60 bg-violet-500/10 p-7 ring-1 ring-violet-500/30"
-          : "border-white/10 bg-white/5 p-5 hover:border-white/25 hover:bg-white/[0.08]",
+        "relative flex flex-col rounded-2xl border bg-white p-6 text-left transition-all duration-300 hover:-translate-y-1",
+        plan.popular
+          ? "shadow-[0_8px_30px_rgba(83,74,183,0.18)]"
+          : "border-black/[0.06] shadow-[0_1px_3px_rgba(15,15,35,0.06)] hover:shadow-[0_12px_28px_rgba(15,15,35,0.10)]",
       ].join(" ")}
+      style={plan.popular ? { borderColor: `${ACCENT}55` } : undefined}
     >
       {plan.popular && (
-        <span className={`absolute -top-3 left-1/2 -translate-x-1/2 rounded-full ${accentClass} px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg`}>
-          MÁS POPULAR
+        <span
+          className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg"
+          style={{ background: `linear-gradient(90deg, ${ACCENT_SOFT}, ${ACCENT})` }}
+        >
+          Más popular
         </span>
       )}
 
-      <h3 className={expanded ? "text-xl font-black text-white" : "text-sm font-black text-white"}>
-        {plan.name}
-      </h3>
+      <h3 className="text-lg font-black" style={{ color: INK }}>{plan.name}</h3>
 
       <div className="mt-2 flex items-baseline gap-1.5">
-        <span className={expanded ? "text-4xl font-black text-white" : "text-2xl font-black text-white"}>
-          {plan.price}
-        </span>
-        <span className="text-sm text-white/40">{plan.period}</span>
+        <span className="text-4xl font-black" style={{ color: INK }}>{plan.price}</span>
+        <span className="text-sm" style={{ color: MUTED }}>{plan.period}</span>
       </div>
 
-      {expanded && (
-        <p className="mt-1.5 text-sm font-semibold text-violet-300/80">{plan.networks} · {plan.posts}</p>
-      )}
+      <p className="mt-1.5 text-xs font-semibold" style={{ color: ACCENT }}>{plan.networks}</p>
 
-      <ul className={`mt-4 space-y-2 ${expanded ? "flex-1" : ""}`}>
-        {visibleFeatures.map((f) => (
-          <li key={f} className={`flex items-start gap-2 text-white/65 ${expanded ? "text-sm" : "text-xs"}`}>
-            <span className="mt-px shrink-0 text-[13px] font-black text-violet-400">✓</span>
+      <div className="mt-4 grid grid-cols-3 gap-2.5">
+        <div className="rounded-xl bg-black/[0.03] px-2 py-3 text-center">
+          <div className="text-2xl font-black leading-none" style={{ color: INK }}>{plan.weeklyPosts}</div>
+          <div className="mt-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: MUTED }}>piezas/semana</div>
+        </div>
+        <div className="rounded-xl bg-black/[0.03] px-2 py-3 text-center">
+          <div className="text-2xl font-black leading-none" style={{ color: INK }}>{plan.maxPerDay}</div>
+          <div className="mt-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: MUTED }}>máx/día</div>
+        </div>
+        <div className="rounded-xl bg-black/[0.03] px-2 py-3 text-center">
+          <div className="text-2xl font-black leading-none" style={{ color: INK }}>{plan.storiesPerDay}</div>
+          <div className="mt-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: MUTED }}>historia{plan.storiesPerDay !== 1 ? "s" : ""}/día</div>
+        </div>
+      </div>
+
+      <WeekDistribution distribution={plan.distribution} />
+
+      <ul className="mt-5 flex-1 space-y-2.5">
+        {plan.features.map((f) => (
+          <li key={f} className="flex items-start gap-2 text-sm" style={{ color: `${INK}cc` }}>
+            <span className="mt-px shrink-0 font-black" style={{ color: ACCENT }}>✓</span>
             {f}
           </li>
         ))}
       </ul>
 
-      {expanded ? (
-        <Link
-          href="/socialflow/auth"
-          onClick={(e) => e.stopPropagation()}
-          className={`mt-6 block w-full rounded-xl py-3.5 text-center text-sm font-black tracking-wide text-white transition-all duration-200 ${accentClass} shadow-lg hover:brightness-110`}
-        >
-          Empezar gratis 15 días
-        </Link>
-      ) : (
-        <span className="mt-4 block text-center text-xs font-bold text-white/30">
-          Ver detalles ↓
-        </span>
-      )}
+      <Link
+        href="/socialflow/auth"
+        className="mt-6 block w-full rounded-xl py-3 text-center text-sm font-black tracking-wide text-white shadow-lg transition-all duration-200 hover:brightness-110"
+        style={{ background: `linear-gradient(90deg, ${ACCENT_SOFT}, ${ACCENT})` }}
+      >
+        Empezar gratis 15 días
+      </Link>
     </div>
-  );
-}
-
-// ─── Stats Section ─────────────────────────────────────────────────────────────
-function StatsSection() {
-  const { ref, inView } = useInView(0.3);
-  const [stats, setStats] = useState<StatsData | null>(null);
-
-  useEffect(() => {
-    fetch("/api/socialflow/public/stats")
-      .then((r) => r.json())
-      .then((d: unknown) => setStats(d as StatsData))
-      .catch(() => setStats({ active_clients: 0, published_posts: 0, scheduled_posts: 0 }));
-  }, []);
-
-  const clients   = useCountUp(stats?.active_clients ?? 0, 2000, inView && stats !== null);
-  const published = useCountUp(stats?.published_posts ?? 0, 2000, inView && stats !== null);
-  const scheduled = useCountUp(stats?.scheduled_posts ?? 0, 2000, inView && stats !== null);
-  const hours     = useCountUp(Math.round((stats?.published_posts ?? 0) * 0.5), 2000, inView && stats !== null);
-
-  const loading = stats === null;
-
-  return (
-    <section ref={ref} className="border-y border-white/5 bg-white/[0.03] py-12">
-      <div className="mx-auto max-w-5xl px-6">
-        <div className="grid grid-cols-2 gap-px bg-white/5 overflow-hidden rounded-2xl border border-white/5 sm:grid-cols-4">
-          <StatCard label="Clientes activos"  value={loading ? "..." : clients.toLocaleString()} />
-          <StatCard label="Posts publicados"  value={loading ? "..." : published.toLocaleString()} />
-          <StatCard label="Posts programados" value={loading ? "..." : scheduled.toLocaleString()} />
-          <StatCard label="Horas ahorradas"   value={loading ? "..." : hours.toLocaleString()} suffix="h" />
-        </div>
-        <p className="mt-5 text-center text-xs text-white/25">
-          Números reales, actualizados en tiempo real
-        </p>
-      </div>
-    </section>
   );
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function LandingClient() {
   const scrolled = useScrolledNav();
-  const { text: rotatingText, visible: rotatingVisible } = useRotatingText(ROTATING_PHRASES);
   const [pricingTab, setPricingTab] = useState<PricingTab>("influencer");
   const [pricingVisible, setPricingVisible] = useState(true);
-  const [activePlanId, setActivePlanId] = useState<string>(
-    PLANS_INFLUENCER.find((p) => p.popular)?.id ?? PLANS_INFLUENCER[0].id
-  );
-  const { ref: agentsRef, inView: agentsInView } = useInView(0.1);
+  const { ref: stepsRef, inView: stepsInView } = useInView(0.2);
+  const { ref: brainRef, inView: brainInView } = useInView(0.2);
 
   function switchTab(tab: PricingTab) {
     if (tab === pricingTab) return;
     setPricingVisible(false);
     setTimeout(() => {
       setPricingTab(tab);
-      const plans = tab === "influencer" ? PLANS_INFLUENCER : PLANS_EMPRESA;
-      setActivePlanId(plans.find((p) => p.popular)?.id ?? plans[0].id);
       setPricingVisible(true);
     }, 200);
   }
 
+  const activePlans = pricingTab === "influencer" ? PLANS_INFLUENCER : PLANS_EMPRESA;
+
   return (
     <>
-    <div className="min-h-screen overflow-x-hidden bg-[#030312] font-sans antialiased">
+    <div className="min-h-screen overflow-x-hidden font-sans antialiased" style={{ backgroundColor: BG }}>
 
       {/* ── NAV ───────────────────────────────────────────────────────────── */}
       <nav className={[
         "fixed top-0 z-50 w-full border-b transition-all duration-300",
         scrolled
-          ? "border-white/10 bg-[#030312]/90 backdrop-blur-xl"
+          ? "border-black/5 bg-white/85 backdrop-blur-xl"
           : "border-transparent bg-transparent",
       ].join(" ")}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           {/* Logo */}
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 shadow-lg shadow-violet-500/30">
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-lg shadow-lg"
+              style={{ background: `linear-gradient(135deg, ${ACCENT_SOFT}, ${ACCENT})`, boxShadow: `0 8px 20px ${ACCENT}33` }}
+            >
               <span className="text-xs font-black text-white">SC</span>
             </div>
-            <span className="text-lg font-black tracking-tight text-white">Socialcors</span>
+            <span className="text-lg font-black tracking-tight" style={{ color: INK }}>Socialcors</span>
           </div>
           {/* Actions */}
           <div className="flex items-center gap-3">
             <Link
               href="/socialflow/auth"
-              className="hidden text-sm font-semibold text-white/60 transition-colors hover:text-white sm:block px-3 py-2"
+              className="hidden px-3 py-2 text-sm font-semibold transition-colors sm:block"
+              style={{ color: MUTED }}
             >
               Iniciar sesión
             </Link>
             <Link
               href="/socialflow/auth"
-              className="rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-violet-500/20 transition-all hover:brightness-110 hover:shadow-violet-500/40"
+              className="rounded-lg px-4 py-2 text-sm font-bold text-white shadow-lg transition-all hover:brightness-110"
+              style={{ background: `linear-gradient(90deg, ${ACCENT_SOFT}, ${ACCENT})`, boxShadow: `0 8px 20px ${ACCENT}33` }}
             >
               Empezar gratis
             </Link>
@@ -405,64 +386,58 @@ export default function LandingClient() {
       </nav>
 
       {/* ── HERO ──────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden pt-20">
-        {/* Orbs */}
+      <section className="relative overflow-hidden pt-24">
+        {/* Soft color blobs, tuned for light background */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute left-[-10%] top-[8%] h-[600px] w-[600px] rounded-full bg-violet-600/20 blur-[130px]" />
-          <div className="absolute right-[-8%] top-[25%] h-[500px] w-[500px] rounded-full bg-fuchsia-600/15 blur-[130px]" />
-          <div className="absolute bottom-[5%] left-[35%] h-[400px] w-[400px] rounded-full bg-cyan-600/10 blur-[110px]" />
+          <div className="absolute left-[-10%] top-[8%] h-[600px] w-[600px] rounded-full bg-violet-300/35 blur-[130px]" />
+          <div className="absolute right-[-8%] top-[20%] h-[500px] w-[500px] rounded-full bg-fuchsia-200/40 blur-[130px]" />
+          <div className="absolute bottom-[5%] left-[35%] h-[400px] w-[400px] rounded-full bg-cyan-100/50 blur-[110px]" />
         </div>
-        {/* Dot grid */}
+        {/* Dot grid, tinted brand color */}
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.12]"
-          style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.2) 1px, transparent 1px)", backgroundSize: "28px 28px" }}
+          className="pointer-events-none absolute inset-0 opacity-70"
+          style={{ backgroundImage: `radial-gradient(${ACCENT}22 1px, transparent 1px)`, backgroundSize: "28px 28px" }}
         />
 
-        <div className="relative mx-auto max-w-5xl px-6 pb-10 pt-7 text-center md:pb-12 md:pt-10">
+        <div className="relative mx-auto max-w-5xl px-6 pb-10 pt-7 text-center md:pb-14 md:pt-10">
           {/* Eyebrow */}
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-4 py-2">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400" />
-            <span className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-300">
+          <div
+            className="mb-5 inline-flex items-center gap-2 rounded-full border px-4 py-2"
+            style={{ borderColor: `${ACCENT}40`, backgroundColor: `${ACCENT}12` }}
+          >
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ backgroundColor: ACCENT }} />
+            <span className="text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT_STRONG }}>
               Para influencers y empresas
             </span>
           </div>
 
           {/* Headline */}
-          <h1 className="mx-auto max-w-4xl text-5xl font-black leading-[1.05] tracking-tight text-white md:text-6xl lg:text-7xl">
-            Tu marketing en piloto automático
+          <h1 className="mx-auto max-w-4xl text-5xl font-black leading-[1.05] tracking-tight md:text-6xl lg:text-7xl" style={{ color: INK }}>
+            Tu Community Manager
             <br />
-            <span
-              className="mt-2 inline-block bg-gradient-to-r from-violet-400 via-fuchsia-400 to-cyan-400 bg-clip-text text-transparent transition-opacity duration-300"
-              style={{ opacity: rotatingVisible ? 1 : 0 }}
-            >
-              {rotatingText}
-            </span>
+            con Inteligencia Artificial
           </h1>
 
           {/* Sub */}
-          <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-white/55">
-            Si eres influencer o tienes un negocio, nuestros agentes IA publican, responden y venden por ti — sin que muevas un dedo.
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed" style={{ color: MUTED }}>
+            Para creadores de contenido y para empresas: sube una foto y nosotros analizamos,
+            creamos, publicamos y aprendemos por ti.
           </p>
 
-          {/* CTAs */}
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
+          {/* CTA */}
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <Link
-              href="/socialflow/auth?type=influencer"
-              className="rounded-xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 px-8 py-3.5 text-sm font-bold text-white shadow-xl shadow-violet-500/25 transition-all hover:brightness-110 hover:shadow-violet-500/50"
+              href="/socialflow/auth"
+              className="rounded-xl px-9 py-4 text-base font-black text-white shadow-xl transition-all hover:brightness-110 hover:-translate-y-0.5"
+              style={{ background: `linear-gradient(90deg, ${ACCENT_SOFT}, ${ACCENT}, ${ACCENT_STRONG})`, boxShadow: `0 12px 30px ${ACCENT}40` }}
             >
-              Soy Influencer →
-            </Link>
-            <Link
-              href="/socialflow/auth?type=empresa"
-              className="rounded-xl bg-gradient-to-r from-blue-500 via-cyan-500 to-sky-500 px-8 py-3.5 text-sm font-bold text-white shadow-xl shadow-blue-500/25 transition-all hover:brightness-110 hover:shadow-blue-500/50"
-            >
-              Soy Empresa →
+              Prueba 15 días gratis, sin tarjeta →
             </Link>
           </div>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
             {["15 días gratis", "Sin tarjeta", "Cancela cuando quieras"].map((item) => (
-              <span key={item} className="flex items-center gap-1.5 text-sm text-white/60">
-                <span className="font-black text-violet-400">✓</span>
+              <span key={item} className="flex items-center gap-1.5 text-sm" style={{ color: MUTED }}>
+                <span className="font-black" style={{ color: ACCENT }}>✓</span>
                 {item}
               </span>
             ))}
@@ -470,102 +445,38 @@ export default function LandingClient() {
         </div>
       </section>
 
-      {/* ── CONTADORES ────────────────────────────────────────────────────── */}
-      {/* <StatsSection /> */}
-
-      {/* ── REDES SOCIALES ────────────────────────────────────────────────── */}
-      <style>{`
-        @keyframes net-float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-8px); }
-        }
-        @keyframes net-rise {
-          0% { opacity: 0; transform: translateY(0); }
-          20% { opacity: 1; transform: translateY(-6px); }
-          75% { opacity: 0.9; transform: translateY(-16px); }
-          100% { opacity: 0; transform: translateY(-22px); }
-        }
-        .net-pill-0 { animation: net-float 3.2s ease-in-out 0.0s infinite; }
-        .net-activity {
-          position: absolute;
-          top: -10px;
-          right: 4px;
-          font-size: 10px;
-          font-weight: 900;
-          color: #a78bfa;
-          pointer-events: none;
-          animation: net-rise 2.8s ease-out infinite;
-        }
-        .net-act-1 { animation-delay: 0.0s; animation-duration: 2.8s; }
-      `}</style>
-      <section className="border-b border-white/5 py-8">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <div className="relative net-pill-0">
-              <div
-                className="rounded-full px-5 py-2.5 text-sm font-bold text-white transition-all hover:brightness-125"
-                style={{ background: "linear-gradient(135deg,rgba(131,58,180,.13),rgba(253,29,29,.09),rgba(252,176,69,.08))", border: "1px solid rgba(188,62,138,.40)" }}
-              >
-                Instagram
-              </div>
-              <span className="net-activity net-act-1">+1</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── AGENTES ───────────────────────────────────────────────────────── */}
-      <style>{`
-        @keyframes agent-shimmer {
-          0% { background-position: -200% center; }
-          100% { background-position: 200% center; }
-        }
-        .agent-line {
-          height: 1px;
-          background: linear-gradient(90deg, transparent, #8b5cf6, #06b6d4, transparent);
-          background-size: 200% auto;
-          animation: agent-shimmer 3s linear infinite;
-        }
-        @keyframes agent-dot-pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.4; transform: scale(0.75); }
-        }
-        .agent-dot {
-          animation: agent-dot-pulse 2s ease-in-out infinite;
-        }
-      `}</style>
-      <section className="py-10">
+      {/* ── CÓMO FUNCIONA ─────────────────────────────────────────────────── */}
+      <section className="py-16">
         <div className="mx-auto max-w-6xl px-6">
-          <p className="text-center text-[11px] font-black uppercase tracking-[0.22em] text-violet-400">
-            Agentes IA
+          <p className="text-center text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
+            Cómo funciona
           </p>
-          <h2 className="mt-3 text-center text-3xl font-black tracking-tight text-white md:text-4xl">
-            8 agentes IA trabajando para ti
+          <h2 className="mt-3 text-center text-3xl font-black tracking-tight md:text-4xl" style={{ color: INK }}>
+            Tres pasos. Cero esfuerzo.
           </h2>
 
-          <div ref={agentsRef} className="mt-10 grid gap-4 grid-cols-2 lg:grid-cols-4">
-            {AGENTS.map((agent, i) => (
+          <div ref={stepsRef} className="mt-12 grid gap-6 md:grid-cols-3">
+            {HOW_IT_WORKS.map((step, i) => (
               <div
-                key={agent.name}
+                key={step.num}
                 style={{
-                  opacity: agentsInView ? 1 : 0,
-                  transform: agentsInView ? "translateY(0)" : "translateY(16px)",
-                  transition: `opacity 0.4s ease ${i * 80}ms, transform 0.4s ease ${i * 80}ms`,
+                  opacity: stepsInView ? 1 : 0,
+                  transform: stepsInView ? "translateY(0)" : "translateY(16px)",
+                  transition: `opacity 0.5s ease ${i * 120}ms, transform 0.5s ease ${i * 120}ms`,
                 }}
               >
-                <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/5 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/25 hover:shadow-lg hover:shadow-black/30">
-                  <span className="mb-3 bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-4xl font-black leading-none text-transparent">
-                    {agent.num}
-                  </span>
-                  <h3 className="text-[11px] font-black uppercase tracking-wide text-white">
-                    {agent.name}
-                  </h3>
-                  <div className="agent-line my-2.5" />
-                  <p className="flex-1 text-xs leading-relaxed text-white/45">{agent.desc}</p>
-                  <div className="mt-4 flex items-center gap-1.5">
-                    <span className="agent-dot h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400/70">Activo</span>
+                <div className="relative flex h-full flex-col rounded-2xl border border-black/[0.06] bg-white p-7 shadow-[0_1px_3px_rgba(15,15,35,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_32px_rgba(15,15,35,0.10)]">
+                  <div
+                    className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl text-2xl shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${ACCENT_SOFT}22, ${ACCENT}22)`, boxShadow: `0 8px 20px ${ACCENT}22` }}
+                  >
+                    {step.icon}
                   </div>
+                  <span className="text-xs font-black uppercase tracking-widest" style={{ color: ACCENT }}>
+                    Paso {step.num}
+                  </span>
+                  <h3 className="mt-2 text-xl font-black" style={{ color: INK }}>{step.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed" style={{ color: MUTED }}>{step.text}</p>
                 </div>
               </div>
             ))}
@@ -573,81 +484,85 @@ export default function LandingClient() {
         </div>
       </section>
 
-      {/* ── DOS CAMINOS ───────────────────────────────────────────────────── */}
-      <section className="border-t border-white/5 py-14">
+      {/* ── EL CEREBRO ────────────────────────────────────────────────────── */}
+      <section className="py-16">
         <div className="mx-auto max-w-6xl px-6">
-          <p className="text-center text-[11px] font-black uppercase tracking-[0.22em] text-violet-400">
-            Para quién es
-          </p>
-          <h2 className="mt-3 text-center text-3xl font-black tracking-tight text-white md:text-4xl">
-            ¿Eres influencer o empresa?
-          </h2>
+          <div
+            ref={brainRef}
+            className="relative overflow-hidden rounded-3xl px-8 py-14 text-center md:px-16 md:py-20"
+            style={{
+              background: `linear-gradient(135deg, ${ACCENT_STRONG}, ${ACCENT} 55%, #221f4d)`,
+              opacity: brainInView ? 1 : 0,
+              transform: brainInView ? "translateY(0)" : "translateY(20px)",
+              transition: "opacity 0.6s ease, transform 0.6s ease",
+            }}
+          >
+            {/* subtle glow orbs inside the panel */}
+            <div className="pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full bg-white/10 blur-[100px]" />
+            <div className="pointer-events-none absolute -bottom-24 -right-10 h-80 w-80 rounded-full bg-fuchsia-400/10 blur-[110px]" />
 
-          <div className="mt-12 grid gap-6 md:grid-cols-2">
-            {/* Influencer */}
-            <div className="flex flex-col rounded-2xl border border-violet-500/25 bg-gradient-to-br from-violet-900/30 to-fuchsia-900/10 p-8 transition-all duration-300 hover:border-violet-400/50 hover:shadow-xl hover:shadow-violet-500/10">
-              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-2xl shadow-lg shadow-violet-500/30">
-                ✨
+            <div className="relative">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2">
+                <span className="text-lg">🧠</span>
+                <span className="text-[11px] font-black uppercase tracking-[0.22em] text-white/90">
+                  El diferenciador real
+                </span>
               </div>
-              <h3 className="text-2xl font-black text-white">Para Influencers y Creadores</h3>
-              <ul className="mt-6 flex-1 space-y-3">
-                {INFLUENCER_FEATURES.map((f) => (
-                  <CheckItem key={f} text={f} color="text-violet-400" />
-                ))}
-              </ul>
-              <Link
-                href="/socialflow/auth"
-                className="mt-8 block w-full rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 py-3.5 text-center text-sm font-black text-white shadow-lg shadow-violet-500/25 transition-all hover:brightness-110"
-              >
-                Ver planes Influencer →
-              </Link>
-            </div>
 
-            {/* Empresa */}
-            <div className="flex flex-col rounded-2xl border border-blue-500/25 bg-gradient-to-br from-blue-900/30 to-sky-900/10 p-8 transition-all duration-300 hover:border-blue-400/50 hover:shadow-xl hover:shadow-blue-500/10">
-              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-sky-500 text-2xl shadow-lg shadow-blue-500/30">
-                🏢
-              </div>
-              <h3 className="text-2xl font-black text-white">Para Empresas y PYMEs</h3>
-              <ul className="mt-6 flex-1 space-y-3">
-                {EMPRESA_FEATURES.map((f) => (
-                  <CheckItem key={f} text={f} color="text-blue-400" />
+              <h2 className="mx-auto max-w-3xl text-4xl font-black leading-tight tracking-tight text-white md:text-5xl">
+                No es un programador de publicaciones. Es un cerebro.
+              </h2>
+
+              <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/80">
+                Socialcors analiza constantemente tu nicho y la viralidad de contenido similar,
+                y decide la hora exacta de publicar según los seguidores y el comportamiento
+                <strong className="font-black text-white"> reales de cada cliente</strong> — no un
+                horario genérico igual para todos.
+              </p>
+
+              <div className="mx-auto mt-10 grid max-w-3xl gap-4 sm:grid-cols-3">
+                {[
+                  { label: "Analiza tu nicho", desc: "Detecta qué funciona en cuentas parecidas a la tuya, en tiempo real." },
+                  { label: "Mide viralidad", desc: "Compara tu contenido contra lo que ya está funcionando en tu sector." },
+                  { label: "Decide tu hora exacta", desc: "Cada cliente tiene una hora distinta, calculada con sus propios datos." },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-white/15 bg-white/5 p-5 text-left">
+                    <p className="text-sm font-black text-white">{item.label}</p>
+                    <p className="mt-1.5 text-xs leading-relaxed text-white/65">{item.desc}</p>
+                  </div>
                 ))}
-              </ul>
-              <Link
-                href="/socialflow/auth"
-                className="mt-8 block w-full rounded-xl bg-gradient-to-r from-blue-500 to-sky-500 py-3.5 text-center text-sm font-black text-white shadow-lg shadow-blue-500/25 transition-all hover:brightness-110"
-              >
-                Ver planes Empresa →
-              </Link>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── PRICING ───────────────────────────────────────────────────────── */}
-      <section id="pricing" className="border-t border-white/5 py-14">
-        <div className="mx-auto max-w-5xl px-6">
-          <p className="text-center text-[11px] font-black uppercase tracking-[0.22em] text-violet-400">
+      {/* ── PLANES ────────────────────────────────────────────────────────── */}
+      <section id="pricing" className="py-16">
+        <div className="mx-auto max-w-6xl px-6">
+          <p className="text-center text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
             Precios
           </p>
-          <h2 className="mt-3 text-center text-3xl font-black tracking-tight text-white md:text-4xl">
-            Planes simples, resultados reales
+          <h2 className="mt-3 text-center text-3xl font-black tracking-tight md:text-4xl" style={{ color: INK }}>
+            Planes simples, cadencia real cada semana
           </h2>
+          <p className="mx-auto mt-3 max-w-xl text-center text-sm" style={{ color: MUTED }}>
+            Cada plan reparte tus publicaciones a lo largo de la semana — sin saturar ningún día.
+          </p>
 
           {/* Toggle */}
           <div className="mt-8 flex justify-center">
-            <div className="flex overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] p-1">
+            <div className="flex overflow-hidden rounded-xl border border-black/[0.06] bg-white p-1 shadow-[0_1px_3px_rgba(15,15,35,0.06)]">
               {(["influencer", "empresa"] as PricingTab[]).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => switchTab(tab)}
-                  className={[
-                    "rounded-lg px-6 py-2 text-sm font-bold capitalize transition-all duration-200",
+                  className="rounded-lg px-6 py-2 text-sm font-bold capitalize transition-all duration-200"
+                  style={
                     pricingTab === tab
-                      ? "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-md"
-                      : "text-white/40 hover:text-white/70",
-                  ].join(" ")}
+                      ? { background: `linear-gradient(90deg, ${ACCENT_SOFT}, ${ACCENT})`, color: "#fff" }
+                      : { color: MUTED }
+                  }
                 >
                   {tab === "influencer" ? "Influencer" : "Empresa"}
                 </button>
@@ -657,141 +572,144 @@ export default function LandingClient() {
 
           {/* Cards */}
           <div
-            className="mx-auto mt-10 grid max-w-4xl grid-cols-1 items-start gap-4 sm:grid-cols-3"
+            className="mx-auto mt-10 grid max-w-5xl grid-cols-1 items-start gap-5 sm:grid-cols-3"
             style={{
               opacity: pricingVisible ? 1 : 0,
               transform: pricingVisible ? "translateY(0)" : "translateY(8px)",
               transition: "opacity 0.2s ease, transform 0.2s ease",
             }}
           >
-            {(pricingTab === "influencer" ? PLANS_INFLUENCER : PLANS_EMPRESA).map((plan) => (
-              <PlanGridCard
-                key={plan.id}
-                plan={plan}
-                expanded={activePlanId === plan.id}
-                onSelect={() => setActivePlanId(plan.id)}
-                accentClass={
-                  pricingTab === "influencer"
-                    ? "bg-gradient-to-r from-violet-500 to-fuchsia-500"
-                    : "bg-gradient-to-r from-blue-500 to-sky-500"
-                }
-              />
+            {activePlans.map((plan) => (
+              <PlanCard key={plan.id} plan={plan} />
             ))}
           </div>
 
-          <p className="mt-8 text-center text-xs text-white/25">
+          <p className="mt-8 text-center text-xs" style={{ color: `${MUTED}99` }}>
             Todos los planes incluyen 15 días gratis sin tarjeta de crédito
           </p>
         </div>
       </section>
 
-      {/* ── POR QUÉ SOCIALCORS ────────────────────────────────────────────── */}
-      <section className="border-t border-white/5 py-14">
+      {/* ── DIFERENCIADOR ─────────────────────────────────────────────────── */}
+      <section className="py-16">
         <div className="mx-auto max-w-5xl px-6">
-          <p className="text-center text-[11px] font-black uppercase tracking-[0.22em] text-violet-400">
-            Por qué Socialcors
+          <p className="text-center text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
+            Por qué no somos un programador de publicaciones
           </p>
-          <h2 className="mt-3 text-center text-3xl font-black tracking-tight text-white md:text-4xl">
-            Mientras otros programan posts, Socialcors hace crecer tu negocio.
+          <h2 className="mt-3 text-center text-3xl font-black tracking-tight md:text-4xl" style={{ color: INK }}>
+            Herramientas tradicionales vs. Socialcors
           </h2>
 
-          <div className="mt-12 grid gap-6 md:grid-cols-2">
-            {/* Tradicional */}
-            <div className="rounded-2xl border border-red-500/25 bg-gradient-to-br from-red-950/40 via-red-900/10 to-transparent p-7 shadow-[0_0_30px_rgba(239,68,68,0.08)] transition-all duration-300 hover:-translate-y-1 hover:border-red-500/40 hover:shadow-[0_0_40px_rgba(239,68,68,0.15)]">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-500/15 px-4 py-2 shadow-[0_0_12px_rgba(239,68,68,0.15)]">
+          <div className="mt-10 grid gap-5 md:grid-cols-2">
+            <div className="rounded-2xl border border-red-200 bg-red-50/60 p-7">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-red-300 bg-red-100 px-4 py-2">
                 <span className="text-sm">❌</span>
-                <span className="text-xs font-bold text-red-400">Herramientas tradicionales</span>
+                <span className="text-xs font-bold text-red-600">Herramientas tradicionales</span>
               </div>
-              <ul className="space-y-3">
-                {[
-                  "Solo programan posts",
-                  "Muestran métricas sin contexto",
-                  "Texto genérico con IA básica",
-                  "No aprenden de tu marca",
-                  "No responden por ti",
-                  "No detectan leads",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-2.5 text-sm text-white/40">
-                    <span className="mt-px shrink-0 text-red-500/60">✗</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
+              <p className="text-lg font-black leading-snug" style={{ color: INK }}>
+                Tú creas, tú programas, tú analizas.
+              </p>
             </div>
 
-            {/* Socialcors */}
-            <div className="rounded-2xl border-2 border-violet-500/40 bg-gradient-to-br from-violet-950/40 via-violet-900/15 to-cyan-950/20 p-7 shadow-[0_0_30px_rgba(139,92,246,0.15)] ring-1 ring-violet-500/10 transition-all duration-300 hover:-translate-y-1 hover:border-violet-400/60 hover:shadow-[0_0_50px_rgba(139,92,246,0.25)]">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-violet-500/50 bg-violet-500/20 px-4 py-2 shadow-[0_0_16px_rgba(139,92,246,0.25)]">
+            <div
+              className="rounded-2xl border-2 p-7"
+              style={{ borderColor: `${ACCENT}55`, backgroundColor: `${ACCENT}0d` }}
+            >
+              <div
+                className="mb-4 inline-flex items-center gap-2 rounded-full border px-4 py-2"
+                style={{ borderColor: `${ACCENT}55`, backgroundColor: `${ACCENT}1a` }}
+              >
                 <span className="text-sm">✅</span>
-                <span className="text-xs font-bold text-violet-400">Socialcors</span>
+                <span className="text-xs font-bold" style={{ color: ACCENT_STRONG }}>Socialcors</span>
               </div>
-              <ul className="space-y-3">
-                {[
-                  "Aprende tu marca y voz",
-                  "Detecta tendencias en tiempo real",
-                  "Genera contenido auténtico por ti",
-                  "Responde comentarios y DMs",
-                  "Detecta leads automáticamente",
-                  "Mejora solo con cada publicación",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-2.5 text-sm text-white/75">
-                    <span className="mt-px shrink-0 font-black text-violet-400">✓</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
+              <p className="text-lg font-black leading-snug" style={{ color: INK }}>
+                Nosotros lo hacemos todo por ti.
+              </p>
             </div>
           </div>
+        </div>
+      </section>
 
-          <div className="mt-12 rounded-2xl border border-white/5 bg-white/[0.03] px-8 py-7 text-center">
-            <p className="text-xl font-black text-white md:text-2xl">
-              Mientras Hootsuite programa,{" "}
-              <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
-                Socialcors piensa.
-              </span>
-            </p>
+      {/* ── SÍGUENOS ──────────────────────────────────────────────────────── */}
+      <section className="py-16">
+        <div className="mx-auto max-w-5xl px-6">
+          <p className="text-center text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
+            Síguenos
+          </p>
+          <h2 className="mt-3 text-center text-3xl font-black tracking-tight md:text-4xl" style={{ color: INK }}>
+            Nuestro contenido, hecho con Socialcors
+          </h2>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {SOCIAL_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white p-5 shadow-[0_1px_3px_rgba(15,15,35,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(15,15,35,0.10)]"
+              >
+                <div
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-black text-white"
+                  style={{ background: `linear-gradient(135deg, ${ACCENT_SOFT}, ${ACCENT})` }}
+                >
+                  {link.badge}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-black" style={{ color: INK }}>{link.label}</p>
+                  <p className="truncate text-xs" style={{ color: MUTED }}>{link.handle}</p>
+                </div>
+              </a>
+            ))}
           </div>
         </div>
       </section>
 
       {/* ── CTA FINAL ─────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden py-16">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-violet-900/60 via-fuchsia-900/40 to-blue-900/60" />
-        <div className="pointer-events-none absolute inset-0 border-y border-white/5" />
-        <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 text-center">
-          <h2 className="text-5xl font-black tracking-tight text-white md:text-6xl">
-            Empieza gratis hoy
-          </h2>
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-            {["15 días gratis", "Sin tarjeta", "Cancela cuando quieras"].map((item) => (
-              <span key={item} className="flex items-center gap-1.5 text-sm text-white/70">
-                <span className="font-black text-emerald-400">✓</span>
-                {item}
-              </span>
-            ))}
+      <section className="px-6 py-16">
+        <div
+          className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl py-16 text-center"
+          style={{ background: `linear-gradient(135deg, ${ACCENT_STRONG}, ${ACCENT} 55%, #221f4d)` }}
+        >
+          <div className="pointer-events-none absolute -left-16 -top-16 h-72 w-72 rounded-full bg-white/10 blur-[100px]" />
+          <div className="pointer-events-none absolute -bottom-20 -right-10 h-80 w-80 rounded-full bg-fuchsia-400/10 blur-[110px]" />
+
+          <div className="relative z-10 mx-auto flex max-w-2xl flex-col items-center gap-6 px-6">
+            <h2 className="text-4xl font-black tracking-tight text-white md:text-5xl">
+              Empieza gratis hoy
+            </h2>
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+              {["15 días gratis", "Sin tarjeta", "Cancela cuando quieras"].map((item) => (
+                <span key={item} className="flex items-center gap-1.5 text-sm text-white/80">
+                  <span className="font-black text-emerald-300">✓</span>
+                  {item}
+                </span>
+              ))}
+            </div>
+            <Link
+              href="/socialflow/auth"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-10 py-4 text-base font-black shadow-2xl transition-all hover:-translate-y-0.5 hover:brightness-95"
+              style={{ color: ACCENT_STRONG }}
+            >
+              Prueba 15 días gratis, sin tarjeta →
+            </Link>
           </div>
-          <p className="text-sm font-bold text-white/50">
-            8 agentes IA trabajando · Instagram · Más redes próximamente · Resultados desde el día 1
-          </p>
-          <Link
-            href="/socialflow/auth"
-            className="inline-flex items-center gap-2 rounded-xl bg-white px-12 py-5 text-lg font-black text-violet-700 shadow-2xl shadow-black/30 transition-all hover:-translate-y-0.5 hover:brightness-95"
-          >
-            Crear mi cuenta gratis →
-          </Link>
         </div>
       </section>
 
       {/* ── FOOTER ────────────────────────────────────────────────────────── */}
-      <footer className="border-t border-white/5 bg-[#030312] py-10">
+      <footer className="border-t border-black/5 py-10" style={{ backgroundColor: BG }}>
         <div className="mx-auto max-w-6xl px-6">
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-between">
             {/* Logo */}
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-violet-500 to-fuchsia-600">
+              <div
+                className="flex h-7 w-7 items-center justify-center rounded-md"
+                style={{ background: `linear-gradient(135deg, ${ACCENT_SOFT}, ${ACCENT})` }}
+              >
                 <span className="text-[10px] font-black text-white">SC</span>
               </div>
-              <span className="text-base font-black text-white">Socialcors</span>
+              <span className="text-base font-black" style={{ color: INK }}>Socialcors</span>
             </div>
             {/* Links */}
             <div className="flex items-center gap-5">
@@ -800,13 +718,13 @@ export default function LandingClient() {
                 { label: "Privacidad", href: "/privacidad" },
                 { label: "Contacto", href: "/contacto" },
               ].map((l) => (
-                <Link key={l.label} href={l.href} className="text-xs text-white/35 transition-colors hover:text-white/70">
+                <Link key={l.label} href={l.href} className="text-xs transition-colors hover:opacity-70" style={{ color: `${INK}80` }}>
                   {l.label}
                 </Link>
               ))}
             </div>
             {/* Copyright */}
-            <p className="text-xs text-white/25">
+            <p className="text-xs" style={{ color: `${INK}55` }}>
               © 2025 Socialcors by Drako. Todos los derechos reservados.
             </p>
           </div>
