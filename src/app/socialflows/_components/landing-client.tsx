@@ -498,6 +498,60 @@ export default function LandingClient() {
         </motion.div>
       </section>
 
+      {/* ── CÓMO FUNCIONA ─────────────────────────────────────────────────── */}
+      <section className="py-16">
+        <div className="mx-auto max-w-6xl px-6">
+          <motion.div {...fadeUp} transition={{ duration: 0.5, ease: "easeOut" }}>
+            <p className="text-center text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
+              CÓMO FUNCIONA
+            </p>
+            <h2 className="mt-3 text-center text-3xl font-black tracking-tight md:text-4xl" style={{ color: INK }}>
+              Lo que pasa desde que subes tu foto
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-center text-sm" style={{ color: MUTED }}>
+              Todo ocurre automáticamente, en segundos
+            </p>
+          </motion.div>
+        </div>
+
+        <div className="mt-12 w-full px-6" style={{ overflowX: "auto", paddingBottom: 8 }}>
+          <div className="mx-auto" style={{ display: "flex", alignItems: "flex-start", justifyContent: "center", gap: 8, width: "max-content" }}>
+            {HOW_IT_WORKS.map((step, i) => [
+              <motion.div
+                key={`step-${step.num}`}
+                {...fadeUp}
+                transition={{ duration: 0.4, ease: "easeOut", delay: i * 0.06 }}
+                style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4, maxWidth: 80 }}
+              >
+                <div
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: "50%",
+                    background: step.circle,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: "#fff",
+                  }}
+                >
+                  {step.num}
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#1a1a2e", lineHeight: 1.3 }}>{step.title}</span>
+                <span style={{ fontSize: 9, color: "#94a3b8", lineHeight: 1.3 }}>{step.sub}</span>
+              </motion.div>,
+              i < HOW_IT_WORKS.length - 1 ? (
+                <span key={`arrow-${step.num}`} style={{ color: "#c4b5fd", fontSize: 16, marginTop: 8, flexShrink: 0 }}>
+                  →
+                </span>
+              ) : null,
+            ])}
+          </div>
+        </div>
+      </section>
+
       {/* ── HERO DIVIDIDO ─────────────────────────────────────────────────── */}
       <section id="hero-dividido" className="relative scroll-mt-20 overflow-hidden">
         <div className="relative grid grid-cols-1 md:grid-cols-2">
@@ -546,60 +600,6 @@ export default function LandingClient() {
             {SOCIAL_LINKS.map((link, i) => (
               <SocialCard key={link.href} link={link} delay={i * 0.08} />
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── CÓMO FUNCIONA ─────────────────────────────────────────────────── */}
-      <section className="py-16">
-        <div className="mx-auto max-w-6xl px-6">
-          <motion.div {...fadeUp} transition={{ duration: 0.5, ease: "easeOut" }}>
-            <p className="text-center text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
-              CÓMO FUNCIONA
-            </p>
-            <h2 className="mt-3 text-center text-3xl font-black tracking-tight md:text-4xl" style={{ color: INK }}>
-              Lo que pasa desde que subes tu foto
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-center text-sm" style={{ color: MUTED }}>
-              Todo ocurre automáticamente, en segundos
-            </p>
-          </motion.div>
-
-          <div className="mt-12" style={{ overflowX: "auto", paddingBottom: 8 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, minWidth: "max-content" }}>
-              {HOW_IT_WORKS.map((step, i) => [
-                <motion.div
-                  key={`step-${step.num}`}
-                  {...fadeUp}
-                  transition={{ duration: 0.4, ease: "easeOut", delay: i * 0.06 }}
-                  style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4, maxWidth: 80 }}
-                >
-                  <div
-                    style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: "50%",
-                      background: step.circle,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: "#fff",
-                    }}
-                  >
-                    {step.num}
-                  </div>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#1a1a2e", lineHeight: 1.3 }}>{step.title}</span>
-                  <span style={{ fontSize: 9, color: "#94a3b8", lineHeight: 1.3 }}>{step.sub}</span>
-                </motion.div>,
-                i < HOW_IT_WORKS.length - 1 ? (
-                  <span key={`arrow-${step.num}`} style={{ color: "#c4b5fd", fontSize: 16, marginTop: 8, flexShrink: 0 }}>
-                    →
-                  </span>
-                ) : null,
-              ])}
-            </div>
           </div>
         </div>
       </section>
