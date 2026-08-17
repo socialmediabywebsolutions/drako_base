@@ -10,18 +10,24 @@ const BG = "#F7F6FA";
 const INK = "#1a1a2e";
 const MUTED = "#64748b";
 // Morado azulado vivo — color dominante (logo, nav, CTAs principales, panel "El Cerebro",
-// CTA final, tab "Influencer").
+// CTA final, diferenciador, footer). El hero es la única excepción deliberada: usa las
+// identidades de marca de Instagram/LinkedIn (ver HERO_SIDES) para hablarle a cada
+// audiencia en "su" color desde el primer segundo.
 const ACCENT_SOFT = "#6D5DFB";
 const ACCENT = "#4338CA";
 const ACCENT_STRONG = "#2B2483";
 // Extremo más oscuro para los paneles de fondo oscuro (El Cerebro, CTA final).
 const ACCENT_DEEP = "#0D0B28";
 
-// Turquesa "brillo solar" — acento secundario, uso deliberadamente acotado (tab "Empresa",
-// badge del hero) para que el morado siga leyéndose como el color dominante de la marca.
-const ACCENT2_SOFT = "#00F5D4";
+// Turquesa "brillo solar" — acento secundario, acotado al badge del hero y al degradado
+// animado del titular, para que el morado siga siendo el dominante.
 const ACCENT2 = "#00C2A8";
 const ACCENT2_STRONG = "#0F766E"; // versión oscura, para texto legible sobre fondo claro
+
+// Colores de marca de red social — solo para el hero dividido y las fichas de "Síguenos",
+// nunca para el resto del sitio (que se queda en el morado dominante de arriba).
+const IG_PINK = "#DD2A7B";
+const LI_BLUE = "#0A66C2";
 
 // Variante de entrada compartida por los bloques principales (scroll reveal): fade + slide-up
 // sutil de ~20px, se dispara una sola vez al entrar en el viewport.
@@ -32,197 +38,112 @@ const fadeUp = {
 } as const;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
-type PricingTab = "influencer" | "empresa";
-
-type WeeklyPlan = {
-  id: string;
+type HeroPlan = {
   name: string;
   price: string;
   period: string;
-  weeklyPosts: number;
-  maxPerDay: number;
-  storiesPerDay: number;
-  distribution: number[]; // [L, M, X, J, V, S, D]
-  networks: string;
-  features: string[];
+  stats: string[];
   popular?: boolean;
 };
 
+type HeroSideConfig = {
+  key: "influencer" | "empresa";
+  bgGradient: string;
+  badgeLabel: string;
+  badgeColor: string;
+  title: string;
+  subtitle: string;
+  plans: HeroPlan[];
+  popularBg: string;
+  explainerText: string;
+  ctaGradient: string;
+  ctaGlowClass: string;
+  ctaLabel: string;
+};
+
 type SocialLink = {
-  label: string;
+  network: "instagram" | "linkedin";
+  name: string;
   handle: string;
   href: string;
-  badge: string;
+  initials: string;
+  followers: number;
+  posts: number | null;
 };
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
-const WEEKDAYS = ["L", "M", "X", "J", "V", "S", "D"];
-const DIST_8 = [2, 1, 1, 1, 1, 1, 1];
-const DIST_12 = [2, 2, 2, 2, 2, 1, 1];
-const DIST_14 = [2, 2, 2, 2, 2, 2, 2];
-
 const HOW_IT_WORKS = [
+  { num: "1", icon: "📸", title: "Subes una foto", text: "Desde el móvil o el ordenador. Sin plantillas ni formularios — solo la foto que ya has hecho hoy." },
+  { num: "2", icon: "🔍", title: "La IA analiza el contexto", text: "Detecta quién aparece, dónde estás y qué producto o servicio muestra la imagen." },
+  { num: "3", icon: "🎨", title: "Genera la imagen optimizada", text: "Ajusta formato, composición y estilo según Instagram o LinkedIn automáticamente." },
+  { num: "4", icon: "✍️", title: "Escribe el contenido completo", text: "Caption en tu voz, hashtags con tracción real y CTA adaptado a tu objetivo." },
+  { num: "5", icon: "🎬", title: "Crea el carrusel o el reel", text: "Si aplica, diseña los slides o anima el vídeo con efectos visuales automáticamente." },
+  { num: "6", icon: "⏰", title: "Elige el mejor momento", text: "Calcula la hora exacta de publicación según el comportamiento real de tu audiencia." },
+  { num: "7", icon: "🚀", title: "Publica y agenda", text: "En Instagram y LinkedIn, en el momento exacto, sin que toques nada más." },
+  { num: "8", icon: "📊", title: "Mide y aprende", text: "Analiza los resultados reales y mejora automáticamente el siguiente contenido." },
+];
+
+const AI_AGENTS = [
+  { num: "1", network: "instagram" as const, icon: "📸", name: "Visual Agent", text: "Analiza la foto — detecta personas, lugar, productos y emoción." },
+  { num: "2", network: "instagram" as const, icon: "🧠", name: "Strategy Agent", text: "Cruza con tu Knowledge Base — entiende tu marca, voz y audiencia." },
+  { num: "3", network: "instagram" as const, icon: "🔥", name: "Trend Agent", text: "Detecta qué está siendo viral en tu nicho ahora mismo." },
+  { num: "4", network: "instagram" as const, icon: "✍️", name: "Copywriter Agent", text: "Escribe el caption en tu voz + hashtags con tracción real." },
+  { num: "5", network: "linkedin" as const, icon: "⏰", name: "Best Time Agent", text: "Calcula la hora exacta según el comportamiento real de tu audiencia." },
+  { num: "6", network: "linkedin" as const, icon: "🚀", name: "Publisher Agent", text: "Publica en Instagram y LinkedIn en el momento exacto." },
+  { num: "7", network: "linkedin" as const, icon: "📊", name: "Analytics Agent", text: "Mide resultados reales y mejora automáticamente el siguiente contenido." },
+  { num: "8", network: "instagram" as const, icon: "💬", name: "Community Agent", text: "Responde comentarios y DMs usando el conocimiento de tu marca." },
+];
+
+const HERO_SIDES: HeroSideConfig[] = [
   {
-    num: "1",
-    icon: "📸",
-    title: "Subes una foto",
-    text: "Desde el móvil o el ordenador. Nada de plantillas ni formularios eternos.",
+    key: "influencer",
+    bgGradient: "linear-gradient(160deg, #FDF0F8 0%, #F8EEFF 60%, #F0EEFF 100%)",
+    badgeLabel: "INFLUENCER · INSTAGRAM",
+    badgeColor: IG_PINK,
+    title: "Sube una foto. La IA lo hace todo.",
+    subtitle: "Analiza, escribe el caption, elige hashtags y publica en el mejor momento para tu audiencia real.",
+    plans: [
+      { name: "Starter", price: "99€", period: "/mes", stats: ["8 piezas/semana", "máx. 2/día", "6 vídeos IA/mes", "1 historia/día"] },
+      { name: "Básico", price: "179€", period: "/mes", popular: true, stats: ["12 piezas/semana", "máx. 2/día", "12 vídeos IA/mes", "2 historias/día", "LinkedIn incluido"] },
+      { name: "Pro", price: "299€", period: "/mes", stats: ["14 piezas/semana", "máx. 2/día", "20 vídeos IA/mes", "CRM Social", "Cerebro completo"] },
+    ],
+    popularBg: "linear-gradient(90deg, #F58529, #DD2A7B)",
+    explainerText: "Publicamos de forma constante sin saturar tu audiencia. El límite diario protege tu alcance orgánico — el algoritmo penaliza las cuentas que publican más de 2 veces al día. Tu plan semanal se reparte automáticamente para que siempre estés presente sin perder visibilidad.",
+    ctaGradient: "linear-gradient(90deg, #F58529, #DD2A7B, #8134AF)",
+    ctaGlowClass: "sc-cta-glow-ig",
+    ctaLabel: "Soy Influencer →",
   },
   {
-    num: "2",
-    icon: "🧠",
-    title: "La IA analiza, crea y elige la mejor hora",
-    text: "Genera el caption, los hashtags y decide cuándo publicar según tu audiencia real.",
-  },
-  {
-    num: "3",
-    icon: "✅",
-    title: "Apruebas con un toque y se publica solo",
-    text: "Tú das el visto bueno (o dejas que se publique automáticamente). El resto lo hacemos nosotros.",
+    key: "empresa",
+    bgGradient: "linear-gradient(160deg, #F0F7FF 0%, #EEF4FF 60%, #EEF2FF 100%)",
+    badgeLabel: "EMPRESA · LINKEDIN",
+    badgeColor: LI_BLUE,
+    title: "Solo saca la foto. Nosotros hacemos el resto.",
+    subtitle: "La IA reconoce empleados, local y productos. Genera el texto y publica en Instagram y LinkedIn.",
+    plans: [
+      { name: "Starter", price: "169€", period: "/mes", stats: ["8 piezas/semana", "máx. 2/día", "6 vídeos IA/mes", "1 historia/día"] },
+      { name: "Básico", price: "299€", period: "/mes", popular: true, stats: ["12 piezas/semana", "máx. 2/día", "12 vídeos IA/mes", "2 historias/día", "LinkedIn incluido"] },
+      { name: "Pro", price: "449€", period: "/mes", stats: ["14 piezas/semana", "máx. 2/día", "20 vídeos IA/mes", "CRM Social", "LinkedIn Company Page"] },
+    ],
+    popularBg: LI_BLUE,
+    explainerText: "Cada publicación está pensada para construir reputación y generar confianza. En LinkedIn, publicar más de 1 vez al día reduce el alcance hasta un 66% — por eso tu plan distribuye el contenido de forma inteligente a lo largo de la semana, llegando a más personas con menos publicaciones.",
+    ctaGradient: "linear-gradient(90deg, #0A66C2, #0077B5)",
+    ctaGlowClass: "sc-cta-glow-li",
+    ctaLabel: "Soy Empresa →",
   },
 ];
 
-const PLANS_INFLUENCER: WeeklyPlan[] = [
-  {
-    id: "influencer-starter",
-    name: "Influencer Starter",
-    price: "99€",
-    period: "/mes",
-    weeklyPosts: 8,
-    maxPerDay: 2,
-    storiesPerDay: 1,
-    distribution: DIST_8,
-    networks: "Instagram + LinkedIn (perfil personal)",
-    features: [
-      "Instagram + LinkedIn (perfil personal)",
-      "1 historia/día",
-      "El Cerebro elige la mejor hora para ti",
-      "Publicación automática",
-    ],
-  },
-  {
-    id: "influencer-basico",
-    name: "Influencer Básico",
-    price: "179€",
-    period: "/mes",
-    weeklyPosts: 12,
-    maxPerDay: 2,
-    storiesPerDay: 2,
-    distribution: DIST_12,
-    networks: "Instagram + LinkedIn (perfil personal)",
-    features: [
-      "Todo lo de Starter",
-      "2 historias/día",
-      "Análisis de imagen con IA",
-      "Reels y carruseles automáticos",
-    ],
-    popular: true,
-  },
-  {
-    id: "influencer-pro",
-    name: "Influencer Pro",
-    price: "299€",
-    period: "/mes",
-    weeklyPosts: 14,
-    maxPerDay: 2,
-    storiesPerDay: 2,
-    distribution: DIST_14,
-    networks: "Instagram + LinkedIn (perfil personal)",
-    features: [
-      "Todo lo de Básico",
-      "2 historias/día",
-      "Analytics avanzados",
-      "Soporte prioritario",
-    ],
-  },
-];
-
-const PLANS_EMPRESA: WeeklyPlan[] = [
-  {
-    id: "empresa-starter",
-    name: "Empresa Starter",
-    price: "169€",
-    period: "/mes",
-    weeklyPosts: 8,
-    maxPerDay: 2,
-    storiesPerDay: 1,
-    distribution: DIST_8,
-    networks: "Instagram + LinkedIn (perfil personal)",
-    features: [
-      "Instagram + LinkedIn (perfil personal)",
-      "1 historia/día",
-      "Base de Conocimiento (web, PDFs, catálogo)",
-      "Respuesta automática a comentarios y DMs",
-    ],
-  },
-  {
-    id: "empresa-basico",
-    name: "Empresa Básico",
-    price: "299€",
-    period: "/mes",
-    weeklyPosts: 12,
-    maxPerDay: 2,
-    storiesPerDay: 2,
-    distribution: DIST_12,
-    networks: "Instagram + LinkedIn (perfil personal)",
-    features: [
-      "Todo lo de Starter",
-      "2 historias/día",
-      "CRM Social básico",
-      "Voz de marca consistente",
-    ],
-    popular: true,
-  },
-  {
-    id: "empresa-pro",
-    name: "Empresa Pro",
-    price: "449€",
-    period: "/mes",
-    weeklyPosts: 14,
-    maxPerDay: 2,
-    storiesPerDay: 2,
-    distribution: DIST_14,
-    networks: "Instagram + LinkedIn (perfil personal)",
-    features: [
-      "Todo lo de Básico",
-      "2 historias/día",
-      "Gestión de reputación y leads",
-      "WhatsApp orquestador",
-    ],
-  },
-];
+const NETWORK_COLOR: Record<SocialLink["network"], string> = {
+  instagram: IG_PINK,
+  linkedin: LI_BLUE,
+};
 
 const SOCIAL_LINKS: SocialLink[] = [
-  {
-    label: "Instagram",
-    handle: "@socialcors",
-    href: "https://www.instagram.com/socialcors/",
-    badge: "IG",
-  },
-  {
-    label: "LinkedIn",
-    handle: "Socialcors",
-    href: "https://www.linkedin.com/company/socialcors/",
-    badge: "in",
-  },
-  {
-    label: "Instagram",
-    handle: "@drako.systems",
-    href: "https://www.instagram.com/drako.systems/",
-    badge: "IG",
-  },
-  {
-    label: "LinkedIn",
-    handle: "Drako Systems",
-    href: "https://www.linkedin.com/company/drako-systems/",
-    badge: "in",
-  },
-  {
-    label: "LinkedIn",
-    handle: "Cristóbal Cors Bernal · Founder",
-    href: "https://www.linkedin.com/in/cris-cors/",
-    badge: "in",
-  },
+  { network: "instagram", name: "Socialcors", handle: "@socialcors", href: "https://www.instagram.com/socialcors/", initials: "SC", followers: 2, posts: 0 },
+  { network: "linkedin", name: "Socialcors", handle: "Página de empresa", href: "https://www.linkedin.com/company/socialcors/", initials: "SC", followers: 0, posts: 0 },
+  { network: "instagram", name: "Drako Systems", handle: "@drako.systems", href: "https://www.instagram.com/drako.systems/", initials: "DS", followers: 0, posts: 0 },
+  { network: "linkedin", name: "Drako Systems", handle: "Página de empresa", href: "https://www.linkedin.com/company/drako-systems/", initials: "DS", followers: 0, posts: 0 },
+  { network: "linkedin", name: "Cristóbal Cors Bernal", handle: "Founder", href: "https://www.linkedin.com/in/cris-cors/", initials: "CB", followers: 0, posts: null },
 ];
 
 // ─── Hooks ─────────────────────────────────────────────────────────────────────
@@ -237,112 +158,121 @@ function useScrolledNav() {
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
-function WeekDistribution({ distribution }: { distribution: number[] }) {
-  const max = Math.max(...distribution);
+function HeroPlanCard({ plan, popularBg }: { plan: HeroPlan; popularBg: string }) {
   return (
-    <div className="mt-4 grid grid-cols-7 gap-1.5">
-      {WEEKDAYS.map((day, i) => (
-        <div key={`${day}-${i}`} className="flex flex-col items-center gap-1.5">
-          <div className="flex h-14 w-full items-end overflow-hidden rounded-lg bg-black/[0.04]">
-            <div
-              className="w-full rounded-lg"
-              style={{
-                height: `${(distribution[i] / max) * 100}%`,
-                minHeight: "16px",
-                background: `linear-gradient(180deg, ${ACCENT_SOFT}, ${ACCENT})`,
-              }}
-            />
-          </div>
-          <span className="text-[10px] font-black uppercase tracking-wide" style={{ color: `${INK}66` }}>{day}</span>
-          <span className="text-[10px] font-bold" style={{ color: INK }}>{distribution[i]}</span>
+    <div
+      className={[
+        "relative rounded-xl border bg-white/85 p-4 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5",
+        plan.popular
+          ? "border-transparent shadow-[0_6px_20px_rgba(15,15,35,0.10)] hover:shadow-[0_10px_26px_rgba(15,15,35,0.16)]"
+          : "border-black/[0.06] shadow-[0_1px_3px_rgba(15,15,35,0.05)] hover:shadow-[0_10px_22px_rgba(15,15,35,0.08)]",
+      ].join(" ")}
+    >
+      {plan.popular && (
+        <span
+          className="absolute -top-2.5 left-4 rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow"
+          style={{ background: popularBg }}
+        >
+          Popular
+        </span>
+      )}
+      <div className="flex items-baseline justify-between gap-2">
+        <h4 className="text-sm font-black" style={{ color: INK }}>{plan.name}</h4>
+        <div className="flex items-baseline gap-1">
+          <span className="text-lg font-black" style={{ color: INK }}>{plan.price}</span>
+          <span className="text-[11px]" style={{ color: MUTED }}>{plan.period}</span>
         </div>
-      ))}
+      </div>
+      <p className="mt-2 text-[11px] font-semibold leading-relaxed" style={{ color: MUTED }}>
+        {plan.stats.join(" · ")}
+      </p>
     </div>
   );
 }
 
-function PlanCard({ plan }: { plan: WeeklyPlan }) {
+function HeroColumn({ config }: { config: HeroSideConfig }) {
   return (
-    <div
-      className={[
-        "relative flex flex-col rounded-2xl border bg-white p-6 text-left transition-all duration-300 hover:-translate-y-1",
-        plan.popular
-          ? "shadow-[0_8px_30px_rgba(67,56,202,0.18)] hover:shadow-[0_16px_36px_rgba(67,56,202,0.28)]"
-          : "border-black/[0.06] shadow-[0_1px_3px_rgba(15,15,35,0.06)] hover:shadow-[0_12px_28px_rgba(15,15,35,0.10)]",
-      ].join(" ")}
-      style={plan.popular ? { borderColor: `${ACCENT}55` } : undefined}
+    <motion.div
+      {...fadeUp}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      className="relative px-6 pb-14 pt-28 sm:px-10 md:pb-20 lg:px-14"
+      style={{ background: config.bgGradient }}
     >
-      {plan.popular && (
-        <span
-          className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg"
-          style={{ background: `linear-gradient(90deg, ${ACCENT_SOFT}, ${ACCENT})` }}
-        >
-          Más popular
-        </span>
-      )}
-
-      <h3 className="text-lg font-black" style={{ color: INK }}>{plan.name}</h3>
-
-      <div className="mt-2 flex items-baseline gap-1.5">
-        <span className="text-4xl font-black" style={{ color: INK }}>{plan.price}</span>
-        <span className="text-sm" style={{ color: MUTED }}>{plan.period}</span>
-      </div>
-
-      <p className="mt-1.5 text-xs font-semibold" style={{ color: ACCENT }}>{plan.networks}</p>
-
-      <div className="mt-4 grid grid-cols-3 gap-2.5">
-        <div className="rounded-xl bg-black/[0.03] px-2 py-3 text-center">
-          <div className="text-2xl font-black leading-none" style={{ color: INK }}>{plan.weeklyPosts}</div>
-          <div className="mt-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: MUTED }}>piezas/semana</div>
-        </div>
-        <div className="rounded-xl bg-black/[0.03] px-2 py-3 text-center">
-          <div className="text-2xl font-black leading-none" style={{ color: INK }}>{plan.maxPerDay}</div>
-          <div className="mt-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: MUTED }}>máx/día</div>
-        </div>
-        <div className="rounded-xl bg-black/[0.03] px-2 py-3 text-center">
-          <div className="text-2xl font-black leading-none" style={{ color: INK }}>{plan.storiesPerDay}</div>
-          <div className="mt-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: MUTED }}>historia{plan.storiesPerDay !== 1 ? "s" : ""}/día</div>
-        </div>
-      </div>
-
-      <WeekDistribution distribution={plan.distribution} />
-
-      <ul className="mt-5 flex-1 space-y-2.5">
-        {plan.features.map((f) => (
-          <li key={f} className="flex items-start gap-2 text-sm" style={{ color: `${INK}cc` }}>
-            <span className="mt-px shrink-0 font-black" style={{ color: ACCENT }}>✓</span>
-            {f}
-          </li>
-        ))}
-      </ul>
-
-      <Link
-        href="/socialflow/auth"
-        className="mt-6 block w-full rounded-xl py-3 text-center text-sm font-black tracking-wide text-white shadow-lg transition-all duration-200 hover:brightness-110"
-        style={{ background: `linear-gradient(90deg, ${ACCENT_SOFT}, ${ACCENT})` }}
+      <div
+        className="mb-5 inline-flex items-center gap-2 rounded-full border px-4 py-2"
+        style={{ borderColor: `${config.badgeColor}40`, backgroundColor: `${config.badgeColor}14` }}
       >
-        Empezar gratis 15 días
-      </Link>
-    </div>
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ backgroundColor: config.badgeColor }} />
+        <span className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: config.badgeColor }}>
+          {config.badgeLabel}
+        </span>
+      </div>
+
+      <h2 className="max-w-md text-3xl font-black leading-[1.1] tracking-tight md:text-4xl" style={{ color: INK }}>
+        {config.title}
+      </h2>
+      <p className="mt-4 max-w-md text-base leading-relaxed" style={{ color: MUTED }}>
+        {config.subtitle}
+      </p>
+
+      <div className="mt-8 max-w-md space-y-3">
+        {config.plans.map((plan) => (
+          <HeroPlanCard key={plan.name} plan={plan} popularBg={config.popularBg} />
+        ))}
+      </div>
+
+      <p className="mt-6 max-w-md text-sm leading-relaxed" style={{ color: `${INK}99` }}>
+        {config.explainerText}
+      </p>
+
+      <div className="mt-8">
+        <Link
+          href="/socialflow/auth"
+          className={`${config.ctaGlowClass} sc-cta-shine inline-flex items-center gap-2 rounded-xl px-8 py-4 text-base font-black text-white transition-all hover:brightness-110 hover:-translate-y-0.5`}
+          style={{ background: config.ctaGradient }}
+        >
+          {config.ctaLabel}
+        </Link>
+        <p className="mt-3 text-xs font-semibold" style={{ color: MUTED }}>
+          15 días gratis · sin tarjeta
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
+function SocialCard({ link, delay }: { link: SocialLink; delay: number }) {
+  const color = NETWORK_COLOR[link.network];
+  return (
+    <motion.a
+      href={link.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      {...fadeUp}
+      transition={{ duration: 0.5, ease: "easeOut", delay }}
+      className="flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white p-5 shadow-[0_1px_3px_rgba(15,15,35,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(15,15,35,0.10)]"
+    >
+      <div
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-black text-white"
+        style={{ background: `linear-gradient(135deg, ${color}cc, ${color})` }}
+      >
+        {link.initials}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-black" style={{ color: INK }}>{link.name}</p>
+        <p className="truncate text-xs" style={{ color: MUTED }}>{link.handle}</p>
+        <p className="mt-1 text-xs font-semibold" style={{ color: `${INK}99` }}>
+          {link.followers} seguidor{link.followers !== 1 ? "es" : ""}
+          {link.posts !== null ? ` · ${link.posts} publicacion${link.posts !== 1 ? "es" : ""}` : ""}
+        </p>
+      </div>
+    </motion.a>
   );
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function LandingClient() {
   const scrolled = useScrolledNav();
-  const [pricingTab, setPricingTab] = useState<PricingTab>("influencer");
-  const [pricingVisible, setPricingVisible] = useState(true);
-
-  function switchTab(tab: PricingTab) {
-    if (tab === pricingTab) return;
-    setPricingVisible(false);
-    setTimeout(() => {
-      setPricingTab(tab);
-      setPricingVisible(true);
-    }, 200);
-  }
-
-  const activePlans = pricingTab === "influencer" ? PLANS_INFLUENCER : PLANS_EMPRESA;
 
   return (
     <>
@@ -368,6 +298,22 @@ export default function LandingClient() {
         }
         .sc-cta-glow {
           animation: sc-cta-glow 2.6s ease-in-out infinite;
+        }
+
+        @keyframes sc-cta-glow-ig {
+          0%, 100% { box-shadow: 0 10px 26px rgba(221,42,123,0.35), 0 0 0 0 rgba(245,133,41,0); }
+          50% { box-shadow: 0 16px 40px rgba(221,42,123,0.5), 0 0 26px 6px rgba(245,133,41,0.28); }
+        }
+        .sc-cta-glow-ig {
+          animation: sc-cta-glow-ig 2.6s ease-in-out infinite;
+        }
+
+        @keyframes sc-cta-glow-li {
+          0%, 100% { box-shadow: 0 10px 26px rgba(10,102,194,0.35), 0 0 0 0 rgba(10,102,194,0); }
+          50% { box-shadow: 0 16px 40px rgba(10,102,194,0.5), 0 0 26px 6px rgba(0,119,181,0.28); }
+        }
+        .sc-cta-glow-li {
+          animation: sc-cta-glow-li 2.6s ease-in-out infinite;
         }
 
         @keyframes sc-cta-shine {
@@ -495,37 +441,92 @@ export default function LandingClient() {
         </motion.div>
       </section>
 
+      {/* ── HERO DIVIDIDO ─────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden">
+        <div className="relative grid grid-cols-1 md:grid-cols-2">
+          {HERO_SIDES.map((side) => (
+            <HeroColumn key={side.key} config={side} />
+          ))}
+          {/* Fusión suave entre las dos columnas — sustituye al border-right duro */}
+          <div
+            className="pointer-events-none absolute hidden md:block"
+            style={{
+              left: "50%",
+              top: 0,
+              bottom: 0,
+              width: "220px",
+              transform: "translateX(-50%)",
+              background: `linear-gradient(90deg,
+                transparent 0%,
+                rgba(200,150,255,0.2) 15%,
+                rgba(160,130,255,0.42) 40%,
+                rgba(140,120,255,0.42) 50%,
+                rgba(160,130,255,0.42) 60%,
+                rgba(200,150,255,0.2) 85%,
+                transparent 100%
+              )`,
+            }}
+          />
+        </div>
+      </section>
+
+      {/* ── SÍGUENOS ──────────────────────────────────────────────────────── */}
+      <section className="py-16">
+        <div className="mx-auto max-w-5xl px-6">
+          <motion.div {...fadeUp} transition={{ duration: 0.5, ease: "easeOut" }}>
+            <p className="text-center text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
+              Síguenos
+            </p>
+            <h2 className="mt-3 text-center text-3xl font-black tracking-tight md:text-4xl" style={{ color: INK }}>
+              Nuestro contenido, hecho con Socialcors
+            </h2>
+          </motion.div>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {SOCIAL_LINKS.map((link, i) => (
+              <SocialCard key={link.href} link={link} delay={i * 0.08} />
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── CÓMO FUNCIONA ─────────────────────────────────────────────────── */}
       <section className="py-16">
         <div className="mx-auto max-w-6xl px-6">
           <motion.div {...fadeUp} transition={{ duration: 0.5, ease: "easeOut" }}>
             <p className="text-center text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
-              Cómo funciona
+              EL PROCESO
             </p>
             <h2 className="mt-3 text-center text-3xl font-black tracking-tight md:text-4xl" style={{ color: INK }}>
-              Tres pasos. Cero esfuerzo.
+              Cómo funciona
             </h2>
+            <p className="mx-auto mt-3 max-w-xl text-center text-sm" style={{ color: MUTED }}>
+              De la foto al resultado — sin tocar nada más
+            </p>
           </motion.div>
 
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
+          <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {HOW_IT_WORKS.map((step, i) => (
               <motion.div
                 key={step.num}
                 {...fadeUp}
-                transition={{ duration: 0.5, ease: "easeOut", delay: i * 0.12 }}
+                transition={{ duration: 0.5, ease: "easeOut", delay: i * 0.08 }}
               >
-                <div className="relative flex h-full flex-col rounded-2xl border border-black/[0.06] bg-white p-7 shadow-[0_1px_3px_rgba(15,15,35,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_32px_rgba(15,15,35,0.10)]">
-                  <div
-                    className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl text-2xl shadow-lg"
-                    style={{ background: `linear-gradient(135deg, ${ACCENT_SOFT}22, ${ACCENT}22)`, boxShadow: `0 8px 20px ${ACCENT}22` }}
+                <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white p-6 shadow-[0_1px_3px_rgba(15,15,35,0.06)] transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_14px_30px_rgba(67,56,202,0.16)]">
+                  <span
+                    className="pointer-events-none absolute -right-2 -top-4 text-7xl font-black leading-none"
+                    style={{ color: ACCENT, opacity: 0.06 }}
                   >
-                    {step.icon}
-                  </div>
-                  <span className="text-xs font-black uppercase tracking-widest" style={{ color: ACCENT }}>
-                    Paso {step.num}
+                    {step.num}
                   </span>
-                  <h3 className="mt-2 text-xl font-black" style={{ color: INK }}>{step.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed" style={{ color: MUTED }}>{step.text}</p>
+                  <div
+                    className="relative mb-4 flex items-center justify-center rounded-[10px]"
+                    style={{ width: 40, height: 40, backgroundColor: `${ACCENT}1a` }}
+                  >
+                    <span style={{ fontSize: "20px", lineHeight: 1 }}>{step.icon}</span>
+                  </div>
+                  <h3 className="relative text-base font-black" style={{ color: INK }}>{step.title}</h3>
+                  <p className="relative mt-1.5 text-sm leading-relaxed" style={{ color: MUTED }}>{step.text}</p>
                 </div>
               </motion.div>
             ))}
@@ -540,7 +541,7 @@ export default function LandingClient() {
             {...fadeUp}
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="relative overflow-hidden rounded-3xl px-8 py-14 text-center md:px-16 md:py-20"
-            style={{ background: `linear-gradient(135deg, ${ACCENT_STRONG}, ${ACCENT} 55%, ${ACCENT_DEEP})` }}
+            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
           >
             {/* Glow orbs decorativos — drift lento tipo float, discretos, nunca protagonistas */}
             <motion.div
@@ -549,7 +550,7 @@ export default function LandingClient() {
               transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
             />
             <motion.div
-              className="pointer-events-none absolute -bottom-24 -right-10 h-80 w-80 rounded-full bg-cyan-300/10 blur-[110px]"
+              className="pointer-events-none absolute -bottom-24 -right-10 h-80 w-80 rounded-full bg-violet-400/10 blur-[110px]"
               animate={{ x: [0, -25, 0], y: [0, -15, 0] }}
               transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }}
             />
@@ -573,89 +574,51 @@ export default function LandingClient() {
                 horario genérico igual para todos.
               </p>
 
-              <div className="mx-auto mt-10 grid max-w-3xl gap-4 sm:grid-cols-3">
-                {[
-                  { label: "Analiza tu nicho", desc: "Detecta qué funciona en cuentas parecidas a la tuya, en tiempo real." },
-                  { label: "Mide viralidad", desc: "Compara tu contenido contra lo que ya está funcionando en tu sector." },
-                  { label: "Decide tu hora exacta", desc: "Cada cliente tiene una hora distinta, calculada con sus propios datos." },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="rounded-2xl border border-white/15 bg-white/5 p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_12px_28px_rgba(0,0,0,0.25)]"
+              <div className="mx-auto mt-12 max-w-3xl">
+                <p className="text-center text-[11px] font-black uppercase tracking-[0.22em] text-white/90">
+                  LOS AGENTES
+                </p>
+                <p className="mt-2 text-center text-sm text-white/80">
+                  8 agentes trabajando en paralelo, 24/7
+                </p>
+              </div>
+
+              <div className="mx-auto mt-6 grid max-w-5xl grid-cols-1 gap-4 text-left sm:grid-cols-2 lg:grid-cols-4">
+                {AI_AGENTS.map((agent, i) => (
+                  <motion.div
+                    key={agent.num}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.2 }}
+                    transition={{ duration: 0.5, ease: "easeOut", delay: i * 0.06 }}
                   >
-                    <p className="text-sm font-black text-white">{item.label}</p>
-                    <p className="mt-1.5 text-xs leading-relaxed text-white/65">{item.desc}</p>
-                  </div>
+                    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20">
+                      <span
+                        className="pointer-events-none absolute -right-2 -top-3 text-6xl font-black leading-none text-white"
+                        style={{ opacity: 0.08 }}
+                      >
+                        {agent.num}
+                      </span>
+                      <div
+                        className="relative mb-3 flex items-center justify-center rounded-lg bg-white/10"
+                        style={{ width: 36, height: 36 }}
+                      >
+                        <span style={{ fontSize: "18px", lineHeight: 1 }}>{agent.icon}</span>
+                      </div>
+                      <span
+                        className="relative mb-2 inline-block rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white"
+                        style={{ background: agent.network === "instagram" ? "linear-gradient(90deg, #F58529, #DD2A7B, #8134AF)" : LI_BLUE }}
+                      >
+                        {agent.network === "instagram" ? "Instagram" : "LinkedIn"}
+                      </span>
+                      <p className="relative text-sm font-black text-white">{agent.name}</p>
+                      <p className="relative mt-1 text-xs leading-relaxed text-white/70">{agent.text}</p>
+                    </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
           </motion.div>
-        </div>
-      </section>
-
-      {/* ── PLANES ────────────────────────────────────────────────────────── */}
-      <section id="pricing" className="py-16">
-        <div className="mx-auto max-w-6xl px-6">
-          <motion.div {...fadeUp} transition={{ duration: 0.5, ease: "easeOut" }}>
-            <p className="text-center text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
-              Precios
-            </p>
-            <h2 className="mt-3 text-center text-3xl font-black tracking-tight md:text-4xl" style={{ color: INK }}>
-              Planes simples, cadencia real cada semana
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-center text-sm" style={{ color: MUTED }}>
-              Cada plan reparte tus publicaciones a lo largo de la semana — sin saturar ningún día.
-            </p>
-          </motion.div>
-
-          {/* Toggle */}
-          <div className="mt-8 flex justify-center">
-            <div className="flex overflow-hidden rounded-xl border border-black/[0.06] bg-white p-1 shadow-[0_1px_3px_rgba(15,15,35,0.06)]">
-              {(["influencer", "empresa"] as PricingTab[]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => switchTab(tab)}
-                  className="rounded-lg px-6 py-2 text-sm font-bold capitalize transition-all duration-200"
-                  style={
-                    pricingTab === tab
-                      ? {
-                          background: tab === "empresa"
-                            ? `linear-gradient(90deg, ${ACCENT2_SOFT}, ${ACCENT2})`
-                            : `linear-gradient(90deg, ${ACCENT_SOFT}, ${ACCENT})`,
-                          color: "#fff",
-                        }
-                      : { color: MUTED }
-                  }
-                >
-                  {tab === "influencer" ? "Influencer" : "Empresa"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Cards */}
-          <div
-            className="mx-auto mt-10 grid max-w-5xl grid-cols-1 items-start gap-5 sm:grid-cols-3"
-            style={{
-              opacity: pricingVisible ? 1 : 0,
-              transform: pricingVisible ? "translateY(0)" : "translateY(8px)",
-              transition: "opacity 0.2s ease, transform 0.2s ease",
-            }}
-          >
-            {activePlans.map((plan, i) => (
-              <motion.div
-                key={plan.id}
-                {...fadeUp}
-                transition={{ duration: 0.5, ease: "easeOut", delay: i * 0.1 }}
-              >
-                <PlanCard plan={plan} />
-              </motion.div>
-            ))}
-          </div>
-
-          <p className="mt-8 text-center text-xs" style={{ color: `${MUTED}99` }}>
-            Todos los planes incluyen 15 días gratis sin tarjeta de crédito
-          </p>
         </div>
       </section>
 
@@ -703,45 +666,6 @@ export default function LandingClient() {
                 Nosotros lo hacemos todo por ti.
               </p>
             </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── SÍGUENOS ──────────────────────────────────────────────────────── */}
-      <section className="py-16">
-        <div className="mx-auto max-w-5xl px-6">
-          <motion.div {...fadeUp} transition={{ duration: 0.5, ease: "easeOut" }}>
-            <p className="text-center text-[11px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
-              Síguenos
-            </p>
-            <h2 className="mt-3 text-center text-3xl font-black tracking-tight md:text-4xl" style={{ color: INK }}>
-              Nuestro contenido, hecho con Socialcors
-            </h2>
-          </motion.div>
-
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {SOCIAL_LINKS.map((link, i) => (
-              <motion.a
-                key={link.href}
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                {...fadeUp}
-                transition={{ duration: 0.5, ease: "easeOut", delay: i * 0.08 }}
-                className="flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white p-5 shadow-[0_1px_3px_rgba(15,15,35,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(15,15,35,0.10)]"
-              >
-                <div
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-black text-white"
-                  style={{ background: `linear-gradient(135deg, ${ACCENT_SOFT}, ${ACCENT})` }}
-                >
-                  {link.badge}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-black" style={{ color: INK }}>{link.label}</p>
-                  <p className="truncate text-xs" style={{ color: MUTED }}>{link.handle}</p>
-                </div>
-              </motion.a>
-            ))}
           </div>
         </div>
       </section>
