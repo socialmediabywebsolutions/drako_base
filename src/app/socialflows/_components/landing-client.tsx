@@ -166,7 +166,7 @@ const SOCIAL_LINKS: SocialLink[] = [
   { network: "linkedin", name: "Socialcors", handle: "Página de empresa", href: "https://www.linkedin.com/company/socialcors/", initials: "SC", followers: 0, posts: 0 },
   { network: "instagram", name: "Drako Systems", handle: "@drako.systems", href: "https://www.instagram.com/drako.systems/", initials: "DS", followers: 0, posts: 0 },
   { network: "linkedin", name: "Drako Systems", handle: "Página de empresa", href: "https://www.linkedin.com/company/drako-systems/", initials: "DS", followers: 0, posts: 0 },
-  { network: "linkedin", name: "Cristóbal Cors Bernal", handle: "Founder", href: "https://www.linkedin.com/in/cris-cors/", initials: "CB", followers: 0, posts: null },
+  { network: "linkedin", name: "Cristóbal Cors Bernal", handle: "Founder · Drako Systems", href: "https://www.linkedin.com/in/cris-cors/", initials: "CB", followers: 0, posts: null },
 ];
 
 // ─── Hooks ─────────────────────────────────────────────────────────────────────
@@ -266,30 +266,60 @@ function HeroColumn({ config }: { config: HeroSideConfig }) {
 
 function SocialCard({ link, delay }: { link: SocialLink; delay: number }) {
   const color = NETWORK_COLOR[link.network];
+  const isInstagram = link.network === "instagram";
+  const buttonBg = isInstagram ? "linear-gradient(90deg, #F58529, #DD2A7B, #8134AF)" : LI_BLUE;
+  const glowClass = isInstagram ? "sc-cta-glow-ig" : "sc-cta-glow-li";
+  const networkLabel = isInstagram ? "Instagram" : "LinkedIn";
+
   return (
-    <motion.a
-      href={link.href}
-      target="_blank"
-      rel="noopener noreferrer"
+    <motion.div
       {...fadeUp}
       transition={{ duration: 0.5, ease: "easeOut", delay }}
-      className="flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white p-5 shadow-[0_1px_3px_rgba(15,15,35,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(15,15,35,0.10)]"
+      className={
+        isInstagram
+          ? "cursor-pointer rounded-xl bg-white p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_rgba(221,42,123,0.22)]"
+          : "cursor-pointer rounded-xl bg-white p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_rgba(10,102,194,0.22)]"
+      }
+      style={{ border: `1.5px solid ${color}` }}
     >
-      <div
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-black text-white"
-        style={{ background: `linear-gradient(135deg, ${color}cc, ${color})` }}
+      <div className="flex items-center gap-3">
+        <div
+          className="flex shrink-0 items-center justify-center rounded-full font-black text-white"
+          style={{ width: 52, height: 52, background: `linear-gradient(135deg, ${color}cc, ${color})`, fontSize: "16px" }}
+        >
+          {link.initials}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate font-black" style={{ fontSize: "13px", color: INK }}>{link.name}</p>
+          <p className="truncate" style={{ fontSize: "11px", color: MUTED }}>{link.handle}</p>
+        </div>
+      </div>
+
+      <div className="my-3" style={{ borderTop: "0.5px solid rgba(0,0,0,0.06)" }} />
+
+      <div className="mb-4 flex gap-6">
+        <div>
+          <p className="font-black leading-none" style={{ fontSize: "18px", color: INK }}>{link.followers}</p>
+          <p className="mt-1 uppercase tracking-wide" style={{ fontSize: "9px", color: "#94a3b8" }}>Seguidores</p>
+        </div>
+        {link.posts !== null && (
+          <div>
+            <p className="font-black leading-none" style={{ fontSize: "18px", color: INK }}>{link.posts}</p>
+            <p className="mt-1 uppercase tracking-wide" style={{ fontSize: "9px", color: "#94a3b8" }}>Posts</p>
+          </div>
+        )}
+      </div>
+
+      <a
+        href={link.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${glowClass} sc-cta-shine block w-full text-center text-white transition-all hover:brightness-110`}
+        style={{ background: buttonBg, borderRadius: 8, padding: 8, fontSize: 11, fontWeight: 700 }}
       >
-        {link.initials}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-black" style={{ color: INK }}>{link.name}</p>
-        <p className="truncate text-xs" style={{ color: MUTED }}>{link.handle}</p>
-        <p className="mt-1 text-xs font-semibold" style={{ color: `${INK}99` }}>
-          {link.followers} seguidor{link.followers !== 1 ? "es" : ""}
-          {link.posts !== null ? ` · ${link.posts} publicacion${link.posts !== 1 ? "es" : ""}` : ""}
-        </p>
-      </div>
-    </motion.a>
+        Seguir en {networkLabel} →
+      </a>
+    </motion.div>
   );
 }
 
@@ -501,8 +531,11 @@ export default function LandingClient() {
               Síguenos
             </p>
             <h2 className="mt-3 text-center text-3xl font-black tracking-tight md:text-4xl" style={{ color: INK }}>
-              Nuestro contenido, hecho con Socialcors
+              Cuentas reales gestionadas por Socialcors
             </h2>
+            <p className="mx-auto mt-3 max-w-xl text-center text-sm" style={{ color: MUTED }}>
+              Seguimos creciendo — esto es lo que la IA hace por nosotros mismos
+            </p>
           </motion.div>
 
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
