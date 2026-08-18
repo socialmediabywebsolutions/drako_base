@@ -7,10 +7,12 @@ import { resolveSocialContext, getSocialProductSummary, getSocialActivitySummary
 import { countLeadsSince } from "@/lib/socialflow/leads/repository";
 import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
 import { getSocialFlowPlanDefinition, resolveSocialFlowPlanCode } from "@/lib/socialflow/billing/plans";
+import { getWeeklyPublishStatus } from "@/lib/socialflow/billing/enforce";
 import DashboardMetrics from "./_components/DashboardMetrics";
 import DashboardActivityCards from "./_components/DashboardActivityCards";
 import IntelligenceFeedPanel from "./_components/IntelligenceFeedPanel";
 import SocialFlowOperationsPanel from "./_components/SocialFlowOperationsPanel";
+import QuotaCard from "./_components/quota-card";
 import { getEmpresaChecklist } from "@/lib/socialflow/onboarding/checklistRepository";
 import EmpresaChecklist from "@/components/socialflow/EmpresaChecklist";
 
@@ -30,6 +32,8 @@ export default async function SocialFlowDashboardPage() {
   const billingSnapshot = await getCanonicalBillingSnapshot({ tenantId: session.tenantId, saasSlug: "socialflow" });
   const planCode = resolveSocialFlowPlanCode(billingSnapshot.subscription);
   const planDefinition = getSocialFlowPlanDefinition(planCode);
+
+  const weeklyPublishStatus = await getWeeklyPublishStatus(session.tenantId, session.role).catch(() => null);
 
   let summary: Awaited<ReturnType<typeof getSocialProductSummary>> | null = null;
   let leadsCount = 0;
@@ -76,6 +80,8 @@ export default async function SocialFlowDashboardPage() {
           Plan {planDefinition.label}
         </span>
       </div>
+
+      {weeklyPublishStatus && <QuotaCard status={weeklyPublishStatus} planLabel={planDefinition.label} />}
 
       {summary && <DashboardMetrics planCode={planCode} summary={summary} auditScore={audit?.score ?? null} leadsCount={leadsCount} />}
 

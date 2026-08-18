@@ -5,9 +5,11 @@ import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
 import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
+import { getWeeklyPublishStatus } from "@/lib/socialflow/billing/enforce";
 import SidebarNav from "./_components/sidebar-nav";
 import TrialBanner from "./_components/trial-banner";
 import TrialPaywall from "./_components/trial-paywall";
+import QuotaBanner from "./_components/quota-banner";
 
 export const metadata: Metadata = {
   title: "Socialcors",
@@ -33,6 +35,8 @@ export default async function SocialFlowWorkspaceLayout({
 
   const snapshot = await getCanonicalBillingSnapshot({ tenantId: session.tenantId, saasSlug: "socialflow" });
   const sub = snapshot.subscription;
+
+  const weeklyPublishStatus = await getWeeklyPublishStatus(session.tenantId, session.role).catch(() => null);
 
   const socialCtx = await resolveSocialContext({ tenantId: session.tenantId, saasId: "socialflow" });
   const socialAccounts = await listSaasSocialAccounts(socialCtx);
@@ -79,6 +83,14 @@ export default async function SocialFlowWorkspaceLayout({
         <main className="min-w-0 flex-1 px-5 py-7 lg:px-10 lg:py-8">
           {trialDaysLeft !== null && !showPaywall && (
             <TrialBanner daysLeft={trialDaysLeft} />
+          )}
+          {weeklyPublishStatus && (
+            <QuotaBanner
+              isAtDailyCap={weeklyPublishStatus.isAtDailyCap}
+              isOverWeeklyQuota={weeklyPublishStatus.isOverWeeklyQuota}
+              weeklyUsed={weeklyPublishStatus.used}
+              weeklyLimit={weeklyPublishStatus.limit}
+            />
           )}
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
