@@ -269,7 +269,7 @@ function SocialCard({ link, delay }: { link: SocialLink; delay: number }) {
   const isInstagram = link.network === "instagram";
   const buttonBg = isInstagram ? "linear-gradient(90deg, #F58529, #DD2A7B, #8134AF)" : LI_BLUE;
   const glowClass = isInstagram ? "sc-cta-glow-ig" : "sc-cta-glow-li";
-  const networkLabel = isInstagram ? "Instagram" : "LinkedIn";
+  const borderColor = isInstagram ? "rgba(221,42,123,0.3)" : "rgba(10,102,194,0.3)";
 
   return (
     <motion.div
@@ -277,35 +277,35 @@ function SocialCard({ link, delay }: { link: SocialLink; delay: number }) {
       transition={{ duration: 0.5, ease: "easeOut", delay }}
       className={
         isInstagram
-          ? "cursor-pointer rounded-xl bg-white p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_rgba(221,42,123,0.22)]"
-          : "cursor-pointer rounded-xl bg-white p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_rgba(10,102,194,0.22)]"
+          ? "cursor-pointer transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_14px_30px_rgba(221,42,123,0.22)]"
+          : "cursor-pointer transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_14px_30px_rgba(10,102,194,0.22)]"
       }
-      style={{ border: `1.5px solid ${color}` }}
+      style={{ borderRadius: 10, padding: "10px 12px", background: "#fff", border: `1.5px solid ${borderColor}` }}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <div
           className="flex shrink-0 items-center justify-center rounded-full font-black text-white"
-          style={{ width: 52, height: 52, background: `linear-gradient(135deg, ${color}cc, ${color})`, fontSize: "16px" }}
+          style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${color}cc, ${color})`, fontSize: "11px" }}
         >
           {link.initials}
         </div>
         <div className="min-w-0">
-          <p className="truncate font-black" style={{ fontSize: "13px", color: INK }}>{link.name}</p>
-          <p className="truncate" style={{ fontSize: "11px", color: MUTED }}>{link.handle}</p>
+          <p className="truncate font-black" style={{ fontSize: "11px", color: INK }}>{link.name}</p>
+          <p className="truncate" style={{ fontSize: "9px", color }}>{link.handle}</p>
         </div>
       </div>
 
-      <div className="my-3" style={{ borderTop: "0.5px solid rgba(0,0,0,0.06)" }} />
+      <div className="my-2" style={{ borderTop: "0.5px solid rgba(0,0,0,0.06)" }} />
 
-      <div className="mb-4 flex gap-6">
+      <div className="mb-2 flex gap-4">
         <div>
-          <p className="font-black leading-none" style={{ fontSize: "18px", color: INK }}>{link.followers}</p>
-          <p className="mt-1 uppercase tracking-wide" style={{ fontSize: "9px", color: "#94a3b8" }}>Seguidores</p>
+          <p className="font-black leading-none" style={{ fontSize: "14px", color: INK }}>{link.followers}</p>
+          <p className="mt-1 uppercase tracking-wide" style={{ fontSize: "8px", color: "#94a3b8" }}>Seguidores</p>
         </div>
         {link.posts !== null && (
           <div>
-            <p className="font-black leading-none" style={{ fontSize: "18px", color: INK }}>{link.posts}</p>
-            <p className="mt-1 uppercase tracking-wide" style={{ fontSize: "9px", color: "#94a3b8" }}>Posts</p>
+            <p className="font-black leading-none" style={{ fontSize: "14px", color: INK }}>{link.posts}</p>
+            <p className="mt-1 uppercase tracking-wide" style={{ fontSize: "8px", color: "#94a3b8" }}>Posts</p>
           </div>
         )}
       </div>
@@ -315,9 +315,9 @@ function SocialCard({ link, delay }: { link: SocialLink; delay: number }) {
         target="_blank"
         rel="noopener noreferrer"
         className={`${glowClass} sc-cta-shine block w-full text-center text-white transition-all hover:brightness-110`}
-        style={{ background: buttonBg, borderRadius: 8, padding: 8, fontSize: 11, fontWeight: 700 }}
+        style={{ background: buttonBg, borderRadius: 6, padding: "6px 10px", fontSize: 10, fontWeight: 700 }}
       >
-        Seguir en {networkLabel} →
+        Seguir →
       </a>
     </motion.div>
   );
@@ -595,7 +595,7 @@ export default function LandingClient() {
             </p>
           </motion.div>
 
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {SOCIAL_LINKS.map((link, i) => (
               <SocialCard key={link.href} link={link} delay={i * 0.08} />
             ))}
