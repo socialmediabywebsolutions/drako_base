@@ -1,7 +1,11 @@
 import { getCanonicalBillingSnapshot, type CanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
 import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
-import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
+import { countSaasSocialPostsInRange, listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
 import { resolveSocialFlowPlanCode, type SocialFlowPlanCode } from "./plans";
+
+// Todas las páginas del workspace SocialFlow operan sobre este único saasId (ver
+// SAAS_ID en publicar/page.tsx, upload/page.tsx, etc.) — no es multi-saas por tenant.
+const SOCIALFLOW_SAAS_ID = "socialflow";
 
 // El fetch de accountType solo se dispara cuando isInternalAccount es true (caso
 // raro, gestionado a mano) — evita añadir una consulta extra a SOCIALFLOW_AUTHS_DB
@@ -26,20 +30,36 @@ const PLAN_MAX_CHANNELS: Record<SocialFlowPlanCode, number> = {
   empresa_pro: 2,         // Instagram + LinkedIn
 };
 
-// Multiplicador de piezas/día por formato (post, reel, historia, carrusel) — igual
-// para los 4 formatos. El límite de lote real es días_del_mes_actual × multiplicador
-// (ver getUploadBatchLimit), así julio (31 días) permite más de golpe que febrero.
-const PLAN_DAILY_MULTIPLIER: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
-  influencer_starter: 1,
-  influencer_basico: 2,
-  influencer_pro: 3,
-  empresa_starter: 1,
-  empresa_basico: 2,
-  empresa_pro: 3,
+// Cuota de publicaciones por SEMANA (lunes-domingo) — sustituye al antiguo
+// PLAN_DAILY_MULTIPLIER × días_del_mes. Ver getWeeklyPublishStatus.
+const PLAN_WEEKLY_LIMIT: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
+  influencer_starter: 8,
+  influencer_basico: 12,
+  influencer_pro: 14,
+  empresa_starter: 8,
+  empresa_basico: 12,
+  empresa_pro: 14,
 };
 
+// Cuota de publicaciones por MES — informativa (no bloquea), se muestra junto al
+// consumo semanal en getWeeklyPublishStatus. Es 4× la cuota semanal, no una medida
+// independiente basada en días_del_mes como antes.
+const PLAN_MONTHLY_LIMIT: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
+  influencer_starter: 32,
+  influencer_basico: 48,
+  influencer_pro: 56,
+  empresa_starter: 32,
+  empresa_basico: 48,
+  empresa_pro: 56,
+};
+
+// Techo diario de publicaciones — protege el alcance orgánico (el algoritmo penaliza
+// cuentas que publican más de 2 veces al día). A diferencia de la cuota semanal/mensual,
+// este SÍ bloquea: es el único límite que canPublishNow hace cumplir de verdad.
+const DAILY_CAP = 2;
+
 // Slides fijos por plan para el formato Carrusel — Starter=2, Básico=4, Pro=6,
-// simétrico entre influencer_ y empresa_ igual que PLAN_DAILY_MULTIPLIER arriba.
+// simétrico entre influencer_ y empresa_ igual que PLAN_WEEKLY_LIMIT arriba.
 const CAROUSEL_SLIDES_PER_PLAN: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
   influencer_starter: 2,
   influencer_basico: 4,
@@ -49,11 +69,31 @@ const CAROUSEL_SLIDES_PER_PLAN: Record<Exclude<SocialFlowPlanCode, "free">, numb
   empresa_pro: 6,
 };
 
-// Tenants sin plan activo (free): límite fijo, no se multiplica por días del mes.
-const FREE_TIER_UPLOAD_BATCH_LIMIT = 30;
+// --- Helpers de fechas UTC para el reset semanal (lunes 00:00 UTC) ---
 
-function daysInCurrentMonth(reference: Date = new Date()): number {
-  return new Date(reference.getFullYear(), reference.getMonth() + 1, 0).getDate();
+function startOfUtcDay(reference: Date): Date {
+  return new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth(), reference.getUTCDate()));
+}
+
+function addUtcDays(reference: Date, days: number): Date {
+  const copy = new Date(reference);
+  copy.setUTCDate(copy.getUTCDate() + days);
+  return copy;
+}
+
+// Lunes 00:00 UTC de la semana que contiene `reference`.
+function startOfUtcWeek(reference: Date): Date {
+  const day = startOfUtcDay(reference);
+  const daysSinceMonday = (day.getUTCDay() + 6) % 7; // Mon=0, Tue=1, ..., Sun=6
+  return addUtcDays(day, -daysSinceMonday);
+}
+
+function startOfUtcMonth(reference: Date): Date {
+  return new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth(), 1));
+}
+
+function startOfNextUtcMonth(reference: Date): Date {
+  return new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth() + 1, 1));
 }
 
 const PLAN_AI_ALLOWED: Record<SocialFlowPlanCode, boolean> = {
@@ -133,28 +173,94 @@ export async function isActiveSocialFlowTrial(tenantId: string, role?: string): 
   return sub.status === "trial" && trialEndsAt !== null && trialEndsAt > new Date();
 }
 
-export async function getUploadBatchLimit(tenantId: string, role?: string): Promise<number> {
-  if (AI_BYPASS_TENANT_IDS.has(tenantId) || (role && AI_BYPASS_ROLES.has(role))) {
-    return PLAN_DAILY_MULTIPLIER.influencer_pro * daysInCurrentMonth();
-  }
-  const snapshot = await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" });
-  const sub = snapshot.subscription;
+// Con el modelo semanal, lo que se limita por plan es la PUBLICACIÓN (ver
+// PLAN_WEEKLY_LIMIT / getWeeklyPublishStatus / canPublishNow), no la subida de
+// material — un usuario puede preparar/subir de golpe todo lo que quiera y dejarlo en
+// borrador; el gate real ocurre al publicar. Este valor es solo un techo técnico de
+// lote (evitar payloads gigantes en una sola subida), no un límite de plan, por eso ya
+// no depende de tenantId/role/plan como antes.
+const UPLOAD_BATCH_LIMIT = 10;
 
-  // Cap at 1 per batch during active trial (lets users taste the product without abusing it)
-  const trialEndsAt = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
-  const isActiveTrial = sub.status === "trial" && trialEndsAt !== null && trialEndsAt > new Date();
-  if (isActiveTrial) return 1;
+export async function getUploadBatchLimit(_tenantId: string, _role?: string): Promise<number> {
+  return UPLOAD_BATCH_LIMIT;
+}
 
-  const planCode = await resolvePlanCode(tenantId, snapshot);
-  if (planCode === "free") return FREE_TIER_UPLOAD_BATCH_LIMIT;
-  return PLAN_DAILY_MULTIPLIER[planCode] * daysInCurrentMonth();
+export type WeeklyPublishStatus = {
+  used: number;
+  limit: number;
+  remaining: number;
+  dailyUsed: number;
+  dailyCap: number;
+  monthlyUsed: number;
+  monthlyLimit: number;
+  monthlyRemaining: number;
+  isOverWeeklyQuota: boolean;
+  isAtDailyCap: boolean;
+};
+
+const PUBLISHED_STATUSES = ["POSTED", "SCHEDULED"];
+
+// Estado de consumo de la cuota de publicación del tenant: día actual (techo duro de
+// DAILY_CAP), semana actual L-D (cuota blanda — se puede superar, solo avisa) y mes
+// actual (informativo). El sobrante de la semana pasada (si no se agotó su cuota) se
+// suma a la cuota semanal de esta semana — máx. 1 semana de acumulación: solo se mira
+// la semana inmediatamente anterior, no se encadenan sobrantes de semanas más lejanas.
+export async function getWeeklyPublishStatus(tenantId: string, role?: string): Promise<WeeklyPublishStatus> {
+  const isBypass = AI_BYPASS_TENANT_IDS.has(tenantId) || (role !== undefined && AI_BYPASS_ROLES.has(role));
+  const planCode: SocialFlowPlanCode = isBypass
+    ? "influencer_pro"
+    : await resolvePlanCode(tenantId, await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" }));
+
+  const weeklyBase = planCode === "free" ? 0 : PLAN_WEEKLY_LIMIT[planCode];
+  const monthlyLimit = planCode === "free" ? 0 : PLAN_MONTHLY_LIMIT[planCode];
+
+  const ctx = await resolveSocialContext({ tenantId, saasId: SOCIALFLOW_SAAS_ID });
+
+  const now = new Date();
+  const dayStart = startOfUtcDay(now);
+  const dayEnd = addUtcDays(dayStart, 1);
+  const weekStart = startOfUtcWeek(now);
+  const weekEnd = addUtcDays(weekStart, 7);
+  const prevWeekStart = addUtcDays(weekStart, -7);
+  const monthStart = startOfUtcMonth(now);
+  const monthEnd = startOfNextUtcMonth(now);
+
+  const [dailyUsed, weeklyUsed, monthlyUsed, prevWeekUsed] = await Promise.all([
+    countSaasSocialPostsInRange(ctx, dayStart.toISOString(), dayEnd.toISOString(), PUBLISHED_STATUSES),
+    countSaasSocialPostsInRange(ctx, weekStart.toISOString(), weekEnd.toISOString(), PUBLISHED_STATUSES),
+    countSaasSocialPostsInRange(ctx, monthStart.toISOString(), monthEnd.toISOString(), PUBLISHED_STATUSES),
+    countSaasSocialPostsInRange(ctx, prevWeekStart.toISOString(), weekStart.toISOString(), PUBLISHED_STATUSES),
+  ]);
+
+  const carryover = Math.max(0, weeklyBase - prevWeekUsed);
+  const weeklyLimit = weeklyBase + carryover;
+
+  return {
+    used: weeklyUsed,
+    limit: weeklyLimit,
+    remaining: Math.max(0, weeklyLimit - weeklyUsed),
+    dailyUsed,
+    dailyCap: DAILY_CAP,
+    monthlyUsed,
+    monthlyLimit,
+    monthlyRemaining: Math.max(0, monthlyLimit - monthlyUsed),
+    isOverWeeklyQuota: weeklyUsed >= weeklyLimit,
+    isAtDailyCap: dailyUsed >= DAILY_CAP,
+  };
+}
+
+// Único gate que bloquea de verdad: el techo diario (DAILY_CAP). La cuota semanal/
+// mensual es informativa (isOverWeeklyQuota) y nunca impide publicar.
+export async function canPublishNow(tenantId: string, role?: string): Promise<boolean> {
+  const status = await getWeeklyPublishStatus(tenantId, role);
+  return status.dailyUsed < status.dailyCap;
 }
 
 // Techo de fotos/slides para el formato Carrusel — a diferencia de
-// getUploadBatchLimit (lote diario × días del mes), este número es FIJO por plan,
-// no escala con el calendario. free y trial devuelven 0: como el mínimo real de un
-// carrusel es 2 (CAROUSEL_MIN_SLIDES en publish-carrusel.tsx), un techo de 0 deja el
-// botón "Generar carrusel" deshabilitado sin necesitar un gate aparte.
+// getWeeklyPublishStatus (cuota semanal de publicaciones), este número es FIJO por
+// plan y no está ligado a ninguna ventana de tiempo. free y trial devuelven 0: como el
+// mínimo real de un carrusel es 2 (CAROUSEL_MIN_SLIDES en publish-carrusel.tsx), un
+// techo de 0 deja el botón "Generar carrusel" deshabilitado sin necesitar un gate aparte.
 export async function getCarouselSlideLimit(tenantId: string, role?: string): Promise<number> {
   if (AI_BYPASS_TENANT_IDS.has(tenantId) || (role && AI_BYPASS_ROLES.has(role))) {
     return CAROUSEL_SLIDES_PER_PLAN.influencer_pro;
