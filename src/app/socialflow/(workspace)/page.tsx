@@ -81,11 +81,11 @@ export default async function SocialFlowDashboardPage() {
         </span>
       </div>
 
-      {weeklyPublishStatus && <QuotaCard status={weeklyPublishStatus} planLabel={planDefinition.label} />}
-
-      {summary && <DashboardMetrics planCode={planCode} summary={summary} auditScore={audit?.score ?? null} leadsCount={leadsCount} />}
-
-      {activity && <DashboardActivityCards activity={activity} />}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {weeklyPublishStatus && <QuotaCard status={weeklyPublishStatus} planLabel={planDefinition.label} />}
+        {summary && <DashboardMetrics planCode={planCode} summary={summary} auditScore={audit?.score ?? null} leadsCount={leadsCount} />}
+        {activity && <DashboardActivityCards activity={activity} />}
+      </div>
 
       {showChecklistWidget && empresaChecklist && (
         <EmpresaChecklist
