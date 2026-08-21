@@ -33,15 +33,6 @@ async function verifyMetaSignature(rawBody: string, request: Request): Promise<b
   return crypto.subtle.verify("HMAC", key, sigBytes, encoder.encode(rawBody));
 }
 
-// Internal relay mode: caller supplies ?verifyToken= in the URL.
-function verifyRelayToken(request: Request): boolean {
-  const url = new URL(request.url);
-  const provided = url.searchParams.get("verifyToken");
-  const expected = env()?.SOCIALFLOW_WEBHOOK_VERIFY_TOKEN;
-  if (!expected || !provided) return false;
-  return provided === expected;
-}
-
 // Meta webhook verification challenge (GET)
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -61,9 +52,8 @@ export async function GET(request: Request) {
 }
 
 // Inbound webhook event (POST)
-// Supports two auth modes:
-//   1. Direct Meta events  — X-Hub-Signature-256 HMAC header present → verifyMetaSignature()
-//   2. Internal relay      — ?verifyToken= query param               → verifyRelayToken()
+// Requires a valid X-Hub-Signature-256 HMAC header on every request — no unsigned
+// fallback. There is no known caller of the old ?verifyToken= relay mode in this repo.
 // Bug 1 fix: tenantId is read from the URL query param (operator-controlled at webhook
 // registration time), never from the request body, so a caller cannot escalate to another
 // tenant by supplying a different tenantId in the POST body.
@@ -72,10 +62,7 @@ export async function POST(request: Request) {
     // Read raw body first so HMAC can verify the exact bytes Meta signed.
     const rawBody = await request.text().catch(() => "");
 
-    const hasHmacHeader = request.headers.has("x-hub-signature-256");
-    const authenticated = hasHmacHeader
-      ? await verifyMetaSignature(rawBody, request)
-      : verifyRelayToken(request);
+    const authenticated = await verifyMetaSignature(rawBody, request);
 
     if (!authenticated) {
       return new Response(JSON.stringify({ error: "FORBIDDEN" }), {
