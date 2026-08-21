@@ -55,6 +55,7 @@ async function ensureSocialSchema(db: D1Database): Promise<void> {
     await runStatement(db, `CREATE TABLE IF NOT EXISTS saas_social_channel_ideas (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, saas_id TEXT NOT NULL, channel_id TEXT NOT NULL, title TEXT NOT NULL, angle TEXT, summary TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
     await runStatement(db, `CREATE TABLE IF NOT EXISTS saas_social_channel_knowledge (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, saas_id TEXT NOT NULL, channel_id TEXT NOT NULL, objective TEXT, audience TEXT, tone TEXT, keywords TEXT, competitors TEXT, sources TEXT, updated_at TEXT)`);
     await runStatement(db, `CREATE TABLE IF NOT EXISTS saas_social_channel_signals (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, saas_id TEXT NOT NULL, channel_id TEXT NOT NULL, topics TEXT, active_keywords TEXT, trend_notes TEXT, watched_competitors TEXT, watched_sources TEXT, updated_at TEXT NOT NULL)`);
+    await runStatement(db, `CREATE TABLE IF NOT EXISTS socialflow_oauth_state_nonces (nonce TEXT PRIMARY KEY, provider TEXT NOT NULL, tenant_id TEXT NOT NULL, saas_id TEXT NOT NULL, issued_at INTEGER NOT NULL, consumed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))`);
     await runStatement(db, "CREATE INDEX IF NOT EXISTS idx_saas_social_accounts_tenant ON saas_social_accounts (tenant_id, saas_id)");
     await runStatement(db, "CREATE INDEX IF NOT EXISTS idx_saas_social_campaigns_tenant ON saas_social_campaigns (tenant_id, saas_id)");
     await runStatement(db, "CREATE INDEX IF NOT EXISTS idx_saas_social_posts_tenant ON saas_social_posts (tenant_id, saas_id, status)");
@@ -64,6 +65,7 @@ async function ensureSocialSchema(db: D1Database): Promise<void> {
     await runStatement(db, "CREATE INDEX IF NOT EXISTS idx_saas_social_channel_ideas_channel ON saas_social_channel_ideas (tenant_id, saas_id, channel_id)");
     await runStatement(db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_saas_social_channel_knowledge_unique ON saas_social_channel_knowledge (tenant_id, saas_id, channel_id)");
     await runStatement(db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_saas_social_channel_signals_unique ON saas_social_channel_signals (tenant_id, saas_id, channel_id)");
+    await runStatement(db, "CREATE INDEX IF NOT EXISTS idx_socialflow_oauth_state_nonces_issued_at ON socialflow_oauth_state_nonces (issued_at)");
   })();
   schemaInitCache.set(db, promise); try { await promise; } catch (error) { schemaInitCache.delete(db); throw error; }
 }
