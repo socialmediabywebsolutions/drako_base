@@ -227,11 +227,21 @@ Devuelve un JSON con: score global (0-100), desglose por area (areaScores con ar
 debilidades (weaknesses), oportunidades (opportunities), top 5 recomendaciones priorizadas (recommendations con
 title/description/impact), y comparativa con competidores (competitorComparison con competitor/comparison), y un
 resumen ejecutivo (summary). Se especifico y orientado a acciones concretas. Si hay metricas reales, basate en ellas
-para calibrar el score y las recomendaciones.`;
+para calibrar el score y las recomendaciones.
+
+Para cada recommendation, el titulo debe ser una frase corta en lenguaje cotidiano que explique QUE PROBLEMA TIENE el
+cliente (ej: "Tu audiencia no está definida", "No sabes qué publicar cada semana", "Tus hashtags no llegan a nadie
+nuevo"). La description debe explicar en 1-2 frases POR QUÉ le afecta y QUÉ MEJORARÍA si lo resuelve, usando lenguaje
+simple sin tecnicismos. Distingue claramente entre dos tipos: (a) "setup" — algo que falta configurar para que el
+sistema funcione al 100%, empieza el título con "Falta: ", (b) "insight" — algo que el Cerebro detectó analizando tu
+nicho o competencia, empieza con "Detectado: ". El campo impact debe ser "high", "medium" o "low" según el impacto
+real en el crecimiento del cliente.`;
 
   const system =
     "Eres el motor de auditoria social estrategica de SocialFlow. Analiza perfiles de marca y devuelve diagnosticos " +
-    "honestos, especificos y orientados a accion. Responde SOLO con JSON valido que coincida exactamente con la forma solicitada.";
+    "honestos, especificos y orientados a accion. Responde SOLO con JSON valido que coincida exactamente con la forma solicitada. " +
+    "Escribe siempre en español, en tono cercano y directo, como si fuera un community manager experto hablando con " +
+    "su cliente. Nunca uses jerga técnica ni términos en inglés.";
 
   const { data } = await intelligenceModel.generateStructured({ prompt, system, tenantId: input.tenantId, saasId: input.saasId }, () => base);
   return data;
