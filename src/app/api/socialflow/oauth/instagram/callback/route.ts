@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { getCurrentSocialFlowSessionFromRequest } from "@/lib/socialflow/auth/request";
 import {
   InstagramOAuthError,
   exchangeForLongLivedInstagramToken,
@@ -53,6 +54,22 @@ export async function GET(request: Request) {
     console.error("INSTAGRAM_OAUTH_CALLBACK_INVALID_STATE", { rawState });
     return Response.redirect(
       buildRedirect(request, redirectTo, { instagram: "error", code: "INSTAGRAM_STATE_INVALID", saasId }),
+      308,
+    );
+  }
+
+  // Verify the authenticated session's tenant matches the tenant encoded in `state`
+  // before persisting anything. `state` is base64url, not signed/HMAC'd — without this
+  // check an attacker could forge a state naming any victim tenantId and hijack their
+  // Instagram connection using the attacker's own Instagram consent.
+  const session = await getCurrentSocialFlowSessionFromRequest(request);
+  if (!session || session.tenantId !== state.tenantId) {
+    console.error("INSTAGRAM_OAUTH_CALLBACK_TENANT_MISMATCH", {
+      sessionTenantId: session?.tenantId ?? null,
+      stateTenantId: state.tenantId,
+    });
+    return Response.redirect(
+      buildRedirect(request, redirectTo, { instagram: "error", code: "INSTAGRAM_TENANT_MISMATCH", saasId }),
       308,
     );
   }
