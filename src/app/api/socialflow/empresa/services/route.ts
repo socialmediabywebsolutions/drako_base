@@ -39,6 +39,10 @@ export async function POST(req: Request) {
     name?: string;
     description?: string;
     category?: string;
+    zona?: string;
+    tarifa?: string;
+    credentialDeclared?: boolean;
+    credentialDescription?: string;
     active?: boolean;
   };
   try {
@@ -57,6 +61,10 @@ export async function POST(req: Request) {
       name,
       description: body.description?.trim() || null,
       category: body.category?.trim() || null,
+      zona: body.zona?.trim() || null,
+      tarifa: body.tarifa?.trim() || null,
+      credentialDeclared: body.credentialDeclared,
+      credentialDescription: body.credentialDescription?.trim() || null,
       active: body.active,
     });
     return NextResponse.json({ ok: true, service });

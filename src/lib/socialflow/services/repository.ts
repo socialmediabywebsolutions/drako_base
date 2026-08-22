@@ -10,6 +10,10 @@ type ServiceRow = {
   name: string;
   description: string | null;
   category: string | null;
+  zona: string | null;
+  tarifa: string | null;
+  credential_declared: number;
+  credential_description: string | null;
   active: number;
   created_at: string;
 };
@@ -22,6 +26,10 @@ function rowToService(row: ServiceRow): EmpresaService {
     name: row.name,
     description: row.description,
     category: row.category,
+    zona: row.zona,
+    tarifa: row.tarifa,
+    credentialDeclared: row.credential_declared === 1,
+    credentialDescription: row.credential_description,
     active: row.active === 1,
     createdAt: row.created_at,
   };
@@ -39,7 +47,7 @@ export async function getServicesByTenant(
   const db = await getDb(tenantId, saasId);
   const { results } = await db
     .prepare(
-      `SELECT id, tenant_id, saas_id, name, description, category, active, created_at
+      `SELECT id, tenant_id, saas_id, name, description, category, zona, tarifa, credential_declared, credential_description, active, created_at
        FROM ${TABLE}
        WHERE tenant_id = ? AND saas_id = ?
        ORDER BY created_at DESC
@@ -58,7 +66,7 @@ async function getServiceById(
   const db = await getDb(tenantId, saasId);
   const row = await db
     .prepare(
-      `SELECT id, tenant_id, saas_id, name, description, category, active, created_at
+      `SELECT id, tenant_id, saas_id, name, description, category, zona, tarifa, credential_declared, credential_description, active, created_at
        FROM ${TABLE}
        WHERE id = ? AND tenant_id = ? AND saas_id = ?`,
     )
@@ -76,11 +84,12 @@ export async function createService(
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const active = input.active ?? true;
+  const credentialDeclared = input.credentialDeclared ?? false;
 
   await db
     .prepare(
-      `INSERT INTO ${TABLE} (id, tenant_id, saas_id, name, description, category, active, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO ${TABLE} (id, tenant_id, saas_id, name, description, category, zona, tarifa, credential_declared, credential_description, active, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -89,6 +98,10 @@ export async function createService(
       input.name,
       input.description ?? null,
       input.category ?? null,
+      input.zona ?? null,
+      input.tarifa ?? null,
+      credentialDeclared ? 1 : 0,
+      input.credentialDescription ?? null,
       active ? 1 : 0,
       now,
     )
@@ -101,6 +114,10 @@ export async function createService(
     name: input.name,
     description: input.description ?? null,
     category: input.category ?? null,
+    zona: input.zona ?? null,
+    tarifa: input.tarifa ?? null,
+    credentialDeclared,
+    credentialDescription: input.credentialDescription ?? null,
     active,
     createdAt: now,
   };
@@ -128,6 +145,22 @@ export async function updateService(
   if (input.category !== undefined) {
     fields.push("category = ?");
     values.push(input.category);
+  }
+  if (input.zona !== undefined) {
+    fields.push("zona = ?");
+    values.push(input.zona);
+  }
+  if (input.tarifa !== undefined) {
+    fields.push("tarifa = ?");
+    values.push(input.tarifa);
+  }
+  if (input.credentialDeclared !== undefined) {
+    fields.push("credential_declared = ?");
+    values.push(input.credentialDeclared ? 1 : 0);
+  }
+  if (input.credentialDescription !== undefined) {
+    fields.push("credential_description = ?");
+    values.push(input.credentialDescription);
   }
   if (input.active !== undefined) {
     fields.push("active = ?");

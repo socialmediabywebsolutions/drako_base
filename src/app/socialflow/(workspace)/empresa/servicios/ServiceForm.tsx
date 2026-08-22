@@ -19,6 +19,10 @@ export default function ServiceForm({
   const [name, setName] = useState(service?.name ?? "");
   const [category, setCategory] = useState(service?.category ?? "");
   const [description, setDescription] = useState(service?.description ?? "");
+  const [zona, setZona] = useState(service?.zona ?? "");
+  const [tarifa, setTarifa] = useState(service?.tarifa ?? "");
+  const [credentialDeclared, setCredentialDeclared] = useState(service?.credentialDeclared ?? false);
+  const [credentialDescription, setCredentialDescription] = useState(service?.credentialDescription ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,6 +42,10 @@ export default function ServiceForm({
         name: trimmedName,
         category: category.trim() || null,
         description: description.trim() || null,
+        zona: zona.trim() || null,
+        tarifa: tarifa.trim() || null,
+        credentialDeclared,
+        credentialDescription: credentialDeclared ? (credentialDescription.trim() || null) : null,
       };
 
       let saved: ListItem;
@@ -89,6 +97,34 @@ export default function ServiceForm({
           <Field label="Descripción">
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="En qué consiste el servicio..." rows={3} className={inputCls} />
           </Field>
+          <Field label="Zona de cobertura">
+            <input type="text" value={zona} onChange={(e) => setZona(e.target.value)} placeholder="Madrid centro, a domicilio en un radio de 20km..." className={inputCls} />
+          </Field>
+          <Field label="Tarifa">
+            <input type="text" value={tarifa} onChange={(e) => setTarifa(e.target.value)} placeholder="Desde 30€" className={inputCls} />
+          </Field>
+          <div>
+            <label className="flex items-center gap-2 text-xs font-medium text-white/45">
+              <input
+                type="checkbox"
+                checked={credentialDeclared}
+                onChange={(e) => setCredentialDeclared(e.target.checked)}
+                className="h-4 w-4 rounded border-white/20 bg-white/5 accent-violet-500"
+              />
+              Tengo una credencial/certificación relevante
+            </label>
+            {credentialDeclared && (
+              <div className="mt-2">
+                <input
+                  type="text"
+                  value={credentialDescription}
+                  onChange={(e) => setCredentialDescription(e.target.value)}
+                  placeholder="Certificado en depilación láser, colegiado #1234..."
+                  className={inputCls}
+                />
+              </div>
+            )}
+          </div>
 
           {error && <p className="text-sm text-red-400">{error}</p>}
 

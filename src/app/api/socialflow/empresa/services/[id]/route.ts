@@ -30,6 +30,10 @@ export async function PATCH(
     name?: string;
     description?: string | null;
     category?: string | null;
+    zona?: string | null;
+    tarifa?: string | null;
+    credentialDeclared?: boolean;
+    credentialDescription?: string | null;
     active?: boolean;
   };
   try {
@@ -43,6 +47,10 @@ export async function PATCH(
       name: body.name?.trim(),
       description: body.description !== undefined ? body.description?.trim() || null : undefined,
       category: body.category !== undefined ? body.category?.trim() || null : undefined,
+      zona: body.zona !== undefined ? body.zona?.trim() || null : undefined,
+      tarifa: body.tarifa !== undefined ? body.tarifa?.trim() || null : undefined,
+      credentialDeclared: body.credentialDeclared,
+      credentialDescription: body.credentialDescription !== undefined ? body.credentialDescription?.trim() || null : undefined,
       active: body.active,
     });
     if (!service) {
