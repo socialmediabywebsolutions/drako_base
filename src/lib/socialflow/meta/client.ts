@@ -1,28 +1,25 @@
 import { resolveMetaOAuthDiagnostics } from "@/lib/socialflow/meta/core";
+import { signOAuthState } from "@/lib/socialflow/oauth/state";
 import {
   SOCIALFLOW_META_CALLBACK_PATH,
   SOCIALFLOW_META_SCOPES,
   type SocialFlowMetaConnectResult,
-  type SocialFlowMetaState,
 } from "@/lib/socialflow/meta/types";
 
 const META_OAUTH_DIALOG_URL = "https://www.facebook.com/v19.0/dialog/oauth";
 
-function encodeSocialFlowMetaState(input: SocialFlowMetaState): string {
-  return Buffer.from(JSON.stringify(input), "utf8").toString("base64url");
-}
-
-export function buildSocialFlowMetaAuthorizationUrl(input: {
+export async function buildSocialFlowMetaAuthorizationUrl(input: {
   request: Request;
   appId: string;
   tenantId: string;
   saasId: string;
   redirectTo?: string | null;
-}): SocialFlowMetaConnectResult {
+}): Promise<SocialFlowMetaConnectResult> {
   const diagnostics = resolveMetaOAuthDiagnostics(input.request, {
     callbackPath: SOCIALFLOW_META_CALLBACK_PATH,
   });
-  const state = encodeSocialFlowMetaState({
+  const state = await signOAuthState({
+    provider: "meta",
     tenantId: input.tenantId,
     saasId: input.saasId,
     redirectTo: input.redirectTo ?? null,

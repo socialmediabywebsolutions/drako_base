@@ -88,13 +88,6 @@ export type MetaInstagramAccount = {
   username: string;
 };
 
-export type MetaOAuthState = {
-  tenantId?: string | null;
-  saasId?: string | null;
-  redirectTo?: string | null;
-  format?: "json" | "base64url-json" | "base64-json" | "compact";
-};
-
 // ---------------------------------------------------------------------------
 // Error class
 // ---------------------------------------------------------------------------
@@ -133,31 +126,6 @@ function toMetaRecord(value: unknown): Record<string, unknown> | null {
     return null;
   }
   return value as Record<string, unknown>;
-}
-
-function decodeMetaState(value: string, encoding: "base64url" | "base64"): string | null {
-  try {
-    return Buffer.from(value, encoding).toString("utf8");
-  } catch {
-    return null;
-  }
-}
-
-function normalizeMetaOAuthStatePayload(payload: Record<string, unknown>, format: MetaOAuthState["format"]): MetaOAuthState | null {
-  const tenantId = typeof payload.tenantId === "string" && payload.tenantId.trim() ? payload.tenantId.trim() : null;
-  const saasId = typeof payload.saasId === "string" && payload.saasId.trim() ? payload.saasId.trim() : null;
-  const redirectTo = typeof payload.redirectTo === "string" && payload.redirectTo.trim() ? payload.redirectTo.trim() : null;
-
-  if (!tenantId && !saasId && !redirectTo) {
-    return null;
-  }
-
-  return {
-    tenantId,
-    saasId,
-    redirectTo,
-    format,
-  };
 }
 
 async function parseMetaJson(response: Response): Promise<Record<string, unknown> | null> {
@@ -350,63 +318,6 @@ export function resolveMetaOAuthDiagnostics(request?: Request, options?: MetaCal
     appId: appId.value,
     appIdSource: appId.source,
   };
-}
-
-// ---------------------------------------------------------------------------
-// Public API — State parsing
-// ---------------------------------------------------------------------------
-
-export function parseMetaOAuthState(rawState: string | null | undefined): MetaOAuthState | null {
-  const normalizedState = rawState?.trim();
-  if (!normalizedState) return null;
-
-  if (normalizedState.startsWith("{")) {
-    try {
-      const parsed = JSON.parse(normalizedState) as unknown;
-      const payload = toMetaRecord(parsed);
-      return payload ? normalizeMetaOAuthStatePayload(payload, "json") : null;
-    } catch {
-      return null;
-    }
-  }
-
-  const base64UrlDecoded = decodeMetaState(normalizedState, "base64url");
-  if (base64UrlDecoded?.trim().startsWith("{")) {
-    try {
-      const parsed = JSON.parse(base64UrlDecoded) as unknown;
-      const payload = toMetaRecord(parsed);
-      return payload ? normalizeMetaOAuthStatePayload(payload, "base64url-json") : null;
-    } catch {
-      return null;
-    }
-  }
-
-  const base64Decoded = decodeMetaState(normalizedState, "base64");
-  if (base64Decoded?.trim().startsWith("{")) {
-    try {
-      const parsed = JSON.parse(base64Decoded) as unknown;
-      const payload = toMetaRecord(parsed);
-      return payload ? normalizeMetaOAuthStatePayload(payload, "base64-json") : null;
-    } catch {
-      return null;
-    }
-  }
-
-  const compactState = normalizedState.split("__");
-  if (compactState.length >= 2) {
-    const tenantId = compactState[0]?.trim() || null;
-    const saasId = compactState[1]?.trim() || null;
-    if (tenantId || saasId) {
-      return {
-        tenantId,
-        saasId,
-        redirectTo: null,
-        format: "compact",
-      };
-    }
-  }
-
-  return null;
 }
 
 // ---------------------------------------------------------------------------

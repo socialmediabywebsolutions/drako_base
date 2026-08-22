@@ -10,27 +10,10 @@ export const SOCIALFLOW_META_SETTINGS_PATH = "/socialflow/settings/accounts";
 export const SOCIALFLOW_META_SCOPES =
   "pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_engagement,pages_read_user_content,instagram_basic,instagram_manage_insights,instagram_content_publish,instagram_business_manage_messages,business_management";
 
-export type SocialFlowMetaState = {
+export type SocialFlowMetaCallbackContext = {
   tenantId: string;
   saasId: string;
-  redirectTo?: string | null;
-};
-
-export type SocialFlowMetaCallbackContext = {
-  tenantId: string | null;
-  saasId: string | null;
   redirectTo: string;
-  resolution: {
-    tenantId: string;
-    saasId: string;
-    redirectTo: string;
-  };
-  parsedState: {
-    tenantId?: string | null;
-    saasId?: string | null;
-    redirectTo?: string | null;
-    format?: string | null;
-  } | null;
 };
 
 export type SocialFlowMetaConnectResult = {

@@ -38,7 +38,7 @@ export async function GET(request: Request) {
       return Response.redirect(url.toString(), 307);
     }
 
-    const oauth = buildSocialFlowMetaConnectUrl({
+    const oauth = await buildSocialFlowMetaConnectUrl({
       request,
       tenantId: session.tenantId,
       saasId,
