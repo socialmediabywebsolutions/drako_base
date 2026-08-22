@@ -86,10 +86,10 @@ export default async function SocialFlowWorkspaceLayout({
           )}
           {weeklyPublishStatus && (
             <QuotaBanner
-              isAtDailyCap={weeklyPublishStatus.isAtDailyCap}
-              isOverWeeklyQuota={weeklyPublishStatus.isOverWeeklyQuota}
-              weeklyUsed={weeklyPublishStatus.used}
-              weeklyLimit={weeklyPublishStatus.limit}
+              isAtDailyCap={weeklyPublishStatus.instagramDaily.isAtCap}
+              isOverWeeklyQuota={weeklyPublishStatus.instagram.isOverQuota}
+              weeklyUsed={weeklyPublishStatus.instagram.used}
+              weeklyLimit={weeklyPublishStatus.instagram.limit}
             />
           )}
           <div className="mx-auto max-w-6xl">{children}</div>

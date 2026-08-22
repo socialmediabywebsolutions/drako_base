@@ -1,8 +1,8 @@
 import type { WeeklyPublishStatus } from "@/lib/socialflow/billing/enforce";
 
-type QuotaTileData = { label: string; used: number; limit: number; color: string; shadowClass: string };
+type QuotaTileData = { label: string; used: number; limit: number; color: string; shadowClass: string; sublabel?: string };
 
-function QuotaTile({ label, used, limit, color, shadowClass }: QuotaTileData) {
+function QuotaTile({ label, used, limit, color, shadowClass, sublabel }: QuotaTileData) {
   return (
     <div
       className={`transition-all duration-300 hover:-translate-y-0.5 ${shadowClass}`}
@@ -12,16 +12,37 @@ function QuotaTile({ label, used, limit, color, shadowClass }: QuotaTileData) {
         {label}
       </p>
       <p style={{ marginTop: 2, fontSize: 24, fontWeight: 800, color }}>{used}</p>
-      <p style={{ marginTop: 2, fontSize: 8, color: "#94a3b8" }}>/{limit}</p>
+      <p style={{ marginTop: 2, fontSize: 8, color: "#94a3b8" }}>
+        /{limit}{sublabel ? ` · ${sublabel}` : ""}
+      </p>
     </div>
   );
 }
 
 export default function QuotaCard({ status, planLabel }: { status: WeeklyPublishStatus; planLabel: string }) {
   const tiles: QuotaTileData[] = [
-    { label: "Semana", used: status.used, limit: status.limit, color: "#6D5DFB", shadowClass: "hover:shadow-[0_8px_20px_rgba(109,93,251,0.35)]" },
-    { label: "Mes", used: status.monthlyUsed, limit: status.monthlyLimit, color: "#00C2A8", shadowClass: "hover:shadow-[0_8px_20px_rgba(0,194,168,0.35)]" },
-    { label: "Hoy", used: status.dailyUsed, limit: status.dailyCap, color: "#F58529", shadowClass: "hover:shadow-[0_8px_20px_rgba(245,133,41,0.35)]" },
+    {
+      label: "Instagram · Semana",
+      used: status.instagram.used,
+      limit: status.instagram.limit,
+      color: "#6D5DFB",
+      shadowClass: "hover:shadow-[0_8px_20px_rgba(109,93,251,0.35)]",
+      sublabel: `hoy ${status.instagramDaily.used}/${status.instagramDaily.cap}`,
+    },
+    {
+      label: "Historias · Hoy",
+      used: status.stories.used,
+      limit: status.stories.cap,
+      color: "#F58529",
+      shadowClass: "hover:shadow-[0_8px_20px_rgba(245,133,41,0.35)]",
+    },
+    {
+      label: "LinkedIn · Semana",
+      used: status.linkedin.used,
+      limit: status.linkedin.limit,
+      color: "#00C2A8",
+      shadowClass: "hover:shadow-[0_8px_20px_rgba(0,194,168,0.35)]",
+    },
   ];
 
   return (

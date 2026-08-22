@@ -30,27 +30,40 @@ const PLAN_MAX_CHANNELS: Record<SocialFlowPlanCode, number> = {
   empresa_pro: 2,         // Instagram + LinkedIn
 };
 
-// Cuota de publicaciones por SEMANA (lunes-domingo) — sustituye al antiguo
-// PLAN_DAILY_MULTIPLIER × días_del_mes. Ver getWeeklyPublishStatus.
-const PLAN_WEEKLY_LIMIT: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
+// Cuota de publicaciones de Instagram por SEMANA (lunes-domingo) — sustituye al
+// antiguo PLAN_DAILY_MULTIPLIER × días_del_mes. Diferenciada por tipo de cliente:
+// empresa es 2 menos que influencer en cada tier. Ver getWeeklyPublishStatus.
+const PLAN_INSTAGRAM_WEEKLY_LIMIT: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
   influencer_starter: 8,
   influencer_basico: 12,
   influencer_pro: 14,
-  empresa_starter: 8,
-  empresa_basico: 12,
-  empresa_pro: 14,
+  empresa_starter: 6,
+  empresa_basico: 10,
+  empresa_pro: 12,
 };
 
-// Cuota de publicaciones por MES — informativa (no bloquea), se muestra junto al
-// consumo semanal en getWeeklyPublishStatus. Es 4× la cuota semanal, no una medida
-// independiente basada en días_del_mes como antes.
-const PLAN_MONTHLY_LIMIT: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
-  influencer_starter: 32,
-  influencer_basico: 48,
-  influencer_pro: 56,
-  empresa_starter: 32,
-  empresa_basico: 48,
-  empresa_pro: 56,
+// Historias tiene su propio techo diario, independiente del DAILY_CAP de feed/reel/
+// carrusel — replica "N historias/día" de las features en plans.ts (starter=1, resto=2).
+// Simétrico influencer/empresa (a diferencia de PLAN_INSTAGRAM_WEEKLY_LIMIT arriba).
+const PLAN_STORIES_DAILY_CAP: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
+  influencer_starter: 1,
+  influencer_basico: 2,
+  influencer_pro: 2,
+  empresa_starter: 1,
+  empresa_basico: 2,
+  empresa_pro: 2,
+};
+
+// Cuota de publicaciones de LinkedIn por SEMANA — ventana y carryover independientes
+// de Instagram, mismo mecanismo de acumulación de 1 semana. Simétrico influencer/
+// empresa. Fuente de verdad del copy en plans.ts, no al revés.
+const PLAN_LINKEDIN_WEEKLY_LIMIT: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
+  influencer_starter: 2,
+  influencer_basico: 3,
+  influencer_pro: 5,
+  empresa_starter: 2,
+  empresa_basico: 3,
+  empresa_pro: 5,
 };
 
 // Techo diario de publicaciones — protege el alcance orgánico (el algoritmo penaliza
@@ -59,7 +72,7 @@ const PLAN_MONTHLY_LIMIT: Record<Exclude<SocialFlowPlanCode, "free">, number> = 
 const DAILY_CAP = 2;
 
 // Slides fijos por plan para el formato Carrusel — Starter=2, Básico=4, Pro=6,
-// simétrico entre influencer_ y empresa_ igual que PLAN_WEEKLY_LIMIT arriba.
+// simétrico entre influencer_ y empresa_ (a diferencia de PLAN_INSTAGRAM_WEEKLY_LIMIT).
 const CAROUSEL_SLIDES_PER_PLAN: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
   influencer_starter: 2,
   influencer_basico: 4,
@@ -174,7 +187,7 @@ export async function isActiveSocialFlowTrial(tenantId: string, role?: string): 
 }
 
 // Con el modelo semanal, lo que se limita por plan es la PUBLICACIÓN (ver
-// PLAN_WEEKLY_LIMIT / getWeeklyPublishStatus / canPublishNow), no la subida de
+// PLAN_INSTAGRAM_WEEKLY_LIMIT / getWeeklyPublishStatus / canPublishNow), no la subida de
 // material — un usuario puede preparar/subir de golpe todo lo que quiera y dejarlo en
 // borrador; el gate real ocurre al publicar. Este valor es solo un techo técnico de
 // lote (evitar payloads gigantes en una sola subida), no un límite de plan, por eso ya
@@ -186,24 +199,20 @@ export async function getUploadBatchLimit(_tenantId: string, _role?: string): Pr
 }
 
 export type WeeklyPublishStatus = {
-  used: number;
-  limit: number;
-  remaining: number;
-  dailyUsed: number;
-  dailyCap: number;
-  monthlyUsed: number;
-  monthlyLimit: number;
-  monthlyRemaining: number;
-  isOverWeeklyQuota: boolean;
-  isAtDailyCap: boolean;
+  instagram: { used: number; limit: number; remaining: number; isOverQuota: boolean };
+  instagramDaily: { used: number; cap: number; isAtCap: boolean };
+  instagramMonthly: { used: number; limit: number; remaining: number };
+  stories: { used: number; cap: number; isAtCap: boolean };
+  linkedin: { used: number; limit: number; remaining: number; isOverQuota: boolean };
 };
 
 const PUBLISHED_STATUSES = ["POSTED", "SCHEDULED"];
 
-// Estado de consumo de la cuota de publicación del tenant: día actual (techo duro de
-// DAILY_CAP), semana actual L-D (cuota blanda — se puede superar, solo avisa) y mes
-// actual (informativo). El sobrante de la semana pasada (si no se agotó su cuota) se
-// suma a la cuota semanal de esta semana — máx. 1 semana de acumulación: solo se mira
+// Estado de consumo de la cuota de publicación del tenant, por plataforma. Historias es
+// un bucket 100% separado del semanal combinado de Instagram (no compite con él) — spec
+// original: "Stories are separate... don't compete with weekly total". El sobrante de la
+// semana pasada (si no se agotó su cuota) se suma a la cuota semanal de esta semana,
+// tanto para Instagram como para LinkedIn — máx. 1 semana de acumulación: solo se mira
 // la semana inmediatamente anterior, no se encadenan sobrantes de semanas más lejanas.
 export async function getWeeklyPublishStatus(tenantId: string, role?: string): Promise<WeeklyPublishStatus> {
   const isBypass = AI_BYPASS_TENANT_IDS.has(tenantId) || (role !== undefined && AI_BYPASS_ROLES.has(role));
@@ -211,8 +220,10 @@ export async function getWeeklyPublishStatus(tenantId: string, role?: string): P
     ? "influencer_pro"
     : await resolvePlanCode(tenantId, await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" }));
 
-  const weeklyBase = planCode === "free" ? 0 : PLAN_WEEKLY_LIMIT[planCode];
-  const monthlyLimit = planCode === "free" ? 0 : PLAN_MONTHLY_LIMIT[planCode];
+  const igWeeklyBase = planCode === "free" ? 0 : PLAN_INSTAGRAM_WEEKLY_LIMIT[planCode];
+  const igMonthlyLimit = igWeeklyBase * 4;
+  const storiesCap = planCode === "free" ? 0 : PLAN_STORIES_DAILY_CAP[planCode];
+  const linkedinWeeklyBase = planCode === "free" ? 0 : PLAN_LINKEDIN_WEEKLY_LIMIT[planCode];
 
   const ctx = await resolveSocialContext({ tenantId, saasId: SOCIALFLOW_SAAS_ID });
 
@@ -225,35 +236,37 @@ export async function getWeeklyPublishStatus(tenantId: string, role?: string): P
   const monthStart = startOfUtcMonth(now);
   const monthEnd = startOfNextUtcMonth(now);
 
-  const [dailyUsed, weeklyUsed, monthlyUsed, prevWeekUsed] = await Promise.all([
-    countSaasSocialPostsInRange(ctx, dayStart.toISOString(), dayEnd.toISOString(), PUBLISHED_STATUSES),
-    countSaasSocialPostsInRange(ctx, weekStart.toISOString(), weekEnd.toISOString(), PUBLISHED_STATUSES),
-    countSaasSocialPostsInRange(ctx, monthStart.toISOString(), monthEnd.toISOString(), PUBLISHED_STATUSES),
-    countSaasSocialPostsInRange(ctx, prevWeekStart.toISOString(), weekStart.toISOString(), PUBLISHED_STATUSES),
+  const igContentFilter = { provider: "INSTAGRAM" as const, excludeContentTypes: ["STORY" as const] };
+  const [igDailyUsed, igWeeklyUsed, igMonthlyUsed, igPrevWeekUsed, storiesUsed, linkedinWeeklyUsed, linkedinPrevWeekUsed] = await Promise.all([
+    countSaasSocialPostsInRange(ctx, dayStart.toISOString(), dayEnd.toISOString(), PUBLISHED_STATUSES, igContentFilter),
+    countSaasSocialPostsInRange(ctx, weekStart.toISOString(), weekEnd.toISOString(), PUBLISHED_STATUSES, igContentFilter),
+    countSaasSocialPostsInRange(ctx, monthStart.toISOString(), monthEnd.toISOString(), PUBLISHED_STATUSES, igContentFilter),
+    countSaasSocialPostsInRange(ctx, prevWeekStart.toISOString(), weekStart.toISOString(), PUBLISHED_STATUSES, igContentFilter),
+    countSaasSocialPostsInRange(ctx, dayStart.toISOString(), dayEnd.toISOString(), PUBLISHED_STATUSES, { provider: "INSTAGRAM", contentType: "STORY" }),
+    countSaasSocialPostsInRange(ctx, weekStart.toISOString(), weekEnd.toISOString(), PUBLISHED_STATUSES, { provider: "LINKEDIN" }),
+    countSaasSocialPostsInRange(ctx, prevWeekStart.toISOString(), weekStart.toISOString(), PUBLISHED_STATUSES, { provider: "LINKEDIN" }),
   ]);
 
-  const carryover = Math.max(0, weeklyBase - prevWeekUsed);
-  const weeklyLimit = weeklyBase + carryover;
+  const igCarryover = Math.max(0, igWeeklyBase - igPrevWeekUsed);
+  const igWeeklyLimit = igWeeklyBase + igCarryover;
+  const linkedinCarryover = Math.max(0, linkedinWeeklyBase - linkedinPrevWeekUsed);
+  const linkedinWeeklyLimit = linkedinWeeklyBase + linkedinCarryover;
 
   return {
-    used: weeklyUsed,
-    limit: weeklyLimit,
-    remaining: Math.max(0, weeklyLimit - weeklyUsed),
-    dailyUsed,
-    dailyCap: DAILY_CAP,
-    monthlyUsed,
-    monthlyLimit,
-    monthlyRemaining: Math.max(0, monthlyLimit - monthlyUsed),
-    isOverWeeklyQuota: weeklyUsed >= weeklyLimit,
-    isAtDailyCap: dailyUsed >= DAILY_CAP,
+    instagram: { used: igWeeklyUsed, limit: igWeeklyLimit, remaining: Math.max(0, igWeeklyLimit - igWeeklyUsed), isOverQuota: igWeeklyUsed >= igWeeklyLimit },
+    instagramDaily: { used: igDailyUsed, cap: DAILY_CAP, isAtCap: igDailyUsed >= DAILY_CAP },
+    instagramMonthly: { used: igMonthlyUsed, limit: igMonthlyLimit, remaining: Math.max(0, igMonthlyLimit - igMonthlyUsed) },
+    stories: { used: storiesUsed, cap: storiesCap, isAtCap: storiesUsed >= storiesCap },
+    linkedin: { used: linkedinWeeklyUsed, limit: linkedinWeeklyLimit, remaining: Math.max(0, linkedinWeeklyLimit - linkedinWeeklyUsed), isOverQuota: linkedinWeeklyUsed >= linkedinWeeklyLimit },
   };
 }
 
-// Único gate que bloquea de verdad: el techo diario (DAILY_CAP). La cuota semanal/
-// mensual es informativa (isOverWeeklyQuota) y nunca impide publicar.
+// Único gate que bloquea de verdad: el techo diario de Instagram (DAILY_CAP). La cuota
+// semanal/mensual de Instagram y LinkedIn, y el techo diario de Historias, son
+// informativos (isOverQuota / isAtCap) y nunca impiden publicar.
 export async function canPublishNow(tenantId: string, role?: string): Promise<boolean> {
   const status = await getWeeklyPublishStatus(tenantId, role);
-  return status.dailyUsed < status.dailyCap;
+  return status.instagramDaily.used < status.instagramDaily.cap;
 }
 
 // Techo de fotos/slides para el formato Carrusel — a diferencia de
