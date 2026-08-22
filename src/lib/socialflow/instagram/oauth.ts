@@ -1,6 +1,7 @@
 import { env } from "@/lib/cf";
 import { encryptToken } from "@/lib/socialflow/token-encryption";
 import { listSaasSocialAccounts, resolveSocialContext, upsertSaasSocialAccount } from "@/lib/socialflow/repository";
+import { signOAuthState } from "@/lib/socialflow/oauth/state";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -37,13 +38,6 @@ export class InstagramOAuthError extends Error {
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-export type InstagramOAuthState = {
-  tenantId: string;
-  saasId: string;
-  redirectTo: string;
-  callbackUrl: string;
-};
 
 export type InstagramTokenResponse = {
   access_token: string;
@@ -130,39 +124,20 @@ export function resolveInstagramCallbackUrl(request: Request): string {
 // State encoding / decoding
 // ---------------------------------------------------------------------------
 
-function encodeState(state: InstagramOAuthState): string {
-  return Buffer.from(JSON.stringify(state), "utf8").toString("base64url");
-}
-
-export function parseInstagramOAuthState(raw: string | null | undefined): InstagramOAuthState | null {
-  if (!raw?.trim()) return null;
-  try {
-    const decoded = Buffer.from(raw.trim(), "base64url").toString("utf8");
-    const parsed = JSON.parse(decoded) as Record<string, unknown>;
-    const tenantId = typeof parsed.tenantId === "string" ? parsed.tenantId.trim() : "";
-    const saasId = typeof parsed.saasId === "string" ? parsed.saasId.trim() : "";
-    const redirectTo = typeof parsed.redirectTo === "string" ? parsed.redirectTo.trim() : SETTINGS_REDIRECT;
-    const callbackUrl = typeof parsed.callbackUrl === "string" ? parsed.callbackUrl.trim() : "";
-    if (!tenantId || !saasId) return null;
-    return { tenantId, saasId, redirectTo: redirectTo || SETTINGS_REDIRECT, callbackUrl };
-  } catch {
-    return null;
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Authorization URL builder
 // ---------------------------------------------------------------------------
 
-export function buildInstagramAuthorizationUrl(input: {
+export async function buildInstagramAuthorizationUrl(input: {
   request: Request;
   tenantId: string;
   saasId: string;
   redirectTo?: string | null;
-}): { authorizationUrl: string; callbackUrl: string; state: string } {
+}): Promise<{ authorizationUrl: string; callbackUrl: string; state: string }> {
   const appId = getInstagramAppId();
   const callbackUrl = resolveInstagramCallbackUrl(input.request);
-  const state = encodeState({
+  const state = await signOAuthState({
+    provider: "instagram",
     tenantId: input.tenantId,
     saasId: input.saasId,
     redirectTo: input.redirectTo?.trim() || `${SETTINGS_REDIRECT}?saasId=${encodeURIComponent(input.saasId)}`,
