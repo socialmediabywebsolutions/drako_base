@@ -307,6 +307,19 @@ export default function ReelsCreator({
         body: JSON.stringify({ imageUrl, imageKey, saasId }),
       });
       const data = (await res.json()) as { jobId?: string; message?: string; error?: string };
+
+      // Cuota de Vídeo IA agotada — la publicación nunca se bloquea, solo cambia el
+      // método: cae automáticamente al Reel con efectos en vez de mostrar un error.
+      // startedRef ya está en true (lo puso el chooseMode("ai-video") que disparó esta
+      // función) — hay que resetearlo o chooseMode("effects") sería un no-op por su
+      // propio guard anti-doble-clic.
+      if (!res.ok && data.error === "VIDEO_QUOTA_EXCEEDED") {
+        setAiVideoPhase("idle");
+        startedRef.current = false;
+        chooseMode("effects");
+        return;
+      }
+
       if (!res.ok || !data.jobId) {
         throw new Error(data.message ?? data.error ?? "No se pudo iniciar la generación de vídeo IA.");
       }

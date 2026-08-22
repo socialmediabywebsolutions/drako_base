@@ -87,3 +87,41 @@ export async function reportSocialflowAiUsage(params: SocialflowAiUsageParams): 
     });
   }
 }
+
+export type SocialflowAiUsageRangeQuery = {
+  tenantId: string;
+  agent: string;
+  sinceIso: string;
+  untilIso: string;
+};
+
+// Lee socialflow_ai_usage_log — hermana de countSaasSocialPostsInRange (repository.ts)
+// pero sobre esta tabla, que no tiene saas_id (es tenant-wide, no saas-scoped — ver
+// reportSocialflowAiUsage arriba). Por eso vive aquí y no en repository.ts, que asume
+// SocialContext (tenant_id + saas_id) en todas sus funciones. Devuelve null (en vez de 0)
+// si SOCIAL_DB no responde, para que el caller (getVideoIaUsageStatus en enforce.ts)
+// pueda distinguir "cero uso real" de "no se pudo consultar" y decidir fail-closed.
+export async function countSocialflowAiUsageInRange(params: SocialflowAiUsageRangeQuery): Promise<number | null> {
+  if (!params.tenantId) return null;
+
+  const db = env()?.SOCIAL_DB;
+  if (!db) return null;
+
+  try {
+    const row = await db
+      .prepare(
+        `SELECT COUNT(*) as n FROM socialflow_ai_usage_log
+         WHERE tenant_id = ? AND agent = ? AND created_at >= ? AND created_at < ?`,
+      )
+      .bind(params.tenantId, params.agent, params.sinceIso, params.untilIso)
+      .first<{ n: number }>();
+    return row?.n ?? 0;
+  } catch (err) {
+    console.error("SOCIALFLOW_AI_USAGE_COUNT_FAILED", {
+      tenantId: params.tenantId,
+      agent: params.agent,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
+}

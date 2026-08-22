@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/cf";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
+import { getVideoIaUsageStatus } from "@/lib/socialflow/billing/enforce";
 
 export async function POST(request: Request) {
   try {
@@ -32,6 +33,19 @@ export async function POST(request: Request) {
     // criterio que reels/generate/route.ts: evita que un cliente pida un job de vídeo
     // a nombre de otro tenant pasando un tenantId ajeno.
     const session = await requireCurrentSocialFlowSession(request);
+
+    // Cuota mensual de Vídeo IA — si se excede, NUNCA bloquea la publicación, solo el
+    // método: el cliente (reels-creator.tsx::startAiVideoGeneration) cae automáticamente
+    // al Reel con efectos cuando recibe este código. Chequeo aquí, antes de encolar — el
+    // worker (socialflow-ai-worker) no puede responderle síncronamente al cliente qué
+    // motor usar (CanvasRenderer, el único ReelsRenderer, solo corre en el navegador).
+    const videoQuota = await getVideoIaUsageStatus(session.tenantId, session.role);
+    if (videoQuota.isOverQuota) {
+      return NextResponse.json(
+        { ok: false, error: "VIDEO_QUOTA_EXCEEDED", message: "Cuota mensual de Vídeo IA agotada. Usa el Reel con efectos." },
+        { status: 403 },
+      );
+    }
 
     const bindings = env();
     const socialDb = bindings?.SOCIAL_DB;

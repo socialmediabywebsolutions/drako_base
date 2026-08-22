@@ -1,6 +1,7 @@
 import { getCanonicalBillingSnapshot, type CanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
 import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
 import { countSaasSocialPostsInRange, listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
+import { countSocialflowAiUsageInRange } from "@/lib/ai/usage";
 import { resolveSocialFlowPlanCode, type SocialFlowPlanCode } from "./plans";
 
 // Todas las páginas del workspace SocialFlow operan sobre este único saasId (ver
@@ -267,6 +268,67 @@ export async function getWeeklyPublishStatus(tenantId: string, role?: string): P
 export async function canPublishNow(tenantId: string, role?: string): Promise<boolean> {
   const status = await getWeeklyPublishStatus(tenantId, role);
   return status.instagramDaily.used < status.instagramDaily.cap;
+}
+
+// Cuota mensual de Vídeo IA (PiAPI/Apiframe/DashScope) — a diferencia de
+// PLAN_INSTAGRAM_WEEKLY_LIMIT, es la MISMA para influencer y empresa en cada tier
+// (sin diferenciar por tipo de cliente). LinkedIn no tiene generación de vídeo IA — este
+// gate solo aplica al flujo de Reels de Instagram.
+const PLAN_VIDEO_MONTHLY_LIMIT: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
+  influencer_starter: 6,
+  influencer_basico: 12,
+  influencer_pro: 20,
+  empresa_starter: 6,
+  empresa_basico: 12,
+  empresa_pro: 20,
+};
+
+export type VideoIaUsageStatus = {
+  used: number;
+  limit: number;
+  remaining: number;
+  isOverQuota: boolean;
+};
+
+// Cuota mensual dura (a diferencia de la semanal de Instagram/LinkedIn, sin carryover —
+// no se decidió acumular sobrante de un mes a otro). Un fallo técnico total del vídeo
+// (los 3 proveedores de generateVideoWithFallbacks caen) NO consume cuota — decisión
+// consciente: reportSocialflowAiUsage (ver src/lib/ai/usage.ts) solo se llama tras un
+// éxito real, así que un intento fallido nunca aparece en socialflow_ai_usage_log y por
+// tanto nunca cuenta aquí. Se deja así a propósito, no es un bug pendiente.
+export async function getVideoIaUsageStatus(tenantId: string, role?: string): Promise<VideoIaUsageStatus> {
+  const isBypass = AI_BYPASS_TENANT_IDS.has(tenantId) || (role !== undefined && AI_BYPASS_ROLES.has(role));
+  const planCode: SocialFlowPlanCode = isBypass
+    ? "influencer_pro"
+    : await resolvePlanCode(tenantId, await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" }));
+
+  const limit = planCode === "free" ? 0 : PLAN_VIDEO_MONTHLY_LIMIT[planCode];
+
+  const now = new Date();
+  const monthStart = startOfUtcMonth(now);
+  const monthEnd = startOfNextUtcMonth(now);
+
+  const used = await countSocialflowAiUsageInRange({
+    tenantId,
+    agent: "VideoIA",
+    sinceIso: monthStart.toISOString(),
+    untilIso: monthEnd.toISOString(),
+  });
+
+  // Fail-closed: un error de DB (used === null) se trata como cuota agotada, nunca como
+  // 0 usado — un blip de DB no debe desbloquear más vídeos IA de los pagados. No tiene
+  // coste para el cliente: cuota agotada solo cambia el motor de generación a efectos,
+  // nunca bloquea la publicación (ver el caller en generate-ai-video/route.ts).
+  if (used === null) {
+    return { used: limit, limit, remaining: 0, isOverQuota: true };
+  }
+
+  return {
+    used,
+    limit,
+    remaining: Math.max(0, limit - used),
+    isOverQuota: used >= limit,
+  };
 }
 
 // Techo de fotos/slides para el formato Carrusel — a diferencia de
