@@ -3,7 +3,6 @@ import {
   LinkedInIntegrationError,
   exchangeLinkedInCodeForAccessToken,
   fetchLinkedInUserProfile,
-  parseLinkedInOAuthState,
   resolveLinkedInCallbackUrl,
   resolveLinkedInIdentity,
 } from "@/lib/social/linkedin";
@@ -20,30 +19,6 @@ describe("social linkedin helpers", () => {
     process.env.APP_URL = "";
     process.env.NEXT_PUBLIC_APP_URL = "";
     process.env.CF_PAGES_URL = "";
-  });
-
-  it("parses oauth state from raw json, base64url json and compact format", () => {
-    expect(parseLinkedInOAuthState('{"tenantId":"tenant-1","saasId":"saas-1"}')).toEqual({
-      tenantId: "tenant-1",
-      saasId: "saas-1",
-      redirectTo: null,
-      format: "json",
-    });
-
-    const encoded = Buffer.from(JSON.stringify({ tenantId: "tenant-2", saasId: "saas-2" }), "utf8").toString("base64url");
-    expect(parseLinkedInOAuthState(encoded)).toEqual({
-      tenantId: "tenant-2",
-      saasId: "saas-2",
-      redirectTo: null,
-      format: "base64url-json",
-    });
-
-    expect(parseLinkedInOAuthState("tenant_socialflow__socialflow")).toEqual({
-      tenantId: "tenant_socialflow",
-      saasId: "socialflow",
-      redirectTo: null,
-      format: "compact",
-    });
   });
 
   it("exchanges code for access token", async () => {

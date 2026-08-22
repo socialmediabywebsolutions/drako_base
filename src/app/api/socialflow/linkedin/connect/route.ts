@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       return Response.redirect(url.toString(), 307);
     }
 
-    const oauth = buildSocialFlowLinkedInConnectUrl({
+    const oauth = await buildSocialFlowLinkedInConnectUrl({
       request,
       tenantId: session.tenantId,
       saasId,

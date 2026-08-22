@@ -17,27 +17,10 @@ export const SOCIALFLOW_LINKEDIN_MEMBER_SCOPES = "openid profile email w_member_
 export const SOCIALFLOW_LINKEDIN_ORGANIZATION_SCOPE = "w_organization_social";
 export const SOCIALFLOW_LINKEDIN_SCOPES = SOCIALFLOW_LINKEDIN_MEMBER_SCOPES;
 
-export type SocialFlowLinkedInState = {
+export type SocialFlowLinkedInCallbackContext = {
   tenantId: string;
   saasId: string;
-  redirectTo?: string | null;
-};
-
-export type SocialFlowLinkedInCallbackContext = {
-  tenantId: string | null;
-  saasId: string | null;
   redirectTo: string;
-  resolution: {
-    tenantId: string;
-    saasId: string;
-    redirectTo: string;
-  };
-  parsedState: {
-    tenantId?: string | null;
-    saasId?: string | null;
-    redirectTo?: string | null;
-    format?: string | null;
-  } | null;
 };
 
 export type SocialFlowLinkedInConnectResult = {

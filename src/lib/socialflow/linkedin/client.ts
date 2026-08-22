@@ -1,15 +1,11 @@
 import { isLinkedInOrganizationScopeEnabled, resolveLinkedInOAuthDiagnostics } from "@/lib/socialflow/linkedin/core";
+import { signOAuthState } from "@/lib/socialflow/oauth/state";
 import {
   SOCIALFLOW_LINKEDIN_CALLBACK_PATH,
   SOCIALFLOW_LINKEDIN_MEMBER_SCOPES,
   SOCIALFLOW_LINKEDIN_ORGANIZATION_SCOPE,
   type SocialFlowLinkedInConnectResult,
-  type SocialFlowLinkedInState,
 } from "@/lib/socialflow/linkedin/types";
-
-function encodeSocialFlowLinkedInState(input: SocialFlowLinkedInState): string {
-  return Buffer.from(JSON.stringify(input), "utf8").toString("base64url");
-}
 
 function resolveSocialFlowLinkedInScopes(): string {
   return isLinkedInOrganizationScopeEnabled()
@@ -17,17 +13,18 @@ function resolveSocialFlowLinkedInScopes(): string {
     : SOCIALFLOW_LINKEDIN_MEMBER_SCOPES;
 }
 
-export function buildSocialFlowLinkedInAuthorizationUrl(input: {
+export async function buildSocialFlowLinkedInAuthorizationUrl(input: {
   request: Request;
   clientId: string;
   tenantId: string;
   saasId: string;
   redirectTo?: string | null;
-}): SocialFlowLinkedInConnectResult {
+}): Promise<SocialFlowLinkedInConnectResult> {
   const diagnostics = resolveLinkedInOAuthDiagnostics(input.request, {
     callbackPath: SOCIALFLOW_LINKEDIN_CALLBACK_PATH,
   });
-  const state = encodeSocialFlowLinkedInState({
+  const state = await signOAuthState({
+    provider: "linkedin",
     tenantId: input.tenantId,
     saasId: input.saasId,
     redirectTo: input.redirectTo ?? null,
