@@ -644,7 +644,13 @@ jobs:
             migrations/0199_socialflow_profiles_persona_fields.sql \
             workers/socialflows/migrations/0213_seasonality_cache.sql \
             workers/socialflows/migrations/0214_ai_video_jobs.sql \
-            workers/socialflows/migrations/0215_ai_video_jobs_enriched.sql; do
+            workers/socialflows/migrations/0215_ai_video_jobs_enriched.sql \
+            workers/socialflows/migrations/0216_socialflow_ai_usage_log.sql \
+            workers/socialflows/migrations/0217_saas_social_accounts_linkedin_cm_enabled.sql \
+            workers/socialflows/migrations/0218_socialflow_intelligence_feed_network.sql \
+            workers/socialflows/migrations/0219_socialflow_conversation_settings_active_hours.sql \
+            workers/socialflows/migrations/0220_empresa_services.sql \
+            workers/socialflows/migrations/0221_empresa_services_zona_tarifa_credencial.sql; do
             echo "Applying ${migration}..."
             if ! OUTPUT="$(wrangler d1 execute SOCIAL_DB --remote --config workers/socialflows/wrangler.workers.toml \
               --file "${migration}" 2>&1)"; then
