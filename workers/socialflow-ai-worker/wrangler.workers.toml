@@ -23,7 +23,7 @@ binding = "AI"
 # Cron: publish scheduled posts every minute ("* * * * *") + Nivel 3 auto-approve
 # window for the internal tenant every 15min ("*/15 * * * *") — distinguished inside
 # scheduled() by event.cron, same handler, same worker.
-[[triggers]]
+[triggers]
 crons = ["* * * * *", "*/15 * * * *"]
 
 # R2: needed by publishSocialPostLive → uploadMediaToR2
