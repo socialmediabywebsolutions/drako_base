@@ -168,8 +168,14 @@ async function processTenantComments(
     return result;
   }
 
-  // Only posts with comments, limit to 5 most recent to control rate limits
-  const postsWithComments = recentMedia.filter((m) => m.commentsCount > 0).slice(0, 5);
+  // comments_count del campo de /media no es fiable mientras la app esté en modo
+  // desarrollo/Evaluadores de Meta (App Review pendiente) — puede reportar 0 aunque el
+  // post tenga comentarios reales y visibles de una cuenta Evaluadora. En vez de
+  // pre-filtrar por ese campo, se consultan directamente los 5 posts más recientes vía
+  // /comments — un post sin comentarios reales simplemente no itera nada más abajo
+  // (fetched.comments vacío), mismo resultado que saltarlo, pero decidido por la
+  // respuesta real de Meta. Mismo tope de 5 que antes para no aumentar rate-limit.
+  const postsWithComments = recentMedia.slice(0, 5);
   result.postsScanned = recentMedia.length;
 
   if (!postsWithComments.length) return result;
