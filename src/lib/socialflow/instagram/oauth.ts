@@ -15,7 +15,7 @@ const INSTAGRAM_GRAPH_ME_URL = "https://graph.instagram.com/me";
 
 export const INSTAGRAM_OAUTH_CALLBACK_PATH = "/api/socialflow/oauth/instagram/callback";
 export const INSTAGRAM_OAUTH_SCOPES =
-  "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_messages";
+  "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_messages,instagram_business_manage_comments";
 
 const SETTINGS_REDIRECT = "/socialflow/settings/accounts";
 
