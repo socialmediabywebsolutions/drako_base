@@ -629,7 +629,11 @@ jobs:
           # works for idempotent DDL: CREATE TABLE/INDEX IF NOT EXISTS, or ALTER TABLE ADD
           # COLUMN — the latter is made idempotent below by tolerating the "duplicate
           # column name" error wrangler returns once a column already exists. Any other
-          # failure (typo, wrong table, connectivity) still blocks the deploy.
+          # failure (typo, wrong table) still blocks the deploy. D1_RESET_DO is a known
+          # transient Cloudflare D1 error (the Durable Object hosting the DB restarts
+          # mid-request — cold start / internal reset) that hits a random migration on
+          # any given run, not a real SQL problem — retried up to 3 times per file with a
+          # 5s pause before giving up and blocking the deploy for real.
           for migration in \
             migrations/0184_socialflow_runtime_social_db.sql \
             migrations/0185_socialflow_profiles.sql \
@@ -652,18 +656,33 @@ jobs:
             workers/socialflows/migrations/0220_empresa_services.sql \
             workers/socialflows/migrations/0221_empresa_services_zona_tarifa_credencial.sql; do
             echo "Applying ${migration}..."
-            if ! OUTPUT="$(wrangler d1 execute SOCIAL_DB --remote --config workers/socialflows/wrangler.workers.toml \
-              --file "${migration}" 2>&1)"; then
+
+            attempt=1
+            max_attempts=3
+            while true; do
+              if OUTPUT="$(wrangler d1 execute SOCIAL_DB --remote --config workers/socialflows/wrangler.workers.toml \
+                --file "${migration}" 2>&1)"; then
+                echo "$OUTPUT"
+                break
+              fi
+
               echo "$OUTPUT"
+
               if echo "$OUTPUT" | grep -qi "duplicate column name"; then
                 echo "Column(s) in ${migration} already exist — skipping (idempotent ALTER TABLE ADD COLUMN re-run)."
-              else
-                echo "BLOCKED: ${migration} failed with an unexpected error."
-                exit 1
+                break
               fi
-            else
-              echo "$OUTPUT"
-            fi
+
+              if echo "$OUTPUT" | grep -qi "D1_RESET_DO" && [ "$attempt" -lt "$max_attempts" ]; then
+                attempt=$((attempt + 1))
+                echo "Transient D1_RESET_DO on ${migration} — retrying (attempt ${attempt}/${max_attempts}) in 5s..."
+                sleep 5
+                continue
+              fi
+
+              echo "BLOCKED: ${migration} failed with an unexpected error."
+              exit 1
+            done
           done
 
       - name: Verify SocialFlow product tables exist in SOCIAL_DB
