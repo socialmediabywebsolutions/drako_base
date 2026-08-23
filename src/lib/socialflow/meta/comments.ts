@@ -46,14 +46,23 @@ export async function fetchInstagramComments(
   url.searchParams.set("limit", "50");
   url.searchParams.set("access_token", accessToken);
 
+  // TEMP DEBUG — revertir tras el diagnóstico, ver auditoria-comunidad.md
+  console.log("CRON_COMMENTS_DEBUG_REQUEST", {
+    mediaId,
+    url: url.toString().replace(accessToken, "***REDACTED***"),
+  });
+
   let response: Response;
   try {
     response = await fetch(url.toString(), { method: "GET", cache: "no-store" });
   } catch (err) {
+    console.log("CRON_COMMENTS_DEBUG_NETWORK_ERROR", { mediaId, error: err instanceof Error ? err.message : String(err) });
     return { ok: false, error: `Network error: ${err instanceof Error ? err.message : String(err)}` };
   }
 
   const payload = await parseJson(response);
+  // TEMP DEBUG — revertir tras el diagnóstico
+  console.log("CRON_COMMENTS_DEBUG_RESPONSE", { mediaId, status: response.status, ok: response.ok, payload });
   if (!response.ok) {
     return { ok: false, error: apiError(payload, "Instagram comments fetch failed"), code: "IG_COMMENTS_FETCH_FAILED" };
   }
