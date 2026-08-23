@@ -23,6 +23,10 @@ binding = "AI"
 # Cron: publish scheduled posts every minute ("* * * * *") + Nivel 3 auto-approve
 # window for the internal tenant every 15min ("*/15 * * * *") — distinguished inside
 # scheduled() by event.cron, same handler, same worker.
+# Redeploy forzado 2026-08-23 ~20:15 UTC: los schedules quedaban registrados
+# (confirmado via API) pero sin invocarse ni una vez en 40+ min tras el fix de
+# sintaxis TOML — probando si un segundo deploy limpio destraba el registro real
+# del cron trigger en el lado de Cloudflare.
 [triggers]
 crons = ["* * * * *", "*/15 * * * *"]
 
