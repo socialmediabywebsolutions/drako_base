@@ -11,6 +11,7 @@ import { setGlobalEnv, type DracoEnv } from "../../../src/lib/cf";
 import { SocialFlowOrchestrator } from "../../../src/lib/socialflow/ai/SocialFlowOrchestrator";
 import { resolveSocialContext, upsertSaasSocialCampaign } from "../../../src/lib/socialflow/repository";
 import { processScheduledPosts } from "../../../src/lib/socialflow/scheduler";
+import { runTrendAutoApproveCron } from "../../../src/lib/socialflow/intelligence/TrendAutoApproveCron";
 import { ImageAnalysisAgent, type ImageAnalysis } from "../../../src/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import { ContentGeneratorAgent } from "../../../src/lib/socialflow/ai/agents/ContentGeneratorAgent";
 import { OptimizationAgent } from "../../../src/lib/socialflow/ai/agents/OptimizationAgent";
@@ -789,8 +790,22 @@ export default {
     }
   },
 
-  async scheduled(_event: ScheduledEvent, env: DracoEnv, _ctx: ExecutionContext): Promise<void> {
+  async scheduled(event: ScheduledEvent, env: DracoEnv, _ctx: ExecutionContext): Promise<void> {
     setGlobalEnv(env);
+
+    // Nivel 3 — auto-aprobación con ventana de veto (tenant interno), cron separado
+    // en el mismo worker (misma entrada [[triggers]] crons, distinguida por
+    // event.cron). No toca la rama de processScheduledPosts() de abajo.
+    if (event.cron === "*/15 * * * *") {
+      try {
+        const result = await runTrendAutoApproveCron(env);
+        console.log("[TrendAutoApprove] Batch complete", JSON.stringify(result));
+      } catch (error) {
+        console.error("[TrendAutoApprove] runTrendAutoApproveCron failed", error instanceof Error ? error.message : String(error));
+      }
+      return;
+    }
+
     try {
       const result = await processScheduledPosts();
       console.log("[SocialFlowCron] Batch complete", JSON.stringify({

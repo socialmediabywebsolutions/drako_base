@@ -654,7 +654,8 @@ jobs:
             workers/socialflows/migrations/0218_socialflow_intelligence_feed_network.sql \
             workers/socialflows/migrations/0219_socialflow_conversation_settings_active_hours.sql \
             workers/socialflows/migrations/0220_empresa_services.sql \
-            workers/socialflows/migrations/0221_empresa_services_zona_tarifa_credencial.sql; do
+            workers/socialflows/migrations/0221_empresa_services_zona_tarifa_credencial.sql \
+            workers/socialflows/migrations/0222_socialcors_trend_triggers.sql; do
             echo "Applying ${migration}..."
 
             attempt=1

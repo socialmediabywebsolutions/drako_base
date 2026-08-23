@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { CronAuthError, verifyCronAuth } from "@/lib/security/cron-auth";
 import { env } from "@/lib/cf";
 import { runTrendKeywordCron } from "@/lib/socialflow/intelligence/TrendKeywordAgent";
+import { runTrendTriggerConnector } from "@/lib/socialflow/intelligence/TrendTriggerConnector";
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,5 +22,12 @@ export async function GET(request: NextRequest) {
   }
 
   const result = await runTrendKeywordCron(bindings);
-  return NextResponse.json(result);
+
+  // Nivel 3 — conector de scoring de tendencias (tenant interno, ver diseño). Corre
+  // independientemente de qué nicho haya tocado runTrendKeywordCron esta vez: lee
+  // directo la fila del nicho del tenant interno. runTrendTriggerConnector nunca
+  // lanza, así que esto nunca puede degradar la respuesta 200 de este cron.
+  const trendTrigger = await runTrendTriggerConnector(bindings);
+
+  return NextResponse.json({ ...result, trendTrigger });
 }
