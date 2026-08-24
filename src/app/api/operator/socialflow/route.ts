@@ -303,8 +303,8 @@ export async function GET(request: Request) {
       : null;
     // Nivel 3 — sin gate de tenantId/saasId: es un piloto de un único tenant interno,
     // el filtro vive server-side en el endpoint interno, no depende de query params.
-    const trendTriggers = await getCampoBaseSocialFlowTrendTriggers();
-    return NextResponse.json({ status, history: filteredHistory, summary, observability, trendTriggers });
+    const { triggers: trendTriggers, health: trendTriggerHealth } = await getCampoBaseSocialFlowTrendTriggers();
+    return NextResponse.json({ status, history: filteredHistory, summary, observability, trendTriggers, trendTriggerHealth });
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ code: "UNAUTHORIZED", message: error.message }, { status: error.status });

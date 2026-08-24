@@ -15,7 +15,7 @@ import type {
   CampoBaseSocialFlowOperatorAction,
   CampoBaseSocialFlowOperatorActionResult,
 } from "@/lib/campamento-base/socialflow-control-plane-service";
-import type { SocialFlowTrendTrigger } from "@/lib/capabilities/internal-api-types/socialflow";
+import type { SocialFlowTrendTrigger, SocialFlowTrendTriggerHealth } from "@/lib/capabilities/internal-api-types/socialflow";
 
 type ControlResponse = {
   status?: CampoBaseSocialAutomationStatusOutput;
@@ -28,6 +28,7 @@ type ControlResponse = {
     | { checksPassed: number; checksFailed: number; recommendedAction: string };
   observability?: CampoBaseSocialFlowObservability | null;
   trendTriggers?: SocialFlowTrendTrigger[];
+  trendTriggerHealth?: SocialFlowTrendTriggerHealth | null;
   message?: string;
   code?: string;
 };
@@ -71,12 +72,30 @@ function trendTriggerBadge(status: string): "ok" | "warn" | "err" | "info" | "ne
   return "neutral";
 }
 
+// Mismos tramos que freshnessMultiplier() en TrendTriggerConnector.ts, colapsados a 3
+// para el semáforo: ≤6h (todavía dentro del rango donde el score cuenta casi completo)
+// ok, ≤24h warn, >24h err (el conector ya trataría esto como señal descartada).
+function trendSignalFreshnessBadge(ageHours: number | null): "ok" | "warn" | "err" | "neutral" {
+  if (ageHours === null) return "neutral";
+  if (ageHours <= 6) return "ok";
+  if (ageHours <= 24) return "warn";
+  return "err";
+}
+
+function formatAgeHours(hours: number | null): string {
+  if (hours === null) return "Sin datos";
+  if (hours < 1) return "hace <1h";
+  if (hours < 48) return `hace ${Math.round(hours)}h`;
+  return `hace ${Math.round(hours / 24)}d`;
+}
+
 export default function CampoBaseSocialAutomationControl() {
   const [status, setStatus] = useState<CampoBaseSocialAutomationStatusOutput | null>(null);
   const [selectedScope, setSelectedScope] = useState<{ tenantId: string; saasId: string } | null>(null);
   const [observability, setObservability] = useState<CampoBaseSocialFlowObservability | null>(null);
   const [observabilityLoading, setObservabilityLoading] = useState(false);
   const [trendTriggers, setTrendTriggers] = useState<SocialFlowTrendTrigger[]>([]);
+  const [trendTriggerHealth, setTrendTriggerHealth] = useState<SocialFlowTrendTriggerHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -125,6 +144,7 @@ export default function CampoBaseSocialAutomationControl() {
 
       setStatus(data.status);
       setTrendTriggers(data.trendTriggers ?? []);
+      setTrendTriggerHealth(data.trendTriggerHealth ?? null);
       const firstItem = data.status.items[0];
       if (firstItem) {
         void loadObservability({ tenantId: firstItem.tenantId, saasId: firstItem.saasId });
@@ -137,6 +157,7 @@ export default function CampoBaseSocialAutomationControl() {
       setSelectedScope(null);
       setObservability(null);
       setTrendTriggers([]);
+      setTrendTriggerHealth(null);
       setError(loadError instanceof Error ? loadError.message : "No se pudo cargar el control de Socialcors.");
     } finally {
       setLoading(false);
@@ -369,6 +390,37 @@ export default function CampoBaseSocialAutomationControl() {
         subtitle="Tendencias disparadas por el conector (socialcors_trend_triggers)"
         right={`${trendTriggers.length} registro(s)`}
       >
+        <div className="mb-6 grid gap-4 md:grid-cols-4">
+          <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Señal {trendTriggerHealth?.niche ?? "marketing"}</p>
+            <p className="mt-2 text-xl font-semibold text-slate-900">{formatAgeHours(trendTriggerHealth?.trendSignalAgeHours ?? null)}</p>
+            <div className="mt-3">
+              <Badge variant={trendSignalFreshnessBadge(trendTriggerHealth?.trendSignalAgeHours ?? null)}>
+                {trendTriggerHealth?.trendLastFetchedAt ? "trendSignals" : "sin datos"}
+              </Badge>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Atascados en TRIGGERED</p>
+            <p className="mt-2 text-3xl font-semibold text-slate-900">{trendTriggerHealth?.stuckTriggeredCount ?? 0}</p>
+            <div className="mt-3">
+              <Badge variant={(trendTriggerHealth?.stuckTriggeredCount ?? 0) > 0 ? "err" : "ok"}>
+                {(trendTriggerHealth?.stuckTriggeredCount ?? 0) > 0 ? "requiere revisión" : "ok"}
+              </Badge>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">En cola delante</p>
+            <p className="mt-2 text-3xl font-semibold text-slate-900">{trendTriggerHealth?.nichesAheadInQueue ?? "—"}</p>
+            <p className="mt-3 text-xs text-slate-500">nichos con turno anterior en TrendKeywordAgent</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Último score calculado</p>
+            <p className="mt-2 text-3xl font-semibold text-slate-400">—</p>
+            <p className="mt-3 text-xs text-slate-500">disponible tras el primer disparo</p>
+          </div>
+        </div>
+
         {trendTriggers.length === 0 ? (
           <EmptyState
             title="Sin tendencias disparadas todavía"

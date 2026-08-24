@@ -198,6 +198,19 @@ export type SocialFlowTrendTrigger = {
   post: SocialFlowTrendTriggerPost | null;
 };
 
+// Opción B del indicador de salud (sin instrumentar TrendTriggerConnector.ts): solo
+// las 3 métricas calculables con lo que ya se persiste hoy. "Último score calculado"
+// se queda fuera — socialcors_trend_triggers solo guarda filas cuando el score supera
+// el umbral, así que no hay histórico de scores por debajo del umbral que mostrar.
+export type SocialFlowTrendTriggerHealth = {
+  niche: string;
+  // null si el nicho todavía no tiene fila en socialcors_niche_intelligence.
+  trendLastFetchedAt: string | null;
+  trendSignalAgeHours: number | null;
+  stuckTriggeredCount: number;
+  nichesAheadInQueue: number;
+};
+
 export type SocialFlowTrendTriggersSnapshot = {
   service: "socialflow";
   runtime: "monolith";
@@ -205,5 +218,6 @@ export type SocialFlowTrendTriggersSnapshot = {
   requestId: string;
   tenantId: string | null;
   triggers: SocialFlowTrendTrigger[];
+  health: SocialFlowTrendTriggerHealth;
   warnings: string[];
 };

@@ -13,7 +13,7 @@ import {
   type AutomationExecutionResult,
   type AutomationRegistration,
 } from "@/lib/automation-core";
-import type { SocialFlowTrendTrigger } from "@/lib/capabilities/internal-api-types/socialflow";
+import type { SocialFlowTrendTrigger, SocialFlowTrendTriggerHealth } from "@/lib/capabilities/internal-api-types/socialflow";
 import {
   SocialFlowControlPlaneInternalApiError,
   fetchSocialFlowObservabilitySnapshot,
@@ -875,16 +875,22 @@ export async function getCampoBaseSocialFlowObservability(
   }
 }
 
+export type CampoBaseSocialFlowTrendTriggersResult = {
+  triggers: SocialFlowTrendTrigger[];
+  health: SocialFlowTrendTriggerHealth | null;
+};
+
 // Nivel 3 — piloto de un único tenant interno, el filtro por tenant vive en el
-// endpoint interno (trend-triggers/route.ts), no aquí. Degrada a [] en cualquier
-// fallo, mismo criterio que getCampoBaseSocialFlowObservability arriba — este panel
-// es de solo lectura, nunca debe tumbar la carga del resto de la página.
-export async function getCampoBaseSocialFlowTrendTriggers(limit = 50): Promise<SocialFlowTrendTrigger[]> {
+// endpoint interno (trend-triggers/route.ts), no aquí. Degrada a triggers: [],
+// health: null en cualquier fallo, mismo criterio que getCampoBaseSocialFlowObservability
+// arriba — este panel es de solo lectura, nunca debe tumbar la carga del resto de la
+// página. Una sola llamada de red para triggers + health (vienen del mismo snapshot).
+export async function getCampoBaseSocialFlowTrendTriggers(limit = 50): Promise<CampoBaseSocialFlowTrendTriggersResult> {
   try {
     const snapshot = await fetchSocialFlowTrendTriggersSnapshot({ limit });
-    return snapshot.triggers;
+    return { triggers: snapshot.triggers, health: snapshot.health };
   } catch {
-    return [];
+    return { triggers: [], health: null };
   }
 }
 

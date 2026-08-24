@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/cf";
-import type { SocialFlowTrendTrigger, SocialFlowTrendTriggersSnapshot } from "@/lib/capabilities/internal-api-types/socialflow";
+import type {
+  SocialFlowTrendTrigger,
+  SocialFlowTrendTriggerHealth,
+  SocialFlowTrendTriggersSnapshot,
+} from "@/lib/capabilities/internal-api-types/socialflow";
 import { validateInternalServiceTokenRequest } from "@/lib/capabilities/internal-api-auth/service-token";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +14,13 @@ export const dynamic = "force-dynamic";
 // X-Drako-Tenant-Id del lado operator en vez de confiar en él para el filtro — evita
 // que una cabecera manipulada exponga otro tenant por accidente en un endpoint nuevo.
 const TREND_TRIGGER_TENANT_ID = "775444ce-5ed0-4e69-864f-dc3e0d886817";
+const TREND_TRIGGER_NICHE = "marketing";
+
+// Ventana de veto (45min, TrendAutoApproveCron.ts) + 2 ciclos de ese mismo cron
+// (15min c/u) de margen — un TRIGGERED más viejo que esto ya debería haberse resuelto
+// a AUTO_APPROVED o GENERATION_FAILED. Si sigue en TRIGGERED, algo falló en la
+// reconciliación, no es una carrera normal con el cron.
+const STUCK_TRIGGERED_THRESHOLD_MINUTES = 75;
 
 type TriggerRow = {
   id: string;
@@ -52,6 +63,13 @@ export async function GET(request: Request) {
       requestId: authResult.requestId,
       tenantId: authResult.tenantId,
       triggers: [],
+      health: {
+        niche: TREND_TRIGGER_NICHE,
+        trendLastFetchedAt: null,
+        trendSignalAgeHours: null,
+        stuckTriggeredCount: 0,
+        nichesAheadInQueue: 0,
+      },
       warnings: ["SOCIALFLOW_TREND_TRIGGERS_SOCIAL_DB_UNAVAILABLE"],
     };
     return NextResponse.json(response, { status: 200 });
@@ -111,6 +129,47 @@ export async function GET(request: Request) {
     };
   });
 
+  // Métrica 1 — frescura de la señal de tendencia del nicho del tenant interno.
+  const nicheRow = await db
+    .prepare(`SELECT trend_last_fetched FROM socialcors_niche_intelligence WHERE niche = ?`)
+    .bind(TREND_TRIGGER_NICHE)
+    .first<{ trend_last_fetched: string | null }>();
+  const trendLastFetchedAt = nicheRow?.trend_last_fetched ?? null;
+  const trendSignalAgeHours = trendLastFetchedAt
+    ? Math.round(((Date.now() - new Date(trendLastFetchedAt).getTime()) / (1000 * 60 * 60)) * 10) / 10
+    : null;
+
+  // Métrica 2 — TRIGGERED que ya deberían haberse resuelto y no lo hicieron.
+  const stuckCutoff = new Date(Date.now() - STUCK_TRIGGERED_THRESHOLD_MINUTES * 60 * 1000).toISOString();
+  const stuckRow = await db
+    .prepare(
+      `SELECT COUNT(*) as cnt FROM socialcors_trend_triggers
+       WHERE tenant_id = ? AND status = 'TRIGGERED' AND datetime(created_at) <= datetime(?)`,
+    )
+    .bind(TREND_TRIGGER_TENANT_ID, stuckCutoff)
+    .first<{ cnt: number }>();
+  const stuckTriggeredCount = stuckRow?.cnt ?? 0;
+
+  // Métrica 3 — cuántos nichos van antes que el del tenant en el round-robin de
+  // TrendKeywordAgent (ORDER BY trend_last_fetched ASC). Si trendLastFetchedAt es null
+  // (nicho sin fila todavía), no hay una posición en la cola que calcular.
+  let nichesAheadInQueue = 0;
+  if (trendLastFetchedAt) {
+    const aheadRow = await db
+      .prepare(`SELECT COUNT(*) as cnt FROM socialcors_niche_intelligence WHERE trend_last_fetched < ?`)
+      .bind(trendLastFetchedAt)
+      .first<{ cnt: number }>();
+    nichesAheadInQueue = aheadRow?.cnt ?? 0;
+  }
+
+  const health: SocialFlowTrendTriggerHealth = {
+    niche: TREND_TRIGGER_NICHE,
+    trendLastFetchedAt,
+    trendSignalAgeHours,
+    stuckTriggeredCount,
+    nichesAheadInQueue,
+  };
+
   const response: SocialFlowTrendTriggersSnapshot = {
     service: "socialflow",
     runtime: "monolith",
@@ -118,6 +177,7 @@ export async function GET(request: Request) {
     requestId: authResult.requestId,
     tenantId: authResult.tenantId,
     triggers,
+    health,
     warnings: [],
   };
 
