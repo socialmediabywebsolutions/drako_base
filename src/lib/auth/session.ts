@@ -375,6 +375,23 @@ export async function requireTenantAccess(
   return { tenantId: session.tenantId, session };
 }
 
+// Parche mínimo de exposición (auditoría 2026-08-24): requireOwnerAccess() protege 56
+// rutas /operator/* y /factory/* — todo el backend de operaciones del negocio — con
+// un check de role que cualquier fila OWNER/ADMIN de tenant_users satisface, sin
+// distinguir "dueño de mi propio workspace" de "admin de la plataforma". Vacío por
+// defecto no cambia nada (mismo comportamiento que antes de este patch); con
+// PLATFORM_ADMIN_EMAILS configurado, es la barrera real. Mismo patrón que
+// SOCIALFLOW_PRIVATE_PILOT_TENANT_ALLOWLIST en private-pilot.ts.
+function isPlatformAdminEmailAllowed(email: string): boolean {
+  const raw = process.env.PLATFORM_ADMIN_EMAILS ?? "";
+  const allowlist = raw
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.length > 0);
+  if (allowlist.length === 0) return true;
+  return allowlist.includes(email.trim().toLowerCase());
+}
+
 export async function requireOwnerAccess(
   request: Request
 ): Promise<{ tenantId: string; session: SessionData }> {
@@ -394,6 +411,10 @@ export async function requireOwnerAccess(
 
   const role = String(session.role ?? "").toLowerCase();
   if (role !== "admin" && role !== "owner" && role !== "superadmin") {
+    throw OWNER_REQUIRED_ERROR;
+  }
+
+  if (!isPlatformAdminEmailAllowed(session.email)) {
     throw OWNER_REQUIRED_ERROR;
   }
 
