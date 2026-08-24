@@ -378,18 +378,31 @@ export async function requireTenantAccess(
 // Parche mínimo de exposición (auditoría 2026-08-24): requireOwnerAccess() protege 56
 // rutas /operator/* y /factory/* — todo el backend de operaciones del negocio — con
 // un check de role que cualquier fila OWNER/ADMIN de tenant_users satisface, sin
-// distinguir "dueño de mi propio workspace" de "admin de la plataforma". Vacío por
-// defecto no cambia nada (mismo comportamiento que antes de este patch); con
-// PLATFORM_ADMIN_EMAILS configurado, es la barrera real. Mismo patrón que
-// SOCIALFLOW_PRIVATE_PILOT_TENANT_ALLOWLIST en private-pilot.ts.
-function isPlatformAdminEmailAllowed(email: string): boolean {
+// distinguir "dueño de mi propio workspace" de "admin de la plataforma". Misma fuente
+// de verdad (PLATFORM_ADMIN_EMAILS) que resolveRole() en src/lib/auths/services.ts,
+// pero con semántica de "lista vacía" opuesta a propósito: aquí es una puerta de
+// acceso (vacío = no restringir, compat hacia atrás, mismo patrón que
+// SOCIALFLOW_PRIVATE_PILOT_TENANT_ALLOWLIST); en resolveRole() es una concesión de
+// privilegio (vacío = nadie es admin por defecto) — nunca deben compartir la misma
+// función, solo la misma lista.
+function getPlatformAdminEmailAllowlist(): string[] {
   const raw = process.env.PLATFORM_ADMIN_EMAILS ?? "";
-  const allowlist = raw
+  return raw
     .split(",")
     .map((entry) => entry.trim().toLowerCase())
     .filter((entry) => entry.length > 0);
+}
+
+export function isPlatformAdminEmailAllowed(email: string): boolean {
+  const allowlist = getPlatformAdminEmailAllowlist();
   if (allowlist.length === 0) return true;
   return allowlist.includes(email.trim().toLowerCase());
+}
+
+// Para resolveRole() (concesión de privilegio) — a diferencia de isPlatformAdminEmailAllowed
+// (puerta de acceso), una lista vacía nunca debe conceder admin a nadie.
+export function isPlatformAdminEmail(email: string): boolean {
+  return getPlatformAdminEmailAllowlist().includes(email.trim().toLowerCase());
 }
 
 export async function requireOwnerAccess(

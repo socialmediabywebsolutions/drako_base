@@ -1,4 +1,5 @@
 import { hashPassword, verifyPassword } from "@/lib/auth/crypto";
+import { isPlatformAdminEmail } from "@/lib/auth/session";
 import { env as resolveEnv } from "@/lib/cf";
 import { createAuthsSessionToken } from "@/lib/auths/tokens";
 import {
@@ -26,9 +27,12 @@ function resolveDefaultTenantId(context: Exclude<AuthsContext, "bases">): string
   return process.env.DRAKOS_DEFAULT_TENANT_ID ?? defaultTenantFromBindings ?? "demo-tenant";
 }
 
+// Antes siempre devolvía "user" ignorando el email (stub sin completar). Misma fuente
+// de verdad que el allowlist de requireOwnerAccess() (PLATFORM_ADMIN_EMAILS), pero
+// con semántica de lista vacía invertida a propósito — ver comentario en
+// isPlatformAdminEmail(), src/lib/auth/session.ts.
 function resolveRole(email: string): "admin" | "user" {
-  void email;
-  return "user";
+  return isPlatformAdminEmail(email) ? "admin" : "user";
 }
 
 export async function registerAuthsUser(params: {

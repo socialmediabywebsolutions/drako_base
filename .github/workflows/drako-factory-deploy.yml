@@ -712,6 +712,24 @@ jobs:
       - name: Apply global schema additions on DRACO_DB (idempotent)
         run: |
           set -euo pipefail
+          # 0137: existía en el repo desde hace meses pero nunca estuvo en este paso —
+          # por eso auth_users/tenant_users en producción llevan sin las columnas que
+          # el código (campamento-core.ts) ya asume (password_hash, active_tenant_id,
+          # user_id, invited_by), y las 6 tablas nuevas de este archivo nunca se
+          # crearon. Mezcla ALTER TABLE ADD COLUMN (no re-ejecutable tal cual) con
+          # CREATE TABLE/INDEX IF NOT EXISTS (sí) — misma tolerancia a "duplicate
+          # column name" que ya usa el bucle de SOCIAL_DB más abajo.
+          if ! OUTPUT="$(wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
+            --file migrations/0137_campamento_base_workspace_core.sql 2>&1)"; then
+            echo "$OUTPUT"
+            echo "$OUTPUT" | grep -qi "duplicate column name" || {
+              echo "BLOCKED: 0137_campamento_base_workspace_core.sql failed with an unexpected error."
+              exit 1
+            }
+            echo "Column(s) in 0137 already exist — skipping (idempotent re-run)."
+          else
+            echo "$OUTPUT"
+          fi
           # 0194: ALTER TABLE ADD COLUMN — skip if columns already exist
           if ! wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
             --command "SELECT saas_id FROM ai_usage_counters LIMIT 1;" > /dev/null 2>&1; then
