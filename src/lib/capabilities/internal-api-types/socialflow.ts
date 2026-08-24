@@ -165,3 +165,45 @@ export type SocialFlowOperatorActionResponse = {
   timestamp: string;
   status: "queued" | "accepted";
 };
+
+// Nivel 3 — panel de solo lectura /operator/socialflow para el conector de tendencias
+// (socialcors_trend_triggers). "VETOED" está en el contrato porque la columna status de
+// esa tabla lo admite (rejectPost() humano deja el post en REJECTED, pero ningún código
+// hoy reescribe el trigger correspondiente a VETOED) — puede no aparecer nunca en la
+// práctica hasta que se cierre ese gap conocido.
+export type SocialFlowTrendTriggerStatus = "TRIGGERED" | "AUTO_APPROVED" | "GENERATION_FAILED" | "VETOED";
+
+export type SocialFlowTrendTriggerPost = {
+  id: string;
+  status: string;
+  provider: string;
+  title: string;
+  scheduledAt: string | null;
+  postedAt: string | null;
+};
+
+export type SocialFlowTrendTrigger = {
+  id: string;
+  tenantId: string;
+  saasId: string;
+  niche: string;
+  score: number;
+  status: SocialFlowTrendTriggerStatus;
+  trendFetchedAt: string;
+  createdAt: string;
+  resolvedAt: string | null;
+  campaignId: string;
+  // null cuando la generación nunca llegó a producir un post (GENERATION_FAILED, o un
+  // TRIGGERED todavía en curso) — no siempre que status !== TRIGGERED hay post.
+  post: SocialFlowTrendTriggerPost | null;
+};
+
+export type SocialFlowTrendTriggersSnapshot = {
+  service: "socialflow";
+  runtime: "monolith";
+  timestamp: string;
+  requestId: string;
+  tenantId: string | null;
+  triggers: SocialFlowTrendTrigger[];
+  warnings: string[];
+};

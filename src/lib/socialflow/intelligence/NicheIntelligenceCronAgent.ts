@@ -134,18 +134,22 @@ async function upsertNicheIntelligence(niche: string, payload: NicheAnalysisPayl
   // existen. Igual desfase inherente que los hashtags: lo que se lee aquí es el
   // trendSignals más reciente que TrendKeywordAgent ya haya escrito para este nicho —
   // a */20 min con 55 nichos, como mucho ~18.3h de antigüedad, no una semana.
-  const realHooks = existing
-    ? extractTrendSignals(safeParseObject(existing.analysis_json))?.youtubeHooks
-    : undefined;
+  const existingTrendSignals = existing
+    ? extractTrendSignals(safeParseObject(existing.analysis_json))
+    : null;
+  const realHooks = existingTrendSignals?.youtubeHooks;
   const hooks = realHooks?.length ? realHooks.slice(0, 8) : payload.hooks;
 
-  // KNOWN ISSUE (backlog, sin fecha — no bloquea Nivel 3 hoy): este reemplazo completo
-  // de analysis_json BORRA trendSignals de TrendKeywordAgent en cada corrida semanal,
-  // sin tocar trend_last_fetched. Deja al nicho con trend_last_fetched "reciente" pero
-  // sin trendSignals hasta que TrendKeywordAgent vuelva a tocarlo en su round-robin
-  // (hasta ~18.3h). Debería hacer merge (leer existing, spread trendSignals) igual que
-  // ya hace con realHashtags/realHooks arriba, en vez de reconstruir desde cero.
-  const analysisJson = JSON.stringify({ summary: payload.analysis });
+  // Preserva trendSignals de TrendKeywordAgent (mismo objeto ya extraído arriba para
+  // realHooks) en vez de reconstruir analysis_json desde cero — un reemplazo completo
+  // aquí borraba trendSignals en cada corrida semanal sin tocar trend_last_fetched,
+  // dejando al nicho con trend_last_fetched "reciente" pero sin trendSignals hasta que
+  // TrendKeywordAgent volviera a tocarlo en su round-robin (hasta ~18h+). Fix: mismo
+  // criterio "datos reales tienen prioridad" que ya aplica a hashtags/hooks arriba.
+  const analysisJson = JSON.stringify({
+    summary: payload.analysis,
+    ...(existingTrendSignals ? { trendSignals: existingTrendSignals } : {}),
+  });
   const hashtagsJson = JSON.stringify(hashtags);
   const formatsJson = JSON.stringify(payload.formats);
   const hooksJson = JSON.stringify(hooks);

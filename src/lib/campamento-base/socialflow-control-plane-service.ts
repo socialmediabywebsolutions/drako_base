@@ -13,9 +13,11 @@ import {
   type AutomationExecutionResult,
   type AutomationRegistration,
 } from "@/lib/automation-core";
+import type { SocialFlowTrendTrigger } from "@/lib/capabilities/internal-api-types/socialflow";
 import {
   SocialFlowControlPlaneInternalApiError,
   fetchSocialFlowObservabilitySnapshot,
+  fetchSocialFlowTrendTriggersSnapshot,
   postSocialFlowOperatorAction,
   triggerSocialFlowAutomation,
 } from "@/lib/capabilities/internal-api-clients/socialflow-control-plane";
@@ -870,6 +872,19 @@ export async function getCampoBaseSocialFlowObservability(
       recentEvents: [],
       recentIncidents: [],
     };
+  }
+}
+
+// Nivel 3 — piloto de un único tenant interno, el filtro por tenant vive en el
+// endpoint interno (trend-triggers/route.ts), no aquí. Degrada a [] en cualquier
+// fallo, mismo criterio que getCampoBaseSocialFlowObservability arriba — este panel
+// es de solo lectura, nunca debe tumbar la carga del resto de la página.
+export async function getCampoBaseSocialFlowTrendTriggers(limit = 50): Promise<SocialFlowTrendTrigger[]> {
+  try {
+    const snapshot = await fetchSocialFlowTrendTriggersSnapshot({ limit });
+    return snapshot.triggers;
+  } catch {
+    return [];
   }
 }
 

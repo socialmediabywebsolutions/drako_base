@@ -15,6 +15,7 @@ import type {
   CampoBaseSocialFlowOperatorAction,
   CampoBaseSocialFlowOperatorActionResult,
 } from "@/lib/campamento-base/socialflow-control-plane-service";
+import type { SocialFlowTrendTrigger } from "@/lib/capabilities/internal-api-types/socialflow";
 
 type ControlResponse = {
   status?: CampoBaseSocialAutomationStatusOutput;
@@ -26,6 +27,7 @@ type ControlResponse = {
     | { refreshed: boolean; tenantId: string; saasId: string }
     | { checksPassed: number; checksFailed: number; recommendedAction: string };
   observability?: CampoBaseSocialFlowObservability | null;
+  trendTriggers?: SocialFlowTrendTrigger[];
   message?: string;
   code?: string;
 };
@@ -57,11 +59,24 @@ function healthBadge(status: string): "ok" | "warn" | "err" | "neutral" {
   return "neutral";
 }
 
+// Nivel 3 — TRIGGERED: en curso, esperando la ventana de auto-aprobación (info, no un
+// problema). AUTO_APPROVED: éxito. GENERATION_FAILED: fallo real. VETOED: ver el
+// comentario en el tipo SocialFlowTrendTriggerStatus — no lo escribe ningún código
+// todavía, pero el badge está listo para cuando se cierre ese gap.
+function trendTriggerBadge(status: string): "ok" | "warn" | "err" | "info" | "neutral" {
+  if (status === "AUTO_APPROVED") return "ok";
+  if (status === "GENERATION_FAILED") return "err";
+  if (status === "TRIGGERED") return "info";
+  if (status === "VETOED") return "neutral";
+  return "neutral";
+}
+
 export default function CampoBaseSocialAutomationControl() {
   const [status, setStatus] = useState<CampoBaseSocialAutomationStatusOutput | null>(null);
   const [selectedScope, setSelectedScope] = useState<{ tenantId: string; saasId: string } | null>(null);
   const [observability, setObservability] = useState<CampoBaseSocialFlowObservability | null>(null);
   const [observabilityLoading, setObservabilityLoading] = useState(false);
+  const [trendTriggers, setTrendTriggers] = useState<SocialFlowTrendTrigger[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -109,6 +124,7 @@ export default function CampoBaseSocialAutomationControl() {
       }
 
       setStatus(data.status);
+      setTrendTriggers(data.trendTriggers ?? []);
       const firstItem = data.status.items[0];
       if (firstItem) {
         void loadObservability({ tenantId: firstItem.tenantId, saasId: firstItem.saasId });
@@ -120,6 +136,7 @@ export default function CampoBaseSocialAutomationControl() {
       setStatus(null);
       setSelectedScope(null);
       setObservability(null);
+      setTrendTriggers([]);
       setError(loadError instanceof Error ? loadError.message : "No se pudo cargar el control de Socialcors.");
     } finally {
       setLoading(false);
@@ -337,6 +354,60 @@ export default function CampoBaseSocialAutomationControl() {
                           Run
                         </Button>
                       </div>
+                    </TD>
+                  </tr>
+                ))}
+              </TBody>
+            </Table>
+          </TableWrap>
+        )}
+      </Card>
+
+      <Card
+        tone="default"
+        title="Nivel 3 — Cerebro Socialcors"
+        subtitle="Tendencias disparadas por el conector (socialcors_trend_triggers)"
+        right={`${trendTriggers.length} registro(s)`}
+      >
+        {trendTriggers.length === 0 ? (
+          <EmptyState
+            title="Sin tendencias disparadas todavía"
+            subtitle="El conector sigue esperando que una tendencia supere el umbral de score configurado."
+          />
+        ) : (
+          <TableWrap>
+            <Table>
+              <THead>
+                <tr>
+                  <TH className="px-4 py-3 text-left">Tendencia (niche)</TH>
+                  <TH className="px-4 py-3 text-left">Score</TH>
+                  <TH className="px-4 py-3 text-left">Estado</TH>
+                  <TH className="px-4 py-3 text-left">Detectado</TH>
+                  <TH className="px-4 py-3 text-left">Post generado</TH>
+                </tr>
+              </THead>
+              <TBody>
+                {trendTriggers.map((trigger) => (
+                  <tr key={trigger.id} className="border-b border-slate-100 last:border-b-0">
+                    <TD className="px-4 py-3 text-sm font-semibold text-slate-900">{trigger.niche}</TD>
+                    <TD className="px-4 py-3 text-sm text-slate-700">{trigger.score}</TD>
+                    <TD className="px-4 py-3">
+                      <Badge variant={trendTriggerBadge(trigger.status)}>{trigger.status}</Badge>
+                    </TD>
+                    <TD className="px-4 py-3 text-sm text-slate-700">{formatDate(trigger.createdAt)}</TD>
+                    <TD className="px-4 py-3 text-sm text-slate-700">
+                      {trigger.post ? (
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium text-slate-900">{trigger.post.title}</span>
+                          <span className="flex items-center gap-2 text-xs text-slate-500">
+                            <Badge variant={healthBadge(trigger.post.status)}>{trigger.post.status}</Badge>
+                            {trigger.post.provider}
+                            {trigger.post.postedAt ? ` · publicado ${formatDate(trigger.post.postedAt)}` : ""}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">Sin post asociado</span>
+                      )}
                     </TD>
                   </tr>
                 ))}

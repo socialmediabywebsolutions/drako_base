@@ -8,6 +8,7 @@ import type {
   SocialFlowObservabilitySnapshot,
   SocialFlowOperatorActionRequest,
   SocialFlowOperatorActionResponse,
+  SocialFlowTrendTriggersSnapshot,
 } from "@/lib/capabilities/internal-api-types/socialflow";
 
 const SOCIALFLOW_HEALTH_PATH = "/api/internal/socialflow/health";
@@ -15,6 +16,7 @@ const SOCIALFLOW_OBSERVABILITY_SNAPSHOT_PATH = "/api/internal/socialflow/observa
 const SOCIALFLOW_EVENTS_PATH = "/api/internal/socialflow/events";
 const SOCIALFLOW_AUTOMATION_TRIGGER_PATH = "/api/internal/socialflow/automation/trigger";
 const SOCIALFLOW_OPERATOR_ACTIONS_PATH = "/api/internal/socialflow/operator/actions";
+const SOCIALFLOW_TREND_TRIGGERS_PATH = "/api/internal/socialflow/trend-triggers";
 
 type FetchLike = typeof fetch;
 
@@ -273,6 +275,20 @@ export async function fetchSocialFlowObservabilitySnapshot(
     path: SOCIALFLOW_OBSERVABILITY_SNAPSHOT_PATH,
     method: "GET",
     options,
+  });
+}
+
+export async function fetchSocialFlowTrendTriggersSnapshot(
+  options: SocialFlowControlPlaneRequestOptions & { limit?: number } = {},
+): Promise<SocialFlowTrendTriggersSnapshot> {
+  const { limit, ...requestOptions } = options;
+  const path = limit
+    ? `${SOCIALFLOW_TREND_TRIGGERS_PATH}?limit=${encodeURIComponent(String(limit))}`
+    : SOCIALFLOW_TREND_TRIGGERS_PATH;
+  return requestJson<SocialFlowTrendTriggersSnapshot>({
+    path,
+    method: "GET",
+    options: requestOptions,
   });
 }
 
