@@ -2,6 +2,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { resolveAuthsContextFromHost } from "@/lib/auths/contexts";
 import { normalizeHost } from "@/lib/hosts";
+import { ProductAuthForm } from "@/components/auth/product-auth-form";
 
 type LegacyAuthPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -18,6 +19,28 @@ function resolveDestination(context: ReturnType<typeof resolveAuthsContextFromHo
   if (context === "socialflow") return "/socialflow/auth";
   return "/drakos/auths/logins";
 }
+
+// Bug fijo 2026-08-24: src/app/drakos/auths/logins/page.tsx redirige aquí a
+// propósito (lo exige el guardrail SSOT en scripts/lib/auth-ssot-audit.ts — no se
+// toca esa página). Antes, este archivo redirigía OTRA VEZ a /drakos/auths/logins
+// para el contexto "drakos" (el mismo resolveDestination() de abajo) — bucle
+// infinito, nunca renderizaba nada. "drakos" es el único contexto sin una página de
+// producto propia con formulario real (bases/mentorias/socialflow sí la tienen), así
+// que este es el punto terminal correcto para él — los demás contextos siguen
+// redirigiendo exactamente igual que antes.
+const drakosAuthCopy = {
+  loginTab: "Entrar",
+  registerTab: "Crear cuenta",
+  nameLabel: "Nombre",
+  emailLabel: "Email",
+  passwordLabel: "Contraseña",
+  namePlaceholder: "Tu nombre",
+  emailPlaceholder: "tu@email.com",
+  passwordPlaceholder: "********",
+  loadingLabel: "Entrando...",
+  loginSubmit: "Entrar",
+  registerSubmit: "Crear cuenta",
+} as const;
 
 export default async function LegacyLoginPage({ searchParams }: LegacyAuthPageProps) {
   const params = (await searchParams) ?? {};
@@ -51,6 +74,23 @@ export default async function LegacyLoginPage({ searchParams }: LegacyAuthPagePr
   }
 
   const context = resolveAuthsContextFromHost(requestedHost);
+
+  if (context === "drakos") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6">
+        <ProductAuthForm
+          title="Drako Systems"
+          description="Acceso de plataforma — operator, factory y control interno."
+          authApiBase="/api/drakos/auths"
+          defaultMode="login"
+          allowRegister
+          postLoginRedirect="/operator/socialflow"
+          copy={drakosAuthCopy}
+        />
+      </div>
+    );
+  }
+
   const target = new URL(resolveDestination(context), "http://localhost");
   if (callbackUrl) target.searchParams.set("callbackUrl", callbackUrl);
   if (invite) target.searchParams.set("invite", invite);
