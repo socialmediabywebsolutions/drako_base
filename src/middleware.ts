@@ -682,6 +682,29 @@ export async function middleware(req: NextRequest) {
         return persistCookie(NextResponse.rewrite(url, { request: { headers: responseHeaders } }));
       }
 
+      // Recorte quirúrgico (2026-08-24): drako.systems es PUBLIC_SAAS a propósito —
+      // NO se toca resolveHostMode(), eso rompería la landing pública (page.tsx:17
+      // redirige "/" a "/admin" en cualquier host CAMPAMENTO_BASE) y además
+      // bloquearía con 403 /api/drakos/auths/* (ver el bloque isAdminHost más abajo).
+      // /operator y /factory son la superficie de founder/admin (requireOwnerAccess()
+      // ya la protege en cada API) — aquí solo evitamos el redirect ciego a "/" para
+      // esos dos prefijos: si hay sesión "drakos" válida con role admin/owner, se deja
+      // pasar; si no, va al login real en vez de a la landing.
+      const isFounderAdminPath =
+        pathname === "/operator" || pathname.startsWith("/operator/")
+        || pathname === "/factory" || pathname.startsWith("/factory/");
+
+      if (isFounderAdminPath) {
+        const session = await extractSessionFromRequest(req);
+        const role = session?.role?.toLowerCase();
+        if (session && (role === "admin" || role === "owner" || role === "superadmin")) {
+          return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
+        }
+        const loginUrl = new URL("/auth/login", req.url);
+        loginUrl.searchParams.set("callbackUrl", pathname);
+        return persistCookie(NextResponse.redirect(loginUrl));
+      }
+
       if (adminPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
         return persistCookie(NextResponse.redirect(new URL("/", req.url)));
       }
