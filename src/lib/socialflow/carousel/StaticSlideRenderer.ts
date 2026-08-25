@@ -192,6 +192,30 @@ function drawHandle(
   ctx.restore();
 }
 
+// Mismo patrón que drawHandle (arriba) — esquina INFERIOR DERECHA a propósito, para no
+// solaparse nunca con el handle del cliente (inferior izquierda) cuando ambos se dibujan
+// en el mismo slide (ej. carrusel de un cliente en trial).
+function drawWatermark(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  text: string,
+  canvasWidth: number,
+  canvasHeight: number,
+): void {
+  const fontSize = 24;
+  const padding = 28;
+
+  ctx.save();
+  ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "bottom";
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle = "#ffffff";
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
+  ctx.shadowBlur = 6;
+  ctx.fillText(text, canvasWidth - padding, canvasHeight - padding);
+  ctx.restore();
+}
+
 function wrapText(
   ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
   text: string,
@@ -453,6 +477,7 @@ export type StaticSlideInput = {
   height?: number;             // default 1350, a diferencia de 1920 (9:16) que usa Reels
   style?: CarouselStyleVariant;  // opcional — sin él, estilo fijo de siempre (retrocompatible). Ver CarouselStylePacks.getStyleForCarousel.
   handle?: string;                // "@usuario" — si se pasa, se dibuja SIEMPRE (esquina inferior izquierda)
+  watermark?: string;             // marca de agua de trial — si se pasa, se dibuja SIEMPRE (esquina inferior derecha, nunca choca con `handle`)
 };
 
 export class StaticSlideRenderer {
@@ -490,6 +515,7 @@ export class StaticSlideRenderer {
 
     drawStaticSlideText(ctx, input.text, CAROUSEL_ROLE_TO_TEXT_ROLE[input.role], width, height, input.style, !!input.imageUrl);
     if (input.handle) drawHandle(ctx, input.handle, width, height);
+    if (input.watermark) drawWatermark(ctx, input.watermark, width, height);
 
     if (canvas instanceof OffscreenCanvas) {
       return canvas.convertToBlob({ type: "image/jpeg", quality: 0.92 });

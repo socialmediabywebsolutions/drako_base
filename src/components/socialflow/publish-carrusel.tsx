@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import type { CarouselSlideRole } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
 import { StaticSlideRenderer } from "@/lib/socialflow/carousel/StaticSlideRenderer";
+import { TRIAL_WATERMARK_TEXT } from "@/lib/socialflow/media/trial-watermark";
 import { getStyleForCarousel, getNichoPackKey, CAROUSEL_STYLE_PACKS, type CarouselStyleVariant } from "@/lib/socialflow/carousel/CarouselStylePacks";
 import { getImageDimensions, isHorizontalImage } from "@/lib/socialflow/media/image-dimensions";
 import { THEME_OPTIONS, type ContentTheme } from "@/lib/socialflow/theme-options";
@@ -356,6 +357,15 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Fail-closed a `false` — igual criterio que upload-to-post.tsx (ver ahí el comentario
+  // completo de por qué esto vive en el navegador, no en el servidor).
+  const [isTrial, setIsTrial] = useState(false);
+  useEffect(() => {
+    fetch("/api/socialflow/billing/trial-status")
+      .then((res) => (res.ok ? res.json() : null) as Promise<{ isTrial?: boolean } | null>)
+      .then((data) => setIsTrial(data?.isTrial ?? false))
+      .catch(() => setIsTrial(false));
+  }, []);
 
   const canGenerate = photos.length >= CAROUSEL_MIN_SLIDES && photos.length <= maxSlides;
   // Cuántos slides le faltan al carrusel para llegar al máximo de su plan — la IA los
@@ -471,6 +481,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
             slideIndex: slide.order,
             style: resolvedStyle,
             handle: data.channelHandle ?? undefined,
+            watermark: isTrial ? TRIAL_WATERMARK_TEXT : undefined,
           });
           const { url } = await uploadFile(blob, `slide_${slide.order}.jpg`);
           // Slots IA (carrusel mixto) no tienen entrada en `uploaded` — solo las
@@ -538,6 +549,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
         slideIndex: order,
         style: style ?? undefined,
         handle: channelHandle ?? undefined,
+        watermark: isTrial ? TRIAL_WATERMARK_TEXT : undefined,
       });
       const { url } = await uploadFile(blob, `slide_${order}.jpg`);
       patchSlide(order, { text: slide.draftText, renderedImageUrl: url, status: "pending", error: null });
@@ -589,6 +601,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
         slideIndex: order,
         style: style ?? undefined,
         handle: channelHandle ?? undefined,
+        watermark: isTrial ? TRIAL_WATERMARK_TEXT : undefined,
       });
       const { url } = await uploadFile(blob, `slide_${order}.jpg`);
       patchSlide(order, { text: data.text, draftText: data.text, renderedImageUrl: url, status: "pending", error: null });
@@ -677,6 +690,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
         slideIndex: order,
         style: style ?? undefined,
         handle: channelHandle ?? undefined,
+        watermark: isTrial ? TRIAL_WATERMARK_TEXT : undefined,
       });
       const { url: renderedUrl } = await uploadFile(blob, `slide_${order}.jpg`);
 

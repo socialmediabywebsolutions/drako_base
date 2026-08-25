@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import type { ViralScore } from "@/lib/socialflow/intelligence/ViralScoreAgent";
 import { getImageDimensions, isHorizontalImage } from "@/lib/socialflow/media/image-dimensions";
+import { StaticSlideRenderer } from "@/lib/socialflow/carousel/StaticSlideRenderer";
+import { TRIAL_WATERMARK_TEXT } from "@/lib/socialflow/media/trial-watermark";
 import { THEME_OPTIONS, type ContentTheme } from "@/lib/socialflow/theme-options";
 import type { EmpresaEmployee } from "@/lib/socialflow/employees/types";
 import ReelsCreator from "./reels-creator";
@@ -899,6 +901,39 @@ export default function UploadToPost({
   // de siempre (botón "🎬 Reel", el cliente elige dentro del modal).
   const [reelsInitialMode, setReelsInitialMode] = useState<"ai-video" | undefined>(undefined);
   const [skippedReelsCount, setSkippedReelsCount] = useState(0);
+  // Se consulta una vez al montar — el mismo criterio que ya usan las rutas server-side
+  // (generate-from-image, generate-ai-carousel) para MAX_POSTS_PER_DAY, pero aquí hace
+  // falta en el navegador porque el compositing de la marca de agua (StaticSlideRenderer)
+  // corre client-side, no en el servidor. Fail-closed a `false` ante cualquier error —
+  // si no se puede confirmar el trial, no se aplica marca (nunca se bloquea el guardado
+  // del post por esto).
+  const [isTrial, setIsTrial] = useState(false);
+  useEffect(() => {
+    fetch("/api/socialflow/billing/trial-status")
+      .then((res) => (res.ok ? res.json() : null) as Promise<{ isTrial?: boolean } | null>)
+      .then((data) => setIsTrial(data?.isTrial ?? false))
+      .catch(() => setIsTrial(false));
+  }, []);
+
+  // Nunca lanza — si el compositing o la re-subida fallan, se guarda con la foto
+  // original sin marca en vez de bloquear el guardado del post por esto.
+  async function watermarkImageUrl(imageUrl: string): Promise<string> {
+    try {
+      const blob = await new StaticSlideRenderer().render({
+        imageUrl,
+        text: "",
+        role: "cierre_cta",
+        watermark: TRIAL_WATERMARK_TEXT,
+      });
+      const form = new FormData();
+      form.append("file", blob, "watermarked.jpg");
+      const uploadRes = await fetch("/api/socialflow/media/upload", { method: "POST", body: form });
+      const uploadData = (await uploadRes.json()) as { url?: string };
+      return uploadRes.ok && uploadData.url ? uploadData.url : imageUrl;
+    } catch {
+      return imageUrl;
+    }
+  }
 
   function openReelsCreator(id: string, mode?: "ai-video") {
     setReelsInitialMode(mode);
@@ -1189,11 +1224,20 @@ export default function UploadToPost({
     // step "reel_ready"). Un item "ready" clasificado REEL por la IA pero nunca visto
     // como vídeo se ignora en silencio — la UI ya le oculta el botón "Aprobar" para este caso.
     const isReel = item.editContentType === "REEL";
-    const mediaUrl = isReel ? item.reelVideoUrl : item.r2Url;
+    let mediaUrl = isReel ? item.reelVideoUrl : item.r2Url;
     const approvable = isReel ? item.step === "reel_ready" && !!item.reelVideoUrl : item.step === "ready" && !!item.r2Url;
     if (!approvable || !mediaUrl) return;
 
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, step: "saving" } : i)));
+
+    // Marca de agua de trial — solo imagen estática (no Reel: eso ya lo cubre el overlay
+    // quemado en el propio vídeo, ver reels/generate/route.ts). Se aplica AQUÍ, justo
+    // antes de guardar, nunca en el momento de subir la foto (analyzeFile) — LLaVA
+    // analiza la foto original sin marca, para que el texto del watermark no contamine
+    // la clasificación foto_real/grafico_texto ni el análisis visual.
+    if (!isReel && isTrial) {
+      mediaUrl = await watermarkImageUrl(mediaUrl);
+    }
 
     try {
       const title =

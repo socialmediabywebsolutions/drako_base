@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { CarouselSlideRole } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
 import { StaticSlideRenderer } from "@/lib/socialflow/carousel/StaticSlideRenderer";
+import { TRIAL_WATERMARK_TEXT } from "@/lib/socialflow/media/trial-watermark";
 import { getNichoPackKey, type CarouselNichePackKey, type CarouselStyleVariant } from "@/lib/socialflow/carousel/CarouselStylePacks";
 
 // Modo "Crear con IA" del carrusel (Fase 7, sin fotos) — hermano de PublishCarrusel
@@ -117,6 +118,15 @@ export default function AiCarouselCreator({ saasId, maxSlides }: { saasId: strin
   const [scheduledAt, setScheduledAt] = useState<string>("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [viralScore, setViralScore] = useState<ViralScoreState | null>(null);
+  // Fail-closed a `false` — igual criterio que upload-to-post.tsx (ver ahí el comentario
+  // completo de por qué esto vive en el navegador, no en el servidor).
+  const [isTrial, setIsTrial] = useState(false);
+  useEffect(() => {
+    fetch("/api/socialflow/billing/trial-status")
+      .then((res) => (res.ok ? res.json() : null) as Promise<{ isTrial?: boolean } | null>)
+      .then((data) => setIsTrial(data?.isTrial ?? false))
+      .catch(() => setIsTrial(false));
+  }, []);
 
   // Niche del cliente para elegir qué chips de tema mostrar — mismo endpoint que ya usa
   // el resto del panel de perfil. Fallo silencioso: sin niche, getNichoPackKey cae a su
@@ -183,6 +193,7 @@ export default function AiCarouselCreator({ saasId, maxSlides }: { saasId: strin
               slideIndex: slide.order,
               style: resolvedStyle,
               handle: resolvedHandle ?? undefined,
+              watermark: isTrial ? TRIAL_WATERMARK_TEXT : undefined,
             });
             const { url } = await uploadFile(blob, `ai_slide_${slide.order}.jpg`);
             return {
@@ -231,7 +242,7 @@ export default function AiCarouselCreator({ saasId, maxSlides }: { saasId: strin
     setSlides((prev) => prev.map((s) => (s.order === order ? { ...s, status: "rendering", error: null } : s)));
     try {
       const renderer = new StaticSlideRenderer();
-      const blob = await renderer.render({ text: trimmed, role: slide.role, slideIndex: order, style, handle: channelHandle ?? undefined });
+      const blob = await renderer.render({ text: trimmed, role: slide.role, slideIndex: order, style, handle: channelHandle ?? undefined, watermark: isTrial ? TRIAL_WATERMARK_TEXT : undefined });
       const { url } = await uploadFile(blob, `ai_slide_${order}.jpg`);
       setSlides((prev) =>
         prev.map((s) => (s.order === order ? { ...s, text: trimmed, draftText: trimmed, renderedImageUrl: url, status: "ready" } : s)),
