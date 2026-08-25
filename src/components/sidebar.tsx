@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Layers, Users2, Bot, Activity, BellRing, Landmark, Inbox, Sparkles, Code2, Stethoscope, Building2 } from "lucide-react";
+import { LayoutDashboard, Users2, Bot, Activity, BellRing, Landmark, Inbox, Sparkles, Code2, Stethoscope, Building2 } from "lucide-react";
 
 type Item = { href: string; label: string; icon: ReactNode; description?: string };
 
@@ -12,8 +12,6 @@ const grupos: { titulo: string; items: Item[] }[] = [
     titulo: "General",
     items: [
       { href: "/admin", label: "Panel DRĀKO", description: "Admin multi-tenant", icon: <LayoutDashboard className="h-4 w-4" /> },
-      { href: "/", label: "Campamento base", description: "Indicadores y accesos", icon: <LayoutDashboard className="h-4 w-4" /> },
-      { href: "/saas", label: "Proyectos SaaS", description: "Provisiona y supervisa", icon: <Layers className="h-4 w-4" /> },
       { href: "/inbox", label: "Bandeja unificada", description: "Mensajería central", icon: <Inbox className="h-4 w-4" /> },
     ],
   },
