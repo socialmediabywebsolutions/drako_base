@@ -730,6 +730,14 @@ jobs:
           else
             echo "$OUTPUT"
           fi
+          # 0138: mismo bug que 0137 (número consecutivo, casi seguro escrita en la
+          # misma sesión) — nunca estuvo en este paso, por eso la Card "Operator
+          # Social Automation" del panel daba "D1_ERROR: no such table:
+          # drako_automation_registrations". Solo CREATE TABLE/INDEX IF NOT EXISTS,
+          # sin ALTER TABLE — no necesita la tolerancia a "duplicate column name" que
+          # sí hace falta arriba para 0137, siempre es re-ejecutable sin más.
+          wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
+            --file migrations/0138_drako_automation_core.sql
           # 0194: ALTER TABLE ADD COLUMN — skip if columns already exist
           if ! wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
             --command "SELECT saas_id FROM ai_usage_counters LIMIT 1;" > /dev/null 2>&1; then
