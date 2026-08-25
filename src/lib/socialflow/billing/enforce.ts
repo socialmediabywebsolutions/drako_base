@@ -1,4 +1,4 @@
-import { getCanonicalBillingSnapshot, type CanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
+import { getCanonicalBillingSnapshot, isInternalAccount, type CanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
 import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
 import { countSaasSocialPostsInRange, listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
 import { countSocialflowAiUsageInRange } from "@/lib/ai/usage";
@@ -181,6 +181,13 @@ export async function guardAiAccess(
 
 export async function isActiveSocialFlowTrial(tenantId: string, role?: string): Promise<boolean> {
   if (AI_BYPASS_TENANT_IDS.has(tenantId) || (role && AI_BYPASS_ROLES.has(role))) return false;
+  // Cuentas internas (Socialcors, Sofía, etc.) están exentas de facturación por
+  // completo — no "están en trial", nunca deben verse afectadas por nada que dependa
+  // de este flag (ej. marca de agua de trial). getCanonicalBillingSnapshot ya fuerza
+  // status="active" para ellas (ver isInternalAccount ahí abajo), así que este check
+  // no cambia el resultado hoy — es una garantía explícita en vez de un efecto
+  // indirecto a 3 funciones de profundidad, y evita 3 queries extra para el caso interno.
+  if (await isInternalAccount(tenantId, "socialflow")) return false;
   const snapshot = await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" });
   const sub = snapshot.subscription;
   const trialEndsAt = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
