@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/cf";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
-import { guardAiAccess } from "@/lib/socialflow/billing/enforce";
+import { guardAiAccess, isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
 import { resolveSocialContext, SocialContextError, upsertSaasSocialCampaign } from "@/lib/socialflow/repository";
 
 function isTruthyFlag(value: string | undefined) {
@@ -74,9 +74,11 @@ export async function POST(request: Request) {
       notes: null,
     });
 
+    const applyTrialCaptionLink = await isActiveSocialFlowTrial(session.tenantId, session.role);
+
     // type explícito desde Real Video Generation (misma cola, mismo consumer en
     // socialflow-ai-worker, ahora despacha por job.type) — ver AiVideoJob ahí.
-    await queue.send({ type: "campaign", tenantId: session.tenantId, saasId, niche, tone, frequencyPerWeek, campaignId });
+    await queue.send({ type: "campaign", tenantId: session.tenantId, saasId, niche, tone, frequencyPerWeek, campaignId, applyTrialCaptionLink });
 
     return NextResponse.json({ ok: true, campaignId, status: "GENERATING" }, { status: 202 });
   } catch (error) {

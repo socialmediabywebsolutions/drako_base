@@ -231,4 +231,8 @@ export type SocialAIPipelineInput = {
   endDate?: string | null;
   provider?: "INSTAGRAM" | "LINKEDIN" | "FACEBOOK_PAGE" | "TIKTOK" | "TWITTER_X";
   accountType?: "influencer" | "empresa" | null;
+  // Calculado por el llamador (main app, con DRACO_DB disponible) vía
+  // isActiveSocialFlowTrial — nunca se calcula dentro del pipeline ni del worker de
+  // colas, que no tiene el binding DRACO_DB. Ver persistToDb en SocialFlowOrchestrator.
+  applyTrialCaptionLink?: boolean;
 };

@@ -260,7 +260,7 @@ export class SocialFlowOrchestrator {
         const postProvider = input.provider ?? "INSTAGRAM";
         const hashtags = (optimized?.hashtags ?? []).slice(0, 15);
         const contentType: SaasSocialContentType = STRATEGY_FORMAT_TO_CONTENT_TYPE[item.format] ?? "FEED";
-        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: postProvider, contentType, title: item.theme, body, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, creationMode: "AUTO", metadata: { targetProvider: postProvider, strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags, angle: item.angle, callToAction: item.callToAction } });
+        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: postProvider, contentType, title: item.theme, body, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, creationMode: "AUTO", metadata: { targetProvider: postProvider, strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags, angle: item.angle, callToAction: item.callToAction } }, { applyTrialCaptionLink: input.applyTrialCaptionLink });
         savedCount++;
       } catch (postError) {
         console.error(`[SocialFlowOrchestrator] Failed to persist post for item ${item.id}`, postError instanceof Error ? postError.message : String(postError));

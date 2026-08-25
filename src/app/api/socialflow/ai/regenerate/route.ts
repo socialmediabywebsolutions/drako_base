@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/cf";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
+import { isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
 import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
 import { getSaasSocialPostById, resolveSocialContext, upsertSaasSocialPost } from "@/lib/socialflow/repository";
 
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
     if (!current) {
       return NextResponse.json({ ok: false, message: "Post not found" }, { status: 404 });
     }
+    const applyTrialCaptionLink = await isActiveSocialFlowTrial(session.tenantId, session.role);
 
     // Instruction-based rewrite: use LLM to apply the instruction directly
     if (body.instruction?.trim()) {
@@ -82,7 +84,7 @@ export async function POST(request: Request) {
         externalPostId: current.externalPostId,
         creationMode: current.creationMode,
         metadata: current.metadata,
-      });
+      }, { applyTrialCaptionLink });
       return NextResponse.json({ ok: true, post });
     }
 
@@ -122,7 +124,7 @@ export async function POST(request: Request) {
         cta: primaryVariant?.callToAction,
         hashtags,
       },
-    });
+    }, { applyTrialCaptionLink });
 
     return NextResponse.json({ ok: true, post });
   } catch (error) {

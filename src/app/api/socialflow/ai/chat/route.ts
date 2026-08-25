@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/cf";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
-import { guardAiAccess } from "@/lib/socialflow/billing/enforce";
+import { guardAiAccess, isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
 import { resolveSocialContext, upsertSaasSocialCampaign } from "@/lib/socialflow/repository";
 import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
 import { getChannelProfile } from "@/lib/socialflow/profile/repository";
@@ -309,6 +309,8 @@ export async function POST(request: Request) {
       notes: null,
     });
 
+    const applyTrialCaptionLink = await isActiveSocialFlowTrial(session.tenantId, session.role);
+
     await queue.send({
       tenantId: session.tenantId,
       saasId,
@@ -319,6 +321,7 @@ export async function POST(request: Request) {
       startDate: dateRange.startDate,
       endDate: dateRange.endDate,
       provider,
+      applyTrialCaptionLink,
     });
 
     // Build a reply that includes date context if AI didn't (AI reply ignores dates)

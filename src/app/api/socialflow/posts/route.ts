@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import type { SaasSocialContentType } from "@/lib/social-core/types";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
+import { isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
 import {
   approvePost,
   deleteSaasSocialPost,
@@ -117,6 +118,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ code: "INVALID_CONTENT_TYPE", message: "contentType must be FEED, REEL, STORY, SHORT or CAROUSEL" }, { status: 400 });
     }
 
+    const applyTrialCaptionLink = await isActiveSocialFlowTrial(session.tenantId, session.role);
     const post = await upsertSaasSocialPost(ctx, {
       id: body.id,
       saasId,
@@ -136,7 +138,7 @@ export async function POST(request: Request) {
       // upsertSaasSocialPost directamente y marca "AUTO" (ver SocialFlowOrchestrator.ts).
       creationMode: "MANUAL",
       metadata: body.metadata ?? null,
-    });
+    }, { applyTrialCaptionLink });
 
     if (!confirmPublish) {
       return NextResponse.json({ post, livePublish: { code: "PUBLISH_CONFIRMATION_REQUIRED" } });
@@ -240,6 +242,10 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ code: "NOT_FOUND", message: "Post not found" }, { status: 404 });
     }
 
+    // applyTrialCaptionLink solo importa cuando body.body trae texto nuevo del cliente
+    // (edición manual del caption) — appendTrialCaptionLink es idempotente, así que
+    // pasarlo siempre (incluso cuando no se edita el texto) es seguro, no duplica nada.
+    const applyTrialCaptionLink = await isActiveSocialFlowTrial(session.tenantId, session.role);
     const post = await upsertSaasSocialPost(ctx, {
       id: current.id,
       saasId: current.saasId,
@@ -256,7 +262,7 @@ export async function PATCH(request: Request) {
       externalPostId: typeof body.externalPostId === "undefined" ? current.externalPostId : body.externalPostId,
       creationMode: current.creationMode,
       metadata: typeof body.metadata === "undefined" ? current.metadata : body.metadata,
-    });
+    }, { applyTrialCaptionLink });
 
     return NextResponse.json({ post });
   } catch (error) {

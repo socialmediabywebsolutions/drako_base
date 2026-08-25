@@ -38,6 +38,10 @@ export interface SocialFlowAiJob {
   startDate?: string | null;
   endDate?: string | null;
   provider?: string;
+  // Calculado por el productor (main app, con DRACO_DB) vía isActiveSocialFlowTrial —
+  // este worker solo tiene SOCIAL_DB, nunca lo calcula por su cuenta. Ausente en
+  // mensajes en vuelo desde antes de este campo (tratado como false, sin marca).
+  applyTrialCaptionLink?: boolean;
 }
 
 // Real Video Generation (DashScope wanx2.5-vace-turbo, llamado por fetch() directo —
@@ -762,6 +766,7 @@ export default {
           startDate: job.startDate ?? null,
           endDate: job.endDate ?? null,
           provider: job.provider as "INSTAGRAM" | "LINKEDIN" | "FACEBOOK_PAGE" | "TIKTOK" | "TWITTER_X" | undefined,
+          applyTrialCaptionLink: job.applyTrialCaptionLink ?? false,
         });
         console.log(`[SocialFlowAiWorker] Campaign ${job.campaignId} completed successfully`);
         message.ack();
