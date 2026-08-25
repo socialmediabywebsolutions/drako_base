@@ -81,6 +81,7 @@
     "deploy:all": "npm run archived:cf:deploy"
   },
   "dependencies": {
+    "@cf-wasm/photon": "^0.4.0",
     "@react-pdf/renderer": "^4.3.2",
     "clsx": "^2.1.1",
     "exifr": "^7.1.3",

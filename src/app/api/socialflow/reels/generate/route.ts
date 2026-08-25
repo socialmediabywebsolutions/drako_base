@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
-import { guardAiAccess } from "@/lib/socialflow/billing/enforce";
+import { guardAiAccess, isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
 import { SocialFlowOrchestrator } from "@/lib/socialflow/ai/SocialFlowOrchestrator";
 import { ReelsAgent } from "@/lib/socialflow/reels/ReelsAgent";
 import type { MusicTrackDeps } from "@/lib/socialflow/reels/music-selector";
@@ -57,6 +57,27 @@ export async function POST(request: Request) {
         : undefined;
 
     const config = await new ReelsAgent().run({ imageUrl, profile, music, tenantId: session.tenantId, saasId });
+
+    // Marca de agua de trial (overlay visual) — CanvasRenderer corre en el navegador
+    // (Canvas + WebCodecs), no en este endpoint, así que la única forma de aplicarla es
+    // añadir un textOverlay más al config: drawTextOverlays ya lo renderiza igual que
+    // título/subtítulo/CTA, sin tocar CanvasRenderer.ts. Posición "top" (18% del alto) a
+    // propósito: ReelsAgent solo usa "top-center"/"upper-center" (título), "center"
+    // (subtítulo) y "bottom" (CTA) — "top" está libre, así el watermark permanente nunca
+    // se superpone visualmente con el resto de overlays generados. animation:"fade-in"
+    // con durationSec = todo el clip: la ventana de entrada/salida está topada a 0.5s
+    // (ver computeEntryAnimation en CanvasRenderer.ts), así que queda visible el 100% del
+    // clip salvo un fundido de entrada/salida de 0.5s, no se desvanece a mitad de vídeo.
+    if (await isActiveSocialFlowTrial(session.tenantId, session.role)) {
+      config.textOverlays.push({
+        text: "Hecho con Socialcors",
+        animation: "fade-in",
+        startAt: 0,
+        durationSec: config.durationSec,
+        position: "top",
+        fontSize: 28,
+      });
+    }
 
     return NextResponse.json({ config });
   } catch (error) {

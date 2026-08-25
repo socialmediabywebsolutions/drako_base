@@ -10,6 +10,7 @@ import { type MessageBatch, type ScheduledEvent } from "@cloudflare/workers-type
 import { setGlobalEnv, type DracoEnv } from "../../../src/lib/cf";
 import { SocialFlowOrchestrator } from "../../../src/lib/socialflow/ai/SocialFlowOrchestrator";
 import { resolveSocialContext, upsertSaasSocialCampaign } from "../../../src/lib/socialflow/repository";
+import { watermarkCampaignImages } from "./image-watermark";
 import { processScheduledPosts } from "../../../src/lib/socialflow/scheduler";
 import { runTrendAutoApproveCron } from "../../../src/lib/socialflow/intelligence/TrendAutoApproveCron";
 import { ImageAnalysisAgent, type ImageAnalysis } from "../../../src/lib/socialflow/ai/agents/ImageAnalysisAgent";
@@ -768,6 +769,16 @@ export default {
           provider: job.provider as "INSTAGRAM" | "LINKEDIN" | "FACEBOOK_PAGE" | "TIKTOK" | "TWITTER_X" | undefined,
           applyTrialCaptionLink: job.applyTrialCaptionLink ?? false,
         });
+
+        // Post-proceso, no inline en generatePostImage: @cf-wasm/photon solo puede
+        // importarse desde código exclusivo de este worker (ver image-watermark.ts) —
+        // el pipeline shared de generación no puede tocarlo sin romper el build de la
+        // app principal. Nunca lanza, así que un fallo aquí no revierte la campaña ya
+        // persistida ni bloquea el ack del mensaje.
+        if (job.applyTrialCaptionLink) {
+          await watermarkCampaignImages(env, job.campaignId);
+        }
+
         console.log(`[SocialFlowAiWorker] Campaign ${job.campaignId} completed successfully`);
         message.ack();
       } catch (error) {
