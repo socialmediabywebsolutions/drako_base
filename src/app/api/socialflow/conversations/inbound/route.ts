@@ -75,6 +75,16 @@ export async function POST(request: Request) {
     const url = new URL(request.url);
     const tenantId = url.searchParams.get("tenantId")?.trim();
 
+    // BACKLOG (2026-08-25, auditoría "bug botón Aprobar" — sin arreglar a propósito,
+    // fuera de alcance de ese fix): este InboundBody es un formato plano inventado por
+    // este proyecto, NO el payload real que Meta manda a un webhook de Instagram
+    // Messaging (que llega anidado como entry[].messaging[]/entry[].changes[]). No hay
+    // ningún transformador en el repo que convierta el payload real de Meta a esta forma
+    // plana. Con el webhook ya verificado en el panel de Meta (2026-08-25), el primer
+    // evento real que llegue pasará la verificación HMAC pero JSON.parse(rawBody) dará
+    // un objeto sin `incoming_message`/`provider` — cae en el 400 MISSING_REQUIRED_FIELDS
+    // de abajo, sin crear ningún hilo. Hace falta un parser del formato real de Meta
+    // antes de que este endpoint reciba tráfico genuino de forma útil.
     type InboundBody = {
       provider?: string;
       thread_type?: string;

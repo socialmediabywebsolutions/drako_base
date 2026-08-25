@@ -8,6 +8,7 @@ import type { ConversationThreadStatus } from "@/lib/socialflow/conversational/t
 import { listSaasSocialAccounts } from "@/lib/socialflow/repository";
 import { requireInstagramCredentials } from "@/lib/socialflow/meta/publishing";
 import { replyToInstagramComment } from "@/lib/socialflow/meta/comments";
+import { sendInstagramDirectMessage } from "@/lib/socialflow/meta/directMessages";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +89,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         });
       }
 
-      if (current.threadType === "COMMENT") {
+      // COMMENT y DM comparten resolución de finalReply + cuenta/credenciales de
+      // Instagram — solo difieren en qué API de Meta se llama al final (respuesta
+      // pública a comentario vs. mensaje directo real, ver directMessages.ts).
+      if (current.threadType === "COMMENT" || current.threadType === "DM") {
         const finalReply = "finalReply" in (body ?? {}) ? body?.finalReply ?? null : current.finalReply ?? current.suggestedReply;
         if (!current.platformThreadId || !finalReply?.trim()) {
           return new Response(JSON.stringify({ error: "MISSING_REPLY_OR_COMMENT_ID" }), {
@@ -108,12 +112,27 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
         try {
           const creds = await requireInstagramCredentials(instagramAccount);
-          const replyResult = await replyToInstagramComment(current.platformThreadId, finalReply, creds.accessToken, creds.apiBase);
-          if (!replyResult.ok) {
-            return new Response(JSON.stringify({ error: "INSTAGRAM_REPLY_FAILED", message: replyResult.error }), {
-              status: 502,
-              headers: { "content-type": "application/json" },
-            });
+
+          if (current.threadType === "COMMENT") {
+            const replyResult = await replyToInstagramComment(current.platformThreadId, finalReply, creds.accessToken, creds.apiBase);
+            if (!replyResult.ok) {
+              return new Response(JSON.stringify({ error: "INSTAGRAM_REPLY_FAILED", message: replyResult.error }), {
+                status: 502,
+                headers: { "content-type": "application/json" },
+              });
+            }
+          } else if (current.threadType === "DM") {
+            // current.platformThreadId es el IGSID del remitente para hilos DM (viene
+            // del webhook inbound) — no un comment_id, por eso sendInstagramDirectMessage
+            // recibe recipientIgsid, no commentId. Ver BACKLOG en inbound/route.ts: hoy
+            // nada rellena este campo con un valor real de un evento de Meta genuino.
+            const dmResult = await sendInstagramDirectMessage(creds.igUserId, current.platformThreadId, finalReply, creds.accessToken, creds.apiBase);
+            if (!dmResult.ok) {
+              return new Response(JSON.stringify({ error: "INSTAGRAM_DM_FAILED", message: dmResult.error }), {
+                status: 502,
+                headers: { "content-type": "application/json" },
+              });
+            }
           }
         } catch (error) {
           return new Response(
