@@ -63,6 +63,17 @@ const SENTIMENT_LABEL: Record<string, string> = {
   lead: "Lead",
 };
 
+// Fallback legible cuando el PATCH de threads/[id] falla sin `message` (ej. una
+// excepción no relacionada con Meta) — si el backend sí trae `message` (el motivo
+// real que devuelve la API de Instagram), ese texto se usa tal cual en su lugar.
+const ACTION_ERROR_LABEL: Record<string, string> = {
+  INSTAGRAM_DM_FAILED: "Instagram rechazó el envío del DM.",
+  INSTAGRAM_REPLY_FAILED: "Instagram rechazó la respuesta al comentario.",
+  INSTAGRAM_ACCOUNT_NOT_CONNECTED: "No hay una cuenta de Instagram conectada.",
+  MISSING_REPLY_OR_COMMENT_ID: "Falta la respuesta o el identificador del hilo.",
+  THREAD_NOT_FOUND: "El hilo ya no existe.",
+};
+
 function getSentiment(meta: Record<string, unknown> | null): string | null {
   if (!meta) return null;
   const s = meta.sentiment;
@@ -118,6 +129,7 @@ export default function ConversationInbox({
   const [overriding, setOverriding] = useState<Record<string, boolean>>({});
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
+  const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
 
   const [isPendingSettings, startSettingsTransition] = useTransition();
   const [isPendingTest, startTestTransition] = useTransition();
@@ -245,6 +257,15 @@ export default function ConversationInbox({
 
   function patchThread(threadId: string, status: ConversationThread["status"], finalReply?: string | null) {
     setPendingThreadId(threadId);
+    // Limpia el error de un intento previo sobre este mismo hilo — si este intento
+    // también falla, se vuelve a poblar más abajo; si tiene éxito, no debe quedar
+    // pegado el mensaje del intento anterior.
+    setActionErrors((prev) => {
+      if (!(threadId in prev)) return prev;
+      const next = { ...prev };
+      delete next[threadId];
+      return next;
+    });
     startActionTransition(async () => {
       try {
         const reply = finalReply !== undefined
@@ -259,10 +280,17 @@ export default function ConversationInbox({
           ok?: boolean;
           thread?: ConversationThread;
           error?: string;
+          message?: string;
         };
-        if (!res.ok || !data.ok) throw new Error(data.error ?? "Update failed");
+        if (!res.ok || !data.ok) {
+          throw new Error(data.message || (data.error ? ACTION_ERROR_LABEL[data.error] : undefined) || data.error || "No se pudo actualizar el hilo.");
+        }
         if (data.thread) setThreads((prev) => prev.map((t) => (t.id === threadId ? data.thread! : t)));
-      } catch {
+      } catch (e) {
+        setActionErrors((prev) => ({
+          ...prev,
+          [threadId]: e instanceof Error ? e.message : "No se pudo enviar. Inténtalo de nuevo.",
+        }));
         router.refresh();
       } finally {
         setPendingThreadId(null);
@@ -496,6 +524,7 @@ export default function ConversationInbox({
                 isOverriding={overriding[thread.id] ?? false}
                 isGenerating={generatingFor === thread.id}
                 isPending={isPendingAction && pendingThreadId === thread.id}
+                error={actionErrors[thread.id] ?? null}
                 onReplyChange={(v) => setEditedReplies((prev) => ({ ...prev, [thread.id]: v }))}
                 onApprove={() => patchThread(thread.id, "APPROVED")}
                 onDismiss={() => patchThread(thread.id, "DISMISSED")}
@@ -523,6 +552,7 @@ type ThreadCardProps = {
   isOverriding: boolean;
   isGenerating: boolean;
   isPending: boolean;
+  error: string | null;
   onReplyChange: (v: string) => void;
   onApprove: () => void;
   onDismiss: () => void;
@@ -537,6 +567,7 @@ function ThreadCard({
   isOverriding,
   isGenerating,
   isPending,
+  error,
   onReplyChange,
   onApprove,
   onDismiss,
@@ -646,6 +677,14 @@ function ThreadCard({
             <p className="rounded-lg border border-white/8 bg-white/4 px-3 py-2 text-sm text-white/55">
               {finalReplyText}
             </p>
+          </div>
+        )}
+
+        {/* Envío fallido — no se marcó APPROVED, el hilo sigue pendiente para reintentar */}
+        {error && (
+          <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-xs text-red-300">
+            <span className="mt-0.5 shrink-0">⚠</span>
+            <span>No se pudo enviar: {error}</span>
           </div>
         )}
 
