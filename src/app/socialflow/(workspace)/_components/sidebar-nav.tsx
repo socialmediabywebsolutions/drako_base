@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
+import { Sparkles } from "lucide-react";
 import type { SaasSocialProvider } from "@/lib/social-core/types";
 import { SOCIAL_PROVIDER_LABEL } from "@/lib/socialflow/social-providers";
 
@@ -80,6 +81,7 @@ const mainNavBottom = [
   { href: "/socialflow/campaigns",      label: "Crear campañas",      icon: <IcoTarget /> },
   { href: "/socialflow/redes",          label: "Conectar redes",      icon: <IcoNetwork /> },
   { href: "/socialflow/knowledge",     label: "Base de conocimiento",icon: <IcoBook /> },
+  { href: "/socialflow/ai",             label: "¿Qué creo hoy?",      icon: <Sparkles className="h-[18px] w-[18px]" /> },
 ];
 
 const createNavByNetwork: { provider: SaasSocialProvider; items: { href: string; label: string; icon: React.ReactNode }[] }[] = [

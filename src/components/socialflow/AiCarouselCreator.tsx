@@ -105,9 +105,20 @@ type GenerateAiCarouselResponse = {
   message?: string;
 };
 
-export default function AiCarouselCreator({ saasId, maxSlides }: { saasId: string; maxSlides: number }) {
+export default function AiCarouselCreator({
+  saasId,
+  maxSlides,
+  initialTopic,
+}: {
+  saasId: string;
+  maxSlides: number;
+  // Tema precargado desde el handoff del chat "¿Qué creo hoy?" (carrusel-selector.tsx)
+  // — el usuario sigue pulsando "Generar" él mismo, esto solo evita que tenga que
+  // volver a escribir el tema que ya eligió en el chat.
+  initialTopic?: string;
+}) {
   const [niche, setNiche] = useState<string | null>(null);
-  const [selectedTopic, setSelectedTopic] = useState<string>(AUTO_TOPIC);
+  const [selectedTopic, setSelectedTopic] = useState<string>(initialTopic ?? AUTO_TOPIC);
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [slides, setSlides] = useState<AiSlideState[]>([]);

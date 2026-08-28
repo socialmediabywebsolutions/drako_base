@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import PublishCarrusel from "./publish-carrusel";
 import AiCarouselCreator from "./AiCarouselCreator";
 
@@ -14,7 +15,12 @@ const MODE_CARDS: { id: CarruselMode; icon: string; title: string; description: 
 ];
 
 export default function CarruselSelector({ saasId, maxSlides }: { saasId: string; maxSlides: number }) {
-  const [selected, setSelected] = useState<CarruselMode | null>(null);
+  // ?topic=... llega desde el handoff del chat "¿Qué creo hoy?" (ver ai/chat/route.ts
+  // acción "handoff_carousel") — cuando viene, salta directo al modo IA con el tema
+  // precargado en vez de mostrar el selector.
+  const searchParams = useSearchParams();
+  const topicFromChat = searchParams.get("topic");
+  const [selected, setSelected] = useState<CarruselMode | null>(topicFromChat ? "ia" : null);
 
   if (selected === "subir") {
     return (
@@ -41,7 +47,7 @@ export default function CarruselSelector({ saasId, maxSlides }: { saasId: string
         >
           <span aria-hidden>←</span> Volver
         </button>
-        <AiCarouselCreator saasId={saasId} maxSlides={maxSlides} />
+        <AiCarouselCreator saasId={saasId} maxSlides={maxSlides} initialTopic={topicFromChat ?? undefined} />
       </div>
     );
   }

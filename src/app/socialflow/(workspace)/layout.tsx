@@ -1,6 +1,5 @@
 // Isolated product runtime — no direct DB access, no legacy shells.
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
@@ -94,19 +93,6 @@ export default async function SocialFlowWorkspaceLayout({
           )}
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
-      </div>
-
-      {/* Floating AI button */}
-      <div className="group fixed bottom-6 right-6 z-50">
-        <span className="absolute right-16 top-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-          ¿Qué creo hoy?
-        </span>
-        <Link
-          href="/socialflow/ai"
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 shadow-lg shadow-violet-500/30 hover:brightness-110 transition cursor-pointer"
-        >
-          <span className="text-xl text-white">✦</span>
-        </Link>
       </div>
 
       {/* Paywall overlay — covers entire workspace when trial expires */}

@@ -2,6 +2,7 @@
 // API routes: /api/socialflow/ai/generate /api/socialflow/ai/regenerate
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -32,6 +33,20 @@ type CampaignParams = {
   endDate?: string;
 };
 
+type IdeaFormat = "reel" | "carrusel" | "post";
+
+type IdeaSuggestion = {
+  hook: string;
+  format: IdeaFormat;
+  whyViral: string;
+};
+
+type ActionCard = {
+  icon: string;
+  label: string;
+  message: string;
+};
+
 type Message = {
   id: string;
   role: "user" | "bot";
@@ -40,6 +55,7 @@ type Message = {
   posts?: SocialPost[];
   generatingStatus?: "polling" | "done" | "error";
   params?: CampaignParams;
+  actionCards?: ActionCard[];
 };
 
 type EditDraft = {
@@ -639,17 +655,29 @@ function PostModal({
 // Main page
 // ---------------------------------------------------------------------------
 
+const WELCOME_CARDS: ActionCard[] = [
+  { icon: "🔥", label: "Ver qué está viral en mi nicho ahora", message: "Ver qué está viral en mi nicho ahora" },
+  { icon: "💡", label: "Dame 3 ideas para crear hoy", message: "Dame 3 ideas para crear hoy" },
+  // El texto que se envía (no el label visible) evita a propósito las palabras de
+  // GENERATE_KEYWORDS_ES ("crea"/"crear") — si no, estas dos tarjetas disparaban una
+  // campaña semanal completa en vez de la intención "ideas" (una sola pieza puntual).
+  { icon: "🎬", label: "Crear un vídeo con guion incluido", message: "dame ideas para un vídeo viral hoy" },
+  { icon: "📸", label: "Crear una imagen con texto", message: "dame ideas para una imagen con texto hoy" },
+];
+
 export default function SocialFlowAIPage() {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "bot",
-      content:
-        "Hola, soy tu asistente de marketing con IA. He cargado tu Knowledge Base y perfil de marca.\n\nCuéntame qué campaña necesitas. Por ejemplo: \"Quiero 7 posts para esta semana\" o \"Crea contenido para atraer nuevos clientes\".\n\nCuando veas los posts generados, puedes pedirme cambios específicos escribiendo: \"cambia el post 3, hazlo más motivacional\".",
+      content: "Hola, soy tu asistente creativo. He cargado tu Knowledge Base y perfil de marca.\n\n¿Qué creamos hoy?",
+      actionCards: WELCOME_CARDS,
     },
   ]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  const [lastIdeas, setLastIdeas] = useState<IdeaSuggestion[] | null>(null);
   const [regenLoading, setRegenLoading] = useState<Set<string>>(new Set());
   const [publishingMsgId, setPublishingMsgId] = useState<string | null>(null);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
@@ -904,8 +932,8 @@ export default function SocialFlowAIPage() {
     }
   }
 
-  async function sendMessage() {
-    const text = input.trim();
+  async function sendMessage(overrideText?: string) {
+    const text = (overrideText ?? input).trim();
     if (!text || thinking) return;
 
     const modifyMatch = extractModifyRequest(text);
@@ -949,7 +977,7 @@ export default function SocialFlowAIPage() {
       const res = await fetch("/api/socialflow/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, saasId: "socialflow" }),
+        body: JSON.stringify({ message: text, saasId: "socialflow", lastIdeas }),
       });
       const json = (await res.json()) as {
         ok: boolean;
@@ -959,15 +987,26 @@ export default function SocialFlowAIPage() {
         error?: string;
         message?: string;
         params?: CampaignParams;
+        ideas?: IdeaSuggestion[];
+        handoff?: { href: string };
       };
       if (!json.ok) {
         updateMessage(botMsgId, { content: json.message ?? json.error ?? "Ocurrió un error. Inténtalo de nuevo.", generatingStatus: "error" });
         return;
       }
       if (json.action === "generating" && json.campaignId) {
+        setLastIdeas(null);
         updateMessage(botMsgId, { content: json.reply ?? "Generando tu campaña… te aviso cuando esté lista.", campaignId: json.campaignId, generatingStatus: "polling", params: json.params });
         startPoll(json.campaignId, botMsgId);
+      } else if (json.action === "ideas") {
+        setLastIdeas(json.ideas ?? null);
+        updateMessage(botMsgId, { content: json.reply ?? "¿En qué más puedo ayudarte?", generatingStatus: "done" });
+      } else if (json.action === "handoff_carousel" && json.handoff?.href) {
+        setLastIdeas(null);
+        updateMessage(botMsgId, { content: json.reply ?? "Te llevo a Crear Carrusel…", generatingStatus: "done" });
+        router.push(json.handoff.href);
       } else {
+        setLastIdeas(null);
         updateMessage(botMsgId, { content: json.reply ?? "¿En qué más puedo ayudarte?", generatingStatus: "done" });
       }
     } catch {
@@ -1043,6 +1082,22 @@ export default function SocialFlowAIPage() {
                     )}
                     {msg.content !== "…" && (
                       <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/80">{msg.content}</p>
+                    )}
+                    {msg.actionCards && (
+                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {msg.actionCards.map((card) => (
+                          <button
+                            key={card.label}
+                            type="button"
+                            disabled={thinking}
+                            onClick={() => void sendMessage(card.message)}
+                            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-left text-sm text-white/80 transition hover:border-violet-500/40 hover:bg-violet-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <span className="text-base">{card.icon}</span>
+                            {card.label}
+                          </button>
+                        ))}
+                      </div>
                     )}
                     {msg.generatingStatus === "polling" && msg.content !== "…" && (
                       <GeneratingProgress key={msg.id} params={msg.params} />

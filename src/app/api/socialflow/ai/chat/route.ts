@@ -7,17 +7,28 @@ import { guardAiAccess, isActiveSocialFlowTrial } from "@/lib/socialflow/billing
 import { resolveSocialContext, upsertSaasSocialCampaign } from "@/lib/socialflow/repository";
 import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
 import { getChannelProfile } from "@/lib/socialflow/profile/repository";
+import { getNicheIntelligence } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
+import { extractTrendSignals } from "@/lib/socialflow/intelligence/TrendKeywordAgent";
+import { extractEngagementPatterns } from "@/lib/socialflow/intelligence/CrossTenantIntelligenceAgent";
 
 // ---------------------------------------------------------------------------
 // Intent extraction — uses Workers AI Llama when available, regex fallback
 // ---------------------------------------------------------------------------
 
 type ParsedIntent = {
-  action: "generate" | "modify" | "chat";
+  action: "generate" | "modify" | "chat" | "ideas";
   topic: string;
   tone: string;
   frequencyPerWeek: number;
   reply: string;
+};
+
+type IdeaFormat = "reel" | "carrusel" | "post";
+
+type IdeaSuggestion = {
+  hook: string;
+  format: IdeaFormat;
+  whyViral: string;
 };
 
 type DateRange = {
@@ -30,6 +41,13 @@ type ProviderKey = "INSTAGRAM" | "LINKEDIN" | "FACEBOOK_PAGE" | "TIKTOK";
 
 const GENERATE_KEYWORDS_ES = ["genera", "crea", "quiero", "necesito", "haz", "hazme", "prepara", "campaña", "posts", "publicaciones", "contenido"];
 const MODIFY_KEYWORDS_ES = ["cambia", "modifica", "actualiza", "mejora", "regenera", "hazlos", "más formal", "más casual", "más corto", "más largo", "cambia el tono"];
+// Comprobado DESPUÉS de generate/modify en parseIntentFallback — un "genera contenido
+// con tendencias virales" explícito no debe robárselo esta lista, solo mensajes que
+// piden ideas sin pedir generación directa (ver auditoría previa de esta ruta).
+const IDEAS_KEYWORDS_ES = ["ideas", "qué grabo", "que grabo", "qué creo", "que creo", "qué publico", "que publico", "viral", "tendencias", "inspiración", "inspiracion"];
+// Solo se evalúa cuando el cliente ya reenvió lastIdeas (ver POST) — nunca se dispara
+// sobre un mensaje "genera..." en frío, así que no choca con GENERATE_KEYWORDS_ES.
+const CONFIRM_IDEA_KEYWORDS_ES = ["créalo tú", "crealo tu", "hazlo tú", "hazlo tu", "créalo", "crealo", "hazlo", "genera"];
 
 const MONTHS_ES: Record<string, number> = {
   enero: 0, febrero: 1, marzo: 2, abril: 3, mayo: 4, junio: 5,
@@ -144,7 +162,7 @@ async function parseIntentWithAI(
   knowledgeContext: string,
   defaultTone: string,
   defaultNiche: string,
-  regexAction: "generate" | "modify" | "chat",
+  regexAction: "generate" | "modify" | "chat" | "ideas",
 ): Promise<ParsedIntent | null> {
   const e = env();
   if (!e?.AI) return null;
@@ -156,7 +174,7 @@ ${knowledgeContext || `Nicho: ${defaultNiche}. Tono: ${defaultTone}.`}
 
 Estructura JSON requerida:
 {
-  "action": "generate" | "modify" | "chat",
+  "action": "generate" | "modify" | "chat" | "ideas",
   "topic": "<tema de campaña en español, máx 80 chars>",
   "tone": "<tono de comunicación, usa el default de marca si no se especifica>",
   "frequencyPerWeek": <entero 1-28>,
@@ -166,7 +184,8 @@ Estructura JSON requerida:
 REGLAS CRÍTICAS:
 - Si el usuario menciona posts, publicaciones, campaña, contenido, crear, generar → action DEBE ser "generate". NUNCA devuelvas "chat" en ese caso.
 - Si el usuario pide cambiar/modificar posts existentes → action="modify".
-- action="chat" SOLO para saludos o preguntas que no pidan contenido.
+- Si el usuario pide ideas, inspiración, qué está viral o qué debería publicar (sin pedir generar una campaña completa) → action="ideas".
+- action="chat" SOLO para saludos o preguntas que no pidan contenido ni ideas.
 - reply NO debe hacer preguntas. Debe confirmar la acción con los datos disponibles y decir que ya está generando.
 - frequencyPerWeek: extrae el número del mensaje. Si dice "3 posts" → 3. Si no se menciona → 7.
 - NUNCA pidas más información. Genera con lo que el usuario ya dio.`;
@@ -222,18 +241,184 @@ function parseIntentFallback(
   const lower = message.toLowerCase();
   const isGenerate = GENERATE_KEYWORDS_ES.some((k) => lower.includes(k));
   const isModify = MODIFY_KEYWORDS_ES.some((k) => lower.includes(k));
+  const isIdeas = IDEAS_KEYWORDS_ES.some((k) => lower.includes(k));
 
-  const action = isModify ? "modify" : isGenerate ? "generate" : "chat";
+  const action = isModify ? "modify" : isGenerate ? "generate" : isIdeas ? "ideas" : "chat";
   const freq = extractFrequency(message);
   const topic = extractTopic(message) || defaultNiche;
 
   const replyMap: Record<string, string> = {
     generate: `Perfecto, voy a generar ${freq} posts sobre "${topic}" para ${PROVIDER_LABEL[provider]} — ${dateLabel}. Dame un momento...`,
     modify: "Entendido. Voy a regenerar los posts con los cambios solicitados.",
+    ideas: "Dame un momento, reviso qué está funcionando en tu nicho ahora mismo...",
     chat: "Puedo ayudarte a generar campañas y posts. Dime qué contenido necesitas y cuántos posts quieres.",
   };
 
   return { action, topic, tone: defaultTone, frequencyPerWeek: freq, reply: replyMap[action] };
+}
+
+// ---------------------------------------------------------------------------
+// "ideas" intent — datos reales de socialcors_niche_intelligence, nunca inventados
+// (ver auditoría: getNicheIntelligence expone el mismo `analysis` del que se extraen
+// TANTO trendSignals — qué está sonando ahora, sin números — COMO engagementPatterns
+// — avgEngagement/tenantsReporting reales, vía CrossTenantIntelligenceAgent). Una sola
+// llamada a getNicheIntelligence basta para ambas fuentes.
+// ---------------------------------------------------------------------------
+
+type NicheDataForIdeas = {
+  trendHooks: string[];
+  topEngagementHooks: { hook: string; avgEngagement: number; tenantsReporting: number }[];
+  topEngagementFormats: { format: string; avgEngagement: number; tenantsReporting: number }[];
+};
+
+async function loadNicheDataForIdeas(
+  niche: string,
+  dracoEnv: ReturnType<typeof env>,
+  tenantId: string,
+  saasId: string,
+): Promise<NicheDataForIdeas | null> {
+  if (!dracoEnv) return null;
+  const intel = await getNicheIntelligence(niche, dracoEnv, tenantId, saasId);
+  if (!intel) return null;
+
+  const trendSignals = extractTrendSignals(intel.analysis);
+  const engagementPatterns = extractEngagementPatterns(intel.analysis);
+  if (!trendSignals && !engagementPatterns) return null;
+
+  return {
+    trendHooks: [
+      ...(trendSignals?.youtubeHooks ?? []),
+      ...(trendSignals?.redditTopics ?? []),
+      ...(trendSignals?.globalTrends ?? []),
+    ].slice(0, 10),
+    topEngagementHooks: (engagementPatterns?.hooksQueFuncionanRealmente ?? []).slice(0, 5),
+    topEngagementFormats: (engagementPatterns?.formatosGanadoresReales ?? []).slice(0, 5),
+  };
+}
+
+function formatNicheDataForPrompt(data: NicheDataForIdeas): string {
+  const lines: string[] = [];
+  if (data.topEngagementHooks.length) {
+    lines.push("Hooks con engagement real medido en tu nicho:");
+    for (const h of data.topEngagementHooks) {
+      lines.push(`- "${h.hook}": engagement medio ${h.avgEngagement} (${h.tenantsReporting} cuentas reales reportando)`);
+    }
+  }
+  if (data.topEngagementFormats.length) {
+    lines.push("Formatos con mejor rendimiento real en tu nicho:");
+    for (const f of data.topEngagementFormats) {
+      lines.push(`- ${f.format}: engagement medio ${f.avgEngagement} (${f.tenantsReporting} cuentas reales reportando)`);
+    }
+  }
+  if (data.trendHooks.length) {
+    lines.push(`Temas/hooks sonando ahora mismo (YouTube/Reddit/tendencias globales): ${data.trendHooks.join(", ")}`);
+  }
+  return lines.join("\n");
+}
+
+// saas_social_posts.content_type real ("FEED"|"REEL"|"STORY"|"SHORT"|"CAROUSEL") →
+// el trío que espera la UI del chat. STORY/FEED se pliegan a "post" — no hay un cuarto
+// bucket en el diseño pedido.
+function mapContentTypeToIdeaFormat(contentType: string): IdeaFormat {
+  if (contentType === "REEL" || contentType === "SHORT") return "reel";
+  if (contentType === "CAROUSEL") return "carrusel";
+  return "post";
+}
+
+function buildFallbackIdeas(data: NicheDataForIdeas, niche: string): IdeaSuggestion[] {
+  const ideas: IdeaSuggestion[] = [];
+  for (const h of data.topEngagementHooks.slice(0, 2)) {
+    ideas.push({
+      hook: h.hook,
+      format: "reel",
+      whyViral: `Engagement medio de ${h.avgEngagement} en tu nicho, reportado por ${h.tenantsReporting} cuentas reales.`,
+    });
+  }
+  const topFormat = data.topEngagementFormats[0];
+  if (topFormat && ideas.length < 3) {
+    ideas.push({
+      hook: data.trendHooks[0] ?? niche,
+      format: mapContentTypeToIdeaFormat(topFormat.format),
+      whyViral: `El formato ${topFormat.format} tiene engagement medio ${topFormat.avgEngagement} en tu nicho (${topFormat.tenantsReporting} cuentas reales).`,
+    });
+  }
+  return ideas;
+}
+
+function formatIdeasReply(ideas: IdeaSuggestion[]): string {
+  return ideas
+    .map((idea, i) => `${i + 1}. **${idea.hook}** (${idea.format})\n   Por qué puede funcionar: ${idea.whyViral}`)
+    .join("\n\n");
+}
+
+async function buildIdeasReply(
+  niche: string,
+  dracoEnv: ReturnType<typeof env>,
+  tenantId: string,
+  saasId: string,
+): Promise<{ reply: string; ideas: IdeaSuggestion[] }> {
+  const data = await loadNicheDataForIdeas(niche, dracoEnv, tenantId, saasId).catch(() => null);
+
+  if (!data) {
+    return {
+      reply:
+        "Todavía no tengo suficientes datos de tendencias para tu nicho — el Cerebro necesita que corra al menos una vez el análisis semanal. Mientras tanto, puedo generarte una campaña con lo que ya sé de tu marca si querés.",
+      ideas: [],
+    };
+  }
+
+  if (dracoEnv?.AI) {
+    try {
+      const dataBlock = formatNicheDataForPrompt(data);
+      const prompt = `Eres un estratega de contenido. Con estos datos REALES de la cuenta y su nicho (nunca inventes cifras nuevas ni datos que no estén aquí):
+
+${dataBlock}
+
+Propón exactamente 3 ideas de contenido concretas para hoy. Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
+{"ideas": [{"hook": "...", "format": "reel"|"carrusel"|"post", "whyViral": "..."}]}
+
+Cada "whyViral" debe citar un dato real de arriba (una cifra de engagement, cuántas cuentas lo reportan, o que está sonando ahora) — nunca una cifra inventada. Responde todo en español.`;
+
+      const result = (await dracoEnv.AI.run("@cf/meta/llama-3.1-70b-instruct", {
+        messages: [{ role: "user", content: prompt }],
+      })) as { response?: string };
+
+      const raw = result?.response?.trim() ?? "";
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]) as { ideas?: unknown };
+        if (Array.isArray(parsed.ideas)) {
+          const ideas = parsed.ideas
+            .filter(
+              (i): i is IdeaSuggestion =>
+                Boolean(i) &&
+                typeof i === "object" &&
+                typeof (i as IdeaSuggestion).hook === "string" &&
+                typeof (i as IdeaSuggestion).whyViral === "string" &&
+                ["reel", "carrusel", "post"].includes((i as IdeaSuggestion).format),
+            )
+            .slice(0, 3);
+          if (ideas.length) {
+            return { reply: formatIdeasReply(ideas), ideas };
+          }
+        }
+      }
+    } catch {
+      // cae al fallback determinista de abajo — nunca deja al usuario sin respuesta
+    }
+  }
+
+  // Fallback determinista — sin IA disponible o respuesta inválida, se listan los
+  // datos reales directamente, sin paráfrasis, para no romper la regla de "nunca
+  // inventar" ni siquiera en este camino.
+  const fallbackIdeas = buildFallbackIdeas(data, niche);
+  if (!fallbackIdeas.length) {
+    return {
+      reply: "Todavía no tengo suficientes datos de engagement real en tu nicho para sugerir ideas con números concretos.",
+      ideas: [],
+    };
+  }
+  return { reply: formatIdeasReply(fallbackIdeas), ideas: fallbackIdeas };
 }
 
 // ---------------------------------------------------------------------------
@@ -255,6 +440,7 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => null)) as {
       message?: string;
       saasId?: string;
+      lastIdeas?: IdeaSuggestion[];
     } | null;
 
     if (!body?.message?.trim()) {
@@ -263,6 +449,32 @@ export async function POST(request: Request) {
 
     const saasId = body.saasId ?? "socialflow";
     const userMessage = body.message.trim();
+
+    // "Créalo tú" — solo se evalúa cuando el cliente reenvía lastIdeas (la respuesta de
+    // ideas más reciente), así que un "genera 7 posts de fitness" en frío nunca entra
+    // aquí y sigue su camino normal más abajo (evita el choque con GENERATE_KEYWORDS_ES).
+    if (body.lastIdeas?.length) {
+      const lowerConfirm = userMessage.toLowerCase();
+      const isConfirm = CONFIRM_IDEA_KEYWORDS_ES.some((k) => lowerConfirm.includes(k));
+      if (isConfirm) {
+        const chosenIdea = body.lastIdeas[0];
+        if (chosenIdea.format === "carrusel") {
+          return NextResponse.json({
+            ok: true,
+            action: "handoff_carousel",
+            reply: `Perfecto — te llevo a Crear Carrusel con "${chosenIdea.hook}" ya cargado.`,
+            handoff: { href: `/socialflow/carrusel/subir?topic=${encodeURIComponent(chosenIdea.hook)}` },
+          });
+        }
+        const manualHref = chosenIdea.format === "reel" ? "/socialflow/publicar/reel" : "/socialflow/publicar/post";
+        const manualLabel = chosenIdea.format === "reel" ? "Crear Reel" : "Crear Post";
+        return NextResponse.json({
+          ok: true,
+          action: "chat",
+          reply: `Ese formato todavía no se genera 100% automático sin una foto/vídeo tuyo — subí uno desde "${manualLabel}" (${manualHref}) y la IA se encarga del resto con "${chosenIdea.hook}" como ángulo.`,
+        });
+      }
+    }
 
     // Load brand profile + KB context in parallel
     const [profile, knowledgeContext] = await Promise.all([
@@ -286,6 +498,13 @@ export async function POST(request: Request) {
     // Pure conversational — no generation needed
     if (intent.action === "chat") {
       return NextResponse.json({ ok: true, action: "chat", reply: intent.reply });
+    }
+
+    // Ideas — respuesta síncrona con datos reales del nicho, no encola nada (a
+    // diferencia de generate/modify, no hay contenido que crear todavía).
+    if (intent.action === "ideas") {
+      const { reply, ideas } = await buildIdeasReply(defaultNiche, env(), session.tenantId, saasId);
+      return NextResponse.json({ ok: true, action: "ideas", reply, ideas });
     }
 
     // Generation or modify — enqueue campaign
