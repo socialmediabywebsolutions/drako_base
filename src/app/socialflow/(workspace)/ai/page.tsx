@@ -1007,7 +1007,7 @@ export default function SocialFlowAIPage() {
         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[10px] font-black text-white">
           SF
         </div>
-        <span className="text-sm font-medium text-white/50">Asistente IA</span>
+        <span className="text-sm font-medium text-white/50">¿Qué creo hoy?</span>
       </div>
 
       {/* Messages — scrollable */}

@@ -99,7 +99,7 @@ export default async function SocialFlowWorkspaceLayout({
       {/* Floating AI button */}
       <div className="group fixed bottom-6 right-6 z-50">
         <span className="absolute right-16 top-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-          Estratega IA
+          ¿Qué creo hoy?
         </span>
         <Link
           href="/socialflow/ai"
