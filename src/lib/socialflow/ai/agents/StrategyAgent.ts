@@ -1,9 +1,33 @@
 import { defaultLocalModel } from "../models/localModel";
 import type { BrandProfile, ContentStrategy, StrategyItem } from "../types";
 
+// Objetivo del cliente (BrandProfile.clientObjective) → formato — reemplaza la vieja
+// alternancia i % 2 (carousel/reel) fija por día. followers/virality buscan máximo
+// alcance (reel); engagement/saves/leads/sales se benefician más de contenido de
+// autoridad que invita a guardar/interactuar (carousel). Sin objetivo reconocido, cae
+// al mismo criterio de siempre (alternancia por índice de día) para no romper el
+// comportamiento de clientes que todavía no configuraron uno.
+export function resolveFormatFromObjective(
+  objective: string | null | undefined,
+  fallbackIndex: number,
+): "carousel" | "reel" {
+  switch (objective) {
+    case "followers":
+    case "virality":
+      return "reel";
+    case "engagement":
+    case "saves":
+    case "leads":
+    case "sales":
+      return "carousel";
+    default:
+      return fallbackIndex % 2 === 0 ? "carousel" : "reel";
+  }
+}
+
 // Fallback used when Workers AI is unavailable or returns invalid JSON.
 // Angles are topic-specific so even the fallback produces relevant content.
-function buildBaseStrategy(horizonDays: number, niche: string): ContentStrategy {
+function buildBaseStrategy(horizonDays: number, niche: string, objective: string | null | undefined): ContentStrategy {
   const pool: Array<{ theme: string; angle: string; callToAction: string }> = [
     {
       theme: "errores comunes",
@@ -50,7 +74,7 @@ function buildBaseStrategy(horizonDays: number, niche: string): ContentStrategy 
       dayOffset: i,
       theme: entry.theme,
       angle: entry.angle,
-      format: i % 2 === 0 ? "carousel" : "reel",
+      format: resolveFormatFromObjective(objective, i),
       callToAction: entry.callToAction,
     });
   }
@@ -88,6 +112,14 @@ export class StrategyAgent {
 
     const extra = profileContext(profile);
 
+    // Mismo cálculo que buildBaseStrategy (resolveFormatFromObjective) para que el
+    // formato que termine persistido no dependa de si respondió el LLM o si se cayó al
+    // fallback determinista — ambos caminos usan exactamente los mismos valores.
+    const formatByDay = Array.from({ length: horizonDays }, (_, i) =>
+      resolveFormatFromObjective(profile.clientObjective, i),
+    );
+    const formatInstructions = formatByDay.map((f, i) => `Día ${i + 1}: "${f}"`).join("\n");
+
     const prompt = `Diseña una estrategia de ${horizonDays} posts de redes sociales EN ESPAÑOL.
 
 TEMA CENTRAL (prioridad máxima): "${profile.niche}"
@@ -101,11 +133,12 @@ Requisitos por post:
 - theme: categoría del contenido (ej. "tips prácticos", "caso de éxito", "mito vs realidad", "tendencias", "errores comunes")
 - angle: ángulo concreto y específico sobre "${profile.niche}" — no genérico, con detalle real del tema
 - callToAction: CTA que invite a comentar, compartir o actuar en relación con "${profile.niche}"
-- format: "carousel" o "reel"
+- format: usa EXACTAMENTE el formato indicado para cada día en esta lista (no elijas libremente):
+${formatInstructions}
 
 Varía los ángulos: no repitas el mismo enfoque dos veces seguidas. Mezcla educación, inspiración, casos de uso y análisis, siempre sobre "${profile.niche}".`;
 
-    const base = buildBaseStrategy(horizonDays, profile.niche);
+    const base = buildBaseStrategy(horizonDays, profile.niche, profile.clientObjective);
 
     const { data } = await defaultLocalModel.generateStructured<ContentStrategy>(
       { prompt },
