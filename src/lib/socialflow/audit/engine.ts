@@ -50,7 +50,7 @@ function scoreBrandIdentity(profile: ChannelProfile): AuditAreaScore {
   const score = Math.round((checks.filter(Boolean).length / checks.length) * 100);
   const notes = score >= 70
     ? "La identidad de marca esta bien definida: nombre, tono y nicho son claros."
-    : "Faltan datos clave de identidad de marca (descripcion, tono o diferenciadores).";
+    : "Ve a Mi Perfil y completa nombre de marca, tono de voz y diferenciadores. Sin esto, el Cerebro no puede generar contenido con tu identidad real.";
   return { area: "Identidad de marca", score, notes };
 }
 
@@ -64,7 +64,7 @@ function scoreAudienceClarity(profile: ChannelProfile): AuditAreaScore {
   const score = Math.round((checks.filter(Boolean).length / checks.length) * 100);
   const notes = score >= 70
     ? "El publico objetivo esta bien segmentado y entendido."
-    : "El publico objetivo necesita mas detalle: dolores, deseos y buyer persona.";
+    : "Ve a Mi Perfil → Audiencia y rellena los campos de buyer persona. Cuanto mas detalle, mejor contenido genera el Cerebro.";
   return { area: "Audiencia y publico objetivo", score, notes };
 }
 
@@ -78,7 +78,7 @@ function scoreContentStrategy(profile: ChannelProfile): AuditAreaScore {
   const score = Math.round((checks.filter(Boolean).length / checks.length) * 100);
   const notes = score >= 70
     ? "Existe una base de pilares de contenido y formatos preferidos."
-    : "Falta definir pilares de contenido, temas principales y formatos preferidos.";
+    : "Ve a Mi Perfil y define tus pilares de contenido, temas principales y formatos preferidos para que el Cerebro sepa sobre que escribir.";
   return { area: "Estrategia de contenido", score, notes };
 }
 
@@ -87,7 +87,7 @@ function scoreSocialPresence(profile: ChannelProfile): AuditAreaScore {
   const checks = [networkCount >= 1, networkCount >= 2, networkCount >= 3, filled(profile.websiteUrl)];
   const score = Math.round((checks.filter(Boolean).length / checks.length) * 100);
   const notes = networkCount === 0
-    ? "Aun no hay redes sociales activas registradas."
+    ? "Ve a Conectar redes y vincula al menos una cuenta de Instagram o LinkedIn para poder publicar."
     : `Presencia activa en ${networkCount} red(es) social(es).`;
   return { area: "Presencia en redes sociales", score, notes };
 }

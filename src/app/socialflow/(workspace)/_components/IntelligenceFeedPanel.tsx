@@ -31,6 +31,15 @@ const PRIORITY_STYLE: Record<FeedPriority, string> = {
   low:    "border-white/15 bg-white/5 text-white/45",
 };
 
+// Franja lateral por tipo, independiente del badge de priority — sin esto, dos
+// tarjetas de igual priority pero distinto type (ej. un alert y una opportunity, ambos
+// "medium") se veían idénticas salvo por el emoji.
+const TYPE_ACCENT: Record<FeedType, string> = {
+  alert: "border-l-4 border-l-rose-500",
+  opportunity: "border-l-4 border-l-violet-500",
+  recommendation: "border-l-4 border-l-sky-500",
+};
+
 export default function IntelligenceFeedPanel() {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,10 +112,12 @@ export default function IntelligenceFeedPanel() {
       {!loading && !error && items.length > 0 && (
         <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 pr-1">
           <div className="grid grid-cols-2 gap-3">
-            {items.map((item) => (
+            {items.map((item) => {
+              const alwaysShowActions = item.type === "alert" && item.priority === "high";
+              return (
               <div
                 key={item.id}
-                className={`group relative flex flex-col gap-2 rounded-xl border p-3 transition ${
+                className={`group relative flex flex-col gap-2 rounded-xl border p-3 transition ${TYPE_ACCENT[item.type]} ${
                   item.status === "new"
                     ? "border-violet-500/20 bg-violet-500/8"
                     : "border-white/6 bg-white/3"
@@ -126,8 +137,11 @@ export default function IntelligenceFeedPanel() {
                 {/* Description */}
                 <p className="line-clamp-2 text-xs leading-relaxed text-white/45">{item.description}</p>
 
-                {/* Actions — hidden until hover */}
-                <div className="flex flex-wrap items-center gap-3 text-xs font-semibold opacity-0 transition-opacity group-hover:opacity-100">
+                {/* Actions — siempre visibles para alert+high (necesitan acción ya), el
+                    resto se revela al hover como antes */}
+                <div className={`flex flex-wrap items-center gap-3 text-xs font-semibold transition-opacity ${
+                  alwaysShowActions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                }`}>
                   {item.actionHref && (
                     <Link href={item.actionHref} className="text-violet-400 transition-colors hover:text-violet-300">
                       {item.actionLabel ?? "Ver más"} →
@@ -151,7 +165,8 @@ export default function IntelligenceFeedPanel() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

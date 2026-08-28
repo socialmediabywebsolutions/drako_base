@@ -7,9 +7,14 @@ import { getNicheIntelligence, type Env } from "./NicheIntelligenceService";
 import { extractEngagementPatterns } from "./CrossTenantIntelligenceAgent";
 
 const LOOKBACK_DAYS = 30;
+const MAX_HOOK_TITLE_LENGTH = 60;
 
 const HOOK_SOURCE = "viral_opportunity:hook";
 const FORMAT_SOURCE = "viral_opportunity:format";
+
+function truncate(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
+}
 
 export type ViralOpportunityResult = {
   tenantId: string;
@@ -95,7 +100,7 @@ async function processTenant(
       [{
         type: "opportunity",
         priority: "medium",
-        title: "Oportunidad en tu nicho esta semana",
+        title: truncate(`Hook viral en ${profile.niche}: "${bestUntriedHook.hook}"`, MAX_HOOK_TITLE_LENGTH),
         description: `En tu nicho, los posts con hook tipo "${bestUntriedHook.hook}" tienen un engagement medio de ${bestUntriedHook.avgEngagement} (basado en ${bestUntriedHook.tenantsReporting} cuentas reales) — tú todavía no lo has probado en tus últimos ${LOOKBACK_DAYS} días.`,
         actionLabel: "Probar este formato",
         actionHref: "/socialflow/ai",
@@ -113,7 +118,7 @@ async function processTenant(
       [{
         type: "opportunity",
         priority: "medium",
-        title: "Oportunidad en tu nicho esta semana",
+        title: `El formato ${bestUntriedFormat.format} está funcionando mejor en tu nicho`,
         description: `En tu nicho, los posts en formato ${bestUntriedFormat.format} tienen un engagement medio de ${bestUntriedFormat.avgEngagement} (basado en ${bestUntriedFormat.tenantsReporting} cuentas reales) — tú todavía no lo has probado en tus últimos ${LOOKBACK_DAYS} días.`,
         actionLabel: "Probar este formato",
         actionHref: "/socialflow/ai",

@@ -2,6 +2,16 @@ import type { SocialAudit } from "@/lib/socialflow/audit/types";
 import type { NewFeedItem } from "@/lib/socialflow/intelligence/repository";
 
 const CRITICAL_AREA_SCORE_THRESHOLD = 40;
+const MAX_OPPORTUNITY_TITLE_LENGTH = 55;
+
+// opportunities es siempre string[] (ver audit/types.ts) — nunca trae un .title
+// separado, así que el título de la tarjeta sale de la primera frase de la propia
+// oportunidad, truncada si hace falta, en vez del genérico "Oportunidad detectada".
+function titleFromOpportunity(description: string): string {
+  const firstSentence = description.split(/(?<=[.!?])\s/)[0]?.trim() || description;
+  if (firstSentence.length <= MAX_OPPORTUNITY_TITLE_LENGTH) return firstSentence;
+  return `${firstSentence.slice(0, MAX_OPPORTUNITY_TITLE_LENGTH - 1).trimEnd()}…`;
+}
 
 // Derives intelligence feed cards from the latest social audit: critical area
 // scores become alerts, opportunities become opportunity cards, and the top
@@ -14,7 +24,7 @@ export function buildFeedItemsFromAudit(audit: SocialAudit): NewFeedItem[] {
     if (area.score < CRITICAL_AREA_SCORE_THRESHOLD) {
       items.push({
         type: "alert",
-        title: `Area critica: ${area.area}`,
+        title: `${area.area}: necesita atención`,
         description: area.notes,
         priority: "high",
         actionLabel: "Ver auditoria",
@@ -27,7 +37,7 @@ export function buildFeedItemsFromAudit(audit: SocialAudit): NewFeedItem[] {
   audit.opportunities.forEach((opportunity, index) => {
     items.push({
       type: "opportunity",
-      title: "Oportunidad detectada",
+      title: titleFromOpportunity(opportunity),
       description: opportunity,
       priority: "medium",
       actionLabel: "Ver auditoria",
