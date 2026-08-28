@@ -10,7 +10,6 @@ import { getSocialFlowPlanDefinition, resolveSocialFlowPlanCode } from "@/lib/so
 import { getWeeklyPublishStatus } from "@/lib/socialflow/billing/enforce";
 import DashboardMetrics from "./_components/DashboardMetrics";
 import DashboardActivityCards from "./_components/DashboardActivityCards";
-import IntelligenceFeedPanel from "./_components/IntelligenceFeedPanel";
 import SocialFlowOperationsPanel from "./_components/SocialFlowOperationsPanel";
 import QuotaCard from "./_components/quota-card";
 import { getEmpresaChecklist } from "@/lib/socialflow/onboarding/checklistRepository";
@@ -96,8 +95,6 @@ export default async function SocialFlowDashboardPage() {
       )}
 
       <SocialFlowOperationsPanel />
-
-      <IntelligenceFeedPanel />
     </div>
   );
 }
