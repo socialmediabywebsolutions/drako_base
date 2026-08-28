@@ -111,6 +111,8 @@ export async function processDeferredInstagramMetrics(): Promise<{ processed: nu
         shares: mediaInsights.shares,
         clicks: 0,
         leadsGenerated: 0,
+        reach: mediaInsights.reach,
+        saved: mediaInsights.saved,
         capturedAt: new Date().toISOString(),
         metadata: {
           type: "media_deferred",
@@ -239,6 +241,7 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
           shares: 0,
           clicks: 0,
           leadsGenerated: 0,
+          reach: insights.reach,
           capturedAt: insights.capturedAt,
           metadata: {
             type: "account",
@@ -298,6 +301,8 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
             shares: mediaInsights.shares,
             clicks: 0,
             leadsGenerated: 0,
+            reach: mediaInsights.reach,
+            saved: mediaInsights.saved,
             capturedAt: new Date().toISOString(),
             metadata: {
               type: "media",
@@ -373,6 +378,8 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
             shares: mediaInsights.shares,
             clicks: 0,
             leadsGenerated: 0,
+            reach: mediaInsights.reach,
+            saved: mediaInsights.saved,
             capturedAt: new Date().toISOString(),
             metadata: {
               type: "media_backfill",
@@ -401,6 +408,7 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
           shares: 0,
           clicks: 0,
           leadsGenerated: 0,
+          reach: creatorReachSum,
           capturedAt: new Date().toISOString(),
           metadata: {
             type: "account",
