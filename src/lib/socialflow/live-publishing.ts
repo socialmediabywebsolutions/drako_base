@@ -121,7 +121,7 @@ export async function uploadMediaToR2(mediaUrl: string, postId: string): Promise
   }
 
   try {
-    const response = await fetch(mediaUrl, { cache: "no-store" });
+    const response = await fetch(mediaUrl);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} fetching media`);
     }
