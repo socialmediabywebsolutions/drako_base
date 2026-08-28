@@ -44,6 +44,16 @@ export default function IntelligenceFeedPanel() {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -113,11 +123,13 @@ export default function IntelligenceFeedPanel() {
         <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 pr-1">
           <div className="grid grid-cols-2 gap-3">
             {items.map((item) => {
-              const alwaysShowActions = item.type === "alert" && item.priority === "high";
+              const isExpanded = expandedIds.has(item.id);
+              const alwaysShowActions = isExpanded || (item.type === "alert" && item.priority === "high");
               return (
               <div
                 key={item.id}
-                className={`group relative flex flex-col gap-2 rounded-xl border p-3 transition ${TYPE_ACCENT[item.type]} ${
+                onClick={() => toggleExpanded(item.id)}
+                className={`group relative flex cursor-pointer flex-col gap-2 rounded-xl border p-3 transition ${TYPE_ACCENT[item.type]} ${
                   item.status === "new"
                     ? "border-violet-500/20 bg-violet-500/8"
                     : "border-white/6 bg-white/3"
@@ -134,14 +146,19 @@ export default function IntelligenceFeedPanel() {
                 {/* Title */}
                 <p className="text-sm font-semibold leading-snug text-white">{item.title}</p>
 
-                {/* Description */}
-                <p className="line-clamp-2 text-xs leading-relaxed text-white/45">{item.description}</p>
+                {/* Description — clamp a 2 líneas hasta que se expande la tarjeta */}
+                <p className={`text-xs leading-relaxed text-white/45 ${isExpanded ? "" : "line-clamp-2"}`}>
+                  {item.description}
+                </p>
 
-                {/* Actions — siempre visibles para alert+high (necesitan acción ya), el
+                {/* Actions — siempre visibles para alert+high o tarjeta expandida, el
                     resto se revela al hover como antes */}
-                <div className={`flex flex-wrap items-center gap-3 text-xs font-semibold transition-opacity ${
-                  alwaysShowActions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                }`}>
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className={`flex flex-wrap items-center gap-3 text-xs font-semibold transition-opacity ${
+                    alwaysShowActions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                  }`}
+                >
                   {item.actionHref && (
                     <Link href={item.actionHref} className="text-violet-400 transition-colors hover:text-violet-300">
                       {item.actionLabel ?? "Ver más"} →
