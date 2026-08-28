@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { Calendar } from "@/app/components/socialflow/Calendar";
 import type { SocialCampaign, SocialPost } from "@/app/components/socialflow/types";
 
+type CampaignsResponse = { items?: SocialCampaign[] };
+
 // ── Section wrapper ───────────────────────────────────────────────────────────
 
 function DarkSection({
@@ -37,9 +39,10 @@ export default function SocialFlowOperationsPanel() {
 
   const [saasId] = useState(initialSaasId);
   const [posts, setPosts] = useState<SocialPost[]>([]);
+  const [campaigns, setCampaigns] = useState<SocialCampaign[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadData() {
+  async function loadPosts() {
     setError(null);
     try {
       const res = await fetch(`/api/socialflow/posts?saasId=${encodeURIComponent(saasId)}`);
@@ -52,12 +55,25 @@ export default function SocialFlowOperationsPanel() {
     }
   }
 
+  // Independiente de loadPosts() a propósito — el calendario no debe esperar a
+  // este fetch para pintar los posts. Si falla, campaigns se queda en [] y
+  // Calendar ya degrada bien a "Sin campaña" para ese caso.
+  async function loadCampaigns() {
+    try {
+      const res = await fetch(`/api/socialflow/campaigns?saasId=${encodeURIComponent(saasId)}`);
+      if (!res.ok) return;
+      const json = (await res.json()) as CampaignsResponse;
+      setCampaigns(json.items ?? []);
+    } catch (err) {
+      console.error("SOCIALFLOW_DASHBOARD_CAMPAIGNS_LOAD_ERROR", err);
+    }
+  }
+
   useEffect(() => {
-    void loadData();
+    void loadPosts();
+    void loadCampaigns();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saasId]);
-
-  const emptyCampaigns: SocialCampaign[] = [];
 
   return (
     <div className="space-y-5">
@@ -76,7 +92,7 @@ export default function SocialFlowOperationsPanel() {
 
       {/* ── Weekly calendar ──────────────────────────────────────────────── */}
       <DarkSection title="Calendario semanal" subtitle="Visualiza tu contenido semanal">
-        <Calendar posts={posts} campaigns={emptyCampaigns} />
+        <Calendar posts={posts} campaigns={campaigns} />
       </DarkSection>
     </div>
   );

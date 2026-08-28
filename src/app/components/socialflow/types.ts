@@ -13,4 +13,6 @@ export type SocialPost = {
   campaignName?: string | null;
   scheduledAt: string | null;
   postedAt: string | null;
+  imageHint: string | null;
+  contentType: string;
 };
