@@ -65,21 +65,31 @@ const mainNavTop = [
   { href: "/socialflow",               label: "Dashboard",           icon: <IcoHome /> },
   { href: "/socialflow/insights",      label: "Insights",            icon: <IcoChart /> },
   { href: "/socialflow/profile",       label: "Mi Perfil",           icon: <IcoUser /> },
+  { href: "/socialflow/ai",            label: "¿Qué creo hoy?",      icon: <Sparkles className="h-[18px] w-[18px]" /> },
 ];
 
-const mainNavBottom = [
-  { href: "/socialflow/plan",           label: "Próximas publicaciones", icon: <IcoCalendar /> },
-  { href: "/socialflow/campaigns",      label: "Crear campañas",      icon: <IcoTarget /> },
-  { href: "/socialflow/redes",          label: "Conectar redes",      icon: <IcoNetwork /> },
-  { href: "/socialflow/knowledge",     label: "Base de conocimiento",icon: <IcoBook /> },
-  { href: "/socialflow/ai",             label: "¿Qué creo hoy?",      icon: <Sparkles className="h-[18px] w-[18px]" /> },
-];
+const knowledgeNavItem = { href: "/socialflow/knowledge", label: "Base de conocimiento", icon: <IcoBook /> };
+const redesNavItem = { href: "/socialflow/redes", label: "Conectar redes", icon: <IcoNetwork /> };
 
-const createNavByNetwork: { provider: SaasSocialProvider; items: { href: string; label: string; icon: React.ReactNode }[] }[] = [
+// Un desplegable por red social conectada — "Próximas publicaciones"/"Crear campañas"
+// apuntan al mismo href en cada red a propósito (no hay vista filtrada por red en el
+// backend hoy); LinkedIn conserva además su "Crear Post" propio.
+const NETWORK_BLOCKS: { provider: SaasSocialProvider; emoji: string; items: { href: string; label: string; icon: React.ReactNode }[] }[] = [
+  {
+    provider: "INSTAGRAM",
+    emoji: "📸",
+    items: [
+      { href: "/socialflow/plan",      label: "Próximas publicaciones", icon: <IcoCalendar /> },
+      { href: "/socialflow/campaigns", label: "Crear campañas",         icon: <IcoTarget /> },
+    ],
+  },
   {
     provider: "LINKEDIN",
+    emoji: "💼",
     items: [
-      { href: "/socialflow/linkedin/post", label: "Crear Post", icon: <IcoCamera /> },
+      { href: "/socialflow/plan",          label: "Próximas publicaciones", icon: <IcoCalendar /> },
+      { href: "/socialflow/campaigns",     label: "Crear campañas",         icon: <IcoTarget /> },
+      { href: "/socialflow/linkedin/post", label: "Crear Post",             icon: <IcoCamera /> },
     ],
   },
 ];
@@ -130,11 +140,24 @@ export default function SidebarNav({
   const [settingsOpen, setSettingsOpen] = useState(
     settingsNav.some((item) => pathname.startsWith(item.href)),
   );
+  const connectedNetworkBlocks = NETWORK_BLOCKS.filter((block) => connectedProviders.includes(block.provider));
+  const [openNetworks, setOpenNetworks] = useState<Set<SaasSocialProvider>>(() =>
+    connectedNetworkBlocks.length === 1 ? new Set([connectedNetworkBlocks[0].provider]) : new Set(),
+  );
   const [loggingOut, setLoggingOut] = useState(false);
 
   function isActive(href: string) {
     if (href === "/socialflow") return pathname === "/socialflow";
     return pathname.startsWith(href);
+  }
+
+  function toggleNetwork(provider: SaasSocialProvider) {
+    setOpenNetworks((prev) => {
+      const next = new Set(prev);
+      if (next.has(provider)) next.delete(provider);
+      else next.add(provider);
+      return next;
+    });
   }
 
   async function handleLogout() {
@@ -176,18 +199,30 @@ export default function SidebarNav({
         <nav className="flex flex-col gap-0.5">
           {mainNavTop.map((item) => renderMainNavItem(item, isActive(item.href)))}
 
-          {createNavByNetwork
-            .filter((group) => connectedProviders.includes(group.provider))
-            .map((group) => (
-              <div key={group.provider}>
-                <p className="px-3 pt-2 pb-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/25">
-                  Crear · {SOCIAL_PROVIDER_LABEL[group.provider]}
-                </p>
-                {group.items.map((item) => renderMainNavItem(item, isActive(item.href)))}
+          {connectedNetworkBlocks.map((block) => {
+            const open = openNetworks.has(block.provider);
+            return (
+              <div key={block.provider}>
+                <button
+                  type="button"
+                  onClick={() => toggleNetwork(block.provider)}
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-white/45 hover:bg-white/5 hover:text-white/80 transition-all border border-transparent"
+                >
+                  <span className="flex items-center gap-3">
+                    <span className="text-base leading-none">{block.emoji}</span>
+                    {SOCIAL_PROVIDER_LABEL[block.provider]}
+                  </span>
+                  <IcoChevron open={open} />
+                </button>
+                {open && (
+                  <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/8 pl-3">
+                    {block.items.map((item) => renderMainNavItem(item, isActive(item.href)))}
+                  </div>
+                )}
               </div>
-            ))}
+            );
+          })}
 
-          {mainNavBottom.slice(0, 4).map((item) => renderMainNavItem(item, isActive(item.href)))}
           {session.accountType === "empresa" && (
             <>
               {renderMainNavItem(empresaNavItem, isActive(empresaNavItem.href))}
@@ -196,7 +231,8 @@ export default function SidebarNav({
             </>
           )}
           {renderMainNavItem(crmNavItem, isActive(crmNavItem.href))}
-          {mainNavBottom.slice(4).map((item) => renderMainNavItem(item, isActive(item.href)))}
+          {renderMainNavItem(knowledgeNavItem, isActive(knowledgeNavItem.href))}
+          {renderMainNavItem(redesNavItem, isActive(redesNavItem.href))}
         </nav>
 
         {/* Separator */}
