@@ -8,6 +8,7 @@ import { env as resolveCfEnv } from "@/lib/cf";
 import { listSaasSocialAccounts, resolveSocialContext, upsertSaasSocialAccount } from "@/lib/socialflow/repository";
 import type { SaasSocialAccount } from "@/lib/social-core/types";
 import { encryptToken } from "@/lib/socialflow/token-encryption";
+import { triggerNicheInitializationOnFirstAccount } from "@/lib/socialflow/intelligence/nicheInitTrigger";
 import type {
   LinkedInResolvedIdentity,
   LinkedInResolvedOrganization,
@@ -325,7 +326,10 @@ export async function persistSocialFlowLinkedInConnection(
     ...input,
     socialDb: socialContext.socialDb,
   });
-  const existingAccount = (await listSaasSocialAccounts(socialContext)).find((account) => account.provider === "LINKEDIN");
+  // Array completo (no solo LINKEDIN) — necesario para detectar más abajo si esta es
+  // la primera cuenta social de CUALQUIER proveedor, no solo la primera de LinkedIn.
+  const existingAccounts = await listSaasSocialAccounts(socialContext);
+  const existingAccount = existingAccounts.find((account) => account.provider === "LINKEDIN");
   const persistenceStatus = coreProjection.existedBefore || existingAccount ? "updated" : "persisted";
 
   const encryptedAccessToken = await encryptToken(input.token.access_token);
@@ -373,6 +377,13 @@ export async function persistSocialFlowLinkedInConnection(
     },
     isPrimary: true,
   });
+
+  // Primera cuenta social de cualquier proveedor — dispara el análisis de nicho ahora
+  // en vez de esperar hasta 7 días al cron semanal. Fire-and-forget, nunca bloquea ni
+  // rompe este callback.
+  if (existingAccounts.length === 0) {
+    triggerNicheInitializationOnFirstAccount(input.tenantId, input.saasId);
+  }
 
   await maybePrepareSocialOwnedLinkedInOAuthConnection({
     socialDb: socialContext.socialDb,

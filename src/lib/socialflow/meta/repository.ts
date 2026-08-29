@@ -2,6 +2,7 @@ import { listSaasSocialAccounts, resolveSocialContext, upsertSaasSocialAccount }
 import type { SaasSocialAccount } from "@/lib/social-core/types";
 import { encryptToken } from "@/lib/socialflow/token-encryption";
 import type { MetaInstagramAccount, MetaPage, MetaTokenResponse } from "@/lib/socialflow/meta/core";
+import { triggerNicheInitializationOnFirstAccount } from "@/lib/socialflow/intelligence/nicheInitTrigger";
 
 type PersistMetaConnectionInput = {
   tenantId: string;
@@ -76,6 +77,13 @@ export async function persistSocialFlowMetaConnection(input: PersistMetaConnecti
       isPrimary: existingInstagramAccount?.isPrimary ?? false,
     });
     accounts.push(instagramAccount);
+  }
+
+  // Primera cuenta social de cualquier proveedor — dispara el análisis de nicho ahora
+  // en vez de esperar hasta 7 días al cron semanal. Fire-and-forget, nunca bloquea ni
+  // rompe este callback.
+  if (existingAccounts.length === 0) {
+    triggerNicheInitializationOnFirstAccount(input.tenantId, input.saasId);
   }
 
   return { accounts, status };

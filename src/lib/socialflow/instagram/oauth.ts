@@ -2,6 +2,7 @@ import { env } from "@/lib/cf";
 import { encryptToken } from "@/lib/socialflow/token-encryption";
 import { listSaasSocialAccounts, resolveSocialContext, upsertSaasSocialAccount } from "@/lib/socialflow/repository";
 import { signOAuthState } from "@/lib/socialflow/oauth/state";
+import { triggerNicheInitializationOnFirstAccount } from "@/lib/socialflow/intelligence/nicheInitTrigger";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -357,6 +358,13 @@ export async function persistInstagramOAuthConnection(input: {
     },
     isPrimary: existingIg?.isPrimary ?? !existing.some((a) => a.provider === "INSTAGRAM"),
   });
+
+  // Primera cuenta social de cualquier proveedor — dispara el análisis de nicho ahora
+  // en vez de esperar hasta 7 días al cron semanal. Fire-and-forget, nunca bloquea ni
+  // rompe este callback.
+  if (existing.length === 0) {
+    triggerNicheInitializationOnFirstAccount(input.tenantId, input.saasId);
+  }
 
   return { status: existingIg ? "updated" : "persisted", accountId: account.id };
 }
