@@ -232,6 +232,10 @@ export async function getNicheIntelligence(
   env: Env,
   tenantId?: string,
   saasId?: string,
+  // Opcional con default "influencer" para no romper callers que todavía no lo pasan
+  // (ver ViralScoreAgent/ViralOpportunityAgent/WeeklyBriefingAgent) — mismo default
+  // que usa la migración 0224 para las filas existentes.
+  accountType: "influencer" | "empresa" = "influencer",
 ): Promise<NicheIntelligence | null> {
   const db = env?.SOCIAL_DB;
   if (!db || !rawNiche) return null;
@@ -246,11 +250,11 @@ export async function getNicheIntelligence(
         `SELECT niche, analysis_json, hashtags_json, formats_json, hooks_json,
                 optimal_hours_json, fatigue_signals_json, updated_at, valid_until
          FROM socialcors_niche_intelligence
-         WHERE niche = ? AND valid_until > ?
+         WHERE niche = ? AND account_type = ? AND valid_until > ?
          ORDER BY updated_at DESC
          LIMIT 1`,
       )
-      .bind(niche, now)
+      .bind(niche, accountType, now)
       .first<NicheIntelligenceRow>();
 
     if (!row) return null;

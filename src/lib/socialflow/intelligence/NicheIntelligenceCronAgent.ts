@@ -76,7 +76,9 @@ export const NICHE_INTELLIGENCE_NICHES = [
 
 export type NicheIntelligenceNiche = (typeof NICHE_INTELLIGENCE_NICHES)[number];
 
-export type NicheIntelligenceCronResult = { niche: string; ok: boolean; error?: string };
+export type NicheAccountType = "influencer" | "empresa";
+
+export type NicheIntelligenceCronResult = { niche: string; accountType: NicheAccountType; ok: boolean; error?: string };
 
 // Refreshed weekly — 7 days matches the cron cadence (Mondays 03:00 UTC), so a
 // cache row is always either fresh or in the process of being replaced by that
@@ -101,8 +103,15 @@ type NicheAnalysisPayload = {
 // stub's empty seed over last week's real data.
 type NicheAnalysisResult = NicheAnalysisPayload & { _meta?: { engine?: string } };
 
-function buildNicheAnalysisPrompt(niche: string): string {
+const ACCOUNT_TYPE_INSTRUCTION: Record<NicheAccountType, string> = {
+  influencer: "El análisis debe orientarse a creadores de contenido individuales: hooks personales, storytelling, viralidad, engagement de comunidad.",
+  empresa: "El análisis debe orientarse a marcas y negocios locales: contenido de producto/servicio, reputación, captación de clientes, casos de éxito.",
+};
+
+function buildNicheAnalysisPrompt(niche: string, accountType: NicheAccountType): string {
   return `Eres un analista de tendencias de redes sociales especializado en el nicho "${niche}" para el mercado hispanohablante (España y Latinoamérica). Analiza el estado actual de este nicho en Instagram esta semana.
+
+${ACCOUNT_TYPE_INSTRUCTION[accountType]}
 
 Responde SOLO con un objeto JSON válido, sin markdown, sin backticks, sin comentarios ni texto fuera del JSON, con esta forma exacta:
 
@@ -119,14 +128,17 @@ Para "optimalHours" incluye entre 3 y 7 entradas, "day" en español (lunes..domi
 Responde en español. Solo el JSON, nada más.`;
 }
 
-async function upsertNicheIntelligence(niche: string, payload: NicheAnalysisPayload, db: D1Database): Promise<void> {
+async function upsertNicheIntelligence(niche: string, accountType: NicheAccountType, payload: NicheAnalysisPayload, db: D1Database): Promise<void> {
   const now = new Date();
   const nowIso = now.toISOString();
   const validUntil = new Date(now.getTime() + VALID_FOR_MS).toISOString();
 
+  // niche + account_type identifica la fila — sin account_type aquí, la pasada
+  // "empresa" encontraría (y sobrescribiría) la fila que la pasada "influencer" del
+  // mismo nicho acaba de crear/actualizar, en vez de crear una fila propia.
   const existing = await db
-    .prepare(`SELECT id, analysis_json FROM socialcors_niche_intelligence WHERE niche = ? LIMIT 1`)
-    .bind(niche)
+    .prepare(`SELECT id, analysis_json FROM socialcors_niche_intelligence WHERE niche = ? AND account_type = ? LIMIT 1`)
+    .bind(niche, accountType)
     .first<{ id: string; analysis_json: string }>();
 
   // Real hashtags (Sprint F) take priority over the LLM's opinion when available. What's
@@ -183,10 +195,10 @@ async function upsertNicheIntelligence(niche: string, payload: NicheAnalysisPayl
   await db
     .prepare(
       `INSERT INTO socialcors_niche_intelligence
-         (id, niche, analysis_json, hashtags_json, formats_json, hooks_json, optimal_hours_json, fatigue_signals_json, created_at, updated_at, valid_until)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, niche, account_type, analysis_json, hashtags_json, formats_json, hooks_json, optimal_hours_json, fatigue_signals_json, created_at, updated_at, valid_until)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(crypto.randomUUID(), niche, analysisJson, hashtagsJson, formatsJson, hooksJson, optimalHoursJson, fatigueSignalsJson, nowIso, nowIso, validUntil)
+    .bind(crypto.randomUUID(), niche, accountType, analysisJson, hashtagsJson, formatsJson, hooksJson, optimalHoursJson, fatigueSignalsJson, nowIso, nowIso, validUntil)
     .run();
 }
 
@@ -196,10 +208,10 @@ async function upsertNicheIntelligence(niche: string, payload: NicheAnalysisPayl
 // one). Callers that need failures surfaced (the cron loop, the admin endpoint)
 // should still wrap calls in their own try/catch for infra-level errors (DB
 // unavailable, etc.) — this function only swallows model-generation failures.
-export async function generateNicheAnalysis(niche: string, env: Env): Promise<void> {
+export async function generateNicheAnalysis(niche: string, accountType: NicheAccountType, env: Env): Promise<void> {
   const db = env?.SOCIAL_DB;
   if (!db) {
-    console.error("[NicheIntelligenceCronAgent] SOCIAL_DB not configured, skipping", niche);
+    console.error("[NicheIntelligenceCronAgent] SOCIAL_DB not configured, skipping", niche, accountType);
     return;
   }
 
@@ -213,36 +225,40 @@ export async function generateNicheAnalysis(niche: string, env: Env): Promise<vo
   };
 
   const { data } = await defaultLocalModel.generateStructured<NicheAnalysisResult>(
-    { prompt: buildNicheAnalysisPrompt(niche) },
+    { prompt: buildNicheAnalysisPrompt(niche, accountType) },
     () => seed as NicheAnalysisResult,
   );
 
   if (data._meta?.engine !== "workers-ai") {
-    console.error("[NicheIntelligenceCronAgent] model generation failed or returned invalid JSON, skipping upsert", niche);
+    console.error("[NicheIntelligenceCronAgent] model generation failed or returned invalid JSON, skipping upsert", niche, accountType);
     return;
   }
 
-  await upsertNicheIntelligence(niche, data, db);
-  console.log("[NicheIntelligenceCronAgent] niche intelligence updated", niche);
+  await upsertNicheIntelligence(niche, accountType, data, db);
+  console.log("[NicheIntelligenceCronAgent] niche intelligence updated", niche, accountType);
 }
 
-// Iterates all niches sequentially (not Promise.all) to respect Workers AI rate
-// limits — see generateNicheAnalysis for why a single niche never throws for
-// model-generation reasons; the try/catch here is for infra-level failures
-// (DB errors) so one bad niche never stops the rest of the run.
+const NICHE_ACCOUNT_TYPES: NicheAccountType[] = ["influencer", "empresa"];
+
+// Iterates all niches × both account types sequentially (not Promise.all) to respect
+// Workers AI rate limits — see generateNicheAnalysis for why a single (niche,
+// accountType) pair never throws for model-generation reasons; the try/catch here is
+// for infra-level failures (DB errors) so one bad pair never stops the rest of the run.
 export async function runNicheIntelligenceCron(env: Env): Promise<NicheIntelligenceCronResult[]> {
   const results: NicheIntelligenceCronResult[] = [];
 
   for (const niche of NICHE_INTELLIGENCE_NICHES) {
-    console.log("[NicheIntelligenceCronAgent] starting niche", niche);
-    try {
-      await generateNicheAnalysis(niche, env);
-      results.push({ niche, ok: true });
-    } catch (err) {
-      console.error("[NicheIntelligenceCronAgent] niche failed", niche, err instanceof Error ? err.message : String(err));
-      results.push({ niche, ok: false, error: err instanceof Error ? err.message : String(err) });
+    for (const accountType of NICHE_ACCOUNT_TYPES) {
+      console.log("[NicheIntelligenceCronAgent] starting niche", niche, accountType);
+      try {
+        await generateNicheAnalysis(niche, accountType, env);
+        results.push({ niche, accountType, ok: true });
+      } catch (err) {
+        console.error("[NicheIntelligenceCronAgent] niche failed", niche, accountType, err instanceof Error ? err.message : String(err));
+        results.push({ niche, accountType, ok: false, error: err instanceof Error ? err.message : String(err) });
+      }
+      console.log("[NicheIntelligenceCronAgent] finished niche", niche, accountType);
     }
-    console.log("[NicheIntelligenceCronAgent] finished niche", niche);
   }
 
   return results;

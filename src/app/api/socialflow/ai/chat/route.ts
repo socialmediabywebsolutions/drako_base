@@ -279,9 +279,10 @@ async function loadNicheDataForIdeas(
   dracoEnv: ReturnType<typeof env>,
   tenantId: string,
   saasId: string,
+  accountType: "influencer" | "empresa",
 ): Promise<NicheDataForIdeas | null> {
   if (!dracoEnv) return null;
-  const intel = await getNicheIntelligence(niche, dracoEnv, tenantId, saasId);
+  const intel = await getNicheIntelligence(niche, dracoEnv, tenantId, saasId, accountType);
   if (!intel) return null;
 
   const trendSignals = extractTrendSignals(intel.analysis);
@@ -359,8 +360,9 @@ async function buildIdeasReply(
   dracoEnv: ReturnType<typeof env>,
   tenantId: string,
   saasId: string,
+  accountType: "influencer" | "empresa",
 ): Promise<{ reply: string; ideas: IdeaSuggestion[] }> {
-  const data = await loadNicheDataForIdeas(niche, dracoEnv, tenantId, saasId).catch(() => null);
+  const data = await loadNicheDataForIdeas(niche, dracoEnv, tenantId, saasId, accountType).catch(() => null);
 
   if (!data) {
     return {
@@ -580,7 +582,7 @@ export async function POST(request: Request) {
       const imgNiche = imgProfile?.niche || imgProfile?.brandName || saasId;
       const imgTone = imgProfile?.toneOfVoice || "profesional, cercano, concreto";
 
-      const nicheData = await loadNicheDataForIdeas(imgNiche, env(), session.tenantId, saasId).catch(() => null);
+      const nicheData = await loadNicheDataForIdeas(imgNiche, env(), session.tenantId, saasId, session.accountType ?? "influencer").catch(() => null);
       const nicheBlock = nicheData ? formatNicheDataForPrompt(nicheData) : "";
 
       const systemPrompt = `Eres el asistente creativo de ${imgProfile?.brandName || imgNiche}, una marca en el nicho "${imgNiche}". Tono de la marca: ${imgTone}.
@@ -674,7 +676,7 @@ Tu tarea: proponer o ajustar el TEXTO/CAPTION de esta pieza concreta, adaptado a
     // Ideas — respuesta síncrona con datos reales del nicho, no encola nada (a
     // diferencia de generate/modify, no hay contenido que crear todavía).
     if (intent.action === "ideas") {
-      const { reply, ideas } = await buildIdeasReply(defaultNiche, env(), session.tenantId, saasId);
+      const { reply, ideas } = await buildIdeasReply(defaultNiche, env(), session.tenantId, saasId, session.accountType ?? "influencer");
       return NextResponse.json({ ok: true, action: "ideas", reply, ideas });
     }
 

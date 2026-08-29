@@ -51,7 +51,7 @@ export class ContentValueAgent {
 
     const dracoEnv = env();
     const nicheIntel = dracoEnv
-      ? await getNicheIntelligence(profile.niche, dracoEnv, input.tenantId, input.saasId)
+      ? await getNicheIntelligence(profile.niche, dracoEnv, input.tenantId, input.saasId, profile.accountType ?? "influencer")
       : null;
 
     // Mismo patrón que ImageAnalysisAgent.ts (brandContext) para inyectar KB sin

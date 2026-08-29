@@ -8,7 +8,14 @@ import {
   runNicheIntelligenceCron,
   NICHE_INTELLIGENCE_NICHES,
   type NicheIntelligenceNiche,
+  type NicheAccountType,
 } from "@/lib/socialflow/intelligence/NicheIntelligenceCronAgent";
+
+const NICHE_ACCOUNT_TYPES: NicheAccountType[] = ["influencer", "empresa"];
+
+function isValidAccountType(value: unknown): value is NicheAccountType {
+  return value === "influencer" || value === "empresa";
+}
 
 const CORE_TENANT_ID = "socialflow-core";
 
@@ -47,8 +54,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, code: "SOCIAL_DB_UNAVAILABLE" }, { status: 503 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as { niche?: unknown };
+  const body = (await request.json().catch(() => ({}))) as { niche?: unknown; accountType?: unknown };
   const requestedNiche = body?.niche;
+  const requestedAccountType = body?.accountType;
 
   if (requestedNiche !== undefined && !isValidNiche(requestedNiche)) {
     return NextResponse.json(
@@ -56,12 +64,23 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+  if (requestedAccountType !== undefined && !isValidAccountType(requestedAccountType)) {
+    return NextResponse.json(
+      { code: "INVALID_ACCOUNT_TYPE", message: `accountType must be "influencer" or "empresa"` },
+      { status: 400 },
+    );
+  }
 
   const startedAt = Date.now();
 
   if (requestedNiche) {
+    // Sin accountType: refresca ambos (mismo par que produce el cron semanal para
+    // cada nicho); con accountType: refresca solo ese par.
+    const accountTypes = requestedAccountType ? [requestedAccountType] : NICHE_ACCOUNT_TYPES;
     try {
-      await generateNicheAnalysis(requestedNiche, bindings);
+      for (const accountType of accountTypes) {
+        await generateNicheAnalysis(requestedNiche, accountType, bindings);
+      }
     } catch (err) {
       console.error("[admin/niche-intelligence/refresh] generateNicheAnalysis failed", requestedNiche, err instanceof Error ? err.message : String(err));
       return NextResponse.json(
@@ -72,6 +91,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       niches: [requestedNiche],
+      accountTypes,
       duration_ms: Date.now() - startedAt,
     });
   }

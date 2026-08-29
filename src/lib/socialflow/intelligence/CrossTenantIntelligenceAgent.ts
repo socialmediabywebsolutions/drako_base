@@ -1,11 +1,15 @@
 import { resolveSocialContext, listSaasSocialPosts, listSaasSocialMetricsForPost } from "@/lib/socialflow/repository";
 import { getChannelProfile } from "@/lib/socialflow/profile/repository";
+import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
 import { resolveNicheSlug, safeParseObject, type Env } from "./NicheIntelligenceService";
 import {
   computeEngagementPatterns,
   type EngagementPatterns,
   type PostWithEngagement,
 } from "@/lib/socialflow/ai/agents/EngagementLearningAgent";
+
+type NicheAccountType = "influencer" | "empresa";
+type NicheGroupKey = { niche: string; accountType: NicheAccountType };
 
 const LOOKBACK_DAYS = 30;
 
@@ -40,6 +44,7 @@ export function extractEngagementPatterns(analysis: Record<string, unknown> | nu
 
 export type CrossTenantIntelligenceResult = {
   niche: string;
+  accountType: NicheAccountType;
   ok: boolean;
   tenantsAggregated?: number;
   skippedReason?: string;
@@ -133,10 +138,10 @@ function aggregateNichePatterns(perTenantPatterns: EngagementPatterns[]): NicheE
 // for this niche (nothing to merge onto, and creating a bare row here would leave
 // hashtags_json/formats_json/etc empty in a row getNicheIntelligence might still pick
 // up as "valid").
-async function mergeEngagementPatterns(db: D1Database, niche: string, patterns: NicheEngagementPatterns): Promise<void> {
+async function mergeEngagementPatterns(db: D1Database, niche: string, accountType: NicheAccountType, patterns: NicheEngagementPatterns): Promise<void> {
   const row = await db
-    .prepare(`SELECT id, analysis_json FROM socialcors_niche_intelligence WHERE niche = ? ORDER BY updated_at DESC LIMIT 1`)
-    .bind(niche)
+    .prepare(`SELECT id, analysis_json FROM socialcors_niche_intelligence WHERE niche = ? AND account_type = ? ORDER BY updated_at DESC LIMIT 1`)
+    .bind(niche, accountType)
     .first<{ id: string; analysis_json: string }>();
   if (!row) return;
 
@@ -154,21 +159,27 @@ async function mergeEngagementPatterns(db: D1Database, niche: string, patterns: 
 // column, no index) — same "list everyone, filter in memory" pattern already used by
 // WeeklyBriefingAgent.runWeeklyBriefingForAllTenants. Acceptable at current tenant
 // counts; would need a real indexed column if this ever needs to scale much further.
-async function groupTenantsByNiche(db: D1Database, env: Env): Promise<Map<string, TenantRef[]>> {
+async function groupTenantsByNiche(db: D1Database, env: Env): Promise<Map<string, { key: NicheGroupKey; tenants: TenantRef[] }>> {
   const { results: tenantRows } = await db
     .prepare(`SELECT DISTINCT tenant_id, saas_id FROM socialflow_profiles`)
     .all<{ tenant_id: string; saas_id: string }>();
 
-  const byNiche = new Map<string, TenantRef[]>();
+  const byNiche = new Map<string, { key: NicheGroupKey; tenants: TenantRef[] }>();
   for (const row of tenantRows ?? []) {
     try {
       const profile = await getChannelProfile(row.tenant_id, row.saas_id);
       if (!profile.niche) continue;
       const slug = await resolveNicheSlug(profile.niche, db, row.tenant_id, row.saas_id);
       if (!slug) continue;
-      const bucket = byNiche.get(slug) ?? [];
-      bucket.push({ tenantId: row.tenant_id, saasId: row.saas_id });
-      byNiche.set(slug, bucket);
+      // Cerebro Socialcors — separado por accountType (ver migración 0224): un
+      // influencer y una empresa del mismo nicho ya no se agregan en el mismo bucket.
+      // Default "influencer" si el tenant no tiene account_type asignado, mismo
+      // criterio que la migración y que getNicheIntelligence.
+      const accountType = (await getSocialFlowAccountTypeByTenant(row.tenant_id).catch(() => null)) ?? "influencer";
+      const mapKey = `${slug}::${accountType}`;
+      const entry = byNiche.get(mapKey) ?? { key: { niche: slug, accountType }, tenants: [] };
+      entry.tenants.push({ tenantId: row.tenant_id, saasId: row.saas_id });
+      byNiche.set(mapKey, entry);
     } catch (err) {
       console.error("[CrossTenantIntelligenceAgent] niche resolution failed", row.tenant_id, err instanceof Error ? err.message : String(err));
     }
@@ -189,10 +200,12 @@ export async function runCrossTenantIntelligenceCron(env: Env): Promise<CrossTen
   const byNiche = await groupTenantsByNiche(db, env);
   const results: CrossTenantIntelligenceResult[] = [];
 
-  for (const [niche, tenants] of byNiche.entries()) {
+  for (const { key, tenants } of byNiche.values()) {
+    const { niche, accountType } = key;
     if (tenants.length < MIN_TENANTS_FOR_NICHE) {
       results.push({
         niche,
+        accountType,
         ok: true,
         skippedReason: `only ${tenants.length} tenant(s) in this niche, minimum ${MIN_TENANTS_FOR_NICHE} for anonymized aggregation`,
       });
@@ -209,6 +222,7 @@ export async function runCrossTenantIntelligenceCron(env: Env): Promise<CrossTen
       if (perTenantPatterns.length < MIN_TENANTS_FOR_NICHE) {
         results.push({
           niche,
+          accountType,
           ok: true,
           skippedReason: `only ${perTenantPatterns.length} tenant(s) with real metrics in the last ${LOOKBACK_DAYS} days`,
         });
@@ -216,11 +230,11 @@ export async function runCrossTenantIntelligenceCron(env: Env): Promise<CrossTen
       }
 
       const aggregated = aggregateNichePatterns(perTenantPatterns);
-      await mergeEngagementPatterns(db, niche, aggregated);
-      results.push({ niche, ok: true, tenantsAggregated: perTenantPatterns.length });
+      await mergeEngagementPatterns(db, niche, accountType, aggregated);
+      results.push({ niche, accountType, ok: true, tenantsAggregated: perTenantPatterns.length });
     } catch (err) {
-      console.error("[CrossTenantIntelligenceAgent] niche failed", niche, err instanceof Error ? err.message : String(err));
-      results.push({ niche, ok: false, error: err instanceof Error ? err.message : String(err) });
+      console.error("[CrossTenantIntelligenceAgent] niche failed", niche, accountType, err instanceof Error ? err.message : String(err));
+      results.push({ niche, accountType, ok: false, error: err instanceof Error ? err.message : String(err) });
     }
   }
 
