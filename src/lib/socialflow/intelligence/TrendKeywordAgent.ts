@@ -31,30 +31,29 @@ export type TrendKeywordResult =
 
 type NicheRow = { id: string; niche: string; analysis_json: string };
 
-async function pickOldestNiche(db: D1Database): Promise<NicheRow | null> {
+// 3 filas por corrida — con 132 filas (66 nichos × 2 accountTypes, ver migración 0224)
+// y un cron cada 20 min, una vuelta completa tarda ~(132/3) × 20min ≈ 14.7h, en vez de
+// las ~44h que tardaría procesando de una en una. Ajustable si hace falta recalibrar
+// contra los límites de rate de YouTube/Reddit.
+const BATCH_SIZE = 3;
+const BETWEEN_ITEM_DELAY_MS = 500;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function pickOldestNiches(db: D1Database, limit: number): Promise<NicheRow[]> {
   const { results } = await db
     .prepare(
       `SELECT id, niche, analysis_json FROM socialcors_niche_intelligence
-       ORDER BY trend_last_fetched ASC LIMIT 1`,
+       ORDER BY trend_last_fetched ASC LIMIT ?`,
     )
+    .bind(limit)
     .all<NicheRow>();
-  return results?.[0] ?? null;
+  return results ?? [];
 }
 
-// Un nicho por invocación, el menos recientemente refrescado primero — evita el mismo
-// riesgo de timeout que ya arrastraba el cron semanal de niche-intelligence (55 nichos
-// secuenciales en una sola petición HTTP), sin sacrificar frescura: a */20 min, una
-// vuelta completa a los 55 nichos tarda ~18.3h, así que cada nicho se refresca más de
-// una vez al día en vez de una vez a la semana.
-export async function runTrendKeywordCron(env: Env): Promise<TrendKeywordResult> {
-  const db = env?.SOCIAL_DB;
-  if (!db) return { ok: true, niche: null, skipped: "SOCIAL_DB not configured" };
-
-  const target = await pickOldestNiche(db);
-  if (!target) {
-    return { ok: true, niche: null, skipped: "no hay filas en socialcors_niche_intelligence todavía (niche-intelligence semanal no ha corrido)" };
-  }
-
+async function processNiche(db: D1Database, target: NicheRow, env: Env): Promise<TrendKeywordResult> {
   try {
     const youtubeApiKey = env?.YOUTUBE_API_KEY;
     const query = buildYoutubeQuery(target.niche);
@@ -87,4 +86,26 @@ export async function runTrendKeywordCron(env: Env): Promise<TrendKeywordResult>
   } catch (err) {
     return { ok: false, niche: target.niche, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+// Procesa un LOTE de BATCH_SIZE filas por invocación, las menos recientemente
+// refrescadas primero — secuencial (no Promise.all) con una pequeña pausa entre cada
+// una para no ráfagar las APIs externas (YouTube/Reddit/Google Trends) de golpe. Un
+// nicho fallido nunca detiene el resto del lote (mismo criterio que
+// NicheIntelligenceCronAgent.runNicheIntelligenceCron).
+export async function runTrendKeywordCron(env: Env): Promise<TrendKeywordResult[]> {
+  const db = env?.SOCIAL_DB;
+  if (!db) return [{ ok: true, niche: null, skipped: "SOCIAL_DB not configured" }];
+
+  const targets = await pickOldestNiches(db, BATCH_SIZE);
+  if (!targets.length) {
+    return [{ ok: true, niche: null, skipped: "no hay filas en socialcors_niche_intelligence todavía (niche-intelligence semanal no ha corrido)" }];
+  }
+
+  const results: TrendKeywordResult[] = [];
+  for (let i = 0; i < targets.length; i += 1) {
+    results.push(await processNiche(db, targets[i], env));
+    if (i < targets.length - 1) await sleep(BETWEEN_ITEM_DELAY_MS);
+  }
+  return results;
 }
