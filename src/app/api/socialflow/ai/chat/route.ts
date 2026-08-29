@@ -9,9 +9,10 @@ import { publishSocialPostLive } from "@/lib/socialflow/live-publishing";
 import { BestTimeToPostAgent } from "@/lib/socialflow/ai/agents/BestTimeToPostAgent";
 import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
 import { getChannelProfile } from "@/lib/socialflow/profile/repository";
-import { getNicheIntelligence } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
+import { getNicheIntelligence, getStyleHistory, safeParseObject } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
 import { extractTrendSignals } from "@/lib/socialflow/intelligence/TrendKeywordAgent";
 import { extractEngagementPatterns } from "@/lib/socialflow/intelligence/CrossTenantIntelligenceAgent";
+import { ContentFatigueAgent, type ContentFatigueResult } from "@/lib/socialflow/ai/agents/ContentFatigueAgent";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 
 // ---------------------------------------------------------------------------
@@ -320,6 +321,40 @@ function formatNicheDataForPrompt(data: NicheDataForIdeas): string {
   return lines.join("\n");
 }
 
+// Fatiga (ContentFatigueAgent) + estilo aprendido (snapshot más reciente de
+// getStyleHistory) como contexto adicional para el chat — barato: ContentFatigueAgent
+// solo lee posts en vivo (sin LLM), y getStyleHistory lee el snapshot ya calculado por
+// el cron diario style-learning en vez de re-ejecutar StyleLearningAgent (caro: posts +
+// métricas + LLM). Silencioso ante falta de datos (<5 posts, o sin snapshot todavía) —
+// nunca bloquea ni ensucia el prompt con un bloque vacío.
+async function loadFatigueAndStyleBlock(
+  tenantId: string,
+  saasId: string,
+  dracoEnv: ReturnType<typeof env>,
+): Promise<{ block: string; fatigue: ContentFatigueResult | null }> {
+  const [fatigue, styleHistory] = await Promise.all([
+    new ContentFatigueAgent().run({ tenantId, saasId }).catch(() => null),
+    dracoEnv ? getStyleHistory(tenantId, saasId, dracoEnv).catch(() => []) : Promise.resolve([]),
+  ]);
+
+  const lines: string[] = [];
+  if (fatigue?.hookFatigued) {
+    lines.push(`EVITAR: el hook "${fatigue.hookStreak.value}" está sobreusado (${fatigue.hookStreak.length} veces seguidas) — NO lo sugieras.`);
+  }
+  if (fatigue?.formatFatigued) {
+    lines.push(`EVITAR: el formato "${fatigue.formatStreak.value}" está sobreusado (${fatigue.formatStreak.length} veces seguidas) — si tiene sentido, sugiere un formato distinto.`);
+  }
+
+  const latestSnapshot = styleHistory[0] ?? null;
+  const parsedSnapshot = latestSnapshot ? safeParseObject(latestSnapshot.snapshotJson) : null;
+  const summaryText = typeof parsedSnapshot?.summaryText === "string" ? parsedSnapshot.summaryText.trim() : "";
+  if (summaryText) {
+    lines.push(`Estilo real de este cliente (de sus propios posts publicados): ${summaryText}`);
+  }
+
+  return { block: lines.join("\n"), fatigue };
+}
+
 // saas_social_posts.content_type real ("FEED"|"REEL"|"STORY"|"SHORT"|"CAROUSEL") →
 // el trío que espera la UI del chat. STORY/FEED se pliegan a "post" — no hay un cuarto
 // bucket en el diseño pedido.
@@ -375,10 +410,11 @@ async function buildIdeasReply(
   if (dracoEnv?.AI) {
     try {
       const dataBlock = formatNicheDataForPrompt(data);
+      const { block: fatigueStyleBlock } = await loadFatigueAndStyleBlock(tenantId, saasId, dracoEnv);
       const prompt = `Eres un estratega de contenido. Con estos datos REALES de la cuenta y su nicho (nunca inventes cifras nuevas ni datos que no estén aquí):
 
 ${dataBlock}
-
+${fatigueStyleBlock ? `\n${fatigueStyleBlock}\n` : ""}
 Propón exactamente 3 ideas de contenido concretas para hoy. Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
 {"ideas": [{"hook": "...", "format": "reel"|"carrusel"|"post", "whyViral": "..."}]}
 
@@ -584,6 +620,7 @@ export async function POST(request: Request) {
 
       const nicheData = await loadNicheDataForIdeas(imgNiche, env(), session.tenantId, saasId, session.accountType ?? "influencer").catch(() => null);
       const nicheBlock = nicheData ? formatNicheDataForPrompt(nicheData) : "";
+      const { block: fatigueStyleBlock, fatigue } = await loadFatigueAndStyleBlock(session.tenantId, saasId, env());
 
       const systemPrompt = `Eres el asistente creativo de ${imgProfile?.brandName || imgNiche}, una marca en el nicho "${imgNiche}". Tono de la marca: ${imgTone}.
 ${imgKnowledgeContext ? `Contexto de marca:\n${imgKnowledgeContext}\n` : ""}
@@ -594,6 +631,7 @@ El cliente subió una foto/vídeo. Análisis visual real de la pieza (nunca inve
 - Temas sugeridos: ${imageAnalysis.suggestedThemes.join(", ") || "ninguno"}
 - Tipo de contenido recomendado: ${imageAnalysis.recommendedPostType}
 ${nicheBlock ? `\nQué está funcionando ahora mismo en este nicho (datos reales, cítalos solo si son relevantes):\n${nicheBlock}\n` : ""}
+${fatigueStyleBlock ? `\nContexto interno del cliente (para que ajustes tu propuesta — NO lo menciones literalmente en el caption, es solo para ti):\n${fatigueStyleBlock}\n` : ""}
 Tu tarea: proponer o ajustar el TEXTO/CAPTION de esta pieza concreta, adaptado al estilo de la marca. NUNCA generes una campaña completa ni hables de varios posts — solo esta pieza. Responde ÚNICAMENTE con el texto de la publicación (el caption tal cual se publicaría) — sin preguntas, sin encabezados, sin comentarios adicionales antes o después. Responde en español.`;
 
       try {
@@ -611,8 +649,14 @@ Tu tarea: proponer o ajustar el TEXTO/CAPTION de esta pieza concreta, adaptado a
         const caption = result?.response?.trim() || "No se me ocurrió nada — ¿puedes darme más detalle de lo que buscas?";
         // reply = caption + pregunta de seguimiento fija del servidor (nunca del modelo)
         // para que pendingPost.body (el campo `caption`) nunca lleve texto conversacional
-        // que acabaría publicado tal cual en Instagram.
-        const reply = `${caption}\n\n¿Quieres ajustar algo (tono, longitud, emojis) o lo publicamos?`;
+        // que acabaría publicado tal cual en Instagram. La sugerencia de formato
+        // alternativo (si aplica) se añade aquí también, nunca en el caption, por el
+        // mismo motivo.
+        const formatAdvisory =
+          fatigue?.formatFatigued && fatigue.formatStreak.value === imageAnalysis.recommendedPostType
+            ? `\n\n💡 Llevas ${fatigue.formatStreak.length} publicaciones seguidas en formato ${imageAnalysis.recommendedPostType} — ¿probamos con otro formato para esta pieza?`
+            : "";
+        const reply = `${caption}\n\n¿Quieres ajustar algo (tono, longitud, emojis) o lo publicamos?${formatAdvisory}`;
         return NextResponse.json({ ok: true, action: "image_chat", reply, caption });
       } catch (error) {
         console.error("SOCIALFLOW_AI_CHAT_IMAGE_ERROR", error);
