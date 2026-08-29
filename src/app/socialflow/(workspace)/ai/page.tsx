@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Paperclip } from "lucide-react";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 
@@ -59,6 +60,9 @@ type Message = {
   params?: CampaignParams;
   actionCards?: ActionCard[];
   attachment?: { url: string; type: "image" | "video" };
+  publishOptions?: { title: string; body: string; imageHint: string; contentType: "FEED" | "REEL" | "STORY" };
+  publishState?: "idle" | "working" | "error";
+  publishResult?: { action: "published" | "scheduled"; reply: string };
 };
 
 // Conversación activa sobre UNA imagen/vídeo subido desde el chat — se mantiene en
@@ -69,7 +73,14 @@ type ImageChatContext = {
   imageUrl: string;
   imageAnalysis: ImageAnalysis;
   conversation: { role: "user" | "assistant"; content: string }[];
+  // Caption limpio más reciente (sin la pregunta de seguimiento) — es lo único que se
+  // publica; `conversation` guarda el texto completo tal como lo vio el usuario.
+  lastCaption: string;
 };
+
+function deriveTitleFromCaption(caption: string): string {
+  return caption.split("\n")[0]?.replace(/^#+\s*/, "").trim().slice(0, 72) || "Post";
+}
 
 type EditDraft = {
   title: string;
@@ -1067,6 +1078,7 @@ export default function SocialFlowAIPage() {
         ok: boolean;
         action?: string;
         reply?: string;
+        caption?: string;
         campaignId?: string;
         error?: string;
         message?: string;
@@ -1083,10 +1095,21 @@ export default function SocialFlowAIPage() {
         // en vez de tocar lastIdeas/campaignId, para que el siguiente ajuste ("más
         // corto", "cambia el emoji") siga teniendo el análisis visual disponible.
         const reply = json.reply ?? "¿Qué más te gustaría ajustar?";
-        updateMessage(botMsgId, { content: reply, generatingStatus: "done" });
+        const caption = json.caption ?? reply;
+        updateMessage(botMsgId, {
+          content: reply,
+          generatingStatus: "done",
+          publishOptions: {
+            title: deriveTitleFromCaption(caption),
+            body: caption,
+            imageHint: imgCtxAtSend.imageUrl,
+            contentType: imgCtxAtSend.imageAnalysis.recommendedPostType,
+          },
+          publishState: "idle",
+        });
         setActiveImageContext((prev) =>
           prev && prev.imageKey === imgCtxAtSend.imageKey
-            ? { ...prev, conversation: [...prev.conversation, { role: "user", content: text }, { role: "assistant", content: reply }] }
+            ? { ...prev, lastCaption: caption, conversation: [...prev.conversation, { role: "user", content: text }, { role: "assistant", content: reply }] }
             : prev,
         );
       } else if (json.action === "generating" && json.campaignId) {
@@ -1161,6 +1184,7 @@ export default function SocialFlowAIPage() {
         imageUrl: uploadJson.url,
         imageAnalysis: analyzeJson.imageAnalysis,
         conversation: [],
+        lastCaption: "",
       };
 
       const autoMessage = "Analiza esta imagen y dime qué contenido puedo crear.";
@@ -1176,7 +1200,7 @@ export default function SocialFlowAIPage() {
         }),
       });
       const chatJson = (await chatRes.json().catch(() => null)) as
-        | { ok?: boolean; reply?: string; message?: string; error?: string }
+        | { ok?: boolean; reply?: string; caption?: string; message?: string; error?: string }
         | null;
       if (!chatJson?.ok) {
         updateMessage(botMsgId, { content: chatJson?.message ?? chatJson?.error ?? "No se pudo generar el texto para esta imagen.", generatingStatus: "error" });
@@ -1184,9 +1208,21 @@ export default function SocialFlowAIPage() {
       }
 
       const reply = chatJson.reply ?? "¿Qué te gustaría publicar con esta imagen?";
-      updateMessage(botMsgId, { content: reply, generatingStatus: "done" });
+      const caption = chatJson.caption ?? reply;
+      updateMessage(botMsgId, {
+        content: reply,
+        generatingStatus: "done",
+        publishOptions: {
+          title: deriveTitleFromCaption(caption),
+          body: caption,
+          imageHint: newContext.imageUrl,
+          contentType: newContext.imageAnalysis.recommendedPostType,
+        },
+        publishState: "idle",
+      });
       setActiveImageContext({
         ...newContext,
+        lastCaption: caption,
         conversation: [{ role: "user", content: autoMessage }, { role: "assistant", content: reply }],
       });
     } catch {
@@ -1197,12 +1233,68 @@ export default function SocialFlowAIPage() {
     }
   }
 
+  async function handlePublishAction(msgId: string, publishAction: "now" | "schedule") {
+    const target = messages.find((m) => m.id === msgId);
+    if (!target?.publishOptions || target.publishState === "working" || thinking) return;
+
+    updateMessage(msgId, { publishState: "working" });
+    setThinking(true);
+    try {
+      const res = await fetch("/api/socialflow/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: publishAction === "now" ? "Publicar ahora" : "Programar en el mejor momento",
+          saasId: "socialflow",
+          publishAction,
+          pendingPost: target.publishOptions,
+        }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { ok?: boolean; action?: string; reply?: string; message?: string; error?: string }
+        | null;
+      if (!json?.ok) {
+        updateMessage(msgId, { publishState: "error" });
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `b_${Date.now()}`,
+            role: "bot",
+            content: json?.message ?? json?.error ?? "No se pudo completar la acción. Inténtalo de nuevo.",
+            generatingStatus: "error",
+          },
+        ]);
+        return;
+      }
+      updateMessage(msgId, {
+        publishState: "idle",
+        publishResult: {
+          action: json.action === "scheduled" ? "scheduled" : "published",
+          reply: json.reply ?? "Listo.",
+        },
+      });
+      setActiveImageContext(null);
+    } catch {
+      updateMessage(msgId, { publishState: "error" });
+      setMessages((prev) => [
+        ...prev,
+        { id: `b_${Date.now()}`, role: "bot", content: "Error de conexión. Inténtalo de nuevo.", generatingStatus: "error" },
+      ]);
+    } finally {
+      setThinking(false);
+    }
+  }
+
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       void sendMessage();
     }
   }
+
+  // Solo el mensaje con publishOptions MÁS RECIENTE muestra los botones de publicar —
+  // evita botones obsoletos en turnos anteriores de la misma conversación de imagen.
+  const latestPublishableId = [...messages].reverse().find((m) => m.publishOptions)?.id;
 
   // Derive selected post + its index from messages
   let selectedPost: SocialPost | null = null;
@@ -1296,6 +1388,37 @@ export default function SocialFlowAIPage() {
                     )}
                     {msg.generatingStatus === "polling" && msg.content !== "…" && (
                       <GeneratingProgress key={msg.id} params={msg.params} />
+                    )}
+                    {msg.publishOptions && msg.id === latestPublishableId && !msg.publishResult && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={thinking || msg.publishState === "working"}
+                          onClick={() => void handlePublishAction(msg.id, "now")}
+                          className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {msg.publishState === "working" ? "…" : "📤 Publicar ahora"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={thinking || msg.publishState === "working"}
+                          onClick={() => void handlePublishAction(msg.id, "schedule")}
+                          className="flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-300 transition hover:bg-indigo-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          📅 Programar en el mejor momento
+                        </button>
+                        {msg.publishState === "error" && (
+                          <span className="flex items-center text-xs text-rose-300">No se pudo completar. Reintenta.</span>
+                        )}
+                      </div>
+                    )}
+                    {msg.publishResult && (
+                      <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2.5 text-xs text-emerald-200">
+                        <p>{msg.publishResult.reply}</p>
+                        <Link href="/socialflow/plan" className="mt-1 inline-block font-semibold text-emerald-300 underline hover:text-emerald-200">
+                          Ver en el calendario
+                        </Link>
+                      </div>
                     )}
                   </div>
                 </div>

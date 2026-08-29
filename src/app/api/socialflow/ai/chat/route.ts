@@ -4,7 +4,9 @@ import { NextResponse } from "next/server";
 import { env } from "@/lib/cf";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { guardAiAccess, isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
-import { resolveSocialContext, upsertSaasSocialCampaign } from "@/lib/socialflow/repository";
+import { resolveSocialContext, upsertSaasSocialCampaign, upsertSaasSocialPost } from "@/lib/socialflow/repository";
+import { publishSocialPostLive } from "@/lib/socialflow/live-publishing";
+import { BestTimeToPostAgent } from "@/lib/socialflow/ai/agents/BestTimeToPostAgent";
 import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
 import { getChannelProfile } from "@/lib/socialflow/profile/repository";
 import { getNicheIntelligence } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
@@ -445,6 +447,8 @@ export async function POST(request: Request) {
       imageKey?: string;
       imageAnalysis?: ImageAnalysis;
       imageConversation?: { role: "user" | "assistant"; content: string }[];
+      publishAction?: "now" | "schedule";
+      pendingPost?: { title?: string; body?: string; imageHint?: string; contentType?: string };
     } | null;
 
     if (!body?.message?.trim()) {
@@ -453,6 +457,112 @@ export async function POST(request: Request) {
 
     const saasId = body.saasId ?? "socialflow";
     const userMessage = body.message.trim();
+
+    // Publicación directa desde el chat — se evalúa ANTES que cualquier otra rama:
+    // un click en "Publicar ahora"/"Programar" nunca debe pasar por el parseo de
+    // intención genérico ni por la conversación de imagen, aunque el cliente siga
+    // mandando imageKey/imageAnalysis de la conversación activa.
+    if (body.publishAction && body.pendingPost) {
+      const PUBLISHABLE_CONTENT_TYPES = new Set(["FEED", "REEL", "STORY"]);
+      const title = body.pendingPost.title?.trim() ?? "";
+      const postBody = body.pendingPost.body?.trim() ?? "";
+      const imageHint = body.pendingPost.imageHint?.trim() ?? "";
+      const contentType = body.pendingPost.contentType ?? "";
+
+      if (!title || !postBody || !imageHint || !PUBLISHABLE_CONTENT_TYPES.has(contentType)) {
+        return NextResponse.json(
+          { ok: false, error: "INVALID_PENDING_POST", message: "title, body, imageHint and a valid contentType (FEED/REEL/STORY) are required" },
+          { status: 400 },
+        );
+      }
+
+      const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId });
+      const applyTrialCaptionLink = await isActiveSocialFlowTrial(session.tenantId, session.role);
+      const validContentType = contentType as "FEED" | "REEL" | "STORY";
+
+      if (body.publishAction === "now") {
+        try {
+          const post = await upsertSaasSocialPost(ctx, {
+            saasId,
+            campaignId: null,
+            channelId: null,
+            provider: "INSTAGRAM",
+            contentType: validContentType,
+            title: title.slice(0, 72),
+            body: postBody,
+            imageHint,
+            status: "SCHEDULED",
+            scheduledAt: new Date().toISOString(),
+            postedAt: null,
+            externalPostId: null,
+            creationMode: "MANUAL",
+            metadata: null,
+          }, { applyTrialCaptionLink });
+
+          const result = await publishSocialPostLive(ctx, post.id, { skipClaim: true });
+          if (!result.ok) {
+            return NextResponse.json({
+              ok: false,
+              action: "publish_failed",
+              postId: post.id,
+              error: result.code,
+              message: result.message ?? "No se pudo publicar el post.",
+            });
+          }
+          return NextResponse.json({ ok: true, action: "published", postId: post.id, reply: "✅ Publicado en Instagram." });
+        } catch (error) {
+          console.error("SOCIALFLOW_AI_CHAT_PUBLISH_NOW_ERROR", error);
+          return NextResponse.json(
+            { ok: false, error: "PUBLISH_FAILED", message: "No se pudo publicar el post. Inténtalo de nuevo." },
+            { status: 500 },
+          );
+        }
+      }
+
+      // publishAction === "schedule"
+      try {
+        const bestHours = await new BestTimeToPostAgent().run(ctx);
+        const hasRealData = bestHours[validContentType] !== null;
+        const hour = bestHours[validContentType] ?? 18;
+
+        const scheduled = new Date();
+        scheduled.setUTCHours(hour, 0, 0, 0);
+        if (scheduled.getTime() <= Date.now()) {
+          scheduled.setUTCDate(scheduled.getUTCDate() + 1);
+        }
+        const scheduledAt = scheduled.toISOString();
+
+        const post = await upsertSaasSocialPost(ctx, {
+          saasId,
+          campaignId: null,
+          channelId: null,
+          provider: "INSTAGRAM",
+          contentType: validContentType,
+          title: title.slice(0, 72),
+          body: postBody,
+          imageHint,
+          status: "SCHEDULED",
+          scheduledAt,
+          postedAt: null,
+          externalPostId: null,
+          creationMode: "MANUAL",
+          metadata: null,
+        }, { applyTrialCaptionLink });
+
+        const hourLabel = scheduled.toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short", timeZone: "UTC" });
+        const reply = hasRealData
+          ? `📅 Programado para las ${hourLabel} (UTC) — es tu mejor momento según tu historial de engagement.`
+          : `📅 Programado para las ${hourLabel} (UTC). Todavía no tengo suficiente historial de engagement tuyo para este formato, así que usé una hora general recomendada.`;
+
+        return NextResponse.json({ ok: true, action: "scheduled", postId: post.id, scheduledAt, reply });
+      } catch (error) {
+        console.error("SOCIALFLOW_AI_CHAT_SCHEDULE_ERROR", error);
+        return NextResponse.json(
+          { ok: false, error: "SCHEDULE_FAILED", message: "No se pudo programar el post. Inténtalo de nuevo." },
+          { status: 500 },
+        );
+      }
+    }
 
     // Imagen adjunta al chat — conversación iterativa sobre el caption de ESTA pieza
     // concreta (subida desde "¿Qué creo hoy?"). Se evalúa ANTES del parseo de intención
@@ -482,7 +592,7 @@ El cliente subió una foto/vídeo. Análisis visual real de la pieza (nunca inve
 - Temas sugeridos: ${imageAnalysis.suggestedThemes.join(", ") || "ninguno"}
 - Tipo de contenido recomendado: ${imageAnalysis.recommendedPostType}
 ${nicheBlock ? `\nQué está funcionando ahora mismo en este nicho (datos reales, cítalos solo si son relevantes):\n${nicheBlock}\n` : ""}
-Tu tarea: proponer o ajustar el TEXTO/CAPTION de esta pieza concreta, adaptado al estilo de la marca. NUNCA generes una campaña completa ni hables de varios posts — solo esta pieza. Sé conversacional: entrega el texto propuesto y termina preguntando si quiere ajustar algo (tono, longitud, emojis, CTA). Responde en español.`;
+Tu tarea: proponer o ajustar el TEXTO/CAPTION de esta pieza concreta, adaptado al estilo de la marca. NUNCA generes una campaña completa ni hables de varios posts — solo esta pieza. Responde ÚNICAMENTE con el texto de la publicación (el caption tal cual se publicaría) — sin preguntas, sin encabezados, sin comentarios adicionales antes o después. Responde en español.`;
 
       try {
         const e = env();
@@ -496,8 +606,12 @@ Tu tarea: proponer o ajustar el TEXTO/CAPTION de esta pieza concreta, adaptado a
         const result = (await e.AI.run("@cf/meta/llama-3.1-70b-instruct", {
           messages: [{ role: "system", content: systemPrompt }, ...conversation, { role: "user", content: userMessage }],
         })) as { response?: string };
-        const reply = result?.response?.trim() || "No se me ocurrió nada — ¿puedes darme más detalle de lo que buscas?";
-        return NextResponse.json({ ok: true, action: "image_chat", reply });
+        const caption = result?.response?.trim() || "No se me ocurrió nada — ¿puedes darme más detalle de lo que buscas?";
+        // reply = caption + pregunta de seguimiento fija del servidor (nunca del modelo)
+        // para que pendingPost.body (el campo `caption`) nunca lleve texto conversacional
+        // que acabaría publicado tal cual en Instagram.
+        const reply = `${caption}\n\n¿Quieres ajustar algo (tono, longitud, emojis) o lo publicamos?`;
+        return NextResponse.json({ ok: true, action: "image_chat", reply, caption });
       } catch (error) {
         console.error("SOCIALFLOW_AI_CHAT_IMAGE_ERROR", error);
         return NextResponse.json(
