@@ -10,6 +10,7 @@ import { getChannelProfile } from "@/lib/socialflow/profile/repository";
 import { getNicheIntelligence } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
 import { extractTrendSignals } from "@/lib/socialflow/intelligence/TrendKeywordAgent";
 import { extractEngagementPatterns } from "@/lib/socialflow/intelligence/CrossTenantIntelligenceAgent";
+import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 
 // ---------------------------------------------------------------------------
 // Intent extraction — uses Workers AI Llama when available, regex fallback
@@ -441,6 +442,9 @@ export async function POST(request: Request) {
       message?: string;
       saasId?: string;
       lastIdeas?: IdeaSuggestion[];
+      imageKey?: string;
+      imageAnalysis?: ImageAnalysis;
+      imageConversation?: { role: "user" | "assistant"; content: string }[];
     } | null;
 
     if (!body?.message?.trim()) {
@@ -449,6 +453,59 @@ export async function POST(request: Request) {
 
     const saasId = body.saasId ?? "socialflow";
     const userMessage = body.message.trim();
+
+    // Imagen adjunta al chat — conversación iterativa sobre el caption de ESTA pieza
+    // concreta (subida desde "¿Qué creo hoy?"). Se evalúa ANTES del parseo de intención
+    // genérico de abajo: un "hazlo más corto" coincide con MODIFY_KEYWORDS_ES y, sin este
+    // early-return, dispararía una regeneración de campaña completa vía la cola en vez de
+    // ajustar el texto de esta imagen.
+    if (body.imageKey && body.imageAnalysis) {
+      const imageAnalysis = body.imageAnalysis;
+      const conversation = Array.isArray(body.imageConversation) ? body.imageConversation : [];
+
+      const [imgProfile, imgKnowledgeContext] = await Promise.all([
+        getChannelProfile(session.tenantId, saasId).catch(() => null),
+        getKnowledgeContext(session.tenantId, saasId).catch(() => ""),
+      ]);
+      const imgNiche = imgProfile?.niche || imgProfile?.brandName || saasId;
+      const imgTone = imgProfile?.toneOfVoice || "profesional, cercano, concreto";
+
+      const nicheData = await loadNicheDataForIdeas(imgNiche, env(), session.tenantId, saasId).catch(() => null);
+      const nicheBlock = nicheData ? formatNicheDataForPrompt(nicheData) : "";
+
+      const systemPrompt = `Eres el asistente creativo de ${imgProfile?.brandName || imgNiche}, una marca en el nicho "${imgNiche}". Tono de la marca: ${imgTone}.
+${imgKnowledgeContext ? `Contexto de marca:\n${imgKnowledgeContext}\n` : ""}
+El cliente subió una foto/vídeo. Análisis visual real de la pieza (nunca inventes detalles que no estén aquí):
+- Descripción: ${imageAnalysis.description}
+- Contexto: ${imageAnalysis.context}
+- Detalle específico: ${imageAnalysis.specificContext}
+- Temas sugeridos: ${imageAnalysis.suggestedThemes.join(", ") || "ninguno"}
+- Tipo de contenido recomendado: ${imageAnalysis.recommendedPostType}
+${nicheBlock ? `\nQué está funcionando ahora mismo en este nicho (datos reales, cítalos solo si son relevantes):\n${nicheBlock}\n` : ""}
+Tu tarea: proponer o ajustar el TEXTO/CAPTION de esta pieza concreta, adaptado al estilo de la marca. NUNCA generes una campaña completa ni hables de varios posts — solo esta pieza. Sé conversacional: entrega el texto propuesto y termina preguntando si quiere ajustar algo (tono, longitud, emojis, CTA). Responde en español.`;
+
+      try {
+        const e = env();
+        if (!e?.AI) {
+          return NextResponse.json({
+            ok: true,
+            action: "image_chat",
+            reply: "No puedo generar el texto ahora mismo — el servicio de IA no está disponible. Inténtalo en unos minutos.",
+          });
+        }
+        const result = (await e.AI.run("@cf/meta/llama-3.1-70b-instruct", {
+          messages: [{ role: "system", content: systemPrompt }, ...conversation, { role: "user", content: userMessage }],
+        })) as { response?: string };
+        const reply = result?.response?.trim() || "No se me ocurrió nada — ¿puedes darme más detalle de lo que buscas?";
+        return NextResponse.json({ ok: true, action: "image_chat", reply });
+      } catch (error) {
+        console.error("SOCIALFLOW_AI_CHAT_IMAGE_ERROR", error);
+        return NextResponse.json(
+          { ok: false, error: "IMAGE_CHAT_FAILED", message: "No se pudo generar el texto para esta imagen. Inténtalo de nuevo." },
+          { status: 500 },
+        );
+      }
+    }
 
     // "Créalo tú" — solo se evalúa cuando el cliente reenvía lastIdeas (la respuesta de
     // ideas más reciente), así que un "genera 7 posts de fitness" en frío nunca entra

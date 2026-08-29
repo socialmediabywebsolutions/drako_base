@@ -3,6 +3,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Paperclip } from "lucide-react";
+import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -56,6 +58,17 @@ type Message = {
   generatingStatus?: "polling" | "done" | "error";
   params?: CampaignParams;
   actionCards?: ActionCard[];
+  attachment?: { url: string; type: "image" | "video" };
+};
+
+// Conversación activa sobre UNA imagen/vídeo subido desde el chat — se mantiene en
+// memoria de cliente (mismo patrón que lastIdeas) y se reenvía en cada mensaje mientras
+// esté activa, para que "hazlo más corto" ajuste el caption sin re-subir el archivo.
+type ImageChatContext = {
+  imageKey: string;
+  imageUrl: string;
+  imageAnalysis: ImageAnalysis;
+  conversation: { role: "user" | "assistant"; content: string }[];
 };
 
 type EditDraft = {
@@ -737,9 +750,12 @@ export default function SocialFlowAIPage() {
   const [regenLoading, setRegenLoading] = useState<Set<string>>(new Set());
   const [publishingMsgId, setPublishingMsgId] = useState<string | null>(null);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [activeImageContext, setActiveImageContext] = useState<ImageChatContext | null>(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
   // Load last ACTIVE or GENERATING campaign on mount
@@ -1021,6 +1037,7 @@ export default function SocialFlowAIPage() {
 
     const userMsgId = `u_${Date.now()}`;
     const botMsgId = `b_${Date.now()}`;
+    const imgCtxAtSend = activeImageContext;
     setInput("");
     setThinking(true);
     setMessages((prev) => [
@@ -1033,7 +1050,18 @@ export default function SocialFlowAIPage() {
       const res = await fetch("/api/socialflow/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, saasId: "socialflow", lastIdeas }),
+        body: JSON.stringify({
+          message: text,
+          saasId: "socialflow",
+          lastIdeas,
+          ...(imgCtxAtSend
+            ? {
+                imageKey: imgCtxAtSend.imageKey,
+                imageAnalysis: imgCtxAtSend.imageAnalysis,
+                imageConversation: imgCtxAtSend.conversation,
+              }
+            : {}),
+        }),
       });
       const json = (await res.json()) as {
         ok: boolean;
@@ -1050,7 +1078,18 @@ export default function SocialFlowAIPage() {
         updateMessage(botMsgId, { content: json.message ?? json.error ?? "Ocurrió un error. Inténtalo de nuevo.", generatingStatus: "error" });
         return;
       }
-      if (json.action === "generating" && json.campaignId) {
+      if (imgCtxAtSend) {
+        // Conversación sobre una imagen adjunta — el turno se acumula en el contexto
+        // en vez de tocar lastIdeas/campaignId, para que el siguiente ajuste ("más
+        // corto", "cambia el emoji") siga teniendo el análisis visual disponible.
+        const reply = json.reply ?? "¿Qué más te gustaría ajustar?";
+        updateMessage(botMsgId, { content: reply, generatingStatus: "done" });
+        setActiveImageContext((prev) =>
+          prev && prev.imageKey === imgCtxAtSend.imageKey
+            ? { ...prev, conversation: [...prev.conversation, { role: "user", content: text }, { role: "assistant", content: reply }] }
+            : prev,
+        );
+      } else if (json.action === "generating" && json.campaignId) {
         setLastIdeas(null);
         updateMessage(botMsgId, { content: json.reply ?? "Generando tu campaña… te aviso cuando esté lista.", campaignId: json.campaignId, generatingStatus: "polling", params: json.params });
         startPoll(json.campaignId, botMsgId);
@@ -1068,6 +1107,92 @@ export default function SocialFlowAIPage() {
     } catch {
       updateMessage(botMsgId, { content: "Error de conexión. Por favor inténtalo de nuevo.", generatingStatus: "error" });
     } finally {
+      setThinking(false);
+    }
+  }
+
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || thinking || uploadingAttachment) return;
+
+    const attachmentType: "image" | "video" = file.type.startsWith("video/") ? "video" : "image";
+    const previewUrl = URL.createObjectURL(file);
+    const userMsgId = `u_${Date.now()}`;
+    const botMsgId = `b_${Date.now()}`;
+
+    setMessages((prev) => [
+      ...prev,
+      { id: userMsgId, role: "user", content: "", attachment: { url: previewUrl, type: attachmentType } },
+      { id: botMsgId, role: "bot", content: "Subiendo archivo…", generatingStatus: "polling" },
+    ]);
+    setUploadingAttachment(true);
+    setThinking(true);
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const uploadRes = await fetch("/api/socialflow/media/upload", { method: "POST", body: form });
+      const uploadJson = (await uploadRes.json().catch(() => null)) as
+        | { url?: string; key?: string; error?: string; message?: string }
+        | null;
+      if (!uploadRes.ok || !uploadJson?.url || !uploadJson.key) {
+        updateMessage(botMsgId, { content: uploadJson?.message ?? "No se pudo subir el archivo. Inténtalo de nuevo.", generatingStatus: "error" });
+        return;
+      }
+
+      updateMessage(botMsgId, { content: "Analizando imagen…" });
+
+      const analyzeRes = await fetch("/api/socialflow/posts/generate-from-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: uploadJson.url, imageKey: uploadJson.key, saasId: "socialflow", mode: "analyze" }),
+      });
+      const analyzeJson = (await analyzeRes.json().catch(() => null)) as
+        | { imageAnalysis?: ImageAnalysis; message?: string }
+        | null;
+      if (!analyzeRes.ok || !analyzeJson?.imageAnalysis) {
+        updateMessage(botMsgId, { content: analyzeJson?.message ?? "No se pudo analizar la imagen. Inténtalo de nuevo.", generatingStatus: "error" });
+        return;
+      }
+
+      const newContext: ImageChatContext = {
+        imageKey: uploadJson.key,
+        imageUrl: uploadJson.url,
+        imageAnalysis: analyzeJson.imageAnalysis,
+        conversation: [],
+      };
+
+      const autoMessage = "Analiza esta imagen y dime qué contenido puedo crear.";
+      const chatRes = await fetch("/api/socialflow/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: autoMessage,
+          saasId: "socialflow",
+          imageKey: newContext.imageKey,
+          imageAnalysis: newContext.imageAnalysis,
+          imageConversation: [],
+        }),
+      });
+      const chatJson = (await chatRes.json().catch(() => null)) as
+        | { ok?: boolean; reply?: string; message?: string; error?: string }
+        | null;
+      if (!chatJson?.ok) {
+        updateMessage(botMsgId, { content: chatJson?.message ?? chatJson?.error ?? "No se pudo generar el texto para esta imagen.", generatingStatus: "error" });
+        return;
+      }
+
+      const reply = chatJson.reply ?? "¿Qué te gustaría publicar con esta imagen?";
+      updateMessage(botMsgId, { content: reply, generatingStatus: "done" });
+      setActiveImageContext({
+        ...newContext,
+        conversation: [{ role: "user", content: autoMessage }, { role: "assistant", content: reply }],
+      });
+    } catch {
+      updateMessage(botMsgId, { content: "Error de conexión al subir el archivo. Inténtalo de nuevo.", generatingStatus: "error" });
+    } finally {
+      setUploadingAttachment(false);
       setThinking(false);
     }
   }
@@ -1115,8 +1240,22 @@ export default function SocialFlowAIPage() {
             if (msg.role === "user") {
               return (
                 <div key={msg.id} className="mb-6 flex justify-end px-4 md:px-8">
-                  <div className="max-w-[72%] rounded-2xl bg-violet-500/15 px-4 py-3 text-sm leading-relaxed text-white/90">
-                    {msg.content}
+                  <div className="max-w-[72%] space-y-2">
+                    {msg.attachment && (
+                      <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/30">
+                        {msg.attachment.type === "video" ? (
+                          <video src={msg.attachment.url} className="max-h-64 w-full object-cover" controls />
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={msg.attachment.url} alt="Adjunto" className="max-h-64 w-full object-cover" />
+                        )}
+                      </div>
+                    )}
+                    {msg.content && (
+                      <div className="rounded-2xl bg-violet-500/15 px-4 py-3 text-sm leading-relaxed text-white/90">
+                        {msg.content}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -1215,6 +1354,22 @@ export default function SocialFlowAIPage() {
       {/* Input */}
       <div className="shrink-0 border-t border-white/5 px-4 py-4 md:px-8">
         <div className="flex items-end gap-3 rounded-2xl border border-white/10 bg-white/4 px-4 py-3 focus-within:border-violet-500/40 focus-within:ring-1 focus-within:ring-violet-500/15">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/mp4"
+            hidden
+            onChange={(e) => void handleFileSelected(e)}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={thinking || uploadingAttachment}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/50 transition hover:border-violet-500/30 hover:text-violet-300 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Adjuntar foto o vídeo"
+          >
+            <Paperclip className="h-4 w-4" />
+          </button>
           <textarea
             ref={inputRef}
             rows={1}
