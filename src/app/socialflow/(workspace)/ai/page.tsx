@@ -60,7 +60,7 @@ type Message = {
   params?: CampaignParams;
   actionCards?: ActionCard[];
   attachment?: { url: string; type: "image" | "video" };
-  publishOptions?: { title: string; body: string; imageHint: string; contentType: "FEED" | "REEL" | "STORY" };
+  publishOptions?: { title: string; body: string; imageHint: string; contentType: "FEED" | "REEL" | "STORY"; hashtags: string[] };
   publishState?: "idle" | "working" | "error";
   publishResult?: { action: "published" | "scheduled"; reply: string };
 };
@@ -1079,6 +1079,7 @@ export default function SocialFlowAIPage() {
         action?: string;
         reply?: string;
         caption?: string;
+        hashtags?: string[];
         campaignId?: string;
         error?: string;
         message?: string;
@@ -1104,6 +1105,7 @@ export default function SocialFlowAIPage() {
             body: caption,
             imageHint: imgCtxAtSend.imageUrl,
             contentType: imgCtxAtSend.imageAnalysis.recommendedPostType,
+            hashtags: json.hashtags ?? [],
           },
           publishState: "idle",
         });
@@ -1200,7 +1202,7 @@ export default function SocialFlowAIPage() {
         }),
       });
       const chatJson = (await chatRes.json().catch(() => null)) as
-        | { ok?: boolean; reply?: string; caption?: string; message?: string; error?: string }
+        | { ok?: boolean; reply?: string; caption?: string; hashtags?: string[]; message?: string; error?: string }
         | null;
       if (!chatJson?.ok) {
         updateMessage(botMsgId, { content: chatJson?.message ?? chatJson?.error ?? "No se pudo generar el texto para esta imagen.", generatingStatus: "error" });
@@ -1217,6 +1219,7 @@ export default function SocialFlowAIPage() {
           body: caption,
           imageHint: newContext.imageUrl,
           contentType: newContext.imageAnalysis.recommendedPostType,
+          hashtags: chatJson.hashtags ?? [],
         },
         publishState: "idle",
       });

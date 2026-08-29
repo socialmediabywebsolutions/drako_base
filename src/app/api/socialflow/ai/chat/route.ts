@@ -13,6 +13,7 @@ import { getNicheIntelligence, getStyleHistory, safeParseObject } from "@/lib/so
 import { extractTrendSignals } from "@/lib/socialflow/intelligence/TrendKeywordAgent";
 import { extractEngagementPatterns } from "@/lib/socialflow/intelligence/CrossTenantIntelligenceAgent";
 import { ContentFatigueAgent, type ContentFatigueResult } from "@/lib/socialflow/ai/agents/ContentFatigueAgent";
+import { calculateViralScore, mapContentTypeToViralFormat } from "@/lib/socialflow/intelligence/ViralScoreAgent";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 
 // ---------------------------------------------------------------------------
@@ -355,6 +356,22 @@ async function loadFatigueAndStyleBlock(
   return { block: lines.join("\n"), fatigue };
 }
 
+// Separa los hashtags inline del caption generado por el modelo — calculateViralScore
+// espera un caption "limpio" + un array de hashtags aparte (mismo contrato que ya usan
+// generate-from-image/generate-ai-carousel), y publishOptions/pendingPost también
+// necesitan el caption limpio con los hashtags movidos a metadata (ver
+// buildPostCaption en live-publishing.ts, que arma el caption final como
+// body + metadata.hashtags — sin esto los hashtags se perderían al publicar).
+function extractHashtags(text: string): { cleanCaption: string; hashtags: string[] } {
+  const hashtags = text.match(/#\w+/g) ?? [];
+  const cleanCaption = text
+    .replace(/#\w+/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { cleanCaption, hashtags };
+}
+
 // saas_social_posts.content_type real ("FEED"|"REEL"|"STORY"|"SHORT"|"CAROUSEL") →
 // el trío que espera la UI del chat. STORY/FEED se pliegan a "post" — no hay un cuarto
 // bucket en el diseño pedido.
@@ -486,7 +503,7 @@ export async function POST(request: Request) {
       imageAnalysis?: ImageAnalysis;
       imageConversation?: { role: "user" | "assistant"; content: string }[];
       publishAction?: "now" | "schedule";
-      pendingPost?: { title?: string; body?: string; imageHint?: string; contentType?: string };
+      pendingPost?: { title?: string; body?: string; imageHint?: string; contentType?: string; hashtags?: string[] };
     } | null;
 
     if (!body?.message?.trim()) {
@@ -506,6 +523,8 @@ export async function POST(request: Request) {
       const postBody = body.pendingPost.body?.trim() ?? "";
       const imageHint = body.pendingPost.imageHint?.trim() ?? "";
       const contentType = body.pendingPost.contentType ?? "";
+      const hashtags = (body.pendingPost.hashtags ?? []).filter((h): h is string => typeof h === "string" && h.trim().length > 0);
+      const metadata = hashtags.length ? { hashtags } : null;
 
       if (!title || !postBody || !imageHint || !PUBLISHABLE_CONTENT_TYPES.has(contentType)) {
         return NextResponse.json(
@@ -534,7 +553,7 @@ export async function POST(request: Request) {
             postedAt: null,
             externalPostId: null,
             creationMode: "MANUAL",
-            metadata: null,
+            metadata,
           }, { applyTrialCaptionLink });
 
           const result = await publishSocialPostLive(ctx, post.id, { skipClaim: true });
@@ -584,7 +603,7 @@ export async function POST(request: Request) {
           postedAt: null,
           externalPostId: null,
           creationMode: "MANUAL",
-          metadata: null,
+          metadata,
         }, { applyTrialCaptionLink });
 
         const hourLabel = scheduled.toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short", timeZone: "UTC" });
@@ -646,18 +665,42 @@ Tu tarea: proponer o ajustar el TEXTO/CAPTION de esta pieza concreta, adaptado a
         const result = (await e.AI.run("@cf/meta/llama-3.1-70b-instruct", {
           messages: [{ role: "system", content: systemPrompt }, ...conversation, { role: "user", content: userMessage }],
         })) as { response?: string };
-        const caption = result?.response?.trim() || "No se me ocurrió nada — ¿puedes darme más detalle de lo que buscas?";
-        // reply = caption + pregunta de seguimiento fija del servidor (nunca del modelo)
-        // para que pendingPost.body (el campo `caption`) nunca lleve texto conversacional
-        // que acabaría publicado tal cual en Instagram. La sugerencia de formato
-        // alternativo (si aplica) se añade aquí también, nunca en el caption, por el
-        // mismo motivo.
+        const rawCaption = result?.response?.trim() || "No se me ocurrió nada — ¿puedes darme más detalle de lo que buscas?";
+        // caption/hashtags separados: el caption LIMPIO (sin hashtags inline) es lo que
+        // viaja en pendingPost.body para publicar — buildPostCaption (live-publishing.ts)
+        // arma el caption final como body + metadata.hashtags, así que los hashtags
+        // extraídos aquí se reenvían en el JSON para que el cliente los incluya en
+        // publishOptions.hashtags y no se pierdan al publicar.
+        const { cleanCaption, hashtags } = extractHashtags(rawCaption);
+
+        const viralScore = await calculateViralScore({
+          caption: cleanCaption,
+          hashtags,
+          format: mapContentTypeToViralFormat(imageAnalysis.recommendedPostType),
+          niche: imgNiche,
+          tenantId: session.tenantId,
+          saasId,
+          env: e,
+        });
+        // calculateViralScore nunca lanza (degrada a un score neutro 5/"Medio" ante
+        // cualquier fallo) — score > 5 excluye tanto ese neutro como cualquier score
+        // real bajo, así que basta esta única condición para "omitir silenciosamente".
+        const showViralScore = viralScore.score > 5;
+
+        // reply = texto crudo del modelo (CON hashtags, para que el cliente los vea en
+        // el chat) + pregunta de seguimiento fija del servidor (nunca del modelo) +
+        // avisos deterministas — nunca el modelo decide este texto, para que
+        // pendingPost.body (el campo `caption`, ya limpio) no lleve texto conversacional
+        // que acabaría publicado tal cual en Instagram.
         const formatAdvisory =
           fatigue?.formatFatigued && fatigue.formatStreak.value === imageAnalysis.recommendedPostType
             ? `\n\n💡 Llevas ${fatigue.formatStreak.length} publicaciones seguidas en formato ${imageAnalysis.recommendedPostType} — ¿probamos con otro formato para esta pieza?`
             : "";
-        const reply = `${caption}\n\n¿Quieres ajustar algo (tono, longitud, emojis) o lo publicamos?${formatAdvisory}`;
-        return NextResponse.json({ ok: true, action: "image_chat", reply, caption });
+        const viralAdvisory = showViralScore
+          ? `\n\n⚡ Potencial viral: ${viralScore.label} (${viralScore.score}/10) — ${viralScore.explanation}`
+          : "";
+        const reply = `${rawCaption}\n\n¿Quieres ajustar algo (tono, longitud, emojis) o lo publicamos?${formatAdvisory}${viralAdvisory}`;
+        return NextResponse.json({ ok: true, action: "image_chat", reply, caption: cleanCaption, hashtags, viralScore });
       } catch (error) {
         console.error("SOCIALFLOW_AI_CHAT_IMAGE_ERROR", error);
         return NextResponse.json(
