@@ -1,6 +1,7 @@
 import { safeParseObject, type Env } from "./NicheIntelligenceService";
 import { extractTrendSignals, type TrendSignals } from "./TrendKeywordAgent";
 import { isTenantAllowedInPrivatePilot } from "../private-pilot";
+import { getSocialFlowAccountTypeByTenant } from "../auth/account-type";
 
 // Nivel 3 — flujo autónomo tendencia → imagen+texto → publicado, SOLO para esta
 // cuenta interna (ver auditoría de piezas existentes). Hardcodeado a propósito: no es
@@ -98,9 +99,15 @@ export async function runTrendTriggerConnector(env: Env): Promise<TrendTriggerRe
       return { ok: true, triggered: false, reason: "PRIVATE_PILOT_TENANT_NOT_ALLOWED" };
     }
 
+    // Cerebro Socialcors — desde la migración 0224 hay 2 filas por nicho (una por
+    // accountType); sin este filtro el LIMIT 1 de abajo devolvía una fila arbitraria.
+    // Resuelto dinámicamente (no hardcodeado) por el mismo motivo que
+    // CrossTenantIntelligenceAgent: no asumir qué accountType tiene este tenant.
+    const accountType = (await getSocialFlowAccountTypeByTenant(TREND_TRIGGER_TENANT.tenantId).catch(() => null)) ?? "influencer";
+
     const nicheRow = await db
-      .prepare(`SELECT analysis_json FROM socialcors_niche_intelligence WHERE niche = ? LIMIT 1`)
-      .bind(TREND_TRIGGER_TENANT.niche)
+      .prepare(`SELECT analysis_json FROM socialcors_niche_intelligence WHERE niche = ? AND account_type = ? LIMIT 1`)
+      .bind(TREND_TRIGGER_TENANT.niche, accountType)
       .first<{ analysis_json: string }>();
     if (!nicheRow) return { ok: true, triggered: false, reason: "NICHE_ROW_NOT_FOUND" };
 
