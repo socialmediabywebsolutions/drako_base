@@ -15,6 +15,7 @@ import { extractEngagementPatterns } from "@/lib/socialflow/intelligence/CrossTe
 import { ContentFatigueAgent, type ContentFatigueResult } from "@/lib/socialflow/ai/agents/ContentFatigueAgent";
 import { calculateViralScore, mapContentTypeToViralFormat } from "@/lib/socialflow/intelligence/ViralScoreAgent";
 import { getLatestPerformanceSnapshot } from "@/lib/socialflow/ai/agents/ContentPerformanceAgent";
+import { getInfluencerBenchmark } from "@/lib/socialflow/intelligence/InfluencerBenchmarkAgent";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 
 // ---------------------------------------------------------------------------
@@ -438,10 +439,21 @@ async function buildIdeasReply(
       const perfInsightRaw = perfSnapshot ? safeParseObject(perfSnapshot.snapshotJson)?.insight : null;
       const perfInsight = typeof perfInsightRaw === "string" ? perfInsightRaw.trim() : "";
 
+      // Benchmark de influencers reales de YouTube — solo tiene sentido para cuentas
+      // influencer (una empresa no compite por suscriptores de canal); cero coste extra
+      // para accountType="empresa", ni siquiera se llama.
+      const influencerBenchmark =
+        accountType === "influencer" && dracoEnv
+          ? await getInfluencerBenchmark(niche, dracoEnv, tenantId, saasId).catch(() => null)
+          : null;
+      const benchmarkBlock = influencerBenchmark
+        ? `\nCómo lo hacen los canales de YouTube más vistos esta semana en tu nicho: ${influencerBenchmark.insight}\n`
+        : "";
+
       const prompt = `Eres un estratega de contenido. Con estos datos REALES de la cuenta y su nicho (nunca inventes cifras nuevas ni datos que no estén aquí):
 
 ${dataBlock}
-${fatigueStyleBlock ? `\n${fatigueStyleBlock}\n` : ""}${perfInsight ? `\nTus posts con mejor rendimiento histórico usaron estos patrones: ${perfInsight}\n` : ""}
+${fatigueStyleBlock ? `\n${fatigueStyleBlock}\n` : ""}${perfInsight ? `\nTus posts con mejor rendimiento histórico usaron estos patrones: ${perfInsight}\n` : ""}${benchmarkBlock}
 Propón exactamente 3 ideas de contenido concretas para hoy. Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
 {"ideas": [{"hook": "...", "format": "reel"|"carrusel"|"post", "whyViral": "..."}]}
 

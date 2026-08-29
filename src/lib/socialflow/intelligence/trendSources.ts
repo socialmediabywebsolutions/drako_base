@@ -5,10 +5,12 @@
 // contentHeuristics.ts) — evita meter una dependencia nueva solo para leer 2-3 campos.
 
 const YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
+const YOUTUBE_CHANNELS_URL = "https://www.googleapis.com/youtube/v3/channels";
 const GOOGLE_TRENDS_RSS_URL = "https://trends.google.com/trending/rss?geo=ES";
 const MAX_YOUTUBE_RESULTS = 10;
 const MAX_REDDIT_RESULTS = 10;
 const MAX_TRENDS_RESULTS = 15;
+const TOP_CHANNELS_N = 3;
 
 function decodeXmlEntities(text: string): string {
   return text
@@ -62,7 +64,7 @@ export function buildYoutubeQuery(niche: string): string {
   return NICHE_TO_YOUTUBE_QUERY[niche] ?? `${niche.replace(/_/g, " ")} reels virales España`;
 }
 
-type YoutubeSearchItem = { snippet?: { title?: string; channelTitle?: string } };
+type YoutubeSearchItem = { snippet?: { title?: string; channelTitle?: string; channelId?: string } };
 
 // search.list, no videos.list — 100 unidades/llamada. Su snippet NO incluye viewCount
 // (eso exigiría una segunda llamada a videos.list, más cuota) — el ranking por
@@ -91,6 +93,96 @@ export async function fetchYoutubeHooks(query: string, apiKey: string): Promise<
     return { hooks, ok: true };
   } catch {
     return { hooks: [], ok: false };
+  }
+}
+
+export type YoutubeChannelBenchmark = {
+  channelId: string;
+  name: string;
+  subscribers: number;
+  totalViews: number;
+  videoCount: number;
+  avgViews: number;
+  topHooks: string[];
+};
+
+type YoutubeChannelListItem = {
+  id?: string;
+  snippet?: { title?: string };
+  statistics?: { subscriberCount?: string; viewCount?: string; videoCount?: string; hiddenSubscriberCount?: boolean };
+};
+
+// Dos llamadas: search.list (100 unidades, mismo query/ventana de 7 días que
+// fetchYoutubeHooks) agrupado por channelId, luego una única channels.list (1 unidad,
+// acepta hasta 50 ids separados por coma) con part=snippet,statistics para
+// subscriberCount/viewCount/videoCount reales. NO hay una tercera llamada a
+// playlistItems.list para "últimos vídeos" — channels.list no puede devolver eso, y en
+// vez de gastar cuota extra se reusan los títulos que YA aparecieron en la búsqueda de
+// arriba agrupados por canal (los vídeos más vistos del nicho esta semana que resultan
+// pertenecer a ese canal — más relevante que "últimos uploads" del canal, que podrían
+// no tener nada que ver con lo que está funcionando ahora).
+export async function fetchTopYoutubeChannels(niche: string, apiKey: string): Promise<{ channels: YoutubeChannelBenchmark[]; ok: boolean }> {
+  try {
+    const query = buildYoutubeQuery(niche);
+    const publishedAfter = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const searchUrl = new URL(YOUTUBE_SEARCH_URL);
+    searchUrl.searchParams.set("part", "snippet");
+    searchUrl.searchParams.set("q", query);
+    searchUrl.searchParams.set("type", "video");
+    searchUrl.searchParams.set("order", "viewCount");
+    searchUrl.searchParams.set("publishedAfter", publishedAfter);
+    searchUrl.searchParams.set("maxResults", String(MAX_YOUTUBE_RESULTS));
+    searchUrl.searchParams.set("regionCode", "ES");
+    searchUrl.searchParams.set("relevanceLanguage", "es");
+    searchUrl.searchParams.set("key", apiKey);
+
+    const searchRes = await fetch(searchUrl.toString(), { cache: "no-store" });
+    if (!searchRes.ok) return { channels: [], ok: false };
+
+    const searchData = (await searchRes.json()) as { items?: YoutubeSearchItem[] };
+    const titlesByChannel = new Map<string, string[]>();
+    for (const item of searchData.items ?? []) {
+      const channelId = item.snippet?.channelId;
+      const title = item.snippet?.title;
+      if (!channelId || !title) continue;
+      const titles = titlesByChannel.get(channelId) ?? [];
+      titles.push(title);
+      titlesByChannel.set(channelId, titles);
+    }
+
+    const channelIds = Array.from(titlesByChannel.keys());
+    if (!channelIds.length) return { channels: [], ok: true };
+
+    const channelsUrl = new URL(YOUTUBE_CHANNELS_URL);
+    channelsUrl.searchParams.set("part", "snippet,statistics");
+    channelsUrl.searchParams.set("id", channelIds.join(","));
+    channelsUrl.searchParams.set("key", apiKey);
+
+    const channelsRes = await fetch(channelsUrl.toString(), { cache: "no-store" });
+    if (!channelsRes.ok) return { channels: [], ok: false };
+
+    const channelsData = (await channelsRes.json()) as { items?: YoutubeChannelListItem[] };
+    const channels = (channelsData.items ?? [])
+      .flatMap((item): YoutubeChannelBenchmark[] => {
+        if (!item.id) return [];
+        const totalViews = Number(item.statistics?.viewCount ?? 0);
+        const videoCount = Number(item.statistics?.videoCount ?? 0);
+        return [{
+          channelId: item.id,
+          name: item.snippet?.title ?? "Canal sin nombre",
+          subscribers: item.statistics?.hiddenSubscriberCount ? 0 : Number(item.statistics?.subscriberCount ?? 0),
+          totalViews,
+          videoCount,
+          avgViews: videoCount > 0 ? Math.round(totalViews / videoCount) : 0,
+          topHooks: titlesByChannel.get(item.id) ?? [],
+        }];
+      })
+      .sort((a, b) => b.totalViews - a.totalViews)
+      .slice(0, TOP_CHANNELS_N);
+
+    return { channels, ok: true };
+  } catch {
+    return { channels: [], ok: false };
   }
 }
 

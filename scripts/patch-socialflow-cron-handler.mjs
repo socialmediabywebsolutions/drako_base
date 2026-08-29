@@ -18,6 +18,11 @@
  *     comments per tenant, seeds content suggestions into socialflow_intelligence_feed)
  *   - once a week, Mondays (0 3 * * 1): /api/cron/social/niche-intelligence
  *     (NicheIntelligenceCronAgent — refreshes socialcors_niche_intelligence), then
+ *     /api/cron/social/influencer-benchmark (InfluencerBenchmarkAgent — top 3 YouTube
+ *     channels by views per niche via the YouTube Data API, refreshes
+ *     socialcors_influencer_benchmarks; independent of niche-intelligence's own data,
+ *     just reuses the same NICHE_INTELLIGENCE_NICHES list, so order vs. it doesn't
+ *     matter — placed here to keep both niche-level weekly crons together), then
  *     /api/cron/social/cross-tenant-intelligence (CrossTenantIntelligenceAgent —
  *     merges real, anonymized cross-tenant engagement patterns into that same row's
  *     analysis_json; must run after niche-intelligence or its merge lands on a row
@@ -115,6 +120,9 @@ const scheduledHandler = `    // __socialflowCronHandlerPatched
         if (event.cron === "0 3 * * 1") {
             await fetch(appUrl + "/api/cron/social/niche-intelligence", authHeaders).catch(function(err) {
                 console.error("[Cron] scheduled niche-intelligence failed:", err.message);
+            });
+            await fetch(appUrl + "/api/cron/social/influencer-benchmark", authHeaders).catch(function(err) {
+                console.error("[Cron] scheduled influencer-benchmark failed:", err.message);
             });
             await fetch(appUrl + "/api/cron/social/cross-tenant-intelligence", authHeaders).catch(function(err) {
                 console.error("[Cron] scheduled cross-tenant-intelligence failed:", err.message);

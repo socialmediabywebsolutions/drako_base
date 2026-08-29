@@ -127,6 +127,23 @@ jobs:
             exit 1
           fi
           echo "✅ Niche-intelligence cron completed successfully"
+      # influencer-benchmark es independiente de cross-tenant-intelligence/viral-
+      # opportunity (escribe en su propia tabla, socialcors_influencer_benchmarks) —
+      # solo necesita correr después de niche-intelligence porque reusa la misma lista
+      # NICHE_INTELLIGENCE_NICHES, no un dato que esa cron escriba.
+      - name: 🔗 Refrescar benchmark de influencers por nicho (YouTube)
+        run: |
+          STATUS=$(curl -s -o /tmp/influencer_benchmark_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/influencer-benchmark" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/influencer_benchmark_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Influencer-benchmark cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Influencer-benchmark cron completed successfully"
       # cross-tenant-intelligence corre DESPUÉS de niche-intelligence, en el mismo job
       # (no en paralelo) — fusiona patrones reales de engagement en la misma fila de
       # socialcors_niche_intelligence que niche-intelligence acaba de escribir; si
