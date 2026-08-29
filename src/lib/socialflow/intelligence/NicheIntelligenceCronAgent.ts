@@ -30,6 +30,10 @@ export const NICHE_INTELLIGENCE_NICHES = [
   "arte_digital",
   "cocina_recetas",
   "sostenibilidad",
+  "nutricion_deportiva",
+  "coach_vida",
+  "deportes_colectivos",
+  "videojuegos_streaming",
   // Empresas
   "restauracion",
   "peluqueria",
@@ -61,6 +65,13 @@ export const NICHE_INTELLIGENCE_NICHES = [
   "pasteleria",
   "academia_infantil",
   "centro_deportivo",
+  "tatuajes_piercing",
+  "fotografia_bodas",
+  "peluqueria_barberia",
+  "eventos_bodas",
+  "gastronomia_local",
+  "clinica_veterinaria",
+  "academia_oposiciones",
 ] as const;
 
 export type NicheIntelligenceNiche = (typeof NICHE_INTELLIGENCE_NICHES)[number];

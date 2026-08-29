@@ -107,7 +107,29 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Tres niveles, del más barato al más caro — nunca se salta al siguiente si el
+// Nivel 2.5 — sinónimos por palabra clave (substring, no frase completa) para nichos
+// compuestos donde el cliente solo escribe la palabra específica sin el modificador del
+// slug (ej. "Dentista" nunca contiene la frase "clinica dental" que exige el nivel 2 de
+// arriba). Se comprueba DESPUÉS del regex de frase completa a propósito — así nunca tapa
+// un match ya preciso de hoy (ej. "yoga"/"crossfit"/"gaming"/"cafeteria"/"peluqueria" ya
+// resuelven correctamente a su propio slug standalone vía el nivel 2).
+const NICHE_SYNONYMS: Record<string, string[]> = {
+  clinica_dental: ["dentista", "odontolog", "dental"],
+  clinica_fisioterapia: ["fisioterapia", "fisioterapeuta", "kinesiol"],
+  clinica_medica: ["medico", "medicina", "clinica", "salud"],
+  restauracion: ["restaurante", "bar", "cafeteria", "hosteleria"],
+  estetica_spa: ["estetica", "spa", "belleza", "depilacion"],
+  peluqueria_barberia: ["peluqueria", "barberia", "peluquero", "barbero"],
+  tatuajes_piercing: ["tatuaje", "tattoo", "piercing"],
+  tienda_ropa: ["ropa", "moda", "boutique", "textil"],
+  fotografia_bodas: ["boda", "wedding", "nupcial"],
+  nutricion_deportiva: ["nutricion", "nutricionista", "dietista", "dieta"],
+  fitness: ["gym", "gimnasio", "entrena", "workout", "crossfit", "yoga", "pilates"],
+  coach_vida: ["coach", "coaching", "mentor", "mentoria"],
+  videojuegos_streaming: ["gaming", "gamer", "streamer", "twitch", "videojuego"],
+};
+
+// Cuatro niveles, del más barato al más caro — nunca se salta al siguiente si el
 // anterior ya resolvió. Devuelve "" (nunca null/undefined) cuando no hay match
 // razonable en ningún nivel; getNicheIntelligence trata "" igual que un niche vacío.
 export async function normalizeNiche(
@@ -129,6 +151,16 @@ export async function normalizeNiche(
     return new RegExp(`\\b${escapeRegExp(normalizedSlug)}\\b`).test(normalizedProfile);
   });
   if (partial) return partial;
+
+  // Nivel 2.5 — sinónimos (ver NICHE_SYNONYMS arriba). Validado contra availableNiches
+  // antes de devolverse — mismo criterio anti-alucinación que el nivel de Mistral: nunca
+  // confiar en un slug que no exista de verdad en la tabla.
+  for (const [slug, keywords] of Object.entries(NICHE_SYNONYMS)) {
+    if (!availableNiches.includes(slug)) continue;
+    if (keywords.some((keyword) => normalizedProfile.includes(normalizeForMatch(keyword)))) {
+      return slug;
+    }
+  }
 
   // Nivel 3 — Mistral. defaultLocalModel ya resuelve el binding de IA internamente
   // (env() de @/lib/cf) y degrada al seed determinista si no está disponible, así
