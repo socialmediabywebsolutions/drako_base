@@ -6,6 +6,7 @@ import { env } from "@/lib/cf";
 import { StyleLearningAgent } from "@/lib/socialflow/ai/agents/StyleLearningAgent";
 import { VoiceExtractionAgent } from "@/lib/socialflow/ai/agents/VoiceExtractionAgent";
 import { ContentFatigueAgent } from "@/lib/socialflow/ai/agents/ContentFatigueAgent";
+import { ContentPerformanceAgent } from "@/lib/socialflow/ai/agents/ContentPerformanceAgent";
 
 const MIN_PUBLISHED_POSTS = 10;
 
@@ -19,6 +20,7 @@ type TenantResult = {
   voicePostsAnalyzed?: number;
   hookFatigued?: boolean;
   formatFatigued?: boolean;
+  performanceAnalyzed?: number;
   error?: string;
 };
 
@@ -65,13 +67,18 @@ export async function GET(request: NextRequest) {
 
   for (const row of tenantRows) {
     try {
-      // En paralelo — los tres agentes son independientes (cada uno solo lee
-      // saas_social_posts por su cuenta, ninguno depende del resultado de otro),
-      // así que correrlos a la vez reduce el tiempo total del cron en vez de sumarlo.
-      const [learned, voice, fatigue] = await Promise.all([
+      // En paralelo — los cuatro agentes son independientes (cada uno solo lee
+      // saas_social_posts/saas_social_metrics por su cuenta, ninguno depende del
+      // resultado de otro), así que correrlos a la vez reduce el tiempo total del cron
+      // en vez de sumarlo. ContentPerformanceAgent persiste en su propia tabla
+      // (socialcors_performance_snapshots, migración 0225) — nunca en
+      // socialcors_style_history, que StyleLearningAgent y detectContentFatigue tratan
+      // como snapshots homogéneos.
+      const [learned, voice, fatigue, performance] = await Promise.all([
         new StyleLearningAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new VoiceExtractionAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new ContentFatigueAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+        new ContentPerformanceAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
       ]);
       results.push({
         tenantId: row.tenant_id,
@@ -81,6 +88,7 @@ export async function GET(request: NextRequest) {
         voicePostsAnalyzed: voice?.postsAnalyzed ?? 0,
         hookFatigued: fatigue?.hookFatigued ?? false,
         formatFatigued: fatigue?.formatFatigued ?? false,
+        performanceAnalyzed: performance?.topPosts.length ?? 0,
       });
     } catch (err) {
       console.error("[cron/style-learning] agent failed", row.tenant_id, err instanceof Error ? err.message : String(err));

@@ -14,6 +14,7 @@ import { extractTrendSignals } from "@/lib/socialflow/intelligence/TrendKeywordA
 import { extractEngagementPatterns } from "@/lib/socialflow/intelligence/CrossTenantIntelligenceAgent";
 import { ContentFatigueAgent, type ContentFatigueResult } from "@/lib/socialflow/ai/agents/ContentFatigueAgent";
 import { calculateViralScore, mapContentTypeToViralFormat } from "@/lib/socialflow/intelligence/ViralScoreAgent";
+import { getLatestPerformanceSnapshot } from "@/lib/socialflow/ai/agents/ContentPerformanceAgent";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 
 // ---------------------------------------------------------------------------
@@ -428,10 +429,19 @@ async function buildIdeasReply(
     try {
       const dataBlock = formatNicheDataForPrompt(data);
       const { block: fatigueStyleBlock } = await loadFatigueAndStyleBlock(tenantId, saasId, dracoEnv);
+
+      // Insight de ContentPerformanceAgent — snapshot ya calculado por el cron diario
+      // de style-learning (nunca se re-ejecuta el agente en vivo aquí: hace su propia
+      // llamada a Mistral, igual de caro que StyleLearningAgent). Silencioso si no hay
+      // snapshot todavía (tenant nuevo, o <5 posts con métricas reales).
+      const perfSnapshot = dracoEnv ? await getLatestPerformanceSnapshot(tenantId, saasId, dracoEnv).catch(() => null) : null;
+      const perfInsightRaw = perfSnapshot ? safeParseObject(perfSnapshot.snapshotJson)?.insight : null;
+      const perfInsight = typeof perfInsightRaw === "string" ? perfInsightRaw.trim() : "";
+
       const prompt = `Eres un estratega de contenido. Con estos datos REALES de la cuenta y su nicho (nunca inventes cifras nuevas ni datos que no estén aquí):
 
 ${dataBlock}
-${fatigueStyleBlock ? `\n${fatigueStyleBlock}\n` : ""}
+${fatigueStyleBlock ? `\n${fatigueStyleBlock}\n` : ""}${perfInsight ? `\nTus posts con mejor rendimiento histórico usaron estos patrones: ${perfInsight}\n` : ""}
 Propón exactamente 3 ideas de contenido concretas para hoy. Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
 {"ideas": [{"hook": "...", "format": "reel"|"carrusel"|"post", "whyViral": "..."}]}
 
