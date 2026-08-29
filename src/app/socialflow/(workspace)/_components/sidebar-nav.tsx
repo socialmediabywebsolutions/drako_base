@@ -50,15 +50,6 @@ function IcoChevron({ open }: { open: boolean }) {
 function IcoPublish() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" /></svg>;
 }
-function IcoCarrusel() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><rect x="3" y="7" width="13" height="13" rx="2" /><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V5.25A2.25 2.25 0 0 1 10.25 3h8.5A2.25 2.25 0 0 1 21 5.25v8.5A2.25 2.25 0 0 1 18.75 16H17" /></svg>;
-}
-function IcoReel() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5 20.47 5.78a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53L15.75 13.5M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>;
-}
-function IcoStory() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><circle cx="12" cy="12" r="8.25" /></svg>;
-}
 function IcoTeam() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Zm6-10.125a1.875 1.875 0 1 1-3.75 0 1.875 1.875 0 0 1 3.75 0Zm1.294 6.336a6.721 6.721 0 0 1-3.17.789 6.721 6.721 0 0 1-3.168-.789 3.376 3.376 0 0 1 6.338 0Z" /></svg>;
 }
@@ -85,15 +76,6 @@ const mainNavBottom = [
 ];
 
 const createNavByNetwork: { provider: SaasSocialProvider; items: { href: string; label: string; icon: React.ReactNode }[] }[] = [
-  {
-    provider: "INSTAGRAM",
-    items: [
-      { href: "/socialflow/publicar/post",     label: "Crear Post",     icon: <IcoCamera /> },
-      { href: "/socialflow/publicar/reel",     label: "Crear Reel",     icon: <IcoReel /> },
-      { href: "/socialflow/publicar/historia", label: "Crear Historia", icon: <IcoStory /> },
-      { href: "/socialflow/carrusel/subir",    label: "Crear Carrusel", icon: <IcoCarrusel /> },
-    ],
-  },
   {
     provider: "LINKEDIN",
     items: [
