@@ -82,6 +82,62 @@ function extractModifyRequest(text: string): { postNumber: number; instruction: 
   return null;
 }
 
+// Minimal markdown-lite renderer for bot replies: **bold** + numbered lists (1. 2. 3.).
+// No remark/react-markdown in the project — keep this dependency-free.
+function renderInlineBold(text: string, keyPrefix: string): React.ReactNode[] {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") && part.length > 4 ? (
+      <strong key={`${keyPrefix}-${i}`}>{part.slice(2, -2)}</strong>
+    ) : (
+      <span key={`${keyPrefix}-${i}`}>{part}</span>
+    ),
+  );
+}
+
+function renderLiteMarkdown(content: string): React.ReactNode {
+  const lines = content.split("\n");
+  const blocks: React.ReactNode[] = [];
+  let currentList: string[] = [];
+  let textLines: string[] = [];
+
+  const flushList = () => {
+    if (currentList.length === 0) return;
+    blocks.push(
+      <ol key={`ol-${blocks.length}`} className="my-1 ml-4 list-decimal space-y-0.5">
+        {currentList.map((item, i) => (
+          <li key={i}>{renderInlineBold(item, `li-${blocks.length}-${i}`)}</li>
+        ))}
+      </ol>,
+    );
+    currentList = [];
+  };
+
+  const flushText = () => {
+    if (textLines.length === 0) return;
+    blocks.push(
+      <p key={`p-${blocks.length}`} className="whitespace-pre-wrap">
+        {renderInlineBold(textLines.join("\n"), `p-${blocks.length}`)}
+      </p>,
+    );
+    textLines = [];
+  };
+
+  for (const line of lines) {
+    const match = line.match(/^\s*\d+\.\s+(.*)$/);
+    if (match) {
+      flushText();
+      currentList.push(match[1]);
+    } else {
+      flushList();
+      textLines.push(line);
+    }
+  }
+  flushText();
+  flushList();
+
+  return <>{blocks}</>;
+}
+
 // ---------------------------------------------------------------------------
 // GeneratingProgress
 // ---------------------------------------------------------------------------
@@ -1081,7 +1137,7 @@ export default function SocialFlowAIPage() {
                       </div>
                     )}
                     {msg.content !== "…" && (
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/80">{msg.content}</p>
+                      <div className="text-sm leading-relaxed text-white/80">{renderLiteMarkdown(msg.content)}</div>
                     )}
                     {msg.actionCards && (
                       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
