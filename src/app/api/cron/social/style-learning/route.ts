@@ -10,6 +10,7 @@ import { ContentPerformanceAgent } from "@/lib/socialflow/ai/agents/ContentPerfo
 import { HashtagIntelligenceAgent } from "@/lib/socialflow/ai/agents/HashtagIntelligenceAgent";
 import { AudienceGrowthAgent } from "@/lib/socialflow/ai/agents/AudienceGrowthAgent";
 import { OptimalPostingScheduleAgent } from "@/lib/socialflow/ai/agents/OptimalPostingScheduleAgent";
+import { SentimentTrendAgent } from "@/lib/socialflow/ai/agents/SentimentTrendAgent";
 
 const MIN_PUBLISHED_POSTS = 10;
 
@@ -28,6 +29,7 @@ type TenantResult = {
   growthPostsFound?: number;
   loyaltyPostsFound?: number;
   bestDaysFound?: number;
+  sentimentAlert?: boolean;
   error?: string;
 };
 
@@ -74,17 +76,18 @@ export async function GET(request: NextRequest) {
 
   for (const row of tenantRows) {
     try {
-      // En paralelo — los siete agentes son independientes (cada uno solo lee
-      // saas_social_posts/saas_social_metrics por su cuenta, ninguno depende del
-      // resultado de otro), así que correrlos a la vez reduce el tiempo total del cron
-      // en vez de sumarlo. ContentPerformanceAgent/HashtagIntelligenceAgent/
-      // AudienceGrowthAgent/OptimalPostingScheduleAgent persisten cada uno en su propia
-      // tabla (socialcors_performance_snapshots migración 0225,
-      // socialcors_hashtag_intelligence migración 0227, socialcors_audience_growth
-      // migración 0228, socialcors_posting_schedule migración 0229) — nunca en
-      // socialcors_style_history, que StyleLearningAgent y detectContentFatigue tratan
-      // como snapshots homogéneos.
-      const [learned, voice, fatigue, performance, hashtags, growth, postingSchedule] = await Promise.all([
+      // En paralelo — los ocho agentes son independientes (cada uno solo lee
+      // saas_social_posts/saas_social_metrics/socialflow_conversation_threads por su
+      // cuenta, ninguno depende del resultado de otro), así que correrlos a la vez
+      // reduce el tiempo total del cron en vez de sumarlo. ContentPerformanceAgent/
+      // HashtagIntelligenceAgent/AudienceGrowthAgent/OptimalPostingScheduleAgent/
+      // SentimentTrendAgent persisten cada uno en su propia tabla
+      // (socialcors_performance_snapshots migración 0225, socialcors_hashtag_intelligence
+      // migración 0227, socialcors_audience_growth migración 0228,
+      // socialcors_posting_schedule migración 0229, socialcors_sentiment_trend migración
+      // 0230) — nunca en socialcors_style_history, que StyleLearningAgent y
+      // detectContentFatigue tratan como snapshots homogéneos.
+      const [learned, voice, fatigue, performance, hashtags, growth, postingSchedule, sentiment] = await Promise.all([
         new StyleLearningAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new VoiceExtractionAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new ContentFatigueAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
@@ -92,6 +95,7 @@ export async function GET(request: NextRequest) {
         new HashtagIntelligenceAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new AudienceGrowthAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new OptimalPostingScheduleAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+        new SentimentTrendAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
       ]);
       results.push({
         tenantId: row.tenant_id,
@@ -106,6 +110,7 @@ export async function GET(request: NextRequest) {
         growthPostsFound: growth?.growthPosts.length ?? 0,
         loyaltyPostsFound: growth?.loyaltyPosts.length ?? 0,
         bestDaysFound: postingSchedule?.bestDays.length ?? 0,
+        sentimentAlert: sentiment?.alert ?? false,
       });
     } catch (err) {
       console.error("[cron/style-learning] agent failed", row.tenant_id, err instanceof Error ? err.message : String(err));
