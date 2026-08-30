@@ -23,7 +23,13 @@
  *     day-precision event calendar per niche, e.g. San Valentín/Black Friday/Navidad,
  *     with 21/14/7-day countdown alerts; complementary to SeasonalityAgent's monthly
  *     context, not a replacement — enumerates via socialflow_profiles, not gated by
- *     style-learning's published-post-count query, so new tenants get it too)
+ *     style-learning's published-post-count query, so new tenants get it too), then
+ *     /api/cron/social/churn-prediction (ChurnPredictionAgent — inactivity/churn risk
+ *     score per tenant from days-since-last-post/login, rejection ratio, abandoned
+ *     drafts; enumerates via socialflow_profiles for the same reason as
+ *     seasonal-opportunity — low-activity tenants are exactly who this needs to see, and
+ *     style-learning's gate would exclude them. Internal-only: never writes to
+ *     socialflow_intelligence_feed, visible only via /api/operator/socialflow/churn-risk)
  *   - once a week, Mondays (0 3 * * 1): /api/cron/social/niche-intelligence
  *     (NicheIntelligenceCronAgent — refreshes socialcors_niche_intelligence), then
  *     /api/cron/social/influencer-benchmark (InfluencerBenchmarkAgent — top 3 YouTube
@@ -131,6 +137,9 @@ const scheduledHandler = `    // __socialflowCronHandlerPatched
             });
             await fetch(appUrl + "/api/cron/social/seasonal-opportunity", authHeaders).catch(function(err) {
                 console.error("[Cron] scheduled seasonal-opportunity failed:", err.message);
+            });
+            await fetch(appUrl + "/api/cron/social/churn-prediction", authHeaders).catch(function(err) {
+                console.error("[Cron] scheduled churn-prediction failed:", err.message);
             });
             return;
         }

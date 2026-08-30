@@ -142,6 +142,25 @@ jobs:
             exit 1
           fi
           echo "✅ Seasonal-opportunity cron completed successfully"
+      # churn-prediction, igual que seasonal-opportunity, enumera vía socialflow_profiles
+      # (sin gate de posts publicados) — los tenants con poca actividad son justo a
+      # quienes hay que vigilar. Nunca escribe en el Intelligence Feed del cliente,
+      # solo en socialcors_churn_predictions (visible vía el endpoint de operador).
+      # Mismo bloque que scripts/patch-socialflow-cron-handler.mjs para el trigger
+      # nativo de Cloudflare.
+      - name: 🔗 Calcular riesgo de abandono por tenant (ChurnPredictionAgent)
+        run: |
+          STATUS=$(curl -s -o /tmp/churn_prediction_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/churn-prediction" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/churn_prediction_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Churn-prediction cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Churn-prediction cron completed successfully"
 
   socialflow-niche-intelligence:
     name: 📈 SocialFlow — Niche Intelligence (Cerebro)
