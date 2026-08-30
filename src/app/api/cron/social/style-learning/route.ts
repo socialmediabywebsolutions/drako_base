@@ -8,6 +8,7 @@ import { VoiceExtractionAgent } from "@/lib/socialflow/ai/agents/VoiceExtraction
 import { ContentFatigueAgent } from "@/lib/socialflow/ai/agents/ContentFatigueAgent";
 import { ContentPerformanceAgent } from "@/lib/socialflow/ai/agents/ContentPerformanceAgent";
 import { HashtagIntelligenceAgent } from "@/lib/socialflow/ai/agents/HashtagIntelligenceAgent";
+import { AudienceGrowthAgent } from "@/lib/socialflow/ai/agents/AudienceGrowthAgent";
 
 const MIN_PUBLISHED_POSTS = 10;
 
@@ -23,6 +24,8 @@ type TenantResult = {
   formatFatigued?: boolean;
   performanceAnalyzed?: number;
   hashtagsOverused?: number;
+  growthPostsFound?: number;
+  loyaltyPostsFound?: number;
   error?: string;
 };
 
@@ -69,20 +72,22 @@ export async function GET(request: NextRequest) {
 
   for (const row of tenantRows) {
     try {
-      // En paralelo — los cinco agentes son independientes (cada uno solo lee
+      // En paralelo — los seis agentes son independientes (cada uno solo lee
       // saas_social_posts/saas_social_metrics por su cuenta, ninguno depende del
       // resultado de otro), así que correrlos a la vez reduce el tiempo total del cron
-      // en vez de sumarlo. ContentPerformanceAgent/HashtagIntelligenceAgent persisten
-      // cada uno en su propia tabla (socialcors_performance_snapshots migración 0225,
-      // socialcors_hashtag_intelligence migración 0227) — nunca en
+      // en vez de sumarlo. ContentPerformanceAgent/HashtagIntelligenceAgent/
+      // AudienceGrowthAgent persisten cada uno en su propia tabla
+      // (socialcors_performance_snapshots migración 0225, socialcors_hashtag_intelligence
+      // migración 0227, socialcors_audience_growth migración 0228) — nunca en
       // socialcors_style_history, que StyleLearningAgent y detectContentFatigue tratan
       // como snapshots homogéneos.
-      const [learned, voice, fatigue, performance, hashtags] = await Promise.all([
+      const [learned, voice, fatigue, performance, hashtags, growth] = await Promise.all([
         new StyleLearningAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new VoiceExtractionAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new ContentFatigueAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new ContentPerformanceAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new HashtagIntelligenceAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+        new AudienceGrowthAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
       ]);
       results.push({
         tenantId: row.tenant_id,
@@ -94,6 +99,8 @@ export async function GET(request: NextRequest) {
         formatFatigued: fatigue?.formatFatigued ?? false,
         performanceAnalyzed: performance?.topPosts.length ?? 0,
         hashtagsOverused: hashtags?.overusedHashtags.length ?? 0,
+        growthPostsFound: growth?.growthPosts.length ?? 0,
+        loyaltyPostsFound: growth?.loyaltyPosts.length ?? 0,
       });
     } catch (err) {
       console.error("[cron/style-learning] agent failed", row.tenant_id, err instanceof Error ? err.message : String(err));

@@ -17,6 +17,7 @@ import { calculateViralScore, mapContentTypeToViralFormat } from "@/lib/socialfl
 import { getLatestPerformanceSnapshot } from "@/lib/socialflow/ai/agents/ContentPerformanceAgent";
 import { getInfluencerBenchmark } from "@/lib/socialflow/intelligence/InfluencerBenchmarkAgent";
 import { getLatestHashtagIntelligence } from "@/lib/socialflow/ai/agents/HashtagIntelligenceAgent";
+import { getLatestAudienceGrowth } from "@/lib/socialflow/ai/agents/AudienceGrowthAgent";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 
 // ---------------------------------------------------------------------------
@@ -52,7 +53,7 @@ const MODIFY_KEYWORDS_ES = ["cambia", "modifica", "actualiza", "mejora", "regene
 // Comprobado DESPUÉS de generate/modify en parseIntentFallback — un "genera contenido
 // con tendencias virales" explícito no debe robárselo esta lista, solo mensajes que
 // piden ideas sin pedir generación directa (ver auditoría previa de esta ruta).
-const IDEAS_KEYWORDS_ES = ["ideas", "qué grabo", "que grabo", "qué creo", "que creo", "qué publico", "que publico", "viral", "tendencias", "inspiración", "inspiracion"];
+const IDEAS_KEYWORDS_ES = ["ideas", "qué grabo", "que grabo", "qué creo", "que creo", "qué publico", "que publico", "viral", "tendencias", "inspiración", "inspiracion", "crecer", "cómo crezco", "como crezco", "ganar seguidores", "más seguidores", "mas seguidores", "audiencia nueva"];
 // Solo se evalúa cuando el cliente ya reenvió lastIdeas (ver POST) — nunca se dispara
 // sobre un mensaje "genera..." en frío, así que no choca con GENERATE_KEYWORDS_ES.
 const CONFIRM_IDEA_KEYWORDS_ES = ["créalo tú", "crealo tu", "hazlo tú", "hazlo tu", "créalo", "crealo", "hazlo", "genera"];
@@ -382,6 +383,23 @@ async function loadHashtagIntelligenceBlock(
   ].filter(Boolean).join("\n");
 }
 
+// Insight de AudienceGrowthAgent — snapshot ya calculado por el cron diario de
+// style-learning, nunca se re-ejecuta en vivo aquí (posts + métricas + LLM). Silencioso
+// si no hay snapshot todavía (tenant nuevo, o <5 posts con métricas reales).
+async function loadAudienceGrowthBlock(
+  tenantId: string,
+  saasId: string,
+  dracoEnv: ReturnType<typeof env>,
+): Promise<string> {
+  const growth = dracoEnv ? await getLatestAudienceGrowth(tenantId, saasId, dracoEnv).catch(() => null) : null;
+  if (!growth) return "";
+
+  return [
+    `Sobre qué atrae audiencia nueva vs. qué fideliza a la que ya tiene: ${growth.insight}`,
+    `Recomendación para crecer: ${growth.recommendation}`,
+  ].join("\n");
+}
+
 // Separa los hashtags inline del caption generado por el modelo — calculateViralScore
 // espera un caption "limpio" + un array de hashtags aparte (mismo contrato que ya usan
 // generate-from-image/generate-ai-carousel), y publishOptions/pendingPost también
@@ -475,11 +493,12 @@ async function buildIdeasReply(
         : "";
 
       const hashtagBlock = await loadHashtagIntelligenceBlock(tenantId, saasId, dracoEnv);
+      const growthBlock = await loadAudienceGrowthBlock(tenantId, saasId, dracoEnv);
 
       const prompt = `Eres un estratega de contenido. Con estos datos REALES de la cuenta y su nicho (nunca inventes cifras nuevas ni datos que no estén aquí):
 
 ${dataBlock}
-${fatigueStyleBlock ? `\n${fatigueStyleBlock}\n` : ""}${perfInsight ? `\nTus posts con mejor rendimiento histórico usaron estos patrones: ${perfInsight}\n` : ""}${benchmarkBlock}${hashtagBlock ? `\n${hashtagBlock}\n` : ""}
+${fatigueStyleBlock ? `\n${fatigueStyleBlock}\n` : ""}${perfInsight ? `\nTus posts con mejor rendimiento histórico usaron estos patrones: ${perfInsight}\n` : ""}${benchmarkBlock}${hashtagBlock ? `\n${hashtagBlock}\n` : ""}${growthBlock ? `\n${growthBlock}\n` : ""}
 Propón exactamente 3 ideas de contenido concretas para hoy. Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
 {"ideas": [{"hook": "...", "format": "reel"|"carrusel"|"post", "whyViral": "..."}]}
 
