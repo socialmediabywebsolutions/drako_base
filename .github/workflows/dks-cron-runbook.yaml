@@ -89,6 +89,23 @@ jobs:
             exit 1
           fi
           echo "✅ Metrics cron completed successfully"
+      # viral-moment corre en el mismo trigger de 4h que metrics (no depende de sus
+      # datos, solo comparte cadencia porque las tendencias cambian rápido) — mismo
+      # bloque que scripts/patch-socialflow-cron-handler.mjs para el trigger nativo de
+      # Cloudflare.
+      - name: 🔗 Detectar momentos virales emergentes (ViralMomentAgent)
+        run: |
+          STATUS=$(curl -s -o /tmp/viral_moment_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/viral-moment" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/viral_moment_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Viral-moment cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Viral-moment cron completed successfully"
 
   socialflow-style-learning:
     name: 🧠 SocialFlow — Style Learning (Cerebro)

@@ -9,7 +9,10 @@
  *     per invocation, oldest trend_last_fetched first, see runTrendKeywordCron)
  *   - every 4 hours, on the hour (see wrangler.workers.toml crons): /api/cron/social/metrics
  *     (processInstagramMetrics — collects per-post Instagram engagement/impressions into
- *     saas_social_metrics)
+ *     saas_social_metrics), then /api/cron/social/viral-moment (ViralMomentAgent — cross-
+ *     references youtubeHooks/redditTopics/globalTrends per niche against its own topic
+ *     tracking table, socialcors_viral_topic_tracking, to catch topics rising fast before
+ *     they're mainstream; runs every 4h because trends move too fast for the daily cron)
  *   - once a day (0 3 * * *): /api/cron/social/style-learning (StyleLearningAgent), then
  *     /api/cron/social/seasonality (SeasonalityAgent — refreshes
  *     socialflow_seasonality_cache per niche+current-month, 30-day TTL so most nights
@@ -100,6 +103,9 @@ const scheduledHandler = `    // __socialflowCronHandlerPatched
         if (event.cron === "0 */4 * * *") {
             await fetch(appUrl + "/api/cron/social/metrics", authHeaders).catch(function(err) {
                 console.error("[Cron] scheduled metrics failed:", err.message);
+            });
+            await fetch(appUrl + "/api/cron/social/viral-moment", authHeaders).catch(function(err) {
+                console.error("[Cron] scheduled viral-moment failed:", err.message);
             });
             return;
         }
