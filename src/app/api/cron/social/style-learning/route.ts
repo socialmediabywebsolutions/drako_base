@@ -12,6 +12,7 @@ import { AudienceGrowthAgent } from "@/lib/socialflow/ai/agents/AudienceGrowthAg
 import { OptimalPostingScheduleAgent } from "@/lib/socialflow/ai/agents/OptimalPostingScheduleAgent";
 import { SentimentTrendAgent } from "@/lib/socialflow/ai/agents/SentimentTrendAgent";
 import { ContentSeriesAgent } from "@/lib/socialflow/ai/agents/ContentSeriesAgent";
+import { BrandConsistencyAgent } from "@/lib/socialflow/ai/agents/BrandConsistencyAgent";
 
 const MIN_PUBLISHED_POSTS = 10;
 
@@ -32,6 +33,7 @@ type TenantResult = {
   bestDaysFound?: number;
   sentimentAlert?: boolean;
   seriesOpportunitiesFound?: number;
+  brandConsistencyAlert?: boolean;
   error?: string;
 };
 
@@ -78,19 +80,20 @@ export async function GET(request: NextRequest) {
 
   for (const row of tenantRows) {
     try {
-      // En paralelo — los nueve agentes son independientes (cada uno solo lee
+      // En paralelo — los diez agentes son independientes (cada uno solo lee
       // saas_social_posts/saas_social_metrics/socialflow_conversation_threads por su
       // cuenta, ninguno depende del resultado de otro), así que correrlos a la vez
       // reduce el tiempo total del cron en vez de sumarlo. ContentPerformanceAgent/
       // HashtagIntelligenceAgent/AudienceGrowthAgent/OptimalPostingScheduleAgent/
-      // SentimentTrendAgent/ContentSeriesAgent persisten cada uno en su propia tabla
-      // (socialcors_performance_snapshots migración 0225, socialcors_hashtag_intelligence
-      // migración 0227, socialcors_audience_growth migración 0228,
-      // socialcors_posting_schedule migración 0229, socialcors_sentiment_trend migración
-      // 0230, socialcors_content_series migración 0232) — nunca en
+      // SentimentTrendAgent/ContentSeriesAgent/BrandConsistencyAgent persisten cada uno
+      // en su propia tabla (socialcors_performance_snapshots migración 0225,
+      // socialcors_hashtag_intelligence migración 0227, socialcors_audience_growth
+      // migración 0228, socialcors_posting_schedule migración 0229,
+      // socialcors_sentiment_trend migración 0230, socialcors_content_series migración
+      // 0232, socialcors_brand_consistency migración 0235) — nunca en
       // socialcors_style_history, que StyleLearningAgent y detectContentFatigue tratan
       // como snapshots homogéneos.
-      const [learned, voice, fatigue, performance, hashtags, growth, postingSchedule, sentiment, series] = await Promise.all([
+      const [learned, voice, fatigue, performance, hashtags, growth, postingSchedule, sentiment, series, brandConsistency] = await Promise.all([
         new StyleLearningAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new VoiceExtractionAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new ContentFatigueAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
@@ -100,6 +103,7 @@ export async function GET(request: NextRequest) {
         new OptimalPostingScheduleAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new SentimentTrendAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new ContentSeriesAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+        new BrandConsistencyAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
       ]);
       results.push({
         tenantId: row.tenant_id,
@@ -116,6 +120,7 @@ export async function GET(request: NextRequest) {
         bestDaysFound: postingSchedule?.bestDays.length ?? 0,
         sentimentAlert: sentiment?.alert ?? false,
         seriesOpportunitiesFound: series?.totalOpportunities ?? 0,
+        brandConsistencyAlert: brandConsistency?.alert ?? false,
       });
     } catch (err) {
       console.error("[cron/style-learning] agent failed", row.tenant_id, err instanceof Error ? err.message : String(err));
