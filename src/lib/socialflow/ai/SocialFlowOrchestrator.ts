@@ -16,6 +16,7 @@ import { getLocal } from "../local/repository";
 import { getStyleHistory } from "../intelligence/NicheIntelligenceService";
 import { getSeasonalityContext } from "./agents/SeasonalityAgent";
 import { extractBestHourByFormat } from "./agents/BestTimeToPostAgent";
+import { getLatestOptimalPostingSchedule, mapBestDaysToIsoWeekdays } from "./agents/OptimalPostingScheduleAgent";
 import { generatePostImage } from "./image-generator";
 import { buildImagePrompt } from "./image-prompt-builder";
 import { env } from "@/lib/cf";
@@ -235,6 +236,25 @@ export class SocialFlowOrchestrator {
       console.error("[SocialFlowOrchestrator] bestHourByFormat lookup failed, falling back to niche rules", err instanceof Error ? err.message : String(err));
     }
 
+    // OptimalPostingScheduleAgent — combina la HORA óptima de arriba con el DÍA óptimo:
+    // lee el snapshot ya calculado por el cron diario (socialcors_posting_schedule,
+    // nunca se re-ejecuta el agente en vivo aquí) y lo traduce a días ISO para que
+    // SchedulerAgent los priorice. Degradación elegante: cualquier fallo deja
+    // preferredWeekdays undefined y SchedulerAgent cae exactamente al comportamiento de
+    // siempre (sin preferencia de día).
+    let preferredWeekdays: number[] | undefined;
+    try {
+      const dracoEnv = env();
+      if (dracoEnv) {
+        const postingSchedule = await getLatestOptimalPostingSchedule(input.tenantId, input.saasId, dracoEnv);
+        if (postingSchedule?.bestDays.length) {
+          preferredWeekdays = mapBestDaysToIsoWeekdays(postingSchedule.bestDays);
+        }
+      }
+    } catch (err) {
+      console.error("[SocialFlowOrchestrator] posting schedule lookup failed, falling back to no day preference", err instanceof Error ? err.message : String(err));
+    }
+
     const schedule = this.schedulerAgent.run({
       strategy: strategy.items as StrategyItem[],
       frequencyPerWeek: input.frequencyPerWeek,
@@ -242,6 +262,7 @@ export class SocialFlowOrchestrator {
       endDate: input.endDate ?? null,
       niche: profile.niche,
       optimalHoursByFormat,
+      preferredWeekdays,
     });
     const campaignId = await this.persistToDb(input, profile, strategy.items as StrategyItem[], optimizedPosts, schedule);
     return { profile, research, keywords: research, competitors, marketResearch, strategy, generatedPosts, optimizedPosts, schedule, campaignId };

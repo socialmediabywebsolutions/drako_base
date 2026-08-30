@@ -39,23 +39,45 @@ function buildSlots(
   return slots;
 }
 
+// ISO weekday (1=lunes ... 7=domingo) de un dateStr "YYYY-MM-DD" — JS getUTCDay() usa
+// 0=domingo..6=sábado, así que domingo (0) se remapea a 7.
+function isoWeekdayOfDateStr(dateStr: string): number {
+  const day = new Date(dateStr + "T00:00:00Z").getUTCDay();
+  return day === 0 ? 7 : day;
+}
+
 // Primer día libre (desde fromDateStr, dentro de numDays) para una hora exacta — usado
 // cuando un item tiene hora óptima real por formato (BestTimeToPostAgent), en vez del
 // pool wave-based de abajo, que reparte entre varias horas genéricas por nicho.
+// preferredWeekdays (OptimalPostingScheduleAgent, vía SocialFlowOrchestrator) PRIORIZA
+// esos días de la semana con una primera pasada; si ninguno está libre dentro de la
+// ventana, cae a la pasada normal sobre cualquier día — nunca deja un item sin fecha
+// por falta de un día preferido disponible.
 function firstFreeDayForHour(
   hour: number,
   fromDateStr: string,
   numDays: number,
   occupiedKeys: Set<string>,
+  preferredWeekdays?: number[],
 ): string | null {
-  let cursor = new Date(fromDateStr + "T00:00:00Z").getTime();
-  for (let i = 0; i < numDays; i++) {
-    const dateStr = new Date(cursor).toISOString().slice(0, 10);
-    const key = `${dateStr}T${String(hour).padStart(2, "0")}`;
-    if (!occupiedKeys.has(key)) return dateStr;
-    cursor += DAY_MS;
+  const scan = (requirePreferred: boolean): string | null => {
+    let cursor = new Date(fromDateStr + "T00:00:00Z").getTime();
+    for (let i = 0; i < numDays; i++) {
+      const dateStr = new Date(cursor).toISOString().slice(0, 10);
+      const key = `${dateStr}T${String(hour).padStart(2, "0")}`;
+      if (!occupiedKeys.has(key) && (!requirePreferred || preferredWeekdays!.includes(isoWeekdayOfDateStr(dateStr)))) {
+        return dateStr;
+      }
+      cursor += DAY_MS;
+    }
+    return null;
+  };
+
+  if (preferredWeekdays?.length) {
+    const preferred = scan(true);
+    if (preferred) return preferred;
   }
-  return null;
+  return scan(false);
 }
 
 export class SchedulerAgent {
@@ -73,6 +95,12 @@ export class SchedulerAgent {
     // para el formato de CADA item que tenga dato suficiente; los demás items (formato
     // sin datos, o mapa ausente) siguen usando el pool de abajo sin ningún cambio.
     optimalHoursByFormat?: Partial<Record<SaasSocialContentType, number>>;
+    // Días de la semana con mejor engagement real para este tenant
+    // (OptimalPostingScheduleAgent, vía socialcors_posting_schedule) — números ISO
+    // (1=lunes...7=domingo). Resuelto por el caller (SocialFlowOrchestrator), igual que
+    // optimalHoursByFormat. Solo PRIORIZA esos días dentro de la ventana disponible,
+    // nunca descarta un slot por no caer en un día preferido.
+    preferredWeekdays?: number[];
   }): ScheduledPostPlan[] {
     const n = input.strategy.length;
     if (n === 0) return [];
@@ -99,10 +127,21 @@ export class SchedulerAgent {
     );
 
     const allSlots = buildSlots(hours, rangeStart, SCHEDULING_WINDOW_DAYS);
-    const available = allSlots.filter(({ dateStr, hour }) => {
+    const freeSlots = allSlots.filter(({ dateStr, hour }) => {
       const key = `${dateStr}T${String(hour).padStart(2, "0")}`;
       return !occupiedKeys.has(key);
     });
+    // preferredWeekdays reordena el pool (partición estable) para que los días con
+    // mejor engagement real vayan primero dentro de cada franja horaria — sin
+    // preferredWeekdays, `available` queda idéntico a `freeSlots` (mismo orden
+    // wave-by-wave de siempre).
+    const available = input.preferredWeekdays?.length
+      ? [...freeSlots].sort(
+          (a, b) =>
+            (input.preferredWeekdays!.includes(isoWeekdayOfDateStr(a.dateStr)) ? 0 : 1)
+            - (input.preferredWeekdays!.includes(isoWeekdayOfDateStr(b.dateStr)) ? 0 : 1),
+        )
+      : freeSlots;
     // Consumido en orden de asignación (no necesariamente el mismo que el índice del
     // item en `strategy`, porque los items con hora óptima por formato no tocan el
     // pool) — cuando optimalHoursByFormat está ausente, cada item lo consume en orden,
@@ -147,7 +186,7 @@ export class SchedulerAgent {
       const targetHour = input.optimalHoursByFormat?.[contentType];
 
       if (targetHour !== undefined) {
-        const dateStr = firstFreeDayForHour(targetHour, rangeStart, SCHEDULING_WINDOW_DAYS, occupiedKeys);
+        const dateStr = firstFreeDayForHour(targetHour, rangeStart, SCHEDULING_WINDOW_DAYS, occupiedKeys, input.preferredWeekdays);
         if (dateStr) {
           occupiedKeys.add(`${dateStr}T${String(targetHour).padStart(2, "0")}`);
           const postDate = new Date(dateStr + "T00:00:00Z");
