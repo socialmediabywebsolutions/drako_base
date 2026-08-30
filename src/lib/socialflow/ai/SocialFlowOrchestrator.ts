@@ -17,6 +17,7 @@ import { getStyleHistory } from "../intelligence/NicheIntelligenceService";
 import { getSeasonalityContext } from "./agents/SeasonalityAgent";
 import { extractBestHourByFormat } from "./agents/BestTimeToPostAgent";
 import { getLatestOptimalPostingSchedule, mapBestDaysToIsoWeekdays } from "./agents/OptimalPostingScheduleAgent";
+import { getLatestContentDiversity, mapOverusedFormatForStrategy } from "./agents/ContentDiversityAgent";
 import { generatePostImage } from "./image-generator";
 import { buildImagePrompt } from "./image-prompt-builder";
 import { env } from "@/lib/cf";
@@ -207,7 +208,26 @@ export class SocialFlowOrchestrator {
     const channels = await listSaasSocialChannels(ctx);
     const { research, engine: keywordEngine } = await this.keywordAgent.run({ profile, trends });
     const numPosts = Math.max(1, Math.min(28, input.frequencyPerWeek));
-    const strategy = await this.strategyAgent.run({ profile, horizonDays: numPosts });
+
+    // ContentDiversityAgent — lee el snapshot ya calculado por el cron diario
+    // (socialcors_content_diversity, nunca se re-ejecuta el agente en vivo aquí) y lo
+    // traduce al único hint que StrategyAgent puede aplicar (solo elige entre
+    // "carousel"/"reel" — un sobreuso de FEED/STORY no tiene nada que ajustar aquí, ver
+    // mapOverusedFormatForStrategy). Degradación elegante: cualquier fallo deja
+    // avoidFormat undefined y StrategyAgent cae exactamente al comportamiento de
+    // siempre (alternancia 50/50 en la rama sin objetivo).
+    let avoidFormat: "carousel" | "reel" | null = null;
+    try {
+      const dracoEnv = env();
+      if (dracoEnv) {
+        const diversity = await getLatestContentDiversity(input.tenantId, input.saasId, dracoEnv);
+        avoidFormat = mapOverusedFormatForStrategy(diversity);
+      }
+    } catch (err) {
+      console.error("[SocialFlowOrchestrator] content diversity lookup failed, falling back to no format preference", err instanceof Error ? err.message : String(err));
+    }
+
+    const strategy = await this.strategyAgent.run({ profile, horizonDays: numPosts, avoidFormat });
     const generatedPosts = [];
     const optimizedPosts = [];
     for (const item of strategy.items) {

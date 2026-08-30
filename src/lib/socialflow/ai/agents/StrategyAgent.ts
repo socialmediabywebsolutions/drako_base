@@ -6,10 +6,16 @@ import type { BrandProfile, ContentStrategy, StrategyItem } from "../types";
 // alcance (reel); engagement/saves/leads/sales se benefician más de contenido de
 // autoridad que invita a guardar/interactuar (carousel). Sin objetivo reconocido, cae
 // al mismo criterio de siempre (alternancia por índice de día) para no romper el
-// comportamiento de clientes que todavía no configuraron uno.
+// comportamiento de clientes que todavía no configuraron uno — salvo que
+// ContentDiversityAgent (vía SocialFlowOrchestrator) haya detectado que ese cliente
+// lleva demasiados posts seguidos del mismo formato: en ese caso, en vez de alternar
+// 50/50, se fuerza consistentemente el formato NO sobreusado. Un objetivo explícito del
+// cliente (followers/virality/engagement/...) tiene prioridad sobre esta señal — es una
+// decisión de negocio deliberada, no algo que la variedad deba pisar.
 export function resolveFormatFromObjective(
   objective: string | null | undefined,
   fallbackIndex: number,
+  avoidFormat?: "carousel" | "reel" | null,
 ): "carousel" | "reel" {
   switch (objective) {
     case "followers":
@@ -21,13 +27,15 @@ export function resolveFormatFromObjective(
     case "sales":
       return "carousel";
     default:
+      if (avoidFormat === "carousel") return "reel";
+      if (avoidFormat === "reel") return "carousel";
       return fallbackIndex % 2 === 0 ? "carousel" : "reel";
   }
 }
 
 // Fallback used when Workers AI is unavailable or returns invalid JSON.
 // Angles are topic-specific so even the fallback produces relevant content.
-function buildBaseStrategy(horizonDays: number, niche: string, objective: string | null | undefined): ContentStrategy {
+function buildBaseStrategy(horizonDays: number, niche: string, objective: string | null | undefined, avoidFormat?: "carousel" | "reel" | null): ContentStrategy {
   const pool: Array<{ theme: string; angle: string; callToAction: string }> = [
     {
       theme: "errores comunes",
@@ -74,7 +82,7 @@ function buildBaseStrategy(horizonDays: number, niche: string, objective: string
       dayOffset: i,
       theme: entry.theme,
       angle: entry.angle,
-      format: resolveFormatFromObjective(objective, i),
+      format: resolveFormatFromObjective(objective, i, avoidFormat),
       callToAction: entry.callToAction,
     });
   }
@@ -107,8 +115,14 @@ export class StrategyAgent {
   async run(input: {
     profile: BrandProfile;
     horizonDays: number;
+    // Formato que ContentDiversityAgent detectó sobreusado (vía SocialFlowOrchestrator,
+    // socialcors_content_diversity) — resuelto por el caller, no leído aquí: este
+    // agente se mantiene sin I/O propio para esa señal, mismo criterio que
+    // optimalHoursByFormat/preferredWeekdays en SchedulerAgent. Solo afecta la rama sin
+    // objetivo configurado (ver resolveFormatFromObjective).
+    avoidFormat?: "carousel" | "reel" | null;
   }): Promise<ContentStrategy> {
-    const { profile, horizonDays } = input;
+    const { profile, horizonDays, avoidFormat } = input;
 
     const extra = profileContext(profile);
 
@@ -116,7 +130,7 @@ export class StrategyAgent {
     // formato que termine persistido no dependa de si respondió el LLM o si se cayó al
     // fallback determinista — ambos caminos usan exactamente los mismos valores.
     const formatByDay = Array.from({ length: horizonDays }, (_, i) =>
-      resolveFormatFromObjective(profile.clientObjective, i),
+      resolveFormatFromObjective(profile.clientObjective, i, avoidFormat),
     );
     const formatInstructions = formatByDay.map((f, i) => `Día ${i + 1}: "${f}"`).join("\n");
 
@@ -138,7 +152,7 @@ ${formatInstructions}
 
 Varía los ángulos: no repitas el mismo enfoque dos veces seguidas. Mezcla educación, inspiración, casos de uso y análisis, siempre sobre "${profile.niche}".`;
 
-    const base = buildBaseStrategy(horizonDays, profile.niche, profile.clientObjective);
+    const base = buildBaseStrategy(horizonDays, profile.niche, profile.clientObjective, avoidFormat);
 
     const { data } = await defaultLocalModel.generateStructured<ContentStrategy>(
       { prompt },
