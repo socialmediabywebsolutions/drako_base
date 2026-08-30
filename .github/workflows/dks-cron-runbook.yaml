@@ -125,6 +125,23 @@ jobs:
             exit 1
           fi
           echo "✅ Style-learning cron completed successfully"
+      # seasonal-opportunity es independiente de style-learning (enumera tenants vía
+      # socialflow_profiles, no vía el conteo de posts publicados de style-learning) —
+      # comparte el mismo trigger de 03:00 UTC solo por conveniencia. Mismo bloque que
+      # scripts/patch-socialflow-cron-handler.mjs para el trigger nativo de Cloudflare.
+      - name: 🔗 Detectar oportunidades estacionales por tenant
+        run: |
+          STATUS=$(curl -s -o /tmp/seasonal_opportunity_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/seasonal-opportunity" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/seasonal_opportunity_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Seasonal-opportunity cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Seasonal-opportunity cron completed successfully"
 
   socialflow-niche-intelligence:
     name: 📈 SocialFlow — Niche Intelligence (Cerebro)

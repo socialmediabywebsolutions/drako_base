@@ -18,7 +18,12 @@
  *     socialflow_seasonality_cache per niche+current-month, 30-day TTL so most nights
  *     it's a no-op scan; see runSeasonalityCron), then /api/cron/social/audience-insights
  *     (AudienceInsightAgent — detects recurring question patterns in real Instagram
- *     comments per tenant, seeds content suggestions into socialflow_intelligence_feed)
+ *     comments per tenant, seeds content suggestions into socialflow_intelligence_feed),
+ *     then /api/cron/social/seasonal-opportunity (SeasonalOpportunityAgent — hardcoded
+ *     day-precision event calendar per niche, e.g. San Valentín/Black Friday/Navidad,
+ *     with 21/14/7-day countdown alerts; complementary to SeasonalityAgent's monthly
+ *     context, not a replacement — enumerates via socialflow_profiles, not gated by
+ *     style-learning's published-post-count query, so new tenants get it too)
  *   - once a week, Mondays (0 3 * * 1): /api/cron/social/niche-intelligence
  *     (NicheIntelligenceCronAgent — refreshes socialcors_niche_intelligence), then
  *     /api/cron/social/influencer-benchmark (InfluencerBenchmarkAgent — top 3 YouTube
@@ -119,6 +124,9 @@ const scheduledHandler = `    // __socialflowCronHandlerPatched
             });
             await fetch(appUrl + "/api/cron/social/audience-insights", authHeaders).catch(function(err) {
                 console.error("[Cron] scheduled audience-insights failed:", err.message);
+            });
+            await fetch(appUrl + "/api/cron/social/seasonal-opportunity", authHeaders).catch(function(err) {
+                console.error("[Cron] scheduled seasonal-opportunity failed:", err.message);
             });
             return;
         }

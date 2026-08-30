@@ -21,6 +21,7 @@ import { getLatestAudienceGrowth } from "@/lib/socialflow/ai/agents/AudienceGrow
 import { getLatestOptimalPostingSchedule } from "@/lib/socialflow/ai/agents/OptimalPostingScheduleAgent";
 import { getLatestViralMoments } from "@/lib/socialflow/ai/agents/ViralMomentAgent";
 import { getLatestContentSeries } from "@/lib/socialflow/ai/agents/ContentSeriesAgent";
+import { getLatestSeasonalOpportunities } from "@/lib/socialflow/ai/agents/SeasonalOpportunityAgent";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 
 // ---------------------------------------------------------------------------
@@ -56,7 +57,7 @@ const MODIFY_KEYWORDS_ES = ["cambia", "modifica", "actualiza", "mejora", "regene
 // Comprobado DESPUÉS de generate/modify en parseIntentFallback — un "genera contenido
 // con tendencias virales" explícito no debe robárselo esta lista, solo mensajes que
 // piden ideas sin pedir generación directa (ver auditoría previa de esta ruta).
-const IDEAS_KEYWORDS_ES = ["ideas", "qué grabo", "que grabo", "qué creo", "que creo", "qué publico", "que publico", "viral", "tendencias", "inspiración", "inspiracion", "crecer", "cómo crezco", "como crezco", "ganar seguidores", "más seguidores", "mas seguidores", "audiencia nueva", "cada cuánto publico", "cada cuanto publico", "qué día publico", "que dia publico", "ritmo de publicación", "ritmo de publicacion", "urgente", "algo viral ahora", "qué está viral", "que esta viral", "qué publico después", "que publico despues", "dar seguimiento", "continuar la serie"];
+const IDEAS_KEYWORDS_ES = ["ideas", "qué grabo", "que grabo", "qué creo", "que creo", "qué publico", "que publico", "viral", "tendencias", "inspiración", "inspiracion", "crecer", "cómo crezco", "como crezco", "ganar seguidores", "más seguidores", "mas seguidores", "audiencia nueva", "cada cuánto publico", "cada cuanto publico", "qué día publico", "que dia publico", "ritmo de publicación", "ritmo de publicacion", "urgente", "algo viral ahora", "qué está viral", "que esta viral", "qué publico después", "que publico despues", "dar seguimiento", "continuar la serie", "fechas especiales", "próximos eventos", "proximos eventos", "qué se viene", "que se viene"];
 // Solo se evalúa cuando el cliente ya reenvió lastIdeas (ver POST) — nunca se dispara
 // sobre un mensaje "genera..." en frío, así que no choca con GENERATE_KEYWORDS_ES.
 const CONFIRM_IDEA_KEYWORDS_ES = ["créalo tú", "crealo tu", "hazlo tú", "hazlo tu", "créalo", "crealo", "hazlo", "genera"];
@@ -460,6 +461,23 @@ async function loadContentSeriesBlock(
   return `Series de contenido para dar seguimiento a posts que ya funcionaron bien:\n${lines.join("\n")}`;
 }
 
+// Snapshot de SeasonalOpportunityAgent (calendario de eventos estacionales próximos) —
+// ya calculado por el cron diario, nunca se re-ejecuta en vivo aquí. Silencioso si no
+// hay ningún evento relevante dentro de los próximos 21 días.
+async function loadSeasonalOpportunityBlock(
+  tenantId: string,
+  saasId: string,
+  dracoEnv: ReturnType<typeof env>,
+): Promise<string> {
+  const snapshot = dracoEnv ? await getLatestSeasonalOpportunities(tenantId, saasId, dracoEnv).catch(() => null) : null;
+  if (!snapshot?.upcomingOpportunities.length) return "";
+
+  const lines = snapshot.upcomingOpportunities.map(
+    (o) => `- ${o.event} en ${o.daysUntil} día(s) (prioridad ${o.priority}). Sugerencia: ${o.contentSuggestion}`,
+  );
+  return `Fechas especiales que se acercan para este cliente:\n${lines.join("\n")}`;
+}
+
 // Separa los hashtags inline del caption generado por el modelo — calculateViralScore
 // espera un caption "limpio" + un array de hashtags aparte (mismo contrato que ya usan
 // generate-from-image/generate-ai-carousel), y publishOptions/pendingPost también
@@ -557,11 +575,12 @@ async function buildIdeasReply(
       const scheduleBlock = await loadPostingScheduleBlock(tenantId, saasId, dracoEnv);
       const viralMomentBlock = await loadViralMomentBlock(tenantId, saasId, dracoEnv);
       const contentSeriesBlock = await loadContentSeriesBlock(tenantId, saasId, dracoEnv);
+      const seasonalBlock = await loadSeasonalOpportunityBlock(tenantId, saasId, dracoEnv);
 
       const prompt = `Eres un estratega de contenido. Con estos datos REALES de la cuenta y su nicho (nunca inventes cifras nuevas ni datos que no estén aquí):
 
 ${dataBlock}
-${fatigueStyleBlock ? `\n${fatigueStyleBlock}\n` : ""}${perfInsight ? `\nTus posts con mejor rendimiento histórico usaron estos patrones: ${perfInsight}\n` : ""}${benchmarkBlock}${hashtagBlock ? `\n${hashtagBlock}\n` : ""}${growthBlock ? `\n${growthBlock}\n` : ""}${scheduleBlock ? `\n${scheduleBlock}\n` : ""}${viralMomentBlock ? `\n${viralMomentBlock}\n\nSi hay temas subiendo ahora mismo, PRIORÍZALOS en tus 3 ideas — son la señal más urgente de todas.\n` : ""}${contentSeriesBlock ? `\n${contentSeriesBlock}\n` : ""}
+${fatigueStyleBlock ? `\n${fatigueStyleBlock}\n` : ""}${perfInsight ? `\nTus posts con mejor rendimiento histórico usaron estos patrones: ${perfInsight}\n` : ""}${benchmarkBlock}${hashtagBlock ? `\n${hashtagBlock}\n` : ""}${growthBlock ? `\n${growthBlock}\n` : ""}${scheduleBlock ? `\n${scheduleBlock}\n` : ""}${viralMomentBlock ? `\n${viralMomentBlock}\n\nSi hay temas subiendo ahora mismo, PRIORÍZALOS en tus 3 ideas — son la señal más urgente de todas.\n` : ""}${contentSeriesBlock ? `\n${contentSeriesBlock}\n` : ""}${seasonalBlock ? `\n${seasonalBlock}\n` : ""}
 Propón exactamente 3 ideas de contenido concretas para hoy. Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
 {"ideas": [{"hook": "...", "format": "reel"|"carrusel"|"post", "whyViral": "..."}]}
 
