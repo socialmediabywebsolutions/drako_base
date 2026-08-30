@@ -1,5 +1,6 @@
 import { resolveSocialContext, listSaasSocialPosts, listSaasSocialMetricsForPost } from "@/lib/socialflow/repository";
 import { getChannelProfile } from "@/lib/socialflow/profile/repository";
+import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
 import { seedFeedItems, dismissFeedItemsBySource } from "@/lib/socialflow/intelligence/repository";
 import { classifyHook } from "@/lib/socialflow/ai/agents/contentHeuristics";
 import type { PostWithEngagement } from "@/lib/socialflow/ai/agents/EngagementLearningAgent";
@@ -16,6 +17,24 @@ function truncate(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
 }
 
+// Sin llamada a IA en este agente (100% determinista, ver processTenant) — la
+// diferenciación por accountType se aplica directamente a los textos de las tarjetas
+// del feed, no a un prompt.
+const OPPORTUNITY_COPY = {
+  influencer: {
+    hookSuffix: "cuéntalo con tu propia historia y voz personal en tu próximo Reel o post — todavía no lo has probado en tus últimos",
+    hookActionLabel: "Crear contenido con este hook",
+    formatSuffix: "es una oportunidad real de viralidad que todavía no has probado en tus últimos",
+    formatActionLabel: "Probar este formato",
+  },
+  empresa: {
+    hookSuffix: "es una forma real de captar clientes y diferenciarte de tu competencia que tu negocio todavía no ha probado en los últimos",
+    hookActionLabel: "Captar clientes con este hook",
+    formatSuffix: "es una oportunidad real de reputación y captación local que todavía no has probado en los últimos",
+    formatActionLabel: "Probar este formato para tu negocio",
+  },
+} as const satisfies Record<"influencer" | "empresa", { hookSuffix: string; hookActionLabel: string; formatSuffix: string; formatActionLabel: string }>;
+
 export type ViralOpportunityResult = {
   tenantId: string;
   saasId: string;
@@ -31,7 +50,8 @@ async function processTenant(
   env: Env,
 ): Promise<{ hookOpportunity: string | null; formatOpportunity: string | null }> {
   const profile = await getChannelProfile(tenantId, saasId);
-  const nicheIntel = profile.niche ? await getNicheIntelligence(profile.niche, env, tenantId, saasId) : null;
+  const accountType = (await getSocialFlowAccountTypeByTenant(tenantId).catch(() => null)) ?? "influencer";
+  const nicheIntel = profile.niche ? await getNicheIntelligence(profile.niche, env, tenantId, saasId, accountType) : null;
   const engagementPatterns = extractEngagementPatterns(nicheIntel?.analysis);
 
   // Restricción explícita del diseño: sin engagementPatterns reales (nicho con <3
@@ -94,6 +114,8 @@ async function processTenant(
     (f) => !usedFormats.has(f.format) && f.avgEngagement > overallAvg,
   );
 
+  const copy = OPPORTUNITY_COPY[accountType];
+
   if (bestUntriedHook) {
     await seedFeedItems(
       tenantId,
@@ -101,8 +123,8 @@ async function processTenant(
         type: "opportunity",
         priority: "medium",
         title: truncate(`Hook viral en ${profile.niche}: "${bestUntriedHook.hook}"`, MAX_HOOK_TITLE_LENGTH),
-        description: `En tu nicho, los posts con hook tipo "${bestUntriedHook.hook}" tienen un engagement medio de ${bestUntriedHook.avgEngagement} (basado en ${bestUntriedHook.tenantsReporting} cuentas reales) — tú todavía no lo has probado en tus últimos ${LOOKBACK_DAYS} días.`,
-        actionLabel: "Probar este formato",
+        description: `En tu nicho, los posts con hook tipo "${bestUntriedHook.hook}" tienen un engagement medio de ${bestUntriedHook.avgEngagement} (basado en ${bestUntriedHook.tenantsReporting} cuentas reales) — ${copy.hookSuffix} ${LOOKBACK_DAYS} días.`,
+        actionLabel: copy.hookActionLabel,
         actionHref: "/socialflow/ai",
         source: HOOK_SOURCE,
       }],
@@ -119,8 +141,8 @@ async function processTenant(
         type: "opportunity",
         priority: "medium",
         title: `El formato ${bestUntriedFormat.format} está funcionando mejor en tu nicho`,
-        description: `En tu nicho, los posts en formato ${bestUntriedFormat.format} tienen un engagement medio de ${bestUntriedFormat.avgEngagement} (basado en ${bestUntriedFormat.tenantsReporting} cuentas reales) — tú todavía no lo has probado en tus últimos ${LOOKBACK_DAYS} días.`,
-        actionLabel: "Probar este formato",
+        description: `En tu nicho, los posts en formato ${bestUntriedFormat.format} tienen un engagement medio de ${bestUntriedFormat.avgEngagement} (basado en ${bestUntriedFormat.tenantsReporting} cuentas reales) — ${copy.formatSuffix} ${LOOKBACK_DAYS} días.`,
+        actionLabel: copy.formatActionLabel,
         actionHref: "/socialflow/ai",
         source: FORMAT_SOURCE,
       }],

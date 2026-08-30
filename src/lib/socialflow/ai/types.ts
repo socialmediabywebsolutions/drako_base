@@ -180,6 +180,11 @@ export type SocialAIPipelineResult = {
   research: KeywordResearch;
   keywords: KeywordResearch;
   competitors: CompetitorInsights[];
+  // Opcional: MarketResearchAgent corre en paralelo con competitorAgent/trendAgent en
+  // generateFullCampaign, degrada a null ante cualquier fallo — su output no se propaga
+  // todavía al resto del pipeline de redacción (keywordAgent/strategyAgent/
+  // contentGenerator), solo queda disponible en el resultado de la campaña.
+  marketResearch?: MarketResearch | null;
   strategy: ContentStrategy;
   generatedPosts: GeneratedPost[];
   optimizedPosts: OptimizedPost[];

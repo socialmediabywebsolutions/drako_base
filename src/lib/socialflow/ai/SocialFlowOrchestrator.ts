@@ -187,12 +187,23 @@ export class SocialFlowOrchestrator {
 
   async generateFullCampaign(input: SocialAIPipelineInput): Promise<SocialAIPipelineResult> {
     const profile = await this.buildProfile(input);
-    const competitors = await this.competitorAgent.run({ niche: profile.niche });
+    // competitorAgent/trendAgent/marketResearch son independientes entre sí (ninguno
+    // depende del resultado de otro) — se paralelizan. marketResearch nunca debe romper
+    // la generación de campaña: degrada a null ante cualquier fallo (ver comentario en
+    // SocialAIPipelineResult — su output todavía no se propaga al resto del pipeline de
+    // redacción, solo queda disponible en el resultado final).
+    const [competitors, trends, marketResearch] = await Promise.all([
+      this.competitorAgent.run({ niche: profile.niche }),
+      this.trendAgent.run({ profile }),
+      this.marketResearch.run({ profile, tenantId: input.tenantId, saasId: input.saasId }).catch((err) => {
+        console.error("[SocialFlowOrchestrator] marketResearch failed, continuing without it", err instanceof Error ? err.message : String(err));
+        return null;
+      }),
+    ]);
     // Persist AI-discovered competitor insights back into socialflow_profiles
     await saveCompetitorInsights(input.tenantId, competitors, input.saasId).catch(() => {});
     const ctx = await resolveSocialContext({ tenantId: input.tenantId, saasId: input.saasId });
     const channels = await listSaasSocialChannels(ctx);
-    const trends = await this.trendAgent.run({ profile });
     const { research, engine: keywordEngine } = await this.keywordAgent.run({ profile, trends });
     const numPosts = Math.max(1, Math.min(28, input.frequencyPerWeek));
     const strategy = await this.strategyAgent.run({ profile, horizonDays: numPosts });
@@ -233,7 +244,7 @@ export class SocialFlowOrchestrator {
       optimalHoursByFormat,
     });
     const campaignId = await this.persistToDb(input, profile, strategy.items as StrategyItem[], optimizedPosts, schedule);
-    return { profile, research, keywords: research, competitors, strategy, generatedPosts, optimizedPosts, schedule, campaignId };
+    return { profile, research, keywords: research, competitors, marketResearch, strategy, generatedPosts, optimizedPosts, schedule, campaignId };
   }
 
   async generateStrategyOnly(input: SocialAIPipelineInput) { const profile = await this.buildProfile(input); const competitors = await this.competitorAgent.run({ niche: profile.niche }); const trends = await this.trendAgent.run({ profile }); const { research } = await this.keywordAgent.run({ profile, trends }); const strategy = await this.strategyAgent.run({ profile, horizonDays: 7 }); return { profile, research, keywords: research, competitors, strategy }; }

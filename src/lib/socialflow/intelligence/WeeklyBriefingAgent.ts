@@ -1,9 +1,17 @@
 import { defaultLocalModel } from "../ai/models/localModel";
 import { resolveSocialContext, listSaasSocialPosts, listSaasSocialMetricsForPost } from "@/lib/socialflow/repository";
 import { getChannelProfile } from "@/lib/socialflow/profile/repository";
+import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
 import { sendEmail } from "@/lib/email";
 import type { SaasSocialPost } from "@/lib/social-core/types";
 import { getNicheIntelligence, getStyleHistory, detectContentFatigue, type Env } from "./NicheIntelligenceService";
+
+type NicheAccountType = "influencer" | "empresa";
+
+const BRIEFING_ACCOUNT_TYPE_INSTRUCTION: Record<NicheAccountType, string> = {
+  influencer: "Enfoca las recomendaciones en tendencias virales, formatos que están funcionando ahora mismo y hooks de esta semana en el nicho — piensa como un creador de contenido personal.",
+  empresa: "Enfoca las recomendaciones en oportunidades de captación de clientes locales, reputación y diferenciación frente a la competencia — piensa como un negocio local, no como un creador personal.",
+};
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_SAAS_ID = "socialflow";
@@ -126,11 +134,13 @@ function buildFallbackRecommendations(input: { niche: string; postCount: number;
 
 function buildRecommendationsPrompt(input: {
   niche: string;
+  accountType: NicheAccountType;
   weekPosts: PostWithEngagement[];
   nicheHashtags: string[];
   nicheFormats: string[];
   nicheHooks: string[];
   fatigueDescription: string | null;
+  competitorActivity: string | null;
 }): string {
   const postsSummary = input.weekPosts.length
     ? input.weekPosts
@@ -140,10 +150,12 @@ function buildRecommendationsPrompt(input: {
 
   return `Eres un consultor de redes sociales para el nicho "${input.niche}". Analiza el rendimiento real de esta semana y las tendencias del nicho, y da recomendaciones concretas y accionables para la semana que viene.
 
+${BRIEFING_ACCOUNT_TYPE_INSTRUCTION[input.accountType]}
+
 Posts publicados esta semana:
 ${postsSummary}
 
-${input.nicheHashtags.length ? `Hashtags en tendencia en el nicho: ${input.nicheHashtags.slice(0, 10).join(" ")}\n` : ""}${input.nicheFormats.length ? `Formatos que están funcionando en el nicho: ${input.nicheFormats.join(", ")}\n` : ""}${input.nicheHooks.length ? `Hooks que están funcionando en el nicho: ${input.nicheHooks.slice(0, 5).join(" | ")}\n` : ""}${input.fatigueDescription ? `⚠️ Fatiga de contenido detectada: ${input.fatigueDescription}\n` : ""}
+${input.nicheHashtags.length ? `Hashtags en tendencia en el nicho: ${input.nicheHashtags.slice(0, 10).join(" ")}\n` : ""}${input.nicheFormats.length ? `Formatos que están funcionando en el nicho: ${input.nicheFormats.join(", ")}\n` : ""}${input.nicheHooks.length ? `Hooks que están funcionando en el nicho: ${input.nicheHooks.slice(0, 5).join(" | ")}\n` : ""}${input.fatigueDescription ? `⚠️ Fatiga de contenido detectada: ${input.fatigueDescription}\n` : ""}${input.accountType === "empresa" && input.competitorActivity ? `Análisis de competencia local reciente:\n${input.competitorActivity}\n` : ""}
 Responde SOLO con un objeto JSON válido, sin markdown ni backticks, con esta forma exacta:
 {
   "recommendations": ["3 recomendaciones concretas y accionables, en español, basadas en los datos reales de arriba"],
@@ -155,11 +167,13 @@ async function generateRecommendations(input: {
   tenantId: string;
   saasId: string;
   niche: string;
+  accountType: NicheAccountType;
   weekPosts: PostWithEngagement[];
   nicheHashtags: string[];
   nicheFormats: string[];
   nicheHooks: string[];
   fatigueDescription: string | null;
+  competitorActivity: string | null;
 }): Promise<RecommendationsPayload> {
   const seed: RecommendationsPayload = { recommendations: [], nextWeekFocus: "" };
   const { data } = await defaultLocalModel.generateStructured<RecommendationsResult>(
@@ -227,12 +241,13 @@ export async function generateBriefing(tenantId: string, saasId: string, env: En
     return acc;
   }, {});
 
-  const [followerChange, nicheIntel, styleHistory, competitorActivity] = await Promise.all([
+  const [followerChange, accountType, styleHistory, competitorActivity] = await Promise.all([
     getFollowerChange(ctx.socialDb, tenantId, saasId),
-    getNicheIntelligence(profile.niche, env),
+    getSocialFlowAccountTypeByTenant(tenantId).then((v) => v ?? ("influencer" as NicheAccountType)).catch(() => "influencer" as NicheAccountType),
     getStyleHistory(tenantId, saasId, env),
     getLatestCompetitorSummary(ctx.socialDb, tenantId, saasId),
   ]);
+  const nicheIntel = await getNicheIntelligence(profile.niche, env, tenantId, saasId, accountType);
 
   const fatigueWarning = detectContentFatigue(styleHistory);
   const nicheHashtags = nicheIntel?.hashtags ?? [];
@@ -243,11 +258,13 @@ export async function generateBriefing(tenantId: string, saasId: string, env: En
     tenantId,
     saasId,
     niche: profile.niche,
+    accountType,
     weekPosts: withEngagement,
     nicheHashtags,
     nicheFormats,
     nicheHooks,
     fatigueDescription: fatigueWarning?.description ?? null,
+    competitorActivity,
   });
 
   return {
