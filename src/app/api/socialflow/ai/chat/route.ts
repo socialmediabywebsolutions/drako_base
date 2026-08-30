@@ -16,6 +16,7 @@ import { ContentFatigueAgent, type ContentFatigueResult } from "@/lib/socialflow
 import { calculateViralScore, mapContentTypeToViralFormat } from "@/lib/socialflow/intelligence/ViralScoreAgent";
 import { getLatestPerformanceSnapshot } from "@/lib/socialflow/ai/agents/ContentPerformanceAgent";
 import { getInfluencerBenchmark } from "@/lib/socialflow/intelligence/InfluencerBenchmarkAgent";
+import { getLatestHashtagIntelligence } from "@/lib/socialflow/ai/agents/HashtagIntelligenceAgent";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 
 // ---------------------------------------------------------------------------
@@ -358,6 +359,29 @@ async function loadFatigueAndStyleBlock(
   return { block: lines.join("\n"), fatigue };
 }
 
+// Mix de hashtags recomendado (HashtagIntelligenceAgent) — snapshot ya calculado por el
+// cron diario de style-learning, nunca se re-ejecuta en vivo aquí (posts + llamada a
+// Mistral). Universal para cualquier accountType, a diferencia del benchmark de
+// influencers. Silencioso si no hay snapshot todavía (tenant nuevo, o <5 posts con
+// hashtags reales).
+async function loadHashtagIntelligenceBlock(
+  tenantId: string,
+  saasId: string,
+  dracoEnv: ReturnType<typeof env>,
+): Promise<string> {
+  const hashtagIntel = dracoEnv ? await getLatestHashtagIntelligence(tenantId, saasId, dracoEnv).catch(() => null) : null;
+  if (!hashtagIntel) return "";
+
+  const { recommendedMix, overusedHashtags, insight } = hashtagIntel;
+  const mixLine = [...recommendedMix.niche, ...recommendedMix.trending, ...recommendedMix.reach].join(" ");
+
+  return [
+    mixLine ? `Mix de hashtags recomendado para este cliente (nicho + tendencia + alcance): ${mixLine}` : "",
+    overusedHashtags.length ? `Hashtags que este cliente ya tiene sobreusados (evita repetirlos): ${overusedHashtags.join(" ")}` : "",
+    insight ? `Por qué: ${insight}` : "",
+  ].filter(Boolean).join("\n");
+}
+
 // Separa los hashtags inline del caption generado por el modelo — calculateViralScore
 // espera un caption "limpio" + un array de hashtags aparte (mismo contrato que ya usan
 // generate-from-image/generate-ai-carousel), y publishOptions/pendingPost también
@@ -450,10 +474,12 @@ async function buildIdeasReply(
         ? `\nCómo lo hacen los canales de YouTube más vistos esta semana en tu nicho: ${influencerBenchmark.insight}\n`
         : "";
 
+      const hashtagBlock = await loadHashtagIntelligenceBlock(tenantId, saasId, dracoEnv);
+
       const prompt = `Eres un estratega de contenido. Con estos datos REALES de la cuenta y su nicho (nunca inventes cifras nuevas ni datos que no estén aquí):
 
 ${dataBlock}
-${fatigueStyleBlock ? `\n${fatigueStyleBlock}\n` : ""}${perfInsight ? `\nTus posts con mejor rendimiento histórico usaron estos patrones: ${perfInsight}\n` : ""}${benchmarkBlock}
+${fatigueStyleBlock ? `\n${fatigueStyleBlock}\n` : ""}${perfInsight ? `\nTus posts con mejor rendimiento histórico usaron estos patrones: ${perfInsight}\n` : ""}${benchmarkBlock}${hashtagBlock ? `\n${hashtagBlock}\n` : ""}
 Propón exactamente 3 ideas de contenido concretas para hoy. Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
 {"ideas": [{"hook": "...", "format": "reel"|"carrusel"|"post", "whyViral": "..."}]}
 
@@ -662,6 +688,7 @@ export async function POST(request: Request) {
       const nicheData = await loadNicheDataForIdeas(imgNiche, env(), session.tenantId, saasId, session.accountType ?? "influencer").catch(() => null);
       const nicheBlock = nicheData ? formatNicheDataForPrompt(nicheData) : "";
       const { block: fatigueStyleBlock, fatigue } = await loadFatigueAndStyleBlock(session.tenantId, saasId, env());
+      const hashtagBlock = await loadHashtagIntelligenceBlock(session.tenantId, saasId, env());
 
       const systemPrompt = `Eres el asistente creativo de ${imgProfile?.brandName || imgNiche}, una marca en el nicho "${imgNiche}". Tono de la marca: ${imgTone}.
 ${imgKnowledgeContext ? `Contexto de marca:\n${imgKnowledgeContext}\n` : ""}
@@ -673,6 +700,7 @@ El cliente subió una foto/vídeo. Análisis visual real de la pieza (nunca inve
 - Tipo de contenido recomendado: ${imageAnalysis.recommendedPostType}
 ${nicheBlock ? `\nQué está funcionando ahora mismo en este nicho (datos reales, cítalos solo si son relevantes):\n${nicheBlock}\n` : ""}
 ${fatigueStyleBlock ? `\nContexto interno del cliente (para que ajustes tu propuesta — NO lo menciones literalmente en el caption, es solo para ti):\n${fatigueStyleBlock}\n` : ""}
+${hashtagBlock ? `\nPara los hashtags del caption, usa como base este mix recomendado (evita los sobreusados):\n${hashtagBlock}\n` : ""}
 Tu tarea: proponer o ajustar el TEXTO/CAPTION de esta pieza concreta, adaptado al estilo de la marca. NUNCA generes una campaña completa ni hables de varios posts — solo esta pieza. Responde ÚNICAMENTE con el texto de la publicación (el caption tal cual se publicaría) — sin preguntas, sin encabezados, sin comentarios adicionales antes o después. Responde en español.`;
 
       try {

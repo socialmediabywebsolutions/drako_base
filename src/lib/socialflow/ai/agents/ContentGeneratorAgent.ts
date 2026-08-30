@@ -7,6 +7,7 @@ import { resolveObjectiveCta } from "../utils/ctaUtils";
 import { getNicheIntelligence, getStyleHistory, detectContentFatigue } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
 import { extractEngagementPatterns } from "@/lib/socialflow/intelligence/CrossTenantIntelligenceAgent";
 import { extractTrendSignals } from "@/lib/socialflow/intelligence/TrendKeywordAgent";
+import { getLatestHashtagIntelligence } from "./HashtagIntelligenceAgent";
 import { env } from "@/lib/cf";
 
 // Fallback determinista (sin llamar a Mistral) cuando el binding de IA no está
@@ -94,14 +95,17 @@ export class ContentGeneratorAgent {
     const isLinkedin = input.network === "LINKEDIN";
 
     const dracoEnv = env();
-    const [nicheIntel, styleHistory] = dracoEnv
+    const [nicheIntel, styleHistory, hashtagIntel] = dracoEnv
       ? await Promise.all([
           getNicheIntelligence(profile.niche, dracoEnv, input.tenantId, input.saasId, profile.accountType ?? "influencer"),
           input.tenantId && input.saasId
             ? getStyleHistory(input.tenantId, input.saasId, dracoEnv)
             : Promise.resolve([]),
+          input.tenantId && input.saasId
+            ? getLatestHashtagIntelligence(input.tenantId, input.saasId, dracoEnv).catch(() => null)
+            : Promise.resolve(null),
         ])
-      : [null, []];
+      : [null, [], null];
     const fatigueWarning = detectContentFatigue(styleHistory);
 
     // Real, cross-tenant hashtag data (Sprint F) — read directly from
@@ -155,18 +159,32 @@ export class ContentGeneratorAgent {
     const cta = objectiveCta ? null : profile.primaryCTA || (isLinkedin ? null : `¿Tú también lo sientes así? Cuéntame en los comentarios 👇`);
     const ctaSuffix = cta ? `\n\n${cta}` : "";
 
+    // HashtagIntelligenceAgent — mix ya curado (nicho+tendencia+alcance) cruzando el
+    // historial real de hashtags del tenant con tendencias reales del nicho; el propio
+    // agente ya excluye sus hashtags sobreusados del mix. Prioridad máxima en el pool,
+    // por delante incluso de realHashtagValues (una de sus propias fuentes de entrada).
+    const recommendedMixHashtags = hashtagIntel
+      ? [...hashtagIntel.recommendedMix.niche, ...hashtagIntel.recommendedMix.trending, ...hashtagIntel.recommendedMix.reach]
+      : [];
+    const overusedHashtagsLower = new Set((hashtagIntel?.overusedHashtags ?? []).map((h) => h.toLowerCase()));
+
     const fitnessNicheKeys = ['fitness', 'nutrici', 'bienestar', 'salud', 'entrenamiento', 'gym', 'yoga', 'pilates', 'deporte', 'fit'];
     const isFitnessNiche = fitnessNicheKeys.some(k => profile.niche.toLowerCase().includes(k));
     const hashtagPool = [
       // Reales primero — el pool se deduplica y trunca a 15 más abajo, así que los
       // hashtags con tracción real ganan cualquier hueco frente a los manuales del perfil.
+      ...recommendedMixHashtags,
       ...realHashtagValues,
       ...(profile.baseHashtags ?? []),
       ...(profile.priorityHashtags ?? []),
       ...(keywordEngine.campaignHashtags ?? []),
       ...(isFitnessNiche ? ['#FitnessParaMujeres', '#VidaFit', '#SaludYBienestar', '#MujerActiva', '#EntrenamientoFemenino', '#NutricionFit', '#HabitosSaludables', '#FitnessMotivacion', '#CuerpySano', '#BienestarFemenino', '#FitnessLatina', '#MindsetFit'] : []),
-    ];
+      // Sobreusados nunca entran al seed, aunque vinieran de una fuente manual/perfil.
+    ].filter((h) => !overusedHashtagsLower.has(h.toLowerCase()));
     const hashtagSeed = Array.from(new Set(hashtagPool)).slice(0, 15).join(' ');
+    const overusedHashtagsLine = hashtagIntel?.overusedHashtags.length
+      ? `Hashtags a EVITAR (ya sobreusados en los últimos posts de este cliente — el algoritmo de Instagram penaliza la repetición): ${hashtagIntel.overusedHashtags.join(' ')}`
+      : '';
 
     // Paso 7 — subjectType/employeeId (confirmados por el humano al subir la foto, paso
     // 5) tienen prioridad sobre employeeDetected (inferido por IA, paso 6) cuando ambos
@@ -225,6 +243,7 @@ ${cta ? `CTA: ${cta}` : ""}
 ${hooks ? `Hooks de referencia (adapta al tema): ${hooks}` : ""}
 ${keywords ? `Keywords a incluir naturalmente: ${keywords}` : ""}
 ${hashtagSeed ? `Hashtags de referencia para incluir: ${hashtagSeed}` : ""}
+${overusedHashtagsLine}
 ${nicheIntelSection}${fatigueSection}${seasonalSection}${geoSection}
 
 ${isLinkedin ? `
