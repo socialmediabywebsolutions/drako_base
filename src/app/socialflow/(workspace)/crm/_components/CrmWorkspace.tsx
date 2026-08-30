@@ -6,6 +6,7 @@ import type { LeadTemperature, SocialFlowLead } from "@/lib/socialflow/leads/typ
 import ConversationInbox from "@/components/socialflow/conversation-inbox";
 import LeadsPanel from "@/components/socialflow/leads-panel";
 import IntelligenceFeedPanel from "../../_components/IntelligenceFeedPanel";
+import StrategicPlanCard from "../../_components/StrategicPlanCard";
 
 type CrmTab = "comunidad" | "leads" | "inteligencia";
 
@@ -63,7 +64,12 @@ export default function CrmWorkspace({
         />
       )}
       {tab === "leads" && <LeadsPanel leads={leads} saasId={saasId} accountType={accountType} />}
-      {tab === "inteligencia" && <IntelligenceFeedPanel />}
+      {tab === "inteligencia" && (
+        <div className="space-y-5">
+          <StrategicPlanCard saasId={saasId} />
+          <IntelligenceFeedPanel />
+        </div>
+      )}
     </div>
   );
 }

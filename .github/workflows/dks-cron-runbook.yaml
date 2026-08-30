@@ -232,6 +232,23 @@ jobs:
             exit 1
           fi
           echo "✅ Weekly-briefing cron completed successfully"
+      # strategic-plan corre ÚLTIMO de toda la cadena semanal — sintetiza los snapshots
+      # de todos los demás agentes del Cerebro, así que necesita que esta semana ya haya
+      # terminado de refrescarlos. Mismo orden que scripts/patch-socialflow-cron-handler.mjs
+      # para el trigger nativo de Cloudflare.
+      - name: 🔗 Generar plan estratégico mensual (StrategicPlanningAgent)
+        run: |
+          STATUS=$(curl -s -o /tmp/strategic_plan_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/strategic-plan" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/strategic_plan_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Strategic-plan cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Strategic-plan cron completed successfully"
 
   alerts-check:
     name: 🧪 Auditor Manual de Salud

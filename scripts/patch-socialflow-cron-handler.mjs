@@ -38,7 +38,11 @@
  *     (ViralOpportunityAgent — needs that week's freshly-merged engagementPatterns to
  *     find untried hooks/formats per tenant, so must run after cross-tenant-intelligence),
  *     then /api/cron/social/weekly-briefing (WeeklyBriefingAgent — generates + sends the
- *     per-tenant weekly briefing, run last so it can use that week's freshly-refreshed data)
+ *     per-tenant weekly briefing, run last so it can use that week's freshly-refreshed data),
+ *     then /api/cron/social/strategic-plan (StrategicPlanningAgent — 1 Mistral call that
+ *     synthesizes every other Cerebro agent's latest snapshot for the tenant into a
+ *     monthly plan; run last of all so it reads that week's freshest data everywhere;
+ *     shown as a pinned card in the CRM Social Inteligencia tab, not the feed scroll)
  *
  * The "standalone" artifact mode used for socialflows is a full runtime COPY of
  * the real OpenNext worker (scopeMode: "standalone-runtime-copy"), NOT a thin
@@ -146,6 +150,9 @@ const scheduledHandler = `    // __socialflowCronHandlerPatched
             });
             await fetch(appUrl + "/api/cron/social/weekly-briefing", authHeaders).catch(function(err) {
                 console.error("[Cron] scheduled weekly-briefing failed:", err.message);
+            });
+            await fetch(appUrl + "/api/cron/social/strategic-plan", authHeaders).catch(function(err) {
+                console.error("[Cron] scheduled strategic-plan failed:", err.message);
             });
             return;
         }
