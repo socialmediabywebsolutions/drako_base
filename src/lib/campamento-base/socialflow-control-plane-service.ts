@@ -740,7 +740,16 @@ export async function getCampoBaseSocialFlowObservability(
       recentEvents: snapshot.recentEvents,
       recentIncidents: snapshot.recentIncidents,
     };
-  } catch {
+  } catch (error) {
+    // Diagnóstico: el catch de abajo devolvía el fallback en silencio, sin loggear la
+    // causa real — imposible depurar desde wrangler tail. Este console.error es el
+    // único cambio de comportamiento; el fallback que se devuelve sigue igual.
+    console.error(
+      "[getCampoBaseSocialFlowObservability] snapshot fetch failed",
+      tenantId,
+      saasId,
+      error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+    );
     return {
       tenantId,
       saasId,

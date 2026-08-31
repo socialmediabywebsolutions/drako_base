@@ -232,11 +232,12 @@ async function requestJson<T>(input: {
       signal: input.options.signal,
       body: input.method === "POST" ? JSON.stringify(input.body ?? {}) : undefined,
     });
-  } catch {
+  } catch (fetchError) {
+    const detail = fetchError instanceof Error ? `${fetchError.name}: ${fetchError.message}` : String(fetchError);
     throw new SocialFlowControlPlaneInternalApiError({
       status: 500,
       code: "INTERNAL_API_BAD_REQUEST",
-      message: `Unable to reach internal endpoint ${input.path}`,
+      message: `Unable to reach internal endpoint ${input.path} (url=${url}): ${detail}`,
       requestId,
     });
   }
