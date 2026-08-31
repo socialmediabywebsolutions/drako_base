@@ -672,6 +672,37 @@ export default function CampoBaseSocialAutomationControl() {
                 )}
               </div>
             </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
+              <h3 className="text-sm font-semibold text-slate-900">Últimas ejecuciones de agentes</h3>
+              {observability.recentAgentRuns.length === 0 ? (
+                <p className="mt-3 text-sm text-slate-500">Sin ejecuciones registradas todavía.</p>
+              ) : (
+                <ul className="mt-3 space-y-3">
+                  {observability.recentAgentRuns.map((run, index) => (
+                    <li
+                      key={`${run.agentName}-${run.startedAt}-${index}`}
+                      className="rounded-xl border border-slate-100 bg-slate-50 p-3"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-slate-900">{run.agentName}</p>
+                        <Badge variant={run.status === "success" ? "ok" : run.status === "error" ? "err" : "neutral"}>
+                          {run.status}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {run.tenantId ? `${run.tenantId} · ` : ""}
+                        {formatDate(run.startedAt)}
+                        {run.rowsWritten !== null ? ` · ${run.rowsWritten} fila(s)` : ""}
+                      </p>
+                      {run.errorMessage ? (
+                        <p className="mt-2 text-xs text-rose-700">{run.errorMessage}</p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         )}
       </Card>

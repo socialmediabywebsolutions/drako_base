@@ -16,11 +16,12 @@ import {
 import type { SocialFlowTrendTrigger, SocialFlowTrendTriggerHealth } from "@/lib/capabilities/internal-api-types/socialflow";
 import {
   SocialFlowControlPlaneInternalApiError,
-  fetchSocialFlowObservabilitySnapshot,
   fetchSocialFlowTrendTriggersSnapshot,
   postSocialFlowOperatorAction,
   triggerSocialFlowAutomation,
 } from "@/lib/capabilities/internal-api-clients/socialflow-control-plane";
+import { env } from "@/lib/cf";
+import { getSocialFlowOperatorObservability } from "@/lib/socialflow/contracts/observability";
 
 export const SOCIALFLOW_CONTENT_GENERATION_KEY = "socialflow.content_generation";
 export const SOCIALFLOW_HEALTH_CHECK_KEY = "socialflow.health_check";
@@ -273,6 +274,15 @@ export type CampoBaseSocialFlowObservability = {
     severity: string;
     summary: string;
     openedAt: string;
+  }>;
+  recentAgentRuns: Array<{
+    agentName: string;
+    tenantId: string | null;
+    status: "success" | "error" | "skipped";
+    startedAt: string;
+    finishedAt: string;
+    rowsWritten: number | null;
+    errorMessage: string | null;
   }>;
 };
 
@@ -715,37 +725,79 @@ export async function getCampoBaseSocialAutomationStatusForSaas(
   return item ? mapRegistrationToStatusItem(item) : null;
 }
 
+type AgentExecutionLogRow = {
+  agent_name: string;
+  tenant_id: string | null;
+  status: string;
+  started_at: string;
+  finished_at: string;
+  rows_written: number | null;
+  error_message: string | null;
+};
+
+// Lee agent_execution_log directo (mismo binding SOCIAL_DB que ya usa
+// getSocialFlowOperatorObservability vía resolveSocialContext) — runs agregados
+// (tenant_id NULL, la mayoría de los 26 crons del Cerebro) + runs propios del tenant
+// (p.ej. AudienceInsightAgent, que sí loggea por tenant).
+async function fetchRecentAgentRuns(
+  tenantId: string,
+): Promise<CampoBaseSocialFlowObservability["recentAgentRuns"]> {
+  const bindings = env();
+  const socialDb = bindings?.SOCIAL_DB;
+  if (!socialDb) return [];
+
+  const result = await socialDb
+    .prepare(
+      `SELECT agent_name, tenant_id, status, started_at, finished_at, rows_written, error_message
+       FROM agent_execution_log
+       WHERE tenant_id = ? OR tenant_id IS NULL
+       ORDER BY datetime(started_at) DESC
+       LIMIT 10`,
+    )
+    .bind(tenantId)
+    .all<AgentExecutionLogRow>();
+
+  return (result.results ?? []).map((row) => ({
+    agentName: row.agent_name,
+    tenantId: row.tenant_id,
+    status: row.status as "success" | "error" | "skipped",
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    rowsWritten: row.rows_written,
+    errorMessage: row.error_message,
+  }));
+}
+
 export async function getCampoBaseSocialFlowObservability(
   tenantId: string,
   saasId: string,
 ): Promise<CampoBaseSocialFlowObservability> {
   try {
-    const snapshot = await fetchSocialFlowObservabilitySnapshot({
-      tenantId,
-      saasId,
-    });
+    // Lectura directa en proceso — sin llamada HTTP al endpoint interno
+    // (drakos-prod ya tiene SOCIAL_DB bindeado, ver workers/drakos/wrangler.workers.toml).
+    // Misma función real ya usada por /api/internal/socialflow/observability/snapshot.
+    const [observability, recentAgentRuns] = await Promise.all([
+      getSocialFlowOperatorObservability({ tenantId, saasId }),
+      fetchRecentAgentRuns(tenantId),
+    ]);
 
-    // El contrato ya devuelve exactamente este shape (getSocialFlowOperatorObservability
-    // en el endpoint interno) — pass-through directo, sin ceros inventados.
     return {
-      tenantId: snapshot.tenantId,
-      saasId: snapshot.saasId,
-      capturedAt: snapshot.capturedAt,
-      health: snapshot.health,
-      scheduler: snapshot.scheduler,
-      posts: snapshot.posts,
-      publishing: snapshot.publishing,
-      linkedin: snapshot.linkedin,
-      metrics: snapshot.metrics,
-      recentEvents: snapshot.recentEvents,
-      recentIncidents: snapshot.recentIncidents,
+      tenantId: observability.tenantId,
+      saasId: observability.saasId,
+      capturedAt: observability.capturedAt,
+      health: observability.health,
+      scheduler: observability.scheduler,
+      posts: observability.posts,
+      publishing: observability.publishing,
+      linkedin: observability.linkedin,
+      metrics: observability.metrics,
+      recentEvents: observability.recentEvents,
+      recentIncidents: observability.recentIncidents,
+      recentAgentRuns,
     };
   } catch (error) {
-    // Diagnóstico: el catch de abajo devolvía el fallback en silencio, sin loggear la
-    // causa real — imposible depurar desde wrangler tail. Este console.error es el
-    // único cambio de comportamiento; el fallback que se devuelve sigue igual.
     console.error(
-      "[getCampoBaseSocialFlowObservability] snapshot fetch failed",
+      "[getCampoBaseSocialFlowObservability] direct SOCIAL_DB read failed",
       tenantId,
       saasId,
       error instanceof Error ? `${error.name}: ${error.message}` : String(error),
@@ -758,7 +810,7 @@ export async function getCampoBaseSocialFlowObservability(
         status: "unknown",
         freshnessStatus: "unknown",
         schedulerStatus: "needs_attention",
-        recommendation: "Socialcors observability snapshot is temporarily unavailable from control-plane API.",
+        recommendation: "Socialcors observability data is temporarily unavailable — SOCIAL_DB read failed, see server logs.",
         openIncidentsCount: 0,
         latestActivityAt: null,
         latestSnapshotAt: null,
@@ -815,6 +867,7 @@ export async function getCampoBaseSocialFlowObservability(
       },
       recentEvents: [],
       recentIncidents: [],
+      recentAgentRuns: [],
     };
   }
 }
