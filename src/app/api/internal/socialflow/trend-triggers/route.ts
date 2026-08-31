@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/cf";
+import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
 import type {
   SocialFlowTrendTrigger,
   SocialFlowTrendTriggerHealth,
@@ -129,10 +130,14 @@ export async function GET(request: Request) {
     };
   });
 
-  // Métrica 1 — frescura de la señal de tendencia del nicho del tenant interno.
+  // Métrica 1 — frescura de la señal de tendencia del nicho del tenant interno. Desde la
+  // migración 0224 hay 2 filas por nicho (una por accountType) — mismo filtro dinámico que
+  // TrendTriggerConnector.ts:106, para no leer la fila del accountType equivocado (antes
+  // el .first() sin filtro devolvía la de rowid más bajo, no la del tenant real).
+  const accountType = (await getSocialFlowAccountTypeByTenant(TREND_TRIGGER_TENANT_ID).catch(() => null)) ?? "influencer";
   const nicheRow = await db
-    .prepare(`SELECT trend_last_fetched FROM socialcors_niche_intelligence WHERE niche = ?`)
-    .bind(TREND_TRIGGER_NICHE)
+    .prepare(`SELECT trend_last_fetched FROM socialcors_niche_intelligence WHERE niche = ? AND account_type = ?`)
+    .bind(TREND_TRIGGER_NICHE, accountType)
     .first<{ trend_last_fetched: string | null }>();
   const trendLastFetchedAt = nicheRow?.trend_last_fetched ?? null;
   const trendSignalAgeHours = trendLastFetchedAt
