@@ -13,6 +13,7 @@ import { resolveSocialContext, upsertSaasSocialCampaign } from "../../../src/lib
 import { watermarkCampaignImages } from "./image-watermark";
 import { processScheduledPosts } from "../../../src/lib/socialflow/scheduler";
 import { runTrendAutoApproveCron } from "../../../src/lib/socialflow/intelligence/TrendAutoApproveCron";
+import { withAgentExecutionLog } from "../../../src/lib/socialflow/intelligence/agent-execution-log";
 import { ImageAnalysisAgent, type ImageAnalysis } from "../../../src/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import { ContentGeneratorAgent } from "../../../src/lib/socialflow/ai/agents/ContentGeneratorAgent";
 import { OptimizationAgent } from "../../../src/lib/socialflow/ai/agents/OptimizationAgent";
@@ -814,7 +815,16 @@ export default {
     // event.cron). No toca la rama de processScheduledPosts() de abajo.
     if (event.cron === "*/15 * * * *") {
       try {
-        const result = await runTrendAutoApproveCron(env);
+        const result = env.SOCIAL_DB
+          ? await withAgentExecutionLog({
+              db: env.SOCIAL_DB,
+              agentName: "TrendAutoApproveCron",
+              tenantId: null,
+              saasId: null,
+              run: () => runTrendAutoApproveCron(env),
+              rowsWritten: (r) => r.approved + r.generationFailed,
+            })
+          : await runTrendAutoApproveCron(env);
         console.log("[TrendAutoApprove] Batch complete", JSON.stringify(result));
       } catch (error) {
         console.error("[TrendAutoApprove] runTrendAutoApproveCron failed", error instanceof Error ? error.message : String(error));

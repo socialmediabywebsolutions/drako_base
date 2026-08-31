@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { CronAuthError, verifyCronAuth } from "@/lib/security/cron-auth";
 import { env } from "@/lib/cf";
 import { AudienceInsightAgent } from "@/lib/socialflow/ai/agents/AudienceInsightAgent";
+import { withAgentExecutionLog } from "@/lib/socialflow/intelligence/agent-execution-log";
 
 const MIN_COMMENTS = 10;
 
@@ -60,7 +61,14 @@ export async function GET(request: NextRequest) {
 
   for (const row of tenantRows) {
     try {
-      const insights = await new AudienceInsightAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id });
+      const insights = await withAgentExecutionLog({
+        db: socialDb,
+        agentName: "AudienceInsightAgent",
+        tenantId: row.tenant_id,
+        saasId: row.saas_id,
+        run: () => new AudienceInsightAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+        rowsWritten: (r) => r?.length ?? 0,
+      });
       results.push({
         tenantId: row.tenant_id,
         saasId: row.saas_id,

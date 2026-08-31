@@ -15,6 +15,7 @@ import { ContentSeriesAgent } from "@/lib/socialflow/ai/agents/ContentSeriesAgen
 import { BrandConsistencyAgent } from "@/lib/socialflow/ai/agents/BrandConsistencyAgent";
 import { ContentDiversityAgent } from "@/lib/socialflow/ai/agents/ContentDiversityAgent";
 import { RevenueOpportunityAgent } from "@/lib/socialflow/ai/agents/RevenueOpportunityAgent";
+import { withAgentExecutionLog } from "@/lib/socialflow/intelligence/agent-execution-log";
 
 const MIN_PUBLISHED_POSTS = 10;
 
@@ -98,18 +99,59 @@ export async function GET(request: NextRequest) {
       // migración 0235, socialcors_content_diversity migración 0236) — nunca en
       // socialcors_style_history, que StyleLearningAgent y detectContentFatigue tratan
       // como snapshots homogéneos.
+      const logScope = { tenantId: row.tenant_id, saasId: row.saas_id };
       const [learned, voice, fatigue, performance, hashtags, growth, postingSchedule, sentiment, series, brandConsistency, diversity] = await Promise.all([
-        new StyleLearningAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
-        new VoiceExtractionAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
-        new ContentFatigueAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
-        new ContentPerformanceAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
-        new HashtagIntelligenceAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
-        new AudienceGrowthAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
-        new OptimalPostingScheduleAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
-        new SentimentTrendAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
-        new ContentSeriesAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
-        new BrandConsistencyAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
-        new ContentDiversityAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+        withAgentExecutionLog({
+          db: socialDb, agentName: "StyleLearningAgent", ...logScope,
+          run: () => new StyleLearningAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+          rowsWritten: (r) => r?.postsAnalyzed ?? null,
+        }),
+        withAgentExecutionLog({
+          db: socialDb, agentName: "VoiceExtractionAgent", ...logScope,
+          run: () => new VoiceExtractionAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+          rowsWritten: (r) => r?.postsAnalyzed ?? null,
+        }),
+        withAgentExecutionLog({
+          db: socialDb, agentName: "ContentFatigueAgent", ...logScope,
+          run: () => new ContentFatigueAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+        }),
+        withAgentExecutionLog({
+          db: socialDb, agentName: "ContentPerformanceAgent", ...logScope,
+          run: () => new ContentPerformanceAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+          rowsWritten: (r) => r?.topPosts.length ?? null,
+        }),
+        withAgentExecutionLog({
+          db: socialDb, agentName: "HashtagIntelligenceAgent", ...logScope,
+          run: () => new HashtagIntelligenceAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+          rowsWritten: (r) => r?.overusedHashtags.length ?? null,
+        }),
+        withAgentExecutionLog({
+          db: socialDb, agentName: "AudienceGrowthAgent", ...logScope,
+          run: () => new AudienceGrowthAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+          rowsWritten: (r) => (r ? r.growthPosts.length + r.loyaltyPosts.length : null),
+        }),
+        withAgentExecutionLog({
+          db: socialDb, agentName: "OptimalPostingScheduleAgent", ...logScope,
+          run: () => new OptimalPostingScheduleAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+          rowsWritten: (r) => r?.bestDays.length ?? null,
+        }),
+        withAgentExecutionLog({
+          db: socialDb, agentName: "SentimentTrendAgent", ...logScope,
+          run: () => new SentimentTrendAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+        }),
+        withAgentExecutionLog({
+          db: socialDb, agentName: "ContentSeriesAgent", ...logScope,
+          run: () => new ContentSeriesAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+          rowsWritten: (r) => r?.totalOpportunities ?? null,
+        }),
+        withAgentExecutionLog({
+          db: socialDb, agentName: "BrandConsistencyAgent", ...logScope,
+          run: () => new BrandConsistencyAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+        }),
+        withAgentExecutionLog({
+          db: socialDb, agentName: "ContentDiversityAgent", ...logScope,
+          run: () => new ContentDiversityAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+        }),
       ]);
 
       // RevenueOpportunityAgent corre DESPUÉS del Promise.all de arriba, no dentro —
@@ -117,7 +159,10 @@ export async function GET(request: NextRequest) {
       // SentimentTrendAgent de este mismo ciclo (getLatest*), así que necesita que
       // ambos hayan terminado de escribir antes de leer. Solo aplica a
       // accountType="empresa" — devuelve null en silencio para influencer.
-      const revenueOpportunity = await new RevenueOpportunityAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id });
+      const revenueOpportunity = await withAgentExecutionLog({
+        db: socialDb, agentName: "RevenueOpportunityAgent", ...logScope,
+        run: () => new RevenueOpportunityAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
+      });
 
       results.push({
         tenantId: row.tenant_id,

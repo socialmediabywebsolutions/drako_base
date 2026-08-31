@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { CronAuthError, verifyCronAuth } from "@/lib/security/cron-auth";
 import { env } from "@/lib/cf";
 import { runInfluencerBenchmarkCron } from "@/lib/socialflow/intelligence/InfluencerBenchmarkAgent";
+import { withAgentExecutionLog } from "@/lib/socialflow/intelligence/agent-execution-log";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,6 +24,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, code: "YOUTUBE_API_KEY_UNAVAILABLE" }, { status: 503 });
   }
 
-  const results = await runInfluencerBenchmarkCron(bindings);
+  const results = await withAgentExecutionLog({
+    db: bindings.SOCIAL_DB,
+    agentName: "InfluencerBenchmarkAgent",
+    tenantId: null,
+    saasId: null,
+    run: () => runInfluencerBenchmarkCron(bindings),
+    rowsWritten: (r) => r.length,
+  });
   return NextResponse.json({ ok: true, nichesProcessed: results.length, results });
 }
