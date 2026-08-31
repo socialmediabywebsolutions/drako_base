@@ -14,6 +14,7 @@ import { SentimentTrendAgent } from "@/lib/socialflow/ai/agents/SentimentTrendAg
 import { ContentSeriesAgent } from "@/lib/socialflow/ai/agents/ContentSeriesAgent";
 import { BrandConsistencyAgent } from "@/lib/socialflow/ai/agents/BrandConsistencyAgent";
 import { ContentDiversityAgent } from "@/lib/socialflow/ai/agents/ContentDiversityAgent";
+import { RevenueOpportunityAgent } from "@/lib/socialflow/ai/agents/RevenueOpportunityAgent";
 
 const MIN_PUBLISHED_POSTS = 10;
 
@@ -36,6 +37,7 @@ type TenantResult = {
   seriesOpportunitiesFound?: number;
   brandConsistencyAlert?: boolean;
   diversityScore?: number;
+  revenueOpportunityScore?: number;
   error?: string;
 };
 
@@ -109,6 +111,14 @@ export async function GET(request: NextRequest) {
         new BrandConsistencyAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
         new ContentDiversityAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id }),
       ]);
+
+      // RevenueOpportunityAgent corre DESPUÉS del Promise.all de arriba, no dentro —
+      // depende de leer los snapshots ya persistidos por AudienceGrowthAgent y
+      // SentimentTrendAgent de este mismo ciclo (getLatest*), así que necesita que
+      // ambos hayan terminado de escribir antes de leer. Solo aplica a
+      // accountType="empresa" — devuelve null en silencio para influencer.
+      const revenueOpportunity = await new RevenueOpportunityAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id });
+
       results.push({
         tenantId: row.tenant_id,
         saasId: row.saas_id,
@@ -126,6 +136,7 @@ export async function GET(request: NextRequest) {
         seriesOpportunitiesFound: series?.totalOpportunities ?? 0,
         brandConsistencyAlert: brandConsistency?.alert ?? false,
         diversityScore: diversity?.overallDiversityScore,
+        revenueOpportunityScore: revenueOpportunity?.opportunityScore,
       });
     } catch (err) {
       console.error("[cron/style-learning] agent failed", row.tenant_id, err instanceof Error ? err.message : String(err));
