@@ -1,3 +1,4 @@
+import { getCloudflareContextSafeSync } from "@/lib/cloudflare/runtime";
 import type {
   InternalApiError,
   SocialFlowAutomationTriggerRequest,
@@ -269,12 +270,14 @@ export async function fetchSocialFlowHealth(
 }
 
 export async function fetchSocialFlowObservabilitySnapshot(
-  options: SocialFlowControlPlaneRequestOptions = {},
+  options: SocialFlowControlPlaneRequestOptions & { saasId: string },
 ): Promise<SocialFlowObservabilitySnapshot> {
+  const { saasId, ...requestOptions } = options;
+  const path = `${SOCIALFLOW_OBSERVABILITY_SNAPSHOT_PATH}?saasId=${encodeURIComponent(saasId)}`;
   return requestJson<SocialFlowObservabilitySnapshot>({
-    path: SOCIALFLOW_OBSERVABILITY_SNAPSHOT_PATH,
+    path,
     method: "GET",
-    options,
+    options: requestOptions,
   });
 }
 

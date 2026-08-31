@@ -63,15 +63,84 @@ export type SocialFlowObservabilityMetrics = {
   averageLatencyMs: number | null;
 };
 
+export type SocialFlowObservabilityPostSnapshot = {
+  id: string;
+  title: string;
+  provider: string;
+  status: string;
+  scheduledAt: string | null;
+  postedAt: string | null;
+  updatedAt: string;
+  externalPostId: string | null;
+  attempts: number | null;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
+};
+
+export type SocialFlowObservabilityConnectionSnapshot = {
+  id: string;
+  provider: string;
+  handle: string | null;
+  displayName: string | null;
+  status: string;
+  isPrimary: boolean;
+  updatedAt: string;
+};
+
+// Shape real, respaldado por consultas reales a SOCIAL_DB — ver
+// getSocialFlowOperatorObservability() en src/lib/socialflow/contracts/observability.ts,
+// que este endpoint envuelve directamente. No hay campos "sin fuente" aquí: cada uno
+// viene de saas_social_posts / saas_social_accounts / saas_social_metrics /
+// observability-core.
 export type SocialFlowObservabilitySnapshot = {
   service: "socialflow";
   runtime: "monolith";
-  timestamp: string;
   requestId: string;
-  tenantId: string | null;
-  status: SocialFlowHealthStatus;
-  metrics: SocialFlowObservabilityMetrics;
-  recentErrors: SocialFlowObservabilityRecentError[];
+  tenantId: string;
+  saasId: string;
+  capturedAt: string;
+  health: {
+    status: "healthy" | "needs_attention" | "degraded" | "unknown";
+    freshnessStatus: "fresh" | "stale" | "unknown";
+    schedulerStatus: "idle" | "active" | "needs_attention";
+    recommendation: string;
+    openIncidentsCount: number;
+    latestActivityAt: string | null;
+    latestSnapshotAt: string | null;
+  };
+  scheduler: {
+    scheduledPosts: number;
+    dueScheduledPosts: number;
+    publishingPosts: number;
+    stalePublishingPosts: number;
+    nextScheduledAt: string | null;
+    lastPublishedAt: string | null;
+  };
+  posts: {
+    total: number;
+    byStatus: Record<string, number>;
+    recentPublished: SocialFlowObservabilityPostSnapshot[];
+    recentFailed: SocialFlowObservabilityPostSnapshot[];
+    stalePublishing: SocialFlowObservabilityPostSnapshot[];
+  };
+  publishing: {
+    successLast30Days: number;
+    failedLast30Days: number;
+    successRateLast30Days: number;
+    lastFailureAt: string | null;
+  };
+  linkedin: {
+    connected: boolean;
+    totalConnections: number;
+    primaryStatus: string | null;
+    connections: SocialFlowObservabilityConnectionSnapshot[];
+  };
+  metrics: {
+    last7Days: { engagement: number; publishedPosts: number; topProvider: string | null };
+    last30Days: { engagement: number; publishedPosts: number; topProvider: string | null };
+  };
+  recentEvents: Array<{ id: string; activityType: string; summary: string; createdAt: string }>;
+  recentIncidents: Array<{ id: string; severity: string; summary: string; openedAt: string }>;
   warnings: string[];
 };
 

@@ -406,12 +406,6 @@ function mapTriggerError(error: unknown): never {
   throw error;
 }
 
-function mapSnapshotStatusToHealth(status: "ok" | "degraded" | "down"): "healthy" | "needs_attention" | "degraded" {
-  if (status === "ok") return "healthy";
-  if (status === "degraded") return "needs_attention";
-  return "degraded";
-}
-
 function mapLegacyActionToControlPlaneAction(_action: CampoBaseSocialFlowOperatorAction) {
   return "request_diagnostics" as const;
 }
@@ -728,82 +722,23 @@ export async function getCampoBaseSocialFlowObservability(
   try {
     const snapshot = await fetchSocialFlowObservabilitySnapshot({
       tenantId,
+      saasId,
     });
 
-    const success = snapshot.metrics.successfulJobsLast24h;
-    const failed = snapshot.metrics.failedJobsLast24h;
-    const outcomes = success + failed;
-
+    // El contrato ya devuelve exactamente este shape (getSocialFlowOperatorObservability
+    // en el endpoint interno) — pass-through directo, sin ceros inventados.
     return {
-      tenantId,
-      saasId,
-      capturedAt: snapshot.timestamp,
-      health: {
-        status: mapSnapshotStatusToHealth(snapshot.status),
-        freshnessStatus: "unknown",
-        schedulerStatus: snapshot.metrics.queuedJobs > 0 ? "active" : "idle",
-        recommendation: snapshot.warnings[0] ?? "Observability snapshot collected from internal control-plane contract.",
-        openIncidentsCount: snapshot.recentErrors.length,
-        latestActivityAt: snapshot.recentErrors[0]?.occurredAt ?? null,
-        latestSnapshotAt: snapshot.timestamp,
-      },
-      scheduler: {
-        scheduledPosts: 0,
-        dueScheduledPosts: snapshot.metrics.queuedJobs,
-        publishingPosts: 0,
-        stalePublishingPosts: 0,
-        nextScheduledAt: null,
-        lastPublishedAt: null,
-      },
-      posts: {
-        total: 0,
-        byStatus: {
-          IDEA: 0,
-          DRAFT: 0,
-          IN_REVIEW: 0,
-          APPROVED: 0,
-          REJECTED: 0,
-          SCHEDULED: 0,
-          PUBLISHING: 0,
-          POSTED: 0,
-          PUBLISHED: 0,
-          FAILED: 0,
-        },
-        recentPublished: [],
-        recentFailed: [],
-        stalePublishing: [],
-      },
-      publishing: {
-        successLast30Days: success,
-        failedLast30Days: failed,
-        successRateLast30Days: outcomes > 0 ? success / outcomes : 0,
-        lastFailureAt: snapshot.recentErrors[0]?.occurredAt ?? null,
-      },
-      linkedin: {
-        connected: false,
-        totalConnections: 0,
-        primaryStatus: null,
-        connections: [],
-      },
-      metrics: {
-        last7Days: {
-          engagement: 0,
-          publishedPosts: success,
-          topProvider: null,
-        },
-        last30Days: {
-          engagement: 0,
-          publishedPosts: success,
-          topProvider: null,
-        },
-      },
-      recentEvents: [],
-      recentIncidents: snapshot.recentErrors.map((error, index) => ({
-        id: `${index}`,
-        severity: "WARNING",
-        summary: `${error.code}: ${error.message}`,
-        openedAt: error.occurredAt,
-      })),
+      tenantId: snapshot.tenantId,
+      saasId: snapshot.saasId,
+      capturedAt: snapshot.capturedAt,
+      health: snapshot.health,
+      scheduler: snapshot.scheduler,
+      posts: snapshot.posts,
+      publishing: snapshot.publishing,
+      linkedin: snapshot.linkedin,
+      metrics: snapshot.metrics,
+      recentEvents: snapshot.recentEvents,
+      recentIncidents: snapshot.recentIncidents,
     };
   } catch {
     return {
