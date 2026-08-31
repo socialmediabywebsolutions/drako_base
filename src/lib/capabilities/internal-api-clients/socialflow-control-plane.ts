@@ -172,23 +172,26 @@ async function parseJsonResponse(input: {
   path: string;
 }): Promise<unknown> {
   const text = await input.response.text().catch(() => null);
+  const contentType = input.response.headers.get("content-type") ?? "unknown";
+  const snippet = (text ?? "").slice(0, 300);
 
   if (!text || !text.trim()) {
     throw new SocialFlowControlPlaneInternalApiError({
       status: input.response.ok ? 500 : input.response.status,
       code: resolveDefaultCode(input.response.status),
-      message: `Invalid JSON response from ${input.path}`,
+      message: `Invalid JSON response from ${input.path} (httpStatus=${input.response.status}, contentType=${contentType}, body=EMPTY)`,
       requestId: input.requestId,
     });
   }
 
   try {
     return JSON.parse(text) as unknown;
-  } catch {
+  } catch (parseError) {
+    const detail = parseError instanceof Error ? parseError.message : String(parseError);
     throw new SocialFlowControlPlaneInternalApiError({
       status: input.response.ok ? 500 : input.response.status,
       code: resolveDefaultCode(input.response.status),
-      message: `Invalid JSON response from ${input.path}`,
+      message: `Invalid JSON response from ${input.path} (httpStatus=${input.response.status}, contentType=${contentType}, parseError=${detail}, body=${JSON.stringify(snippet)})`,
       requestId: input.requestId,
     });
   }
