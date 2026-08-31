@@ -8,7 +8,7 @@ on:
     - cron: "*/20 * * * *"  # cada 20 minutos — TrendKeywordAgent (un nicho por invocación)
     - cron: "0 */4 * * *"   # cada 4 horas — social metrics sync
     - cron: "0 3 * * *"     # 03:00 UTC diario — StyleLearningAgent (Cerebro Socialcors)
-    - cron: "0 3 * * 1"     # 03:00 UTC lunes — niche-intelligence + cross-tenant-intelligence + viral-opportunity + weekly-briefing
+    - cron: "0 3 * * 1"     # 03:00 UTC lunes — niche-intelligence + cross-tenant-intelligence + viral-opportunity + weekly-briefing + best-practices
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -251,6 +251,27 @@ jobs:
             exit 1
           fi
           echo "✅ Weekly-briefing cron completed successfully"
+      # best-practices corre DESPUÉS de weekly-briefing y ANTES de strategic-plan, en el
+      # mismo job (no en paralelo) — lee snapshots ya persistidos por ContentPerformanceAgent
+      # de TODOS los tenants del mismo nicho+accountType (vía style-learning diario, no
+      # depende de ningún otro cron de esta cadena semanal), así que su orden respecto a
+      # niche-intelligence/cross-tenant-intelligence/viral-opportunity no importa — se
+      # coloca junto a strategic-plan porque ambos son agentes cross-tenant/de síntesis
+      # semanal. Mismo orden que scripts/patch-socialflow-cron-handler.mjs para el trigger
+      # nativo de Cloudflare.
+      - name: 🏆 Detectar mejores prácticas del nicho (BestPracticesAgent)
+        run: |
+          STATUS=$(curl -s -o /tmp/best_practices_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/best-practices" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/best_practices_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Best-practices cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Best-practices cron completed successfully"
       # strategic-plan corre ÚLTIMO de toda la cadena semanal — sintetiza los snapshots
       # de todos los demás agentes del Cerebro, así que necesita que esta semana ya haya
       # terminado de refrescarlos. Mismo orden que scripts/patch-socialflow-cron-handler.mjs

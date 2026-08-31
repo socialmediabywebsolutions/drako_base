@@ -45,7 +45,13 @@
  *     find untried hooks/formats per tenant, so must run after cross-tenant-intelligence),
  *     then /api/cron/social/weekly-briefing (WeeklyBriefingAgent — generates + sends the
  *     per-tenant weekly briefing, run last so it can use that week's freshly-refreshed data),
- *     then /api/cron/social/strategic-plan (StrategicPlanningAgent — 1 Mistral call that
+ *     then /api/cron/social/best-practices (BestPracticesAgent — reads
+ *     ContentPerformanceAgent snapshots, already fresh from the daily style-learning cron,
+ *     across every tenant in the same niche+accountType to find the top 3 performers and
+ *     compare the tenant's own patterns against their anonymized aggregate; no ordering
+ *     dependency on the other weekly steps above, placed alongside strategic-plan since
+ *     both are weekly cross-tenant synthesis agents), then /api/cron/social/strategic-plan
+ *     (StrategicPlanningAgent — 1 Mistral call that
  *     synthesizes every other Cerebro agent's latest snapshot for the tenant into a
  *     monthly plan; run last of all so it reads that week's freshest data everywhere;
  *     shown as a pinned card in the CRM Social Inteligencia tab, not the feed scroll)
@@ -159,6 +165,9 @@ const scheduledHandler = `    // __socialflowCronHandlerPatched
             });
             await fetch(appUrl + "/api/cron/social/weekly-briefing", authHeaders).catch(function(err) {
                 console.error("[Cron] scheduled weekly-briefing failed:", err.message);
+            });
+            await fetch(appUrl + "/api/cron/social/best-practices", authHeaders).catch(function(err) {
+                console.error("[Cron] scheduled best-practices failed:", err.message);
             });
             await fetch(appUrl + "/api/cron/social/strategic-plan", authHeaders).catch(function(err) {
                 console.error("[Cron] scheduled strategic-plan failed:", err.message);

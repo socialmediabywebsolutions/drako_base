@@ -25,6 +25,7 @@ import { getLatestSeasonalOpportunities } from "@/lib/socialflow/ai/agents/Seaso
 import { getLatestStrategicPlan } from "@/lib/socialflow/ai/agents/StrategicPlanningAgent";
 import { getLatestContentDiversity } from "@/lib/socialflow/ai/agents/ContentDiversityAgent";
 import { getLatestRevenueOpportunity } from "@/lib/socialflow/ai/agents/RevenueOpportunityAgent";
+import { getLatestBestPractices } from "@/lib/socialflow/ai/agents/BestPracticesAgent";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 
 // ---------------------------------------------------------------------------
@@ -60,7 +61,7 @@ const MODIFY_KEYWORDS_ES = ["cambia", "modifica", "actualiza", "mejora", "regene
 // Comprobado DESPUÉS de generate/modify en parseIntentFallback — un "genera contenido
 // con tendencias virales" explícito no debe robárselo esta lista, solo mensajes que
 // piden ideas sin pedir generación directa (ver auditoría previa de esta ruta).
-const IDEAS_KEYWORDS_ES = ["ideas", "qué grabo", "que grabo", "qué creo", "que creo", "qué publico", "que publico", "viral", "tendencias", "inspiración", "inspiracion", "crecer", "cómo crezco", "como crezco", "ganar seguidores", "más seguidores", "mas seguidores", "audiencia nueva", "cada cuánto publico", "cada cuanto publico", "qué día publico", "que dia publico", "ritmo de publicación", "ritmo de publicacion", "urgente", "algo viral ahora", "qué está viral", "que esta viral", "qué publico después", "que publico despues", "dar seguimiento", "continuar la serie", "fechas especiales", "próximos eventos", "proximos eventos", "qué se viene", "que se viene", "cómo voy", "como voy", "cuál es mi estrategia", "cual es mi estrategia", "resumen de mi cuenta", "qué formato publico", "que formato publico", "variar contenido", "promoción", "promocion", "promociones", "oferta", "ofertas", "descuento", "descuentos", "buen momento", "cuándo lanzo", "cuando lanzo"];
+const IDEAS_KEYWORDS_ES = ["ideas", "qué grabo", "que grabo", "qué creo", "que creo", "qué publico", "que publico", "viral", "tendencias", "inspiración", "inspiracion", "crecer", "cómo crezco", "como crezco", "ganar seguidores", "más seguidores", "mas seguidores", "audiencia nueva", "cada cuánto publico", "cada cuanto publico", "qué día publico", "que dia publico", "ritmo de publicación", "ritmo de publicacion", "urgente", "algo viral ahora", "qué está viral", "que esta viral", "qué publico después", "que publico despues", "dar seguimiento", "continuar la serie", "fechas especiales", "próximos eventos", "proximos eventos", "qué se viene", "que se viene", "cómo voy", "como voy", "cuál es mi estrategia", "cual es mi estrategia", "resumen de mi cuenta", "qué formato publico", "que formato publico", "variar contenido", "promoción", "promocion", "promociones", "oferta", "ofertas", "descuento", "descuentos", "buen momento", "cuándo lanzo", "cuando lanzo", "cómo lo hacen los mejores", "como lo hacen los mejores", "qué hace la competencia", "que hace la competencia", "mejores creadores", "compárame con", "comparame con"];
 // Solo se evalúa cuando el cliente ya reenvió lastIdeas (ver POST) — nunca se dispara
 // sobre un mensaje "genera..." en frío, así que no choca con GENERATE_KEYWORDS_ES.
 const CONFIRM_IDEA_KEYWORDS_ES = ["créalo tú", "crealo tu", "hazlo tú", "hazlo tu", "créalo", "crealo", "hazlo", "genera"];
@@ -533,6 +534,24 @@ async function loadRevenueOpportunityBlock(
   return `Momento para lanzar promociones (score ${snapshot.opportunityScore}/100): ${snapshot.recommendation}`;
 }
 
+// Snapshot de BestPracticesAgent (patrones de los TOP 3 tenants con mayor engagement del
+// mismo nicho+accountType, comparados contra el tenant actual) — ya calculado por el
+// cron semanal, nunca se re-ejecuta en vivo aquí. Expone SOLO `recommendations` (texto ya
+// anonimizado y agregado) — nunca `topPerformerPatterns` crudo ni nada que insinúe de qué
+// tenants viene, por diseño del agente (NO expone datos de otros tenants al cliente).
+// Silencioso si no hay snapshot todavía (nicho con <3 tenants con datos, o tenant sin
+// snapshot propio de ContentPerformanceAgent).
+async function loadBestPracticesBlock(
+  tenantId: string,
+  saasId: string,
+  dracoEnv: ReturnType<typeof env>,
+): Promise<string> {
+  const snapshot = dracoEnv ? await getLatestBestPractices(tenantId, saasId, dracoEnv).catch(() => null) : null;
+  if (!snapshot?.recommendations.length) return "";
+
+  return `Cómo lo hacen los mejores creadores de tu nicho (datos anónimos y agregados, nunca identifican a otros clientes):\n${snapshot.recommendations.map((r) => `- ${r}`).join("\n")}`;
+}
+
 // Separa los hashtags inline del caption generado por el modelo — calculateViralScore
 // espera un caption "limpio" + un array de hashtags aparte (mismo contrato que ya usan
 // generate-from-image/generate-ai-carousel), y publishOptions/pendingPost también
@@ -637,11 +656,13 @@ async function buildIdeasReply(
       // empresa) — cero coste extra para accountType="influencer", ni siquiera se llama.
       const revenueOpportunityBlock =
         accountType === "empresa" ? await loadRevenueOpportunityBlock(tenantId, saasId, dracoEnv) : "";
+      // Aplica tanto a influencer como a empresa — sin gate de accountType.
+      const bestPracticesBlock = await loadBestPracticesBlock(tenantId, saasId, dracoEnv);
 
       const prompt = `Eres un estratega de contenido. Con estos datos REALES de la cuenta y su nicho (nunca inventes cifras nuevas ni datos que no estén aquí):
 
 ${dataBlock}
-${fatigueStyleBlock ? `\n${fatigueStyleBlock}\n` : ""}${perfInsight ? `\nTus posts con mejor rendimiento histórico usaron estos patrones: ${perfInsight}\n` : ""}${benchmarkBlock}${hashtagBlock ? `\n${hashtagBlock}\n` : ""}${growthBlock ? `\n${growthBlock}\n` : ""}${scheduleBlock ? `\n${scheduleBlock}\n` : ""}${viralMomentBlock ? `\n${viralMomentBlock}\n\nSi hay temas subiendo ahora mismo, PRIORÍZALOS en tus 3 ideas — son la señal más urgente de todas.\n` : ""}${contentSeriesBlock ? `\n${contentSeriesBlock}\n` : ""}${seasonalBlock ? `\n${seasonalBlock}\n` : ""}${strategicPlanBlock ? `\n${strategicPlanBlock}\n` : ""}${diversityBlock ? `\n${diversityBlock}\n\nRespeta esto al elegir formato/tema para las 3 ideas.\n` : ""}${revenueOpportunityBlock ? `\n${revenueOpportunityBlock}\n` : ""}
+${fatigueStyleBlock ? `\n${fatigueStyleBlock}\n` : ""}${perfInsight ? `\nTus posts con mejor rendimiento histórico usaron estos patrones: ${perfInsight}\n` : ""}${benchmarkBlock}${hashtagBlock ? `\n${hashtagBlock}\n` : ""}${growthBlock ? `\n${growthBlock}\n` : ""}${scheduleBlock ? `\n${scheduleBlock}\n` : ""}${viralMomentBlock ? `\n${viralMomentBlock}\n\nSi hay temas subiendo ahora mismo, PRIORÍZALOS en tus 3 ideas — son la señal más urgente de todas.\n` : ""}${contentSeriesBlock ? `\n${contentSeriesBlock}\n` : ""}${seasonalBlock ? `\n${seasonalBlock}\n` : ""}${strategicPlanBlock ? `\n${strategicPlanBlock}\n` : ""}${diversityBlock ? `\n${diversityBlock}\n\nRespeta esto al elegir formato/tema para las 3 ideas.\n` : ""}${revenueOpportunityBlock ? `\n${revenueOpportunityBlock}\n` : ""}${bestPracticesBlock ? `\n${bestPracticesBlock}\n` : ""}
 Propón exactamente 3 ideas de contenido concretas para hoy. Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
 {"ideas": [{"hook": "...", "format": "reel"|"carrusel"|"post", "whyViral": "..."}]}
 
