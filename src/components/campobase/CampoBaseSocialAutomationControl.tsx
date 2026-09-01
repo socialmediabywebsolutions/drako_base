@@ -16,6 +16,7 @@ import type {
   CampoBaseSocialFlowOperatorActionResult,
 } from "@/lib/campamento-base/socialflow-control-plane-service";
 import type { SocialFlowTrendTrigger, SocialFlowTrendTriggerHealth } from "@/lib/capabilities/internal-api-types/socialflow";
+import type { AgentControlCenterAgent, AgentControlCenterGroup, AgentControlCenterStatus } from "@/lib/campamento-base/socialflow-agent-control-center";
 
 type ControlResponse = {
   status?: CampoBaseSocialAutomationStatusOutput;
@@ -29,6 +30,7 @@ type ControlResponse = {
   observability?: CampoBaseSocialFlowObservability | null;
   trendTriggers?: SocialFlowTrendTrigger[];
   trendTriggerHealth?: SocialFlowTrendTriggerHealth | null;
+  agentControlCenter?: AgentControlCenterGroup[];
   message?: string;
   code?: string;
 };
@@ -89,6 +91,24 @@ function formatAgeHours(hours: number | null): string {
   return `hace ${Math.round(hours / 24)}d`;
 }
 
+function agentStatusBadge(status: AgentControlCenterStatus): "ok" | "warn" | "neutral" {
+  if (status === "conectado") return "ok";
+  if (status === "investigando") return "warn";
+  return "neutral";
+}
+
+function agentStatusLabel(status: AgentControlCenterStatus): string {
+  if (status === "conectado") return "conectado";
+  if (status === "investigando") return "investigando";
+  return "sin datos";
+}
+
+function runStatusBadge(status: "success" | "error" | "skipped"): "ok" | "err" | "neutral" {
+  if (status === "success") return "ok";
+  if (status === "error") return "err";
+  return "neutral";
+}
+
 export default function CampoBaseSocialAutomationControl() {
   const [status, setStatus] = useState<CampoBaseSocialAutomationStatusOutput | null>(null);
   const [selectedScope, setSelectedScope] = useState<{ tenantId: string; saasId: string } | null>(null);
@@ -96,6 +116,7 @@ export default function CampoBaseSocialAutomationControl() {
   const [observabilityLoading, setObservabilityLoading] = useState(false);
   const [trendTriggers, setTrendTriggers] = useState<SocialFlowTrendTrigger[]>([]);
   const [trendTriggerHealth, setTrendTriggerHealth] = useState<SocialFlowTrendTriggerHealth | null>(null);
+  const [agentControlCenter, setAgentControlCenter] = useState<AgentControlCenterGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -145,6 +166,7 @@ export default function CampoBaseSocialAutomationControl() {
       setStatus(data.status);
       setTrendTriggers(data.trendTriggers ?? []);
       setTrendTriggerHealth(data.trendTriggerHealth ?? null);
+      setAgentControlCenter(data.agentControlCenter ?? []);
       const firstItem = data.status.items[0];
       if (firstItem) {
         void loadObservability({ tenantId: firstItem.tenantId, saasId: firstItem.saasId });
@@ -158,6 +180,7 @@ export default function CampoBaseSocialAutomationControl() {
       setObservability(null);
       setTrendTriggers([]);
       setTrendTriggerHealth(null);
+      setAgentControlCenter([]);
       setError(loadError instanceof Error ? loadError.message : "No se pudo cargar el control de Socialcors.");
     } finally {
       setLoading(false);
@@ -469,243 +492,169 @@ export default function CampoBaseSocialAutomationControl() {
         )}
       </Card>
 
+      {selectedScope && observability ? (
+        <Card
+          tone={observability.health.status === "healthy" ? "success" : "danger"}
+          title="Salud operativa Socialcors"
+          subtitle="Publishing, LinkedIn y acciones de recuperación"
+          right={`${selectedScope.tenantId} / ${selectedScope.saasId}`}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={healthBadge(observability.health.status)}>Health: {observability.health.status}</Badge>
+            <Badge variant={healthBadge(observability.health.schedulerStatus)}>Scheduler: {observability.health.schedulerStatus}</Badge>
+            <Badge variant={observability.linkedin.connected ? "ok" : "warn"}>LinkedIn: {observability.linkedin.primaryStatus ?? "not_connected"}</Badge>
+            <span className="text-xs text-slate-500">
+              Publishing 30d: {formatPercent(observability.publishing.successRateLast30Days)} ({observability.publishing.successLast30Days} ok / {observability.publishing.failedLast30Days} fallos)
+            </span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+            <span>Snapshot: {formatOptionalDate(observability.health.latestSnapshotAt)}</span>
+            <span>Próximo programado: {formatOptionalDate(observability.scheduler.nextScheduledAt)}</span>
+            <span>Último publicado: {formatOptionalDate(observability.scheduler.lastPublishedAt)}</span>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              loading={busyKey === `refresh_observability:${selectedScope.tenantId}:${selectedScope.saasId}`}
+              onClick={() => void runOperatorAction("refresh_observability", selectedScope)}
+            >
+              Refrescar salud
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              loading={busyKey === `linkedin_health_check:${selectedScope.tenantId}:${selectedScope.saasId}`}
+              onClick={() => void runOperatorAction("linkedin_health_check", selectedScope)}
+            >
+              Check LinkedIn
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              loading={busyKey === `recover_stale_publishing:${selectedScope.tenantId}:${selectedScope.saasId}`}
+              disabled={observability.scheduler.stalePublishingPosts === 0}
+              onClick={() => void runOperatorAction("recover_stale_publishing", selectedScope)}
+            >
+              Recuperar PUBLISHING ({observability.scheduler.stalePublishingPosts})
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              loading={busyKey === `retry_failed_posts:${selectedScope.tenantId}:${selectedScope.saasId}`}
+              disabled={observability.posts.recentFailed.length === 0}
+              onClick={() => void runOperatorAction("retry_failed_posts", selectedScope)}
+            >
+              Reintentar fallidos ({observability.posts.recentFailed.length})
+            </Button>
+          </div>
+          {observability.recentIncidents.length > 0 ? (
+            <ul className="mt-4 space-y-2">
+              {observability.recentIncidents.slice(0, 3).map((incident) => (
+                <li key={incident.id} className="rounded-xl border border-rose-100 bg-rose-50 p-3">
+                  <p className="text-sm font-medium text-rose-900">{incident.summary}</p>
+                  <p className="mt-1 text-xs text-rose-700">{incident.severity} · {formatDate(incident.openedAt)}</p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-3">
+            <OperatorPostList
+              title="Atascados en PUBLISHING"
+              empty="No hay posts atascados."
+              posts={observability.posts.stalePublishing}
+            />
+            <OperatorPostList
+              title="Últimos fallos"
+              empty="No hay fallos recientes."
+              posts={observability.posts.recentFailed}
+            />
+            <OperatorPostList
+              title="Últimos publicados"
+              empty="No hay publicaciones recientes."
+              posts={observability.posts.recentPublished}
+            />
+          </div>
+        </Card>
+      ) : observabilityLoading ? (
+        <p className="text-sm text-slate-500">Cargando salud operativa...</p>
+      ) : null}
+
       <Card
-        tone={observability?.health.status === "healthy" ? "success" : observability ? "danger" : "default"}
-        title="Salud operativa Socialcors"
-        subtitle="Contrato operator de observabilidad"
-        right={selectedScope ? `${selectedScope.tenantId} / ${selectedScope.saasId}` : "Sin SaaS seleccionado"}
+        tone="default"
+        title="Centro de control de agentes"
+        subtitle="Los 26 agentes del Cerebro Socialcors — estado, última ejecución y contenido real, leídos directo de SOCIAL_DB"
       >
-        {observabilityLoading ? (
-          <p className="text-sm text-slate-500">Cargando salud operativa...</p>
-        ) : !selectedScope ? (
+        {agentControlCenter.length === 0 ? (
           <EmptyState
-            title="Selecciona un SaaS"
-            subtitle="La salud operativa se consulta por tenant y SaaS desde el contrato público de Socialcors."
-          />
-        ) : !observability ? (
-          <EmptyState
-            title="Sin observabilidad disponible"
-            subtitle="El contrato todavía no ha devuelto métricas para este workspace."
+            title="Sin datos del centro de control"
+            subtitle="Todavía no se pudo leer el estado de los agentes desde SOCIAL_DB."
           />
         ) : (
-          <div className="space-y-6">
-            <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white/80 p-4">
-              <Button
-                size="sm"
-                variant="outline"
-                loading={busyKey === `refresh_observability:${selectedScope.tenantId}:${selectedScope.saasId}`}
-                onClick={() => void runOperatorAction("refresh_observability", selectedScope)}
-              >
-                Refrescar salud
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                loading={busyKey === `linkedin_health_check:${selectedScope.tenantId}:${selectedScope.saasId}`}
-                onClick={() => void runOperatorAction("linkedin_health_check", selectedScope)}
-              >
-                Check LinkedIn
-              </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                loading={busyKey === `recover_stale_publishing:${selectedScope.tenantId}:${selectedScope.saasId}`}
-                disabled={observability.scheduler.stalePublishingPosts === 0}
-                onClick={() => void runOperatorAction("recover_stale_publishing", selectedScope)}
-              >
-                Recuperar PUBLISHING
-              </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                loading={busyKey === `retry_failed_posts:${selectedScope.tenantId}:${selectedScope.saasId}`}
-                disabled={observability.posts.recentFailed.length === 0}
-                onClick={() => void runOperatorAction("retry_failed_posts", selectedScope)}
-              >
-                Reintentar fallidos
-              </Button>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-4">
-              <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Health</p>
-                <div className="mt-3">
-                  <Badge variant={healthBadge(observability.health.status)}>
-                    {observability.health.status}
-                  </Badge>
-                </div>
-                <p className="mt-3 text-xs text-slate-500">
-                  Snapshot: {formatOptionalDate(observability.health.latestSnapshotAt)}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Scheduler</p>
-                <div className="mt-3">
-                  <Badge variant={healthBadge(observability.health.schedulerStatus)}>
-                    {observability.health.schedulerStatus}
-                  </Badge>
-                </div>
-                <p className="mt-3 text-xs text-slate-500">
-                  Due: {observability.scheduler.dueScheduledPosts} / Publishing: {observability.scheduler.publishingPosts}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">LinkedIn</p>
-                <div className="mt-3">
-                  <Badge variant={observability.linkedin.connected ? "ok" : "warn"}>
-                    {observability.linkedin.primaryStatus ?? "not_connected"}
-                  </Badge>
-                </div>
-                <p className="mt-3 text-xs text-slate-500">
-                  {observability.linkedin.totalConnections} conexión(es)
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Publishing 30d</p>
-                <p className="mt-2 text-3xl font-semibold text-slate-900">
-                  {formatPercent(observability.publishing.successRateLast30Days)}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {observability.publishing.successLast30Days} ok / {observability.publishing.failedLast30Days} fallos
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Recomendación</p>
-              <p className="mt-2 text-sm font-medium text-slate-900">{observability.health.recommendation}</p>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-                <h3 className="text-sm font-semibold text-slate-900">Publishing queue</h3>
-                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-slate-500">Scheduled</p>
-                    <p className="font-semibold text-slate-900">{observability.scheduler.scheduledPosts}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Stale PUBLISHING</p>
-                    <p className="font-semibold text-slate-900">{observability.scheduler.stalePublishingPosts}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Next scheduled</p>
-                    <p className="font-semibold text-slate-900">{formatOptionalDate(observability.scheduler.nextScheduledAt)}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Last published</p>
-                    <p className="font-semibold text-slate-900">{formatOptionalDate(observability.scheduler.lastPublishedAt)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-                <h3 className="text-sm font-semibold text-slate-900">Métricas</h3>
-                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-slate-500">7 días publicados</p>
-                    <p className="font-semibold text-slate-900">{observability.metrics.last7Days.publishedPosts}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">30 días publicados</p>
-                    <p className="font-semibold text-slate-900">{observability.metrics.last30Days.publishedPosts}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Engagement 7d</p>
-                    <p className="font-semibold text-slate-900">{observability.metrics.last7Days.engagement}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Top provider</p>
-                    <p className="font-semibold text-slate-900">{observability.metrics.last30Days.topProvider ?? "Sin datos"}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-3">
-              <OperatorPostList
-                title="Atascados en PUBLISHING"
-                empty="No hay posts atascados."
-                posts={observability.posts.stalePublishing}
-              />
-              <OperatorPostList
-                title="Últimos fallos"
-                empty="No hay fallos recientes."
-                posts={observability.posts.recentFailed}
-              />
-              <OperatorPostList
-                title="Últimos publicados"
-                empty="No hay publicaciones recientes."
-                posts={observability.posts.recentPublished}
-              />
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-                <h3 className="text-sm font-semibold text-slate-900">Eventos recientes</h3>
-                {observability.recentEvents.length === 0 ? (
-                  <p className="mt-3 text-sm text-slate-500">Sin eventos recientes.</p>
-                ) : (
-                  <ul className="mt-3 space-y-3">
-                    {observability.recentEvents.slice(0, 5).map((event) => (
-                      <li key={event.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                        <p className="text-sm font-medium text-slate-900">{event.summary}</p>
-                        <p className="mt-1 text-xs text-slate-500">{event.activityType} · {formatDate(event.createdAt)}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-                <h3 className="text-sm font-semibold text-slate-900">Incidentes abiertos</h3>
-                {observability.recentIncidents.length === 0 ? (
-                  <p className="mt-3 text-sm text-slate-500">Sin incidentes abiertos.</p>
-                ) : (
-                  <ul className="mt-3 space-y-3">
-                    {observability.recentIncidents.slice(0, 5).map((incident) => (
-                      <li key={incident.id} className="rounded-xl border border-rose-100 bg-rose-50 p-3">
-                        <p className="text-sm font-medium text-rose-900">{incident.summary}</p>
-                        <p className="mt-1 text-xs text-rose-700">{incident.severity} · {formatDate(incident.openedAt)}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-              <h3 className="text-sm font-semibold text-slate-900">Últimas ejecuciones de agentes</h3>
-              {observability.recentAgentRuns.length === 0 ? (
-                <p className="mt-3 text-sm text-slate-500">Sin ejecuciones registradas todavía.</p>
-              ) : (
-                <ul className="mt-3 space-y-3">
-                  {observability.recentAgentRuns.map((run, index) => (
-                    <li
-                      key={`${run.agentName}-${run.startedAt}-${index}`}
-                      className="rounded-xl border border-slate-100 bg-slate-50 p-3"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-slate-900">{run.agentName}</p>
-                        <Badge variant={run.status === "success" ? "ok" : run.status === "error" ? "err" : "neutral"}>
-                          {run.status}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {run.tenantId ? `${run.tenantId} · ` : ""}
-                        {formatDate(run.startedAt)}
-                        {run.rowsWritten !== null ? ` · ${run.rowsWritten} fila(s)` : ""}
-                      </p>
-                      {run.errorMessage ? (
-                        <p className="mt-2 text-xs text-rose-700">{run.errorMessage}</p>
-                      ) : null}
-                    </li>
+          <div className="space-y-8">
+            {agentControlCenter.map((group) => (
+              <div key={group.key}>
+                <h3 className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{group.titleEs}</h3>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {group.agents.map((agent) => (
+                    <AgentControlCard key={agent.key} agent={agent} />
                   ))}
-                </ul>
-              )}
-            </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </Card>
+    </div>
+  );
+}
+
+function AgentControlCard({ agent }: { agent: AgentControlCenterAgent }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">{agent.nameEs}</p>
+          <p className="text-[10px] uppercase tracking-wider text-slate-400">{agent.key}</p>
+        </div>
+        <Badge variant={agentStatusBadge(agent.status)}>{agentStatusLabel(agent.status)}</Badge>
+      </div>
+
+      <p className="mt-3 text-xs text-slate-500">
+        <span className="font-semibold text-slate-600">Flujo: </span>
+        {agent.flow}
+      </p>
+
+      <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+        <p className="text-[10px] uppercase tracking-wider text-slate-400">Contenido real</p>
+        <p className="mt-1 text-sm text-slate-800">{agent.contentSummary}</p>
+        {agent.contentAt ? (
+          <p className="mt-1 text-xs text-slate-500">
+            {formatDate(agent.contentAt)}
+            {agent.contentTenantId ? ` · tenant ${agent.contentTenantId}` : ""}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <span className="text-slate-500">Última ejecución (agent_execution_log)</span>
+        {agent.lastRun ? (
+          <span className="flex items-center gap-2">
+            <Badge variant={runStatusBadge(agent.lastRun.status)}>{agent.lastRun.status}</Badge>
+            <span className="text-slate-500">
+              {formatDate(agent.lastRun.startedAt)}
+              {agent.lastRun.rowsWritten !== null ? ` · ${agent.lastRun.rowsWritten} fila(s)` : ""}
+            </span>
+          </span>
+        ) : (
+          <span className="text-slate-400">Sin ejecuciones registradas</span>
+        )}
+      </div>
+      {agent.lastRun?.errorMessage ? (
+        <p className="mt-2 text-xs text-rose-700">{agent.lastRun.errorMessage}</p>
+      ) : null}
+      {agent.note ? <p className="mt-2 text-xs text-slate-400">{agent.note}</p> : null}
     </div>
   );
 }

@@ -19,6 +19,7 @@ import {
   type CampoBaseSocialFlowOperatorAction,
   type SocialFlowAutomationKey,
 } from "@/lib/campamento-base/socialflow-control-plane-service";
+import { getCampoBaseAgentControlCenter } from "@/lib/campamento-base/socialflow-agent-control-center";
 
 type SocialFlowRouteAction =
   | { action: "run_all" }
@@ -304,7 +305,8 @@ export async function GET(request: Request) {
     // Nivel 3 — sin gate de tenantId/saasId: es un piloto de un único tenant interno,
     // el filtro vive server-side en el endpoint interno, no depende de query params.
     const { triggers: trendTriggers, health: trendTriggerHealth } = await getCampoBaseSocialFlowTrendTriggers();
-    return NextResponse.json({ status, history: filteredHistory, summary, observability, trendTriggers, trendTriggerHealth });
+    const agentControlCenter = await getCampoBaseAgentControlCenter();
+    return NextResponse.json({ status, history: filteredHistory, summary, observability, trendTriggers, trendTriggerHealth, agentControlCenter });
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ code: "UNAUTHORIZED", message: error.message }, { status: error.status });
