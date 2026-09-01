@@ -64,6 +64,21 @@ queue = "saas-socialflows-prod-events"
 binding = "SOCIALFLOW_AI_QUEUE"
 queue = "saas-socialflow-ai-generation-queue"
 
+# Nivel 3 — binding de servicio a sí mismo, usado por el scheduled() inyectado
+# (scripts/patch-socialflow-cron-handler.mjs) para llamar a sus propias rutas /api/cron/*
+# vía RPC interno de Cloudflare en vez de fetch() público. Diagnóstico: el cron */20
+# (TrendKeywordAgent) corría (outcome: ok en wrangler tail) pero casi nunca generaba
+# fila en agent_execution_log ni aparecía como petición entrante — el runbook
+# docs/runbooks/waf-rate-limits.md documenta Bot Fight Mode + rate-limit en /api/*
+# tratando tráfico automatizado como "Definitely Automated"; un fetch() del propio
+# Worker hacia su propio dominio público encaja exactamente con ese bloqueo
+# silencioso (sin excepción, sin log, 0 filas). TrendAutoApproveCron (worker
+# socialflow-ai-worker) nunca lo sufre porque llama a su función en proceso, sin
+# HTTP. El binding de servicio nunca toca la red pública/WAF.
+[[services]]
+binding = "SELF"
+service = "saas-socialflows-prod"
+
 [ai]
 binding = "AI"
 

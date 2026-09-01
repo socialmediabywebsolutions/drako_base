@@ -103,7 +103,19 @@ if (!match) {
   process.exit(1);
 }
 
-// 4-space indent to match the style of the surrounding OpenNext-generated `fetch`.
+// 4-space indent to match the style of the surrounding OpenNext-generated \`fetch\`.
+//
+// callRoute() usa env.SELF (service binding a sí mismo, ver wrangler.workers.toml)
+// en vez del fetch() público global. Diagnóstico en vivo (wrangler tail, 2026-09-01):
+// el cron */20 (TrendKeywordAgent) disparaba scheduled() con outcome "ok" y sin
+// excepciones, pero casi nunca dejaba fila en agent_execution_log ni aparecía como
+// petición entrante — consistente con que el fetch() público del propio Worker
+// hacia su propio dominio quedaba bloqueado/challenged por el Bot Fight Mode /
+// rate-limit de /api/* que docs/runbooks/waf-rate-limits.md documenta para la zona
+// (fetch() no lanza en una respuesta de challenge, solo en fallo de red — por eso
+// nunca se veía en los logs). Un service binding nunca toca la red pública ni el
+// WAF. También loggea ahora el status de cada respuesta para que un fallo futuro
+// dentro de la propia ruta (401, 500...) quede visible en vez de tragado en silencio.
 const scheduledHandler = `    // __socialflowCronHandlerPatched
     async scheduled(event, env) {
         const appUrl = env.APP_URL ?? "https://socialflows.drako.systems";
@@ -113,74 +125,52 @@ const scheduledHandler = `    // __socialflowCronHandlerPatched
             return;
         }
         const authHeaders = { headers: { authorization: "Bearer " + secret } };
+        const client = env.SELF ?? { fetch };
+
+        async function callRoute(path) {
+            try {
+                const res = await client.fetch(appUrl + path, authHeaders);
+                if (!res.ok) {
+                    console.error("[Cron] " + path + " responded " + res.status);
+                }
+            } catch (err) {
+                console.error("[Cron] " + path + " failed:", err.message);
+            }
+        }
 
         if (event.cron === "*/20 * * * *") {
-            await fetch(appUrl + "/api/cron/social/trend-keywords", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled trend-keywords failed:", err.message);
-            });
+            await callRoute("/api/cron/social/trend-keywords");
             return;
         }
 
         if (event.cron === "0 */4 * * *") {
-            await fetch(appUrl + "/api/cron/social/metrics", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled metrics failed:", err.message);
-            });
-            await fetch(appUrl + "/api/cron/social/viral-moment", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled viral-moment failed:", err.message);
-            });
+            await callRoute("/api/cron/social/metrics");
+            await callRoute("/api/cron/social/viral-moment");
             return;
         }
 
         if (event.cron === "0 3 * * *") {
-            await fetch(appUrl + "/api/cron/social/style-learning", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled style-learning failed:", err.message);
-            });
-            await fetch(appUrl + "/api/cron/social/seasonality", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled seasonality failed:", err.message);
-            });
-            await fetch(appUrl + "/api/cron/social/audience-insights", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled audience-insights failed:", err.message);
-            });
-            await fetch(appUrl + "/api/cron/social/seasonal-opportunity", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled seasonal-opportunity failed:", err.message);
-            });
-            await fetch(appUrl + "/api/cron/social/churn-prediction", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled churn-prediction failed:", err.message);
-            });
+            await callRoute("/api/cron/social/style-learning");
+            await callRoute("/api/cron/social/seasonality");
+            await callRoute("/api/cron/social/audience-insights");
+            await callRoute("/api/cron/social/seasonal-opportunity");
+            await callRoute("/api/cron/social/churn-prediction");
             return;
         }
 
         if (event.cron === "0 3 * * 1") {
-            await fetch(appUrl + "/api/cron/social/niche-intelligence", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled niche-intelligence failed:", err.message);
-            });
-            await fetch(appUrl + "/api/cron/social/influencer-benchmark", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled influencer-benchmark failed:", err.message);
-            });
-            await fetch(appUrl + "/api/cron/social/cross-tenant-intelligence", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled cross-tenant-intelligence failed:", err.message);
-            });
-            await fetch(appUrl + "/api/cron/social/viral-opportunity", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled viral-opportunity failed:", err.message);
-            });
-            await fetch(appUrl + "/api/cron/social/weekly-briefing", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled weekly-briefing failed:", err.message);
-            });
-            await fetch(appUrl + "/api/cron/social/best-practices", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled best-practices failed:", err.message);
-            });
-            await fetch(appUrl + "/api/cron/social/strategic-plan", authHeaders).catch(function(err) {
-                console.error("[Cron] scheduled strategic-plan failed:", err.message);
-            });
+            await callRoute("/api/cron/social/niche-intelligence");
+            await callRoute("/api/cron/social/influencer-benchmark");
+            await callRoute("/api/cron/social/cross-tenant-intelligence");
+            await callRoute("/api/cron/social/viral-opportunity");
+            await callRoute("/api/cron/social/weekly-briefing");
+            await callRoute("/api/cron/social/best-practices");
+            await callRoute("/api/cron/social/strategic-plan");
             return;
         }
 
-        await fetch(appUrl + "/api/cron/social", authHeaders).catch(function(err) {
-            console.error("[Cron] scheduled publish failed:", err.message);
-        });
-        await fetch(appUrl + "/api/cron/social/comments", authHeaders).catch(function(err) {
-            console.error("[Cron] scheduled comment auto-reply failed:", err.message);
-        });
+        await callRoute("/api/cron/social");
+        await callRoute("/api/cron/social/comments");
     },
 `;
 
