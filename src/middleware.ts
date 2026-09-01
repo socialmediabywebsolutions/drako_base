@@ -18,6 +18,7 @@ import {
 } from "@/lib/correlation";
 import { checkTenantRateLimit } from "@/lib/security/tenant-rate-limit";
 import { extractSessionFromRequest } from "@/lib/edge-auth";
+import { isPlatformAdminEmailAllowed } from "@/lib/auth/platform-admin-allowlist";
 import { isRoutingsSubdomainsEnabled } from "@/lib/auths/flags";
 import { resolveAuthsContextFromRequest, resolveAuthsLoginPath } from "@/lib/auths/contexts";
 import {
@@ -706,7 +707,19 @@ export async function middleware(req: NextRequest) {
       if (isFounderAdminPath) {
         const session = await extractSessionFromRequest(req);
         const role = session?.role?.toLowerCase();
-        if (session && (role === "admin" || role === "owner" || role === "superadmin")) {
+        // Auditoría de seguridad 2026-09-01: este gate solo comprobaba el role de la
+        // sesión, no si el email sigue en la lista viva de PLATFORM_ADMIN_EMAILS —
+        // requireOwnerAccess() (usado por las API /api/operator/*) ya hace ambos
+        // checks (src/lib/auth/session.ts:426-432); si a alguien se le quita de
+        // PLATFORM_ADMIN_EMAILS pero su sesión/fila en DB sigue con role=admin, este
+        // gate lo seguía dejando pasar a la propia página aunque las APIs ya le
+        // negaran los datos. Mismo isPlatformAdminEmailAllowed() que requireOwnerAccess,
+        // misma semántica de lista vacía (no restringir, compat hacia atrás).
+        if (
+          session
+          && (role === "admin" || role === "owner" || role === "superadmin")
+          && isPlatformAdminEmailAllowed(session.email)
+        ) {
           return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
         }
         const loginUrl = new URL("/auth/login", req.url);

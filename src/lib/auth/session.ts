@@ -9,6 +9,7 @@ import { getWorkspaceSessionByToken } from "@/lib/auth/campamento-core";
 import { getWorkspaceUserById, resolveActiveMembershipForUser } from "@/lib/auth/campamento-core";
 import { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { isPlatformAdminEmailAllowed, isPlatformAdminEmail } from "@/lib/auth/platform-admin-allowlist";
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -379,31 +380,12 @@ export async function requireTenantAccess(
 // rutas /operator/* y /factory/* — todo el backend de operaciones del negocio — con
 // un check de role que cualquier fila OWNER/ADMIN de tenant_users satisface, sin
 // distinguir "dueño de mi propio workspace" de "admin de la plataforma". Misma fuente
-// de verdad (PLATFORM_ADMIN_EMAILS) que resolveRole() en src/lib/auths/services.ts,
-// pero con semántica de "lista vacía" opuesta a propósito: aquí es una puerta de
-// acceso (vacío = no restringir, compat hacia atrás, mismo patrón que
-// SOCIALFLOW_PRIVATE_PILOT_TENANT_ALLOWLIST); en resolveRole() es una concesión de
-// privilegio (vacío = nadie es admin por defecto) — nunca deben compartir la misma
-// función, solo la misma lista.
-function getPlatformAdminEmailAllowlist(): string[] {
-  const raw = process.env.PLATFORM_ADMIN_EMAILS ?? "";
-  return raw
-    .split(",")
-    .map((entry) => entry.trim().toLowerCase())
-    .filter((entry) => entry.length > 0);
-}
-
-export function isPlatformAdminEmailAllowed(email: string): boolean {
-  const allowlist = getPlatformAdminEmailAllowlist();
-  if (allowlist.length === 0) return true;
-  return allowlist.includes(email.trim().toLowerCase());
-}
-
-// Para resolveRole() (concesión de privilegio) — a diferencia de isPlatformAdminEmailAllowed
-// (puerta de acceso), una lista vacía nunca debe conceder admin a nadie.
-export function isPlatformAdminEmail(email: string): boolean {
-  return getPlatformAdminEmailAllowlist().includes(email.trim().toLowerCase());
-}
+// de verdad (PLATFORM_ADMIN_EMAILS) que resolveRole() en src/lib/auths/services.ts.
+// Movidas a platform-admin-allowlist.ts (auditoría de seguridad 2026-09-01) para que
+// src/middleware.ts pueda aplicar el mismo check sin arrastrar next-auth/jwt ni
+// campamento-core (no edge-safe) al bundle de Edge — reimportadas arriba y
+// reexportadas aquí para no tocar los imports existentes (src/lib/auths/services.ts).
+export { isPlatformAdminEmailAllowed, isPlatformAdminEmail };
 
 export async function requireOwnerAccess(
   request: Request

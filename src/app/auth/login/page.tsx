@@ -42,6 +42,13 @@ const drakosAuthCopy = {
   registerSubmit: "Crear cuenta",
 } as const;
 
+// Auditoría de seguridad 2026-09-01: drako.systems es la superficie de founder/admin
+// (/operator, /admin, /clients...), no un producto de autoservicio — no debe ofrecer
+// un formulario de registro público. allowRegister={false} quita la pestaña "Crear
+// cuenta" y fuerza mode="login" (ProductAuthForm, product-auth-form.tsx:65). El
+// endpoint /api/drakos/auths/registrations también se deshabilitó por separado (ver
+// route.ts) para que un POST directo, sin pasar por esta UI, falle igual.
+
 export default async function LegacyLoginPage({ searchParams }: LegacyAuthPageProps) {
   const params = (await searchParams) ?? {};
   const localOverrideHost = resolveSearchParam(params.__drako_host);
@@ -83,7 +90,7 @@ export default async function LegacyLoginPage({ searchParams }: LegacyAuthPagePr
           description="Acceso de plataforma — operator, factory y control interno."
           authApiBase="/api/drakos/auths"
           defaultMode="login"
-          allowRegister
+          allowRegister={false}
           postLoginRedirect="/operator/socialflow"
           copy={drakosAuthCopy}
         />

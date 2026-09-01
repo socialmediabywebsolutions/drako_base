@@ -1,77 +1,18 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
-import { drakosAuths } from "@/lib/auths/drakos-auths";
-import { jsonError, setAuthsSessionCookie } from "@/lib/auths/http";
-import { isAuthsIsolationEnabled } from "@/lib/auths/flags";
-import { isTelemetriesHoldingEnabled } from "@/lib/auths/flags";
-import { recordCampamentoEvent } from "@/lib/empire/events";
-import { enforceAuthBoundary, resolveSaasSlugForAuthContext } from "@/lib/auths/ssot";
+import { jsonError } from "@/lib/auths/http";
 
-type RegistrationBody = {
-  email?: string;
-  password?: string;
-  name?: string;
-  tenantId?: string;
-};
-
-export async function POST(request: Request) {
-  if (!isAuthsIsolationEnabled()) {
-    return jsonError("AUTHS_ISOLATIONS_DISABLED", "Auth isolation is disabled.", 503);
-  }
-
-  const boundary = enforceAuthBoundary({ request, expectedContext: "drakos", endpoint: "/api/drakos/auths/registrations" });
-  if (!boundary.ok) return boundary.response;
-  const body = (await request.json().catch(() => null)) as RegistrationBody | null;
-  if (!body?.email || !body.password) {
-    return jsonError("INVALID_INPUT", "Email and password are required.");
-  }
-
-  const registration = await drakosAuths.register({
-    context: "drakos",
-    email: body.email,
-    password: body.password,
-    name: body.name ?? null,
-    tenantId: body.tenantId ?? null,
-  });
-  if (!registration.ok) {
-    return jsonError(registration.code, registration.message, registration.code === "EMAIL_EXISTS" ? 409 : 400);
-  }
-
-  const login = await drakosAuths.login({
-    context: "drakos",
-    email: body.email,
-    password: body.password,
-  });
-  if (!login.ok) {
-    return jsonError(login.code, login.message, 401);
-  }
-
-  const response = NextResponse.json({
-    ok: true,
-    user: {
-      id: registration.userId,
-      email: body.email.trim().toLowerCase(),
-      role: login.role,
-      tenantId: login.tenantId,
-      saas_slug: resolveSaasSlugForAuthContext("drakos"),
-    },
-  }, { status: 201 });
-
-  setAuthsSessionCookie({ response, context: "drakos", token: login.token });
-
-  if (isTelemetriesHoldingEnabled()) {
-    await recordCampamentoEvent({
-      tenantId: login.tenantId,
-      saasId: null,
-      type: "telemetry.user_registered",
-      severity: "INFO",
-      source: "DRAKOS_AUTHS",
-      message: "User registered in drakos auth boundary.",
-      metadata: { saas_slug: "drakos", event_name: "user_registered" },
-      correlationId: request.headers.get("x-drako-correlation-id") ?? crypto.randomUUID(),
-    });
-  }
-
-  return response;
+// Auditoría de seguridad 2026-09-01: drako.systems es la superficie de founder/admin
+// (/operator, /admin, /clients...) — nunca debió tener registro público de
+// autoservicio. Deshabilitado sin condiciones: ni siquiera un email ya presente en
+// PLATFORM_ADMIN_EMAILS puede autoregistrarse desde aquí, para no dejar una vía de
+// creación de cuentas alcanzable con un POST directo (curl/Postman), pasando por
+// alto la UI (que ya no ofrece la pestaña "Crear cuenta", ver /auth/login/page.tsx).
+// Alta de cuentas de founder/admin: fuera de esta ruta, por un canal interno.
+//
+// La ruta se conserva (en vez de borrar el archivo) porque
+// scripts/lib/auth-ssot-audit.ts exige que /api/drakos/auths/registrations exista
+// como endpoint registrado.
+export async function POST() {
+  return jsonError("REGISTRATION_DISABLED", "Public registration is disabled for this context.", 403);
 }

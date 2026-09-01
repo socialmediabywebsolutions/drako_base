@@ -499,19 +499,33 @@ export default function CampoBaseSocialAutomationControl() {
           subtitle="Publishing, LinkedIn y acciones de recuperación"
           right={`${selectedScope.tenantId} / ${selectedScope.saasId}`}
         >
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={healthBadge(observability.health.status)}>Health: {observability.health.status}</Badge>
-            <Badge variant={healthBadge(observability.health.schedulerStatus)}>Scheduler: {observability.health.schedulerStatus}</Badge>
-            <Badge variant={observability.linkedin.connected ? "ok" : "warn"}>LinkedIn: {observability.linkedin.primaryStatus ?? "not_connected"}</Badge>
-            <span className="text-xs text-slate-500">
-              Publishing 30d: {formatPercent(observability.publishing.successRateLast30Days)} ({observability.publishing.successLast30Days} ok / {observability.publishing.failedLast30Days} fallos)
-            </span>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200 bg-white/80 p-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Health</p>
+              <Badge variant={healthBadge(observability.health.status)}>{observability.health.status}</Badge>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white/80 p-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Scheduler</p>
+              <Badge variant={healthBadge(observability.health.schedulerStatus)}>{observability.health.schedulerStatus}</Badge>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white/80 p-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">LinkedIn</p>
+              <Badge variant={observability.linkedin.connected ? "ok" : "warn"}>{observability.linkedin.primaryStatus ?? "not_connected"}</Badge>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white/80 p-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Publishing 30d</p>
+              <p className="text-sm font-semibold text-slate-900">
+                {formatPercent(observability.publishing.successRateLast30Days)}
+                <span className="ml-1 font-normal text-slate-500">({observability.publishing.successLast30Days} ok / {observability.publishing.failedLast30Days} fallos)</span>
+              </p>
+            </div>
           </div>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
             <span>Snapshot: {formatOptionalDate(observability.health.latestSnapshotAt)}</span>
             <span>Próximo programado: {formatOptionalDate(observability.scheduler.nextScheduledAt)}</span>
             <span>Último publicado: {formatOptionalDate(observability.scheduler.lastPublishedAt)}</span>
           </div>
+          <p className="mt-2 text-sm font-medium text-slate-900">{observability.health.recommendation}</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button
               size="sm"
@@ -536,7 +550,7 @@ export default function CampoBaseSocialAutomationControl() {
               disabled={observability.scheduler.stalePublishingPosts === 0}
               onClick={() => void runOperatorAction("recover_stale_publishing", selectedScope)}
             >
-              Recuperar PUBLISHING ({observability.scheduler.stalePublishingPosts})
+              Recuperar PUBLISHING
             </Button>
             <Button
               size="sm"
@@ -545,19 +559,41 @@ export default function CampoBaseSocialAutomationControl() {
               disabled={observability.posts.recentFailed.length === 0}
               onClick={() => void runOperatorAction("retry_failed_posts", selectedScope)}
             >
-              Reintentar fallidos ({observability.posts.recentFailed.length})
+              Reintentar fallidos
             </Button>
           </div>
-          {observability.recentIncidents.length > 0 ? (
-            <ul className="mt-4 space-y-2">
-              {observability.recentIncidents.slice(0, 3).map((incident) => (
-                <li key={incident.id} className="rounded-xl border border-rose-100 bg-rose-50 p-3">
-                  <p className="text-sm font-medium text-rose-900">{incident.summary}</p>
-                  <p className="mt-1 text-xs text-rose-700">{incident.severity} · {formatDate(incident.openedAt)}</p>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Eventos recientes</h3>
+              {observability.recentEvents.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-500">Sin eventos recientes.</p>
+              ) : (
+                <ul className="mt-2 space-y-2">
+                  {observability.recentEvents.slice(0, 5).map((event) => (
+                    <li key={event.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                      <p className="text-sm font-medium text-slate-900">{event.summary}</p>
+                      <p className="mt-1 text-xs text-slate-500">{event.activityType} · {formatDate(event.createdAt)}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Incidentes abiertos</h3>
+              {observability.recentIncidents.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-500">Sin incidentes abiertos.</p>
+              ) : (
+                <ul className="mt-2 space-y-2">
+                  {observability.recentIncidents.slice(0, 3).map((incident) => (
+                    <li key={incident.id} className="rounded-xl border border-rose-100 bg-rose-50 p-3">
+                      <p className="text-sm font-medium text-rose-900">{incident.summary}</p>
+                      <p className="mt-1 text-xs text-rose-700">{incident.severity} · {formatDate(incident.openedAt)}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-3">
             <OperatorPostList
