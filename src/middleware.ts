@@ -682,17 +682,26 @@ export async function middleware(req: NextRequest) {
         return persistCookie(NextResponse.rewrite(url, { request: { headers: responseHeaders } }));
       }
 
-      // Recorte quirúrgico (2026-08-24): drako.systems es PUBLIC_SAAS a propósito —
-      // NO se toca resolveHostMode(), eso rompería la landing pública (page.tsx:17
-      // redirige "/" a "/admin" en cualquier host CAMPAMENTO_BASE) y además
-      // bloquearía con 403 /api/drakos/auths/* (ver el bloque isAdminHost más abajo).
-      // /operator y /factory son la superficie de founder/admin (requireOwnerAccess()
-      // ya la protege en cada API) — aquí solo evitamos el redirect ciego a "/" para
-      // esos dos prefijos: si hay sesión "drakos" válida con role admin/owner, se deja
-      // pasar; si no, va al login real en vez de a la landing.
+      // Recorte quirúrgico (2026-08-24, ampliado 2026-09-01): drako.systems es
+      // PUBLIC_SAAS a propósito — NO se toca resolveHostMode(), eso rompería la
+      // landing pública (page.tsx:17 redirige "/" a "/admin" en cualquier host
+      // CAMPAMENTO_BASE) y además bloquearía con 403 /api/drakos/auths/* (ver el
+      // bloque isAdminHost más abajo). /operator, /factory y el resto de
+      // adminPrefixes son la superficie de founder/admin (requireOwnerAccess() ya la
+      // protege en cada API) — aquí solo evitamos el redirect ciego a "/" para esas
+      // rutas: si hay sesión "drakos" válida con role admin/owner, se deja pasar; si
+      // no, va al login real en vez de a la landing.
+      //
+      // El recorte original (50fd1f2f) solo cubría /operator y /factory: arreglaba la
+      // carga de /operator/socialflow en sí, pero el menú lateral que se renderiza
+      // dentro de esa página (components/sidebar.tsx) enlaza a /admin, /clients,
+      // /departments, /agents, /dev-architects, /clinic, /metrics, /alerts, /grants e
+      // /inbox — todos en adminPrefixes, así que cada botón seguía cayendo en el
+      // redirect ciego de abajo y aterrizaba en "/" de drako.systems. Se unifica el
+      // gate para que cubra el mismo conjunto de rutas que el propio menú enlaza.
       const isFounderAdminPath =
-        pathname === "/operator" || pathname.startsWith("/operator/")
-        || pathname === "/factory" || pathname.startsWith("/factory/");
+        pathname === "/factory" || pathname.startsWith("/factory/")
+        || adminPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
       if (isFounderAdminPath) {
         const session = await extractSessionFromRequest(req);
@@ -703,10 +712,6 @@ export async function middleware(req: NextRequest) {
         const loginUrl = new URL("/auth/login", req.url);
         loginUrl.searchParams.set("callbackUrl", pathname);
         return persistCookie(NextResponse.redirect(loginUrl));
-      }
-
-      if (adminPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
-        return persistCookie(NextResponse.redirect(new URL("/", req.url)));
       }
 
       return persistCookie(NextResponse.next({ request: { headers: responseHeaders } }));
