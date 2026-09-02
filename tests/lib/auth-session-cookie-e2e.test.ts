@@ -23,34 +23,13 @@ describe("auth cookie/session e2e by context", () => {
     process.env = { ...originalEnv };
   });
 
-  it("drakos registration sets drakos cookie and next request resolves session", async () => {
+  // Auditoría de seguridad 2026-09-01: drako.systems es la superficie de
+  // founder/admin, no un producto de autoservicio — el registro público se
+  // deshabilitó sin condiciones (src/app/api/drakos/auths/registrations/route.ts).
+  // Reemplaza el test anterior, que asumía que registrarse aquí debía dejar una
+  // sesión válida.
+  it("drakos registration endpoint is disabled — direct POST fails without setting a cookie", async () => {
     vi.resetModules();
-    const { createAuthsSessionToken } = await import("@/lib/auths/tokens");
-    const token = await createAuthsSessionToken({
-      context: "drakos",
-      sub: "drakos:u1",
-      email: "owner@drako.systems",
-      tenantId: "tenant_drako",
-      role: "admin",
-    });
-
-    vi.doMock("@/lib/auths/drakos-auths", () => ({
-      drakosAuths: {
-        register: vi.fn().mockResolvedValue({ ok: true, userId: "u1" }),
-        login: vi.fn().mockResolvedValue({ ok: true, token, role: "admin", tenantId: "tenant_drako" }),
-      },
-    }));
-    vi.doMock("@/lib/auths/flags", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("@/lib/auths/flags")>();
-      return {
-        ...actual,
-        isAuthsIsolationEnabled: () => true,
-        isTelemetriesHoldingEnabled: () => false,
-      };
-    });
-    vi.doMock("@/lib/empire/events", () => ({
-      recordCampamentoEvent: vi.fn(),
-    }));
 
     const { POST } = await import("@/app/api/drakos/auths/registrations/route");
     const response = await POST(new Request("https://drako.systems/api/drakos/auths/registrations", {
@@ -62,18 +41,10 @@ describe("auth cookie/session e2e by context", () => {
       body: JSON.stringify({ email: "owner@drako.systems", password: "password123", name: "Owner" }),
     }));
 
-    const cookiePair = extractCookiePair(response.headers.get("set-cookie"));
-    expect(cookiePair.startsWith("__Host-drakos_session=")).toBe(true);
-
-    const nextReq = new NextRequest("https://drako.systems/socialflow", {
-      headers: { host: "drako.systems", cookie: cookiePair },
-    });
-    const { extractSessionFromRequest } = await import("@/lib/edge-auth");
-    const session = await extractSessionFromRequest(nextReq);
-
-    expect(session?.email).toBe("owner@drako.systems");
-    expect(session?.tenantId).toBe("tenant_drako");
-    expect(session?.saasSlug).toBe("drako");
+    expect(response.status).toBe(403);
+    expect(response.headers.get("set-cookie")).toBeNull();
+    const payload = await response.json() as { code: string };
+    expect(payload.code).toBe("REGISTRATION_DISABLED");
   });
 
   it("mentorias registration sets mentorias cookie and next request resolves session", async () => {
