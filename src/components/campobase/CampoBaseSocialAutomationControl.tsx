@@ -91,22 +91,41 @@ function formatAgeHours(hours: number | null): string {
   return `hace ${Math.round(hours / 24)}d`;
 }
 
-function agentStatusBadge(status: AgentControlCenterStatus): "ok" | "warn" | "neutral" {
-  if (status === "conectado") return "ok";
-  if (status === "investigando") return "warn";
+function agentStatusBadge(agent: AgentControlCenterAgent): "ok" | "warn" | "err" | "neutral" {
+  if (agent.lastRun?.status === "error") return "err";
+  if (agent.status === "conectado") return "ok";
+  if (agent.status === "investigando") return "warn";
   return "neutral";
 }
 
-function agentStatusLabel(status: AgentControlCenterStatus): string {
-  if (status === "conectado") return "conectado";
-  if (status === "investigando") return "investigando";
-  return "sin datos";
+function agentStatusLabel(agent: AgentControlCenterAgent): string {
+  if (agent.lastRun?.status === "error") return "error";
+  if (agent.status === "conectado") return "conectado";
+  if (agent.status === "investigando") return "investigando";
+  return "Esperando datos";
 }
 
 function runStatusBadge(status: "success" | "error" | "skipped"): "ok" | "err" | "neutral" {
   if (status === "success") return "ok";
   if (status === "error") return "err";
   return "neutral";
+}
+
+function runStatusLabel(status: "success" | "error" | "skipped"): string {
+  if (status === "success") return "Exitoso";
+  if (status === "error") return "Error";
+  return "Omitido";
+}
+
+const POST_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Borrador",
+  PUBLISHING: "Publicación",
+  PUBLISHED: "Publicado",
+  FAILED: "Fallido",
+};
+
+function postStatusLabel(status: string): string {
+  return POST_STATUS_LABELS[status] ?? status;
 }
 
 export default function CampoBaseSocialAutomationControl() {
@@ -225,7 +244,7 @@ export default function CampoBaseSocialAutomationControl() {
       }
 
       if ((action === "enable" || action === "disable") && payload) {
-        setMessage(`${payload.saasId} ${action === "enable" ? "enabled" : "disabled"}.`);
+        setMessage(`${payload.saasId} ${action === "enable" ? "activado" : "desactivado"}.`);
       }
 
       if (payload && selectedScope?.tenantId === payload.tenantId && selectedScope.saasId === payload.saasId) {
@@ -301,11 +320,11 @@ export default function CampoBaseSocialAutomationControl() {
             <p className="mt-2 text-3xl font-semibold text-slate-900">{status?.total ?? 0}</p>
           </div>
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-emerald-700">Enabled</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-emerald-700">Activos</p>
             <p className="mt-2 text-3xl font-semibold text-emerald-900">{status?.enabled ?? 0}</p>
           </div>
           <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-rose-700">Disabled</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-rose-700">Inactivos</p>
             <p className="mt-2 text-3xl font-semibold text-rose-900">{status?.disabled ?? 0}</p>
           </div>
         </div>
@@ -353,7 +372,7 @@ export default function CampoBaseSocialAutomationControl() {
                     <TD className="px-4 py-3 text-sm font-semibold text-slate-900">{item.saasId}</TD>
                     <TD className="px-4 py-3">
                       <Badge variant={item.enabled ? "ok" : "err"}>
-                        {item.enabled ? "enabled" : "disabled"}
+                        {item.enabled ? "Activo" : "Inactivo"}
                       </Badge>
                     </TD>
                     <TD className="px-4 py-3 text-sm text-slate-700">{item.niche}</TD>
@@ -475,7 +494,7 @@ export default function CampoBaseSocialAutomationControl() {
                         <div className="flex flex-col gap-1">
                           <span className="font-medium text-slate-900">{trigger.post.title}</span>
                           <span className="flex items-center gap-2 text-xs text-slate-500">
-                            <Badge variant={healthBadge(trigger.post.status)}>{trigger.post.status}</Badge>
+                            <Badge variant={healthBadge(trigger.post.status)}>{postStatusLabel(trigger.post.status)}</Badge>
                             {trigger.post.provider}
                             {trigger.post.postedAt ? ` · publicado ${formatDate(trigger.post.postedAt)}` : ""}
                           </span>
@@ -491,131 +510,6 @@ export default function CampoBaseSocialAutomationControl() {
           </TableWrap>
         )}
       </Card>
-
-      {selectedScope && observability ? (
-        <Card
-          tone={observability.health.status === "healthy" ? "success" : "danger"}
-          title="Salud operativa Socialcors"
-          subtitle="Publishing, LinkedIn y acciones de recuperación"
-          right={`${selectedScope.tenantId} / ${selectedScope.saasId}`}
-        >
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-white/80 p-3">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Health</p>
-              <Badge variant={healthBadge(observability.health.status)}>{observability.health.status}</Badge>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/80 p-3">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Scheduler</p>
-              <Badge variant={healthBadge(observability.health.schedulerStatus)}>{observability.health.schedulerStatus}</Badge>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/80 p-3">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">LinkedIn</p>
-              <Badge variant={observability.linkedin.connected ? "ok" : "warn"}>{observability.linkedin.primaryStatus ?? "not_connected"}</Badge>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/80 p-3">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Publishing 30d</p>
-              <p className="text-sm font-semibold text-slate-900">
-                {formatPercent(observability.publishing.successRateLast30Days)}
-                <span className="ml-1 font-normal text-slate-500">({observability.publishing.successLast30Days} ok / {observability.publishing.failedLast30Days} fallos)</span>
-              </p>
-            </div>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-            <span>Snapshot: {formatOptionalDate(observability.health.latestSnapshotAt)}</span>
-            <span>Próximo programado: {formatOptionalDate(observability.scheduler.nextScheduledAt)}</span>
-            <span>Último publicado: {formatOptionalDate(observability.scheduler.lastPublishedAt)}</span>
-          </div>
-          <p className="mt-2 text-sm font-medium text-slate-900">{observability.health.recommendation}</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              loading={busyKey === `refresh_observability:${selectedScope.tenantId}:${selectedScope.saasId}`}
-              onClick={() => void runOperatorAction("refresh_observability", selectedScope)}
-            >
-              Refrescar salud
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              loading={busyKey === `linkedin_health_check:${selectedScope.tenantId}:${selectedScope.saasId}`}
-              onClick={() => void runOperatorAction("linkedin_health_check", selectedScope)}
-            >
-              Check LinkedIn
-            </Button>
-            <Button
-              size="sm"
-              variant="primary"
-              loading={busyKey === `recover_stale_publishing:${selectedScope.tenantId}:${selectedScope.saasId}`}
-              disabled={observability.scheduler.stalePublishingPosts === 0}
-              onClick={() => void runOperatorAction("recover_stale_publishing", selectedScope)}
-            >
-              Recuperar PUBLISHING
-            </Button>
-            <Button
-              size="sm"
-              variant="primary"
-              loading={busyKey === `retry_failed_posts:${selectedScope.tenantId}:${selectedScope.saasId}`}
-              disabled={observability.posts.recentFailed.length === 0}
-              onClick={() => void runOperatorAction("retry_failed_posts", selectedScope)}
-            >
-              Reintentar fallidos
-            </Button>
-          </div>
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">Eventos recientes</h3>
-              {observability.recentEvents.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-500">Sin eventos recientes.</p>
-              ) : (
-                <ul className="mt-2 space-y-2">
-                  {observability.recentEvents.slice(0, 5).map((event) => (
-                    <li key={event.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                      <p className="text-sm font-medium text-slate-900">{event.summary}</p>
-                      <p className="mt-1 text-xs text-slate-500">{event.activityType} · {formatDate(event.createdAt)}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">Incidentes abiertos</h3>
-              {observability.recentIncidents.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-500">Sin incidentes abiertos.</p>
-              ) : (
-                <ul className="mt-2 space-y-2">
-                  {observability.recentIncidents.slice(0, 3).map((incident) => (
-                    <li key={incident.id} className="rounded-xl border border-rose-100 bg-rose-50 p-3">
-                      <p className="text-sm font-medium text-rose-900">{incident.summary}</p>
-                      <p className="mt-1 text-xs text-rose-700">{incident.severity} · {formatDate(incident.openedAt)}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-4 lg:grid-cols-3">
-            <OperatorPostList
-              title="Atascados en PUBLISHING"
-              empty="No hay posts atascados."
-              posts={observability.posts.stalePublishing}
-            />
-            <OperatorPostList
-              title="Últimos fallos"
-              empty="No hay fallos recientes."
-              posts={observability.posts.recentFailed}
-            />
-            <OperatorPostList
-              title="Últimos publicados"
-              empty="No hay publicaciones recientes."
-              posts={observability.posts.recentPublished}
-            />
-          </div>
-        </Card>
-      ) : observabilityLoading ? (
-        <p className="text-sm text-slate-500">Cargando salud operativa...</p>
-      ) : null}
 
       <Card
         tone="default"
@@ -654,7 +548,7 @@ function AgentControlCard({ agent }: { agent: AgentControlCenterAgent }) {
           <p className="text-sm font-semibold text-slate-900">{agent.nameEs}</p>
           <p className="text-[10px] uppercase tracking-wider text-slate-400">{agent.key}</p>
         </div>
-        <Badge variant={agentStatusBadge(agent.status)}>{agentStatusLabel(agent.status)}</Badge>
+        <Badge variant={agentStatusBadge(agent)}>{agentStatusLabel(agent)}</Badge>
       </div>
 
       <p className="mt-3 text-xs text-slate-500">
@@ -677,7 +571,7 @@ function AgentControlCard({ agent }: { agent: AgentControlCenterAgent }) {
         <span className="text-slate-500">Última ejecución (agent_execution_log)</span>
         {agent.lastRun ? (
           <span className="flex items-center gap-2">
-            <Badge variant={runStatusBadge(agent.lastRun.status)}>{agent.lastRun.status}</Badge>
+            <Badge variant={runStatusBadge(agent.lastRun.status)}>{runStatusLabel(agent.lastRun.status)}</Badge>
             <span className="text-slate-500">
               {formatDate(agent.lastRun.startedAt)}
               {agent.lastRun.rowsWritten !== null ? ` · ${agent.lastRun.rowsWritten} fila(s)` : ""}
