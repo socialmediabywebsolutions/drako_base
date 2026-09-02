@@ -3,6 +3,11 @@ import { env } from "@/lib/cf";
 const MODEL = "@cf/stabilityai/stable-diffusion-xl-base-1.0";
 const R2_PUBLIC_BASE = "https://pub-04c730a67921499bac35a1f62402cc17.r2.dev";
 
+// SDXL (Workers AI) acepta negative_prompt de forma nativa — evita las anomalías de
+// anatomía más comunes (manos/extremidades) en las imágenes generadas para posts.
+const NEGATIVE_PROMPT =
+  "deformed, extra limbs, twisted joints, bad anatomy, mutated hands, extra fingers, missing fingers, fused fingers, too many fingers, malformed limbs, missing arms, missing legs, extra arms, extra legs, mutated, ugly, blurry, low quality, watermark, text";
+
 async function readStream(stream: ReadableStream<Uint8Array>): Promise<ArrayBuffer> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
@@ -31,6 +36,7 @@ export async function generatePostImage(prompt: string, postId: string): Promise
   try {
     const response = await e.AI.run(MODEL, {
       prompt,
+      negative_prompt: NEGATIVE_PROMPT,
       num_steps: 20,
       width: 1024,
       height: 1024,
