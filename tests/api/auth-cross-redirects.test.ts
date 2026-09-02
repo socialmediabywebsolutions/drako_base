@@ -128,36 +128,12 @@ describe("auth ssot drift guard", () => {
     expect(drakosSql.length).toBe(0);
   });
 
-  it("drakos registration endpoint emits drako saas_slug and enforces drakos context", async () => {
+  // Auditoría de seguridad 2026-09-01: drako.systems es la superficie de
+  // founder/admin, no un producto de autoservicio — el registro público se
+  // deshabilitó sin condiciones (src/app/api/drakos/auths/registrations/route.ts).
+  // Reemplaza el test anterior, que asumía que un POST aquí registraba y logueaba.
+  it("drakos registration endpoint is disabled unconditionally", async () => {
     vi.resetModules();
-    const registerSpy = vi.fn().mockResolvedValue({ ok: true, userId: "u-drakos" });
-    const loginSpy = vi.fn().mockResolvedValue({ ok: true, token: "tok-drakos", role: "admin", tenantId: "tenant_drakos" });
-
-    vi.doMock("@/lib/auths/drakos-auths", () => ({
-      drakosAuths: {
-        register: registerSpy,
-        login: loginSpy,
-      },
-    }));
-    vi.doMock("@/lib/auths/http", () => ({
-      jsonError: (code: string, message: string, status = 400) =>
-        new Response(JSON.stringify({ ok: false, code, message }), {
-          status,
-          headers: { "content-type": "application/json" },
-        }),
-      setAuthsSessionCookie: () => {},
-    }));
-    vi.doMock("@/lib/auths/flags", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("@/lib/auths/flags")>();
-      return {
-        ...actual,
-        isAuthsIsolationEnabled: () => true,
-        isTelemetriesHoldingEnabled: () => false,
-      };
-    });
-    vi.doMock("@/lib/empire/events", () => ({
-      recordCampamentoEvent: vi.fn(),
-    }));
 
     const { POST } = await import("@/app/api/drakos/auths/registrations/route");
     const response = await POST(
@@ -171,12 +147,10 @@ describe("auth ssot drift guard", () => {
       }),
     );
 
-    expect(response.status).toBe(201);
-    const payload = await response.json() as { user: { saas_slug: string } };
-    expect(payload.user.saas_slug).toBe("drako");
-    expect(registerSpy).toHaveBeenCalledWith(expect.objectContaining({ context: "drakos" }));
-    expect(loginSpy).toHaveBeenCalledWith(expect.objectContaining({ context: "drakos" }));
-  }, 15000);
+    expect(response.status).toBe(403);
+    const payload = await response.json() as { code: string };
+    expect(payload.code).toBe("REGISTRATION_DISABLED");
+  });
 
   it("mentorias registration endpoint emits mentorias saas_slug and enforces mentorias context", async () => {
     vi.resetModules();
